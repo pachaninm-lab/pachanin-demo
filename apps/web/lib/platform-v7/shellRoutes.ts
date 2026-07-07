@@ -61,6 +61,7 @@ export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, string> = {
 const AUCTION_ROUTE = '/platform-v7/auction';
 const DEAL_LOGISTICS_ROUTE = '/platform-v7/deal-logistics';
 const DEAL_ACCEPTANCE_ROUTE = '/platform-v7/deal-acceptance';
+const FGIS_ACCESS_ROUTE = '/platform-v7/fgis-access';
 const SHARED_PREFIXES = [PLATFORM_V7_AI_ROUTE, PLATFORM_V7_PROFILE_ROUTE, PLATFORM_V7_STATUS_ROUTE];
 const ROLE_BLOCKED_PREFIXES = [PLATFORM_V7_ROLES_ROUTE, '/platform-v7r/roles', '/platform-v7/auth'];
 
@@ -77,6 +78,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     drawer: [],
     command: [
       { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр' },
+      { href: FGIS_ACCESS_ROUTE, label: 'Доступ ФГИС' },
       { href: AUCTION_ROUTE, label: 'Аукцион' },
       { href: DEAL_LOGISTICS_ROUTE, label: 'Рейс сделки' },
       { href: DEAL_ACCEPTANCE_ROUTE, label: 'Приёмка сделки' },
@@ -89,7 +91,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
       { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
     ],
-    allowedPrefixes: [PLATFORM_V7_CONTROL_TOWER_ROUTE, AUCTION_ROUTE, DEAL_LOGISTICS_ROUTE, DEAL_ACCEPTANCE_ROUTE, PLATFORM_V7_OPERATOR_ROUTE, PLATFORM_V7_DEALS_ROUTE, PLATFORM_V7_OPERATOR_QUEUES_ROUTE, PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_BANK_CLEAN_ROUTE, PLATFORM_V7_BANK_EVENTS_ROUTE, PLATFORM_V7_TRUST_ROUTE, PLATFORM_V7_REPORTS_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_CONTROL_TOWER_ROUTE, FGIS_ACCESS_ROUTE, AUCTION_ROUTE, DEAL_LOGISTICS_ROUTE, DEAL_ACCEPTANCE_ROUTE, PLATFORM_V7_OPERATOR_ROUTE, PLATFORM_V7_DEALS_ROUTE, PLATFORM_V7_OPERATOR_QUEUES_ROUTE, PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_BANK_CLEAN_ROUTE, PLATFORM_V7_BANK_EVENTS_ROUTE, PLATFORM_V7_TRUST_ROUTE, PLATFORM_V7_REPORTS_ROUTE],
   },
   buyer: {
     home: PLATFORM_V7_BUYER_ROUTE,
@@ -123,13 +125,14 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     drawer: [],
     command: [
       { href: PLATFORM_V7_SELLER_ROUTE, label: 'Кабинет' },
+      { href: FGIS_ACCESS_ROUTE, label: 'Доступ ФГИС' },
       { href: AUCTION_ROUTE, label: 'Аукцион' },
       { href: PLATFORM_V7_SELLER_LOTS_ROUTE, label: 'Партии' },
       { href: PLATFORM_V7_SELLER_BATCHES_ROUTE, label: 'Отгрузки' },
       { href: PLATFORM_V7_DOCUMENTS_ROUTE, label: 'Документы' },
       { href: PLATFORM_V7_MONEY_ROUTE, label: 'Деньги' },
     ],
-    allowedPrefixes: [PLATFORM_V7_SELLER_ROUTE, AUCTION_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE, PLATFORM_V7_MONEY_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_SELLER_ROUTE, FGIS_ACCESS_ROUTE, AUCTION_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE, PLATFORM_V7_MONEY_ROUTE],
   },
   logistics: {
     home: PLATFORM_V7_LOGISTICS_ROUTE,
@@ -237,11 +240,12 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     drawer: [],
     command: [
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Допуск' },
+      { href: FGIS_ACCESS_ROUTE, label: 'Доступ ФГИС' },
       { href: `${AUCTION_ROUTE}/admission`, label: 'Допуск торгов' },
       { href: PLATFORM_V7_CONNECTORS_ROUTE, label: 'Подключения' },
       { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
     ],
-    allowedPrefixes: [PLATFORM_V7_COMPLIANCE_ROUTE, AUCTION_ROUTE, PLATFORM_V7_CONNECTORS_ROUTE, PLATFORM_V7_TRUST_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_COMPLIANCE_ROUTE, FGIS_ACCESS_ROUTE, AUCTION_ROUTE, PLATFORM_V7_CONNECTORS_ROUTE, PLATFORM_V7_TRUST_ROUTE],
   },
   executive: {
     home: PLATFORM_V7_EXECUTIVE_ROUTE,
