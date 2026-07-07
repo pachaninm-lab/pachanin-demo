@@ -86,7 +86,7 @@ export const DEAL_ACCEPTANCE_STATE: DealAcceptanceState = {
     { id: 'EV-NET', label: 'нетто рассчитано', source: 'весовая', status: 'ok', fixedAt: '17:05' },
   ],
   nextRoutes: [
-    { label: 'Документы приёмки', href: '/platform-v7/documents', owner: 'Оператор' },
+    { label: 'Документное основание', href: '/platform-v7/deal-documents-basis', owner: 'Оператор' },
     { label: 'Банковское основание', href: '/platform-v7/bank/payment-basis', owner: 'Банк' },
     { label: 'Открыть спор', href: '/platform-v7/disputes', owner: 'Арбитраж' },
   ],
