@@ -53,25 +53,29 @@ function badgeTone(state: string, blocks = false) {
 
 export default function PlatformV7DocumentsPage() {
   return (
-    <main data-testid="platform-v7-documents-page" style={{ display: 'grid', gap: 14, maxWidth: 1120, margin: '0 auto' }}>
+    <main data-testid="platform-v7-documents-page" style={{ display: 'grid', gap: 14, width: '100%', maxWidth: 1120, minWidth: 0, margin: '0 auto', overflowX: 'clip' }}>
       <style dangerouslySetInnerHTML={{ __html: `
+        [data-testid='platform-v7-documents-page'] *{min-width:0;overflow-wrap:anywhere}
         @media(max-width:767px){
-          [data-testid='platform-v7-documents-page']{gap:10px!important}
+          [data-testid='platform-v7-documents-page']{gap:10px!important;max-width:100%!important;overflow-x:hidden!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;gap:10px!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) p{display:none!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.03!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) a{min-height:54px!important;border-radius:16px!important;justify-content:center!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) a{min-height:54px!important;border-radius:16px!important;justify-content:center!important;white-space:normal!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:first-child > div:last-child{display:grid!important;grid-template-columns:1fr!important;width:100%!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:first-child > div:last-child a:nth-of-type(2){display:none!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:nth-child(3){grid-template-columns:1fr 1fr!important;gap:8px!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:nth-child(3) a{padding:11px!important;border-radius:15px!important;min-height:auto!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:nth-child(3) a:nth-of-type(n+3){display:none!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(2){display:none!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3){padding:14px!important;border-radius:20px!important;gap:9px!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article{padding:12px!important;border-radius:16px!important;gap:8px!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3){padding:14px!important;border-radius:20px!important;gap:9px!important;max-width:100%!important;overflow:hidden!important}
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article{padding:12px!important;border-radius:16px!important;gap:8px!important;overflow:hidden!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article h2{font-size:16px!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article > div:nth-child(2){grid-template-columns:1fr!important;gap:7px!important}
           [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article > div:nth-child(2) > div:nth-child(-n+2){display:none!important}
+        }
+        @media(max-width:380px){
+          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:nth-child(3){grid-template-columns:1fr!important}
         }
       ` }} />
       <CockpitHero
@@ -79,7 +83,7 @@ export default function PlatformV7DocumentsPage() {
         title='Матрица документов сделки'
         lead='Документы показаны не как архив файлов, а как условия сделки: кто должен закрыть документ, какой источник используется и блокирует ли документ выплату продавцу.'
       >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8, minWidth: 0 }}>
           <PremiumCtaButton href={`/platform-v7/deals/${scenario.dealId}/clean`} glyph='doc'>Открыть карточку сделки</PremiumCtaButton>
           <PremiumCtaButton href='/platform-v7/bank/release-safety' variant='ghost'>Проверка выплаты</PremiumCtaButton>
         </div>
@@ -87,15 +91,14 @@ export default function PlatformV7DocumentsPage() {
           {controlCards.map((item) => (
             <Link key={item.label} href={item.href} style={controlCard}>
               <span style={micro}>{item.label}</span>
-              <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 15 }}>{item.value}</strong>
+              <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 15, overflowWrap: 'anywhere' }}>{item.value}</strong>
             </Link>
           ))}
         </div>
       </CockpitHero>
 
-      {/* Древовидная структура документов: Год → Месяц → Сделка → Документ */}
-      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 20, padding: '1.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '1rem' }}>
+      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 20, padding: '1.25rem', minWidth: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '1rem', gap: 8, flexWrap: 'wrap' }}>
           <h2 className="heading-4" style={{ margin: 0, color: 'var(--pc-text-primary)' }}>Архив документов</h2>
           <span className="caption">Год → Месяц → Сделка</span>
         </div>
@@ -108,20 +111,20 @@ export default function PlatformV7DocumentsPage() {
           <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
           <p style={{ margin: 0, color: '#D1FAE5', fontSize: 14, lineHeight: 1.55 }}>Документ — это не вложение. Это источник, ответственный, статус и прямое влияние на деньги.</p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
+        <div style={cardsGrid}>
           {documentSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
         </div>
       </section>
 
       <section style={card}>
         <div style={micro}>DL-9106 · документы, источники и влияние на деньги</div>
-        <div style={{ display: 'grid', gap: 8 }}>
+        <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
           {requiredDocuments.map((doc) => {
             const tone = badgeTone(doc.status, true);
             return (
-              <article key={`${doc.title}-${doc.source}`} style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.16)', borderRadius: 16, padding: 13, display: 'grid', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                  <div>
+              <article key={`${doc.title}-${doc.source}`} style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.16)', borderRadius: 16, padding: 13, display: 'grid', gap: 10, minWidth: 0, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+                  <div style={{ minWidth: 0 }}>
                     <h2 style={h2}>{doc.title}</h2>
                     <p style={muted}>{doc.source} · ответственный: {doc.responsible}</p>
                   </div>
@@ -156,11 +159,11 @@ export default function PlatformV7DocumentsPage() {
       <P7HiddenDetails title='Связанные сделки' meta='сделки, где документный пакет влияет на деньги или спор'>
         <section style={cardInner}>
           <div style={micro}>Связанные сделки</div>
-          <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
             {history.map((item) => (
               <Link key={item.id} href={item.href} style={historyRow}>
-                <strong style={{ color: 'var(--pc-text-primary, #0F1419)' }}>{item.id}</strong>
-                <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13 }}>{item.status}</span>
+                <strong style={{ color: 'var(--pc-text-primary, #0F1419)', overflowWrap: 'anywhere' }}>{item.id}</strong>
+                <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13, overflowWrap: 'anywhere' }}>{item.status}</span>
               </Link>
             ))}
           </div>
@@ -171,32 +174,26 @@ export default function PlatformV7DocumentsPage() {
 }
 
 function SummaryCard({ item }: { item: typeof documentSummary[number] }) {
-  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#A7F3D0' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#D1FAE5', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7, minWidth: 0, overflowWrap: 'anywhere' }}><div style={{ ...micro, color: '#A7F3D0' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4, overflowWrap: 'anywhere' }}>{item.value}</strong><p style={{ margin: 0, color: '#D1FAE5', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
 }
 
 function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
-  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 900, lineHeight: 1.25 }}>{value}</div></div>;
+  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 900, lineHeight: 1.25, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{value}</div></div>;
 }
 
 function ProviderCard({ title, text }: { title: string; text: string }) {
-  return <div style={controlCard}><strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 15 }}>{title}</strong><span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.35 }}>{text}</span><span style={{ ...pill, background: 'rgba(217,119,6,0.08)', borderColor: 'rgba(217,119,6,0.18)', color: '#B45309' }}>требует внешнего подтверждения</span></div>;
+  return <div style={controlCard}><strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 15, overflowWrap: 'anywhere' }}>{title}</strong><span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{text}</span><span style={{ ...pill, background: 'rgba(217,119,6,0.08)', borderColor: 'rgba(217,119,6,0.18)', color: '#B45309' }}>требует внешнего подтверждения</span></div>;
 }
 
-const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 22, display: 'grid', gap: 16 } as const;
-const darkCard = { background: '#064E3B', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(6,78,59,0.16)' } as const;
-const card = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 18, display: 'grid', gap: 12 } as const;
-const cardInner = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 14, display: 'grid', gap: 12 } as const;
-const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, fontSize: 'clamp(30px, 4.8vw, 52px)', lineHeight: 1.04, letterSpacing: '-0.045em', color: 'var(--pc-text-primary, #0F1419)', fontWeight: 950 } as const;
-const h2 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 18, lineHeight: 1.1, fontWeight: 950 } as const;
-const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.65 } as const;
-const muted = { margin: '5px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 } as const;
-const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
-const primary = { textDecoration: 'none', padding: '10px 14px', minHeight: 44, display: 'inline-flex', alignItems: 'center', borderRadius: 12, background: '#0F172A', border: '1px solid #0F172A', color: '#fff', fontSize: 13, fontWeight: 850 } as const;
-const secondary = { ...primary, background: '#fff', color: 'var(--pc-text-primary, #0F1419)', border: '1px solid var(--pc-border, #E4E6EA)' } as const;
-const cardsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10 } as const;
-const rowGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8 } as const;
-const controlCard = { textDecoration: 'none', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 7 } as const;
-const cell = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 13, padding: 10, minWidth: 0 } as const;
-const pill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '5px 9px', borderRadius: 999, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, fontWeight: 900 } as const;
-const historyRow = { textDecoration: 'none', color: 'inherit', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 12, display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
+const darkCard = { background: '#064E3B', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(6,78,59,0.16)', minWidth: 0, overflow: 'hidden' } as const;
+const card = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 18, display: 'grid', gap: 12, minWidth: 0, overflow: 'hidden' } as const;
+const cardInner = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 14, display: 'grid', gap: 12, minWidth: 0, overflow: 'hidden' } as const;
+const h2 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 18, lineHeight: 1.1, fontWeight: 950, overflowWrap: 'anywhere' } as const;
+const muted = { margin: '5px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13, overflowWrap: 'anywhere' } as const;
+const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em', overflowWrap: 'anywhere' } as const;
+const cardsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, minWidth: 0, maxWidth: '100%' } as const;
+const rowGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8, minWidth: 0, maxWidth: '100%' } as const;
+const controlCard = { textDecoration: 'none', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 7, minWidth: 0, overflow: 'hidden' } as const;
+const cell = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 13, padding: 10, minWidth: 0, overflow: 'hidden' } as const;
+const pill = { display: 'inline-flex', width: 'fit-content', maxWidth: '100%', alignItems: 'center', padding: '5px 9px', borderRadius: 999, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, fontWeight: 900, overflowWrap: 'anywhere' } as const;
+const historyRow = { textDecoration: 'none', color: 'inherit', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 12, display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', minWidth: 0 } as const;
