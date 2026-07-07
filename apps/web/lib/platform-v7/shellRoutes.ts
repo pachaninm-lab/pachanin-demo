@@ -58,6 +58,7 @@ export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, string> = {
   executive: PLATFORM_V7_EXECUTIVE_ROUTE,
 };
 
+const AUCTION_ROUTE = '/platform-v7/auction';
 const SHARED_PREFIXES = [PLATFORM_V7_AI_ROUTE, PLATFORM_V7_PROFILE_ROUTE, PLATFORM_V7_STATUS_ROUTE];
 const ROLE_BLOCKED_PREFIXES = [PLATFORM_V7_ROLES_ROUTE, '/platform-v7r/roles', '/platform-v7/auth'];
 
@@ -74,6 +75,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     drawer: [],
     command: [
       { href: PLATFORM_V7_CONTROL_TOWER_ROUTE, label: 'Центр' },
+      { href: AUCTION_ROUTE, label: 'Аукцион' },
       { href: PLATFORM_V7_DEALS_ROUTE, label: 'Сделки' },
       { href: PLATFORM_V7_OPERATOR_ROUTE, label: 'Остановки' },
       { href: PLATFORM_V7_OPERATOR_QUEUES_ROUTE, label: 'Очереди' },
@@ -83,7 +85,7 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
       { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
       { href: PLATFORM_V7_REPORTS_ROUTE, label: 'Отчёты' },
     ],
-    allowedPrefixes: [PLATFORM_V7_CONTROL_TOWER_ROUTE, PLATFORM_V7_OPERATOR_ROUTE, PLATFORM_V7_DEALS_ROUTE, PLATFORM_V7_OPERATOR_QUEUES_ROUTE, PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_BANK_CLEAN_ROUTE, PLATFORM_V7_BANK_EVENTS_ROUTE, PLATFORM_V7_TRUST_ROUTE, PLATFORM_V7_REPORTS_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_CONTROL_TOWER_ROUTE, AUCTION_ROUTE, PLATFORM_V7_OPERATOR_ROUTE, PLATFORM_V7_DEALS_ROUTE, PLATFORM_V7_OPERATOR_QUEUES_ROUTE, PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_BANK_CLEAN_ROUTE, PLATFORM_V7_BANK_EVENTS_ROUTE, PLATFORM_V7_TRUST_ROUTE, PLATFORM_V7_REPORTS_ROUTE],
   },
   buyer: {
     home: PLATFORM_V7_BUYER_ROUTE,
@@ -97,12 +99,13 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     drawer: [],
     command: [
       { href: PLATFORM_V7_BUYER_ROUTE, label: 'Кабинет' },
+      { href: AUCTION_ROUTE, label: 'Аукцион' },
       { href: PLATFORM_V7_BUYER_RFQ_ROUTE, label: 'Запросы' },
       { href: PLATFORM_V7_PROPOSALS_ROUTE, label: 'Офферы' },
       { href: PLATFORM_V7_DOCUMENTS_ROUTE, label: 'Документы' },
       { href: PLATFORM_V7_MONEY_ROUTE, label: 'Деньги' },
     ],
-    allowedPrefixes: [PLATFORM_V7_BUYER_ROUTE, PLATFORM_V7_PROCUREMENT_ROUTE, PLATFORM_V7_PROPOSALS_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE, PLATFORM_V7_MONEY_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_BUYER_ROUTE, AUCTION_ROUTE, PLATFORM_V7_PROCUREMENT_ROUTE, PLATFORM_V7_PROPOSALS_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE, PLATFORM_V7_MONEY_ROUTE],
   },
   seller: {
     home: PLATFORM_V7_SELLER_ROUTE,
@@ -116,12 +119,13 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     drawer: [],
     command: [
       { href: PLATFORM_V7_SELLER_ROUTE, label: 'Кабинет' },
+      { href: AUCTION_ROUTE, label: 'Аукцион' },
       { href: PLATFORM_V7_SELLER_LOTS_ROUTE, label: 'Партии' },
       { href: PLATFORM_V7_SELLER_BATCHES_ROUTE, label: 'Отгрузки' },
       { href: PLATFORM_V7_DOCUMENTS_ROUTE, label: 'Документы' },
       { href: PLATFORM_V7_MONEY_ROUTE, label: 'Деньги' },
     ],
-    allowedPrefixes: [PLATFORM_V7_SELLER_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE, PLATFORM_V7_MONEY_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_SELLER_ROUTE, AUCTION_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE, PLATFORM_V7_MONEY_ROUTE],
   },
   logistics: {
     home: PLATFORM_V7_LOGISTICS_ROUTE,
@@ -225,10 +229,11 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     drawer: [],
     command: [
       { href: PLATFORM_V7_COMPLIANCE_ROUTE, label: 'Допуск' },
+      { href: `${AUCTION_ROUTE}/admission`, label: 'Допуск торгов' },
       { href: PLATFORM_V7_CONNECTORS_ROUTE, label: 'Подключения' },
       { href: PLATFORM_V7_TRUST_ROUTE, label: 'Доверие' },
     ],
-    allowedPrefixes: [PLATFORM_V7_COMPLIANCE_ROUTE, PLATFORM_V7_CONNECTORS_ROUTE, PLATFORM_V7_TRUST_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_COMPLIANCE_ROUTE, AUCTION_ROUTE, PLATFORM_V7_CONNECTORS_ROUTE, PLATFORM_V7_TRUST_ROUTE],
   },
   executive: {
     home: PLATFORM_V7_EXECUTIVE_ROUTE,
