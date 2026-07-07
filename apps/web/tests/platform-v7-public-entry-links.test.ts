@@ -79,4 +79,12 @@ describe('platform-v7 public entry link policy', () => {
     expect(cleanup).toContain('content-visibility:visible!important');
     expect(cleanup).toContain('.entry-control-tile{display:grid!important;opacity:1!important;visibility:visible!important');
   });
+
+  it('does not use paint containment on the public entry surface', () => {
+    const heroPatch = read('apps/web/components/platform-v7/PublicHeroWeightPatch.tsx');
+    const cleanup = read('apps/web/components/platform-v7/PublicEntryCleanup.tsx');
+
+    expect(heroPatch).not.toContain('contain:layout paint');
+    expect(cleanup).not.toContain('contain:layout paint');
+  });
 });
