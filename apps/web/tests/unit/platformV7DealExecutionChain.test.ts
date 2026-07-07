@@ -23,12 +23,16 @@ describe('platform-v7 deal execution chain', () => {
     expect(logisticsEngine).toContain('Приёмка сделки');
   });
 
-  it('keeps acceptance connected to documents, bank basis, and dispute routes', () => {
+  it('keeps acceptance connected to document, settlement, and dispute routes', () => {
     const acceptanceEngine = read('apps/web/lib/platform-v7/dealAcceptanceEngine.ts');
+    const documentBasisEngine = read('apps/web/lib/platform-v7/dealDocumentBasisEngine.ts');
 
     expect(acceptanceEngine).toContain('/platform-v7/documents');
     expect(acceptanceEngine).toContain('/platform-v7/bank/payment-basis');
     expect(acceptanceEngine).toContain('/platform-v7/disputes');
+    expect(documentBasisEngine).toContain('/platform-v7/deal-acceptance');
+    expect(documentBasisEngine).toContain('/platform-v7/bank/payment-basis');
+    expect(documentBasisEngine).toContain('/platform-v7/disputes');
   });
 
   it('keeps core evidence identifiers in the acceptance contour', () => {
@@ -36,6 +40,14 @@ describe('platform-v7 deal execution chain', () => {
 
     for (const token of ['dealId', 'routeId', 'lotNumber', 'sdizNumber', 'vehiclePlate', 'grossKg', 'tareKg', 'netKg', 'quality', 'evidence']) {
       expect(acceptanceEngine).toContain(token);
+    }
+  });
+
+  it('keeps core document basis identifiers and required documents', () => {
+    const documentBasisEngine = read('apps/web/lib/platform-v7/dealDocumentBasisEngine.ts');
+
+    for (const token of ['dealId', 'routeId', 'lotNumber', 'sdizNumber', 'amountRub', 'documents', 'checks', 'DOC-DEAL', 'DOC-SDIZ', 'DOC-WEIGHT', 'DOC-QUALITY', 'DOC-ACCEPTANCE', 'DOC-UPD']) {
+      expect(documentBasisEngine).toContain(token);
     }
   });
 });
