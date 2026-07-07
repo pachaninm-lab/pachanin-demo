@@ -11,6 +11,7 @@ import {
   fetchRemoteDictionaryState,
   getLanguageMeta,
   readCachedDictionaryState,
+  readLocaleCookie,
   readStoredLanguage,
   startTranslationObserver,
   subscribeToLanguageChanges,
@@ -33,6 +34,7 @@ const TARGETS = [
 
 const SUPPORTED_LANGUAGE_CODES: readonly LanguageCode[] = ['ru', 'en', 'zh'];
 const SUPPORTED_LANGUAGES = LANGUAGES.filter((item) => SUPPORTED_LANGUAGE_CODES.includes(item.code));
+const LANGUAGE_RELOAD_KEY = 'pc-v7-language-reload-target';
 
 function findTarget() {
   if (typeof document === 'undefined') return null;
@@ -45,6 +47,10 @@ function findTarget() {
 
 function normalizeLanguage(code: LanguageCode): LanguageCode {
   return SUPPORTED_LANGUAGE_CODES.includes(code) ? code : 'ru';
+}
+
+function readAuthoritativeLanguage(): LanguageCode {
+  return normalizeLanguage(readLocaleCookie() ?? readStoredLanguage());
 }
 
 function nextLanguage(current: LanguageCode): LanguageCode {
@@ -72,6 +78,18 @@ function lockBrowserAutoTranslate(language: LanguageCode) {
   meta.content = 'notranslate';
 }
 
+function reloadCurrentRouteForLanguage(language: LanguageCode) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(LANGUAGE_RELOAD_KEY, language);
+  } catch {}
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('lang', language);
+  url.searchParams.set('l10n', String(Date.now()));
+  window.location.replace(url.toString());
+}
+
 export function HeaderLanguageSwitch() {
   const [mounted, setMounted] = useState(false);
   const [target, setTarget] = useState<Element | null>(null);
@@ -82,7 +100,7 @@ export function HeaderLanguageSwitch() {
   useEffect(() => {
     setMounted(true);
     clearLegacyDictionaryCache();
-    const stored = normalizeLanguage(readStoredLanguage());
+    const stored = readAuthoritativeLanguage();
     setLanguage(stored);
     lockBrowserAutoTranslate(stored);
     const cached = readCachedDictionaryState();
@@ -115,18 +133,22 @@ export function HeaderLanguageSwitch() {
 
   useEffect(() => {
     if (!mounted) return;
-    lockBrowserAutoTranslate(language);
-    applyTranslationToDom(language, dictionaries);
-    return startTranslationObserver(() => language, () => dictionaries);
+    const current = readAuthoritativeLanguage();
+    if (current !== language) setLanguage(current);
+    lockBrowserAutoTranslate(current);
+    applyTranslationToDom(current, dictionaries);
+    return startTranslationObserver(() => readAuthoritativeLanguage(), () => dictionaries);
   }, [language, dictionaries, mounted]);
 
   const chooseNextLanguage = useCallback(() => {
-    const nextCode = nextLanguage(language);
+    const current = readAuthoritativeLanguage();
+    const nextCode = nextLanguage(current);
     lockBrowserAutoTranslate(nextCode);
     writeStoredLanguage(nextCode);
     setLanguage(nextCode);
     applyTranslationToDom(nextCode, dictionaries);
-  }, [dictionaries, language]);
+    reloadCurrentRouteForLanguage(nextCode);
+  }, [dictionaries]);
 
   if (!mounted || typeof document === 'undefined') return null;
 
