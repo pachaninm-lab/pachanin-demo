@@ -9,6 +9,9 @@ type FieldDriverRuntimeProps = {
   compact?: boolean;
 };
 
+const deviationLabelStyle: React.CSSProperties = { display: 'grid', gap: 6 };
+const deviationCaptionStyle: React.CSSProperties = { fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 800 };
+
 export function FieldDriverRuntime({ compact = false }: FieldDriverRuntimeProps) {
   const toast = useToast();
   const trip = useFieldRuntimeStore((s) => s.trip);
@@ -86,7 +89,10 @@ export function FieldDriverRuntime({ compact = false }: FieldDriverRuntimeProps)
           </button>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
-            <textarea value={deviationText} onChange={(e) => setDeviationText(e.target.value)} placeholder='Описание ситуации...' style={{ width: '100%', minHeight: 90, padding: '10px 12px', borderRadius: 10, border: '1px solid #E4E6EA', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }} />
+            <label style={deviationLabelStyle}>
+              <span style={deviationCaptionStyle}>Описание ситуации</span>
+              <textarea value={deviationText} onChange={(e) => setDeviationText(e.target.value)} style={{ width: '100%', minHeight: 90, padding: '10px 12px', borderRadius: 10, border: '1px solid #E4E6EA', fontSize: 13, resize: 'vertical', boxSizing: 'border-box' }} />
+            </label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={() => { reportDeviation(deviationText || 'Отклонение без описания'); toast('Отклонение зарегистрировано и сохранено локально.', 'warning'); setShowDeviation(false); setDeviationText(''); }} style={{ padding: '10px 14px', borderRadius: 10, border: 'none', background: '#DC2626', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Отправить</button>
               <button onClick={() => { setShowDeviation(false); setDeviationText(''); }} style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #E4E6EA', background: '#F5F7F8', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Отмена</button>
