@@ -15,9 +15,11 @@ import {
   subscribeToLanguageChanges,
   writeLocaleCookie,
   writeStoredLanguage,
+  type DictionarySet,
   type DictionaryState,
   type LanguageCode,
 } from '@/lib/platform-v7/i18n/translation-runtime';
+import { PLATFORM_V7_MANUAL_DICTIONARY_OVERRIDES } from '@/lib/platform-v7/i18n/manual-dictionary-overrides';
 
 const HEADER_TARGETS = [
   '.pc-site-actions',
@@ -45,6 +47,13 @@ function findHeaderTarget() {
   return null;
 }
 
+function withManualOverrides(base: DictionarySet): DictionarySet {
+  return {
+    en: { ...base.en, ...PLATFORM_V7_MANUAL_DICTIONARY_OVERRIDES.en },
+    zh: { ...base.zh, ...PLATFORM_V7_MANUAL_DICTIONARY_OVERRIDES.zh },
+  };
+}
+
 export function PlatformTranslator() {
   const [mounted, setMounted] = useState(false);
   const [target, setTarget] = useState<Element | null>(null);
@@ -54,7 +63,7 @@ export function PlatformTranslator() {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  const dictionaries = useMemo(() => buildDictionaries(remoteDictionary), [remoteDictionary]);
+  const dictionaries = useMemo(() => withManualOverrides(buildDictionaries(remoteDictionary)), [remoteDictionary]);
   const activeLanguage = useMemo(() => getLanguageMeta(language), [language]);
   const copy = UI_COPY[language];
 
