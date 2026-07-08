@@ -3,7 +3,7 @@ import { LogIn, LogOut, ShieldCheck } from 'lucide-react';
 import { PremiumCtaButton, StatusPill, type PremiumTone } from '@/components/platform-v7/premium';
 import { BrandMark } from '@/components/v7r/BrandMark';
 
-type Field = { label: string; placeholder: string; type?: string };
+type Field = { label: string; type?: string };
 type RegisterSearchParams = Record<string, string | string[] | undefined>;
 
 const ROLE_OPTIONS = [
@@ -19,20 +19,20 @@ const ROLE_OPTIONS = [
 ] as const;
 
 const PARTICIPANT_FIELDS: readonly Field[] = [
-  { label: 'Тип участника', placeholder: 'Юр. лицо / ИП / КФХ' },
-  { label: 'Название организации', placeholder: 'ООО «АгроГрейн»' },
-  { label: 'Регион', placeholder: 'Тамбовская область' },
+  { label: 'Тип участника' },
+  { label: 'Название организации' },
+  { label: 'Регион' },
 ];
 
 const REQUISITE_FIELDS: readonly Field[] = [
-  { label: 'ИНН', placeholder: '10 или 12 цифр' },
-  { label: 'КПП', placeholder: '9 цифр (для юр. лица)' },
-  { label: 'ОГРН / ОГРНИП', placeholder: '13 или 15 цифр' },
-  { label: 'ФИО ответственного', placeholder: 'Иванов Иван Иванович' },
-  { label: 'Должность', placeholder: 'Директор / Уполномоченный' },
-  { label: 'Телефон', placeholder: '+7 ___ ___-__-__', type: 'tel' },
-  { label: 'Email', placeholder: 'имя@компания.рф', type: 'email' },
-  { label: 'Пароль', placeholder: '••••••••', type: 'password' },
+  { label: 'ИНН' },
+  { label: 'КПП' },
+  { label: 'ОГРН / ОГРНИП' },
+  { label: 'ФИО ответственного' },
+  { label: 'Должность' },
+  { label: 'Телефон', type: 'tel' },
+  { label: 'Email', type: 'email' },
+  { label: 'Пароль', type: 'password' },
 ];
 
 const STATUSES: readonly { label: string; tone: PremiumTone }[] = [
@@ -133,7 +133,7 @@ function FieldGroup({ title, fields }: { title: string; fields: readonly Field[]
         {fields.map((f) => (
           <label key={f.label} style={{ display: 'grid', gap: 6 }}>
             <span style={labelStyle}>{f.label}</span>
-            <input style={fieldStyle} type={f.type ?? 'text'} placeholder={f.placeholder} />
+            <input style={fieldStyle} type={f.type ?? 'text'} />
           </label>
         ))}
       </div>
