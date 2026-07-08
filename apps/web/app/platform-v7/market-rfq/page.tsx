@@ -70,64 +70,72 @@ export default function MarketRfqPage() {
   const acceptableOffers = SANDBOX_OFFERS.filter(canAcceptOffer).length;
 
   return (
-    <div data-testid="platform-v7-market-rfq-page" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
+    <div data-testid="platform-v7-market-rfq-page" style={{ display: 'grid', gap: 18, padding: '8px 0', width: '100%', maxWidth: '100%', minWidth: 0, overflowX: 'clip' }}>
       <style dangerouslySetInnerHTML={{ __html: `
+        [data-testid='platform-v7-market-rfq-page']{max-width:100%!important;overflow-x:hidden!important}
+        [data-testid='platform-v7-market-rfq-page'] *{min-width:0;overflow-wrap:anywhere;box-sizing:border-box}
+        [data-testid='platform-v7-market-rfq-page'] a,
+        [data-testid='platform-v7-market-rfq-page'] button{max-width:100%!important;white-space:normal!important}
         @media(max-width:767px){
           [data-testid='platform-v7-market-rfq-page']{gap:10px!important;padding:0!important}
-          [data-testid='platform-v7-market-rfq-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important}
+          [data-testid='platform-v7-market-rfq-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;overflow:hidden!important}
           [data-testid='platform-v7-market-rfq-page'] > section:nth-of-type(1) > div{display:grid!important;gap:10px!important}
           [data-testid='platform-v7-market-rfq-page'] > section:nth-of-type(1) > div > div:first-child > div:nth-child(2){font-size:clamp(24px,7vw,34px)!important;line-height:1.06!important}
           [data-testid='platform-v7-market-rfq-page'] > section:nth-of-type(1) > div > div:first-child > div:nth-child(3){display:none!important}
           [data-testid='platform-v7-market-rfq-page'] > section:nth-of-type(1) a{width:100%!important;min-height:54px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:16px!important}
           [data-testid='platform-v7-market-rfq-page'] > section:nth-of-type(1) a:nth-child(2){display:none!important}
-          [data-testid='platform-v7-market-rfq-page'] > section:nth-of-type(2){padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-market-rfq-page'] > section:nth-of-type(2){padding:12px!important;border-radius:16px!important;overflow:hidden!important}
           [data-testid='platform-v7-market-rfq-page'] > section:nth-of-type(2) > div:nth-child(2){font-size:12px!important;line-height:1.45!important}
           [data-testid='platform-v7-market-rfq-page'] > div:nth-of-type(1){grid-template-columns:1fr 1fr!important;gap:8px!important}
-          [data-testid='platform-v7-market-rfq-page'] > div:nth-of-type(1) > div{padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-market-rfq-page'] > div:nth-of-type(1) > div{padding:12px!important;border-radius:16px!important;overflow:hidden!important}
           [data-testid='platform-v7-market-rfq-page'] > div:nth-of-type(1) > div:nth-child(3){display:none!important}
-          [data-testid='platform-v7-market-rfq-page'] > div:nth-of-type(2){border-radius:20px!important}
+          [data-testid='platform-v7-market-rfq-page'] > div:nth-of-type(2){border-radius:20px!important;overflow:hidden!important}
           [data-testid='platform-v7-market-rfq-page'] > div:nth-of-type(2) > div:nth-child(1){padding:0 8px!important}
           [data-testid='platform-v7-market-rfq-page'] > div:nth-of-type(2) > div:nth-child(1) button{min-height:48px!important;padding:10px 12px!important}
           [data-testid='platform-v7-market-rfq-page'] > div:nth-of-type(2) > div:nth-child(2){padding:12px!important}
-          [data-testid='platform-v7-market-rfq-page'] article{padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-market-rfq-page'] article{padding:12px!important;border-radius:16px!important;overflow:hidden!important}
           [data-testid='platform-v7-market-rfq-page'] article > div:nth-child(4){grid-template-columns:1fr 1fr!important;gap:7px!important}
           [data-testid='platform-v7-market-rfq-page'] article > div:nth-child(4) > div:nth-child(n+4){display:none!important}
           [data-testid='platform-v7-market-rfq-page'] article > div:nth-child(5){display:none!important}
         }
+        @media(max-width:380px){
+          [data-testid='platform-v7-market-rfq-page'] > div:nth-of-type(1),
+          [data-testid='platform-v7-market-rfq-page'] article > div:nth-child(4){grid-template-columns:1fr!important}
+        }
       ` }} />
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
+      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, minWidth: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start', minWidth: 0 }}>
+          <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 11, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Market / RFQ · <span style={{ color: WARN }}>проверочный контур</span>
             </div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: T, marginTop: 8, lineHeight: 1.1 }}>Лоты, заявки и оферты</div>
-            <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 800 }}>
+            <div style={{ fontSize: 26, fontWeight: 900, color: T, marginTop: 8, lineHeight: 1.1, overflowWrap: 'anywhere' }}>Лоты, заявки и оферты</div>
+            <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 800, overflowWrap: 'anywhere' }}>
               Предсделочный контур: лот или RFQ не равны сделке. Сделка создаётся только после принятия предложения и последующей проверки условий. Боевые торги здесь не заявляются.
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
             <Link href='/platform-v7/lots' style={button()}>Текущие лоты</Link>
             <Link href='/platform-v7/control-tower' style={button()}>Башня управления</Link>
           </div>
         </div>
       </section>
 
-      <section style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 14, padding: 14 }}>
+      <section style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 14, padding: 14, minWidth: 0, overflow: 'hidden' }}>
         <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверочный контур rule</div>
-        <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55 }}>
+        <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55, overflowWrap: 'anywhere' }}>
           Это витрина предсделочного спроса/предложения. Здесь нет боевых торгов, биржевой функции, автоматического заключения договора или списания денег.
         </div>
       </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, minWidth: 0, maxWidth: '100%' }}>
         <Metric label='Лоты' value={String(SANDBOX_MARKET_LOTS.length)} note={fmt(totalLotsValue)} color={BRAND} />
         <Metric label='RFQ' value={String(SANDBOX_RFQS.length)} note={`${totalRfqVolume} т спроса`} color={INFO} />
         <Metric label='Предложения' value={String(SANDBOX_OFFERS.length)} note={`${acceptableOffers} можно принять после проверки`} color={WARN} />
       </div>
 
-      <div style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid ${B}`, padding: '0 12px' }}>
+      <div style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, overflow: 'hidden', minWidth: 0, maxWidth: '100%' }}>
+        <div style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid ${B}`, padding: '0 12px', minWidth: 0 }}>
           {[
             ['lots', 'Лоты'],
             ['rfq', 'RFQ'],
@@ -137,13 +145,13 @@ export default function MarketRfqPage() {
               key={id}
               type='button'
               onClick={() => setView(id as ViewMode)}
-              style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: '13px 14px', color: view === id ? BRAND : M, borderBottom: view === id ? `2px solid ${BRAND}` : '2px solid transparent', fontSize: 13, fontWeight: 900 }}
+              style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: '13px 14px', color: view === id ? BRAND : M, borderBottom: view === id ? `2px solid ${BRAND}` : '2px solid transparent', fontSize: 13, fontWeight: 900, minWidth: 0 }}
             >
               {label}
             </button>
           ))}
         </div>
-        <div style={{ padding: 18 }}>
+        <div style={{ padding: 18, minWidth: 0 }}>
           {view === 'lots' ? <LotsTable /> : null}
           {view === 'rfq' ? <RfqTable /> : null}
           {view === 'offers' ? <OffersTable /> : null}
@@ -155,14 +163,14 @@ export default function MarketRfqPage() {
 
 function LotsTable() {
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
+    <div style={{ display: 'grid', gap: 10, minWidth: 0 }}>
       {SANDBOX_MARKET_LOTS.map((lot) => {
         const tone = lotStatus(lot.status);
         return (
           <Card key={lot.id}>
             <TopLine id={lot.id} tone={tone} />
-            <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: T }}>{lot.grain} · {lot.volumeTons} т</div>
-            <div style={{ marginTop: 6, fontSize: 13, color: M }}>{lot.region} · {lot.priceBasis} · {lot.seller.name}</div>
+            <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: T, overflowWrap: 'anywhere' }}>{lot.grain} · {lot.volumeTons} т</div>
+            <div style={{ marginTop: 6, fontSize: 13, color: M, overflowWrap: 'anywhere' }}>{lot.region} · {lot.priceBasis} · {lot.seller.name}</div>
             <Grid>
               <Small label='Цена/т' value={fmt(lot.pricePerTon)} color={BRAND} />
               <Small label='Сумма' value={fmt(lot.pricePerTon * lot.volumeTons)} />
@@ -178,14 +186,14 @@ function LotsTable() {
 
 function RfqTable() {
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
+    <div style={{ display: 'grid', gap: 10, minWidth: 0 }}>
       {SANDBOX_RFQS.map((rfq) => {
         const tone = rfqStatus(rfq.status);
         return (
           <Card key={rfq.id}>
             <TopLine id={rfq.id} tone={tone} />
-            <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: T }}>{rfq.grain} · {rfq.volumeTons} т</div>
-            <div style={{ marginTop: 6, fontSize: 13, color: M }}>{rfq.deliveryRegion} · {rfq.buyer.name}</div>
+            <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: T, overflowWrap: 'anywhere' }}>{rfq.grain} · {rfq.volumeTons} т</div>
+            <div style={{ marginTop: 6, fontSize: 13, color: M, overflowWrap: 'anywhere' }}>{rfq.deliveryRegion} · {rfq.buyer.name}</div>
             <Grid>
               <Small label='Целевая цена' value={rfq.targetPricePerTon ? fmt(rfq.targetPricePerTon) : '—'} color={INFO} />
               <Small label='Оферты' value={String(rfq.offerIds.length)} />
@@ -201,15 +209,15 @@ function RfqTable() {
 
 function OffersTable() {
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
+    <div style={{ display: 'grid', gap: 10, minWidth: 0 }}>
       {SANDBOX_OFFERS.map((offer) => {
         const tone = offerStatus(offer.status);
         const canAccept = canAcceptOffer(offer);
         return (
           <Card key={offer.id}>
             <TopLine id={offer.id} tone={tone} />
-            <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: T }}>{offer.grain} · {offer.volumeTons} т</div>
-            <div style={{ marginTop: 6, fontSize: 13, color: M }}>{offer.seller.name} · {offer.priceBasis}</div>
+            <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: T, overflowWrap: 'anywhere' }}>{offer.grain} · {offer.volumeTons} т</div>
+            <div style={{ marginTop: 6, fontSize: 13, color: M, overflowWrap: 'anywhere' }}>{offer.seller.name} · {offer.priceBasis}</div>
             <Grid>
               <Small label='Цена/т' value={fmt(offer.pricePerTon)} color={BRAND} />
               <Small label='Сумма' value={fmt(offer.pricePerTon * offer.volumeTons)} />
@@ -217,7 +225,7 @@ function OffersTable() {
               <Small label='Тип' value={offer.type} />
             </Grid>
             {canAccept ? (
-              <div style={{ marginTop: 10, background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 10, padding: 10, fontSize: 12, color: WARN }}>
+              <div style={{ marginTop: 10, background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 10, padding: 10, fontSize: 12, color: WARN, overflowWrap: 'anywhere' }}>
                 Acceptance не создаёт сделку автоматически. Следующий шаг: проверка контрагента, документов, ФГИС и банкового резерва.
               </div>
             ) : null}
@@ -230,40 +238,40 @@ function OffersTable() {
 
 function Metric({ label, value, note, color }: { label: string; value: string; note: string; color: string }) {
   return (
-    <div style={{ background: S, border: `1px solid ${B}`, borderRadius: 16, padding: 16 }}>
-      <div style={{ fontSize: 11, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-      <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900, color, lineHeight: 1.1 }}>{value}</div>
-      <div style={{ marginTop: 6, fontSize: 12, color: M }}>{note}</div>
+    <div style={{ background: S, border: `1px solid ${B}`, borderRadius: 16, padding: 16, minWidth: 0, overflow: 'hidden' }}>
+      <div style={{ fontSize: 11, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em', overflowWrap: 'anywhere' }}>{label}</div>
+      <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900, color, lineHeight: 1.1, overflowWrap: 'anywhere' }}>{value}</div>
+      <div style={{ marginTop: 6, fontSize: 12, color: M, overflowWrap: 'anywhere' }}>{note}</div>
     </div>
   );
 }
 
 function Card({ children }: { children: React.ReactNode }) {
-  return <article style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 16 }}>{children}</article>;
+  return <article style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 16, minWidth: 0, overflow: 'hidden' }}>{children}</article>;
 }
 
 function TopLine({ id, tone }: { id: string; tone: Tone }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-      <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 900, color: BRAND }}>{id}</span>
-      <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color }}>{tone.label}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center', minWidth: 0 }}>
+      <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 900, color: BRAND, overflowWrap: 'anywhere' }}>{id}</span>
+      <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, maxWidth: '100%', overflowWrap: 'anywhere' }}>{tone.label}</span>
     </div>
   );
 }
 
 function Grid({ children }: { children: React.ReactNode }) {
-  return <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8, marginTop: 12 }}>{children}</div>;
+  return <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8, marginTop: 12, minWidth: 0, maxWidth: '100%' }}>{children}</div>;
 }
 
 function Small({ label, value, color = T }: { label: string; value: string; color?: string }) {
   return (
-    <div>
-      <div style={{ fontSize: 10, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-      <div style={{ marginTop: 4, fontSize: 13, fontWeight: 800, color, wordBreak: 'break-word' }}>{value}</div>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 10, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', overflowWrap: 'anywhere' }}>{label}</div>
+      <div style={{ marginTop: 4, fontSize: 13, fontWeight: 800, color, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{value}</div>
     </div>
   );
 }
 
 function button(): React.CSSProperties {
-  return { textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: SS, border: `1px solid ${B}`, color: T, fontSize: 13, fontWeight: 800 };
+  return { textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: SS, border: `1px solid ${B}`, color: T, fontSize: 13, fontWeight: 800, maxWidth: '100%', whiteSpace: 'normal' };
 }
