@@ -50,12 +50,12 @@ const GROUPS: CriteriaGroup[] = [
   },
   {
     id: 'integrations',
-    title: 'Внешние подключения',
+    title: 'Внешние интеграции',
     items: [
-      { id: 'e1', label: 'Банковый контур остаётся готовым к подключению, но не считается подключённым', status: 'external' },
-      { id: 'e2', label: 'Государственные контуры остаются готовыми к подключению, но требуют доступов и регламента', status: 'external' },
+      { id: 'e1', label: 'Банковый контур готовится к интеграции, но не считается подключённым', status: 'external' },
+      { id: 'e2', label: 'Государственные контуры готовятся к интеграции, но требуют доступов и регламента', status: 'external' },
       { id: 'e3', label: 'Электронные документы и подпись требуют договоров, сертификатов и проверенного процесса', status: 'external' },
-      { id: 'e4', label: 'Внешние ERP/CRM подключения не должны подменять ядро сделки', status: 'planned' },
+      { id: 'e4', label: 'Внешние ERP/CRM интеграции не должны подменять ядро сделки', status: 'planned' },
     ],
   },
   {
@@ -70,9 +70,9 @@ const GROUPS: CriteriaGroup[] = [
 ];
 
 const STATUS_CFG: Record<ItemStatus, { label: string; bg: string; color: string; icon: string }> = {
-  ready: { label: 'Автономно готово', bg: '#D1FAE5', color: '#065F46', icon: '✓' },
+  ready: { label: 'Платформа', bg: '#D1FAE5', color: '#065F46', icon: '✓' },
   planned: { label: 'Доработка', bg: '#DBEAFE', color: '#1E40AF', icon: '◌' },
-  external: { label: 'Внешнее подтверждение', bg: '#FEF3C7', color: '#92400E', icon: '!' },
+  external: { label: 'Интеграция', bg: '#FEF3C7', color: '#92400E', icon: '!' },
 };
 
 const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em' };
@@ -90,9 +90,9 @@ export function AcceptanceCriteriaPanel() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 8 }}>
         {[
           { label: 'Критериев', value: allItems.length, color: '#0F1419' },
-          { label: 'Автономно', value: `${ready} (${pct}%)`, color: '#065F46' },
+          { label: 'Платформа', value: `${ready} (${pct}%)`, color: '#065F46' },
           { label: 'Доработка', value: planned, color: planned > 0 ? '#1E40AF' : '#065F46' },
-          { label: 'Внешнее', value: external, color: external > 0 ? '#92400E' : '#065F46' },
+          { label: 'Интеграции', value: external, color: external > 0 ? '#92400E' : '#065F46' },
         ].map((s) => (
           <div key={s.label} style={{ padding: '10px 12px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
             <div style={lbl}>{s.label}</div>
@@ -102,11 +102,11 @@ export function AcceptanceCriteriaPanel() {
       </div>
 
       <div style={{ padding: '8px 12px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
-        <div style={{ fontSize: 9, color: '#1E40AF', fontWeight: 700, marginBottom: 6 }}>§17 Промышленная приёмка: зрелый автономный контур отдельно от внешних подключений</div>
+        <div style={{ fontSize: 9, color: '#1E40AF', fontWeight: 700, marginBottom: 6 }}>§17 Промышленная приёмка: настоящая платформа временно без интеграций</div>
         <div style={{ height: 8, borderRadius: 4, background: '#DBEAFE', overflow: 'hidden' }}>
           <div style={{ height: '100%', borderRadius: 4, background: 'linear-gradient(90deg, #1E40AF, #0EA5E9)', width: `${pct}%`, transition: 'width 0.4s' }} />
         </div>
-        <div style={{ fontSize: 9, color: '#1E40AF', fontWeight: 700, marginTop: 4 }}>{pct}% — {ready}/{allItems.length} критериев автономного контура</div>
+        <div style={{ fontSize: 9, color: '#1E40AF', fontWeight: 700, marginTop: 4 }}>{pct}% — {ready}/{allItems.length} критериев платформы</div>
       </div>
 
       <div style={{ display: 'grid', gap: 8 }}>
@@ -120,7 +120,7 @@ export function AcceptanceCriteriaPanel() {
               <button onClick={() => setOpenGroup(isOpen ? null : group.id)} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: '#0F1419', flex: 1 }}>{group.title}</span>
                 <span style={{ fontSize: 9, color: '#065F46', fontWeight: 700 }}>{groupReady}/{group.items.length}</span>
-                {groupExternal > 0 && <span style={{ fontSize: 8, padding: '1px 5px', borderRadius: 3, background: '#FEF3C7', color: '#92400E', fontWeight: 800 }}>{groupExternal} внешн.</span>}
+                {groupExternal > 0 && <span style={{ fontSize: 8, padding: '1px 5px', borderRadius: 3, background: '#FEF3C7', color: '#92400E', fontWeight: 800 }}>{groupExternal} интегр.</span>}
                 <span style={{ fontSize: 10, color: '#94A3B8' }}>{isOpen ? '▲' : '▼'}</span>
               </button>
 
@@ -146,7 +146,7 @@ export function AcceptanceCriteriaPanel() {
       </div>
 
       <div style={{ padding: '8px 12px', borderRadius: 8, background: '#ECFDF5', border: '1px solid #A7F3D0', fontSize: 9, color: '#065F46', fontWeight: 700, lineHeight: 1.7 }}>
-        Статус: зрелая автономная платформа временно без подтверждённых внешних подключений. Приёмка разделяет автономную готовность, доработки и внешние подтверждения.
+        Статус: настоящая платформа временно без интеграций. Приёмка разделяет готовность платформы, доработки и внешние интеграции.
       </div>
     </div>
   );
