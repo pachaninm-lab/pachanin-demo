@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { ChatSupportWidget } from '@/components/platform-v7/ChatSupportWidget';
 import { LoginHeaderLogoGuard } from '@/components/platform-v7/LoginHeaderLogoGuard';
@@ -34,6 +35,14 @@ const PUBLIC_EXACT_PATHS = new Set([
 ]);
 const PUBLIC_PREFIX_PATHS = ['/platform-v7/role-preview'];
 
+const OPEN_FORM_PLACEHOLDER_SELECTORS = [
+  '#pc-open-login',
+  '#pc-open-code',
+  '#pc-open-company',
+  '#pc-recovery-contact',
+  '#pc-recovery-comment',
+] as const;
+
 type GuardPosition = 'before' | 'after';
 
 function normalizePath(pathname: string | null): string {
@@ -55,6 +64,32 @@ function isLoginPath(pathname: string | null): boolean {
   return normalizePath(pathname) === '/platform-v7/login';
 }
 
+function PublicOpenPlaceholderCleanup({ pathname }: { pathname: string | null }) {
+  useEffect(() => {
+    if (normalizePath(pathname) !== '/platform-v7/open') return;
+
+    function cleanup() {
+      for (const selector of OPEN_FORM_PLACEHOLDER_SELECTORS) {
+        document.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector)?.removeAttribute('placeholder');
+      }
+    }
+
+    cleanup();
+    const raf = window.requestAnimationFrame(cleanup);
+    const timers = [80, 240, 600].map((delay) => window.setTimeout(cleanup, delay));
+    const observer = new MutationObserver(cleanup);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+      timers.forEach((timer) => window.clearTimeout(timer));
+      observer.disconnect();
+    };
+  }, [pathname]);
+
+  return null;
+}
+
 export function PlatformV7TemplateGuards({ position }: { position: GuardPosition }) {
   const pathname = usePathname();
   const publicPath = isPublicPath(pathname);
@@ -63,7 +98,7 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
 
   if (publicPath) {
     if (landingPath) {
-      return position === 'before' ? <><PlatformV7UniversalAdaptiveStyle /><PlatformV7ViewportRuntimeGuard /><PublicHeroWeightPatch /><PlatformV7BlankScreenGuard /></> : <ChatSupportWidget />;
+      return position === 'before' ? <><PlatformV7UniversalAdaptiveStyle /><PlatformV7ViewportRuntimeGuard /><PublicOpenPlaceholderCleanup pathname={pathname} /><PublicHeroWeightPatch /><PlatformV7BlankScreenGuard /></> : <ChatSupportWidget />;
     }
 
     if (position === 'before') {
