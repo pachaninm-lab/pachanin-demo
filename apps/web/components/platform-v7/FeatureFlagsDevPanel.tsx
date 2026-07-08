@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getAllFlags, setFeatureOverride, clearFeatureOverride, type FeatureFlagId } from '@/lib/platform-v7/feature-flags';
 
-// Only visible in dev mode
+// Internal verification panel. Hidden unless explicitly enabled.
 export function FeatureFlagsDevPanel() {
   const [open, setOpen] = useState(false);
   const [flags, setFlags] = useState(() => getAllFlags());
@@ -18,9 +18,9 @@ export function FeatureFlagsDevPanel() {
   return (
     <>
       <button
-        data-demo="true"
+        data-internal-check="true"
         onClick={() => setOpen(!open)}
-        title="Feature flags (dev only)"
+        title="Feature flags (internal check only)"
         aria-label="Переключить панель feature flags"
         style={{
           position: 'fixed', bottom: '1rem', right: '1rem', zIndex: 9999,
@@ -38,7 +38,7 @@ export function FeatureFlagsDevPanel() {
 
       {open && (
         <div
-          data-demo="true"
+          data-internal-check="true"
           style={{
             position: 'fixed', bottom: '4rem', right: '1rem', zIndex: 9998,
             width: '320px', maxHeight: '70vh', overflow: 'auto',
@@ -62,7 +62,7 @@ export function FeatureFlagsDevPanel() {
           </div>
 
           <div style={{ marginBottom: '0.5rem', fontSize: '10px', color: 'var(--pc-text-muted)', lineHeight: 1.45 }}>
-            🟡 <strong>демо-ответ</strong> — флаг работает на моковых данных, не на боевом API
+            🟡 <strong>внутренний ответ</strong> — режим проверки функции без внешней интеграции
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -95,14 +95,14 @@ export function FeatureFlagsDevPanel() {
                   </span>
                   {flag.demoAnswer && (
                     <span style={{ fontSize: '9px', fontWeight: 700, color: '#B45309', background: 'rgba(217,119,6,0.12)', border: '1px solid rgba(217,119,6,0.25)', borderRadius: 999, padding: '1px 5px', whiteSpace: 'nowrap' }}>
-                      демо-ответ
+                      внутренняя проверка
                     </span>
                   )}
                   {enabled !== flag.defaultEnabled && (
                     <span style={{ fontSize: '9px', color: 'var(--status-warning-text)', fontWeight: 700 }}>override</span>
                   )}
                   {flag.demoOnly && !flag.demoAnswer && (
-                    <span style={{ fontSize: '9px', color: 'var(--pc-text-muted)' }}>demo</span>
+                    <span style={{ fontSize: '9px', color: 'var(--pc-text-muted)' }}>internal</span>
                   )}
                 </label>
                 {flag.demoAnswer && flag.demoNote && (
