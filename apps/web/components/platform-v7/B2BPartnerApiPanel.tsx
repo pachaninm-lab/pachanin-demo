@@ -8,17 +8,17 @@ type PartnerRow = {
   id: string;
   name: string;
   scope: string;
-  state: 'configured' | 'testing' | 'paused';
+  state: 'platform' | 'planned' | 'integration';
   note: string;
 };
 
 const PARTNERS: PartnerRow[] = [
-  { id: 'p1', name: 'ERP-контур', scope: 'сделки и отгрузки', state: 'testing', note: 'нужна проверка доступа' },
-  { id: 'p2', name: 'Учётный контур', scope: 'документы и статусы', state: 'configured', note: 'готов к проверке' },
-  { id: 'p3', name: 'CRM-контур', scope: 'заявки и сделки', state: 'paused', note: 'ждёт владельца' },
+  { id: 'p1', name: 'ERP-контур', scope: 'сделки и отгрузки', state: 'integration', note: 'временная зона без подключения' },
+  { id: 'p2', name: 'Учётный контур', scope: 'документы и статусы', state: 'integration', note: 'временная зона без подключения' },
+  { id: 'p3', name: 'CRM-контур', scope: 'заявки и сделки', state: 'planned', note: 'доработка вокруг объекта Сделка' },
 ];
 
-const EVENTS = ['deal.status_changed', 'bank_step.confirmed', 'document.signed', 'shipment.updated'];
+const EVENTS = ['deal.status_changed', 'bank_step.ready_for_review', 'document.ready', 'shipment.updated'];
 const SCOPES = [
   ['deals:read', 'Просмотр сделок организации'],
   ['deals:create', 'Создание сделки по допуску роли'],
@@ -29,26 +29,27 @@ const SCOPES = [
 ];
 
 const tone = {
-  configured: { label: 'Настроено', bg: '#DBEAFE', color: '#1E40AF' },
-  testing: { label: 'Проверка', bg: '#FEF3C7', color: '#92400E' },
-  paused: { label: 'Пауза', bg: '#F1F5F9', color: '#64748B' },
+  platform: { label: 'Платформа', bg: '#D1FAE5', color: '#065F46' },
+  planned: { label: 'Доработка', bg: '#DBEAFE', color: '#1E40AF' },
+  integration: { label: 'Интеграция позже', bg: '#FEF3C7', color: '#92400E' },
 };
 
 const labelStyle: React.CSSProperties = { fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em' };
 
 export function B2BPartnerApiPanel() {
   const [tab, setTab] = useState<Tab>('status');
-  const configured = PARTNERS.filter((item) => item.state === 'configured').length;
-  const testing = PARTNERS.filter((item) => item.state === 'testing').length;
+  const platform = PARTNERS.filter((item) => item.state === 'platform').length;
+  const planned = PARTNERS.filter((item) => item.state === 'planned').length;
+  const integration = PARTNERS.filter((item) => item.state === 'integration').length;
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 8 }}>
         {[
           { label: 'Контуров', value: PARTNERS.length, color: '#0F1419' },
-          { label: 'Настроено', value: configured, color: '#1E40AF' },
-          { label: 'Проверка', value: testing, color: '#92400E' },
-          { label: 'Событий', value: EVENTS.length, color: '#5B21B6' },
+          { label: 'Платформа', value: platform, color: '#065F46' },
+          { label: 'Доработка', value: planned, color: '#1E40AF' },
+          { label: 'Интеграции', value: integration, color: integration > 0 ? '#92400E' : '#065F46' },
         ].map((item) => (
           <div key={item.label} style={{ padding: '10px 12px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
             <div style={labelStyle}>{item.label}</div>
@@ -57,8 +58,8 @@ export function B2BPartnerApiPanel() {
         ))}
       </div>
 
-      <div style={{ padding: '8px 12px', borderRadius: 8, background: '#F0FDF4', border: '1px solid #BBF7D0', fontSize: 10, color: '#065F46', fontWeight: 760, lineHeight: 1.55 }}>
-        Партнёрские подключения: предынтеграционный контур. Рабочие доступы, подписи событий и промышленные лимиты требуют отдельной проверки.
+      <div style={{ padding: '8px 12px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: 10, color: '#1E40AF', fontWeight: 760, lineHeight: 1.55 }}>
+        Партнёрские API: настоящая платформа временно без интеграций. ERP, учётные системы и CRM подключаются только после отдельной промышленной приёмки.
       </div>
 
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
@@ -87,8 +88,11 @@ export function B2BPartnerApiPanel() {
       )}
 
       {tab === 'events' && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {EVENTS.map((event) => <span key={event} style={{ fontSize: 9, padding: '3px 7px', borderRadius: 5, background: '#EDE9FE', color: '#5B21B6', fontFamily: 'monospace' }}>{event}</span>)}
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ fontSize: 10, color: '#64748B', fontWeight: 700 }}>События являются контрактом платформы, а не подтверждением внешнего подключения.</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {EVENTS.map((event) => <span key={event} style={{ fontSize: 9, padding: '3px 7px', borderRadius: 5, background: '#EDE9FE', color: '#5B21B6', fontFamily: 'monospace' }}>{event}</span>)}
+          </div>
         </div>
       )}
 
@@ -104,7 +108,7 @@ export function B2BPartnerApiPanel() {
       )}
 
       <div style={{ fontSize: 9, color: '#94A3B8', padding: '4px 8px', borderRadius: 6, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
-        Интеграционный контур · role scope · журнал событий · требуется проверка на реальных подключениях.
+        Partner API · события, роли и доступы проектируются вокруг сделки; внешние интеграции временно не подключены.
       </div>
     </div>
   );
