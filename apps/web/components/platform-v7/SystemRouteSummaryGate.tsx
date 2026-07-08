@@ -46,7 +46,7 @@ function MobileHeaderRuntimeStyle() {
         .pc-header-brand {
           flex: 1 1 auto !important;
           min-width: 0 !important;
-          max-width: calc(100vw - 148px) !important;
+          max-width: calc(100dvw - 148px) !important;
           overflow: hidden !important;
         }
 
@@ -88,7 +88,7 @@ function MobileHeaderRuntimeStyle() {
 
       @media (max-width: 390px) {
         .pc-header-brand {
-          max-width: calc(100vw - 136px) !important;
+          max-width: calc(100dvw - 136px) !important;
         }
 
         .pc-header-actions {
