@@ -35,94 +35,102 @@ function tone(status: string) {
 
 export default function PlatformV7AntiBypassPage() {
   return (
-    <div data-testid="platform-v7-anti-bypass-page" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
+    <div data-testid="platform-v7-anti-bypass-page" style={{ display: 'grid', gap: 18, padding: '8px 0', width: '100%', maxWidth: '100%', minWidth: 0, overflowX: 'clip' }}>
       <style dangerouslySetInnerHTML={{ __html: `
+        [data-testid='platform-v7-anti-bypass-page']{max-width:100%!important;overflow-x:hidden!important}
+        [data-testid='platform-v7-anti-bypass-page'] *{min-width:0;overflow-wrap:anywhere;box-sizing:border-box}
+        [data-testid='platform-v7-anti-bypass-page'] a,
+        [data-testid='platform-v7-anti-bypass-page'] button{max-width:100%!important;white-space:normal!important}
         @media(max-width:767px){
           [data-testid='platform-v7-anti-bypass-page']{gap:10px!important;padding:0!important}
-          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;overflow:hidden!important}
           [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1) > div{display:grid!important;gap:10px!important}
           [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1) > div > div:first-child > div:nth-child(2){font-size:clamp(24px,7vw,34px)!important;line-height:1.06!important}
           [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1) > div > div:first-child > div:nth-child(3){display:none!important}
           [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1) a{width:100%!important;min-height:54px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:16px!important}
           [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(1) a:first-child{display:none!important}
           [data-testid='platform-v7-anti-bypass-page'] > div:nth-of-type(1){grid-template-columns:1fr 1fr!important;gap:8px!important}
-          [data-testid='platform-v7-anti-bypass-page'] > div:nth-of-type(1) > div{padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > div:nth-of-type(1) > div{padding:12px!important;border-radius:16px!important;overflow:hidden!important}
           [data-testid='platform-v7-anti-bypass-page'] > div:nth-of-type(1) > div:nth-child(1){display:none!important}
-          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(2){padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(2){padding:12px!important;border-radius:16px!important;overflow:hidden!important}
           [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(2) > div:nth-child(2){font-size:12px!important;line-height:1.45!important}
-          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(3){padding:14px!important;border-radius:20px!important;gap:9px!important}
-          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(3) > div:not(:first-child){display:grid!important;gap:8px!important;padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(3){padding:14px!important;border-radius:20px!important;gap:9px!important;overflow:hidden!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(3) > div:not(:first-child){display:grid!important;grid-template-columns:1fr!important;gap:8px!important;padding:12px!important;border-radius:16px!important;overflow:hidden!important}
           [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(3) > div:not(:first-child) > div > div:nth-child(2){display:none!important}
-          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(4){padding:14px!important;border-radius:20px!important;gap:9px!important}
-          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(4) > div:nth-child(2) > div{grid-template-columns:1fr!important;gap:5px!important;padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(3) span{width:fit-content!important;max-width:100%!important;white-space:normal!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(4){padding:14px!important;border-radius:20px!important;gap:9px!important;overflow:hidden!important}
+          [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(4) > div:nth-child(2) > div{grid-template-columns:1fr!important;gap:5px!important;padding:12px!important;border-radius:16px!important;overflow:hidden!important}
           [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(4) > div:nth-child(2) > div:nth-child(n+4){display:none!important}
           [data-testid='platform-v7-anti-bypass-page'] > section:nth-of-type(5){display:none!important}
         }
+        @media(max-width:380px){
+          [data-testid='platform-v7-anti-bypass-page'] > div:nth-of-type(1){grid-template-columns:1fr!important}
+        }
       ` }} />
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
+      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, minWidth: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start', minWidth: 0 }}>
+          <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Антиобход · правила раскрытия</div>
-            <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: T }}>Как платформа удерживает сделку внутри контура</div>
-            <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 940 }}>
+            <div style={{ marginTop: 6, fontSize: 28, lineHeight: 1.1, fontWeight: 900, color: T, overflowWrap: 'anywhere' }}>Как платформа удерживает сделку внутри контура</div>
+            <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 940, overflowWrap: 'anywhere' }}>
               Антиобход нужен, чтобы стороны не использовали платформу как витрину контактов. Контакты раскрываются только после выбора ставки и создания черновика сделки внутри платформы.
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
             <Link href='/platform-v7/offer-log' style={btn()}>Журнал торгов</Link>
             <Link href='/platform-v7/offer-to-deal' style={btn('primary')}>Черновик сделки</Link>
           </div>
         </div>
       </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 12, minWidth: 0, maxWidth: '100%' }}>
         <Metric label='Правил' value={String(rules.length)} tone='good' />
         <Metric label='Готово' value={String(rules.filter((rule) => rule[2] === 'готово').length)} tone='good' />
         <Metric label='Проверить' value={String(rules.filter((rule) => rule[2] === 'проверить').length)} tone='warn' />
       </div>
 
-      <section style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 14, padding: 14 }}>
+      <section style={{ background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.18)', borderRadius: 14, padding: 14, minWidth: 0, overflow: 'hidden' }}>
         <div style={{ fontSize: 12, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ключевое правило</div>
-        <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55 }}>
+        <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.55, overflowWrap: 'anywhere' }}>
           Цена и условия видны рынку, но контакт и полная личность стороны раскрываются только в защищённом черновике сделки. Любая попытка увести контакт должна фиксироваться как риск обхода.
         </div>
       </section>
 
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12, minWidth: 0, overflow: 'hidden' }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Правила антиобхода</div>
         {rules.map(([title, note, status]) => {
           const t = tone(status);
           return (
-            <div key={title} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 12, padding: 12, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ fontSize: 14, color: T, fontWeight: 900 }}>{title}</div>
-                <div style={{ marginTop: 4, fontSize: 12, color: M, lineHeight: 1.5 }}>{note}</div>
+            <div key={title} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 12, padding: 12, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', minWidth: 0, overflow: 'hidden' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, color: T, fontWeight: 900, overflowWrap: 'anywhere' }}>{title}</div>
+                <div style={{ marginTop: 4, fontSize: 12, color: M, lineHeight: 1.5, overflowWrap: 'anywhere' }}>{note}</div>
               </div>
-              <span style={{ whiteSpace: 'nowrap', padding: '5px 9px', borderRadius: 999, background: t.bg, border: `1px solid ${t.border}`, color: t.color, fontSize: 11, fontWeight: 900 }}>{status}</span>
+              <span style={{ whiteSpace: 'nowrap', padding: '5px 9px', borderRadius: 999, background: t.bg, border: `1px solid ${t.border}`, color: t.color, fontSize: 11, fontWeight: 900, maxWidth: '100%', overflowWrap: 'anywhere' }}>{status}</span>
             </div>
           );
         })}
       </section>
 
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
+      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, display: 'grid', gap: 12, minWidth: 0, overflow: 'hidden' }}>
         <div style={{ fontSize: 18, fontWeight: 900, color: T }}>Кто что видит</div>
-        <div style={{ display: 'grid', gap: 8 }}>
+        <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
           {visibility.map(([role, sees, level]) => (
-            <div key={role} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px,0.7fr) minmax(220px,1.4fr) minmax(120px,0.6fr)', gap: 10, background: SS, border: `1px solid ${B}`, borderRadius: 12, padding: 12, alignItems: 'center' }}>
-              <div style={{ fontSize: 13, color: T, fontWeight: 900 }}>{role}</div>
-              <div style={{ fontSize: 12, color: M, lineHeight: 1.45 }}>{sees}</div>
-              <div style={{ fontSize: 12, color: BRAND, fontWeight: 900 }}>{level}</div>
+            <div key={role} style={{ display: 'grid', gridTemplateColumns: 'minmax(140px,0.7fr) minmax(220px,1.4fr) minmax(120px,0.6fr)', gap: 10, background: SS, border: `1px solid ${B}`, borderRadius: 12, padding: 12, alignItems: 'center', minWidth: 0, overflow: 'hidden' }}>
+              <div style={{ fontSize: 13, color: T, fontWeight: 900, overflowWrap: 'anywhere' }}>{role}</div>
+              <div style={{ fontSize: 12, color: M, lineHeight: 1.45, overflowWrap: 'anywhere' }}>{sees}</div>
+              <div style={{ fontSize: 12, color: BRAND, fontWeight: 900, overflowWrap: 'anywhere' }}>{level}</div>
             </div>
           ))}
         </div>
       </section>
 
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
+      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18, minWidth: 0, overflow: 'hidden' }}>
         <div style={{ fontSize: 12, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Текущий пример</div>
-        <div style={{ marginTop: 8, fontSize: 13, color: T, lineHeight: 1.65 }}>
+        <div style={{ marginTop: 8, fontSize: 13, color: T, lineHeight: 1.65, overflowWrap: 'anywhere' }}>
           Лот: <strong>{PLATFORM_V7_TRADING_SOURCE.lot.id}</strong> · ставок: <strong>{PLATFORM_V7_TRADING_SOURCE.offers.length}</strong> · выбранная ставка: <strong>{PLATFORM_V7_TRADING_SOURCE.acceptedOffer.buyerAlias}</strong>
         </div>
-        <div style={{ marginTop: 6, fontSize: 12, color: M }}>
+        <div style={{ marginTop: 6, fontSize: 12, color: M, overflowWrap: 'anywhere' }}>
           Покупатель до сделки обезличен. Реальные контактные данные платформа не показывает.
         </div>
       </section>
@@ -135,13 +143,13 @@ function Metric({ label, value, tone }: { label: string; value: string; tone: 'g
     ? { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: BRAND }
     : { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: WARN };
   return (
-    <div style={{ background: palette.bg, border: `1px solid ${palette.border}`, borderRadius: 16, padding: 16 }}>
-      <div style={{ fontSize: 11, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-      <div style={{ marginTop: 8, fontSize: 26, fontWeight: 900, color: palette.color, lineHeight: 1.1 }}>{value}</div>
+    <div style={{ background: palette.bg, border: `1px solid ${palette.border}`, borderRadius: 16, padding: 16, minWidth: 0, overflow: 'hidden' }}>
+      <div style={{ fontSize: 11, color: M, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em', overflowWrap: 'anywhere' }}>{label}</div>
+      <div style={{ marginTop: 8, fontSize: 26, fontWeight: 900, color: palette.color, lineHeight: 1.1, overflowWrap: 'anywhere' }}>{value}</div>
     </div>
   );
 }
 
 function btn(kind: 'default' | 'primary' = 'default') {
-  return { textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: kind === 'primary' ? 'rgba(10,122,95,0.08)' : SS, border: `1px solid ${kind === 'primary' ? 'rgba(10,122,95,0.18)' : B}`, color: kind === 'primary' ? BRAND : T, fontSize: 13, fontWeight: 800 };
+  return { textDecoration: 'none', borderRadius: 12, padding: '10px 14px', background: kind === 'primary' ? 'rgba(10,122,95,0.08)' : SS, border: `1px solid ${kind === 'primary' ? 'rgba(10,122,95,0.18)' : B}`, color: kind === 'primary' ? BRAND : T, fontSize: 13, fontWeight: 800, maxWidth: '100%', whiteSpace: 'normal' as const };
 }
