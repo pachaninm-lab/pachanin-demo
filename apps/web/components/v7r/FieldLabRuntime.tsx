@@ -12,6 +12,10 @@ function resolveProtocolResult(c: LabCaseRuntime) {
   return Number(c.moisture || 0) <= 14 ? 'PASS' : 'REVIEW';
 }
 
+const fieldLabel: React.CSSProperties = { display: 'grid', gap: 6 };
+const fieldCaption: React.CSSProperties = { fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 800 };
+const fieldInput: React.CSSProperties = { padding: 10, borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)' };
+
 export function FieldLabRuntime() {
   const toast = useToast();
   const labCases = useFieldRuntimeStore((s) => s.labCases);
@@ -112,9 +116,18 @@ export function FieldLabRuntime() {
                 Начать анализ
               </P7ActionButton>
             ) : null}
-            <input value={c.protein} onChange={(e) => updateLabCase(c.id, { protein: e.target.value })} placeholder='Белок %' style={{ padding: 10, borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)' }} />
-            <input value={c.moisture} onChange={(e) => updateLabCase(c.id, { moisture: e.target.value })} placeholder='Влажность %' style={{ padding: 10, borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)' }} />
-            <input value={c.gluten} onChange={(e) => updateLabCase(c.id, { gluten: e.target.value })} placeholder='Клейковина %' style={{ padding: 10, borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)' }} />
+            <label style={fieldLabel}>
+              <span style={fieldCaption}>Белок, %</span>
+              <input value={c.protein} onChange={(e) => updateLabCase(c.id, { protein: e.target.value })} style={fieldInput} />
+            </label>
+            <label style={fieldLabel}>
+              <span style={fieldCaption}>Влажность, %</span>
+              <input value={c.moisture} onChange={(e) => updateLabCase(c.id, { moisture: e.target.value })} style={fieldInput} />
+            </label>
+            <label style={fieldLabel}>
+              <span style={fieldCaption}>Клейковина, %</span>
+              <input value={c.gluten} onChange={(e) => updateLabCase(c.id, { gluten: e.target.value })} style={fieldInput} />
+            </label>
             {c.status !== 'completed' ? (
               <P7ActionButton
                 state={confirmState}
