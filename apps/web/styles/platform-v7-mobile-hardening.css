@@ -388,6 +388,17 @@ html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-singl
   border-radius: 20px !important;
 }
 
+/* PR-C: generic deep-page collapse rules for fixed three-column business rows. */
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(120px,0.6fr)'],
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(120px, 0.6fr)'],
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(180px,1fr)'],
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(180px, 1fr)'],
+html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(240px,1.4fr)'] {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow-x: clip !important;
+}
+
 @media (max-width: 767px) {
   html body .pc-shell-root-v4 .pc-v4-main > main:not(.pc-v7-public-entry):not(.pc-v7-login-single) {
     max-width: 100% !important;
@@ -425,6 +436,19 @@ html body .pc-shell-root-v4 main:not(.pc-v7-public-entry):not(.pc-v7-login-singl
   html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minHeight: 132'],
   html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='min-height: 132'] {
     min-height: 108px !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(120px,0.6fr)'],
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(120px, 0.6fr)'],
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(180px,1fr)'],
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(180px, 1fr)'],
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='minmax(240px,1.4fr)'] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='white-space: nowrap'],
+  html body .pc-shell-root-v4 .pc-v4-main main:not(.pc-v7-public-entry):not(.pc-v7-login-single) [style*='whiteSpace: nowrap'] {
+    white-space: normal !important;
   }
 
   html body .pc-shell-root-v4 .pc-prem-kpis,
