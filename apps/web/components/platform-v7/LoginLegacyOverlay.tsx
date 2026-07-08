@@ -62,7 +62,7 @@ export function LoginLegacyOverlay() {
         <form onSubmit={submit}>
           <label><span>{t('login')}</span><input value={login} onChange={(e)=>setLogin(e.target.value)} type='email' autoComplete='username'/></label>
           <label><span>{t('password')}</span><input value={password} onChange={(e)=>setPassword(e.target.value)} type='password' autoComplete='current-password'/></label>
-          <label><span>{t('organisation')}</span><input value={company} onChange={(e)=>setCompany(e.target.value)} placeholder={t('orgPlaceholder')} autoComplete='organization'/></label>
+          <label><span>{t('organisation')}</span><input value={company} onChange={(e)=>setCompany(e.target.value)} autoComplete='organization'/></label>
           {error?<p className='error'>{error}</p>:null}
           <button className='enter'>{t('submit')}</button>
         </form>
