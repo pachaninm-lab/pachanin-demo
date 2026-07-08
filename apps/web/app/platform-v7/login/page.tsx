@@ -102,10 +102,10 @@ export default function LoginPage() {
         <div className='login-work-title'><h1>{t.workplace}</h1>{selected ? <span>{roleName(selected, lang)}</span> : null}</div>
         <section className='login-grid' aria-label={t.workplace}>{workspaces.map((item) => { const Icon = item.Icon; const active = selectedRole === item.role; return <button key={item.role} type='button' className={active ? 'active' : ''} onClick={() => { setDirectRole(item.role); setError(''); }}><Icon size={24} strokeWidth={2.25} /><b>{roleName(item, lang)}</b><small>{roleSub(item, lang)}</small></button>; })}</section>
         <form className='login-form' onSubmit={onSubmit}>
-          <label><span>{t.login}</span><input value={login} onChange={(event) => setLogin(event.target.value)} type='email' autoComplete='username' placeholder={t.loginPh} /></label>
-          <label><span>{t.password}</span><input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} type='password' autoComplete='current-password' placeholder={t.passwordPh} /></label>
+          <label><span>{t.login}</span><input value={login} onChange={(event) => setLogin(event.target.value)} type='email' autoComplete='username' /></label>
+          <label><span>{t.password}</span><input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} type='password' autoComplete='current-password' /></label>
           <Link className='forgot-link' href='/platform-v7/contact'><Mail size={18} />{t.forgot}</Link>
-          <label><span>{t.company} <em>{t.optional}</em></span><input value={company} onChange={(event) => setCompany(event.target.value)} type='text' autoComplete='organization' placeholder={t.companyPh} /></label>
+          <label><span>{t.company} <em>{t.optional}</em></span><input value={company} onChange={(event) => setCompany(event.target.value)} type='text' autoComplete='organization' /></label>
           {error ? <p className='login-error' role='alert'>{error}</p> : null}
           <button className='submit-button' type='submit'>{selected ? `${t.submit} ${roleName(selected, lang)}` : t.submit}</button>
           <Link href={registerHref} className='register-button'>{t.register}</Link>
