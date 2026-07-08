@@ -1,194 +1,95 @@
 import type { Metadata } from 'next';
-import { CounterpartyTrustCard, type CounterpartyTrust, type Verification } from '@/components/platform-v7/VerificationBadge';
-import { IntegrationStatusWidget } from '@/components/platform-v7/IntegrationStatusWidget';
-import { CounterpartyScoringWidget } from '@/components/platform-v7/CounterpartyScoringWidget';
 
 export function generateMetadata({ params }: { params: { inn: string } }): Metadata {
   return {
     title: `Контрагент ИНН ${params.inn}`,
-    description: `Профиль контрагента с рейтингами, верификацией и историей сделок.`,
+    description: 'Профиль контрагента в контуре сделки: готовность проверок, документов, истории и внешних интеграций.',
   };
 }
 
-function getCounterpartyDemo(inn: string): CounterpartyTrust {
-  return {
-    orgId: `org-${inn}`,
-    inn,
-    name: inn === '6164065090'
-      ? 'ООО «АгроТрейд Юг»'
-      : inn === '2309160154'
-      ? 'ИП Ковалёв Сергей Александрович'
-      : `Организация ИНН ${inn}`,
-    verifications: [
-      { source: 'EGRUL',     level: 'VERIFIED', verifiedAt: '2024-01-15T00:00:00Z' },
-      { source: 'FNS',       level: 'VERIFIED', verifiedAt: '2024-02-01T00:00:00Z' },
-      { source: 'FGIS_ZERNO', level: inn === '2309160154' ? 'PARTIAL' : 'VERIFIED', verifiedAt: '2024-02-10T00:00:00Z', note: inn === '2309160154' ? 'Частичная верификация: 2 из 4 партий' : undefined },
-      { source: 'AML',       level: 'VERIFIED', verifiedAt: '2024-01-20T00:00:00Z' },
-      { source: 'SPARK',     level: 'VERIFIED', verifiedAt: '2024-03-01T00:00:00Z' },
-      { source: 'UKEP',      level: inn === '6164065090' ? 'VERIFIED' : 'PENDING', note: inn !== '6164065090' ? 'Сертификат в процессе выпуска' : undefined },
-    ] satisfies Verification[],
-    riskScore: inn === '6164065090' ? 18 : inn === '2309160154' ? 42 : 35,
-    dealCount: inn === '6164065090' ? 47 : 12,
-    rating: inn === '6164065090' ? 4.8 : 4.2,
-  };
-}
+const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em' };
 
-const DEAL_HISTORY = [
-  { dealId: 'DL-9106', culture: 'Пшеница 3кл', volumeTons: 120, status: 'В пути', amountRub: 9_650_000, date: '2024-03-01' },
-  { dealId: 'DL-9102', culture: 'Ячмень 2кл',  volumeTons: 85,  status: 'Спор',   amountRub: 6_240_000, date: '2024-02-15' },
-  { dealId: 'DL-9095', culture: 'Кукуруза',     volumeTons: 200, status: 'Закрыт', amountRub: 12_800_000, date: '2024-01-20' },
+const READINESS = [
+  {
+    title: 'Профиль связан со сделкой',
+    status: 'Платформа',
+    text: 'Карточка контрагента должна помогать участнику сделки понять роль, документы, блокеры и следующий шаг.',
+    color: '#065F46',
+    bg: '#D1FAE5',
+  },
+  {
+    title: 'История сделок',
+    status: 'Доработка',
+    text: 'История должна строиться только из фактических сделок активного контура, без статичных примеров и рейтингов.',
+    color: '#1E40AF',
+    bg: '#DBEAFE',
+  },
+  {
+    title: 'Отзывы и рейтинг',
+    status: 'Доработка',
+    text: 'Отзывы допустимы только после подтверждённой сделки и понятного правила модерации.',
+    color: '#1E40AF',
+    bg: '#DBEAFE',
+  },
+  {
+    title: 'Внешние проверки',
+    status: 'Интеграция позже',
+    text: 'Внешние источники временно не подключены и не показываются как подтверждённые.',
+    color: '#92400E',
+    bg: '#FEF3C7',
+  },
 ];
-
-const REVIEWS = [
-  { id: 'r1', author: 'ООО «ЗернэкспортТрейд»', role: 'Покупатель', rating: 5, dealId: 'DL-9095', date: '2024-01-25', text: 'Документы по кукурузе пришли вовремя. СДИЗ и ЭТрН подписаны без замечаний. Вес сошёлся — спора не было. Рекомендую.', verified: true },
-  { id: 'r2', author: 'Элеватор ТМБ-03',        role: 'Элеватор',   rating: 4, dealId: 'DL-9095', date: '2024-01-22', text: 'Качество партии в норме, протокол выдан с первого отбора. Небольшая задержка с акт приёмки — менеджер долго согласовывал форму.', verified: true },
-  { id: 'r3', author: 'Логист ИП Кравцов В.Е.',  role: 'Перевозчик', rating: 5, dealId: 'DL-9102', date: '2024-02-20', text: 'Загрузка прошла точно по графику. ЭТрН выставлен сразу, данные в ГИС ЭПД переданы без ручных правок.', verified: false },
-];
-
-function StarRating({ value }: { value: number }) {
-  return (
-    <span aria-label={`Рейтинг ${value} из 5`} style={{ fontSize: 13, letterSpacing: 1 }}>
-      {[1,2,3,4,5].map((s) => (
-        <span key={s} style={{ color: s <= value ? '#FBBF24' : '#CBD5E1' }}>★</span>
-      ))}
-    </span>
-  );
-}
-
-function RatingBar({ label, count, total }: { label: string; count: number; total: number }) {
-  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: 11 }}>
-      <span style={{ color: '#FBBF24', minWidth: 14 }}>{label}★</span>
-      <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--p7-color-border, #24342F)', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${pct}%`, background: '#FBBF24', borderRadius: 3 }} />
-      </div>
-      <span style={{ color: 'var(--pc-text-muted)', minWidth: 16 }}>{count}</span>
-    </div>
-  );
-}
 
 export default function CounterpartyProfilePage({ params }: { params: { inn: string } }) {
-  const trust = getCounterpartyDemo(params.inn);
+  const platform = READINESS.filter((item) => item.status === 'Платформа').length;
+  const planned = READINESS.filter((item) => item.status === 'Доработка').length;
+  const integrations = READINESS.filter((item) => item.status === 'Интеграция позже').length;
 
   return (
     <main style={{ display: 'grid', gap: 16, padding: '4px 0 24px', maxWidth: 860, margin: '0 auto' }}>
-      {/* Header */}
       <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 16, padding: '1.5rem', display: 'grid', gap: '1rem' }}>
         <div>
           <div className="caption" style={{ marginBottom: '0.25rem' }}>Контрагент</div>
-          <h1 className="heading-3" style={{ margin: 0 }}>{trust.name}</h1>
+          <h1 className="heading-3" style={{ margin: 0 }}>Профиль контрагента</h1>
           <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', fontSize: 'var(--text-sm)', color: 'var(--pc-text-muted)' }}>
-            <span className="mono">ИНН {trust.inn}</span>
-            {trust.dealCount && <span>{trust.dealCount} сделок</span>}
-            {trust.rating && <span>★ {trust.rating}</span>}
+            <span className="mono">ИНН {params.inn}</span>
+            <span>настоящая платформа временно без интеграций</span>
           </div>
-        </div>
-        <CounterpartyTrustCard trust={trust} />
-      </section>
-
-      {/* ML Scoring */}
-      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 16, padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
-        <h2 className="heading-4" style={{ margin: 0 }}>ML-скоринг контрагента</h2>
-        <CounterpartyScoringWidget />
-      </section>
-
-      {/* Deal history */}
-      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 16, padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 className="heading-4" style={{ margin: 0 }}>История сделок</h2>
-          <span className="caption">данные демо</span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-          {DEAL_HISTORY.map((deal) => (
-            <a
-              key={deal.dealId}
-              href={`/platform-v7/deals/${deal.dealId}/clean`}
-              className="hover-row"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem 0.75rem', borderRadius: '8px', textDecoration: 'none', color: 'inherit' }}
-            >
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--p7-color-brand)', fontWeight: 700, minWidth: '5rem' }}>{deal.dealId}</span>
-              <span style={{ flex: 1, fontSize: 'var(--text-sm)' }}>{deal.culture} · {deal.volumeTons} т</span>
-              <span
-                className="status-badge"
-                data-status={deal.status === 'Закрыт' ? 'closed' : deal.status === 'Спор' ? 'dispute' : 'active'}
-              >
-                {deal.status}
-              </span>
-              <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--pc-text-primary)', flexShrink: 0 }}>
-                {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(deal.amountRub)}
-              </span>
-              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--pc-text-muted)', flexShrink: 0 }}>
-                {new Date(deal.date).toLocaleDateString('ru-RU')}
-              </span>
-            </a>
-          ))}
         </div>
       </section>
 
-      {/* Reviews & ratings — Блок 9 */}
-      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 16, padding: '1.25rem', display: 'grid', gap: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <h2 className="heading-4" style={{ margin: 0 }}>Рейтинг и отзывы</h2>
-          <span className="caption">от верифицированных участников</span>
-        </div>
-
-        {/* Rating summary */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '1rem', alignItems: 'center' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 36, fontWeight: 900, color: 'var(--pc-text-primary)', lineHeight: 1 }}>{trust.rating?.toFixed(1) ?? '—'}</div>
-            <StarRating value={Math.round(trust.rating ?? 0)} />
-            <div style={{ fontSize: 10, color: 'var(--pc-text-muted)', marginTop: 4 }}>{REVIEWS.length} отзыва</div>
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8 }}>
+        {[
+          { label: 'Контуров', value: READINESS.length, color: '#0F1419' },
+          { label: 'Платформа', value: platform, color: '#065F46' },
+          { label: 'Доработка', value: planned, color: '#1E40AF' },
+          { label: 'Интеграции', value: integrations, color: integrations > 0 ? '#92400E' : '#065F46' },
+        ].map((s) => (
+          <div key={s.label} style={{ padding: '10px 12px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+            <div style={lbl}>{s.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: s.color, marginTop: 4 }}>{s.value}</div>
           </div>
-          <div style={{ display: 'grid', gap: '0.25rem' }}>
-            {[5,4,3,2,1].map((s) => (
-              <RatingBar key={s} label={String(s)} count={REVIEWS.filter((r) => r.rating === s).length} total={REVIEWS.length} />
-            ))}
-          </div>
-        </div>
+        ))}
+      </section>
 
-        {/* Individual reviews */}
-        <div style={{ display: 'grid', gap: '0.75rem' }}>
-          {REVIEWS.map((review) => (
-            <div key={review.id} style={{ padding: '0.875rem', borderRadius: 10, background: 'var(--p7-color-surface-muted, #14211D)', border: '1px solid var(--p7-color-border, #24342F)', display: 'grid', gap: '0.375rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.375rem' }}>
-                <div>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--pc-text-primary)' }}>{review.author}</span>
-                  {' '}
-                  <span style={{ fontSize: 10, color: 'var(--pc-text-muted)' }}>· {review.role}</span>
-                  {review.verified && (
-                    <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#0A7A5F', background: 'rgba(10,122,95,0.1)', border: '1px solid rgba(10,122,95,0.2)', borderRadius: 4, padding: '1px 5px' }}>✓ верифицирован</span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
-                  <StarRating value={review.rating} />
-                  <span style={{ fontSize: 9, color: 'var(--pc-text-muted)', fontFamily: 'var(--font-mono)' }}>{new Date(review.date).toLocaleDateString('ru-RU')}</span>
-                </div>
-              </div>
-              <p style={{ margin: 0, fontSize: 12, color: 'var(--pc-text-secondary)', lineHeight: 1.55 }}>{review.text}</p>
-              <div style={{ fontSize: 9, color: 'var(--pc-text-muted)', fontFamily: 'var(--font-mono)' }}>Сделка {review.dealId}</div>
+      <section style={{ padding: '8px 12px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: 10, color: '#1E40AF', fontWeight: 760, lineHeight: 1.55 }}>
+        Карточка контрагента не должна имитировать подтверждённые внешние проверки, рейтинг, отзывы или историю сделок. Такие данные показываются только из фактического контура сделки и подтверждённых интеграций.
+      </section>
+
+      <section style={{ display: 'grid', gap: 8 }}>
+        {READINESS.map((item) => (
+          <div key={item.title} style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid #E4E6EA', background: '#F8FAFB' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: item.bg, color: item.color }}>{item.status}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#0F1419', flex: 1 }}>{item.title}</span>
             </div>
-          ))}
-        </div>
+            <div style={{ fontSize: 10, color: '#64748B', marginTop: 4 }}>{item.text}</div>
+          </div>
+        ))}
       </section>
 
-      {/* Guarantees block — Блок 9 */}
-      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 16, padding: '1.25rem', display: 'grid', gap: '0.75rem' }}>
-        <h2 className="heading-4" style={{ margin: 0 }}>Гарантии сделки</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem' }}>
-          {[
-            { icon: '🔒', title: 'Эскроу-расчёт', desc: 'Деньги резервируются на платформе и выплачиваются только после подтверждения приёмки' },
-            { icon: '⚖️', title: 'Арбитраж', desc: 'Встроенный арбитражный механизм с формированием доказательного пакета' },
-            { icon: '📋', title: 'УКЭП документы', desc: 'Все документы подписываются квалифицированной электронной подписью' },
-            { icon: '🌾', title: 'ФГИС «Зерно»', desc: 'Данные о партии верифицируются через государственную информационную систему' },
-          ].map((item) => (
-            <div key={item.title} style={{ padding: '0.875rem', borderRadius: '10px', background: 'var(--p7-color-surface-muted)' }}>
-              <div style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>{item.icon}</div>
-              <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', marginBottom: '0.25rem', color: 'var(--pc-text-primary)' }}>{item.title}</div>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--pc-text-muted)', lineHeight: 1.5 }}>{item.desc}</div>
-            </div>
-          ))}
-        </div>
+      <section style={{ fontSize: 9, color: '#94A3B8', padding: '4px 8px', borderRadius: 6, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+        Профиль контрагента должен усиливать исполнение сделки; внешние интеграции временно не подключены.
       </section>
     </main>
   );
