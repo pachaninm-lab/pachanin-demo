@@ -153,7 +153,7 @@ export function PushNotificationBanner() {
           position: 'absolute',
           top: 'calc(100% + 8px)',
           right: 0,
-          width: 'min(360px, calc(100vw - 24px))',
+          width: 'min(360px, calc(100dvw - 24px))',
           background: 'var(--p7-color-surface, #0E1A18)',
           border: '1px solid var(--p7-color-border, #24342F)',
           borderRadius: '14px',
