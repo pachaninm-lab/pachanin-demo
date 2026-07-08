@@ -31,7 +31,7 @@ const cleanupCss = `
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-pilot-note{display:none!important}
 .pc-shell-root-v4:has(.pc-v7-public-entry) .pc-v4-main,
 .pc-shell-root-v4[data-public-entry='true'] .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:#fbfcf9!important;min-height:100svh!important}
-.pc-v7-public-entry{width:100%!important;max-width:100vw!important;min-height:100dvh!important;overflow-x:hidden!important;contain:none!important;content-visibility:visible!important}
+.pc-v7-public-entry{width:100%!important;max-width:100%!important;min-height:100dvh!important;overflow-x:hidden!important;contain:none!important;content-visibility:visible!important}
 .pc-v7-public-entry .entry-hero,
 .pc-v7-public-entry .entry-section,
 .pc-v7-public-entry .entry-trust-strip{max-width:1220px!important;min-width:0!important;contain:none!important;content-visibility:visible!important}
