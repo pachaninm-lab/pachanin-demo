@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 
-type DrStatus = 'ok' | 'warn' | 'untested';
+type DrStatus = 'ready' | 'planned' | 'required';
 
 interface DrScenario {
   scenario: string;
   rpo: string;
   rto: string;
   mechanism: string;
-  lastTested: string | null;
+  validation: string;
   status: DrStatus;
 }
 
@@ -17,33 +17,32 @@ interface BackupItem {
   name: string;
   storage: string;
   retention: string;
-  lastBackup: string;
-  sizeMb: number;
-  verified: boolean;
+  verification: string;
+  status: DrStatus;
 }
 
 const DR_SCENARIOS: DrScenario[] = [
-  { scenario: 'Отказ одного Pod', rpo: '0', rto: '< 30 сек', mechanism: 'K8s PDB + HPA авторестарт', lastTested: '2024-03-01', status: 'ok' },
-  { scenario: 'Отказ одной ноды', rpo: '0', rto: '< 2 мин', mechanism: 'K8s rescheduling на здоровую ноду', lastTested: '2024-03-01', status: 'ok' },
-  { scenario: 'Отказ зоны доступности', rpo: '< 1 мин', rto: '< 10 мин', mechanism: 'Multi-AZ deployment + Kafka RF=3', lastTested: '2024-02-15', status: 'ok' },
-  { scenario: 'Полный отказ ДЦ', rpo: '< 5 мин', rto: '< 30 мин', mechanism: 'Active-Passive failover + DNS переключение', lastTested: null, status: 'untested' },
-  { scenario: 'Катастрофическая потеря данных', rpo: '< 1 час', rto: '< 4 часа', mechanism: 'S3 backup restoration + WAL replay', lastTested: null, status: 'untested' },
-  { scenario: 'Компрометация секретов', rpo: '0', rto: '< 15 мин', mechanism: 'Vault emergency seal + ротация всех ключей', lastTested: '2024-01-10', status: 'ok' },
+  { scenario: 'Отказ одного runtime-инстанса', rpo: '0', rto: '< 30 сек', mechanism: 'health probe + auto-restart + graceful retry', validation: 'требует live health/readiness probes', status: 'planned' },
+  { scenario: 'Отказ контейнерного хоста', rpo: '0', rto: '< 2 мин', mechanism: 'rescheduling + replica policy', validation: 'требует подтверждённого cluster failover test', status: 'required' },
+  { scenario: 'Отказ зоны доступности', rpo: '< 1 мин', rto: '< 10 мин', mechanism: 'multi-zone deployment + replicated storage/event backbone', validation: 'требует выбранного провайдера и DR-тренировки', status: 'required' },
+  { scenario: 'Полный отказ площадки', rpo: '< 5 мин', rto: '< 30 мин', mechanism: 'active-passive failover + traffic switch runbook', validation: 'не считать подтверждённым без промышленного упражнения', status: 'required' },
+  { scenario: 'Потеря данных', rpo: '< 1 час', rto: '< 4 часа', mechanism: 'backup restore + WAL/event replay + integrity verification', validation: 'требует регулярного restore-test и evidence report', status: 'required' },
+  { scenario: 'Сбой контура секретов', rpo: '0', rto: '< 15 мин', mechanism: 'secret-store recovery + planned key lifecycle', validation: 'требует secret-store, регламента и audit trail', status: 'required' },
 ];
 
 const BACKUPS: BackupItem[] = [
-  { name: 'PostgreSQL deals_db', storage: 'S3 Yandex Cloud', retention: '30 дней', lastBackup: '2024-03-20T04:00:00Z', sizeMb: 2840, verified: true },
-  { name: 'PostgreSQL audit_db', storage: 'S3 Yandex Cloud', retention: '5 лет', lastBackup: '2024-03-20T04:15:00Z', sizeMb: 18200, verified: true },
-  { name: 'ClickHouse deals_fact', storage: 'S3 Yandex Cloud', retention: '1 год', lastBackup: '2024-03-20T03:30:00Z', sizeMb: 45600, verified: true },
-  { name: 'Kafka topics snapshot', storage: 'S3 Yandex Cloud', retention: '7 дней', lastBackup: '2024-03-20T05:00:00Z', sizeMb: 8900, verified: false },
-  { name: 'Vault snapshot', storage: 'S3 Yandex Cloud', retention: '90 дней', lastBackup: '2024-03-20T04:45:00Z', sizeMb: 12, verified: true },
-  { name: 'MinIO documents', storage: 'S3 Cross-region', retention: 'Бессрочно', lastBackup: '2024-03-20T02:00:00Z', sizeMb: 128000, verified: true },
+  { name: 'Deals database', storage: 'encrypted object storage', retention: '30 дней', verification: 'restore-test + checksum + migration compatibility', status: 'planned' },
+  { name: 'Audit / evidence database', storage: 'immutable storage tier', retention: '5 лет', verification: 'retention policy + access audit', status: 'required' },
+  { name: 'Business analytics facts', storage: 'warehouse backup tier', retention: '1 год', verification: 'schema restore + row count reconciliation', status: 'planned' },
+  { name: 'Event backbone snapshot', storage: 'event log backup tier', retention: '7–30 дней', verification: 'consumer replay + idempotency proof', status: 'required' },
+  { name: 'Secret-store snapshot', storage: 'isolated encrypted backup', retention: '90 дней', verification: 'recovery drill under controlled access', status: 'required' },
+  { name: 'Documents and evidence files', storage: 'cross-region encrypted object storage', retention: 'по юридическому регламенту', verification: 'hash-chain verification + access audit', status: 'required' },
 ];
 
 const STATUS_CFG: Record<DrStatus, { label: string; bg: string; color: string; icon: string }> = {
-  ok:       { label: 'Протестирован', bg: '#D1FAE5', color: '#065F46', icon: '✓' },
-  warn:     { label: 'Требует теста', bg: '#FEF3C7', color: '#92400E', icon: '⚠' },
-  untested: { label: 'Не тестировался', bg: '#F5F3FF', color: '#5B21B6', icon: '○' },
+  ready:    { label: 'Подготовлено', bg: '#D1FAE5', color: '#065F46', icon: '✓' },
+  planned:  { label: 'Запланировано', bg: '#FEF3C7', color: '#92400E', icon: '!' },
+  required: { label: 'Требует подтверждения', bg: '#F5F3FF', color: '#5B21B6', icon: '○' },
 };
 
 const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em' };
@@ -53,20 +52,19 @@ type Tab = 'scenarios' | 'backups' | 'runbook';
 export function DisasterRecoveryPanel() {
   const [tab, setTab] = useState<Tab>('scenarios');
 
-  const tested = DR_SCENARIOS.filter(s => s.status === 'ok').length;
-  const untested = DR_SCENARIOS.filter(s => s.status === 'untested').length;
-  const totalBackupGb = (BACKUPS.reduce((s, b) => s + b.sizeMb, 0) / 1024).toFixed(0);
-  const verifiedBackups = BACKUPS.filter(b => b.verified).length;
+  const prepared = DR_SCENARIOS.filter(s => s.status === 'ready').length;
+  const planned = DR_SCENARIOS.filter(s => s.status === 'planned').length;
+  const required = DR_SCENARIOS.filter(s => s.status === 'required').length;
+  const requiredBackups = BACKUPS.filter(b => b.status === 'required').length;
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
-      {/* Summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 8 }}>
         {[
-          { label: 'Сценариев',       value: DR_SCENARIOS.length, color: '#0F1419' },
-          { label: 'Протестировано',  value: tested,              color: '#065F46' },
-          { label: 'Не тестировались', value: untested,           color: untested > 0 ? '#5B21B6' : '#065F46' },
-          { label: 'Бэкапов (ГБ)',    value: totalBackupGb,       color: '#1E40AF' },
+          { label: 'Сценариев', value: DR_SCENARIOS.length, color: '#0F1419' },
+          { label: 'Подготовлено', value: prepared, color: '#065F46' },
+          { label: 'Запланировано', value: planned, color: planned > 0 ? '#92400E' : '#065F46' },
+          { label: 'Требует подтверждения', value: required, color: required > 0 ? '#5B21B6' : '#065F46' },
         ].map((s) => (
           <div key={s.label} style={{ padding: '10px 12px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
             <div style={lbl}>{s.label}</div>
@@ -75,13 +73,12 @@ export function DisasterRecoveryPanel() {
         ))}
       </div>
 
-      {untested > 0 && (
+      {required > 0 && (
         <div style={{ padding: '8px 12px', borderRadius: 8, background: '#F5F3FF', border: '1px solid #DDD6FE', fontSize: 10, color: '#5B21B6', fontWeight: 700 }}>
-          ⚠ {untested} DR-сценария не прошли тренировочное восстановление — запланировать на апрель 2024
+          {required} DR-сценариев требуют промышленной тренировки и отчёта восстановления. RPO/RTO являются целевыми параметрами, не подтверждённым SLA.
         </div>
       )}
 
-      {/* Tabs */}
       <div style={{ display: 'flex', gap: 5 }}>
         {([['scenarios', 'DR Сценарии'], ['backups', 'Резервные копии'], ['runbook', 'Runbook']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{ padding: '4px 10px', borderRadius: 6, border: tab === id ? 'none' : '1px solid #E4E6EA', background: tab === id ? '#0F1419' : '#F8FAFB', color: tab === id ? '#fff' : '#64748B', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
@@ -95,16 +92,16 @@ export function DisasterRecoveryPanel() {
           {DR_SCENARIOS.map((s) => {
             const st = STATUS_CFG[s.status];
             return (
-              <div key={s.scenario} style={{ padding: '8px 12px', borderRadius: 10, background: '#F8FAFB', border: `1px solid ${s.status === 'untested' ? '#DDD6FE' : '#E4E6EA'}` }}>
+              <div key={s.scenario} style={{ padding: '8px 12px', borderRadius: 10, background: '#F8FAFB', border: `1px solid ${s.status === 'required' ? '#DDD6FE' : s.status === 'planned' ? '#FDE68A' : '#E4E6EA'}` }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#0F1419', flex: 1 }}>{s.scenario}</span>
                   <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: st.bg, color: st.color }}>{st.icon} {st.label}</span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(100px,1fr))', gap: 6, marginTop: 5, fontSize: 9, color: '#374151' }}>
-                  <div><span style={lbl}>RPO: </span><span style={{ fontWeight: 700 }}>{s.rpo}</span></div>
-                  <div><span style={lbl}>RTO: </span><span style={{ fontWeight: 700 }}>{s.rto}</span></div>
+                  <div><span style={lbl}>RPO target: </span><span style={{ fontWeight: 700 }}>{s.rpo}</span></div>
+                  <div><span style={lbl}>RTO target: </span><span style={{ fontWeight: 700 }}>{s.rto}</span></div>
                   <div style={{ gridColumn: '1/-1' }}><span style={lbl}>Механизм: </span>{s.mechanism}</div>
-                  {s.lastTested && <div><span style={lbl}>Тест: </span>{s.lastTested}</div>}
+                  <div style={{ gridColumn: '1/-1' }}><span style={lbl}>Валидация: </span>{s.validation}</div>
                 </div>
               </div>
             );
@@ -114,32 +111,35 @@ export function DisasterRecoveryPanel() {
 
       {tab === 'backups' && (
         <div style={{ display: 'grid', gap: 5 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 10, color: '#065F46', fontWeight: 700 }}>Верифицировано: {verifiedBackups}/{BACKUPS.length}</span>
-            <span style={{ fontSize: 10, color: '#64748B' }}>Следующая проверка восстановления: 01 апреля 2024</span>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 10, color: '#5B21B6', fontWeight: 700 }}>Требуют подтверждения: {requiredBackups}/{BACKUPS.length}</span>
+            <span style={{ fontSize: 10, color: '#64748B' }}>Restore-test должен фиксироваться отдельным отчётом и audit trail.</span>
           </div>
-          {BACKUPS.map((b) => (
-            <div key={b.name} style={{ padding: '7px 10px', borderRadius: 8, background: b.verified ? '#F8FAFB' : '#FFFBEB', border: `1px solid ${b.verified ? '#E4E6EA' : '#FDE68A'}`, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: b.verified ? '#065F46' : '#92400E' }}>{b.verified ? '✓' : '○'}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#0F1419', flex: 1 }}>{b.name}</span>
-              <span style={{ fontSize: 9, color: '#64748B' }}>{b.storage}</span>
-              <span style={{ fontSize: 9, color: '#374151', fontWeight: 700 }}>{(b.sizeMb / 1024).toFixed(1)} ГБ</span>
-              <span style={{ fontSize: 8, color: '#94A3B8' }}>Retention: {b.retention}</span>
-            </div>
-          ))}
+          {BACKUPS.map((b) => {
+            const st = STATUS_CFG[b.status];
+            return (
+              <div key={b.name} style={{ padding: '7px 10px', borderRadius: 8, background: b.status === 'required' ? '#F5F3FF' : b.status === 'planned' ? '#FFFBEB' : '#F8FAFB', border: `1px solid ${b.status === 'required' ? '#DDD6FE' : b.status === 'planned' ? '#FDE68A' : '#E4E6EA'}`, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: st.color }}>{st.icon}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#0F1419', flex: 1 }}>{b.name}</span>
+                <span style={{ fontSize: 9, color: '#64748B' }}>{b.storage}</span>
+                <span style={{ fontSize: 8, color: '#94A3B8' }}>Retention: {b.retention}</span>
+                <span style={{ fontSize: 9, color: '#64748B', flexBasis: '100%' }}>{b.verification}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {tab === 'runbook' && (
         <div style={{ display: 'grid', gap: 6 }}>
-          <div style={lbl}>Runbook — порядок действий при инциденте</div>
+          <div style={lbl}>Runbook · целевой порядок действий при инциденте</div>
           {[
-            { step: '1', title: 'Обнаружение', desc: 'Alertmanager → PagerDuty → on-call инженер (SLA 5 мин)' },
-            { step: '2', title: 'Оценка', desc: 'Определить масштаб: один Pod / нода / зона / ДЦ. Открыть incident канал в Slack #incidents' },
-            { step: '3', title: 'Изоляция', desc: 'kubectl cordon <node> или failover DNS → резервный ДЦ. Vault emergency seal если компрометация' },
-            { step: '4', title: 'Восстановление', desc: 'kubectl apply -f dr-manifests/ или restore_from_s3.sh <backup_id>. Проверить WAL replay PostgreSQL' },
-            { step: '5', title: 'Верификация', desc: 'Запустить smoke-tests, проверить health endpoints, убедиться что Kafka lag = 0' },
-            { step: '6', title: 'Post-mortem', desc: 'Документ за 24 часа: таймлайн, root cause, action items. Обновить DR runbook' },
+            { step: '1', title: 'Обнаружение', desc: 'Мониторинг создаёт инцидент; канал эскалации зависит от подключённого провайдера alerting.' },
+            { step: '2', title: 'Оценка', desc: 'Определить масштаб: runtime, хост, зона, площадка, данные. Зафиксировать impact по сделкам и деньгам.' },
+            { step: '3', title: 'Безопасная деградация', desc: 'Включить режим ограничения риска: остановить проблемный контур без потери audit trail и финансовых инвариантов.' },
+            { step: '4', title: 'Восстановление', desc: 'Восстановить сервис, данные или интеграционный контур по утверждённому runbook; операции должны быть идемпотентны.' },
+            { step: '5', title: 'Верификация', desc: 'Проверить health/readiness, outbox, audit trail, evidence chain, финансовые инварианты и критические пути сделки.' },
+            { step: '6', title: 'Post-mortem', desc: 'Подготовить отчёт: таймлайн, root cause, affected deals, financial exposure, corrective actions.' },
           ].map((item) => (
             <div key={item.step} style={{ display: 'flex', gap: 10, padding: '7px 10px', borderRadius: 8, background: '#F8FAFB', border: '1px solid #E4E6EA', alignItems: 'flex-start' }}>
               <span style={{ fontSize: 12, fontWeight: 900, color: '#0A7A5F', flexShrink: 0, minWidth: 18 }}>{item.step}.</span>
@@ -150,13 +150,13 @@ export function DisasterRecoveryPanel() {
             </div>
           ))}
           <div style={{ padding: '8px 12px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: 9, color: '#1E40AF', fontWeight: 700 }}>
-            DR-тренировка: раз в квартал — полное восстановление из S3 бэкапа на изолированном стенде. RPO/RTO валидируются автоматически.
+            DR-тренировка должна проводиться регулярно на изолированном стенде; успешность подтверждается restore-report, логами, контрольными суммами и smoke-тестами ядра сделки.
           </div>
         </div>
       )}
 
       <div style={{ fontSize: 9, color: '#94A3B8', padding: '4px 8px', borderRadius: 6, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
-        DR · Multi-AZ · Active-Passive failover · S3 бэкапы · WAL replay · Vault seal · Quarterly DR drill · Демо-данные.
+        Disaster recovery readiness · multi-zone, active-passive, encrypted backups, WAL/event replay, secret lifecycle и DR drill — целевые требования взрослой платформы; production proof требует отдельной промышленной тренировки.
       </div>
     </div>
   );
