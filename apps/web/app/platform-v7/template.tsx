@@ -20,6 +20,7 @@ import '@/styles/platform-v7-adaptive-devices.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-webkit-safe.css';
 import '@/styles/platform-v7-support-chat-polish.css';
+import '@/styles/platform-v7-final-viewport-cleanup.css';
 
 export default function PlatformV7Template({ children }: { children: ReactNode }) {
   return (
