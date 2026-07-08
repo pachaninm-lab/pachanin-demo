@@ -227,7 +227,6 @@ export function GostQualityForm({ defaultCulture = 'wheat_3', sampleId = 'SAMPLE
                   step="0.1"
                   value={rawVal ?? ''}
                   onChange={(e) => setValues((prev) => ({ ...prev, [ind.id]: e.target.value }))}
-                  placeholder="0.0"
                   style={{
                     flex: 1, minWidth: 0,
                     padding: '0.375rem 0.5rem',
