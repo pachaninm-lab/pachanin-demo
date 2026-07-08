@@ -76,7 +76,7 @@
   .pc-header-brand {
     gap: 8px !important;
     flex: 1 1 auto !important;
-    max-width: calc(100vw - 156px) !important;
+    max-width: calc(100dvw - 156px) !important;
     overflow: hidden !important;
   }
 
@@ -109,7 +109,7 @@
 
 @media (max-width: 390px) {
   .pc-header-brand {
-    max-width: calc(100vw - 144px) !important;
+    max-width: calc(100dvw - 144px) !important;
   }
 
   .pc-header-actions {
