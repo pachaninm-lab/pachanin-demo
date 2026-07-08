@@ -129,7 +129,7 @@ export function PublicTourControlPatch() {
             max-height: calc(100dvh - 72px) !important;
           }
           .p7-tour-patch-controls {
-            width: min(420px, calc(100vw - 24px));
+            width: min(420px, calc(100dvw - 24px));
             justify-content: center;
           }
           .p7-tour-patch-controls button {
