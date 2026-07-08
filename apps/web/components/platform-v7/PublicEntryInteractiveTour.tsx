@@ -342,7 +342,7 @@ export function PublicEntryInteractiveTour() {
             left: 50%;
             right: auto;
             bottom: max(18px, env(safe-area-inset-bottom));
-            width: min(520px, calc(100vw - 44px));
+            width: min(520px, calc(100dvw - 44px));
             min-height: 54px;
             padding: 0 18px;
             transform: translateX(-50%);
@@ -374,7 +374,7 @@ export function PublicEntryInteractiveTour() {
           .p7-public-tour-primary, .p7-public-tour-secondary { min-height: 52px; }
         }
         @media (max-width: 390px) {
-          .p7-public-tour-trigger { width: min(360px, calc(100vw - 28px)); }
+          .p7-public-tour-trigger { width: min(360px, calc(100dvw - 28px)); }
           .p7-public-tour-card h2 { font-size: 23px; }
           .p7-public-tour-card p { font-size: 13.6px; }
           .p7-public-tour-mini span { font-size: 11.5px; }
