@@ -145,7 +145,7 @@ export default async function AdminPage() {
         <CollapsibleSection title='Saga Orchestrator · целевой контур транзакций' summary='retry · DLQ · ФГИС Зерно · aflatoxin · ручное вмешательство · pre-integration' defaultOpen={false}>
           <SagaOrchestratorPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Production Readiness · чеклист controlled-pilot' summary='инфраструктура · безопасность · качество · мониторинг · compliance · без production proof' defaultOpen={false}>
+        <CollapsibleSection title='Production Readiness · промышленный чеклист' summary='инфраструктура · безопасность · качество · мониторинг · compliance · без production proof' defaultOpen={false}>
           <ProductionReadinessPanel />
         </CollapsibleSection>
         <CollapsibleSection title='Airflow DAG · проект регуляторных пайплайнов' summary='Росстат · ФГИС · ЭДО · GMV · ML retraining · bank outbox · требует runtime-интеграции' defaultOpen={false}>
@@ -166,7 +166,7 @@ export default async function AdminPage() {
         <CollapsibleSection title='Quality Gate · CI/CD ворота качества' summary='coverage · Trivy · Playwright · k6 · GitLeaks · проверочные гейты' defaultOpen={false}>
           <QualityGatePanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Критерии приёмки · controlled-pilot readiness' summary='7 групп · блокеры договорные · готовность к пилоту отдельно от production' defaultOpen={false}>
+        <CollapsibleSection title='Критерии приёмки · промышленная готовность' summary='7 групп · договорные блокеры · автономный контур отдельно от внешних live-интеграций' defaultOpen={false}>
           <AcceptanceCriteriaPanel />
         </CollapsibleSection>
         <CollapsibleSection title='Kafka · K8s HPA · Vault · целевая инфраструктура' summary='topics · HPA · dynamic secrets · encryption · архитектурная модель без подтверждённого live-cluster' defaultOpen={false}>
