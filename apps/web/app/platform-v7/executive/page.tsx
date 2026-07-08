@@ -141,11 +141,11 @@ export default async function ExecutivePage() {
         <UnitEconomicsPassport />
       </CollapsibleSection>
 
-      <CollapsibleSection title='ClickHouse Analytics · GMV и воронка' summary='deals_fact MergeTree · gmv_by_day MV · по культурам · по регионам · конверсия' defaultOpen={false}>
+      <CollapsibleSection title='Аналитика GMV · предынтеграционный макет' summary='структура ClickHouse · сценарные данные · без промышленного SLA' defaultOpen={false}>
         <ClickHouseAnalyticsPanel />
       </CollapsibleSection>
 
-      <CollapsibleSection title='ML Price Predictor · Прогноз цен' summary='LightGBM · доверительный интервал · 5 культур · FastAPI serving · Airflow retrain' defaultOpen={false}>
+      <CollapsibleSection title='Ценовой прогноз · сценарный ML-макет' summary='модельный экран · доверительный интервал · не торговая рекомендация' defaultOpen={false}>
         <MlPricePredictorPanel />
       </CollapsibleSection>
 
