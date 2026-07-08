@@ -2,141 +2,119 @@
 
 import { useState } from 'react';
 
-type StageStatus = 'success' | 'running' | 'failed' | 'pending' | 'skipped';
-
-interface PipelineRun {
-  id: string;
-  branch: string;
-  commit: string;
-  triggeredBy: string;
-  startedAt: string;
-  duration: string | null;
-  stages: PipelineStage[];
-  canaryPct: number | null;
-}
+type StageStatus = 'ready' | 'planned' | 'required';
 
 interface PipelineStage {
   name: string;
   status: StageStatus;
-  duration: string | null;
-  note: string | null;
+  requirement: string;
+  evidence: string;
+  blocksRelease: boolean;
 }
 
-const PIPELINE_RUNS: PipelineRun[] = [
-  {
-    id: 'run-2847', branch: 'main', commit: 'a3f92bc', triggeredBy: 'merge PR#412', startedAt: '2024-03-20T10:30:00Z', duration: '18 мин', canaryPct: 100,
-    stages: [
-      { name: 'lint-typecheck',       status: 'success', duration: '1м 42с', note: null },
-      { name: 'unit-tests',           status: 'success', duration: '2м 55с', note: '94% coverage' },
-      { name: 'build',                status: 'success', duration: '4м 12с', note: 'multi-stage Docker' },
-      { name: 'sast',                 status: 'success', duration: '3м 08с', note: 'Semgrep: 0 critical' },
-      { name: 'container-scan',       status: 'success', duration: '1м 55с', note: 'Trivy: 0 High CVE' },
-      { name: 'secret-scan',          status: 'success', duration: '0м 28с', note: 'GitLeaks: clean' },
-      { name: 'integration-tests',    status: 'success', duration: '4м 19с', note: 'mock adapters OK' },
-      { name: 'deploy-staging',       status: 'success', duration: '0м 45с', note: 'ArgoCD sync' },
-      { name: 'e2e-tests',            status: 'success', duration: '9м 11с', note: 'Playwright: 47/47' },
-      { name: 'performance-gate',     status: 'success', duration: '2м 30с', note: 'k6 p95 < 480мс' },
-      { name: 'deploy-production',    status: 'success', duration: '31м',   note: 'Canary 5→50→100%' },
-      { name: 'post-deploy-smoke',    status: 'success', duration: '1м 12с', note: 'Critical path OK' },
-    ],
-  },
-  {
-    id: 'run-2846', branch: 'feat/railway', commit: 'b81d4ef', triggeredBy: 'push', startedAt: '2024-03-20T08:15:00Z', duration: '7 мин', canaryPct: null,
-    stages: [
-      { name: 'lint-typecheck',  status: 'success', duration: '1м 38с', note: null },
-      { name: 'unit-tests',      status: 'failed',  duration: '3м 02с', note: '1 failed: wagons.test.ts' },
-      { name: 'build',           status: 'skipped', duration: null,    note: null },
-      { name: 'sast',            status: 'skipped', duration: null,    note: null },
-      { name: 'container-scan',  status: 'skipped', duration: null,    note: null },
-      { name: 'secret-scan',     status: 'skipped', duration: null,    note: null },
-      { name: 'integration-tests',status: 'skipped',duration: null,    note: null },
-      { name: 'deploy-staging',  status: 'skipped', duration: null,    note: null },
-      { name: 'e2e-tests',       status: 'skipped', duration: null,    note: null },
-      { name: 'performance-gate',status: 'skipped', duration: null,    note: null },
-      { name: 'deploy-production',status:'skipped', duration: null,    note: null },
-      { name: 'post-deploy-smoke',status:'skipped', duration: null,    note: null },
-    ],
-  },
+const PIPELINE_STAGES: PipelineStage[] = [
+  { name: 'typecheck-build', status: 'ready', requirement: 'приложение должно собираться на активном deploy-контуре', evidence: 'подтверждается Railway status', blocksRelease: true },
+  { name: 'lint', status: 'planned', requirement: 'lint не должен иметь блокирующих ошибок', evidence: 'нужен текущий CI-отчёт', blocksRelease: true },
+  { name: 'unit-tests', status: 'required', requirement: 'критическая доменная логика должна иметь тесты', evidence: 'нужен отчёт текущего прогона', blocksRelease: true },
+  { name: 'integration-tests', status: 'required', requirement: 'сделка, документы, деньги и спор должны проверяться вместе', evidence: 'нужен отчёт интеграционных тестов', blocksRelease: true },
+  { name: 'browser-e2e', status: 'planned', requirement: 'ключевой путь сделки должен проходить в браузере', evidence: 'нужен E2E-прогон', blocksRelease: true },
+  { name: 'mobile-smoke', status: 'planned', requirement: 'мобильная шапка, навигация, формы и RU/EN/ZH должны проверяться отдельно', evidence: 'нужен UI-smoke', blocksRelease: true },
+  { name: 'load-profile', status: 'required', requirement: 'проверка нагрузки на тысячи пользователей требует сохранённого отчёта', evidence: 'нужен нагрузочный отчёт', blocksRelease: true },
+  { name: 'release-verification', status: 'planned', requirement: 'после deploy нужен smoke критических страниц и ролей', evidence: 'нужен deploy verification отчёт', blocksRelease: true },
+  { name: 'rollback-plan', status: 'planned', requirement: 'должен быть понятный ручной rollback без потери сделок и журнала событий', evidence: 'нужен runbook', blocksRelease: false },
 ];
 
-const STAGE_CFG: Record<StageStatus, { bg: string; color: string; icon: string }> = {
-  success: { bg: '#D1FAE5', color: '#065F46', icon: '✓' },
-  running: { bg: '#EFF6FF', color: '#1E40AF', icon: '⟳' },
-  failed:  { bg: '#FEE2E2', color: '#991B1B', icon: '✗' },
-  pending: { bg: '#F1F5F9', color: '#64748B', icon: '○' },
-  skipped: { bg: '#F1F5F9', color: '#94A3B8', icon: '—' },
+const STAGE_CFG: Record<StageStatus, { label: string; bg: string; color: string; icon: string }> = {
+  ready: { label: 'READY', bg: '#D1FAE5', color: '#065F46', icon: '✓' },
+  planned: { label: 'PLANNED', bg: '#DBEAFE', color: '#1E40AF', icon: '◌' },
+  required: { label: 'REQUIRED', bg: '#FEF3C7', color: '#92400E', icon: '!' },
 };
 
 const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em' };
 
+type Tab = 'stages' | 'rules';
+
 export function CiCdPipelinePanel() {
-  const [selected, setSelected] = useState<string>(PIPELINE_RUNS[0].id);
-  const run = PIPELINE_RUNS.find(r => r.id === selected) ?? PIPELINE_RUNS[0];
-  const successStages = run.stages.filter(s => s.status === 'success').length;
-  const failedStages = run.stages.filter(s => s.status === 'failed').length;
+  const [tab, setTab] = useState<Tab>('stages');
+  const ready = PIPELINE_STAGES.filter(s => s.status === 'ready').length;
+  const required = PIPELINE_STAGES.filter(s => s.status === 'required').length;
+  const blockers = PIPELINE_STAGES.filter(s => s.blocksRelease && s.status !== 'ready').length;
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
-      {/* Run selector */}
-      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-        {PIPELINE_RUNS.map((r) => {
-          const hasFail = r.stages.some(s => s.status === 'failed');
-          const isSelected = r.id === selected;
-          return (
-            <button key={r.id} onClick={() => setSelected(r.id)} style={{ padding: '5px 12px', borderRadius: 8, border: isSelected ? 'none' : '1px solid #E4E6EA', background: isSelected ? '#0F1419' : '#F8FAFB', color: isSelected ? '#fff' : '#374151', fontSize: 10, fontWeight: 700, cursor: 'pointer', display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ color: hasFail ? '#DC2626' : '#065F46', fontWeight: 900 }}>{hasFail ? '✗' : '✓'}</span>
-              {r.id} · {r.branch} · {r.commit}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Run summary */}
-      <div style={{ padding: '10px 14px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 8 }}>
         {[
-          { label: 'Ветка', value: run.branch },
-          { label: 'Триггер', value: run.triggeredBy },
-          { label: 'Начало', value: new Date(run.startedAt).toLocaleString('ru-RU') },
-          { label: 'Длительность', value: run.duration ?? 'Идёт...' },
-          { label: 'Этапов OK', value: `${successStages}/${run.stages.length}` },
-          { label: 'Canary', value: run.canaryPct !== null ? `${run.canaryPct}%` : '—' },
+          { label: 'Этапов', value: PIPELINE_STAGES.length, color: '#0F1419' },
+          { label: 'READY', value: ready, color: '#065F46' },
+          { label: 'REQUIRED', value: required, color: required > 0 ? '#92400E' : '#065F46' },
+          { label: 'Release blockers', value: blockers, color: blockers > 0 ? '#DC2626' : '#065F46' },
         ].map((s) => (
-          <div key={s.label}>
+          <div key={s.label} style={{ padding: '10px 12px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
             <div style={lbl}>{s.label}</div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#0F1419', marginTop: 2 }}>{s.value}</div>
+            <div style={{ fontSize: 14, fontWeight: 900, color: s.color, marginTop: 4 }}>{s.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Stages */}
-      <div style={{ display: 'grid', gap: 4 }}>
-        <div style={lbl}>Этапы pipeline · GitHub Actions + ArgoCD</div>
-        {run.stages.map((s, i) => {
-          const st = STAGE_CFG[s.status];
-          return (
-            <div key={s.name} style={{ padding: '5px 10px', borderRadius: 7, background: s.status === 'failed' ? '#FEF2F2' : '#F8FAFB', border: `1px solid ${s.status === 'failed' ? '#FECACA' : '#E4E6EA'}`, display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ fontSize: 8, fontWeight: 900, minWidth: 18, textAlign: 'center', color: st.color }}>{st.icon}</span>
-              <span style={{ fontSize: 9, color: '#94A3B8', minWidth: 20 }}>{i + 1}.</span>
-              <code style={{ fontSize: 9, fontWeight: 700, color: '#0F1419', flex: 1 }}>{s.name}</code>
-              {s.duration && <span style={{ fontSize: 9, color: '#64748B', minWidth: 60, textAlign: 'right' }}>{s.duration}</span>}
-              {s.note && <span style={{ fontSize: 9, color: s.status === 'failed' ? '#991B1B' : '#064E3B' }}>{s.note}</span>}
-            </div>
-          );
-        })}
+      <div style={{ padding: '8px 12px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: 9, color: '#1E40AF', fontWeight: 700, lineHeight: 1.6 }}>
+        Release readiness · настоящая платформа временно без интеграций. История pipeline, PASS-статусы, canary, perf и E2E не заявляются без текущих отчётов активного deploy-контура.
       </div>
 
-      {failedStages > 0 && (
-        <div style={{ padding: '8px 12px', borderRadius: 8, background: '#FEE2E2', border: '1px solid #FECACA', fontSize: 10, color: '#991B1B', fontWeight: 700 }}>
-          ✗ Pipeline заблокирован — {failedStages} этап(а) завершились с ошибкой. Deploy заморожен до исправления.
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+        {([['stages', 'Этапы'], ['rules', 'Правила релиза']] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)} style={{ padding: '4px 10px', borderRadius: 6, border: tab === id ? 'none' : '1px solid #E4E6EA', background: tab === id ? '#0F1419' : '#F8FAFB', color: tab === id ? '#fff' : '#64748B', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'stages' && (
+        <div style={{ display: 'grid', gap: 5 }}>
+          <div style={lbl}>Release gates · evidence-based readiness</div>
+          {PIPELINE_STAGES.map((stage, i) => {
+            const st = STAGE_CFG[stage.status];
+            return (
+              <div key={stage.name} style={{ padding: '8px 10px', borderRadius: 8, background: stage.status === 'required' ? '#FFFBEB' : '#F8FAFB', border: `1px solid ${stage.status === 'required' ? '#FDE68A' : '#E4E6EA'}` }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 8, fontWeight: 900, minWidth: 18, textAlign: 'center', color: st.color }}>{i + 1}.</span>
+                  <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: st.bg, color: st.color }}>{st.icon} {st.label}</span>
+                  <code style={{ fontSize: 9, fontWeight: 700, color: '#0F1419', flex: 1 }}>{stage.name}</code>
+                  {stage.blocksRelease && <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 3, background: '#FEE2E2', color: '#DC2626', fontWeight: 800 }}>release gate</span>}
+                </div>
+                <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>{stage.requirement}</div>
+                <div style={{ fontSize: 8, color: '#94A3B8', marginTop: 1 }}>Evidence: {stage.evidence}</div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      <div style={{ padding: '8px 12px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: 9, color: '#1E40AF', fontWeight: 700, lineHeight: 1.6 }}>
-        CI: GitHub Actions · CD: ArgoCD GitOps · SAST: Semgrep · Container: Trivy · Secrets: GitLeaks · Canary: 5%→50%→100% · Rollback: error rate &gt; 1% → auto-revert
-      </div>
+      {tab === 'rules' && (
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={lbl}>Правила релиза</div>
+          {[
+            { key: 'Нет fake-pass', value: 'не показывать успешные тесты, проценты покрытия, E2E и нагрузку без сохранённого отчёта' },
+            { key: 'Deploy source', value: 'активный статус берётся только из актуального deploy-контура, старые Vercel/Deno failures не смешиваются с Railway' },
+            { key: 'Интеграции', value: 'релиз платформы не равен подключению ФГИС, ЭДО, банка, КЭП, ЕСИА, ERP или CRM' },
+            { key: 'Mobile smoke', value: 'релиз не должен проходить без проверки шапки, навигации, форм и критических страниц на телефоне' },
+            { key: 'Rollback', value: 'откат не должен терять сделки, документы, деньги, события и evidence trail' },
+          ].map((row) => (
+            <div key={row.key} style={{ display: 'flex', gap: 12, padding: '6px 10px', borderRadius: 6, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#374151', width: 120, flexShrink: 0 }}>{row.key}</span>
+              <span style={{ fontSize: 10, color: '#64748B' }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {blockers > 0 && (
+        <div style={{ padding: '8px 12px', borderRadius: 8, background: '#FFFBEB', border: '1px solid #FDE68A', fontSize: 10, color: '#92400E', fontWeight: 700 }}>
+          {blockers} release-gate требуют подтверждения отчётом перед заявлением production proof.
+        </div>
+      )}
 
       <div style={{ fontSize: 9, color: '#94A3B8', padding: '4px 8px', borderRadius: 6, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
-        GitHub Actions 12 этапов · ArgoCD GitOps · Flagsmith canary · Playwright E2E · k6 perf gate · Демо-данные.
+        CI/CD readiness · сборка, тесты, E2E, нагрузка, mobile-smoke и release verification должны подтверждаться текущими отчётами; внешние интеграции временно не подключены.
       </div>
     </div>
   );
