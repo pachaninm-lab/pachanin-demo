@@ -2,70 +2,141 @@
 
 import { useState } from 'react';
 
-type VerifyStatus = 'ok' | 'replay' | 'sig_fail' | 'duplicate';
+type ReadinessStatus = 'ready' | 'planned' | 'external';
 
-interface WebhookEvent {
+interface WebhookControl {
   id: string;
-  eventType: string;
-  adapter: string;
-  timestamp: string;
-  status: VerifyStatus;
-  durationMs: number;
-  idempotencyKey: string;
-  detail: string;
+  area: string;
+  title: string;
+  status: ReadinessStatus;
+  requirement: string;
+  acceptance: string;
 }
 
-interface WebhookEndpoint {
+interface PartnerFlow {
   id: string;
-  url: string;
+  name: string;
+  direction: string;
   events: string[];
-  active: boolean;
-  secret: string;
-  deliveredLast24h: number;
-  failedLast24h: number;
+  status: ReadinessStatus;
+  note: string;
 }
 
-const EVENTS: WebhookEvent[] = [
-  { id: 'wh-001', eventType: 'deal.payment_reserved',  adapter: 'Сбер Escrow',   timestamp: '2024-03-20T11:22:00Z', status: 'ok',        durationMs: 42,  idempotencyKey: 'evt_sber_001a', detail: 'HMAC-SHA256 OK · timestamp age 12 сек · idempotency miss → обработан' },
-  { id: 'wh-002', eventType: 'fgis.lot_registered',    adapter: 'ФГИС Зерно',    timestamp: '2024-03-20T10:55:00Z', status: 'ok',        durationMs: 67,  idempotencyKey: 'evt_fgis_441892', detail: 'HMAC-SHA256 OK · ФГИС-2024-РО-441892 привязан к DL-9095 · Saga step обновлён' },
-  { id: 'wh-003', eventType: 'edo.upd_signed',         adapter: 'Диадок',        timestamp: '2024-03-20T10:30:00Z', status: 'ok',        durationMs: 38,  idempotencyKey: 'evt_ddk_upd_9095', detail: 'HMAC-SHA256 OK · УПД для DL-9095 подписан BUYER · статус документа → SIGNED' },
-  { id: 'wh-004', eventType: 'bank.mt940_received',    adapter: 'Сбер МТ940',    timestamp: '2024-03-20T09:15:00Z', status: 'replay',    durationMs: 8,   idempotencyKey: 'evt_mt940_003r', detail: 'Timestamp age 380 сек > 300 сек tolerance → WebhookReplayError, событие отклонено' },
-  { id: 'wh-005', eventType: 'kyc.verification_done',  adapter: 'KYC/AML',       timestamp: '2024-03-19T16:44:00Z', status: 'sig_fail',  durationMs: 5,   idempotencyKey: 'evt_kyc_xfail', detail: 'HMAC-SHA256 мисматч: ожидаемая подпись ≠ x-signature → WebhookSignatureError' },
-  { id: 'wh-006', eventType: 'deal.payment_reserved',  adapter: 'Сбер Escrow',   timestamp: '2024-03-20T11:22:01Z', status: 'duplicate', durationMs: 3,   idempotencyKey: 'evt_sber_001a', detail: 'idempotencyKey уже обработан (wh-001) → alreadyProcessed: true, пропущен' },
+const CONTROLS: WebhookControl[] = [
+  {
+    id: 'whc-01',
+    area: 'Inbound',
+    title: 'Проверка источника события',
+    status: 'planned',
+    requirement: 'каждое входящее событие должно иметь проверяемый источник и журнал обработки',
+    acceptance: 'подтверждается интеграционным тестом и audit trail',
+  },
+  {
+    id: 'whc-02',
+    area: 'Inbound',
+    title: 'Защита от повторной обработки',
+    status: 'planned',
+    requirement: 'повторное событие не должно создавать дубль сделки, документа или финансового основания',
+    acceptance: 'подтверждается тестом идемпотентности',
+  },
+  {
+    id: 'whc-03',
+    area: 'Outbound',
+    title: 'Очередь исходящих событий',
+    status: 'planned',
+    requirement: 'исходящие уведомления должны проходить через очередь, повтор и ручную проверку ошибок',
+    acceptance: 'подтверждается outbox-отчётом',
+  },
+  {
+    id: 'whc-04',
+    area: 'Partners',
+    title: 'Партнёрские подключения',
+    status: 'external',
+    requirement: 'ERP, банк, ЭДО, ФГИС и ГИС ЭПД подключаются только после договоров, доступов и регламента',
+    acceptance: 'не считать live до подтверждённого партнёрского теста',
+  },
+  {
+    id: 'whc-05',
+    area: 'Audit',
+    title: 'Журнал входящих и исходящих событий',
+    status: 'ready',
+    requirement: 'каждое событие должно быть связано со сделкой, actor, временем, результатом и причиной отказа',
+    acceptance: 'проверяется через карточку сделки и evidence trail',
+  },
+  {
+    id: 'whc-06',
+    area: 'Operations',
+    title: 'Safe degradation',
+    status: 'planned',
+    requirement: 'при недоступности внешнего контура сделка не теряется и переводится в понятный статус',
+    acceptance: 'подтверждается smoke-тестом критического пути',
+  },
 ];
 
-const ENDPOINTS: WebhookEndpoint[] = [
-  { id: 'ep-001', url: 'https://erp.partnerXYZ.ru/webhook/grainflow', events: ['deal.*', 'payment.*'], active: true,  secret: 'gf_whsec_***', deliveredLast24h: 47, failedLast24h: 2 },
-  { id: 'ep-002', url: 'https://1c.agro.corp/api/v2/grainflow-events', events: ['shipment.*', 'lab.*'], active: true,  secret: 'gf_whsec_***', deliveredLast24h: 31, failedLast24h: 0 },
-  { id: 'ep-003', url: 'https://analytics.grainco.ru/events',          events: ['deal.closed'],         active: false, secret: 'gf_whsec_***', deliveredLast24h: 0,  failedLast24h: 0 },
+const FLOWS: PartnerFlow[] = [
+  {
+    id: 'flow-01',
+    name: 'Bank release basis',
+    direction: 'platform → bank / bank → platform',
+    events: ['reserve_requested', 'release_basis_ready', 'reconciliation_result'],
+    status: 'external',
+    note: 'требует банкового договора, callback, reconciliation и регламента споров',
+  },
+  {
+    id: 'flow-02',
+    name: 'FGIS / SDIZ contour',
+    direction: 'platform ↔ state contour',
+    events: ['lot_reference', 'sdiz_status', 'restriction_update'],
+    status: 'external',
+    note: 'требует доступа к API, регламента и подтверждённых операций',
+  },
+  {
+    id: 'flow-03',
+    name: 'EDO / signing contour',
+    direction: 'platform ↔ document provider',
+    events: ['document_sent', 'document_signed', 'document_rejected'],
+    status: 'external',
+    note: 'требует договора с провайдером, сертификатов и проверенного signing-flow',
+  },
+  {
+    id: 'flow-04',
+    name: 'ERP / CRM partner events',
+    direction: 'platform → partner systems',
+    events: ['deal_created', 'shipment_updated', 'document_ready'],
+    status: 'planned',
+    note: 'должно быть вторичным контуром, не заменяющим объект Сделка',
+  },
 ];
 
-const STATUS_CFG: Record<VerifyStatus, { label: string; bg: string; color: string; icon: string }> = {
-  ok:        { label: 'Принят',      bg: '#D1FAE5', color: '#065F46', icon: '✓' },
-  replay:    { label: 'Replay',      bg: '#FEF3C7', color: '#92400E', icon: '⏱' },
-  sig_fail:  { label: 'Подпись ✗',  bg: '#FEE2E2', color: '#DC2626', icon: '✗' },
-  duplicate: { label: 'Дубликат',    bg: '#F1F5F9', color: '#64748B', icon: '⊗' },
+const STATUS_CFG: Record<ReadinessStatus, { label: string; bg: string; color: string; icon: string }> = {
+  ready: { label: 'READY', bg: '#D1FAE5', color: '#065F46', icon: '✓' },
+  planned: { label: 'PLANNED', bg: '#DBEAFE', color: '#1E40AF', icon: '◌' },
+  external: { label: 'EXTERNAL', bg: '#FEF3C7', color: '#92400E', icon: '!' },
+};
+
+const AREA_COLOR: Record<string, string> = {
+  Inbound: '#0EA5E9', Outbound: '#10B981', Partners: '#F59E0B', Audit: '#0F1419', Operations: '#8B5CF6',
 };
 
 const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em' };
 
-type Tab = 'events' | 'endpoints' | 'config';
+type Tab = 'controls' | 'flows' | 'rules';
 
 export function WebhookSecurityPanel() {
-  const [tab, setTab] = useState<Tab>('events');
+  const [tab, setTab] = useState<Tab>('controls');
 
-  const ok = EVENTS.filter(e => e.status === 'ok').length;
-  const rejected = EVENTS.filter(e => e.status !== 'ok' && e.status !== 'duplicate').length;
+  const ready = CONTROLS.filter(c => c.status === 'ready').length;
+  const planned = CONTROLS.filter(c => c.status === 'planned').length;
+  const external = CONTROLS.filter(c => c.status === 'external').length + FLOWS.filter(f => f.status === 'external').length;
 
   return (
     <div style={{ display: 'grid', gap: '1rem' }}>
-      {/* Summary */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 8 }}>
         {[
-          { label: 'Входящих событий', value: EVENTS.length,                  color: '#0F1419' },
-          { label: 'Принято',          value: ok,                             color: '#065F46' },
-          { label: 'Отклонено/ошибка', value: rejected,                       color: rejected > 0 ? '#DC2626' : '#065F46' },
-          { label: 'Эндпоинтов',       value: ENDPOINTS.filter(e => e.active).length, color: '#1E40AF' },
+          { label: 'Контролей', value: CONTROLS.length, color: '#0F1419' },
+          { label: 'READY', value: ready, color: '#065F46' },
+          { label: 'PLANNED', value: planned, color: '#1E40AF' },
+          { label: 'EXTERNAL', value: external, color: external > 0 ? '#92400E' : '#065F46' },
         ].map((s) => (
           <div key={s.label} style={{ padding: '10px 12px', borderRadius: 10, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
             <div style={lbl}>{s.label}</div>
@@ -75,72 +146,69 @@ export function WebhookSecurityPanel() {
       </div>
 
       <div style={{ padding: '8px 12px', borderRadius: 8, background: '#EFF6FF', border: '1px solid #BFDBFE', fontSize: 9, color: '#1E40AF', fontWeight: 700, lineHeight: 1.6 }}>
-        HMAC-SHA256(secret, timestamp + "." + payload) · Timestamp tolerance 300 сек (replay protection) · Idempotency: Redis TTL 24ч · Секрет из HashiCorp Vault
+        Webhook readiness · входящие и исходящие события проектируются вокруг сделки. Live-доставка, партнёрские URL, ключи, статистика и callback не заявляются без подтверждённых подключений.
       </div>
 
-      {/* Tabs */}
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-        {([['events', 'Входящие события'], ['endpoints', 'Эндпоинты'], ['config', 'Конфигурация']] as const).map(([id, label]) => (
+        {([['controls', 'Контроли'], ['flows', 'Потоки'], ['rules', 'Правила']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{ padding: '4px 10px', borderRadius: 6, border: tab === id ? 'none' : '1px solid #E4E6EA', background: tab === id ? '#0F1419' : '#F8FAFB', color: tab === id ? '#fff' : '#64748B', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
             {label}
           </button>
         ))}
       </div>
 
-      {tab === 'events' && (
+      {tab === 'controls' && (
         <div style={{ display: 'grid', gap: 5 }}>
-          <div style={lbl}>Верификация входящих webhook-событий</div>
-          {EVENTS.map((ev) => {
-            const st = STATUS_CFG[ev.status];
+          <div style={lbl}>Webhook controls · readiness</div>
+          {CONTROLS.map((control) => {
+            const st = STATUS_CFG[control.status];
             return (
-              <div key={ev.id} style={{ padding: '8px 12px', borderRadius: 10, background: ev.status === 'sig_fail' ? '#FEF2F2' : ev.status === 'replay' ? '#FFFBEB' : '#F8FAFB', border: `1px solid ${ev.status === 'sig_fail' ? '#FECACA' : ev.status === 'replay' ? '#FDE68A' : '#E4E6EA'}` }}>
+              <div key={control.id} style={{ padding: '8px 12px', borderRadius: 10, background: control.status === 'external' ? '#FFFBEB' : '#F8FAFB', border: `1px solid ${control.status === 'external' ? '#FDE68A' : '#E4E6EA'}` }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: st.bg, color: st.color }}>{st.icon} {st.label}</span>
-                  <code style={{ fontSize: 10, fontWeight: 700, color: '#0F1419' }}>{ev.eventType}</code>
-                  <span style={{ fontSize: 9, color: '#64748B', flex: 1 }}>{ev.adapter}</span>
-                  <span style={{ fontSize: 8, color: '#94A3B8' }}>{new Date(ev.timestamp).toLocaleTimeString('ru-RU')}</span>
-                  <span style={{ fontSize: 8, color: '#94A3B8' }}>{ev.durationMs} мс</span>
+                  <span style={{ fontSize: 8, fontWeight: 800, color: AREA_COLOR[control.area] ?? '#374151' }}>[{control.area}]</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#0F1419', flex: 1 }}>{control.title}</span>
                 </div>
-                <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>{ev.detail}</div>
-                <div style={{ fontSize: 8, color: '#94A3B8', marginTop: 1 }}>Idempotency: {ev.idempotencyKey}</div>
+                <div style={{ fontSize: 9, color: '#64748B', marginTop: 2 }}>{control.requirement}</div>
+                <div style={{ fontSize: 8, color: '#94A3B8', marginTop: 1 }}>Acceptance: {control.acceptance}</div>
               </div>
             );
           })}
         </div>
       )}
 
-      {tab === 'endpoints' && (
+      {tab === 'flows' && (
         <div style={{ display: 'grid', gap: 5 }}>
-          <div style={lbl}>Исходящие webhook-эндпоинты партнёров</div>
-          {ENDPOINTS.map((ep) => (
-            <div key={ep.id} style={{ padding: '8px 12px', borderRadius: 10, background: ep.active ? '#F8FAFB' : '#F1F5F9', border: `1px solid ${ep.active ? '#E4E6EA' : '#CBD5E1'}`, opacity: ep.active ? 1 : 0.65 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 5px', borderRadius: 3, background: ep.active ? '#D1FAE5' : '#E2E8F0', color: ep.active ? '#065F46' : '#64748B' }}>{ep.active ? 'ACTIVE' : 'INACTIVE'}</span>
-                <code style={{ fontSize: 9, fontWeight: 700, color: '#0F1419', flex: 1, wordBreak: 'break-all' }}>{ep.url}</code>
+          <div style={lbl}>Партнёрские webhook-потоки</div>
+          {FLOWS.map((flow) => {
+            const st = STATUS_CFG[flow.status];
+            return (
+              <div key={flow.id} style={{ padding: '8px 12px', borderRadius: 10, background: flow.status === 'external' ? '#FFFBEB' : '#F8FAFB', border: `1px solid ${flow.status === 'external' ? '#FDE68A' : '#E4E6EA'}` }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 5px', borderRadius: 3, background: st.bg, color: st.color }}>{st.icon} {st.label}</span>
+                  <code style={{ fontSize: 9, fontWeight: 700, color: '#0F1419', flex: 1 }}>{flow.name}</code>
+                  <span style={{ fontSize: 8, color: '#94A3B8' }}>{flow.direction}</span>
+                </div>
+                <div style={{ fontSize: 9, color: '#64748B', marginTop: 3 }}>Events: {flow.events.join(', ')}</div>
+                <div style={{ fontSize: 8, color: '#94A3B8', marginTop: 1 }}>{flow.note}</div>
               </div>
-              <div style={{ fontSize: 9, color: '#64748B', marginTop: 3 }}>
-                Events: {ep.events.join(', ')} · 24ч: {ep.deliveredLast24h} доставлено, {ep.failedLast24h} ошибок · Secret: {ep.secret}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {tab === 'config' && (
+      {tab === 'rules' && (
         <div style={{ display: 'grid', gap: 8 }}>
-          <div style={lbl}>Конфигурация безопасности</div>
+          <div style={lbl}>Правила промышленной приёмки webhook-контура</div>
           {[
-            { key: 'Алгоритм подписи',     value: 'HMAC-SHA256' },
-            { key: 'Timestamp tolerance',   value: '300 сек (replay protection)' },
-            { key: 'Idempotency store',     value: 'Redis Cluster · TTL 86400 сек' },
-            { key: 'Secret хранение',       value: 'HashiCorp Vault · ротация 90 дней' },
-            { key: 'Retry (исходящие)',     value: 'exponential backoff · 5 попыток · max 1 ч' },
-            { key: 'TLS',                   value: 'TLS 1.3 · проверка cert pinning' },
-            { key: 'IP allowlist',          value: 'Vault-managed · per-partner allowlist' },
-            { key: 'Rate limit (входящие)', value: '1 000 событий/мин на адаптер · Redis' },
+            { key: 'Нет fake-live', value: 'не показывать доставленные события, URL партнёров и статистику без реального подключения' },
+            { key: 'Связь со сделкой', value: 'каждое событие должно быть привязано к dealId или к проверяемому внешнему основанию' },
+            { key: 'Идемпотентность', value: 'повтор события не должен менять деньги, документы или статус сделки дважды' },
+            { key: 'Audit trail', value: 'принятие, отказ и ручная проверка события фиксируются в журнале' },
+            { key: 'Safe degradation', value: 'недоступность партнёра не должна ломать интерфейс и критический путь сделки' },
           ].map((row) => (
             <div key={row.key} style={{ display: 'flex', gap: 12, padding: '6px 10px', borderRadius: 6, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#374151', width: 160, flexShrink: 0 }}>{row.key}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#374151', width: 150, flexShrink: 0 }}>{row.key}</span>
               <span style={{ fontSize: 10, color: '#64748B' }}>{row.value}</span>
             </div>
           ))}
@@ -148,7 +216,7 @@ export function WebhookSecurityPanel() {
       )}
 
       <div style={{ fontSize: 9, color: '#94A3B8', padding: '4px 8px', borderRadius: 6, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
-        §10.4 Webhook Security · HMAC-SHA256 · replay protection · idempotency · Vault secrets · демо-данные.
+        Webhook readiness · внешние события усиливают исполнение сделки, но не считаются live до договоров, доступов, callback, сверки и отчёта приёмки.
       </div>
     </div>
   );
