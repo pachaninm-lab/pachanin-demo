@@ -58,10 +58,10 @@ export function ContactClient({ sent }: { sent: boolean }) {
               <h2>Форма обращения</h2>
               <p>Заполните обязательные поля. Укажите только данные, необходимые для связи и рассмотрения обращения.</p>
               <label><span>Тема обращения</span><select name='type' required defaultValue='platform'>{questionTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-              <label><span>Имя</span><input name='name' type='text' minLength={2} maxLength={80} placeholder='Фамилия и имя' required /></label>
-              <label><span>Организация</span><input name='organization' type='text' maxLength={120} placeholder='При наличии' /></label>
-              <label><span>Телефон или электронная почта</span><input name='contact' type='text' minLength={5} maxLength={120} placeholder='+7... или email организации' required /></label>
-              <label className='p7-contact-full'><span>Содержание обращения</span><textarea name='message' maxLength={2000} rows={6} placeholder='Кратко опишите вопрос, роль организации или требуемый формат взаимодействия.' required /></label>
+              <label><span>Имя</span><input name='name' type='text' minLength={2} maxLength={80} required /></label>
+              <label><span>Организация</span><input name='organization' type='text' maxLength={120} /></label>
+              <label><span>Телефон или электронная почта</span><input name='contact' type='text' minLength={5} maxLength={120} required /></label>
+              <label className='p7-contact-full'><span>Содержание обращения</span><textarea name='message' maxLength={2000} rows={6} required /></label>
               <label className='p7-contact-consent'><input type='checkbox' name='consent' value='yes' required /><span>Даю согласие на обработку указанных данных для рассмотрения обращения и направления ответа.</span></label>
               <button type='submit'>Отправить обращение<ArrowRight size={17} /></button>
             </form>
