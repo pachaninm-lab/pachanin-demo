@@ -128,7 +128,7 @@ const backdrop: React.CSSProperties = {
 };
 
 const dialog: React.CSSProperties = {
-  width: 'min(560px, calc(100vw - 32px))',
+  width: 'min(560px, calc(100dvw - 32px))',
   background: 'var(--pc-bg-card, #fff)',
   border: '1px solid var(--pc-border, #E4E6EA)',
   borderRadius: 18,
