@@ -13,6 +13,7 @@ import '@/styles/platform-v7-compliance-mobile.css';
 import '@/styles/platform-v7-arbitrator-mobile.css';
 import '@/styles/platform-v7-executive-mobile.css';
 import '@/styles/platform-v7-clean-deal-mobile.css';
+import '@/styles/platform-v7-offer-to-deal-mobile.css';
 import '@/styles/platform-v7-stable-shell.css';
 import '@/styles/platform-v7-viewport-stability.css';
 import '@/styles/platform-v7-adaptive-devices.css';
