@@ -76,7 +76,7 @@ export default async function AdminPage() {
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Административная панель</h1>
-      <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>Системный статус и управление</p>
+      <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 20 }}>Системный статус, проверочные контуры и readiness без подмены production-факта</p>
 
       <LiveApiStatusBar
         apiOnline={apiOnline}
@@ -109,73 +109,73 @@ export default async function AdminPage() {
       )}
 
       <div style={{ marginTop: 20, display: 'grid', gap: 16 }}>
-        <CollapsibleSection title='Журнал интеграционных событий' summary='ФГИС · Диадок · Банк · КЭП · GPS' defaultOpen={false}>
+        <CollapsibleSection title='Журнал интеграционных событий' summary='ФГИС · Диадок · Банк · КЭП · GPS · проверочный слой' defaultOpen={false}>
           <IntegrationEventLog />
         </CollapsibleSection>
-        <CollapsibleSection title='Сверка банковской выписки' summary='МТ940 · автосопоставление · ручная очередь' defaultOpen={false}>
+        <CollapsibleSection title='Сверка банковской выписки' summary='МТ940 · правила сопоставления · ручная очередь · требует live-банка' defaultOpen={false}>
           <BankReconciliationPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='SLO/SLA дашборд' summary='uptime · error budget · latency · 6 сервисов' defaultOpen={false}>
+        <CollapsibleSection title='SLO/SLA дашборд · целевые метрики' summary='uptime · error budget · latency · контрольные пороги без production SLA' defaultOpen={false}>
           <SloSlaPanel />
         </CollapsibleSection>
         <CollapsibleSection title='Evidence Bundle · Доказательный пакет' summary='хэш-цепочка · УКЭП · PDF/ZIP экспорт · аудит-лог · арбитраж' defaultOpen={false}>
           <EvidenceBundlePanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Telegram Bot · Уведомления' summary='deal_status · payment · dispute · price_alert · вагон · команды бота' defaultOpen={false}>
+        <CollapsibleSection title='Telegram Bot · проект уведомлений' summary='deal_status · payment · dispute · price_alert · вагон · требует подключения бота' defaultOpen={false}>
           <TelegramBotPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Observability · Метрики и алерты' summary='Prometheus · Grafana · p95/p99 latency · error rate · GMV · Alertmanager' defaultOpen={false}>
+        <CollapsibleSection title='Observability · проект метрик и алертов' summary='Prometheus/Grafana контур · p95/p99 · error rate · GMV · без промышленного SLA' defaultOpen={false}>
           <ObservabilityPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Synthetic Monitoring · 10 критических путей' summary='§13.2 · каждые 5 мин · PagerDuty P1 · uptime 99.97% · FGIS деградация · 8 alert rules' defaultOpen={false}>
+        <CollapsibleSection title='Synthetic Monitoring · сценарии проверки' summary='критические пути · интервальные проверки · P1-алерты · требует внешнего мониторинга' defaultOpen={false}>
           <SyntheticMonitoringPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Feature Flags · Управление флагами' summary='Flagsmith · canary deploy 5%→100% · kill switch · A/B · prod/staging/dev' defaultOpen={false}>
+        <CollapsibleSection title='Feature Flags · проект управления флагами' summary='canary · kill switch · A/B · prod/staging/dev · требует выбранного провайдера' defaultOpen={false}>
           <FeatureFlagsPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Health Status · /health /ready /metrics' summary='5 сервисов · Kubernetes probes · DR RPO/RTO · liveness readiness' defaultOpen={false}>
+        <CollapsibleSection title='Health Status · /health /ready /metrics' summary='liveness/readiness модель · DR RPO/RTO · целевой контур сервисных проб' defaultOpen={false}>
           <HealthStatusPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Load Testing · k6 результаты' summary='baseline 500 VU · peak 1500 VU · stress 5000 VU · p95/p99 · SLO thresholds' defaultOpen={false}>
+        <CollapsibleSection title='Load Testing · план нагрузочных проверок' summary='baseline · peak · stress · p95/p99 · SLO thresholds · результаты требуют отдельного прогона' defaultOpen={false}>
           <LoadTestingPanel />
         </CollapsibleSection>
         <CollapsibleSection title='Support Ops Queue · Тикеты' summary='P1/P2/P3/P4 · KYC/финансы/доступ · просмотр сделки · эскалация · SLA' defaultOpen={false}>
           <SupportOpsPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Saga Orchestrator · Распределённые транзакции' summary='Kafka · DLQ · retry backoff · FGIS Зерно · aflatoxin · ручное вмешательство' defaultOpen={false}>
+        <CollapsibleSection title='Saga Orchestrator · целевой контур транзакций' summary='retry · DLQ · ФГИС Зерно · aflatoxin · ручное вмешательство · pre-integration' defaultOpen={false}>
           <SagaOrchestratorPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Production Readiness · Чеклист готовности к проду' summary='инфраструктура · безопасность · качество · мониторинг · compliance' defaultOpen={false}>
+        <CollapsibleSection title='Production Readiness · чеклист controlled-pilot' summary='инфраструктура · безопасность · качество · мониторинг · compliance · без production proof' defaultOpen={false}>
           <ProductionReadinessPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Airflow DAG · Регуляторные и аналитические пайплайны' summary='Росстат · ФГИС · ЭДО · GMV · ML ретрейнинг · bank outbox · SLA мониторинг' defaultOpen={false}>
+        <CollapsibleSection title='Airflow DAG · проект регуляторных пайплайнов' summary='Росстат · ФГИС · ЭДО · GMV · ML retraining · bank outbox · требует runtime-интеграции' defaultOpen={false}>
           <AirflowDagPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='B2B Partner API · Ключи и Webhooks' summary='API ключи Vault · scope-based · ротация 90 дн · HMAC webhook · 3 ключа · 2 webhook' defaultOpen={false}>
+        <CollapsibleSection title='B2B Partner API · ключи и webhooks' summary='API keys · scope-based · rotation · HMAC webhook · pre-integration security model' defaultOpen={false}>
           <B2BPartnerApiPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Webhook Security · HMAC верификация' summary='HMAC-SHA256 · replay protection 300 сек · idempotency Redis · Vault secrets · 6 событий' defaultOpen={false}>
+        <CollapsibleSection title='Webhook Security · HMAC верификация' summary='HMAC-SHA256 · replay protection · idempotency · secrets · требует live-секретов' defaultOpen={false}>
           <WebhookSecurityPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Core Web Vitals · Производительность UI' summary='LCP 1.8с · INP 72мс · CLS 0.04 · Bundle 187КБ · Grafana Faro · Lighthouse CI' defaultOpen={false}>
+        <CollapsibleSection title='Core Web Vitals · контроль производительности UI' summary='LCP · INP · CLS · bundle · Lighthouse/Faro как целевой мониторинг' defaultOpen={false}>
           <CoreWebVitalsPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='PostgreSQL Migration · SQLite → PG 16' summary='§4.1 БЛОКЕР · RLS · read-replicas · SERIALIZABLE · 8 шагов · dual-write · 8 индексов' defaultOpen={false}>
+        <CollapsibleSection title='PostgreSQL Migration · SQLite → PG 16' summary='RLS · read-replicas · SERIALIZABLE · dual-write · индексы · миграционный план' defaultOpen={false}>
           <PostgresMigrationPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Quality Gate · CI/CD воротa качества' summary='§15.4 · coverage 87% · Trivy 0 CVE · Playwright 8/8 · k6 p95 312мс · GitLeaks · 15 гейтов' defaultOpen={false}>
+        <CollapsibleSection title='Quality Gate · CI/CD ворота качества' summary='coverage · Trivy · Playwright · k6 · GitLeaks · проверочные гейты' defaultOpen={false}>
           <QualityGatePanel />
         </CollapsibleSection>
-        <CollapsibleSection title='§17 Критерии приёмки · Production Readiness' summary='7 групп · 41 критерий · 62% готово · блокеры договорные · Strong Controlled-Pilot' defaultOpen={false}>
+        <CollapsibleSection title='Критерии приёмки · controlled-pilot readiness' summary='7 групп · блокеры договорные · готовность к пилоту отдельно от production' defaultOpen={false}>
           <AcceptanceCriteriaPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Kafka · K8s HPA · Vault' summary='10 топиков · RF=3 · 8 сервисов HPA · dynamic secrets · Transit encryption' defaultOpen={false}>
+        <CollapsibleSection title='Kafka · K8s HPA · Vault · целевая инфраструктура' summary='topics · HPA · dynamic secrets · encryption · архитектурная модель без подтверждённого live-cluster' defaultOpen={false}>
           <KafkaInfraPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='Disaster Recovery · Бэкапы и Runbook' summary='6 сценариев · RPO/RTO · S3 бэкапы · WAL replay · DR тренировка' defaultOpen={false}>
+        <CollapsibleSection title='Disaster Recovery · план бэкапов и runbook' summary='сценарии · RPO/RTO · S3/WAL · DR-тренировка · требует промышленного окружения' defaultOpen={false}>
           <DisasterRecoveryPanel />
         </CollapsibleSection>
-        <CollapsibleSection title='CI/CD Pipeline · GitHub Actions + ArgoCD' summary='12 этапов · SAST · Trivy · Playwright · k6 perf gate · Canary 5→100%' defaultOpen={false}>
+        <CollapsibleSection title='CI/CD Pipeline · целевая поставка' summary='SAST · Trivy · Playwright · perf gate · canary · требует закреплённого deploy-контура' defaultOpen={false}>
           <CiCdPipelinePanel />
         </CollapsibleSection>
       </div>
