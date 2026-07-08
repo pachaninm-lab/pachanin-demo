@@ -1,52 +1,51 @@
 /* Arbitrator cockpit mobile hardening.
-   Scope: /platform-v7/arbitrator only. Protects dispute evidence, decision guard, journal and dispute room from mobile overflow. */
+   Scope: /platform-v7/arbitrator only. Uses existing decision guard marker to avoid page rewrite. */
 
-[data-testid='platform-v7-arbitrator-page'],
-[data-testid='platform-v7-arbitrator-page'] * {
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']),
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) * {
   min-width: 0;
   box-sizing: border-box;
   overflow-wrap: anywhere;
 }
 
-[data-testid='platform-v7-arbitrator-page'] {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
 }
 
-[data-testid='platform-v7-arbitrator-page'] a,
-[data-testid='platform-v7-arbitrator-page'] button,
-[data-testid='platform-v7-arbitrator-page'] summary {
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) a,
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) button,
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) summary {
   max-width: 100%;
   white-space: normal;
 }
 
-[data-testid='platform-v7-arbitrator-page'] section,
-[data-testid='platform-v7-arbitrator-page'] article,
-[data-testid='platform-v7-arbitrator-page'] details,
-[data-testid='platform-v7-arbitrator-page'] [style*='display: grid'],
-[data-testid='platform-v7-arbitrator-page'] [style*='display:grid'],
-[data-testid='platform-v7-arbitrator-page'] [style*='display: flex'],
-[data-testid='platform-v7-arbitrator-page'] [style*='display:flex'] {
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) section,
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) article,
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) details,
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='display: grid'],
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='display:grid'],
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='display: flex'],
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='display:flex'] {
   max-width: 100%;
 }
 
-[data-testid='platform-v7-arbitrator-page'] [style*='borderRadius'],
-[data-testid='platform-v7-arbitrator-page'] [style*='border-radius'] {
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='borderRadius'],
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='border-radius'] {
   overflow: hidden;
 }
 
-[data-testid='platform-v7-arbitrator-page'] [style*='width: fit-content'],
-[data-testid='platform-v7-arbitrator-page'] [style*='width:fit-content'] {
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='width: fit-content'],
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='width:fit-content'] {
   max-width: 100% !important;
 }
 
-[data-testid='platform-v7-arbitrator-page'] strong,
-[data-testid='platform-v7-arbitrator-page'] span,
-[data-testid='platform-v7-arbitrator-page'] p,
-[data-testid='platform-v7-arbitrator-page'] h1,
-[data-testid='platform-v7-arbitrator-page'] h2,
-[data-testid='platform-v7-arbitrator-page'] h3 {
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) strong,
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) span,
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) p,
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) h1,
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) h2,
+.pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) h3 {
   overflow-wrap: anywhere;
 }
 
@@ -57,16 +56,15 @@
 }
 
 @media (max-width: 900px) {
-  [data-testid='platform-v7-arbitrator-page'] [style*='repeat(auto-fit, minmax(180px'],
-  [data-testid='platform-v7-arbitrator-page'] [style*='repeat(auto-fit,minmax(180px'] {
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='repeat(auto-fit, minmax(180px'],
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='repeat(auto-fit,minmax(180px'] {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
 @media (max-width: 767px) {
-  [data-testid='platform-v7-arbitrator-page'] {
-    gap: 10px !important;
-    padding: 0 0 calc(env(safe-area-inset-bottom) + 164px) !important;
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 164px) !important;
   }
 
   [data-testid='platform-v7-arbitrator-decision-guard'] {
@@ -81,22 +79,22 @@
     line-height: 1.08 !important;
   }
 
-  [data-testid='platform-v7-arbitrator-page'] [style*='repeat(auto-fit, minmax(180px'],
-  [data-testid='platform-v7-arbitrator-page'] [style*='repeat(auto-fit,minmax(180px'] {
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='repeat(auto-fit, minmax(180px'],
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='repeat(auto-fit,minmax(180px'] {
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 8px !important;
   }
 
-  [data-testid='platform-v7-arbitrator-page'] [style*='display: flex'][style*='flexWrap'],
-  [data-testid='platform-v7-arbitrator-page'] [style*='display:flex'][style*='flex-wrap'] {
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='display: flex'][style*='flexWrap'],
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) [style*='display:flex'][style*='flex-wrap'] {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 8px !important;
   }
 
-  [data-testid='platform-v7-arbitrator-page'] a[style*='display: inline-flex'],
-  [data-testid='platform-v7-arbitrator-page'] a[style*='display:inline-flex'],
-  [data-testid='platform-v7-arbitrator-page'] button {
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) a[style*='display: inline-flex'],
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) a[style*='display:inline-flex'],
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) button {
     width: 100% !important;
     min-height: 44px !important;
     justify-content: center !important;
@@ -104,19 +102,19 @@
     white-space: normal !important;
   }
 
-  [data-testid='platform-v7-arbitrator-page'] details > summary {
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) details > summary {
     align-items: flex-start !important;
     padding: 14px !important;
   }
 
-  [data-testid='platform-v7-arbitrator-page'] details > summary > span:last-child {
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) details > summary > span:last-child {
     flex: 0 0 auto;
     max-width: 96px !important;
     white-space: normal !important;
     text-align: center !important;
   }
 
-  [data-testid='platform-v7-arbitrator-page'] details > div {
+  .pc-shell-root-v4 .pc-v4-main:has([data-testid='platform-v7-arbitrator-decision-guard']) details > div {
     padding: 12px !important;
   }
 }
