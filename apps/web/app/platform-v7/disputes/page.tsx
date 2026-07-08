@@ -114,7 +114,6 @@ const disputeSummary = [
 
 export default async function PlatformV7DisputesPage() {
   const liveDisputes = await getDisputes();
-  const apiOnline = liveDisputes.length > 0 || true;
   const heldRub = disputeTotalHeldRub(liveDisputes);
   const disputeCount = openDisputeCount(liveDisputes);
 
