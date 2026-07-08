@@ -19,38 +19,38 @@ const STATUS_CONFIG: Record<CheckStatus, { label: string; bg: string; color: str
 
 const CHECKLIST: ReadinessCheck[] = [
   // Инфраструктура
-  { id: 'k8s',         category: 'Инфраструктура', item: 'Kubernetes cluster (3 nodes prod)',         status: 'pass' },
-  { id: 'ha',          category: 'Инфраструктура', item: 'High Availability: replica=2 для каждого сервиса', status: 'pass' },
-  { id: 'dr',          category: 'Инфраструктура', item: 'DR план: RPO 15 мин, RTO 1 час',            status: 'warn', note: 'DR тест запланирован на апрель' },
-  { id: 'cdn',         category: 'Инфраструктура', item: 'CDN для статических ассетов',               status: 'pass' },
-  { id: 'pg-replica',  category: 'Инфраструктура', item: 'PostgreSQL streaming replica (async)',      status: 'pass' },
-  { id: 'redis-ha',    category: 'Инфраструктура', item: 'Redis Sentinel (3-node)',                   status: 'pass' },
+  { id: 'k8s',         category: 'Инфраструктура', item: 'Kubernetes cluster: целевая схема промышленного развёртывания', status: 'warn', note: 'Требует подтверждённого live-cluster и эксплуатационного регламента' },
+  { id: 'ha',          category: 'Инфраструктура', item: 'High Availability: целевая модель отказоустойчивости сервисов', status: 'warn', note: 'Нужны нагрузочные прогоны и подтверждённая схема резервирования' },
+  { id: 'dr',          category: 'Инфраструктура', item: 'DR план: RPO/RTO как целевые эксплуатационные параметры', status: 'warn', note: 'Требуется промышленная DR-тренировка' },
+  { id: 'cdn',         category: 'Инфраструктура', item: 'CDN для статических ассетов: контур подключения', status: 'warn', note: 'Статус зависит от закреплённого deploy/CDN-провайдера' },
+  { id: 'pg-replica',  category: 'Инфраструктура', item: 'PostgreSQL replica: миграционный и масштабируемый контур', status: 'warn', note: 'Не выдавать за подтверждённую live-репликацию без промышленной БД' },
+  { id: 'redis-ha',    category: 'Инфраструктура', item: 'Redis/Sentinel: целевая модель кэша и блокировок', status: 'warn', note: 'Нужна проверка отказов, TTL и конкурентного доступа' },
 
   // Безопасность
-  { id: 'pentest',     category: 'Безопасность', item: 'Pentest пройден (OWASP Top 10)',              status: 'warn', note: 'OWASP пройден частично, полный аудит Q2' },
-  { id: 'waf',         category: 'Безопасность', item: 'WAF включён (защита от SQLi/XSS)',            status: 'pass' },
-  { id: 'secrets',     category: 'Безопасность', item: 'Секреты в HashiCorp Vault (не в env)',       status: 'pass' },
-  { id: 'tls',         category: 'Безопасность', item: 'TLS 1.3 everywhere, HSTS',                  status: 'pass' },
-  { id: 'mfa',         category: 'Безопасность', item: 'MFA (TOTP / WebAuthn) для операторов',      status: 'pass' },
-  { id: 'sso-check',   category: 'Безопасность', item: 'SSO SAML 2.0 + OIDC подключение',           status: 'pass' },
+  { id: 'pentest',     category: 'Безопасность', item: 'OWASP Top 10 / pentest: план независимой проверки', status: 'warn', note: 'Полный внешний аудит не считать пройденным без отчёта' },
+  { id: 'waf',         category: 'Безопасность', item: 'WAF: целевой контур защиты от SQLi/XSS', status: 'warn', note: 'Требует выбранного провайдера и правил блокировки' },
+  { id: 'secrets',     category: 'Безопасность', item: 'Secrets management: целевой Vault/secret-store контур', status: 'warn', note: 'Не считать HashiCorp Vault подключённым без live-секретов и ротации' },
+  { id: 'tls',         category: 'Безопасность', item: 'TLS/HSTS: обязательный контур транспортной защиты', status: 'warn', note: 'Проверять на фактическом домене и deploy-контуре' },
+  { id: 'mfa',         category: 'Безопасность', item: 'MFA для операторов: обязательное production-требование', status: 'warn', note: 'Требуется серверная политика, recovery flow и audit trail' },
+  { id: 'sso-check',   category: 'Безопасность', item: 'SSO SAML/OIDC: adapter-ready контур', status: 'warn', note: 'Не считать подключённым без IdP, договоров и боевой конфигурации' },
 
   // Качество кода
-  { id: 'coverage',    category: 'Качество', item: 'Test coverage > 80%',                            status: 'warn', note: 'Текущий coverage 72%, цель 80% к prod' },
-  { id: 'lint',        category: 'Качество', item: 'ESLint + TypeScript strict без ошибок',          status: 'pass' },
-  { id: 'e2e',         category: 'Качество', item: 'E2E тесты критических путей (Playwright)',       status: 'warn', note: 'E2E для payment flow — в работе' },
-  { id: 'load-test',   category: 'Качество', item: 'k6 load test: p95 < 500ms при 1500 VU',         status: 'pass' },
+  { id: 'coverage',    category: 'Качество', item: 'Test coverage: целевой порог для промышленной эксплуатации', status: 'warn', note: 'Фиксировать фактическое покрытие только из CI-отчёта' },
+  { id: 'lint',        category: 'Качество', item: 'ESLint + TypeScript strict: обязательный quality gate', status: 'warn', note: 'Статус должен подтверждаться текущим CI' },
+  { id: 'e2e',         category: 'Качество', item: 'E2E тесты критических путей сделки', status: 'warn', note: 'Цена → аукцион → сделка → логистика → приёмка → документы → деньги → спор' },
+  { id: 'load-test',   category: 'Качество', item: 'k6/load testing: план проверки тысяч пользователей', status: 'warn', note: 'Не считать пройденным без сохранённого отчёта и профиля нагрузки' },
 
   // Мониторинг
-  { id: 'prometheus',  category: 'Мониторинг', item: 'Prometheus + Grafana dashboards',              status: 'pass' },
-  { id: 'loki',        category: 'Мониторинг', item: 'Loki централизованные логи',                   status: 'pass' },
-  { id: 'alerts',      category: 'Мониторинг', item: 'Alertmanager: P1 → pagerduty, P2 → slack',    status: 'pass' },
-  { id: 'slo-track',   category: 'Мониторинг', item: 'SLO трекинг: uptime 99.9%, error budget',    status: 'pass' },
+  { id: 'prometheus',  category: 'Мониторинг', item: 'Prometheus/Grafana: целевой observability-контур', status: 'warn', note: 'Требует промышленного окружения, алертов и retention-политики' },
+  { id: 'loki',        category: 'Мониторинг', item: 'Централизованные логи: целевой контур трассировки инцидентов', status: 'warn', note: 'Нужны correlation id, retention и доступы по ролям' },
+  { id: 'alerts',      category: 'Мониторинг', item: 'Alerting: P1/P2 маршрутизация и дежурства', status: 'warn', note: 'Не считать включённым без проверенных каналов эскалации' },
+  { id: 'slo-track',   category: 'Мониторинг', item: 'SLO/error budget: целевые метрики эксплуатации', status: 'warn', note: 'Без подтверждённого SLA и исторических метрик не писать uptime как факт' },
 
   // Соответствие (Compliance)
-  { id: 'fgis',        category: 'Compliance', item: 'ФГИС «Зерно» интеграция сертифицирована',      status: 'warn', note: 'Тестовая среда, prod-сертификат Q2' },
-  { id: 'diadok',      category: 'Compliance', item: 'Диадок ЭДО (квалифицированный оператор)',     status: 'pass' },
-  { id: 'ukep',        category: 'Compliance', item: 'УКЭП КриптоПро CSP (аккредитованный УЦ)',    status: 'pass' },
-  { id: '152fz',       category: 'Compliance', item: '152-ФЗ: ПДн хранятся в РФ, DPA подписан',    status: 'pass' },
+  { id: 'fgis',        category: 'Compliance', item: 'ФГИС «Зерно»: adapter-ready контур', status: 'warn', note: 'Не считать подключённой без боевых доступов и подтверждённых операций' },
+  { id: 'diadok',      category: 'Compliance', item: 'ЭДО/Диадок: adapter-ready документный контур', status: 'warn', note: 'Не считать подключённым без договора, ключей и live-документооборота' },
+  { id: 'ukep',        category: 'Compliance', item: 'КЭП/УКЭП: контур юридически значимого подписания', status: 'warn', note: 'Требует аккредитованного УЦ, сертификатов и проверенного signing-flow' },
+  { id: '152fz',       category: 'Compliance', item: '152-ФЗ: требования к хранению и обработке ПДн', status: 'warn', note: 'Факт соответствия подтверждается документами, политиками и аудитом' },
 ];
 
 const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em' };
@@ -118,7 +118,7 @@ export function ProductionReadinessPanel() {
       })}
 
       <div style={{ fontSize: 9, color: '#94A3B8', padding: '4px 8px', borderRadius: 6, background: '#F8FAFB', border: '1px solid #E4E6EA' }}>
-        Production Readiness Checklist · {passCount}/{CHECKLIST.length} пунктов готово · Статус: pilot-ready с сопровождением · Демо-данные.
+        Production Readiness Checklist · {warnCount}/{CHECKLIST.length} пунктов требуют внешнего подтверждения · Статус: зрелый автономный контур без подтверждённых внешних live-интеграций.
       </div>
     </div>
   );
