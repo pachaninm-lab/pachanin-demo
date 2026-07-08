@@ -32,7 +32,7 @@ html body .pc-shell-root-v4 .pc-v7-role-dock {
 }
 
 html body .pc-shell-root-v4 .pc-v7-role-dock-inner {
-  max-width: min(720px, calc(100vw - 16px)) !important;
+  max-width: min(720px, calc(100% - 16px)) !important;
 }
 
 @media (max-width: 980px) {
@@ -81,7 +81,7 @@ html body .pc-shell-root-v4 .pc-v7-role-dock-inner {
 
   html body .pc-shell-root-v4 .pc-v4-actions {
     gap: 5px !important;
-    max-width: calc(100vw - 132px) !important;
+    max-width: calc(100% - 132px) !important;
   }
 
   html body .pc-shell-root-v4 .pc-v4-actions .p7-role-support {
@@ -128,7 +128,12 @@ html body .pc-shell-root-v4 h3,
 html body .pc-shell-root-v4 strong,
 html body .pc-shell-root-v4 p,
 html body .pc-shell-root-v4 span,
-html body .pc-shell-root-v4 small,
+html body .pc-shell-root-v4 small {
+  word-break: normal !important;
+  overflow-wrap: anywhere !important;
+  hyphens: manual !important;
+}
+
 html body .pc-v7-public-entry h1,
 html body .pc-v7-public-entry h2,
 html body .pc-v7-public-entry h3,
@@ -330,7 +335,7 @@ html body .pc-v7-public-entry small {
 /* PR-B: role-cabinet workspace density and action hierarchy. */
 html body .pc-shell-root-v4 .pc-v4-main > main:not(.pc-v7-public-entry):not(.pc-v7-login-single) {
   width: 100% !important;
-  max-width: min(1180px, calc(100vw - 32px)) !important;
+  max-width: min(1180px, 100%) !important;
   margin-inline: auto !important;
 }
 
