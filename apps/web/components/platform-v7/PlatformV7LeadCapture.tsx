@@ -12,19 +12,19 @@ export function PlatformV7LeadCapture() {
   return (
     <section id='lead-request' className='p7-lead-capture' aria-labelledby='p7-lead-title'>
       <div className='p7-lead-copy'>
-        <span className='p7-lead-kicker'><ShieldCheck size={16} /> Заявка на демонстрацию</span>
-        <h2 id='p7-lead-title'>Заявка на демонстрацию и разбор сделки</h2>
-        <p>Официальный канал для запроса демонстрации, обсуждения пилотного проекта, подключения организации, банковского взаимодействия или регионального запуска.</p>
+        <span className='p7-lead-kicker'><ShieldCheck size={16} /> Заявка на подключение</span>
+        <h2 id='p7-lead-title'>Заявка на подключение и разбор сделки</h2>
+        <p>Официальный канал для обращения по платформе, подключению организации, разбору сделки или региональному запуску.</p>
         <div className='p7-lead-proof' aria-label='Что можно обсудить после заявки'>
           <span><CheckCircle2 size={17} /> сценарий исполнения сделки</span>
-          <span><CheckCircle2 size={17} /> формат демонстрации платформы</span>
-          <span><CheckCircle2 size={17} /> условия пилотного подключения</span>
+          <span><CheckCircle2 size={17} /> формат подключения организации</span>
+          <span><CheckCircle2 size={17} /> условия промышленного взаимодействия</span>
         </div>
       </div>
 
       <form className='p7-lead-card' action='/api/platform-v7/leads' method='post'>
         <input type='hidden' name='source' value='request_page_lead_form' />
-        <input type='hidden' name='interest' value='demo' />
+        <input type='hidden' name='interest' value='platform_request' />
         <input type='hidden' name='pagePath' value='/platform-v7/request' />
         <input className='p7-lead-hp' type='text' name='website' tabIndex={-1} autoComplete='off' aria-hidden='true' />
 
@@ -51,11 +51,11 @@ export function PlatformV7LeadCapture() {
         </div>
         <label>
           <em>Формат участия</em>
-          <input name='role' type='text' placeholder='Организация, банк, регион, партнёр' />
+          <input name='role' type='text' placeholder='Организация, регион, партнёр' />
         </label>
         <label>
           <em>Комментарий</em>
-          <textarea name='message' rows={3} placeholder='Кратко опишите вопрос, сценарий пилотного проекта или предполагаемый формат взаимодействия.' />
+          <textarea name='message' rows={3} placeholder='Кратко опишите вопрос или предполагаемый формат взаимодействия.' />
         </label>
         <label className='p7-lead-consent'>
           <input name='consent' type='checkbox' value='yes' required />
