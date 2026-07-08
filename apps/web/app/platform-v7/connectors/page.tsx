@@ -50,7 +50,7 @@ export default async function PlatformV7ConnectorsPage() {
   const wait = integrations.filter((item) => item.state === 'wait').length;
 
   return (
-    <main data-testid="platform-v7-connectors-page" style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
+    <main data-testid="platform-v7-connectors-page" style={{ display: 'grid', gap: 14, padding: '4px 0 24px', width: '100%', maxWidth: '100%', minWidth: 0, overflowX: 'clip' }}>
       <LiveApiStatusBar
         apiOnline={apiOnline}
         role="INTEGRATIONS · Адаптеры"
@@ -61,24 +61,35 @@ export default async function PlatformV7ConnectorsPage() {
         }
       />
       <style dangerouslySetInnerHTML={{ __html: `
+        [data-testid='platform-v7-connectors-page']{max-width:100%!important;overflow-x:hidden!important}
+        [data-testid='platform-v7-connectors-page'] *{min-width:0;overflow-wrap:anywhere;box-sizing:border-box}
+        [data-testid='platform-v7-connectors-page'] a,
+        [data-testid='platform-v7-connectors-page'] button{max-width:100%!important;white-space:normal!important}
+        [data-testid='platform-v7-connectors-page'] section{min-width:0;max-width:100%;overflow:hidden}
         @media(max-width:767px){
           [data-testid='platform-v7-connectors-page']{gap:10px!important;padding:0 0 16px!important}
-          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;gap:9px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;gap:9px!important;overflow:hidden!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.03!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) p{display:none!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) a{width:100%!important;min-height:54px!important;border-radius:16px!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(1) a:nth-of-type(n+2){display:none!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(2){display:none!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(3){grid-template-columns:1fr 1fr!important;gap:8px!important}
-          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(3) > div{padding:12px!important;border-radius:16px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(3) > div{padding:12px!important;border-radius:16px!important;overflow:hidden!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(3) > div:nth-child(n+4){display:none!important}
-          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4){padding:14px!important;border-radius:20px!important;gap:9px!important}
-          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a{padding:12px!important;border-radius:16px!important;gap:8px!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4){padding:14px!important;border-radius:20px!important;gap:9px!important;overflow:hidden!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a{padding:12px!important;border-radius:16px!important;gap:8px!important;overflow:hidden!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a:nth-of-type(n+7){display:none!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a h2{font-size:16px!important;line-height:1.12!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a p{display:none!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a > div:nth-child(2){grid-template-columns:1fr!important;gap:7px!important}
           [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) a > div:nth-child(2) > div:nth-child(3){display:none!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(4) span{white-space:normal!important;max-width:100%!important}
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(5),
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(6){padding:12px!important;border-radius:18px!important;overflow:hidden!important}
+        }
+        @media(max-width:380px){
+          [data-testid='platform-v7-connectors-page'] > section:nth-of-type(3){grid-template-columns:1fr!important}
         }
       ` }} />
       <CockpitHero
@@ -86,7 +97,7 @@ export default async function PlatformV7ConnectorsPage() {
         title='Именные контуры сделки'
         lead='Экран показывает, какие внешние контуры влияют на сделку: деньги, документы, рейс и качество. Боевой статус не заявляется без договора, доступа и подтверждения на реальных операциях.'
       >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, minWidth: 0, maxWidth: '100%' }}>
           <PremiumCtaButton href='/platform-v7/deals/DL-9106/clean' glyph='route'>Сделка DL-9106</PremiumCtaButton>
           <PremiumCtaButton href='/platform-v7/documents' variant='ghost'>Документы</PremiumCtaButton>
           <PremiumCtaButton href='/platform-v7/bank' variant='ghost'>Деньги</PremiumCtaButton>
@@ -94,12 +105,12 @@ export default async function PlatformV7ConnectorsPage() {
       </CockpitHero>
 
       <section style={darkCard}>
-        <div style={{ display: 'grid', gap: 6 }}>
+        <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
           <div style={{ ...micro, color: '#A7F3D0' }}>статус подключений</div>
-          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#D1FAE5', fontSize: 14, lineHeight: 1.55 }}>Экран честно отделяет проверочный контур, предынтеграционную готовность и промышленное подключение, которое требует договоров и доступа.</p>
+          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950, overflowWrap: 'anywhere' }}>Что должно быть понятно за 5 секунд</h2>
+          <p style={{ margin: 0, color: '#D1FAE5', fontSize: 14, lineHeight: 1.55, overflowWrap: 'anywhere' }}>Экран честно отделяет проверочный контур, предынтеграционную готовность и промышленное подключение, которое требует договоров и доступа.</p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10, minWidth: 0, maxWidth: '100%' }}>
           {connectorSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
         </div>
       </section>
@@ -113,18 +124,18 @@ export default async function PlatformV7ConnectorsPage() {
 
       <section style={card}>
         <div style={micro}>Интеграции по именам</div>
-        <div style={{ display: 'grid', gap: 8 }}>
+        <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
           {integrations.map((item) => <IntegrationRow key={item.name} item={item} />)}
         </div>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, minWidth: 0, overflow: 'hidden' }}>
         <CollapsibleSection title='ФГИС «Зерно» · Адаптер и партии' summary='СДИЗ · registerLot · checkCertificate · confirmShipment · Mock→Live · retry backoff' defaultOpen={false}>
           <FgisZernoPanel />
         </CollapsibleSection>
       </section>
 
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18 }}>
+      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, minWidth: 0, overflow: 'hidden' }}>
         <CollapsibleSection title='B2B Partner API · Управление ключами' summary='ключи · scopes · rate limit · эндпоинты · ротация 90 дней' defaultOpen={false}>
           <ApiKeysPanel />
         </CollapsibleSection>
@@ -134,14 +145,14 @@ export default async function PlatformV7ConnectorsPage() {
 }
 
 function SummaryCard({ item }: { item: typeof connectorSummary[number] }) {
-  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7 }}><div style={{ ...micro, color: '#A7F3D0' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#D1FAE5', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
+  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7, minWidth: 0, overflow: 'hidden' }}><div style={{ ...micro, color: '#A7F3D0' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4, overflowWrap: 'anywhere' }}>{item.value}</strong><p style={{ margin: 0, color: '#D1FAE5', fontSize: 12, lineHeight: 1.45, overflowWrap: 'anywhere' }}>{item.note}</p></div>;
 }
 
 function IntegrationRow({ item }: { item: typeof integrations[number] }) {
   return (
-    <Link href={item.screen} style={{ textDecoration: 'none', color: 'inherit', background: stateBg(item.state), border: `1px solid ${stateBorder(item.state)}`, borderRadius: 16, padding: 13, display: 'grid', gap: 8 }}>
+    <Link href={item.screen} style={{ textDecoration: 'none', color: 'inherit', background: stateBg(item.state), border: `1px solid ${stateBorder(item.state)}`, borderRadius: 16, padding: 13, display: 'grid', gap: 8, minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
       <div style={rowHead}>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <h2 style={h2}>{item.name}</h2>
           <p style={muted}>{item.role}</p>
         </div>
@@ -157,11 +168,11 @@ function IntegrationRow({ item }: { item: typeof integrations[number] }) {
 }
 
 function Small({ label, value, warning = false }: { label: string; value: string; warning?: boolean }) {
-  return <div style={small}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: warning ? '#B45309' : 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 900, lineHeight: 1.35 }}>{value}</div></div>;
+  return <div style={small}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: warning ? '#B45309' : 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 900, lineHeight: 1.35, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{value}</div></div>;
 }
 
 function Metric({ label, value, good = false, warn = false, danger = false }: { label: string; value: string; good?: boolean; warn?: boolean; danger?: boolean }) {
-  return <div style={metric}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : warn ? '#B45309' : good ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 28, lineHeight: 1, fontWeight: 950 }}>{value}</div></div>;
+  return <div style={metric}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : warn ? '#B45309' : good ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 28, lineHeight: 1, fontWeight: 950, overflowWrap: 'anywhere' }}>{value}</div></div>;
 }
 
 function stateBg(state: string) { return state === 'ok' ? 'rgba(10,122,95,0.06)' : state === 'stop' ? 'rgba(220,38,38,0.06)' : 'rgba(217,119,6,0.06)'; }
@@ -169,20 +180,20 @@ function stateBorder(state: string) { return state === 'ok' ? 'rgba(10,122,95,0.
 function stateText(state: string) { return state === 'ok' ? '#0A7A5F' : state === 'stop' ? '#B91C1C' : '#B45309'; }
 
 const hero = { background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 62%,#EEF6F3 100%)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 26, padding: 22, display: 'grid', gap: 12 } as const;
-const darkCard = { background: '#064E3B', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(6,78,59,0.16)' } as const;
-const card = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12 } as const;
-const metric = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16 } as const;
-const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
-const h2 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 18, lineHeight: 1.1, fontWeight: 950 } as const;
-const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.55 } as const;
-const muted = { margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 } as const;
-const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
-const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
-const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
-const detailGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 8 } as const;
-const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
-const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900 } as const;
-const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 850 } as const;
-const pill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 12, fontWeight: 900 } as const;
-const small = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 10 } as const;
+const darkCard = { background: '#064E3B', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(6,78,59,0.16)', minWidth: 0, overflow: 'hidden' } as const;
+const card = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, minWidth: 0, overflow: 'hidden' } as const;
+const metric = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16, minWidth: 0, overflow: 'hidden' } as const;
+const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900, maxWidth: '100%', overflowWrap: 'anywhere' } as const;
+const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950, overflowWrap: 'anywhere' } as const;
+const h2 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 18, lineHeight: 1.1, fontWeight: 950, overflowWrap: 'anywhere' } as const;
+const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.55, overflowWrap: 'anywhere' } as const;
+const muted = { margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13, overflowWrap: 'anywhere' } as const;
+const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', minWidth: 0 } as const;
+const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em', overflowWrap: 'anywhere' } as const;
+const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10, minWidth: 0, maxWidth: '100%' } as const;
+const detailGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 8, minWidth: 0, maxWidth: '100%' } as const;
+const actions = { display: 'flex', gap: 8, flexWrap: 'wrap', minWidth: 0 } as const;
+const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#0A7A5F', color: '#fff', fontSize: 14, fontWeight: 900, maxWidth: '100%', whiteSpace: 'normal' } as const;
+const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#fff', border: '1px solid #CBD5E1', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 850, maxWidth: '100%', whiteSpace: 'normal' } as const;
+const pill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 12, fontWeight: 900, maxWidth: '100%', whiteSpace: 'normal', overflowWrap: 'anywhere' } as const;
+const small = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 10, minWidth: 0, overflow: 'hidden' } as const;
