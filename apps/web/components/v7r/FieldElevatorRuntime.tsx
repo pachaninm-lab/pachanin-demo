@@ -32,6 +32,10 @@ function statusTone(status: PlatformActionStatus) {
   return { bg: 'rgba(180,83,9,0.10)', border: 'rgba(180,83,9,0.18)', color: '#B45309', label: 'Выполняется' };
 }
 
+const fieldLabel: React.CSSProperties = { display: 'grid', gap: 6 };
+const fieldCaption: React.CSSProperties = { fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 800 };
+const fieldInput: React.CSSProperties = { padding: '12px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 14 };
+
 export function FieldElevatorRuntime() {
   const toast = useToast();
   const receptions = useFieldRuntimeStore((s) => s.receptions);
@@ -126,8 +130,14 @@ export function FieldElevatorRuntime() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-              <input value={item.weight} onChange={(e) => updateReception(item.plate, { weight: e.target.value })} placeholder='Вес' style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 14 }} />
-              <input value={item.sdiz} onChange={(e) => updateReception(item.plate, { sdiz: e.target.value })} placeholder='Номер СДИЗ' style={{ padding: '12px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 14 }} />
+              <label style={fieldLabel}>
+                <span style={fieldCaption}>Вес, т</span>
+                <input value={item.weight} onChange={(e) => updateReception(item.plate, { weight: e.target.value })} style={fieldInput} />
+              </label>
+              <label style={fieldLabel}>
+                <span style={fieldCaption}>Номер СДИЗ</span>
+                <input value={item.sdiz} onChange={(e) => updateReception(item.plate, { sdiz: e.target.value })} style={fieldInput} />
+              </label>
             </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
