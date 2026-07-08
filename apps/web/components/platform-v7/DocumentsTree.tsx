@@ -107,7 +107,7 @@ function DocRow({ doc }: TreeNodeProps) {
           documentId={doc.id}
           signedBy={doc.signatories?.[0]}
           signedAt={doc.signedAt}
-          watermark="ДЕМО-ДАННЫЕ"
+          watermark="ВНУТРЕННЯЯ ПРОВЕРКА"
         />
       )}
     </div>
@@ -196,6 +196,6 @@ export function DocumentsTree({ data }: DocumentsTreeProps) {
   );
 }
 
-// Demo data factory lives in ./DocumentsTree.data (server-safe, no 'use client')
+// Internal sample data factory lives in ./DocumentsTree.data (server-safe, no 'use client')
 // so Server Components can call it — importing a plain function through this
 // 'use client' boundary would yield a non-callable client-reference proxy.
