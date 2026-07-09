@@ -4,10 +4,14 @@ import * as React from 'react';
 import Link from 'next/link';
 import type { DomainDeal, DomainDealStatus } from '@/lib/domain/types';
 import { SANDBOX_INCIDENTS, SANDBOX_LOGISTICS_ORDERS } from '@/lib/platform-v7/logistics-chain';
-import { P7GuardedActionButton } from '@/components/platform-v7/P7GuardedActionButton';
 import { FactSourceBadge } from '@/components/platform-v7/FactSourceBadge';
-import { platformV7ActionTargetById } from '@/lib/platform-v7/action-targets';
 import type { P7WorkspaceRuntimeBinding } from '@/lib/platform-v7/deal-workspace-runtime-binding';
+import { P7DealWorkspaceRuntimeActionButton } from '@/components/platform-v7/P7DealWorkspaceRuntimeActionButton';
+import {
+  buildP7DealWorkspaceRuntimeIntents,
+  p7DealWorkspaceRuntimeIntentById,
+  type P7DealWorkspaceRuntimeIntent,
+} from '@/lib/platform-v7/deal-workspace-runtime-intents';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -71,6 +75,20 @@ function domainDealMoneyBlockers(deal: DomainDeal): string[] {
   return [...new Set(blockers)];
 }
 
+function runtimeIntentsFor(deal: DomainDeal, bankBasisBlockedReason: string | null): readonly P7DealWorkspaceRuntimeIntent[] {
+  const bankBasisAmount = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
+  const bankBasisBlocked = domainDealMoneyBlockers(deal).length > 0;
+
+  return buildP7DealWorkspaceRuntimeIntents({
+    dealId: deal.id,
+    bankBasisAmount,
+    bankBasisBlocked,
+    bankBasisBlockedReason,
+    documentsBlocked: deal.blockers.includes('docs'),
+    disputeOpen: Boolean(deal.dispute),
+  });
+}
+
 export function P7DealWorkspaceTabs({ deal, runtimeBinding }: { deal: DomainDeal; runtimeBinding?: P7WorkspaceRuntimeBinding }) {
   const [active, setActive] = React.useState<Tab>('overview');
   const order = SANDBOX_LOGISTICS_ORDERS.find((item) => item.dealId === deal.id) ?? null;
@@ -130,11 +148,11 @@ function Overview({ deal, runtimeBinding }: { deal: DomainDeal; runtimeBinding?:
 }
 
 function Money({ deal }: { deal: DomainDeal }) {
-  const basisTarget = platformV7ActionTargetById('deal-release-funds');
-  const requestTarget = platformV7ActionTargetById('deal-request-release');
   const bankBasisAmount = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
   const blockerLabels = domainDealMoneyBlockers(deal);
   const bankBasisBlocked = blockerLabels.length > 0;
+  const bankBasisBlockedReason = bankBasisBlocked ? 'Сначала закройте всю матрицу сделки: ФГИС, качество, документы, логистику, спор и банк.' : null;
+  const intent = p7DealWorkspaceRuntimeIntentById(runtimeIntentsFor(deal, bankBasisBlockedReason), 'request_bank_basis');
 
   return (
     <Stack>
@@ -147,11 +165,10 @@ function Money({ deal }: { deal: DomainDeal }) {
       <Notice danger={bankBasisBlocked} title={bankBasisBlocked ? 'Банковское основание заблокировано' : 'Можно готовить банковское основание'}>
         {bankBasisBlocked ? 'Не закрыта полная матрица: резерв, сумма, удержание, документы, ФГИС/СДИЗ, рейс, приёмка, качество, спор и ручные остановки.' : 'Можно подготовить основание для банка; это ещё не движение денег и не подтверждение внешнего банка.'}
       </Notice>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {requestTarget ? <P7GuardedActionButton target={requestTarget} activeActionId={null} blocked={bankBasisBlocked} blockerLabels={blockerLabels} blockedLabel='Основание заблокировано' blockedReason='Сначала закройте всю матрицу сделки: ФГИС, качество, документы, логистику, спор и банк.' /> : null}
-        {basisTarget ? <P7GuardedActionButton target={basisTarget} activeActionId={null} blocked blockerLabels={['full-gate-matrix-required']} blockedLabel='Только через банк' blockedReason='Платформа не двигает деньги напрямую. Нужны action boundary, audit и внешнее банковское событие.' /> : null}
+      <RuntimeActionRow>
+        <P7DealWorkspaceRuntimeActionButton dealId={deal.id} intent={intent} />
         <Link href='/platform-v7/bank' style={linkButton()}>Банковый контур →</Link>
-      </div>
+      </RuntimeActionRow>
     </Stack>
   );
 }
@@ -178,6 +195,7 @@ function Logistics({ deal }: { deal: DomainDeal }) {
 
 function Documents({ deal }: { deal: DomainDeal }) {
   const missing = deal.blockers.includes('docs');
+  const intent = p7DealWorkspaceRuntimeIntentById(runtimeIntentsFor(deal, null), 'start_document_review');
   return (
     <Stack>
       <FactRail items={['edo_saby', 'fgis_grain']} />
@@ -187,7 +205,10 @@ function Documents({ deal }: { deal: DomainDeal }) {
         <Cell label='СДИЗ' value={deal.blockers.includes('fgis') ? 'ручная проверка' : 'связан с контуром'} danger={deal.blockers.includes('fgis')} />
         <Cell label='ЭТрН' value={deal.blockers.includes('transport') ? 'требуется документ' : 'подписан в контуре'} danger={deal.blockers.includes('transport')} />
       </Grid>
-      <Link href={`/platform-v7/deals/${deal.id}/documents`} style={linkButton()}>Документы сделки →</Link>
+      <RuntimeActionRow>
+        <P7DealWorkspaceRuntimeActionButton dealId={deal.id} intent={intent} />
+        <Link href={`/platform-v7/deals/${deal.id}/documents`} style={linkButton()}>Документы сделки →</Link>
+      </RuntimeActionRow>
     </Stack>
   );
 }
@@ -218,15 +239,21 @@ function Evidence({ deal }: { deal: DomainDeal }) {
 }
 
 function Dispute({ deal }: { deal: DomainDeal }) {
-  const openTarget = platformV7ActionTargetById('deal-open-dispute');
   const hasHold = deal.holdAmount > 0;
+  const intent = p7DealWorkspaceRuntimeIntentById(runtimeIntentsFor(deal, null), 'open_dispute');
   return (
     <Stack>
       <Notice danger={hasHold} title={hasHold ? 'Активное удержание' : 'Спора нет'}>{hasHold ? `${money(deal.holdAmount)} удержано до решения.` : 'По сделке нет активного удержания.'}</Notice>
-      {openTarget ? <P7GuardedActionButton target={openTarget} activeActionId={null} tone='danger' /> : null}
-      <Link href='/platform-v7/disputes' style={linkButton('danger')}>Арбитражный кабинет →</Link>
+      <RuntimeActionRow>
+        <P7DealWorkspaceRuntimeActionButton dealId={deal.id} intent={intent} />
+        <Link href='/platform-v7/disputes' style={linkButton('danger')}>Арбитражный кабинет →</Link>
+      </RuntimeActionRow>
     </Stack>
   );
+}
+
+function RuntimeActionRow({ children }: { children: React.ReactNode }) {
+  return <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10, alignItems: 'start' }}>{children}</div>;
 }
 
 function FactRail({ items }: { items: Array<'sber_safe_deals' | 'fgis_grain' | 'logistics_sphere' | 'gps_wialon' | 'edo_saby'> }) {
