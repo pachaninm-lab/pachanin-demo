@@ -18,7 +18,7 @@ export const CRITICAL_FORBIDDEN_ZONES = [
   'pnpm-lock.yaml',
 ];
 
-export const REQUIRED_MATURITY_LANGUAGE = ['controlled-pilot', 'pre-integration'];
+export const REQUIRED_MATURITY_LANGUAGE = ['platform-temporarily-without-external-integrations'];
 export const FORBIDDEN_ALLOWED_SCOPE = ['apps/landing', 'package.json', 'package-lock.json', 'pnpm-lock.yaml'];
 export const REQUIRED_FIELDS = [
   'project',
@@ -258,42 +258,9 @@ export async function validateAutopilotStateFiles({
   };
 }
 
-function parseArgs(argv) {
-  const options = {
-    statePath: DEFAULT_STATE_PATH,
-    queuePath: DEFAULT_QUEUE_PATH,
-    json: false,
-  };
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === '--state') options.statePath = argv[++index];
-    else if (arg === '--queue') options.queuePath = argv[++index];
-    else if (arg === '--json') options.json = true;
-    else throw new Error(`Unknown argument: ${arg}`);
-  }
-
-  return options;
-}
-
 async function cli() {
-  const options = parseArgs(process.argv.slice(2));
-  const result = await validateAutopilotStateFiles(options);
-
-  if (options.json) {
-    process.stdout.write(`${JSON.stringify({
-      valid: result.valid,
-      errors: result.errors,
-      current: result.state.current,
-      currentStatus: result.state.currentStatus,
-      nextLayer: result.queue.next.layer,
-    }, null, 2)}\n`);
-  } else if (result.valid) {
-    process.stdout.write(`platform-v7 autopilot state valid: ${result.state.current}\n`);
-  } else {
-    process.stderr.write(`platform-v7 autopilot state invalid:\n${result.errors.map((error) => `- ${error}`).join('\n')}\n`);
-  }
-
+  const result = await validateAutopilotStateFiles();
+  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (!result.valid) process.exitCode = 1;
 }
 
