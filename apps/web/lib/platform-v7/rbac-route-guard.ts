@@ -5,6 +5,7 @@ import {
   type PlatformV7AccessActor,
   type PlatformV7AccessRequest,
   type PlatformV7DeniedAccessAuditEvent,
+  type PlatformV7ResourceScope,
 } from './access-control';
 
 export type PlatformV7GuardedSurface = 'driver_field' | 'bank_workspace' | 'executive_workspace';
@@ -37,6 +38,21 @@ const DEFAULT_ACTORS: Record<PlatformV7GuardedSurface, PlatformV7AccessActor> = 
   },
 };
 
+function bankWorkspaceMoneyScope(actor: PlatformV7AccessActor): PlatformV7ResourceScope {
+  const activeRole = actor.activeRole;
+  const isBank = activeRole === 'bankOfficer' || activeRole === 'bank_officer';
+  const isSeller = activeRole === 'seller';
+  const isBuyer = activeRole === 'buyer';
+
+  return {
+    resourceType: 'money',
+    resourceId: 'bank-workspace-money',
+    bankOrganizationId: isBank ? actor.organizationId : undefined,
+    sellerOrganizationId: isSeller ? actor.organizationId : undefined,
+    buyerOrganizationId: isBuyer ? actor.organizationId : undefined,
+  };
+}
+
 export function platformV7RouteGuardRequest(
   surface: PlatformV7GuardedSurface,
   actor: PlatformV7AccessActor = DEFAULT_ACTORS[surface],
@@ -59,11 +75,7 @@ export function platformV7RouteGuardRequest(
     return {
       actor,
       action: 'read',
-      resource: {
-        resourceType: 'money',
-        resourceId: 'bank-workspace-money',
-        bankOrganizationId: actor.organizationId,
-      },
+      resource: bankWorkspaceMoneyScope(actor),
       correlationId: `route-${surface}`,
       auditId: `audit-${surface}`,
     };
