@@ -38,8 +38,8 @@ const initialDomain = {
     action: event.action,
     statusBefore: 'draft',
     statusAfter: dealsFixture[index % dealsFixture.length].status,
-    message: `Sandbox event: ${event.action}`,
-    mode: 'sandbox',
+    message: `Manual fixture event: ${event.action}`,
+    mode: 'manual',
     idempotencyKey: event.idempotencyKey,
     createdAt: event.createdAt,
   })),
@@ -55,24 +55,18 @@ export const usePlatformDomainStore = create<PlatformDomainState>()(
         const state = get();
         const deal = state.deals.find(item => item.id === dealId);
         const actor = state.users.find(item => item.id === actorUserId);
-
         if (!deal || !actor) {
-          const message = 'Сделка или пользователь не найдены в sandbox fixtures.';
+          const message = 'Сделка или пользователь не найдены в manual fixtures.';
           set({ lastAction: { actionId, dealId, ok: false, message } });
           return { ok: false, message };
         }
-
         const result = runPlatformAction({ actionId, deal, actor, idempotencyKey, usedIdempotencyKeys: state.idempotencyKeys });
         if (!result.ok || !result.after) {
           const message = result.disabledReason ?? result.toast.message;
           set({ lastAction: { actionId, dealId, ok: false, message } });
           return { ok: false, message };
         }
-
-        const nextIdempotencyKeys = idempotencyKey && !state.idempotencyKeys.includes(idempotencyKey)
-          ? [idempotencyKey, ...state.idempotencyKeys]
-          : state.idempotencyKeys;
-
+        const nextIdempotencyKeys = idempotencyKey && !state.idempotencyKeys.includes(idempotencyKey) ? [idempotencyKey, ...state.idempotencyKeys] : state.idempotencyKeys;
         set({
           deals: result.idempotentReplay ? state.deals : state.deals.map(item => (item.id === dealId ? result.after! : item)),
           auditEvents: result.auditEvent ? [result.auditEvent, ...state.auditEvents] : state.auditEvents,
@@ -80,25 +74,12 @@ export const usePlatformDomainStore = create<PlatformDomainState>()(
           idempotencyKeys: nextIdempotencyKeys,
           lastAction: { actionId, dealId, ok: true, message: result.toast.message, idempotentReplay: result.idempotentReplay },
         });
-
         return { ok: true, message: result.toast.message, idempotentReplay: result.idempotentReplay };
       },
     }),
     {
       name: 'pc-domain-v1',
-      partialize: state => ({
-        deals: state.deals,
-        lots: state.lots,
-        disputes: state.disputes,
-        counterparties: state.counterparties,
-        moneyEvents: state.moneyEvents,
-        evidence: state.evidence,
-        users: state.users,
-        auditEvents: state.auditEvents,
-        dealTimeline: state.dealTimeline,
-        idempotencyKeys: state.idempotencyKeys,
-        lastAction: state.lastAction,
-      }),
+      partialize: state => ({ deals: state.deals, lots: state.lots, disputes: state.disputes, counterparties: state.counterparties, moneyEvents: state.moneyEvents, evidence: state.evidence, users: state.users, auditEvents: state.auditEvents, dealTimeline: state.dealTimeline, idempotencyKeys: state.idempotencyKeys, lastAction: state.lastAction }),
     }
   )
 );
