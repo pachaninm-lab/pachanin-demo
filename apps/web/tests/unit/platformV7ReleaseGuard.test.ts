@@ -5,7 +5,7 @@ import type { CanonicalDeal } from '@/lib/platform-v7/domain/types';
 function deal(overrides: Partial<CanonicalDeal> = {}): CanonicalDeal {
   return {
     id: 'DL-GUARD',
-    status: 'RELEASE_PENDING',
+    status: 'BANK_BASIS_REQUESTED',
     grain: 'Пшеница 4 кл.',
     quantity: 100,
     unit: 'т',
@@ -33,7 +33,7 @@ describe('platform-v7 release guard', () => {
     expect(result.blockers).toEqual([]);
   });
 
-  it('allows request but not execution before release pending state', () => {
+  it('allows request but not execution before bank basis requested state', () => {
     const result = evaluateReleaseGuard(deal({ status: 'DOCUMENTS_COMPLETE' }));
 
     expect(result.canRequestRelease).toBe(true);
