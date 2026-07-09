@@ -12,6 +12,10 @@ import {
   buildP7DealWorkspaceRuntimeRefreshSnapshot,
   type P7DealWorkspaceRuntimeRefreshSnapshot,
 } from '@/lib/platform-v7/deal-workspace-runtime-snapshot';
+import {
+  saveP7DealWorkspaceRuntimeSnapshot,
+  type P7DealWorkspaceRuntimeStoreReceipt,
+} from '@/lib/platform-v7/deal-workspace-runtime-store';
 
 export interface P7DealWorkspaceRuntimeIntentActionInput {
   readonly dealId: string;
@@ -28,6 +32,7 @@ export interface P7DealWorkspaceRuntimeIntentActionResult {
   readonly boundaryCode?: string;
   readonly boundaryReason?: string;
   readonly refreshSnapshot: P7DealWorkspaceRuntimeRefreshSnapshot;
+  readonly runtimeStoreReceipt: P7DealWorkspaceRuntimeStoreReceipt;
 }
 
 const ACTOR = {
@@ -56,6 +61,10 @@ function snapshot(input: {
   return buildP7DealWorkspaceRuntimeRefreshSnapshot(input);
 }
 
+function receiptFor(snapshotValue: P7DealWorkspaceRuntimeRefreshSnapshot): P7DealWorkspaceRuntimeStoreReceipt {
+  return saveP7DealWorkspaceRuntimeSnapshot({ snapshot: snapshotValue, savedAt: now() });
+}
+
 function toActionResult(
   result: P7RuntimeActionResult,
   successMessage: string,
@@ -63,6 +72,7 @@ function toActionResult(
   intentId: P7DealWorkspaceRuntimeIntentId,
 ): P7DealWorkspaceRuntimeIntentActionResult {
   if (result.ok === true) {
+    const refreshSnapshot = snapshot({ dealId, intentId, ok: true, status: result.status, duplicate: result.duplicate, auditPayloadCount: result.auditPayloads.length, boundaryStatus: result.meta.boundaryStatus });
     return {
       ok: true,
       status: result.status,
@@ -72,10 +82,12 @@ function toActionResult(
       boundaryStatus: result.meta.boundaryStatus,
       boundaryCode: result.meta.boundaryCode,
       boundaryReason: result.meta.boundaryReason,
-      refreshSnapshot: snapshot({ dealId, intentId, ok: true, status: result.status, duplicate: result.duplicate, auditPayloadCount: result.auditPayloads.length, boundaryStatus: result.meta.boundaryStatus }),
+      refreshSnapshot,
+      runtimeStoreReceipt: receiptFor(refreshSnapshot),
     };
   }
 
+  const refreshSnapshot = snapshot({ dealId, intentId, ok: false, status: result.status, duplicate: result.duplicate, auditPayloadCount: result.auditPayloads.length, boundaryStatus: result.meta.boundaryStatus });
   return {
     ok: false,
     status: result.status,
@@ -85,18 +97,21 @@ function toActionResult(
     boundaryStatus: result.meta.boundaryStatus,
     boundaryCode: result.meta.boundaryCode,
     boundaryReason: result.meta.boundaryReason,
-    refreshSnapshot: snapshot({ dealId, intentId, ok: false, status: result.status, duplicate: result.duplicate, auditPayloadCount: result.auditPayloads.length, boundaryStatus: result.meta.boundaryStatus }),
+    refreshSnapshot,
+    runtimeStoreReceipt: receiptFor(refreshSnapshot),
   };
 }
 
 function failure(dealId: string, intentId: P7DealWorkspaceRuntimeIntentId, status: string, message: string): P7DealWorkspaceRuntimeIntentActionResult {
+  const refreshSnapshot = snapshot({ dealId, intentId, ok: false, status, duplicate: false, auditPayloadCount: 0 });
   return {
     ok: false,
     status,
     message,
     auditPayloadCount: 0,
     duplicate: false,
-    refreshSnapshot: snapshot({ dealId, intentId, ok: false, status, duplicate: false, auditPayloadCount: 0 }),
+    refreshSnapshot,
+    runtimeStoreReceipt: receiptFor(refreshSnapshot),
   };
 }
 

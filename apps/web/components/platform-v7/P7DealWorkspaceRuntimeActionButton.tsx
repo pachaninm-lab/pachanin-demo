@@ -5,6 +5,7 @@ import { P7ActionButton } from './P7ActionButton';
 import { executeP7DealWorkspaceRuntimeIntentAction } from '@/app/platform-v7/actions/deal-workspace-runtime-intent-actions';
 import type { P7DealWorkspaceRuntimeIntent } from '@/lib/platform-v7/deal-workspace-runtime-intents';
 import { p7RuntimeSnapshotStateText, type P7DealWorkspaceRuntimeRefreshSnapshot } from '@/lib/platform-v7/deal-workspace-runtime-snapshot';
+import type { P7DealWorkspaceRuntimeStoreReceipt } from '@/lib/platform-v7/deal-workspace-runtime-store';
 
 const okBg = 'rgba(10,122,95,0.08)';
 const okBorder = 'rgba(10,122,95,0.18)';
@@ -23,6 +24,7 @@ export function P7DealWorkspaceRuntimeActionButton({ dealId, intent }: { readonl
   const [message, setMessage] = React.useState<string | null>(null);
   const [ok, setOk] = React.useState<boolean | null>(null);
   const [snapshot, setSnapshot] = React.useState<P7DealWorkspaceRuntimeRefreshSnapshot | null>(null);
+  const [receipt, setReceipt] = React.useState<P7DealWorkspaceRuntimeStoreReceipt | null>(null);
 
   const variant = intent.tone === 'danger' ? 'danger' : intent.tone === 'secondary' ? 'secondary' : 'primary';
 
@@ -41,6 +43,7 @@ export function P7DealWorkspaceRuntimeActionButton({ dealId, intent }: { readonl
             const result = await executeP7DealWorkspaceRuntimeIntentAction({ dealId, intentId: intent.id });
             setOk(result.ok);
             setSnapshot(result.refreshSnapshot);
+            setReceipt(result.runtimeStoreReceipt);
             setMessage(result.ok ? `${result.message} ${result.refreshSnapshot.auditLabel}.` : result.message);
           });
         }}
@@ -50,12 +53,12 @@ export function P7DealWorkspaceRuntimeActionButton({ dealId, intent }: { readonl
       <div style={{ color: muted, fontSize: 12, lineHeight: 1.4 }}>{intent.safeReason}</div>
       {intent.blocked && intent.blockedReason ? <RuntimeNotice tone='error'>{intent.blockedReason}</RuntimeNotice> : null}
       {message ? <RuntimeNotice tone={ok === true ? 'ok' : 'error'}>{message}</RuntimeNotice> : null}
-      {snapshot ? <RuntimeSnapshotCard snapshot={snapshot} /> : null}
+      {snapshot ? <RuntimeSnapshotCard snapshot={snapshot} receipt={receipt} /> : null}
     </div>
   );
 }
 
-function RuntimeSnapshotCard({ snapshot }: { readonly snapshot: P7DealWorkspaceRuntimeRefreshSnapshot }) {
+function RuntimeSnapshotCard({ snapshot, receipt }: { readonly snapshot: P7DealWorkspaceRuntimeRefreshSnapshot; readonly receipt: P7DealWorkspaceRuntimeStoreReceipt | null }) {
   const tone = snapshot.state === 'updated' ? 'ok' : snapshot.state === 'blocked' || snapshot.state === 'failed' ? 'error' : 'wait';
   return (
     <div style={{ border: `1px solid ${toneBorder(tone)}`, background: toneBg(tone), borderRadius: 12, padding: 12, display: 'grid', gap: 6 }}>
@@ -65,7 +68,14 @@ function RuntimeSnapshotCard({ snapshot }: { readonly snapshot: P7DealWorkspaceR
       <div style={{ color: text, fontSize: 14, fontWeight: 900 }}>{snapshot.title}</div>
       <div style={{ color: muted, fontSize: 12, lineHeight: 1.4 }}>Статус: {snapshot.statusLabel}</div>
       <div style={{ color: muted, fontSize: 12, lineHeight: 1.4 }}>Следующий шаг: {snapshot.nextVisibleStep}</div>
-      <div style={{ color: muted, fontSize: 11, lineHeight: 1.4 }}>Режим: {snapshot.persistenceMode}. Это снимок runtime-состояния для обновления карточки, не внешняя банковская/ФГИС/ЭДО интеграция.</div>
+      {receipt ? (
+        <div style={{ borderTop: '1px solid rgba(15,20,25,0.08)', paddingTop: 6, display: 'grid', gap: 3 }}>
+          <div style={{ color: text, fontSize: 12, fontWeight: 900 }}>Runtime store: {receipt.version}</div>
+          <div style={{ color: muted, fontSize: 11, lineHeight: 1.4 }}>Запись: {receipt.recordId}</div>
+          <div style={{ color: muted, fontSize: 11, lineHeight: 1.4 }}>История сделки: {receipt.historyCount} · режим: {receipt.maturity}</div>
+        </div>
+      ) : null}
+      <div style={{ color: muted, fontSize: 11, lineHeight: 1.4 }}>Режим snapshot: {snapshot.persistenceMode}. Это процессное runtime-состояние для обновления карточки; не внешняя банковская/ФГИС/ЭДО интеграция и не production-DB.</div>
     </div>
   );
 }
