@@ -113,7 +113,7 @@ export function evaluateDealGuards(
   if ((command.type === 'requestReserve' || command.type === 'confirmReserve') && !command.idempotencyKey) {
     return {
       code: 'NO_BANK_COMMAND_WITHOUT_IDEMPOTENCY',
-      message: 'Банковое действие в simulation-grade контуре требует idempotencyKey',
+      message: 'Банковое действие требует idempotencyKey',
       statusCode: 422
     };
   }
@@ -121,7 +121,7 @@ export function evaluateDealGuards(
   if ((to === 'PAYMENT_RELEASE_REQUESTED' || to === 'FINAL_RELEASED' || to === 'CLOSED') && !deal.reserveConfirmed) {
     return {
       code: 'NO_RELEASE_WITHOUT_RESERVE',
-      message: 'Выпуск средств запрещён без подтверждённого резерва',
+      message: 'Банковское основание запрещено без подтверждённого резерва',
       statusCode: 409
     };
   }
@@ -129,7 +129,7 @@ export function evaluateDealGuards(
   if ((to === 'PAYMENT_RELEASE_REQUESTED' || to === 'FINAL_RELEASED' || to === 'CLOSED') && !deal.requiredDocumentsReady && !hasSignedRequiredDocuments(deal.id, state.documents)) {
     return {
       code: 'NO_RELEASE_WITHOUT_DOCUMENTS',
-      message: 'Выпуск средств запрещён без полного документного пакета',
+      message: 'Банковское основание запрещено без полного документного пакета',
       statusCode: 409
     };
   }
@@ -137,7 +137,7 @@ export function evaluateDealGuards(
   if ((to === 'FINAL_RELEASED' || to === 'CLOSED') && (deal.openDisputeId || state.disputes.some((dispute) => dispute.dealId === deal.id && !['resolved', 'closed'].includes(dispute.status)))) {
     return {
       code: 'NO_FINAL_RELEASE_WITH_OPEN_DISPUTE',
-      message: 'Финальный выпуск запрещён при открытом споре',
+      message: 'Финальное банковское основание запрещено при открытом споре',
       statusCode: 409
     };
   }
@@ -203,7 +203,7 @@ export function transitionDeal(
       ...deal,
       status: to,
       updatedAt: command.now || new Date().toISOString(),
-      runtimeLabel: command.runtimeLabel || deal.runtimeLabel || 'sandbox'
+      runtimeLabel: command.runtimeLabel || deal.runtimeLabel || 'manual'
     }
   };
 }
