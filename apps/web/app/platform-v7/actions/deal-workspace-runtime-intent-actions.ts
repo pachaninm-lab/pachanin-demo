@@ -8,6 +8,11 @@ import { createP7MockRuntimeStore } from '@/lib/platform-v7/runtime/mock-persist
 import type { P7PersistedRecord } from '@/lib/platform-v7/runtime/persistence-ports';
 import { createP7RuntimeServerActions, type P7RuntimeActionResult } from './runtime-actions';
 import type { P7DealWorkspaceRuntimeIntentId } from '@/lib/platform-v7/deal-workspace-runtime-intents';
+import { buildP7DealWorkspaceRuntimeDbContract } from '@/lib/platform-v7/deal-workspace-runtime-db-contract';
+import {
+  createP7DealWorkspaceRuntimeRepository,
+  type P7DealWorkspaceRuntimeRepositoryReceipt,
+} from '@/lib/platform-v7/deal-workspace-runtime-db-repository';
 import {
   buildP7DealWorkspaceRuntimeRefreshSnapshot,
   type P7DealWorkspaceRuntimeRefreshSnapshot,
@@ -33,6 +38,15 @@ export interface P7DealWorkspaceRuntimeIntentActionResult {
   readonly boundaryReason?: string;
   readonly refreshSnapshot: P7DealWorkspaceRuntimeRefreshSnapshot;
   readonly runtimeStoreReceipt: P7DealWorkspaceRuntimeStoreReceipt;
+  readonly runtimeRepositoryReceipt: P7DealWorkspaceRuntimeRepositoryReceipt;
+}
+
+interface P7RuntimePersistenceContext {
+  readonly actorId: string;
+  readonly actorRole: string;
+  readonly correlationId: string;
+  readonly auditId: string;
+  readonly idempotencyKey: string;
 }
 
 const ACTOR = {
@@ -40,6 +54,8 @@ const ACTOR = {
   actorRole: 'operator',
   organizationId: 'platform',
 } as const;
+
+const runtimeRepository = createP7DealWorkspaceRuntimeRepository();
 
 function now(): string {
   return '2026-07-09T12:00:00.000Z';
@@ -65,14 +81,60 @@ function receiptFor(snapshotValue: P7DealWorkspaceRuntimeRefreshSnapshot): P7Dea
   return saveP7DealWorkspaceRuntimeSnapshot({ snapshot: snapshotValue, savedAt: now() });
 }
 
+function runtimePersistenceContextFromDto(dto: {
+  readonly actor: { readonly actorId: string; readonly actorRole: string };
+  readonly audit: { readonly auditId: string; readonly correlationId: string };
+  readonly idempotency: { readonly idempotencyKey: string };
+}): P7RuntimePersistenceContext {
+  return {
+    actorId: dto.actor.actorId,
+    actorRole: dto.actor.actorRole,
+    correlationId: dto.audit.correlationId,
+    auditId: dto.audit.auditId,
+    idempotencyKey: dto.idempotency.idempotencyKey,
+  };
+}
+
+function runtimePersistenceContextForFailure(dealId: string, intentId: P7DealWorkspaceRuntimeIntentId, status: string): P7RuntimePersistenceContext {
+  const normalizedStatus = status.replace(/[^a-zA-Z0-9_-]/g, '-');
+  return {
+    actorId: ACTOR.actorId,
+    actorRole: ACTOR.actorRole,
+    correlationId: `corr-vp3-${intentId}-${dealId}-${normalizedStatus}`,
+    auditId: `audit-vp3-${intentId}-${dealId}-${normalizedStatus}`,
+    idempotencyKey: `p7-runtime-intent:${dealId}:${intentId}:${normalizedStatus}`,
+  };
+}
+
+function repositoryReceiptFor(
+  refreshSnapshot: P7DealWorkspaceRuntimeRefreshSnapshot,
+  runtimeStoreReceipt: P7DealWorkspaceRuntimeStoreReceipt,
+  context: P7RuntimePersistenceContext,
+): P7DealWorkspaceRuntimeRepositoryReceipt {
+  const contract = buildP7DealWorkspaceRuntimeDbContract({
+    snapshot: refreshSnapshot,
+    receipt: runtimeStoreReceipt,
+    actorId: context.actorId,
+    actorRole: context.actorRole,
+    correlationId: context.correlationId,
+    auditId: context.auditId,
+    idempotencyKey: context.idempotencyKey,
+    createdAt: now(),
+  });
+
+  return runtimeRepository.write({ contract, savedAt: now() });
+}
+
 function toActionResult(
   result: P7RuntimeActionResult,
   successMessage: string,
   dealId: string,
   intentId: P7DealWorkspaceRuntimeIntentId,
+  persistenceContext: P7RuntimePersistenceContext,
 ): P7DealWorkspaceRuntimeIntentActionResult {
   if (result.ok === true) {
     const refreshSnapshot = snapshot({ dealId, intentId, ok: true, status: result.status, duplicate: result.duplicate, auditPayloadCount: result.auditPayloads.length, boundaryStatus: result.meta.boundaryStatus });
+    const runtimeStoreReceipt = receiptFor(refreshSnapshot);
     return {
       ok: true,
       status: result.status,
@@ -83,11 +145,13 @@ function toActionResult(
       boundaryCode: result.meta.boundaryCode,
       boundaryReason: result.meta.boundaryReason,
       refreshSnapshot,
-      runtimeStoreReceipt: receiptFor(refreshSnapshot),
+      runtimeStoreReceipt,
+      runtimeRepositoryReceipt: repositoryReceiptFor(refreshSnapshot, runtimeStoreReceipt, persistenceContext),
     };
   }
 
   const refreshSnapshot = snapshot({ dealId, intentId, ok: false, status: result.status, duplicate: result.duplicate, auditPayloadCount: result.auditPayloads.length, boundaryStatus: result.meta.boundaryStatus });
+  const runtimeStoreReceipt = receiptFor(refreshSnapshot);
   return {
     ok: false,
     status: result.status,
@@ -98,12 +162,14 @@ function toActionResult(
     boundaryCode: result.meta.boundaryCode,
     boundaryReason: result.meta.boundaryReason,
     refreshSnapshot,
-    runtimeStoreReceipt: receiptFor(refreshSnapshot),
+    runtimeStoreReceipt,
+    runtimeRepositoryReceipt: repositoryReceiptFor(refreshSnapshot, runtimeStoreReceipt, persistenceContext),
   };
 }
 
 function failure(dealId: string, intentId: P7DealWorkspaceRuntimeIntentId, status: string, message: string): P7DealWorkspaceRuntimeIntentActionResult {
   const refreshSnapshot = snapshot({ dealId, intentId, ok: false, status, duplicate: false, auditPayloadCount: 0 });
+  const runtimeStoreReceipt = receiptFor(refreshSnapshot);
   return {
     ok: false,
     status,
@@ -111,7 +177,8 @@ function failure(dealId: string, intentId: P7DealWorkspaceRuntimeIntentId, statu
     auditPayloadCount: 0,
     duplicate: false,
     refreshSnapshot,
-    runtimeStoreReceipt: receiptFor(refreshSnapshot),
+    runtimeStoreReceipt,
+    runtimeRepositoryReceipt: repositoryReceiptFor(refreshSnapshot, runtimeStoreReceipt, runtimePersistenceContextForFailure(dealId, intentId, status)),
   };
 }
 
@@ -216,7 +283,7 @@ export async function executeP7DealWorkspaceRuntimeIntentAction(input: P7DealWor
       currency: 'RUB' as const,
     };
     const result = await actions.money({ action: 'request_bank_basis', dto });
-    return toActionResult(result, 'Основание прошло через runtime/application service. Деньги напрямую не двигались.', deal.id, input.intentId);
+    return toActionResult(result, 'Основание прошло через runtime/application service. Деньги напрямую не двигались.', deal.id, input.intentId, runtimePersistenceContextFromDto(dto));
   }
 
   if (input.intentId === 'start_document_review') {
@@ -228,14 +295,14 @@ export async function executeP7DealWorkspaceRuntimeIntentAction(input: P7DealWor
       documentMetadata: { type: 'bank_basis', source: 'manual' as const, signatureStatus: 'pending' as const, ownerRole: 'operator' },
     };
     const result = await actions.document({ action: 'mark_manual_review', dto });
-    return toActionResult(result, 'Документный runtime зафиксировал проверку банковского основания.', deal.id, input.intentId);
+    return toActionResult(result, 'Документный runtime зафиксировал проверку банковского основания.', deal.id, input.intentId, runtimePersistenceContextFromDto(dto));
   }
 
   if (input.intentId === 'open_dispute') {
     if (hasOpenDispute) return failure(deal.id, input.intentId, 'domain_blocked', 'По сделке уже есть открытый спор.');
     const dto = baseDto(deal.id, 'dispute', `dispute:${deal.id}`, 'open_dispute', 0);
     const result = await actions.disputeSettlement({ action: 'open_dispute', dto });
-    return toActionResult(result, 'Спор прошёл через dispute service без прямого движения денег.', deal.id, input.intentId);
+    return toActionResult(result, 'Спор прошёл через dispute service без прямого движения денег.', deal.id, input.intentId, runtimePersistenceContextFromDto(dto));
   }
 
   return failure(deal.id, input.intentId, 'validation_error', `Неизвестное действие: ${input.intentId}.`);

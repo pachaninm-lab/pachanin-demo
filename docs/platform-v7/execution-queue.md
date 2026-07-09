@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.16 Runtime Persistence Repository Adapter Pipeline Binding Final Gate.
+CURRENT: VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation.
 
-GOAL: Финально зафиксировать ручной code PR gate для привязки repository adapter к runtime action pipeline после merge #2223, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend broad scope и не заявляя live bank/ФГИС/ЭДО persistence.
+GOAL: Привязать runtime action pipeline к repository adapter receipt после merge #2224, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend broad scope и не заявляя live bank/ФГИС/ЭДО persistence.
 
 CURRENT STATUS:
 - VP-2.5 is complete: all 260 web unit tests pass (pnpm --filter web test → 260/260).
@@ -11,30 +11,25 @@ CURRENT STATUS:
 - VP-3 Runtime Refresh Snapshot is complete from #2211.
 - VP-3 Process Runtime Store is complete from #2212.
 - VP-3.5 Runtime DB Contract is merged from #2213 as contract-only, not a live production DB migration.
-- VP-3.6 Runtime Persistence Scope Selection is merged from #2214.
-- VP-3.7 Runtime Persistence Repository Adapter Contract Plan is merged from #2215.
-- VP-3.8 Runtime Persistence Implementation Scope Request is merged from #2216.
-- VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight is merged from #2217.
-- VP-3.10 Runtime Persistence Implementation Activation is merged from #2218.
-- VP-3.11 Runtime Persistence Implementation Scope Unlock is merged from #2219.
-- VP-3.12 Runtime Persistence Implementation Final Gate is merged from #2220.
 - VP-3.13 Runtime Persistence Repository Adapter Implementation is merged from #2221.
-- VP-3.14 Runtime Persistence Pipeline Binding Plan is merged from #2222.
-- VP-3.15 Runtime Persistence Pipeline Binding Scope Unlock is merged from #2223.
-- VP-3.16 is docs-only final gate: it makes the next implementation PR explicit and keeps this PR away from pipeline binding code.
+- VP-3.16 Runtime Persistence Pipeline Binding Final Gate is merged from #2224.
+- VP-3.17 binds runtime action result to repository adapter receipt. This remains contract-level and is not production DB persistence.
 - #2113 remains open: repository settings cleanup.
 - #2115 remains open: backend register role assignment hardening remains blocked by the current auth-file write path.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
+- apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts
+- apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineBinding.test.ts
 
-MANUAL CODE PR SCOPE AFTER THIS GATE:
-- The next manual code PR must set `current` to `VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation`.
-- The next manual code PR must set `allowedCurrentScope` to docs plus exactly these two files:
-  - `apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts`
-  - `apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineBinding.test.ts`
-- The next manual code PR must keep `NEXT` safe/docs-only so autopilot loop dry-run can transition cleanly after merge.
+IMPLEMENTED:
+- Runtime action result now includes `runtimeRepositoryReceipt` after `runtimeStoreReceipt` exists.
+- Pipeline builds `P7DealWorkspaceRuntimeDbContract` from refresh snapshot and process runtime store receipt.
+- Pipeline passes explicit actor, role, correlation, audit and idempotency values into DB contract builder.
+- Repository adapter remains contract-level.
+- Without outbox/audit linkage, repository receipt state stays `outbox_required`.
+- Duplicate idempotency returns duplicate-safe repository receipt and does not create a second repository record.
 
 STILL LOCKED:
 - `apps/api/prisma/schema.prisma`
@@ -46,27 +41,21 @@ STILL LOCKED:
 - `package-lock.json`
 - `pnpm-lock.yaml`
 
-PIPELINE BINDING REQUIREMENTS FOR VP-3.17:
-- Runtime action result must include repository adapter receipt only after process runtime snapshot receipt exists.
-- Pipeline must build `P7DealWorkspaceRuntimeDbContract` from refresh snapshot and process runtime store receipt.
-- Pipeline must pass explicit actor, correlation, audit and idempotency values into DB contract builder.
-- Repository adapter must remain contract-level and must not claim live DB persistence.
-- `fully_linked` must stay blocked unless both outbox and audit linkage exist.
-- Duplicate idempotency must not create second evidence write.
+GUARDRAILS:
 - No direct UI money movement.
 - No bank/FGIS/EDO live persistence claims.
 - No hidden migration.
 - No `schema.prisma` drift.
 - No package or lockfile change.
+- Critical forbidden zones must not be removed from `autopilot-state.json`.
 
 NEXT:
-- Layer: VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation.
-- Goal: bind runtime action pipeline to repository adapter receipts only after this final gate is merged.
+- Layer: VP-3.18 Runtime Persistence Outbox Audit Linkage Plan.
+- Goal: select exact scope for adding real outbox/audit linkage after VP-3.17 is merged and tested.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - keep pipeline binding files named but not written in VP-3.16;
   - keep `apps/api/prisma/schema.prisma` locked;
   - keep `apps/api/prisma/migrations/**` locked;
   - keep direct UI money movement forbidden;
@@ -76,11 +65,6 @@ NEXT:
   - guard-tests remain green;
   - pnpm --filter web test remains green;
   - maturity language remains platform-temporarily-without-external-integrations.
-
-AFTER NEXT MANUAL CODE PR:
-- Layer: VP-3.18 Runtime Persistence Outbox Audit Linkage Plan.
-- Goal: select exact scope for adding real outbox/audit linkage after pipeline binding is implemented and tested.
-- Candidate files must be selected separately after VP-3.17.
 
 ORDER:
 1. Stable shell boundary is active from #2038.
@@ -126,3 +110,4 @@ ORDER:
 41. VP-3.13 Runtime Persistence Repository Adapter Implementation is active from #2221.
 42. VP-3.14 Runtime Persistence Pipeline Binding Plan is active from #2222.
 43. VP-3.15 Runtime Persistence Pipeline Binding Scope Unlock is active from #2223.
+44. VP-3.16 Runtime Persistence Pipeline Binding Final Gate is active from #2224.
