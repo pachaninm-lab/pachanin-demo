@@ -4,7 +4,7 @@ import type { CanonicalDeal } from '@/lib/platform-v7/domain/types';
 import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key-helper';
 import {
   platformV7ApplyMoneyOperation,
-  platformV7ReleaseGate,
+  platformV7BankBasisGate,
   platformV7SplitDisputedMoney,
   platformV7ValidateMoneyOperationIdempotency,
   platformV7ValidateMoneyOperation,
@@ -53,10 +53,11 @@ const balancedTree: PlatformV7MoneyTree = {
 
 function operation(overrides: Partial<PlatformV7MoneyOperation>): PlatformV7MoneyOperation {
   const amount = overrides.amount ?? 100;
+  const type = overrides.type ?? 'bank_basis_requested';
   return {
     operationId: overrides.operationId ?? 'op-1',
     dealId: overrides.dealId ?? 'deal-1',
-    type: overrides.type ?? 'release_requested',
+    type,
     amount,
     currency: 'RUB',
     basisDocumentIds: overrides.basisDocumentIds ?? ['basis-1'],
@@ -64,7 +65,7 @@ function operation(overrides: Partial<PlatformV7MoneyOperation>): PlatformV7Mone
     actorRole: overrides.actorRole ?? 'operator',
     occurredAt: overrides.occurredAt ?? '2026-05-23T10:00:00.000Z',
     idempotencyKey: overrides.idempotencyKey ?? buildPlatformV7IdempotencyKey({
-      boundaryId: overrides.type === 'release_confirmed' ? 'confirm_money_released' : 'mark_money_ready_to_release',
+      boundaryId: type === 'bank_basis_confirmed' ? 'confirm_bank_basis' : 'mark_bank_basis_ready',
       actorId: overrides.actorId ?? 'actor-1',
       entityId: overrides.dealId ?? 'deal-1',
       dealId: overrides.dealId ?? 'deal-1',
@@ -77,10 +78,10 @@ function operation(overrides: Partial<PlatformV7MoneyOperation>): PlatformV7Mone
   };
 }
 
-const releaseGateReady = {
-  operationType: 'release_requested' as const,
+const bankBasisGateReady = {
+  operationType: 'bank_basis_requested' as const,
   bankConfirmationExists: false,
-  dealStatus: 'release_basis_ready',
+  dealStatus: 'bank_basis_ready',
   moneyStatus: 'reserved' as const,
   requiredDocumentsConfirmed: true,
   tripStatus: 'completed',
@@ -89,9 +90,7 @@ const releaseGateReady = {
   bankReviewStatus: 'clear',
 };
 
-const explicitBankConfirmationGuard: PlatformV7MoneyOperationValidationContext extends {
-  readonly bankConfirmationExists: boolean;
-} ? true : never = true;
+const explicitBankConfirmationGuard: PlatformV7MoneyOperationValidationContext extends { readonly bankConfirmationExists: boolean } ? true : never = true;
 
 describe('platform-v7 MoneyTree', () => {
   it('requires every money operation validation call to pass bankConfirmationExists explicitly', () => {
@@ -106,7 +105,6 @@ describe('platform-v7 MoneyTree', () => {
     ]);
 
     const partsTotal = tree.parts.reduce((sum, part) => sum + part.amount, 0);
-
     expect(tree.reserved.amount).toBe(600);
     expect(partsTotal).toBe(600);
     expect(tree.remainder).toBe(0);
@@ -126,7 +124,6 @@ describe('platform-v7 MoneyTree', () => {
     ]);
 
     const bucketsWithDeal = tree.parts.filter((part) => part.dealIds.includes('dispute-and-hold'));
-
     expect(bucketsWithDeal).toHaveLength(1);
     expect(bucketsWithDeal[0]?.key).toBe('blockedByDispute');
     expect(tree.isBalanced).toBe(true);
@@ -134,16 +131,8 @@ describe('platform-v7 MoneyTree', () => {
 
   it('prioritizes document and manual-review buckets before generic hold/readiness states', () => {
     const tree = calculateMoneyTree([
-      deal({
-        id: 'doc-stop',
-        money: { totalAmount: 100, reservedAmount: 100, holdAmount: 0, releaseAmount: 100 },
-        documents: [{ id: 'doc-2', name: 'СДИЗ', owner: 'seller', status: 'missing', uploadedAt: null, size: null, blocksMoneyRelease: true }],
-      }),
-      deal({
-        id: 'bank-review',
-        money: { totalAmount: 100, reservedAmount: 100, holdAmount: 0, releaseAmount: 100 },
-        blockers: ['bank_review'],
-      }),
+      deal({ id: 'doc-stop', money: { totalAmount: 100, reservedAmount: 100, holdAmount: 0, releaseAmount: 100 }, documents: [{ id: 'doc-2', name: 'СДИЗ', owner: 'seller', status: 'missing', uploadedAt: null, size: null, blocksMoneyRelease: true }] }),
+      deal({ id: 'bank-review', money: { totalAmount: 100, reservedAmount: 100, holdAmount: 0, releaseAmount: 100 }, blockers: ['bank_review'] }),
     ]);
 
     expect(tree.parts.find((part) => part.key === 'blockedByDocuments')?.dealIds).toContain('doc-stop');
@@ -152,325 +141,116 @@ describe('platform-v7 MoneyTree', () => {
   });
 
   it('validates the reserved amount invariant', () => {
-    expect(platformV7ValidateMoneyTree(balancedTree)).toEqual(expect.objectContaining({
-      valid: true,
-      expectedReservedAmount: 1000,
-      actualReservedAmount: 1000,
-    }));
+    expect(platformV7ValidateMoneyTree(balancedTree)).toMatchObject({ valid: true, expectedReservedAmount: 1000, actualReservedAmount: 1000 });
   });
 
   it('rejects unbalanced buckets to prevent double counting', () => {
     const result = platformV7ValidateMoneyTree({ ...balancedTree, heldAmount: 300 });
-
     expect(result.valid).toBe(false);
     expect(result.code).toBe('INVARIANT_MISMATCH');
     expect(result.expectedReservedAmount).toBe(1100);
     expect(result.actualReservedAmount).toBe(1000);
   });
 
-  it('rejects negative tree buckets and over-reserved totals before release checks', () => {
-    expect(platformV7ValidateMoneyTree({ ...balancedTree, heldAmount: -1 })).toMatchObject({
-      valid: false,
-      code: 'NEGATIVE_AMOUNT',
-    });
-
-    expect(platformV7ValidateMoneyTree({ ...balancedTree, totalDealAmount: 900 })).toMatchObject({
-      valid: false,
-      code: 'OVER_RESERVED',
-    });
+  it('rejects negative tree buckets and over-reserved totals before bank basis checks', () => {
+    expect(platformV7ValidateMoneyTree({ ...balancedTree, heldAmount: -1 })).toMatchObject({ valid: false, code: 'NEGATIVE_AMOUNT' });
+    expect(platformV7ValidateMoneyTree({ ...balancedTree, totalDealAmount: 900 })).toMatchObject({ valid: false, code: 'OVER_RESERVED' });
   });
 
-  it('allows release basis only when every required condition is satisfied', () => {
-    expect(platformV7ReleaseGate(releaseGateReady)).toEqual({
+  it('allows bank basis only when every required condition is satisfied', () => {
+    expect(platformV7BankBasisGate(bankBasisGateReady)).toEqual({
       allowed: true,
-      reason: 'Release request can be recorded before bank confirmation.',
-      nextStatus: 'release_requested',
+      reason: 'Bank basis request can be recorded before bank confirmation.',
+      nextStatus: 'bank_basis_requested',
     });
   });
 
-  it('allows release_requested without bank confirmation and never returns released', () => {
-    const decision = platformV7ReleaseGate({
-      ...releaseGateReady,
-      operationType: 'release_requested',
-      bankConfirmationExists: false,
-    });
-
+  it('allows bank_basis_requested without bank confirmation and never returns confirmed', () => {
+    const decision = platformV7BankBasisGate({ ...bankBasisGateReady, operationType: 'bank_basis_requested', bankConfirmationExists: false });
     expect(decision.allowed).toBe(true);
-    expect(decision.nextStatus).toBe('release_requested');
-    expect(decision.nextStatus).not.toBe('released');
+    expect(decision.nextStatus).toBe('bank_basis_requested');
+    expect(decision.nextStatus).not.toBe('bank_basis_confirmed');
   });
 
-  it('blocks release_confirmed without bank confirmation and releases only when confirmation exists', () => {
-    expect(platformV7ReleaseGate({
-      ...releaseGateReady,
-      operationType: 'release_confirmed',
-      bankConfirmationExists: false,
-    })).toMatchObject({
+  it('blocks bank_basis_confirmed without bank confirmation and confirms only when confirmation exists', () => {
+    expect(platformV7BankBasisGate({ ...bankBasisGateReady, operationType: 'bank_basis_confirmed', bankConfirmationExists: false })).toMatchObject({
       allowed: false,
       nextStatus: 'blocked',
-      reason: 'Bank confirmation is required before release can be confirmed.',
+      reason: 'Bank confirmation is required before bank basis can be confirmed.',
     });
 
-    expect(platformV7ReleaseGate({
-      ...releaseGateReady,
-      operationType: 'release_confirmed',
-      bankConfirmationExists: true,
-    })).toMatchObject({
+    expect(platformV7BankBasisGate({ ...bankBasisGateReady, operationType: 'bank_basis_confirmed', bankConfirmationExists: true })).toMatchObject({
       allowed: true,
-      nextStatus: 'released',
-      reason: 'Bank-confirmed release can move money to released status.',
+      nextStatus: 'bank_basis_confirmed',
+      reason: 'Bank-confirmed basis can be recorded in MoneyTree.',
     });
   });
 
-  it('blocks release when documents, trip, dispute or bank review are not ready', () => {
-    expect(platformV7ReleaseGate({
-      ...releaseGateReady,
-      dealStatus: 'release_basis_ready',
-      moneyStatus: 'reserved',
-      requiredDocumentsConfirmed: false,
-      tripStatus: 'completed',
-      acceptanceStatus: 'confirmed',
-      disputeStatus: 'none',
-      bankReviewStatus: 'clear',
-    }).allowed).toBe(false);
-
-    expect(platformV7ReleaseGate({
-      ...releaseGateReady,
-      dealStatus: 'release_basis_ready',
-      moneyStatus: 'reserved',
-      requiredDocumentsConfirmed: true,
-      tripStatus: 'in_transit',
-      acceptanceStatus: 'confirmed',
-      disputeStatus: 'none',
-      bankReviewStatus: 'clear',
-    }).allowed).toBe(false);
-
-    expect(platformV7ReleaseGate({
-      ...releaseGateReady,
-      dealStatus: 'release_basis_ready',
-      moneyStatus: 'reserved',
-      requiredDocumentsConfirmed: true,
-      tripStatus: 'completed',
-      acceptanceStatus: 'confirmed',
-      disputeStatus: 'under_review',
-      bankReviewStatus: 'clear',
-    }).allowed).toBe(false);
-
-    expect(platformV7ReleaseGate({
-      ...releaseGateReady,
-      dealStatus: 'release_basis_ready',
-      moneyStatus: 'reserved',
-      requiredDocumentsConfirmed: true,
-      tripStatus: 'completed',
-      acceptanceStatus: 'confirmed',
-      disputeStatus: 'resolved',
-      bankReviewStatus: 'blocked',
-    }).allowed).toBe(false);
+  it('blocks bank basis when documents, trip, dispute or bank review are not ready', () => {
+    expect(platformV7BankBasisGate({ ...bankBasisGateReady, requiredDocumentsConfirmed: false }).allowed).toBe(false);
+    expect(platformV7BankBasisGate({ ...bankBasisGateReady, tripStatus: 'in_transit' }).allowed).toBe(false);
+    expect(platformV7BankBasisGate({ ...bankBasisGateReady, disputeStatus: 'under_review' }).allowed).toBe(false);
+    expect(platformV7BankBasisGate({ ...bankBasisGateReady, disputeStatus: 'resolved', bankReviewStatus: 'blocked' }).allowed).toBe(false);
   });
 
-  it('splits disputed money into releasable and held buckets without exceeding reserve', () => {
-    expect(platformV7SplitDisputedMoney(1000, 250)).toEqual({
-      readyToReleaseAmount: 750,
-      heldAmount: 250,
-      manualReviewAmount: 0,
-      releasedAmount: 0,
-      refundedAmount: 0,
-    });
-
-    expect(platformV7SplitDisputedMoney(1000, 1500)).toEqual({
-      readyToReleaseAmount: 0,
-      heldAmount: 1000,
-      manualReviewAmount: 0,
-      releasedAmount: 0,
-      refundedAmount: 0,
-    });
+  it('splits disputed money into basis-ready and held buckets without exceeding reserve', () => {
+    expect(platformV7SplitDisputedMoney(1000, 250)).toEqual({ readyToReleaseAmount: 750, heldAmount: 250, manualReviewAmount: 0, releasedAmount: 0, refundedAmount: 0 });
+    expect(platformV7SplitDisputedMoney(1000, 1500)).toEqual({ readyToReleaseAmount: 0, heldAmount: 1000, manualReviewAmount: 0, releasedAmount: 0, refundedAmount: 0 });
   });
 
-  it('keeps release_requested as a request state without moving money buckets', () => {
+  it('keeps bank_basis_requested as a request state without moving money buckets', () => {
     const result = platformV7ApplyMoneyOperation({
       tree: balancedTree,
-      operation: operation({ type: 'release_requested', amount: 250 }),
-      releaseGate: releaseGateReady,
+      operation: operation({ type: 'bank_basis_requested', amount: 250 }),
+      bankBasisGate: bankBasisGateReady,
       bankConfirmationExists: false,
     });
 
-    expect(result).toMatchObject({
-      valid: true,
-      code: 'OK',
-      reason: 'Release request is valid and does not move money without bank confirmation.',
-    });
-    expect(result.tree).toMatchObject({
-      status: 'release_requested',
-      readyToReleaseAmount: 400,
-      releasedAmount: 200,
-      reservedAmount: 1000,
-    });
+    expect(result).toMatchObject({ valid: true, code: 'OK', reason: 'Bank basis request is valid and does not move money without bank confirmation.' });
+    expect(result.tree).toMatchObject({ status: 'bank_basis_requested', readyToReleaseAmount: 400, releasedAmount: 200, reservedAmount: 1000 });
     expect(platformV7ValidateMoneyTree(result.tree)).toMatchObject({ valid: true });
   });
 
-  it('requires bank confirmation before release_confirmed can move money', () => {
-    const requestedTree: PlatformV7MoneyTree = { ...balancedTree, status: 'release_requested' };
+  it('requires bank confirmation before bank_basis_confirmed can move money', () => {
+    const requestedTree: PlatformV7MoneyTree = { ...balancedTree, status: 'bank_basis_requested' };
 
-    expect(platformV7ValidateMoneyOperation({
-      tree: requestedTree,
-      operation: operation({ type: 'release_confirmed', amount: 250 }),
-      bankConfirmationExists: false,
-    })).toMatchObject({
-      valid: false,
-      code: 'BANK_CONFIRMATION_REQUIRED',
-    });
+    expect(platformV7ValidateMoneyOperation({ tree: requestedTree, operation: operation({ type: 'bank_basis_confirmed', amount: 250 }), bankConfirmationExists: false })).toMatchObject({ valid: false, code: 'BANK_CONFIRMATION_REQUIRED' });
 
-    const result = platformV7ApplyMoneyOperation({
-      tree: requestedTree,
-      operation: operation({ type: 'release_confirmed', amount: 250 }),
-      bankConfirmationExists: true,
-    });
-
-    expect(result).toMatchObject({
-      valid: true,
-      code: 'OK',
-    });
-    expect(result.tree).toMatchObject({
-      status: 'released',
-      readyToReleaseAmount: 150,
-      releasedAmount: 450,
-      reservedAmount: 1000,
-    });
+    const result = platformV7ApplyMoneyOperation({ tree: requestedTree, operation: operation({ type: 'bank_basis_confirmed', amount: 250 }), bankConfirmationExists: true });
+    expect(result).toMatchObject({ valid: true, code: 'OK' });
+    expect(result.tree).toMatchObject({ status: 'bank_basis_confirmed', readyToReleaseAmount: 150, releasedAmount: 450, reservedAmount: 1000 });
     expect(platformV7ValidateMoneyTree(result.tree)).toMatchObject({ valid: true });
   });
 
-  it('rejects release_confirmed without a prior release request state', () => {
-    expect(platformV7ValidateMoneyOperation({
-      tree: balancedTree,
-      operation: operation({ type: 'release_confirmed', amount: 100 }),
-      bankConfirmationExists: true,
-    })).toMatchObject({
-      valid: false,
-      code: 'RELEASE_REQUEST_REQUIRED',
-    });
+  it('rejects bank_basis_confirmed without a prior bank basis request state', () => {
+    expect(platformV7ValidateMoneyOperation({ tree: balancedTree, operation: operation({ type: 'bank_basis_confirmed', amount: 100 }), bankConfirmationExists: true })).toMatchObject({ valid: false, code: 'BANK_BASIS_REQUEST_REQUIRED' });
   });
 
-  it('blocks release requests when release gate is not ready or amount exceeds ready bucket', () => {
-    expect(platformV7ValidateMoneyOperation({
-      tree: balancedTree,
-      operation: operation({ type: 'release_requested', amount: 401 }),
-      releaseGate: releaseGateReady,
-      bankConfirmationExists: false,
-    })).toMatchObject({
-      valid: false,
-      code: 'AMOUNT_EXCEEDS_READY_TO_RELEASE',
-    });
-
-    expect(platformV7ValidateMoneyOperation({
-      tree: balancedTree,
-      operation: operation({ type: 'release_requested', amount: 100 }),
-      releaseGate: { ...releaseGateReady, requiredDocumentsConfirmed: false },
-      bankConfirmationExists: false,
-    })).toMatchObject({
-      valid: false,
-      code: 'RELEASE_GATE_BLOCKED',
-    });
+  it('blocks bank basis requests when gate is not ready or amount exceeds ready bucket', () => {
+    expect(platformV7ValidateMoneyOperation({ tree: balancedTree, operation: operation({ type: 'bank_basis_requested', amount: 401 }), bankBasisGate: bankBasisGateReady, bankConfirmationExists: false })).toMatchObject({ valid: false, code: 'AMOUNT_EXCEEDS_BANK_BASIS_READY' });
+    expect(platformV7ValidateMoneyOperation({ tree: balancedTree, operation: operation({ type: 'bank_basis_requested', amount: 100 }), bankBasisGate: { ...bankBasisGateReady, requiredDocumentsConfirmed: false }, bankConfirmationExists: false })).toMatchObject({ valid: false, code: 'BANK_BASIS_GATE_BLOCKED' });
   });
 
   it('rejects negative, over-reserved and double-counted money operations', () => {
-    expect(platformV7ValidateMoneyOperation({
-      tree: balancedTree,
-      operation: operation({ type: 'hold_created', amount: -1 }),
-      bankConfirmationExists: false,
-    })).toMatchObject({
-      valid: false,
-      code: 'NEGATIVE_AMOUNT',
-    });
-
-    expect(platformV7ValidateMoneyOperation({
-      tree: balancedTree,
-      operation: operation({ type: 'reserve_confirmed', amount: 1 }),
-      bankConfirmationExists: false,
-    })).toMatchObject({
-      valid: false,
-      code: 'OVER_RESERVED',
-    });
-
-    expect(platformV7ValidateMoneyOperation({
-      tree: balancedTree,
-      operation: operation({ operationId: 'op-existing' }),
-      bankConfirmationExists: false,
-      existingOperationIds: ['op-existing'],
-    })).toMatchObject({
-      valid: false,
-      code: 'DUPLICATE_OPERATION',
-    });
+    expect(platformV7ValidateMoneyOperation({ tree: balancedTree, operation: operation({ type: 'hold_created', amount: -1 }), bankConfirmationExists: false })).toMatchObject({ valid: false, code: 'NEGATIVE_AMOUNT' });
+    expect(platformV7ValidateMoneyOperation({ tree: balancedTree, operation: operation({ type: 'reserve_confirmed', amount: 1 }), bankConfirmationExists: false })).toMatchObject({ valid: false, code: 'OVER_RESERVED' });
+    expect(platformV7ValidateMoneyOperation({ tree: balancedTree, operation: operation({ operationId: 'op-existing' }), bankConfirmationExists: false, existingOperationIds: ['op-existing'] })).toMatchObject({ valid: false, code: 'DUPLICATE_OPERATION' });
   });
 
   it('validates idempotency keys before applying money operations', () => {
-    expect(platformV7ValidateMoneyOperation({
-      tree: balancedTree,
-      operation: operation({ idempotencyKey: '   ' }),
-      bankConfirmationExists: false,
-    })).toMatchObject({
-      valid: false,
-      code: 'MISSING_IDEMPOTENCY_KEY',
-    });
+    expect(platformV7ValidateMoneyOperation({ tree: balancedTree, operation: operation({ idempotencyKey: '   ' }), bankConfirmationExists: false })).toMatchObject({ valid: false, code: 'MISSING_IDEMPOTENCY_KEY' });
+    expect(platformV7ValidateMoneyOperation({ tree: balancedTree, operation: operation({ idempotencyKey: 'not-a-platform-key' }), bankConfirmationExists: false })).toMatchObject({ valid: false, code: 'INVALID_IDEMPOTENCY_KEY' });
 
-    expect(platformV7ValidateMoneyOperation({
-      tree: balancedTree,
-      operation: operation({ idempotencyKey: 'not-a-platform-key' }),
-      bankConfirmationExists: false,
-    })).toMatchObject({
-      valid: false,
-      code: 'INVALID_IDEMPOTENCY_KEY',
-    });
-
-    const usedKey = buildPlatformV7IdempotencyKey({
-      boundaryId: 'confirm_money_released',
-      actorId: 'actor-1',
-      entityId: 'deal-1',
-      dealId: 'deal-1',
-      amountMinor: 100,
-      currency: 'RUB',
-      attemptId: 'used',
-    });
-
-    expect(platformV7ValidateMoneyOperation({
-      tree: balancedTree,
-      operation: operation({ operationId: 'used', idempotencyKey: usedKey }),
-      bankConfirmationExists: false,
-      usedIdempotencyKeys: [usedKey],
-    })).toMatchObject({
-      valid: false,
-      code: 'DUPLICATE_IDEMPOTENCY_KEY',
-    });
+    const usedKey = buildPlatformV7IdempotencyKey({ boundaryId: 'confirm_bank_basis', actorId: 'actor-1', entityId: 'deal-1', dealId: 'deal-1', amountMinor: 100, currency: 'RUB', attemptId: 'used' });
+    expect(platformV7ValidateMoneyOperation({ tree: balancedTree, operation: operation({ operationId: 'used', idempotencyKey: usedKey }), bankConfirmationExists: false, usedIdempotencyKeys: [usedKey] })).toMatchObject({ valid: false, code: 'DUPLICATE_IDEMPOTENCY_KEY' });
   });
 
   it('exports money operation idempotency validation through shared helpers', () => {
-    const moneyKey = buildPlatformV7IdempotencyKey({
-      boundaryId: 'confirm_money_released',
-      actorId: 'bank-1',
-      entityId: 'money-1',
-      dealId: 'deal-1',
-      amountMinor: 100,
-      currency: 'RUB',
-      attemptId: 'first',
-    });
-    const nonMoneyKey = buildPlatformV7IdempotencyKey({
-      boundaryId: 'assign_driver',
-      actorId: 'logistics-1',
-      entityId: 'trip-1',
-      dealId: 'deal-1',
-    });
+    const moneyKey = buildPlatformV7IdempotencyKey({ boundaryId: 'confirm_bank_basis', actorId: 'bank-1', entityId: 'money-1', dealId: 'deal-1', amountMinor: 100, currency: 'RUB', attemptId: 'first' });
+    const nonMoneyKey = buildPlatformV7IdempotencyKey({ boundaryId: 'assign_driver', actorId: 'logistics-1', entityId: 'trip-1', dealId: 'deal-1' });
 
-    expect(platformV7ValidateMoneyOperationIdempotency(moneyKey)).toEqual({
-      valid: true,
-      reason: 'Money operation idempotency key is valid.',
-      issues: [],
-    });
-    expect(platformV7ValidateMoneyOperationIdempotency(nonMoneyKey)).toMatchObject({
-      valid: false,
-      reason: 'Idempotency key is valid but not scoped to a money operation.',
-    });
-    expect(platformV7ValidateMoneyOperationIdempotency('bad-key')).toMatchObject({
-      valid: false,
-      reason: 'Money operation idempotency key is malformed.',
-    });
+    expect(platformV7ValidateMoneyOperationIdempotency(moneyKey)).toEqual({ valid: true, reason: 'Money operation idempotency key is valid.', issues: [] });
+    expect(platformV7ValidateMoneyOperationIdempotency(nonMoneyKey)).toMatchObject({ valid: false, reason: 'Idempotency key is valid but not scoped to a money operation.' });
+    expect(platformV7ValidateMoneyOperationIdempotency('bad-key')).toMatchObject({ valid: false, reason: 'Money operation idempotency key is malformed.' });
   });
 });
