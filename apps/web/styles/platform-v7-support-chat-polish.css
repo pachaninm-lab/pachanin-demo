@@ -1,21 +1,28 @@
 /* Final visual and viewport override for the floating support form. */
+html body .p7-support-chat-head strong,
 .p7-support-chat-head strong {
+  position: relative !important;
+  display: block !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  color: transparent !important;
   font-size: 0 !important;
-  line-height: 1 !important;
+  line-height: 0 !important;
   letter-spacing: 0 !important;
   user-select: none !important;
   -webkit-user-select: none !important;
 }
 
+html body .p7-support-chat-head strong::before,
 .p7-support-chat-head strong::before {
-  content: 'Поддержка';
-  display: block;
-  font-size: 18px;
-  line-height: 1.08;
-  font-weight: 950;
-  letter-spacing: -0.02em;
-  color: #fff;
-  white-space: nowrap;
+  content: 'Поддержка' !important;
+  display: block !important;
+  font-size: 18px !important;
+  line-height: 1.08 !important;
+  font-weight: 950 !important;
+  letter-spacing: -0.02em !important;
+  color: #fff !important;
+  white-space: nowrap !important;
   user-select: none !important;
   -webkit-user-select: none !important;
 }
@@ -61,8 +68,9 @@
     padding: 12px !important;
   }
 
+  html body .p7-support-chat-head strong::before,
   .p7-support-chat-head strong::before {
-    font-size: 17px;
+    font-size: 17px !important;
   }
 
   .p7-support-chat-form,
@@ -96,8 +104,9 @@
 }
 
 @media (max-width: 380px) {
+  html body .p7-support-chat-head strong::before,
   .p7-support-chat-head strong::before {
-    font-size: 16px;
+    font-size: 16px !important;
   }
 
   .p7-support-chat-form {
