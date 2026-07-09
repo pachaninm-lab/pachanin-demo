@@ -24,21 +24,21 @@ function iso(hours: number) {
 }
 
 export const executionCounterparties: Counterparty[] = [
-  { id: 'CP-S-001', name: 'КФХ Рассвет', type: 'seller', inn: '6829001001', status: 'approved', riskScore: 18, runtimeLabel: 'sandbox' },
-  { id: 'CP-S-002', name: 'Тамбов Агро', type: 'seller', inn: '6829001002', status: 'approved', riskScore: 22, runtimeLabel: 'sandbox' },
-  { id: 'CP-B-001', name: 'Мельница Центральная', type: 'buyer', inn: '7729001001', kpp: '772901001', status: 'approved', riskScore: 15, runtimeLabel: 'sandbox' },
-  { id: 'CP-B-002', name: 'Комбикорм Плюс', type: 'buyer', inn: '7729001002', kpp: '772902001', status: 'approved', riskScore: 24, runtimeLabel: 'sandbox' },
-  { id: 'CP-C-001', name: 'Логистика Черноземье', type: 'carrier', inn: '6829002001', status: 'approved', riskScore: 28, runtimeLabel: 'sandbox' },
-  { id: 'CP-L-001', name: 'Лаборатория Тамбов-Зерно', type: 'lab', inn: '6829003001', status: 'approved', riskScore: 10, runtimeLabel: 'sandbox' }
+  { id: 'CP-S-001', name: 'КФХ Рассвет', type: 'seller', inn: '6829001001', status: 'approved', riskScore: 18, runtimeLabel: 'manual' },
+  { id: 'CP-S-002', name: 'Тамбов Агро', type: 'seller', inn: '6829001002', status: 'approved', riskScore: 22, runtimeLabel: 'manual' },
+  { id: 'CP-B-001', name: 'Мельница Центральная', type: 'buyer', inn: '7729001001', kpp: '772901001', status: 'approved', riskScore: 15, runtimeLabel: 'manual' },
+  { id: 'CP-B-002', name: 'Комбикорм Плюс', type: 'buyer', inn: '7729001002', kpp: '772902001', status: 'approved', riskScore: 24, runtimeLabel: 'manual' },
+  { id: 'CP-C-001', name: 'Логистика Черноземье', type: 'carrier', inn: '6829002001', status: 'approved', riskScore: 28, runtimeLabel: 'manual' },
+  { id: 'CP-L-001', name: 'Лаборатория Тамбов-Зерно', type: 'lab', inn: '6829003001', status: 'approved', riskScore: 10, runtimeLabel: 'manual' }
 ];
 
 export const executionUsers: User[] = [
-  { id: 'U-SELLER-1', name: 'Продавец sandbox', role: 'seller', counterpartyId: 'CP-S-001', authorityLevel: 'signer', twoFactorEnabled: true, runtimeLabel: 'sandbox' },
-  { id: 'U-BUYER-1', name: 'Покупатель sandbox', role: 'buyer', counterpartyId: 'CP-B-001', authorityLevel: 'signer', twoFactorEnabled: true, runtimeLabel: 'sandbox' },
-  { id: 'U-OP-1', name: 'Оператор sandbox', role: 'operator', authorityLevel: 'operator', twoFactorEnabled: true, runtimeLabel: 'sandbox' },
-  { id: 'U-BANK-1', name: 'Банк sandbox', role: 'bank', counterpartyId: 'CP-BANK-001', authorityLevel: 'bank_controller', twoFactorEnabled: true, runtimeLabel: 'sandbox' },
-  { id: 'U-DRIVER-1', name: 'Водитель sandbox', role: 'driver', counterpartyId: 'CP-C-001', authorityLevel: 'operator', twoFactorEnabled: false, runtimeLabel: 'sandbox' },
-  { id: 'U-LAB-1', name: 'Лаборант sandbox', role: 'lab', counterpartyId: 'CP-L-001', authorityLevel: 'operator', twoFactorEnabled: true, runtimeLabel: 'sandbox' }
+  { id: 'U-SELLER-1', name: 'Продавец', role: 'seller', counterpartyId: 'CP-S-001', authorityLevel: 'signer', twoFactorEnabled: true, runtimeLabel: 'manual' },
+  { id: 'U-BUYER-1', name: 'Покупатель', role: 'buyer', counterpartyId: 'CP-B-001', authorityLevel: 'signer', twoFactorEnabled: true, runtimeLabel: 'manual' },
+  { id: 'U-OP-1', name: 'Оператор', role: 'operator', authorityLevel: 'operator', twoFactorEnabled: true, runtimeLabel: 'manual' },
+  { id: 'U-BANK-1', name: 'Банковский контролёр', role: 'bank', counterpartyId: 'CP-BANK-001', authorityLevel: 'bank_controller', twoFactorEnabled: true, runtimeLabel: 'manual' },
+  { id: 'U-DRIVER-1', name: 'Водитель', role: 'driver', counterpartyId: 'CP-C-001', authorityLevel: 'operator', twoFactorEnabled: false, runtimeLabel: 'manual' },
+  { id: 'U-LAB-1', name: 'Лаборант', role: 'lab', counterpartyId: 'CP-L-001', authorityLevel: 'operator', twoFactorEnabled: true, runtimeLabel: 'manual' }
 ];
 
 export const executionLots: Lot[] = lotIds.map((id, index) => ({
@@ -51,7 +51,7 @@ export const executionLots: Lot[] = lotIds.map((id, index) => ({
   qualityClass: index % 2 === 0 ? '3 класс' : '4 класс',
   status: index < 2 ? 'published' : index === 2 ? 'offer_accepted' : 'draft',
   createdAt: iso(index),
-  runtimeLabel: 'sandbox'
+  runtimeLabel: 'manual'
 }));
 
 export const executionDeals: Deal[] = dealIds.map((id, index) => {
@@ -75,9 +75,9 @@ export const executionDeals: Deal[] = dealIds.map((id, index) => {
     routeId: `R-${index + 1}`,
     isDegraded: index === 4,
     ownerRole: currentStatus === 'DISPUTE_OPEN' ? 'arbitrator' : currentStatus === 'DOCUMENTS_PENDING' ? 'operator' : 'operator',
-    blocker: currentStatus === 'DISPUTE_OPEN' ? 'Открыт спор: финальный выпуск заблокирован' : undefined,
+    blocker: currentStatus === 'DISPUTE_OPEN' ? 'Открыт спор: банковское основание заблокировано' : undefined,
     slaDueAt: iso(24 + index),
-    runtimeLabel: 'sandbox',
+    runtimeLabel: 'manual',
     updatedAt: iso(index + 1)
   };
 });
@@ -91,15 +91,15 @@ export const executionMoneyEvents: MoneyEvent[] = Array.from({ length: 30 }, (_,
     amountRub: 500000 + index * 75000,
     status: index % 7 === 0 ? 'blocked' : 'confirmed',
     idempotencyKey: `idem-${dealId}-${index}`,
-    bankEventId: `SBER-SANDBOX-${index}`,
+    bankEventId: `BANK-MANUAL-${index}`,
     createdAt: iso(index),
-    runtimeLabel: 'sandbox'
+    runtimeLabel: 'manual'
   };
 });
 
 export const executionDocuments: Document[] = dealIds.flatMap((dealId, index) => [
-  { id: `DOC-${dealId}-CONTRACT`, dealId, type: 'contract', status: index % 3 === 0 ? 'signed' : 'generated', version: 1, hash: `hash-contract-${dealId}`, signerIds: ['U-SELLER-1', 'U-BUYER-1'], createdAt: iso(index), runtimeLabel: 'sandbox' as const },
-  { id: `DOC-${dealId}-TTN`, dealId, type: 'ttn', status: index % 4 === 0 ? 'missing' : 'signed', version: 1, hash: `hash-ttn-${dealId}`, signerIds: ['U-DRIVER-1'], createdAt: iso(index + 1), runtimeLabel: 'sandbox' as const }
+  { id: `DOC-${dealId}-CONTRACT`, dealId, type: 'contract', status: index % 3 === 0 ? 'signed' : 'generated', version: 1, hash: `hash-contract-${dealId}`, signerIds: ['U-SELLER-1', 'U-BUYER-1'], createdAt: iso(index), runtimeLabel: 'manual' as const },
+  { id: `DOC-${dealId}-TTN`, dealId, type: 'ttn', status: index % 4 === 0 ? 'missing' : 'signed', version: 1, hash: `hash-ttn-${dealId}`, signerIds: ['U-DRIVER-1'], createdAt: iso(index + 1), runtimeLabel: 'manual' as const }
 ]);
 
 export const executionTransportPacks: TransportPack[] = dealIds.slice(0, 10).map((dealId, index) => ({
@@ -111,7 +111,7 @@ export const executionTransportPacks: TransportPack[] = dealIds.slice(0, 10).map
   routeId: `R-${index + 1}`,
   status: index < 3 ? 'assigned' : index < 6 ? 'in_transit' : 'arrived',
   etaAt: iso(8 + index),
-  runtimeLabel: 'sandbox'
+  runtimeLabel: 'manual'
 }));
 
 export const executionLabProtocols: LabProtocol[] = dealIds.slice(0, 8).map((dealId, index) => ({
@@ -124,7 +124,7 @@ export const executionLabProtocols: LabProtocol[] = dealIds.slice(0, 8).map((dea
   natureGramPerLiter: 745 + index,
   status: index === 2 ? 'disputed' : 'issued',
   createdAt: iso(index + 3),
-  runtimeLabel: 'sandbox'
+  runtimeLabel: 'manual'
 }));
 
 export const executionEvidence: Evidence[] = Array.from({ length: 20 }, (_, index) => {
@@ -139,7 +139,7 @@ export const executionEvidence: Evidence[] = Array.from({ length: 20 }, (_, inde
     capturedAt: iso(index),
     actorId: index % 3 === 0 ? 'U-DRIVER-1' : 'U-OP-1',
     geo: index % 2 === 0 ? { lat: 52.7212 + index / 1000, lon: 41.4523 + index / 1000 } : undefined,
-    runtimeLabel: 'sandbox'
+    runtimeLabel: 'manual'
   };
 });
 
@@ -152,7 +152,7 @@ export const executionDisputes: Dispute[] = dealIds.slice(0, 5).map((dealId, ind
   status: index < 2 ? 'open' : 'under_review',
   evidenceIds: executionEvidence.filter((item) => item.dealId === dealId).map((item) => item.id),
   createdAt: iso(index + 4),
-  runtimeLabel: 'sandbox'
+  runtimeLabel: 'manual'
 }));
 
 export const executionInspections: Inspection[] = dealIds.slice(0, 5).map((dealId, index) => ({
@@ -163,7 +163,7 @@ export const executionInspections: Inspection[] = dealIds.slice(0, 5).map((dealI
   findings: index === 0 ? [] : ['Пломба зафиксирована', 'Фото и геометка приложены'],
   evidenceIds: executionEvidence.filter((item) => item.dealId === dealId).map((item) => item.id),
   createdAt: iso(index + 2),
-  runtimeLabel: 'sandbox'
+  runtimeLabel: 'manual'
 }));
 
 export const executionAuditEvents: AuditEvent[] = Array.from({ length: 50 }, (_, index) => {
@@ -177,10 +177,10 @@ export const executionAuditEvents: AuditEvent[] = Array.from({ length: 50 }, (_,
     actorRole: index % 4 === 0 ? 'bank' : 'operator',
     before: index % 2 === 0 ? 'DRAFT' : undefined,
     after: index % 2 === 0 ? 'RESERVE_REQUESTED' : undefined,
-    reason: index % 2 === 0 ? undefined : 'Simulation guard example',
+    reason: index % 2 === 0 ? undefined : 'Пример guard-правила',
     idempotencyKey: `audit-idem-${index}`,
     createdAt: iso(index),
-    runtimeLabel: 'sandbox'
+    runtimeLabel: 'manual'
   };
 });
 
@@ -192,7 +192,7 @@ export const executionDealTimeline: DealTimelineEvent[] = executionAuditEvents.s
   actorId: event.actorId,
   actorRole: event.actorRole,
   createdAt: event.createdAt,
-  runtimeLabel: 'sandbox'
+  runtimeLabel: 'manual'
 }));
 
 export const executionSimulationFixtures: DomainExecutionState = {
