@@ -4,10 +4,10 @@ import type { PlatformV7DocumentMatrix } from '../document-matrix';
 import type { PlatformV7MoneyTree } from '../money-tree';
 import type {
   P7ArbitrationBasisRequestDto,
+  P7BankBasisRequestDto,
   P7BankBasisSendRequestDto,
   P7BankConfirmationRequestDto,
   P7DocumentActionRequestDto,
-  P7ReleaseRequestDto,
   P7RuntimeRequestBaseDto,
   P7ValidationError,
 } from './dto-schemas';
@@ -49,11 +49,13 @@ export interface P7ApplicationServiceDependencies {
   readonly now?: () => string;
 }
 
-export interface P7ReleaseWorkflowStatus {
+export interface P7BankBasisWorkflowStatus {
   readonly dealId: string;
   readonly moneyTree: PlatformV7MoneyTree;
   readonly bankBasis: P7BankBasisDecision | null;
 }
+
+export type P7ReleaseWorkflowStatus = P7BankBasisWorkflowStatus;
 
 export interface P7DisputeMoneyImpact {
   readonly dealId: string;
@@ -62,8 +64,8 @@ export interface P7DisputeMoneyImpact {
 }
 
 export interface P7MoneyExecutionService {
-  requestRelease(dto: P7ReleaseRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
-  confirmRelease(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
+  requestBankBasis(dto: P7BankBasisRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
+  confirmBankBasis(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
   confirmRefund(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
   confirmHold(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
   startManualReview(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
@@ -79,20 +81,22 @@ export interface P7DocumentExecutionService {
 
 export interface P7BankBasisExecutionService {
   sendBankBasis(dto: P7BankBasisSendRequestDto): Promise<P7ApplicationServiceResult<P7BankBasisDecision>>;
-  confirmBankRelease(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
-  rejectBankRelease(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
+  confirmBankBasis(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
+  rejectBankBasis(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
   confirmBankRefund(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
   confirmBankHold(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
   startBankManualReview(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
 }
 
-export interface P7ReleaseWorkflowService {
-  prepareRelease(dto: P7ReleaseRequestDto): Promise<P7ApplicationServiceResult<P7ReleaseWorkflowStatus>>;
-  requestRelease(dto: P7ReleaseRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
+export interface P7BankBasisWorkflowService {
+  prepareBankBasis(dto: P7BankBasisRequestDto): Promise<P7ApplicationServiceResult<P7BankBasisWorkflowStatus>>;
+  requestBankBasis(dto: P7BankBasisRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
   sendBasisToBank(dto: P7BankBasisSendRequestDto): Promise<P7ApplicationServiceResult<P7BankBasisDecision>>;
   handleBankEvent(dto: P7BankConfirmationRequestDto): Promise<P7ApplicationServiceResult<PlatformV7MoneyTree>>;
-  getReleaseStatus(dto: P7RuntimeRequestBaseDto): Promise<P7ApplicationServiceResult<P7ReleaseWorkflowStatus>>;
+  getBankBasisStatus(dto: P7RuntimeRequestBaseDto): Promise<P7ApplicationServiceResult<P7BankBasisWorkflowStatus>>;
 }
+
+export type P7ReleaseWorkflowService = P7BankBasisWorkflowService;
 
 export interface P7DisputeSettlementService {
   openDispute(dto: P7RuntimeRequestBaseDto): Promise<P7ApplicationServiceResult<P7DisputeMoneyImpact>>;
