@@ -146,7 +146,7 @@ function toDeal360State(state: P7WorkspaceRuntimeState): Deal360State {
   if (state === 'done') return 'ok';
   if (state === 'blocked') return 'stop';
   if (state === 'current') return 'wait';
-  return 'muted';
+  return 'manual';
 }
 
 export function platformV7WorkspaceRuntimeStateToDeal360State(state: P7WorkspaceRuntimeState): Deal360State {
