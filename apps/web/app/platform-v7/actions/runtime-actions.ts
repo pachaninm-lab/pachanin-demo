@@ -1,9 +1,9 @@
 import {
   createP7BankBasisExecutionService,
+  createP7BankBasisWorkflowService,
   createP7DisputeSettlementService,
   createP7DocumentExecutionService,
   createP7MoneyExecutionService,
-  createP7ReleaseWorkflowService,
 } from '@/lib/platform-v7/runtime/application-service';
 import type { P7ApplicationServiceResult } from '@/lib/platform-v7/runtime/application-service-types';
 import {
@@ -27,12 +27,7 @@ export type P7RuntimeActionErrorCode = 'VALIDATION_ERROR' | 'PERMISSION_DENIED' 
 export type P7RuntimeActionStatus = 'success' | 'validation_error' | 'denied' | 'duplicate' | 'conflict' | 'not_found' | 'persistence_error' | 'domain_blocked' | 'unknown_error';
 export type P7Serializable = null | string | number | boolean | readonly P7Serializable[] | { readonly [key: string]: P7Serializable };
 
-export interface P7RuntimeActionError {
-  readonly code: P7RuntimeActionErrorCode;
-  readonly message: string;
-  readonly details?: P7Serializable;
-}
-
+export interface P7RuntimeActionError { readonly code: P7RuntimeActionErrorCode; readonly message: string; readonly details?: P7Serializable }
 export type P7RuntimeActionResult =
   | { readonly ok: true; readonly status: 'success' | 'duplicate'; readonly data: P7Serializable; readonly auditPayloads: readonly P7Serializable[]; readonly duplicate: boolean; readonly meta: { readonly boundaryStatus?: string; readonly boundaryCode?: string; readonly boundaryReason?: string } }
   | { readonly ok: false; readonly status: Exclude<P7RuntimeActionStatus, 'success'>; readonly error: P7RuntimeActionError; readonly validationErrors?: readonly P7ValidationError[]; readonly auditPayloads: readonly P7Serializable[]; readonly duplicate: boolean; readonly meta: { readonly boundaryStatus?: string; readonly boundaryCode?: string; readonly boundaryReason?: string } };
@@ -51,8 +46,7 @@ export type P7RuntimeBankBasisActionInput =
   | { readonly action: Exclude<P7RuntimeBankBasisAction, 'send_bank_basis'>; readonly dto: P7BankConfirmationRequestDto };
 
 export type P7RuntimeBankBasisWorkflowAction = 'prepare_bank_basis' | 'request_bank_basis' | 'send_basis_to_bank' | 'handle_bank_event' | 'get_bank_basis_status';
-export type P7RuntimeReleaseWorkflowAction = P7RuntimeBankBasisWorkflowAction;
-export type P7RuntimeReleaseWorkflowActionInput =
+export type P7RuntimeBankBasisWorkflowActionInput =
   | { readonly action: 'prepare_bank_basis' | 'request_bank_basis'; readonly dto: P7BankBasisRequestDto }
   | { readonly action: 'send_basis_to_bank'; readonly dto: P7BankBasisSendRequestDto }
   | { readonly action: 'handle_bank_event'; readonly dto: P7BankConfirmationRequestDto }
@@ -69,7 +63,7 @@ export interface P7RuntimeServerActions {
   readonly money: (input: P7RuntimeMoneyActionInput) => Promise<P7RuntimeActionResult>;
   readonly document: (input: P7RuntimeDocumentActionInput) => Promise<P7RuntimeActionResult>;
   readonly bankBasis: (input: P7RuntimeBankBasisActionInput) => Promise<P7RuntimeActionResult>;
-  readonly releaseWorkflow: (input: P7RuntimeReleaseWorkflowActionInput) => Promise<P7RuntimeActionResult>;
+  readonly bankBasisWorkflow: (input: P7RuntimeBankBasisWorkflowActionInput) => Promise<P7RuntimeActionResult>;
   readonly disputeSettlement: (input: P7RuntimeDisputeSettlementActionInput) => Promise<P7RuntimeActionResult>;
 }
 
@@ -127,14 +121,14 @@ export function createP7RuntimeServerActions(deps: P7RuntimeServerActionDependen
   return {
     async money(input) {
       if (input.action === 'request_bank_basis') {
-        return executeWithService(deps, input.dto, validateP7BankBasisRequestDto(input.dto), async (store) => createP7MoneyExecutionService({ unitOfWork: store, now: deps.now }).requestRelease(input.dto));
+        return executeWithService(deps, input.dto, validateP7BankBasisRequestDto(input.dto), async (store) => createP7MoneyExecutionService({ unitOfWork: store, now: deps.now }).requestBankBasis(input.dto));
       }
       return executeWithService(deps, input.dto, validateP7BankConfirmationRequestDto(input.dto), async (store) => {
         const service = createP7MoneyExecutionService({ unitOfWork: store, now: deps.now });
         if (input.action === 'confirm_refund') return service.confirmRefund(input.dto);
         if (input.action === 'confirm_hold') return service.confirmHold(input.dto);
         if (input.action === 'start_manual_review') return service.startManualReview(input.dto);
-        return service.confirmRelease(input.dto);
+        return service.confirmBankBasis(input.dto);
       });
     },
     async document(input) {
@@ -153,19 +147,19 @@ export function createP7RuntimeServerActions(deps: P7RuntimeServerActionDependen
       }
       return executeWithService(deps, input.dto, validateP7BankConfirmationRequestDto(input.dto), async (store) => {
         const service = createP7BankBasisExecutionService({ unitOfWork: store, now: deps.now });
-        if (input.action === 'reject_bank_basis') return service.rejectBankRelease(input.dto);
+        if (input.action === 'reject_bank_basis') return service.rejectBankBasis(input.dto);
         if (input.action === 'confirm_bank_refund') return service.confirmBankRefund(input.dto);
         if (input.action === 'confirm_bank_hold') return service.confirmBankHold(input.dto);
         if (input.action === 'start_bank_manual_review') return service.startBankManualReview(input.dto);
-        return service.confirmBankRelease(input.dto);
+        return service.confirmBankBasis(input.dto);
       });
     },
-    async releaseWorkflow(input) {
-      if (input.action === 'send_basis_to_bank') return executeWithService(deps, input.dto, validateP7BankBasisSendRequestDto(input.dto), async (store) => createP7ReleaseWorkflowService({ unitOfWork: store, now: deps.now }).sendBasisToBank(input.dto));
-      if (input.action === 'handle_bank_event') return executeWithService(deps, input.dto, validateP7BankConfirmationRequestDto(input.dto), async (store) => createP7ReleaseWorkflowService({ unitOfWork: store, now: deps.now }).handleBankEvent(input.dto));
-      if (input.action === 'get_bank_basis_status') return executeWithService(deps, input.dto, validateP7RuntimeRequestBaseDto(input.dto), async (store) => createP7ReleaseWorkflowService({ unitOfWork: store, now: deps.now }).getReleaseStatus(input.dto));
-      if (input.action === 'request_bank_basis') return executeWithService(deps, input.dto, validateP7BankBasisRequestDto(input.dto), async (store) => createP7ReleaseWorkflowService({ unitOfWork: store, now: deps.now }).requestRelease(input.dto));
-      return executeWithService(deps, input.dto, validateP7BankBasisRequestDto(input.dto), async (store) => createP7ReleaseWorkflowService({ unitOfWork: store, now: deps.now }).prepareRelease(input.dto));
+    async bankBasisWorkflow(input) {
+      if (input.action === 'send_basis_to_bank') return executeWithService(deps, input.dto, validateP7BankBasisSendRequestDto(input.dto), async (store) => createP7BankBasisWorkflowService({ unitOfWork: store, now: deps.now }).sendBasisToBank(input.dto));
+      if (input.action === 'handle_bank_event') return executeWithService(deps, input.dto, validateP7BankConfirmationRequestDto(input.dto), async (store) => createP7BankBasisWorkflowService({ unitOfWork: store, now: deps.now }).handleBankEvent(input.dto));
+      if (input.action === 'get_bank_basis_status') return executeWithService(deps, input.dto, validateP7RuntimeRequestBaseDto(input.dto), async (store) => createP7BankBasisWorkflowService({ unitOfWork: store, now: deps.now }).getBankBasisStatus(input.dto));
+      if (input.action === 'request_bank_basis') return executeWithService(deps, input.dto, validateP7BankBasisRequestDto(input.dto), async (store) => createP7BankBasisWorkflowService({ unitOfWork: store, now: deps.now }).requestBankBasis(input.dto));
+      return executeWithService(deps, input.dto, validateP7BankBasisRequestDto(input.dto), async (store) => createP7BankBasisWorkflowService({ unitOfWork: store, now: deps.now }).prepareBankBasis(input.dto));
     },
     async disputeSettlement(input) {
       if (input.action === 'prepare_arbitration_basis') return executeWithService(deps, input.dto, validateP7ArbitrationBasisRequestDto(input.dto), async (store) => createP7DisputeSettlementService({ unitOfWork: store, now: deps.now }).prepareArbitrationBasis(input.dto));
@@ -183,5 +177,5 @@ export function createP7RuntimeServerActions(deps: P7RuntimeServerActionDependen
 export async function executeP7RuntimeMoneyAction(input: P7RuntimeMoneyActionInput): Promise<P7RuntimeActionResult> { 'use server'; return createP7RuntimeServerActions().money(input); }
 export async function executeP7RuntimeDocumentAction(input: P7RuntimeDocumentActionInput): Promise<P7RuntimeActionResult> { 'use server'; return createP7RuntimeServerActions().document(input); }
 export async function executeP7RuntimeBankBasisAction(input: P7RuntimeBankBasisActionInput): Promise<P7RuntimeActionResult> { 'use server'; return createP7RuntimeServerActions().bankBasis(input); }
-export async function executeP7RuntimeReleaseWorkflowAction(input: P7RuntimeReleaseWorkflowActionInput): Promise<P7RuntimeActionResult> { 'use server'; return createP7RuntimeServerActions().releaseWorkflow(input); }
+export async function executeP7RuntimeBankBasisWorkflowAction(input: P7RuntimeBankBasisWorkflowActionInput): Promise<P7RuntimeActionResult> { 'use server'; return createP7RuntimeServerActions().bankBasisWorkflow(input); }
 export async function executeP7RuntimeDisputeSettlementAction(input: P7RuntimeDisputeSettlementActionInput): Promise<P7RuntimeActionResult> { 'use server'; return createP7RuntimeServerActions().disputeSettlement(input); }
