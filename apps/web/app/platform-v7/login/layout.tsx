@@ -4,7 +4,7 @@ import { LoginHeaderExitButton } from '@/components/platform-v7/LoginHeaderExitB
 
 export const metadata: Metadata = {
   title: 'Вход — Прозрачная Цена',
-  description: 'Служебная страница входа в controlled pilot / pre-integration контур Прозрачной Цены.',
+  description: 'Единый вход в личный кабинет Прозрачной Цены: роли, сделки, документы, логистика, деньги и поддержка.',
   alternates: {
     canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login',
   },
