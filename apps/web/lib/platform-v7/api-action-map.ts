@@ -10,8 +10,8 @@ export const PLATFORM_V7_API_ACTION_MAP: Partial<Record<PlatformV7ApiBoundaryId,
   confirm_deal_terms: 'deal.confirm_terms',
   request_money_reserve: 'money.request_reserve',
   confirm_money_reserved: 'bank.confirm_money_reserved',
-  mark_money_ready_to_release: 'bank.mark_money_ready_to_release',
-  confirm_money_released: 'bank.confirm_money_released',
+  mark_bank_basis_ready: 'bank.mark_bank_basis_ready',
+  confirm_bank_basis: 'bank.confirm_bank_basis',
   assign_driver: 'logistics.assign_driver',
   mark_trip_arrived: 'driver.confirm_checkpoint',
   accept_trip: 'trip.accept',
@@ -24,8 +24,6 @@ export const PLATFORM_V7_API_ACTION_MAP: Partial<Record<PlatformV7ApiBoundaryId,
   append_support_message: 'support.append_message',
 };
 
-export function getPlatformV7ActionForApiBoundary(
-  boundaryId: PlatformV7ApiBoundaryId,
-): PlatformV7ActionPermissionId | undefined {
+export function getPlatformV7ActionForApiBoundary(boundaryId: PlatformV7ApiBoundaryId): PlatformV7ActionPermissionId | undefined {
   return PLATFORM_V7_API_ACTION_MAP[boundaryId];
 }
