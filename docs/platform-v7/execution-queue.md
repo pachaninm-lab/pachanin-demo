@@ -21,13 +21,17 @@ CURRENT ALLOWED:
 - docs/platform-v7/execution-queue.md
 
 NEXT:
-- Layer: VP-3.6 Runtime Persistence Repository Adapter.
-- Goal: после merge #2213 подготовить repository adapter для Postgres-backed runtime snapshot persistence with outbox/audit linkage, still without fake-live external integrations.
+- Layer: VP-3.6 Runtime Persistence Repository Adapter Scope Selection.
+- Goal: после merge #2213 выбрать безопасный write scope для repository adapter, outbox writer and audit writer without opening broad backend/API/DB zones or fake-live external integrations.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - no direct UI money movement;
-  - no hidden DB migration;
-  - DB contract stays explicit;
-  - outbox/audit linkage remains mandatory before fully_linked state;
+  - define exact files for repository adapter implementation before writing code;
+  - keep direct UI money movement forbidden;
+  - keep hidden DB migration forbidden;
+  - keep DB contract explicit;
+  - keep outbox/audit linkage mandatory before fully_linked state;
   - guard-tests remain green;
   - pnpm --filter web test remains green;
   - maturity language remains platform-temporarily-without-external-integrations.
@@ -65,4 +69,3 @@ ORDER:
 30. VP-3 Runtime Actions are active from #2210.
 31. VP-3 Runtime Refresh Snapshot is active from #2211.
 32. VP-3 Process Runtime Store is active from #2212.
-33. VP-3.5 Runtime DB Contract is active from #2213.
