@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 
 describe('platform-v7 root working entry', () => {
   const page = readFileSync(join(process.cwd(), 'app/platform-v7/page.tsx'), 'utf8');
-  // Копия страницы вынесена в i18n-сообщения (next-intl); структура и CSS остаются в page.tsx.
   const ruMessages = readFileSync(join(process.cwd(), 'messages/ru.json'), 'utf8');
   const mobileShell = readFileSync(join(process.cwd(), 'styles/platform-v7-mobile-shell-p1.css'), 'utf8');
 
@@ -30,9 +29,9 @@ describe('platform-v7 root working entry', () => {
 
   it('keeps mobile entry polish guarded', () => {
     expect(page).toContain('--entry-header-height:64px');
-    expect(page).toContain('.entry-process-row{display:flex;gap:10px;overflow-x:auto;padding:0 2px 8px}');
+    expect(page).toContain('.entry-process-row{display:flex;gap:10px;overflow-x:auto;padding:0 2px 8px;scroll-snap-type:x proximity}');
     expect(page).toContain('.entry-process-row::-webkit-scrollbar{display:none}');
-    expect(page).toContain('flex:0 0 176px');
+    expect(page).toContain('flex:0 0 172px');
     expect(page).toContain("className='entry-register-cta'");
     expect(page).toContain("href='/platform-v7/register'");
     expect(page).toContain('color:#fff!important;background:#087a3b');
@@ -44,8 +43,6 @@ describe('platform-v7 root working entry', () => {
 
   it('keeps maturity language guarded', () => {
     const forbidden = ['production' + '-ready', 'fully ' + 'live', 'fully ' + 'integrated', 'bank ' + 'connected', 'FGIS ' + 'connected', 'EDO ' + 'connected'];
-    for (const token of forbidden) {
-      expect(page.toLowerCase()).not.toContain(token.toLowerCase());
-    }
+    for (const token of forbidden) expect(page.toLowerCase()).not.toContain(token.toLowerCase());
   });
 });
