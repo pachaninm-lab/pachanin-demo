@@ -22,7 +22,6 @@ import '@/styles/platform-v7-public-webkit-safe.css';
 import '@/styles/platform-v7-support-chat-polish.css';
 import '@/styles/platform-v7-final-viewport-cleanup.css';
 import '@/styles/platform-v7-public-hero-watermark.css';
-import '@/styles/platform-v7-public-hero-exact-image-final.css';
 
 export default function PlatformV7Template({ children }: { children: ReactNode }) {
   return (
