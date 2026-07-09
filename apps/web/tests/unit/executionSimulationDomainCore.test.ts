@@ -28,7 +28,7 @@ function dispatch(state: DomainExecutionState, command: PlatformActionCommand): 
 }
 
 describe('execution simulation domain core', () => {
-  it('keeps required simulation fixtures and 23-status execution state machine', () => {
+  it('keeps required execution fixtures and 23-status execution state machine', () => {
     const state = createExecutionSimulationState();
 
     expect(DEAL_EXECUTION_STATUSES).toHaveLength(23);
@@ -74,7 +74,7 @@ describe('execution simulation domain core', () => {
     expect(result.state.auditEvents).toHaveLength(auditBefore);
   });
 
-  it('runs the first wired actions through a sandbox deal path with audit and timeline', () => {
+  it('runs the first wired actions through a manual deal path with audit and timeline', () => {
     let state = createExecutionSimulationState();
     const seller = user(state, 'seller');
     const buyer = user(state, 'buyer');
@@ -118,7 +118,7 @@ describe('execution simulation domain core', () => {
     expect(state.dealTimeline.length).toBeGreaterThan(timelineBefore);
   });
 
-  it('exposes a safe domain store facade for UI wiring without touching live integrations', () => {
+  it('exposes a safe domain store facade for UI wiring without touching external integrations', () => {
     const state = createExecutionSimulationState();
     const store = createExecutionDomainStore(state);
     let notified = false;
