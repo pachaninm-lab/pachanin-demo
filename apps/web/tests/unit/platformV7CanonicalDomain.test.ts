@@ -53,14 +53,14 @@ describe('platform-v7 canonical domain', () => {
   it('maps legacy statuses into canonical deal statuses', () => {
     expect(toCanonicalDealStatus('payment_reserved')).toBe('MONEY_RESERVED');
     expect(toCanonicalDealStatus('quality_disputed')).toBe('DISPUTED');
-    expect(toCanonicalDealStatus('release_requested')).toBe('RELEASE_PENDING');
+    expect(toCanonicalDealStatus('bank_basis_requested')).toBe('BANK_BASIS_REQUESTED');
     expect(toCanonicalDealStatus('unknown_vendor_status')).toBe('DEGRADED');
   });
 
   it('guards invalid deal transitions', () => {
     expect(canTransitionDeal('DRAFT', 'COUNTERPARTY_CHECK')).toBe(true);
-    expect(canTransitionDeal('DRAFT', 'FINAL_RELEASED')).toBe(false);
-    expect(() => assertDealTransition('DRAFT', 'FINAL_RELEASED')).toThrow('Invalid deal transition');
+    expect(canTransitionDeal('DRAFT', 'BANK_BASIS_CONFIRMED')).toBe(false);
+    expect(() => assertDealTransition('DRAFT', 'BANK_BASIS_CONFIRMED')).toThrow('Invalid deal transition');
   });
 
   it('normalizes legacy fixture deals without changing money facts', () => {
@@ -79,7 +79,7 @@ describe('platform-v7 canonical domain', () => {
     const releaseReady = normalizeLegacyDeal({
       ...legacyDeal,
       id: 'DL-9104',
-      status: 'release_requested',
+      status: 'bank_basis_requested',
       dispute: null,
       riskScore: 8,
       blockers: [],
@@ -106,7 +106,7 @@ describe('platform-v7 canonical domain', () => {
     const releaseReady = normalizeLegacyDeal({
       ...legacyDeal,
       id: 'DL-9104',
-      status: 'release_requested',
+      status: 'bank_basis_requested',
       dispute: null,
       riskScore: 8,
       blockers: [],
@@ -125,14 +125,13 @@ describe('platform-v7 canonical domain', () => {
     expect(hasPermission('support_agent', { scope: 'support_case', verb: 'update' })).toBe(true);
     expect(hasPermission('support_agent', { scope: 'money', verb: 'approve' })).toBe(false);
     expect(hasPermission('arbitrator', { scope: 'money', verb: 'approve' })).toBe(false);
-    expect(canPerformCriticalAction('bank', 'EXECUTE_RELEASE')).toMatchObject({ allowed: true, requiresSecondFactor: true, requiresAudit: true });
-    expect(canPerformCriticalAction('seller', 'EXECUTE_RELEASE')).toMatchObject({ allowed: false, requiresSecondFactor: true, requiresAudit: true });
-    expect(canPerformCriticalAction('arbitrator', 'EXECUTE_RELEASE')).toMatchObject({ allowed: false, requiresSecondFactor: true, requiresAudit: true });
+    expect(canPerformCriticalAction('bank', 'CONFIRM_BANK_BASIS')).toMatchObject({ allowed: true, requiresSecondFactor: true, requiresAudit: true });
+    expect(canPerformCriticalAction('seller', 'CONFIRM_BANK_BASIS')).toMatchObject({ allowed: false, requiresSecondFactor: true, requiresAudit: true });
+    expect(canPerformCriticalAction('arbitrator', 'CONFIRM_BANK_BASIS')).toMatchObject({ allowed: false, requiresSecondFactor: true, requiresAudit: true });
     expect(canPerformCriticalAction('arbitrator', 'EXECUTE_REFUND')).toMatchObject({ allowed: false, requiresSecondFactor: true, requiresAudit: true });
-    expect(canPerformCriticalAction('arbitrator', 'CONFIRM_BANK_RELEASE')).toMatchObject({ allowed: false, requiresSecondFactor: true, requiresAudit: true });
     expect(canPerformCriticalAction('arbitrator', 'APPROVE_DISPUTE_DECISION')).toMatchObject({ allowed: true, requiresSecondFactor: true, requiresAudit: true });
     expect(canPerformCriticalAction('seller', 'CONFIRM_BANK_RESERVE').allowed).toBe(false);
-    expect(canPerformCriticalAction('buyer', 'CONFIRM_BANK_RELEASE').allowed).toBe(false);
+    expect(canPerformCriticalAction('buyer', 'CONFIRM_BANK_BASIS').allowed).toBe(false);
     expect(canPerformCriticalAction('buyer', 'CONFIRM_BANK_REFUND').allowed).toBe(false);
   });
 
@@ -141,7 +140,7 @@ describe('platform-v7 canonical domain', () => {
       id: 'audit-1',
       at: '2026-04-26T05:00:00Z',
       actor: { id: 'bank-1', name: 'Банк', role: 'bank' },
-      action: 'EXECUTE_RELEASE',
+      action: 'CONFIRM_BANK_BASIS',
       targetType: 'money',
       targetId: 'DL-9104',
       linkedDealId: 'DL-9104',
