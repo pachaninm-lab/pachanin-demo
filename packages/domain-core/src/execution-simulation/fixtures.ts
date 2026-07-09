@@ -55,7 +55,7 @@ export const executionLots: Lot[] = lotIds.map((id, index) => ({
 }));
 
 export const executionDeals: Deal[] = dealIds.map((id, index) => {
-  const status: Deal['status'][] = ['DRAFT', 'RESERVE_CONFIRMED', 'DRIVER_ASSIGNED', 'ARRIVED', 'LAB_PROTOCOL_CREATED', 'DISPUTE_OPEN', 'DOCUMENTS_READY', 'ACCEPTED', 'CLOSED'];
+  const status: Deal['status'][] = ['DRAFT', 'RESERVE_CONFIRMED', 'DRIVER_ASSIGNED', 'ARRIVED', 'LAB_PROTOCOL_CREATED', 'DISPUTE_OPEN', 'DOCUMENTS_READY', 'BANK_BASIS_REQUESTED', 'BANK_BASIS_CONFIRMED', 'CLOSED'];
   const currentStatus = status[index % status.length];
   return {
     id,
@@ -66,15 +66,15 @@ export const executionDeals: Deal[] = dealIds.map((id, index) => {
     volumeTonnes: 220 + index * 10,
     pricePerTonneRub: 16000 + index * 90,
     currency: 'RUB',
-    reserveConfirmed: ['RESERVE_CONFIRMED', 'DRIVER_ASSIGNED', 'ARRIVED', 'LAB_PROTOCOL_CREATED', 'DISPUTE_OPEN', 'DOCUMENTS_READY', 'ACCEPTED', 'CLOSED'].includes(currentStatus),
-    requiredDocumentsReady: ['DOCUMENTS_READY', 'ACCEPTED', 'CLOSED'].includes(currentStatus),
-    weightConfirmed: ['ARRIVED', 'LAB_PROTOCOL_CREATED', 'DISPUTE_OPEN', 'DOCUMENTS_READY', 'ACCEPTED', 'CLOSED'].includes(currentStatus),
-    labProtocolId: ['LAB_PROTOCOL_CREATED', 'DISPUTE_OPEN', 'DOCUMENTS_READY', 'ACCEPTED', 'CLOSED'].includes(currentStatus) ? `LAB-${id}` : undefined,
+    reserveConfirmed: ['RESERVE_CONFIRMED', 'DRIVER_ASSIGNED', 'ARRIVED', 'LAB_PROTOCOL_CREATED', 'DISPUTE_OPEN', 'DOCUMENTS_READY', 'BANK_BASIS_REQUESTED', 'BANK_BASIS_CONFIRMED', 'CLOSED'].includes(currentStatus),
+    requiredDocumentsReady: ['DOCUMENTS_READY', 'BANK_BASIS_REQUESTED', 'BANK_BASIS_CONFIRMED', 'ACCEPTED', 'CLOSED'].includes(currentStatus),
+    weightConfirmed: ['ARRIVED', 'LAB_PROTOCOL_CREATED', 'DISPUTE_OPEN', 'DOCUMENTS_READY', 'BANK_BASIS_REQUESTED', 'BANK_BASIS_CONFIRMED', 'ACCEPTED', 'CLOSED'].includes(currentStatus),
+    labProtocolId: ['LAB_PROTOCOL_CREATED', 'DISPUTE_OPEN', 'DOCUMENTS_READY', 'BANK_BASIS_REQUESTED', 'BANK_BASIS_CONFIRMED', 'ACCEPTED', 'CLOSED'].includes(currentStatus) ? `LAB-${id}` : undefined,
     openDisputeId: currentStatus === 'DISPUTE_OPEN' ? `DK-${id}` : undefined,
-    driverId: ['DRIVER_ASSIGNED', 'ARRIVED', 'LAB_PROTOCOL_CREATED', 'DISPUTE_OPEN', 'DOCUMENTS_READY', 'ACCEPTED', 'CLOSED'].includes(currentStatus) ? 'U-DRIVER-1' : undefined,
+    driverId: ['DRIVER_ASSIGNED', 'ARRIVED', 'LAB_PROTOCOL_CREATED', 'DISPUTE_OPEN', 'DOCUMENTS_READY', 'BANK_BASIS_REQUESTED', 'BANK_BASIS_CONFIRMED', 'ACCEPTED', 'CLOSED'].includes(currentStatus) ? 'U-DRIVER-1' : undefined,
     routeId: `R-${index + 1}`,
     isDegraded: index === 4,
-    ownerRole: currentStatus === 'DISPUTE_OPEN' ? 'arbitrator' : currentStatus === 'DOCUMENTS_PENDING' ? 'operator' : 'operator',
+    ownerRole: currentStatus === 'DISPUTE_OPEN' ? 'arbitrator' : ['DOCUMENTS_READY', 'BANK_BASIS_REQUESTED', 'BANK_BASIS_CONFIRMED'].includes(currentStatus) ? 'bank' : 'operator',
     blocker: currentStatus === 'DISPUTE_OPEN' ? 'Открыт спор: банковское основание заблокировано' : undefined,
     slaDueAt: iso(24 + index),
     runtimeLabel: 'manual',
@@ -87,7 +87,7 @@ export const executionMoneyEvents: MoneyEvent[] = Array.from({ length: 30 }, (_,
   return {
     id: `ME-${String(index + 1).padStart(3, '0')}`,
     dealId,
-    type: index % 5 === 0 ? 'reserve_requested' : index % 5 === 1 ? 'reserve_confirmed' : index % 5 === 2 ? 'hold' : index % 5 === 3 ? 'partial_release' : 'final_release',
+    type: index % 5 === 0 ? 'reserve_requested' : index % 5 === 1 ? 'reserve_confirmed' : index % 5 === 2 ? 'hold' : index % 5 === 3 ? 'partial_bank_basis' : 'final_bank_basis',
     amountRub: 500000 + index * 75000,
     status: index % 7 === 0 ? 'blocked' : 'confirmed',
     idempotencyKey: `idem-${dealId}-${index}`,
