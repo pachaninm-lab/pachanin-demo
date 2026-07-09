@@ -3,10 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight.",
+  "current": "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation.",
   "fullTzReadinessPercent": 74,
-  "openPr": "#2217",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.", "#2215", "VP-3.7 Runtime Persistence Repository Adapter Contract Plan.", "#2216", "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request."],
+  "openPr": "#2218",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.", "#2215", "VP-3.7 Runtime Persistence Repository Adapter Contract Plan.", "#2216", "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request.", "#2217", "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight."],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 is repository settings cleanup. #2115 remains blocked by the current auth-file write path.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/money/storage changes"],
@@ -58,10 +58,19 @@
   },
   "vp39RuntimePersistenceImplementationPreflight": {
     "layer": "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight",
-    "goal": "Confirm exact implementation unlock for repository adapter and tests while keeping Prisma schema, migrations, UI, API, auth and package files locked.",
-    "openPr": "#2217",
-    "status": "preflight-docs-only",
+    "closedPr": "#2217",
+    "status": "preflight-docs-only-complete",
     "confirmedNextImplementationFiles": [
+      "apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts",
+      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts"
+    ]
+  },
+  "vp310RuntimePersistenceImplementationActivation": {
+    "layer": "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation",
+    "goal": "Activate the exact implementation track in docs only so autopilot can transition cleanly before code writes.",
+    "openPr": "#2218",
+    "status": "activation-docs-only",
+    "implementationFilesConfirmedForLater": [
       "apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts",
       "apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts"
     ],
@@ -77,23 +86,15 @@
       "pnpm-lock.yaml"
     ]
   },
-  "vp310RuntimePersistenceImplementationActivation": {
-    "layer": "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation",
-    "goal": "Activate the exact implementation scope in docs only so autopilot can transition cleanly before code writes.",
-    "status": "next-docs-only-activation",
-    "activationFiles": [
-      "docs/platform-v7/autopilot/autopilot-state.json",
-      "docs/platform-v7/execution-queue.md"
-    ],
-    "implementationFilesToUnlockAfterActivation": [
-      "apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts",
-      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts"
-    ]
+  "vp311RuntimePersistenceImplementationScopeUnlock": {
+    "layer": "VP-3.11 Runtime Persistence Repository Adapter Implementation Scope Unlock",
+    "goal": "Request the exact implementation file unlock in docs before writing repository adapter code.",
+    "status": "next-docs-only-scope-unlock"
   },
-  "vp311RuntimePersistenceRepositoryImplementation": {
-    "layer": "VP-3.11 Runtime Persistence Repository Adapter Implementation",
-    "goal": "Implement repository adapter and unit tests only after VP-3.10 activation is merged, without Prisma schema or migration writes.",
-    "status": "pending-after-activation"
+  "vp312RuntimePersistenceRepositoryImplementation": {
+    "layer": "VP-3.12 Runtime Persistence Repository Adapter Implementation",
+    "goal": "Implement repository adapter and unit tests only after VP-3.11 scope unlock is merged, without Prisma schema or migration writes.",
+    "status": "pending-after-scope-unlock"
   },
   "forbiddenZones": [
     "apps/landing",
@@ -109,5 +110,5 @@
   ],
   "maturityLanguage": ["platform-temporarily-without-external-integrations"],
   "forbiddenClaims": ["maturity uplift", "external integration completion", "production DB runtime persistence complete"],
-  "readiness": "74% honest readiness. VP-3.9 is preflight only. It confirms the exact next implementation files but does not implement repository adapter code, production DB persistence, Prisma schema, migration, bank, FGIS or EDO live integration."
+  "readiness": "74% honest readiness. VP-3.10 is activation only. It does not implement repository adapter code, production DB persistence, Prisma schema, migration, bank, FGIS or EDO live integration."
 }
