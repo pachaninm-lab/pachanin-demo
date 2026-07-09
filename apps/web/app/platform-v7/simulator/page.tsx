@@ -21,7 +21,7 @@ export default function PlatformV7SimulatorPage() {
       <section style={heroStyle}>
         <div style={badgeStyle}>Проверка пути сделки</div>
         <div style={{ maxWidth: 920 }}>
-          <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.12, color: 'var(--pc-text-primary, #0F1419)' }}>Контрольные случаи сделки</h1>
+          <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.12, color: 'var(--pc-text-primary, #0F1419)' }}>Проверка условий сделки</h1>
           <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.7, color: '#5B6576' }}>
             Экран показывает, как отклонения влияют на деньги, документы, логистику, спор и следующий шаг. Внешние подключения временно не заявляются как работающие без договоров, доступов, регламентов и приёмки.
           </p>
