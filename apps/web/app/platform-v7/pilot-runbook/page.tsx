@@ -12,38 +12,38 @@ import {
   selectDealTransportDocumentPack,
 } from '@/lib/platform-v7/deal-execution-source-of-truth';
 
-const pilotRoles = [
-  ['Продавец', 'КФХ «Северное поле»', 'оформить СДИЗ, подписать документы, видеть выплату и удержания'],
+const executionRoles = [
+  ['Продавец', 'КФХ «Северное поле»', 'оформить СДИЗ, подписать документы, видеть расчёт и удержания'],
   ['Покупатель', 'Покупатель 1', 'резерв, приёмка, погашение СДИЗ, спор по расхождению'],
-  ['Перевозчик', 'ТК «Южные маршруты»', 'заявка, машины, ЭТрН, передача в ГИС ЭПД'],
+  ['Перевозчик', 'ТК «Южные маршруты»', 'заявка, машины, ЭТрН, передача статуса перевозки'],
   ['Водитель', 'Водитель А', 'один рейс, ETA, фото, пломба, прибытие'],
   ['Элеватор', 'Элеватор ВРЖ-08', 'вес, проба, акт приёмки и акт расхождения'],
-  ['Лаборатория', 'Лаборатория пилота', 'структурированный протокол и влияние на цену'],
-  ['Банк', 'ручной банковый контур', 'основание, удержание, partial release, reconciliation'],
-  ['Оператор', 'поддержка пилота', 'SLA, блокеры, ручные подтверждения, журнал'],
+  ['Лаборатория', 'Лаборатория качества', 'структурированный протокол и влияние на цену'],
+  ['Банк', 'банковское основание', 'основание, удержание, partial release, reconciliation после подключения банка'],
+  ['Оператор', 'операционный контроль', 'SLA, блокеры, ручные подтверждения, журнал'],
 ] as const;
 
 const manualConfirmations = [
-  ['ФГИС статус вручную', 'партия и СДИЗ отмечаются как ручная проверка; автоматического подтверждения ФГИС нет'],
-  ['ЭДО статус вручную', 'договор, УПД и акты проходят тестовый контур или ручную отметку'],
-  ['ГИС ЭПД статус вручную', 'пакет ЭТрН проверяется по оператору ИС ЭПД; внешний доступ требует договора'],
-  ['Bank callback вручную', 'банк подтверждает основание вручную или через будущий callback; платформа не перемещает деньги'],
-  ['Лабораторный протокол вручную', 'лаборатория вносит структурированные показатели и КЭП-статус пилота'],
+  ['ФГИС статус', 'партия и СДИЗ отмечаются как ручная проверка; автоматического подтверждения ФГИС нет'],
+  ['ЭДО статус', 'договор, УПД и акты проходят ручную отметку до подключения внешнего провайдера'],
+  ['ГИС ЭПД статус', 'пакет ЭТрН проверяется оператором; внешний доступ требует договора'],
+  ['Bank callback', 'банк подтверждает основание вручную или через будущий callback; платформа не перемещает деньги'],
+  ['Лабораторный протокол', 'лаборатория вносит структурированные показатели и статус подписи'],
 ] as const;
 
 const successCriteria = [
   'сделка закрыта без обхода платформы',
   'деньги не переходят в готовность без документов, СДИЗ, ЭПД, приёмки, качества и банкового основания',
-  'спор связан с evidence pack и суммой удержания/выпуска',
+  'спор связан с evidence pack и суммой удержания или release-основания',
   'каждая роль выполнила своё действие и получила следующую задачу',
-  'audit trail объясняет кто, когда, что изменил и на каком основании',
+  'журнал объясняет кто, когда, что изменил и на каком основании',
   'ручной труд измерен и виден оператору',
 ] as const;
 
 const failureCriteria = [
   'роль не понимает следующее действие',
   'суммы не сходятся с формулой',
-  'документ не связан с выплатой или удержанием',
+  'документ не связан с расчётом или удержанием',
   'спор не связан с evidence pack',
   'водитель видит деньги, банк или лишние роли',
   'нет журнала действия или невозможно объяснить банку основание',
@@ -51,12 +51,12 @@ const failureCriteria = [
 
 const operatorChecklist = [
   'проверить единый объект DL-9106 во всех ролях',
-  'убедиться, что DL-9102 не содержит LOT/TRIP/DL-9106',
+  'убедиться, что связанные лот, рейс, документы и расчёт не расходятся между ролями',
   'провести СДИЗ по lifecycle: партия, оформление, подпись, передача, погашение или отказ',
-  'провести ЭТрН: титулы, подписи, оператор ИС ЭПД, ГИС ЭПД статус',
+  'провести ЭТрН: титулы, подписи, оператор ИС ЭПД, статус передачи',
   'зафиксировать вес, протокол качества, money impact и возможный спор',
   'передать решение арбитра в банковое основание как ручную проверку',
-  'закрыть SLA поддержки и сохранить audit trail',
+  'закрыть SLA поддержки и сохранить журнал действий',
 ] as const;
 
 export default function PlatformV7PilotRunbookPage() {
@@ -68,34 +68,34 @@ export default function PlatformV7PilotRunbookPage() {
   const blockingDocuments = selectBlockingDealDocuments('DL-9106');
 
   if (!executionCase) {
-    return <div style={page}>Сделка пилота не найдена.</div>;
+    return <div style={page}>Сделка не найдена.</div>;
   }
 
   return (
     <main style={page}>
       <CockpitHero
-        eyebrow='controlled pilot runbook'
-        title='Провести пилот DL-9106'
-        lead='Одна зерновая сделка проходит путь от партии и лота до документов, спора, банкового основания и архива. Внешние контуры отмечены как ручная проверка, тестовый контур или ожидание внешнего подтверждения.'
+        eyebrow='execution runbook'
+        title='Провести сделку DL-9106'
+        lead='Одна зерновая сделка проходит путь от партии и лота до документов, спора, банкового основания и архива. Внешние контуры временно не подключены и отмечены как ручная проверка или ожидание внешнего подтверждения.'
       >
         <div style={heroMeta}>
           <Cell label='Лот' value={executionCase.lotId} />
           <Cell label='Объём' value={formatTons(executionCase.commodity.volumeDeclaredTons)} />
           <Cell label='Резерв' value={formatRub(executionCase.money.reserveAmount)} />
-          <Cell label='К выпуску' value={formatRub(executionCase.money.readyToReleaseAmount)} />
+          <Cell label='К release-основанию' value={formatRub(executionCase.money.readyToReleaseAmount)} />
         </div>
       </CockpitHero>
 
       <section style={grid2}>
-        <Panel title='Состав пилота' eyebrow='роли'>
+        <Panel title='Состав исполнения' eyebrow='роли'>
           <div style={list}>
-            {pilotRoles.map(([role, actor, task]) => (
+            {executionRoles.map(([role, actor, task]) => (
               <Row key={role} label={role} value={actor} note={task} />
             ))}
           </div>
         </Panel>
 
-        <Panel title='Сделка пилота' eyebrow='source of truth'>
+        <Panel title='Сделка' eyebrow='source of truth'>
           <div style={list}>
             <Row label='Культура' value={`${executionCase.commodity.crop} · ${executionCase.commodity.class}`} note={`урожай ${executionCase.commodity.harvestYear}`} />
             <Row label='Цена' value={`${formatRub(executionCase.price.pricePerTon)} / т`} note={executionCase.price.calculationFormula} />
@@ -130,7 +130,7 @@ export default function PlatformV7PilotRunbookPage() {
         <Checklist title='Что считать провалом' items={failureCriteria} tone='bad' />
       </section>
 
-      <Panel title='Чеклист оператора' eyebrow='провести пилот'>
+      <Panel title='Чеклист оператора' eyebrow='исполнение сделки'>
         <div style={checklistGrid}>
           {operatorChecklist.map((item, index) => (
             <div key={item} style={checkItem}>
@@ -196,7 +196,6 @@ function Cell({ label, value }: { readonly label: string; readonly value: string
 }
 
 const page = { display: 'grid', gap: 18, padding: '8px 0 24px' } as const;
-const hero = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 16, alignItems: 'stretch', background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 20 } as const;
 const heroMeta = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 } as const;
 const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14 } as const;
 const panel = { background: '#FFFFFF', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 16, display: 'grid', gap: 12 } as const;
@@ -204,14 +203,12 @@ const list = { display: 'grid', gap: 8 } as const;
 const checklistGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 8 } as const;
 const checkItem = { display: 'grid', gridTemplateColumns: '32px 1fr', alignItems: 'start', gap: 10, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.45, fontWeight: 800 } as const;
 const checkRow = { border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.45, fontWeight: 800 } as const;
-const row = { display: 'grid', gridTemplateColumns: 'minmax(140px,0.7fr) minmax(160px,1fr)', gap: 10, alignItems: 'center', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB' } as const;
-const cell = { border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB' } as const;
-const micro = { color: '#0A7A5F', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
-const h1 = { margin: '6px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 34, lineHeight: 1.05, fontWeight: 950 } as const;
-const h2 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 20, lineHeight: 1.15, fontWeight: 950 } as const;
-const lead = { margin: '10px 0 0', color: 'var(--pc-text-secondary, #475569)', fontSize: 14, lineHeight: 1.6, maxWidth: 820 } as const;
-const rowLabel = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
-const rowValue = { marginTop: 4, color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, lineHeight: 1.35, fontWeight: 900 } as const;
-const rowNote = { color: 'var(--pc-text-secondary, #475569)', fontSize: 12, lineHeight: 1.45 } as const;
-const step = { display: 'grid', placeItems: 'center', width: 26, height: 26, borderRadius: 999, background: 'rgba(10,122,95,0.1)', color: '#0A7A5F', fontWeight: 950 } as const;
-const button = { textDecoration: 'none', border: '1px solid #D7DEE8', borderRadius: 12, padding: '10px 14px', background: '#FFFFFF', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 900 } as const;
+const row = { display: 'grid', gridTemplateColumns: 'minmax(140px,0.7fr) minmax(160px,1fr)', gap: 10, alignItems: 'start', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB' } as const;
+const cell = { display: 'grid', gap: 4, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#F8FAFB' } as const;
+const rowLabel = { color: 'var(--pc-text-muted, #66758A)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' } as const;
+const rowValue = { color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 900, overflowWrap: 'anywhere' } as const;
+const rowNote = { color: 'var(--pc-text-secondary, #52616B)', fontSize: 12, lineHeight: 1.45, fontWeight: 700, overflowWrap: 'anywhere' } as const;
+const micro = { color: 'var(--pc-text-muted, #66758A)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em' } as const;
+const h2 = { margin: 0, fontSize: 18, lineHeight: 1.15, fontWeight: 950, letterSpacing: '-0.02em', color: 'var(--pc-text-primary, #0F1419)' } as const;
+const step = { width: 26, height: 26, borderRadius: 9, display: 'inline-grid', placeItems: 'center', background: 'rgba(10,122,95,0.10)', color: '#087A3B', fontSize: 12, fontWeight: 950 } as const;
+const button = { minHeight: 42, borderRadius: 12, padding: '0 14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', color: '#fff', background: '#087A3B', fontSize: 13, fontWeight: 900 } as const;
