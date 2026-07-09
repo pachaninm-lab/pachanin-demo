@@ -37,7 +37,7 @@ STILL LOCKED:
 - `package-lock.json`
 - `pnpm-lock.yaml`
 
-IMPLEMENTATION GUARDRAILS FOR VP-3.10:
+IMPLEMENTATION GUARDRAILS FOR LATER CODE PR:
 - Repository adapter must accept `P7DealWorkspaceRuntimeDbContract` only through an explicit repository boundary.
 - Repository adapter must not import server actions or UI components.
 - Repository adapter must return a typed receipt: `recordId`, `runtimeSnapshotId`, `idempotencyKey`, `state`, `savedAt`, `outboxEntryId`, `auditEventId`.
@@ -51,27 +51,39 @@ IMPLEMENTATION GUARDRAILS FOR VP-3.10:
 - No package or lockfile change.
 
 NEXT:
-- Layer: VP-3.10 Runtime Persistence Repository Adapter Implementation.
-- Goal: implement the repository adapter contract and unit tests in the exact files unlocked by VP-3.9, still without Prisma schema or migration writes.
+- Layer: VP-3.10 Runtime Persistence Repository Adapter Implementation Activation.
+- Goal: activate exact implementation scope in docs only so autopilot can transition cleanly before repository code writes.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-  - apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts
-  - apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts
 - Success criteria:
-  - implement typed repository adapter receipt;
-  - implement duplicate-safe idempotency behavior;
-  - preserve `ready_to_persist`, `outbox_required`, `audit_required`, `fully_linked` states;
-  - keep `fully_linked` blocked without outbox/audit IDs;
+  - keep implementation files named but not written in VP-3.9;
   - keep `apps/api/prisma/schema.prisma` locked;
   - keep `apps/api/prisma/migrations/**` locked;
   - keep direct UI money movement forbidden;
   - keep hidden DB migration forbidden;
   - keep bank/FGIS/EDO live claims forbidden;
-  - add unit tests for receipt shape, duplicate idempotency and blocked fully_linked transition;
+  - keep package and lockfile changes forbidden;
   - guard-tests remain green;
   - pnpm --filter web test remains green;
   - maturity language remains platform-temporarily-without-external-integrations.
+
+AFTER NEXT:
+- Layer: VP-3.11 Runtime Persistence Repository Adapter Implementation.
+- Goal: implement the repository adapter contract and unit tests only after VP-3.10 activation is merged.
+- Candidate files for later implementation:
+  - apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts
+  - apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts
+- Still locked for that later implementation:
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/**
+  - apps/web/app/platform-v7/**
+  - apps/web/components/platform-v7/**
+  - apps/web/app/api/**
+  - apps/api/src/modules/auth/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
 
 ORDER:
 1. Stable shell boundary is active from #2038.
