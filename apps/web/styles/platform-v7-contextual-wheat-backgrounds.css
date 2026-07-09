@@ -1,7 +1,6 @@
 /* Contextual wheat backgrounds.
    Applied only to entry/onboarding/support surfaces, not to operational deal, money, document, dispute or table screens. */
 
-.pc-v7-public-entry .entry-hero-copy,
 .p7-register-hero,
 .p7-contact-copy,
 .p7-contact-success,
@@ -11,7 +10,6 @@
   overflow: hidden !important;
 }
 
-.pc-v7-public-entry .entry-hero-copy > *,
 .p7-register-hero > *,
 .p7-contact-copy > *,
 .p7-contact-success > *,
@@ -20,7 +18,6 @@
   z-index: 2 !important;
 }
 
-.pc-v7-public-entry .entry-hero-copy::before,
 .p7-register-hero::before,
 .p7-contact-copy::before,
 .p7-contact-success::before,
@@ -33,10 +30,9 @@
   background-image: url('/platform-v7/wheat-exact-background.svg') !important;
   background-repeat: no-repeat !important;
   background-size: cover !important;
-  filter: saturate(.98) contrast(.99) brightness(1.04) !important;
+  filter: saturate(.96) contrast(.98) brightness(1.05) !important;
 }
 
-.pc-v7-public-entry .entry-hero-copy::after,
 .p7-register-hero::after,
 .p7-contact-copy::after,
 .p7-contact-success::after,
@@ -46,17 +42,6 @@
   inset: 0 !important;
   z-index: 1 !important;
   pointer-events: none !important;
-}
-
-.pc-v7-public-entry .entry-hero-copy::before {
-  background-position: right center !important;
-  opacity: .82 !important;
-}
-
-.pc-v7-public-entry .entry-hero-copy::after {
-  background:
-    linear-gradient(90deg, rgba(255,255,255,.99) 0%, rgba(255,255,255,.955) 36%, rgba(255,255,255,.70) 58%, rgba(255,255,255,.28) 100%),
-    linear-gradient(180deg, rgba(255,255,255,.52) 0%, rgba(255,255,255,.12) 56%, rgba(255,255,255,.28) 100%) !important;
 }
 
 .p7-register-hero::before {
@@ -104,11 +89,6 @@
 }
 
 @media (max-width: 720px) {
-  .pc-v7-public-entry .entry-hero-copy::before {
-    background-position: right center !important;
-    opacity: .78 !important;
-  }
-
   .p7-register-hero::before,
   .p7-contact-copy::before,
   .p7-contact-success::before {
@@ -118,12 +98,6 @@
 
   .pc-v7-login-single .login-card::before {
     opacity: .24 !important;
-  }
-
-  .pc-v7-public-entry .entry-hero-copy::after {
-    background:
-      linear-gradient(90deg, rgba(255,255,255,.992) 0%, rgba(255,255,255,.96) 38%, rgba(255,255,255,.72) 62%, rgba(255,255,255,.34) 100%),
-      linear-gradient(180deg, rgba(255,255,255,.58) 0%, rgba(255,255,255,.20) 56%, rgba(255,255,255,.34) 100%) !important;
   }
 
   .p7-register-hero::after,
