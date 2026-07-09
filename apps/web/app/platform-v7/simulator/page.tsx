@@ -6,36 +6,36 @@ import {
   PLATFORM_V7_TRUST_ROUTE,
 } from '@/lib/platform-v7/routes';
 
-const scenarios = [
-  ['Чистая сделка', 'все условия выполнены', 'сумма готовится к банковскому шагу', 'документы собраны', 'низкий'],
+const checks = [
+  ['Чистая сделка', 'все условия выполнены', 'сумма готовится к банковскому основанию', 'документы собраны', 'низкий'],
   ['Нет СДИЗ', 'обязательный документ отсутствует', 'деньги остаются в резерве', 'нужен владелец документа', 'высокий'],
   ['Расхождение банка', 'ответ банка требует сверки', 'банковский шаг остановлен', 'нужна ручная проверка', 'высокий'],
   ['Отклонение маршрута', 'рейс вышел из маршрута', 'часть суммы удержана', 'нужны фото, пломба и геометка', 'средний'],
   ['Лабораторное отклонение', 'качество ниже условий', 'расчёт требует пересмотра', 'нужен протокол и решение сторон', 'средний'],
-  ['Частичное банковское основание', 'бесспорная часть подтверждена', 'часть к банковскому шагу, часть удержана', 'спорный пакет открыт', 'контролируемый'],
+  ['Частичное банковское основание', 'бесспорная часть подтверждена', 'часть к банковскому основанию, часть удержана', 'спорный пакет открыт', 'контролируемый'],
 ] as const;
 
 export default function PlatformV7SimulatorPage() {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
       <section style={heroStyle}>
-        <div style={badgeStyle}>Разбор исполнения сделки</div>
+        <div style={badgeStyle}>Проверка пути сделки</div>
         <div style={{ maxWidth: 920 }}>
-          <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.12, color: 'var(--pc-text-primary, #0F1419)' }}>Сценарии сделки</h1>
+          <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.12, color: 'var(--pc-text-primary, #0F1419)' }}>Контрольные случаи сделки</h1>
           <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.7, color: '#5B6576' }}>
-            Экран показывает, как разные отклонения меняют деньги, документы, логистику, спор и следующий шаг. Внешние подключения временно не заявляются как работающие без договоров, доступов, регламентов и приёмки.
+            Экран показывает, как отклонения влияют на деньги, документы, логистику, спор и следующий шаг. Внешние подключения временно не заявляются как работающие без договоров, доступов, регламентов и приёмки.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <Link href={PLATFORM_V7_DEAL_FLOW_ROUTE} style={primaryLink}>Путь сделки</Link>
-          <Link href={PLATFORM_V7_BANK_EVENTS_ROUTE} style={secondaryLink}>События банка</Link>
+          <Link href={PLATFORM_V7_BANK_EVENTS_ROUTE} style={secondaryLink}>Банковские основания</Link>
           <Link href="/platform-v7/reports" style={secondaryLink}>Отчёты</Link>
           <Link href={PLATFORM_V7_TRUST_ROUTE} style={secondaryLink}>Центр доверия</Link>
         </div>
       </section>
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-        {scenarios.map(([name, signal, money, next, risk]) => (
+        {checks.map(([name, signal, money, next, risk]) => (
           <article key={name} style={cardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
               <h2 style={{ margin: 0, fontSize: 17, lineHeight: 1.25, color: 'var(--pc-text-primary, #0F1419)' }}>{name}</h2>
