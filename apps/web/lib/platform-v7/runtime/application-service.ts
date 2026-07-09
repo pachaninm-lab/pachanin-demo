@@ -24,15 +24,15 @@ import type { PlatformV7MoneyOperation, PlatformV7MoneyTree } from '../money-tre
 import {
   toP7CanonicalActorRole,
   validateP7ArbitrationBasisRequestDto,
+  validateP7BankBasisRequestDto,
   validateP7BankBasisSendRequestDto,
   validateP7BankConfirmationRequestDto,
   validateP7DocumentActionRequestDto,
-  validateP7ReleaseRequestDto,
   type P7ArbitrationBasisRequestDto,
+  type P7BankBasisRequestDto,
   type P7BankBasisSendRequestDto,
   type P7BankConfirmationRequestDto,
   type P7DocumentActionRequestDto,
-  type P7ReleaseRequestDto,
   type P7RuntimeRequestBaseDto,
   type P7ValidationResult,
 } from './dto-schemas';
@@ -40,12 +40,12 @@ import type {
   P7ApplicationServiceDependencies,
   P7ApplicationServiceResult,
   P7BankBasisExecutionService,
+  P7BankBasisWorkflowService,
+  P7BankBasisWorkflowStatus,
   P7DisputeMoneyImpact,
   P7DisputeSettlementService,
   P7DocumentExecutionService,
   P7MoneyExecutionService,
-  P7ReleaseWorkflowService,
-  P7ReleaseWorkflowStatus,
 } from './application-service-types';
 import type {
   P7ArbitrationDecisionRecord,
@@ -69,13 +69,7 @@ function validationFailure<T>(validation: P7ValidationResult<T>): P7ApplicationS
 
 function runtimeFailure<T>(result: P7RuntimeResult<T>): P7ApplicationServiceResult<never> {
   const error = 'error' in result ? result.error : { code: 'transaction_error' as const, message: 'Unexpected runtime result.' };
-  return {
-    ok: false,
-    status: error.code === 'duplicate' ? 'duplicate' : error.code === 'conflict' ? 'conflict' : error.code === 'not_found' ? 'not_found' : 'domain_blocked',
-    code: error.code,
-    reason: error.message,
-    auditPayloads: [],
-  };
+  return { ok: false, status: error.code === 'duplicate' ? 'duplicate' : error.code === 'conflict' ? 'conflict' : error.code === 'not_found' ? 'not_found' : 'domain_blocked', code: error.code, reason: error.message, auditPayloads: [] };
 }
 
 function repositoryFailure<T>(result: P7RepositoryResult<T>): P7ApplicationServiceResult<never> {
@@ -92,7 +86,7 @@ function persisted<T>(value: T, boundary: PlatformV7ActionBoundaryResult | undef
 }
 
 function actorFromDto(dto: P7RuntimeRequestBaseDto): PlatformV7AccessActor {
-  const canonicalRole = toP7CanonicalActorRole(dto) as PlatformV7AccessRole;
+  const canonicalRole = toP7CanonicalActorRole(dto.actor) as PlatformV7AccessRole;
   return { userId: dto.actor.actorId, organizationId: dto.actor.organizationId, roles: [canonicalRole], activeRole: canonicalRole };
 }
 
@@ -124,7 +118,7 @@ function recordWithValue<T>(record: P7PersistedRecord<T>, value: T, updatedAt: s
   return { ...record, value, updatedAt };
 }
 
-function moneyOperation(dto: P7ReleaseRequestDto, type: PlatformV7MoneyOperation['type'], createdAt: string): PlatformV7MoneyOperation {
+function moneyOperation(dto: P7BankBasisRequestDto, type: PlatformV7MoneyOperation['type'], createdAt: string): PlatformV7MoneyOperation {
   return { operationId: operationId(dto), dealId: dto.resource.dealId, type, amount: dto.amount, currency: dto.currency, basisDocumentIds: [dto.resource.resourceId], actorId: dto.actor.actorId, actorRole: dto.actor.actorRole, occurredAt: createdAt, idempotencyKey: dto.idempotency.idempotencyKey, correlationId: dto.audit.correlationId, auditId: dto.audit.auditId };
 }
 
@@ -215,8 +209,8 @@ async function completeBoundary<T>(ports: P7RuntimeTransactionalPorts, dto: P7Ru
 export function createP7MoneyExecutionService(deps: P7ApplicationServiceDependencies): P7MoneyExecutionService {
   const bank = createP7BankBasisExecutionService(deps);
   return {
-    async requestRelease(dto) {
-      const validation = validateP7ReleaseRequestDto(dto);
+    async requestBankBasis(dto) {
+      const validation = validateP7BankBasisRequestDto(dto);
       if (!validation.ok) return validationFailure(validation);
       return runTransaction(deps, async (ports) => {
         const money = await ports.moneyTree.loadByDealId(dto.resource.dealId);
@@ -245,7 +239,7 @@ export function createP7MoneyExecutionService(deps: P7ApplicationServiceDependen
         });
       });
     },
-    confirmRelease: (dto) => bank.confirmBankRelease(dto),
+    confirmBankBasis: (dto) => bank.confirmBankBasis(dto),
     confirmRefund: (dto) => bank.confirmBankRefund(dto),
     confirmHold: (dto) => bank.confirmBankHold(dto),
     startManualReview: (dto) => bank.startBankManualReview(dto),
@@ -335,18 +329,18 @@ export function createP7BankBasisExecutionService(deps: P7ApplicationServiceDepe
 
   return {
     sendBankBasis,
-    confirmBankRelease: (dto) => confirmBankMovement({ ...dto, path: 'release', action: 'bank_basis_confirmed' }),
-    rejectBankRelease: (dto) => confirmBankMovement({ ...dto, path: 'reject', action: 'bank_basis_rejected' }),
+    confirmBankBasis: (dto) => confirmBankMovement({ ...dto, path: 'release', action: 'bank_basis_confirmed' }),
+    rejectBankBasis: (dto) => confirmBankMovement({ ...dto, path: 'reject', action: 'bank_basis_rejected' }),
     confirmBankRefund: (dto) => confirmBankMovement({ ...dto, path: 'refund', action: 'bank_refund_confirmed' }),
     confirmBankHold: (dto) => confirmBankMovement({ ...dto, path: 'hold', action: 'bank_hold_confirmed' }),
     startBankManualReview: (dto) => confirmBankMovement({ ...dto, path: 'manual_review', action: 'bank_manual_review_started' }),
   };
 }
 
-export function createP7ReleaseWorkflowService(deps: P7ApplicationServiceDependencies): P7ReleaseWorkflowService {
+export function createP7BankBasisWorkflowService(deps: P7ApplicationServiceDependencies): P7BankBasisWorkflowService {
   const money = createP7MoneyExecutionService(deps);
   const bank = createP7BankBasisExecutionService(deps);
-  async function getReleaseStatus(dto: P7RuntimeRequestBaseDto): Promise<P7ApplicationServiceResult<P7ReleaseWorkflowStatus>> {
+  async function getBankBasisStatus(dto: P7RuntimeRequestBaseDto): Promise<P7ApplicationServiceResult<P7BankBasisWorkflowStatus>> {
     return runTransaction(deps, async (ports) => {
       const loadedMoney = await ports.moneyTree.loadByDealId(dto.resource.dealId);
       if (!loadedMoney.ok) return repositoryFailure(loadedMoney);
@@ -354,7 +348,7 @@ export function createP7ReleaseWorkflowService(deps: P7ApplicationServiceDepende
       return persisted({ dealId: dto.resource.dealId, moneyTree: loadedMoney.value.value, bankBasis: loadedBasis.ok ? loadedBasis.value.value : null }, undefined, []);
     });
   }
-  return { prepareRelease: getReleaseStatus, requestRelease: money.requestRelease, sendBasisToBank: bank.sendBankBasis, handleBankEvent: (dto) => dto.path === 'refund' ? bank.confirmBankRefund(dto) : dto.path === 'hold' ? bank.confirmBankHold(dto) : dto.path === 'reject' ? bank.rejectBankRelease(dto) : dto.path === 'manual_review' ? bank.startBankManualReview(dto) : bank.confirmBankRelease(dto), getReleaseStatus };
+  return { prepareBankBasis: getBankBasisStatus, requestBankBasis: money.requestBankBasis, sendBasisToBank: bank.sendBankBasis, handleBankEvent: (dto) => dto.path === 'refund' ? bank.confirmBankRefund(dto) : dto.path === 'hold' ? bank.confirmBankHold(dto) : dto.path === 'reject' ? bank.rejectBankBasis(dto) : dto.path === 'manual_review' ? bank.startBankManualReview(dto) : bank.confirmBankBasis(dto), getBankBasisStatus };
 }
 
 export function createP7DisputeSettlementService(deps: P7ApplicationServiceDependencies): P7DisputeSettlementService {
@@ -375,7 +369,7 @@ export function createP7DisputeSettlementService(deps: P7ApplicationServiceDepen
         return saved.ok ? persisted(saved.value.value, undefined, []) : repositoryFailure(saved);
       });
     },
-    applyArbitrationOutcomeToBankBasis: (dto) => dto.path === 'refund' ? bank.confirmBankRefund(dto) : dto.path === 'hold' ? bank.confirmBankHold(dto) : dto.path === 'reject' ? bank.rejectBankRelease(dto) : dto.path === 'manual_review' ? bank.startBankManualReview(dto) : bank.confirmBankRelease(dto),
+    applyArbitrationOutcomeToBankBasis: (dto) => dto.path === 'refund' ? bank.confirmBankRefund(dto) : dto.path === 'hold' ? bank.confirmBankHold(dto) : dto.path === 'reject' ? bank.rejectBankBasis(dto) : dto.path === 'manual_review' ? bank.startBankManualReview(dto) : bank.confirmBankBasis(dto),
     async getDisputeMoneyImpact(dto) { return impact(dto, 'Dispute impact is read-only in service layer.'); },
   };
 }
