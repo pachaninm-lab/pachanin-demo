@@ -1,4 +1,4 @@
-/* Public hero art: elegant translucent wheat illustration for the white mobile entry card. */
+/* Public hero art: visible premium wheat illustration for the white mobile entry card. */
 .pc-v7-public-entry .entry-hero-copy {
   isolation: isolate !important;
   overflow: hidden !important;
@@ -12,15 +12,15 @@
 .pc-v7-public-entry .entry-hero-copy::before {
   content: '' !important;
   position: absolute !important;
-  inset: -6px -18px -10px 0 !important;
+  inset: -10px -22px -12px 0 !important;
   z-index: 0 !important;
   pointer-events: none !important;
-  background-image: url('/platform-v7/hero-grain-field.svg') !important;
+  background-image: url('/platform-v7/hero-soft-wheat-art-20260709.svg') !important;
   background-repeat: no-repeat !important;
   background-position: right bottom !important;
-  background-size: 76% auto !important;
-  opacity: .76 !important;
-  filter: saturate(.88) contrast(.96) brightness(1.05) !important;
+  background-size: 88% auto !important;
+  opacity: .82 !important;
+  filter: saturate(.92) contrast(1.02) brightness(1.03) !important;
 }
 
 .pc-v7-public-entry .entry-hero-copy::after {
@@ -30,8 +30,8 @@
   z-index: 1 !important;
   pointer-events: none !important;
   background:
-    linear-gradient(90deg, rgba(255,255,255,.985) 0%, rgba(255,255,255,.955) 44%, rgba(255,255,255,.86) 72%, rgba(255,255,255,.76) 100%),
-    linear-gradient(180deg, rgba(255,255,255,.82) 0%, rgba(255,255,255,.42) 54%, rgba(255,255,255,.66) 100%) !important;
+    linear-gradient(90deg, rgba(255,255,255,.985) 0%, rgba(255,255,255,.94) 43%, rgba(255,255,255,.77) 72%, rgba(255,255,255,.58) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.82) 0%, rgba(255,255,255,.34) 52%, rgba(255,255,255,.54) 100%) !important;
 }
 
 @media (min-width: 721px) {
@@ -44,20 +44,20 @@
 @media (max-width: 720px) {
   html body .pc-v7-public-entry .entry-hero-copy {
     position: relative !important;
-    background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(252,255,250,.91)) !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.955), rgba(252,255,250,.90)) !important;
   }
 }
 
 @media (max-width: 380px) {
   .pc-v7-public-entry .entry-hero-copy::before {
-    background-size: 82% auto !important;
+    background-size: 94% auto !important;
     background-position: right bottom !important;
-    opacity: .68 !important;
+    opacity: .76 !important;
   }
 
   .pc-v7-public-entry .entry-hero-copy::after {
     background:
-      linear-gradient(90deg, rgba(255,255,255,.99) 0%, rgba(255,255,255,.965) 54%, rgba(255,255,255,.83) 100%),
-      linear-gradient(180deg, rgba(255,255,255,.86) 0%, rgba(255,255,255,.50) 52%, rgba(255,255,255,.72) 100%) !important;
+      linear-gradient(90deg, rgba(255,255,255,.99) 0%, rgba(255,255,255,.955) 50%, rgba(255,255,255,.76) 100%),
+      linear-gradient(180deg, rgba(255,255,255,.85) 0%, rgba(255,255,255,.42) 52%, rgba(255,255,255,.62) 100%) !important;
   }
 }
