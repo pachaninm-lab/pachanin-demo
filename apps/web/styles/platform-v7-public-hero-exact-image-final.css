@@ -1,0 +1,26 @@
+/* Final override for the exact supplied wheat image in the mobile public hero. */
+.pc-v7-public-entry .entry-hero-copy::before {
+  background-position: right center !important;
+  background-size: cover !important;
+  opacity: .88 !important;
+  filter: saturate(.98) contrast(1) brightness(1.03) !important;
+}
+
+.pc-v7-public-entry .entry-hero-copy::after {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.992) 0%, rgba(255,255,255,.965) 34%, rgba(255,255,255,.78) 56%, rgba(255,255,255,.30) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.54) 0%, rgba(255,255,255,.16) 54%, rgba(255,255,255,.34) 100%) !important;
+}
+
+@media (max-width: 380px) {
+  .pc-v7-public-entry .entry-hero-copy::before {
+    background-position: right center !important;
+    opacity: .82 !important;
+  }
+
+  .pc-v7-public-entry .entry-hero-copy::after {
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.994) 0%, rgba(255,255,255,.972) 40%, rgba(255,255,255,.82) 64%, rgba(255,255,255,.38) 100%),
+      linear-gradient(180deg, rgba(255,255,255,.60) 0%, rgba(255,255,255,.24) 54%, rgba(255,255,255,.42) 100%) !important;
+  }
+}
