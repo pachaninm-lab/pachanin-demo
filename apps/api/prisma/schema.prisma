@@ -349,6 +349,35 @@ model OutboxEntry {
   @@map("outbox_entries")
 }
 
+// ── Deal Workspace Runtime DB Contract ────────────────────────────────────────
+
+model DealWorkspaceRuntimeSnapshot {
+  id                   String   @id @default(cuid())
+  runtimeSnapshotId    String   @unique
+  dealId               String
+  intentId             String
+  state                String   // ready_to_persist | outbox_required | audit_required | fully_linked
+  snapshotState        String   // updated | blocked | duplicate | failed
+  statusLabel          String
+  runtimeStoreRecordId String
+  runtimeStoreVersion  String
+  maturity             String   @default("postgres-contract")
+  payload              Json
+  correlationId        String
+  auditId              String
+  idempotencyKey       String   @unique
+  outboxEntryId        String?
+  auditEventId         String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([dealId, createdAt])
+  @@index([intentId, state])
+  @@index([outboxEntryId])
+  @@index([auditEventId])
+  @@map("deal_workspace_runtime_snapshots")
+}
+
 // ── Disputes ──────────────────────────────────────────────────────────────────
 
 model Dispute {
@@ -518,143 +547,4 @@ model KycTask {
   amlResult      Json?
   resolvedAt     DateTime?
   createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@index([status])
-  @@index([organizationId])
-  @@map("kyc_tasks")
-}
-
-// ── Stored Files (Storage module — S3 presigned URL) ──────────────────────────
-
-model StoredFile {
-  id               String   @id @default(cuid())
-  dealId           String?
-  s3Key            String
-  bucket           String   @default("grainflow-documents")
-  filename         String
-  mimeType         String
-  sizeBytes        BigInt?
-  sha256           String?
-  status           String   @default("PENDING_UPLOAD") // PENDING_UPLOAD | UPLOADED | CONFIRMED | DELETED
-  uploadedByUserId String?
-  confirmedAt      DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@index([dealId])
-  @@index([s3Key])
-  @@map("stored_files")
-}
-
-// ── Factoring Applications ────────────────────────────────────────────────────
-
-model FactoringApplication {
-  id               String   @id @default(cuid())
-  organizationId   String
-  dealId           String?
-  status           String   @default("PENDING") // PENDING | APPROVED | REJECTED | ACTIVE | OVERDUE | REPAID
-  requestedKopecks BigInt?
-  approvedKopecks  BigInt?
-  factorName       String?
-  dueDate          DateTime?
-  repaidAt         DateTime?
-  contractDocId    String?
-  notes            String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@index([organizationId])
-  @@index([status])
-  @@index([dueDate])
-  @@map("factoring_applications")
-}
-
-// ── Geofences ─────────────────────────────────────────────────────────────────
-
-model Geofence {
-  id            String   @id @default(cuid())
-  dealId        String?
-  name          String
-  type          String   @default("CIRCLE") // CIRCLE | POLYGON
-  centerLat     Float?
-  centerLng     Float?
-  radiusMeters  Float?
-  polygon       Json?    // [{lat, lng}]
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-
-  @@index([dealId])
-  @@map("geofences")
-}
-
-// ── Acceptance Records (акт приёма) ──────────────────────────────────────────
-
-model AcceptanceRecord {
-  id                String   @id @default(cuid())
-  dealId            String
-  shipmentId        String?
-  status            String   @default("PENDING") // PENDING | ACCEPTED | PARTIAL | REJECTED
-  weightActualTons  Float?
-  volumeActualTons  Float?
-  qualityStatus     String   @default("PENDING") // PENDING | PASSED | FAILED | PARTIAL
-  gost              String?
-  actDocId          String?  // ID документа — акт приёма
-  actSignedAt       DateTime?
-  actorId           String   // elevator/lab operator userId
-  notes             String?
-  moneyAdjustKopecks Int?    // корректировка суммы по результату приёма
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  deal              Deal     @relation(fields: [dealId], references: [id])
-
-  @@index([dealId])
-  @@index([shipmentId])
-  @@map("acceptance_records")
-}
-
-// ── Bank Operations ───────────────────────────────────────────────────────────
-
-model BankOperation {
-  id                String   @id @default(cuid())
-  dealId            String
-  type              String   // RESERVE | HOLD | RELEASE | REFUND | COMMISSION | FACTORING_DISBURSEMENT
-  status            String   @default("PENDING") // PENDING | PROCESSING | DONE | FAILED | REVERSED
-  amountKopecks     BigInt
-  currency          String   @default("RUB")
-  debitAccount      String
-  creditAccount     String
-  bankRef           String?  // внешний ID операции в банке
-  bankName          String?
-  idempotencyKey    String   @unique
-  requestPayload    Json?
-  responsePayload   Json?
-  initiatorUserId   String?
-  confirmedAt       DateTime?
-  failureReason     String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  deal              Deal     @relation(fields: [dealId], references: [id])
-
-  @@index([dealId])
-  @@index([status])
-  @@index([type])
-  @@map("bank_operations")
-}
-
-// ── Accounts (for money invariants) ───────────────────────────────────────────
-
-model Account {
-  id              String   @id
-  orgId           String?
-  type            String   @default("ORG") // ORG | ESCROW | DISPUTE_HOLD | PLATFORM
-  balanceKopecks  BigInt   @default(0)
-  reservedKopecks BigInt   @default(0)
-  currency        String   @default("RUB")
-  updatedAt       DateTime @updatedAt
-
-  @@index([orgId])
-  @@map("accounts")
 }
