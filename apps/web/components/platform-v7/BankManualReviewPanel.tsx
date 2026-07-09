@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { P7GuardedActionButton } from '@/components/platform-v7/P7GuardedActionButton';
 import { platformV7ActionTargetById } from '@/lib/platform-v7/action-targets';
 
-const MATURITY = 'sandbox';
+const REVIEW_SCOPE_LABEL = 'ручная проверка';
 
 type ReviewStatus = 'pending' | 'in_review' | 'approved' | 'rejected' | 'escalated';
 type ReviewReason = 'beneficiary_change' | 'large_amount' | 'compliance_flag' | 'duplicate_suspected' | 'gate_override_requested';
@@ -29,9 +29,9 @@ const REVIEW_QUEUE: ManualReviewItem[] = [
     amount: 4_464_000,
     status: 'pending',
     reason: 'beneficiary_change',
-    description: 'Sandbox beneficiary data changed shortly before payout. Repeat review is required.',
+    description: 'Данные получателя изменились незадолго до банковского основания. Требуется повторная проверка.',
     requestedAt: '2026-04-27T09:15:00Z',
-    blockers: ['Repeat review is not completed', 'Compliance gate is not cleared'],
+    blockers: ['Повторная проверка не завершена', 'Compliance-gate не закрыт'],
   },
   {
     id: 'mr-002',
@@ -39,9 +39,9 @@ const REVIEW_QUEUE: ManualReviewItem[] = [
     amount: 8_100_000,
     status: 'in_review',
     reason: 'large_amount',
-    description: 'Sandbox amount is above automatic limit. Manual review is required.',
+    description: 'Сумма выше автоматического порога. Требуется ручной банковский разбор.',
     requestedAt: '2026-04-26T16:00:00Z',
-    reviewer: 'Sandbox reviewer',
+    reviewer: 'Банковский разбор',
     blockers: [],
   },
   {
@@ -50,9 +50,9 @@ const REVIEW_QUEUE: ManualReviewItem[] = [
     amount: 2_976_000,
     status: 'approved',
     reason: 'compliance_flag',
-    description: 'Sandbox compliance warning was reviewed manually.',
+    description: 'Compliance-предупреждение проверено вручную.',
     requestedAt: '2026-04-25T11:30:00Z',
-    reviewer: 'Sandbox reviewer',
+    reviewer: 'Банковский разбор',
     blockers: [],
   },
 ];
@@ -80,7 +80,7 @@ function fmt(n: number) {
 }
 
 function statusTone(status: ReviewStatus) {
-  if (status === 'approved') return { bg: BRAND_BG, border: BRAND_BORDER, color: BRAND, label: 'Одобрено' };
+  if (status === 'approved') return { bg: BRAND_BG, border: BRAND_BORDER, color: BRAND, label: 'Проверено' };
   if (status === 'in_review') return { bg: INFO_BG, border: INFO_BORDER, color: INFO, label: 'Проверка' };
   if (status === 'pending') return { bg: WARN_BG, border: WARN_BORDER, color: WARN, label: 'Ожидает' };
   if (status === 'rejected') return { bg: ERR_BG, border: ERR_BORDER, color: ERR, label: 'Отклонено' };
@@ -118,9 +118,9 @@ export function BankManualReviewPanel() {
     <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: M, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Ручная проверка · <span style={{ color: WARN }}>{MATURITY}</span>
+          Ручная проверка · <span style={{ color: WARN }}>{REVIEW_SCOPE_LABEL}</span>
         </div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: T, marginTop: 4 }}>Очередь банкового разбора</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: T, marginTop: 4 }}>Очередь банковского разбора</div>
         {pending > 0 ? <div style={{ marginTop: 4, fontSize: 13, color: WARN, fontWeight: 700 }}>{pending} требуют действия</div> : null}
       </div>
 
@@ -157,7 +157,7 @@ export function BankManualReviewPanel() {
                 </div>
               ) : null}
 
-              {done ? <div style={{ marginTop: 10, fontSize: 12, color: BRAND, fontWeight: 800 }}>Sandbox action: {done}</div> : null}
+              {done ? <div style={{ marginTop: 10, fontSize: 12, color: BRAND, fontWeight: 800 }}>Действие проверки: {done}</div> : null}
 
               {canAct && approveTarget && rejectTarget ? (
                 <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -167,16 +167,16 @@ export function BankManualReviewPanel() {
                     blocked={hasBlockers}
                     blockerLabels={item.blockers}
                     blockedLabel='Блокеры не сняты'
-                    blockedReason='Нельзя одобрить до снятия блокеров.'
-                    loadingLabel='Одобряется…'
-                    onClick={() => simulate(approveTarget.actionId, item.id, 'approved')}
+                    blockedReason='Нельзя подтвердить основание до снятия блокеров.'
+                    loadingLabel='Проверяется…'
+                    onClick={() => simulate(approveTarget.actionId, item.id, 'основание проверено')}
                   />
                   <P7GuardedActionButton
                     target={rejectTarget}
                     activeActionId={activeActionId}
                     tone='danger'
                     loadingLabel='Отклоняется…'
-                    onClick={() => simulate(rejectTarget.actionId, item.id, 'rejected')}
+                    onClick={() => simulate(rejectTarget.actionId, item.id, 'основание отклонено')}
                   />
                 </div>
               ) : null}
