@@ -5,22 +5,22 @@ import {
   type PlatformV7MoneyOperationApplyResult,
   type PlatformV7MoneyOperationType,
   type PlatformV7MoneyTree,
-  type PlatformV7ReleaseGateDecision,
+  type PlatformV7BankBasisGateDecision,
 } from './money-tree';
 import type { PlatformV7CanonicalRole } from './role-canonical';
 
 export type P7BankBasisStatus = 'draft' | 'blocked' | 'ready_for_bank_review' | 'sent_to_bank' | 'bank_confirmed' | 'bank_rejected' | 'manual_review';
 export type P7BankConfirmationPath = 'release' | 'refund' | 'hold' | 'reject' | 'manual_review';
 export type P7BankConfirmationOperationType<Path extends P7BankConfirmationPath = P7BankConfirmationPath> =
-  Path extends 'release' ? 'release_confirmed'
+  Path extends 'release' ? 'bank_basis_confirmed'
     : Path extends 'refund' ? 'refund_confirmed'
       : Path extends 'hold' ? 'hold_created'
-        : Path extends 'reject' ? 'release_failed'
+        : Path extends 'reject' ? 'bank_basis_rejected'
           : 'manual_review_started';
 export type P7BankAuditAction =
   | 'bank_basis_sent'
-  | 'bank_release_confirmed'
-  | 'bank_release_rejected'
+  | 'bank_basis_confirmed'
+  | 'bank_basis_rejected'
   | 'bank_refund_confirmed'
   | 'bank_hold_confirmed'
   | 'bank_manual_review_started'
@@ -39,7 +39,7 @@ export type P7BankConfirmationCode =
 
 export interface P7BankBasisInput {
   readonly dealId: string;
-  readonly releaseGate: PlatformV7ReleaseGateDecision;
+  readonly releaseGate: PlatformV7BankBasisGateDecision;
   readonly documents: readonly PlatformV7DocumentRequirement[];
   readonly disputeResolved: boolean;
   readonly amount: number;
@@ -76,8 +76,6 @@ export interface P7BankConfirmationEvent<Path extends P7BankConfirmationPath = P
   readonly actorId: string;
   readonly actorRole: PlatformV7CanonicalRole;
   readonly organizationId: string;
-  // bankOrganizationId is required for PR 4.4 org-scope RBAC check.
-  // Must be non-empty — validated by p7ConfirmBankMovement before actorRole check.
   readonly bankOrganizationId: string;
   readonly bankReference: string;
   readonly confirmedAt: string;
@@ -141,7 +139,6 @@ export interface P7BankConfirmationInput<Path extends P7BankConfirmationPath = P
   readonly decision: P7BankBasisDecision;
   readonly moneyTree: PlatformV7MoneyTree;
   readonly confirmation: P7BankConfirmationEvent<Path>;
-  // Required (not optional) — omitting these would silently skip dedup checks.
   readonly existingBankEventIds: readonly string[];
   readonly usedIdempotencyKeys: readonly string[];
   readonly existingOperationIds: readonly string[];
@@ -157,7 +154,6 @@ export interface P7ApplyBankConfirmationToMoneyTreeInput<Path extends P7BankConf
   readonly decision: P7BankBasisDecision;
   readonly moneyTree: PlatformV7MoneyTree;
   readonly confirmation: P7BankConfirmationEvent<Path>;
-  // Required — omitting these would silently skip dedup checks.
   readonly existingOperationIds: readonly string[];
   readonly usedIdempotencyKeys: readonly string[];
 }
@@ -215,10 +211,10 @@ function p7BankConfirmationStatus(path: P7BankConfirmationPath): P7BankBasisStat
 
 function p7BankMoneyOperationType<Path extends P7BankConfirmationPath>(path: Path): P7BankConfirmationOperationType<Path> {
   const operationTypeByPath: Record<P7BankConfirmationPath, P7BankConfirmationOperationType> = {
-    release: 'release_confirmed',
+    release: 'bank_basis_confirmed',
     refund: 'refund_confirmed',
     hold: 'hold_created',
-    reject: 'release_failed',
+    reject: 'bank_basis_rejected',
     manual_review: 'manual_review_started',
   };
 
@@ -227,10 +223,10 @@ function p7BankMoneyOperationType<Path extends P7BankConfirmationPath>(path: Pat
 
 function p7BankAuditAction(path: P7BankConfirmationPath): P7BankAuditAction {
   const actionByPath: Record<P7BankConfirmationPath, P7BankAuditAction> = {
-    release: 'bank_release_confirmed',
+    release: 'bank_basis_confirmed',
     refund: 'bank_refund_confirmed',
     hold: 'bank_hold_confirmed',
-    reject: 'bank_release_rejected',
+    reject: 'bank_basis_rejected',
     manual_review: 'bank_manual_review_started',
   };
 
@@ -277,7 +273,7 @@ export function p7BuildBankBasis(input: P7BankBasisInput): P7BankBasisDecision {
     return !document || !document.affectsMoney || !isConfirmedOrSigned(document);
   });
 
-  if (!input.releaseGate.allowed) blockers.push('RELEASE_GATE_BLOCKED');
+  if (!input.releaseGate.allowed) blockers.push('BANK_BASIS_GATE_BLOCKED');
   if (missingMoneyDocuments.length > 0) blockers.push('MONEY_DOCUMENTS_INCOMPLETE');
   if (missingRequiredBasisDocuments.length > 0) blockers.push('BANK_BASIS_REQUIRED_DOCUMENTS_INCOMPLETE');
   if (!input.disputeResolved) blockers.push('DISPUTE_NOT_RESOLVED');
@@ -297,8 +293,8 @@ export function p7BuildBankBasis(input: P7BankBasisInput): P7BankBasisDecision {
     correlationId: input.correlationId,
     auditId: input.auditId,
     note: canSendToBank
-      ? 'Bank basis is ready to be sent for review. This does not confirm payment release.'
-      : 'Bank basis is blocked until release, documents, dispute and trace conditions are satisfied.',
+      ? 'Bank basis is ready to be sent for review. This does not confirm any external money movement.'
+      : 'Bank basis is blocked until documents, dispute and trace conditions are satisfied.',
   };
 }
 
@@ -490,14 +486,12 @@ function p7ConfirmBankMovement<Path extends P7BankConfirmationPath>(
     );
   }
 
-  // bankOrganizationId must be present before any RBAC checks — it is a prerequisite
-  // for the org-scope RBAC gate wired in PR 4.4. Without it, role checks have no scope.
   if (!input.confirmation.bankOrganizationId) {
     return p7BlockedBankConfirmationResult(
       input,
       action,
       'BANK_ORG_REQUIRED',
-      'Bank organization id is required for org-scope RBAC check (PR 4.4).',
+      'Bank organization id is required for org-scope RBAC check.',
       'denied',
       { ...input.decision, status: 'manual_review', canSendToBank: false, blockerCodes: [...input.decision.blockerCodes, 'BANK_ORG_REQUIRED'] },
     );
@@ -540,7 +534,7 @@ function p7ConfirmBankMovement<Path extends P7BankConfirmationPath>(
   }
 
   const reason = expectedPath === 'release'
-    ? 'Bank confirmed the release event. MoneyTree mutation is recorded through release_confirmed.'
+    ? 'Bank confirmed the basis event. MoneyTree mutation is recorded through bank_basis_confirmed.'
     : 'Bank event was recorded. MoneyTree mutation is recorded through the matching money operation.';
   const auditPayload = p7CreateAuditPayload({
     action,
@@ -608,15 +602,11 @@ export function p7StartBankManualReview(input: P7StartBankManualReviewInput): P7
   return p7ConfirmBankMovement(input, 'manual_review');
 }
 
-// ---------------------------------------------------------------------------
-// Arbitration basis payload
-// ---------------------------------------------------------------------------
-
 export interface P7ArbitrationDisputeSplit {
   readonly arbitrationDecisionId: string;
   readonly dealId: string;
-  readonly uncontestedAmount: number;  // already settled; not redistributed
-  readonly disputedAmount: number;     // under arbitration — must balance release+refund+held
+  readonly uncontestedAmount: number;
+  readonly disputedAmount: number;
   readonly releaseAmount: number;
   readonly refundAmount: number;
   readonly heldAmount: number;
@@ -633,16 +623,6 @@ export interface P7ArbitrationBasisPayload {
   readonly note: string;
 }
 
-/**
- * Package an arbitration decision as input for the bank confirmation step.
- *
- * Validates that:
- *   - All amounts are non-negative
- *   - disputedAmount === releaseAmount + refundAmount + heldAmount
- *
- * suggestedOperationType is a suggestion only — it does not trigger money
- * release. Bank confirmation remains a separate external event.
- */
 export function p7BuildArbitrationBasisPayload(
   split: P7ArbitrationDisputeSplit,
   arbitrationDocumentId: string,
@@ -658,10 +638,9 @@ export function p7BuildArbitrationBasisPayload(
     issues.push('All arbitration split amounts must be non-negative.');
   }
 
-  // Only the disputed portion must balance; uncontestedAmount is already settled.
   const totalOut = split.releaseAmount + split.refundAmount + split.heldAmount;
   if (split.disputedAmount !== totalOut) {
-    issues.push('Arbitration split amounts do not balance: release + refund + held must equal disputedAmount.');
+    issues.push('Arbitration split amounts do not balance: basis + refund + held must equal disputedAmount.');
   }
 
   if (issues.length > 0) {
@@ -688,6 +667,6 @@ export function p7BuildArbitrationBasisPayload(
     issues: [],
     basisDocumentIds: [arbitrationDocumentId],
     suggestedOperationType,
-    note: 'Arbitration basis payload packages the arbitrator decision as input for the bank. This payload does not trigger money release — bank confirmation is a separate external event.',
+    note: 'Arbitration basis payload packages the arbitrator decision as input for the bank. Bank confirmation remains a separate external event.',
   };
 }
