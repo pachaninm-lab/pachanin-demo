@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.12 Runtime Persistence Repository Adapter Implementation Final Gate.
+CURRENT: VP-3.13 Runtime Persistence Repository Adapter Implementation.
 
-GOAL: Финально зафиксировать ручной code PR gate для runtime persistence repository adapter после merge #2219, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend scope и не заявляя live bank/ФГИС/ЭДО persistence.
+GOAL: Реализовать contract-level runtime persistence repository adapter и unit tests после merge #2220, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend scope и не заявляя live bank/ФГИС/ЭДО persistence.
 
 CURRENT STATUS:
 - VP-2.5 is complete: all 260 web unit tests pass (pnpm --filter web test → 260/260).
@@ -17,20 +17,20 @@ CURRENT STATUS:
 - VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight is merged from #2217.
 - VP-3.10 Runtime Persistence Implementation Activation is merged from #2218.
 - VP-3.11 Runtime Persistence Implementation Scope Unlock is merged from #2219.
-- VP-3.12 is docs-only final gate: it makes the next implementation PR explicit and keeps this PR away from adapter code.
+- VP-3.12 Runtime Persistence Implementation Final Gate is merged from #2220.
+- VP-3.13 implements a contract-level repository adapter. It is not a live production DB persistence layer.
 - #2113 remains open: repository settings cleanup.
 - #2115 remains open: backend register role assignment hardening remains blocked by the current auth-file write path.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
+- apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts
+- apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts
 
-MANUAL CODE PR SCOPE AFTER THIS GATE:
-- The next manual code PR must set `current` to `VP-3.13 Runtime Persistence Repository Adapter Implementation`.
-- The next manual code PR must set `allowedCurrentScope` to docs plus exactly these two files:
-  - `apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts`
-  - `apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts`
-- The next manual code PR must keep `NEXT` safe/docs-only so autopilot loop dry-run can transition cleanly after merge.
+IMPLEMENTED FILES:
+- `apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts`
+- `apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts`
 
 STILL LOCKED:
 - `apps/api/prisma/schema.prisma`
@@ -43,13 +43,13 @@ STILL LOCKED:
 - `package-lock.json`
 - `pnpm-lock.yaml`
 
-IMPLEMENTATION GUARDRAILS FOR VP-3.13:
-- Repository adapter must accept `P7DealWorkspaceRuntimeDbContract` only through an explicit repository boundary.
-- Repository adapter must not import server actions or UI components.
-- Repository adapter must return a typed receipt: `recordId`, `runtimeSnapshotId`, `idempotencyKey`, `state`, `savedAt`, `outboxEntryId`, `auditEventId`.
-- Duplicate `idempotencyKey` must be duplicate-safe and must not create a second evidence write.
+IMPLEMENTATION GUARANTEES:
+- Repository adapter accepts `P7DealWorkspaceRuntimeDbContract` only through an explicit repository boundary.
+- Repository adapter does not import server actions or UI components.
+- Repository adapter returns typed receipt: `recordId`, `runtimeSnapshotId`, `idempotencyKey`, `state`, `savedAt`, `outboxEntryId`, `auditEventId`.
+- Duplicate `idempotencyKey` is duplicate-safe and does not create a second evidence write.
 - `fully_linked` is forbidden unless both outbox and audit linkage exist.
-- If outbox/audit linkage is not available, the adapter must return `outbox_required` or `audit_required`, not fake `fully_linked`.
+- If outbox/audit linkage is not available, the adapter returns `outbox_required` or `audit_required`, not fake `fully_linked`.
 - No direct UI money movement.
 - No bank/FGIS/EDO live persistence claims.
 - No hidden migration.
@@ -57,13 +57,14 @@ IMPLEMENTATION GUARDRAILS FOR VP-3.13:
 - No package or lockfile change.
 
 NEXT:
-- Layer: VP-3.13 Runtime Persistence Repository Adapter Implementation.
-- Goal: implement the repository adapter contract and unit tests only after this final gate is merged.
+- Layer: VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.
+- Goal: select exact pipeline binding scope only after VP-3.13 is merged.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - keep implementation files named but not written in VP-3.12;
+  - keep repository adapter implementation merged before pipeline binding;
+  - select exact files for pipeline binding before code writes;
   - keep `apps/api/prisma/schema.prisma` locked;
   - keep `apps/api/prisma/migrations/**` locked;
   - keep direct UI money movement forbidden;
@@ -73,11 +74,6 @@ NEXT:
   - guard-tests remain green;
   - pnpm --filter web test remains green;
   - maturity language remains platform-temporarily-without-external-integrations.
-
-AFTER NEXT MANUAL CODE PR:
-- Layer: VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.
-- Goal: prepare binding from repository adapter to runtime action pipeline only after the adapter implementation PR is green and merged.
-- Candidate files must be selected separately after VP-3.13.
 
 ORDER:
 1. Stable shell boundary is active from #2038.
@@ -119,3 +115,4 @@ ORDER:
 37. VP-3.9 Runtime Persistence Preflight is active from #2217.
 38. VP-3.10 Runtime Persistence Activation is active from #2218.
 39. VP-3.11 Runtime Persistence Scope Unlock is active from #2219.
+40. VP-3.12 Runtime Persistence Final Gate is active from #2220.
