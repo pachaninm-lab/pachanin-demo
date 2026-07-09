@@ -189,7 +189,7 @@ describe('platform-v7 access control foundation', () => {
       },
     })).toBe(true);
 
-    for (const action of ['release', 'CONFIRM_BANK_RESERVE', 'CONFIRM_BANK_RELEASE', 'CONFIRM_BANK_REFUND'] as const) {
+    for (const action of ['release', 'CONFIRM_BANK_RESERVE', 'CONFIRM_BANK_BASIS', 'CONFIRM_BANK_REFUND'] as const) {
       expect(canPerformAction({
         actor: support,
         action,
@@ -210,7 +210,7 @@ describe('platform-v7 access control foundation', () => {
       resource: { resourceType: 'dispute', resourceId: 'dispute-1' },
     })).toBe(true);
 
-    for (const action of ['read', 'EXECUTE_RELEASE', 'EXECUTE_REFUND', 'CONFIRM_BANK_RELEASE'] as const) {
+    for (const action of ['read', 'CONFIRM_BANK_BASIS', 'EXECUTE_REFUND'] as const) {
       expect(canPerformAction({
         actor: arbitrator,
         action,
@@ -223,7 +223,7 @@ describe('platform-v7 access control foundation', () => {
 
     expect(canPerformAction({
       actor: arbitrator,
-      action: 'CONFIRM_BANK_RELEASE',
+      action: 'CONFIRM_BANK_BASIS',
       resource: { resourceType: 'bank', resourceId: 'bank-action-1', bankOrganizationId: 'bank-a' },
     })).toMatchObject({
       allowed: false,
@@ -324,9 +324,9 @@ describe('platform-v7 access control foundation', () => {
     })).toMatchObject({ allowed: false, auditCode: 'EXPLICIT_DENY' });
   });
 
-  it('denies seller and buyer bank reserve, release and refund confirmations', () => {
+  it('denies seller and buyer bank reserve, basis and refund confirmations', () => {
     for (const role of ['seller', 'buyer'] as const) {
-      for (const action of ['CONFIRM_BANK_RESERVE', 'CONFIRM_BANK_RELEASE', 'CONFIRM_BANK_REFUND'] as const) {
+      for (const action of ['CONFIRM_BANK_RESERVE', 'CONFIRM_BANK_BASIS', 'CONFIRM_BANK_REFUND'] as const) {
         expect(canPerformAction({
           actor: actor(role, `${role}-org`),
           action,
