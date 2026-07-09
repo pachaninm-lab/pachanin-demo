@@ -8,7 +8,8 @@ type SubmitState = 'idle' | 'sending' | 'sent' | 'error';
 type Topic = 'platform' | 'pilot' | 'bank_partner' | 'region' | 'technical' | 'other';
 type SupportProfile = { name: string; contact: string; organization: string };
 
-const SUPPORT_PROFILE_KEYS = ['pc_v7_support_profile', 'pc_v7_registration_profile', 'pc_v7_profile'];
+const SUPPORT_PROFILE_PRIMARY_KEY = 'pc_v7_support_profile';
+const SUPPORT_PROFILE_KEYS = [SUPPORT_PROFILE_PRIMARY_KEY, 'pc_v7_registration_profile', 'pc_v7_profile'];
 
 const TOPICS: { value: Topic; label: string }[] = [
   { value: 'platform', label: 'Платформа' },
@@ -64,6 +65,50 @@ function readCabinetSupportProfile(): SupportProfile | null {
     }
   }
   return null;
+}
+
+function displayNameFromContact(contact: string, organization: string) {
+  if (organization) return organization;
+  const emailName = contact.includes('@') ? contact.split('@')[0] : contact;
+  const normalized = clean(emailName.replace(/[._-]+/g, ' '), 80);
+  return normalized || 'Участник платформы';
+}
+
+function storeSupportProfile(profile: Partial<SupportProfile>) {
+  if (typeof window === 'undefined') return;
+  const existing = readCabinetSupportProfile();
+  const next: SupportProfile = {
+    name: clean(profile.name || existing?.name || displayNameFromContact(profile.contact || existing?.contact || '', profile.organization || existing?.organization || ''), 80),
+    contact: clean(profile.contact || existing?.contact || '', 120),
+    organization: clean(profile.organization || existing?.organization || '', 120),
+  };
+  if (!next.name && !next.contact && !next.organization) return;
+  const value = JSON.stringify(next);
+  try { window.sessionStorage.setItem(SUPPORT_PROFILE_PRIMARY_KEY, value); } catch {}
+  try { window.localStorage.setItem(SUPPORT_PROFILE_PRIMARY_KEY, value); } catch {}
+}
+
+function labelledFieldValue(root: ParentNode, labels: string[]) {
+  const normalizedLabels = labels.map((label) => label.toLowerCase());
+  for (const label of Array.from(root.querySelectorAll('label'))) {
+    const labelText = (label.textContent || '').toLowerCase();
+    if (!normalizedLabels.some((needle) => labelText.includes(needle))) continue;
+    const field = label.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input,textarea,select');
+    if (field && 'value' in field) return clean(field.value, 160);
+  }
+  return '';
+}
+
+function rememberSupportProfileFromSurface(surface: ParentNode) {
+  const loginContact = labelledFieldValue(surface, ['логин', 'login']);
+  const fio = labelledFieldValue(surface, ['фио ответственного', 'ответственный', 'имя']);
+  const phone = labelledFieldValue(surface, ['телефон']);
+  const email = labelledFieldValue(surface, ['email', 'электронная почта']);
+  const contact = clean(email || phone || loginContact, 120);
+  const organization = clean(labelledFieldValue(surface, ['название организации', 'организация', 'компания']), 120);
+  const name = clean(fio || displayNameFromContact(contact, organization), 80);
+  if (!name && !contact && !organization) return;
+  storeSupportProfile({ name, contact, organization });
 }
 
 function deliveryError(reason: string) {
@@ -127,6 +172,25 @@ export function ChatSupportWidget() {
   const [state, setState] = React.useState<SubmitState>('idle');
   const [error, setError] = React.useState('');
   const [cabinetProfile, setCabinetProfile] = React.useState<SupportProfile | null>(null);
+
+  React.useEffect(() => {
+    const rememberFromTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return;
+      const surface = target.closest<HTMLElement>('.login-form, .p7-register-page, .p7-contact-form');
+      if (surface) rememberSupportProfileFromSurface(surface);
+    };
+    const onInput = (event: Event) => rememberFromTarget(event.target);
+    const onSubmit = (event: Event) => rememberFromTarget(event.target);
+    const onClick = (event: Event) => rememberFromTarget(event.target);
+    document.addEventListener('input', onInput, true);
+    document.addEventListener('submit', onSubmit, true);
+    document.addEventListener('click', onClick, true);
+    return () => {
+      document.removeEventListener('input', onInput, true);
+      document.removeEventListener('submit', onSubmit, true);
+      document.removeEventListener('click', onClick, true);
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!open) return;
