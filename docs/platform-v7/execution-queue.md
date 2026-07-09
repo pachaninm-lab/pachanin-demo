@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.
+CURRENT: VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock.
 
-GOAL: Выбрать точный scope для привязки repository adapter к runtime action pipeline после merge #2221, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend broad scope и не заявляя live bank/ФГИС/ЭДО persistence.
+GOAL: Docs-only разблокировать точные files для привязки repository adapter к runtime action pipeline после merge #2222, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend broad scope и не заявляя live bank/ФГИС/ЭДО persistence.
 
 CURRENT STATUS:
 - VP-2.5 is complete: all 260 web unit tests pass (pnpm --filter web test → 260/260).
@@ -19,7 +19,8 @@ CURRENT STATUS:
 - VP-3.11 Runtime Persistence Implementation Scope Unlock is merged from #2219.
 - VP-3.12 Runtime Persistence Implementation Final Gate is merged from #2220.
 - VP-3.13 Runtime Persistence Repository Adapter Implementation is merged from #2221.
-- VP-3.14 is docs-only scope plan for binding runtime action results to the repository adapter.
+- VP-3.14 Runtime Persistence Pipeline Binding Plan is merged from #2222.
+- VP-3.15 is docs-only scope unlock: it names exact files for a later pipeline binding code PR.
 - #2113 remains open: repository settings cleanup.
 - #2115 remains open: backend register role assignment hardening remains blocked by the current auth-file write path.
 
@@ -27,7 +28,7 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
-CANDIDATE PIPELINE BINDING FILES FOR LATER PR:
+UNLOCKED PIPELINE BINDING FILES FOR LATER CODE PR:
 - `apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts`
 - `apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineBinding.test.ts`
 
@@ -55,13 +56,13 @@ PIPELINE BINDING REQUIREMENTS FOR LATER PR:
 - No package or lockfile change.
 
 NEXT:
-- Layer: VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock.
-- Goal: request exact code scope for binding runtime action results to repository adapter receipts before implementation.
+- Layer: VP-3.16 Runtime Persistence Repository Adapter Pipeline Binding Final Gate.
+- Goal: perform the final docs-only gate before writing pipeline binding code in the exact unlocked files.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - keep pipeline binding files named but not written in VP-3.14;
+  - keep pipeline binding files named but not written in VP-3.15;
   - keep `apps/api/prisma/schema.prisma` locked;
   - keep `apps/api/prisma/migrations/**` locked;
   - keep direct UI money movement forbidden;
@@ -71,6 +72,22 @@ NEXT:
   - guard-tests remain green;
   - pnpm --filter web test remains green;
   - maturity language remains platform-temporarily-without-external-integrations.
+
+AFTER NEXT:
+- Layer: VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation.
+- Goal: bind runtime action pipeline to repository adapter receipts only after VP-3.16 final gate is merged.
+- Candidate files for later implementation:
+  - apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts
+  - apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineBinding.test.ts
+- Still locked for that later implementation:
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/**
+  - apps/web/components/platform-v7/**
+  - apps/web/app/api/**
+  - apps/api/src/modules/auth/**
+  - package.json
+  - package-lock.json
+  - pnpm-lock.yaml
 
 ORDER:
 1. Stable shell boundary is active from #2038.
@@ -114,3 +131,4 @@ ORDER:
 39. VP-3.11 Runtime Persistence Scope Unlock is active from #2219.
 40. VP-3.12 Runtime Persistence Final Gate is active from #2220.
 41. VP-3.13 Runtime Persistence Repository Adapter Implementation is active from #2221.
+42. VP-3.14 Runtime Persistence Pipeline Binding Plan is active from #2222.
