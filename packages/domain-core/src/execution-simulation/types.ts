@@ -1,4 +1,4 @@
-export const SIMULATION_RUNTIME_LABELS = ['sandbox', 'demo', 'pilot', 'manual'] as const;
+export const SIMULATION_RUNTIME_LABELS = ['manual'] as const;
 export type SimulationRuntimeLabel = (typeof SIMULATION_RUNTIME_LABELS)[number];
 
 export const DEAL_EXECUTION_STATUSES = [
