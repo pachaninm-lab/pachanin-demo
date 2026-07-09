@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.10 Runtime Persistence Repository Adapter Implementation Activation.
+CURRENT: VP-3.11 Runtime Persistence Repository Adapter Implementation Scope Unlock.
 
-GOAL: Активировать точный путь к implementation scope для runtime persistence repository adapter после merge #2217, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend scope и не заявляя live bank/ФГИС/ЭДО persistence.
+GOAL: Docs-only разблокировать точные implementation files для runtime persistence repository adapter после merge #2218, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend scope и не заявляя live bank/ФГИС/ЭДО persistence.
 
 CURRENT STATUS:
 - VP-2.5 is complete: all 260 web unit tests pass (pnpm --filter web test → 260/260).
@@ -15,7 +15,8 @@ CURRENT STATUS:
 - VP-3.7 Runtime Persistence Repository Adapter Contract Plan is merged from #2215.
 - VP-3.8 Runtime Persistence Implementation Scope Request is merged from #2216.
 - VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight is merged from #2217.
-- VP-3.10 is docs-only activation: it keeps code writes blocked while activating the exact repository adapter implementation track.
+- VP-3.10 Runtime Persistence Implementation Activation is merged from #2218.
+- VP-3.11 is docs-only scope unlock: it names the exact repository adapter files for a later code PR.
 - #2113 remains open: repository settings cleanup.
 - #2115 remains open: backend register role assignment hardening remains blocked by the current auth-file write path.
 
@@ -23,7 +24,7 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
-CONFIRMED LATER IMPLEMENTATION FILES:
+UNLOCKED IMPLEMENTATION FILES FOR LATER CODE PR:
 - `apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts`
 - `apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts`
 
@@ -52,13 +53,13 @@ IMPLEMENTATION GUARDRAILS FOR LATER CODE PR:
 - No package or lockfile change.
 
 NEXT:
-- Layer: VP-3.11 Runtime Persistence Repository Adapter Implementation Scope Unlock.
-- Goal: request the exact implementation file unlock in docs before writing repository adapter code.
+- Layer: VP-3.12 Runtime Persistence Repository Adapter Implementation Final Gate.
+- Goal: perform the final docs-only gate before writing repository adapter code so protected scope opens deliberately.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - keep implementation files named but not written in VP-3.10;
+  - keep implementation files named but not written in VP-3.11;
   - keep `apps/api/prisma/schema.prisma` locked;
   - keep `apps/api/prisma/migrations/**` locked;
   - keep direct UI money movement forbidden;
@@ -70,8 +71,8 @@ NEXT:
   - maturity language remains platform-temporarily-without-external-integrations.
 
 AFTER NEXT:
-- Layer: VP-3.12 Runtime Persistence Repository Adapter Implementation.
-- Goal: implement the repository adapter contract and unit tests only after VP-3.11 scope unlock is merged.
+- Layer: VP-3.13 Runtime Persistence Repository Adapter Implementation.
+- Goal: implement the repository adapter contract and unit tests only after VP-3.12 final gate is merged.
 - Candidate files for later implementation:
   - apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts
   - apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts
@@ -124,3 +125,4 @@ ORDER:
 35. VP-3.7 Runtime Persistence Repository Adapter Contract Plan is active from #2215.
 36. VP-3.8 Runtime Persistence Scope Request is active from #2216.
 37. VP-3.9 Runtime Persistence Preflight is active from #2217.
+38. VP-3.10 Runtime Persistence Activation is active from #2218.
