@@ -3,34 +3,29 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "VP-3.16 Runtime Persistence Repository Adapter Pipeline Binding Final Gate.",
+  "current": "VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation.",
   "fullTzReadinessPercent": 74,
-  "openPr": "#2224",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.", "#2215", "VP-3.7 Runtime Persistence Repository Adapter Contract Plan.", "#2216", "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request.", "#2217", "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight.", "#2218", "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation.", "#2219", "VP-3.11 Runtime Persistence Repository Adapter Implementation Scope Unlock.", "#2220", "VP-3.12 Runtime Persistence Repository Adapter Implementation Final Gate.", "#2221", "VP-3.13 Runtime Persistence Repository Adapter Implementation.", "#2222", "VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.", "#2223", "VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock."],
+  "openPr": "#2225",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.", "#2215", "VP-3.7 Runtime Persistence Repository Adapter Contract Plan.", "#2216", "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request.", "#2217", "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight.", "#2218", "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation.", "#2219", "VP-3.11 Runtime Persistence Repository Adapter Implementation Scope Unlock.", "#2220", "VP-3.12 Runtime Persistence Repository Adapter Implementation Final Gate.", "#2221", "VP-3.13 Runtime Persistence Repository Adapter Implementation.", "#2222", "VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.", "#2223", "VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock.", "#2224", "VP-3.16 Runtime Persistence Repository Adapter Pipeline Binding Final Gate."],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 repository settings cleanup. #2115 remains blocked by current auth-file write path.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/money/storage changes"],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    "apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts",
+    "apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineBinding.test.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    "apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts",
+    "apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineBinding.test.ts"
   ],
-  "vp315RuntimePersistencePipelineBindingScopeUnlock": {
-    "layer": "VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock",
-    "closedPr": "#2223",
-    "status": "pipeline-binding-scope-unlock-docs-only-complete",
-    "unlockedPipelineBindingFilesForLater": [
-      "apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts",
-      "apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineBinding.test.ts"
-    ]
-  },
   "vp316RuntimePersistencePipelineBindingFinalGate": {
     "layer": "VP-3.16 Runtime Persistence Repository Adapter Pipeline Binding Final Gate",
-    "openPr": "#2224",
-    "status": "final-gate-docs-only",
+    "closedPr": "#2224",
+    "status": "final-gate-docs-only-complete",
     "pipelineBindingFilesUnlockedForManualCodePr": [
       "apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts",
       "apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineBinding.test.ts"
@@ -38,13 +33,16 @@
   },
   "vp317RuntimePersistencePipelineBindingImplementation": {
     "layer": "VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation",
-    "status": "manual-code-pr-next-after-final-gate",
-    "requiredAllowedScopeForManualCodePr": [
-      "docs/platform-v7/autopilot/autopilot-state.json",
-      "docs/platform-v7/execution-queue.md",
+    "openPr": "#2225",
+    "status": "pipeline-binding-implementation",
+    "changedImplementationFiles": [
       "apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts",
       "apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineBinding.test.ts"
     ]
+  },
+  "vp318RuntimePersistenceOutboxAuditLinkagePlan": {
+    "layer": "VP-3.18 Runtime Persistence Outbox Audit Linkage Plan",
+    "status": "next-docs-only-plan"
   },
   "forbiddenZones": [
     "apps/landing",
@@ -60,5 +58,5 @@
   ],
   "maturityLanguage": ["platform-temporarily-without-external-integrations"],
   "forbiddenClaims": ["maturity uplift", "external integration completion", "production DB runtime persistence complete"],
-  "readiness": "74% honest readiness. VP-3.16 is docs-only final gate before pipeline binding implementation. It does not implement pipeline binding, production DB persistence, Prisma schema, migration, bank, FGIS or EDO live integration."
+  "readiness": "74% honest readiness. VP-3.17 binds runtime action pipeline to repository adapter receipts. It does not implement production DB persistence, Prisma schema, migration, bank, FGIS or EDO live integration."
 }
