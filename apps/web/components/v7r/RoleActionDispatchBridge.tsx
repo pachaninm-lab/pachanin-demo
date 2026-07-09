@@ -55,13 +55,13 @@ export function RoleActionDispatchBridge({
     setJournal((prev) => [entry, ...prev].slice(0, 5));
   }
 
-  function runSandboxDispatch() {
+  function runManualDispatchCheck() {
     const state = store.getState();
     const deal = state.deals.find((item) => item.id === dealId);
     const actor = state.users.find((item) => item.role === actorRoleForAction(role, actionType));
 
     if (!deal || !actor) {
-      const message = !deal ? `Сделка не найдена: ${dealId}` : `Нет тестового участника для роли ${role}`;
+      const message = !deal ? `Сделка не найдена: ${dealId}` : `Нет участника для роли ${role}`;
       const failedResult: PlatformActionResult = {
         ok: false,
         state,
@@ -97,11 +97,11 @@ export function RoleActionDispatchBridge({
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ display: 'grid', gap: 4 }}>
           <div style={{ fontSize: 11, fontWeight: 900, color: tone === 'danger' ? DANGER : BRAND, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка действия</div>
-          <div style={{ fontSize: 12, color: M, lineHeight: 1.5 }}>Проверяет допустимость шага, фиксирует журнал и показывает результат. Промышленные интеграции не вызываются.</div>
+          <div style={{ fontSize: 12, color: M, lineHeight: 1.5 }}>Проверяет допустимость шага, фиксирует журнал и показывает результат. Внешние интеграции не вызываются.</div>
         </div>
         <button
           type='button'
-          onClick={runSandboxDispatch}
+          onClick={runManualDispatchCheck}
           disabled={!canRun}
           style={{
             border: `1px solid ${canRun ? BRAND_BORDER : B}`,
@@ -155,7 +155,7 @@ function actorRoleForAction(role: PlatformRole, actionType: PlatformActionType):
 
 function buildCommand(actionType: PlatformActionType, actor: User, deal: Deal): PlatformActionCommand {
   const now = new Date().toISOString();
-  const common = { type: actionType, actor, now, runtimeLabel: 'sandbox' as const };
+  const common = { type: actionType, actor, now, runtimeLabel: 'manual' as const };
 
   if (actionType === 'publishLot') return { ...common, payload: { lotId: deal.lotId } };
   if (actionType === 'assignDriver') return { ...common, payload: { dealId: deal.id, driverId: 'U-DRIVER-1', carrierId: 'CP-C-001', vehicleNumber: 'А777-ВС-68' } };
