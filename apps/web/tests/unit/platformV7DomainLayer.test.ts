@@ -57,7 +57,7 @@ function makeDeal(overrides: Record<string, unknown> = {}) {
     blockers: [] as string[],
     timeline: [],
     documents: [],
-    maturity: 'sandbox' as const,
+    maturity: 'manual' as const,
     ...overrides,
   };
 }
@@ -136,13 +136,13 @@ describe('canonical: deal statuses and transitions', () => {
   });
 
   it('canTransitionDeal: invalid skip transition returns false', () => {
-    expect(canTransitionDeal('DRAFT', 'RELEASE_PENDING')).toBe(false);
+    expect(canTransitionDeal('DRAFT', 'BANK_BASIS_REQUESTED')).toBe(false);
     expect(canTransitionDeal('LOADING', 'CLOSED')).toBe(false);
   });
 
   it('canTransitionDeal: any status → DISPUTED allowed for mid-flow statuses', () => {
     expect(canTransitionDeal('CONTRACT_SIGNED', 'DISPUTED')).toBe(true);
-    expect(canTransitionDeal('RELEASE_PENDING', 'DISPUTED')).toBe(true);
+    expect(canTransitionDeal('BANK_BASIS_REQUESTED', 'DISPUTED')).toBe(true);
   });
 
   it('assertDealTransition throws for invalid transitions', () => {
@@ -150,7 +150,7 @@ describe('canonical: deal statuses and transitions', () => {
   });
 
   it('assertDealTransition does not throw for valid transition', () => {
-    expect(() => assertDealTransition('FINAL_RELEASED', 'CLOSED')).not.toThrow();
+    expect(() => assertDealTransition('BANK_BASIS_CONFIRMED', 'CLOSED')).not.toThrow();
   });
 
   it('isStrategicPlatformTask: requires ≥ 3 unique gates', () => {
@@ -158,8 +158,8 @@ describe('canonical: deal statuses and transitions', () => {
     expect(isStrategicPlatformTask(['LIQUIDITY', 'LIQUIDITY'])).toBe(false);
   });
 
-  it('EXECUTE_RELEASE requires audit-event, 2fa, and bank-reconciliation', () => {
-    const reqs = CRITICAL_ACTION_REQUIREMENTS['EXECUTE_RELEASE'];
+  it('CONFIRM_BANK_BASIS requires audit-event, 2fa, and bank-reconciliation', () => {
+    const reqs = CRITICAL_ACTION_REQUIREMENTS['CONFIRM_BANK_BASIS'];
     expect(reqs).toContain('audit-event');
     expect(reqs).toContain('2fa');
     expect(reqs).toContain('bank-reconciliation');
@@ -183,7 +183,7 @@ describe('status-mapper', () => {
 
   it('isKnownLegacyDealStatus returns true for known statuses', () => {
     expect(isKnownLegacyDealStatus('docs_complete')).toBe(true);
-    expect(isKnownLegacyDealStatus('final_released')).toBe(true);
+    expect(isKnownLegacyDealStatus('bank_basis_confirmed')).toBe(true);
   });
 
   it('isKnownLegacyDealStatus returns false for unknown status', () => {
@@ -206,13 +206,13 @@ describe('rbac', () => {
     expect(hasPermission('bank', { scope: 'money', verb: 'approve' })).toBe(true);
   });
 
-  it('canPerformCriticalAction: EXECUTE_RELEASE allowed for bank only', () => {
-    expect(canPerformCriticalAction('bank', 'EXECUTE_RELEASE').allowed).toBe(true);
-    expect(canPerformCriticalAction('seller', 'EXECUTE_RELEASE').allowed).toBe(false);
+  it('canPerformCriticalAction: CONFIRM_BANK_BASIS allowed for bank only', () => {
+    expect(canPerformCriticalAction('bank', 'CONFIRM_BANK_BASIS').allowed).toBe(true);
+    expect(canPerformCriticalAction('seller', 'CONFIRM_BANK_BASIS').allowed).toBe(false);
   });
 
-  it('canPerformCriticalAction: EXECUTE_RELEASE requiresSecondFactor', () => {
-    expect(canPerformCriticalAction('bank', 'EXECUTE_RELEASE').requiresSecondFactor).toBe(true);
+  it('canPerformCriticalAction: CONFIRM_BANK_BASIS requiresSecondFactor', () => {
+    expect(canPerformCriticalAction('bank', 'CONFIRM_BANK_BASIS').requiresSecondFactor).toBe(true);
   });
 
   it('canPerformCriticalAction: always includes requiresAudit', () => {
@@ -261,11 +261,11 @@ describe('domain/money', () => {
     expect(state.reservedAmount).toBe(700000);
   });
 
-  it('calculateMoneyStateFromEvents: PARTIAL_RELEASE_EXECUTED reduces reserved', () => {
+  it('calculateMoneyStateFromEvents: PARTIAL_BANK_BASIS_CONFIRMED reduces reserved', () => {
     const events = [
       { id: 'E1', dealId: 'D-001', type: 'RESERVE_CONFIRMED' as const, amount: 500000, at: NOW, actor: 'bank' },
-      { id: 'E2', dealId: 'D-001', type: 'RELEASE_REQUESTED' as const, amount: 500000, at: NOW, actor: 'operator' },
-      { id: 'E3', dealId: 'D-001', type: 'PARTIAL_RELEASE_EXECUTED' as const, amount: 200000, at: NOW, actor: 'bank' },
+      { id: 'E2', dealId: 'D-001', type: 'BANK_BASIS_REQUESTED' as const, amount: 500000, at: NOW, actor: 'operator' },
+      { id: 'E3', dealId: 'D-001', type: 'PARTIAL_BANK_BASIS_CONFIRMED' as const, amount: 200000, at: NOW, actor: 'bank' },
     ];
     const state = calculateMoneyStateFromEvents(events);
     expect(state.reservedAmount).toBe(300000);
@@ -297,10 +297,10 @@ describe('domain/kpi', () => {
     expect(kpi.maxRiskScore).toBe(80);
   });
 
-  it('calculateControlTowerKpi: readyToRelease only includes RELEASE_PENDING with no blockers', () => {
+  it('calculateControlTowerKpi: readyToRelease only includes BANK_BASIS_REQUESTED with no blockers', () => {
     const deals = [
-      makeDeal({ id: 'D1', status: 'RELEASE_PENDING', blockers: [], money: makeMoney({ releaseAmount: 300000 }) }),
-      makeDeal({ id: 'D2', status: 'RELEASE_PENDING', blockers: ['bank-hold'], money: makeMoney({ releaseAmount: 200000 }) }),
+      makeDeal({ id: 'D1', status: 'BANK_BASIS_REQUESTED', blockers: [], money: makeMoney({ releaseAmount: 300000 }) }),
+      makeDeal({ id: 'D2', status: 'BANK_BASIS_REQUESTED', blockers: ['bank-hold'], money: makeMoney({ releaseAmount: 200000 }) }),
     ];
     const kpi = calculateControlTowerKpi(deals as never);
     expect(kpi.readyToRelease).toBe(300000);
@@ -334,9 +334,9 @@ describe('release-guard', () => {
     expect(result.canExecuteRelease).toBe(false);
   });
 
-  it('RELEASE_PENDING deal with no blockers → canExecuteRelease', () => {
+  it('BANK_BASIS_REQUESTED deal with no blockers → canExecuteRelease', () => {
     const deal = makeDeal({
-      status: 'RELEASE_PENDING',
+      status: 'BANK_BASIS_REQUESTED',
       money: makeMoney({ reservedAmount: 1000000, releaseAmount: 500000, holdAmount: 0 }),
       blockers: [],
       documents: [],
@@ -396,9 +396,9 @@ describe('legacy-deal-adapter', () => {
     expect(deal.legacyStatus).toBe('docs_complete');
   });
 
-  it('normalizeLegacyDeal sets maturity to sandbox', () => {
+  it('normalizeLegacyDeal sets maturity to manual', () => {
     const deal = normalizeLegacyDeal(makeLegacyDeal() as never);
-    expect(deal.maturity).toBe('sandbox');
+    expect(deal.maturity).toBe('manual');
   });
 
   it('normalizeLegacyDeal normalizes driver to null when absent', () => {
