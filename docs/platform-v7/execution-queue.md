@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.13 Runtime Persistence Repository Adapter Implementation.
+CURRENT: VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.
 
-GOAL: Реализовать contract-level runtime persistence repository adapter и unit tests после merge #2220, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend scope и не заявляя live bank/ФГИС/ЭДО persistence.
+GOAL: Выбрать точный scope для привязки repository adapter к runtime action pipeline после merge #2221, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend broad scope и не заявляя live bank/ФГИС/ЭДО persistence.
 
 CURRENT STATUS:
 - VP-2.5 is complete: all 260 web unit tests pass (pnpm --filter web test → 260/260).
@@ -18,24 +18,22 @@ CURRENT STATUS:
 - VP-3.10 Runtime Persistence Implementation Activation is merged from #2218.
 - VP-3.11 Runtime Persistence Implementation Scope Unlock is merged from #2219.
 - VP-3.12 Runtime Persistence Implementation Final Gate is merged from #2220.
-- VP-3.13 implements a contract-level repository adapter. It is not a live production DB persistence layer.
+- VP-3.13 Runtime Persistence Repository Adapter Implementation is merged from #2221.
+- VP-3.14 is docs-only scope plan for binding runtime action results to the repository adapter.
 - #2113 remains open: repository settings cleanup.
 - #2115 remains open: backend register role assignment hardening remains blocked by the current auth-file write path.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
-- apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts
-- apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts
 
-IMPLEMENTED FILES:
-- `apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts`
-- `apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts`
+CANDIDATE PIPELINE BINDING FILES FOR LATER PR:
+- `apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts`
+- `apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineBinding.test.ts`
 
 STILL LOCKED:
 - `apps/api/prisma/schema.prisma`
 - `apps/api/prisma/migrations/**`
-- `apps/web/app/platform-v7/**`
 - `apps/web/components/platform-v7/**`
 - `apps/web/app/api/**`
 - `apps/api/src/modules/auth/**`
@@ -43,13 +41,13 @@ STILL LOCKED:
 - `package-lock.json`
 - `pnpm-lock.yaml`
 
-IMPLEMENTATION GUARANTEES:
-- Repository adapter accepts `P7DealWorkspaceRuntimeDbContract` only through an explicit repository boundary.
-- Repository adapter does not import server actions or UI components.
-- Repository adapter returns typed receipt: `recordId`, `runtimeSnapshotId`, `idempotencyKey`, `state`, `savedAt`, `outboxEntryId`, `auditEventId`.
-- Duplicate `idempotencyKey` is duplicate-safe and does not create a second evidence write.
-- `fully_linked` is forbidden unless both outbox and audit linkage exist.
-- If outbox/audit linkage is not available, the adapter returns `outbox_required` or `audit_required`, not fake `fully_linked`.
+PIPELINE BINDING REQUIREMENTS FOR LATER PR:
+- Runtime action result must include repository adapter receipt only after process runtime snapshot receipt exists.
+- Pipeline must build `P7DealWorkspaceRuntimeDbContract` from refresh snapshot and process runtime store receipt.
+- Pipeline must pass explicit actor, correlation, audit and idempotency values into DB contract builder.
+- Repository adapter must remain contract-level and must not claim live DB persistence.
+- `fully_linked` must stay blocked unless both outbox and audit linkage exist.
+- Duplicate idempotency must not create second evidence write.
 - No direct UI money movement.
 - No bank/FGIS/EDO live persistence claims.
 - No hidden migration.
@@ -57,14 +55,13 @@ IMPLEMENTATION GUARANTEES:
 - No package or lockfile change.
 
 NEXT:
-- Layer: VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.
-- Goal: select exact pipeline binding scope only after VP-3.13 is merged.
+- Layer: VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock.
+- Goal: request exact code scope for binding runtime action results to repository adapter receipts before implementation.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - keep repository adapter implementation merged before pipeline binding;
-  - select exact files for pipeline binding before code writes;
+  - keep pipeline binding files named but not written in VP-3.14;
   - keep `apps/api/prisma/schema.prisma` locked;
   - keep `apps/api/prisma/migrations/**` locked;
   - keep direct UI money movement forbidden;
@@ -116,3 +113,4 @@ ORDER:
 38. VP-3.10 Runtime Persistence Activation is active from #2218.
 39. VP-3.11 Runtime Persistence Scope Unlock is active from #2219.
 40. VP-3.12 Runtime Persistence Final Gate is active from #2220.
+41. VP-3.13 Runtime Persistence Repository Adapter Implementation is active from #2221.
