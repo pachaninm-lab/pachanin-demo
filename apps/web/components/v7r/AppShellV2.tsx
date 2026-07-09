@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { PLATFORM_V7_LEXICON } from '@/lib/platform-v7/lexicon';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
@@ -21,21 +21,6 @@ const ROLE_LABELS: Record<PlatformRole, string> = {
   executive: 'Руководитель',
 };
 
-const ROLE_STAGE: Record<PlatformRole, { label: string; bg: string; border: string; color: string }> = {
-  operator: { label: PLATFORM_V7_LEXICON.env.pilot, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-  buyer: { label: PLATFORM_V7_LEXICON.env.pilot, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-  seller: { label: PLATFORM_V7_LEXICON.env.pilot, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-  logistics: { label: PLATFORM_V7_LEXICON.env.pilot, bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' },
-  bank: { label: PLATFORM_V7_LEXICON.env.sandbox, bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' },
-  compliance: { label: PLATFORM_V7_LEXICON.env.sandbox, bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' },
-  driver: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: 'var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' },
-  surveyor: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: 'var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' },
-  elevator: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: 'var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' },
-  lab: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: 'var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' },
-  arbitrator: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: 'var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' },
-  executive: { label: PLATFORM_V7_LEXICON.env.demo, bg: '#F5F7F8', border: 'var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' },
-};
-
 const ROLE_ROUTES: Record<PlatformRole, string> = {
   operator: '/platform-v7/control-tower',
   buyer: '/platform-v7/buyer',
@@ -49,6 +34,13 @@ const ROLE_ROUTES: Record<PlatformRole, string> = {
   arbitrator: '/platform-v7/arbitrator',
   compliance: '/platform-v7/compliance',
   executive: '/platform-v7/analytics',
+};
+
+const STATUS_BADGE = {
+  label: 'Платформа',
+  bg: 'rgba(10,122,95,0.08)',
+  border: 'rgba(10,122,95,0.18)',
+  color: '#0A7A5F',
 };
 
 const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string }>> = {
@@ -84,12 +76,12 @@ const NAV_BY_ROLE: Record<PlatformRole, Array<{ href: string; label: string }>> 
   ],
   driver: [
     { href: '/platform-v7/driver', label: 'Маршрут' },
-    { href: '/platform-v7/deals/DL-9103', label: 'Сделка' },
+    { href: '/platform-v7/deals', label: 'Сделки' },
     { href: '/platform-v7/field', label: 'Полевой контур' },
   ],
   surveyor: [
     { href: '/platform-v7/surveyor', label: 'Назначения' },
-    { href: '/platform-v7/deals/DL-9102', label: 'Сделка' },
+    { href: '/platform-v7/deals', label: 'Сделки' },
     { href: '/platform-v7/disputes', label: PLATFORM_V7_LEXICON.nav.disputes },
   ],
   elevator: [
@@ -152,7 +144,7 @@ const CRUMB_LABELS: Record<string, string> = {
   queues: 'Очереди',
   auctions: 'Торги',
   investor: PLATFORM_V7_LEXICON.nav.investor,
-  demo: PLATFORM_V7_LEXICON.nav.demo,
+  demo: 'Путь сделки',
 };
 
 function breadcrumbs(pathname: string) {
@@ -164,13 +156,19 @@ function breadcrumbs(pathname: string) {
   }));
 }
 
+function StatusBadge() {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: STATUS_BADGE.bg, border: `1px solid ${STATUS_BADGE.border}`, color: STATUS_BADGE.color, fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap' }}>
+      {STATUS_BADGE.label}
+    </span>
+  );
+}
+
 export function AppShellV2({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { role, setRole, clearRoleSelection } = usePlatformV7RStore();
+  const { role } = usePlatformV7RStore();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const items = NAV_BY_ROLE[role];
-  const stage = ROLE_STAGE[role];
   const crumbs = breadcrumbs(pathname);
 
   React.useEffect(() => {
@@ -196,7 +194,7 @@ export function AppShellV2({ children }: { children: React.ReactNode }) {
             <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)' }}>Текущий кабинет</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginTop: 4 }}>
               <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{ROLE_LABELS[role]}</div>
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: stage.bg, border: `1px solid ${stage.border}`, color: stage.color, fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap' }}>{stage.label}</span>
+              <StatusBadge />
             </div>
           </div>
         </div>
@@ -215,11 +213,11 @@ export function AppShellV2({ children }: { children: React.ReactNode }) {
         <div style={{ marginTop: 'auto', padding: 12, borderTop: '1px solid var(--pc-border, #E4E6EA)', display: 'grid', gap: 8 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <Link href="/platform-v7/investor" onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>{PLATFORM_V7_LEXICON.nav.investor}</Link>
-            <Link href="/platform-v7/demo" onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>{PLATFORM_V7_LEXICON.nav.demo}</Link>
+            <Link href="/platform-v7/deals" onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>Путь сделки</Link>
           </div>
-          <Link href="/platform-v7/roles" onClick={() => { clearRoleSelection(); setSidebarOpen(false); }} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>{PLATFORM_V7_LEXICON.nav.roles}</Link>
-          <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(217,119,6,0.18)', background: 'rgba(217,119,6,0.08)', color: '#B45309', fontSize: 12, lineHeight: 1.6 }}>
-            Платформа честно показывает режим роли: пилотный режим, тестовая среда или демо-данные. Промышленный контур не заявляется без подтверждённых подключений.
+          <Link href={ROLE_ROUTES[role]} onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none', padding: '10px 12px', borderRadius: 10, background: '#F5F7F8', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>Мой кабинет</Link>
+          <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(10,122,95,0.18)', background: 'rgba(10,122,95,0.08)', color: '#065F46', fontSize: 12, lineHeight: 1.6 }}>
+            Статус: настоящая платформа временно без интеграций. Внешние подключения не заявляются без подтверждённых договоров, доступов и приёмки.
           </div>
         </div>
       </aside>
@@ -237,21 +235,21 @@ export function AppShellV2({ children }: { children: React.ReactNode }) {
                   </React.Fragment>
                 ))}
               </nav>
-              <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', marginTop: 3 }}>{ROLE_LABELS[role]} · {stage.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', marginTop: 3 }}>{ROLE_LABELS[role]} · {STATUS_BADGE.label}</div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <Link href="/platform-v7/investor" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{PLATFORM_V7_LEXICON.nav.investor}</Link>
-              <Link href="/platform-v7/demo" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{PLATFORM_V7_LEXICON.nav.demo}</Link>
-              <Link href="/platform-v7/roles" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{PLATFORM_V7_LEXICON.nav.roles}</Link>
+              <Link href="/platform-v7/deals" style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>Путь сделки</Link>
+              <Link href={ROLE_ROUTES[role]} style={{ textDecoration: 'none', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: '#FFFFFF', fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>Кабинет</Link>
             </div>
           </div>
 
           <div style={{ maxWidth: 1360, margin: '10px auto 0', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <select value={role} onChange={(event) => { const nextRole = event.target.value as PlatformRole; setRole(nextRole); router.push(ROLE_ROUTES[nextRole]); }} style={{ minWidth: 180, border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 10, padding: '8px 12px', fontSize: 13, background: '#FFFFFF' }}>
-              {Object.entries(ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, border: `1px solid ${stage.border}`, background: stage.bg, color: stage.color, fontSize: 12, fontWeight: 800 }}>
-              {stage.label}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, border: `1px solid ${STATUS_BADGE.border}`, background: STATUS_BADGE.bg, color: STATUS_BADGE.color, fontSize: 12, fontWeight: 800 }}>
+              {STATUS_BADGE.label}
+            </div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: '#FFFFFF', color: 'var(--pc-text-muted, #6B778C)', fontSize: 12, fontWeight: 700 }}>
+              Внешние интеграции временно не подключены
             </div>
           </div>
         </header>
