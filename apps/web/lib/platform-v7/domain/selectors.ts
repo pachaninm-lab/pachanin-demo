@@ -21,10 +21,10 @@ export function selectCanonicalMoneyKpi(deals: readonly CanonicalDeal[]) {
 
 export function selectDealReadinessFlags(deal: CanonicalDeal) {
   const hasBlockingDocuments = deal.documents.some((document) => document.blocksMoneyRelease);
-  const hasBankBlocker = deal.blockers.some((blocker) => blocker.includes('bank') || blocker.includes('release'));
+  const hasBankBlocker = deal.blockers.some((blocker) => blocker.includes('bank') || blocker.includes('bank_basis'));
   const hasOpenDispute = deal.status === 'DISPUTED';
   const canRequestRelease = deal.status === 'DOCUMENTS_COMPLETE' && !hasBlockingDocuments && !hasBankBlocker && !hasOpenDispute;
-  const canExecuteRelease = deal.status === 'RELEASE_PENDING' && !hasBlockingDocuments && !hasBankBlocker && !hasOpenDispute;
+  const canExecuteRelease = deal.status === 'BANK_BASIS_REQUESTED' && !hasBlockingDocuments && !hasBankBlocker && !hasOpenDispute;
 
   return {
     hasBlockingDocuments,
