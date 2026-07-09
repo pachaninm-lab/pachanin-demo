@@ -3,23 +3,29 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "VP-3 Deal Workspace Runtime Binding.",
+  "current": "Bank basis state machine migration.",
   "fullTzReadinessPercent": 74,
-  "openPr": "#2136",
+  "openPr": "#2207",
   "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green"],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 is repository settings cleanup. #2115 remains blocked by the current auth-file write path.",
-  "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/money/storage changes"],
+  "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes unrelated to bank-basis migration", "broad auth/session/storage changes"],
   "allowedCurrentScope": [
     "apps/web/**",
+    "packages/domain-core/**",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
+    "pnpm-workspace.yaml",
+    "deno-proxy/**",
     ".github/workflows/ci.yml"
   ],
   "agentWritableScope": [
     "apps/web/**",
+    "packages/domain-core/**",
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/execution-queue.md"
+    "docs/platform-v7/execution-queue.md",
+    "pnpm-workspace.yaml",
+    "deno-proxy/**"
   ],
   "vp25Complete": {
     "layer": "VP-2.5 vitest green + CI gate",
@@ -36,6 +42,11 @@
     "goal": "Deal workspace reads state through application services and manual persistence adapter stage, not through static seed-only data.",
     "nextCandidate": "VP-3 implementation"
   },
+  "bankBasisMigration": {
+    "layer": "State-machine and money terminology migration",
+    "goal": "Replace misleading release terminology with bank basis terminology without claiming live external bank, FGIS or EDO integrations.",
+    "pr": "#2207"
+  },
   "forbiddenZones": [
     "apps/landing",
     "apps/api/src/modules/auth/**",
@@ -45,5 +56,5 @@
   ],
   "maturityLanguage": ["platform-temporarily-without-external-integrations"],
   "forbiddenClaims": ["maturity uplift", "external integration completion"],
-  "readiness": "74% honest readiness. VP-2.5 complete (vitest green). VP-3 runtime binding in progress. #2115 remains blocked until an allowed auth-file write path is available."
+  "readiness": "74% honest readiness. VP-2.5 complete. Bank basis terminology migration is isolated in #2207 as draft PR until CI is green. No live external integrations are claimed."
 }
