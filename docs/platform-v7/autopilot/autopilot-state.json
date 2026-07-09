@@ -3,10 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "VP-3.7 Runtime Persistence Repository Adapter Contract Plan.",
+  "current": "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request.",
   "fullTzReadinessPercent": 74,
-  "openPr": "#2215",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection."],
+  "openPr": "#2216",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.", "#2215", "VP-3.7 Runtime Persistence Repository Adapter Contract Plan."],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 is repository settings cleanup. #2115 remains blocked by the current auth-file write path.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/money/storage changes"],
@@ -44,22 +44,38 @@
   },
   "vp37RuntimePersistenceContractPlan": {
     "layer": "VP-3.7 Runtime Persistence Repository Adapter Contract Plan",
-    "goal": "Document exact repository adapter, idempotency, outbox and audit writer contract before allowing implementation writes.",
-    "openPr": "#2215",
-    "status": "contract-plan-docs-only",
-    "implementationFilesProposedNotAllowedYet": [
-      "apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts",
-      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts"
-    ],
-    "migrationFilesStillLocked": [
-      "apps/api/prisma/schema.prisma",
-      "apps/api/prisma/migrations/**"
-    ]
+    "closedPr": "#2215",
+    "status": "contract-plan-docs-only-complete"
   },
   "vp38RuntimePersistenceScopeRequest": {
     "layer": "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request",
-    "goal": "After VP-3.7, request an explicit implementation scope unlock with exact files and guardrails, still without hidden migration or live external integrations.",
-    "status": "next-docs-only-scope-request"
+    "goal": "Request exact implementation file unlock for repository adapter and unit tests without touching Prisma schema, migrations or live external integrations.",
+    "openPr": "#2216",
+    "status": "scope-request-docs-only",
+    "requestedImplementationFiles": [
+      "apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts",
+      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts"
+    ],
+    "stillLocked": [
+      "apps/api/prisma/schema.prisma",
+      "apps/api/prisma/migrations/**",
+      "apps/web/app/platform-v7/**",
+      "apps/web/components/platform-v7/**",
+      "apps/web/app/api/**",
+      "apps/api/src/modules/auth/**"
+    ],
+    "implementationLimits": [
+      "no schema.prisma change",
+      "no migration",
+      "no UI money movement",
+      "no live bank/FGIS/EDO claims",
+      "no fully_linked without outbox/audit linkage"
+    ]
+  },
+  "vp39RuntimePersistenceImplementationPreflight": {
+    "layer": "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight",
+    "goal": "After VP-3.8, open the exact implementation files only if guardrails remain explicit and tests are named before code writes.",
+    "status": "next-docs-only-preflight"
   },
   "forbiddenZones": [
     "apps/landing",
@@ -75,5 +91,5 @@
   ],
   "maturityLanguage": ["platform-temporarily-without-external-integrations"],
   "forbiddenClaims": ["maturity uplift", "external integration completion", "production DB runtime persistence complete"],
-  "readiness": "74% honest readiness. VP-3.7 is a docs-only repository adapter contract plan. No runtime persistence code, Prisma schema, migration, bank, FGIS or EDO live integration is implemented by this layer."
+  "readiness": "74% honest readiness. VP-3.8 requests exact implementation scope only. It does not implement repository adapter code, production DB persistence, Prisma schema, migration, bank, FGIS or EDO live integration."
 }
