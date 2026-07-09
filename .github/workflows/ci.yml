@@ -47,7 +47,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run web unit tests
-        run: pnpm --filter web test
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web test 2>&1 | tee /tmp/ci-web-unit.log
+
+      - name: Upload web unit log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-web-unit-log
+          path: /tmp/ci-web-unit.log
 
   build:
     runs-on: ubuntu-latest
