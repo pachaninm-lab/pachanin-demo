@@ -7,6 +7,7 @@ import { SANDBOX_INCIDENTS, SANDBOX_LOGISTICS_ORDERS } from '@/lib/platform-v7/l
 import { P7GuardedActionButton } from '@/components/platform-v7/P7GuardedActionButton';
 import { FactSourceBadge } from '@/components/platform-v7/FactSourceBadge';
 import { platformV7ActionTargetById } from '@/lib/platform-v7/action-targets';
+import type { P7WorkspaceRuntimeBinding } from '@/lib/platform-v7/deal-workspace-runtime-binding';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -25,9 +26,9 @@ const EVIDENCE = '#6941C6';
 type Tab = 'overview' | 'money' | 'logistics' | 'documents' | 'fgis' | 'evidence' | 'dispute';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Обзор' },
+  { id: 'overview', label: 'Что делать' },
   { id: 'money', label: 'Деньги' },
-  { id: 'logistics', label: 'Логистика' },
+  { id: 'logistics', label: 'Рейс' },
   { id: 'documents', label: 'Документы' },
   { id: 'fgis', label: 'ФГИС' },
   { id: 'evidence', label: 'Доказательства' },
@@ -53,11 +54,11 @@ function hasAny(text: string, words: string[]) {
 
 function domainDealMoneyBlockers(deal: DomainDeal): string[] {
   const text = blockerText(deal);
-  const releaseAmount = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
+  const bankBasisAmount = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
   const blockers: string[] = [];
 
   if (deal.reservedAmount <= 0) blockers.push('no-reserved-money');
-  if (releaseAmount <= 0) blockers.push('no-release-amount');
+  if (bankBasisAmount <= 0) blockers.push('no-bank-basis-amount');
   if (deal.holdAmount > 0) blockers.push('active-hold');
   if (deal.dispute || hasAny(text, ['dispute', 'спор', 'арбитраж'])) blockers.push('open-dispute');
   if (!DOC_READY_STATUSES.has(deal.status) || hasAny(text, ['docs', 'document', 'документ', 'эдо'])) blockers.push('documents-not-ready');
@@ -70,7 +71,7 @@ function domainDealMoneyBlockers(deal: DomainDeal): string[] {
   return [...new Set(blockers)];
 }
 
-export function P7DealWorkspaceTabs({ deal }: { deal: DomainDeal }) {
+export function P7DealWorkspaceTabs({ deal, runtimeBinding }: { deal: DomainDeal; runtimeBinding?: P7WorkspaceRuntimeBinding }) {
   const [active, setActive] = React.useState<Tab>('overview');
   const order = SANDBOX_LOGISTICS_ORDERS.find((item) => item.dealId === deal.id) ?? null;
   const incidents = order ? SANDBOX_INCIDENTS.filter((item) => item.logisticsOrderId === order.id && (item.status === 'open' || item.status === 'under_review')) : [];
@@ -80,11 +81,12 @@ export function P7DealWorkspaceTabs({ deal }: { deal: DomainDeal }) {
     <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, overflow: 'hidden' }}>
       <div style={{ padding: '14px 18px', borderBottom: `1px solid ${B}`, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: 12, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Рабочая зона сделки · предынтеграционный контур</div>
-          <div style={{ marginTop: 4, fontSize: 18, fontWeight: 900, color: T }}>Сделка как единый контур исполнения</div>
+          <div style={{ fontSize: 12, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Рабочая зона сделки · runtime-контур</div>
+          <div style={{ marginTop: 4, fontSize: 18, fontWeight: 900, color: T }}>Понятный центр управления сделкой</div>
+          {runtimeBinding ? <div style={{ marginTop: 4, fontSize: 13, color: M, lineHeight: 1.45 }}>{runtimeBinding.nextStepTitle}: {runtimeBinding.nextStepInstruction}</div> : null}
         </div>
         <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: blockers > 0 ? ERR_BG : BRAND_BG, border: `1px solid ${blockers > 0 ? ERR_BORDER : BRAND_BORDER}`, color: blockers > 0 ? ERR : BRAND }}>
-          {blockers > 0 ? `${blockers} блок.` : 'без красных блокеров'}
+          {blockers > 0 ? `${blockers} блок.` : 'красных блокеров нет'}
         </span>
       </div>
 
@@ -97,7 +99,7 @@ export function P7DealWorkspaceTabs({ deal }: { deal: DomainDeal }) {
       </div>
 
       <div style={{ padding: 18 }}>
-        {active === 'overview' ? <Overview deal={deal} /> : null}
+        {active === 'overview' ? <Overview deal={deal} runtimeBinding={runtimeBinding} /> : null}
         {active === 'money' ? <Money deal={deal} /> : null}
         {active === 'logistics' ? <Logistics deal={deal} /> : null}
         {active === 'documents' ? <Documents deal={deal} /> : null}
@@ -109,16 +111,17 @@ export function P7DealWorkspaceTabs({ deal }: { deal: DomainDeal }) {
   );
 }
 
-function Overview({ deal }: { deal: DomainDeal }) {
+function Overview({ deal, runtimeBinding }: { deal: DomainDeal; runtimeBinding?: P7WorkspaceRuntimeBinding }) {
   return (
     <Stack>
-      <p style={{ margin: 0, fontSize: 13, color: M, lineHeight: 1.6 }}>Один объект сделки связывает цену, логистику, приёмку, документы, деньги, спор и доказательства. Промышленные подключения не заявлены: экран показывает предынтеграционный контур и источники фактов.</p>
+      <p style={{ margin: 0, fontSize: 13, color: M, lineHeight: 1.6 }}>Один объект сделки связывает цену, логистику, приёмку, документы, деньги, спор и доказательства. Пользователь видит не набор разделов, а ответ: что происходит, что мешает и какой следующий безопасный шаг.</p>
+      {runtimeBinding ? <Notice danger={runtimeBinding.blocked} title='Главная подсказка'>{runtimeBinding.nextStepInstruction}</Notice> : null}
       <FactRail items={['sber_safe_deals', 'fgis_grain', 'logistics_sphere']} />
       <Grid>
         <Cell label='Сделка' value={deal.id} mono />
         <Cell label='Культура' value={deal.grain} />
         <Cell label='Объём' value={`${deal.quantity} ${deal.unit}`} />
-        <Cell label='Статус' value={deal.status} />
+        <Cell label='Статус' value={runtimeBinding?.statusLabel ?? deal.status} />
         <Cell label='Продавец' value={deal.seller.name} />
         <Cell label='Покупатель' value={deal.buyer.name} />
       </Grid>
@@ -127,11 +130,11 @@ function Overview({ deal }: { deal: DomainDeal }) {
 }
 
 function Money({ deal }: { deal: DomainDeal }) {
-  const releaseTarget = platformV7ActionTargetById('deal-release-funds');
+  const basisTarget = platformV7ActionTargetById('deal-release-funds');
   const requestTarget = platformV7ActionTargetById('deal-request-release');
-  const releaseAmount = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
+  const bankBasisAmount = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
   const blockerLabels = domainDealMoneyBlockers(deal);
-  const releaseBlocked = blockerLabels.length > 0;
+  const bankBasisBlocked = blockerLabels.length > 0;
 
   return (
     <Stack>
@@ -139,14 +142,14 @@ function Money({ deal }: { deal: DomainDeal }) {
       <Grid>
         <Cell label='Зарезервировано' value={money(deal.reservedAmount)} color={MONEY} />
         <Cell label='Удержано' value={money(deal.holdAmount)} danger={deal.holdAmount > 0} />
-        <Cell label='К запросу в банк' value={money(releaseAmount)} color={releaseBlocked ? M : BRAND} />
+        <Cell label='К банковскому основанию' value={money(bankBasisAmount)} color={bankBasisBlocked ? M : BRAND} />
       </Grid>
-      <Notice danger={releaseBlocked} title={releaseBlocked ? 'Запрос проверки заблокирован' : 'Запрос проверки возможен'}>
-        {releaseBlocked ? 'Не закрыта полная матрица: резерв, сумма, удержание, документы, ФГИС/СДИЗ, рейс, приёмка, качество, спор и ручные остановки.' : 'Можно подготовить запрос банковской проверки; это ещё не движение денег и не подтверждение внешнего банка.'}
+      <Notice danger={bankBasisBlocked} title={bankBasisBlocked ? 'Банковское основание заблокировано' : 'Можно готовить банковское основание'}>
+        {bankBasisBlocked ? 'Не закрыта полная матрица: резерв, сумма, удержание, документы, ФГИС/СДИЗ, рейс, приёмка, качество, спор и ручные остановки.' : 'Можно подготовить основание для банка; это ещё не движение денег и не подтверждение внешнего банка.'}
       </Notice>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {requestTarget ? <P7GuardedActionButton target={requestTarget} activeActionId={null} blocked={releaseBlocked} blockerLabels={blockerLabels} blockedLabel='Запрос заблокирован' blockedReason='Сначала закройте всю матрицу сделки: ФГИС, качество, документы, логистику, спор и банк.' /> : null}
-        {releaseTarget ? <P7GuardedActionButton target={releaseTarget} activeActionId={null} blocked blockerLabels={['full-gate-matrix-required']} blockedLabel='Выпуск под контролем' blockedReason='Движение денег доступно только после полной контрольной проверки и внешнего банковского подтверждения.' /> : null}
+        {requestTarget ? <P7GuardedActionButton target={requestTarget} activeActionId={null} blocked={bankBasisBlocked} blockerLabels={blockerLabels} blockedLabel='Основание заблокировано' blockedReason='Сначала закройте всю матрицу сделки: ФГИС, качество, документы, логистику, спор и банк.' /> : null}
+        {basisTarget ? <P7GuardedActionButton target={basisTarget} activeActionId={null} blocked blockerLabels={['full-gate-matrix-required']} blockedLabel='Только через банк' blockedReason='Платформа не двигает деньги напрямую. Нужны action boundary, audit и внешнее банковское событие.' /> : null}
         <Link href='/platform-v7/bank' style={linkButton()}>Банковый контур →</Link>
       </div>
     </Stack>
@@ -156,7 +159,7 @@ function Money({ deal }: { deal: DomainDeal }) {
 function Logistics({ deal }: { deal: DomainDeal }) {
   const order = SANDBOX_LOGISTICS_ORDERS.find((item) => item.dealId === deal.id) ?? null;
   const incidents = order ? SANDBOX_INCIDENTS.filter((item) => item.logisticsOrderId === order.id && (item.status === 'open' || item.status === 'under_review')) : [];
-  if (!order) return <Empty text={`Для ${deal.id} нет тестового логистического заказа.`} href='/platform-v7/logistics' />;
+  if (!order) return <Empty text={`Для ${deal.id} нет привязанного логистического заказа.`} href='/platform-v7/logistics' />;
 
   return (
     <Stack>
@@ -178,11 +181,11 @@ function Documents({ deal }: { deal: DomainDeal }) {
   return (
     <Stack>
       <FactRail items={['edo_saby', 'fgis_grain']} />
-      <Notice danger={missing} title={missing ? 'Документы блокируют деньги' : 'Критичных пробелов нет'}>{missing ? 'Недостающие документы блокируют банковскую проверку выплаты.' : 'Документный слой не красный для текущего этапа.'}</Notice>
+      <Notice danger={missing} title={missing ? 'Документы блокируют банковское основание' : 'Критичных пробелов нет'}>{missing ? 'Недостающие документы блокируют подготовку банковского основания.' : 'Документный слой не красный для текущего этапа.'}</Notice>
       <Grid>
-        <Cell label='Договор' value='тест: подписан' color={BRAND} />
-        <Cell label='СДИЗ' value={deal.blockers.includes('fgis') ? 'ручная проверка' : 'тест: связан'} danger={deal.blockers.includes('fgis')} />
-        <Cell label='ЭТрН' value={deal.blockers.includes('transport') ? 'требуется документ' : 'тест: подписан'} danger={deal.blockers.includes('transport')} />
+        <Cell label='Договор' value='подписан в ручном контуре' color={BRAND} />
+        <Cell label='СДИЗ' value={deal.blockers.includes('fgis') ? 'ручная проверка' : 'связан с контуром'} danger={deal.blockers.includes('fgis')} />
+        <Cell label='ЭТрН' value={deal.blockers.includes('transport') ? 'требуется документ' : 'подписан в контуре'} danger={deal.blockers.includes('transport')} />
       </Grid>
       <Link href={`/platform-v7/deals/${deal.id}/documents`} style={linkButton()}>Документы сделки →</Link>
     </Stack>
@@ -194,7 +197,7 @@ function Fgis({ deal }: { deal: DomainDeal }) {
   return (
     <Stack>
       <FactRail items={['fgis_grain']} />
-      <Notice danger={blocked} title='ФГИС ЗЕРНО'>{blocked ? 'Синхронизация партии требует проверки. Промышленный контур ФГИС не заявлен.' : 'Партия связана с контуром сделки в тестовом режиме. Промышленный контур ФГИС не заявлен.'}</Notice>
+      <Notice danger={blocked} title='ФГИС ЗЕРНО'>{blocked ? 'Синхронизация партии требует проверки. Промышленный контур ФГИС не заявлен.' : 'Партия связана с контуром сделки на уровне подготовленной модели. Промышленный контур ФГИС не заявлен.'}</Notice>
     </Stack>
   );
 }
@@ -204,11 +207,11 @@ function Evidence({ deal }: { deal: DomainDeal }) {
   return (
     <Stack>
       <FactRail items={['gps_wialon', 'fgis_grain', 'sber_safe_deals']} />
-      <Notice danger={weak} title='Пакет доказательств'>{weak ? 'Пакет доказательств требует усиления перед спором или выпуском денег.' : 'Пакет доказательств достаточен для тестового сценария.'}</Notice>
+      <Notice danger={weak} title='Пакет доказательств'>{weak ? 'Пакет доказательств требует усиления перед спором или банковским основанием.' : 'Пакет доказательств достаточен для текущей ручной модели.'}</Notice>
       <Grid>
-        <Cell label='Фото' value='тест: 3 файла' color={EVIDENCE} />
-        <Cell label='Качество' value='тест: протокол' color={EVIDENCE} />
-        <Cell label='Банк' value='тестовое событие' color={EVIDENCE} />
+        <Cell label='Фото' value='3 файла в контуре' color={EVIDENCE} />
+        <Cell label='Качество' value='протокол в контуре' color={EVIDENCE} />
+        <Cell label='Банк' value='ожидает внешнее событие' color={EVIDENCE} />
       </Grid>
     </Stack>
   );
