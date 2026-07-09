@@ -5,19 +5,19 @@ import {
 } from '@/lib/platform-v7/action-permission-boundary';
 
 describe('platform-v7 bank action boundary', () => {
-  it('keeps bank limited to money confirmations, release review, arbitration decision and support', () => {
+  it('keeps bank limited to money confirmations, bank basis review, arbitration decision and support', () => {
     expect(getPlatformV7ActionPermissionPoliciesForRole('bank').map((policy) => policy.actionId)).toEqual([
       'bank.confirm_money_reserved',
-      'bank.mark_money_ready_to_release',
-      'bank.confirm_money_released',
+      'bank.mark_bank_basis_ready',
+      'bank.confirm_bank_basis',
       'arbitration.record_decision',
       'support.create_case',
       'support.append_message',
     ]);
 
     expect(canPlatformV7RoleInvokeAction('bank', 'bank.confirm_money_reserved').allowed).toBe(true);
-    expect(canPlatformV7RoleInvokeAction('bank', 'bank.mark_money_ready_to_release').allowed).toBe(true);
-    expect(canPlatformV7RoleInvokeAction('bank', 'bank.confirm_money_released').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('bank', 'bank.mark_bank_basis_ready').allowed).toBe(true);
+    expect(canPlatformV7RoleInvokeAction('bank', 'bank.confirm_bank_basis').allowed).toBe(true);
     expect(canPlatformV7RoleInvokeAction('bank', 'arbitration.record_decision').allowed).toBe(true);
     expect(canPlatformV7RoleInvokeAction('bank', 'support.create_case').allowed).toBe(true);
     expect(canPlatformV7RoleInvokeAction('bank', 'support.append_message').allowed).toBe(true);
