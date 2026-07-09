@@ -3,12 +3,7 @@ import { toCanonicalDealStatus } from './status-mapper';
 import type { CanonicalDeal, CounterpartyRef } from './types';
 
 function toCounterpartyRef(id: string, name: string, role: CounterpartyRef['role'], inn?: string): CounterpartyRef {
-  return {
-    id,
-    name,
-    role,
-    inn,
-  };
+  return { id, name, role, inn };
 }
 
 export function normalizeDomainDeal(deal: DomainDeal): CanonicalDeal {
@@ -25,12 +20,7 @@ export function normalizeDomainDeal(deal: DomainDeal): CanonicalDeal {
     quantity: deal.quantity,
     unit: deal.unit === 'кг' ? 'кг' : 'т',
     pricePerUnit: deal.pricePerTon ?? (deal.quantity ? Math.round(totalAmount / deal.quantity) : 0),
-    money: {
-      totalAmount,
-      reservedAmount: deal.reservedAmount,
-      holdAmount: deal.holdAmount,
-      releaseAmount,
-    },
+    money: { totalAmount, reservedAmount: deal.reservedAmount, holdAmount: deal.holdAmount, releaseAmount },
     seller: toCounterpartyRef(`${deal.id}-seller`, deal.seller.name, 'seller', deal.seller.inn),
     buyer: toCounterpartyRef(`${deal.id}-buyer`, deal.buyer.name, 'buyer', deal.buyer.inn),
     driver: null,
@@ -41,14 +31,9 @@ export function normalizeDomainDeal(deal: DomainDeal): CanonicalDeal {
     dispute: deal.dispute ? { id: deal.dispute.id, title: deal.dispute.id, amountAtRisk: deal.holdAmount } : null,
     riskScore: deal.riskScore,
     blockers: deal.blockers,
-    timeline: (deal.events ?? []).map((event) => ({
-      status: event.action,
-      at: event.ts,
-      actor: event.actor,
-      canonicalStatus: toCanonicalDealStatus(event.action),
-    })),
+    timeline: (deal.events ?? []).map((event) => ({ status: event.action, at: event.ts, actor: event.actor, canonicalStatus: toCanonicalDealStatus(event.action) })),
     documents: [],
-    maturity: deal.sourceOfTruth === 'DRAFT' ? 'demo' : deal.sourceOfTruth === 'MANUAL' ? 'sandbox' : 'pre-live',
+    maturity: deal.sourceOfTruth === 'MANUAL' ? 'manual' : 'platform-temporarily-without-external-integrations',
   };
 }
 

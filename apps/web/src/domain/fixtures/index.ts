@@ -12,7 +12,7 @@ export const counterpartiesFixture: Counterparty[] = [
 ];
 
 export const usersFixture: User[] = [
-  { id: 'u-operator', name: 'Оператор пилота', role: 'operator', authorityLevel: 'critical' },
+  { id: 'u-operator', name: 'Оператор платформы', role: 'operator', authorityLevel: 'critical' },
   { id: 'u-seller', name: 'Продавец КФХ', role: 'seller', counterpartyId: 'cp-seller-1', authorityLevel: 'act' },
   { id: 'u-buyer', name: 'Закупщик', role: 'buyer', counterpartyId: 'cp-buyer-1', authorityLevel: 'critical' },
   { id: 'u-driver', name: 'Водитель рейса', role: 'driver', counterpartyId: 'cp-carrier-1', authorityLevel: 'act' },
@@ -21,7 +21,7 @@ export const usersFixture: User[] = [
 ];
 
 const dealIds = ['DL-9102', 'DL-9113', 'DL-9114', 'DL-9116', 'DL-9118', 'DL-9120', 'DL-9121', 'DL-9122', 'DL-9123', 'DL-9124', 'DL-9125', 'DL-9126', 'DL-9127', 'DL-9128', 'DL-9129'];
-const statuses: Deal['status'][] = ['draft', 'lot_published', 'offer_received', 'offer_accepted', 'contract_signed', 'reserve_confirmed', 'driver_assigned', 'in_transit', 'arrived', 'weighing_completed', 'lab_protocol_created', 'documents_pending', 'documents_complete', 'dispute_open', 'partial_release'];
+const statuses: Deal['status'][] = ['draft', 'lot_published', 'offer_received', 'offer_accepted', 'contract_signed', 'reserve_confirmed', 'driver_assigned', 'in_transit', 'arrived', 'weighing_completed', 'lab_protocol_created', 'documents_pending', 'documents_complete', 'dispute_open', 'partial_bank_basis'];
 
 export const lotsFixture: Lot[] = Array.from({ length: 8 }, (_, index) => ({
   id: `LOT-${2400 + index}`,
@@ -37,10 +37,10 @@ export const lotsFixture: Lot[] = Array.from({ length: 8 }, (_, index) => ({
 
 export const dealsFixture: Deal[] = dealIds.map((id, index) => {
   const status = statuses[index];
-  const hasReserve = ['reserve_confirmed', 'driver_assigned', 'in_transit', 'arrived', 'weighing_completed', 'lab_protocol_created', 'documents_pending', 'documents_complete', 'dispute_open', 'partial_release'].includes(status);
-  const hasWeight = ['weighing_completed', 'lab_protocol_created', 'documents_pending', 'documents_complete', 'dispute_open', 'partial_release'].includes(status);
-  const hasLab = ['lab_protocol_created', 'documents_pending', 'documents_complete', 'dispute_open', 'partial_release'].includes(status);
-  const hasDocs = ['documents_complete', 'partial_release'].includes(status);
+  const hasReserve = ['reserve_confirmed', 'driver_assigned', 'in_transit', 'arrived', 'weighing_completed', 'lab_protocol_created', 'documents_pending', 'documents_complete', 'dispute_open', 'partial_bank_basis'].includes(status);
+  const hasWeight = ['weighing_completed', 'lab_protocol_created', 'documents_pending', 'documents_complete', 'dispute_open', 'partial_bank_basis'].includes(status);
+  const hasLab = ['lab_protocol_created', 'documents_pending', 'documents_complete', 'dispute_open', 'partial_bank_basis'].includes(status);
+  const hasDocs = ['documents_complete', 'partial_bank_basis'].includes(status);
   return {
     id,
     lotId: `LOT-${2400 + (index % 8)}`,
@@ -74,10 +74,10 @@ export const disputesFixture: Dispute[] = Array.from({ length: 5 }, (_, index) =
 export const moneyEventsFixture: MoneyEvent[] = Array.from({ length: 30 }, (_, index) => ({
   id: `ME-${index + 1}`,
   dealId: dealsFixture[index % dealsFixture.length].id,
-  type: index % 6 === 0 ? 'reserve_requested' : index % 6 === 1 ? 'reserve_confirmed' : index % 6 === 2 ? 'hold' : index % 6 === 3 ? 'partial_release' : index % 6 === 4 ? 'final_release' : 'reconciliation_gap',
+  type: index % 6 === 0 ? 'reserve_requested' : index % 6 === 1 ? 'reserve_confirmed' : index % 6 === 2 ? 'hold' : index % 6 === 3 ? 'partial_bank_basis' : index % 6 === 4 ? 'final_bank_basis' : 'reconciliation_gap',
   amountCents: (500000 + index * 10000) * 100,
   idempotencyKey: `idem-${index + 1}`,
-  bankReference: `SBER-SBX-${index + 1}`,
+  bankReference: `BANK-BASIS-${index + 1}`,
   createdAt: now,
 }));
 
@@ -86,7 +86,7 @@ export const evidenceFixture: Evidence[] = Array.from({ length: 20 }, (_, index)
   dealId: dealsFixture[index % dealsFixture.length].id,
   disputeId: index < 10 ? disputesFixture[index % disputesFixture.length].id : undefined,
   type: ['photo', 'document', 'geo', 'weight', 'lab', 'bank', 'gps', 'survey', 'system'][index % 9] as Evidence['type'],
-  hash: `sha256-demo-${index + 1}`,
+  hash: `sha256-evidence-${index + 1}`,
   source: index % 2 === 0 ? 'mobile-offline-queue' : 'operator-console',
   capturedAt: now,
 }));
@@ -94,7 +94,7 @@ export const evidenceFixture: Evidence[] = Array.from({ length: 20 }, (_, index)
 export const auditEventsFixture: AuditEvent[] = Array.from({ length: 50 }, (_, index) => ({
   id: `AUD-${index + 1}`,
   actorUserId: usersFixture[index % usersFixture.length].id,
-  action: ['create_lot', 'publish_lot', 'accept_offer', 'request_reserve', 'confirm_reserve', 'assign_driver', 'confirm_arrival', 'create_lab_protocol', 'open_dispute', 'partial_release'][index % 10],
+  action: ['create_lot', 'publish_lot', 'accept_offer', 'request_reserve', 'confirm_reserve', 'assign_driver', 'confirm_arrival', 'create_lab_protocol', 'open_dispute', 'partial_bank_basis'][index % 10],
   objectType: ['deal', 'lot', 'money', 'transport', 'document', 'evidence', 'dispute'][index % 7] as AuditEvent['objectType'],
   objectId: dealsFixture[index % dealsFixture.length].id,
   before: { status: dealsFixture[index % dealsFixture.length].status },

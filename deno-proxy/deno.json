@@ -1,7 +1,0 @@
-{
-  "name": "vpn-proxy",
-  "version": "1.0.0",
-  "tasks": {
-    "start": "deno run --allow-net main.ts"
-  }
-}

@@ -13,8 +13,8 @@ export type PlatformV7ApiBoundaryId =
   | 'confirm_deal_terms'
   | 'request_money_reserve'
   | 'confirm_money_reserved'
-  | 'mark_money_ready_to_release'
-  | 'confirm_money_released'
+  | 'mark_bank_basis_ready'
+  | 'confirm_bank_basis'
   | 'upload_document'
   | 'accept_document'
   | 'assign_driver'
@@ -198,11 +198,11 @@ export const PLATFORM_V7_API_BOUNDARIES: readonly PlatformV7ApiBoundaryContract[
     summary: 'Records bank confirmation that money is reserved; platform must not self-confirm this boundary.',
   },
   {
-    id: 'mark_money_ready_to_release',
+    id: 'mark_bank_basis_ready',
     method: 'POST',
-    path: '/api/platform-v7/deals/:dealId/money/ready-to-release',
+    path: '/api/platform-v7/deals/:dealId/money/bank-basis-ready',
     actorRoles: ['bank', 'operator'],
-    commandId: 'mark_money_ready_to_release',
+    commandId: 'mark_bank_basis_ready',
     requiresAuth: true,
     requiresEntityAcl: true,
     requiresDealId: true,
@@ -212,14 +212,14 @@ export const PLATFORM_V7_API_BOUNDARIES: readonly PlatformV7ApiBoundaryContract[
     requiresExternalConfirmation: false,
     rateLimitScope: 'deal',
     runtimeStatus: 'contract_only',
-    summary: 'Marks money ready for bank-side decision only after documents and acceptance evidence boundaries.',
+    summary: 'Marks bank basis ready only after documents and acceptance evidence boundaries.',
   },
   {
-    id: 'confirm_money_released',
+    id: 'confirm_bank_basis',
     method: 'POST',
-    path: '/api/platform-v7/deals/:dealId/money/confirm-released',
+    path: '/api/platform-v7/deals/:dealId/money/confirm-bank-basis',
     actorRoles: ['bank'],
-    commandId: 'confirm_money_released',
+    commandId: 'confirm_bank_basis',
     requiresAuth: true,
     requiresEntityAcl: true,
     requiresDealId: true,
@@ -229,7 +229,7 @@ export const PLATFORM_V7_API_BOUNDARIES: readonly PlatformV7ApiBoundaryContract[
     requiresExternalConfirmation: true,
     rateLimitScope: 'deal',
     runtimeStatus: 'contract_only',
-    summary: 'Records bank confirmation that money was released; platform does not release money by itself.',
+    summary: 'Records bank confirmation of the basis; platform does not move money by itself.',
   },
   {
     id: 'upload_document',

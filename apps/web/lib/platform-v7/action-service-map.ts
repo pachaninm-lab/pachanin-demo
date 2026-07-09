@@ -12,8 +12,8 @@ export const PLATFORM_V7_ACTION_SERVICE_MAP: Record<PlatformV7ActionPermissionId
   'deal.confirm_terms': 'deal',
   'money.request_reserve': 'money',
   'bank.confirm_money_reserved': 'money',
-  'bank.mark_money_ready_to_release': 'money',
-  'bank.confirm_money_released': 'money',
+  'bank.mark_bank_basis_ready': 'money',
+  'bank.confirm_bank_basis': 'money',
   'logistics.assign_driver': 'logistics',
   'driver.confirm_checkpoint': 'trip',
   'trip.accept': 'trip',
@@ -26,8 +26,6 @@ export const PLATFORM_V7_ACTION_SERVICE_MAP: Record<PlatformV7ActionPermissionId
   'support.append_message': 'support',
 };
 
-export function getPlatformV7ActionServiceName(
-  actionId: PlatformV7ActionPermissionId,
-): PlatformV7ExecutionServiceName {
+export function getPlatformV7ActionServiceName(actionId: PlatformV7ActionPermissionId): PlatformV7ExecutionServiceName {
   return PLATFORM_V7_ACTION_SERVICE_MAP[actionId];
 }

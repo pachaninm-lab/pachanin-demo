@@ -20,8 +20,8 @@ export type DealTransitionAction =
   | 'complete_documents'
   | 'open_dispute'
   | 'resolve_dispute'
-  | 'partial_release'
-  | 'final_release'
+  | 'partial_bank_basis'
+  | 'confirm_bank_basis'
   | 'close_deal';
 
 export interface DealTransitionContext {
@@ -75,8 +75,8 @@ export const DEAL_STATUSES: DealStatus[] = [
   'documents_complete',
   'dispute_open',
   'dispute_resolved',
-  'partial_release',
-  'final_released',
+  'partial_bank_basis',
+  'bank_basis_confirmed',
   'closed',
 ];
 
@@ -100,13 +100,13 @@ export const DEAL_TRANSITIONS: Record<DealTransitionAction, { from: DealStatus[]
   complete_documents: { from: ['documents_pending'], to: 'documents_complete' },
   open_dispute: { from: ['weighing_completed', 'lab_sampled', 'lab_protocol_created', 'documents_pending', 'documents_complete'], to: 'dispute_open' },
   resolve_dispute: { from: ['dispute_open'], to: 'dispute_resolved' },
-  partial_release: { from: ['documents_complete', 'dispute_resolved'], to: 'partial_release' },
-  final_release: { from: ['documents_complete', 'partial_release', 'dispute_resolved'], to: 'final_released' },
-  close_deal: { from: ['final_released'], to: 'closed' },
+  partial_bank_basis: { from: ['documents_complete', 'dispute_resolved'], to: 'partial_bank_basis' },
+  confirm_bank_basis: { from: ['documents_complete', 'partial_bank_basis', 'dispute_resolved'], to: 'bank_basis_confirmed' },
+  close_deal: { from: ['bank_basis_confirmed'], to: 'closed' },
 };
 
 function guardAuthority(action: DealTransitionAction, ctx: DealTransitionContext): DealTransitionResult | null {
-  const criticalActions: DealTransitionAction[] = ['confirm_reserve', 'partial_release', 'final_release', 'resolve_dispute', 'close_deal'];
+  const criticalActions: DealTransitionAction[] = ['confirm_reserve', 'partial_bank_basis', 'confirm_bank_basis', 'resolve_dispute', 'close_deal'];
   if (criticalActions.includes(action) && ctx.actor.authorityLevel !== 'critical' && !ctx.criticalAuthority) {
     return { ok: false, from: 'draft', errorCode: 'AUTHORITY_REQUIRED', reason: 'Критическое действие требует подтверждённых полномочий.' };
   }
@@ -114,7 +114,7 @@ function guardAuthority(action: DealTransitionAction, ctx: DealTransitionContext
 }
 
 function guardIdempotency(action: DealTransitionAction, ctx: DealTransitionContext): DealTransitionResult | null {
-  const bankActions: DealTransitionAction[] = ['request_reserve', 'confirm_reserve', 'partial_release', 'final_release'];
+  const bankActions: DealTransitionAction[] = ['request_reserve', 'confirm_reserve', 'partial_bank_basis', 'confirm_bank_basis'];
   if (bankActions.includes(action) && !ctx.hasIdempotencyKey) {
     return { ok: false, from: 'draft', errorCode: 'IDEMPOTENCY_REQUIRED', reason: 'Банковая mutation требует Idempotency-Key.' };
   }
@@ -122,27 +122,27 @@ function guardIdempotency(action: DealTransitionAction, ctx: DealTransitionConte
 }
 
 function guardMoney(action: DealTransitionAction, deal: Deal, ctx: DealTransitionContext): DealTransitionResult | null {
-  if ((action === 'partial_release' || action === 'final_release') && !(deal.reserveConfirmed || ctx.reserveConfirmed)) {
-    return { ok: false, from: deal.status, errorCode: 'RESERVE_REQUIRED', reason: 'Выпуск средств невозможен без подтверждённого резерва.' };
+  if ((action === 'partial_bank_basis' || action === 'confirm_bank_basis') && !(deal.reserveConfirmed || ctx.reserveConfirmed)) {
+    return { ok: false, from: deal.status, errorCode: 'RESERVE_REQUIRED', reason: 'Банковское основание невозможно без подтверждённого резерва.' };
   }
-  if (action === 'final_release' && !(deal.documentsComplete || ctx.hasRequiredDocuments)) {
-    return { ok: false, from: deal.status, errorCode: 'DOCUMENTS_REQUIRED', reason: 'Финальный выпуск невозможен без полного пакета документов.' };
+  if (action === 'confirm_bank_basis' && !(deal.documentsComplete || ctx.hasRequiredDocuments)) {
+    return { ok: false, from: deal.status, errorCode: 'DOCUMENTS_REQUIRED', reason: 'Финальное банковское основание невозможно без полного пакета документов.' };
   }
-  if (action === 'final_release' && (deal.openDisputeId || ctx.openDispute)) {
-    return { ok: false, from: deal.status, errorCode: 'DISPUTE_OPEN', reason: 'Финальный выпуск невозможен при открытом споре.' };
+  if (action === 'confirm_bank_basis' && (deal.openDisputeId || ctx.openDispute)) {
+    return { ok: false, from: deal.status, errorCode: 'DISPUTE_OPEN', reason: 'Финальное банковское основание невозможно при открытом споре.' };
   }
   return null;
 }
 
 function guardExecution(action: DealTransitionAction, deal: Deal, ctx: DealTransitionContext): DealTransitionResult | null {
-  if ((action === 'complete_documents' || action === 'final_release') && !(deal.weightConfirmed || ctx.weightConfirmed) && !(deal.labProtocolId || ctx.labConfirmed)) {
-    return { ok: false, from: deal.status, errorCode: 'WEIGHT_OR_LAB_REQUIRED', reason: 'Нельзя закрыть документы или финальный выпуск без веса и лаборатории.' };
+  if ((action === 'complete_documents' || action === 'confirm_bank_basis') && !(deal.weightConfirmed || ctx.weightConfirmed) && !(deal.labProtocolId || ctx.labConfirmed)) {
+    return { ok: false, from: deal.status, errorCode: 'WEIGHT_OR_LAB_REQUIRED', reason: 'Нельзя закрыть документы или банковское основание без веса и лаборатории.' };
   }
   return null;
 }
 
 function guardDegradation(action: DealTransitionAction, deal: Deal, ctx: DealTransitionContext): DealTransitionResult | null {
-  if ((action === 'final_release' || action === 'close_deal') && (deal.degradationMode || ctx.degradationMode)) {
+  if ((action === 'confirm_bank_basis' || action === 'close_deal') && (deal.degradationMode || ctx.degradationMode)) {
     return { ok: false, from: deal.status, errorCode: 'DEGRADATION_BLOCKS_FINAL_ACTION', reason: 'Финальное необратимое действие закрыто в режиме деградации.' };
   }
   return null;

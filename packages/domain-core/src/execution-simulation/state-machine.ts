@@ -2,9 +2,9 @@ import type { Deal, DealExecutionStatus, Document, DomainExecutionState, Platfor
 import { DEAL_EXECUTION_STATUSES } from './types';
 
 export type DealGuardCode =
-  | 'NO_RELEASE_WITHOUT_RESERVE'
-  | 'NO_RELEASE_WITHOUT_DOCUMENTS'
-  | 'NO_FINAL_RELEASE_WITH_OPEN_DISPUTE'
+  | 'NO_BANK_BASIS_WITHOUT_RESERVE'
+  | 'NO_BANK_BASIS_WITHOUT_DOCUMENTS'
+  | 'NO_FINAL_BANK_BASIS_WITH_OPEN_DISPUTE'
   | 'NO_ACCEPTED_WITHOUT_WEIGHT'
   | 'NO_ACCEPTED_WITHOUT_LAB'
   | 'NO_BANK_COMMAND_WITHOUT_IDEMPOTENCY'
@@ -63,9 +63,9 @@ export const dealStateTransitions: DealStateTransition[] = [
   { from: 'LAB_PROTOCOL_CREATED', to: 'ACCEPTED', actions: ['createLabProtocol'] },
   { from: 'ACCEPTED', to: 'DOCUMENTS_PENDING', actions: ['createLabProtocol'] },
   { from: 'DOCUMENTS_PENDING', to: 'DOCUMENTS_READY', actions: ['createLabProtocol'] },
-  { from: 'DOCUMENTS_READY', to: 'PAYMENT_RELEASE_REQUESTED', actions: ['requestReserve'] },
-  { from: 'PAYMENT_RELEASE_REQUESTED', to: 'FINAL_RELEASED', actions: ['confirmReserve'] },
-  { from: 'FINAL_RELEASED', to: 'CLOSED', actions: ['confirmReserve'] },
+  { from: 'DOCUMENTS_READY', to: 'BANK_BASIS_REQUESTED', actions: ['requestReserve'] },
+  { from: 'BANK_BASIS_REQUESTED', to: 'BANK_BASIS_CONFIRMED', actions: ['confirmReserve'] },
+  { from: 'BANK_BASIS_CONFIRMED', to: 'CLOSED', actions: ['confirmReserve'] },
   { from: 'ACCEPTED', to: 'DISPUTE_OPEN', actions: ['openDispute'] },
   { from: 'LAB_PROTOCOL_CREATED', to: 'DISPUTE_OPEN', actions: ['openDispute'] }
 ];
@@ -118,25 +118,25 @@ export function evaluateDealGuards(
     };
   }
 
-  if ((to === 'PAYMENT_RELEASE_REQUESTED' || to === 'FINAL_RELEASED' || to === 'CLOSED') && !deal.reserveConfirmed) {
+  if ((to === 'BANK_BASIS_REQUESTED' || to === 'BANK_BASIS_CONFIRMED' || to === 'CLOSED') && !deal.reserveConfirmed) {
     return {
-      code: 'NO_RELEASE_WITHOUT_RESERVE',
+      code: 'NO_BANK_BASIS_WITHOUT_RESERVE',
       message: 'Банковское основание запрещено без подтверждённого резерва',
       statusCode: 409
     };
   }
 
-  if ((to === 'PAYMENT_RELEASE_REQUESTED' || to === 'FINAL_RELEASED' || to === 'CLOSED') && !deal.requiredDocumentsReady && !hasSignedRequiredDocuments(deal.id, state.documents)) {
+  if ((to === 'BANK_BASIS_REQUESTED' || to === 'BANK_BASIS_CONFIRMED' || to === 'CLOSED') && !deal.requiredDocumentsReady && !hasSignedRequiredDocuments(deal.id, state.documents)) {
     return {
-      code: 'NO_RELEASE_WITHOUT_DOCUMENTS',
+      code: 'NO_BANK_BASIS_WITHOUT_DOCUMENTS',
       message: 'Банковское основание запрещено без полного документного пакета',
       statusCode: 409
     };
   }
 
-  if ((to === 'FINAL_RELEASED' || to === 'CLOSED') && (deal.openDisputeId || state.disputes.some((dispute) => dispute.dealId === deal.id && !['resolved', 'closed'].includes(dispute.status)))) {
+  if ((to === 'BANK_BASIS_CONFIRMED' || to === 'CLOSED') && (deal.openDisputeId || state.disputes.some((dispute) => dispute.dealId === deal.id && !['resolved', 'closed'].includes(dispute.status)))) {
     return {
-      code: 'NO_FINAL_RELEASE_WITH_OPEN_DISPUTE',
+      code: 'NO_FINAL_BANK_BASIS_WITH_OPEN_DISPUTE',
       message: 'Финальное банковское основание запрещено при открытом споре',
       statusCode: 409
     };

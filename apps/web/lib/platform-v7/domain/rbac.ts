@@ -121,12 +121,11 @@ export const BASE_ROLE_PERMISSIONS: Record<ParticipantRole, readonly Permission[
 export const CRITICAL_ACTION_ROLES: Record<CriticalAction, readonly ParticipantRole[]> = {
   RESERVE_MONEY: ['buyer', 'bank'],
   HOLD_MONEY: ['bank'],
-  REQUEST_RELEASE: ['operator', 'seller', 'bank'],
-  EXECUTE_RELEASE: ['bank'],
+  REQUEST_BANK_BASIS: ['operator', 'seller', 'bank'],
+  CONFIRM_BANK_BASIS: ['bank'],
   REQUEST_REFUND: ['operator', 'buyer', 'arbitrator'],
   EXECUTE_REFUND: ['bank'],
   CONFIRM_BANK_RESERVE: ['bank'],
-  CONFIRM_BANK_RELEASE: ['bank'],
   CONFIRM_BANK_REFUND: ['bank'],
   SIGN_DOCUMENT: ['seller', 'buyer', 'driver', 'carrier', 'elevator', 'lab', 'surveyor'],
   REPLACE_SIGNED_DOCUMENT: ['operator', 'admin'],
@@ -145,10 +144,9 @@ export function hasPermission(role: ParticipantRole, permission: Permission): bo
 export function canPerformCriticalAction(role: ParticipantRole, action: CriticalAction): AccessDecision {
   const allowed = CRITICAL_ACTION_ROLES[action].includes(role);
   const requiresSecondFactor = [
-    'EXECUTE_RELEASE',
+    'CONFIRM_BANK_BASIS',
     'EXECUTE_REFUND',
     'CONFIRM_BANK_RESERVE',
-    'CONFIRM_BANK_RELEASE',
     'CONFIRM_BANK_REFUND',
     'CHANGE_BANK_DETAILS',
     'APPROVE_DISPUTE_DECISION',

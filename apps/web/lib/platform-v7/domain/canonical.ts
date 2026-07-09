@@ -8,10 +8,8 @@ export const PLATFORM_LAYERS = [
 export type PlatformLayer = (typeof PLATFORM_LAYERS)[number];
 
 export const MATURITY_STATUSES = [
-  'demo',
-  'sandbox',
-  'pre-live',
-  'controlled-pilot',
+  'manual',
+  'platform-temporarily-without-external-integrations',
   'production',
 ] as const;
 
@@ -34,10 +32,10 @@ export const CANONICAL_DEAL_STATUSES = [
   'ACCEPTED',
   'DOCUMENTS_PENDING',
   'DOCUMENTS_COMPLETE',
-  'RELEASE_PENDING',
-  'PARTIAL_RELEASED',
+  'BANK_BASIS_REQUESTED',
+  'PARTIAL_BANK_BASIS_CONFIRMED',
   'DISPUTED',
-  'FINAL_RELEASED',
+  'BANK_BASIS_CONFIRMED',
   'CLOSED',
   'CANCELED',
   'DEGRADED',
@@ -48,12 +46,11 @@ export type CanonicalDealStatus = (typeof CANONICAL_DEAL_STATUSES)[number];
 export type CriticalAction =
   | 'RESERVE_MONEY'
   | 'HOLD_MONEY'
-  | 'REQUEST_RELEASE'
-  | 'EXECUTE_RELEASE'
+  | 'REQUEST_BANK_BASIS'
+  | 'CONFIRM_BANK_BASIS'
   | 'REQUEST_REFUND'
   | 'EXECUTE_REFUND'
   | 'CONFIRM_BANK_RESERVE'
-  | 'CONFIRM_BANK_RELEASE'
   | 'CONFIRM_BANK_REFUND'
   | 'SIGN_DOCUMENT'
   | 'REPLACE_SIGNED_DOCUMENT'
@@ -106,14 +103,14 @@ export const CANONICAL_DEAL_TRANSITIONS: readonly DealTransitionRule[] = [
   { from: 'ACCEPTANCE_PENDING', to: ['ACCEPTED', 'DISPUTED', 'DEGRADED'] },
   { from: 'ACCEPTED', to: ['DOCUMENTS_PENDING', 'DISPUTED', 'DEGRADED'] },
   { from: 'DOCUMENTS_PENDING', to: ['DOCUMENTS_COMPLETE', 'DISPUTED', 'DEGRADED'] },
-  { from: 'DOCUMENTS_COMPLETE', to: ['RELEASE_PENDING', 'DISPUTED', 'DEGRADED'] },
-  { from: 'RELEASE_PENDING', to: ['PARTIAL_RELEASED', 'FINAL_RELEASED', 'DISPUTED', 'DEGRADED'] },
-  { from: 'PARTIAL_RELEASED', to: ['FINAL_RELEASED', 'DISPUTED', 'DEGRADED'] },
-  { from: 'DISPUTED', to: ['DOCUMENTS_PENDING', 'RELEASE_PENDING', 'PARTIAL_RELEASED', 'FINAL_RELEASED', 'CANCELED', 'DEGRADED'] },
-  { from: 'FINAL_RELEASED', to: ['CLOSED'] },
+  { from: 'DOCUMENTS_COMPLETE', to: ['BANK_BASIS_REQUESTED', 'DISPUTED', 'DEGRADED'] },
+  { from: 'BANK_BASIS_REQUESTED', to: ['PARTIAL_BANK_BASIS_CONFIRMED', 'BANK_BASIS_CONFIRMED', 'DISPUTED', 'DEGRADED'] },
+  { from: 'PARTIAL_BANK_BASIS_CONFIRMED', to: ['BANK_BASIS_CONFIRMED', 'DISPUTED', 'DEGRADED'] },
+  { from: 'DISPUTED', to: ['DOCUMENTS_PENDING', 'BANK_BASIS_REQUESTED', 'PARTIAL_BANK_BASIS_CONFIRMED', 'BANK_BASIS_CONFIRMED', 'CANCELED', 'DEGRADED'] },
+  { from: 'BANK_BASIS_CONFIRMED', to: ['CLOSED'] },
   { from: 'CLOSED', to: [] },
   { from: 'CANCELED', to: [] },
-  { from: 'DEGRADED', to: ['COUNTERPARTY_CHECK', 'CONTRACT_DRAFT', 'CONTRACT_SIGNED', 'MONEY_RESERVED', 'LOGISTICS_PLANNED', 'LOADING', 'IN_TRANSIT', 'ARRIVED', 'WEIGHING', 'LAB_ANALYSIS', 'ACCEPTANCE_PENDING', 'ACCEPTED', 'DOCUMENTS_PENDING', 'DOCUMENTS_COMPLETE', 'RELEASE_PENDING', 'DISPUTED', 'CANCELED'] },
+  { from: 'DEGRADED', to: ['COUNTERPARTY_CHECK', 'CONTRACT_DRAFT', 'CONTRACT_SIGNED', 'MONEY_RESERVED', 'LOGISTICS_PLANNED', 'LOADING', 'IN_TRANSIT', 'ARRIVED', 'WEIGHING', 'LAB_ANALYSIS', 'ACCEPTANCE_PENDING', 'ACCEPTED', 'DOCUMENTS_PENDING', 'DOCUMENTS_COMPLETE', 'BANK_BASIS_REQUESTED', 'DISPUTED', 'CANCELED'] },
 ];
 
 const transitionMap = new Map<CanonicalDealStatus, readonly CanonicalDealStatus[]>(
@@ -133,12 +130,11 @@ export function assertDealTransition(from: CanonicalDealStatus, to: CanonicalDea
 export const CRITICAL_ACTION_REQUIREMENTS: Record<CriticalAction, readonly string[]> = {
   RESERVE_MONEY: ['authority', 'audit-event', 'idempotency-key'],
   HOLD_MONEY: ['authority', 'audit-event', 'idempotency-key'],
-  REQUEST_RELEASE: ['authority', 'audit-event', 'document-gates', 'open-dispute-check', 'idempotency-key'],
-  EXECUTE_RELEASE: ['authority', 'audit-event', '2fa', 'document-gates', 'open-dispute-check', 'bank-reconciliation', 'idempotency-key'],
+  REQUEST_BANK_BASIS: ['authority', 'audit-event', 'document-gates', 'open-dispute-check', 'idempotency-key'],
+  CONFIRM_BANK_BASIS: ['authority', 'audit-event', '2fa', 'document-gates', 'open-dispute-check', 'bank-reconciliation', 'idempotency-key'],
   REQUEST_REFUND: ['authority', 'audit-event', 'dispute-decision', 'idempotency-key'],
   EXECUTE_REFUND: ['authority', 'audit-event', '2fa', 'bank-reconciliation', 'idempotency-key'],
   CONFIRM_BANK_RESERVE: ['authority', 'audit-event', '2fa', 'bank-reconciliation', 'idempotency-key'],
-  CONFIRM_BANK_RELEASE: ['authority', 'audit-event', '2fa', 'document-gates', 'bank-reconciliation', 'idempotency-key'],
   CONFIRM_BANK_REFUND: ['authority', 'audit-event', '2fa', 'dispute-decision', 'bank-reconciliation', 'idempotency-key'],
   SIGN_DOCUMENT: ['authority', 'audit-event', 'signature-context'],
   REPLACE_SIGNED_DOCUMENT: ['authority', 'audit-event', 'correction-event', 'reason-required'],

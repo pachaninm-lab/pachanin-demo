@@ -23,16 +23,16 @@ export interface ReleaseGuardResult {
 
 const releaseReadyStatuses = new Set<CanonicalDeal['status']>([
   'DOCUMENTS_COMPLETE',
-  'RELEASE_PENDING',
+  'BANK_BASIS_REQUESTED',
 ]);
 
 const transportReadyStatuses = new Set<CanonicalDeal['status']>([
   'ACCEPTED',
   'DOCUMENTS_PENDING',
   'DOCUMENTS_COMPLETE',
-  'RELEASE_PENDING',
-  'PARTIAL_RELEASED',
-  'FINAL_RELEASED',
+  'BANK_BASIS_REQUESTED',
+  'PARTIAL_BANK_BASIS_CONFIRMED',
+  'BANK_BASIS_CONFIRMED',
   'CLOSED',
 ]);
 
@@ -40,9 +40,9 @@ const acceptanceReadyStatuses = new Set<CanonicalDeal['status']>([
   'ACCEPTED',
   'DOCUMENTS_PENDING',
   'DOCUMENTS_COMPLETE',
-  'RELEASE_PENDING',
-  'PARTIAL_RELEASED',
-  'FINAL_RELEASED',
+  'BANK_BASIS_REQUESTED',
+  'PARTIAL_BANK_BASIS_CONFIRMED',
+  'BANK_BASIS_CONFIRMED',
   'CLOSED',
 ]);
 
@@ -50,9 +50,9 @@ const qualityReadyStatuses = new Set<CanonicalDeal['status']>([
   'ACCEPTED',
   'DOCUMENTS_PENDING',
   'DOCUMENTS_COMPLETE',
-  'RELEASE_PENDING',
-  'PARTIAL_RELEASED',
-  'FINAL_RELEASED',
+  'BANK_BASIS_REQUESTED',
+  'PARTIAL_BANK_BASIS_CONFIRMED',
+  'BANK_BASIS_CONFIRMED',
   'CLOSED',
 ]);
 
@@ -118,7 +118,7 @@ export function evaluateReleaseGuard(deal: CanonicalDeal): ReleaseGuardResult {
 
   const uniqueBlockers = [...new Set(blockers)];
   const canRequestRelease = uniqueBlockers.length === 0;
-  const canExecuteRelease = canRequestRelease && deal.status === 'RELEASE_PENDING';
+  const canExecuteRelease = canRequestRelease && deal.status === 'BANK_BASIS_REQUESTED';
 
   return {
     canRequestRelease,

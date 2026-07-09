@@ -2,7 +2,7 @@ export type EntityId = string;
 export type ISODateTime = string;
 export type MoneyCents = number;
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
-export type PlatformMode = 'sandbox' | 'demo' | 'pilot' | 'manual' | 'live';
+export type PlatformMode = 'manual' | 'platform-temporarily-without-external-integrations';
 
 export type DealStatus =
   | 'draft'
@@ -25,8 +25,8 @@ export type DealStatus =
   | 'documents_complete'
   | 'dispute_open'
   | 'dispute_resolved'
-  | 'partial_release'
-  | 'final_released'
+  | 'partial_bank_basis'
+  | 'bank_basis_confirmed'
   | 'closed';
 
 export interface Counterparty {
@@ -91,7 +91,7 @@ export interface Deal {
 export interface MoneyEvent {
   id: EntityId;
   dealId: EntityId;
-  type: 'reserve_requested' | 'reserve_confirmed' | 'hold' | 'partial_release' | 'final_release' | 'refund' | 'reconciliation_gap';
+  type: 'reserve_requested' | 'reserve_confirmed' | 'hold' | 'partial_bank_basis' | 'final_bank_basis' | 'refund' | 'reconciliation_gap';
   amountCents: MoneyCents;
   idempotencyKey: string;
   bankReference?: string;
@@ -180,7 +180,7 @@ export interface DealTimelineEvent {
   statusBefore: DealStatus;
   statusAfter: DealStatus;
   message: string;
-  mode: Exclude<PlatformMode, 'live'>;
+  mode: PlatformMode;
   idempotencyKey?: string;
   createdAt: ISODateTime;
 }
