@@ -46,6 +46,12 @@ function actorForRole(role: PlatformV7AccessRole): PlatformV7AccessActor {
   };
 }
 
+function surfaceLabel(surface: PlatformV7GuardedSurface) {
+  if (surface === 'bank_workspace') return 'денежному контуру';
+  if (surface === 'driver_field') return 'полевому контуру';
+  return 'сводному контуру';
+}
+
 export function RbacGuard({ surface, children }: { surface: PlatformV7GuardedSurface; children: ReactNode }) {
   const actor = actorForRole(roleFromCookie(surface));
   const result = evaluatePlatformV7RouteGuard(platformV7RouteGuardRequest(surface, actor));
@@ -54,10 +60,10 @@ export function RbacGuard({ surface, children }: { surface: PlatformV7GuardedSur
     return (
       <section data-testid={`platform-v7-rbac-denied-${surface}`} style={deniedShell}>
         <h1 style={title}>Доступ ограничен</h1>
-        <p style={text}>{result.reason}</p>
-        <pre data-testid="platform-v7-rbac-denied-payload" style={payload}>
-          {JSON.stringify(result.deniedPayload, null, 2)}
-        </pre>
+        <p style={text}>Текущая роль не имеет доступа к {surfaceLabel(surface)} в рамках серверной политики доступа.</p>
+        <div style={nextStep}>
+          Открой свой кабинет или вернись к сделкам. Техническая запись отказа сохраняется во внутреннем журнале платформы.
+        </div>
       </section>
     );
   }
@@ -88,10 +94,13 @@ const text = {
   lineHeight: 1.45,
 } as const;
 
-const payload = {
-  margin: 0,
-  overflowX: 'auto',
-  whiteSpace: 'pre-wrap',
+const nextStep = {
+  padding: '10px 12px',
+  borderRadius: 12,
+  background: '#FFFFFF',
+  border: '1px solid #FECACA',
+  color: '#991B1B',
   fontSize: 12,
-  lineHeight: 1.4,
+  lineHeight: 1.45,
+  fontWeight: 700,
 } as const;
