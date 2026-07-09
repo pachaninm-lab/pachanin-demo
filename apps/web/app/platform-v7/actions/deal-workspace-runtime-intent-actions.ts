@@ -1,11 +1,12 @@
+'use server';
+
 import { selectDealById, selectDisputesByDealId } from '@/lib/domain/selectors';
 import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key-helper';
 import type { PlatformV7MoneyTree } from '@/lib/platform-v7/money-tree';
 import { platformV7CreateDocumentMatrix } from '@/lib/platform-v7/document-matrix';
-import { createP7RuntimeServerActions } from '@/lib/platform-v7/runtime/application-service';
 import { createP7MockRuntimeStore } from '@/lib/platform-v7/runtime/mock-persistence-adapter';
 import type { P7PersistedRecord } from '@/lib/platform-v7/runtime/persistence-ports';
-import type { P7RuntimeActionResult } from './runtime-actions';
+import { createP7RuntimeServerActions, type P7RuntimeActionResult } from './runtime-actions';
 import type { P7DealWorkspaceRuntimeIntentId } from '@/lib/platform-v7/deal-workspace-runtime-intents';
 
 export interface P7DealWorkspaceRuntimeIntentActionInput {
@@ -39,7 +40,7 @@ function recordVersion(resourceType: string, resourceId: string) {
 }
 
 function toActionResult(result: P7RuntimeActionResult, successMessage: string): P7DealWorkspaceRuntimeIntentActionResult {
-  if (result.ok) {
+  if (result.ok === true) {
     return {
       ok: true,
       status: result.status,
@@ -144,8 +145,6 @@ function baseDto(dealId: string, resourceType: 'money' | 'document' | 'dispute',
 }
 
 export async function executeP7DealWorkspaceRuntimeIntentAction(input: P7DealWorkspaceRuntimeIntentActionInput): Promise<P7DealWorkspaceRuntimeIntentActionResult> {
-  'use server';
-
   const deal = selectDealById(input.dealId);
   if (!deal) return failure('not_found', `Сделка ${input.dealId} не найдена.`);
 
