@@ -35,7 +35,7 @@ export function calculateControlTowerKpi(deals: readonly CanonicalDeal[]): Contr
   const disputedDeals = deals.filter((deal) => deal.status === 'DISPUTED').length;
   const blockedDeals = deals.filter((deal) => deal.blockers.length > 0).length;
   const readyToRelease = deals
-    .filter((deal) => deal.status === 'RELEASE_PENDING' && deal.blockers.length === 0)
+    .filter((deal) => deal.status === 'BANK_BASIS_REQUESTED' && deal.blockers.length === 0)
     .reduce((sum, deal) => sum + deal.money.releaseAmount, 0);
   const riskScores = deals.map((deal) => deal.riskScore);
   const riskSum = riskScores.reduce((sum, score) => sum + score, 0);
