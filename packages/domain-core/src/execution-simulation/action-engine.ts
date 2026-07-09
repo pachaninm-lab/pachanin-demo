@@ -200,14 +200,14 @@ function requestReserve(state: DomainExecutionState, command: PlatformActionComm
   const now = command.now || new Date().toISOString();
   const deal = findDeal(state, requireString(command.payload, 'dealId'));
   const before = { ...deal };
-  const to = deal.status === 'SIGNED' ? 'RESERVE_REQUESTED' : 'PAYMENT_RELEASE_REQUESTED';
+  const to = deal.status === 'SIGNED' ? 'RESERVE_REQUESTED' : 'BANK_BASIS_REQUESTED';
   const transition = transitionDeal(state, deal, to, command);
   if (!transition.ok || !transition.deal) throw new Error(transition.error?.message || 'Reserve request blocked');
   replaceDeal(state, transition.deal);
   state.moneyEvents.push({
     id: createId('ME', now, String(state.moneyEvents.length + 1)),
     dealId: deal.id,
-    type: 'reserve_requested',
+    type: to === 'RESERVE_REQUESTED' ? 'reserve_requested' : 'bank_basis_requested',
     amountRub: deal.volumeTonnes * deal.pricePerTonneRub,
     status: 'pending',
     idempotencyKey: command.idempotencyKey,
@@ -221,7 +221,7 @@ function confirmReserve(state: DomainExecutionState, command: PlatformActionComm
   const now = command.now || new Date().toISOString();
   const deal = findDeal(state, requireString(command.payload, 'dealId'));
   const before = { ...deal };
-  const to = deal.status === 'RESERVE_REQUESTED' ? 'RESERVE_CONFIRMED' : deal.status === 'PAYMENT_RELEASE_REQUESTED' ? 'FINAL_RELEASED' : deal.status === 'FINAL_RELEASED' ? 'CLOSED' : 'RESERVE_CONFIRMED';
+  const to = deal.status === 'RESERVE_REQUESTED' ? 'RESERVE_CONFIRMED' : deal.status === 'BANK_BASIS_REQUESTED' ? 'BANK_BASIS_CONFIRMED' : deal.status === 'BANK_BASIS_CONFIRMED' ? 'CLOSED' : 'RESERVE_CONFIRMED';
   const transitionInput = to === 'RESERVE_CONFIRMED' ? { ...deal, reserveConfirmed: true } : deal;
   const transition = transitionDeal(state, transitionInput, to, command);
   if (!transition.ok || !transition.deal) throw new Error(transition.error?.message || 'Reserve confirmation blocked');
@@ -230,7 +230,7 @@ function confirmReserve(state: DomainExecutionState, command: PlatformActionComm
   state.moneyEvents.push({
     id: createId('ME', now, String(state.moneyEvents.length + 1)),
     dealId: deal.id,
-    type: to === 'RESERVE_CONFIRMED' ? 'reserve_confirmed' : 'final_release',
+    type: to === 'RESERVE_CONFIRMED' ? 'reserve_confirmed' : 'final_bank_basis',
     amountRub: deal.volumeTonnes * deal.pricePerTonneRub,
     status: 'confirmed',
     idempotencyKey: command.idempotencyKey,
