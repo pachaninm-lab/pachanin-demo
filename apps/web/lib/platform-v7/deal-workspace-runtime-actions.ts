@@ -1,6 +1,8 @@
 import type { DomainDeal } from '@/lib/domain/types';
+import type { PlatformV7ApiBoundaryId } from './api-boundary-contracts';
 import type { PlatformV7ActionTarget } from './action-targets';
 import type { PlatformV7DealWorkspaceActionId } from './deal-workspace-actions';
+import { buildPlatformV7IdempotencyKey } from './idempotency-key-helper';
 import type {
   P7BankBasisRequestDto,
   P7BankBasisSendRequestDto,
@@ -87,10 +89,19 @@ function stableToken(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9а-яё]+/giu, '-').replace(/^-+|-+$/g, '') || 'unknown';
 }
 
-function baseDto(input: P7DealWorkspaceRuntimeActionBuildInput, operation: string): P7RuntimeRequestBaseDto {
+function boundaryFor(workspaceActionId: PlatformV7DealWorkspaceActionId): PlatformV7ApiBoundaryId {
+  if (workspaceActionId === 'request-release' || workspaceActionId === 'release-funds') return 'mark_bank_basis_ready';
+  if (workspaceActionId === 'complete-documents') return 'accept_document';
+  if (workspaceActionId === 'open-dispute') return 'open_dispute';
+  if (workspaceActionId === 'resolve-dispute') return 'resolve_dispute';
+  return 'upload_document';
+}
+
+function baseDto(input: P7DealWorkspaceRuntimeActionBuildInput, operation: string, amountMinor = 0): P7RuntimeRequestBaseDto {
   const dealToken = stableToken(input.deal.id);
   const targetToken = stableToken(input.target.id);
   const opToken = stableToken(operation);
+  const workspaceActionId = input.target.workspaceActionId ?? 'start-documents';
 
   return {
     actor: input.actor,
@@ -109,7 +120,15 @@ function baseDto(input: P7DealWorkspaceRuntimeActionBuildInput, operation: strin
       reason: `deal-workspace-runtime:${input.target.id}:${operation}`,
     },
     idempotency: {
-      idempotencyKey: `p7-${dealToken}-${targetToken}-${opToken}`,
+      idempotencyKey: buildPlatformV7IdempotencyKey({
+        boundaryId: boundaryFor(workspaceActionId),
+        actorId: input.actor.actorId,
+        entityId: input.deal.id,
+        dealId: input.deal.id,
+        amountMinor,
+        currency: amountMinor > 0 ? 'RUB' : 'none',
+        attemptId: `${targetToken}-${opToken}`,
+      }),
       operationId: `op-${dealToken}-${targetToken}-${opToken}`,
     },
   };
@@ -154,7 +173,7 @@ export function buildP7DealWorkspaceRuntimeActionRequest(input: P7DealWorkspaceR
       workspaceActionId,
       channel: 'money',
       action: 'request_bank_basis',
-      dto: { ...baseDto(input, 'request_bank_basis'), amount, currency: 'RUB' },
+      dto: { ...baseDto(input, 'request_bank_basis', amount), amount, currency: 'RUB' },
       safePath: 'UI → executeP7RuntimeMoneyAction(request_bank_basis) → money execution service → action boundary → audit/event log.',
     };
   }
@@ -169,7 +188,7 @@ export function buildP7DealWorkspaceRuntimeActionRequest(input: P7DealWorkspaceR
       workspaceActionId,
       channel: 'bankBasisWorkflow',
       action: 'send_basis_to_bank',
-      dto: { ...baseDto(input, 'send_basis_to_bank'), basisDocumentIds },
+      dto: { ...baseDto(input, 'send_basis_to_bank', bankBasisAmount(input.deal)), basisDocumentIds },
       safePath: 'UI → executeP7RuntimeBankBasisWorkflowAction(send_basis_to_bank) → bank basis workflow service → audit/event log. The platform does not release money directly.',
     };
   }
