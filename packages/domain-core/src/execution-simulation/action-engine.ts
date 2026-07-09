@@ -19,17 +19,17 @@ import { transitionDeal } from './state-machine';
 type ActionOutcome = { entityId: string; dealId?: string; before?: unknown; after?: unknown };
 type ActionHandler = (state: DomainExecutionState, command: PlatformActionCommand) => ActionOutcome;
 
-const simulationActionMessages: Record<PlatformActionType, string> = {
-  createLot: 'Лот создан в предынтеграционном контуре',
-  publishLot: 'Лот опубликован в предынтеграционном контуре',
-  acceptOffer: 'Оффер акцептован в предынтеграционном контуре',
-  createDeal: 'Сделка создана в предынтеграционном контуре',
-  requestReserve: 'Запрошен резерв средств в предынтеграционном контуре',
-  confirmReserve: 'Резерв средств подтверждён в предынтеграционном контуре',
-  assignDriver: 'Водитель назначен в предынтеграционном контуре',
-  confirmArrival: 'Прибытие подтверждено в предынтеграционном контуре',
-  createLabProtocol: 'Лабораторный протокол создан в предынтеграционном контуре',
-  openDispute: 'Спор открыт в предынтеграционном контуре'
+const executionActionMessages: Record<PlatformActionType, string> = {
+  createLot: 'Лот создан во внутреннем контуре исполнения',
+  publishLot: 'Лот опубликован во внутреннем контуре исполнения',
+  acceptOffer: 'Оффер акцептован во внутреннем контуре исполнения',
+  createDeal: 'Сделка создана во внутреннем контуре исполнения',
+  requestReserve: 'Запрошено банковское основание резерва',
+  confirmReserve: 'Банковское основание резерва подтверждено',
+  assignDriver: 'Водитель назначен во внутреннем контуре исполнения',
+  confirmArrival: 'Прибытие подтверждено во внутреннем контуре исполнения',
+  createLabProtocol: 'Лабораторный протокол создан во внутреннем контуре исполнения',
+  openDispute: 'Спор открыт во внутреннем контуре исполнения'
 };
 
 const allowedRolesByAction: Record<PlatformActionType, string[]> = {
@@ -85,7 +85,7 @@ function appendAuditAndTimeline(
   dealId?: string
 ): { auditEvent: AuditEvent; timelineEvent?: DealTimelineEvent } {
   const now = command.now || new Date().toISOString();
-  const runtimeLabel = command.runtimeLabel || 'sandbox';
+  const runtimeLabel = command.runtimeLabel || 'manual';
   const auditEvent: AuditEvent = {
     id: createId('AE', now, String(state.auditEvents.length + 1).padStart(3, '0')),
     actionType: command.type,
@@ -105,7 +105,7 @@ function appendAuditAndTimeline(
     ? {
         id: createId('TL', now, String(state.dealTimeline.length + 1).padStart(3, '0')),
         dealId,
-        title: simulationActionMessages[command.type],
+        title: executionActionMessages[command.type],
         actionType: command.type,
         actorId: command.actor.id,
         actorRole: command.actor.role,
@@ -143,7 +143,7 @@ function createLot(state: DomainExecutionState, command: PlatformActionCommand):
     qualityClass: String(payload.qualityClass || '3 класс'),
     status: 'draft',
     createdAt: now,
-    runtimeLabel: command.runtimeLabel || 'sandbox'
+    runtimeLabel: command.runtimeLabel || 'manual'
   };
   state.lots.push(lot);
   return { entityId: lot.id, after: lot };
@@ -188,7 +188,7 @@ function createDeal(state: DomainExecutionState, command: PlatformActionCommand)
     weightConfirmed: false,
     isDegraded: false,
     ownerRole: 'operator',
-    runtimeLabel: command.runtimeLabel || 'sandbox',
+    runtimeLabel: command.runtimeLabel || 'manual',
     updatedAt: now
   };
   state.deals.push(deal);
@@ -212,7 +212,7 @@ function requestReserve(state: DomainExecutionState, command: PlatformActionComm
     status: 'pending',
     idempotencyKey: command.idempotencyKey,
     createdAt: now,
-    runtimeLabel: command.runtimeLabel || 'sandbox'
+    runtimeLabel: command.runtimeLabel || 'manual'
   } satisfies MoneyEvent);
   return { entityId: deal.id, dealId: deal.id, before, after: transition.deal };
 }
@@ -234,9 +234,9 @@ function confirmReserve(state: DomainExecutionState, command: PlatformActionComm
     amountRub: deal.volumeTonnes * deal.pricePerTonneRub,
     status: 'confirmed',
     idempotencyKey: command.idempotencyKey,
-    bankEventId: `SBER-SANDBOX-${command.idempotencyKey}`,
+    bankEventId: `BANK-MANUAL-${command.idempotencyKey}`,
     createdAt: now,
-    runtimeLabel: command.runtimeLabel || 'sandbox'
+    runtimeLabel: command.runtimeLabel || 'manual'
   } satisfies MoneyEvent);
   return { entityId: deal.id, dealId: deal.id, before, after: updated };
 }
@@ -258,7 +258,7 @@ function assignDriver(state: DomainExecutionState, command: PlatformActionComman
     routeId: String(command.payload.routeId || `R-${deal.id}`),
     status: 'assigned',
     etaAt: command.payload.etaAt ? String(command.payload.etaAt) : undefined,
-    runtimeLabel: command.runtimeLabel || 'sandbox'
+    runtimeLabel: command.runtimeLabel || 'manual'
   } satisfies TransportPack);
   return { entityId: deal.id, dealId: deal.id, before, after: updated };
 }
@@ -276,11 +276,11 @@ function confirmArrival(state: DomainExecutionState, command: PlatformActionComm
     id: createId('EV', now, String(state.evidence.length + 1)),
     dealId: deal.id,
     type: target === 'ARRIVED' ? 'arrival' : 'gps',
-    title: `Sandbox ${target.toLowerCase()} evidence`,
+    title: `Доказательство ${target.toLowerCase()}`,
     hash: `sha256-${deal.id}-${target}-${state.evidence.length + 1}`,
     capturedAt: now,
     actorId: command.actor.id,
-    runtimeLabel: command.runtimeLabel || 'sandbox'
+    runtimeLabel: command.runtimeLabel || 'manual'
   } satisfies Evidence);
   return { entityId: deal.id, dealId: deal.id, before, after: updated };
 }
@@ -306,7 +306,7 @@ function createLabProtocol(state: DomainExecutionState, command: PlatformActionC
       natureGramPerLiter: Number(command.payload.natureGramPerLiter || 750),
       status: 'issued',
       createdAt: now,
-      runtimeLabel: command.runtimeLabel || 'sandbox'
+      runtimeLabel: command.runtimeLabel || 'manual'
     } satisfies LabProtocol);
   }
 
@@ -322,7 +322,7 @@ function createLabProtocol(state: DomainExecutionState, command: PlatformActionC
       hash: `sha256-lab-doc-${deal.id}`,
       signerIds: [command.actor.id],
       createdAt: now,
-      runtimeLabel: command.runtimeLabel || 'sandbox'
+      runtimeLabel: command.runtimeLabel || 'manual'
     } satisfies Document);
   }
   return { entityId: deal.id, dealId: deal.id, before, after: updated };
@@ -343,10 +343,10 @@ function openDispute(state: DomainExecutionState, command: PlatformActionCommand
     status: 'open',
     evidenceIds: Array.isArray(command.payload.evidenceIds) ? command.payload.evidenceIds.map(String) : [],
     createdAt: now,
-    runtimeLabel: command.runtimeLabel || 'sandbox'
+    runtimeLabel: command.runtimeLabel || 'manual'
   };
   state.disputes.push(dispute);
-  const updated = { ...transition.deal, openDisputeId: dispute.id, blocker: 'Открыт спор: финальный выпуск средств заблокирован', ownerRole: 'arbitrator' as const };
+  const updated = { ...transition.deal, openDisputeId: dispute.id, blocker: 'Открыт спор: банковское основание заблокировано', ownerRole: 'arbitrator' as const };
   replaceDeal(state, updated);
   return { entityId: dispute.id, dealId: deal.id, before, after: dispute };
 }
@@ -396,7 +396,7 @@ export function runPlatformAction(state: DomainExecutionState, command: Platform
     return {
       ok: true,
       state: nextState,
-      toast: { type: 'success', message: simulationActionMessages[command.type] },
+      toast: { type: 'success', message: executionActionMessages[command.type] },
       auditEvent,
       timelineEvent
     };
@@ -404,8 +404,8 @@ export function runPlatformAction(state: DomainExecutionState, command: Platform
     return {
       ok: false,
       state: beforeState,
-      toast: { type: 'error', message: error instanceof Error ? error.message : 'Simulation action failed' },
-      error: error instanceof Error ? error.message : 'Simulation action failed'
+      toast: { type: 'error', message: error instanceof Error ? error.message : 'Проверка действия не выполнена' },
+      error: error instanceof Error ? error.message : 'Проверка действия не выполнена'
     };
   }
 }
