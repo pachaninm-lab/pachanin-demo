@@ -153,8 +153,24 @@ html:has(.p7-support-chat-panel) .p7-support-chat-button {
   }
 
   html body .p7-support-chat-head strong {
-    font-size: 13px !important;
-    line-height: 1.1 !important;
+    position: relative !important;
+    display: block !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    letter-spacing: 0 !important;
+  }
+
+  html body .p7-support-chat-head strong::before {
+    content: 'Поддержка' !important;
+    display: block !important;
+    color: #fff !important;
+    font-size: 17px !important;
+    line-height: 1.08 !important;
+    font-weight: 950 !important;
+    letter-spacing: -0.02em !important;
   }
 
   html body .p7-support-chat-form {
