@@ -18,8 +18,8 @@ export type PlatformV7ExecutionCommandId =
   | 'open_incident'
   | 'open_dispute'
   | 'resolve_dispute'
-  | 'mark_money_ready_to_release'
-  | 'confirm_money_released';
+  | 'mark_bank_basis_ready'
+  | 'confirm_bank_basis';
 
 export type PlatformV7ExecutionCommandContract = {
   readonly id: PlatformV7ExecutionCommandId;
@@ -279,34 +279,34 @@ export const PLATFORM_V7_EXECUTION_COMMANDS: readonly PlatformV7ExecutionCommand
     summary: 'Dispute resolution must point to decision, money impact and audit event.',
   },
   {
-    id: 'mark_money_ready_to_release',
-    label: 'Передать на банковскую проверку выплаты',
+    id: 'mark_bank_basis_ready',
+    label: 'Передать на проверку банковского основания',
     actorRoles: ['bank', 'operator'],
     entity: 'money',
     from: 'reserved',
-    to: 'ready_to_release',
+    to: 'bank_basis_ready',
     guard: 'documents_required',
     requiresDealId: true,
     requiresAuditEvent: true,
     requiresIdempotencyKey: true,
     affectsMoney: true,
     persistenceEntity: 'money_record',
-    summary: 'Money can become ready to release only after document and acceptance evidence boundaries.',
+    summary: 'Money can become bank-basis ready only after document and acceptance evidence boundaries.',
   },
   {
-    id: 'confirm_money_released',
-    label: 'Подтвердить банковская проверка выплаты',
+    id: 'confirm_bank_basis',
+    label: 'Подтвердить банковское основание',
     actorRoles: ['bank'],
     entity: 'money',
-    from: 'ready_to_release',
-    to: 'released',
+    from: 'bank_basis_ready',
+    to: 'bank_basis_confirmed',
     guard: 'external_confirmation_required',
     requiresDealId: true,
     requiresAuditEvent: true,
     requiresIdempotencyKey: true,
     affectsMoney: true,
     persistenceEntity: 'money_record',
-    summary: 'Money release requires bank confirmation; platform only records the confirmed boundary.',
+    summary: 'Bank basis requires bank confirmation; platform only records the confirmed boundary.',
   },
 ];
 
