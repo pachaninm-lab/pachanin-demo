@@ -34,7 +34,7 @@ describe('platform-v7 root working entry', () => {
     expect(page).toContain('flex:0 0 172px');
     expect(page).toContain("className='entry-register-cta'");
     expect(page).toContain("href='/platform-v7/register'");
-    expect(page).toContain('color:#fff!important;background:#087a3b');
+    expect(page).toContain('.entry-primary-cta{color:#fff;background:linear-gradient(135deg,#087a3b,#0b6a37)');
     expect(mobileShell).toContain('html:has(input:focus, textarea:focus, select:focus)');
     expect(mobileShell).toContain('.pc-v7-role-dock');
     expect(mobileShell).toContain('.p7-support-chat-button');
