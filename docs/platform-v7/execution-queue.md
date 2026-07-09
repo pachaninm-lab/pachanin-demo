@@ -21,9 +21,11 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
-REQUESTED IMPLEMENTATION SCOPE — NOT WRITTEN IN THIS PR:
-- `apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts`
-- `apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts`
+REQUESTED SCOPE:
+- Future implementation file, not written in this PR:
+  - `apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts`
+- Future test file, not written in this PR:
+  - `apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts`
 
 STILL LOCKED:
 - `apps/api/prisma/schema.prisma`
