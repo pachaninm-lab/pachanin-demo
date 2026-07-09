@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.6 Runtime Persistence Repository Adapter Scope Selection.
+CURRENT: VP-3.7 Runtime Persistence Repository Adapter Contract Plan.
 
-GOAL: Выбрать точный безопасный scope для следующего слоя runtime persistence repository adapter, не открывая широкий backend/API/DB доступ и не создавая скрытую production migration.
+GOAL: Зафиксировать точный implementation contract для runtime persistence repository adapter до написания кода, чтобы следующий слой не открыл широкий backend/API/DB scope и не создал скрытую production migration.
 
 CURRENT STATUS:
 - VP-2.5 is complete: all 260 web unit tests pass (pnpm --filter web test → 260/260).
@@ -11,7 +11,8 @@ CURRENT STATUS:
 - VP-3 Runtime Refresh Snapshot is complete from #2211.
 - VP-3 Process Runtime Store is complete from #2212.
 - VP-3.5 Runtime DB Contract is merged from #2213 as contract-only, not a live production DB migration.
-- VP-3.6 is scope-selection only: it must not write repository adapter code yet.
+- VP-3.6 Runtime Persistence Scope Selection is merged from #2214.
+- VP-3.7 is docs-only: it defines the repository adapter contract before implementation writes.
 - #2113 remains open: repository settings cleanup.
 - #2115 remains open: backend register role assignment hardening remains blocked by the current auth-file write path.
 
@@ -19,31 +20,49 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
+REPOSITORY ADAPTER CONTRACT PLAN:
+- Proposed implementation file, not allowed in this PR:
+  - `apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts`
+- Proposed test file, not allowed in this PR:
+  - `apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts`
+- Proposed adapter responsibility:
+  - accept `P7DealWorkspaceRuntimeDbContract` produced by `buildP7DealWorkspaceRuntimeDbContract`;
+  - persist a runtime snapshot record only through an explicit repository boundary;
+  - return a typed persistence receipt with `recordId`, `runtimeSnapshotId`, `idempotencyKey`, `state`, `savedAt`, `outboxEntryId`, `auditEventId`;
+  - treat duplicated `idempotencyKey` as duplicate-safe success or explicit duplicate state, never as a second write;
+  - preserve `ready_to_persist`, `outbox_required`, `audit_required`, `fully_linked` states;
+  - require outbox and audit linkage before `fully_linked`;
+  - never move money directly from UI;
+  - never claim live bank/FGIS/EDO persistence.
+- Transaction boundary requirement:
+  - DB snapshot write, outbox entry write and audit event write must be designed as one atomic transaction in the later implementation layer;
+  - if atomic implementation is not yet available, the adapter must return `outbox_required` or `audit_required`, not fake `fully_linked`.
+- Migration boundary requirement:
+  - `apps/api/prisma/schema.prisma` stays locked until a separate explicit migration PR;
+  - `apps/api/prisma/migrations/**` stays locked until a separate explicit migration PR;
+  - contract SQL under `apps/api/prisma/contracts/**` is not a production migration.
+- Concurrency and scale requirement:
+  - persistence must rely on unique `idempotencyKey` and unique `runtimeSnapshotId`;
+  - repeated clicks, refreshes, retries and worker redelivery must not create duplicate evidence;
+  - future implementation must be safe under concurrent users and repeated server action retries.
+
 NEXT:
-- Layer: VP-3.7 Runtime Persistence Repository Adapter Contract Plan.
-- Goal: зафиксировать точный implementation contract for repository adapter, outbox writer and audit writer before allowing code writes into runtime persistence files.
+- Layer: VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request.
+- Goal: запросить точечное разблокирование implementation files only after this contract plan is merged, still without schema.prisma/migration writes.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - name exact repository adapter files before code changes;
-  - name exact unit tests before code changes;
-  - keep `apps/api/prisma/schema.prisma` locked until a separate explicit migration PR;
-  - keep `apps/api/prisma/migrations/**` locked until migration PR;
+  - request exact implementation files;
+  - keep `apps/api/prisma/schema.prisma` locked;
+  - keep `apps/api/prisma/migrations/**` locked;
   - keep direct UI money movement forbidden;
   - keep hidden DB migration forbidden;
-  - keep DB contract explicit;
   - keep outbox/audit linkage mandatory before fully_linked state;
   - keep bank/FGIS/EDO live claims forbidden;
   - guard-tests remain green;
   - pnpm --filter web test remains green;
   - maturity language remains platform-temporarily-without-external-integrations.
-
-IMPLEMENTATION CANDIDATES — NOT ALLOWED YET:
-- apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts
-- apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts
-- apps/api/prisma/schema.prisma
-- apps/api/prisma/migrations/**
 
 ORDER:
 1. Stable shell boundary is active from #2038.
@@ -79,3 +98,4 @@ ORDER:
 31. VP-3 Runtime Refresh Snapshot is active from #2211.
 32. VP-3 Process Runtime Store is active from #2212.
 33. VP-3.5 Runtime DB Contract is active from #2213.
+34. VP-3.6 Runtime Persistence Scope Selection is active from #2214.
