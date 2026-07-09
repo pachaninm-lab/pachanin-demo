@@ -8,6 +8,10 @@ import { createP7MockRuntimeStore } from '@/lib/platform-v7/runtime/mock-persist
 import type { P7PersistedRecord } from '@/lib/platform-v7/runtime/persistence-ports';
 import { createP7RuntimeServerActions, type P7RuntimeActionResult } from './runtime-actions';
 import type { P7DealWorkspaceRuntimeIntentId } from '@/lib/platform-v7/deal-workspace-runtime-intents';
+import {
+  buildP7DealWorkspaceRuntimeRefreshSnapshot,
+  type P7DealWorkspaceRuntimeRefreshSnapshot,
+} from '@/lib/platform-v7/deal-workspace-runtime-snapshot';
 
 export interface P7DealWorkspaceRuntimeIntentActionInput {
   readonly dealId: string;
@@ -23,6 +27,7 @@ export interface P7DealWorkspaceRuntimeIntentActionResult {
   readonly boundaryStatus?: string;
   readonly boundaryCode?: string;
   readonly boundaryReason?: string;
+  readonly refreshSnapshot: P7DealWorkspaceRuntimeRefreshSnapshot;
 }
 
 const ACTOR = {
@@ -39,7 +44,24 @@ function recordVersion(resourceType: string, resourceId: string) {
   return { resourceType, resourceId, version: `vp3-${resourceType}-${resourceId}`, updatedAt: now() };
 }
 
-function toActionResult(result: P7RuntimeActionResult, successMessage: string): P7DealWorkspaceRuntimeIntentActionResult {
+function snapshot(input: {
+  readonly dealId: string;
+  readonly intentId: P7DealWorkspaceRuntimeIntentId;
+  readonly ok: boolean;
+  readonly status: string;
+  readonly duplicate: boolean;
+  readonly auditPayloadCount: number;
+  readonly boundaryStatus?: string;
+}): P7DealWorkspaceRuntimeRefreshSnapshot {
+  return buildP7DealWorkspaceRuntimeRefreshSnapshot(input);
+}
+
+function toActionResult(
+  result: P7RuntimeActionResult,
+  successMessage: string,
+  dealId: string,
+  intentId: P7DealWorkspaceRuntimeIntentId,
+): P7DealWorkspaceRuntimeIntentActionResult {
   if (result.ok === true) {
     return {
       ok: true,
@@ -50,6 +72,7 @@ function toActionResult(result: P7RuntimeActionResult, successMessage: string): 
       boundaryStatus: result.meta.boundaryStatus,
       boundaryCode: result.meta.boundaryCode,
       boundaryReason: result.meta.boundaryReason,
+      refreshSnapshot: snapshot({ dealId, intentId, ok: true, status: result.status, duplicate: result.duplicate, auditPayloadCount: result.auditPayloads.length, boundaryStatus: result.meta.boundaryStatus }),
     };
   }
 
@@ -62,11 +85,19 @@ function toActionResult(result: P7RuntimeActionResult, successMessage: string): 
     boundaryStatus: result.meta.boundaryStatus,
     boundaryCode: result.meta.boundaryCode,
     boundaryReason: result.meta.boundaryReason,
+    refreshSnapshot: snapshot({ dealId, intentId, ok: false, status: result.status, duplicate: result.duplicate, auditPayloadCount: result.auditPayloads.length, boundaryStatus: result.meta.boundaryStatus }),
   };
 }
 
-function failure(status: string, message: string): P7DealWorkspaceRuntimeIntentActionResult {
-  return { ok: false, status, message, auditPayloadCount: 0, duplicate: false };
+function failure(dealId: string, intentId: P7DealWorkspaceRuntimeIntentId, status: string, message: string): P7DealWorkspaceRuntimeIntentActionResult {
+  return {
+    ok: false,
+    status,
+    message,
+    auditPayloadCount: 0,
+    duplicate: false,
+    refreshSnapshot: snapshot({ dealId, intentId, ok: false, status, duplicate: false, auditPayloadCount: 0 }),
+  };
 }
 
 function moneyTreeRecord(dealId: string, reservedAmount: number, holdAmount: number, totalDealAmount?: number): P7PersistedRecord<PlatformV7MoneyTree> {
@@ -146,7 +177,7 @@ function baseDto(dealId: string, resourceType: 'money' | 'document' | 'dispute',
 
 export async function executeP7DealWorkspaceRuntimeIntentAction(input: P7DealWorkspaceRuntimeIntentActionInput): Promise<P7DealWorkspaceRuntimeIntentActionResult> {
   const deal = selectDealById(input.dealId);
-  if (!deal) return failure('not_found', `Сделка ${input.dealId} не найдена.`);
+  if (!deal) return failure(input.dealId, input.intentId, 'not_found', `Сделка ${input.dealId} не найдена.`);
 
   const disputes = selectDisputesByDealId(deal.id);
   const hasOpenDispute = disputes.some((dispute) => dispute.status === 'open');
@@ -159,10 +190,10 @@ export async function executeP7DealWorkspaceRuntimeIntentAction(input: P7DealWor
   const actions = createP7RuntimeServerActions({ store, now });
 
   if (input.intentId === 'request_bank_basis') {
-    if (amount <= 0) return failure('domain_blocked', 'Нет положительной суммы для банковского основания.');
-    if (deal.holdAmount > 0) return failure('domain_blocked', 'Есть удержание. Нельзя готовить банковское основание без решения по удержанию.');
-    if (deal.blockers.length > 0) return failure('domain_blocked', `Есть блокеры сделки: ${deal.blockers.join(' · ')}.`);
-    if (hasOpenDispute) return failure('domain_blocked', 'Есть открытый спор. Сначала нужно решение и доказательства.');
+    if (amount <= 0) return failure(deal.id, input.intentId, 'domain_blocked', 'Нет положительной суммы для банковского основания.');
+    if (deal.holdAmount > 0) return failure(deal.id, input.intentId, 'domain_blocked', 'Есть удержание. Нельзя готовить банковское основание без решения по удержанию.');
+    if (deal.blockers.length > 0) return failure(deal.id, input.intentId, 'domain_blocked', `Есть блокеры сделки: ${deal.blockers.join(' · ')}.`);
+    if (hasOpenDispute) return failure(deal.id, input.intentId, 'domain_blocked', 'Есть открытый спор. Сначала нужно решение и доказательства.');
 
     const dto = {
       ...baseDto(deal.id, 'money', `bank-basis:${deal.id}`, 'mark_bank_basis_ready', amount),
@@ -170,7 +201,7 @@ export async function executeP7DealWorkspaceRuntimeIntentAction(input: P7DealWor
       currency: 'RUB' as const,
     };
     const result = await actions.money({ action: 'request_bank_basis', dto });
-    return toActionResult(result, 'Основание прошло через runtime/application service. Деньги напрямую не двигались.');
+    return toActionResult(result, 'Основание прошло через runtime/application service. Деньги напрямую не двигались.', deal.id, input.intentId);
   }
 
   if (input.intentId === 'start_document_review') {
@@ -182,15 +213,15 @@ export async function executeP7DealWorkspaceRuntimeIntentAction(input: P7DealWor
       documentMetadata: { type: 'bank_basis', source: 'manual' as const, signatureStatus: 'pending' as const, ownerRole: 'operator' },
     };
     const result = await actions.document({ action: 'mark_manual_review', dto });
-    return toActionResult(result, 'Документный runtime зафиксировал проверку банковского основания.');
+    return toActionResult(result, 'Документный runtime зафиксировал проверку банковского основания.', deal.id, input.intentId);
   }
 
   if (input.intentId === 'open_dispute') {
-    if (hasOpenDispute) return failure('domain_blocked', 'По сделке уже есть открытый спор.');
+    if (hasOpenDispute) return failure(deal.id, input.intentId, 'domain_blocked', 'По сделке уже есть открытый спор.');
     const dto = baseDto(deal.id, 'dispute', `dispute:${deal.id}`, 'open_dispute', 0);
     const result = await actions.disputeSettlement({ action: 'open_dispute', dto });
-    return toActionResult(result, 'Спор прошёл через dispute service без прямого движения денег.');
+    return toActionResult(result, 'Спор прошёл через dispute service без прямого движения денег.', deal.id, input.intentId);
   }
 
-  return failure('validation_error', `Неизвестное действие: ${input.intentId}.`);
+  return failure(deal.id, input.intentId, 'validation_error', `Неизвестное действие: ${input.intentId}.`);
 }
