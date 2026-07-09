@@ -3,6 +3,8 @@
   font-size: 0 !important;
   line-height: 1 !important;
   letter-spacing: 0 !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 .p7-support-chat-head strong::before {
@@ -14,9 +16,11 @@
   letter-spacing: -0.02em;
   color: #fff;
   white-space: nowrap;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
-.p7-support-chat-panel[aria-label='Поддержка Прозрачной Цены'] {
+.p7-support-chat-panel[aria-label] {
   --p7-support-title-ready: 1;
 }
 
