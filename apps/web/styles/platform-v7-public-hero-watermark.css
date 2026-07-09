@@ -1,4 +1,4 @@
-/* Public hero watermark: quiet execution-contour background for the white mobile entry card. */
+/* Public hero image: visible but calm grain-field background for the white mobile entry card. */
 .pc-v7-public-entry .entry-hero-copy {
   isolation: isolate !important;
   overflow: hidden !important;
@@ -12,16 +12,15 @@
 .pc-v7-public-entry .entry-hero-copy::before {
   content: '' !important;
   position: absolute !important;
-  inset: -28px -34px -24px auto !important;
+  inset: 0 !important;
   z-index: 0 !important;
-  width: min(440px, 92%) !important;
   pointer-events: none !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='520' viewBox='0 0 420 520'%3E%3Cpath d='M44 424C98 342 142 322 194 270C250 214 274 144 366 88' fill='none' stroke='%23087a3b' stroke-opacity='.090' stroke-width='7' stroke-linecap='round'/%3E%3Cpath d='M60 462C128 394 172 372 226 318C294 250 314 164 392 116' fill='none' stroke='%23c4912a' stroke-opacity='.070' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M258 70C292 98 328 108 368 104M234 114C286 154 326 160 386 148M208 160C266 204 318 214 392 206M184 210C248 258 304 274 390 270M158 262C222 314 284 334 374 340' fill='none' stroke='%23071611' stroke-opacity='.038' stroke-width='3' stroke-linecap='round'/%3E%3Cg fill='%23087a3b' fill-opacity='.105'%3E%3Ccircle cx='92' cy='356' r='9'/%3E%3Ccircle cx='194' cy='270' r='10'/%3E%3Ccircle cx='274' cy='172' r='8'/%3E%3Ccircle cx='366' cy='88' r='10'/%3E%3C/g%3E%3Cg fill='none' stroke='%23087a3b' stroke-opacity='.065' stroke-width='2'%3E%3Crect x='292' y='306' width='72' height='54' rx='14'/%3E%3Cpath d='M308 325H348M308 342H338'/%3E%3Crect x='72' y='94' width='68' height='68' rx='20'/%3E%3Cpath d='M91 130L104 143L123 112'/%3E%3C/g%3E%3C/svg%3E") !important;
+  background-image: url('/platform-v7/hero-grain-field.svg') !important;
   background-repeat: no-repeat !important;
-  background-position: right top !important;
-  background-size: contain !important;
-  opacity: .72 !important;
-  mix-blend-mode: multiply !important;
+  background-position: 58% center !important;
+  background-size: cover !important;
+  opacity: .88 !important;
+  filter: saturate(.94) contrast(.98) brightness(1.04) !important;
 }
 
 .pc-v7-public-entry .entry-hero-copy::after {
@@ -31,9 +30,8 @@
   z-index: 1 !important;
   pointer-events: none !important;
   background:
-    radial-gradient(circle at 84% 18%, rgba(0,122,47,.060), transparent 30%),
-    radial-gradient(circle at 94% 74%, rgba(196,145,42,.055), transparent 34%),
-    linear-gradient(90deg, rgba(255,255,255,.96) 0%, rgba(255,255,255,.88) 54%, rgba(255,255,255,.58) 100%) !important;
+    linear-gradient(90deg, rgba(255,255,255,.965) 0%, rgba(255,255,255,.925) 44%, rgba(255,255,255,.72) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.82) 0%, rgba(255,255,255,.56) 54%, rgba(255,255,255,.76) 100%) !important;
 }
 
 @media (min-width: 721px) {
@@ -46,20 +44,19 @@
 @media (max-width: 720px) {
   html body .pc-v7-public-entry .entry-hero-copy {
     position: relative !important;
-    background: linear-gradient(180deg, rgba(255,255,255,.925), rgba(252,255,250,.895)) !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(252,255,250,.90)) !important;
   }
 }
 
 @media (max-width: 380px) {
   .pc-v7-public-entry .entry-hero-copy::before {
-    inset: -20px -42px -28px auto !important;
-    width: 96% !important;
-    opacity: .62 !important;
+    background-position: 62% center !important;
+    opacity: .82 !important;
   }
 
   .pc-v7-public-entry .entry-hero-copy::after {
     background:
-      radial-gradient(circle at 86% 18%, rgba(0,122,47,.050), transparent 30%),
-      linear-gradient(90deg, rgba(255,255,255,.97) 0%, rgba(255,255,255,.90) 58%, rgba(255,255,255,.66) 100%) !important;
+      linear-gradient(90deg, rgba(255,255,255,.975) 0%, rgba(255,255,255,.935) 52%, rgba(255,255,255,.78) 100%),
+      linear-gradient(180deg, rgba(255,255,255,.84) 0%, rgba(255,255,255,.60) 52%, rgba(255,255,255,.78) 100%) !important;
   }
 }
