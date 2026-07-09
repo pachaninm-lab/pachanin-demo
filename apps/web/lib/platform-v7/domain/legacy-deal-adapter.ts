@@ -129,7 +129,7 @@ export function normalizeLegacyDeal(deal: LegacyDealFixture): CanonicalDeal {
       canonicalStatus: toCanonicalDealStatus(event.status),
     })),
     documents: deal.documents.map(normalizeDocument),
-    maturity: 'sandbox',
+    maturity: 'manual',
   };
 }
 
