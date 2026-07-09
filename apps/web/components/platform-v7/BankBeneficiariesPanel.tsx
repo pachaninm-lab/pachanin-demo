@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-const MATURITY = 'sandbox';
+const REVIEW_SCOPE_LABEL = 'ручная проверка';
 
 type BeneficiaryStatus = 'verified' | 'pending_kyb' | 'frozen';
 
@@ -19,9 +19,9 @@ interface Beneficiary {
 }
 
 const BENEFICIARIES: Beneficiary[] = [
-  { id: 'ben-001', dealId: 'DL-9101', orgName: 'Sandbox Seller A', role: 'seller', accountAlias: 'ACC-001', bankName: 'Sandbox Bank A', status: 'verified', payoutAmount: 2_976_000 },
-  { id: 'ben-002', dealId: 'DL-9102', orgName: 'Sandbox Seller B', role: 'seller', accountAlias: 'ACC-002', bankName: 'Sandbox Bank A', status: 'pending_kyb', payoutAmount: 2_160_000 },
-  { id: 'ben-003', dealId: 'DL-9103', orgName: 'Sandbox Seller C', role: 'seller', accountAlias: 'ACC-003', bankName: 'Sandbox Bank B', status: 'frozen', frozenReason: 'Sandbox beneficiary change requires repeat review.', payoutAmount: 4_464_000 },
+  { id: 'ben-001', dealId: 'DL-9101', orgName: 'Продавец A', role: 'seller', accountAlias: 'ACC-001', bankName: 'Банк A', status: 'verified', payoutAmount: 2_976_000 },
+  { id: 'ben-002', dealId: 'DL-9102', orgName: 'Продавец B', role: 'seller', accountAlias: 'ACC-002', bankName: 'Банк A', status: 'pending_kyb', payoutAmount: 2_160_000 },
+  { id: 'ben-003', dealId: 'DL-9103', orgName: 'Продавец C', role: 'seller', accountAlias: 'ACC-003', bankName: 'Банк B', status: 'frozen', frozenReason: 'Изменение получателя требует повторного банковского разбора.', payoutAmount: 4_464_000 },
 ];
 
 const S = 'var(--pc-bg-card)';
@@ -46,7 +46,7 @@ function fmt(n: number) {
 function statusTone(status: BeneficiaryStatus) {
   if (status === 'verified') return { bg: BRAND_BG, border: BRAND_BORDER, color: BRAND, label: 'Проверен' };
   if (status === 'pending_kyb') return { bg: WARN_BG, border: WARN_BORDER, color: WARN, label: 'Проверка' };
-  return { bg: ERR_BG, border: ERR_BORDER, color: ERR, label: 'Заморожен' };
+  return { bg: ERR_BG, border: ERR_BORDER, color: ERR, label: 'Удержан' };
 }
 
 export function BankBeneficiariesPanel() {
@@ -57,10 +57,10 @@ export function BankBeneficiariesPanel() {
     <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: M, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Получатели выплат · <span style={{ color: WARN }}>{MATURITY}</span>
+          Получатели банковского основания · <span style={{ color: WARN }}>{REVIEW_SCOPE_LABEL}</span>
         </div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: T, marginTop: 4 }}>Бенефициары</div>
-        {frozen.length > 0 ? <div style={{ marginTop: 4, fontSize: 13, color: ERR, fontWeight: 700 }}>{frozen.length} заморожено · {fmt(frozenAmount)}</div> : null}
+        <div style={{ fontSize: 18, fontWeight: 800, color: T, marginTop: 4 }}>Получатели и реквизиты</div>
+        {frozen.length > 0 ? <div style={{ marginTop: 4, fontSize: 13, color: ERR, fontWeight: 700 }}>{frozen.length} удержано · {fmt(frozenAmount)}</div> : null}
       </div>
 
       <div style={{ display: 'grid', gap: 10 }}>
@@ -76,7 +76,7 @@ export function BankBeneficiariesPanel() {
                 <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color }}>{tone.label}</span>
               </div>
               <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 8 }}>
-                <Cell label='К выплате' value={fmt(item.payoutAmount)} danger={item.status === 'frozen'} />
+                <Cell label='К банковскому основанию' value={fmt(item.payoutAmount)} danger={item.status === 'frozen'} />
                 <Cell label='Счёт' value={item.accountAlias} />
                 <Cell label='Банк' value={item.bankName} />
                 <Cell label='Сделка'><Link href={`/platform-v7/deals/${item.dealId}`} style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 800, color: BRAND, textDecoration: 'none' }}>{item.dealId}</Link></Cell>
