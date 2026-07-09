@@ -6,9 +6,9 @@ export type PlatformV7MoneyOperationType =
   | 'reserve_failed'
   | 'hold_created'
   | 'hold_released'
-  | 'release_requested'
-  | 'release_confirmed'
-  | 'release_failed'
+  | 'bank_basis_requested'
+  | 'bank_basis_confirmed'
+  | 'bank_basis_rejected'
   | 'refund_requested'
   | 'refund_confirmed'
   | 'manual_review_started'
@@ -23,11 +23,11 @@ export type PlatformV7MoneyStatus =
   | 'reserve_failed'
   | 'hold_created'
   | 'manual_review'
-  | 'release_ready'
-  | 'release_requested'
-  | 'release_pending'
-  | 'released'
-  | 'release_failed'
+  | 'bank_basis_ready'
+  | 'bank_basis_requested'
+  | 'bank_basis_pending'
+  | 'bank_basis_confirmed'
+  | 'bank_basis_rejected'
   | 'refund_requested'
   | 'refunded'
   | 'reconciliation_failed';
@@ -79,16 +79,16 @@ export type PlatformV7MoneyValidationCode =
   | 'INVALID_IDEMPOTENCY_KEY'
   | 'DUPLICATE_OPERATION'
   | 'DUPLICATE_IDEMPOTENCY_KEY'
-  | 'AMOUNT_EXCEEDS_READY_TO_RELEASE'
+  | 'AMOUNT_EXCEEDS_BANK_BASIS_READY'
   | 'AMOUNT_EXCEEDS_HELD'
   | 'AMOUNT_EXCEEDS_MANUAL_REVIEW'
-  | 'RELEASE_GATE_BLOCKED'
+  | 'BANK_BASIS_GATE_BLOCKED'
   | 'BANK_CONFIRMATION_REQUIRED'
-  | 'RELEASE_REQUEST_REQUIRED'
+  | 'BANK_BASIS_REQUEST_REQUIRED'
   | 'UNSUPPORTED_OPERATION';
 
-export interface PlatformV7ReleaseGateInput {
-  readonly operationType: 'release_requested' | 'release_confirmed';
+export interface PlatformV7BankBasisGateInput {
+  readonly operationType: 'bank_basis_requested' | 'bank_basis_confirmed';
   readonly bankConfirmationExists: boolean;
   readonly dealStatus: string;
   readonly moneyStatus: PlatformV7MoneyStatus;
@@ -99,10 +99,10 @@ export interface PlatformV7ReleaseGateInput {
   readonly bankReviewStatus: string;
 }
 
-export interface PlatformV7ReleaseGateDecision {
+export interface PlatformV7BankBasisGateDecision {
   readonly allowed: boolean;
   readonly reason: string;
-  readonly nextStatus: 'release_requested' | 'released' | 'blocked';
+  readonly nextStatus: 'bank_basis_requested' | 'bank_basis_confirmed' | 'blocked';
 }
 
 export interface PlatformV7MoneyOperationIdempotencyValidation {
@@ -114,7 +114,7 @@ export interface PlatformV7MoneyOperationIdempotencyValidation {
 export interface PlatformV7MoneyOperationValidationContext {
   readonly tree: PlatformV7MoneyTree;
   readonly operation: PlatformV7MoneyOperation;
-  readonly releaseGate?: PlatformV7ReleaseGateInput;
+  readonly bankBasisGate?: PlatformV7BankBasisGateInput;
   readonly bankConfirmationExists: boolean;
   readonly existingOperationIds?: readonly string[];
   readonly usedIdempotencyKeys?: readonly string[];
@@ -178,7 +178,7 @@ export function platformV7ValidateMoneyTree(tree: PlatformV7MoneyTree): Platform
     return {
       valid: false,
       code: 'INVARIANT_MISMATCH',
-      reason: 'Reserved amount must equal ready, held, manual-review, released and refunded buckets.',
+      reason: 'Reserved amount must equal ready, held, manual-review, confirmed-basis and refunded buckets.',
       expectedReservedAmount,
       actualReservedAmount: tree.reservedAmount,
     };
@@ -193,9 +193,9 @@ export function platformV7ValidateMoneyTree(tree: PlatformV7MoneyTree): Platform
   };
 }
 
-export function platformV7ReleaseGate(input: PlatformV7ReleaseGateInput): PlatformV7ReleaseGateDecision {
-  if (input.dealStatus !== 'release_basis_ready') {
-    return { allowed: false, reason: 'Deal is not at release basis ready status.', nextStatus: 'blocked' };
+export function platformV7BankBasisGate(input: PlatformV7BankBasisGateInput): PlatformV7BankBasisGateDecision {
+  if (input.dealStatus !== 'bank_basis_ready') {
+    return { allowed: false, reason: 'Deal is not at bank basis ready status.', nextStatus: 'blocked' };
   }
 
   if (input.moneyStatus !== 'reserved') {
@@ -222,15 +222,15 @@ export function platformV7ReleaseGate(input: PlatformV7ReleaseGateInput): Platfo
     return { allowed: false, reason: 'Bank review is blocked.', nextStatus: 'blocked' };
   }
 
-  if (input.operationType === 'release_requested') {
-    return { allowed: true, reason: 'Release request can be recorded before bank confirmation.', nextStatus: 'release_requested' };
+  if (input.operationType === 'bank_basis_requested') {
+    return { allowed: true, reason: 'Bank basis request can be recorded before bank confirmation.', nextStatus: 'bank_basis_requested' };
   }
 
   if (!input.bankConfirmationExists) {
-    return { allowed: false, reason: 'Bank confirmation is required before release can be confirmed.', nextStatus: 'blocked' };
+    return { allowed: false, reason: 'Bank confirmation is required before bank basis can be confirmed.', nextStatus: 'blocked' };
   }
 
-  return { allowed: true, reason: 'Bank-confirmed release can move money to released status.', nextStatus: 'released' };
+  return { allowed: true, reason: 'Bank-confirmed basis can be recorded in MoneyTree.', nextStatus: 'bank_basis_confirmed' };
 }
 
 export function platformV7SplitDisputedMoney(reservedAmount: number, disputedAmount: number): Pick<PlatformV7MoneyTree, 'readyToReleaseAmount' | 'heldAmount' | 'manualReviewAmount' | 'releasedAmount' | 'refundedAmount'> {
@@ -279,7 +279,7 @@ export function platformV7ValidateMoneyOperationIdempotency(key: string): Platfo
 export function platformV7ValidateMoneyOperation({
   tree,
   operation,
-  releaseGate,
+  bankBasisGate,
   bankConfirmationExists,
   existingOperationIds = [],
   usedIdempotencyKeys = [],
@@ -316,37 +316,37 @@ export function platformV7ValidateMoneyOperation({
     return invalidMoneyOperation('OVER_RESERVED', 'Reserve operation would exceed total deal amount.');
   }
 
-  if (operation.type === 'release_requested') {
+  if (operation.type === 'bank_basis_requested') {
     if (operation.amount > tree.readyToReleaseAmount) {
-      return invalidMoneyOperation('AMOUNT_EXCEEDS_READY_TO_RELEASE', 'Release request amount exceeds ready-to-release amount.');
+      return invalidMoneyOperation('AMOUNT_EXCEEDS_BANK_BASIS_READY', 'Bank basis request amount exceeds ready-to-basis amount.');
     }
 
-    if (releaseGate && !platformV7ReleaseGate(releaseGate).allowed) {
-      return invalidMoneyOperation('RELEASE_GATE_BLOCKED', 'Release request is blocked by release gate conditions.');
+    if (bankBasisGate && !platformV7BankBasisGate(bankBasisGate).allowed) {
+      return invalidMoneyOperation('BANK_BASIS_GATE_BLOCKED', 'Bank basis request is blocked by bank basis gate conditions.');
     }
 
-    return validMoneyOperation('Release request is valid and does not move money without bank confirmation.');
+    return validMoneyOperation('Bank basis request is valid and does not move money without bank confirmation.');
   }
 
-  if (operation.type === 'release_confirmed') {
+  if (operation.type === 'bank_basis_confirmed') {
     if (!bankConfirmationExists) {
-      return invalidMoneyOperation('BANK_CONFIRMATION_REQUIRED', 'Bank confirmation is required before release can be confirmed.');
+      return invalidMoneyOperation('BANK_CONFIRMATION_REQUIRED', 'Bank confirmation is required before bank basis can be confirmed.');
     }
 
-    if (!(tree.status === 'release_requested' || tree.status === 'release_pending')) {
-      return invalidMoneyOperation('RELEASE_REQUEST_REQUIRED', 'Release confirmation requires a prior release request state.');
+    if (!(tree.status === 'bank_basis_requested' || tree.status === 'bank_basis_pending')) {
+      return invalidMoneyOperation('BANK_BASIS_REQUEST_REQUIRED', 'Bank basis confirmation requires a prior bank basis request state.');
     }
 
     if (operation.amount > tree.readyToReleaseAmount) {
-      return invalidMoneyOperation('AMOUNT_EXCEEDS_READY_TO_RELEASE', 'Confirmed release amount exceeds ready-to-release amount.');
+      return invalidMoneyOperation('AMOUNT_EXCEEDS_BANK_BASIS_READY', 'Confirmed bank basis amount exceeds ready-to-basis amount.');
     }
 
-    return validMoneyOperation('Release confirmation can move ready money to released money.');
+    return validMoneyOperation('Bank basis confirmation can move ready money to confirmed-basis bucket.');
   }
 
   if (operation.type === 'hold_created' || operation.type === 'refund_confirmed' || operation.type === 'manual_review_started') {
     if (operation.amount > tree.readyToReleaseAmount) {
-      return invalidMoneyOperation('AMOUNT_EXCEEDS_READY_TO_RELEASE', 'Operation amount exceeds ready-to-release amount.');
+      return invalidMoneyOperation('AMOUNT_EXCEEDS_BANK_BASIS_READY', 'Operation amount exceeds ready-to-basis amount.');
     }
   }
 
@@ -401,16 +401,16 @@ export function platformV7ApplyMoneyOperation(context: PlatformV7MoneyOperationV
           status: 'reserved',
         },
       };
-    case 'release_requested':
-      return { ...decision, tree: { ...tree, status: 'release_requested' } };
-    case 'release_confirmed':
+    case 'bank_basis_requested':
+      return { ...decision, tree: { ...tree, status: 'bank_basis_requested' } };
+    case 'bank_basis_confirmed':
       return {
         ...decision,
         tree: {
           ...tree,
           readyToReleaseAmount: tree.readyToReleaseAmount - amount,
           releasedAmount: tree.releasedAmount + amount,
-          status: 'released',
+          status: 'bank_basis_confirmed',
         },
       };
     case 'refund_confirmed':
@@ -445,8 +445,8 @@ export function platformV7ApplyMoneyOperation(context: PlatformV7MoneyOperationV
       };
     case 'reserve_failed':
       return { ...decision, tree: { ...tree, status: 'reserve_failed' } };
-    case 'release_failed':
-      return { ...decision, tree: { ...tree, status: 'release_failed' } };
+    case 'bank_basis_rejected':
+      return { ...decision, tree: { ...tree, status: 'bank_basis_rejected' } };
     case 'refund_requested':
       return { ...decision, tree: { ...tree, status: 'refund_requested' } };
     case 'reconciliation_failed':
