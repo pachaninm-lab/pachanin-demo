@@ -19,12 +19,8 @@ E02 is almost complete at the foundation/source-of-truth level. Runtime shell ho
 ## Covered acceptance areas
 
 - One Russian label for Control Tower is centralized as `Центр управления`.
-- Environment labels are centralized:
-  - `Пилотный режим`
-  - `Тестовая среда`
-  - `Демо-данные`
-  - `Боевой контур`
-- Non-production environments cannot be marked as live through `platformV7CanShowAsLive()`.
+- Environment labels are centralized around the current status: `настоящая платформа временно без интеграций`.
+- External integrations are not shown as connected without contracts, access credentials, acceptance and verified operation.
 - Role labels and role routes are centralized.
 - Navigation items by role are centralized.
 - Breadcrumb labels are centralized.
