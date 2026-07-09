@@ -6,10 +6,13 @@ import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 
 type SubmitState = 'idle' | 'sending' | 'sent' | 'error';
 type Topic = 'platform' | 'pilot' | 'bank_partner' | 'region' | 'technical' | 'other';
+type SupportProfile = { name: string; contact: string; organization: string };
+
+const SUPPORT_PROFILE_KEYS = ['pc_v7_support_profile', 'pc_v7_registration_profile', 'pc_v7_profile'];
 
 const TOPICS: { value: Topic; label: string }[] = [
   { value: 'platform', label: 'Платформа' },
-  { value: 'pilot', label: 'Пилот' },
+  { value: 'pilot', label: 'Подключение организации' },
   { value: 'bank_partner', label: 'Банк / партнёр' },
   { value: 'region', label: 'Регион' },
   { value: 'technical', label: 'Технический вопрос' },
@@ -23,6 +26,44 @@ const CONSENT_REQUIRED_ERROR = textFromCodes([1055,1086,1076,1090,1074,1077,1088
 
 function clean(value: string, limit: number) {
   return value.trim().replace(/\s+/g, ' ').slice(0, limit);
+}
+
+function pickText(source: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string') {
+      const cleaned = clean(value, 160);
+      if (cleaned) return cleaned;
+    }
+  }
+  return '';
+}
+
+function parseProfile(raw: string | null): SupportProfile | null {
+  if (!raw) return null;
+  try {
+    const source = JSON.parse(raw) as Record<string, unknown>;
+    const name = pickText(source, ['name', 'fullName', 'fio', 'responsibleName', 'contactName']);
+    const email = pickText(source, ['email', 'login']);
+    const phone = pickText(source, ['phone', 'tel']);
+    const contact = pickText(source, ['contact']) || email || phone;
+    const organization = pickText(source, ['organization', 'company', 'orgName']);
+    if (!name && !contact && !organization) return null;
+    return { name, contact, organization };
+  } catch {
+    return null;
+  }
+}
+
+function readCabinetSupportProfile(): SupportProfile | null {
+  if (typeof window === 'undefined') return null;
+  for (const storage of [window.sessionStorage, window.localStorage]) {
+    for (const key of SUPPORT_PROFILE_KEYS) {
+      const profile = parseProfile(storage.getItem(key));
+      if (profile) return profile;
+    }
+  }
+  return null;
 }
 
 function deliveryError(reason: string) {
@@ -85,6 +126,7 @@ export function ChatSupportWidget() {
   const [consent, setConsent] = React.useState(false);
   const [state, setState] = React.useState<SubmitState>('idle');
   const [error, setError] = React.useState('');
+  const [cabinetProfile, setCabinetProfile] = React.useState<SupportProfile | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -104,15 +146,24 @@ export function ChatSupportWidget() {
     };
   }, [open]);
 
+  React.useEffect(() => {
+    if (!open) return;
+    const profile = readCabinetSupportProfile();
+    setCabinetProfile(profile);
+    if (!profile) return;
+    if (!name.trim() && profile.name) setName(profile.name);
+    if (!contact.trim() && profile.contact) setContact(profile.contact);
+  }, [open, name, contact]);
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const payload = {
       source: 'support_chat',
       type: topic,
-      name: clean(name, 80),
-      organization: '',
-      contact: clean(contact, 120),
+      name: clean(name || cabinetProfile?.name || '', 80),
+      organization: clean(cabinetProfile?.organization || '', 120),
+      contact: clean(contact || cabinetProfile?.contact || '', 120),
       message: message.trim().slice(0, 2000),
       consent: consent ? 'yes' : 'no',
       website: '',
@@ -148,6 +199,8 @@ export function ChatSupportWidget() {
     }
   }
 
+  const hasCabinetIdentity = Boolean((cabinetProfile?.name || name).trim() && (cabinetProfile?.contact || contact).trim());
+
   return (
     <>
       <button className='p7-support-chat-button' type='button' onClick={() => setOpen((value) => !value)} aria-label={open ? 'Закрыть поддержку' : 'Открыть поддержку'}>
@@ -179,17 +232,27 @@ export function ChatSupportWidget() {
                   {TOPICS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
               </label>
-              <label>
-                <span>Имя</span>
-                <input value={name} onChange={(event) => setName(event.target.value)} autoComplete='name' maxLength={80} />
-              </label>
-              <label>
-                <span>Телефон или email</span>
-                <input value={contact} onChange={(event) => setContact(event.target.value)} autoComplete='email' maxLength={120} />
-              </label>
+              {hasCabinetIdentity ? (
+                <section className='p7-support-chat-profile' aria-label='Данные из личного кабинета'>
+                  <span>Данные из ЛК</span>
+                  <strong>{name || cabinetProfile?.name}</strong>
+                  <small>{contact || cabinetProfile?.contact}</small>
+                </section>
+              ) : (
+                <>
+                  <label>
+                    <span>Имя</span>
+                    <input value={name} onChange={(event) => setName(event.target.value)} autoComplete='name' maxLength={80} />
+                  </label>
+                  <label>
+                    <span>Телефон или email</span>
+                    <input value={contact} onChange={(event) => setContact(event.target.value)} autoComplete='email' maxLength={120} />
+                  </label>
+                </>
+              )}
               <label>
                 <span>Вопрос</span>
-                <textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder='Коротко опишите вопрос по платформе, пилоту, доступу, документам или техническому подключению.' rows={5} maxLength={2000} />
+                <textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder='Коротко опишите вопрос по платформе, доступу, документам или техническому подключению.' rows={5} maxLength={2000} />
               </label>
               <label className='p7-support-chat-consent'>
                 <input type='checkbox' checked={consent} onChange={(event) => setConsent(event.target.checked)} required />
@@ -380,6 +443,37 @@ body:has(.p7-support-chat-panel) {
 .p7-support-chat-form textarea:focus {
   border-color: rgba(0,122,47,.52);
   box-shadow: 0 0 0 4px rgba(0,122,47,.09);
+}
+
+.p7-support-chat-profile {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0,122,47,.16);
+  border-radius: 15px;
+  background: #f6fbf8;
+}
+
+.p7-support-chat-profile span {
+  color: #087a3b;
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.p7-support-chat-profile strong {
+  color: #071611;
+  font-size: 14px;
+  line-height: 1.15;
+  font-weight: 950;
+}
+
+.p7-support-chat-profile small {
+  color: #52615b;
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 750;
 }
 
 .p7-support-chat-consent {
