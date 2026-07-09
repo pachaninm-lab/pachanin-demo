@@ -1,18 +1,14 @@
+import type { P7BankAuditAction, P7BankConfirmationPath } from '../bank-basis';
+import type { PlatformV7ResourceType } from '../access-control';
+import type { PlatformV7DocumentAction } from '../action-boundary';
 import type {
-  P7BankAuditAction,
-  P7BankConfirmationPath,
-} from '../bank-basis';
-import type {
+  PlatformV7DocumentSignatureStatus,
   PlatformV7DocumentSource,
   PlatformV7DocumentStatus,
-  PlatformV7DocumentSignatureStatus,
 } from '../document-matrix';
 import { validatePlatformV7IdempotencyKey } from '../idempotency-key-helper';
 import type { PlatformV7MoneyOperationType } from '../money-tree';
-import { toPlatformV7CanonicalRole } from '../role-canonical';
-import type { PlatformV7CanonicalRole } from '../role-canonical';
-import type { PlatformV7DocumentAction } from '../action-boundary';
-import type { PlatformV7ResourceType } from '../access-control';
+import { toPlatformV7CanonicalRole, type PlatformV7CanonicalRole } from '../role-canonical';
 
 export interface P7ValidationError {
   readonly code: string;
@@ -86,8 +82,8 @@ export interface P7BankBasisSendRequestDto extends P7RuntimeRequestBaseDto {
 
 export type P7BankConfirmationActionDto = Extract<
   P7BankAuditAction,
-  | 'bank_release_confirmed'
-  | 'bank_release_rejected'
+  | 'bank_basis_confirmed'
+  | 'bank_basis_rejected'
   | 'bank_refund_confirmed'
   | 'bank_hold_confirmed'
   | 'bank_manual_review_started'
@@ -103,10 +99,12 @@ export interface P7BankConfirmationRequestDto extends P7RuntimeRequestBaseDto {
   readonly action: P7BankConfirmationActionDto;
 }
 
-export interface P7ReleaseRequestDto extends P7RuntimeRequestBaseDto {
+export interface P7BankBasisRequestDto extends P7RuntimeRequestBaseDto {
   readonly amount: number;
   readonly currency: 'RUB';
 }
+
+export type P7ReleaseRequestDto = P7BankBasisRequestDto;
 
 export interface P7RefundRequestDto extends P7RuntimeRequestBaseDto {
   readonly amount: number;
@@ -141,9 +139,9 @@ const MONEY_ACTIONS = [
   'reserve_failed',
   'hold_created',
   'hold_released',
-  'release_requested',
-  'release_confirmed',
-  'release_failed',
+  'bank_basis_requested',
+  'bank_basis_confirmed',
+  'bank_basis_rejected',
   'refund_requested',
   'refund_confirmed',
   'manual_review_started',
@@ -184,8 +182,8 @@ const BANK_CONFIRMATION_PATHS = [
 ] as const satisfies readonly P7BankConfirmationPath[];
 
 const BANK_CONFIRMATION_ACTIONS = [
-  'bank_release_confirmed',
-  'bank_release_rejected',
+  'bank_basis_confirmed',
+  'bank_basis_rejected',
   'bank_refund_confirmed',
   'bank_hold_confirmed',
   'bank_manual_review_started',
@@ -196,61 +194,32 @@ function nonEmpty(value: string): boolean {
 }
 
 function addRequiredStringError(errors: P7ValidationError[], field: string, value: string): void {
-  if (!nonEmpty(value)) {
-    errors.push({
-      code: 'REQUIRED',
-      field,
-      message: `${field} is required.`,
-    });
-  }
+  if (!nonEmpty(value)) errors.push({ code: 'REQUIRED', field, message: `${field} is required.` });
 }
 
 function addPositiveAmountError(errors: P7ValidationError[], field: string, value: number): void {
   if (!Number.isFinite(value) || value <= 0 || !Number.isInteger(value)) {
-    errors.push({
-      code: 'INVALID_AMOUNT',
-      field,
-      message: `${field} must be a finite positive integer.`,
-    });
+    errors.push({ code: 'INVALID_AMOUNT', field, message: `${field} must be a finite positive integer.` });
   }
 }
 
 function addNonNegativeAmountError(errors: P7ValidationError[], field: string, value: number): void {
   if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
-    errors.push({
-      code: 'INVALID_AMOUNT',
-      field,
-      message: `${field} must be a finite non-negative integer.`,
-    });
+    errors.push({ code: 'INVALID_AMOUNT', field, message: `${field} must be a finite non-negative integer.` });
   }
 }
 
 function addCurrencyError(errors: P7ValidationError[], field: string, value: string): void {
   if (!nonEmpty(value)) {
-    errors.push({
-      code: 'REQUIRED',
-      field,
-      message: `${field} is required.`,
-    });
+    errors.push({ code: 'REQUIRED', field, message: `${field} is required.` });
     return;
   }
-
-  if (value !== 'RUB') {
-    errors.push({
-      code: 'INVALID_CURRENCY',
-      field,
-      message: `${field} must be RUB.`,
-    });
-  }
+  if (value !== 'RUB') errors.push({ code: 'INVALID_CURRENCY', field, message: `${field} must be RUB.` });
 }
 
 function addNonEmptyArrayError(errors: P7ValidationError[], field: string, value: readonly string[]): void {
   if (value.length === 0 || value.some((item) => !nonEmpty(item))) {
-    errors.push({
-      code: 'INVALID_ARRAY',
-      field,
-      message: `${field} must contain at least one non-empty id.`,
-    });
+    errors.push({ code: 'INVALID_ARRAY', field, message: `${field} must contain at least one non-empty id.` });
   }
 }
 
@@ -262,13 +231,8 @@ function validateActor(errors: P7ValidationError[], actor: P7ActorScopeDto): voi
   addRequiredStringError(errors, 'actor.actorId', actor.actorId);
   addRequiredStringError(errors, 'actor.actorRole', actor.actorRole);
   addRequiredStringError(errors, 'actor.organizationId', actor.organizationId);
-
   if (nonEmpty(actor.actorRole) && toPlatformV7CanonicalRole(actor.actorRole) === null) {
-    errors.push({
-      code: 'INVALID_ROLE',
-      field: 'actor.actorRole',
-      message: 'actor.actorRole must map to a canonical platform-v7 role.',
-    });
+    errors.push({ code: 'INVALID_ROLE', field: 'actor.actorRole', message: 'actor.actorRole must map to a canonical platform-v7 role.' });
   }
 }
 
@@ -284,59 +248,27 @@ function validateAudit(errors: P7ValidationError[], audit: P7AuditMetadataDto): 
   addRequiredStringError(errors, 'audit.reason', audit.reason);
 }
 
-function validateIdempotency(
-  errors: P7ValidationError[],
-  metadata: P7IdempotencyMetadataDto,
-  requirements: {
-    readonly operationId: boolean;
-    readonly bankEventId: boolean;
-  },
-): void {
+function validateIdempotency(errors: P7ValidationError[], metadata: P7IdempotencyMetadataDto, requirements: { readonly operationId: boolean; readonly bankEventId: boolean }): void {
   addRequiredStringError(errors, 'idempotency.idempotencyKey', metadata.idempotencyKey);
-
   if (nonEmpty(metadata.idempotencyKey)) {
     const validation = validatePlatformV7IdempotencyKey(metadata.idempotencyKey);
-    if (!validation.ok) {
-      validation.issues.forEach((issue) => {
-        errors.push({
-          code: 'INVALID_IDEMPOTENCY_KEY',
-          field: 'idempotency.idempotencyKey',
-          message: issue,
-        });
-      });
-    }
+    if (!validation.ok) validation.issues.forEach((issue) => errors.push({ code: 'INVALID_IDEMPOTENCY_KEY', field: 'idempotency.idempotencyKey', message: issue }));
   }
-
-  if (requirements.operationId) {
-    addRequiredStringError(errors, 'idempotency.operationId', metadata.operationId ?? '');
-  }
-
-  if (requirements.bankEventId) {
-    addRequiredStringError(errors, 'idempotency.bankEventId', metadata.bankEventId ?? '');
-  }
+  if (requirements.operationId) addRequiredStringError(errors, 'idempotency.operationId', metadata.operationId ?? '');
+  if (requirements.bankEventId) addRequiredStringError(errors, 'idempotency.bankEventId', metadata.bankEventId ?? '');
 }
 
-function validateBase(
-  input: P7RuntimeRequestBaseDto,
-  requirements: {
-    readonly operationId: boolean;
-    readonly bankEventId: boolean;
-  },
-): P7ValidationError[] {
+function validateBase(input: P7RuntimeRequestBaseDto, requirements: { readonly operationId: boolean; readonly bankEventId: boolean }): P7ValidationError[] {
   const errors: P7ValidationError[] = [];
-
   validateActor(errors, input.actor);
   validateResource(errors, input.resource);
   validateAudit(errors, input.audit);
   validateIdempotency(errors, input.idempotency, requirements);
-
   return errors;
 }
 
 function result<T>(input: T, errors: readonly P7ValidationError[]): P7ValidationResult<T> {
-  return errors.length === 0
-    ? { ok: true, value: input }
-    : { ok: false, errors };
+  return errors.length === 0 ? { ok: true, value: input } : { ok: false, errors };
 }
 
 export function toP7CanonicalActorRole(actor: P7ActorScopeDto): PlatformV7CanonicalRole | null {
@@ -345,123 +277,70 @@ export function toP7CanonicalActorRole(actor: P7ActorScopeDto): PlatformV7Canoni
 
 export function validateP7MoneyActionRequestDto(input: P7MoneyActionRequestDto): P7ValidationResult<P7MoneyActionRequestDto> {
   const errors = validateBase(input, { operationId: true, bankEventId: false });
-
-  if (!includesValue(MONEY_ACTIONS, input.action)) {
-    errors.push({
-      code: 'INVALID_ACTION',
-      field: 'action',
-      message: 'action must be a supported money action.',
-    });
-  }
-
+  if (!includesValue(MONEY_ACTIONS, input.action)) errors.push({ code: 'INVALID_ACTION', field: 'action', message: 'action must be a supported money action.' });
   addPositiveAmountError(errors, 'amount', input.amount);
   addCurrencyError(errors, 'currency', input.currency);
-
   return result(input, errors);
 }
 
 export function validateP7DocumentActionRequestDto(input: P7DocumentActionRequestDto): P7ValidationResult<P7DocumentActionRequestDto> {
   const errors = validateBase(input, { operationId: true, bankEventId: false });
-
-  if (!includesValue(DOCUMENT_ACTIONS, input.action)) {
-    errors.push({
-      code: 'INVALID_ACTION',
-      field: 'action',
-      message: 'action must be a supported document action.',
-    });
-  }
-
-  if (!includesValue(DOCUMENT_STATUSES, input.documentStatus)) {
-    errors.push({
-      code: 'INVALID_STATUS',
-      field: 'documentStatus',
-      message: 'documentStatus must be a supported document status.',
-    });
-  }
-
+  if (!includesValue(DOCUMENT_ACTIONS, input.action)) errors.push({ code: 'INVALID_ACTION', field: 'action', message: 'action must be a supported document action.' });
+  if (!includesValue(DOCUMENT_STATUSES, input.documentStatus)) errors.push({ code: 'INVALID_STATUS', field: 'documentStatus', message: 'documentStatus must be a supported document status.' });
   addRequiredStringError(errors, 'documentId', input.documentId);
-
   if (input.documentMetadata?.ownerRole && toPlatformV7CanonicalRole(input.documentMetadata.ownerRole) === null) {
-    errors.push({
-      code: 'INVALID_ROLE',
-      field: 'documentMetadata.ownerRole',
-      message: 'documentMetadata.ownerRole must map to a canonical platform-v7 role.',
-    });
+    errors.push({ code: 'INVALID_ROLE', field: 'documentMetadata.ownerRole', message: 'documentMetadata.ownerRole must map to a canonical platform-v7 role.' });
   }
-
   return result(input, errors);
 }
 
 export function validateP7BankBasisSendRequestDto(input: P7BankBasisSendRequestDto): P7ValidationResult<P7BankBasisSendRequestDto> {
   const errors = validateBase(input, { operationId: true, bankEventId: false });
-
   addNonEmptyArrayError(errors, 'basisDocumentIds', input.basisDocumentIds);
-
   return result(input, errors);
 }
 
 export function validateP7BankConfirmationRequestDto(input: P7BankConfirmationRequestDto): P7ValidationResult<P7BankConfirmationRequestDto> {
   const errors = validateBase(input, { operationId: true, bankEventId: true });
-
   addRequiredStringError(errors, 'bankEventId', input.bankEventId);
   addRequiredStringError(errors, 'bankOrganizationId', input.bankOrganizationId);
   addRequiredStringError(errors, 'operationId', input.operationId);
   addPositiveAmountError(errors, 'amount', input.amount);
   addCurrencyError(errors, 'currency', input.currency);
-
-  if (!includesValue(BANK_CONFIRMATION_PATHS, input.path)) {
-    errors.push({
-      code: 'INVALID_PATH',
-      field: 'path',
-      message: 'path must be a supported bank confirmation path.',
-    });
-  }
-
-  if (!includesValue(BANK_CONFIRMATION_ACTIONS, input.action)) {
-    errors.push({
-      code: 'INVALID_ACTION',
-      field: 'action',
-      message: 'action must be a supported bank confirmation action.',
-    });
-  }
-
+  if (!includesValue(BANK_CONFIRMATION_PATHS, input.path)) errors.push({ code: 'INVALID_PATH', field: 'path', message: 'path must be a supported bank confirmation path.' });
+  if (!includesValue(BANK_CONFIRMATION_ACTIONS, input.action)) errors.push({ code: 'INVALID_ACTION', field: 'action', message: 'action must be a supported bank confirmation action.' });
   return result(input, errors);
 }
 
-export function validateP7ReleaseRequestDto(input: P7ReleaseRequestDto): P7ValidationResult<P7ReleaseRequestDto> {
+export function validateP7BankBasisRequestDto(input: P7BankBasisRequestDto): P7ValidationResult<P7BankBasisRequestDto> {
   const errors = validateBase(input, { operationId: true, bankEventId: false });
-
   addPositiveAmountError(errors, 'amount', input.amount);
   addCurrencyError(errors, 'currency', input.currency);
-
   return result(input, errors);
 }
+
+export const validateP7ReleaseRequestDto = validateP7BankBasisRequestDto;
 
 export function validateP7RefundRequestDto(input: P7RefundRequestDto): P7ValidationResult<P7RefundRequestDto> {
   const errors = validateBase(input, { operationId: true, bankEventId: true });
-
   addRequiredStringError(errors, 'bankEventId', input.bankEventId);
   addRequiredStringError(errors, 'bankOrganizationId', input.bankOrganizationId);
   addPositiveAmountError(errors, 'amount', input.amount);
   addCurrencyError(errors, 'currency', input.currency);
-
   return result(input, errors);
 }
 
 export function validateP7HoldRequestDto(input: P7HoldRequestDto): P7ValidationResult<P7HoldRequestDto> {
   const errors = validateBase(input, { operationId: true, bankEventId: true });
-
   addRequiredStringError(errors, 'bankEventId', input.bankEventId);
   addRequiredStringError(errors, 'bankOrganizationId', input.bankOrganizationId);
   addPositiveAmountError(errors, 'amount', input.amount);
   addCurrencyError(errors, 'currency', input.currency);
-
   return result(input, errors);
 }
 
 export function validateP7ArbitrationBasisRequestDto(input: P7ArbitrationBasisRequestDto): P7ValidationResult<P7ArbitrationBasisRequestDto> {
   const errors = validateBase(input, { operationId: true, bankEventId: false });
-
   addRequiredStringError(errors, 'arbitrationDecisionId', input.arbitrationDecisionId);
   addNonEmptyArrayError(errors, 'basisDocumentIds', input.basisDocumentIds);
   addNonNegativeAmountError(errors, 'uncontestedAmount', input.uncontestedAmount);
@@ -472,6 +351,5 @@ export function validateP7ArbitrationBasisRequestDto(input: P7ArbitrationBasisRe
   addNonNegativeAmountError(errors, 'feeAmount', input.feeAmount);
   addNonNegativeAmountError(errors, 'penaltyAmount', input.penaltyAmount);
   addCurrencyError(errors, 'currency', input.currency);
-
   return result(input, errors);
 }
