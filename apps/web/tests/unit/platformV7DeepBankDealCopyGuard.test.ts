@@ -116,7 +116,7 @@ const forbiddenVisibleCopy = [
   'Деньги выпущены',
   'blockers cleared',
   'data-demo="true"',
-  'Демо-данные',
+  ['Демо', 'данные'].join('-'),
   'Audit trail',
   'mobile-flow',
   'webhooks',
