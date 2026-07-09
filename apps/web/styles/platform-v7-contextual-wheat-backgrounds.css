@@ -30,7 +30,7 @@
   background-image: url('/platform-v7/wheat-exact-background.svg') !important;
   background-repeat: no-repeat !important;
   background-size: cover !important;
-  filter: saturate(.92) contrast(.98) brightness(1.06) !important;
+  filter: saturate(.96) contrast(.98) brightness(1.05) !important;
 }
 
 .p7-register-hero::after,
@@ -46,44 +46,46 @@
 
 .p7-register-hero::before {
   background-position: right center !important;
-  opacity: .34 !important;
+  opacity: .68 !important;
 }
 
 .p7-register-hero::after {
   background:
-    linear-gradient(90deg, rgba(255,255,255,.98) 0%, rgba(255,255,255,.94) 46%, rgba(255,255,255,.70) 100%),
-    linear-gradient(180deg, rgba(255,255,255,.72) 0%, rgba(255,255,255,.36) 56%, rgba(255,255,255,.52) 100%) !important;
+    linear-gradient(90deg, rgba(255,255,255,.985) 0%, rgba(255,255,255,.94) 42%, rgba(255,255,255,.66) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.58) 0%, rgba(255,255,255,.18) 56%, rgba(255,255,255,.34) 100%) !important;
 }
 
 .pc-v7-login-single .login-card::before {
   background-position: right center !important;
-  opacity: .16 !important;
+  opacity: .34 !important;
 }
 
 .pc-v7-login-single .login-card::after {
-  background: linear-gradient(90deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.88) 54%, rgba(255,255,255,.68) 100%) !important;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.975) 0%, rgba(255,255,255,.93) 46%, rgba(255,255,255,.66) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(255,255,255,.30) 56%, rgba(255,255,255,.46) 100%) !important;
 }
 
 .p7-contact-copy::before {
   background-position: right center !important;
-  opacity: .24 !important;
+  opacity: .48 !important;
 }
 
 .p7-contact-copy::after {
   background:
-    linear-gradient(90deg, rgba(255,255,255,.97) 0%, rgba(255,255,255,.91) 48%, rgba(255,255,255,.62) 100%),
-    linear-gradient(180deg, rgba(255,255,255,.72) 0%, rgba(255,255,255,.42) 58%, rgba(255,255,255,.58) 100%) !important;
+    linear-gradient(90deg, rgba(255,255,255,.98) 0%, rgba(255,255,255,.92) 42%, rgba(255,255,255,.62) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.58) 0%, rgba(255,255,255,.22) 58%, rgba(255,255,255,.38) 100%) !important;
 }
 
 .p7-contact-success::before {
   background-position: right center !important;
-  opacity: .28 !important;
+  opacity: .52 !important;
 }
 
 .p7-contact-success::after {
   background:
-    linear-gradient(90deg, rgba(255,255,255,.98) 0%, rgba(255,255,255,.92) 50%, rgba(255,255,255,.66) 100%),
-    linear-gradient(180deg, rgba(255,255,255,.68) 0%, rgba(255,255,255,.34) 56%, rgba(255,255,255,.54) 100%) !important;
+    linear-gradient(90deg, rgba(255,255,255,.98) 0%, rgba(255,255,255,.91) 44%, rgba(255,255,255,.62) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.56) 0%, rgba(255,255,255,.20) 56%, rgba(255,255,255,.38) 100%) !important;
 }
 
 @media (max-width: 720px) {
@@ -91,18 +93,18 @@
   .p7-contact-copy::before,
   .p7-contact-success::before {
     background-position: right center !important;
-    opacity: .26 !important;
+    opacity: .46 !important;
   }
 
   .pc-v7-login-single .login-card::before {
-    opacity: .10 !important;
+    opacity: .24 !important;
   }
 
   .p7-register-hero::after,
   .p7-contact-copy::after,
   .p7-contact-success::after {
     background:
-      linear-gradient(90deg, rgba(255,255,255,.99) 0%, rgba(255,255,255,.95) 44%, rgba(255,255,255,.72) 100%),
-      linear-gradient(180deg, rgba(255,255,255,.74) 0%, rgba(255,255,255,.42) 56%, rgba(255,255,255,.58) 100%) !important;
+      linear-gradient(90deg, rgba(255,255,255,.99) 0%, rgba(255,255,255,.945) 38%, rgba(255,255,255,.66) 100%),
+      linear-gradient(180deg, rgba(255,255,255,.60) 0%, rgba(255,255,255,.26) 56%, rgba(255,255,255,.42) 100%) !important;
   }
 }
