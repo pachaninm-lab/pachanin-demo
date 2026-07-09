@@ -77,10 +77,23 @@
       "pnpm-lock.yaml"
     ]
   },
-  "vp310RuntimePersistenceRepositoryImplementation": {
-    "layer": "VP-3.10 Runtime Persistence Repository Adapter Implementation",
-    "goal": "Implement repository adapter and unit tests only within the exact files unlocked by VP-3.9, without Prisma schema or migration writes.",
-    "status": "next-implementation-scope"
+  "vp310RuntimePersistenceImplementationActivation": {
+    "layer": "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation",
+    "goal": "Activate the exact implementation scope in docs only so autopilot can transition cleanly before code writes.",
+    "status": "next-docs-only-activation",
+    "activationFiles": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/execution-queue.md"
+    ],
+    "implementationFilesToUnlockAfterActivation": [
+      "apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts",
+      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts"
+    ]
+  },
+  "vp311RuntimePersistenceRepositoryImplementation": {
+    "layer": "VP-3.11 Runtime Persistence Repository Adapter Implementation",
+    "goal": "Implement repository adapter and unit tests only after VP-3.10 activation is merged, without Prisma schema or migration writes.",
+    "status": "pending-after-activation"
   },
   "forbiddenZones": [
     "apps/landing",
