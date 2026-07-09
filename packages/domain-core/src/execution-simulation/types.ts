@@ -22,8 +22,8 @@ export const DEAL_EXECUTION_STATUSES = [
   'DOCUMENTS_PENDING',
   'DOCUMENTS_READY',
   'DISPUTE_OPEN',
-  'PAYMENT_RELEASE_REQUESTED',
-  'FINAL_RELEASED',
+  'BANK_BASIS_REQUESTED',
+  'BANK_BASIS_CONFIRMED',
   'CLOSED'
 ] as const;
 export type DealExecutionStatus = (typeof DEAL_EXECUTION_STATUSES)[number];
@@ -117,7 +117,7 @@ export interface Deal {
 export interface MoneyEvent {
   id: string;
   dealId: string;
-  type: 'reserve_requested' | 'reserve_confirmed' | 'hold' | 'release_requested' | 'partial_release' | 'final_release' | 'refund' | 'reconciliation_mismatch';
+  type: 'reserve_requested' | 'reserve_confirmed' | 'hold' | 'bank_basis_requested' | 'partial_bank_basis' | 'final_bank_basis' | 'refund' | 'reconciliation_mismatch';
   amountRub: number;
   status: 'draft' | 'pending' | 'confirmed' | 'failed' | 'blocked';
   idempotencyKey?: string;
@@ -141,7 +141,7 @@ export interface TransportPack {
 export interface Document {
   id: string;
   dealId: string;
-  type: 'contract' | 'ttn' | 'transport_waybill' | 'upd' | 'sdiz' | 'lab_protocol' | 'weighing_act' | 'release_instruction';
+  type: 'contract' | 'ttn' | 'transport_waybill' | 'upd' | 'sdiz' | 'lab_protocol' | 'weighing_act' | 'bank_basis_instruction';
   status: 'missing' | 'draft' | 'generated' | 'signed' | 'rejected' | 'archived';
   version: number;
   hash?: string;
