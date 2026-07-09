@@ -2,7 +2,7 @@
 
 Applies to every PR that touches platform-v7 code, tests, or docs.
 
-This protocol exists because PR #1062 was initially treated as ready before the actual patch was fully clean. The final merge was safe only after manual patch inspection, removal of generated/public file drift, wording cleanup in bank/disputes/logistics, and updated tests.
+This protocol exists to prevent scope drift, stale generated files, broken mobile shell behavior, and wording that overstates the current platform state.
 
 ## Mandatory sequence
 
@@ -64,39 +64,39 @@ Check every added and removed line for:
 - new imports that are unused
 - links to `/platform-v7/demo/`
 - user-visible internal implementation words
-- wording that exceeds controlled-pilot status
+- wording that overstates the current platform status
 
 The actual patch is the source of truth. If PR body and patch disagree, patch wins.
 
-### 4. Controlled-pilot wording check
+### 4. Platform status wording check
 
-Platform-v7 must not claim more than controlled-pilot / pre-integration status.
+Current UI and document wording must use the status: `настоящая платформа временно без интеграций`.
 
-Use cautious wording:
+Allowed cautious wording:
 
-- `пилотный контур`
-- `пилотный сценарий`
-- `ожидает банковского подтверждения`
-- `банковское событие`
-- `ручная сверка`
-- `пилотный протокол качества`
-- `лабораторный контур качества`
+- `внешние интеграции временно не подключены`
+- `требуется договор, доступ, регламент и приёмка`
+- `ручная проверка`
+- `ожидает внешнего подтверждения`
+- `банковское основание`
+- `журнал действий`
 - `причина остановки`
 - `ответственный`
 - `удержание`
-- `проверка выплаты`
+- `проверка расчёта`
 
 Do not use user-facing claims that imply:
 
-- production or fully live status
+- production-ready, fully live or live-integrated status
 - completed external integration without proof
 - platform-controlled payment action
-- final external document confirmation without live proof
+- final external document confirmation without verified source
 - automatic resolution of bank, dispute, logistics, or document conditions
+- role assignment from URL, client state or local storage
 
 Role pages must explain execution state, next actor, missing document, and effect on money without implying the platform itself controls bank-side money movement.
 
-### 5. Tests and Vercel
+### 5. Tests and Railway
 
 Before merge:
 
@@ -106,14 +106,13 @@ cd apps/web && vitest run
 
 Or, for a narrow PR, run the relevant file-level test and state the exact command.
 
-Then wait for Vercel checks:
+Then wait for Railway check:
 
-- `pachanin-canonical-web`
-- `pachanin-demo-api`
-- `pachanin-demo-api-ovdc`
-- `pachanin-demo-landing`
+- `brilliant-liberation - @pc/web`
 
-A PR is not ready while any required check is pending or failing.
+Ignore stale Vercel/Deno checks for this project unless a task explicitly targets those deployments.
+
+A PR is not ready while the active Railway check is pending or failing.
 
 ## Required report format
 
@@ -134,15 +133,15 @@ REVIEW GATE REPORT — PR #<number>
    Unintended lines found: YES / NO
    Action taken: <summary>
 
-4. Controlled-pilot wording:
+4. Platform status wording:
    User-facing wording checked: YES / NO
    Overclaim found: YES / NO
    Action taken: <summary>
 
-5. Tests and Vercel:
+5. Tests and Railway:
    Tests run: <command or N/A with reason>
    Test result: PASS / FAIL / N/A
-   Vercel result: GREEN / PENDING / FAIL
+   Railway result: GREEN / PENDING / FAIL
 
 Final decision:
    READY / NOT READY
@@ -157,10 +156,10 @@ Do not write READY unless every answer above is clean.
 | File outside allowed scope | Revert before continuing |
 | Generated/public file drift | Revert before continuing |
 | Actual patch differs from PR body | Fix body or patch; patch remains source of truth |
-| User-facing overclaim | Replace with controlled-pilot wording |
+| User-facing overclaim | Replace with current platform-status wording |
 | Old stale PR wording reappears | Remove and rebuild from current main |
-| Vercel pending | Wait; do not merge |
-| Vercel failed | Debug and fix before merge |
+| Railway pending | Wait; do not merge |
+| Railway failed | Debug and fix before merge |
 | Tests failed | Fix code or test before merge |
 
 ## Lesson from PR #1062
@@ -168,7 +167,7 @@ Do not write READY unless every answer above is clean.
 PR #1062 was useful, but it exposed two process risks:
 
 1. A generated/public file appeared because tooling changed it during the test run.
-2. Some role-handoff lines initially used wording that was too strong for controlled-pilot framing.
+2. Some role-handoff lines initially used wording that overstated the current platform state.
 
 Both were caught only by inspecting changed files and the actual patch. The final merge happened only after the generated/public file was removed, bank/disputes/logistics wording was corrected, and tests were updated to guard against old wording.
 
