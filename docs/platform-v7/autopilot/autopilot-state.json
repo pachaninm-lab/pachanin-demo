@@ -33,7 +33,7 @@
   },
   "vp3DealWorkspaceBinding": {
     "layer": "VP-3 Deal Workspace Runtime Binding",
-    "goal": "Deal workspace reads state through application services + mock persistence adapter (Stage 5), not through static scenarios. Scenarios remain as seed.",
+    "goal": "Deal workspace reads state through application services and manual persistence adapter stage, not through static seed-only data.",
     "nextCandidate": "VP-3 implementation"
   },
   "forbiddenZones": [
@@ -43,7 +43,7 @@
     "package-lock.json",
     "pnpm-lock.yaml"
   ],
-  "maturityLanguage": ["controlled-pilot", "pre-integration"],
-  "forbiddenClaims": ["maturity uplift", "live integration completion"],
+  "maturityLanguage": ["platform-temporarily-without-external-integrations"],
+  "forbiddenClaims": ["maturity uplift", "external integration completion"],
   "readiness": "74% honest readiness. VP-2.5 complete (vitest green). VP-3 runtime binding in progress. #2115 remains blocked until an allowed auth-file write path is available."
 }
