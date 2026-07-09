@@ -55,7 +55,6 @@ export type P7DealWorkspaceRuntimeActionRequest =
       readonly targetId: string;
       readonly workspaceActionId: PlatformV7DealWorkspaceActionId;
       readonly channel: 'navigation';
-      readonly href: string;
       readonly safePath: string;
     }
   | {
@@ -150,13 +149,11 @@ export function buildP7DealWorkspaceRuntimeActionRequest(input: P7DealWorkspaceR
   if (!workspaceActionId) return blocked(input, 'navigation', 'Target is not connected to a workspace action.');
 
   if (workspaceActionId === 'open-bank' || workspaceActionId === 'open-disputes') {
-    if (!input.target.href) return blocked(input, 'navigation', 'Navigation action has no href.');
     return {
       status: 'navigation_only',
       targetId: input.target.id,
       workspaceActionId,
       channel: 'navigation',
-      href: input.target.href,
       safePath: 'Navigation only. No runtime write is performed.',
     };
   }
@@ -229,9 +226,9 @@ export function buildP7DealWorkspaceRuntimeActionRequest(input: P7DealWorkspaceR
 }
 
 export function p7DealWorkspaceRuntimeActionIsWritable(request: P7DealWorkspaceRuntimeActionRequest): boolean {
-  return request.status === 'ready' && request.channel !== 'navigation';
+  return request.status === 'ready';
 }
 
 export function p7DealWorkspaceRuntimeActionRequiresServerAction(request: P7DealWorkspaceRuntimeActionRequest): boolean {
-  return request.status === 'ready' && request.channel !== 'navigation';
+  return request.status === 'ready';
 }
