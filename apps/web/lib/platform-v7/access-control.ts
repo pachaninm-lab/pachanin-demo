@@ -65,9 +65,8 @@ export type PlatformV7Action =
   | 'decide'
   | 'export'
   | 'preview'
-  | 'EXECUTE_RELEASE'
+  | 'CONFIRM_BANK_BASIS'
   | 'EXECUTE_REFUND'
-  | 'CONFIRM_BANK_RELEASE'
   | 'CONFIRM_BANK_RESERVE'
   | 'CONFIRM_BANK_REFUND';
 
@@ -168,9 +167,8 @@ type PlatformV7ExplicitDenyRule = {
 const BANK_CONFIRMATION_ACTIONS: readonly PlatformV7Action[] = [
   'confirm',
   'release',
-  'EXECUTE_RELEASE',
+  'CONFIRM_BANK_BASIS',
   'EXECUTE_REFUND',
-  'CONFIRM_BANK_RELEASE',
   'CONFIRM_BANK_RESERVE',
   'CONFIRM_BANK_REFUND',
 ];
@@ -186,9 +184,8 @@ const MONEY_WRITE_ACTIONS: readonly PlatformV7Action[] = [
   'release',
   'hold',
   'decide',
-  'EXECUTE_RELEASE',
+  'CONFIRM_BANK_BASIS',
   'EXECUTE_REFUND',
-  'CONFIRM_BANK_RELEASE',
   'CONFIRM_BANK_RESERVE',
   'CONFIRM_BANK_REFUND',
 ];
@@ -221,7 +218,7 @@ const ACCESS_RULES: readonly PlatformV7AccessRule[] = [
   { role: 'elevator_operator', resources: ['trip', 'document', 'evidence'], actions: ['read', 'update', 'confirm', 'request'], scope: 'assignedElevator' },
   { role: 'lab_specialist', resources: ['labProtocol', 'document', 'evidence'], actions: ['create', 'read', 'update', 'confirm'], scope: 'assignedLab' },
   { role: 'surveyor', resources: ['trip', 'document', 'evidence', 'dispute'], actions: ['create', 'read', 'update', 'confirm'], scope: 'assignedSurveyor' },
-  { role: 'bank_officer', resources: ['deal', 'money', 'document', 'dispute', 'auditLog', 'auditEvent'], actions: ['read', 'confirm', 'hold', 'release', 'export', 'CONFIRM_BANK_RELEASE', 'CONFIRM_BANK_RESERVE', 'CONFIRM_BANK_REFUND'], scope: 'bankOrg' },
+  { role: 'bank_officer', resources: ['deal', 'money', 'document', 'dispute', 'auditLog', 'auditEvent'], actions: ['read', 'confirm', 'hold', 'release', 'export', 'CONFIRM_BANK_BASIS', 'CONFIRM_BANK_RESERVE', 'CONFIRM_BANK_REFUND'], scope: 'bankOrg' },
   { role: 'compliance_officer', resources: ['deal', 'document', 'auditLog', 'auditEvent'], actions: ['read', 'update', 'confirm', 'hold'], scope: 'platform' },
   { role: 'arbitrator', resources: ['dispute', 'evidence', 'document'], actions: ['read', 'request', 'decide'], scope: 'platform' },
   { role: 'executive_viewer', resources: ['aggregateReport'], actions: ['read', 'export'], scope: 'readOnlyAggregate' },
