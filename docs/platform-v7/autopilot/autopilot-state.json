@@ -3,23 +3,18 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "VP-3.5 Runtime DB Contract.",
+  "current": "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.",
   "fullTzReadinessPercent": 74,
-  "openPr": "#2213",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2068", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212"],
+  "openPr": "#2214",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract."],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 is repository settings cleanup. #2115 remains blocked by the current auth-file write path.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/money/storage changes"],
   "allowedCurrentScope": [
-    "apps/web/**",
-    "apps/api/prisma/contracts/**",
     "docs/platform-v7/autopilot/autopilot-state.json",
-    "docs/platform-v7/execution-queue.md",
-    ".github/workflows/ci.yml"
+    "docs/platform-v7/execution-queue.md"
   ],
   "agentWritableScope": [
-    "apps/web/**",
-    "apps/api/prisma/contracts/**",
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
@@ -36,13 +31,33 @@
   "vp3DealWorkspaceBinding": {
     "layer": "VP-3 Deal Workspace Runtime Binding",
     "goal": "Deal workspace reads state through application services and manual persistence adapter stage, not through static seed-only data.",
-    "nextCandidate": "VP-3 implementation"
+    "status": "complete"
   },
   "vp35RuntimeDbContract": {
     "layer": "VP-3.5 Runtime DB Contract",
     "goal": "Define Postgres-backed runtime snapshot, outbox and audit linkage contract without applying a live migration or claiming external integrations.",
-    "openPr": "#2213",
-    "status": "contract-only"
+    "closedPr": "#2213",
+    "status": "contract-only-complete"
+  },
+  "vp36RuntimePersistenceScopeSelection": {
+    "layer": "VP-3.6 Runtime Persistence Repository Adapter Scope Selection",
+    "goal": "Select exact safe implementation files for repository adapter, outbox writer and audit writer before writing persistence code.",
+    "openPr": "#2214",
+    "status": "scope-selection"
+  },
+  "vp37RuntimePersistenceImplementationCandidate": {
+    "layer": "VP-3.7 Runtime Persistence Repository Adapter Contract Plan",
+    "goal": "Document exact implementation scope and repository adapter contract before allowing code writes into runtime persistence files.",
+    "candidateFiles": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/execution-queue.md"
+    ],
+    "notYetAllowed": [
+      "apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts",
+      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts",
+      "apps/api/prisma/migrations/**",
+      "apps/api/prisma/schema.prisma"
+    ]
   },
   "forbiddenZones": [
     "apps/landing",
@@ -57,6 +72,6 @@
     "pnpm-lock.yaml"
   ],
   "maturityLanguage": ["platform-temporarily-without-external-integrations"],
-  "forbiddenClaims": ["maturity uplift", "external integration completion"],
-  "readiness": "74% honest readiness. VP-2.5 complete (vitest green). VP-3 runtime binding/runtime actions/runtime snapshot/process store complete. VP-3.5 runtime DB contract is contract-only and not a live production migration. #2115 remains blocked until an allowed auth-file write path is available."
+  "forbiddenClaims": ["maturity uplift", "external integration completion", "production DB runtime persistence complete"],
+  "readiness": "74% honest readiness. VP-3.5 DB contract is merged. VP-3.6 selects implementation scope before repository adapter writes. This is still not a live production DB persistence layer and not a bank/FGIS/EDO integration."
 }
