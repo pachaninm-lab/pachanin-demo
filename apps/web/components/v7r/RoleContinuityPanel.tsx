@@ -97,7 +97,7 @@ const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
     actionType: 'confirmReserve',
     ownerRole: 'bank',
     route: '/platform-v7/bank',
-    availableWhen: ['RESERVE_REQUESTED', 'PAYMENT_RELEASE_REQUESTED', 'DOCUMENTS_READY'],
+    availableWhen: ['RESERVE_REQUESTED', 'BANK_BASIS_REQUESTED', 'DOCUMENTS_READY'],
     readyLabel: 'Банк может подтвердить допустимое денежное событие только после проверок сделки.',
     blockedLabel: 'Банк ждёт запрос на основание, документы, отсутствие спора или готовность основания.',
   },
@@ -133,7 +133,7 @@ const ROLE_HANDOFFS: Partial<Record<PlatformRole, RoleActionHandoff>> = {
 const ROLE_PRIORITY: Partial<Record<PlatformRole, Deal['status'][]>> = {
   buyer: ['DOCUMENTS_READY', 'ACCEPTED', 'DISPUTE_OPEN', 'RESERVE_CONFIRMED'],
   seller: ['DISPUTE_OPEN', 'DOCUMENTS_READY', 'ACCEPTED', 'RESERVE_CONFIRMED'],
-  bank: ['DOCUMENTS_READY', 'PAYMENT_RELEASE_REQUESTED', 'RESERVE_REQUESTED', 'DISPUTE_OPEN'],
+  bank: ['BANK_BASIS_REQUESTED', 'DOCUMENTS_READY', 'RESERVE_REQUESTED', 'DISPUTE_OPEN'],
   logistics: ['DRIVER_ASSIGNED', 'LOADING_CONFIRMED', 'LOADED', 'IN_TRANSIT', 'ARRIVED'],
   driver: ['DRIVER_ASSIGNED', 'LOADING_CONFIRMED', 'LOADED', 'IN_TRANSIT', 'ARRIVED'],
   lab: ['WEIGHING_CONFIRMED', 'LAB_SAMPLING', 'LAB_PROTOCOL_CREATED', 'DISPUTE_OPEN'],
@@ -188,7 +188,7 @@ export function RoleContinuityPanel({ role, compact = false }: { role: PlatformR
       <ActionHandoffBlock handoff={handoff} />
       <RoleActionDispatchBridge role={role} dealId={deal.id} actionType={handoff.actionType} canRun={handoff.canRun} disabledReason={handoff.disabledReason} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
         <ListBlock title='Доказательства' empty='Нет доказательств по выбранной сделке.' rows={evidence.map((item) => ({ id: item.id, kicker: item.type, text: item.title }))} />
         <ListBlock title='Журнал' empty='Нет записей журнала по выбранной сделке.' rows={audit.map((item) => ({ id: item.id, kicker: item.actorRole, text: `${actionLabel(item.actionType)} · ${item.entityId}` }))} />
         <ListBlock title='Линия событий' empty='Нет событий по выбранной сделке.' rows={timeline.map((item) => ({ id: item.id, kicker: item.actorRole, text: item.title }))} />
