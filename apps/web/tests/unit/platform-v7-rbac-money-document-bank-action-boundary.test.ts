@@ -1,17 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  executePlatformV7BankBasisAction,
-  executePlatformV7DocumentAction,
-  executePlatformV7MoneyAction,
-  type P7ActionIdempotencyContext,
-} from '@/lib/platform-v7/action-boundary';
-import {
-  p7BuildBankBasis,
-  p7MarkBankBasisSent,
-  type P7BankConfirmationEvent,
-  type P7BankConfirmationOperationType,
-  type P7BankConfirmationPath,
-} from '@/lib/platform-v7/bank-basis';
+import { executePlatformV7BankBasisAction, executePlatformV7DocumentAction, executePlatformV7MoneyAction, type P7ActionIdempotencyContext } from '@/lib/platform-v7/action-boundary';
+import { p7BuildBankBasis, p7MarkBankBasisSent, type P7BankConfirmationEvent, type P7BankConfirmationOperationType, type P7BankConfirmationPath } from '@/lib/platform-v7/bank-basis';
 import { buildPlatformV7IdempotencyKey } from '@/lib/platform-v7/idempotency-key-helper';
 import type { PlatformV7AccessActor, PlatformV7ResourceScope } from '@/lib/platform-v7/access-control';
 import type { PlatformV7DocumentRequirement, PlatformV7DocumentSource, PlatformV7DocumentStatus } from '@/lib/platform-v7/document-matrix';
@@ -19,163 +8,27 @@ import type { PlatformV7BankBasisGateInput, PlatformV7MoneyOperation, PlatformV7
 import type { PlatformV7CanonicalRole } from '@/lib/platform-v7/role-canonical';
 
 const emptyContext: P7ActionIdempotencyContext = { processedKeys: [], processedBankEventIds: [], processedOperationIds: [] };
-const operationTypeByPath: Record<P7BankConfirmationPath, P7BankConfirmationOperationType> = {
-  release: 'bank_basis_confirmed',
-  refund: 'refund_confirmed',
-  hold: 'hold_created',
-  reject: 'bank_basis_rejected',
-  manual_review: 'manual_review_started',
-};
-
-const reservedTree: PlatformV7MoneyTree = {
-  dealId: 'deal-1',
-  currency: 'RUB',
-  totalDealAmount: 1000,
-  reservedAmount: 1000,
-  readyToReleaseAmount: 800,
-  heldAmount: 100,
-  manualReviewAmount: 0,
-  releasedAmount: 50,
-  refundedAmount: 50,
-  platformFee: 10,
-  bankFee: 5,
-  status: 'reserved',
-};
+const operationTypeByPath: Record<P7BankConfirmationPath, P7BankConfirmationOperationType> = { release: 'bank_basis_confirmed', refund: 'refund_confirmed', hold: 'hold_created', reject: 'bank_basis_rejected', manual_review: 'manual_review_started' };
+const reservedTree: PlatformV7MoneyTree = { dealId: 'deal-1', currency: 'RUB', totalDealAmount: 1000, reservedAmount: 1000, readyToReleaseAmount: 800, heldAmount: 100, manualReviewAmount: 0, releasedAmount: 50, refundedAmount: 50, platformFee: 10, bankFee: 5, status: 'reserved' };
 const bankBasisRequestedTree: PlatformV7MoneyTree = { ...reservedTree, status: 'bank_basis_requested' };
-const bankBasisGate: PlatformV7BankBasisGateInput = {
-  operationType: 'bank_basis_requested',
-  bankConfirmationExists: false,
-  dealStatus: 'bank_basis_ready',
-  moneyStatus: 'reserved',
-  requiredDocumentsConfirmed: true,
-  tripStatus: 'completed',
-  acceptanceStatus: 'confirmed',
-  disputeStatus: 'none',
-  bankReviewStatus: 'clear',
-};
-
+const bankBasisGate: PlatformV7BankBasisGateInput = { operationType: 'bank_basis_requested', bankConfirmationExists: false, dealStatus: 'bank_basis_ready', moneyStatus: 'reserved', requiredDocumentsConfirmed: true, tripStatus: 'completed', acceptanceStatus: 'confirmed', disputeStatus: 'none', bankReviewStatus: 'clear' };
 const moneyResource: PlatformV7ResourceScope = { resourceType: 'money', resourceId: 'money-1', sellerOrganizationId: 'org-seller', buyerOrganizationId: 'org-buyer', bankOrganizationId: 'org-bank', linkedOrganizationIds: ['org-seller', 'org-buyer', 'org-bank'] };
 const documentResource: PlatformV7ResourceScope = { resourceType: 'document', resourceId: 'doc-1', sellerOrganizationId: 'org-seller', buyerOrganizationId: 'org-buyer', assignedLabOrganizationId: 'org-lab', assignedElevatorOrganizationId: 'org-elevator', linkedOrganizationIds: ['org-seller', 'org-buyer', 'org-lab', 'org-elevator'] };
-
-function actor(role: PlatformV7CanonicalRole, organizationId = `org-${role}`): PlatformV7AccessActor {
-  return { userId: `${role}-1`, organizationId, roles: [role], activeRole: role };
-}
-function key(boundaryId = 'confirm_bank_basis', attemptId = 'attempt-1', actorId = 'actor-1', amountMinor = 300): string {
-  return buildPlatformV7IdempotencyKey({ boundaryId: boundaryId as Parameters<typeof buildPlatformV7IdempotencyKey>[0]['boundaryId'], actorId, entityId: 'money-1', dealId: 'deal-1', amountMinor, currency: 'RUB', attemptId });
-}
-function moneyOperation(type: PlatformV7MoneyOperationType, idempotencyKey: string, overrides: Partial<PlatformV7MoneyOperation> = {}): PlatformV7MoneyOperation {
-  return { operationId: `op-${type}-${overrides.amount ?? 300}`, dealId: 'deal-1', type, amount: overrides.amount ?? 300, currency: 'RUB', basisDocumentIds: ['contract', 'acceptance_act', 'lab_protocol', 'bank_basis'], actorId: overrides.actorId ?? 'actor-1', actorRole: overrides.actorRole ?? 'seller', occurredAt: '2026-05-23T09:00:00.000Z', idempotencyKey, correlationId: 'corr-1', auditId: 'audit-1', ...overrides };
-}
-function doc(documentId: string, ownerRole: PlatformV7CanonicalRole, status: PlatformV7DocumentStatus, source: PlatformV7DocumentSource): PlatformV7DocumentRequirement {
-  return { documentId, dealId: 'deal-1', type: documentId, title: documentId, ownerRole, responsibleRole: ownerRole, status, source, deadline: null, signatureStatus: 'not_required', blockStages: ['release'], affectsMoney: true, nextAction: 'next', createdAt: '2026-05-23T08:00:00.000Z', updatedAt: '2026-05-23T08:00:00.000Z' };
-}
-const bankBasisDocuments: readonly PlatformV7DocumentRequirement[] = [
-  doc('contract', 'seller', 'confirmed', 'edo'),
-  doc('sdiz', 'seller', 'confirmed', 'fgis'),
-  doc('acceptance_act', 'elevator_operator', 'signed', 'elevator'),
-  doc('lab_protocol', 'lab_specialist', 'confirmed', 'lab'),
-  doc('bank_basis', 'operator', 'confirmed', 'bank'),
-];
-function sentBankBasis() {
-  const decision = p7BuildBankBasis({ dealId: 'deal-1', releaseGate: { allowed: true, reason: 'ready', nextStatus: 'bank_basis_requested' }, documents: bankBasisDocuments, disputeResolved: true, amount: 300, currency: 'RUB', correlationId: 'corr-basis', auditId: 'audit-basis' });
-  return p7MarkBankBasisSent({ decision, moneyTree: bankBasisRequestedTree, actorId: 'operator-1', actorRole: 'operator', organizationId: 'org-operator', createdAt: '2026-05-23T08:55:00.000Z' }).decision;
-}
-function confirmation<Path extends P7BankConfirmationPath>(path: Path, overrides: Partial<P7BankConfirmationEvent<Path>> = {}): P7BankConfirmationEvent<Path> {
-  const amount = overrides.amount ?? (path === 'reject' ? 0 : 300);
-  const bankEventId = overrides.bankEventId ?? `bank-event-${path}`;
-  const actorId = overrides.actorId ?? 'bank-1';
-  return { bankEventId, idempotencyKey: overrides.idempotencyKey ?? key('confirm_bank_basis', bankEventId, actorId, amount), path, operationType: operationTypeByPath[path] as P7BankConfirmationOperationType<Path>, amount, actorId, actorRole: overrides.actorRole ?? 'bank_officer', organizationId: overrides.organizationId ?? 'org-bank', bankOrganizationId: overrides.bankOrganizationId ?? 'org-bank', bankReference: overrides.bankReference ?? `BR-${path}`, confirmedAt: overrides.confirmedAt ?? '2026-05-23T09:10:00.000Z', auditId: overrides.auditId ?? 'audit-bank-1', correlationId: overrides.correlationId ?? 'corr-bank-1' };
-}
+function actor(role: PlatformV7CanonicalRole, organizationId = `org-${role}`): PlatformV7AccessActor { return { userId: `${role}-1`, organizationId, roles: [role], activeRole: role }; }
+function key(boundaryId = 'confirm_bank_basis', attemptId = 'attempt-1', actorId = 'actor-1', amountMinor = 300): string { return buildPlatformV7IdempotencyKey({ boundaryId: boundaryId as Parameters<typeof buildPlatformV7IdempotencyKey>[0]['boundaryId'], actorId, entityId: 'money-1', dealId: 'deal-1', amountMinor, currency: 'RUB', attemptId }); }
+function moneyOperation(type: PlatformV7MoneyOperationType, idempotencyKey: string, overrides: Partial<PlatformV7MoneyOperation> = {}): PlatformV7MoneyOperation { return { operationId: `op-${type}-${overrides.amount ?? 300}`, dealId: 'deal-1', type, amount: overrides.amount ?? 300, currency: 'RUB', basisDocumentIds: ['contract', 'acceptance_act', 'lab_protocol', 'bank_basis'], actorId: overrides.actorId ?? 'actor-1', actorRole: overrides.actorRole ?? 'seller', occurredAt: '2026-05-23T09:00:00.000Z', idempotencyKey, correlationId: 'corr-1', auditId: 'audit-1', ...overrides }; }
+function doc(documentId: string, ownerRole: PlatformV7CanonicalRole, status: PlatformV7DocumentStatus, source: PlatformV7DocumentSource): PlatformV7DocumentRequirement { return { documentId, dealId: 'deal-1', type: documentId, title: documentId, ownerRole, responsibleRole: ownerRole, status, source, deadline: null, signatureStatus: 'not_required', blockStages: ['release'], affectsMoney: true, nextAction: 'next', createdAt: '2026-05-23T08:00:00.000Z', updatedAt: '2026-05-23T08:00:00.000Z' }; }
+const bankBasisDocuments: readonly PlatformV7DocumentRequirement[] = [doc('contract', 'seller', 'confirmed', 'edo'), doc('sdiz', 'seller', 'confirmed', 'fgis'), doc('acceptance_act', 'elevator_operator', 'signed', 'elevator'), doc('lab_protocol', 'lab_specialist', 'confirmed', 'lab'), doc('bank_basis', 'operator', 'confirmed', 'bank')];
+function sentBankBasis() { const decision = p7BuildBankBasis({ dealId: 'deal-1', bankBasisGate: { allowed: true, reason: 'ready', nextStatus: 'bank_basis_requested' }, documents: bankBasisDocuments, disputeResolved: true, amount: 300, currency: 'RUB', correlationId: 'corr-basis', auditId: 'audit-basis' }); return p7MarkBankBasisSent({ decision, moneyTree: bankBasisRequestedTree, actorId: 'operator-1', actorRole: 'operator', organizationId: 'org-operator', createdAt: '2026-05-23T08:55:00.000Z' }).decision; }
+function confirmation<Path extends P7BankConfirmationPath>(path: Path, overrides: Partial<P7BankConfirmationEvent<Path>> = {}): P7BankConfirmationEvent<Path> { const amount = overrides.amount ?? (path === 'reject' ? 0 : 300); const bankEventId = overrides.bankEventId ?? `bank-event-${path}`; const actorId = overrides.actorId ?? 'bank-1'; return { bankEventId, idempotencyKey: overrides.idempotencyKey ?? key('confirm_bank_basis', bankEventId, actorId, amount), path, operationType: operationTypeByPath[path] as P7BankConfirmationOperationType<Path>, amount, actorId, actorRole: overrides.actorRole ?? 'bank_officer', organizationId: overrides.organizationId ?? 'org-bank', bankOrganizationId: overrides.bankOrganizationId ?? 'org-bank', bankReference: overrides.bankReference ?? `BR-${path}`, confirmedAt: overrides.confirmedAt ?? '2026-05-23T09:10:00.000Z', auditId: overrides.auditId ?? 'audit-bank-1', correlationId: overrides.correlationId ?? 'corr-bank-1' }; }
 
 describe('platform-v7 RBAC audit idempotency action boundary', () => {
-  it('lets seller request bank basis when scoped and bank basis gate is ready', () => {
-    const idempotencyKey = key('confirm_bank_basis', 'seller-bank-basis-request', 'seller-1');
-    const result = executePlatformV7MoneyAction({
-      actor: actor('seller', 'org-seller'),
-      resource: moneyResource,
-      action: 'bank_basis_requested',
-      payload: { beforeMoneyTree: reservedTree, operation: moneyOperation('bank_basis_requested', idempotencyKey, { actorId: 'seller-1', actorRole: 'seller' }), bankBasisGate, bankConfirmationExists: false },
-      idempotencyContext: emptyContext,
-      idempotencyKey,
-      correlationId: 'corr-seller-bank-basis-request',
-      auditId: 'audit-seller-bank-basis-request',
-      reason: 'Seller requested bank basis after bank basis gate readiness.',
-      createdAt: '2026-05-23T09:00:00.000Z',
-    });
-    expect(result.status).toBe('applied');
-    expect(result.afterState.status).toBe('bank_basis_requested');
-    expect(result.afterState.releasedAmount).toBe(reservedTree.releasedAmount);
-    expect(result.auditPayload).toMatchObject({ action: 'bank_basis_requested', actorRole: 'seller', duplicate: false });
-  });
-
-  it('denies seller bank basis confirmation before any MoneyTree mutation', () => {
-    const bankEvent = confirmation('release', { actorRole: 'seller', actorId: 'seller-1', organizationId: 'org-seller' });
-    const result = executePlatformV7BankBasisAction({ actor: actor('seller', 'org-seller'), resource: moneyResource, action: 'bank_basis_confirmed', payload: { decision: sentBankBasis(), moneyTree: bankBasisRequestedTree, confirmation: bankEvent }, idempotencyContext: emptyContext, idempotencyKey: bankEvent.idempotencyKey, correlationId: 'corr-seller-denied', auditId: 'audit-seller-denied', reason: 'Seller cannot confirm bank basis.' });
-    expect(result.status).toBe('denied');
-    expect(result.afterState).toBe(bankBasisRequestedTree);
-    expect(result.auditPayload).toMatchObject({ auditCode: 'EXPLICIT_DENY', action: 'bank_basis_confirmed', beforeState: bankBasisRequestedTree, afterState: bankBasisRequestedTree });
-    expect(result.deniedPayload).toMatchObject({ auditCode: 'EXPLICIT_DENY', role: 'seller', action: 'CONFIRM_BANK_BASIS' });
-  });
-
-  it('denies buyer bank reserve confirmation', () => {
-    const idempotencyKey = key('confirm_money_reserved', 'buyer-reserve-confirm', 'buyer-1');
-    const result = executePlatformV7MoneyAction({ actor: actor('buyer', 'org-buyer'), resource: moneyResource, action: 'reserve_confirmed', payload: { beforeMoneyTree: { ...reservedTree, reservedAmount: 0, readyToReleaseAmount: 0, heldAmount: 0, releasedAmount: 0, refundedAmount: 0, status: 'reserve_requested' }, operation: moneyOperation('reserve_confirmed', idempotencyKey, { actorId: 'buyer-1', actorRole: 'buyer' }), bankConfirmationExists: true }, idempotencyContext: emptyContext, idempotencyKey, correlationId: 'corr-buyer-reserve-denied', auditId: 'audit-buyer-reserve-denied', reason: 'Buyer cannot confirm bank reserve.' });
-    expect(result.status).toBe('denied');
-    expect(result.afterState.reservedAmount).toBe(0);
-    expect(result.deniedPayload?.auditCode).toBe('EXPLICIT_DENY');
-  });
-
-  it('lets bank_officer confirm bank basis when bank organization scope matches', () => {
-    const bankEvent = confirmation('release');
-    const result = executePlatformV7BankBasisAction({ actor: actor('bank_officer', 'org-bank'), resource: moneyResource, action: 'bank_basis_confirmed', payload: { decision: sentBankBasis(), moneyTree: bankBasisRequestedTree, confirmation: bankEvent }, idempotencyContext: emptyContext, idempotencyKey: bankEvent.idempotencyKey, correlationId: 'corr-bank-basis', auditId: 'audit-bank-basis', reason: 'Bank officer confirmed bank basis.' });
-    expect(result.status).toBe('applied');
-    expect(result.afterState.releasedAmount).toBe(350);
-    expect(result.domainResult).toMatchObject({ valid: true, auditPayload: { action: 'bank_basis_confirmed', bankEventId: 'bank-event-release' } });
-    expect(result.auditPayload).toMatchObject({ action: 'bank_basis_confirmed', beforeState: bankBasisRequestedTree, afterState: result.afterState, idempotencyKey: bankEvent.idempotencyKey });
-  });
-
-  it('denies bank_officer bank basis confirmation when bank organization scope mismatches', () => {
-    const bankEvent = confirmation('release', { organizationId: 'org-bank-other' });
-    const result = executePlatformV7BankBasisAction({ actor: actor('bank_officer', 'org-bank-other'), resource: moneyResource, action: 'bank_basis_confirmed', payload: { decision: sentBankBasis(), moneyTree: bankBasisRequestedTree, confirmation: bankEvent }, idempotencyContext: emptyContext, idempotencyKey: bankEvent.idempotencyKey, correlationId: 'corr-bank-scope-denied', auditId: 'audit-bank-scope-denied', reason: 'Bank scope mismatch.' });
-    expect(result.status).toBe('denied');
-    expect(result.code).toBe('DENY_BY_DEFAULT');
-    expect(result.afterState).toBe(bankBasisRequestedTree);
-  });
-
-  it('blocks duplicate idempotency keys, duplicate bank events and duplicate operations before mutation', () => {
-    const bankEvent = confirmation('release');
-    const duplicateKey = executePlatformV7BankBasisAction({ actor: actor('bank_officer', 'org-bank'), resource: moneyResource, action: 'bank_basis_confirmed', payload: { decision: sentBankBasis(), moneyTree: bankBasisRequestedTree, confirmation: bankEvent }, idempotencyContext: { processedKeys: [bankEvent.idempotencyKey], processedBankEventIds: [], processedOperationIds: [] }, idempotencyKey: bankEvent.idempotencyKey, correlationId: 'corr-dup-key', auditId: 'audit-dup-key', reason: 'Duplicate key.' });
-    expect(duplicateKey.status).toBe('duplicate');
-    expect(duplicateKey.code).toBe('DUPLICATE_IDEMPOTENCY_KEY');
-
-    const duplicateEvent = executePlatformV7BankBasisAction({ actor: actor('bank_officer', 'org-bank'), resource: moneyResource, action: 'bank_basis_confirmed', payload: { decision: sentBankBasis(), moneyTree: bankBasisRequestedTree, confirmation: bankEvent }, idempotencyContext: { processedKeys: [], processedBankEventIds: [bankEvent.bankEventId], processedOperationIds: [] }, idempotencyKey: bankEvent.idempotencyKey, correlationId: 'corr-dup-event', auditId: 'audit-dup-event', reason: 'Duplicate event.' });
-    expect(duplicateEvent.status).toBe('duplicate');
-    expect(duplicateEvent.code).toBe('DUPLICATE_BANK_EVENT');
-
-    const opKey = key('confirm_bank_basis', 'duplicate-operation', 'bank-1');
-    const duplicateOperation = executePlatformV7MoneyAction({ actor: actor('seller', 'org-seller'), resource: moneyResource, action: 'bank_basis_requested', payload: { beforeMoneyTree: reservedTree, operation: moneyOperation('bank_basis_requested', opKey, { operationId: 'op-duplicate' }), bankBasisGate, bankConfirmationExists: false }, idempotencyContext: { processedKeys: [], processedBankEventIds: [], processedOperationIds: ['op-duplicate'] }, idempotencyKey: opKey, correlationId: 'corr-dup-op', auditId: 'audit-dup-op', reason: 'Duplicate operation.' });
-    expect(duplicateOperation.status).toBe('duplicate');
-    expect(duplicateOperation.code).toBe('DUPLICATE_OPERATION');
-  });
-
-  it('enforces document role boundaries and writes typed audit payloads', () => {
-    const labDoc = doc('lab_protocol', 'lab_specialist', 'uploaded', 'lab');
-    const denied = executePlatformV7DocumentAction({ actor: actor('seller', 'org-seller'), resource: documentResource, action: 'document_confirmed', payload: { document: labDoc }, idempotencyContext: emptyContext, idempotencyKey: key('accept_document', 'lab-denied', 'seller-1'), correlationId: 'corr-lab-denied', auditId: 'audit-lab-denied', reason: 'Wrong document role.' });
-    expect(denied.status).toBe('denied');
-    expect(denied.code).toBe('LAB_PROTOCOL_ROLE_REQUIRED');
-
-    const accepted = executePlatformV7DocumentAction({ actor: actor('lab_specialist', 'org-lab'), resource: documentResource, action: 'document_confirmed', payload: { document: labDoc }, idempotencyContext: emptyContext, idempotencyKey: key('accept_document', 'lab-confirmed', 'lab_specialist-1'), correlationId: 'corr-lab-confirmed', auditId: 'audit-lab-confirmed', reason: 'Lab confirmed protocol.' });
-    expect(accepted.status).toBe('applied');
-    expect(accepted.afterState.status).toBe('confirmed');
-    expect(accepted.auditPayload).toMatchObject({ action: 'document_confirmed', actorRole: 'lab_specialist', auditCode: 'OK' });
-  });
-
-  it('blocks idempotency envelope mismatch for money operations', () => {
-    const envelopeKey = key('confirm_bank_basis', 'envelope-key', 'seller-1');
-    const operationKey = key('confirm_bank_basis', 'operation-key', 'seller-1');
-    const result = executePlatformV7MoneyAction({ actor: actor('seller', 'org-seller'), resource: moneyResource, action: 'bank_basis_requested', payload: { beforeMoneyTree: reservedTree, operation: moneyOperation('bank_basis_requested', operationKey, { actorId: 'seller-1', actorRole: 'seller' }), bankBasisGate, bankConfirmationExists: false }, idempotencyContext: emptyContext, idempotencyKey: envelopeKey, correlationId: 'corr-key-mismatch', auditId: 'audit-key-mismatch', reason: 'Mismatched envelope.' });
-    expect(result.status).toBe('blocked');
-    expect(result.code).toBe('IDEMPOTENCY_KEY_MISMATCH');
-    expect(result.afterState).toBe(reservedTree);
-  });
+  it('lets seller request bank basis when scoped and bank basis gate is ready', () => { const idempotencyKey = key('confirm_bank_basis', 'seller-bank-basis-request', 'seller-1'); const result = executePlatformV7MoneyAction({ actor: actor('seller', 'org-seller'), resource: moneyResource, action: 'bank_basis_requested', payload: { beforeMoneyTree: reservedTree, operation: moneyOperation('bank_basis_requested', idempotencyKey, { actorId: 'seller-1', actorRole: 'seller' }), bankBasisGate, bankConfirmationExists: false }, idempotencyContext: emptyContext, idempotencyKey, correlationId: 'corr-seller-bank-basis-request', auditId: 'audit-seller-bank-basis-request', reason: 'Seller requested bank basis after bank basis gate readiness.', createdAt: '2026-05-23T09:00:00.000Z' }); expect(result.status).toBe('applied'); expect(result.afterState.status).toBe('bank_basis_requested'); expect(result.afterState.releasedAmount).toBe(reservedTree.releasedAmount); expect(result.auditPayload).toMatchObject({ action: 'bank_basis_requested', actorRole: 'seller', duplicate: false }); });
+  it('denies seller bank basis confirmation before any MoneyTree mutation', () => { const bankEvent = confirmation('release', { actorRole: 'seller', actorId: 'seller-1', organizationId: 'org-seller' }); const result = executePlatformV7BankBasisAction({ actor: actor('seller', 'org-seller'), resource: moneyResource, action: 'bank_basis_confirmed', payload: { decision: sentBankBasis(), moneyTree: bankBasisRequestedTree, confirmation: bankEvent }, idempotencyContext: emptyContext, idempotencyKey: bankEvent.idempotencyKey, correlationId: 'corr-seller-denied', auditId: 'audit-seller-denied', reason: 'Seller cannot confirm bank basis.' }); expect(result.status).toBe('denied'); expect(result.afterState).toBe(bankBasisRequestedTree); expect(result.auditPayload).toMatchObject({ auditCode: 'EXPLICIT_DENY', action: 'bank_basis_confirmed', beforeState: bankBasisRequestedTree, afterState: bankBasisRequestedTree }); expect(result.deniedPayload).toMatchObject({ auditCode: 'EXPLICIT_DENY', role: 'seller', action: 'CONFIRM_BANK_BASIS' }); });
+  it('denies buyer bank reserve confirmation', () => { const idempotencyKey = key('confirm_money_reserved', 'buyer-reserve-confirm', 'buyer-1'); const result = executePlatformV7MoneyAction({ actor: actor('buyer', 'org-buyer'), resource: moneyResource, action: 'reserve_confirmed', payload: { beforeMoneyTree: { ...reservedTree, reservedAmount: 0, readyToReleaseAmount: 0, heldAmount: 0, releasedAmount: 0, refundedAmount: 0, status: 'reserve_requested' }, operation: moneyOperation('reserve_confirmed', idempotencyKey, { actorId: 'buyer-1', actorRole: 'buyer' }), bankConfirmationExists: true }, idempotencyContext: emptyContext, idempotencyKey, correlationId: 'corr-buyer-reserve-denied', auditId: 'audit-buyer-reserve-denied', reason: 'Buyer cannot confirm bank reserve.' }); expect(result.status).toBe('denied'); expect(result.afterState.reservedAmount).toBe(0); expect(result.deniedPayload?.auditCode).toBe('EXPLICIT_DENY'); });
+  it('lets bank_officer confirm bank basis when bank organization scope matches', () => { const bankEvent = confirmation('release'); const result = executePlatformV7BankBasisAction({ actor: actor('bank_officer', 'org-bank'), resource: moneyResource, action: 'bank_basis_confirmed', payload: { decision: sentBankBasis(), moneyTree: bankBasisRequestedTree, confirmation: bankEvent }, idempotencyContext: emptyContext, idempotencyKey: bankEvent.idempotencyKey, correlationId: 'corr-bank-basis', auditId: 'audit-bank-basis', reason: 'Bank officer confirmed bank basis.' }); expect(result.status).toBe('applied'); expect(result.afterState.releasedAmount).toBe(350); expect(result.domainResult).toMatchObject({ valid: true, auditPayload: { action: 'bank_basis_confirmed', bankEventId: 'bank-event-release' } }); expect(result.auditPayload).toMatchObject({ action: 'bank_basis_confirmed', beforeState: bankBasisRequestedTree, afterState: result.afterState, idempotencyKey: bankEvent.idempotencyKey }); });
+  it('denies bank_officer bank basis confirmation when bank organization scope mismatches', () => { const bankEvent = confirmation('release', { organizationId: 'org-bank-other' }); const result = executePlatformV7BankBasisAction({ actor: actor('bank_officer', 'org-bank-other'), resource: moneyResource, action: 'bank_basis_confirmed', payload: { decision: sentBankBasis(), moneyTree: bankBasisRequestedTree, confirmation: bankEvent }, idempotencyContext: emptyContext, idempotencyKey: bankEvent.idempotencyKey, correlationId: 'corr-bank-scope-denied', auditId: 'audit-bank-scope-denied', reason: 'Bank scope mismatch.' }); expect(result.status).toBe('denied'); expect(result.code).toBe('DENY_BY_DEFAULT'); expect(result.afterState).toBe(bankBasisRequestedTree); });
+  it('blocks duplicate idempotency keys, duplicate bank events and duplicate operations before mutation', () => { const bankEvent = confirmation('release'); const duplicateKey = executePlatformV7BankBasisAction({ actor: actor('bank_officer', 'org-bank'), resource: moneyResource, action: 'bank_basis_confirmed', payload: { decision: sentBankBasis(), moneyTree: bankBasisRequestedTree, confirmation: bankEvent }, idempotencyContext: { processedKeys: [bankEvent.idempotencyKey], processedBankEventIds: [], processedOperationIds: [] }, idempotencyKey: bankEvent.idempotencyKey, correlationId: 'corr-dup-key', auditId: 'audit-dup-key', reason: 'Duplicate key.' }); expect(duplicateKey.status).toBe('duplicate'); expect(duplicateKey.code).toBe('DUPLICATE_IDEMPOTENCY_KEY'); const duplicateEvent = executePlatformV7BankBasisAction({ actor: actor('bank_officer', 'org-bank'), resource: moneyResource, action: 'bank_basis_confirmed', payload: { decision: sentBankBasis(), moneyTree: bankBasisRequestedTree, confirmation: bankEvent }, idempotencyContext: { processedKeys: [], processedBankEventIds: [bankEvent.bankEventId], processedOperationIds: [] }, idempotencyKey: bankEvent.idempotencyKey, correlationId: 'corr-dup-event', auditId: 'audit-dup-event', reason: 'Duplicate event.' }); expect(duplicateEvent.status).toBe('duplicate'); expect(duplicateEvent.code).toBe('DUPLICATE_BANK_EVENT'); const opKey = key('confirm_bank_basis', 'duplicate-operation', 'bank-1'); const duplicateOperation = executePlatformV7MoneyAction({ actor: actor('seller', 'org-seller'), resource: moneyResource, action: 'bank_basis_requested', payload: { beforeMoneyTree: reservedTree, operation: moneyOperation('bank_basis_requested', opKey, { operationId: 'op-duplicate' }), bankBasisGate, bankConfirmationExists: false }, idempotencyContext: { processedKeys: [], processedBankEventIds: [], processedOperationIds: ['op-duplicate'] }, idempotencyKey: opKey, correlationId: 'corr-dup-op', auditId: 'audit-dup-op', reason: 'Duplicate operation.' }); expect(duplicateOperation.status).toBe('duplicate'); expect(duplicateOperation.code).toBe('DUPLICATE_OPERATION'); });
+  it('enforces document role boundaries and writes typed audit payloads', () => { const labDoc = doc('lab_protocol', 'lab_specialist', 'uploaded', 'lab'); const denied = executePlatformV7DocumentAction({ actor: actor('seller', 'org-seller'), resource: documentResource, action: 'document_confirmed', payload: { document: labDoc }, idempotencyContext: emptyContext, idempotencyKey: key('accept_document', 'lab-denied', 'seller-1'), correlationId: 'corr-lab-denied', auditId: 'audit-lab-denied', reason: 'Wrong document role.' }); expect(denied.status).toBe('denied'); expect(denied.code).toBe('LAB_PROTOCOL_ROLE_REQUIRED'); const accepted = executePlatformV7DocumentAction({ actor: actor('lab_specialist', 'org-lab'), resource: documentResource, action: 'document_confirmed', payload: { document: labDoc }, idempotencyContext: emptyContext, idempotencyKey: key('accept_document', 'lab-confirmed', 'lab_specialist-1'), correlationId: 'corr-lab-confirmed', auditId: 'audit-lab-confirmed', reason: 'Lab confirmed protocol.' }); expect(accepted.status).toBe('applied'); expect(accepted.afterState.status).toBe('confirmed'); expect(accepted.auditPayload).toMatchObject({ action: 'document_confirmed', actorRole: 'lab_specialist', auditCode: 'OK' }); });
+  it('blocks idempotency envelope mismatch for money operations', () => { const envelopeKey = key('confirm_bank_basis', 'envelope-key', 'seller-1'); const operationKey = key('confirm_bank_basis', 'operation-key', 'seller-1'); const result = executePlatformV7MoneyAction({ actor: actor('seller', 'org-seller'), resource: moneyResource, action: 'bank_basis_requested', payload: { beforeMoneyTree: reservedTree, operation: moneyOperation('bank_basis_requested', operationKey, { actorId: 'seller-1', actorRole: 'seller' }), bankBasisGate, bankConfirmationExists: false }, idempotencyContext: emptyContext, idempotencyKey: envelopeKey, correlationId: 'corr-key-mismatch', auditId: 'audit-key-mismatch', reason: 'Mismatched envelope.' }); expect(result.status).toBe('blocked'); expect(result.code).toBe('IDEMPOTENCY_KEY_MISMATCH'); expect(result.afterState).toBe(reservedTree); });
 });
