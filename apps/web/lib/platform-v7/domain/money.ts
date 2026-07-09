@@ -5,9 +5,9 @@ export type MoneyEventType =
   | 'RESERVE_CONFIRMED'
   | 'HOLD_CREATED'
   | 'HOLD_UPDATED'
-  | 'RELEASE_REQUESTED'
-  | 'PARTIAL_RELEASE_EXECUTED'
-  | 'FINAL_RELEASE_EXECUTED'
+  | 'BANK_BASIS_REQUESTED'
+  | 'PARTIAL_BANK_BASIS_CONFIRMED'
+  | 'FINAL_BANK_BASIS_CONFIRMED'
   | 'REFUND_REQUESTED'
   | 'REFUND_EXECUTED'
   | 'BANK_REJECTED'
@@ -56,21 +56,21 @@ export interface MoneyTree {
 type MoneyTreeBucketKey = Exclude<MoneyTreeNode['key'], 'reserved'>;
 
 const MONEY_TREE_LABELS: Record<MoneyTreeBucketKey, string> = {
-  readyToRelease: 'К выпуску',
+  readyToRelease: 'К банковскому основанию',
   held: 'Удержано',
   blockedByDispute: 'Заблокировано спором',
   blockedByDocuments: 'Заблокировано документами',
   manualReview: 'На ручной проверке банка',
-  notReady: 'Недоступно к выпуску',
+  notReady: 'Недоступно к банковскому основанию',
 };
 
 const MONEY_TREE_FORMULAS: Record<MoneyTreeBucketKey, string> = {
-  readyToRelease: 'К выпуску = часть резерва по сделкам без удержаний, споров и причин остановки',
+  readyToRelease: 'К банковскому основанию = часть резерва по сделкам без удержаний, споров и причин остановки',
   held: 'Удержано = часть резерва по сделкам с удержанием',
   blockedByDispute: 'Заблокировано спором = часть резерва по сделкам со спором',
-  blockedByDocuments: 'Заблокировано документами = часть резерва по сделкам с документами, блокирующими банковскую проверку выплаты',
+  blockedByDocuments: 'Заблокировано документами = часть резерва по сделкам с документами, блокирующими банковскую проверку основания',
   manualReview: 'На ручной проверке банка = часть резерва по сделкам с банковской ручной проверкой',
-  notReady: 'Недоступно к выпуску = остаток резерва, который ещё не готов к выпуску',
+  notReady: 'Недоступно к банковскому основанию = остаток резерва, который ещё не готов к основанию',
 };
 
 export function calculateDealMoneyAtRisk(deal: Pick<CanonicalDeal, 'money' | 'dispute' | 'blockers' | 'status'>): MoneyAmount {
@@ -78,7 +78,7 @@ export function calculateDealMoneyAtRisk(deal: Pick<CanonicalDeal, 'money' | 'di
     return deal.money.holdAmount || deal.dispute?.amountAtRisk || 0;
   }
 
-  if (deal.blockers.some((blocker) => blocker.includes('bank') || blocker.includes('release'))) {
+  if (deal.blockers.some((blocker) => blocker.includes('bank') || blocker.includes('bank_basis'))) {
     return Math.max(deal.money.holdAmount, deal.money.releaseAmount);
   }
 
@@ -154,10 +154,10 @@ export function calculateMoneyStateFromEvents(events: readonly MoneyEvent[]): Mo
         case 'HOLD_CREATED':
         case 'HOLD_UPDATED':
           return { ...state, holdAmount: event.amount };
-        case 'RELEASE_REQUESTED':
+        case 'BANK_BASIS_REQUESTED':
           return { ...state, releaseAmount: event.amount };
-        case 'PARTIAL_RELEASE_EXECUTED':
-        case 'FINAL_RELEASE_EXECUTED':
+        case 'PARTIAL_BANK_BASIS_CONFIRMED':
+        case 'FINAL_BANK_BASIS_CONFIRMED':
           return { ...state, releaseAmount: Math.max(0, state.releaseAmount - event.amount), reservedAmount: Math.max(0, state.reservedAmount - event.amount) };
         case 'REFUND_EXECUTED':
           return { ...state, refundAmount: (state.refundAmount ?? 0) + event.amount, reservedAmount: Math.max(0, state.reservedAmount - event.amount) };
@@ -175,7 +175,7 @@ export function calculateMoneyKpi(deals: readonly CanonicalDeal[]): MoneyKpi {
   return deals.reduce<MoneyKpi>(
     (kpi, deal) => {
       const moneyAtRisk = calculateDealMoneyAtRisk(deal);
-      const isMoneyBlocked = deal.blockers.some((blocker) => blocker.includes('bank') || blocker.includes('release'));
+      const isMoneyBlocked = deal.blockers.some((blocker) => blocker.includes('bank') || blocker.includes('bank_basis'));
 
       return {
         totalGmv: kpi.totalGmv + deal.money.totalAmount,
