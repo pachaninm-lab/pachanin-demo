@@ -8,6 +8,10 @@ import { P7GuardedActionButton } from '@/components/platform-v7/P7GuardedActionB
 import { FactSourceBadge } from '@/components/platform-v7/FactSourceBadge';
 import { platformV7ActionTargetById } from '@/lib/platform-v7/action-targets';
 import type { P7WorkspaceRuntimeBinding } from '@/lib/platform-v7/deal-workspace-runtime-binding';
+import {
+  buildP7DealWorkspaceRuntimeActionRequest,
+  type P7DealWorkspaceRuntimeActionRequest,
+} from '@/lib/platform-v7/deal-workspace-runtime-actions';
 
 const S = 'var(--pc-bg-card)';
 const SS = 'var(--pc-bg-elevated)';
@@ -22,6 +26,9 @@ const ERR_BORDER = 'rgba(220,38,38,0.18)';
 const ERR = '#B91C1C';
 const MONEY = '#155EEF';
 const EVIDENCE = '#6941C6';
+
+const RUNTIME_UI_ACTOR = { actorId: 'workspace-operator', actorRole: 'operator', organizationId: 'platform-ops' };
+const RUNTIME_UI_NOW = '2026-07-09T15:30:00.000Z';
 
 type Tab = 'overview' | 'money' | 'logistics' | 'documents' | 'fgis' | 'evidence' | 'dispute';
 
@@ -132,6 +139,8 @@ function Overview({ deal, runtimeBinding }: { deal: DomainDeal; runtimeBinding?:
 function Money({ deal }: { deal: DomainDeal }) {
   const basisTarget = platformV7ActionTargetById('deal-release-funds');
   const requestTarget = platformV7ActionTargetById('deal-request-release');
+  const requestRoute = requestTarget ? buildP7DealWorkspaceRuntimeActionRequest({ deal, target: requestTarget, actor: RUNTIME_UI_ACTOR, nowIso: RUNTIME_UI_NOW }) : null;
+  const basisRoute = basisTarget ? buildP7DealWorkspaceRuntimeActionRequest({ deal, target: basisTarget, actor: RUNTIME_UI_ACTOR, nowIso: RUNTIME_UI_NOW }) : null;
   const bankBasisAmount = deal.releaseAmount ?? Math.max(deal.reservedAmount - deal.holdAmount, 0);
   const blockerLabels = domainDealMoneyBlockers(deal);
   const bankBasisBlocked = blockerLabels.length > 0;
@@ -152,6 +161,8 @@ function Money({ deal }: { deal: DomainDeal }) {
         {basisTarget ? <P7GuardedActionButton target={basisTarget} activeActionId={null} blocked blockerLabels={['full-gate-matrix-required']} blockedLabel='Только через банк' blockedReason='Платформа не двигает деньги напрямую. Нужны action boundary, audit и внешнее банковское событие.' /> : null}
         <Link href='/platform-v7/bank' style={linkButton()}>Банковый контур →</Link>
       </div>
+      {requestRoute ? <RuntimeRouteNotice request={requestRoute} /> : null}
+      {basisRoute ? <RuntimeRouteNotice request={basisRoute} /> : null}
     </Stack>
   );
 }
@@ -219,13 +230,32 @@ function Evidence({ deal }: { deal: DomainDeal }) {
 
 function Dispute({ deal }: { deal: DomainDeal }) {
   const openTarget = platformV7ActionTargetById('deal-open-dispute');
+  const route = openTarget ? buildP7DealWorkspaceRuntimeActionRequest({ deal, target: openTarget, actor: RUNTIME_UI_ACTOR, nowIso: RUNTIME_UI_NOW }) : null;
   const hasHold = deal.holdAmount > 0;
   return (
     <Stack>
       <Notice danger={hasHold} title={hasHold ? 'Активное удержание' : 'Спора нет'}>{hasHold ? `${money(deal.holdAmount)} удержано до решения.` : 'По сделке нет активного удержания.'}</Notice>
       {openTarget ? <P7GuardedActionButton target={openTarget} activeActionId={null} tone='danger' /> : null}
+      {route ? <RuntimeRouteNotice request={route} /> : null}
       <Link href='/platform-v7/disputes' style={linkButton('danger')}>Арбитражный кабинет →</Link>
     </Stack>
+  );
+}
+
+function RuntimeRouteNotice({ request }: { request: P7DealWorkspaceRuntimeActionRequest }) {
+  const blocked = request.status === 'blocked';
+  const title = request.status === 'ready'
+    ? `Runtime route: ${request.channel} · ${request.action}`
+    : request.status === 'navigation_only'
+      ? 'Runtime route: навигация без записи'
+      : 'Runtime route: действие заблокировано';
+  const body = request.status === 'blocked' ? request.reason : request.safePath;
+
+  return (
+    <div style={{ background: blocked ? ERR_BG : SS, border: `1px solid ${blocked ? ERR_BORDER : B}`, borderRadius: 10, padding: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 900, color: blocked ? ERR : M, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</div>
+      <div style={{ marginTop: 6, fontSize: 12, color: T, lineHeight: 1.45 }}>{body}</div>
+    </div>
   );
 }
 
