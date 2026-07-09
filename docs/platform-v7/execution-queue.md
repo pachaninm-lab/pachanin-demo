@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.5 Runtime DB Contract.
+CURRENT: VP-3.6 Runtime Persistence Repository Adapter Scope Selection.
 
-GOAL: Зафиксировать контракт Postgres-backed runtime snapshot persistence для Deal Workspace без применения скрытой production migration и без заявлений о live bank/ФГИС/ЭДО integrations.
+GOAL: Выбрать точный безопасный scope для следующего слоя runtime persistence repository adapter, не открывая широкий backend/API/DB доступ и не создавая скрытую production migration.
 
 CURRENT STATUS:
 - VP-2.5 is complete: all 260 web unit tests pass (pnpm --filter web test → 260/260).
@@ -10,31 +10,40 @@ CURRENT STATUS:
 - VP-3 Runtime Actions are complete from #2210.
 - VP-3 Runtime Refresh Snapshot is complete from #2211.
 - VP-3 Process Runtime Store is complete from #2212.
-- VP-3.5 Runtime DB Contract is open in #2213 as contract-only, not a live production DB migration.
+- VP-3.5 Runtime DB Contract is merged from #2213 as contract-only, not a live production DB migration.
+- VP-3.6 is scope-selection only: it must not write repository adapter code yet.
 - #2113 remains open: repository settings cleanup.
 - #2115 remains open: backend register role assignment hardening remains blocked by the current auth-file write path.
 
 CURRENT ALLOWED:
-- apps/web/** (runtime contract typings/tests only for current PR)
-- apps/api/prisma/contracts/** (DB contract SQL only; no applied migration)
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
 NEXT:
-- Layer: VP-3.6 Runtime Persistence Repository Adapter Scope Selection.
-- Goal: после merge #2213 выбрать безопасный write scope для repository adapter, outbox writer and audit writer without opening broad backend/API/DB zones or fake-live external integrations.
+- Layer: VP-3.7 Runtime Persistence Repository Adapter Contract Plan.
+- Goal: зафиксировать точный implementation contract for repository adapter, outbox writer and audit writer before allowing code writes into runtime persistence files.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - define exact files for repository adapter implementation before writing code;
+  - name exact repository adapter files before code changes;
+  - name exact unit tests before code changes;
+  - keep `apps/api/prisma/schema.prisma` locked until a separate explicit migration PR;
+  - keep `apps/api/prisma/migrations/**` locked until migration PR;
   - keep direct UI money movement forbidden;
   - keep hidden DB migration forbidden;
   - keep DB contract explicit;
   - keep outbox/audit linkage mandatory before fully_linked state;
+  - keep bank/FGIS/EDO live claims forbidden;
   - guard-tests remain green;
   - pnpm --filter web test remains green;
   - maturity language remains platform-temporarily-without-external-integrations.
+
+IMPLEMENTATION CANDIDATES — NOT ALLOWED YET:
+- apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts
+- apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/**
 
 ORDER:
 1. Stable shell boundary is active from #2038.
@@ -69,3 +78,4 @@ ORDER:
 30. VP-3 Runtime Actions are active from #2210.
 31. VP-3 Runtime Refresh Snapshot is active from #2211.
 32. VP-3 Process Runtime Store is active from #2212.
+33. VP-3.5 Runtime DB Contract is active from #2213.
