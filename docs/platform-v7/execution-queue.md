@@ -1,8 +1,8 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation.
+CURRENT: VP-3.18 Runtime Persistence Outbox Audit Linkage Plan.
 
-GOAL: Привязать runtime action pipeline к repository adapter receipt после merge #2224, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend broad scope и не заявляя live bank/ФГИС/ЭДО persistence.
+GOAL: Выбрать точный scope для contract-level outbox/audit linkage после merge #2225, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend broad scope и не заявляя live bank/ФГИС/ЭДО persistence.
 
 CURRENT STATUS:
 - VP-2.5 is complete: all 260 web unit tests pass (pnpm --filter web test → 260/260).
@@ -12,28 +12,28 @@ CURRENT STATUS:
 - VP-3 Process Runtime Store is complete from #2212.
 - VP-3.5 Runtime DB Contract is merged from #2213 as contract-only, not a live production DB migration.
 - VP-3.13 Runtime Persistence Repository Adapter Implementation is merged from #2221.
-- VP-3.16 Runtime Persistence Pipeline Binding Final Gate is merged from #2224.
-- VP-3.17 binds runtime action result to repository adapter receipt. This remains contract-level and is not production DB persistence.
+- VP-3.17 Runtime Persistence Pipeline Binding Implementation is merged from #2225.
+- Runtime action result now has `runtimeRepositoryReceipt`, but it still has no real outbox/audit linkage.
 - #2113 remains open: repository settings cleanup.
 - #2115 remains open: backend register role assignment hardening remains blocked by the current auth-file write path.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
-- apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts
-- apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineBinding.test.ts
 
-IMPLEMENTED:
-- Runtime action result now includes `runtimeRepositoryReceipt` after `runtimeStoreReceipt` exists.
-- Pipeline builds `P7DealWorkspaceRuntimeDbContract` from refresh snapshot and process runtime store receipt.
-- Pipeline passes explicit actor, role, correlation, audit and idempotency values into DB contract builder.
-- Repository adapter remains contract-level.
-- Without outbox/audit linkage, repository receipt state stays `outbox_required`.
-- Duplicate idempotency returns duplicate-safe repository receipt and does not create a second repository record.
+CANDIDATE IMPLEMENTATION FILES FOR LATER PR:
+- `apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts`
+- `apps/web/tests/unit/platformV7DealWorkspaceRuntimeLinkage.test.ts`
+
+WHY NEW LINKAGE BOUNDARY:
+- Current repository adapter can accept `outboxEntryId` and `auditEventId`, but no dedicated linkage builder exists yet.
+- Existing runtime pipeline must not fake `fully_linked` before outbox and audit links are actually produced.
+- A separate linkage boundary keeps future DB/outbox/audit implementation isolated from UI and server action code.
 
 STILL LOCKED:
 - `apps/api/prisma/schema.prisma`
 - `apps/api/prisma/migrations/**`
+- `apps/web/app/platform-v7/**`
 - `apps/web/components/platform-v7/**`
 - `apps/web/app/api/**`
 - `apps/api/src/modules/auth/**`
@@ -41,21 +41,27 @@ STILL LOCKED:
 - `package-lock.json`
 - `pnpm-lock.yaml`
 
-GUARDRAILS:
+LINKAGE REQUIREMENTS FOR LATER PR:
+- Produce a typed linkage object with `outboxEntryId` and `auditEventId` only when both are explicitly available.
+- Preserve `outbox_required` when outbox linkage is missing.
+- Preserve `audit_required` when audit linkage is missing after outbox exists.
+- Allow `fully_linked` only through existing repository state logic when both links exist.
+- Keep duplicate idempotency duplicate-safe.
+- Keep this as contract-level linkage, not live DB persistence.
 - No direct UI money movement.
 - No bank/FGIS/EDO live persistence claims.
 - No hidden migration.
 - No `schema.prisma` drift.
 - No package or lockfile change.
-- Critical forbidden zones must not be removed from `autopilot-state.json`.
 
 NEXT:
-- Layer: VP-3.18 Runtime Persistence Outbox Audit Linkage Plan.
-- Goal: select exact scope for adding real outbox/audit linkage after VP-3.17 is merged and tested.
+- Layer: VP-3.19 Runtime Persistence Outbox Audit Linkage Scope Unlock.
+- Goal: docs-only unlock exact files for linkage implementation.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
+  - keep candidate linkage files named but not written in VP-3.18;
   - keep `apps/api/prisma/schema.prisma` locked;
   - keep `apps/api/prisma/migrations/**` locked;
   - keep direct UI money movement forbidden;
@@ -111,3 +117,4 @@ ORDER:
 42. VP-3.14 Runtime Persistence Pipeline Binding Plan is active from #2222.
 43. VP-3.15 Runtime Persistence Pipeline Binding Scope Unlock is active from #2223.
 44. VP-3.16 Runtime Persistence Pipeline Binding Final Gate is active from #2224.
+45. VP-3.17 Runtime Persistence Pipeline Binding Implementation is active from #2225.
