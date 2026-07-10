@@ -10,9 +10,9 @@ const fullStyleRuntime = read('apps/web/components/platform-v7/PlatformV7FullSty
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const nextConfig = read('apps/web/next.config.js');
-const isolatedLanding = read('apps/web/app/_pc-public/platform-v7/page.tsx');
-const isolatedLogin = read('apps/web/app/_pc-public/platform-v7/login/page.tsx');
-const isolatedRecovery = read('apps/web/app/_pc-public/platform-v7/forgot-password/page.tsx');
+const isolatedLanding = read('apps/web/app/pc-public-entry/platform-v7/page.tsx');
+const isolatedLogin = read('apps/web/app/pc-public-entry/platform-v7/login/page.tsx');
+const isolatedRecovery = read('apps/web/app/pc-public-entry/platform-v7/forgot-password/page.tsx');
 const landing = read('apps/web/app/platform-v7/page.tsx');
 const loginLayout = read('apps/web/app/platform-v7/login/layout.tsx');
 const login = read('apps/web/app/platform-v7/login/page.tsx');
@@ -45,9 +45,9 @@ describe('platform-v7 public/protected runtime split', () => {
   });
 
   it('rewrites only the three public entry URLs into a physically isolated route tree', () => {
-    expect(nextConfig).toContain("{ source: '/platform-v7', destination: '/_pc-public/platform-v7' }");
-    expect(nextConfig).toContain("{ source: '/platform-v7/login', destination: '/_pc-public/platform-v7/login' }");
-    expect(nextConfig).toContain("{ source: '/platform-v7/forgot-password', destination: '/_pc-public/platform-v7/forgot-password' }");
+    expect(nextConfig).toContain("{ source: '/platform-v7', destination: '/pc-public-entry/platform-v7' }");
+    expect(nextConfig).toContain("{ source: '/platform-v7/login', destination: '/pc-public-entry/platform-v7/login' }");
+    expect(nextConfig).toContain("{ source: '/platform-v7/forgot-password', destination: '/pc-public-entry/platform-v7/forgot-password' }");
     expect(isolatedLanding).toContain("from '@/app/platform-v7/page'");
     expect(isolatedLogin).toContain("from '@/app/platform-v7/login/page'");
     expect(isolatedRecovery).toContain("from '@/app/platform-v7/forgot-password/page'");
