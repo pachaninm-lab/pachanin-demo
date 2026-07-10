@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const repoRoot = process.cwd();
+const cwd = process.cwd();
+const repoRoot = cwd.endsWith(path.join('apps', 'web')) ? path.resolve(cwd, '..', '..') : cwd;
 
 function read(relativePath: string) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
@@ -46,29 +47,32 @@ describe('platform-v7 public entry link policy', () => {
     expect(leaks).toEqual([]);
   });
 
-  it('mounts the public entry cleanup in the platform-v7 template', () => {
-    const source = read('apps/web/app/platform-v7/template.tsx');
+  it('mounts public entry guards through the canonical platform template', () => {
+    const template = read('apps/web/app/platform-v7/template.tsx');
+    const guards = read('apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx');
 
-    expect(source).toContain('PublicEntryCleanup');
-    expect(source).toContain('<PublicEntryCleanup />');
+    expect(template).toContain('PlatformV7TemplateGuards');
+    expect(template).toContain('<PlatformV7TemplateGuards position="before" />');
+    expect(template).toContain('<PlatformV7TemplateGuards position="after" />');
+    expect(guards).toContain('PublicEntryCleanup');
   });
 
-  it('routes public role cards through the single login gate with the selected role', () => {
+  it('routes every public role card through one login endpoint without role query parameters', () => {
     const page = read('apps/web/app/platform-v7/page.tsx');
-    const cleanup = read('apps/web/components/platform-v7/PublicEntryCleanup.tsx');
 
-    expect(page).toContain('/platform-v7/login?role=seller');
-    expect(page).toContain('/platform-v7/login?role=buyer');
-    expect(page).toContain('/platform-v7/login?role=operator');
-    expect(cleanup).not.toContain("link.setAttribute('href', '/platform-v7/login')");
-    expect(cleanup).not.toContain('rewritePublicLinks');
+    expect(page).toContain("href: '/platform-v7/login'");
+    expect(page).not.toContain('/platform-v7/login?role=');
+    expect(page).not.toContain("href: '/platform-v7/seller'");
+    expect(page).not.toContain("href: '/platform-v7/buyer'");
+    expect(page).not.toContain("href: '/platform-v7/bank'");
   });
 
-  it('keeps all 12 role ids available on the public role catalog', () => {
+  it('keeps all 12 role ids visible without allowing public role selection', () => {
     const source = read('apps/web/app/platform-v7/page.tsx');
-
     const missing = fullRoleSet.filter((role) => !source.includes(`key: '${role}'`));
+
     expect(missing).toEqual([]);
+    expect(source).toContain("getTranslations('publicEntry.rolesCatalog')");
   });
 
   it('keeps the public mobile entry visible after returning from protected shell', () => {

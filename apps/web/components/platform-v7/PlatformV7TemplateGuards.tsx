@@ -23,6 +23,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7',
   '/platform-v7/open',
   '/platform-v7/login',
+  '/platform-v7/forgot-password',
   '/platform-v7/register',
   '/platform-v7/help',
   '/platform-v7/pricing',
@@ -60,8 +61,9 @@ function isLandingPath(pathname: string | null): boolean {
   return path === '/platform-v7' || path === '/platform-v7/open';
 }
 
-function isLoginPath(pathname: string | null): boolean {
-  return normalizePath(pathname) === '/platform-v7/login';
+function isAuthPath(pathname: string | null): boolean {
+  const path = normalizePath(pathname);
+  return path === '/platform-v7/login' || path === '/platform-v7/forgot-password';
 }
 
 function PublicOpenPlaceholderCleanup({ pathname }: { pathname: string | null }) {
@@ -94,11 +96,13 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
   const pathname = usePathname();
   const publicPath = isPublicPath(pathname);
   const landingPath = isLandingPath(pathname);
-  const loginPath = isLoginPath(pathname);
+  const authPath = isAuthPath(pathname);
 
   if (publicPath) {
     if (landingPath) {
-      return position === 'before' ? <><PlatformV7UniversalAdaptiveStyle /><PlatformV7ViewportRuntimeGuard /><PublicOpenPlaceholderCleanup pathname={pathname} /><PublicHeroWeightPatch /><PlatformV7BlankScreenGuard /></> : <ChatSupportWidget />;
+      return position === 'before'
+        ? <><PlatformV7UniversalAdaptiveStyle /><PlatformV7ViewportRuntimeGuard /><PublicOpenPlaceholderCleanup pathname={pathname} /><PublicHeroWeightPatch /><PlatformV7BlankScreenGuard /></>
+        : <ChatSupportWidget />;
     }
 
     if (position === 'before') {
@@ -106,14 +110,16 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
         <>
           <PlatformV7UniversalAdaptiveStyle />
           <PlatformV7ViewportRuntimeGuard />
-          {loginPath ? <LoginMobileStabilityStyle /> : null}
+          {authPath ? <LoginMobileStabilityStyle /> : null}
           <PlatformV7BlankScreenGuard />
           <PublicEntryCleanup />
-          <PublicRegistrationEntryPatch />
-          <PublicHeroWeightPatch />
+          {authPath ? null : <PublicRegistrationEntryPatch />}
+          {authPath ? null : <PublicHeroWeightPatch />}
         </>
       );
     }
+
+    if (authPath) return <ChatSupportWidget />;
 
     return (
       <>

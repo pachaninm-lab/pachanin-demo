@@ -22,8 +22,8 @@ describe('platform-v7 runtime entry cockpit', () => {
   it('keeps operational runtime arrays out of the page component', () => {
     const src = pageSource();
 
-    // Публичная главная может хранить карточки ролей, но не должна тащить runtime-массивы cockpit state.
-    expect(src).toContain('/platform-v7/login?role=operator');
+    expect(src).toContain("href: '/platform-v7/login'");
+    expect(src).not.toContain('/platform-v7/login?role=');
     expect(src).not.toMatch(/const\s+blockers\s*=/);
     expect(src).not.toMatch(/const\s+lanes\s*=/);
     expect(src).not.toMatch(/const\s+executionPath\s*=/);

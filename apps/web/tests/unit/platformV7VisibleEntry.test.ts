@@ -2,28 +2,32 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// Главный экран = мобильная витрина входа:
-// герой + единый primary CTA + выбор роли + честная подача без fake-live.
 const pageSource = () => readFileSync(resolve(__dirname, '../../app/platform-v7/page.tsx'), 'utf8');
-// Копия главной вынесена в next-intl сообщения; проверяем русский источник правды.
 const ruMessages = () => readFileSync(resolve(__dirname, '../../messages/ru.json'), 'utf8');
+const publicMessages = () => readFileSync(resolve(__dirname, '../../i18n/public-entry-messages.ts'), 'utf8');
 
 describe('platform-v7 visible entry (mobile home)', () => {
-  it('shows the hero and a single primary action', () => {
+  it('shows the hero with two deliberate actions', () => {
     const page = pageSource();
     const copy = ruMessages();
+
     expect(copy).toContain('Главный риск сделки');
     expect(copy).toContain('Прозрачная Цена — цифровой контур исполнения зерновой сделки');
-    // The one visually-primary action on the hero is "Подключить организацию".
-    expect(page).toContain('entry-primary-cta');
+    expect(page).toContain("className='entry-primary-cta'");
+    expect(page).toContain("className='entry-secondary-cta'");
+    expect(page).not.toContain("className='entry-register-cta'");
     expect(copy).toContain('Подключить организацию');
   });
 
-  it('shows role entry points and human public copy', () => {
+  it('shows participant workspaces without exposing role selection in the URL', () => {
     const page = pageSource();
     const copy = ruMessages();
-    expect(copy).toContain('Выберите свою роль');
-    expect(page).toContain('/platform-v7/login?role=operator');
+    const entryCopy = publicMessages();
+
+    expect(entryCopy).toContain('Рабочие места участников сделки');
+    expect(entryCopy).toContain('Вход единый');
+    expect(page).toContain("href: '/platform-v7/login'");
+    expect(page).not.toContain('/platform-v7/login?role=');
     expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
     expect(copy).toContain('После согласования цены под контролем остаётся главное');
     expect(page).not.toContain('Не поиск зерна ради поиска');
@@ -31,7 +35,7 @@ describe('platform-v7 visible entry (mobile home)', () => {
   });
 
   it('keeps maturity honest and avoids fake-live claims', () => {
-    const joined = pageSource() + ruMessages();
+    const joined = pageSource() + ruMessages() + publicMessages();
     expect(joined).not.toMatch(/production-ready|fully live|fully integrated|bank connected|FGIS connected|EDO connected/i);
   });
 });

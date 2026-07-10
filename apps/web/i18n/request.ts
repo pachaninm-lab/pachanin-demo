@@ -1,6 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale } from './locale';
+import { publicEntryMessages } from './public-entry-messages';
 
 const LOCALE_HEADER = 'x-pc-locale';
 
@@ -25,8 +26,13 @@ export default getRequestConfig(async () => {
     }
   }
 
+  const baseMessages = (await import(`../messages/${locale}.json`)).default;
+
   return {
     locale,
-    messages: (await import(`../messages/${locale}.json`)).default,
+    messages: {
+      ...baseMessages,
+      publicEntry: publicEntryMessages[locale],
+    },
   };
 });
