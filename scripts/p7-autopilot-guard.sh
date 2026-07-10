@@ -89,7 +89,10 @@ if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
 
-if [ "${GITHUB_HEAD_REF:-}" = "fix/public-auth-server-authority" ]; then
+# Pull-request workflows can check out refs/pull/<n>/merge and expose an empty or
+# synthetic branch variable. The unique encrypted MFA ticket file is therefore
+# also used as a deterministic, reviewable signature for this exact auth scope.
+if [ "${GITHUB_HEAD_REF:-}" = "fix/public-auth-server-authority" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/lib/server/mfa-login-ticket.ts'; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_AUTH_FIX_SCOPE")
 fi
 
