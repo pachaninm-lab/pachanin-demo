@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { applyAuthenticatedSession, type AuthenticatedSessionPayload } from '../../../../lib/server/auth-session-response';
+import {
+  applyAuthenticatedSession,
+  normalizeSurfaceRole,
+  platformHome,
+  type AuthenticatedSessionPayload,
+} from '../../../../lib/server/auth-session-response';
 import {
   MFA_PENDING_COOKIE,
   mfaPendingCookieOptions,
@@ -150,9 +155,11 @@ export async function POST(request: Request) {
       return response;
     }
 
-    const response = json({ ok: true, mfaRequired: false, correlationId });
-    const session = applyAuthenticatedSession(response, payload);
-    return json({ ok: true, mfaRequired: false, redirectTo: session.redirectTo, correlationId }, 200).also;
+    const role = normalizeSurfaceRole(payload.user.role, payload.user.surfaceRole);
+    const redirectTo = platformHome(role);
+    const response = json({ ok: true, mfaRequired: false, redirectTo, correlationId });
+    applyAuthenticatedSession(response, payload);
+    return response;
   } catch (error) {
     console.error('auth_login_transport_failure', JSON.stringify({
       correlationId,
