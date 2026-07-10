@@ -49,34 +49,71 @@ $$;
 COMMENT ON FUNCTION public.app_rls_context_ready() IS
   'Complete trusted transaction-local RLS context is present.';
 COMMENT ON FUNCTION public.app_rls_privileged() IS
-  'Role has an explicitly defined cross-organization read path.';
+  'Role may use privileged operations only inside the current tenant.';
 COMMENT ON FUNCTION public.app_rls_deal_visible(TEXT) IS
   'SECURITY INVOKER deal visibility probe constrained by deals RLS.';
+
+-- ── deal_participants ─────────────────────────────────────────────────────────
+ALTER TABLE public."deal_participants" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."deal_participants" FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS deal_participants_select ON public."deal_participants";
+DROP POLICY IF EXISTS deal_participants_insert ON public."deal_participants";
+DROP POLICY IF EXISTS deal_participants_update ON public."deal_participants";
+CREATE POLICY deal_participants_select ON public."deal_participants" FOR SELECT USING (
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND (
+    public.app_rls_privileged()
+    OR (
+      "userId" = current_setting('app.current_user_id', true)
+      AND "organizationId" = current_setting('app.current_org_id', true)
+      AND "role" = current_setting('app.current_role', true)
+      AND "status" = 'ACTIVE'
+    )
+  )
+);
+CREATE POLICY deal_participants_insert ON public."deal_participants" FOR INSERT WITH CHECK (
+  public.app_rls_context_ready()
+  AND public.app_rls_privileged()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+);
+CREATE POLICY deal_participants_update ON public."deal_participants" FOR UPDATE USING (
+  public.app_rls_context_ready()
+  AND public.app_rls_privileged()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+) WITH CHECK (
+  public.app_rls_context_ready()
+  AND public.app_rls_privileged()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+);
+-- No DELETE policy: access is revoked through status/revokedAt.
 
 -- ── deals ─────────────────────────────────────────────────────────────────────
 ALTER TABLE public."deals" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."deals" FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS deals_app_access ON public."deals";
 DROP POLICY IF EXISTS deals_select ON public."deals";
 DROP POLICY IF EXISTS deals_insert ON public."deals";
 DROP POLICY IF EXISTS deals_update ON public."deals";
 CREATE POLICY deals_select ON public."deals" FOR SELECT USING (
-  public.app_rls_context_ready() AND (
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND (
     public.app_rls_privileged()
     OR (
-      "tenantId" = current_setting('app.current_tenant_id', true)
-      AND (
-        "sellerOrgId" = current_setting('app.current_org_id', true)
-        OR "buyerOrgId" = current_setting('app.current_org_id', true)
-      )
+      current_setting('app.current_role', true) = 'BANK_CALLBACK'
+      AND "buyerOrgId" = current_setting('app.current_org_id', true)
     )
-    OR (
-      current_setting('app.current_role', true) = 'ARBITRATOR'
-      AND EXISTS (
-        SELECT 1 FROM public."disputes" d
-        WHERE d."dealId" = "deals"."id"
-          AND d."arbitratorId" = current_setting('app.current_user_id', true)
-          AND d."status" IN ('OPEN', 'ARBITRATION')
-      )
+    OR EXISTS (
+      SELECT 1
+      FROM public."deal_participants" p
+      WHERE p."dealId" = "deals"."id"
+        AND p."tenantId" = current_setting('app.current_tenant_id', true)
+        AND p."organizationId" = current_setting('app.current_org_id', true)
+        AND p."userId" = current_setting('app.current_user_id', true)
+        AND p."role" = current_setting('app.current_role', true)
+        AND p."status" = 'ACTIVE'
+        AND p."accessLevel" IN ('READ', 'WORK', 'APPROVE')
     )
   )
 );
@@ -85,19 +122,34 @@ CREATE POLICY deals_insert ON public."deals" FOR INSERT WITH CHECK (
   AND "tenantId" = current_setting('app.current_tenant_id', true)
   AND (
     public.app_rls_privileged()
-    OR "sellerOrgId" = current_setting('app.current_org_id', true)
-    OR "buyerOrgId" = current_setting('app.current_org_id', true)
-  )
-);
-CREATE POLICY deals_update ON public."deals" FOR UPDATE USING (
-  public.app_rls_context_ready() AND (
-    public.app_rls_privileged()
     OR (
-      "tenantId" = current_setting('app.current_tenant_id', true)
+      current_setting('app.current_role', true) IN ('FARMER', 'BUYER')
       AND (
         "sellerOrgId" = current_setting('app.current_org_id', true)
         OR "buyerOrgId" = current_setting('app.current_org_id', true)
       )
+    )
+  )
+);
+CREATE POLICY deals_update ON public."deals" FOR UPDATE USING (
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND (
+    public.app_rls_privileged()
+    OR (
+      current_setting('app.current_role', true) = 'BANK_CALLBACK'
+      AND "buyerOrgId" = current_setting('app.current_org_id', true)
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public."deal_participants" p
+      WHERE p."dealId" = "deals"."id"
+        AND p."tenantId" = current_setting('app.current_tenant_id', true)
+        AND p."organizationId" = current_setting('app.current_org_id', true)
+        AND p."userId" = current_setting('app.current_user_id', true)
+        AND p."role" = current_setting('app.current_role', true)
+        AND p."status" = 'ACTIVE'
+        AND p."accessLevel" IN ('WORK', 'APPROVE')
     )
   )
 ) WITH CHECK (
@@ -105,8 +157,21 @@ CREATE POLICY deals_update ON public."deals" FOR UPDATE USING (
   AND "tenantId" = current_setting('app.current_tenant_id', true)
   AND (
     public.app_rls_privileged()
-    OR "sellerOrgId" = current_setting('app.current_org_id', true)
-    OR "buyerOrgId" = current_setting('app.current_org_id', true)
+    OR (
+      current_setting('app.current_role', true) = 'BANK_CALLBACK'
+      AND "buyerOrgId" = current_setting('app.current_org_id', true)
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public."deal_participants" p
+      WHERE p."dealId" = "deals"."id"
+        AND p."tenantId" = current_setting('app.current_tenant_id', true)
+        AND p."organizationId" = current_setting('app.current_org_id', true)
+        AND p."userId" = current_setting('app.current_user_id', true)
+        AND p."role" = current_setting('app.current_role', true)
+        AND p."status" = 'ACTIVE'
+        AND p."accessLevel" IN ('WORK', 'APPROVE')
+    )
   )
 );
 -- No DELETE policy: physical deal deletion is denied.
@@ -119,33 +184,45 @@ DROP POLICY IF EXISTS organizations_select ON public."organizations";
 DROP POLICY IF EXISTS organizations_insert_privileged ON public."organizations";
 DROP POLICY IF EXISTS organizations_update_privileged ON public."organizations";
 CREATE POLICY organizations_select ON public."organizations" FOR SELECT USING (
-  public.app_rls_context_ready() AND (
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND (
     public.app_rls_privileged()
-    OR (
-      "id" = current_setting('app.current_org_id', true)
-      AND "tenantId" = current_setting('app.current_tenant_id', true)
-    )
+    OR "id" = current_setting('app.current_org_id', true)
   )
 );
 CREATE POLICY organizations_insert_privileged ON public."organizations" FOR INSERT
-WITH CHECK (public.app_rls_context_ready() AND public.app_rls_privileged());
+WITH CHECK (
+  public.app_rls_context_ready()
+  AND public.app_rls_privileged()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+);
 CREATE POLICY organizations_update_privileged ON public."organizations" FOR UPDATE
-USING (public.app_rls_context_ready() AND public.app_rls_privileged())
-WITH CHECK (public.app_rls_context_ready() AND public.app_rls_privileged());
+USING (
+  public.app_rls_context_ready()
+  AND public.app_rls_privileged()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+)
+WITH CHECK (
+  public.app_rls_context_ready()
+  AND public.app_rls_privileged()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+);
 -- No DELETE policy: organizations are lifecycle-managed, not physically deleted.
 
 -- ── audit_events: append-only ─────────────────────────────────────────────────
 ALTER TABLE public."audit_events" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."audit_events" FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS audit_insert_only ON public."audit_events";
+DROP POLICY IF EXISTS audit_select_all ON public."audit_events";
 DROP POLICY IF EXISTS audit_events_select ON public."audit_events";
 DROP POLICY IF EXISTS audit_events_insert ON public."audit_events";
 CREATE POLICY audit_events_select ON public."audit_events" FOR SELECT USING (
-  public.app_rls_context_ready() AND (
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND (
     public.app_rls_privileged()
-    OR (
-      "tenantId" = current_setting('app.current_tenant_id', true)
-      AND "orgId" = current_setting('app.current_org_id', true)
-    )
+    OR "orgId" = current_setting('app.current_org_id', true)
     OR ("dealId" IS NOT NULL AND public.app_rls_deal_visible("dealId"))
   )
 );
@@ -162,21 +239,20 @@ CREATE POLICY audit_events_insert ON public."audit_events" FOR INSERT WITH CHECK
 -- ── ledger_entries: immutable financial journal ───────────────────────────────
 ALTER TABLE public."ledger_entries" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."ledger_entries" FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS ledger_insert_only ON public."ledger_entries";
+DROP POLICY IF EXISTS ledger_select_all ON public."ledger_entries";
 DROP POLICY IF EXISTS ledger_entries_select ON public."ledger_entries";
 DROP POLICY IF EXISTS ledger_entries_insert ON public."ledger_entries";
 CREATE POLICY ledger_entries_select ON public."ledger_entries" FOR SELECT USING (
   public.app_rls_context_ready() AND (
-    current_setting('app.current_role', true) IN (
-      'ADMIN', 'ACCOUNTING', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER'
-    )
-    OR "debitAccount" = current_setting('app.current_org_id', true)
+    "debitAccount" = current_setting('app.current_org_id', true)
     OR "creditAccount" = current_setting('app.current_org_id', true)
     OR ("dealId" IS NOT NULL AND public.app_rls_deal_visible("dealId"))
   )
 );
 CREATE POLICY ledger_entries_insert ON public."ledger_entries" FOR INSERT WITH CHECK (
   public.app_rls_context_ready()
-  AND current_setting('app.current_role', true) IN ('ADMIN', 'ACCOUNTING')
+  AND current_setting('app.current_role', true) IN ('ADMIN', 'ACCOUNTING', 'BANK_CALLBACK')
   AND "createdByUserId" = current_setting('app.current_user_id', true)
   AND ("dealId" IS NULL OR public.app_rls_deal_visible("dealId"))
 );
@@ -188,14 +264,18 @@ ALTER TABLE public."integration_events" FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS integration_events_select ON public."integration_events";
 DROP POLICY IF EXISTS integration_events_insert ON public."integration_events";
 CREATE POLICY integration_events_select ON public."integration_events" FOR SELECT USING (
-  public.app_rls_context_ready() AND (
-    public.app_rls_privileged()
-    OR ("dealId" IS NOT NULL AND public.app_rls_deal_visible("dealId"))
-  )
+  public.app_rls_context_ready()
+  AND "dealId" IS NOT NULL
+  AND public.app_rls_deal_visible("dealId")
 );
 CREATE POLICY integration_events_insert ON public."integration_events" FOR INSERT WITH CHECK (
   current_user IN ('app_service', 'app_integration_worker')
-  OR (public.app_rls_context_ready() AND public.app_rls_privileged())
+  OR (
+    public.app_rls_context_ready()
+    AND public.app_rls_privileged()
+    AND "dealId" IS NOT NULL
+    AND public.app_rls_deal_visible("dealId")
+  )
 );
 -- No UPDATE/DELETE policies.
 
@@ -216,17 +296,14 @@ CREATE POLICY outbox_entries_worker_update ON public."outbox_entries" FOR UPDATE
 USING (current_user IN ('app_service', 'app_outbox_worker'))
 WITH CHECK (current_user IN ('app_service', 'app_outbox_worker'));
 CREATE POLICY outbox_entries_select ON public."outbox_entries" FOR SELECT USING (
-  public.app_rls_context_ready() AND (
-    public.app_rls_privileged()
-    OR ("dealId" IS NOT NULL AND public.app_rls_deal_visible("dealId"))
-  )
+  public.app_rls_context_ready()
+  AND "dealId" IS NOT NULL
+  AND public.app_rls_deal_visible("dealId")
 );
 CREATE POLICY outbox_entries_insert ON public."outbox_entries" FOR INSERT WITH CHECK (
   public.app_rls_context_ready()
-  AND (
-    public.app_rls_privileged()
-    OR ("dealId" IS NOT NULL AND public.app_rls_deal_visible("dealId"))
-  )
+  AND "dealId" IS NOT NULL
+  AND public.app_rls_deal_visible("dealId")
 );
 -- No DELETE policy: processed outbox records remain auditable.
 
@@ -237,13 +314,13 @@ DROP POLICY IF EXISTS runtime_snapshots_select ON public."deal_workspace_runtime
 DROP POLICY IF EXISTS runtime_snapshots_insert ON public."deal_workspace_runtime_snapshots";
 CREATE POLICY runtime_snapshots_select ON public."deal_workspace_runtime_snapshots" FOR SELECT USING (
   public.app_rls_context_ready()
-  AND (public.app_rls_privileged() OR public.app_rls_deal_visible("dealId"))
+  AND public.app_rls_deal_visible("dealId")
 );
 CREATE POLICY runtime_snapshots_insert ON public."deal_workspace_runtime_snapshots" FOR INSERT WITH CHECK (
   public.app_rls_context_ready()
   AND "actorId" = current_setting('app.current_user_id', true)
   AND "actorRole" = current_setting('app.current_role', true)
-  AND (public.app_rls_privileged() OR public.app_rls_deal_visible("dealId"))
+  AND public.app_rls_deal_visible("dealId")
 );
 -- No UPDATE/DELETE policies.
 
@@ -264,7 +341,7 @@ CREATE POLICY runtime_attempts_insert ON public."deal_workspace_runtime_transact
   AND EXISTS (
     SELECT 1 FROM public."deal_workspace_runtime_snapshots" s
     WHERE s."id" = "deal_workspace_runtime_transaction_attempts"."snapshotId"
-      AND (public.app_rls_privileged() OR s."actorId" = current_setting('app.current_user_id', true))
+      AND s."actorId" = current_setting('app.current_user_id', true)
   )
 );
 -- No UPDATE/DELETE policies.

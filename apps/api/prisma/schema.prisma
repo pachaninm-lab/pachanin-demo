@@ -9,47 +9,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ── Organizations & Users (persistent, replaces in-memory) ────────────────────
+// ── Organizations & Users ─────────────────────────────────────────────────────
 
 model Organization {
-  id           String   @id @default(cuid())
-  inn          String   @unique
-  ogrn         String?
-  name         String
-  type         String   @default("LEGAL") // LEGAL | INDIVIDUAL | COOPERATIVE
-  status       String   @default("PENDING") // PENDING | VERIFIED | SUSPENDED | BLOCKED
-  tenantId     String   @default(cuid())
-  verifiedAt   DateTime?
-  bankDetails  String?  // JSON: bik, account, bankName
-  address      String?
-  kycStatus    String   @default("PENDING") // PENDING | APPROVED | REJECTED
-  amlStatus    String   @default("CLEAR")   // CLEAR | FLAGGED | BLOCKED
-  sanctionHit  Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(cuid())
+  inn              String   @unique
+  ogrn             String?
+  name             String
+  type             String   @default("LEGAL")
+  status           String   @default("PENDING")
+  tenantId         String   @default(cuid())
+  verifiedAt       DateTime?
+  bankDetails      String?
+  address          String?
+  kycStatus        String   @default("PENDING")
+  amlStatus        String   @default("CLEAR")
+  sanctionHit      Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  users        UserOrg[]
+  users            UserOrg[]
+  dealParticipants DealParticipant[]
+
   @@index([tenantId])
   @@index([inn])
   @@map("organizations")
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  phone        String?
-  passwordHash String
-  fullName     String
-  status       String   @default("ACTIVE") // ACTIVE | SUSPENDED | BLOCKED
-  mfaEnabled   Boolean  @default(false)
-  mfaSecret    String?  // TOTP secret (encrypted)
-  mfaBackup    String?  // JSON: backup codes hashed
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deletedAt    DateTime?
+  id               String   @id @default(cuid())
+  email            String   @unique
+  phone            String?
+  passwordHash     String
+  fullName         String
+  status           String   @default("ACTIVE")
+  mfaEnabled       Boolean  @default(false)
+  mfaSecret        String?
+  mfaBackup        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
 
-  orgs         UserOrg[]
-  ukepCerts    UkepCertificate[]
+  orgs             UserOrg[]
+  ukepCerts        UkepCertificate[]
+  dealParticipants DealParticipant[]
+
   @@map("users")
 }
 
@@ -57,34 +61,34 @@ model UserOrg {
   id             String   @id @default(cuid())
   userId         String
   organizationId String
-  role           String   // FARMER | BUYER | LOGISTICIAN | DRIVER | LAB | ELEVATOR | ACCOUNTING | EXECUTIVE | SUPPORT_MANAGER | ADMIN | COMPLIANCE_OFFICER | ARBITRATOR
+  role           String
   isDefault      Boolean  @default(false)
   joinedAt       DateTime @default(now())
 
   user           User         @relation(fields: [userId], references: [id])
   organization   Organization @relation(fields: [organizationId], references: [id])
+
   @@unique([userId, organizationId])
   @@index([organizationId])
   @@map("user_orgs")
 }
 
-// ── УКЭП Certificates ─────────────────────────────────────────────────────────
-
 model UkepCertificate {
   id           String   @id @default(cuid())
   userId       String
-  provider     String   // CRYPTOPRO_DSS | KONTUR | TAXKOM
-  externalId   String   // ID в системе провайдера
+  provider     String
+  externalId   String
   thumbprint   String
   subject      String
   issuer       String
   validFrom    DateTime
   validUntil   DateTime
-  status       String   @default("VALID") // VALID | REVOKED | EXPIRED
+  status       String   @default("VALID")
   revokedAt    DateTime?
   createdAt    DateTime @default(now())
 
   user         User     @relation(fields: [userId], references: [id])
+
   @@index([userId])
   @@index([thumbprint])
   @@map("ukep_certificates")
@@ -93,44 +97,45 @@ model UkepCertificate {
 // ── Deals ─────────────────────────────────────────────────────────────────────
 
 model Deal {
-  id            String   @id
-  lotId         String?
-  sourceLotId   String?  // ссылка на исходный лот-источник (для межрегиональных сделок)
-  dealNumber    String?  @unique
-  status        String   @default("DRAFT")
-  tenantId      String?
-  sellerOrgId   String
-  buyerOrgId    String
-  volumeTons    Float?
-  pricePerTon   Float?
-  totalRub      Float?
-  totalKopecks  Int?
-  currency      String   @default("RUB")
-  culture       String?
-  cropClass     String?
-  gost          String?
-  region        String?
-  incoterms     String?
-  fundingChoice String?
-  owner         String?
-  nextAction    String?
-  slaAt         DateTime?
-  signedAt      DateTime?
-  closedAt      DateTime?
-  sagaState     Json?    // current saga step, retry count
-  sagaStep      String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  meta          String?  // JSON for paymentTerms etc.
+  id                String   @id
+  lotId             String?
+  sourceLotId       String?
+  dealNumber        String?  @unique
+  status            String   @default("DRAFT")
+  tenantId          String?
+  sellerOrgId       String
+  buyerOrgId        String
+  volumeTons        Float?
+  pricePerTon       Float?
+  totalRub          Float?
+  totalKopecks      Int?
+  currency          String   @default("RUB")
+  culture           String?
+  cropClass         String?
+  gost              String?
+  region            String?
+  incoterms         String?
+  fundingChoice     String?
+  owner             String?
+  nextAction        String?
+  slaAt             DateTime?
+  signedAt          DateTime?
+  closedAt          DateTime?
+  sagaState         Json?
+  sagaStep          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  meta              String?
 
-  shipments        Shipment[]
-  documents        DealDocument[]
-  payments         Payment[]
-  labSamples       LabSample[]
-  dealEvents       DealEvent[]
+  participants      DealParticipant[]
+  shipments         Shipment[]
+  documents         DealDocument[]
+  payments          Payment[]
+  labSamples        LabSample[]
+  dealEvents        DealEvent[]
   acceptanceRecords AcceptanceRecord[]
-  bankOperations   BankOperation[]
-  runtimeSnapshots DealWorkspaceRuntimeSnapshot[] @relation("RuntimeSnapshotDeal")
+  bankOperations    BankOperation[]
+  runtimeSnapshots  DealWorkspaceRuntimeSnapshot[] @relation("RuntimeSnapshotDeal")
 
   @@index([sellerOrgId])
   @@index([buyerOrgId])
@@ -139,7 +144,30 @@ model Deal {
   @@map("deals")
 }
 
-// ── Deal Events (append-only evidence chain) ──────────────────────────────────
+model DealParticipant {
+  id               String   @id @default(cuid())
+  dealId           String
+  tenantId         String
+  organizationId   String
+  userId           String
+  role             String
+  accessLevel      String   @default("WORK") // READ | WORK | APPROVE
+  status           String   @default("ACTIVE") // ACTIVE | SUSPENDED | REVOKED
+  assignedByUserId String?
+  assignedAt       DateTime @default(now())
+  revokedAt        DateTime?
+
+  deal             Deal         @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user             User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([dealId, userId, role])
+  @@index([dealId, status])
+  @@index([tenantId, organizationId])
+  @@index([userId, status])
+  @@index([role, status])
+  @@map("deal_participants")
+}
 
 model DealEvent {
   id          String   @id @default(cuid())
@@ -148,12 +176,13 @@ model DealEvent {
   actorId     String
   actorRole   String
   tenantId    String?
-  payload     Json     // structured event data
-  hash        String   // SHA-256(id+dealId+eventType+payload+prevHash)
-  prevHash    String?  // previous event hash in this deal's chain
+  payload     Json
+  hash        String
+  prevHash    String?
   createdAt   DateTime @default(now())
 
   deal        Deal     @relation(fields: [dealId], references: [id])
+
   @@index([dealId])
   @@map("deal_events")
 }
@@ -167,7 +196,7 @@ model Shipment {
   driverUserId  String?
   driverName    String?
   vehicleNumber String?
-  vehicleType   String?  // TRUCK | WAGON | VESSEL
+  vehicleType   String?
   carrierOrgId  String?
   carrierName   String?
   routeFrom     String?
@@ -176,7 +205,7 @@ model Shipment {
   loadedTons    Float?
   pinVerified   Boolean  @default(false)
   nextAction    String?
-  blockers      String?  // JSON array
+  blockers      String?
   geoLat        Float?
   geoLng        Float?
   lastGeoAt     DateTime?
@@ -204,6 +233,7 @@ model Checkpoint {
   actorId     String?
 
   shipment    Shipment @relation(fields: [shipmentId], references: [id])
+
   @@index([shipmentId])
   @@map("checkpoints")
 }
@@ -219,20 +249,21 @@ model DealDocument {
   mimeType         String?
   s3Key            String?
   sizeBytes        Int?
-  hash             String?  // SHA-256 of file content
+  hash             String?
   uploadedAt       DateTime @default(now())
   uploadedByUserId String?
   signedAt         DateTime?
-  signatories      String?  // JSON: [{userId, role, signedAt, thumbprint}]
+  signatories      String?
   bankRequired     Boolean  @default(false)
   releaseRequired  Boolean  @default(false)
   bankAcceptance   String   @default("PENDING")
-  edoStatus        String?  // SENT | DELIVERED | SIGNED | REJECTED
-  edoExternalId    String?  // ID в системе ЭДО
+  edoStatus        String?
+  edoExternalId    String?
   version          Int      @default(1)
-  isImmutable      Boolean  @default(false) // true after signing
+  isImmutable      Boolean  @default(false)
 
   deal             Deal     @relation(fields: [dealId], references: [id])
+
   @@index([dealId])
   @@index([type])
   @@map("deal_documents")
@@ -241,24 +272,25 @@ model DealDocument {
 // ── Payments & Ledger ─────────────────────────────────────────────────────────
 
 model Payment {
-  id              String   @id @default(cuid())
-  dealId          String
-  status          String   @default("PENDING") // PENDING | RESERVED | HELD | RELEASED | REFUNDED | FAILED
-  amountRub       Float?   // deprecated: use amountKopecks
-  amountKopecks   Int?
-  reservedAt      DateTime?
-  releasedAt      DateTime?
-  holdAmountKopecks Int?
-  refundedKopecks Int?
-  commissionKopecks Int?
-  callbackState   String   @default("NONE")
-  bankRef         String?
-  escrowAccount   String?
-  idempotencyKey  String?  @unique
-  updatedAt       DateTime @updatedAt
-  createdAt       DateTime @default(now())
+  id                  String   @id @default(cuid())
+  dealId              String
+  status              String   @default("PENDING")
+  amountRub           Float?
+  amountKopecks       Int?
+  reservedAt          DateTime?
+  releasedAt          DateTime?
+  holdAmountKopecks   Int?
+  refundedKopecks     Int?
+  commissionKopecks   Int?
+  callbackState       String   @default("NONE")
+  bankRef             String?
+  escrowAccount       String?
+  idempotencyKey      String?  @unique
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
 
-  deal            Deal     @relation(fields: [dealId], references: [id])
+  deal                Deal     @relation(fields: [dealId], references: [id])
+
   @@index([dealId])
   @@map("payments")
 }
@@ -266,12 +298,12 @@ model Payment {
 model LedgerEntry {
   id                String   @id @default(cuid())
   dealId            String?
-  entryType         String   // RESERVE | HOLD | RELEASE | REFUND | COMMISSION | PLATFORM_FEE | PENALTY
-  debitAccount      String   // org_id or system account
+  entryType         String
+  debitAccount      String
   creditAccount     String
-  amountKopecks     Int      // always positive
+  amountKopecks     Int
   currency          String   @default("RUB")
-  reference         String?  // payment reference / bank ref
+  reference         String?
   idempotencyKey    String   @unique
   description       String?
   createdAt         DateTime @default(now())
@@ -286,26 +318,27 @@ model LedgerEntry {
 // ── Lab Samples ───────────────────────────────────────────────────────────────
 
 model LabSample {
-  id              String   @id
-  dealId          String
-  shipmentId      String?
-  acceptanceId    String?  // ссылка на AcceptanceRecord
-  status          String   @default("PENDING") // PENDING | COLLECTED | TESTING | DONE | REJECTED
-  culture         String?
-  protocol        String?
-  gost            String?
-  labId           String?
-  labName         String?
-  collectedAt     DateTime?
-  finalizedAt     DateTime?
-  moneyDeltaRub   Float?
+  id                String   @id
+  dealId            String
+  shipmentId        String?
+  acceptanceId      String?
+  status            String   @default("PENDING")
+  culture           String?
+  protocol          String?
+  gost              String?
+  labId             String?
+  labName           String?
+  collectedAt       DateTime?
+  finalizedAt       DateTime?
+  moneyDeltaRub     Float?
   moneyDeltaKopecks Int?
-  certificateDocId String?
-  version         Int      @default(1)
-  createdAt       DateTime @default(now())
+  certificateDocId  String?
+  version           Int      @default(1)
+  createdAt         DateTime @default(now())
 
-  tests           LabTest[]
-  deal            Deal      @relation(fields: [dealId], references: [id])
+  tests             LabTest[]
+  deal              Deal      @relation(fields: [dealId], references: [id])
+
   @@index([dealId])
   @@map("lab_samples")
 }
@@ -313,16 +346,17 @@ model LabSample {
 model LabTest {
   id         String   @id @default(cuid())
   sampleId   String
-  parameter  String   // moisture | protein | gluten | impurity | fallNumber | idi | etc.
+  parameter  String
   value      Float
   unit       String?
   normMin    Float?
   normMax    Float?
   passed     Boolean  @default(true)
-  gradeDelta Float?   // price adjustment coefficient
+  gradeDelta Float?
   recordedAt DateTime @default(now())
 
   sample     LabSample @relation(fields: [sampleId], references: [id])
+
   @@index([sampleId])
   @@map("lab_tests")
 }
@@ -334,7 +368,7 @@ model OutboxEntry {
   type                  String
   dealId                String?
   payload               Json
-  status                String   @default("PENDING") // PENDING | SENT | CONFIRMED | FAILED | DEAD
+  status                String   @default("PENDING")
   idempotencyKey        String?  @unique
   maxRetries            Int      @default(5)
   retryCount            Int      @default(0)
@@ -361,29 +395,29 @@ model OutboxEntry {
 // ── Disputes ──────────────────────────────────────────────────────────────────
 
 model Dispute {
-  id               String   @id @default(cuid())
-  dealId           String
-  shipmentId       String?
-  type             String
-  status           String   @default("OPEN") // OPEN | ARBITRATION | RESOLVED | CANCELLED
-  description      String
-  initiatorOrgId   String
-  respondentOrgId  String?
-  claimAmountRub   Float?
-  claimAmountKopecks Int?
-  severity         String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
-  slaMinutes       Int?
-  arbitratorId     String?
-  arbitratorNotes  String?
-  outcome          String?  // BUYER_WINS | SELLER_WINS | SPLIT | CANCELLED
-  outcomeSplitPct  Int?     // % of claim returned to buyer (0–100)
-  resolvedAt       DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  dealId              String
+  shipmentId          String?
+  type                String
+  status              String   @default("OPEN")
+  description         String
+  initiatorOrgId      String
+  respondentOrgId     String?
+  claimAmountRub      Float?
+  claimAmountKopecks  Int?
+  severity            String   @default("MEDIUM")
+  slaMinutes          Int?
+  arbitratorId        String?
+  arbitratorNotes     String?
+  outcome             String?
+  outcomeSplitPct     Int?
+  resolvedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  moneyHold        DisputeMoneyHold?
-  evidence         DisputeEvidence[]
-  auditEvents      AuditEvent[]
+  moneyHold           DisputeMoneyHold?
+  evidence            DisputeEvidence[]
+  auditEvents         AuditEvent[]
 
   @@index([dealId])
   @@index([status])
@@ -402,6 +436,7 @@ model DisputeMoneyHold {
   releaseReason   String?
 
   dispute         Dispute  @relation(fields: [disputeId], references: [id])
+
   @@map("dispute_money_holds")
 }
 
@@ -409,7 +444,7 @@ model DisputeEvidence {
   id          String   @id @default(cuid())
   disputeId   String
   fileId      String?
-  type        String   // PHOTO | DOCUMENT | LAB_RESULT | GPS_TRACK | STATEMENT | OTHER
+  type        String
   description String
   trusted     Boolean  @default(false)
   submittedBy String
@@ -418,6 +453,7 @@ model DisputeEvidence {
   prevHash    String?
 
   dispute     Dispute  @relation(fields: [disputeId], references: [id])
+
   @@index([disputeId])
   @@map("dispute_evidence")
 }
@@ -433,19 +469,19 @@ model EvidenceFile {
   filename    String
   mimeType    String
   sizeBytes   Int
-  hash        String   // SHA-256 of content
-  prevHash    String?  // previous evidence hash for chain
+  hash        String
+  prevHash    String?
   s3Key       String?
   uploadedBy  String
   uploadedAt  DateTime @default(now())
-  metadata    Json?    // geoLat, geoLng, deviceId, etc.
+  metadata    Json?
 
   @@index([dealId])
   @@index([disputeId])
   @@map("evidence_files")
 }
 
-// ── Audit Events (append-only, hash chain) ────────────────────────────────────
+// ── Audit Events ──────────────────────────────────────────────────────────────
 
 model AuditEvent {
   id                    String   @id @default(cuid())
@@ -458,15 +494,15 @@ model AuditEvent {
   disputeId             String?
   objectType            String?
   objectId              String?
-  beforeState           Json?    // snapshot before change
-  afterState            Json?    // snapshot after change
+  beforeState           Json?
+  afterState            Json?
   outcome               String
   reason                String?
-  metadata              Json?    // ip, userAgent, sessionId
+  metadata              Json?
   correlationId         String?
   runtimeSnapshotId     String?
   runtimeIdempotencyKey String?
-  hash                  String   @default("") // SHA-256(all fields + prevHash)
+  hash                  String   @default("")
   prevHash              String?
   createdAt             DateTime @default(now())
 
@@ -482,18 +518,18 @@ model AuditEvent {
   @@map("audit_events")
 }
 
-// ── Integration Events (log of all adapter calls) ─────────────────────────────
+// ── Integration Events ────────────────────────────────────────────────────────
 
 model IntegrationEvent {
   id              String   @id @default(cuid())
-  adapterName     String   // FGIS_ZERNO | FNS | DIADOK | CRYPTOPRO | BANK | GPS | FTS
-  direction       String   // INBOUND | OUTBOUND
+  adapterName     String
+  direction       String
   eventType       String
   externalId      String?
   dealId          String?
   requestPayload  Json?
   responsePayload Json?
-  status          String   // SUCCESS | ERROR | PENDING | TIMEOUT
+  status          String
   errorMessage    String?
   httpStatus      Int?
   durationMs      Int?
@@ -505,8 +541,6 @@ model IntegrationEvent {
   @@index([externalId])
   @@map("integration_events")
 }
-
-// ── Webhook Security ──────────────────────────────────────────────────────────
 
 model WebhookIdempotency {
   id           String   @id @default(cuid())
@@ -524,9 +558,9 @@ model WebhookIdempotency {
 model KycTask {
   id             String   @id @default(cuid())
   organizationId String
-  type           String   // INITIAL | PERIODIC | TRIGGERED
-  status         String   @default("PENDING") // PENDING | IN_REVIEW | APPROVED | REJECTED
-  assignedTo     String?  // compliance officer userId
+  type           String
+  status         String   @default("PENDING")
+  assignedTo     String?
   notes          String?
   fnsResponse    Json?
   sanctionResult Json?
@@ -540,8 +574,6 @@ model KycTask {
   @@map("kyc_tasks")
 }
 
-// ── Stored Files (Storage module — S3 presigned URL) ──────────────────────────
-
 model StoredFile {
   id               String   @id @default(cuid())
   dealId           String?
@@ -551,7 +583,7 @@ model StoredFile {
   mimeType         String
   sizeBytes        BigInt?
   sha256           String?
-  status           String   @default("PENDING_UPLOAD") // PENDING_UPLOAD | UPLOADED | CONFIRMED | DELETED
+  status           String   @default("PENDING_UPLOAD")
   uploadedByUserId String?
   confirmedAt      DateTime?
   createdAt        DateTime @default(now())
@@ -562,22 +594,20 @@ model StoredFile {
   @@map("stored_files")
 }
 
-// ── Factoring Applications ────────────────────────────────────────────────────
-
 model FactoringApplication {
-  id               String   @id @default(cuid())
-  organizationId   String
-  dealId           String?
-  status           String   @default("PENDING") // PENDING | APPROVED | REJECTED | ACTIVE | OVERDUE | REPAID
-  requestedKopecks BigInt?
-  approvedKopecks  BigInt?
-  factorName       String?
-  dueDate          DateTime?
-  repaidAt         DateTime?
-  contractDocId    String?
-  notes            String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                String   @id @default(cuid())
+  organizationId    String
+  dealId            String?
+  status            String   @default("PENDING")
+  requestedKopecks  BigInt?
+  approvedKopecks   BigInt?
+  factorName        String?
+  dueDate           DateTime?
+  repaidAt          DateTime?
+  contractDocId     String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([organizationId])
   @@index([status])
@@ -585,17 +615,15 @@ model FactoringApplication {
   @@map("factoring_applications")
 }
 
-// ── Geofences ─────────────────────────────────────────────────────────────────
-
 model Geofence {
   id            String   @id @default(cuid())
   dealId        String?
   name          String
-  type          String   @default("CIRCLE") // CIRCLE | POLYGON
+  type          String   @default("CIRCLE")
   centerLat     Float?
   centerLng     Float?
   radiusMeters  Float?
-  polygon       Json?    // [{lat, lng}]
+  polygon       Json?
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
 
@@ -603,44 +631,40 @@ model Geofence {
   @@map("geofences")
 }
 
-// ── Acceptance Records (акт приёма) ──────────────────────────────────────────
-
 model AcceptanceRecord {
-  id                String   @id @default(cuid())
-  dealId            String
-  shipmentId        String?
-  status            String   @default("PENDING") // PENDING | ACCEPTED | PARTIAL | REJECTED
-  weightActualTons  Float?
-  volumeActualTons  Float?
-  qualityStatus     String   @default("PENDING") // PENDING | PASSED | FAILED | PARTIAL
-  gost              String?
-  actDocId          String?  // ID документа — акт приёма
-  actSignedAt       DateTime?
-  actorId           String   // elevator/lab operator userId
-  notes             String?
-  moneyAdjustKopecks Int?    // корректировка суммы по результату приёма
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  dealId             String
+  shipmentId         String?
+  status             String   @default("PENDING")
+  weightActualTons   Float?
+  volumeActualTons   Float?
+  qualityStatus      String   @default("PENDING")
+  gost               String?
+  actDocId           String?
+  actSignedAt        DateTime?
+  actorId            String
+  notes              String?
+  moneyAdjustKopecks Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  deal              Deal     @relation(fields: [dealId], references: [id])
+  deal               Deal     @relation(fields: [dealId], references: [id])
 
   @@index([dealId])
   @@index([shipmentId])
   @@map("acceptance_records")
 }
 
-// ── Bank Operations ───────────────────────────────────────────────────────────
-
 model BankOperation {
   id                String   @id @default(cuid())
   dealId            String
-  type              String   // RESERVE | HOLD | RELEASE | REFUND | COMMISSION | FACTORING_DISBURSEMENT
-  status            String   @default("PENDING") // PENDING | PROCESSING | DONE | FAILED | REVERSED
+  type              String
+  status            String   @default("PENDING")
   amountKopecks     BigInt
   currency          String   @default("RUB")
   debitAccount      String
   creditAccount     String
-  bankRef           String?  // внешний ID операции в банке
+  bankRef           String?
   bankName          String?
   idempotencyKey    String   @unique
   requestPayload    Json?
@@ -659,12 +683,10 @@ model BankOperation {
   @@map("bank_operations")
 }
 
-// ── Accounts (for money invariants) ───────────────────────────────────────────
-
 model Account {
   id              String   @id
   orgId           String?
-  type            String   @default("ORG") // ORG | ESCROW | DISPUTE_HOLD | PLATFORM
+  type            String   @default("ORG")
   balanceKopecks  BigInt   @default(0)
   reservedKopecks BigInt   @default(0)
   currency        String   @default("RUB")
