@@ -1,11 +1,11 @@
 {
   "project": "platform-v7",
-  "mode": "industrial-one-deal-scope-unlock",
+  "mode": "industrial-security-gate",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "Industrial One Deal Foundation: explicit implementation scope unlock.",
+  "current": "VP-3.46 Ephemeral PostgreSQL RLS Integration Harness.",
   "fullTzReadinessPercent": 85,
-  "openPr": "#2263",
+  "openPr": "#2265",
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
@@ -13,63 +13,45 @@
     "#2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary",
     "#2254 VP-3.43 Transaction-Local Trusted RLS Context",
     "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding",
-    "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal"
+    "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
+    "#2260 Industrial One Deal Foundation Implementation",
+    "#2263 Industrial One Deal Exact Scope Unlock",
+    "#2264 Required PostgreSQL RLS Workflow Bootstrap"
   ],
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
-    "#2261 industrial one-deal implementation review"
+    "#2267 canonical gateway consolidation"
   ],
-  "blockerNotes": "The one-deal implementation may proceed only inside the exact allowlist below. Critical product zones remain generally forbidden; only the exact files listed in allowedCurrentScope are unlocked for this layer.",
+  "blockerNotes": "The one-deal foundation is merged. VP-3.46 must prove tenant isolation in a real ephemeral PostgreSQL 16 job before gateway consolidation, persistent identity or production RLS rollout proceeds.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
-    "live external integration activation",
+    "production RLS policy application",
     "persistent identity/session/MFA changes",
+    "live external integration activation",
     "production load and disaster-recovery claims"
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/common/action-executor/action-policy.ts",
-    "apps/api/src/common/types/request-user.ts",
-    "apps/api/src/modules/deals/**",
-    "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
-    "apps/api/src/modules/settlement-engine/settlement-engine.module.ts",
-    "apps/web/app/api/auth/login/route.ts",
-    "apps/web/app/api/proxy/[...path]/route.ts",
-    "apps/web/app/platform-v7/login/page.tsx",
-    "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
-    "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx",
-    "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
-    "apps/web/lib/platform-v7/verified-session.ts",
-    "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
-    "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
-    ".github/workflows/web-unit.yml"
+    "infra/sql/production-rls-policies.sql",
+    "apps/api/test/rls/**",
+    "scripts/platform-v7-rls-integration.sh",
+    "scripts/platform-v7-rls-validate.mjs"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/common/action-executor/action-policy.ts",
-    "apps/api/src/common/types/request-user.ts",
-    "apps/api/src/modules/deals/**",
-    "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
-    "apps/api/src/modules/settlement-engine/settlement-engine.module.ts",
-    "apps/web/app/api/auth/login/route.ts",
-    "apps/web/app/api/proxy/[...path]/route.ts",
-    "apps/web/app/platform-v7/login/page.tsx",
-    "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
-    "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx",
-    "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
-    "apps/web/lib/platform-v7/verified-session.ts",
-    "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
-    "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
-    ".github/workflows/web-unit.yml"
+    "infra/sql/production-rls-policies.sql",
+    "apps/api/test/rls/**",
+    "scripts/platform-v7-rls-integration.sh",
+    "scripts/platform-v7-rls-validate.mjs"
   ],
   "industrialOneDealFoundation": {
     "layer": "Canonical PostgreSQL deal command path and shared role workspace",
     "scopeUnlockPr": "#2263",
-    "implementationPr": "#2261",
-    "status": "scope_unlocked_pending_green_review",
+    "implementationPr": "#2260",
+    "status": "implementation_merged",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
     "requiredInvariants": [
       "one deal identity and one factual state for all roles",
@@ -83,12 +65,28 @@
       "test seed is explicit idempotent and production-denied by default"
     ]
   },
+  "vp346PostgresRlsIntegration": {
+    "layer": "VP-3.46 Ephemeral PostgreSQL RLS Integration Harness",
+    "openPr": "#2265",
+    "status": "integration_proof_in_progress",
+    "requiredEvidence": [
+      "PostgreSQL 16 job-local database",
+      "NOSUPERUSER NOBYPASSRLS execution role",
+      "all eight protected tables have ENABLE and FORCE RLS",
+      "legacy permissive policies are absent",
+      "tenant A cannot read tenant B deal audit outbox snapshot or attempt",
+      "missing any trusted context field denies access",
+      "transaction-local context is cleared after commit",
+      "API Tests workflow uploads the dedicated RLS integration artifact"
+    ]
+  },
   "nextAfterCurrentGreen": [
-    "persistent identity session refresh-family revoke and MFA",
+    "#2267 canonical gateway consolidation inside one trusted RLS transaction",
+    "persistent identity session refresh-family revoke MFA and tenant source of truth",
     "durable outbox worker and bank reconciliation",
     "truthful offline acknowledgement",
     "server-rendered RU EN ZH i18n",
-    "load restore DR and accessibility acceptance"
+    "load restore DR accessibility and operational acceptance"
   ],
   "forbiddenZones": [
     "apps/landing",
@@ -110,11 +108,12 @@
   ],
   "forbiddenClaims": [
     "full production readiness",
+    "production RLS enabled",
     "production migration applied",
     "persistent identity complete",
     "external integration completion",
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. This state change only unlocks the exact one-deal implementation scope. It does not prove deployment, production database migration, live external integration, persistent identity, load, restore or disaster recovery."
+  "readiness": "85% honest architectural readiness. The one-deal foundation is merged, while VP-3.46 proves PostgreSQL tenant isolation only in ephemeral CI. It does not apply production RLS or migrations, complete persistent identity, activate live bank, FGIS or EDO integrations, or prove load, restore or disaster recovery."
 }
