@@ -21,10 +21,10 @@
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
-    "migration-to-schema drift after preserved SQLite no-op identifiers",
+    "historical partial indexes conflict with canonical Prisma index names",
     "production migration and external integration evidence"
   ],
-  "blockerNotes": "The exploitation run now reaches the mandatory migration-to-schema drift gate. A single forward-only PostgreSQL reconciliation migration generated from the canonical Prisma model is being verified on an isolated PostgreSQL 16 database. db push, manual runtime DDL, migrate resolve, production credentials and production migration claims remain forbidden.",
+  "blockerNotes": "The exploitation run reached the forward-only reconciliation migration and exposed historical partial indexes with canonical Prisma names. An exact preparation migration now removes only those historical indexes before the canonical migration recreates them. db push, manual runtime DDL, migrate resolve, production credentials and production migration claims remain forbidden.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
     "production RLS policy application",
@@ -38,6 +38,7 @@
     "apps/api/prisma/migrations/migration_lock.toml",
     "apps/api/prisma/migrations/20260522083644_init/migration.sql",
     "apps/api/prisma/migrations/20260522120000_add_core_tables/migration.sql",
+    "apps/api/prisma/migrations/20260710114000_prepare_schema_reconciliation/migration.sql",
     "apps/api/prisma/migrations/20260710114500_reconcile_postgresql_schema/migration.sql",
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
@@ -51,6 +52,7 @@
     "apps/api/prisma/migrations/migration_lock.toml",
     "apps/api/prisma/migrations/20260522083644_init/migration.sql",
     "apps/api/prisma/migrations/20260522120000_add_core_tables/migration.sql",
+    "apps/api/prisma/migrations/20260710114000_prepare_schema_reconciliation/migration.sql",
     "apps/api/prisma/migrations/20260710114500_reconcile_postgresql_schema/migration.sql",
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
@@ -69,14 +71,14 @@
   "industrialOneDealE2e": {
     "layer": "Industrial One Deal Ephemeral PostgreSQL E2E Harness",
     "implementationPr": "#2270",
-    "status": "forward_only_schema_reconciliation_in_progress",
+    "status": "index_preparation_reconciliation_in_progress",
     "workflow": ".github/workflows/ci.yml",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
     "lastFailure": {
-      "code": "MIGRATION_SCHEMA_DRIFT",
+      "code": "P3018/42P07",
       "migration": "20260710114500_reconcile_postgresql_schema",
-      "stage": "prisma migrate diff --exit-code",
-      "reason": "the complete preserved migration history did not yet produce the canonical Prisma PostgreSQL schema"
+      "stage": "prisma migrate deploy",
+      "reason": "historical partial index deals_dealNumber_key already used the canonical Prisma index name"
     },
     "requiredEvidence": [
       "isolated PostgreSQL 16 starts with ephemeral credentials",
