@@ -2,7 +2,7 @@
   "project": "platform-v7",
   "mode": "variant-b",
   "status": "active",
-  "currentStatus": "implementation",
+  "currentStatus": "in_progress",
   "current": "VP-3.43 Transaction-Local Trusted RLS Context.",
   "fullTzReadinessPercent": 85,
   "openPr": "#2254",
@@ -47,7 +47,7 @@
   "vp343TransactionLocalTrustedRlsContext": {
     "layer": "VP-3.43 Transaction-Local Trusted RLS Context",
     "openPr": "#2254",
-    "status": "implementation",
+    "status": "in_progress",
     "invariants": [
       "trusted RequestUser only",
       "user, organization, tenant, role and session required",
