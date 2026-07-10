@@ -47,6 +47,8 @@ type CanonicalMembershipCandidate = {
   readonly isDefault: boolean;
 };
 
+const CANONICAL_TENANT_ID = 'tenant-canonical-test';
+const CANONICAL_BUYER_ORG_ID = 'org-canonical-buyer';
 const KNOWN_ROLES = new Set<string>(Object.values(Role));
 
 function stable(value: unknown): unknown {
@@ -112,7 +114,10 @@ export class IndustrialDealCommandGateway {
 
   async executeBankCallback(input: VerifiedBankCallbackInput) {
     this.validateBankCallback(input);
-    const deal = await this.readCanonicalDeal(input.dealId);
+    this.assertCanonicalDealId(input.dealId);
+
+    const callbackUser = this.bankCallbackUser(input);
+    const deal = await this.readCanonicalDeal(input.dealId, callbackUser);
     const actionId: DealActionId = input.operation === 'RESERVE' ? 'confirm_reserve' : 'confirm_release';
     const definition = getDealActionDefinition(actionId);
 
@@ -120,7 +125,6 @@ export class IndustrialDealCommandGateway {
       throw new ConflictException({ code: 'INVALID_BANK_ACTION_POLICY' });
     }
 
-    const callbackUser = this.bankCallbackUser(deal, input);
     if (input.status === 'FAILED') {
       return this.recordBankFailure(input, deal, callbackUser);
     }
@@ -146,12 +150,6 @@ export class IndustrialDealCommandGateway {
     );
   }
 
-  /**
-   * The client key is never used as the physical receipt key. The canonical service
-   * receives a deterministic SHA-256 identity over every material command field and
-   * writes the only receipt inside the same trusted Serializable RLS transaction as
-   * Deal, DealEvent, AuditEvent and external outbox changes.
-   */
   private fingerprintedCommand(
     dealId: string,
     actionId: DealActionId,
@@ -177,38 +175,30 @@ export class IndustrialDealCommandGateway {
     };
   }
 
-  private bankCallbackUser(
-    deal: CanonicalDealRecord,
-    input: VerifiedBankCallbackInput,
-  ): RequestUser {
+  private bankCallbackUser(input: VerifiedBankCallbackInput): RequestUser {
     return {
       id: `bank-callback:${input.partnerId ?? 'safe-deals'}`,
       email: 'bank-callback@system.invalid',
       fullName: 'Verified bank callback',
       role: Role.BANK_CALLBACK,
-      orgId: deal.buyerOrgId,
-      tenantId: deal.tenantId,
+      orgId: CANONICAL_BUYER_ORG_ID,
+      tenantId: CANONICAL_TENANT_ID,
       sessionId: `bank-event:${input.eventId}`,
       mfaVerified: true,
     };
   }
 
   /**
-   * Resolve authorization exclusively from database membership.
-   *
-   * `UserOrg` is read first without joining `Organization`, because Organization is
-   * protected by PostgreSQL RLS. Every candidate organization is then verified in a
-   * transaction-local trusted context assembled from the DB membership, never from
-   * the client-supplied org or role. This also prevents Prisma from materializing a
-   * required relation as null when RLS correctly filters it.
+   * Authorization order is deliberately fail-closed:
+   * UserOrg identity membership -> exact ACTIVE DealParticipant -> Organization -> Deal.
+   * Client-supplied role and orgId never select scope.
    */
   private async resolveCanonicalMembership(dealId: string, user: RequestUser) {
-    const deal = await this.readCanonicalDeal(dealId);
-
-    if (user.tenantId && user.tenantId !== deal.tenantId) {
+    this.assertCanonicalDealId(dealId);
+    if (!user.tenantId) {
       throw new ForbiddenException({
-        code: 'STALE_TENANT_SESSION',
-        message: 'Session tenant no longer matches the canonical deal tenant.',
+        code: 'TENANT_CONTEXT_REQUIRED',
+        message: 'Verified session tenant is required.',
       });
     }
 
@@ -223,61 +213,106 @@ export class IndustrialDealCommandGateway {
     })) as CanonicalMembershipCandidate[];
 
     for (const membership of memberships) {
-      if (!KNOWN_ROLES.has(membership.role)) continue;
+      if (!KNOWN_ROLES.has(membership.role) || membership.role === Role.BANK_CALLBACK) continue;
 
       const scopedUser: RequestUser = {
         ...user,
         role: membership.role as Role,
         orgId: membership.organizationId,
-        tenantId: deal.tenantId,
+        tenantId: user.tenantId,
       };
 
-      const organization = await this.rls.withTrustedContext(scopedUser, (tx) =>
-        tx.organization.findFirst({
+      const scoped = await this.rls.withTrustedContext(scopedUser, async (tx) => {
+        const participant = await tx.dealParticipant.findFirst({
+          where: {
+            dealId,
+            tenantId: user.tenantId,
+            organizationId: membership.organizationId,
+            userId: user.id,
+            role: membership.role,
+            status: 'ACTIVE',
+          },
+          select: {
+            id: true,
+            accessLevel: true,
+            status: true,
+          },
+        });
+        if (!participant) return null;
+
+        const organization = await tx.organization.findFirst({
           where: {
             id: membership.organizationId,
-            tenantId: deal.tenantId,
+            tenantId: user.tenantId,
           },
-          select: { id: true, tenantId: true },
-        }),
-      );
+          select: { id: true, tenantId: true, status: true },
+        });
+        if (!organization || organization.status !== 'VERIFIED') return null;
 
-      if (organization) {
-        return { deal, user: scopedUser };
+        const deal = await tx.deal.findUnique({
+          where: { id: dealId },
+          select: {
+            id: true,
+            tenantId: true,
+            sellerOrgId: true,
+            buyerOrgId: true,
+            status: true,
+            updatedAt: true,
+            totalKopecks: true,
+          },
+        });
+        if (!deal || !deal.tenantId || deal.tenantId !== user.tenantId) return null;
+
+        return {
+          deal: deal as CanonicalDealRecord,
+          participant,
+        };
+      });
+
+      if (scoped) {
+        return { ...scoped, user: scopedUser };
       }
     }
 
     throw new ForbiddenException({
-      code: 'CANONICAL_MEMBERSHIP_REQUIRED',
-      message: `No active database membership for deal tenant:${dealId}`,
+      code: 'ACTIVE_DEAL_PARTICIPANT_REQUIRED',
+      message: 'No active database-backed participant assignment for this deal.',
     });
   }
 
-  private async readCanonicalDeal(dealId: string): Promise<CanonicalDealRecord> {
-    if (dealId !== CANONICAL_TEST_DEAL_ID) {
-      throw new NotFoundException('Industrial execution workspace is enabled only for the canonical test deal.');
-    }
+  private async readCanonicalDeal(
+    dealId: string,
+    trustedUser: RequestUser,
+  ): Promise<CanonicalDealRecord> {
+    this.assertCanonicalDealId(dealId);
+    const deal = await this.rls.withTrustedContext(trustedUser, (tx) =>
+      tx.deal.findUnique({
+        where: { id: dealId },
+        select: {
+          id: true,
+          tenantId: true,
+          sellerOrgId: true,
+          buyerOrgId: true,
+          status: true,
+          updatedAt: true,
+          totalKopecks: true,
+        },
+      }),
+    );
 
-    const deal = await this.prisma.deal.findUnique({
-      where: { id: dealId },
-      select: {
-        id: true,
-        tenantId: true,
-        sellerOrgId: true,
-        buyerOrgId: true,
-        status: true,
-        updatedAt: true,
-        totalKopecks: true,
-      },
-    });
-    if (!deal) throw new NotFoundException(`Deal ${dealId} not found`);
-    if (!deal.tenantId) {
+    if (!deal || !deal.tenantId) {
       throw new ForbiddenException({
-        code: 'TENANT_CONTEXT_REQUIRED',
-        message: 'Canonical deal has no tenant and cannot be exposed.',
+        code: 'DEAL_SCOPE_DENIED',
+        message: 'Deal is not visible in the trusted tenant and object scope.',
       });
     }
     return deal as CanonicalDealRecord;
+  }
+
+  private assertCanonicalDealId(dealId: string): void {
+    if (dealId !== CANONICAL_TEST_DEAL_ID) {
+      throw new NotFoundException('Industrial execution workspace is enabled only for the canonical test deal.');
+    }
   }
 
   private validateBankCallback(input: VerifiedBankCallbackInput): void {
