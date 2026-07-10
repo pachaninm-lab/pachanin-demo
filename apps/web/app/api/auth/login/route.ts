@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import {
   applyAuthenticatedSession,
+  normalizeSurfaceRole,
+  platformHome,
   type AuthenticatedSessionPayload,
 } from '../../../../lib/server/auth-session-response';
 import {
@@ -129,16 +131,20 @@ export async function POST(request: Request) {
       return json({ ok: false, code: 'AUTH_SERVICE_INVALID_RESPONSE', message: UNIVERSAL_ERROR, correlationId }, 502);
     }
 
-    const response = json({ ok: true, mfaRequired: false, correlationId });
+    const role = normalizeSurfaceRole(payload.user.role, payload.user.surfaceRole);
+    const response = json({
+      ok: true,
+      mfaRequired: false,
+      redirectTo: platformHome(role),
+      correlationId,
+    });
     const session = await applyAuthenticatedSession(response, payload as AuthenticatedSessionPayload);
     if (!session) {
       console.error('cabinet_session_signing_failed', JSON.stringify({ correlationId }));
       return json({ ok: false, code: 'SESSION_CONFIGURATION_ERROR', message: UNIVERSAL_ERROR, correlationId }, 503);
     }
     response.cookies.set(MFA_PENDING_COOKIE, '', clearMfaPendingCookieOptions());
-    const bodyResponse = json({ ok: true, mfaRequired: false, redirectTo: session.redirectTo, correlationId });
-    for (const cookie of response.cookies.getAll()) bodyResponse.cookies.set(cookie);
-    return bodyResponse;
+    return response;
   } catch (error) {
     console.error('auth_login_transport_failure', JSON.stringify({
       correlationId,
