@@ -138,6 +138,12 @@ export function buildP7DealWorkspaceRuntimeLinkage(
   };
 }
 
+export function isP7DealWorkspaceRuntimeLinkageValid(
+  result: P7DealWorkspaceRuntimeLinkageResult,
+): boolean {
+  return result.issues.length === 0;
+}
+
 export function writeP7DealWorkspaceRuntimeWithLinkage(
   input: P7DealWorkspaceRuntimeLinkedRepositoryWriteInput,
 ): P7DealWorkspaceRuntimeLinkedRepositoryWriteResult {

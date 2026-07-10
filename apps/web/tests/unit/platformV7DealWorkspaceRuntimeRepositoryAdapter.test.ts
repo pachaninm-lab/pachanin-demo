@@ -42,7 +42,7 @@ function contract(idempotencyKey = 'idem-repo-1', dealId = 'DL-REPO-1') {
   });
 }
 
-describe('VP-3.13 runtime persistence repository adapter', () => {
+describe('VP-3 runtime persistence repository adapter', () => {
   it('builds a typed receipt from the DB contract without claiming live DB persistence', () => {
     const dbContract = contract('idem-receipt-1', 'DL-REPO-RECEIPT');
 
@@ -77,7 +77,7 @@ describe('VP-3.13 runtime persistence repository adapter', () => {
     }).state).toBe('outbox_required');
   });
 
-  it('treats duplicate idempotency keys as duplicate-safe reads without a second evidence write', () => {
+  it('keeps the backward-compatible write path duplicate-safe without replacing evidence', () => {
     const repository = createP7DealWorkspaceRuntimeRepository();
     const dbContract = contract('idem-duplicate-1', 'DL-REPO-DUP');
 
@@ -97,6 +97,89 @@ describe('VP-3.13 runtime persistence repository adapter', () => {
     expect(duplicate.recordId).toBe(first.recordId);
     expect(duplicate.outboxEntryId).toBe('outbox-1');
     expect(duplicate.auditEventId).toBe('audit-event-1');
+    expect(repository.list()).toHaveLength(1);
+  });
+
+  it('monotonically promotes one hardened record without changing identity or creation time', () => {
+    const repository = createP7DealWorkspaceRuntimeRepository();
+    const dbContract = contract('idem-promote-1', 'DL-REPO-PROMOTE');
+
+    const first = repository.writeHardened({
+      contract: dbContract,
+      savedAt: '2026-07-09T12:10:00.000Z',
+    });
+    const outboxLinked = repository.writeHardened({
+      contract: dbContract,
+      linkage: { outboxEntryId: 'outbox-promote-1' },
+      savedAt: '2026-07-09T12:11:00.000Z',
+    });
+    const fullyLinked = repository.writeHardened({
+      contract: dbContract,
+      linkage: { outboxEntryId: 'outbox-promote-1', auditEventId: 'audit-promote-1' },
+      savedAt: '2026-07-09T12:12:00.000Z',
+    });
+
+    expect(first.status).toBe('persisted');
+    expect(first.state).toBe('outbox_required');
+    expect(outboxLinked.status).toBe('promoted');
+    expect(outboxLinked.state).toBe('audit_required');
+    expect(fullyLinked.status).toBe('promoted');
+    expect(fullyLinked.state).toBe('fully_linked');
+    expect(outboxLinked.recordId).toBe(first.recordId);
+    expect(fullyLinked.recordId).toBe(first.recordId);
+    expect(outboxLinked.savedAt).toBe(first.savedAt);
+    expect(fullyLinked.savedAt).toBe(first.savedAt);
+    expect(repository.list()).toHaveLength(1);
+  });
+
+  it('never regresses a hardened record when replay has weaker linkage', () => {
+    const repository = createP7DealWorkspaceRuntimeRepository();
+    const dbContract = contract('idem-no-regress-1', 'DL-REPO-NO-REGRESS');
+
+    repository.writeHardened({
+      contract: dbContract,
+      linkage: { outboxEntryId: 'outbox-stable-1', auditEventId: 'audit-stable-1' },
+    });
+    const replay = repository.writeHardened({ contract: dbContract });
+
+    expect(replay.status).toBe('duplicate');
+    expect(replay.state).toBe('fully_linked');
+    expect(replay.outboxEntryId).toBe('outbox-stable-1');
+    expect(replay.auditEventId).toBe('audit-stable-1');
+    expect(repository.list()).toHaveLength(1);
+  });
+
+  it('returns conflict when one idempotency key is reused for another runtime snapshot', () => {
+    const repository = createP7DealWorkspaceRuntimeRepository();
+    const firstContract = contract('idem-conflict-1', 'DL-REPO-CONFLICT-A');
+    const conflictingContract = contract('idem-conflict-1', 'DL-REPO-CONFLICT-B');
+
+    const first = repository.writeHardened({ contract: firstContract });
+    const conflict = repository.writeHardened({ contract: conflictingContract });
+
+    expect(first.status).toBe('persisted');
+    expect(conflict.status).toBe('conflict');
+    expect(conflict.conflictCode).toBe('IDEMPOTENCY_CONTRACT_MISMATCH');
+    expect(conflict.recordId).toBe(first.recordId);
+    expect(repository.list()).toHaveLength(1);
+  });
+
+  it('rejects replacement of an already accepted linkage id', () => {
+    const repository = createP7DealWorkspaceRuntimeRepository();
+    const dbContract = contract('idem-link-conflict-1', 'DL-REPO-LINK-CONFLICT');
+
+    repository.writeHardened({
+      contract: dbContract,
+      linkage: { outboxEntryId: 'outbox-original' },
+    });
+    const conflict = repository.writeHardened({
+      contract: dbContract,
+      linkage: { outboxEntryId: 'outbox-replacement' },
+    });
+
+    expect(conflict.status).toBe('conflict');
+    expect(conflict.conflictCode).toBe('OUTBOX_LINKAGE_CONFLICT');
+    expect(conflict.outboxEntryId).toBe('outbox-original');
     expect(repository.list()).toHaveLength(1);
   });
 

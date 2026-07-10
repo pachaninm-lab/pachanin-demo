@@ -3,6 +3,7 @@ import { buildP7DealWorkspaceRuntimeDbContract } from '@/lib/platform-v7/deal-wo
 import { createP7DealWorkspaceRuntimeRepository } from '@/lib/platform-v7/deal-workspace-runtime-db-repository';
 import {
   buildP7DealWorkspaceRuntimeLinkage,
+  isP7DealWorkspaceRuntimeLinkageValid,
   writeP7DealWorkspaceRuntimeWithLinkage,
 } from '@/lib/platform-v7/deal-workspace-runtime-linkage';
 import { buildP7DealWorkspaceRuntimeRefreshSnapshot } from '@/lib/platform-v7/deal-workspace-runtime-snapshot';
@@ -63,7 +64,7 @@ function auditEvidence() {
   };
 }
 
-describe('VP-3.21 runtime outbox audit linkage boundary', () => {
+describe('VP-3 runtime outbox audit linkage boundary', () => {
   it('keeps the contract outbox_required when no explicit evidence exists', () => {
     const result = buildP7DealWorkspaceRuntimeLinkage({ contract: contract() });
 
@@ -73,6 +74,7 @@ describe('VP-3.21 runtime outbox audit linkage boundary', () => {
     expect(result.acceptedOutboxEvidence).toBe(false);
     expect(result.acceptedAuditEvidence).toBe(false);
     expect(result.maturity).toBe('contract-linkage');
+    expect(isP7DealWorkspaceRuntimeLinkageValid(result)).toBe(true);
   });
 
   it('moves to audit_required only after valid outbox evidence is explicit', () => {
@@ -87,6 +89,7 @@ describe('VP-3.21 runtime outbox audit linkage boundary', () => {
     expect(result.acceptedOutboxEvidence).toBe(true);
     expect(result.acceptedAuditEvidence).toBe(false);
     expect(result.issues).toEqual([]);
+    expect(isP7DealWorkspaceRuntimeLinkageValid(result)).toBe(true);
   });
 
   it('allows fully_linked only when both matching outbox and audit evidence exist', () => {
@@ -102,6 +105,7 @@ describe('VP-3.21 runtime outbox audit linkage boundary', () => {
     expect(result.acceptedOutboxEvidence).toBe(true);
     expect(result.acceptedAuditEvidence).toBe(true);
     expect(result.issues).toEqual([]);
+    expect(isP7DealWorkspaceRuntimeLinkageValid(result)).toBe(true);
   });
 
   it('rejects mismatched evidence and never manufactures fully_linked state', () => {
@@ -120,6 +124,7 @@ describe('VP-3.21 runtime outbox audit linkage boundary', () => {
       'OUTBOX_IDEMPOTENCY_MISMATCH',
       'AUDIT_ACTOR_MISMATCH',
     ]);
+    expect(isP7DealWorkspaceRuntimeLinkageValid(result)).toBe(false);
   });
 
   it('writes only linkage ids accepted by the validation boundary', () => {
@@ -139,7 +144,7 @@ describe('VP-3.21 runtime outbox audit linkage boundary', () => {
     expect(repository.list()).toHaveLength(1);
   });
 
-  it('writes a blocked linkage state when supplied evidence fails validation', () => {
+  it('writes a blocked linkage state when supplied evidence fails validation on the legacy path', () => {
     const repository = createP7DealWorkspaceRuntimeRepository();
     const result = writeP7DealWorkspaceRuntimeWithLinkage({
       repository,
