@@ -10,6 +10,8 @@ const safeSnapshot: DatabasePrincipalSnapshot = {
   currentUser: 'safe',
   superuser: false,
   bypassRls: false,
+  roleInherit: false,
+  hasRoleMemberships: false,
   ownsDeals: false,
   dealsRlsEnabled: true,
   dealsForceRls: true,
@@ -51,6 +53,29 @@ describe('database principal boundaries', () => {
       expect.stringMatching(/must not own/),
       expect.stringMatching(/FORCE RLS/),
       expect.stringMatching(/row_security/),
+    ]));
+  });
+
+  it('rejects inherited PostgreSQL authority for both runtime principals', () => {
+    const inherited = {
+      ...safeSnapshot,
+      roleInherit: true,
+      hasRoleMemberships: true,
+    };
+    expect(evaluateDealPrincipalBoundary(inherited)).toEqual(expect.arrayContaining([
+      expect.stringMatching(/NOINHERIT/),
+      expect.stringMatching(/must not belong/),
+    ]));
+    expect(evaluateAuthPrincipalBoundary({
+      ...inherited,
+      bypassRls: true,
+      dealSelect: false,
+      dealInsert: false,
+      dealUpdate: false,
+      dealDelete: false,
+    })).toEqual(expect.arrayContaining([
+      expect.stringMatching(/NOINHERIT/),
+      expect.stringMatching(/must not belong/),
     ]));
   });
 
