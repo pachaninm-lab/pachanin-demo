@@ -11,7 +11,7 @@ permissions:
 jobs:
   browser-and-lighthouse:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     env:
       LOCAL_BASE_URL: http://127.0.0.1:3000
       NETLIFY_PREVIEW_URL: https://6a5173cb2d31630009ea3bf3--gleaming-mandazi-bb9856.netlify.app
@@ -87,7 +87,7 @@ jobs:
           const fs = require('fs');
           const path = require('path');
           const dir = '../../artifacts/public-entry-preview-smoke-2323/local-production/lighthouse';
-          const reports = fs.readdirSync(dir).filter((name) => name.endsWith('.json')).map((name) => {
+          const reports = fs.readdirSync(dir).filter((name) => name.endsWith('.json') && name !== 'summary.json').map((name) => {
             const report = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
             const scores = Object.fromEntries(Object.entries(report.categories).map(([key, value]) => [key, Math.round((value.score || 0) * 100)]));
             const metrics = {
@@ -103,11 +103,11 @@ jobs:
           console.log(JSON.stringify(reports, null, 2));
           const failures = [];
           for (const report of reports) {
-            const isLanding = report.file === 'platform-v7.json';
+            const landing = report.file === 'platform-v7.json';
             if ((report.scores.performance || 0) < 80) failures.push(`${report.file}: performance ${report.scores.performance}`);
             if ((report.scores.accessibility || 0) < 95) failures.push(`${report.file}: accessibility ${report.scores.accessibility}`);
             if ((report.scores['best-practices'] || 0) < 90) failures.push(`${report.file}: best-practices ${report.scores['best-practices']}`);
-            if (isLanding && (report.scores.seo || 0) < 90) failures.push(`${report.file}: SEO ${report.scores.seo}`);
+            if (landing && (report.scores.seo || 0) < 90) failures.push(`${report.file}: SEO ${report.scores.seo}`);
             if ((report.metrics.largestContentfulPaintMs || Infinity) > 2500) failures.push(`${report.file}: LCP ${report.metrics.largestContentfulPaintMs}`);
             if ((report.metrics.totalBlockingTimeMs || Infinity) > 200) failures.push(`${report.file}: TBT ${report.metrics.totalBlockingTimeMs}`);
             if ((report.metrics.cumulativeLayoutShift || Infinity) > 0.1) failures.push(`${report.file}: CLS ${report.metrics.cumulativeLayoutShift}`);
@@ -117,24 +117,30 @@ jobs:
             process.exit(1);
           }
           NODE
+
           cp /tmp/platform-v7-local-production.log ../../artifacts/public-entry-preview-smoke-2323/local-production/production-server.log
 
       - name: Wait for immutable Netlify deploy
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 120); do
-            status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "$NETLIFY_PREVIEW_URL/platform-v7?lang=ru" || true)
-            if [ "$status" = "200" ] || [ "$status" = "403" ] || [ "$status" = "429" ]; then
+          for attempt in $(seq 1 45); do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 12 "$NETLIFY_PREVIEW_URL/platform-v7?lang=ru" || true)
+            if [ "$status" = "200" ] || [ "$status" = "401" ] || [ "$status" = "403" ]; then
+              printf '{"httpStatus":%s,"attempt":%s}\n' "$status" "$attempt" > artifacts/public-entry-preview-smoke-2323/netlify-readiness.json
               exit 0
             fi
             sleep 2
           done
-          echo "Immutable Netlify deploy did not become reachable"
+          printf '{"httpStatus":null,"status":"not-ready"}\n' > artifacts/public-entry-preview-smoke-2323/netlify-readiness.json
           exit 1
 
       - name: Run limited immutable Netlify hosting smoke
+        if: always()
         working-directory: apps/web
+        env:
+          NETLIFY_BASE_URL: ${{ env.NETLIFY_PREVIEW_URL }}
         run: node scripts/public-entry-netlify-smoke-2323.mjs
 
       - name: Upload acceptance evidence
