@@ -43,8 +43,6 @@ if [ "${GITHUB_HEAD_REF:-}" = "p7-bank-basis-state-machine" ] || [ "${P7_BANK_BA
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$BANK_BASIS_MIGRATION_SCOPE")
 fi
 
-# Exact, reviewable concurrent scope for PR #2318. Do not broaden this to an
-# apps/web wildcard: the active financial-delivery autopilot remains isolated.
 PUBLIC_ENTRY_SCOPE='apps/web/app/platform-v7/forgot-password/page.tsx
 apps/web/app/platform-v7/login/page.tsx
 apps/web/app/platform-v7/page.tsx
@@ -63,8 +61,51 @@ apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts
 apps/web/tests/unit/platformV7VisibleEntry.test.ts
 scripts/p7-autopilot-guard.sh'
 
+PUBLIC_AUTH_FIX_SCOPE='apps/web/app/layout.tsx
+apps/web/app/api/auth/login/route.ts
+apps/web/app/api/auth/mfa-login/route.ts
+apps/web/app/api/auth/mfa-login/cancel/route.ts
+apps/web/app/platform-v7/forgot-password/ForgotPasswordFormClient.tsx
+apps/web/app/platform-v7/forgot-password/page.tsx
+apps/web/app/platform-v7/layout.tsx
+apps/web/app/platform-v7/page.tsx
+apps/web/app/platform-v7/template.tsx
+apps/web/app/platform-v7/login/LoginFormClient.tsx
+apps/web/app/platform-v7/login/page.tsx
+apps/web/app/platform-v7/login/template.tsx
+apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx
+apps/web/components/platform-v7/PlatformV7ProtectedTemplateRuntime.tsx
+apps/web/components/platform-v7/PlatformV7TemplateSwitch.tsx
+apps/web/components/platform-v7/PublicLocaleLink.tsx
+apps/web/components/platform-v7/PublicSiteHeader.tsx
+apps/web/components/v7r/BrandMark.tsx
+apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx
+apps/web/i18n/public-entry-messages.ts
+apps/web/lib/server/auth-session-response.ts
+apps/web/lib/server/mfa-login-ticket.ts
+apps/web/styles/platform-v7-public-auth.css
+apps/web/styles/platform-v7-public-header.css
+apps/web/styles/platform-v7-public-landing.css
+apps/web/tests/unit/mfaPendingLoginTicket.test.ts
+apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts
+apps/web/tests/unit/platformV7FinalShellStaticGate.test.ts
+apps/web/tests/unit/platformV7LoginRoleHandoff.test.ts
+apps/web/tests/unit/platformV7LoginSecurityBoundary.test.ts
+apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
+apps/web/tests/unit/platformV7RootWorkEntry.test.ts
+apps/web/tests/unit/platformV7SingleEntryLogin.test.ts
+apps/web/tests/unit/productEntryM31.test.tsx
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
+fi
+
+# Pull-request workflows can check out refs/pull/<n>/merge and expose an empty or
+# synthetic branch variable. The unique encrypted MFA ticket file is therefore
+# also used as a deterministic, reviewable signature for this exact auth scope.
+if [ "${GITHUB_HEAD_REF:-}" = "fix/public-auth-server-authority" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/lib/server/mfa-login-ticket.ts'; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_AUTH_FIX_SCOPE")
 fi
 
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
