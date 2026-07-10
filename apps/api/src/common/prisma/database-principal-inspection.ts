@@ -139,6 +139,9 @@ async function inspectAuthPrincipal(
         AND has_table_privilege(current_user, 'auth.mfa_challenges', 'SELECT')
         AND has_table_privilege(current_user, 'auth.mfa_challenges', 'INSERT')
         AND has_table_privilege(current_user, 'auth.mfa_challenges', 'UPDATE')
+        AND has_table_privilege(current_user, 'auth.password_reset_challenges', 'SELECT')
+        AND has_table_privilege(current_user, 'auth.password_reset_challenges', 'INSERT')
+        AND has_table_privilege(current_user, 'auth.password_reset_challenges', 'UPDATE')
       ) AS auth_tables_read_write,
       (
         has_table_privilege(current_user, 'auth.audit_events', 'SELECT')
