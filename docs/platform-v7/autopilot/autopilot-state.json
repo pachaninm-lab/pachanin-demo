@@ -21,10 +21,10 @@
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
-    "missing normalized DealParticipant object scope",
+    "legacy gateway unit fixture does not model tenant and DealParticipant RLS",
     "production migration and external integration evidence"
   ],
-  "blockerNotes": "Legacy allow-all policies are removed and SQL wrong-tenant visibility is now zero. Strict RLS then correctly blocks direct Deal reads without context. A normalized DealParticipant entity is required to authorize the explicitly assigned user, organization and role without tenant-wide bypass or JSON permissions in Deal.meta.",
+  "blockerNotes": "The full PostgreSQL exploitation gate is green with eight migrations, zero drift, 12 ACTIVE DealParticipants, SQL and Prisma tenant isolation and 19 commands to CLOSED. The only current blocker is the legacy gateway unit fixture, which must model verified tenant context, DB membership and transaction-local DealParticipant visibility.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
     "production RLS policy application",
@@ -46,6 +46,7 @@
     "apps/api/prisma/migrations/20260710120000_deal_participants/migration.sql",
     "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
     "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+    "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
@@ -65,6 +66,7 @@
     "apps/api/prisma/migrations/20260710120000_deal_participants/migration.sql",
     "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
     "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+    "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
@@ -82,14 +84,14 @@
   "industrialOneDealE2e": {
     "layer": "Industrial One Deal Ephemeral PostgreSQL E2E Harness",
     "implementationPr": "#2270",
-    "status": "deal_participant_scope_in_progress",
+    "status": "unit_fixture_alignment_in_progress",
     "workflow": ".github/workflows/ci.yml",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
     "lastFailure": {
-      "code": "DEAL_PARTICIPANT_SCOPE_REQUIRED",
-      "file": "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-      "stage": "readCanonicalDeal",
-      "reason": "strict RLS correctly denied an unscoped Deal read and seller/buyer columns cannot represent all assigned execution roles"
+      "code": "LEGACY_UNIT_FIXTURE_MISMATCH",
+      "file": "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
+      "stage": "Node CI unit suite",
+      "reason": "unit mocks omitted verified tenant and did not execute transaction-local DealParticipant/Organization/Deal reads"
     },
     "requiredEvidence": [
       "migration history applies with zero schema drift",
@@ -142,5 +144,5 @@
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. Migration history, zero drift and SQL-level cross-tenant isolation are proven on isolated PostgreSQL, but DealParticipant scope, full exploitation, recovery, persistent identity, live integrations, load and DR remain unproven. Production exploitation remains NO-GO."
+  "readiness": "85% honest architectural readiness. The isolated PostgreSQL one-deal exploitation proof is green, but recovery, persistent identity, live integrations, load and DR remain unproven. Production exploitation remains NO-GO."
 }
