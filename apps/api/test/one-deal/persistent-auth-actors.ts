@@ -6,6 +6,8 @@ import { AuthService } from '../../src/modules/auth/auth.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
 
 const TEST_PASSWORD = 'demo1234';
+const ACCESS_ISSUER = 'transparent-price-api';
+const ACCESS_AUDIENCE = 'transparent-price-platform';
 const MFA_REQUIRED_FIXTURE_ROLES = new Set<Role>([
   Role.BUYER,
   Role.ACCOUNTING,
@@ -19,6 +21,12 @@ type MembershipRow = {
   role: string;
   organization: { tenantId: string };
   user: { id: string; email: string; fullName: string };
+};
+
+type OpaqueAccessClaims = jwt.JwtPayload & {
+  sub: string;
+  sid: string;
+  typ: 'access';
 };
 
 export type PersistentActorHarness = {
@@ -68,7 +76,7 @@ function authPrisma(databaseUrl: string): PrismaService {
   return new PrismaService({ datasources: { db: { url: databaseUrl } } });
 }
 
-function assertOpaqueAccessToken(accessToken: string, expectedUserId: string): void {
+function assertOpaqueAccessToken(accessToken: string, expectedUserId: string): OpaqueAccessClaims {
   const decoded = jwt.decode(accessToken);
   if (!decoded || typeof decoded === 'string') throw new Error('Access token did not decode to JWT claims');
   if (decoded.sub !== expectedUserId || decoded.typ !== 'access' || typeof decoded.sid !== 'string') {
@@ -79,13 +87,16 @@ function assertOpaqueAccessToken(accessToken: string, expectedUserId: string): v
       throw new Error(`Access token leaked server-authoritative claim: ${forbidden}`);
     }
   }
+  return decoded as OpaqueAccessClaims;
 }
 
 export async function createPersistentActorHarness(
   organizationIds: readonly string[],
 ): Promise<PersistentActorHarness> {
   const authUrl = String(process.env.ONE_DEAL_AUTH_URL ?? '').trim();
+  const jwtSecret = String(process.env.JWT_SECRET ?? '').trim();
   if (!authUrl) throw new Error('ONE_DEAL_AUTH_URL is required for persistent auth actor proof');
+  if (!jwtSecret) throw new Error('JWT_SECRET is required for persistent auth actor proof');
 
   const primaryPrisma = authPrisma(authUrl);
   const verifierPrisma = authPrisma(authUrl);
@@ -141,7 +152,7 @@ export async function createPersistentActorHarness(
         }
       }
 
-      assertOpaqueAccessToken(accessToken, membership.user.id);
+      const claims = assertOpaqueAccessToken(accessToken, membership.user.id);
       const actor = await verifierAuth.verifyAccessToken(accessToken);
       if (
         actor.id !== membership.user.id
@@ -155,6 +166,34 @@ export async function createPersistentActorHarness(
       }
       if (expectedMfa && (!actor.mfaVerified || !actor.mfaVerifiedAt)) {
         throw new Error(`MFA state was not persisted for ${role}`);
+      }
+
+      const injectedClaimsToken = jwt.sign(
+        {
+          typ: 'access',
+          sid: claims.sid,
+          role: Role.ADMIN,
+          orgId: 'org-attacker-controlled',
+          organizationId: 'org-attacker-controlled',
+          tenantId: 'tenant-attacker-controlled',
+          membershipId: 'membership-attacker-controlled',
+        },
+        jwtSecret,
+        {
+          subject: membership.user.id,
+          issuer: ACCESS_ISSUER,
+          audience: ACCESS_AUDIENCE,
+          expiresIn: '5m',
+        },
+      );
+      const reauthorized = await primaryAuth.verifyAccessToken(injectedClaimsToken);
+      if (
+        reauthorized.role !== role
+        || reauthorized.orgId !== membership.organizationId
+        || reauthorized.tenantId !== membership.organization.tenantId
+        || reauthorized.membershipId !== membership.id
+      ) {
+        throw new Error(`Injected JWT authority claims overrode PostgreSQL membership for ${role}`);
       }
 
       const sessions = await primaryPrisma.$queryRaw<Array<{
