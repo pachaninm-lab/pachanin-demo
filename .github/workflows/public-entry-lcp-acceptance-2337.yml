@@ -1,0 +1,113 @@
+name: public entry LCP acceptance 2337
+
+on:
+  pull_request:
+    branches:
+      - fix/public-entry-lcp-css-boundary
+
+permissions:
+  contents: read
+
+jobs:
+  browser-lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      ARTIFACT_DIR: ../../artifacts/public-entry-lcp-2337
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Build production web
+        working-directory: apps/web
+        run: pnpm build
+      - name: Run browser matrix and Lighthouse gates
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ../../artifacts/public-entry-lcp-2337/lighthouse
+          pnpm start > /tmp/public-entry-lcp-2337.log 2>&1 &
+          APP_PID=$!
+          cleanup() { kill "$APP_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --show-error --fail --max-time 5 'http://127.0.0.1:3000/platform-v7?lang=ru' >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/public-entry-lcp-2337.log
+            exit 1
+          fi
+
+          node scripts/public-entry-acceptance-2337.mjs
+
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME_BIN"
+          export CHROME_PATH="$CHROME_BIN"
+          for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
+            safe_name="${route//\//-}"
+            npx -y lighthouse@12.8.2 "http://127.0.0.1:3000/${route}?lang=ru" \
+              --quiet \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --output=json \
+              --output-path="../../artifacts/public-entry-lcp-2337/lighthouse/${safe_name}.json"
+          done
+
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = '../../artifacts/public-entry-lcp-2337/lighthouse';
+          const reports = fs.readdirSync(dir).filter((name) => name.endsWith('.json') && name !== 'summary.json').map((name) => {
+            const report = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+            return {
+              file: name,
+              finalUrl: report.finalUrl,
+              scores: Object.fromEntries(Object.entries(report.categories).map(([key, value]) => [key, Math.round((value.score || 0) * 100)])),
+              metrics: {
+                lcpMs: report.audits['largest-contentful-paint']?.numericValue,
+                tbtMs: report.audits['total-blocking-time']?.numericValue,
+                cls: report.audits['cumulative-layout-shift']?.numericValue,
+              },
+            };
+          });
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', reports }, null, 2));
+          console.log(JSON.stringify(reports, null, 2));
+          const failures = [];
+          for (const report of reports) {
+            const landing = report.file === 'platform-v7.json';
+            if ((report.scores.performance || 0) < 80) failures.push(`${report.file}: performance ${report.scores.performance}`);
+            if ((report.scores.accessibility || 0) < 95) failures.push(`${report.file}: accessibility ${report.scores.accessibility}`);
+            if ((report.scores['best-practices'] || 0) < 90) failures.push(`${report.file}: best-practices ${report.scores['best-practices']}`);
+            if (landing && (report.scores.seo || 0) < 90) failures.push(`${report.file}: SEO ${report.scores.seo}`);
+            if ((report.metrics.lcpMs || Infinity) > 2500) failures.push(`${report.file}: LCP ${report.metrics.lcpMs}`);
+            if ((report.metrics.tbtMs || Infinity) > 200) failures.push(`${report.file}: TBT ${report.metrics.tbtMs}`);
+            if ((report.metrics.cls || Infinity) > 0.1) failures.push(`${report.file}: CLS ${report.metrics.cls}`);
+          }
+          if (failures.length) {
+            console.error(failures.join('\n'));
+            process.exit(1);
+          }
+          NODE
+
+          cp /tmp/public-entry-lcp-2337.log ../../artifacts/public-entry-lcp-2337/production-server.log
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-lcp-2337
+          path: artifacts/public-entry-lcp-2337
+          if-no-files-found: error
+          retention-days: 7
