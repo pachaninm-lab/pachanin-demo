@@ -13,6 +13,7 @@ const landing = read('apps/web/app/platform-v7/page.tsx');
 const login = read('apps/web/app/platform-v7/login/page.tsx');
 const recovery = read('apps/web/app/platform-v7/forgot-password/page.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
+const publicLocaleLink = read('apps/web/components/platform-v7/PublicLocaleLink.tsx');
 const brandMark = read('apps/web/components/v7r/BrandMark.tsx');
 const intelligenceStrip = read('apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx');
 const publicHeaderCss = read('apps/web/styles/platform-v7-public-header.css');
@@ -52,12 +53,14 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(rootLayout).toContain("const serverOnlyLanding = pathname === '/platform-v7'");
     expect(rootLayout).toContain('serverOnlyLanding\n    ? children');
     expect(rootLayout).toContain('NextIntlClientProvider');
-    expect(landing).toContain("const localeValue = await getLocale()");
-    expect(landing).toContain("href={`/platform-v7?lang=${next}`}");
-    expect(landing).toContain("localeControl={(");
+    expect(landing).toContain("localeControl={<PublicLocaleLink />}");
     expect(landing).not.toContain('PublicLocaleSwitch');
     expect(landing).not.toContain("'use client'");
     expect(landing).not.toContain('window.');
+    expect(publicLocaleLink).toContain("const localeValue = await getLocale()");
+    expect(publicLocaleLink).toContain("href={`${pathname}?lang=${next}`}");
+    expect(publicLocaleLink).not.toContain("'use client'");
+    expect(publicLocaleLink).not.toContain('window.');
   });
 
   it('loads all public entry styles statically outside hydrated markup', () => {
