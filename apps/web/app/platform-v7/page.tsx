@@ -77,10 +77,12 @@ const heroSignals: { key: string; tone: SignalTone }[] = [
 
 export default async function PlatformV7RootPage() {
   const t = await getTranslations('landing');
+  const p = await getTranslations('publicEntry');
 
   return (
     <main data-testid='platform-v7-root-execution-cockpit' className={styles.page}>
       <PublicSiteHeader
+        brand={t('brand')}
         ariaLabel={t('publicNav')}
         sectionsAriaLabel={t('sectionsNav')}
         tagline={t('brandTagline')}
@@ -116,7 +118,7 @@ export default async function PlatformV7RootPage() {
               {t('hero.primaryCta')}<ArrowRight size={20} aria-hidden='true' />
             </Link>
             <Link href='/platform-v7/deal-flow' className={styles.secondaryCta}>
-              <PlayCircle size={18} aria-hidden='true' />{t('hero.secondaryCta')}
+              <PlayCircle size={18} aria-hidden='true' />{p('landing.secondaryCta')}
             </Link>
           </div>
           <div className={styles.heroTrust} aria-label={t('trust.aria')}>
@@ -176,7 +178,7 @@ export default async function PlatformV7RootPage() {
       <PlatformV7IntelligenceStrip />
 
       <section id='roles' className={styles.section} aria-labelledby='roles-title'>
-        <SectionHead id='roles-title' title={t('roles.title')} text={t('roles.text')} />
+        <SectionHead id='roles-title' title={p('landing.rolesTitle')} text={p('landing.rolesText')} />
         <div className={styles.roleGrid}>
           {roles.map(({ key, Icon }) => (
             <article key={key} className={styles.roleTile}>
