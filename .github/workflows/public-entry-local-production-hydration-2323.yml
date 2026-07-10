@@ -1,4 +1,4 @@
-name: public entry local production hydration 2323
+name: public entry local production acceptance 2323
 
 on:
   pull_request:
@@ -9,10 +9,11 @@ permissions:
   contents: read
 
 jobs:
-  local-production-hydration:
+  local-production-acceptance:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       ARTIFACT_DIR: ../../artifacts/public-entry-local-production-2323
     steps:
       - uses: actions/checkout@v4
@@ -23,15 +24,16 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - working-directory: apps/web
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium webkit
       - name: Build web production bundle
         working-directory: apps/web
         run: pnpm build
-      - name: Run production hydration diagnostics
+      - name: Run full local production acceptance
         working-directory: apps/web
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p ../../artifacts/public-entry-local-production-2323/lighthouse
           pnpm start > /tmp/platform-v7-production.log 2>&1 &
           APP_PID=$!
           cleanup() { kill "$APP_PID" 2>/dev/null || true; }
@@ -48,7 +50,61 @@ jobs:
             cat /tmp/platform-v7-production.log
             exit 1
           fi
+
           DEV_DIAGNOSTIC_URL=http://127.0.0.1:3000 node scripts/public-entry-hydration-dev-2323.mjs
+          PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 node scripts/public-entry-preview-smoke-2323.mjs
+
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            echo 'Chrome executable not found'
+            exit 1
+          fi
+          export CHROME_PATH="$CHROME_BIN"
+          for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
+            safe_name="${route//\//-}"
+            npx -y lighthouse@12.8.2 "http://127.0.0.1:3000/${route}?lang=ru" \
+              --quiet \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --output=json \
+              --output-path="../../artifacts/public-entry-local-production-2323/lighthouse/${safe_name}.json"
+          done
+
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = '../../artifacts/public-entry-local-production-2323/lighthouse';
+          const reports = fs.readdirSync(dir).filter((name) => name.endsWith('.json')).map((name) => {
+            const report = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+            const scores = Object.fromEntries(Object.entries(report.categories).map(([key, value]) => [key, Math.round((value.score || 0) * 100)]));
+            const metrics = {
+              firstContentfulPaintMs: report.audits['first-contentful-paint']?.numericValue,
+              largestContentfulPaintMs: report.audits['largest-contentful-paint']?.numericValue,
+              totalBlockingTimeMs: report.audits['total-blocking-time']?.numericValue,
+              cumulativeLayoutShift: report.audits['cumulative-layout-shift']?.numericValue,
+              speedIndexMs: report.audits['speed-index']?.numericValue,
+            };
+            return { file: name, finalUrl: report.finalUrl, scores, metrics };
+          });
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', reports }, null, 2));
+          console.log(JSON.stringify(reports, null, 2));
+          const failures = [];
+          for (const report of reports) {
+            const landing = report.file === 'platform-v7.json';
+            if ((report.scores.performance || 0) < 80) failures.push(`${report.file}: performance ${report.scores.performance}`);
+            if ((report.scores.accessibility || 0) < 95) failures.push(`${report.file}: accessibility ${report.scores.accessibility}`);
+            if ((report.scores['best-practices'] || 0) < 90) failures.push(`${report.file}: best-practices ${report.scores['best-practices']}`);
+            if (landing && (report.scores.seo || 0) < 90) failures.push(`${report.file}: SEO ${report.scores.seo}`);
+            if ((report.metrics.largestContentfulPaintMs || Infinity) > 2500) failures.push(`${report.file}: LCP ${report.metrics.largestContentfulPaintMs}`);
+            if ((report.metrics.totalBlockingTimeMs || Infinity) > 200) failures.push(`${report.file}: TBT ${report.metrics.totalBlockingTimeMs}`);
+            if ((report.metrics.cumulativeLayoutShift || Infinity) > 0.1) failures.push(`${report.file}: CLS ${report.metrics.cumulativeLayoutShift}`);
+          }
+          if (failures.length) {
+            console.error(failures.join('\n'));
+            process.exit(1);
+          }
+          NODE
+
           cp /tmp/platform-v7-production.log ../../artifacts/public-entry-local-production-2323/production-server.log
       - name: Upload local production evidence
         if: always()
