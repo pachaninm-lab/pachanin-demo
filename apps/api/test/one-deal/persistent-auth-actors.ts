@@ -84,16 +84,23 @@ function assertOpaqueAccessToken(accessToken: string, expectedUserId: string): v
 export async function createPersistentActorHarness(
   organizationIds: readonly string[],
 ): Promise<PersistentActorHarness> {
-  const adminUrl = String(process.env.ONE_DEAL_ADMIN_URL ?? '').trim();
-  if (!adminUrl) throw new Error('ONE_DEAL_ADMIN_URL is required for persistent auth actor proof');
+  const authUrl = String(process.env.ONE_DEAL_AUTH_URL ?? '').trim();
+  if (!authUrl) throw new Error('ONE_DEAL_AUTH_URL is required for persistent auth actor proof');
 
-  const primaryPrisma = authPrisma(adminUrl);
-  const verifierPrisma = authPrisma(adminUrl);
+  const primaryPrisma = authPrisma(authUrl);
+  const verifierPrisma = authPrisma(authUrl);
   const primaryAuth = new AuthService(new PersistentAuthRepository(primaryPrisma));
   const verifierAuth = new AuthService(new PersistentAuthRepository(verifierPrisma));
   await Promise.all([primaryPrisma.$connect(), verifierPrisma.$connect()]);
 
   try {
+    const [{ current_user: currentUser }] = await primaryPrisma.$queryRaw<Array<{ current_user: string }>>`
+      SELECT current_user
+    `;
+    if (currentUser !== 'one_deal_auth') {
+      throw new Error(`Persistent auth harness connected as unexpected principal ${currentUser}`);
+    }
+
     const memberships = (await primaryPrisma.userOrg.findMany({
       where: { organizationId: { in: [...organizationIds] } },
       include: { user: true, organization: true },
@@ -188,7 +195,7 @@ export async function createPersistentActorHarness(
       primaryPrisma,
       verifierPrisma,
       verifyWithFreshInstance: async () => {
-        const freshPrisma = authPrisma(adminUrl);
+        const freshPrisma = authPrisma(authUrl);
         const freshAuth = new AuthService(new PersistentAuthRepository(freshPrisma));
         await freshPrisma.$connect();
         try {
