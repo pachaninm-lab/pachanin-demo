@@ -4,6 +4,7 @@ import { Role } from '../types/request-user';
 import { PrismaService } from './prisma.service';
 import {
   deriveTrustedRlsContext,
+  normalizeTrustedRlsContext,
   RlsContextError,
   RlsTransactionService,
   type TrustedRlsContext,
@@ -16,6 +17,14 @@ const TRUSTED_USER: RequestUser = {
   orgId: 'org-rls-001',
   tenantId: 'tenant-rls-001',
   sessionId: 'session-rls-001',
+};
+
+const TRUSTED_CONTEXT: TrustedRlsContext = {
+  userId: TRUSTED_USER.id,
+  orgId: TRUSTED_USER.orgId!,
+  tenantId: TRUSTED_USER.tenantId!,
+  role: TRUSTED_USER.role,
+  sessionId: TRUSTED_USER.sessionId!,
 };
 
 function fixture() {
@@ -39,13 +48,7 @@ function fixture() {
 
 describe('RlsTransactionService', () => {
   it('derives the complete context only from trusted RequestUser fields', () => {
-    expect(deriveTrustedRlsContext(TRUSTED_USER)).toEqual({
-      userId: TRUSTED_USER.id,
-      orgId: TRUSTED_USER.orgId,
-      tenantId: TRUSTED_USER.tenantId,
-      role: TRUSTED_USER.role,
-      sessionId: TRUSTED_USER.sessionId,
-    });
+    expect(deriveTrustedRlsContext(TRUSTED_USER)).toEqual(TRUSTED_CONTEXT);
   });
 
   it.each([
@@ -70,7 +73,13 @@ describe('RlsTransactionService', () => {
     expect(test.transaction).not.toHaveBeenCalled();
   });
 
-  it('sets parameterized transaction-local user, organization, tenant, role and session context', async () => {
+  it('normalizes and freezes a trusted internal context', () => {
+    const normalized = normalizeTrustedRlsContext(TRUSTED_CONTEXT);
+    expect(normalized).toEqual(TRUSTED_CONTEXT);
+    expect(Object.isFrozen(normalized)).toBe(true);
+  });
+
+  it('sets parameterized transaction-local context before trusted user work', async () => {
     const test = fixture();
     const work = jest.fn(
       async (_tx: Prisma.TransactionClient, context: TrustedRlsContext) => context.userId,
@@ -80,13 +89,7 @@ describe('RlsTransactionService', () => {
 
     expect(test.transaction).toHaveBeenCalledTimes(1);
     expect(test.queryRaw).toHaveBeenCalledTimes(1);
-    expect(work).toHaveBeenCalledWith(test.tx, {
-      userId: TRUSTED_USER.id,
-      orgId: TRUSTED_USER.orgId,
-      tenantId: TRUSTED_USER.tenantId,
-      role: TRUSTED_USER.role,
-      sessionId: TRUSTED_USER.sessionId,
-    });
+    expect(work).toHaveBeenCalledWith(test.tx, TRUSTED_CONTEXT);
 
     const statement = test.queryRaw.mock.calls[0][0] as {
       strings: string[];
@@ -108,18 +111,24 @@ describe('RlsTransactionService', () => {
     ]);
   });
 
+  it('uses the same parameterized transaction boundary for trusted internal context', async () => {
+    const test = fixture();
+    const work = jest.fn(async () => 'internal-ok');
+
+    await expect(test.service.withContext(TRUSTED_CONTEXT, work)).resolves.toBe('internal-ok');
+    expect(test.transaction).toHaveBeenCalledTimes(1);
+    expect(test.queryRaw).toHaveBeenCalledTimes(1);
+    expect(work).toHaveBeenCalledWith(test.tx, TRUSTED_CONTEXT);
+  });
+
   it('uses bounded transaction defaults and accepts an explicit isolation level', async () => {
     const test = fixture();
 
-    await test.service.withTrustedContext(
-      TRUSTED_USER,
-      async () => 'ok',
-      {
-        maxWait: 1_000,
-        timeout: 2_000,
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      },
-    );
+    await test.service.withTrustedContext(TRUSTED_USER, async () => 'ok', {
+      maxWait: 1_000,
+      timeout: 2_000,
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
 
     expect(test.transaction).toHaveBeenCalledWith(expect.any(Function), {
       maxWait: 1_000,
@@ -134,7 +143,7 @@ describe('RlsTransactionService', () => {
     test.queryRaw.mockRejectedValueOnce(databaseError);
     const work = jest.fn(async () => 'must-not-run');
 
-    await expect(test.service.withTrustedContext(TRUSTED_USER, work)).rejects.toBe(databaseError);
+    await expect(test.service.withContext(TRUSTED_CONTEXT, work)).rejects.toBe(databaseError);
     expect(work).not.toHaveBeenCalled();
   });
 });
