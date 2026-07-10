@@ -42,6 +42,7 @@ jobs:
         run: node scripts/public-entry-live-smoke-2318.mjs
 
       - name: Collect Lighthouse reports
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
