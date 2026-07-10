@@ -21,10 +21,10 @@
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
-    "P3018 second legacy SQLite migration after PostgreSQL baseline",
+    "migration-to-schema drift after preserved SQLite no-op identifiers",
     "production migration and external integration evidence"
   ],
-  "blockerNotes": "PostgreSQL now applies the provider lock and the first legacy no-op. It then fails on 20260522120000_add_core_tables, another SQLite migration that recreates deals, shipments, checkpoints, documents, payments and laboratory tables already created by 0001_postgresql_initial. Scope is expanded only to preserve this migration ID as a documented PostgreSQL no-op.",
+  "blockerNotes": "The exploitation run now reaches the mandatory migration-to-schema drift gate. A single forward-only PostgreSQL reconciliation migration generated from the canonical Prisma model is being verified on an isolated PostgreSQL 16 database. db push, manual runtime DDL, migrate resolve, production credentials and production migration claims remain forbidden.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
     "production RLS policy application",
@@ -38,6 +38,7 @@
     "apps/api/prisma/migrations/migration_lock.toml",
     "apps/api/prisma/migrations/20260522083644_init/migration.sql",
     "apps/api/prisma/migrations/20260522120000_add_core_tables/migration.sql",
+    "apps/api/prisma/migrations/20260710114500_reconcile_postgresql_schema/migration.sql",
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
@@ -50,6 +51,7 @@
     "apps/api/prisma/migrations/migration_lock.toml",
     "apps/api/prisma/migrations/20260522083644_init/migration.sql",
     "apps/api/prisma/migrations/20260522120000_add_core_tables/migration.sql",
+    "apps/api/prisma/migrations/20260710114500_reconcile_postgresql_schema/migration.sql",
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
@@ -67,25 +69,26 @@
   "industrialOneDealE2e": {
     "layer": "Industrial One Deal Ephemeral PostgreSQL E2E Harness",
     "implementationPr": "#2270",
-    "status": "second_legacy_sqlite_migration_neutralization_in_progress",
+    "status": "forward_only_schema_reconciliation_in_progress",
     "workflow": ".github/workflows/ci.yml",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
     "lastFailure": {
-      "code": "P3018/42704",
-      "migration": "20260522120000_add_core_tables",
-      "stage": "prisma migrate deploy",
-      "reason": "legacy SQLite DATETIME migration duplicated core deal tables already created by 0001_postgresql_initial"
+      "code": "MIGRATION_SCHEMA_DRIFT",
+      "migration": "20260710114500_reconcile_postgresql_schema",
+      "stage": "prisma migrate diff --exit-code",
+      "reason": "the complete preserved migration history did not yet produce the canonical Prisma PostgreSQL schema"
     },
     "requiredEvidence": [
       "isolated PostgreSQL 16 starts with ephemeral credentials",
       "all migration history applies through prisma migrate deploy",
+      "zero migration-to-schema drift is proven after deploy",
       "schema migrations and RLS policies apply only to the ephemeral database",
       "12 human role memberships observe one factual deal state",
       "19 commands execute in deterministic order without direct DB mutation",
       "reserve and release require signed callbacks bound to pending operations",
       "duplicate stale concurrent and cross-tenant cases fail deterministically",
       "closed projections and evidence chains reconcile",
-      "teardown destroys test data and credentials"
+      "teardown destroys all ephemeral data and credentials"
     ]
   },
   "nextAfterCurrentGreen": [
@@ -94,6 +97,7 @@
     "durable outbox worker and bank reconciliation",
     "truthful offline acknowledgement",
     "server-rendered RU EN ZH i18n",
+    "complete mobile-first design-system and role-cabinet migration",
     "load restore DR and accessibility acceptance"
   ],
   "forbiddenZones": [
@@ -124,5 +128,5 @@
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. Real PostgreSQL migration execution has exposed a third migration-history defect. Production exploitation remains NO-GO until the complete gate is green."
+  "readiness": "85% honest architectural readiness. The canonical code path is merged, but the complete migration history and one-deal exploitation proof are still under isolated PostgreSQL verification. Production exploitation remains NO-GO."
 }
