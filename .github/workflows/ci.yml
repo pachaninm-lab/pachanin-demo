@@ -116,6 +116,7 @@ jobs:
           echo "JWT_SECRET=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
           echo "AUTH_TOKEN_PEPPER=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
           echo "MFA_ENCRYPTION_KEY=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
+          echo "RATE_LIMIT_KEY_PEPPER=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
           echo "BANK_HMAC_SECRET=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
 
       - name: Run industrial one-deal exploitation gate
