@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   MFA_PENDING_COOKIE,
   clearMfaPendingCookieOptions,
-} from '../../../../../../lib/server/mfa-login-ticket';
+} from '../../../../../lib/server/mfa-login-ticket';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
