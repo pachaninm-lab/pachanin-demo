@@ -132,6 +132,20 @@ CREATE TABLE auth.audit_events (
     CHECK (outcome IN ('SUCCESS', 'FAILURE', 'DENIED'))
 );
 
+CREATE OR REPLACE FUNCTION auth.reject_audit_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = pg_catalog
+AS $$
+BEGIN
+  RAISE EXCEPTION 'auth.audit_events is append-only';
+END;
+$$;
+
+CREATE TRIGGER auth_audit_events_append_only
+BEFORE UPDATE OR DELETE ON auth.audit_events
+FOR EACH ROW EXECUTE FUNCTION auth.reject_audit_mutation();
+
 CREATE INDEX auth_login_throttles_locked_idx
   ON auth.login_throttles(locked_until);
 CREATE INDEX auth_sessions_user_status_idx
@@ -163,14 +177,19 @@ CREATE INDEX auth_audit_events_tenant_created_idx
 
 REVOKE ALL ON ALL TABLES IN SCHEMA auth FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA auth FROM PUBLIC;
+REVOKE ALL ON FUNCTION auth.reject_audit_mutation() FROM PUBLIC;
 
 DO $grant_auth_schema$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_service') THEN
     GRANT USAGE ON SCHEMA auth TO app_service;
-    GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA auth TO app_service;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA auth
-      GRANT SELECT, INSERT, UPDATE ON TABLES TO app_service;
+    GRANT SELECT, INSERT, UPDATE ON auth.login_throttles TO app_service;
+    GRANT SELECT, INSERT, UPDATE ON auth.credential_states TO app_service;
+    GRANT SELECT, INSERT, UPDATE ON auth.sessions TO app_service;
+    GRANT SELECT, INSERT, UPDATE ON auth.refresh_tokens TO app_service;
+    GRANT SELECT, INSERT, UPDATE ON auth.mfa_challenges TO app_service;
+    GRANT SELECT, INSERT ON auth.audit_events TO app_service;
+    REVOKE UPDATE, DELETE ON auth.audit_events FROM app_service;
   END IF;
 END
 $grant_auth_schema$;
