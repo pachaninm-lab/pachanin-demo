@@ -36,6 +36,9 @@ DROP POLICY IF EXISTS runtime_snapshots_insert ON public."deal_workspace_runtime
 DROP POLICY IF EXISTS runtime_snapshots_select ON public."deal_workspace_runtime_snapshots";
 DROP POLICY IF EXISTS outbox_entries_insert ON public."outbox_entries";
 DROP POLICY IF EXISTS outbox_entries_select ON public."outbox_entries";
+DROP POLICY IF EXISTS outbox_entries_worker_update ON public."outbox_entries";
+DROP POLICY IF EXISTS outbox_entries_worker_insert ON public."outbox_entries";
+DROP POLICY IF EXISTS outbox_entries_worker_select ON public."outbox_entries";
 DROP POLICY IF EXISTS outbox_entries_worker ON public."outbox_entries";
 DROP POLICY IF EXISTS integration_events_insert ON public."integration_events";
 DROP POLICY IF EXISTS integration_events_select ON public."integration_events";
@@ -43,6 +46,8 @@ DROP POLICY IF EXISTS ledger_entries_insert ON public."ledger_entries";
 DROP POLICY IF EXISTS ledger_entries_select ON public."ledger_entries";
 DROP POLICY IF EXISTS audit_events_insert ON public."audit_events";
 DROP POLICY IF EXISTS audit_events_select ON public."audit_events";
+DROP POLICY IF EXISTS organizations_update_privileged ON public."organizations";
+DROP POLICY IF EXISTS organizations_insert_privileged ON public."organizations";
 DROP POLICY IF EXISTS organizations_write_privileged ON public."organizations";
 DROP POLICY IF EXISTS organizations_select ON public."organizations";
 DROP POLICY IF EXISTS deals_update ON public."deals";
@@ -74,11 +79,16 @@ SQL
 DO \$rollback_rehearsal\$
 DECLARE
   enabled_count INTEGER;
+  forced_count INTEGER;
   policy_count INTEGER;
 BEGIN
   SELECT count(*) INTO enabled_count
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE n.nspname = 'public' AND c.relname IN ($TABLE_ARRAY) AND c.relrowsecurity;
+
+  SELECT count(*) INTO forced_count
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relname IN ($TABLE_ARRAY) AND c.relforcerowsecurity;
 
   SELECT count(*) INTO policy_count
   FROM pg_policies
@@ -86,6 +96,9 @@ BEGIN
 
   IF enabled_count <> 0 THEN
     RAISE EXCEPTION 'RLS rollback rehearsal: expected zero enabled tables, got %', enabled_count;
+  END IF;
+  IF forced_count <> 0 THEN
+    RAISE EXCEPTION 'RLS rollback rehearsal: expected zero forced tables, got %', forced_count;
   END IF;
   IF policy_count <> 0 THEN
     RAISE EXCEPTION 'RLS rollback rehearsal: expected zero policies, got %', policy_count;
