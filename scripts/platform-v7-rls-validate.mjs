@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA_PATH = path.join(ROOT, 'apps/api/prisma/schema.prisma');
 const POLICY_PATH = path.join(ROOT, 'infra/sql/production-rls-policies.sql');
 
@@ -33,11 +33,24 @@ const FORBIDDEN_PATTERNS = [
   ['Prisma model table IntegrationEvent', /(?:ALTER TABLE|ON)\s+(?:public\.)?"IntegrationEvent"/],
   ['Prisma model table OutboxEntry', /(?:ALTER TABLE|ON)\s+(?:public\.)?"OutboxEntry"/],
   ['unsupported CREATE POLICY IF NOT EXISTS', /CREATE\s+POLICY\s+IF\s+NOT\s+EXISTS/i],
+  ['broad FOR ALL policy', /CREATE\s+POLICY\s+[a-z0-9_]+\s+ON\s+[^;]+?\s+FOR\s+ALL\b/i],
   ['legacy set_app_context creation', /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?set_app_context/i],
   ['session-level set_config', /set_config\([^;]+,\s*false\s*\)/is],
   ['embedded transaction BEGIN', /^\s*BEGIN\s*;/im],
   ['embedded transaction COMMIT', /^\s*COMMIT\s*;/im],
 ];
+
+const APPEND_ONLY_TABLES = [
+  'audit_events',
+  'ledger_entries',
+  'integration_events',
+  'deal_workspace_runtime_snapshots',
+  'deal_workspace_runtime_transaction_attempts',
+];
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 export function validateRlsArtifacts(schema, sql) {
   const errors = [];
@@ -47,9 +60,15 @@ export function validateRlsArtifacts(schema, sql) {
       errors.push(`Prisma schema is missing @@map(\"${table}\")`);
     }
 
-    const escaped = table.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const enable = new RegExp(`ALTER\\s+TABLE\\s+public\\.\"${escaped}\"\\s+ENABLE\\s+ROW\\s+LEVEL\\s+SECURITY`, 'i');
-    const force = new RegExp(`ALTER\\s+TABLE\\s+public\\.\"${escaped}\"\\s+FORCE\\s+ROW\\s+LEVEL\\s+SECURITY`, 'i');
+    const escaped = escapeRegExp(table);
+    const enable = new RegExp(
+      `ALTER\\s+TABLE\\s+public\\.\"${escaped}\"\\s+ENABLE\\s+ROW\\s+LEVEL\\s+SECURITY`,
+      'i',
+    );
+    const force = new RegExp(
+      `ALTER\\s+TABLE\\s+public\\.\"${escaped}\"\\s+FORCE\\s+ROW\\s+LEVEL\\s+SECURITY`,
+      'i',
+    );
     if (!enable.test(sql)) errors.push(`${table}: ENABLE ROW LEVEL SECURITY missing`);
     if (!force.test(sql)) errors.push(`${table}: FORCE ROW LEVEL SECURITY missing`);
   }
@@ -64,8 +83,23 @@ export function validateRlsArtifacts(schema, sql) {
     if (pattern.test(sql)) errors.push(`Forbidden construct: ${label}`);
   }
 
-  const createdPolicies = [...sql.matchAll(/CREATE\s+POLICY\s+([a-z0-9_]+)/gi)].map((match) => match[1]);
-  const duplicatePolicies = createdPolicies.filter((name, index) => createdPolicies.indexOf(name) !== index);
+  for (const table of APPEND_ONLY_TABLES) {
+    const escaped = escapeRegExp(table);
+    const destructivePolicy = new RegExp(
+      `CREATE\\s+POLICY\\s+[a-z0-9_]+\\s+ON\\s+public\\.\"${escaped}\"\\s+FOR\\s+(?:UPDATE|DELETE|ALL)\\b`,
+      'i',
+    );
+    if (destructivePolicy.test(sql)) {
+      errors.push(`${table}: append-only table has UPDATE, DELETE or ALL policy`);
+    }
+  }
+
+  const createdPolicies = [...sql.matchAll(/CREATE\s+POLICY\s+([a-z0-9_]+)/gi)].map(
+    (match) => match[1],
+  );
+  const duplicatePolicies = createdPolicies.filter(
+    (name, index) => createdPolicies.indexOf(name) !== index,
+  );
   if (duplicatePolicies.length > 0) {
     errors.push(`Duplicate policy names: ${[...new Set(duplicatePolicies)].join(', ')}`);
   }
@@ -75,8 +109,20 @@ export function validateRlsArtifacts(schema, sql) {
     if (!drop.test(sql)) errors.push(`${policy}: matching DROP POLICY IF EXISTS missing`);
   }
 
-  if (!/DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.set_app_context\s*\(TEXT,\s*TEXT,\s*TEXT\)/i.test(sql)) {
+  if (
+    !/DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.set_app_context\s*\(TEXT,\s*TEXT,\s*TEXT\)/i.test(
+      sql,
+    )
+  ) {
     errors.push('Legacy three-argument set_app_context is not explicitly removed');
+  }
+
+  if (!/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.app_rls_context_ready\s*\(\s*\)/i.test(sql)) {
+    errors.push('Fail-closed app_rls_context_ready function is missing');
+  }
+
+  if (!/SECURITY\s+INVOKER/i.test(sql)) {
+    errors.push('Deal visibility helper must remain SECURITY INVOKER');
   }
 
   return { valid: errors.length === 0, errors, policies: createdPolicies.length };
@@ -96,7 +142,7 @@ async function cli() {
   if (!result.valid) process.exitCode = 1;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   cli().catch((error) => {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;
