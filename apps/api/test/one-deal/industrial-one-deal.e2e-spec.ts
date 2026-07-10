@@ -35,18 +35,25 @@ const CANONICAL_ORG_IDS = new Set([
 
 type UserActionId = Exclude<DealActionId, 'confirm_reserve' | 'confirm_release'>;
 type Workspace = Awaited<ReturnType<IndustrialDealCommandGateway['workspace']>>;
-type CommandResult = Awaited<ReturnType<IndustrialDealCommandGateway['executeUser']>>;
 type MembershipRow = {
-  userId: string;
   organizationId: string;
   role: string;
   user: { id: string; email: string; fullName: string };
+};
+type CommandReceipt = {
+  duplicate: boolean;
+  commandId: string;
+  actionId: DealActionId;
+  eventId: string;
+  auditId: string;
+  status: string;
+  updatedAt: string;
 };
 type IssuedUserCommand = {
   actionId: UserActionId;
   role: Role;
   dto: ExecuteDealCommandDto;
-  result: CommandResult;
+  receipt: CommandReceipt;
 };
 type BankCallbackBody = {
   dealId: string;
@@ -115,10 +122,23 @@ function createRuntime() {
   const commands = new DealCommandService(rls);
   const gateway = new IndustrialDealCommandGateway(prisma, rls, commands);
   const settlement = new SettlementEngineController({} as never, gateway);
-  return { prisma, rls, commands, gateway, settlement };
+  return { prisma, rls, gateway, settlement };
 }
 
 type Runtime = ReturnType<typeof createRuntime>;
+
+function requireReceipt(value: unknown): CommandReceipt {
+  expect(value).toMatchObject({
+    duplicate: expect.any(Boolean),
+    commandId: expect.any(String),
+    actionId: expect.any(String),
+    eventId: expect.any(String),
+    auditId: expect.any(String),
+    status: expect.any(String),
+    updatedAt: expect.any(String),
+  });
+  return value as CommandReceipt;
+}
 
 function bankCallbackFixture(operation: 'RESERVE' | 'RELEASE'): BankCallbackFixture {
   const body: BankCallbackBody = {
@@ -187,9 +207,6 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
     if (!BANK_SECRET) throw new Error('BANK_HMAC_SECRET is required for signed callback fixtures.');
     await prisma.$connect();
 
-    // Identity bootstrap intentionally avoids an RLS-protected Organization relation join.
-    // Every Deal read and command is re-authorized through UserOrg -> DealParticipant ->
-    // Organization -> Deal inside transaction-local trusted context.
     const memberships = (await prisma.userOrg.findMany({
       where: { organizationId: { in: [...CANONICAL_ORG_IDS] } },
       include: { user: true },
@@ -248,9 +265,10 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
       expectedUpdatedAt: options.expectedUpdatedAt ?? current.deal.updatedAt,
       payload: payload(actionId),
     };
-    const result = await gateway.executeUser(CANONICAL_TEST_DEAL_ID, actionId, dto, actor(role));
-    issuedUserCommands.push({ actionId, role, dto, result });
-    return result;
+    const raw = await gateway.executeUser(CANONICAL_TEST_DEAL_ID, actionId, dto, actor(role));
+    const receipt = requireReceipt(raw);
+    issuedUserCommands.push({ actionId, role, dto, receipt });
+    return receipt;
   }
 
   async function evidenceSnapshot(targetRls: RlsTransactionService, user: RequestUser) {
@@ -366,15 +384,14 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
       ),
     ).rejects.toThrow(marker);
 
-    const after = await evidenceSnapshot(rls, accounting);
-    expect(after).toEqual(before);
+    expect(await evidenceSnapshot(rls, accounting)).toEqual(before);
   }
 
   async function proveRlsPoolIsolation(): Promise<void> {
     const valid = actor(Role.BUYER);
     const wrongTenant = { ...valid, tenantId: 'tenant-other', sessionId: 'rls-wrong-tenant' };
 
-    const probe = async (user: RequestUser) => rls.withTrustedContext(user, async (tx, context) => {
+    const probe = async (user: RequestUser) => rls.withTrustedContext(user, async (tx) => {
       const dealCount = await tx.deal.count({ where: { id: CANONICAL_TEST_DEAL_ID } });
       const settings = await tx.$queryRaw<Array<{
         user_id: string | null;
@@ -390,7 +407,7 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
           NULLIF(current_setting('app.current_role', true), '') AS role_id,
           NULLIF(current_setting('app.current_session_id', true), '') AS session_id
       `);
-      return { dealCount, context, settings: settings[0] };
+      return { dealCount, settings: settings[0] };
     });
 
     const sequentialValid = await probe(valid);
@@ -490,27 +507,22 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
       expectedUpdatedAt: initial.deal.updatedAt,
       payload: {},
     };
-    const approval = await gateway.executeUser(
+    const approvalReceipt = requireReceipt(await gateway.executeUser(
       CANONICAL_TEST_DEAL_ID,
       'approve_admission',
       approveDto,
       actor(Role.COMPLIANCE_OFFICER),
-    );
+    ));
     issuedUserCommands.push({
       actionId: 'approve_admission',
       role: Role.COMPLIANCE_OFFICER,
       dto: approveDto,
-      result: approval,
+      receipt: approvalReceipt,
     });
-    expect(approval).toMatchObject({ status: 'ADMISSION_APPROVED', duplicate: false });
+    expect(approvalReceipt).toMatchObject({ status: 'ADMISSION_APPROVED', duplicate: false });
 
     await expect(
-      gateway.executeUser(
-        CANONICAL_TEST_DEAL_ID,
-        'approve_admission',
-        approveDto,
-        actor(Role.COMPLIANCE_OFFICER),
-      ),
+      gateway.executeUser(CANONICAL_TEST_DEAL_ID, 'approve_admission', approveDto, actor(Role.COMPLIANCE_OFFICER)),
     ).resolves.toMatchObject({ status: 'ADMISSION_APPROVED', duplicate: true });
 
     await expect(
@@ -546,7 +558,7 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
       )),
     );
     const winners = concurrent.flatMap((item, index) => item.status === 'fulfilled'
-      ? [{ index, result: item.value }]
+      ? [{ index, receipt: requireReceipt(item.value) }]
       : []);
     expect(winners).toHaveLength(1);
     expect(concurrent.filter((item) => item.status === 'rejected')).toHaveLength(1);
@@ -556,7 +568,7 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
       actionId: 'publish_auction',
       role: Role.FARMER,
       dto: auctionDtos[auctionWinner.index],
-      result: auctionWinner.result,
+      receipt: auctionWinner.receipt,
     });
 
     await expect(
@@ -589,8 +601,7 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
 
     const reserveCallback = bankCallbackFixture('RESERVE');
     await withFreshRuntime(async (fresh) => {
-      const restartedWorkspace = await workspace(Role.ACCOUNTING, fresh.gateway);
-      expect(restartedWorkspace.deal.status).toBe('RESERVE_REQUESTED');
+      expect((await workspace(Role.ACCOUNTING, fresh.gateway)).deal.status).toBe('RESERVE_REQUESTED');
 
       const durablePending = await fresh.rls.withTrustedContext(actor(Role.ACCOUNTING), async (tx) => {
         const [operation, pendingOutbox, receipt] = await Promise.all([
@@ -642,8 +653,7 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
     await executeUserAction('request_release');
 
     await withFreshRuntime(async (fresh) => {
-      const restartedWorkspace = await workspace(Role.ACCOUNTING, fresh.gateway);
-      expect(restartedWorkspace.deal.status).toBe('RELEASE_REQUESTED');
+      expect((await workspace(Role.ACCOUNTING, fresh.gateway)).deal.status).toBe('RELEASE_REQUESTED');
       await expect(
         submitBankCallback(fresh.settlement, releaseCallback, { proveInvalidSignature: true }),
       ).resolves.toMatchObject({ status: 'RELEASED', duplicate: false });
@@ -699,18 +709,18 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
     const beforeFullRecoveryReplay = await evidenceSnapshot(rls, operator);
     await withFreshRuntime(async (fresh) => {
       for (const issued of issuedUserCommands) {
-        const replay = await fresh.gateway.executeUser(
+        const replay = requireReceipt(await fresh.gateway.executeUser(
           CANONICAL_TEST_DEAL_ID,
           issued.actionId,
           issued.dto,
           actor(issued.role),
-        );
+        ));
         expect(replay).toMatchObject({
           duplicate: true,
-          commandId: issued.result.commandId,
+          commandId: issued.receipt.commandId,
           actionId: issued.actionId,
-          eventId: issued.result.eventId,
-          auditId: issued.result.auditId,
+          eventId: issued.receipt.eventId,
+          auditId: issued.receipt.auditId,
         });
       }
       await expect(submitBankCallback(fresh.settlement, reserveCallback)).resolves.toMatchObject({
