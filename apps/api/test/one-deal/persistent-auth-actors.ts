@@ -28,6 +28,7 @@ export type PersistentActorHarness = {
   verifierAuth: AuthService;
   primaryPrisma: PrismaService;
   verifierPrisma: PrismaService;
+  verifyWithFreshInstance(): Promise<void>;
   disconnect(): Promise<void>;
 };
 
@@ -186,6 +187,22 @@ export async function createPersistentActorHarness(
       verifierAuth,
       primaryPrisma,
       verifierPrisma,
+      verifyWithFreshInstance: async () => {
+        const freshPrisma = authPrisma(adminUrl);
+        const freshAuth = new AuthService(new PersistentAuthRepository(freshPrisma));
+        await freshPrisma.$connect();
+        try {
+          for (const [role, token] of accessTokensByRole) {
+            const expected = actorsByRole.get(role);
+            const verified = await freshAuth.verifyAccessToken(token);
+            if (!expected || verified.id !== expected.id || verified.sessionId !== expected.sessionId || verified.role !== role) {
+              throw new Error(`Fresh API instance did not recover persistent session for ${role}`);
+            }
+          }
+        } finally {
+          await freshPrisma.$disconnect();
+        }
+      },
       disconnect: async () => {
         await Promise.all([primaryPrisma.$disconnect(), verifierPrisma.$disconnect()]);
       },
