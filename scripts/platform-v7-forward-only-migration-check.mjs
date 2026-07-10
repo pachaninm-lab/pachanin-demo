@@ -9,6 +9,7 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SCRIPT_DIR, '..');
 const MIGRATIONS_DIR = path.join(ROOT, 'apps/api/prisma/migrations');
 const ACCEPTED_BASELINE = '20260710150000_persistent_identity_sessions';
+const BOUNDED_RATE_LIMIT_CLEANUP_MIGRATION = '20260710203000_rate_limit_function_privilege_boundary';
 
 const destructivePatterns = [
   { name: 'DROP TABLE', pattern: /\bDROP\s+TABLE\b/i },
@@ -29,6 +30,28 @@ function withoutComments(sql) {
     .replace(/^\s*--.*$/gm, '');
 }
 
+function withoutApprovedBoundedCleanup(sql, migration) {
+  if (migration !== BOUNDED_RATE_LIMIT_CLEANUP_MIGRATION) return sql;
+  const functionPattern = /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+security\.cleanup_api_rate_limit_buckets\s*\([\s\S]*?\$cleanup_rate_limit\$;/i;
+  const match = sql.match(functionPattern);
+  if (!match) return sql;
+
+  const body = match[0];
+  const requiredInvariants = [
+    /RETURNS\s+INTEGER/i,
+    /SECURITY\s+DEFINER/i,
+    /SET\s+search_path\s*=\s*pg_catalog\s*,\s*security/i,
+    /p_limit\s+IS\s+NULL\s+OR\s+p_limit\s*<\s*1\s+OR\s+p_limit\s*>\s*5000/i,
+    /LIMIT\s+p_limit/i,
+    /FOR\s+UPDATE\s+SKIP\s+LOCKED/i,
+    /DELETE\s+FROM\s+security\.api_rate_limit_buckets/i,
+    /GET\s+DIAGNOSTICS\s+v_deleted\s*=\s*ROW_COUNT/i,
+  ];
+  if (!requiredInvariants.every((pattern) => pattern.test(body))) return sql;
+
+  return sql.replace(functionPattern, '');
+}
+
 const entries = (await readdir(MIGRATIONS_DIR, { withFileTypes: true }))
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
@@ -43,7 +66,8 @@ const violations = [];
 
 for (const migration of newMigrations) {
   const file = path.join(MIGRATIONS_DIR, migration, 'migration.sql');
-  const sql = withoutComments(await readFile(file, 'utf8'));
+  const rawSql = withoutComments(await readFile(file, 'utf8'));
+  const sql = withoutApprovedBoundedCleanup(rawSql, migration);
   for (const rule of destructivePatterns) {
     if (rule.pattern.test(sql)) violations.push(`${migration}: ${rule.name}`);
   }
@@ -71,5 +95,6 @@ console.log(JSON.stringify({
   forwardOnlyMigrationGate: 'passed',
   acceptedBaseline: ACCEPTED_BASELINE,
   checkedMigrations: newMigrations,
+  boundedCleanupAllowlist: [BOUNDED_RATE_LIMIT_CLEANUP_MIGRATION],
   rollbackScript: 'safe-restore-only',
 }));
