@@ -114,8 +114,10 @@ CREATE POLICY deals_update ON public."deals" FOR UPDATE USING (
 -- ── organizations ─────────────────────────────────────────────────────────────
 ALTER TABLE public."organizations" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."organizations" FORCE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS organizations_select ON public."organizations";
 DROP POLICY IF EXISTS organizations_write_privileged ON public."organizations";
+DROP POLICY IF EXISTS organizations_select ON public."organizations";
+DROP POLICY IF EXISTS organizations_insert_privileged ON public."organizations";
+DROP POLICY IF EXISTS organizations_update_privileged ON public."organizations";
 CREATE POLICY organizations_select ON public."organizations" FOR SELECT USING (
   public.app_rls_context_ready() AND (
     public.app_rls_privileged()
@@ -125,9 +127,12 @@ CREATE POLICY organizations_select ON public."organizations" FOR SELECT USING (
     )
   )
 );
-CREATE POLICY organizations_write_privileged ON public."organizations" FOR ALL
+CREATE POLICY organizations_insert_privileged ON public."organizations" FOR INSERT
+WITH CHECK (public.app_rls_context_ready() AND public.app_rls_privileged());
+CREATE POLICY organizations_update_privileged ON public."organizations" FOR UPDATE
 USING (public.app_rls_context_ready() AND public.app_rls_privileged())
 WITH CHECK (public.app_rls_context_ready() AND public.app_rls_privileged());
+-- No DELETE policy: organizations are lifecycle-managed, not physically deleted.
 
 -- ── audit_events: append-only ─────────────────────────────────────────────────
 ALTER TABLE public."audit_events" ENABLE ROW LEVEL SECURITY;
@@ -192,14 +197,22 @@ CREATE POLICY integration_events_insert ON public."integration_events" FOR INSER
   current_user IN ('app_service', 'app_integration_worker')
   OR (public.app_rls_context_ready() AND public.app_rls_privileged())
 );
+-- No UPDATE/DELETE policies.
 
 -- ── outbox_entries ────────────────────────────────────────────────────────────
 ALTER TABLE public."outbox_entries" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."outbox_entries" FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS outbox_entries_worker ON public."outbox_entries";
+DROP POLICY IF EXISTS outbox_entries_worker_select ON public."outbox_entries";
+DROP POLICY IF EXISTS outbox_entries_worker_insert ON public."outbox_entries";
+DROP POLICY IF EXISTS outbox_entries_worker_update ON public."outbox_entries";
 DROP POLICY IF EXISTS outbox_entries_select ON public."outbox_entries";
 DROP POLICY IF EXISTS outbox_entries_insert ON public."outbox_entries";
-CREATE POLICY outbox_entries_worker ON public."outbox_entries" FOR ALL
+CREATE POLICY outbox_entries_worker_select ON public."outbox_entries" FOR SELECT
+USING (current_user IN ('app_service', 'app_outbox_worker'));
+CREATE POLICY outbox_entries_worker_insert ON public."outbox_entries" FOR INSERT
+WITH CHECK (current_user IN ('app_service', 'app_outbox_worker'));
+CREATE POLICY outbox_entries_worker_update ON public."outbox_entries" FOR UPDATE
 USING (current_user IN ('app_service', 'app_outbox_worker'))
 WITH CHECK (current_user IN ('app_service', 'app_outbox_worker'));
 CREATE POLICY outbox_entries_select ON public."outbox_entries" FOR SELECT USING (
@@ -215,6 +228,7 @@ CREATE POLICY outbox_entries_insert ON public."outbox_entries" FOR INSERT WITH C
     OR ("dealId" IS NOT NULL AND public.app_rls_deal_visible("dealId"))
   )
 );
+-- No DELETE policy: processed outbox records remain auditable.
 
 -- ── deal_workspace_runtime_snapshots ─────────────────────────────────────────
 ALTER TABLE public."deal_workspace_runtime_snapshots" ENABLE ROW LEVEL SECURITY;
