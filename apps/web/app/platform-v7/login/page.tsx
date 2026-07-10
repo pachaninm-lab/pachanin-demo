@@ -134,10 +134,14 @@ export default function LoginPage() {
       }
 
       const role = surfaceRole(payload?.user?.role ?? payload?.role);
+      // A production login mints the cabinet exclusively from the verified access token.
+      // The role is sent only for a server-labelled gated demo fallback, where the
+      // cabinet-session endpoint independently checks the explicit non-production flag.
+      const sessionBody = payload?.demo === true ? { role } : {};
       const sessionResponse = await fetch('/api/platform-v7/cabinet-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify(sessionBody),
         cache: 'no-store',
       });
       if (!sessionResponse.ok) {
