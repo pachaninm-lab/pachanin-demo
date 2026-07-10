@@ -3,6 +3,7 @@ import { HealthController } from './health.controller';
 import { APP_GUARD } from '@nestjs/core';
 import { LogMaskingMiddleware } from './common/middleware/log-masking.middleware';
 import { AppAuthGuard } from './common/guards/auth.guard';
+import { PreAuthRateLimitGuard } from './common/guards/pre-auth-rate-limit.guard';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { RateLimitModule } from './common/security/rate-limit.module';
@@ -106,6 +107,10 @@ import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-
   ],
   controllers: [HealthController],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: PreAuthRateLimitGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: AppAuthGuard,

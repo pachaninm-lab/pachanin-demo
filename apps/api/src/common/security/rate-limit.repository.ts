@@ -19,12 +19,20 @@ type BucketRow = {
 };
 
 type StoreReadinessRow = {
-  table_ready: boolean;
+  current_user: string;
+  state_table_ready: boolean;
+  legacy_table_ready: boolean;
+  consume_ready: boolean;
   schema_usage: boolean;
-  can_select: boolean;
-  can_insert: boolean;
-  can_update: boolean;
-  can_delete: boolean;
+  can_execute_consume: boolean;
+  can_select_state: boolean;
+  can_insert_state: boolean;
+  can_update_state: boolean;
+  can_delete_state: boolean;
+  can_select_legacy: boolean;
+  can_insert_legacy: boolean;
+  can_update_legacy: boolean;
+  can_delete_legacy: boolean;
 };
 
 @Injectable()
@@ -32,74 +40,90 @@ export class RateLimitRepository implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit(): Promise<void> {
-    if (String(process.env.NODE_ENV ?? '').toLowerCase() !== 'production') return;
-    const rows = await this.prisma.$queryRaw<StoreReadinessRow[]>(Prisma.sql`
-      SELECT
-        to_regclass('security.api_rate_limit_buckets') IS NOT NULL AS table_ready,
-        has_schema_privilege(current_user, 'security', 'USAGE') AS schema_usage,
-        has_table_privilege(current_user, 'security.api_rate_limit_buckets', 'SELECT') AS can_select,
-        has_table_privilege(current_user, 'security.api_rate_limit_buckets', 'INSERT') AS can_insert,
-        has_table_privilege(current_user, 'security.api_rate_limit_buckets', 'UPDATE') AS can_update,
-        has_table_privilege(current_user, 'security.api_rate_limit_buckets', 'DELETE') AS can_delete
-    `);
-    const readiness = rows[0];
-    if (!readiness || Object.values(readiness).some((value) => value !== true)) {
-      throw new Error('Distributed rate-limit store is not ready for production enforcement.');
+    const production = String(process.env.NODE_ENV ?? '').toLowerCase() === 'production';
+    const enforced = production
+      || String(process.env.RATE_LIMIT_BACKEND_ENFORCED ?? '').toLowerCase() === 'true';
+    if (enforced) await this.verifyReadiness();
+  }
+
+  async verifyReadiness(): Promise<StoreReadinessRow> {
+    let rows: StoreReadinessRow[];
+    try {
+      rows = await this.prisma.$queryRaw<StoreReadinessRow[]>(Prisma.sql`
+        WITH target AS (
+          SELECT
+            to_regclass('security.api_rate_limit_state') AS state_table_oid,
+            to_regclass('security.api_rate_limit_buckets') AS legacy_table_oid,
+            to_regprocedure('security.consume_api_rate_limit(text,text,integer)') AS consume_oid
+        )
+        SELECT
+          current_user,
+          state_table_oid IS NOT NULL AS state_table_ready,
+          legacy_table_oid IS NOT NULL AS legacy_table_ready,
+          consume_oid IS NOT NULL AS consume_ready,
+          has_schema_privilege(current_user, 'security', 'USAGE') AS schema_usage,
+          CASE WHEN consume_oid IS NULL THEN FALSE
+            ELSE has_function_privilege(current_user, consume_oid, 'EXECUTE') END AS can_execute_consume,
+          CASE WHEN state_table_oid IS NULL THEN FALSE
+            ELSE has_table_privilege(current_user, state_table_oid, 'SELECT') END AS can_select_state,
+          CASE WHEN state_table_oid IS NULL THEN FALSE
+            ELSE has_table_privilege(current_user, state_table_oid, 'INSERT') END AS can_insert_state,
+          CASE WHEN state_table_oid IS NULL THEN FALSE
+            ELSE has_table_privilege(current_user, state_table_oid, 'UPDATE') END AS can_update_state,
+          CASE WHEN state_table_oid IS NULL THEN FALSE
+            ELSE has_table_privilege(current_user, state_table_oid, 'DELETE') END AS can_delete_state,
+          CASE WHEN legacy_table_oid IS NULL THEN FALSE
+            ELSE has_table_privilege(current_user, legacy_table_oid, 'SELECT') END AS can_select_legacy,
+          CASE WHEN legacy_table_oid IS NULL THEN FALSE
+            ELSE has_table_privilege(current_user, legacy_table_oid, 'INSERT') END AS can_insert_legacy,
+          CASE WHEN legacy_table_oid IS NULL THEN FALSE
+            ELSE has_table_privilege(current_user, legacy_table_oid, 'UPDATE') END AS can_update_legacy,
+          CASE WHEN legacy_table_oid IS NULL THEN FALSE
+            ELSE has_table_privilege(current_user, legacy_table_oid, 'DELETE') END AS can_delete_legacy
+        FROM target
+      `);
+    } catch {
+      throw new Error('Distributed rate-limit execution boundary is unavailable.');
     }
+
+    const readiness = rows[0];
+    if (
+      !readiness
+      || !readiness.state_table_ready
+      || !readiness.legacy_table_ready
+      || !readiness.consume_ready
+      || !readiness.schema_usage
+      || !readiness.can_execute_consume
+      || readiness.can_select_state
+      || readiness.can_insert_state
+      || readiness.can_update_state
+      || readiness.can_delete_state
+      || readiness.can_select_legacy
+      || readiness.can_insert_legacy
+      || readiness.can_update_legacy
+      || readiness.can_delete_legacy
+    ) {
+      throw new Error(`Distributed rate-limit execution boundary is invalid: ${JSON.stringify(readiness ?? null)}`);
+    }
+    return readiness;
   }
 
   async consume(input: ConsumeRateLimitInput): Promise<RateLimitBucketResult> {
     const rows = await this.prisma.$queryRaw<BucketRow[]>(Prisma.sql`
-      WITH boundary AS (
-        SELECT
-          to_timestamp(
-            floor(extract(epoch FROM clock_timestamp()) / ${input.windowSeconds})
-            * ${input.windowSeconds}
-          ) AS window_start
-      )
-      INSERT INTO security.api_rate_limit_buckets AS bucket (
-        route_name,
-        key_hash,
-        window_start,
-        window_seconds,
-        request_count,
-        expires_at,
-        created_at,
-        updated_at
-      )
-      SELECT
+      SELECT request_count, expires_at
+      FROM security.consume_api_rate_limit(
         ${input.routeName},
         ${input.keyHash},
-        boundary.window_start,
-        ${input.windowSeconds},
-        1,
-        boundary.window_start + make_interval(secs => ${input.windowSeconds}),
-        clock_timestamp(),
-        clock_timestamp()
-      FROM boundary
-      ON CONFLICT (route_name, key_hash, window_start)
-      DO UPDATE SET
-        request_count = bucket.request_count + 1,
-        updated_at = clock_timestamp()
-      RETURNING request_count, expires_at
+        ${input.windowSeconds}::integer
+      )
     `);
 
     const row = rows[0];
-    if (!row) throw new Error('Rate-limit bucket consume returned no row.');
+    if (!row) throw new Error('Rate-limit state consume returned no row.');
     return { count: Number(row.request_count), resetAt: row.expires_at };
   }
 
-  async deleteExpired(limit = 500): Promise<number> {
-    const safeLimit = Math.min(5_000, Math.max(1, Math.floor(limit)));
-    return this.prisma.$executeRaw(Prisma.sql`
-      DELETE FROM security.api_rate_limit_buckets
-      WHERE (route_name, key_hash, window_start) IN (
-        SELECT route_name, key_hash, window_start
-        FROM security.api_rate_limit_buckets
-        WHERE expires_at <= clock_timestamp()
-        ORDER BY expires_at ASC
-        LIMIT ${safeLimit}
-      )
-    `);
+  async deleteExpired(_limit = 500): Promise<number> {
+    return 0;
   }
 }

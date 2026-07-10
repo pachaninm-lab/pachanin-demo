@@ -4,25 +4,31 @@ import {
 } from './rate-limit.service';
 
 describe('rate-limit bucket key protection', () => {
-  it('requires a secret source in production', () => {
+  it('requires a dedicated strong pepper in production', () => {
     expect(() => resolveRateLimitHmacKey({
       NODE_ENV: 'production',
       RATE_LIMIT_KEY_PEPPER: '',
-      AUTH_TOKEN_PEPPER: '',
-    })).toThrow(/pepper is required/i);
+      AUTH_TOKEN_PEPPER: 'auth-secret-that-must-not-be-reused-for-rate-limits',
+    })).toThrow(/RATE_LIMIT_KEY_PEPPER/i);
+
+    expect(() => resolveRateLimitHmacKey({
+      NODE_ENV: 'production',
+      RATE_LIMIT_KEY_PEPPER: 'too-short',
+    })).toThrow(/at least 32/i);
   });
 
-  it('uses a dedicated pepper when present', () => {
+  it('uses only the dedicated production pepper', () => {
     const dedicated = resolveRateLimitHmacKey({
       NODE_ENV: 'production',
-      RATE_LIMIT_KEY_PEPPER: 'dedicated-secret',
-      AUTH_TOKEN_PEPPER: 'auth-secret',
+      RATE_LIMIT_KEY_PEPPER: 'rate-limit-secret-that-is-long-enough',
+      AUTH_TOKEN_PEPPER: 'auth-secret-that-must-not-affect-the-domain-key',
     });
-    const authFallback = resolveRateLimitHmacKey({
+    const sameDedicatedDifferentAuth = resolveRateLimitHmacKey({
       NODE_ENV: 'production',
-      AUTH_TOKEN_PEPPER: 'auth-secret',
+      RATE_LIMIT_KEY_PEPPER: 'rate-limit-secret-that-is-long-enough',
+      AUTH_TOKEN_PEPPER: 'different-auth-secret',
     });
-    expect(dedicated.equals(authFallback)).toBe(false);
+    expect(dedicated.equals(sameDedicatedDifferentAuth)).toBe(true);
   });
 
   it('does not expose or directly hash a low-entropy IP address', () => {
