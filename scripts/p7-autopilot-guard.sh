@@ -43,8 +43,6 @@ if [ "${GITHUB_HEAD_REF:-}" = "p7-bank-basis-state-machine" ] || [ "${P7_BANK_BA
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$BANK_BASIS_MIGRATION_SCOPE")
 fi
 
-# Exact, reviewable concurrent scope for PR #2318. Do not broaden this to an
-# apps/web wildcard: the active financial-delivery autopilot remains isolated.
 PUBLIC_ENTRY_SCOPE='apps/web/app/platform-v7/forgot-password/page.tsx
 apps/web/app/platform-v7/login/page.tsx
 apps/web/app/platform-v7/page.tsx
@@ -72,12 +70,27 @@ apps/web/middleware.ts
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
 
+PUBLIC_AUTH_FIX_SCOPE='apps/web/app/api/auth/login/route.ts
+apps/web/app/api/auth/mfa-login/route.ts
+apps/web/app/api/auth/mfa-login/cancel/route.ts
+apps/web/app/platform-v7/login/page.tsx
+apps/web/i18n/public-entry-messages.ts
+apps/web/lib/server/auth-session-response.ts
+apps/web/lib/server/mfa-login-ticket.ts
+apps/web/tests/unit/platformV7LoginSecurityBoundary.test.ts
+apps/web/tests/unit/mfaPendingLoginTicket.test.ts
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-production-hydration-performance" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_RUNTIME_FIX_SCOPE")
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "fix/public-auth-server-authority" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_RUNTIME_FIX_SCOPE" "$PUBLIC_AUTH_FIX_SCOPE")
 fi
 
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
