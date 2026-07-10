@@ -27,12 +27,17 @@ export default getRequestConfig(async () => {
 
   const baseMessages = (await import(`../messages/${locale}.json`)).default;
   const publicEntryMessages = (await import(`../messages/public-entry/${locale}.json`)).default;
+  const publicSystemMessages = (await import(`../messages/public-system/${locale}.json`)).default;
 
   return {
     locale,
     messages: {
       ...baseMessages,
       ...publicEntryMessages,
+      publicEntry: {
+        ...publicEntryMessages.publicEntry,
+        ...publicSystemMessages.publicEntry,
+      },
     },
   };
 });

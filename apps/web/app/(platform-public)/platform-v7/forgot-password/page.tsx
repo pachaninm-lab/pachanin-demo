@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, KeyRound, Mail } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
-import styles from '../recovery.module.css';
+import styles from '../../../platform-v7/recovery.module.css';
 
 export default function ForgotPasswordPage() {
   const t = useTranslations('publicEntry.recovery');
@@ -59,54 +59,30 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className={styles.page}>
-      <PublicSiteHeader
-        brand={t('brand')}
-        tagline={t('tagline')}
-        ariaLabel={t('header')}
-        homeAriaLabel={t('home')}
-        actions={(
-          <Link className='pc-site-action' href='/platform-v7/login' aria-label={t('backToLogin')}>
-            <ArrowLeft size={20} aria-hidden='true' />
-            <span>{t('back')}</span>
-          </Link>
-        )}
-      />
-
+      <PublicSiteHeader brand={t('brand')} tagline={t('tagline')} ariaLabel={t('header')} homeAriaLabel={t('home')} actions={(
+        <Link className='pc-site-action' href='/platform-v7/login' aria-label={t('backToLogin')}>
+          <ArrowLeft size={20} aria-hidden='true' /><span>{t('back')}</span>
+        </Link>
+      )} />
       <section className={styles.layout} aria-labelledby='forgot-password-title'>
         <div className={styles.card}>
           <span className={styles.icon}><KeyRound size={26} aria-hidden='true' /></span>
           <h1 id='forgot-password-title'>{t('requestTitle')}</h1>
           <p className={styles.lead}>{t('requestLead')}</p>
-
           <form className={styles.form} onSubmit={submit} noValidate>
             <label>
               <span>{t('email')}</span>
               <div className={styles.field}>
                 <Mail size={19} aria-hidden='true' />
-                <input
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  type='email'
-                  inputMode='email'
-                  autoComplete='username'
-                  autoCapitalize='none'
-                  spellCheck={false}
-                  placeholder={t('emailPlaceholder')}
-                  disabled={submitting}
-                  aria-invalid={Boolean(error)}
-                  aria-describedby={error ? 'forgot-password-error' : undefined}
-                />
+                <input value={email} onChange={(event) => setEmail(event.target.value)} type='email' inputMode='email' autoComplete='username' autoCapitalize='none' spellCheck={false} placeholder={t('emailPlaceholder')} disabled={submitting} aria-invalid={Boolean(error)} aria-describedby={error ? 'forgot-password-error' : undefined} />
               </div>
             </label>
-
             {sent ? <p className={styles.message} role='status' aria-live='polite'>{t('universalSuccess')}</p> : null}
             {error ? <p ref={errorRef} id='forgot-password-error' className={styles.error} role='alert' aria-live='assertive' tabIndex={-1}>{error}</p> : null}
-
             <button className={styles.submit} type='submit' disabled={submitting || cooldown > 0} aria-busy={submitting}>
               {submitting ? t('sending') : cooldown > 0 ? t('retryIn', { seconds: cooldown }) : t('sendLink')}
             </button>
           </form>
-
           <p className={styles.note}>{t('requestNote')}</p>
         </div>
       </section>

@@ -3,17 +3,30 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const repoRoot = process.cwd();
+const PUBLIC_ROOT = 'apps/web/app/(platform-public)/platform-v7';
 
 function read(relativePath: string) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
+function exists(relativePath: string) {
+  return fs.existsSync(path.join(repoRoot, relativePath));
+}
+
 describe('platform-v7 public entry contract', () => {
-  const landing = read('apps/web/app/platform-v7/page.tsx');
-  const login = read('apps/web/app/platform-v7/login/page.tsx');
+  const landing = read(`${PUBLIC_ROOT}/page.tsx`);
+  const login = read(`${PUBLIC_ROOT}/login/page.tsx`);
   const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
   const localeSwitch = read('apps/web/components/platform-v7/PublicLocaleSwitcher.tsx');
-  const shellSwitch = read('apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx');
+  const publicLayout = read(`${PUBLIC_ROOT}/layout.tsx`);
+
+  it('physically isolates public entry routes from the legacy platform layout', () => {
+    expect(exists('apps/web/app/platform-v7/page.tsx')).toBe(false);
+    expect(exists('apps/web/app/platform-v7/login/page.tsx')).toBe(false);
+    expect(publicLayout).toContain('<PublicSupportWidget />');
+    expect(publicLayout).not.toContain('PlatformV7TemplateGuards');
+    expect(publicLayout).not.toContain('PlatformV7ShellSwitch');
+  });
 
   it('keeps the public entry free of direct cabinet actions', () => {
     const forbidden = [
@@ -22,14 +35,14 @@ describe('platform-v7 public entry contract', () => {
       'Выставить партию',
       'Создать запрос на закупку',
     ];
-
     expect(forbidden.filter((snippet) => landing.includes(snippet))).toEqual([]);
   });
 
   it('never asks a public user to select a role through the URL', () => {
     expect(landing).not.toContain('/platform-v7/login?role=');
     expect(landing).not.toContain('?role=');
-    expect(landing).not.toMatch(/href:\s*['"]\/platform-v7\/login\?role=/);
+    expect(login).not.toContain('useSearchParams');
+    expect(login).not.toContain('role=');
     expect(landing).toContain("<article key={key} className={styles.roleTile}>");
   });
 
@@ -48,7 +61,7 @@ describe('platform-v7 public entry contract', () => {
     expect(publicHeader).not.toContain('<style>');
   });
 
-  it('renders the public locale switch in the React tree without DOM translation patches', () => {
+  it('renders the public locale switch without DOM translation patches', () => {
     expect(localeSwitch).not.toContain('MutationObserver');
     expect(localeSwitch).not.toContain('createPortal');
     expect(localeSwitch).not.toContain('applyTranslationToDom');
@@ -57,13 +70,9 @@ describe('platform-v7 public entry contract', () => {
     expect(localeSwitch).toContain("params.set('lang', next)");
   });
 
-  it('does not mount the legacy portal language runtime on public routes', () => {
-    expect(shellSwitch).toContain("if (isPublicPath(pathname)) return <>{children}</>;");
-  });
-
   it('uses CSS modules instead of page-level runtime style injection', () => {
-    expect(landing).toContain("import styles from './public-entry.module.css'");
-    expect(login).toContain("import styles from './login.module.css'");
+    expect(landing).toContain("public-entry.module.css");
+    expect(login).toContain("login.module.css");
     expect(landing).not.toContain('<style>');
     expect(login).not.toContain('<style');
   });

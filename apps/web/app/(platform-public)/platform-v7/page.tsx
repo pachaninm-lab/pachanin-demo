@@ -23,7 +23,7 @@ import {
 import { getTranslations } from 'next-intl/server';
 import { PlatformV7IntelligenceStrip } from '@/components/v7r/PlatformV7IntelligenceStrip';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
-import styles from './public-entry.module.css';
+import styles from '../../platform-v7/public-entry.module.css';
 
 type Card = { key: string; Icon: LucideIcon };
 type SignalTone = 'done' | 'active' | 'wait' | 'pending';

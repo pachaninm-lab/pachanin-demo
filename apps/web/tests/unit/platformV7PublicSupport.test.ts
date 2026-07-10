@@ -11,7 +11,8 @@ function read(relativePath: string) {
 describe('platform-v7 public support boundary', () => {
   const widget = read('apps/web/components/platform-v7/PublicSupportWidget.tsx');
   const styles = read('apps/web/components/platform-v7/PublicSupportWidget.module.css');
-  const guards = read('apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx');
+  const publicLayout = read('apps/web/app/(platform-public)/platform-v7/layout.tsx');
+  const legacyGuards = read('apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx');
 
   it('does not use timers, observers or global viewport mutation', () => {
     expect(widget).not.toContain('MutationObserver');
@@ -37,9 +38,11 @@ describe('platform-v7 public support boundary', () => {
     expect(styles).toContain('100dvh');
   });
 
-  it('bypasses legacy public DOM guards on landing and login', () => {
-    expect(guards).toContain('CANONICAL_PUBLIC_ENTRY_PATHS');
-    expect(guards).toContain("'/platform-v7/login'");
-    expect(guards).toContain("return position === 'after' ? <PublicSupportWidget /> : null;");
+  it('mounts support only in the isolated public route layout', () => {
+    expect(publicLayout).toContain('<PublicSupportWidget />');
+    expect(publicLayout).not.toContain('PlatformV7TemplateGuards');
+    expect(legacyGuards).not.toContain('PublicSupportWidget');
+    expect(legacyGuards).not.toContain('CANONICAL_PUBLIC_ENTRY_PATHS');
+    expect(legacyGuards).not.toContain("'/platform-v7/login'");
   });
 });

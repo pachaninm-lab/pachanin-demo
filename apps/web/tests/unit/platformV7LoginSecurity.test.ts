@@ -3,13 +3,14 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
+const PUBLIC_ROOT = 'apps/web/app/(platform-public)/platform-v7';
 
 function read(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
 describe('platform-v7 login security boundary', () => {
-  const loginPage = read('apps/web/app/platform-v7/login/page.tsx');
+  const loginPage = read(`${PUBLIC_ROOT}/login/page.tsx`);
   const loginRoute = read('apps/web/app/api/auth/login/route.ts');
   const mfaRoute = read('apps/web/app/api/auth/mfa-login/route.ts');
   const refreshRoute = read('apps/web/app/api/auth/refresh/route.ts');

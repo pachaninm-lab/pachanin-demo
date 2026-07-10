@@ -1,0 +1,13 @@
+{
+  "publicEntry": {
+    "system": {
+      "loadingTitle": "Loading the page",
+      "loadingText": "Preparing the protected public entry. If loading cannot complete, an error state with retry will be shown.",
+      "errorTitle": "The page did not load",
+      "errorText": "A technical error occurred. Retry the request or return to the home page.",
+      "retry": "Retry",
+      "home": "Home",
+      "correlation": "Error reference"
+    }
+  }
+}

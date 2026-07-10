@@ -6,8 +6,8 @@ import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
-import styles from './login.module.css';
-import mfaStyles from './login-mfa.module.css';
+import styles from '../../../platform-v7/login/login.module.css';
+import mfaStyles from '../../../platform-v7/login/login-mfa.module.css';
 
 const LOGIN_FACT_KEYS = ['account', 'permissions', 'session'] as const;
 type LoginStep = 'password' | 'mfa';
@@ -163,55 +163,25 @@ export default function LoginPage() {
               <span>{t('email')}</span>
               <div className={styles.field}>
                 <Mail size={19} aria-hidden='true' />
-                <input
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  type='email'
-                  inputMode='email'
-                  autoComplete='username'
-                  autoCapitalize='none'
-                  spellCheck={false}
-                  placeholder={t('emailPlaceholder')}
-                  disabled={submitting}
-                  aria-invalid={Boolean(error)}
-                  aria-describedby={errorId}
-                />
+                <input value={email} onChange={(event) => setEmail(event.target.value)} type='email' inputMode='email' autoComplete='username' autoCapitalize='none' spellCheck={false} placeholder={t('emailPlaceholder')} disabled={submitting} aria-invalid={Boolean(error)} aria-describedby={errorId} />
               </div>
             </label>
             <label>
               <span>{t('password')}</span>
               <div className={styles.field}>
                 <LockKeyhole size={19} aria-hidden='true' />
-                <input
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete='current-password'
-                  placeholder={t('passwordPlaceholder')}
-                  disabled={submitting}
-                  aria-invalid={Boolean(error)}
-                  aria-describedby={errorId}
-                />
-                <button
-                  type='button'
-                  onClick={() => setShowPassword((value) => !value)}
-                  aria-label={showPassword ? t('hidePassword') : t('showPassword')}
-                  title={showPassword ? t('hidePassword') : t('showPassword')}
-                >
+                <input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete='current-password' placeholder={t('passwordPlaceholder')} disabled={submitting} aria-invalid={Boolean(error)} aria-describedby={errorId} />
+                <button type='button' onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? t('hidePassword') : t('showPassword')} title={showPassword ? t('hidePassword') : t('showPassword')}>
                   {showPassword ? <EyeOff size={19} aria-hidden='true' /> : <Eye size={19} aria-hidden='true' />}
                 </button>
               </div>
             </label>
-
             <div className={styles.links}>
               <Link href='/platform-v7/forgot-password'>{t('forgot')}</Link>
               <Link href='/platform-v7/register'>{t('register')}</Link>
             </div>
-
             {error ? <LoginError ref={errorRef} id='pc-login-error' message={error} /> : null}
-            <button className={styles.submit} type='submit' disabled={submitting} aria-busy={submitting}>
-              {submitting ? t('loading') : t('submit')}
-            </button>
+            <button className={styles.submit} type='submit' disabled={submitting} aria-busy={submitting}>{submitting ? t('loading') : t('submit')}</button>
             <p className={styles.note}>{t('note')}</p>
           </form>
         ) : (
@@ -221,44 +191,17 @@ export default function LoginPage() {
               <h2>{t('mfaTitle')}</h2>
               <p>{t('mfaInstruction')}</p>
             </div>
-
             <div className={mfaStyles.methods} role='group' aria-label={t('mfaMethod')}>
-              <button type='button' data-active={method === 'totp'} aria-pressed={method === 'totp'} onClick={() => { setMethod('totp'); setMfaCode(''); setError(''); }}>
-                {t('mfaTotp')}
-              </button>
-              <button type='button' data-active={method === 'backup_code'} aria-pressed={method === 'backup_code'} onClick={() => { setMethod('backup_code'); setMfaCode(''); setError(''); }}>
-                {t('mfaBackup')}
-              </button>
+              <button type='button' data-active={method === 'totp'} aria-pressed={method === 'totp'} onClick={() => { setMethod('totp'); setMfaCode(''); setError(''); }}>{t('mfaTotp')}</button>
+              <button type='button' data-active={method === 'backup_code'} aria-pressed={method === 'backup_code'} onClick={() => { setMethod('backup_code'); setMfaCode(''); setError(''); }}>{t('mfaBackup')}</button>
             </div>
-
             <label>
               <span>{method === 'totp' ? t('mfaCode') : t('mfaBackupCode')}</span>
-              <input
-                ref={mfaInputRef}
-                className={mfaStyles.codeInput}
-                data-backup={method === 'backup_code'}
-                value={mfaCode}
-                onChange={(event) => setMfaCode(event.target.value)}
-                type='text'
-                inputMode={method === 'totp' ? 'numeric' : 'text'}
-                autoComplete={method === 'totp' ? 'one-time-code' : 'off'}
-                autoCapitalize='characters'
-                spellCheck={false}
-                maxLength={method === 'totp' ? 6 : 64}
-                placeholder={method === 'totp' ? t('mfaCodePlaceholder') : t('mfaBackupPlaceholder')}
-                disabled={submitting}
-                aria-invalid={Boolean(error)}
-                aria-describedby={errorId}
-              />
+              <input ref={mfaInputRef} className={mfaStyles.codeInput} data-backup={method === 'backup_code'} value={mfaCode} onChange={(event) => setMfaCode(event.target.value)} type='text' inputMode={method === 'totp' ? 'numeric' : 'text'} autoComplete={method === 'totp' ? 'one-time-code' : 'off'} autoCapitalize='characters' spellCheck={false} maxLength={method === 'totp' ? 6 : 64} placeholder={method === 'totp' ? t('mfaCodePlaceholder') : t('mfaBackupPlaceholder')} disabled={submitting} aria-invalid={Boolean(error)} aria-describedby={errorId} />
             </label>
-
             {error ? <LoginError ref={errorRef} id='pc-login-error' message={error} /> : null}
-            <button className={styles.submit} type='submit' disabled={submitting} aria-busy={submitting}>
-              {submitting ? t('mfaVerifying') : t('mfaVerify')}
-            </button>
-            <button className={mfaStyles.backButton} type='button' onClick={() => void backToPassword()} disabled={submitting}>
-              {t('backToPassword')}
-            </button>
+            <button className={styles.submit} type='submit' disabled={submitting} aria-busy={submitting}>{submitting ? t('mfaVerifying') : t('mfaVerify')}</button>
+            <button className={mfaStyles.backButton} type='button' onClick={() => void backToPassword()} disabled={submitting}>{t('backToPassword')}</button>
           </form>
         )}
       </section>
@@ -266,12 +209,6 @@ export default function LoginPage() {
   );
 }
 
-const LoginError = React.forwardRef<HTMLParagraphElement, { id: string; message: string }>(
-  function LoginError({ id, message }, ref) {
-    return (
-      <p ref={ref} id={id} className={styles.error} role='alert' aria-live='assertive' tabIndex={-1}>
-        {message}
-      </p>
-    );
-  },
-);
+const LoginError = React.forwardRef<HTMLParagraphElement, { id: string; message: string }>(function LoginError({ id, message }, ref) {
+  return <p ref={ref} id={id} className={styles.error} role='alert' aria-live='assertive' tabIndex={-1}>{message}</p>;
+});
