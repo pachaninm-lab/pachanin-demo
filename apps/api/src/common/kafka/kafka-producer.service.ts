@@ -1,6 +1,7 @@
 /**
- * Kafka Producer — публикует события через Transactional Outbox паттерн.
- * В dev-режиме без KAFKA_BROKERS все сообщения логируются (no-op).
+ * Kafka Producer — publishes events from the durable PostgreSQL outbox.
+ * Delivery contract is at-least-once. A boolean false is an explicit failure
+ * and must never be interpreted by the relay as sent or confirmed.
  */
 
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
@@ -12,7 +13,6 @@ export interface KafkaMessage {
   headers?: Record<string, string>;
 }
 
-// Lazy import — не ломаем старт если kafkajs не установлен
 let Kafka: typeof import('kafkajs').Kafka | undefined;
 
 @Injectable()
@@ -24,7 +24,7 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     const brokers = process.env.KAFKA_BROKERS;
     if (!brokers) {
-      this.logger.warn('KAFKA_BROKERS not set — Kafka producer disabled (dev mode)');
+      this.logger.warn('KAFKA_BROKERS not set — Kafka producer disabled');
       return;
     }
 
@@ -36,32 +36,39 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
       }
       Kafka = kafkajs.Kafka;
       const kafka = new Kafka({
-        clientId: 'grainflow-api',
-        brokers: brokers.split(','),
+        clientId: process.env.KAFKA_CLIENT_ID || 'grainflow-api',
+        brokers: brokers.split(',').map((item) => item.trim()).filter(Boolean),
         retry: { retries: 5, initialRetryTime: 300 },
       });
       this.producer = kafka.producer({
-        transactionalId: 'grainflow-api-tx',
+        transactionalId: process.env.KAFKA_TRANSACTIONAL_ID || `grainflow-outbox-${process.pid}`,
         idempotent: true,
         maxInFlightRequests: 1,
       });
       await this.producer.connect();
       this.connected = true;
       this.logger.log('Kafka producer connected');
-    } catch (err) {
-      this.logger.warn(`Kafka producer init failed: ${err} — running in no-op mode`);
+    } catch (error) {
+      this.connected = false;
+      this.producer = null;
+      this.logger.error(`Kafka producer initialization failed: ${errorMessage(error)}`);
     }
   }
 
   async onModuleDestroy() {
-    if (this.producer && this.connected) {
-      await this.producer.disconnect().catch(() => {});
-    }
+    const producer = this.producer;
+    this.connected = false;
+    this.producer = null;
+    if (producer) await producer.disconnect().catch(() => undefined);
+  }
+
+  isReady(): boolean {
+    return Boolean(this.producer && this.connected);
   }
 
   async send(message: KafkaMessage): Promise<boolean> {
     if (!this.producer || !this.connected) {
-      this.logger.debug(`[no-op] Kafka → ${message.topic}: ${JSON.stringify(message.value)}`);
+      this.logger.debug(`Kafka unavailable for topic=${message.topic}`);
       return false;
     }
 
@@ -73,49 +80,50 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
           value: JSON.stringify(message.value),
           headers: {
             'content-type': 'application/json',
-            'service': 'grainflow-api',
+            service: 'grainflow-api',
             ...message.headers,
           },
         }],
-        compression: 2, // lz4
+        compression: 2,
       });
       return true;
-    } catch (err) {
-      this.logger.error(`Kafka send failed [${message.topic}]: ${err}`);
+    } catch (error) {
+      this.logger.error(`Kafka send failed topic=${message.topic}: ${errorMessage(error)}`);
       return false;
     }
   }
 
   async sendBatch(messages: KafkaMessage[]): Promise<number> {
     if (!this.producer || !this.connected) {
-      for (const m of messages) {
-        this.logger.debug(`[no-op] Kafka → ${m.topic}`);
-      }
+      this.logger.debug(`Kafka unavailable for batch size=${messages.length}`);
       return 0;
     }
 
-    const grouped = messages.reduce<Record<string, typeof messages>>((acc, m) => {
-      (acc[m.topic] = acc[m.topic] ?? []).push(m);
+    const grouped = messages.reduce<Record<string, KafkaMessage[]>>((acc, message) => {
+      (acc[message.topic] = acc[message.topic] ?? []).push(message);
       return acc;
     }, {});
 
-    let sent = 0;
     try {
       await this.producer.sendBatch({
-        topicMessages: Object.entries(grouped).map(([topic, msgs]) => ({
+        topicMessages: Object.entries(grouped).map(([topic, topicMessages]) => ({
           topic,
-          messages: msgs.map((m) => ({
-            key: m.key,
-            value: JSON.stringify(m.value),
-            headers: { 'content-type': 'application/json', 'service': 'grainflow-api', ...m.headers },
+          messages: topicMessages.map((message) => ({
+            key: message.key,
+            value: JSON.stringify(message.value),
+            headers: { 'content-type': 'application/json', service: 'grainflow-api', ...message.headers },
           })),
           compression: 2,
         })),
       });
-      sent = messages.length;
-    } catch (err) {
-      this.logger.error(`Kafka sendBatch failed: ${err}`);
+      return messages.length;
+    } catch (error) {
+      this.logger.error(`Kafka sendBatch failed: ${errorMessage(error)}`);
+      return 0;
     }
-    return sent;
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? `${error.name}: ${error.message}`.slice(0, 512) : 'unknown error';
 }
