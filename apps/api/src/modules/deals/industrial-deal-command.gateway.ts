@@ -41,6 +41,14 @@ type CanonicalDealRecord = {
   readonly totalKopecks: number | null;
 };
 
+type CanonicalMembershipCandidate = {
+  readonly organizationId: string;
+  readonly role: string;
+  readonly isDefault: boolean;
+};
+
+const KNOWN_ROLES = new Set<string>(Object.values(Role));
+
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable);
   if (value && typeof value === 'object') {
@@ -185,37 +193,64 @@ export class IndustrialDealCommandGateway {
     };
   }
 
+  /**
+   * Resolve authorization exclusively from database membership.
+   *
+   * `UserOrg` is read first without joining `Organization`, because Organization is
+   * protected by PostgreSQL RLS. Every candidate organization is then verified in a
+   * transaction-local trusted context assembled from the DB membership, never from
+   * the client-supplied org or role. This also prevents Prisma from materializing a
+   * required relation as null when RLS correctly filters it.
+   */
   private async resolveCanonicalMembership(dealId: string, user: RequestUser) {
     const deal = await this.readCanonicalDeal(dealId);
-    const memberships = await this.prisma.userOrg.findMany({
-      where: { userId: user.id },
-      include: { organization: true },
-    });
-    const membership = memberships.find(
-      (item) => item.organization.tenantId === deal.tenantId && item.role === String(user.role),
-    );
 
-    if (!membership) {
-      throw new ForbiddenException({
-        code: 'CANONICAL_MEMBERSHIP_REQUIRED',
-        message: `No active role membership for deal tenant:${dealId}`,
-      });
-    }
-    if (user.tenantId && user.tenantId !== membership.organization.tenantId) {
+    if (user.tenantId && user.tenantId !== deal.tenantId) {
       throw new ForbiddenException({
         code: 'STALE_TENANT_SESSION',
-        message: 'Session tenant no longer matches the active membership.',
+        message: 'Session tenant no longer matches the canonical deal tenant.',
       });
     }
 
-    return {
-      deal,
-      user: {
+    const memberships = (await this.prisma.userOrg.findMany({
+      where: { userId: user.id },
+      select: {
+        organizationId: true,
+        role: true,
+        isDefault: true,
+      },
+      orderBy: [{ isDefault: 'desc' }, { joinedAt: 'asc' }],
+    })) as CanonicalMembershipCandidate[];
+
+    for (const membership of memberships) {
+      if (!KNOWN_ROLES.has(membership.role)) continue;
+
+      const scopedUser: RequestUser = {
         ...user,
+        role: membership.role as Role,
         orgId: membership.organizationId,
-        tenantId: membership.organization.tenantId,
-      } as RequestUser,
-    };
+        tenantId: deal.tenantId,
+      };
+
+      const organization = await this.rls.withTrustedContext(scopedUser, (tx) =>
+        tx.organization.findFirst({
+          where: {
+            id: membership.organizationId,
+            tenantId: deal.tenantId,
+          },
+          select: { id: true, tenantId: true },
+        }),
+      );
+
+      if (organization) {
+        return { deal, user: scopedUser };
+      }
+    }
+
+    throw new ForbiddenException({
+      code: 'CANONICAL_MEMBERSHIP_REQUIRED',
+      message: `No active database membership for deal tenant:${dealId}`,
+    });
   }
 
   private async readCanonicalDeal(dealId: string): Promise<CanonicalDealRecord> {
