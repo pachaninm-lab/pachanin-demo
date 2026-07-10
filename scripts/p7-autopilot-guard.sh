@@ -43,8 +43,6 @@ if [ "${GITHUB_HEAD_REF:-}" = "p7-bank-basis-state-machine" ] || [ "${P7_BANK_BA
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$BANK_BASIS_MIGRATION_SCOPE")
 fi
 
-# Exact, reviewable concurrent scope for PR #2318. Do not broaden this to an
-# apps/web wildcard: the active financial-delivery autopilot remains isolated.
 PUBLIC_ENTRY_SCOPE='apps/web/app/platform-v7/forgot-password/page.tsx
 apps/web/app/platform-v7/login/page.tsx
 apps/web/app/platform-v7/page.tsx
@@ -65,8 +63,11 @@ scripts/p7-autopilot-guard.sh'
 
 PUBLIC_RUNTIME_FIX_SCOPE='apps/web/app/layout.tsx
 apps/web/app/platform-v7/layout.tsx
+apps/web/app/platform-v7/template.tsx
 apps/web/app/platform-v7/login/layout.tsx
+apps/web/app/platform-v7/login/template.tsx
 apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx
+apps/web/components/platform-v7/PlatformV7ProtectedTemplate.tsx
 apps/web/components/v7r/PlatformV7IntelligenceStripClient.tsx
 apps/web/middleware.ts
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
