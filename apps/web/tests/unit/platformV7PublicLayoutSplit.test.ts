@@ -11,7 +11,9 @@ const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7Protect
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const landing = read('apps/web/app/platform-v7/page.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
+const brandMark = read('apps/web/components/v7r/BrandMark.tsx');
 const intelligenceStrip = read('apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx');
+const publicHeaderCss = read('apps/web/styles/platform-v7-public-header.css');
 const middleware = read('apps/web/middleware.ts');
 
 describe('platform-v7 public/protected runtime split', () => {
@@ -42,8 +44,19 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(templateSwitch).toContain('if (isPublicPath(pathname)) return <>{children}</>');
   });
 
-  it('renders public inline CSS deterministically across server and client hydration', () => {
-    for (const source of [landing, publicHeader, intelligenceStrip]) {
+  it('loads the shared public header and brand styles statically outside hydrated markup', () => {
+    expect(layout).toContain("@/styles/platform-v7-public-header.css");
+    expect(publicHeader).not.toContain('<style');
+    expect(publicHeader).not.toContain('dangerouslySetInnerHTML');
+    expect(brandMark).not.toContain('<style');
+    expect(brandMark).not.toContain('BRAND_MARK_CSS_RESET');
+    expect(publicHeaderCss).toContain('.pc-site-header');
+    expect(publicHeaderCss).toContain('.pc-site-locale-switch');
+    expect(publicHeaderCss).toContain('.pc-header-brand > span:first-child');
+  });
+
+  it('keeps remaining page-scoped CSS deterministic while it is being consolidated', () => {
+    for (const source of [landing, intelligenceStrip]) {
       expect(source).toContain('<style dangerouslySetInnerHTML={{ __html: css }} />');
       expect(source).not.toContain('<style>{css}</style>');
     }
