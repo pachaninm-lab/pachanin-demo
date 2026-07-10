@@ -97,7 +97,7 @@ apps/web/tests/unit/platformV7SingleEntryLogin.test.ts
 apps/web/tests/unit/productEntryM31.test.tsx
 scripts/p7-autopilot-guard.sh'
 
-PUBLIC_LCP_FIX_SCOPE='apps/web/app/_pc-public/platform-v7/**
+PUBLIC_LCP_FIX_SCOPE='apps/web/app/pc-public-entry/**
 apps/web/app/layout.tsx
 apps/web/app/platform-v7/_styles/**
 apps/web/app/platform-v7/forgot-password/page.tsx
