@@ -38,7 +38,7 @@
     "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
     "scripts/platform-v7-one-deal-*.sh",
-    ".github/workflows/api-test.yml"
+    ".github/workflows/ci.yml"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -47,7 +47,7 @@
     "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
     "scripts/platform-v7-one-deal-*.sh",
-    ".github/workflows/api-test.yml"
+    ".github/workflows/ci.yml"
   ],
   "industrialOneDealFoundation": {
     "layer": "Canonical PostgreSQL deal command path and shared role workspace",
@@ -71,7 +71,7 @@
     "layer": "Industrial One Deal Ephemeral PostgreSQL E2E Harness",
     "implementationPr": "#2270",
     "status": "in_progress",
-    "workflow": ".github/workflows/api-test.yml",
+    "workflow": ".github/workflows/ci.yml",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
     "requiredEvidence": [
       "isolated PostgreSQL 16 starts with ephemeral credentials",
