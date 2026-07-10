@@ -92,6 +92,15 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO one_deal_app;
+
+-- Bootstrap-only context for the isolated membership discovery query.
+-- Every protected deal read/write subsequently replaces all five values with
+-- set_config(..., true) inside the same transaction through RlsTransactionService.
+ALTER ROLE one_deal_app SET app.current_user_id = 'one-deal-bootstrap';
+ALTER ROLE one_deal_app SET app.current_org_id = 'org-canonical-platform';
+ALTER ROLE one_deal_app SET app.current_tenant_id = 'tenant-canonical-test';
+ALTER ROLE one_deal_app SET app.current_role = 'SUPPORT_MANAGER';
+ALTER ROLE one_deal_app SET app.current_session_id = 'one-deal-bootstrap-session';
 SQL
 
 ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text FROM pg_roles WHERE rolname='one_deal_app'")"
