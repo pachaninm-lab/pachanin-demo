@@ -1,0 +1,186 @@
+:root {
+  --pc-industrial-max: 1440px;
+  --pc-industrial-radius-xs: 10px;
+  --pc-industrial-radius-sm: 14px;
+  --pc-industrial-radius-md: 18px;
+  --pc-industrial-radius-lg: 24px;
+  --pc-industrial-touch: 48px;
+  --pc-industrial-gap: clamp(12px, 2vw, 20px);
+  --pc-industrial-focus: 0 0 0 3px color-mix(in srgb, var(--pc-accent) 28%, transparent);
+}
+
+/* Shared production workspace: one visual language across every role. */
+.platform-v7-shell main,
+[data-platform-v7-main] {
+  width: min(100%, var(--pc-industrial-max));
+  margin-inline: auto;
+}
+
+.deal-workspace {
+  gap: var(--pc-industrial-gap) !important;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+
+.deal-hero,
+.deal-attention,
+.deal-spine-card,
+.deal-action-card,
+.deal-facts-card,
+.deal-metrics article {
+  border-radius: var(--pc-industrial-radius-lg) !important;
+}
+
+.deal-hero h1 {
+  max-width: 18ch;
+  overflow-wrap: anywhere;
+}
+
+.deal-role-strip,
+.deal-attention,
+.deal-metrics article,
+.deal-spine-card,
+.deal-action-card,
+.deal-facts-card {
+  box-shadow: 0 1px 2px rgba(12, 35, 25, .04), 0 10px 30px rgba(12, 35, 25, .05) !important;
+}
+
+.deal-action-card {
+  position: sticky;
+  top: calc(var(--platform-v7-header-height, 64px) + 12px);
+}
+
+.deal-action-card button,
+.deal-error button,
+.section-heading button,
+.platform-v7-shell button,
+.platform-v7-shell a[role='button'] {
+  min-height: var(--pc-industrial-touch);
+  touch-action: manipulation;
+}
+
+.deal-action-card button:not(:disabled) {
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--pc-accent) 24%, transparent);
+}
+
+.deal-action-card button:not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.deal-action-card button:focus-visible,
+.deal-error button:focus-visible,
+.section-heading button:focus-visible,
+.platform-v7-shell button:focus-visible,
+.platform-v7-shell a:focus-visible,
+.platform-v7-shell input:focus-visible,
+.platform-v7-shell select:focus-visible,
+.platform-v7-shell textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--pc-industrial-focus) !important;
+}
+
+.deal-message,
+.deal-attention {
+  overflow-wrap: anywhere;
+}
+
+.deal-spine li {
+  min-height: 68px !important;
+}
+
+.deal-spine strong,
+.deal-action-card p,
+.deal-attention p {
+  line-height: 1.5 !important;
+}
+
+/* Statuses must never be communicated by colour alone. */
+.deal-spine li.done strong::after {
+  content: ' · завершено';
+  color: var(--pc-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.deal-spine li.active strong::after {
+  content: ' · требует внимания';
+  color: var(--pc-accent);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+@media (max-width: 920px) {
+  .deal-action-card {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .deal-workspace {
+    gap: 12px !important;
+  }
+
+  .deal-hero,
+  .deal-attention,
+  .deal-spine-card,
+  .deal-action-card,
+  .deal-facts-card {
+    border-radius: var(--pc-industrial-radius-md) !important;
+  }
+
+  .deal-hero {
+    padding: 20px !important;
+  }
+
+  .deal-hero h1 {
+    font-size: clamp(30px, 10vw, 42px) !important;
+    line-height: 1.02 !important;
+  }
+
+  .deal-role-strip {
+    align-items: flex-start !important;
+    flex-direction: column;
+    gap: 6px !important;
+  }
+
+  .deal-attention {
+    grid-template-columns: 40px minmax(0, 1fr) !important;
+    padding: 15px !important;
+  }
+
+  .attention-icon {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .deal-metrics {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .deal-metrics article {
+    min-height: 76px;
+    align-items: flex-start !important;
+  }
+
+  .deal-action-card button {
+    position: sticky;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    z-index: 4;
+  }
+}
+
+@media (max-width: 390px) {
+  .deal-metrics {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deal-workspace *,
+  .platform-v7-shell * {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
