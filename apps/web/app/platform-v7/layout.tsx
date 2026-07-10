@@ -18,13 +18,14 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://xn----8sbjf4befbjgs9b.xn--p1ai'),
 };
 
-const LEAN_PUBLIC_ENTRY_PATHS = new Set([
-  '/platform-v7',
+const LANDING_PATH = '/platform-v7';
+const AUTH_PATHS = new Set([
   '/platform-v7/login',
   '/platform-v7/forgot-password',
 ]);
 const PUBLIC_EXACT_PATHS = new Set([
-  ...LEAN_PUBLIC_ENTRY_PATHS,
+  LANDING_PATH,
+  ...AUTH_PATHS,
   '/platform-v7/open',
   '/platform-v7/register',
   '/platform-v7/help',
@@ -39,7 +40,7 @@ const PUBLIC_EXACT_PATHS = new Set([
 const PUBLIC_PREFIX_PATHS = ['/platform-v7/role-preview'];
 
 function normalizePath(value: string | null) {
-  return (value || '').split('?')[0].replace(/\/$/, '') || '/platform-v7';
+  return (value || '').split('?')[0].replace(/\/$/, '') || LANDING_PATH;
 }
 
 function isPublicPath(pathname: string) {
@@ -48,7 +49,15 @@ function isPublicPath(pathname: string) {
 
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const pathname = normalizePath(headers().get('x-pc-pathname'));
-  if (LEAN_PUBLIC_ENTRY_PATHS.has(pathname)) return children;
+
+  if (pathname === LANDING_PATH) {
+    await import('./_styles/landing');
+    return children;
+  }
+  if (AUTH_PATHS.has(pathname)) {
+    await import('./_styles/auth');
+    return children;
+  }
 
   await import('./_styles/full-platform');
   if (isPublicPath(pathname)) return children;
