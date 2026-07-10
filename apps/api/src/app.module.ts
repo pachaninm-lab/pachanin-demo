@@ -1,10 +1,11 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { HealthController } from './health.controller';
 import { APP_GUARD } from '@nestjs/core';
-import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { LogMaskingMiddleware } from './common/middleware/log-masking.middleware';
 import { AppAuthGuard } from './common/guards/auth.guard';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { RateLimitModule } from './common/security/rate-limit.module';
 import { EvidencePackModule } from './modules/evidence-pack/evidence-pack.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { LotsModule } from './modules/lots/lots.module';
@@ -55,6 +56,7 @@ import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-
 @Module({
   imports: [
     PrismaModule,
+    RateLimitModule,
     DatabaseModule,
     AdminModule,
     EvidencePackModule,
@@ -108,10 +110,14 @@ import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-
       provide: APP_GUARD,
       useClass: AppAuthGuard,
     },
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
+    },
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LogMaskingMiddleware, RateLimitMiddleware).forRoutes('*');
+    consumer.apply(LogMaskingMiddleware).forRoutes('*');
   }
 }
