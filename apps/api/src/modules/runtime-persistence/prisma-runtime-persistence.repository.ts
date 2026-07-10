@@ -1,5 +1,9 @@
 import { Injectable, Optional } from '@nestjs/common';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import type { Prisma } from '@prisma/client';
+import {
+  RlsTransactionService,
+  type TrustedRlsContext,
+} from '../../common/prisma/rls-transaction.service';
 import type {
   RuntimePersistenceDbState,
   RuntimePersistenceRepository,
@@ -29,6 +33,8 @@ const requiredStringFields: Array<keyof RuntimePersistenceWriteInput> = [
   'runtimeStoreVersion',
   'actorId',
   'actorRole',
+  'tenantId',
+  'organizationId',
   'correlationId',
   'auditId',
   'contractHash',
@@ -50,21 +56,31 @@ function isValidInput(input: RuntimePersistenceWriteInput): boolean {
   });
 }
 
+function trustedContext(input: RuntimePersistenceWriteInput): TrustedRlsContext {
+  return {
+    userId: input.actorId,
+    orgId: input.organizationId ?? '',
+    tenantId: input.tenantId ?? '',
+    role: input.actorRole,
+    sessionId: `runtime-persistence:${input.correlationId}`,
+  };
+}
+
 @Injectable()
 export class PrismaRuntimePersistenceRepository implements RuntimePersistenceRepository {
-  constructor(@Optional() private readonly prisma?: PrismaService) {
-    if (!this.prisma) {
+  constructor(@Optional() private readonly rls?: RlsTransactionService) {
+    if (!this.rls) {
       throw new Error(
-        'PrismaRuntimePersistenceRepository requires PrismaService; the Postgres runtime-persistence path is not active.',
+        'PrismaRuntimePersistenceRepository requires RlsTransactionService; the trusted Postgres path is not active.',
       );
     }
   }
 
-  private get db(): PrismaService {
-    if (!this.prisma) {
-      throw new Error('PrismaService unavailable; Postgres runtime-persistence path is not active.');
+  private get transaction(): RlsTransactionService {
+    if (!this.rls) {
+      throw new Error('RlsTransactionService unavailable; the trusted Postgres path is not active.');
     }
-    return this.prisma;
+    return this.rls;
   }
 
   private classifyExisting(
@@ -114,8 +130,11 @@ export class PrismaRuntimePersistenceRepository implements RuntimePersistenceRep
     };
   }
 
-  private async findExisting(idempotencyKey: string): Promise<ExistingRuntimeSnapshot | null> {
-    return this.db.dealWorkspaceRuntimeSnapshot.findUnique({
+  private findExisting(
+    tx: Prisma.TransactionClient,
+    idempotencyKey: string,
+  ): Promise<ExistingRuntimeSnapshot | null> {
+    return tx.dealWorkspaceRuntimeSnapshot.findUnique({
       where: { idempotencyKey },
       include: {
         attempts: {
@@ -132,13 +151,13 @@ export class PrismaRuntimePersistenceRepository implements RuntimePersistenceRep
       return this.failed(input, 'invalid_input');
     }
 
-    try {
-      const existing = await this.findExisting(input.idempotencyKey);
-      if (existing) {
-        return this.classifyExisting(input, existing);
-      }
+    const context = trustedContext(input);
 
-      return await this.db.$transaction(async (tx) => {
+    try {
+      return await this.transaction.withContext(context, async (tx) => {
+        const existing = await this.findExisting(tx, input.idempotencyKey);
+        if (existing) return this.classifyExisting(input, existing);
+
         const outbox = await tx.outboxEntry.create({
           data: {
             type: 'deal_workspace.runtime_snapshot.persisted',
@@ -239,10 +258,10 @@ export class PrismaRuntimePersistenceRepository implements RuntimePersistenceRep
     } catch (error) {
       if (isKnownUniqueConstraintError(error)) {
         try {
-          const concurrent = await this.findExisting(input.idempotencyKey);
-          if (concurrent) {
-            return this.classifyExisting(input, concurrent);
-          }
+          const concurrent = await this.transaction.withContext(context, (tx) =>
+            this.findExisting(tx, input.idempotencyKey),
+          );
+          if (concurrent) return this.classifyExisting(input, concurrent);
         } catch {
           return this.failed(input, 'database_write_failed');
         }
