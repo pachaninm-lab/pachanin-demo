@@ -49,9 +49,9 @@ describe('platform-v7 canonical one-deal workspace', () => {
   it('uses verified single entry and does not let the user choose a role before authentication', () => {
     expect(login).toContain("fetch('/api/auth/login'");
     expect(login).toContain("fetch('/api/platform-v7/cabinet-session'");
-    expect(login).toContain('body: JSON.stringify({})');
+    expect(login).toContain("const sessionBody = payload?.demo === true ? { role } : {}");
+    expect(login).toContain('body: JSON.stringify(sessionBody)');
     expect(login).not.toContain('const workspaces');
     expect(login).not.toContain('setDirectRole');
-    expect(login).not.toContain('body: JSON.stringify({ role');
   });
 });
