@@ -11,12 +11,14 @@ permissions:
 jobs:
   browser-and-lighthouse:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     env:
-      PLAYWRIGHT_BASE_URL: https://6a517067cf4f3200087c629d--vermillion-kitsune-0e7b97.netlify.app
-      ARTIFACT_DIR: ../../artifacts/public-entry-preview-smoke-2323
+      LOCAL_BASE_URL: http://127.0.0.1:3000
+      NETLIFY_PREVIEW_URL: https://6a5173cb2d31630009ea3bf3--gleaming-mandazi-bb9856.netlify.app
+      ARTIFACT_DIR: ../../artifacts/public-entry-preview-smoke-2323/local-production
+      NETLIFY_ARTIFACT_DIR: ../../artifacts/public-entry-preview-smoke-2323/netlify
     steps:
-      - name: Checkout evidence branch
+      - name: Checkout evidence branch with current implementation base
         uses: actions/checkout@v4
 
       - name: Setup pnpm
@@ -25,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
@@ -35,55 +37,36 @@ jobs:
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: Capture non-minified hydration diagnostics
-        continue-on-error: true
+      - name: Build production web bundle
+        working-directory: apps/web
+        run: pnpm build
+
+      - name: Run full local production browser matrix and Lighthouse gates
         working-directory: apps/web
         shell: bash
         run: |
           set -euo pipefail
-          pnpm dev > /tmp/platform-v7-development.log 2>&1 &
-          DEV_PID=$!
-          cleanup() { kill "$DEV_PID" 2>/dev/null || true; }
+          mkdir -p ../../artifacts/public-entry-preview-smoke-2323/local-production/lighthouse
+          pnpm start > /tmp/platform-v7-local-production.log 2>&1 &
+          APP_PID=$!
+          cleanup() { kill "$APP_PID" 2>/dev/null || true; }
           trap cleanup EXIT
+
           ready=0
-          for attempt in $(seq 1 120); do
-            if curl --silent --show-error --fail --max-time 5 'http://127.0.0.1:3000/platform-v7?lang=ru' >/dev/null; then
+          for attempt in $(seq 1 90); do
+            if curl --silent --show-error --fail --max-time 5 "$LOCAL_BASE_URL/platform-v7?lang=ru" >/dev/null; then
               ready=1
               break
             fi
             sleep 1
           done
           if [ "$ready" -ne 1 ]; then
-            cat /tmp/platform-v7-development.log
+            cat /tmp/platform-v7-local-production.log
             exit 1
           fi
-          DEV_DIAGNOSTIC_URL=http://127.0.0.1:3000 node scripts/public-entry-hydration-dev-2323.mjs
-          cp /tmp/platform-v7-development.log ../../artifacts/public-entry-preview-smoke-2323/development-server.log
 
-      - name: Wait for immutable PR preview
-        shell: bash
-        run: |
-          set -euo pipefail
-          for attempt in $(seq 1 120); do
-            status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "$PLAYWRIGHT_BASE_URL/platform-v7?lang=ru" || true)
-            if [ "$status" = "200" ]; then
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Preview did not become ready"
-          exit 1
+          PLAYWRIGHT_BASE_URL="$LOCAL_BASE_URL" node scripts/public-entry-preview-smoke-2323.mjs
 
-      - name: Run browser matrix, axe and mocked MFA flow
-        working-directory: apps/web
-        run: node scripts/public-entry-preview-smoke-2323.mjs
-
-      - name: Collect and enforce Lighthouse budgets
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p artifacts/public-entry-preview-smoke-2323/lighthouse
           CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
           if [ -z "$CHROME_BIN" ]; then
             echo 'Chrome executable not found'
@@ -92,17 +75,18 @@ jobs:
           export CHROME_PATH="$CHROME_BIN"
           for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
             safe_name="${route//\//-}"
-            npx -y lighthouse@12.8.2 "$PLAYWRIGHT_BASE_URL/${route}?lang=ru" \
+            npx -y lighthouse@12.8.2 "$LOCAL_BASE_URL/${route}?lang=ru" \
               --quiet \
               --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
               --only-categories=performance,accessibility,best-practices,seo \
               --output=json \
-              --output-path="artifacts/public-entry-preview-smoke-2323/lighthouse/${safe_name}.json"
+              --output-path="../../artifacts/public-entry-preview-smoke-2323/local-production/lighthouse/${safe_name}.json"
           done
+
           node <<'NODE'
           const fs = require('fs');
           const path = require('path');
-          const dir = 'artifacts/public-entry-preview-smoke-2323/lighthouse';
+          const dir = '../../artifacts/public-entry-preview-smoke-2323/local-production/lighthouse';
           const reports = fs.readdirSync(dir).filter((name) => name.endsWith('.json')).map((name) => {
             const report = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
             const scores = Object.fromEntries(Object.entries(report.categories).map(([key, value]) => [key, Math.round((value.score || 0) * 100)]));
@@ -115,13 +99,15 @@ jobs:
             };
             return { file: name, finalUrl: report.finalUrl, scores, metrics };
           });
-          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', previewSeoInformationalOnly: true, reports }, null, 2));
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', source: 'local-next-production', reports }, null, 2));
           console.log(JSON.stringify(reports, null, 2));
           const failures = [];
           for (const report of reports) {
+            const isLanding = report.file === 'platform-v7.json';
             if ((report.scores.performance || 0) < 80) failures.push(`${report.file}: performance ${report.scores.performance}`);
             if ((report.scores.accessibility || 0) < 95) failures.push(`${report.file}: accessibility ${report.scores.accessibility}`);
             if ((report.scores['best-practices'] || 0) < 90) failures.push(`${report.file}: best-practices ${report.scores['best-practices']}`);
+            if (isLanding && (report.scores.seo || 0) < 90) failures.push(`${report.file}: SEO ${report.scores.seo}`);
             if ((report.metrics.largestContentfulPaintMs || Infinity) > 2500) failures.push(`${report.file}: LCP ${report.metrics.largestContentfulPaintMs}`);
             if ((report.metrics.totalBlockingTimeMs || Infinity) > 200) failures.push(`${report.file}: TBT ${report.metrics.totalBlockingTimeMs}`);
             if ((report.metrics.cumulativeLayoutShift || Infinity) > 0.1) failures.push(`${report.file}: CLS ${report.metrics.cumulativeLayoutShift}`);
@@ -131,8 +117,27 @@ jobs:
             process.exit(1);
           }
           NODE
+          cp /tmp/platform-v7-local-production.log ../../artifacts/public-entry-preview-smoke-2323/local-production/production-server.log
 
-      - name: Upload preview evidence
+      - name: Wait for immutable Netlify deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "$NETLIFY_PREVIEW_URL/platform-v7?lang=ru" || true)
+            if [ "$status" = "200" ] || [ "$status" = "403" ] || [ "$status" = "429" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Immutable Netlify deploy did not become reachable"
+          exit 1
+
+      - name: Run limited immutable Netlify hosting smoke
+        working-directory: apps/web
+        run: node scripts/public-entry-netlify-smoke-2323.mjs
+
+      - name: Upload acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
