@@ -6,12 +6,13 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 const rootLayout = read('apps/web/app/layout.tsx');
 const layout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');
-const templateSwitch = read('apps/web/components/platform-v7/PlatformV7TemplateSwitch.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const landing = read('apps/web/app/platform-v7/page.tsx');
 const login = read('apps/web/app/platform-v7/login/page.tsx');
+const loginClient = read('apps/web/app/platform-v7/login/LoginFormClient.tsx');
 const recovery = read('apps/web/app/platform-v7/forgot-password/page.tsx');
+const recoveryClient = read('apps/web/app/platform-v7/forgot-password/ForgotPasswordFormClient.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const publicLocaleLink = read('apps/web/components/platform-v7/PublicLocaleLink.tsx');
 const brandMark = read('apps/web/components/v7r/BrandMark.tsx');
@@ -32,6 +33,16 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(layout).not.toContain('PlatformThemeSync');
   });
 
+  it('does not wrap the target public entry routes in client providers or templates', () => {
+    expect(rootLayout).toContain('LEAN_PUBLIC_ENTRY_PATHS');
+    expect(rootLayout).toContain('leanPublicEntry\n    ? children');
+    expect(rootLayout).toContain('messages={await getMessages()}');
+    expect(template).toContain("headers().get('x-pc-pathname')");
+    expect(template).toContain('if (isPublicPath(pathname)) return children');
+    expect(template).toContain("await import('@/components/platform-v7/PlatformV7ProtectedTemplateRuntime')");
+    expect(template).not.toContain('PlatformV7TemplateSwitch');
+  });
+
   it('keeps protected providers and shell in a protected-only runtime', () => {
     expect(protectedRuntime).toContain('<ToastProvider>');
     expect(protectedRuntime).toContain('<PlatformThemeSync />');
@@ -41,26 +52,15 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(protectedShell).toContain('<RbacCabinetGuard />');
   });
 
-  it('keeps DOM mutation guards outside public templates', () => {
-    expect(template).toContain('<PlatformV7TemplateSwitch>{children}</PlatformV7TemplateSwitch>');
-    expect(template).not.toContain('PlatformV7ProductionCopyPatch');
-    expect(templateSwitch).toContain('dynamic(');
-    expect(templateSwitch).toContain('PlatformV7ProtectedTemplateRuntime');
-    expect(templateSwitch).toContain('if (isPublicPath(pathname)) return <>{children}</>');
-  });
-
-  it('renders the landing without a client i18n provider or browser locale handler', () => {
-    expect(rootLayout).toContain("const serverOnlyLanding = pathname === '/platform-v7'");
-    expect(rootLayout).toContain('serverOnlyLanding\n    ? children');
-    expect(rootLayout).toContain('NextIntlClientProvider');
-    expect(landing).toContain("localeControl={<PublicLocaleLink />}");
-    expect(landing).not.toContain('PublicLocaleSwitch');
-    expect(landing).not.toContain("'use client'");
-    expect(landing).not.toContain('window.');
-    expect(publicLocaleLink).toContain("const localeValue = await getLocale()");
-    expect(publicLocaleLink).toContain("href={`${pathname}?lang=${next}`}");
+  it('uses a server-rendered locale link and native navigation on the target routes', () => {
     expect(publicLocaleLink).not.toContain("'use client'");
-    expect(publicLocaleLink).not.toContain('window.');
+    expect(publicLocaleLink).toContain("getTranslations('publicEntry.language')");
+    expect(publicLocaleLink).toContain("href={`${pathname}?lang=${next}`}");
+    expect(landing).toContain('localeControl={<PublicLocaleLink />}');
+    expect(login).toContain('localeControl={<PublicLocaleLink />}');
+    expect(recovery).toContain('localeControl={<PublicLocaleLink />}');
+    expect(landing).not.toContain("from 'next/link'");
+    expect(publicHeader).toContain("<a href='/platform-v7' className='pc-site-brand'");
   });
 
   it('loads all public entry styles statically outside hydrated markup', () => {
@@ -68,7 +68,7 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(layout).toContain("@/styles/platform-v7-public-auth.css");
     expect(layout).toContain("@/styles/platform-v7-public-landing.css");
 
-    for (const source of [publicHeader, brandMark, landing, intelligenceStrip, login, recovery]) {
+    for (const source of [publicHeader, publicLocaleLink, brandMark, landing, intelligenceStrip, login, loginClient, recovery, recoveryClient]) {
       expect(source).not.toContain('<style');
       expect(source).not.toContain('dangerouslySetInnerHTML');
     }
