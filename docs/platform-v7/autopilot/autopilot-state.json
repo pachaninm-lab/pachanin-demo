@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "Industrial One Deal Concurrency, Replay and Recovery Matrix.",
   "fullTzReadinessPercent": 86,
-  "openPr": null,
+  "openPr": "#2274",
   "lastClosed": [
     "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
@@ -21,11 +21,12 @@
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
+    "bank callback event replay identity includes mutable deal version",
     "recovery and restart evidence",
     "production migration and RLS execution evidence",
     "live bank FGIS EDO and signature evidence"
   ],
-  "blockerNotes": "The isolated PostgreSQL happy-path proof is merged and green. The current layer must prove deterministic behavior under concurrent commands, callback replay, fresh runtime restart, transaction rollback and pooled RLS context reuse before persistent identity and UI migration begin.",
+  "blockerNotes": "The recovery matrix reproduced a product defect: a duplicate signed RESERVE callback after success derives a new command fingerprint because expectedUpdatedAt changed from RESERVE_REQUESTED to RESERVED. The same bank event therefore misses its original receipt and fails with DEAL_STATE_CONFLICT. Only the canonical gateway and its unit specification are unlocked to introduce stable partner+event identity with payload mismatch detection; signature validation and state-machine rules remain unchanged.",
   "lockedUntilCurrentGreen": [
     "persistent identity session MFA changes",
     "platform UI implementation",
@@ -36,6 +37,8 @@
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
+    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+    "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
     "apps/api/test/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
     "scripts/platform-v7-one-deal-*.sh",
@@ -44,6 +47,8 @@
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
+    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+    "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
     "apps/api/test/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
     "scripts/platform-v7-one-deal-*.sh",
@@ -65,12 +70,19 @@
   },
   "industrialOneDealRecovery": {
     "layer": "Concurrency Replay Restart Rollback and RLS Pool Isolation",
-    "implementationPr": null,
-    "status": "in_progress",
+    "implementationPr": "#2274",
+    "status": "bank_callback_replay_hardening_in_progress",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
+    "lastFailure": {
+      "code": "BANK_CALLBACK_RECEIPT_MISSED_AFTER_STATE_CHANGE",
+      "file": "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+      "stage": "duplicate signed reserve callback after successful reserve",
+      "reason": "generic command fingerprint includes mutable expectedUpdatedAt, so the same verified bank event derives a different receipt key after the deal version changes"
+    },
     "requiredEvidence": [
       "exactly one concurrent command winner and one aggregate version",
-      "duplicate bank callbacks do not duplicate transition event ledger or outbox evidence",
+      "duplicate bank callbacks return the original receipt without a second transition event ledger entry or outbox write",
+      "same partner event ID with different material payload is rejected as replay mismatch",
       "out-of-order callbacks fail before mutation",
       "fresh Prisma and service instances continue from persisted pending operations and receipts",
       "forced transaction failure rolls back Deal event audit ledger and outbox atomically",
@@ -127,5 +139,5 @@
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "86% honest architectural readiness. The isolated PostgreSQL one-deal lifecycle is proven and merged. Recovery, persistent identity, live integrations, production load, restore and DR remain unproven. Production exploitation remains NO-GO."
+  "readiness": "86% honest architectural readiness. The isolated PostgreSQL lifecycle is proven. Recovery testing exposed a bank callback replay defect now under exact-scope correction. Persistent identity, live integrations, production load, restore and DR remain unproven. Production exploitation remains NO-GO."
 }
