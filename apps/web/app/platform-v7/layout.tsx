@@ -52,6 +52,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/forgot-password',
+  '/platform-v7/reset-password',
   '/platform-v7/register',
   '/platform-v7/help',
   '/platform-v7/pricing',

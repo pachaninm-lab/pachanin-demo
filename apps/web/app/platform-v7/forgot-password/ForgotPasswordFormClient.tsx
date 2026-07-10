@@ -4,57 +4,61 @@ import * as React from 'react';
 import { CheckCircle2, Mail } from 'lucide-react';
 
 export type ForgotPasswordCopy = {
-  error: string;
-  requestName: string;
-  requestMessage: string;
-  successTitle: string;
-  successText: string;
-  backToLogin: string;
   email: string;
   emailPlaceholder: string;
-  loading: string;
   submit: string;
+  loading: string;
+  successTitle: string;
+  successText: string;
+  invalidEmail: string;
+  unavailable: string;
+  backToLogin: string;
   note: string;
 };
 
-export function ForgotPasswordFormClient({ copy }: { copy: ForgotPasswordCopy }) {
+export function ForgotPasswordFormClient({ copy, locale }: { copy: ForgotPasswordCopy; locale: 'ru' | 'en' | 'zh' }) {
   const [email, setEmail] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [error, setError] = React.useState('');
+  const errorRef = React.useRef<HTMLParagraphElement>(null);
+
+  React.useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const contact = email.trim();
-    if (!contact) {
-      setError(copy.error);
+    if (submitting) return;
+    const normalized = email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(normalized) || normalized.length > 254) {
+      setError(copy.invalidEmail);
       return;
     }
 
     setSubmitting(true);
     setError('');
-
     try {
-      const response = await fetch('/api/platform-v7/inquiries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'technical',
-          source: 'platform_v7_contact_page',
-          name: copy.requestName,
-          organization: '',
-          contact,
-          message: copy.requestMessage,
-          consent: 'yes',
-          website: '',
-        }),
-        cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || payload?.accepted !== true) throw new Error('recovery_request_failed');
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 10_000);
+      let response: Response;
+      try {
+        response = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: normalized, locale }),
+          cache: 'no-store',
+          credentials: 'same-origin',
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timer);
+      }
+      const payload = await response.json().catch(() => ({} as Record<string, unknown>));
+      if (!response.ok || payload.accepted !== true) throw new Error('recovery_request_failed');
       setSubmitted(true);
     } catch {
-      setError(copy.error);
+      setError(copy.unavailable);
     } finally {
       setSubmitting(false);
     }
@@ -83,14 +87,17 @@ export function ForgotPasswordFormClient({ copy }: { copy: ForgotPasswordCopy })
             type='email'
             inputMode='email'
             autoComplete='email'
+            autoCapitalize='none'
+            spellCheck={false}
             placeholder={copy.emailPlaceholder}
             disabled={submitting}
             aria-invalid={Boolean(error)}
+            aria-describedby={error ? 'pc-recovery-error' : undefined}
           />
         </span>
       </label>
 
-      {error ? <p className='pc-recovery-error' role='alert'>{error}</p> : null}
+      {error ? <p ref={errorRef} id='pc-recovery-error' className='pc-recovery-error' role='alert' tabIndex={-1}>{error}</p> : null}
 
       <button className='pc-recovery-submit' type='submit' disabled={submitting} aria-busy={submitting}>
         {submitting ? copy.loading : copy.submit}

@@ -1,68 +1,30 @@
 import type { AppLocale } from './locale';
 
 type PublicEntryMessages = {
-  language: {
-    switchLabel: string;
-    switchTitle: string;
-  };
-  rolesCatalog: {
-    title: string;
-    text: string;
-    cta: string;
-  };
+  language: { switchLabel: string; switchTitle: string };
+  rolesCatalog: { title: string; text: string; cta: string };
   login: {
-    publicNav: string;
-    brandTagline: string;
-    backHome: string;
-    title: string;
-    lead: string;
-    email: string;
-    emailPlaceholder: string;
-    password: string;
-    passwordPlaceholder: string;
-    showPassword: string;
-    hidePassword: string;
-    submit: string;
-    loading: string;
-    forgot: string;
-    register: string;
-    required: string;
-    unavailable: string;
-    note: string;
-    mfaTitle: string;
-    mfaLead: string;
-    totpMethod: string;
-    backupMethod: string;
-    mfaCode: string;
-    mfaCodePlaceholder: string;
-    backupCodePlaceholder: string;
-    mfaSubmit: string;
-    mfaLoading: string;
-    mfaBack: string;
-    mfaError: string;
-    enrollmentTitle: string;
-    enrollmentLead: string;
-    setupSecretLabel: string;
-    backupCodesTitle: string;
-    backupCodesLead: string;
+    publicNav: string; brandTagline: string; backHome: string; title: string; lead: string;
+    email: string; emailPlaceholder: string; password: string; passwordPlaceholder: string;
+    showPassword: string; hidePassword: string; submit: string; loading: string; forgot: string;
+    register: string; required: string; unavailable: string; note: string; mfaTitle: string;
+    mfaLead: string; totpMethod: string; backupMethod: string; mfaCode: string;
+    mfaCodePlaceholder: string; backupCodePlaceholder: string; mfaSubmit: string;
+    mfaLoading: string; mfaBack: string; mfaError: string; enrollmentTitle: string;
+    enrollmentLead: string; setupSecretLabel: string; backupCodesTitle: string; backupCodesLead: string;
   };
   forgot: {
-    publicNav: string;
-    brandTagline: string;
-    backHome: string;
-    title: string;
-    lead: string;
-    email: string;
-    emailPlaceholder: string;
-    submit: string;
-    loading: string;
-    successTitle: string;
-    successText: string;
-    error: string;
-    backToLogin: string;
-    note: string;
-    requestName: string;
-    requestMessage: string;
+    publicNav: string; brandTagline: string; backHome: string; title: string; lead: string;
+    email: string; emailPlaceholder: string; submit: string; loading: string; successTitle: string;
+    successText: string; invalidEmail: string; unavailable: string; backToLogin: string; note: string;
+  };
+  reset: {
+    publicNav: string; brandTagline: string; backHome: string; title: string; lead: string;
+    newPassword: string; newPasswordPlaceholder: string; confirmPassword: string;
+    confirmPasswordPlaceholder: string; showPassword: string; hidePassword: string;
+    policy: string; mismatch: string; invalid: string; unavailable: string; rateLimited: string;
+    submit: string; loading: string; successTitle: string; successText: string;
+    sessionsRevoked: string; backToLogin: string;
   };
 };
 
@@ -118,18 +80,41 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
       brandTagline: 'Восстановление доступа',
       backHome: 'На главную',
       title: 'Восстановить доступ',
-      lead: 'Укажите рабочий email. Запрос будет обработан без раскрытия наличия учётной записи.',
+      lead: 'Укажите рабочий email. Ответ одинаков для существующих и неизвестных адресов.',
       email: 'Рабочий email',
       emailPlaceholder: 'name@company.ru',
-      submit: 'Отправить запрос',
+      submit: 'Получить ссылку',
       loading: 'Отправляем…',
-      successTitle: 'Запрос принят',
-      successText: 'Если адрес связан с учётной записью, инструкции будут направлены после проверки доступа.',
-      error: 'Не удалось принять запрос. Повторите позже или обратитесь в поддержку.',
+      successTitle: 'Проверьте почту',
+      successText: 'Если адрес связан с учётной записью, письмо со ссылкой придёт в течение нескольких минут.',
+      invalidEmail: 'Введите корректный рабочий email.',
+      unavailable: 'Сервис временно недоступен. Повторите запрос позже.',
       backToLogin: 'Вернуться ко входу',
-      note: 'Пароль не передаётся в поддержку. Восстановление выполняется только после проверки принадлежности учётной записи.',
-      requestName: 'Восстановление доступа',
-      requestMessage: 'Запрос на восстановление доступа к рабочей платформе.',
+      note: 'Ссылка действует 15 минут и используется один раз. Наличие учётной записи не раскрывается.',
+    },
+    reset: {
+      publicNav: 'Навигация установки нового пароля',
+      brandTagline: 'Защищённое восстановление доступа',
+      backHome: 'На главную',
+      title: 'Установить новый пароль',
+      lead: 'После смены пароля все действующие сессии будут отозваны.',
+      newPassword: 'Новый пароль',
+      newPasswordPlaceholder: 'Не менее 12 символов',
+      confirmPassword: 'Повторите пароль',
+      confirmPasswordPlaceholder: 'Введите пароль ещё раз',
+      showPassword: 'Показать пароль',
+      hidePassword: 'Скрыть пароль',
+      policy: '12–128 символов и минимум три класса: строчные, прописные, цифры, специальные символы.',
+      mismatch: 'Пароли не совпадают.',
+      invalid: 'Ссылка недействительна, истекла или уже использована.',
+      unavailable: 'Сервис временно недоступен. Повторите позже.',
+      rateLimited: 'Слишком много попыток. Повторите позже.',
+      submit: 'Сохранить новый пароль',
+      loading: 'Сохраняем…',
+      successTitle: 'Пароль изменён',
+      successText: 'Новый пароль сохранён.',
+      sessionsRevoked: 'Все прежние сессии отозваны. Войдите заново.',
+      backToLogin: 'Перейти ко входу',
     },
   },
   en: {
@@ -183,18 +168,41 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
       brandTagline: 'Access recovery',
       backHome: 'Back to home',
       title: 'Restore access',
-      lead: 'Enter your work email. The request is processed without disclosing whether an account exists.',
+      lead: 'Enter your work email. The response is identical for known and unknown addresses.',
       email: 'Work email',
       emailPlaceholder: 'name@company.com',
-      submit: 'Send request',
+      submit: 'Send reset link',
       loading: 'Sending…',
-      successTitle: 'Request accepted',
-      successText: 'If the address is linked to an account, instructions will be sent after access verification.',
-      error: 'The request could not be accepted. Try again later or contact support.',
+      successTitle: 'Check your email',
+      successText: 'If the address is linked to an account, a reset link will arrive within a few minutes.',
+      invalidEmail: 'Enter a valid work email.',
+      unavailable: 'The service is temporarily unavailable. Try again later.',
       backToLogin: 'Back to sign in',
-      note: 'Never send a password to support. Recovery proceeds only after account ownership is verified.',
-      requestName: 'Access recovery',
-      requestMessage: 'Request to restore access to the working platform.',
+      note: 'The link is valid for 15 minutes and can be used once. Account existence is never disclosed.',
+    },
+    reset: {
+      publicNav: 'New password navigation',
+      brandTagline: 'Secure access recovery',
+      backHome: 'Back to home',
+      title: 'Set a new password',
+      lead: 'All active sessions will be revoked after the password is changed.',
+      newPassword: 'New password',
+      newPasswordPlaceholder: 'At least 12 characters',
+      confirmPassword: 'Confirm password',
+      confirmPasswordPlaceholder: 'Enter the password again',
+      showPassword: 'Show password',
+      hidePassword: 'Hide password',
+      policy: '12–128 characters and at least three classes: lowercase, uppercase, digits and symbols.',
+      mismatch: 'The passwords do not match.',
+      invalid: 'The link is invalid, expired or already used.',
+      unavailable: 'The service is temporarily unavailable. Try again later.',
+      rateLimited: 'Too many attempts. Try again later.',
+      submit: 'Save new password',
+      loading: 'Saving…',
+      successTitle: 'Password changed',
+      successText: 'Your new password has been saved.',
+      sessionsRevoked: 'All previous sessions were revoked. Sign in again.',
+      backToLogin: 'Go to sign in',
     },
   },
   zh: {
@@ -248,18 +256,41 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
       brandTagline: '恢复访问权限',
       backHome: '返回首页',
       title: '恢复访问权限',
-      lead: '请输入工作邮箱。系统不会披露该账户是否存在。',
+      lead: '请输入工作邮箱。已知和未知地址会收到相同响应。',
       email: '工作邮箱',
       emailPlaceholder: 'name@company.cn',
-      submit: '发送请求',
+      submit: '发送重置链接',
       loading: '正在发送…',
-      successTitle: '请求已受理',
-      successText: '如果该地址关联账户，完成访问核验后将发送说明。',
-      error: '无法受理请求。请稍后重试或联系支持。',
+      successTitle: '请检查邮箱',
+      successText: '如果该地址关联账户，重置链接将在几分钟内发送。',
+      invalidEmail: '请输入有效的工作邮箱。',
+      unavailable: '服务暂时不可用。请稍后重试。',
       backToLogin: '返回登录',
-      note: '不要向支持人员发送密码。只有在核验账户归属后才会恢复访问权限。',
-      requestName: '恢复访问权限',
-      requestMessage: '请求恢复工作平台访问权限。',
+      note: '链接有效期为15分钟且只能使用一次。系统不会披露账户是否存在。',
+    },
+    reset: {
+      publicNav: '新密码页面导航',
+      brandTagline: '安全恢复访问权限',
+      backHome: '返回首页',
+      title: '设置新密码',
+      lead: '密码修改后，所有当前会话都将被撤销。',
+      newPassword: '新密码',
+      newPasswordPlaceholder: '至少12个字符',
+      confirmPassword: '确认密码',
+      confirmPasswordPlaceholder: '再次输入密码',
+      showPassword: '显示密码',
+      hidePassword: '隐藏密码',
+      policy: '12–128个字符，并至少包含三类：小写字母、大写字母、数字和特殊符号。',
+      mismatch: '两次输入的密码不一致。',
+      invalid: '链接无效、已过期或已使用。',
+      unavailable: '服务暂时不可用。请稍后重试。',
+      rateLimited: '尝试次数过多。请稍后重试。',
+      submit: '保存新密码',
+      loading: '正在保存…',
+      successTitle: '密码已更改',
+      successText: '新密码已保存。',
+      sessionsRevoked: '所有旧会话已撤销。请重新登录。',
+      backToLogin: '前往登录',
     },
   },
 };
