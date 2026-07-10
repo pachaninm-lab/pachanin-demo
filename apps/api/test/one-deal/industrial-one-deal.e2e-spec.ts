@@ -16,13 +16,16 @@ import {
   buildBankSignaturePayload,
   SettlementEngineController,
 } from '../../src/modules/settlement-engine/settlement-engine.controller';
+import {
+  createPersistentActorHarness,
+  type PersistentActorHarness,
+} from './persistent-auth-actors';
 
-const TENANT_ID = 'tenant-canonical-test';
 const BANK_SECRET = process.env.BANK_HMAC_SECRET ?? '';
 const BANK_PARTNER_ID = process.env.BANK_PARTNER_ID ?? 'safe-deals';
 const BANK_KEY_ID = process.env.BANK_HMAC_KEY_ID ?? 'primary';
-
-const CANONICAL_ORG_IDS = new Set([
+const DEAL_AMOUNT_KOPECKS = 240_000_000;
+const CANONICAL_ORG_IDS = [
   'org-canonical-seller',
   'org-canonical-buyer',
   'org-canonical-logistics',
@@ -31,15 +34,10 @@ const CANONICAL_ORG_IDS = new Set([
   'org-canonical-lab',
   'org-canonical-bank',
   'org-canonical-platform',
-]);
+] as const;
 
 type UserActionId = Exclude<DealActionId, 'confirm_reserve' | 'confirm_release'>;
 type Workspace = Awaited<ReturnType<IndustrialDealCommandGateway['workspace']>>;
-type MembershipRow = {
-  organizationId: string;
-  role: string;
-  user: { id: string; email: string; fullName: string };
-};
 type CommandReceipt = {
   duplicate: boolean;
   commandId: string;
@@ -197,45 +195,31 @@ async function submitBankCallback(
   );
 }
 
-describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => {
+describe('persistent-auth-backed industrial one-deal exploitation and recovery gate', () => {
   const primary = createRuntime();
   const { prisma, rls, gateway, settlement } = primary;
   const usersByRole = new Map<Role, RequestUser>();
   const issuedUserCommands: IssuedUserCommand[] = [];
+  let authHarness: PersistentActorHarness;
 
   beforeAll(async () => {
     if (!BANK_SECRET) throw new Error('BANK_HMAC_SECRET is required for signed callback fixtures.');
     await prisma.$connect();
-
-    const memberships = (await prisma.userOrg.findMany({
-      where: { organizationId: { in: [...CANONICAL_ORG_IDS] } },
-      include: { user: true },
-      orderBy: { role: 'asc' },
-    })) as MembershipRow[];
-
-    for (const membership of memberships) {
-      usersByRole.set(membership.role as Role, {
-        id: membership.user.id,
-        email: membership.user.email,
-        fullName: membership.user.fullName,
-        role: membership.role as Role,
-        orgId: membership.organizationId,
-        tenantId: TENANT_ID,
-        sessionId: `e2e-session-${membership.role.toLowerCase()}`,
-        mfaVerified: true,
-      });
-    }
-
+    authHarness = await createPersistentActorHarness(CANONICAL_ORG_IDS);
+    for (const [role, actor] of authHarness.actorsByRole) usersByRole.set(role, actor);
     expect(usersByRole.size).toBe(12);
   });
 
   afterAll(async () => {
-    await prisma.$disconnect();
+    await Promise.allSettled([
+      prisma.$disconnect(),
+      authHarness?.disconnect(),
+    ]);
   });
 
   function actor(role: Role): RequestUser {
     const user = usersByRole.get(role);
-    if (!user) throw new Error(`Missing seeded membership for role ${role}`);
+    if (!user) throw new Error(`Missing persistent authenticated actor for role ${role}`);
     return user;
   }
 
@@ -258,6 +242,10 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
     options: { expectedUpdatedAt?: string; idempotencyKey?: string; commandId?: string } = {},
   ) {
     const role = actionRole[actionId];
+    const authenticatedActor = actor(role);
+    if (actionId === 'request_reserve' || actionId === 'request_release') {
+      authHarness.primaryAuth.assertRecentFinancialMfa(authenticatedActor, DEAL_AMOUNT_KOPECKS);
+    }
     const current = await workspace(role);
     const dto: ExecuteDealCommandDto = {
       commandId: options.commandId ?? `command-${actionId}`,
@@ -265,7 +253,7 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
       expectedUpdatedAt: options.expectedUpdatedAt ?? current.deal.updatedAt,
       payload: payload(actionId),
     };
-    const raw = await gateway.executeUser(CANONICAL_TEST_DEAL_ID, actionId, dto, actor(role));
+    const raw = await gateway.executeUser(CANONICAL_TEST_DEAL_ID, actionId, dto, authenticatedActor);
     const receipt = requireReceipt(raw);
     issuedUserCommands.push({ actionId, role, dto, receipt });
     return receipt;
@@ -426,7 +414,7 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
 
     const sequentialValidAgain = await probe(valid);
     expect(sequentialValidAgain.dealCount).toBe(1);
-    expect(sequentialValidAgain.settings?.tenant_id).toBe(TENANT_ID);
+    expect(sequentialValidAgain.settings?.tenant_id).toBe(valid.tenantId);
 
     const parallel = await Promise.all(
       Array.from({ length: 16 }, (_, index) => {
@@ -472,12 +460,14 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
     });
   }
 
-  it('executes one factual deal and proves concurrency replay restart rollback and RLS isolation', async () => {
+  it('executes one factual deal with persistent identity, MFA, recovery and RLS isolation', async () => {
     const roleViews = await Promise.all(
       [...usersByRole.keys()].map(async (role) => ({ role, view: await workspace(role) })),
     );
     expect(new Set(roleViews.map(({ view }) => view.deal.id))).toEqual(new Set([CANONICAL_TEST_DEAL_ID]));
     expect(new Set(roleViews.map(({ view }) => view.deal.status))).toEqual(new Set(['DRAFT']));
+
+    await authHarness.verifyWithFreshInstance();
 
     const sellerWithSpoofedOrg = { ...actor(Role.FARMER), orgId: 'org-canonical-buyer' };
     await expect(gateway.workspace(CANONICAL_TEST_DEAL_ID, sellerWithSpoofedOrg)).resolves.toMatchObject({
@@ -602,7 +592,6 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
     const reserveCallback = bankCallbackFixture('RESERVE');
     await withFreshRuntime(async (fresh) => {
       expect((await workspace(Role.ACCOUNTING, fresh.gateway)).deal.status).toBe('RESERVE_REQUESTED');
-
       const durablePending = await fresh.rls.withTrustedContext(actor(Role.ACCOUNTING), async (tx) => {
         const [operation, pendingOutbox, receipt] = await Promise.all([
           tx.bankOperation.findUnique({ where: { id: `bank-reserve:${CANONICAL_TEST_DEAL_ID}` } }),
@@ -627,7 +616,6 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
       expect(durablePending.operation).toMatchObject({ type: 'RESERVE', status: 'PENDING' });
       expect(durablePending.pendingOutbox).not.toBeNull();
       expect(durablePending.receipt).not.toBeNull();
-
       await expect(
         submitBankCallback(fresh.settlement, reserveCallback, { proveInvalidSignature: true }),
       ).resolves.toMatchObject({ status: 'RESERVED', duplicate: false });
@@ -670,7 +658,20 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
 
     const operator = actor(Role.SUPPORT_MANAGER);
     const reconciled = await rls.withTrustedContext(operator, async (tx) => {
-      const [deal, participants, events, audits, outbox, documents, shipment, sample, acceptance, payment, bankOperations, ledger] = await Promise.all([
+      const [
+        deal,
+        participants,
+        events,
+        audits,
+        outbox,
+        documents,
+        shipment,
+        sample,
+        acceptance,
+        payment,
+        bankOperations,
+        ledger,
+      ] = await Promise.all([
         tx.deal.findUnique({ where: { id: CANONICAL_TEST_DEAL_ID } }),
         tx.dealParticipant.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { id: 'asc' } }),
         tx.dealEvent.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { createdAt: 'asc' } }),
@@ -684,10 +685,23 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
         tx.bankOperation.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { type: 'asc' } }),
         tx.ledgerEntry.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { createdAt: 'asc' } }),
       ]);
-      return { deal, participants, events, audits, outbox, documents, shipment, sample, acceptance, payment, bankOperations, ledger };
+      return {
+        deal,
+        participants,
+        events,
+        audits,
+        outbox,
+        documents,
+        shipment,
+        sample,
+        acceptance,
+        payment,
+        bankOperations,
+        ledger,
+      };
     });
 
-    expect(reconciled.deal).toMatchObject({ status: 'CLOSED', totalKopecks: 240_000_000 });
+    expect(reconciled.deal).toMatchObject({ status: 'CLOSED', totalKopecks: DEAL_AMOUNT_KOPECKS });
     expect(reconciled.participants).toHaveLength(12);
     expect(reconciled.participants.filter((item) => item.role === Role.EXECUTIVE)).toEqual([
       expect.objectContaining({ accessLevel: 'READ', status: 'ACTIVE' }),
@@ -701,7 +715,11 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
     expect(reconciled.sample).toMatchObject({ status: 'DONE', protocol: 'LAB-E2E-001' });
     expect(reconciled.sample?.tests).toHaveLength(2);
     expect(reconciled.acceptance).toMatchObject({ status: 'ACCEPTED', qualityStatus: 'PASSED' });
-    expect(reconciled.payment).toMatchObject({ status: 'RELEASED', callbackState: 'CONFIRMED', bankRef: 'release-ref-e2e' });
+    expect(reconciled.payment).toMatchObject({
+      status: 'RELEASED',
+      callbackState: 'CONFIRMED',
+      bankRef: 'release-ref-e2e',
+    });
     expect(reconciled.bankOperations).toHaveLength(2);
     expect(reconciled.bankOperations.every((item) => item.status === 'DONE')).toBe(true);
     expect(reconciled.ledger.map((item) => item.entryType)).toEqual(['RESERVE', 'RELEASE']);
@@ -734,8 +752,25 @@ describe('industrial one-deal PostgreSQL exploitation and recovery gate', () => 
     });
     expect(await evidenceSnapshot(rls, operator)).toEqual(beforeFullRecoveryReplay);
 
+    const executive = actor(Role.EXECUTIVE);
+    const executiveToken = authHarness.accessTokensByRole.get(Role.EXECUTIVE);
+    if (!executive.membershipId || !executiveToken) throw new Error('Executive persistent session proof is incomplete');
+    await authHarness.primaryPrisma.userOrg.update({
+      where: { id: executive.membershipId },
+      data: { role: Role.GUEST },
+    });
+    await expect(authHarness.verifierAuth.verifyAccessToken(executiveToken)).rejects.toThrow(/revoked|not active/i);
+    await authHarness.primaryPrisma.userOrg.update({
+      where: { id: executive.membershipId },
+      data: { role: Role.EXECUTIVE },
+    });
+
     process.stdout.write(`${JSON.stringify({
       e2e: 'passed',
+      identity: 'persistent-postgresql',
+      mfa: 'passed',
+      authRestart: 'passed',
+      membershipRevocation: 'passed',
       recovery: 'passed',
       dealId: reconciled.deal?.id,
       status: reconciled.deal?.status,
