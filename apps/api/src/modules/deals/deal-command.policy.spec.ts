@@ -33,6 +33,11 @@ describe('canonical deal command policy', () => {
     expect(spine.find((step) => step.id === 'confirm_weight')?.state).toBe('pending');
   });
 
+  it('assigns the independent inspection to the first-class surveyor role', () => {
+    const inspection = DEAL_ACTIONS.find((action) => action.id === 'confirm_inspection');
+    expect(inspection?.roles).toContain('SURVEYOR');
+  });
+
   it('marks the entire line complete only when the deal is closed', () => {
     expect(buildDealSpine('CLOSED').every((step) => step.state === 'done')).toBe(true);
   });
