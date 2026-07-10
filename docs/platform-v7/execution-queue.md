@@ -1,14 +1,16 @@
 # platform-v7 execution queue
 
-CURRENT: Persistent Identity, Session, Refresh-Family Revocation and MFA.
+CURRENT: Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation.
 
 GOAL:
-Replace process-memory authentication and client-selected authority with persistent PostgreSQL identity, membership, session, refresh-family, revocation and MFA truth shared by all API instances.
+Make PostgreSQL the only source of truth for critical delivery, coordinate multiple workers safely, reconcile bank operations against immutable evidence and support overlapping partner-key rotation without weakening the canonical Deal transaction.
 
 BASELINE PROVEN:
-- #2270 proves the canonical 12-role / 19-command Deal lifecycle on isolated PostgreSQL 16;
-- #2274 proves concurrency, replay, restart, rollback and RLS pool isolation;
-- merge baseline is `cc10110293d9716c2f93790e7756589ead017afd`.
+- #2270 and #2274 prove the canonical 12-role / 19-command Deal lifecycle, concurrency, replay, restart, rollback and RLS pool isolation on PostgreSQL 16;
+- #2276, #2280, #2282 and #2283 prove persistent identity, MFA, one-time backup codes and server-derived authority;
+- #2287 proves separate restricted deal and auth PostgreSQL principals;
+- #2291 proves forward-only backup and isolated restore rehearsal;
+- merge baseline is `7c499ede59fc416cbf546d58dc7950b49dc1a77f`.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
@@ -17,61 +19,52 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/prompts/current-review-task.md
 - docs/platform-v7/execution-queue.md
 - apps/api/prisma/schema.prisma
-- apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql
-- apps/api/src/modules/auth/**
-- apps/api/src/common/guards/**
-- apps/api/src/common/types/request-user.ts
-- apps/api/test/auth/**
-- apps/api/test/one-deal/seed.ts
+- apps/api/prisma/migrations/**
+- apps/api/src/common/outbox/**
+- apps/api/src/common/kafka/**
+- apps/api/src/common/prisma/rls-transaction.service.ts
+- apps/api/src/modules/settlement-engine/**
+- apps/api/src/modules/deals/industrial-deal-command.gateway.ts
+- apps/api/src/modules/deals/deal-command.service.ts
+- apps/api/test/outbox/**
+- apps/api/test/one-deal/**
+- scripts/platform-v7-one-deal-e2e.sh
 - .github/workflows/ci.yml
 
 CURRENT CRITERIA:
-- PostgreSQL User and UserOrg are the only identity and membership source of truth;
-- persistent Session records contain status, current refresh family, MFA state, last activity and revocation reason;
-- refresh tokens are one-time opaque secrets stored only as hashes;
-- every refresh rotates the token; reuse revokes the entire family and creates audit evidence;
-- access tokens identify an opaque session and user, while role, tenant and organization are re-derived from current DB membership;
-- logout, password reset, user block, organization suspension and administrator revoke invalidate affected sessions;
-- ADMIN, COMPLIANCE_OFFICER and ARBITRATOR require MFA; financial actions at or above the configured threshold require recent MFA;
-- TOTP secrets are encrypted at rest and backup codes are stored only as hashes;
-- login, refresh, MFA verify, logout, revoke, refresh reuse and denied authorization are audited;
-- two fresh API instances observe the same session status and refresh-family rotation;
-- migration deploy and zero schema drift pass on clean PostgreSQL 16;
-- unit, integration, restart, concurrency and security tests pass;
-- production identity-provider and production deployment claims remain forbidden.
+- PostgreSQL is the only authoritative outbox state; no process-memory or file fallback is allowed in production;
+- Deal/payment/audit/outbox writes commit in one trusted transaction;
+- multiple workers claim bounded batches through database leases and `FOR UPDATE SKIP LOCKED`;
+- transport failure or `send=false` never produces SENT/CONFIRMED;
+- expired leases recover safely after worker crash;
+- retry, backoff, dead-letter and audited manual retry state are durable;
+- delivery semantics are explicitly at-least-once with stable downstream idempotency keys;
+- bank reconciliation persists its cursor/checkpoint and records immutable mismatch evidence;
+- reconciliation mismatch cannot reserve or release money automatically;
+- partner callback keys have version, validity interval, overlap and immediate revocation;
+- unknown, expired, not-yet-valid and revoked keys fail closed;
+- one-deal, persistent-auth, RLS, backup and restore gates remain green;
+- production bank, Kafka HA, external integrations and production scale remain unclaimed.
 
 LOCKED:
-- all platform UI and client role-selection changes;
+- all platform UI and role-cabinet migration;
 - apps/landing;
 - package and lockfiles;
 - live ESIA, bank, ФГИС, ЭДО and signature activation;
 - production migration execution;
-- production load, restore and DR claims.
+- production bank money movement;
+- production load and provider DR claims.
 
 NEXT:
-- Layer: Durable Outbox Workers, Bank Reconciliation and Partner-Key Rotation.
-- Allowed files:
-  - docs/platform-v7/autopilot/autopilot-state.json
-  - docs/platform-v7/execution-queue.md
-  - apps/api/prisma/schema.prisma
-  - apps/api/prisma/migrations/20260710160000_durable_outbox_reconciliation/migration.sql
-  - apps/api/src/modules/outbox/**
-  - apps/api/src/modules/settlement-engine/**
-  - apps/api/src/modules/integrations/**
-  - apps/api/test/outbox/**
-  - apps/api/test/settlement/**
-  - .github/workflows/ci.yml
-- Success criteria:
-  - outbox claiming uses database leases and `SKIP LOCKED` semantics;
-  - retries, dead-letter transition and restart recovery are deterministic;
-  - bank reconciliation compares platform operations, callbacks and ledger without mutating history;
-  - partner keys support versioning, overlap and revocation;
-  - duplicate workers and callbacks remain idempotent;
-  - production integration remains unclaimed.
-- Readiness remains 87% until persistent identity and subsequent operational layers are proven.
+- Layer: Truthful Driver Offline Acknowledgement and Conflict Handling.
+- Preserve server-derived role/tenant authority and the canonical Deal object.
+- Do not begin until the durable financial-delivery criteria above are green and merged.
 
 AFTER NEXT:
-- Truthful driver offline acknowledgement and conflict handling.
 - Server-rendered RU/EN/ZH i18n.
 - Complete mobile-first design-system and role-cabinet migration with one server-derived shell, one primary action, visible blocker reason and next step, accessibility and visual regression gates.
-- Load, restore, DR and operational acceptance.
+- Production load, high availability, observability and operational acceptance.
+- Live integration activation only after contracts, partner credentials and controlled acceptance.
+
+READINESS:
+91% honest architectural and isolated-runtime readiness. Production deployment, provider PITR/RTO/RPO, live external integrations and production scale are not proven.
