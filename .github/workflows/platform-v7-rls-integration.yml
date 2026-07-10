@@ -1,0 +1,77 @@
+name: platform-v7 PostgreSQL RLS integration
+
+on:
+  pull_request:
+    paths:
+      - 'infra/sql/production-rls-policies.sql'
+      - 'apps/api/prisma/migrations/**'
+      - 'apps/api/test/rls/**'
+      - 'scripts/platform-v7-rls-*'
+      - '.github/workflows/platform-v7-rls-integration.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/sql/production-rls-policies.sql'
+      - 'apps/api/prisma/migrations/**'
+      - 'apps/api/test/rls/**'
+      - 'scripts/platform-v7-rls-*'
+      - '.github/workflows/platform-v7-rls-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-v7-rls-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rls-integration:
+    name: PostgreSQL 16 tenant isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rls_admin
+          POSTGRES_PASSWORD: ephemeral_rls_admin_only
+          POSTGRES_DB: rls_integration
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U rls_admin -d rls_integration"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      RLS_INTEGRATION_ADMIN_URL: postgresql://rls_admin:ephemeral_rls_admin_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/rls_integration
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Run isolated RLS integration assertions
+        run: |
+          set -o pipefail
+          bash scripts/platform-v7-rls-integration.sh 2>&1 | tee /tmp/platform-v7-rls-integration.log
+
+      - name: Upload RLS integration log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-rls-integration-log
+          path: /tmp/platform-v7-rls-integration.log
+          if-no-files-found: error
+          retention-days: 7
