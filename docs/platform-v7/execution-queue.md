@@ -2,6 +2,12 @@
 
 CURRENT: Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation.
 
+IN PROGRESS:
+- implementation PR: #2307;
+- branch: `p0/durable-outbox-financial-delivery`;
+- first additive slice: `delivery` schema, leases, SKIP LOCKED claim, retry/dead/manual-requeue functions;
+- current PR remains draft and must not be merged until memory-led services, reconciliation, partner-key lifecycle and all exact-head gates are complete.
+
 GOAL:
 Make PostgreSQL the only source of truth for critical delivery, coordinate multiple workers safely, reconcile bank operations against immutable evidence and support overlapping partner-key rotation without weakening the canonical Deal transaction.
 
@@ -10,7 +16,8 @@ BASELINE PROVEN:
 - #2276, #2280, #2282 and #2283 prove persistent identity, MFA, one-time backup codes and server-derived authority;
 - #2287 proves separate restricted deal and auth PostgreSQL principals;
 - #2291 proves forward-only backup and isolated restore rehearsal;
-- merge baseline is `7c499ede59fc416cbf546d58dc7950b49dc1a77f`.
+- #2302 and #2305 prove distributed pre-auth rate limiting and its deployment boundary;
+- merge baseline is `15cd654cd31d2c8a279bfcec4b4af7501d0875c8`.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
@@ -85,4 +92,4 @@ AFTER NEXT:
 - Live integration activation only after contracts, partner credentials and controlled acceptance.
 
 READINESS:
-91% honest architectural and isolated-runtime readiness. Production deployment, provider PITR/RTO/RPO, live external integrations and production scale are not proven.
+91% honest architectural and isolated-runtime readiness. PR #2307 is in progress. Production deployment, provider PITR/RTO/RPO, live external integrations and production scale are not proven.
