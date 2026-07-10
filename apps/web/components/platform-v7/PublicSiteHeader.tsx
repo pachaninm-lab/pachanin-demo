@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { BrandMarkSvg } from '@/components/v7r/BrandMark';
 import { PublicLocaleSwitch } from '@/components/platform-v7/PublicLocaleSwitch';
+import styles from './PublicSiteHeader.module.css';
 
 export const PUBLIC_SITE_HEADER_HEIGHT = 64;
 
@@ -22,7 +23,7 @@ export function PublicSiteHeader({
   ariaLabel?: string;
 }) {
   return (
-    <header className='pc-site-header' aria-label={ariaLabel}>
+    <header className={`pc-site-header ${styles.header}`} aria-label={ariaLabel}>
       <Link href='/platform-v7' className='pc-site-brand' aria-label='Прозрачная Цена — на главную'>
         <span className='pc-site-brand-mark' aria-hidden='true'><BrandMarkSvg /></span>
         <span className='pc-site-brand-text'>
@@ -35,59 +36,6 @@ export function PublicSiteHeader({
         <PublicLocaleSwitch />
         {actions}
       </div>
-      <style>{css}</style>
     </header>
   );
 }
-
-const css = `
-.pc-site-header{
-  position:fixed;top:0;left:0;right:0;z-index:2600;
-  display:flex;align-items:center;gap:16px;
-  height:${PUBLIC_SITE_HEADER_HEIGHT}px;
-  padding:0 clamp(16px,4vw,44px);
-  background:rgba(255,255,255,.97);
-  border-bottom:1px solid rgba(7,22,17,.08);
-  box-shadow:0 8px 24px rgba(7,22,17,.06);
-  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
-  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-}
-.pc-site-brand{display:inline-flex;align-items:center;gap:11px;min-width:0;color:#071611;text-decoration:none;flex:0 0 auto}
-.pc-site-brand-mark{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:11px;overflow:hidden;flex:0 0 40px}
-.pc-site-brand-mark svg{display:block;width:100%;height:100%}
-.pc-site-brand-text{display:grid;min-width:0}
-.pc-site-brand-text strong{font-size:18px;line-height:1.05;font-weight:900;letter-spacing:-.03em;white-space:nowrap}
-.pc-site-brand-text small{margin-top:2px;color:#66736e;font-size:12px;font-weight:650;line-height:1.05;white-space:nowrap}
-.pc-site-nav{flex:1 1 auto;display:flex;justify-content:center;align-items:center;gap:20px;min-width:0;color:#17251f;font-size:14px;font-weight:760}
-.pc-site-nav a{color:inherit;text-decoration:none;white-space:nowrap}
-.pc-site-nav a:hover{color:#087a3b}
-.pc-site-actions{flex:0 0 auto;margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:9px}
-.pc-site-action,.pc-site-locale-switch{height:42px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border-radius:14px;background:rgba(255,255,255,.9);border:1px solid rgba(7,22,17,.10);color:#071611;text-decoration:none}
-.pc-site-action{width:42px;padding:0}
-.pc-site-action>span{display:none}
-.pc-site-action.is-primary{background:rgba(0,122,47,.09);border-color:rgba(0,122,47,.2);color:#087a3b}
-.pc-site-locale-switch{gap:6px;padding:0 7px;color:#087a3b;background:rgba(0,122,47,.08);border-color:rgba(0,122,47,.18)}
-.pc-site-locale-options{display:flex;align-items:center;gap:2px}
-.pc-site-locale-options a{min-width:29px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;color:#557067;text-decoration:none;font-size:10px;font-weight:900;letter-spacing:.02em}
-.pc-site-locale-options a:hover{background:rgba(8,122,59,.09);color:#087a3b}
-html:lang(ru) .pc-site-locale-options a[data-locale='ru'],html:lang(en) .pc-site-locale-options a[data-locale='en'],html:lang(zh-CN) .pc-site-locale-options a[data-locale='zh'],html:lang(zh) .pc-site-locale-options a[data-locale='zh']{background:#087a3b;color:#fff}
-.pc-site-action:hover{border-color:rgba(0,122,47,.34);background:rgba(0,122,47,.06)}
-.pc-site-header a:focus-visible{outline:3px solid #087a3b;outline-offset:3px;border-radius:10px}
-@media (max-width:1080px){.pc-site-nav{display:none}}
-@media (max-width:720px){
-  .pc-site-header{gap:10px;padding:0 16px}
-  .pc-site-brand-text small{display:none}
-  .pc-site-brand-text strong{font-size:17px}
-  .pc-site-actions{gap:6px}
-  .pc-site-locale-switch{height:40px;padding:0 5px;gap:3px}
-  .pc-site-locale-switch>svg{display:none}
-  .pc-site-locale-options a{min-width:27px;height:29px}
-}
-@media (max-width:374px){
-  .pc-site-header{padding:0 12px}
-  .pc-site-brand{gap:9px}
-  .pc-site-brand-mark{width:36px;height:36px;flex-basis:36px}
-  .pc-site-brand-text strong{font-size:16px}
-  .pc-site-locale-options a{min-width:25px}
-}
-`;
