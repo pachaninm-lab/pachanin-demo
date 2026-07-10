@@ -9,6 +9,9 @@ const template = read('apps/web/app/platform-v7/template.tsx');
 const templateSwitch = read('apps/web/components/platform-v7/PlatformV7TemplateSwitch.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
+const landing = read('apps/web/app/platform-v7/page.tsx');
+const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
+const intelligenceStrip = read('apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx');
 const middleware = read('apps/web/middleware.ts');
 
 describe('platform-v7 public/protected runtime split', () => {
@@ -37,6 +40,13 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(templateSwitch).toContain('dynamic(');
     expect(templateSwitch).toContain('PlatformV7ProtectedTemplateRuntime');
     expect(templateSwitch).toContain('if (isPublicPath(pathname)) return <>{children}</>');
+  });
+
+  it('renders public inline CSS deterministically across server and client hydration', () => {
+    for (const source of [landing, publicHeader, intelligenceStrip]) {
+      expect(source).toContain('<style dangerouslySetInnerHTML={{ __html: css }} />');
+      expect(source).not.toContain('<style>{css}</style>');
+    }
   });
 
   it('does not reset all browser caches or mount dev tooling without an explicit flag', () => {
