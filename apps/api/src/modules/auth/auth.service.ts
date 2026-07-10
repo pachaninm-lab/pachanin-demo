@@ -482,8 +482,8 @@ export class AuthService {
 
       const credential = await this.requireCredentialState(tx, challenge.user_id, true);
       if (!credential.mfa_secret_ciphertext) return { kind: 'invalid' as const };
-      const method = this.verifyMfaCode(credential, dto.code);
-      if (!method) {
+      const verification = this.verifyMfaCode(credential, dto.code);
+      if (!verification) {
         const terminal = challenge.challenge_attempts + 1 >= challenge.challenge_max_attempts;
         await this.repository.recordMfaFailure(tx, challenge.challenge_id, terminal);
         if (terminal) await this.repository.revokeSession(tx, challenge.session_id, 'MFA_ATTEMPTS_EXHAUSTED');
@@ -503,13 +503,19 @@ export class AuthService {
 
       const enrollment = challenge.challenge_type === 'TOTP_ENROLL';
       const backup = enrollment ? generateBackupCodes() : null;
+      const method = verification.method;
+      const persistedBackupHashes = enrollment
+        ? backup?.hashes
+        : verification.method === 'BACKUP'
+          ? verification.remainingBackupHashes
+          : undefined;
       await this.repository.activateMfaSession(tx, {
         challengeId: challenge.challenge_id,
         sessionId: challenge.session_id,
         userId: challenge.user_id,
         method,
         enableMfa: enrollment,
-        backupHashes: backup?.hashes,
+        backupHashes: persistedBackupHashes,
       });
       const refresh = makeOpaqueToken('rt');
       await this.repository.createRefreshToken(tx, {
@@ -932,17 +938,24 @@ export class AuthService {
     return null;
   }
 
-  private verifyMfaCode(credential: CredentialStateRow, code: string): 'TOTP' | 'BACKUP' | null {
+  private verifyMfaCode(
+    credential: CredentialStateRow,
+    code: string,
+  ): { method: 'TOTP' } | { method: 'BACKUP'; remainingBackupHashes: string[] } | null {
     const secret = credential.mfa_secret_ciphertext
       ? decryptMfaSecret(credential.mfa_secret_ciphertext)
       : null;
-    if (secret && verifyTotp(secret, code)) return 'TOTP';
+    if (secret && verifyTotp(secret, code)) return { method: 'TOTP' };
     const hashes = Array.isArray(credential.mfa_backup_hashes)
       ? credential.mfa_backup_hashes.filter((item): item is string => typeof item === 'string')
       : [];
     const candidate = hashAuthMaterial(String(code).trim().toUpperCase());
-    if (hashes.some((item) => secureEqual(item, candidate))) return 'BACKUP';
-    return null;
+    const matchedIndex = hashes.findIndex((item) => secureEqual(item, candidate));
+    if (matchedIndex < 0) return null;
+    return {
+      method: 'BACKUP',
+      remainingBackupHashes: hashes.filter((_, index) => index !== matchedIndex),
+    };
   }
 
   private async requireCredentialState(
