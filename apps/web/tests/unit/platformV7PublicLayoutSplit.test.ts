@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const layout = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/layout.tsx'), 'utf8');
 const shellSwitch = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx'), 'utf8');
+const protectedShell = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'), 'utf8');
 const middleware = fs.readFileSync(path.join(process.cwd(), 'apps/web/middleware.ts'), 'utf8');
 
 describe('platform-v7 public/protected shell split', () => {
@@ -27,14 +28,16 @@ describe('platform-v7 public/protected shell split', () => {
   });
 
   it('keeps protected routes inside AppShellV4 with guards and role shell controls', () => {
-    expect(shellSwitch).toContain('<AppShellV4 initialRole={initialRole}>');
-    expect(shellSwitch).toContain('<PlatformV7SingleEntryGuard />');
-    expect(shellSwitch).toContain('<PlatformV7ShellUxController />');
-    expect(shellSwitch).toContain('<RbacCabinetGuard />');
-    expect(shellSwitch).toContain('<CalculatorHeaderWidget />');
-    expect(shellSwitch).toContain('<SupportHeaderIcon />');
-    expect(shellSwitch).toContain('<RoleAssistantWidget />');
-    expect(shellSwitch).not.toContain('<CommandPalette />');
+    expect(shellSwitch).toContain('dynamic(');
+    expect(shellSwitch).toContain('PlatformV7ProtectedShell');
+    expect(protectedShell).toContain('<AppShellV4 initialRole={initialRole}>');
+    expect(protectedShell).toContain('<PlatformV7SingleEntryGuard />');
+    expect(protectedShell).toContain('<PlatformV7ShellUxController />');
+    expect(protectedShell).toContain('<RbacCabinetGuard />');
+    expect(protectedShell).toContain('<CalculatorHeaderWidget />');
+    expect(protectedShell).toContain('<SupportHeaderIcon />');
+    expect(protectedShell).toContain('<RoleAssistantWidget />');
+    expect(protectedShell).not.toContain('<CommandPalette />');
   });
 
   it('canonicalises the legacy /ai route to the maintained assistant route', () => {

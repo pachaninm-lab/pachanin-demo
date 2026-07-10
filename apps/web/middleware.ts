@@ -142,12 +142,15 @@ function isOwnerAuthorized(req: NextRequest): boolean {
   return safeEqual(basic.user, privateUser) && safeEqual(basic.password, privatePassword);
 }
 
-function applySecurityHeaders(response: NextResponse, protectedResponse = false) {
-  response.headers.set('x-robots-tag', 'noindex, nofollow, noarchive, nosnippet, noimageindex');
+function applySecurityHeaders(response: NextResponse, protectedResponse = false, indexable = false) {
+  response.headers.set(
+    'x-robots-tag',
+    indexable ? 'index, follow, max-image-preview:large' : 'noindex, nofollow, noarchive, nosnippet, noimageindex'
+  );
   response.headers.set('x-content-type-options', 'nosniff');
   response.headers.set('x-frame-options', 'DENY');
   response.headers.set('referrer-policy', 'no-referrer');
-  response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), accelerometer=(), gyroscope=()');
+  response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()');
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload');
   response.headers.set(
     'content-security-policy',
@@ -228,7 +231,7 @@ function resolveLocaleFromQuery(req: NextRequest): string | null {
   return queryLocale && VALID_LOCALES.has(queryLocale) ? queryLocale : null;
 }
 
-function withRoleHeaders(req: NextRequest, role: string, protectedResponse = false) {
+function withRoleHeaders(req: NextRequest, role: string, protectedResponse = false, indexable = false) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-pc-role', role);
   requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
@@ -238,7 +241,7 @@ function withRoleHeaders(req: NextRequest, role: string, protectedResponse = fal
   response.headers.set('x-pc-role', role);
   response.headers.set('x-pc-pathname', req.nextUrl.pathname);
   if (queryLocale) persistLocaleCookie(req, response, queryLocale);
-  return applySecurityHeaders(response, protectedResponse || Boolean(queryLocale));
+  return applySecurityHeaders(response, protectedResponse || Boolean(queryLocale), indexable);
 }
 
 function persistRoleCookie(req: NextRequest, response: NextResponse, role: string) {
@@ -315,7 +318,7 @@ export async function middleware(req: NextRequest) {
 
   if (p.startsWith('/platform-v7')) {
     const isEntry = p === '/platform-v7';
-    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
+    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath, isEntry && !privateModeEnabled);
     persistRoleCookie(req, response, resolvedRole);
     if (isEntry) markPlatformV7Entry(response);
     try {

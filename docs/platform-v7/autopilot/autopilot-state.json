@@ -80,7 +80,22 @@
     "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
   ],
-  "approvedConcurrentScopes": {},
+  "approvedConcurrentScopes": {
+    "agent/fix-platform-v7-public-live-defects": [
+      "apps/web/app/layout.tsx",
+      "apps/web/app/v9.css",
+      "apps/web/app/platform-v7/page.tsx",
+      "apps/web/middleware.ts",
+      "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx",
+      "apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts",
+      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "apps/web/tests/unit/platformV7PublicLiveHardening.test.ts",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ]
+  },
   "industrialOneDealFoundation": {
     "status": "merged_green",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
