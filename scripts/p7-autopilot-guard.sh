@@ -44,6 +44,8 @@ if [ "${GITHUB_HEAD_REF:-}" = "p7-bank-basis-state-machine" ] || [ "${P7_BANK_BA
 fi
 
 INDUSTRIAL_ONE_DEAL_SCOPE='apps/api/src/modules/deals/**
+apps/api/src/modules/settlement-engine/settlement-engine.controller.ts
+apps/api/src/modules/settlement-engine/settlement-engine.module.ts
 apps/api/src/common/types/request-user.ts
 apps/api/src/common/action-executor/action-policy.ts
 apps/web/app/platform-v7/login/page.tsx
@@ -54,7 +56,8 @@ apps/web/components/platform-v7/RoleIntentDashboard.tsx
 apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx
 apps/web/lib/platform-v7/verified-session.ts
 apps/web/tests/unit/platformV7VerifiedSession.test.ts
-apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
+apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts
+.github/workflows/web-unit.yml'
 
 if [ "${GITHUB_HEAD_REF:-}" = "industrial-one-deal-foundation" ] || [ "${P7_INDUSTRIAL_ONE_DEAL_SCOPE:-}" = "1" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$INDUSTRIAL_ONE_DEAL_SCOPE")
