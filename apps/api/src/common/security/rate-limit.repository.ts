@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -18,9 +18,35 @@ type BucketRow = {
   expires_at: Date;
 };
 
+type StoreReadinessRow = {
+  table_ready: boolean;
+  schema_usage: boolean;
+  can_select: boolean;
+  can_insert: boolean;
+  can_update: boolean;
+  can_delete: boolean;
+};
+
 @Injectable()
-export class RateLimitRepository {
+export class RateLimitRepository implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
+
+  async onModuleInit(): Promise<void> {
+    if (String(process.env.NODE_ENV ?? '').toLowerCase() !== 'production') return;
+    const rows = await this.prisma.$queryRaw<StoreReadinessRow[]>(Prisma.sql`
+      SELECT
+        to_regclass('security.api_rate_limit_buckets') IS NOT NULL AS table_ready,
+        has_schema_privilege(current_user, 'security', 'USAGE') AS schema_usage,
+        has_table_privilege(current_user, 'security.api_rate_limit_buckets', 'SELECT') AS can_select,
+        has_table_privilege(current_user, 'security.api_rate_limit_buckets', 'INSERT') AS can_insert,
+        has_table_privilege(current_user, 'security.api_rate_limit_buckets', 'UPDATE') AS can_update,
+        has_table_privilege(current_user, 'security.api_rate_limit_buckets', 'DELETE') AS can_delete
+    `);
+    const readiness = rows[0];
+    if (!readiness || Object.values(readiness).some((value) => value !== true)) {
+      throw new Error('Distributed rate-limit store is not ready for production enforcement.');
+    }
+  }
 
   async consume(input: ConsumeRateLimitInput): Promise<RateLimitBucketResult> {
     const rows = await this.prisma.$queryRaw<BucketRow[]>(Prisma.sql`
