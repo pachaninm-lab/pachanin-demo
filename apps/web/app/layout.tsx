@@ -1,6 +1,7 @@
 import './globals.css';
 import '@/styles/platform-v7-dark-role-fixes.css';
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { ReactNode } from 'react';
 import Script from 'next/script';
 import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
@@ -22,7 +23,7 @@ const manrope = Manrope({
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
-  variable: '--font-mono',
+  variable: '--font-jetbrains-mono',
   display: 'swap',
 });
 
@@ -78,40 +79,58 @@ export const viewport: Viewport = {
 };
 
 const YM_ID = process.env.NEXT_PUBLIC_YM_ID;
-
-// S-3: Blocking theme script — runs synchronously before CSS paints
-const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
-// Public pilot: unregister any stale service worker and drop old caches on load
-// so returning devices always get the fresh page (no cached header/copy).
-const cacheResetScript = `(function(){try{if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(function(items){items.forEach(function(item){item.unregister();});});}if('caches'in window){caches.keys().then(function(keys){keys.forEach(function(key){caches.delete(key);});});}}catch(e){}})();`;
-
 const HTML_LANG: Record<string, string> = { ru: 'ru', en: 'en', zh: 'zh-CN' };
+const PUBLIC_PLATFORM_PATHS = new Set([
+  '/platform-v7',
+  '/platform-v7/open',
+  '/platform-v7/login',
+  '/platform-v7/forgot-password',
+  '/platform-v7/register',
+  '/platform-v7/help',
+  '/platform-v7/pricing',
+  '/platform-v7/roadmap',
+  '/platform-v7/deal-flow',
+  '/platform-v7/demo',
+  '/platform-v7/contact',
+  '/platform-v7/request',
+  '/platform-v7/docs',
+]);
+
+function normalizePath(value: string | null) {
+  return (value || '').split('?')[0].replace(/\/$/, '') || '/';
+}
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
-  const messages = await getMessages();
+  const allMessages = await getMessages() as Record<string, unknown>;
+  const requestHeaders = headers();
+  const pathname = normalizePath(requestHeaders.get('x-pc-pathname'));
+  const isPublicPlatformPath = PUBLIC_PLATFORM_PATHS.has(pathname);
+  const messages = isPublicPlatformPath
+    ? { publicEntry: allMessages.publicEntry }
+    : allMessages;
+  const showDevPanel = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
+
   return (
-    <html lang={HTML_LANG[locale] ?? 'ru'} translate="no" className={`notranslate ${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
-      {/* eslint-disable-next-line @next/next/no-head-element */}
+    <html
+      lang={HTML_LANG[locale] ?? 'ru'}
+      translate='no'
+      suppressHydrationWarning
+      className={`notranslate ${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}
+    >
       <head>
-        {/* Must be first in <head> to run before CSS is applied */}
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        <script dangerouslySetInnerHTML={{ __html: cacheResetScript }} />
-        <meta name="google" content="notranslate" />
-        <meta name="googlebot" content="notranslate" />
-        <meta httpEquiv="Content-Language" content={HTML_LANG[locale] ?? 'ru'} />
-        {/* D-20: preconnect to Google Fonts for faster font load */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <meta name='google' content='notranslate' />
+        <meta name='googlebot' content='notranslate' />
+        <meta httpEquiv='Content-Language' content={HTML_LANG[locale] ?? 'ru'} />
       </head>
-      <body translate="no" className="notranslate">
+      <body translate='no' className='notranslate'>
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
         </NextIntlClientProvider>
-        <FeatureFlagsDevPanel />
+        {showDevPanel ? <FeatureFlagsDevPanel /> : null}
         {YM_ID ? (
           <>
-            <Script id="yandex-metrika" strategy="afterInteractive">{`
+            <Script id='yandex-metrika' strategy='afterInteractive'>{`
               (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
               m[i].l=1*new Date();
               for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}
@@ -122,7 +141,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <noscript>
               <div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`https://mc.yandex.ru/watch/${YM_ID}`} style={{ position: 'absolute', left: -9999 }} alt="" />
+                <img src={`https://mc.yandex.ru/watch/${YM_ID}`} style={{ position: 'absolute', left: -9999 }} alt='' />
               </div>
             </noscript>
           </>
