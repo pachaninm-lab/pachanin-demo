@@ -3,10 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "VP-3.38 Runtime Persistence Internal Service Wiring Plan.",
+  "current": "VP-3.39 Runtime Persistence Internal Service Wiring Scope Unlock.",
   "fullTzReadinessPercent": 82,
-  "openPr": "#2246",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.", "#2215", "VP-3.7 Runtime Persistence Repository Adapter Contract Plan.", "#2216", "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request.", "#2217", "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight.", "#2218", "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation.", "#2219", "VP-3.11 Runtime Persistence Repository Adapter Implementation Scope Unlock.", "#2220", "VP-3.12 Runtime Persistence Repository Adapter Implementation Final Gate.", "#2221", "VP-3.13 Runtime Persistence Repository Adapter Implementation.", "#2222", "VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.", "#2223", "VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock.", "#2224", "VP-3.16 Runtime Persistence Repository Adapter Pipeline Binding Final Gate.", "#2225", "VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation.", "#2226", "VP-3.18 Runtime Persistence Outbox Audit Linkage Plan.", "#2227", "VP-3.19 Runtime Persistence Outbox Audit Linkage Scope Unlock.", "#2228", "VP-3.20 Runtime Persistence Outbox Audit Linkage Final Gate.", "#2229", "VP-3.21 Runtime Persistence Outbox Audit Linkage Implementation.", "#2230", "VP-3.22 Runtime Persistence Pipeline Linkage Binding Plan.", "#2231", "VP-3.23 Runtime Persistence Pipeline Linkage Binding Scope Unlock.", "#2232", "VP-3.24 Runtime Persistence Pipeline Linkage Binding Final Gate.", "#2233", "VP-3.25 Runtime Persistence Pipeline Linkage Binding Implementation.", "#2234", "VP-3.26 Runtime Persistence Transaction and Idempotency Hardening Plan.", "#2235", "VP-3.27 Runtime Persistence Transaction and Idempotency Scope Unlock.", "#2236", "VP-3.28 Runtime Persistence Transaction and Idempotency Final Gate.", "#2237", "VP-3.29 Runtime Persistence Transaction and Idempotency Hardening Implementation.", "#2238", "VP-3.30 Runtime Persistence Prisma Schema and Migration Plan.", "#2239", "VP-3.31 Runtime Persistence Prisma Schema and Migration Scope Unlock.", "#2240", "VP-3.32 Runtime Persistence Prisma Schema and Migration Final Gate.", "#2241", "VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation.", "#2242", "VP-3.34 Runtime Persistence Postgres Repository Adapter Plan.", "#2243", "VP-3.35 Runtime Persistence Postgres Repository Adapter Scope Unlock.", "#2244", "VP-3.36 Runtime Persistence Postgres Repository Adapter Final Gate.", "#2245", "VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation."],
+  "openPr": "#2248",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.", "#2215", "VP-3.7 Runtime Persistence Repository Adapter Contract Plan.", "#2216", "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request.", "#2217", "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight.", "#2218", "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation.", "#2219", "VP-3.11 Runtime Persistence Repository Adapter Implementation Scope Unlock.", "#2220", "VP-3.12 Runtime Persistence Repository Adapter Implementation Final Gate.", "#2221", "VP-3.13 Runtime Persistence Repository Adapter Implementation.", "#2222", "VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.", "#2223", "VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock.", "#2224", "VP-3.16 Runtime Persistence Repository Adapter Pipeline Binding Final Gate.", "#2225", "VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation.", "#2226", "VP-3.18 Runtime Persistence Outbox Audit Linkage Plan.", "#2227", "VP-3.19 Runtime Persistence Outbox Audit Linkage Scope Unlock.", "#2228", "VP-3.20 Runtime Persistence Outbox Audit Linkage Final Gate.", "#2229", "VP-3.21 Runtime Persistence Outbox Audit Linkage Implementation.", "#2230", "VP-3.22 Runtime Persistence Pipeline Linkage Binding Plan.", "#2231", "VP-3.23 Runtime Persistence Pipeline Linkage Binding Scope Unlock.", "#2232", "VP-3.24 Runtime Persistence Pipeline Linkage Binding Final Gate.", "#2233", "VP-3.25 Runtime Persistence Pipeline Linkage Binding Implementation.", "#2234", "VP-3.26 Runtime Persistence Transaction and Idempotency Hardening Plan.", "#2235", "VP-3.27 Runtime Persistence Transaction and Idempotency Scope Unlock.", "#2236", "VP-3.28 Runtime Persistence Transaction and Idempotency Final Gate.", "#2237", "VP-3.29 Runtime Persistence Transaction and Idempotency Hardening Implementation.", "#2238", "VP-3.30 Runtime Persistence Prisma Schema and Migration Plan.", "#2239", "VP-3.31 Runtime Persistence Prisma Schema and Migration Scope Unlock.", "#2240", "VP-3.32 Runtime Persistence Prisma Schema and Migration Final Gate.", "#2241", "VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation.", "#2242", "VP-3.34 Runtime Persistence Postgres Repository Adapter Plan.", "#2243", "VP-3.35 Runtime Persistence Postgres Repository Adapter Scope Unlock.", "#2244", "VP-3.36 Runtime Persistence Postgres Repository Adapter Final Gate.", "#2245", "VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation.", "#2246", "VP-3.38 Runtime Persistence Internal Service Wiring Plan."],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 repository settings cleanup. #2115 remains blocked by current auth-file write path.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "controller/API/web wiring", "production migration execution"],
@@ -18,25 +18,25 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
-  "vp337RuntimePersistencePostgresRepositoryAdapterImplementation": {
-    "layer": "VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
-    "closedPr": "#2245",
-    "status": "postgres-repository-adapter-implementation-complete"
-  },
   "vp338RuntimePersistenceInternalServiceWiringPlan": {
     "layer": "VP-3.38 Runtime Persistence Internal Service Wiring Plan",
-    "openPr": "#2246",
-    "status": "internal-service-wiring-plan-docs-only",
-    "candidateImplementationFiles": [
+    "closedPr": "#2246",
+    "status": "internal-service-wiring-plan-docs-only-complete"
+  },
+  "vp339RuntimePersistenceInternalServiceWiringScopeUnlock": {
+    "layer": "VP-3.39 Runtime Persistence Internal Service Wiring Scope Unlock",
+    "openPr": "#2248",
+    "status": "internal-service-wiring-scope-unlock-docs-only",
+    "unlockedImplementationFilesForLater": [
       "apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts",
       "apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts",
       "apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts",
       "apps/api/src/app.module.ts"
     ]
   },
-  "vp339RuntimePersistenceInternalServiceWiringScopeUnlock": {
-    "layer": "VP-3.39 Runtime Persistence Internal Service Wiring Scope Unlock",
-    "status": "next-docs-only-scope-unlock"
+  "vp340RuntimePersistenceInternalServiceWiringFinalGate": {
+    "layer": "VP-3.40 Runtime Persistence Internal Service Wiring Final Gate",
+    "status": "next-docs-only-final-gate"
   },
   "forbiddenZones": [
     "apps/landing",
@@ -52,5 +52,5 @@
   ],
   "maturityLanguage": ["platform-temporarily-without-external-integrations"],
   "forbiddenClaims": ["maturity uplift beyond evidence", "external integration completion", "production DB runtime persistence complete", "live outbox audit persistence complete", "database migration applied", "runtime persistence externally exposed"],
-  "readiness": "82% honest readiness. VP-3.38 selects four exact server-only module/service wiring files. The future module has no controller, remains fail-closed unless the exact Prisma flag is enabled, and does not expose runtime persistence through an API or web route."
+  "readiness": "82% honest readiness. VP-3.39 is docs-only scope unlock for four exact internal wiring files. It does not write service/module code, expose an endpoint, connect web runtime or apply the production migration."
 }
