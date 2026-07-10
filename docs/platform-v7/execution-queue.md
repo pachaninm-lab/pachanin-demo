@@ -5,20 +5,22 @@ CURRENT: Industrial One Deal Ephemeral PostgreSQL E2E Harness.
 GOAL: Доказать в CI на изолированном PostgreSQL 16, что одна каноническая сделка `DEAL-INDUSTRIAL-001` проходит всеми ролями от DRAFT до CLOSED без ручного изменения БД, fake-live и production credentials.
 
 CURRENT FAILURE:
-- Provider lock corrected to `postgresql`.
-- Two preserved legacy SQLite migration identifiers are documented PostgreSQL no-ops; migration history is not deleted and `migrate resolve` is not used.
-- The last exploitation run reached the forward-only reconciliation migration and exposed historical partial indexes that use the same canonical Prisma names.
-- Correction: the immediately preceding preparation migration removes only those historical duplicate/partial indexes, after which the reconciliation migration recreates canonical Prisma-compatible indexes.
-- `db push`, manual runtime DDL, disabling the drift gate and production migration execution remain forbidden.
+- Семь миграций применяются на чистом PostgreSQL 16, а `prisma migrate diff --exit-code` подтверждает zero drift.
+- Restricted datasource доказан: `one_deal_app`, не владелец таблицы, `NOSUPERUSER NOBYPASSRLS`, `RLS/FORCE RLS` включены.
+- SQL-level cross-tenant gate выявил legacy permissive policy `deals_app_access USING (TRUE)` из базовой миграции. PostgreSQL объединяет permissive policies через OR, поэтому она обнуляет строгую `deals_select`.
+- Такие же legacy allow-all policies обнаружены на audit и ledger.
+- Correction: production RLS artifact обязан явно удалить известные legacy policies до создания строгих policies; SQL cross-tenant gate остаётся обязательным.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
+- infra/sql/production-rls-policies.sql
 - apps/api/prisma/migrations/migration_lock.toml
 - apps/api/prisma/migrations/20260522083644_init/migration.sql
 - apps/api/prisma/migrations/20260522120000_add_core_tables/migration.sql
 - apps/api/prisma/migrations/20260710114000_prepare_schema_reconciliation/migration.sql
 - apps/api/prisma/migrations/20260710114500_reconcile_postgresql_schema/migration.sql
+- apps/api/src/modules/deals/industrial-deal-command.gateway.ts
 - apps/api/test/one-deal/**
 - apps/web/tests/e2e/one-deal/**
 - scripts/platform-v7-one-deal-*.mjs
@@ -26,20 +28,18 @@ CURRENT ALLOWED:
 - .github/workflows/ci.yml
 
 CURRENT CRITERIA:
-- visible and mandatory `CI` workflow starts an isolated PostgreSQL 16 service with ephemeral credentials;
-- `prisma migrate deploy` applies the complete seven-migration history on an empty PostgreSQL database without `db push`, manual runtime DDL or `migrate resolve`;
-- `prisma migrate diff --exit-code` proves zero migration-to-schema drift after deploy;
-- schema, migrations and RLS policies are applied only to the ephemeral database;
+- mandatory CI starts an isolated PostgreSQL 16 service with ephemeral credentials;
+- complete migration history applies through `prisma migrate deploy` and produces zero schema drift;
+- RLS artifact removes every known legacy allow-all policy before installing strict policies;
+- application datasource is a separate `NOSUPERUSER NOBYPASSRLS` non-owner role;
+- SQL-level and Prisma-level wrong-tenant reads return zero rows;
 - canonical seed creates one tenant, organizations, 12 human role memberships and one deal ID;
-- all roles read the same facts and version of `DEAL-INDUSTRIAL-001`;
-- exploitation runs through a separate `NOSUPERUSER NOBYPASSRLS` application principal;
+- DB membership, not URL/cookie/client org or role, determines trusted scope;
 - all 19 commands pass in order without direct database mutation;
 - reserve and release advance only through signed callback fixtures bound to exact pending operations;
-- duplicate command returns the original receipt;
-- reused idempotency material, stale version, concurrent update and cross-tenant access fail deterministically;
-- closed deal reconciles Deal, DealEvent, AuditEvent, outbox, payment, ledger, shipment, acceptance, lab and documents;
+- duplicate, reused idempotency material, stale version and concurrent update fail deterministically;
+- CLOSED reconciles Deal, DealEvent, AuditEvent, outbox, payment, ledger, shipment, acceptance, lab and documents;
 - evidence log uploads even when the gate fails;
-- test teardown destroys all ephemeral data and credentials;
 - production readiness and live integration completion remain unclaimed.
 
 DONE:
@@ -55,11 +55,9 @@ DONE:
 - #2267 Canonical gateway consolidation
 
 LOCKED:
-- all migration SQL directories other than the four explicitly allowed migration files until the next exact error;
-- production migration execution;
-- production RLS policy application;
+- production migration and RLS execution;
 - persistent identity/session/revocation/MFA files;
-- apps/landing;
+- platform UI and apps/landing during this proof layer;
 - package and lockfiles;
 - live bank/FGIS/EDO/signature integrations;
 - production load, restore or disaster-recovery claims.
@@ -81,11 +79,10 @@ NEXT:
   - RLS connection reuse cannot leak tenant context;
   - recovery rerun is idempotent and deterministic;
   - production readiness remains unclaimed.
-- Readiness remains 85% honest architectural readiness until concurrency, recovery, persistent identity, live integrations, load and DR are independently proven.
 
 AFTER NEXT:
 - Persistent identity/session/revocation/MFA source of truth after blocker #2115 is removed.
 - Durable outbox workers, bank reconciliation and partner key rotation.
 - Truthful driver offline acknowledgement and conflict handling.
-- Server-rendered RU/EN/ZH i18n and complete design-system migration.
+- Server-rendered RU/EN/ZH i18n and complete mobile-first design-system migration.
 - Load, restore, DR, accessibility and operational acceptance gates.
