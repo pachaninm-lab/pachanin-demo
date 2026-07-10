@@ -97,16 +97,17 @@ export class PasswordResetService {
 
     const issued = issuePasswordResetToken();
     const expiresAt = new Date(now.getTime() + PASSWORD_RESET_TTL_MS);
+    let created = false;
 
     try {
-      await this.repository.transaction(async (tx) => {
+      created = await this.repository.transaction(async (tx) => {
         const concurrentRecent = await this.repository.findRecentPending(
           tx,
           user.id,
           new Date(now.getTime() - PASSWORD_RESET_COOLDOWN_MS),
           now,
         );
-        if (concurrentRecent) return;
+        if (concurrentRecent) return false;
 
         await this.repository.expirePending(tx, user.id);
         await this.repository.createChallenge(tx, {
@@ -123,12 +124,14 @@ export class PasswordResetService {
           reason: 'CHALLENGE_ISSUED',
           metadata: { ipHash, expiresAt: expiresAt.toISOString() },
         });
+        return true;
       });
     } catch (error) {
       this.logger.error('Password reset challenge creation failed', error instanceof Error ? error.stack : undefined);
       return UNIVERSAL_RESPONSE;
     }
 
+    if (!created) return UNIVERSAL_RESPONSE;
     return {
       ...UNIVERSAL_RESPONSE,
       delivery: {
