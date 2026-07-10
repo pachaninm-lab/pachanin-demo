@@ -74,6 +74,7 @@ apps/web/app/platform-v7/login/template.tsx
 apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx
 apps/web/components/platform-v7/PlatformV7ProtectedTemplateRuntime.tsx
 apps/web/components/platform-v7/PlatformV7TemplateSwitch.tsx
+apps/web/components/platform-v7/PublicLocaleLink.tsx
 apps/web/components/platform-v7/PublicSiteHeader.tsx
 apps/web/components/v7r/BrandMark.tsx
 apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx
