@@ -10,6 +10,8 @@ const loginTemplate = read('apps/web/app/platform-v7/login/template.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedTemplate = read('apps/web/components/platform-v7/PlatformV7ProtectedTemplate.tsx');
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
+const localeSwitch = read('apps/web/components/platform-v7/PublicLocaleSwitch.tsx');
+const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const middleware = read('apps/web/middleware.ts');
 
 describe('platform-v7 final public/protected split', () => {
@@ -46,6 +48,20 @@ describe('platform-v7 final public/protected split', () => {
   it('renders the canonical login page instead of the legacy overlay', () => {
     expect(loginTemplate).toContain('return children;');
     expect(loginTemplate).not.toContain('LoginLegacyOverlay');
+  });
+
+  it('renders a hydration-stable RU EN ZH locale control', () => {
+    expect(localeSwitch).not.toContain("'use client'");
+    expect(localeSwitch).not.toContain('useLocale');
+    expect(localeSwitch).not.toContain('useTranslations');
+    expect(localeSwitch).not.toContain('window.');
+    expect(localeSwitch).toContain("href={`?lang=${code}`}");
+    expect(localeSwitch).toContain("{ code: 'ru', label: 'RU'");
+    expect(localeSwitch).toContain("{ code: 'en', label: 'EN'");
+    expect(localeSwitch).toContain("{ code: 'zh', label: 'ZH'");
+    expect(publicHeader).toContain("html:lang(ru) .pc-site-locale-options");
+    expect(publicHeader).toContain("html:lang(en) .pc-site-locale-options");
+    expect(publicHeader).toContain("html:lang(zh-CN) .pc-site-locale-options");
   });
 
   it('keeps protected routes inside the maintained shell', () => {
