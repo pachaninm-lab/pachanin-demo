@@ -9,7 +9,8 @@ import { Reflector } from '@nestjs/core';
 import type { Request, Response } from 'express';
 import { RATE_LIMIT_OPTIONS, RateLimitOptions } from '../decorators/rate-limit.decorator';
 import type { RequestUser } from '../types/request-user';
-import { parseTrustedProxyCidrs, resolveClientAddress, TrustedCidr } from './client-address';
+import { parseTrustedProxyCidrs, resolveClientAddress } from './client-address';
+import type { TrustedCidr } from './client-address';
 import { RateLimitService } from './rate-limit.service';
 
 const BYPASS_PATHS = new Set(['/health', '/ready', '/version', '/metrics']);
@@ -54,6 +55,10 @@ abstract class BaseRateLimitGuard {
 
 @Injectable()
 export class PreAuthRateLimitGuard extends BaseRateLimitGuard implements CanActivate {
+  constructor(service: RateLimitService) {
+    super(service);
+  }
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const resolved = this.requestContext(context);
     if (!resolved) return true;
