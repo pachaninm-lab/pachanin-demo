@@ -14,44 +14,27 @@ import { RateLimitService } from './rate-limit.service';
 
 const BYPASS_PATHS = new Set(['/health', '/ready', '/version', '/metrics']);
 
-@Injectable()
-export class RateLimitGuard implements CanActivate {
-  private readonly trustedCidrs: TrustedCidr[];
+abstract class BaseRateLimitGuard {
+  protected readonly trustedCidrs: TrustedCidr[];
 
-  constructor(
-    private readonly reflector: Reflector,
-    private readonly service: RateLimitService,
-  ) {
+  constructor(protected readonly service: RateLimitService) {
     this.trustedCidrs = parseTrustedProxyCidrs();
   }
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    if (context.getType() !== 'http') return true;
+  protected requestContext(context: ExecutionContext) {
+    if (context.getType() !== 'http') return null;
     const http = context.switchToHttp();
     const request = http.getRequest<Request & { user?: RequestUser }>();
     const response = http.getResponse<Response>();
     const path = request.path || request.url.split('?', 1)[0];
-    if (BYPASS_PATHS.has(path)) return true;
+    if (BYPASS_PATHS.has(path)) return null;
+    return { request, response, clientIp: resolveClientAddress(request, this.trustedCidrs) };
+  }
 
-    const options = this.reflector.getAllAndOverride<RateLimitOptions>(RATE_LIMIT_OPTIONS, [
-      context.getHandler(),
-      context.getClass(),
-    ]) ?? {};
-    const policy = options.name || 'general';
-    const limit = envInteger(options.limitEnv, options.limit ?? defaultLimit(policy), 1, 100_000);
-    const windowSeconds = envInteger(options.windowEnv, options.windowSeconds ?? 60, 1, 86_400);
-    const clientIp = resolveClientAddress(request, this.trustedCidrs);
-    const scope = options.scope ?? 'ip';
-    const subject = this.subject(scope, request.user, clientIp);
-    const decision = await this.service.consume({
-      policy,
-      scope,
-      subject,
-      limit,
-      windowSeconds,
-      blockSeconds: policy.startsWith('auth_') ? windowSeconds : 0,
-    });
-
+  protected enforce(
+    response: Response,
+    decision: Awaited<ReturnType<RateLimitService['consume']>>,
+  ): true {
     setRateHeaders(response, decision.limit, decision.remaining, decision.resetAt);
     if (!decision.allowed) {
       const retryAfter = Math.max(1, decision.retryAfterSeconds);
@@ -67,17 +50,65 @@ export class RateLimitGuard implements CanActivate {
     }
     return true;
   }
+}
 
-  private subject(scope: RateLimitOptions['scope'], user: RequestUser | undefined, clientIp: string): string {
-    if (scope === 'user') return user?.id || `ip:${clientIp}`;
-    if (scope === 'org') return user?.orgId || `ip:${clientIp}`;
-    return clientIp;
+@Injectable()
+export class PreAuthRateLimitGuard extends BaseRateLimitGuard implements CanActivate {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const resolved = this.requestContext(context);
+    if (!resolved) return true;
+    const limit = envInteger('RATE_LIMIT_GENERAL', 300, 1, 100_000);
+    const windowSeconds = envInteger('RATE_LIMIT_GENERAL_WINDOW_SECONDS', 60, 1, 86_400);
+    const decision = await this.service.consume({
+      policy: 'general',
+      scope: 'ip',
+      subject: resolved.clientIp,
+      limit,
+      windowSeconds,
+    });
+    return this.enforce(resolved.response, decision);
   }
 }
 
-function defaultLimit(policy: string): number {
-  if (policy.startsWith('auth_')) return 10;
-  return 300;
+@Injectable()
+export class DecoratedRateLimitGuard extends BaseRateLimitGuard implements CanActivate {
+  constructor(
+    private readonly reflector: Reflector,
+    service: RateLimitService,
+  ) {
+    super(service);
+  }
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const options = this.reflector.getAllAndOverride<RateLimitOptions>(RATE_LIMIT_OPTIONS, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!options) return true;
+    const resolved = this.requestContext(context);
+    if (!resolved) return true;
+
+    const policy = options.name || 'route';
+    const limit = envInteger(options.limitEnv, options.limit ?? 10, 1, 100_000);
+    const windowSeconds = envInteger(options.windowEnv, options.windowSeconds ?? 60, 1, 86_400);
+    const scope = options.scope ?? 'ip';
+    const subject = subjectFor(scope, resolved.request.user, resolved.clientIp);
+    const decision = await this.service.consume({
+      policy,
+      scope,
+      subject,
+      limit,
+      windowSeconds,
+      blockSeconds: policy.startsWith('auth_') ? windowSeconds : 0,
+    });
+    return this.enforce(resolved.response, decision);
+  }
+}
+
+function subjectFor(scope: RateLimitOptions['scope'], user: RequestUser | undefined, clientIp: string): string {
+  if (scope === 'user') return user?.id || `ip:${clientIp}`;
+  if (scope === 'org') return user?.orgId || `ip:${clientIp}`;
+  return clientIp;
 }
 
 function envInteger(name: string | undefined, fallback: number, min: number, max: number): number {
