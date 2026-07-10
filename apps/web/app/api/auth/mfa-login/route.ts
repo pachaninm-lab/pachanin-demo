@@ -5,12 +5,12 @@ import {
   applyAuthenticatedSession,
   normalizeSurfaceRole,
   platformHome,
-} from '../../../../../lib/server/auth-session-response';
+} from '../../../../lib/server/auth-session-response';
 import {
   MFA_PENDING_COOKIE,
   mfaPendingCookieOptions,
   openMfaLoginTicket,
-} from '../../../../../lib/server/mfa-login-ticket';
+} from '../../../../lib/server/mfa-login-ticket';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
