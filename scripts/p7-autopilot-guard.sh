@@ -76,6 +76,7 @@ apps/web/i18n/public-entry-messages.ts
 apps/web/lib/server/auth-session-response.ts
 apps/web/lib/server/mfa-login-ticket.ts
 apps/web/tests/unit/mfaPendingLoginTicket.test.ts
+apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts
 apps/web/tests/unit/platformV7FinalShellStaticGate.test.ts
 apps/web/tests/unit/platformV7LoginRoleHandoff.test.ts
 apps/web/tests/unit/platformV7LoginSecurityBoundary.test.ts
