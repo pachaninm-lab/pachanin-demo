@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
 
+# One-shot branch repair. This workflow deletes itself from the implementation branch after verification.
 jobs:
   patch:
     if: github.event.head_commit.message != 'fix(web): make public inline styles hydration-stable'
