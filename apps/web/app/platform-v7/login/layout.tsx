@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { LoginHeaderExitButton } from '@/components/platform-v7/LoginHeaderExitButton';
 
 export const metadata: Metadata = {
   title: 'Вход — Прозрачная Цена',
@@ -10,15 +9,10 @@ export const metadata: Metadata = {
   },
   robots: {
     index: false,
-    follow: true,
+    follow: false,
   },
 };
 
 export default function PlatformV7LoginLayout({ children }: { children: ReactNode }) {
-  return (
-    <>
-      <LoginHeaderExitButton />
-      {children}
-    </>
-  );
+  return children;
 }
