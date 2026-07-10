@@ -3,14 +3,15 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "VP-3.43 Transaction-Local Trusted RLS Context.",
+  "current": "VP-3.44 Runtime Persistence Trusted Transaction Binding.",
   "fullTzReadinessPercent": 85,
-  "openPr": "#2254",
+  "openPr": null,
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
     "#2250 VP-3.41 Runtime Persistence Internal Service Wiring Implementation",
-    "#2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary"
+    "#2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary",
+    "#2254 VP-3.43 Transaction-Local Trusted RLS Context"
   ],
   "openBlockers": ["#2113", "#2115", "#2251"],
   "blockerNotes": "#2113 repository settings cleanup. #2115 blocks persistent auth-file changes. Draft #2251 remains merge-blocked by user-driven bank confirmations, synthetic bank references, cross-tenant visibility and unresolved conflicts.",
@@ -24,50 +25,52 @@
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/app.module.ts",
-    "apps/api/src/common/middleware/rls-context.middleware.ts",
-    "apps/api/src/common/prisma/prisma.module.ts",
     "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/common/prisma/rls-transaction.service.spec.ts"
+    "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.spec.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence.repository.ts",
+    "apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.ts",
+    "apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.spec.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/app.module.ts",
-    "apps/api/src/common/middleware/rls-context.middleware.ts",
-    "apps/api/src/common/prisma/prisma.module.ts",
     "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/common/prisma/rls-transaction.service.spec.ts"
+    "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.spec.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence.repository.ts",
+    "apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.ts",
+    "apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.spec.ts",
+    "apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts"
   ],
-  "vp342RuntimePersistenceAuthenticatedCommandBoundary": {
-    "layer": "VP-3.42 Runtime Persistence Authenticated Internal Command Boundary",
-    "closedPr": "#2252",
-    "status": "merged"
-  },
   "vp343TransactionLocalTrustedRlsContext": {
     "layer": "VP-3.43 Transaction-Local Trusted RLS Context",
-    "openPr": "#2254",
-    "status": "in_progress",
-    "invariants": [
-      "trusted RequestUser only",
-      "user, organization, tenant, role and session required",
-      "GUEST forbidden",
-      "parameterized Prisma SQL only",
-      "set_config is transaction-local",
-      "RLS initialization errors fail closed",
-      "business callback runs on the same transaction client"
-    ],
-    "changedImplementationFiles": [
-      "apps/api/src/app.module.ts",
-      "apps/api/src/common/middleware/rls-context.middleware.ts",
-      "apps/api/src/common/prisma/prisma.module.ts",
-      "apps/api/src/common/prisma/rls-transaction.service.ts",
-      "apps/api/src/common/prisma/rls-transaction.service.spec.ts"
-    ]
+    "closedPr": "#2254",
+    "status": "merged"
   },
   "vp344RuntimePersistenceTrustedTransactionBinding": {
     "layer": "VP-3.44 Runtime Persistence Trusted Transaction Binding",
-    "status": "next-after-vp343-green"
+    "status": "in_progress",
+    "invariants": [
+      "authenticated runtime persistence enters through RlsTransactionService",
+      "existing-record lookup uses the trusted transaction client",
+      "snapshot, outbox, audit and attempt use the same transaction client",
+      "no nested transaction inside the trusted callback",
+      "P2002 recovery re-enters a new trusted transaction",
+      "RLS initialization failure executes no persistence operation",
+      "database failures return sanitized failed receipts"
+    ]
+  },
+  "vp345PhysicalRlsPolicyAlignment": {
+    "layer": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
+    "status": "next-after-vp344-green"
   },
   "forbiddenZones": [
     "apps/landing",
@@ -91,5 +94,5 @@
     "bank confirmation from user command",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. VP-3.43 removes the unsafe pre-auth session-level RLS middleware and introduces a parameterized transaction-local trusted context primitive. It does not yet bind every repository, apply production policies or migrations, complete persistent identity, or expose a controller/web route."
+  "readiness": "85% honest architectural readiness. VP-3.44 binds authenticated runtime persistence to the transaction-local trusted RLS primitive. Production policies, migration application, persistent identity, external integrations and scale proof remain unconfirmed."
 }
