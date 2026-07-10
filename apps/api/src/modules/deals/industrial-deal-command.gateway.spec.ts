@@ -22,6 +22,16 @@ const BUYER: RequestUser = {
   sessionId: 'session-buyer-001',
 };
 
+const SUCCESS_CALLBACK = {
+  dealId: CANONICAL_TEST_DEAL_ID,
+  eventId: 'bank-event-0001',
+  operation: 'RESERVE' as const,
+  operationId: `bank-reserve:${CANONICAL_TEST_DEAL_ID}`,
+  status: 'SUCCESS' as const,
+  bankRef: 'BANK-RESERVE-0001',
+  partnerId: 'safe-deals-test',
+};
+
 function fixture() {
   const tx = {
     dealParticipant: {
@@ -61,11 +71,17 @@ function fixture() {
   } as any;
   const commands = {
     workspace: jest.fn().mockResolvedValue({ ok: true }),
-    execute: jest.fn().mockResolvedValue({
+    execute: jest.fn(async (_dealId: string, actionId: string, dto: { commandId: string; idempotencyKey: string }) => ({
       ok: true,
-      actionId: 'place_winning_bid',
-      commandId: 'command-001',
-    }),
+      duplicate: false,
+      actionId,
+      commandId: dto.commandId,
+      idempotencyKey: dto.idempotencyKey,
+      eventId: 'event-001',
+      auditId: 'audit-001',
+      status: actionId === 'confirm_reserve' ? 'RESERVED' : 'AUCTION_COMPLETED',
+      updatedAt: '2026-07-10T09:01:00.000Z',
+    })),
   } as any;
   return {
     tx,
@@ -178,18 +194,10 @@ describe('IndustrialDealCommandGateway', () => {
     expect(test.prisma).not.toHaveProperty('outboxEntry');
   });
 
-  it('derives successful money confirmation only from the verified callback actor', async () => {
+  it('uses stable verified partner plus event identity for successful money callbacks', async () => {
     const test = fixture();
 
-    await test.gateway.executeBankCallback({
-      dealId: CANONICAL_TEST_DEAL_ID,
-      eventId: 'bank-event-0001',
-      operation: 'RESERVE',
-      operationId: `bank-reserve:${CANONICAL_TEST_DEAL_ID}`,
-      status: 'SUCCESS',
-      bankRef: 'BANK-RESERVE-0001',
-      partnerId: 'safe-deals-test',
-    });
+    await test.gateway.executeBankCallback(SUCCESS_CALLBACK);
 
     expect(test.rls.withTrustedContext).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -203,12 +211,14 @@ describe('IndustrialDealCommandGateway', () => {
       CANONICAL_TEST_DEAL_ID,
       'confirm_reserve',
       expect.objectContaining({
-        commandId: 'bank-callback:bank-event-0001',
-        idempotencyKey: expect.stringMatching(/^fp:[a-f0-9]{64}$/),
+        commandId: expect.stringMatching(/^bank-callback:safe-deals-test:bank-event-0001:[a-f0-9]{64}$/),
+        idempotencyKey: 'bank-callback:safe-deals-test:bank-event-0001',
         payload: expect.objectContaining({
           operationId: `bank-reserve:${CANONICAL_TEST_DEAL_ID}`,
           bankRef: 'BANK-RESERVE-0001',
+          partnerId: 'safe-deals-test',
           requestFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+          clientIdempotencyKey: 'bank-callback:safe-deals-test:bank-event-0001',
         }),
       }),
       expect.objectContaining({
@@ -217,5 +227,42 @@ describe('IndustrialDealCommandGateway', () => {
         orgId: DEAL.buyerOrgId,
       }),
     );
+  });
+
+  it('keeps event identity stable after deal version changes and rejects material replay mismatch', async () => {
+    const test = fixture();
+
+    const first = await test.gateway.executeBankCallback(SUCCESS_CALLBACK);
+    const firstDto = test.commands.execute.mock.calls[0][2];
+
+    test.tx.deal.findUnique.mockResolvedValueOnce({
+      ...DEAL,
+      status: 'RESERVED',
+      updatedAt: new Date('2026-07-10T09:02:00.000Z'),
+    });
+    test.commands.execute.mockResolvedValueOnce({ ...first, duplicate: true });
+    await expect(test.gateway.executeBankCallback(SUCCESS_CALLBACK)).resolves.toMatchObject({
+      duplicate: true,
+      commandId: firstDto.commandId,
+    });
+    const repeatedDto = test.commands.execute.mock.calls[1][2];
+    expect(repeatedDto.idempotencyKey).toBe(firstDto.idempotencyKey);
+    expect(repeatedDto.commandId).toBe(firstDto.commandId);
+    expect(repeatedDto.expectedUpdatedAt).not.toBe(firstDto.expectedUpdatedAt);
+
+    test.tx.deal.findUnique.mockResolvedValueOnce({
+      ...DEAL,
+      status: 'RESERVED',
+      updatedAt: new Date('2026-07-10T09:03:00.000Z'),
+    });
+    test.commands.execute.mockResolvedValueOnce({ ...first, duplicate: true });
+    await expect(
+      test.gateway.executeBankCallback({
+        ...SUCCESS_CALLBACK,
+        bankRef: 'BANK-RESERVE-CHANGED',
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'BANK_EVENT_REPLAY_MISMATCH' }),
+    });
   });
 });

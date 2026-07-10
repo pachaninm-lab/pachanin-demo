@@ -129,25 +129,46 @@ export class IndustrialDealCommandGateway {
       return this.recordBankFailure(input, deal, callbackUser);
     }
 
+    const partnerId = input.partnerId ?? 'safe-deals';
+    const callbackKey = `bank-callback:${partnerId}:${input.eventId}`;
+    const eventPayload = {
+      dealId: input.dealId,
+      eventId: input.eventId,
+      operation: input.operation,
+      status: input.status,
+      operationId: input.operationId ?? null,
+      bankRef: input.bankRef,
+      partnerId,
+    };
+    const eventFingerprint = digest(eventPayload);
+    const commandId = `${callbackKey}:${eventFingerprint}`;
     const dto: ExecuteDealCommandDto = {
-      commandId: `bank-callback:${input.eventId}`,
-      idempotencyKey: `bank-callback:${input.eventId}`,
+      commandId,
+      idempotencyKey: callbackKey,
       expectedUpdatedAt: deal.updatedAt.toISOString(),
       payload: {
-        eventId: input.eventId,
-        operation: input.operation,
-        operationId: input.operationId ?? null,
-        bankRef: input.bankRef,
-        partnerId: input.partnerId ?? 'safe-deals',
+        ...eventPayload,
+        requestFingerprint: eventFingerprint,
+        clientIdempotencyKey: callbackKey,
       },
     };
 
-    return this.commands.execute(
+    const result = await this.commands.execute(
       input.dealId,
       actionId,
-      this.fingerprintedCommand(input.dealId, actionId, dto),
+      dto,
       callbackUser,
     );
+    const storedCommandId = result && typeof result === 'object' && !Array.isArray(result)
+      ? (result as { commandId?: unknown }).commandId
+      : undefined;
+    if (storedCommandId !== commandId) {
+      throw new ConflictException({
+        code: 'BANK_EVENT_REPLAY_MISMATCH',
+        message: 'Bank event ID was already used with a different material payload.',
+      });
+    }
+    return result;
   }
 
   private fingerprintedCommand(
