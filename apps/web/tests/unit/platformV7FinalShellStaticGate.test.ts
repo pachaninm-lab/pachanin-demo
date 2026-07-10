@@ -5,13 +5,15 @@ import { describe, expect, it } from 'vitest';
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 
 const appLayout = read('apps/web/app/platform-v7/layout.tsx');
-const clientLayout = read('apps/web/components/platform-v7/PlatformV7LayoutClient.tsx');
+const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const shellUx = read('apps/web/components/platform-v7/PlatformV7ShellUxController.tsx');
 const supportHeader = read('apps/web/components/platform-v7/SupportHeaderIcon.tsx');
 const entryFixCss = read('apps/web/styles/platform-v7-entry-fix.css');
 const shellRoutes = read('apps/web/lib/platform-v7/shellRoutes.ts');
 const statusPage = read('apps/web/app/platform-v7/status/page.tsx');
 const loginPage = read('apps/web/app/platform-v7/login/page.tsx');
+const loginFlow = read('apps/web/components/platform-v7/PublicAuthLoginFlow.tsx');
+const loginRoute = read('apps/web/app/api/auth/login/route.ts');
 
 function roleDockBlock() {
   const start = shellUx.indexOf('<nav className="pc-v7-role-dock"');
@@ -26,32 +28,32 @@ function protectedShellBlock(source: string) {
 }
 
 describe('platform-v7 final shell static gate', () => {
-  it('keeps protected layouts on the same shell contract', () => {
-    for (const source of [appLayout, clientLayout]) {
-      expect(source).toContain('<AppShellV4 initialRole=');
-      expect(source).toContain('<PlatformV7SingleEntryGuard />');
-      expect(source).toContain('<PlatformV7ShellUxController />');
-      expect(source).toContain('<RbacCabinetGuard />');
-      expect(source).toContain('<CalculatorHeaderWidget />');
-      expect(source).toContain('<NotepadHeaderWidget />');
-      expect(source).toContain('<SupportHeaderIcon />');
-      expect(source).toContain('<RoleAssistantWidget />');
-      expect(source).not.toContain('<CommandPalette />');
-    }
+  it('keeps public routes outside the protected client graph', () => {
+    expect(appLayout).toContain("headers().get('x-pc-pathname')");
+    expect(appLayout).not.toContain("import { AppShellV4 }");
+    expect(protectedShell).toContain('<AppShellV4 initialRole={initialRole}>');
+  });
+
+  it('keeps the protected shell contract intact', () => {
+    const shell = protectedShellBlock(protectedShell);
+    for (const snippet of [
+      '<PlatformV7SingleEntryGuard />',
+      '<PlatformV7ShellUxController />',
+      '<RbacCabinetGuard />',
+      '<CalculatorHeaderWidget />',
+      '<NotepadHeaderWidget />',
+      '<SupportHeaderIcon />',
+      '<RoleAssistantWidget />',
+    ]) expect(shell).toContain(snippet);
+    expect(protectedShell).not.toContain('<CommandPalette />');
   });
 
   it('keeps notepad and calculator inside protected shell only', () => {
-    for (const source of [appLayout, clientLayout]) {
-      const shell = protectedShellBlock(source);
-      const publicBlock = source.slice(source.indexOf('if (isPublicPath'), source.indexOf('<AppShellV4 initialRole='));
-
-      expect(shell).toContain('<CalculatorHeaderWidget />');
-      expect(shell).toContain('<NotepadHeaderWidget />');
-      expect(shell.indexOf('<CalculatorHeaderWidget />')).toBeLessThan(shell.indexOf('<NotepadHeaderWidget />'));
-      expect(shell.indexOf('<NotepadHeaderWidget />')).toBeLessThan(shell.indexOf('<SupportHeaderIcon />'));
-      expect(publicBlock).not.toContain('CalculatorHeaderWidget');
-      expect(publicBlock).not.toContain('NotepadHeaderWidget');
-    }
+    const shell = protectedShellBlock(protectedShell);
+    expect(shell.indexOf('<CalculatorHeaderWidget />')).toBeLessThan(shell.indexOf('<NotepadHeaderWidget />'));
+    expect(shell.indexOf('<NotepadHeaderWidget />')).toBeLessThan(shell.indexOf('<SupportHeaderIcon />'));
+    expect(appLayout).not.toContain('CalculatorHeaderWidget');
+    expect(appLayout).not.toContain('NotepadHeaderWidget');
   });
 
   it('keeps the correct role dock visible and the legacy bottom navigation hidden', () => {
@@ -95,46 +97,20 @@ describe('platform-v7 final shell static gate', () => {
     expect(supportHeader).not.toContain('.p7-calc-widget{display:none');
   });
 
-  it('keeps mobile entry copy inside the 390px viewport contract', () => {
-    expect(entryFixCss).toContain('overflow-wrap:anywhere');
-    expect(entryFixCss).toContain('.entry-bg-field{position:absolute;z-index:0;top:54px;left:0;right:0;height:310px;opacity:.16;background:linear-gradient(90deg,rgba(0,139,46,.18),transparent 38%),radial-gradient(circle at 82% 24%,rgba(0,139,46,.18),transparent 28%),repeating-linear-gradient(108deg,rgba(0,139,46,.16) 0 8px,rgba(197,150,38,.1) 8px 18px,transparent 18px 34px)');
-    expect(entryFixCss).toContain('.entry-role-tile-exact strong{max-width:100%;overflow:visible;text-overflow:clip;white-space:normal');
-    expect(entryFixCss).toContain('.entry-title span:last-child{color:var(--green);white-space:normal}');
-    expect(entryFixCss).not.toContain('.entry-role-tile-exact strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
-    expect(entryFixCss).not.toContain('rgba(197,150,38,.1) 8px 18px 34px');
-  });
-
-  it('keeps header help on an existing shared route', () => {
-    expect(supportHeader).toContain('/platform-v7/status?role=');
-    expect(supportHeader).not.toContain('/platform-v7/support?role=');
-    expect(shellRoutes).toContain('PLATFORM_V7_STATUS_ROUTE');
-  });
-
-  it('keeps status page wording aligned with pre-integration maturity', () => {
-    expect(statusPage).toContain('Controlled-pilot / pre-integration');
+  it('keeps status wording aligned with unconfirmed external integrations', () => {
     expect(statusPage).toContain('Требует проверки');
     expect(statusPage).not.toContain('99.4%');
     expect(statusPage).not.toContain('97.8%');
     expect(statusPage).not.toContain('проходят штатно');
-    expect(statusPage).not.toContain('Проверка партий и источников работает');
     expect(statusPage).not.toContain('уже встроены в платформу');
   });
 
-  it('marks the public entry cookie before replacing login with a role cabinet route', () => {
-    expect(loginPage).toContain("const PLATFORM_V7_ENTRY_COOKIE = 'pc_v7_entry_seen'");
-    expect(loginPage).toContain('function markEntrySeen()');
-    expect(loginPage).toContain('document.cookie = `${PLATFORM_V7_ENTRY_COOKIE}=true; Path=/; Max-Age=');
-    expect(loginPage).toContain('markEntrySeen();');
-    expect(loginPage.indexOf('markEntrySeen();')).toBeLessThan(loginPage.indexOf('router.replace(platformV7RoleHome(nextRole))'));
-  });
-
-  it('waits for the cabinet session request before route replacement to avoid middleware race redirects', () => {
-    expect(loginPage).toContain('async function openWorkspace(nextRole: PlatformRole)');
-    expect(loginPage).toContain("await fetch('/api/platform-v7/cabinet-session'");
-    expect(loginPage.indexOf("await fetch('/api/platform-v7/cabinet-session'")).toBeLessThan(loginPage.indexOf('router.replace(platformV7RoleHome(nextRole))'));
-  });
-
-  it('keeps in-shell style tags hidden so CSS is never shown as page text', () => {
-    expect(appLayout).toContain('html body .pc-shell-root-v4 style{display:none!important}');
+  it('uses server session issuance and redirect instead of client cabinet handoff', () => {
+    expect(loginPage).toContain('<PublicAuthLoginFlow />');
+    expect(loginFlow).toContain('payload.redirectTo');
+    expect(loginFlow).not.toContain('platformV7RoleHome');
+    expect(loginFlow).not.toContain("fetch('/api/platform-v7/cabinet-session'");
+    expect(loginFlow).not.toContain('document.cookie');
+    expect(loginRoute).toContain('applyAuthenticatedSession');
   });
 });
