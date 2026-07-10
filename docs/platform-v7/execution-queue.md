@@ -12,16 +12,18 @@ CURRENT ALLOWED:
 - scripts/platform-v7-rls-*.mjs
 - scripts/platform-v7-rls-*.sh
 - .github/workflows/api-test.yml
+- .github/workflows/ci.yml
 
 CURRENT DISCOVERY:
 - `0001_postgresql_initial` создаёт permissive policies `deals_app_access`, `audit_insert_only`, `audit_select_all`, `ledger_insert_only`, `ledger_select_all`;
 - permissive PostgreSQL policies складываются через OR, поэтому новые restrictive-by-content policies не защищают данные, пока legacy policies явно не удалены;
-- новый workflow-файл в PR не является надёжным merge gate до его появления в default branch, поэтому integration job встраивается в уже обязательный `API Tests` workflow;
+- новый workflow-файл в PR не является надёжным merge gate до его появления в default branch;
+- `API Tests` после изменения собственного workflow не дал наблюдаемого запуска на head commit, поэтому единственный authoritative integration job переносится в уже стабильно запускаемый обязательный `CI` workflow;
 - clean local Docker bootstrap монтирует RLS SQL как init script до подтверждённого создания schema; это отдельный VP-3.47, а не повод применять что-либо в production.
 
 CURRENT CRITERIA:
 - canonical policy SQL explicitly drops every permissive legacy policy;
-- existing required `API Tests` workflow owns the RLS integration job;
+- existing required `CI` workflow owns the single authoritative RLS integration job;
 - CI starts a fresh PostgreSQL 16 service using only job-local credentials;
 - only the initial schema migration and runtime persistence migration are applied to the ephemeral database;
 - canonical RLS SQL is applied after schema creation;
