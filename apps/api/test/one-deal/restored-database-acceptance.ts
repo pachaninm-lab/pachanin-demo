@@ -38,7 +38,7 @@ async function main(): Promise<void> {
     const rls = new RlsTransactionService(dealPrisma);
 
     const restored = await rls.withTrustedContext(actor, async (tx) => {
-      const [deal, participants, events, audits, documents, bankOperations, ledger, migrations, rlsTables] = await Promise.all([
+      const [deal, visibleParticipants, events, audits, documents, bankOperations, ledger, migrations, rlsTables] = await Promise.all([
         tx.deal.findUnique({
           where: { id: CANONICAL_TEST_DEAL_ID },
           select: { id: true, status: true, totalKopecks: true, closedAt: true },
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
       ]);
       return {
         deal,
-        participants,
+        visibleParticipants,
         events,
         audits,
         documents,
@@ -90,7 +90,9 @@ async function main(): Promise<void> {
     if (!restored.deal || restored.deal.status !== 'CLOSED' || !restored.deal.closedAt) {
       throw new Error('Restored canonical deal is not CLOSED.');
     }
-    if (restored.participants !== 12) throw new Error(`Expected 12 participants, got ${restored.participants}`);
+    if (restored.visibleParticipants !== 1) {
+      throw new Error(`Farmer must see only its own participant row, got ${restored.visibleParticipants}`);
+    }
     if (restored.events !== 19) throw new Error(`Expected 19 events, got ${restored.events}`);
     if (restored.audits !== 19) throw new Error(`Expected 19 audits, got ${restored.audits}`);
     if (restored.documents < 6) throw new Error(`Expected at least 6 signed documents, got ${restored.documents}`);
@@ -115,7 +117,7 @@ async function main(): Promise<void> {
       restoredDatabaseAcceptance: 'passed',
       dealId: restored.deal.id,
       status: restored.deal.status,
-      participants: restored.participants,
+      visibleParticipants: restored.visibleParticipants,
       events: restored.events,
       audits: restored.audits,
       documents: restored.documents,
