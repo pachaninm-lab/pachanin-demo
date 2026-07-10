@@ -1,0 +1,52 @@
+.button {
+  inline-size: 54px;
+  min-inline-size: 54px;
+  block-size: 42px;
+  min-block-size: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  border: 1px solid rgba(8, 122, 59, 0.22);
+  border-radius: 14px;
+  background: rgba(8, 122, 59, 0.08);
+  color: #087a3b;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.button span {
+  min-inline-size: 19px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.button:hover:not(:disabled) {
+  border-color: rgba(8, 122, 59, 0.36);
+  background: rgba(8, 122, 59, 0.13);
+}
+
+.button:focus-visible {
+  outline: 3px solid rgba(8, 122, 59, 0.34);
+  outline-offset: 3px;
+}
+
+.button:disabled {
+  cursor: progress;
+  opacity: 0.66;
+}
+
+@media (max-width: 374px) {
+  .button {
+    inline-size: 48px;
+    min-inline-size: 48px;
+  }
+
+  .button span {
+    font-size: 10px;
+  }
+}
