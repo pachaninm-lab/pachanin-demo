@@ -1,18 +1,24 @@
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UseGuards } from '@nestjs/common';
-import { Body, Controller, ForbiddenException, Get, Param, Patch, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DealsService } from './deals.service';
+import { DealCommandService } from './deal-command.service';
 import { CreateDealDto } from './dto/create-deal.dto';
+import { ExecuteDealCommandDto } from './dto/execute-deal-command.dto';
 import { TransitionDealDto } from './dto/transition-deal.dto';
 import { RequestUser, Role } from '../../common/types/request-user';
+import { CANONICAL_TEST_DEAL_ID } from './deal-command.policy';
 
 @UseGuards(RolesGuard)
-@Roles('FARMER', 'BUYER', 'SUPPORT_MANAGER', 'EXECUTIVE', 'ADMIN', 'ACCOUNTING')
+@Roles('ANY_AUTHENTICATED')
 @Controller('deals')
 export class DealsController {
-  constructor(private readonly deals: DealsService) {}
+  constructor(
+    private readonly deals: DealsService,
+    private readonly commands: DealCommandService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: RequestUser) {
@@ -27,6 +33,11 @@ export class DealsController {
   @Get(':id/workspace')
   workspace(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.deals.workspace(id, user);
+  }
+
+  @Get(':id/execution-workspace')
+  executionWorkspace(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.commands.workspace(id, user);
   }
 
   @Get(':id/passport')
@@ -47,15 +58,23 @@ export class DealsController {
     return this.deals.create(dto, user);
   }
 
+  @Post(':id/commands/:actionId')
+  executeCommand(
+    @Param('id') id: string,
+    @Param('actionId') actionId: string,
+    @Body() dto: ExecuteDealCommandDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.commands.execute(id, actionId, dto, user);
+  }
+
   @Patch(':id/transition')
   transition(
     @Param('id') id: string,
     @Body() dto: TransitionDealDto,
     @CurrentUser() user: RequestUser,
   ) {
-    if (user.role === Role.EXECUTIVE) {
-      throw new ForbiddenException('Executive role is read-only — cannot perform state transitions');
-    }
+    this.assertLegacyTransitionAllowed(id, user);
     return this.deals.transition(id, dto, user);
   }
 
@@ -65,13 +84,23 @@ export class DealsController {
     @Body() body: { status?: string; nextState?: string; comment?: string },
     @CurrentUser() user: RequestUser,
   ) {
-    if (user.role === Role.EXECUTIVE) {
-      throw new ForbiddenException('Executive role is read-only');
-    }
+    this.assertLegacyTransitionAllowed(id, user);
     return this.deals.transition(
       id,
       { nextState: (body?.nextState || body?.status || '') as any, comment: body?.comment },
       user,
     );
+  }
+
+  private assertLegacyTransitionAllowed(id: string, user: RequestUser): void {
+    if (user.role === Role.EXECUTIVE) {
+      throw new ForbiddenException('Executive role is read-only');
+    }
+    if (id === CANONICAL_TEST_DEAL_ID) {
+      throw new BadRequestException({
+        code: 'CANONICAL_DEAL_REQUIRES_COMMAND',
+        message: 'Canonical deal cannot accept an arbitrary nextState. Use POST /deals/:id/commands/:actionId.',
+      });
+    }
   }
 }
