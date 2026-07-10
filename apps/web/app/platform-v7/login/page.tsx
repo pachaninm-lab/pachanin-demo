@@ -172,7 +172,7 @@ export default function LoginPage() {
           </label>
 
           <div className={styles.links}>
-            <Link href='/platform-v7/contact'>{t('forgot')}</Link>
+            <Link href='/platform-v7/forgot-password'>{t('forgot')}</Link>
             <Link href='/platform-v7/register'>{t('register')}</Link>
           </div>
 
