@@ -1,28 +1,40 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.45 Physical Table RLS Policy Alignment and Rehearsal.
+CURRENT: VP-3.46 Ephemeral PostgreSQL RLS Integration Harness.
 
-GOAL: Привести PostgreSQL RLS SQL к реальным physical table names Prisma, сделать политику идемпотентной и fail-closed, удалить legacy session-level context helper и добавить только rollback-safe non-production rehearsal.
+GOAL: Доказать поведение canonical RLS на чистой PostgreSQL 16 в CI, удалить permissive legacy policies из начальной миграции и проверить tenant isolation на одной физической сессии без production credentials.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 - infra/sql/production-rls-policies.sql
-- apps/api/src/common/prisma/rls-transaction.service.spec.ts
-- scripts/platform-v7-rls-validate.mjs
-- scripts/platform-v7-rls-apply-rehearsal.sh
-- scripts/platform-v7-rls-rollback-rehearsal.sh
+- apps/api/test/rls/**
+- scripts/platform-v7-rls-*.mjs
+- scripts/platform-v7-rls-*.sh
+- .github/workflows/api-test.yml
+- .github/workflows/ci.yml
+
+CURRENT DISCOVERY:
+- `0001_postgresql_initial` создаёт permissive policies `deals_app_access`, `audit_insert_only`, `audit_select_all`, `ledger_insert_only`, `ledger_select_all`;
+- permissive PostgreSQL policies складываются через OR, поэтому новые restrictive-by-content policies не защищают данные, пока legacy policies явно не удалены;
+- новый workflow-файл в PR не является надёжным merge gate до его появления в default branch;
+- `API Tests` после изменения собственного workflow не дал наблюдаемого запуска на head commit, поэтому единственный authoritative integration job переносится в уже стабильно запускаемый обязательный `CI` workflow;
+- clean local Docker bootstrap монтирует RLS SQL как init script до подтверждённого создания schema; это отдельный VP-3.47, а не повод применять что-либо в production.
 
 CURRENT CRITERIA:
-- policy SQL targets `deals`, `organizations`, `audit_events`, `ledger_entries`, `integration_events`, `outbox_entries`, `deal_workspace_runtime_snapshots` and `deal_workspace_runtime_transaction_attempts`;
-- all protected tables use `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`;
-- PostgreSQL 16 compatible idempotency uses `DROP POLICY IF EXISTS` followed by `CREATE POLICY`;
-- legacy three-argument `set_app_context` is removed;
-- SQL does not create session-level context setters;
-- role, user, organization, tenant and session settings are treated as mandatory trusted transaction context;
-- rehearsal scripts refuse production mode, require a dedicated rehearsal URL and always roll back;
-- static validation detects Prisma/RLS table drift and forbidden legacy constructs;
-- no production database is modified.
+- canonical policy SQL explicitly drops every permissive legacy policy;
+- existing required `CI` workflow owns the single authoritative RLS integration job;
+- CI starts a fresh PostgreSQL 16 service using only job-local credentials;
+- only the initial schema migration and runtime persistence migration are applied to the ephemeral database;
+- canonical RLS SQL is applied after schema creation;
+- a non-superuser, non-owner, `NOBYPASSRLS` role executes all assertions;
+- two tenants and four organizations are seeded with one deal per tenant;
+- tenant A seller sees its own deal and linked audit, outbox, snapshot and attempt;
+- tenant A seller cannot see tenant B deal or linked records;
+- missing user, organization, tenant, role or session context yields zero visible protected rows;
+- committing the context transaction clears all five settings on the same PostgreSQL session;
+- no production secret, database or deploy target is referenced;
+- failure of any assertion blocks merge.
 
 DONE:
 - #2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation
@@ -31,6 +43,7 @@ DONE:
 - #2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary
 - #2254 VP-3.43 Transaction-Local Trusted RLS Context
 - #2256 VP-3.44 Runtime Persistence Trusted Transaction Binding
+- #2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal
 
 LOCKED:
 - production migration execution;
@@ -41,24 +54,21 @@ LOCKED:
 - live bank/FGIS/EDO integrations.
 
 NEXT:
-- Layer: VP-3.46 Ephemeral PostgreSQL RLS Integration Harness.
+- Layer: VP-3.47 Local Database Bootstrap Order and RLS Activation.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-  - apps/api/test/rls/**
-  - scripts/platform-v7-rls-*.mjs
-  - scripts/platform-v7-rls-*.sh
-  - .github/workflows/platform-v7-rls-integration.yml
+  - docker-compose.yml
+  - infra/sql/**
+  - scripts/platform-v7-db-bootstrap-*.sh
+  - scripts/platform-v7-db-bootstrap-*.mjs
 - Success criteria:
-  - CI starts an isolated PostgreSQL 16 service with no production credentials;
-  - schema and canonical RLS SQL are applied to the ephemeral database only;
-  - two tenants and two organizations are seeded;
-  - participant access succeeds only for its own deal;
-  - cross-tenant deal, audit, outbox and runtime snapshot reads are denied;
-  - incomplete trusted context is denied;
-  - transaction-local context does not leak to a reused pooled connection;
-  - test teardown destroys all data and credentials;
-  - production-enabled claims remain forbidden.
+  - a clean local volume creates schema before applying canonical RLS;
+  - policy application is explicit and observable, not an unordered init mount;
+  - application and worker roles are created with least privilege and `NOBYPASSRLS`;
+  - local boot fails closed on schema or policy errors;
+  - restart is idempotent and does not destroy data;
+  - no production credentials or production database are touched.
 - Readiness remains 85% honest architectural readiness.
 
 AFTER NEXT:

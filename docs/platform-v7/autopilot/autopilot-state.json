@@ -3,19 +3,21 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal.",
+  "current": "VP-3.46 Ephemeral PostgreSQL RLS Integration Harness.",
   "fullTzReadinessPercent": 85,
-  "openPr": "#2258",
+  "openPr": "#2262",
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
     "#2250 VP-3.41 Runtime Persistence Internal Service Wiring Implementation",
     "#2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary",
     "#2254 VP-3.43 Transaction-Local Trusted RLS Context",
-    "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding"
+    "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding",
+    "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal"
   ],
   "openBlockers": ["#2113", "#2115", "#2251"],
   "blockerNotes": "#2113 repository settings cleanup. #2115 blocks persistent auth-file changes. Draft #2251 remains merge-blocked by user-driven bank confirmations, synthetic bank references, cross-tenant visibility and unresolved conflicts.",
+  "currentDiscovery": "The initial PostgreSQL migration creates permissive legacy deals/audit/ledger policies. VP-3.46 explicitly removes and integration-tests them before canonical policies are accepted. The existing required CI workflow is used as the observable merge gate.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
     "production RLS policy application",
@@ -27,42 +29,46 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
     "infra/sql/production-rls-policies.sql",
-    "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
-    "scripts/platform-v7-rls-validate.mjs",
-    "scripts/platform-v7-rls-apply-rehearsal.sh",
-    "scripts/platform-v7-rls-rollback-rehearsal.sh"
+    "apps/api/test/rls/**",
+    "scripts/platform-v7-rls-*.mjs",
+    "scripts/platform-v7-rls-*.sh",
+    ".github/workflows/api-test.yml",
+    ".github/workflows/ci.yml"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
     "infra/sql/production-rls-policies.sql",
-    "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
-    "scripts/platform-v7-rls-validate.mjs",
-    "scripts/platform-v7-rls-apply-rehearsal.sh",
-    "scripts/platform-v7-rls-rollback-rehearsal.sh"
+    "apps/api/test/rls/**",
+    "scripts/platform-v7-rls-*.mjs",
+    "scripts/platform-v7-rls-*.sh",
+    ".github/workflows/api-test.yml",
+    ".github/workflows/ci.yml"
   ],
-  "vp344RuntimePersistenceTrustedTransactionBinding": {
-    "layer": "VP-3.44 Runtime Persistence Trusted Transaction Binding",
-    "closedPr": "#2256",
-    "status": "merged"
-  },
   "vp345PhysicalRlsPolicyAlignment": {
     "layer": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
-    "openPr": "#2258",
-    "status": "in_progress",
-    "invariants": [
-      "policies target canonical Prisma physical table names",
-      "RLS is enabled and forced on protected tables",
-      "policy creation is idempotent on PostgreSQL 16",
-      "legacy session-level context helper is removed",
-      "transaction-local five-field context remains canonical",
-      "production database is never modified by CI or rehearsal scripts",
-      "policy drift is statically detectable"
-    ]
+    "closedPr": "#2258",
+    "status": "merged"
   },
   "vp346RlsIntegrationHarness": {
     "layer": "VP-3.46 Ephemeral PostgreSQL RLS Integration Harness",
-    "status": "next-after-vp345-green"
+    "openPr": "#2262",
+    "status": "in_progress",
+    "invariants": [
+      "existing required CI workflow owns the observable merge-blocking RLS job",
+      "CI uses an isolated PostgreSQL 16 service with ephemeral credentials",
+      "legacy permissive migration policies are removed",
+      "canonical RLS SQL is applied only to the ephemeral database",
+      "own-tenant participant reads succeed",
+      "cross-tenant deal, audit, outbox and runtime reads are denied",
+      "incomplete context is denied",
+      "transaction-local context does not leak on the same database session",
+      "all ephemeral data and credentials disappear with the CI job"
+    ]
+  },
+  "vp347LocalDatabaseBootstrapOrder": {
+    "layer": "VP-3.47 Local Database Bootstrap Order and RLS Activation",
+    "status": "next-after-vp346-green"
   },
   "forbiddenZones": [
     "apps/landing",
@@ -86,5 +92,5 @@
     "bank confirmation from user command",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. VP-3.45 repairs policy SQL and adds non-production rehearsal controls. No production database or policy application is claimed."
+  "readiness": "85% honest architectural readiness. VP-3.46 validates canonical RLS behavior against an ephemeral PostgreSQL 16 database and removes legacy permissive policies. This is not production application evidence."
 }
