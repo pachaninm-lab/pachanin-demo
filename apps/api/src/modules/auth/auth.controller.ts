@@ -20,28 +20,28 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  @RateLimit({ name: 'auth_login', scope: 'ip', limit: 8, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_LOGIN', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
+  @RateLimit({ name: 'auth_login', scope: 'ip', limit: 8, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_LOGIN', windowEnv: 'RATE_LIMIT_AUTH_LOGIN_WINDOW_SECONDS' })
   @Post('login')
   login(@Body() dto: LoginDto, @Headers('user-agent') userAgent?: string, @Ip() ip?: string) {
     return this.authService.login(dto, userAgent, ip);
   }
 
   @Public()
-  @RateLimit({ name: 'auth_register', scope: 'ip', limit: 5, windowSeconds: 300, limitEnv: 'RATE_LIMIT_AUTH_REGISTER', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
+  @RateLimit({ name: 'auth_register', scope: 'ip', limit: 5, windowSeconds: 300, limitEnv: 'RATE_LIMIT_AUTH_REGISTER', windowEnv: 'RATE_LIMIT_AUTH_REGISTER_WINDOW_SECONDS' })
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   @Public()
-  @RateLimit({ name: 'auth_refresh', scope: 'ip', limit: 20, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_REFRESH', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
+  @RateLimit({ name: 'auth_refresh', scope: 'ip', limit: 20, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_REFRESH', windowEnv: 'RATE_LIMIT_AUTH_REFRESH_WINDOW_SECONDS' })
   @Post('refresh')
   refresh(@Body() dto: RefreshDto, @Headers('user-agent') userAgent?: string, @Ip() ip?: string) {
     return this.authService.refresh(dto, userAgent, ip);
   }
 
   @Public()
-  @RateLimit({ name: 'auth_mfa_verify', scope: 'ip', limit: 10, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_MFA_VERIFY', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
+  @RateLimit({ name: 'auth_mfa_verify', scope: 'ip', limit: 10, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_MFA_VERIFY', windowEnv: 'RATE_LIMIT_AUTH_MFA_VERIFY_WINDOW_SECONDS' })
   @Post('mfa/verify')
   verifyMfa(@Body() dto: MfaVerifyDto, @Headers('user-agent') userAgent?: string, @Ip() ip?: string) {
     return this.authService.verifyMfa(dto, userAgent, ip);
