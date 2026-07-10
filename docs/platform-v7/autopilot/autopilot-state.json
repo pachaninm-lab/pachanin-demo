@@ -2,7 +2,7 @@
   "project": "platform-v7",
   "mode": "industrial-one-deal-e2e",
   "status": "active",
-  "currentStatus": "green_ready_for_merge",
+  "currentStatus": "ready",
   "current": "Industrial One Deal Ephemeral PostgreSQL E2E Harness.",
   "fullTzReadinessPercent": 85,
   "openPr": "#2270",
