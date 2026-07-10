@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildP7DealWorkspaceRuntimeDbContract } from '@/lib/platform-v7/deal-workspace-runtime-db-contract';
-import { buildP7DealWorkspaceRuntimeLinkage } from '@/lib/platform-v7/deal-workspace-runtime-linkage';
+import { createP7DealWorkspaceRuntimeRepository } from '@/lib/platform-v7/deal-workspace-runtime-db-repository';
+import {
+  buildP7DealWorkspaceRuntimeLinkage,
+  writeP7DealWorkspaceRuntimeWithLinkage,
+} from '@/lib/platform-v7/deal-workspace-runtime-linkage';
 import { buildP7DealWorkspaceRuntimeRefreshSnapshot } from '@/lib/platform-v7/deal-workspace-runtime-snapshot';
 import type { P7DealWorkspaceRuntimeStoreReceipt } from '@/lib/platform-v7/deal-workspace-runtime-store';
 
@@ -116,5 +120,38 @@ describe('VP-3.21 runtime outbox audit linkage boundary', () => {
       'OUTBOX_IDEMPOTENCY_MISMATCH',
       'AUDIT_ACTOR_MISMATCH',
     ]);
+  });
+
+  it('writes only linkage ids accepted by the validation boundary', () => {
+    const repository = createP7DealWorkspaceRuntimeRepository();
+    const result = writeP7DealWorkspaceRuntimeWithLinkage({
+      repository,
+      contract: contract(),
+      outbox: outboxEvidence(),
+      audit: auditEvidence(),
+      savedAt: '2026-07-10T04:00:03.000Z',
+    });
+
+    expect(result.linkageResult.state).toBe('fully_linked');
+    expect(result.repositoryReceipt.state).toBe('fully_linked');
+    expect(result.repositoryReceipt.outboxEntryId).toBe('outbox-link-1');
+    expect(result.repositoryReceipt.auditEventId).toBe('audit-event-link-1');
+    expect(repository.list()).toHaveLength(1);
+  });
+
+  it('writes a blocked linkage state when supplied evidence fails validation', () => {
+    const repository = createP7DealWorkspaceRuntimeRepository();
+    const result = writeP7DealWorkspaceRuntimeWithLinkage({
+      repository,
+      contract: contract(),
+      outbox: { ...outboxEvidence(), correlationId: 'wrong-correlation' },
+      audit: auditEvidence(),
+    });
+
+    expect(result.linkageResult.state).toBe('outbox_required');
+    expect(result.linkageResult.issues.map((issue) => issue.code)).toContain('OUTBOX_CORRELATION_MISMATCH');
+    expect(result.repositoryReceipt.state).toBe('outbox_required');
+    expect(result.repositoryReceipt.outboxEntryId).toBeNull();
+    expect(result.repositoryReceipt.auditEventId).toBe('audit-event-link-1');
   });
 });
