@@ -6,15 +6,24 @@ on:
     paths:
       - 'apps/api/**'
       - 'shared/**'
+      - 'infra/sql/production-rls-policies.sql'
+      - 'scripts/platform-v7-rls-*'
+      - '.github/workflows/api-test.yml'
       - 'package.json'
       - 'pnpm-lock.yaml'
   pull_request:
     paths:
       - 'apps/api/**'
       - 'shared/**'
+      - 'infra/sql/production-rls-policies.sql'
+      - 'scripts/platform-v7-rls-*'
+      - '.github/workflows/api-test.yml'
       - 'package.json'
       - 'pnpm-lock.yaml'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: api-test-${{ github.ref }}
@@ -50,3 +59,53 @@ jobs:
           name: api-unit-test-log
           path: /tmp/api-unit-test.log
           if-no-files-found: ignore
+
+  rls-integration:
+    name: PostgreSQL 16 RLS tenant isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rls_admin
+          POSTGRES_PASSWORD: ephemeral_rls_admin_only
+          POSTGRES_DB: rls_integration
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U rls_admin -d rls_integration"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      RLS_INTEGRATION_ADMIN_URL: postgresql://rls_admin:ephemeral_rls_admin_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/rls_integration
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+      - name: Run RLS gate
+        shell: bash
+        run: |
+          set -o pipefail
+          if [[ -f scripts/platform-v7-rls-integration.sh ]]; then
+            bash scripts/platform-v7-rls-integration.sh 2>&1 | tee /tmp/platform-v7-rls-integration.log
+          else
+            node scripts/platform-v7-rls-validate.mjs 2>&1 | tee /tmp/platform-v7-rls-integration.log
+          fi
+      - name: Upload RLS gate log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-rls-integration-log
+          path: /tmp/platform-v7-rls-integration.log
+          if-no-files-found: error
+          retention-days: 7
