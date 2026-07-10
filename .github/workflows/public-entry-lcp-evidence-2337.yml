@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 55
     env:
       LOCAL_BASE_URL: http://127.0.0.1:3000
-      NETLIFY_PREVIEW_URL: https://6a517fbe71e93400083628d0--gleaming-mandazi-bb9856.netlify.app
+      NETLIFY_PREVIEW_URL: https://6a51848339282400088c5b5b--vermillion-kitsune-0e7b97.netlify.app
       ARTIFACT_DIR: ../../artifacts/public-entry-lcp-evidence-2337/local-production
       NETLIFY_ARTIFACT_DIR: ../../artifacts/public-entry-lcp-evidence-2337/netlify
     steps:
