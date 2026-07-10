@@ -17,25 +17,6 @@ function normalizeSize(size: number | string) {
 
 export const BRAND_MARK_BG = 'transparent';
 
-const BRAND_MARK_CSS_RESET = `
-  .pc-header-brand > span:first-child,
-  .app-header-brand > span:first-child,
-  .pc-brand-mark-fallback {
-    background-image: none !important;
-    background-color: transparent !important;
-    background-position: center !important;
-    background-repeat: no-repeat !important;
-    background-size: contain !important;
-  }
-
-  .pc-header-brand > span:first-child img,
-  .app-header-brand > span:first-child img {
-    opacity: 1 !important;
-    visibility: visible !important;
-    display: block !important;
-  }
-`;
-
 export function BrandMarkSvg({ size = '100%' }: BrandMarkSvgProps) {
   const dimension = normalizeSize(size);
 
@@ -104,7 +85,6 @@ export function BrandMark({ size = 40, rounded = 14, shadow = true, style }: Bra
         ...style,
       }}
     >
-      <style dangerouslySetInnerHTML={{ __html: BRAND_MARK_CSS_RESET }} />
       <BrandMarkSvg size='100%' />
     </span>
   );
