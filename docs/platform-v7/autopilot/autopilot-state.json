@@ -22,11 +22,12 @@
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
+    "legacy one-deal seed directly constructs AuthService without repository",
     "production migration and RLS execution evidence",
     "live bank FGIS EDO and signature evidence",
     "production load restore and DR acceptance"
   ],
-  "blockerNotes": "PR #2276 replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. Client role, organization and tenant input remain untrusted and all UI files remain locked until verified server session projection is proven.",
+  "blockerNotes": "PR #2276 replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. Typecheck exposed one exact test-bootstrap defect: apps/api/test/one-deal/seed.ts constructs AuthService without its persistent repository. That single file is temporarily unlocked for explicit PostgreSQL DI; production AuthService keeps mandatory repository injection. Client role, organization and tenant input remain untrusted and all UI files remain locked.",
   "lockedUntilCurrentGreen": [
     "platform UI implementation",
     "client role shell migration",
@@ -43,6 +44,7 @@
     "apps/api/src/common/guards/**",
     "apps/api/src/common/types/request-user.ts",
     "apps/api/test/auth/**",
+    "apps/api/test/one-deal/seed.ts",
     ".github/workflows/ci.yml"
   ],
   "agentWritableScope": [
@@ -54,6 +56,7 @@
     "apps/api/src/common/guards/**",
     "apps/api/src/common/types/request-user.ts",
     "apps/api/test/auth/**",
+    "apps/api/test/one-deal/seed.ts",
     ".github/workflows/ci.yml"
   ],
   "industrialOneDealFoundation": {
@@ -73,6 +76,11 @@
   "persistentIdentity": {
     "implementationPr": "#2276",
     "status": "in_progress",
+    "lastFailure": {
+      "code": "AUTH_SERVICE_REPOSITORY_REQUIRED_IN_ONE_DEAL_SEED",
+      "file": "apps/api/test/one-deal/seed.ts",
+      "reason": "test bootstrap directly called new AuthService() after production service moved to explicit PersistentAuthRepository injection"
+    },
     "requiredEvidence": [
       "PostgreSQL users memberships sessions refresh families and MFA challenges",
       "opaque session identity re-authorized against database state",
