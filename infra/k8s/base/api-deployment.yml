@@ -44,6 +44,11 @@ spec:
               value: production
             - name: PORT
               value: "3001"
+            - name: TRUST_PROXY_MODE
+              value: cidr
+            # Narrow these ranges to the ingress-controller pod/service CIDRs for each cluster.
+            - name: TRUSTED_PROXY_CIDRS
+              value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
