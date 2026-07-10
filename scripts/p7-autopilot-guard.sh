@@ -65,10 +65,12 @@ PUBLIC_AUTH_FIX_SCOPE='apps/web/app/layout.tsx
 apps/web/app/api/auth/login/route.ts
 apps/web/app/api/auth/mfa-login/route.ts
 apps/web/app/api/auth/mfa-login/cancel/route.ts
+apps/web/app/platform-v7/forgot-password/ForgotPasswordFormClient.tsx
 apps/web/app/platform-v7/forgot-password/page.tsx
 apps/web/app/platform-v7/layout.tsx
 apps/web/app/platform-v7/page.tsx
 apps/web/app/platform-v7/template.tsx
+apps/web/app/platform-v7/login/LoginFormClient.tsx
 apps/web/app/platform-v7/login/page.tsx
 apps/web/app/platform-v7/login/template.tsx
 apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx
