@@ -97,7 +97,8 @@ apps/web/tests/unit/platformV7SingleEntryLogin.test.ts
 apps/web/tests/unit/productEntryM31.test.tsx
 scripts/p7-autopilot-guard.sh'
 
-PUBLIC_LCP_FIX_SCOPE='apps/web/app/layout.tsx
+PUBLIC_LCP_FIX_SCOPE='apps/web/app/_pc-public/platform-v7/**
+apps/web/app/layout.tsx
 apps/web/app/platform-v7/_styles/**
 apps/web/app/platform-v7/forgot-password/page.tsx
 apps/web/app/platform-v7/layout.tsx
@@ -105,6 +106,7 @@ apps/web/app/platform-v7/login/layout.tsx
 apps/web/app/platform-v7/page.tsx
 apps/web/app/platform-v7/template.tsx
 apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx
+apps/web/next.config.js
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
 
