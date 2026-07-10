@@ -57,26 +57,28 @@ LOCKED:
 - production scale, restore or disaster-recovery claims.
 
 NEXT:
-- Layer: Persistent Identity, Session Family, Revocation and MFA Foundation.
+- Layer: Industrial One Deal Ephemeral PostgreSQL E2E Harness.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-  - apps/api/src/modules/auth/**
-  - apps/api/src/modules/mfa/**
-  - apps/api/prisma/schema.prisma
-  - apps/api/prisma/migrations/**
-  - apps/api/test/auth/**
+  - apps/api/test/one-deal/**
+  - apps/web/tests/e2e/one-deal/**
+  - scripts/platform-v7-one-deal-*.mjs
+  - .github/workflows/platform-v7-one-deal-e2e.yml
 - Success criteria:
-  - users, credentials, memberships, sessions and refresh-token families are PostgreSQL-backed;
-  - refresh rotation and reuse detection are transactional;
-  - logout and revocation are shared across API instances;
-  - MFA factors and recovery codes are encrypted or hashed and fail closed;
-  - no self-selected role or organization is trusted;
-  - production migration execution remains a separate controlled operation;
-  - all identity integration, replay and multi-instance tests are green.
+  - CI starts isolated PostgreSQL 16 with no production credentials;
+  - canonical schema, migrations and RLS policies are applied only to the ephemeral database;
+  - all 12 human role memberships read one deal ID and one factual state;
+  - all 19 commands pass in order without manual database changes;
+  - reserve and release advance only through signed callback fixtures bound to pending operations;
+  - duplicate, stale, concurrent and cross-tenant commands fail deterministically;
+  - audit, outbox, documents, shipment, laboratory and money projections reconcile after close;
+  - teardown destroys all data and credentials;
+  - production readiness remains unclaimed.
 - Readiness remains 85% honest architectural readiness until exploitation evidence exists.
 
 AFTER NEXT:
+- Persistent identity/session/revocation/MFA source of truth after blocker #2115 is removed.
 - Durable outbox workers, bank reconciliation and replay-safe partner key rotation.
 - Truthful driver offline acknowledgement and conflict handling.
 - Server-rendered RU/EN/ZH i18n and complete design-system migration.
