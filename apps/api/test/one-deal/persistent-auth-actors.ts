@@ -1,7 +1,7 @@
 import { createHmac } from 'crypto';
 import * as jwt from 'jsonwebtoken';
-import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { RequestUser, Role } from '../../src/common/types/request-user';
+import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
 
@@ -34,8 +34,8 @@ export type PersistentActorHarness = {
   accessTokensByRole: Map<Role, string>;
   primaryAuth: AuthService;
   verifierAuth: AuthService;
-  primaryPrisma: PrismaService;
-  verifierPrisma: PrismaService;
+  primaryPrisma: AuthPrismaService;
+  verifierPrisma: AuthPrismaService;
   verifyWithFreshInstance(): Promise<void>;
   disconnect(): Promise<void>;
 };
@@ -72,10 +72,6 @@ function totp(secret: string, unixMs = Date.now()): string {
   return String(binary % 1_000_000).padStart(6, '0');
 }
 
-function authPrisma(databaseUrl: string): PrismaService {
-  return new PrismaService({ datasources: { db: { url: databaseUrl } } });
-}
-
 function assertOpaqueAccessToken(accessToken: string, expectedUserId: string): OpaqueAccessClaims {
   const decoded = jwt.decode(accessToken);
   if (!decoded || typeof decoded === 'string') throw new Error('Access token did not decode to JWT claims');
@@ -93,16 +89,16 @@ function assertOpaqueAccessToken(accessToken: string, expectedUserId: string): O
 export async function createPersistentActorHarness(
   organizationIds: readonly string[],
 ): Promise<PersistentActorHarness> {
-  const authUrl = String(process.env.ONE_DEAL_AUTH_URL ?? '').trim();
+  const authUrl = String(process.env.AUTH_DATABASE_URL ?? '').trim();
   const jwtSecret = String(process.env.JWT_SECRET ?? '').trim();
-  if (!authUrl) throw new Error('ONE_DEAL_AUTH_URL is required for persistent auth actor proof');
+  if (!authUrl) throw new Error('AUTH_DATABASE_URL is required for persistent auth actor proof');
   if (!jwtSecret) throw new Error('JWT_SECRET is required for persistent auth actor proof');
 
-  const primaryPrisma = authPrisma(authUrl);
-  const verifierPrisma = authPrisma(authUrl);
+  const primaryPrisma = new AuthPrismaService();
+  const verifierPrisma = new AuthPrismaService();
   const primaryAuth = new AuthService(new PersistentAuthRepository(primaryPrisma));
   const verifierAuth = new AuthService(new PersistentAuthRepository(verifierPrisma));
-  await Promise.all([primaryPrisma.$connect(), verifierPrisma.$connect()]);
+  await Promise.all([primaryPrisma.onModuleInit(), verifierPrisma.onModuleInit()]);
 
   try {
     const [{ current_user: currentUser }] = await primaryPrisma.$queryRaw<Array<{ current_user: string }>>`
@@ -234,9 +230,9 @@ export async function createPersistentActorHarness(
       primaryPrisma,
       verifierPrisma,
       verifyWithFreshInstance: async () => {
-        const freshPrisma = authPrisma(authUrl);
+        const freshPrisma = new AuthPrismaService();
         const freshAuth = new AuthService(new PersistentAuthRepository(freshPrisma));
-        await freshPrisma.$connect();
+        await freshPrisma.onModuleInit();
         try {
           for (const [role, token] of accessTokensByRole) {
             const expected = actorsByRole.get(role);
@@ -246,15 +242,15 @@ export async function createPersistentActorHarness(
             }
           }
         } finally {
-          await freshPrisma.$disconnect();
+          await freshPrisma.onModuleDestroy();
         }
       },
       disconnect: async () => {
-        await Promise.all([primaryPrisma.$disconnect(), verifierPrisma.$disconnect()]);
+        await Promise.all([primaryPrisma.onModuleDestroy(), verifierPrisma.onModuleDestroy()]);
       },
     };
   } catch (error) {
-    await Promise.allSettled([primaryPrisma.$disconnect(), verifierPrisma.$disconnect()]);
+    await Promise.allSettled([primaryPrisma.onModuleDestroy(), verifierPrisma.onModuleDestroy()]);
     throw error;
   }
 }
