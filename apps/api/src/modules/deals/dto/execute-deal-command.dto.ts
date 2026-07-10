@@ -1,4 +1,5 @@
 import { IsISO8601, IsObject, IsOptional, IsString, Length } from 'class-validator';
+import type { Prisma } from '@prisma/client';
 
 export class ExecuteDealCommandDto {
   @IsString()
@@ -14,5 +15,5 @@ export class ExecuteDealCommandDto {
 
   @IsOptional()
   @IsObject()
-  payload?: Record<string, unknown>;
+  payload?: Prisma.InputJsonObject;
 }
