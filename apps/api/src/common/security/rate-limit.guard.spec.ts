@@ -108,12 +108,12 @@ describe('distributed rate-limit guards', () => {
   });
 
   it('bypasses only exact liveness/readiness endpoints', async () => {
-    const service = { consume: jest.fn() } as unknown as RateLimitService;
+    const service = { consume: jest.fn().mockResolvedValue(allowed) } as unknown as RateLimitService;
     const guard = new PreAuthRateLimitGuard(service);
     await expect(guard.canActivate(context({ path: '/health' }).execution)).resolves.toBe(true);
     expect(service.consume).not.toHaveBeenCalled();
 
-    await guard.canActivate(context({ path: '/health/detailed' }).execution);
+    await expect(guard.canActivate(context({ path: '/health/detailed' }).execution)).resolves.toBe(true);
     expect(service.consume).toHaveBeenCalledTimes(1);
   });
 });
