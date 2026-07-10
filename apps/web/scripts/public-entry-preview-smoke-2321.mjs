@@ -33,19 +33,37 @@ function compactAxe(violations) {
   return violations.map(({ id, impact, nodes }) => ({ id, impact, nodes: nodes.length }));
 }
 
+function isNetlifyPreviewToolbarNoise(text) {
+  return (
+    text.includes("Framing 'https://app.netlify.com/'") ||
+    text.includes('app.netlify.com/cdp') ||
+    text.includes('netlify-cdp')
+  );
+}
+
+function isCancelledRscNavigation(url, errorText) {
+  return url.includes('_rsc=') && /ERR_ABORTED|cancelled|canceled/i.test(errorText || '');
+}
+
 async function runCase(page, matrixCase, routeCase, locale) {
   const consoleErrors = [];
   const runtimeErrors = [];
   const failedRequests = [];
   const onConsole = (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
+    const text = message.text();
+    if (message.type() === 'error' && !isNetlifyPreviewToolbarNoise(text)) consoleErrors.push(text);
   };
   const onPageError = (error) => runtimeErrors.push(String(error?.stack || error));
   const onRequestFailed = (request) => {
     const failure = request.failure();
     const url = request.url();
-    if (!url.startsWith('data:') && !url.includes('/favicon.ico')) {
-      failedRequests.push({ url, error: failure?.errorText || 'unknown' });
+    const errorText = failure?.errorText || 'unknown';
+    if (
+      !url.startsWith('data:') &&
+      !url.includes('/favicon.ico') &&
+      !isCancelledRscNavigation(url, errorText)
+    ) {
+      failedRequests.push({ url, error: errorText });
     }
   };
   page.on('console', onConsole);
