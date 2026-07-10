@@ -94,6 +94,12 @@
       "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
       "apps/web/tests/unit/platformV7PublicLiveHardening.test.ts",
       "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "agent/remove-login-legacy-overlay": [
+      "apps/web/app/platform-v7/login/layout.tsx",
+      "apps/web/app/platform-v7/login/template.tsx",
+      "apps/web/tests/unit/platformV7CanonicalLoginRoute.test.ts",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "industrialOneDealFoundation": {
