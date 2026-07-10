@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 describe('platform-v7 root working entry', () => {
   const page = readFileSync(join(process.cwd(), 'app/platform-v7/page.tsx'), 'utf8');
   const publicMessages = readFileSync(join(process.cwd(), 'i18n/public-entry-messages.ts'), 'utf8');
+  const landingCss = readFileSync(join(process.cwd(), 'styles/platform-v7-public-landing.css'), 'utf8');
   const mobileShell = readFileSync(join(process.cwd(), 'styles/platform-v7-mobile-shell-p1.css'), 'utf8');
 
   it('uses the public execution cockpit as the root entry surface', () => {
@@ -30,13 +31,13 @@ describe('platform-v7 root working entry', () => {
     expect(page).not.toContain('MessageCircleQuestion');
   });
 
-  it('keeps mobile entry polish guarded', () => {
-    expect(page).toContain('--entry-header-height:64px');
-    expect(page).toContain('.entry-process-row{display:flex;gap:10px;overflow-x:auto;padding:0 2px 8px;scroll-snap-type:x proximity}');
-    expect(page).toContain('.entry-process-row::-webkit-scrollbar{display:none}');
-    expect(page).toContain('flex:0 0 172px');
+  it('keeps mobile entry polish guarded in the static public stylesheet', () => {
+    expect(landingCss).toContain('--entry-header-height:64px');
+    expect(landingCss).toContain('.entry-process-row{display:flex;gap:10px;overflow-x:auto;padding:0 2px 8px;scroll-snap-type:x proximity}');
+    expect(landingCss).toContain('.entry-process-row::-webkit-scrollbar{display:none}');
+    expect(landingCss).toContain('flex:0 0 172px');
     expect(page).toContain("href='/platform-v7/register'");
-    expect(page).toContain('.entry-primary-cta{color:#fff;background:linear-gradient(135deg,#087a3b,#0b6a37)');
+    expect(landingCss).toContain('.entry-primary-cta{color:#fff;background:linear-gradient(135deg,#087a3b,#0b6a37)');
     expect(mobileShell).toContain('html:has(input:focus, textarea:focus, select:focus)');
     expect(mobileShell).toContain('.pc-v7-role-dock');
     expect(mobileShell).toContain('.p7-support-chat-button');
