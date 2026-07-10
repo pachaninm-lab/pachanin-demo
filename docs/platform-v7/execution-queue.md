@@ -63,8 +63,26 @@ LOCKED:
 - live bank/FGIS/EDO/signature integrations;
 - production load, restore or disaster-recovery claims.
 
-NEXT AFTER E2E GREEN:
-- Industrial One Deal Concurrency, Replay and Recovery Matrix.
+NEXT:
+- Layer: Industrial One Deal Concurrency, Replay and Recovery Matrix.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
+  - apps/api/test/one-deal/**
+  - scripts/platform-v7-one-deal-*.mjs
+  - scripts/platform-v7-one-deal-*.sh
+  - .github/workflows/ci.yml
+- Success criteria:
+  - concurrent commands preserve one aggregate version and one valid winner;
+  - duplicate and out-of-order bank callbacks are replay-safe;
+  - API and worker restart preserve pending operations, receipts and audit continuity;
+  - transaction rollback leaves no partial Deal, event, audit, ledger or outbox state;
+  - RLS connection reuse cannot leak tenant context;
+  - recovery rerun is idempotent and deterministic;
+  - production readiness remains unclaimed.
+- Readiness remains 85% honest architectural readiness until concurrency, recovery, persistent identity, live integrations, load and DR are independently proven.
+
+AFTER NEXT:
 - Persistent identity/session/revocation/MFA source of truth after blocker #2115 is removed.
 - Durable outbox workers, bank reconciliation and partner key rotation.
 - Truthful driver offline acknowledgement and conflict handling.
