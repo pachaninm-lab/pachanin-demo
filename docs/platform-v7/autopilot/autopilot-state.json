@@ -32,7 +32,7 @@
     "apps/api/test/rls/**",
     "scripts/platform-v7-rls-*.mjs",
     "scripts/platform-v7-rls-*.sh",
-    ".github/workflows/platform-v7-rls-integration.yml"
+    ".github/workflows/api-test.yml"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -41,7 +41,7 @@
     "apps/api/test/rls/**",
     "scripts/platform-v7-rls-*.mjs",
     "scripts/platform-v7-rls-*.sh",
-    ".github/workflows/platform-v7-rls-integration.yml"
+    ".github/workflows/api-test.yml"
   ],
   "vp345PhysicalRlsPolicyAlignment": {
     "layer": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
@@ -53,6 +53,7 @@
     "openPr": "#2262",
     "status": "in_progress",
     "invariants": [
+      "existing required API Tests workflow owns the merge-blocking RLS job",
       "CI uses an isolated PostgreSQL 16 service with ephemeral credentials",
       "legacy permissive migration policies are removed",
       "canonical RLS SQL is applied only to the ephemeral database",
