@@ -100,7 +100,9 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
 
   if (publicPath) {
     if (landingPath) {
-      return position === 'before' ? <><PlatformV7UniversalAdaptiveStyle /><PlatformV7ViewportRuntimeGuard /><PublicOpenPlaceholderCleanup pathname={pathname} /><PublicHeroWeightPatch /><PlatformV7BlankScreenGuard /></> : <ChatSupportWidget />;
+      return position === 'before'
+        ? <><PlatformV7UniversalAdaptiveStyle /><PlatformV7ViewportRuntimeGuard /><PublicOpenPlaceholderCleanup pathname={pathname} /><PublicHeroWeightPatch /><PlatformV7BlankScreenGuard /></>
+        : <ChatSupportWidget />;
     }
 
     if (position === 'before') {
@@ -111,11 +113,13 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
           {authPath ? <LoginMobileStabilityStyle /> : null}
           <PlatformV7BlankScreenGuard />
           <PublicEntryCleanup />
-          <PublicRegistrationEntryPatch />
-          <PublicHeroWeightPatch />
+          {authPath ? null : <PublicRegistrationEntryPatch />}
+          {authPath ? null : <PublicHeroWeightPatch />}
         </>
       );
     }
+
+    if (authPath) return <ChatSupportWidget />;
 
     return (
       <>
