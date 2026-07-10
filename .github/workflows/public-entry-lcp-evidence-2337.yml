@@ -45,10 +45,12 @@ jobs:
         working-directory: apps/web
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           OUT='../../artifacts/public-entry-lcp-evidence-2337/local-production'
-          mkdir -p "$OUT/lighthouse"
+          mkdir -p "$OUT/lighthouse" "$OUT/html"
           find .next/static/css -type f -printf '%f %s\n' | sort -k2 -n > "$OUT/css-assets.txt"
+          pnpm exec playwright --version > "$OUT/playwright-version.txt" 2>&1 || true
+          node -e "const {chromium,webkit}=require('@playwright/test'); console.log(JSON.stringify({chromium:chromium.executablePath(),webkit:webkit.executablePath()},null,2))" > "$OUT/browser-paths.json" 2>&1 || true
 
           pnpm start > /tmp/platform-v7-lcp-production.log 2>&1 &
           APP_PID=$!
@@ -67,31 +69,49 @@ jobs:
             sleep 1
           done
           if [ "$ready" -ne 1 ]; then
-            cat /tmp/platform-v7-lcp-production.log
+            cat /tmp/platform-v7-lcp-production.log | tee "$OUT/readiness-failure.log"
             exit 1
           fi
 
-          PLAYWRIGHT_BASE_URL="$LOCAL_BASE_URL" node scripts/public-entry-lcp-evidence-2337.mjs
-
-          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || node -e "console.log(require('@playwright/test').chromium.executablePath())")"
-          test -n "$CHROME_BIN" || { echo 'Chrome executable not found' >&2; exit 1; }
-          export CHROME_PATH="$CHROME_BIN"
-
           for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
             safe_name="${route//\//-}"
-            npx -y lighthouse@12.8.2 "$LOCAL_BASE_URL/${route}?lang=ru" \
-              --quiet \
-              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
-              --only-categories=performance,accessibility,best-practices,seo \
-              --output=json \
-              --output-path="$OUT/lighthouse/${safe_name}.json"
+            curl --silent --show-error --dump-header "$OUT/html/${safe_name}.headers" --output "$OUT/html/${safe_name}.html" "$LOCAL_BASE_URL/${route}?lang=ru" || true
+            grep -oE '/_next/static/css/[^"? ]+' "$OUT/html/${safe_name}.html" | sort -u > "$OUT/html/${safe_name}.css-links.txt" || true
           done
+
+          set +e
+          PLAYWRIGHT_BASE_URL="$LOCAL_BASE_URL" node --trace-uncaught scripts/public-entry-lcp-evidence-2337.mjs 2>&1 | tee "$OUT/browser-script.log"
+          BROWSER_STATUS=${PIPESTATUS[0]}
+          set -e
+
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || node -e "console.log(require('@playwright/test').chromium.executablePath())")"
+          test -n "$CHROME_BIN" || { echo 'Chrome executable not found' | tee -a "$OUT/lighthouse-run.log"; CHROME_BIN=''; }
+          export CHROME_PATH="$CHROME_BIN"
+
+          LIGHTHOUSE_STATUS=0
+          if [ -n "$CHROME_BIN" ]; then
+            for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
+              safe_name="${route//\//-}"
+              set +e
+              npx -y lighthouse@12.8.2 "$LOCAL_BASE_URL/${route}?lang=ru" \
+                --quiet \
+                --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+                --only-categories=performance,accessibility,best-practices,seo \
+                --output=json \
+                --output-path="$OUT/lighthouse/${safe_name}.json" 2>&1 | tee -a "$OUT/lighthouse-run.log"
+              STATUS=${PIPESTATUS[0]}
+              set -e
+              if [ "$STATUS" -ne 0 ]; then LIGHTHOUSE_STATUS=1; fi
+            done
+          else
+            LIGHTHOUSE_STATUS=1
+          fi
 
           node <<'NODE'
           const fs = require('fs');
           const path = require('path');
           const dir = '../../artifacts/public-entry-lcp-evidence-2337/local-production/lighthouse';
-          const reports = fs.readdirSync(dir)
+          const reports = fs.existsSync(dir) ? fs.readdirSync(dir)
             .filter((name) => name.endsWith('.json') && name !== 'summary.json')
             .map((name) => {
               const report = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
@@ -108,8 +128,9 @@ jobs:
                 },
                 renderBlocking: report.audits['render-blocking-resources']?.details?.items?.map((item) => ({ url: item.url, totalBytes: item.totalBytes, wastedMs: item.wastedMs })) ?? [],
               };
-            });
+            }) : [];
           const failures = [];
+          if (reports.length !== 3) failures.push(`expected 3 Lighthouse reports, got ${reports.length}`);
           for (const report of reports) {
             const landing = report.file === 'platform-v7.json';
             if ((report.scores.performance || 0) < 80) failures.push(`${report.file}: performance ${report.scores.performance}`);
@@ -123,8 +144,14 @@ jobs:
           const summary = { status: failures.length ? 'failed' : 'passed', source: 'local-next-production', reports, failures };
           fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify(summary, null, 2));
           console.log(JSON.stringify(summary, null, 2));
-          if (failures.length) process.exit(1);
+          if (failures.length) process.exitCode = 1;
           NODE
+          SUMMARY_STATUS=$?
+
+          printf '{"browserStatus":%s,"lighthouseCommandStatus":%s,"lighthouseSummaryStatus":%s}\n' "$BROWSER_STATUS" "$LIGHTHOUSE_STATUS" "$SUMMARY_STATUS" > "$OUT/gate-status.json"
+          if [ "$BROWSER_STATUS" -ne 0 ] || [ "$LIGHTHOUSE_STATUS" -ne 0 ] || [ "$SUMMARY_STATUS" -ne 0 ]; then
+            exit 1
+          fi
 
       - name: Wait for immutable Netlify deploy
         if: always()
