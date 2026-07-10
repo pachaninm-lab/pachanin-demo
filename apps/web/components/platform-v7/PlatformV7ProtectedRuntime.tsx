@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import '@/app/platform-v7/_styles/full-platform';
 import { ToastProvider } from '@/components/v7r/Toast';
 import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
 import { PlatformV7ProtectedShell } from '@/components/platform-v7/PlatformV7ProtectedShell';
