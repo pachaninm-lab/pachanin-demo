@@ -15,9 +15,15 @@ jobs:
     env:
       PLAYWRIGHT_BASE_URL: https://deploy-preview-2323--vermillion-kitsune-0e7b97.netlify.app
       ARTIFACT_DIR: ../../artifacts/public-auth-preview-smoke-2323
+      TARGET_PUBLIC_AUTH_HEAD: f72d92e9db99a90471f9699da48c0ddce6de1ec2
     steps:
       - name: Checkout evidence branch
         uses: actions/checkout@v4
+
+      - name: Record immutable target
+        run: |
+          mkdir -p artifacts/public-auth-preview-smoke-2323
+          printf '%s\n' "$TARGET_PUBLIC_AUTH_HEAD" > artifacts/public-auth-preview-smoke-2323/target-head.txt
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -48,6 +54,7 @@ jobs:
         with:
           name: public-auth-hydration-diagnostics-2323
           path: |
+            artifacts/public-auth-preview-smoke-2323/target-head.txt
             artifacts/public-auth-preview-smoke-2323/locale-hydration-debug.json
             artifacts/public-auth-preview-smoke-2323/dom-hydration-diff.json
           if-no-files-found: error
@@ -108,8 +115,8 @@ jobs:
             if (!(m.totalBlockingTimeMs <= 200)) failures.push(`${report.file}: TBT ${m.totalBlockingTimeMs}ms > 200ms`);
             if (!(m.cumulativeLayoutShift <= 0.1)) failures.push(`${report.file}: CLS ${m.cumulativeLayoutShift} > 0.1`);
           }
-          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: failures.length ? 'failed' : 'passed', reports, failures, note: 'Preview SEO is recorded but not enforced because deploy previews are intentionally noindex.' }, null, 2));
-          console.log(JSON.stringify({ reports, failures }, null, 2));
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: failures.length ? 'failed' : 'passed', targetHead: process.env.TARGET_PUBLIC_AUTH_HEAD, reports, failures, note: 'Preview SEO is recorded but not enforced because deploy previews are intentionally noindex.' }, null, 2));
+          console.log(JSON.stringify({ targetHead: process.env.TARGET_PUBLIC_AUTH_HEAD, reports, failures }, null, 2));
           if (failures.length) process.exit(1);
           NODE
 
