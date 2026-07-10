@@ -3,10 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "VP-3.19 Runtime Persistence Outbox Audit Linkage Scope Unlock.",
+  "current": "VP-3.20 Runtime Persistence Outbox Audit Linkage Final Gate.",
   "fullTzReadinessPercent": 75,
-  "openPr": "#2227",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.", "#2215", "VP-3.7 Runtime Persistence Repository Adapter Contract Plan.", "#2216", "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request.", "#2217", "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight.", "#2218", "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation.", "#2219", "VP-3.11 Runtime Persistence Repository Adapter Implementation Scope Unlock.", "#2220", "VP-3.12 Runtime Persistence Repository Adapter Implementation Final Gate.", "#2221", "VP-3.13 Runtime Persistence Repository Adapter Implementation.", "#2222", "VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.", "#2223", "VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock.", "#2224", "VP-3.16 Runtime Persistence Repository Adapter Pipeline Binding Final Gate.", "#2225", "VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation.", "#2226", "VP-3.18 Runtime Persistence Outbox Audit Linkage Plan."],
+  "openPr": "#2228",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.", "#2215", "VP-3.7 Runtime Persistence Repository Adapter Contract Plan.", "#2216", "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request.", "#2217", "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight.", "#2218", "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation.", "#2219", "VP-3.11 Runtime Persistence Repository Adapter Implementation Scope Unlock.", "#2220", "VP-3.12 Runtime Persistence Repository Adapter Implementation Final Gate.", "#2221", "VP-3.13 Runtime Persistence Repository Adapter Implementation.", "#2222", "VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.", "#2223", "VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock.", "#2224", "VP-3.16 Runtime Persistence Repository Adapter Pipeline Binding Final Gate.", "#2225", "VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation.", "#2226", "VP-3.18 Runtime Persistence Outbox Audit Linkage Plan.", "#2227", "VP-3.19 Runtime Persistence Outbox Audit Linkage Scope Unlock."],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 repository settings cleanup. #2115 remains blocked by current auth-file write path.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/money/storage changes"],
@@ -18,19 +18,10 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
-  "vp318RuntimePersistenceOutboxAuditLinkagePlan": {
-    "layer": "VP-3.18 Runtime Persistence Outbox Audit Linkage Plan",
-    "closedPr": "#2226",
-    "status": "outbox-audit-linkage-plan-docs-only-complete",
-    "candidateImplementationFiles": [
-      "apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts",
-      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeLinkage.test.ts"
-    ]
-  },
   "vp319RuntimePersistenceOutboxAuditLinkageScopeUnlock": {
     "layer": "VP-3.19 Runtime Persistence Outbox Audit Linkage Scope Unlock",
-    "openPr": "#2227",
-    "status": "outbox-audit-linkage-scope-unlock-docs-only",
+    "closedPr": "#2227",
+    "status": "outbox-audit-linkage-scope-unlock-docs-only-complete",
     "unlockedImplementationFilesForLater": [
       "apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts",
       "apps/web/tests/unit/platformV7DealWorkspaceRuntimeLinkage.test.ts"
@@ -38,7 +29,23 @@
   },
   "vp320RuntimePersistenceOutboxAuditLinkageFinalGate": {
     "layer": "VP-3.20 Runtime Persistence Outbox Audit Linkage Final Gate",
-    "status": "next-docs-only-final-gate"
+    "openPr": "#2228",
+    "status": "final-gate-docs-only",
+    "implementationBranchInstruction": "The next manual code PR must set current to VP-3.21 and allowedCurrentScope to docs plus exactly the two linkage implementation files before writing code.",
+    "linkageFilesUnlockedForManualCodePr": [
+      "apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts",
+      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeLinkage.test.ts"
+    ]
+  },
+  "vp321RuntimePersistenceOutboxAuditLinkageImplementation": {
+    "layer": "VP-3.21 Runtime Persistence Outbox Audit Linkage Implementation",
+    "status": "manual-code-pr-next-after-final-gate",
+    "requiredAllowedScopeForManualCodePr": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/execution-queue.md",
+      "apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts",
+      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeLinkage.test.ts"
+    ]
   },
   "forbiddenZones": [
     "apps/landing",
@@ -54,5 +61,5 @@
   ],
   "maturityLanguage": ["platform-temporarily-without-external-integrations"],
   "forbiddenClaims": ["maturity uplift", "external integration completion", "production DB runtime persistence complete", "live outbox audit persistence complete"],
-  "readiness": "75% honest readiness. VP-3.19 is docs-only scope unlock for contract-level outbox/audit linkage. It does not implement live outbox/audit persistence, production DB persistence, Prisma schema, migration, bank, FGIS or EDO live integration."
+  "readiness": "75% honest readiness. VP-3.20 is the final docs-only gate before contract-level outbox/audit linkage implementation. It does not implement live outbox/audit persistence, production DB persistence, Prisma schema, migration, bank, FGIS or EDO live integration."
 }
