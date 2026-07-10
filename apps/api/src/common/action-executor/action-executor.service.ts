@@ -1,31 +1,24 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { RequestUser, Role } from '../types/request-user';
-import { DomainAction, ROLE_ALLOWED_ACTIONS } from './action-policy';
 import { AuditService } from '../../modules/audit/audit.service';
 import { OutboxService } from '../outbox/outbox.service';
-
-export interface StateGates {
-  /** Current deal status */
-  dealStatus?: string;
-  /** The statuses from which this action is allowed */
-  allowedFromStatuses?: string[];
-  /** Whether required documents are complete — false blocks release actions */
-  documentsComplete?: boolean;
-  /** Whether an active dispute exists — blocks money release */
-  disputeOpen?: boolean;
-  /** Whether bank reserve has been confirmed */
-  reserveConfirmed?: boolean;
-}
+import { DomainAction, getAllowedRoles, isActionAllowedForRole } from './action-policy';
+import { RequestUser, Role } from '../types/request-user';
 
 export interface ObjectScope {
   objectType: string;
   objectId: string;
-  /** For deal: seller or buyer orgId to check org-scope access */
   ownerOrgId?: string;
-  /** Secondary party's orgId (e.g. buyer in a seller-owned deal) */
   counterpartyOrgId?: string;
-  /** For shipment: the driver userId assigned */
   assignedDriverUserId?: string;
+  allowedOrgIds?: string[];
+}
+
+export interface StateGates {
+  dealStatus?: string;
+  allowedFromStatuses?: string[];
+  disputeOpen?: boolean;
+  documentsComplete?: boolean;
+  reserveConfirmed?: boolean;
 }
 
 export interface ExecuteParams<T> {
@@ -33,8 +26,11 @@ export interface ExecuteParams<T> {
   action: DomainAction;
   scope: ObjectScope;
   gates?: StateGates;
-  /** If set, an outbox entry is created instead of calling the bank directly */
-  bankOutbox?: { type: string; payload: any };
+  bankOutbox?: {
+    type: string;
+    payload: Record<string, unknown>;
+    idempotencyKey?: string;
+  };
   fn: () => T | Promise<T>;
 }
 
@@ -44,8 +40,6 @@ export interface ExecuteResult<T> {
   outboxId?: string;
 }
 
-const PRIVILEGED: Set<Role> = new Set([Role.ADMIN, Role.SUPPORT_MANAGER]);
-
 @Injectable()
 export class ActionExecutorService {
   constructor(
@@ -53,84 +47,46 @@ export class ActionExecutorService {
     private readonly outbox: OutboxService,
   ) {}
 
-  /**
-   * Check that the role is allowed to perform action.
-   * Throws ForbiddenException with audit entry on deny.
-   */
   assertPermission(user: RequestUser, action: DomainAction): void {
-    const allowed = ROLE_ALLOWED_ACTIONS[user.role];
-    if (!allowed?.has(action)) {
-      this.audit.log({
-        action: `DENY.permission:${action}`,
-        entityType: 'access',
-        entityId: user.id,
-        actorUserId: user.id,
-        meta: { reason: 'role_not_allowed', role: user.role },
-      });
-      throw new ForbiddenException(`Role ${user.role} cannot perform ${action}`);
+    if (!isActionAllowedForRole(action, user.role)) {
+      const allowedRoles = getAllowedRoles(action);
+      throw new ForbiddenException(
+        `Role ${user.role} cannot perform ${action}. Allowed roles: [${allowedRoles.join(', ')}]`,
+      );
     }
   }
 
-  /**
-   * Check object-level scope: org isolation, driver isolation, EXECUTIVE read-only.
-   */
   assertObjectScope(user: RequestUser, action: DomainAction, scope: ObjectScope): void {
-    if (PRIVILEGED.has(user.role)) return;
-
-    // EXECUTIVE is always read-only regardless of role-allowed-actions
+    if (user.role === Role.ADMIN) return;
+    if (user.role === Role.EXECUTIVE && action.endsWith('.view')) return;
     if (user.role === Role.EXECUTIVE) {
-      const readOnly: DomainAction[] = ['deal.view', 'document.view', 'shipment.view', 'lot.view'];
-      if (!readOnly.includes(action)) {
-        this.audit.log({
-          action: `DENY.executive-mutation:${action}`,
-          entityType: scope.objectType,
-          entityId: scope.objectId,
-          actorUserId: user.id,
-          meta: { reason: 'executive_readonly' },
-        });
-        throw new ForbiddenException('Executive role is read-only');
-      }
-      return;
+      throw new ForbiddenException(`Executive role is read-only and cannot perform ${action}`);
     }
 
-    // DRIVER: can only access their own assigned shipment
-    if (user.role === Role.DRIVER && scope.objectType === 'shipment') {
-      if (scope.assignedDriverUserId && scope.assignedDriverUserId !== user.id) {
-        this.audit.log({
-          action: `DENY.driver-isolation:${action}`,
-          entityType: scope.objectType,
-          entityId: scope.objectId,
-          actorUserId: user.id,
-          meta: { reason: 'driver_isolation', assignedDriverUserId: scope.assignedDriverUserId },
-        });
-        throw new ForbiddenException('Driver can only access own assigned shipment');
-      }
-      return;
-    }
-
-    // Org-scope: FARMER and BUYER can only access deals their org is party to
-    if (user.role === Role.FARMER || user.role === Role.BUYER) {
-      const userIsParty =
-        scope.ownerOrgId === user.orgId || scope.counterpartyOrgId === user.orgId;
-      if (scope.ownerOrgId && !userIsParty) {
-        this.audit.log({
-          action: `DENY.cross-org:${action}`,
-          entityType: scope.objectType,
-          entityId: scope.objectId,
-          actorUserId: user.id,
-          meta: { reason: 'cross_org', userOrgId: user.orgId, ownerOrgId: scope.ownerOrgId },
-        });
+    if (scope.assignedDriverUserId !== undefined && user.role === Role.DRIVER) {
+      if (scope.assignedDriverUserId !== user.id) {
         throw new ForbiddenException(
-          `Cross-organization access denied for ${scope.objectType}:${scope.objectId}`,
+          `Driver ${user.id} cannot access ${scope.objectType}:${scope.objectId} assigned to another driver`,
         );
       }
+      return;
+    }
+
+    const orgId = user.orgId;
+    if (!orgId) {
+      throw new ForbiddenException(`User ${user.id} has no organization scope`);
+    }
+
+    const allowedOrgIds = new Set(
+      [scope.ownerOrgId, scope.counterpartyOrgId, ...(scope.allowedOrgIds ?? [])].filter(Boolean),
+    );
+    if (allowedOrgIds.size > 0 && !allowedOrgIds.has(orgId)) {
+      throw new ForbiddenException(
+        `Organization ${orgId} cannot access ${scope.objectType}:${scope.objectId}`,
+      );
     }
   }
 
-  /**
-   * Check business state gates.
-   * Throws ForbiddenException with a clear reason when a gate blocks the action.
-   */
   assertStateGates(action: DomainAction, gates: StateGates): void {
     if (gates.disputeOpen) {
       throw new ForbiddenException(`Action ${action} is blocked: active dispute must be resolved first`);
@@ -153,7 +109,10 @@ export class ActionExecutorService {
   }
 
   /**
-   * Full execution pipeline: permission → object scope → state gates → outbox → fn → audit.
+   * Legacy execution pipeline. Canonical Deal commands use DealCommandService,
+   * where Deal/payment/audit/outbox are committed in one PostgreSQL transaction.
+   * This compatibility path now awaits durable enqueue and never uses memory as
+   * authority; it must not be represented as atomic with RuntimeCore memory.
    */
   async execute<T>(params: ExecuteParams<T>): Promise<ExecuteResult<T>> {
     const { user, action, scope, gates, bankOutbox, fn } = params;
@@ -164,11 +123,12 @@ export class ActionExecutorService {
 
     let outboxId: string | undefined;
     if (bankOutbox) {
-      const entry = this.outbox.enqueue({
+      const entry = await this.outbox.enqueue({
         type: bankOutbox.type,
         dealId: scope.objectId,
         payload: bankOutbox.payload,
         triggeredByUserId: user.id,
+        idempotencyKey: bankOutbox.idempotencyKey,
       });
       outboxId = entry.id;
     }
