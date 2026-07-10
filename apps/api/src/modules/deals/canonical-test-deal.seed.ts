@@ -26,7 +26,11 @@ const identities = [
 
 function participantAccess(role: Role): 'READ' | 'WORK' | 'APPROVE' {
   if (role === Role.EXECUTIVE) return 'READ';
-  if ([Role.COMPLIANCE_OFFICER, Role.ARBITRATOR, Role.SUPPORT_MANAGER].includes(role)) return 'APPROVE';
+  if (
+    role === Role.COMPLIANCE_OFFICER ||
+    role === Role.ARBITRATOR ||
+    role === Role.SUPPORT_MANAGER
+  ) return 'APPROVE';
   return 'WORK';
 }
 
