@@ -5,21 +5,24 @@ CURRENT: Industrial One Deal Ephemeral PostgreSQL E2E Harness.
 GOAL: Доказать в CI на изолированном PostgreSQL 16, что одна каноническая сделка `DEAL-INDUSTRIAL-001` проходит всеми ролями от DRAFT до CLOSED без ручного изменения БД, fake-live и production credentials.
 
 CURRENT FAILURE:
-- Семь миграций применяются на чистом PostgreSQL 16, а `prisma migrate diff --exit-code` подтверждает zero drift.
-- Restricted datasource доказан: `one_deal_app`, не владелец таблицы, `NOSUPERUSER NOBYPASSRLS`, `RLS/FORCE RLS` включены.
-- SQL-level cross-tenant gate выявил legacy permissive policy `deals_app_access USING (TRUE)` из базовой миграции. PostgreSQL объединяет permissive policies через OR, поэтому она обнуляет строгую `deals_select`.
-- Такие же legacy allow-all policies обнаружены на audit и ledger.
-- Correction: production RLS artifact обязан явно удалить известные legacy policies до создания строгих policies; SQL cross-tenant gate остаётся обязательным.
+- Семь миграций применяются на чистом PostgreSQL 16, zero drift подтверждён.
+- Legacy allow-all policies удалены; SQL wrong-tenant proof теперь возвращает ноль строк.
+- Строгий RLS закономерно блокирует прямое чтение Deal без trusted context.
+- Seller/buyer columns недостаточны для законного доступа логистики, водителя, элеватора, лаборатории, банка, сюрвейера, арбитра, оператора и руководителя.
+- Correction: добавить нормализованный `DealParticipant` с FK, tenant, user, organization, role, access level и lifecycle status. Никаких tenant-wide bypass или JSON-прав в `meta`.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 - infra/sql/production-rls-policies.sql
+- apps/api/prisma/schema.prisma
 - apps/api/prisma/migrations/migration_lock.toml
 - apps/api/prisma/migrations/20260522083644_init/migration.sql
 - apps/api/prisma/migrations/20260522120000_add_core_tables/migration.sql
 - apps/api/prisma/migrations/20260710114000_prepare_schema_reconciliation/migration.sql
 - apps/api/prisma/migrations/20260710114500_reconcile_postgresql_schema/migration.sql
+- apps/api/prisma/migrations/20260710120000_deal_participants/migration.sql
+- apps/api/src/modules/deals/canonical-test-deal.seed.ts
 - apps/api/src/modules/deals/industrial-deal-command.gateway.ts
 - apps/api/test/one-deal/**
 - apps/web/tests/e2e/one-deal/**
@@ -28,18 +31,17 @@ CURRENT ALLOWED:
 - .github/workflows/ci.yml
 
 CURRENT CRITERIA:
-- mandatory CI starts an isolated PostgreSQL 16 service with ephemeral credentials;
-- complete migration history applies through `prisma migrate deploy` and produces zero schema drift;
-- RLS artifact removes every known legacy allow-all policy before installing strict policies;
-- application datasource is a separate `NOSUPERUSER NOBYPASSRLS` non-owner role;
+- migration history applies through `prisma migrate deploy` and produces zero schema drift;
+- legacy allow-all policies are absent;
+- application datasource is a separate non-owner `NOSUPERUSER NOBYPASSRLS` role;
 - SQL-level and Prisma-level wrong-tenant reads return zero rows;
-- canonical seed creates one tenant, organizations, 12 human role memberships and one deal ID;
-- DB membership, not URL/cookie/client org or role, determines trusted scope;
+- each role sees Deal only through an ACTIVE `DealParticipant` assignment or an explicit seller/buyer/privileged rule;
+- user/org/role are derived from DB membership and DealParticipant, not URL/cookie/client storage;
+- EXECUTIVE receives READ access; operational roles receive WORK/APPROVE only where required;
 - all 19 commands pass in order without direct database mutation;
 - reserve and release advance only through signed callback fixtures bound to exact pending operations;
 - duplicate, reused idempotency material, stale version and concurrent update fail deterministically;
-- CLOSED reconciles Deal, DealEvent, AuditEvent, outbox, payment, ledger, shipment, acceptance, lab and documents;
-- evidence log uploads even when the gate fails;
+- CLOSED reconciles Deal, participants, events, audit, outbox, payment, ledger, shipment, acceptance, lab and documents;
 - production readiness and live integration completion remain unclaimed.
 
 DONE:
