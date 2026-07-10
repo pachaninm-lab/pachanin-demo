@@ -50,7 +50,7 @@ GUARDRAILS:
 NEXT:
 - Layer: VP-3.42 Runtime Persistence Authenticated Internal Command Boundary.
 - Goal: after #2250 merge, perform a read-only audit of existing server auth/RLS context and open one manually scoped code PR that derives actor, role, tenant and organization exclusively from trusted server context before invoking `RuntimePersistenceService`.
-- Autopilot-safe allowed files before that manual scope is selected:
+- Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Execution rule:
