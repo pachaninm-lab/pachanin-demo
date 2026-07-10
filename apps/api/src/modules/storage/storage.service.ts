@@ -1,217 +1,499 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { createHash, randomUUID } from 'crypto';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { Prisma } from '@prisma/client';
+import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
+import { RequestUser, Role } from '../../common/types/request-user';
+import {
+  OBJECT_STORAGE_ADAPTER,
+  ObjectInspection,
+  ObjectStorageAdapter,
+  PresignedObjectUrl,
+  normalizeMimeType,
+} from './object-storage.adapter';
 
-// ── S3 Adapter contract (ТЗ 8.4) ─────────────────────────────────────────────
+const STORAGE_DOCUMENT_TYPE = 'EVIDENCE_FILE';
+const STATUS_PENDING = 'UPLOAD_PENDING';
+const STATUS_VERIFIED = 'VERIFIED';
+const STATUS_DELETED = 'DELETED';
+const STATUS_DELETE_PENDING = 'DELETE_PENDING';
+const STATUS_DELETE_FAILED = 'DELETE_FAILED';
+const STATUS_EXPIRED = 'UPLOAD_EXPIRED';
+const QUARANTINED_PREFIX = 'QUARANTINED_';
+const DEFAULT_MAX_BYTES = 50 * 1024 * 1024;
+const HARD_MAX_BYTES = 200 * 1024 * 1024;
+const DEFAULT_UPLOAD_TTL_SECONDS = 900;
+const MAX_DOWNLOAD_TTL_SECONDS = 900;
 
-export interface PresignedUploadResult {
-  uploadUrl: string;         // presigned PUT URL (TTL 15 min)
-  s3Key: string;             // путь в бакете
-  fields?: Record<string, string>; // для multipart POST presign
-}
+const ALLOWED_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'text/plain',
+  'text/csv',
+  'application/json',
+  'application/xml',
+  'text/xml',
+  'application/pkcs7-signature',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
 
-export interface PresignedDownloadResult {
-  downloadUrl: string;       // presigned GET URL (TTL 15 min)
-  expiresAt: string;         // ISO timestamp
-}
+const PRIVILEGED_FILE_MANAGERS = new Set<Role>([
+  Role.ADMIN,
+  Role.SUPPORT_MANAGER,
+  Role.COMPLIANCE_OFFICER,
+]);
 
-export interface StorageAdapter {
-  getPresignedUploadUrl(s3Key: string, mimeType: string, sizeBytes?: number): Promise<PresignedUploadResult>;
-  getPresignedDownloadUrl(s3Key: string, ttlSeconds?: number): Promise<PresignedDownloadResult>;
-  deleteObject(s3Key: string): Promise<void>;
-  headObject(s3Key: string): Promise<{ sizeBytes: number; contentType: string; eTag: string } | null>;
-}
-
-// ── In-memory adapter (sandbox / tests) ──────────────────────────────────────
-
-class InMemoryStorageAdapter implements StorageAdapter {
-  private readonly store = new Map<string, { content: Buffer | string; mimeType: string; size: number }>();
-
-  async getPresignedUploadUrl(s3Key: string, mimeType: string): Promise<PresignedUploadResult> {
-    return {
-      uploadUrl: `http://localhost:3000/dev/s3-mock/upload/${encodeURIComponent(s3Key)}`,
-      s3Key,
-    };
-  }
-
-  async getPresignedDownloadUrl(s3Key: string, ttlSeconds = 900): Promise<PresignedDownloadResult> {
-    const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
-    return {
-      downloadUrl: `http://localhost:3000/dev/s3-mock/download/${encodeURIComponent(s3Key)}?expires=${expiresAt}`,
-      expiresAt,
-    };
-  }
-
-  async deleteObject(s3Key: string): Promise<void> {
-    this.store.delete(s3Key);
-  }
-
-  async headObject(s3Key: string) {
-    const obj = this.store.get(s3Key);
-    if (!obj) return null;
-    return { sizeBytes: obj.size, contentType: obj.mimeType, eTag: `"${s3Key}"` };
-  }
-
-  // Вспомогательный метод — симулирует загрузку в sandbox
-  putMock(s3Key: string, content: Buffer | string, mimeType: string) {
-    this.store.set(s3Key, { content, mimeType, size: Buffer.byteLength(content) });
-  }
-}
-
-// ── StoredFile record (БД-запись, ТЗ 8.4) ────────────────────────────────────
-
-export interface StoredFile {
+export type StoredFileRecord = {
   id: string;
+  dealId: string;
   name: string;
   mimeType: string;
   sizeBytes: number;
-  s3Key: string;
-  sha256: string;
+  objectKey: string;
+  sha256: string | null;
   uploadedBy: string;
-  dealId?: string;
+  status: string;
+  version: number;
+  immutable: boolean;
   createdAt: string;
-}
+};
 
-// ── Legacy interface (обратная совместимость) ─────────────────────────────────
-
-export interface LegacyStoredFile {
-  id: string;
-  name: string;
-  content: string | Buffer;
+type UploadRequest = {
+  filename: string;
   mimeType: string;
-  createdAt: string;
-}
-
-// ── StorageService (ТЗ 8.4 — S3 presigned URL architecture) ──────────────────
+  sizeBytes: number;
+  dealId: string;
+};
 
 @Injectable()
 export class StorageService {
-  private readonly adapter: StorageAdapter = new InMemoryStorageAdapter();
+  private readonly maxBytes = boundedInteger(
+    Number(process.env.OBJECT_STORAGE_MAX_BYTES ?? DEFAULT_MAX_BYTES),
+    1,
+    HARD_MAX_BYTES,
+    DEFAULT_MAX_BYTES,
+  );
+  private readonly uploadTtlSeconds = boundedInteger(
+    Number(process.env.OBJECT_STORAGE_UPLOAD_TTL_SECONDS ?? DEFAULT_UPLOAD_TTL_SECONDS),
+    60,
+    DEFAULT_UPLOAD_TTL_SECONDS,
+    DEFAULT_UPLOAD_TTL_SECONDS,
+  );
 
-  // В-memory реестр записей документов (production: Prisma Document table)
-  private readonly registry = new Map<string, StoredFile>();
-  // Обратная совместимость со старым Map
-  private readonly legacyFiles = new Map<string, LegacyStoredFile>();
+  constructor(
+    private readonly rls: RlsTransactionService,
+    @Inject(OBJECT_STORAGE_ADAPTER) private readonly adapter: ObjectStorageAdapter,
+  ) {}
 
-  /**
-   * Шаг 1 — клиент запрашивает presigned URL для загрузки
-   * Client → API (presigned S3 URL) → S3
-   */
-  async requestUpload(params: {
-    filename: string;
-    mimeType: string;
-    sizeBytes?: number;
-    uploadedBy: string;
-    dealId?: string;
-  }): Promise<{ fileId: string; uploadUrl: string; s3Key: string }> {
-    const fileId = randomUUID();
-    const ext = params.filename.includes('.') ? params.filename.split('.').pop() : 'bin';
-    const s3Key = `uploads/${params.dealId ?? 'global'}/${fileId}.${ext}`;
+  async requestUpload(
+    params: UploadRequest,
+    user: RequestUser,
+  ): Promise<{
+    fileId: string;
+    objectKey: string;
+    uploadUrl: string;
+    expiresAt: string;
+    requiredHeaders?: Record<string, string>;
+  }> {
+    this.assertWriteRole(user);
+    const dealId = requiredIdentifier(params.dealId, 'dealId');
+    const filename = sanitizeFilename(params.filename);
+    const mimeType = this.assertAllowedMime(params.mimeType);
+    const sizeBytes = this.assertAllowedSize(params.sizeBytes);
+    const fileId = `file_${randomUUID()}`;
+    const objectKey = buildObjectKey(user.tenantId ?? '', dealId, fileId, filename);
+    const presigned = await this.adapter.getPresignedUploadUrl(
+      objectKey,
+      mimeType,
+      this.uploadTtlSeconds,
+    );
 
-    const { uploadUrl } = await this.adapter.getPresignedUploadUrl(s3Key, params.mimeType, params.sizeBytes);
-
-    // Создаём предварительную запись (confirmed = false)
-    this.registry.set(fileId, {
-      id: fileId,
-      name: params.filename,
-      mimeType: params.mimeType,
-      sizeBytes: params.sizeBytes ?? 0,
-      s3Key,
-      sha256: '',
-      uploadedBy: params.uploadedBy,
-      dealId: params.dealId,
-      createdAt: new Date().toISOString(),
+    await this.rls.withTrustedContext(user, async (tx, context) => {
+      const deal = await tx.deal.findUnique({
+        where: { id: dealId },
+        select: { id: true, tenantId: true },
+      });
+      if (!deal || deal.tenantId !== context.tenantId) {
+        throw new NotFoundException('Deal is not available in the authenticated scope.');
+      }
+      await tx.dealDocument.create({
+        data: {
+          id: fileId,
+          dealId,
+          type: STORAGE_DOCUMENT_TYPE,
+          status: STATUS_PENDING,
+          name: filename,
+          mimeType,
+          s3Key: objectKey,
+          sizeBytes,
+          uploadedByUserId: context.userId,
+          version: 1,
+          isImmutable: false,
+        },
+      });
     });
 
-    return { fileId, uploadUrl, s3Key };
+    return {
+      fileId,
+      objectKey,
+      uploadUrl: presigned.url,
+      expiresAt: presigned.expiresAt,
+      requiredHeaders: presigned.requiredHeaders,
+    };
   }
 
-  /**
-   * Шаг 2 — клиент подтверждает завершение загрузки с SHA-256 хешем
-   * API проверяет hash и финализирует запись
-   */
-  async confirmUpload(fileId: string, sha256: string): Promise<StoredFile> {
-    const record = this.registry.get(fileId);
-    if (!record) throw new NotFoundException(`File record not found: ${fileId}`);
-    record.sha256 = sha256;
-
-    const meta = await this.adapter.headObject(record.s3Key);
-    if (meta) {
-      record.sizeBytes = meta.sizeBytes;
+  async confirmUpload(fileId: string, claimedSha256: string, user: RequestUser): Promise<StoredFileRecord> {
+    this.assertWriteRole(user);
+    const normalizedHash = normalizeSha256(claimedSha256);
+    const record = await this.requireVisibleRecord(fileId, user);
+    this.assertManagePermission(record, user);
+    if (record.status !== STATUS_PENDING) {
+      throw new ConflictException(`Upload cannot be confirmed from status ${record.status}.`);
+    }
+    if (Date.now() - record.uploadedAt.getTime() > this.uploadTtlSeconds * 1000) {
+      await this.transitionStatus(record, STATUS_EXPIRED, user);
+      throw new ConflictException('Upload confirmation window has expired.');
+    }
+    if (!record.s3Key || !record.mimeType || !record.sizeBytes) {
+      throw new ConflictException('Upload metadata is incomplete.');
     }
 
-    this.registry.set(fileId, record);
-    return record;
+    let inspection: ObjectInspection;
+    try {
+      inspection = await this.adapter.inspectAndHashObject(record.s3Key, this.maxBytes);
+    } catch (error) {
+      throw new BadRequestException({
+        code: 'OBJECT_NOT_READY',
+        message: 'Uploaded object is unavailable or exceeds the verification boundary.',
+        cause: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    const quarantine = this.quarantineReason(record, inspection, normalizedHash);
+    if (quarantine) {
+      await this.quarantine(record, quarantine, inspection, user);
+      throw new BadRequestException({
+        code: quarantine,
+        message: 'Uploaded object failed integrity validation and was quarantined.',
+      });
+    }
+
+    const updated = await this.rls.withTrustedContext(user, async (tx) => {
+      const result = await tx.dealDocument.updateMany({
+        where: {
+          id: record.id,
+          type: STORAGE_DOCUMENT_TYPE,
+          status: STATUS_PENDING,
+          version: record.version,
+        },
+        data: {
+          status: STATUS_VERIFIED,
+          hash: inspection.sha256,
+          sizeBytes: inspection.sizeBytes,
+          mimeType: normalizeMimeType(inspection.contentType),
+          isImmutable: true,
+          version: { increment: 1 },
+        },
+      });
+      if (result.count !== 1) {
+        throw new ConflictException('Upload confirmation lost an optimistic concurrency race.');
+      }
+      return tx.dealDocument.findUnique({ where: { id: record.id } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    if (!updated) throw new ConflictException('Verified upload record disappeared.');
+    return toStoredFileRecord(updated);
   }
 
-  /**
-   * Скачивание — API проверяет права, возвращает presigned GET URL (TTL 15 мин)
-   * Client → API (проверка прав) → presigned S3 URL (TTL 15 мин)
-   */
-  async getDownloadUrl(fileId: string, ttlSeconds = 900): Promise<PresignedDownloadResult & { file: StoredFile }> {
-    const record = this.registry.get(fileId);
-    if (!record) throw new NotFoundException(`File not found: ${fileId}`);
-
-    const result = await this.adapter.getPresignedDownloadUrl(record.s3Key, ttlSeconds);
-    return { ...result, file: record };
+  async getDownloadUrl(
+    fileId: string,
+    ttlSeconds: number,
+    user: RequestUser,
+  ): Promise<PresignedObjectUrl & { file: StoredFileRecord }> {
+    const record = await this.requireVisibleRecord(fileId, user);
+    if (record.status !== STATUS_VERIFIED || !record.isImmutable || !record.hash || !record.s3Key) {
+      throw new ConflictException('Only verified immutable objects can be downloaded.');
+    }
+    const ttl = boundedInteger(ttlSeconds, 60, MAX_DOWNLOAD_TTL_SECONDS, MAX_DOWNLOAD_TTL_SECONDS);
+    const result = await this.adapter.getPresignedDownloadUrl(record.s3Key, ttl);
+    return { ...result, file: toStoredFileRecord(record) };
   }
 
-  /**
-   * Проверка целостности — SHA-256 из БД против актуального объекта
-   */
-  async verifyIntegrity(fileId: string): Promise<{ valid: boolean; storedHash: string }> {
-    const record = this.registry.get(fileId);
-    if (!record) throw new NotFoundException(`File not found: ${fileId}`);
-    return { valid: !!record.sha256, storedHash: record.sha256 };
+  async verifyIntegrity(
+    fileId: string,
+    user: RequestUser,
+  ): Promise<{
+    valid: boolean;
+    storedHash: string;
+    actualHash: string;
+    sizeBytes: number;
+    contentType: string;
+  }> {
+    const record = await this.requireVisibleRecord(fileId, user);
+    if (record.status !== STATUS_VERIFIED || !record.hash || !record.s3Key) {
+      throw new ConflictException('Object has not reached VERIFIED status.');
+    }
+    const inspection = await this.adapter.inspectAndHashObject(record.s3Key, this.maxBytes);
+    const valid = timingSafeStringEqual(record.hash, inspection.sha256)
+      && record.sizeBytes === inspection.sizeBytes
+      && normalizeMimeType(record.mimeType ?? '') === normalizeMimeType(inspection.contentType);
+    return {
+      valid,
+      storedHash: record.hash,
+      actualHash: inspection.sha256,
+      sizeBytes: inspection.sizeBytes,
+      contentType: inspection.contentType,
+    };
   }
 
-  getRecord(fileId: string): StoredFile {
-    const record = this.registry.get(fileId);
-    if (!record) throw new NotFoundException(`File not found: ${fileId}`);
-    return record;
+  async getRecord(fileId: string, user: RequestUser): Promise<StoredFileRecord> {
+    return toStoredFileRecord(await this.requireVisibleRecord(fileId, user));
   }
 
-  async delete(fileId: string): Promise<{ id: string; deleted: boolean }> {
-    const record = this.registry.get(fileId);
-    if (!record) return { id: fileId, deleted: false };
-    await this.adapter.deleteObject(record.s3Key);
-    this.registry.delete(fileId);
-    return { id: fileId, deleted: true };
-  }
-
-  listByDeal(dealId: string): StoredFile[] {
-    return Array.from(this.registry.values()).filter((f) => f.dealId === dealId);
-  }
-
-  // ── Legacy API (обратная совместимость с существующими вызовами) ─────────────
-
-  upload(file: { name: string; content: string | Buffer; mimeType: string }) {
-    const id = randomUUID();
-    const sha256 = createHash('sha256')
-      .update(typeof file.content === 'string' ? file.content : file.content)
-      .digest('hex');
-    const stored: LegacyStoredFile = { id, ...file, createdAt: new Date().toISOString() };
-    this.legacyFiles.set(id, stored);
-
-    // Также регистрируем в новом реестре
-    const sizeBytes = typeof file.content === 'string' ? Buffer.byteLength(file.content) : file.content.length;
-    const s3Key = `legacy/${id}`;
-    this.registry.set(id, {
-      id,
-      name: file.name,
-      mimeType: file.mimeType,
-      sizeBytes,
-      s3Key,
-      sha256,
-      uploadedBy: 'system',
-      createdAt: stored.createdAt,
+  async listByDeal(dealId: string, user: RequestUser): Promise<StoredFileRecord[]> {
+    const id = requiredIdentifier(dealId, 'dealId');
+    return this.rls.withTrustedContext(user, async (tx, context) => {
+      const deal = await tx.deal.findUnique({
+        where: { id },
+        select: { id: true, tenantId: true },
+      });
+      if (!deal || deal.tenantId !== context.tenantId) {
+        throw new NotFoundException('Deal is not available in the authenticated scope.');
+      }
+      const rows = await tx.dealDocument.findMany({
+        where: {
+          dealId: id,
+          type: STORAGE_DOCUMENT_TYPE,
+          status: { not: STATUS_DELETED },
+        },
+        orderBy: [{ uploadedAt: 'desc' }, { id: 'asc' }],
+      });
+      return rows.map(toStoredFileRecord);
     });
-
-    return { id, name: file.name, mimeType: file.mimeType, createdAt: stored.createdAt };
   }
 
-  get(id: string) {
-    const file = this.legacyFiles.get(id);
-    if (!file) throw new NotFoundException(`File not found: ${id}`);
-    return file;
+  async delete(fileId: string, user: RequestUser): Promise<{ id: string; deleted: true }> {
+    this.assertWriteRole(user);
+    const record = await this.requireVisibleRecord(fileId, user);
+    this.assertManagePermission(record, user);
+    if (record.isImmutable || record.status === STATUS_VERIFIED || record.status.startsWith(QUARANTINED_PREFIX)) {
+      throw new ConflictException('Verified or quarantined evidence is immutable and cannot be deleted through the API.');
+    }
+    if (![STATUS_PENDING, STATUS_EXPIRED, STATUS_DELETE_FAILED].includes(record.status)) {
+      throw new ConflictException(`Object cannot be deleted from status ${record.status}.`);
+    }
+    if (!record.s3Key) throw new ConflictException('Object key is missing.');
+
+    await this.rls.withTrustedContext(user, async (tx) => {
+      const result = await tx.dealDocument.updateMany({
+        where: { id: record.id, version: record.version, status: record.status },
+        data: { status: STATUS_DELETE_PENDING, version: { increment: 1 } },
+      });
+      if (result.count !== 1) throw new ConflictException('Delete request lost an optimistic concurrency race.');
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    try {
+      await this.adapter.deleteObject(record.s3Key);
+    } catch (error) {
+      await this.rls.withTrustedContext(user, async (tx) => {
+        await tx.dealDocument.updateMany({
+          where: { id: record.id, status: STATUS_DELETE_PENDING },
+          data: { status: STATUS_DELETE_FAILED, version: { increment: 1 } },
+        });
+      });
+      throw error;
+    }
+
+    await this.rls.withTrustedContext(user, async (tx) => {
+      const result = await tx.dealDocument.updateMany({
+        where: { id: record.id, status: STATUS_DELETE_PENDING },
+        data: { status: STATUS_DELETED, version: { increment: 1 } },
+      });
+      if (result.count !== 1) throw new ConflictException('Object was removed but metadata finalization failed.');
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    return { id: record.id, deleted: true };
   }
+
+  private async requireVisibleRecord(fileId: string, user: RequestUser) {
+    const id = requiredIdentifier(fileId, 'fileId');
+    const record = await this.rls.withTrustedContext(user, (tx) => tx.dealDocument.findFirst({
+      where: { id, type: STORAGE_DOCUMENT_TYPE, status: { not: STATUS_DELETED } },
+    }));
+    if (!record) throw new NotFoundException('File is not available in the authenticated scope.');
+    return record;
+  }
+
+  private assertWriteRole(user: RequestUser): void {
+    if (user.role === Role.GUEST || user.role === Role.EXECUTIVE) {
+      throw new ForbiddenException('Role is read-only for evidence object storage.');
+    }
+  }
+
+  private assertManagePermission(record: { uploadedByUserId: string | null }, user: RequestUser): void {
+    if (record.uploadedByUserId !== user.id && !PRIVILEGED_FILE_MANAGERS.has(user.role)) {
+      throw new ForbiddenException('Only the uploader or a privileged control role can manage this object.');
+    }
+  }
+
+  private assertAllowedMime(value: string): string {
+    const mimeType = normalizeMimeType(String(value ?? ''));
+    if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+      throw new BadRequestException({ code: 'MIME_NOT_ALLOWED', mimeType });
+    }
+    return mimeType;
+  }
+
+  private assertAllowedSize(value: number): number {
+    if (!Number.isSafeInteger(value) || value <= 0 || value > this.maxBytes) {
+      throw new BadRequestException({
+        code: 'SIZE_NOT_ALLOWED',
+        maxBytes: this.maxBytes,
+      });
+    }
+    return value;
+  }
+
+  private quarantineReason(
+    record: { sizeBytes: number | null; mimeType: string | null },
+    inspection: ObjectInspection,
+    claimedHash: string,
+  ): string | null {
+    if (record.sizeBytes !== inspection.sizeBytes) return 'SIZE_MISMATCH';
+    if (normalizeMimeType(record.mimeType ?? '') !== normalizeMimeType(inspection.contentType)) return 'MIME_MISMATCH';
+    if (!timingSafeStringEqual(claimedHash, inspection.sha256)) return 'CLIENT_HASH_MISMATCH';
+    return null;
+  }
+
+  private async quarantine(
+    record: { id: string; version: number; status: string },
+    reason: string,
+    inspection: ObjectInspection,
+    user: RequestUser,
+  ): Promise<void> {
+    await this.rls.withTrustedContext(user, async (tx) => {
+      const result = await tx.dealDocument.updateMany({
+        where: { id: record.id, status: record.status, version: record.version },
+        data: {
+          status: `${QUARANTINED_PREFIX}${reason}`,
+          hash: inspection.sha256,
+          sizeBytes: inspection.sizeBytes,
+          mimeType: normalizeMimeType(inspection.contentType),
+          isImmutable: true,
+          version: { increment: 1 },
+        },
+      });
+      if (result.count !== 1) {
+        throw new ConflictException('Quarantine transition lost an optimistic concurrency race.');
+      }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }
+
+  private async transitionStatus(
+    record: { id: string; version: number; status: string },
+    status: string,
+    user: RequestUser,
+  ): Promise<void> {
+    await this.rls.withTrustedContext(user, async (tx) => {
+      const result = await tx.dealDocument.updateMany({
+        where: { id: record.id, status: record.status, version: record.version },
+        data: { status, version: { increment: 1 } },
+      });
+      if (result.count !== 1) {
+        throw new ConflictException('Storage status transition lost an optimistic concurrency race.');
+      }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }
+}
+
+function toStoredFileRecord(record: {
+  id: string;
+  dealId: string;
+  name: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  s3Key: string | null;
+  hash: string | null;
+  uploadedByUserId: string | null;
+  status: string;
+  version: number;
+  isImmutable: boolean;
+  uploadedAt: Date;
+}): StoredFileRecord {
+  if (!record.s3Key || !record.mimeType || !record.uploadedByUserId) {
+    throw new ConflictException('Persistent file metadata is incomplete.');
+  }
+  return {
+    id: record.id,
+    dealId: record.dealId,
+    name: record.name,
+    mimeType: record.mimeType,
+    sizeBytes: record.sizeBytes ?? 0,
+    objectKey: record.s3Key,
+    sha256: record.hash,
+    uploadedBy: record.uploadedByUserId,
+    status: record.status,
+    version: record.version,
+    immutable: record.isImmutable,
+    createdAt: record.uploadedAt.toISOString(),
+  };
+}
+
+function buildObjectKey(tenantId: string, dealId: string, fileId: string, filename: string): string {
+  const tenant = requiredIdentifier(tenantId, 'tenantId');
+  return `tenant/${tenant}/deal/${dealId}/${fileId}/${filename}`;
+}
+
+function sanitizeFilename(input: string): string {
+  const raw = String(input ?? '').normalize('NFKC').trim();
+  const leaf = raw.split(/[\\/]/).pop() ?? '';
+  const sanitized = leaf
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .replace(/[^\p{L}\p{N}._()\- ]/gu, '_')
+    .replace(/\s+/g, ' ')
+    .replace(/^\.+/, '')
+    .trim();
+  if (!sanitized || sanitized.length > 180) {
+    throw new BadRequestException({ code: 'INVALID_FILENAME' });
+  }
+  return sanitized;
+}
+
+function requiredIdentifier(value: string, field: string): string {
+  const normalized = String(value ?? '').trim();
+  if (!normalized || normalized.length > 180 || !/^[A-Za-z0-9:_-]+$/.test(normalized)) {
+    throw new BadRequestException({ code: 'INVALID_IDENTIFIER', field });
+  }
+  return normalized;
+}
+
+function normalizeSha256(value: string): string {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(normalized)) {
+    throw new BadRequestException({ code: 'INVALID_SHA256' });
+  }
+  return normalized;
+}
+
+function timingSafeStringEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+function boundedInteger(value: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(value)));
 }
