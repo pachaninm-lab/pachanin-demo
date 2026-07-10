@@ -15,7 +15,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     try {
       await this.$connect();
       if (strict) {
-        const snapshot = await inspectDatabasePrincipal(this);
+        const snapshot = await inspectDatabasePrincipal(this, 'deal');
         const errors = evaluateDealPrincipalBoundary(snapshot);
         if (errors.length > 0) {
           throw new Error(
