@@ -1,11 +1,13 @@
 # Review current task — Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation
 
 Maturity: industrial architecture and isolated PostgreSQL proof; platform temporarily without external integrations.
-Do not accept production, live-bank, provider-DR or production-scale claims.
+Implementation under review: PR #2307 (`p0/durable-outbox-financial-delivery`).
+Do not accept a parallel implementation, production, live-bank, provider-DR or production-scale claims.
 Review the diff and tests, not the agent report. Return PASS or BLOCKED with the exact file, risk and required fix.
 
 ## Required scope checks
 
+- PR number is #2307 and exact head is recorded before acceptance.
 - `apps/landing` diff is zero.
 - Platform UI, role cabinets, design/theme/onboarding diff is zero.
 - Package and lockfile diff is zero.
@@ -21,9 +23,14 @@ Review the diff and tests, not the agent report. Return PASS or BLOCKED with the
 - docs/platform-v7/execution-queue.md
 - apps/api/prisma/schema.prisma
 - apps/api/prisma/migrations/**
+- apps/api/src/common/action-executor/action-executor.service.ts
+- apps/api/src/common/action-executor/action-executor.spec.ts
 - apps/api/src/common/outbox/**
 - apps/api/src/common/kafka/**
 - apps/api/src/common/prisma/rls-transaction.service.ts
+- apps/api/src/health.controller.ts
+- apps/api/src/modules/admin/admin.controller.ts
+- apps/api/src/modules/bank-reconciliation/**
 - apps/api/src/modules/settlement-engine/**
 - apps/api/src/modules/deals/industrial-deal-command.gateway.ts
 - apps/api/src/modules/deals/deal-command.service.ts
@@ -35,14 +42,17 @@ Review the diff and tests, not the agent report. Return PASS or BLOCKED with the
 ## Mandatory architectural review
 
 - PostgreSQL, not process memory or NDJSON, is authoritative for outbox state.
-- Enqueue is in the same trusted transaction as Deal/payment/audit changes.
+- Canonical Deal enqueue is in the same trusted transaction as Deal/payment/audit changes.
+- Compatibility paths await durable persistence and surface database failures.
 - Multi-worker claims use bounded leases and `FOR UPDATE SKIP LOCKED`.
 - `send=false` and transport exceptions cannot create SENT/CONFIRMED.
 - Expired claims recover after crash without losing the event.
-- Idempotency is enforced by a unique durable key.
+- Idempotency is enforced by a unique durable key and payload mismatch fails closed.
 - Retry/backoff/dead-letter/manual-retry transitions are durable and audited.
 - Production has one explicit relay ownership mode and safe shutdown.
+- Health/admin surfaces do not label stub/sandbox components as live.
 - Reconciliation cursor/checkpoint and mismatch evidence are persisted and immutable.
+- Invalid statements cannot manufacture payment rows or synthetic matches.
 - Mismatch cannot cause automatic reserve or release.
 - Partner callback keys support version, validity interval, overlap and immediate revocation.
 - Unknown, expired, not-yet-valid and revoked keys fail closed.
@@ -54,10 +64,10 @@ Review the diff and tests, not the agent report. Return PASS or BLOCKED with the
 - Crash/expired-lease recovery test.
 - Kafka false/exception negative tests.
 - Restart persistence and duplicate-enqueue tests.
-- Reconciliation mismatch rollback/hold tests.
+- Reconciliation invalid/mismatch/duplicate/hold tests.
 - Partner-key overlap, expiry, future and revocation tests.
 - Forward-only migrations and zero drift.
-- Existing persistent-auth, 12-role/19-command RLS and backup/restore gates remain green.
+- Existing persistent-auth, 12-role/19-command RLS, rate-limit and backup/restore gates remain green.
 
 ## Forbidden acceptance
 
@@ -68,4 +78,4 @@ Review the diff and tests, not the agent report. Return PASS or BLOCKED with the
 
 ## Review brief
 
-PASS only when the implementation is one durable, fail-closed and auditable PostgreSQL execution path and every acceptance item is demonstrated on the exact PR head.
+PASS only when PR #2307 is one durable, fail-closed and auditable PostgreSQL execution path and every acceptance item is demonstrated on its exact head.

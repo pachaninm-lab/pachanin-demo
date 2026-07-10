@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: grainflow-prod
+
+resources:
+  - namespace.yml
+  - api-deployment.yml
+  - outbox-worker-deployment.yml
+  - web-deployment.yml
+  - ingress.yml
+  - configmap.yml
+  - network-policy.yml
+
+commonLabels:
+  app.kubernetes.io/part-of: grainflow-platform
+  app.kubernetes.io/managed-by: kustomize
+
+images:
+  - name: ghcr.io/pachaninm-lab/grainflow-api
+    newTag: latest
+  - name: ghcr.io/pachaninm-lab/grainflow-web
+    newTag: latest

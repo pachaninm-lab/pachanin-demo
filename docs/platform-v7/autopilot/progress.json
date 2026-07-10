@@ -2,13 +2,13 @@
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 91,
   "currentStep": "Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation.",
-  "lastCompletedStep": "#2291 Forward-only backup, restore and DR rehearsal",
-  "openPr": null,
+  "lastCompletedStep": "#2305 Rate-limit deployment and proxy hardening",
+  "openPr": "#2307",
   "blockedBy": [
-    "Durable financial delivery is not yet implemented: the current outbox relay remains process-memory-led, bank reconciliation checkpoints are not production-durable and partner callback keys do not yet support rotation and revocation."
+    "PR #2307 is in progress: PostgreSQL lease/claim functions are started, but memory-led OutboxService/relay, durable reconciliation and partner-key rotation are not yet replaced and accepted."
   ],
-  "nextStep": "Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation.",
-  "updatedAt": "2026-07-10T18:23:00.000Z",
+  "nextStep": "Complete and accept PR #2307 on its exact green head.",
+  "updatedAt": "2026-07-10T18:53:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

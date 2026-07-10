@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
-import { OutboxService } from './outbox.service';
+import { KafkaModule } from '../kafka/kafka.module';
+import { PrismaModule } from '../prisma/prisma.module';
+import { OutboxRepository } from './outbox.repository';
 import { OutboxRelayService } from './outbox-relay.service';
+import { OutboxService } from './outbox.service';
 
 @Module({
-  providers: [OutboxService, OutboxRelayService],
-  exports: [OutboxService],
+  imports: [PrismaModule, KafkaModule],
+  providers: [OutboxRepository, OutboxService, OutboxRelayService],
+  exports: [OutboxRepository, OutboxService, OutboxRelayService],
 })
 export class OutboxModule {}

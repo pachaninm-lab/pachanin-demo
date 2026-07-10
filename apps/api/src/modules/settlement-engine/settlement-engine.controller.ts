@@ -4,70 +4,22 @@ import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { BadRequestException, Headers, HttpCode, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
-import * as crypto from 'crypto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { SettlementEngineService } from './settlement-engine.service';
 import { RequestUser } from '../../common/types/request-user';
 import { RequiresMfaGuard } from '../../common/guards/mfa.guard';
-import { requireSecret } from '../../common/config/secrets';
 import { IndustrialDealCommandGateway, type VerifiedBankCallbackInput } from '../deals/industrial-deal-command.gateway';
 import { CANONICAL_TEST_DEAL_ID } from '../deals/deal-command.policy';
+import { BankCallbackKeyService } from './bank-callback-key.service';
+import {
+  canonicalizeBankPayload,
+  buildBankSignaturePayload,
+  expectedBankOperationId,
+  type JsonRecord,
+} from './bank-callback-signature';
 
-const BANK_HMAC_SECRET = requireSecret('BANK_HMAC_SECRET');
-const BANK_CALLBACK_TOLERANCE_SECONDS = 300;
-const BANK_CALLBACK_PATH = '/api/settlement-engine/bank-callback';
-const EXPECTED_BANK_PARTNER_ID = process.env.BANK_PARTNER_ID || 'safe-deals';
-const EXPECTED_BANK_KEY_ID = process.env.BANK_HMAC_KEY_ID || 'primary';
-
-type JsonRecord = Record<string, unknown>;
-
-function stableJsonValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(stableJsonValue);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as JsonRecord)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, item]) => [key, stableJsonValue(item)]),
-    );
-  }
-  return value;
-}
-
-export function canonicalizeBankPayload(body: JsonRecord): string {
-  return JSON.stringify(stableJsonValue(body));
-}
-
-export function expectedBankOperationId(dealId: string, operation: unknown): string {
-  if (operation === 'RESERVE') return `bank-reserve:${dealId}`;
-  if (operation === 'RELEASE') return `bank-release:${dealId}`;
-  throw new BadRequestException('Unsupported bank operation');
-}
-
-export function buildBankSignaturePayload(input: {
-  partnerId: string;
-  keyId: string;
-  timestamp: number;
-  eventId: string;
-  body: JsonRecord;
-}): string {
-  const bodyHash = crypto.createHash('sha256').update(canonicalizeBankPayload(input.body)).digest('hex');
-  return [
-    'POST',
-    BANK_CALLBACK_PATH,
-    input.partnerId,
-    input.keyId,
-    String(input.timestamp),
-    input.eventId,
-    bodyHash,
-  ].join('\n');
-}
-
-function secureSignatureMatch(actual: string | undefined, expected: string): boolean {
-  const actualBuffer = Buffer.from(actual ?? '', 'utf8');
-  const expectedBuffer = Buffer.from(expected, 'utf8');
-  return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
-}
+export { canonicalizeBankPayload, buildBankSignaturePayload, expectedBankOperationId } from './bank-callback-signature';
 
 @UseGuards(RolesGuard)
 @Roles('ACCOUNTING', 'SUPPORT_MANAGER', 'ADMIN', 'EXECUTIVE')
@@ -76,6 +28,7 @@ export class SettlementEngineController {
   constructor(
     private readonly settlementEngine: SettlementEngineService,
     private readonly industrialCommands: IndustrialDealCommandGateway,
+    private readonly bankCallbackKeys: BankCallbackKeyService,
   ) {}
 
   @Get('deal/:id')
@@ -125,7 +78,6 @@ export class SettlementEngineController {
     return payload.body;
   }
 
-  /** Request bank reserve — creates outbox entry, does NOT self-confirm. */
   @Post('deal/:id/reserve')
   @RateLimit({
     name: 'money_reserve_request',
@@ -140,7 +92,6 @@ export class SettlementEngineController {
     return this.settlementEngine.requestReserve(id, user);
   }
 
-  /** Request bank release — creates outbox entry, does NOT self-release. */
   @Post('deal/:id/release')
   @UseGuards(RequiresMfaGuard)
   @RateLimit({
@@ -156,7 +107,6 @@ export class SettlementEngineController {
     return this.settlementEngine.requestRelease(id, user);
   }
 
-  /** Legacy manual confirmation. It remains outside the canonical deal path. */
   @Post('deal/:id/confirm')
   @RateLimit({ name: 'money_legacy_confirm', scope: 'user', limit: 6, windowSeconds: 60, includeParams: ['id'] })
   async confirm(@Param('id') id: string, @CurrentUser() user: RequestUser) {
@@ -177,26 +127,60 @@ export class SettlementEngineController {
   }
 
   @Post('import-bank-statement')
-  @RateLimit({ name: 'bank_statement_import', scope: 'user', limit: 5, windowSeconds: 300 })
+  @RateLimit({ name: 'bank_statement_legacy_import', scope: 'user', limit: 2, windowSeconds: 300 })
   async importBankStatement(
-    @Body() body: { content: string; format: string },
+    @Body() _body: { content: string; format: string },
+    @CurrentUser() _user: RequestUser,
+  ) {
+    throw new BadRequestException({
+      code: 'BANK_STATEMENT_IMPORT_MOVED',
+      message: 'Use the durable reconciliation endpoint with explicit partnerId and cursor.',
+      endpoint: '/api/bank/reconciliation/import',
+    });
+  }
+
+  @Get('bank-callback-keys')
+  @Roles('ADMIN', 'COMPLIANCE_OFFICER')
+  listBankCallbackKeys(
+    @Query('partnerId') partnerId: string,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.settlementEngine.importBankStatement(body.content, body.format, user);
+    return this.bankCallbackKeys.listKeys(partnerId, user);
+  }
+
+  @Post('bank-callback-keys')
+  @Roles('ADMIN')
+  @UseGuards(RequiresMfaGuard)
+  @RateLimit({ name: 'bank_callback_key_register', scope: 'user', limit: 10, windowSeconds: 300 })
+  registerBankCallbackKey(
+    @Body() body: {
+      partnerId: string;
+      keyId: string;
+      secretRef: string;
+      validFrom: string;
+      validUntil?: string;
+    },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.bankCallbackKeys.registerKey(body, user);
+  }
+
+  @Post('bank-callback-keys/:partnerId/:keyId/revoke')
+  @Roles('ADMIN')
+  @UseGuards(RequiresMfaGuard)
+  @RateLimit({ name: 'bank_callback_key_revoke', scope: 'user', limit: 10, windowSeconds: 300 })
+  revokeBankCallbackKey(
+    @Param('partnerId') partnerId: string,
+    @Param('keyId') keyId: string,
+    @Body() body: { reason: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.bankCallbackKeys.revokeKey(partnerId, keyId, body.reason, user);
   }
 
   /**
-   * The only public bank confirmation path.
-   *
-   * Required headers:
-   * - X-Bank-Partner-Id: configured partner identity;
-   * - X-Bank-Key-Id: configured signing-key version;
-   * - X-Bank-Event-Id: globally unique event identifier;
-   * - X-Bank-Timestamp: Unix seconds, accepted within ±5 minutes;
-   * - X-Bank-Signature: hmac-sha256=<hex> over buildBankSignaturePayload(...).
-   *
-   * Required body for the canonical deal:
-   * { dealId, eventId, operation, operationId, status, bankRef }
+   * The only public bank confirmation path. Key metadata is resolved from
+   * PostgreSQL; HMAC secret material remains in Vault/environment by secretRef.
    */
   @Public()
   @Post('bank-callback')
@@ -217,31 +201,14 @@ export class SettlementEngineController {
     @Headers('x-bank-partner-id') partnerIdHeader: string | undefined,
     @Headers('x-bank-key-id') keyIdHeader: string | undefined,
   ) {
-    const timestamp = Number(timestampHeader);
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    if (!Number.isInteger(timestamp) || Math.abs(nowSeconds - timestamp) > BANK_CALLBACK_TOLERANCE_SECONDS) {
-      throw new UnauthorizedException('Expired or invalid bank callback timestamp');
-    }
-
-    const bodyEventId = typeof body.eventId === 'string' ? body.eventId : '';
-    if (!eventIdHeader || eventIdHeader !== bodyEventId) {
-      throw new UnauthorizedException('Bank callback event ID mismatch');
-    }
-    if (partnerIdHeader !== EXPECTED_BANK_PARTNER_ID || keyIdHeader !== EXPECTED_BANK_KEY_ID) {
-      throw new UnauthorizedException('Unknown bank partner or signing key');
-    }
-
-    const signedPayload = buildBankSignaturePayload({
+    const verified = await this.bankCallbackKeys.verifyCallback({
       partnerId: partnerIdHeader,
       keyId: keyIdHeader,
-      timestamp,
-      eventId: eventIdHeader,
+      timestampHeader,
+      eventIdHeader,
+      signature,
       body,
     });
-    const expected = `hmac-sha256=${crypto.createHmac('sha256', BANK_HMAC_SECRET).update(signedPayload).digest('hex')}`;
-    if (!secureSignatureMatch(signature, expected)) {
-      throw new UnauthorizedException('Invalid bank signature');
-    }
 
     if (body.dealId === CANONICAL_TEST_DEAL_ID) {
       const dealId = String(body.dealId);
@@ -257,7 +224,7 @@ export class SettlementEngineController {
       return this.industrialCommands.executeBankCallback({
         ...(body as unknown as VerifiedBankCallbackInput),
         operationId,
-        partnerId: partnerIdHeader,
+        partnerId: verified.partnerId,
       });
     }
 

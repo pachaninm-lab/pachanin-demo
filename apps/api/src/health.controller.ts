@@ -6,26 +6,8 @@ const APP_VERSION = process.env.APP_VERSION ?? '3.0.0';
 const BUILD_DATE = process.env.BUILD_DATE ?? new Date().toISOString().slice(0, 10);
 const GIT_COMMIT = process.env.GIT_COMMIT ?? 'local';
 
-type CheckStatus = 'ok' | 'degraded' | 'down';
+type CheckStatus = 'ok' | 'degraded' | 'down' | 'not_configured';
 type ReadinessStatus = 'ready' | 'degraded';
-
-interface DetailedHealthCheck {
-  status: CheckStatus;
-  checks: {
-    api: CheckStatus;
-    database: CheckStatus;
-    outbox: CheckStatus;
-    kafka: CheckStatus;
-    redis: CheckStatus;
-    integrations: Record<string, CheckStatus>;
-  };
-  details: {
-    outboxDeadCount: number;
-    uptime: number;
-    memoryMb: number;
-  };
-  timestamp: string;
-}
 
 @Controller()
 export class HealthController {
@@ -39,76 +21,105 @@ export class HealthController {
 
   @Public()
   @Get('ready')
-  ready(): { status: ReadinessStatus; checks: Record<string, string>; timestamp: string } {
-    const dead = this.outbox.listDead().length;
-    const pending = this.outbox.listPending().length;
-    const outboxOk = dead < 50;
+  async ready(): Promise<{ status: ReadinessStatus; checks: Record<string, string>; timestamp: string }> {
     const memMb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
     const memOk = memMb < 900;
-    const overall: ReadinessStatus = outboxOk && memOk ? 'ready' : 'degraded';
-
-    return {
-      status: overall,
-      checks: {
-        api: 'ok',
-        database: 'ok',
-        outbox: outboxOk ? `ok (pending=${pending})` : `degraded (dead=${dead})`,
-        memory: memOk ? `ok (${memMb}MB)` : `degraded (${memMb}MB)`,
-        kafka: 'ok (mock)',
-        redis: 'ok (mock)',
-      },
-      timestamp: new Date().toISOString(),
-    };
+    try {
+      const stats = await this.outbox.stats();
+      const outboxOk = stats.dead < 50;
+      return {
+        status: outboxOk && memOk ? 'ready' : 'degraded',
+        checks: {
+          api: 'ok',
+          database: 'ok',
+          outbox: outboxOk
+            ? `ok (pending=${stats.pending}, processing=${stats.processing}, retry=${stats.retry})`
+            : `degraded (dead=${stats.dead})`,
+          memory: memOk ? `ok (${memMb}MB)` : `degraded (${memMb}MB)`,
+          kafka: process.env.OUTBOX_WORKER_MODE && process.env.OUTBOX_WORKER_MODE !== 'disabled'
+            ? 'validated by outbox worker startup'
+            : 'not configured for this process',
+        },
+        timestamp: new Date().toISOString(),
+      };
+    } catch {
+      return {
+        status: 'degraded',
+        checks: {
+          api: 'ok',
+          database: 'down',
+          outbox: 'down',
+          memory: memOk ? `ok (${memMb}MB)` : `degraded (${memMb}MB)`,
+          kafka: 'unknown',
+        },
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 
-  /** Detailed health per ТЗ 13.4 — for internal monitoring only */
+  /** Detailed health for internal monitoring; no fake-live adapter status. */
   @Public()
   @Get('health/detailed')
-  healthDetailed(): DetailedHealthCheck {
-    const dead = this.outbox.listDead().length;
-    const outboxOk: CheckStatus = dead === 0 ? 'ok' : dead < 50 ? 'degraded' : 'down';
+  async healthDetailed() {
     const memMb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-
-    const checks = {
-      api: 'ok' as CheckStatus,
-      database: 'ok' as CheckStatus,
-      outbox: outboxOk,
-      kafka: 'ok' as CheckStatus,
-      redis: 'ok' as CheckStatus,
-      integrations: {
-        fgis: 'ok' as CheckStatus,
-        diadok: 'ok' as CheckStatus,
-        cryptopro: 'ok' as CheckStatus,
-        bank: 'ok' as CheckStatus,
-        gps: 'ok' as CheckStatus,
-        rzd: 'ok' as CheckStatus,
-      },
-    };
-
-    const anyDegraded = Object.values(checks).some(
-      (v) => (typeof v === 'string' ? v : Object.values(v).some((x) => x !== 'ok')) && v !== 'ok',
-    );
-    const overall: CheckStatus = anyDegraded ? 'degraded' : 'ok';
-
-    return {
-      status: overall,
-      checks,
-      details: {
-        outboxDeadCount: dead,
-        uptime: Math.round(process.uptime()),
-        memoryMb: memMb,
-      },
-      timestamp: new Date().toISOString(),
-    };
+    try {
+      const stats = await this.outbox.stats();
+      const outboxStatus: CheckStatus = stats.dead === 0 ? 'ok' : stats.dead < 50 ? 'degraded' : 'down';
+      return {
+        status: outboxStatus === 'down' ? 'down' : outboxStatus === 'degraded' ? 'degraded' : 'ok',
+        checks: {
+          api: 'ok' as CheckStatus,
+          database: 'ok' as CheckStatus,
+          outbox: outboxStatus,
+          kafka: process.env.OUTBOX_WORKER_MODE && process.env.OUTBOX_WORKER_MODE !== 'disabled'
+            ? 'ok' as CheckStatus
+            : 'not_configured' as CheckStatus,
+          integrations: {
+            bank: 'not_configured' as CheckStatus,
+            fgis: 'not_configured' as CheckStatus,
+            edo: 'not_configured' as CheckStatus,
+            esia: 'not_configured' as CheckStatus,
+          },
+        },
+        details: {
+          outbox: stats,
+          uptime: Math.round(process.uptime()),
+          memoryMb: memMb,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    } catch {
+      return {
+        status: 'down' as CheckStatus,
+        checks: {
+          api: 'ok' as CheckStatus,
+          database: 'down' as CheckStatus,
+          outbox: 'down' as CheckStatus,
+          kafka: 'not_configured' as CheckStatus,
+          integrations: {},
+        },
+        details: { outbox: null, uptime: Math.round(process.uptime()), memoryMb: memMb },
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 
   @Public()
   @Get('metrics')
-  metrics(): string {
+  async metrics(): Promise<string> {
     const mem = process.memoryUsage();
     const uptime = process.uptime();
-    const dead = this.outbox.listDead().length;
-    const pending = this.outbox.listPending().length;
+    const stats = await this.outbox.stats().catch(() => ({
+      pending: -1,
+      processing: -1,
+      retry: -1,
+      dead: -1,
+      manualReview: -1,
+      oldestPendingAt: null,
+    }));
+    const oldestAgeSeconds = stats.oldestPendingAt
+      ? Math.max(0, (Date.now() - stats.oldestPendingAt.getTime()) / 1000)
+      : 0;
 
     return [
       '# HELP nodejs_heap_used_bytes Heap used in bytes',
@@ -120,23 +131,27 @@ export class HealthController {
       '# HELP process_uptime_seconds Process uptime in seconds',
       '# TYPE process_uptime_seconds counter',
       `process_uptime_seconds ${uptime.toFixed(2)}`,
-      '# HELP grainflow_outbox_dead_total Dead outbox entries',
-      '# TYPE grainflow_outbox_dead_total gauge',
-      `grainflow_outbox_dead_total ${dead}`,
-      '# HELP grainflow_outbox_pending_total Pending outbox entries',
-      '# TYPE grainflow_outbox_pending_total gauge',
-      `grainflow_outbox_pending_total ${pending}`,
+      '# HELP grainflow_outbox_pending Durable pending outbox entries',
+      '# TYPE grainflow_outbox_pending gauge',
+      `grainflow_outbox_pending ${stats.pending}`,
+      '# HELP grainflow_outbox_processing Leased outbox entries',
+      '# TYPE grainflow_outbox_processing gauge',
+      `grainflow_outbox_processing ${stats.processing}`,
+      '# HELP grainflow_outbox_retry Durable retry outbox entries',
+      '# TYPE grainflow_outbox_retry gauge',
+      `grainflow_outbox_retry ${stats.retry}`,
+      '# HELP grainflow_outbox_dead Dead-letter outbox entries',
+      '# TYPE grainflow_outbox_dead gauge',
+      `grainflow_outbox_dead ${stats.dead}`,
+      '# HELP grainflow_outbox_oldest_pending_age_seconds Age of oldest deliverable outbox entry',
+      '# TYPE grainflow_outbox_oldest_pending_age_seconds gauge',
+      `grainflow_outbox_oldest_pending_age_seconds ${oldestAgeSeconds.toFixed(3)}`,
     ].join('\n');
   }
 
   @Public()
   @Get('version')
   version(): { version: string; buildDate: string; commit: string; nodeVersion: string } {
-    return {
-      version: APP_VERSION,
-      buildDate: BUILD_DATE,
-      commit: GIT_COMMIT,
-      nodeVersion: process.version,
-    };
+    return { version: APP_VERSION, buildDate: BUILD_DATE, commit: GIT_COMMIT, nodeVersion: process.version };
   }
 }
