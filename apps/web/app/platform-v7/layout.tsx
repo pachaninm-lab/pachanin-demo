@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
-import { ToastProvider } from '@/components/v7r/Toast';
-import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
-import { PlatformV7ShellSwitch } from '@/components/platform-v7/PlatformV7ShellSwitch';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
 import '@/styles/theme.css';
@@ -32,21 +30,50 @@ import '@/styles/platform-v7-seller-workspace-v2.css';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
-  description: 'Федеральная B2B-платформа для зерновых сделок: ФГИС «Зерно», банковский эскроу, ЭДО, логистика и приёмка зерна.',
-  keywords: ['зерно', 'агроторговля', 'ФГИС', 'элеватор', 'логистика зерна', 'сделка', 'ЭДО', 'банк', 'платформа'],
-  authors: [{ name: 'ООО «Прозрачная Цена»' }],
+  description: 'Цифровой контур исполнения зерновой сделки: допуск, логистика, приёмка, качество, документы, расчёты, спор и доказательства.',
+  keywords: ['зерно', 'агроторговля', 'элеватор', 'логистика зерна', 'сделка', 'документы', 'расчёты'],
   creator: 'Прозрачная Цена',
-  publisher: 'ООО «Прозрачная Цена»',
   robots: { index: false, follow: false },
-  openGraph: { type: 'website', locale: 'ru_RU', siteName: 'Прозрачная Цена', title: 'Прозрачная Цена — федеральная зерновая платформа', description: 'B2B-платформа для зерновых сделок с банковским эскроу, ФГИС, ЭДО и полным контуром приёмки.' },
+  openGraph: {
+    type: 'website',
+    locale: 'ru_RU',
+    siteName: 'Прозрачная Цена',
+    title: 'Прозрачная Цена — контур исполнения зерновой сделки',
+    description: 'Логистика, приёмка, качество, документы, расчёты, спор и доказательства в одном проверяемом процессе.',
+  },
   metadataBase: new URL('https://xn----8sbjf4befbjgs9b.xn--p1ai'),
 };
 
-export default function PlatformV7Layout({ children }: { children: ReactNode }) {
-  return (
-    <ToastProvider>
-      <PlatformThemeSync />
-      <PlatformV7ShellSwitch>{children}</PlatformV7ShellSwitch>
-    </ToastProvider>
-  );
+const PUBLIC_EXACT_PATHS = new Set([
+  '/platform-v7',
+  '/platform-v7/open',
+  '/platform-v7/login',
+  '/platform-v7/forgot-password',
+  '/platform-v7/register',
+  '/platform-v7/help',
+  '/platform-v7/pricing',
+  '/platform-v7/roadmap',
+  '/platform-v7/deal-flow',
+  '/platform-v7/demo',
+  '/platform-v7/contact',
+  '/platform-v7/request',
+  '/platform-v7/docs',
+]);
+const PUBLIC_PREFIX_PATHS = ['/platform-v7/role-preview'];
+
+function normalizePath(value: string | null) {
+  return (value || '').split('?')[0].replace(/\/$/, '') || '/platform-v7';
+}
+
+function isPublicPath(value: string | null) {
+  const pathname = normalizePath(value);
+  return PUBLIC_EXACT_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
+}
+
+export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
+  const pathname = normalizePath(headers().get('x-pc-pathname'));
+  if (isPublicPath(pathname)) return children;
+
+  const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');
+  return <PlatformV7ProtectedRuntime pathname={pathname}>{children}</PlatformV7ProtectedRuntime>;
 }
