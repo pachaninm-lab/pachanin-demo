@@ -3,10 +3,11 @@ import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE, SESSION_COOKIE } from '../../../../lib/auth-cookies';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const CANONICAL_DEAL_ID = 'DEAL-INDUSTRIAL-001';
 
-// ---------------------------------------------------------------------------
-// DEMO mode: in-memory state (per-process, resets on server restart)
-// ---------------------------------------------------------------------------
+// Legacy demonstration data remains temporarily for old, non-canonical surfaces.
+// The canonical deal path below is strictly real-backend-only and never falls
+// through to these process-local values.
 const demoLots = [
   { id: 'LOT-001', status: 'AUCTION_OPEN', crop: 'wheat', culture: 'wheat', title: 'Пшеница 3 класс · Краснодарский край', volumeTon: 500, priceRubPerTon: 14200, region: 'Краснодарский край', sellerId: 'farmer@demo.ru', auctionType: 'OPEN_AUCTION', auctionEndsAt: new Date(Date.now() + 48 * 3600 * 1000).toISOString(), bidsCount: 3, quality: { protein: 13.2, moisture: 12.5, gluten: 28, impurity: 1.2 } },
   { id: 'LOT-002', status: 'AUCTION_OPEN', crop: 'barley', culture: 'barley', title: 'Ячмень кормовой · Ростовская область', volumeTon: 300, priceRubPerTon: 12800, region: 'Ростовская область', sellerId: 'farmer@demo.ru', auctionType: 'PRIVATE_AUCTION', auctionEndsAt: new Date(Date.now() + 72 * 3600 * 1000).toISOString(), bidsCount: 1, quality: { protein: 11.8, moisture: 13.1, impurity: 0.9 } },
@@ -46,18 +47,32 @@ function readSessionRole(jar: ReturnType<typeof cookies>): { role: string; email
   }
 }
 
-// Demo responses keyed by "METHOD /path"
+function requiresRealBackend(path: string): boolean {
+  return path === `deals/${CANONICAL_DEAL_ID}/execution-workspace`
+    || path.startsWith(`deals/${CANONICAL_DEAL_ID}/commands/`);
+}
+
+function realBackendUnavailable(reason: string) {
+  return NextResponse.json(
+    {
+      ok: false,
+      code: 'REAL_BACKEND_REQUIRED',
+      message: 'Единая сделка недоступна: сервер не подтвердил состояние. Демо-ответ запрещён.',
+      reason,
+    },
+    { status: 503 },
+  );
+}
+
 function demoResponse(method: string, path: string, jar: ReturnType<typeof cookies>, body: any): Response | null {
   const { role, email } = readSessionRole(jar);
   const key = `${method.toUpperCase()} /${path}`;
 
-  // Auth
   if (key === 'GET /auth/me') {
     if (role === 'GUEST') return Response.json({ authenticated: false, role: 'GUEST' }, { status: 401 });
     return Response.json({ authenticated: true, role, surfaceRole: role, email, orgName: 'Demo Org', fullName: email.split('@')[0] || role });
   }
 
-  // Lots
   if (key === 'GET /lots') return Response.json(demoLots);
   if (key === 'POST /lots') {
     const lot = { id: `LOT-${String(Date.now()).slice(-6)}`, status: 'AUCTION_OPEN', sellerId: email, ...body, createdAt: new Date().toISOString() };
@@ -66,82 +81,81 @@ function demoResponse(method: string, path: string, jar: ReturnType<typeof cooki
   }
   if (path.startsWith('lots/') && method === 'GET') {
     const id = path.split('/')[1];
-    const lot = demoLots.find((l) => l.id === id);
+    const lot = demoLots.find((item) => item.id === id);
     return lot ? Response.json(lot) : Response.json({ message: 'not found' }, { status: 404 });
   }
 
-  // Deals
   if (key === 'GET /deals') return Response.json({ items: demoDeals, total: demoDeals.length });
   if (path.startsWith('deals/') && method === 'GET') {
     const id = path.split('/')[1];
-    const deal = demoDeals.find((d) => d.id === id);
+    const deal = demoDeals.find((item) => item.id === id);
     return deal ? Response.json(deal) : Response.json({ message: 'not found' }, { status: 404 });
   }
 
-  // Disputes
   if (key === 'GET /disputes') return Response.json({ items: demoDisputes, total: demoDisputes.length });
   if (path.startsWith('disputes/') && method === 'GET') {
     const id = path.split('/')[1];
-    const dispute = demoDisputes.find((d) => d.id === id);
+    const dispute = demoDisputes.find((item) => item.id === id);
     return dispute ? Response.json(dispute) : Response.json({ message: 'not found' }, { status: 404 });
   }
 
-  // Payments
   if (key === 'GET /payments') return Response.json({ items: demoPayments, total: demoPayments.length });
-
-  // Notifications
-  if (key === 'GET /notifications') return Response.json({ items: demoNotifications, unread: demoNotifications.filter((n) => !n.read).length });
-
-  // Labs
+  if (key === 'GET /notifications') return Response.json({ items: demoNotifications, unread: demoNotifications.filter((item) => !item.read).length });
   if (key === 'POST /labs/complete') return Response.json({ ok: true, status: 'COMPLETED', nextRail: 'settlement' });
   if (key === 'POST /labs/flag-quality-dispute') return Response.json({ ok: true, status: 'DISPUTED', disputeId: `DISPUTE-${String(Date.now()).slice(-6)}` });
-
-  // Settlement
   if (path.includes('settlement') && path.includes('confirm') && method === 'POST') return Response.json({ ok: true, status: 'CONFIRMED' });
   if (path.includes('settlement') && path.includes('release') && method === 'POST') return Response.json({ ok: true, status: 'RELEASED' });
-
-  // Offline sync
   if (key === 'POST /offline-sync') return Response.json({ ok: true, synced: true });
-
   return null;
 }
 
 async function proxy(request: Request, params: { path: string[] }) {
   const path = params.path.join('/');
   const jar = cookies();
-
-  // Try real backend if configured and not demo token
   const token = jar.get(ACCESS_COOKIE)?.value || '';
+  const strictRealPath = requiresRealBackend(path);
   const isDemo = !API_URL || token.startsWith('demo.');
+
+  if (strictRealPath && !API_URL) return realBackendUnavailable('api_url_missing');
+  if (strictRealPath && (!token || token.startsWith('demo.'))) return realBackendUnavailable('verified_session_missing');
 
   if (!isDemo) {
     try {
       const target = `${API_URL}/${path}`;
       const headers = new Headers(request.headers);
-      if (token) headers.set('Authorization', `Bearer ${token}`);
+      headers.set('Authorization', `Bearer ${token}`);
       headers.delete('host');
       const body = request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text();
-      const response = await fetch(target, { method: request.method, headers, body, cache: 'no-store', signal: AbortSignal.timeout(4000) });
+      const response = await fetch(target, {
+        method: request.method,
+        headers,
+        body,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      });
       const text = await response.text();
-      return new NextResponse(text, { status: response.status, headers: { 'content-type': response.headers.get('content-type') || 'application/json' } });
+      return new NextResponse(text, {
+        status: response.status,
+        headers: { 'content-type': response.headers.get('content-type') || 'application/json' },
+      });
     } catch {
-      // Backend down — fall through to demo
+      if (strictRealPath) return realBackendUnavailable('backend_unreachable');
     }
   }
 
-  // Demo mode
+  if (strictRealPath) return realBackendUnavailable('real_backend_not_used');
+
   let body: any = {};
   try {
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      body = await request.json().catch(() => ({}));
-    }
-  } catch { /* ignore */ }
+    if (request.method !== 'GET' && request.method !== 'HEAD') body = await request.json().catch(() => ({}));
+  } catch {
+    body = {};
+  }
 
   const demo = demoResponse(request.method, path, jar, body);
   if (demo) return demo;
 
-  // Catch-all for unknown demo endpoints
-  return NextResponse.json({ ok: true, demo: true, path, items: [], total: 0 });
+  return NextResponse.json({ ok: false, demo: true, path, message: 'Demo endpoint is not implemented.' }, { status: 404 });
 }
 
 export async function GET(request: Request, { params }: { params: { path: string[] } }) {
