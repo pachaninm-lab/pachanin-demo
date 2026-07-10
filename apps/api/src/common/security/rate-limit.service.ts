@@ -16,9 +16,9 @@ const NON_PRODUCTION_FALLBACK = 'transparent-price-rate-limit-local-only';
 
 export function resolveRateLimitHmacKey(env: NodeJS.ProcessEnv = process.env): Buffer {
   const production = String(env.NODE_ENV ?? '').toLowerCase() === 'production';
-  const source = String(env.RATE_LIMIT_KEY_PEPPER ?? env.AUTH_TOKEN_PEPPER ?? '').trim();
-  if (production && !source) {
-    throw new Error('RATE_LIMIT_KEY_PEPPER or AUTH_TOKEN_PEPPER is required in production.');
+  const source = String(env.RATE_LIMIT_KEY_PEPPER ?? '').trim();
+  if (production && source.length < 32) {
+    throw new Error('RATE_LIMIT_KEY_PEPPER with at least 32 characters is required in production.');
   }
   return createHash('sha256')
     .update(`transparent-price:rate-limit:v1:${source || NON_PRODUCTION_FALLBACK}`)
