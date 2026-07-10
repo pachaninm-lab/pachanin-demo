@@ -117,8 +117,7 @@ END
 $one_deal_auth_role$;
 GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_auth;
 GRANT USAGE ON SCHEMA public, auth TO one_deal_auth;
-GRANT SELECT, UPDATE ON public.users, public.user_orgs TO one_deal_auth;
-GRANT SELECT ON public.organizations TO one_deal_auth;
+GRANT SELECT, INSERT, UPDATE ON public.users, public.user_orgs, public.organizations TO one_deal_auth;
 GRANT SELECT, INSERT, UPDATE ON
   auth.login_throttles,
   auth.credential_states,
@@ -185,10 +184,18 @@ if [[ "$CROSS_TENANT_PARTICIPANTS" != "0" ]]; then
   exit 1
 fi
 
+echo "[one-deal] proving strict Nest runtime datasource boundaries"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+AUTH_DATABASE_URL="$AUTH_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+pnpm --filter @pc/api exec ts-node test/one-deal/runtime-principal-startup-proof.ts
+
 echo "[one-deal] running persistent-auth-backed exploitation suite"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
-ONE_DEAL_AUTH_URL="$AUTH_URL" \
+AUTH_DATABASE_URL="$AUTH_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 JWT_SECRET="$JWT_SECRET" \
 AUTH_TOKEN_PEPPER="$AUTH_TOKEN_PEPPER" \
 MFA_ENCRYPTION_KEY="$MFA_ENCRYPTION_KEY" \
