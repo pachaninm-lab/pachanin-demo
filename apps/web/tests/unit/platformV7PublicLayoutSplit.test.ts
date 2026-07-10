@@ -6,6 +6,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 const rootLayout = read('apps/web/app/layout.tsx');
 const layout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');
+const fullPlatformStyles = read('apps/web/app/platform-v7/_styles/full-platform.ts');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const landing = read('apps/web/app/platform-v7/page.tsx');
@@ -23,11 +24,14 @@ const publicLandingCss = read('apps/web/styles/platform-v7-public-landing.css');
 const middleware = read('apps/web/middleware.ts');
 
 describe('platform-v7 public/protected runtime split', () => {
-  it('resolves public paths before creating the protected client tree', () => {
+  it('resolves lean and public paths before creating the protected client tree', () => {
     expect(layout).toContain("from 'next/headers'");
     expect(layout).toContain("headers().get('x-pc-pathname')");
+    expect(layout).toContain('if (LEAN_PUBLIC_ENTRY_PATHS.has(pathname)) return children');
+    expect(layout).toContain("await import('./_styles/full-platform')");
     expect(layout).toContain('if (isPublicPath(pathname)) return children');
     expect(layout).toContain("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')");
+    expect(layout.indexOf('if (LEAN_PUBLIC_ENTRY_PATHS.has(pathname)) return children')).toBeLessThan(layout.indexOf("await import('./_styles/full-platform')"));
     expect(layout).not.toContain('PlatformV7ShellSwitch');
     expect(layout).not.toContain('ToastProvider');
     expect(layout).not.toContain('PlatformThemeSync');
@@ -63,10 +67,18 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(publicHeader).toContain("<a href='/platform-v7' className='pc-site-brand'");
   });
 
-  it('loads all public entry styles statically outside hydrated markup', () => {
-    expect(layout).toContain("@/styles/platform-v7-public-header.css");
-    expect(layout).toContain("@/styles/platform-v7-public-auth.css");
-    expect(layout).toContain("@/styles/platform-v7-public-landing.css");
+  it('loads only route-critical public styles before hydration', () => {
+    expect(layout).not.toContain("import '@/styles/");
+    expect(template).not.toContain("import '@/styles/");
+    expect(landing).toContain("import '@/styles/platform-v7-public-header.css'");
+    expect(landing).toContain("import '@/styles/platform-v7-public-landing.css'");
+    expect(landing).toContain("import '@/styles/platform-v7-public-entry-stable.css'");
+    expect(login).toContain("import '@/styles/platform-v7-public-header.css'");
+    expect(login).toContain("import '@/styles/platform-v7-public-auth.css'");
+    expect(recovery).toContain("import '@/styles/platform-v7-public-header.css'");
+    expect(recovery).toContain("import '@/styles/platform-v7-public-auth.css'");
+    expect(fullPlatformStyles).toContain("import '@/styles/platform-v7-protected-grid-stable.css'");
+    expect(fullPlatformStyles).toContain("import '@/styles/platform-v7-dark-role-fixes.css'");
 
     for (const source of [publicHeader, publicLocaleLink, brandMark, landing, intelligenceStrip, login, loginClient, recovery, recoveryClient]) {
       expect(source).not.toContain('<style');
