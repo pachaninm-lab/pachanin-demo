@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { Prisma } from '@prisma/client';
 import type { RequestUser } from '../types/request-user';
 import { Role } from '../types/request-user';
@@ -35,6 +38,16 @@ function fixture() {
     transaction,
     service: new RlsTransactionService(prisma),
   };
+}
+
+function repositoryPath(...segments: string[]): string {
+  const candidates = [
+    path.resolve(process.cwd(), ...segments),
+    path.resolve(process.cwd(), '../..', ...segments),
+  ];
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (!found) throw new Error(`Repository path not found: ${segments.join('/')}`);
+  return found;
 }
 
 describe('RlsTransactionService', () => {
@@ -136,5 +149,33 @@ describe('RlsTransactionService', () => {
 
     await expect(test.service.withTrustedContext(TRUSTED_USER, work)).rejects.toBe(databaseError);
     expect(work).not.toHaveBeenCalled();
+  });
+});
+
+describe('platform-v7 RLS deployment artifacts', () => {
+  it('passes canonical Prisma/RLS drift validation', () => {
+    const validator = repositoryPath('scripts/platform-v7-rls-validate.mjs');
+    const result = JSON.parse(execFileSync(process.execPath, [validator], { encoding: 'utf8' })) as {
+      valid: boolean;
+      errors: string[];
+      policies: number;
+    };
+
+    expect(result).toMatchObject({ valid: true, errors: [] });
+    expect(result.policies).toBeGreaterThanOrEqual(16);
+  });
+
+  it('keeps apply and rollback rehearsals isolated and rollback-only', () => {
+    for (const scriptName of [
+      'platform-v7-rls-apply-rehearsal.sh',
+      'platform-v7-rls-rollback-rehearsal.sh',
+    ]) {
+      const source = readFileSync(repositoryPath('scripts', scriptName), 'utf8');
+      expect(source).toContain('RLS_REHEARSAL_DATABASE_URL');
+      expect(source).toContain('NODE_ENV=production');
+      expect(source).toContain('rehearsal URL equals DATABASE_URL');
+      expect(source).toContain('ROLLBACK;');
+      expect(source).not.toContain('COMMIT;');
+    }
   });
 });
