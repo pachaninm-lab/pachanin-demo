@@ -1,0 +1,13 @@
+{
+  "publicEntry": {
+    "login": {
+      "invalidEmail": "Enter a valid work email.",
+      "passwordRequired": "Enter your password.",
+      "timeout": "The service did not respond in time. Try again.",
+      "offline": "There is no network connection. Check your internet access and try again.",
+      "networkError": "The connection was interrupted. Try again after the network is restored.",
+      "serviceUnavailable": "The sign-in service is temporarily unavailable. Try again later.",
+      "mfaUnavailable": "Sign-in verification is temporarily unavailable. Start sign in again later."
+    }
+  }
+}

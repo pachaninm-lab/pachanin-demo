@@ -1,0 +1,13 @@
+{
+  "publicEntry": {
+    "login": {
+      "invalidEmail": "请输入有效的工作邮箱。",
+      "passwordRequired": "请输入密码。",
+      "timeout": "服务未能及时响应。请重试。",
+      "offline": "当前没有网络连接。请检查网络后重试。",
+      "networkError": "网络连接已中断。请在网络恢复后重试。",
+      "serviceUnavailable": "登录服务暂时不可用。请稍后重试。",
+      "mfaUnavailable": "登录验证暂时不可用。请稍后重新开始登录。"
+    }
+  }
+}
