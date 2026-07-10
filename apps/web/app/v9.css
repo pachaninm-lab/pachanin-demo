@@ -3,8 +3,6 @@
  * Rebuilt on Elite Style v2 tokens.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 .v9-root {
   /* shadcn/ui CSS variable contract */
@@ -54,8 +52,8 @@
   --shadow-md: var(--pc-shadow-md, 0 10px 26px rgba(11, 46, 40, 0.08));
   --shadow-lg: var(--pc-shadow-lg, 0 18px 44px rgba(11, 46, 40, 0.12));
 
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: var(--font-inter, 'Inter'), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono, 'JetBrains Mono'), ui-monospace, monospace;
 
   font-family: var(--font-sans);
   font-size: 14px;

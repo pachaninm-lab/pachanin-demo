@@ -9,7 +9,7 @@ function source(path: string): string {
 describe('platform-v7 canonical one-deal workspace', () => {
   const workspace = source('components/platform-v7/CanonicalDealWorkspace.tsx');
   const dashboard = source('components/platform-v7/RoleIntentDashboard.tsx');
-  const shell = source('components/platform-v7/PlatformV7ShellSwitch.tsx');
+  const shell = source('components/platform-v7/PlatformV7ProtectedShell.tsx');
   const proxy = source('app/api/proxy/[...path]/route.ts');
   const login = source('app/platform-v7/login/page.tsx');
 

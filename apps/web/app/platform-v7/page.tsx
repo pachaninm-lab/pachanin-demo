@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -23,6 +24,30 @@ import {
 import { getTranslations } from 'next-intl/server';
 import { PlatformV7IntelligenceStrip } from '@/components/v7r/PlatformV7IntelligenceStrip';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+
+export const metadata: Metadata = {
+  title: 'Прозрачная Цена — исполнение зерновой сделки',
+  description: 'Цифровой контур исполнения внебиржевой зерновой сделки: логистика, приёмка, качество, документы, расчёты, спор и доказательства.',
+  alternates: {
+    canonical: '/platform-v7',
+    languages: {
+      ru: '/platform-v7?lang=ru',
+      en: '/platform-v7?lang=en',
+      zh: '/platform-v7?lang=zh',
+    },
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
+};
 
 type Card = { key: string; Icon: LucideIcon };
 type RoleCard = Card & { href: '/platform-v7/login' };
@@ -152,7 +177,7 @@ export default async function PlatformV7RootPage() {
 
       <section id='process' className='entry-section entry-process-section' aria-labelledby='process-title'>
         <SectionHead id='process-title' title={t('process.title')} text={t('process.text')} compact />
-        <div className='entry-process-row'>
+        <div className='entry-process-row' tabIndex={0} role='region' aria-label={t('process.title')}>
           {processSteps.map(({ key, Icon }, index) => (
             <article key={key} className='entry-process-tile'>
               <span className='entry-process-index'>{index + 1}</span>

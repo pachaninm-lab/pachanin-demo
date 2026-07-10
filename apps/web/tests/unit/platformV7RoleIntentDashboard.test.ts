@@ -11,12 +11,11 @@ describe('platform-v7 role intent dashboard', () => {
   it('keeps the role intent model and dashboard connected to cabinet roots', () => {
     const model = read('apps/web/lib/platform-v7/roleIntentActions.ts');
     const dashboard = read('apps/web/components/platform-v7/RoleIntentDashboard.tsx');
-    const shell = read('apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx');
+    const shell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 
     expect(model).toContain('ROLE_INTENT_ACTIONS');
-    expect(dashboard).toContain('Что хотите сделать?');
-    expect(dashboard).toContain('Требует внимания');
-    expect(dashboard).toContain('Продолжить начатое');
+    expect(dashboard).toContain('<CanonicalDealWorkspace role={role} />');
+    expect(dashboard).not.toContain('getRoleIntentConfig');
     expect(shell).toContain('ROLE_INTENT_ROOT_PATHS');
     expect(shell).toContain('RoleIntentDashboard');
 

@@ -91,7 +91,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const locale = await getLocale();
   const messages = await getMessages();
   return (
-    <html lang={HTML_LANG[locale] ?? 'ru'} translate="no" className={`notranslate ${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
+    <html lang={HTML_LANG[locale] ?? 'ru'} translate="no" data-theme="light" suppressHydrationWarning className={`notranslate ${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
       {/* eslint-disable-next-line @next/next/no-head-element */}
       <head>
         {/* Must be first in <head> to run before CSS is applied */}
@@ -100,9 +100,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <meta name="google" content="notranslate" />
         <meta name="googlebot" content="notranslate" />
         <meta httpEquiv="Content-Language" content={HTML_LANG[locale] ?? 'ru'} />
-        {/* D-20: preconnect to Google Fonts for faster font load */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body translate="no" className="notranslate">
         <NextIntlClientProvider locale={locale} messages={messages}>
