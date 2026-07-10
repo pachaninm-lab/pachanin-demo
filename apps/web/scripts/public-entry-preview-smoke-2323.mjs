@@ -64,7 +64,7 @@ async function runCase(page, matrixCase, routeCase, locale) {
   const onRequestFailed = (request) => {
     const url = request.url();
     const errorText = request.failure()?.errorText || 'unknown';
-    if (!url.startsWith('data:') && !url.includes('/favicon.ico') && !isCancelledRscNavigation(url, errorText)) {
+    if (!url.startsWith('data:') && !url.includes('/favicon.ico') && !isNetlifyPreviewNoise(url) && !isCancelledRscNavigation(url, errorText)) {
       failedRequests.push({ url, error: errorText });
     }
   };
