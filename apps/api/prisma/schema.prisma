@@ -130,6 +130,7 @@ model Deal {
   dealEvents       DealEvent[]
   acceptanceRecords AcceptanceRecord[]
   bankOperations   BankOperation[]
+  runtimeSnapshots DealWorkspaceRuntimeSnapshot[] @relation("RuntimeSnapshotDeal")
 
   @@index([sellerOrgId])
   @@index([buyerOrgId])
@@ -329,23 +330,31 @@ model LabTest {
 // ── Outbox ────────────────────────────────────────────────────────────────────
 
 model OutboxEntry {
-  id             String   @id @default(cuid())
-  type           String
-  dealId         String?
-  payload        Json
-  status         String   @default("PENDING") // PENDING | SENT | CONFIRMED | FAILED | DEAD
-  idempotencyKey String?  @unique
-  maxRetries     Int      @default(5)
-  retryCount     Int      @default(0)
-  nextRetryAt    DateTime @default(now())
-  lastError      String?
-  createdAt      DateTime @default(now())
-  sentAt         DateTime?
-  confirmedAt    DateTime?
-  failedAt       DateTime?
+  id                    String   @id @default(cuid())
+  type                  String
+  dealId                String?
+  payload               Json
+  status                String   @default("PENDING") // PENDING | SENT | CONFIRMED | FAILED | DEAD
+  idempotencyKey        String?  @unique
+  maxRetries            Int      @default(5)
+  retryCount            Int      @default(0)
+  nextRetryAt           DateTime @default(now())
+  lastError             String?
+  correlationId         String?
+  auditId               String?
+  runtimeSnapshotId     String?
+  runtimeIdempotencyKey String?
+  createdAt             DateTime @default(now())
+  sentAt                DateTime?
+  confirmedAt           DateTime?
+  failedAt              DateTime?
+
+  runtimeSnapshot       DealWorkspaceRuntimeSnapshot? @relation("RuntimeSnapshotOutbox")
 
   @@index([status, nextRetryAt])
   @@index([dealId])
+  @@index([runtimeSnapshotId], map: "outbox_entries_runtime_snapshot_idx")
+  @@index([correlationId], map: "outbox_entries_runtime_correlation_idx")
   @@map("outbox_entries")
 }
 
@@ -439,31 +448,37 @@ model EvidenceFile {
 // ── Audit Events (append-only, hash chain) ────────────────────────────────────
 
 model AuditEvent {
-  id          String   @id @default(cuid())
-  action      String
-  actorUserId String
-  actorRole   String
-  tenantId    String?
-  orgId       String?
-  dealId      String?
-  disputeId   String?
-  objectType  String?
-  objectId    String?
-  beforeState Json?    // snapshot before change
-  afterState  Json?    // snapshot after change
-  outcome     String
-  reason      String?
-  metadata    Json?    // ip, userAgent, sessionId
-  hash        String   @default("") // SHA-256(all fields + prevHash)
-  prevHash    String?
-  createdAt   DateTime @default(now())
+  id                    String   @id @default(cuid())
+  action                String
+  actorUserId           String
+  actorRole             String
+  tenantId              String?
+  orgId                 String?
+  dealId                String?
+  disputeId             String?
+  objectType            String?
+  objectId              String?
+  beforeState           Json?    // snapshot before change
+  afterState            Json?    // snapshot after change
+  outcome               String
+  reason                String?
+  metadata              Json?    // ip, userAgent, sessionId
+  correlationId         String?
+  runtimeSnapshotId     String?
+  runtimeIdempotencyKey String?
+  hash                  String   @default("") // SHA-256(all fields + prevHash)
+  prevHash              String?
+  createdAt             DateTime @default(now())
 
-  dispute     Dispute? @relation(fields: [disputeId], references: [id])
+  dispute               Dispute? @relation(fields: [disputeId], references: [id])
+  runtimeSnapshot       DealWorkspaceRuntimeSnapshot? @relation("RuntimeSnapshotAudit")
 
   @@index([dealId])
   @@index([actorUserId])
   @@index([action])
   @@index([tenantId])
+  @@index([runtimeSnapshotId], map: "audit_events_runtime_snapshot_idx")
+  @@index([correlationId], map: "audit_events_runtime_correlation_idx")
   @@map("audit_events")
 }
 
@@ -657,4 +672,71 @@ model Account {
 
   @@index([orgId])
   @@map("accounts")
+}
+
+// ── Deal Workspace Runtime Persistence ────────────────────────────────────────
+
+model DealWorkspaceRuntimeSnapshot {
+  id                   String   @id @default(cuid())
+  runtimeSnapshotId    String
+  idempotencyKey       String
+  dealId               String
+  intentId             String
+  state                String
+  snapshotState        String
+  statusLabel          String
+  runtimeStoreRecordId String
+  runtimeStoreVersion  String
+  actorId              String
+  actorRole            String
+  correlationId        String
+  auditId              String
+  contractHash         String
+  payload              Json
+  outboxEntryId        String?
+  auditEventId         String?
+  version              Int      @default(1)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  deal                 Deal      @relation("RuntimeSnapshotDeal", fields: [dealId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_deal_fkey")
+  outboxEntry          OutboxEntry? @relation("RuntimeSnapshotOutbox", fields: [outboxEntryId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_outbox_fkey")
+  auditEvent           AuditEvent? @relation("RuntimeSnapshotAudit", fields: [auditEventId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_audit_fkey")
+  attempts             DealWorkspaceRuntimeTransactionAttempt[]
+
+  @@unique([runtimeSnapshotId], map: "dw_runtime_snapshots_runtime_snapshot_id_key")
+  @@unique([idempotencyKey], map: "dw_runtime_snapshots_idempotency_key_key")
+  @@unique([outboxEntryId], map: "dw_runtime_snapshots_outbox_entry_id_key")
+  @@unique([auditEventId], map: "dw_runtime_snapshots_audit_event_id_key")
+  @@index([dealId, createdAt], map: "dw_runtime_snapshots_deal_created_idx")
+  @@index([intentId, state], map: "dw_runtime_snapshots_intent_state_idx")
+  @@index([correlationId], map: "dw_runtime_snapshots_correlation_idx")
+  @@index([state, updatedAt], map: "dw_runtime_snapshots_state_updated_idx")
+  @@map("deal_workspace_runtime_snapshots")
+}
+
+model DealWorkspaceRuntimeTransactionAttempt {
+  id             String   @id @default(cuid())
+  transactionId  String
+  snapshotId     String
+  idempotencyKey String
+  correlationId  String
+  auditId        String
+  stage          String
+  outcome        String?
+  failureCode    String?
+  failureReason  String?
+  isReplay       Boolean  @default(false)
+  startedAt      DateTime @default(now())
+  completedAt    DateTime?
+  metadata       Json?
+
+  snapshot       DealWorkspaceRuntimeSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Restrict, map: "dw_runtime_attempts_snapshot_fkey")
+
+  @@unique([transactionId], map: "dw_runtime_attempts_transaction_id_key")
+  @@index([snapshotId, startedAt], map: "dw_runtime_attempts_snapshot_started_idx")
+  @@index([stage, startedAt], map: "dw_runtime_attempts_stage_started_idx")
+  @@index([idempotencyKey], map: "dw_runtime_attempts_idempotency_idx")
+  @@index([correlationId], map: "dw_runtime_attempts_correlation_idx")
+  @@map("deal_workspace_runtime_transaction_attempts")
 }
