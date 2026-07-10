@@ -21,10 +21,10 @@
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
-    "P3019 migration provider mismatch: schema postgresql vs lock sqlite",
+    "P3018 legacy SQLite migration after PostgreSQL baseline",
     "production migration and external integration evidence"
   ],
-  "blockerNotes": "The first isolated PostgreSQL run failed before seeding because migration_lock.toml still declared sqlite while the canonical Prisma datasource and migration set are PostgreSQL. Scope is expanded only to the provider lock; migration SQL remains locked until the next deploy result proves an exact dialect defect.",
+  "blockerNotes": "After correcting migration_lock, PostgreSQL applied 0001_postgresql_initial and then failed on 20260522083644_init because that legacy SQLite migration repeats tables already created by the PostgreSQL baseline and uses DATETIME/REAL/TEXT payload types. Scope is expanded only to neutralize this superseded migration while preserving its historical identifier.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
     "production RLS policy application",
@@ -36,6 +36,7 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
     "apps/api/prisma/migrations/migration_lock.toml",
+    "apps/api/prisma/migrations/20260522083644_init/migration.sql",
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
@@ -46,6 +47,7 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
     "apps/api/prisma/migrations/migration_lock.toml",
+    "apps/api/prisma/migrations/20260522083644_init/migration.sql",
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
@@ -58,31 +60,23 @@
     "implementationPr": "#2260",
     "consolidationPr": "#2267",
     "status": "merged_green",
-    "canonicalDealId": "DEAL-INDUSTRIAL-001",
-    "invariants": [
-      "one deal identity and factual state for all roles",
-      "trusted transaction-local RLS for canonical reads and writes",
-      "strict full-command fingerprint idempotency inside the trusted transaction",
-      "no client-supplied target state",
-      "no human confirmation of bank reserve or release",
-      "no synthetic successful backend or bank reference",
-      "server-derived tenant organization role and actor",
-      "single canonical gateway and no duplicate write path"
-    ]
+    "canonicalDealId": "DEAL-INDUSTRIAL-001"
   },
   "industrialOneDealE2e": {
     "layer": "Industrial One Deal Ephemeral PostgreSQL E2E Harness",
     "implementationPr": "#2270",
-    "status": "migration_provider_fix_in_progress",
+    "status": "legacy_sqlite_migration_neutralization_in_progress",
     "workflow": ".github/workflows/ci.yml",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
     "lastFailure": {
-      "code": "P3019",
+      "code": "P3018/42704",
+      "migration": "20260522083644_init",
       "stage": "prisma migrate deploy",
-      "reason": "datasource provider postgresql did not match migration_lock provider sqlite"
+      "reason": "legacy SQLite DATETIME migration duplicated tables already created by 0001_postgresql_initial"
     },
     "requiredEvidence": [
       "isolated PostgreSQL 16 starts with ephemeral credentials",
+      "all migration history applies through prisma migrate deploy",
       "schema migrations and RLS policies apply only to the ephemeral database",
       "12 human role memberships observe one factual deal state",
       "19 commands execute in deterministic order without direct DB mutation",
@@ -108,7 +102,7 @@
     "apps/web/lib/platform-v7",
     "apps/web/app/api",
     "apps/api/src/modules/auth/**",
-    "apps/api/prisma/migrations/** except migration_lock.toml",
+    "apps/api/prisma/migrations/** except explicitly allowed files",
     "package.json",
     "package-lock.json",
     "pnpm-lock.yaml",
@@ -128,5 +122,5 @@
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. The first real PostgreSQL execution exposed a migration-provider blocker before business exploitation. Production exploitation remains NO-GO until the complete gate is green."
+  "readiness": "85% honest architectural readiness. Real PostgreSQL migration execution has exposed a second migration-history defect. Production exploitation remains NO-GO until the complete gate is green."
 }
