@@ -1,8 +1,12 @@
-import { createHash, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { RateLimitRepository } from '../../src/common/security/rate-limit.repository';
-import { RateLimitService } from '../../src/common/security/rate-limit.service';
+import {
+  hashRateLimitKey,
+  RateLimitService,
+  resolveRateLimitHmacKey,
+} from '../../src/common/security/rate-limit.service';
 
 function createPrisma(): PrismaService {
   const url = String(process.env.DATABASE_URL ?? '').trim();
@@ -44,7 +48,7 @@ describe('distributed PostgreSQL high-risk rate limits', () => {
     );
     expect(new Set(results.map((result) => result.resetAt)).size).toBe(1);
 
-    const keyHash = createHash('sha256').update(rawKey).digest('hex');
+    const keyHash = hashRateLimitKey(rawKey, resolveRateLimitHmacKey());
     const rows = await prismaA.$queryRaw<Array<{ key_hash: string; request_count: number }>>(Prisma.sql`
       SELECT key_hash, request_count
       FROM security.api_rate_limit_buckets
