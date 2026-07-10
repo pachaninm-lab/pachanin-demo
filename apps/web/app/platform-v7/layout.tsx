@@ -25,6 +25,7 @@ import '@/styles/platform-v7-mobile-shell-p1.css';
 import '@/styles/platform-v7-shell-critical.css';
 import '@/styles/platform-v7-public-header.css';
 import '@/styles/platform-v7-public-auth.css';
+import '@/styles/platform-v7-public-landing.css';
 import '@/styles/platform-v7-public-mobile-safe-area.css';
 import '@/styles/platform-v7-seller-mobile-usability.css';
 import '@/styles/platform-v7-mobile-bottom-tools.css';
