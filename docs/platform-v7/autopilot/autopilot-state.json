@@ -1,11 +1,11 @@
 {
   "project": "platform-v7",
-  "mode": "persistent-identity-session-mfa",
+  "mode": "durable-outbox-bank-reconciliation-key-rotation",
   "status": "active",
-  "currentStatus": "in_progress",
-  "current": "Persistent Identity, Session, Refresh-Family Revocation and MFA.",
-  "fullTzReadinessPercent": 87,
-  "openPr": "#2276",
+  "currentStatus": "ready",
+  "current": "Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation.",
+  "fullTzReadinessPercent": 91,
+  "openPr": null,
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
@@ -17,23 +17,29 @@
     "#2260 Industrial one-deal foundation",
     "#2267 Canonical gateway consolidation",
     "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
-    "#2274 PostgreSQL One Deal Recovery Matrix"
+    "#2274 PostgreSQL One Deal Recovery Matrix",
+    "#2276 Persistent identity, session rotation, revocation and MFA",
+    "#2280 One-time MFA backup-code consumption",
+    "#2282 Persistent-auth-backed 12-role one-deal execution",
+    "#2283 JWT authority-claim injection regression",
+    "#2287 Runtime separation of auth and deal PostgreSQL principals",
+    "#2291 Forward-only backup, restore and DR rehearsal"
   ],
   "openBlockers": [
-    "#2113 repository settings cleanup",
-    "#2115 persistent auth write path",
-    "PostgreSQL persistent-auth exploitation gate green evidence pending",
-    "production migration and RLS execution evidence",
-    "live bank FGIS EDO and signature evidence",
-    "production load restore and DR acceptance"
+    "durable PostgreSQL outbox worker and delivery leases",
+    "bank reconciliation, mismatch handling and persisted checkpoints",
+    "bank callback partner-key rotation and revocation",
+    "live bank FGIS EDO ESIA and signature evidence",
+    "production migration and deployment execution evidence",
+    "provider PITR, production-sized restore, measured RTO and approved RPO",
+    "production load, high-availability and operational acceptance"
   ],
-  "blockerNotes": "PR #2276 replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. The current PostgreSQL auth run passed seven of eight exploitation tests. The remaining concurrent-refresh test exposed a SERIALIZABLE 40001 conflict before the losing request could record refresh reuse and revoke the family. Auth transactions now retry only bounded PostgreSQL serialization/deadlock conflicts; the retry observes the rotated token and deterministically executes family-wide reuse revocation. Client role, organization and tenant claims remain untrusted and all UI files remain locked until the gate is green.",
+  "blockerNotes": "Deal execution, persistent identity, MFA, separate PostgreSQL runtime principals, 12-role/19-command recovery and isolated backup/restore are merged and green. The current outbox relay is still process-memory-led and performs best-effort PostgreSQL updates; the bank callback accepts only one static configured key; production reconciliation and provider recovery remain unproven. The next layer must replace these gaps without changing UI or claiming live bank integration.",
   "lockedUntilCurrentGreen": [
-    "durable outbox worker bank reconciliation and partner-key rotation",
-    "platform UI implementation",
-    "client role shell migration",
+    "platform UI and role-cabinet migration",
     "live external integration activation",
     "production migration execution",
+    "production bank money movement",
     "production load and disaster-recovery claims"
   ],
   "allowedCurrentScope": [
@@ -43,12 +49,16 @@
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
     "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql",
-    "apps/api/src/modules/auth/**",
-    "apps/api/src/common/guards/**",
-    "apps/api/src/common/types/request-user.ts",
-    "apps/api/test/auth/**",
-    "apps/api/test/one-deal/seed.ts",
+    "apps/api/prisma/migrations/**",
+    "apps/api/src/common/outbox/**",
+    "apps/api/src/common/kafka/**",
+    "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "apps/api/src/modules/settlement-engine/**",
+    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+    "apps/api/src/modules/deals/deal-command.service.ts",
+    "apps/api/test/outbox/**",
+    "apps/api/test/one-deal/**",
+    "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
   ],
   "agentWritableScope": [
@@ -58,29 +68,23 @@
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
     "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql",
-    "apps/api/src/modules/auth/**",
-    "apps/api/src/common/guards/**",
-    "apps/api/src/common/types/request-user.ts",
-    "apps/api/test/auth/**",
-    "apps/api/test/one-deal/seed.ts",
+    "apps/api/prisma/migrations/**",
+    "apps/api/src/common/outbox/**",
+    "apps/api/src/common/kafka/**",
+    "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "apps/api/src/modules/settlement-engine/**",
+    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+    "apps/api/src/modules/deals/deal-command.service.ts",
+    "apps/api/test/outbox/**",
+    "apps/api/test/one-deal/**",
+    "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
   ],
-  "approvedConcurrentScopes": {
-    "p0/database-backup-restore-dr-rehearsal": [
-      "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
-      "apps/api/test/one-deal/restored-database-acceptance.ts",
-      "docs/platform-v7/production-database-deployment-runbook.md",
-      "scripts/platform-v7-database-dr-rehearsal.sh",
-      "scripts/platform-v7-forward-only-migration-check.mjs",
-      "scripts/platform-v7-rls-rollback-rehearsal.sh",
-      ".github/workflows/ci.yml",
-      "docs/platform-v7/autopilot/autopilot-state.json"
-    ]
-  },
+  "approvedConcurrentScopes": {},
   "industrialOneDealFoundation": {
     "status": "merged_green",
-    "canonicalDealId": "DEAL-INDUSTRIAL-001"
+    "canonicalDealId": "DEAL-INDUSTRIAL-001",
+    "mergeCommit": "950e93f12b9ddd9b21dde46f74d057b1581763b7"
   },
   "industrialOneDealE2e": {
     "implementationPr": "#2270",
@@ -94,33 +98,60 @@
   },
   "persistentIdentity": {
     "implementationPr": "#2276",
-    "status": "in_progress",
-    "lastFailure": {
-      "code": "AUTH_REFRESH_SERIALIZATION_CONFLICT_NOT_RETRIED",
-      "file": "apps/api/src/modules/auth/persistent-auth.repository.ts",
-      "reason": "the losing concurrent refresh transaction surfaced PostgreSQL 40001 before reuse detection and family revocation could run",
-      "status": "corrected_awaiting_ci"
-    },
-    "requiredEvidence": [
-      "PostgreSQL users memberships sessions refresh families and MFA challenges",
-      "opaque session identity re-authorized against database state",
-      "refresh rotation and family-wide reuse revocation",
-      "logout password reset organization suspension and administrator revoke invalidate sessions",
-      "mandatory MFA for privileged roles and threshold financial actions",
-      "role tenant and organization derived only from persistent membership",
-      "immutable audit evidence for login refresh MFA logout revoke reuse and denial",
-      "fresh API instance continues session truth after restart"
+    "status": "merged_green",
+    "mergeCommit": "807928e54645af4ca425bf68e7b93931a01fb13d",
+    "securityFollowUps": [
+      "#2280 one-time backup codes",
+      "#2282 persistent-auth 12-role flow",
+      "#2283 injected JWT claims ignored"
     ]
   },
+  "databaseRuntimeBoundary": {
+    "implementationPr": "#2287",
+    "status": "merged_green",
+    "mergeCommit": "7c719e50d9712922ff164b26115e596ddbb93cfb",
+    "evidence": [
+      "separate deal and auth pools",
+      "deal principal NOBYPASSRLS and FORCE RLS",
+      "auth principal denied access to deals",
+      "NOINHERIT and no role memberships"
+    ]
+  },
+  "databaseRecoveryRehearsal": {
+    "implementationPr": "#2291",
+    "status": "merged_green",
+    "mergeCommit": "7c499ede59fc416cbf546d58dc7950b49dc1a77f",
+    "evidence": [
+      "forward-only migration gate",
+      "custom-format backup and SHA-256",
+      "restore into separate PostgreSQL database",
+      "source and restore fingerprints equal",
+      "eight protected tables retain ENABLE and FORCE RLS",
+      "persistent login and CLOSED deal survive restore"
+    ],
+    "productionAcceptance": false
+  },
+  "currentAcceptance": [
+    "PostgreSQL is the only outbox source of truth",
+    "multiple workers claim rows with bounded leases and SKIP LOCKED",
+    "delivery is at-least-once with stable idempotency keys",
+    "crash after publish and before acknowledgement is recoverable",
+    "retry schedule, dead-letter and manual-review states are durable",
+    "bank reconciliation uses persisted cursor and immutable evidence",
+    "reconciliation mismatch cannot release or reserve money automatically",
+    "bank callback keys support overlapping rotation windows and immediate revocation",
+    "unknown, expired, not-yet-valid and revoked keys fail closed",
+    "12-role one-deal, persistent auth, RLS and DR gates remain green"
+  ],
   "nextAfterCurrentGreen": [
-    "durable outbox worker bank reconciliation and partner-key rotation",
     "truthful driver offline acknowledgement",
     "server-rendered RU EN ZH i18n",
     "complete mobile-first design-system and role-cabinet migration",
-    "load restore DR and accessibility acceptance"
+    "production load high-availability observability and accessibility acceptance",
+    "live integration activation only after partner credentials and contracts"
   ],
   "designContractReserved": {
-    "status": "queued_after_persistent_identity",
+    "status": "queued_after_financial_delivery_boundary",
     "principles": [
       "verified server session is the only role tenant and shell projection source",
       "one primary action per state",
@@ -146,17 +177,20 @@
   ],
   "maturityLanguage": [
     "isolated-postgresql-e2e-proven",
-    "isolated-recovery-matrix-proven",
-    "persistent-identity-in-progress",
-    "platform-temporarily-without-external-integrations"
+    "persistent-identity-proven-in-isolated-postgresql",
+    "separate-runtime-principals-proven-in-isolated-postgresql",
+    "isolated-backup-restore-rehearsal-proven",
+    "durable-financial-delivery-in-progress",
+    "platform-temporarily-without-live-external-integrations"
   ],
   "forbiddenClaims": [
     "full production readiness",
     "production migration applied",
-    "persistent identity complete",
+    "production DR accepted",
+    "production RTO or RPO established",
     "external integration completion",
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "87% honest architectural readiness. Deal execution and isolated recovery are proven. Persistent identity/session/MFA is in progress. Live integrations, production migration, load, restore and DR remain unproven. Production exploitation remains NO-GO."
+  "readiness": "91% honest architectural and isolated-runtime readiness. Canonical execution, persistent identity, separate DB principals and backup/restore are proven in isolated PostgreSQL. Durable financial delivery, live integrations, production deployment, provider recovery and scale remain unproven. Production exploitation remains NO-GO."
 }
