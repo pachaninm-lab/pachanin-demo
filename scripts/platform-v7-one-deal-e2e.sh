@@ -100,6 +100,40 @@ if [[ "$ROLE_PROOF" != "false:false" && "$ROLE_PROOF" != "f:f" ]]; then
   exit 1
 fi
 
+DATABASE_PROOF="$(psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT current_user || ':' || pg_get_userbyid(c.relowner) || ':' || c.relrowsecurity::text || ':' || c.relforcerowsecurity::text || ':' || current_setting('row_security') FROM pg_class c WHERE c.oid='public.deals'::regclass")"
+echo "[one-deal] database role proof: $DATABASE_PROOF"
+IFS=':' read -r DB_USER DB_OWNER DB_RLS DB_FORCE DB_ROW_SECURITY <<< "$DATABASE_PROOF"
+if [[ "$DB_USER" != "one_deal_app" ]]; then
+  echo "Application datasource is not connected as one_deal_app: $DB_USER" >&2
+  exit 1
+fi
+if [[ "$DB_OWNER" == "one_deal_app" ]]; then
+  echo "Application principal unexpectedly owns protected table deals" >&2
+  exit 1
+fi
+if [[ "$DB_RLS" != "true" && "$DB_RLS" != "t" ]]; then
+  echo "RLS is not enabled on deals: $DB_RLS" >&2
+  exit 1
+fi
+if [[ "$DB_FORCE" != "true" && "$DB_FORCE" != "t" ]]; then
+  echo "FORCE ROW LEVEL SECURITY is not enabled on deals: $DB_FORCE" >&2
+  exit 1
+fi
+if [[ "$DB_ROW_SECURITY" != "on" ]]; then
+  echo "row_security is not on for application datasource: $DB_ROW_SECURITY" >&2
+  exit 1
+fi
+
+CROSS_TENANT_COUNT="$(
+  PGOPTIONS="-c app.current_user_id=buyer-e2e -c app.current_org_id=org-canonical-buyer -c app.current_tenant_id=tenant-other -c app.current_role=BUYER -c app.current_session_id=cross-tenant-sql-proof" \
+    psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT count(*) FROM public.deals WHERE id='DEAL-INDUSTRIAL-001'"
+)"
+echo "[one-deal] SQL cross-tenant visible rows: $CROSS_TENANT_COUNT"
+if [[ "$CROSS_TENANT_COUNT" != "0" ]]; then
+  echo "PostgreSQL RLS cross-tenant isolation failed before Prisma exploitation: $CROSS_TENANT_COUNT visible row(s)" >&2
+  exit 1
+fi
+
 echo "[one-deal] running exploitation suite through the restricted application principal"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
