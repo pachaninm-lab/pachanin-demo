@@ -16,7 +16,7 @@ jobs:
       NETLIFY_SITE_ID: 7e5e0e35-418e-4a82-bb4f-e608dd4aa5c4
       DEPLOY_BRANCH: ops/export-main-c520
       DEPLOY_COMMIT: c520c59b32df290b8ce1a72f6601e3a4ee326584
-      CIPHERTEXT_PATH: ops/netlify-proxy-c520-v2.enc
+      CIPHERTEXT_PATH: ops/netlify-proxy-c520-v3.b64
     steps:
       - name: Checkout deploy handoff branch
         uses: actions/checkout@v4
@@ -49,7 +49,7 @@ jobs:
         if: steps.phase.outputs.mode == 'receive'
         uses: actions/upload-artifact@v4
         with:
-          name: netlify-proxy-public-key-c520-v2
+          name: netlify-proxy-public-key-c520-v3
           path: /tmp/netlify-public.pem
           if-no-files-found: error
           retention-days: 1
@@ -62,7 +62,8 @@ jobs:
           found=0
           for attempt in $(seq 1 90); do
             git fetch --quiet origin "$DEPLOY_BRANCH"
-            if git show "origin/$DEPLOY_BRANCH:$CIPHERTEXT_PATH" > /tmp/netlify-proxy.enc 2>/dev/null; then
+            if git show "origin/$DEPLOY_BRANCH:$CIPHERTEXT_PATH" > /tmp/netlify-proxy.enc.b64 2>/dev/null; then
+              base64 --decode /tmp/netlify-proxy.enc.b64 > /tmp/netlify-proxy.enc
               found=1
               break
             fi
@@ -107,4 +108,4 @@ jobs:
       - name: Remove one-time private material
         if: always()
         shell: bash
-        run: rm -f /tmp/netlify-private.pem /tmp/netlify-public.pem /tmp/netlify-proxy.enc
+        run: rm -f /tmp/netlify-private.pem /tmp/netlify-public.pem /tmp/netlify-proxy.enc /tmp/netlify-proxy.enc.b64
