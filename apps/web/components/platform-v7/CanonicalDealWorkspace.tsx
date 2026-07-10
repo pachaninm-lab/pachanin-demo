@@ -20,6 +20,7 @@ import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 const DEAL_ID = 'DEAL-INDUSTRIAL-001';
 
 type SpineState = 'done' | 'active' | 'pending';
+type ActionSource = 'USER' | 'BANK_CALLBACK';
 
 type Workspace = {
   deal: {
@@ -42,6 +43,7 @@ type Workspace = {
       id: string;
       label: string;
       enabled: boolean;
+      source?: ActionSource;
       waitingForRoles: string[];
     };
   };
@@ -57,6 +59,7 @@ type Workspace = {
     id: string;
     stage: string;
     label: string;
+    source?: ActionSource;
     state: SpineState;
   }>;
   shipments: Array<{ id: string; status: string; vehicleNumber?: string | null; nextAction?: string | null }>;
@@ -118,9 +121,15 @@ function commandPayload(actionId: string): Record<string, unknown> {
   if (actionId === 'confirm_arrival') return { lat: 52.7212, lng: 41.4523 };
   if (actionId === 'confirm_weight') return { weightActualTons: 149.6 };
   if (actionId === 'finalize_lab') return { moisture: 12.4, protein: 13.2, gost: 'ГОСТ 9353-2016' };
-  if (actionId === 'confirm_reserve') return { bankRef: `TEST-RESERVE-${DEAL_ID}` };
-  if (actionId === 'confirm_release') return { bankRef: `TEST-RELEASE-${DEAL_ID}` };
   return {};
+}
+
+function waitingLabel(action: Workspace['roleProjection']['primaryAction']): string {
+  if (!action) return '';
+  if (action.source === 'BANK_CALLBACK' || action.waitingForRoles.includes('BANK_CALLBACK')) {
+    return 'подтверждённый callback банка';
+  }
+  return action.waitingForRoles.join(', ');
 }
 
 async function readJson(response: Response): Promise<any> {
@@ -166,7 +175,8 @@ export function CanonicalDealWorkspace({ role }: { role: PlatformRole }) {
 
   async function executePrimaryAction() {
     const action = workspace?.roleProjection.primaryAction;
-    if (!workspace || !action?.enabled || submitting) return;
+    const isSystemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
+    if (!workspace || !action?.enabled || isSystemAction || submitting) return;
 
     const commandId = globalThis.crypto?.randomUUID?.() ?? `command-${Date.now()}`;
     const idempotencyKey = `${workspace.deal.id}:${action.id}:${commandId}`;
@@ -219,6 +229,7 @@ export function CanonicalDealWorkspace({ role }: { role: PlatformRole }) {
 
   const activeStep = workspace.spine.find((step) => step.state === 'active');
   const action = workspace.roleProjection.primaryAction;
+  const systemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
   const shipment = workspace.shipments[0];
   const acceptance = workspace.acceptance[0];
 
@@ -243,11 +254,11 @@ export function CanonicalDealWorkspace({ role }: { role: PlatformRole }) {
       </div>
 
       <section className={`deal-attention ${workspace.blockers.length ? 'blocked' : ''}`}>
-        <div className='attention-icon'>{workspace.blockers.length ? <AlertTriangle size={23} /> : <ArrowRight size={23} />}</div>
+        <div className='attention-icon'>{workspace.blockers.length ? <AlertTriangle size={23} /> : systemAction ? <Banknote size={23} /> : <ArrowRight size={23} />}</div>
         <div>
-          <small>{workspace.blockers.length ? 'Стоп-фактор' : 'Что происходит сейчас'}</small>
-          <h2>{workspace.blockers[0] || workspace.attention}</h2>
-          {action && !action.enabled ? <p>Следующий подтверждённый шаг выполняет: {action.waitingForRoles.join(', ')}.</p> : null}
+          <small>{workspace.blockers.length ? 'Стоп-фактор' : systemAction ? 'Ожидаем внешнее подтверждение' : 'Что происходит сейчас'}</small>
+          <h2>{workspace.blockers[0] || (systemAction ? 'Банк обрабатывает операцию' : workspace.attention)}</h2>
+          {action && !action.enabled ? <p>Следующий подтверждённый шаг выполняет: {waitingLabel(action)}.</p> : null}
         </div>
       </section>
 
@@ -280,12 +291,12 @@ export function CanonicalDealWorkspace({ role }: { role: PlatformRole }) {
 
         <aside className='deal-side'>
           <section className='deal-action-card'>
-            <small>Твоё следующее действие</small>
-            <h2>{action?.label || 'Действий нет'}</h2>
-            <p>{action ? (action.enabled ? 'После подтверждения состояние изменится для всех участников одновременно.' : `Сейчас действие недоступно этой роли.`) : 'Сделка завершена или ожидает системного события.'}</p>
-            <button type='button' onClick={() => void executePrimaryAction()} disabled={!action?.enabled || submitting || workspace.blockers.length > 0}>
-              {submitting ? <Loader2 size={18} className='spin' /> : <ArrowRight size={18} />}
-              {submitting ? 'Подтверждаем…' : action?.label || 'Нет доступных действий'}
+            <small>{systemAction ? 'Системное событие' : 'Твоё следующее действие'}</small>
+            <h2>{systemAction ? 'Ожидаем подтверждение банка' : action?.label || 'Действий нет'}</h2>
+            <p>{systemAction ? 'Состояние изменится только после проверки подписанного банковского callback. Ручное подтверждение невозможно.' : action ? (action.enabled ? 'После подтверждения состояние изменится для всех участников одновременно.' : 'Сейчас действие недоступно этой роли.') : 'Сделка завершена или ожидает системного события.'}</p>
+            <button type='button' onClick={() => void executePrimaryAction()} disabled={systemAction || !action?.enabled || submitting || workspace.blockers.length > 0}>
+              {submitting ? <Loader2 size={18} className='spin' /> : systemAction ? <Banknote size={18} /> : <ArrowRight size={18} />}
+              {submitting ? 'Подтверждаем…' : systemAction ? 'Ожидаем банк' : action?.label || 'Нет доступных действий'}
             </button>
           </section>
 
