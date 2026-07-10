@@ -25,6 +25,7 @@ import { AntiFraudModule } from './modules/anti-fraud/anti-fraud.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { BusinessReputationModule } from './modules/business-reputation/business-reputation.module';
 import { RuntimeCoreModule } from './modules/runtime-core/runtime-core.module';
+import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-persistence.module';
 import { DatabaseModule } from './common/database/database.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { MfaModule } from './modules/mfa/mfa.module';
@@ -59,6 +60,7 @@ import { RuntimeSnapshotModule } from './modules/runtime-snapshot/runtime-snapsh
     AdminModule,
     EvidencePackModule,
     RuntimeCoreModule,
+    RuntimePersistenceModule,
     AuthModule,
     LotsModule,
     DealsModule,
