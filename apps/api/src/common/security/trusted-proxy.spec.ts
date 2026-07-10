@@ -5,6 +5,19 @@ describe('trusted proxy policy', () => {
     expect(() => createTrustedProxyPolicy({ NODE_ENV: 'production' })).toThrow(/TRUST_PROXY_MODE/i);
   });
 
+  it('rejects trust-all IPv4 and IPv6 CIDRs in production', () => {
+    expect(() => createTrustedProxyPolicy({
+      NODE_ENV: 'production',
+      TRUST_PROXY_MODE: 'cidr',
+      TRUSTED_PROXY_CIDRS: '0.0.0.0/0',
+    })).toThrow(/trust-all/i);
+    expect(() => createTrustedProxyPolicy({
+      NODE_ENV: 'production',
+      TRUST_PROXY_MODE: 'cidr',
+      TRUSTED_PROXY_CIDRS: '::/0',
+    })).toThrow(/trust-all/i);
+  });
+
   it('ignores forwarded headers in direct mode', () => {
     const policy = createTrustedProxyPolicy({ NODE_ENV: 'test', TRUST_PROXY_MODE: 'direct' });
     expect(policy.resolve('203.0.113.7', '198.51.100.10')).toBe('203.0.113.7');
