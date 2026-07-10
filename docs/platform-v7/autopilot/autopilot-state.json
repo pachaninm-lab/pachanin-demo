@@ -3,10 +3,10 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "ready",
-  "current": "VP-3.27 Runtime Persistence Transaction and Idempotency Scope Unlock.",
+  "current": "VP-3.28 Runtime Persistence Transaction and Idempotency Final Gate.",
   "fullTzReadinessPercent": 77,
-  "openPr": "#2235",
-  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.", "#2215", "VP-3.7 Runtime Persistence Repository Adapter Contract Plan.", "#2216", "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request.", "#2217", "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight.", "#2218", "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation.", "#2219", "VP-3.11 Runtime Persistence Repository Adapter Implementation Scope Unlock.", "#2220", "VP-3.12 Runtime Persistence Repository Adapter Implementation Final Gate.", "#2221", "VP-3.13 Runtime Persistence Repository Adapter Implementation.", "#2222", "VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.", "#2223", "VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock.", "#2224", "VP-3.16 Runtime Persistence Repository Adapter Pipeline Binding Final Gate.", "#2225", "VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation.", "#2226", "VP-3.18 Runtime Persistence Outbox Audit Linkage Plan.", "#2227", "VP-3.19 Runtime Persistence Outbox Audit Linkage Scope Unlock.", "#2228", "VP-3.20 Runtime Persistence Outbox Audit Linkage Final Gate.", "#2229", "VP-3.21 Runtime Persistence Outbox Audit Linkage Implementation.", "#2230", "VP-3.22 Runtime Persistence Pipeline Linkage Binding Plan.", "#2231", "VP-3.23 Runtime Persistence Pipeline Linkage Binding Scope Unlock.", "#2232", "VP-3.24 Runtime Persistence Pipeline Linkage Binding Final Gate.", "#2233", "VP-3.25 Runtime Persistence Pipeline Linkage Binding Implementation.", "#2234", "VP-3.26 Runtime Persistence Transaction and Idempotency Hardening Plan."],
+  "openPr": "#2236",
+  "lastClosed": ["#2038", "#2040", "#2041", "#2042", "#2045", "#2046", "#2048", "#2049", "#2051", "#2053", "#2055", "#2056", "#2057", "#2058", "#2059", "#2065", "#2067", "#2070", "#2071", "#2072", "#2075", "#2076", "#2077", "#2078", "#2079", "#2080", "root-entry-redirect", "#2111", "#2117", "#2119", "#2120", "#2121", "#2122", "#2123", "#2124", "#2125", "#2126", "#2127", "#2128", "#2129", "#2130", "#2131", "#2132", "#2133", "#2134", "#2135", "VP-2.5-vitest-green", "#2208", "#2210", "#2211", "#2212", "#2213", "VP-3.5 Runtime DB Contract.", "#2214", "VP-3.6 Runtime Persistence Repository Adapter Scope Selection.", "#2215", "VP-3.7 Runtime Persistence Repository Adapter Contract Plan.", "#2216", "VP-3.8 Runtime Persistence Repository Adapter Implementation Scope Request.", "#2217", "VP-3.9 Runtime Persistence Repository Adapter Implementation Preflight.", "#2218", "VP-3.10 Runtime Persistence Repository Adapter Implementation Activation.", "#2219", "VP-3.11 Runtime Persistence Repository Adapter Implementation Scope Unlock.", "#2220", "VP-3.12 Runtime Persistence Repository Adapter Implementation Final Gate.", "#2221", "VP-3.13 Runtime Persistence Repository Adapter Implementation.", "#2222", "VP-3.14 Runtime Persistence Repository Adapter Pipeline Binding Plan.", "#2223", "VP-3.15 Runtime Persistence Repository Adapter Pipeline Binding Scope Unlock.", "#2224", "VP-3.16 Runtime Persistence Repository Adapter Pipeline Binding Final Gate.", "#2225", "VP-3.17 Runtime Persistence Repository Adapter Pipeline Binding Implementation.", "#2226", "VP-3.18 Runtime Persistence Outbox Audit Linkage Plan.", "#2227", "VP-3.19 Runtime Persistence Outbox Audit Linkage Scope Unlock.", "#2228", "VP-3.20 Runtime Persistence Outbox Audit Linkage Final Gate.", "#2229", "VP-3.21 Runtime Persistence Outbox Audit Linkage Implementation.", "#2230", "VP-3.22 Runtime Persistence Pipeline Linkage Binding Plan.", "#2231", "VP-3.23 Runtime Persistence Pipeline Linkage Binding Scope Unlock.", "#2232", "VP-3.24 Runtime Persistence Pipeline Linkage Binding Final Gate.", "#2233", "VP-3.25 Runtime Persistence Pipeline Linkage Binding Implementation.", "#2234", "VP-3.26 Runtime Persistence Transaction and Idempotency Hardening Plan.", "#2235", "VP-3.27 Runtime Persistence Transaction and Idempotency Scope Unlock."],
   "openBlockers": ["#2113", "#2115"],
   "blockerNotes": "#2113 repository settings cleanup. #2115 remains blocked by current auth-file write path.",
   "lockedUntilCurrentGreen": ["apps/landing changes", "package or lockfile changes", "broad backend/API/DB/session/runtime/money/storage changes"],
@@ -18,16 +18,17 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md"
   ],
-  "vp326RuntimePersistenceTransactionIdempotencyHardeningPlan": {
-    "layer": "VP-3.26 Runtime Persistence Transaction and Idempotency Hardening Plan",
-    "closedPr": "#2234",
-    "status": "transaction-idempotency-plan-docs-only-complete"
-  },
   "vp327RuntimePersistenceTransactionIdempotencyScopeUnlock": {
     "layer": "VP-3.27 Runtime Persistence Transaction and Idempotency Scope Unlock",
-    "openPr": "#2235",
-    "status": "transaction-idempotency-scope-unlock-docs-only",
-    "unlockedImplementationFilesForLater": [
+    "closedPr": "#2235",
+    "status": "transaction-idempotency-scope-unlock-docs-only-complete"
+  },
+  "vp328RuntimePersistenceTransactionIdempotencyFinalGate": {
+    "layer": "VP-3.28 Runtime Persistence Transaction and Idempotency Final Gate",
+    "openPr": "#2236",
+    "status": "final-gate-docs-only",
+    "implementationBranchInstruction": "The next manual code PR must set current to VP-3.29 and allowedCurrentScope to docs plus exactly the six approved hardening files before writing code.",
+    "hardeningFilesUnlockedForManualCodePr": [
       "apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts",
       "apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts",
       "apps/web/lib/platform-v7/deal-workspace-runtime-transaction.ts",
@@ -36,9 +37,19 @@
       "apps/web/tests/unit/platformV7DealWorkspaceRuntimeTransaction.test.ts"
     ]
   },
-  "vp328RuntimePersistenceTransactionIdempotencyFinalGate": {
-    "layer": "VP-3.28 Runtime Persistence Transaction and Idempotency Final Gate",
-    "status": "next-docs-only-final-gate"
+  "vp329RuntimePersistenceTransactionIdempotencyHardeningImplementation": {
+    "layer": "VP-3.29 Runtime Persistence Transaction and Idempotency Hardening Implementation",
+    "status": "manual-code-pr-next-after-final-gate",
+    "requiredAllowedScopeForManualCodePr": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/execution-queue.md",
+      "apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts",
+      "apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts",
+      "apps/web/lib/platform-v7/deal-workspace-runtime-transaction.ts",
+      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts",
+      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeLinkage.test.ts",
+      "apps/web/tests/unit/platformV7DealWorkspaceRuntimeTransaction.test.ts"
+    ]
   },
   "forbiddenZones": [
     "apps/landing",
@@ -54,5 +65,5 @@
   ],
   "maturityLanguage": ["platform-temporarily-without-external-integrations"],
   "forbiddenClaims": ["maturity uplift beyond evidence", "external integration completion", "production DB runtime persistence complete", "live outbox audit persistence complete", "database transaction complete"],
-  "readiness": "77% honest readiness. VP-3.27 is docs-only scope unlock for contract-level transaction and idempotency hardening. It does not implement a database transaction, live outbox/audit persistence, production DB persistence, Prisma schema, migration, bank, FGIS or EDO live integration."
+  "readiness": "77% honest readiness. VP-3.28 is the final docs-only gate before contract-level transaction and idempotency hardening. It does not implement a database transaction, live outbox/audit persistence, production DB persistence, Prisma schema, migration, bank, FGIS or EDO live integration."
 }
