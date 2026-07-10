@@ -51,16 +51,28 @@ LOCKED:
 
 NEXT:
 - Layer: Persistent Identity, Session, Refresh-Family Revocation and MFA.
-- Required outcome: role, tenant, organization, session, refresh family, revocation and MFA state become persistent server-derived truth; URL, cookie values and localStorage cannot grant authority.
-- Required evidence:
-  - persistent users, memberships, sessions and refresh families;
-  - access token rotation and refresh reuse detection;
-  - logout and administrator revocation invalidate the complete session family;
-  - mandatory MFA for privileged and threshold financial actions;
-  - tenant and role projection comes only from verified server session plus DB membership;
-  - client-selected role and organization are ignored;
-  - audit trail for login, refresh, MFA, revoke and denied access;
-  - horizontal API instances share the same session truth.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql
+  - apps/api/src/modules/auth/**
+  - apps/api/src/common/guards/**
+  - apps/api/src/common/types/request-user.ts
+  - apps/api/test/auth/**
+  - .github/workflows/ci.yml
+- Success criteria:
+  - persistent PostgreSQL users, memberships, sessions and refresh-token families replace process memory as identity truth;
+  - access tokens carry only opaque session identity and are re-authorized against persistent session and membership state;
+  - refresh rotation invalidates the previous token and reuse revokes the complete token family;
+  - logout, password reset, organization suspension and administrator revoke invalidate affected sessions deterministically;
+  - privileged roles and threshold financial actions require verified MFA state from the persistent session;
+  - role, tenant and organization are derived from server-side membership, never URL, request DTO, localStorage or client cookies;
+  - login, refresh, MFA verify, logout, revoke, reuse detection and denied access produce immutable audit evidence;
+  - horizontal API instances share the same PostgreSQL session truth and survive process restart;
+  - migration deploy, zero drift, unit, integration, security and restart tests are mandatory;
+  - production readiness and live identity-provider integration remain unclaimed.
+- Readiness remains 87% honest architectural readiness until persistent identity, live integrations, production load, restore and DR are independently proven.
 
 AFTER NEXT:
 - Durable outbox workers, bank reconciliation and partner-key rotation.
