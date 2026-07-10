@@ -29,6 +29,22 @@ type PublicEntryMessages = {
     required: string;
     unavailable: string;
     note: string;
+    mfaTitle: string;
+    mfaLead: string;
+    totpMethod: string;
+    backupMethod: string;
+    mfaCode: string;
+    mfaCodePlaceholder: string;
+    backupCodePlaceholder: string;
+    mfaSubmit: string;
+    mfaLoading: string;
+    mfaBack: string;
+    mfaError: string;
+    enrollmentTitle: string;
+    enrollmentLead: string;
+    setupSecretLabel: string;
+    backupCodesTitle: string;
+    backupCodesLead: string;
   };
   forgot: {
     publicNav: string;
@@ -80,6 +96,22 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
       required: 'Введите email и пароль.',
       unavailable: 'Не удалось подтвердить доступ. Проверьте данные или повторите позже.',
       note: 'После входа откроется рабочее место, назначенное вашей организации. Роль нельзя выбрать или изменить через URL.',
+      mfaTitle: 'Подтвердить вход',
+      mfaLead: 'Введите код из приложения-аутентификатора или одноразовый резервный код.',
+      totpMethod: 'Код приложения',
+      backupMethod: 'Резервный код',
+      mfaCode: 'Код подтверждения',
+      mfaCodePlaceholder: '6 цифр',
+      backupCodePlaceholder: 'Резервный код',
+      mfaSubmit: 'Подтвердить',
+      mfaLoading: 'Проверяем код…',
+      mfaBack: 'Начать вход заново',
+      mfaError: 'Код не принят или срок проверки истёк. Проверьте код или начните вход заново.',
+      enrollmentTitle: 'Настройте двухфакторную защиту',
+      enrollmentLead: 'Добавьте секрет в приложение-аутентификатор и подтвердите первый код.',
+      setupSecretLabel: 'Секрет настройки',
+      backupCodesTitle: 'Сохраните резервные коды',
+      backupCodesLead: 'Каждый код используется один раз. Сохраните их в защищённом месте до перехода в кабинет.',
     },
     forgot: {
       publicNav: 'Навигация восстановления доступа',
@@ -129,6 +161,22 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
       required: 'Enter email and password.',
       unavailable: 'Access could not be verified. Check the credentials or try again later.',
       note: 'After sign-in, the workspace assigned to your organisation will open. A role cannot be selected or changed through the URL.',
+      mfaTitle: 'Verify sign-in',
+      mfaLead: 'Enter the code from your authenticator app or a one-time backup code.',
+      totpMethod: 'Authenticator code',
+      backupMethod: 'Backup code',
+      mfaCode: 'Verification code',
+      mfaCodePlaceholder: '6 digits',
+      backupCodePlaceholder: 'Backup code',
+      mfaSubmit: 'Verify',
+      mfaLoading: 'Verifying code…',
+      mfaBack: 'Restart sign-in',
+      mfaError: 'The code was not accepted or the challenge expired. Check the code or restart sign-in.',
+      enrollmentTitle: 'Set up two-factor protection',
+      enrollmentLead: 'Add the secret to your authenticator app and confirm the first code.',
+      setupSecretLabel: 'Setup secret',
+      backupCodesTitle: 'Save your backup codes',
+      backupCodesLead: 'Each code can be used once. Store them securely before opening the workspace.',
     },
     forgot: {
       publicNav: 'Access recovery navigation',
@@ -178,6 +226,22 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
       required: '请输入邮箱和密码。',
       unavailable: '无法验证访问权限。请检查凭据或稍后重试。',
       note: '登录后将打开分配给贵组织的工作区。不能通过 URL 选择或更改角色。',
+      mfaTitle: '确认登录',
+      mfaLead: '请输入身份验证器中的代码或一次性备用代码。',
+      totpMethod: '验证器代码',
+      backupMethod: '备用代码',
+      mfaCode: '验证码',
+      mfaCodePlaceholder: '6 位数字',
+      backupCodePlaceholder: '备用代码',
+      mfaSubmit: '确认',
+      mfaLoading: '正在验证代码…',
+      mfaBack: '重新登录',
+      mfaError: '代码未通过或验证已过期。请检查代码或重新登录。',
+      enrollmentTitle: '设置双重身份验证',
+      enrollmentLead: '将设置密钥添加到身份验证器，然后输入第一个代码。',
+      setupSecretLabel: '设置密钥',
+      backupCodesTitle: '保存备用代码',
+      backupCodesLead: '每个代码只能使用一次。进入工作区前请将其安全保存。',
     },
     forgot: {
       publicNav: '访问恢复导航',
