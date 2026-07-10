@@ -64,7 +64,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "dw_runtime_snapshots_outbox_entry_id_key"
 CREATE UNIQUE INDEX IF NOT EXISTS "dw_runtime_snapshots_audit_event_id_key"
   ON "deal_workspace_runtime_snapshots" ("auditEventId");
 CREATE INDEX IF NOT EXISTS "dw_runtime_snapshots_deal_created_idx"
-  ON "deal_workspace_runtime_snapshots" ("dealId", "createdAt" DESC);
+  ON "deal_workspace_runtime_snapshots" ("dealId", "createdAt");
 CREATE INDEX IF NOT EXISTS "dw_runtime_snapshots_intent_state_idx"
   ON "deal_workspace_runtime_snapshots" ("intentId", "state");
 CREATE INDEX IF NOT EXISTS "dw_runtime_snapshots_correlation_idx"
@@ -75,7 +75,7 @@ CREATE INDEX IF NOT EXISTS "dw_runtime_snapshots_state_updated_idx"
 CREATE UNIQUE INDEX IF NOT EXISTS "dw_runtime_attempts_transaction_id_key"
   ON "deal_workspace_runtime_transaction_attempts" ("transactionId");
 CREATE INDEX IF NOT EXISTS "dw_runtime_attempts_snapshot_started_idx"
-  ON "deal_workspace_runtime_transaction_attempts" ("snapshotId", "startedAt" DESC);
+  ON "deal_workspace_runtime_transaction_attempts" ("snapshotId", "startedAt");
 CREATE INDEX IF NOT EXISTS "dw_runtime_attempts_stage_started_idx"
   ON "deal_workspace_runtime_transaction_attempts" ("stage", "startedAt");
 CREATE INDEX IF NOT EXISTS "dw_runtime_attempts_idempotency_idx"
