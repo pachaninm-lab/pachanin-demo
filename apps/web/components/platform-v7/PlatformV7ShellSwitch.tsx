@@ -40,6 +40,7 @@ const ROLE_INTENT_ROOT_PATHS = new Set([
   '/platform-v7/seller',
   '/platform-v7/logistics',
   '/platform-v7/driver',
+  '/platform-v7/surveyor',
   '/platform-v7/elevator',
   '/platform-v7/lab',
   '/platform-v7/bank',
