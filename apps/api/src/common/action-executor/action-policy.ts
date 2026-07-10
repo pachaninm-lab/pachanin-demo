@@ -32,7 +32,6 @@ export type DomainAction =
   | 'offer.create'
   | 'offer.accept';
 
-// Mutations that must never be allowed to EXECUTIVE
 export const MUTATION_ACTIONS: Set<DomainAction> = new Set([
   'deal.create', 'deal.sign', 'deal.transition',
   'money.reserve.request', 'money.reserve.confirm', 'money.release.request', 'money.release.confirm', 'money.adjust',
@@ -44,7 +43,6 @@ export const MUTATION_ACTIONS: Set<DomainAction> = new Set([
   'offer.create', 'offer.accept',
 ]);
 
-// Money operations require bank callback — cannot self-confirm
 export const BANK_OUTBOX_ACTIONS: Set<DomainAction> = new Set([
   'money.reserve.request',
   'money.release.request',
@@ -70,7 +68,6 @@ export const ROLE_ALLOWED_ACTIONS: Partial<Record<Role, Set<DomainAction>>> = {
     'dispute.triage', 'dispute.decide', 'dispute.evidence.upload',
     'lot.view', 'offer.create', 'offer.accept',
   ]),
-  // EXECUTIVE is strictly read-only — no write/mutation actions
   [Role.EXECUTIVE]: new Set([
     'deal.view',
     'document.view',
@@ -98,13 +95,19 @@ export const ROLE_ALLOWED_ACTIONS: Partial<Record<Role, Set<DomainAction>>> = {
     'shipment.create', 'shipment.transition', 'shipment.view', 'shipment.checkpoint',
     'document.upload', 'document.view',
   ]),
-  // Driver: own shipment only (enforced at object level)
   [Role.DRIVER]: new Set([
     'shipment.view',
     'shipment.checkpoint',
     'shipment.verify_pin',
     'shipment.transition',
     'document.view',
+  ]),
+  [Role.SURVEYOR]: new Set([
+    'deal.view',
+    'shipment.view',
+    'document.view',
+    'document.upload',
+    'dispute.evidence.upload',
   ]),
   [Role.LAB]: new Set([
     'lab.sample.create', 'lab.sample.collect', 'lab.test.record', 'lab.protocol.finalize',
