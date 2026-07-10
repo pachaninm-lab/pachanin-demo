@@ -24,6 +24,16 @@ describe('distributed PostgreSQL rate limiting', () => {
       throw new Error('RATE_LIMIT_KEY_PEPPER is required.');
     }
     await admin.$connect();
+
+    const deniedPrisma = prisma(APP_URL);
+    await deniedPrisma.$connect();
+    try {
+      const denied = new RateLimitService(deniedPrisma);
+      await expect(denied.verifyBackendBoundary()).rejects.toThrow(/principal boundary is invalid/i);
+    } finally {
+      await deniedPrisma.$disconnect();
+    }
+
     await admin.$executeRawUnsafe('GRANT USAGE ON SCHEMA security TO one_deal_app');
     await admin.$executeRawUnsafe(
       'GRANT EXECUTE ON FUNCTION security.consume_rate_limit(TEXT, TEXT, INTEGER, INTEGER, INTEGER) TO one_deal_app',
@@ -32,6 +42,19 @@ describe('distributed PostgreSQL rate limiting', () => {
       'GRANT EXECUTE ON FUNCTION security.cleanup_rate_limit_buckets(INTEGER) TO one_deal_app',
     );
     await Promise.all([firstPrisma.$connect(), secondPrisma.$connect()]);
+    await expect(first.verifyBackendBoundary()).resolves.toMatchObject({
+      current_user: 'one_deal_app',
+      function_exists: true,
+      table_exists: true,
+      schema_usage: true,
+      can_execute: true,
+      can_select_table: false,
+    });
+    await expect(second.verifyBackendBoundary()).resolves.toMatchObject({
+      current_user: 'one_deal_app',
+      can_execute: true,
+      can_select_table: false,
+    });
   });
 
   afterAll(async () => {
@@ -64,6 +87,11 @@ describe('distributed PostgreSQL rate limiting', () => {
     const restart = new RateLimitService(restartPrisma);
     await restartPrisma.$connect();
     try {
+      await expect(restart.verifyBackendBoundary()).resolves.toMatchObject({
+        current_user: 'one_deal_app',
+        can_execute: true,
+        can_select_table: false,
+      });
       await expect(restart.consume({
         policy,
         scope: 'ip',
