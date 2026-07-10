@@ -17,7 +17,7 @@
   ],
   "openBlockers": ["#2113", "#2115", "#2251"],
   "blockerNotes": "#2113 repository settings cleanup. #2115 blocks persistent auth-file changes. Draft #2251 remains merge-blocked by user-driven bank confirmations, synthetic bank references, cross-tenant visibility and unresolved conflicts.",
-  "currentDiscovery": "The initial PostgreSQL migration creates permissive legacy deals/audit/ledger policies. VP-3.46 explicitly removes and integration-tests them before canonical policies are accepted.",
+  "currentDiscovery": "The initial PostgreSQL migration creates permissive legacy deals/audit/ledger policies. VP-3.46 explicitly removes and integration-tests them before canonical policies are accepted. The existing required CI workflow is used as the observable merge gate.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
     "production RLS policy application",
@@ -32,7 +32,8 @@
     "apps/api/test/rls/**",
     "scripts/platform-v7-rls-*.mjs",
     "scripts/platform-v7-rls-*.sh",
-    ".github/workflows/api-test.yml"
+    ".github/workflows/api-test.yml",
+    ".github/workflows/ci.yml"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -41,7 +42,8 @@
     "apps/api/test/rls/**",
     "scripts/platform-v7-rls-*.mjs",
     "scripts/platform-v7-rls-*.sh",
-    ".github/workflows/api-test.yml"
+    ".github/workflows/api-test.yml",
+    ".github/workflows/ci.yml"
   ],
   "vp345PhysicalRlsPolicyAlignment": {
     "layer": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
@@ -53,7 +55,7 @@
     "openPr": "#2262",
     "status": "in_progress",
     "invariants": [
-      "existing required API Tests workflow owns the merge-blocking RLS job",
+      "existing required CI workflow owns the observable merge-blocking RLS job",
       "CI uses an isolated PostgreSQL 16 service with ephemeral credentials",
       "legacy permissive migration policies are removed",
       "canonical RLS SQL is applied only to the ephemeral database",
