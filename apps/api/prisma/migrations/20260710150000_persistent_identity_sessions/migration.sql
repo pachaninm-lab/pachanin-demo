@@ -4,6 +4,14 @@
 CREATE SCHEMA IF NOT EXISTS auth;
 REVOKE ALL ON SCHEMA auth FROM PUBLIC;
 
+CREATE TABLE auth.login_throttles (
+  account_hash TEXT PRIMARY KEY,
+  failures INTEGER NOT NULL DEFAULT 0,
+  locked_until TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT auth_login_throttles_failures_nonnegative CHECK (failures >= 0)
+);
+
 CREATE TABLE auth.credential_states (
   user_id TEXT PRIMARY KEY,
   credential_version INTEGER NOT NULL DEFAULT 1,
@@ -124,6 +132,8 @@ CREATE TABLE auth.audit_events (
     CHECK (outcome IN ('SUCCESS', 'FAILURE', 'DENIED'))
 );
 
+CREATE INDEX auth_login_throttles_locked_idx
+  ON auth.login_throttles(locked_until);
 CREATE INDEX auth_sessions_user_status_idx
   ON auth.sessions(user_id, status);
 CREATE INDEX auth_sessions_family_status_idx
