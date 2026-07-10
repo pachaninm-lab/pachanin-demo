@@ -13,8 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 55
     env:
+      IMPLEMENTATION_SHA: b5db72cae3daf724989473e251ed366665461d21
       LOCAL_BASE_URL: http://127.0.0.1:3000
-      NETLIFY_PREVIEW_URL: https://6a5173cb2d31630009ea3bf3--gleaming-mandazi-bb9856.netlify.app
+      NETLIFY_PREVIEW_URL: https://6a517b8f0eb8e00008109759--vermillion-kitsune-0e7b97.netlify.app
       ARTIFACT_DIR: ../../artifacts/public-entry-preview-smoke-2323/local-production
       NETLIFY_ARTIFACT_DIR: ../../artifacts/public-entry-preview-smoke-2323/netlify
     steps:
@@ -99,7 +100,7 @@ jobs:
             };
             return { file: name, finalUrl: report.finalUrl, scores, metrics };
           });
-          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', source: 'local-next-production', reports }, null, 2));
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', source: 'local-next-production', implementationSha: process.env.IMPLEMENTATION_SHA, reports }, null, 2));
           console.log(JSON.stringify(reports, null, 2));
           const failures = [];
           for (const report of reports) {
@@ -125,15 +126,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p artifacts/public-entry-preview-smoke-2323
           for attempt in $(seq 1 45); do
             status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 12 "$NETLIFY_PREVIEW_URL/platform-v7?lang=ru" || true)
             if [ "$status" = "200" ] || [ "$status" = "401" ] || [ "$status" = "403" ]; then
-              printf '{"httpStatus":%s,"attempt":%s}\n' "$status" "$attempt" > artifacts/public-entry-preview-smoke-2323/netlify-readiness.json
+              printf '{"httpStatus":%s,"attempt":%s,"implementationSha":"%s"}\n' "$status" "$attempt" "$IMPLEMENTATION_SHA" > artifacts/public-entry-preview-smoke-2323/netlify-readiness.json
               exit 0
             fi
             sleep 2
           done
-          printf '{"httpStatus":null,"status":"not-ready"}\n' > artifacts/public-entry-preview-smoke-2323/netlify-readiness.json
+          printf '{"httpStatus":null,"status":"not-ready","implementationSha":"%s"}\n' "$IMPLEMENTATION_SHA" > artifacts/public-entry-preview-smoke-2323/netlify-readiness.json
           exit 1
 
       - name: Run limited immutable Netlify hosting smoke
