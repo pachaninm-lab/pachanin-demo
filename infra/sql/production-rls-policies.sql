@@ -56,6 +56,10 @@ COMMENT ON FUNCTION public.app_rls_deal_visible(TEXT) IS
 -- ── deals ─────────────────────────────────────────────────────────────────────
 ALTER TABLE public."deals" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."deals" FORCE ROW LEVEL SECURITY;
+-- Remove the historical allow-all policy from 0001_postgresql_initial.
+-- PostgreSQL OR-combines permissive policies, so leaving it in place bypasses
+-- every strict tenant/object policy below.
+DROP POLICY IF EXISTS deals_app_access ON public."deals";
 DROP POLICY IF EXISTS deals_select ON public."deals";
 DROP POLICY IF EXISTS deals_insert ON public."deals";
 DROP POLICY IF EXISTS deals_update ON public."deals";
@@ -137,6 +141,9 @@ WITH CHECK (public.app_rls_context_ready() AND public.app_rls_privileged());
 -- ── audit_events: append-only ─────────────────────────────────────────────────
 ALTER TABLE public."audit_events" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."audit_events" FORCE ROW LEVEL SECURITY;
+-- Remove historical allow-all policies before strict append-only policies.
+DROP POLICY IF EXISTS audit_insert_only ON public."audit_events";
+DROP POLICY IF EXISTS audit_select_all ON public."audit_events";
 DROP POLICY IF EXISTS audit_events_select ON public."audit_events";
 DROP POLICY IF EXISTS audit_events_insert ON public."audit_events";
 CREATE POLICY audit_events_select ON public."audit_events" FOR SELECT USING (
@@ -162,6 +169,9 @@ CREATE POLICY audit_events_insert ON public."audit_events" FOR INSERT WITH CHECK
 -- ── ledger_entries: immutable financial journal ───────────────────────────────
 ALTER TABLE public."ledger_entries" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."ledger_entries" FORCE ROW LEVEL SECURITY;
+-- Remove historical allow-all policies before strict immutable-journal policies.
+DROP POLICY IF EXISTS ledger_insert_only ON public."ledger_entries";
+DROP POLICY IF EXISTS ledger_select_all ON public."ledger_entries";
 DROP POLICY IF EXISTS ledger_entries_select ON public."ledger_entries";
 DROP POLICY IF EXISTS ledger_entries_insert ON public."ledger_entries";
 CREATE POLICY ledger_entries_select ON public."ledger_entries" FOR SELECT USING (
