@@ -35,6 +35,10 @@ function loadSources(): Sources {
   };
 }
 
+function executableSql(source: string): string {
+  return source.replace(/^\s*--.*$/gm, '');
+}
+
 const physicalTables = [
   'deals',
   'organizations',
@@ -48,53 +52,55 @@ const physicalTables = [
 
 describe('VP-3.45 physical PostgreSQL RLS policy contract', () => {
   const source = loadSources();
+  const policy = executableSql(source.policy);
+  const rollback = executableSql(source.rollback);
 
   it('uses canonical physical Prisma table names and forces RLS', () => {
     for (const table of physicalTables) {
       expect(source.schema).toContain(`@@map("${table}")`);
-      expect(source.policy).toContain(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`);
-      expect(source.policy).toContain(`ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`);
-      expect(source.rollback).toContain(`ALTER TABLE "${table}" DISABLE ROW LEVEL SECURITY`);
+      expect(policy).toContain(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`);
+      expect(policy).toContain(`ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`);
+      expect(rollback).toContain(`ALTER TABLE "${table}" DISABLE ROW LEVEL SECURITY`);
     }
 
     for (const modelName of ['"Deal"', '"AuditEvent"', '"LedgerEntry"', '"IntegrationEvent"', '"OutboxEntry"']) {
-      expect(source.policy).not.toContain(modelName);
+      expect(policy).not.toContain(modelName);
     }
   });
 
-  it('keeps context tenant-scoped, parameterized by the application service and fail-closed', () => {
-    expect(source.policy).toContain("current_setting('app.current_tenant_id', true)");
-    expect(source.policy).toContain("current_setting('app.current_org_id', true)");
-    expect(source.policy).toContain("current_setting('app.current_user_id', true)");
-    expect(source.policy).toContain("current_setting('app.current_role', true)");
-    expect(source.policy).toContain("current_user = 'app_service'");
-    expect(source.policy).not.toContain('CREATE POLICY IF NOT EXISTS');
-    expect(source.policy).not.toContain('CREATE OR REPLACE FUNCTION set_app_context');
-    expect(source.policy).not.toContain('set_config(');
-    expect(source.policy).not.toContain('$executeRawUnsafe');
-    expect(source.policy).not.toContain('ACCOUNTING');
+  it('keeps context tenant-scoped, service-bound and fail-closed', () => {
+    expect(policy).toContain("current_setting('app.current_tenant_id', true)");
+    expect(policy).toContain("current_setting('app.current_org_id', true)");
+    expect(policy).toContain("current_setting('app.current_user_id', true)");
+    expect(policy).toContain("current_setting('app.current_role', true)");
+    expect(policy).toContain("current_user = 'app_service'");
+    expect(policy).not.toContain('CREATE POLICY IF NOT EXISTS');
+    expect(policy).not.toContain('CREATE OR REPLACE FUNCTION set_app_context');
+    expect(policy).not.toContain('set_config(');
+    expect(policy).not.toContain('$executeRawUnsafe');
+    expect(policy).not.toContain('ACCOUNTING');
   });
 
   it('preserves append-only audit, ledger and runtime attempt evidence', () => {
-    expect(source.policy).toContain('CREATE POLICY audit_events_update_denied');
-    expect(source.policy).toContain('CREATE POLICY audit_events_delete_denied');
-    expect(source.policy).toContain('CREATE POLICY ledger_entries_update_denied');
-    expect(source.policy).toContain('CREATE POLICY ledger_entries_delete_denied');
-    expect(source.policy).toContain('CREATE POLICY runtime_attempts_update_denied');
-    expect(source.policy).toContain('CREATE POLICY runtime_attempts_delete_denied');
+    expect(policy).toContain('CREATE POLICY audit_events_update_denied');
+    expect(policy).toContain('CREATE POLICY audit_events_delete_denied');
+    expect(policy).toContain('CREATE POLICY ledger_entries_update_denied');
+    expect(policy).toContain('CREATE POLICY ledger_entries_delete_denied');
+    expect(policy).toContain('CREATE POLICY runtime_attempts_update_denied');
+    expect(policy).toContain('CREATE POLICY runtime_attempts_delete_denied');
   });
 
   it('provides complete non-destructive rollback coverage', () => {
-    const policyNames = [...source.policy.matchAll(/CREATE POLICY\s+([a-z0-9_]+)/gi)]
+    const policyNames = [...policy.matchAll(/CREATE POLICY\s+([a-z0-9_]+)/gi)]
       .map((match) => match[1]);
 
     expect(policyNames.length).toBeGreaterThanOrEqual(24);
     for (const policyName of policyNames) {
-      expect(source.rollback).toContain(`DROP POLICY IF EXISTS ${policyName}`);
+      expect(rollback).toContain(`DROP POLICY IF EXISTS ${policyName}`);
     }
 
     for (const destructive of ['DROP TABLE', 'DROP COLUMN', 'TRUNCATE', 'DELETE FROM']) {
-      expect(source.rollback).not.toContain(destructive);
+      expect(rollback).not.toContain(destructive);
     }
   });
 
