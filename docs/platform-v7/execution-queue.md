@@ -1,41 +1,39 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.36 Runtime Persistence Postgres Repository Adapter Final Gate.
+CURRENT: VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation.
 
-GOAL: Финально зафиксировать manual code PR gate для пяти API-side repository/test файлов после merge #2243, без adapter code, module/controller/API wiring и production migration application.
+GOAL: Реализовать server-only Prisma repository adapter для runtime persistence после merge #2244, без module/controller/API wiring, без применения production migration и без импорта Prisma в web/browser code.
 
 CURRENT STATUS:
 - VP-3.33 additive Prisma schema/migration is merged from #2241.
 - VP-3.34 adapter plan is merged from #2242.
 - VP-3.35 scope unlock is merged from #2243.
-- Railway `brilliant-liberation - @pc/web` is green after #2243.
+- VP-3.36 final gate is merged from #2244.
+- Railway `brilliant-liberation - @pc/web` is green after #2244.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
+- apps/api/src/modules/runtime-persistence/runtime-persistence.repository.ts
+- apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence-repository.factory.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence-repository.spec.ts
+- apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.spec.ts
 
-MANUAL CODE PR SCOPE AFTER THIS GATE:
-- `apps/api/src/modules/runtime-persistence/runtime-persistence.repository.ts`
-- `apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.ts`
-- `apps/api/src/modules/runtime-persistence/runtime-persistence-repository.factory.ts`
-- `apps/api/src/modules/runtime-persistence/runtime-persistence-repository.spec.ts`
-- `apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.spec.ts`
-
-FINAL IMPLEMENTATION INVARIANTS:
-- API-side only; Prisma is never imported by web/browser code.
-- Exact `PLATFORM_V7_RUNTIME_PERSISTENCE_REPOSITORY=prisma` activation.
-- Default and unrelated modes are fail-closed with no silent process-store fallback.
-- Missing PrismaService fails before a write.
-- Caller cannot submit trusted evidence database IDs.
-- One `$transaction` owns canonical outbox, audit, snapshot and attempt writes.
-- First write becomes `fully_linked` only inside that successful transaction.
-- Identical replay returns duplicate with no additional rows.
-- Material identity mismatch returns conflict with no additional rows.
-- Transaction failure leaves no partial evidence.
-- Raw database errors are not exposed.
+IMPLEMENTED:
+- Typed API-side repository contract and sanitized repository errors.
+- Explicit activation only for `PLATFORM_V7_RUNTIME_PERSISTENCE_REPOSITORY=prisma`.
+- Fail-closed behavior for missing/unrelated mode and missing Prisma client.
+- One `$transaction` creates canonical outbox, audit, fully-linked snapshot and committed attempt.
+- Caller input has no trusted evidence database IDs.
+- Identical replay returns `duplicate` without additional rows.
+- Material identity mismatch returns `conflict` without additional rows.
+- Transaction/database failures return sanitized `RUNTIME_PERSISTENCE_WRITE_FAILED`.
+- Unit tests cover activation, atomic write, duplicate, conflict and failure behavior.
 
 STILL LOCKED:
-- runtime persistence module/controller/API endpoint;
+- runtime persistence Nest module/service provider;
+- controller or external API endpoint;
 - AppModule registration;
 - web server-action bridge;
 - production migration execution and rollback rehearsal;
@@ -44,18 +42,28 @@ STILL LOCKED:
 - package and lockfiles;
 - live bank/FGIS/EDO integrations.
 
+GUARDRAILS:
+- Prisma remains API-side only.
+- No silent fallback to process memory.
+- No caller-supplied outbox/audit IDs.
+- No partial evidence outside `$transaction`.
+- No raw database error exposure.
+- No production DB activation claim.
+- Critical forbidden zones remain unchanged.
+
 NEXT:
-- Layer: VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation.
-- Goal: prepare the manual code implementation after this gate is merged.
+- Layer: VP-3.38 Runtime Persistence Internal Service Wiring Plan.
+- Goal: select exact server-only module/service provider wiring after VP-3.37 is merged and validated.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - final gate closes without adapter code changes;
-  - next manual code PR explicitly expands current scope to the exact five files;
+  - adapter implementation and API tests are green;
+  - no module/controller/API wiring is introduced in VP-3.37;
+  - production migration remains unapplied;
   - critical forbidden zones remain unchanged;
-  - maturity language does not claim an active Postgres adapter.
+  - maturity language does not claim active production Postgres writes.
 
 AFTER NEXT:
-- Layer: VP-3.38 Runtime Persistence Internal Service Wiring Plan.
-- Goal: select server-only module/service provider wiring after the repository adapter implementation is merged and validated.
+- Layer: VP-3.39 Runtime Persistence Internal Service Wiring Scope Unlock.
+- Goal: docs-only unlock exact Nest module/provider files selected by VP-3.38.
