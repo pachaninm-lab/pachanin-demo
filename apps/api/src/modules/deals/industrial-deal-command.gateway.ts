@@ -5,9 +5,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { DealCommandService } from './deal-command.service';
 import { ExecuteDealCommandDto } from './dto/execute-deal-command.dto';
@@ -30,7 +31,6 @@ export interface VerifiedBankCallbackInput {
 }
 
 type JsonRecord = Record<string, unknown>;
-type IntentEntry = { readonly status: string; readonly payload: Prisma.JsonValue };
 type CanonicalDealRecord = {
   readonly id: string;
   readonly tenantId: string;
@@ -61,24 +61,11 @@ function jsonRecord(value: Prisma.JsonValue | null | undefined): JsonRecord {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as JsonRecord) : {};
 }
 
-function isUniqueConstraintError(error: unknown): boolean {
-  return Boolean(
-    error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'P2002',
-  );
-}
-
-function errorSnapshot(error: unknown): JsonRecord {
-  if (error instanceof Error) return { name: error.name, message: error.message };
-  return { name: 'UnknownError', message: String(error) };
-}
-
 @Injectable()
 export class IndustrialDealCommandGateway {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly rls: RlsTransactionService,
     private readonly commands: DealCommandService,
   ) {}
 
@@ -107,7 +94,12 @@ export class IndustrialDealCommandGateway {
     }
 
     const scoped = await this.resolveCanonicalMembership(dealId, user);
-    return this.executeWithStrictIdempotency(dealId, actionId, dto, scoped.user);
+    return this.commands.execute(
+      dealId,
+      actionId,
+      this.fingerprintedCommand(dealId, actionId, dto),
+      scoped.user,
+    );
   }
 
   async executeBankCallback(input: VerifiedBankCallbackInput) {
@@ -120,20 +112,10 @@ export class IndustrialDealCommandGateway {
       throw new ConflictException({ code: 'INVALID_BANK_ACTION_POLICY' });
     }
 
+    const callbackUser = this.bankCallbackUser(deal, input);
     if (input.status === 'FAILED') {
-      return this.recordBankFailure(input, deal);
+      return this.recordBankFailure(input, deal, callbackUser);
     }
-
-    const callbackUser: RequestUser = {
-      id: `bank-callback:${input.partnerId ?? 'safe-deals'}`,
-      email: 'bank-callback@system.invalid',
-      fullName: 'Verified bank callback',
-      role: Role.BANK_CALLBACK,
-      orgId: deal.buyerOrgId,
-      tenantId: deal.tenantId,
-      sessionId: `bank-event:${input.eventId}`,
-      mfaVerified: true,
-    };
 
     const dto: ExecuteDealCommandDto = {
       commandId: `bank-callback:${input.eventId}`,
@@ -148,120 +130,59 @@ export class IndustrialDealCommandGateway {
       },
     };
 
-    return this.executeWithStrictIdempotency(input.dealId, actionId, dto, callbackUser);
+    return this.commands.execute(
+      input.dealId,
+      actionId,
+      this.fingerprintedCommand(input.dealId, actionId, dto),
+      callbackUser,
+    );
   }
 
-  private async executeWithStrictIdempotency(
+  /**
+   * The client key is never used as the physical receipt key. The canonical service
+   * receives a deterministic SHA-256 identity over every material command field and
+   * writes the only receipt inside the same trusted Serializable RLS transaction as
+   * Deal, DealEvent, AuditEvent and external outbox changes.
+   */
+  private fingerprintedCommand(
     dealId: string,
     actionId: DealActionId,
     dto: ExecuteDealCommandDto,
-    user: RequestUser,
-  ) {
-    const request = {
+  ): ExecuteDealCommandDto {
+    const material = {
       dealId,
       actionId,
       commandId: dto.commandId,
+      clientIdempotencyKey: dto.idempotencyKey,
       expectedUpdatedAt: dto.expectedUpdatedAt,
       payload: dto.payload ?? {},
     };
-    const fingerprint = digest(request);
-    const intentKey = `deal-command-intent:${dealId}:${dto.idempotencyKey}`;
-    const receiptKey = `deal-command:${dealId}:${dto.idempotencyKey}`;
-
-    const existingIntent = await this.prisma.outboxEntry.findUnique({
-      where: { idempotencyKey: intentKey },
-    });
-    if (existingIntent) {
-      return this.resolveExistingIntent(existingIntent, fingerprint);
-    }
-
-    const legacyReceipt = await this.prisma.outboxEntry.findUnique({
-      where: { idempotencyKey: receiptKey },
-    });
-    if (legacyReceipt) {
-      throw new ConflictException({
-        code: 'UNVERIFIABLE_LEGACY_IDEMPOTENCY_RECEIPT',
-        message: 'Существующий результат команды не содержит полного отпечатка запроса. Используйте новый idempotency key.',
-      });
-    }
-
-    try {
-      await this.prisma.outboxEntry.create({
-        data: {
-          type: 'deal.command.intent',
-          dealId,
-          status: 'PENDING',
-          idempotencyKey: intentKey,
-          correlationId: dto.commandId,
-          payload: { fingerprint, request } as Prisma.InputJsonValue,
-        },
-      });
-    } catch (error) {
-      if (!isUniqueConstraintError(error)) throw error;
-      const raced = await this.prisma.outboxEntry.findUnique({
-        where: { idempotencyKey: intentKey },
-      });
-      if (!raced) throw error;
-      return this.resolveExistingIntent(raced, fingerprint);
-    }
-
-    try {
-      const result = await this.commands.execute(dealId, actionId, dto, user);
-      const resultRecord = result as unknown as JsonRecord;
-      if (resultRecord.actionId !== actionId || resultRecord.commandId !== dto.commandId) {
-        throw new ConflictException({
-          code: 'IDEMPOTENCY_RESULT_MISMATCH',
-          message: 'Сохранённый результат относится к другой команде.',
-        });
-      }
-
-      await this.prisma.outboxEntry.update({
-        where: { idempotencyKey: intentKey },
-        data: {
-          status: 'CONFIRMED',
-          confirmedAt: new Date(),
-          payload: { fingerprint, request, result: resultRecord } as Prisma.InputJsonValue,
-        },
-      });
-
-      return result;
-    } catch (error) {
-      await this.prisma.outboxEntry.updateMany({
-        where: { idempotencyKey: intentKey, status: 'PENDING' },
-        data: {
-          status: 'FAILED',
-          payload: { fingerprint, request, failure: errorSnapshot(error) } as Prisma.InputJsonValue,
-        },
-      });
-      throw error;
-    }
+    const fingerprint = digest(material);
+    return {
+      ...dto,
+      idempotencyKey: `fp:${fingerprint}`,
+      payload: {
+        ...(dto.payload ?? {}),
+        requestFingerprint: fingerprint,
+        clientIdempotencyKey: dto.idempotencyKey,
+      },
+    };
   }
 
-  private resolveExistingIntent(entry: IntentEntry, fingerprint: string) {
-    const payload = jsonRecord(entry.payload);
-    if (payload.fingerprint !== fingerprint) {
-      throw new ConflictException({
-        code: 'IDEMPOTENCY_KEY_REUSED',
-        message: 'Один idempotency key нельзя использовать для разных команд, версий или payload.',
-      });
-    }
-
-    const result = payload.result;
-    if (entry.status === 'CONFIRMED' && result && typeof result === 'object' && !Array.isArray(result)) {
-      return { ...(result as JsonRecord), duplicate: true };
-    }
-
-    if (entry.status === 'FAILED') {
-      throw new ConflictException({
-        code: 'PREVIOUS_COMMAND_FAILED',
-        message: 'Предыдущая попытка с этим idempotency key завершилась ошибкой. Обновите сделку и используйте новый ключ.',
-      });
-    }
-
-    throw new ConflictException({
-      code: 'COMMAND_ALREADY_IN_PROGRESS',
-      message: 'Команда с этим idempotency key уже выполняется. Повторите чтение состояния сделки.',
-    });
+  private bankCallbackUser(
+    deal: CanonicalDealRecord,
+    input: VerifiedBankCallbackInput,
+  ): RequestUser {
+    return {
+      id: `bank-callback:${input.partnerId ?? 'safe-deals'}`,
+      email: 'bank-callback@system.invalid',
+      fullName: 'Verified bank callback',
+      role: Role.BANK_CALLBACK,
+      orgId: deal.buyerOrgId,
+      tenantId: deal.tenantId,
+      sessionId: `bank-event:${input.eventId}`,
+      mfaVerified: true,
+    };
   }
 
   private async resolveCanonicalMembership(dealId: string, user: RequestUser) {
@@ -331,6 +252,9 @@ export class IndustrialDealCommandGateway {
     if (!input.bankRef || input.bankRef.length < 4) {
       throw new BadRequestException({ code: 'BANK_REFERENCE_REQUIRED' });
     }
+    if (!input.operationId || input.operationId.length < 8) {
+      throw new BadRequestException({ code: 'BANK_OPERATION_ID_REQUIRED' });
+    }
     if (!['RESERVE', 'RELEASE'].includes(input.operation)) {
       throw new BadRequestException({ code: 'BANK_OPERATION_INVALID' });
     }
@@ -339,39 +263,64 @@ export class IndustrialDealCommandGateway {
     }
   }
 
-  private async recordBankFailure(input: VerifiedBankCallbackInput, deal: CanonicalDealRecord) {
+  private async recordBankFailure(
+    input: VerifiedBankCallbackInput,
+    deal: CanonicalDealRecord,
+    callbackUser: RequestUser,
+  ) {
     const callbackKey = `bank-callback-failure:${input.eventId}`;
-    const existing = await this.prisma.outboxEntry.findUnique({
-      where: { idempotencyKey: callbackKey },
-    });
-    if (existing) return this.resolveExistingBankFailure(existing.payload, input);
-
-    const operationId = input.operation === 'RESERVE'
-      ? `bank-reserve:${deal.id}`
-      : `bank-release:${deal.id}`;
-    const paymentId = `payment:${deal.id}`;
     const eventPayload = {
       eventId: input.eventId,
       operation: input.operation,
       bankRef: input.bankRef,
-      operationId: input.operationId ?? null,
+      operationId: input.operationId,
       errorMessage: input.errorMessage ?? 'bank_callback_failed',
+      partnerId: input.partnerId ?? 'safe-deals',
     };
+    const fingerprint = digest(eventPayload);
     const result = {
       ok: false,
       dealId: deal.id,
       eventId: input.eventId,
       operation: input.operation,
+      operationId: input.operationId,
       status: 'FAILED',
       bankRef: input.bankRef,
     };
 
-    return this.prisma.$transaction(async (tx) => {
+    return this.rls.withTrustedContext(callbackUser, async (tx) => {
+      const existing = await tx.outboxEntry.findUnique({
+        where: { idempotencyKey: callbackKey },
+      });
+      if (existing) {
+        const payload = jsonRecord(existing.payload);
+        if (payload.fingerprint !== fingerprint) {
+          throw new ConflictException({
+            code: 'BANK_EVENT_REPLAY_MISMATCH',
+            message: 'Bank event ID was already used with a different payload.',
+          });
+        }
+        const stored = payload.result;
+        return stored && typeof stored === 'object' && !Array.isArray(stored)
+          ? { ...(stored as JsonRecord), duplicate: true }
+          : { ...result, duplicate: true };
+      }
+
+      const operation = await tx.bankOperation.findUnique({
+        where: { id: input.operationId },
+      });
+      if (!operation || operation.dealId !== deal.id || operation.status !== 'PENDING') {
+        throw new ConflictException({
+          code: 'BANK_OPERATION_NOT_PENDING',
+          message: 'Callback is not bound to the exact pending bank operation.',
+        });
+      }
+
       await tx.payment.upsert({
-        where: { id: paymentId },
+        where: { id: `payment:${deal.id}` },
         update: { status: 'FAILED', callbackState: 'FAILED', bankRef: input.bankRef },
         create: {
-          id: paymentId,
+          id: `payment:${deal.id}`,
           dealId: deal.id,
           status: 'FAILED',
           amountKopecks: deal.totalKopecks,
@@ -379,58 +328,65 @@ export class IndustrialDealCommandGateway {
           bankRef: input.bankRef,
         },
       });
-
-      await tx.bankOperation.updateMany({
-        where: { id: operationId, dealId: deal.id },
+      await tx.bankOperation.update({
+        where: { id: input.operationId },
         data: {
           status: 'FAILED',
           bankRef: input.bankRef,
+          failureReason: input.errorMessage ?? 'bank_callback_failed',
           responsePayload: eventPayload as Prisma.InputJsonValue,
         },
       });
 
-      const previous = await tx.dealEvent.findFirst({
+      const previousEvent = await tx.dealEvent.findFirst({
         where: { dealId: deal.id },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       });
-      const eventId = `bank-failure:${input.eventId}`;
+      const eventId = `bank-failure-${randomUUID()}`;
       const eventHash = digest({
         id: eventId,
         dealId: deal.id,
         eventType: 'BANK_CALLBACK_FAILED',
         payload: eventPayload,
-        prevHash: previous?.hash ?? null,
+        prevHash: previousEvent?.hash ?? null,
       });
       await tx.dealEvent.create({
         data: {
           id: eventId,
           dealId: deal.id,
           eventType: 'BANK_CALLBACK_FAILED',
-          actorId: `bank-callback:${input.partnerId ?? 'safe-deals'}`,
+          actorId: callbackUser.id,
           actorRole: Role.BANK_CALLBACK,
           tenantId: deal.tenantId,
           payload: eventPayload as Prisma.InputJsonValue,
           hash: eventHash,
-          prevHash: previous?.hash ?? null,
+          prevHash: previousEvent?.hash ?? null,
         },
       });
 
+      const previousAudit = await tx.auditEvent.findFirst({
+        where: { dealId: deal.id },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      });
+      const auditId = `audit-${randomUUID()}`;
       await tx.auditEvent.create({
         data: {
+          id: auditId,
           action: 'deal.bank_callback.failed',
-          actorUserId: `bank-callback:${input.partnerId ?? 'safe-deals'}`,
+          actorUserId: callbackUser.id,
           actorRole: Role.BANK_CALLBACK,
           tenantId: deal.tenantId,
-          orgId: deal.buyerOrgId,
+          orgId: callbackUser.orgId,
           dealId: deal.id,
           objectType: 'bank_operation',
-          objectId: operationId,
+          objectId: input.operationId,
           beforeState: { status: 'PENDING' },
           afterState: { status: 'FAILED', bankRef: input.bankRef },
           outcome: 'FAILURE',
           reason: input.errorMessage ?? 'bank_callback_failed',
           correlationId: input.eventId,
-          hash: digest({ dealId: deal.id, eventPayload, result }),
+          hash: digest({ auditId, eventPayload, result, prevHash: previousAudit?.hash ?? null }),
+          prevHash: previousAudit?.hash ?? null,
         },
       });
 
@@ -442,36 +398,11 @@ export class IndustrialDealCommandGateway {
           idempotencyKey: callbackKey,
           correlationId: input.eventId,
           confirmedAt: new Date(),
-          payload: {
-            fingerprint: digest(eventPayload),
-            eventPayload,
-            result,
-          } as Prisma.InputJsonValue,
+          payload: { fingerprint, eventPayload, result } as Prisma.InputJsonValue,
         },
       });
 
       return result;
     });
-  }
-
-  private resolveExistingBankFailure(payloadValue: Prisma.JsonValue, input: VerifiedBankCallbackInput) {
-    const payload = jsonRecord(payloadValue);
-    const expected = digest({
-      eventId: input.eventId,
-      operation: input.operation,
-      bankRef: input.bankRef,
-      operationId: input.operationId ?? null,
-      errorMessage: input.errorMessage ?? 'bank_callback_failed',
-    });
-    if (payload.fingerprint !== expected) {
-      throw new ConflictException({
-        code: 'BANK_EVENT_REPLAY_MISMATCH',
-        message: 'Bank event ID was already used with a different payload.',
-      });
-    }
-    const result = payload.result;
-    return result && typeof result === 'object' && !Array.isArray(result)
-      ? { ...(result as JsonRecord), duplicate: true }
-      : { ok: false, duplicate: true };
   }
 }

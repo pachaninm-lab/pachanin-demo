@@ -11,7 +11,6 @@ import { DealsController } from './deals.controller';
 import { DealsService } from './deals.service';
 import { DealCommandService } from './deal-command.service';
 import { IndustrialDealCommandGateway } from './industrial-deal-command.gateway';
-import { AtomicIndustrialDealCommandGateway } from './atomic-industrial-deal-command.gateway';
 import { CanonicalTestDealSeedService } from './canonical-test-deal.seed';
 import { DealEventService } from './deal-event.service';
 import { DealAutoService } from './deal-auto.service';
@@ -36,18 +35,13 @@ const dealRepositoryProvider: Provider = {
   inject: [RuntimeCoreService, { token: PrismaService, optional: true }],
 };
 
-const industrialGatewayProvider: Provider = {
-  provide: IndustrialDealCommandGateway,
-  useClass: AtomicIndustrialDealCommandGateway,
-};
-
 @Module({
   imports: [AuthModule, AuditModule, AntiFraudModule, NotificationsModule, IntegrationsModule, LedgerModule, ActionExecutorModule, SagaModule, OutboxModule],
   controllers: [DealsController],
   providers: [
     DealsService,
     DealCommandService,
-    industrialGatewayProvider,
+    IndustrialDealCommandGateway,
     CanonicalTestDealSeedService,
     DealEventService,
     DealAutoService,

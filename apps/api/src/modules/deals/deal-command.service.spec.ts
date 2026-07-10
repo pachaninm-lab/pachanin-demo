@@ -29,8 +29,8 @@ function deal(status = 'DRAFT') {
 
 function command(overrides: Record<string, unknown> = {}) {
   return {
-    commandId: 'cmd',
-    idempotencyKey: 'idem',
+    commandId: 'command-0001',
+    idempotencyKey: 'idem-001',
     expectedUpdatedAt: UPDATED_AT.toISOString(),
     payload: {},
     ...overrides,
@@ -91,7 +91,7 @@ describe('DealCommandService atomic canonical command path', () => {
       data: expect.objectContaining({
         type: 'deal.command.receipt',
         status: 'CONFIRMED',
-        idempotencyKey: 'deal-command:DEAL-INDUSTRIAL-001:idem',
+        idempotencyKey: 'deal-command:DEAL-INDUSTRIAL-001:idem-001',
       }),
     }));
     expect(result).toMatchObject({
@@ -108,8 +108,8 @@ describe('DealCommandService atomic canonical command path', () => {
     const storedResult = {
       ok: true,
       duplicate: false,
-      commandId: 'cmd',
-      idempotencyKey: 'idem',
+      commandId: 'command-0001',
+      idempotencyKey: 'idem-001',
       dealId: 'DEAL-INDUSTRIAL-001',
       actionId: 'approve_admission',
       previousStatus: 'DRAFT',

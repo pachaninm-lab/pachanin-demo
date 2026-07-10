@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { Role, type RequestUser } from '../../common/types/request-user';
 import { CANONICAL_TEST_DEAL_ID } from './deal-command.policy';
 import { IndustrialDealCommandGateway } from './industrial-deal-command.gateway';
@@ -34,12 +34,9 @@ function fixture() {
         },
       ]),
     },
-    outboxEntry: {
-      findUnique: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockResolvedValue({}),
-      update: jest.fn().mockResolvedValue({}),
-      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-    },
+  } as any;
+  const rls = {
+    withTrustedContext: jest.fn(),
   } as any;
   const commands = {
     workspace: jest.fn().mockResolvedValue({ ok: true }),
@@ -51,8 +48,9 @@ function fixture() {
   } as any;
   return {
     prisma,
+    rls,
     commands,
-    gateway: new IndustrialDealCommandGateway(prisma, commands),
+    gateway: new IndustrialDealCommandGateway(prisma, rls, commands),
   };
 }
 
@@ -83,7 +81,7 @@ describe('IndustrialDealCommandGateway', () => {
     expect(test.commands.workspace).not.toHaveBeenCalled();
   });
 
-  it('rejects a human request to confirm reserve or release before any database write', async () => {
+  it('rejects a human request to confirm reserve or release before any command write', async () => {
     const test = fixture();
     const dto = {
       commandId: 'human-bank-confirmation',
@@ -101,46 +99,62 @@ describe('IndustrialDealCommandGateway', () => {
     expect(test.commands.execute).not.toHaveBeenCalled();
   });
 
-  it('rejects reuse of one idempotency key for a different material command', () => {
+  it('passes a deterministic full-command fingerprint into the trusted command service', async () => {
     const test = fixture();
-    const resolve = (test.gateway as any).resolveExistingIntent.bind(test.gateway);
-    const entry = {
-      status: 'CONFIRMED',
-      payload: {
-        fingerprint: 'fingerprint-original',
-        result: { actionId: 'approve_admission', commandId: 'command-original' },
-      },
+    const dto = {
+      commandId: 'command-001',
+      idempotencyKey: 'client-key-001',
+      expectedUpdatedAt: DEAL.updatedAt.toISOString(),
+      payload: { amount: 100, nested: { b: 2, a: 1 } },
     };
 
-    expect(() => resolve(entry, 'fingerprint-different')).toThrow(ConflictException);
-    try {
-      resolve(entry, 'fingerprint-different');
-    } catch (error: any) {
-      expect(error.response).toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED' });
-    }
+    await test.gateway.executeUser(
+      CANONICAL_TEST_DEAL_ID,
+      'place_winning_bid',
+      dto,
+      BUYER,
+    );
+
+    expect(test.commands.execute).toHaveBeenCalledTimes(1);
+    const [, , forwardedDto, forwardedUser] = test.commands.execute.mock.calls[0];
+    expect(forwardedDto.idempotencyKey).toMatch(/^fp:[a-f0-9]{64}$/);
+    expect(forwardedDto.payload).toMatchObject({
+      amount: 100,
+      nested: { b: 2, a: 1 },
+      clientIdempotencyKey: 'client-key-001',
+      requestFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+    expect(forwardedUser).toMatchObject({
+      orgId: DEAL.buyerOrgId,
+      tenantId: DEAL.tenantId,
+    });
+    expect(test.prisma).not.toHaveProperty('outboxEntry');
   });
 
-  it('derives the successful money confirmation actor only from the verified callback path', async () => {
+  it('derives successful money confirmation only from the verified callback actor', async () => {
     const test = fixture();
-    const execute = jest
-      .spyOn(test.gateway as any, 'executeWithStrictIdempotency')
-      .mockResolvedValue({ ok: true, status: 'RESERVED' });
 
     await test.gateway.executeBankCallback({
       dealId: CANONICAL_TEST_DEAL_ID,
       eventId: 'bank-event-0001',
       operation: 'RESERVE',
+      operationId: `bank-reserve:${CANONICAL_TEST_DEAL_ID}`,
       status: 'SUCCESS',
       bankRef: 'BANK-RESERVE-0001',
       partnerId: 'safe-deals-test',
     });
 
-    expect(execute).toHaveBeenCalledWith(
+    expect(test.commands.execute).toHaveBeenCalledWith(
       CANONICAL_TEST_DEAL_ID,
       'confirm_reserve',
       expect.objectContaining({
         commandId: 'bank-callback:bank-event-0001',
-        idempotencyKey: 'bank-callback:bank-event-0001',
+        idempotencyKey: expect.stringMatching(/^fp:[a-f0-9]{64}$/),
+        payload: expect.objectContaining({
+          operationId: `bank-reserve:${CANONICAL_TEST_DEAL_ID}`,
+          bankRef: 'BANK-RESERVE-0001',
+          requestFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
       }),
       expect.objectContaining({
         role: Role.BANK_CALLBACK,
