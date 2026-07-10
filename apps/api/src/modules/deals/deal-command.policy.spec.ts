@@ -38,6 +38,18 @@ describe('canonical deal command policy', () => {
     expect(inspection?.roles).toContain('SURVEYOR');
   });
 
+  it('permits bank confirmations only from the verified callback actor', () => {
+    for (const actionId of ['confirm_reserve', 'confirm_release'] as const) {
+      const action = DEAL_ACTIONS.find((item) => item.id === actionId);
+      expect(action).toMatchObject({
+        source: 'BANK_CALLBACK',
+        roles: ['BANK_CALLBACK'],
+      });
+      expect(action?.roles).not.toContain('ACCOUNTING');
+      expect(action?.roles).not.toContain('ADMIN');
+    }
+  });
+
   it('marks the entire line complete only when the deal is closed', () => {
     expect(buildDealSpine('CLOSED').every((step) => step.state === 'done')).toBe(true);
   });
