@@ -1,3 +1,4 @@
+import type { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { PrismaRuntimePersistenceRepository } from './prisma-runtime-persistence.repository';
 import { selectRuntimePersistenceRepository } from './runtime-persistence-repository.factory';
 import {
@@ -16,7 +17,9 @@ const input: RuntimePersistenceWriteInput = {
   runtimeStoreRecordId: 'runtime-record-1',
   runtimeStoreVersion: '1',
   actorId: 'user-1',
-  actorRole: 'operator',
+  actorRole: 'SUPPORT_MANAGER',
+  tenantId: 'tenant-1',
+  organizationId: 'org-1',
   correlationId: 'corr-1',
   auditId: 'audit-business-1',
   contractHash: 'hash-1',
@@ -38,27 +41,27 @@ describe('runtime persistence repository selection', () => {
   });
 
   it('does not treat unrelated values as Prisma activation', () => {
-    const prisma = {} as any;
+    const rls = {} as RlsTransactionService;
 
-    expect(selectRuntimePersistenceRepository(prisma, 'true')).toBeInstanceOf(
+    expect(selectRuntimePersistenceRepository(rls, 'true')).toBeInstanceOf(
       DisabledRuntimePersistenceRepository,
     );
-    expect(selectRuntimePersistenceRepository(prisma, 'postgres')).toBeInstanceOf(
+    expect(selectRuntimePersistenceRepository(rls, 'postgres')).toBeInstanceOf(
       DisabledRuntimePersistenceRepository,
     );
   });
 
-  it('selects Prisma only for the exact prisma mode', () => {
-    const prisma = {} as any;
+  it('selects Prisma only for exact prisma mode with trusted RLS service', () => {
+    const rls = {} as RlsTransactionService;
 
-    expect(selectRuntimePersistenceRepository(prisma, 'prisma')).toBeInstanceOf(
+    expect(selectRuntimePersistenceRepository(rls, 'prisma')).toBeInstanceOf(
       PrismaRuntimePersistenceRepository,
     );
   });
 
-  it('fails loudly when Prisma mode is enabled without PrismaService', () => {
+  it('fails loudly when Prisma mode is enabled without trusted RLS service', () => {
     expect(() => selectRuntimePersistenceRepository(undefined, 'prisma')).toThrow(
-      /requires PrismaService/,
+      /requires RlsTransactionService/,
     );
   });
 });
