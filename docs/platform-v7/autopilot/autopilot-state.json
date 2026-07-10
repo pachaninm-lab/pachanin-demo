@@ -36,7 +36,8 @@
     "apps/web/app/api/auth/login/route.ts",
     "apps/web/app/api/proxy/[...path]/route.ts",
     "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
-    "apps/web/components/platform-v7/RoleIntentDashboard.tsx"
+    "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
+    "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -55,7 +56,8 @@
     "apps/web/app/api/auth/login/route.ts",
     "apps/web/app/api/proxy/[...path]/route.ts",
     "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
-    "apps/web/components/platform-v7/RoleIntentDashboard.tsx"
+    "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
+    "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx"
   ],
   "industrialOneDealFoundation": {
     "layer": "Atomic canonical deal command path and shared execution workspace",
@@ -69,7 +71,8 @@
       "no arbitrary client-supplied nextState",
       "PostgreSQL transaction for state, evidence, audit, outbox and receipt",
       "fail-closed canonical web proxy",
-      "no fake successful canonical response"
+      "no fake successful canonical response",
+      "only the canonical workspace is rendered at every role root"
     ]
   },
   "forbiddenZones": [
