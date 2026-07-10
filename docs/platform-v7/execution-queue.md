@@ -6,9 +6,9 @@ GOAL: Доказать в CI на изолированном PostgreSQL 16, чт
 
 CURRENT FAILURE:
 - Provider lock corrected to `postgresql`.
-- PostgreSQL applied `0001_postgresql_initial`.
-- Migration `20260522083644_init` then failed with `P3018 / SQLSTATE 42704` on SQLite type `DATETIME`.
-- The migration also recreates outbox, dispute, evidence and audit tables already created by the PostgreSQL baseline.
+- PostgreSQL applies `0001_postgresql_initial` and the first preserved no-op migration.
+- Migration `20260522120000_add_core_tables` fails with `P3018 / SQLSTATE 42704` on SQLite type `DATETIME`.
+- It also recreates deals, shipments, checkpoints, documents, payments, lab samples/tests and indexes already created by the PostgreSQL baseline.
 - Correction: preserve the migration directory and identifier as a documented PostgreSQL no-op; do not delete history and do not use `migrate resolve`.
 
 CURRENT ALLOWED:
@@ -16,6 +16,7 @@ CURRENT ALLOWED:
 - docs/platform-v7/execution-queue.md
 - apps/api/prisma/migrations/migration_lock.toml
 - apps/api/prisma/migrations/20260522083644_init/migration.sql
+- apps/api/prisma/migrations/20260522120000_add_core_tables/migration.sql
 - apps/api/test/one-deal/**
 - apps/web/tests/e2e/one-deal/**
 - scripts/platform-v7-one-deal-*.mjs
@@ -51,7 +52,7 @@ DONE:
 - #2267 Canonical gateway consolidation
 
 LOCKED:
-- all migration SQL directories other than `20260522083644_init` until the next exact error;
+- all migration SQL directories other than the two explicitly allowed legacy files until the next exact error;
 - production migration execution;
 - production RLS policy application;
 - persistent identity/session/revocation/MFA files;
