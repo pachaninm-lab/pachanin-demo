@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "Industrial One Deal Ephemeral PostgreSQL E2E Harness.",
   "fullTzReadinessPercent": 85,
-  "openPr": "#2271",
+  "openPr": "#2270",
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
@@ -37,7 +37,8 @@
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
-    ".github/workflows/platform-v7-one-deal-e2e.yml"
+    "scripts/platform-v7-one-deal-*.sh",
+    ".github/workflows/api-test.yml"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -45,7 +46,8 @@
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
-    ".github/workflows/platform-v7-one-deal-e2e.yml"
+    "scripts/platform-v7-one-deal-*.sh",
+    ".github/workflows/api-test.yml"
   ],
   "industrialOneDealFoundation": {
     "layer": "Canonical PostgreSQL deal command path and shared role workspace",
@@ -67,8 +69,9 @@
   },
   "industrialOneDealE2e": {
     "layer": "Industrial One Deal Ephemeral PostgreSQL E2E Harness",
-    "scopePr": "#2271",
-    "status": "scope_transition_in_review",
+    "implementationPr": "#2270",
+    "status": "in_progress",
+    "workflow": ".github/workflows/api-test.yml",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
     "requiredEvidence": [
       "isolated PostgreSQL 16 starts with ephemeral credentials",
