@@ -255,17 +255,33 @@ const persist = () => fs.writeFile(reportPath, JSON.stringify(report, null, 2));
 for (const matrixCase of matrix) {
   const browser = await matrixCase.engine.launch({ headless: true });
   const context = await browser.newContext(matrixCase.context);
-  const page = await context.newPage();
   try {
     for (const locale of Object.keys(locales)) {
       for (const routeCase of routes) {
-        report.cases.push(await runCase(page, matrixCase, routeCase, locale));
-        await persist();
+        const page = await context.newPage();
+        try {
+          report.cases.push(await runCase(page, matrixCase, routeCase, locale));
+          await persist();
+        } finally {
+          await page.close();
+        }
       }
     }
     if (matrixCase.name === 'chromium-desktop-1440') {
-      report.languageControl = await verifyLanguageControl(page);
-      for (const locale of Object.keys(locales)) report.mockedMfa.push(await verifyMockedMfaFlow(page, locale));
+      const languagePage = await context.newPage();
+      try {
+        report.languageControl = await verifyLanguageControl(languagePage);
+      } finally {
+        await languagePage.close();
+      }
+      for (const locale of Object.keys(locales)) {
+        const mfaPage = await context.newPage();
+        try {
+          report.mockedMfa.push(await verifyMockedMfaFlow(mfaPage, locale));
+        } finally {
+          await mfaPage.close();
+        }
+      }
       await persist();
     }
   } finally {
