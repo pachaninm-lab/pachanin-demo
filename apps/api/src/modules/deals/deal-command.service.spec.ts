@@ -9,6 +9,7 @@ const USER: RequestUser = {
   orgId: 'org-canonical-platform',
   fullName: 'Compliance User',
   tenantId: 'tenant-canonical-test',
+  sessionId: 'session-compliance-1',
 };
 
 const UPDATED_AT = new Date('2026-07-10T09:00:00.000Z');
@@ -36,8 +37,14 @@ function command(overrides: Record<string, unknown> = {}) {
   } as any;
 }
 
+function rlsFixture(tx: Record<string, unknown>) {
+  return {
+    withTrustedContext: jest.fn(async (_user: RequestUser, work: (client: any) => Promise<unknown>) => work(tx)),
+  };
+}
+
 describe('DealCommandService atomic canonical command path', () => {
-  it('commits deal state, event, audit and receipt through one transaction callback', async () => {
+  it('commits deal state, event, audit and receipt through one trusted RLS transaction callback', async () => {
     const tx = {
       outboxEntry: {
         findUnique: jest.fn().mockResolvedValue(null),
@@ -58,12 +65,8 @@ describe('DealCommandService atomic canonical command path', () => {
         create: jest.fn().mockResolvedValue({ id: 'audit-1', hash: 'audit-hash-1' }),
       },
     };
-
-    const prisma = {
-      outboxEntry: { findUnique: jest.fn().mockResolvedValue(null) },
-      $transaction: jest.fn(async (work: (client: typeof tx) => unknown) => work(tx)),
-    };
-    const service = new DealCommandService(prisma as any);
+    const rls = rlsFixture(tx);
+    const service = new DealCommandService(rls as any);
 
     const result = await service.execute(
       'DEAL-INDUSTRIAL-001',
@@ -72,7 +75,12 @@ describe('DealCommandService atomic canonical command path', () => {
       USER,
     );
 
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(rls.withTrustedContext).toHaveBeenCalledTimes(1);
+    expect(rls.withTrustedContext).toHaveBeenCalledWith(
+      USER,
+      expect.any(Function),
+      expect.objectContaining({ isolationLevel: 'Serializable' }),
+    );
     expect(tx.deal.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ id: 'DEAL-INDUSTRIAL-001', status: 'DRAFT', updatedAt: UPDATED_AT }),
       data: expect.objectContaining({ status: 'ADMISSION_APPROVED' }),
@@ -96,7 +104,7 @@ describe('DealCommandService atomic canonical command path', () => {
     });
   });
 
-  it('returns the stored command receipt without starting another transaction', async () => {
+  it('returns the stored command receipt from the trusted transaction without another mutation', async () => {
     const storedResult = {
       ok: true,
       duplicate: false,
@@ -111,13 +119,14 @@ describe('DealCommandService atomic canonical command path', () => {
       auditId: 'audit-1',
       externalOutboxId: null,
     };
-    const prisma = {
+    const tx = {
       outboxEntry: {
         findUnique: jest.fn().mockResolvedValue({ payload: { result: storedResult } }),
       },
-      $transaction: jest.fn(),
+      deal: { updateMany: jest.fn() },
     };
-    const service = new DealCommandService(prisma as any);
+    const rls = rlsFixture(tx);
+    const service = new DealCommandService(rls as any);
 
     await expect(service.execute(
       'DEAL-INDUSTRIAL-001',
@@ -125,7 +134,8 @@ describe('DealCommandService atomic canonical command path', () => {
       command(),
       USER,
     )).resolves.toMatchObject({ ...storedResult, duplicate: true });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(rls.withTrustedContext).toHaveBeenCalledTimes(1);
+    expect(tx.deal.updateMany).not.toHaveBeenCalled();
   });
 
   it('rejects a stale version before any mutation is attempted', async () => {
@@ -136,11 +146,8 @@ describe('DealCommandService atomic canonical command path', () => {
         updateMany: jest.fn(),
       },
     };
-    const prisma = {
-      outboxEntry: { findUnique: jest.fn().mockResolvedValue(null) },
-      $transaction: jest.fn(async (work: (client: typeof tx) => unknown) => work(tx)),
-    };
-    const service = new DealCommandService(prisma as any);
+    const rls = rlsFixture(tx);
+    const service = new DealCommandService(rls as any);
 
     await expect(service.execute(
       'DEAL-INDUSTRIAL-001',
