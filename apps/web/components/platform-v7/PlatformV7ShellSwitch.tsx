@@ -84,6 +84,9 @@ export function PlatformV7ShellSwitch({ children }: { children: React.ReactNode 
 
   const initialRole = roleFromPath(pathname);
   const showRoleIntentDashboard = shouldShowRoleIntentDashboard(pathname);
+  const workSurface = showRoleIntentDashboard
+    ? <RoleIntentDashboard role={initialRole} />
+    : children;
 
   return (
     <>
@@ -101,8 +104,7 @@ export function PlatformV7ShellSwitch({ children }: { children: React.ReactNode 
           <SupportHeaderIcon />
           <MobileHeaderActionRail />
           <RoleAssistantWidget />
-          {showRoleIntentDashboard ? <RoleIntentDashboard role={initialRole} /> : null}
-          {children}
+          {workSurface}
           <PlatformFooter />
           <OnboardingTour />
         </>
