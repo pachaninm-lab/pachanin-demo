@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ADMIN_URL="${ONE_DEAL_ADMIN_URL:?ONE_DEAL_ADMIN_URL is required}"
+AUTH_URL="${ONE_DEAL_AUTH_URL:?ONE_DEAL_AUTH_URL is required}"
 APP_URL="${ONE_DEAL_APP_URL:?ONE_DEAL_APP_URL is required}"
 EVIDENCE_LOG="${ONE_DEAL_EVIDENCE_LOG:-/tmp/platform-v7-one-deal-e2e.log}"
 DRIFT_SQL="${ONE_DEAL_DRIFT_SQL:-/tmp/platform-v7-one-deal-schema-drift.sql}"
@@ -15,16 +16,14 @@ if [[ -n "${DATABASE_URL:-}" && "$ADMIN_URL" == "$DATABASE_URL" ]]; then
   echo "Refusing one-deal E2E: admin URL equals ambient DATABASE_URL" >&2
   exit 2
 fi
-if [[ "$ADMIN_URL" =~ (^|[^a-z])(prod|production)([^a-z]|$) ]]; then
-  echo "Refusing one-deal E2E: admin URL appears production-like" >&2
-  exit 2
-fi
-if [[ "$APP_URL" =~ (^|[^a-z])(prod|production)([^a-z]|$) ]]; then
-  echo "Refusing one-deal E2E: application URL appears production-like" >&2
-  exit 2
-fi
-if [[ "$ADMIN_URL" == "$APP_URL" ]]; then
-  echo "Refusing one-deal E2E: admin and application URLs must differ" >&2
+for candidate in "$ADMIN_URL" "$AUTH_URL" "$APP_URL"; do
+  if [[ "$candidate" =~ (^|[^a-z])(prod|production)([^a-z]|$) ]]; then
+    echo "Refusing one-deal E2E: datasource appears production-like" >&2
+    exit 2
+  fi
+done
+if [[ "$ADMIN_URL" == "$AUTH_URL" || "$ADMIN_URL" == "$APP_URL" || "$AUTH_URL" == "$APP_URL" ]]; then
+  echo "Refusing one-deal E2E: admin, auth and application URLs must differ" >&2
   exit 2
 fi
 
@@ -62,10 +61,12 @@ fi
 echo "[one-deal] generating Prisma client from the migrated PostgreSQL schema"
 DATABASE_URL="$ADMIN_URL" pnpm --filter @pc/api exec prisma generate --schema prisma/schema.prisma
 
-echo "[one-deal] seeding canonical deal, memberships and DealParticipant assignments"
+echo "[one-deal] seeding canonical deal and persistent PostgreSQL identities"
 NODE_ENV=test \
 DATABASE_URL="$ADMIN_URL" \
 JWT_SECRET="${JWT_SECRET:?JWT_SECRET is required}" \
+AUTH_TOKEN_PEPPER="${AUTH_TOKEN_PEPPER:?AUTH_TOKEN_PEPPER is required}" \
+MFA_ENCRYPTION_KEY="${MFA_ENCRYPTION_KEY:?MFA_ENCRYPTION_KEY is required}" \
 BANK_HMAC_SECRET="${BANK_HMAC_SECRET:?BANK_HMAC_SECRET is required}" \
 SEED_CANONICAL_TEST_DEAL=true \
 pnpm --filter @pc/api exec ts-node test/one-deal/seed.ts
@@ -80,7 +81,7 @@ fi
 echo "[one-deal] applying canonical PostgreSQL RLS policies"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/production-rls-policies.sql
 
-echo "[one-deal] creating non-superuser, non-bypass application principal"
+echo "[one-deal] creating restricted deal-execution principal"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
 DO $one_deal_role$
 BEGIN
@@ -101,9 +102,40 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO on
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO one_deal_app;
 SQL
 
+echo "[one-deal] creating isolated trusted identity principal"
+psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
+DO $one_deal_auth_role$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'one_deal_auth') THEN
+    DROP OWNED BY one_deal_auth;
+    DROP ROLE one_deal_auth;
+  END IF;
+  CREATE ROLE one_deal_auth LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT BYPASSRLS PASSWORD 'ephemeral_one_deal_auth_only';
+END
+$one_deal_auth_role$;
+GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_auth;
+GRANT USAGE ON SCHEMA public, auth TO one_deal_auth;
+GRANT SELECT, UPDATE ON public.users, public.user_orgs TO one_deal_auth;
+GRANT SELECT ON public.organizations TO one_deal_auth;
+GRANT SELECT, INSERT, UPDATE ON
+  auth.login_throttles,
+  auth.credential_states,
+  auth.sessions,
+  auth.refresh_tokens,
+  auth.mfa_challenges
+TO one_deal_auth;
+GRANT SELECT, INSERT ON auth.audit_events TO one_deal_auth;
+SQL
+
 ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text FROM pg_roles WHERE rolname='one_deal_app'")"
 if [[ "$ROLE_PROOF" != "false:false" && "$ROLE_PROOF" != "f:f" ]]; then
-  echo "Application principal is not NOSUPERUSER NOBYPASSRLS: $ROLE_PROOF" >&2
+  echo "Deal application principal is not NOSUPERUSER NOBYPASSRLS: $ROLE_PROOF" >&2
+  exit 1
+fi
+AUTH_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || has_table_privilege('one_deal_auth','public.deals','SELECT')::text FROM pg_roles WHERE rolname='one_deal_auth'")"
+echo "[one-deal] auth principal proof super:bypass:deal-select = $AUTH_ROLE_PROOF"
+if [[ "$AUTH_ROLE_PROOF" != "false:true:false" && "$AUTH_ROLE_PROOF" != "f:t:f" ]]; then
+  echo "Auth principal privilege boundary is invalid: $AUTH_ROLE_PROOF" >&2
   exit 1
 fi
 
@@ -151,10 +183,13 @@ if [[ "$CROSS_TENANT_PARTICIPANTS" != "0" ]]; then
   exit 1
 fi
 
-echo "[one-deal] running exploitation suite through the restricted application principal"
+echo "[one-deal] running persistent-auth-backed exploitation suite"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
+ONE_DEAL_AUTH_URL="$AUTH_URL" \
 JWT_SECRET="$JWT_SECRET" \
+AUTH_TOKEN_PEPPER="$AUTH_TOKEN_PEPPER" \
+MFA_ENCRYPTION_KEY="$MFA_ENCRYPTION_KEY" \
 BANK_HMAC_SECRET="$BANK_HMAC_SECRET" \
 pnpm --filter @pc/api exec jest --runInBand --config test/one-deal/jest.config.json
 
