@@ -1,0 +1,119 @@
+name: public entry preview smoke 2323
+
+on:
+  pull_request:
+    branches:
+      - fix/public-auth-server-authority
+
+permissions:
+  contents: read
+
+jobs:
+  browser-and-lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PLAYWRIGHT_BASE_URL: https://deploy-preview-2323--vermillion-kitsune-0e7b97.netlify.app
+      ARTIFACT_DIR: ../../artifacts/public-entry-preview-smoke-2323
+    steps:
+      - name: Checkout evidence branch
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Wait for immutable PR preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "$PLAYWRIGHT_BASE_URL/platform-v7?lang=ru" || true)
+            if [ "$status" = "200" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Preview did not become ready"
+          exit 1
+
+      - name: Run browser matrix, axe and mocked MFA flow
+        working-directory: apps/web
+        run: node scripts/public-entry-preview-smoke-2323.mjs
+
+      - name: Collect and enforce Lighthouse budgets
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/public-entry-preview-smoke-2323/lighthouse
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            echo 'Chrome executable not found'
+            exit 1
+          fi
+          export CHROME_PATH="$CHROME_BIN"
+          for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
+            safe_name="${route//\//-}"
+            npx -y lighthouse@12.8.2 "$PLAYWRIGHT_BASE_URL/${route}?lang=ru" \
+              --quiet \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --output=json \
+              --output-path="artifacts/public-entry-preview-smoke-2323/lighthouse/${safe_name}.json"
+          done
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = 'artifacts/public-entry-preview-smoke-2323/lighthouse';
+          const reports = fs.readdirSync(dir).filter((name) => name.endsWith('.json')).map((name) => {
+            const report = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+            const scores = Object.fromEntries(Object.entries(report.categories).map(([key, value]) => [key, Math.round((value.score || 0) * 100)]));
+            const metrics = {
+              firstContentfulPaintMs: report.audits['first-contentful-paint']?.numericValue,
+              largestContentfulPaintMs: report.audits['largest-contentful-paint']?.numericValue,
+              totalBlockingTimeMs: report.audits['total-blocking-time']?.numericValue,
+              cumulativeLayoutShift: report.audits['cumulative-layout-shift']?.numericValue,
+              speedIndexMs: report.audits['speed-index']?.numericValue,
+            };
+            return { file: name, finalUrl: report.finalUrl, scores, metrics };
+          });
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', reports }, null, 2));
+          console.log(JSON.stringify(reports, null, 2));
+          const failures = [];
+          for (const report of reports) {
+            const isLanding = report.file === 'platform-v7.json';
+            if ((report.scores.performance || 0) < 80) failures.push(`${report.file}: performance ${report.scores.performance}`);
+            if ((report.scores.accessibility || 0) < 95) failures.push(`${report.file}: accessibility ${report.scores.accessibility}`);
+            if ((report.scores['best-practices'] || 0) < 90) failures.push(`${report.file}: best-practices ${report.scores['best-practices']}`);
+            if (isLanding && (report.scores.seo || 0) < 90) failures.push(`${report.file}: SEO ${report.scores.seo}`);
+            if ((report.metrics.largestContentfulPaintMs || Infinity) > 2500) failures.push(`${report.file}: LCP ${report.metrics.largestContentfulPaintMs}`);
+            if ((report.metrics.totalBlockingTimeMs || Infinity) > 200) failures.push(`${report.file}: TBT ${report.metrics.totalBlockingTimeMs}`);
+            if ((report.metrics.cumulativeLayoutShift || Infinity) > 0.1) failures.push(`${report.file}: CLS ${report.metrics.cumulativeLayoutShift}`);
+          }
+          if (failures.length) {
+            console.error(failures.join('\n'));
+            process.exit(1);
+          }
+          NODE
+
+      - name: Upload preview evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-preview-smoke-2323
+          path: artifacts/public-entry-preview-smoke-2323
+          if-no-files-found: error
+          retention-days: 7
