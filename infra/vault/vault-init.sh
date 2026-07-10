@@ -22,12 +22,12 @@ vault write database/config/grainflow-postgres \
   username="${POSTGRES_ADMIN_USER}" \
   password="${POSTGRES_ADMIN_PASSWORD}"
 
-# Dynamic API principals remain NOSUPERUSER/NOBYPASSRLS. The security schema grant
-# is limited to the ephemeral high-risk rate-limit bucket and gives no auth schema,
-# ownership, DDL, or row-security bypass capability.
+# Preserve the existing app_readonly membership/inheritance while explicitly
+# retaining NOSUPERUSER/NOBYPASSRLS. The security schema grant is limited to the
+# ephemeral high-risk rate-limit bucket and gives no auth schema, ownership or DDL.
 vault write database/roles/grainflow-app-role \
   db_name=grainflow-postgres \
-  creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS; GRANT USAGE ON SCHEMA public, security TO \"{{name}}\"; GRANT INSERT,UPDATE,SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\"; GRANT SELECT,INSERT,UPDATE,DELETE ON security.api_rate_limit_buckets TO \"{{name}}\";" \
+  creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}' NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOBYPASSRLS IN ROLE app_readonly; GRANT USAGE ON SCHEMA public, security TO \"{{name}}\"; GRANT INSERT,UPDATE,SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\"; GRANT SELECT,INSERT,UPDATE,DELETE ON security.api_rate_limit_buckets TO \"{{name}}\";" \
   revocation_statements="REVOKE ALL ON security.api_rate_limit_buckets FROM \"{{name}}\"; REVOKE USAGE ON SCHEMA security FROM \"{{name}}\"; REVOKE ALL ON ALL TABLES IN SCHEMA public FROM \"{{name}}\"; REVOKE USAGE ON SCHEMA public FROM \"{{name}}\"; DROP ROLE IF EXISTS \"{{name}}\";" \
   default_ttl="1h" \
   max_ttl="24h"
