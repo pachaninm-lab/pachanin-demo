@@ -1,5 +1,4 @@
-import { UseGuards, ForbiddenException } from '@nestjs/common';
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -9,7 +8,7 @@ import { DecideDisputeDto } from './dto/decide-dispute.dto';
 import { RequestUser, Role } from '../../common/types/request-user';
 
 @UseGuards(RolesGuard)
-@Roles('SUPPORT_MANAGER', 'BUYER', 'FARMER', 'LAB', 'ACCOUNTING', 'EXECUTIVE', 'ADMIN')
+@Roles('SUPPORT_MANAGER', 'BUYER', 'FARMER', 'LAB', 'ACCOUNTING', 'EXECUTIVE', 'ARBITRATOR', 'ADMIN')
 @Controller('disputes')
 export class DisputesController {
   constructor(private readonly disputes: DisputesService) {}
@@ -26,8 +25,8 @@ export class DisputesController {
 
   @Post()
   create(@Body() dto: CreateDisputeDto, @CurrentUser() user: RequestUser) {
-    if (user.role === Role.EXECUTIVE) {
-      throw new ForbiddenException('Executive role cannot create disputes');
+    if (user.role === Role.EXECUTIVE || user.role === Role.ARBITRATOR) {
+      throw new ForbiddenException('Role cannot create disputes.');
     }
     return this.disputes.create(dto, user);
   }
@@ -40,15 +39,20 @@ export class DisputesController {
   @Post(':id/evidence')
   addEvidence(
     @Param('id') id: string,
-    @Body() body: { type: string; url?: string; description?: string; source: string },
+    @Body() body: { type: string; description?: string; source: string },
     @CurrentUser() user: RequestUser,
   ) {
     if (user.role === Role.EXECUTIVE) {
-      throw new ForbiddenException('Executive role cannot add evidence');
+      throw new ForbiddenException('Executive role cannot add evidence.');
     }
     return this.disputes.addEvidence(
       id,
-      { type: body.type as any, url: body.url, description: body.description, source: body.source, trusted: false },
+      {
+        type: body.type as any,
+        description: body.description,
+        source: body.source,
+        trusted: false,
+      },
       user,
     );
   }
