@@ -1,7 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { AuthService } from '../auth/auth.service';
 import { Role } from '../../common/types/request-user';
 import { CANONICAL_TEST_DEAL_ID } from './deal-command.policy';
 
@@ -10,18 +9,18 @@ const TEST_PASSWORD = 'demo1234';
 const enabled = (name: string) => String(process.env[name] ?? '').toLowerCase() === 'true';
 
 const identities = [
-  { email: 'farmer@demo.ru', fullName: 'Тестовый продавец', role: Role.FARMER, orgId: 'org-canonical-seller' },
-  { email: 'buyer@demo.ru', fullName: 'Тестовый покупатель', role: Role.BUYER, orgId: 'org-canonical-buyer' },
-  { email: 'logistician@demo.ru', fullName: 'Тестовый логист', role: Role.LOGISTICIAN, orgId: 'org-canonical-logistics' },
-  { email: 'driver@demo.ru', fullName: 'Тестовый водитель', role: Role.DRIVER, orgId: 'org-canonical-logistics' },
-  { email: 'surveyor@demo.ru', fullName: 'Тестовый сюрвейер', role: Role.SURVEYOR, orgId: 'org-canonical-surveyor' },
-  { email: 'elevator@demo.ru', fullName: 'Тестовый элеватор', role: Role.ELEVATOR, orgId: 'org-canonical-elevator' },
-  { email: 'lab@demo.ru', fullName: 'Тестовая лаборатория', role: Role.LAB, orgId: 'org-canonical-lab' },
-  { email: 'accounting@demo.ru', fullName: 'Тестовый банковский сотрудник', role: Role.ACCOUNTING, orgId: 'org-canonical-bank' },
-  { email: 'compliance@demo.ru', fullName: 'Тестовый комплаенс', role: Role.COMPLIANCE_OFFICER, orgId: 'org-canonical-platform' },
-  { email: 'arbitrator@demo.ru', fullName: 'Тестовый арбитр', role: Role.ARBITRATOR, orgId: 'org-canonical-platform' },
-  { email: 'operator@demo.ru', fullName: 'Тестовый оператор', role: Role.SUPPORT_MANAGER, orgId: 'org-canonical-platform' },
-  { email: 'executive@demo.ru', fullName: 'Тестовый руководитель', role: Role.EXECUTIVE, orgId: 'org-canonical-platform' },
+  { userId: 'user-canonical-farmer', email: 'farmer@demo.ru', fullName: 'Тестовый продавец', role: Role.FARMER, orgId: 'org-canonical-seller' },
+  { userId: 'user-canonical-buyer', email: 'buyer@demo.ru', fullName: 'Тестовый покупатель', role: Role.BUYER, orgId: 'org-canonical-buyer' },
+  { userId: 'user-canonical-logistician', email: 'logistician@demo.ru', fullName: 'Тестовый логист', role: Role.LOGISTICIAN, orgId: 'org-canonical-logistics' },
+  { userId: 'user-canonical-driver', email: 'driver@demo.ru', fullName: 'Тестовый водитель', role: Role.DRIVER, orgId: 'org-canonical-logistics' },
+  { userId: 'user-canonical-surveyor', email: 'surveyor@demo.ru', fullName: 'Тестовый сюрвейер', role: Role.SURVEYOR, orgId: 'org-canonical-surveyor' },
+  { userId: 'user-canonical-elevator', email: 'elevator@demo.ru', fullName: 'Тестовый элеватор', role: Role.ELEVATOR, orgId: 'org-canonical-elevator' },
+  { userId: 'user-canonical-lab', email: 'lab@demo.ru', fullName: 'Тестовая лаборатория', role: Role.LAB, orgId: 'org-canonical-lab' },
+  { userId: 'user-canonical-accounting', email: 'accounting@demo.ru', fullName: 'Тестовый банковский сотрудник', role: Role.ACCOUNTING, orgId: 'org-canonical-bank' },
+  { userId: 'user-canonical-compliance', email: 'compliance@demo.ru', fullName: 'Тестовый комплаенс', role: Role.COMPLIANCE_OFFICER, orgId: 'org-canonical-platform' },
+  { userId: 'user-canonical-arbitrator', email: 'arbitrator@demo.ru', fullName: 'Тестовый арбитр', role: Role.ARBITRATOR, orgId: 'org-canonical-platform' },
+  { userId: 'user-canonical-operator', email: 'operator@demo.ru', fullName: 'Тестовый оператор', role: Role.SUPPORT_MANAGER, orgId: 'org-canonical-platform' },
+  { userId: 'user-canonical-executive', email: 'executive@demo.ru', fullName: 'Тестовый руководитель', role: Role.EXECUTIVE, orgId: 'org-canonical-platform' },
 ] as const;
 
 function participantAccess(role: Role): 'READ' | 'WORK' | 'APPROVE' {
@@ -38,10 +37,7 @@ function participantAccess(role: Role): 'READ' | 'WORK' | 'APPROVE' {
 export class CanonicalTestDealSeedService implements OnModuleInit {
   private readonly logger = new Logger(CanonicalTestDealSeedService.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly auth: AuthService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit(): Promise<void> {
     if (!enabled('SEED_CANONICAL_TEST_DEAL')) return;
@@ -144,55 +140,42 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
 
   private async seedIdentitiesMembershipsAndParticipants(): Promise<void> {
     const passwordHash = bcrypt.hashSync(TEST_PASSWORD, 10);
+    const consentAt = new Date();
 
     for (const identity of identities) {
-      let user = this.auth.listUsers().find((item) => item.email.toLowerCase() === identity.email);
-      if (!user) {
-        const registered = await this.auth.register({
-          email: identity.email,
-          password: TEST_PASSWORD,
-          role: Role.DRIVER,
-          orgId: identity.orgId,
-          fullName: identity.fullName,
-          consentVersion: '1.2',
-        });
-        user = registered.user;
-      }
-
-      this.auth.updateUserRole(user.id, identity.role);
-      this.auth.updateUserOrg(user.id, identity.orgId);
-
       await this.prisma.$transaction(async (tx) => {
         await tx.user.upsert({
-          where: { id: user.id },
+          where: { id: identity.userId },
           update: {
             email: identity.email,
             passwordHash,
             fullName: identity.fullName,
             status: 'ACTIVE',
+            deletedAt: null,
+            consentVersion: '1.2',
+            consentAt,
           },
           create: {
-            id: user.id,
+            id: identity.userId,
             email: identity.email,
             passwordHash,
             fullName: identity.fullName,
             status: 'ACTIVE',
+            consentVersion: '1.2',
+            consentAt,
           },
         });
 
         await tx.userOrg.upsert({
           where: {
             userId_organizationId: {
-              userId: user.id,
+              userId: identity.userId,
               organizationId: identity.orgId,
             },
           },
-          update: {
-            role: identity.role,
-            isDefault: true,
-          },
+          update: { role: identity.role, isDefault: true },
           create: {
-            userId: user.id,
+            userId: identity.userId,
             organizationId: identity.orgId,
             role: identity.role,
             isDefault: true,
@@ -203,7 +186,7 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
           where: {
             dealId_userId_role: {
               dealId: CANONICAL_TEST_DEAL_ID,
-              userId: user.id,
+              userId: identity.userId,
               role: identity.role,
             },
           },
@@ -219,7 +202,7 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
             dealId: CANONICAL_TEST_DEAL_ID,
             tenantId: CANONICAL_TENANT_ID,
             organizationId: identity.orgId,
-            userId: user.id,
+            userId: identity.userId,
             role: identity.role,
             accessLevel: participantAccess(identity.role),
             status: 'ACTIVE',

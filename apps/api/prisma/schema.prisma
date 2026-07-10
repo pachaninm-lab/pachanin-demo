@@ -44,8 +44,11 @@ model User {
   fullName         String
   status           String   @default("ACTIVE")
   mfaEnabled       Boolean  @default(false)
-  mfaSecret        String?
-  mfaBackup        String?
+  mfaSecret        String?  // deprecated: encrypted factors live in mfa_factors
+  mfaBackup        String?  // deprecated: hashed codes live in mfa_backup_codes
+  consentVersion   String?
+  consentAt        DateTime?
+  lastLoginAt      DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   deletedAt        DateTime?
@@ -53,6 +56,10 @@ model User {
   orgs             UserOrg[]
   ukepCerts        UkepCertificate[]
   dealParticipants DealParticipant[]
+  authSessions     AuthSession[]
+  refreshFamilies  AuthRefreshFamily[]
+  mfaFactors       MfaFactor[]
+  mfaChallenges    MfaChallenge[]
 
   @@map("users")
 }
@@ -71,6 +78,139 @@ model UserOrg {
   @@unique([userId, organizationId])
   @@index([organizationId])
   @@map("user_orgs")
+}
+
+// ── Persistent Identity & Session Security ───────────────────────────────────
+
+model AuthSession {
+  id               String   @id
+  userId           String
+  organizationId   String
+  tenantId         String
+  role             String
+  status           String   @default("ACTIVE") // ACTIVE | REVOKED | EXPIRED
+  createdAt        DateTime @default(now())
+  expiresAt        DateTime
+  lastSeenAt       DateTime @default(now())
+  mfaVerifiedAt    DateTime?
+  revokedAt        DateTime?
+  revokeReason     String?
+  userAgentHash    String?
+  ipHash           String?
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  refreshFamily    AuthRefreshFamily?
+  mfaChallenges    MfaChallenge[]
+
+  @@index([userId, status])
+  @@index([tenantId, organizationId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model AuthRefreshFamily {
+  id            String   @id
+  sessionId     String   @unique
+  userId        String
+  status        String   @default("ACTIVE") // ACTIVE | REVOKED | EXPIRED | REPLAYED
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime
+  lastRotatedAt DateTime?
+  revokedAt     DateTime?
+  revokeReason  String?
+
+  session       AuthSession       @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  user          User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tokens        AuthRefreshToken[]
+
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@map("auth_refresh_families")
+}
+
+model AuthRefreshToken {
+  id                String   @id @default(cuid())
+  familyId          String
+  tokenHash         String   @unique
+  parentTokenId     String?
+  replacedByTokenId String?
+  status            String   @default("ACTIVE") // ACTIVE | ROTATED | REVOKED | EXPIRED | REPLAYED
+  issuedAt          DateTime @default(now())
+  expiresAt         DateTime
+  usedAt            DateTime?
+  revokedAt         DateTime?
+  reuseDetectedAt   DateTime?
+
+  family            AuthRefreshFamily @relation(fields: [familyId], references: [id], onDelete: Restrict)
+
+  @@index([familyId, status])
+  @@index([expiresAt])
+  @@map("auth_refresh_tokens")
+}
+
+model AuthLoginAttempt {
+  accountKeyHash String   @id
+  failures       Int      @default(0)
+  lockedUntil    DateTime?
+  lastFailureAt  DateTime?
+  updatedAt      DateTime @updatedAt
+
+  @@index([lockedUntil])
+  @@map("auth_login_attempts")
+}
+
+model MfaFactor {
+  id               String   @id @default(cuid())
+  userId           String
+  type             String   @default("TOTP")
+  status           String   @default("PENDING") // PENDING | ACTIVE | REVOKED
+  secretCiphertext String
+  createdAt        DateTime @default(now())
+  activatedAt      DateTime?
+  revokedAt        DateTime?
+  lastUsedAt       DateTime?
+
+  user             User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  backupCodes      MfaBackupCode[]
+  challenges       MfaChallenge[]
+
+  @@index([userId, status])
+  @@map("mfa_factors")
+}
+
+model MfaBackupCode {
+  id        String   @id @default(cuid())
+  factorId  String
+  codeHash  String   @unique
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+
+  factor    MfaFactor @relation(fields: [factorId], references: [id], onDelete: Restrict)
+
+  @@index([factorId, usedAt])
+  @@map("mfa_backup_codes")
+}
+
+model MfaChallenge {
+  id         String   @id @default(cuid())
+  userId     String
+  sessionId  String?
+  factorId   String?
+  purpose    String   // SETUP | STEP_UP
+  status     String   @default("PENDING") // PENDING | VERIFIED | CONSUMED | EXPIRED
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  consumedAt DateTime?
+
+  user       User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  session    AuthSession? @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  factor     MfaFactor?   @relation(fields: [factorId], references: [id], onDelete: Restrict)
+
+  @@index([userId, purpose, status])
+  @@index([sessionId, status])
+  @@index([expiresAt])
+  @@map("mfa_challenges")
 }
 
 model UkepCertificate {
