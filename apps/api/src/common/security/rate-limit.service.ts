@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 import { RateLimitRepository } from './rate-limit.repository';
 
 export type RateLimitDecision = Readonly<{
@@ -12,10 +12,27 @@ export type RateLimitDecision = Readonly<{
 
 const ROUTE_NAME_PATTERN = /^[a-z0-9][a-z0-9:_-]{0,127}$/;
 const CLEANUP_INTERVAL_MS = 60_000;
+const NON_PRODUCTION_FALLBACK = 'transparent-price-rate-limit-local-only';
+
+export function resolveRateLimitHmacKey(env: NodeJS.ProcessEnv = process.env): Buffer {
+  const production = String(env.NODE_ENV ?? '').toLowerCase() === 'production';
+  const source = String(env.RATE_LIMIT_KEY_PEPPER ?? env.AUTH_TOKEN_PEPPER ?? '').trim();
+  if (production && !source) {
+    throw new Error('RATE_LIMIT_KEY_PEPPER or AUTH_TOKEN_PEPPER is required in production.');
+  }
+  return createHash('sha256')
+    .update(`transparent-price:rate-limit:v1:${source || NON_PRODUCTION_FALLBACK}`)
+    .digest();
+}
+
+export function hashRateLimitKey(rawKey: string, hmacKey: Buffer): string {
+  return createHmac('sha256', hmacKey).update(rawKey).digest('hex');
+}
 
 @Injectable()
 export class RateLimitService {
   private readonly logger = new Logger(RateLimitService.name);
+  private readonly hmacKey = resolveRateLimitHmacKey();
   private lastCleanupAt = 0;
 
   constructor(private readonly repository: RateLimitRepository) {}
@@ -35,7 +52,7 @@ export class RateLimitService {
 
     const safeLimit = Math.min(100_000, Math.max(1, Math.floor(limit || 1)));
     const safeWindowSeconds = Math.min(86_400, Math.max(1, Math.floor(windowSeconds || 60)));
-    const keyHash = createHash('sha256').update(safeKey).digest('hex');
+    const keyHash = hashRateLimitKey(safeKey, this.hmacKey);
     const bucket = await this.repository.consume({
       routeName: safeRouteName,
       keyHash,
