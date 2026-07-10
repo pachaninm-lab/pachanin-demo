@@ -59,6 +59,11 @@ spec:
                 secretKeyRef:
                   name: grainflow-secrets
                   key: JWT_SECRET
+            - name: RATE_LIMIT_KEY_PEPPER
+              valueFrom:
+                secretKeyRef:
+                  name: grainflow-secrets
+                  key: RATE_LIMIT_KEY_PEPPER
             - name: APP_VERSION
               valueFrom:
                 fieldRef:
