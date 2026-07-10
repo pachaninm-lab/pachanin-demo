@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ArbitratorService } from './arbitrator.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -32,7 +32,13 @@ export class ArbitratorController {
   @Post('disputes/:id/resolve')
   resolve(
     @Param('id') id: string,
-    @Body() body: { outcome: 'BUYER_WINS' | 'SELLER_WINS' | 'SPLIT' | 'CANCELLED'; splitPct?: number; reason: string },
+    @Body() body: {
+      outcome: 'BUYER_WIN' | 'SELLER_WIN' | 'SPLIT' | 'NO_CLAIM' | 'CANCELLED';
+      splitPct?: number;
+      note?: string;
+      commandId: string;
+      idempotencyKey: string;
+    },
     @CurrentUser() user: RequestUser,
   ) {
     return this.arbitrator.resolve(id, body, user);
