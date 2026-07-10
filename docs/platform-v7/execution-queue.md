@@ -1,68 +1,99 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.29 Runtime Persistence Transaction and Idempotency Hardening Implementation.
+CURRENT: VP-3.30 Runtime Persistence Prisma Schema and Migration Plan.
 
-GOAL: Реализовать contract-level monotonic linkage promotion, idempotency conflict detection, transaction coordination, retry и partial-failure semantics после merge #2236, без Prisma/migrations и без claims о реальной DB-транзакции.
+GOAL: Выбрать точную additive Prisma schema и migration-модель для DB-backed runtime persistence после merge #2237, не применяя migration и не подключая runtime repository к Postgres в этом слое.
 
 CURRENT STATUS:
-- VP-3.25 validated pipeline linkage binding is merged from #2233.
-- VP-3.26 transaction and idempotency hardening plan is merged from #2234.
-- VP-3.28 final hardening gate is merged from #2236.
-- VP-3.29 adds a strict hardened repository path and a separate contract-level transaction coordinator.
+- VP-3.29 contract-level transaction and idempotency hardening is merged from #2237.
+- Existing Prisma schema already contains canonical `Deal`, `OutboxEntry` and `AuditEvent` models.
+- Existing `apps/api/prisma/contracts/deal_workspace_runtime_snapshots.sql` is contract-only and has not been applied as a production migration.
+- A parallel outbox or audit table is forbidden; runtime persistence must link to the existing canonical tables.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
-- apps/web/lib/platform-v7/deal-workspace-runtime-db-repository.ts
-- apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts
-- apps/web/lib/platform-v7/deal-workspace-runtime-transaction.ts
-- apps/web/tests/unit/platformV7DealWorkspaceRuntimeRepositoryAdapter.test.ts
-- apps/web/tests/unit/platformV7DealWorkspaceRuntimeLinkage.test.ts
-- apps/web/tests/unit/platformV7DealWorkspaceRuntimeTransaction.test.ts
 
-IMPLEMENTED:
-- Backward-compatible `repository.write` remains duplicate-safe for the current runtime action pipeline.
-- Strict `repository.writeHardened` supports one-record monotonic promotion:
-  - `outbox_required` → `audit_required` → `fully_linked`.
-- Promotion preserves original record identity and creation timestamp.
-- Weaker replay cannot regress state or remove accepted linkage evidence.
-- Accepted outbox and audit IDs cannot be replaced by different IDs.
-- Same idempotency key with another runtime snapshot or material contract returns explicit conflict.
-- Transaction coordinator exposes deterministic stages:
-  - `created`;
-  - `prepared`;
-  - `committed`;
-  - `rolled_back`;
-  - `failed`.
-- Prepare validates transaction correlation, audit and actor identity plus linkage validity.
-- Commit uses the strict hardened repository path.
-- Commit replay returns the same committed receipt without a second write.
-- Rollback and pre-commit failure create no repository record.
-- Deterministic retry after failure can commit using the original idempotency identity.
+CANDIDATE IMPLEMENTATION FILES FOR LATER CODE PR:
+- `apps/api/prisma/schema.prisma`
+- `apps/api/prisma/contracts/deal_workspace_runtime_snapshots.sql`
+- `apps/api/prisma/migrations/20260710060000_deal_workspace_runtime_persistence/migration.sql`
+- `apps/api/prisma/migrations/20260710060000_deal_workspace_runtime_persistence/rollback.sql`
+- `apps/web/tests/unit/platformV7DealWorkspaceRuntimePrismaSchema.test.ts`
 
-KNOWN LIMITATION:
-- The current server action pipeline still uses backward-compatible `repository.write` because the process runtime store creates a new runtime snapshot version on every replay.
-- Strict `writeHardened` is used by the new transaction coordinator and tests, but should not replace the action path until stable DB-backed snapshot identity is implemented.
-- This layer does not provide database atomicity. It is a contract-level coordinator and in-process repository implementation.
+TARGET DATA MODEL:
+- New canonical model/table `DealWorkspaceRuntimeSnapshot` / `deal_workspace_runtime_snapshots`.
+- New append-only model/table `DealWorkspaceRuntimeTransactionAttempt` / `deal_workspace_runtime_transaction_attempts`.
+- `DealWorkspaceRuntimeSnapshot` links to existing:
+  - `Deal` through `dealId`;
+  - `OutboxEntry` through optional unique `outboxEntryId`;
+  - `AuditEvent` through optional unique `auditEventId`.
+- `OutboxEntry` and `AuditEvent` receive additive correlation/runtime linkage fields rather than duplicate replacement tables.
+
+REQUIRED SNAPSHOT FIELDS:
+- internal primary key;
+- unique `runtimeSnapshotId`;
+- unique `idempotencyKey`;
+- `dealId`, `intentId`, `state`, `snapshotState`, `statusLabel`;
+- `runtimeStoreRecordId`, `runtimeStoreVersion`;
+- `actorId`, `actorRole`, `correlationId`, `auditId`;
+- material `contractHash` for DB conflict detection;
+- JSON payload;
+- optional unique outbox/audit foreign keys;
+- optimistic `version` greater than zero;
+- immutable `createdAt` and mutable `updatedAt`.
+
+REQUIRED TRANSACTION ATTEMPT FIELDS:
+- unique `transactionId`;
+- snapshot foreign key;
+- idempotency and correlation identity;
+- stage/outcome/failure code/failure reason;
+- replay flag;
+- started/completed timestamps;
+- JSON metadata for operational recovery.
+
+DATABASE CONSTRAINTS:
+- state CHECK: `ready_to_persist | outbox_required | audit_required | fully_linked`.
+- snapshot state CHECK: `updated | blocked | duplicate | failed`.
+- transaction stage CHECK: `created | prepared | committed | rolled_back | failed`.
+- linkage consistency CHECK:
+  - no audit link without outbox link;
+  - `ready_to_persist` and `outbox_required` have no links;
+  - `audit_required` has outbox and no audit;
+  - `fully_linked` has both links.
+- unique runtime snapshot, idempotency key, outbox link, audit link and transaction id.
+- foreign keys use restrictive deletion for evidence preservation.
+- indexes cover deal timeline, intent/state, correlation, transaction stage and retry/recovery lookup.
+
+MIGRATION RULES:
+- Additive only; no destructive rename or drop.
+- Existing deals/outbox/audit rows require no backfill to deploy the new tables.
+- Added columns on existing outbox/audit tables must be nullable initially and indexed where operationally required.
+- Migration SQL must be idempotency-aware and include explicit CHECK/FK/index names.
+- `rollback.sql` is operational documentation and must remove only objects introduced by this migration in dependency-safe order.
+- Applying migration to production is a separate controlled deployment step with backup, dry-run and rollback readiness.
 
 STILL LOCKED:
-- `apps/api/prisma/schema.prisma`
-- `apps/api/prisma/migrations/**`
-- `apps/web/app/platform-v7/**`
-- `apps/web/components/platform-v7/**`
-- `apps/web/app/api/**`
-- `apps/api/src/modules/auth/**`
-- package and lockfiles
+- runtime repository Postgres adapter;
+- runtime action/API wiring;
+- auth and tenant enforcement changes;
+- UI/components;
+- package and lockfiles;
+- live bank/FGIS/EDO integrations.
 
 NEXT:
-- Layer: VP-3.30 Runtime Persistence Prisma Schema and Migration Plan.
-- Goal: select exact production DB tables, columns, indexes, constraints, migration and rollback scope after VP-3.29 is merged and tested.
+- Layer: VP-3.31 Runtime Persistence Prisma Schema and Migration Scope Unlock.
+- Goal: docs-only unlock the exact five schema/migration validation files.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - VP-3.29 hardening is merged and tested;
-  - no Prisma schema or migration changes occur in VP-3.29;
+  - schema and migration files remain unchanged in VP-3.30;
+  - existing canonical Deal/OutboxEntry/AuditEvent models are reused;
   - critical forbidden zones remain unchanged;
-  - guard, dry-run, web-unit, CI and security checks stay green;
-  - maturity language remains platform-temporarily-without-external-integrations.
+  - guard, dry-run and security checks remain green;
+  - maturity language does not claim an applied production migration.
+
+AFTER NEXT:
+- Layer: VP-3.32 Runtime Persistence Prisma Schema and Migration Final Gate.
+- Goal: final docs-only gate before schema/migration implementation.
