@@ -6,24 +6,49 @@ import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { AuthService } from './auth.service';
+import { PasswordResetService } from './password-reset.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { MfaVerifyDto } from './dto/mfa-verify.dto';
 import { RevokeUserSessionsDto } from './dto/revoke-user-sessions.dto';
+import { ConfirmPasswordResetDto, RequestPasswordResetDto } from './dto/password-reset.dto';
 
 @UseGuards(RolesGuard)
 @Roles('ANY_AUTHENTICATED')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly passwordReset: PasswordResetService,
+  ) {}
 
   @Public()
   @RateLimit({ name: 'auth_login', scope: 'ip', limit: 8, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_LOGIN', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
   @Post('login')
   login(@Body() dto: LoginDto, @Headers('user-agent') userAgent?: string, @Ip() ip?: string) {
     return this.authService.login(dto, userAgent, ip);
+  }
+
+  @Public()
+  @HttpCode(202)
+  @RateLimit({ name: 'auth_password_reset_request', scope: 'ip', limit: 5, windowSeconds: 900, limitEnv: 'RATE_LIMIT_AUTH_PASSWORD_RESET', windowEnv: 'RATE_LIMIT_AUTH_PASSWORD_RESET_WINDOW_SECONDS' })
+  @Post('password-reset/request')
+  requestPasswordReset(
+    @Body() dto: RequestPasswordResetDto,
+    @Headers('x-password-reset-delivery-key') deliveryKey?: string,
+    @Ip() ip?: string,
+  ) {
+    return this.passwordReset.request(dto.email, ip, deliveryKey);
+  }
+
+  @Public()
+  @HttpCode(200)
+  @RateLimit({ name: 'auth_password_reset_confirm', scope: 'ip', limit: 8, windowSeconds: 900, limitEnv: 'RATE_LIMIT_AUTH_PASSWORD_RESET_CONFIRM', windowEnv: 'RATE_LIMIT_AUTH_PASSWORD_RESET_WINDOW_SECONDS' })
+  @Post('password-reset/confirm')
+  confirmPasswordReset(@Body() dto: ConfirmPasswordResetDto, @Ip() ip?: string) {
+    return this.passwordReset.confirm(dto.token, dto.newPassword, ip);
   }
 
   @Public()
