@@ -137,6 +137,9 @@ export function createTrustedProxyPolicy(env: NodeJS.ProcessEnv = process.env): 
     throw new Error('TRUSTED_PROXY_CIDRS is required when TRUST_PROXY_MODE=cidr.');
   }
   const parsedCidrs = cidrValues.map(parseCidr);
+  if (production && parsedCidrs.some((cidr) => cidr.prefix === 0)) {
+    throw new Error('Trust-all proxy CIDRs are forbidden in production.');
+  }
   const trust = (ip: string) => mode === 'cidr' && parsedCidrs.some((cidr) => cidrContains(cidr, ip));
 
   const resolve = (
