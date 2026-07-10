@@ -8,6 +8,8 @@ import { LedgerModule } from '../ledger/ledger.module';
 import { ActionExecutorModule } from '../../common/action-executor/action-executor.module';
 import { DealsController } from './deals.controller';
 import { DealsService } from './deals.service';
+import { DealCommandService } from './deal-command.service';
+import { CanonicalTestDealSeedService } from './canonical-test-deal.seed';
 import { DealEventService } from './deal-event.service';
 import { DealAutoService } from './deal-auto.service';
 import { SagaModule } from '../saga/saga.module';
@@ -18,12 +20,11 @@ import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 /**
- * Deal repository binding.
+ * Legacy deal repository binding.
  *
- * Default (controlled-pilot / pre-integration): in-memory RuntimeCore adapter.
- * The DB-backed Prisma adapter is selected ONLY when
- * PLATFORM_V7_DEAL_REPOSITORY=prisma is explicitly set. There is no silent
- * Prisma activation and no silent fallback between adapters.
+ * The canonical industrial command path is implemented by DealCommandService and
+ * always writes through Prisma/PostgreSQL. The legacy repository remains only for
+ * existing read surfaces while they are migrated to the execution workspace.
  */
 const dealRepositoryProvider: Provider = {
   provide: DEAL_REPOSITORY,
@@ -35,7 +36,15 @@ const dealRepositoryProvider: Provider = {
 @Module({
   imports: [AuditModule, AntiFraudModule, NotificationsModule, IntegrationsModule, LedgerModule, ActionExecutorModule, SagaModule, OutboxModule],
   controllers: [DealsController],
-  providers: [DealsService, DealEventService, DealAutoService, AccessScopeService, dealRepositoryProvider],
-  exports: [DealsService, DealEventService],
+  providers: [
+    DealsService,
+    DealCommandService,
+    CanonicalTestDealSeedService,
+    DealEventService,
+    DealAutoService,
+    AccessScopeService,
+    dealRepositoryProvider,
+  ],
+  exports: [DealsService, DealCommandService, DealEventService],
 })
 export class DealsModule {}
