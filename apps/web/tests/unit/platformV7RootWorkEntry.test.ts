@@ -24,11 +24,12 @@ describe('platform-v7 root working entry', () => {
     expect(page).not.toContain('key={role.href}');
   });
 
-  it('disables speculative public RSC prefetch on mobile-sensitive transitions', () => {
-    expect(page).toContain("<Link prefetch={false} href='/platform-v7/login'");
-    expect(page).toContain("<Link prefetch={false} href='/platform-v7/register'");
-    expect(page).toContain('<Link prefetch={false} key={key} href={href}');
-    expect(page).not.toMatch(/<Link(?![^>]*prefetch=)[^>]*href=['"]\/platform-v7\//);
+  it('uses native links so the landing does not hydrate a client router tree', () => {
+    expect(page).toContain("<a href='/platform-v7/login' className='entry-login'");
+    expect(page).toContain("<a href='/platform-v7/register' className='entry-header-register'");
+    expect(page).toContain("<a key={key} href={href} className='entry-role-tile'");
+    expect(page).not.toContain("from 'next/link'");
+    expect(page).not.toContain('<Link');
   });
 
   it('keeps exactly two primary hero actions', () => {
