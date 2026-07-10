@@ -39,6 +39,10 @@ jobs:
         working-directory: apps/web
         run: node scripts/public-auth-locale-debug-2323.mjs
 
+      - name: Capture pre-hydration versus hydrated DOM structural diff
+        working-directory: apps/web
+        run: node scripts/public-auth-dom-diff-2323.mjs
+
       - name: Run RU EN ZH browser matrix, axe and hydration smoke
         working-directory: apps/web
         run: node scripts/public-auth-preview-smoke-2323.mjs
