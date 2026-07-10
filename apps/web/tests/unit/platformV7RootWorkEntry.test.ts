@@ -24,6 +24,13 @@ describe('platform-v7 root working entry', () => {
     expect(page).not.toContain('key={role.href}');
   });
 
+  it('disables speculative public RSC prefetch on mobile-sensitive transitions', () => {
+    expect(page).toContain("<Link prefetch={false} href='/platform-v7/login'");
+    expect(page).toContain("<Link prefetch={false} href='/platform-v7/register'");
+    expect(page).toContain('<Link prefetch={false} key={key} href={href}');
+    expect(page).not.toMatch(/<Link(?![^>]*prefetch=)[^>]*href=['"]\/platform-v7\//);
+  });
+
   it('keeps exactly two primary hero actions', () => {
     expect(page).toContain("className='entry-primary-cta'");
     expect(page).toContain("className='entry-secondary-cta'");
