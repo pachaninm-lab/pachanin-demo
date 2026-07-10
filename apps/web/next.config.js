@@ -50,9 +50,9 @@ const nextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
-        { source: '/platform-v7', destination: '/_pc-public/platform-v7' },
-        { source: '/platform-v7/login', destination: '/_pc-public/platform-v7/login' },
-        { source: '/platform-v7/forgot-password', destination: '/_pc-public/platform-v7/forgot-password' },
+        { source: '/platform-v7', destination: '/pc-public-entry/platform-v7' },
+        { source: '/platform-v7/login', destination: '/pc-public-entry/platform-v7/login' },
+        { source: '/platform-v7/forgot-password', destination: '/pc-public-entry/platform-v7/forgot-password' },
       ],
       afterFiles: [],
       fallback: [],
