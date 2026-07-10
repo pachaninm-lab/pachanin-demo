@@ -12,10 +12,11 @@ describe('platform-v7 product entry', () => {
     expect(registerSrc).toContain('Допущен');
   });
 
-  it('keeps login source as single role entry', () => {
-    expect(loginSrc).toContain('Единый вход');
-    expect(loginSrc).toContain('Выберите один рабочий кабинет');
-    expect(loginSrc).toContain('Водитель');
-    expect(loginSrc).toContain('Комплаенс');
+  it('keeps login as one server-authoritative entry with MFA', () => {
+    expect(loginSrc).toContain("useTranslations('publicEntry.login')");
+    expect(loginSrc).toContain("requestJson('/api/auth/login'");
+    expect(loginSrc).toContain("requestJson('/api/auth/mfa-login'");
+    expect(loginSrc).not.toContain('usePlatformV7RStore');
+    expect(loginSrc).not.toContain('?role=');
   });
 });
