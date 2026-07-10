@@ -1,0 +1,60 @@
+name: public entry local production hydration 2323
+
+on:
+  pull_request:
+    branches:
+      - fix/public-auth-server-authority
+
+permissions:
+  contents: read
+
+jobs:
+  local-production-hydration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ARTIFACT_DIR: ../../artifacts/public-entry-local-production-2323
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build web production bundle
+        working-directory: apps/web
+        run: pnpm build
+      - name: Run production hydration diagnostics
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm start > /tmp/platform-v7-production.log 2>&1 &
+          APP_PID=$!
+          cleanup() { kill "$APP_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --show-error --fail --max-time 5 'http://127.0.0.1:3000/platform-v7?lang=ru' >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/platform-v7-production.log
+            exit 1
+          fi
+          DEV_DIAGNOSTIC_URL=http://127.0.0.1:3000 node scripts/public-entry-hydration-dev-2323.mjs
+          cp /tmp/platform-v7-production.log ../../artifacts/public-entry-local-production-2323/production-server.log
+      - name: Upload local production evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-local-production-2323
+          path: artifacts/public-entry-local-production-2323
+          if-no-files-found: error
+          retention-days: 7
