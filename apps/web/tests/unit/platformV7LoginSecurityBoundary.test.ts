@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 const loginPage = read('apps/web/app/platform-v7/login/page.tsx');
+const loginClient = read('apps/web/app/platform-v7/login/LoginFormClient.tsx');
 const loginRoute = read('apps/web/app/api/auth/login/route.ts');
 const mfaRoute = read('apps/web/app/api/auth/mfa-login/route.ts');
 const cancelRoute = read('apps/web/app/api/auth/mfa-login/cancel/route.ts');
@@ -12,7 +13,10 @@ const ticket = read('apps/web/lib/server/mfa-login-ticket.ts');
 const messages = read('apps/web/i18n/public-entry-messages.ts');
 
 describe('platform-v7 server-authoritative login boundary', () => {
-  it('removes all client role authority and direct cabinet-session calls', () => {
+  it('keeps the public shell server-rendered and client authority limited to credentials', () => {
+    expect(loginPage).not.toContain("'use client'");
+    expect(loginPage).toContain("getTranslations('publicEntry.login')");
+    expect(loginPage).toContain('<LoginFormClient copy={copy} />');
     for (const forbidden of [
       'surfaceRole(',
       'usePlatformV7RStore',
@@ -21,10 +25,10 @@ describe('platform-v7 server-authoritative login boundary', () => {
       "fetch('/api/platform-v7/cabinet-session'",
       'platformV7RoleHome',
     ]) {
-      expect(loginPage).not.toContain(forbidden);
+      expect(loginClient).not.toContain(forbidden);
     }
-    expect(loginPage).toContain('payload.redirectTo');
-    expect(loginPage).toContain('globalThis.location.assign(payload.redirectTo)');
+    expect(loginClient).toContain('payload.redirectTo');
+    expect(loginClient).toContain('globalThis.location.assign(payload.redirectTo)');
   });
 
   it('removes production demo fallback and email-derived role detection', () => {
@@ -65,11 +69,11 @@ describe('platform-v7 server-authoritative login boundary', () => {
   });
 
   it('keeps password, MFA and one-time backup-code disclosure as separate UI states', () => {
-    expect(loginPage).toContain("type LoginStep = 'password' | 'mfa' | 'backup-codes'");
-    expect(loginPage).toContain("type MfaMethod = 'totp' | 'backup_code'");
-    expect(loginPage).toContain("requestJson('/api/auth/mfa-login'");
-    expect(loginPage).toContain("autoComplete={method === 'totp' ? 'one-time-code' : 'off'}");
-    expect(loginPage).toContain("step === 'backup-codes'");
+    expect(loginClient).toContain("type LoginStep = 'password' | 'mfa' | 'backup-codes'");
+    expect(loginClient).toContain("type MfaMethod = 'totp' | 'backup_code'");
+    expect(loginClient).toContain("requestJson('/api/auth/mfa-login'");
+    expect(loginClient).toContain("autoComplete={method === 'totp' ? 'one-time-code' : 'off'}");
+    expect(loginClient).toContain("step === 'backup-codes'");
     expect(messages).toContain('mfaTitle: string');
     expect(messages).toContain('backupCodesTitle: string');
   });
