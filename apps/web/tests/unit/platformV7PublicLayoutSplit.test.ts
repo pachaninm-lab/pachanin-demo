@@ -6,12 +6,11 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 const rootLayout = read('apps/web/app/layout.tsx');
 const layout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');
-const landingStyles = read('apps/web/app/platform-v7/_styles/landing.ts');
-const authStyles = read('apps/web/app/platform-v7/_styles/auth.ts');
-const fullPlatformStyles = read('apps/web/app/platform-v7/_styles/full-platform.ts');
+const fullStyleRuntime = read('apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const landing = read('apps/web/app/platform-v7/page.tsx');
+const loginLayout = read('apps/web/app/platform-v7/login/layout.tsx');
 const login = read('apps/web/app/platform-v7/login/page.tsx');
 const loginClient = read('apps/web/app/platform-v7/login/LoginFormClient.tsx');
 const recovery = read('apps/web/app/platform-v7/forgot-password/page.tsx');
@@ -26,22 +25,22 @@ const publicLandingCss = read('apps/web/styles/platform-v7-public-landing.css');
 const middleware = read('apps/web/middleware.ts');
 
 describe('platform-v7 public/protected runtime split', () => {
-  it('resolves public paths before creating the protected client tree', () => {
+  it('resolves lean public paths before creating the full or protected client tree', () => {
     expect(layout).toContain("from 'next/headers'");
     expect(layout).toContain("headers().get('x-pc-pathname')");
-    expect(layout).toContain("await import('./_styles/landing')");
-    expect(layout).toContain("await import('./_styles/auth')");
-    expect(layout).toContain("await import('./_styles/full-platform')");
-    expect(layout).toContain('if (isPublicPath(pathname)) return children');
+    expect(layout).toContain('if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children');
+    expect(layout).toContain("await import('@/components/platform-v7/PlatformV7FullStyleRuntime')");
     expect(layout).toContain("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')");
-    expect(layout.indexOf("await import('./_styles/landing')")).toBeLessThan(layout.indexOf("await import('./_styles/full-platform')"));
-    expect(layout.indexOf("await import('./_styles/auth')")).toBeLessThan(layout.indexOf("await import('./_styles/full-platform')"));
+    expect(layout.indexOf('if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children')).toBeLessThan(
+      layout.indexOf("await import('@/components/platform-v7/PlatformV7FullStyleRuntime')"),
+    );
+    expect(layout).not.toContain("await import('./_styles/");
     expect(layout).not.toContain('PlatformV7ShellSwitch');
     expect(layout).not.toContain('ToastProvider');
     expect(layout).not.toContain('PlatformThemeSync');
   });
 
-  it('does not wrap target public routes in client providers or templates', () => {
+  it('does not wrap target public routes in client providers or protected templates', () => {
     expect(rootLayout).toContain('LEAN_PUBLIC_ENTRY_PATHS');
     expect(rootLayout).toContain('leanPublicEntry\n    ? children');
     expect(rootLayout).toContain('messages={await getMessages()}');
@@ -71,19 +70,31 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(publicHeader).toContain("<a href='/platform-v7' className='pc-site-brand'");
   });
 
-  it('loads only route-critical public styles before hydration', () => {
+  it('loads lean CSS from concrete routes and full CSS only from the non-lean runtime', () => {
+    expect(rootLayout).not.toContain("platform-v7-dark-role-fixes.css");
     expect(layout).not.toContain("import '@/styles/");
     expect(template).not.toContain("import '@/styles/");
-    expect(landingStyles).toContain("import '@/styles/platform-v7-public-header.css'");
-    expect(landingStyles).toContain("import '@/styles/platform-v7-public-landing.css'");
-    expect(landingStyles).toContain("import '@/styles/platform-v7-public-entry-stable.css'");
-    expect(landingStyles).not.toContain('platform-v7-protected-grid-stable.css');
-    expect(authStyles).toContain("import '@/styles/platform-v7-public-header.css'");
-    expect(authStyles).toContain("import '@/styles/platform-v7-public-auth.css'");
-    expect(authStyles).not.toContain('platform-v7-public-landing.css');
-    expect(authStyles).not.toContain('platform-v7-protected-grid-stable.css');
-    expect(fullPlatformStyles).toContain("import '@/styles/platform-v7-protected-grid-stable.css'");
-    expect(fullPlatformStyles).toContain("import '@/styles/platform-v7-dark-role-fixes.css'");
+
+    expect(landing).toContain("import '@/styles/platform-v7-public-header.css'");
+    expect(landing).toContain("import '@/styles/platform-v7-public-landing.css'");
+    expect(landing).toContain("import '@/styles/platform-v7-public-entry-stable.css'");
+    expect(landing).not.toContain('platform-v7-protected-grid-stable.css');
+    expect(landing).not.toContain('platform-v7-dark-role-fixes.css');
+
+    expect(loginLayout).toContain("import '@/styles/platform-v7-public-header.css'");
+    expect(loginLayout).toContain("import '@/styles/platform-v7-public-auth.css'");
+    expect(loginLayout).not.toContain('platform-v7-public-landing.css');
+    expect(loginLayout).not.toContain('platform-v7-protected-grid-stable.css');
+
+    expect(recovery).toContain("import '@/styles/platform-v7-public-header.css'");
+    expect(recovery).toContain("import '@/styles/platform-v7-public-auth.css'");
+    expect(recovery).not.toContain('platform-v7-public-landing.css');
+    expect(recovery).not.toContain('platform-v7-protected-grid-stable.css');
+
+    expect(fullStyleRuntime).toContain("'use client'");
+    expect(fullStyleRuntime).toContain("import '@/styles/platform-v7-protected-grid-stable.css'");
+    expect(fullStyleRuntime).toContain("import '@/styles/platform-v7-dark-role-fixes.css'");
+    expect(fullStyleRuntime).toContain('return children');
 
     for (const source of [publicHeader, publicLocaleLink, brandMark, landing, intelligenceStrip, login, loginClient, recovery, recoveryClient]) {
       expect(source).not.toContain('<style');
