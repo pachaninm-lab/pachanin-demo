@@ -1,28 +1,42 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.45 Physical Table RLS Policy Alignment and Rehearsal.
+CURRENT: Industrial One Deal Foundation: explicit implementation scope unlock.
 
-GOAL: Привести PostgreSQL RLS SQL к реальным physical table names Prisma, сделать политику идемпотентной и fail-closed, удалить legacy session-level context helper и добавить только rollback-safe non-production rehearsal.
+GOAL: Разрешить строго ограниченный промышленный проход одной канонической тестовой сделки через все роли, не открывая auth persistence, production migrations, landing, lockfiles, live integrations или неподтверждённые production claims.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
-- infra/sql/production-rls-policies.sql
-- apps/api/src/common/prisma/rls-transaction.service.spec.ts
-- scripts/platform-v7-rls-validate.mjs
-- scripts/platform-v7-rls-apply-rehearsal.sh
-- scripts/platform-v7-rls-rollback-rehearsal.sh
+- apps/api/src/common/action-executor/action-policy.ts
+- apps/api/src/common/types/request-user.ts
+- apps/api/src/modules/deals/**
+- apps/api/src/modules/settlement-engine/settlement-engine.controller.ts
+- apps/api/src/modules/settlement-engine/settlement-engine.module.ts
+- apps/web/app/api/auth/login/route.ts
+- apps/web/app/api/proxy/[...path]/route.ts
+- apps/web/app/platform-v7/login/page.tsx
+- apps/web/components/platform-v7/CanonicalDealWorkspace.tsx
+- apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx
+- apps/web/components/platform-v7/RoleIntentDashboard.tsx
+- apps/web/lib/platform-v7/verified-session.ts
+- apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts
+- apps/web/tests/unit/platformV7VerifiedSession.test.ts
+- .github/workflows/web-unit.yml
 
 CURRENT CRITERIA:
-- policy SQL targets `deals`, `organizations`, `audit_events`, `ledger_entries`, `integration_events`, `outbox_entries`, `deal_workspace_runtime_snapshots` and `deal_workspace_runtime_transaction_attempts`;
-- all protected tables use `ENABLE ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`;
-- PostgreSQL 16 compatible idempotency uses `DROP POLICY IF EXISTS` followed by `CREATE POLICY`;
-- legacy three-argument `set_app_context` is removed;
-- SQL does not create session-level context setters;
-- role, user, organization, tenant and session settings are treated as mandatory trusted transaction context;
-- rehearsal scripts refuse production mode, require a dedicated rehearsal URL and always roll back;
-- static validation detects Prisma/RLS table drift and forbidden legacy constructs;
-- no production database is modified.
+- one canonical deal ID and one factual state are used by every role;
+- client submits a command, idempotency key and expected version, never an arbitrary target state;
+- canonical reads and writes require trusted user, session, role, organization and tenant context;
+- Deal, side effects, DealEvent, AuditEvent, receipt and external outbox are committed through transaction-local RLS with Serializable command isolation;
+- idempotency is derived from every material command field and no raw pre-transaction intent write exists;
+- reserve and release confirmations are accepted only from a verified BANK_CALLBACK system actor;
+- callback signature binds method, path, partner, key version, timestamp, event ID and canonical payload hash;
+- callback is bound to the exact pending bank operation;
+- legacy controller role allowlists remain intact;
+- SURVEYOR is a first-class backend role;
+- canonical UI has no synthetic bank reference, manual bank confirmation or fake successful backend response;
+- test seed is explicit, idempotent and production-denied by default;
+- API, web, build, CodeQL and security gates are green before merge.
 
 DONE:
 - #2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation
@@ -31,37 +45,39 @@ DONE:
 - #2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary
 - #2254 VP-3.43 Transaction-Local Trusted RLS Context
 - #2256 VP-3.44 Runtime Persistence Trusted Transaction Binding
+- #2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal
 
 LOCKED:
 - production migration execution;
 - production RLS policy application;
 - persistent identity/session/revocation/MFA files;
-- controller/API/web wiring;
-- bank reserve/release confirmation from user commands;
-- live bank/FGIS/EDO integrations.
+- apps/landing;
+- package and lockfiles;
+- live bank/FGIS/EDO/signature integrations;
+- production scale, restore or disaster-recovery claims.
 
 NEXT:
-- Layer: VP-3.46 Ephemeral PostgreSQL RLS Integration Harness.
+- Layer: Persistent Identity, Session Family, Revocation and MFA Foundation.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-  - apps/api/test/rls/**
-  - scripts/platform-v7-rls-*.mjs
-  - scripts/platform-v7-rls-*.sh
-  - .github/workflows/platform-v7-rls-integration.yml
+  - apps/api/src/modules/auth/**
+  - apps/api/src/modules/mfa/**
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/**
+  - apps/api/test/auth/**
 - Success criteria:
-  - CI starts an isolated PostgreSQL 16 service with no production credentials;
-  - schema and canonical RLS SQL are applied to the ephemeral database only;
-  - two tenants and two organizations are seeded;
-  - participant access succeeds only for its own deal;
-  - cross-tenant deal, audit, outbox and runtime snapshot reads are denied;
-  - incomplete trusted context is denied;
-  - transaction-local context does not leak to a reused pooled connection;
-  - test teardown destroys all data and credentials;
-  - production-enabled claims remain forbidden.
-- Readiness remains 85% honest architectural readiness.
+  - users, credentials, memberships, sessions and refresh-token families are PostgreSQL-backed;
+  - refresh rotation and reuse detection are transactional;
+  - logout and revocation are shared across API instances;
+  - MFA factors and recovery codes are encrypted or hashed and fail closed;
+  - no self-selected role or organization is trusted;
+  - production migration execution remains a separate controlled operation;
+  - all identity integration, replay and multi-instance tests are green.
+- Readiness remains 85% honest architectural readiness until exploitation evidence exists.
 
 AFTER NEXT:
-- Persistent identity/session/revocation/MFA source of truth after blocker #2115.
-- Authenticated DB-backed runtime action bridge without direct bank confirmation.
-- Concurrency, retry, recovery, load, restore and security acceptance gates.
+- Durable outbox workers, bank reconciliation and replay-safe partner key rotation.
+- Truthful driver offline acknowledgement and conflict handling.
+- Server-rendered RU/EN/ZH i18n and complete design-system migration.
+- Concurrency, load, restore, DR, accessibility and operational acceptance gates.
