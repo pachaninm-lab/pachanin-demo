@@ -62,7 +62,7 @@ export function deriveTrustedRlsContext(user: RequestUser | undefined): TrustedR
 export class RlsTransactionService {
   constructor(private readonly prisma: PrismaService) {}
 
-  withTrustedContext<T>(
+  async withTrustedContext<T>(
     user: RequestUser | undefined,
     work: (tx: Prisma.TransactionClient, context: TrustedRlsContext) => Promise<T>,
     options: RlsTransactionOptions = {},
