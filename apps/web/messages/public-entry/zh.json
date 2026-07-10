@@ -1,0 +1,41 @@
+{
+  "publicEntry": {
+    "locale": {
+      "current": "当前语言",
+      "switchTo": "切换语言为"
+    },
+    "landing": {
+      "secondaryCta": "查看交易流程",
+      "rolesTitle": "所有参与方在同一执行闭环中协作",
+      "rolesText": "所有参与方使用同一个登录入口。系统在身份验证后确定角色、组织和可用工作空间。"
+    },
+    "login": {
+      "brand": "透明价格",
+      "brandTagline": "统一进入交易执行闭环",
+      "publicHeader": "登录平台",
+      "home": "透明价格 — 首页",
+      "eyebrow": "统一安全登录",
+      "title": "登录",
+      "lead": "系统在验证账户后确定角色、组织和权限。",
+      "email": "工作邮箱",
+      "password": "密码",
+      "emailPlaceholder": "name@company.cn",
+      "passwordPlaceholder": "输入密码",
+      "submit": "登录",
+      "loading": "正在验证访问权限…",
+      "forgot": "恢复访问权限",
+      "register": "创建账户",
+      "back": "返回",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码",
+      "required": "请输入工作邮箱和密码。",
+      "unavailable": "无法登录。请检查信息或恢复访问权限。",
+      "facts": {
+        "account": "一个账户",
+        "permissions": "服务器权限控制",
+        "session": "受保护会话"
+      },
+      "note": "登录后，系统会打开分配给该组织的工作空间。不能通过网址选择或更改角色。"
+    }
+  }
+}

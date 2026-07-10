@@ -1,0 +1,41 @@
+{
+  "publicEntry": {
+    "locale": {
+      "current": "Current language",
+      "switchTo": "Switch language to"
+    },
+    "landing": {
+      "secondaryCta": "View the deal journey",
+      "rolesTitle": "All participants work in one execution circuit",
+      "rolesText": "Every participant uses one sign-in. The system resolves the role, organisation and available workspace after authentication."
+    },
+    "login": {
+      "brand": "Transparent Price",
+      "brandTagline": "Single entry to deal execution",
+      "publicHeader": "Platform sign in",
+      "home": "Transparent Price — home",
+      "eyebrow": "Single secure sign in",
+      "title": "Sign in",
+      "lead": "The system resolves the role, organisation and permissions after the account is verified.",
+      "email": "Work email",
+      "password": "Password",
+      "emailPlaceholder": "name@company.com",
+      "passwordPlaceholder": "Enter password",
+      "submit": "Sign in",
+      "loading": "Verifying access…",
+      "forgot": "Restore access",
+      "register": "Create account",
+      "back": "Back",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "required": "Enter your work email and password.",
+      "unavailable": "Sign-in failed. Check the details or restore access.",
+      "facts": {
+        "account": "One account",
+        "permissions": "Server-side permissions",
+        "session": "Protected session"
+      },
+      "note": "After sign-in, the system opens the workspace assigned to the organisation. A role cannot be selected or changed through the URL."
+    }
+  }
+}

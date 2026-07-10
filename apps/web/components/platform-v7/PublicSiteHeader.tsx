@@ -7,6 +7,7 @@ import styles from './PublicSiteHeader.module.css';
 export const PUBLIC_SITE_HEADER_HEIGHT = 64;
 
 export function PublicSiteHeader({
+  brand = 'Прозрачная Цена',
   tagline,
   nav,
   actions,
@@ -14,6 +15,7 @@ export function PublicSiteHeader({
   homeAriaLabel = 'Прозрачная Цена — на главную',
   sectionsAriaLabel = 'Разделы',
 }: {
+  brand?: string;
   tagline?: string;
   nav?: ReactNode;
   actions?: ReactNode;
@@ -26,7 +28,7 @@ export function PublicSiteHeader({
       <Link href='/platform-v7' className={styles.brand} aria-label={homeAriaLabel}>
         <span className={styles.brandMark}><BrandMark size={40} /></span>
         <span className={styles.brandText}>
-          <strong>Прозрачная Цена</strong>
+          <strong>{brand}</strong>
           {tagline ? <small>{tagline}</small> : null}
         </span>
       </Link>

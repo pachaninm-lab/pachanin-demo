@@ -2,16 +2,10 @@
 
 import { useMemo, useTransition } from 'react';
 import { Languages } from 'lucide-react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { isAppLocale, SUPPORTED_LOCALES, type AppLocale } from '@/i18n/locale';
 import styles from './PublicLocaleSwitcher.module.css';
-
-const LABELS: Record<AppLocale, { current: string; next: string }> = {
-  ru: { current: 'Текущий язык', next: 'Переключить язык на' },
-  en: { current: 'Current language', next: 'Switch language to' },
-  zh: { current: '当前语言', next: '切换语言为' },
-};
 
 const SHORT_LABELS: Record<AppLocale, string> = {
   ru: 'RU',
@@ -29,6 +23,7 @@ function nextLocale(locale: AppLocale): AppLocale {
 }
 
 export function PublicLocaleSwitcher() {
+  const t = useTranslations('publicEntry.locale');
   const locale = normalizeLocale(useLocale());
   const next = nextLocale(locale);
   const pathname = usePathname() || '/platform-v7';
@@ -44,8 +39,7 @@ export function PublicLocaleSwitcher() {
     return query ? `${pathname}?${query}` : pathname;
   }, [next, pathname, searchParams]);
 
-  const labels = LABELS[locale];
-  const ariaLabel = `${labels.current}: ${SHORT_LABELS[locale]}. ${labels.next}: ${SHORT_LABELS[next]}`;
+  const ariaLabel = `${t('current')}: ${SHORT_LABELS[locale]}. ${t('switchTo')}: ${SHORT_LABELS[next]}`;
 
   return (
     <button
