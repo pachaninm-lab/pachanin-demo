@@ -23,6 +23,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7',
   '/platform-v7/open',
   '/platform-v7/login',
+  '/platform-v7/forgot-password',
   '/platform-v7/register',
   '/platform-v7/help',
   '/platform-v7/pricing',
@@ -81,7 +82,7 @@ function roleFromPath(pathname: string): PlatformRole {
 export function PlatformV7ShellSwitch({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '/platform-v7';
 
-  if (isPublicPath(pathname)) return <><HeaderLanguageSwitch />{children}</>;
+  if (isPublicPath(pathname)) return <>{children}</>;
 
   const initialRole = roleFromPath(pathname);
   const showRoleIntentDashboard = shouldShowRoleIntentDashboard(pathname);
