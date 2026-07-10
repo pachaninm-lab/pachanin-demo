@@ -1,48 +1,61 @@
-import { Injectable, UnauthorizedException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import * as jwt from 'jsonwebtoken';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import * as jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
-import { RequestUser, Role } from '../../common/types/request-user';
-import { LoginDto } from './dto/login.dto';
+import {
+  FINANCIAL_MFA_THRESHOLD_KOPECKS,
+  RequestUser,
+  Role,
+  ROLES_REQUIRING_MFA,
+} from '../../common/types/request-user';
 import { requireSecret } from '../../common/config/secrets';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import {
+  buildOtpAuthUri,
+  decryptMfaSecret,
+  encryptMfaSecret,
+  generateBackupCodes,
+  generateTotpSecret,
+  hashAuthMaterial,
+  hashClientValue,
+  makeOpaqueToken,
+  parseOpaqueToken,
+  secureEqual,
+  sha256,
+  stableJson,
+  verifyTotp,
+} from './auth-crypto';
+import {
+  AuthSqlClient,
+  CredentialStateRow,
+  IdentityRow,
+  MfaChallengeRow,
+  PersistentAuthRepository,
+  SessionContextRow,
+} from './persistent-auth.repository';
 
 const JWT_SECRET = requireSecret('JWT_SECRET');
-const ACCESS_TOKEN_TTL = '8h';
-const REFRESH_TOKEN_TTL = '30d';
+const ACCESS_TOKEN_TTL = '15m';
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-
+const MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
+const MFA_FRESHNESS_MS = 15 * 60 * 1000;
 const CURRENT_CONSENT_VERSION = '1.2';
+const MAX_FAILED_LOGINS = 5;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('invalid-password-sentinel', 10);
+const ACCESS_ISSUER = 'transparent-price-api';
+const ACCESS_AUDIENCE = 'transparent-price-platform';
 
-interface StoredUser {
-  id: string;
-  email: string;
-  passwordHash: string;
-  role: Role;
-  orgId: string;
-  fullName: string;
-  phone?: string;
-  consentVersion?: string;
-  consentAt?: string;
-  anonymized?: boolean;
-  createdAt?: string;
-}
-
-interface RefreshTokenRecord {
-  token: string;
-  userId: string;
-  expiresAt: number;
-}
-
-const DEMO_ORG_ID = 'org-demo-001';
-
-/**
- * Roles a user is permitted to grant themselves at self-service registration.
- * Privileged / oversight roles (ADMIN, SUPPORT_MANAGER, EXECUTIVE,
- * COMPLIANCE_OFFICER, ARBITRATOR) and GUEST must NEVER be self-assignable —
- * ADMIN/SUPPORT_MANAGER bypass all route + object guards, so accepting them
- * from an anonymous request body is a full authorization bypass. These roles
- * are provisioned only through an authenticated administrator flow.
- */
 const SELF_REGISTERABLE_ROLES: ReadonlySet<Role> = new Set<Role>([
   Role.FARMER,
   Role.BUYER,
@@ -52,217 +65,505 @@ const SELF_REGISTERABLE_ROLES: ReadonlySet<Role> = new Set<Role>([
   Role.ELEVATOR,
   Role.ACCOUNTING,
 ]);
+const KNOWN_ROLES = new Set<string>(Object.values(Role));
+const PRIVILEGED_MFA_ROLES = new Set<string>(ROLES_REQUIRING_MFA);
+const SYNTHETIC_SEED_ENABLED = String(process.env.SEED_CANONICAL_TEST_DEAL ?? '').toLowerCase() === 'true';
 
-// Brute-force / credential-stuffing protection on login (per-account).
-const MAX_FAILED_LOGINS = 5;
-const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
-
-/**
- * Demo accounts are seeded ONLY when SEED_DEMO_USERS=true (never implicitly in
- * production). They carry a well-known password and must not exist in any
- * environment serving real users.
- */
-const SHOULD_SEED_DEMO_USERS = String(process.env.SEED_DEMO_USERS || '').toLowerCase() === 'true';
-
-const demoUsers: StoredUser[] = [
-  { id: 'user-farmer-001', email: 'farmer@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.FARMER, orgId: 'org-farmer-001', fullName: 'Demo Farmer' },
-  { id: 'user-buyer-001', email: 'buyer@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.BUYER, orgId: 'org-buyer-001', fullName: 'Demo Buyer' },
-  { id: 'user-logistician-001', email: 'logistician@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.LOGISTICIAN, orgId: 'org-logistics-001', fullName: 'Demo Logistician' },
-  { id: 'user-driver-001', email: 'driver@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.DRIVER, orgId: 'org-logistics-001', fullName: 'Demo Driver' },
-  { id: 'user-lab-001', email: 'lab@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.LAB, orgId: 'org-lab-001', fullName: 'Demo Lab' },
-  { id: 'user-elevator-001', email: 'elevator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ELEVATOR, orgId: 'org-elevator-001', fullName: 'Demo Elevator' },
-  { id: 'user-accounting-001', email: 'accounting@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ACCOUNTING, orgId: 'org-farmer-001', fullName: 'Demo Accounting' },
-  { id: 'user-executive-001', email: 'executive@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.EXECUTIVE, orgId: DEMO_ORG_ID, fullName: 'Demo Executive' },
-  { id: 'user-operator-001', email: 'operator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.SUPPORT_MANAGER, orgId: DEMO_ORG_ID, fullName: 'Demo Operator' },
-  { id: 'user-admin-001', email: 'admin@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ADMIN, orgId: DEMO_ORG_ID, fullName: 'Demo Admin' },
-  { id: 'user-compliance-001', email: 'compliance@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.COMPLIANCE_OFFICER, orgId: DEMO_ORG_ID, fullName: 'Demo Compliance Officer' },
-  { id: 'user-arbitrator-001', email: 'arbitrator@demo.ru', passwordHash: bcrypt.hashSync('demo1234', 10), role: Role.ARBITRATOR, orgId: DEMO_ORG_ID, fullName: 'Demo Arbitrator' },
-];
-
-const usersStore: StoredUser[] = SHOULD_SEED_DEMO_USERS ? [...demoUsers] : [];
-const refreshTokensStore = new Map<string, RefreshTokenRecord>();
-
-interface LoginAttemptRecord {
-  failures: number;
-  lockedUntil: number;
-}
-const loginAttemptsStore = new Map<string, LoginAttemptRecord>();
-
-const ACCESS_TOKEN_TTL_MS = 8 * 60 * 60 * 1000; // must match ACCESS_TOKEN_TTL ('8h')
-
-// --- Session revocation (L2) ---
-// A stateless JWT cannot be un-issued, so we keep a server-side deny-list of
-// revoked session ids and the set of currently-active sessions per user. Every
-// authenticated request is checked against the deny-list (see
-// verifyAccessToken), which lets logout, account anonymization and role changes
-// invalidate live access tokens immediately instead of waiting 8h for expiry.
-//
-// NOTE (federal / multi-instance scale): these maps are in-process. For a fleet
-// of API instances they must be backed by a shared store (e.g. Redis) so a
-// revocation on one node is honoured by all. The logic below is written so only
-// the store implementation needs swapping.
-const activeUserSessions = new Map<string, Set<string>>();
-const revokedSessions = new Map<string, number>(); // sessionId -> expiry (ms epoch)
-
-function pruneRevokedSessions(now: number): void {
-  for (const [sessionId, expiresAt] of revokedSessions) {
-    if (expiresAt <= now) revokedSessions.delete(sessionId);
-  }
+export function canSelfRegisterRole(role: Role): boolean {
+  return SELF_REGISTERABLE_ROLES.has(role);
 }
 
-function trackSession(userId: string, sessionId: string): void {
-  let sessions = activeUserSessions.get(userId);
-  if (!sessions) {
-    sessions = new Set<string>();
-    activeUserSessions.set(userId, sessions);
-  }
-  sessions.add(sessionId);
+export function requiresRoleMfa(role: Role): boolean {
+  return PRIVILEGED_MFA_ROLES.has(role);
 }
 
-function revokeSession(sessionId: string, now = Date.now()): void {
-  if (!sessionId) return;
-  revokedSessions.set(sessionId, now + ACCESS_TOKEN_TTL_MS);
-  for (const sessions of activeUserSessions.values()) sessions.delete(sessionId);
+export function requiresRecentFinancialMfa(amountKopecks: number): boolean {
+  return Number.isFinite(amountKopecks) && amountKopecks >= FINANCIAL_MFA_THRESHOLD_KOPECKS;
 }
 
-function revokeAllUserSessions(userId: string, now = Date.now()): void {
-  const sessions = activeUserSessions.get(userId);
-  if (!sessions) return;
-  for (const sessionId of sessions) revokedSessions.set(sessionId, now + ACCESS_TOKEN_TTL_MS);
-  activeUserSessions.delete(userId);
-}
+type SeedCompatibilityUser = {
+  id: string;
+  email: string;
+  role: Role;
+  orgId: string;
+  fullName: string;
+};
 
-function isSessionRevoked(sessionId: string | undefined, now = Date.now()): boolean {
-  if (!sessionId) return false;
-  const expiresAt = revokedSessions.get(sessionId);
-  if (expiresAt === undefined) return false;
-  if (expiresAt <= now) {
-    revokedSessions.delete(sessionId);
-    return false;
-  }
-  return true;
-}
+type AuthUserProjection = {
+  id: string;
+  email: string;
+  fullName: string;
+  role: Role;
+  orgId: string;
+  tenantId: string;
+  membershipId: string;
+  mfaVerified: boolean;
+};
+
+type AccessClaims = jwt.JwtPayload & {
+  sub: string;
+  sid: string;
+  typ: 'access';
+};
+
+type MfaVerifyInput = {
+  challengeToken: string;
+  code: string;
+};
 
 @Injectable()
 export class AuthService {
-  private issueTokens(user: StoredUser) {
-    const payload: RequestUser = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      orgId: user.orgId,
-      fullName: user.fullName,
-      sessionId: randomUUID(),
-    };
-    trackSession(user.id, payload.sessionId!);
-    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
-    const refreshToken = randomUUID();
-    refreshTokensStore.set(refreshToken, {
-      token: refreshToken,
-      userId: user.id,
-      expiresAt: Date.now() + REFRESH_TOKEN_TTL_MS,
-    });
-    return {
-      accessToken,
-      refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        orgId: user.orgId,
-        fullName: user.fullName,
-      },
-    };
-  }
+  private readonly seedCompatibilityUsers: SeedCompatibilityUser[] = [];
+
+  constructor(private readonly repository: PersistentAuthRepository) {}
 
   async login(dto: LoginDto, userAgent?: string, ip?: string) {
-    const accountKey = dto.email.toLowerCase();
-    this.assertNotLockedOut(accountKey);
+    const email = dto.email.trim().toLowerCase();
+    const accountHash = hashAuthMaterial(`account:${email}`);
+    const identity = await this.repository.findIdentityByEmail(this.repository.prisma, email);
+    const validPassword = await bcrypt.compare(dto.password, identity?.password_hash ?? DUMMY_PASSWORD_HASH);
 
-    const user = usersStore.find((u) => u.email.toLowerCase() === accountKey);
-    // Always run a bcrypt comparison (even for unknown users) to avoid leaking
-    // account existence via response timing, and to feed the lockout counter.
-    const passwordHash = user?.passwordHash || '';
-    const valid = passwordHash ? await bcrypt.compare(dto.password, passwordHash) : false;
+    const result = await this.repository.transaction(async (tx) => {
+      await this.repository.ensureLoginThrottle(tx, accountHash);
+      const throttle = await this.repository.getLoginThrottle(tx, accountHash, true);
+      const now = new Date();
+      if (throttle?.locked_until && throttle.locked_until > now) {
+        await this.audit(tx, {
+          userId: identity?.user_id,
+          membershipId: identity?.membership_id,
+          organizationId: identity?.organization_id,
+          tenantId: identity?.tenant_id,
+          action: 'auth.login',
+          outcome: 'DENIED',
+          reason: 'ACCOUNT_TEMPORARILY_LOCKED',
+          metadata: this.clientMetadata(userAgent, ip, { accountHash }),
+        });
+        return { kind: 'locked' as const, lockedUntil: throttle.locked_until };
+      }
 
-    if (!user || !valid || user.anonymized) {
-      this.registerFailedLogin(accountKey);
-      throw new UnauthorizedException('Invalid credentials');
+      if (!identity || !validPassword) {
+        const failures = (throttle?.failures ?? 0) + 1;
+        const lockedUntil = failures >= MAX_FAILED_LOGINS
+          ? new Date(Date.now() + LOGIN_LOCKOUT_MS)
+          : null;
+        await this.repository.setLoginThrottle(tx, accountHash, lockedUntil ? 0 : failures, lockedUntil);
+        await this.audit(tx, {
+          userId: identity?.user_id,
+          membershipId: identity?.membership_id,
+          organizationId: identity?.organization_id,
+          tenantId: identity?.tenant_id,
+          action: 'auth.login',
+          outcome: 'FAILURE',
+          reason: 'INVALID_CREDENTIALS',
+          metadata: this.clientMetadata(userAgent, ip, { accountHash, locked: Boolean(lockedUntil) }),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      await this.assertIdentityUsable(tx, identity, 'auth.login');
+      await this.repository.ensureCredentialState(tx, identity.user_id);
+      const credential = await this.requireCredentialState(tx, identity.user_id, true);
+      await this.repository.clearLoginThrottle(tx, accountHash);
+      await this.repository.markLoginSuccess(tx, identity.user_id);
+
+      const sessionId = `ses_${randomUUID()}`;
+      const familyId = `rf_${randomUUID()}`;
+      const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+      const mfaRequired = requiresRoleMfa(this.role(identity.role)) || credential.mfa_enabled;
+      await this.repository.createSession(tx, {
+        id: sessionId,
+        userId: identity.user_id,
+        membershipId: identity.membership_id,
+        organizationId: identity.organization_id,
+        tenantId: identity.tenant_id,
+        status: mfaRequired ? 'MFA_PENDING' : 'ACTIVE',
+        refreshFamilyId: familyId,
+        credentialVersion: credential.credential_version,
+        userAgentHash: hashClientValue(userAgent),
+        ipHash: hashClientValue(ip),
+        expiresAt,
+      });
+
+      if (mfaRequired) {
+        const enrollment = !credential.mfa_enabled || !credential.mfa_secret_ciphertext;
+        let setupSecret: string | undefined;
+        if (enrollment) {
+          setupSecret = generateTotpSecret();
+          const encrypted = encryptMfaSecret(setupSecret);
+          await this.repository.setMfaSecret(tx, identity.user_id, encrypted.ciphertext, encrypted.keyVersion);
+        }
+        const challenge = makeOpaqueToken('mc');
+        await this.repository.createMfaChallenge(tx, {
+          id: challenge.id,
+          sessionId,
+          userId: identity.user_id,
+          challengeTokenHash: challenge.hash,
+          type: enrollment ? 'TOTP_ENROLL' : 'TOTP_VERIFY',
+          expiresAt: new Date(Date.now() + MFA_CHALLENGE_TTL_MS),
+        });
+        await this.audit(tx, {
+          userId: identity.user_id,
+          sessionId,
+          membershipId: identity.membership_id,
+          organizationId: identity.organization_id,
+          tenantId: identity.tenant_id,
+          action: 'auth.login.mfa_required',
+          outcome: 'SUCCESS',
+          metadata: this.clientMetadata(userAgent, ip, { enrollment }),
+        });
+        return {
+          kind: 'mfa' as const,
+          challengeToken: challenge.token,
+          expiresAt: new Date(Date.now() + MFA_CHALLENGE_TTL_MS).toISOString(),
+          setupSecret,
+          otpAuthUri: setupSecret ? buildOtpAuthUri(identity.email, setupSecret) : undefined,
+          user: this.userProjection(identity, false),
+        };
+      }
+
+      const tokens = await this.issueActiveTokens(tx, identity, {
+        id: sessionId,
+        familyId,
+        credentialVersion: credential.credential_version,
+        userAgent,
+        ip,
+      });
+      await this.audit(tx, {
+        userId: identity.user_id,
+        sessionId,
+        membershipId: identity.membership_id,
+        organizationId: identity.organization_id,
+        tenantId: identity.tenant_id,
+        action: 'auth.login',
+        outcome: 'SUCCESS',
+        metadata: this.clientMetadata(userAgent, ip),
+      });
+      return { kind: 'active' as const, ...tokens };
+    });
+
+    if (result.kind === 'locked') {
+      const retryAfterSec = Math.max(1, Math.ceil((result.lockedUntil.getTime() - Date.now()) / 1000));
+      throw new UnauthorizedException(`Account temporarily locked. Try again in ${retryAfterSec}s.`);
     }
-
-    this.clearFailedLogins(accountKey);
-    return this.issueTokens(user);
-  }
-
-  private assertNotLockedOut(accountKey: string): void {
-    const record = loginAttemptsStore.get(accountKey);
-    if (record && record.lockedUntil > Date.now()) {
-      const retryAfterSec = Math.ceil((record.lockedUntil - Date.now()) / 1000);
-      throw new UnauthorizedException(
-        `Account temporarily locked after too many failed attempts. Try again in ${retryAfterSec}s.`,
-      );
+    if (result.kind === 'invalid') throw new UnauthorizedException('Invalid credentials');
+    if (result.kind === 'mfa') {
+      return {
+        mfaRequired: true,
+        challengeToken: result.challengeToken,
+        challengeExpiresAt: result.expiresAt,
+        setupSecret: result.setupSecret,
+        otpAuthUri: result.otpAuthUri,
+        user: result.user,
+      };
     }
+    return { mfaRequired: false, ...result };
   }
 
-  private registerFailedLogin(accountKey: string): void {
-    const record = loginAttemptsStore.get(accountKey) ?? { failures: 0, lockedUntil: 0 };
-    record.failures += 1;
-    if (record.failures >= MAX_FAILED_LOGINS) {
-      record.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
-      record.failures = 0;
-    }
-    loginAttemptsStore.set(accountKey, record);
-  }
-
-  private clearFailedLogins(accountKey: string): void {
-    loginAttemptsStore.delete(accountKey);
-  }
-
-  async register(dto: any) {
+  async register(dto: RegisterDto | any) {
     const requestedRole = (dto.role as Role) || Role.GUEST;
-    if (!SELF_REGISTERABLE_ROLES.has(requestedRole)) {
-      // Do not reveal which roles are privileged — a generic refusal is enough.
+    if (!canSelfRegisterRole(requestedRole)) {
       throw new ForbiddenException(
         'The selected role cannot be self-registered. Contact an administrator for access.',
       );
     }
-    const existing = usersStore.find((u) => u.email.toLowerCase() === dto.email.toLowerCase());
-    if (existing) throw new ConflictException('Email already registered');
-    const passwordHash = await bcrypt.hash(dto.password, 10);
-    const newUser: StoredUser = {
-      id: `user-${randomUUID()}`,
-      email: dto.email,
-      passwordHash,
-      role: requestedRole,
-      orgId: dto.orgId || `org-${randomUUID()}`,
-      fullName: dto.fullName || dto.email,
-      phone: dto.phone,
-      consentVersion: dto.consentVersion || CURRENT_CONSENT_VERSION,
-      consentAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-    usersStore.push(newUser);
-    return this.issueTokens(newUser);
+
+    if (SYNTHETIC_SEED_ENABLED && dto.orgId && String(dto.email).endsWith('@demo.ru')) {
+      return this.registerSyntheticSeedUser(dto, requestedRole);
+    }
+
+    const email = String(dto.email ?? '').trim().toLowerCase();
+    const fullName = String(dto.fullName ?? '').trim();
+    const orgInn = String(dto.orgInn ?? '').trim();
+    const orgLegalName = String(dto.orgLegalName ?? '').trim();
+    if (!email || !fullName || !orgInn || !orgLegalName) {
+      throw new BadRequestException('Email, full name, organization name and INN are required.');
+    }
+
+    return this.repository.transaction(async (tx) => {
+      const existing = await tx.user.findUnique({ where: { email } });
+      if (existing) throw new ConflictException('Email already registered');
+      const existingOrganization = await tx.organization.findUnique({ where: { inn: orgInn } });
+      if (existingOrganization) {
+        throw new ConflictException('Organization already exists. Request an administrator invitation.');
+      }
+
+      const organization = await tx.organization.create({
+        data: {
+          id: `org_${randomUUID()}`,
+          inn: orgInn,
+          name: orgLegalName,
+          type: String(dto.orgType ?? 'LEGAL'),
+          status: 'PENDING',
+          tenantId: `tenant_${randomUUID()}`,
+          kycStatus: 'PENDING',
+          amlStatus: 'CLEAR',
+        },
+      });
+      const user = await tx.user.create({
+        data: {
+          id: `user_${randomUUID()}`,
+          email,
+          phone: dto.phone ? String(dto.phone) : null,
+          passwordHash: await bcrypt.hash(String(dto.password), 12),
+          fullName,
+          status: 'ACTIVE',
+        },
+      });
+      const membership = await tx.userOrg.create({
+        data: {
+          userId: user.id,
+          organizationId: organization.id,
+          role: requestedRole,
+          isDefault: true,
+        },
+      });
+      await this.repository.ensureCredentialState(
+        tx,
+        user.id,
+        dto.consentVersion || CURRENT_CONSENT_VERSION,
+        new Date(),
+      );
+      await this.audit(tx, {
+        userId: user.id,
+        membershipId: membership.id,
+        organizationId: organization.id,
+        tenantId: organization.tenantId,
+        action: 'auth.register',
+        outcome: 'SUCCESS',
+        reason: 'ORGANIZATION_VERIFICATION_REQUIRED',
+        metadata: { requestedRole },
+      });
+      return {
+        status: 'PENDING_ORGANIZATION_VERIFICATION',
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          role: requestedRole,
+          orgId: organization.id,
+          tenantId: organization.tenantId,
+          membershipId: membership.id,
+        },
+      };
+    });
   }
 
   async refresh(dto: { refreshToken: string }, userAgent?: string, ip?: string) {
-    const record = refreshTokensStore.get(dto.refreshToken);
-    if (!record) throw new UnauthorizedException('Invalid refresh token');
-    if (record.expiresAt < Date.now()) {
-      refreshTokensStore.delete(dto.refreshToken);
-      throw new UnauthorizedException('Refresh token expired');
+    const parsed = parseOpaqueToken(dto.refreshToken, 'rt');
+    if (!parsed) throw new UnauthorizedException('Invalid refresh token');
+
+    const result = await this.repository.transaction(async (tx) => {
+      const context = await this.repository.getRefreshContextForUpdate(tx, parsed.id);
+      if (!context || !secureEqual(context.refresh_token_hash, parsed.hash)) {
+        await this.audit(tx, {
+          action: 'auth.refresh',
+          outcome: 'DENIED',
+          reason: 'REFRESH_TOKEN_NOT_FOUND',
+          metadata: this.clientMetadata(userAgent, ip, { tokenId: parsed.id }),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      if (context.refresh_token_status !== 'ACTIVE' || context.refresh_token_consumed_at) {
+        await this.repository.revokeFamily(
+          tx,
+          context.refresh_token_family_id,
+          'REFRESH_TOKEN_REUSE_DETECTED',
+          context.refresh_token_id,
+        );
+        await this.audit(tx, {
+          userId: context.user_id,
+          sessionId: context.session_id,
+          membershipId: context.membership_id,
+          organizationId: context.organization_id,
+          tenantId: context.tenant_id,
+          action: 'auth.refresh.reuse',
+          outcome: 'DENIED',
+          reason: 'REFRESH_TOKEN_REUSE_DETECTED',
+          metadata: this.clientMetadata(userAgent, ip, { tokenId: parsed.id }),
+        });
+        return { kind: 'reuse' as const };
+      }
+
+      const invalidReason = this.sessionInvalidReason(context);
+      if (invalidReason || context.refresh_token_expires_at <= new Date()) {
+        await this.repository.revokeFamily(
+          tx,
+          context.refresh_token_family_id,
+          invalidReason ?? 'REFRESH_TOKEN_EXPIRED',
+        );
+        await this.audit(tx, {
+          userId: context.user_id,
+          sessionId: context.session_id,
+          membershipId: context.membership_id,
+          organizationId: context.organization_id,
+          tenantId: context.tenant_id,
+          action: 'auth.refresh',
+          outcome: 'DENIED',
+          reason: invalidReason ?? 'REFRESH_TOKEN_EXPIRED',
+          metadata: this.clientMetadata(userAgent, ip),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      const replacement = makeOpaqueToken('rt');
+      await this.repository.rotateRefreshToken(tx, {
+        currentTokenId: context.refresh_token_id,
+        replacementTokenId: replacement.id,
+        replacementTokenHash: replacement.hash,
+        sessionId: context.session_id,
+        familyId: context.refresh_token_family_id,
+        replacementExpiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+        userAgentHash: hashClientValue(userAgent),
+        ipHash: hashClientValue(ip),
+      });
+      await this.audit(tx, {
+        userId: context.user_id,
+        sessionId: context.session_id,
+        membershipId: context.membership_id,
+        organizationId: context.organization_id,
+        tenantId: context.tenant_id,
+        action: 'auth.refresh',
+        outcome: 'SUCCESS',
+        metadata: this.clientMetadata(userAgent, ip, {
+          rotatedFrom: context.refresh_token_id,
+          rotatedTo: replacement.id,
+        }),
+      });
+      return {
+        kind: 'success' as const,
+        accessToken: this.signAccessToken(
+          context.user_id,
+          context.session_id,
+          context.current_credential_version,
+        ),
+        refreshToken: replacement.token,
+        user: this.userProjection(context, Boolean(context.mfa_verified_at)),
+      };
+    });
+
+    if (result.kind === 'reuse') {
+      throw new UnauthorizedException('Refresh token reuse detected; session family revoked.');
     }
-    refreshTokensStore.delete(dto.refreshToken);
-    const user = usersStore.find((u) => u.id === record.userId);
-    if (!user) throw new UnauthorizedException('User not found');
-    return this.issueTokens(user);
+    if (result.kind === 'invalid') throw new UnauthorizedException('Invalid or expired refresh token');
+    return result;
+  }
+
+  async verifyMfa(dto: MfaVerifyInput, userAgent?: string, ip?: string) {
+    const parsed = parseOpaqueToken(dto.challengeToken, 'mc');
+    if (!parsed) throw new UnauthorizedException('Invalid MFA challenge');
+
+    const result = await this.repository.transaction(async (tx) => {
+      const challenge = await this.repository.getMfaChallengeForUpdate(tx, parsed.id);
+      if (!challenge || !secureEqual(challenge.challenge_token_hash, parsed.hash)) {
+        return { kind: 'invalid' as const };
+      }
+      const invalidReason = this.sessionInvalidReason(challenge, true);
+      if (
+        invalidReason
+        || challenge.challenge_status !== 'PENDING'
+        || challenge.challenge_expires_at <= new Date()
+        || challenge.session_status !== 'MFA_PENDING'
+      ) {
+        await this.repository.revokeSession(tx, challenge.session_id, invalidReason ?? 'MFA_CHALLENGE_INVALID');
+        await this.audit(tx, {
+          userId: challenge.user_id,
+          sessionId: challenge.session_id,
+          membershipId: challenge.membership_id,
+          organizationId: challenge.organization_id,
+          tenantId: challenge.tenant_id,
+          action: 'auth.mfa.verify',
+          outcome: 'DENIED',
+          reason: invalidReason ?? 'MFA_CHALLENGE_INVALID',
+          metadata: this.clientMetadata(userAgent, ip),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      const credential = await this.requireCredentialState(tx, challenge.user_id, true);
+      if (!credential.mfa_secret_ciphertext) return { kind: 'invalid' as const };
+      const method = this.verifyMfaCode(credential, dto.code);
+      if (!method) {
+        const terminal = challenge.challenge_attempts + 1 >= challenge.challenge_max_attempts;
+        await this.repository.recordMfaFailure(tx, challenge.challenge_id, terminal);
+        if (terminal) await this.repository.revokeSession(tx, challenge.session_id, 'MFA_ATTEMPTS_EXHAUSTED');
+        await this.audit(tx, {
+          userId: challenge.user_id,
+          sessionId: challenge.session_id,
+          membershipId: challenge.membership_id,
+          organizationId: challenge.organization_id,
+          tenantId: challenge.tenant_id,
+          action: 'auth.mfa.verify',
+          outcome: 'FAILURE',
+          reason: terminal ? 'MFA_ATTEMPTS_EXHAUSTED' : 'MFA_CODE_INVALID',
+          metadata: this.clientMetadata(userAgent, ip, { attempts: challenge.challenge_attempts + 1 }),
+        });
+        return { kind: 'invalid' as const };
+      }
+
+      const enrollment = challenge.challenge_type === 'TOTP_ENROLL';
+      const backup = enrollment ? generateBackupCodes() : null;
+      await this.repository.activateMfaSession(tx, {
+        challengeId: challenge.challenge_id,
+        sessionId: challenge.session_id,
+        userId: challenge.user_id,
+        method,
+        enableMfa: enrollment,
+        backupHashes: backup?.hashes,
+      });
+      const refresh = makeOpaqueToken('rt');
+      await this.repository.createRefreshToken(tx, {
+        id: refresh.id,
+        sessionId: challenge.session_id,
+        familyId: challenge.refresh_family_id,
+        tokenHash: refresh.hash,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+        userAgentHash: hashClientValue(userAgent),
+        ipHash: hashClientValue(ip),
+      });
+      await this.audit(tx, {
+        userId: challenge.user_id,
+        sessionId: challenge.session_id,
+        membershipId: challenge.membership_id,
+        organizationId: challenge.organization_id,
+        tenantId: challenge.tenant_id,
+        action: 'auth.mfa.verify',
+        outcome: 'SUCCESS',
+        metadata: this.clientMetadata(userAgent, ip, { method, enrollment }),
+      });
+      return {
+        kind: 'success' as const,
+        accessToken: this.signAccessToken(
+          challenge.user_id,
+          challenge.session_id,
+          challenge.current_credential_version,
+        ),
+        refreshToken: refresh.token,
+        backupCodes: backup?.codes,
+        user: this.userProjection(challenge, true),
+      };
+    });
+
+    if (result.kind === 'invalid') throw new UnauthorizedException('Invalid or expired MFA challenge');
+    return result;
   }
 
   async logout(dto: { refreshToken?: string }, sessionId?: string) {
-    if (dto?.refreshToken) refreshTokensStore.delete(dto.refreshToken);
-    // Immediately invalidate the caller's live access token, not just the refresh token.
-    if (sessionId) revokeSession(sessionId);
-    pruneRevokedSessions(Date.now());
+    if (!sessionId) return { success: true };
+    await this.repository.transaction(async (tx) => {
+      const context = await this.repository.getSessionContext(tx, sessionId, '', false);
+      await this.repository.revokeSession(tx, sessionId, 'USER_LOGOUT');
+      await this.audit(tx, {
+        userId: context?.user_id,
+        sessionId,
+        membershipId: context?.membership_id,
+        organizationId: context?.organization_id,
+        tenantId: context?.tenant_id,
+        action: 'auth.logout',
+        outcome: 'SUCCESS',
+        metadata: { refreshTokenPresented: Boolean(dto?.refreshToken) },
+      });
+    });
     return { success: true };
   }
 
@@ -272,33 +573,180 @@ export class AuthService {
       email: user.email,
       role: user.role,
       orgId: user.orgId,
+      tenantId: user.tenantId,
+      membershipId: user.membershipId,
       fullName: user.fullName,
       surfaceRole: user.surfaceRole,
+      mfaVerified: user.mfaVerified,
+      mfaVerifiedAt: user.mfaVerifiedAt,
     };
   }
 
   async verifyAccessToken(token: string): Promise<RequestUser> {
-    let payload: any;
+    let claims: AccessClaims;
     try {
-      payload = jwt.verify(token, JWT_SECRET);
+      const raw = jwt.verify(token, JWT_SECRET, {
+        issuer: ACCESS_ISSUER,
+        audience: ACCESS_AUDIENCE,
+      });
+      if (
+        typeof raw === 'string'
+        || raw.typ !== 'access'
+        || typeof raw.sub !== 'string'
+        || typeof raw.sid !== 'string'
+      ) {
+        throw new Error('Invalid access claims');
+      }
+      claims = raw as AccessClaims;
     } catch {
       throw new UnauthorizedException('Invalid or expired access token');
     }
-    if (isSessionRevoked(payload.sessionId)) {
-      throw new UnauthorizedException('Session has been revoked');
+
+    const context = await this.repository.getSessionContext(
+      this.repository.prisma,
+      claims.sid,
+      claims.sub,
+    );
+    const reason = context ? this.sessionInvalidReason(context) : 'SESSION_NOT_FOUND';
+    if (!context || reason) {
+      if (context) {
+        await this.repository.transaction(async (tx) => {
+          await this.repository.revokeSession(tx, context.session_id, reason ?? 'SESSION_INVALID');
+          await this.audit(tx, {
+            userId: context.user_id,
+            sessionId: context.session_id,
+            membershipId: context.membership_id,
+            organizationId: context.organization_id,
+            tenantId: context.tenant_id,
+            action: 'auth.access',
+            outcome: 'DENIED',
+            reason,
+          });
+        });
+      }
+      throw new UnauthorizedException(reason === 'SESSION_REVOKED' ? 'Session has been revoked' : 'Session is not active');
     }
+
+    const role = this.role(context.role);
+    if (requiresRoleMfa(role) && !context.mfa_verified_at) {
+      throw new UnauthorizedException('MFA verification is required for this role');
+    }
+    await this.repository.touchSession(this.repository.prisma, context.session_id);
     return {
-      id: payload.id,
-      email: payload.email,
-      role: payload.role,
-      orgId: payload.orgId,
-      fullName: payload.fullName,
-      surfaceRole: payload.surfaceRole,
-      sessionId: payload.sessionId,
+      id: context.user_id,
+      email: context.email,
+      fullName: context.full_name,
+      role,
+      orgId: context.organization_id,
+      tenantId: context.tenant_id,
+      membershipId: context.membership_id,
+      sessionId: context.session_id,
+      credentialVersion: context.current_credential_version,
+      mfaVerified: Boolean(context.mfa_verified_at),
+      mfaVerifiedAt: context.mfa_verified_at?.toISOString(),
     };
   }
 
-  sberBusinessStart(query: { returnPath?: string; orgType?: string; inn?: string; legalName?: string; fullName?: string; email?: string }) {
+  async revokeUserSessions(userId: string, reason = 'ADMIN_REVOKE') {
+    await this.repository.transaction(async (tx) => {
+      await this.repository.revokeAllUserSessions(tx, userId, reason);
+      await this.audit(tx, {
+        userId,
+        action: 'auth.sessions.revoke_all',
+        outcome: 'SUCCESS',
+        reason,
+      });
+    });
+    return { success: true, userId, reason };
+  }
+
+  assertRecentFinancialMfa(user: RequestUser, amountKopecks: number): void {
+    if (!requiresRecentFinancialMfa(amountKopecks)) return;
+    if (!user.mfaVerified || !user.mfaVerifiedAt) {
+      throw new ForbiddenException('Recent MFA verification is required for this financial action.');
+    }
+    const age = Date.now() - new Date(user.mfaVerifiedAt).getTime();
+    if (!Number.isFinite(age) || age < 0 || age > MFA_FRESHNESS_MS) {
+      throw new ForbiddenException('MFA verification is too old for this financial action.');
+    }
+  }
+
+  async getUserData(requestingUserId: string) {
+    const user = await this.repository.prisma.user.findUnique({
+      where: { id: requestingUserId },
+      include: { orgs: { include: { organization: true } } },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.deletedAt) throw new ForbiddenException('Account has been anonymized');
+    const credential = await this.repository.getCredentialState(this.repository.prisma, user.id);
+    return {
+      exportedAt: new Date().toISOString(),
+      exportVersion: '2.0',
+      subject: '152-ФЗ Data Portability Export',
+      profile: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        phone: user.phone,
+        createdAt: user.createdAt.toISOString(),
+      },
+      memberships: user.orgs.map((membership) => ({
+        membershipId: membership.id,
+        role: membership.role,
+        organizationId: membership.organizationId,
+        organizationName: membership.organization.name,
+        tenantId: membership.organization.tenantId,
+        organizationStatus: membership.organization.status,
+      })),
+      consent: {
+        version: credential?.consent_version ?? null,
+        recordedAt: credential?.consent_at?.toISOString() ?? null,
+        currentPolicyVersion: CURRENT_CONSENT_VERSION,
+      },
+      security: {
+        mfaEnabled: credential?.mfa_enabled ?? false,
+        credentialVersion: credential?.credential_version ?? 1,
+      },
+    };
+  }
+
+  async anonymizeUser(requestingUserId: string) {
+    return this.repository.transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: requestingUserId } });
+      if (!user) throw new NotFoundException('User not found');
+      if (user.deletedAt) throw new ConflictException('Account already anonymized');
+      const anonymizedAt = new Date();
+      await this.repository.revokeAllUserSessions(tx, user.id, 'ACCOUNT_ANONYMIZED');
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          email: `anon-${user.id}@deleted.invalid`,
+          fullName: 'Anonymized User',
+          phone: null,
+          passwordHash: '',
+          status: 'BLOCKED',
+          deletedAt: anonymizedAt,
+        },
+      });
+      await tx.$executeRaw(Prisma.sql`
+        UPDATE auth.credential_states
+        SET credential_version = credential_version + 1,
+            mfa_secret_ciphertext = NULL,
+            mfa_backup_hashes = NULL,
+            updated_at = NOW()
+        WHERE user_id = ${user.id}
+      `);
+      await this.audit(tx, {
+        userId: user.id,
+        action: 'auth.account.anonymize',
+        outcome: 'SUCCESS',
+        reason: 'USER_REQUEST',
+      });
+      return { success: true, anonymizedAt: anonymizedAt.toISOString() };
+    });
+  }
+
+  sberBusinessStart(query: Record<string, string | undefined>) {
     return {
       provider: 'sber-business',
       status: 'not_configured',
@@ -307,7 +755,7 @@ export class AuthService {
     };
   }
 
-  sberBusinessCallback(query: { code?: string; state?: string }, userAgent?: string, ip?: string) {
+  sberBusinessCallback(_query: Record<string, string | undefined>, _userAgent?: string, _ip?: string) {
     return {
       provider: 'sber-business',
       status: 'not_configured',
@@ -316,97 +764,227 @@ export class AuthService {
   }
 
   oidcProviders() {
-    return {
-      providers: [],
-      message: 'No OIDC providers configured',
-    };
+    return { providers: [], message: 'No OIDC providers configured' };
   }
 
   oidcAuthorizationUrl() {
-    return {
-      url: null,
-      message: 'No OIDC provider configured',
-    };
+    return { url: null, message: 'No OIDC provider configured' };
   }
 
+  /** Synthetic E2E compatibility only. Runtime authorization never reads this cache. */
   listUsers() {
-    return usersStore.map((u) => ({
-      id: u.id,
-      email: u.email,
-      role: u.role,
-      orgId: u.orgId,
-      fullName: u.fullName,
-    }));
+    return [...this.seedCompatibilityUsers];
   }
 
-  updateUserRole(userId: string, role: Role): { id: string; role: Role } {
-    const user = usersStore.find((u) => u.id === userId);
-    if (!user) throw new Error(`User ${userId} not found`);
+  /** Synthetic E2E compatibility only. Membership authority remains PostgreSQL UserOrg. */
+  updateUserRole(userId: string, role: Role) {
+    this.assertSyntheticSeedCompatibility();
+    const user = this.seedCompatibilityUsers.find((item) => item.id === userId);
+    if (!user) throw new Error(`Synthetic seed user ${userId} not found`);
     user.role = role;
-    // Invalidate live tokens so the privilege change takes effect immediately —
-    // a token minted with the old role must not keep the old access.
-    revokeAllUserSessions(userId);
-    return { id: user.id, role: user.role };
+    return { id: user.id, role };
   }
 
-  updateUserOrg(userId: string, orgId: string): { id: string; orgId: string } {
-    const user = usersStore.find((u) => u.id === userId);
-    if (!user) throw new Error(`User ${userId} not found`);
+  /** Synthetic E2E compatibility only. Organization authority remains PostgreSQL UserOrg. */
+  updateUserOrg(userId: string, orgId: string) {
+    this.assertSyntheticSeedCompatibility();
+    const user = this.seedCompatibilityUsers.find((item) => item.id === userId);
+    if (!user) throw new Error(`Synthetic seed user ${userId} not found`);
     user.orgId = orgId;
-    // Org scope is security-relevant — invalidate live tokens carrying the old org.
-    revokeAllUserSessions(userId);
-    return { id: user.id, orgId: user.orgId };
+    return { id: user.id, orgId };
   }
 
-  getUserData(requestingUserId: string) {
-    const user = usersStore.find((u) => u.id === requestingUserId);
-    if (!user) throw new NotFoundException('User not found');
-    if (user.anonymized) throw new ForbiddenException('Account has been anonymized');
+  private async registerSyntheticSeedUser(dto: any, role: Role) {
+    this.assertSyntheticSeedCompatibility();
+    const email = String(dto.email).trim().toLowerCase();
+    const user = await this.repository.prisma.user.upsert({
+      where: { email },
+      update: {
+        passwordHash: await bcrypt.hash(String(dto.password), 10),
+        fullName: String(dto.fullName ?? email),
+        status: 'ACTIVE',
+      },
+      create: {
+        id: `user_${randomUUID()}`,
+        email,
+        passwordHash: await bcrypt.hash(String(dto.password), 10),
+        fullName: String(dto.fullName ?? email),
+        status: 'ACTIVE',
+      },
+    });
+    const projection: SeedCompatibilityUser = {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role,
+      orgId: String(dto.orgId),
+    };
+    const index = this.seedCompatibilityUsers.findIndex((item) => item.id === user.id);
+    if (index >= 0) this.seedCompatibilityUsers[index] = projection;
+    else this.seedCompatibilityUsers.push(projection);
+    return { user: projection };
+  }
+
+  private assertSyntheticSeedCompatibility(): void {
+    if (!SYNTHETIC_SEED_ENABLED || String(process.env.NODE_ENV).toLowerCase() === 'production') {
+      throw new ForbiddenException('Synthetic identity compatibility is disabled.');
+    }
+  }
+
+  private async issueActiveTokens(
+    tx: AuthSqlClient,
+    identity: IdentityRow,
+    input: {
+      id: string;
+      familyId: string;
+      credentialVersion: number;
+      userAgent?: string;
+      ip?: string;
+    },
+  ) {
+    const refresh = makeOpaqueToken('rt');
+    await this.repository.createRefreshToken(tx, {
+      id: refresh.id,
+      sessionId: input.id,
+      familyId: input.familyId,
+      tokenHash: refresh.hash,
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+      userAgentHash: hashClientValue(input.userAgent),
+      ipHash: hashClientValue(input.ip),
+    });
     return {
-      exportedAt: new Date().toISOString(),
-      exportVersion: '1.0',
-      subject: '152-ФЗ Data Portability Export',
-      profile: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        phone: user.phone ?? null,
-        role: user.role,
-        orgId: user.orgId,
-        createdAt: user.createdAt ?? null,
-      },
-      consent: {
-        version: user.consentVersion ?? null,
-        recordedAt: user.consentAt ?? null,
-        currentPolicyVersion: CURRENT_CONSENT_VERSION,
-      },
-      accountStatus: {
-        anonymized: user.anonymized ?? false,
-      },
+      accessToken: this.signAccessToken(identity.user_id, input.id, input.credentialVersion),
+      refreshToken: refresh.token,
+      user: this.userProjection(identity, false),
     };
   }
 
-  anonymizeUser(requestingUserId: string): { success: boolean; anonymizedAt: string } {
-    const user = usersStore.find((u) => u.id === requestingUserId);
-    if (!user) throw new NotFoundException('User not found');
-    if (user.anonymized) throw new ConflictException('Account already anonymized');
+  private signAccessToken(userId: string, sessionId: string, credentialVersion: number): string {
+    return jwt.sign(
+      {
+        typ: 'access',
+        sid: sessionId,
+        cv: credentialVersion,
+      },
+      JWT_SECRET,
+      {
+        subject: userId,
+        issuer: ACCESS_ISSUER,
+        audience: ACCESS_AUDIENCE,
+        expiresIn: ACCESS_TOKEN_TTL,
+        jwtid: randomUUID(),
+      },
+    );
+  }
 
-    const anonymizedAt = new Date().toISOString();
-    user.email = `anon-${user.id}@deleted.invalid`;
-    user.fullName = 'Anonymized User';
-    user.phone = undefined;
-    user.passwordHash = '';
-    user.anonymized = true;
+  private userProjection(identity: IdentityRow | SessionContextRow | MfaChallengeRow, mfaVerified: boolean): AuthUserProjection {
+    return {
+      id: identity.user_id,
+      email: identity.email,
+      fullName: identity.full_name,
+      role: this.role(identity.role),
+      orgId: identity.organization_id,
+      tenantId: identity.tenant_id,
+      membershipId: identity.membership_id,
+      mfaVerified,
+    };
+  }
 
-    // Revoke all refresh tokens for this user
-    for (const [key, rec] of refreshTokensStore.entries()) {
-      if (rec.userId === requestingUserId) {
-        refreshTokensStore.delete(key);
-      }
+  private role(value: string): Role {
+    if (!KNOWN_ROLES.has(value) || value === Role.BANK_CALLBACK) {
+      throw new ForbiddenException('Membership role is not authorized for a human session.');
     }
-    // Revoke all live access sessions for this user.
-    revokeAllUserSessions(requestingUserId);
+    return value as Role;
+  }
 
-    return { success: true, anonymizedAt };
+  private async assertIdentityUsable(
+    tx: AuthSqlClient,
+    identity: IdentityRow,
+    action: string,
+  ): Promise<void> {
+    let reason: string | null = null;
+    if (identity.user_status !== 'ACTIVE') reason = 'USER_NOT_ACTIVE';
+    else if (identity.organization_status !== 'VERIFIED') reason = 'ORGANIZATION_NOT_VERIFIED';
+    else if (!KNOWN_ROLES.has(identity.role) || identity.role === Role.BANK_CALLBACK) reason = 'MEMBERSHIP_ROLE_INVALID';
+    if (!reason) return;
+    await this.audit(tx, {
+      userId: identity.user_id,
+      membershipId: identity.membership_id,
+      organizationId: identity.organization_id,
+      tenantId: identity.tenant_id,
+      action,
+      outcome: 'DENIED',
+      reason,
+    });
+    throw new ForbiddenException(reason);
+  }
+
+  private sessionInvalidReason(context: SessionContextRow, allowMfaPending = false): string | null {
+    if (context.session_status === 'REVOKED') return 'SESSION_REVOKED';
+    if (context.session_status === 'EXPIRED' || context.session_expires_at <= new Date()) return 'SESSION_EXPIRED';
+    if (context.session_status !== 'ACTIVE' && !(allowMfaPending && context.session_status === 'MFA_PENDING')) {
+      return 'SESSION_NOT_ACTIVE';
+    }
+    if (context.user_status !== 'ACTIVE') return 'USER_NOT_ACTIVE';
+    if (context.organization_status !== 'VERIFIED') return 'ORGANIZATION_NOT_VERIFIED';
+    if (context.session_credential_version !== context.current_credential_version) return 'CREDENTIAL_VERSION_CHANGED';
+    if (!KNOWN_ROLES.has(context.role) || context.role === Role.BANK_CALLBACK) return 'MEMBERSHIP_ROLE_INVALID';
+    return null;
+  }
+
+  private verifyMfaCode(credential: CredentialStateRow, code: string): 'TOTP' | 'BACKUP' | null {
+    const secret = credential.mfa_secret_ciphertext
+      ? decryptMfaSecret(credential.mfa_secret_ciphertext)
+      : null;
+    if (secret && verifyTotp(secret, code)) return 'TOTP';
+    const hashes = Array.isArray(credential.mfa_backup_hashes)
+      ? credential.mfa_backup_hashes.filter((item): item is string => typeof item === 'string')
+      : [];
+    const candidate = hashAuthMaterial(String(code).trim().toUpperCase());
+    if (hashes.some((item) => secureEqual(item, candidate))) return 'BACKUP';
+    return null;
+  }
+
+  private async requireCredentialState(
+    tx: AuthSqlClient,
+    userId: string,
+    forUpdate = false,
+  ): Promise<CredentialStateRow> {
+    await this.repository.ensureCredentialState(tx, userId);
+    const state = await this.repository.getCredentialState(tx, userId, forUpdate);
+    if (!state) throw new Error(`Credential state for ${userId} was not created`);
+    return state;
+  }
+
+  private clientMetadata(
+    userAgent?: string,
+    ip?: string,
+    extra: Record<string, unknown> = {},
+  ): Record<string, unknown> {
+    return {
+      userAgentHash: hashClientValue(userAgent),
+      ipHash: hashClientValue(ip),
+      ...extra,
+    };
+  }
+
+  private async audit(
+    tx: AuthSqlClient,
+    input: {
+      userId?: string | null;
+      sessionId?: string | null;
+      membershipId?: string | null;
+      organizationId?: string | null;
+      tenantId?: string | null;
+      action: string;
+      outcome: 'SUCCESS' | 'FAILURE' | 'DENIED';
+      reason?: string | null;
+      metadata?: Record<string, unknown> | null;
+    },
+  ): Promise<void> {
+    const id = `auth_evt_${randomUUID()}`;
+    const prevHash = await this.repository.latestAuditHash(tx, input.userId, input.sessionId);
+    const hash = sha256(stableJson({ id, ...input, prevHash }));
+    await this.repository.insertAudit(tx, { id, ...input, hash, prevHash });
   }
 }
