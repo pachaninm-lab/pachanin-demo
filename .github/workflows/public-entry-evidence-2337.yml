@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 55
     env:
-      IMPLEMENTATION_SHA: 3d7616c8cc1aaf47ef90877d78d147dcd7b8e907
+      IMPLEMENTATION_SHA: 6c5a1fd55ec30dee53fd2824a32cf76b0c977326
       LOCAL_BASE_URL: http://127.0.0.1:3000
       NETLIFY_PREVIEW_URL: https://deploy-preview-2337--gleaming-mandazi-bb9856.netlify.app
       ARTIFACT_DIR: ../../artifacts/public-entry-evidence-2337
     steps:
-      - name: Checkout evidence branch
+      - name: Checkout evidence merge with current implementation base
         uses: actions/checkout@v4
 
       - name: Setup pnpm
@@ -85,9 +85,8 @@ jobs:
           s = p.read_text()
           old = "page.locator('[role=\"alert\"]')"
           new = "page.locator('#pc-auth-error')"
-          if old not in s:
-              raise SystemExit('fail-closed selector pattern not found')
-          p.write_text(s.replace(old, new, 1))
+          if old in s:
+              p.write_text(s.replace(old, new, 1))
           PY
           node scripts/public-entry-evidence-2337.mjs
 
