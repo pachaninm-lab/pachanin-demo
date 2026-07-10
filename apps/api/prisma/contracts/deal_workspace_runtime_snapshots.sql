@@ -75,13 +75,13 @@ CREATE TABLE IF NOT EXISTS "deal_workspace_runtime_transaction_attempts" (
 );
 
 CREATE INDEX IF NOT EXISTS "dw_runtime_snapshots_deal_created_idx"
-  ON "deal_workspace_runtime_snapshots" ("dealId", "createdAt" DESC);
+  ON "deal_workspace_runtime_snapshots" ("dealId", "createdAt");
 CREATE INDEX IF NOT EXISTS "dw_runtime_snapshots_intent_state_idx"
   ON "deal_workspace_runtime_snapshots" ("intentId", "state");
 CREATE INDEX IF NOT EXISTS "dw_runtime_snapshots_correlation_idx"
   ON "deal_workspace_runtime_snapshots" ("correlationId");
 CREATE INDEX IF NOT EXISTS "dw_runtime_attempts_snapshot_started_idx"
-  ON "deal_workspace_runtime_transaction_attempts" ("snapshotId", "startedAt" DESC);
+  ON "deal_workspace_runtime_transaction_attempts" ("snapshotId", "startedAt");
 CREATE INDEX IF NOT EXISTS "dw_runtime_attempts_stage_started_idx"
   ON "deal_workspace_runtime_transaction_attempts" ("stage", "startedAt");
 
