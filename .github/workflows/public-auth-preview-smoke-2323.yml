@@ -43,6 +43,16 @@ jobs:
         working-directory: apps/web
         run: node scripts/public-auth-dom-diff-2323.mjs
 
+      - name: Upload early hydration diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-auth-hydration-diagnostics-2323
+          path: |
+            artifacts/public-auth-preview-smoke-2323/locale-hydration-debug.json
+            artifacts/public-auth-preview-smoke-2323/dom-hydration-diff.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Run RU EN ZH browser matrix, axe and hydration smoke
         working-directory: apps/web
         run: node scripts/public-auth-preview-smoke-2323.mjs
