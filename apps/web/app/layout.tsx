@@ -80,11 +80,6 @@ export const viewport: Viewport = {
 
 const YM_ID = process.env.NEXT_PUBLIC_YM_ID;
 const HTML_LANG: Record<string, string> = { ru: 'ru', en: 'en', zh: 'zh-CN' };
-const LEAN_PUBLIC_ENTRY_PATHS = new Set([
-  '/platform-v7',
-  '/platform-v7/login',
-  '/platform-v7/forgot-password',
-]);
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
 function normalizePath(value: string | null) {
@@ -94,11 +89,11 @@ function normalizePath(value: string | null) {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
   const pathname = normalizePath(headers().get('x-pc-pathname'));
-  const leanPublicEntry = LEAN_PUBLIC_ENTRY_PATHS.has(pathname);
-  const content = leanPublicEntry
+  const serverOnlyLanding = pathname === '/platform-v7';
+  const content = serverOnlyLanding
     ? children
     : <NextIntlClientProvider locale={locale} messages={await getMessages()}>{children}</NextIntlClientProvider>;
-  const showDevPanel = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
+  const showDevPanel = !serverOnlyLanding && process.env.NEXT_PUBLIC_DEV_MODE === 'true';
 
   return (
     <html lang={HTML_LANG[locale] ?? 'ru'} translate='no' data-theme='light' suppressHydrationWarning className={`notranslate ${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
