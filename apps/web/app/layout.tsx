@@ -3,6 +3,7 @@ import '@/styles/platform-v7-dark-role-fixes.css';
 import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
 import Script from 'next/script';
+import { headers } from 'next/headers';
 import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
@@ -79,11 +80,24 @@ export const viewport: Viewport = {
 
 const YM_ID = process.env.NEXT_PUBLIC_YM_ID;
 const HTML_LANG: Record<string, string> = { ru: 'ru', en: 'en', zh: 'zh-CN' };
+const LEAN_PUBLIC_ENTRY_PATHS = new Set([
+  '/platform-v7',
+  '/platform-v7/login',
+  '/platform-v7/forgot-password',
+]);
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
+
+function normalizePath(value: string | null) {
+  return (value || '').split('?')[0].replace(/\/$/, '') || '/';
+}
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
-  const messages = await getMessages();
+  const pathname = normalizePath(headers().get('x-pc-pathname'));
+  const leanPublicEntry = LEAN_PUBLIC_ENTRY_PATHS.has(pathname);
+  const content = leanPublicEntry
+    ? children
+    : <NextIntlClientProvider locale={locale} messages={await getMessages()}>{children}</NextIntlClientProvider>;
   const showDevPanel = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
 
   return (
@@ -95,9 +109,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <meta httpEquiv='Content-Language' content={HTML_LANG[locale] ?? 'ru'} />
       </head>
       <body translate='no' className='notranslate'>
-        <NextIntlClientProvider locale={locale} messages={messages}>
-          {children}
-        </NextIntlClientProvider>
+        {content}
         {showDevPanel ? <FeatureFlagsDevPanel /> : null}
         {YM_ID ? (
           <>
