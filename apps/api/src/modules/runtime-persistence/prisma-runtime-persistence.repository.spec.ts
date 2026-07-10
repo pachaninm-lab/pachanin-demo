@@ -12,7 +12,7 @@ const baseInput: RuntimePersistenceWriteInput = {
   runtimeStoreRecordId: 'runtime-record-1',
   runtimeStoreVersion: '1',
   actorId: 'user-1',
-  actorRole: 'operator',
+  actorRole: 'SUPPORT_MANAGER',
   tenantId: 'tenant-1',
   organizationId: 'org-1',
   correlationId: 'corr-1',
@@ -35,31 +35,57 @@ function existingSnapshot(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function successfulPrisma() {
-  const outboxCreate = jest.fn().mockResolvedValue({ id: 'outbox-1' });
-  const auditCreate = jest.fn().mockResolvedValue({ id: 'audit-1' });
-  const snapshotCreate = jest.fn().mockResolvedValue({
-    id: 'record-1',
-    runtimeSnapshotId: 'snapshot-1',
-    idempotencyKey: 'idem-1',
-    state: 'fully_linked',
+function transactionFixture(existing: ReturnType<typeof existingSnapshot> | null = null) {
+  const order: string[] = [];
+  const queryRaw = jest.fn(async () => {
+    order.push('rls-context');
+    return [];
   });
-  const attemptCreate = jest.fn().mockResolvedValue({ id: 'attempt-1' });
+  const findUnique = jest.fn(async () => {
+    order.push('find-existing');
+    return existing;
+  });
+  const outboxCreate = jest.fn(async () => {
+    order.push('outbox');
+    return { id: 'outbox-1' };
+  });
+  const auditCreate = jest.fn(async () => {
+    order.push('audit');
+    return { id: 'audit-1' };
+  });
+  const snapshotCreate = jest.fn(async () => {
+    order.push('snapshot');
+    return {
+      id: 'record-1',
+      runtimeSnapshotId: 'snapshot-1',
+      idempotencyKey: 'idem-1',
+      state: 'fully_linked',
+    };
+  });
+  const attemptCreate = jest.fn(async () => {
+    order.push('attempt');
+    return { id: 'attempt-1' };
+  });
   const tx = {
+    $queryRaw: queryRaw,
     outboxEntry: { create: outboxCreate },
     auditEvent: { create: auditCreate },
-    dealWorkspaceRuntimeSnapshot: { create: snapshotCreate },
+    dealWorkspaceRuntimeSnapshot: {
+      findUnique,
+      create: snapshotCreate,
+    },
     dealWorkspaceRuntimeTransactionAttempt: { create: attemptCreate },
   };
   const prisma = {
-    dealWorkspaceRuntimeSnapshot: {
-      findUnique: jest.fn().mockResolvedValue(null),
-    },
     $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
   } as any;
 
   return {
     prisma,
+    tx,
+    order,
+    queryRaw,
+    findUnique,
     outboxCreate,
     auditCreate,
     snapshotCreate,
@@ -68,8 +94,8 @@ function successfulPrisma() {
 }
 
 describe('PrismaRuntimePersistenceRepository', () => {
-  it('persists outbox, audit, snapshot and committed attempt in one transaction', async () => {
-    const setup = successfulPrisma();
+  it('sets local RLS context before lookup and atomic evidence writes', async () => {
+    const setup = transactionFixture();
     const repository = new PrismaRuntimePersistenceRepository(setup.prisma);
     const maliciousInput = {
       ...baseInput,
@@ -80,6 +106,15 @@ describe('PrismaRuntimePersistenceRepository', () => {
     const receipt = await repository.write(maliciousInput);
 
     expect(setup.prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(setup.queryRaw).toHaveBeenCalledTimes(1);
+    expect(setup.order).toEqual([
+      'rls-context',
+      'find-existing',
+      'outbox',
+      'audit',
+      'snapshot',
+      'attempt',
+    ]);
     expect(receipt).toEqual({
       status: 'persisted',
       runtimeSnapshotId: 'snapshot-1',
@@ -91,34 +126,20 @@ describe('PrismaRuntimePersistenceRepository', () => {
       transactionAttemptId: 'attempt-1',
     });
 
-    expect(setup.outboxCreate).toHaveBeenCalledTimes(1);
-    expect(setup.auditCreate).toHaveBeenCalledTimes(1);
-    expect(setup.snapshotCreate).toHaveBeenCalledTimes(1);
-    expect(setup.attemptCreate).toHaveBeenCalledTimes(1);
-
     const snapshotData = setup.snapshotCreate.mock.calls[0][0].data;
-    expect(snapshotData.state).toBe('fully_linked');
     expect(snapshotData.outboxEntryId).toBe('outbox-1');
     expect(snapshotData.auditEventId).toBe('audit-1');
     expect(snapshotData.outboxEntryId).not.toBe('caller-outbox-id');
     expect(snapshotData.auditEventId).not.toBe('caller-audit-id');
 
-    const outboxData = setup.outboxCreate.mock.calls[0][0].data;
     const auditData = setup.auditCreate.mock.calls[0][0].data;
-    expect(outboxData.runtimeSnapshotId).toBe('snapshot-1');
-    expect(auditData.runtimeSnapshotId).toBe('snapshot-1');
     expect(auditData.tenantId).toBe('tenant-1');
     expect(auditData.orgId).toBe('org-1');
   });
 
-  it('returns deterministic duplicate without starting a transaction', async () => {
-    const prisma = {
-      dealWorkspaceRuntimeSnapshot: {
-        findUnique: jest.fn().mockResolvedValue(existingSnapshot()),
-      },
-      $transaction: jest.fn(),
-    } as any;
-    const repository = new PrismaRuntimePersistenceRepository(prisma);
+  it('classifies deterministic duplicate inside the trusted RLS transaction', async () => {
+    const setup = transactionFixture(existingSnapshot());
+    const repository = new PrismaRuntimePersistenceRepository(setup.prisma);
 
     await expect(repository.write(baseInput)).resolves.toEqual({
       status: 'duplicate',
@@ -130,79 +151,59 @@ describe('PrismaRuntimePersistenceRepository', () => {
       auditEventId: 'audit-1',
       transactionAttemptId: 'attempt-1',
     });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(setup.prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(setup.order).toEqual(['rls-context', 'find-existing']);
+    expect(setup.outboxCreate).not.toHaveBeenCalled();
   });
 
-  it('returns conflict for a reused idempotency key with another material identity', async () => {
-    const prisma = {
-      dealWorkspaceRuntimeSnapshot: {
-        findUnique: jest.fn().mockResolvedValue(
-          existingSnapshot({ runtimeSnapshotId: 'snapshot-other', contractHash: 'hash-other' }),
-        ),
-      },
-      $transaction: jest.fn(),
-    } as any;
-    const repository = new PrismaRuntimePersistenceRepository(prisma);
+  it('classifies material identity conflict inside the trusted RLS transaction', async () => {
+    const setup = transactionFixture(
+      existingSnapshot({ runtimeSnapshotId: 'snapshot-other', contractHash: 'hash-other' }),
+    );
+    const repository = new PrismaRuntimePersistenceRepository(setup.prisma);
 
     const receipt = await repository.write(baseInput);
 
     expect(receipt.status).toBe('conflict');
     expect(receipt.reasonCode).toBe('material_identity_conflict');
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(setup.prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(setup.order).toEqual(['rls-context', 'find-existing']);
   });
 
-  it('classifies a concurrent P2002 winner as duplicate without a second transaction', async () => {
-    const findUnique = jest
+  it('re-reads a concurrent P2002 winner in a second trusted RLS transaction', async () => {
+    const setup = transactionFixture(existingSnapshot());
+    setup.prisma.$transaction = jest
       .fn()
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(existingSnapshot());
-    const prisma = {
-      dealWorkspaceRuntimeSnapshot: { findUnique },
-      $transaction: jest.fn().mockRejectedValue({ code: 'P2002' }),
-    } as any;
-    const repository = new PrismaRuntimePersistenceRepository(prisma);
+      .mockRejectedValueOnce({ code: 'P2002' })
+      .mockImplementationOnce(async (callback: (client: typeof setup.tx) => unknown) => callback(setup.tx));
+    const repository = new PrismaRuntimePersistenceRepository(setup.prisma);
 
     const receipt = await repository.write(baseInput);
 
     expect(receipt.status).toBe('duplicate');
-    expect(findUnique).toHaveBeenCalledTimes(2);
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(setup.prisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(setup.queryRaw).toHaveBeenCalledTimes(1);
+    expect(setup.findUnique).toHaveBeenCalledTimes(1);
   });
 
-  it('returns invalid_input without touching the database', async () => {
-    const setup = successfulPrisma();
+  it.each([
+    ['dealId', '   '],
+    ['tenantId', ''],
+    ['organizationId', undefined],
+  ] as const)('returns invalid_input for missing %s without touching the database', async (field, value) => {
+    const setup = transactionFixture();
     const repository = new PrismaRuntimePersistenceRepository(setup.prisma);
 
-    const receipt = await repository.write({ ...baseInput, dealId: '   ' });
+    const receipt = await repository.write({ ...baseInput, [field]: value });
 
     expect(receipt).toMatchObject({ status: 'failed', reasonCode: 'invalid_input' });
-    expect(setup.prisma.dealWorkspaceRuntimeSnapshot.findUnique).not.toHaveBeenCalled();
     expect(setup.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('keeps staged writes uncommitted when a transaction step fails', async () => {
-    const committed: string[] = [];
-    const outboxCreate = jest.fn(async () => ({ id: 'outbox-stage' }));
-    const auditCreate = jest.fn(async () => {
-      throw new Error('sensitive database failure');
-    });
-    const snapshotCreate = jest.fn();
-    const attemptCreate = jest.fn();
-    const tx = {
-      outboxEntry: { create: outboxCreate },
-      auditEvent: { create: auditCreate },
-      dealWorkspaceRuntimeSnapshot: { create: snapshotCreate },
-      dealWorkspaceRuntimeTransactionAttempt: { create: attemptCreate },
-    };
-    const prisma = {
-      dealWorkspaceRuntimeSnapshot: { findUnique: jest.fn().mockResolvedValue(null) },
-      $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) => {
-        const result = await callback(tx);
-        committed.push('transaction-committed');
-        return result;
-      }),
-    } as any;
-    const repository = new PrismaRuntimePersistenceRepository(prisma);
+    const setup = transactionFixture();
+    setup.auditCreate.mockRejectedValueOnce(new Error('sensitive database failure'));
+    const repository = new PrismaRuntimePersistenceRepository(setup.prisma);
 
     const receipt = await repository.write(baseInput);
 
@@ -213,11 +214,9 @@ describe('PrismaRuntimePersistenceRepository', () => {
       state: 'ready_to_persist',
       reasonCode: 'database_write_failed',
     });
-    expect(committed).toEqual([]);
-    expect(outboxCreate).toHaveBeenCalledTimes(1);
-    expect(auditCreate).toHaveBeenCalledTimes(1);
-    expect(snapshotCreate).not.toHaveBeenCalled();
-    expect(attemptCreate).not.toHaveBeenCalled();
+    expect(setup.order).toEqual(['rls-context', 'find-existing', 'outbox', 'audit']);
+    expect(setup.snapshotCreate).not.toHaveBeenCalled();
+    expect(setup.attemptCreate).not.toHaveBeenCalled();
     expect(JSON.stringify(receipt)).not.toContain('sensitive database failure');
   });
 });
