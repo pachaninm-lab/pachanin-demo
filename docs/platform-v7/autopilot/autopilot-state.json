@@ -22,42 +22,32 @@
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "apps/api/src/app.module.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts",
-    "apps/api/src/modules/deals/deal-command.policy.ts",
-    "apps/api/src/modules/deals/deal-command.policy.spec.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
-    "apps/api/src/modules/deals/dto/execute-deal-command.dto.ts",
-    "apps/api/src/modules/deals/deals.controller.ts",
-    "apps/api/src/modules/deals/deals.module.ts",
+    "apps/api/src/modules/runtime-persistence/**",
+    "apps/api/src/modules/deals/**",
     "apps/web/app/platform-v7/login/page.tsx",
     "apps/web/app/api/auth/login/route.ts",
     "apps/web/app/api/proxy/[...path]/route.ts",
     "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
     "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
-    "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx"
+    "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx",
+    "apps/web/lib/platform-v7/verified-session.ts",
+    "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
+    "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "apps/api/src/app.module.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts",
-    "apps/api/src/modules/deals/deal-command.policy.ts",
-    "apps/api/src/modules/deals/deal-command.policy.spec.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
-    "apps/api/src/modules/deals/dto/execute-deal-command.dto.ts",
-    "apps/api/src/modules/deals/deals.controller.ts",
-    "apps/api/src/modules/deals/deals.module.ts",
+    "apps/api/src/modules/runtime-persistence/**",
+    "apps/api/src/modules/deals/**",
     "apps/web/app/platform-v7/login/page.tsx",
     "apps/web/app/api/auth/login/route.ts",
     "apps/web/app/api/proxy/[...path]/route.ts",
     "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
     "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
-    "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx"
+    "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx",
+    "apps/web/lib/platform-v7/verified-session.ts",
+    "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
+    "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
   ],
   "industrialOneDealFoundation": {
     "layer": "Atomic canonical deal command path and shared execution workspace",
@@ -72,7 +62,8 @@
       "PostgreSQL transaction for state, evidence, audit, outbox and receipt",
       "fail-closed canonical web proxy",
       "no fake successful canonical response",
-      "only the canonical workspace is rendered at every role root"
+      "only the canonical workspace is rendered at every role root",
+      "bank, compliance and arbitrator cabinets are derived from verified API roles"
     ]
   },
   "forbiddenZones": [
