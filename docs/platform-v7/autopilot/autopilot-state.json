@@ -1,12 +1,13 @@
 {
   "project": "platform-v7",
-  "mode": "industrial-one-deal-e2e",
+  "mode": "industrial-one-deal-recovery",
   "status": "active",
-  "currentStatus": "ready",
-  "current": "Industrial One Deal Ephemeral PostgreSQL E2E Harness.",
-  "fullTzReadinessPercent": 85,
-  "openPr": "#2270",
+  "currentStatus": "in_progress",
+  "current": "Industrial One Deal Concurrency, Replay and Recovery Matrix.",
+  "fullTzReadinessPercent": 86,
+  "openPr": null,
   "lastClosed": [
+    "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
     "#2250 VP-3.41 Runtime Persistence Internal Service Wiring Implementation",
@@ -14,34 +15,28 @@
     "#2254 VP-3.43 Transaction-Local Trusted RLS Context",
     "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding",
     "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
-    "#2263 Industrial One Deal Foundation scope unlock",
     "#2260 Industrial one-deal foundation",
     "#2267 Canonical gateway consolidation"
   ],
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
+    "recovery and restart evidence",
     "production migration and RLS execution evidence",
     "live bank FGIS EDO and signature evidence"
   ],
-  "blockerNotes": "The isolated PostgreSQL proof is green: eight forward-only migrations, zero schema drift, legacy allow-all policy removal, non-owner NOSUPERUSER NOBYPASSRLS datasource, SQL and Prisma tenant isolation, 12 ACTIVE DealParticipants, read-only EXECUTIVE and 19 commands through signed bank callbacks to CLOSED. Production exploitation remains locked pending recovery, persistent identity, live integrations, load and DR evidence.",
-  "lockedUntilCurrentGreen": [],
+  "blockerNotes": "The isolated PostgreSQL happy-path proof is merged and green. The current layer must prove deterministic behavior under concurrent commands, callback replay, fresh runtime restart, transaction rollback and pooled RLS context reuse before persistent identity and UI migration begin.",
+  "lockedUntilCurrentGreen": [
+    "persistent identity session MFA changes",
+    "platform UI implementation",
+    "live external integration activation",
+    "production migration execution",
+    "production load and disaster-recovery claims"
+  ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
-    "infra/sql/production-rls-policies.sql",
-    "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/migration_lock.toml",
-    "apps/api/prisma/migrations/20260522083644_init/migration.sql",
-    "apps/api/prisma/migrations/20260522120000_add_core_tables/migration.sql",
-    "apps/api/prisma/migrations/20260710114000_prepare_schema_reconciliation/migration.sql",
-    "apps/api/prisma/migrations/20260710114500_reconcile_postgresql_schema/migration.sql",
-    "apps/api/prisma/migrations/20260710120000_deal_participants/migration.sql",
-    "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
     "apps/api/test/one-deal/**",
-    "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
     "scripts/platform-v7-one-deal-*.sh",
     ".github/workflows/ci.yml"
@@ -49,26 +44,13 @@
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
-    "infra/sql/production-rls-policies.sql",
-    "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/migration_lock.toml",
-    "apps/api/prisma/migrations/20260522083644_init/migration.sql",
-    "apps/api/prisma/migrations/20260522120000_add_core_tables/migration.sql",
-    "apps/api/prisma/migrations/20260710114000_prepare_schema_reconciliation/migration.sql",
-    "apps/api/prisma/migrations/20260710114500_reconcile_postgresql_schema/migration.sql",
-    "apps/api/prisma/migrations/20260710120000_deal_participants/migration.sql",
-    "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
     "apps/api/test/one-deal/**",
-    "apps/web/tests/e2e/one-deal/**",
     "scripts/platform-v7-one-deal-*.mjs",
     "scripts/platform-v7-one-deal-*.sh",
     ".github/workflows/ci.yml"
   ],
   "industrialOneDealFoundation": {
     "layer": "Canonical PostgreSQL deal command path and shared role workspace",
-    "scopeUnlockPr": "#2263",
     "implementationPr": "#2260",
     "consolidationPr": "#2267",
     "status": "merged_green",
@@ -77,34 +59,46 @@
   "industrialOneDealE2e": {
     "layer": "Industrial One Deal Ephemeral PostgreSQL E2E Harness",
     "implementationPr": "#2270",
-    "status": "green_ready_for_merge",
-    "workflow": ".github/workflows/ci.yml",
+    "status": "merged_green",
+    "mergeCommit": "45a7fd7826eade875b81c1c631eb3a049c3fba94",
+    "canonicalDealId": "DEAL-INDUSTRIAL-001"
+  },
+  "industrialOneDealRecovery": {
+    "layer": "Concurrency Replay Restart Rollback and RLS Pool Isolation",
+    "implementationPr": null,
+    "status": "in_progress",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
-    "lastFailure": null,
-    "provenEvidence": [
-      "eight forward-only migrations apply with zero schema drift",
-      "legacy allow-all policies are absent",
-      "application role is non-owner NOSUPERUSER NOBYPASSRLS with RLS and FORCE RLS enabled",
-      "SQL-level and Prisma-level wrong-tenant reads return zero rows",
-      "12 ACTIVE DealParticipant assignments bind user organization role and access level",
-      "EXECUTIVE is READ-only",
-      "client org and role spoofing never select authorization scope",
-      "19 commands execute deterministically to CLOSED",
-      "reserve and release require signed callbacks bound to exact pending operations",
-      "duplicate stale concurrent and cross-tenant cases fail deterministically",
-      "closed projections and evidence chains reconcile",
-      "ephemeral credentials and database are destroyed by CI teardown"
+    "requiredEvidence": [
+      "exactly one concurrent command winner and one aggregate version",
+      "duplicate bank callbacks do not duplicate transition event ledger or outbox evidence",
+      "out-of-order callbacks fail before mutation",
+      "fresh Prisma and service instances continue from persisted pending operations and receipts",
+      "forced transaction failure rolls back Deal event audit ledger and outbox atomically",
+      "transaction-local RLS context cannot leak through pooled connection reuse",
+      "full command and callback rerun is deterministic and idempotent after CLOSED",
+      "evidence counts remain stable after all replay and restart checks"
     ]
   },
   "nextAfterCurrentGreen": [
-    "one-deal concurrency replay and recovery matrix",
     "persistent identity session refresh-family revoke and MFA after blocker #2115",
     "durable outbox worker and bank reconciliation",
-    "truthful offline acknowledgement",
+    "truthful driver offline acknowledgement",
     "server-rendered RU EN ZH i18n",
     "complete mobile-first design-system and role-cabinet migration",
     "load restore DR and accessibility acceptance"
   ],
+  "designContractReserved": {
+    "status": "queued_after_persistent_identity",
+    "principles": [
+      "verified server session is the only role tenant and shell projection source",
+      "one primary action per state",
+      "status blocker reason and next step are immediately visible",
+      "technical diagnostics are second-level information",
+      "mobile first across RU EN ZH",
+      "remove URL-derived role localStorage authority and CSS hotfix cascade",
+      "visual regression accessibility and low-bandwidth states are mandatory"
+    ]
+  },
   "forbiddenZones": [
     "apps/landing",
     "apps/web/app/platform-v7",
@@ -113,7 +107,7 @@
     "apps/web/lib/platform-v7",
     "apps/web/app/api",
     "apps/api/src/modules/auth/**",
-    "apps/api/prisma/migrations/** except explicitly allowed files",
+    "apps/api/prisma/migrations/**",
     "package.json",
     "package-lock.json",
     "pnpm-lock.yaml",
@@ -122,8 +116,8 @@
   ],
   "maturityLanguage": [
     "isolated-postgresql-e2e-proven",
-    "platform-temporarily-without-external-integrations",
-    "platform-temporarily-without-confirmed-live-integrations"
+    "recovery-proof-in-progress",
+    "platform-temporarily-without-external-integrations"
   ],
   "forbiddenClaims": [
     "full production readiness",
@@ -133,5 +127,5 @@
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. The isolated PostgreSQL one-deal exploitation proof is green. Recovery, persistent identity, live integrations, production load, restore and DR remain unproven. Production exploitation remains NO-GO."
+  "readiness": "86% honest architectural readiness. The isolated PostgreSQL one-deal lifecycle is proven and merged. Recovery, persistent identity, live integrations, production load, restore and DR remain unproven. Production exploitation remains NO-GO."
 }
