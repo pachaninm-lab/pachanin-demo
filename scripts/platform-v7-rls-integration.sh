@@ -49,8 +49,24 @@ if [[ "$TABLE_COUNT" != "0" ]]; then
   exit 2
 fi
 
-psql "$RLS_INTEGRATION_ADMIN_URL" -X --set ON_ERROR_STOP=1 --file "$INITIAL_MIGRATION"
-psql "$RLS_INTEGRATION_ADMIN_URL" -X --set ON_ERROR_STOP=1 --file "$RUNTIME_MIGRATION"
+# The historical initial SQL contains a manual INSERT into Prisma's metadata
+# table but does not create that table. The RLS harness validates physical schema
+# and policies, not migration-engine bookkeeping, so replay only the schema body.
+INITIAL_SCHEMA_ONLY="$(mktemp)"
+trap 'rm -f "$INITIAL_SCHEMA_ONLY"' EXIT
+sed '/INSERT INTO "_prisma_migrations"/,$d' "$INITIAL_MIGRATION" > "$INITIAL_SCHEMA_ONLY"
+
+if grep -q '_prisma_migrations' "$INITIAL_SCHEMA_ONLY"; then
+  echo "RLS integration failed to remove Prisma metadata bookkeeping" >&2
+  exit 2
+fi
+if ! grep -q 'CREATE TABLE IF NOT EXISTS "deals"' "$INITIAL_SCHEMA_ONLY"; then
+  echo "RLS integration schema-only migration is missing the deals table" >&2
+  exit 2
+fi
+
+psql "$RLS_INTEGRATION_ADMIN_URL" -X --set ON_ERROR_STOP=1 --single-transaction --file "$INITIAL_SCHEMA_ONLY"
+psql "$RLS_INTEGRATION_ADMIN_URL" -X --set ON_ERROR_STOP=1 --single-transaction --file "$RUNTIME_MIGRATION"
 
 SCHEMA_READY="$(psql "$RLS_INTEGRATION_ADMIN_URL" -XAtqc "SELECT count(*) FROM (VALUES (to_regclass('public.deals')), (to_regclass('public.audit_events')), (to_regclass('public.outbox_entries')), (to_regclass('public.deal_workspace_runtime_snapshots')), (to_regclass('public.deal_workspace_runtime_transaction_attempts'))) AS required_table(name) WHERE name IS NOT NULL")"
 if [[ "$SCHEMA_READY" != "5" ]]; then
