@@ -13,6 +13,8 @@ export const Role = {
   GUEST: 'GUEST',
   COMPLIANCE_OFFICER: 'COMPLIANCE_OFFICER',
   ARBITRATOR: 'ARBITRATOR',
+  /** Server-derived actor used only after a verified bank callback. Never assign to a human membership. */
+  BANK_CALLBACK: 'BANK_CALLBACK',
 } as const;
 
 export type Role = typeof Role[keyof typeof Role];
