@@ -21,14 +21,15 @@
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
-    "legacy allow-all PostgreSQL policies bypass strict tenant RLS",
+    "missing normalized DealParticipant object scope",
     "production migration and external integration evidence"
   ],
-  "blockerNotes": "Migration history and zero drift pass. The datasource is confirmed as one_deal_app, non-owner, NOSUPERUSER NOBYPASSRLS with RLS and FORCE RLS enabled. SQL-level wrong-tenant proof still saw the deal because the baseline migration left deals_app_access USING (TRUE). PostgreSQL ORs permissive policies, so known legacy allow-all policies on deals, audit and ledger must be removed by the production RLS artifact before strict policies are created.",
+  "blockerNotes": "Legacy allow-all policies are removed and SQL wrong-tenant visibility is now zero. Strict RLS then correctly blocks direct Deal reads without context. A normalized DealParticipant entity is required to authorize the explicitly assigned user, organization and role without tenant-wide bypass or JSON permissions in Deal.meta.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
     "production RLS policy application",
     "persistent identity/session/MFA changes",
+    "platform UI changes",
     "live external integration activation",
     "production load and disaster-recovery claims"
   ],
@@ -36,11 +37,14 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
     "infra/sql/production-rls-policies.sql",
+    "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/migration_lock.toml",
     "apps/api/prisma/migrations/20260522083644_init/migration.sql",
     "apps/api/prisma/migrations/20260522120000_add_core_tables/migration.sql",
     "apps/api/prisma/migrations/20260710114000_prepare_schema_reconciliation/migration.sql",
     "apps/api/prisma/migrations/20260710114500_reconcile_postgresql_schema/migration.sql",
+    "apps/api/prisma/migrations/20260710120000_deal_participants/migration.sql",
+    "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
     "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
@@ -52,11 +56,14 @@
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
     "infra/sql/production-rls-policies.sql",
+    "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/migration_lock.toml",
     "apps/api/prisma/migrations/20260522083644_init/migration.sql",
     "apps/api/prisma/migrations/20260522120000_add_core_tables/migration.sql",
     "apps/api/prisma/migrations/20260710114000_prepare_schema_reconciliation/migration.sql",
     "apps/api/prisma/migrations/20260710114500_reconcile_postgresql_schema/migration.sql",
+    "apps/api/prisma/migrations/20260710120000_deal_participants/migration.sql",
+    "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
     "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
     "apps/api/test/one-deal/**",
     "apps/web/tests/e2e/one-deal/**",
@@ -75,23 +82,22 @@
   "industrialOneDealE2e": {
     "layer": "Industrial One Deal Ephemeral PostgreSQL E2E Harness",
     "implementationPr": "#2270",
-    "status": "legacy_policy_removal_in_progress",
+    "status": "deal_participant_scope_in_progress",
     "workflow": ".github/workflows/ci.yml",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
     "lastFailure": {
-      "code": "LEGACY_PERMISSIVE_POLICY_BYPASS",
-      "file": "apps/api/prisma/migrations/0001_postgresql_initial/migration.sql",
-      "stage": "SQL cross-tenant isolation proof",
-      "reason": "legacy deals_app_access USING TRUE remained active beside strict deals_select and permissive policies were OR-combined"
+      "code": "DEAL_PARTICIPANT_SCOPE_REQUIRED",
+      "file": "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+      "stage": "readCanonicalDeal",
+      "reason": "strict RLS correctly denied an unscoped Deal read and seller/buyer columns cannot represent all assigned execution roles"
     },
     "requiredEvidence": [
-      "isolated PostgreSQL 16 starts with ephemeral credentials",
-      "all migration history applies through prisma migrate deploy",
-      "zero migration-to-schema drift is proven after deploy",
-      "production RLS artifact removes known legacy allow-all policies",
+      "migration history applies with zero schema drift",
+      "legacy allow-all policies are absent",
       "application role is non-owner NOSUPERUSER NOBYPASSRLS with RLS and FORCE RLS enabled",
       "SQL-level and Prisma-level wrong-tenant reads return zero rows",
-      "12 human role memberships use DB-derived trusted scope",
+      "12 ACTIVE DealParticipant assignments bind one user organization role and access level to one deal",
+      "client org and role spoofing never select authorization scope",
       "19 commands execute in deterministic order without direct database mutation",
       "reserve and release require signed callbacks bound to pending operations",
       "duplicate stale concurrent and cross-tenant cases fail deterministically",
@@ -103,7 +109,7 @@
     "one-deal concurrency replay and recovery matrix",
     "persistent identity session refresh-family revoke and MFA after blocker #2115",
     "durable outbox worker and bank reconciliation",
-    "truthful driver offline acknowledgement",
+    "truthful offline acknowledgement",
     "server-rendered RU EN ZH i18n",
     "complete mobile-first design-system and role-cabinet migration",
     "load restore DR and accessibility acceptance"
@@ -136,5 +142,5 @@
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. Migration history and zero drift are proven on isolated PostgreSQL, but strict tenant isolation, the complete one-deal exploitation proof, recovery, persistent identity, live integrations, load and DR remain unproven. Production exploitation remains NO-GO."
+  "readiness": "85% honest architectural readiness. Migration history, zero drift and SQL-level cross-tenant isolation are proven on isolated PostgreSQL, but DealParticipant scope, full exploitation, recovery, persistent identity, live integrations, load and DR remain unproven. Production exploitation remains NO-GO."
 }
