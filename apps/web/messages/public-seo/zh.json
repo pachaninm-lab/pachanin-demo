@@ -1,0 +1,17 @@
+{
+  "publicSeo": {
+    "landing": {
+      "title": "透明价格 — 粮食交易数字化执行闭环",
+      "description": "运输、验收、质量、文件、资金、争议和证据被连接到一个可核验的粮食交易执行流程中。",
+      "siteName": "透明价格",
+      "applicationName": "透明价格",
+      "structuredDescription": "面向粮食交易价格确定后执行环节的数字化B2B基础设施。"
+    },
+    "auth": {
+      "loginTitle": "登录 — 透明价格",
+      "loginDescription": "统一、安全地进入组织工作空间。",
+      "forgotTitle": "恢复访问权限 — 透明价格",
+      "resetTitle": "设置新密码 — 透明价格"
+    }
+  }
+}
