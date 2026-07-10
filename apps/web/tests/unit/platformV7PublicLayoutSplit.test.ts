@@ -9,6 +9,10 @@ const template = read('apps/web/app/platform-v7/template.tsx');
 const fullStyleRuntime = read('apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
+const nextConfig = read('apps/web/next.config.js');
+const isolatedLanding = read('apps/web/app/_pc-public/platform-v7/page.tsx');
+const isolatedLogin = read('apps/web/app/_pc-public/platform-v7/login/page.tsx');
+const isolatedRecovery = read('apps/web/app/_pc-public/platform-v7/forgot-password/page.tsx');
 const landing = read('apps/web/app/platform-v7/page.tsx');
 const loginLayout = read('apps/web/app/platform-v7/login/layout.tsx');
 const login = read('apps/web/app/platform-v7/login/page.tsx');
@@ -38,6 +42,22 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(layout).not.toContain('PlatformV7ShellSwitch');
     expect(layout).not.toContain('ToastProvider');
     expect(layout).not.toContain('PlatformThemeSync');
+  });
+
+  it('rewrites only the three public entry URLs into a physically isolated route tree', () => {
+    expect(nextConfig).toContain("{ source: '/platform-v7', destination: '/_pc-public/platform-v7' }");
+    expect(nextConfig).toContain("{ source: '/platform-v7/login', destination: '/_pc-public/platform-v7/login' }");
+    expect(nextConfig).toContain("{ source: '/platform-v7/forgot-password', destination: '/_pc-public/platform-v7/forgot-password' }");
+    expect(isolatedLanding).toContain("from '@/app/platform-v7/page'");
+    expect(isolatedLogin).toContain("from '@/app/platform-v7/login/page'");
+    expect(isolatedRecovery).toContain("from '@/app/platform-v7/forgot-password/page'");
+    expect(isolatedLogin).toContain("import '@/styles/platform-v7-public-auth.css'");
+    expect(isolatedRecovery).toContain("import '@/styles/platform-v7-public-auth.css'");
+    for (const source of [isolatedLanding, isolatedLogin, isolatedRecovery]) {
+      expect(source).not.toContain('PlatformV7FullStyleRuntime');
+      expect(source).not.toContain('platform-v7-protected-grid-stable.css');
+      expect(source).not.toContain('platform-v7-dark-role-fixes.css');
+    }
   });
 
   it('does not wrap target public routes in client providers or protected templates', () => {
@@ -71,7 +91,7 @@ describe('platform-v7 public/protected runtime split', () => {
   });
 
   it('loads lean CSS from concrete routes and full CSS only from the non-lean runtime', () => {
-    expect(rootLayout).not.toContain("platform-v7-dark-role-fixes.css");
+    expect(rootLayout).not.toContain('platform-v7-dark-role-fixes.css');
     expect(layout).not.toContain("import '@/styles/");
     expect(template).not.toContain("import '@/styles/");
 
