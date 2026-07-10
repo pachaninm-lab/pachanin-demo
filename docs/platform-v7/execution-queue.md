@@ -1,33 +1,31 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.24 Runtime Persistence Pipeline Linkage Binding Final Gate.
+CURRENT: VP-3.25 Runtime Persistence Pipeline Linkage Binding Implementation.
 
-GOAL: Финально зафиксировать manual code PR gate для подключения typed linkage boundary к runtime repository write после merge #2231, без fake evidence и без Prisma/migration changes.
+GOAL: Подключить typed linkage validation к runtime repository write после merge #2232, без client-supplied evidence, без Prisma/migrations и без live integration claims.
 
 CURRENT STATUS:
 - VP-3.13 repository adapter is merged from #2221.
 - VP-3.17 runtime action pipeline binding is merged from #2225.
 - VP-3.21 typed outbox/audit linkage boundary is merged from #2229.
-- VP-3.23 pipeline linkage binding scope unlock is merged from #2231.
+- VP-3.24 final binding gate is merged from #2232.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
+- apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts
+- apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts
+- apps/web/tests/unit/platformV7DealWorkspaceRuntimeLinkage.test.ts
+- apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineLinkageBinding.test.ts
 
-MANUAL CODE PR SCOPE AFTER THIS GATE:
-- `apps/web/app/platform-v7/actions/deal-workspace-runtime-intent-actions.ts`
-- `apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts`
-- `apps/web/tests/unit/platformV7DealWorkspaceRuntimeLinkage.test.ts`
-- `apps/web/tests/unit/platformV7DealWorkspaceRuntimePipelineLinkageBinding.test.ts`
-
-MANDATORY BINDING RULES:
-- No client-supplied linkage IDs or evidence.
-- Audit payload count is not persisted evidence.
-- Pipeline must validate evidence before repository write.
-- No evidence means `outbox_required`.
-- Valid outbox only means `audit_required`.
-- Both validated evidence records may mean `fully_linked`.
-- Duplicate idempotency remains duplicate-safe.
+IMPLEMENTED:
+- Linkage validation and repository write are combined in `writeP7DealWorkspaceRuntimeWithLinkage`.
+- Runtime action pipeline uses that validated write path.
+- Public action input remains `dealId + intentId`; linkage IDs and evidence are not accepted from clients.
+- Action result exposes the linkage decision separately from repository receipt.
+- Default path without explicit server-side evidence remains `outbox_required`.
+- Validated linkage is passed to repository adapter; raw IDs cannot bypass validation.
+- Duplicate repository writes remain duplicate-safe.
 
 STILL LOCKED:
 - `apps/api/prisma/schema.prisma`
@@ -37,19 +35,20 @@ STILL LOCKED:
 - `apps/api/src/modules/auth/**`
 - package and lockfiles
 
+KNOWN NEXT HARDENING:
+- Current in-process repository stores the first idempotent receipt and does not promote a duplicate receipt when later evidence arrives.
+- Transaction atomicity across snapshot, repository, outbox and audit is not implemented yet.
+- Retry, partial failure and recovery semantics need explicit contracts and tests.
+
 NEXT:
-- Layer: VP-3.25 Runtime Persistence Pipeline Linkage Binding Implementation.
-- Goal: prepare the manual implementation layer after this final gate is merged.
+- Layer: VP-3.26 Runtime Persistence Transaction and Idempotency Hardening Plan.
+- Goal: select exact scope for atomicity, duplicate replay, linkage promotion, retry and failure semantics.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - final gate closes without code changes;
-  - next manual code PR explicitly expands current scope to the four approved files;
+  - VP-3.25 binding is merged and tested;
+  - no Prisma schema or migration changes occur in this layer;
   - critical forbidden zones remain unchanged;
-  - Prisma schema and migrations remain locked;
+  - guard, dry-run, web-unit, CI and security checks stay green;
   - maturity language remains platform-temporarily-without-external-integrations.
-
-AFTER NEXT:
-- Layer: VP-3.26 Runtime Persistence Transaction and Idempotency Hardening Plan.
-- Goal: assess atomicity, duplicate replay, failure and retry semantics after pipeline linkage binding is implemented.

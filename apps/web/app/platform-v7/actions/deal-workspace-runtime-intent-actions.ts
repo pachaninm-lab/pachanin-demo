@@ -14,6 +14,13 @@ import {
   type P7DealWorkspaceRuntimeRepositoryReceipt,
 } from '@/lib/platform-v7/deal-workspace-runtime-db-repository';
 import {
+  writeP7DealWorkspaceRuntimeWithLinkage,
+  type P7DealWorkspaceRuntimeAuditEvidence,
+  type P7DealWorkspaceRuntimeLinkageResult,
+  type P7DealWorkspaceRuntimeLinkedRepositoryWriteResult,
+  type P7DealWorkspaceRuntimeOutboxEvidence,
+} from '@/lib/platform-v7/deal-workspace-runtime-linkage';
+import {
   buildP7DealWorkspaceRuntimeRefreshSnapshot,
   type P7DealWorkspaceRuntimeRefreshSnapshot,
 } from '@/lib/platform-v7/deal-workspace-runtime-snapshot';
@@ -39,6 +46,7 @@ export interface P7DealWorkspaceRuntimeIntentActionResult {
   readonly refreshSnapshot: P7DealWorkspaceRuntimeRefreshSnapshot;
   readonly runtimeStoreReceipt: P7DealWorkspaceRuntimeStoreReceipt;
   readonly runtimeRepositoryReceipt: P7DealWorkspaceRuntimeRepositoryReceipt;
+  readonly runtimeLinkage: P7DealWorkspaceRuntimeLinkageResult;
 }
 
 interface P7RuntimePersistenceContext {
@@ -47,6 +55,11 @@ interface P7RuntimePersistenceContext {
   readonly correlationId: string;
   readonly auditId: string;
   readonly idempotencyKey: string;
+}
+
+interface P7RuntimePersistenceEvidence {
+  readonly outbox?: P7DealWorkspaceRuntimeOutboxEvidence | null;
+  readonly audit?: P7DealWorkspaceRuntimeAuditEvidence | null;
 }
 
 const ACTOR = {
@@ -106,11 +119,12 @@ function runtimePersistenceContextForFailure(dealId: string, intentId: P7DealWor
   };
 }
 
-function repositoryReceiptFor(
+function repositoryPersistenceFor(
   refreshSnapshot: P7DealWorkspaceRuntimeRefreshSnapshot,
   runtimeStoreReceipt: P7DealWorkspaceRuntimeStoreReceipt,
   context: P7RuntimePersistenceContext,
-): P7DealWorkspaceRuntimeRepositoryReceipt {
+  evidence: P7RuntimePersistenceEvidence = {},
+): P7DealWorkspaceRuntimeLinkedRepositoryWriteResult {
   const contract = buildP7DealWorkspaceRuntimeDbContract({
     snapshot: refreshSnapshot,
     receipt: runtimeStoreReceipt,
@@ -122,7 +136,13 @@ function repositoryReceiptFor(
     createdAt: now(),
   });
 
-  return runtimeRepository.write({ contract, savedAt: now() });
+  return writeP7DealWorkspaceRuntimeWithLinkage({
+    repository: runtimeRepository,
+    contract,
+    outbox: evidence.outbox,
+    audit: evidence.audit,
+    savedAt: now(),
+  });
 }
 
 function toActionResult(
@@ -135,6 +155,7 @@ function toActionResult(
   if (result.ok === true) {
     const refreshSnapshot = snapshot({ dealId, intentId, ok: true, status: result.status, duplicate: result.duplicate, auditPayloadCount: result.auditPayloads.length, boundaryStatus: result.meta.boundaryStatus });
     const runtimeStoreReceipt = receiptFor(refreshSnapshot);
+    const persistence = repositoryPersistenceFor(refreshSnapshot, runtimeStoreReceipt, persistenceContext);
     return {
       ok: true,
       status: result.status,
@@ -146,12 +167,14 @@ function toActionResult(
       boundaryReason: result.meta.boundaryReason,
       refreshSnapshot,
       runtimeStoreReceipt,
-      runtimeRepositoryReceipt: repositoryReceiptFor(refreshSnapshot, runtimeStoreReceipt, persistenceContext),
+      runtimeRepositoryReceipt: persistence.repositoryReceipt,
+      runtimeLinkage: persistence.linkageResult,
     };
   }
 
   const refreshSnapshot = snapshot({ dealId, intentId, ok: false, status: result.status, duplicate: result.duplicate, auditPayloadCount: result.auditPayloads.length, boundaryStatus: result.meta.boundaryStatus });
   const runtimeStoreReceipt = receiptFor(refreshSnapshot);
+  const persistence = repositoryPersistenceFor(refreshSnapshot, runtimeStoreReceipt, persistenceContext);
   return {
     ok: false,
     status: result.status,
@@ -163,13 +186,19 @@ function toActionResult(
     boundaryReason: result.meta.boundaryReason,
     refreshSnapshot,
     runtimeStoreReceipt,
-    runtimeRepositoryReceipt: repositoryReceiptFor(refreshSnapshot, runtimeStoreReceipt, persistenceContext),
+    runtimeRepositoryReceipt: persistence.repositoryReceipt,
+    runtimeLinkage: persistence.linkageResult,
   };
 }
 
 function failure(dealId: string, intentId: P7DealWorkspaceRuntimeIntentId, status: string, message: string): P7DealWorkspaceRuntimeIntentActionResult {
   const refreshSnapshot = snapshot({ dealId, intentId, ok: false, status, duplicate: false, auditPayloadCount: 0 });
   const runtimeStoreReceipt = receiptFor(refreshSnapshot);
+  const persistence = repositoryPersistenceFor(
+    refreshSnapshot,
+    runtimeStoreReceipt,
+    runtimePersistenceContextForFailure(dealId, intentId, status),
+  );
   return {
     ok: false,
     status,
@@ -178,7 +207,8 @@ function failure(dealId: string, intentId: P7DealWorkspaceRuntimeIntentId, statu
     duplicate: false,
     refreshSnapshot,
     runtimeStoreReceipt,
-    runtimeRepositoryReceipt: repositoryReceiptFor(refreshSnapshot, runtimeStoreReceipt, runtimePersistenceContextForFailure(dealId, intentId, status)),
+    runtimeRepositoryReceipt: persistence.repositoryReceipt,
+    runtimeLinkage: persistence.linkageResult,
   };
 }
 
