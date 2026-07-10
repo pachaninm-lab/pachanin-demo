@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { PublicSupportWidget } from '@/components/platform-v7/PublicSupportWidget';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://процент-агро.рф';
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://xn----8sbnqchpeeeth.xn--p1ai'),
+  metadataBase: new URL(SITE_URL),
   applicationName: 'Прозрачная Цена',
 };
 
