@@ -93,7 +93,7 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-production-hydration-performance
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_RUNTIME_FIX_SCOPE")
 fi
 
-if [ "${GITHUB_HEAD_REF:-}" = "fix/public-auth-server-authority" ]; then
+if [ "${GITHUB_HEAD_REF:-}" = "fix/public-auth-server-authority" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-auth-server-authority-final" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_RUNTIME_FIX_SCOPE" "$PUBLIC_AUTH_FIX_SCOPE")
 fi
 
