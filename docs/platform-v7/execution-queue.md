@@ -48,7 +48,7 @@ NEXT:
   - four implementation files remain unchanged in VP-3.39;
   - no controller or public route is introduced;
   - fail-closed provider behavior remains explicit;
-  - guard, dry-run and security checks remain green.
+  - guard, loop dry-run, CodeQL, Qodana, Security Scan and Security Quality Gate all complete with `success` before merge.
 
 AFTER NEXT:
 - Layer: VP-3.41 Runtime Persistence Internal Service Wiring Implementation.
