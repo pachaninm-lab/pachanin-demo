@@ -1,5 +1,6 @@
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { BadRequestException, Headers, HttpCode, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
@@ -126,6 +127,15 @@ export class SettlementEngineController {
 
   /** Request bank reserve — creates outbox entry, does NOT self-confirm. */
   @Post('deal/:id/reserve')
+  @RateLimit({
+    name: 'money_reserve_request',
+    scope: 'org',
+    limit: 6,
+    windowSeconds: 60,
+    limitEnv: 'RATE_LIMIT_MONEY_REQUEST',
+    windowEnv: 'RATE_LIMIT_MONEY_WINDOW_SECONDS',
+    includeParams: ['id'],
+  })
   async requestReserve(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.settlementEngine.requestReserve(id, user);
   }
@@ -133,12 +143,22 @@ export class SettlementEngineController {
   /** Request bank release — creates outbox entry, does NOT self-release. */
   @Post('deal/:id/release')
   @UseGuards(RequiresMfaGuard)
+  @RateLimit({
+    name: 'money_release_request',
+    scope: 'org',
+    limit: 6,
+    windowSeconds: 60,
+    limitEnv: 'RATE_LIMIT_MONEY_REQUEST',
+    windowEnv: 'RATE_LIMIT_MONEY_WINDOW_SECONDS',
+    includeParams: ['id'],
+  })
   async requestRelease(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.settlementEngine.requestRelease(id, user);
   }
 
   /** Legacy manual confirmation. It remains outside the canonical deal path. */
   @Post('deal/:id/confirm')
+  @RateLimit({ name: 'money_legacy_confirm', scope: 'user', limit: 6, windowSeconds: 60, includeParams: ['id'] })
   async confirm(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     if (id === CANONICAL_TEST_DEAL_ID) {
       throw new UnauthorizedException('Canonical money state can only be confirmed by a verified bank callback.');
@@ -147,6 +167,7 @@ export class SettlementEngineController {
   }
 
   @Post('deal/:id/adjust')
+  @RateLimit({ name: 'money_adjust', scope: 'user', limit: 10, windowSeconds: 60, includeParams: ['id'] })
   async adjust(
     @Param('id') id: string,
     @Body() body: { adjustments: any[] },
@@ -156,6 +177,7 @@ export class SettlementEngineController {
   }
 
   @Post('import-bank-statement')
+  @RateLimit({ name: 'bank_statement_import', scope: 'user', limit: 5, windowSeconds: 300 })
   async importBankStatement(
     @Body() body: { content: string; format: string },
     @CurrentUser() user: RequestUser,
@@ -179,6 +201,14 @@ export class SettlementEngineController {
   @Public()
   @Post('bank-callback')
   @HttpCode(200)
+  @RateLimit({
+    name: 'bank_callback',
+    scope: 'ip',
+    limit: 120,
+    windowSeconds: 60,
+    limitEnv: 'RATE_LIMIT_BANK_CALLBACK',
+    windowEnv: 'RATE_LIMIT_BANK_CALLBACK_WINDOW_SECONDS',
+  })
   async bankCallback(
     @Body() body: JsonRecord,
     @Headers('x-bank-signature') signature: string | undefined,

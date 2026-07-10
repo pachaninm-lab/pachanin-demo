@@ -34,6 +34,10 @@ api:
     NODE_ENV: production
     PORT: "3001"
     LOG_LEVEL: info
+    # X-Forwarded-For учитывается только от ingress peer внутри разрешённых CIDR.
+    # Для конкретного кластера диапазоны нужно сузить до pod/service CIDR ingress-controller.
+    TRUST_PROXY_MODE: cidr
+    TRUSTED_PROXY_CIDRS: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
     VAULT_ADDR: "http://vault.grainflow-prod.svc.cluster.local:8200"
     KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
     S3_BUCKET: "grainflow-documents"
@@ -129,7 +133,7 @@ web:
     hosts:
       - host: app.grainflow.ru
 
-# ── ML Service ───────────────────────────────────────────────────────────────
+# ── ML Service ────────────────────────────────────────────────────────────────
 ml:
   image:
     repository: cr.yandex/grainflow/ml

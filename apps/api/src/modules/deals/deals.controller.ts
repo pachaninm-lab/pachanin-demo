@@ -1,5 +1,6 @@
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { UseGuards } from '@nestjs/common';
 import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -61,6 +62,15 @@ export class DealsController {
 
   @Post(':id/commands/:actionId')
   @Roles('ANY_AUTHENTICATED')
+  @RateLimit({
+    name: 'deal_command',
+    scope: 'user',
+    limit: 20,
+    windowSeconds: 60,
+    limitEnv: 'RATE_LIMIT_DEAL_COMMAND',
+    windowEnv: 'RATE_LIMIT_DEAL_COMMAND_WINDOW_SECONDS',
+    includeParams: ['id', 'actionId'],
+  })
   executeCommand(
     @Param('id') id: string,
     @Param('actionId') actionId: string,

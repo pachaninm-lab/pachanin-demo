@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { StorageService } from './storage.service';
@@ -19,6 +20,14 @@ export class StorageController {
   constructor(private readonly storage: StorageService) {}
 
   @Post('request-upload')
+  @RateLimit({
+    name: 'evidence_upload_request',
+    scope: 'user',
+    limit: 30,
+    windowSeconds: 60,
+    limitEnv: 'RATE_LIMIT_EVIDENCE_UPLOAD',
+    windowEnv: 'RATE_LIMIT_EVIDENCE_WINDOW_SECONDS',
+  })
   requestUpload(
     @Body() body: {
       filename: string;
@@ -32,6 +41,15 @@ export class StorageController {
   }
 
   @Post('confirm-upload/:fileId')
+  @RateLimit({
+    name: 'evidence_upload_confirm',
+    scope: 'user',
+    limit: 10,
+    windowSeconds: 60,
+    limitEnv: 'RATE_LIMIT_EVIDENCE_CONFIRM',
+    windowEnv: 'RATE_LIMIT_EVIDENCE_WINDOW_SECONDS',
+    includeParams: ['fileId'],
+  })
   confirmUpload(
     @Param('fileId') fileId: string,
     @Body() body: { sha256: string },
@@ -50,6 +68,13 @@ export class StorageController {
   }
 
   @Get(':fileId/integrity')
+  @RateLimit({
+    name: 'evidence_integrity_verify',
+    scope: 'user',
+    limit: 30,
+    windowSeconds: 60,
+    includeParams: ['fileId'],
+  })
   verifyIntegrity(
     @Param('fileId') fileId: string,
     @CurrentUser() user: RequestUser,
@@ -66,6 +91,13 @@ export class StorageController {
   }
 
   @Delete(':fileId')
+  @RateLimit({
+    name: 'evidence_delete',
+    scope: 'user',
+    limit: 10,
+    windowSeconds: 300,
+    includeParams: ['fileId'],
+  })
   delete(
     @Param('fileId') fileId: string,
     @CurrentUser() user: RequestUser,

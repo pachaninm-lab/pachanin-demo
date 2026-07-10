@@ -1,11 +1,12 @@
 import './tracing';
 import './sentry';
 import 'reflect-metadata';
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { register, collectDefaultMetrics, Counter, Histogram } from 'prom-client';
 import { MaskedLoggerService } from './common/logger/masked-logger.service';
+import { createTrustedProxyPolicy } from './common/security/trusted-proxy';
 
 // Prometheus metrics setup
 collectDefaultMetrics({ prefix: 'grainflow_' });
@@ -22,6 +23,10 @@ const httpDurationHistogram = new Histogram({
 });
 
 async function bootstrap() {
+  // Proxy trust must be explicit before Express derives req.ip. In production an
+  // omitted/invalid mode terminates startup instead of trusting arbitrary XFF.
+  const trustedProxyPolicy = createTrustedProxyPolicy(process.env);
+
   // Configure external integrations from env before anything binds: swap the
   // in-memory mocks for live adapters wherever `<NAME>_MODE=live|sandbox`, and
   // validate the required credentials up-front. Default (no `*_MODE` set) keeps
@@ -38,6 +43,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: new MaskedLoggerService(),
   });
+  app.getHttpAdapter().getInstance().set('trust proxy', trustedProxyPolicy.expressSetting);
 
   app.enableCors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
