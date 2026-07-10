@@ -149,6 +149,7 @@ AS $complete_outbox$
 DECLARE
   v_claim delivery.outbox_claims%ROWTYPE;
   v_retry_count INTEGER;
+  v_released_at TIMESTAMPTZ;
 BEGIN
   SELECT * INTO v_claim
   FROM delivery.outbox_claims
@@ -180,7 +181,11 @@ BEGIN
     v_claim.claimed_at
   );
 
-  DELETE FROM delivery.outbox_claims WHERE outbox_id = p_outbox_id;
+  v_released_at := GREATEST(v_claim.claimed_at + interval '1 microsecond', clock_timestamp());
+  UPDATE delivery.outbox_claims
+  SET claim_expires_at = v_released_at,
+      updated_at = v_released_at
+  WHERE outbox_id = p_outbox_id;
   RETURN TRUE;
 END
 $complete_outbox$;
@@ -208,6 +213,7 @@ DECLARE
   v_next_retry TIMESTAMPTZ;
   v_backoff_seconds INTEGER;
   v_jitter_seconds INTEGER;
+  v_released_at TIMESTAMPTZ;
 BEGIN
   IF p_error_code IS NULL OR length(p_error_code) NOT BETWEEN 1 AND 96 THEN
     RAISE EXCEPTION 'invalid outbox error code' USING ERRCODE = '22023';
@@ -234,7 +240,7 @@ BEGIN
     v_next_retry := clock_timestamp();
   ELSE
     v_next_status := 'RETRY';
-    v_backoff_seconds := LEAST(3600, (2 ^ LEAST(v_retry_count, 12))::INTEGER);
+    v_backoff_seconds := LEAST(3600, power(2, LEAST(v_retry_count, 12))::INTEGER);
     v_jitter_seconds := (
       ('x' || substr(encode(digest(v_entry.id || ':' || v_retry_count::text, 'sha256'), 'hex'), 1, 8))::bit(32)::bigint
       % GREATEST(1, LEAST(60, v_backoff_seconds / 4 + 1))
@@ -264,7 +270,11 @@ BEGIN
     v_claim.claimed_at
   );
 
-  DELETE FROM delivery.outbox_claims WHERE outbox_id = p_outbox_id;
+  v_released_at := GREATEST(v_claim.claimed_at + interval '1 microsecond', clock_timestamp());
+  UPDATE delivery.outbox_claims
+  SET claim_expires_at = v_released_at,
+      updated_at = v_released_at
+  WHERE outbox_id = p_outbox_id;
   RETURN QUERY SELECT v_next_status, v_retry_count, v_next_retry;
 END
 $fail_outbox$;
@@ -281,6 +291,7 @@ SET search_path = pg_catalog, public, delivery
 AS $manual_requeue$
 DECLARE
   v_retry_count INTEGER;
+  v_now TIMESTAMPTZ := clock_timestamp();
 BEGIN
   IF p_actor_user_id IS NULL OR length(trim(p_actor_user_id)) NOT BETWEEN 1 AND 160 THEN
     RAISE EXCEPTION 'invalid retry actor' USING ERRCODE = '22023';
@@ -289,11 +300,15 @@ BEGIN
     RAISE EXCEPTION 'invalid retry reason hash' USING ERRCODE = '22023';
   END IF;
 
-  DELETE FROM delivery.outbox_claims WHERE outbox_id = p_outbox_id;
+  UPDATE delivery.outbox_claims
+  SET claim_expires_at = GREATEST(claimed_at + interval '1 microsecond', v_now),
+      updated_at = v_now
+  WHERE outbox_id = p_outbox_id;
+
   UPDATE public.outbox_entries
   SET status = 'RETRY',
       "retryCount" = 0,
-      "nextRetryAt" = clock_timestamp(),
+      "nextRetryAt" = v_now,
       "lastError" = NULL,
       "failedAt" = NULL
   WHERE id = p_outbox_id AND status IN ('DEAD', 'MANUAL_REVIEW')
@@ -307,11 +322,11 @@ BEGIN
     p_outbox_id,
     1,
     'manual:' || trim(p_actor_user_id),
-    encode(digest(p_outbox_id || ':' || p_actor_user_id || ':' || clock_timestamp()::text, 'sha256'), 'hex'),
+    encode(digest(p_outbox_id || ':' || p_actor_user_id || ':' || v_now::text, 'sha256'), 'hex'),
     'MANUAL_REQUEUE',
     'manual_requeue',
     p_reason_hash,
-    clock_timestamp(),
+    v_now,
     jsonb_build_object('actorUserId', trim(p_actor_user_id))
   );
   RETURN TRUE;
