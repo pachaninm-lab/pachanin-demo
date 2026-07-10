@@ -1,71 +1,59 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation.
+CURRENT: VP-3.38 Runtime Persistence Internal Service Wiring Plan.
 
-GOAL: Реализовать API-side Prisma repository adapter после merge #2244, без module/controller/API/web wiring и без применения migration к production DB.
+GOAL: Выбрать точный server-only scope для Nest service/module wiring после merge #2245, без AppModule registration, controller/API endpoint, web bridge и production migration application.
 
 CURRENT STATUS:
 - VP-3.33 additive Prisma schema/migration is merged from #2241.
-- VP-3.36 final gate is merged from #2244.
-- VP-3.37 implements the repository contract, Prisma adapter, explicit factory and unit tests in PR #2245.
+- VP-3.37 API-side Prisma repository adapter is merged from #2245.
+- Railway `brilliant-liberation - @pc/web` is green after #2245.
+- Repository adapter exists but is not registered in a Nest provider graph.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
-- apps/api/src/modules/runtime-persistence/runtime-persistence.repository.ts
-- apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.ts
-- apps/api/src/modules/runtime-persistence/runtime-persistence-repository.factory.ts
-- apps/api/src/modules/runtime-persistence/runtime-persistence-repository.spec.ts
-- apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.spec.ts
 
-IMPLEMENTED:
-- Typed API-side repository contract and injection token.
-- Fail-closed disabled repository; no process-store fallback.
-- Exact `PLATFORM_V7_RUNTIME_PERSISTENCE_REPOSITORY=prisma` activation.
-- Missing PrismaService fails loudly before writes.
-- Caller input has no trusted outbox/audit database IDs.
-- Existing idempotency identity is read before write:
-  - matching snapshot/hash returns deterministic `duplicate`;
-  - different snapshot/hash returns `conflict`.
-- First write runs one Prisma `$transaction` and creates:
-  - canonical `outbox_entries` evidence;
-  - canonical `audit_events` evidence;
-  - `fully_linked` runtime snapshot referencing generated evidence IDs;
-  - committed transaction attempt.
-- Any transaction failure returns controlled `database_write_failed`; raw DB errors are not exposed.
-- Concurrent P2002 is re-read and classified as duplicate or conflict.
-- Tests cover fail-closed selection, exact activation, atomic success, caller evidence injection, duplicate, conflict, concurrent winner, invalid input and rollback simulation.
+CANDIDATE IMPLEMENTATION FILES FOR LATER PR:
+- `apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts`
+- `apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts`
+- `apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts`
+- `apps/api/src/modules/runtime-persistence/runtime-persistence.module.spec.ts`
 
-IMPORTANT LIMITS:
-- The adapter is implemented but not registered in a Nest module or active runtime path.
-- Production migration is not applied.
-- No controller, API endpoint or web action calls this repository.
-- Tenant/auth identity is accepted by the internal contract but enforcement remains a later server wiring layer.
-- No live bank callbacks, FGIS or EDO integration is claimed.
+WIRING REQUIREMENTS:
+- `RuntimePersistenceService` depends only on the repository injection token.
+- `RuntimePersistenceModule` provides the token through the existing repository selector and global `PrismaService`.
+- Exact `PLATFORM_V7_RUNTIME_PERSISTENCE_REPOSITORY=prisma` activation remains required.
+- Disabled mode remains fail-closed and never writes to process memory.
+- Service validates internal caller context before delegating.
+- No controller or externally callable route is introduced.
+- No AppModule registration is introduced in the implementation layer.
+- Raw database errors and Prisma details remain hidden.
+- Unit tests verify disabled mode, Prisma mode, missing Prisma failure and delegation behavior.
 
 STILL LOCKED:
-- runtime persistence module/service/controller/API endpoint;
-- AppModule registration;
+- `apps/api/src/app.module.ts`;
+- runtime persistence controller or public endpoint;
 - web server-action bridge;
 - production migration execution and rollback rehearsal;
-- auth/tenant enforcement changes;
+- auth/tenant enforcement changes outside internal input validation;
 - UI/components;
 - package and lockfiles;
 - live bank/FGIS/EDO integrations.
 
 NEXT:
-- Layer: VP-3.38 Runtime Persistence Internal Service Wiring Plan.
-- Goal: select exact server-only module/service/provider wiring after VP-3.37 is merged and tested.
+- Layer: VP-3.39 Runtime Persistence Internal Service Wiring Scope Unlock.
+- Goal: docs-only unlock the exact four service/module/test files.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - API and unit tests validate adapter behavior;
-  - TypeScript and Prisma delegates compile;
-  - no module/controller/web wiring occurs in VP-3.37;
-  - no production migration application is claimed;
-  - Railway `brilliant-liberation - @pc/web` is green after merge.
+  - candidate files are exact and minimal;
+  - AppModule/controller/API/web files remain locked;
+  - critical forbidden zones remain unchanged;
+  - production migration remains unapplied;
+  - maturity language does not claim active runtime wiring.
 
 AFTER NEXT:
-- Layer: VP-3.39 Runtime Persistence Internal Service Wiring Scope Unlock.
-- Goal: docs-only unlock exact provider/module/service files after the plan is merged.
+- Layer: VP-3.40 Runtime Persistence Internal Service Wiring Final Gate.
+- Goal: final docs-only gate before writing the four internal wiring files.
