@@ -1,9 +1,13 @@
+import type { Prisma } from '@prisma/client';
+import {
+  RlsContextError,
+  type TrustedRlsContext,
+  RlsTransactionService,
+} from '../../common/prisma/rls-transaction.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 import {
-  RuntimePersistenceCommandContextError,
   RuntimePersistenceCommandService,
   type RuntimePersistenceAuthenticatedCommandInput,
-  type RuntimePersistenceCommandContextErrorCode,
 } from './runtime-persistence-command.service';
 import type { RuntimePersistenceWriteReceipt } from './runtime-persistence.repository';
 import { RuntimePersistenceService } from './runtime-persistence.service';
@@ -45,33 +49,57 @@ const RECEIPT: RuntimePersistenceWriteReceipt = {
   recordId: 'runtime-record-canonical-002',
 };
 
+const DUPLICATE: RuntimePersistenceWriteReceipt = {
+  status: 'duplicate',
+  runtimeSnapshotId: COMMAND.runtimeSnapshotId,
+  idempotencyKey: COMMAND.idempotencyKey,
+  state: 'fully_linked',
+  recordId: 'runtime-record-canonical-002',
+};
+
 function fixture() {
+  const tx = { trusted: true } as unknown as Prisma.TransactionClient;
+  const context: TrustedRlsContext = {
+    userId: TRUSTED_USER.id,
+    orgId: TRUSTED_USER.orgId!,
+    tenantId: TRUSTED_USER.tenantId!,
+    role: TRUSTED_USER.role,
+    sessionId: TRUSTED_USER.sessionId!,
+  };
   const persistence = {
-    persist: jest.fn().mockResolvedValue(RECEIPT),
+    persistWithinTransaction: jest.fn().mockResolvedValue(RECEIPT),
+    classifyExistingWithinTransaction: jest.fn().mockResolvedValue(null),
   } as unknown as RuntimePersistenceService;
+  const rlsTransactions = {
+    withTrustedContext: jest.fn(
+      async (
+        _user: RequestUser,
+        work: (client: Prisma.TransactionClient, trusted: TrustedRlsContext) => Promise<unknown>,
+      ) => work(tx, context),
+    ),
+  } as unknown as RlsTransactionService;
+
   return {
+    tx,
     persistence,
-    service: new RuntimePersistenceCommandService(persistence),
+    rlsTransactions,
+    service: new RuntimePersistenceCommandService(persistence, rlsTransactions),
   };
 }
 
-function captureContextError(run: () => unknown): RuntimePersistenceCommandContextError {
-  try {
-    run();
-  } catch (error) {
-    expect(error).toBeInstanceOf(RuntimePersistenceCommandContextError);
-    return error as RuntimePersistenceCommandContextError;
-  }
-  throw new Error('Expected RuntimePersistenceCommandContextError.');
-}
-
 describe('RuntimePersistenceCommandService', () => {
-  it('derives actor, role, tenant and organization only from trusted RequestUser', async () => {
+  it('derives identity only from trusted RequestUser and uses the RLS transaction client', async () => {
     const test = fixture();
 
     await expect(test.service.persistAuthenticated(TRUSTED_USER, COMMAND)).resolves.toBe(RECEIPT);
-    expect(test.persistence.persist).toHaveBeenCalledTimes(1);
-    expect(test.persistence.persist).toHaveBeenCalledWith({
+
+    expect(test.rlsTransactions.withTrustedContext).toHaveBeenCalledTimes(1);
+    expect(test.rlsTransactions.withTrustedContext).toHaveBeenCalledWith(
+      TRUSTED_USER,
+      expect.any(Function),
+    );
+    expect(test.persistence.persistWithinTransaction).toHaveBeenCalledTimes(1);
+    expect(test.persistence.persistWithinTransaction).toHaveBeenCalledWith(test.tx, {
       ...COMMAND,
       actorId: TRUSTED_USER.id,
       actorRole: TRUSTED_USER.role,
@@ -94,7 +122,7 @@ describe('RuntimePersistenceCommandService', () => {
 
     await test.service.persistAuthenticated(TRUSTED_USER, maliciousCommand);
 
-    const delegated = (test.persistence.persist as jest.Mock).mock.calls[0][0];
+    const delegated = (test.persistence.persistWithinTransaction as jest.Mock).mock.calls[0][1];
     expect(delegated).toMatchObject({
       actorId: TRUSTED_USER.id,
       actorRole: TRUSTED_USER.role,
@@ -113,14 +141,16 @@ describe('RuntimePersistenceCommandService', () => {
     ['organization_required', { ...TRUSTED_USER, orgId: '' }],
     ['tenant_required', { ...TRUSTED_USER, tenantId: undefined }],
     ['guest_role_forbidden', { ...TRUSTED_USER, role: Role.GUEST }],
-  ] as const)('blocks %s before repository delegation', (expectedCode, user) => {
+  ] as const)('blocks %s before opening an RLS transaction', async (expectedCode, user) => {
     const test = fixture();
-    const error = captureContextError(() => test.service.persistAuthenticated(user, COMMAND));
 
-    expect(error.name).toBe('RuntimePersistenceCommandContextError');
-    expect(error.code).toBe(expectedCode as RuntimePersistenceCommandContextErrorCode);
-    expect(error.message).toBe('Trusted runtime persistence context is incomplete.');
-    expect(test.persistence.persist).not.toHaveBeenCalled();
+    await expect(test.service.persistAuthenticated(user, COMMAND)).rejects.toMatchObject({
+      name: 'RuntimePersistenceCommandContextError',
+      code: expectedCode,
+      message: 'Trusted runtime persistence context is incomplete.',
+    });
+    expect(test.rlsTransactions.withTrustedContext).not.toHaveBeenCalled();
+    expect(test.persistence.persistWithinTransaction).not.toHaveBeenCalled();
   });
 
   it('returns failed repository receipts unchanged', async () => {
@@ -132,8 +162,65 @@ describe('RuntimePersistenceCommandService', () => {
       state: 'ready_to_persist',
       reasonCode: 'repository_not_enabled',
     };
-    (test.persistence.persist as jest.Mock).mockResolvedValueOnce(failed);
+    (test.persistence.persistWithinTransaction as jest.Mock).mockResolvedValueOnce(failed);
 
     await expect(test.service.persistAuthenticated(TRUSTED_USER, COMMAND)).resolves.toBe(failed);
+  });
+
+  it('does not execute persistence when RLS initialization fails', async () => {
+    const test = fixture();
+    (test.rlsTransactions.withTrustedContext as jest.Mock).mockRejectedValueOnce(
+      new Error('sensitive set_config failure'),
+    );
+
+    await expect(test.service.persistAuthenticated(TRUSTED_USER, COMMAND)).resolves.toEqual({
+      status: 'failed',
+      runtimeSnapshotId: COMMAND.runtimeSnapshotId,
+      idempotencyKey: COMMAND.idempotencyKey,
+      state: 'ready_to_persist',
+      reasonCode: 'database_write_failed',
+    });
+    expect(test.persistence.persistWithinTransaction).not.toHaveBeenCalled();
+  });
+
+  it('re-enters a trusted transaction to classify a concurrent P2002 winner', async () => {
+    const test = fixture();
+    (test.persistence.persistWithinTransaction as jest.Mock).mockRejectedValueOnce({ code: 'P2002' });
+    (test.persistence.classifyExistingWithinTransaction as jest.Mock).mockResolvedValueOnce(DUPLICATE);
+
+    await expect(test.service.persistAuthenticated(TRUSTED_USER, COMMAND)).resolves.toBe(DUPLICATE);
+
+    expect(test.rlsTransactions.withTrustedContext).toHaveBeenCalledTimes(2);
+    expect(test.persistence.classifyExistingWithinTransaction).toHaveBeenCalledWith(test.tx, {
+      ...COMMAND,
+      actorId: TRUSTED_USER.id,
+      actorRole: TRUSTED_USER.role,
+      tenantId: TRUSTED_USER.tenantId,
+      organizationId: TRUSTED_USER.orgId,
+    });
+  });
+
+  it('returns a sanitized failure when a P2002 winner cannot be classified', async () => {
+    const test = fixture();
+    (test.persistence.persistWithinTransaction as jest.Mock).mockRejectedValueOnce({ code: 'P2002' });
+    (test.persistence.classifyExistingWithinTransaction as jest.Mock).mockResolvedValueOnce(null);
+
+    const receipt = await test.service.persistAuthenticated(TRUSTED_USER, COMMAND);
+
+    expect(receipt).toMatchObject({ status: 'failed', reasonCode: 'database_write_failed' });
+    expect(JSON.stringify(receipt)).not.toContain('P2002');
+  });
+
+  it('maps trusted-context failures without opening repository work', async () => {
+    const test = fixture();
+    (test.rlsTransactions.withTrustedContext as jest.Mock).mockRejectedValueOnce(
+      new RlsContextError('tenant_required'),
+    );
+
+    await expect(test.service.persistAuthenticated(TRUSTED_USER, COMMAND)).rejects.toMatchObject({
+      name: 'RuntimePersistenceCommandContextError',
+      code: 'tenant_required',
+    });
+    expect(test.persistence.persistWithinTransaction).not.toHaveBeenCalled();
   });
 });

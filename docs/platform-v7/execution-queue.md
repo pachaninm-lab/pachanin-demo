@@ -1,73 +1,70 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.43 Transaction-Local Trusted RLS Context.
+CURRENT: VP-3.44 Runtime Persistence Trusted Transaction Binding.
 
-GOAL: Удалить небезопасную pre-auth/session-level установку PostgreSQL RLS context и ввести одну fail-closed transaction boundary, которая принимает только trusted `RequestUser` после аутентификации.
+GOAL: Выполнить authenticated runtime persistence полностью внутри transaction-local RLS boundary, чтобы pre-read, outbox, audit, snapshot и transaction-attempt использовали один trusted Prisma transaction client.
 
-CURRENT STATUS:
-- VP-3.33 additive Prisma schema/migration merged in #2241.
-- VP-3.37 API-side Postgres repository adapter merged in #2245.
-- VP-3.41 internal runtime persistence service/module wiring merged in #2250.
-- VP-3.42 authenticated internal command boundary merged in #2252.
-- Draft #2251 remains merge-blocked by user-driven bank confirmations, synthetic bank references, cross-tenant visibility and unresolved conflicts.
-- PR #2254 implements the transaction-local RLS primitive and removes the unsafe middleware.
+CURRENT ALLOWED:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/execution-queue.md
+- apps/api/src/common/prisma/rls-transaction.service.ts
+- apps/api/src/common/prisma/rls-transaction.service.spec.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.spec.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence.repository.ts
+- apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.ts
+- apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.spec.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts
 
-IMPLEMENTED IN #2254:
-- `RlsTransactionService` derives userId, orgId, tenantId, role and sessionId only from trusted `RequestUser`.
-- Missing user/session/org/tenant and `GUEST` fail before a database transaction is opened.
-- RLS values are parameterized through `Prisma.sql`; `$executeRawUnsafe` is not used.
-- `set_config(..., true)` scopes all values to the current transaction and prevents pooled-connection context leakage.
-- RLS initialization failure propagates and prevents business work.
-- Transaction max-wait, timeout and isolation level are explicit and bounded.
-- `RlsTransactionService` is registered and exported by the global `PrismaModule`.
-- The old Nest middleware is deleted because it ran before `AppAuthGuard`, read `organizationId` instead of `orgId`, used session-level context and swallowed all database errors.
-- Unit tests cover trusted derivation, fail-closed validation, parameterization, transaction-local flags, callback binding, transaction options and error propagation.
+CURRENT CRITERIA:
+- authenticated command enters through `RlsTransactionService`;
+- existing-record lookup occurs on the trusted transaction client;
+- outbox, audit, snapshot and attempt writes share that exact client;
+- repository opens no nested transaction inside the trusted callback;
+- concurrent P2002 recovery re-enters a new trusted transaction before classification;
+- RLS initialization failure executes no persistence read or write;
+- errors do not leak sensitive database details;
+- failed receipts remain failed;
+- no controller, web bridge or user-driven bank confirmation is introduced.
 
-STILL LOCKED:
-- controller or external API endpoint;
-- web/server-action bridge;
+DONE:
+- #2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation
+- #2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation
+- #2250 VP-3.41 Runtime Persistence Internal Service Wiring Implementation
+- #2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary
+- #2254 VP-3.43 Transaction-Local Trusted RLS Context
+
+LOCKED:
+- production migration execution;
+- production RLS policy application;
+- persistent identity/session/revocation/MFA files;
+- controller/API/web wiring;
 - bank reserve/release confirmation from user commands;
-- production migration execution or RLS policy application;
-- persistent identity/session/revocation/MFA implementation;
-- UI/components;
 - live bank/FGIS/EDO integrations.
 
-GUARDRAILS:
-- No HTTP request object enters the repository layer.
-- No caller-supplied actor, role, tenant, organization or session identity.
-- No context fallback when trusted identity is incomplete.
-- No session-level PostgreSQL context outside the transaction callback.
-- No unsafe interpolated SQL.
-- No swallowed RLS initialization error.
-- No synthetic bank confirmation or bank reference.
-
 NEXT:
-- Layer: VP-3.44 Runtime Persistence Trusted Transaction Binding.
+- Layer: VP-3.45 Physical Table RLS Policy Alignment and Rehearsal.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
-  - apps/api/src/common/prisma/rls-transaction.service.ts
+  - infra/sql/production-rls-policies.sql
+  - apps/api/prisma/migrations/**
   - apps/api/src/common/prisma/rls-transaction.service.spec.ts
-  - apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.ts
-  - apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.spec.ts
-  - apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts
-  - apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts
-  - apps/api/src/modules/runtime-persistence/runtime-persistence.repository.ts
-  - apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.ts
-  - apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.spec.ts
-  - apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts
+  - scripts/platform-v7-rls-*.mjs
+  - scripts/platform-v7-rls-*.sh
 - Success criteria:
-  - runtime snapshot, outbox, audit and transaction-attempt writes use the same trusted transaction client;
-  - no repository pre-read occurs outside the trusted transaction;
-  - no nested Prisma transaction is opened inside the trusted boundary;
-  - duplicate and material-identity conflict classification remain deterministic under concurrency;
-  - RLS initialization failure leaves snapshot, outbox, audit and attempt unchanged;
-  - failed repository receipts remain failed;
-  - controller, web and user-driven bank confirmation routes remain absent.
+  - RLS policies reference canonical physical PostgreSQL table names from Prisma mappings;
+  - tenant, organization, role and user policies are explicit per protected table;
+  - policy SQL is idempotent and fail-closed;
+  - non-production apply and rollback rehearsal scripts exist;
+  - no production database is modified by CI;
+  - migration and policy drift is detected automatically;
+  - production-enabled claims remain forbidden until controlled application evidence exists.
 - Readiness remains 85% honest architectural readiness.
 
 AFTER NEXT:
-- Canonical physical-table RLS policy audit and controlled non-production application rehearsal.
-- Persistent identity/session/revocation/MFA source of truth.
+- Persistent identity/session/revocation/MFA source of truth after blocker #2115.
 - Authenticated DB-backed runtime action bridge without direct bank confirmation.
 - Concurrency, retry, recovery, load, restore and security acceptance gates.
