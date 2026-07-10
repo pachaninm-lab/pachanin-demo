@@ -105,7 +105,7 @@ export default async function PlatformV7RootPage() {
 
   return (
     <main data-testid='platform-v7-root-execution-cockpit' className='pc-v7-entry-page pc-v7-public-entry'>
-      <style>{css}</style>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
       <PublicSiteHeader
         ariaLabel={t('publicNav')}
         tagline={t('brandTagline')}

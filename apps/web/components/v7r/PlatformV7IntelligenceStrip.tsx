@@ -48,7 +48,7 @@ export async function PlatformV7IntelligenceStrip() {
 
   return (
     <section id='intelligence' className='entry-section entry-intelligence-section' aria-labelledby='intelligence-title' data-lang={lang}>
-      <style>{css}</style>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
       <div className='entry-intelligence-panel'>
         <div className='entry-intelligence-main'>
           <span className='entry-section-kicker'>{t.kicker}</span>

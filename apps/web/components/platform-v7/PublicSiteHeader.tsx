@@ -35,7 +35,7 @@ export function PublicSiteHeader({
         <PublicLocaleSwitch />
         {actions}
       </div>
-      <style>{css}</style>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
     </header>
   );
 }
