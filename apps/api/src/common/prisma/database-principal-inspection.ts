@@ -5,7 +5,9 @@ export type PrincipalInspectionClient = {
   $queryRaw<T = unknown>(query: Prisma.Sql): Promise<T>;
 };
 
-type PrincipalInspectionRow = {
+export type PrincipalInspectionScope = 'deal' | 'auth';
+
+type DealInspectionRow = {
   current_user: string;
   superuser: boolean;
   bypass_rls: boolean;
@@ -17,6 +19,9 @@ type PrincipalInspectionRow = {
   deal_insert: boolean;
   deal_update: boolean;
   deal_delete: boolean;
+};
+
+type AuthInspectionRow = DealInspectionRow & {
   auth_schema_usage: boolean;
   users_select: boolean;
   users_insert: boolean;
@@ -31,10 +36,63 @@ type PrincipalInspectionRow = {
   auth_audit_read_insert: boolean;
 };
 
-export async function inspectDatabasePrincipal(
+function baseSnapshot(row: DealInspectionRow): DatabasePrincipalSnapshot {
+  return {
+    currentUser: row.current_user,
+    superuser: row.superuser,
+    bypassRls: row.bypass_rls,
+    ownsDeals: row.owns_deals,
+    dealsRlsEnabled: row.deals_rls_enabled,
+    dealsForceRls: row.deals_force_rls,
+    rowSecurity: row.row_security,
+    dealSelect: row.deal_select,
+    dealInsert: row.deal_insert,
+    dealUpdate: row.deal_update,
+    dealDelete: row.deal_delete,
+    authSchemaUsage: false,
+    usersSelect: false,
+    usersInsert: false,
+    usersUpdate: false,
+    userOrgsSelect: false,
+    userOrgsInsert: false,
+    userOrgsUpdate: false,
+    organizationsSelect: false,
+    organizationsInsert: false,
+    organizationsUpdate: false,
+    authTablesReadWrite: false,
+    authAuditReadInsert: false,
+  };
+}
+
+async function inspectDealPrincipal(
   client: PrincipalInspectionClient,
 ): Promise<DatabasePrincipalSnapshot> {
-  const rows = await client.$queryRaw<PrincipalInspectionRow[]>(Prisma.sql`
+  const rows = await client.$queryRaw<DealInspectionRow[]>(Prisma.sql`
+    SELECT
+      current_user,
+      roles.rolsuper AS superuser,
+      roles.rolbypassrls AS bypass_rls,
+      deals.relowner = roles.oid AS owns_deals,
+      deals.relrowsecurity AS deals_rls_enabled,
+      deals.relforcerowsecurity AS deals_force_rls,
+      current_setting('row_security') AS row_security,
+      has_table_privilege(current_user, 'public.deals', 'SELECT') AS deal_select,
+      has_table_privilege(current_user, 'public.deals', 'INSERT') AS deal_insert,
+      has_table_privilege(current_user, 'public.deals', 'UPDATE') AS deal_update,
+      has_table_privilege(current_user, 'public.deals', 'DELETE') AS deal_delete
+    FROM pg_roles roles
+    JOIN pg_class deals ON deals.oid = 'public.deals'::regclass
+    WHERE roles.rolname = current_user
+  `);
+  const row = rows[0];
+  if (!row) throw new Error('Unable to inspect current deal PostgreSQL principal.');
+  return baseSnapshot(row);
+}
+
+async function inspectAuthPrincipal(
+  client: PrincipalInspectionClient,
+): Promise<DatabasePrincipalSnapshot> {
+  const rows = await client.$queryRaw<AuthInspectionRow[]>(Prisma.sql`
     SELECT
       current_user,
       roles.rolsuper AS superuser,
@@ -84,20 +142,9 @@ export async function inspectDatabasePrincipal(
   `);
 
   const row = rows[0];
-  if (!row) throw new Error('Unable to inspect current PostgreSQL principal.');
-
+  if (!row) throw new Error('Unable to inspect current auth PostgreSQL principal.');
   return {
-    currentUser: row.current_user,
-    superuser: row.superuser,
-    bypassRls: row.bypass_rls,
-    ownsDeals: row.owns_deals,
-    dealsRlsEnabled: row.deals_rls_enabled,
-    dealsForceRls: row.deals_force_rls,
-    rowSecurity: row.row_security,
-    dealSelect: row.deal_select,
-    dealInsert: row.deal_insert,
-    dealUpdate: row.deal_update,
-    dealDelete: row.deal_delete,
+    ...baseSnapshot(row),
     authSchemaUsage: row.auth_schema_usage,
     usersSelect: row.users_select,
     usersInsert: row.users_insert,
@@ -111,4 +158,13 @@ export async function inspectDatabasePrincipal(
     authTablesReadWrite: row.auth_tables_read_write,
     authAuditReadInsert: row.auth_audit_read_insert,
   };
+}
+
+export async function inspectDatabasePrincipal(
+  client: PrincipalInspectionClient,
+  scope: PrincipalInspectionScope,
+): Promise<DatabasePrincipalSnapshot> {
+  return scope === 'auth'
+    ? inspectAuthPrincipal(client)
+    : inspectDealPrincipal(client);
 }
