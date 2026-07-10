@@ -18,25 +18,46 @@ const BUYER: RequestUser = {
   email: 'buyer@demo.ru',
   role: Role.BUYER,
   orgId: 'untrusted-token-org',
+  tenantId: DEAL.tenantId,
   sessionId: 'session-buyer-001',
 };
 
 function fixture() {
+  const tx = {
+    dealParticipant: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: 'participant-buyer-001',
+        accessLevel: 'WORK',
+        status: 'ACTIVE',
+      }),
+    },
+    organization: {
+      findFirst: jest.fn().mockResolvedValue({
+        id: DEAL.buyerOrgId,
+        tenantId: DEAL.tenantId,
+        status: 'VERIFIED',
+      }),
+    },
+    deal: {
+      findUnique: jest.fn().mockResolvedValue(DEAL),
+    },
+  };
   const prisma = {
-    deal: { findUnique: jest.fn().mockResolvedValue(DEAL) },
     userOrg: {
       findMany: jest.fn().mockResolvedValue([
         {
           userId: BUYER.id,
           organizationId: DEAL.buyerOrgId,
           role: Role.BUYER,
-          organization: { id: DEAL.buyerOrgId, tenantId: DEAL.tenantId },
+          isDefault: true,
         },
       ]),
     },
   } as any;
   const rls = {
-    withTrustedContext: jest.fn(),
+    withTrustedContext: jest.fn(async (_user: RequestUser, work: (client: typeof tx) => Promise<unknown>) =>
+      work(tx),
+    ),
   } as any;
   const commands = {
     workspace: jest.fn().mockResolvedValue({ ok: true }),
@@ -47,6 +68,7 @@ function fixture() {
     }),
   } as any;
   return {
+    tx,
     prisma,
     rls,
     commands,
@@ -55,11 +77,26 @@ function fixture() {
 }
 
 describe('IndustrialDealCommandGateway', () => {
-  it('derives tenant and organization from a current DB membership, not the token org', async () => {
+  it('derives tenant, organization and role from DB membership plus active DealParticipant', async () => {
     const test = fixture();
 
     await test.gateway.workspace(CANONICAL_TEST_DEAL_ID, BUYER);
 
+    expect(test.tx.dealParticipant.findFirst).toHaveBeenCalledWith({
+      where: {
+        dealId: CANONICAL_TEST_DEAL_ID,
+        tenantId: DEAL.tenantId,
+        organizationId: DEAL.buyerOrgId,
+        userId: BUYER.id,
+        role: Role.BUYER,
+        status: 'ACTIVE',
+      },
+      select: {
+        id: true,
+        accessLevel: true,
+        status: true,
+      },
+    });
     expect(test.commands.workspace).toHaveBeenCalledWith(
       CANONICAL_TEST_DEAL_ID,
       expect.objectContaining({
@@ -71,14 +108,24 @@ describe('IndustrialDealCommandGateway', () => {
     );
   });
 
-  it('fails closed when the user has no matching role membership in the deal tenant', async () => {
+  it('fails closed when the user has no active DealParticipant assignment', async () => {
     const test = fixture();
-    test.prisma.userOrg.findMany.mockResolvedValueOnce([]);
+    test.tx.dealParticipant.findFirst.mockResolvedValueOnce(null);
 
     await expect(test.gateway.workspace(CANONICAL_TEST_DEAL_ID, BUYER)).rejects.toBeInstanceOf(
       ForbiddenException,
     );
     expect(test.commands.workspace).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when verified session tenant is absent', async () => {
+    const test = fixture();
+    const withoutTenant = { ...BUYER, tenantId: undefined };
+
+    await expect(test.gateway.workspace(CANONICAL_TEST_DEAL_ID, withoutTenant)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(test.prisma.userOrg.findMany).not.toHaveBeenCalled();
   });
 
   it('rejects a human request to confirm reserve or release before any command write', async () => {
@@ -144,6 +191,14 @@ describe('IndustrialDealCommandGateway', () => {
       partnerId: 'safe-deals-test',
     });
 
+    expect(test.rls.withTrustedContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: Role.BANK_CALLBACK,
+        tenantId: DEAL.tenantId,
+        orgId: DEAL.buyerOrgId,
+      }),
+      expect.any(Function),
+    );
     expect(test.commands.execute).toHaveBeenCalledWith(
       CANONICAL_TEST_DEAL_ID,
       'confirm_reserve',
