@@ -47,7 +47,7 @@ export const DEAL_ACTIONS: readonly DealActionDefinition[] = [
   { id: 'start_transit', from: 'LOADED', to: 'IN_TRANSIT', stage: 'Логистика', label: 'Начать рейс', roles: ['DRIVER', 'LOGISTICIAN', 'ADMIN'] },
   { id: 'confirm_arrival', from: 'IN_TRANSIT', to: 'ARRIVED', stage: 'Приёмка', label: 'Подтвердить прибытие', roles: ['DRIVER', 'ELEVATOR', 'ADMIN'] },
   { id: 'confirm_weight', from: 'ARRIVED', to: 'WEIGHED', stage: 'Приёмка', label: 'Зафиксировать вес', roles: ['ELEVATOR', 'ADMIN'] },
-  { id: 'confirm_inspection', from: 'WEIGHED', to: 'INSPECTION_CONFIRMED', stage: 'Доказательства', label: 'Подтвердить независимый осмотр', roles: ['SUPPORT_MANAGER', 'ADMIN'] },
+  { id: 'confirm_inspection', from: 'WEIGHED', to: 'INSPECTION_CONFIRMED', stage: 'Доказательства', label: 'Подтвердить независимый осмотр', roles: ['SURVEYOR', 'SUPPORT_MANAGER', 'ADMIN'] },
   { id: 'finalize_lab', from: 'INSPECTION_CONFIRMED', to: 'QUALITY_ACCEPTED', stage: 'Лаборатория', label: 'Подписать лабораторный протокол', roles: ['LAB', 'ADMIN'] },
   { id: 'accept_delivery', from: 'QUALITY_ACCEPTED', to: 'DELIVERY_ACCEPTED', stage: 'Приёмка', label: 'Принять поставку', roles: ['BUYER', 'ADMIN'] },
   { id: 'complete_documents', from: 'DELIVERY_ACCEPTED', to: 'DOCUMENTS_COMPLETE', stage: 'Документы', label: 'Закрыть комплект документов', roles: ['FARMER', 'BUYER', 'SUPPORT_MANAGER', 'ADMIN'] },
