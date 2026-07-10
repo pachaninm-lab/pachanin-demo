@@ -11,7 +11,8 @@ describe('platform-v7 canonical one-deal workspace', () => {
   const dashboard = source('components/platform-v7/RoleIntentDashboard.tsx');
   const shell = source('components/platform-v7/PlatformV7ProtectedShell.tsx');
   const proxy = source('app/api/proxy/[...path]/route.ts');
-  const login = source('app/platform-v7/login/page.tsx');
+  const loginPage = source('app/platform-v7/login/page.tsx');
+  const loginClient = source('app/platform-v7/login/LoginFormClient.tsx');
   const loginRoute = source('app/api/auth/login/route.ts');
 
   it('uses one canonical deal identifier and the authenticated execution workspace', () => {
@@ -48,13 +49,15 @@ describe('platform-v7 canonical one-deal workspace', () => {
   });
 
   it('uses verified single entry and does not let the browser choose a role', () => {
-    expect(login).toContain("requestJson('/api/auth/login'");
-    expect(login).not.toContain('/api/platform-v7/cabinet-session');
-    expect(login).not.toContain('usePlatformV7RStore');
-    expect(login).not.toContain('sessionStorage');
+    expect(loginPage).not.toContain("'use client'");
+    expect(loginPage).toContain('<LoginFormClient copy={copy} />');
+    expect(loginClient).toContain("requestJson('/api/auth/login'");
+    expect(loginClient).not.toContain('/api/platform-v7/cabinet-session');
+    expect(loginClient).not.toContain('usePlatformV7RStore');
+    expect(loginClient).not.toContain('sessionStorage');
     expect(loginRoute).toContain('normalizeSurfaceRole(payload.user.role, payload.user.surfaceRole)');
     expect(loginRoute).not.toContain('detectDemoRole');
-    expect(login).not.toContain('const workspaces');
-    expect(login).not.toContain('setDirectRole');
+    expect(loginClient).not.toContain('const workspaces');
+    expect(loginClient).not.toContain('setDirectRole');
   });
 });
