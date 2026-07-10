@@ -3,9 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { ChatSupportWidget } from '@/components/platform-v7/ChatSupportWidget';
-import { PublicSupportWidget } from '@/components/platform-v7/PublicSupportWidget';
 import { LoginHeaderLogoGuard } from '@/components/platform-v7/LoginHeaderLogoGuard';
-import { LoginMobileStabilityStyle } from '@/components/platform-v7/LoginMobileStabilityStyle';
 import { MobileLogoutSoftExit } from '@/components/platform-v7/MobileLogoutSoftExit';
 import { PlatformV7BlankScreenGuard } from '@/components/platform-v7/PlatformV7BlankScreenGuard';
 import { PlatformV7InteractionFixes } from '@/components/platform-v7/PlatformV7InteractionFixes';
@@ -21,12 +19,8 @@ import { PublicRegistrationEntryPatch } from '@/components/platform-v7/PublicReg
 import { ViewportStabilityGuard } from '@/components/platform-v7/ViewportStabilityGuard';
 
 const PUBLIC_EXACT_PATHS = new Set([
-  '/platform-v7',
   '/platform-v7/open',
-  '/platform-v7/login',
   '/platform-v7/register',
-  '/platform-v7/forgot-password',
-  '/platform-v7/reset-password',
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
@@ -37,12 +31,6 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/docs',
 ]);
 const PUBLIC_PREFIX_PATHS = ['/platform-v7/role-preview'];
-const CANONICAL_PUBLIC_ENTRY_PATHS = new Set([
-  '/platform-v7',
-  '/platform-v7/login',
-  '/platform-v7/forgot-password',
-  '/platform-v7/reset-password',
-]);
 
 const OPEN_FORM_PLACEHOLDER_SELECTORS = [
   '#pc-open-login',
@@ -64,17 +52,8 @@ function isPublicPath(pathname: string | null): boolean {
   return PUBLIC_EXACT_PATHS.has(path) || PUBLIC_PREFIX_PATHS.some((prefix) => path.startsWith(prefix));
 }
 
-function isCanonicalPublicEntryPath(pathname: string | null): boolean {
-  return CANONICAL_PUBLIC_ENTRY_PATHS.has(normalizePath(pathname));
-}
-
 function isLandingPath(pathname: string | null): boolean {
-  const path = normalizePath(pathname);
-  return path === '/platform-v7' || path === '/platform-v7/open';
-}
-
-function isLoginPath(pathname: string | null): boolean {
-  return normalizePath(pathname) === '/platform-v7/login';
+  return normalizePath(pathname) === '/platform-v7/open';
 }
 
 function PublicOpenPlaceholderCleanup({ pathname }: { pathname: string | null }) {
@@ -107,11 +86,6 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
   const pathname = usePathname();
   const publicPath = isPublicPath(pathname);
   const landingPath = isLandingPath(pathname);
-  const loginPath = isLoginPath(pathname);
-
-  if (isCanonicalPublicEntryPath(pathname)) {
-    return position === 'after' ? <PublicSupportWidget /> : null;
-  }
 
   if (publicPath) {
     if (landingPath) {
@@ -123,7 +97,6 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
         <>
           <PlatformV7UniversalAdaptiveStyle />
           <PlatformV7ViewportRuntimeGuard />
-          {loginPath ? <LoginMobileStabilityStyle /> : null}
           <PlatformV7BlankScreenGuard />
           <PublicEntryCleanup />
           <PublicRegistrationEntryPatch />
