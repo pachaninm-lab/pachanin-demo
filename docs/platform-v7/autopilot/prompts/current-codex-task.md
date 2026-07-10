@@ -30,9 +30,14 @@ Persistent identity/MFA, server-derived 12-role execution, separate PostgreSQL r
 - docs/platform-v7/execution-queue.md
 - apps/api/prisma/schema.prisma
 - apps/api/prisma/migrations/**
+- apps/api/src/common/action-executor/action-executor.service.ts
+- apps/api/src/common/action-executor/action-executor.spec.ts
 - apps/api/src/common/outbox/**
 - apps/api/src/common/kafka/**
 - apps/api/src/common/prisma/rls-transaction.service.ts
+- apps/api/src/health.controller.ts
+- apps/api/src/modules/admin/admin.controller.ts
+- apps/api/src/modules/bank-reconciliation/**
 - apps/api/src/modules/settlement-engine/**
 - apps/api/src/modules/deals/industrial-deal-command.gateway.ts
 - apps/api/src/modules/deals/deal-command.service.ts
@@ -45,16 +50,19 @@ Persistent identity/MFA, server-derived 12-role execution, separate PostgreSQL r
 
 - Continue only inside PR #2307; do not create a second implementation.
 - PostgreSQL is the only outbox source of truth; remove production process-memory/file authority.
-- Enqueue Deal/payment/audit/outbox atomically in the trusted transaction.
+- Preserve canonical Deal/payment/audit/outbox atomicity in the trusted transaction.
+- Compatibility paths must await durable persistence and surface database failures.
 - Claim batches with bounded leases and `FOR UPDATE SKIP LOCKED`.
 - Use PENDING/PROCESSING/RETRY/SENT-or-CONFIRMED/DEAD transitions with DB-time retry scheduling.
 - Treat Kafka `send=false` and exceptions as failures; never falsely confirm delivery.
 - Recover expired leases after crash and preserve stable idempotency keys.
 - Persist reconciliation cursor/checkpoint and immutable mismatch evidence.
+- Reject invalid statements; never manufacture mock reconciliation rows.
 - Never reserve or release money from reconciliation mismatch.
 - Support callback key versioning, validity windows, overlap and immediate revocation.
 - Reject unknown, expired, future and revoked keys fail-closed.
 - Require an explicit production worker mode and avoid simultaneous API + dedicated relay ownership.
+- Keep health/admin readiness truthful; synthetic simulation is not production evidence.
 - Preserve the canonical Deal, persistent-auth, RLS, rate-limit and DR gates.
 
 ## Acceptance
@@ -62,8 +70,9 @@ Persistent identity/MFA, server-derived 12-role execution, separate PostgreSQL r
 - Two workers process each claimed row once per lease cycle without double confirmation.
 - Crash after claim is recoverable; transport failure remains RETRY/DEAD, never SENT.
 - Restart preserves pending/retry/dead state.
-- Concurrent duplicate enqueue creates one durable record.
-- Reconciliation and key-rotation negative cases are proven.
+- Concurrent duplicate enqueue creates one durable record; payload mismatch fails closed.
+- Reconciliation invalid/mismatch/duplicate cases are proven without payment mutation.
+- Partner-key overlap, expiry, future and revocation cases are proven.
 - Forward migrations/drift, API typecheck/tests/build, persistent auth, 12-role/19-command RLS, backup/restore and security gates are green on the exact PR #2307 head.
 
 ## Forbidden claims
