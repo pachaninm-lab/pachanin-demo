@@ -103,7 +103,12 @@ export class S3CompatibleStorageAdapter implements ObjectStorageAdapter {
   async inspectAndHashObject(key: string, maxBytes: number): Promise<ObjectInspection> {
     const target = this.objectUrl(key);
     const headers = this.authorizationHeaders('GET', target, new Date());
-    const response = await fetch(target, { method: 'GET', headers });
+    const response = await fetch(target, {
+      method: 'GET',
+      headers,
+      redirect: 'error',
+      signal: AbortSignal.timeout(30_000),
+    });
     if (!response.ok || !response.body) {
       throw new Error(`Object storage GET failed with ${response.status}.`);
     }
@@ -136,7 +141,12 @@ export class S3CompatibleStorageAdapter implements ObjectStorageAdapter {
   async deleteObject(key: string): Promise<void> {
     const target = this.objectUrl(key);
     const headers = this.authorizationHeaders('DELETE', target, new Date());
-    const response = await fetch(target, { method: 'DELETE', headers });
+    const response = await fetch(target, {
+      method: 'DELETE',
+      headers,
+      redirect: 'error',
+      signal: AbortSignal.timeout(30_000),
+    });
     if (!response.ok && response.status !== 404) {
       throw new Error(`Object storage DELETE failed with ${response.status}.`);
     }
