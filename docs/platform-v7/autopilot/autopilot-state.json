@@ -2,7 +2,7 @@
   "project": "platform-v7",
   "mode": "industrial-one-deal-e2e",
   "status": "active",
-  "currentStatus": "in_progress",
+  "currentStatus": "green_ready_for_merge",
   "current": "Industrial One Deal Ephemeral PostgreSQL E2E Harness.",
   "fullTzReadinessPercent": 85,
   "openPr": "#2270",
@@ -21,18 +21,11 @@
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
-    "legacy gateway unit fixture does not model tenant and DealParticipant RLS",
-    "production migration and external integration evidence"
+    "production migration and RLS execution evidence",
+    "live bank FGIS EDO and signature evidence"
   ],
-  "blockerNotes": "The full PostgreSQL exploitation gate is green with eight migrations, zero drift, 12 ACTIVE DealParticipants, SQL and Prisma tenant isolation and 19 commands to CLOSED. The only current blocker is the legacy gateway unit fixture, which must model verified tenant context, DB membership and transaction-local DealParticipant visibility.",
-  "lockedUntilCurrentGreen": [
-    "production migration execution",
-    "production RLS policy application",
-    "persistent identity/session/MFA changes",
-    "platform UI changes",
-    "live external integration activation",
-    "production load and disaster-recovery claims"
-  ],
+  "blockerNotes": "The isolated PostgreSQL proof is green: eight forward-only migrations, zero schema drift, legacy allow-all policy removal, non-owner NOSUPERUSER NOBYPASSRLS datasource, SQL and Prisma tenant isolation, 12 ACTIVE DealParticipants, read-only EXECUTIVE and 19 commands through signed bank callbacks to CLOSED. Production exploitation remains locked pending recovery, persistent identity, live integrations, load and DR evidence.",
+  "lockedUntilCurrentGreen": [],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
@@ -84,27 +77,23 @@
   "industrialOneDealE2e": {
     "layer": "Industrial One Deal Ephemeral PostgreSQL E2E Harness",
     "implementationPr": "#2270",
-    "status": "unit_fixture_alignment_in_progress",
+    "status": "green_ready_for_merge",
     "workflow": ".github/workflows/ci.yml",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
-    "lastFailure": {
-      "code": "LEGACY_UNIT_FIXTURE_MISMATCH",
-      "file": "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
-      "stage": "Node CI unit suite",
-      "reason": "unit mocks omitted verified tenant and did not execute transaction-local DealParticipant/Organization/Deal reads"
-    },
-    "requiredEvidence": [
-      "migration history applies with zero schema drift",
+    "lastFailure": null,
+    "provenEvidence": [
+      "eight forward-only migrations apply with zero schema drift",
       "legacy allow-all policies are absent",
       "application role is non-owner NOSUPERUSER NOBYPASSRLS with RLS and FORCE RLS enabled",
       "SQL-level and Prisma-level wrong-tenant reads return zero rows",
-      "12 ACTIVE DealParticipant assignments bind one user organization role and access level to one deal",
+      "12 ACTIVE DealParticipant assignments bind user organization role and access level",
+      "EXECUTIVE is READ-only",
       "client org and role spoofing never select authorization scope",
-      "19 commands execute in deterministic order without direct database mutation",
-      "reserve and release require signed callbacks bound to pending operations",
+      "19 commands execute deterministically to CLOSED",
+      "reserve and release require signed callbacks bound to exact pending operations",
       "duplicate stale concurrent and cross-tenant cases fail deterministically",
       "closed projections and evidence chains reconcile",
-      "teardown destroys all ephemeral data and credentials"
+      "ephemeral credentials and database are destroyed by CI teardown"
     ]
   },
   "nextAfterCurrentGreen": [
@@ -132,7 +121,7 @@
     "production migration execution"
   ],
   "maturityLanguage": [
-    "industrial-foundation-under-e2e-verification",
+    "isolated-postgresql-e2e-proven",
     "platform-temporarily-without-external-integrations",
     "platform-temporarily-without-confirmed-live-integrations"
   ],
@@ -144,5 +133,5 @@
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. The isolated PostgreSQL one-deal exploitation proof is green, but recovery, persistent identity, live integrations, load and DR remain unproven. Production exploitation remains NO-GO."
+  "readiness": "85% honest architectural readiness. The isolated PostgreSQL one-deal exploitation proof is green. Recovery, persistent identity, live integrations, production load, restore and DR remain unproven. Production exploitation remains NO-GO."
 }
