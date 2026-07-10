@@ -8,7 +8,7 @@
     "Persistent Identity, Session, Refresh-Family Revocation and MFA. is not green/closed/mergeable. Dispatcher will not advance to durable outbox worker bank reconciliation and partner-key rotation."
   ],
   "nextStep": "Persistent Identity, Session, Refresh-Family Revocation and MFA.",
-  "updatedAt": "2026-07-10T16:07:08.735Z",
+  "updatedAt": "2026-07-10T16:10:14.823Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

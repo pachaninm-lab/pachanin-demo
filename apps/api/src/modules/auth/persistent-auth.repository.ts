@@ -81,6 +81,8 @@ export type AuthAuditInput = {
   prevHash?: string | null;
 };
 
+const MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS = 3;
+
 @Injectable()
 export class PersistentAuthRepository {
   constructor(readonly prisma: PrismaService) {}
@@ -89,7 +91,28 @@ export class PersistentAuthRepository {
     work: (tx: Prisma.TransactionClient) => Promise<T>,
     isolationLevel = Prisma.TransactionIsolationLevel.Serializable,
   ): Promise<T> {
-    return this.prisma.$transaction(work, { isolationLevel, timeout: 15_000, maxWait: 5_000 });
+    for (let attempt = 1; attempt <= MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(work, { isolationLevel, timeout: 15_000, maxWait: 5_000 });
+      } catch (error) {
+        if (attempt >= MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS || !this.isSerializationFailure(error)) {
+          throw error;
+        }
+      }
+    }
+    throw new Error('Auth transaction retry budget exhausted');
+  }
+
+  private isSerializationFailure(error: unknown): boolean {
+    const candidate = error as {
+      code?: unknown;
+      message?: unknown;
+      meta?: { code?: unknown; database_error?: unknown };
+    };
+    return candidate?.code === 'P2034'
+      || candidate?.meta?.code === '40001'
+      || String(candidate?.meta?.database_error ?? '').includes('40001')
+      || /could not serialize access|write conflict|deadlock detected/i.test(String(candidate?.message ?? ''));
   }
 
   async findIdentityByEmail(client: AuthSqlClient, email: string): Promise<IdentityRow | null> {

@@ -27,7 +27,7 @@
     "live bank FGIS EDO and signature evidence",
     "production load restore and DR acceptance"
   ],
-  "blockerNotes": "PR #2276 replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. The first PostgreSQL auth job stopped before executing tests because its isolated CI job did not generate Prisma Client. The next run reached all tests and exposed one shared audit-lock defect: Prisma cannot deserialize PostgreSQL void from pg_advisory_xact_lock. The corrected query still acquires the transaction lock but returns a supported integer projection. Client role, organization and tenant claims remain untrusted and all UI files remain locked until the gate is green.",
+  "blockerNotes": "PR #2276 replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. The current PostgreSQL auth run passed seven of eight exploitation tests. The remaining concurrent-refresh test exposed a SERIALIZABLE 40001 conflict before the losing request could record refresh reuse and revoke the family. Auth transactions now retry only bounded PostgreSQL serialization/deadlock conflicts; the retry observes the rotated token and deterministically executes family-wide reuse revocation. Client role, organization and tenant claims remain untrusted and all UI files remain locked until the gate is green.",
   "lockedUntilCurrentGreen": [
     "durable outbox worker bank reconciliation and partner-key rotation",
     "platform UI implementation",
@@ -84,9 +84,9 @@
     "implementationPr": "#2276",
     "status": "in_progress",
     "lastFailure": {
-      "code": "AUTH_AUDIT_LOCK_VOID_DESERIALIZATION",
+      "code": "AUTH_REFRESH_SERIALIZATION_CONFLICT_NOT_RETRIED",
       "file": "apps/api/src/modules/auth/persistent-auth.repository.ts",
-      "reason": "pg_advisory_xact_lock returns PostgreSQL void and Prisma queryRaw cannot deserialize that projected type",
+      "reason": "the losing concurrent refresh transaction surfaced PostgreSQL 40001 before reuse detection and family revocation could run",
       "status": "corrected_awaiting_ci"
     },
     "requiredEvidence": [
