@@ -12,6 +12,8 @@ const rollbackPath = path.join(root, 'infra/sql/production-rls-policies.rollback
 const schema = fs.readFileSync(schemaPath, 'utf8');
 const policy = fs.readFileSync(policyPath, 'utf8');
 const rollback = fs.readFileSync(rollbackPath, 'utf8');
+const executablePolicy = policy.replace(/^\s*--.*$/gm, '');
+const executableRollback = rollback.replace(/^\s*--.*$/gm, '');
 
 const errors = [];
 const requireText = (source, text, label) => {
@@ -34,13 +36,13 @@ const physicalTables = [
 
 for (const table of physicalTables) {
   requireText(schema, `@@map("${table}")`, 'Prisma schema');
-  requireText(policy, `ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`, 'RLS policy');
-  requireText(policy, `ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`, 'RLS policy');
-  requireText(rollback, `ALTER TABLE "${table}" DISABLE ROW LEVEL SECURITY`, 'RLS rollback');
+  requireText(executablePolicy, `ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`, 'RLS policy');
+  requireText(executablePolicy, `ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`, 'RLS policy');
+  requireText(executableRollback, `ALTER TABLE "${table}" DISABLE ROW LEVEL SECURITY`, 'RLS rollback');
 }
 
 for (const modelTable of ['"Deal"', '"AuditEvent"', '"LedgerEntry"', '"IntegrationEvent"', '"OutboxEntry"']) {
-  forbidText(policy, modelTable, 'RLS policy physical table alignment');
+  forbidText(executablePolicy, modelTable, 'RLS policy physical table alignment');
 }
 
 for (const unsafe of [
@@ -49,7 +51,7 @@ for (const unsafe of [
   "set_config('app.current_role', COALESCE(p_role, ''), false)",
   'CREATE OR REPLACE FUNCTION set_app_context',
 ]) {
-  forbidText(policy, unsafe, 'RLS policy safety');
+  forbidText(executablePolicy, unsafe, 'RLS policy safety');
 }
 
 for (const contextKey of [
@@ -58,22 +60,22 @@ for (const contextKey of [
   'app.current_tenant_id',
   'app.current_role',
 ]) {
-  requireText(policy, contextKey, 'RLS policy trusted context');
+  requireText(executablePolicy, contextKey, 'RLS policy trusted context');
 }
 
-requireText(policy, "current_user = 'app_service'", 'RLS service principal');
-forbidText(policy, "IN ('ADMIN', 'ACCOUNTING'", 'RLS accounting authority');
-requireText(policy, 'CREATE POLICY ledger_entries_update_denied', 'Immutable ledger');
-requireText(policy, 'CREATE POLICY audit_events_update_denied', 'Append-only audit');
-requireText(policy, 'CREATE POLICY runtime_attempts_update_denied', 'Append-only runtime attempts');
+requireText(executablePolicy, "current_user = 'app_service'", 'RLS service principal');
+forbidText(executablePolicy, "IN ('ADMIN', 'ACCOUNTING'", 'RLS accounting authority');
+requireText(executablePolicy, 'CREATE POLICY ledger_entries_update_denied', 'Immutable ledger');
+requireText(executablePolicy, 'CREATE POLICY audit_events_update_denied', 'Append-only audit');
+requireText(executablePolicy, 'CREATE POLICY runtime_attempts_update_denied', 'Append-only runtime attempts');
 
 for (const destructive of ['DROP TABLE', 'DROP COLUMN', 'TRUNCATE', 'DELETE FROM']) {
-  forbidText(rollback, destructive, 'RLS rollback');
+  forbidText(executableRollback, destructive, 'RLS rollback');
 }
 
-const policyNames = [...policy.matchAll(/CREATE POLICY\s+([a-z0-9_]+)/gi)].map((match) => match[1]);
+const policyNames = [...executablePolicy.matchAll(/CREATE POLICY\s+([a-z0-9_]+)/gi)].map((match) => match[1]);
 for (const name of policyNames) {
-  requireText(rollback, `DROP POLICY IF EXISTS ${name}`, 'RLS rollback coverage');
+  requireText(executableRollback, `DROP POLICY IF EXISTS ${name}`, 'RLS rollback coverage');
 }
 
 if (errors.length > 0) {
