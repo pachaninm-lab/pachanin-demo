@@ -47,7 +47,34 @@ export interface RuntimePersistenceWriteReceipt {
 }
 
 export interface RuntimePersistenceRepository {
+  /**
+   * Compatibility entry point for internal callers that do not yet own a
+   * trusted transaction. Authenticated command paths must use
+   * writeWithinTransaction instead.
+   */
   write(input: RuntimePersistenceWriteInput): Promise<RuntimePersistenceWriteReceipt>;
+
+  /** Executes lookup and all writes on the supplied trusted transaction. */
+  writeWithinTransaction(
+    tx: Prisma.TransactionClient,
+    input: RuntimePersistenceWriteInput,
+  ): Promise<RuntimePersistenceWriteReceipt>;
+
+  /** Reclassifies a concurrent idempotency winner inside a new trusted transaction. */
+  classifyExistingWithinTransaction(
+    tx: Prisma.TransactionClient,
+    input: RuntimePersistenceWriteInput,
+  ): Promise<RuntimePersistenceWriteReceipt | null>;
+}
+
+function disabledReceipt(input: RuntimePersistenceWriteInput): RuntimePersistenceWriteReceipt {
+  return {
+    status: 'failed',
+    runtimeSnapshotId: input.runtimeSnapshotId,
+    idempotencyKey: input.idempotencyKey,
+    state: 'ready_to_persist',
+    reasonCode: 'repository_not_enabled',
+  };
 }
 
 /**
@@ -56,12 +83,20 @@ export interface RuntimePersistenceRepository {
  */
 export class DisabledRuntimePersistenceRepository implements RuntimePersistenceRepository {
   async write(input: RuntimePersistenceWriteInput): Promise<RuntimePersistenceWriteReceipt> {
-    return {
-      status: 'failed',
-      runtimeSnapshotId: input.runtimeSnapshotId,
-      idempotencyKey: input.idempotencyKey,
-      state: 'ready_to_persist',
-      reasonCode: 'repository_not_enabled',
-    };
+    return disabledReceipt(input);
+  }
+
+  async writeWithinTransaction(
+    _tx: Prisma.TransactionClient,
+    input: RuntimePersistenceWriteInput,
+  ): Promise<RuntimePersistenceWriteReceipt> {
+    return disabledReceipt(input);
+  }
+
+  async classifyExistingWithinTransaction(
+    _tx: Prisma.TransactionClient,
+    _input: RuntimePersistenceWriteInput,
+  ): Promise<RuntimePersistenceWriteReceipt | null> {
+    return null;
   }
 }
