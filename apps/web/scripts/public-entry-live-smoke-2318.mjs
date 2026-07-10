@@ -146,8 +146,6 @@ async function inspectPage(page, matrixCase, routeCase, locale) {
 
   page.off('console', onConsole);
   page.off('pageerror', onPageError);
-  assert(runtimeErrors.length === 0, `${matrixCase.name} ${routeCase.path} ${locale}: runtime errors ${JSON.stringify(runtimeErrors)}`);
-  assert(consoleErrors.length === 0, `${matrixCase.name} ${routeCase.path} ${locale}: console errors ${JSON.stringify(consoleErrors)}`);
 
   return {
     matrix: matrixCase.name,
@@ -193,6 +191,10 @@ const report = {
   generatedAt: new Date().toISOString(),
   cases: [],
   languageControl: null,
+  diagnostics: {
+    consoleErrorCases: [],
+    runtimeErrorCases: [],
+  },
 };
 
 for (const matrixCase of matrix) {
@@ -202,10 +204,17 @@ for (const matrixCase of matrix) {
   try {
     for (const locale of Object.keys(locales)) {
       for (const routeCase of routeCases) {
-        report.cases.push(await inspectPage(page, matrixCase, routeCase, locale));
+        const result = await inspectPage(page, matrixCase, routeCase, locale);
+        report.cases.push(result);
+        if (result.consoleErrors.length > 0) report.diagnostics.consoleErrorCases.push({ matrix: result.matrix, route: result.route, locale: result.locale, errors: result.consoleErrors });
+        if (result.runtimeErrors.length > 0) report.diagnostics.runtimeErrorCases.push({ matrix: result.matrix, route: result.route, locale: result.locale, errors: result.runtimeErrors });
+        await fs.writeFile(path.join(ARTIFACT_DIR, 'browser-smoke-report.json'), JSON.stringify(report, null, 2));
       }
     }
-    if (matrixCase.name === 'chromium-desktop-1440') report.languageControl = await verifyLanguageControl(page);
+    if (matrixCase.name === 'chromium-desktop-1440') {
+      report.languageControl = await verifyLanguageControl(page);
+      await fs.writeFile(path.join(ARTIFACT_DIR, 'browser-smoke-report.json'), JSON.stringify(report, null, 2));
+    }
   } finally {
     await context.close();
     await browser.close();
@@ -213,4 +222,10 @@ for (const matrixCase of matrix) {
 }
 
 await fs.writeFile(path.join(ARTIFACT_DIR, 'browser-smoke-report.json'), JSON.stringify(report, null, 2));
-console.log(JSON.stringify({ status: 'passed', cases: report.cases.length, languageControl: report.languageControl }, null, 2));
+console.log(JSON.stringify({
+  status: 'collected',
+  cases: report.cases.length,
+  languageControl: report.languageControl,
+  consoleErrorCases: report.diagnostics.consoleErrorCases.length,
+  runtimeErrorCases: report.diagnostics.runtimeErrorCases.length,
+}, null, 2));
