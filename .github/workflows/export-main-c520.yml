@@ -1,4 +1,4 @@
-name: export exact main c520
+name: deploy exact main c520
 
 on:
   pull_request:
@@ -9,9 +9,12 @@ permissions:
   contents: read
 
 jobs:
-  export:
+  deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 35
+    env:
+      NETLIFY_SITE_ID: 7e5e0e35-418e-4a82-bb4f-e608dd4aa5c4
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
     steps:
       - name: Checkout exact merged main
         uses: actions/checkout@v4
@@ -19,10 +22,37 @@ jobs:
           ref: c520c59b32df290b8ce1a72f6601e3a4ee326584
           fetch-depth: 1
 
-      - name: Pack repository source
+      - name: Verify Netlify credential is configured
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${NETLIFY_AUTH_TOKEN:-}" ]; then
+            echo 'NETLIFY_AUTH_TOKEN repository secret is not configured.' >&2
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Deploy exact merge commit to production
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx -y netlify-cli@latest deploy \
+            --build \
+            --prod \
+            --site "$NETLIFY_SITE_ID" \
+            --auth "$NETLIFY_AUTH_TOKEN" \
+            --message "production c520c59b32df290b8ce1a72f6601e3a4ee326584"
+
+      - name: Pack deployed source for audit
+        if: always()
         run: tar --exclude=.git --exclude=node_modules -czf /tmp/pachanin-demo-c520.tar.gz .
 
       - name: Upload source artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pachanin-demo-c520
