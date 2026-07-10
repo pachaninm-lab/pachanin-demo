@@ -38,6 +38,9 @@ cd "$ROOT_DIR"
 echo "[one-deal] applying Prisma migrations to isolated PostgreSQL"
 DATABASE_URL="$ADMIN_URL" pnpm --filter @pc/api exec prisma migrate deploy --schema prisma/schema.prisma
 
+echo "[one-deal] generating Prisma client from the migrated PostgreSQL schema"
+DATABASE_URL="$ADMIN_URL" pnpm --filter @pc/api exec prisma generate --schema prisma/schema.prisma
+
 echo "[one-deal] seeding canonical deal and 12 memberships before RLS"
 NODE_ENV=test \
 DATABASE_URL="$ADMIN_URL" \
