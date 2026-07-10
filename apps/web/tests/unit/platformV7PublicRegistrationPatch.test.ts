@@ -2,53 +2,57 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const template = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/template.tsx'), 'utf8');
-const patch = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx'), 'utf8');
-const cleanup = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PublicEntryCleanup.tsx'), 'utf8');
-const login = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/login/page.tsx'), 'utf8');
+const page = fs.readFileSync(path.join(process.cwd(), 'app/platform-v7/page.tsx'), 'utf8');
+const login = fs.readFileSync(path.join(process.cwd(), 'app/platform-v7/login/page.tsx'), 'utf8');
+const forgot = fs.readFileSync(path.join(process.cwd(), 'app/platform-v7/forgot-password/page.tsx'), 'utf8');
+const shellSwitch = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/PlatformV7ShellSwitch.tsx'), 'utf8');
+const guards = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/PlatformV7TemplateGuards.tsx'), 'utf8');
+const localeSwitch = fs.readFileSync(path.join(process.cwd(), 'components/platform-v7/PublicLocaleSwitch.tsx'), 'utf8');
 
-describe('platform-v7 public registration and role-locked login', () => {
-  it('mounts a registration patch on platform-v7 public pages', () => {
-    expect(template).toContain('PublicRegistrationEntryPatch');
-    expect(template).toContain('<PublicRegistrationEntryPatch />');
+describe('platform-v7 public registration and single-entry login', () => {
+  it('keeps registration as a public organisation-onboarding route', () => {
+    expect(page).toContain("href='/platform-v7/register'");
+    expect(page).toContain("className='entry-header-register'");
+    expect(page).toContain("className='entry-primary-cta'");
   });
 
-  it('keeps public registration visible with role cards routing to registration', () => {
-    expect(patch).toContain("headerLink.href = '/platform-v7/register';");
-    expect(patch).toContain("headerLink.textContent = 'Регистрация';");
-    expect(patch).toContain("heroLink.href = '/platform-v7/register';");
-    expect(patch).toContain("heroLink.textContent = 'Зарегистрироваться';");
-    expect(patch).toContain("tile.href = `/platform-v7/register?role=${role}`;");
-    expect(patch).toContain("cta.textContent = 'Подать заявку на роль';");
+  it('does not derive a workspace role from a public URL', () => {
+    expect(page).not.toContain('/platform-v7/login?role=');
+    expect(login).not.toContain('useSearchParams');
+    expect(login).not.toContain('workspace-picker');
+    expect(login).not.toContain('pending_role');
+    expect(login).toContain("body: JSON.stringify(sessionBody)");
+    expect(login).toContain("const sessionBody = payload?.demo === true ? { role } : {};");
   });
 
-  it('keeps registration styling readable on mobile', () => {
-    expect(patch).toContain('background:rgba(0,122,47,.07)!important;color:#087a3b!important');
-    expect(patch).not.toContain('background:#071611!important;color:#fff!important');
-    expect(cleanup).toContain('height:72px!important;min-height:72px!important');
-    expect(cleanup).toContain('display:flex!important;grid-template-columns:none!important');
-    expect(cleanup).toContain('entry-trust-cta{min-height:54px!important;min-width:0!important;border-radius:18px!important');
+  it('uses the canonical public header and next-intl on login', () => {
+    expect(login).toContain('PublicSiteHeader');
+    expect(login).toContain("useTranslations('publicEntry.login')");
+    expect(login).not.toContain('const copy =');
+    expect(login).not.toContain('localStorage');
+    expect(login).toContain("href='/platform-v7/forgot-password'");
   });
 
-  it('preserves role query parameters from the main role grid', () => {
-    expect(cleanup).toContain('const ROLE_BY_TITLE = {');
-    expect(cleanup).toContain("'Оператор': 'operator'");
-    expect(cleanup).toContain('return role ? `/platform-v7/login?role=${role}` : \'/platform-v7/login\';');
-    expect(cleanup).toContain("href.startsWith('/platform-v7/login?')");
-    expect(cleanup).toContain("href === '/platform-v7/docs'");
-    expect(cleanup).toContain('applyRoleLoginHandoff(entry);');
-    expect(cleanup).not.toContain("item.setAttribute('href', '/platform-v7/login');");
+  it('provides a dedicated non-enumerating access recovery flow', () => {
+    expect(forgot).toContain("useTranslations('publicEntry.forgot')");
+    expect(forgot).toContain("fetch('/api/platform-v7/inquiries'");
+    expect(forgot).toContain("payload?.accepted !== true");
+    expect(forgot).toContain('PublicSiteHeader');
+    expect(forgot).not.toContain('accountExists');
   });
 
-  it('uses a compact workspace heading after handoff and an icon grid only for direct login', () => {
-    expect(login).toContain('type Workspace = { role: PlatformRole; title: string; Icon: LucideIcon };');
-    expect(login).toContain('const Icon = item.Icon;');
-    expect(login).toContain('<Icon size={20} strokeWidth={2.35} />');
-    expect(login).toContain('login-workspace-heading');
-    expect(login).toContain('login-workspace-picker');
-    expect(login).toContain('grid-template-columns:repeat(2,minmax(0,1fr))');
-    expect(login).toContain('Введите корпоративные данные для доступа к рабочему контуру.');
-    expect(login).toContain("<Link href={registerHref} className='login-register'>Зарегистрироваться</Link>");
-    expect(login).not.toContain('login-selected-missing');
+  it('keeps login and recovery outside the protected role shell', () => {
+    expect(shellSwitch).toContain("'/platform-v7/forgot-password'");
+    expect(shellSwitch).toContain('if (isPublicPath(pathname)) return <>{children}</>;');
+    expect(guards).toContain("'/platform-v7/forgot-password'");
+  });
+
+  it('switches public locale through next-intl without DOM translation', () => {
+    expect(localeSwitch).toContain('useLocale');
+    expect(localeSwitch).toContain('useTranslations');
+    expect(localeSwitch).toContain("url.searchParams.set('lang', next)");
+    expect(localeSwitch).not.toContain('MutationObserver');
+    expect(localeSwitch).not.toContain('TreeWalker');
+    expect(localeSwitch).not.toContain('applyTranslationToDom');
   });
 });
