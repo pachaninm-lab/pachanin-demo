@@ -1,6 +1,6 @@
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Headers, HttpCode, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { BadRequestException, Headers, HttpCode, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import * as crypto from 'crypto';
@@ -15,6 +15,58 @@ import { CANONICAL_TEST_DEAL_ID } from '../deals/deal-command.policy';
 
 const BANK_HMAC_SECRET = requireSecret('BANK_HMAC_SECRET');
 const BANK_CALLBACK_TOLERANCE_SECONDS = 300;
+const BANK_CALLBACK_PATH = '/api/settlement-engine/bank-callback';
+const EXPECTED_BANK_PARTNER_ID = process.env.BANK_PARTNER_ID || 'safe-deals';
+const EXPECTED_BANK_KEY_ID = process.env.BANK_HMAC_KEY_ID || 'primary';
+
+type JsonRecord = Record<string, unknown>;
+
+function stableJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableJsonValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as JsonRecord)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, stableJsonValue(item)]),
+    );
+  }
+  return value;
+}
+
+export function canonicalizeBankPayload(body: JsonRecord): string {
+  return JSON.stringify(stableJsonValue(body));
+}
+
+export function expectedBankOperationId(dealId: string, operation: unknown): string {
+  if (operation === 'RESERVE') return `bank-reserve:${dealId}`;
+  if (operation === 'RELEASE') return `bank-release:${dealId}`;
+  throw new BadRequestException('Unsupported bank operation');
+}
+
+export function buildBankSignaturePayload(input: {
+  partnerId: string;
+  keyId: string;
+  timestamp: number;
+  eventId: string;
+  body: JsonRecord;
+}): string {
+  const bodyHash = crypto.createHash('sha256').update(canonicalizeBankPayload(input.body)).digest('hex');
+  return [
+    'POST',
+    BANK_CALLBACK_PATH,
+    input.partnerId,
+    input.keyId,
+    String(input.timestamp),
+    input.eventId,
+    bodyHash,
+  ].join('\n');
+}
+
+function secureSignatureMatch(actual: string | undefined, expected: string): boolean {
+  const actualBuffer = Buffer.from(actual ?? '', 'utf8');
+  const expectedBuffer = Buffer.from(expected, 'utf8');
+  return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+}
 
 @UseGuards(RolesGuard)
 @Roles('ACCOUNTING', 'SUPPORT_MANAGER', 'ADMIN', 'EXECUTIVE')
@@ -115,22 +167,25 @@ export class SettlementEngineController {
    * The only public bank confirmation path.
    *
    * Required headers:
+   * - X-Bank-Partner-Id: configured partner identity;
+   * - X-Bank-Key-Id: configured signing-key version;
    * - X-Bank-Event-Id: globally unique event identifier;
    * - X-Bank-Timestamp: Unix seconds, accepted within ±5 minutes;
-   * - X-Bank-Signature: hmac-sha256=<hex> over
-   *   `${timestamp}.${eventId}.${JSON.stringify(body)}`.
+   * - X-Bank-Signature: hmac-sha256=<hex> over buildBankSignaturePayload(...).
    *
    * Required body for the canonical deal:
-   * { dealId, eventId, operation: 'RESERVE'|'RELEASE', status: 'SUCCESS'|'FAILED', bankRef }
+   * { dealId, eventId, operation, operationId, status, bankRef }
    */
   @Public()
   @Post('bank-callback')
   @HttpCode(200)
   async bankCallback(
-    @Body() body: Record<string, unknown>,
+    @Body() body: JsonRecord,
     @Headers('x-bank-signature') signature: string | undefined,
     @Headers('x-bank-timestamp') timestampHeader: string | undefined,
     @Headers('x-bank-event-id') eventIdHeader: string | undefined,
+    @Headers('x-bank-partner-id') partnerIdHeader: string | undefined,
+    @Headers('x-bank-key-id') keyIdHeader: string | undefined,
   ) {
     const timestamp = Number(timestampHeader);
     const nowSeconds = Math.floor(Date.now() / 1000);
@@ -142,17 +197,38 @@ export class SettlementEngineController {
     if (!eventIdHeader || eventIdHeader !== bodyEventId) {
       throw new UnauthorizedException('Bank callback event ID mismatch');
     }
+    if (partnerIdHeader !== EXPECTED_BANK_PARTNER_ID || keyIdHeader !== EXPECTED_BANK_KEY_ID) {
+      throw new UnauthorizedException('Unknown bank partner or signing key');
+    }
 
-    const signedPayload = `${timestamp}.${eventIdHeader}.${JSON.stringify(body)}`;
+    const signedPayload = buildBankSignaturePayload({
+      partnerId: partnerIdHeader,
+      keyId: keyIdHeader,
+      timestamp,
+      eventId: eventIdHeader,
+      body,
+    });
     const expected = `hmac-sha256=${crypto.createHmac('sha256', BANK_HMAC_SECRET).update(signedPayload).digest('hex')}`;
-    const actualBuffer = Buffer.from(signature ?? '', 'utf8');
-    const expectedBuffer = Buffer.from(expected, 'utf8');
-    if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) {
+    if (!secureSignatureMatch(signature, expected)) {
       throw new UnauthorizedException('Invalid bank signature');
     }
 
     if (body.dealId === CANONICAL_TEST_DEAL_ID) {
-      return this.industrialCommands.executeBankCallback(body as unknown as VerifiedBankCallbackInput);
+      const dealId = String(body.dealId);
+      const operationId = typeof body.operationId === 'string' ? body.operationId : '';
+      const requiredOperationId = expectedBankOperationId(dealId, body.operation);
+      if (operationId !== requiredOperationId) {
+        throw new BadRequestException({
+          code: 'BANK_OPERATION_ID_MISMATCH',
+          expectedOperationId: requiredOperationId,
+        });
+      }
+
+      return this.industrialCommands.executeBankCallback({
+        ...(body as unknown as VerifiedBankCallbackInput),
+        operationId,
+        partnerId: partnerIdHeader,
+      });
     }
 
     return this.settlementEngine.registerSafeDealsCallback(body);
