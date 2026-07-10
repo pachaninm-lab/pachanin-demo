@@ -2,6 +2,8 @@ export type DatabasePrincipalSnapshot = {
   currentUser: string;
   superuser: boolean;
   bypassRls: boolean;
+  roleInherit: boolean;
+  hasRoleMemberships: boolean;
   ownsDeals: boolean;
   dealsRlsEnabled: boolean;
   dealsForceRls: boolean;
@@ -60,8 +62,15 @@ export function resolveAuthDatabaseUrl(
   return authUrl || dealUrl || undefined;
 }
 
-export function evaluateDealPrincipalBoundary(snapshot: DatabasePrincipalSnapshot): string[] {
+function evaluateRoleIsolation(snapshot: DatabasePrincipalSnapshot, label: 'deal' | 'auth'): string[] {
   const errors: string[] = [];
+  if (snapshot.roleInherit) errors.push(`${label} principal must be NOINHERIT`);
+  if (snapshot.hasRoleMemberships) errors.push(`${label} principal must not belong to other PostgreSQL roles`);
+  return errors;
+}
+
+export function evaluateDealPrincipalBoundary(snapshot: DatabasePrincipalSnapshot): string[] {
+  const errors: string[] = [...evaluateRoleIsolation(snapshot, 'deal')];
   if (snapshot.superuser) errors.push('deal principal must not be SUPERUSER');
   if (snapshot.bypassRls) errors.push('deal principal must not have BYPASSRLS');
   if (snapshot.ownsDeals) errors.push('deal principal must not own public.deals');
@@ -75,7 +84,7 @@ export function evaluateDealPrincipalBoundary(snapshot: DatabasePrincipalSnapsho
 }
 
 export function evaluateAuthPrincipalBoundary(snapshot: DatabasePrincipalSnapshot): string[] {
-  const errors: string[] = [];
+  const errors: string[] = [...evaluateRoleIsolation(snapshot, 'auth')];
   if (snapshot.superuser) errors.push('auth principal must not be SUPERUSER');
   if (!snapshot.bypassRls) errors.push('auth principal must have BYPASSRLS for identity reads before deal context');
   if (snapshot.ownsDeals) errors.push('auth principal must not own public.deals');
