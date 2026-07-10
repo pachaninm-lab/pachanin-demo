@@ -17,6 +17,7 @@ const brandMark = read('apps/web/components/v7r/BrandMark.tsx');
 const intelligenceStrip = read('apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx');
 const publicHeaderCss = read('apps/web/styles/platform-v7-public-header.css');
 const publicAuthCss = read('apps/web/styles/platform-v7-public-auth.css');
+const publicLandingCss = read('apps/web/styles/platform-v7-public-landing.css');
 const middleware = read('apps/web/middleware.ts');
 
 describe('platform-v7 public/protected runtime split', () => {
@@ -47,13 +48,16 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(templateSwitch).toContain('if (isPublicPath(pathname)) return <>{children}</>');
   });
 
-  it('loads shared public header and auth styles statically outside hydrated markup', () => {
+  it('loads all public entry styles statically outside hydrated markup', () => {
     expect(layout).toContain("@/styles/platform-v7-public-header.css");
     expect(layout).toContain("@/styles/platform-v7-public-auth.css");
-    for (const source of [publicHeader, brandMark, login, recovery]) {
+    expect(layout).toContain("@/styles/platform-v7-public-landing.css");
+
+    for (const source of [publicHeader, brandMark, landing, intelligenceStrip, login, recovery]) {
       expect(source).not.toContain('<style');
       expect(source).not.toContain('dangerouslySetInnerHTML');
     }
+
     expect(brandMark).not.toContain('BRAND_MARK_CSS_RESET');
     expect(publicHeaderCss).toContain('.pc-site-header');
     expect(publicHeaderCss).toContain('.pc-site-locale-switch');
@@ -61,13 +65,9 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(publicAuthCss).toContain('.pc-auth-page');
     expect(publicAuthCss).toContain('.pc-recovery-page');
     expect(publicAuthCss).toContain('.pc-auth-methods');
-  });
-
-  it('keeps remaining page-scoped CSS deterministic while it is being consolidated', () => {
-    for (const source of [landing, intelligenceStrip]) {
-      expect(source).toContain('<style dangerouslySetInnerHTML={{ __html: css }} />');
-      expect(source).not.toContain('<style>{css}</style>');
-    }
+    expect(publicLandingCss).toContain('.pc-v7-public-entry');
+    expect(publicLandingCss).toContain('.entry-intelligence-section');
+    expect(publicLandingCss).toContain('.entry-hero-actions');
   });
 
   it('does not reset all browser caches or mount dev tooling without an explicit flag', () => {
