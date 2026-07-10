@@ -5,9 +5,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
-import type { Prisma } from '@prisma/client';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import { createHash, randomUUID } from 'crypto';
+import { Prisma } from '@prisma/client';
+import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
 import { ExecuteDealCommandDto } from './dto/execute-deal-command.dto';
 import {
@@ -20,20 +20,12 @@ import {
   type DealActionId,
 } from './deal-command.policy';
 
-const OVERSIGHT_ROLES = new Set([
-  'ADMIN',
-  'SUPPORT_MANAGER',
-  'EXECUTIVE',
-  'COMPLIANCE_OFFICER',
-  'ARBITRATOR',
-  'ACCOUNTING',
-]);
-
-const ALL_CANONICAL_ROLES = new Set([
+const CANONICAL_ROLES = new Set([
   'FARMER',
   'BUYER',
   'LOGISTICIAN',
   'DRIVER',
+  'SURVEYOR',
   'LAB',
   'ELEVATOR',
   'ACCOUNTING',
@@ -42,6 +34,7 @@ const ALL_CANONICAL_ROLES = new Set([
   'ADMIN',
   'COMPLIANCE_OFFICER',
   'ARBITRATOR',
+  'BANK_CALLBACK',
 ]);
 
 const ROLE_FOCUS: Record<string, string> = {
@@ -49,14 +42,16 @@ const ROLE_FOCUS: Record<string, string> = {
   BUYER: 'Условия, резерв, приёмка и расчёт',
   LOGISTICIAN: 'Назначение перевозки и контроль рейса',
   DRIVER: 'Один активный рейс и фиксация физических фактов',
+  SURVEYOR: 'Независимый осмотр и доказательства',
   ELEVATOR: 'Прибытие, вес и акт приёмки',
   LAB: 'Проба, показатели качества и протокол',
-  ACCOUNTING: 'Резерв, банковское основание и выплата',
+  ACCOUNTING: 'Запросы резерва и выплаты без права подтверждения банка',
   COMPLIANCE_OFFICER: 'Допуск участников и контроль риска',
   ARBITRATOR: 'Доказательства и готовность к спору',
   SUPPORT_MANAGER: 'Блокеры, SLA и сквозное исполнение',
   EXECUTIVE: 'Портфельный контроль без изменения сделки',
   ADMIN: 'Администрирование и аварийное восстановление',
+  BANK_CALLBACK: 'Подтверждённое системное событие банка',
 };
 
 function stable(value: unknown): unknown {
@@ -64,7 +59,7 @@ function stable(value: unknown): unknown {
   if (value && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .sort(([a], [b]) => a.localeCompare(b))
+        .sort(([left], [right]) => left.localeCompare(right))
         .map(([key, item]) => [key, stable(item)]),
     );
   }
@@ -89,104 +84,121 @@ function toNumber(value: bigint | number | null | undefined): number | null {
   return Number(value);
 }
 
+function requiredBankReference(payload: Record<string, unknown>): string {
+  const value = typeof payload.bankRef === 'string' ? payload.bankRef.trim() : '';
+  if (value.length < 4) {
+    throw new BadRequestException({
+      code: 'BANK_REFERENCE_REQUIRED',
+      message: 'Bank confirmation requires a verified bank reference.',
+    });
+  }
+  return value;
+}
+
 @Injectable()
 export class DealCommandService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly rls: RlsTransactionService) {}
 
   async workspace(dealId: string, user: RequestUser) {
-    const deal = await this.prisma.deal.findUnique({
-      where: { id: dealId },
-      include: {
-        shipments: { include: { checkpoints: { orderBy: { completedAt: 'asc' } } } },
-        documents: { orderBy: [{ type: 'asc' }, { version: 'desc' }] },
-        payments: { orderBy: { createdAt: 'desc' } },
-        labSamples: { include: { tests: true }, orderBy: { createdAt: 'desc' } },
-        dealEvents: { orderBy: { createdAt: 'asc' } },
-        acceptanceRecords: { orderBy: { createdAt: 'desc' } },
-        bankOperations: { orderBy: { createdAt: 'asc' } },
-        runtimeSnapshots: { orderBy: { createdAt: 'desc' }, take: 1 },
-      },
-    });
+    this.assertCanonicalIdentity(dealId, user);
 
-    if (!deal) throw new NotFoundException(`Deal ${dealId} not found`);
-    this.assertViewAccess(deal, user);
+    return this.rls.withTrustedContext(user, async (tx) => {
+      const deal = await tx.deal.findUnique({
+        where: { id: dealId },
+        include: {
+          shipments: { include: { checkpoints: { orderBy: { completedAt: 'asc' } } } },
+          documents: { orderBy: [{ type: 'asc' }, { version: 'desc' }] },
+          payments: { orderBy: { createdAt: 'desc' } },
+          labSamples: { include: { tests: true }, orderBy: { createdAt: 'desc' } },
+          dealEvents: { orderBy: { createdAt: 'asc' } },
+          acceptanceRecords: { orderBy: { createdAt: 'desc' } },
+          bankOperations: { orderBy: { createdAt: 'asc' } },
+          runtimeSnapshots: { orderBy: { createdAt: 'desc' }, take: 1 },
+        },
+      });
 
-    const disputes = await this.prisma.dispute.findMany({
-      where: { dealId },
-      include: { moneyHold: true, evidence: true },
-      orderBy: { createdAt: 'desc' },
-    });
+      if (!deal) throw new NotFoundException(`Deal ${dealId} not found`);
+      this.assertDealTenant(deal.tenantId, user);
 
-    const current = getCurrentDealAction(deal.status);
-    const canAct = Boolean(current?.roles.includes(String(user.role)));
-    const payment = deal.payments[0] ?? null;
-    const openDispute = disputes.find((item) => !['RESOLVED', 'CLOSED', 'CANCELLED'].includes(item.status)) ?? null;
+      const disputes = await tx.dispute.findMany({
+        where: { dealId },
+        include: { moneyHold: true, evidence: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      const current = getCurrentDealAction(deal.status);
+      const canAct = Boolean(current?.roles.includes(String(user.role)) && current.source !== 'BANK_CALLBACK');
+      const payment = deal.payments[0] ?? null;
+      const openDispute = disputes.find((item) => !['RESOLVED', 'CLOSED', 'CANCELLED'].includes(item.status)) ?? null;
 
-    return {
-      deal: {
-        id: deal.id,
-        number: deal.dealNumber,
-        status: deal.status,
-        updatedAt: deal.updatedAt.toISOString(),
-        sellerOrgId: deal.sellerOrgId,
-        buyerOrgId: deal.buyerOrgId,
-        culture: deal.culture,
-        cropClass: deal.cropClass,
-        volumeTons: deal.volumeTons,
-        pricePerTon: deal.pricePerTon,
-        totalKopecks: deal.totalKopecks,
-        currency: deal.currency,
-        closedAt: deal.closedAt?.toISOString() ?? null,
-      },
-      roleProjection: {
-        role: user.role,
-        focus: ROLE_FOCUS[String(user.role)] ?? 'Текущий этап и безопасное следующее действие',
-        canAct,
-        primaryAction: current
+      return {
+        deal: {
+          id: deal.id,
+          number: deal.dealNumber,
+          status: deal.status,
+          updatedAt: deal.updatedAt.toISOString(),
+          sellerOrgId: deal.sellerOrgId,
+          buyerOrgId: deal.buyerOrgId,
+          culture: deal.culture,
+          cropClass: deal.cropClass,
+          volumeTons: deal.volumeTons,
+          pricePerTon: deal.pricePerTon,
+          totalKopecks: deal.totalKopecks,
+          currency: deal.currency,
+          closedAt: deal.closedAt?.toISOString() ?? null,
+        },
+        roleProjection: {
+          role: user.role,
+          focus: ROLE_FOCUS[String(user.role)] ?? 'Текущий этап и безопасное следующее действие',
+          canAct,
+          primaryAction: current
+            ? {
+                id: current.id,
+                label: current.label,
+                source: current.source ?? 'USER',
+                enabled: canAct,
+                waitingForRoles: current.roles,
+              }
+            : null,
+        },
+        attention: current
+          ? current.source === 'BANK_CALLBACK'
+            ? 'Ожидается подписанное подтверждение банка.'
+            : canAct
+              ? `Требуется действие: ${current.label}`
+              : `Ожидается действие роли: ${current.roles.join(', ')}`
+          : deal.status === 'CLOSED'
+            ? 'Сделка закрыта. Доказательный и денежный контуры завершены.'
+            : 'Для текущего статуса не определено безопасное действие.',
+        blockers: [
+          ...(openDispute ? [`Открыт спор ${openDispute.id}`] : []),
+          ...(payment?.status === 'FAILED' ? ['Банковская операция завершилась ошибкой'] : []),
+        ],
+        money: payment
           ? {
-              id: current.id,
-              label: current.label,
-              enabled: canAct,
-              waitingForRoles: current.roles,
+              id: payment.id,
+              status: payment.status,
+              amountKopecks: payment.amountKopecks,
+              holdAmountKopecks: payment.holdAmountKopecks,
+              refundedKopecks: payment.refundedKopecks,
+              commissionKopecks: payment.commissionKopecks,
+              callbackState: payment.callbackState,
+              bankRef: payment.bankRef,
             }
           : null,
-      },
-      attention: current
-        ? canAct
-          ? `Требуется действие: ${current.label}`
-          : `Ожидается действие роли: ${current.roles.join(', ')}`
-        : deal.status === 'CLOSED'
-          ? 'Сделка закрыта. Доказательный и денежный контуры завершены.'
-          : 'Для текущего статуса не определено безопасное действие.',
-      blockers: [
-        ...(openDispute ? [`Открыт спор ${openDispute.id}`] : []),
-        ...(payment?.status === 'FAILED' ? ['Банковская операция завершилась ошибкой'] : []),
-      ],
-      money: payment
-        ? {
-            id: payment.id,
-            status: payment.status,
-            amountKopecks: payment.amountKopecks,
-            holdAmountKopecks: payment.holdAmountKopecks,
-            refundedKopecks: payment.refundedKopecks,
-            commissionKopecks: payment.commissionKopecks,
-            callbackState: payment.callbackState,
-            bankRef: payment.bankRef,
-          }
-        : null,
-      spine: buildDealSpine(deal.status),
-      shipments: deal.shipments,
-      documents: deal.documents,
-      laboratory: deal.labSamples,
-      acceptance: deal.acceptanceRecords,
-      disputes,
-      bankOperations: deal.bankOperations.map((operation) => ({
-        ...operation,
-        amountKopecks: toNumber(operation.amountKopecks),
-      })),
-      timeline: deal.dealEvents,
-      persistence: deal.runtimeSnapshots[0] ?? null,
-    };
+        spine: buildDealSpine(deal.status),
+        shipments: deal.shipments,
+        documents: deal.documents,
+        laboratory: deal.labSamples,
+        acceptance: deal.acceptanceRecords,
+        disputes,
+        bankOperations: deal.bankOperations.map((operation) => ({
+          ...operation,
+          amountKopecks: toNumber(operation.amountKopecks),
+        })),
+        timeline: deal.dealEvents,
+        persistence: deal.runtimeSnapshots[0] ?? null,
+      };
+    });
   }
 
   async execute(
@@ -195,6 +207,7 @@ export class DealCommandService {
     dto: ExecuteDealCommandDto,
     user: RequestUser,
   ) {
+    this.assertCanonicalIdentity(dealId, user);
     if (!isDealActionId(rawActionId)) {
       throw new BadRequestException(`Unknown deal action: ${rawActionId}`);
     }
@@ -204,153 +217,148 @@ export class DealCommandService {
     this.assertActionRole(definition, user);
     const receiptKey = this.receiptKey(dealId, dto.idempotencyKey);
 
-    const existing = await this.readReceipt(receiptKey);
-    if (existing) return existing;
-
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const replay = await tx.outboxEntry.findUnique({ where: { idempotencyKey: receiptKey } });
-        if (replay) return this.resultFromReceipt(replay.payload);
+      return await this.rls.withTrustedContext(
+        user,
+        async (tx) => {
+          const replay = await tx.outboxEntry.findUnique({ where: { idempotencyKey: receiptKey } });
+          if (replay) return this.resultFromReceipt(replay.payload);
 
-        const deal = await tx.deal.findUnique({ where: { id: dealId } });
-        if (!deal) throw new NotFoundException(`Deal ${dealId} not found`);
-        this.assertViewAccess(deal, user);
+          const deal = await tx.deal.findUnique({ where: { id: dealId } });
+          if (!deal) throw new NotFoundException(`Deal ${dealId} not found`);
+          this.assertDealTenant(deal.tenantId, user);
 
-        if (deal.status !== definition.from) {
-          throw new ConflictException({
-            code: 'DEAL_STATE_CONFLICT',
-            message: `Action ${actionId} requires status ${definition.from}; current status is ${deal.status}`,
-            currentStatus: deal.status,
-            expectedStatus: definition.from,
-            currentUpdatedAt: deal.updatedAt.toISOString(),
-          });
-        }
+          if (deal.status !== definition.from) {
+            throw new ConflictException({
+              code: 'DEAL_STATE_CONFLICT',
+              message: `Action ${actionId} requires status ${definition.from}; current status is ${deal.status}`,
+              currentStatus: deal.status,
+              expectedStatus: definition.from,
+              currentUpdatedAt: deal.updatedAt.toISOString(),
+            });
+          }
+          if (deal.updatedAt.toISOString() !== dto.expectedUpdatedAt) {
+            throw new ConflictException({
+              code: 'STALE_DEAL_VERSION',
+              message: 'Deal changed after the screen was loaded. Refresh and repeat the action.',
+              currentStatus: deal.status,
+              currentUpdatedAt: deal.updatedAt.toISOString(),
+            });
+          }
 
-        if (deal.updatedAt.toISOString() !== dto.expectedUpdatedAt) {
-          throw new ConflictException({
-            code: 'STALE_DEAL_VERSION',
-            message: 'Deal changed after the screen was loaded. Refresh and repeat the action.',
-            currentStatus: deal.status,
-            currentUpdatedAt: deal.updatedAt.toISOString(),
-          });
-        }
+          await this.applySideEffects(tx, definition, deal, dto.payload ?? {}, user);
 
-        await this.applySideEffects(tx, definition, deal, dto.payload ?? {}, user);
-
-        const next = getCurrentDealAction(definition.to);
-        const closedAt = definition.to === 'CLOSED' ? new Date() : undefined;
-        const update = await tx.deal.updateMany({
-          where: {
-            id: deal.id,
-            status: definition.from,
-            updatedAt: deal.updatedAt,
-          },
-          data: {
-            status: definition.to,
-            nextAction: next?.label ?? null,
-            ...(closedAt ? { closedAt } : {}),
-          },
-        });
-
-        if (update.count !== 1) {
-          throw new ConflictException({
-            code: 'CONCURRENT_DEAL_UPDATE',
-            message: 'Another command changed the deal concurrently. No partial changes were committed.',
-          });
-        }
-
-        const updatedDeal = await tx.deal.findUniqueOrThrow({ where: { id: deal.id } });
-        const event = await this.appendDealEvent(tx, {
-          dealId: deal.id,
-          eventType: actionId.toUpperCase(),
-          actorId: user.id,
-          actorRole: String(user.role),
-          tenantId: deal.tenantId ?? user.tenantId,
-          payload: {
-            commandId: dto.commandId,
-            idempotencyKey: dto.idempotencyKey,
-            actionId,
-            from: definition.from,
-            to: definition.to,
-            payload: dto.payload ?? {},
-            resultingUpdatedAt: updatedDeal.updatedAt.toISOString(),
-          },
-        });
-
-        const audit = await this.appendAudit(tx, {
-          dealId: deal.id,
-          actorUserId: user.id,
-          actorRole: String(user.role),
-          tenantId: deal.tenantId ?? user.tenantId,
-          orgId: user.orgId,
-          action: `deal.command.${actionId}`,
-          objectType: 'deal',
-          objectId: deal.id,
-          beforeState: { status: definition.from, updatedAt: deal.updatedAt.toISOString() },
-          afterState: { status: definition.to, updatedAt: updatedDeal.updatedAt.toISOString() },
-          metadata: {
-            commandId: dto.commandId,
-            idempotencyKey: dto.idempotencyKey,
-            eventId: event.id,
-          },
-        });
-
-        let externalOutboxId: string | null = null;
-        if (definition.externalOperation) {
-          const external = await tx.outboxEntry.upsert({
-            where: { idempotencyKey: `external:${deal.id}:${actionId}:${dto.commandId}` },
-            update: {},
-            create: {
-              type: definition.externalOperation,
-              dealId: deal.id,
-              status: 'PENDING',
-              idempotencyKey: `external:${deal.id}:${actionId}:${dto.commandId}`,
-              correlationId: dto.commandId,
-              auditId: audit.id,
-              payload: {
-                dealId: deal.id,
-                actionId,
-                commandId: dto.commandId,
-                amountKopecks: deal.totalKopecks,
-              },
+          const next = getCurrentDealAction(definition.to);
+          const update = await tx.deal.updateMany({
+            where: { id: deal.id, status: definition.from, updatedAt: deal.updatedAt },
+            data: {
+              status: definition.to,
+              nextAction: next?.label ?? null,
+              ...(definition.to === 'CLOSED' ? { closedAt: new Date() } : {}),
             },
           });
-          externalOutboxId = external.id;
-        }
+          if (update.count !== 1) {
+            throw new ConflictException({
+              code: 'CONCURRENT_DEAL_UPDATE',
+              message: 'Another command changed the deal concurrently. No partial changes were committed.',
+            });
+          }
 
-        const result = {
-          ok: true,
-          duplicate: false,
-          commandId: dto.commandId,
-          idempotencyKey: dto.idempotencyKey,
-          dealId: deal.id,
-          actionId,
-          previousStatus: definition.from,
-          status: definition.to,
-          updatedAt: updatedDeal.updatedAt.toISOString(),
-          eventId: event.id,
-          auditId: audit.id,
-          externalOutboxId,
-        };
-
-        await tx.outboxEntry.create({
-          data: {
-            type: 'deal.command.receipt',
+          const updatedDeal = await tx.deal.findUniqueOrThrow({ where: { id: deal.id } });
+          const event = await this.appendDealEvent(tx, {
             dealId: deal.id,
-            status: 'CONFIRMED',
-            idempotencyKey: receiptKey,
-            correlationId: dto.commandId,
-            auditId: audit.id,
-            confirmedAt: new Date(),
-            payload: { result },
-          },
-        });
+            eventType: actionId.toUpperCase(),
+            actorId: user.id,
+            actorRole: String(user.role),
+            tenantId: user.tenantId,
+            payload: {
+              commandId: dto.commandId,
+              idempotencyKey: dto.idempotencyKey,
+              actionId,
+              from: definition.from,
+              to: definition.to,
+              payload: dto.payload ?? {},
+              resultingUpdatedAt: updatedDeal.updatedAt.toISOString(),
+            },
+          });
+          const audit = await this.appendAudit(tx, {
+            dealId: deal.id,
+            actorUserId: user.id,
+            actorRole: String(user.role),
+            tenantId: user.tenantId,
+            orgId: user.orgId,
+            action: `deal.command.${actionId}`,
+            objectType: 'deal',
+            objectId: deal.id,
+            beforeState: { status: definition.from, updatedAt: deal.updatedAt.toISOString() },
+            afterState: { status: definition.to, updatedAt: updatedDeal.updatedAt.toISOString() },
+            metadata: {
+              commandId: dto.commandId,
+              idempotencyKey: dto.idempotencyKey,
+              eventId: event.id,
+              sessionId: user.sessionId,
+            },
+          });
 
-        return result;
-      });
+          let externalOutboxId: string | null = null;
+          if (definition.externalOperation) {
+            const external = await tx.outboxEntry.upsert({
+              where: { idempotencyKey: `external:${deal.id}:${actionId}:${dto.commandId}` },
+              update: {},
+              create: {
+                type: definition.externalOperation,
+                dealId: deal.id,
+                status: 'PENDING',
+                idempotencyKey: `external:${deal.id}:${actionId}:${dto.commandId}`,
+                correlationId: dto.commandId,
+                auditId: audit.id,
+                payload: {
+                  dealId: deal.id,
+                  actionId,
+                  commandId: dto.commandId,
+                  amountKopecks: deal.totalKopecks,
+                },
+              },
+            });
+            externalOutboxId = external.id;
+          }
+
+          const result = {
+            ok: true,
+            duplicate: false,
+            commandId: dto.commandId,
+            idempotencyKey: dto.idempotencyKey,
+            dealId: deal.id,
+            actionId,
+            previousStatus: definition.from,
+            status: definition.to,
+            updatedAt: updatedDeal.updatedAt.toISOString(),
+            eventId: event.id,
+            auditId: audit.id,
+            externalOutboxId,
+          };
+          await tx.outboxEntry.create({
+            data: {
+              type: 'deal.command.receipt',
+              dealId: deal.id,
+              status: 'CONFIRMED',
+              idempotencyKey: receiptKey,
+              correlationId: dto.commandId,
+              auditId: audit.id,
+              confirmedAt: new Date(),
+              payload: { result },
+            },
+          });
+          return result;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
     } catch (error) {
       if (isUniqueConstraintError(error)) {
-        const replay = await this.readReceipt(receiptKey);
+        const replay = await this.rls.withTrustedContext(user, async (tx) => {
+          const receipt = await tx.outboxEntry.findUnique({ where: { idempotencyKey: receiptKey } });
+          return receipt ? this.resultFromReceipt(receipt.payload) : null;
+        });
         if (replay) return { ...replay, duplicate: true };
       }
       throw error;
@@ -361,15 +369,28 @@ export class DealCommandService {
     return `deal-command:${dealId}:${idempotencyKey}`;
   }
 
-  private async readReceipt(idempotencyKey: string) {
-    const receipt = await this.prisma.outboxEntry.findUnique({ where: { idempotencyKey } });
-    return receipt ? this.resultFromReceipt(receipt.payload) : null;
-  }
-
   private resultFromReceipt(payload: Prisma.JsonValue) {
     const result = (payload as { result?: Record<string, unknown> } | null)?.result;
     if (!result) throw new ConflictException('Stored command receipt is incomplete');
     return { ...result, duplicate: true };
+  }
+
+  private assertCanonicalIdentity(dealId: string, user: RequestUser): void {
+    if (dealId !== CANONICAL_TEST_DEAL_ID) {
+      throw new NotFoundException('Canonical command service only accepts the industrial test deal.');
+    }
+    if (!CANONICAL_ROLES.has(String(user.role))) {
+      throw new ForbiddenException('Role is not part of the canonical deal execution model.');
+    }
+    if (!user.id || !user.orgId || !user.tenantId || !user.sessionId) {
+      throw new ForbiddenException({ code: 'TRUSTED_CONTEXT_REQUIRED' });
+    }
+  }
+
+  private assertDealTenant(dealTenantId: string | null, user: RequestUser): void {
+    if (!dealTenantId || dealTenantId !== user.tenantId) {
+      throw new ForbiddenException({ code: 'TENANT_SCOPE_DENIED' });
+    }
   }
 
   private assertActionRole(definition: DealActionDefinition, user: RequestUser): void {
@@ -380,14 +401,6 @@ export class DealCommandService {
         allowedRoles: definition.roles,
       });
     }
-  }
-
-  private assertViewAccess(deal: { id: string; sellerOrgId: string; buyerOrgId: string }, user: RequestUser): void {
-    const role = String(user.role);
-    if (OVERSIGHT_ROLES.has(role)) return;
-    if (deal.sellerOrgId === user.orgId || deal.buyerOrgId === user.orgId) return;
-    if (deal.id === CANONICAL_TEST_DEAL_ID && ALL_CANONICAL_ROLES.has(role)) return;
-    throw new ForbiddenException(`Cross-organization access denied for deal:${deal.id}`);
   }
 
   private async applySideEffects(
@@ -426,13 +439,7 @@ export class DealCommandService {
         signatories.push({ userId: user.id, role: user.role, signedAt: new Date().toISOString() });
         await tx.dealDocument.upsert({
           where: { id: `contract:${deal.id}` },
-          update: {
-            status: 'SIGNED',
-            signedAt: new Date(),
-            signatories: JSON.stringify(signatories),
-            isImmutable: true,
-            bankAcceptance: 'ACCEPTED',
-          },
+          update: { status: 'SIGNED', signedAt: new Date(), signatories: JSON.stringify(signatories), isImmutable: true, bankAcceptance: 'ACCEPTED' },
           create: {
             id: `contract:${deal.id}`,
             dealId: deal.id,
@@ -474,15 +481,16 @@ export class DealCommandService {
         });
         break;
 
-      case 'confirm_reserve':
+      case 'confirm_reserve': {
+        const bankRef = requiredBankReference(payload);
         await tx.payment.upsert({
           where: { id: `payment:${deal.id}` },
-          update: { status: 'RESERVED', amountKopecks, reservedAt: new Date(), callbackState: 'CONFIRMED', bankRef: String(payload.bankRef ?? `TEST-RESERVE-${deal.id}`) },
-          create: { id: `payment:${deal.id}`, dealId: deal.id, status: 'RESERVED', amountKopecks, reservedAt: new Date(), callbackState: 'CONFIRMED', bankRef: String(payload.bankRef ?? `TEST-RESERVE-${deal.id}`) },
+          update: { status: 'RESERVED', amountKopecks, reservedAt: new Date(), callbackState: 'CONFIRMED', bankRef },
+          create: { id: `payment:${deal.id}`, dealId: deal.id, status: 'RESERVED', amountKopecks, reservedAt: new Date(), callbackState: 'CONFIRMED', bankRef },
         });
         await tx.bankOperation.update({
           where: { id: `bank-reserve:${deal.id}` },
-          data: { status: 'DONE', confirmedAt: new Date(), bankRef: String(payload.bankRef ?? `TEST-RESERVE-${deal.id}`), responsePayload: payload as Prisma.InputJsonValue },
+          data: { status: 'DONE', confirmedAt: new Date(), bankRef, responsePayload: payload as Prisma.InputJsonValue },
         });
         await tx.ledgerEntry.upsert({
           where: { idempotencyKey: `ledger-reserve:${deal.id}` },
@@ -499,6 +507,7 @@ export class DealCommandService {
           },
         });
         break;
+      }
 
       case 'assign_logistics':
         await tx.shipment.upsert({
@@ -603,15 +612,17 @@ export class DealCommandService {
         });
         break;
 
-      case 'confirm_release':
-        await tx.payment.update({ where: { id: `payment:${deal.id}` }, data: { status: 'RELEASED', releasedAt: new Date(), callbackState: 'CONFIRMED', bankRef: String(payload.bankRef ?? `TEST-RELEASE-${deal.id}`) } });
-        await tx.bankOperation.update({ where: { id: `bank-release:${deal.id}` }, data: { status: 'DONE', confirmedAt: new Date(), bankRef: String(payload.bankRef ?? `TEST-RELEASE-${deal.id}`), responsePayload: payload as Prisma.InputJsonValue } });
+      case 'confirm_release': {
+        const bankRef = requiredBankReference(payload);
+        await tx.payment.update({ where: { id: `payment:${deal.id}` }, data: { status: 'RELEASED', releasedAt: new Date(), callbackState: 'CONFIRMED', bankRef } });
+        await tx.bankOperation.update({ where: { id: `bank-release:${deal.id}` }, data: { status: 'DONE', confirmedAt: new Date(), bankRef, responsePayload: payload as Prisma.InputJsonValue } });
         await tx.ledgerEntry.upsert({
           where: { idempotencyKey: `ledger-release:${deal.id}` },
           update: {},
           create: { dealId: deal.id, entryType: 'RELEASE', debitAccount: `escrow:${deal.id}`, creditAccount: `seller:${deal.sellerOrgId}`, amountKopecks, idempotencyKey: `ledger-release:${deal.id}`, description: 'Подтверждённая выплата продавцу', createdByUserId: user.id },
         });
         break;
+      }
 
       default:
         break;
@@ -629,8 +640,8 @@ export class DealCommandService {
       payload: Prisma.InputJsonValue;
     },
   ) {
-    const previous = await tx.dealEvent.findFirst({ where: { dealId: input.dealId }, orderBy: { createdAt: 'desc' } });
-    const id = `event-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const previous = await tx.dealEvent.findFirst({ where: { dealId: input.dealId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+    const id = `event-${randomUUID()}`;
     const eventHash = hash({ id, ...input, prevHash: previous?.hash ?? null });
     return tx.dealEvent.create({
       data: {
@@ -663,8 +674,8 @@ export class DealCommandService {
       metadata: Prisma.InputJsonValue;
     },
   ) {
-    const previous = await tx.auditEvent.findFirst({ where: { dealId: input.dealId }, orderBy: { createdAt: 'desc' } });
-    const id = `audit-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const previous = await tx.auditEvent.findFirst({ where: { dealId: input.dealId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+    const id = `audit-${randomUUID()}`;
     const auditHash = hash({ id, ...input, prevHash: previous?.hash ?? null });
     return tx.auditEvent.create({
       data: {
