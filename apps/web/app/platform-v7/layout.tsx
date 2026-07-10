@@ -50,18 +50,20 @@ function isPublicPath(pathname: string) {
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const pathname = normalizePath(headers().get('x-pc-pathname'));
 
-  if (pathname === LANDING_PATH) {
-    await import('./_styles/landing');
-    return children;
-  }
-  if (AUTH_PATHS.has(pathname)) {
-    await import('./_styles/auth');
-    return children;
-  }
+  // These routes own their minimal CSS in the concrete page/login layout. Keeping
+  // them out of the full runtime prevents protected cockpit CSS from entering the
+  // public critical path.
+  if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children;
 
-  await import('./_styles/full-platform');
-  if (isPublicPath(pathname)) return children;
+  const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
+  if (isPublicPath(pathname)) {
+    return <PlatformV7FullStyleRuntime>{children}</PlatformV7FullStyleRuntime>;
+  }
 
   const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');
-  return <PlatformV7ProtectedRuntime pathname={pathname}>{children}</PlatformV7ProtectedRuntime>;
+  return (
+    <PlatformV7FullStyleRuntime>
+      <PlatformV7ProtectedRuntime pathname={pathname}>{children}</PlatformV7ProtectedRuntime>
+    </PlatformV7FullStyleRuntime>
+  );
 }
