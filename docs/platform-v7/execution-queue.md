@@ -1,65 +1,70 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.38 Runtime Persistence Internal Service Wiring Plan.
+CURRENT: VP-3.44 Runtime Persistence Trusted Transaction Binding.
 
-GOAL: Выбрать точный server-only Nest service/module scope после merge #2245, без controller/API/web route и без применения migration к production DB.
-
-CURRENT STATUS:
-- VP-3.33 additive Prisma schema/migration is merged from #2241.
-- VP-3.37 API-side Postgres repository adapter is merged from #2245.
-- Railway `brilliant-liberation - @pc/web` is green after #2245.
-- `PrismaModule` is global and already imported by `AppModule`.
-- `AppAuthGuard` is global, but this layer intentionally creates no controller.
+GOAL: Выполнить authenticated runtime persistence полностью внутри transaction-local RLS boundary, чтобы pre-read, outbox, audit, snapshot и transaction-attempt использовали один trusted Prisma transaction client.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
+- apps/api/src/common/prisma/rls-transaction.service.ts
+- apps/api/src/common/prisma/rls-transaction.service.spec.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.spec.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence.repository.ts
+- apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.ts
+- apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.spec.ts
+- apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts
 
-CANDIDATE IMPLEMENTATION FILES FOR LATER CODE PR:
-- `apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts`
-- `apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts`
-- `apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts`
-- `apps/api/src/app.module.ts`
+CURRENT CRITERIA:
+- authenticated command enters through `RlsTransactionService`;
+- existing-record lookup occurs on the trusted transaction client;
+- outbox, audit, snapshot and attempt writes share that exact client;
+- repository opens no nested transaction inside the trusted callback;
+- concurrent P2002 recovery re-enters a new trusted transaction before classification;
+- RLS initialization failure executes no persistence read or write;
+- errors do not leak sensitive database details;
+- failed receipts remain failed;
+- no controller, web bridge or user-driven bank confirmation is introduced.
 
-TARGET INTERNAL WIRING:
-- `RuntimePersistenceService` injects `RUNTIME_PERSISTENCE_REPOSITORY` and delegates one internal `persist` operation.
-- Service accepts only the typed internal repository input; it does not accept HTTP request objects or client-provided evidence IDs.
-- `RuntimePersistenceModule` creates the repository provider with the existing global `PrismaService` and `selectRuntimePersistenceRepository`.
-- Module exports `RuntimePersistenceService` and the repository token for future server-only consumers.
-- `AppModule` imports `RuntimePersistenceModule` so dependency graph/startup validation occurs in deployed API builds.
-- No controller, route, DTO, public decorator, SSE stream or web server action is added.
-- Default startup remains safe because non-`prisma` mode binds the disabled fail-closed repository.
-- Exact `prisma` mode with missing PrismaService fails startup rather than silently degrading.
+DONE:
+- #2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation
+- #2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation
+- #2250 VP-3.41 Runtime Persistence Internal Service Wiring Implementation
+- #2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary
+- #2254 VP-3.43 Transaction-Local Trusted RLS Context
 
-TEST REQUIREMENTS:
-- Service delegates the exact typed input once and returns repository receipt unchanged.
-- Service does not synthesize or accept trusted evidence IDs.
-- Disabled repository result remains visible to internal caller; service must not convert it into success.
-- Repository exception is not swallowed or reclassified as a successful receipt.
-- API typecheck confirms AppModule import and provider graph compile without package changes.
-
-STILL LOCKED:
-- controller/API endpoint;
-- web server-action bridge;
-- production migration execution and rollback rehearsal;
-- request auth/tenant derivation;
-- UI/components;
-- package and lockfiles;
+LOCKED:
+- production migration execution;
+- production RLS policy application;
+- persistent identity/session/revocation/MFA files;
+- controller/API/web wiring;
+- bank reserve/release confirmation from user commands;
 - live bank/FGIS/EDO integrations.
 
 NEXT:
-- Layer: VP-3.39 Runtime Persistence Internal Service Wiring Scope Unlock.
-- Goal: docs-only unlock the exact four service/module/test/AppModule files.
+- Layer: VP-3.45 Physical Table RLS Policy Alignment and Rehearsal.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
+  - infra/sql/production-rls-policies.sql
+  - apps/api/prisma/migrations/**
+  - apps/api/src/common/prisma/rls-transaction.service.spec.ts
+  - scripts/platform-v7-rls-*.mjs
+  - scripts/platform-v7-rls-*.sh
 - Success criteria:
-  - future module has no controllers;
-  - AppModule registration is server-only;
-  - fail-closed activation remains unchanged;
-  - no implementation files change in VP-3.38;
-  - guard, dry-run and security checks remain green.
+  - RLS policies reference canonical physical PostgreSQL table names from Prisma mappings;
+  - tenant, organization, role and user policies are explicit per protected table;
+  - policy SQL is idempotent and fail-closed;
+  - non-production apply and rollback rehearsal scripts exist;
+  - no production database is modified by CI;
+  - migration and policy drift is detected automatically;
+  - production-enabled claims remain forbidden until controlled application evidence exists.
+- Readiness remains 85% honest architectural readiness.
 
 AFTER NEXT:
-- Layer: VP-3.40 Runtime Persistence Internal Service Wiring Final Gate.
-- Goal: final docs-only gate before internal wiring implementation.
+- Persistent identity/session/revocation/MFA source of truth after blocker #2115.
+- Authenticated DB-backed runtime action bridge without direct bank confirmation.
+- Concurrency, retry, recovery, load, restore and security acceptance gates.

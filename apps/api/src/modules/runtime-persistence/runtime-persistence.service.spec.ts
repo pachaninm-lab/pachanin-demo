@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RuntimePersistenceModule } from './runtime-persistence.module';
@@ -44,11 +45,18 @@ const PERSISTED_RECEIPT: RuntimePersistenceWriteReceipt = {
   transactionAttemptId: 'attempt-canonical-001',
 };
 
+function repositoryFixture(overrides: Partial<RuntimePersistenceRepository> = {}) {
+  return {
+    write: jest.fn().mockResolvedValue(PERSISTED_RECEIPT),
+    writeWithinTransaction: jest.fn().mockResolvedValue(PERSISTED_RECEIPT),
+    classifyExistingWithinTransaction: jest.fn().mockResolvedValue(null),
+    ...overrides,
+  } as RuntimePersistenceRepository;
+}
+
 describe('RuntimePersistenceService', () => {
-  it('delegates the canonical deal exactly once and returns the receipt unchanged', async () => {
-    const repository: RuntimePersistenceRepository = {
-      write: jest.fn().mockResolvedValue(PERSISTED_RECEIPT),
-    };
+  it('delegates the compatibility path exactly once and returns the receipt unchanged', async () => {
+    const repository = repositoryFixture();
     const service = new RuntimePersistenceService(repository);
 
     await expect(service.persist(CANONICAL_RUNTIME_TEST_DEAL)).resolves.toBe(PERSISTED_RECEIPT);
@@ -56,6 +64,38 @@ describe('RuntimePersistenceService', () => {
     expect(repository.write).toHaveBeenCalledWith(CANONICAL_RUNTIME_TEST_DEAL);
     expect(CANONICAL_RUNTIME_TEST_DEAL).not.toHaveProperty('outboxEntryId');
     expect(CANONICAL_RUNTIME_TEST_DEAL).not.toHaveProperty('auditEventId');
+  });
+
+  it('delegates transaction-bound persistence on the exact supplied client', async () => {
+    const repository = repositoryFixture();
+    const service = new RuntimePersistenceService(repository);
+    const tx = { trusted: true } as unknown as Prisma.TransactionClient;
+
+    await expect(
+      service.persistWithinTransaction(tx, CANONICAL_RUNTIME_TEST_DEAL),
+    ).resolves.toBe(PERSISTED_RECEIPT);
+    expect(repository.writeWithinTransaction).toHaveBeenCalledWith(
+      tx,
+      CANONICAL_RUNTIME_TEST_DEAL,
+    );
+    expect(repository.write).not.toHaveBeenCalled();
+  });
+
+  it('delegates concurrent-winner classification on the exact supplied client', async () => {
+    const duplicate = { ...PERSISTED_RECEIPT, status: 'duplicate' as const };
+    const repository = repositoryFixture({
+      classifyExistingWithinTransaction: jest.fn().mockResolvedValue(duplicate),
+    });
+    const service = new RuntimePersistenceService(repository);
+    const tx = { trusted: true } as unknown as Prisma.TransactionClient;
+
+    await expect(
+      service.classifyExistingWithinTransaction(tx, CANONICAL_RUNTIME_TEST_DEAL),
+    ).resolves.toBe(duplicate);
+    expect(repository.classifyExistingWithinTransaction).toHaveBeenCalledWith(
+      tx,
+      CANONICAL_RUNTIME_TEST_DEAL,
+    );
   });
 
   it('keeps a disabled repository receipt failed', async () => {
@@ -66,23 +106,24 @@ describe('RuntimePersistenceService', () => {
       state: 'ready_to_persist',
       reasonCode: 'repository_not_enabled',
     };
-    const repository: RuntimePersistenceRepository = {
+    const repository = repositoryFixture({
       write: jest.fn().mockResolvedValue(failedReceipt),
-    };
+    });
     const service = new RuntimePersistenceService(repository);
 
     await expect(service.persist(CANONICAL_RUNTIME_TEST_DEAL)).resolves.toBe(failedReceipt);
   });
 
-  it('propagates repository exceptions instead of returning false success', async () => {
-    const repository: RuntimePersistenceRepository = {
-      write: jest.fn().mockRejectedValue(new Error('controlled repository failure')),
-    };
+  it('propagates transaction repository exceptions for the owning boundary to classify', async () => {
+    const repository = repositoryFixture({
+      writeWithinTransaction: jest.fn().mockRejectedValue({ code: 'P2002' }),
+    });
     const service = new RuntimePersistenceService(repository);
+    const tx = {} as Prisma.TransactionClient;
 
-    await expect(service.persist(CANONICAL_RUNTIME_TEST_DEAL)).rejects.toThrow(
-      'controlled repository failure',
-    );
+    await expect(
+      service.persistWithinTransaction(tx, CANONICAL_RUNTIME_TEST_DEAL),
+    ).rejects.toMatchObject({ code: 'P2002' });
   });
 });
 
