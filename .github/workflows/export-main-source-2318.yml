@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - ops/export-main-source-2318
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
