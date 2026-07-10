@@ -129,10 +129,14 @@ export class SettlementEngineController {
   @Post('import-bank-statement')
   @RateLimit({ name: 'bank_statement_legacy_import', scope: 'user', limit: 2, windowSeconds: 300 })
   async importBankStatement(
-    @Body() body: { content: string; format: string },
-    @CurrentUser() user: RequestUser,
+    @Body() _body: { content: string; format: string },
+    @CurrentUser() _user: RequestUser,
   ) {
-    return this.settlementEngine.importBankStatement(body.content, body.format, user);
+    throw new BadRequestException({
+      code: 'BANK_STATEMENT_IMPORT_MOVED',
+      message: 'Use the durable reconciliation endpoint with explicit partnerId and cursor.',
+      endpoint: '/api/bank/reconciliation/import',
+    });
   }
 
   @Get('bank-callback-keys')
