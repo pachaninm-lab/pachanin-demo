@@ -43,14 +43,28 @@ GUARDRAILS:
 
 NEXT:
 - Layer: VP-3.44 Runtime Persistence Trusted Transaction Binding.
-- Goal: execute runtime snapshot, outbox, audit and transaction-attempt persistence inside the same `RlsTransactionService` callback.
-- Required changes:
-  - eliminate repository pre-read outside the trusted transaction;
-  - add a transaction-client repository entry point without nested Prisma transactions;
-  - preserve duplicate/conflict classification under concurrency;
-  - prove that RLS setup failure leaves snapshot, outbox, audit and attempt unchanged;
-  - preserve failed receipts as failed;
-  - keep controller/web/money confirmation routes locked.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
+  - apps/api/src/common/prisma/rls-transaction.service.ts
+  - apps/api/src/common/prisma/rls-transaction.service.spec.ts
+  - apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.ts
+  - apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.spec.ts
+  - apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts
+  - apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts
+  - apps/api/src/modules/runtime-persistence/runtime-persistence.repository.ts
+  - apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.ts
+  - apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.spec.ts
+  - apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts
+- Success criteria:
+  - runtime snapshot, outbox, audit and transaction-attempt writes use the same trusted transaction client;
+  - no repository pre-read occurs outside the trusted transaction;
+  - no nested Prisma transaction is opened inside the trusted boundary;
+  - duplicate and material-identity conflict classification remain deterministic under concurrency;
+  - RLS initialization failure leaves snapshot, outbox, audit and attempt unchanged;
+  - failed repository receipts remain failed;
+  - controller, web and user-driven bank confirmation routes remain absent.
+- Readiness remains 85% honest architectural readiness.
 
 AFTER NEXT:
 - Canonical physical-table RLS policy audit and controlled non-production application rehearsal.
