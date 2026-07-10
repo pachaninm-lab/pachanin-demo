@@ -1,11 +1,13 @@
 # Review current task — Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation
 
 Maturity: industrial architecture and isolated PostgreSQL proof; platform temporarily without external integrations.
-Do not accept production, live-bank, provider-DR or production-scale claims.
+Implementation under review: PR #2307 (`p0/durable-outbox-financial-delivery`).
+Do not accept a parallel implementation, production, live-bank, provider-DR or production-scale claims.
 Review the diff and tests, not the agent report. Return PASS or BLOCKED with the exact file, risk and required fix.
 
 ## Required scope checks
 
+- PR number is #2307 and exact head is recorded before acceptance.
 - `apps/landing` diff is zero.
 - Platform UI, role cabinets, design/theme/onboarding diff is zero.
 - Package and lockfile diff is zero.
@@ -39,7 +41,7 @@ Review the diff and tests, not the agent report. Return PASS or BLOCKED with the
 - Multi-worker claims use bounded leases and `FOR UPDATE SKIP LOCKED`.
 - `send=false` and transport exceptions cannot create SENT/CONFIRMED.
 - Expired claims recover after crash without losing the event.
-- Idempotency is enforced by a unique durable key.
+- Idempotency is enforced by a unique durable key and payload mismatch fails closed.
 - Retry/backoff/dead-letter/manual-retry transitions are durable and audited.
 - Production has one explicit relay ownership mode and safe shutdown.
 - Reconciliation cursor/checkpoint and mismatch evidence are persisted and immutable.
@@ -57,7 +59,7 @@ Review the diff and tests, not the agent report. Return PASS or BLOCKED with the
 - Reconciliation mismatch rollback/hold tests.
 - Partner-key overlap, expiry, future and revocation tests.
 - Forward-only migrations and zero drift.
-- Existing persistent-auth, 12-role/19-command RLS and backup/restore gates remain green.
+- Existing persistent-auth, 12-role/19-command RLS, rate-limit and backup/restore gates remain green.
 
 ## Forbidden acceptance
 
@@ -68,4 +70,4 @@ Review the diff and tests, not the agent report. Return PASS or BLOCKED with the
 
 ## Review brief
 
-PASS only when the implementation is one durable, fail-closed and auditable PostgreSQL execution path and every acceptance item is demonstrated on the exact PR head.
+PASS only when PR #2307 is one durable, fail-closed and auditable PostgreSQL execution path and every acceptance item is demonstrated on its exact head.
