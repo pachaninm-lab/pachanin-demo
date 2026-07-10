@@ -2,15 +2,29 @@
 
 CURRENT: Industrial One Deal Ephemeral PostgreSQL E2E Harness.
 
-GOAL: Доказать в CI на изолированном PostgreSQL 16, что одна каноническая сделка `DEAL-INDUSTRIAL-001` проходит всеми ролями от DRAFT до CLOSED без ручного изменения БД, fake-live и production credentials.
+RESULT: GREEN — READY FOR MERGE.
 
-CURRENT FAILURE:
-- Восемь миграций применяются на чистом PostgreSQL 16, zero drift подтверждён.
-- Legacy allow-all policies удалены; SQL и Prisma wrong-tenant proof возвращают ноль строк.
-- 12 ACTIVE `DealParticipant` назначений подтверждены; руководитель имеет только READ.
-- Полный exploitation gate с 19 командами до CLOSED зелёный.
-- Остался legacy unit fixture gateway: он не передавал verified tenant и не моделировал transaction-local DealParticipant/Organization/Deal reads.
-- Correction: обновить ровно этот spec под fail-closed DB-derived scope.
+PROVEN:
+- eight forward-only migrations apply to clean PostgreSQL 16 through `prisma migrate deploy`;
+- `prisma migrate diff --exit-code` proves zero schema drift;
+- legacy permissive `USING (TRUE)` policies are removed before strict RLS;
+- application datasource is a separate non-owner `NOSUPERUSER NOBYPASSRLS` role;
+- `RLS` and `FORCE ROW LEVEL SECURITY` are enabled;
+- SQL-level and Prisma-level wrong-tenant Deal and DealParticipant reads return zero rows;
+- one canonical Deal has exactly 12 ACTIVE DealParticipant assignments;
+- user, organization, role and access level are DB-derived;
+- EXECUTIVE has READ only; operational roles have WORK/APPROVE where required;
+- all 19 commands pass in deterministic order to CLOSED;
+- reserve and release require signed bank callbacks bound to exact pending operations;
+- invalid signature, human confirmation, duplicate, idempotency reuse, stale version and concurrent command cases fail deterministically;
+- CLOSED projections reconcile Deal, participants, events, audit, outbox, documents, shipment, laboratory, acceptance, payment, bank operations and ledger;
+- ephemeral database and credentials are destroyed after the gate.
+
+NOT PROVEN:
+- production migration or RLS deployment;
+- persistent session, refresh-family rotation, revocation and MFA;
+- live bank, ФГИС, ЭДО or signature integrations;
+- production load, restore, DR or operational acceptance.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
@@ -32,21 +46,6 @@ CURRENT ALLOWED:
 - scripts/platform-v7-one-deal-*.sh
 - .github/workflows/ci.yml
 
-CURRENT CRITERIA:
-- migration history applies through `prisma migrate deploy` and produces zero schema drift;
-- legacy allow-all policies are absent;
-- application datasource is a separate non-owner `NOSUPERUSER NOBYPASSRLS` role;
-- SQL-level and Prisma-level wrong-tenant reads return zero rows;
-- each role sees Deal only through an ACTIVE `DealParticipant` assignment or an explicit server-only bank callback path;
-- user/org/role are derived from DB membership and DealParticipant, not URL/cookie/client storage;
-- EXECUTIVE receives READ access; operational roles receive WORK/APPROVE only where required;
-- all 19 commands pass in order without direct database mutation;
-- reserve and release advance only through signed callback fixtures bound to exact pending operations;
-- duplicate, reused idempotency material, stale version and concurrent update fail deterministically;
-- CLOSED reconciles Deal, participants, events, audit, outbox, payment, ledger, shipment, acceptance, lab and documents;
-- legacy unit tests enforce the same fail-closed gateway contract;
-- production readiness and live integration completion remain unclaimed.
-
 DONE:
 - #2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation
 - #2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation
@@ -58,14 +57,6 @@ DONE:
 - #2263 Industrial One Deal Foundation scope unlock
 - #2260 Industrial one-deal foundation
 - #2267 Canonical gateway consolidation
-
-LOCKED:
-- production migration and RLS execution;
-- persistent identity/session/revocation/MFA files;
-- platform UI and apps/landing during this proof layer;
-- package and lockfiles;
-- live bank/FGIS/EDO/signature integrations;
-- production load, restore or disaster-recovery claims.
 
 NEXT:
 - Layer: Industrial One Deal Concurrency, Replay and Recovery Matrix.
