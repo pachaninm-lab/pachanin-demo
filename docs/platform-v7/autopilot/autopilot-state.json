@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "Persistent Identity, Session, Refresh-Family Revocation and MFA.",
   "fullTzReadinessPercent": 87,
-  "openPr": null,
+  "openPr": "#2276",
   "lastClosed": [
     "#2274 PostgreSQL One Deal Recovery Matrix",
     "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
@@ -26,7 +26,7 @@
     "live bank FGIS EDO and signature evidence",
     "production load restore and DR acceptance"
   ],
-  "blockerNotes": "The recovery matrix is merged as cc10110293d9716c2f93790e7756589ead017afd. Current work replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. Client role, organization and tenant input remain untrusted and UI files remain locked.",
+  "blockerNotes": "PR #2276 replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. Client role, organization and tenant input remain untrusted and all UI files remain locked until verified server session projection is proven.",
   "lockedUntilCurrentGreen": [
     "platform UI implementation",
     "client role shell migration",
@@ -71,6 +71,7 @@
     "mergeCommit": "cc10110293d9716c2f93790e7756589ead017afd"
   },
   "persistentIdentity": {
+    "implementationPr": "#2276",
     "status": "in_progress",
     "requiredEvidence": [
       "PostgreSQL users memberships sessions refresh families and MFA challenges",
