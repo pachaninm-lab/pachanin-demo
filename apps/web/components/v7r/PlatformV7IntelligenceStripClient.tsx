@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useLocale } from 'next-intl';
 import { ArrowRight, Banknote, ShieldCheck } from 'lucide-react';
-import { readStoredLanguage, subscribeToLanguageChanges, type LanguageCode } from '@/lib/platform-v7/i18n/translation-runtime';
 
-type Lang = 'ru' | 'en' | 'zh';
+ type Lang = 'ru' | 'en' | 'zh';
 
 const copy = {
   ru: {
@@ -44,19 +43,14 @@ const copy = {
 
 const icons = [ShieldCheck, ArrowRight, Banknote];
 
-function normalizeLang(value: LanguageCode): Lang {
+function normalizeLang(value: string): Lang {
   return value === 'en' || value === 'zh' ? value : 'ru';
 }
 
 export function PlatformV7IntelligenceStripClient() {
-  const [lang, setLang] = useState<Lang>('ru');
-
-  useEffect(() => {
-    setLang(normalizeLang(readStoredLanguage()));
-    return subscribeToLanguageChanges((next) => setLang(normalizeLang(next)));
-  }, []);
-
+  const lang = normalizeLang(useLocale());
   const t = copy[lang];
+
   return (
     <section id='intelligence' className='entry-section entry-intelligence-section' aria-labelledby='intelligence-title' data-p7-no-translate='true' data-lang={lang}>
       <style>{css}</style>
