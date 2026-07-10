@@ -8,83 +8,63 @@ function read(relativePath: string) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
-describe('platform-v7 public entry link policy', () => {
-  const publicEntryFiles = [
-    'apps/web/app/platform-v7/page.tsx',
-    'apps/web/app/platform-v7/open/page.tsx',
-  ];
+describe('platform-v7 public entry contract', () => {
+  const landing = read('apps/web/app/platform-v7/page.tsx');
+  const login = read('apps/web/app/platform-v7/login/page.tsx');
+  const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
+  const localeSwitch = read('apps/web/components/platform-v7/PublicLocaleSwitcher.tsx');
+  const shellSwitch = read('apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx');
 
-  const operationalEntryLeaks = [
-    '/platform-v7/seller/batches/new',
-    '/platform-v7/buyer/rfq/new',
-    'Выставить партию',
-    'Создать запрос на закупку',
-    'Открытый просмотр',
-  ];
+  it('keeps the public entry free of direct cabinet actions', () => {
+    const forbidden = [
+      '/platform-v7/seller/batches/new',
+      '/platform-v7/buyer/rfq/new',
+      'Выставить партию',
+      'Создать запрос на закупку',
+    ];
 
-  const fullRoleSet = [
-    'operator',
-    'buyer',
-    'seller',
-    'logistics',
-    'driver',
-    'elevator',
-    'lab',
-    'surveyor',
-    'bank',
-    'compliance',
-    'arbitrator',
-    'executive',
-  ];
-
-  it('keeps public entry screens free of direct cabinet action CTAs', () => {
-    const leaks = publicEntryFiles.flatMap((file) => {
-      const source = read(file);
-      return operationalEntryLeaks.filter((snippet) => source.includes(snippet)).map((snippet) => `${file}: ${snippet}`);
-    });
-
-    expect(leaks).toEqual([]);
+    expect(forbidden.filter((snippet) => landing.includes(snippet))).toEqual([]);
   });
 
-  it('mounts the public entry cleanup in the platform-v7 template', () => {
-    const source = read('apps/web/app/platform-v7/template.tsx');
-
-    expect(source).toContain('PublicEntryCleanup');
-    expect(source).toContain('<PublicEntryCleanup />');
+  it('never asks a public user to select a role through the URL', () => {
+    expect(landing).not.toContain('/platform-v7/login?role=');
+    expect(landing).not.toContain('?role=');
+    expect(landing).not.toMatch(/href:\s*['"]\/platform-v7\/login\?role=/);
+    expect(landing).toContain("<article key={key} className={styles.roleTile}>");
   });
 
-  it('routes public role cards through the single login gate with the selected role', () => {
-    const page = read('apps/web/app/platform-v7/page.tsx');
-    const cleanup = read('apps/web/components/platform-v7/PublicEntryCleanup.tsx');
-
-    expect(page).toContain('/platform-v7/login?role=seller');
-    expect(page).toContain('/platform-v7/login?role=buyer');
-    expect(page).toContain('/platform-v7/login?role=operator');
-    expect(cleanup).not.toContain("link.setAttribute('href', '/platform-v7/login')");
-    expect(cleanup).not.toContain('rewritePublicLinks');
+  it('keeps exactly two hero actions', () => {
+    expect(landing).toContain("href='/platform-v7/register' className={styles.primaryCta}");
+    expect(landing).toContain("href='/platform-v7/deal-flow' className={styles.secondaryCta}");
+    expect(landing).not.toContain("t('hero.questionCta')");
   });
 
-  it('keeps all 12 role ids available on the public role catalog', () => {
-    const source = read('apps/web/app/platform-v7/page.tsx');
-
-    const missing = fullRoleSet.filter((role) => !source.includes(`key: '${role}'`));
-    expect(missing).toEqual([]);
+  it('uses one canonical brand header on landing and login', () => {
+    expect(landing).toContain('<PublicSiteHeader');
+    expect(login).toContain('<PublicSiteHeader');
+    expect(login).not.toContain('<Wheat');
+    expect(publicHeader).toContain("import { BrandMark }");
+    expect(publicHeader).toContain('<PublicLocaleSwitcher />');
+    expect(publicHeader).not.toContain('<style>');
   });
 
-  it('keeps the public mobile entry visible after returning from protected shell', () => {
-    const cleanup = read('apps/web/components/platform-v7/PublicEntryCleanup.tsx');
-
-    expect(cleanup).toContain("'.p7-mobile-tool-panel,[data-public-platform-handoff=\"true\"]'");
-    expect(cleanup).toContain("document.body.classList.remove('seller-mobile-fix')");
-    expect(cleanup).toContain('content-visibility:visible!important');
-    expect(cleanup).toContain('.entry-control-tile{display:grid!important;opacity:1!important;visibility:visible!important');
+  it('renders the public locale switch in the React tree without DOM translation patches', () => {
+    expect(localeSwitch).not.toContain('MutationObserver');
+    expect(localeSwitch).not.toContain('createPortal');
+    expect(localeSwitch).not.toContain('applyTranslationToDom');
+    expect(localeSwitch).not.toContain('localStorage');
+    expect(localeSwitch).not.toContain('document.');
+    expect(localeSwitch).toContain("params.set('lang', next)");
   });
 
-  it('does not use paint containment on the public entry surface', () => {
-    const heroPatch = read('apps/web/components/platform-v7/PublicHeroWeightPatch.tsx');
-    const cleanup = read('apps/web/components/platform-v7/PublicEntryCleanup.tsx');
+  it('does not mount the legacy portal language runtime on public routes', () => {
+    expect(shellSwitch).toContain("if (isPublicPath(pathname)) return <>{children}</>;");
+  });
 
-    expect(heroPatch).not.toContain('contain:layout paint');
-    expect(cleanup).not.toContain('contain:layout paint');
+  it('uses CSS modules instead of page-level runtime style injection', () => {
+    expect(landing).toContain("import styles from './public-entry.module.css'");
+    expect(login).toContain("import styles from './login.module.css'");
+    expect(landing).not.toContain('<style>');
+    expect(login).not.toContain('<style');
   });
 });

@@ -24,6 +24,8 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/register',
+  '/platform-v7/forgot-password',
+  '/platform-v7/reset-password',
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
@@ -81,7 +83,9 @@ function roleFromPath(pathname: string): PlatformRole {
 export function PlatformV7ShellSwitch({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '/platform-v7';
 
-  if (isPublicPath(pathname)) return <><HeaderLanguageSwitch />{children}</>;
+  // Public pages render their own canonical header and declarative locale control.
+  // Do not portal controls into their DOM or translate them after hydration.
+  if (isPublicPath(pathname)) return <>{children}</>;
 
   const initialRole = roleFromPath(pathname);
   const showRoleIntentDashboard = shouldShowRoleIntentDashboard(pathname);
