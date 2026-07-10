@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "VP-3.44 Runtime Persistence Trusted Transaction Binding.",
   "fullTzReadinessPercent": 85,
-  "openPr": null,
+  "openPr": "#2256",
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
@@ -57,6 +57,7 @@
   },
   "vp344RuntimePersistenceTrustedTransactionBinding": {
     "layer": "VP-3.44 Runtime Persistence Trusted Transaction Binding",
+    "openPr": "#2256",
     "status": "in_progress",
     "invariants": [
       "authenticated runtime persistence enters through RlsTransactionService",
