@@ -89,6 +89,7 @@ apps/web/tests/unit/platformV7FinalShellStaticGate.test.ts
 apps/web/tests/unit/platformV7LoginRoleHandoff.test.ts
 apps/web/tests/unit/platformV7LoginSecurityBoundary.test.ts
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
+apps/web/tests/unit/platformV7RootWorkEntry.test.ts
 apps/web/tests/unit/platformV7SingleEntryLogin.test.ts
 apps/web/tests/unit/productEntryM31.test.tsx
 scripts/p7-autopilot-guard.sh'
