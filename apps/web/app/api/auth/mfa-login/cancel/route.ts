@@ -5,7 +5,7 @@ import {
   MFA_PENDING_COOKIE,
   mfaPendingCookieOptions,
   openMfaLoginTicket,
-} from '../../../../../../lib/server/mfa-login-ticket';
+} from '../../../../../lib/server/mfa-login-ticket';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
