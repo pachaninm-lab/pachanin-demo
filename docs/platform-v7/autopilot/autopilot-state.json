@@ -25,7 +25,7 @@
     "live bank FGIS EDO and signature evidence",
     "production load restore and DR acceptance"
   ],
-  "blockerNotes": "PR #2274 is green on isolated PostgreSQL 16. It proves one valid concurrent command winner, stable partner+event callback replay, material replay mismatch rejection, out-of-order callback rollback, fresh runtime continuation, atomic forced rollback, transaction-local RLS pool isolation and deterministic full replay after CLOSED. Production deployment, persistent identity, live integrations, load and DR remain outside this proof.",
+  "blockerNotes": "PR #2274 is green on isolated PostgreSQL 16. It proves one valid concurrent command winner, stable partner+event callback replay, material replay mismatch rejection, out-of-order callback rollback, fresh runtime continuation, atomic forced rollback, transaction-local RLS pool isolation and deterministic full replay after CLOSED. The next authorized scope is backend-only persistent identity/session/MFA; platform UI and client authority remain locked.",
   "lockedUntilCurrentGreen": [
     "persistent identity session MFA changes",
     "platform UI implementation",
@@ -116,8 +116,7 @@
     "apps/web/components/v7r",
     "apps/web/lib/platform-v7",
     "apps/web/app/api",
-    "apps/api/src/modules/auth/**",
-    "apps/api/prisma/migrations/**",
+    "apps/api/prisma/migrations/** except explicitly authorized current migration",
     "package.json",
     "package-lock.json",
     "pnpm-lock.yaml",
