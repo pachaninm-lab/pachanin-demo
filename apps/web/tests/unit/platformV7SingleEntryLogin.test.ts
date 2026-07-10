@@ -4,12 +4,14 @@ import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(resolve(process.cwd(), 'apps/web/app/platform-v7/login/page.tsx'), 'utf8');
 
-describe('platform-v7 single role login', () => {
-  it('contains the fixed single entry copy and key roles', () => {
-    expect(source).toContain('Единый вход');
-    expect(source).toContain('Выберите один рабочий кабинет');
-    expect(source).toContain('Водитель');
-    expect(source).toContain('Комплаенс');
-    expect(source).toContain('Руководитель');
+describe('platform-v7 single-entry login', () => {
+  it('contains one credential form without a role selector', () => {
+    expect(source).toContain("useTranslations('publicEntry.login')");
+    expect(source).toContain("type LoginStep = 'password' | 'mfa' | 'backup-codes'");
+    expect(source).toContain("fetch('/api/auth/mfa-login/cancel'");
+    expect(source).not.toContain('workspace-picker');
+    expect(source).not.toContain('data-role-selector');
+    expect(source).not.toContain('name=\'role\'');
+    expect(source).not.toContain('?role=');
   });
 });
