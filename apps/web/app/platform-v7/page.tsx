@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import {
   ArrowRight,
   BadgeCheck,
@@ -10,7 +9,6 @@ import {
   FileCheck2,
   FlaskConical,
   Landmark,
-  Languages,
   Leaf,
   LockKeyhole,
   LogIn,
@@ -22,10 +20,10 @@ import {
   Wheat,
   type LucideIcon,
 } from 'lucide-react';
-import { getLocale, getTranslations } from 'next-intl/server';
+import { getTranslations } from 'next-intl/server';
 import { PlatformV7IntelligenceStrip } from '@/components/v7r/PlatformV7IntelligenceStrip';
+import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
-import { isAppLocale, SUPPORTED_LOCALES, type AppLocale } from '@/i18n/locale';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена — исполнение зерновой сделки',
@@ -53,13 +51,6 @@ export const metadata: Metadata = {
 
 type Card = { key: string; Icon: LucideIcon };
 type RoleCard = Card & { href: '/platform-v7/login' };
-
-const SHORT_LABELS: Record<AppLocale, string> = { ru: 'RU', en: 'EN', zh: 'ZH' };
-
-function nextLocale(current: AppLocale): AppLocale {
-  const index = SUPPORTED_LOCALES.indexOf(current);
-  return SUPPORTED_LOCALES[(index + 1) % SUPPORTED_LOCALES.length] ?? 'ru';
-}
 
 const controlCards: Card[] = [
   { key: 'money', Icon: Banknote },
@@ -111,45 +102,27 @@ const heroSignals: { key: string; tone: 'done' | 'active' | 'wait' | 'pending' }
 export default async function PlatformV7RootPage() {
   const t = await getTranslations('landing');
   const roleCatalog = await getTranslations('publicEntry.rolesCatalog');
-  const language = await getTranslations('publicEntry.language');
-  const localeValue = await getLocale();
-  const locale: AppLocale = isAppLocale(localeValue) ? localeValue : 'ru';
-  const next = nextLocale(locale);
-  const currentLabel = SHORT_LABELS[locale];
-  const nextLabel = SHORT_LABELS[next];
 
   return (
     <main data-testid='platform-v7-root-execution-cockpit' className='pc-v7-entry-page pc-v7-public-entry'>
       <PublicSiteHeader
         ariaLabel={t('publicNav')}
         tagline={t('brandTagline')}
-        localeControl={(
-          <a
-            className='pc-site-locale-switch'
-            href={`/platform-v7?lang=${next}`}
-            aria-label={language('switchLabel', { current: currentLabel, next: nextLabel })}
-            title={language('switchTitle', { current: currentLabel })}
-            data-current-locale={locale}
-            data-next-locale={next}
-          >
-            <Languages size={16} strokeWidth={2.35} aria-hidden='true' />
-            <span>{currentLabel}</span>
-          </a>
-        )}
+        localeControl={<PublicLocaleLink />}
         nav={(
           <>
             <a href='#process'>{t('nav.process')}</a>
             <a href='#control'>{t('nav.control')}</a>
             <a href='#roles'>{t('nav.roles')}</a>
-            <Link prefetch={false} href='/platform-v7/deal-flow'>{t('nav.demo')}</Link>
-            <Link prefetch={false} href='/platform-v7/contact'>{t('nav.contact')}</Link>
-            <Link prefetch={false} href='/platform-v7/docs'>{t('nav.docs')}</Link>
+            <a href='/platform-v7/deal-flow'>{t('nav.demo')}</a>
+            <a href='/platform-v7/contact'>{t('nav.contact')}</a>
+            <a href='/platform-v7/docs'>{t('nav.docs')}</a>
           </>
         )}
         actions={(
           <>
-            <Link prefetch={false} href='/platform-v7/login' className='entry-login'><LogIn size={16} aria-hidden='true' />{t('signIn')}</Link>
-            <Link prefetch={false} href='/platform-v7/register' className='entry-header-register'>{t('register')}</Link>
+            <a href='/platform-v7/login' className='entry-login'><LogIn size={16} aria-hidden='true' />{t('signIn')}</a>
+            <a href='/platform-v7/register' className='entry-header-register'>{t('register')}</a>
           </>
         )}
       />
@@ -164,8 +137,8 @@ export default async function PlatformV7RootPage() {
           </h1>
           <p>{t('hero.lead')}</p>
           <div className='entry-hero-actions'>
-            <Link prefetch={false} href='/platform-v7/register' className='entry-primary-cta'>{t('hero.primaryCta')}<ArrowRight size={20} aria-hidden='true' /></Link>
-            <Link prefetch={false} href='/platform-v7/deal-flow' className='entry-secondary-cta'><PlayCircle size={18} aria-hidden='true' />{t('hero.secondaryCta')}</Link>
+            <a href='/platform-v7/register' className='entry-primary-cta'>{t('hero.primaryCta')}<ArrowRight size={20} aria-hidden='true' /></a>
+            <a href='/platform-v7/deal-flow' className='entry-secondary-cta'><PlayCircle size={18} aria-hidden='true' />{t('hero.secondaryCta')}</a>
           </div>
         </div>
 
@@ -222,12 +195,12 @@ export default async function PlatformV7RootPage() {
         <SectionHead id='roles-title' title={roleCatalog('title')} text={roleCatalog('text')} />
         <div className='entry-role-grid'>
           {roles.map(({ key, href, Icon }) => (
-            <Link prefetch={false} key={key} href={href} className='entry-role-tile'>
+            <a key={key} href={href} className='entry-role-tile'>
               <Icon size={27} strokeWidth={2.25} aria-hidden='true' />
               <strong>{t(`roles.${key}.title`)}</strong>
               <span>{t(`roles.${key}.text`)}</span>
               <em>{roleCatalog('cta')}</em>
-            </Link>
+            </a>
           ))}
         </div>
       </section>
@@ -240,7 +213,7 @@ export default async function PlatformV7RootPage() {
             <span>{t(`trust.${key}.text`)}</span>
           </article>
         ))}
-        <Link prefetch={false} href='/platform-v7/register' className='entry-trust-cta'>{t('trust.cta')}</Link>
+        <a href='/platform-v7/register' className='entry-trust-cta'>{t('trust.cta')}</a>
       </section>
     </main>
   );
