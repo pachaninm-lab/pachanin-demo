@@ -4,7 +4,7 @@ import { UseGuards } from '@nestjs/common';
 import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DealsService } from './deals.service';
-import { DealCommandService } from './deal-command.service';
+import { IndustrialDealCommandGateway } from './industrial-deal-command.gateway';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { ExecuteDealCommandDto } from './dto/execute-deal-command.dto';
 import { TransitionDealDto } from './dto/transition-deal.dto';
@@ -12,12 +12,12 @@ import { RequestUser, Role } from '../../common/types/request-user';
 import { CANONICAL_TEST_DEAL_ID } from './deal-command.policy';
 
 @UseGuards(RolesGuard)
-@Roles('ANY_AUTHENTICATED')
+@Roles('FARMER', 'BUYER', 'SUPPORT_MANAGER', 'EXECUTIVE', 'ADMIN', 'ACCOUNTING')
 @Controller('deals')
 export class DealsController {
   constructor(
     private readonly deals: DealsService,
-    private readonly commands: DealCommandService,
+    private readonly industrialCommands: IndustrialDealCommandGateway,
   ) {}
 
   @Get()
@@ -36,8 +36,9 @@ export class DealsController {
   }
 
   @Get(':id/execution-workspace')
+  @Roles('ANY_AUTHENTICATED')
   executionWorkspace(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    return this.commands.workspace(id, user);
+    return this.industrialCommands.workspace(id, user);
   }
 
   @Get(':id/passport')
@@ -59,13 +60,14 @@ export class DealsController {
   }
 
   @Post(':id/commands/:actionId')
+  @Roles('ANY_AUTHENTICATED')
   executeCommand(
     @Param('id') id: string,
     @Param('actionId') actionId: string,
     @Body() dto: ExecuteDealCommandDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.commands.execute(id, actionId, dto, user);
+    return this.industrialCommands.executeUser(id, actionId, dto, user);
   }
 
   @Patch(':id/transition')
