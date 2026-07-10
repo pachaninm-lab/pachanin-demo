@@ -181,7 +181,7 @@
     "separate-runtime-principals-proven-in-isolated-postgresql",
     "isolated-backup-restore-rehearsal-proven",
     "durable-financial-delivery-in-progress",
-    "platform-temporarily-without-live-external-integrations"
+    "platform-temporarily-without-external-integrations"
   ],
   "forbiddenClaims": [
     "full production readiness",
