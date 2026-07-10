@@ -10,10 +10,13 @@ const templateSwitch = read('apps/web/components/platform-v7/PlatformV7TemplateS
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const landing = read('apps/web/app/platform-v7/page.tsx');
+const login = read('apps/web/app/platform-v7/login/page.tsx');
+const recovery = read('apps/web/app/platform-v7/forgot-password/page.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const brandMark = read('apps/web/components/v7r/BrandMark.tsx');
 const intelligenceStrip = read('apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx');
 const publicHeaderCss = read('apps/web/styles/platform-v7-public-header.css');
+const publicAuthCss = read('apps/web/styles/platform-v7-public-auth.css');
 const middleware = read('apps/web/middleware.ts');
 
 describe('platform-v7 public/protected runtime split', () => {
@@ -44,15 +47,20 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(templateSwitch).toContain('if (isPublicPath(pathname)) return <>{children}</>');
   });
 
-  it('loads the shared public header and brand styles statically outside hydrated markup', () => {
+  it('loads shared public header and auth styles statically outside hydrated markup', () => {
     expect(layout).toContain("@/styles/platform-v7-public-header.css");
-    expect(publicHeader).not.toContain('<style');
-    expect(publicHeader).not.toContain('dangerouslySetInnerHTML');
-    expect(brandMark).not.toContain('<style');
+    expect(layout).toContain("@/styles/platform-v7-public-auth.css");
+    for (const source of [publicHeader, brandMark, login, recovery]) {
+      expect(source).not.toContain('<style');
+      expect(source).not.toContain('dangerouslySetInnerHTML');
+    }
     expect(brandMark).not.toContain('BRAND_MARK_CSS_RESET');
     expect(publicHeaderCss).toContain('.pc-site-header');
     expect(publicHeaderCss).toContain('.pc-site-locale-switch');
     expect(publicHeaderCss).toContain('.pc-header-brand > span:first-child');
+    expect(publicAuthCss).toContain('.pc-auth-page');
+    expect(publicAuthCss).toContain('.pc-recovery-page');
+    expect(publicAuthCss).toContain('.pc-auth-methods');
   });
 
   it('keeps remaining page-scoped CSS deterministic while it is being consolidated', () => {
