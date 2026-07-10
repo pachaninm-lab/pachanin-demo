@@ -2,10 +2,10 @@
   "project": "platform-v7",
   "mode": "durable-outbox-bank-reconciliation-key-rotation",
   "status": "active",
-  "currentStatus": "ready",
+  "currentStatus": "in_progress",
   "current": "Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation.",
   "fullTzReadinessPercent": 91,
-  "openPr": null,
+  "openPr": "#2307",
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
@@ -23,19 +23,22 @@
     "#2282 Persistent-auth-backed 12-role one-deal execution",
     "#2283 JWT authority-claim injection regression",
     "#2287 Runtime separation of auth and deal PostgreSQL principals",
-    "#2291 Forward-only backup, restore and DR rehearsal"
+    "#2291 Forward-only backup, restore and DR rehearsal",
+    "#2302 Rate-limit pre-auth shield and execute-only storage boundary",
+    "#2305 Rate-limit deployment and proxy hardening"
   ],
   "openBlockers": [
-    "durable PostgreSQL outbox worker and delivery leases",
-    "bank reconciliation, mismatch handling and persisted checkpoints",
-    "bank callback partner-key rotation and revocation",
+    "PR #2307 durable PostgreSQL outbox worker and delivery leases",
+    "PR #2307 bank reconciliation, mismatch handling and persisted checkpoints",
+    "PR #2307 bank callback partner-key rotation and revocation",
     "live bank FGIS EDO ESIA and signature evidence",
     "production migration and deployment execution evidence",
     "provider PITR, production-sized restore, measured RTO and approved RPO",
     "production load, high-availability and operational acceptance"
   ],
-  "blockerNotes": "Deal execution, persistent identity, MFA, separate PostgreSQL runtime principals, 12-role/19-command recovery and isolated backup/restore are merged and green. The current outbox relay is still process-memory-led and performs best-effort PostgreSQL updates; the bank callback accepts only one static configured key; production reconciliation and provider recovery remain unproven. The next layer must replace these gaps without changing UI or claiming live bank integration.",
+  "blockerNotes": "PR #2307 is the only approved implementation of the current layer. Additive delivery-schema migrations and lease functions are started, but process-memory OutboxService/relay, durable reconciliation and partner-key lifecycle are not yet replaced or accepted. No parallel outbox implementation is allowed while #2307 is open.",
   "lockedUntilCurrentGreen": [
+    "parallel outbox or reconciliation implementation",
     "platform UI and role-cabinet migration",
     "live external integration activation",
     "production migration execution",
@@ -81,6 +84,21 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {},
+  "currentImplementation": {
+    "issue": "#2296",
+    "pullRequest": "#2307",
+    "branch": "p0/durable-outbox-financial-delivery",
+    "status": "draft_in_progress",
+    "startedEvidence": [
+      "delivery schema",
+      "outbox lease table",
+      "immutable delivery attempts",
+      "SKIP LOCKED claim function",
+      "claim-token success and failure transitions",
+      "DB-time retry and durable dead-letter",
+      "manual requeue function"
+    ]
+  },
   "industrialOneDealFoundation": {
     "status": "merged_green",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
@@ -141,7 +159,7 @@
     "reconciliation mismatch cannot release or reserve money automatically",
     "bank callback keys support overlapping rotation windows and immediate revocation",
     "unknown, expired, not-yet-valid and revoked keys fail closed",
-    "12-role one-deal, persistent auth, RLS and DR gates remain green"
+    "12-role one-deal, persistent auth, RLS, rate-limit and DR gates remain green"
   ],
   "nextAfterCurrentGreen": [
     "truthful driver offline acknowledgement",
@@ -192,5 +210,5 @@
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "91% honest architectural and isolated-runtime readiness. Canonical execution, persistent identity, separate DB principals and backup/restore are proven in isolated PostgreSQL. Durable financial delivery, live integrations, production deployment, provider recovery and scale remain unproven. Production exploitation remains NO-GO."
+  "readiness": "91% honest architectural and isolated-runtime readiness. PR #2307 is in progress. Canonical execution, persistent identity, separate DB principals, rate-limit and backup/restore are proven in isolated PostgreSQL. Durable financial delivery, live integrations, production deployment, provider recovery and scale remain unproven. Production exploitation remains NO-GO."
 }
