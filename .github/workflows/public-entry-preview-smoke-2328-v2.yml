@@ -1,0 +1,93 @@
+name: public entry preview smoke 2328 v2
+
+on:
+  pull_request:
+    branches:
+      - fix/public-entry-final-isolation
+
+permissions:
+  contents: read
+
+jobs:
+  preview-browser-lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PLAYWRIGHT_BASE_URL: https://6a516b620f69ad000832f056--vermillion-kitsune-0e7b97.netlify.app
+      ARTIFACT_DIR: ../../artifacts/public-entry-preview-smoke-2328-v2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Run browser locale axe and runtime matrix
+        working-directory: apps/web
+        run: node scripts/public-entry-preview-smoke-2328-v2.mjs
+      - name: Collect and enforce Lighthouse budgets
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/public-entry-preview-smoke-2328-v2/lighthouse
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME_BIN" || { echo 'Chrome executable not found' >&2; exit 1; }
+          export CHROME_PATH="$CHROME_BIN"
+          BASE='https://6a516b620f69ad000832f056--vermillion-kitsune-0e7b97.netlify.app'
+          for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
+            safe_name="${route//\//-}"
+            npx -y lighthouse@12.8.2 "$BASE/${route}?lang=ru" \
+              --quiet \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --output=json \
+              --output-path="artifacts/public-entry-preview-smoke-2328-v2/lighthouse/${safe_name}.json"
+          done
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = 'artifacts/public-entry-preview-smoke-2328-v2/lighthouse';
+          const reports = fs.readdirSync(dir).filter((name) => name.endsWith('.json') && name !== 'summary.json').map((name) => {
+            const report = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+            return {
+              file: name,
+              finalUrl: report.finalUrl,
+              scores: Object.fromEntries(Object.entries(report.categories).map(([key, value]) => [key, Math.round((value.score || 0) * 100)])),
+              metrics: {
+                fcpMs: report.audits['first-contentful-paint']?.numericValue,
+                lcpMs: report.audits['largest-contentful-paint']?.numericValue,
+                tbtMs: report.audits['total-blocking-time']?.numericValue,
+                cls: report.audits['cumulative-layout-shift']?.numericValue,
+                speedIndexMs: report.audits['speed-index']?.numericValue,
+              },
+            };
+          });
+          const failures = [];
+          for (const report of reports) {
+            const m = report.metrics;
+            if ((report.scores.performance || 0) < 80) failures.push(`${report.file}: performance ${report.scores.performance} < 80`);
+            if ((report.scores.accessibility || 0) < 95) failures.push(`${report.file}: accessibility ${report.scores.accessibility} < 95`);
+            if ((report.scores['best-practices'] || 0) < 90) failures.push(`${report.file}: best-practices ${report.scores['best-practices']} < 90`);
+            if (!(m.lcpMs <= 2500)) failures.push(`${report.file}: LCP ${m.lcpMs}ms > 2500ms`);
+            if (!(m.tbtMs <= 200)) failures.push(`${report.file}: TBT ${m.tbtMs}ms > 200ms`);
+            if (!(m.cls <= 0.1)) failures.push(`${report.file}: CLS ${m.cls} > 0.1`);
+          }
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: failures.length ? 'failed' : 'passed', reports, failures, note: 'Preview SEO recorded but not enforced because deploy previews are intentionally noindex.' }, null, 2));
+          console.log(JSON.stringify({ reports, failures }, null, 2));
+          if (failures.length) process.exit(1);
+          NODE
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-preview-smoke-2328-v2
+          path: artifacts/public-entry-preview-smoke-2328-v2
+          if-no-files-found: error
+          retention-days: 14
