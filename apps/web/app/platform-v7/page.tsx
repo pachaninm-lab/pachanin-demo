@@ -10,6 +10,7 @@ import {
   FileCheck2,
   FlaskConical,
   Landmark,
+  Languages,
   Leaf,
   LockKeyhole,
   LogIn,
@@ -21,9 +22,10 @@ import {
   Wheat,
   type LucideIcon,
 } from 'lucide-react';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { PlatformV7IntelligenceStrip } from '@/components/v7r/PlatformV7IntelligenceStrip';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+import { isAppLocale, SUPPORTED_LOCALES, type AppLocale } from '@/i18n/locale';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена — исполнение зерновой сделки',
@@ -51,6 +53,13 @@ export const metadata: Metadata = {
 
 type Card = { key: string; Icon: LucideIcon };
 type RoleCard = Card & { href: '/platform-v7/login' };
+
+const SHORT_LABELS: Record<AppLocale, string> = { ru: 'RU', en: 'EN', zh: 'ZH' };
+
+function nextLocale(current: AppLocale): AppLocale {
+  const index = SUPPORTED_LOCALES.indexOf(current);
+  return SUPPORTED_LOCALES[(index + 1) % SUPPORTED_LOCALES.length] ?? 'ru';
+}
 
 const controlCards: Card[] = [
   { key: 'money', Icon: Banknote },
@@ -102,12 +111,31 @@ const heroSignals: { key: string; tone: 'done' | 'active' | 'wait' | 'pending' }
 export default async function PlatformV7RootPage() {
   const t = await getTranslations('landing');
   const roleCatalog = await getTranslations('publicEntry.rolesCatalog');
+  const language = await getTranslations('publicEntry.language');
+  const localeValue = await getLocale();
+  const locale: AppLocale = isAppLocale(localeValue) ? localeValue : 'ru';
+  const next = nextLocale(locale);
+  const currentLabel = SHORT_LABELS[locale];
+  const nextLabel = SHORT_LABELS[next];
 
   return (
     <main data-testid='platform-v7-root-execution-cockpit' className='pc-v7-entry-page pc-v7-public-entry'>
       <PublicSiteHeader
         ariaLabel={t('publicNav')}
         tagline={t('brandTagline')}
+        localeControl={(
+          <a
+            className='pc-site-locale-switch'
+            href={`/platform-v7?lang=${next}`}
+            aria-label={language('switchLabel', { current: currentLabel, next: nextLabel })}
+            title={language('switchTitle', { current: currentLabel })}
+            data-current-locale={locale}
+            data-next-locale={next}
+          >
+            <Languages size={16} strokeWidth={2.35} aria-hidden='true' />
+            <span>{currentLabel}</span>
+          </a>
+        )}
         nav={(
           <>
             <a href='#process'>{t('nav.process')}</a>
