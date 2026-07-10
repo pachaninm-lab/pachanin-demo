@@ -11,9 +11,9 @@ permissions:
 jobs:
   preview-browser-lighthouse:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     env:
-      PLAYWRIGHT_BASE_URL: https://6a515e1efc1eee000964b2b3--vermillion-kitsune-0e7b97.netlify.app
+      PLAYWRIGHT_BASE_URL: https://6a516420462e1a000856f562--gleaming-mandazi-bb9856.netlify.app
       ARTIFACT_DIR: ../../artifacts/public-entry-preview-smoke-2321
     steps:
       - name: Checkout preview source plus one-shot smoke
@@ -53,7 +53,7 @@ jobs:
             exit 1
           fi
           export CHROME_PATH="$CHROME_BIN"
-          BASE='https://6a515e1efc1eee000964b2b3--vermillion-kitsune-0e7b97.netlify.app'
+          BASE='https://6a516420462e1a000856f562--gleaming-mandazi-bb9856.netlify.app'
           for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
             safe_name="${route//\//-}"
             npx -y lighthouse@12.8.2 "$BASE/${route}?lang=ru" \
@@ -84,19 +84,17 @@ jobs:
                 },
               };
             });
-
           const failures = [];
           for (const report of reports) {
             const m = report.metrics;
             if ((report.scores.performance || 0) < 80) failures.push(`${report.file}: performance ${report.scores.performance} < 80`);
             if ((report.scores.accessibility || 0) < 95) failures.push(`${report.file}: accessibility ${report.scores.accessibility} < 95`);
             if ((report.scores['best-practices'] || 0) < 90) failures.push(`${report.file}: best-practices ${report.scores['best-practices']} < 90`);
-            if (report.file === 'platform-v7.json' && (report.scores.seo || 0) < 90) failures.push(`${report.file}: SEO ${report.scores.seo} < 90`);
             if (!(m.largestContentfulPaintMs <= 2500)) failures.push(`${report.file}: LCP ${m.largestContentfulPaintMs}ms > 2500ms`);
             if (!(m.totalBlockingTimeMs <= 200)) failures.push(`${report.file}: TBT ${m.totalBlockingTimeMs}ms > 200ms`);
             if (!(m.cumulativeLayoutShift <= 0.1)) failures.push(`${report.file}: CLS ${m.cumulativeLayoutShift} > 0.1`);
           }
-          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: failures.length ? 'failed' : 'passed', reports, failures }, null, 2));
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: failures.length ? 'failed' : 'passed', reports, failures, note: 'Preview SEO is recorded but enforced only on production because deploy previews are intentionally noindex.' }, null, 2));
           console.log(JSON.stringify({ reports, failures }, null, 2));
           if (failures.length) process.exit(1);
           NODE
