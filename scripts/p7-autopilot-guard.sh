@@ -81,6 +81,7 @@ apps/web/lib/server/auth-session-response.ts
 apps/web/lib/server/mfa-login-ticket.ts
 apps/web/styles/platform-v7-public-auth.css
 apps/web/styles/platform-v7-public-header.css
+apps/web/styles/platform-v7-public-landing.css
 apps/web/tests/unit/mfaPendingLoginTicket.test.ts
 apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts
 apps/web/tests/unit/platformV7FinalShellStaticGate.test.ts
