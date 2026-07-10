@@ -2,53 +2,33 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const template = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/template.tsx'), 'utf8');
-const patch = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx'), 'utf8');
-const cleanup = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PublicEntryCleanup.tsx'), 'utf8');
-const login = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/login/page.tsx'), 'utf8');
+const root = process.cwd();
+const legacyTemplate = fs.readFileSync(path.join(root, 'apps/web/app/platform-v7/template.tsx'), 'utf8');
+const publicLayout = fs.readFileSync(path.join(root, 'apps/web/app/(platform-public)/platform-v7/layout.tsx'), 'utf8');
+const landing = fs.readFileSync(path.join(root, 'apps/web/app/(platform-public)/platform-v7/page.tsx'), 'utf8');
+const login = fs.readFileSync(path.join(root, 'apps/web/app/(platform-public)/platform-v7/login/page.tsx'), 'utf8');
 
-describe('platform-v7 public registration and role-locked login', () => {
-  it('mounts a registration patch on platform-v7 public pages', () => {
-    expect(template).toContain('PublicRegistrationEntryPatch');
-    expect(template).toContain('<PublicRegistrationEntryPatch />');
+describe('platform-v7 isolated public registration and login', () => {
+  it('keeps the legacy patch only inside the legacy platform template', () => {
+    expect(legacyTemplate).toContain('PlatformV7TemplateGuards');
+    expect(publicLayout).not.toContain('PublicRegistrationEntryPatch');
+    expect(publicLayout).not.toContain('PublicEntryCleanup');
+    expect(publicLayout).not.toContain('PlatformV7TemplateGuards');
   });
 
-  it('keeps public registration visible with role cards routing to registration', () => {
-    expect(patch).toContain("headerLink.href = '/platform-v7/register';");
-    expect(patch).toContain("headerLink.textContent = 'Регистрация';");
-    expect(patch).toContain("heroLink.href = '/platform-v7/register';");
-    expect(patch).toContain("heroLink.textContent = 'Зарегистрироваться';");
-    expect(patch).toContain("tile.href = `/platform-v7/register?role=${role}`;");
-    expect(patch).toContain("cta.textContent = 'Подать заявку на роль';");
+  it('uses declarative registration links without role query parameters', () => {
+    expect(landing).toContain("href='/platform-v7/register'");
+    expect(landing).not.toContain('/platform-v7/register?role=');
+    expect(landing).not.toContain('/platform-v7/login?role=');
+    expect(landing).not.toContain('textContent =');
   });
 
-  it('keeps registration styling readable on mobile', () => {
-    expect(patch).toContain('background:rgba(0,122,47,.07)!important;color:#087a3b!important');
-    expect(patch).not.toContain('background:#071611!important;color:#fff!important');
-    expect(cleanup).toContain('height:72px!important;min-height:72px!important');
-    expect(cleanup).toContain('display:flex!important;grid-template-columns:none!important');
-    expect(cleanup).toContain('entry-trust-cta{min-height:54px!important;min-width:0!important;border-radius:18px!important');
-  });
-
-  it('preserves role query parameters from the main role grid', () => {
-    expect(cleanup).toContain('const ROLE_BY_TITLE = {');
-    expect(cleanup).toContain("'Оператор': 'operator'");
-    expect(cleanup).toContain('return role ? `/platform-v7/login?role=${role}` : \'/platform-v7/login\';');
-    expect(cleanup).toContain("href.startsWith('/platform-v7/login?')");
-    expect(cleanup).toContain("href === '/platform-v7/docs'");
-    expect(cleanup).toContain('applyRoleLoginHandoff(entry);');
-    expect(cleanup).not.toContain("item.setAttribute('href', '/platform-v7/login');");
-  });
-
-  it('uses a compact workspace heading after handoff and an icon grid only for direct login', () => {
-    expect(login).toContain('type Workspace = { role: PlatformRole; title: string; Icon: LucideIcon };');
-    expect(login).toContain('const Icon = item.Icon;');
-    expect(login).toContain('<Icon size={20} strokeWidth={2.35} />');
-    expect(login).toContain('login-workspace-heading');
-    expect(login).toContain('login-workspace-picker');
-    expect(login).toContain('grid-template-columns:repeat(2,minmax(0,1fr))');
-    expect(login).toContain('Введите корпоративные данные для доступа к рабочему контуру.');
-    expect(login).toContain("<Link href={registerHref} className='login-register'>Зарегистрироваться</Link>");
-    expect(login).not.toContain('login-selected-missing');
+  it('keeps login role-neutral and free of runtime workspace injection', () => {
+    expect(login).not.toContain('Workspace');
+    expect(login).not.toContain('login-workspace-picker');
+    expect(login).not.toContain('requestedRole');
+    expect(login).not.toContain('MutationObserver');
+    expect(login).not.toContain('setTimeout');
+    expect(login).not.toContain('textContent =');
   });
 });
