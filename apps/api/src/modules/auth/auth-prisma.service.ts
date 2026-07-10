@@ -21,7 +21,7 @@ export class AuthPrismaService extends PrismaService {
     try {
       await this.$connect();
       if (strict) {
-        const snapshot = await inspectDatabasePrincipal(this);
+        const snapshot = await inspectDatabasePrincipal(this, 'auth');
         const errors = evaluateAuthPrincipalBoundary(snapshot);
         if (errors.length > 0) {
           throw new Error(
