@@ -1,4 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import type {
   RuntimePersistenceDbState,
@@ -7,7 +8,7 @@ import type {
   RuntimePersistenceWriteReceipt,
 } from './runtime-persistence.repository';
 
-type ExistingRuntimeSnapshot = {
+export type ExistingRuntimeSnapshot = {
   id: string;
   runtimeSnapshotId: string;
   idempotencyKey: string;
@@ -34,7 +35,7 @@ const requiredStringFields: Array<keyof RuntimePersistenceWriteInput> = [
   'contractHash',
 ];
 
-function isKnownUniqueConstraintError(error: unknown): boolean {
+export function isRuntimePersistenceUniqueConstraintError(error: unknown): boolean {
   return Boolean(
     error &&
       typeof error === 'object' &&
@@ -114,8 +115,11 @@ export class PrismaRuntimePersistenceRepository implements RuntimePersistenceRep
     };
   }
 
-  private async findExisting(idempotencyKey: string): Promise<ExistingRuntimeSnapshot | null> {
-    return this.db.dealWorkspaceRuntimeSnapshot.findUnique({
+  private findExisting(
+    tx: Prisma.TransactionClient,
+    idempotencyKey: string,
+  ): Promise<ExistingRuntimeSnapshot | null> {
+    return tx.dealWorkspaceRuntimeSnapshot.findUnique({
       where: { idempotencyKey },
       include: {
         attempts: {
@@ -127,122 +131,143 @@ export class PrismaRuntimePersistenceRepository implements RuntimePersistenceRep
     });
   }
 
+  async classifyExistingWithinTransaction(
+    tx: Prisma.TransactionClient,
+    input: RuntimePersistenceWriteInput,
+  ): Promise<RuntimePersistenceWriteReceipt | null> {
+    if (!isValidInput(input)) {
+      return this.failed(input, 'invalid_input');
+    }
+
+    const existing = await this.findExisting(tx, input.idempotencyKey);
+    return existing ? this.classifyExisting(input, existing) : null;
+  }
+
+  async writeWithinTransaction(
+    tx: Prisma.TransactionClient,
+    input: RuntimePersistenceWriteInput,
+  ): Promise<RuntimePersistenceWriteReceipt> {
+    if (!isValidInput(input)) {
+      return this.failed(input, 'invalid_input');
+    }
+
+    const existing = await this.findExisting(tx, input.idempotencyKey);
+    if (existing) {
+      return this.classifyExisting(input, existing);
+    }
+
+    const outbox = await tx.outboxEntry.create({
+      data: {
+        type: 'deal_workspace.runtime_snapshot.persisted',
+        dealId: input.dealId,
+        status: 'PENDING',
+        idempotencyKey: `runtime-outbox:${input.idempotencyKey}`,
+        correlationId: input.correlationId,
+        auditId: input.auditId,
+        runtimeSnapshotId: input.runtimeSnapshotId,
+        runtimeIdempotencyKey: input.idempotencyKey,
+        payload: {
+          runtimeSnapshotId: input.runtimeSnapshotId,
+          idempotencyKey: input.idempotencyKey,
+          intentId: input.intentId,
+          correlationId: input.correlationId,
+          auditId: input.auditId,
+          snapshot: input.payload,
+        },
+      },
+    });
+
+    const audit = await tx.auditEvent.create({
+      data: {
+        action: 'deal_workspace.runtime_snapshot.persisted',
+        actorUserId: input.actorId,
+        actorRole: input.actorRole,
+        tenantId: input.tenantId,
+        orgId: input.organizationId,
+        dealId: input.dealId,
+        objectType: 'deal_workspace_runtime_snapshot',
+        objectId: input.runtimeSnapshotId,
+        afterState: input.payload,
+        outcome: 'SUCCESS',
+        correlationId: input.correlationId,
+        runtimeSnapshotId: input.runtimeSnapshotId,
+        runtimeIdempotencyKey: input.idempotencyKey,
+        metadata: {
+          auditId: input.auditId,
+          transactionId: input.transactionId,
+          contractHash: input.contractHash,
+        },
+      },
+    });
+
+    const snapshot = await tx.dealWorkspaceRuntimeSnapshot.create({
+      data: {
+        runtimeSnapshotId: input.runtimeSnapshotId,
+        idempotencyKey: input.idempotencyKey,
+        dealId: input.dealId,
+        intentId: input.intentId,
+        state: 'fully_linked',
+        snapshotState: input.snapshotState,
+        statusLabel: input.statusLabel,
+        runtimeStoreRecordId: input.runtimeStoreRecordId,
+        runtimeStoreVersion: input.runtimeStoreVersion,
+        actorId: input.actorId,
+        actorRole: input.actorRole,
+        correlationId: input.correlationId,
+        auditId: input.auditId,
+        contractHash: input.contractHash,
+        payload: input.payload,
+        outboxEntryId: outbox.id,
+        auditEventId: audit.id,
+        version: 1,
+      },
+    });
+
+    const attempt = await tx.dealWorkspaceRuntimeTransactionAttempt.create({
+      data: {
+        transactionId: input.transactionId,
+        snapshotId: snapshot.id,
+        idempotencyKey: input.idempotencyKey,
+        correlationId: input.correlationId,
+        auditId: input.auditId,
+        stage: 'committed',
+        outcome: 'persisted',
+        isReplay: false,
+        completedAt: new Date(),
+        metadata: {
+          runtimeSnapshotId: input.runtimeSnapshotId,
+          outboxEntryId: outbox.id,
+          auditEventId: audit.id,
+        },
+      },
+    });
+
+    return {
+      status: 'persisted',
+      runtimeSnapshotId: snapshot.runtimeSnapshotId,
+      idempotencyKey: snapshot.idempotencyKey,
+      state: snapshot.state as RuntimePersistenceDbState,
+      recordId: snapshot.id,
+      outboxEntryId: outbox.id,
+      auditEventId: audit.id,
+      transactionAttemptId: attempt.id,
+    };
+  }
+
   async write(input: RuntimePersistenceWriteInput): Promise<RuntimePersistenceWriteReceipt> {
     if (!isValidInput(input)) {
       return this.failed(input, 'invalid_input');
     }
 
     try {
-      const existing = await this.findExisting(input.idempotencyKey);
-      if (existing) {
-        return this.classifyExisting(input, existing);
-      }
-
-      return await this.db.$transaction(async (tx) => {
-        const outbox = await tx.outboxEntry.create({
-          data: {
-            type: 'deal_workspace.runtime_snapshot.persisted',
-            dealId: input.dealId,
-            status: 'PENDING',
-            idempotencyKey: `runtime-outbox:${input.idempotencyKey}`,
-            correlationId: input.correlationId,
-            auditId: input.auditId,
-            runtimeSnapshotId: input.runtimeSnapshotId,
-            runtimeIdempotencyKey: input.idempotencyKey,
-            payload: {
-              runtimeSnapshotId: input.runtimeSnapshotId,
-              idempotencyKey: input.idempotencyKey,
-              intentId: input.intentId,
-              correlationId: input.correlationId,
-              auditId: input.auditId,
-              snapshot: input.payload,
-            },
-          },
-        });
-
-        const audit = await tx.auditEvent.create({
-          data: {
-            action: 'deal_workspace.runtime_snapshot.persisted',
-            actorUserId: input.actorId,
-            actorRole: input.actorRole,
-            tenantId: input.tenantId,
-            orgId: input.organizationId,
-            dealId: input.dealId,
-            objectType: 'deal_workspace_runtime_snapshot',
-            objectId: input.runtimeSnapshotId,
-            afterState: input.payload,
-            outcome: 'SUCCESS',
-            correlationId: input.correlationId,
-            runtimeSnapshotId: input.runtimeSnapshotId,
-            runtimeIdempotencyKey: input.idempotencyKey,
-            metadata: {
-              auditId: input.auditId,
-              transactionId: input.transactionId,
-              contractHash: input.contractHash,
-            },
-          },
-        });
-
-        const snapshot = await tx.dealWorkspaceRuntimeSnapshot.create({
-          data: {
-            runtimeSnapshotId: input.runtimeSnapshotId,
-            idempotencyKey: input.idempotencyKey,
-            dealId: input.dealId,
-            intentId: input.intentId,
-            state: 'fully_linked',
-            snapshotState: input.snapshotState,
-            statusLabel: input.statusLabel,
-            runtimeStoreRecordId: input.runtimeStoreRecordId,
-            runtimeStoreVersion: input.runtimeStoreVersion,
-            actorId: input.actorId,
-            actorRole: input.actorRole,
-            correlationId: input.correlationId,
-            auditId: input.auditId,
-            contractHash: input.contractHash,
-            payload: input.payload,
-            outboxEntryId: outbox.id,
-            auditEventId: audit.id,
-            version: 1,
-          },
-        });
-
-        const attempt = await tx.dealWorkspaceRuntimeTransactionAttempt.create({
-          data: {
-            transactionId: input.transactionId,
-            snapshotId: snapshot.id,
-            idempotencyKey: input.idempotencyKey,
-            correlationId: input.correlationId,
-            auditId: input.auditId,
-            stage: 'committed',
-            outcome: 'persisted',
-            isReplay: false,
-            completedAt: new Date(),
-            metadata: {
-              runtimeSnapshotId: input.runtimeSnapshotId,
-              outboxEntryId: outbox.id,
-              auditEventId: audit.id,
-            },
-          },
-        });
-
-        return {
-          status: 'persisted',
-          runtimeSnapshotId: snapshot.runtimeSnapshotId,
-          idempotencyKey: snapshot.idempotencyKey,
-          state: snapshot.state as RuntimePersistenceDbState,
-          recordId: snapshot.id,
-          outboxEntryId: outbox.id,
-          auditEventId: audit.id,
-          transactionAttemptId: attempt.id,
-        } satisfies RuntimePersistenceWriteReceipt;
-      });
+      return await this.db.$transaction((tx) => this.writeWithinTransaction(tx, input));
     } catch (error) {
-      if (isKnownUniqueConstraintError(error)) {
+      if (isRuntimePersistenceUniqueConstraintError(error)) {
         try {
-          const concurrent = await this.findExisting(input.idempotencyKey);
-          if (concurrent) {
-            return this.classifyExisting(input, concurrent);
-          }
+          const classified = await this.db.$transaction((tx) =>
+            this.classifyExistingWithinTransaction(tx, input),
+          );
+          if (classified) return classified;
         } catch {
           return this.failed(input, 'database_write_failed');
         }
