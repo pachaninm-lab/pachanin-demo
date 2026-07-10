@@ -2,9 +2,9 @@
   "project": "platform-v7",
   "mode": "industrial-one-deal-recovery",
   "status": "active",
-  "currentStatus": "in_progress",
-  "current": "Industrial One Deal Concurrency, Replay and Recovery Matrix.",
-  "fullTzReadinessPercent": 86,
+  "currentStatus": "ready",
+  "current": "PostgreSQL One Deal Recovery Matrix.",
+  "fullTzReadinessPercent": 87,
   "openPr": "#2274",
   "lastClosed": [
     "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
@@ -21,12 +21,11 @@
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
-    "bank callback event replay identity includes mutable deal version",
-    "recovery and restart evidence",
     "production migration and RLS execution evidence",
-    "live bank FGIS EDO and signature evidence"
+    "live bank FGIS EDO and signature evidence",
+    "production load restore and DR acceptance"
   ],
-  "blockerNotes": "The recovery matrix reproduced a product defect: a duplicate signed RESERVE callback after success derives a new command fingerprint because expectedUpdatedAt changed from RESERVE_REQUESTED to RESERVED. The same bank event therefore misses its original receipt and fails with DEAL_STATE_CONFLICT. Only the canonical gateway and its unit specification are unlocked to introduce stable partner+event identity with payload mismatch detection; signature validation and state-machine rules remain unchanged.",
+  "blockerNotes": "PR #2274 is green on isolated PostgreSQL 16. It proves one valid concurrent command winner, stable partner+event callback replay, material replay mismatch rejection, out-of-order callback rollback, fresh runtime continuation, atomic forced rollback, transaction-local RLS pool isolation and deterministic full replay after CLOSED. Production deployment, persistent identity, live integrations, load and DR remain outside this proof.",
   "lockedUntilCurrentGreen": [
     "persistent identity session MFA changes",
     "platform UI implementation",
@@ -71,24 +70,23 @@
   "industrialOneDealRecovery": {
     "layer": "Concurrency Replay Restart Rollback and RLS Pool Isolation",
     "implementationPr": "#2274",
-    "status": "bank_callback_replay_hardening_in_progress",
+    "status": "green_ready_for_merge",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
-    "lastFailure": {
+    "resolvedDefect": {
       "code": "BANK_CALLBACK_RECEIPT_MISSED_AFTER_STATE_CHANGE",
       "file": "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-      "stage": "duplicate signed reserve callback after successful reserve",
-      "reason": "generic command fingerprint includes mutable expectedUpdatedAt, so the same verified bank event derives a different receipt key after the deal version changes"
+      "correction": "successful callbacks now use stable verified partner plus event identity while a material payload digest remains bound to commandId for replay mismatch rejection"
     },
-    "requiredEvidence": [
+    "provenEvidence": [
       "exactly one concurrent command winner and one aggregate version",
-      "duplicate bank callbacks return the original receipt without a second transition event ledger entry or outbox write",
-      "same partner event ID with different material payload is rejected as replay mismatch",
-      "out-of-order callbacks fail before mutation",
+      "duplicate bank callbacks return the original receipt without duplicate transition event ledger or outbox evidence",
+      "same partner event ID with different material payload is rejected as BANK_EVENT_REPLAY_MISMATCH",
+      "out-of-order callbacks fail with no evidence mutation",
       "fresh Prisma and service instances continue from persisted pending operations and receipts",
       "forced transaction failure rolls back Deal event audit ledger and outbox atomically",
-      "transaction-local RLS context cannot leak through pooled connection reuse",
-      "full command and callback rerun is deterministic and idempotent after CLOSED",
-      "evidence counts remain stable after all replay and restart checks"
+      "transaction-local RLS context does not leak through sequential or parallel pooled connection reuse",
+      "full user command and bank callback replay is deterministic and idempotent after CLOSED",
+      "evidence snapshots remain stable after replay and restart"
     ]
   },
   "nextAfterCurrentGreen": [
@@ -128,7 +126,7 @@
   ],
   "maturityLanguage": [
     "isolated-postgresql-e2e-proven",
-    "recovery-proof-in-progress",
+    "isolated-recovery-matrix-proven",
     "platform-temporarily-without-external-integrations"
   ],
   "forbiddenClaims": [
@@ -139,5 +137,5 @@
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "86% honest architectural readiness. The isolated PostgreSQL lifecycle is proven. Recovery testing exposed a bank callback replay defect now under exact-scope correction. Persistent identity, live integrations, production load, restore and DR remain unproven. Production exploitation remains NO-GO."
+  "readiness": "87% honest architectural readiness. The isolated PostgreSQL lifecycle and recovery matrix are proven. Persistent identity, live integrations, production migration, load, restore and DR remain unproven. Production exploitation remains NO-GO."
 }
