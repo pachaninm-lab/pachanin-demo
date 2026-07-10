@@ -3,116 +3,205 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Banknote, BriefcaseBusiness, Building2, ClipboardCheck, Crown, FlaskConical, Landmark, Mail, Scale, ShieldCheck, Truck, UserRound, Wheat, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck, Wheat } from 'lucide-react';
 import { PLATFORM_V7_ACTIVE_ROLE_KEY, platformV7RoleHome } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 
 type Lang = 'ru' | 'en' | 'zh';
-type Workspace = { role: PlatformRole; Icon: LucideIcon; ru: string; en: string; zh: string; ruSub: string; enSub: string; zhSub: string };
 const ENTRY_COOKIE = 'pc_v7_entry_seen';
-const PENDING_ROLE_KEY = 'pc_v7_pending_role';
 const LANGUAGE_KEY = 'pc-v7-language';
 
-const workspaces: Workspace[] = [
-  { role: 'operator', Icon: BriefcaseBusiness, ru: 'Оператор', en: 'Operator', zh: '运营方', ruSub: 'Контроль сделок', enSub: 'Deal control', zhSub: '交易控制' },
-  { role: 'buyer', Icon: UserRound, ru: 'Покупатель', en: 'Buyer', zh: '买方', ruSub: 'Поставка и оплата', enSub: 'Delivery and payment', zhSub: '交付与付款' },
-  { role: 'seller', Icon: Wheat, ru: 'Продавец', en: 'Seller', zh: '卖方', ruSub: 'Партии и расчёт', enSub: 'Lots and settlement', zhSub: '批次与结算' },
-  { role: 'logistics', Icon: Truck, ru: 'Логистика', en: 'Logistics', zh: '物流', ruSub: 'Рейсы и маршрут', enSub: 'Trips and routes', zhSub: '运输与路线' },
-  { role: 'driver', Icon: ClipboardCheck, ru: 'Водитель', en: 'Driver', zh: '司机', ruSub: 'Точки рейса', enSub: 'Trip points', zhSub: '运输节点' },
-  { role: 'elevator', Icon: Building2, ru: 'Элеватор', en: 'Elevator', zh: '粮仓', ruSub: 'Приёмка и вес', enSub: 'Acceptance and weight', zhSub: '验收与重量' },
-  { role: 'lab', Icon: FlaskConical, ru: 'Лаборатория', en: 'Laboratory', zh: '实验室', ruSub: 'Качество', enSub: 'Quality', zhSub: '质量' },
-  { role: 'surveyor', Icon: ShieldCheck, ru: 'Сюрвейер', en: 'Surveyor', zh: '检验员', ruSub: 'Факты осмотра', enSub: 'Inspection facts', zhSub: '检查事实' },
-  { role: 'bank', Icon: Landmark, ru: 'Банк', en: 'Bank', zh: '银行', ruSub: 'Основание оплаты', enSub: 'Payment basis', zhSub: '付款依据' },
-  { role: 'compliance', Icon: Banknote, ru: 'Комплаенс', en: 'Compliance', zh: '合规', ruSub: 'Правила и риски', enSub: 'Rules and risks', zhSub: '规则与风险' },
-  { role: 'arbitrator', Icon: Scale, ru: 'Арбитр', en: 'Arbitrator', zh: '仲裁员', ruSub: 'Спор и решение', enSub: 'Dispute and decision', zhSub: '争议与决定' },
-  { role: 'executive', Icon: Crown, ru: 'Руководитель', en: 'Executive', zh: '管理层', ruSub: 'Сводка и контроль', enSub: 'Summary and control', zhSub: '汇总与控制' },
-];
-
 const copy = {
-  ru: { brand: 'Прозрачная Цена', subbrand: 'Единый вход в контур сделки', workplace: 'Рабочее место', login: 'Логин', loginPh: 'Введите логин', password: 'Пароль / код доступа', passwordPh: 'Введите пароль или код', forgot: 'Забыли пароль?', company: 'Организация', optional: 'необязательно', companyPh: 'Компания / ИНН', submit: 'Войти как', register: 'Зарегистрироваться', choose: 'Выберите рабочее место.', fill: 'Заполните логин и пароль / код доступа.', back: 'Назад' },
-  en: { brand: 'Transparent Price', subbrand: 'Single entry to the deal circuit', workplace: 'Workspace', login: 'Login', loginPh: 'Enter login', password: 'Password / access code', passwordPh: 'Enter password or code', forgot: 'Forgot password?', company: 'Organisation', optional: 'optional', companyPh: 'Company / TIN', submit: 'Sign in as', register: 'Register', choose: 'Select a workspace.', fill: 'Enter login and password / access code.', back: 'Back' },
-  zh: { brand: '透明价格', subbrand: '进入交易闭环的统一入口', workplace: '工作区', login: '登录名', loginPh: '输入登录名', password: '密码 / 访问码', passwordPh: '输入密码或访问码', forgot: '忘记密码？', company: '组织', optional: '可选', companyPh: '公司 / 税号', submit: '以此身份登录：', register: '注册', choose: '请选择工作区。', fill: '请输入登录名和密码 / 访问码。', back: '返回' },
+  ru: {
+    brand: 'Прозрачная Цена',
+    subbrand: 'Единый вход в контур сделки',
+    title: 'Войти в систему',
+    lead: 'Роль, организация и полномочия определяются сервером после проверки учётной записи.',
+    email: 'Рабочий email',
+    password: 'Пароль',
+    emailPlaceholder: 'name@company.ru',
+    passwordPlaceholder: 'Введите пароль',
+    submit: 'Войти',
+    loading: 'Проверяем доступ…',
+    forgot: 'Восстановить доступ',
+    register: 'Создать учётную запись',
+    back: 'Назад',
+    required: 'Введи email и пароль.',
+    unavailable: 'Не удалось подтвердить доступ. Проверь данные или повтори позже.',
+    facts: ['Один аккаунт', 'Права только с сервера', 'Защищённая сессия'],
+  },
+  en: {
+    brand: 'Transparent Price',
+    subbrand: 'Single entry to the deal execution circuit',
+    title: 'Sign in',
+    lead: 'Role, organisation and permissions are resolved by the server after account verification.',
+    email: 'Work email',
+    password: 'Password',
+    emailPlaceholder: 'name@company.com',
+    passwordPlaceholder: 'Enter password',
+    submit: 'Sign in',
+    loading: 'Verifying access…',
+    forgot: 'Restore access',
+    register: 'Create account',
+    back: 'Back',
+    required: 'Enter email and password.',
+    unavailable: 'Access could not be verified. Check the credentials or try again later.',
+    facts: ['One account', 'Server-side permissions', 'Protected session'],
+  },
+  zh: {
+    brand: '透明价格',
+    subbrand: '统一进入交易执行闭环',
+    title: '登录系统',
+    lead: '服务器在验证账户后确定角色、组织和权限。',
+    email: '工作邮箱',
+    password: '密码',
+    emailPlaceholder: 'name@company.cn',
+    passwordPlaceholder: '输入密码',
+    submit: '登录',
+    loading: '正在验证访问权限…',
+    forgot: '恢复访问权限',
+    register: '创建账户',
+    back: '返回',
+    required: '请输入邮箱和密码。',
+    unavailable: '无法验证访问权限。请检查凭据或稍后重试。',
+    facts: ['一个账户', '服务器权限控制', '受保护会话'],
+  },
 } as const;
 
-function readLanguage(): Lang { const value = typeof window === 'undefined' ? null : window.localStorage.getItem(LANGUAGE_KEY); return value === 'en' || value === 'zh' ? value : 'ru'; }
-function roleName(role: Workspace, lang: Lang) { return lang === 'en' ? role.en : lang === 'zh' ? role.zh : role.ru; }
-function roleSub(role: Workspace, lang: Lang) { return lang === 'en' ? role.enSub : lang === 'zh' ? role.zhSub : role.ruSub; }
-function isRole(value: string | null): value is PlatformRole { return workspaces.some((item) => item.role === value); }
-function readEntryRole(): PlatformRole | null { const role = new URLSearchParams(window.location.search).get('role') ?? window.sessionStorage?.getItem(PENDING_ROLE_KEY); return isRole(role) ? role : null; }
-function markEntrySeen() { const secure = globalThis.location?.protocol === 'https:' ? '; Secure' : ''; document.cookie = `${ENTRY_COOKIE}=true; Path=/; Max-Age=14400; SameSite=Lax${secure}`; }
+function readLanguage(): Lang {
+  if (typeof window === 'undefined') return 'ru';
+  const value = window.localStorage.getItem(LANGUAGE_KEY);
+  return value === 'en' || value === 'zh' ? value : 'ru';
+}
+
+function surfaceRole(role: string | undefined): PlatformRole {
+  const normalized = String(role ?? '').toUpperCase();
+  if (normalized === 'BUYER') return 'buyer';
+  if (normalized === 'FARMER' || normalized === 'SELLER') return 'seller';
+  if (normalized === 'LOGISTICIAN' || normalized === 'LOGISTICS') return 'logistics';
+  if (normalized === 'DRIVER') return 'driver';
+  if (normalized === 'ELEVATOR') return 'elevator';
+  if (normalized === 'LAB') return 'lab';
+  if (normalized === 'SURVEYOR') return 'surveyor';
+  if (normalized === 'ACCOUNTING' || normalized === 'BANK') return 'bank';
+  if (normalized === 'COMPLIANCE_OFFICER' || normalized === 'COMPLIANCE') return 'compliance';
+  if (normalized === 'ARBITRATOR') return 'arbitrator';
+  if (normalized === 'EXECUTIVE') return 'executive';
+  return 'operator';
+}
+
+function markEntrySeen() {
+  const secure = globalThis.location?.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${ENTRY_COOKIE}=true; Path=/; Max-Age=14400; SameSite=Lax${secure}`;
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const setRole = usePlatformV7RStore((state) => state.setRole);
   const [lang, setLang] = React.useState<Lang>('ru');
-  const [login, setLogin] = React.useState('');
-  const [accessCode, setAccessCode] = React.useState('');
-  const [company, setCompany] = React.useState('');
-  const [entryRole, setEntryRole] = React.useState<PlatformRole | null>(null);
-  const [directRole, setDirectRole] = React.useState<PlatformRole | null>(null);
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
     const update = () => setLang(readLanguage());
     update();
-    const timer = window.setInterval(update, 400);
     window.addEventListener('storage', update);
-    return () => { window.clearInterval(timer); window.removeEventListener('storage', update); };
+    return () => window.removeEventListener('storage', update);
   }, []);
 
-  React.useEffect(() => {
-    const role = readEntryRole();
-    if (!role) return;
-    setRole(role);
-    setEntryRole(role);
-    window.sessionStorage?.setItem(PENDING_ROLE_KEY, role);
-  }, [setRole]);
-
-  async function openWorkspace(role: PlatformRole) {
-    globalThis.sessionStorage?.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
-    globalThis.sessionStorage?.removeItem(PENDING_ROLE_KEY);
-    markEntrySeen();
-    setRole(role);
-    try { await fetch('/api/platform-v7/cabinet-session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role, company: company.trim() || null }), keepalive: true }); } catch {}
-    router.replace(platformV7RoleHome(role));
-  }
-
-  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const role = entryRole ?? directRole;
-    if (!role) return setError(copy[lang].choose);
-    if (!login.trim() || !accessCode.trim()) return setError(copy[lang].fill);
+    if (!email.trim() || !password) {
+      setError(copy[lang].required);
+      return;
+    }
+
+    setSubmitting(true);
     setError('');
-    void openWorkspace(role);
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.message || copy[lang].unavailable);
+      }
+
+      const role = surfaceRole(payload?.user?.role ?? payload?.role);
+      const sessionResponse = await fetch('/api/platform-v7/cabinet-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+        cache: 'no-store',
+      });
+      if (!sessionResponse.ok) {
+        throw new Error(copy[lang].unavailable);
+      }
+
+      markEntrySeen();
+      globalThis.sessionStorage?.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
+      setRole(role);
+      router.replace(platformV7RoleHome(role));
+      router.refresh();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : copy[lang].unavailable);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const t = copy[lang];
-  const selectedRole = entryRole ?? directRole;
-  const selected = selectedRole ? workspaces.find((item) => item.role === selectedRole) ?? null : null;
-  const registerHref = selectedRole ? `/platform-v7/register?role=${selectedRole}` : '/platform-v7/register';
 
   return (
-    <main className='pc-v7-login-single' data-login-lang={lang} data-p7-no-translate='true'>
-      <style>{css}</style>
-      <header className='login-header'>
-        <Link className='login-brand' href='/platform-v7'><span className='login-logo' aria-hidden='true'><Wheat size={25} strokeWidth={2.35} /></span><span><b>{t.brand}</b><small>{t.subbrand}</small></span></Link>
-        <Link className='login-back' href='/platform-v7' aria-label={t.back}><ArrowLeft size={23} /></Link>
+    <main className='pc-login'>
+      <header className='pc-login-header'>
+        <Link className='pc-login-brand' href='/platform-v7'>
+          <span className='pc-login-logo' aria-hidden='true'><Wheat size={24} strokeWidth={2.35} /></span>
+          <span><b>{t.brand}</b><small>{t.subbrand}</small></span>
+        </Link>
+        <Link className='pc-login-back' href='/platform-v7' aria-label={t.back}><ArrowLeft size={21} /></Link>
       </header>
-      <section className='login-card'>
-        <div className='login-work-title'><h1>{t.workplace}</h1>{selected ? <span>{roleName(selected, lang)}</span> : null}</div>
-        <section className='login-grid' aria-label={t.workplace}>{workspaces.map((item) => { const Icon = item.Icon; const active = selectedRole === item.role; return <button key={item.role} type='button' className={active ? 'active' : ''} onClick={() => { setDirectRole(item.role); setError(''); }}><Icon size={24} strokeWidth={2.25} /><b>{roleName(item, lang)}</b><small>{roleSub(item, lang)}</small></button>; })}</section>
-        <form className='login-form' onSubmit={onSubmit}>
-          <label><span>{t.login}</span><input value={login} onChange={(event) => setLogin(event.target.value)} type='email' autoComplete='username' /></label>
-          <label><span>{t.password}</span><input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} type='password' autoComplete='current-password' /></label>
-          <Link className='forgot-link' href='/platform-v7/contact'><Mail size={18} />{t.forgot}</Link>
-          <label><span>{t.company} <em>{t.optional}</em></span><input value={company} onChange={(event) => setCompany(event.target.value)} type='text' autoComplete='organization' /></label>
-          {error ? <p className='login-error' role='alert'>{error}</p> : null}
-          <button className='submit-button' type='submit'>{selected ? `${t.submit} ${roleName(selected, lang)}` : t.submit}</button>
-          <Link href={registerHref} className='register-button'>{t.register}</Link>
+
+      <section className='pc-login-layout'>
+        <aside className='pc-login-context' aria-label={t.subbrand}>
+          <span className='pc-login-eyebrow'><ShieldCheck size={17} /> B2B Deal Execution</span>
+          <h1>{t.title}</h1>
+          <p>{t.lead}</p>
+          <div className='pc-login-facts'>
+            {t.facts.map((fact) => <span key={fact}><CheckCircle2 size={17} />{fact}</span>)}
+          </div>
+        </aside>
+
+        <form className='pc-login-card' onSubmit={onSubmit} noValidate>
+          <label>
+            <span>{t.email}</span>
+            <div className='pc-login-field'><Mail size={19} /><input value={email} onChange={(event) => setEmail(event.target.value)} type='email' inputMode='email' autoComplete='username' placeholder={t.emailPlaceholder} disabled={submitting} /></div>
+          </label>
+          <label>
+            <span>{t.password}</span>
+            <div className='pc-login-field'><LockKeyhole size={19} /><input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? 'text' : 'password'} autoComplete='current-password' placeholder={t.passwordPlaceholder} disabled={submitting} /><button type='button' onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button></div>
+          </label>
+
+          <div className='pc-login-links'>
+            <Link href='/platform-v7/contact'>{t.forgot}</Link>
+            <Link href='/platform-v7/register'>{t.register}</Link>
+          </div>
+
+          {error ? <p className='pc-login-error' role='alert'>{error}</p> : null}
+          <button className='pc-login-submit' type='submit' disabled={submitting}>{submitting ? t.loading : t.submit}</button>
+          <p className='pc-login-note'>После входа система откроет рабочее место, назначенное твоей организации. Роль нельзя выбрать или изменить через URL.</p>
         </form>
       </section>
+
+      <style jsx>{`
+        .pc-login{min-height:100dvh;padding:clamp(14px,3vw,40px);background:radial-gradient(circle at 8% 0%,rgba(20,124,74,.12),transparent 34%),linear-gradient(180deg,#f7faf7 0%,#eef5ef 58%,#f8faf8 100%);color:#102019;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.pc-login *{box-sizing:border-box}.pc-login-header{max-width:1120px;margin:0 auto 22px;display:flex;align-items:center;justify-content:space-between;gap:12px}.pc-login-brand{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none;min-width:0}.pc-login-logo{width:46px;height:46px;display:grid;place-items:center;border-radius:15px;background:#e2f1e7;color:#087a3b;border:1px solid rgba(8,122,59,.13)}.pc-login-brand b{display:block;font-size:20px;line-height:1.05;letter-spacing:-.035em}.pc-login-brand small{display:block;margin-top:4px;color:#63726b;font-size:12px;font-weight:700}.pc-login-back{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:rgba(255,255,255,.85);border:1px solid rgba(16,32,25,.1);color:#102019}.pc-login-layout{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(360px,.92fr);gap:clamp(20px,4vw,62px);align-items:center;min-height:calc(100dvh - 140px)}.pc-login-context{padding:clamp(10px,4vw,42px)}.pc-login-eyebrow{display:inline-flex;align-items:center;gap:8px;color:#087a3b;font-size:13px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}.pc-login-context h1{margin:18px 0 16px;font-size:clamp(46px,7vw,84px);line-height:.94;letter-spacing:-.07em;max-width:720px}.pc-login-context p{margin:0;max-width:650px;font-size:clamp(17px,2vw,22px);line-height:1.48;color:#54645c;font-weight:620}.pc-login-facts{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}.pc-login-facts span{display:inline-flex;align-items:center;gap:8px;padding:10px 13px;border-radius:999px;background:rgba(255,255,255,.78);border:1px solid rgba(8,122,59,.13);color:#244038;font-size:13px;font-weight:800}.pc-login-facts svg{color:#087a3b}.pc-login-card{display:grid;gap:17px;padding:clamp(22px,4vw,38px);border-radius:30px;background:rgba(255,255,255,.94);border:1px solid rgba(16,32,25,.1);box-shadow:0 28px 80px rgba(27,66,45,.13)}.pc-login-card label{display:grid;gap:8px}.pc-login-card label>span{font-size:13px;font-weight:900;color:#31423a}.pc-login-field{height:56px;display:flex;align-items:center;gap:10px;padding:0 15px;border-radius:17px;background:#f9fbf9;border:1px solid rgba(16,32,25,.12);transition:border-color .15s,box-shadow .15s}.pc-login-field:focus-within{border-color:rgba(8,122,59,.58);box-shadow:0 0 0 4px rgba(8,122,59,.1)}.pc-login-field>svg{color:#708078;flex:0 0 auto}.pc-login-field input{width:100%;height:100%;border:0;outline:0;background:transparent;color:#102019;font:inherit;font-size:16px}.pc-login-field button{width:38px;height:38px;border:0;background:transparent;color:#607068;display:grid;place-items:center;cursor:pointer}.pc-login-links{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.pc-login-links a{color:#087a3b;text-decoration:none;font-size:13px;font-weight:850}.pc-login-error{margin:0;padding:12px 14px;border-radius:14px;background:#fff1f1;border:1px solid #f2c5c5;color:#9b2525;font-size:13px;font-weight:800}.pc-login-submit{height:56px;border:0;border-radius:17px;background:#087a3b;color:#fff;font-size:16px;font-weight:950;cursor:pointer;box-shadow:0 14px 32px rgba(8,122,59,.24)}.pc-login-submit:disabled{opacity:.62;cursor:wait}.pc-login-note{margin:0;text-align:center;color:#718078;font-size:12px;line-height:1.45;font-weight:650}@media(max-width:820px){.pc-login{padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 22px)}.pc-login-layout{grid-template-columns:1fr;gap:16px;align-items:start}.pc-login-context{padding:18px 4px 4px}.pc-login-context h1{font-size:clamp(42px,13vw,66px)}.pc-login-context p{font-size:16px}.pc-login-facts{margin-top:20px}.pc-login-card{border-radius:24px;padding:22px}.pc-login-brand small{display:none}}@media(max-width:420px){.pc-login-facts{display:grid;grid-template-columns:1fr}.pc-login-facts span{border-radius:14px}.pc-login-links{align-items:flex-start;flex-direction:column}.pc-login-card{padding:19px}.pc-login-field,.pc-login-submit{height:54px}}
+      `}</style>
     </main>
   );
 }
-
-const css = `.pc-v7-login-single{min-height:100vh;padding:clamp(16px,3vw,44px);background:linear-gradient(180deg,#f8fbf7 0%,#eef6ed 58%,#fff 100%);color:#071611;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}.pc-v7-login-single *{box-sizing:border-box}.login-header{max-width:980px;margin:0 auto 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:rgba(255,255,255,.92);border:1px solid rgba(7,22,17,.08);box-shadow:0 18px 46px rgba(7,22,17,.07)}.login-brand{display:flex;align-items:center;gap:14px;color:#071611;text-decoration:none;min-width:0}.login-logo{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:rgba(0,122,47,.09);color:#087a3b}.login-brand b{display:block;font-size:23px;line-height:1;font-weight:950;letter-spacing:-.045em}.login-brand small{display:block;margin-top:5px;color:#5b6963;font-size:13.5px;font-weight:850}.login-back{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:#fff;color:#071611;border:1px solid rgba(7,22,17,.1);box-shadow:0 10px 26px rgba(7,22,17,.06)}.login-card{max-width:980px;margin:0 auto;padding:28px;border-radius:34px;background:rgba(255,255,255,.9);border:1px solid rgba(7,22,17,.08);box-shadow:0 24px 70px rgba(7,22,17,.11)}.login-work-title{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:18px}.login-work-title h1{margin:0;font-size:clamp(38px,6vw,72px);line-height:.95;letter-spacing:-.065em;font-weight:950}.login-work-title span{color:#087a3b;font-weight:950}.login-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px}.login-grid button{min-height:132px;border-radius:24px;border:1px solid rgba(0,122,47,.16);background:rgba(255,255,255,.88);color:#087a3b;display:grid;place-items:center;gap:6px;padding:16px;cursor:pointer}.login-grid button.active{background:rgba(0,122,47,.08);border-color:rgba(0,122,47,.36)}.login-grid b{color:#071611;font-size:23px;line-height:1.1;font-weight:950}.login-grid small{color:#5f6d67;font-size:14px;font-weight:850}.login-form{display:grid;gap:12px}.login-form label{display:grid;gap:7px}.login-form label span{font-size:13px;font-weight:900;color:#24322d}.login-form label em{font-style:normal;color:#7a8781;font-weight:750}.login-form input{height:52px;border-radius:17px;border:1px solid rgba(7,22,17,.1);background:#fff;padding:0 15px;font-size:15px;color:#071611}.forgot-link{width:max-content;display:inline-flex;align-items:center;gap:8px;color:#087a3b;text-decoration:none;font-weight:900}.submit-button,.register-button{min-height:54px;border-radius:18px;border:0;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:15px;font-weight:950}.submit-button{background:#087a3b;color:#fff}.register-button{background:rgba(0,122,47,.08);color:#087a3b}.login-error{margin:0;padding:12px 14px;border-radius:15px;background:rgba(156,47,47,.08);color:#8a1f1f;font-weight:850}.pc-v7-login-single[data-login-lang='zh']{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Noto Sans SC','Microsoft YaHei','Segoe UI',sans-serif}.pc-v7-login-single[data-login-lang='zh'] *{letter-spacing:0!important;word-break:keep-all;overflow-wrap:anywhere}.pc-v7-login-single[data-login-lang='zh'] .login-work-title h1{font-size:clamp(36px,9vw,56px);line-height:1.05}.pc-v7-login-single[data-login-lang='zh'] .login-grid b{font-size:22px}@media(max-width:720px){.pc-v7-login-single{padding:14px}.login-header{padding:13px 14px}.login-logo{width:42px;height:42px}.login-brand b{font-size:20px}.login-brand small{font-size:12px}.login-back{width:48px;height:48px}.login-card{padding:20px;border-radius:28px}.login-work-title{display:grid;align-items:start}.login-work-title h1{font-size:42px;line-height:1}.login-grid{grid-template-columns:1fr;gap:10px}.login-grid button{min-height:104px;border-radius:22px}.login-grid b{font-size:22px}.pc-v7-login-single[data-login-lang='zh'] .login-work-title h1{font-size:38px}.pc-v7-login-single[data-login-lang='zh'] .login-grid b{font-size:24px}}`;
