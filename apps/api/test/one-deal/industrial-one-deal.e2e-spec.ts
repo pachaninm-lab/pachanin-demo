@@ -48,7 +48,7 @@ const actionRole: Record<Exclude<DealActionId, 'confirm_reserve' | 'confirm_rele
   close_deal: Role.SUPPORT_MANAGER,
 };
 
-function payload(actionId: DealActionId): Record<string, unknown> {
+function payload(actionId: DealActionId): import('@prisma/client').Prisma.InputJsonObject {
   switch (actionId) {
     case 'assign_logistics':
       return {
