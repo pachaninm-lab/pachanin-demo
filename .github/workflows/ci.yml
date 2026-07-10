@@ -63,7 +63,7 @@ jobs:
           path: /tmp/ci-web-unit.log
 
   one-deal-e2e:
-    name: 12 roles · 19 commands · PostgreSQL RLS
+    name: "12 roles · 19 commands · PostgreSQL RLS"
     runs-on: ubuntu-latest
     timeout-minutes: 25
     services:
@@ -74,7 +74,7 @@ jobs:
           POSTGRES_PASSWORD: ephemeral_one_deal_admin_only
           POSTGRES_DB: one_deal_e2e
         ports:
-          - 5432/tcp
+          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U one_deal_admin -d one_deal_e2e"
           --health-interval 5s
@@ -82,8 +82,8 @@ jobs:
           --health-retries 20
     env:
       NODE_ENV: test
-      ONE_DEAL_ADMIN_URL: postgresql://one_deal_admin:ephemeral_one_deal_admin_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/one_deal_e2e
-      ONE_DEAL_APP_URL: postgresql://one_deal_app:ephemeral_one_deal_app_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/one_deal_e2e
+      ONE_DEAL_ADMIN_URL: postgresql://one_deal_admin:ephemeral_one_deal_admin_only@127.0.0.1:5432/one_deal_e2e
+      ONE_DEAL_APP_URL: postgresql://one_deal_app:ephemeral_one_deal_app_only@127.0.0.1:5432/one_deal_e2e
       ONE_DEAL_EVIDENCE_LOG: /tmp/platform-v7-one-deal-e2e.log
     steps:
       - name: Checkout
