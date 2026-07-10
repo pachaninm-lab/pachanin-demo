@@ -1,0 +1,77 @@
+name: platform-v7 development hydration diagnostic
+
+on:
+  pull_request:
+    branches:
+      - agent/remove-login-legacy-overlay
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Start development server and capture exact hydration messages
+        working-directory: apps/web
+        shell: bash
+        env:
+          DIAGNOSTIC_BASE_URL: http://127.0.0.1:3000
+          DIAGNOSTIC_OUT_DIR: ../../artifacts/platform-v7-dev-hydration
+        run: |
+          set -euo pipefail
+          rm -rf .next
+          pnpm dev > /tmp/platform-v7-dev.log 2>&1 &
+          SERVER_PID=$!
+          cleanup() { kill "$SERVER_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
+          ready=0
+          for attempt in $(seq 1 120); do
+            if curl --silent --show-error --fail --max-time 5 'http://127.0.0.1:3000/platform-v7?lang=ru' >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/platform-v7-dev.log
+            exit 1
+          fi
+          mkdir -p ../../artifacts/platform-v7-dev-hydration
+          set +e
+          node scripts/platform-v7-dev-hydration-diagnostic.mjs
+          STATUS=$?
+          set -e
+          cp /tmp/platform-v7-dev.log ../../artifacts/platform-v7-dev-hydration/development-server.log
+          exit "$STATUS"
+
+      - name: Upload exact hydration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-dev-hydration
+          path: artifacts/platform-v7-dev-hydration
+          if-no-files-found: error
+          retention-days: 3
