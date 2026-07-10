@@ -56,7 +56,7 @@ export default function ForgotPasswordPage() {
         ariaLabel={t('publicNav')}
         tagline={t('brandTagline')}
         actions={(
-          <Link className='pc-site-action' href='/platform-v7' aria-label={t('backHome')} title={t('backHome')}>
+          <Link prefetch={false} className='pc-site-action' href='/platform-v7' aria-label={t('backHome')} title={t('backHome')}>
             <ArrowLeft size={20} aria-hidden='true' />
             <span>{t('backHome')}</span>
           </Link>
@@ -74,7 +74,7 @@ export default function ForgotPasswordPage() {
             <CheckCircle2 size={42} strokeWidth={1.9} aria-hidden='true' />
             <h2>{t('successTitle')}</h2>
             <p>{t('successText')}</p>
-            <Link className='pc-recovery-primary-link' href='/platform-v7/login'>{t('backToLogin')}</Link>
+            <Link prefetch={false} className='pc-recovery-primary-link' href='/platform-v7/login'>{t('backToLogin')}</Link>
           </section>
         ) : (
           <form className='pc-recovery-card' onSubmit={onSubmit} noValidate>
@@ -101,7 +101,7 @@ export default function ForgotPasswordPage() {
               {submitting ? t('loading') : t('submit')}
             </button>
 
-            <Link className='pc-recovery-login-link' href='/platform-v7/login'>{t('backToLogin')}</Link>
+            <Link prefetch={false} className='pc-recovery-login-link' href='/platform-v7/login'>{t('backToLogin')}</Link>
             <p className='pc-recovery-note'>{t('note')}</p>
           </form>
         )}

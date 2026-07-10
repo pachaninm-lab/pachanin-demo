@@ -113,15 +113,15 @@ export default async function PlatformV7RootPage() {
             <a href='#process'>{t('nav.process')}</a>
             <a href='#control'>{t('nav.control')}</a>
             <a href='#roles'>{t('nav.roles')}</a>
-            <Link href='/platform-v7/deal-flow'>{t('nav.demo')}</Link>
-            <Link href='/platform-v7/contact'>{t('nav.contact')}</Link>
-            <Link href='/platform-v7/docs'>{t('nav.docs')}</Link>
+            <Link prefetch={false} href='/platform-v7/deal-flow'>{t('nav.demo')}</Link>
+            <Link prefetch={false} href='/platform-v7/contact'>{t('nav.contact')}</Link>
+            <Link prefetch={false} href='/platform-v7/docs'>{t('nav.docs')}</Link>
           </>
         )}
         actions={(
           <>
-            <Link href='/platform-v7/login' className='entry-login'><LogIn size={16} aria-hidden='true' />{t('signIn')}</Link>
-            <Link href='/platform-v7/register' className='entry-header-register'>{t('register')}</Link>
+            <Link prefetch={false} href='/platform-v7/login' className='entry-login'><LogIn size={16} aria-hidden='true' />{t('signIn')}</Link>
+            <Link prefetch={false} href='/platform-v7/register' className='entry-header-register'>{t('register')}</Link>
           </>
         )}
       />
@@ -136,8 +136,8 @@ export default async function PlatformV7RootPage() {
           </h1>
           <p>{t('hero.lead')}</p>
           <div className='entry-hero-actions'>
-            <Link href='/platform-v7/register' className='entry-primary-cta'>{t('hero.primaryCta')}<ArrowRight size={20} aria-hidden='true' /></Link>
-            <Link href='/platform-v7/deal-flow' className='entry-secondary-cta'><PlayCircle size={18} aria-hidden='true' />{t('hero.secondaryCta')}</Link>
+            <Link prefetch={false} href='/platform-v7/register' className='entry-primary-cta'>{t('hero.primaryCta')}<ArrowRight size={20} aria-hidden='true' /></Link>
+            <Link prefetch={false} href='/platform-v7/deal-flow' className='entry-secondary-cta'><PlayCircle size={18} aria-hidden='true' />{t('hero.secondaryCta')}</Link>
           </div>
         </div>
 
@@ -194,7 +194,7 @@ export default async function PlatformV7RootPage() {
         <SectionHead id='roles-title' title={roleCatalog('title')} text={roleCatalog('text')} />
         <div className='entry-role-grid'>
           {roles.map(({ key, href, Icon }) => (
-            <Link key={key} href={href} className='entry-role-tile'>
+            <Link prefetch={false} key={key} href={href} className='entry-role-tile'>
               <Icon size={27} strokeWidth={2.25} aria-hidden='true' />
               <strong>{t(`roles.${key}.title`)}</strong>
               <span>{t(`roles.${key}.text`)}</span>
@@ -212,7 +212,7 @@ export default async function PlatformV7RootPage() {
             <span>{t(`trust.${key}.text`)}</span>
           </article>
         ))}
-        <Link href='/platform-v7/register' className='entry-trust-cta'>{t('trust.cta')}</Link>
+        <Link prefetch={false} href='/platform-v7/register' className='entry-trust-cta'>{t('trust.cta')}</Link>
       </section>
     </main>
   );

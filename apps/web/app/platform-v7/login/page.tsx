@@ -167,7 +167,7 @@ export default function LoginPage() {
         ariaLabel={t('publicNav')}
         tagline={t('brandTagline')}
         actions={(
-          <Link className='pc-site-action' href='/platform-v7' aria-label={t('backHome')} title={t('backHome')}>
+          <Link prefetch={false} className='pc-site-action' href='/platform-v7' aria-label={t('backHome')} title={t('backHome')}>
             <ArrowLeft size={20} aria-hidden='true' />
             <span>{t('backHome')}</span>
           </Link>
@@ -235,8 +235,8 @@ export default function LoginPage() {
             </label>
 
             <div className='pc-auth-links'>
-              <Link href='/platform-v7/forgot-password'>{t('forgot')}</Link>
-              <Link href='/platform-v7/register'>{t('register')}</Link>
+              <Link prefetch={false} href='/platform-v7/forgot-password'>{t('forgot')}</Link>
+              <Link prefetch={false} href='/platform-v7/register'>{t('register')}</Link>
             </div>
 
             {error ? <p ref={errorRef} id='pc-auth-error' className='pc-auth-error' role='alert' tabIndex={-1}>{error}</p> : null}
