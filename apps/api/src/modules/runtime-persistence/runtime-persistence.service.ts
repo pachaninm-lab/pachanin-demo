@@ -13,7 +13,7 @@ export class RuntimePersistenceService {
     private readonly repository: RuntimePersistenceRepository,
   ) {}
 
-  write(input: RuntimePersistenceWriteInput): Promise<RuntimePersistenceWriteReceipt> {
+  persist(input: RuntimePersistenceWriteInput): Promise<RuntimePersistenceWriteReceipt> {
     return this.repository.write(input);
   }
 }
