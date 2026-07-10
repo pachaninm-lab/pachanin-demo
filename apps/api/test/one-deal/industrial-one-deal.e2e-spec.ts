@@ -20,12 +20,23 @@ const BANK_SECRET = process.env.BANK_HMAC_SECRET ?? '';
 const BANK_PARTNER_ID = process.env.BANK_PARTNER_ID ?? 'safe-deals';
 const BANK_KEY_ID = process.env.BANK_HMAC_KEY_ID ?? 'primary';
 
-type Workspace = Awaited<ReturnType<IndustrialDealCommandGateway['workspace']>>;
+const CANONICAL_ORG_IDS = new Set([
+  'org-canonical-seller',
+  'org-canonical-buyer',
+  'org-canonical-logistics',
+  'org-canonical-surveyor',
+  'org-canonical-elevator',
+  'org-canonical-lab',
+  'org-canonical-bank',
+  'org-canonical-platform',
+]);
 
+type Workspace = Awaited<ReturnType<IndustrialDealCommandGateway['workspace']>>;
 type MembershipRow = {
-  user: { id: string; email: string; fullName: string };
-  organization: { id: string; tenantId: string };
+  userId: string;
+  organizationId: string;
   role: string;
+  user: { id: string; email: string; fullName: string };
 };
 
 const actionRole: Record<Exclude<DealActionId, 'confirm_reserve' | 'confirm_release'>, Role> = {
@@ -103,11 +114,14 @@ describe('industrial one-deal PostgreSQL exploitation gate', () => {
     if (!BANK_SECRET) throw new Error('BANK_HMAC_SECRET is required for signed callback fixtures.');
     await prisma.$connect();
 
-    const memberships = await prisma.userOrg.findMany({
-      where: { organization: { tenantId: TENANT_ID } },
-      include: { user: true, organization: true },
+    // user_orgs and users are identity bootstrap tables and do not require joining the
+    // RLS-protected organizations table. Object/tenant scope is enforced for every
+    // deal read and command through RlsTransactionService below.
+    const memberships = (await prisma.userOrg.findMany({
+      where: { organizationId: { in: [...CANONICAL_ORG_IDS] } },
+      include: { user: true },
       orderBy: { role: 'asc' },
-    }) as MembershipRow[];
+    })) as MembershipRow[];
 
     for (const membership of memberships) {
       usersByRole.set(membership.role as Role, {
@@ -115,8 +129,8 @@ describe('industrial one-deal PostgreSQL exploitation gate', () => {
         email: membership.user.email,
         fullName: membership.user.fullName,
         role: membership.role as Role,
-        orgId: membership.organization.id,
-        tenantId: membership.organization.tenantId,
+        orgId: membership.organizationId,
+        tenantId: TENANT_ID,
         sessionId: `e2e-session-${membership.role.toLowerCase()}`,
         mfaVerified: true,
       });
