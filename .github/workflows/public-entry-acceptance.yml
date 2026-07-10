@@ -1,0 +1,127 @@
+name: Public Entry Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/app/(platform-public)/platform-v7/**'
+      - 'apps/web/app/api/auth/**'
+      - 'apps/web/app/api/telemetry/public-entry/**'
+      - 'apps/web/components/platform-v7/Public**'
+      - 'apps/web/i18n/**'
+      - 'apps/web/messages/public-*/**'
+      - 'apps/web/e2e/platform-v7-public-entry-industrial.spec.ts'
+      - 'apps/web/playwright.public-entry.config.ts'
+      - 'apps/web/lighthouserc.public-entry.cjs'
+      - 'apps/web/tests/unit/platformV7Public*'
+      - '.github/workflows/public-entry-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-entry-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: test
+  NEXT_PUBLIC_SITE_URL: https://процент-агро.рф
+  NEXT_PUBLIC_RELEASE: ${{ github.sha }}
+  API_URL: http://127.0.0.1:3999
+  NEXT_PUBLIC_API_URL: http://127.0.0.1:3999
+  MFA_LOGIN_TICKET_SECRET: ci-mfa-login-ticket-secret-2026-minimum-32-characters
+  PASSWORD_RESET_DELIVERY_KEY: ci-password-reset-delivery-secret-2026-minimum-32-characters
+  PASSWORD_RESET_TOKEN_SECRET: ci-password-reset-token-secret-2026-minimum-32-characters
+  JWT_SECRET: ci-jwt-secret-2026-minimum-32-characters
+
+jobs:
+  static-and-build:
+    name: Typecheck, unit and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Enable package manager
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck web
+        run: pnpm --dir apps/web exec tsc --noEmit
+
+      - name: Run web unit suite
+        run: pnpm --dir apps/web exec vitest run
+
+      - name: Production build
+        run: pnpm --dir apps/web exec next build
+
+  browser-matrix:
+    name: Playwright public entry matrix
+    needs: static-and-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Enable package manager
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Require axe integration
+        run: pnpm --dir apps/web exec node -e "require.resolve('@axe-core/playwright')"
+
+      - name: Install Playwright browsers
+        run: pnpm --dir apps/web exec playwright install --with-deps chromium firefox webkit
+
+      - name: Build public entry
+        run: pnpm --dir apps/web exec next build
+
+      - name: Start production server
+        run: |
+          pnpm --dir apps/web exec next start --hostname 127.0.0.1 --port 3000 > /tmp/public-entry-next.log 2>&1 &
+          echo $! > /tmp/public-entry-next.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:3000/platform-v7 >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/public-entry-next.log
+          exit 1
+
+      - name: Run Playwright matrix
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+          PLAYWRIGHT_VISUAL_BASELINES: '0'
+          PLAYWRIGHT_INCLUDE_EDGE: '0'
+        run: pnpm --dir apps/web exec playwright test --config=playwright.public-entry.config.ts
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-playwright-${{ github.sha }}
+          path: |
+            apps/web/playwright-report/public-entry
+            apps/web/test-results/public-entry
+            /tmp/public-entry-next.log
+          if-no-files-found: ignore
+          retention-days: 14
