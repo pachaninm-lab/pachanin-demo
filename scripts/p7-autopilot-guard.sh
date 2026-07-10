@@ -38,13 +38,10 @@ JS
 BANK_BASIS_MIGRATION_SCOPE='packages/domain-core/**
 pnpm-workspace.yaml
 deno-proxy/**'
-
 if [ "${GITHUB_HEAD_REF:-}" = "p7-bank-basis-state-machine" ] || [ "${P7_BANK_BASIS_MIGRATION_SCOPE:-}" = "1" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$BANK_BASIS_MIGRATION_SCOPE")
 fi
 
-# Exact, reviewable concurrent scope for PR #2318. Do not broaden this to an
-# apps/web wildcard: the active financial-delivery autopilot remains isolated.
 PUBLIC_ENTRY_SCOPE='apps/web/app/platform-v7/forgot-password/page.tsx
 apps/web/app/platform-v7/login/page.tsx
 apps/web/app/platform-v7/page.tsx
@@ -63,8 +60,20 @@ apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts
 apps/web/tests/unit/platformV7VisibleEntry.test.ts
 scripts/p7-autopilot-guard.sh'
 
+PUBLIC_FINAL_ISOLATION_SCOPE='apps/web/app/layout.tsx
+apps/web/app/platform-v7/layout.tsx
+apps/web/app/platform-v7/template.tsx
+apps/web/app/platform-v7/login/template.tsx
+apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx
+apps/web/components/platform-v7/PlatformV7ProtectedTemplate.tsx
+apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
+fi
+if [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-final-isolation" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_FINAL_ISOLATION_SCOPE")
 fi
 
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
@@ -72,18 +81,14 @@ const fs = require('fs');
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
 const scopes = branch ? state.approvedConcurrentScopes?.[branch] : undefined;
-if (Array.isArray(scopes)) {
-  for (const file of scopes) console.log(file);
-}
+if (Array.isArray(scopes)) for (const file of scopes) console.log(file);
 JS
 )
-
 if [ -n "$APPROVED_BRANCH_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$APPROVED_BRANCH_SCOPE")
 fi
 
 FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$|\.env|.*\.pem$|.*\.key$)'
-
 if printf '%s\n' "$DIFF_FILES" | grep -E "$FORBIDDEN_ALWAYS"; then
   echo "Forbidden path changed for platform-v7 autopilot."
   exit 1
@@ -95,15 +100,12 @@ const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-s
 const files = String(process.env.DIFF_FILES || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
 const allowedCurrent = String(process.env.ALLOWED_CURRENT || '').split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
 const allowedInfra = /^(AGENTS\.md|docs\/platform-v7\/execution-queue\.md|docs\/platform-v7\/autopilot\/.+|scripts\/p7-autopilot-guard\.sh|scripts\/p7-agent-runner\.sh|scripts\/p7-autopilot-dispatcher\.mjs|scripts\/p7-autopilot-scope-cleaner\.mjs|\.github\/workflows\/automerge\.yml|\.github\/workflows\/ci\.yml|\.github\/workflows\/web-unit\.yml|\.github\/workflows\/platform-v7-autopilot-guard\.yml|\.github\/workflows\/platform-v7-autopilot-generated-merge\.yml|\.github\/workflows\/platform-v7-autopilot-loop\.yml|\.github\/workflows\/platform-v7-agent-runner\.yml|\.github\/workflows\/platform-v7-generated-pr-cleanup\.yml|\.github\/workflows\/platform-v7-autopilot-watchdog\.yml|\.github\/workflows\/platform-v7-safe-merge\.yml|\.github\/ISSUE_TEMPLATE\/platform-v7-agent-run\.md)$/;
-
 function normalizePath(input) { return String(input ?? '').trim().replace(/\\/g, '/').replace(/\/+$/g, ''); }
 function escapeRegExp(input) { return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function globToRegExp(glob) {
-  const normalized = normalizePath(glob);
-  let pattern = '';
+  const normalized = normalizePath(glob); let pattern = '';
   for (let index = 0; index < normalized.length; index += 1) {
-    const character = normalized[index];
-    const next = normalized[index + 1];
+    const character = normalized[index]; const next = normalized[index + 1];
     if (character === '*' && next === '*') { pattern += '.*'; index += 1; }
     else if (character === '*') pattern += '[^/]*';
     else pattern += escapeRegExp(character);
@@ -111,18 +113,14 @@ function globToRegExp(glob) {
   return new RegExp(`^${pattern}$`);
 }
 function scopeMatches(allowedEntry, candidate) {
-  const allowed = normalizePath(allowedEntry);
-  const file = normalizePath(candidate);
+  const allowed = normalizePath(allowedEntry); const file = normalizePath(candidate);
   if (!allowed || !file) return false;
   if (allowed === file) return true;
   if (allowed.includes('*')) return globToRegExp(allowed).test(file);
   return file.startsWith(`${allowed}/`);
 }
 const disallowed = files.filter((file) => !allowedInfra.test(file) && !allowedCurrent.some((scope) => scopeMatches(scope, file)));
-if (disallowed.length > 0) {
-  process.stdout.write(disallowed.join('\n'));
-  process.exitCode = 1;
-}
+if (disallowed.length > 0) { process.stdout.write(disallowed.join('\n')); process.exitCode = 1; }
 JS
 ) || true
 
