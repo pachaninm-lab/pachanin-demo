@@ -6,6 +6,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { register, collectDefaultMetrics, Counter, Histogram } from 'prom-client';
 import { MaskedLoggerService } from './common/logger/masked-logger.service';
+import { buildTrustedProxyPredicate } from './common/security/client-address';
 
 // Prometheus metrics setup
 collectDefaultMetrics({ prefix: 'grainflow_' });
@@ -38,6 +39,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: new MaskedLoggerService(),
   });
+
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', buildTrustedProxyPredicate());
 
   app.enableCors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
