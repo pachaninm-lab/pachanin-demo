@@ -1,0 +1,145 @@
+name: accept and merge public entry 2328
+
+on:
+  pull_request:
+    branches:
+      - fix/public-entry-final-isolation
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: public-entry-accept-2328
+  cancel-in-progress: true
+
+jobs:
+  exact-preview-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PLAYWRIGHT_BASE_URL: https://6a516b620f69ad000832f056--vermillion-kitsune-0e7b97.netlify.app
+      ARTIFACT_DIR: ../../artifacts/public-entry-preview-accept-2328
+      EXPECTED_HEAD: 9143587281b446299e0bf5137c8a7f52414fb529
+      TARGET_PR: '2328'
+      REPO: pachaninm-lab/pachanin-demo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Run exact browser locale axe and hydration acceptance
+        working-directory: apps/web
+        run: node scripts/public-entry-preview-smoke-2328-v2.mjs
+
+      - name: Run and enforce Lighthouse budgets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/public-entry-preview-accept-2328/lighthouse
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROME_BIN" || { echo 'Chrome executable not found' >&2; exit 1; }
+          export CHROME_PATH="$CHROME_BIN"
+          BASE="$PLAYWRIGHT_BASE_URL"
+          for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
+            safe_name="${route//\//-}"
+            npx -y lighthouse@12.8.2 "$BASE/${route}?lang=ru" \
+              --quiet \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --output=json \
+              --output-path="artifacts/public-entry-preview-accept-2328/lighthouse/${safe_name}.json"
+          done
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = 'artifacts/public-entry-preview-accept-2328/lighthouse';
+          const reports = fs.readdirSync(dir)
+            .filter((name) => name.endsWith('.json') && name !== 'summary.json')
+            .map((name) => {
+              const report = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+              return {
+                file: name,
+                finalUrl: report.finalUrl,
+                scores: Object.fromEntries(Object.entries(report.categories).map(([key, value]) => [key, Math.round((value.score || 0) * 100)])),
+                metrics: {
+                  fcpMs: report.audits['first-contentful-paint']?.numericValue,
+                  lcpMs: report.audits['largest-contentful-paint']?.numericValue,
+                  tbtMs: report.audits['total-blocking-time']?.numericValue,
+                  cls: report.audits['cumulative-layout-shift']?.numericValue,
+                  speedIndexMs: report.audits['speed-index']?.numericValue,
+                },
+              };
+            });
+          const failures = [];
+          for (const report of reports) {
+            const m = report.metrics;
+            if ((report.scores.performance || 0) < 80) failures.push(`${report.file}: performance ${report.scores.performance} < 80`);
+            if ((report.scores.accessibility || 0) < 95) failures.push(`${report.file}: accessibility ${report.scores.accessibility} < 95`);
+            if ((report.scores['best-practices'] || 0) < 90) failures.push(`${report.file}: best-practices ${report.scores['best-practices']} < 90`);
+            if (!(m.lcpMs <= 2500)) failures.push(`${report.file}: LCP ${m.lcpMs}ms > 2500ms`);
+            if (!(m.tbtMs <= 200)) failures.push(`${report.file}: TBT ${m.tbtMs}ms > 200ms`);
+            if (!(m.cls <= 0.1)) failures.push(`${report.file}: CLS ${m.cls} > 0.1`);
+          }
+          const summary = {
+            status: failures.length ? 'failed' : 'passed',
+            exactHead: process.env.EXPECTED_HEAD,
+            reports,
+            failures,
+            note: 'Preview SEO is recorded but not enforced because deploy previews are intentionally noindex.',
+          };
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify(summary, null, 2));
+          console.log(JSON.stringify(summary, null, 2));
+          if (failures.length) process.exit(1);
+          NODE
+
+      - name: Upload exact preview evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-preview-accept-2328
+          path: artifacts/public-entry-preview-accept-2328
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Verify exact PR head and merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$(gh api "repos/$REPO/pulls/$TARGET_PR" --jq '.state')"
+          merged_at="$(gh api "repos/$REPO/pulls/$TARGET_PR" --jq '.merged_at // ""')"
+          current_head="$(gh api "repos/$REPO/pulls/$TARGET_PR" --jq '.head.sha')"
+          if [ -n "$merged_at" ]; then
+            echo "PR #$TARGET_PR already merged at $merged_at"
+            exit 0
+          fi
+          test "$state" = 'open' || { echo "PR #$TARGET_PR is not open: $state" >&2; exit 1; }
+          test "$current_head" = "$EXPECTED_HEAD" || {
+            echo "Head moved: expected $EXPECTED_HEAD, got $current_head" >&2
+            exit 1
+          }
+          gh api --method POST "repos/$REPO/issues/$TARGET_PR/comments" \
+            -f body="Exact immutable-preview acceptance passed for commit \`$EXPECTED_HEAD\`: Chromium desktop/mobile, iPhone WebKit, RU/EN/ZH, Axe, zero hydration/runtime errors, LCP ≤ 2.5s, TBT ≤ 200ms, CLS ≤ 0.1. Merging exact head."
+          gh api --method PUT "repos/$REPO/pulls/$TARGET_PR/merge" \
+            -f merge_method=merge \
+            -f sha="$EXPECTED_HEAD"
+
+      - name: Close one-shot evidence PR
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr close 2334 --repo "$REPO" --comment "Evidence consumed. Target PR #2328 was merged only after exact-head browser and Lighthouse acceptance." || true
