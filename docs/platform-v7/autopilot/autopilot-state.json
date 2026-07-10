@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal.",
   "fullTzReadinessPercent": 86,
-  "openPr": "#2258",
+  "openPr": "#2259",
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
@@ -48,7 +48,7 @@
   },
   "vp345PhysicalRlsPolicyAlignment": {
     "layer": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
-    "openPr": "#2258",
+    "openPr": "#2259",
     "status": "in_progress",
     "invariants": [
       "policies use physical Prisma table names",
