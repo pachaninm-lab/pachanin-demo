@@ -128,6 +128,83 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  persistent-auth-e2e:
+    name: "Persistent sessions · rotation · MFA · revoke"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: auth_admin
+          POSTGRES_PASSWORD: ephemeral_auth_admin_only
+          POSTGRES_DB: auth_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U auth_admin -d auth_e2e"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://auth_admin:ephemeral_auth_admin_only@127.0.0.1:5432/auth_e2e
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate ephemeral auth secrets
+        shell: bash
+        run: |
+          echo "JWT_SECRET=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
+          echo "AUTH_TOKEN_PEPPER=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
+          echo "MFA_ENCRYPTION_KEY=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
+
+      - name: Apply forward-only migrations
+        run: pnpm --filter @pc/api exec prisma migrate deploy --schema prisma/schema.prisma
+
+      - name: Prove public Prisma schema remains drift-free
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate diff \
+            --from-url "$DATABASE_URL" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --script \
+            --exit-code 2>&1 | tee /tmp/persistent-auth-drift.log
+
+      - name: Run persistent auth exploitation gate
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --config test/auth/jest.config.json 2>&1 | tee /tmp/persistent-auth-e2e.log
+
+      - name: Upload persistent auth evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-persistent-auth-evidence
+          path: |
+            /tmp/persistent-auth-drift.log
+            /tmp/persistent-auth-e2e.log
+          if-no-files-found: error
+          retention-days: 14
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
