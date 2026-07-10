@@ -36,7 +36,7 @@
     "provider PITR, production-sized restore, measured RTO and approved RPO",
     "production load, high-availability and operational acceptance"
   ],
-  "blockerNotes": "PR #2307 is the only approved implementation of the current layer. Additive delivery-schema migrations and lease functions are started, but process-memory OutboxService/relay, durable reconciliation and partner-key lifecycle are not yet replaced or accepted. No parallel outbox implementation is allowed while #2307 is open.",
+  "blockerNotes": "PR #2307 is the only approved implementation of the current layer. Durable outbox repository and lease-based relay are in progress; reconciliation and partner-key lifecycle remain incomplete. No parallel outbox implementation is allowed while #2307 is open.",
   "lockedUntilCurrentGreen": [
     "parallel outbox or reconciliation implementation",
     "platform UI and role-cabinet migration",
@@ -53,9 +53,14 @@
     "docs/platform-v7/execution-queue.md",
     "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/**",
+    "apps/api/src/common/action-executor/action-executor.service.ts",
+    "apps/api/src/common/action-executor/action-executor.spec.ts",
     "apps/api/src/common/outbox/**",
     "apps/api/src/common/kafka/**",
     "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/modules/admin/admin.controller.ts",
+    "apps/api/src/modules/bank-reconciliation/**",
     "apps/api/src/modules/settlement-engine/**",
     "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
     "apps/api/src/modules/deals/deal-command.service.ts",
@@ -72,9 +77,14 @@
     "docs/platform-v7/execution-queue.md",
     "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/**",
+    "apps/api/src/common/action-executor/action-executor.service.ts",
+    "apps/api/src/common/action-executor/action-executor.spec.ts",
     "apps/api/src/common/outbox/**",
     "apps/api/src/common/kafka/**",
     "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "apps/api/src/health.controller.ts",
+    "apps/api/src/modules/admin/admin.controller.ts",
+    "apps/api/src/modules/bank-reconciliation/**",
     "apps/api/src/modules/settlement-engine/**",
     "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
     "apps/api/src/modules/deals/deal-command.service.ts",
@@ -96,7 +106,11 @@
       "SKIP LOCKED claim function",
       "claim-token success and failure transitions",
       "DB-time retry and durable dead-letter",
-      "manual requeue function"
+      "manual requeue function",
+      "PostgreSQL-only OutboxRepository",
+      "lease-based relay with Kafka false handling",
+      "explicit worker mode and graceful shutdown",
+      "durable backlog health and truthful readiness passport"
     ]
   },
   "industrialOneDealFoundation": {
@@ -112,7 +126,7 @@
   "industrialOneDealRecovery": {
     "implementationPr": "#2274",
     "status": "merged_green",
-    "mergeCommit": "cc10110293d9716c2f93790e7756589ead017afd"
+    "mergeCommit": "cc10110293d9712922ff164b26115e596ddbb93cfb"
   },
   "persistentIdentity": {
     "implementationPr": "#2276",
