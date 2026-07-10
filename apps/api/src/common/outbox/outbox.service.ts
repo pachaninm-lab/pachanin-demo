@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import type { Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   ClaimedOutboxEntry,
   DurableOutboxEntry,
@@ -43,7 +44,15 @@ export type EnqueueParams = Readonly<{
 
 @Injectable()
 export class OutboxService {
-  constructor(private readonly repository: OutboxRepository) {}
+  private readonly repository: OutboxRepository;
+
+  constructor(
+    @Inject(OutboxRepository) repositoryOrPrisma: OutboxRepository | PrismaService,
+  ) {
+    this.repository = isRepository(repositoryOrPrisma)
+      ? repositoryOrPrisma
+      : new OutboxRepository(repositoryOrPrisma);
+  }
 
   async enqueue(params: EnqueueParams): Promise<OutboxEntry> {
     return this.toEntry(await this.repository.enqueue(this.enqueueInput(params)));
@@ -177,6 +186,11 @@ export class OutboxService {
       lastError: entry.lastError ?? undefined,
     };
   }
+}
+
+function isRepository(value: OutboxRepository | PrismaService): value is OutboxRepository {
+  return typeof (value as OutboxRepository).claimBatch === 'function'
+    && typeof (value as OutboxRepository).completeClaim === 'function';
 }
 
 function stable(value: unknown): unknown {
