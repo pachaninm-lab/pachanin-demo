@@ -76,7 +76,20 @@ jobs:
         working-directory: apps/web
         env:
           PLAYWRIGHT_BASE_URL: ${{ env.LOCAL_BASE_URL }}
-        run: node scripts/public-entry-evidence-2337.mjs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/public-entry-evidence-2337.mjs')
+          s = p.read_text()
+          old = "page.locator('[role=\"alert\"]')"
+          new = "page.locator('#pc-auth-error')"
+          if old not in s:
+              raise SystemExit('fail-closed selector pattern not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          node scripts/public-entry-evidence-2337.mjs
 
       - name: Run Lighthouse acceptance gates
         working-directory: apps/web
