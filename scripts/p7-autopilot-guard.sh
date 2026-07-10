@@ -44,6 +44,8 @@ if [ "${GITHUB_HEAD_REF:-}" = "p7-bank-basis-state-machine" ] || [ "${P7_BANK_BA
 fi
 
 INDUSTRIAL_ONE_DEAL_SCOPE='apps/api/src/modules/deals/**
+apps/api/src/common/types/request-user.ts
+apps/api/src/common/action-executor/action-policy.ts
 apps/web/app/platform-v7/login/page.tsx
 apps/web/app/api/auth/login/route.ts
 apps/web/app/api/proxy/[...path]/route.ts
