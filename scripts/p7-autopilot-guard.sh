@@ -63,8 +63,21 @@ apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts
 apps/web/tests/unit/platformV7VisibleEntry.test.ts
 scripts/p7-autopilot-guard.sh'
 
+PUBLIC_RUNTIME_FIX_SCOPE='apps/web/app/layout.tsx
+apps/web/app/platform-v7/layout.tsx
+apps/web/app/platform-v7/login/layout.tsx
+apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx
+apps/web/components/v7r/PlatformV7IntelligenceStripClient.tsx
+apps/web/middleware.ts
+apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-production-hydration-performance" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_RUNTIME_FIX_SCOPE")
 fi
 
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
