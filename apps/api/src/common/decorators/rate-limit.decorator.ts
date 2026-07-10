@@ -9,8 +9,12 @@ export type RateLimitOptions = {
   limitEnv?: string;
   windowEnv?: string;
   scope?: 'ip' | 'user' | 'org';
+  includeParams?: string[];
 };
 
 export const RateLimit = (options: RateLimitOptions) => applyDecorators(
-  SetMetadata(RATE_LIMIT_OPTIONS, options)
+  SetMetadata(RATE_LIMIT_OPTIONS, Object.freeze({
+    ...options,
+    includeParams: Object.freeze([...(options.includeParams ?? [])]),
+  })),
 );
