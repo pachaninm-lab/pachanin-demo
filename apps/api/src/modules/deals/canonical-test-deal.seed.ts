@@ -24,6 +24,12 @@ const identities = [
   { email: 'executive@demo.ru', fullName: 'Тестовый руководитель', role: Role.EXECUTIVE, orgId: 'org-canonical-platform' },
 ] as const;
 
+function participantAccess(role: Role): 'READ' | 'WORK' | 'APPROVE' {
+  if (role === Role.EXECUTIVE) return 'READ';
+  if ([Role.COMPLIANCE_OFFICER, Role.ARBITRATOR, Role.SUPPORT_MANAGER].includes(role)) return 'APPROVE';
+  return 'WORK';
+}
+
 @Injectable()
 export class CanonicalTestDealSeedService implements OnModuleInit {
   private readonly logger = new Logger(CanonicalTestDealSeedService.name);
@@ -129,10 +135,10 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
       });
     });
 
-    await this.seedIdentitiesAndMemberships();
+    await this.seedIdentitiesMembershipsAndParticipants();
   }
 
-  private async seedIdentitiesAndMemberships(): Promise<void> {
+  private async seedIdentitiesMembershipsAndParticipants(): Promise<void> {
     const passwordHash = bcrypt.hashSync(TEST_PASSWORD, 10);
 
     for (const identity of identities) {
@@ -152,40 +158,69 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
       this.auth.updateUserRole(user.id, identity.role);
       this.auth.updateUserOrg(user.id, identity.orgId);
 
-      await this.prisma.user.upsert({
-        where: { id: user.id },
-        update: {
-          email: identity.email,
-          passwordHash,
-          fullName: identity.fullName,
-          status: 'ACTIVE',
-        },
-        create: {
-          id: user.id,
-          email: identity.email,
-          passwordHash,
-          fullName: identity.fullName,
-          status: 'ACTIVE',
-        },
-      });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.user.upsert({
+          where: { id: user.id },
+          update: {
+            email: identity.email,
+            passwordHash,
+            fullName: identity.fullName,
+            status: 'ACTIVE',
+          },
+          create: {
+            id: user.id,
+            email: identity.email,
+            passwordHash,
+            fullName: identity.fullName,
+            status: 'ACTIVE',
+          },
+        });
 
-      await this.prisma.userOrg.upsert({
-        where: {
-          userId_organizationId: {
+        await tx.userOrg.upsert({
+          where: {
+            userId_organizationId: {
+              userId: user.id,
+              organizationId: identity.orgId,
+            },
+          },
+          update: {
+            role: identity.role,
+            isDefault: true,
+          },
+          create: {
             userId: user.id,
             organizationId: identity.orgId,
+            role: identity.role,
+            isDefault: true,
           },
-        },
-        update: {
-          role: identity.role,
-          isDefault: true,
-        },
-        create: {
-          userId: user.id,
-          organizationId: identity.orgId,
-          role: identity.role,
-          isDefault: true,
-        },
+        });
+
+        await tx.dealParticipant.upsert({
+          where: {
+            dealId_userId_role: {
+              dealId: CANONICAL_TEST_DEAL_ID,
+              userId: user.id,
+              role: identity.role,
+            },
+          },
+          update: {
+            tenantId: CANONICAL_TENANT_ID,
+            organizationId: identity.orgId,
+            accessLevel: participantAccess(identity.role),
+            status: 'ACTIVE',
+            revokedAt: null,
+          },
+          create: {
+            id: `participant:${CANONICAL_TEST_DEAL_ID}:${identity.role.toLowerCase()}`,
+            dealId: CANONICAL_TEST_DEAL_ID,
+            tenantId: CANONICAL_TENANT_ID,
+            organizationId: identity.orgId,
+            userId: user.id,
+            role: identity.role,
+            accessLevel: participantAccess(identity.role),
+            status: 'ACTIVE',
+          },
+        });
       });
     }
   }
