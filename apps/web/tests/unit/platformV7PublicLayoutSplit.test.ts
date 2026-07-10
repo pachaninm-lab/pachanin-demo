@@ -2,42 +2,49 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const layout = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/layout.tsx'), 'utf8');
-const shellSwitch = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx'), 'utf8');
-const protectedShell = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'), 'utf8');
-const middleware = fs.readFileSync(path.join(process.cwd(), 'apps/web/middleware.ts'), 'utf8');
+const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
+const rootLayout = read('apps/web/app/layout.tsx');
+const layout = read('apps/web/app/platform-v7/layout.tsx');
+const template = read('apps/web/app/platform-v7/template.tsx');
+const templateSwitch = read('apps/web/components/platform-v7/PlatformV7TemplateSwitch.tsx');
+const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
+const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
+const middleware = read('apps/web/middleware.ts');
 
-describe('platform-v7 public/protected shell split', () => {
-  it('keeps the server layout static-safe instead of reading request headers', () => {
-    expect(layout).not.toContain("from 'next/headers'");
-    expect(layout).not.toContain("headerStore.get('x-pc-pathname')");
-    expect(layout).toContain('<PlatformV7ShellSwitch>{children}</PlatformV7ShellSwitch>');
-    expect(layout).toContain("platform-v7-shell-critical.css");
+describe('platform-v7 public/protected runtime split', () => {
+  it('resolves public paths before creating the protected client tree', () => {
+    expect(layout).toContain("from 'next/headers'");
+    expect(layout).toContain("headers().get('x-pc-pathname')");
+    expect(layout).toContain('if (isPublicPath(pathname)) return children');
+    expect(layout).toContain("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')");
+    expect(layout).not.toContain('PlatformV7ShellSwitch');
+    expect(layout).not.toContain('ToastProvider');
+    expect(layout).not.toContain('PlatformThemeSync');
   });
 
-  it('keeps public routes outside the protected app shell', () => {
-    expect(shellSwitch).toContain('PUBLIC_EXACT_PATHS');
-    expect(shellSwitch).toContain("'/platform-v7'");
-    expect(shellSwitch).toContain("'/platform-v7/open'");
-    expect(shellSwitch).toContain("'/platform-v7/login'");
-    expect(shellSwitch).toContain("'/platform-v7/register'");
-    expect(shellSwitch).toContain("'/platform-v7/demo'");
-    expect(shellSwitch).toContain("'/platform-v7/contact'");
-    expect(shellSwitch).toContain("'/platform-v7/request'");
-    expect(shellSwitch).toContain('if (isPublicPath(pathname)) return <>{children}</>');
-  });
-
-  it('keeps protected routes inside AppShellV4 with guards and role shell controls', () => {
-    expect(shellSwitch).toContain('dynamic(');
-    expect(shellSwitch).toContain('PlatformV7ProtectedShell');
+  it('keeps protected providers and shell in a protected-only runtime', () => {
+    expect(protectedRuntime).toContain('<ToastProvider>');
+    expect(protectedRuntime).toContain('<PlatformThemeSync />');
+    expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname}>');
     expect(protectedShell).toContain('<AppShellV4 initialRole={initialRole}>');
     expect(protectedShell).toContain('<PlatformV7SingleEntryGuard />');
-    expect(protectedShell).toContain('<PlatformV7ShellUxController />');
     expect(protectedShell).toContain('<RbacCabinetGuard />');
-    expect(protectedShell).toContain('<CalculatorHeaderWidget />');
-    expect(protectedShell).toContain('<SupportHeaderIcon />');
-    expect(protectedShell).toContain('<RoleAssistantWidget />');
-    expect(protectedShell).not.toContain('<CommandPalette />');
+  });
+
+  it('keeps DOM mutation guards outside public templates', () => {
+    expect(template).toContain('<PlatformV7TemplateSwitch>{children}</PlatformV7TemplateSwitch>');
+    expect(template).not.toContain('PlatformV7ProductionCopyPatch');
+    expect(templateSwitch).toContain('dynamic(');
+    expect(templateSwitch).toContain('PlatformV7ProtectedTemplateRuntime');
+    expect(templateSwitch).toContain('if (isPublicPath(pathname)) return <>{children}</>');
+  });
+
+  it('does not reset all browser caches or mount dev tooling without an explicit flag', () => {
+    expect(rootLayout).not.toContain('cacheResetScript');
+    expect(rootLayout).not.toContain('serviceWorker.getRegistrations');
+    expect(rootLayout).not.toContain('caches.keys()');
+    expect(rootLayout).toContain("process.env.NEXT_PUBLIC_DEV_MODE === 'true'");
+    expect(rootLayout).toContain('showDevPanel ? <FeatureFlagsDevPanel /> : null');
   });
 
   it('canonicalises the legacy /ai route to the maintained assistant route', () => {
