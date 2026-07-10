@@ -123,7 +123,8 @@ GRANT SELECT, INSERT, UPDATE ON
   auth.credential_states,
   auth.sessions,
   auth.refresh_tokens,
-  auth.mfa_challenges
+  auth.mfa_challenges,
+  auth.password_reset_challenges
 TO one_deal_auth;
 GRANT SELECT, INSERT ON auth.audit_events TO one_deal_auth;
 SQL
