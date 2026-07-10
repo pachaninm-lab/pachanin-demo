@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "Industrial One Deal Ephemeral PostgreSQL E2E Harness.",
   "fullTzReadinessPercent": 85,
-  "openPr": "pending",
+  "openPr": "#2271",
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
@@ -67,7 +67,8 @@
   },
   "industrialOneDealE2e": {
     "layer": "Industrial One Deal Ephemeral PostgreSQL E2E Harness",
-    "status": "scope_transition_pending",
+    "scopePr": "#2271",
+    "status": "scope_transition_in_review",
     "canonicalDealId": "DEAL-INDUSTRIAL-001",
     "requiredEvidence": [
       "isolated PostgreSQL 16 starts with ephemeral credentials",
