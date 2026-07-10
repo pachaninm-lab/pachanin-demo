@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../common/prisma/prisma.module';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { RuntimePersistenceCommandService } from './runtime-persistence-command.service';
 import { selectRuntimePersistenceRepository } from './runtime-persistence-repository.factory';
 import { RUNTIME_PERSISTENCE_REPOSITORY } from './runtime-persistence.repository';
@@ -13,8 +13,8 @@ import { RuntimePersistenceService } from './runtime-persistence.service';
     RuntimePersistenceCommandService,
     {
       provide: RUNTIME_PERSISTENCE_REPOSITORY,
-      inject: [PrismaService],
-      useFactory: (prisma: PrismaService) => selectRuntimePersistenceRepository(prisma),
+      inject: [RlsTransactionService],
+      useFactory: (rls: RlsTransactionService) => selectRuntimePersistenceRepository(rls),
     },
   ],
   exports: [
