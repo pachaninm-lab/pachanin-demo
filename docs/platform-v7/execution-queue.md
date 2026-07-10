@@ -57,8 +57,26 @@ LOCKED:
 
 NEXT:
 - Layer: Truthful Driver Offline Acknowledgement and Conflict Handling.
-- Preserve server-derived role/tenant authority and the canonical Deal object.
-- Do not begin until the durable financial-delivery criteria above are green and merged.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/autopilot/progress.json
+  - docs/platform-v7/autopilot/prompts/current-codex-task.md
+  - docs/platform-v7/autopilot/prompts/current-review-task.md
+  - docs/platform-v7/execution-queue.md
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/**
+  - apps/api/src/modules/logistics/**
+  - apps/api/src/modules/runtime-persistence/**
+  - apps/api/test/offline/**
+  - apps/api/test/one-deal/**
+  - .github/workflows/ci.yml
+- Success criteria:
+  - offline commands are queued durably with a server-issued actor, deal and version basis;
+  - acknowledgement distinguishes locally queued, server accepted, rejected and conflicted states;
+  - reconnect replay is idempotent and does not bypass RBAC, tenant scope or Deal state-machine rules;
+  - conflicting stale commands fail explicitly and preserve evidence for the driver and operator;
+  - no client-selected role, tenant, status or money authority is accepted;
+  - production mobile/offline scale remains unclaimed.
 
 AFTER NEXT:
 - Server-rendered RU/EN/ZH i18n.
