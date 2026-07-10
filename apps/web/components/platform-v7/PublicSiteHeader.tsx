@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { BrandMark } from '@/components/v7r/BrandMark';
+import { BrandMarkSvg } from '@/components/v7r/BrandMark';
 import { PublicLocaleSwitch } from '@/components/platform-v7/PublicLocaleSwitch';
 
 export const PUBLIC_SITE_HEADER_HEIGHT = 64;
@@ -24,7 +24,7 @@ export function PublicSiteHeader({
   return (
     <header className='pc-site-header' aria-label={ariaLabel}>
       <Link href='/platform-v7' className='pc-site-brand' aria-label='Прозрачная Цена — на главную'>
-        <span className='pc-site-brand-mark'><BrandMark size={40} /></span>
+        <span className='pc-site-brand-mark' aria-hidden='true'><BrandMarkSvg /></span>
         <span className='pc-site-brand-text'>
           <strong>Прозрачная Цена</strong>
           {tagline ? <small>{tagline}</small> : null}
@@ -54,7 +54,7 @@ const css = `
 }
 .pc-site-brand{display:inline-flex;align-items:center;gap:11px;min-width:0;color:#071611;text-decoration:none;flex:0 0 auto}
 .pc-site-brand-mark{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:11px;overflow:hidden;flex:0 0 40px}
-.pc-site-brand-mark img{width:100%;height:100%;object-fit:contain}
+.pc-site-brand-mark svg{display:block;width:100%;height:100%}
 .pc-site-brand-text{display:grid;min-width:0}
 .pc-site-brand-text strong{font-size:18px;line-height:1.05;font-weight:900;letter-spacing:-.03em;white-space:nowrap}
 .pc-site-brand-text small{margin-top:2px;color:#66736e;font-size:12px;font-weight:650;line-height:1.05;white-space:nowrap}
