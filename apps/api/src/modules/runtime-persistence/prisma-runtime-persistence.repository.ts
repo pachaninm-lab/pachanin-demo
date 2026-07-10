@@ -30,6 +30,8 @@ const requiredStringFields: Array<keyof RuntimePersistenceWriteInput> = [
   'runtimeStoreVersion',
   'actorId',
   'actorRole',
+  'tenantId',
+  'organizationId',
   'correlationId',
   'auditId',
   'contractHash',
@@ -53,19 +55,12 @@ function isValidInput(input: RuntimePersistenceWriteInput): boolean {
 
 @Injectable()
 export class PrismaRuntimePersistenceRepository implements RuntimePersistenceRepository {
-  constructor(@Optional() private readonly prisma?: PrismaService) {
-    if (!this.prisma) {
+  constructor(@Optional() prisma?: PrismaService) {
+    if (!prisma) {
       throw new Error(
         'PrismaRuntimePersistenceRepository requires PrismaService; the Postgres runtime-persistence path is not active.',
       );
     }
-  }
-
-  private get db(): PrismaService {
-    if (!this.prisma) {
-      throw new Error('PrismaService unavailable; Postgres runtime-persistence path is not active.');
-    }
-    return this.prisma;
   }
 
   private classifyExisting(
@@ -104,7 +99,7 @@ export class PrismaRuntimePersistenceRepository implements RuntimePersistenceRep
 
   private failed(
     input: RuntimePersistenceWriteInput,
-    reasonCode: 'invalid_input' | 'database_write_failed',
+    reasonCode: 'trusted_transaction_required' | 'invalid_input' | 'database_write_failed',
   ): RuntimePersistenceWriteReceipt {
     return {
       status: 'failed',
@@ -259,21 +254,6 @@ export class PrismaRuntimePersistenceRepository implements RuntimePersistenceRep
       return this.failed(input, 'invalid_input');
     }
 
-    try {
-      return await this.db.$transaction((tx) => this.writeWithinTransaction(tx, input));
-    } catch (error) {
-      if (isRuntimePersistenceUniqueConstraintError(error)) {
-        try {
-          const classified = await this.db.$transaction((tx) =>
-            this.classifyExistingWithinTransaction(tx, input),
-          );
-          if (classified) return classified;
-        } catch {
-          return this.failed(input, 'database_write_failed');
-        }
-      }
-
-      return this.failed(input, 'database_write_failed');
-    }
+    return this.failed(input, 'trusted_transaction_required');
   }
 }
