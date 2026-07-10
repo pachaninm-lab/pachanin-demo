@@ -11,6 +11,8 @@ type DealInspectionRow = {
   current_user: string;
   superuser: boolean;
   bypass_rls: boolean;
+  role_inherit: boolean;
+  has_role_memberships: boolean;
   owns_deals: boolean;
   deals_rls_enabled: boolean;
   deals_force_rls: boolean;
@@ -41,6 +43,8 @@ function baseSnapshot(row: DealInspectionRow): DatabasePrincipalSnapshot {
     currentUser: row.current_user,
     superuser: row.superuser,
     bypassRls: row.bypass_rls,
+    roleInherit: row.role_inherit,
+    hasRoleMemberships: row.has_role_memberships,
     ownsDeals: row.owns_deals,
     dealsRlsEnabled: row.deals_rls_enabled,
     dealsForceRls: row.deals_force_rls,
@@ -72,6 +76,8 @@ async function inspectDealPrincipal(
       current_user,
       roles.rolsuper AS superuser,
       roles.rolbypassrls AS bypass_rls,
+      roles.rolinherit AS role_inherit,
+      EXISTS (SELECT 1 FROM pg_auth_members memberships WHERE memberships.member = roles.oid) AS has_role_memberships,
       deals.relowner = roles.oid AS owns_deals,
       deals.relrowsecurity AS deals_rls_enabled,
       deals.relforcerowsecurity AS deals_force_rls,
@@ -97,6 +103,8 @@ async function inspectAuthPrincipal(
       current_user,
       roles.rolsuper AS superuser,
       roles.rolbypassrls AS bypass_rls,
+      roles.rolinherit AS role_inherit,
+      EXISTS (SELECT 1 FROM pg_auth_members memberships WHERE memberships.member = roles.oid) AS has_role_memberships,
       deals.relowner = roles.oid AS owns_deals,
       deals.relrowsecurity AS deals_rls_enabled,
       deals.relforcerowsecurity AS deals_force_rls,
