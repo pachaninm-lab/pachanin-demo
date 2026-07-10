@@ -37,6 +37,15 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(proxy).toContain("if (strictRealPath) return realBackendUnavailable('real_backend_not_used')");
   });
 
+  it('never exposes a user button or synthetic reference for bank confirmations', () => {
+    expect(workspace).toContain("action?.source === 'BANK_CALLBACK'");
+    expect(workspace).toContain('Ручное подтверждение невозможно');
+    expect(workspace).not.toContain('TEST-RESERVE-');
+    expect(workspace).not.toContain('TEST-RELEASE-');
+    expect(workspace).not.toContain("if (actionId === 'confirm_reserve')");
+    expect(workspace).not.toContain("if (actionId === 'confirm_release')");
+  });
+
   it('uses verified single entry and does not let the user choose a role before authentication', () => {
     expect(login).toContain("fetch('/api/auth/login'");
     expect(login).toContain("fetch('/api/platform-v7/cabinet-session'");
