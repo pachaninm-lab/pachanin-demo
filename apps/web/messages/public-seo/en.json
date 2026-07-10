@@ -1,0 +1,17 @@
+{
+  "publicSeo": {
+    "landing": {
+      "title": "Transparent Price — digital grain deal execution",
+      "description": "Transport, acceptance, quality, documents, money, disputes and evidence are connected in one verifiable grain-deal execution process.",
+      "siteName": "Transparent Price",
+      "applicationName": "Transparent Price",
+      "structuredDescription": "Digital B2B infrastructure for grain-deal execution after the price is agreed."
+    },
+    "auth": {
+      "loginTitle": "Sign in — Transparent Price",
+      "loginDescription": "A single protected entry to the organisation workspace.",
+      "forgotTitle": "Restore access — Transparent Price",
+      "resetTitle": "New password — Transparent Price"
+    }
+  }
+}
