@@ -66,6 +66,18 @@
     "apps/api/test/one-deal/seed.ts",
     ".github/workflows/ci.yml"
   ],
+  "approvedConcurrentScopes": {
+    "p0/database-backup-restore-dr-rehearsal": [
+      "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
+      "apps/api/test/one-deal/restored-database-acceptance.ts",
+      "docs/platform-v7/production-database-deployment-runbook.md",
+      "scripts/platform-v7-database-dr-rehearsal.sh",
+      "scripts/platform-v7-forward-only-migration-check.mjs",
+      "scripts/platform-v7-rls-rollback-rehearsal.sh",
+      ".github/workflows/ci.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ]
+  },
   "industrialOneDealFoundation": {
     "status": "merged_green",
     "canonicalDealId": "DEAL-INDUSTRIAL-001"
