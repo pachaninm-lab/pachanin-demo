@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const registerSrc = readFileSync(resolve(process.cwd(), 'apps/web/app/platform-v7/register/page.tsx'), 'utf8');
-const loginSrc = readFileSync(resolve(process.cwd(), 'apps/web/app/platform-v7/login/page.tsx'), 'utf8');
+const loginPage = readFileSync(resolve(process.cwd(), 'apps/web/app/platform-v7/login/page.tsx'), 'utf8');
+const loginClient = readFileSync(resolve(process.cwd(), 'apps/web/app/platform-v7/login/LoginFormClient.tsx'), 'utf8');
 
 describe('platform-v7 product entry', () => {
   it('keeps register source with required application states', () => {
@@ -13,10 +14,10 @@ describe('platform-v7 product entry', () => {
   });
 
   it('keeps login as one server-authoritative entry with MFA', () => {
-    expect(loginSrc).toContain("useTranslations('publicEntry.login')");
-    expect(loginSrc).toContain("requestJson('/api/auth/login'");
-    expect(loginSrc).toContain("requestJson('/api/auth/mfa-login'");
-    expect(loginSrc).not.toContain('usePlatformV7RStore');
-    expect(loginSrc).not.toContain('?role=');
+    expect(loginPage).toContain("getTranslations('publicEntry.login')");
+    expect(loginClient).toContain("requestJson('/api/auth/login'");
+    expect(loginClient).toContain("requestJson('/api/auth/mfa-login'");
+    expect(loginClient).not.toContain('usePlatformV7RStore');
+    expect(loginClient).not.toContain('?role=');
   });
 });
