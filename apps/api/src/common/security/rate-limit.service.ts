@@ -36,11 +36,11 @@ export class RateLimitService {
 
   constructor(private readonly prisma: PrismaService) {
     const production = String(process.env.NODE_ENV ?? '').toLowerCase() === 'production';
-    this.pepper = String(process.env.RATE_LIMIT_KEY_PEPPER ?? '').trim();
-    if (production && this.pepper.length < 32) {
+    const configuredPepper = String(process.env.RATE_LIMIT_KEY_PEPPER ?? '').trim();
+    if (production && configuredPepper.length < 32) {
       throw new Error('RATE_LIMIT_KEY_PEPPER with at least 32 characters is required in production.');
     }
-    if (!this.pepper) this.pepper = 'non-production-rate-limit-pepper';
+    this.pepper = configuredPepper || 'non-production-rate-limit-pepper';
   }
 
   async consume(input: RateLimitConsumeInput): Promise<RateLimitDecision> {
