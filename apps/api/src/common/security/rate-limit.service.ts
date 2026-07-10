@@ -59,9 +59,9 @@ export class RateLimitService {
         FROM security.consume_rate_limit(
           ${policy},
           ${keyHash},
-          ${limit},
-          ${windowSeconds},
-          ${blockSeconds}
+          ${limit}::integer,
+          ${windowSeconds}::integer,
+          ${blockSeconds}::integer
         )
       `);
     } catch (error) {
@@ -87,7 +87,7 @@ export class RateLimitService {
   async cleanup(retentionSeconds = 172_800): Promise<number> {
     const retention = boundedInteger(retentionSeconds, 3_600, 2_592_000, 172_800);
     const rows = await this.prisma.$queryRaw<Array<{ deleted_count: number }>>(Prisma.sql`
-      SELECT security.cleanup_rate_limit_buckets(${retention}) AS deleted_count
+      SELECT security.cleanup_rate_limit_buckets(${retention}::integer) AS deleted_count
     `);
     return Number(rows[0]?.deleted_count ?? 0);
   }
