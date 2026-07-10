@@ -1,0 +1,107 @@
+name: platform-v7 one-deal PostgreSQL E2E
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/test/one-deal/**'
+      - 'scripts/platform-v7-one-deal-*.mjs'
+      - '.github/workflows/platform-v7-one-deal-e2e.yml'
+      - 'docs/platform-v7/autopilot/autopilot-state.json'
+      - 'docs/platform-v7/execution-queue.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-v7-one-deal-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  one-deal-e2e:
+    name: One deal · 12 roles · PostgreSQL 16
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: one_deal_admin
+          POSTGRES_PASSWORD: ephemeral_one_deal_only
+          POSTGRES_DB: one_deal_e2e
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U one_deal_admin -d one_deal_e2e"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://one_deal_admin:ephemeral_one_deal_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/one_deal_e2e
+      JWT_SECRET: one-deal-e2e-jwt-secret-at-least-32-characters
+      BANK_HMAC_SECRET: one-deal-e2e-bank-secret
+      BANK_PARTNER_ID: safe-deals
+      BANK_HMAC_KEY_ID: primary
+      SEED_DEMO_USERS: 'true'
+      SEED_CANONICAL_TEST_DEAL: 'true'
+      ENABLE_PUBLIC_RUNTIME_READS: 'false'
+      ENABLE_PUBLIC_RUNTIME_MUTATIONS: 'false'
+      KAFKA_ENABLED: 'false'
+      VAULT_ENABLED: 'false'
+      ML_SERVICE_URL: http://127.0.0.1:65535
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @pc/api exec prisma generate
+
+      - name: Apply schema migrations to ephemeral database
+        run: pnpm --filter @pc/api exec prisma migrate deploy
+
+      - name: Apply production RLS policies to ephemeral database only
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/sql/production-rls-policies.sql
+
+      - name: Validate RLS contract
+        run: node scripts/platform-v7-rls-validate.mjs
+
+      - name: Run full one-deal E2E
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --config test/one-deal/jest-e2e.json --runInBand \
+            2>&1 | tee /tmp/platform-v7-one-deal-e2e.log
+
+      - name: Upload E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-one-deal-e2e-evidence
+          path: /tmp/platform-v7-one-deal-e2e.log
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Destroy ephemeral database contents
+        if: always()
+        shell: bash
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;' || true
