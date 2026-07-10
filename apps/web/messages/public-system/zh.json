@@ -1,0 +1,13 @@
+{
+  "publicEntry": {
+    "system": {
+      "loadingTitle": "正在加载页面",
+      "loadingText": "正在准备受保护的公共入口。如果无法完成加载，系统会显示可重试的错误状态。",
+      "errorTitle": "页面未能加载",
+      "errorText": "发生技术故障。请重试或返回首页。",
+      "retry": "重试",
+      "home": "首页",
+      "correlation": "错误参考号"
+    }
+  }
+}
