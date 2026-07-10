@@ -105,6 +105,7 @@
   ],
   "maturityLanguage": [
     "industrial-foundation-under-e2e-verification",
+    "platform-temporarily-without-external-integrations",
     "platform-temporarily-without-confirmed-live-integrations"
   ],
   "forbiddenClaims": [
