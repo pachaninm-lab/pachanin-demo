@@ -709,8 +709,11 @@ export class PersistentAuthRepository {
     sessionId?: string | null,
   ): Promise<string | null> {
     const chainKey = sessionId ?? userId ?? 'auth-global';
-    await client.$queryRaw(Prisma.sql`
-      SELECT pg_advisory_xact_lock(hashtextextended(${chainKey}, 0))
+    await client.$queryRaw<Array<{ acquired: number }>>(Prisma.sql`
+      SELECT 1::int AS acquired
+      FROM (
+        SELECT pg_advisory_xact_lock(hashtextextended(${chainKey}, 0))
+      ) AS auth_audit_lock
     `);
     const rows = await client.$queryRaw<Array<{ hash: string }>>(Prisma.sql`
       SELECT hash

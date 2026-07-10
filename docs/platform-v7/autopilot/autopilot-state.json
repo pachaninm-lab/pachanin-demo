@@ -27,7 +27,7 @@
     "live bank FGIS EDO and signature evidence",
     "production load restore and DR acceptance"
   ],
-  "blockerNotes": "PR #2276 replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. The first PostgreSQL auth job stopped before executing tests because its isolated CI job did not generate Prisma Client. The correction adds explicit generation, FK-safe refresh rotation, immediate durable revoke on membership, organization or user authority changes, and expanded exploitation evidence. Client role, organization and tenant claims remain untrusted and all UI files remain locked until the gate is green.",
+  "blockerNotes": "PR #2276 replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. The first PostgreSQL auth job stopped before executing tests because its isolated CI job did not generate Prisma Client. The next run reached all tests and exposed one shared audit-lock defect: Prisma cannot deserialize PostgreSQL void from pg_advisory_xact_lock. The corrected query still acquires the transaction lock but returns a supported integer projection. Client role, organization and tenant claims remain untrusted and all UI files remain locked until the gate is green.",
   "lockedUntilCurrentGreen": [
     "durable outbox worker bank reconciliation and partner-key rotation",
     "platform UI implementation",
@@ -84,9 +84,9 @@
     "implementationPr": "#2276",
     "status": "in_progress",
     "lastFailure": {
-      "code": "AUTH_E2E_PRISMA_CLIENT_NOT_GENERATED",
-      "file": ".github/workflows/ci.yml",
-      "reason": "the isolated persistent-auth job ran ts-jest before prisma generate, so generated PrismaService methods and model delegates were absent from TypeScript",
+      "code": "AUTH_AUDIT_LOCK_VOID_DESERIALIZATION",
+      "file": "apps/api/src/modules/auth/persistent-auth.repository.ts",
+      "reason": "pg_advisory_xact_lock returns PostgreSQL void and Prisma queryRaw cannot deserialize that projected type",
       "status": "corrected_awaiting_ci"
     },
     "requiredEvidence": [
