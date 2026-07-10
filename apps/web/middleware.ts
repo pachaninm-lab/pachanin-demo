@@ -61,13 +61,16 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7',
   '/platform-v7/open',
   '/platform-v7/login',
+  '/platform-v7/forgot-password',
   '/platform-v7/register',
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
+  '/platform-v7/deal-flow',
   '/platform-v7/demo',
   '/platform-v7/contact',
   '/platform-v7/request',
+  '/platform-v7/docs',
 ]);
 
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
@@ -143,7 +146,6 @@ function isOwnerAuthorized(req: NextRequest): boolean {
 }
 
 function applySecurityHeaders(response: NextResponse, protectedResponse = false) {
-  response.headers.set('x-robots-tag', 'noindex, nofollow, noarchive, nosnippet, noimageindex');
   response.headers.set('x-content-type-options', 'nosniff');
   response.headers.set('x-frame-options', 'DENY');
   response.headers.set('referrer-policy', 'no-referrer');
@@ -151,9 +153,10 @@ function applySecurityHeaders(response: NextResponse, protectedResponse = false)
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload');
   response.headers.set(
     'content-security-policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
   );
   if (protectedResponse) {
+    response.headers.set('x-robots-tag', 'noindex, nofollow, noarchive, nosnippet, noimageindex');
     response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     response.headers.set('pragma', 'no-cache');
     response.headers.set('expires', '0');
@@ -238,7 +241,7 @@ function withRoleHeaders(req: NextRequest, role: string, protectedResponse = fal
   response.headers.set('x-pc-role', role);
   response.headers.set('x-pc-pathname', req.nextUrl.pathname);
   if (queryLocale) persistLocaleCookie(req, response, queryLocale);
-  return applySecurityHeaders(response, protectedResponse || Boolean(queryLocale));
+  return applySecurityHeaders(response, protectedResponse);
 }
 
 function persistRoleCookie(req: NextRequest, response: NextResponse, role: string) {
@@ -302,12 +305,8 @@ export async function middleware(req: NextRequest) {
   const protectedPath = isProtectedPath(p);
   const privateModeEnabled = isPrivateMode();
   if (privateModeEnabled && protectedPath) {
-    if (!hasPrivateCredentials()) {
-      return privateLockedResponse();
-    }
-    if (!isOwnerAuthorized(req)) {
-      return privateUnauthorizedResponse();
-    }
+    if (!hasPrivateCredentials()) return privateLockedResponse();
+    if (!isOwnerAuthorized(req)) return privateUnauthorizedResponse();
   }
 
   const session = parseSession(req.cookies.get(SESSION_COOKIE)?.value);
@@ -315,8 +314,9 @@ export async function middleware(req: NextRequest) {
 
   if (p.startsWith('/platform-v7')) {
     const isEntry = p === '/platform-v7';
-    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
-    persistRoleCookie(req, response, resolvedRole);
+    const publicSurface = isPlatformV7PublicPath(p);
+    const response = withRoleHeaders(req, resolvedRole, !publicSurface || (privateModeEnabled && protectedPath));
+    if (!publicSurface) persistRoleCookie(req, response, resolvedRole);
     if (isEntry) markPlatformV7Entry(response);
     try {
       if (serverCabinetRbacMode() === 'report') {
@@ -327,27 +327,25 @@ export async function middleware(req: NextRequest) {
           ?? (await readVerifiedCabinetRole(req.cookies.get(ACCESS_TOKEN_COOKIE)?.value ?? null, secret, nowSeconds));
         observeServerCabinetAccess({ pathname: p, verifiedRole });
       }
-    } catch {
-    }
+    } catch {}
     return response;
   }
 
   if (isPublic(p) || PUBLIC_API_EXACT.has(p) || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
     const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
-    persistRoleCookie(req, response, resolvedRole);
     return response;
   }
 
   if (!session) {
     if (p.startsWith('/api/')) {
-      return applySecurityHeaders(NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 }), privateModeEnabled);
+      return applySecurityHeaders(NextResponse.json({ ok: false, message: 'unauthenticated' }, { status: 401 }), true);
     }
     const u = req.nextUrl.clone();
     u.pathname = '/platform-v7';
-    return applySecurityHeaders(NextResponse.redirect(u), privateModeEnabled);
+    return applySecurityHeaders(NextResponse.redirect(u), true);
   }
 
-  return withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
+  return withRoleHeaders(req, resolvedRole, true);
 }
 
 export const config = { matcher: ['/((?!_next/static|_next/image|favicon\.ico).*)'] };
