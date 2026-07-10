@@ -1,22 +1,24 @@
 import { ArrowLeft } from 'lucide-react';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+import { isAppLocale, type AppLocale } from '@/i18n/locale';
 import { ForgotPasswordFormClient, type ForgotPasswordCopy } from './ForgotPasswordFormClient';
 
 export default async function ForgotPasswordPage() {
   const t = await getTranslations('publicEntry.forgot');
+  const localeValue = await getLocale();
+  const locale: AppLocale = isAppLocale(localeValue) ? localeValue : 'ru';
   const copy = {
-    error: t('error'),
-    requestName: t('requestName'),
-    requestMessage: t('requestMessage'),
-    successTitle: t('successTitle'),
-    successText: t('successText'),
-    backToLogin: t('backToLogin'),
     email: t('email'),
     emailPlaceholder: t('emailPlaceholder'),
-    loading: t('loading'),
     submit: t('submit'),
+    loading: t('loading'),
+    successTitle: t('successTitle'),
+    successText: t('successText'),
+    invalidEmail: t('invalidEmail'),
+    unavailable: t('unavailable'),
+    backToLogin: t('backToLogin'),
     note: t('note'),
   } satisfies ForgotPasswordCopy;
 
@@ -39,7 +41,7 @@ export default async function ForgotPasswordPage() {
           <h1 id='pc-recovery-title'>{t('title')}</h1>
           <p>{t('lead')}</p>
         </div>
-        <ForgotPasswordFormClient copy={copy} />
+        <ForgotPasswordFormClient copy={copy} locale={locale} />
       </section>
     </main>
   );
