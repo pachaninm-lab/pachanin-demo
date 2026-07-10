@@ -5,6 +5,11 @@ type PublicEntryMessages = {
     switchLabel: string;
     switchTitle: string;
   };
+  rolesCatalog: {
+    title: string;
+    text: string;
+    cta: string;
+  };
   login: {
     publicNav: string;
     brandTagline: string;
@@ -51,6 +56,11 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
       switchLabel: 'Текущий язык: {current}. Переключить на {next}',
       switchTitle: 'Язык: {current}',
     },
+    rolesCatalog: {
+      title: 'Рабочие места участников сделки',
+      text: 'Вход единый. Роль, организация и полномочия определяются сервером после проверки учётной записи.',
+      cta: 'Войти',
+    },
     login: {
       publicNav: 'Навигация страницы входа',
       brandTagline: 'Единый вход в контур сделки',
@@ -95,6 +105,11 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
       switchLabel: 'Current language: {current}. Switch to {next}',
       switchTitle: 'Language: {current}',
     },
+    rolesCatalog: {
+      title: 'Deal participant workspaces',
+      text: 'Sign-in is unified. The server resolves the role, organisation and permissions after the account is verified.',
+      cta: 'Sign in',
+    },
     login: {
       publicNav: 'Sign-in page navigation',
       brandTagline: 'Single entry to the deal circuit',
@@ -138,6 +153,11 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
     language: {
       switchLabel: '当前语言：{current}。切换到 {next}',
       switchTitle: '语言：{current}',
+    },
+    rolesCatalog: {
+      title: '交易参与方工作区',
+      text: '统一登录。服务器在验证账户后确定角色、组织和权限。',
+      cta: '登录',
     },
     login: {
       publicNav: '登录页导航',
