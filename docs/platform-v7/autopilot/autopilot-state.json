@@ -3,75 +3,65 @@
   "mode": "variant-b",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "VP-3.44 Runtime Persistence Trusted Transaction Binding.",
+  "current": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal.",
   "fullTzReadinessPercent": 85,
-  "openPr": "#2256",
+  "openPr": null,
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
     "#2250 VP-3.41 Runtime Persistence Internal Service Wiring Implementation",
     "#2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary",
-    "#2254 VP-3.43 Transaction-Local Trusted RLS Context"
+    "#2254 VP-3.43 Transaction-Local Trusted RLS Context",
+    "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding"
   ],
   "openBlockers": ["#2113", "#2115", "#2251"],
   "blockerNotes": "#2113 repository settings cleanup. #2115 blocks persistent auth-file changes. Draft #2251 remains merge-blocked by user-driven bank confirmations, synthetic bank references, cross-tenant visibility and unresolved conflicts.",
   "lockedUntilCurrentGreen": [
-    "controller/API/web wiring",
     "production migration execution",
     "production RLS policy application",
+    "controller/API/web wiring",
     "money confirmation commands",
     "persistent identity/session/MFA changes"
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "infra/sql/production-rls-policies.sql",
     "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.spec.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.repository.ts",
-    "apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.ts",
-    "apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.spec.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts"
+    "scripts/platform-v7-rls-validate.mjs",
+    "scripts/platform-v7-rls-apply-rehearsal.sh",
+    "scripts/platform-v7-rls-rollback-rehearsal.sh"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "infra/sql/production-rls-policies.sql",
     "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence-command.service.spec.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.service.spec.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.repository.ts",
-    "apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.ts",
-    "apps/api/src/modules/runtime-persistence/prisma-runtime-persistence.repository.spec.ts",
-    "apps/api/src/modules/runtime-persistence/runtime-persistence.module.ts"
+    "scripts/platform-v7-rls-validate.mjs",
+    "scripts/platform-v7-rls-apply-rehearsal.sh",
+    "scripts/platform-v7-rls-rollback-rehearsal.sh"
   ],
-  "vp343TransactionLocalTrustedRlsContext": {
-    "layer": "VP-3.43 Transaction-Local Trusted RLS Context",
-    "closedPr": "#2254",
-    "status": "merged"
-  },
   "vp344RuntimePersistenceTrustedTransactionBinding": {
     "layer": "VP-3.44 Runtime Persistence Trusted Transaction Binding",
-    "openPr": "#2256",
-    "status": "in_progress",
-    "invariants": [
-      "authenticated runtime persistence enters through RlsTransactionService",
-      "existing-record lookup uses the trusted transaction client",
-      "snapshot, outbox, audit and attempt use the same transaction client",
-      "no nested transaction inside the trusted callback",
-      "P2002 recovery re-enters a new trusted transaction",
-      "RLS initialization failure executes no persistence operation",
-      "database failures return sanitized failed receipts"
-    ]
+    "closedPr": "#2256",
+    "status": "merged"
   },
   "vp345PhysicalRlsPolicyAlignment": {
     "layer": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
-    "status": "next-after-vp344-green"
+    "status": "in_progress",
+    "invariants": [
+      "policies target canonical Prisma physical table names",
+      "RLS is enabled and forced on protected tables",
+      "policy creation is idempotent on PostgreSQL 16",
+      "legacy session-level context helper is removed",
+      "transaction-local five-field context remains canonical",
+      "production database is never modified by CI or rehearsal scripts",
+      "policy drift is statically detectable"
+    ]
+  },
+  "vp346RlsIntegrationHarness": {
+    "layer": "VP-3.46 Ephemeral PostgreSQL RLS Integration Harness",
+    "status": "next-after-vp345-green"
   },
   "forbiddenZones": [
     "apps/landing",
@@ -95,5 +85,5 @@
     "bank confirmation from user command",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. VP-3.44 binds authenticated runtime persistence to the transaction-local trusted RLS primitive. Production policies, migration application, persistent identity, external integrations and scale proof remain unconfirmed."
+  "readiness": "85% honest architectural readiness. VP-3.45 repairs policy SQL and adds non-production rehearsal controls. No production database or policy application is claimed."
 }
