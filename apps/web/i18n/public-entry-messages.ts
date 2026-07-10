@@ -29,6 +29,22 @@ type PublicEntryMessages = {
     required: string;
     unavailable: string;
     note: string;
+    mfaTitle: string;
+    mfaLead: string;
+    totpMethod: string;
+    backupMethod: string;
+    mfaCode: string;
+    mfaCodePlaceholder: string;
+    backupCodePlaceholder: string;
+    mfaSubmit: string;
+    mfaLoading: string;
+    mfaError: string;
+    mfaBack: string;
+    enrollmentTitle: string;
+    enrollmentLead: string;
+    setupSecretLabel: string;
+    backupCodesTitle: string;
+    backupCodesLead: string;
   };
   forgot: {
     publicNav: string;
@@ -78,8 +94,24 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
       forgot: 'Восстановить доступ',
       register: 'Создать учётную запись',
       required: 'Введите email и пароль.',
-      unavailable: 'Не удалось подтвердить доступ. Проверьте данные или повторите позже.',
+      unavailable: 'Не удалось войти. Проверьте данные или восстановите доступ.',
       note: 'После входа откроется рабочее место, назначенное вашей организации. Роль нельзя выбрать или изменить через URL.',
+      mfaTitle: 'Подтвердить вход',
+      mfaLead: 'Введите код второго фактора. Основная сессия будет создана только после успешной проверки.',
+      totpMethod: 'Код приложения',
+      backupMethod: 'Резервный код',
+      mfaCode: 'Код подтверждения',
+      mfaCodePlaceholder: '6 цифр',
+      backupCodePlaceholder: 'Резервный код',
+      mfaSubmit: 'Подтвердить',
+      mfaLoading: 'Проверяем код…',
+      mfaError: 'Не удалось подтвердить второй фактор. Проверьте код или начните вход заново.',
+      mfaBack: 'Вернуться к паролю',
+      enrollmentTitle: 'Подключение второго фактора',
+      enrollmentLead: 'Добавьте ключ в приложение-аутентификатор, затем введите текущий код.',
+      setupSecretLabel: 'Ключ настройки',
+      backupCodesTitle: 'Сохраните резервные коды',
+      backupCodesLead: 'Они показываются один раз. Храните их отдельно от пароля.',
     },
     forgot: {
       publicNav: 'Навигация восстановления доступа',
@@ -127,8 +159,24 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
       forgot: 'Restore access',
       register: 'Create account',
       required: 'Enter email and password.',
-      unavailable: 'Access could not be verified. Check the credentials or try again later.',
+      unavailable: 'Sign-in failed. Check the credentials or restore access.',
       note: 'After sign-in, the workspace assigned to your organisation will open. A role cannot be selected or changed through the URL.',
+      mfaTitle: 'Confirm sign-in',
+      mfaLead: 'Enter the second-factor code. The main session is created only after successful verification.',
+      totpMethod: 'Authenticator code',
+      backupMethod: 'Backup code',
+      mfaCode: 'Verification code',
+      mfaCodePlaceholder: '6 digits',
+      backupCodePlaceholder: 'Backup code',
+      mfaSubmit: 'Confirm',
+      mfaLoading: 'Verifying code…',
+      mfaError: 'The second factor could not be verified. Check the code or restart sign-in.',
+      mfaBack: 'Back to password',
+      enrollmentTitle: 'Set up a second factor',
+      enrollmentLead: 'Add the key to an authenticator app, then enter the current code.',
+      setupSecretLabel: 'Setup key',
+      backupCodesTitle: 'Save the backup codes',
+      backupCodesLead: 'They are displayed once. Store them separately from the password.',
     },
     forgot: {
       publicNav: 'Access recovery navigation',
@@ -176,8 +224,24 @@ export const publicEntryMessages: Record<AppLocale, PublicEntryMessages> = {
       forgot: '恢复访问权限',
       register: '创建账户',
       required: '请输入邮箱和密码。',
-      unavailable: '无法验证访问权限。请检查凭据或稍后重试。',
+      unavailable: '登录失败。请检查凭据或恢复访问权限。',
       note: '登录后将打开分配给贵组织的工作区。不能通过 URL 选择或更改角色。',
+      mfaTitle: '确认登录',
+      mfaLead: '请输入第二因素代码。只有验证成功后才会创建主会话。',
+      totpMethod: '身份验证器代码',
+      backupMethod: '备用代码',
+      mfaCode: '验证码',
+      mfaCodePlaceholder: '6 位数字',
+      backupCodePlaceholder: '备用代码',
+      mfaSubmit: '确认',
+      mfaLoading: '正在验证代码…',
+      mfaError: '无法验证第二因素。请检查代码或重新开始登录。',
+      mfaBack: '返回密码登录',
+      enrollmentTitle: '设置第二因素',
+      enrollmentLead: '将密钥添加到身份验证器应用，然后输入当前代码。',
+      setupSecretLabel: '设置密钥',
+      backupCodesTitle: '保存备用代码',
+      backupCodesLead: '备用代码仅显示一次。请与密码分开保存。',
     },
     forgot: {
       publicNav: '访问恢复导航',
