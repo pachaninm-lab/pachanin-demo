@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 import { ReactNode } from 'react';
 import Script from 'next/script';
 import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
-import { NextIntlClientProvider } from 'next-intl';
+import { NextIntlClientProvider, type AbstractIntlMessages } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { FeatureFlagsDevPanel } from '@/components/platform-v7/FeatureFlagsDevPanel';
 
@@ -102,12 +102,12 @@ function normalizePath(value: string | null) {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
-  const allMessages = await getMessages() as Record<string, unknown>;
+  const allMessages = await getMessages();
   const requestHeaders = headers();
   const pathname = normalizePath(requestHeaders.get('x-pc-pathname'));
   const isPublicPlatformPath = PUBLIC_PLATFORM_PATHS.has(pathname);
-  const messages = isPublicPlatformPath
-    ? { publicEntry: allMessages.publicEntry }
+  const messages: AbstractIntlMessages = isPublicPlatformPath
+    ? { publicEntry: allMessages.publicEntry as AbstractIntlMessages }
     : allMessages;
   const showDevPanel = process.env.NEXT_PUBLIC_DEV_MODE === 'true';
 
