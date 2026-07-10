@@ -44,7 +44,16 @@ jobs:
       - name: Platform-v7 unit checks
         run: |
           set -o pipefail
-          pnpm --filter @pc/web exec vitest run tests/unit/shellRolePolicy.test.ts tests/unit/platformV7DriverRoleShellGuard.test.ts tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts tests/unit/platformV7RootWorkEntry.test.ts tests/unit/roleContinuityPanel.test.tsx 2>&1 | tee /tmp/web-unit.log
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/shellRolePolicy.test.ts \
+            tests/unit/platformV7DriverRoleShellGuard.test.ts \
+            tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts \
+            tests/unit/platformV7RootWorkEntry.test.ts \
+            tests/unit/roleContinuityPanel.test.tsx \
+            tests/unit/platformV7VerifiedSession.test.ts \
+            tests/unit/platformV7CanonicalDealWorkspace.test.ts \
+            2>&1 | tee /tmp/web-unit.log
+
       - name: Upload web-unit log
         if: failure()
         uses: actions/upload-artifact@v4
