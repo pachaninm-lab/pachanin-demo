@@ -68,6 +68,7 @@ apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx
 apps/web/components/platform-v7/PlatformV7ProtectedTemplate.tsx
 apps/web/components/platform-v7/PublicLocaleSwitch.tsx
 apps/web/components/platform-v7/PublicSiteHeader.tsx
+apps/web/components/platform-v7/PublicSiteHeader.module.css
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
 
