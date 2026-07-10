@@ -3,7 +3,6 @@ import { HealthController } from './health.controller';
 import { APP_GUARD } from '@nestjs/core';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { LogMaskingMiddleware } from './common/middleware/log-masking.middleware';
-import { RlsContextMiddleware } from './common/middleware/rls-context.middleware';
 import { AppAuthGuard } from './common/guards/auth.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { EvidencePackModule } from './modules/evidence-pack/evidence-pack.module';
@@ -113,6 +112,6 @@ import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LogMaskingMiddleware, RateLimitMiddleware, RlsContextMiddleware).forRoutes('*');
+    consumer.apply(LogMaskingMiddleware, RateLimitMiddleware).forRoutes('*');
   }
 }
