@@ -146,6 +146,113 @@ CREATE TRIGGER auth_audit_events_append_only
 BEFORE UPDATE OR DELETE ON auth.audit_events
 FOR EACH ROW EXECUTE FUNCTION auth.reject_audit_mutation();
 
+CREATE TRIGGER auth_audit_events_no_truncate
+BEFORE TRUNCATE ON auth.audit_events
+FOR EACH STATEMENT EXECUTE FUNCTION auth.reject_audit_mutation();
+
+CREATE OR REPLACE FUNCTION auth.revoke_sessions_for_membership_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $$
+BEGIN
+  UPDATE auth.sessions
+  SET status = 'REVOKED',
+      revoked_at = NOW(),
+      revocation_reason = 'MEMBERSHIP_CHANGED',
+      updated_at = NOW()
+  WHERE membership_id = OLD.id
+    AND status IN ('ACTIVE', 'MFA_PENDING');
+
+  UPDATE auth.refresh_tokens rt
+  SET status = 'REVOKED',
+      revoked_at = NOW(),
+      revocation_reason = 'MEMBERSHIP_CHANGED'
+  FROM auth.sessions s
+  WHERE s.id = rt.session_id
+    AND s.membership_id = OLD.id
+    AND rt.status IN ('ACTIVE', 'ROTATED');
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER auth_revoke_on_membership_change
+AFTER UPDATE OF "userId", "organizationId", role ON public.user_orgs
+FOR EACH ROW
+WHEN (
+  OLD."userId" IS DISTINCT FROM NEW."userId"
+  OR OLD."organizationId" IS DISTINCT FROM NEW."organizationId"
+  OR OLD.role IS DISTINCT FROM NEW.role
+)
+EXECUTE FUNCTION auth.revoke_sessions_for_membership_change();
+
+CREATE OR REPLACE FUNCTION auth.revoke_sessions_for_organization_block()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $$
+BEGIN
+  UPDATE auth.sessions
+  SET status = 'REVOKED',
+      revoked_at = NOW(),
+      revocation_reason = 'ORGANIZATION_NOT_VERIFIED',
+      updated_at = NOW()
+  WHERE organization_id = NEW.id
+    AND status IN ('ACTIVE', 'MFA_PENDING');
+
+  UPDATE auth.refresh_tokens rt
+  SET status = 'REVOKED',
+      revoked_at = NOW(),
+      revocation_reason = 'ORGANIZATION_NOT_VERIFIED'
+  FROM auth.sessions s
+  WHERE s.id = rt.session_id
+    AND s.organization_id = NEW.id
+    AND rt.status IN ('ACTIVE', 'ROTATED');
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER auth_revoke_on_organization_block
+AFTER UPDATE OF status ON public.organizations
+FOR EACH ROW
+WHEN (OLD.status IS DISTINCT FROM NEW.status AND NEW.status <> 'VERIFIED')
+EXECUTE FUNCTION auth.revoke_sessions_for_organization_block();
+
+CREATE OR REPLACE FUNCTION auth.revoke_sessions_for_user_block()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $$
+BEGIN
+  UPDATE auth.sessions
+  SET status = 'REVOKED',
+      revoked_at = NOW(),
+      revocation_reason = 'USER_NOT_ACTIVE',
+      updated_at = NOW()
+  WHERE user_id = NEW.id
+    AND status IN ('ACTIVE', 'MFA_PENDING');
+
+  UPDATE auth.refresh_tokens rt
+  SET status = 'REVOKED',
+      revoked_at = NOW(),
+      revocation_reason = 'USER_NOT_ACTIVE'
+  FROM auth.sessions s
+  WHERE s.id = rt.session_id
+    AND s.user_id = NEW.id
+    AND rt.status IN ('ACTIVE', 'ROTATED');
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER auth_revoke_on_user_block
+AFTER UPDATE OF status ON public.users
+FOR EACH ROW
+WHEN (OLD.status IS DISTINCT FROM NEW.status AND NEW.status <> 'ACTIVE')
+EXECUTE FUNCTION auth.revoke_sessions_for_user_block();
+
 CREATE INDEX auth_login_throttles_locked_idx
   ON auth.login_throttles(locked_until);
 CREATE INDEX auth_sessions_user_status_idx
@@ -178,6 +285,9 @@ CREATE INDEX auth_audit_events_tenant_created_idx
 REVOKE ALL ON ALL TABLES IN SCHEMA auth FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA auth FROM PUBLIC;
 REVOKE ALL ON FUNCTION auth.reject_audit_mutation() FROM PUBLIC;
+REVOKE ALL ON FUNCTION auth.revoke_sessions_for_membership_change() FROM PUBLIC;
+REVOKE ALL ON FUNCTION auth.revoke_sessions_for_organization_block() FROM PUBLIC;
+REVOKE ALL ON FUNCTION auth.revoke_sessions_for_user_block() FROM PUBLIC;
 
 DO $grant_auth_schema$
 BEGIN

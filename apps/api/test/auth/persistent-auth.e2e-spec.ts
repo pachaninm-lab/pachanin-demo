@@ -2,7 +2,10 @@ import { createHmac } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
-import { Role } from '../../src/common/types/request-user';
+import {
+  FINANCIAL_MFA_THRESHOLD_KOPECKS,
+  Role,
+} from '../../src/common/types/request-user';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
 
@@ -135,6 +138,28 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     expect(decoded).not.toHaveProperty('role');
     expect(decoded).not.toHaveProperty('orgId');
     expect(decoded).not.toHaveProperty('tenantId');
+    const sessionId = String(decoded.sid);
+
+    const sessions = await first.prisma.$queryRaw<Array<{
+      user_id: string;
+      membership_id: string;
+      organization_id: string;
+      tenant_id: string;
+      status: string;
+    }>>`
+      SELECT user_id, membership_id, organization_id, tenant_id, status
+      FROM auth.sessions
+      WHERE id = ${sessionId}
+    `;
+    expect(sessions).toEqual([
+      {
+        user_id: identity.userId,
+        membership_id: identity.membership.id,
+        organization_id: identity.organizationId,
+        tenant_id: identity.tenantId,
+        status: 'ACTIVE',
+      },
+    ]);
 
     await expect(second.auth.verifyAccessToken(login.accessToken)).resolves.toMatchObject({
       id: identity.userId,
@@ -144,6 +169,17 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       membershipId: identity.membership.id,
       mfaVerified: false,
     });
+
+    const restarted = runtime();
+    await restarted.prisma.$connect();
+    try {
+      await expect(restarted.auth.verifyAccessToken(login.accessToken)).resolves.toMatchObject({
+        id: identity.userId,
+        membershipId: identity.membership.id,
+      });
+    } finally {
+      await restarted.prisma.$disconnect();
+    }
   });
 
   it('rotates refresh once and revokes the complete family on old-token reuse across instances', async () => {
@@ -168,6 +204,22 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     expect(sessions).toEqual([
       expect.objectContaining({ status: 'REVOKED', revocation_reason: 'REFRESH_TOKEN_REUSE_DETECTED' }),
     ]);
+  });
+
+  it('allows exactly one concurrent refresh winner and revokes its family after reuse detection', async () => {
+    const identity = await seedIdentity('concurrent-refresh', Role.FARMER);
+    const login = await first.auth.login({ email: identity.email, password: PASSWORD }) as any;
+    const attempts = await Promise.allSettled([
+      first.auth.refresh({ refreshToken: login.refreshToken }, 'auth-e2e-race-1', '127.0.0.5'),
+      second.auth.refresh({ refreshToken: login.refreshToken }, 'auth-e2e-race-2', '127.0.0.6'),
+    ]);
+
+    expect(attempts.filter((attempt) => attempt.status === 'fulfilled')).toHaveLength(1);
+    expect(attempts.filter((attempt) => attempt.status === 'rejected')).toHaveLength(1);
+    const winner = attempts.find((attempt): attempt is PromiseFulfilledResult<any> => attempt.status === 'fulfilled');
+    const rejected = attempts.find((attempt): attempt is PromiseRejectedResult => attempt.status === 'rejected');
+    expect(String(rejected?.reason?.message ?? rejected?.reason)).toMatch(/reuse detected/i);
+    await expect(second.auth.verifyAccessToken(winner!.value.accessToken)).rejects.toThrow(/revoked|not active/i);
   });
 
   it('persists brute-force lockout across a fresh AuthService instance', async () => {
@@ -207,6 +259,23 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       mfaVerifiedAt: expect.any(String),
     });
 
+    expect(() => first.auth.assertRecentFinancialMfa(
+      { ...user, mfaVerified: false, mfaVerifiedAt: undefined },
+      FINANCIAL_MFA_THRESHOLD_KOPECKS,
+    )).toThrow(/Recent MFA verification is required/i);
+    expect(() => first.auth.assertRecentFinancialMfa(
+      user,
+      FINANCIAL_MFA_THRESHOLD_KOPECKS,
+    )).not.toThrow();
+    expect(() => first.auth.assertRecentFinancialMfa(
+      { ...user, mfaVerifiedAt: new Date(Date.now() - 16 * 60 * 1000).toISOString() },
+      FINANCIAL_MFA_THRESHOLD_KOPECKS,
+    )).toThrow(/too old/i);
+    expect(() => first.auth.assertRecentFinancialMfa(
+      { ...user, mfaVerified: false, mfaVerifiedAt: undefined },
+      FINANCIAL_MFA_THRESHOLD_KOPECKS - 1,
+    )).not.toThrow();
+
     await first.auth.logout({}, user.sessionId);
     await expect(second.auth.verifyAccessToken(verified.accessToken)).rejects.toThrow(/revoked|not active/i);
   });
@@ -220,13 +289,54 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
     await first.auth.revokeUserSessions(revokedIdentity.userId, 'SECURITY_REVIEW');
     await expect(second.auth.verifyAccessToken(revokedLogin.accessToken)).rejects.toThrow(/revoked|not active/i);
 
+    const membershipIdentity = await seedIdentity('membership-change', Role.BUYER);
+    const membershipLogin = await first.auth.login({ email: membershipIdentity.email, password: PASSWORD }) as any;
+    const replacementOrganization = await first.prisma.organization.upsert({
+      where: { id: 'auth-org-membership-replacement' },
+      update: {
+        status: 'VERIFIED',
+        tenantId: 'auth-tenant-membership-replacement',
+      },
+      create: {
+        id: 'auth-org-membership-replacement',
+        inn: '770000099999',
+        name: 'Auth Membership Replacement',
+        status: 'VERIFIED',
+        tenantId: 'auth-tenant-membership-replacement',
+        kycStatus: 'APPROVED',
+        amlStatus: 'CLEAR',
+        verifiedAt: new Date(),
+      },
+    });
+    await first.prisma.userOrg.update({
+      where: { id: membershipIdentity.membership.id },
+      data: { organizationId: replacementOrganization.id },
+    });
+    await expect(second.auth.verifyAccessToken(membershipLogin.accessToken)).rejects.toThrow(/not active/i);
+    const membershipSessions = await first.prisma.$queryRaw<Array<{
+      status: string;
+      revocation_reason: string | null;
+    }>>`
+      SELECT status, revocation_reason
+      FROM auth.sessions
+      WHERE user_id = ${membershipIdentity.userId}
+    `;
+    expect(membershipSessions).toEqual([
+      expect.objectContaining({ status: 'REVOKED', revocation_reason: 'MEMBERSHIP_CHANGED' }),
+    ]);
+    await first.prisma.userOrg.update({
+      where: { id: membershipIdentity.membership.id },
+      data: { organizationId: membershipIdentity.organizationId },
+    });
+    await expect(second.auth.verifyAccessToken(membershipLogin.accessToken)).rejects.toThrow(/revoked|not active/i);
+
     const suspendedIdentity = await seedIdentity('suspended-org', Role.ELEVATOR);
     const suspendedLogin = await first.auth.login({ email: suspendedIdentity.email, password: PASSWORD }) as any;
     await first.prisma.organization.update({
       where: { id: suspendedIdentity.organizationId },
       data: { status: 'SUSPENDED' },
     });
-    await expect(second.auth.verifyAccessToken(suspendedLogin.accessToken)).rejects.toThrow(/not active/i);
+    await expect(second.auth.verifyAccessToken(suspendedLogin.accessToken)).rejects.toThrow(/revoked|not active/i);
   });
 
   it('ignores client orgId during self-registration and creates a pending organization', async () => {
@@ -255,10 +365,13 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
       id: string;
       session_id: string | null;
       user_id: string | null;
+      action: string;
+      outcome: string;
+      reason: string | null;
       hash: string;
       prev_hash: string | null;
     }>>`
-      SELECT id, session_id, user_id, hash, prev_hash
+      SELECT id, session_id, user_id, action, outcome, reason, hash, prev_hash
       FROM auth.audit_events
       ORDER BY created_at ASC, id ASC
     `;
@@ -278,6 +391,35 @@ describe('persistent PostgreSQL identity, session rotation, revocation and MFA',
         expect(chain[index].prev_hash).toBe(chain[index - 1].hash);
       }
     }
+
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ action: 'auth.login', outcome: 'SUCCESS' }),
+      expect.objectContaining({ action: 'auth.refresh', outcome: 'SUCCESS' }),
+      expect.objectContaining({
+        action: 'auth.refresh.reuse',
+        outcome: 'DENIED',
+        reason: 'REFRESH_TOKEN_REUSE_DETECTED',
+      }),
+      expect.objectContaining({ action: 'auth.mfa.verify', outcome: 'SUCCESS' }),
+      expect.objectContaining({ action: 'auth.logout', outcome: 'SUCCESS' }),
+      expect.objectContaining({ action: 'auth.sessions.revoke_all', outcome: 'SUCCESS' }),
+      expect.objectContaining({ action: 'auth.access', outcome: 'DENIED' }),
+    ]));
+
+    const beforeCount = rows.length;
+    await expect(first.prisma.$executeRaw`
+      UPDATE auth.audit_events SET reason = 'TAMPERED' WHERE id = ${rows[0].id}
+    `).rejects.toThrow(/append-only/i);
+    await expect(first.prisma.$executeRaw`
+      DELETE FROM auth.audit_events WHERE id = ${rows[0].id}
+    `).rejects.toThrow(/append-only/i);
+    await expect(first.prisma.$executeRaw`
+      TRUNCATE TABLE auth.audit_events
+    `).rejects.toThrow(/append-only/i);
+    const [{ count }] = await first.prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS count FROM auth.audit_events
+    `;
+    expect(Number(count)).toBe(beforeCount);
   });
 });
 

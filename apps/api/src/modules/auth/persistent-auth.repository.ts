@@ -351,10 +351,11 @@ export class PersistentAuthRepository {
   async getSessionContext(
     client: AuthSqlClient,
     sessionId: string,
-    userId: string,
+    userId?: string,
     forUpdate = false,
   ): Promise<SessionContextRow | null> {
     const lock = forUpdate ? Prisma.sql` FOR UPDATE OF s` : Prisma.empty;
+    const userFilter = userId ? Prisma.sql` AND s.user_id = ${userId}` : Prisma.empty;
     const rows = await client.$queryRaw<SessionContextRow[]>(Prisma.sql`
       SELECT
         u.id AS user_id,
@@ -387,8 +388,7 @@ export class PersistentAuthRepository {
       JOIN public.organizations o ON o.id = s.organization_id
         AND o."tenantId" = s.tenant_id
       JOIN auth.credential_states cs ON cs.user_id = s.user_id
-      WHERE s.id = ${sessionId}
-        AND s.user_id = ${userId}${lock}
+      WHERE s.id = ${sessionId}${userFilter}${lock}
     `);
     return rows[0] ?? null;
   }
@@ -505,14 +505,6 @@ export class PersistentAuthRepository {
       ipHash?: string | null;
     },
   ): Promise<void> {
-    await client.$executeRaw(Prisma.sql`
-      UPDATE auth.refresh_tokens
-      SET status = 'ROTATED',
-          consumed_at = NOW(),
-          replaced_by_token_id = ${input.replacementTokenId}
-      WHERE id = ${input.currentTokenId}
-        AND status = 'ACTIVE'
-    `);
     await this.createRefreshToken(client, {
       id: input.replacementTokenId,
       sessionId: input.sessionId,
@@ -523,6 +515,17 @@ export class PersistentAuthRepository {
       userAgentHash: input.userAgentHash,
       ipHash: input.ipHash,
     });
+    const rotated = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.refresh_tokens
+      SET status = 'ROTATED',
+          consumed_at = NOW(),
+          replaced_by_token_id = ${input.replacementTokenId}
+      WHERE id = ${input.currentTokenId}
+        AND status = 'ACTIVE'
+    `);
+    if (rotated !== 1) {
+      throw new Error('Refresh token rotation conflict');
+    }
     await client.$executeRaw(Prisma.sql`
       UPDATE auth.sessions
       SET last_seen_at = NOW(), updated_at = NOW()

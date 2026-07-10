@@ -1,12 +1,14 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 72,
-  "currentStep": "P0 execution/evidence scenario runner implementation boundary for issue #2096. The next code PR may only compose existing domain-core execution-simulation primitives into one deterministic controlled-pilot scenario runner and one unit test.",
-  "lastCompletedStep": "#2163 synced source-of-truth after #2154, #2155, #2158, #2162 and #2113 cleanup.",
-  "openPr": "x2165",
-  "blockedBy": ["#2115", "#2159"],
-  "nextStep": "Implement scenario-runner.ts, export it from execution-simulation/index.ts, and add one unit test. Do not touch app routes, backend auth, API, storage, package or lock files.",
-  "updatedAt": "2026-07-01T00:30:00.000Z",
+  "fullTzReadinessPercent": 87,
+  "currentStep": "Persistent Identity, Session, Refresh-Family Revocation and MFA.",
+  "lastCompletedStep": "#2274 PostgreSQL One Deal Recovery Matrix",
+  "openPr": "#2276",
+  "blockedBy": [
+    "Persistent Identity, Session, Refresh-Family Revocation and MFA. is not green/closed/mergeable. Dispatcher will not advance to durable outbox worker bank reconciliation and partner-key rotation."
+  ],
+  "nextStep": "Persistent Identity, Session, Refresh-Family Revocation and MFA.",
+  "updatedAt": "2026-07-10T16:02:10.524Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

@@ -551,7 +551,7 @@ export class AuthService {
   async logout(dto: { refreshToken?: string }, sessionId?: string) {
     if (!sessionId) return { success: true };
     await this.repository.transaction(async (tx) => {
-      const context = await this.repository.getSessionContext(tx, sessionId, '', false);
+      const context = await this.repository.getSessionContext(tx, sessionId, undefined, true);
       await this.repository.revokeSession(tx, sessionId, 'USER_LOGOUT');
       await this.audit(tx, {
         userId: context?.user_id,

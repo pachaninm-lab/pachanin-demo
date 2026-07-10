@@ -7,8 +7,6 @@
   "fullTzReadinessPercent": 87,
   "openPr": "#2276",
   "lastClosed": [
-    "#2274 PostgreSQL One Deal Recovery Matrix",
-    "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
     "#2250 VP-3.41 Runtime Persistence Internal Service Wiring Implementation",
@@ -17,18 +15,21 @@
     "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding",
     "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
     "#2260 Industrial one-deal foundation",
-    "#2267 Canonical gateway consolidation"
+    "#2267 Canonical gateway consolidation",
+    "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
+    "#2274 PostgreSQL One Deal Recovery Matrix"
   ],
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
-    "legacy one-deal seed directly constructs AuthService without repository",
+    "PostgreSQL persistent-auth exploitation gate green evidence pending",
     "production migration and RLS execution evidence",
     "live bank FGIS EDO and signature evidence",
     "production load restore and DR acceptance"
   ],
-  "blockerNotes": "PR #2276 replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. Typecheck exposed one exact test-bootstrap defect: apps/api/test/one-deal/seed.ts constructs AuthService without its persistent repository. That single file is temporarily unlocked for explicit PostgreSQL DI; production AuthService keeps mandatory repository injection. Client role, organization and tenant input remain untrusted and all UI files remain locked.",
+  "blockerNotes": "PR #2276 replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. The first PostgreSQL auth job stopped before executing tests because its isolated CI job did not generate Prisma Client. The correction adds explicit generation, FK-safe refresh rotation, immediate durable revoke on membership, organization or user authority changes, and expanded exploitation evidence. Client role, organization and tenant claims remain untrusted and all UI files remain locked until the gate is green.",
   "lockedUntilCurrentGreen": [
+    "durable outbox worker bank reconciliation and partner-key rotation",
     "platform UI implementation",
     "client role shell migration",
     "live external integration activation",
@@ -37,6 +38,9 @@
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/progress.json",
+    "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
     "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql",
@@ -49,6 +53,9 @@
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/progress.json",
+    "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
     "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql",
@@ -77,9 +84,10 @@
     "implementationPr": "#2276",
     "status": "in_progress",
     "lastFailure": {
-      "code": "AUTH_SERVICE_REPOSITORY_REQUIRED_IN_ONE_DEAL_SEED",
-      "file": "apps/api/test/one-deal/seed.ts",
-      "reason": "test bootstrap directly called new AuthService() after production service moved to explicit PersistentAuthRepository injection"
+      "code": "AUTH_E2E_PRISMA_CLIENT_NOT_GENERATED",
+      "file": ".github/workflows/ci.yml",
+      "reason": "the isolated persistent-auth job ran ts-jest before prisma generate, so generated PrismaService methods and model delegates were absent from TypeScript",
+      "status": "corrected_awaiting_ci"
     },
     "requiredEvidence": [
       "PostgreSQL users memberships sessions refresh families and MFA challenges",

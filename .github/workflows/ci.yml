@@ -168,6 +168,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm --filter @pc/api exec prisma generate --schema prisma/schema.prisma
+
       - name: Generate ephemeral auth secrets
         shell: bash
         run: |

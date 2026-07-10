@@ -12,6 +12,9 @@ BASELINE PROVEN:
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
 - docs/platform-v7/execution-queue.md
 - apps/api/prisma/schema.prisma
 - apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql
@@ -19,6 +22,7 @@ CURRENT ALLOWED:
 - apps/api/src/common/guards/**
 - apps/api/src/common/types/request-user.ts
 - apps/api/test/auth/**
+- apps/api/test/one-deal/seed.ts
 - .github/workflows/ci.yml
 
 CURRENT CRITERIA:
