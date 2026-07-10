@@ -2,7 +2,7 @@
   "project": "platform-v7",
   "mode": "industrial-one-deal-scope-unlock",
   "status": "active",
-  "currentStatus": "ready_for_implementation_review",
+  "currentStatus": "in_progress",
   "current": "Industrial One Deal Foundation: explicit implementation scope unlock.",
   "fullTzReadinessPercent": 85,
   "openPr": "#2263",
@@ -20,7 +20,7 @@
     "#2115 persistent auth write path",
     "#2261 industrial one-deal implementation review"
   ],
-  "blockerNotes": "The one-deal implementation may proceed only inside the exact allowlist below. Persistent production identity, production migration execution, live integrations and scale acceptance remain locked.",
+  "blockerNotes": "The one-deal implementation may proceed only inside the exact allowlist below. Critical product zones remain generally forbidden; only the exact files listed in allowedCurrentScope are unlocked for this layer.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
     "live external integration activation",
@@ -92,6 +92,11 @@
   ],
   "forbiddenZones": [
     "apps/landing",
+    "apps/web/app/platform-v7",
+    "apps/web/components/platform-v7",
+    "apps/web/components/v7r",
+    "apps/web/lib/platform-v7",
+    "apps/web/app/api",
     "apps/api/src/modules/auth/**",
     "package.json",
     "package-lock.json",
@@ -101,7 +106,7 @@
   ],
   "maturityLanguage": [
     "industrial-foundation-under-verification",
-    "platform-temporarily-without-confirmed-live-integrations"
+    "platform-temporarily-without-external-integrations"
   ],
   "forbiddenClaims": [
     "full production readiness",
