@@ -1,34 +1,33 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.31 Runtime Persistence Prisma Schema and Migration Scope Unlock.
+CURRENT: VP-3.32 Runtime Persistence Prisma Schema and Migration Final Gate.
 
-GOAL: Docs-only разблокировать точные schema, migration, rollback и validation files после merge #2238, не меняя их содержимое в этом слое и не заявляя применённую production migration.
+GOAL: Финально зафиксировать manual code PR gate для additive Prisma schema, migration, rollback и validation test после merge #2239, без применения migration и без runtime Postgres wiring.
 
 CURRENT STATUS:
 - VP-3.29 transaction/idempotency hardening is merged from #2237.
-- VP-3.30 Prisma schema and migration plan is merged from #2238.
-- Existing canonical Deal, OutboxEntry and AuditEvent models must be reused.
+- VP-3.30 Prisma schema/migration plan is merged from #2238.
+- VP-3.31 schema/migration scope unlock is merged from #2239.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
-UNLOCKED IMPLEMENTATION FILES FOR LATER CODE PR:
+MANUAL CODE PR SCOPE AFTER THIS GATE:
 - `apps/api/prisma/schema.prisma`
 - `apps/api/prisma/contracts/deal_workspace_runtime_snapshots.sql`
 - `apps/api/prisma/migrations/20260710060000_deal_workspace_runtime_persistence/migration.sql`
 - `apps/api/prisma/migrations/20260710060000_deal_workspace_runtime_persistence/rollback.sql`
 - `apps/web/tests/unit/platformV7DealWorkspaceRuntimePrismaSchema.test.ts`
 
-MANDATORY IMPLEMENTATION RULES:
-- Migration is additive and reuses existing Deal/OutboxEntry/AuditEvent tables.
-- New runtime snapshot and transaction attempt tables require explicit checks, foreign keys, unique keys and operational indexes.
-- No audit link without an outbox link.
-- Linkage columns and state must be DB-consistent.
-- Foreign keys preserve evidence with restrictive deletion.
-- Existing outbox/audit rows need no data backfill.
+MANDATORY RULES:
+- Additive schema only; canonical Deal/OutboxEntry/AuditEvent are reused.
+- Runtime snapshot and append-only transaction attempt models require explicit unique, check, foreign-key and index constraints.
+- Linkage state and outbox/audit foreign keys must be DB-consistent.
+- Restrictive deletion preserves evidence.
+- Existing data requires no mandatory backfill for deployment.
 - Rollback removes only migration-owned objects in dependency-safe order.
-- Merge of migration files does not mean production migration has been applied.
+- Merged migration files are not an applied production migration.
 
 STILL LOCKED:
 - runtime Postgres repository adapter;
@@ -39,17 +38,17 @@ STILL LOCKED:
 - live bank/FGIS/EDO integrations.
 
 NEXT:
-- Layer: VP-3.32 Runtime Persistence Prisma Schema and Migration Final Gate.
-- Goal: final docs-only gate before writing schema and migration code.
+- Layer: VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation.
+- Goal: prepare the manual schema/migration implementation layer after this gate is merged.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - unlocked implementation files remain unchanged in VP-3.31;
+  - final gate closes without schema/migration code changes;
+  - next manual code PR explicitly expands current scope to the five approved files;
   - critical forbidden zones remain unchanged;
-  - guard, dry-run and security checks remain green;
-  - maturity language does not claim an applied migration.
+  - maturity language does not claim an applied production migration.
 
 AFTER NEXT:
-- Layer: VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation.
-- Candidate code files are the five exact files listed above.
+- Layer: VP-3.34 Runtime Persistence Postgres Repository Adapter Plan.
+- Goal: select exact DB-backed repository adapter scope after schema/migration implementation is merged and validated.
