@@ -30,6 +30,16 @@ export interface VerifiedBankCallbackInput {
 }
 
 type JsonRecord = Record<string, unknown>;
+type IntentEntry = { readonly status: string; readonly payload: Prisma.JsonValue };
+type CanonicalDealRecord = {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly sellerOrgId: string;
+  readonly buyerOrgId: string;
+  readonly status: string;
+  readonly updatedAt: Date;
+  readonly totalKopecks: number | null;
+};
 
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable);
@@ -60,6 +70,11 @@ function isUniqueConstraintError(error: unknown): boolean {
   );
 }
 
+function errorSnapshot(error: unknown): JsonRecord {
+  if (error instanceof Error) return { name: error.name, message: error.message };
+  return { name: 'UnknownError', message: String(error) };
+}
+
 @Injectable()
 export class IndustrialDealCommandGateway {
   constructor(
@@ -68,8 +83,8 @@ export class IndustrialDealCommandGateway {
   ) {}
 
   async workspace(dealId: string, user: RequestUser) {
-    await this.assertCanonicalTenantScope(dealId, user);
-    return this.commands.workspace(dealId, user);
+    const scoped = await this.resolveCanonicalMembership(dealId, user);
+    return this.commands.workspace(dealId, scoped.user);
   }
 
   async executeUser(
@@ -91,8 +106,8 @@ export class IndustrialDealCommandGateway {
       });
     }
 
-    await this.assertCanonicalTenantScope(dealId, user);
-    return this.executeWithStrictIdempotency(dealId, actionId, dto, user);
+    const scoped = await this.resolveCanonicalMembership(dealId, user);
+    return this.executeWithStrictIdempotency(dealId, actionId, dto, scoped.user);
   }
 
   async executeBankCallback(input: VerifiedBankCallbackInput) {
@@ -157,11 +172,9 @@ export class IndustrialDealCommandGateway {
       where: { idempotencyKey: intentKey },
     });
     if (existingIntent) {
-      return this.resolveExistingIntent(existingIntent.payload, fingerprint);
+      return this.resolveExistingIntent(existingIntent, fingerprint);
     }
 
-    // A receipt created before the strict intent registry cannot prove that payload and
-    // expected version match. Failing closed is safer than replaying an unverifiable result.
     const legacyReceipt = await this.prisma.outboxEntry.findUnique({
       where: { idempotencyKey: receiptKey },
     });
@@ -189,32 +202,43 @@ export class IndustrialDealCommandGateway {
         where: { idempotencyKey: intentKey },
       });
       if (!raced) throw error;
-      return this.resolveExistingIntent(raced.payload, fingerprint);
+      return this.resolveExistingIntent(raced, fingerprint);
     }
 
-    const result = await this.commands.execute(dealId, actionId, dto, user);
-    const resultRecord = result as unknown as JsonRecord;
-    if (resultRecord.actionId !== actionId || resultRecord.commandId !== dto.commandId) {
-      throw new ConflictException({
-        code: 'IDEMPOTENCY_RESULT_MISMATCH',
-        message: 'Сохранённый результат относится к другой команде.',
+    try {
+      const result = await this.commands.execute(dealId, actionId, dto, user);
+      const resultRecord = result as unknown as JsonRecord;
+      if (resultRecord.actionId !== actionId || resultRecord.commandId !== dto.commandId) {
+        throw new ConflictException({
+          code: 'IDEMPOTENCY_RESULT_MISMATCH',
+          message: 'Сохранённый результат относится к другой команде.',
+        });
+      }
+
+      await this.prisma.outboxEntry.update({
+        where: { idempotencyKey: intentKey },
+        data: {
+          status: 'CONFIRMED',
+          confirmedAt: new Date(),
+          payload: { fingerprint, request, result: resultRecord } as Prisma.InputJsonValue,
+        },
       });
+
+      return result;
+    } catch (error) {
+      await this.prisma.outboxEntry.updateMany({
+        where: { idempotencyKey: intentKey, status: 'PENDING' },
+        data: {
+          status: 'FAILED',
+          payload: { fingerprint, request, failure: errorSnapshot(error) } as Prisma.InputJsonValue,
+        },
+      });
+      throw error;
     }
-
-    await this.prisma.outboxEntry.update({
-      where: { idempotencyKey: intentKey },
-      data: {
-        status: 'CONFIRMED',
-        confirmedAt: new Date(),
-        payload: { fingerprint, request, result: resultRecord } as Prisma.InputJsonValue,
-      },
-    });
-
-    return result;
   }
 
-  private resolveExistingIntent(payloadValue: Prisma.JsonValue, fingerprint: string) {
-    const payload = jsonRecord(payloadValue);
+  private resolveExistingIntent(entry: IntentEntry, fingerprint: string) {
+    const payload = jsonRecord(entry.payload);
     if (payload.fingerprint !== fingerprint) {
       throw new ConflictException({
         code: 'IDEMPOTENCY_KEY_REUSED',
@@ -223,8 +247,15 @@ export class IndustrialDealCommandGateway {
     }
 
     const result = payload.result;
-    if (result && typeof result === 'object' && !Array.isArray(result)) {
+    if (entry.status === 'CONFIRMED' && result && typeof result === 'object' && !Array.isArray(result)) {
       return { ...(result as JsonRecord), duplicate: true };
+    }
+
+    if (entry.status === 'FAILED') {
+      throw new ConflictException({
+        code: 'PREVIOUS_COMMAND_FAILED',
+        message: 'Предыдущая попытка с этим idempotency key завершилась ошибкой. Обновите сделку и используйте новый ключ.',
+      });
     }
 
     throw new ConflictException({
@@ -233,18 +264,40 @@ export class IndustrialDealCommandGateway {
     });
   }
 
-  private async assertCanonicalTenantScope(dealId: string, user: RequestUser) {
+  private async resolveCanonicalMembership(dealId: string, user: RequestUser) {
     const deal = await this.readCanonicalDeal(dealId);
-    if (!user.tenantId || !deal.tenantId || user.tenantId !== deal.tenantId) {
+    const memberships = await this.prisma.userOrg.findMany({
+      where: { userId: user.id },
+      include: { organization: true },
+    });
+    const membership = memberships.find(
+      (item) => item.organization.tenantId === deal.tenantId && item.role === String(user.role),
+    );
+
+    if (!membership) {
       throw new ForbiddenException({
-        code: 'TENANT_SCOPE_DENIED',
-        message: `Cross-tenant access denied for deal:${dealId}`,
+        code: 'CANONICAL_MEMBERSHIP_REQUIRED',
+        message: `No active role membership for deal tenant:${dealId}`,
       });
     }
-    return deal;
+    if (user.tenantId && user.tenantId !== membership.organization.tenantId) {
+      throw new ForbiddenException({
+        code: 'STALE_TENANT_SESSION',
+        message: 'Session tenant no longer matches the active membership.',
+      });
+    }
+
+    return {
+      deal,
+      user: {
+        ...user,
+        orgId: membership.organizationId,
+        tenantId: membership.organization.tenantId,
+      } as RequestUser,
+    };
   }
 
-  private async readCanonicalDeal(dealId: string) {
+  private async readCanonicalDeal(dealId: string): Promise<CanonicalDealRecord> {
     if (dealId !== CANONICAL_TEST_DEAL_ID) {
       throw new NotFoundException('Industrial execution workspace is enabled only for the canonical test deal.');
     }
@@ -268,7 +321,7 @@ export class IndustrialDealCommandGateway {
         message: 'Canonical deal has no tenant and cannot be exposed.',
       });
     }
-    return deal;
+    return deal as CanonicalDealRecord;
   }
 
   private validateBankCallback(input: VerifiedBankCallbackInput): void {
@@ -286,10 +339,7 @@ export class IndustrialDealCommandGateway {
     }
   }
 
-  private async recordBankFailure(
-    input: VerifiedBankCallbackInput,
-    deal: Awaited<ReturnType<IndustrialDealCommandGateway['readCanonicalDeal']>>,
-  ) {
+  private async recordBankFailure(input: VerifiedBankCallbackInput, deal: CanonicalDealRecord) {
     const callbackKey = `bank-callback-failure:${input.eventId}`;
     const existing = await this.prisma.outboxEntry.findUnique({
       where: { idempotencyKey: callbackKey },
@@ -419,6 +469,9 @@ export class IndustrialDealCommandGateway {
         message: 'Bank event ID was already used with a different payload.',
       });
     }
-    return payload.result ?? { ok: false, duplicate: true };
+    const result = payload.result;
+    return result && typeof result === 'object' && !Array.isArray(result)
+      ? { ...(result as JsonRecord), duplicate: true }
+      : { ok: false, duplicate: true };
   }
 }
