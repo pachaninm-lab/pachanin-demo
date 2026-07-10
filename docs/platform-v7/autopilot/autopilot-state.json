@@ -13,11 +13,12 @@
     "#2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary",
     "#2254 VP-3.43 Transaction-Local Trusted RLS Context",
     "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding",
-    "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal"
+    "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
+    "#2264 VP-3.46a Bootstrap Required PostgreSQL RLS Gate"
   ],
   "openBlockers": ["#2113", "#2115", "#2251"],
   "blockerNotes": "#2113 repository settings cleanup. #2115 blocks persistent auth-file changes. Draft #2251 remains merge-blocked by user-driven bank confirmations, synthetic bank references, cross-tenant visibility and unresolved conflicts.",
-  "currentDiscovery": "The initial PostgreSQL migration creates permissive legacy deals/audit/ledger policies. VP-3.46 explicitly removes and integration-tests them before canonical policies are accepted. The existing required CI workflow is used as the observable merge gate.",
+  "currentDiscovery": "The initial PostgreSQL migration creates permissive legacy deals/audit/ledger policies. VP-3.46 explicitly removes and integration-tests them before canonical policies are accepted. Bootstrap #2264 placed the PostgreSQL 16 job in the default-branch API Tests workflow so this PR now has an observable merge gate.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
     "production RLS policy application",
@@ -32,8 +33,7 @@
     "apps/api/test/rls/**",
     "scripts/platform-v7-rls-*.mjs",
     "scripts/platform-v7-rls-*.sh",
-    ".github/workflows/api-test.yml",
-    ".github/workflows/ci.yml"
+    ".github/workflows/api-test.yml"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -42,12 +42,16 @@
     "apps/api/test/rls/**",
     "scripts/platform-v7-rls-*.mjs",
     "scripts/platform-v7-rls-*.sh",
-    ".github/workflows/api-test.yml",
-    ".github/workflows/ci.yml"
+    ".github/workflows/api-test.yml"
   ],
   "vp345PhysicalRlsPolicyAlignment": {
     "layer": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
     "closedPr": "#2258",
+    "status": "merged"
+  },
+  "vp346WorkflowBootstrap": {
+    "layer": "VP-3.46a Bootstrap Required PostgreSQL RLS Gate",
+    "closedPr": "#2264",
     "status": "merged"
   },
   "vp346RlsIntegrationHarness": {
@@ -55,7 +59,7 @@
     "openPr": "#2262",
     "status": "in_progress",
     "invariants": [
-      "existing required CI workflow owns the observable merge-blocking RLS job",
+      "default-branch API Tests workflow owns the observable merge-blocking RLS job",
       "CI uses an isolated PostgreSQL 16 service with ephemeral credentials",
       "legacy permissive migration policies are removed",
       "canonical RLS SQL is applied only to the ephemeral database",
