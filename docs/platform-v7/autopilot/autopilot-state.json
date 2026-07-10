@@ -1,13 +1,12 @@
 {
   "project": "platform-v7",
-  "mode": "industrial-one-deal-recovery",
+  "mode": "persistent-identity-session-mfa",
   "status": "active",
-  "currentStatus": "ready",
-  "current": "PostgreSQL One Deal Recovery Matrix.",
+  "currentStatus": "in_progress",
+  "current": "Persistent Identity, Session, Refresh-Family Revocation and MFA.",
   "fullTzReadinessPercent": 87,
-  "openPr": "#2274",
+  "openPr": "#2276",
   "lastClosed": [
-    "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
     "#2250 VP-3.41 Runtime Persistence Internal Service Wiring Implementation",
@@ -16,82 +15,93 @@
     "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding",
     "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
     "#2260 Industrial one-deal foundation",
-    "#2267 Canonical gateway consolidation"
+    "#2267 Canonical gateway consolidation",
+    "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
+    "#2274 PostgreSQL One Deal Recovery Matrix"
   ],
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
+    "PostgreSQL persistent-auth exploitation gate green evidence pending",
     "production migration and RLS execution evidence",
     "live bank FGIS EDO and signature evidence",
     "production load restore and DR acceptance"
   ],
-  "blockerNotes": "PR #2274 is green on isolated PostgreSQL 16. It proves one valid concurrent command winner, stable partner+event callback replay, material replay mismatch rejection, out-of-order callback rollback, fresh runtime continuation, atomic forced rollback, transaction-local RLS pool isolation and deterministic full replay after CLOSED. The next authorized scope is backend-only persistent identity/session/MFA; platform UI and client authority remain locked.",
+  "blockerNotes": "PR #2276 replaces process-memory identity/session authority with PostgreSQL users, memberships, sessions, refresh families, revocation and MFA. The current PostgreSQL auth run passed seven of eight exploitation tests. The remaining concurrent-refresh test exposed a SERIALIZABLE 40001 conflict before the losing request could record refresh reuse and revoke the family. Auth transactions now retry only bounded PostgreSQL serialization/deadlock conflicts; the retry observes the rotated token and deterministically executes family-wide reuse revocation. Client role, organization and tenant claims remain untrusted and all UI files remain locked until the gate is green.",
   "lockedUntilCurrentGreen": [
-    "persistent identity session MFA changes",
+    "durable outbox worker bank reconciliation and partner-key rotation",
     "platform UI implementation",
+    "client role shell migration",
     "live external integration activation",
     "production migration execution",
     "production load and disaster-recovery claims"
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/progress.json",
+    "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
-    "apps/api/test/one-deal/**",
-    "scripts/platform-v7-one-deal-*.mjs",
-    "scripts/platform-v7-one-deal-*.sh",
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql",
+    "apps/api/src/modules/auth/**",
+    "apps/api/src/common/guards/**",
+    "apps/api/src/common/types/request-user.ts",
+    "apps/api/test/auth/**",
+    "apps/api/test/one-deal/seed.ts",
     ".github/workflows/ci.yml"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/progress.json",
+    "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
-    "apps/api/test/one-deal/**",
-    "scripts/platform-v7-one-deal-*.mjs",
-    "scripts/platform-v7-one-deal-*.sh",
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql",
+    "apps/api/src/modules/auth/**",
+    "apps/api/src/common/guards/**",
+    "apps/api/src/common/types/request-user.ts",
+    "apps/api/test/auth/**",
+    "apps/api/test/one-deal/seed.ts",
     ".github/workflows/ci.yml"
   ],
   "industrialOneDealFoundation": {
-    "layer": "Canonical PostgreSQL deal command path and shared role workspace",
-    "implementationPr": "#2260",
-    "consolidationPr": "#2267",
     "status": "merged_green",
     "canonicalDealId": "DEAL-INDUSTRIAL-001"
   },
   "industrialOneDealE2e": {
-    "layer": "Industrial One Deal Ephemeral PostgreSQL E2E Harness",
     "implementationPr": "#2270",
     "status": "merged_green",
-    "mergeCommit": "45a7fd7826eade875b81c1c631eb3a049c3fba94",
-    "canonicalDealId": "DEAL-INDUSTRIAL-001"
+    "mergeCommit": "45a7fd7826eade875b81c1c631eb3a049c3fba94"
   },
   "industrialOneDealRecovery": {
-    "layer": "Concurrency Replay Restart Rollback and RLS Pool Isolation",
     "implementationPr": "#2274",
-    "status": "green_ready_for_merge",
-    "canonicalDealId": "DEAL-INDUSTRIAL-001",
-    "resolvedDefect": {
-      "code": "BANK_CALLBACK_RECEIPT_MISSED_AFTER_STATE_CHANGE",
-      "file": "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-      "correction": "successful callbacks now use stable verified partner plus event identity while a material payload digest remains bound to commandId for replay mismatch rejection"
+    "status": "merged_green",
+    "mergeCommit": "cc10110293d9716c2f93790e7756589ead017afd"
+  },
+  "persistentIdentity": {
+    "implementationPr": "#2276",
+    "status": "in_progress",
+    "lastFailure": {
+      "code": "AUTH_REFRESH_SERIALIZATION_CONFLICT_NOT_RETRIED",
+      "file": "apps/api/src/modules/auth/persistent-auth.repository.ts",
+      "reason": "the losing concurrent refresh transaction surfaced PostgreSQL 40001 before reuse detection and family revocation could run",
+      "status": "corrected_awaiting_ci"
     },
-    "provenEvidence": [
-      "exactly one concurrent command winner and one aggregate version",
-      "duplicate bank callbacks return the original receipt without duplicate transition event ledger or outbox evidence",
-      "same partner event ID with different material payload is rejected as BANK_EVENT_REPLAY_MISMATCH",
-      "out-of-order callbacks fail with no evidence mutation",
-      "fresh Prisma and service instances continue from persisted pending operations and receipts",
-      "forced transaction failure rolls back Deal event audit ledger and outbox atomically",
-      "transaction-local RLS context does not leak through sequential or parallel pooled connection reuse",
-      "full user command and bank callback replay is deterministic and idempotent after CLOSED",
-      "evidence snapshots remain stable after replay and restart"
+    "requiredEvidence": [
+      "PostgreSQL users memberships sessions refresh families and MFA challenges",
+      "opaque session identity re-authorized against database state",
+      "refresh rotation and family-wide reuse revocation",
+      "logout password reset organization suspension and administrator revoke invalidate sessions",
+      "mandatory MFA for privileged roles and threshold financial actions",
+      "role tenant and organization derived only from persistent membership",
+      "immutable audit evidence for login refresh MFA logout revoke reuse and denial",
+      "fresh API instance continues session truth after restart"
     ]
   },
   "nextAfterCurrentGreen": [
-    "persistent identity session refresh-family revoke and MFA after blocker #2115",
-    "durable outbox worker and bank reconciliation",
+    "durable outbox worker bank reconciliation and partner-key rotation",
     "truthful driver offline acknowledgement",
     "server-rendered RU EN ZH i18n",
     "complete mobile-first design-system and role-cabinet migration",
@@ -116,7 +126,6 @@
     "apps/web/components/v7r",
     "apps/web/lib/platform-v7",
     "apps/web/app/api",
-    "apps/api/prisma/migrations/** except explicitly authorized current migration",
     "package.json",
     "package-lock.json",
     "pnpm-lock.yaml",
@@ -126,6 +135,7 @@
   "maturityLanguage": [
     "isolated-postgresql-e2e-proven",
     "isolated-recovery-matrix-proven",
+    "persistent-identity-in-progress",
     "platform-temporarily-without-external-integrations"
   ],
   "forbiddenClaims": [
@@ -136,5 +146,5 @@
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "87% honest architectural readiness. The isolated PostgreSQL lifecycle and recovery matrix are proven. Persistent identity, live integrations, production migration, load, restore and DR remain unproven. Production exploitation remains NO-GO."
+  "readiness": "87% honest architectural readiness. Deal execution and isolated recovery are proven. Persistent identity/session/MFA is in progress. Live integrations, production migration, load, restore and DR remain unproven. Production exploitation remains NO-GO."
 }

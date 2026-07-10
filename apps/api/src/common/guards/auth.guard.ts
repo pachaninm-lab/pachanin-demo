@@ -1,7 +1,13 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthService } from '../../modules/auth/auth.service';
+import { FINANCIAL_MFA_THRESHOLD_KOPECKS } from '../types/request-user';
 import { PUBLIC_ROUTE, PUBLIC_ROUTE_OPTIONS, PublicRouteOptions } from '../decorators/public.decorator';
+
+const FINANCIAL_COMMANDS_REQUIRING_RECENT_MFA = new Set([
+  'request_reserve',
+  'request_release',
+]);
 
 function enabled(flagName?: string) {
   if (!flagName) return true;
@@ -22,11 +28,11 @@ export class AppAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(PUBLIC_ROUTE, [
       context.getHandler(),
-      context.getClass()
+      context.getClass(),
     ]);
     const options = this.reflector.getAllAndOverride<PublicRouteOptions>(PUBLIC_ROUTE_OPTIONS, [
       context.getHandler(),
-      context.getClass()
+      context.getClass(),
     ]);
     if (isPublic && enabled(options?.envFlag)) return true;
 
@@ -35,6 +41,14 @@ export class AppAuthGuard implements CanActivate {
     if (!raw?.startsWith('Bearer ')) throw new UnauthorizedException('Missing bearer token');
     const token = raw.slice('Bearer '.length);
     req.user = await this.authService.verifyAccessToken(token);
+
+    const actionId = String(req.params?.actionId ?? '');
+    const bodyAmount = Number(req.body?.amountKopecks ?? req.body?.payload?.amountKopecks);
+    if (FINANCIAL_COMMANDS_REQUIRING_RECENT_MFA.has(actionId)) {
+      this.authService.assertRecentFinancialMfa(req.user, FINANCIAL_MFA_THRESHOLD_KOPECKS);
+    } else if (Number.isFinite(bodyAmount)) {
+      this.authService.assertRecentFinancialMfa(req.user, bodyAmount);
+    }
     return true;
   }
 }

@@ -28,7 +28,10 @@ export type RequestUser = {
   surfaceRole?: string;
   sessionId?: string;
   tenantId?: string;
+  membershipId?: string;
+  credentialVersion?: number;
   mfaVerified?: boolean;
+  mfaVerifiedAt?: string;
 };
 
 export const ROLES_REQUIRING_MFA: Role[] = [

@@ -1,8 +1,9 @@
-# Codex current task — P0 execution/evidence scenario runner
+# Codex current task — Persistent Identity, Session, Refresh-Family Revocation and MFA.
 
 Maturity: controlled-pilot / pre-integration.
-
-Do not overstate maturity. Do not imply external connections are active. Do not change apps/landing, app routes, backend auth, API, storage, packages or lockfiles.
+Do not overstate maturity or imply live external integrations.
+Do not change apps/landing, production UI, visual/theme/onboarding, adapters, server actions, AI gateway runtime, DB/migrations or lockfiles unless the current step explicitly allows it.
+Do not auto-merge. Human review and green checks are required.
 
 ## Source of truth
 
@@ -12,53 +13,127 @@ Do not overstate maturity. Do not imply external connections are active. Do not 
 
 ## Current step
 
-Implement one deterministic scenario runner for issue #2096.
+Persistent Identity, Session, Refresh-Family Revocation and MFA.
 
-Use existing primitives from `packages/domain-core/src/execution-simulation`:
+## Next candidate
 
-- `createExecutionSimulationState`
-- `createExecutionDomainStore`
-- `runPlatformAction`
-- `transitionDeal` guard behavior through the action engine
-- existing types and KPI helpers where useful
+durable outbox worker bank reconciliation and partner-key rotation
+
+## Transition guard
+
+- BLOCKED: Persistent Identity, Session, Refresh-Family Revocation and MFA. is not green/closed/mergeable. Dispatcher will not advance to durable outbox worker bank reconciliation and partner-key rotation.
 
 ## Allowed current scope
 
-Use only the exact paths listed in `allowedCurrentScope` in `autopilot-state.json`.
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql
+- apps/api/src/modules/auth/**
+- apps/api/src/common/guards/**
+- apps/api/src/common/types/request-user.ts
+- apps/api/test/auth/**
+- apps/api/test/one-deal/seed.ts
+- .github/workflows/ci.yml
 
-## Required implementation
+## Forbidden zones
 
-Add `packages/domain-core/src/execution-simulation/scenario-runner.ts`.
+- apps/landing
+- apps/web/app/platform-v7
+- apps/web/components/platform-v7
+- apps/web/components/v7r
+- apps/web/lib/platform-v7
+- apps/web/app/api
+- package.json
+- package-lock.json
+- pnpm-lock.yaml
+- .env files
+- production migration execution
 
-The runner must:
+## Active queue
 
-- start from a fresh simulation state;
-- run one deterministic happy path until the deal is closed;
-- collect passed step labels;
-- collect blocked guard checks;
-- return audit event count and timeline event count;
-- return a close readiness result;
-- keep all labels controlled-pilot / pre-integration;
-- avoid live integration claims.
+# platform-v7 execution queue
 
-Also export the runner from `packages/domain-core/src/execution-simulation/index.ts` and add one unit test at `apps/web/tests/unit/platformV7ExecutionScenarioRunner.test.ts`.
+CURRENT: Persistent Identity, Session, Refresh-Family Revocation and MFA.
 
-## Negative checks
+GOAL:
+Replace process-memory authentication and client-selected authority with persistent PostgreSQL identity, membership, session, refresh-family, revocation and MFA truth shared by all API instances.
 
-Cover at least:
+BASELINE PROVEN:
+- #2270 proves the canonical 12-role / 19-command Deal lifecycle on isolated PostgreSQL 16;
+- #2274 proves concurrency, replay, restart, rollback and RLS pool isolation;
+- merge baseline is `cc10110293d9716c2f93790e7756589ead017afd`.
 
-- missing reserve;
-- missing documents;
-- open dispute;
-- missing weight;
-- missing lab;
-- missing idempotency key.
+CURRENT ALLOWED:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql
+- apps/api/src/modules/auth/**
+- apps/api/src/common/guards/**
+- apps/api/src/common/types/request-user.ts
+- apps/api/test/auth/**
+- apps/api/test/one-deal/seed.ts
+- .github/workflows/ci.yml
 
-## Acceptance criteria
+CURRENT CRITERIA:
+- PostgreSQL User and UserOrg are the only identity and membership source of truth;
+- persistent Session records contain status, current refresh family, MFA state, last activity and revocation reason;
+- refresh tokens are one-time opaque secrets stored only as hashes;
+- every refresh rotates the token; reuse revokes the entire family and creates audit evidence;
+- access tokens identify an opaque session and user, while role, tenant and organization are re-derived from current DB membership;
+- logout, password reset, user block, organization suspension and administrator revoke invalidate affected sessions;
+- ADMIN, COMPLIANCE_OFFICER and ARBITRATOR require MFA; financial actions at or above the configured threshold require recent MFA;
+- TOTP secrets are encrypted at rest and backup codes are stored only as hashes;
+- login, refresh, MFA verify, logout, revoke, refresh reuse and denied authorization are audited;
+- two fresh API instances observe the same session status and refresh-family rotation;
+- migration deploy and zero schema drift pass on clean PostgreSQL 16;
+- unit, integration, restart, concurrency and security tests pass;
+- production identity-provider and production deployment claims remain forbidden.
 
-- no apps/landing diff;
-- no app route diff;
-- no backend/auth/API/storage diff;
-- no package or lockfile diff;
-- readiness remains 72%;
-- GitHub Actions and Netlify checks green before merge.
+LOCKED:
+- all platform UI and client role-selection changes;
+- apps/landing;
+- package and lockfiles;
+- live ESIA, bank, ФГИС, ЭДО and signature activation;
+- production migration execution;
+- production load, restore and DR claims.
+
+NEXT:
+- Layer: Durable Outbox Workers, Bank Reconciliation and Partner-Key Rotation.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/20260710160000_durable_outbox_reconciliation/migration.sql
+  - apps/api/src/modules/outbox/**
+  - apps/api/src/modules/settlement-engine/**
+  - apps/api/src/modules/integrations/**
+  - apps/api/test/outbox/**
+  - apps/api/test/settlement/**
+  - .github/workflows/ci.yml
+- Success criteria:
+  - outbox claiming uses database leases and `SKIP LOCKED` semantics;
+  - retries, dead-letter transition and restart recovery are deterministic;
+  - bank reconciliation compares platform operations, callbacks and ledger without mutating history;
+  - partner keys support versioning, overlap and revocation;
+  - duplicate workers and callbacks remain idempotent;
+  - production integration remains unclaimed.
+- Readiness remains 87% until persistent identity and subsequent operational layers are proven.
+
+AFTER NEXT:
+- Truthful driver offline acknowledgement and conflict handling.
+- Server-rendered RU/EN/ZH i18n.
+- Complete mobile-first design-system and role-cabinet migration with one server-derived shell, one primary action, visible blocker reason and next step, accessibility and visual regression gates.
+- Load, restore, DR and operational acceptance.
+
+
+## Implementation brief
+
+Implement Persistent Identity, Session, Refresh-Family Revocation and MFA. strictly inside the state allowed scope.

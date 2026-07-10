@@ -1,15 +1,17 @@
+import { Body, Controller, Get, Headers, HttpCode, Ip, Post, Query, UseGuards } from '@nestjs/common';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UseGuards } from '@nestjs/common';
-import { Body, Controller, Get, Headers, Ip, Post, Query, HttpCode } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { Public } from '../../common/decorators/public.decorator';
-import { RequestUser } from '../../common/types/request-user';
+import { RequestUser, Role } from '../../common/types/request-user';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { LogoutDto } from './dto/logout.dto';
+import { MfaVerifyDto } from './dto/mfa-verify.dto';
+import { RevokeUserSessionsDto } from './dto/revoke-user-sessions.dto';
 
 @UseGuards(RolesGuard)
 @Roles('ANY_AUTHENTICATED')
@@ -38,9 +40,22 @@ export class AuthController {
     return this.authService.refresh(dto, userAgent, ip);
   }
 
+  @Public()
+  @RateLimit({ name: 'auth_mfa_verify', scope: 'ip', limit: 10, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_MFA_VERIFY', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
+  @Post('mfa/verify')
+  verifyMfa(@Body() dto: MfaVerifyDto, @Headers('user-agent') userAgent?: string, @Ip() ip?: string) {
+    return this.authService.verifyMfa(dto, userAgent, ip);
+  }
+
   @Post('logout')
-  logout(@Body() dto: RefreshDto, @CurrentUser() user: RequestUser) {
+  logout(@Body() dto: LogoutDto, @CurrentUser() user: RequestUser) {
     return this.authService.logout(dto, user?.sessionId);
+  }
+
+  @Post('sessions/revoke-user')
+  @Roles(Role.ADMIN)
+  revokeUserSessions(@Body() dto: RevokeUserSessionsDto) {
+    return this.authService.revokeUserSessions(dto.userId, dto.reason || 'ADMIN_REVOKE');
   }
 
   @Get('me')
@@ -59,7 +74,7 @@ export class AuthController {
   sberBusinessCallback(
     @Query() query: { code?: string; state?: string },
     @Headers('user-agent') userAgent?: string,
-    @Ip() ip?: string
+    @Ip() ip?: string,
   ) {
     return this.authService.sberBusinessCallback(query, userAgent, ip);
   }

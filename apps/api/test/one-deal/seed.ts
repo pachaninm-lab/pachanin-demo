@@ -1,5 +1,6 @@
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
+import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
 import { CanonicalTestDealSeedService } from '../../src/modules/deals/canonical-test-deal.seed';
 import { CANONICAL_TEST_DEAL_ID } from '../../src/modules/deals/deal-command.policy';
 
@@ -14,7 +15,8 @@ async function main(): Promise<void> {
   const prisma = new PrismaService();
   await prisma.$connect();
   try {
-    const auth = new AuthService();
+    const authRepository = new PersistentAuthRepository(prisma);
+    const auth = new AuthService(authRepository);
     const seed = new CanonicalTestDealSeedService(prisma, auth);
     await seed.onModuleInit();
 

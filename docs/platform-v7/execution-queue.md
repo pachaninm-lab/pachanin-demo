@@ -1,88 +1,77 @@
 # platform-v7 execution queue
 
-CURRENT: PostgreSQL One Deal Recovery Matrix.
+CURRENT: Persistent Identity, Session, Refresh-Family Revocation and MFA.
 
-STATUS: READY FOR MERGE.
+GOAL:
+Replace process-memory authentication and client-selected authority with persistent PostgreSQL identity, membership, session, refresh-family, revocation and MFA truth shared by all API instances.
 
 BASELINE PROVEN:
-- PR #2270 merged to `main` as `45a7fd7826eade875b81c1c631eb3a049c3fba94`;
-- eight forward-only migrations apply to clean PostgreSQL 16 with zero schema drift;
-- strict tenant/object RLS is enforced through a non-owner `NOSUPERUSER NOBYPASSRLS` application role;
-- one canonical Deal has 12 ACTIVE DealParticipant assignments;
-- all 19 commands execute to `CLOSED` with signed bank callbacks and full reconciliation.
-
-RECOVERY EVIDENCE PROVEN IN PR #2274:
-- simultaneous commands preserve one aggregate version and exactly one valid winner;
-- successful bank callbacks use stable verified partner + event identity rather than mutable Deal version;
-- duplicate callback returns the original receipt without a second event, ledger entry, outbox write or transition;
-- same partner event ID with changed material payload fails as `BANK_EVENT_REPLAY_MISMATCH`;
-- out-of-order release callback fails before any mutation;
-- fresh Prisma/service/gateway instances continue from persisted Deal, pending BankOperation, outbox and receipt state;
-- forced failure rolls back Deal, DealEvent, AuditEvent, ledger and outbox atomically;
-- sequential and parallel transaction-local RLS contexts do not leak tenant, organization, role or session through the pool;
-- full command and callback rerun after `CLOSED` is deterministic and idempotent;
-- evidence snapshots remain byte-for-byte stable across replay and restart checks.
-
-CORRECTED PRODUCT DEFECT:
-- previous generic callback fingerprint included mutable `expectedUpdatedAt`;
-- the same verified event therefore missed its original receipt after `RESERVE_REQUESTED → RESERVED`;
-- correction keeps event identity stable by verified partner + event ID and binds the material payload hash to commandId;
-- HMAC verification, exact pending operation binding and state-machine rules remain unchanged.
+- #2270 proves the canonical 12-role / 19-command Deal lifecycle on isolated PostgreSQL 16;
+- #2274 proves concurrency, replay, restart, rollback and RLS pool isolation;
+- merge baseline is `cc10110293d9716c2f93790e7756589ead017afd`.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
 - docs/platform-v7/execution-queue.md
-- apps/api/src/modules/deals/industrial-deal-command.gateway.ts
-- apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts
-- apps/api/test/one-deal/**
-- scripts/platform-v7-one-deal-*.mjs
-- scripts/platform-v7-one-deal-*.sh
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql
+- apps/api/src/modules/auth/**
+- apps/api/src/common/guards/**
+- apps/api/src/common/types/request-user.ts
+- apps/api/test/auth/**
+- apps/api/test/one-deal/seed.ts
 - .github/workflows/ci.yml
 
+CURRENT CRITERIA:
+- PostgreSQL User and UserOrg are the only identity and membership source of truth;
+- persistent Session records contain status, current refresh family, MFA state, last activity and revocation reason;
+- refresh tokens are one-time opaque secrets stored only as hashes;
+- every refresh rotates the token; reuse revokes the entire family and creates audit evidence;
+- access tokens identify an opaque session and user, while role, tenant and organization are re-derived from current DB membership;
+- logout, password reset, user block, organization suspension and administrator revoke invalidate affected sessions;
+- ADMIN, COMPLIANCE_OFFICER and ARBITRATOR require MFA; financial actions at or above the configured threshold require recent MFA;
+- TOTP secrets are encrypted at rest and backup codes are stored only as hashes;
+- login, refresh, MFA verify, logout, revoke, refresh reuse and denied authorization are audited;
+- two fresh API instances observe the same session status and refresh-family rotation;
+- migration deploy and zero schema drift pass on clean PostgreSQL 16;
+- unit, integration, restart, concurrency and security tests pass;
+- production identity-provider and production deployment claims remain forbidden.
+
 LOCKED:
-- every production file outside the exact gateway and unit-spec listed above;
-- production migration or RLS execution;
-- persistent identity/session/revocation/MFA implementation until this PR merges;
-- live bank, ФГИС, ЭДО and signature activation;
-- platform UI implementation during this recovery proof;
+- all platform UI and client role-selection changes;
 - apps/landing;
 - package and lockfiles;
-- production load, restore and disaster-recovery claims.
+- live ESIA, bank, ФГИС, ЭДО and signature activation;
+- production migration execution;
+- production load, restore and DR claims.
 
 NEXT:
-- Layer: Persistent Identity, Session, Refresh-Family Revocation and MFA.
+- Layer: Durable Outbox Workers, Bank Reconciliation and Partner-Key Rotation.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
   - apps/api/prisma/schema.prisma
-  - apps/api/prisma/migrations/20260710150000_persistent_identity_sessions/migration.sql
-  - apps/api/src/modules/auth/**
-  - apps/api/src/common/guards/**
-  - apps/api/src/common/types/request-user.ts
-  - apps/api/test/auth/**
+  - apps/api/prisma/migrations/20260710160000_durable_outbox_reconciliation/migration.sql
+  - apps/api/src/modules/outbox/**
+  - apps/api/src/modules/settlement-engine/**
+  - apps/api/src/modules/integrations/**
+  - apps/api/test/outbox/**
+  - apps/api/test/settlement/**
   - .github/workflows/ci.yml
 - Success criteria:
-  - persistent PostgreSQL users, memberships, sessions and refresh-token families replace process memory as identity truth;
-  - access tokens carry only opaque session identity and are re-authorized against persistent session and membership state;
-  - refresh rotation invalidates the previous token and reuse revokes the complete token family;
-  - logout, password reset, organization suspension and administrator revoke invalidate affected sessions deterministically;
-  - privileged roles and threshold financial actions require verified MFA state from the persistent session;
-  - role, tenant and organization are derived from server-side membership, never URL, request DTO, localStorage or client cookies;
-  - login, refresh, MFA verify, logout, revoke, reuse detection and denied access produce immutable audit evidence;
-  - horizontal API instances share the same PostgreSQL session truth and survive process restart;
-  - migration deploy, zero drift, unit, integration, security and restart tests are mandatory;
-  - production readiness and live identity-provider integration remain unclaimed.
-- Readiness remains 87% honest architectural readiness until persistent identity, live integrations, production load, restore and DR are independently proven.
+  - outbox claiming uses database leases and `SKIP LOCKED` semantics;
+  - retries, dead-letter transition and restart recovery are deterministic;
+  - bank reconciliation compares platform operations, callbacks and ledger without mutating history;
+  - partner keys support versioning, overlap and revocation;
+  - duplicate workers and callbacks remain idempotent;
+  - production integration remains unclaimed.
+- Readiness remains 87% until persistent identity and subsequent operational layers are proven.
 
 AFTER NEXT:
-- Durable outbox workers, bank reconciliation and partner-key rotation.
 - Truthful driver offline acknowledgement and conflict handling.
 - Server-rendered RU/EN/ZH i18n.
-- Complete mobile-first design-system and role-cabinet migration:
-  - one server-derived shell;
-  - one visual hierarchy;
-  - one primary action per state;
-  - status, blocker reason and next step visible without interpretation;
-  - removal of URL-derived role, client authority and CSS/hotfix cascade;
-  - accessibility and visual-regression acceptance.
-- Load, restore, DR and operational acceptance gates.
+- Complete mobile-first design-system and role-cabinet migration with one server-derived shell, one primary action, visible blocker reason and next step, accessibility and visual regression gates.
+- Load, restore, DR and operational acceptance.
