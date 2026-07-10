@@ -1,0 +1,31 @@
+name: export exact main c520
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact merged main
+        uses: actions/checkout@v4
+        with:
+          ref: c520c59b32df290b8ce1a72f6601e3a4ee326584
+          fetch-depth: 1
+
+      - name: Pack repository source
+        run: tar --exclude=.git --exclude=node_modules -czf /tmp/pachanin-demo-c520.tar.gz .
+
+      - name: Upload source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pachanin-demo-c520
+          path: /tmp/pachanin-demo-c520.tar.gz
+          if-no-files-found: error
+          retention-days: 1
