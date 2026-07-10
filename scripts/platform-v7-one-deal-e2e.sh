@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ADMIN_URL="${ONE_DEAL_ADMIN_URL:?ONE_DEAL_ADMIN_URL is required}"
 APP_URL="${ONE_DEAL_APP_URL:?ONE_DEAL_APP_URL is required}"
 EVIDENCE_LOG="${ONE_DEAL_EVIDENCE_LOG:-/tmp/platform-v7-one-deal-e2e.log}"
+DRIFT_SQL="${ONE_DEAL_DRIFT_SQL:-/tmp/platform-v7-one-deal-schema-drift.sql}"
 
 if [[ "${NODE_ENV:-}" == "production" ]]; then
   echo "Refusing one-deal E2E with NODE_ENV=production" >&2
@@ -32,11 +33,31 @@ command -v pnpm >/dev/null || { echo "pnpm is required" >&2; exit 2; }
 
 mkdir -p "$(dirname "$EVIDENCE_LOG")"
 : > "$EVIDENCE_LOG"
+: > "$DRIFT_SQL"
 exec > >(tee -a "$EVIDENCE_LOG") 2>&1
 
 cd "$ROOT_DIR"
 echo "[one-deal] applying Prisma migrations to isolated PostgreSQL"
 DATABASE_URL="$ADMIN_URL" pnpm --filter @pc/api exec prisma migrate deploy --schema prisma/schema.prisma
+
+echo "[one-deal] checking complete migration-to-schema drift"
+set +e
+DATABASE_URL="$ADMIN_URL" pnpm --filter @pc/api exec prisma migrate diff \
+  --from-url "$ADMIN_URL" \
+  --to-schema-datamodel prisma/schema.prisma \
+  --script \
+  --exit-code > "$DRIFT_SQL"
+DRIFT_EXIT=$?
+set -e
+cat "$DRIFT_SQL"
+if [[ "$DRIFT_EXIT" -eq 2 ]]; then
+  echo "[one-deal] migration history does not produce the canonical Prisma schema" >&2
+  exit 1
+fi
+if [[ "$DRIFT_EXIT" -ne 0 ]]; then
+  echo "[one-deal] Prisma drift command failed with exit code $DRIFT_EXIT" >&2
+  exit "$DRIFT_EXIT"
+fi
 
 echo "[one-deal] generating Prisma client from the migrated PostgreSQL schema"
 DATABASE_URL="$ADMIN_URL" pnpm --filter @pc/api exec prisma generate --schema prisma/schema.prisma
