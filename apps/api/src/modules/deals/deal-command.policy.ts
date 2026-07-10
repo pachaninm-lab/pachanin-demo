@@ -23,6 +23,7 @@ export const DEAL_ACTION_IDS = [
 ] as const;
 
 export type DealActionId = typeof DEAL_ACTION_IDS[number];
+export type DealActionSource = 'USER' | 'BANK_CALLBACK';
 
 export interface DealActionDefinition {
   id: DealActionId;
@@ -31,6 +32,7 @@ export interface DealActionDefinition {
   stage: string;
   label: string;
   roles: readonly string[];
+  source?: DealActionSource;
   externalOperation?: 'BANK_RESERVE_REQUEST' | 'BANK_RELEASE_REQUEST';
 }
 
@@ -41,7 +43,7 @@ export const DEAL_ACTIONS: readonly DealActionDefinition[] = [
   { id: 'seller_sign_contract', from: 'AUCTION_WON', to: 'SELLER_SIGNED', stage: 'Договор', label: 'Подписать договор продавцом', roles: ['FARMER', 'ADMIN'] },
   { id: 'buyer_sign_contract', from: 'SELLER_SIGNED', to: 'CONTRACT_SIGNED', stage: 'Договор', label: 'Подписать договор покупателем', roles: ['BUYER', 'ADMIN'] },
   { id: 'request_reserve', from: 'CONTRACT_SIGNED', to: 'RESERVE_REQUESTED', stage: 'Деньги', label: 'Запросить резерв оплаты', roles: ['BUYER', 'ACCOUNTING', 'ADMIN'], externalOperation: 'BANK_RESERVE_REQUEST' },
-  { id: 'confirm_reserve', from: 'RESERVE_REQUESTED', to: 'RESERVED', stage: 'Деньги', label: 'Подтвердить резерв банка', roles: ['ACCOUNTING', 'ADMIN'] },
+  { id: 'confirm_reserve', from: 'RESERVE_REQUESTED', to: 'RESERVED', stage: 'Деньги', label: 'Получить подтверждение резерва банка', roles: ['BANK_CALLBACK'], source: 'BANK_CALLBACK' },
   { id: 'assign_logistics', from: 'RESERVED', to: 'LOGISTICS_ASSIGNED', stage: 'Логистика', label: 'Назначить перевозку', roles: ['LOGISTICIAN', 'SUPPORT_MANAGER', 'ADMIN'] },
   { id: 'confirm_loading', from: 'LOGISTICS_ASSIGNED', to: 'LOADED', stage: 'Логистика', label: 'Подтвердить погрузку', roles: ['DRIVER', 'LOGISTICIAN', 'ADMIN'] },
   { id: 'start_transit', from: 'LOADED', to: 'IN_TRANSIT', stage: 'Логистика', label: 'Начать рейс', roles: ['DRIVER', 'LOGISTICIAN', 'ADMIN'] },
@@ -52,7 +54,7 @@ export const DEAL_ACTIONS: readonly DealActionDefinition[] = [
   { id: 'accept_delivery', from: 'QUALITY_ACCEPTED', to: 'DELIVERY_ACCEPTED', stage: 'Приёмка', label: 'Принять поставку', roles: ['BUYER', 'ADMIN'] },
   { id: 'complete_documents', from: 'DELIVERY_ACCEPTED', to: 'DOCUMENTS_COMPLETE', stage: 'Документы', label: 'Закрыть комплект документов', roles: ['FARMER', 'BUYER', 'SUPPORT_MANAGER', 'ADMIN'] },
   { id: 'request_release', from: 'DOCUMENTS_COMPLETE', to: 'RELEASE_REQUESTED', stage: 'Расчёт', label: 'Запросить выплату', roles: ['ACCOUNTING', 'ADMIN'], externalOperation: 'BANK_RELEASE_REQUEST' },
-  { id: 'confirm_release', from: 'RELEASE_REQUESTED', to: 'RELEASED', stage: 'Расчёт', label: 'Подтвердить выплату банка', roles: ['ACCOUNTING', 'ADMIN'] },
+  { id: 'confirm_release', from: 'RELEASE_REQUESTED', to: 'RELEASED', stage: 'Расчёт', label: 'Получить подтверждение выплаты банка', roles: ['BANK_CALLBACK'], source: 'BANK_CALLBACK' },
   { id: 'close_deal', from: 'RELEASED', to: 'CLOSED', stage: 'Закрытие', label: 'Закрыть сделку', roles: ['SUPPORT_MANAGER', 'ADMIN'] },
 ] as const;
 
@@ -82,6 +84,7 @@ export function buildDealSpine(status: string) {
     label: action.label,
     from: action.from,
     to: action.to,
+    source: action.source ?? 'USER',
     state: closed || (activeIndex >= 0 && index < activeIndex)
       ? 'done'
       : activeIndex === index
