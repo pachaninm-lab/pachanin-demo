@@ -5,11 +5,12 @@ CURRENT: Industrial One Deal Ephemeral PostgreSQL E2E Harness.
 GOAL: Доказать в CI на изолированном PostgreSQL 16, что одна каноническая сделка `DEAL-INDUSTRIAL-001` проходит всеми ролями от DRAFT до CLOSED без ручного изменения БД, fake-live и production credentials.
 
 CURRENT FAILURE:
-- Семь миграций применяются на чистом PostgreSQL 16, zero drift подтверждён.
-- Legacy allow-all policies удалены; SQL wrong-tenant proof теперь возвращает ноль строк.
-- Строгий RLS закономерно блокирует прямое чтение Deal без trusted context.
-- Seller/buyer columns недостаточны для законного доступа логистики, водителя, элеватора, лаборатории, банка, сюрвейера, арбитра, оператора и руководителя.
-- Correction: добавить нормализованный `DealParticipant` с FK, tenant, user, organization, role, access level и lifecycle status. Никаких tenant-wide bypass или JSON-прав в `meta`.
+- Восемь миграций применяются на чистом PostgreSQL 16, zero drift подтверждён.
+- Legacy allow-all policies удалены; SQL и Prisma wrong-tenant proof возвращают ноль строк.
+- 12 ACTIVE `DealParticipant` назначений подтверждены; руководитель имеет только READ.
+- Полный exploitation gate с 19 командами до CLOSED зелёный.
+- Остался legacy unit fixture gateway: он не передавал verified tenant и не моделировал transaction-local DealParticipant/Organization/Deal reads.
+- Correction: обновить ровно этот spec под fail-closed DB-derived scope.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
@@ -24,6 +25,7 @@ CURRENT ALLOWED:
 - apps/api/prisma/migrations/20260710120000_deal_participants/migration.sql
 - apps/api/src/modules/deals/canonical-test-deal.seed.ts
 - apps/api/src/modules/deals/industrial-deal-command.gateway.ts
+- apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts
 - apps/api/test/one-deal/**
 - apps/web/tests/e2e/one-deal/**
 - scripts/platform-v7-one-deal-*.mjs
@@ -35,13 +37,14 @@ CURRENT CRITERIA:
 - legacy allow-all policies are absent;
 - application datasource is a separate non-owner `NOSUPERUSER NOBYPASSRLS` role;
 - SQL-level and Prisma-level wrong-tenant reads return zero rows;
-- each role sees Deal only through an ACTIVE `DealParticipant` assignment or an explicit seller/buyer/privileged rule;
+- each role sees Deal only through an ACTIVE `DealParticipant` assignment or an explicit server-only bank callback path;
 - user/org/role are derived from DB membership and DealParticipant, not URL/cookie/client storage;
 - EXECUTIVE receives READ access; operational roles receive WORK/APPROVE only where required;
 - all 19 commands pass in order without direct database mutation;
 - reserve and release advance only through signed callback fixtures bound to exact pending operations;
 - duplicate, reused idempotency material, stale version and concurrent update fail deterministically;
 - CLOSED reconciles Deal, participants, events, audit, outbox, payment, ledger, shipment, acceptance, lab and documents;
+- legacy unit tests enforce the same fail-closed gateway contract;
 - production readiness and live integration completion remain unclaimed.
 
 DONE:
