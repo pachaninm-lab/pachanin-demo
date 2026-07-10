@@ -12,20 +12,21 @@ CURRENT ALLOWED:
 - scripts/platform-v7-rls-*.mjs
 - scripts/platform-v7-rls-*.sh
 - .github/workflows/api-test.yml
-- .github/workflows/ci.yml
 
 CURRENT DISCOVERY:
 - `0001_postgresql_initial` создаёт permissive policies `deals_app_access`, `audit_insert_only`, `audit_select_all`, `ledger_insert_only`, `ledger_select_all`;
 - permissive PostgreSQL policies складываются через OR, поэтому новые restrictive-by-content policies не защищают данные, пока legacy policies явно не удалены;
 - новый workflow-файл в PR не является надёжным merge gate до его появления в default branch;
-- `API Tests` после изменения собственного workflow не дал наблюдаемого запуска на head commit, поэтому единственный authoritative integration job переносится в уже стабильно запускаемый обязательный `CI` workflow;
+- bootstrap #2264 уже добавил PostgreSQL 16 job в default-branch `API Tests`; текущий PR заменяет его static fallback на обязательный full integration runner;
+- historical initial SQL содержит ручной INSERT в отсутствующую `_prisma_migrations`; harness отделяет schema replay от migration-engine bookkeeping и проверяет только физическую PostgreSQL schema и RLS behavior;
 - clean local Docker bootstrap монтирует RLS SQL как init script до подтверждённого создания schema; это отдельный VP-3.47, а не повод применять что-либо в production.
 
 CURRENT CRITERIA:
 - canonical policy SQL explicitly drops every permissive legacy policy;
-- existing required `CI` workflow owns the single authoritative RLS integration job;
+- default-branch required `API Tests` workflow owns the single authoritative RLS integration job;
 - CI starts a fresh PostgreSQL 16 service using only job-local credentials;
-- only the initial schema migration and runtime persistence migration are applied to the ephemeral database;
+- only the schema body of the initial PostgreSQL migration and runtime persistence migration are applied to the ephemeral database;
+- Prisma tracking metadata is not fabricated by the RLS harness;
 - canonical RLS SQL is applied after schema creation;
 - a non-superuser, non-owner, `NOBYPASSRLS` role executes all assertions;
 - two tenants and four organizations are seeded with one deal per tenant;
@@ -44,6 +45,7 @@ DONE:
 - #2254 VP-3.43 Transaction-Local Trusted RLS Context
 - #2256 VP-3.44 Runtime Persistence Trusted Transaction Binding
 - #2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal
+- #2264 VP-3.46a Bootstrap Required PostgreSQL RLS Gate
 
 LOCKED:
 - production migration execution;
