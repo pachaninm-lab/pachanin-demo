@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { BrandMark } from '@/components/v7r/BrandMark';
+import { PublicLocaleSwitch } from '@/components/platform-v7/PublicLocaleSwitch';
 
 export const PUBLIC_SITE_HEADER_HEIGHT = 64;
 
 /**
  * Single canonical public header shared by every public platform-v7 surface.
- * The caller supplies the locale control so server-rendered pages do not need
- * a client-side i18n boundary solely for language navigation.
+ * Server-rendered pages may inject a plain locale link and avoid a client i18n
+ * boundary. Interactive auth pages retain the canonical client switch fallback.
  */
 export function PublicSiteHeader({
   tagline,
@@ -18,7 +19,7 @@ export function PublicSiteHeader({
 }: {
   tagline?: string;
   nav?: ReactNode;
-  localeControl: ReactNode;
+  localeControl?: ReactNode;
   actions: ReactNode;
   ariaLabel?: string;
 }) {
@@ -33,7 +34,7 @@ export function PublicSiteHeader({
       </Link>
       {nav ? <nav className='pc-site-nav' aria-label='Разделы'>{nav}</nav> : null}
       <div className='pc-site-actions'>
-        {localeControl}
+        {localeControl ?? <PublicLocaleSwitch />}
         {actions}
       </div>
     </header>
