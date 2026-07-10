@@ -65,27 +65,32 @@ export class RateLimitService implements OnModuleInit {
   }
 
   async verifyBackendBoundary(): Promise<BackendBoundaryRow> {
-    const rows = await this.prisma.$queryRaw<BackendBoundaryRow[]>(Prisma.sql`
-      WITH target AS (
+    let rows: BackendBoundaryRow[];
+    try {
+      rows = await this.prisma.$queryRaw<BackendBoundaryRow[]>(Prisma.sql`
+        WITH target AS (
+          SELECT
+            to_regprocedure('security.consume_rate_limit(text,text,integer,integer,integer)') AS function_oid,
+            to_regclass('security.rate_limit_buckets') AS table_oid
+        )
         SELECT
-          to_regprocedure('security.consume_rate_limit(text,text,integer,integer,integer)') AS function_oid,
-          to_regclass('security.rate_limit_buckets') AS table_oid
-      )
-      SELECT
-        current_user,
-        function_oid IS NOT NULL AS function_exists,
-        table_oid IS NOT NULL AS table_exists,
-        has_schema_privilege(current_user, 'security', 'USAGE') AS schema_usage,
-        CASE
-          WHEN function_oid IS NULL THEN FALSE
-          ELSE has_function_privilege(current_user, function_oid, 'EXECUTE')
-        END AS can_execute,
-        CASE
-          WHEN table_oid IS NULL THEN FALSE
-          ELSE has_table_privilege(current_user, table_oid, 'SELECT')
-        END AS can_select_table
-      FROM target
-    `);
+          current_user,
+          function_oid IS NOT NULL AS function_exists,
+          table_oid IS NOT NULL AS table_exists,
+          has_schema_privilege(current_user, 'security', 'USAGE') AS schema_usage,
+          CASE
+            WHEN function_oid IS NULL THEN FALSE
+            ELSE has_function_privilege(current_user, function_oid, 'EXECUTE')
+          END AS can_execute,
+          CASE
+            WHEN table_oid IS NULL THEN FALSE
+            ELSE has_table_privilege(current_user, table_oid, 'SELECT')
+          END AS can_select_table
+        FROM target
+      `);
+    } catch {
+      throw new Error('Rate-limit PostgreSQL principal boundary is invalid or inaccessible.');
+    }
     const row = rows[0];
     if (
       !row
