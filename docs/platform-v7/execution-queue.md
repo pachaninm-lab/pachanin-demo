@@ -5,15 +5,17 @@ CURRENT: Industrial One Deal Ephemeral PostgreSQL E2E Harness.
 GOAL: Доказать в CI на изолированном PostgreSQL 16, что одна каноническая сделка `DEAL-INDUSTRIAL-001` проходит всеми ролями от DRAFT до CLOSED без ручного изменения БД, fake-live и production credentials.
 
 CURRENT FAILURE:
-- Stage: `prisma migrate deploy`.
-- Code: `P3019`.
-- Exact conflict: canonical Prisma datasource uses `postgresql`, while `apps/api/prisma/migrations/migration_lock.toml` declares `sqlite`.
-- Correction scope: only `migration_lock.toml`; migration SQL stays locked until a subsequent PostgreSQL deploy proves a concrete dialect error.
+- Provider lock corrected to `postgresql`.
+- PostgreSQL applied `0001_postgresql_initial`.
+- Migration `20260522083644_init` then failed with `P3018 / SQLSTATE 42704` on SQLite type `DATETIME`.
+- The migration also recreates outbox, dispute, evidence and audit tables already created by the PostgreSQL baseline.
+- Correction: preserve the migration directory and identifier as a documented PostgreSQL no-op; do not delete history and do not use `migrate resolve`.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 - apps/api/prisma/migrations/migration_lock.toml
+- apps/api/prisma/migrations/20260522083644_init/migration.sql
 - apps/api/test/one-deal/**
 - apps/web/tests/e2e/one-deal/**
 - scripts/platform-v7-one-deal-*.mjs
@@ -22,7 +24,7 @@ CURRENT ALLOWED:
 
 CURRENT CRITERIA:
 - visible and mandatory `CI` workflow starts an isolated PostgreSQL 16 service with ephemeral credentials;
-- `prisma migrate deploy` succeeds against the empty PostgreSQL database without `db push` or manual schema creation;
+- `prisma migrate deploy` applies all five migrations on an empty PostgreSQL database without `db push`, manual DDL or `migrate resolve`;
 - schema, migrations and RLS policies are applied only to the ephemeral database;
 - canonical seed creates one tenant, organizations, 12 human role memberships and one deal ID;
 - all roles read the same facts and version of `DEAL-INDUSTRIAL-001`;
@@ -49,7 +51,7 @@ DONE:
 - #2267 Canonical gateway consolidation
 
 LOCKED:
-- all migration SQL directories other than `migration_lock.toml` until the next exact error;
+- all migration SQL directories other than `20260522083644_init` until the next exact error;
 - production migration execution;
 - production RLS policy application;
 - persistent identity/session/revocation/MFA files;
