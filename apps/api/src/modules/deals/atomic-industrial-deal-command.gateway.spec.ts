@@ -122,4 +122,15 @@ describe('AtomicIndustrialDealCommandGateway failed callbacks', () => {
     expect(test.tx.dealEvent.create).not.toHaveBeenCalled();
     expect(test.tx.outboxEntry.create).not.toHaveBeenCalled();
   });
+
+  it('does not write evidence when the pending bank operation changes concurrently', async () => {
+    const test = fixture({ operationCount: 0 });
+
+    await expect(test.gateway.executeBankCallback(FAILED_RESERVE)).rejects.toBeInstanceOf(ConflictException);
+
+    expect(test.tx.payment.updateMany).toHaveBeenCalledTimes(1);
+    expect(test.tx.dealEvent.create).not.toHaveBeenCalled();
+    expect(test.tx.auditEvent.create).not.toHaveBeenCalled();
+    expect(test.tx.outboxEntry.create).not.toHaveBeenCalled();
+  });
 });
