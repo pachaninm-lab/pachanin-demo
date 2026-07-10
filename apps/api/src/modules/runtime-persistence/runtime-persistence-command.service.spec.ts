@@ -3,6 +3,7 @@ import {
   RuntimePersistenceCommandContextError,
   RuntimePersistenceCommandService,
   type RuntimePersistenceAuthenticatedCommandInput,
+  type RuntimePersistenceCommandContextErrorCode,
 } from './runtime-persistence-command.service';
 import type { RuntimePersistenceWriteReceipt } from './runtime-persistence.repository';
 import { RuntimePersistenceService } from './runtime-persistence.service';
@@ -54,6 +55,16 @@ function fixture() {
   };
 }
 
+function captureContextError(run: () => unknown): RuntimePersistenceCommandContextError {
+  try {
+    run();
+  } catch (error) {
+    expect(error).toBeInstanceOf(RuntimePersistenceCommandContextError);
+    return error as RuntimePersistenceCommandContextError;
+  }
+  throw new Error('Expected RuntimePersistenceCommandContextError.');
+}
+
 describe('RuntimePersistenceCommandService', () => {
   it('derives actor, role, tenant and organization only from trusted RequestUser', async () => {
     const test = fixture();
@@ -102,16 +113,13 @@ describe('RuntimePersistenceCommandService', () => {
     ['organization_required', { ...TRUSTED_USER, orgId: '' }],
     ['tenant_required', { ...TRUSTED_USER, tenantId: undefined }],
     ['guest_role_forbidden', { ...TRUSTED_USER, role: Role.GUEST }],
-  ] as const)('blocks %s before repository delegation', async (expectedCode, user) => {
+  ] as const)('blocks %s before repository delegation', (expectedCode, user) => {
     const test = fixture();
+    const error = captureContextError(() => test.service.persistAuthenticated(user, COMMAND));
 
-    await expect(test.service.persistAuthenticated(user, COMMAND)).rejects.toEqual(
-      expect.objectContaining<Partial<RuntimePersistenceCommandContextError>>({
-        name: 'RuntimePersistenceCommandContextError',
-        code: expectedCode,
-        message: 'Trusted runtime persistence context is incomplete.',
-      }),
-    );
+    expect(error.name).toBe('RuntimePersistenceCommandContextError');
+    expect(error.code).toBe(expectedCode as RuntimePersistenceCommandContextErrorCode);
+    expect(error.message).toBe('Trusted runtime persistence context is incomplete.');
     expect(test.persistence.persist).not.toHaveBeenCalled();
   });
 
