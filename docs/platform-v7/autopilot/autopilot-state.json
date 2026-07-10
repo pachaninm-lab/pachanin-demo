@@ -13,16 +13,18 @@
     "#2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary",
     "#2254 VP-3.43 Transaction-Local Trusted RLS Context",
     "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding",
-    "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal"
+    "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
+    "#2264 VP-3.46a Bootstrap Required PostgreSQL RLS Gate"
   ],
   "openBlockers": [
     "#2113 repository settings cleanup",
     "#2115 persistent auth write path",
     "#2261 industrial one-deal implementation review"
   ],
-  "blockerNotes": "The one-deal implementation may proceed only inside the exact allowlist below. Critical product zones remain generally forbidden; only the exact files listed in allowedCurrentScope are unlocked for this layer.",
+  "blockerNotes": "The one-deal implementation may proceed only inside the exact allowlist below. VP-3.46 runs in parallel only as the PostgreSQL RLS verification gate. Critical product zones remain generally forbidden; only the exact files listed in allowedCurrentScope are unlocked.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
+    "production RLS policy application",
     "live external integration activation",
     "persistent identity/session/MFA changes",
     "production load and disaster-recovery claims"
@@ -44,7 +46,12 @@
     "apps/web/lib/platform-v7/verified-session.ts",
     "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
     "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
-    ".github/workflows/web-unit.yml"
+    ".github/workflows/web-unit.yml",
+    "infra/sql/production-rls-policies.sql",
+    "apps/api/test/rls/**",
+    "scripts/platform-v7-rls-validate.mjs",
+    "scripts/platform-v7-rls-integration.sh",
+    ".github/workflows/api-test.yml"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -63,7 +70,12 @@
     "apps/web/lib/platform-v7/verified-session.ts",
     "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
     "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
-    ".github/workflows/web-unit.yml"
+    ".github/workflows/web-unit.yml",
+    "infra/sql/production-rls-policies.sql",
+    "apps/api/test/rls/**",
+    "scripts/platform-v7-rls-validate.mjs",
+    "scripts/platform-v7-rls-integration.sh",
+    ".github/workflows/api-test.yml"
   ],
   "industrialOneDealFoundation": {
     "layer": "Canonical PostgreSQL deal command path and shared role workspace",
@@ -83,7 +95,25 @@
       "test seed is explicit idempotent and production-denied by default"
     ]
   },
+  "parallelInfrastructure": {
+    "layer": "VP-3.46 Ephemeral PostgreSQL RLS Integration Harness",
+    "implementationPr": "#2265",
+    "bootstrapPr": "#2264",
+    "status": "in_progress",
+    "requiredInvariants": [
+      "required API Tests workflow runs PostgreSQL 16 tenant isolation",
+      "legacy permissive migration policies are removed",
+      "application assertions run as NOSUPERUSER NOBYPASSRLS",
+      "own-tenant graph is visible and cross-tenant graph is denied",
+      "all five trusted context fields are mandatory",
+      "transaction-local context is cleared after commit on the same session",
+      "only ephemeral localhost database credentials are accepted",
+      "no production database or migration execution"
+    ]
+  },
   "nextAfterCurrentGreen": [
+    "industrial one-deal ephemeral PostgreSQL E2E harness",
+    "local database bootstrap order and explicit RLS activation",
     "persistent identity session refresh-family revoke and MFA",
     "durable outbox worker and bank reconciliation",
     "truthful offline acknowledgement",
@@ -110,11 +140,12 @@
   ],
   "forbiddenClaims": [
     "full production readiness",
+    "production RLS enabled",
     "production migration applied",
     "persistent identity complete",
     "external integration completion",
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. This state change only unlocks the exact one-deal implementation scope. It does not prove deployment, production database migration, live external integration, persistent identity, load, restore or disaster recovery."
+  "readiness": "85% honest architectural readiness. The current product layer remains Industrial One Deal Foundation. Parallel VP-3.46 adds ephemeral PostgreSQL 16 RLS evidence only; it does not prove production deployment, production database migration, live external integration, persistent identity, load, restore or disaster recovery."
 }

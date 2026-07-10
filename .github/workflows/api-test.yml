@@ -92,16 +92,12 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends postgresql-client
-      - name: Run RLS gate
+      - name: Run isolated RLS integration assertions
         shell: bash
         run: |
           set -o pipefail
-          if [[ -f scripts/platform-v7-rls-integration.sh ]]; then
-            bash scripts/platform-v7-rls-integration.sh 2>&1 | tee /tmp/platform-v7-rls-integration.log
-          else
-            node scripts/platform-v7-rls-validate.mjs 2>&1 | tee /tmp/platform-v7-rls-integration.log
-          fi
-      - name: Upload RLS gate log
+          bash scripts/platform-v7-rls-integration.sh 2>&1 | tee /tmp/platform-v7-rls-integration.log
+      - name: Upload RLS integration log
         if: always()
         uses: actions/upload-artifact@v4
         with:

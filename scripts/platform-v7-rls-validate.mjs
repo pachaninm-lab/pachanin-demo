@@ -6,6 +6,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA_PATH = path.join(ROOT, 'apps/api/prisma/schema.prisma');
 const POLICY_PATH = path.join(ROOT, 'infra/sql/production-rls-policies.sql');
+const INITIAL_MIGRATION_PATH = path.join(
+  ROOT,
+  'apps/api/prisma/migrations/0001_postgresql_initial/migration.sql',
+);
 
 export const REQUIRED_TABLES = [
   'deals',
@@ -24,6 +28,14 @@ export const REQUIRED_CONTEXT_SETTINGS = [
   'app.current_tenant_id',
   'app.current_role',
   'app.current_session_id',
+];
+
+export const LEGACY_PERMISSIVE_POLICIES = [
+  ['deals_app_access', 'deals'],
+  ['audit_insert_only', 'audit_events'],
+  ['audit_select_all', 'audit_events'],
+  ['ledger_insert_only', 'ledger_entries'],
+  ['ledger_select_all', 'ledger_entries'],
 ];
 
 const FORBIDDEN_PATTERNS = [
@@ -52,7 +64,7 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function validateRlsArtifacts(schema, sql) {
+export function validateRlsArtifacts(schema, sql, initialMigration = '') {
   const errors = [];
 
   for (const table of REQUIRED_TABLES) {
@@ -94,6 +106,26 @@ export function validateRlsArtifacts(schema, sql) {
     }
   }
 
+  for (const [policy, table] of LEGACY_PERMISSIVE_POLICIES) {
+    const escapedPolicy = escapeRegExp(policy);
+    const escapedTable = escapeRegExp(table);
+    const migrationCreatesPolicy = new RegExp(
+      `CREATE\\s+POLICY\\s+\"?${escapedPolicy}\"?\\s+ON\\s+\"?${escapedTable}\"?`,
+      'i',
+    );
+    const canonicalDropsPolicy = new RegExp(
+      `DROP\\s+POLICY\\s+IF\\s+EXISTS\\s+\"?${escapedPolicy}\"?\\s+ON\\s+public\\.\"${escapedTable}\"`,
+      'i',
+    );
+
+    if (initialMigration && !migrationCreatesPolicy.test(initialMigration)) {
+      errors.push(`Expected legacy migration policy not found: ${policy} on ${table}`);
+    }
+    if (!canonicalDropsPolicy.test(sql)) {
+      errors.push(`Legacy permissive policy is not removed: ${policy} on ${table}`);
+    }
+  }
+
   const createdPolicies = [...sql.matchAll(/CREATE\s+POLICY\s+([a-z0-9_]+)/gi)].map(
     (match) => match[1],
   );
@@ -129,11 +161,12 @@ export function validateRlsArtifacts(schema, sql) {
 }
 
 export async function validateRlsFiles() {
-  const [schema, sql] = await Promise.all([
+  const [schema, sql, initialMigration] = await Promise.all([
     readFile(SCHEMA_PATH, 'utf8'),
     readFile(POLICY_PATH, 'utf8'),
+    readFile(INITIAL_MIGRATION_PATH, 'utf8'),
   ]);
-  return validateRlsArtifacts(schema, sql);
+  return validateRlsArtifacts(schema, sql, initialMigration);
 }
 
 async function cli() {
