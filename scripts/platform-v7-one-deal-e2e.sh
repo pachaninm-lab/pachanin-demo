@@ -62,13 +62,20 @@ fi
 echo "[one-deal] generating Prisma client from the migrated PostgreSQL schema"
 DATABASE_URL="$ADMIN_URL" pnpm --filter @pc/api exec prisma generate --schema prisma/schema.prisma
 
-echo "[one-deal] seeding canonical deal and 12 memberships before RLS"
+echo "[one-deal] seeding canonical deal, memberships and DealParticipant assignments"
 NODE_ENV=test \
 DATABASE_URL="$ADMIN_URL" \
 JWT_SECRET="${JWT_SECRET:?JWT_SECRET is required}" \
 BANK_HMAC_SECRET="${BANK_HMAC_SECRET:?BANK_HMAC_SECRET is required}" \
 SEED_CANONICAL_TEST_DEAL=true \
 pnpm --filter @pc/api exec ts-node test/one-deal/seed.ts
+
+PARTICIPANT_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT count(*) FILTER (WHERE status='ACTIVE')::text || ':' || count(*) FILTER (WHERE role='EXECUTIVE' AND \"accessLevel\"='READ' AND status='ACTIVE')::text FROM public.deal_participants WHERE \"dealId\"='DEAL-INDUSTRIAL-001'")"
+echo "[one-deal] participant proof active:executive-read = $PARTICIPANT_PROOF"
+if [[ "$PARTICIPANT_PROOF" != "12:1" ]]; then
+  echo "Canonical participant projection is incomplete: $PARTICIPANT_PROOF" >&2
+  exit 1
+fi
 
 echo "[one-deal] applying canonical PostgreSQL RLS policies"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/production-rls-policies.sql
@@ -128,9 +135,19 @@ CROSS_TENANT_COUNT="$(
   PGOPTIONS="-c app.current_user_id=buyer-e2e -c app.current_org_id=org-canonical-buyer -c app.current_tenant_id=tenant-other -c app.current_role=BUYER -c app.current_session_id=cross-tenant-sql-proof" \
     psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT count(*) FROM public.deals WHERE id='DEAL-INDUSTRIAL-001'"
 )"
-echo "[one-deal] SQL cross-tenant visible rows: $CROSS_TENANT_COUNT"
+echo "[one-deal] SQL cross-tenant visible deal rows: $CROSS_TENANT_COUNT"
 if [[ "$CROSS_TENANT_COUNT" != "0" ]]; then
-  echo "PostgreSQL RLS cross-tenant isolation failed before Prisma exploitation: $CROSS_TENANT_COUNT visible row(s)" >&2
+  echo "PostgreSQL RLS cross-tenant Deal isolation failed: $CROSS_TENANT_COUNT visible row(s)" >&2
+  exit 1
+fi
+
+CROSS_TENANT_PARTICIPANTS="$(
+  PGOPTIONS="-c app.current_user_id=buyer-e2e -c app.current_org_id=org-canonical-buyer -c app.current_tenant_id=tenant-other -c app.current_role=BUYER -c app.current_session_id=cross-tenant-participant-proof" \
+    psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT count(*) FROM public.deal_participants WHERE \"dealId\"='DEAL-INDUSTRIAL-001'"
+)"
+echo "[one-deal] SQL cross-tenant visible participant rows: $CROSS_TENANT_PARTICIPANTS"
+if [[ "$CROSS_TENANT_PARTICIPANTS" != "0" ]]; then
+  echo "PostgreSQL RLS cross-tenant DealParticipant isolation failed: $CROSS_TENANT_PARTICIPANTS visible row(s)" >&2
   exit 1
 fi
 
