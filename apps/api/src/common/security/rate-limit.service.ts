@@ -1,4 +1,9 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { createHmac } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -28,8 +33,17 @@ type RateLimitRow = {
   retry_after_seconds: number;
 };
 
+type BackendBoundaryRow = {
+  current_user: string;
+  function_exists: boolean;
+  table_exists: boolean;
+  schema_usage: boolean;
+  can_execute: boolean;
+  can_select_table: boolean;
+};
+
 @Injectable()
-export class RateLimitService {
+export class RateLimitService implements OnModuleInit {
   private readonly logger = new Logger(RateLimitService.name);
   private readonly pepper: string;
   private requestsSinceCleanup = 0;
@@ -41,6 +55,52 @@ export class RateLimitService {
       throw new Error('RATE_LIMIT_KEY_PEPPER with at least 32 characters is required in production.');
     }
     this.pepper = configuredPepper || 'non-production-rate-limit-pepper';
+  }
+
+  async onModuleInit(): Promise<void> {
+    const production = String(process.env.NODE_ENV ?? '').toLowerCase() === 'production';
+    const enforced = production
+      || String(process.env.RATE_LIMIT_BACKEND_ENFORCED ?? '').toLowerCase() === 'true';
+    if (enforced) await this.verifyBackendBoundary();
+  }
+
+  async verifyBackendBoundary(): Promise<BackendBoundaryRow> {
+    const rows = await this.prisma.$queryRaw<BackendBoundaryRow[]>(Prisma.sql`
+      WITH target AS (
+        SELECT
+          to_regprocedure('security.consume_rate_limit(text,text,integer,integer,integer)') AS function_oid,
+          to_regclass('security.rate_limit_buckets') AS table_oid
+      )
+      SELECT
+        current_user,
+        function_oid IS NOT NULL AS function_exists,
+        table_oid IS NOT NULL AS table_exists,
+        has_schema_privilege(current_user, 'security', 'USAGE') AS schema_usage,
+        CASE
+          WHEN function_oid IS NULL THEN FALSE
+          ELSE has_function_privilege(current_user, function_oid, 'EXECUTE')
+        END AS can_execute,
+        CASE
+          WHEN table_oid IS NULL THEN FALSE
+          ELSE has_table_privilege(current_user, table_oid, 'SELECT')
+        END AS can_select_table
+      FROM target
+    `);
+    const row = rows[0];
+    if (
+      !row
+      || !row.function_exists
+      || !row.table_exists
+      || !row.schema_usage
+      || !row.can_execute
+      || row.can_select_table
+    ) {
+      throw new Error(
+        `Rate-limit PostgreSQL principal boundary is invalid: ${JSON.stringify(row ?? null)}`,
+      );
+    }
+    this.logger.log(`Rate-limit backend verified for principal ${row.current_user}`);
+    return row;
   }
 
   async consume(input: RateLimitConsumeInput): Promise<RateLimitDecision> {
