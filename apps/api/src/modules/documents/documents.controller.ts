@@ -41,7 +41,7 @@ export class DocumentsController {
     return payload.file;
   }
 
-  @RateLimit({ name: 'documents_upload', scope: 'user', limit: 20, windowSeconds: 300, limitEnv: 'RATE_LIMIT_UPLOADS', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
+  @RateLimit({ name: 'documents_upload', scope: 'user', limit: 20, windowSeconds: 300, limitEnv: 'RATE_LIMIT_UPLOADS', windowEnv: 'RATE_LIMIT_UPLOADS_WINDOW_SECONDS' })
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   upload(@UploadedFile() file: any, @Body() dto: UploadDocumentDto, @CurrentUser() user: any) {
