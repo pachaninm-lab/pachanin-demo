@@ -23,7 +23,7 @@ export function PublicSiteHeader({
 }) {
   return (
     <header className='pc-site-header' aria-label={ariaLabel}>
-      <Link href='/platform-v7' className='pc-site-brand' aria-label='Прозрачная Цена — на главную'>
+      <Link prefetch={false} href='/platform-v7' className='pc-site-brand' aria-label='Прозрачная Цена — на главную'>
         <span className='pc-site-brand-mark'><BrandMark size={40} /></span>
         <span className='pc-site-brand-text'>
           <strong>Прозрачная Цена</strong>
