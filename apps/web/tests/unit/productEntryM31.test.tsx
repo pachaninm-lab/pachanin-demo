@@ -12,10 +12,13 @@ describe('platform-v7 product entry', () => {
     expect(registerSrc).toContain('Допущен');
   });
 
-  it('keeps login source as single role entry', () => {
-    expect(loginSrc).toContain('Единый вход');
-    expect(loginSrc).toContain('Выберите один рабочий кабинет');
-    expect(loginSrc).toContain('Водитель');
-    expect(loginSrc).toContain('Комплаенс');
+  it('keeps login as one server-authoritative entry', () => {
+    expect(loginSrc).toContain("requestJson('/api/auth/login'");
+    expect(loginSrc).toContain('payload.redirectTo');
+    expect(loginSrc).toContain("type LoginStep = 'password' | 'mfa' | 'backup-codes'");
+    expect(loginSrc).not.toContain('Выберите один рабочий кабинет');
+    expect(loginSrc).not.toContain('Водитель');
+    expect(loginSrc).not.toContain('Комплаенс');
+    expect(loginSrc).not.toContain('sessionStorage');
   });
 });
