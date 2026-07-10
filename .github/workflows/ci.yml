@@ -83,6 +83,7 @@ jobs:
     env:
       NODE_ENV: test
       ONE_DEAL_ADMIN_URL: postgresql://one_deal_admin:ephemeral_one_deal_admin_only@127.0.0.1:5432/one_deal_e2e
+      ONE_DEAL_AUTH_URL: postgresql://one_deal_auth:ephemeral_one_deal_auth_only@127.0.0.1:5432/one_deal_e2e
       ONE_DEAL_APP_URL: postgresql://one_deal_app:ephemeral_one_deal_app_only@127.0.0.1:5432/one_deal_e2e
       ONE_DEAL_EVIDENCE_LOG: /tmp/platform-v7-one-deal-e2e.log
     steps:
@@ -113,6 +114,8 @@ jobs:
         shell: bash
         run: |
           echo "JWT_SECRET=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
+          echo "AUTH_TOKEN_PEPPER=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
+          echo "MFA_ENCRYPTION_KEY=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
           echo "BANK_HMAC_SECRET=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
 
       - name: Run industrial one-deal exploitation gate
