@@ -22,8 +22,8 @@ export interface RuntimePersistenceWriteInput {
   runtimeStoreVersion: string;
   actorId: string;
   actorRole: string;
-  tenantId?: string;
-  organizationId?: string;
+  tenantId: string;
+  organizationId: string;
   correlationId: string;
   auditId: string;
   contractHash: string;
@@ -41,6 +41,7 @@ export interface RuntimePersistenceWriteReceipt {
   transactionAttemptId?: string;
   reasonCode?:
     | 'repository_not_enabled'
+    | 'trusted_transaction_required'
     | 'invalid_input'
     | 'material_identity_conflict'
     | 'database_write_failed';
@@ -48,9 +49,8 @@ export interface RuntimePersistenceWriteReceipt {
 
 export interface RuntimePersistenceRepository {
   /**
-   * Compatibility entry point for internal callers that do not yet own a
-   * trusted transaction. Authenticated command paths must use
-   * writeWithinTransaction instead.
+   * Fail-closed compatibility method. A production Prisma repository must not
+   * write without an authenticated transaction-local RLS boundary.
    */
   write(input: RuntimePersistenceWriteInput): Promise<RuntimePersistenceWriteReceipt>;
 
