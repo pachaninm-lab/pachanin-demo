@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { ChatSupportWidget } from '@/components/platform-v7/ChatSupportWidget';
+import { PublicSupportWidget } from '@/components/platform-v7/PublicSupportWidget';
 import { LoginHeaderLogoGuard } from '@/components/platform-v7/LoginHeaderLogoGuard';
 import { LoginMobileStabilityStyle } from '@/components/platform-v7/LoginMobileStabilityStyle';
 import { MobileLogoutSoftExit } from '@/components/platform-v7/MobileLogoutSoftExit';
@@ -24,6 +25,8 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/register',
+  '/platform-v7/forgot-password',
+  '/platform-v7/reset-password',
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
@@ -34,6 +37,12 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/docs',
 ]);
 const PUBLIC_PREFIX_PATHS = ['/platform-v7/role-preview'];
+const CANONICAL_PUBLIC_ENTRY_PATHS = new Set([
+  '/platform-v7',
+  '/platform-v7/login',
+  '/platform-v7/forgot-password',
+  '/platform-v7/reset-password',
+]);
 
 const OPEN_FORM_PLACEHOLDER_SELECTORS = [
   '#pc-open-login',
@@ -53,6 +62,10 @@ function normalizePath(pathname: string | null): string {
 function isPublicPath(pathname: string | null): boolean {
   const path = normalizePath(pathname);
   return PUBLIC_EXACT_PATHS.has(path) || PUBLIC_PREFIX_PATHS.some((prefix) => path.startsWith(prefix));
+}
+
+function isCanonicalPublicEntryPath(pathname: string | null): boolean {
+  return CANONICAL_PUBLIC_ENTRY_PATHS.has(normalizePath(pathname));
 }
 
 function isLandingPath(pathname: string | null): boolean {
@@ -95,6 +108,10 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
   const publicPath = isPublicPath(pathname);
   const landingPath = isLandingPath(pathname);
   const loginPath = isLoginPath(pathname);
+
+  if (isCanonicalPublicEntryPath(pathname)) {
+    return position === 'after' ? <PublicSupportWidget /> : null;
+  }
 
   if (publicPath) {
     if (landingPath) {

@@ -36,6 +36,40 @@
         "session": "受保护会话"
       },
       "note": "登录后，系统会打开分配给该组织的工作空间。不能通过网址选择或更改角色。"
+    },
+    "support": {
+      "open": "打开支持",
+      "close": "关闭支持",
+      "title": "透明价格支持",
+      "description": "关于接入、访问权限或平台运行的问题",
+      "topic": "主题",
+      "name": "姓名",
+      "contact": "电话或邮箱",
+      "message": "问题",
+      "messagePlaceholder": "请简要说明有关平台、访问权限、文件或技术接入的问题。",
+      "consent": "我同意为回复本次咨询而处理个人数据。",
+      "send": "发送",
+      "sending": "正在发送…",
+      "topics": {
+        "platform": "平台",
+        "onboarding": "组织接入",
+        "bank_partner": "银行或合作伙伴",
+        "region": "地区",
+        "technical": "技术问题",
+        "other": "其他"
+      },
+      "errors": {
+        "name": "请输入姓名。",
+        "contact": "请输入用于回复的电话或邮箱。",
+        "message": "请输入问题。",
+        "consent": "请确认同意处理个人数据。",
+        "delivery": "咨询未发送。请稍后重试。"
+      },
+      "success": {
+        "title": "咨询已发送",
+        "text": "咨询已受理。审核后将通过所提供的联系方式回复。",
+        "another": "再发送一个问题"
+      }
     }
   }
 }

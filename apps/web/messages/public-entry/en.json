@@ -36,6 +36,40 @@
         "session": "Protected session"
       },
       "note": "After sign-in, the system opens the workspace assigned to the organisation. A role cannot be selected or changed through the URL."
+    },
+    "support": {
+      "open": "Open support",
+      "close": "Close support",
+      "title": "Transparent Price support",
+      "description": "Questions about onboarding, access or platform operation",
+      "topic": "Topic",
+      "name": "Name",
+      "contact": "Phone or email",
+      "message": "Question",
+      "messagePlaceholder": "Briefly describe the question about the platform, access, documents or technical onboarding.",
+      "consent": "I consent to the processing of personal data for the purpose of responding to this request.",
+      "send": "Send",
+      "sending": "Sending…",
+      "topics": {
+        "platform": "Platform",
+        "onboarding": "Organisation onboarding",
+        "bank_partner": "Bank or partner",
+        "region": "Region",
+        "technical": "Technical question",
+        "other": "Other"
+      },
+      "errors": {
+        "name": "Enter your name.",
+        "contact": "Enter a phone number or email for the reply.",
+        "message": "Enter your question.",
+        "consent": "Confirm consent to personal data processing.",
+        "delivery": "The request was not sent. Try again later."
+      },
+      "success": {
+        "title": "Request sent",
+        "text": "The request has been accepted. A reply will be sent to the contact provided after review.",
+        "another": "Send another question"
+      }
     }
   }
 }
