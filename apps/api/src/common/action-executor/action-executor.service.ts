@@ -1,7 +1,8 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { AuditService } from '../../modules/audit/audit.service';
 import { OutboxService } from '../outbox/outbox.service';
-import { DomainAction, getAllowedRoles, isActionAllowedForRole } from './action-policy';
+import { DomainAction, ROLE_ALLOWED_ACTIONS } from './action-policy';
 import { RequestUser, Role } from '../types/request-user';
 
 export interface ObjectScope {
@@ -48,8 +49,10 @@ export class ActionExecutorService {
   ) {}
 
   assertPermission(user: RequestUser, action: DomainAction): void {
-    if (!isActionAllowedForRole(action, user.role)) {
-      const allowedRoles = getAllowedRoles(action);
+    const allowedForRole = ROLE_ALLOWED_ACTIONS[user.role] ?? new Set<DomainAction>();
+    if (!allowedForRole.has(action)) {
+      const allowedRoles = (Object.values(Role) as Role[])
+        .filter((role) => ROLE_ALLOWED_ACTIONS[role]?.has(action));
       throw new ForbiddenException(
         `Role ${user.role} cannot perform ${action}. Allowed roles: [${allowedRoles.join(', ')}]`,
       );
@@ -126,7 +129,7 @@ export class ActionExecutorService {
       const entry = await this.outbox.enqueue({
         type: bankOutbox.type,
         dealId: scope.objectId,
-        payload: bankOutbox.payload,
+        payload: bankOutbox.payload as Prisma.InputJsonObject,
         triggeredByUserId: user.id,
         idempotencyKey: bankOutbox.idempotencyKey,
       });
