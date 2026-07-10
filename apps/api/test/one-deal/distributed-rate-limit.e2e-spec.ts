@@ -38,6 +38,9 @@ describe('distributed PostgreSQL high-risk rate limits', () => {
   beforeAll(async () => {
     await admin.$connect();
     await admin.$executeRawUnsafe('REVOKE ALL ON security.api_rate_limit_buckets FROM one_deal_app');
+    await admin.$executeRawUnsafe(
+      'ALTER DEFAULT PRIVILEGES IN SCHEMA security REVOKE ALL ON TABLES FROM one_deal_app',
+    );
     await admin.$executeRawUnsafe('GRANT USAGE ON SCHEMA security TO one_deal_app');
     await admin.$executeRawUnsafe(
       'GRANT EXECUTE ON FUNCTION security.consume_api_rate_limit(TEXT, TEXT, INTEGER) TO one_deal_app',
@@ -86,7 +89,7 @@ describe('distributed PostgreSQL high-risk rate limits', () => {
     expect(results.map((result) => result.count).sort((left, right) => left - right)).toEqual(
       Array.from({ length: 40 }, (_, index) => index + 1),
     );
-    expect(new Set(results.map((result) => result.resetAt)).toHaveLength(1);
+    expect(new Set(results.map((result) => result.resetAt)).size).toBe(1);
 
     const keyHash = hashRateLimitKey(rawKey, resolveRateLimitHmacKey());
     const rows = await admin.$queryRaw<Array<{ key_hash: string; request_count: number }>>(Prisma.sql`
