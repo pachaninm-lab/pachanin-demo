@@ -10,14 +10,20 @@ import { SettlementEngineService } from './settlement-engine.service';
 import { RequestUser } from '../../common/types/request-user';
 import { RequiresMfaGuard } from '../../common/guards/mfa.guard';
 import { requireSecret } from '../../common/config/secrets';
+import { IndustrialDealCommandGateway, type VerifiedBankCallbackInput } from '../deals/industrial-deal-command.gateway';
+import { CANONICAL_TEST_DEAL_ID } from '../deals/deal-command.policy';
 
 const BANK_HMAC_SECRET = requireSecret('BANK_HMAC_SECRET');
+const BANK_CALLBACK_TOLERANCE_SECONDS = 300;
 
 @UseGuards(RolesGuard)
 @Roles('ACCOUNTING', 'SUPPORT_MANAGER', 'ADMIN', 'EXECUTIVE')
 @Controller('settlement-engine')
 export class SettlementEngineController {
-  constructor(private readonly settlementEngine: SettlementEngineService) {}
+  constructor(
+    private readonly settlementEngine: SettlementEngineService,
+    private readonly industrialCommands: IndustrialDealCommandGateway,
+  ) {}
 
   @Get('deal/:id')
   async worksheet(@Param('id') id: string, @CurrentUser() user: RequestUser) {
@@ -66,22 +72,25 @@ export class SettlementEngineController {
     return payload.body;
   }
 
-  /** Request bank reserve — creates outbox entry, does NOT self-confirm */
+  /** Request bank reserve — creates outbox entry, does NOT self-confirm. */
   @Post('deal/:id/reserve')
   async requestReserve(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.settlementEngine.requestReserve(id, user);
   }
 
-  /** Request bank release — creates outbox entry, does NOT self-release; MFA required per ТЗ 11.1 */
+  /** Request bank release — creates outbox entry, does NOT self-release. */
   @Post('deal/:id/release')
   @UseGuards(RequiresMfaGuard)
   async requestRelease(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.settlementEngine.requestRelease(id, user);
   }
 
-  /** Manual operator override — reserve confirm (operator/admin only) */
+  /** Legacy manual confirmation. It remains outside the canonical deal path. */
   @Post('deal/:id/confirm')
   async confirm(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    if (id === CANONICAL_TEST_DEAL_ID) {
+      throw new UnauthorizedException('Canonical money state can only be confirmed by a verified bank callback.');
+    }
     return this.settlementEngine.confirmWorksheet(id, user);
   }
 
@@ -103,23 +112,49 @@ export class SettlementEngineController {
   }
 
   /**
-   * Bank callback — the ONLY path to confirm or fail a reserve/release.
-   * Authenticated via HMAC-SHA256 signature, not JWT.
-   * Body: { dealId, status: 'SUCCESS'|'FAILED', outboxId?, errorMessage? }
-   * Header: X-Bank-Signature: hmac-sha256=<hex>
+   * The only public bank confirmation path.
+   *
+   * Required headers:
+   * - X-Bank-Event-Id: globally unique event identifier;
+   * - X-Bank-Timestamp: Unix seconds, accepted within ±5 minutes;
+   * - X-Bank-Signature: hmac-sha256=<hex> over
+   *   `${timestamp}.${eventId}.${JSON.stringify(body)}`.
+   *
+   * Required body for the canonical deal:
+   * { dealId, eventId, operation: 'RESERVE'|'RELEASE', status: 'SUCCESS'|'FAILED', bankRef }
    */
   @Public()
   @Post('bank-callback')
   @HttpCode(200)
   async bankCallback(
     @Body() body: Record<string, unknown>,
-    @Headers('x-bank-signature') sig: string | undefined,
+    @Headers('x-bank-signature') signature: string | undefined,
+    @Headers('x-bank-timestamp') timestampHeader: string | undefined,
+    @Headers('x-bank-event-id') eventIdHeader: string | undefined,
   ) {
-    const bodyStr = JSON.stringify(body);
-    const expected = 'hmac-sha256=' + crypto.createHmac('sha256', BANK_HMAC_SECRET).update(bodyStr).digest('hex');
-    if (!sig || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+    const timestamp = Number(timestampHeader);
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (!Number.isInteger(timestamp) || Math.abs(nowSeconds - timestamp) > BANK_CALLBACK_TOLERANCE_SECONDS) {
+      throw new UnauthorizedException('Expired or invalid bank callback timestamp');
+    }
+
+    const bodyEventId = typeof body.eventId === 'string' ? body.eventId : '';
+    if (!eventIdHeader || eventIdHeader !== bodyEventId) {
+      throw new UnauthorizedException('Bank callback event ID mismatch');
+    }
+
+    const signedPayload = `${timestamp}.${eventIdHeader}.${JSON.stringify(body)}`;
+    const expected = `hmac-sha256=${crypto.createHmac('sha256', BANK_HMAC_SECRET).update(signedPayload).digest('hex')}`;
+    const actualBuffer = Buffer.from(signature ?? '', 'utf8');
+    const expectedBuffer = Buffer.from(expected, 'utf8');
+    if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) {
       throw new UnauthorizedException('Invalid bank signature');
     }
+
+    if (body.dealId === CANONICAL_TEST_DEAL_ID) {
+      return this.industrialCommands.executeBankCallback(body as unknown as VerifiedBankCallbackInput);
+    }
+
     return this.settlementEngine.registerSafeDealsCallback(body);
   }
 }

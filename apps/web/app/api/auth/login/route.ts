@@ -6,13 +6,14 @@ import { demoLoginAllowed } from '../../../../lib/platform-v7/demo-login-policy'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
-// Demo role detection by email prefix — works when backend is unavailable
 function detectDemoRole(email: string): string {
   const local = email.toLowerCase().split('@')[0] ?? '';
   if (local.startsWith('admin')) return 'ADMIN';
   if (local.startsWith('operator') || local.startsWith('ops') || local.startsWith('support')) return 'SUPPORT_MANAGER';
   if (local.startsWith('executive') || local.startsWith('ceo') || local.startsWith('director')) return 'EXECUTIVE';
-  if (local.startsWith('accounting') || local.startsWith('finance') || local.startsWith('buh')) return 'ACCOUNTING';
+  if (local.startsWith('accounting') || local.startsWith('finance') || local.startsWith('buh') || local.startsWith('bank')) return 'ACCOUNTING';
+  if (local.startsWith('compliance')) return 'COMPLIANCE_OFFICER';
+  if (local.startsWith('arbitrator')) return 'ARBITRATOR';
   if (local.startsWith('lab') || local.startsWith('quality')) return 'LAB';
   if (local.startsWith('elevator') || local.startsWith('receiving') || local.startsWith('elev')) return 'ELEVATOR';
   if (local.startsWith('driver') || local.startsWith('водитель')) return 'DRIVER';
@@ -22,9 +23,8 @@ function detectDemoRole(email: string): string {
 }
 
 function setDemoSession(jar: ReturnType<typeof cookies>, role: string, email: string) {
-  const exp = Math.floor(Date.now() / 1000) + 8 * 3600; // 8h
+  const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
   const sessionValue = encodeURIComponent(JSON.stringify({ role, exp, email }));
-  // Fake tokens for demo — not cryptographically meaningful
   jar.set(ACCESS_COOKIE, `demo.${Buffer.from(JSON.stringify({ role, exp })).toString('base64')}`, cookieSecurity());
   jar.set(REFRESH_COOKIE, `demo-refresh.${role}`, cookieSecurity());
   jar.set(SESSION_COOKIE, sessionValue, sessionMarkerCookie());
@@ -35,54 +35,51 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const { email = '', password = '', redirectTo = '' } = body;
 
-  // Skip backend entirely for demo emails — always use demo mode
-  const isDemoEmail = email.toLowerCase().endsWith('@demo.ru') || email.toLowerCase().endsWith('@demo.test');
+  if (!email || !password) {
+    return NextResponse.json({ ok: false, message: 'Введите email и пароль.' }, { status: 400 });
+  }
 
-  // Try real backend first (if configured and not a demo email)
-  if (API_URL && !isDemoEmail) {
+  // The real identity service always has priority, including explicitly seeded
+  // test accounts. An email suffix must never force a fake browser session.
+  if (API_URL) {
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ email, password }),
         cache: 'no-store',
         signal: AbortSignal.timeout(4000),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) return NextResponse.json(payload, { status: response.status });
+
       const jar = cookies();
       const role = payload.user?.role || payload.role || 'FARMER';
-      jar.set(ACCESS_COOKIE, payload.accessToken || '', cookieSecurity());
-      jar.set(REFRESH_COOKIE, payload.refreshToken || '', cookieSecurity());
+      if (!payload.accessToken || !payload.refreshToken) {
+        return NextResponse.json({ ok: false, message: 'Сервис аутентификации вернул неполную сессию.' }, { status: 502 });
+      }
+      jar.set(ACCESS_COOKIE, payload.accessToken, cookieSecurity());
+      jar.set(REFRESH_COOKIE, payload.refreshToken, cookieSecurity());
       const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
       jar.set(SESSION_COOKIE, encodeURIComponent(JSON.stringify({ role, exp, email: payload.user?.email || email })), sessionMarkerCookie());
       jar.set(CSRF_COOKIE, generateCsrfToken(), csrfCookieSecurity());
       return NextResponse.json({ ok: true, user: payload.user || null });
     } catch {
-      // Fall through to demo mode
+      // Network/timeout only. Demo fallback below remains explicitly gated.
     }
   }
 
-  // Passwordless demo fallback — secure-by-default: never in production unless
-  // an operator explicitly opts in. Prevents a passwordless session in prod when
-  // the real backend is unavailable/misconfigured or a demo email is used.
   if (!demoLoginAllowed()) {
     return NextResponse.json(
-      { ok: false, message: 'Сервис аутентификации недоступен. Демо-вход отключён в production.' },
+      { ok: false, message: 'Сервис аутентификации недоступен. Демо-вход отключён.' },
       { status: 503 },
     );
   }
 
-  // Demo mode: email required, password not required
-  if (!email) {
-    return NextResponse.json({ ok: false, message: 'Введите email.' }, { status: 401 });
-  }
   const role = detectDemoRole(email);
   const jar = cookies();
   setDemoSession(jar, role, email);
 
-  // If redirectTo provided, return a redirect so cookies + navigation happen in one response
-  // This fixes iOS Safari cookie race condition
   if (redirectTo && redirectTo.startsWith('/')) {
     const res = NextResponse.redirect(new URL(redirectTo, request.url));
     const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
