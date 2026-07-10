@@ -1,13 +1,13 @@
 import { cookies, headers } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isAppLocale } from './locale';
+import { publicAuthMfaMessages } from './public-auth-mfa-messages';
 import { publicEntryMessages } from './public-entry-messages';
 
 const LOCALE_HEADER = 'x-pc-locale';
 
 export default getRequestConfig(async () => {
   let locale = DEFAULT_LOCALE;
-
   try {
     const headerStore = await headers();
     const headerLocale = headerStore.get(LOCALE_HEADER);
@@ -15,7 +15,6 @@ export default getRequestConfig(async () => {
   } catch {
     locale = DEFAULT_LOCALE;
   }
-
   if (locale === DEFAULT_LOCALE) {
     try {
       const cookieStore = await cookies();
@@ -25,14 +24,15 @@ export default getRequestConfig(async () => {
       locale = DEFAULT_LOCALE;
     }
   }
-
   const baseMessages = (await import(`../messages/${locale}.json`)).default;
-
   return {
     locale,
     messages: {
       ...baseMessages,
-      publicEntry: publicEntryMessages[locale],
+      publicEntry: {
+        ...publicEntryMessages[locale],
+        mfa: publicAuthMfaMessages[locale],
+      },
     },
   };
 });
