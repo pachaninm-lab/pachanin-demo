@@ -10,18 +10,21 @@ CURRENT ALLOWED:
 - apps/api/test/one-deal/**
 - apps/web/tests/e2e/one-deal/**
 - scripts/platform-v7-one-deal-*.mjs
-- .github/workflows/platform-v7-one-deal-e2e.yml
+- scripts/platform-v7-one-deal-*.sh
+- .github/workflows/api-test.yml
 
 CURRENT CRITERIA:
-- CI starts an isolated PostgreSQL 16 service with ephemeral credentials;
+- trusted `api-test.yml` starts an isolated PostgreSQL 16 service with ephemeral credentials;
 - schema, migrations and RLS policies are applied only to the ephemeral database;
 - canonical seed creates one tenant, organizations, 12 human role memberships and one deal ID;
 - all roles read the same facts and version of `DEAL-INDUSTRIAL-001`;
+- exploitation runs through a separate `NOSUPERUSER NOBYPASSRLS` application principal;
 - all 19 commands pass in order without direct database mutation;
 - reserve and release advance only through signed callback fixtures bound to exact pending operations;
 - duplicate command returns the original receipt;
 - reused idempotency material, stale version, concurrent update and cross-tenant access fail deterministically;
 - closed deal reconciles Deal, DealEvent, AuditEvent, outbox, payment, ledger, shipment, acceptance, lab and documents;
+- evidence log uploads even when the gate fails;
 - test teardown destroys all ephemeral data and credentials;
 - production readiness and live integration completion remain unclaimed.
 
@@ -53,7 +56,8 @@ NEXT:
   - docs/platform-v7/execution-queue.md
   - apps/api/test/one-deal/**
   - scripts/platform-v7-one-deal-*.mjs
-  - .github/workflows/platform-v7-one-deal-e2e.yml
+  - scripts/platform-v7-one-deal-*.sh
+  - .github/workflows/api-test.yml
 - Success criteria:
   - concurrent bids and commands preserve one winner and one aggregate version;
   - duplicate and out-of-order bank callbacks are replay-safe;
