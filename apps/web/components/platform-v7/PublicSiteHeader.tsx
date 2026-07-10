@@ -1,15 +1,14 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { BrandMark } from '@/components/v7r/BrandMark';
+import { PublicLocaleSwitch } from '@/components/platform-v7/PublicLocaleSwitch';
 
 export const PUBLIC_SITE_HEADER_HEIGHT = 64;
 
 /**
- * Single canonical public header. One logo, one height, one sticky bar shared
- * by every public page (landing, login, register, contact, …). Pages pass their
- * own right-side `actions` and optional center `nav`; the chrome (position,
- * height, brand, background) is identical everywhere so the header no longer
- * shifts or changes between pages.
+ * Single canonical public header shared by every public platform-v7 surface.
+ * Locale switching is rendered inside the header and triggers a server-side
+ * next-intl render; it does not mutate translated text in the DOM.
  */
 export function PublicSiteHeader({
   tagline,
@@ -32,7 +31,10 @@ export function PublicSiteHeader({
         </span>
       </Link>
       {nav ? <nav className='pc-site-nav' aria-label='Разделы'>{nav}</nav> : null}
-      <div className='pc-site-actions'>{actions}</div>
+      <div className='pc-site-actions'>
+        <PublicLocaleSwitch />
+        {actions}
+      </div>
       <style>{css}</style>
     </header>
   );
@@ -60,21 +62,27 @@ const css = `
 .pc-site-nav a{color:inherit;text-decoration:none;white-space:nowrap}
 .pc-site-nav a:hover{color:#087a3b}
 .pc-site-actions{flex:0 0 auto;margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:9px}
-.pc-site-action{width:42px;height:42px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0;border-radius:14px;background:rgba(255,255,255,.9);border:1px solid rgba(7,22,17,.10);color:#071611;text-decoration:none}
+.pc-site-action,.pc-site-locale-switch{height:42px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0;border-radius:14px;background:rgba(255,255,255,.9);border:1px solid rgba(7,22,17,.10);color:#071611;text-decoration:none}
+.pc-site-action{width:42px}
 .pc-site-action>span{display:none}
 .pc-site-action.is-primary{background:rgba(0,122,47,.09);border-color:rgba(0,122,47,.2);color:#087a3b}
-.pc-site-action:hover{border-color:rgba(0,122,47,.34);background:rgba(0,122,47,.06)}
-.pc-site-header a:focus-visible{outline:3px solid #087a3b;outline-offset:3px;border-radius:12px}
+.pc-site-locale-switch{min-width:54px;gap:5px;padding:0 10px;color:#087a3b;background:rgba(0,122,47,.08);border-color:rgba(0,122,47,.18);font:inherit;cursor:pointer}
+.pc-site-locale-switch span{font-size:11px;font-weight:950;letter-spacing:.03em}
+.pc-site-action:hover,.pc-site-locale-switch:hover{border-color:rgba(0,122,47,.34);background:rgba(0,122,47,.06)}
+.pc-site-header a:focus-visible,.pc-site-header button:focus-visible{outline:3px solid #087a3b;outline-offset:3px;border-radius:12px}
 @media (max-width:1080px){.pc-site-nav{display:none}}
 @media (max-width:720px){
   .pc-site-header{gap:10px;padding:0 16px}
   .pc-site-brand-text small{display:none}
   .pc-site-brand-text strong{font-size:17px}
+  .pc-site-actions{gap:6px}
+  .pc-site-locale-switch{min-width:50px;height:40px;padding:0 8px}
 }
 @media (max-width:374px){
   .pc-site-header{padding:0 12px}
   .pc-site-brand{gap:9px}
   .pc-site-brand-mark{width:36px;height:36px;flex-basis:36px}
   .pc-site-brand-text strong{font-size:16px}
+  .pc-site-locale-switch{min-width:46px;padding:0 7px}
 }
 `;
