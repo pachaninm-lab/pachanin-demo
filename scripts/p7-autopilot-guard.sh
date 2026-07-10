@@ -99,8 +99,12 @@ scripts/p7-autopilot-guard.sh'
 
 PUBLIC_LCP_FIX_SCOPE='apps/web/app/layout.tsx
 apps/web/app/platform-v7/_styles/**
+apps/web/app/platform-v7/forgot-password/page.tsx
 apps/web/app/platform-v7/layout.tsx
+apps/web/app/platform-v7/login/layout.tsx
+apps/web/app/platform-v7/page.tsx
 apps/web/app/platform-v7/template.tsx
+apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
 
@@ -115,7 +119,7 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/public-auth-server-authority" ] || printf '%s
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_AUTH_FIX_SCOPE")
 fi
 
-if [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-lcp-css-boundary" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/app/platform-v7/_styles/full-platform.ts'; then
+if [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-lcp-css-boundary" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx'; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_LCP_FIX_SCOPE")
 fi
 
