@@ -9,6 +9,7 @@ import { ActionExecutorModule } from '../../common/action-executor/action-execut
 import { DealsController } from './deals.controller';
 import { DealsService } from './deals.service';
 import { DealCommandService } from './deal-command.service';
+import { IndustrialDealCommandGateway } from './industrial-deal-command.gateway';
 import { CanonicalTestDealSeedService } from './canonical-test-deal.seed';
 import { DealEventService } from './deal-event.service';
 import { DealAutoService } from './deal-auto.service';
@@ -23,8 +24,8 @@ import { PrismaService } from '../../common/prisma/prisma.service';
  * Legacy deal repository binding.
  *
  * The canonical industrial command path is implemented by DealCommandService and
- * always writes through Prisma/PostgreSQL. The legacy repository remains only for
- * existing read surfaces while they are migrated to the execution workspace.
+ * IndustrialDealCommandGateway and always writes through Prisma/PostgreSQL. The
+ * legacy repository remains only for existing read surfaces while they are migrated.
  */
 const dealRepositoryProvider: Provider = {
   provide: DEAL_REPOSITORY,
@@ -39,12 +40,13 @@ const dealRepositoryProvider: Provider = {
   providers: [
     DealsService,
     DealCommandService,
+    IndustrialDealCommandGateway,
     CanonicalTestDealSeedService,
     DealEventService,
     DealAutoService,
     AccessScopeService,
     dealRepositoryProvider,
   ],
-  exports: [DealsService, DealCommandService, DealEventService],
+  exports: [DealsService, DealCommandService, IndustrialDealCommandGateway, DealEventService],
 })
 export class DealsModule {}
