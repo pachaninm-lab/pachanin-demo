@@ -1,42 +1,35 @@
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 /**
- * Phase 4C-pre — verified session identity for platform-v7 server cabinet access.
+ * Verified session identity for platform-v7 server cabinet access.
  *
- * The ONLY sanctioned source of a server-trusted role is a cryptographically
- * verified HS256 JWT (the token the API signs with JWT_SECRET). This module
- * deliberately does NOT read — and must never be fed from — the URL path, query
- * string, the writable `pc-role` cookie, `localStorage`, client-side role guards,
- * or the unverified `pc_session_present` JSON cookie. A demo/fake token
- * (`demo.<base64>`), a bad signature, a wrong/expired token, or an unmapped role
- * all resolve to `null` → the caller treats it as `unknown` and (in report-only)
- * never blocks.
- *
- * Edge-safe: uses Web Crypto (`crypto.subtle`), no Node-only APIs, never throws.
+ * The only sanctioned source of a server-trusted role is a cryptographically
+ * verified HS256 JWT signed by the API. URL, query, writable cookies,
+ * localStorage and client role state are never authority sources.
  */
 
-// API Role (apps/api request-user) → platform-v7 cabinet role. Partial by design:
-// API roles without a 1:1 cabinet (ACCOUNTING / GUEST) and cabinets without a 1:1
-// API role (surveyor / bank / arbitrator / compliance) resolve to null = unknown.
 const API_ROLE_TO_CABINET: Readonly<Record<string, PlatformRole>> = {
   FARMER: 'seller',
   BUYER: 'buyer',
   LOGISTICIAN: 'logistics',
   DRIVER: 'driver',
+  SURVEYOR: 'surveyor',
   LAB: 'lab',
   ELEVATOR: 'elevator',
+  ACCOUNTING: 'bank',
+  BANK: 'bank',
+  ARBITRATOR: 'arbitrator',
+  COMPLIANCE_OFFICER: 'compliance',
   EXECUTIVE: 'executive',
   SUPPORT_MANAGER: 'operator',
   ADMIN: 'operator',
 };
 
-// The 12 platform-v7 cabinet roles — the only valid `cab` claim values.
 const VALID_CABINET_ROLES: ReadonlySet<string> = new Set<PlatformRole>([
   'operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor',
   'elevator', 'lab', 'bank', 'arbitrator', 'compliance', 'executive',
 ]);
 
-/** Maps a verified API role claim to a platform-v7 cabinet role, or null if unmapped. */
 export function mapApiRoleToCabinetRole(apiRole: unknown): PlatformRole | null {
   if (typeof apiRole !== 'string') return null;
   return API_ROLE_TO_CABINET[apiRole] ?? null;
@@ -64,14 +57,9 @@ function base64UrlToJson(input: string): Record<string, unknown> | null {
   }
 }
 
-/**
- * Verifies an HS256 JWT against `secret` and returns its claims, or null. Never throws.
- * Rejects empty tokens, demo fake tokens, non-3-segment tokens, non-HS256 headers,
- * and bad signatures.
- */
 export async function verifyHs256Jwt(token: string, secret: string): Promise<Record<string, unknown> | null> {
   if (!token || !secret) return null;
-  if (token.startsWith('demo.')) return null; // demo fake token — not cryptographic
+  if (token.startsWith('demo.')) return null;
   const parts = token.split('.');
   if (parts.length !== 3) return null;
   const [headerB64, payloadB64, signatureB64] = parts;
@@ -79,7 +67,6 @@ export async function verifyHs256Jwt(token: string, secret: string): Promise<Rec
   try {
     const header = base64UrlToJson(headerB64);
     if (!header || header.alg !== 'HS256') return null;
-
     const signature = base64UrlToBytes(signatureB64);
     if (!signature) return null;
 
@@ -97,17 +84,12 @@ export async function verifyHs256Jwt(token: string, secret: string): Promise<Rec
       new TextEncoder().encode(`${headerB64}.${payloadB64}`),
     );
     if (!valid) return null;
-
     return base64UrlToJson(payloadB64);
   } catch {
     return null;
   }
 }
 
-/**
- * Resolves the platform-v7 cabinet role from a verified JWT only. Returns null
- * (→ unknown) for any missing/demo/invalid/expired/unmapped case. Never throws.
- */
 export async function readVerifiedCabinetRole(
   token: string | null | undefined,
   secret: string,
@@ -116,19 +98,10 @@ export async function readVerifiedCabinetRole(
   if (!token) return null;
   const claims = await verifyHs256Jwt(token, secret);
   if (!claims) return null;
-  if (typeof claims.exp === 'number' && claims.exp <= nowSeconds) return null; // expired
-  if (typeof claims.nbf === 'number' && claims.nbf > nowSeconds) return null; // not yet valid
+  if (typeof claims.exp === 'number' && claims.exp <= nowSeconds) return null;
+  if (typeof claims.nbf === 'number' && claims.nbf > nowSeconds) return null;
   return mapApiRoleToCabinetRole(claims.role);
 }
-
-// --- Phase 4D-pre: dedicated platform-v7 cabinet session (isolated from pc_access_token) ---
-//
-// The platform-v7 shell session carries the cabinet role directly in a `cab` claim of a
-// dedicated, server-signed cookie (see /api/platform-v7/cabinet-session). This is kept
-// separate from `pc_access_token` on purpose: that cookie is Bearer-forwarded to the API
-// and its `demo.` prefix routes demo↔real, so it must not be repurposed. Verifying the
-// cabinet role from this dedicated token covers all 12 cabinets (including surveyor /
-// bank / arbitrator / compliance, which have no 1:1 API role).
 
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = '';
@@ -136,10 +109,6 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-/**
- * Signs a dedicated platform-v7 cabinet session token (HS256, `cab` claim). Returns null
- * for an unknown role or missing secret. Edge-safe (Web Crypto). Never throws.
- */
 export async function signCabinetSession(
   role: string,
   secret: string,
@@ -160,10 +129,6 @@ export async function signCabinetSession(
   }
 }
 
-/**
- * Resolves the cabinet role from a verified dedicated session token (`cab` claim). Returns
- * null (→ unknown) for any missing/invalid/expired/unknown-role case. Never throws.
- */
 export async function readVerifiedCabinetSessionRole(
   token: string | null | undefined,
   secret: string,
@@ -172,8 +137,8 @@ export async function readVerifiedCabinetSessionRole(
   if (!token) return null;
   const claims = await verifyHs256Jwt(token, secret);
   if (!claims) return null;
-  if (typeof claims.exp === 'number' && claims.exp <= nowSeconds) return null; // expired
-  if (typeof claims.nbf === 'number' && claims.nbf > nowSeconds) return null; // not yet valid
+  if (typeof claims.exp === 'number' && claims.exp <= nowSeconds) return null;
+  if (typeof claims.nbf === 'number' && claims.nbf > nowSeconds) return null;
   const cab = claims.cab;
   return typeof cab === 'string' && VALID_CABINET_ROLES.has(cab) ? (cab as PlatformRole) : null;
 }
