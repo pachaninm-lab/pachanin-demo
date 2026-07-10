@@ -49,8 +49,16 @@ LINKAGE REQUIREMENTS FOR VP-3.21:
 
 NEXT:
 - Layer: VP-3.21 Runtime Persistence Outbox Audit Linkage Implementation.
-- Goal: implement the typed linkage boundary only after this gate is merged.
-- Allowed files for this gate remain docs-only.
+- Goal: prepare the manual implementation layer after this final gate is merged.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/execution-queue.md
+- Success criteria:
+  - final gate closes without writing linkage code;
+  - next manual code PR explicitly expands current scope to the two approved linkage files;
+  - critical forbidden zones remain unchanged;
+  - Prisma schema and migrations remain locked;
+  - maturity language remains platform-temporarily-without-external-integrations.
 
 AFTER NEXT:
 - Layer: VP-3.22 Runtime Persistence Pipeline Linkage Binding Plan.
