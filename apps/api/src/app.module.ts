@@ -4,7 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { LogMaskingMiddleware } from './common/middleware/log-masking.middleware';
 import { AppAuthGuard } from './common/guards/auth.guard';
 import { PrismaModule } from './common/prisma/prisma.module';
-import { RateLimitGuard } from './common/security/rate-limit.guard';
+import { DecoratedRateLimitGuard, PreAuthRateLimitGuard } from './common/security/rate-limit.guard';
 import { RateLimitService } from './common/security/rate-limit.service';
 import { EvidencePackModule } from './modules/evidence-pack/evidence-pack.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -108,11 +108,15 @@ import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-
     RateLimitService,
     {
       provide: APP_GUARD,
+      useClass: PreAuthRateLimitGuard,
+    },
+    {
+      provide: APP_GUARD,
       useClass: AppAuthGuard,
     },
     {
       provide: APP_GUARD,
-      useClass: RateLimitGuard,
+      useClass: DecoratedRateLimitGuard,
     },
   ],
 })
