@@ -28,22 +28,7 @@ import '@/styles/platform-v7-seller-mobile-usability.css';
 import '@/styles/platform-v7-mobile-bottom-tools.css';
 import '@/styles/platform-v7-seller-workspace-v2.css';
 
-export const metadata: Metadata = {
-  title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
-  description: 'Цифровой контур исполнения зерновой сделки: допуск, логистика, приёмка, качество, документы, расчёты, спор и доказательства.',
-  keywords: ['зерно', 'агроторговля', 'элеватор', 'логистика зерна', 'сделка', 'документы', 'расчёты'],
-  creator: 'Прозрачная Цена',
-  robots: { index: false, follow: false },
-  openGraph: {
-    type: 'website',
-    locale: 'ru_RU',
-    siteName: 'Прозрачная Цена',
-    title: 'Прозрачная Цена — контур исполнения зерновой сделки',
-    description: 'Логистика, приёмка, качество, документы, расчёты, спор и доказательства в одном проверяемом процессе.',
-  },
-  metadataBase: new URL('https://xn----8sbjf4befbjgs9b.xn--p1ai'),
-};
-
+const SITE_URL = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7',
   '/platform-v7/open',
@@ -68,6 +53,30 @@ function normalizePath(value: string | null) {
 function isPublicPath(value: string | null) {
   const pathname = normalizePath(value);
   return PUBLIC_EXACT_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
+}
+
+export function generateMetadata(): Metadata {
+  const pathname = normalizePath(headers().get('x-pc-pathname'));
+  const isCanonicalEntry = pathname === '/platform-v7';
+  return {
+    title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
+    description: 'Цифровой контур исполнения зерновой сделки: допуск, логистика, приёмка, качество, документы, расчёты, спор и доказательства.',
+    keywords: ['зерно', 'агроторговля', 'элеватор', 'логистика зерна', 'сделка', 'документы', 'расчёты'],
+    creator: 'Прозрачная Цена',
+    robots: isCanonicalEntry
+      ? { index: true, follow: true }
+      : { index: false, follow: false, noarchive: true, nosnippet: true },
+    alternates: isCanonicalEntry ? { canonical: `${SITE_URL}/platform-v7` } : undefined,
+    openGraph: {
+      type: 'website',
+      locale: 'ru_RU',
+      siteName: 'Прозрачная Цена',
+      title: 'Прозрачная Цена — контур исполнения зерновой сделки',
+      description: 'Логистика, приёмка, качество, документы, расчёты, спор и доказательства в одном проверяемом процессе.',
+      url: isCanonicalEntry ? `${SITE_URL}/platform-v7` : undefined,
+    },
+    metadataBase: new URL(SITE_URL),
+  };
 }
 
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
