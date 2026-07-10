@@ -3,8 +3,10 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = process.cwd();
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(SCRIPT_DIR, '..');
 const MIGRATIONS_DIR = path.join(ROOT, 'apps/api/prisma/migrations');
 const ACCEPTED_BASELINE = '20260710150000_persistent_identity_sessions';
 
