@@ -3,7 +3,11 @@ import {
   type P7DealWorkspaceRuntimeDbContract,
   type P7DealWorkspaceRuntimeDbWriteState,
 } from './deal-workspace-runtime-db-contract';
-import type { P7DealWorkspaceRuntimeRepositoryLinkage } from './deal-workspace-runtime-db-repository';
+import type {
+  P7DealWorkspaceRuntimeRepository,
+  P7DealWorkspaceRuntimeRepositoryLinkage,
+  P7DealWorkspaceRuntimeRepositoryReceipt,
+} from './deal-workspace-runtime-db-repository';
 
 export type P7DealWorkspaceRuntimeLinkageMaturity = 'contract-linkage';
 export type P7DealWorkspaceRuntimeLinkageIssueCode =
@@ -51,6 +55,16 @@ export interface P7DealWorkspaceRuntimeLinkageResult {
   readonly acceptedAuditEvidence: boolean;
   readonly issues: readonly P7DealWorkspaceRuntimeLinkageIssue[];
   readonly maturity: P7DealWorkspaceRuntimeLinkageMaturity;
+}
+
+export interface P7DealWorkspaceRuntimeLinkedRepositoryWriteInput extends P7DealWorkspaceRuntimeLinkageInput {
+  readonly repository: P7DealWorkspaceRuntimeRepository;
+  readonly savedAt?: string;
+}
+
+export interface P7DealWorkspaceRuntimeLinkedRepositoryWriteResult {
+  readonly linkageResult: P7DealWorkspaceRuntimeLinkageResult;
+  readonly repositoryReceipt: P7DealWorkspaceRuntimeRepositoryReceipt;
 }
 
 function nonEmpty(value: string): boolean {
@@ -122,4 +136,21 @@ export function buildP7DealWorkspaceRuntimeLinkage(
     issues: [...outboxIssues, ...auditIssues],
     maturity: 'contract-linkage',
   };
+}
+
+export function writeP7DealWorkspaceRuntimeWithLinkage(
+  input: P7DealWorkspaceRuntimeLinkedRepositoryWriteInput,
+): P7DealWorkspaceRuntimeLinkedRepositoryWriteResult {
+  const linkageResult = buildP7DealWorkspaceRuntimeLinkage({
+    contract: input.contract,
+    outbox: input.outbox,
+    audit: input.audit,
+  });
+  const repositoryReceipt = input.repository.write({
+    contract: input.contract,
+    linkage: linkageResult.linkage,
+    savedAt: input.savedAt,
+  });
+
+  return { linkageResult, repositoryReceipt };
 }
