@@ -43,6 +43,30 @@ if [ "${GITHUB_HEAD_REF:-}" = "p7-bank-basis-state-machine" ] || [ "${P7_BANK_BA
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$BANK_BASIS_MIGRATION_SCOPE")
 fi
 
+# Exact, reviewable concurrent scope for PR #2318. Do not broaden this to an
+# apps/web wildcard: the active financial-delivery autopilot remains isolated.
+PUBLIC_ENTRY_SCOPE='apps/web/app/platform-v7/forgot-password/page.tsx
+apps/web/app/platform-v7/login/page.tsx
+apps/web/app/platform-v7/page.tsx
+apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx
+apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx
+apps/web/components/platform-v7/PublicEntryCleanup.tsx
+apps/web/components/platform-v7/PublicLocaleSwitch.tsx
+apps/web/components/platform-v7/PublicSiteHeader.tsx
+apps/web/i18n/public-entry-messages.ts
+apps/web/i18n/request.ts
+apps/web/tests/platform-v7-public-entry-links.test.ts
+apps/web/tests/setup.ts
+apps/web/tests/unit/platformV7PublicRegistrationPatch.test.ts
+apps/web/tests/unit/platformV7RootWorkEntry.test.ts
+apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts
+apps/web/tests/unit/platformV7VisibleEntry.test.ts
+scripts/p7-autopilot-guard.sh'
+
+if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
+fi
+
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
 const fs = require('fs');
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
