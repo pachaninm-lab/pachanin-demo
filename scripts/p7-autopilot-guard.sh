@@ -61,10 +61,17 @@ apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts
 apps/web/tests/unit/platformV7VisibleEntry.test.ts
 scripts/p7-autopilot-guard.sh'
 
-PUBLIC_AUTH_FIX_SCOPE='apps/web/app/api/auth/login/route.ts
+PUBLIC_AUTH_FIX_SCOPE='apps/web/app/layout.tsx
+apps/web/app/api/auth/login/route.ts
 apps/web/app/api/auth/mfa-login/route.ts
 apps/web/app/api/auth/mfa-login/cancel/route.ts
+apps/web/app/platform-v7/layout.tsx
+apps/web/app/platform-v7/template.tsx
 apps/web/app/platform-v7/login/page.tsx
+apps/web/app/platform-v7/login/template.tsx
+apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx
+apps/web/components/platform-v7/PlatformV7ProtectedTemplateRuntime.tsx
+apps/web/components/platform-v7/PlatformV7TemplateSwitch.tsx
 apps/web/i18n/public-entry-messages.ts
 apps/web/lib/server/auth-session-response.ts
 apps/web/lib/server/mfa-login-ticket.ts
@@ -72,6 +79,7 @@ apps/web/tests/unit/mfaPendingLoginTicket.test.ts
 apps/web/tests/unit/platformV7FinalShellStaticGate.test.ts
 apps/web/tests/unit/platformV7LoginRoleHandoff.test.ts
 apps/web/tests/unit/platformV7LoginSecurityBoundary.test.ts
+apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 apps/web/tests/unit/platformV7SingleEntryLogin.test.ts
 apps/web/tests/unit/productEntryM31.test.tsx
 scripts/p7-autopilot-guard.sh'
