@@ -19,6 +19,15 @@ const MSW_BACKEND_PATHS = [
   /^\/api\/rfq(?:\/[^/?]+)?(?:\/offer|\/accept)?$/,
 ];
 
+function installFetch(fetchImplementation: typeof fetch) {
+  Object.defineProperty(globalThis, 'fetch', {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: fetchImplementation,
+  });
+}
+
 function localBackendPath(input: Parameters<typeof fetch>[0]) {
   const rawUrl = input instanceof Request ? input.url : String(input);
   const url = new URL(rawUrl, 'http://localhost');
@@ -43,11 +52,12 @@ function hasMswBackendPath(pathWithSearch: string) {
   return MSW_BACKEND_PATHS.some((pattern) => pattern.test(pathname));
 }
 
-// Start MSW server before all tests
+// Start MSW server before all tests. The descriptor remains configurable so
+// individual Vitest suites can spy on or replace fetch without descriptor errors.
 beforeAll(() => {
   server.listen({ onUnhandledRequest: 'warn' });
 
-  globalThis.fetch = async (input, init) => {
+  installFetch(async (input, init) => {
     let backendPath: string | null = null;
     try {
       backendPath = localBackendPath(input);
@@ -66,7 +76,7 @@ beforeAll(() => {
     } catch {
       return localBackendFallback(input, init);
     }
-  };
+  });
 });
 
 // Reset handlers after each test
@@ -74,6 +84,6 @@ afterEach(() => server.resetHandlers());
 
 // Close server after all tests
 afterAll(() => {
-  globalThis.fetch = localBackendFetch;
+  installFetch(localBackendFetch);
   server.close();
 });
