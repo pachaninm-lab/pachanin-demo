@@ -9,12 +9,25 @@ BASELINE PROVEN:
 - one canonical Deal has 12 ACTIVE DealParticipant assignments;
 - all 19 commands execute to `CLOSED` with signed bank callbacks and full reconciliation.
 
-GOAL:
-Prove that the same canonical transaction remains correct under concurrency, replay, application restart, transaction failure and PostgreSQL connection reuse. No production readiness claim is allowed from this isolated CI proof.
+CURRENT FAILURE:
+- PR #2274 recovery matrix reproduces duplicate signed callback failure after successful `RESERVE`;
+- the same bank event is passed through generic `fingerprintedCommand()`;
+- its receipt fingerprint includes mutable `expectedUpdatedAt`;
+- after `RESERVE_REQUESTED → RESERVED`, the repeated event derives a different key and reaches the state guard instead of the original receipt;
+- observed result: `DEAL_STATE_CONFLICT` instead of deterministic duplicate receipt.
+
+CORRECTION:
+- bank callback idempotency identity must be stable by verified partner + event ID;
+- the material payload fingerprint remains bound to the stored command identity;
+- same event and same payload returns the original receipt;
+- same event with different material payload fails as `BANK_EVENT_REPLAY_MISMATCH`;
+- HMAC verification, exact operation binding and state-machine rules remain unchanged.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
+- apps/api/src/modules/deals/industrial-deal-command.gateway.ts
+- apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts
 - apps/api/test/one-deal/**
 - scripts/platform-v7-one-deal-*.mjs
 - scripts/platform-v7-one-deal-*.sh
@@ -23,15 +36,17 @@ CURRENT ALLOWED:
 CURRENT CRITERIA:
 - simultaneous commands preserve one aggregate version and exactly one valid winner;
 - a duplicate bank callback returns the original receipt without a second event, ledger entry or state transition;
+- same partner event ID with changed payload is rejected before any new mutation;
 - an out-of-order callback is rejected before any mutation;
 - a fresh Prisma/API runtime continues from persisted Deal, pending BankOperation, outbox receipt and audit state;
 - a forced transaction failure rolls back Deal, DealEvent, AuditEvent, ledger and outbox writes atomically;
 - sequential and parallel transaction-local RLS contexts cannot leak tenant, organization, role or session values through the connection pool;
-- a full recovery rerun with original command fingerprints is deterministic and idempotent after `CLOSED`;
+- a full recovery rerun with original command identities is deterministic and idempotent after `CLOSED`;
 - evidence counts remain stable after every replay and restart;
 - production readiness, live integrations, production load and DR remain unclaimed.
 
 LOCKED:
+- every production file outside the exact gateway and unit-spec listed above;
 - production migration or RLS execution;
 - persistent identity/session/revocation/MFA implementation;
 - live bank, ФГИС, ЭДО and signature activation;
