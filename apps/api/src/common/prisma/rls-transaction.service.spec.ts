@@ -152,7 +152,7 @@ describe('RlsTransactionService', () => {
   });
 });
 
-describe('platform-v7 RLS deployment artifacts', () => {
+describe('platform-v7 database deployment artifacts', () => {
   it('passes canonical Prisma/RLS drift validation', () => {
     const validator = repositoryPath('scripts/platform-v7-rls-validate.mjs');
     const result = JSON.parse(execFileSync(process.execPath, [validator], { encoding: 'utf8' })) as {
@@ -165,17 +165,47 @@ describe('platform-v7 RLS deployment artifacts', () => {
     expect(result.policies).toBeGreaterThanOrEqual(16);
   });
 
-  it('keeps apply and rollback rehearsals isolated and rollback-only', () => {
-    for (const scriptName of [
-      'platform-v7-rls-apply-rehearsal.sh',
-      'platform-v7-rls-rollback-rehearsal.sh',
-    ]) {
-      const source = readFileSync(repositoryPath('scripts', scriptName), 'utf8');
-      expect(source).toContain('RLS_REHEARSAL_DATABASE_URL');
-      expect(source).toContain('NODE_ENV=production');
-      expect(source).toContain('rehearsal URL equals DATABASE_URL');
-      expect(source).toContain('ROLLBACK;');
-      expect(source).not.toContain('COMMIT;');
+  it('keeps the apply rehearsal isolated and transactionally rolled back', () => {
+    const source = readFileSync(repositoryPath('scripts/platform-v7-rls-apply-rehearsal.sh'), 'utf8');
+    expect(source).toContain('RLS_REHEARSAL_DATABASE_URL');
+    expect(source).toContain('NODE_ENV=production');
+    expect(source).toContain('rehearsal URL equals DATABASE_URL');
+    expect(source).toContain('ROLLBACK;');
+    expect(source).not.toContain('COMMIT;');
+  });
+
+  it('replaces reverse RLS rollback with fail-closed backup/restore recovery', () => {
+    const wrapper = readFileSync(repositoryPath('scripts/platform-v7-rls-rollback-rehearsal.sh'), 'utf8');
+    const rehearsal = readFileSync(repositoryPath('scripts/platform-v7-database-dr-rehearsal.sh'), 'utf8');
+
+    expect(wrapper).toContain('platform-v7-database-dr-rehearsal.sh');
+    expect(wrapper).toContain('forward-compatible database');
+    expect(rehearsal).toContain('pg_dump');
+    expect(rehearsal).toContain('pg_restore');
+    expect(rehearsal).toContain('sha256sum --check');
+    expect(rehearsal).toContain('SOURCE_FINGERPRINT');
+    expect(rehearsal).toContain('RESTORE_FINGERPRINT');
+
+    const forbidden = [
+      /ALTER\s+TABLE[\s\S]*DISABLE\s+ROW\s+LEVEL\s+SECURITY/i,
+      /ALTER\s+TABLE[\s\S]*NO\s+FORCE\s+ROW\s+LEVEL\s+SECURITY/i,
+      /DROP\s+POLICY/i,
+    ];
+    for (const pattern of forbidden) {
+      expect(pattern.test(wrapper)).toBe(false);
+      expect(pattern.test(rehearsal)).toBe(false);
     }
+  });
+
+  it('passes the forward-only migration gate', () => {
+    const gate = repositoryPath('scripts/platform-v7-forward-only-migration-check.mjs');
+    const result = JSON.parse(execFileSync(process.execPath, [gate], { encoding: 'utf8' })) as {
+      forwardOnlyMigrationGate: string;
+      rollbackScript: string;
+    };
+    expect(result).toMatchObject({
+      forwardOnlyMigrationGate: 'passed',
+      rollbackScript: 'safe-restore-only',
+    });
   });
 });
