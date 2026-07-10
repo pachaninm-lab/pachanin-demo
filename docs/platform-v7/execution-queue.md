@@ -11,10 +11,10 @@ CURRENT ALLOWED:
 - apps/web/tests/e2e/one-deal/**
 - scripts/platform-v7-one-deal-*.mjs
 - scripts/platform-v7-one-deal-*.sh
-- .github/workflows/api-test.yml
+- .github/workflows/ci.yml
 
 CURRENT CRITERIA:
-- trusted `api-test.yml` starts an isolated PostgreSQL 16 service with ephemeral credentials;
+- visible and mandatory `CI` workflow starts an isolated PostgreSQL 16 service with ephemeral credentials;
 - schema, migrations and RLS policies are applied only to the ephemeral database;
 - canonical seed creates one tenant, organizations, 12 human role memberships and one deal ID;
 - all roles read the same facts and version of `DEAL-INDUSTRIAL-001`;
@@ -57,7 +57,7 @@ NEXT:
   - apps/api/test/one-deal/**
   - scripts/platform-v7-one-deal-*.mjs
   - scripts/platform-v7-one-deal-*.sh
-  - .github/workflows/api-test.yml
+  - .github/workflows/ci.yml
 - Success criteria:
   - concurrent bids and commands preserve one winner and one aggregate version;
   - duplicate and out-of-order bank callbacks are replay-safe;
