@@ -1,40 +1,40 @@
-import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
-import { MfaService } from './mfa.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { RequestUser } from '../../common/types/request-user';
+import type { RequestUser } from '../../common/types/request-user';
+import { MfaService } from './mfa.service';
 
 @Controller('api/mfa')
-@UseGuards(JwtAuthGuard)
 export class MfaController {
   constructor(private readonly mfa: MfaService) {}
 
+  @Get('status')
+  status(@CurrentUser() user: RequestUser) {
+    return this.mfa.status(user);
+  }
+
   @Post('setup/init')
   initSetup(@CurrentUser() user: RequestUser) {
-    const { secret, otpauthUrl } = this.mfa.generateSecret();
-    const url = otpauthUrl('GrainFlow', user.email);
-    // In production: save secret to DB (encrypted), don't return plain secret
-    return { secret, otpauthUrl: url, message: 'Scan QR code and verify with a TOTP code' };
+    return this.mfa.beginSetup(user);
   }
 
   @Post('setup/verify')
   verifySetup(
     @CurrentUser() user: RequestUser,
-    @Body() body: { secret: string; code: string },
+    @Body() body: { challengeId: string; code: string },
   ) {
-    const valid = this.mfa.verifyTotp(body.secret, body.code);
-    if (!valid) return { success: false, message: 'Invalid code' };
-    const { plain, hashed } = this.mfa.generateBackupCodes();
-    // In production: save hashed codes and enable MFA for user in DB
-    return { success: true, backupCodes: plain, message: 'MFA enabled. Save backup codes securely.' };
+    return this.mfa.confirmSetup(user, body.challengeId, body.code);
+  }
+
+  @Post('verify/init')
+  initVerification(@CurrentUser() user: RequestUser) {
+    return this.mfa.beginStepUp(user);
   }
 
   @Post('verify')
   verify(
-    @CurrentUser() _user: RequestUser,
-    @Body() body: { secret: string; code: string },
+    @CurrentUser() user: RequestUser,
+    @Body() body: { challengeId: string; code?: string; backupCode?: string },
   ) {
-    const valid = this.mfa.verifyTotp(body.secret, body.code);
-    return { valid };
+    return this.mfa.verifyStepUp(user, body);
   }
 }
