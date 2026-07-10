@@ -47,6 +47,17 @@ const nextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return {
+      beforeFiles: [
+        { source: '/platform-v7', destination: '/_pc-public/platform-v7' },
+        { source: '/platform-v7/login', destination: '/_pc-public/platform-v7/login' },
+        { source: '/platform-v7/forgot-password', destination: '/_pc-public/platform-v7/forgot-password' },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
   async redirects() {
     return [
       {
