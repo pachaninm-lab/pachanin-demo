@@ -1,19 +1,17 @@
 # platform-v7 execution queue
 
-CURRENT: VP-3.18 Runtime Persistence Outbox Audit Linkage Plan.
+CURRENT: VP-3.19 Runtime Persistence Outbox Audit Linkage Scope Unlock.
 
-GOAL: Выбрать точный scope для contract-level outbox/audit linkage после merge #2225, не меняя `schema.prisma`, не создавая migrations, не открывая UI/API/auth/backend broad scope и не заявляя live bank/ФГИС/ЭДО persistence.
+GOAL: Docs-only разблокировать точные files для contract-level outbox/audit linkage после merge #2226, не меняя `schema.prisma`, не создавая migrations, не открывая runtime action/UI/API/auth/backend broad scope и не заявляя live bank/ФГИС/ЭДО persistence.
 
 CURRENT STATUS:
-- VP-2.5 is complete: all 260 web unit tests pass (pnpm --filter web test → 260/260).
-- VP-3 Deal Workspace Runtime Binding is complete from #2208.
 - VP-3 Runtime Actions are complete from #2210.
-- VP-3 Runtime Refresh Snapshot is complete from #2211.
 - VP-3 Process Runtime Store is complete from #2212.
-- VP-3.5 Runtime DB Contract is merged from #2213 as contract-only, not a live production DB migration.
+- VP-3.5 Runtime DB Contract is merged from #2213 as contract-only.
 - VP-3.13 Runtime Persistence Repository Adapter Implementation is merged from #2221.
 - VP-3.17 Runtime Persistence Pipeline Binding Implementation is merged from #2225.
-- Runtime action result now has `runtimeRepositoryReceipt`, but it still has no real outbox/audit linkage.
+- VP-3.18 Runtime Persistence Outbox Audit Linkage Plan is merged from #2226.
+- Runtime repository receipt still has no real outbox/audit linkage.
 - #2113 remains open: repository settings cleanup.
 - #2115 remains open: backend register role assignment hardening remains blocked by the current auth-file write path.
 
@@ -21,14 +19,9 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
 - docs/platform-v7/execution-queue.md
 
-CANDIDATE IMPLEMENTATION FILES FOR LATER PR:
+UNLOCKED IMPLEMENTATION FILES FOR LATER CODE PR:
 - `apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts`
 - `apps/web/tests/unit/platformV7DealWorkspaceRuntimeLinkage.test.ts`
-
-WHY NEW LINKAGE BOUNDARY:
-- Current repository adapter can accept `outboxEntryId` and `auditEventId`, but no dedicated linkage builder exists yet.
-- Existing runtime pipeline must not fake `fully_linked` before outbox and audit links are actually produced.
-- A separate linkage boundary keeps future DB/outbox/audit implementation isolated from UI and server action code.
 
 STILL LOCKED:
 - `apps/api/prisma/schema.prisma`
@@ -42,79 +35,31 @@ STILL LOCKED:
 - `pnpm-lock.yaml`
 
 LINKAGE REQUIREMENTS FOR LATER PR:
-- Produce a typed linkage object with `outboxEntryId` and `auditEventId` only when both are explicitly available.
-- Preserve `outbox_required` when outbox linkage is missing.
-- Preserve `audit_required` when audit linkage is missing after outbox exists.
-- Allow `fully_linked` only through existing repository state logic when both links exist.
+- Produce typed outbox/audit linkage evidence.
+- Preserve `outbox_required` when outbox linkage is absent.
+- Preserve `audit_required` when only outbox linkage exists.
+- Allow `fully_linked` only when both explicit links exist.
 - Keep duplicate idempotency duplicate-safe.
-- Keep this as contract-level linkage, not live DB persistence.
+- Keep contract-level maturity language; do not claim live DB persistence.
 - No direct UI money movement.
-- No bank/FGIS/EDO live persistence claims.
-- No hidden migration.
-- No `schema.prisma` drift.
+- No hidden migration or `schema.prisma` drift.
 - No package or lockfile change.
 
 NEXT:
-- Layer: VP-3.19 Runtime Persistence Outbox Audit Linkage Scope Unlock.
-- Goal: docs-only unlock exact files for linkage implementation.
+- Layer: VP-3.20 Runtime Persistence Outbox Audit Linkage Final Gate.
+- Goal: final docs-only gate before writing linkage code in the exact unlocked files.
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/execution-queue.md
 - Success criteria:
-  - keep candidate linkage files named but not written in VP-3.18;
-  - keep `apps/api/prisma/schema.prisma` locked;
-  - keep `apps/api/prisma/migrations/**` locked;
-  - keep direct UI money movement forbidden;
-  - keep hidden DB migration forbidden;
-  - keep bank/FGIS/EDO live claims forbidden;
-  - keep package and lockfile changes forbidden;
-  - guard-tests remain green;
-  - pnpm --filter web test remains green;
+  - keep linkage files named but not written in VP-3.19;
+  - keep critical forbidden zones unchanged;
+  - keep Prisma schema and migrations locked;
+  - guard, dry-run and security checks green;
   - maturity language remains platform-temporarily-without-external-integrations.
 
-ORDER:
-1. Stable shell boundary is active from #2038.
-2. Role-locked login handoff is active from #2036/#2037.
-3. Mobile protected header action recovery is active from #2055.
-4. Public mobile brand title recovery is active from #2056.
-5. Elevator first-screen pass is active from #2057.
-6. Driver / field first-screen scope is active from #2058.
-7. Driver / field first-screen pass is active from #2059.
-8. Netlify root entry redirect recovery is active from root-entry-redirect.
-9. P0 auth/session cabinet-session body-role guard is active from #2111.
-10. P0 mobile header controls fix is active from #2117.
-11. P0 backend register role assignment hardening remains blocked by #2115.
-12. P0 RBAC / tenant scope / object scope source-of-truth selection is active from #2120.
-13. P0 RBAC / tenant scope / object scope implementation boundary is active from #2121.
-14. P0 route wiring selection is active from #2122.
-15. P0 route-scope boundary implementation is active from #2123.
-16. P0 route-scope state sync is active from #2124.
-17. P0 canonical data boundary selection is active from #2125.
-18. P0 canonical data implementation boundary is active from #2126.
-19. P0 canonical data state sync is active from #2127.
-20. P0 money integer basis boundary selection is active from #2128.
-21. P0 money integer basis boundary implementation is active from #2129.
-22. P0 money integer state sync after #2129 is active from #2130.
-23. P0 ledger source-of-truth selection is active from #2131.
-24. P0 ledger source-of-truth implementation boundary is active from #2132.
-25. P0 ledger source state sync after #2132 merge is active from #2133.
-26. P0 ledger invariants implementation scope selection is active from #2134.
-27. P0 isolated read-only ledger invariants boundary is active from #2135.
-28. VP-2.5 vitest green + CI gate is complete.
-29. VP-3 Deal Workspace Runtime Binding is active from #2208.
-30. VP-3 Runtime Actions are active from #2210.
-31. VP-3 Runtime Refresh Snapshot is active from #2211.
-32. VP-3 Process Runtime Store is active from #2212.
-33. VP-3.5 Runtime DB Contract is active from #2213.
-34. VP-3.6 Runtime Persistence Scope Selection is active from #2214.
-35. VP-3.7 Runtime Persistence Repository Adapter Contract Plan is active from #2215.
-36. VP-3.8 Runtime Persistence Scope Request is active from #2216.
-37. VP-3.9 Runtime Persistence Preflight is active from #2217.
-38. VP-3.10 Runtime Persistence Activation is active from #2218.
-39. VP-3.11 Runtime Persistence Scope Unlock is active from #2219.
-40. VP-3.12 Runtime Persistence Final Gate is active from #2220.
-41. VP-3.13 Runtime Persistence Repository Adapter Implementation is active from #2221.
-42. VP-3.14 Runtime Persistence Pipeline Binding Plan is active from #2222.
-43. VP-3.15 Runtime Persistence Pipeline Binding Scope Unlock is active from #2223.
-44. VP-3.16 Runtime Persistence Pipeline Binding Final Gate is active from #2224.
-45. VP-3.17 Runtime Persistence Pipeline Binding Implementation is active from #2225.
+AFTER NEXT:
+- Layer: VP-3.21 Runtime Persistence Outbox Audit Linkage Implementation.
+- Candidate code files:
+  - apps/web/lib/platform-v7/deal-workspace-runtime-linkage.ts
+  - apps/web/tests/unit/platformV7DealWorkspaceRuntimeLinkage.test.ts
