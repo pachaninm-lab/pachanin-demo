@@ -1,0 +1,41 @@
+name: export hydration patch 2323
+
+on:
+  pull_request:
+    branches:
+      - fix/public-auth-server-authority
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply deterministic style replacement to artifact copy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          files = [
+              Path('apps/web/app/platform-v7/page.tsx'),
+              Path('apps/web/components/platform-v7/PublicSiteHeader.tsx'),
+              Path('apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx'),
+          ]
+          old = '<style>{css}</style>'
+          new = '<style dangerouslySetInnerHTML={{ __html: css }} />'
+          for file in files:
+              text = file.read_text()
+              if text.count(old) != 1:
+                  raise SystemExit(f'{file}: unexpected style occurrence count')
+              file.write_text(text.replace(old, new))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hydration-patched-sources-2323
+          path: |
+            apps/web/app/platform-v7/page.tsx
+            apps/web/components/platform-v7/PublicSiteHeader.tsx
+            apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx
+          if-no-files-found: error
+          retention-days: 1
