@@ -5,7 +5,7 @@
   "currentStatus": "in_progress",
   "current": "VP-3.46 Ephemeral PostgreSQL RLS Integration Harness.",
   "fullTzReadinessPercent": 85,
-  "openPr": null,
+  "openPr": "#2262",
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
@@ -17,7 +17,7 @@
   ],
   "openBlockers": ["#2113", "#2115", "#2251"],
   "blockerNotes": "#2113 repository settings cleanup. #2115 blocks persistent auth-file changes. Draft #2251 remains merge-blocked by user-driven bank confirmations, synthetic bank references, cross-tenant visibility and unresolved conflicts.",
-  "currentDiscovery": "The initial PostgreSQL migration creates permissive legacy deals/audit/ledger policies. VP-3.46 must prove they are explicitly removed before canonical policies are accepted.",
+  "currentDiscovery": "The initial PostgreSQL migration creates permissive legacy deals/audit/ledger policies. VP-3.46 explicitly removes and integration-tests them before canonical policies are accepted.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
     "production RLS policy application",
@@ -50,6 +50,7 @@
   },
   "vp346RlsIntegrationHarness": {
     "layer": "VP-3.46 Ephemeral PostgreSQL RLS Integration Harness",
+    "openPr": "#2262",
     "status": "in_progress",
     "invariants": [
       "CI uses an isolated PostgreSQL 16 service with ephemeral credentials",
