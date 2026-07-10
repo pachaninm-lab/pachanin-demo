@@ -1,90 +1,120 @@
 {
   "project": "platform-v7",
-  "mode": "variant-b",
+  "mode": "industrial-one-deal-scope-unlock",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal.",
+  "current": "Industrial One Deal Foundation: explicit implementation scope unlock.",
   "fullTzReadinessPercent": 85,
-  "openPr": "#2258",
+  "openPr": "#2263",
   "lastClosed": [
     "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
     "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
     "#2250 VP-3.41 Runtime Persistence Internal Service Wiring Implementation",
     "#2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary",
     "#2254 VP-3.43 Transaction-Local Trusted RLS Context",
-    "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding"
+    "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding",
+    "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal"
   ],
-  "openBlockers": ["#2113", "#2115", "#2251"],
-  "blockerNotes": "#2113 repository settings cleanup. #2115 blocks persistent auth-file changes. Draft #2251 remains merge-blocked by user-driven bank confirmations, synthetic bank references, cross-tenant visibility and unresolved conflicts.",
+  "openBlockers": [
+    "#2113 repository settings cleanup",
+    "#2115 persistent auth write path",
+    "#2261 industrial one-deal implementation review"
+  ],
+  "blockerNotes": "The one-deal implementation may proceed only inside the exact allowlist below. Critical product zones remain generally forbidden; only the exact files listed in allowedCurrentScope are unlocked for this layer.",
   "lockedUntilCurrentGreen": [
     "production migration execution",
-    "production RLS policy application",
-    "controller/API/web wiring",
-    "money confirmation commands",
-    "persistent identity/session/MFA changes"
+    "live external integration activation",
+    "persistent identity/session/MFA changes",
+    "production load and disaster-recovery claims"
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
-    "infra/sql/production-rls-policies.sql",
-    "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
-    "scripts/platform-v7-rls-validate.mjs",
-    "scripts/platform-v7-rls-apply-rehearsal.sh",
-    "scripts/platform-v7-rls-rollback-rehearsal.sh"
+    "apps/api/src/common/action-executor/action-policy.ts",
+    "apps/api/src/common/types/request-user.ts",
+    "apps/api/src/modules/deals/**",
+    "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
+    "apps/api/src/modules/settlement-engine/settlement-engine.module.ts",
+    "apps/web/app/api/auth/login/route.ts",
+    "apps/web/app/api/proxy/[...path]/route.ts",
+    "apps/web/app/platform-v7/login/page.tsx",
+    "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+    "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx",
+    "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
+    "apps/web/lib/platform-v7/verified-session.ts",
+    "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
+    "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
+    ".github/workflows/web-unit.yml"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "docs/platform-v7/execution-queue.md",
-    "infra/sql/production-rls-policies.sql",
-    "apps/api/src/common/prisma/rls-transaction.service.spec.ts",
-    "scripts/platform-v7-rls-validate.mjs",
-    "scripts/platform-v7-rls-apply-rehearsal.sh",
-    "scripts/platform-v7-rls-rollback-rehearsal.sh"
+    "apps/api/src/common/action-executor/action-policy.ts",
+    "apps/api/src/common/types/request-user.ts",
+    "apps/api/src/modules/deals/**",
+    "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
+    "apps/api/src/modules/settlement-engine/settlement-engine.module.ts",
+    "apps/web/app/api/auth/login/route.ts",
+    "apps/web/app/api/proxy/[...path]/route.ts",
+    "apps/web/app/platform-v7/login/page.tsx",
+    "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+    "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx",
+    "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
+    "apps/web/lib/platform-v7/verified-session.ts",
+    "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
+    "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
+    ".github/workflows/web-unit.yml"
   ],
-  "vp344RuntimePersistenceTrustedTransactionBinding": {
-    "layer": "VP-3.44 Runtime Persistence Trusted Transaction Binding",
-    "closedPr": "#2256",
-    "status": "merged"
-  },
-  "vp345PhysicalRlsPolicyAlignment": {
-    "layer": "VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
-    "openPr": "#2258",
-    "status": "in_progress",
-    "invariants": [
-      "policies target canonical Prisma physical table names",
-      "RLS is enabled and forced on protected tables",
-      "policy creation is idempotent on PostgreSQL 16",
-      "legacy session-level context helper is removed",
-      "transaction-local five-field context remains canonical",
-      "production database is never modified by CI or rehearsal scripts",
-      "policy drift is statically detectable"
+  "industrialOneDealFoundation": {
+    "layer": "Canonical PostgreSQL deal command path and shared role workspace",
+    "scopeUnlockPr": "#2263",
+    "implementationPr": "#2261",
+    "status": "scope_unlocked_pending_green_review",
+    "canonicalDealId": "DEAL-INDUSTRIAL-001",
+    "requiredInvariants": [
+      "one deal identity and one factual state for all roles",
+      "trusted transaction-local RLS for canonical reads and writes",
+      "strict command idempotency inside the trusted transaction",
+      "no client-supplied target state",
+      "no human confirmation of bank reserve or release",
+      "no synthetic successful backend or bank reference",
+      "server-derived tenant organization role and actor",
+      "legacy controller role allowlists remain intact",
+      "test seed is explicit idempotent and production-denied by default"
     ]
   },
-  "vp346RlsIntegrationHarness": {
-    "layer": "VP-3.46 Ephemeral PostgreSQL RLS Integration Harness",
-    "status": "next-after-vp345-green"
-  },
+  "nextAfterCurrentGreen": [
+    "persistent identity session refresh-family revoke and MFA",
+    "durable outbox worker and bank reconciliation",
+    "truthful offline acknowledgement",
+    "server-rendered RU EN ZH i18n",
+    "load restore DR and accessibility acceptance"
+  ],
   "forbiddenZones": [
     "apps/landing",
-    "apps/api/src/modules/auth/**",
     "apps/web/app/platform-v7",
     "apps/web/components/platform-v7",
     "apps/web/components/v7r",
     "apps/web/lib/platform-v7",
     "apps/web/app/api",
+    "apps/api/src/modules/auth/**",
     "package.json",
     "package-lock.json",
-    "pnpm-lock.yaml"
+    "pnpm-lock.yaml",
+    ".env files",
+    "production migration execution"
   ],
-  "maturityLanguage": ["platform-temporarily-without-external-integrations"],
+  "maturityLanguage": [
+    "industrial-foundation-under-verification",
+    "platform-temporarily-without-external-integrations"
+  ],
   "forbiddenClaims": [
-    "production RLS enabled",
+    "full production readiness",
     "production migration applied",
-    "all repositories RLS-bound",
     "persistent identity complete",
     "external integration completion",
-    "bank confirmation from user command",
+    "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "85% honest architectural readiness. VP-3.45 repairs policy SQL and adds non-production rehearsal controls. No production database or policy application is claimed."
+  "readiness": "85% honest architectural readiness. This state change only unlocks the exact one-deal implementation scope. It does not prove deployment, production database migration, live external integration, persistent identity, load, restore or disaster recovery."
 }
