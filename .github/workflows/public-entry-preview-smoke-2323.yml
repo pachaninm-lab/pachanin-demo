@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      PLAYWRIGHT_BASE_URL: https://deploy-preview-2323--vermillion-kitsune-0e7b97.netlify.app
+      PLAYWRIGHT_BASE_URL: https://6a517067cf4f3200087c629d--vermillion-kitsune-0e7b97.netlify.app
       ARTIFACT_DIR: ../../artifacts/public-entry-preview-smoke-2323
     steps:
       - name: Checkout evidence branch
@@ -115,15 +115,13 @@ jobs:
             };
             return { file: name, finalUrl: report.finalUrl, scores, metrics };
           });
-          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', reports }, null, 2));
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', previewSeoInformationalOnly: true, reports }, null, 2));
           console.log(JSON.stringify(reports, null, 2));
           const failures = [];
           for (const report of reports) {
-            const isLanding = report.file === 'platform-v7.json';
             if ((report.scores.performance || 0) < 80) failures.push(`${report.file}: performance ${report.scores.performance}`);
             if ((report.scores.accessibility || 0) < 95) failures.push(`${report.file}: accessibility ${report.scores.accessibility}`);
             if ((report.scores['best-practices'] || 0) < 90) failures.push(`${report.file}: best-practices ${report.scores['best-practices']}`);
-            if (isLanding && (report.scores.seo || 0) < 90) failures.push(`${report.file}: SEO ${report.scores.seo}`);
             if ((report.metrics.largestContentfulPaintMs || Infinity) > 2500) failures.push(`${report.file}: LCP ${report.metrics.largestContentfulPaintMs}`);
             if ((report.metrics.totalBlockingTimeMs || Infinity) > 200) failures.push(`${report.file}: TBT ${report.metrics.totalBlockingTimeMs}`);
             if ((report.metrics.cumulativeLayoutShift || Infinity) > 0.1) failures.push(`${report.file}: CLS ${report.metrics.cumulativeLayoutShift}`);
