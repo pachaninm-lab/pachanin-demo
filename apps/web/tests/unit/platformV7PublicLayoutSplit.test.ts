@@ -48,6 +48,18 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(templateSwitch).toContain('if (isPublicPath(pathname)) return <>{children}</>');
   });
 
+  it('renders the landing without a client i18n provider or browser locale handler', () => {
+    expect(rootLayout).toContain("const serverOnlyLanding = pathname === '/platform-v7'");
+    expect(rootLayout).toContain('serverOnlyLanding\n    ? children');
+    expect(rootLayout).toContain('NextIntlClientProvider');
+    expect(landing).toContain("const localeValue = await getLocale()");
+    expect(landing).toContain("href={`/platform-v7?lang=${next}`}");
+    expect(landing).toContain("localeControl={(");
+    expect(landing).not.toContain('PublicLocaleSwitch');
+    expect(landing).not.toContain("'use client'");
+    expect(landing).not.toContain('window.');
+  });
+
   it('loads all public entry styles statically outside hydrated markup', () => {
     expect(layout).toContain("@/styles/platform-v7-public-header.css");
     expect(layout).toContain("@/styles/platform-v7-public-auth.css");
