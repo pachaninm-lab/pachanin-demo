@@ -40,7 +40,6 @@ export type RequestUser = {
 
 export const ROLES_REQUIRING_MFA: Role[] = [
   Role.ADMIN,
-  Role.SUPPORT_MANAGER,
   Role.COMPLIANCE_OFFICER,
   Role.ARBITRATOR,
 ];
