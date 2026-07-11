@@ -1,0 +1,116 @@
+name: staff control center evidence
+
+on:
+  pull_request:
+    branches:
+      - ui/staff-control-center
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-browser-a11y:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      API_URL: http://127.0.0.1:4010
+      JWT_SECRET: staff-evidence-jwt-secret-32-characters-minimum
+      AUTH_TOKEN_PEPPER: staff-evidence-token-pepper-32-characters
+      MFA_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      STAFF_EVIDENCE_BASE_URL: http://127.0.0.1:3000
+      ARTIFACT_DIR: ../../artifacts/staff-control-center-evidence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck staff web contour
+        run: pnpm --filter @pc/web run typecheck
+      - name: Run staff authority UI unit gate
+        run: pnpm --filter @pc/web exec vitest run tests/unit/platformV7StaffAccessControlPlane.test.ts
+      - name: Build production web bundle
+        run: pnpm --filter @pc/web run build
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Start deterministic staff API and production bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/web
+          node scripts/staff-control-center-mock-server.mjs > /tmp/staff-mock.log 2>&1 &
+          echo $! > /tmp/staff-mock.pid
+          NODE_ENV=development pnpm start > /tmp/staff-web.log 2>&1 &
+          echo $! > /tmp/staff-web.pid
+          for attempt in $(seq 1 90); do
+            mock_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4010/staff/assignments/me || true)
+            web_status=$(curl --silent --output /dev/null --write-out '%{http_code}' 'http://127.0.0.1:3000/platform-v7/staff?lang=ru' || true)
+            if [ "$mock_status" = '401' ] && [ "$web_status" = '200' ]; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/staff-mock.log || true
+          cat /tmp/staff-web.log || true
+          exit 1
+      - name: Run Chromium WebKit RU EN ZH staff evidence
+        working-directory: apps/web
+        run: node scripts/staff-control-center-evidence.mjs
+      - name: Run authenticated mobile Lighthouse gate
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          node <<'NODE'
+          const crypto = require('crypto');
+          const fs = require('fs');
+          const secret = process.env.JWT_SECRET;
+          const b64 = (value) => Buffer.from(typeof value === 'string' ? value : JSON.stringify(value)).toString('base64url');
+          const now = Math.floor(Date.now() / 1000);
+          const header = b64({ alg: 'HS256', typ: 'JWT' });
+          const payload = b64({ sub: 'owner-evidence', sid: 'session-evidence', iat: now, exp: now + 3600 });
+          const signature = crypto.createHmac('sha256', secret).update(`${header}.${payload}`).digest('base64url');
+          const token = `${header}.${payload}.${signature}`;
+          const names = ['pc_access_token','pc-access-token','pc_v7_access','pc-v7-access','platform_v7_access','platform-v7-access','access_token','accessToken','pc_session','pc-v7-session','pc_v7_session','platform_v7_session'];
+          fs.writeFileSync('/tmp/staff-lighthouse-headers.json', JSON.stringify({ Cookie: names.map((name) => `${name}=${token}`).join('; ') }));
+          NODE
+          export CHROME_PATH="$(node -e "const { chromium } = require('@playwright/test'); process.stdout.write(chromium.executablePath())")"
+          npx --yes lighthouse@12.6.1 'http://127.0.0.1:3000/platform-v7/staff?lang=ru' \
+            --quiet \
+            --chrome-flags='--headless --no-sandbox --disable-gpu' \
+            --extra-headers=/tmp/staff-lighthouse-headers.json \
+            --only-categories=performance,accessibility,best-practices \
+            --form-factor=mobile \
+            --screenEmulation.mobile=true \
+            --throttling-method=simulate \
+            --output=json \
+            --output-path="$ARTIFACT_DIR/lighthouse-staff.json"
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const report = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), process.env.ARTIFACT_DIR, 'lighthouse-staff.json')));
+          const score = (name) => Math.round((report.categories[name]?.score || 0) * 100);
+          const lcp = report.audits['largest-contentful-paint']?.numericValue ?? Infinity;
+          const tbt = report.audits['total-blocking-time']?.numericValue ?? Infinity;
+          const cls = report.audits['cumulative-layout-shift']?.numericValue ?? Infinity;
+          const result = { performance: score('performance'), accessibility: score('accessibility'), bestPractices: score('best-practices'), lcp, tbt, cls };
+          console.log(JSON.stringify(result, null, 2));
+          if (result.performance < 90 || result.accessibility < 95 || result.bestPractices < 90 || lcp > 2500 || tbt > 250 || cls > 0.1) process.exit(1);
+          NODE
+      - name: Upload exact staff evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staff-control-center-evidence
+          path: artifacts/staff-control-center-evidence
+          if-no-files-found: error
+          retention-days: 14
+      - name: Print server logs on failure
+        if: failure()
+        run: |
+          cat /tmp/staff-mock.log || true
+          cat /tmp/staff-web.log || true
