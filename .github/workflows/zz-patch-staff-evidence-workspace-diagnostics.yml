@@ -1,0 +1,72 @@
+name: patch staff evidence workspace diagnostics
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/staff-control-center-acceptance-2353-final-v4
+          fetch-depth: 0
+      - name: Add exact workspace failure diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/scripts/staff-control-center-acceptance.mjs')
+          text = path.read_text()
+          old = """      await operational.getByText(marker, { exact: false }).first().waitFor({ state: 'visible', timeout: 15_000 });
+"""
+          new = """      try {
+        await operational.getByText(marker, { exact: false }).first().waitFor({ state: 'visible', timeout: 15_000 });
+      } catch {
+        const endpoint = label === copy.tabs[0][0] ? '/api/staff/workspaces/support' : null;
+        const supportCasesEndpoint = label === copy.tabs[0][0] ? '/api/staff/workspaces/support/cases?limit=300' : null;
+        const probes = await page.evaluate(async ({ endpoint, supportCasesEndpoint }) => {
+          const read = async (url) => {
+            if (!url) return null;
+            const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+            return { status: response.status, body: await response.text() };
+          };
+          return { workspace: await read(endpoint), supportCases: await read(supportCasesEndpoint) };
+        }, { endpoint, supportCasesEndpoint });
+        const diagnostic = {
+          project: project.name,
+          locale,
+          label,
+          marker,
+          url: page.url(),
+          operationalText: (await operational.innerText()).slice(0, 12000),
+          probes,
+          consoleErrors,
+          pageErrors,
+          failedRequests,
+          badResponses,
+        };
+        fs.writeFileSync(path.join(artifactDir, `workspace-${project.name}-${locale}-${label}.json`), JSON.stringify(diagnostic, null, 2));
+        await page.screenshot({ path: path.join(artifactDir, `workspace-${project.name}-${locale}-${label}.png`), fullPage: true });
+        throw new Error(`${project.name}/${locale}: workspace ${label} did not render marker ${marker}`);
+      }
+"""
+          if old not in text:
+            raise SystemExit('workspace marker wait not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Commit evidence diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/web/scripts/staff-control-center-acceptance.mjs
+          git commit -m 'Capture Staff Control Center workspace diagnostics'
+          git push origin HEAD:ops/staff-control-center-acceptance-2353-final-v4
