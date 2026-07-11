@@ -9,6 +9,7 @@ import {
   Req,
   UnauthorizedException,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { RequestUser } from '../../common/types/request-user';
 import {
@@ -27,6 +28,7 @@ import { StaffEmergencyService } from './staff-emergency.service';
 import { StaffPermissions } from './staff-permissions.decorator';
 import { StaffProjectionService } from './staff-projection.service';
 import { StaffAccessContext, StaffAccessMode, StaffPermission } from './staff-access.types';
+import { StaffWorkspaceAuditInterceptor } from './staff-workspace-audit.interceptor';
 import { StaffWorkspaceService } from './staff-workspace.service';
 
 type StaffRequest = {
@@ -36,6 +38,7 @@ type StaffRequest = {
 
 @Controller('staff/workspaces')
 @UseGuards(StaffAccessGuard)
+@UseInterceptors(StaffWorkspaceAuditInterceptor)
 export class StaffWorkspaceController {
   constructor(
     private readonly workspaces: StaffWorkspaceService,
