@@ -26,8 +26,8 @@ describe('platform-v7 root working entry', () => {
     expect(page).not.toContain("href: '/platform-v7/buyer'");
     expect(page).not.toContain("href: '/platform-v7/bank'");
     expect(page).not.toContain("<a key={key} href={href} className='entry-role-tile'");
-    expect(landingCopy).toContain('Один вход для всех участников');
-    expect(landingCopy).toContain('в соответствии с назначенными правами');
+    expect(landingCopy).toContain('Войдите один раз');
+    expect(landingCopy).toContain('с доступными вам действиями');
   });
 
   it('uses native links without hydrating a client router tree', () => {
