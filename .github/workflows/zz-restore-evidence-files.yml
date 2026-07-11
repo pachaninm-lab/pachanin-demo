@@ -1,0 +1,46 @@
+name: restore staff control center evidence files
+
+on:
+  push:
+    branches:
+      - ops/staff-control-center-acceptance-2353-v2
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/staff-control-center-acceptance-2353-v2
+          fetch-depth: 0
+      - name: Restore one-shot evidence files on current implementation head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git cherry-pick 14571db1669800f2c4f2d51f88b23b291fc706bc
+          git cherry-pick e226e169322e69c5ad9c6524d511aef4cd8fdee7
+          git cherry-pick 2440be65cd00f7b09fa91caca23680742fde50c3
+          git cherry-pick b89585a580c2b482bdb1389840686f3522ecf4e9
+          python - <<'PY'
+          from pathlib import Path
+          old = '2649b11ce9e1b35510c848a5f8a886ba0f388714'
+          new = 'fef28d8e8f63ed80da2bcc8d7941466373a1322b'
+          for name in [
+            '.github/workflows/staff-control-center-acceptance.yml',
+            'docs/platform-v7/security/staff-control-center-acceptance-source.txt',
+          ]:
+            path = Path(name)
+            content = path.read_text()
+            if old not in content:
+              raise SystemExit(f'old evidence SHA missing from {name}')
+            path.write_text(content.replace(old, new))
+          PY
+          rm -f .github/workflows/zz-restore-evidence-files.yml
+          git add -A
+          git commit -m 'Align Staff Control Center evidence with exact implementation head'
+          git push origin HEAD:ops/staff-control-center-acceptance-2353-v2
