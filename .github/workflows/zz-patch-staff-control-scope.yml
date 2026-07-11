@@ -1,0 +1,55 @@
+name: patch staff control scope
+
+on:
+  push:
+    branches:
+      - ops/patch-staff-control-scope
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Add exact industrial staff workspace scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          state = json.loads(path.read_text())
+          scope = state.setdefault('approvedConcurrentScopes', {}).setdefault('feat/platform-v7-staff-control-center', [])
+          required = [
+            'apps/web/i18n/staff-operational-workspace-messages.ts',
+            'apps/web/tests/unit/platformV7StaffOperationalWorkspaces.test.ts',
+            'apps/api/src/modules/staff-access/staff-access.module.ts',
+            'apps/api/src/modules/staff-access/staff-workspace.controller.ts',
+            'apps/api/src/modules/staff-access/staff-workspace.service.ts',
+            'apps/api/test/staff-access/staff-workspace.service.spec.ts',
+          ]
+          for item in required:
+            if item not in scope:
+              scope.append(item)
+          path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + '\n')
+          PY
+      - name: Commit exact scope update
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'Scope already current'
+            exit 0
+          fi
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/autopilot-state.json
+          git commit -m 'Authorize complete Staff Control Center workspace scope'
+          git push origin HEAD:feat/platform-v7-staff-control-center
