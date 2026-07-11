@@ -13,9 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      PREVIEW_BASE_URL: https://6a519b242d31630009ef424d--vermillion-kitsune-0e7b97.netlify.app
-      IMPLEMENTATION_SHA: 19424ad9fb0bf506a0ecff23ceb300df880b38f7
-      DEPLOY_ID: 6a519b242d31630009ef424d
+      PREVIEW_BASE_URL: https://6a519ddb826e1300089f48d5--vermillion-kitsune-0e7b97.netlify.app
+      IMPLEMENTATION_SHA: 6d41aa9a5c6f6b84233e45d54f43efe7ce87b85b
+      DEPLOY_ID: 6a519ddb826e1300089f48d5
       ARTIFACT_DIR: ../../artifacts/public-entry-industrial-evidence-2345
     steps:
       - uses: actions/checkout@v4
