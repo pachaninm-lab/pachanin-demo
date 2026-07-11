@@ -41,6 +41,7 @@ export const metadata: Metadata = {
 
 type Card = { key: string; glyph: string };
 type RoleCard = Card;
+type PublicHeroLocale = 'ru' | 'en' | 'zh';
 
 const controlCards: Card[] = [
   { key: 'money', glyph: '₽' },
@@ -104,6 +105,34 @@ const GLYPH_STYLE: CSSProperties = {
 
 const ON_GREEN_STYLE: CSSProperties = { color: '#ffffff' };
 
+const PUBLIC_HERO_TITLES: Record<PublicHeroLocale, readonly [string, string]> = {
+  ru: ['Управляйте зерновой сделкой', 'от условий до расчёта.'],
+  en: ['Manage the grain deal', 'from terms to settlement.'],
+  zh: ['管理粮食交易', '从交易条件到结算。'],
+};
+
+const LANDING_REFINEMENT_CSS = `
+.pc-v7-public-entry .p7-support-chat-button{
+  right:max(16px,env(safe-area-inset-right,0px))!important;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 18px)!important;
+}
+.pc-v7-public-entry .p7-support-chat-panel{
+  bottom:calc(env(safe-area-inset-bottom,0px) + 86px)!important;
+  max-height:min(680px,calc(100dvh - 112px))!important;
+}
+@media(max-width:720px){
+  .pc-v7-public-entry .entry-hero{padding-top:24px;padding-bottom:30px}
+  .pc-v7-public-entry .entry-hero-copy{gap:18px}
+  .pc-v7-public-entry .entry-hero h1{font-size:clamp(42px,11.4vw,50px);line-height:.98;letter-spacing:-.055em}
+  .pc-v7-public-entry .entry-hero p{font-size:18px;line-height:1.42}
+  .pc-v7-public-entry .entry-hero-actions{margin-top:2px}
+}
+@media(max-width:380px){
+  .pc-v7-public-entry .entry-hero h1{font-size:clamp(38px,10.7vw,44px)}
+  .pc-v7-public-entry .entry-kicker{font-size:10px;letter-spacing:.06em;padding-inline:12px}
+}
+`;
+
 function EntryGlyph({ value, compact = false }: { value: string; compact?: boolean }) {
   return (
     <b
@@ -120,6 +149,8 @@ export default async function PlatformV7RootPage() {
   const { t, supporting: publicLanding, rolesCatalog: roleCatalog } = getPublicLandingCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
   const currentYear = new Date().getUTCFullYear();
+  const heroLocale: PublicHeroLocale = locale === 'en' || locale === 'zh' ? locale : 'ru';
+  const heroTitle = PUBLIC_HERO_TITLES[heroLocale];
 
   const nav = (
     <>
@@ -146,28 +177,28 @@ export default async function PlatformV7RootPage() {
         brandHomeLabel={chrome('brandHomeLabel')}
         navLabel={chrome('navLabel')}
         menuLabel={chrome('menuLabel')}
+        showMobileMenu={false}
         localeControl={<PublicLocaleLink />}
         nav={nav}
         actions={(
           <>
-            <a href='/platform-v7/login' className='entry-login'><span aria-hidden='true'>↳</span>{t('signIn')}</a>
+            <a href='/platform-v7/login' className='entry-login'>{t('signIn')}</a>
             <a href='/platform-v7/register' className='entry-header-register'>{t('hero.primaryCta')}</a>
           </>
         )}
       />
+      <style>{LANDING_REFINEMENT_CSS}</style>
 
       <section className='entry-hero' aria-labelledby='entry-hero-title'>
         <div className='entry-hero-copy'>
           <span className='entry-kicker'>{t('hero.kicker')}</span>
           <h1 id='entry-hero-title'>
-            <span>{t('hero.titleLine1')}</span>
-            <span>{t('hero.titleLine2')}</span>
-            <span>{t('hero.titleLine3')}</span>
+            {heroTitle.map((line) => <span key={line}>{line}</span>)}
           </h1>
           <p>{t('hero.lead')}</p>
           <div className='entry-hero-actions'>
             <a href='/platform-v7/register' className='entry-primary-cta' style={ON_GREEN_STYLE}>{t('hero.primaryCta')}<span aria-hidden='true'>→</span></a>
-            <a href='/platform-v7/deal-flow' className='entry-secondary-cta'><span aria-hidden='true'>▷</span>{t('hero.secondaryCta')}</a>
+            <a href='/platform-v7/deal-flow' className='entry-secondary-cta'>{t('hero.secondaryCta')}<span aria-hidden='true'>→</span></a>
           </div>
         </div>
 
