@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      API_URL: http://127.0.0.1:4010
+      API_URL: https://127.0.0.1:4010
       JWT_SECRET: staff-evidence-jwt-secret-32-characters-minimum
       AUTH_TOKEN_PEPPER: staff-evidence-token-pepper-32-characters
       MFA_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
@@ -54,12 +54,19 @@ jobs:
         run: |
           set -euo pipefail
           cd apps/web
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
+            -subj '/CN=127.0.0.1' \
+            -addext 'subjectAltName=IP:127.0.0.1' \
+            -keyout /tmp/staff-mock.key \
+            -out /tmp/staff-mock.crt >/dev/null 2>&1
+          export STAFF_MOCK_TLS_KEY=/tmp/staff-mock.key
+          export STAFF_MOCK_TLS_CERT=/tmp/staff-mock.crt
           node scripts/staff-control-center-mock-server.mjs > /tmp/staff-mock.log 2>&1 &
           echo $! > /tmp/staff-mock.pid
-          NODE_ENV=development pnpm start > /tmp/staff-web.log 2>&1 &
+          NODE_TLS_REJECT_UNAUTHORIZED=0 NODE_ENV=production pnpm start > /tmp/staff-web.log 2>&1 &
           echo $! > /tmp/staff-web.pid
           for attempt in $(seq 1 90); do
-            mock_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4010/staff/assignments/me || true)
+            mock_status=$(curl -k --silent --output /dev/null --write-out '%{http_code}' https://127.0.0.1:4010/staff/assignments/me || true)
             web_status=$(curl --silent --output /dev/null --write-out '%{http_code}' 'http://127.0.0.1:3000/platform-v7/staff?lang=ru' || true)
             if [ "$mock_status" = '401' ] && [ "$web_status" = '200' ]; then exit 0; fi
             sleep 2
