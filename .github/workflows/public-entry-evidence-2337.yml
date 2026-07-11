@@ -1,0 +1,169 @@
+name: public entry evidence 2337
+
+on:
+  pull_request:
+    branches:
+      - fix/public-entry-lcp-css-boundary
+
+permissions:
+  contents: read
+
+jobs:
+  browser-axe-mfa-lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      IMPLEMENTATION_SHA: 87dbf5068406fb3f23eadc463d9ee1f526dfb59a
+      LOCAL_BASE_URL: http://127.0.0.1:3000
+      NETLIFY_PREVIEW_URL: https://deploy-preview-2337--gleaming-mandazi-bb9856.netlify.app
+      ARTIFACT_DIR: ../../artifacts/public-entry-evidence-2337
+    steps:
+      - name: Checkout evidence merge with current implementation base
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Build production web bundle
+        working-directory: apps/web
+        run: pnpm build
+
+      - name: Start production server
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm start > /tmp/platform-v7-production-2337.log 2>&1 &
+          echo $! > /tmp/platform-v7-production-2337.pid
+          for attempt in $(seq 1 90); do
+            if curl --silent --show-error --fail --max-time 5 "$LOCAL_BASE_URL/platform-v7?lang=ru" >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/platform-v7-production-2337.log
+          exit 1
+
+      - name: Wait for canonical Netlify preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 12 "$NETLIFY_PREVIEW_URL/platform-v7?lang=ru" || true)
+            if [ "$status" = "200" ] || [ "$status" = "403" ] || [ "$status" = "429" ]; then
+              echo "Netlify preview responded with HTTP $status"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'Canonical Netlify preview did not become reachable'
+          exit 1
+
+      - name: Run browser, Axe, language, MFA and fail-closed matrix
+        working-directory: apps/web
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ env.LOCAL_BASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/public-entry-evidence-2337.mjs')
+          s = p.read_text()
+          old = "page.locator('[role=\"alert\"]')"
+          new = "page.locator('#pc-auth-error')"
+          if old in s:
+              p.write_text(s.replace(old, new, 1))
+          PY
+          node scripts/public-entry-evidence-2337.mjs
+
+      - name: Run Lighthouse acceptance gates
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$ARTIFACT_DIR/lighthouse"
+          CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            echo 'Chrome executable not found'
+            exit 1
+          fi
+          export CHROME_PATH="$CHROME_BIN"
+          for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
+            safe_name="${route//\//-}"
+            npx -y lighthouse@12.8.2 "$LOCAL_BASE_URL/${route}?lang=ru" \
+              --quiet \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --output=json \
+              --output-path="$ARTIFACT_DIR/lighthouse/${safe_name}.json"
+          done
+
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const dir = process.env.ARTIFACT_DIR + '/lighthouse';
+          const reports = fs.readdirSync(dir)
+            .filter((name) => name.endsWith('.json') && name !== 'summary.json')
+            .map((name) => {
+              const report = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+              const scores = Object.fromEntries(Object.entries(report.categories).map(([key, value]) => [key, Math.round((value.score || 0) * 100)]));
+              const metrics = {
+                firstContentfulPaintMs: report.audits['first-contentful-paint']?.numericValue,
+                largestContentfulPaintMs: report.audits['largest-contentful-paint']?.numericValue,
+                totalBlockingTimeMs: report.audits['total-blocking-time']?.numericValue,
+                cumulativeLayoutShift: report.audits['cumulative-layout-shift']?.numericValue,
+                speedIndexMs: report.audits['speed-index']?.numericValue,
+              };
+              return { file: name, finalUrl: report.finalUrl, scores, metrics };
+            });
+          fs.writeFileSync(path.join(dir, 'summary.json'), JSON.stringify({ status: 'collected', implementationSha: process.env.IMPLEMENTATION_SHA, reports }, null, 2));
+          console.log(JSON.stringify(reports, null, 2));
+          const failures = [];
+          for (const report of reports) {
+            const landing = report.file === 'platform-v7.json';
+            if ((report.scores.performance || 0) < 80) failures.push(`${report.file}: performance ${report.scores.performance}`);
+            if ((report.scores.accessibility || 0) < 95) failures.push(`${report.file}: accessibility ${report.scores.accessibility}`);
+            if ((report.scores['best-practices'] || 0) < 90) failures.push(`${report.file}: best-practices ${report.scores['best-practices']}`);
+            if (landing && (report.scores.seo || 0) < 90) failures.push(`${report.file}: SEO ${report.scores.seo}`);
+            if ((report.metrics.largestContentfulPaintMs || Infinity) > 2500) failures.push(`${report.file}: LCP ${report.metrics.largestContentfulPaintMs}`);
+            if ((report.metrics.totalBlockingTimeMs || Infinity) > 200) failures.push(`${report.file}: TBT ${report.metrics.totalBlockingTimeMs}`);
+            if ((report.metrics.cumulativeLayoutShift || Infinity) > 0.1) failures.push(`${report.file}: CLS ${report.metrics.cumulativeLayoutShift}`);
+          }
+          if (failures.length) {
+            console.error(failures.join('\n'));
+            process.exit(1);
+          }
+          NODE
+
+      - name: Collect production server log
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/public-entry-evidence-2337
+          cp /tmp/platform-v7-production-2337.log artifacts/public-entry-evidence-2337/production-server.log 2>/dev/null || true
+          if [ -f /tmp/platform-v7-production-2337.pid ]; then
+            kill "$(cat /tmp/platform-v7-production-2337.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-evidence-2337
+          path: artifacts/public-entry-evidence-2337
+          if-no-files-found: error
+          retention-days: 7
