@@ -1,0 +1,34 @@
+name: Apply Staff Control Center P1 fixes
+
+on:
+  push:
+    branches:
+      - feat/platform-v7-staff-control-center
+    paths:
+      - .github/workflows/staff-p1-security-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply exact reviewed patches
+        run: python .github/scripts/apply-staff-p1-fixes.py
+      - name: Commit security fixes
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "Scope staff workspaces and preserve audit integrity"
+          git push origin HEAD:feat/platform-v7-staff-control-center
