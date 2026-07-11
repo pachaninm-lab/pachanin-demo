@@ -263,6 +263,36 @@ export class StaffWorkspaceService {
     };
   }
 
+
+  async ownCriticalActions(user: RequestUser) {
+    await this.access.requirePermission(user, StaffPermission.CRITICAL_ACTION_REQUEST);
+    return this.repository.prisma.$queryRaw<CriticalActionProjection[]>(Prisma.sql`
+      SELECT
+        r.id,
+        r.requester_user_id,
+        r.access_session_id,
+        r.action,
+        r.resource_type,
+        r.resource_id,
+        r.target_tenant_id,
+        r.target_organization_id,
+        r.required_approvals,
+        COUNT(a.id)::INTEGER AS approvals,
+        r.status,
+        r.expires_at,
+        r.created_at
+      FROM auth.staff_critical_action_requests r
+      LEFT JOIN auth.staff_critical_action_approvals a
+        ON a.critical_request_id = r.id AND a.decision = 'APPROVE'
+      WHERE r.requester_user_id = ${user.id}
+        AND r.status IN ('PENDING', 'APPROVED')
+        AND r.expires_at > NOW()
+      GROUP BY r.id
+      ORDER BY r.created_at DESC
+      LIMIT 200
+    `);
+  }
+
   async criticalActions(user: RequestUser) {
     await this.access.requirePermission(user, StaffPermission.CRITICAL_ACTION_APPROVE);
     return this.repository.prisma.$queryRaw<CriticalActionProjection[]>(Prisma.sql`

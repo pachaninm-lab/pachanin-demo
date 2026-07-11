@@ -13,6 +13,7 @@ const readWeb = (relativePath: string) => fs.readFileSync(path.join(webRoot, rel
 const readRepo = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const component = readWeb('components/platform-v7/staff/StaffOperationalWorkspaces.tsx');
+const criticalForm = readWeb('components/platform-v7/staff/StaffCriticalActionRequestForm.tsx');
 const controlCenter = readWeb('components/platform-v7/staff/StaffControlCenter.tsx');
 const route = readWeb('app/api/staff/workspaces/[...path]/route.ts');
 const messages = readWeb('i18n/staff-operational-workspace-messages.ts');
@@ -65,6 +66,18 @@ describe('industrial staff operational workspaces', () => {
     expect(component).toContain("? await api<ApiObject[]>('/api/staff/workspaces/assignments')");
     expect(controller).toContain("@Post('break-glass/:id/end')");
     expect(controller).toContain('@StaffPermissions(StaffPermission.STAFF_SESSION_READ)');
+  });
+
+
+  it('exposes registered critical requests to requesters and independent approvers only', () => {
+    expect(component).toContain("can('critical-action:request') || can('critical-action:approve')");
+    expect(component).toContain("'/api/staff/workspaces/critical-actions/mine'");
+    expect(component).toContain('StaffCriticalActionRequestForm');
+    expect(criticalForm).toContain("'deal:operation:retry'");
+    expect(criticalForm).toContain("'user:mfa:reset'");
+    expect(criticalForm).not.toContain("'payment:release'");
+    expect(controller).toContain("@Get('critical-actions/mine')");
+    expect(service).toContain('async ownCriticalActions');
   });
 
   it('keeps UI permission presets aligned with the backend StaffPermission vocabulary', () => {

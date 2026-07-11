@@ -178,12 +178,12 @@ const ACCESS_PRESETS: Record<string, Partial<Record<AccessMode, string[]>>> = {
   OPERATIONS_AGENT: {
     CONTROL_PLANE: ['organization:read', 'user:read', 'deal:list', 'deal:read', 'deal:blocker:read', 'document:metadata:read'],
     VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read'],
-    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read'],
+    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read', 'critical-action:request'],
   },
   OPERATIONS_SUPERVISOR: {
     CONTROL_PLANE: ['organization:read', 'user:read', 'deal:list', 'deal:read', 'deal:blocker:read', 'document:metadata:read', 'document:content:read', 'payment:metadata:read', 'payment:reconciliation:read', 'staff-request:read', 'staff-request:approve', 'critical-action:approve'],
     VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read'],
-    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read', 'document:content:read'],
+    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read', 'document:content:read', 'critical-action:request'],
   },
   FINANCE_OPS: {
     CONTROL_PLANE: ['organization:read', 'deal:read', 'document:metadata:read', 'payment:metadata:read', 'payment:reconciliation:read', 'payment:manual-review', 'audit:read', 'critical-action:request', 'critical-action:approve'],

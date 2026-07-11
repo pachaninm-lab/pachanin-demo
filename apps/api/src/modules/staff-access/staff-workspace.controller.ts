@@ -78,6 +78,18 @@ export class StaffWorkspaceController {
     return this.workspaces.diagnostics(request.user);
   }
 
+
+  @Get('critical-actions/mine')
+  @StaffAccessModes(
+    StaffAccessMode.ASSISTED,
+    StaffAccessMode.OPERATIONS,
+    StaffAccessMode.JIT_PRIVILEGED,
+  )
+  @StaffPermissions(StaffPermission.CRITICAL_ACTION_REQUEST)
+  ownCriticalActions(@Req() request: StaffRequest) {
+    return this.workspaces.ownCriticalActions(request.user);
+  }
+
   @Get('critical-actions')
   @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
   @StaffPermissions(StaffPermission.CRITICAL_ACTION_APPROVE)

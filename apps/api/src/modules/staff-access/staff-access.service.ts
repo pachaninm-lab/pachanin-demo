@@ -24,6 +24,7 @@ import {
   StaffSqlClient,
 } from './staff-access.repository';
 import {
+  ALLOWED_STAFF_CRITICAL_ACTIONS,
   FORBIDDEN_STAFF_ACTIONS,
   isStaffAccessMode,
   isStaffPermission,

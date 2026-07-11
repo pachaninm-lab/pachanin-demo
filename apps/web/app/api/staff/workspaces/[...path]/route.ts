@@ -16,7 +16,7 @@ const READ_PATHS = [
   /^operations$/,
   /^finance$/,
   /^diagnostics$/,
-  /^critical-actions$/,
+  /^critical-actions(?:\/mine)?$/,
   /^assignments$/,
   /^organizations\/[^/]+\/users$/,
   /^break-glass$/,
