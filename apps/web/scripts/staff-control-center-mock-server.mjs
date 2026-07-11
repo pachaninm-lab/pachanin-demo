@@ -1,4 +1,6 @@
 import http from 'node:http';
+import https from 'node:https';
+import fs from 'node:fs';
 
 const port = Number(process.env.STAFF_MOCK_PORT || 4010);
 const grants = new Map();
@@ -38,9 +40,9 @@ const organization = {
   updated_at: new Date().toISOString(),
 };
 
-const server = http.createServer(async (request, response) => {
+const handler = async (request, response) => {
   try {
-    const url = new URL(request.url || '/', `http://127.0.0.1:${port}`);
+    const url = new URL(request.url || '/', `https://127.0.0.1:${port}`);
     if (!authorized(request)) return send(response, 401, { code: 'AUTH_REQUIRED' });
 
     if (request.method === 'GET' && url.pathname === '/staff/assignments/me') {
@@ -105,7 +107,7 @@ const server = http.createServer(async (request, response) => {
       '/staff/break-glass/active',
       '/staff/assignments',
     ];
-    if (controlRequired.some((path) => url.pathname === path) && staffSession(request) !== 'control-evidence-token') {
+    if (controlRequired.some((item) => url.pathname === item) && staffSession(request) !== 'control-evidence-token') {
       return send(response, 401, { code: 'CONTROL_SESSION_REQUIRED' });
     }
 
@@ -175,10 +177,16 @@ const server = http.createServer(async (request, response) => {
   } catch (error) {
     return send(response, 500, { code: 'MOCK_FAILURE', message: String(error) });
   }
-});
+};
+
+const tlsKey = process.env.STAFF_MOCK_TLS_KEY;
+const tlsCert = process.env.STAFF_MOCK_TLS_CERT;
+const server = tlsKey && tlsCert
+  ? https.createServer({ key: fs.readFileSync(tlsKey), cert: fs.readFileSync(tlsCert) }, handler)
+  : http.createServer(handler);
 
 server.listen(port, '127.0.0.1', () => {
-  console.log(`staff mock listening on http://127.0.0.1:${port}`);
+  console.log(`staff mock listening on ${tlsKey && tlsCert ? 'https' : 'http'}://127.0.0.1:${port}`);
 });
 
 for (const signal of ['SIGTERM', 'SIGINT']) {
