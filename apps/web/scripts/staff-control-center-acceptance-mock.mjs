@@ -3,6 +3,7 @@ import http from 'node:http';
 const port = Number(process.env.STAFF_MOCK_PORT || 4010);
 const iso = (offset = 0) => new Date(Date.now() + offset).toISOString();
 let activeMode = null;
+let activeExpiresAt = null;
 let accessToken = null;
 let requests = [];
 const permissions = [
@@ -25,8 +26,8 @@ async function readBody(req) { const chunks=[]; for await (const chunk of req) c
 function authorized(req) { return String(req.headers.authorization || '').startsWith('Bearer '); }
 function staffHeader(req) { return String(req.headers['x-staff-access-session'] || ''); }
 function staffSession() {
-  if (!activeMode || !accessToken) return null;
-  return { id: `sas-${activeMode.toLowerCase()}`, status: 'ACTIVE', staff_role: 'PLATFORM_OWNER', access_mode: activeMode, permissions: activeMode === 'VIEW_AS' ? ['cabinet:view-as','deal:read','document:metadata:read'] : permissions, effective_tenant_id: activeMode === 'VIEW_AS' ? organization.tenantId : null, effective_organization_id: activeMode === 'VIEW_AS' ? organization.id : null, effective_user_id: null, effective_role: activeMode === 'VIEW_AS' ? 'BUYER' : null, target_deal_id: null, reason: 'Acceptance protected session', ticket_id: 'OWN-2353', expires_at: iso(3_600_000), created_at: iso(-30_000) };
+  if (!activeMode || !accessToken || !activeExpiresAt) return null;
+  return { id: `sas-${activeMode.toLowerCase()}`, status: 'ACTIVE', staff_role: 'PLATFORM_OWNER', access_mode: activeMode, permissions: activeMode === 'VIEW_AS' ? ['cabinet:view-as','deal:read','document:metadata:read'] : permissions, effective_tenant_id: activeMode === 'VIEW_AS' ? organization.tenantId : null, effective_organization_id: activeMode === 'VIEW_AS' ? organization.id : null, effective_user_id: null, effective_role: activeMode === 'VIEW_AS' ? 'BUYER' : null, target_deal_id: null, reason: 'Acceptance protected session', ticket_id: 'OWN-2353', expires_at: activeExpiresAt, created_at: iso(-30_000) };
 }
 
 const server = http.createServer(async (req, res) => {
@@ -38,23 +39,26 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/staff/access/requests') return send(res, 200, requests);
     if (req.method === 'POST' && url.pathname === '/staff/access/requests') {
       const input = await readBody(req); const id = `sar-${requests.length + 1}`; const grantId = `sag-${requests.length + 1}`;
-      const row = { id, requester_user_id: 'owner-evidence', assignment_id: input.assignmentId, access_mode: input.accessMode, permissions: input.permissions, requested_permissions: input.permissions, reason: input.reason, ticket_id: input.ticketId, status: 'GRANTED', grant_id: grantId, grant_status: 'ACTIVE', target_organization_id: input.targetOrganizationId || null, target_role: input.targetRole || null, requested_at: iso(), expires_at: iso(3_600_000), grant_expires_at: iso(3_600_000) };
+      const expiresAt = iso(3_600_000);
+      const row = { id, requester_user_id: 'owner-evidence', assignment_id: input.assignmentId, access_mode: input.accessMode, permissions: input.permissions, requested_permissions: input.permissions, reason: input.reason, ticket_id: input.ticketId, status: 'GRANTED', grant_id: grantId, grant_status: 'ACTIVE', target_organization_id: input.targetOrganizationId || null, target_role: input.targetRole || null, requested_at: iso(), expires_at: expiresAt, grant_expires_at: expiresAt };
       requests = [row, ...requests]; return send(res, 201, { status: 'GRANTED', grantId, requestId: id });
     }
     if (req.method === 'POST' && /^\/staff\/access\/grants\/[^/]+\/activate$/.test(url.pathname)) {
       const grantId = decodeURIComponent(url.pathname.split('/')[4]); const request = requests.find((item) => item.grant_id === grantId);
-      activeMode = request?.access_mode || 'CONTROL_PLANE'; accessToken = activeMode === 'VIEW_AS' ? 'opaque-view-token' : 'opaque-control-token';
-      return send(res, 200, { accessSessionId: `sas-${activeMode.toLowerCase()}`, accessMode: activeMode, accessToken, expiresAt: iso(3_600_000), staffRole: 'PLATFORM_OWNER', permissions: activeMode === 'VIEW_AS' ? ['cabinet:view-as','deal:read','document:metadata:read'] : permissions, effectiveTenantId: activeMode === 'VIEW_AS' ? organization.tenantId : null, effectiveOrganizationId: activeMode === 'VIEW_AS' ? organization.id : null, effectiveRole: activeMode === 'VIEW_AS' ? 'BUYER' : null, ticketId: request?.ticket_id || 'OWN-2353', reason: request?.reason || 'Acceptance session' });
+      activeMode = request?.access_mode || 'CONTROL_PLANE';
+      activeExpiresAt = request?.grant_expires_at || iso(3_600_000);
+      accessToken = activeMode === 'VIEW_AS' ? 'opaque-view-token' : 'opaque-control-token';
+      return send(res, 200, { accessSessionId: `sas-${activeMode.toLowerCase()}`, accessMode: activeMode, accessToken, expiresAt: activeExpiresAt, staffRole: 'PLATFORM_OWNER', permissions: activeMode === 'VIEW_AS' ? ['cabinet:view-as','deal:read','document:metadata:read'] : permissions, effectiveTenantId: activeMode === 'VIEW_AS' ? organization.tenantId : null, effectiveOrganizationId: activeMode === 'VIEW_AS' ? organization.id : null, effectiveRole: activeMode === 'VIEW_AS' ? 'BUYER' : null, ticketId: request?.ticket_id || 'OWN-2353', reason: request?.reason || 'Acceptance session' });
     }
     if (req.method === 'GET' && url.pathname === '/staff/access/sessions') return send(res, 200, staffSession() ? [staffSession()] : []);
-    if (req.method === 'POST' && /^\/staff\/access\/sessions\/[^/]+\/(?:end|revoke)$/.test(url.pathname)) { activeMode = null; accessToken = null; return send(res, 200, { success: true }); }
+    if (req.method === 'POST' && /^\/staff\/access\/sessions\/[^/]+\/(?:end|revoke)$/.test(url.pathname)) { activeMode = null; activeExpiresAt = null; accessToken = null; return send(res, 200, { success: true }); }
     if (!accessToken || staffHeader(req) !== accessToken) return send(res, 401, { code: 'STAFF_SESSION_REQUIRED' });
 
     if (req.method === 'GET' && url.pathname === '/staff/organizations') return send(res, 200, [organization]);
     if (req.method === 'GET' && url.pathname === '/staff/access/requests/review') return send(res, 200, requests);
     if (req.method === 'GET' && url.pathname === '/staff/access/sessions/review') return send(res, 200, staffSession() ? [staffSession()] : []);
     if (req.method === 'GET' && url.pathname === '/staff/audit/events') return send(res, 200, { items: [{ id: 'sae-1', actor_user_id: 'owner-evidence', staff_role: 'PLATFORM_OWNER', action: 'staff.session.activate', outcome: 'SUCCESS', correlation_id: 'staff-final-correlation', created_at: iso(-10_000) }] });
-    if (req.method === 'GET' && /^\/staff\/organizations\/[^/]+\/cabinet\/[^/]+$/.test(url.pathname)) return send(res, 200, { mode: 'READ_ONLY_VIEW_AS', actorUserId: 'owner-evidence', actorStaffRole: 'PLATFORM_OWNER', accessSessionId: 'sas-view_as', effectiveTenantId: organization.tenantId, effectiveOrganizationId: organization.id, effectiveRole: 'BUYER', expiresAt: iso(3_600_000), deals: [{ id: 'deal-evidence', dealNumber: 'TP-2026-001', deal_number: 'TP-2026-001', status: 'IN_EXECUTION', nextAction: 'CHECK_DOCUMENTS', next_action: 'CHECK_DOCUMENTS', updatedAt: iso(-5_000), updated_at: iso(-5_000) }] });
+    if (req.method === 'GET' && /^\/staff\/organizations\/[^/]+\/cabinet\/[^/]+$/.test(url.pathname)) return send(res, 200, { mode: 'READ_ONLY_VIEW_AS', actorUserId: 'owner-evidence', actorStaffRole: 'PLATFORM_OWNER', accessSessionId: 'sas-view_as', effectiveTenantId: organization.tenantId, effectiveOrganizationId: organization.id, effectiveRole: 'BUYER', expiresAt: activeExpiresAt, deals: [{ id: 'deal-evidence', dealNumber: 'TP-2026-001', deal_number: 'TP-2026-001', status: 'IN_EXECUTION', nextAction: 'CHECK_DOCUMENTS', next_action: 'CHECK_DOCUMENTS', updatedAt: iso(-5_000), updated_at: iso(-5_000) }] });
     if (req.method === 'GET' && /^\/staff\/organizations\/[^/]+\/users$/.test(url.pathname)) return send(res, 200, [{ membership_id: 'm-1', user_id: 'buyer-1', email: 'buyer@example.test', full_name: 'Покупатель', user_status: 'ACTIVE', mfa_enabled: true, role: 'BUYER', is_default: true, joined_at: iso(-86_400_000) }]);
 
     if (req.method === 'GET' && url.pathname === '/staff/workspaces/support') return send(res, 200, { generatedAt: iso(), deals: [{ id: 'deal-evidence', dealNumber: 'TP-2026-001', status: 'IN_EXECUTION', seller: { id: 'org-seller', name: 'ООО «Продавец»' }, buyer: organization, nextAction: 'Проверить ЭПД', slaAt: iso(-30_000), overdue: true, blockers: [{ shipmentId: 'sh-1', blocker: 'Нет ЭПД', nextAction: 'Запросить документ' }] }], kycTasks: [{ id: 'kyc-1', organizationId: organization.id, type: 'AML_REVIEW', status: 'PENDING', updatedAt: iso(-60_000), organization }] });
