@@ -1,0 +1,57 @@
+name: patch staff evidence view as tab
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/staff-control-center-acceptance-2353-final-v4
+          fetch-depth: 0
+      - name: Open Organizations before asserting VIEW_AS projection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/scripts/staff-control-center-acceptance.mjs')
+          text = path.read_text()
+          replacements = {
+            "ru: { access: 'Доступ',": "ru: { access: 'Доступ', organizations: 'Организации',",
+            "en: { access: 'Access',": "en: { access: 'Access', organizations: 'Organizations',",
+            "zh: { access: '访问',": "zh: { access: '访问', organizations: '组织',",
+          }
+          for old, new in replacements.items():
+            if old not in text:
+              raise SystemExit(f'copy marker not found: {old}')
+            text = text.replace(old, new, 1)
+          old = """      await page.reload({ waitUntil: 'networkidle' });
+      await control.getByText(copy.viewBanner, { exact: false }).waitFor({ state: 'visible', timeout: 30_000 });
+      await control.getByText(copy.cabinet, { exact: true }).first().waitFor({ state: 'visible', timeout: 30_000 });
+"""
+          new = """      await page.reload({ waitUntil: 'networkidle' });
+      await control.getByText(copy.viewBanner, { exact: false }).waitFor({ state: 'visible', timeout: 30_000 });
+      await control.getByRole('button', { name: copy.organizations, exact: true }).first().click();
+      await control.getByText(copy.cabinet, { exact: true }).first().waitFor({ state: 'visible', timeout: 30_000 });
+"""
+          if old not in text:
+            raise SystemExit('VIEW_AS reload block not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Commit evidence-only tab selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/web/scripts/staff-control-center-acceptance.mjs
+          git commit -m 'Open Organizations before VIEW_AS projection assertion'
+          git push origin HEAD:ops/staff-control-center-acceptance-2353-final-v4
