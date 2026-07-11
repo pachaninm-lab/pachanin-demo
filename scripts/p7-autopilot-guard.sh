@@ -112,6 +112,10 @@ apps/web/next.config.js
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
 
+PUBLIC_LOCALE_FIX_SCOPE='apps/web/i18n/request.ts
+apps/web/tests/unit/platformV7I18nRequestLocaleGuard.test.ts
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -125,6 +129,10 @@ fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-lcp-css-boundary" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx'; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_LCP_FIX_SCOPE")
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "fix/public-locale-query-precedence" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/tests/unit/platformV7I18nRequestLocaleGuard.test.ts'; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_LOCALE_FIX_SCOPE")
 fi
 
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
