@@ -1,0 +1,138 @@
+name: harden staff support ledger
+
+on:
+  push:
+    branches:
+      - ops/harden-staff-support-ledger
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Patch canonical columns runtime grants and audit atomicity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          service = Path('apps/api/src/modules/staff-access/staff-support.service.ts')
+          source = service.read_text()
+          source = source.replace('u.full_name AS user_full_name', 'u."fullName" AS user_full_name')
+          source = source.replace('d.deal_number', 'd."dealNumber"')
+          if 'u.full_name AS user_full_name' in source or 'd.deal_number' in source:
+            raise SystemExit('canonical public column replacement incomplete')
+          service.write_text(source)
+
+          migration = Path('apps/api/prisma/migrations/20260711110000_staff_support_cases/migration.sql')
+          source = migration.read_text()
+          grant = '''
+
+DO $grant_staff_support$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_service') THEN
+    GRANT USAGE ON SCHEMA support TO app_service;
+    GRANT SELECT, INSERT, UPDATE ON
+      support.cases,
+      support.access_recovery_requests
+    TO app_service;
+    GRANT SELECT, INSERT ON support.case_events TO app_service;
+    REVOKE UPDATE, DELETE, TRUNCATE ON support.case_events FROM app_service;
+  END IF;
+END
+$grant_staff_support$;
+'''
+          if 'DO $grant_staff_support$' not in source:
+            source = source.rstrip() + grant
+          migration.write_text(source)
+
+          interceptor = Path('apps/api/src/modules/staff-access/staff-workspace-audit.interceptor.ts')
+          source = interceptor.read_text()
+          source = source.replace(
+            "    return next.handle().pipe(mergeMap((result) => from(this.record(request).then(() => result))));",
+            "    if (String(request.method || 'GET').toUpperCase() !== 'GET') return next.handle();\n    return next.handle().pipe(mergeMap((result) => from(this.recordRead(request).then(() => result))));",
+          )
+          source = source.replace('  private async record(request: WorkspaceRequest) {', '  private async recordRead(request: WorkspaceRequest) {')
+          source = source.replace("    const method = String(request.method || 'GET').toUpperCase();\n", '')
+          source = source.replace("      action: `staff.workspace.${method === 'GET' ? 'read' : 'mutate'}`,", "      action: 'staff.workspace.read',")
+          source = source.replace('        method,\n', "        method: 'GET',\n")
+          if "staff.workspace.${method" in source or 'private async record(' in source:
+            raise SystemExit('interceptor read-only audit conversion incomplete')
+          interceptor.write_text(source)
+
+          test = Path('apps/api/test/staff-access/staff-support.service.spec.ts')
+          source = test.read_text()
+          marker = "describe('StaffSupportService', () => {"
+          if marker not in source:
+            raise SystemExit('staff support test marker missing')
+          static_test = '''describe('Staff support persistence contract', () => {
+  it('uses canonical Prisma column names and explicit least-privilege support grants', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const serviceSource = fs.readFileSync(path.resolve(process.cwd(), 'src/modules/staff-access/staff-support.service.ts'), 'utf8');
+    const migrationSource = fs.readFileSync(path.resolve(process.cwd(), 'prisma/migrations/20260711110000_staff_support_cases/migration.sql'), 'utf8');
+    expect(serviceSource).toContain('u."fullName" AS user_full_name');
+    expect(serviceSource).toContain('d."dealNumber"');
+    expect(serviceSource).not.toContain('u.full_name');
+    expect(serviceSource).not.toContain('d.deal_number');
+    expect(migrationSource).toContain('GRANT USAGE ON SCHEMA support TO app_service');
+    expect(migrationSource).toContain('GRANT SELECT, INSERT ON support.case_events TO app_service');
+    expect(migrationSource).toContain('REVOKE UPDATE, DELETE, TRUNCATE ON support.case_events FROM app_service');
+  });
+});
+
+'''
+          if 'Staff support persistence contract' not in source:
+            source = source.replace(marker, static_test + marker, 1)
+          test.write_text(source)
+
+          audit_test = Path('apps/api/test/staff-access/staff-workspace-audit-interceptor.spec.ts')
+          if not audit_test.exists():
+            audit_test.write_text('''import { of } from 'rxjs';
+import { StaffWorkspaceAuditInterceptor } from '../../src/modules/staff-access/staff-workspace-audit.interceptor';
+
+describe('StaffWorkspaceAuditInterceptor', () => {
+  const actor: any = { id: 'staff-1' };
+  const access: any = { accessSessionId: 'sas-1', grantId: 'grant-1', staffRole: 'PLATFORM_OWNER', accessMode: 'CONTROL_PLANE', permissions: [], effectiveTenantId: null, effectiveOrganizationId: null, effectiveUserId: null, effectiveRole: null, reason: 'reason', ticketId: 'ticket', expiresAt: new Date() };
+
+  function context(method: string): any {
+    return { switchToHttp: () => ({ getRequest: () => ({ method, route: { path: '/staff/workspaces/support' }, params: {}, query: {}, headers: {}, user: actor, staffAccess: access }) }) };
+  }
+
+  it('persists a successful read audit before returning the projection', async () => {
+    const audit = { record: jest.fn().mockResolvedValue('corr') } as any;
+    const interceptor = new StaffWorkspaceAuditInterceptor(audit);
+    await new Promise<void>((resolve, reject) => interceptor.intercept(context('GET'), { handle: () => of({ ok: true }) } as any).subscribe({ next: () => undefined, complete: resolve, error: reject }));
+    expect(audit.record).toHaveBeenCalledWith(actor, access, expect.objectContaining({ action: 'staff.workspace.read' }));
+  });
+
+  it('does not append a second post-commit audit for mutation endpoints', async () => {
+    const audit = { record: jest.fn() } as any;
+    const interceptor = new StaffWorkspaceAuditInterceptor(audit);
+    await new Promise<void>((resolve, reject) => interceptor.intercept(context('POST'), { handle: () => of({ ok: true }) } as any).subscribe({ next: () => undefined, complete: resolve, error: reject }));
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+});
+''')
+          PY
+      - name: Commit hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/api/prisma/migrations/20260711110000_staff_support_cases/migration.sql \
+            apps/api/src/modules/staff-access/staff-support.service.ts \
+            apps/api/src/modules/staff-access/staff-workspace-audit.interceptor.ts \
+            apps/api/test/staff-access/staff-support.service.spec.ts \
+            apps/api/test/staff-access/staff-workspace-audit-interceptor.spec.ts
+          git commit -m 'Harden staff support persistence and audit atomicity'
+          git push origin HEAD:feat/platform-v7-staff-control-center
