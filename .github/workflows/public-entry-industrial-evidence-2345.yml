@@ -1,0 +1,77 @@
+name: public entry industrial evidence 2345
+
+on:
+  pull_request:
+    branches:
+      - design/public-entry-industrial-standard
+
+permissions:
+  contents: read
+
+jobs:
+  browser-axe-lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PREVIEW_BASE_URL: https://6a519b242d31630009ef424d--vermillion-kitsune-0e7b97.netlify.app
+      IMPLEMENTATION_SHA: 19424ad9fb0bf506a0ecff23ceb300df880b38f7
+      DEPLOY_ID: 6a519b242d31630009ef424d
+      ARTIFACT_DIR: ../../artifacts/public-entry-industrial-evidence-2345
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Wait for immutable Netlify deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 90); do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 12 "$PREVIEW_BASE_URL/platform-v7?lang=ru" || true)
+            if [ "$status" = '200' ]; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Run Chromium WebKit RU EN ZH and Axe gates
+        working-directory: apps/web
+        run: node scripts/public-entry-industrial-evidence-2345.mjs
+      - name: Run mobile Lighthouse gates
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          export CHROME_PATH="$(node -e "const { chromium } = require('@playwright/test'); process.stdout.write(chromium.executablePath())")"
+          npx --yes lighthouse@12.6.1 "$PREVIEW_BASE_URL/platform-v7?lang=ru" \
+            --quiet \
+            --chrome-flags="--headless --no-sandbox --disable-gpu" \
+            --only-categories=performance,accessibility,best-practices,seo \
+            --form-factor=mobile \
+            --screenEmulation.mobile=true \
+            --throttling-method=simulate \
+            --output=json \
+            --output-path="$ARTIFACT_DIR/lighthouse-landing.json"
+          npx --yes lighthouse@12.6.1 "$PREVIEW_BASE_URL/platform-v7/login?lang=ru" \
+            --quiet \
+            --chrome-flags="--headless --no-sandbox --disable-gpu" \
+            --only-categories=performance,accessibility,best-practices,seo \
+            --form-factor=mobile \
+            --screenEmulation.mobile=true \
+            --throttling-method=simulate \
+            --output=json \
+            --output-path="$ARTIFACT_DIR/lighthouse-login.json"
+          node scripts/public-entry-lighthouse-assert-2345.mjs
+      - name: Upload exact public entry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-industrial-evidence-2345
+          path: artifacts/public-entry-industrial-evidence-2345
+          if-no-files-found: error
+          retention-days: 14
