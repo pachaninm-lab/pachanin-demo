@@ -9,14 +9,15 @@ import '@/styles/platform-v7-public-hero-watermark.css';
 import '@/styles/platform-v7-public-world-class.css';
 import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { PlatformV7IntelligenceStrip } from '@/components/v7r/PlatformV7IntelligenceStrip';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+import { getPublicLandingCopy } from '@/i18n/public-landing-copy';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена — исполнение зерновой сделки',
-  description: 'Цифровой контур исполнения внебиржевой зерновой сделки: логистика, приёмка, качество, документы, расчёты, спор и доказательства.',
+  description: 'Платформа для исполнения внебиржевых зерновых сделок: перевозка, приёмка, качество, документы, расчёты и споры.',
   alternates: {
     canonical: '/platform-v7',
     languages: {
@@ -115,10 +116,9 @@ function EntryGlyph({ value, compact = false }: { value: string; compact?: boole
 }
 
 export default async function PlatformV7RootPage() {
-  const t = await getTranslations('landing');
+  const locale = await getLocale();
+  const { t, supporting: publicLanding, rolesCatalog: roleCatalog } = getPublicLandingCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
-  const publicLanding = await getTranslations('publicEntry.landing');
-  const roleCatalog = await getTranslations('publicEntry.rolesCatalog');
   const currentYear = new Date().getUTCFullYear();
 
   const nav = (
@@ -126,7 +126,7 @@ export default async function PlatformV7RootPage() {
       <a href='#process'>{t('nav.process')}</a>
       <a href='#control'>{t('nav.control')}</a>
       <a href='#roles'>{t('nav.roles')}</a>
-      <a href='/platform-v7/deal-flow'>{t('nav.demo')}</a>
+      <a href='/platform-v7/deal-flow'>{t('nav.dealFlow')}</a>
       <a href='/platform-v7/docs'>{t('nav.docs')}</a>
       <a href='/platform-v7/contact'>{t('nav.contact')}</a>
     </>
@@ -136,7 +136,6 @@ export default async function PlatformV7RootPage() {
     <main
       id='main-content'
       data-testid='platform-v7-root-execution-cockpit'
-      data-maturity='industrial-public-entry'
       className='pc-v7-entry-page pc-v7-public-entry pc-public-world-class'
     >
       <a className='pc-skip-link' href='#entry-hero-title'>{chrome('skipToContent')}</a>

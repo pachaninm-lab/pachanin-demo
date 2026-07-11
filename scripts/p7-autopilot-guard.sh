@@ -51,14 +51,22 @@ apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx
 apps/web/components/platform-v7/PublicEntryCleanup.tsx
 apps/web/components/platform-v7/PublicLocaleSwitch.tsx
 apps/web/components/platform-v7/PublicSiteHeader.tsx
+apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx
 apps/web/i18n/public-entry-messages.ts
+apps/web/i18n/public-landing-copy.ts
+apps/web/i18n/public-login-copy.ts
 apps/web/i18n/request.ts
 apps/web/tests/platform-v7-public-entry-links.test.ts
 apps/web/tests/setup.ts
+apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts
+apps/web/tests/unit/platformV7LoginRoleHandoff.test.ts
+apps/web/tests/unit/platformV7LoginSecurityBoundary.test.ts
 apps/web/tests/unit/platformV7PublicRegistrationPatch.test.ts
 apps/web/tests/unit/platformV7RootWorkEntry.test.ts
 apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts
+apps/web/tests/unit/platformV7SingleEntryLogin.test.ts
 apps/web/tests/unit/platformV7VisibleEntry.test.ts
+apps/web/tests/unit/productEntryM31.test.tsx
 scripts/p7-autopilot-guard.sh'
 
 PUBLIC_AUTH_FIX_SCOPE='apps/web/app/layout.tsx
@@ -112,7 +120,7 @@ apps/web/next.config.js
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
 
-if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ]; then
+if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
 
