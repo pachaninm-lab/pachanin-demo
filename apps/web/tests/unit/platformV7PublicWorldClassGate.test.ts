@@ -41,6 +41,13 @@ describe('platform-v7 industrial public entry gate', () => {
     expect(messages).toContain('用户无需手动选择角色');
   });
 
+  it('keeps all dark-green public actions explicitly high contrast', () => {
+    expect(landing).toContain("const ON_GREEN_STYLE: CSSProperties = { color: '#ffffff' }");
+    expect(landing).toContain("className='entry-primary-cta' style={ON_GREEN_STYLE}");
+    expect(landing).toContain("className='entry-role-access-cta' style={ON_GREEN_STYLE}");
+    expect(landing).toContain("className='entry-trust-cta' style={ON_GREEN_STYLE}");
+  });
+
   it('uses persistent labels and precise accessible authentication semantics', () => {
     expect(loginClient).toContain("id='pc-auth-email'");
     expect(loginClient).toContain("name='email'");
