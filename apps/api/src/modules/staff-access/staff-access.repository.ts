@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 export type StaffSqlClient = Pick<Prisma.TransactionClient, '$queryRaw' | '$executeRaw'>;
 
@@ -95,7 +94,7 @@ export type CriticalActionRow = {
 
 @Injectable()
 export class StaffAccessRepository {
-  constructor(readonly prisma: PrismaService) {}
+  constructor(readonly prisma: PrismaClient) {}
 
   transaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return this.prisma.$transaction(work, {
