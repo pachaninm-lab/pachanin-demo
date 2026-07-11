@@ -95,9 +95,16 @@
       "apps/web/tests/unit/platformV7PublicLiveHardening.test.ts",
       "docs/platform-v7/autopilot/autopilot-state.json"
     ],
-    "fix/public-locale-query-precedence": [
-      "apps/web/i18n/request.ts",
-      "apps/web/tests/unit/platformV7I18nRequestLocaleGuard.test.ts",
+    "design/public-entry-industrial-standard": [
+      "apps/web/app/platform-v7/page.tsx",
+      "apps/web/app/platform-v7/login/layout.tsx",
+      "apps/web/app/platform-v7/login/page.tsx",
+      "apps/web/app/platform-v7/login/LoginFormClient.tsx",
+      "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+      "apps/web/i18n/public-entry-messages.ts",
+      "apps/web/styles/platform-v7-public-world-class.css",
+      "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+      "apps/web/tests/unit/platformV7PublicWorldClassGate.test.ts",
       "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },

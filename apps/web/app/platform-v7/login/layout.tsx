@@ -3,6 +3,7 @@ import '@/styles/platform-v7-public-auth.css';
 import '@/styles/platform-v7-public-mobile-safe-area.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-webkit-safe.css';
+import '@/styles/platform-v7-public-world-class.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
