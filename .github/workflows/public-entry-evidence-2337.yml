@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 55
     env:
-      IMPLEMENTATION_SHA: 6c5a1fd55ec30dee53fd2824a32cf76b0c977326
+      IMPLEMENTATION_SHA: 11e1674c22eb4bf0bc29c38c57dd02ae25e16ec2
       LOCAL_BASE_URL: http://127.0.0.1:3000
       NETLIFY_PREVIEW_URL: https://deploy-preview-2337--gleaming-mandazi-bb9856.netlify.app
       ARTIFACT_DIR: ../../artifacts/public-entry-evidence-2337
