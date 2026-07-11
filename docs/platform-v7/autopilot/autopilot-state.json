@@ -113,6 +113,7 @@
       "docs/platform-v7/security/staff-access-control-plane.md",
       "docs/platform-v7/security/staff-access-production-runbook.md",
       "scripts/bootstrap-platform-owner.mjs",
+      "scripts/bootstrap-platform-owner-auth.mjs",
       "scripts/platform-v7-one-deal-e2e.sh",
       "docs/platform-v7/autopilot/autopilot-state.json"
     ]
@@ -286,7 +287,6 @@
           "performance": 99,
           "accessibility": 100,
           "bestPractices": 100,
-          "seo": 100,
           "lcpMs": 1816,
           "tbtMs": 42,
           "cls": 0
