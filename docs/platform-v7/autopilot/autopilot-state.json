@@ -129,7 +129,13 @@
       "apps/api/src/modules/staff-access/staff-access.repository.ts",
       "apps/api/src/modules/staff-access/staff-access.service.ts",
       "apps/api/test/staff-access/staff-access-request-projection.spec.ts",
-      "docs/platform-v7/autopilot/autopilot-state.json"
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "apps/web/i18n/staff-operational-workspace-messages.ts",
+      "apps/web/tests/unit/platformV7StaffOperationalWorkspaces.test.ts",
+      "apps/api/src/modules/staff-access/staff-access.module.ts",
+      "apps/api/src/modules/staff-access/staff-workspace.controller.ts",
+      "apps/api/src/modules/staff-access/staff-workspace.service.ts",
+      "apps/api/test/staff-access/staff-workspace.service.spec.ts"
     ]
   },
   "industrialOneDealFoundation": {
