@@ -185,7 +185,7 @@ const ru = {
     csrf: 'Сессия формы устарела. Обнови страницу.',
     validation: 'Проверь обязательные поля.',
   },
-} as const;
+};
 
 const en: typeof ru = {
   pageTitle: 'Access Control Center',
