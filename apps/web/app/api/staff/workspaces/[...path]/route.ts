@@ -13,6 +13,7 @@ const MAX_BODY_BYTES = 64 * 1024;
 
 const READ_PATHS = [
   /^support$/,
+  /^support\/cases$/,
   /^operations$/,
   /^finance$/,
   /^diagnostics$/,
@@ -24,6 +25,10 @@ const READ_PATHS = [
 ] as const;
 
 const WRITE_PATHS = [
+  /^support\/cases$/,
+  /^support\/cases\/[^/]+\/transition$/,
+  /^support\/users\/[^/]+\/revoke-sessions$/,
+  /^support\/users\/[^/]+\/recovery$/,
   /^critical-actions$/,
   /^critical-actions\/[^/]+\/decision$/,
   /^assignments$/,
