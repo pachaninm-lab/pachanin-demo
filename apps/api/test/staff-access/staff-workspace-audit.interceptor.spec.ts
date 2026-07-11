@@ -75,10 +75,10 @@ describe('StaffWorkspaceAuditInterceptor', () => {
     }));
   });
 
-  it('records mutation attribution without copying request bodies into audit metadata', async () => {
-    const audit = { record: jest.fn().mockResolvedValue('correlation') };
+  it('does not append a second post-commit audit for mutation endpoints', async () => {
+    const audit = { record: jest.fn() };
     const interceptor = new StaffWorkspaceAuditInterceptor(audit as any);
-    await lastValueFrom(interceptor.intercept(context({
+    const result = await lastValueFrom(interceptor.intercept(context({
       method: 'POST',
       route: { path: '/staff/workspaces/support/cases/:id/transition' },
       params: { id: 'sup-1' },
@@ -88,12 +88,7 @@ describe('StaffWorkspaceAuditInterceptor', () => {
       user: actor,
       staffAccess: access,
     }), { handle: () => of({ id: 'sup-1', status: 'RESOLVED' }) }));
-    expect(audit.record).toHaveBeenCalledWith(actor, access, expect.objectContaining({
-      action: 'staff.workspace.mutate',
-      resourceType: 'staff-resource',
-      resourceId: 'sup-1',
-      metadata: expect.objectContaining({ parameterNames: ['id'], queryNames: [] }),
-    }));
-    expect(JSON.stringify(audit.record.mock.calls[0])).not.toContain('sensitive support note');
+    expect(result).toEqual({ id: 'sup-1', status: 'RESOLVED' });
+    expect(audit.record).not.toHaveBeenCalled();
   });
 });
