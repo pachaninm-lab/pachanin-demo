@@ -55,7 +55,28 @@ for (const project of projects) {
     await control.locator('textarea[maxlength="2000"]').first().fill('Final protected Staff Control Center acceptance session');
     await control.getByRole('button', { name: copy.submit, exact: true }).click();
     const activate = control.getByRole('button', { name: copy.activate, exact: true }).first();
-    await activate.waitFor({ state: 'visible', timeout: 20_000 });
+    try {
+      await activate.waitFor({ state: 'visible', timeout: 20_000 });
+    } catch {
+      const probe = await page.evaluate(async () => {
+        const response = await fetch('/api/staff/access/requests', { credentials: 'same-origin', cache: 'no-store' });
+        return { status: response.status, body: await response.text() };
+      });
+      const diagnostic = {
+        project: project.name,
+        locale,
+        url: page.url(),
+        body: (await page.locator('body').innerText()).slice(0, 8000),
+        probe,
+        consoleErrors,
+        pageErrors,
+        failedRequests,
+        badResponses,
+      };
+      fs.writeFileSync(path.join(artifactDir, `activation-${project.name}-${locale}.json`), JSON.stringify(diagnostic, null, 2));
+      await page.screenshot({ path: path.join(artifactDir, `activation-${project.name}-${locale}.png`), fullPage: true });
+      throw new Error(`${project.name}/${locale}: protected-session activation control missing`);
+    }
     await activate.click();
     await control.locator('code').filter({ hasText: 'support-case:read' }).first().waitFor({ state: 'visible', timeout: 30_000 });
 
