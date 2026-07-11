@@ -83,9 +83,9 @@ const LEAN_PUBLIC_ENTRY_PATHS = new Set([
   '/platform-v7',
   '/platform-v7/login',
   '/platform-v7/forgot-password',
-  '/_pc-public/platform-v7',
-  '/_pc-public/platform-v7/login',
-  '/_pc-public/platform-v7/forgot-password',
+  '/pc-public-entry/platform-v7',
+  '/pc-public-entry/platform-v7/login',
+  '/pc-public-entry/platform-v7/forgot-password',
 ]);
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
