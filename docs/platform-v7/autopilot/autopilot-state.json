@@ -23,7 +23,8 @@
     "#2282 Persistent-auth-backed 12-role one-deal execution",
     "#2283 JWT authority-claim injection regression",
     "#2287 Runtime separation of auth and deal PostgreSQL principals",
-    "#2291 Forward-only backup, restore and DR rehearsal"
+    "#2291 Forward-only backup, restore and DR rehearsal",
+    "#2345 Industrial public entry standard"
   ],
   "openBlockers": [
     "durable PostgreSQL outbox worker and delivery leases",
@@ -32,7 +33,8 @@
     "live bank FGIS EDO ESIA and signature evidence",
     "production migration and deployment execution evidence",
     "provider PITR, production-sized restore, measured RTO and approved RPO",
-    "production load, high-availability and operational acceptance"
+    "production load, high-availability and operational acceptance",
+    "production auth API, secret-scoped auth keys and seeded MFA E2E"
   ],
   "blockerNotes": "Deal execution, persistent identity, MFA, separate PostgreSQL runtime principals, 12-role/19-command recovery and isolated backup/restore are merged and green. The current outbox relay is still process-memory-led and performs best-effort PostgreSQL updates; the bank callback accepts only one static configured key; production reconciliation and provider recovery remain unproven. The next layer must replace these gaps without changing UI or claiming live bank integration.",
   "lockedUntilCurrentGreen": [
@@ -93,18 +95,6 @@
       "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
       "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
       "apps/web/tests/unit/platformV7PublicLiveHardening.test.ts",
-      "docs/platform-v7/autopilot/autopilot-state.json"
-    ],
-    "design/public-entry-industrial-standard": [
-      "apps/web/app/platform-v7/page.tsx",
-      "apps/web/app/platform-v7/login/layout.tsx",
-      "apps/web/app/platform-v7/login/page.tsx",
-      "apps/web/app/platform-v7/login/LoginFormClient.tsx",
-      "apps/web/components/platform-v7/PublicSiteHeader.tsx",
-      "apps/web/i18n/public-entry-messages.ts",
-      "apps/web/styles/platform-v7-public-world-class.css",
-      "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
-      "apps/web/tests/unit/platformV7PublicWorldClassGate.test.ts",
       "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
@@ -219,5 +209,76 @@
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "91% honest architectural and isolated-runtime readiness. Canonical execution, persistent identity, separate DB principals and backup/restore are proven in isolated PostgreSQL. Durable financial delivery, live integrations, production deployment, provider recovery and scale remain unproven. Production exploitation remains NO-GO."
+  "readiness": "91% honest architectural and isolated-runtime readiness. Canonical execution, persistent identity, separate DB principals and backup/restore are proven in isolated PostgreSQL. Durable financial delivery, live integrations, production deployment, provider recovery and scale remain unproven. Production exploitation remains NO-GO.",
+  "publicEntryProduction": {
+    "implementationPr": "#2345",
+    "mergeCommit": "bf32eccb27a1119e07000ada30cc471d343bbe46",
+    "netlifyDeployId": "6a51a3af86bae5000855ba47",
+    "deploymentStatus": "ready",
+    "productionRoutes": [
+      "/platform-v7",
+      "/platform-v7/login",
+      "/platform-v7/forgot-password"
+    ],
+    "browserEvidencePr": "#2347",
+    "browserEvidenceStatus": "green",
+    "monitoring": "hourly condition watch enabled",
+    "authBoundary": "server-authoritative and fail-closed",
+    "authExploitation": "not proven without deployed auth API and seeded MFA account",
+    "blockerIssue": "#2348",
+    "productionAcceptance": false,
+    "browserEvidenceRun": "29136362609",
+    "browserEvidence": {
+      "chromiumDesktop1440": "9/9 green",
+      "chromiumMobile390": "9/9 green",
+      "webkitIPhone13": "9/9 green",
+      "localeCycles": [
+        "ru",
+        "en",
+        "zh",
+        "ru"
+      ],
+      "axeSeriousCritical": 0,
+      "consoleRuntimeNetworkErrors": 0,
+      "failClosedLogin": {
+        "status": 503,
+        "authCookies": 0,
+        "remainedOnLogin": true
+      },
+      "lighthouse": {
+        "landing": {
+          "performance": 99,
+          "accessibility": 99,
+          "bestPractices": 100,
+          "seo": 100,
+          "lcpMs": 2021,
+          "tbtMs": 50,
+          "cls": 0
+        },
+        "login": {
+          "performance": 99,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "lcpMs": 1969,
+          "tbtMs": 16,
+          "cls": 0
+        },
+        "recovery": {
+          "performance": 99,
+          "accessibility": 100,
+          "bestPractices": 100,
+          "lcpMs": 1816,
+          "tbtMs": 42,
+          "cls": 0
+        }
+      },
+      "artifactDigests": {
+        "criticalPaths": "sha256:e98664a4d03d1d07fa5526b5ad7e8f5c596e532bf19c80af916fdbb550fe606f",
+        "lighthouse": "sha256:739dee97aa6aa46a4741f70245055ac510a589a8f83e0b46f8395bcec112975d",
+        "webkit": "sha256:e55fdc12224cf37994977bb98c8b82ff5e3f5425c551699a1653e51284153517",
+        "chromiumMobile": "sha256:7b1ea8897bf8793238eefcf1bb3ed6abb7dd5e1294b964cb772ed9f554074aff",
+        "chromiumDesktop": "sha256:07d096ecd7a9a55f7bbbbe4c6cfd179a82dffbf024f19ea311fb8c3e7ddf3294"
+      }
+    }
+  }
 }
