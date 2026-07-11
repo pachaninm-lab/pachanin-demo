@@ -120,15 +120,17 @@ apps/web/next.config.js
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
 
-STAFF_CONTROL_CENTER_TEMPLATE_SCOPE='apps/web/app/platform-v7/template.tsx'
+STAFF_CONTROL_CENTER_TEMPLATE_SCOPE='apps/web/app/platform-v7/layout.tsx
+apps/web/app/platform-v7/template.tsx'
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
 
 # The Staff Control Center is a separate privileged control plane. Its exact
-# server template bypass is reviewed with the staff branch so generic business
-# shell hydration and DOM-mutating guards cannot enter /platform-v7/staff.
+# server layout and template bypass are reviewed with the staff branch so
+# generic business shell hydration and DOM-mutating guards cannot enter
+# /platform-v7/staff.
 if [ "${GITHUB_HEAD_REF:-}" = "feat/platform-v7-staff-control-center" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$STAFF_CONTROL_CENTER_TEMPLATE_SCOPE")
 fi
