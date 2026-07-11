@@ -51,11 +51,32 @@ function safePath(segments: string[]) {
   return decoded.map(encodeURIComponent).join('/');
 }
 
+function firstForwardedValue(value: string | null) {
+  return String(value || '').split(',')[0]?.trim() || '';
+}
+
+function externalRequestOrigin(request: NextRequest) {
+  const host = firstForwardedValue(request.headers.get('x-forwarded-host'))
+    || firstForwardedValue(request.headers.get('host'));
+  const forwardedProtocol = firstForwardedValue(request.headers.get('x-forwarded-proto')).toLowerCase();
+  const protocol = ['http', 'https'].includes(forwardedProtocol)
+    ? forwardedProtocol
+    : request.nextUrl.protocol.replace(':', '');
+  if (!host || !['http', 'https'].includes(protocol) || /[\s/\\]/.test(host)) return null;
+  try {
+    return new URL(`${protocol}://${host}`).origin;
+  } catch {
+    return null;
+  }
+}
+
 function sameOrigin(request: NextRequest) {
   const origin = request.headers.get('origin');
   if (!origin) return false;
   try {
-    return new URL(origin).origin === request.nextUrl.origin;
+    const normalized = new URL(origin).origin;
+    const external = externalRequestOrigin(request);
+    return normalized === request.nextUrl.origin || (external !== null && normalized === external);
   } catch {
     return false;
   }
