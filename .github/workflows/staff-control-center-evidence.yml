@@ -30,7 +30,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Typecheck staff web contour
-        run: pnpm --filter @pc/web run typecheck
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/staff-control-center-evidence
+          pnpm --filter @pc/web run typecheck 2>&1 | tee artifacts/staff-control-center-evidence/typecheck.log
       - name: Run staff authority UI unit gate
         run: pnpm --filter @pc/web exec vitest run tests/unit/platformV7StaffAccessControlPlane.test.ts
       - name: Build production web bundle
