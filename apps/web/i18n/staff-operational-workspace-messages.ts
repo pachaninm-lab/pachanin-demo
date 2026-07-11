@@ -25,7 +25,7 @@ export type StaffOperationalWorkspaceCopy = {
 
 const ru: StaffOperationalWorkspaceCopy = {
   title: 'Рабочие контуры платформы',
-  lead: 'Фактические очереди поддержки, исполнения, денег, диагностики и привилегированного доступа. Данные загружаются только при активной защищённой staff-сессии и серверном разрешении.',
+  lead: 'Очереди поддержки, исполнения, денег, диагностики и доступа.',
   locked: 'Сначала активируй защищённую staff-сессию в Центре управления доступом. Постоянное назначение роли само по себе не открывает клиентские данные.',
   refresh: 'Обновить', loading: 'Загрузка…', empty: 'Нет элементов, требующих внимания.', failed: 'Не удалось загрузить рабочий контур.', saved: 'Изменение сохранено.',
   tabs: { support: 'Поддержка', operations: 'Исполнение', finance: 'Деньги', diagnostics: 'Диагностика', people: 'Сотрудники', critical: 'Двухконтрольные действия', emergency: 'Аварийный доступ' },
@@ -38,7 +38,7 @@ const ru: StaffOperationalWorkspaceCopy = {
 
 const en: StaffOperationalWorkspaceCopy = {
   title: 'Platform staff workspaces',
-  lead: 'Live support, execution, money, diagnostics and privileged-access queues. Data is loaded only with an active protected staff session and server-side permission.',
+  lead: 'Support, execution, money, diagnostics and access queues.',
   locked: 'Activate a protected staff session in Access Control first. A standing staff assignment never opens customer data by itself.',
   refresh: 'Refresh', loading: 'Loading…', empty: 'Nothing currently requires attention.', failed: 'The workspace could not be loaded.', saved: 'The change was saved.',
   tabs: { support: 'Support', operations: 'Execution', finance: 'Money', diagnostics: 'Diagnostics', people: 'Staff', critical: 'Dual-control actions', emergency: 'Emergency access' },
@@ -49,7 +49,7 @@ const en: StaffOperationalWorkspaceCopy = {
 
 const zh: StaffOperationalWorkspaceCopy = {
   title: '平台员工工作台',
-  lead: '真实的支持、履约、资金、诊断和特权访问队列。仅在受保护员工会话有效且服务器授权后加载数据。',
+  lead: '支持、履约、资金、诊断和访问队列。',
   locked: '请先在访问控制中心激活受保护的员工会话。长期角色分配本身不会开放客户数据。',
   refresh: '刷新', loading: '加载中…', empty: '当前没有需要处理的项目。', failed: '无法加载工作台。', saved: '更改已保存。',
   tabs: { support: '支持', operations: '履约', finance: '资金', diagnostics: '诊断', people: '员工', critical: '双人控制操作', emergency: '紧急访问' },
