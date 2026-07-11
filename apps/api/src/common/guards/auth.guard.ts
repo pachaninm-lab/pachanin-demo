@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthService } from '../../modules/auth/auth.service';
+import { StaffAccessService } from '../../modules/staff-access/staff-access.service';
 import { FINANCIAL_MFA_THRESHOLD_KOPECKS } from '../types/request-user';
 import { PUBLIC_ROUTE, PUBLIC_ROUTE_OPTIONS, PublicRouteOptions } from '../decorators/public.decorator';
 
@@ -23,7 +24,11 @@ function enabled(flagName?: string) {
 
 @Injectable()
 export class AppAuthGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector, private readonly authService: AuthService) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly authService: AuthService,
+    private readonly staffAccess: StaffAccessService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(PUBLIC_ROUTE, [
@@ -41,6 +46,16 @@ export class AppAuthGuard implements CanActivate {
     if (!raw?.startsWith('Bearer ')) throw new UnauthorizedException('Missing bearer token');
     const token = raw.slice('Bearer '.length);
     req.user = await this.authService.verifyAccessToken(token);
+
+    const staffHeader = req.headers['x-staff-access-session'];
+    if (Array.isArray(staffHeader)) throw new UnauthorizedException('Multiple staff access session headers are not allowed');
+    const route = String(req.originalUrl ?? req.url ?? '');
+    if (route.includes('/staff') || staffHeader) {
+      req.user = await this.staffAccess.enrichActor(req.user);
+    }
+    if (staffHeader) {
+      req.staffAccess = await this.staffAccess.resolveAccessSession(req.user, String(staffHeader));
+    }
 
     const actionId = String(req.params?.actionId ?? '');
     const bodyAmount = Number(req.body?.amountKopecks ?? req.body?.payload?.amountKopecks);

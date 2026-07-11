@@ -2,10 +2,14 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
-// Only ADMIN and SUPPORT_MANAGER bypass role-based route guards.
-// EXECUTIVE is NOT privileged — it is read-only and subject to its own restrictions.
-const BYPASS_ROLES = new Set(['ADMIN', 'SUPPORT_MANAGER']);
-
+/**
+ * Business-role guard.
+ *
+ * Internal staff authority is deliberately not interpreted here. Staff access is
+ * evaluated by the dedicated staff access control plane using durable
+ * assignments, time-bound grants, tenant/resource scope and MFA. No role has a
+ * global route bypass.
+ */
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
@@ -20,15 +24,11 @@ export class RolesGuard implements CanActivate {
     const req = context.switchToHttp().getRequest();
     const user = req.user;
 
-    // Public routes handled by AppAuthGuard before this guard runs
+    // Public-route handling is owned by AppAuthGuard before this guard runs.
     if (!user) return true;
 
     const userRole = String(user.role || '').toUpperCase();
-
     if (roles.includes('ANY_AUTHENTICATED')) return true;
-
-    // ADMIN / SUPPORT_MANAGER bypass route-level role restrictions
-    if (BYPASS_ROLES.has(userRole)) return true;
 
     if (!roles.includes(userRole)) {
       throw new ForbiddenException(`Role ${userRole} is not allowed here`);

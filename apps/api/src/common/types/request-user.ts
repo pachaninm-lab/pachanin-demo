@@ -32,6 +32,10 @@ export type RequestUser = {
   credentialVersion?: number;
   mfaVerified?: boolean;
   mfaVerifiedAt?: string;
+  /** Internal platform authority. Never sourced from JWT, URL, cookie or client storage. */
+  staffRoles?: string[];
+  /** Durable assignment identifiers resolved from PostgreSQL for the current actor. */
+  staffAssignmentIds?: string[];
 };
 
 export const ROLES_REQUIRING_MFA: Role[] = [
