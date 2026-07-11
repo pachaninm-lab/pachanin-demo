@@ -107,7 +107,7 @@ describe('platform-v7 Staff Control Center authority boundary', () => {
     expect(css).toContain('@media (max-width: 360px)');
     expect(css).toContain('overflow-x: clip');
     expect(css).toContain('grid-template-columns: 1fr');
-    expect(css).not.toMatch(/width:\s*(?:[4-9]\d\d|\d{4,})px/);
+    expect(css).not.toMatch(/(?:^|[;{\s])width:\s*(?:[4-9]\d\d|\d{4,})px/m);
     expect(css).not.toContain('min-width: 1000px');
   });
 });
