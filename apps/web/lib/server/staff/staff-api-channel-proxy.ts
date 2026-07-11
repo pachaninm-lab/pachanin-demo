@@ -167,7 +167,7 @@ export async function proxyStaffChannel(
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      path: '/platform-v7/staff',
+      path: '/api/staff',
       maxAge,
     });
     response.headers.set('X-Correlation-Id', correlationId);
@@ -181,7 +181,7 @@ export async function proxyStaffChannel(
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      path: '/platform-v7/staff',
+      path: '/api/staff',
       maxAge: 0,
     });
   }
