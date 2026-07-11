@@ -29,6 +29,7 @@ for (const project of projects) {
     await context.addCookies([
       { name: 'pc_access_token', value: 'evidence-access-token', url: baseURL, httpOnly: true, sameSite: 'Lax' },
       { name: 'pc_csrf_token', value: 'evidence-csrf-token', url: baseURL, httpOnly: false, sameSite: 'Lax' },
+      { name: 'pc_session_present', value: JSON.stringify({ role: 'operator', exp: Math.floor(Date.now() / 1000) + 3600 }), url: baseURL, httpOnly: true, sameSite: 'Lax' },
     ]);
     const page = await context.newPage();
     const consoleErrors = []; const pageErrors = []; const failedRequests = []; const badResponses = [];
@@ -39,7 +40,14 @@ for (const project of projects) {
 
     await page.goto(`${baseURL}/platform-v7/staff?lang=${locale}`, { waitUntil: 'networkidle', timeout: 60_000 });
     const control = page.locator('main[data-staff-control-center]');
-    await control.waitFor({ state: 'visible', timeout: 30_000 });
+    try {
+      await control.waitFor({ state: 'visible', timeout: 30_000 });
+    } catch {
+      const diagnostic = { project: project.name, locale, url: page.url(), title: await page.title(), body: (await page.locator('body').innerText()).slice(0, 4000), consoleErrors, pageErrors, failedRequests, badResponses };
+      fs.writeFileSync(path.join(artifactDir, `diagnostic-${project.name}-${locale}.json`), JSON.stringify(diagnostic, null, 2));
+      await page.screenshot({ path: path.join(artifactDir, `diagnostic-${project.name}-${locale}.png`), fullPage: true });
+      throw new Error(`${project.name}/${locale}: Staff Control Center missing at ${page.url()}`);
+    }
     assert((await page.locator('html').getAttribute('lang'))?.startsWith(locale), `${project.name}/${locale}: html lang mismatch`);
     assert(!page.url().includes('role='), `${project.name}/${locale}: role leaked into URL`);
     await control.getByRole('button', { name: copy.access, exact: true }).click();
