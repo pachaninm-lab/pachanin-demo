@@ -1,5 +1,9 @@
 import { RequestUser, Role } from '../../src/common/types/request-user';
-import { StaffPermission } from '../../src/modules/staff-access/staff-access.types';
+import {
+  ALLOWED_STAFF_CRITICAL_ACTIONS,
+  FORBIDDEN_STAFF_ACTIONS,
+  StaffPermission,
+} from '../../src/modules/staff-access/staff-access.types';
 import { StaffWorkspaceService } from '../../src/modules/staff-access/staff-workspace.service';
 
 const actor: RequestUser = {
@@ -89,5 +93,26 @@ describe('StaffWorkspaceService', () => {
     await service.criticalActions(actor);
     expect(access.requirePermission).toHaveBeenCalledWith(actor, StaffPermission.CRITICAL_ACTION_APPROVE);
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets a requester read only their own time-bound critical requests', async () => {
+    const { service, access, prisma } = setup();
+    await service.ownCriticalActions(actor);
+    expect(access.requirePermission).toHaveBeenCalledWith(actor, StaffPermission.CRITICAL_ACTION_REQUEST);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('registers only non-authoritative staff critical actions', () => {
+    expect(ALLOWED_STAFF_CRITICAL_ACTIONS).toEqual(new Set([
+      'deal:operation:retry',
+      'user:session:revoke',
+      'user:mfa:reset',
+      'user:access-recovery:initiate',
+      'payment:manual-review',
+      'feature-flag:write',
+    ]));
+    for (const forbidden of FORBIDDEN_STAFF_ACTIONS) {
+      expect(ALLOWED_STAFF_CRITICAL_ACTIONS.has(forbidden)).toBe(false);
+    }
   });
 });
