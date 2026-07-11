@@ -1,0 +1,2 @@
+Evidence trigger for exact implementation head 6617d56c409f8eef2ab79132c517199854b22bca.
+This exact run includes compact RU/EN/ZH authority notices, isolated root runtime, stable first render, deferred privileged workspaces, scoped staff access, audit-chain integrity, Chromium/WebKit coverage, authenticated mobile Lighthouse and fail-closed upstream verification without relaxed thresholds.

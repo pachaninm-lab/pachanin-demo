@@ -1,0 +1,86 @@
+name: Staff Control Center insecure upstream rejection
+
+on:
+  pull_request:
+    branches:
+      - feat/platform-v7-staff-control-center
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  insecure-upstream-rejection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      API_URL: http://127.0.0.1:4010
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      STAFF_EVIDENCE_BASE_URL: http://localhost:3000
+      ARTIFACT_DIR: ../../artifacts/staff-control-center-http-rejection
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Generate ephemeral acceptance secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "AUTH_TOKEN_PEPPER=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "MFA_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck exact API and web source
+        run: |
+          pnpm --filter @pc/api run typecheck
+          pnpm --filter @pc/web run typecheck
+      - name: Build production web bundle
+        run: pnpm --filter @pc/web run build
+      - name: Install Chromium
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Start insecure HTTP fixture and production bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/web
+          node scripts/staff-control-center-acceptance-mock.mjs > /tmp/staff-http-mock.log 2>&1 &
+          NODE_ENV=development pnpm start > /tmp/staff-http-web.log 2>&1 &
+          for attempt in $(seq 1 90); do
+            api_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4010/auth/me || true)
+            web_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:3000/platform-v7 || true)
+            if [ "$api_status" = '401' ] && [ "$web_status" = '200' ]; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/staff-http-mock.log || true
+          cat /tmp/staff-http-web.log || true
+          exit 1
+      - name: Prove Staff entry fails closed on insecure API origin
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          node scripts/staff-insecure-upstream-probe.mjs
+      - name: Preserve server logs
+        if: always()
+        run: |
+          mkdir -p artifacts/staff-control-center-http-rejection
+          cp /tmp/staff-http-mock.log artifacts/staff-control-center-http-rejection/mock-server.log || true
+          cp /tmp/staff-http-web.log artifacts/staff-control-center-http-rejection/web-server.log || true
+      - name: Upload insecure-upstream rejection evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staff-control-center-http-rejection
+          path: artifacts/staff-control-center-http-rejection
+          if-no-files-found: error
+          retention-days: 30
+      - name: Print logs on failure
+        if: failure()
+        run: |
+          cat /tmp/staff-http-mock.log || true
+          cat /tmp/staff-http-web.log || true

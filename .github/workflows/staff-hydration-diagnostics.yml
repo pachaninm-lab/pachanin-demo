@@ -1,0 +1,80 @@
+name: Staff Control Center hydration diagnostics
+
+on:
+  pull_request:
+    branches:
+      - feat/platform-v7-staff-control-center
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hydration-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      API_URL: https://127.0.0.1:4011
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      STAFF_EVIDENCE_BASE_URL: http://localhost:3000
+      ARTIFACT_DIR: ../../artifacts/staff-hydration-diagnostics
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Generate ephemeral secrets and trusted local CA
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "AUTH_TOKEN_PEPPER=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "MFA_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout /tmp/staff-mock-key.pem \
+            -out /tmp/staff-mock-cert.pem \
+            -days 1 \
+            -subj '/CN=127.0.0.1' \
+            -addext 'subjectAltName=IP:127.0.0.1,DNS:localhost'
+          echo 'STAFF_MOCK_TLS_KEY=/tmp/staff-mock-key.pem' >> "$GITHUB_ENV"
+          echo 'STAFF_MOCK_TLS_CERT=/tmp/staff-mock-cert.pem' >> "$GITHUB_ENV"
+          echo 'NODE_EXTRA_CA_CERTS=/tmp/staff-mock-cert.pem' >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Start trusted TLS fixture and Next development server
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/web
+          node scripts/staff-control-center-acceptance-mock.mjs > /tmp/staff-hydration-mock.log 2>&1 &
+          node scripts/staff-mock-tls-proxy.mjs > /tmp/staff-hydration-tls.log 2>&1 &
+          pnpm dev > /tmp/staff-hydration-web.log 2>&1 &
+          for attempt in $(seq 1 120); do
+            api_status=$(curl --cacert "$STAFF_MOCK_TLS_CERT" --silent --output /dev/null --write-out '%{http_code}' https://127.0.0.1:4011/auth/me || true)
+            web_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:3000/platform-v7 || true)
+            if [ "$api_status" = '401' ] && [ "$web_status" = '200' ]; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Capture development hydration diagnostics
+        working-directory: apps/web
+        run: node scripts/staff-hydration-diagnostics.mjs
+      - name: Preserve server logs
+        if: always()
+        run: |
+          mkdir -p artifacts/staff-hydration-diagnostics
+          cp /tmp/staff-hydration-mock.log artifacts/staff-hydration-diagnostics/mock-server.log || true
+          cp /tmp/staff-hydration-tls.log artifacts/staff-hydration-diagnostics/tls-proxy.log || true
+          cp /tmp/staff-hydration-web.log artifacts/staff-hydration-diagnostics/web-server.log || true
+      - name: Upload hydration diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staff-hydration-diagnostics
+          path: artifacts/staff-hydration-diagnostics
+          if-no-files-found: error
+          retention-days: 7

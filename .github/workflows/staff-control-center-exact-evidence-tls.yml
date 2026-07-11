@@ -1,0 +1,124 @@
+name: Staff Control Center exact evidence TLS
+
+on:
+  pull_request:
+    branches:
+      - feat/platform-v7-staff-control-center
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-acceptance-tls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      API_URL: https://127.0.0.1:4011
+      NEXT_PUBLIC_SITE_URL: https://127.0.0.1:3443
+      STAFF_EVIDENCE_BASE_URL: https://127.0.0.1:3443
+      ARTIFACT_DIR: ../../artifacts/staff-control-center-acceptance-tls
+      LIGHTHOUSE_BIN: /tmp/staff-lighthouse-tools/node_modules/.bin/lighthouse
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Generate ephemeral secrets and trusted local CA
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "AUTH_TOKEN_PEPPER=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "MFA_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout /tmp/staff-mock-key.pem \
+            -out /tmp/staff-mock-cert.pem \
+            -days 1 \
+            -subj '/CN=127.0.0.1' \
+            -addext 'subjectAltName=IP:127.0.0.1,DNS:localhost'
+          sudo cp /tmp/staff-mock-cert.pem /usr/local/share/ca-certificates/staff-mock.crt
+          sudo update-ca-certificates
+          echo 'STAFF_MOCK_TLS_KEY=/tmp/staff-mock-key.pem' >> "$GITHUB_ENV"
+          echo 'STAFF_MOCK_TLS_CERT=/tmp/staff-mock-cert.pem' >> "$GITHUB_ENV"
+          echo 'NODE_EXTRA_CA_CERTS=/tmp/staff-mock-cert.pem' >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck exact API and web source
+        run: |
+          pnpm --filter @pc/api run typecheck
+          pnpm --filter @pc/web run typecheck
+      - name: Build production web bundle
+        run: pnpm --filter @pc/web run build
+      - name: Install Chromium, WebKit and pinned Lighthouse
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install --with-deps chromium webkit
+          mkdir -p /tmp/staff-lighthouse-tools
+          cd /tmp/staff-lighthouse-tools
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --package-lock=false lighthouse@12.6.1
+          "$LIGHTHOUSE_BIN" --version
+      - name: Start HTTP fixture, trusted TLS proxies and production bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/web
+          node scripts/staff-control-center-acceptance-mock.mjs > /tmp/staff-tls-mock.log 2>&1 &
+          echo $! > /tmp/staff-tls-mock.pid
+          STAFF_TLS_PROXY_PORT=4011 STAFF_MOCK_PORT=4010 node scripts/staff-mock-tls-proxy.mjs > /tmp/staff-tls-proxy.log 2>&1 &
+          echo $! > /tmp/staff-tls-proxy.pid
+          NODE_ENV=production pnpm start > /tmp/staff-tls-web.log 2>&1 &
+          echo $! > /tmp/staff-tls-web.pid
+          STAFF_TLS_PROXY_PORT=3443 STAFF_MOCK_PORT=3000 node scripts/staff-mock-tls-proxy.mjs > /tmp/staff-web-tls-proxy.log 2>&1 &
+          echo $! > /tmp/staff-web-tls-proxy.pid
+          for attempt in $(seq 1 90); do
+            api_status=$(curl --cacert "$STAFF_MOCK_TLS_CERT" --silent --output /dev/null --write-out '%{http_code}' https://127.0.0.1:4011/auth/me || true)
+            web_status=$(curl --cacert "$STAFF_MOCK_TLS_CERT" --silent --output /dev/null --write-out '%{http_code}' https://127.0.0.1:3443/platform-v7 || true)
+            if [ "$api_status" = '401' ] && [ "$web_status" = '200' ]; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/staff-tls-mock.log || true
+          cat /tmp/staff-tls-proxy.log || true
+          cat /tmp/staff-tls-web.log || true
+          cat /tmp/staff-web-tls-proxy.log || true
+          exit 1
+      - name: Run Chromium WebKit RU EN ZH and VIEW_AS matrix
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          node scripts/staff-control-center-acceptance-v5.mjs 2>&1 | tee "$ARTIFACT_DIR/browser-matrix.log"
+      - name: Run authenticated mobile Lighthouse gate
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/staff-control-center-lighthouse-gate.mjs
+      - name: Preserve server logs
+        if: always()
+        run: |
+          mkdir -p artifacts/staff-control-center-acceptance-tls
+          cp /tmp/staff-tls-mock.log artifacts/staff-control-center-acceptance-tls/mock-server.log || true
+          cp /tmp/staff-tls-proxy.log artifacts/staff-control-center-acceptance-tls/tls-proxy.log || true
+          cp /tmp/staff-tls-web.log artifacts/staff-control-center-acceptance-tls/web-server.log || true
+          cp /tmp/staff-web-tls-proxy.log artifacts/staff-control-center-acceptance-tls/web-tls-proxy.log || true
+      - name: Upload exact TLS acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staff-control-center-acceptance-tls
+          path: artifacts/staff-control-center-acceptance-tls
+          if-no-files-found: error
+          retention-days: 30
+      - name: Print logs on failure
+        if: failure()
+        run: |
+          cat /tmp/staff-tls-mock.log || true
+          cat /tmp/staff-tls-proxy.log || true
+          cat /tmp/staff-tls-web.log || true
+          cat /tmp/staff-web-tls-proxy.log || true
