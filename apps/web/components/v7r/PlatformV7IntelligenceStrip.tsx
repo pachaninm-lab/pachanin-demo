@@ -1,4 +1,3 @@
-import { ArrowRight, Banknote, ShieldCheck } from 'lucide-react';
 import { getLocale } from 'next-intl/server';
 
 type Lang = 'ru' | 'en' | 'zh';
@@ -39,7 +38,7 @@ const copy = {
   },
 } as const;
 
-const icons = [ShieldCheck, ArrowRight, Banknote];
+const glyphs = ['✓', '→', '₽'] as const;
 
 export async function PlatformV7IntelligenceStrip() {
   const locale = await getLocale();
@@ -56,10 +55,13 @@ export async function PlatformV7IntelligenceStrip() {
         </div>
         <div className='entry-intelligence-flow' aria-label={t.kicker}>{t.flow.map((item) => <span key={item}>{item}</span>)}</div>
         <div className='entry-intelligence-grid'>
-          {t.items.map(([title, text], index) => {
-            const Icon = icons[index];
-            return <article className='entry-intelligence-tile' key={title}><span><Icon size={20} aria-hidden='true' /></span><strong>{title}</strong><small>{text}</small></article>;
-          })}
+          {t.items.map(([title, text], index) => (
+            <article className='entry-intelligence-tile' key={title}>
+              <span aria-hidden='true'><b>{glyphs[index]}</b></span>
+              <strong>{title}</strong>
+              <small>{text}</small>
+            </article>
+          ))}
         </div>
       </div>
     </section>
