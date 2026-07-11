@@ -4,14 +4,14 @@ import { describe, expect, it } from 'vitest';
 
 describe('platform-v7 root working entry', () => {
   const page = readFileSync(join(process.cwd(), 'app/platform-v7/page.tsx'), 'utf8');
-  const publicMessages = readFileSync(join(process.cwd(), 'i18n/public-entry-messages.ts'), 'utf8');
+  const landingCopy = readFileSync(join(process.cwd(), 'i18n/public-landing-copy.ts'), 'utf8');
   const landingCss = readFileSync(join(process.cwd(), 'styles/platform-v7-public-landing.css'), 'utf8');
   const worldClassCss = readFileSync(join(process.cwd(), 'styles/platform-v7-public-world-class.css'), 'utf8');
   const mobileShell = readFileSync(join(process.cwd(), 'styles/platform-v7-mobile-shell-p1.css'), 'utf8');
 
-  it('uses the industrial public execution surface as the root entry', () => {
+  it('uses the public execution surface as the root entry', () => {
     expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
-    expect(page).toContain("data-maturity='industrial-public-entry'");
+    expect(page).not.toContain('data-maturity=');
     expect(page).toContain('entry-hero');
     expect(page).toContain('entry-role-grid');
     expect(page).toContain('entry-footer');
@@ -26,7 +26,8 @@ describe('platform-v7 root working entry', () => {
     expect(page).not.toContain("href: '/platform-v7/buyer'");
     expect(page).not.toContain("href: '/platform-v7/bank'");
     expect(page).not.toContain("<a key={key} href={href} className='entry-role-tile'");
-    expect(publicMessages).toContain('Роль не выбирается вручную');
+    expect(landingCopy).toContain('Войдите один раз');
+    expect(landingCopy).toContain('с доступными вам действиями');
   });
 
   it('uses native links without hydrating a client router tree', () => {
