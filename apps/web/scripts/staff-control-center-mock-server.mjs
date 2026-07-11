@@ -1,8 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
 import fs from 'node:fs';
-import https from 'node:https';
-import fs from 'node:fs';
 
 const port = Number(process.env.STAFF_MOCK_PORT || 4010);
 const grants = new Map();
