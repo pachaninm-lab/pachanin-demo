@@ -3,6 +3,7 @@ import {
   ArrayUnique,
   IsArray,
   IsEnum,
+  IsIn,
   IsInt,
   IsISO8601,
   IsObject,
@@ -98,7 +99,7 @@ export class RequestStaffAccessDto {
 }
 
 export class DecideStaffAccessDto {
-  @IsEnum(['APPROVE', 'DENY'])
+  @IsIn(['APPROVE', 'DENY'])
   decision!: 'APPROVE' | 'DENY';
 
   @IsString()
@@ -153,7 +154,7 @@ export class RequestCriticalActionDto {
 }
 
 export class DecideCriticalActionDto {
-  @IsEnum(['APPROVE', 'DENY'])
+  @IsIn(['APPROVE', 'DENY'])
   decision!: 'APPROVE' | 'DENY';
 
   @IsString()
