@@ -87,11 +87,6 @@ CREATE TRIGGER support_case_events_no_update
 BEFORE UPDATE OR DELETE ON support.case_events
 FOR EACH ROW EXECUTE FUNCTION support.reject_case_event_mutation();
 
-DROP TRIGGER IF EXISTS support_case_events_no_truncate ON support.case_events;
-CREATE TRIGGER support_case_events_no_truncate
-BEFORE TRUNCATE ON support.case_events
-FOR EACH STATEMENT EXECUTE FUNCTION support.reject_case_event_mutation();
-
 REVOKE ALL ON SCHEMA support FROM PUBLIC;
 REVOKE ALL ON ALL TABLES IN SCHEMA support FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA support FROM PUBLIC;
@@ -104,8 +99,8 @@ BEGIN
     GRANT SELECT, INSERT, UPDATE ON support.cases TO app_service;
     GRANT SELECT, INSERT ON support.case_events TO app_service;
     GRANT SELECT, INSERT, UPDATE ON support.access_recovery_requests TO app_service;
-    REVOKE UPDATE, DELETE, TRUNCATE ON support.case_events FROM app_service;
-    REVOKE DELETE, TRUNCATE ON support.cases, support.access_recovery_requests FROM app_service;
+    REVOKE UPDATE, DELETE ON support.case_events FROM app_service;
+    REVOKE DELETE ON support.cases, support.access_recovery_requests FROM app_service;
   END IF;
 END
 $grant_staff_support$;
