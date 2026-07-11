@@ -24,10 +24,13 @@ describe('Staff Control Center initial render stability', () => {
     expect(css).toContain('.loadingCard { margin-top: 18px; }');
   });
 
-  it('keeps the critical hero concise in every supported locale', () => {
+  it('keeps the critical hero and authority notice concise in every supported locale', () => {
     expect(messages).toContain("description: 'Данные клиентов доступны только в ограниченной защищённой сессии.'");
     expect(messages).toContain("description: 'Customer data is available only in a time-bound protected session.'");
     expect(messages).toContain("description: '客户数据仅在限时受保护会话中可用。'");
+    expect(messages).toContain("maturity: 'Полномочия действуют только в подтверждённой сессии с MFA и согласованиями.'");
+    expect(messages).toContain("maturity: 'Authority is active only in a verified session with MFA and required approvals.'");
+    expect(messages).toContain("maturity: '权限仅在通过 MFA 和必要审批的已验证会话中生效。'");
   });
 
   it('keeps privileged workspace code and shared providers outside the critical server render', () => {
