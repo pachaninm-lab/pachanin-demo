@@ -105,9 +105,9 @@ describe('industrial staff operational workspaces', () => {
 
   it('writes reads to the awaited hash chain and mutations atomically with business state', () => {
     expect(controller).toContain('@UseInterceptors(StaffWorkspaceAuditInterceptor)');
-    expect(auditInterceptor).toContain("if (method !== 'GET' && method !== 'HEAD') return result");
+    expect(auditInterceptor).toContain("if (String(request.method || 'GET').toUpperCase() !== 'GET') return next.handle()");
     expect(auditInterceptor).toContain("action: 'staff.workspace.read'");
-    expect(auditInterceptor).toContain('from(this.auditRead(request).then(() => result))');
+    expect(auditInterceptor).toContain('from(this.recordRead(request).then(() => result))');
     expect(auditWriter).toContain('async recordInTransaction');
     expect(auditWriter).toContain('latestEventHash(client, actor.id)');
     expect(auditWriter).toContain('insertEvent(client');
