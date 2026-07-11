@@ -1,0 +1,48 @@
+name: register staff control center ui scope
+
+on:
+  push:
+    branches:
+      - ui/staff-control-center
+
+permissions:
+  contents: write
+
+jobs:
+  register-and-remove:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui/staff-control-center
+          fetch-depth: 0
+      - name: Register exact source-controlled UI scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          state = json.loads(path.read_text())
+          state.setdefault('approvedConcurrentScopes', {})['ui/staff-control-center'] = [
+            'apps/web/app/platform-v7/staff/**',
+            'apps/web/app/api/staff/**',
+            'apps/web/components/platform-v7/staff/**',
+            'apps/web/lib/server/staff/**',
+            'apps/web/i18n/staff-messages.ts',
+            'apps/web/styles/platform-v7-staff.css',
+            'apps/web/tests/unit/platformV7StaffAccessControlPlane.test.ts',
+            'docs/platform-v7/security/staff-control-center-ui.md',
+            'docs/platform-v7/autopilot/autopilot-state.json',
+          ]
+          path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + '\n')
+          PY
+          git rm .github/workflows/zz-staff-ui-scope.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/autopilot-state.json
+          git add -u
+          git commit -m 'Register exact staff control center UI scope'
+          git push origin HEAD:ui/staff-control-center
