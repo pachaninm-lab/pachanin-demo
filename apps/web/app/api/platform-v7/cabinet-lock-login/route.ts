@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE } from '@/lib/auth-cookies';
 import { signCabinetSession } from '@/lib/platform-v7/verified-session';
 
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
@@ -19,6 +21,21 @@ const ALLOWED_ROLES = new Set([
   'compliance',
   'executive',
 ]);
+
+const ROLE_TEST_ACCOUNTS: Readonly<Record<string, string>> = {
+  'operator.test': 'operator',
+  'buyer.test': 'buyer',
+  'seller.test': 'seller',
+  'logistics.test': 'logistics',
+  'driver.test': 'driver',
+  'surveyor.test': 'surveyor',
+  'elevator.test': 'elevator',
+  'lab.test': 'lab',
+  'bank.test': 'bank',
+  'arbitrator.test': 'arbitrator',
+  'compliance.test': 'compliance',
+  'executive.test': 'executive',
+};
 
 function readEnv(name: string): string {
   return String(process.env[name] || '').trim();
@@ -41,8 +58,7 @@ function compact(value: string): string {
 /**
  * Constant-time credential comparison. Accepts only an exact match, or an exact
  * match after collapsing surrounding/duplicated whitespace (a pure UX
- * tolerance). Deliberately NO digit-only, suffix, or partial matching — those
- * silently reduced the password to a handful of trailing digits.
+ * tolerance). Deliberately NO digit-only, suffix, or partial matching.
  */
 function passwordMatches(input: string, configured: string): boolean {
   if (!input || !configured) return false;
@@ -58,46 +74,83 @@ function passwordCandidates(): string[] {
   ].filter(Boolean);
 }
 
-/**
- * Secret used to sign the cabinet session JWT. Must come from real configured
- * secrets only — never a hard-coded PIN hash. If none is configured the gate is
- * treated as unavailable (fail closed) rather than signing with a guessable key.
- */
 function cabinetSessionSecret(): string {
   return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
+}
+
+function controlledTestAccessEnabled(): boolean {
+  if (readEnv('PC_CABINET_TEST_ACCESS').toLowerCase() !== 'true') return false;
+  const expiresAt = readEnv('PC_CABINET_TEST_ACCESS_EXPIRES_AT');
+  if (!expiresAt) return true;
+  const expiresAtMs = Date.parse(expiresAt);
+  return Number.isFinite(expiresAtMs) && expiresAtMs > Date.now();
+}
+
+function secureCookie(httpOnly: boolean) {
+  return {
+    path: '/',
+    maxAge: TTL_SECONDS,
+    httpOnly,
+    sameSite: 'lax' as const,
+    secure: process.env.NODE_ENV === 'production',
+  };
 }
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const login = typeof body?.login === 'string' ? body.login.trim().toLowerCase() : '';
   const password = typeof body?.password === 'string' ? body.password.trim() : '';
-  const role = typeof body?.role === 'string' ? body.role.trim() : '';
+  const requestedRole = typeof body?.role === 'string' ? body.role.trim() : '';
 
-  if (!ALLOWED_ROLES.has(role)) {
+  if (!ALLOWED_ROLES.has(requestedRole)) {
     return NextResponse.json({ ok: false, reason: 'unknown_role' }, { status: 400 });
   }
 
-  const configuredUser = readEnv('PC_CABINET_LOCK_USER').toLowerCase();
-  const passwords = passwordCandidates();
+  const configuredOwner = readEnv('PC_CABINET_LOCK_USER').toLowerCase();
+  const ownerPasswords = passwordCandidates();
+  const rolePassword = readEnv('PC_CABINET_ROLE_PASSWORD');
   const sessionSecret = cabinetSessionSecret();
+  const testAccessEnabled = controlledTestAccessEnabled();
+  const fixedRole = testAccessEnabled ? ROLE_TEST_ACCOUNTS[login] : undefined;
+  const ownerLogin = Boolean(configuredOwner && safeEqual(login, configuredOwner));
 
-  // Fail closed when the gate is not fully configured — no hard-coded owner
-  // login, no default password, no fallback signing secret.
-  if (!configuredUser || passwords.length === 0 || !sessionSecret) {
-    return NextResponse.json({ ok: false, reason: 'cabinet_not_configured' }, { status: 503 });
-  }
-
-  const loginAllowed = safeEqual(login, configuredUser);
-  const passwordAllowed = passwords.some((configured) => passwordMatches(password, configured));
-
-  if (!loginAllowed || !passwordAllowed) {
+  if (!sessionSecret || (!ownerLogin && !fixedRole)) {
     return NextResponse.json(
-      { ok: false, reason: !loginAllowed ? 'login_mismatch' : 'password_mismatch' },
-      { status: 401 },
+      { ok: false, reason: !sessionSecret ? 'cabinet_not_configured' : 'login_mismatch' },
+      { status: !sessionSecret ? 503 : 401 },
     );
   }
 
-  const token = await signCabinetSession(role, sessionSecret, {
+  let effectiveRole = requestedRole;
+  let passwordAllowed = false;
+  let accountType: 'owner_test' | 'role_test';
+
+  if (ownerLogin) {
+    if (ownerPasswords.length === 0) {
+      return NextResponse.json({ ok: false, reason: 'cabinet_not_configured' }, { status: 503 });
+    }
+    passwordAllowed = ownerPasswords.some((configured) => passwordMatches(password, configured));
+    accountType = 'owner_test';
+  } else {
+    if (!rolePassword) {
+      return NextResponse.json({ ok: false, reason: 'cabinet_not_configured' }, { status: 503 });
+    }
+    effectiveRole = fixedRole as string;
+    if (requestedRole !== effectiveRole) {
+      return NextResponse.json(
+        { ok: false, reason: 'role_mismatch', expectedRole: effectiveRole },
+        { status: 400 },
+      );
+    }
+    passwordAllowed = passwordMatches(password, rolePassword);
+    accountType = 'role_test';
+  }
+
+  if (!passwordAllowed) {
+    return NextResponse.json({ ok: false, reason: 'password_mismatch' }, { status: 401 });
+  }
+
+  const token = await signCabinetSession(effectiveRole, sessionSecret, {
     nowSeconds: Math.floor(Date.now() / 1000),
     ttlSeconds: TTL_SECONDS,
   });
@@ -106,13 +159,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason: 'cabinet_session_unavailable' }, { status: 503 });
   }
 
-  cookies().set(CABINET_SESSION_COOKIE, token, {
-    path: '/',
-    maxAge: TTL_SECONDS,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-  });
+  const cookieStore = cookies();
+  cookieStore.set(CABINET_SESSION_COOKIE, token, secureCookie(true));
 
-  return NextResponse.json({ ok: true, marker: 'cabinet-gate-hard-v2' });
+  if (accountType === 'owner_test' && testAccessEnabled) {
+    const csrfToken = randomUUID();
+    cookieStore.set(ACCESS_COOKIE, token, secureCookie(true));
+    cookieStore.set(SESSION_COOKIE, 'true', secureCookie(false));
+    cookieStore.set(CSRF_COOKIE, csrfToken, secureCookie(false));
+  } else {
+    for (const name of [ACCESS_COOKIE, SESSION_COOKIE, CSRF_COOKIE]) {
+      cookieStore.set(name, '', {
+        path: '/',
+        maxAge: 0,
+        expires: new Date(0),
+        httpOnly: name === ACCESS_COOKIE,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      });
+    }
+  }
+
+  return NextResponse.json(
+    { ok: true, role: effectiveRole, accountType, staffAccess: accountType === 'owner_test' && testAccessEnabled, marker: 'cabinet-gate-controlled-test-v1' },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
 }

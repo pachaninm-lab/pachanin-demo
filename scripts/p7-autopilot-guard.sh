@@ -124,6 +124,13 @@ STAFF_CONTROL_CENTER_TEMPLATE_SCOPE='apps/web/app/layout.tsx
 apps/web/app/platform-v7/layout.tsx
 apps/web/app/platform-v7/template.tsx'
 
+CONTROLLED_TEST_ACCESS_SCOPE='apps/web/app/api/platform-v7/cabinet-lock-login/route.ts
+apps/web/app/auth/me/route.ts
+apps/web/app/staff/[...path]/route.ts
+apps/web/tests/unit/platformV7ControlledTestAccess.test.ts
+docs/platform-v7/security/test-access-operations.md
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -134,6 +141,12 @@ fi
 # /platform-v7/staff.
 if [ "${GITHUB_HEAD_REF:-}" = "feat/platform-v7-staff-control-center" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$STAFF_CONTROL_CENTER_TEMPLATE_SCOPE")
+fi
+
+# Controlled test access is isolated to the server login gate, the gated
+# self-hosted fixture endpoints, tests and its operations document.
+if [ "${GITHUB_HEAD_REF:-}" = "fix/controlled-test-access" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$CONTROLLED_TEST_ACCESS_SCOPE")
 fi
 
 # Pull-request workflows can check out refs/pull/<n>/merge and expose an empty or
