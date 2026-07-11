@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AppLocale } from '@/i18n/locale';
 import type { StaffOperationalWorkspaceCopy } from '@/i18n/staff-operational-workspace-messages';
 import styles from './StaffOperationalWorkspaces.module.css';
@@ -73,27 +73,35 @@ export function StaffOperationalWorkspaces({ locale, copy }: Props) {
     if (can('diagnostic:read')) rows.push('diagnostics');
     if (can('staff-assignment:read') || can('user:list')) rows.push('people');
     if (can('critical-action:approve')) rows.push('critical');
-    if (can('staff-session:read') || can('break-glass:activate')) rows.push('emergency');
+    if (can('staff-session:read')) rows.push('emergency');
     return rows;
   }, [can]);
+
+  const clearPrivilegedState = useCallback(() => {
+    setData(null);
+    setOrganizations([]);
+    setOrganizationUsers({});
+  }, []);
 
   const loadContext = useCallback(async () => {
     setLoading(true); setError('');
     try {
       const next = await api<SessionContext>('/api/staff/session-context');
       setContext(next);
+      if (!next.active || !next.session) clearPrivilegedState();
     } catch (value) {
       setError(value instanceof Error ? value.message : copy.failed);
       setContext({ active: false, session: null });
+      clearPrivilegedState();
     } finally { setLoading(false); }
-  }, [copy.failed]);
+  }, [clearPrivilegedState, copy.failed]);
 
   useEffect(() => { void loadContext(); }, [loadContext]);
-useEffect(() => {
-  const refresh = () => { void loadContext(); };
-  window.addEventListener('pc:staff-session-changed', refresh);
-  return () => window.removeEventListener('pc:staff-session-changed', refresh);
-}, [loadContext]);
+  useEffect(() => {
+    const refresh = () => { void loadContext(); };
+    window.addEventListener('pc:staff-session-changed', refresh);
+    return () => window.removeEventListener('pc:staff-session-changed', refresh);
+  }, [loadContext]);
   useEffect(() => {
     if (availableTabs.length && !availableTabs.includes(tab)) setTab(availableTabs[0]);
   }, [availableTabs, tab]);
@@ -108,17 +116,26 @@ useEffect(() => {
     if (!context.active || !availableTabs.includes(tab)) return;
     setLoading(true); setError('');
     try {
+      if (tab === 'people') {
+        const assignmentRows = can('staff-assignment:read')
+          ? await api<ApiObject[]>('/api/staff/workspaces/assignments')
+          : [];
+        setData(Array.isArray(assignmentRows) ? assignmentRows : []);
+        if (can('user:list')) {
+          const orgs = await api<ApiObject[]>('/api/staff/organizations');
+          setOrganizations(Array.isArray(orgs) ? orgs : []);
+        } else {
+          setOrganizations([]);
+        }
+        return;
+      }
       const payload = await api<ApiObject | ApiObject[]>(endpoint);
       setData(payload);
-      if (tab === 'people' && can('user:list')) {
-        const orgs = await api<ApiObject[]>('/api/staff/organizations');
-        setOrganizations(Array.isArray(orgs) ? orgs : []);
-      }
     } catch (value) {
-      setData(null);
+      clearPrivilegedState();
       setError(value instanceof Error ? value.message : copy.failed);
     } finally { setLoading(false); }
-  }, [availableTabs, can, context.active, copy.failed, endpoint, tab]);
+  }, [availableTabs, can, clearPrivilegedState, context.active, copy.failed, endpoint, tab]);
 
   useEffect(() => { void loadTab(); }, [loadTab]);
 
@@ -155,7 +172,7 @@ useEffect(() => {
     <section className={styles.section} aria-labelledby="staff-operational-workspaces-title">
       <div className={styles.header}>
         <div><h2 id="staff-operational-workspaces-title">{copy.title}</h2><p>{copy.lead}</p></div>
-        <button type="button" className={styles.button} onClick={() => void Promise.all([loadContext(), loadTab()])} disabled={Boolean(busy)}>{copy.refresh}</button>
+        <button type="button" className={styles.button} onClick={() => void loadContext()} disabled={Boolean(busy)}>{copy.refresh}</button>
       </div>
       <div className={styles.statusRow} aria-live="polite">
         {!context.active && <div className={styles.locked}>{copy.locked}</div>}
@@ -217,10 +234,10 @@ function CriticalPanel(props: { rows:ApiObject[]; copy:StaffOperationalWorkspace
 }
 
 function EmergencyPanel(props: { rows:ApiObject[]; copy:StaffOperationalWorkspaceCopy; locale:AppLocale; busy:string|null; endReasons:Record<string,string>; setEndReasons:(v:Record<string,string>)=>void; end:(id:string,reason:string)=>Promise<void>; auditActor:string; setAuditActor:(v:string)=>void; verify:()=>Promise<void> }) {
-  return <div className={styles.grid}><Panel title={props.copy.tabs.emergency}>{props.rows.length ? <div className={styles.list}>{props.rows.map((row)=><article className={styles.card} key={text(row.id)}><header><strong>{text(row.role)}</strong><Badge value={text(row.status)} bad /></header><Details rows={[[props.copy.labels.actor,row.actor_user_id],[props.copy.labels.ticket,row.ticket_id],[props.copy.labels.expires,date(row.expires_at,props.locale)],[props.copy.labels.reason,row.reason]]} /><div className={styles.actions}><input value={props.endReasons[text(row.id)] || ''} onChange={(event)=>props.setEndReasons({...props.endReasons,[text(row.id)]:event.target.value})} placeholder={props.copy.labels.reason} /><button type="button" className={styles.danger} onClick={()=>void props.end(text(row.id),props.endReasons[text(row.id)] || '')} disabled={(props.endReasons[text(row.id)] || '').trim().length<5}>{props.copy.actions.end}</button></div></article>)}</div> : <Empty copy={props.copy} />}</Panel><Panel title={props.copy.actions.verify}><div className={styles.form}><label><span>{props.copy.labels.actor}</span><input value={props.auditActor} onChange={(event)=>props.setAuditActor(event.target.value)} /></label><button type="button" className={styles.primary} onClick={()=>void props.verify()} disabled={!props.auditActor.trim() || props.busy==='verify'}>{props.copy.actions.verify}</button></div></Panel></div>;
+  return <div className={styles.grid}><Panel title={props.copy.tabs.emergency}>{props.rows.length ? <div className={styles.list}>{props.rows.map((row)=><article className={styles.card} key={text(row.id)}><header><strong>{text(row.role)}</strong><Badge value={text(row.status)} bad /></header><Details rows={[[props.copy.labels.actor,row.actor_user_id],[props.copy.labels.ticket,row.ticket_id],[props.copy.labels.expires,date(row.expires_at,props.locale)],[props.copy.labels.reason,row.reason]]} /><div className={styles.actions}><input value={props.endReasons[text(row.id)] || ''} onChange={(event)=>props.setEndReasons({...props.endReasons,[text(row.id)]:event.target.value})} placeholder={props.copy.labels.reason} /><button type="button" className={styles.danger} onClick={()=>void props.end(text(row.id),props.endReasons[text(row.id)] || '')} disabled={(props.endReasons[text(row.id)] || '').trim().length<10}>{props.copy.actions.end}</button></div></article>)}</div> : <Empty copy={props.copy} />}</Panel><Panel title={props.copy.actions.verify}><div className={styles.form}><label><span>{props.copy.labels.actor}</span><input value={props.auditActor} onChange={(event)=>props.setAuditActor(event.target.value)} /></label><button type="button" className={styles.primary} onClick={()=>void props.verify()} disabled={!props.auditActor.trim() || props.busy==='verify'}>{props.copy.actions.verify}</button></div></Panel></div>;
 }
 
-function Panel({ title, span, children }: { title:string; span?:boolean; children:React.ReactNode }) { return <article className={`${styles.panel} ${span ? styles.span2 : ''}`}><h3>{title}</h3>{children}</article>; }
+function Panel({ title, span, children }: { title:string; span?:boolean; children:ReactNode }) { return <article className={`${styles.panel} ${span ? styles.span2 : ''}`}><h3>{title}</h3>{children}</article>; }
 function Metric({ label, value }: { label:string; value:unknown }) { return <div className={styles.metric}><span>{label}</span><strong>{text(value)}</strong></div>; }
 function Empty({ copy }: { copy:StaffOperationalWorkspaceCopy }) { return <p className={styles.empty}>{copy.empty}</p>; }
 function Badge({ value, bad }: { value:string; bad?:boolean }) { return <span className={`${styles.badge} ${bad ? styles.bad : ''}`}>{value}</span>; }
