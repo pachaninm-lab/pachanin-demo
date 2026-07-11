@@ -6,6 +6,7 @@ function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), 'utf8');
 }
 
+const rootLayout = source('app/layout.tsx');
 const page = source('app/platform-v7/staff/page.tsx');
 const control = source('components/platform-v7/staff/StaffControlCenter.tsx');
 const deferred = source('components/platform-v7/staff/StaffOperationalWorkspacesDeferred.tsx');
@@ -23,6 +24,8 @@ describe('Staff Control Center initial render stability', () => {
   });
 
   it('keeps privileged workspace code and CSS outside the critical server render', () => {
+    expect(rootLayout).toContain("pathname === '/platform-v7/staff'");
+    expect(rootLayout).toContain("pathname.startsWith('/platform-v7/staff/')");
     expect(page).toContain('<StaffOperationalWorkspacesDeferred');
     expect(page).not.toContain("from '@/components/platform-v7/staff/StaffOperationalWorkspaces'");
     expect(deferred).toContain("dynamic(");

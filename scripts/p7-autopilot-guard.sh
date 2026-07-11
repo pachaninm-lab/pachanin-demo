@@ -120,7 +120,8 @@ apps/web/next.config.js
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
 
-STAFF_CONTROL_CENTER_TEMPLATE_SCOPE='apps/web/app/platform-v7/layout.tsx
+STAFF_CONTROL_CENTER_TEMPLATE_SCOPE='apps/web/app/layout.tsx
+apps/web/app/platform-v7/layout.tsx
 apps/web/app/platform-v7/template.tsx'
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ]; then
