@@ -90,8 +90,10 @@ jobs:
           const payload = b64({ sub: 'owner-evidence', sid: 'session-evidence', iat: now, exp: now + 3600 });
           const signature = crypto.createHmac('sha256', secret).update(`${header}.${payload}`).digest('base64url');
           const token = `${header}.${payload}.${signature}`;
-          const names = ['pc_access_token','pc-access-token','pc_v7_access','pc-v7-access','platform_v7_access','platform-v7-access','access_token','accessToken','pc_session','pc-v7-session','pc_v7_session','platform_v7_session'];
-          fs.writeFileSync('/tmp/staff-lighthouse-headers.json', JSON.stringify({ Cookie: names.map((name) => `${name}=${token}`).join('; ') }));
+          const marker = encodeURIComponent(JSON.stringify({ role: 'operator', exp: now + 3600, email: 'owner-evidence@example.test' }));
+          fs.writeFileSync('/tmp/staff-lighthouse-headers.json', JSON.stringify({
+            Cookie: `pc_access_token=${token}; pc_session_present=${marker}`,
+          }));
           NODE
           export CHROME_PATH="$(node -e "const { chromium } = require('@playwright/test'); process.stdout.write(chromium.executablePath())")"
           npx --yes lighthouse@12.6.1 'http://127.0.0.1:3000/platform-v7/staff?lang=ru' \
