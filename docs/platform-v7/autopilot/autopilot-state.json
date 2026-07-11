@@ -96,6 +96,27 @@
       "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
       "apps/web/tests/unit/platformV7PublicLiveHardening.test.ts",
       "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "security/staff-access-control-plane-foundation": [
+      "apps/api/prisma/migrations/20260711100000_staff_access_control_plane/**",
+      "apps/api/prisma/migrations/20260711101000_staff_assignment_mfa_enforcement/**",
+      "apps/api/prisma/migrations/20260711102000_staff_deal_scope_resolution/**",
+      "apps/api/src/app.module.ts",
+      "apps/api/src/common/guards/auth.guard.ts",
+      "apps/api/src/common/guards/roles.guard.ts",
+      "apps/api/src/common/security/policy-engine.service.ts",
+      "apps/api/src/common/types/request-user.ts",
+      "apps/api/src/modules/auth/auth.service.ts",
+      "apps/api/src/modules/auth/persistent-auth.repository.ts",
+      "apps/api/src/modules/security/security-e2e.spec.ts",
+      "apps/api/src/modules/staff-access/**",
+      "apps/api/test/staff-access/**",
+      "docs/platform-v7/security/staff-access-control-plane.md",
+      "scripts/bootstrap-platform-owner.mjs",
+      "scripts/platform-v7-forward-only-migration-check.mjs",
+      "scripts/platform-v7-one-deal-e2e.sh",
+      "scripts/p7-autopilot-guard.sh",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "industrialOneDealFoundation": {
@@ -267,6 +288,7 @@
           "performance": 99,
           "accessibility": 100,
           "bestPractices": 100,
+          "seo": 100,
           "lcpMs": 1816,
           "tbtMs": 42,
           "cls": 0
