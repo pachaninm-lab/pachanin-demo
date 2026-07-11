@@ -36,7 +36,7 @@ const WRITE_PATHS = [
   /^break-glass\/[^/]+\/end$/,
 ] as const;
 
-function secure(body: Record<string, unknown>, status = 200, correlationId?: string) {
+function secure(body: unknown, status = 200, correlationId?: string) {
   return NextResponse.json(body, {
     status,
     headers: {
@@ -75,6 +75,7 @@ async function handler(request: NextRequest, context: { params: { path?: string[
   if (!API_URL) {
     return secure({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', correlationId }, 503, correlationId);
   }
+
   let apiOrigin: string;
   try {
     const url = new URL(API_URL);
@@ -126,18 +127,28 @@ async function handler(request: NextRequest, context: { params: { path?: string[
       redirect: 'manual',
       signal: AbortSignal.timeout(8_000),
     });
+
     if (upstream.status >= 300 && upstream.status < 400) {
       return secure({ ok: false, code: 'UPSTREAM_REDIRECT_REJECTED', correlationId }, 502, correlationId);
     }
+
     const text = await upstream.text();
-    let payload: Record<string, unknown>;
+    let payload: unknown;
     try {
-      payload = text ? JSON.parse(text) as Record<string, unknown> : {};
+      payload = text ? JSON.parse(text) as unknown : {};
     } catch {
       return secure({ ok: false, code: 'INVALID_UPSTREAM_RESPONSE', correlationId }, 502, correlationId);
     }
-    delete payload.accessToken;
-    return secure({ ...payload, correlationId }, upstream.status, correlationId);
+
+    const payloadObject = payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : {};
+    delete payloadObject.accessToken;
+    return secure(
+      Array.isArray(payload) ? payload : { ...payloadObject, correlationId },
+      upstream.status,
+      correlationId,
+    );
   } catch {
     return secure({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', correlationId }, 503, correlationId);
   }
