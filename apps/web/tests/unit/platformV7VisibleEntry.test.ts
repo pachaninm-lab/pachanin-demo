@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 const pageSource = () => readFileSync(resolve(__dirname, '../../app/platform-v7/page.tsx'), 'utf8');
 const landingCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-landing-copy.ts'), 'utf8');
 const loginCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-login-copy.ts'), 'utf8');
+const publicHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/PublicSiteHeader.tsx'), 'utf8');
 const executionOverview = () => readFileSync(resolve(__dirname, '../../components/v7r/PlatformV7IntelligenceStrip.tsx'), 'utf8');
 
 describe('platform-v7 visible entry (mobile home)', () => {
@@ -12,12 +13,24 @@ describe('platform-v7 visible entry (mobile home)', () => {
     const page = pageSource();
     const copy = landingCopy();
 
-    expect(copy).toContain('Проведите зерновую сделку');
+    expect(page).toContain("ru: ['Управляйте зерновой сделкой', 'от условий до расчёта.']");
     expect(copy).toContain('Каждый участник видит статус и своё следующее действие');
     expect(page).toContain("className='entry-primary-cta'");
     expect(page).toContain("className='entry-secondary-cta'");
     expect(page).not.toContain("className='entry-register-cta'");
+    expect(page).not.toContain('▷');
     expect(copy).toContain('Подключить организацию');
+  });
+
+  it('removes redundant mobile navigation and restores support', () => {
+    const page = pageSource();
+    const header = publicHeader();
+
+    expect(page).toContain('showMobileMenu={false}');
+    expect(header).toContain('nav && showMobileMenu');
+    expect(header).toContain('<ChatSupportWidget />');
+    expect(page).toContain('.pc-v7-public-entry .p7-support-chat-button');
+    expect(page).toContain("bottom:calc(env(safe-area-inset-bottom,0px) + 18px)!important");
   });
 
   it('uses descriptive navigation and access labels', () => {
