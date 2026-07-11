@@ -61,7 +61,7 @@ DATABASE_URL='postgresql://<isolated-deal-principal>' \
 BOOTSTRAP_PLATFORM_OWNER_EMAIL='owner@example.com' \
 BOOTSTRAP_PLATFORM_OWNER_REASON='Approved initial production platform owner bootstrap' \
 BOOTSTRAP_PLATFORM_OWNER_CONFIRM='CREATE_PLATFORM_OWNER:owner@example.com' \
-node scripts/bootstrap-platform-owner-auth.mjs
+node scripts/bootstrap-platform-owner.mjs
 ```
 
 Скрипт fail-closed проверяет:
@@ -218,29 +218,3 @@ Offboarding включает:
 - break-glass activated/expired;
 - JIT request/approval;
 - self-approval attempt;
-- cross-tenant deny;
-- expired/revoked token reuse;
-- critical payload mismatch;
-- audit chain continuity violation;
-- repeated authorization failures;
-- staff assignment create/revoke;
-- access outside normal geography/device pattern.
-
-## 14. Production acceptance
-
-Контур считается подтверждённым только после:
-
-- exact migrations applied;
-- isolated principals verified;
-- owner bootstrap evidence;
-- real password → MFA → session;
-- owner CONTROL_PLANE and VIEW_AS E2E;
-- support/operator/developer/SRE permission ceiling E2E;
-- JIT two-person approval E2E;
-- break-glass expiry and notification E2E;
-- assignment revocation immediately kills grants/sessions;
-- audit chain verify;
-- load/concurrency tests;
-- incident and rollback rehearsal.
-
-До выполнения этих пунктов допустимая формулировка: **архитектура и isolated PostgreSQL exploitation gate реализованы; production activation не подтверждена**.
