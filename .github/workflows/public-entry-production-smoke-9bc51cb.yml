@@ -1,0 +1,41 @@
+name: public entry production smoke 9bc51cb
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  production-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PRODUCTION_BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      PRODUCTION_COMMIT: 9bc51cb0bf7e508be4fcb7aac82442d7de62f6dd
+      PRODUCTION_DEPLOY_ID: 6a51901e877ad00008e6b161
+      ARTIFACT_DIR: ../../artifacts/public-entry-production-smoke-9bc51cb
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Run exact production smoke
+        working-directory: apps/web
+        run: node scripts/public-entry-production-smoke-9bc51cb.mjs
+      - name: Upload production evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-production-smoke-9bc51cb
+          path: artifacts/public-entry-production-smoke-9bc51cb
+          if-no-files-found: error
+          retention-days: 14
