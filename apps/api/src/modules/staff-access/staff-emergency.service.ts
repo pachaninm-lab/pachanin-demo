@@ -69,7 +69,7 @@ export class StaffEmergencyService {
     correlationId: string = randomUUID(),
   ) {
     const actorRoles = await this.repository.listActiveAssignments(this.repository.prisma, user.id);
-    const roles = actorRoles.map((row) => row.role).filter(isStaffRole);
+    const roles: StaffRole[] = actorRoles.map((row) => row.role).filter(isStaffRole);
     if (roles.length === 0) throw new ForbiddenException('Active staff assignment is required');
     const reason = String(reasonInput ?? '').trim();
     if (reason.length < 10) throw new BadRequestException('End reason must be at least 10 characters');
@@ -99,21 +99,26 @@ export class StaffEmergencyService {
           : activation.role;
       const prevHash = await this.repository.latestEventHash(tx, user.id);
       const eventId = `sae_${randomUUID()}`;
+      const metadata = {
+        activationId,
+        activationActorUserId: activation.actor_user_id,
+        notificationRequired: true,
+        postIncidentReviewRequired: true,
+      };
       const payload = {
         id: eventId,
         actorUserId: user.id,
         staffRole,
+        accessSessionId: null,
+        grantId: null,
         action: 'staff.break-glass.end',
+        resourceType: 'break_glass_activation',
+        resourceId: activationId,
         outcome: 'SUCCESS',
         reason,
         ticketId: activation.ticket_id,
         correlationId,
-        metadata: {
-          activationId,
-          activationActorUserId: activation.actor_user_id,
-          notificationRequired: true,
-          postIncidentReviewRequired: true,
-        },
+        metadata,
         prevHash,
       };
       await this.repository.insertEvent(tx, {
@@ -121,11 +126,13 @@ export class StaffEmergencyService {
         actorUserId: user.id,
         staffRole,
         action: 'staff.break-glass.end',
+        resourceType: 'break_glass_activation',
+        resourceId: activationId,
         outcome: 'SUCCESS',
         reason,
         ticketId: activation.ticket_id,
         correlationId,
-        metadata: payload.metadata,
+        metadata,
         prevHash,
         hash: sha256(stableJson(payload)),
       });
