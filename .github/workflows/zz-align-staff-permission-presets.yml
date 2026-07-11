@@ -1,0 +1,110 @@
+name: align staff permission presets
+
+on:
+  push:
+    branches:
+      - ops/align-staff-permission-presets
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Replace UI permission presets with backend ceilings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/web/components/platform-v7/staff/StaffControlCenter.tsx')
+          source = path.read_text()
+          start = source.index('const ACCESS_PRESETS:')
+          end = source.index('const BREAK_GLASS_ROLES', start)
+          replacement = '''const ACCESS_PRESETS: Record<string, Partial<Record<AccessMode, string[]>>> = {
+            PLATFORM_OWNER: {
+              CONTROL_PLANE: [
+                'organization:list', 'user:list', 'staff-assignment:read', 'staff-assignment:write',
+                'staff-request:read', 'staff-request:approve', 'staff-session:read', 'staff-session:revoke',
+                'audit:read', 'support-case:read', 'deal:list', 'deal:read', 'deal:blocker:read',
+                'payment:metadata:read', 'payment:reconciliation:read', 'diagnostic:read',
+                'deployment:read', 'feature-flag:read', 'critical-action:approve', 'break-glass:activate',
+              ],
+              VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read'],
+              ASSISTED: ['cabinet:assisted-action', 'deal:read', 'critical-action:request'],
+              OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read', 'critical-action:request'],
+              JIT_PRIVILEGED: ['diagnostic:read', 'deployment:read', 'feature-flag:read', 'feature-flag:write', 'critical-action:request'],
+            },
+            PLATFORM_ADMIN: {
+              CONTROL_PLANE: [
+                'organization:list', 'organization:read', 'user:list', 'user:read',
+                'staff-assignment:read', 'staff-assignment:write', 'staff-request:read', 'staff-request:approve',
+                'staff-session:read', 'staff-session:revoke', 'audit:read', 'deal:list', 'deal:read',
+                'deal:blocker:read', 'critical-action:approve',
+              ],
+              VIEW_AS: ['cabinet:view-as', 'deal:read'],
+              ASSISTED: ['cabinet:assisted-action', 'deal:read', 'critical-action:request'],
+              OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read'],
+              JIT_PRIVILEGED: ['critical-action:request'],
+            },
+            SUPPORT_L1: {
+              CONTROL_PLANE: ['organization:read', 'user:read', 'user:access-recovery:initiate', 'deal:read', 'deal:blocker:read', 'support-case:read', 'support-case:update', 'document:metadata:read'],
+            },
+            SUPPORT_L2: {
+              CONTROL_PLANE: ['organization:read', 'user:read', 'user:session:revoke', 'user:access-recovery:initiate', 'deal:read', 'deal:blocker:read', 'support-case:read', 'support-case:update', 'document:metadata:read', 'document:content:read', 'diagnostic:read'],
+              VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read', 'document:content:read'],
+              ASSISTED: ['cabinet:assisted-action', 'deal:read', 'support-case:update'],
+            },
+            OPERATIONS_AGENT: {
+              CONTROL_PLANE: ['organization:read', 'user:read', 'deal:list', 'deal:read', 'deal:blocker:read', 'document:metadata:read'],
+              VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read'],
+              OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read'],
+            },
+            OPERATIONS_SUPERVISOR: {
+              CONTROL_PLANE: ['organization:read', 'user:read', 'deal:list', 'deal:read', 'deal:blocker:read', 'document:metadata:read', 'document:content:read', 'payment:metadata:read', 'payment:reconciliation:read', 'staff-request:read', 'staff-request:approve', 'critical-action:approve'],
+              VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read'],
+              OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read', 'document:content:read'],
+            },
+            FINANCE_OPS: {
+              CONTROL_PLANE: ['organization:read', 'deal:read', 'document:metadata:read', 'payment:metadata:read', 'payment:reconciliation:read', 'payment:manual-review', 'audit:read', 'critical-action:request', 'critical-action:approve'],
+              JIT_PRIVILEGED: ['payment:metadata:read', 'payment:reconciliation:read', 'payment:manual-review', 'critical-action:request'],
+            },
+            COMPLIANCE_STAFF: {
+              CONTROL_PLANE: ['organization:list', 'organization:read', 'user:list', 'user:read', 'deal:list', 'deal:read', 'document:metadata:read', 'document:content:read', 'payment:metadata:read', 'audit:read', 'audit:export', 'staff-request:read', 'staff-request:approve', 'critical-action:approve'],
+              VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read', 'document:content:read'],
+            },
+            DEVELOPER: {
+              CONTROL_PLANE: ['diagnostic:read', 'deployment:read', 'feature-flag:read'],
+              JIT_PRIVILEGED: ['diagnostic:read', 'deployment:read', 'feature-flag:read'],
+            },
+            SRE_ONCALL: {
+              CONTROL_PLANE: ['diagnostic:read', 'deployment:read', 'feature-flag:read'],
+              JIT_PRIVILEGED: ['diagnostic:read', 'deployment:read', 'feature-flag:read', 'feature-flag:write', 'break-glass:activate'],
+            },
+            SECURITY_AUDITOR: {
+              CONTROL_PLANE: ['organization:read', 'user:read', 'deal:read', 'payment:metadata:read', 'audit:read', 'audit:export', 'staff-assignment:read', 'staff-request:read', 'staff-session:read'],
+            },
+            BREAK_GLASS_ADMIN: {
+              CONTROL_PLANE: ['diagnostic:read', 'deployment:read', 'feature-flag:read', 'break-glass:activate'],
+              JIT_PRIVILEGED: ['diagnostic:read', 'deployment:read', 'feature-flag:read', 'feature-flag:write', 'break-glass:activate'],
+            },
+          };
+
+          '''
+          path.write_text(source[:start] + replacement + source[end:])
+          PY
+      - name: Commit aligned presets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/web/components/platform-v7/staff/StaffControlCenter.tsx
+          git commit -m 'Align staff UI permission presets with backend ceilings'
+          git push origin HEAD:feat/platform-v7-staff-control-center
