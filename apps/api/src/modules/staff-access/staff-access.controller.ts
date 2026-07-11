@@ -5,6 +5,7 @@ import {
   Headers,
   Param,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -24,6 +25,9 @@ import {
 import { StaffAccessGuard } from './staff-access.guard';
 import { StaffAccessService } from './staff-access.service';
 import { StaffAssignmentService } from './staff-assignment.service';
+import { StaffAuditQuery, StaffAuditService } from './staff-audit.service';
+import { StaffDelegatedAccessGuard } from './staff-delegated-access.guard';
+import { StaffEmergencyService } from './staff-emergency.service';
 import { StaffPermissions } from './staff-permissions.decorator';
 import { StaffAccessContext, StaffPermission } from './staff-access.types';
 
@@ -39,6 +43,8 @@ export class StaffAccessController {
   constructor(
     private readonly access: StaffAccessService,
     private readonly assignments: StaffAssignmentService,
+    private readonly audit: StaffAuditService,
+    private readonly emergency: StaffEmergencyService,
   ) {}
 
   @Get('assignments/me')
@@ -143,6 +149,28 @@ export class StaffAccessController {
     return this.access.activateBreakGlass(request.user, body, correlationId);
   }
 
+  @Get('break-glass/active')
+  @UseGuards(StaffAccessGuard)
+  @StaffPermissions(StaffPermission.STAFF_SESSION_READ)
+  activeBreakGlass(@Req() request: StaffRequest) {
+    return this.emergency.listActive(request.user);
+  }
+
+  @Post('break-glass/:id/end')
+  endBreakGlass(
+    @Req() request: StaffRequest,
+    @Param('id') id: string,
+    @Body() body: EndStaffSessionDto,
+    @Headers('x-correlation-id') correlationId?: string,
+  ) {
+    return this.emergency.end(
+      request.user,
+      id,
+      body.reason || 'Emergency access ended by staff actor',
+      correlationId,
+    );
+  }
+
   @Post('critical-actions')
   requestCriticalAction(
     @Req() request: StaffRequest,
@@ -203,7 +231,7 @@ export class StaffAccessController {
   }
 
   @Get('organizations/:organizationId/cabinet/:role')
-  @UseGuards(StaffAccessGuard)
+  @UseGuards(StaffAccessGuard, StaffDelegatedAccessGuard)
   @StaffPermissions(StaffPermission.CABINET_VIEW_AS)
   cabinetProjection(
     @Req() request: StaffRequest,
@@ -211,6 +239,27 @@ export class StaffAccessController {
     @Param('role') role: string,
   ) {
     return this.access.cabinetProjection(request.user, organizationId, role);
+  }
+
+  @Get('audit/events')
+  @UseGuards(StaffAccessGuard)
+  @StaffPermissions(StaffPermission.AUDIT_READ)
+  auditEvents(
+    @Req() request: StaffRequest,
+    @Query() query: StaffAuditQuery,
+  ) {
+    return this.audit.search(request.user, query);
+  }
+
+  @Get('audit/actors/:actorUserId/verify')
+  @UseGuards(StaffAccessGuard)
+  @StaffPermissions(StaffPermission.AUDIT_READ)
+  verifyAuditActor(
+    @Req() request: StaffRequest,
+    @Param('actorUserId') actorUserId: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.audit.verifyActorChain(request.user, actorUserId, limit);
   }
 
   private requireAccessContext(request: StaffRequest): StaffAccessContext {
