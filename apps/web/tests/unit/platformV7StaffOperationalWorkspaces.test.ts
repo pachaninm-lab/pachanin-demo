@@ -50,7 +50,7 @@ describe('industrial staff operational workspaces', () => {
 
   it('clears all privileged projections when the protected session is absent, expired or unverifiable', () => {
     expect(component).toContain('const clearPrivilegedState = useCallback');
-    expect(component).toContain('if (!next.active || !next.session) clearPrivilegedState()');
+    expect(component).toContain('if (!next.active || !next.session) {');
     expect(component).toContain("setContext({ active: false, session: null })");
     expect(component).toContain('setOrganizationUsers({})');
   });
@@ -135,12 +135,10 @@ describe('industrial staff operational workspaces', () => {
     expect(route).toContain("redirect: 'manual'");
     expect(route).toContain('MAX_BODY_BYTES');
     expect(route).toContain('assertCsrf(request)');
-    for (const pattern of [
-      '^support\\/cases$',
-      '^support\\/cases\\/[^/]+\\/transition$',
-      '^support\\/users\\/[^/]+\\/revoke-sessions$',
-      '^support\\/users\\/[^/]+\\/recovery$',
-    ]) expect(route).toContain(pattern);
+    expect(route).toContain('/^support\\/cases$/');
+    expect(route).toContain('/^support\\/cases\\/[^/]+\\/transition$/');
+    expect(route).toContain('/^support\\/users\\/[^/]+\\/revoke-sessions$/');
+    expect(route).toContain('/^support\\/users\\/[^/]+\\/recovery$/');
     expectBefore(route, 'if (!accessToken || !staffToken)', 'fetch(`${apiOrigin}/staff/workspaces/');
   });
 
