@@ -1,28 +1,42 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { FORBIDDEN_STAFF_ACTIONS } from '../../modules/staff-access/staff-access.types';
 
 /**
- * In-process ABAC Policy Engine per ТЗ 5.2.
- * Evaluates named policies in rule priority order.
- * Deny rules always override allow rules (deny-overrides strategy).
+ * Central server-side authorization decision point.
+ *
+ * Business RBAC, tenant attributes and a verified staff access context are
+ * evaluated together. No business role receives an implicit global bypass.
  */
-
 export interface PolicyInput {
   action: string;
   user: {
     id: string;
     role: string;
     organizationId?: string;
+    tenantId?: string;
     mfaVerified?: boolean;
   };
   resource: {
     type: string;
     id?: string;
+    tenantId?: string;
+    organizationId?: string;
     sellerOrgId?: string;
     buyerOrgId?: string;
     ownerOrgId?: string;
     assignedArbitratorId?: string;
+    assignedDriverId?: string;
     requiresMfa?: boolean;
     amountKopecks?: number;
+  };
+  staffAccess?: {
+    actorUserId: string;
+    accessMode: string;
+    permissions: string[];
+    effectiveTenantId?: string | null;
+    effectiveOrganizationId?: string | null;
+    effectiveUserId?: string | null;
+    expiresAt: string | Date;
   };
   context?: {
     ip?: string;
@@ -36,252 +50,224 @@ export interface PolicyResult {
   reasons: string[];
 }
 
-interface PolicyRule {
-  name: string;
-  effect: 'allow' | 'deny';
-  evaluate(input: PolicyInput): boolean;
-  reason: string;
-}
+const MFA_REQUIRED_AMOUNT_KOPECKS = 10_000_000;
+const STAFF_READ_ONLY_MODES = new Set(['VIEW_AS']);
 
-const MFA_REQUIRED_AMOUNT_KOPECKS = 100_000_00; // 100 000 ₽
-
-function ownsDealOrg(i: PolicyInput): boolean {
-  const orgId = i.user.organizationId;
+function ownsDealOrg(input: PolicyInput): boolean {
+  const orgId = input.user.organizationId;
   if (!orgId) return false;
-  return i.resource.sellerOrgId === orgId || i.resource.buyerOrgId === orgId || i.resource.ownerOrgId === orgId;
+  return [input.resource.sellerOrgId, input.resource.buyerOrgId, input.resource.ownerOrgId].includes(orgId);
 }
 
-const RULES: PolicyRule[] = [
-  // ─── DENY rules (highest priority) ───────────────────────────────────────
+function isReadAction(action: string): boolean {
+  return action.endsWith(':read') || action.endsWith(':list') || action.endsWith(':aggregate:read') || action === 'cabinet:view-as';
+}
 
-  {
-    name: 'deny.guest.all',
-    effect: 'deny',
-    reason: 'GUEST не имеет доступа к защищённым ресурсам',
-    evaluate: (i) => i.user.role === 'GUEST',
-  },
-
-  {
-    name: 'deny.deal.cross-org-read',
-    effect: 'deny',
-    reason: 'Пользователь не может читать сделки чужой организации',
-    evaluate: (i) =>
-      i.action === 'deal:read' &&
-      !['ADMIN', 'SUPPORT_MANAGER', 'COMPLIANCE_OFFICER', 'ARBITRATOR', 'EXECUTIVE'].includes(i.user.role) &&
-      !ownsDealOrg(i),
-  },
-
-  {
-    name: 'deny.dispute.not-assigned-arbitrator',
-    effect: 'deny',
-    reason: 'Арбитр видит только назначенные ему дела',
-    evaluate: (i) =>
-      i.action === 'dispute:read' &&
-      i.user.role === 'ARBITRATOR' &&
-      !!i.resource.assignedArbitratorId &&
-      i.resource.assignedArbitratorId !== i.user.id,
-  },
-
-  {
-    name: 'deny.executive.raw-payment',
-    effect: 'deny',
-    reason: 'EXECUTIVE не может читать сырые платёжные данные — только агрегаты',
-    evaluate: (i) =>
-      i.user.role === 'EXECUTIVE' &&
-      i.resource.type === 'payment' &&
-      i.action !== 'payment:aggregate:read',
-  },
-
-  {
-    name: 'deny.financial.no-mfa',
-    effect: 'deny',
-    reason: 'Финансовые операции > 100 000 ₽ требуют MFA',
-    evaluate: (i) =>
-      (i.action === 'payment:release' || i.action === 'payment:reserve') &&
-      i.user.mfaVerified === false &&
-      (i.resource.amountKopecks ?? 0) >= MFA_REQUIRED_AMOUNT_KOPECKS,
-  },
-
-  {
-    name: 'deny.admin-cockpit.no-mfa',
-    effect: 'deny',
-    reason: 'Admin / Compliance / Arbitrator — MFA обязателен',
-    evaluate: (i) =>
-      ['ADMIN', 'COMPLIANCE_OFFICER', 'ARBITRATOR'].includes(i.user.role) &&
-      i.user.mfaVerified === false &&
-      i.action.startsWith('admin:'),
-  },
-
-  {
-    name: 'deny.document.sign.no-mfa',
-    effect: 'deny',
-    reason: 'Подписание документов УКЭП требует MFA',
-    evaluate: (i) => i.action === 'document:sign' && i.user.mfaVerified === false,
-  },
-
-  {
-    name: 'deny.driver.financial-transition',
-    effect: 'deny',
-    reason: 'Водитель не может инициировать финансовые переходы',
-    evaluate: (i) =>
-      i.user.role === 'DRIVER' &&
-      ['payment:release', 'payment:reserve', 'deal:settle'].includes(i.action),
-  },
-
-  // ─── ALLOW rules ──────────────────────────────────────────────────────────
-
-  {
-    name: 'allow.admin.all',
-    effect: 'allow',
-    reason: 'ADMIN имеет полный доступ',
-    evaluate: (i) => i.user.role === 'ADMIN',
-  },
-
-  {
-    name: 'allow.deal.own-org',
-    effect: 'allow',
-    reason: 'Пользователь может читать сделки своей организации',
-    evaluate: (i) => i.action === 'deal:read' && ownsDealOrg(i),
-  },
-
-  {
-    name: 'allow.support.read-any-deal',
-    effect: 'allow',
-    reason: 'Support Manager может читать любую сделку (только чтение)',
-    evaluate: (i) => i.user.role === 'SUPPORT_MANAGER' && i.action.endsWith(':read'),
-  },
-
-  {
-    name: 'allow.compliance.all-read',
-    effect: 'allow',
-    reason: 'Compliance Officer имеет полный read-доступ',
-    evaluate: (i) => i.user.role === 'COMPLIANCE_OFFICER' && i.action.endsWith(':read'),
-  },
-
-  {
-    name: 'allow.arbitrator.assigned-dispute',
-    effect: 'allow',
-    reason: 'Арбитр может читать назначенные ему дела',
-    evaluate: (i) =>
-      i.user.role === 'ARBITRATOR' &&
-      i.resource.type === 'dispute' &&
-      i.resource.assignedArbitratorId === i.user.id,
-  },
-
-  {
-    name: 'allow.executive.aggregate',
-    effect: 'allow',
-    reason: 'EXECUTIVE может читать агрегированные данные',
-    evaluate: (i) =>
-      i.user.role === 'EXECUTIVE' &&
-      (i.action.endsWith(':aggregate:read') || i.action.endsWith(':read')) &&
-      i.resource.type !== 'payment',
-  },
-
-  {
-    name: 'allow.farmer.own-lots',
-    effect: 'allow',
-    reason: 'Фермер может управлять своими лотами',
-    evaluate: (i) =>
-      i.user.role === 'FARMER' &&
-      i.resource.type === 'lot' &&
-      !!i.user.organizationId &&
-      i.resource.ownerOrgId === i.user.organizationId,
-  },
-
-  {
-    name: 'allow.buyer.read-published-lots',
-    effect: 'allow',
-    reason: 'Покупатель может читать опубликованные лоты',
-    evaluate: (i) =>
-      i.user.role === 'BUYER' &&
-      i.resource.type === 'lot' &&
-      i.action === 'lot:read',
-  },
-
-  {
-    name: 'allow.lab.lab-actions',
-    effect: 'allow',
-    reason: 'Лаборант может выполнять лабораторные операции',
-    evaluate: (i) =>
-      i.user.role === 'LAB' &&
-      (i.resource.type === 'lab_sample' || i.resource.type === 'lab_test') &&
-      ['lab:read', 'lab:write', 'lab:sign'].includes(i.action),
-  },
-
-  {
-    name: 'allow.driver.own-shipment',
-    effect: 'allow',
-    reason: 'Водитель может читать/обновлять свои рейсы',
-    evaluate: (i) =>
-      i.user.role === 'DRIVER' &&
-      i.resource.type === 'shipment' &&
-      (i.action === 'shipment:read' || i.action === 'shipment:update'),
-  },
-
-  {
-    name: 'allow.elevator.acceptance',
-    effect: 'allow',
-    reason: 'Оператор элеватора может выполнять приёмку грузов',
-    evaluate: (i) =>
-      i.user.role === 'ELEVATOR' &&
-      i.resource.type === 'acceptance_act' &&
-      ['acceptance:read', 'acceptance:write', 'acceptance:sign'].includes(i.action),
-  },
-
-  {
-    name: 'allow.accounting.financial-read',
-    effect: 'allow',
-    reason: 'Бухгалтер может читать финансовые данные',
-    evaluate: (i) =>
-      i.user.role === 'ACCOUNTING' &&
-      ['payment:read', 'payment:aggregate:read', 'ledger:read', 'deal:read'].includes(i.action),
-  },
-];
+function staffScopeMatches(input: PolicyInput): boolean {
+  const access = input.staffAccess;
+  if (!access) return false;
+  if (access.actorUserId !== input.user.id) return false;
+  const expiresAt = new Date(access.expiresAt).getTime();
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return false;
+  if (access.effectiveTenantId && input.resource.tenantId && access.effectiveTenantId !== input.resource.tenantId) return false;
+  if (
+    access.effectiveOrganizationId
+    && input.resource.organizationId
+    && access.effectiveOrganizationId !== input.resource.organizationId
+  ) return false;
+  return true;
+}
 
 @Injectable()
 export class PolicyEngineService {
   private readonly logger = new Logger(PolicyEngineService.name);
 
   evaluate(input: PolicyInput): PolicyResult {
-    const reasons: string[] = [];
+    const deny = this.deny(input);
+    if (deny) return this.result(false, deny.policy, deny.reason, input);
 
-    // Deny rules run first — one match blocks the request
-    for (const rule of RULES.filter((r) => r.effect === 'deny')) {
-      if (rule.evaluate(input)) {
-        this.logger.debug(`Policy DENY: rule=${rule.name} action=${input.action} user=${input.user.id}`);
-        return { allowed: false, matchedPolicy: rule.name, reasons: [rule.reason] };
-      }
-    }
+    const allow = this.allow(input);
+    if (allow) return this.result(true, allow.policy, allow.reason, input);
 
-    // Allow rules — first match grants access
-    for (const rule of RULES.filter((r) => r.effect === 'allow')) {
-      if (rule.evaluate(input)) {
-        this.logger.debug(`Policy ALLOW: rule=${rule.name} action=${input.action} user=${input.user.id}`);
-        return { allowed: true, matchedPolicy: rule.name, reasons: [rule.reason] };
-      }
-    }
-
-    // Default deny
-    this.logger.debug(`Policy DEFAULT-DENY: action=${input.action} user=${input.user.id} role=${input.user.role}`);
-    return {
-      allowed: false,
-      matchedPolicy: 'default-deny',
-      reasons: ['Нет применимого правила — доступ запрещён по умолчанию'],
-    };
+    return this.result(false, 'default-deny', 'Нет применимого разрешающего правила', input);
   }
 
-  /** Convenience: throw ForbiddenException if not allowed */
   assertAllowed(input: PolicyInput): void {
     const result = this.evaluate(input);
-    if (!result.allowed) {
-      const { ForbiddenException } = require('@nestjs/common');
-      throw new ForbiddenException(result.reasons[0] ?? 'Доступ запрещён');
-    }
+    if (!result.allowed) throw new ForbiddenException(result.reasons[0] ?? 'Доступ запрещён');
   }
 
-  /** List all rules (for admin introspection) */
+  private deny(input: PolicyInput): { policy: string; reason: string } | null {
+    if (input.user.role === 'GUEST') {
+      return { policy: 'deny.guest.all', reason: 'GUEST не имеет доступа к защищённым ресурсам' };
+    }
+
+    if (input.staffAccess) {
+      if (!staffScopeMatches(input)) {
+        return { policy: 'deny.staff.invalid-or-cross-scope', reason: 'Staff access session is expired, invalid or outside its target scope' };
+      }
+      if (FORBIDDEN_STAFF_ACTIONS.has(input.action)) {
+        return { policy: 'deny.staff.authoritative-action', reason: 'Действие должен выполнить авторитетный участник сделки или проверенный внешний callback' };
+      }
+      if (STAFF_READ_ONLY_MODES.has(input.staffAccess.accessMode) && !isReadAction(input.action)) {
+        return { policy: 'deny.staff.view-as-write', reason: 'VIEW_AS разрешает только чтение' };
+      }
+      if (!input.staffAccess.permissions.includes(input.action)) {
+        return { policy: 'deny.staff.permission-missing', reason: `Staff grant does not contain ${input.action}` };
+      }
+    }
+
+    if (
+      ['payment:release', 'payment:reserve'].includes(input.action)
+      && input.user.mfaVerified === false
+      && (input.resource.amountKopecks ?? 0) >= MFA_REQUIRED_AMOUNT_KOPECKS
+    ) {
+      return { policy: 'deny.financial.no-mfa', reason: 'Финансовые операции от 100 000 ₽ требуют MFA' };
+    }
+
+    if (input.action === 'document:sign' && input.user.mfaVerified === false) {
+      return { policy: 'deny.document.sign.no-mfa', reason: 'Подписание документов требует MFA' };
+    }
+
+    if (
+      input.user.role === 'DRIVER'
+      && ['payment:release', 'payment:reserve', 'deal:settle'].includes(input.action)
+    ) {
+      return { policy: 'deny.driver.financial-transition', reason: 'Водитель не может инициировать финансовые переходы' };
+    }
+
+    if (
+      input.action === 'deal:read'
+      && !input.staffAccess
+      && !ownsDealOrg(input)
+      && !['COMPLIANCE_OFFICER'].includes(input.user.role)
+    ) {
+      return { policy: 'deny.deal.cross-org-read', reason: 'Пользователь не может читать сделки чужой организации' };
+    }
+
+    if (
+      input.user.role === 'ARBITRATOR'
+      && input.action === 'dispute:read'
+      && input.resource.assignedArbitratorId
+      && input.resource.assignedArbitratorId !== input.user.id
+    ) {
+      return { policy: 'deny.dispute.not-assigned-arbitrator', reason: 'Арбитр видит только назначенные ему споры' };
+    }
+
+    if (
+      input.user.role === 'EXECUTIVE'
+      && input.resource.type === 'payment'
+      && input.action !== 'payment:aggregate:read'
+    ) {
+      return { policy: 'deny.executive.raw-payment', reason: 'EXECUTIVE видит только агрегированные финансовые показатели' };
+    }
+
+    return null;
+  }
+
+  private allow(input: PolicyInput): { policy: string; reason: string } | null {
+    if (input.staffAccess && staffScopeMatches(input) && input.staffAccess.permissions.includes(input.action)) {
+      return { policy: 'allow.staff.scoped-grant', reason: 'Разрешено активным time-bound staff grant' };
+    }
+
+    if (input.action === 'deal:read' && ownsDealOrg(input)) {
+      return { policy: 'allow.deal.own-org', reason: 'Организация является участником сделки' };
+    }
+
+    if (input.user.role === 'COMPLIANCE_OFFICER' && isReadAction(input.action)) {
+      return { policy: 'allow.compliance.read', reason: 'Compliance имеет явный read-доступ' };
+    }
+
+    if (
+      input.user.role === 'ARBITRATOR'
+      && input.resource.type === 'dispute'
+      && input.resource.assignedArbitratorId === input.user.id
+      && ['dispute:read', 'dispute:decide'].includes(input.action)
+    ) {
+      return { policy: 'allow.arbitrator.assigned', reason: 'Арбитр назначен на этот спор' };
+    }
+
+    if (
+      input.user.role === 'EXECUTIVE'
+      && (input.action.endsWith(':aggregate:read') || (isReadAction(input.action) && input.resource.type !== 'payment'))
+    ) {
+      return { policy: 'allow.executive.aggregate', reason: 'EXECUTIVE разрешены агрегаты и нефинансовое чтение' };
+    }
+
+    if (
+      input.user.role === 'FARMER'
+      && input.resource.type === 'lot'
+      && input.resource.ownerOrgId === input.user.organizationId
+      && ['lot:read', 'lot:write'].includes(input.action)
+    ) {
+      return { policy: 'allow.farmer.own-lot', reason: 'Фермер управляет лотом своей организации' };
+    }
+
+    if (input.user.role === 'BUYER' && input.resource.type === 'lot' && input.action === 'lot:read') {
+      return { policy: 'allow.buyer.lot-read', reason: 'Покупателю разрешён просмотр опубликованных лотов' };
+    }
+
+    if (
+      input.user.role === 'LAB'
+      && ['lab_sample', 'lab_test'].includes(input.resource.type)
+      && ['lab:read', 'lab:write', 'lab:sign'].includes(input.action)
+    ) {
+      return { policy: 'allow.lab.assigned-work', reason: 'Лабораторная роль выполняет лабораторный workflow' };
+    }
+
+    if (
+      input.user.role === 'DRIVER'
+      && input.resource.type === 'shipment'
+      && input.resource.assignedDriverId === input.user.id
+      && ['shipment:read', 'shipment:update'].includes(input.action)
+    ) {
+      return { policy: 'allow.driver.own-shipment', reason: 'Водитель назначен на рейс' };
+    }
+
+    if (
+      input.user.role === 'ELEVATOR'
+      && input.resource.type === 'acceptance_act'
+      && ['acceptance:read', 'acceptance:write', 'acceptance:sign'].includes(input.action)
+    ) {
+      return { policy: 'allow.elevator.acceptance', reason: 'Элеватор выполняет приёмку' };
+    }
+
+    if (
+      input.user.role === 'ACCOUNTING'
+      && ['payment:read', 'payment:aggregate:read', 'ledger:read', 'deal:read'].includes(input.action)
+    ) {
+      return { policy: 'allow.accounting.read', reason: 'Бухгалтерии разрешено явное финансовое чтение' };
+    }
+
+    if (
+      input.user.role === 'ADMIN'
+      && ['admin:system:read', 'admin:user:read', 'admin:health:read'].includes(input.action)
+    ) {
+      return { policy: 'allow.legacy-admin-explicit-read', reason: 'Legacy ADMIN has only explicitly listed read authority' };
+    }
+
+    if (
+      input.user.role === 'SUPPORT_MANAGER'
+      && ['support-case:read', 'support-case:update'].includes(input.action)
+    ) {
+      return { policy: 'allow.legacy-support-case', reason: 'Legacy support role is limited to support cases' };
+    }
+
+    return null;
+  }
+
+  private result(allowed: boolean, matchedPolicy: string, reason: string, input: PolicyInput): PolicyResult {
+    this.logger.debug(`Policy ${allowed ? 'ALLOW' : 'DENY'}: rule=${matchedPolicy} action=${input.action} user=${input.user.id}`);
+    return { allowed, matchedPolicy, reasons: [reason] };
+  }
+
   listRules(): Array<{ name: string; effect: string; reason: string }> {
-    return RULES.map(({ name, effect, reason }) => ({ name, effect, reason }));
+    return [
+      { name: 'deny.staff.authoritative-action', effect: 'deny', reason: 'Staff cannot replace authoritative business actors' },
+      { name: 'deny.staff.view-as-write', effect: 'deny', reason: 'View-as is read-only' },
+      { name: 'deny.staff.invalid-or-cross-scope', effect: 'deny', reason: 'Staff grant must be active and resource-scoped' },
+      { name: 'allow.staff.scoped-grant', effect: 'allow', reason: 'Explicit permission in an active scoped grant' },
+      { name: 'default-deny', effect: 'deny', reason: 'No implicit role bypass' },
+    ];
   }
 }
