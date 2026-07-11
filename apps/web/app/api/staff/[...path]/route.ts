@@ -90,11 +90,11 @@ function clearStaffSession(response: NextResponse) {
   }
 }
 
-function json(body: Record<string, unknown>, status = 200) {
+function json(body: unknown, status = 200) {
   return NextResponse.json(body, {
     status,
     headers: {
-      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
       Pragma: 'no-cache',
       'X-Content-Type-Options': 'nosniff',
       'Referrer-Policy': 'no-referrer',
@@ -104,7 +104,9 @@ function json(body: Record<string, unknown>, status = 200) {
 
 function normalizePath(segments: string[]) {
   try {
-    return segments.map((part) => decodeURIComponent(part).trim()).filter(Boolean).join('/');
+    const decoded = segments.map((part) => decodeURIComponent(part).trim()).filter(Boolean);
+    if (decoded.some((part) => part === '.' || part === '..' || part.includes('/') || part.includes('\\'))) return '';
+    return decoded.join('/');
   } catch {
     return '';
   }
@@ -175,11 +177,12 @@ async function listOwnSessions(accessToken: string, correlationId: string): Prom
       'x-correlation-id': correlationId,
     },
     cache: 'no-store',
+    redirect: 'manual',
     signal: AbortSignal.timeout(6_000),
   });
   if (!upstream.ok) throw new Error(`staff_session_list_${upstream.status}`);
-  const rows = await upstream.json().catch(() => []) as StaffSessionRow[];
-  return Array.isArray(rows) ? rows : [];
+  const rows = await upstream.json().catch(() => []) as unknown;
+  return Array.isArray(rows) ? rows as StaffSessionRow[] : [];
 }
 
 function persistedMetadata(row: StaffSessionRow): StaffSessionMetadata | null {
@@ -225,10 +228,11 @@ async function cleanupActivatedSession(accessToken: string, sessionId: string, c
       },
       body: JSON.stringify({ reason: 'Activation metadata verification failed' }),
       cache: 'no-store',
+      redirect: 'manual',
       signal: AbortSignal.timeout(4_000),
     });
   } catch {
-    // Best effort only. The backend TTL and own-session view still bound the orphaned session.
+    // Backend TTL still bounds an orphaned session if cleanup transport is unavailable.
   }
 }
 
@@ -273,7 +277,7 @@ async function verifiedSessionContext(
 async function proxy(request: NextRequest, context: { params: { path?: string[] } }) {
   const method = request.method.toUpperCase();
   const path = normalizePath(context.params.path || []);
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
 
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
   if (!accessToken) {
@@ -332,17 +336,25 @@ async function proxy(request: NextRequest, context: { params: { path?: string[] 
       },
       body,
       cache: 'no-store',
+      redirect: 'manual',
       signal: AbortSignal.timeout(8_000),
     });
 
-    const payload = await upstream.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>;
-    const safePayload: Record<string, unknown> = { ...payload, correlationId };
+    if (upstream.status >= 300 && upstream.status < 400) {
+      return json({ ok: false, code: 'UPSTREAM_REDIRECT_REJECTED', correlationId }, 502);
+    }
+
+    const payload = await upstream.json().catch(() => ({})) as unknown;
+    const payloadObject = payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : {};
+    const safePayload: Record<string, unknown> = { ...payloadObject, correlationId };
     delete safePayload.accessToken;
-    let response = json(safePayload, upstream.status);
+    let response = json(Array.isArray(payload) ? payload : safePayload, upstream.status);
 
     if (upstream.ok && /^access\/grants\/[^/]+\/activate$/.test(path)) {
-      const token = typeof payload.accessToken === 'string' ? payload.accessToken : '';
-      const sessionId = typeof payload.accessSessionId === 'string' ? payload.accessSessionId : '';
+      const token = typeof payloadObject.accessToken === 'string' ? payloadObject.accessToken : '';
+      const sessionId = typeof payloadObject.accessSessionId === 'string' ? payloadObject.accessSessionId : '';
       let metadata: StaffSessionMetadata | null = null;
 
       if (token && sessionId) {
