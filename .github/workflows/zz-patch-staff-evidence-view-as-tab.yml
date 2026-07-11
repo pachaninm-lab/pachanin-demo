@@ -55,3 +55,4 @@ jobs:
           git add apps/web/scripts/staff-control-center-acceptance.mjs
           git commit -m 'Open Organizations before VIEW_AS projection assertion'
           git push origin HEAD:ops/staff-control-center-acceptance-2353-final-v4
+# synchronize-trigger
