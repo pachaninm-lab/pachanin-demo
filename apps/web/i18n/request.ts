@@ -7,16 +7,20 @@ const LOCALE_HEADER = 'x-pc-locale';
 
 export default getRequestConfig(async () => {
   let locale = DEFAULT_LOCALE;
+  let headerLocaleResolved = false;
 
   try {
     const headerStore = await headers();
     const headerLocale = headerStore.get(LOCALE_HEADER);
-    if (isAppLocale(headerLocale)) locale = headerLocale;
+    if (isAppLocale(headerLocale)) {
+      locale = headerLocale;
+      headerLocaleResolved = true;
+    }
   } catch {
     locale = DEFAULT_LOCALE;
   }
 
-  if (locale === DEFAULT_LOCALE) {
+  if (!headerLocaleResolved) {
     try {
       const cookieStore = await cookies();
       const cookieLocale = cookieStore.get(LOCALE_COOKIE)?.value;
