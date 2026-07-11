@@ -6,6 +6,7 @@ import '@/styles/platform-v7-role-cards-stable.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-webkit-safe.css';
 import '@/styles/platform-v7-public-hero-watermark.css';
+import '@/styles/platform-v7-public-world-class.css';
 import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
@@ -38,7 +39,7 @@ export const metadata: Metadata = {
 };
 
 type Card = { key: string; glyph: string };
-type RoleCard = Card & { href: '/platform-v7/login' };
+type RoleCard = Card;
 
 const controlCards: Card[] = [
   { key: 'money', glyph: '₽' },
@@ -58,18 +59,18 @@ const processSteps: Card[] = [
 ];
 
 const roles: RoleCard[] = [
-  { key: 'operator', href: '/platform-v7/login', glyph: '◎' },
-  { key: 'buyer', href: '/platform-v7/login', glyph: '↓' },
-  { key: 'seller', href: '/platform-v7/login', glyph: '↑' },
-  { key: 'logistics', href: '/platform-v7/login', glyph: '↗' },
-  { key: 'driver', href: '/platform-v7/login', glyph: '→' },
-  { key: 'elevator', href: '/platform-v7/login', glyph: '▣' },
-  { key: 'lab', href: '/platform-v7/login', glyph: '∴' },
-  { key: 'surveyor', href: '/platform-v7/login', glyph: '✓' },
-  { key: 'bank', href: '/platform-v7/login', glyph: '₽' },
-  { key: 'compliance', href: '/platform-v7/login', glyph: '§' },
-  { key: 'arbitrator', href: '/platform-v7/login', glyph: '⚖' },
-  { key: 'executive', href: '/platform-v7/login', glyph: '∑' },
+  { key: 'operator', glyph: '◎' },
+  { key: 'buyer', glyph: '↓' },
+  { key: 'seller', glyph: '↑' },
+  { key: 'logistics', glyph: '↗' },
+  { key: 'driver', glyph: '→' },
+  { key: 'elevator', glyph: '▣' },
+  { key: 'lab', glyph: '∴' },
+  { key: 'surveyor', glyph: '✓' },
+  { key: 'bank', glyph: '₽' },
+  { key: 'compliance', glyph: '§' },
+  { key: 'arbitrator', glyph: '⚖' },
+  { key: 'executive', glyph: '∑' },
 ];
 
 const trustItems: Card[] = [
@@ -113,28 +114,43 @@ function EntryGlyph({ value, compact = false }: { value: string; compact?: boole
 
 export default async function PlatformV7RootPage() {
   const t = await getTranslations('landing');
+  const chrome = await getTranslations('publicEntry.chrome');
+  const publicLanding = await getTranslations('publicEntry.landing');
   const roleCatalog = await getTranslations('publicEntry.rolesCatalog');
+  const currentYear = new Date().getUTCFullYear();
+
+  const nav = (
+    <>
+      <a href='#process'>{t('nav.process')}</a>
+      <a href='#control'>{t('nav.control')}</a>
+      <a href='#roles'>{t('nav.roles')}</a>
+      <a href='/platform-v7/deal-flow'>{t('nav.demo')}</a>
+      <a href='/platform-v7/docs'>{t('nav.docs')}</a>
+      <a href='/platform-v7/contact'>{t('nav.contact')}</a>
+    </>
+  );
 
   return (
-    <main data-testid='platform-v7-root-execution-cockpit' className='pc-v7-entry-page pc-v7-public-entry'>
+    <main
+      id='main-content'
+      data-testid='platform-v7-root-execution-cockpit'
+      data-maturity='industrial-public-entry'
+      className='pc-v7-entry-page pc-v7-public-entry pc-public-world-class'
+    >
+      <a className='pc-skip-link' href='#entry-hero-title'>{chrome('skipToContent')}</a>
+
       <PublicSiteHeader
         ariaLabel={t('publicNav')}
         tagline={t('brandTagline')}
+        brandHomeLabel={chrome('brandHomeLabel')}
+        navLabel={chrome('navLabel')}
+        menuLabel={chrome('menuLabel')}
         localeControl={<PublicLocaleLink />}
-        nav={(
-          <>
-            <a href='#process'>{t('nav.process')}</a>
-            <a href='#control'>{t('nav.control')}</a>
-            <a href='#roles'>{t('nav.roles')}</a>
-            <a href='/platform-v7/deal-flow'>{t('nav.demo')}</a>
-            <a href='/platform-v7/contact'>{t('nav.contact')}</a>
-            <a href='/platform-v7/docs'>{t('nav.docs')}</a>
-          </>
-        )}
+        nav={nav}
         actions={(
           <>
             <a href='/platform-v7/login' className='entry-login'><span aria-hidden='true'>↳</span>{t('signIn')}</a>
-            <a href='/platform-v7/register' className='entry-header-register'>{t('register')}</a>
+            <a href='/platform-v7/register' className='entry-header-register'>{t('hero.primaryCta')}</a>
           </>
         )}
       />
@@ -158,9 +174,9 @@ export default async function PlatformV7RootPage() {
           <div className='entry-visual-card'>
             <div className='entry-visual-head'>
               <span className='entry-visual-label'>{t('visual.label')}</span>
-              <span className='entry-visual-live'><i />{t('visual.note')}</span>
+              <span className='entry-visual-live'>{t('visual.note')}</span>
             </div>
-            <strong className='entry-visual-id'>DL-9102</strong>
+            <strong className='entry-visual-id'>{publicLanding('visualTitle')}</strong>
             <div className='entry-signal-list'>
               {heroSignals.map(({ key, tone }) => (
                 <span key={key} className='entry-signal-row' data-tone={tone}>
@@ -169,6 +185,10 @@ export default async function PlatformV7RootPage() {
                   <em>{t(`visual.signals.${key}.value`)}</em>
                 </span>
               ))}
+            </div>
+            <div className='entry-visual-basis'>
+              <span>{publicLanding('visualBasisLabel')}</span>
+              <strong>{publicLanding('visualBasisText')}</strong>
             </div>
           </div>
         </div>
@@ -205,15 +225,22 @@ export default async function PlatformV7RootPage() {
 
       <section id='roles' className='entry-section' aria-labelledby='roles-title'>
         <SectionHead id='roles-title' title={roleCatalog('title')} text={roleCatalog('text')} />
-        <div className='entry-role-grid'>
-          {roles.map(({ key, href, glyph }) => (
-            <a key={key} href={href} className='entry-role-tile'>
+        <div className='entry-role-grid' role='list'>
+          {roles.map(({ key, glyph }) => (
+            <article key={key} className='entry-role-tile' role='listitem'>
               <EntryGlyph value={glyph} />
               <strong>{t(`roles.${key}.title`)}</strong>
               <span>{t(`roles.${key}.text`)}</span>
               <em>{roleCatalog('cta')}</em>
-            </a>
+            </article>
           ))}
+        </div>
+        <div className='entry-role-access'>
+          <div>
+            <strong>{publicLanding('rolesAccessTitle')}</strong>
+            <span>{publicLanding('rolesAccessText')}</span>
+          </div>
+          <a href='/platform-v7/login' className='entry-role-access-cta'>{publicLanding('rolesAccessCta')}<span aria-hidden='true'>→</span></a>
         </div>
       </section>
 
@@ -227,6 +254,19 @@ export default async function PlatformV7RootPage() {
         ))}
         <a href='/platform-v7/register' className='entry-trust-cta'>{t('trust.cta')}</a>
       </section>
+
+      <footer className='entry-footer'>
+        <div className='entry-footer-brand'>
+          <strong>Прозрачная Цена</strong>
+          <span>{publicLanding('footerStatement')}</span>
+        </div>
+        <nav aria-label={chrome('navLabel')}>
+          <a href='/platform-v7/docs'>{publicLanding('footerDocs')}</a>
+          <a href='/platform-v7/contact'>{publicLanding('footerContact')}</a>
+          <a href='/platform-v7/login'>{publicLanding('footerLogin')}</a>
+        </nav>
+        <small>© {currentYear} · {publicLanding('footerRights')}</small>
+      </footer>
     </main>
   );
 }
