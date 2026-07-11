@@ -120,10 +120,12 @@ apps/api/src/common/security/policy-engine.service.ts
 apps/api/src/common/types/request-user.ts
 apps/api/src/modules/auth/auth.service.ts
 apps/api/src/modules/auth/persistent-auth.repository.ts
+apps/api/src/modules/security/security-e2e.spec.ts
 apps/api/src/modules/staff-access/**
 apps/api/test/staff-access/**
 docs/platform-v7/security/staff-access-control-plane.md
 scripts/bootstrap-platform-owner.mjs
+scripts/platform-v7-forward-only-migration-check.mjs
 scripts/p7-autopilot-guard.sh'
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ]; then
