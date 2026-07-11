@@ -1,0 +1,61 @@
+name: patch staff scope label
+
+on:
+  push:
+    branches:
+      - ops/staff-control-center-evidence
+
+permissions:
+  contents: write
+
+jobs:
+  patch-ui-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui/staff-control-center
+          fetch-depth: 0
+      - name: Apply exact type-safe union narrowing
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/web/components/platform-v7/staff/StaffControlCenterClient.tsx')
+          source = path.read_text()
+          old = """function scopeLabel(item: AccessRequest | StaffSession) {
+            return [
+              'target_tenant_id' in item ? item.target_tenant_id : item.effective_tenant_id,
+              'target_organization_id' in item ? item.target_organization_id : item.effective_organization_id,
+              'target_role' in item ? item.target_role : item.effective_role,
+            ].filter(Boolean).join(' / ') || 'platform';
+          }
+          """
+          new = """function scopeLabel(item: AccessRequest | StaffSession) {
+            if ('requester_user_id' in item) {
+              return [item.target_tenant_id, item.target_organization_id, item.target_role]
+                .filter(Boolean).join(' / ') || 'platform';
+            }
+            return [item.effective_tenant_id, item.effective_organization_id, item.effective_role]
+              .filter(Boolean).join(' / ') || 'platform';
+          }
+          """
+          if old not in source:
+              raise SystemExit('Expected scopeLabel block was not found; refusing non-deterministic edit')
+          path.write_text(source.replace(old, new, 1))
+          PY
+      - name: Commit exact fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No change required'
+            exit 0
+          fi
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/web/components/platform-v7/staff/StaffControlCenterClient.tsx
+          git commit -m 'Fix staff scope label union narrowing'
+          git push origin HEAD:ui/staff-control-center
