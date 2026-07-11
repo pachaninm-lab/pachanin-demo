@@ -65,7 +65,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
       where: { id: ids.platformOrg },
       create: {
         id: ids.platformOrg,
-        inn: '990000000001',
+        inn: '990000100001',
         name: 'Staff Platform E2E',
         tenantId: 'tenant-staff-platform-e2e',
         status: 'ACTIVE',
@@ -78,7 +78,7 @@ describe('Staff Access Control Plane PostgreSQL exploitation gate', () => {
       where: { id: ids.otherOrg },
       create: {
         id: ids.otherOrg,
-        inn: '990000000002',
+        inn: '990000100002',
         name: 'Staff Other E2E',
         tenantId: 'tenant-staff-other-e2e',
         status: 'ACTIVE',
