@@ -1,0 +1,61 @@
+name: sync staff session workspaces
+
+on:
+  push:
+    branches:
+      - ops/sync-staff-session-workspaces
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Synchronize sibling staff workspaces after session changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          control = Path('apps/web/components/platform-v7/staff/StaffControlCenter.tsx')
+          source = control.read_text()
+          source = source.replace(
+            "      await reload();\n      setTab('overview');",
+            "      await reload();\n      window.dispatchEvent(new Event('pc:staff-session-changed'));\n      setTab('overview');",
+            1,
+          )
+          source = source.replace(
+            "      await reload();\n    } catch (value) { setError(translateError(value)); }\n    finally { setBusy(null); }\n  };\n\n  const decideRequest",
+            "      await reload();\n      window.dispatchEvent(new Event('pc:staff-session-changed'));\n    } catch (value) { setError(translateError(value)); }\n    finally { setBusy(null); }\n  };\n\n  const decideRequest",
+            1,
+          )
+          control.write_text(source)
+
+          workspace = Path('apps/web/components/platform-v7/staff/StaffOperationalWorkspaces.tsx')
+          source = workspace.read_text()
+          marker = "  useEffect(() => { void loadContext(); }, [loadContext]);"
+          replacement = """  useEffect(() => { void loadContext(); }, [loadContext]);
+          useEffect(() => {
+            const refresh = () => { void loadContext(); };
+            window.addEventListener('pc:staff-session-changed', refresh);
+            return () => window.removeEventListener('pc:staff-session-changed', refresh);
+          }, [loadContext]);"""
+          if marker not in source:
+            raise SystemExit('Operational workspace session marker not found')
+          workspace.write_text(source.replace(marker, replacement, 1))
+          PY
+      - name: Commit session synchronization
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/web/components/platform-v7/staff/StaffControlCenter.tsx apps/web/components/platform-v7/staff/StaffOperationalWorkspaces.tsx
+          git commit -m 'Synchronize Staff Control Center workspace sessions'
+          git push origin HEAD:feat/platform-v7-staff-control-center
