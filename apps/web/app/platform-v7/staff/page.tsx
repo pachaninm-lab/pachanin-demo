@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { StaffControlCenter } from '@/components/platform-v7/staff/StaffControlCenter';
-import { StaffOperationalWorkspaces } from '@/components/platform-v7/staff/StaffOperationalWorkspaces';
+import { StaffOperationalWorkspacesDeferred } from '@/components/platform-v7/staff/StaffOperationalWorkspacesDeferred';
 import { StaffPlatformShell } from '@/components/platform-v7/staff/StaffPlatformShell';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { DEFAULT_LOCALE, isAppLocale, LOCALE_COOKIE, type AppLocale } from '@/i18n/locale';
@@ -92,7 +92,10 @@ export default async function StaffControlCenterPage() {
         apiAvailable={verification.status === 'verified'}
       />
       {verification.status === 'verified' ? (
-        <StaffOperationalWorkspaces locale={locale} copy={staffOperationalWorkspaceMessages[locale]} />
+        <StaffOperationalWorkspacesDeferred
+          locale={locale}
+          copy={staffOperationalWorkspaceMessages[locale]}
+        />
       ) : null}
     </StaffPlatformShell>
   );
