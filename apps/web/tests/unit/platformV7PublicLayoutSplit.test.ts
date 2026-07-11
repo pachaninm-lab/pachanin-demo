@@ -60,8 +60,14 @@ describe('platform-v7 public/protected runtime split', () => {
     }
   });
 
-  it('does not wrap target public routes in client providers or protected templates', () => {
+  it('does not wrap original or rewritten public entry paths in the client message provider', () => {
     expect(rootLayout).toContain('LEAN_PUBLIC_ENTRY_PATHS');
+    expect(rootLayout).toContain("'/platform-v7'");
+    expect(rootLayout).toContain("'/platform-v7/login'");
+    expect(rootLayout).toContain("'/platform-v7/forgot-password'");
+    expect(rootLayout).toContain("'/pc-public-entry/platform-v7'");
+    expect(rootLayout).toContain("'/pc-public-entry/platform-v7/login'");
+    expect(rootLayout).toContain("'/pc-public-entry/platform-v7/forgot-password'");
     expect(rootLayout).toContain('leanPublicEntry\n    ? children');
     expect(rootLayout).toContain('messages={await getMessages()}');
     expect(template).toContain("headers().get('x-pc-pathname')");
