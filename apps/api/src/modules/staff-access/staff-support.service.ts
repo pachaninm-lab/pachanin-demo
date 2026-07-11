@@ -93,9 +93,9 @@ export class StaffSupportService {
         o.inn AS organization_inn,
         c.user_id,
         u.email AS user_email,
-        u.full_name AS user_full_name,
+        u."fullName" AS user_full_name,
         c.deal_id,
-        d.deal_number,
+        d."dealNumber" AS deal_number,
         c.subject,
         c.description,
         c.priority,
@@ -413,8 +413,8 @@ export class StaffSupportService {
     const rows = await client.$queryRaw<SupportCaseRow[]>(Prisma.sql`
       SELECT
         c.id, c.tenant_id, c.organization_id, o.name AS organization_name, o.inn AS organization_inn,
-        c.user_id, u.email AS user_email, u.full_name AS user_full_name,
-        c.deal_id, d.deal_number, c.subject, c.description, c.priority, c.status, c.source,
+        c.user_id, u.email AS user_email, u."fullName" AS user_full_name,
+        c.deal_id, d."dealNumber" AS deal_number, c.subject, c.description, c.priority, c.status, c.source,
         c.created_by_user_id, c.assigned_staff_user_id, c.idempotency_key, c.version,
         c.created_at, c.updated_at, c.resolved_at, c.closed_at
       FROM support.cases c
