@@ -17,7 +17,19 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+function resolveApiOrigin(): string {
+  const configured = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim();
+  if (!configured) return '';
+  try {
+    const url = new URL(configured);
+    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') return '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return '';
+  }
+}
+
+const API_ORIGIN = resolveApiOrigin();
 
 type VerifiedIdentity = {
   id?: string;
@@ -40,9 +52,9 @@ async function verifyIdentity(accessToken: string): Promise<
   | { status: 'unauthenticated' }
   | { status: 'unavailable' }
 > {
-  if (!API_URL) return { status: 'unavailable' };
+  if (!API_ORIGIN) return { status: 'unavailable' };
   try {
-    const response = await fetch(`${API_URL}/auth/me`, {
+    const response = await fetch(`${API_ORIGIN}/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
       cache: 'no-store',
       redirect: 'manual',
