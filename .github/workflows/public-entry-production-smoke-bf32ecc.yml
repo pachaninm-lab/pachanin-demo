@@ -8,15 +8,61 @@ on:
 permissions:
   contents: read
 
+env:
+  PRODUCTION_BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  EXPECTED_PRODUCTION_COMMIT: bf32eccb27a1119e07000ada30cc471d343bbe46
+  EXPECTED_DEPLOY_ID: 6a51a3af86bae5000855ba47
+
 jobs:
-  production-smoke:
+  browser-matrix:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        project:
+          - chromium-desktop-1440
+          - chromium-mobile-390
+          - webkit-iphone-13
     env:
-      PRODUCTION_BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
-      EXPECTED_PRODUCTION_COMMIT: bf32eccb27a1119e07000ada30cc471d343bbe46
-      EXPECTED_DEPLOY_ID: 6a51a3af86bae5000855ba47
-      ARTIFACT_DIR: ../../artifacts/public-entry-production-smoke-bf32ecc
+      PROJECT_FILTER: ${{ matrix.project }}
+      ARTIFACT_DIR: ../../artifacts/public-entry-production-${{ matrix.project }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install project browser
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$PROJECT_FILTER" = 'webkit-iphone-13' ]; then
+            pnpm exec playwright install --with-deps webkit
+          else
+            pnpm exec playwright install --with-deps chromium
+          fi
+      - name: Run isolated RU EN ZH browser matrix
+        working-directory: apps/web
+        run: node scripts/public-entry-production-project-smoke-bf32ecc.mjs
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-production-${{ matrix.project }}
+          path: artifacts/public-entry-production-${{ matrix.project }}
+          if-no-files-found: error
+          retention-days: 30
+
+  critical-paths:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      ARTIFACT_DIR: ../../artifacts/public-entry-production-critical-paths-bf32ecc
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -28,6 +74,34 @@ jobs:
       - name: Install Chromium and WebKit
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Run locale cycles and fail-closed login
+        working-directory: apps/web
+        run: node scripts/public-entry-production-critical-paths-bf32ecc.mjs
+      - name: Upload critical-path evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-production-critical-paths-bf32ecc
+          path: artifacts/public-entry-production-critical-paths-bf32ecc
+          if-no-files-found: error
+          retention-days: 30
+
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      ARTIFACT_DIR: ../../artifacts/public-entry-production-lighthouse-bf32ecc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
       - name: Prove production routes are serving
         shell: bash
         run: |
@@ -36,9 +110,6 @@ jobs:
             status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$PRODUCTION_BASE_URL$route?lang=ru")
             test "$status" = '200'
           done
-      - name: Run Chromium WebKit RU EN ZH production smoke
-        working-directory: apps/web
-        run: node scripts/public-entry-production-smoke-bf32ecc-v2.mjs
       - name: Run mobile Lighthouse production gates
         working-directory: apps/web
         shell: bash
@@ -63,11 +134,11 @@ jobs:
               --output-path="$ARTIFACT_DIR/lighthouse-$page.json"
           done
           node scripts/public-entry-production-lighthouse-assert-bf32ecc.mjs
-      - name: Upload exact production evidence
+      - name: Upload Lighthouse evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: public-entry-production-smoke-bf32ecc
-          path: artifacts/public-entry-production-smoke-bf32ecc
+          name: public-entry-production-lighthouse-bf32ecc
+          path: artifacts/public-entry-production-lighthouse-bf32ecc
           if-no-files-found: error
           retention-days: 30
