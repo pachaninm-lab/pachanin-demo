@@ -76,6 +76,13 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(template).not.toContain('PlatformV7TemplateSwitch');
   });
 
+  it('does not preload or activate protected font variables on lean public entry routes', () => {
+    expect(rootLayout.match(/preload: false/g)?.length).toBe(3);
+    expect(rootLayout).toContain("const fontVariables = leanPublicEntry ? '' : `${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`;");
+    expect(rootLayout).toContain("className={`notranslate${fontVariables ? ` ${fontVariables}` : ''}`}");
+    expect(rootLayout).not.toContain("className={`notranslate ${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}");
+  });
+
   it('keeps protected providers and shell in a protected-only runtime', () => {
     expect(protectedRuntime).toContain('<ToastProvider>');
     expect(protectedRuntime).toContain('<PlatformThemeSync />');
