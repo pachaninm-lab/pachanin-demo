@@ -13,9 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      PREVIEW_BASE_URL: https://6a51933d37600a00099953cd--vermillion-kitsune-0e7b97.netlify.app
-      IMPLEMENTATION_SHA: e8f6f83aee47c546b4c959524e924604520cb94a
-      DEPLOY_ID: 6a51933d37600a00099953cd
+      PREVIEW_BASE_URL: https://6a51953a1c7b490008d2e49f--vermillion-kitsune-0e7b97.netlify.app
+      IMPLEMENTATION_SHA: e7e3a1919ca095c075652fb9d162a85698ad6cb9
+      DEPLOY_ID: 6a51953a1c7b490008d2e49f
       ARTIFACT_DIR: ../../artifacts/public-locale-cycle-evidence-2342
     steps:
       - uses: actions/checkout@v4
