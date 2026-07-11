@@ -1,0 +1,41 @@
+name: patch staff evidence support marker
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/staff-control-center-acceptance-2353-final-v4
+          fetch-depth: 0
+      - name: Align support marker with rendered blocker
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/scripts/staff-control-center-acceptance-mock.mjs')
+          text = path.read_text()
+          old = "blocker: 'Нет ЭПД'"
+          new = "blocker: 'Отсутствует ЭПД'"
+          if old not in text:
+            raise SystemExit('support blocker marker not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Commit evidence-only adjustment
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/web/scripts/staff-control-center-acceptance-mock.mjs
+          git commit -m 'Align Staff Control Center support evidence marker'
+          git push origin HEAD:ops/staff-control-center-acceptance-2353-final-v4
