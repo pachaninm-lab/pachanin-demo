@@ -101,6 +101,8 @@ const GLYPH_STYLE: CSSProperties = {
   lineHeight: 1,
 };
 
+const ON_GREEN_STYLE: CSSProperties = { color: '#ffffff' };
+
 function EntryGlyph({ value, compact = false }: { value: string; compact?: boolean }) {
   return (
     <b
@@ -165,7 +167,7 @@ export default async function PlatformV7RootPage() {
           </h1>
           <p>{t('hero.lead')}</p>
           <div className='entry-hero-actions'>
-            <a href='/platform-v7/register' className='entry-primary-cta'>{t('hero.primaryCta')}<span aria-hidden='true'>→</span></a>
+            <a href='/platform-v7/register' className='entry-primary-cta' style={ON_GREEN_STYLE}>{t('hero.primaryCta')}<span aria-hidden='true'>→</span></a>
             <a href='/platform-v7/deal-flow' className='entry-secondary-cta'><span aria-hidden='true'>▷</span>{t('hero.secondaryCta')}</a>
           </div>
         </div>
@@ -240,7 +242,7 @@ export default async function PlatformV7RootPage() {
             <strong>{publicLanding('rolesAccessTitle')}</strong>
             <span>{publicLanding('rolesAccessText')}</span>
           </div>
-          <a href='/platform-v7/login' className='entry-role-access-cta'>{publicLanding('rolesAccessCta')}<span aria-hidden='true'>→</span></a>
+          <a href='/platform-v7/login' className='entry-role-access-cta' style={ON_GREEN_STYLE}>{publicLanding('rolesAccessCta')}<span aria-hidden='true'>→</span></a>
         </div>
       </section>
 
@@ -252,7 +254,7 @@ export default async function PlatformV7RootPage() {
             <span>{t(`trust.${key}.text`)}</span>
           </article>
         ))}
-        <a href='/platform-v7/register' className='entry-trust-cta'>{t('trust.cta')}</a>
+        <a href='/platform-v7/register' className='entry-trust-cta' style={ON_GREEN_STYLE}>{t('trust.cta')}</a>
       </section>
 
       <footer className='entry-footer'>
