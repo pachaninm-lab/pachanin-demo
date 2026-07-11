@@ -15,8 +15,8 @@ jobs:
     timeout-minutes: 50
     env:
       API_URL: http://127.0.0.1:4010
-      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
-      STAFF_EVIDENCE_BASE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      STAFF_EVIDENCE_BASE_URL: http://localhost:3000
       ARTIFACT_DIR: ../../artifacts/staff-control-center-acceptance-final
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +53,7 @@ jobs:
           echo $! > /tmp/staff-final-web.pid
           for attempt in $(seq 1 90); do
             api_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4010/auth/me || true)
-            web_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/platform-v7 || true)
+            web_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:3000/platform-v7 || true)
             if [ "$api_status" = '401' ] && [ "$web_status" = '200' ]; then exit 0; fi
             sleep 2
           done
@@ -74,8 +74,8 @@ jobs:
           set -euo pipefail
           node <<'NODE'
           const fs = require('fs');
-          const base = 'http://127.0.0.1:3000';
-          const baseCookie = 'pc_access_token=evidence-access-token; pc_csrf_token=evidence-csrf-token';
+          const base = 'http://localhost:3000';
+          const baseCookie = 'pc_access_token=evidence-access-token; pc_csrf_token=evidence-csrf-token; pc_session_present=%7B%22role%22%3A%22operator%22%2C%22exp%22%3A4102444800%7D';
           async function post(path, body, cookie) {
             return fetch(base + path, {
               method: 'POST',
@@ -89,10 +89,10 @@ jobs:
               permissions: ['organization:list','user:list','staff-assignment:read','staff-assignment:write','staff-request:read','staff-request:approve','staff-session:read','staff-session:revoke','audit:read','support-case:read','support-case:update','user:session:revoke','user:access-recovery:initiate','deal:list','deal:read','deal:blocker:read','payment:metadata:read','payment:reconciliation:read','diagnostic:read','deployment:read','feature-flag:read','critical-action:approve','break-glass:activate'],
               reason: 'Protected Lighthouse acceptance session', ticketId: 'LH-2353', durationSeconds: 900,
             }, baseCookie);
-            if (!request.ok) throw new Error(`request ${request.status}`);
+            if (!request.ok) throw new Error(`request ${request.status}: ${await request.text()}`);
             const grant = await request.json();
             const activate = await post(`/api/staff/access/grants/${encodeURIComponent(grant.grantId)}/activate`, {}, baseCookie);
-            if (!activate.ok) throw new Error(`activate ${activate.status}`);
+            if (!activate.ok) throw new Error(`activate ${activate.status}: ${await activate.text()}`);
             const setCookies = typeof activate.headers.getSetCookie === 'function' ? activate.headers.getSetCookie() : [activate.headers.get('set-cookie') || ''];
             const pairs = setCookies.flatMap((value) => value.split(/,(?=\s*pc_staff_)/)).map((value) => value.trim().split(';')[0]).filter((value) => value.startsWith('pc_staff_'));
             if (pairs.length < 2) throw new Error('staff cookies missing');
@@ -106,7 +106,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$ARTIFACT_DIR"
           export CHROME_PATH="$(node -e "const { chromium } = require('@playwright/test'); process.stdout.write(chromium.executablePath())")"
-          npx --yes lighthouse@12.6.1 'http://127.0.0.1:3000/platform-v7/staff?lang=ru' \
+          npx --yes lighthouse@12.6.1 'http://localhost:3000/platform-v7/staff?lang=ru' \
             --quiet \
             --chrome-flags='--headless --no-sandbox --disable-gpu' \
             --extra-headers=/tmp/staff-final-lighthouse-headers.json \
@@ -141,7 +141,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: staff-control-center-acceptance-final-v3
+          name: staff-control-center-acceptance-final-v4
           path: artifacts/staff-control-center-acceptance-final
           if-no-files-found: error
           retention-days: 30
