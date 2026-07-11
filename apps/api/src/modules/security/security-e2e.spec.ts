@@ -99,13 +99,15 @@ describe('Security E2E - unauthorized access policy', () => {
     }
   });
 
-  it('ADMIN can read any deal', () => {
+  it('business ADMIN cannot bypass tenant boundaries', () => {
     const input = makeInput({
       action: 'deal:read',
       user: { id: 'admin-1', role: 'ADMIN', organizationId: 'org-platform' },
       resource: { type: 'Deal', id: 'deal-foreign', sellerOrgId: 'org-x', buyerOrgId: 'org-y' },
     });
-    expect(engine.evaluate(input).allowed).toBe(true);
+    const result = engine.evaluate(input);
+    expect(result.allowed).toBe(false);
+    expect(result.matchedPolicy).toBe('deny.deal.cross-org-read');
   });
 
   it('GUEST cannot access deals', () => {
