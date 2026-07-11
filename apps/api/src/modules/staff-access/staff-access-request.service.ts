@@ -10,9 +10,10 @@ import {
   RequestStaffAccessInput,
   StaffAccessService,
 } from './staff-access.service';
+import { StaffAccessContext, StaffPermission } from './staff-access.types';
 
 export type StaffDealScopeRow = {
-  tenant_id: string;
+  tenant_id: string | null;
   seller_organization_id: string;
   buyer_organization_id: string;
 };
@@ -23,6 +24,21 @@ export class StaffAccessRequestService {
     private readonly repository: StaffAccessRepository,
     private readonly access: StaffAccessService,
   ) {}
+
+  async listRequests(user: RequestUser, access?: StaffAccessContext) {
+    let canReadAll = false;
+    if (access) {
+      if (access.accessMode !== 'CONTROL_PLANE') {
+        throw new ForbiddenException('Only CONTROL_PLANE sessions can review staff access requests');
+      }
+      if (!access.permissions.includes(StaffPermission.STAFF_REQUEST_READ)) {
+        throw new ForbiddenException('Active staff grant cannot read staff access requests');
+      }
+      await this.access.requirePermission(user, StaffPermission.STAFF_REQUEST_READ);
+      canReadAll = true;
+    }
+    return this.repository.listAccessRequests(this.repository.prisma, user.id, canReadAll);
+  }
 
   async requestAccess(
     user: RequestUser,
@@ -39,6 +55,9 @@ export class StaffAccessRequestService {
     `);
     const scope = rows[0];
     if (!scope) throw new NotFoundException('Target deal not found');
+    if (!scope.tenant_id) {
+      throw new ForbiddenException('Target deal has no authoritative tenant scope');
+    }
 
     if (input.targetTenantId && input.targetTenantId !== scope.tenant_id) {
       throw new ForbiddenException('Target deal and tenant scope mismatch');
