@@ -77,13 +77,24 @@ for (const project of projects) {
     await page.goto(`${baseURL}/platform-v7/staff?lang=${locale}`, { waitUntil: 'networkidle', timeout: 60_000 });
     assert(page.url().includes('/platform-v7/staff'), `${project.name}/${locale}: redirected away from staff route: ${page.url()}`);
 
+    await page.locator('.pc-staff-session-form, .pc-staff-console, .pc-staff-state').first().waitFor({
+      state: 'visible',
+      timeout: 30_000,
+    });
     const setup = page.locator('.pc-staff-session-form');
-    if (await setup.isVisible().catch(() => false)) {
+    if (await setup.isVisible()) {
       await setup.locator('textarea').fill('Evidence run for the protected platform control center');
       await setup.locator('input').fill('OWN-EVIDENCE-001');
       await setup.locator('button[type="submit"]').click();
     }
-    await page.locator('.pc-staff-console').waitFor({ state: 'visible', timeout: 30_000 });
+
+    try {
+      await page.locator('.pc-staff-console').waitFor({ state: 'visible', timeout: 30_000 });
+    } catch (error) {
+      const stateText = await page.locator('body').innerText().catch(() => 'body unavailable');
+      await page.screenshot({ path: path.join(artifactDir, `${project.name}-${locale}-entry-failure.png`), fullPage: true }).catch(() => {});
+      throw new Error(`${project.name}/${locale}: control console did not activate; body=${JSON.stringify(stateText.slice(0, 2000))}; badResponses=${JSON.stringify(badResponses)}; cause=${String(error)}`);
+    }
     await page.waitForLoadState('networkidle');
 
     const htmlLang = await page.locator('html').getAttribute('lang');
