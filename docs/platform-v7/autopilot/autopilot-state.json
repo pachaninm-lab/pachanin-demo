@@ -118,6 +118,7 @@
       "docs/platform-v7/autopilot/autopilot-state.json"
     ],
     "ui/staff-control-center": [
+      "apps/web/app/platform-v7/layout.tsx",
       "apps/web/app/platform-v7/staff/**",
       "apps/web/app/api/staff/**",
       "apps/web/components/platform-v7/staff/**",
