@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { StaffControlCenter } from '@/components/platform-v7/staff/StaffControlCenter';
 import { StaffOperationalWorkspaces } from '@/components/platform-v7/staff/StaffOperationalWorkspaces';
+import { StaffPlatformShell } from '@/components/platform-v7/staff/StaffPlatformShell';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { DEFAULT_LOCALE, isAppLocale, LOCALE_COOKIE, type AppLocale } from '@/i18n/locale';
 import { staffControlCenterMessages } from '@/i18n/staff-control-center-messages';
@@ -44,9 +45,11 @@ async function verifyIdentity(accessToken: string): Promise<
     const response = await fetch(`${API_URL}/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
       cache: 'no-store',
+      redirect: 'manual',
       signal: AbortSignal.timeout(6_000),
     });
     if (response.status === 401 || response.status === 403) return { status: 'unauthenticated' };
+    if (response.status >= 300 && response.status < 400) return { status: 'unavailable' };
     if (!response.ok) return { status: 'unavailable' };
     const identity = await response.json().catch(() => null) as VerifiedIdentity | null;
     if (!identity || typeof identity !== 'object' || typeof identity.id !== 'string') {
@@ -69,7 +72,7 @@ export default async function StaffControlCenterPage() {
   }
 
   return (
-    <>
+    <StaffPlatformShell locale={locale}>
       <StaffControlCenter
         locale={locale}
         copy={staffControlCenterMessages[locale]}
@@ -79,6 +82,6 @@ export default async function StaffControlCenterPage() {
       {verification.status === 'verified' ? (
         <StaffOperationalWorkspaces locale={locale} copy={staffOperationalWorkspaceMessages[locale]} />
       ) : null}
-    </>
+    </StaffPlatformShell>
   );
 }
