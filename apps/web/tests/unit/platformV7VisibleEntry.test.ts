@@ -8,24 +8,27 @@ const loginCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-login
 const executionOverview = () => readFileSync(resolve(__dirname, '../../components/v7r/PlatformV7IntelligenceStrip.tsx'), 'utf8');
 
 describe('platform-v7 visible entry (mobile home)', () => {
-  it('shows a concrete hero with two deliberate actions', () => {
+  it('front-loads the user task and keeps two deliberate actions', () => {
     const page = pageSource();
     const copy = landingCopy();
 
-    expect(copy).toContain('Зерновая сделка');
-    expect(copy).toContain('Платформа ведёт сделку через перевозку, приёмку, проверку качества, документы и расчёты');
+    expect(copy).toContain('Проведите зерновую сделку');
+    expect(copy).toContain('Каждый участник видит статус и своё следующее действие');
     expect(page).toContain("className='entry-primary-cta'");
     expect(page).toContain("className='entry-secondary-cta'");
     expect(page).not.toContain("className='entry-register-cta'");
     expect(copy).toContain('Подключить организацию');
   });
 
-  it('shows participants without exposing role selection in the URL', () => {
+  it('uses descriptive navigation and access labels', () => {
     const page = pageSource();
     const copy = landingCopy();
+    const login = loginCopy();
 
     expect(copy).toContain('Участники сделки');
-    expect(copy).toContain('Один вход для всех участников');
+    expect(copy).toContain('Войдите один раз');
+    expect(copy).toContain('Задать вопрос');
+    expect(login).toContain('Восстановить доступ');
     expect(page).toContain("href='/platform-v7/login'");
     expect(page).not.toContain('/platform-v7/login?role=');
     expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
