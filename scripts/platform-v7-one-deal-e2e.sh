@@ -123,9 +123,22 @@ GRANT SELECT, INSERT, UPDATE ON
   auth.credential_states,
   auth.sessions,
   auth.refresh_tokens,
-  auth.mfa_challenges
+  auth.mfa_challenges,
+  auth.staff_assignments,
+  auth.staff_access_requests,
+  auth.staff_access_approvals,
+  auth.staff_access_grants,
+  auth.staff_access_sessions,
+  auth.staff_critical_action_requests,
+  auth.staff_critical_action_approvals,
+  auth.break_glass_activations
 TO one_deal_auth;
-GRANT SELECT, INSERT ON auth.audit_events TO one_deal_auth;
+GRANT SELECT, INSERT ON auth.audit_events, auth.staff_access_events TO one_deal_auth;
+REVOKE UPDATE, DELETE ON auth.staff_access_events FROM one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.lock_staff_access_event_chain(TEXT) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
 SQL
 
 ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text FROM pg_roles WHERE rolname='one_deal_app'")"
@@ -201,5 +214,16 @@ AUTH_TOKEN_PEPPER="$AUTH_TOKEN_PEPPER" \
 MFA_ENCRYPTION_KEY="$MFA_ENCRYPTION_KEY" \
 BANK_HMAC_SECRET="$BANK_HMAC_SECRET" \
 pnpm --filter @pc/api exec jest --runInBand --config test/one-deal/jest.config.json
+
+echo "[one-deal] running staff-access PostgreSQL exploitation suite"
+NODE_ENV=test \
+DATABASE_URL="$APP_URL" \
+AUTH_DATABASE_URL="$AUTH_URL" \
+DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
+JWT_SECRET="$JWT_SECRET" \
+AUTH_TOKEN_PEPPER="$AUTH_TOKEN_PEPPER" \
+MFA_ENCRYPTION_KEY="$MFA_ENCRYPTION_KEY" \
+BANK_HMAC_SECRET="$BANK_HMAC_SECRET" \
+pnpm --filter @pc/api exec jest --runInBand --config test/staff-access/jest.e2e.config.json
 
 echo "[one-deal] exploitation gate passed"
