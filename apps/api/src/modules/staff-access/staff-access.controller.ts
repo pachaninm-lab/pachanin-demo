@@ -96,9 +96,15 @@ export class StaffAccessController {
 
   @Get('access/requests')
   listRequests(@Req() request: StaffRequest) {
-    // Without a time-bound CONTROL_PLANE session this returns only the actor's
-    // own requests. A verified session with staff-request:read unlocks review.
-    return this.accessRequests.listRequests(request.user, request.staffAccess);
+    return this.accessRequests.listRequests(request.user);
+  }
+
+  @Get('access/requests/review')
+  @UseGuards(StaffAccessGuard)
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.STAFF_REQUEST_READ)
+  reviewRequests(@Req() request: StaffRequest) {
+    return this.access.listReviewRequests(request.user);
   }
 
   @Post('access/requests')
@@ -143,6 +149,27 @@ export class StaffAccessController {
   @Get('access/sessions')
   listSessions(@Req() request: StaffRequest) {
     return this.access.listActiveSessions(request.user);
+  }
+
+  @Get('access/sessions/review')
+  @UseGuards(StaffAccessGuard)
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.STAFF_SESSION_READ)
+  reviewSessions(@Req() request: StaffRequest) {
+    return this.access.listAllActiveSessions(request.user);
+  }
+
+  @Post('access/sessions/:id/revoke')
+  @UseGuards(StaffAccessGuard)
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.STAFF_SESSION_REVOKE)
+  revokeSession(
+    @Req() request: StaffRequest,
+    @Param('id') id: string,
+    @Body() body: EndStaffSessionDto,
+    @Headers('x-correlation-id') correlationId?: string,
+  ) {
+    return this.access.revokeSession(request.user, id, body.reason, correlationId);
   }
 
   @Post('access/sessions/:id/end')
