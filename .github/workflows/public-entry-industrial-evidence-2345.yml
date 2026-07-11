@@ -11,7 +11,7 @@ permissions:
 jobs:
   browser-axe-lighthouse:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     env:
       PREVIEW_BASE_URL: https://6a519ddb826e1300089f48d5--vermillion-kitsune-0e7b97.netlify.app
       IMPLEMENTATION_SHA: 6d41aa9a5c6f6b84233e45d54f43efe7ce87b85b
@@ -41,14 +41,24 @@ jobs:
       - name: Run Chromium WebKit RU EN ZH and Axe gates
         working-directory: apps/web
         run: node scripts/public-entry-industrial-evidence-2345.mjs
-      - name: Run mobile Lighthouse gates
+      - name: Run app-level mobile Lighthouse gates
         working-directory: apps/web
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$ARTIFACT_DIR"
+          pnpm build > "$ARTIFACT_DIR/local-production-build.log" 2>&1
+          pnpm start > "$ARTIFACT_DIR/local-production-server.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 90); do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 5 "http://127.0.0.1:3000/platform-v7?lang=ru" || true)
+            if [ "$status" = '200' ]; then break; fi
+            if [ "$attempt" = '90' ]; then cat "$ARTIFACT_DIR/local-production-server.log"; exit 1; fi
+            sleep 1
+          done
           export CHROME_PATH="$(node -e "const { chromium } = require('@playwright/test'); process.stdout.write(chromium.executablePath())")"
-          npx --yes lighthouse@12.6.1 "$PREVIEW_BASE_URL/platform-v7?lang=ru" \
+          npx --yes lighthouse@12.6.1 "http://127.0.0.1:3000/platform-v7?lang=ru" \
             --quiet \
             --chrome-flags="--headless --no-sandbox --disable-gpu" \
             --only-categories=performance,accessibility,best-practices,seo \
@@ -57,7 +67,7 @@ jobs:
             --throttling-method=simulate \
             --output=json \
             --output-path="$ARTIFACT_DIR/lighthouse-landing.json"
-          npx --yes lighthouse@12.6.1 "$PREVIEW_BASE_URL/platform-v7/login?lang=ru" \
+          npx --yes lighthouse@12.6.1 "http://127.0.0.1:3000/platform-v7/login?lang=ru" \
             --quiet \
             --chrome-flags="--headless --no-sandbox --disable-gpu" \
             --only-categories=performance,accessibility,best-practices,seo \
