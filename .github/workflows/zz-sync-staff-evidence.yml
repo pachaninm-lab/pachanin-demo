@@ -1,0 +1,30 @@
+name: sync staff evidence with ui branch
+
+on:
+  push:
+    branches:
+      - ops/staff-control-center-evidence
+
+permissions:
+  contents: write
+
+jobs:
+  sync-and-remove:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/staff-control-center-evidence
+          fetch-depth: 0
+      - name: Merge latest UI branch and self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin ui/staff-control-center
+          git merge --no-edit origin/ui/staff-control-center
+          git rm .github/workflows/zz-sync-staff-evidence.yml
+          git commit -m 'Remove staff evidence sync helper'
+          git push origin HEAD:ops/staff-control-center-evidence
