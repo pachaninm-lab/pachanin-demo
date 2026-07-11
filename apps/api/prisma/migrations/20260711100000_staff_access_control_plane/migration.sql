@@ -351,9 +351,13 @@ CREATE TRIGGER auth_staff_access_events_append_only
 BEFORE UPDATE OR DELETE ON auth.staff_access_events
 FOR EACH ROW EXECUTE FUNCTION auth.reject_staff_access_event_mutation();
 
-CREATE TRIGGER auth_staff_access_events_no_truncate
-BEFORE TRUNCATE ON auth.staff_access_events
-FOR EACH STATEMENT EXECUTE FUNCTION auth.reject_staff_access_event_mutation();
+CREATE OR REPLACE FUNCTION auth.lock_staff_access_event_chain(p_actor_user_id TEXT)
+RETURNS VOID
+LANGUAGE sql
+SET search_path = pg_catalog
+AS $$
+  SELECT pg_advisory_xact_lock(hashtextextended(p_actor_user_id, 0));
+$$;
 
 CREATE OR REPLACE FUNCTION auth.revoke_staff_access_for_assignment_change()
 RETURNS TRIGGER
@@ -401,6 +405,7 @@ REVOKE ALL ON
   auth.staff_access_events
 FROM PUBLIC;
 REVOKE ALL ON FUNCTION auth.reject_staff_access_event_mutation() FROM PUBLIC;
+REVOKE ALL ON FUNCTION auth.lock_staff_access_event_chain(TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION auth.revoke_staff_access_for_assignment_change() FROM PUBLIC;
 
 DO $grant_staff_access$
@@ -418,6 +423,7 @@ BEGIN
       auth.break_glass_activations
     TO app_service;
     GRANT SELECT, INSERT ON auth.staff_access_events TO app_service;
+    GRANT EXECUTE ON FUNCTION auth.lock_staff_access_event_chain(TEXT) TO app_service;
     REVOKE UPDATE, DELETE ON auth.staff_access_events FROM app_service;
   END IF;
 END
