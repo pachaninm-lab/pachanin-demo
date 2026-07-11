@@ -112,6 +112,20 @@ apps/web/next.config.js
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
 
+STAFF_ACCESS_FOUNDATION_SCOPE='apps/api/prisma/migrations/20260711100000_staff_access_control_plane/**
+apps/api/src/app.module.ts
+apps/api/src/common/guards/auth.guard.ts
+apps/api/src/common/guards/roles.guard.ts
+apps/api/src/common/security/policy-engine.service.ts
+apps/api/src/common/types/request-user.ts
+apps/api/src/modules/auth/auth.service.ts
+apps/api/src/modules/auth/persistent-auth.repository.ts
+apps/api/src/modules/staff-access/**
+apps/api/test/staff-access/**
+docs/platform-v7/security/staff-access-control-plane.md
+scripts/bootstrap-platform-owner.mjs
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -125,6 +139,10 @@ fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-lcp-css-boundary" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx'; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_LCP_FIX_SCOPE")
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "security/staff-access-control-plane-foundation" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$STAFF_ACCESS_FOUNDATION_SCOPE")
 fi
 
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
