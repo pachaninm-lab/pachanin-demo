@@ -56,8 +56,8 @@ function firstForwardedValue(value: string | null) {
 }
 
 function externalRequestOrigin(request: NextRequest) {
-  const host = firstForwardedValue(request.headers.get('x-forwarded-host'))
-    || firstForwardedValue(request.headers.get('host'));
+  const host = firstForwardedValue(request.headers.get('host'))
+    || firstForwardedValue(request.headers.get('x-forwarded-host'));
   const forwardedProtocol = firstForwardedValue(request.headers.get('x-forwarded-proto')).toLowerCase();
   const protocol = ['http', 'https'].includes(forwardedProtocol)
     ? forwardedProtocol
@@ -117,6 +117,12 @@ function error(status: number, code: string, correlationId?: string) {
   return secure(NextResponse.json({ ok: false, code, correlationId }, { status }));
 }
 
+function json(status: number, payload: unknown, correlationId: string) {
+  const response = NextResponse.json(payload, { status });
+  response.headers.set('X-Correlation-Id', correlationId);
+  return secure(response);
+}
+
 export async function proxyStaffChannel(
   request: NextRequest,
   segments: string[],
@@ -132,6 +138,13 @@ export async function proxyStaffChannel(
   const bearer = accessToken(request);
   if (!bearer) return error(401, 'AUTH_REQUIRED');
 
+  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+  const isControlSessionProbe = channel === 'control' && request.method === 'GET' && path === 'session-state';
+  const staffSession = request.cookies.get(selectedCookie(channel))?.value;
+  if (isControlSessionProbe && !staffSession) {
+    return json(200, { active: false, organizations: [] }, correlationId);
+  }
+
   let body: ArrayBuffer | undefined;
   if (mutating(request.method)) {
     const declared = Number(request.headers.get('content-length') || 0);
@@ -140,7 +153,6 @@ export async function proxyStaffChannel(
     if (body.byteLength > MAX_REQUEST_BODY_BYTES) return error(413, 'REQUEST_TOO_LARGE');
   }
 
-  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
   const headers = new Headers({
     Authorization: `Bearer ${bearer}`,
     Accept: 'application/json',
@@ -148,12 +160,12 @@ export async function proxyStaffChannel(
   });
   const contentType = request.headers.get('content-type');
   if (contentType) headers.set('Content-Type', contentType);
-  const staffSession = request.cookies.get(selectedCookie(channel))?.value;
   if (staffSession) headers.set('X-Staff-Access-Session', staffSession);
 
+  const upstreamPath = isControlSessionProbe ? 'organizations' : path;
   let upstream: Response;
   try {
-    upstream = await fetch(`${base}/staff/${path}${request.nextUrl.search}`, {
+    upstream = await fetch(`${base}/staff/${upstreamPath}${request.nextUrl.search}`, {
       method: request.method,
       headers,
       body,
@@ -171,6 +183,17 @@ export async function proxyStaffChannel(
     payload = raw ? JSON.parse(raw) : null;
   } catch {
     return error(502, 'INVALID_UPSTREAM_RESPONSE', correlationId);
+  }
+
+  if (isControlSessionProbe) {
+    if (upstream.status === 401 || upstream.status === 403) {
+      return json(200, { active: false, organizations: [] }, correlationId);
+    }
+    if (!upstream.ok) return json(upstream.status, payload, correlationId);
+    return json(200, {
+      active: true,
+      organizations: Array.isArray(payload) ? payload : [],
+    }, correlationId);
   }
 
   if (activationPath(path) && upstream.ok && payload && typeof payload === 'object') {
