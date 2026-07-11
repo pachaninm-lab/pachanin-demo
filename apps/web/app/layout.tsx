@@ -104,9 +104,16 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     ? children
     : <NextIntlClientProvider locale={locale} messages={await getMessages()}>{children}</NextIntlClientProvider>;
   const showDevPanel = !leanPublicEntry && process.env.NEXT_PUBLIC_DEV_MODE === 'true';
+  const fontVariables = leanPublicEntry ? '' : `${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`;
 
   return (
-    <html lang={HTML_LANG[locale] ?? 'ru'} translate='no' data-theme='light' suppressHydrationWarning className={`notranslate ${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
+    <html
+      lang={HTML_LANG[locale] ?? 'ru'}
+      translate='no'
+      data-theme='light'
+      suppressHydrationWarning
+      className={`notranslate${fontVariables ? ` ${fontVariables}` : ''}`}
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <meta name='google' content='notranslate' />
