@@ -3,7 +3,7 @@ import path from 'node:path';
 import { chromium, webkit } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-const baseURL = process.env.STAFF_EVIDENCE_BASE_URL || 'http://127.0.0.1:3000';
+const baseURL = process.env.STAFF_EVIDENCE_BASE_URL || 'http://localhost:3000';
 const artifactDir = path.resolve(process.cwd(), process.env.ARTIFACT_DIR || '../../artifacts/staff-control-center-acceptance-final');
 fs.mkdirSync(artifactDir, { recursive: true });
 
@@ -29,7 +29,7 @@ for (const project of projects) {
     await context.addCookies([
       { name: 'pc_access_token', value: 'evidence-access-token', url: baseURL, httpOnly: true, sameSite: 'Lax' },
       { name: 'pc_csrf_token', value: 'evidence-csrf-token', url: baseURL, httpOnly: false, sameSite: 'Lax' },
-      { name: 'pc_session_present', value: JSON.stringify({ role: 'operator', exp: Math.floor(Date.now() / 1000) + 3600 }), url: baseURL, httpOnly: true, sameSite: 'Lax' },
+      { name: 'pc_session_present', value: JSON.stringify({ role: 'operator', exp: Math.floor(Date.now() / 1000) + 3600 }), url: baseURL, httpOnly: false, sameSite: 'Lax' },
     ]);
     const page = await context.newPage();
     const consoleErrors = []; const pageErrors = []; const failedRequests = []; const badResponses = [];
