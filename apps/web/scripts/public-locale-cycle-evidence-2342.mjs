@@ -22,6 +22,16 @@ const matrix = [
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const runtimePattern = /hydration|did not match|server html|text content|validateDOMNesting|extra attributes|expected server html|Minified React error|MISSING_MESSAGE|next-intl/i;
 
+function isExactNetlifyPreviewToolbarNoise(message) {
+  const text = message.text();
+  const location = message.location();
+  const previewHost = new URL(BASE_URL).hostname.endsWith('.netlify.app');
+  if (!previewHost) return false;
+  const chromiumToolbarCsp = location.url.includes('/.netlify/scripts/cdp') && /Framing 'https:\/\/app\.netlify\.com\/' violates.+Content Security Policy/i.test(text);
+  const webkitToolbarCsp = /^Refused to load https:\/\/app\.netlify\.com\/cdp\/\?deployID=.+because it appears in neither the frame-src directive nor the default-src directive/i.test(text);
+  return chromiumToolbarCsp || webkitToolbarCsp;
+}
+
 async function cleanLoad(page, route, locale, diagnostics) {
   const url = new URL(route.path, BASE_URL);
   url.searchParams.set('lang', locale);
@@ -41,11 +51,16 @@ async function cleanLoad(page, route, locale, diagnostics) {
 async function runEngine(item) {
   const browser = await item.engine.launch({ headless: true });
   const context = await browser.newContext(item.context);
-  const result = { engine: item.name, outcome: 'failed', explicitOverride: [], cycle: [], consoleErrors: [], runtimeErrors: [], failedRequests: [], badResponses: [], statuses: [], failure: null };
+  const result = { engine: item.name, outcome: 'failed', explicitOverride: [], cycle: [], consoleErrors: [], hostingNoise: [], runtimeErrors: [], failedRequests: [], badResponses: [], statuses: [], failure: null };
   try {
     await context.addCookies([{ name: 'pc-v7-locale', value: 'zh', domain: new URL(BASE_URL).hostname, path: '/', secure: true, sameSite: 'Lax' }]);
     const page = await context.newPage();
-    page.on('console', (message) => { if (message.type() === 'error') result.consoleErrors.push({ text: message.text(), location: message.location() }); });
+    page.on('console', (message) => {
+      if (message.type() !== 'error') return;
+      const entry = { text: message.text(), location: message.location() };
+      if (isExactNetlifyPreviewToolbarNoise(message)) result.hostingNoise.push(entry);
+      else result.consoleErrors.push(entry);
+    });
     page.on('pageerror', (error) => result.runtimeErrors.push(String(error?.stack || error)));
     page.on('requestfailed', (request) => result.failedRequests.push({ url: request.url(), error: request.failure()?.errorText || 'unknown' }));
     page.on('response', (response) => { if (response.status() >= 400) result.badResponses.push({ url: response.url(), status: response.status(), type: response.request().resourceType() }); });
@@ -80,7 +95,7 @@ async function runEngine(item) {
     assert(result.runtimeErrors.length === 0, `${item.name}: runtime errors ${JSON.stringify(result.runtimeErrors)}`);
     assert(result.failedRequests.length === 0, `${item.name}: failed requests ${JSON.stringify(result.failedRequests)}`);
     assert(result.badResponses.length === 0, `${item.name}: bad responses ${JSON.stringify(result.badResponses)}`);
-    assert(!result.consoleErrors.some((item) => runtimePattern.test(item.text)), `${item.name}: hydration/i18n signal`);
+    assert(!result.consoleErrors.some((entry) => runtimePattern.test(entry.text)), `${item.name}: hydration/i18n signal`);
     result.outcome = 'passed';
     await page.screenshot({ path: path.join(OUT, `${item.name}-cycle-passed.png`), fullPage: true });
     await page.close();
@@ -108,6 +123,8 @@ const report = {
     failed: results.filter((item) => item.outcome !== 'passed').length,
     explicitOverrideChecks: results.reduce((sum, item) => sum + item.explicitOverride.length, 0),
     cycleSteps: results.reduce((sum, item) => sum + item.cycle.length, 0),
+    productConsoleErrors: results.reduce((sum, item) => sum + item.consoleErrors.length, 0),
+    previewToolbarNoise: results.reduce((sum, item) => sum + item.hostingNoise.length, 0),
   },
 };
 await fs.writeFile(path.join(OUT, 'locale-cycle-report.json'), JSON.stringify(report, null, 2));
