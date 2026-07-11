@@ -20,7 +20,8 @@ describe('staff support persistence contract', () => {
     );
     expect(migration).toContain('GRANT USAGE ON SCHEMA support TO app_service');
     expect(migration).toContain('GRANT SELECT, INSERT ON support.case_events TO app_service');
-    expect(migration).toContain('REVOKE UPDATE, DELETE, TRUNCATE ON support.case_events FROM app_service');
-    expect(migration).toContain('REVOKE DELETE, TRUNCATE ON support.cases, support.access_recovery_requests FROM app_service');
+    expect(migration).toContain('REVOKE UPDATE, DELETE ON support.case_events FROM app_service');
+    expect(migration).toContain('REVOKE DELETE ON support.cases, support.access_recovery_requests FROM app_service');
+    expect(migration).not.toMatch(/\bTRUNCATE\b/i);
   });
 });
