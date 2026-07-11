@@ -1,6 +1,12 @@
 name: Apply Staff Control Center P1 fixes
 
 on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/staff-p1-security-fix.yml
+      - .github/scripts/apply-staff-p1-fixes.py
   push:
     branches:
       - feat/platform-v7-staff-control-center
@@ -12,6 +18,7 @@ permissions:
 
 jobs:
   apply:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
