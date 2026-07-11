@@ -1,0 +1,57 @@
+name: Staff Control Center tests diagnostic
+
+on:
+  pull_request:
+    branches:
+      - feat/platform-v7-staff-control-center
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Capture API tests
+        id: api
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/staff-tests
+          pnpm --filter @pc/api exec jest --runInBand \
+            test/staff-access/staff-workspace.service.spec.ts \
+            test/staff-access/staff-support.service.spec.ts \
+            test/staff-access/staff-support-persistence-contract.spec.ts \
+            test/staff-access/staff-workspace-audit-interceptor.spec.ts \
+            2>&1 | tee artifacts/staff-tests/api-tests.log
+      - name: Capture web tests
+        id: web
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/staff-tests
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/platformV7StaffControlCenterAuthority.test.ts \
+            tests/unit/platformV7StaffOperationalWorkspaces.test.ts \
+            2>&1 | tee artifacts/staff-tests/web-tests.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: staff-tests-diagnostic
+          path: artifacts/staff-tests
+          if-no-files-found: error
+      - name: Enforce result
+        if: always()
+        run: |
+          test '${{ steps.api.outcome }}' = 'success'
+          test '${{ steps.web.outcome }}' = 'success'

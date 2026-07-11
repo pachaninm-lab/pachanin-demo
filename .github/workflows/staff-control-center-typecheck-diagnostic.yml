@@ -1,0 +1,49 @@
+name: Staff Control Center typecheck diagnostic
+
+on:
+  push:
+    branches:
+      - ops/staff-control-center-acceptance-2353-final
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Capture API typecheck
+        id: api
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/staff-typecheck
+          pnpm --filter @pc/api run typecheck 2>&1 | tee artifacts/staff-typecheck/api-typecheck.log
+      - name: Capture web typecheck
+        id: web
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/staff-typecheck
+          pnpm --filter @pc/web run typecheck 2>&1 | tee artifacts/staff-typecheck/web-typecheck.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: staff-typecheck-diagnostic
+          path: artifacts/staff-typecheck
+          if-no-files-found: error
+      - name: Enforce result
+        if: always()
+        run: |
+          test '${{ steps.api.outcome }}' = 'success'
+          test '${{ steps.web.outcome }}' = 'success'
