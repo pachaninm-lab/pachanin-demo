@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 };
 
 const LANDING_PATH = '/platform-v7';
+const STAFF_PREFIX = '/platform-v7/staff';
 const AUTH_PATHS = new Set([
   '/platform-v7/login',
   '/platform-v7/forgot-password',
@@ -47,13 +48,17 @@ function isPublicPath(pathname: string) {
   return PUBLIC_EXACT_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
 }
 
+function isStaffPath(pathname: string) {
+  return pathname === STAFF_PREFIX || pathname.startsWith(`${STAFF_PREFIX}/`);
+}
+
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const pathname = normalizePath(headers().get('x-pc-pathname'));
 
-  // These routes own their minimal CSS in the concrete page/login layout. Keeping
-  // them out of the full runtime prevents protected cockpit CSS from entering the
-  // public critical path.
-  if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children;
+  // Landing/auth and the privileged Staff control plane own isolated critical
+  // paths. Staff must not download business-cockpit CSS, role runtime or widgets:
+  // this reduces authority-boundary coupling and keeps mobile LCP predictable.
+  if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname) || isStaffPath(pathname)) return children;
 
   const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
   if (isPublicPath(pathname)) {

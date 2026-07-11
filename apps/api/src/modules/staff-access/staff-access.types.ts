@@ -65,6 +65,15 @@ export const StaffPermission = {
 
 export type StaffPermission = typeof StaffPermission[keyof typeof StaffPermission];
 
+export const ALLOWED_STAFF_CRITICAL_ACTIONS = new Set<string>([
+  'deal:operation:retry',
+  'user:session:revoke',
+  'user:mfa:reset',
+  'user:access-recovery:initiate',
+  'payment:manual-review',
+  'feature-flag:write',
+]);
+
 export const FORBIDDEN_STAFF_ACTIONS = new Set<string>([
   'payment:reserve',
   'payment:release',
@@ -134,6 +143,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
     StaffPermission.DEAL_OPERATION_RETRY,
     StaffPermission.DOCUMENT_METADATA_READ,
     StaffPermission.CABINET_VIEW_AS,
+    StaffPermission.CRITICAL_ACTION_REQUEST,
   ],
   OPERATIONS_SUPERVISOR: [
     StaffPermission.ORGANIZATION_READ,
@@ -150,6 +160,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
     StaffPermission.CABINET_VIEW_AS,
     StaffPermission.STAFF_REQUEST_READ,
     StaffPermission.STAFF_REQUEST_APPROVE,
+    StaffPermission.CRITICAL_ACTION_REQUEST,
     StaffPermission.CRITICAL_ACTION_APPROVE,
   ],
   FINANCE_OPS: [

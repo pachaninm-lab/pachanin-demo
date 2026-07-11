@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
-import { StaffAccessRepository } from './staff-access.repository';
+import {
+  StaffAccessRepository,
+  StaffAccessRequestRow,
+} from './staff-access.repository';
 import {
   RequestStaffAccessInput,
   StaffAccessService,
@@ -16,6 +19,12 @@ export type StaffDealScopeRow = {
   tenant_id: string | null;
   seller_organization_id: string;
   buyer_organization_id: string;
+};
+
+export type StaffAccessRequestProjectionRow = StaffAccessRequestRow & {
+  grant_id: string | null;
+  grant_status: string | null;
+  grant_expires_at: Date | null;
 };
 
 @Injectable()
@@ -37,7 +46,29 @@ export class StaffAccessRequestService {
       await this.access.requirePermission(user, StaffPermission.STAFF_REQUEST_READ);
       canReadAll = true;
     }
-    return this.repository.listAccessRequests(this.repository.prisma, user.id, canReadAll);
+
+    if (canReadAll) {
+      return this.repository.listAccessRequests(this.repository.prisma, user.id, true);
+    }
+
+    return this.repository.prisma.$queryRaw<StaffAccessRequestProjectionRow[]>(Prisma.sql`
+      SELECT
+        request.*,
+        latest_grant.id AS grant_id,
+        latest_grant.status AS grant_status,
+        latest_grant.expires_at AS grant_expires_at
+      FROM auth.staff_access_requests request
+      LEFT JOIN LATERAL (
+        SELECT grant.id, grant.status, grant.expires_at
+        FROM auth.staff_access_grants grant
+        WHERE grant.request_id = request.id
+        ORDER BY grant.created_at DESC, grant.id DESC
+        LIMIT 1
+      ) latest_grant ON TRUE
+      WHERE request.requester_user_id = ${user.id}
+      ORDER BY request.requested_at DESC, request.id DESC
+      LIMIT 200
+    `);
   }
 
   async requestAccess(

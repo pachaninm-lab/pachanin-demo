@@ -8,13 +8,18 @@ import { StaffAccessRequestService } from './staff-access-request.service';
 import { StaffAccessService } from './staff-access.service';
 import { StaffAssignmentService } from './staff-assignment.service';
 import { StaffAuditService } from './staff-audit.service';
+import { StaffAuditWriterService } from './staff-audit-writer.service';
 import { StaffDelegatedAccessGuard } from './staff-delegated-access.guard';
 import { StaffEmergencyService } from './staff-emergency.service';
 import { StaffProjectionService } from './staff-projection.service';
+import { StaffSupportService } from './staff-support.service';
+import { StaffWorkspaceAuditInterceptor } from './staff-workspace-audit.interceptor';
+import { StaffWorkspaceController } from './staff-workspace.controller';
+import { StaffWorkspaceService } from './staff-workspace.service';
 
 @Module({
   imports: [AuthModule],
-  controllers: [StaffAccessController],
+  controllers: [StaffAccessController, StaffWorkspaceController],
   providers: [
     {
       provide: StaffAccessRepository,
@@ -25,11 +30,21 @@ import { StaffProjectionService } from './staff-projection.service';
     StaffAccessRequestService,
     StaffAssignmentService,
     StaffAuditService,
+    StaffAuditWriterService,
     StaffEmergencyService,
     StaffProjectionService,
+    StaffSupportService,
+    StaffWorkspaceService,
+    StaffWorkspaceAuditInterceptor,
     StaffAccessGuard,
     StaffDelegatedAccessGuard,
   ],
-  exports: [StaffAccessService, StaffAccessRepository],
+  exports: [
+    StaffAccessService,
+    StaffAccessRepository,
+    StaffSupportService,
+    StaffWorkspaceService,
+    StaffAuditWriterService,
+  ],
 })
 export class StaffAccessModule {}

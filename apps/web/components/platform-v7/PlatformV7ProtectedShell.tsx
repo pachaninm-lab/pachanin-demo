@@ -15,6 +15,7 @@ import { PlatformFooter } from '@/components/platform-v7/PlatformFooter';
 import { OnboardingTour } from '@/components/platform-v7/OnboardingTour';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { HeaderLanguageSwitch } from '@/components/platform-v7/HeaderLanguageSwitch';
+import { StaffControlCenterEntry } from '@/components/platform-v7/StaffControlCenterEntry';
 import { RoleIntentDashboard } from '@/components/platform-v7/RoleIntentDashboard';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
@@ -54,8 +55,23 @@ function roleFromPath(pathname: string): PlatformRole {
 }
 
 export function PlatformV7ProtectedShell({ pathname, children }: { pathname: string; children: React.ReactNode }) {
+  const normalizedPath = normalizePath(pathname);
+  const isStaffControlCenter = normalizedPath === '/platform-v7/staff' || normalizedPath.startsWith('/platform-v7/staff/');
+
+  // Staff authority is a separate control plane. It must not inherit business-role
+  // navigation, role widgets, onboarding, footer copy or client-side cabinet guards.
+  // The staff route owns its own shell and all authority remains server-issued.
+  if (isStaffControlCenter) {
+    return (
+      <>
+        <ShellCopyNormalizer />
+        {children}
+      </>
+    );
+  }
+
   const initialRole = roleFromPath(pathname);
-  const workSurface = ROLE_INTENT_ROOT_PATHS.has(normalizePath(pathname))
+  const workSurface = ROLE_INTENT_ROOT_PATHS.has(normalizedPath)
     ? <RoleIntentDashboard role={initialRole} />
     : children;
 
@@ -70,6 +86,9 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
           <RbacCabinetGuard />
           <ShellCopyNormalizer />
           <HeaderLanguageSwitch />
+          <React.Suspense fallback={null}>
+            <StaffControlCenterEntry />
+          </React.Suspense>
           <CalculatorHeaderWidget />
           <NotepadHeaderWidget />
           <SupportHeaderIcon />
