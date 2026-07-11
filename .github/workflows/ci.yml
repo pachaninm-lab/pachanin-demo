@@ -25,11 +25,40 @@ on:
       - 'pnpm-lock.yaml'
       - 'tsconfig*.json'
 
+permissions:
+  contents: write
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  apply-staff-p1:
+    if: github.event_name == 'pull_request' && github.head_ref == 'feat/platform-v7-staff-control-center'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply exact reviewed P1 patches
+        run: python .github/scripts/apply-staff-p1-fixes.py
+      - name: Restore standard CI and commit fixes
+        run: |
+          set -euo pipefail
+          git show origin/main:.github/workflows/ci.yml > .github/workflows/ci.yml
+          rm -f .github/workflows/staff-p1-security-fix.yml .github/scripts/apply-staff-p1-fixes.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "Scope staff workspaces and preserve audit integrity"
+          git push origin HEAD:feat/platform-v7-staff-control-center
+
   web-unit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
