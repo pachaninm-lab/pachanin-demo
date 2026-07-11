@@ -9,7 +9,8 @@ const loginRoute = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/api/au
 describe('platform-v7 server-authoritative login handoff', () => {
   it('server-renders the entry shell without reading a browser-selected role', () => {
     expect(loginPage).not.toContain("'use client'");
-    expect(loginPage).toContain('<LoginFormClient copy={copy} />');
+    expect(loginPage).toContain('getPublicLoginCopy(locale)');
+    expect(loginPage).toContain('<LoginFormClient copy={form} />');
     expect(loginClient).not.toContain('URLSearchParams');
     expect(loginClient).not.toContain('sessionStorage');
     expect(loginClient).not.toContain('localStorage');
