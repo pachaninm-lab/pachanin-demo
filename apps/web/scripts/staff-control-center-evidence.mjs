@@ -69,15 +69,20 @@ for (const project of projects) {
     const pageErrors = [];
     const failedRequests = [];
     const badResponses = [];
-    page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        const location = message.location();
+        consoleErrors.push({ text: message.text(), url: location?.url || null, line: location?.lineNumber ?? null });
+      }
+    });
     page.on('pageerror', (error) => pageErrors.push(String(error?.stack || error)));
     page.on('requestfailed', (request) => {
       const errorText = request.failure()?.errorText || 'unknown';
-      if (!errorText.includes('ERR_ABORTED')) failedRequests.push({ url: request.url(), errorText });
+      if (!errorText.includes('ERR_ABORTED')) failedRequests.push({ url: request.url(), method: request.method(), errorText });
     });
     page.on('response', (response) => {
       if (response.url().startsWith(baseURL) && response.status() >= 400 && !response.url().includes('/favicon')) {
-        badResponses.push({ url: response.url(), status: response.status() });
+        badResponses.push({ url: response.url(), method: response.request().method(), status: response.status() });
       }
     });
 
@@ -159,10 +164,22 @@ for (const project of projects) {
     const controlAfterExit = (await context.cookies()).find((cookie) => cookie.name === 'pc_staff_control_session');
     assert(controlAfterExit?.httpOnly === true, `${project.name}/${locale}: control session was lost after VIEW_AS exit`);
 
-    assert(consoleErrors.length === 0, `${project.name}/${locale}: console errors ${JSON.stringify(consoleErrors)}`);
-    assert(pageErrors.length === 0, `${project.name}/${locale}: page errors ${JSON.stringify(pageErrors)}`);
-    assert(failedRequests.length === 0, `${project.name}/${locale}: failed requests ${JSON.stringify(failedRequests)}`);
-    assert(badResponses.length === 0, `${project.name}/${locale}: bad responses ${JSON.stringify(badResponses)}`);
+    const diagnostics = {
+      project: project.name,
+      locale,
+      consoleErrors,
+      pageErrors,
+      failedRequests,
+      badResponses,
+    };
+    fs.writeFileSync(
+      path.join(artifactDir, `${project.name}-${locale}-diagnostics.json`),
+      JSON.stringify(diagnostics, null, 2),
+    );
+    assert(
+      consoleErrors.length === 0 && pageErrors.length === 0 && failedRequests.length === 0 && badResponses.length === 0,
+      `${project.name}/${locale}: browser diagnostics ${JSON.stringify(diagnostics)}`,
+    );
 
     report.cases.push({
       project: project.name,
