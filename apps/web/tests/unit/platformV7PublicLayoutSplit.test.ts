@@ -83,6 +83,15 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(rootLayout).not.toContain("className={`notranslate ${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}");
   });
 
+  it('keeps the landing route free of the lucide client module graph', () => {
+    expect(landing).not.toContain("from 'lucide-react'");
+    expect(intelligenceStrip).not.toContain("from 'lucide-react'");
+    expect(publicLocaleLink).not.toContain("from 'lucide-react'");
+    expect(landing).toContain('function EntryGlyph');
+    expect(intelligenceStrip).toContain("const glyphs = ['✓', '→', '₽']");
+    expect(publicLocaleLink).toContain("<b aria-hidden='true'>文</b>");
+  });
+
   it('keeps protected providers and shell in a protected-only runtime', () => {
     expect(protectedRuntime).toContain('<ToastProvider>');
     expect(protectedRuntime).toContain('<PlatformThemeSync />');
