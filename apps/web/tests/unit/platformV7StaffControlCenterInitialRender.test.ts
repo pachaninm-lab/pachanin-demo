@@ -6,7 +6,9 @@ function source(path: string) {
   return readFileSync(resolve(process.cwd(), path), 'utf8');
 }
 
+const page = source('app/platform-v7/staff/page.tsx');
 const control = source('components/platform-v7/staff/StaffControlCenter.tsx');
+const deferred = source('components/platform-v7/staff/StaffOperationalWorkspacesDeferred.tsx');
 const workspaces = source('components/platform-v7/staff/StaffOperationalWorkspaces.tsx');
 const css = source('components/platform-v7/staff/StaffControlCenter.module.css');
 
@@ -18,6 +20,15 @@ describe('Staff Control Center initial render stability', () => {
     expect(control).toContain("document.documentElement.dataset.staffControlReady = 'true'");
     expect(control).toContain("pc:staff-control-ready");
     expect(css).toContain('.loadingCard { margin-top: 18px; }');
+  });
+
+  it('keeps privileged workspace code and CSS outside the critical server render', () => {
+    expect(page).toContain('<StaffOperationalWorkspacesDeferred');
+    expect(page).not.toContain("from '@/components/platform-v7/staff/StaffOperationalWorkspaces'");
+    expect(deferred).toContain("dynamic(");
+    expect(deferred).toContain("import('./StaffOperationalWorkspaces')");
+    expect(deferred).toContain('{ ssr: false }');
+    expect(deferred).toContain('if (!ready) return null');
   });
 
   it('does not insert operational workspaces before the control plane first render settles', () => {
