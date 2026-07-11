@@ -6,8 +6,7 @@ export const PUBLIC_SITE_HEADER_HEIGHT = 64;
 
 /**
  * Single canonical public header shared by every public platform-v7 surface.
- * Server-rendered pages may inject a plain locale link and avoid a client i18n
- * boundary. Interactive legacy public pages retain the canonical client switch.
+ * The mobile menu is native HTML and requires no client hydration.
  */
 export function PublicSiteHeader({
   tagline,
@@ -15,24 +14,41 @@ export function PublicSiteHeader({
   localeControl,
   actions,
   ariaLabel = 'Шапка сайта',
+  brandHomeLabel = 'Прозрачная Цена — на главную',
+  navLabel = 'Разделы',
+  menuLabel = 'Открыть меню',
 }: {
   tagline?: string;
   nav?: ReactNode;
   localeControl?: ReactNode;
   actions: ReactNode;
   ariaLabel?: string;
+  brandHomeLabel?: string;
+  navLabel?: string;
+  menuLabel?: string;
 }) {
   return (
     <header className='pc-site-header' aria-label={ariaLabel}>
-      <a href='/platform-v7' className='pc-site-brand' aria-label='Прозрачная Цена — на главную'>
+      <a href='/platform-v7' className='pc-site-brand' aria-label={brandHomeLabel}>
         <span className='pc-site-brand-mark'><BrandMark size={40} /></span>
         <span className='pc-site-brand-text'>
           <strong>Прозрачная Цена</strong>
           {tagline ? <small>{tagline}</small> : null}
         </span>
       </a>
-      {nav ? <nav className='pc-site-nav' aria-label='Разделы'>{nav}</nav> : null}
+
+      {nav ? <nav className='pc-site-nav' aria-label={navLabel}>{nav}</nav> : null}
+
       <div className='pc-site-actions'>
+        {nav ? (
+          <details className='pc-site-mobile-menu'>
+            <summary aria-label={menuLabel} title={menuLabel}>
+              <span aria-hidden='true' className='pc-site-menu-glyph'><i /><i /><i /></span>
+              <span className='pc-visually-hidden'>{menuLabel}</span>
+            </summary>
+            <nav className='pc-site-mobile-nav' aria-label={navLabel}>{nav}</nav>
+          </details>
+        ) : null}
         {localeControl ?? <PublicLocaleSwitch />}
         {actions}
       </div>
