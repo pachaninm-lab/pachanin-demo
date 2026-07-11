@@ -117,7 +117,12 @@ export class StaffAccessRepository {
     `);
   }
 
-  async getAssignment(client: StaffSqlClient, id: string, userId?: string, forUpdate = false): Promise<StaffAssignmentRow | null> {
+  async getAssignment(
+    client: StaffSqlClient,
+    id: string,
+    userId?: string,
+    forUpdate = false,
+  ): Promise<StaffAssignmentRow | null> {
     const userFilter = userId ? Prisma.sql` AND user_id = ${userId}` : Prisma.empty;
     const lock = forUpdate ? Prisma.sql` FOR UPDATE` : Prisma.empty;
     const rows = await client.$queryRaw<StaffAssignmentRow[]>(Prisma.sql`
@@ -178,7 +183,11 @@ export class StaffAccessRepository {
     `);
   }
 
-  async getAccessRequest(client: StaffSqlClient, id: string, forUpdate = false): Promise<StaffAccessRequestRow | null> {
+  async getAccessRequest(
+    client: StaffSqlClient,
+    id: string,
+    forUpdate = false,
+  ): Promise<StaffAccessRequestRow | null> {
     const lock = forUpdate ? Prisma.sql` FOR UPDATE` : Prisma.empty;
     const rows = await client.$queryRaw<StaffAccessRequestRow[]>(Prisma.sql`
       SELECT * FROM auth.staff_access_requests WHERE id = ${id}${lock}
@@ -186,7 +195,11 @@ export class StaffAccessRepository {
     return rows[0] ?? null;
   }
 
-  listAccessRequests(client: StaffSqlClient, userId: string, canReadAll: boolean): Promise<StaffAccessRequestRow[]> {
+  listAccessRequests(
+    client: StaffSqlClient,
+    userId: string,
+    canReadAll: boolean,
+  ): Promise<StaffAccessRequestRow[]> {
     const filter = canReadAll ? Prisma.empty : Prisma.sql` WHERE requester_user_id = ${userId}`;
     return client.$queryRaw<StaffAccessRequestRow[]>(Prisma.sql`
       SELECT * FROM auth.staff_access_requests${filter}
@@ -227,9 +240,9 @@ export class StaffAccessRepository {
     const changed = await client.$executeRaw(Prisma.sql`
       UPDATE auth.staff_access_requests
       SET status = ${input.status},
-          decided_by_user_id = ${input.actorUserId ?? null},
+          decided_by_user_id = COALESCE(${input.actorUserId ?? null}, decided_by_user_id),
           decided_at = CASE WHEN ${input.status} IN ('APPROVED', 'DENIED') THEN NOW() ELSE decided_at END,
-          decision_reason = ${input.reason ?? null},
+          decision_reason = COALESCE(${input.reason ?? null}, decision_reason),
           version = version + 1,
           updated_at = NOW()
       WHERE id = ${input.id}
@@ -258,7 +271,12 @@ export class StaffAccessRepository {
     `);
   }
 
-  async getGrant(client: StaffSqlClient, id: string, userId?: string, forUpdate = false): Promise<StaffGrantRow | null> {
+  async getGrant(
+    client: StaffSqlClient,
+    id: string,
+    userId?: string,
+    forUpdate = false,
+  ): Promise<StaffGrantRow | null> {
     const userFilter = userId ? Prisma.sql` AND g.grantee_user_id = ${userId}` : Prisma.empty;
     const lock = forUpdate ? Prisma.sql` FOR UPDATE OF g` : Prisma.empty;
     const rows = await client.$queryRaw<StaffGrantRow[]>(Prisma.sql`
@@ -298,7 +316,12 @@ export class StaffAccessRepository {
     `);
   }
 
-  async getAccessSessionByHash(client: StaffSqlClient, tokenHash: string, actorUserId: string, forUpdate = false): Promise<StaffSessionRow | null> {
+  async getAccessSessionByHash(
+    client: StaffSqlClient,
+    tokenHash: string,
+    actorUserId: string,
+    forUpdate = false,
+  ): Promise<StaffSessionRow | null> {
     const lock = forUpdate ? Prisma.sql` FOR UPDATE OF s` : Prisma.empty;
     const rows = await client.$queryRaw<StaffSessionRow[]>(Prisma.sql`
       SELECT
@@ -322,7 +345,12 @@ export class StaffAccessRepository {
     `);
   }
 
-  async endAccessSession(client: StaffSqlClient, id: string, actorUserId: string, reason: string): Promise<boolean> {
+  async endAccessSession(
+    client: StaffSqlClient,
+    id: string,
+    actorUserId: string,
+    reason: string,
+  ): Promise<boolean> {
     const changed = await client.$executeRaw(Prisma.sql`
       UPDATE auth.staff_access_sessions
       SET status = 'ENDED', ended_at = NOW(), end_reason = ${reason}, updated_at = NOW()
@@ -363,7 +391,12 @@ export class StaffAccessRepository {
     `);
   }
 
-  async endBreakGlass(client: StaffSqlClient, id: string, actorUserId: string, reason: string): Promise<boolean> {
+  async endBreakGlass(
+    client: StaffSqlClient,
+    id: string,
+    actorUserId: string,
+    reason: string,
+  ): Promise<boolean> {
     const changed = await client.$executeRaw(Prisma.sql`
       UPDATE auth.break_glass_activations
       SET status = 'ENDED', ended_at = NOW(), end_reason = ${reason}, updated_at = NOW()
@@ -397,7 +430,11 @@ export class StaffAccessRepository {
     `);
   }
 
-  async getCriticalAction(client: StaffSqlClient, id: string, forUpdate = false): Promise<CriticalActionRow | null> {
+  async getCriticalAction(
+    client: StaffSqlClient,
+    id: string,
+    forUpdate = false,
+  ): Promise<CriticalActionRow | null> {
     const lock = forUpdate ? Prisma.sql` FOR UPDATE` : Prisma.empty;
     const rows = await client.$queryRaw<CriticalActionRow[]>(Prisma.sql`
       SELECT * FROM auth.staff_critical_action_requests WHERE id = ${id}${lock}
@@ -430,16 +467,24 @@ export class StaffAccessRepository {
     return Number(rows[0]?.count ?? 0n);
   }
 
-  async markCriticalAction(client: StaffSqlClient, id: string, status: string, consumed = false): Promise<boolean> {
+  async markCriticalAction(
+    client: StaffSqlClient,
+    id: string,
+    status: string,
+    consumed = false,
+  ): Promise<boolean> {
     const changed = await client.$executeRaw(Prisma.sql`
       UPDATE auth.staff_critical_action_requests
-      SET status = ${status}, consumed_at = CASE WHEN ${consumed} THEN NOW() ELSE consumed_at END, updated_at = NOW()
+      SET status = ${status},
+          consumed_at = CASE WHEN ${consumed} THEN NOW() ELSE consumed_at END,
+          updated_at = NOW()
       WHERE id = ${id} AND status IN ('PENDING', 'APPROVED')
     `);
     return changed === 1;
   }
 
   async latestEventHash(client: StaffSqlClient, actorUserId: string): Promise<string | null> {
+    await client.$executeRaw(Prisma.sql`SELECT auth.lock_staff_access_event_chain(${actorUserId})`);
     const rows = await client.$queryRaw<Array<{ hash: string }>>(Prisma.sql`
       SELECT hash FROM auth.staff_access_events
       WHERE actor_user_id = ${actorUserId}
