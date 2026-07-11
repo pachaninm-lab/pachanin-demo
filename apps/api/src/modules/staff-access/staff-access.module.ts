@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../../common/prisma/prisma.module';
+import { AuthModule } from '../auth/auth.module';
+import { AuthPrismaService } from '../auth/auth-prisma.service';
 import { StaffAccessController } from './staff-access.controller';
 import { StaffAccessGuard } from './staff-access.guard';
 import { StaffAccessRepository } from './staff-access.repository';
@@ -10,10 +11,14 @@ import { StaffDelegatedAccessGuard } from './staff-delegated-access.guard';
 import { StaffEmergencyService } from './staff-emergency.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [AuthModule],
   controllers: [StaffAccessController],
   providers: [
-    StaffAccessRepository,
+    {
+      provide: StaffAccessRepository,
+      inject: [AuthPrismaService],
+      useFactory: (prisma: AuthPrismaService) => new StaffAccessRepository(prisma),
+    },
     StaffAccessService,
     StaffAssignmentService,
     StaffAuditService,
