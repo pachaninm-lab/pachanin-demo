@@ -3,7 +3,7 @@ import type { AppLocale } from './locale';
 const ru = {
   pageTitle: 'Центр управления доступом',
   eyebrow: 'Внутренний контур платформы',
-  description: 'Доступ сотрудников, поддержка пользователей и просмотр кабинетов управляются отдельными ограниченными сессиями. Постоянная роль сотрудника сама по себе не открывает данные клиента.',
+  description: 'Данные клиентов доступны только в ограниченной защищённой сессии.',
   maturity: 'Промышленный контур доступа. Боевые полномочия появляются только после подтверждённой серверной сессии, MFA и необходимых согласований.',
   loading: 'Загружаем защищённый контур…',
   retry: 'Повторить',
@@ -190,7 +190,7 @@ const ru = {
 const en: typeof ru = {
   pageTitle: 'Access Control Center',
   eyebrow: 'Internal platform control plane',
-  description: 'Staff access, user support and cabinet viewing use separate time-bound sessions. A permanent staff role never grants customer-data access by itself.',
+  description: 'Customer data is available only in a time-bound protected session.',
   maturity: 'Industrial access control plane. Operational authority exists only after a verified server session, MFA and required approvals.',
   loading: 'Loading the protected control plane…', retry: 'Retry', refresh: 'Refresh data',
   unavailableTitle: 'Control plane unavailable', unavailableBody: 'Server authentication or the staff API is not verified. Access is denied fail-closed.',
@@ -216,7 +216,7 @@ const en: typeof ru = {
 const zh: typeof ru = {
   pageTitle: '访问控制中心',
   eyebrow: '平台内部控制面',
-  description: '员工访问、用户支持和账户查看均使用独立的限时会话。永久员工角色本身不会授予客户数据访问权限。',
+  description: '客户数据仅在限时受保护会话中可用。',
   maturity: '工业级访问控制面。只有经过服务器验证的会话、MFA 和必要审批后，操作权限才会生效。',
   loading: '正在加载受保护的控制面…', retry: '重试', refresh: '刷新数据',
   unavailableTitle: '控制面不可用', unavailableBody: '服务器身份验证或员工 API 未确认。系统按 fail-closed 原则拒绝访问。',
