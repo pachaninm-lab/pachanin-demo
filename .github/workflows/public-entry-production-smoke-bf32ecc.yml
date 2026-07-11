@@ -38,7 +38,7 @@ jobs:
           done
       - name: Run Chromium WebKit RU EN ZH production smoke
         working-directory: apps/web
-        run: node scripts/public-entry-production-smoke-bf32ecc.mjs
+        run: node scripts/public-entry-production-smoke-bf32ecc-v2.mjs
       - name: Run mobile Lighthouse production gates
         working-directory: apps/web
         shell: bash
