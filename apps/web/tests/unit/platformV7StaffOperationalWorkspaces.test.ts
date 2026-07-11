@@ -13,6 +13,7 @@ const readWeb = (relativePath: string) => fs.readFileSync(path.join(webRoot, rel
 const readRepo = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const component = readWeb('components/platform-v7/staff/StaffOperationalWorkspaces.tsx');
+const supportCases = readWeb('components/platform-v7/staff/StaffSupportCaseWorkspace.tsx');
 const criticalForm = readWeb('components/platform-v7/staff/StaffCriticalActionRequestForm.tsx');
 const controlCenter = readWeb('components/platform-v7/staff/StaffControlCenter.tsx');
 const route = readWeb('app/api/staff/workspaces/[...path]/route.ts');
@@ -20,6 +21,10 @@ const messages = readWeb('i18n/staff-operational-workspace-messages.ts');
 const css = readWeb('components/platform-v7/staff/StaffOperationalWorkspaces.module.css');
 const controller = readRepo('apps/api/src/modules/staff-access/staff-workspace.controller.ts');
 const service = readRepo('apps/api/src/modules/staff-access/staff-workspace.service.ts');
+const supportService = readRepo('apps/api/src/modules/staff-access/staff-support.service.ts');
+const auditWriter = readRepo('apps/api/src/modules/staff-access/staff-audit-writer.service.ts');
+const auditInterceptor = readRepo('apps/api/src/modules/staff-access/staff-workspace-audit.interceptor.ts');
+const supportMigration = readRepo('apps/api/prisma/migrations/20260711110000_staff_support_cases/migration.sql');
 
 function expectBefore(source: string, first: string, second: string) {
   expect(source.indexOf(first)).toBeGreaterThanOrEqual(0);
@@ -68,7 +73,6 @@ describe('industrial staff operational workspaces', () => {
     expect(controller).toContain('@StaffPermissions(StaffPermission.STAFF_SESSION_READ)');
   });
 
-
   it('exposes registered critical requests to requesters and independent approvers only', () => {
     expect(component).toContain("can('critical-action:request') || can('critical-action:approve')");
     expect(component).toContain("'/api/staff/workspaces/critical-actions/mine'");
@@ -78,6 +82,34 @@ describe('industrial staff operational workspaces', () => {
     expect(criticalForm).not.toContain("'payment:release'");
     expect(controller).toContain("@Get('critical-actions/mine')");
     expect(service).toContain('async ownCriticalActions');
+  });
+
+  it('implements durable support cases with idempotency, optimistic concurrency and explicit recovery status', () => {
+    expect(component).toContain('StaffSupportCaseWorkspace');
+    expect(supportCases).toContain("permissions.includes('support-case:update')");
+    expect(supportCases).toContain("permissions.includes('user:session:revoke')");
+    expect(supportCases).toContain("permissions.includes('user:access-recovery:initiate')");
+    expect(supportCases).toContain('expectedVersion: Number(item.version)');
+    expect(supportCases).toContain('PENDING_DELIVERY');
+    expect(supportCases).not.toContain('Math.random');
+    expect(supportMigration).toContain('UNIQUE (tenant_id, idempotency_key)');
+    expect(supportMigration).toContain('version INTEGER NOT NULL DEFAULT 1');
+    expect(supportMigration).toContain('support.case_events is append-only');
+    expect(supportMigration).toContain('BEFORE TRUNCATE ON support.case_events');
+    expect(supportMigration).toContain('REFERENCES public.users(id)');
+    expect(supportService).toContain('ON CONFLICT (tenant_id, idempotency_key) DO NOTHING');
+    expect(supportService).toContain('WHERE id = ${caseId} AND version = ${input.expectedVersion}');
+    expect(supportService).toContain("deliveryStatus: 'PENDING_DELIVERY'");
+  });
+
+  it('writes successful staff workspace reads and mutations to the awaited hash chain', () => {
+    expect(controller).toContain('@UseInterceptors(StaffWorkspaceAuditInterceptor)');
+    expect(auditInterceptor).toContain('from(this.record(request).then(() => result))');
+    expect(auditInterceptor).toContain("action: `staff.workspace.${method === 'GET' ? 'read' : 'mutate'}`");
+    expect(auditWriter).toContain('async recordInTransaction');
+    expect(auditWriter).toContain('latestEventHash(client, actor.id)');
+    expect(auditWriter).toContain('insertEvent(client');
+    expect(supportService).toContain('audit.recordInTransaction(tx, actor, access');
   });
 
   it('keeps UI permission presets aligned with the backend StaffPermission vocabulary', () => {
@@ -92,7 +124,7 @@ describe('industrial staff operational workspaces', () => {
     ]) expect(controlCenter).not.toContain(obsolete);
   });
 
-  it('keeps the BFF fail-closed and never exposes the opaque staff token', () => {
+  it('keeps the BFF fail-closed and allows only registered support endpoints', () => {
     expect(route).toContain("const STAFF_ACCESS_COOKIE = 'pc_staff_access_token'");
     expect(route).toContain("const accessToken = request.cookies.get(ACCESS_COOKIE)?.value");
     expect(route).toContain("const staffToken = request.cookies.get(STAFF_ACCESS_COOKIE)?.value");
@@ -101,6 +133,12 @@ describe('industrial staff operational workspaces', () => {
     expect(route).toContain("redirect: 'manual'");
     expect(route).toContain('MAX_BODY_BYTES');
     expect(route).toContain('assertCsrf(request)');
+    for (const pattern of [
+      '^support\\/cases$',
+      '^support\\/cases\\/[^/]+\\/transition$',
+      '^support\\/users\\/[^/]+\\/revoke-sessions$',
+      '^support\\/users\\/[^/]+\\/recovery$',
+    ]) expect(route).toContain(pattern);
     expectBefore(route, 'if (!accessToken || !staffToken)', 'fetch(`${apiOrigin}/staff/workspaces/');
   });
 
@@ -109,9 +147,11 @@ describe('industrial staff operational workspaces', () => {
       expect(controller).toContain(`('${routeName}')`);
     }
     for (const permission of [
-      'StaffPermission.SUPPORT_CASE_READ', 'StaffPermission.DEAL_LIST',
-      'StaffPermission.PAYMENT_METADATA_READ', 'StaffPermission.DIAGNOSTIC_READ',
-      'StaffPermission.CRITICAL_ACTION_APPROVE', 'StaffPermission.STAFF_ASSIGNMENT_READ',
+      'StaffPermission.SUPPORT_CASE_READ', 'StaffPermission.SUPPORT_CASE_UPDATE',
+      'StaffPermission.USER_SESSION_REVOKE', 'StaffPermission.USER_ACCESS_RECOVERY_INITIATE',
+      'StaffPermission.DEAL_LIST', 'StaffPermission.PAYMENT_METADATA_READ',
+      'StaffPermission.DIAGNOSTIC_READ', 'StaffPermission.CRITICAL_ACTION_APPROVE',
+      'StaffPermission.STAFF_ASSIGNMENT_READ',
     ]) expect(controller).toContain(permission);
     expect(controller).toContain('@UseGuards(StaffAccessGuard)');
     expect(controller).toContain('this.requireAccessContext(request)');
@@ -137,6 +177,9 @@ describe('industrial staff operational workspaces', () => {
     expect(messages).toContain('Рабочие контуры платформы');
     expect(messages).toContain('Platform staff workspaces');
     expect(messages).toContain('平台员工工作台');
+    expect(supportCases).toContain('Обращения поддержки');
+    expect(supportCases).toContain('Support cases');
+    expect(supportCases).toContain('支持工单');
     expect(css).toContain('min-height:44px');
     expect(css).toContain('@media(prefers-reduced-motion:reduce)');
     expect(css).toContain('@media(forced-colors:active)');
