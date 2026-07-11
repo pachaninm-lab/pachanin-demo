@@ -1,0 +1,58 @@
+name: authorize complete staff control center scope
+
+on:
+  push:
+    branches:
+      - ops/authorize-staff-control-center-complete-scope
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Authorize exact concurrent implementation scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          state = json.loads(path.read_text())
+          scopes = state.setdefault('approvedConcurrentScopes', {})
+          scopes['feat/platform-v7-staff-control-center'] = [
+            'apps/api/prisma/migrations/20260711110000_staff_support_cases/**',
+            'apps/api/src/modules/staff-access/**',
+            'apps/api/test/staff-access/**',
+            'apps/web/app/api/staff/**',
+            'apps/web/app/platform-v7/staff/**',
+            'apps/web/components/platform-v7/staff/**',
+            'apps/web/components/platform-v7/StaffControlCenterEntry.tsx',
+            'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx',
+            'apps/web/i18n/staff-control-center-messages.ts',
+            'apps/web/i18n/staff-operational-workspace-messages.ts',
+            'apps/web/tests/unit/platformV7StaffControlCenter*.test.ts',
+            'apps/web/tests/unit/platformV7StaffOperationalWorkspaces.test.ts',
+            'docs/platform-v7/security/staff-access-control-plane.md',
+            'docs/platform-v7/security/staff-access-production-runbook.md',
+            'docs/platform-v7/autopilot/autopilot-state.json'
+          ]
+          path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + '\n')
+          PY
+      - name: Commit scope update
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/autopilot-state.json
+          git commit -m 'Authorize complete Staff Control Center implementation scope'
+          git push origin HEAD:feat/platform-v7-staff-control-center
