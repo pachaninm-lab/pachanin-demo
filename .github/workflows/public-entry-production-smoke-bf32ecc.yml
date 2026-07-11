@@ -1,0 +1,73 @@
+name: public entry production smoke bf32ecc
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  production-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PRODUCTION_BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      EXPECTED_PRODUCTION_COMMIT: bf32eccb27a1119e07000ada30cc471d343bbe46
+      EXPECTED_DEPLOY_ID: 6a51a3af86bae5000855ba47
+      ARTIFACT_DIR: ../../artifacts/public-entry-production-smoke-bf32ecc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Prove production routes are serving
+        shell: bash
+        run: |
+          set -euo pipefail
+          for route in /platform-v7 /platform-v7/login /platform-v7/forgot-password; do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$PRODUCTION_BASE_URL$route?lang=ru")
+            test "$status" = '200'
+          done
+      - name: Run Chromium WebKit RU EN ZH production smoke
+        working-directory: apps/web
+        run: node scripts/public-entry-production-smoke-bf32ecc.mjs
+      - name: Run mobile Lighthouse production gates
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          export CHROME_PATH="$(node -e "const { chromium } = require('@playwright/test'); process.stdout.write(chromium.executablePath())")"
+          for page in landing login recovery; do
+            case "$page" in
+              landing) route='/platform-v7?lang=ru' ;;
+              login) route='/platform-v7/login?lang=ru' ;;
+              recovery) route='/platform-v7/forgot-password?lang=ru' ;;
+            esac
+            npx --yes lighthouse@12.6.1 "$PRODUCTION_BASE_URL$route" \
+              --quiet \
+              --chrome-flags="--headless --no-sandbox --disable-gpu" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --form-factor=mobile \
+              --screenEmulation.mobile=true \
+              --throttling-method=simulate \
+              --output=json \
+              --output-path="$ARTIFACT_DIR/lighthouse-$page.json"
+          done
+          node scripts/public-entry-production-lighthouse-assert-bf32ecc.mjs
+      - name: Upload exact production evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-production-smoke-bf32ecc
+          path: artifacts/public-entry-production-smoke-bf32ecc
+          if-no-files-found: error
+          retention-days: 30
