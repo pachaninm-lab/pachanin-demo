@@ -12,6 +12,7 @@ import { StaffAuditWriterService } from './staff-audit-writer.service';
 import { StaffDelegatedAccessGuard } from './staff-delegated-access.guard';
 import { StaffEmergencyService } from './staff-emergency.service';
 import { StaffProjectionService } from './staff-projection.service';
+import { StaffSupportService } from './staff-support.service';
 import { StaffWorkspaceAuditInterceptor } from './staff-workspace-audit.interceptor';
 import { StaffWorkspaceController } from './staff-workspace.controller';
 import { StaffWorkspaceService } from './staff-workspace.service';
@@ -32,11 +33,18 @@ import { StaffWorkspaceService } from './staff-workspace.service';
     StaffAuditWriterService,
     StaffEmergencyService,
     StaffProjectionService,
+    StaffSupportService,
     StaffWorkspaceService,
     StaffWorkspaceAuditInterceptor,
     StaffAccessGuard,
     StaffDelegatedAccessGuard,
   ],
-  exports: [StaffAccessService, StaffAccessRepository, StaffWorkspaceService, StaffAuditWriterService],
+  exports: [
+    StaffAccessService,
+    StaffAccessRepository,
+    StaffSupportService,
+    StaffWorkspaceService,
+    StaffAuditWriterService,
+  ],
 })
 export class StaffAccessModule {}
