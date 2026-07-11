@@ -113,6 +113,7 @@ apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
 
 STAFF_ACCESS_FOUNDATION_SCOPE='apps/api/prisma/migrations/20260711100000_staff_access_control_plane/**
+apps/api/prisma/migrations/20260711101000_staff_assignment_mfa_enforcement/**
 apps/api/src/app.module.ts
 apps/api/src/common/guards/auth.guard.ts
 apps/api/src/common/guards/roles.guard.ts
