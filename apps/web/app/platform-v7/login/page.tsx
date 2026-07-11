@@ -6,6 +6,7 @@ import { LoginFormClient, type LoginCopy } from './LoginFormClient';
 
 export default async function LoginPage() {
   const t = await getTranslations('publicEntry.login');
+  const chrome = await getTranslations('publicEntry.chrome');
   const copy = {
     title: t('title'),
     mfaTitle: t('mfaTitle'),
@@ -13,8 +14,14 @@ export default async function LoginPage() {
     lead: t('lead'),
     mfaLead: t('mfaLead'),
     backupCodesLead: t('backupCodesLead'),
+    secureEyebrow: t('secureEyebrow'),
+    assuranceRole: t('assuranceRole'),
+    assuranceMfa: t('assuranceMfa'),
+    assuranceAudit: t('assuranceAudit'),
     required: t('required'),
+    invalidEmail: t('invalidEmail'),
     unavailable: t('unavailable'),
+    capsLock: t('capsLock'),
     mfaError: t('mfaError'),
     email: t('email'),
     emailPlaceholder: t('emailPlaceholder'),
@@ -41,10 +48,14 @@ export default async function LoginPage() {
   } satisfies LoginCopy;
 
   return (
-    <main className='pc-v7-public-entry pc-auth-page'>
+    <main id='main-content' className='pc-v7-public-entry pc-auth-page pc-auth-world-class'>
+      <a className='pc-skip-link' href='#pc-login-title'>{chrome('skipToContent')}</a>
       <PublicSiteHeader
         ariaLabel={t('publicNav')}
         tagline={t('brandTagline')}
+        brandHomeLabel={chrome('brandHomeLabel')}
+        navLabel={chrome('navLabel')}
+        menuLabel={chrome('menuLabel')}
         localeControl={<PublicLocaleLink />}
         actions={(
           <a className='pc-site-action' href='/platform-v7' aria-label={t('backHome')} title={t('backHome')}>
