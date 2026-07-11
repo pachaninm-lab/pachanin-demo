@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import type { AppLocale } from '@/i18n/locale';
 import type { StaffOperationalWorkspaceCopy } from '@/i18n/staff-operational-workspace-messages';
 import { StaffCriticalActionRequestForm } from './StaffCriticalActionRequestForm';
+import { StaffSupportCaseWorkspace } from './StaffSupportCaseWorkspace';
 import styles from './StaffOperationalWorkspaces.module.css';
 
 type SessionContext = { active: boolean; session: { accessSessionId: string; staffRole: string; accessMode: string; permissions: string[]; expiresAt: string } | null };
@@ -44,6 +45,7 @@ function date(value: unknown, locale: AppLocale) {
 }
 function array(value: unknown): ApiObject[] { return Array.isArray(value) ? value.filter((item): item is ApiObject => Boolean(item && typeof item === 'object')) : []; }
 function object(value: unknown): ApiObject { return value && typeof value === 'object' ? value as ApiObject : {}; }
+function uniqueStrings(values: unknown[]) { return [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))]; }
 
 export function StaffOperationalWorkspaces({ locale, copy }: Props) {
   const [context, setContext] = useState<SessionContext>({ active: false, session: null });
@@ -195,7 +197,27 @@ export function StaffOperationalWorkspaces({ locale, copy }: Props) {
             {availableTabs.map((item) => <button key={item} type="button" aria-current={tab === item ? 'page' : undefined} onClick={() => setTab(item)}>{copy.tabs[item]}</button>)}
           </nav>
           {loading ? <div className={styles.locked}><span className={styles.spinner} /> {copy.loading}</div> : null}
-          {!loading && tab === 'support' && <SupportPanel payload={object(data)} copy={copy} locale={locale} />}
+          {!loading && tab === 'support' && (() => {
+          const supportData = object(data);
+          const supportDeals = array(supportData.deals);
+          const supportTasks = array(supportData.kycTasks);
+          const organizationIds = uniqueStrings([
+            ...supportDeals.flatMap((row) => [object(row.seller).id, object(row.buyer).id]),
+            ...supportTasks.flatMap((row) => [row.organizationId, object(row.organization).id]),
+          ]);
+          const dealIds = uniqueStrings(supportDeals.map((row) => row.id));
+          return <>
+            <SupportPanel payload={supportData} copy={copy} locale={locale} />
+            <StaffSupportCaseWorkspace
+              locale={locale}
+              permissions={permissions}
+              suggestedOrganizationIds={organizationIds}
+              suggestedDealIds={dealIds}
+              onError={setError}
+              onNotice={setNotice}
+            />
+          </>;
+        })()}
           {!loading && tab === 'operations' && <OperationsPanel payload={object(data)} copy={copy} locale={locale} />}
           {!loading && tab === 'finance' && <FinancePanel payload={object(data)} copy={copy} locale={locale} />}
           {!loading && tab === 'diagnostics' && <DiagnosticsPanel payload={object(data)} copy={copy} locale={locale} />}
