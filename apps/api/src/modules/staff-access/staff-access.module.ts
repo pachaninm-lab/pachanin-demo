@@ -4,6 +4,7 @@ import { AuthPrismaService } from '../auth/auth-prisma.service';
 import { StaffAccessController } from './staff-access.controller';
 import { StaffAccessGuard } from './staff-access.guard';
 import { StaffAccessRepository } from './staff-access.repository';
+import { StaffAccessRequestService } from './staff-access-request.service';
 import { StaffAccessService } from './staff-access.service';
 import { StaffAssignmentService } from './staff-assignment.service';
 import { StaffAuditService } from './staff-audit.service';
@@ -21,6 +22,7 @@ import { StaffProjectionService } from './staff-projection.service';
       useFactory: (prisma: AuthPrismaService) => new StaffAccessRepository(prisma),
     },
     StaffAccessService,
+    StaffAccessRequestService,
     StaffAssignmentService,
     StaffAuditService,
     StaffEmergencyService,
