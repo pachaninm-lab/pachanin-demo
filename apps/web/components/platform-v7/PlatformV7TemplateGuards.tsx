@@ -66,11 +66,6 @@ function isAuthPath(pathname: string | null): boolean {
   return path === '/platform-v7/login' || path === '/platform-v7/forgot-password';
 }
 
-function isStaffPath(pathname: string | null): boolean {
-  const path = normalizePath(pathname);
-  return path === '/platform-v7/staff' || path.startsWith('/platform-v7/staff/');
-}
-
 function PublicOpenPlaceholderCleanup({ pathname }: { pathname: string | null }) {
   useEffect(() => {
     if (normalizePath(pathname) !== '/platform-v7/open') return;
@@ -102,14 +97,6 @@ export function PlatformV7TemplateGuards({ position }: { position: GuardPosition
   const publicPath = isPublicPath(pathname);
   const landingPath = isLandingPath(pathname);
   const authPath = isAuthPath(pathname);
-
-  // The privileged staff surface owns an isolated shell. Business cabinet role
-  // fixes, mobile navigation, support chat and view widgets must never enter it.
-  if (isStaffPath(pathname)) {
-    return position === 'before'
-      ? <><PlatformV7ViewportRuntimeGuard /><PlatformV7BlankScreenGuard /></>
-      : null;
-  }
 
   if (publicPath) {
     if (landingPath) {
