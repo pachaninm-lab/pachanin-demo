@@ -115,7 +115,8 @@
       "scripts/bootstrap-platform-owner.mjs",
       "scripts/bootstrap-platform-owner-auth.mjs",
       "scripts/platform-v7-one-deal-e2e.sh",
-      "docs/platform-v7/autopilot/autopilot-state.json"
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "apps/api/src/modules/auth/auth.module.ts"
     ]
   },
   "industrialOneDealFoundation": {
