@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 };
 
 const LANDING_PATH = '/platform-v7';
+const STAFF_PATH_PREFIX = '/platform-v7/staff';
 const AUTH_PATHS = new Set([
   '/platform-v7/login',
   '/platform-v7/forgot-password',
@@ -47,13 +48,17 @@ function isPublicPath(pathname: string) {
   return PUBLIC_EXACT_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
 }
 
+function isStaffPath(pathname: string) {
+  return pathname === STAFF_PATH_PREFIX || pathname.startsWith(`${STAFF_PATH_PREFIX}/`);
+}
+
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const pathname = normalizePath(headers().get('x-pc-pathname'));
 
-  // These routes own their minimal CSS in the concrete page/login layout. Keeping
-  // them out of the full runtime prevents protected cockpit CSS from entering the
-  // public critical path.
-  if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children;
+  // Public entry and the internal staff realm each own a dedicated shell. In
+  // particular, staff routes must never pass through business-role guards or
+  // derive an operator role from their URL.
+  if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname) || isStaffPath(pathname)) return children;
 
   const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
   if (isPublicPath(pathname)) {
