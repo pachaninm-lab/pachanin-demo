@@ -13,6 +13,7 @@ const readWeb = (relativePath: string) => fs.readFileSync(path.join(webRoot, rel
 const readRepo = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const component = readWeb('components/platform-v7/staff/StaffOperationalWorkspaces.tsx');
+const controlCenter = readWeb('components/platform-v7/staff/StaffControlCenter.tsx');
 const route = readWeb('app/api/staff/workspaces/[...path]/route.ts');
 const messages = readWeb('i18n/staff-operational-workspace-messages.ts');
 const css = readWeb('components/platform-v7/staff/StaffOperationalWorkspaces.module.css');
@@ -44,12 +45,24 @@ describe('industrial staff operational workspaces', () => {
     expect(component).not.toContain('searchParams.get(\'role\')');
   });
 
+  it('keeps UI permission presets aligned with the backend StaffPermission vocabulary', () => {
+    for (const permission of [
+      'staff-assignment:read', 'staff-assignment:write', 'support-case:read',
+      'deal:list', 'payment:metadata:read', 'diagnostic:read',
+      'critical-action:approve', 'break-glass:activate',
+    ]) expect(controlCenter).toContain(`'${permission}'`);
+    for (const obsolete of [
+      "'payment:read'", "'bank-event:read'", "'reconciliation:read'",
+      "'document:request'", "'manual-review:route'", "'incident:update'",
+    ]) expect(controlCenter).not.toContain(obsolete);
+  });
+
   it('keeps the BFF fail-closed and never exposes the opaque staff token', () => {
     expect(route).toContain("const STAFF_ACCESS_COOKIE = 'pc_staff_access_token'");
     expect(route).toContain("const accessToken = request.cookies.get(ACCESS_COOKIE)?.value");
     expect(route).toContain("const staffToken = request.cookies.get(STAFF_ACCESS_COOKIE)?.value");
     expect(route).toContain("'X-Staff-Access-Session': staffToken");
-    expect(route).toContain("delete payload.accessToken");
+    expect(route).toContain('delete payload.accessToken');
     expect(route).toContain("redirect: 'manual'");
     expect(route).toContain('MAX_BODY_BYTES');
     expect(route).toContain('assertCsrf(request)');
