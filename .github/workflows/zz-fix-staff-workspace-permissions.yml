@@ -1,0 +1,108 @@
+name: fix staff workspace permission gating
+
+on:
+  push:
+    branches:
+      - ops/fix-staff-workspace-permissions
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Align exact server and client permission gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          controller = Path('apps/api/src/modules/staff-access/staff-workspace.controller.ts')
+          text = controller.read_text()
+          old = """  @Post('break-glass/:id/end')
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE, StaffAccessMode.BREAK_GLASS)
+  @StaffPermissions(StaffPermission.BREAK_GLASS_ACTIVATE)
+"""
+          new = """  @Post('break-glass/:id/end')
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE, StaffAccessMode.BREAK_GLASS)
+  @StaffPermissions(StaffPermission.STAFF_SESSION_READ)
+"""
+          if old not in text:
+            raise SystemExit('controller break-glass permission block not found')
+          controller.write_text(text.replace(old, new, 1))
+
+          component = Path('apps/web/components/platform-v7/staff/StaffOperationalWorkspaces.tsx')
+          text = component.read_text()
+          old = "if (can('staff-session:read') || can('break-glass:activate')) rows.push('emergency');"
+          new = "if (can('staff-session:read')) rows.push('emergency');"
+          if old not in text:
+            raise SystemExit('emergency tab gate not found')
+          text = text.replace(old, new, 1)
+
+          old = """    try {
+      const payload = await api<ApiObject | ApiObject[]>(endpoint);
+      setData(payload);
+      if (tab === 'people' && can('user:list')) {
+        const orgs = await api<ApiObject[]>('/api/staff/organizations');
+        setOrganizations(Array.isArray(orgs) ? orgs : []);
+      }
+"""
+          new = """    try {
+      if (tab === 'people') {
+        const assignmentRows = can('staff-assignment:read')
+          ? await api<ApiObject[]>('/api/staff/workspaces/assignments')
+          : [];
+        setData(Array.isArray(assignmentRows) ? assignmentRows : []);
+        if (can('user:list')) {
+          const orgs = await api<ApiObject[]>('/api/staff/organizations');
+          setOrganizations(Array.isArray(orgs) ? orgs : []);
+        } else {
+          setOrganizations([]);
+        }
+        return;
+      }
+      const payload = await api<ApiObject | ApiObject[]>(endpoint);
+      setData(payload);
+"""
+          if old not in text:
+            raise SystemExit('people loader block not found')
+          component.write_text(text.replace(old, new, 1))
+
+          test = Path('apps/web/tests/unit/platformV7StaffOperationalWorkspaces.test.ts')
+          text = test.read_text()
+          anchor = """  it('derives every workspace from server-issued permissions instead of a client-selected role', () => {
+"""
+          addition = """  it('does not expose unusable people or emergency workspaces outside the exact active-session permission', () => {
+    expect(component).toContain("if (can('staff-session:read')) rows.push('emergency')");
+    expect(component).not.toContain("can('staff-session:read') || can('break-glass:activate')");
+    expect(component).toContain("can('staff-assignment:read')");
+    expect(component).toContain("? await api<ApiObject[]>('/api/staff/workspaces/assignments')");
+    expect(controller).toContain("@StaffPermissions(StaffPermission.STAFF_SESSION_READ)");
+  });
+
+"""
+          if anchor not in text:
+            raise SystemExit('test anchor not found')
+          test.write_text(text.replace(anchor, addition + anchor, 1))
+          PY
+      - name: Commit permission alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'Already aligned'
+            exit 0
+          fi
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/api/src/modules/staff-access/staff-workspace.controller.ts \
+            apps/web/components/platform-v7/staff/StaffOperationalWorkspaces.tsx \
+            apps/web/tests/unit/platformV7StaffOperationalWorkspaces.test.ts
+          git commit -m 'Align staff workspace permissions with server authority'
+          git push origin HEAD:feat/platform-v7-staff-control-center
