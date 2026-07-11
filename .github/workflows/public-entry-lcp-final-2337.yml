@@ -1,0 +1,115 @@
+name: public entry final evidence 2337
+
+on:
+  pull_request:
+    branches:
+      - fix/public-entry-lcp-css-boundary
+
+permissions:
+  contents: read
+
+jobs:
+  browser-lighthouse-hosting:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      LOCAL_BASE_URL: http://127.0.0.1:3000
+      NETLIFY_PREVIEW_URL: https://6a5189931b2da2000790d59e--vermillion-kitsune-0e7b97.netlify.app
+      ARTIFACT_DIR: ../../artifacts/public-entry-lcp-evidence-2337/local-production
+      NETLIFY_ARTIFACT_DIR: ../../artifacts/public-entry-lcp-evidence-2337/netlify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Build production web
+        working-directory: apps/web
+        run: pnpm build
+
+      - name: Run browser, hydration, MFA, recovery and Lighthouse gates
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -uo pipefail
+          OUT='../../artifacts/public-entry-lcp-evidence-2337/local-production'
+          mkdir -p "$OUT/lighthouse" "$OUT/html"
+          find .next/static/css -type f -printf '%f %s\n' | sort -k2 -n > "$OUT/css-assets.txt"
+          pnpm exec playwright --version > "$OUT/playwright-version.txt" 2>&1 || true
+          node -e "const {chromium,webkit}=require('@playwright/test'); console.log(JSON.stringify({chromium:chromium.executablePath(),webkit:webkit.executablePath()},null,2))" > "$OUT/browser-paths.json"
+
+          pnpm start > /tmp/platform-v7-final-evidence.log 2>&1 &
+          APP_PID=$!
+          cleanup() {
+            cp /tmp/platform-v7-final-evidence.log "$OUT/production-server.log" 2>/dev/null || true
+            kill "$APP_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --show-error --fail --max-time 5 "$LOCAL_BASE_URL/platform-v7?lang=ru" >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/platform-v7-final-evidence.log | tee "$OUT/readiness-failure.log"
+            exit 1
+          fi
+
+          for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
+            safe_name="${route//\//-}"
+            curl --silent --show-error --dump-header "$OUT/html/${safe_name}.headers" --output "$OUT/html/${safe_name}.html" "$LOCAL_BASE_URL/${route}?lang=ru" || true
+            grep -oE '/_next/static/css/[^"? ]+' "$OUT/html/${safe_name}.html" | sort -u > "$OUT/html/${safe_name}.css-links.txt" || true
+          done
+
+          set +e
+          PLAYWRIGHT_BASE_URL="$LOCAL_BASE_URL" node --trace-uncaught scripts/public-entry-lcp-evidence-2337.mjs 2>&1 | tee "$OUT/browser-script.log"
+          BROWSER_STATUS=${PIPESTATUS[0]}
+
+          CHROME_BIN="$(node -e "console.log(require('@playwright/test').chromium.executablePath())")"
+          export CHROME_PATH="$CHROME_BIN"
+          LIGHTHOUSE_COMMAND_STATUS=0
+          for route in platform-v7 platform-v7/login platform-v7/forgot-password; do
+            safe_name="${route//\//-}"
+            npx -y lighthouse@12.8.2 "$LOCAL_BASE_URL/${route}?lang=ru" \
+              --quiet \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --output=json \
+              --output-path="$OUT/lighthouse/${safe_name}.json" 2>&1 | tee -a "$OUT/lighthouse-run.log"
+            STATUS=${PIPESTATUS[0]}
+            if [ "$STATUS" -ne 0 ]; then LIGHTHOUSE_COMMAND_STATUS=1; fi
+          done
+
+          LIGHTHOUSE_DIR="$OUT/lighthouse" node scripts/public-entry-lighthouse-gate-2337.mjs 2>&1 | tee "$OUT/lighthouse-summary.log"
+          LIGHTHOUSE_GATE_STATUS=${PIPESTATUS[0]}
+          set -e
+
+          printf '{"browserStatus":%s,"lighthouseCommandStatus":%s,"lighthouseGateStatus":%s}\n' "$BROWSER_STATUS" "$LIGHTHOUSE_COMMAND_STATUS" "$LIGHTHOUSE_GATE_STATUS" > "$OUT/gate-status.json"
+          if [ "$BROWSER_STATUS" -ne 0 ] || [ "$LIGHTHOUSE_COMMAND_STATUS" -ne 0 ] || [ "$LIGHTHOUSE_GATE_STATUS" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Run immutable Netlify hosting smoke
+        if: always()
+        working-directory: apps/web
+        env:
+          NETLIFY_PREVIEW_URL: ${{ env.NETLIFY_PREVIEW_URL }}
+        run: node scripts/public-entry-netlify-evidence-2337.mjs
+
+      - name: Upload final evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-final-evidence-2337
+          path: artifacts/public-entry-lcp-evidence-2337
+          if-no-files-found: error
+          retention-days: 14
