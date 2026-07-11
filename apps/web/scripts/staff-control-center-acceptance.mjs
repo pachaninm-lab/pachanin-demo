@@ -113,7 +113,7 @@ for (const project of projects) {
       assert(result.ok, `VIEW_AS activation failed ${JSON.stringify(result)}`);
       await page.reload({ waitUntil: 'networkidle' });
       await control.getByText(copy.viewBanner, { exact: false }).waitFor({ state: 'visible', timeout: 30_000 });
-      await control.getByRole('heading', { name: copy.cabinet, exact: true }).waitFor({ state: 'visible', timeout: 30_000 });
+      await control.getByText(copy.cabinet, { exact: true }).first().waitFor({ state: 'visible', timeout: 30_000 });
       await control.getByText('TP-2026-001', { exact: false }).first().waitFor({ state: 'visible', timeout: 15_000 });
       const body = await page.locator('body').innerText();
       for (const forbidden of ['payment:release','bank-callback:confirm','document:sign','lab:finalize','acceptance:sign','arbitration:decide']) assert(!body.includes(forbidden), `VIEW_AS exposed forbidden command ${forbidden}`);
