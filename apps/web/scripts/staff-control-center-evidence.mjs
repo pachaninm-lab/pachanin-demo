@@ -21,11 +21,25 @@ function jwt() {
   return `${header}.${payload}.${signature}`;
 }
 
-const cookieNames = [
-  'pc_access_token', 'pc-access-token', 'pc_v7_access', 'pc-v7-access',
-  'platform_v7_access', 'platform-v7-access', 'access_token', 'accessToken',
-  'pc_session', 'pc-v7-session', 'pc_v7_session', 'platform_v7_session',
-];
+function authenticatedCookies(token) {
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  return [
+    {
+      name: 'pc_access_token',
+      value: token,
+      url: baseURL,
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+    {
+      name: 'pc_session_present',
+      value: encodeURIComponent(JSON.stringify({ role: 'operator', exp, email: 'owner-evidence@example.test' })),
+      url: baseURL,
+      httpOnly: false,
+      sameSite: 'Lax',
+    },
+  ];
+}
 
 const projects = [
   { name: 'chromium-desktop', type: chromium, viewport: { width: 1440, height: 1000 }, mobile: false },
@@ -48,14 +62,7 @@ for (const project of projects) {
       hasTouch: project.hasTouch,
       locale: locale === 'ru' ? 'ru-RU' : locale === 'zh' ? 'zh-CN' : 'en-US',
     });
-    const token = jwt();
-    await context.addCookies(cookieNames.map((name) => ({
-      name,
-      value: token,
-      url: baseURL,
-      httpOnly: true,
-      sameSite: 'Strict',
-    })));
+    await context.addCookies(authenticatedCookies(jwt()));
 
     const page = await context.newPage();
     const consoleErrors = [];
