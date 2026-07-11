@@ -33,6 +33,6 @@ import { StaffWorkspaceService } from './staff-workspace.service';
     StaffAccessGuard,
     StaffDelegatedAccessGuard,
   ],
-  exports: [StaffAccessService, StaffAccessRepository],
+  exports: [StaffAccessService, StaffAccessRepository, StaffWorkspaceService],
 })
 export class StaffAccessModule {}
