@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { BrandMark } from '@/components/v7r/BrandMark';
 import type { AppLocale } from '@/i18n/locale';
+import { StaffShellRuntime } from './StaffShellRuntime';
 import styles from './StaffPlatformShell.module.css';
 
 const COPY: Record<AppLocale, {
@@ -45,6 +46,7 @@ export function StaffPlatformShell({ locale, children }: { locale: AppLocale; ch
 
   return (
     <div className={styles.shell} data-staff-platform-shell data-locale={locale}>
+      <StaffShellRuntime />
       <a className={styles.skip} href="#staff-control-center-content">{copy.skip}</a>
       <header className={styles.header}>
         <Link href="/platform-v7" className={styles.brand} aria-label="Прозрачная Цена">
