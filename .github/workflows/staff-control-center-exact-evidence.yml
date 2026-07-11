@@ -1,0 +1,152 @@
+name: Staff Control Center exact evidence
+
+on:
+  pull_request:
+    branches:
+      - feat/platform-v7-staff-control-center
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      API_URL: http://127.0.0.1:4010
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      STAFF_EVIDENCE_BASE_URL: http://127.0.0.1:3000
+      ARTIFACT_DIR: ../../artifacts/staff-control-center-acceptance-final
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Generate ephemeral acceptance secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "AUTH_TOKEN_PEPPER=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "MFA_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck exact API and web source
+        run: |
+          pnpm --filter @pc/api run typecheck
+          pnpm --filter @pc/web run typecheck
+      - name: Build production web bundle
+        run: pnpm --filter @pc/web run build
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Start deterministic API and production bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/web
+          node scripts/staff-control-center-acceptance-mock.mjs > /tmp/staff-final-mock.log 2>&1 &
+          echo $! > /tmp/staff-final-mock.pid
+          NODE_ENV=development pnpm start > /tmp/staff-final-web.log 2>&1 &
+          echo $! > /tmp/staff-final-web.pid
+          for attempt in $(seq 1 90); do
+            api_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4010/auth/me || true)
+            web_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/platform-v7 || true)
+            if [ "$api_status" = '401' ] && [ "$web_status" = '200' ]; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/staff-final-mock.log || true
+          cat /tmp/staff-final-web.log || true
+          exit 1
+      - name: Run Chromium WebKit RU EN ZH and VIEW_AS matrix
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          node scripts/staff-control-center-acceptance.mjs 2>&1 | tee "$ARTIFACT_DIR/browser-matrix.log"
+      - name: Create protected Lighthouse session
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const base = 'http://127.0.0.1:3000';
+          const baseCookie = 'pc_access_token=evidence-access-token; pc_csrf_token=evidence-csrf-token';
+          async function post(path, body, cookie) {
+            return fetch(base + path, {
+              method: 'POST',
+              headers: { Origin: base, Referer: base + '/platform-v7/staff', 'Content-Type': 'application/json', 'x-csrf-token': 'evidence-csrf-token', Cookie: cookie },
+              body: JSON.stringify(body), redirect: 'manual',
+            });
+          }
+          (async () => {
+            const request = await post('/api/staff/access/requests', {
+              assignmentId: 'sta-owner', accessMode: 'CONTROL_PLANE',
+              permissions: ['organization:list','user:list','staff-assignment:read','staff-assignment:write','staff-request:read','staff-request:approve','staff-session:read','staff-session:revoke','audit:read','support-case:read','support-case:update','user:session:revoke','user:access-recovery:initiate','deal:list','deal:read','deal:blocker:read','payment:metadata:read','payment:reconciliation:read','diagnostic:read','deployment:read','feature-flag:read','critical-action:approve','break-glass:activate'],
+              reason: 'Protected Lighthouse acceptance session', ticketId: 'LH-2353', durationSeconds: 900,
+            }, baseCookie);
+            if (!request.ok) throw new Error(`request ${request.status}`);
+            const grant = await request.json();
+            const activate = await post(`/api/staff/access/grants/${encodeURIComponent(grant.grantId)}/activate`, {}, baseCookie);
+            if (!activate.ok) throw new Error(`activate ${activate.status}`);
+            const setCookies = typeof activate.headers.getSetCookie === 'function' ? activate.headers.getSetCookie() : [activate.headers.get('set-cookie') || ''];
+            const pairs = setCookies.flatMap((value) => value.split(/,(?=\s*pc_staff_)/)).map((value) => value.trim().split(';')[0]).filter((value) => value.startsWith('pc_staff_'));
+            if (pairs.length < 2) throw new Error('staff cookies missing');
+            fs.writeFileSync('/tmp/staff-final-lighthouse-headers.json', JSON.stringify({ Cookie: `${baseCookie}; ${pairs.join('; ')}` }));
+          })().catch((error) => { console.error(error.message); process.exit(1); });
+          NODE
+      - name: Run authenticated mobile Lighthouse gate
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          export CHROME_PATH="$(node -e "const { chromium } = require('@playwright/test'); process.stdout.write(chromium.executablePath())")"
+          npx --yes lighthouse@12.6.1 'http://127.0.0.1:3000/platform-v7/staff?lang=ru' \
+            --quiet \
+            --chrome-flags='--headless --no-sandbox --disable-gpu' \
+            --extra-headers=/tmp/staff-final-lighthouse-headers.json \
+            --only-categories=performance,accessibility,best-practices \
+            --form-factor=mobile \
+            --screenEmulation.mobile=true \
+            --throttling-method=simulate \
+            --output=json \
+            --output-path="$ARTIFACT_DIR/lighthouse-staff-control-center.json"
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const report = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), process.env.ARTIFACT_DIR, 'lighthouse-staff-control-center.json')));
+          const score = (name) => Math.round((report.categories[name]?.score || 0) * 100);
+          const result = {
+            performance: score('performance'), accessibility: score('accessibility'), bestPractices: score('best-practices'),
+            lcp: report.audits['largest-contentful-paint']?.numericValue ?? Infinity,
+            tbt: report.audits['total-blocking-time']?.numericValue ?? Infinity,
+            cls: report.audits['cumulative-layout-shift']?.numericValue ?? Infinity,
+          };
+          fs.writeFileSync(path.resolve(process.cwd(), process.env.ARTIFACT_DIR, 'lighthouse-summary.json'), JSON.stringify(result, null, 2));
+          console.log(JSON.stringify(result, null, 2));
+          if (result.performance < 80 || result.accessibility < 95 || result.bestPractices < 90 || result.lcp > 3000 || result.tbt > 250 || result.cls > 0.1) process.exit(1);
+          NODE
+      - name: Preserve server logs
+        if: always()
+        run: |
+          mkdir -p artifacts/staff-control-center-acceptance-final
+          cp /tmp/staff-final-mock.log artifacts/staff-control-center-acceptance-final/mock-server.log || true
+          cp /tmp/staff-final-web.log artifacts/staff-control-center-acceptance-final/web-server.log || true
+      - name: Upload exact final acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staff-control-center-acceptance-final-v3
+          path: artifacts/staff-control-center-acceptance-final
+          if-no-files-found: error
+          retention-days: 30
+      - name: Print logs on failure
+        if: failure()
+        run: |
+          cat /tmp/staff-final-mock.log || true
+          cat /tmp/staff-final-web.log || true
