@@ -10,13 +10,13 @@ const mfaRoute = read('apps/web/app/api/auth/mfa-login/route.ts');
 const cancelRoute = read('apps/web/app/api/auth/mfa-login/cancel/route.ts');
 const session = read('apps/web/lib/server/auth-session-response.ts');
 const ticket = read('apps/web/lib/server/mfa-login-ticket.ts');
-const messages = read('apps/web/i18n/public-entry-messages.ts');
+const messages = read('apps/web/i18n/public-login-copy.ts');
 
 describe('platform-v7 server-authoritative login boundary', () => {
   it('keeps the public shell server-rendered and client authority limited to credentials', () => {
     expect(loginPage).not.toContain("'use client'");
-    expect(loginPage).toContain("getTranslations('publicEntry.login')");
-    expect(loginPage).toContain('<LoginFormClient copy={copy} />');
+    expect(loginPage).toContain('getPublicLoginCopy(locale)');
+    expect(loginPage).toContain('<LoginFormClient copy={form} />');
     for (const forbidden of [
       'surfaceRole(',
       'usePlatformV7RStore',
@@ -74,7 +74,7 @@ describe('platform-v7 server-authoritative login boundary', () => {
     expect(loginClient).toContain("requestJson('/api/auth/mfa-login'");
     expect(loginClient).toContain("autoComplete={method === 'totp' ? 'one-time-code' : 'off'}");
     expect(loginClient).toContain("step === 'backup-codes'");
-    expect(messages).toContain('mfaTitle: string');
-    expect(messages).toContain('backupCodesTitle: string');
+    expect(messages).toContain('mfaTitle:');
+    expect(messages).toContain('backupCodesTitle:');
   });
 });
