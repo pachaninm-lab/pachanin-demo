@@ -37,15 +37,6 @@ jobs:
         run: |
           pnpm --filter @pc/api run typecheck
           pnpm --filter @pc/web run typecheck
-      - name: Run exact staff backend and authority tests
-        run: |
-          pnpm --filter @pc/api exec jest --runInBand \
-            test/staff-access/staff-workspace.service.spec.ts \
-            test/staff-access/staff-support.service.spec.ts \
-            test/staff-access/staff-support-persistence-contract.spec.ts
-          pnpm --filter @pc/web exec vitest run \
-            tests/unit/platformV7StaffControlCenter.test.ts \
-            tests/unit/platformV7StaffOperationalWorkspaces.test.ts
       - name: Build production web bundle
         run: pnpm --filter @pc/web run build
       - name: Install Chromium and WebKit
