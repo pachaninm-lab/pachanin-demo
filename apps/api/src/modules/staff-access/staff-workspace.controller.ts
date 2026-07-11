@@ -166,7 +166,7 @@ export class StaffWorkspaceController {
 
   @Post('break-glass/:id/end')
   @StaffAccessModes(StaffAccessMode.CONTROL_PLANE, StaffAccessMode.BREAK_GLASS)
-  @StaffPermissions(StaffPermission.BREAK_GLASS_ACTIVATE)
+  @StaffPermissions(StaffPermission.STAFF_SESSION_READ)
   endBreakGlass(
     @Req() request: StaffRequest,
     @Param('id') id: string,
