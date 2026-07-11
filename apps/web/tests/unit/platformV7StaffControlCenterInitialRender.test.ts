@@ -23,12 +23,14 @@ describe('Staff Control Center initial render stability', () => {
     expect(css).toContain('.loadingCard { margin-top: 18px; }');
   });
 
-  it('keeps privileged workspace code and CSS outside the critical server render', () => {
+  it('keeps privileged workspace code and shared providers outside the critical server render', () => {
     expect(rootLayout).toContain("pathname === '/platform-v7/staff'");
     expect(rootLayout).toContain("pathname.startsWith('/platform-v7/staff/')");
+    expect(rootLayout).toContain('const content = leanPublicEntry');
+    expect(rootLayout).toContain('? children');
     expect(page).toContain('<StaffOperationalWorkspacesDeferred');
     expect(page).not.toContain("from '@/components/platform-v7/staff/StaffOperationalWorkspaces'");
-    expect(deferred).toContain("dynamic(");
+    expect(deferred).toContain('dynamic(');
     expect(deferred).toContain("import('./StaffOperationalWorkspaces')");
     expect(deferred).toContain('{ ssr: false }');
     expect(deferred).toContain('if (!ready) return null');
