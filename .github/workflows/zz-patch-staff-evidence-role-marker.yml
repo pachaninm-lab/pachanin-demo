@@ -1,0 +1,46 @@
+name: patch staff evidence role marker
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/staff-control-center-acceptance-2353-final-v4
+          fetch-depth: 0
+      - name: Align localized staff role markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/scripts/staff-control-center-acceptance.mjs')
+          text = path.read_text()
+          replacements = {
+            "['Сотрудники','Platform Owner']": "['Сотрудники','Владелец платформы']",
+            "['Staff','Platform Owner']": "['Staff','Platform owner']",
+            "['员工','Platform Owner']": "['员工','平台所有者']",
+          }
+          for old, new in replacements.items():
+            if old not in text:
+              raise SystemExit(f'marker not found: {old}')
+            text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+      - name: Commit evidence-only marker correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/web/scripts/staff-control-center-acceptance.mjs
+          git commit -m 'Align localized Staff Control Center role markers'
+          git push origin HEAD:ops/staff-control-center-acceptance-2353-final-v4
