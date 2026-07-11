@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { AppLocale } from '@/i18n/locale';
 import styles from './StaffOperationalWorkspaces.module.css';
 
@@ -114,12 +114,13 @@ export function StaffSupportCaseWorkspace({ locale, permissions, suggestedOrgani
 
   useEffect(() => { void load(); }, [load]);
 
-  const idempotencyPlaceholder = useMemo(() => `SUP-${new Date().toISOString().slice(0, 10)}-${Math.random().toString(36).slice(2, 10)}`, []);
+  const idempotencyPlaceholder = 'generated-on-submit';
 
   async function createCase() {
     if (!canUpdate || organizationId.trim().length < 2 || subject.trim().length < 3 || description.trim().length < 10) {
       onError(copy.invalid); return;
     }
+    const generatedIdempotencyKey = idempotencyKey.trim() || `SUP-${new Date().toISOString().slice(0, 10)}-${globalThis.crypto.randomUUID()}`;
     setBusy('create');
     try {
       await request('/api/staff/workspaces/support/cases', {
@@ -131,7 +132,7 @@ export function StaffSupportCaseWorkspace({ locale, permissions, suggestedOrgani
           subject: subject.trim(),
           description: description.trim(),
           priority,
-          idempotencyKey: idempotencyKey.trim() || idempotencyPlaceholder,
+          idempotencyKey: generatedIdempotencyKey,
         },
       });
       setSubject(''); setDescription(''); setIdempotencyKey('');
