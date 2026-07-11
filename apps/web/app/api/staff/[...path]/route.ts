@@ -53,6 +53,16 @@ type StaffSessionMetadata = {
 type StaffSessionRow = {
   id?: string;
   status?: string;
+  staff_role?: string;
+  access_mode?: string;
+  permissions?: unknown;
+  effective_tenant_id?: string | null;
+  effective_organization_id?: string | null;
+  effective_user_id?: string | null;
+  effective_role?: string | null;
+  target_deal_id?: string | null;
+  reason?: string | null;
+  ticket_id?: string | null;
   expires_at?: string;
 };
 
@@ -119,6 +129,12 @@ function optionalString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
 }
 
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : [];
+}
+
 function parseMetadata(raw: string | undefined): StaffSessionMetadata | null {
   if (!raw) return null;
   try {
@@ -151,6 +167,71 @@ function parseMetadata(raw: string | undefined): StaffSessionMetadata | null {
   }
 }
 
+async function listOwnSessions(accessToken: string, correlationId: string): Promise<StaffSessionRow[]> {
+  const upstream = await fetch(`${API_URL}/staff/access/sessions`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      'x-correlation-id': correlationId,
+    },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(6_000),
+  });
+  if (!upstream.ok) throw new Error(`staff_session_list_${upstream.status}`);
+  const rows = await upstream.json().catch(() => []) as StaffSessionRow[];
+  return Array.isArray(rows) ? rows : [];
+}
+
+function persistedMetadata(row: StaffSessionRow): StaffSessionMetadata | null {
+  const expiresAt = optionalString(row.expires_at);
+  const expiry = new Date(expiresAt || '').getTime();
+  const permissions = stringArray(row.permissions);
+  if (
+    !row.id
+    || (row.status && row.status !== 'ACTIVE')
+    || !row.staff_role
+    || !row.access_mode
+    || !expiresAt
+    || !Number.isFinite(expiry)
+    || expiry <= Date.now()
+    || permissions.length === 0
+  ) return null;
+
+  return {
+    accessSessionId: row.id,
+    staffRole: row.staff_role,
+    accessMode: row.access_mode,
+    permissions,
+    effectiveTenantId: optionalString(row.effective_tenant_id),
+    effectiveOrganizationId: optionalString(row.effective_organization_id),
+    effectiveUserId: optionalString(row.effective_user_id),
+    effectiveRole: optionalString(row.effective_role),
+    targetDealId: optionalString(row.target_deal_id),
+    reason: optionalString(row.reason),
+    ticketId: optionalString(row.ticket_id),
+    expiresAt,
+  };
+}
+
+async function cleanupActivatedSession(accessToken: string, sessionId: string, correlationId: string) {
+  try {
+    await fetch(`${API_URL}/staff/access/sessions/${encodeURIComponent(sessionId)}/end`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'x-correlation-id': correlationId,
+      },
+      body: JSON.stringify({ reason: 'Activation metadata verification failed' }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(4_000),
+    });
+  } catch {
+    // Best effort only. The backend TTL and own-session view still bound the orphaned session.
+  }
+}
+
 async function verifiedSessionContext(
   request: NextRequest,
   accessToken: string,
@@ -165,29 +246,17 @@ async function verifiedSessionContext(
   }
 
   try {
-    const upstream = await fetch(`${API_URL}/staff/access/sessions`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: 'application/json',
-        'x-correlation-id': correlationId,
-      },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(6_000),
-    });
-    if (!upstream.ok) {
-      const response = json({ active: false, session: null, correlationId }, upstream.status === 401 ? 401 : 200);
-      clearStaffSession(response);
-      return response;
-    }
-    const rows = await upstream.json().catch(() => []) as StaffSessionRow[];
-    const active = Array.isArray(rows) && rows.some((row) => {
-      const expiry = new Date(String(row.expires_at || '')).getTime();
-      return row.id === metadata.accessSessionId
-        && (!row.status || row.status === 'ACTIVE')
-        && Number.isFinite(expiry)
-        && expiry > Date.now();
-    });
-    const response = json({ active, session: active ? metadata : null, correlationId });
+    const rows = await listOwnSessions(accessToken, correlationId);
+    const persisted = rows.find((row) => row.id === metadata.accessSessionId);
+    const verified = persistedMetadata(persisted || {});
+    const active = Boolean(
+      verified
+      && verified.accessSessionId === metadata.accessSessionId
+      && verified.staffRole === metadata.staffRole
+      && verified.accessMode === metadata.accessMode
+      && verified.expiresAt === metadata.expiresAt,
+    );
+    const response = json({ active, session: active ? verified : null, correlationId });
     if (!active) clearStaffSession(response);
     return response;
   } catch {
@@ -269,24 +338,26 @@ async function proxy(request: NextRequest, context: { params: { path?: string[] 
     const payload = await upstream.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>;
     const safePayload: Record<string, unknown> = { ...payload, correlationId };
     delete safePayload.accessToken;
-    const response = json(safePayload, upstream.status);
+    let response = json(safePayload, upstream.status);
 
     if (upstream.ok && /^access\/grants\/[^/]+\/activate$/.test(path)) {
       const token = typeof payload.accessToken === 'string' ? payload.accessToken : '';
       const sessionId = typeof payload.accessSessionId === 'string' ? payload.accessSessionId : '';
-      const staffRole = typeof payload.staffRole === 'string' ? payload.staffRole : '';
-      const accessMode = typeof payload.accessMode === 'string' ? payload.accessMode : '';
-      const permissions = Array.isArray(payload.permissions)
-        ? payload.permissions.filter((item): item is string => typeof item === 'string')
-        : [];
-      const expiresAt = typeof payload.expiresAt === 'string' ? payload.expiresAt : '';
-      const expiresAtMs = new Date(expiresAt).getTime();
-      const rawMaxAge = Math.floor((expiresAtMs - Date.now()) / 1000);
+      let metadata: StaffSessionMetadata | null = null;
+
+      if (token && sessionId) {
+        const rows = await listOwnSessions(accessToken, correlationId).catch(() => []);
+        metadata = persistedMetadata(rows.find((row) => row.id === sessionId) || {});
+      }
+
+      const expiry = new Date(metadata?.expiresAt || '').getTime();
+      const rawMaxAge = Math.floor((expiry - Date.now()) / 1000);
       const maxAge = Number.isFinite(rawMaxAge)
         ? Math.min(MAX_STAFF_SESSION_SECONDS, rawMaxAge)
         : 0;
 
-      if (!token || !sessionId || !staffRole || !accessMode || permissions.length === 0 || !expiresAt || maxAge <= 0) {
+      if (!token || !sessionId || !metadata || metadata.accessSessionId !== sessionId || maxAge <= 0) {
+        if (sessionId) await cleanupActivatedSession(accessToken, sessionId, correlationId);
         const invalid = json({
           ok: false,
           code: 'STAFF_SESSION_INVALID_RESPONSE',
@@ -297,20 +368,18 @@ async function proxy(request: NextRequest, context: { params: { path?: string[] 
         return invalid;
       }
 
-      const metadata: StaffSessionMetadata = {
-        accessSessionId: sessionId,
-        staffRole,
-        accessMode,
-        permissions,
-        effectiveTenantId: optionalString(payload.effectiveTenantId),
-        effectiveOrganizationId: optionalString(payload.effectiveOrganizationId),
-        effectiveUserId: optionalString(payload.effectiveUserId),
-        effectiveRole: optionalString(payload.effectiveRole),
-        targetDealId: optionalString(payload.targetDealId),
-        reason: optionalString(payload.reason),
-        ticketId: optionalString(payload.ticketId),
-        expiresAt,
-      };
+      safePayload.staffRole = metadata.staffRole;
+      safePayload.accessMode = metadata.accessMode;
+      safePayload.permissions = metadata.permissions;
+      safePayload.effectiveTenantId = metadata.effectiveTenantId;
+      safePayload.effectiveOrganizationId = metadata.effectiveOrganizationId;
+      safePayload.effectiveUserId = metadata.effectiveUserId;
+      safePayload.effectiveRole = metadata.effectiveRole;
+      safePayload.targetDealId = metadata.targetDealId;
+      safePayload.reason = metadata.reason;
+      safePayload.ticketId = metadata.ticketId;
+      safePayload.expiresAt = metadata.expiresAt;
+      response = json(safePayload, upstream.status);
       response.cookies.set(STAFF_ACCESS_COOKIE, token, secureCookie(maxAge));
       response.cookies.set(
         STAFF_ACCESS_META_COOKIE,
