@@ -29,6 +29,7 @@ import { StaffAuditQuery, StaffAuditService } from './staff-audit.service';
 import { StaffDelegatedAccessGuard } from './staff-delegated-access.guard';
 import { StaffEmergencyService } from './staff-emergency.service';
 import { StaffPermissions } from './staff-permissions.decorator';
+import { StaffProjectionService } from './staff-projection.service';
 import { StaffAccessContext, StaffPermission } from './staff-access.types';
 
 type StaffRequest = {
@@ -45,6 +46,7 @@ export class StaffAccessController {
     private readonly assignments: StaffAssignmentService,
     private readonly audit: StaffAuditService,
     private readonly emergency: StaffEmergencyService,
+    private readonly projection: StaffProjectionService,
   ) {}
 
   @Get('assignments/me')
@@ -217,7 +219,7 @@ export class StaffAccessController {
   @UseGuards(StaffAccessGuard)
   @StaffPermissions(StaffPermission.ORGANIZATION_LIST)
   organizations(@Req() request: StaffRequest) {
-    return this.access.organizationDirectory(request.user);
+    return this.projection.organizationDirectory(request.user);
   }
 
   @Get('organizations/:organizationId/users')
@@ -227,7 +229,7 @@ export class StaffAccessController {
     @Req() request: StaffRequest,
     @Param('organizationId') organizationId: string,
   ) {
-    return this.access.organizationUsers(request.user, organizationId);
+    return this.projection.organizationUsers(request.user, organizationId);
   }
 
   @Get('organizations/:organizationId/cabinet/:role')
@@ -238,7 +240,12 @@ export class StaffAccessController {
     @Param('organizationId') organizationId: string,
     @Param('role') role: string,
   ) {
-    return this.access.cabinetProjection(request.user, organizationId, role);
+    return this.projection.cabinetProjection(
+      request.user,
+      this.requireAccessContext(request),
+      organizationId,
+      role,
+    );
   }
 
   @Get('audit/events')
