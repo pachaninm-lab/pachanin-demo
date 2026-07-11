@@ -23,6 +23,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Remove obsolete test-layout edits from one-shot patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/apply-staff-render-stability.py')
+          text = path.read_text(encoding='utf-8')
+          start = text.index("\ntest = 'apps/web/tests/unit/platformV7StaffControlCenter.test.ts'")
+          end = text.index("\nPath('.github/workflows/apply-staff-render-stability.yml')", start)
+          path.write_text(text[:start] + text[end:], encoding='utf-8')
+          PY
       - run: python .github/scripts/apply-staff-render-stability.py
       - name: Commit stable first render
         run: |
