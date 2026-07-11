@@ -41,14 +41,6 @@ const REQUEST_TTL_MS = 30 * 60 * 1000;
 const CRITICAL_ACTION_TTL_MS = 10 * 60 * 1000;
 const READ_ONLY_SUFFIXES = [':read', ':list', ':view-as', ':export'];
 
-const REQUEST_REVIEW_ROLES = new Set<StaffRole>([
-  StaffRole.PLATFORM_OWNER,
-  StaffRole.PLATFORM_ADMIN,
-  StaffRole.OPERATIONS_SUPERVISOR,
-  StaffRole.COMPLIANCE_STAFF,
-  StaffRole.SECURITY_AUDITOR,
-]);
-
 const BREAK_GLASS_ROLES = new Set<StaffRole>([
   StaffRole.PLATFORM_OWNER,
   StaffRole.SRE_ONCALL,
