@@ -22,6 +22,7 @@ function stringValues(value: unknown): string[] {
 
 const page = source('apps/web/app/platform-v7/staff/page.tsx');
 const proxy = source('apps/web/app/api/staff/[...path]/route.ts');
+const workspaceProxy = source('apps/web/app/api/staff/workspaces/[...path]/route.ts');
 const client = source('apps/web/components/platform-v7/staff/StaffControlCenter.tsx');
 const entry = source('apps/web/components/platform-v7/StaffControlCenterEntry.tsx');
 const css = source('apps/web/components/platform-v7/staff/StaffControlCenter.module.css');
@@ -50,6 +51,13 @@ describe('platform-v7 Staff Control Center authority boundary', () => {
     expect(proxy).toContain("sameSite: 'strict'");
     expect(proxy).toContain("path: '/api/staff'");
     expect(proxy).not.toContain('accessToken: token');
+  });
+
+  it('preserves upstream arrays instead of converting list responses into numeric object keys', () => {
+    expect(proxy).toContain('json(Array.isArray(payload) ? payload : safePayload, upstream.status)');
+    expect(workspaceProxy).toContain('Array.isArray(payload) ? payload : { ...payloadObject, correlationId }');
+    expect(proxy).not.toContain('const safePayload: Record<string, unknown> = { ...payload, correlationId }');
+    expect(workspaceProxy).not.toContain('return secure({ ...payload, correlationId }');
   });
 
   it('revalidates opaque staff-session metadata against persisted server state', () => {
