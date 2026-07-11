@@ -116,6 +116,20 @@
       "scripts/bootstrap-platform-owner-auth.mjs",
       "scripts/platform-v7-one-deal-e2e.sh",
       "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "feat/platform-v7-staff-control-center": [
+      "apps/web/app/api/staff/**",
+      "apps/web/app/platform-v7/staff/**",
+      "apps/web/components/platform-v7/staff/**",
+      "apps/web/components/platform-v7/StaffControlCenterEntry.tsx",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/i18n/staff-control-center-messages.ts",
+      "apps/web/tests/unit/platformV7StaffControlCenter*.test.ts",
+      "apps/api/src/modules/staff-access/staff-access-request.service.ts",
+      "apps/api/src/modules/staff-access/staff-access.repository.ts",
+      "apps/api/src/modules/staff-access/staff-access.service.ts",
+      "apps/api/test/staff-access/staff-access-request-projection.spec.ts",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "industrialOneDealFoundation": {
