@@ -58,10 +58,15 @@ apps/web/i18n/public-login-copy.ts
 apps/web/i18n/request.ts
 apps/web/tests/platform-v7-public-entry-links.test.ts
 apps/web/tests/setup.ts
+apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts
+apps/web/tests/unit/platformV7LoginRoleHandoff.test.ts
+apps/web/tests/unit/platformV7LoginSecurityBoundary.test.ts
 apps/web/tests/unit/platformV7PublicRegistrationPatch.test.ts
 apps/web/tests/unit/platformV7RootWorkEntry.test.ts
 apps/web/tests/unit/platformV7RuntimeEntryCockpit.test.ts
+apps/web/tests/unit/platformV7SingleEntryLogin.test.ts
 apps/web/tests/unit/platformV7VisibleEntry.test.ts
+apps/web/tests/unit/productEntryM31.test.tsx
 scripts/p7-autopilot-guard.sh'
 
 PUBLIC_AUTH_FIX_SCOPE='apps/web/app/layout.tsx
