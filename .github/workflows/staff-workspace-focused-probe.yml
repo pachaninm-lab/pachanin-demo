@@ -1,0 +1,60 @@
+name: Staff workspace focused probe
+
+on:
+  pull_request:
+    branches:
+      - feat/platform-v7-staff-control-center
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      API_URL: http://127.0.0.1:4010
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      STAFF_EVIDENCE_BASE_URL: http://localhost:3000
+      ARTIFACT_DIR: ../../artifacts/staff-control-center-probe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pc/web run build
+      - working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Start deterministic API and web
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/web
+          node scripts/staff-control-center-acceptance-mock.mjs >/tmp/staff-probe-mock.log 2>&1 &
+          NODE_ENV=development pnpm start >/tmp/staff-probe-web.log 2>&1 &
+          for attempt in $(seq 1 90); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/platform-v7 || true)
+            [ "$status" = '200' ] && exit 0
+            sleep 2
+          done
+          cat /tmp/staff-probe-mock.log || true
+          cat /tmp/staff-probe-web.log || true
+          exit 1
+      - name: Run focused probe
+        working-directory: apps/web
+        run: node scripts/staff-workspace-probe.mjs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staff-workspace-focused-probe
+          path: artifacts/staff-control-center-probe
+          if-no-files-found: warn
+          retention-days: 7
+      - if: failure()
+        run: |
+          cat /tmp/staff-probe-mock.log || true
+          cat /tmp/staff-probe-web.log || true
