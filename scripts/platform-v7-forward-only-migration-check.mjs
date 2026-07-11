@@ -13,9 +13,7 @@ const ACCEPTED_BASELINE = '20260710150000_persistent_identity_sessions';
 const destructivePatterns = [
   { name: 'DROP TABLE', pattern: /\bDROP\s+TABLE\b/i },
   { name: 'DROP COLUMN', pattern: /\bDROP\s+COLUMN\b/i },
-  // Match an executable TRUNCATE statement, not the protective trigger event
-  // `BEFORE TRUNCATE ON ...` used to make append-only audit tables non-truncatable.
-  { name: 'TRUNCATE', pattern: /(?:^|;)\s*TRUNCATE(?:\s+TABLE)?\b/im },
+  { name: 'TRUNCATE', pattern: /\bTRUNCATE\b/i },
   { name: 'mass DELETE', pattern: /\bDELETE\s+FROM\b/i },
   { name: 'column rename', pattern: /\bRENAME\s+COLUMN\b/i },
   { name: 'table rename', pattern: /\bRENAME\s+TO\b/i },
