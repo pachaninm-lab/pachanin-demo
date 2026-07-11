@@ -88,13 +88,9 @@ async function inspectPage(page, item, route, locale) {
   const layout = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
-    serviceWorkers: 'serviceWorker' in navigator ? null : 0,
     localStorageKeys: Object.keys(localStorage),
     sessionStorageKeys: Object.keys(sessionStorage),
   }));
-  if ('serviceWorker' in await page.evaluate(() => navigator)) {
-    // Intentionally left to the explicit registration check below.
-  }
   const registrations = await page.evaluate(async () => ('serviceWorker' in navigator ? (await navigator.serviceWorker.getRegistrations()).length : 0));
   assert(registrations === 0, `${item.name} ${route.key} ${locale}: unexpected service worker registrations ${registrations}`);
   assert(layout.scrollWidth <= layout.clientWidth + 1, `${item.name} ${route.key} ${locale}: horizontal overflow ${layout.scrollWidth}/${layout.clientWidth}`);
