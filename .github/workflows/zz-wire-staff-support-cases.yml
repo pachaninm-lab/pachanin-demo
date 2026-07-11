@@ -1,0 +1,72 @@
+name: wire staff support cases
+
+on:
+  push:
+    branches:
+      - ops-wire-staff-support-cases
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Add support case UI to protected support workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/web/components/platform-v7/staff/StaffOperationalWorkspaces.tsx')
+          source = path.read_text()
+          source = source.replace(
+            "import { StaffCriticalActionRequestForm } from './StaffCriticalActionRequestForm';",
+            "import { StaffCriticalActionRequestForm } from './StaffCriticalActionRequestForm';\nimport { StaffSupportCaseWorkspace } from './StaffSupportCaseWorkspace';",
+            1,
+          )
+          source = source.replace(
+            "function object(value: unknown): ApiObject { return value && typeof value === 'object' ? value as ApiObject : {}; }",
+            "function object(value: unknown): ApiObject { return value && typeof value === 'object' ? value as ApiObject : {}; }\nfunction uniqueStrings(values: unknown[]) { return [...new Set(values.map((value) => String(value || '').trim()).filter(Boolean))]; }",
+            1,
+          )
+          old = "          {!loading && tab === 'support' && <SupportPanel payload={object(data)} copy={copy} locale={locale} />}"
+          new = """          {!loading && tab === 'support' && (() => {
+                    const supportData = object(data);
+                    const supportDeals = array(supportData.deals);
+                    const supportTasks = array(supportData.kycTasks);
+                    const organizationIds = uniqueStrings([
+                      ...supportDeals.flatMap((row) => [object(row.seller).id, object(row.buyer).id]),
+                      ...supportTasks.flatMap((row) => [row.organizationId, object(row.organization).id]),
+                    ]);
+                    const dealIds = uniqueStrings(supportDeals.map((row) => row.id));
+                    return <>
+                      <SupportPanel payload={supportData} copy={copy} locale={locale} />
+                      <StaffSupportCaseWorkspace
+                        locale={locale}
+                        permissions={permissions}
+                        suggestedOrganizationIds={organizationIds}
+                        suggestedDealIds={dealIds}
+                        onError={setError}
+                        onNotice={setNotice}
+                      />
+                    </>;
+                  })()}"""
+          if old not in source:
+            raise SystemExit('Support render block was not found')
+          path.write_text(source.replace(old, new, 1))
+          PY
+      - name: Commit support case workspace wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/web/components/platform-v7/staff/StaffOperationalWorkspaces.tsx
+          git commit -m 'Wire durable staff support cases into control center'
+          git push origin HEAD:feat/platform-v7-staff-control-center
