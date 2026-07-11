@@ -36,6 +36,12 @@ describe('industrial staff operational workspaces', () => {
     expect(component).not.toContain('?role=');
   });
 
+  it('synchronizes all staff workspaces immediately after protected-session activation or end', () => {
+    expect(controlCenter).toContain("window.dispatchEvent(new Event('pc:staff-session-changed'))");
+    expect(component).toContain("window.addEventListener('pc:staff-session-changed', refresh)");
+    expect(component).toContain("window.removeEventListener('pc:staff-session-changed', refresh)");
+  });
+
   it('derives every workspace from server-issued permissions instead of a client-selected role', () => {
     for (const permission of [
       'support-case:read', 'deal:list', 'payment:metadata:read', 'diagnostic:read',
