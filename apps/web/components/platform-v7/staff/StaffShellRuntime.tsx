@@ -11,7 +11,7 @@ export function StaffShellRuntime() {
     return () => root.classList.remove(ROOT_CLASS);
   }, []);
 
-  return <style>{css}</style>;
+  return <style dangerouslySetInnerHTML={{ __html: css }} />;
 }
 
 const css = `
