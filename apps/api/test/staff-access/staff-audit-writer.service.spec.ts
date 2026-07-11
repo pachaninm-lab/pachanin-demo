@@ -1,6 +1,11 @@
 import { RequestUser, Role } from '../../src/common/types/request-user';
 import { StaffAccessRepository } from '../../src/modules/staff-access/staff-access.repository';
-import { StaffAccessMode, StaffPermission, StaffRole } from '../../src/modules/staff-access/staff-access.types';
+import {
+  StaffAccessContext,
+  StaffAccessMode,
+  StaffPermission,
+  StaffRole,
+} from '../../src/modules/staff-access/staff-access.types';
 import { StaffAuditService } from '../../src/modules/staff-access/staff-audit.service';
 import { StaffAuditWriterService } from '../../src/modules/staff-access/staff-audit-writer.service';
 
@@ -8,7 +13,7 @@ const actor: RequestUser = {
   id: 'staff-user', email: 'staff@example.test', orgId: 'platform-org', role: Role.ADMIN,
 };
 
-const access = {
+const access: StaffAccessContext = {
   accessSessionId: 'session-1', grantId: 'grant-1', actorUserId: actor.id,
   staffRole: StaffRole.OPERATIONS_SUPERVISOR, accessMode: StaffAccessMode.OPERATIONS,
   permissions: [StaffPermission.DEAL_READ], effectiveTenantId: 'tenant-a',
@@ -27,7 +32,11 @@ describe('StaffAuditWriterService', () => {
       prisma: { $queryRaw: jest.fn() },
     } as unknown as StaffAccessRepository;
     const writer = new StaffAuditWriterService(repository);
-    await writer.record(actor, access, { action: 'staff.workspace.operations.read', resourceType: 'deal', resourceId: 'deal-1' });
+    await writer.record(actor, access, {
+      action: 'staff.workspace.operations.read',
+      resourceType: 'deal',
+      resourceId: 'deal-1',
+    });
 
     const inserted = (repository.insertEvent as jest.Mock).mock.calls[0][1];
     expect(inserted).toMatchObject({
