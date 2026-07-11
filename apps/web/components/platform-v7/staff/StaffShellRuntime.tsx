@@ -35,4 +35,7 @@ html.${ROOT_CLASS} .p7-onboarding-tour {
 html.${ROOT_CLASS} body > [data-radix-portal] {
   max-width: 100vw;
 }
+html.${ROOT_CLASS} [data-staff-platform-shell] a[class*="primaryButton"] {
+  color: #ffffff !important;
+}
 `;
