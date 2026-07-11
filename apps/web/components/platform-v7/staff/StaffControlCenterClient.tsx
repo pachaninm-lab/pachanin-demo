@@ -250,9 +250,9 @@ export function StaffControlCenterClient({ copy }: { copy: StaffCopy }) {
     setAssignments(response.data);
     setSelectedAssignment((current) => current || response.data![0].id);
 
-    const probe = await requestJson<Organization[]>('control', 'organizations');
-    if (probe.ok) {
-      setOrganizations(Array.isArray(probe.data) ? probe.data : []);
+    const probe = await requestJson<{ active?: boolean; organizations?: Organization[] }>('control', 'session-state');
+    if (probe.ok && probe.data?.active) {
+      setOrganizations(Array.isArray(probe.data.organizations) ? probe.data.organizations : []);
       setPhase('ready');
     } else {
       setPhase('setup');

@@ -33,6 +33,8 @@ describe('platform-v7 industrial Staff Access Control Plane UI', () => {
     expect(proxy).toContain('CSRF_ORIGIN_REJECTED');
     expect(proxy).toContain('REQUEST_TOO_LARGE');
     expect(proxy).toContain("redirect: 'manual'");
+    expect(proxy).toContain("path === 'session-state'");
+    expect(client).toContain("'control', 'session-state'");
     expect(proxy).toContain('externalRequestOrigin');
     expect(proxy).toContain("request.headers.get('x-forwarded-host')");
     expect(proxy).toContain("request.headers.get('x-forwarded-proto')");
