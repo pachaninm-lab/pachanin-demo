@@ -66,7 +66,7 @@
   background: rgba(255, 255, 255, .86);
   box-shadow: 0 12px 34px rgba(20, 70, 53, .06);
 }
-.summaryGrid span, .summaryGrid small { display: block; color: #6a7d76; font-size: 12px; line-height: 1.4; }
+.summaryGrid span, .summaryGrid small { display: block; color: #596c64; font-size: 12px; line-height: 1.4; }
 .summaryGrid strong { display: block; margin: 7px 0 5px; font-size: clamp(17px, 2vw, 23px); line-height: 1.15; overflow-wrap: anywhere; }
 
 .sessionBanner {
@@ -84,7 +84,7 @@
 .sessionBanner p { margin: 5px 0 0; color: #52675f; font-size: 13px; line-height: 1.5; }
 .sessionBanner dl, .detailList, .organizationCard dl, .requestCard dl, .dealCard dl, .auditList dl { margin: 0; }
 .sessionBanner dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.sessionBanner dt, .detailList dt, .organizationCard dt, .requestCard dt, .dealCard dt, .auditList dt { color: #70827b; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.sessionBanner dt, .detailList dt, .organizationCard dt, .requestCard dt, .dealCard dt, .auditList dt { color: #52655d; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
 .sessionBanner dd, .detailList dd, .organizationCard dd, .requestCard dd, .dealCard dd, .auditList dd { margin: 3px 0 0; font-size: 13px; overflow-wrap: anywhere; }
 
 .tabs {
@@ -153,7 +153,7 @@
 .permissionBlock { margin: 16px 0; }
 .permissionList { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; margin-top: 8px; }
 .permissionList code { max-width: 100%; padding: 5px 8px; border-radius: 8px; background: #edf5f1; color: #2e5a48; font-size: 11px; overflow-wrap: anywhere; white-space: normal; }
-.hint, .empty { padding: 14px; border-radius: 13px; background: #f5f8f6; color: #667970 !important; font-size: 13px; }
+.hint, .empty { padding: 14px; border-radius: 13px; background: #f5f8f6; color: #596c64 !important; font-size: 13px; }
 
 .primaryButton, .secondaryButton, .dangerButton, .textButton, .dangerTextButton {
   min-height: 42px;
@@ -183,7 +183,7 @@
   background: #fbfdfc;
 }
 .requestCard header, .reviewCard header, .dealCard header, .auditList article > div, .compactCard { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.requestCard header small, .reviewCard header small, .compactCard small, .organizationCard small { display: block; margin-top: 4px; color: #76877f; font-size: 11px; overflow-wrap: anywhere; }
+.requestCard header small, .reviewCard header small, .compactCard small, .organizationCard small { display: block; margin-top: 4px; color: #596c64; font-size: 11px; overflow-wrap: anywhere; }
 .requestCard dl, .dealCard dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 13px 0; }
 .status { flex: 0 0 auto; padding: 4px 8px; border-radius: 999px; background: #e7f2ec; color: #2d644d; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
 .organizationCard { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(190px, .8fr) auto; gap: 14px; align-items: center; }
