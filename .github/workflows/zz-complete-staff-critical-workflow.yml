@@ -1,0 +1,224 @@
+name: complete staff critical workflow
+
+on:
+  push:
+    branches:
+      - ops/complete-staff-critical-workflow
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Add requester-visible dual-control workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          types = Path('apps/api/src/modules/staff-access/staff-access.types.ts')
+          source = types.read_text()
+          source = source.replace(
+            "    StaffPermission.DEAL_OPERATION_RETRY,\n    StaffPermission.DOCUMENT_METADATA_READ,\n    StaffPermission.CABINET_VIEW_AS,\n  ],\n  OPERATIONS_SUPERVISOR:",
+            "    StaffPermission.DEAL_OPERATION_RETRY,\n    StaffPermission.DOCUMENT_METADATA_READ,\n    StaffPermission.CABINET_VIEW_AS,\n    StaffPermission.CRITICAL_ACTION_REQUEST,\n  ],\n  OPERATIONS_SUPERVISOR:",
+            1,
+          )
+          source = source.replace(
+            "    StaffPermission.STAFF_REQUEST_APPROVE,\n    StaffPermission.CRITICAL_ACTION_APPROVE,\n  ],\n  FINANCE_OPS:",
+            "    StaffPermission.STAFF_REQUEST_APPROVE,\n    StaffPermission.CRITICAL_ACTION_REQUEST,\n    StaffPermission.CRITICAL_ACTION_APPROVE,\n  ],\n  FINANCE_OPS:",
+            1,
+          )
+          marker = "export const FORBIDDEN_STAFF_ACTIONS = new Set<string>(["
+          if "ALLOWED_STAFF_CRITICAL_ACTIONS" not in source:
+            allowed = """export const ALLOWED_STAFF_CRITICAL_ACTIONS = new Set<string>([
+            'deal:operation:retry',
+            'user:session:revoke',
+            'user:mfa:reset',
+            'user:access-recovery:initiate',
+            'payment:manual-review',
+            'feature-flag:write',
+          ]);
+
+          """
+            source = source.replace(marker, allowed + marker, 1)
+          types.write_text(source)
+
+          service = Path('apps/api/src/modules/staff-access/staff-access.service.ts')
+          source = service.read_text()
+          if 'ALLOWED_STAFF_CRITICAL_ACTIONS' not in source.split('from \'./staff-access.types\'')[0]:
+            source = source.replace(
+              "  FORBIDDEN_STAFF_ACTIONS,",
+              "  ALLOWED_STAFF_CRITICAL_ACTIONS,\n  FORBIDDEN_STAFF_ACTIONS,",
+              1,
+            )
+          source = source.replace(
+            "    if (FORBIDDEN_STAFF_ACTIONS.has(input.action)) {\n      throw new ForbiddenException('Staff cannot perform authoritative participant actions');\n    }",
+            "    if (FORBIDDEN_STAFF_ACTIONS.has(input.action)) {\n      throw new ForbiddenException('Staff cannot perform authoritative participant actions');\n    }\n    if (!ALLOWED_STAFF_CRITICAL_ACTIONS.has(input.action)) {\n      throw new ForbiddenException('Critical staff action is not registered');\n    }",
+            1,
+          )
+          service.write_text(source)
+
+          workspace_service = Path('apps/api/src/modules/staff-access/staff-workspace.service.ts')
+          source = workspace_service.read_text()
+          insert = """
+
+            async ownCriticalActions(user: RequestUser) {
+              await this.access.requirePermission(user, StaffPermission.CRITICAL_ACTION_REQUEST);
+              return this.repository.prisma.$queryRaw<CriticalActionProjection[]>(Prisma.sql`
+                SELECT
+                  r.id,
+                  r.requester_user_id,
+                  r.access_session_id,
+                  r.action,
+                  r.resource_type,
+                  r.resource_id,
+                  r.target_tenant_id,
+                  r.target_organization_id,
+                  r.required_approvals,
+                  COUNT(a.id)::INTEGER AS approvals,
+                  r.status,
+                  r.expires_at,
+                  r.created_at
+                FROM auth.staff_critical_action_requests r
+                LEFT JOIN auth.staff_critical_action_approvals a
+                  ON a.critical_request_id = r.id AND a.decision = 'APPROVE'
+                WHERE r.requester_user_id = ${user.id}
+                  AND r.status IN ('PENDING', 'APPROVED')
+                  AND r.expires_at > NOW()
+                GROUP BY r.id
+                ORDER BY r.created_at DESC
+                LIMIT 200
+              `);
+            }
+          """
+          if 'async ownCriticalActions' not in source:
+            source = source.replace('\n  async criticalActions(user: RequestUser) {', insert + '\n  async criticalActions(user: RequestUser) {', 1)
+          workspace_service.write_text(source)
+
+          controller = Path('apps/api/src/modules/staff-access/staff-workspace.controller.ts')
+          source = controller.read_text()
+          mine = """
+
+            @Get('critical-actions/mine')
+            @StaffAccessModes(
+              StaffAccessMode.ASSISTED,
+              StaffAccessMode.OPERATIONS,
+              StaffAccessMode.JIT_PRIVILEGED,
+            )
+            @StaffPermissions(StaffPermission.CRITICAL_ACTION_REQUEST)
+            ownCriticalActions(@Req() request: StaffRequest) {
+              return this.workspaces.ownCriticalActions(request.user);
+            }
+          """
+          if "@Get('critical-actions/mine')" not in source:
+            source = source.replace("\n  @Get('critical-actions')", mine + "\n  @Get('critical-actions')", 1)
+          controller.write_text(source)
+
+          bff = Path('apps/web/app/api/staff/workspaces/[...path]/route.ts')
+          source = bff.read_text()
+          source = source.replace("  /^critical-actions$/,", "  /^critical-actions(?:\\/mine)?$/,", 1)
+          bff.write_text(source)
+
+          center = Path('apps/web/components/platform-v7/staff/StaffControlCenter.tsx')
+          source = center.read_text()
+          source = source.replace(
+            "OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read'],",
+            "OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read', 'critical-action:request'],",
+            1,
+          )
+          source = source.replace(
+            "OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read', 'document:content:read'],",
+            "OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read', 'document:content:read', 'critical-action:request'],",
+            1,
+          )
+          center.write_text(source)
+
+          workspace = Path('apps/web/components/platform-v7/staff/StaffOperationalWorkspaces.tsx')
+          source = workspace.read_text()
+          if 'StaffCriticalActionRequestForm' not in source:
+            source = source.replace(
+              "import type { StaffOperationalWorkspaceCopy } from '@/i18n/staff-operational-workspace-messages';",
+              "import type { StaffOperationalWorkspaceCopy } from '@/i18n/staff-operational-workspace-messages';\nimport { StaffCriticalActionRequestForm } from './StaffCriticalActionRequestForm';",
+              1,
+            )
+          source = source.replace(
+            "    if (can('critical-action:approve')) rows.push('critical');",
+            "    if (can('critical-action:request') || can('critical-action:approve')) rows.push('critical');",
+            1,
+          )
+          source = source.replace(
+            "    return `/api/staff/workspaces/${tab === 'critical' ? 'critical-actions' : tab}`;",
+            "    if (tab === 'critical') return can('critical-action:approve')\n      ? '/api/staff/workspaces/critical-actions'\n      : '/api/staff/workspaces/critical-actions/mine';\n    return `/api/staff/workspaces/${tab}`;",
+            1,
+          )
+          source = source.replace(
+            "  }, [tab]);",
+            "  }, [can, tab]);",
+            1,
+          )
+          old = "          {!loading && tab === 'critical' && <CriticalPanel rows={array(data)} copy={copy} locale={locale} busy={busy} decisionReasons={decisionReasons} setDecisionReasons={setDecisionReasons} decide={(id, decision, reason) => post(`critical-actions/${encodeURIComponent(id)}/decision`, { decision, reason }, `critical:${id}`)} />}"
+          new = """          {!loading && tab === 'critical' && <div className={styles.grid}>
+                    {can('critical-action:request') && <StaffCriticalActionRequestForm locale={locale} enabled={context.active} onCreated={loadTab} onError={setError} onNotice={setNotice} />}
+                    <CriticalPanel rows={array(data)} copy={copy} locale={locale} busy={busy} canApprove={can('critical-action:approve')} decisionReasons={decisionReasons} setDecisionReasons={setDecisionReasons} decide={(id, decision, reason) => post(`critical-actions/${encodeURIComponent(id)}/decision`, { decision, reason }, `critical:${id}`)} />
+                  </div>}"""
+          if old not in source:
+            raise SystemExit('Critical render block not found')
+          source = source.replace(old, new, 1)
+          source = source.replace(
+            "function CriticalPanel(props: { rows:ApiObject[]; copy:StaffOperationalWorkspaceCopy; locale:AppLocale; busy:string|null; decisionReasons:Record<string,string>;",
+            "function CriticalPanel(props: { rows:ApiObject[]; copy:StaffOperationalWorkspaceCopy; locale:AppLocale; busy:string|null; canApprove:boolean; decisionReasons:Record<string,string>;",
+            1,
+          )
+          source = source.replace(
+            "<div className={`${styles.form} ${styles.actions}`}><input value={props.decisionReasons[text(row.id)] || ''}",
+            "{props.canApprove && <div className={`${styles.form} ${styles.actions}`}><input value={props.decisionReasons[text(row.id)] || ''}",
+            1,
+          )
+          source = source.replace(
+            "{props.copy.actions.deny}</button></div></article>)}</div>",
+            "{props.copy.actions.deny}</button></div>}</article>)}</div>",
+            1,
+          )
+          workspace.write_text(source)
+
+          test = Path('apps/web/tests/unit/platformV7StaffOperationalWorkspaces.test.ts')
+          source = test.read_text()
+          if 'StaffCriticalActionRequestForm' not in source:
+            source = source.replace(
+              "const component = readWeb('components/platform-v7/staff/StaffOperationalWorkspaces.tsx');",
+              "const component = readWeb('components/platform-v7/staff/StaffOperationalWorkspaces.tsx');\nconst criticalForm = readWeb('components/platform-v7/staff/StaffCriticalActionRequestForm.tsx');",
+              1,
+            )
+          insert_test = """
+
+            it('exposes registered critical requests to requesters and independent approvers only', () => {
+              expect(component).toContain("can('critical-action:request') || can('critical-action:approve')");
+              expect(component).toContain("'/api/staff/workspaces/critical-actions/mine'");
+              expect(component).toContain('StaffCriticalActionRequestForm');
+              expect(criticalForm).toContain("'deal:operation:retry'");
+              expect(criticalForm).toContain("'user:mfa:reset'");
+              expect(criticalForm).not.toContain("'payment:release'");
+              expect(controller).toContain("@Get('critical-actions/mine')");
+              expect(service).toContain('async ownCriticalActions');
+            });
+          """
+          if "exposes registered critical requests" not in source:
+            source = source.replace("\n  it('keeps UI permission presets aligned", insert_test + "\n  it('keeps UI permission presets aligned", 1)
+          test.write_text(source)
+          PY
+      - name: Commit completed dual-control workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/api/src/modules/staff-access apps/web/app/api/staff/workspaces apps/web/components/platform-v7/staff apps/web/tests/unit/platformV7StaffOperationalWorkspaces.test.ts
+          git commit -m 'Complete registered staff critical action workflow'
+          git push origin HEAD:feat/platform-v7-staff-control-center
