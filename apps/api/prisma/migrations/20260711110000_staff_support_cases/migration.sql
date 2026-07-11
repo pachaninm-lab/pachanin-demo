@@ -4,15 +4,15 @@ CREATE TABLE IF NOT EXISTS support.cases (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL,
   organization_id TEXT NOT NULL REFERENCES public.organizations(id),
-  user_id TEXT REFERENCES auth.users(id),
+  user_id TEXT REFERENCES public.users(id),
   deal_id TEXT REFERENCES public.deals(id),
   subject TEXT NOT NULL CHECK (char_length(subject) BETWEEN 3 AND 300),
   description TEXT NOT NULL CHECK (char_length(description) BETWEEN 10 AND 10000),
   priority TEXT NOT NULL DEFAULT 'NORMAL' CHECK (priority IN ('LOW','NORMAL','HIGH','CRITICAL')),
   status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN','IN_PROGRESS','WAITING_CUSTOMER','ESCALATED','RESOLVED','CLOSED')),
   source TEXT NOT NULL DEFAULT 'STAFF' CHECK (source IN ('CUSTOMER','STAFF','SYSTEM','SECURITY')),
-  created_by_user_id TEXT NOT NULL REFERENCES auth.users(id),
-  assigned_staff_user_id TEXT REFERENCES auth.users(id),
+  created_by_user_id TEXT NOT NULL REFERENCES public.users(id),
+  assigned_staff_user_id TEXT REFERENCES public.users(id),
   idempotency_key TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1 CHECK (version > 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -37,7 +37,7 @@ CREATE INDEX IF NOT EXISTS support_cases_assignee_idx
 CREATE TABLE IF NOT EXISTS support.case_events (
   id TEXT PRIMARY KEY,
   case_id TEXT NOT NULL REFERENCES support.cases(id),
-  actor_user_id TEXT NOT NULL REFERENCES auth.users(id),
+  actor_user_id TEXT NOT NULL REFERENCES public.users(id),
   action TEXT NOT NULL,
   from_status TEXT,
   to_status TEXT,
@@ -55,8 +55,8 @@ CREATE TABLE IF NOT EXISTS support.access_recovery_requests (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL,
   organization_id TEXT NOT NULL REFERENCES public.organizations(id),
-  user_id TEXT NOT NULL REFERENCES auth.users(id),
-  requested_by_user_id TEXT NOT NULL REFERENCES auth.users(id),
+  user_id TEXT NOT NULL REFERENCES public.users(id),
+  requested_by_user_id TEXT NOT NULL REFERENCES public.users(id),
   reason TEXT NOT NULL CHECK (char_length(reason) BETWEEN 10 AND 2000),
   ticket_id TEXT NOT NULL CHECK (char_length(ticket_id) BETWEEN 3 AND 128),
   status TEXT NOT NULL DEFAULT 'PENDING_DELIVERY' CHECK (status IN ('PENDING_DELIVERY','DELIVERED','COMPLETED','REJECTED','EXPIRED')),
@@ -75,6 +75,7 @@ CREATE INDEX IF NOT EXISTS support_access_recovery_pending_idx
 CREATE OR REPLACE FUNCTION support.reject_case_event_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path = pg_catalog
 AS $$
 BEGIN
   RAISE EXCEPTION 'support.case_events is append-only';
@@ -85,6 +86,11 @@ DROP TRIGGER IF EXISTS support_case_events_no_update ON support.case_events;
 CREATE TRIGGER support_case_events_no_update
 BEFORE UPDATE OR DELETE ON support.case_events
 FOR EACH ROW EXECUTE FUNCTION support.reject_case_event_mutation();
+
+DROP TRIGGER IF EXISTS support_case_events_no_truncate ON support.case_events;
+CREATE TRIGGER support_case_events_no_truncate
+BEFORE TRUNCATE ON support.case_events
+FOR EACH STATEMENT EXECUTE FUNCTION support.reject_case_event_mutation();
 
 REVOKE ALL ON SCHEMA support FROM PUBLIC;
 REVOKE ALL ON ALL TABLES IN SCHEMA support FROM PUBLIC;
