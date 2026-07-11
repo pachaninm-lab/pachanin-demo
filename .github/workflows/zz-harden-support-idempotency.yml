@@ -1,0 +1,59 @@
+name: harden support idempotency
+
+on:
+  push:
+    branches:
+      - ops-harden-support-idempotency
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Generate idempotency only on explicit submit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/components/platform-v7/staff/StaffSupportCaseWorkspace.tsx')
+          source = path.read_text()
+          source = source.replace(
+            "import { useCallback, useEffect, useMemo, useState } from 'react';",
+            "import { useCallback, useEffect, useState } from 'react';",
+            1,
+          )
+          source = source.replace(
+            "  const idempotencyPlaceholder = useMemo(() => `SUP-${new Date().toISOString().slice(0, 10)}-${Math.random().toString(36).slice(2, 10)}`, []);",
+            "  const idempotencyPlaceholder = 'generated-on-submit';",
+            1,
+          )
+          source = source.replace(
+            "    setBusy('create');\n    try {",
+            "    const generatedIdempotencyKey = idempotencyKey.trim() || `SUP-${new Date().toISOString().slice(0, 10)}-${globalThis.crypto.randomUUID()}`;\n    setBusy('create');\n    try {",
+            1,
+          )
+          source = source.replace(
+            "          idempotencyKey: idempotencyKey.trim() || idempotencyPlaceholder,",
+            "          idempotencyKey: generatedIdempotencyKey,",
+            1,
+          )
+          if 'Math.random' in source:
+            raise SystemExit('Math.random remains in support workspace')
+          path.write_text(source)
+          PY
+      - name: Commit idempotency hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/web/components/platform-v7/staff/StaffSupportCaseWorkspace.tsx
+          git commit -m 'Harden support case idempotency generation'
+          git push origin HEAD:feat/platform-v7-staff-control-center
