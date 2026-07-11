@@ -21,6 +21,7 @@ import {
   StaffAccessRequestRow,
   StaffGrantRow,
   StaffSessionRow,
+  StaffSqlClient,
 } from './staff-access.repository';
 import {
   FORBIDDEN_STAFF_ACTIONS,
@@ -28,7 +29,6 @@ import {
   isStaffPermission,
   isStaffRole,
   MODE_MAX_DURATION_SECONDS,
-  MODES_REQUIRING_APPROVAL,
   ROLE_PERMISSION_CEILING,
   StaffAccessContext,
   StaffAccessMode,
@@ -40,6 +40,20 @@ const STAFF_MFA_FRESHNESS_MS = 15 * 60 * 1000;
 const REQUEST_TTL_MS = 30 * 60 * 1000;
 const CRITICAL_ACTION_TTL_MS = 10 * 60 * 1000;
 const READ_ONLY_SUFFIXES = [':read', ':list', ':view-as', ':export'];
+
+const REQUEST_REVIEW_ROLES = new Set<StaffRole>([
+  StaffRole.PLATFORM_OWNER,
+  StaffRole.PLATFORM_ADMIN,
+  StaffRole.OPERATIONS_SUPERVISOR,
+  StaffRole.COMPLIANCE_STAFF,
+  StaffRole.SECURITY_AUDITOR,
+]);
+
+const BREAK_GLASS_ROLES = new Set<StaffRole>([
+  StaffRole.PLATFORM_OWNER,
+  StaffRole.SRE_ONCALL,
+  StaffRole.BREAK_GLASS_ADMIN,
+]);
 
 const ROLE_ALLOWED_MODES: Readonly<Record<StaffRole, readonly StaffAccessMode[]>> = {
   PLATFORM_OWNER: Object.values(StaffAccessMode),
@@ -88,29 +102,27 @@ export class StaffAccessService {
     };
   }
 
-  async listMyAssignments(user: RequestUser) {
+  listMyAssignments(user: RequestUser) {
     return this.repository.listActiveAssignments(this.repository.prisma, user.id);
   }
 
   async listRequests(user: RequestUser) {
     const roles = await this.requireAssignments(user);
-    const canReadAll = roles.some(({ role }) => [
-      StaffRole.PLATFORM_OWNER,
-      StaffRole.PLATFORM_ADMIN,
-      StaffRole.OPERATIONS_SUPERVISOR,
-      StaffRole.COMPLIANCE_STAFF,
-      StaffRole.SECURITY_AUDITOR,
-    ].includes(role));
+    const canReadAll = roles.some(({ role }) => REQUEST_REVIEW_ROLES.has(role));
     return this.repository.listAccessRequests(this.repository.prisma, user.id, canReadAll);
   }
 
-  async requestAccess(user: RequestUser, input: RequestStaffAccessInput, correlationId = randomUUID()) {
+  async requestAccess(
+    user: RequestUser,
+    input: RequestStaffAccessInput,
+    correlationId: string = randomUUID(),
+  ) {
     this.assertRecentMfa(user);
     if (!isStaffAccessMode(input.accessMode)) throw new BadRequestException('Unknown staff access mode');
     const assignment = await this.repository.getAssignment(this.repository.prisma, input.assignmentId, user.id);
     if (!assignment || !isStaffRole(assignment.role)) throw new ForbiddenException('Active staff assignment is required');
     this.assertAssignmentActive(assignment);
-    const role = assignment.role;
+    const role: StaffRole = assignment.role;
     if (!ROLE_ALLOWED_MODES[role].includes(input.accessMode)) {
       throw new ForbiddenException(`${role} cannot request ${input.accessMode}`);
     }
@@ -130,7 +142,7 @@ export class StaffAccessService {
     const requestExpiry = new Date(now.getTime() + REQUEST_TTL_MS);
     const autoApprove = this.canAutoApprove(role, input.accessMode);
 
-    const result = await this.repository.transaction(async (tx) => {
+    const grant = await this.repository.transaction(async (tx) => {
       await this.repository.createAccessRequest(tx, {
         id: requestId,
         requesterUserId: user.id,
@@ -148,7 +160,7 @@ export class StaffAccessService {
         expiresAt: requestExpiry,
       });
 
-      let grant: { id: string; expiresAt: Date } | null = null;
+      let createdGrant: { id: string; expiresAt: Date } | null = null;
       if (autoApprove) {
         const request = await this.requireRequest(tx, requestId, true);
         const changed = await this.repository.markRequest(tx, {
@@ -159,7 +171,7 @@ export class StaffAccessService {
           reason: 'AUTO_APPROVED_OWNER_READ_ONLY',
         });
         if (!changed) throw new ConflictException('Access request changed concurrently');
-        grant = await this.createGrant(tx, { ...request, version: request.version + 1 }, now);
+        createdGrant = await this.createGrant(tx, { ...request, version: request.version + 1 }, now);
       }
 
       await this.audit(tx, {
@@ -175,25 +187,33 @@ export class StaffAccessService {
           accessMode: input.accessMode,
           permissions,
           autoApproved: autoApprove,
-          target,
+          targetTenantId: target.tenantId,
+          targetOrganizationId: target.organizationId,
+          targetUserId: target.userId,
+          targetRole: input.targetRole || null,
         },
       });
-      return grant;
+      return createdGrant;
     });
 
     return {
       requestId,
       status: autoApprove ? 'GRANTED' : 'PENDING',
-      grantId: result?.id ?? null,
-      expiresAt: result?.expiresAt.toISOString() ?? requestExpiry.toISOString(),
+      grantId: grant?.id ?? null,
+      expiresAt: grant?.expiresAt.toISOString() ?? requestExpiry.toISOString(),
     };
   }
 
-  async decideRequest(user: RequestUser, requestId: string, input: StaffRequestDecisionInput, correlationId = randomUUID()) {
+  async decideRequest(
+    user: RequestUser,
+    requestId: string,
+    input: StaffRequestDecisionInput,
+    correlationId: string = randomUUID(),
+  ) {
     this.assertRecentMfa(user);
     const approverRole = await this.requirePermission(user, StaffPermission.STAFF_REQUEST_APPROVE);
     const reason = this.requireText(input.reason, 'reason', 5);
-    if (!['APPROVE', 'DENY'].includes(input.decision)) throw new BadRequestException('Unknown decision');
+    if (input.decision !== 'APPROVE' && input.decision !== 'DENY') throw new BadRequestException('Unknown decision');
 
     return this.repository.transaction(async (tx) => {
       const request = await this.requireRequest(tx, requestId, true);
@@ -268,7 +288,13 @@ export class StaffAccessService {
     });
   }
 
-  async activateGrant(user: RequestUser, grantId: string, userAgent?: string, ip?: string, correlationId = randomUUID()) {
+  async activateGrant(
+    user: RequestUser,
+    grantId: string,
+    userAgent?: string,
+    ip?: string,
+    correlationId: string = randomUUID(),
+  ) {
     this.assertRecentMfa(user);
     const token = this.makeAccessToken();
     return this.repository.transaction(async (tx) => {
@@ -298,7 +324,14 @@ export class StaffAccessService {
         reason: grant.reason,
         ticketId: grant.ticket_id,
         correlationId,
-        metadata: { accessMode: grant.access_mode, expiresAt: grant.expires_at.toISOString() },
+        metadata: {
+          accessMode: grant.access_mode,
+          targetTenantId: grant.target_tenant_id,
+          targetOrganizationId: grant.target_organization_id,
+          targetUserId: grant.target_user_id,
+          targetRole: grant.target_role,
+          expiresAt: grant.expires_at.toISOString(),
+        },
       });
       return {
         accessSessionId: sessionId,
@@ -323,7 +356,12 @@ export class StaffAccessService {
     return this.toContext(session);
   }
 
-  async endSession(user: RequestUser, sessionId: string, reason = 'STAFF_ENDED', correlationId = randomUUID()) {
+  async endSession(
+    user: RequestUser,
+    sessionId: string,
+    reason = 'STAFF_ENDED',
+    correlationId: string = randomUUID(),
+  ) {
     const roles = await this.requireAssignments(user);
     const own = await this.repository.listActiveSessions(this.repository.prisma, user.id);
     const canRevokeAny = roles.some(({ role }) => ROLE_PERMISSION_CEILING[role].includes(StaffPermission.STAFF_SESSION_REVOKE));
@@ -353,13 +391,16 @@ export class StaffAccessService {
     return this.repository.listActiveSessions(this.repository.prisma, canReadAll ? undefined : user.id);
   }
 
-  async activateBreakGlass(user: RequestUser, input: { assignmentId: string; reason: string; ticketId: string }, correlationId = randomUUID()) {
+  async activateBreakGlass(
+    user: RequestUser,
+    input: { assignmentId: string; reason: string; ticketId: string },
+    correlationId: string = randomUUID(),
+  ) {
     this.assertRecentMfa(user);
     const assignment = await this.repository.getAssignment(this.repository.prisma, input.assignmentId, user.id);
     if (!assignment || !isStaffRole(assignment.role)) throw new ForbiddenException('Break-glass assignment is required');
-    if (![StaffRole.SRE_ONCALL, StaffRole.BREAK_GLASS_ADMIN, StaffRole.PLATFORM_OWNER].includes(assignment.role)) {
-      throw new ForbiddenException('Role cannot activate break-glass access');
-    }
+    const role: StaffRole = assignment.role;
+    if (!BREAK_GLASS_ROLES.has(role)) throw new ForbiddenException('Role cannot activate break-glass access');
     const reason = this.requireText(input.reason, 'reason', 20);
     const ticketId = this.requireText(input.ticketId, 'ticketId', 3);
     const activationId = `bga_${randomUUID()}`;
@@ -376,7 +417,7 @@ export class StaffAccessService {
       });
       await this.audit(tx, {
         actor: user,
-        staffRole: assignment.role,
+        staffRole: role,
         action: 'staff.break-glass.activate',
         outcome: 'SUCCESS',
         reason,
@@ -388,12 +429,12 @@ export class StaffAccessService {
     return { activationId, expiresAt: expiresAt.toISOString(), notificationRequired: true };
   }
 
-  async requestCriticalAction(user: RequestUser, access: StaffAccessContext, input: {
-    action: string;
-    resourceType: string;
-    resourceId: string;
-    payload: unknown;
-  }, correlationId = randomUUID()) {
+  async requestCriticalAction(
+    user: RequestUser,
+    access: StaffAccessContext,
+    input: { action: string; resourceType: string; resourceId: string; payload: unknown },
+    correlationId: string = randomUUID(),
+  ) {
     this.assertRecentMfa(user);
     if (!access.permissions.includes(StaffPermission.CRITICAL_ACTION_REQUEST)) {
       throw new ForbiddenException('Grant cannot request critical actions');
@@ -436,7 +477,12 @@ export class StaffAccessService {
     return { criticalRequestId: id, payloadHash, requiredApprovals: 2, expiresAt: expiresAt.toISOString() };
   }
 
-  async approveCriticalAction(user: RequestUser, requestId: string, input: { decision: 'APPROVE' | 'DENY'; reason: string }, correlationId = randomUUID()) {
+  async approveCriticalAction(
+    user: RequestUser,
+    requestId: string,
+    input: { decision: 'APPROVE' | 'DENY'; reason: string },
+    correlationId: string = randomUUID(),
+  ) {
     this.assertRecentMfa(user);
     const role = await this.requirePermission(user, StaffPermission.CRITICAL_ACTION_APPROVE);
     const reason = this.requireText(input.reason, 'reason', 5);
@@ -459,22 +505,37 @@ export class StaffAccessService {
       const approvals = await this.repository.countCriticalApprovals(tx, requestId);
       if (approvals >= request.required_approvals) await this.repository.markCriticalAction(tx, requestId, 'APPROVED');
       await this.auditCritical(tx, user, role, request, 'staff.critical.approve', reason, correlationId, { approvals });
-      return { requestId, status: approvals >= request.required_approvals ? 'APPROVED' : 'PENDING', approvals, requiredApprovals: request.required_approvals };
+      return {
+        requestId,
+        status: approvals >= request.required_approvals ? 'APPROVED' : 'PENDING',
+        approvals,
+        requiredApprovals: request.required_approvals,
+      };
     });
   }
 
-  async consumeCriticalAction(user: RequestUser, access: StaffAccessContext, requestId: string, payload: unknown, correlationId = randomUUID()) {
-    const request = await this.repository.getCriticalAction(this.repository.prisma, requestId, true);
-    if (!request || request.requester_user_id !== user.id || request.access_session_id !== access.accessSessionId) {
-      throw new NotFoundException('Critical action approval not found');
-    }
-    if (request.status !== 'APPROVED' || request.expires_at <= new Date()) throw new ConflictException('Critical action approval is not active');
-    const payloadHash = sha256(stableJson(payload));
-    if (payloadHash !== request.payload_hash) throw new ForbiddenException('Critical action payload changed after approval');
-    const consumed = await this.repository.markCriticalAction(this.repository.prisma, request.id, 'CONSUMED', true);
-    if (!consumed) throw new ConflictException('Critical action approval was already consumed');
-    await this.repository.transaction((tx) => this.auditCritical(tx, user, access.staffRole, request, 'staff.critical.consume', access.reason, correlationId));
-    return { success: true, requestId, action: request.action, payloadHash };
+  async consumeCriticalAction(
+    user: RequestUser,
+    access: StaffAccessContext,
+    requestId: string,
+    payload: unknown,
+    correlationId: string = randomUUID(),
+  ) {
+    return this.repository.transaction(async (tx) => {
+      const request = await this.requireCriticalRequest(tx, requestId, true);
+      if (request.requester_user_id !== user.id || request.access_session_id !== access.accessSessionId) {
+        throw new NotFoundException('Critical action approval not found');
+      }
+      if (request.status !== 'APPROVED' || request.expires_at <= new Date()) {
+        throw new ConflictException('Critical action approval is not active');
+      }
+      const payloadHash = sha256(stableJson(payload));
+      if (payloadHash !== request.payload_hash) throw new ForbiddenException('Critical action payload changed after approval');
+      const consumed = await this.repository.markCriticalAction(tx, request.id, 'CONSUMED', true);
+      if (!consumed) throw new ConflictException('Critical action approval was already consumed');
+      await this.auditCritical(tx, user, access.staffRole, request, 'staff.critical.consume', access.reason, correlationId);
+      return { success: true, requestId, action: request.action, payloadHash };
+    });
   }
 
   async organizationDirectory(user: RequestUser) {
@@ -511,9 +572,7 @@ export class StaffAccessService {
     if (!organization) throw new NotFoundException('Organization not found');
     const members = await this.repository.prisma.userOrg.count({ where: { organizationId, role } });
     const deals = await this.repository.prisma.deal.findMany({
-      where: {
-        OR: [{ sellerOrgId: organizationId }, { buyerOrgId: organizationId }],
-      },
+      where: { OR: [{ sellerOrgId: organizationId }, { buyerOrgId: organizationId }] },
       select: { id: true, dealNumber: true, status: true, nextAction: true, slaAt: true, updatedAt: true },
       orderBy: { updatedAt: 'desc' },
       take: 100,
@@ -540,7 +599,7 @@ export class StaffAccessService {
   private async requireAssignments(user: RequestUser) {
     const rows = await this.repository.listActiveAssignments(this.repository.prisma, user.id);
     const assignments = rows
-      .filter((row): row is typeof row & { role: StaffRole } => isStaffRole(row.role))
+      .filter((row) => isStaffRole(row.role))
       .map((row) => ({ ...row, role: row.role as StaffRole }));
     if (assignments.length === 0) throw new ForbiddenException('Active staff assignment is required');
     return assignments;
@@ -576,7 +635,10 @@ export class StaffAccessService {
 
   private assertModePermissions(mode: StaffAccessMode, permissions: StaffPermission[]) {
     if (mode === StaffAccessMode.VIEW_AS) {
-      const writes = permissions.filter((permission) => !READ_ONLY_SUFFIXES.some((suffix) => permission.endsWith(suffix)) && permission !== StaffPermission.DOCUMENT_METADATA_READ);
+      const writes = permissions.filter((permission) =>
+        !READ_ONLY_SUFFIXES.some((suffix) => permission.endsWith(suffix))
+        && permission !== StaffPermission.DOCUMENT_METADATA_READ,
+      );
       if (writes.length > 0) throw new ForbiddenException(`VIEW_AS is read-only: ${writes.join(', ')}`);
       if (!permissions.includes(StaffPermission.CABINET_VIEW_AS)) throw new BadRequestException('VIEW_AS requires cabinet:view-as');
     }
@@ -591,8 +653,8 @@ export class StaffAccessService {
       throw new BadRequestException('Customer-context access must be scoped to a tenant, organization or deal');
     }
     let tenantId = input.targetTenantId || null;
-    let organizationId = input.targetOrganizationId || null;
-    let userId = input.targetUserId || null;
+    const organizationId = input.targetOrganizationId || null;
+    const userId = input.targetUserId || null;
     if (organizationId) {
       const organization = await this.repository.prisma.organization.findUnique({
         where: { id: organizationId },
@@ -611,7 +673,8 @@ export class StaffAccessService {
   }
 
   private canAutoApprove(role: StaffRole, mode: StaffAccessMode) {
-    return role === StaffRole.PLATFORM_OWNER && [StaffAccessMode.CONTROL_PLANE, StaffAccessMode.VIEW_AS].includes(mode);
+    return role === StaffRole.PLATFORM_OWNER
+      && (mode === StaffAccessMode.CONTROL_PLANE || mode === StaffAccessMode.VIEW_AS);
   }
 
   private async createGrant(tx: Prisma.TransactionClient, request: StaffAccessRequestRow, now: Date) {
@@ -665,7 +728,7 @@ export class StaffAccessService {
     return Array.isArray(value) ? value.filter(isStaffPermission) : [];
   }
 
-  private async requireRequest(client: Parameters<StaffAccessRepository['getAccessRequest']>[0], id: string, forUpdate: boolean) {
+  private async requireRequest(client: StaffSqlClient, id: string, forUpdate: boolean) {
     const request = await this.repository.getAccessRequest(client, id, forUpdate);
     if (!request) throw new NotFoundException('Staff access request not found');
     return request;
@@ -677,7 +740,7 @@ export class StaffAccessService {
     }
   }
 
-  private async requireCriticalRequest(client: Parameters<StaffAccessRepository['getCriticalAction']>[0], id: string, forUpdate: boolean) {
+  private async requireCriticalRequest(client: StaffSqlClient, id: string, forUpdate: boolean) {
     const request = await this.repository.getCriticalAction(client, id, forUpdate);
     if (!request) throw new NotFoundException('Critical action request not found');
     return request;
@@ -689,7 +752,7 @@ export class StaffAccessService {
     return normalized.slice(0, 2000);
   }
 
-  private async auditCritical(
+  private auditCritical(
     tx: Prisma.TransactionClient,
     actor: RequestUser,
     role: StaffRole,
