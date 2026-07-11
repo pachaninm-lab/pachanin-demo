@@ -1,0 +1,68 @@
+name: fix canonical support projection columns
+
+on:
+  push:
+    branches:
+      - feat/platform-v7-staff-control-center
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Patch canonical columns and add regression guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          service = Path('apps/api/src/modules/staff-access/staff-support.service.ts')
+          source = service.read_text()
+          source = source.replace('u.full_name AS user_full_name', 'u."fullName" AS user_full_name')
+          source = source.replace('d.deal_number', 'd."dealNumber"')
+          if 'u.full_name' in source or 'd.deal_number' in source:
+            raise SystemExit('canonical column correction incomplete')
+          if 'u."fullName" AS user_full_name' not in source or 'd."dealNumber"' not in source:
+            raise SystemExit('canonical column correction missing')
+          service.write_text(source)
+
+          test = Path('apps/api/test/staff-access/staff-support.service.spec.ts')
+          source = test.read_text()
+          marker = "describe('StaffSupportService', () => {"
+          guard = '''describe('Staff support SQL contract', () => {
+  it('uses the canonical Prisma-mapped public column names', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const serviceSource = fs.readFileSync(path.resolve(process.cwd(), 'src/modules/staff-access/staff-support.service.ts'), 'utf8');
+    expect(serviceSource).toContain('u."fullName" AS user_full_name');
+    expect(serviceSource).toContain('d."dealNumber"');
+    expect(serviceSource).not.toContain('u.full_name');
+    expect(serviceSource).not.toContain('d.deal_number');
+  });
+});
+
+'''
+          if 'Staff support SQL contract' not in source:
+            if marker not in source:
+              raise SystemExit('test insertion marker missing')
+            source = source.replace(marker, guard + marker, 1)
+            test.write_text(source)
+          PY
+      - name: Commit fix and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/zz-fix-canonical-support-columns.yml
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add -A
+          git commit -m 'Use canonical columns in staff support projections'
+          git push origin HEAD:feat/platform-v7-staff-control-center
