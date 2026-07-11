@@ -50,7 +50,8 @@ describe('platform-v7 canonical one-deal workspace', () => {
 
   it('uses verified single entry and does not let the browser choose a role', () => {
     expect(loginPage).not.toContain("'use client'");
-    expect(loginPage).toContain('<LoginFormClient copy={copy} />');
+    expect(loginPage).toContain('getPublicLoginCopy(locale)');
+    expect(loginPage).toContain('<LoginFormClient copy={form} />');
     expect(loginClient).toContain("requestJson('/api/auth/login'");
     expect(loginClient).not.toContain('/api/platform-v7/cabinet-session');
     expect(loginClient).not.toContain('usePlatformV7RStore');
