@@ -14,6 +14,10 @@ import { StaffAccessService } from './staff-access.service';
 import { StaffPermission, StaffRole } from './staff-access.types';
 
 const STAFF_MFA_FRESHNESS_MS = 15 * 60 * 1000;
+const OWNER_ONLY_ASSIGNABLE_ROLES = new Set<StaffRole>([
+  StaffRole.PLATFORM_OWNER,
+  StaffRole.BREAK_GLASS_ADMIN,
+]);
 
 @Injectable()
 export class StaffAssignmentService {
@@ -45,15 +49,19 @@ export class StaffAssignmentService {
     `);
   }
 
-  async create(user: RequestUser, input: {
-    userId: string;
-    role: StaffRole;
-    validUntil?: string;
-    reason: string;
-  }, correlationId = randomUUID()) {
+  async create(
+    user: RequestUser,
+    input: {
+      userId: string;
+      role: StaffRole;
+      validUntil?: string;
+      reason: string;
+    },
+    correlationId: string = randomUUID(),
+  ) {
     this.assertRecentMfa(user);
     const actorRole = await this.access.requirePermission(user, StaffPermission.STAFF_ASSIGNMENT_WRITE);
-    if ([StaffRole.PLATFORM_OWNER, StaffRole.BREAK_GLASS_ADMIN].includes(input.role) && actorRole !== StaffRole.PLATFORM_OWNER) {
+    if (OWNER_ONLY_ASSIGNABLE_ROLES.has(input.role) && actorRole !== StaffRole.PLATFORM_OWNER) {
       throw new ForbiddenException('Only PLATFORM_OWNER can assign owner or break-glass authority');
     }
     const reason = String(input.reason ?? '').trim();
@@ -66,7 +74,9 @@ export class StaffAssignmentService {
       where: { id: input.userId },
       select: { id: true, status: true, deletedAt: true },
     });
-    if (!target || target.deletedAt || target.status !== 'ACTIVE') throw new NotFoundException('Active target user not found');
+    if (!target || target.deletedAt || target.status !== 'ACTIVE') {
+      throw new NotFoundException('Active target user not found');
+    }
 
     const assignmentId = `sta_${randomUUID()}`;
     try {
@@ -87,19 +97,35 @@ export class StaffAssignmentService {
           outcome: 'SUCCESS',
           reason,
           correlationId,
-          metadata: { assignmentId, targetUserId: input.userId, assignedRole: input.role, validUntil: validUntil?.toISOString() ?? null },
+          metadata: {
+            assignmentId,
+            targetUserId: input.userId,
+            assignedRole: input.role,
+            validUntil: validUntil?.toISOString() ?? null,
+          },
         });
       });
     } catch (error) {
-      if (String((error as { code?: string })?.code ?? '') === 'P2002' || /unique/i.test(String((error as Error)?.message))) {
+      if (
+        String((error as { code?: string })?.code ?? '') === 'P2002'
+        || /unique/i.test(String((error as Error)?.message))
+      ) {
         throw new ConflictException('An active or eligible assignment for this role already exists');
       }
       throw error;
     }
-    return { assignmentId, status: input.role === StaffRole.PLATFORM_OWNER ? 'ACTIVE' : 'ELIGIBLE' };
+    return {
+      assignmentId,
+      status: input.role === StaffRole.PLATFORM_OWNER ? 'ACTIVE' : 'ELIGIBLE',
+    };
   }
 
-  async revoke(user: RequestUser, assignmentId: string, reasonInput: string, correlationId = randomUUID()) {
+  async revoke(
+    user: RequestUser,
+    assignmentId: string,
+    reasonInput: string,
+    correlationId: string = randomUUID(),
+  ) {
     this.assertRecentMfa(user);
     const actorRole = await this.access.requirePermission(user, StaffPermission.STAFF_ASSIGNMENT_WRITE);
     const reason = String(reasonInput ?? '').trim();
@@ -136,14 +162,20 @@ export class StaffAssignmentService {
         outcome: 'SUCCESS',
         reason,
         correlationId,
-        metadata: { assignmentId, targetUserId: assignment.user_id, revokedRole: assignment.role },
+        metadata: {
+          assignmentId,
+          targetUserId: assignment.user_id,
+          revokedRole: assignment.role,
+        },
       });
       return { success: true, assignmentId };
     });
   }
 
   private assertRecentMfa(user: RequestUser) {
-    if (!user.mfaVerified || !user.mfaVerifiedAt) throw new ForbiddenException('Staff administration requires MFA');
+    if (!user.mfaVerified || !user.mfaVerifiedAt) {
+      throw new ForbiddenException('Staff administration requires MFA');
+    }
     const age = Date.now() - new Date(user.mfaVerifiedAt).getTime();
     if (!Number.isFinite(age) || age < 0 || age > STAFF_MFA_FRESHNESS_MS) {
       throw new ForbiddenException('Staff administration requires recent MFA verification');
