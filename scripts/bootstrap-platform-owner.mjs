@@ -14,7 +14,15 @@ if (confirmation !== `CREATE_PLATFORM_OWNER:${email}`) {
 }
 
 const prisma = new PrismaClient();
-const stable = (value) => JSON.stringify(value, Object.keys(value).sort());
+
+function stable(value) {
+  if (Array.isArray(value)) return `[${value.map((item) => stable(item)).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 const sha256 = (value) => createHash('sha256').update(value, 'utf8').digest('hex');
 
 try {
@@ -53,6 +61,7 @@ try {
       )
     `);
 
+    await tx.$executeRaw(Prisma.sql`SELECT auth.lock_staff_access_event_chain(${user.id})`);
     const previous = await tx.$queryRaw(Prisma.sql`
       SELECT hash
       FROM auth.staff_access_events
@@ -62,27 +71,33 @@ try {
     `);
     const eventId = `sae_${randomUUID()}`;
     const correlationId = `bootstrap_${randomUUID()}`;
+    const metadata = { assignmentId, bootstrap: true };
+    const prevHash = previous[0]?.hash ?? null;
     const payload = {
       id: eventId,
       actorUserId: user.id,
       staffRole: 'PLATFORM_OWNER',
+      accessSessionId: null,
+      grantId: null,
       action: 'staff.assignment.bootstrap-owner',
+      resourceType: 'staff_assignment',
+      resourceId: assignmentId,
       outcome: 'SUCCESS',
       reason,
+      ticketId: null,
       correlationId,
-      assignmentId,
-      previousHash: previous[0]?.hash ?? null,
+      metadata,
+      prevHash,
     };
     const hash = sha256(stable(payload));
     await tx.$executeRaw(Prisma.sql`
       INSERT INTO auth.staff_access_events (
-        id, actor_user_id, staff_role, action, outcome, reason,
-        correlation_id, metadata, prev_hash, hash
+        id, actor_user_id, staff_role, action, resource_type, resource_id,
+        outcome, reason, correlation_id, metadata, prev_hash, hash
       ) VALUES (
         ${eventId}, ${user.id}, 'PLATFORM_OWNER', 'staff.assignment.bootstrap-owner',
-        'SUCCESS', ${reason}, ${correlationId},
-        ${JSON.stringify({ assignmentId, bootstrap: true })}::jsonb,
-        ${previous[0]?.hash ?? null}, ${hash}
+        'staff_assignment', ${assignmentId}, 'SUCCESS', ${reason}, ${correlationId},
+        ${JSON.stringify(metadata)}::jsonb, ${prevHash}, ${hash}
       )
     `);
 
