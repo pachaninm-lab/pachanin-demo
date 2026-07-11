@@ -1,0 +1,90 @@
+name: staff hydration diagnostic
+
+on:
+  push:
+    branches:
+      - ops/staff-control-center-evidence
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-dev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      API_URL: https://127.0.0.1:4010
+      JWT_SECRET: staff-evidence-jwt-secret-32-characters-minimum
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Start TLS mock and development Next server
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd apps/web
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
+            -subj '/CN=127.0.0.1' -addext 'subjectAltName=IP:127.0.0.1' \
+            -keyout /tmp/staff-mock.key -out /tmp/staff-mock.crt >/dev/null 2>&1
+          STAFF_MOCK_TLS_KEY=/tmp/staff-mock.key STAFF_MOCK_TLS_CERT=/tmp/staff-mock.crt \
+            node scripts/staff-control-center-mock-server.mjs >/tmp/staff-hydration-mock.log 2>&1 &
+          NODE_TLS_REJECT_UNAUTHORIZED=0 pnpm dev >/tmp/staff-hydration-web.log 2>&1 &
+          for attempt in $(seq 1 90); do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' 'http://127.0.0.1:3000/platform-v7/staff?lang=ru' || true)
+            if [ "$status" = '200' ]; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/staff-hydration-web.log
+          exit 1
+      - name: Capture non-minified hydration diagnostics
+        working-directory: apps/web
+        shell: bash
+        run: |
+          mkdir -p ../../artifacts/staff-hydration
+          node <<'NODE' 2>&1 | tee ../../artifacts/staff-hydration/diagnostic.log
+          const crypto = require('crypto');
+          const { chromium } = require('@playwright/test');
+          const secret = process.env.JWT_SECRET;
+          const b64 = (value) => Buffer.from(typeof value === 'string' ? value : JSON.stringify(value)).toString('base64url');
+          const now = Math.floor(Date.now() / 1000);
+          const header = b64({ alg: 'HS256', typ: 'JWT' });
+          const payload = b64({ sub: 'owner-evidence', sid: 'session-evidence', iat: now, exp: now + 3600 });
+          const token = `${header}.${payload}.${crypto.createHmac('sha256', secret).update(`${header}.${payload}`).digest('base64url')}`;
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const context = await browser.newContext({ locale: 'ru-RU', viewport: { width: 1440, height: 1000 } });
+            await context.addCookies([
+              { name: 'pc_access_token', value: token, url: 'http://127.0.0.1:3000', httpOnly: true, sameSite: 'Lax' },
+              { name: 'pc_session_present', value: encodeURIComponent(JSON.stringify({ role: 'operator', exp: now + 3600, email: 'owner-evidence@example.test' })), url: 'http://127.0.0.1:3000', sameSite: 'Lax' },
+            ]);
+            const page = await context.newPage();
+            page.on('console', message => console.log('CONSOLE', message.type(), message.text(), message.location()));
+            page.on('pageerror', error => console.log('PAGEERROR', error.stack || String(error)));
+            await page.goto('http://127.0.0.1:3000/platform-v7/staff?lang=ru', { waitUntil: 'networkidle', timeout: 60000 });
+            await page.waitForTimeout(3000);
+            console.log('BODY', (await page.locator('body').innerText()).slice(0, 3000));
+            await page.screenshot({ path: '../../artifacts/staff-hydration/dev.png', fullPage: true });
+            await browser.close();
+          })().catch(error => { console.error(error); process.exit(1); });
+          NODE
+      - name: Preserve logs
+        if: always()
+        run: |
+          mkdir -p artifacts/staff-hydration
+          cp /tmp/staff-hydration-web.log artifacts/staff-hydration/web.log 2>/dev/null || true
+          cp /tmp/staff-hydration-mock.log artifacts/staff-hydration/mock.log 2>/dev/null || true
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staff-hydration-diagnostic
+          path: artifacts/staff-hydration
+          if-no-files-found: error
+          retention-days: 3
