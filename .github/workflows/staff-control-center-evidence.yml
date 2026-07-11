@@ -42,7 +42,10 @@ jobs:
           mkdir -p artifacts/staff-control-center-evidence
           pnpm --filter @pc/web exec vitest run tests/unit/platformV7StaffAccessControlPlane.test.ts 2>&1 | tee artifacts/staff-control-center-evidence/unit.log
       - name: Build production web bundle
-        run: pnpm --filter @pc/web run build
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web run build 2>&1 | tee artifacts/staff-control-center-evidence/build.log
       - name: Install Chromium and WebKit
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
@@ -66,7 +69,11 @@ jobs:
           exit 1
       - name: Run Chromium WebKit RU EN ZH staff evidence
         working-directory: apps/web
-        run: node scripts/staff-control-center-evidence.mjs
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "$ARTIFACT_DIR"
+          node scripts/staff-control-center-evidence.mjs 2>&1 | tee "$ARTIFACT_DIR/browser.log"
       - name: Run authenticated mobile Lighthouse gate
         working-directory: apps/web
         shell: bash
@@ -97,7 +104,7 @@ jobs:
             --throttling-method=simulate \
             --output=json \
             --output-path="$ARTIFACT_DIR/lighthouse-staff.json"
-          node <<'NODE'
+          node <<'NODE' | tee "$ARTIFACT_DIR/lighthouse-summary.log"
           const fs = require('fs');
           const path = require('path');
           const report = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), process.env.ARTIFACT_DIR, 'lighthouse-staff.json')));
@@ -109,6 +116,13 @@ jobs:
           console.log(JSON.stringify(result, null, 2));
           if (result.performance < 90 || result.accessibility < 95 || result.bestPractices < 90 || lcp > 2500 || tbt > 250 || cls > 0.1) process.exit(1);
           NODE
+      - name: Preserve server logs
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/staff-control-center-evidence
+          cp /tmp/staff-mock.log artifacts/staff-control-center-evidence/staff-mock.log 2>/dev/null || true
+          cp /tmp/staff-web.log artifacts/staff-control-center-evidence/staff-web.log 2>/dev/null || true
       - name: Upload exact staff evidence
         if: always()
         uses: actions/upload-artifact@v4
