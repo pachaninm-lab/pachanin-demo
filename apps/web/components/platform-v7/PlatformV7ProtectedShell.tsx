@@ -15,6 +15,7 @@ import { PlatformFooter } from '@/components/platform-v7/PlatformFooter';
 import { OnboardingTour } from '@/components/platform-v7/OnboardingTour';
 import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { HeaderLanguageSwitch } from '@/components/platform-v7/HeaderLanguageSwitch';
+import { StaffControlCenterEntry } from '@/components/platform-v7/StaffControlCenterEntry';
 import { RoleIntentDashboard } from '@/components/platform-v7/RoleIntentDashboard';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
@@ -70,6 +71,7 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
           <RbacCabinetGuard />
           <ShellCopyNormalizer />
           <HeaderLanguageSwitch />
+          <StaffControlCenterEntry />
           <CalculatorHeaderWidget />
           <NotepadHeaderWidget />
           <SupportHeaderIcon />
