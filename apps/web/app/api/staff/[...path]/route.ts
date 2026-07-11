@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 12;
 
-const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim().replace(/\/$/, '');
 const STAFF_ACCESS_COOKIE = 'pc_staff_access_token';
 const STAFF_ACCESS_META_COOKIE = 'pc_staff_access_meta';
 const MAX_BODY_BYTES = 64 * 1024;
@@ -289,6 +289,17 @@ async function proxy(request: NextRequest, context: { params: { path?: string[] 
     return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
   }
 
+  let apiOrigin: string;
+  try {
+    const url = new URL(API_URL);
+    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
+      return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
+    }
+    apiOrigin = url.toString().replace(/\/$/, '');
+  } catch {
+    return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
+  }
+
   if (method === 'GET' && path === 'session-context') {
     return verifiedSessionContext(request, accessToken, correlationId);
   }
@@ -318,7 +329,7 @@ async function proxy(request: NextRequest, context: { params: { path?: string[] 
   }
 
   const query = request.nextUrl.searchParams.toString();
-  const targetUrl = `${API_URL}/staff/${path}${query ? `?${query}` : ''}`;
+  const targetUrl = `${apiOrigin}/staff/${path}${query ? `?${query}` : ''}`;
   const ip = requestIp(request);
   const userAgent = request.headers.get('user-agent');
 

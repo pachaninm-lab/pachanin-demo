@@ -43,11 +43,6 @@ export class StaffAuditWriterService {
       staffRole: access.staffRole as StaffRole,
       accessSessionId: access.accessSessionId,
       grantId: access.grantId,
-      effectiveTenantId: access.effectiveTenantId,
-      effectiveOrganizationId: access.effectiveOrganizationId,
-      effectiveUserId: access.effectiveUserId,
-      effectiveRole: access.effectiveRole,
-      accessMode: access.accessMode,
       action: input.action,
       resourceType: input.resourceType ?? null,
       resourceId: input.resourceId ?? null,
@@ -63,6 +58,11 @@ export class StaffAuditWriterService {
     };
     await this.repository.insertEvent(client, {
       ...payload,
+      effectiveTenantId: access.effectiveTenantId,
+      effectiveOrganizationId: access.effectiveOrganizationId,
+      effectiveUserId: access.effectiveUserId,
+      effectiveRole: access.effectiveRole,
+      accessMode: access.accessMode,
       hash: sha256(stableJson(payload)),
     });
     return correlationId;

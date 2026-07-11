@@ -2,9 +2,37 @@ import { RequestUser, Role } from '../../src/common/types/request-user';
 import {
   ALLOWED_STAFF_CRITICAL_ACTIONS,
   FORBIDDEN_STAFF_ACTIONS,
+  StaffAccessContext,
+  StaffAccessMode,
   StaffPermission,
+  StaffRole,
 } from '../../src/modules/staff-access/staff-access.types';
 import { StaffWorkspaceService } from '../../src/modules/staff-access/staff-workspace.service';
+
+const globalAccess: StaffAccessContext = {
+  accessSessionId: 'staff-session',
+  grantId: 'staff-grant',
+  actorUserId: 'staff-user',
+  staffRole: StaffRole.PLATFORM_OWNER,
+  accessMode: StaffAccessMode.CONTROL_PLANE,
+  permissions: Object.values(StaffPermission),
+  effectiveTenantId: null,
+  effectiveOrganizationId: null,
+  effectiveUserId: null,
+  effectiveRole: null,
+  targetDealId: null,
+  reason: 'Operations control',
+  ticketId: 'OPS-1',
+  expiresAt: new Date(Date.now() + 60_000),
+};
+
+const scopedAccess: StaffAccessContext = {
+  ...globalAccess,
+  accessMode: StaffAccessMode.OPERATIONS,
+  effectiveTenantId: 'tenant-a',
+  effectiveOrganizationId: 'buyer',
+  targetDealId: 'deal-1',
+};
 
 const actor: RequestUser = {
   id: 'staff-user',
@@ -57,7 +85,7 @@ describe('StaffWorkspaceService', () => {
       bankOperations: [], acceptanceRecords: [],
     }]);
     prisma.organization.findMany.mockResolvedValue([{ id: 'seller', name: 'Seller', inn: '1' }, { id: 'buyer', name: 'Buyer', inn: '2' }]);
-    const result = await service.operationsQueue(actor);
+    const result = await service.operationsQueue(actor, globalAccess);
     expect(access.requirePermission).toHaveBeenCalledWith(actor, StaffPermission.DEAL_LIST);
     expect(result.items[0]).toMatchObject({ id: 'deal-1', overdue: true, openDisputes: 0 });
     expect(result.items[0].shipmentSummary).toMatchObject({ total: 1, blocked: 1, active: 1 });
@@ -71,14 +99,14 @@ describe('StaffWorkspaceService', () => {
       currency: 'RUB', bankRef: null, bankName: null, failureReason: null, confirmedAt: null,
       createdAt: new Date(), updatedAt: new Date(), deal: { dealNumber: 'TP-1', status: 'IN_EXECUTION' },
     }]);
-    const result = await service.financeQueue(actor);
+    const result = await service.financeQueue(actor, globalAccess);
     expect(access.requirePermission).toHaveBeenCalledWith(actor, StaffPermission.PAYMENT_METADATA_READ);
     expect(result.bankOperations[0].amountKopecks).toBe('123');
   });
 
   it('requires diagnostics and deliberately excludes integration payloads', async () => {
     const { service, access, prisma } = setup();
-    await service.diagnostics(actor);
+    await service.diagnostics(actor, globalAccess);
     expect(access.requirePermission).toHaveBeenCalledWith(actor, StaffPermission.DIAGNOSTIC_READ);
     const select = prisma.integrationEvent.findMany.mock.calls[0][0].select;
     expect(select.requestPayload).toBeUndefined();
@@ -86,6 +114,34 @@ describe('StaffWorkspaceService', () => {
     expect(select.errorMessage).toBe(true);
     expect(prisma.outboxEntry.findMany).toHaveBeenCalledTimes(1);
     expect(prisma.dealWorkspaceRuntimeTransactionAttempt.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies tenant, organization and deal scope to operations, finance and diagnostics', async () => {
+    const { service, prisma } = setup();
+    await service.operationsQueue(actor, scopedAccess);
+    await service.financeQueue(actor, scopedAccess);
+    await service.diagnostics(actor, scopedAccess);
+
+    const operationsWhere = prisma.deal.findMany.mock.calls[0][0].where;
+    expect(operationsWhere).toEqual({
+      AND: [
+        {
+          AND: [
+            { id: 'deal-1' },
+            { tenantId: 'tenant-a' },
+            { OR: [{ sellerOrgId: 'buyer' }, { buyerOrgId: 'buyer' }] },
+          ],
+        },
+        { status: { notIn: ['CLOSED', 'CANCELLED'] } },
+      ],
+    });
+    expect(prisma.payment.findMany.mock.calls[0][0].where).toEqual({ deal: { is: operationsWhere.AND[0] } });
+    expect(prisma.bankOperation.findMany.mock.calls[0][0].where).toEqual({ deal: { is: operationsWhere.AND[0] } });
+    expect(prisma.integrationEvent.findMany.mock.calls[0][0].where).toEqual({ dealId: { in: ['deal-1'] } });
+    expect(prisma.outboxEntry.findMany.mock.calls[0][0].where).toEqual({ dealId: { in: ['deal-1'] } });
+    expect(prisma.dealWorkspaceRuntimeTransactionAttempt.findMany.mock.calls[0][0].where).toEqual({
+      snapshot: { is: { deal: { is: operationsWhere.AND[0] } } },
+    });
   });
 
   it('requires independent critical-action approval authority', async () => {

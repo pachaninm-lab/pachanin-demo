@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
 import { StaffAccessRepository } from './staff-access.repository';
 import { StaffAccessService } from './staff-access.service';
-import { StaffPermission } from './staff-access.types';
+import { StaffAccessContext, StaffPermission } from './staff-access.types';
 
 type CriticalActionProjection = {
   id: string;
@@ -103,11 +103,12 @@ export class StaffWorkspaceService {
     };
   }
 
-  async operationsQueue(user: RequestUser) {
+  async operationsQueue(user: RequestUser, staffAccess: StaffAccessContext) {
     await this.access.requirePermission(user, StaffPermission.DEAL_LIST);
     const now = new Date();
+    const dealScope = this.dealScope(staffAccess);
     const deals = await this.repository.prisma.deal.findMany({
-      where: { status: { notIn: ['CLOSED', 'CANCELLED'] } },
+      where: { AND: [dealScope, { status: { notIn: ['CLOSED', 'CANCELLED'] } }] },
       select: {
         id: true,
         dealNumber: true,
@@ -184,10 +185,12 @@ export class StaffWorkspaceService {
     };
   }
 
-  async financeQueue(user: RequestUser) {
+  async financeQueue(user: RequestUser, staffAccess: StaffAccessContext) {
     await this.access.requirePermission(user, StaffPermission.PAYMENT_METADATA_READ);
+    const dealScope = this.dealScope(staffAccess);
     const [payments, operations] = await Promise.all([
       this.repository.prisma.payment.findMany({
+        where: { deal: { is: dealScope } },
         select: {
           id: true,
           dealId: true,
@@ -207,6 +210,7 @@ export class StaffWorkspaceService {
         take: 300,
       }),
       this.repository.prisma.bankOperation.findMany({
+        where: { deal: { is: dealScope } },
         select: {
           id: true,
           dealId: true,
@@ -236,20 +240,29 @@ export class StaffWorkspaceService {
     };
   }
 
-  async diagnostics(user: RequestUser) {
+  async diagnostics(user: RequestUser, staffAccess: StaffAccessContext) {
     await this.access.requirePermission(user, StaffPermission.DIAGNOSTIC_READ);
+    const dealScope = this.dealScope(staffAccess);
+    const scopedDealIds = await this.scopedDealIds(staffAccess, dealScope);
+    const dealIdWhere = scopedDealIds === null ? undefined : { dealId: { in: scopedDealIds } };
+    const attemptWhere = scopedDealIds === null
+      ? undefined
+      : { snapshot: { is: { deal: { is: dealScope } } } };
     const [integrations, outbox, attempts] = await Promise.all([
       this.repository.prisma.integrationEvent.findMany({
+        where: dealIdWhere,
         select: { id: true, adapterName: true, direction: true, eventType: true, dealId: true, status: true, errorMessage: true, httpStatus: true, durationMs: true, createdAt: true },
         orderBy: { createdAt: 'desc' },
         take: 300,
       }),
       this.repository.prisma.outboxEntry.findMany({
+        where: dealIdWhere,
         select: { id: true, type: true, dealId: true, status: true, retryCount: true, maxRetries: true, nextRetryAt: true, lastError: true, correlationId: true, createdAt: true, sentAt: true, confirmedAt: true, failedAt: true },
         orderBy: { createdAt: 'desc' },
         take: 300,
       }),
       this.repository.prisma.dealWorkspaceRuntimeTransactionAttempt.findMany({
+        where: attemptWhere,
         select: { id: true, transactionId: true, correlationId: true, stage: true, outcome: true, failureCode: true, failureReason: true, isReplay: true, startedAt: true, completedAt: true },
         orderBy: { startedAt: 'desc' },
         take: 300,
@@ -263,6 +276,38 @@ export class StaffWorkspaceService {
     };
   }
 
+  private dealScope(staffAccess: StaffAccessContext): Prisma.DealWhereInput {
+    const filters: Prisma.DealWhereInput[] = [];
+    if (staffAccess.targetDealId) filters.push({ id: staffAccess.targetDealId });
+    if (staffAccess.effectiveTenantId) filters.push({ tenantId: staffAccess.effectiveTenantId });
+    if (staffAccess.effectiveOrganizationId) {
+      filters.push({
+        OR: [
+          { sellerOrgId: staffAccess.effectiveOrganizationId },
+          { buyerOrgId: staffAccess.effectiveOrganizationId },
+        ],
+      });
+    }
+    return filters.length === 0 ? {} : { AND: filters };
+  }
+
+  private async scopedDealIds(
+    staffAccess: StaffAccessContext,
+    dealScope: Prisma.DealWhereInput,
+  ): Promise<string[] | null> {
+    const scoped = Boolean(
+      staffAccess.targetDealId
+      || staffAccess.effectiveTenantId
+      || staffAccess.effectiveOrganizationId,
+    );
+    if (!scoped) return null;
+    if (staffAccess.targetDealId) return [staffAccess.targetDealId];
+    const deals = await this.repository.prisma.deal.findMany({
+      where: dealScope,
+      select: { id: true },
+    });
+    return deals.map((deal) => deal.id);
+  }
 
   async ownCriticalActions(user: RequestUser) {
     await this.access.requirePermission(user, StaffPermission.CRITICAL_ACTION_REQUEST);

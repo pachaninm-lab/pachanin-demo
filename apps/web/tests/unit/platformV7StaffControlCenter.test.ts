@@ -54,6 +54,8 @@ describe('platform-v7 Staff Control Center authority boundary', () => {
     expect(proxy).toContain("code: 'STAFF_ROUTE_NOT_ALLOWED'");
     expect(proxy).toContain('const csrf = assertCsrf(request)');
     expect(proxy).toContain("code: 'CSRF_REJECTED'");
+    expect(proxy).toContain("process.env.NODE_ENV === 'production' && url.protocol !== 'https:'");
+    expect(proxy).toContain('const targetUrl = `${apiOrigin}/staff/${path}');
     expect(proxy).toContain('delete safePayload.accessToken');
     expect(proxy).toContain('httpOnly: true');
     expect(proxy).toContain("sameSite: 'strict'");

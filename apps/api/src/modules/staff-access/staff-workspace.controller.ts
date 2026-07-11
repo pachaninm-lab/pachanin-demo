@@ -154,14 +154,14 @@ export class StaffWorkspaceController {
   @StaffAccessModes(StaffAccessMode.CONTROL_PLANE, StaffAccessMode.OPERATIONS)
   @StaffPermissions(StaffPermission.DEAL_LIST)
   operations(@Req() request: StaffRequest) {
-    return this.workspaces.operationsQueue(request.user);
+    return this.workspaces.operationsQueue(request.user, this.requireAccessContext(request));
   }
 
   @Get('finance')
   @StaffAccessModes(StaffAccessMode.CONTROL_PLANE, StaffAccessMode.JIT_PRIVILEGED)
   @StaffPermissions(StaffPermission.PAYMENT_METADATA_READ)
   finance(@Req() request: StaffRequest) {
-    return this.workspaces.financeQueue(request.user);
+    return this.workspaces.financeQueue(request.user, this.requireAccessContext(request));
   }
 
   @Get('diagnostics')
@@ -172,7 +172,7 @@ export class StaffWorkspaceController {
   )
   @StaffPermissions(StaffPermission.DIAGNOSTIC_READ)
   diagnostics(@Req() request: StaffRequest) {
-    return this.workspaces.diagnostics(request.user);
+    return this.workspaces.diagnostics(request.user, this.requireAccessContext(request));
   }
 
   @Get('critical-actions/mine')
