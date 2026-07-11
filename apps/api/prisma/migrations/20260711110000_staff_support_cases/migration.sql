@@ -95,3 +95,17 @@ FOR EACH STATEMENT EXECUTE FUNCTION support.reject_case_event_mutation();
 REVOKE ALL ON SCHEMA support FROM PUBLIC;
 REVOKE ALL ON ALL TABLES IN SCHEMA support FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA support FROM PUBLIC;
+REVOKE ALL ON FUNCTION support.reject_case_event_mutation() FROM PUBLIC;
+
+DO $grant_staff_support$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_service') THEN
+    GRANT USAGE ON SCHEMA support TO app_service;
+    GRANT SELECT, INSERT, UPDATE ON support.cases TO app_service;
+    GRANT SELECT, INSERT ON support.case_events TO app_service;
+    GRANT SELECT, INSERT, UPDATE ON support.access_recovery_requests TO app_service;
+    REVOKE UPDATE, DELETE, TRUNCATE ON support.case_events FROM app_service;
+    REVOKE DELETE, TRUNCATE ON support.cases, support.access_recovery_requests FROM app_service;
+  END IF;
+END
+$grant_staff_support$;
