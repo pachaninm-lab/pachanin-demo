@@ -6,28 +6,8 @@ import '@/styles/platform-v7-role-cards-stable.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-webkit-safe.css';
 import '@/styles/platform-v7-public-hero-watermark.css';
+import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
-import {
-  ArrowRight,
-  BadgeCheck,
-  Banknote,
-  Building2,
-  Calculator,
-  ClipboardCheck,
-  FileCheck2,
-  FlaskConical,
-  Landmark,
-  Leaf,
-  LockKeyhole,
-  LogIn,
-  PlayCircle,
-  Scale,
-  ShieldCheck,
-  Truck,
-  UserRound,
-  Wheat,
-  type LucideIcon,
-} from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 import { PlatformV7IntelligenceStrip } from '@/components/v7r/PlatformV7IntelligenceStrip';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
@@ -57,46 +37,46 @@ export const metadata: Metadata = {
   },
 };
 
-type Card = { key: string; Icon: LucideIcon };
+type Card = { key: string; glyph: string };
 type RoleCard = Card & { href: '/platform-v7/login' };
 
 const controlCards: Card[] = [
-  { key: 'money', Icon: Banknote },
-  { key: 'documents', Icon: FileCheck2 },
-  { key: 'logistics', Icon: Truck },
-  { key: 'quality', Icon: FlaskConical },
+  { key: 'money', glyph: '₽' },
+  { key: 'documents', glyph: '§' },
+  { key: 'logistics', glyph: '↗' },
+  { key: 'quality', glyph: '∴' },
 ];
 
 const processSteps: Card[] = [
-  { key: 'price', Icon: Leaf },
-  { key: 'deal', Icon: ClipboardCheck },
-  { key: 'trip', Icon: Truck },
-  { key: 'acceptance', Icon: Building2 },
-  { key: 'documents', Icon: FileCheck2 },
-  { key: 'settlement', Icon: Banknote },
-  { key: 'dispute', Icon: Scale },
+  { key: 'price', glyph: '₽' },
+  { key: 'deal', glyph: '✓' },
+  { key: 'trip', glyph: '→' },
+  { key: 'acceptance', glyph: '▣' },
+  { key: 'documents', glyph: '§' },
+  { key: 'settlement', glyph: '=' },
+  { key: 'dispute', glyph: '!' },
 ];
 
 const roles: RoleCard[] = [
-  { key: 'operator', href: '/platform-v7/login', Icon: ClipboardCheck },
-  { key: 'buyer', href: '/platform-v7/login', Icon: UserRound },
-  { key: 'seller', href: '/platform-v7/login', Icon: Wheat },
-  { key: 'logistics', href: '/platform-v7/login', Icon: Truck },
-  { key: 'driver', href: '/platform-v7/login', Icon: Truck },
-  { key: 'elevator', href: '/platform-v7/login', Icon: Building2 },
-  { key: 'lab', href: '/platform-v7/login', Icon: FlaskConical },
-  { key: 'surveyor', href: '/platform-v7/login', Icon: ShieldCheck },
-  { key: 'bank', href: '/platform-v7/login', Icon: Landmark },
-  { key: 'compliance', href: '/platform-v7/login', Icon: ShieldCheck },
-  { key: 'arbitrator', href: '/platform-v7/login', Icon: Scale },
-  { key: 'executive', href: '/platform-v7/login', Icon: Banknote },
+  { key: 'operator', href: '/platform-v7/login', glyph: '◎' },
+  { key: 'buyer', href: '/platform-v7/login', glyph: '↓' },
+  { key: 'seller', href: '/platform-v7/login', glyph: '↑' },
+  { key: 'logistics', href: '/platform-v7/login', glyph: '↗' },
+  { key: 'driver', href: '/platform-v7/login', glyph: '→' },
+  { key: 'elevator', href: '/platform-v7/login', glyph: '▣' },
+  { key: 'lab', href: '/platform-v7/login', glyph: '∴' },
+  { key: 'surveyor', href: '/platform-v7/login', glyph: '✓' },
+  { key: 'bank', href: '/platform-v7/login', glyph: '₽' },
+  { key: 'compliance', href: '/platform-v7/login', glyph: '§' },
+  { key: 'arbitrator', href: '/platform-v7/login', glyph: '⚖' },
+  { key: 'executive', href: '/platform-v7/login', glyph: '∑' },
 ];
 
 const trustItems: Card[] = [
-  { key: 'status', Icon: ShieldCheck },
-  { key: 'trail', Icon: BadgeCheck },
-  { key: 'docsControl', Icon: LockKeyhole },
-  { key: 'basis', Icon: Calculator },
+  { key: 'status', glyph: '✓' },
+  { key: 'trail', glyph: '↻' },
+  { key: 'docsControl', glyph: '§' },
+  { key: 'basis', glyph: '₽' },
 ];
 
 const heroSignals: { key: string; tone: 'done' | 'active' | 'wait' | 'pending' }[] = [
@@ -106,6 +86,30 @@ const heroSignals: { key: string; tone: 'done' | 'active' | 'wait' | 'pending' }
   { key: 'documents', tone: 'pending' },
   { key: 'settlement', tone: 'pending' },
 ];
+
+const GLYPH_STYLE: CSSProperties = {
+  display: 'inline-grid',
+  placeItems: 'center',
+  width: 32,
+  height: 32,
+  borderRadius: 11,
+  background: 'rgba(0,122,47,.08)',
+  color: '#087a3b',
+  fontSize: 18,
+  fontWeight: 950,
+  lineHeight: 1,
+};
+
+function EntryGlyph({ value, compact = false }: { value: string; compact?: boolean }) {
+  return (
+    <b
+      aria-hidden='true'
+      style={compact ? { ...GLYPH_STYLE, width: 28, height: 28, borderRadius: 9, fontSize: 15 } : GLYPH_STYLE}
+    >
+      {value}
+    </b>
+  );
+}
 
 export default async function PlatformV7RootPage() {
   const t = await getTranslations('landing');
@@ -129,7 +133,7 @@ export default async function PlatformV7RootPage() {
         )}
         actions={(
           <>
-            <a href='/platform-v7/login' className='entry-login'><LogIn size={16} aria-hidden='true' />{t('signIn')}</a>
+            <a href='/platform-v7/login' className='entry-login'><span aria-hidden='true'>↳</span>{t('signIn')}</a>
             <a href='/platform-v7/register' className='entry-header-register'>{t('register')}</a>
           </>
         )}
@@ -145,8 +149,8 @@ export default async function PlatformV7RootPage() {
           </h1>
           <p>{t('hero.lead')}</p>
           <div className='entry-hero-actions'>
-            <a href='/platform-v7/register' className='entry-primary-cta'>{t('hero.primaryCta')}<ArrowRight size={20} aria-hidden='true' /></a>
-            <a href='/platform-v7/deal-flow' className='entry-secondary-cta'><PlayCircle size={18} aria-hidden='true' />{t('hero.secondaryCta')}</a>
+            <a href='/platform-v7/register' className='entry-primary-cta'>{t('hero.primaryCta')}<span aria-hidden='true'>→</span></a>
+            <a href='/platform-v7/deal-flow' className='entry-secondary-cta'><span aria-hidden='true'>▷</span>{t('hero.secondaryCta')}</a>
           </div>
         </div>
 
@@ -173,9 +177,9 @@ export default async function PlatformV7RootPage() {
       <section id='control' className='entry-section' aria-labelledby='control-title'>
         <SectionHead id='control-title' title={t('control.title')} text={t('control.text')} />
         <div className='entry-control-grid'>
-          {controlCards.map(({ key, Icon }) => (
+          {controlCards.map(({ key, glyph }) => (
             <article key={key} className='entry-control-tile'>
-              <Icon size={31} strokeWidth={2.25} aria-hidden='true' />
+              <EntryGlyph value={glyph} />
               <strong>{t(`control.${key}.title`)}</strong>
               <span>{t(`control.${key}.text`)}</span>
             </article>
@@ -186,10 +190,10 @@ export default async function PlatformV7RootPage() {
       <section id='process' className='entry-section entry-process-section' aria-labelledby='process-title'>
         <SectionHead id='process-title' title={t('process.title')} text={t('process.text')} compact />
         <div className='entry-process-row' tabIndex={0} role='region' aria-label={t('process.title')}>
-          {processSteps.map(({ key, Icon }, index) => (
+          {processSteps.map(({ key, glyph }, index) => (
             <article key={key} className='entry-process-tile'>
               <span className='entry-process-index'>{index + 1}</span>
-              <span className='entry-process-icon'><Icon size={21} strokeWidth={2.2} aria-hidden='true' /></span>
+              <span className='entry-process-icon'><EntryGlyph value={glyph} compact /></span>
               <strong>{t(`process.${key}.title`)}</strong>
               <small>{t(`process.${key}.text`)}</small>
             </article>
@@ -202,9 +206,9 @@ export default async function PlatformV7RootPage() {
       <section id='roles' className='entry-section' aria-labelledby='roles-title'>
         <SectionHead id='roles-title' title={roleCatalog('title')} text={roleCatalog('text')} />
         <div className='entry-role-grid'>
-          {roles.map(({ key, href, Icon }) => (
+          {roles.map(({ key, href, glyph }) => (
             <a key={key} href={href} className='entry-role-tile'>
-              <Icon size={27} strokeWidth={2.25} aria-hidden='true' />
+              <EntryGlyph value={glyph} />
               <strong>{t(`roles.${key}.title`)}</strong>
               <span>{t(`roles.${key}.text`)}</span>
               <em>{roleCatalog('cta')}</em>
@@ -214,9 +218,9 @@ export default async function PlatformV7RootPage() {
       </section>
 
       <section className='entry-trust-strip' aria-label={t('trust.aria')}>
-        {trustItems.map(({ key, Icon }) => (
+        {trustItems.map(({ key, glyph }) => (
           <article key={key} className='entry-trust-item'>
-            <Icon size={26} strokeWidth={2.25} aria-hidden='true' />
+            <EntryGlyph value={glyph} compact />
             <strong>{t(`trust.${key}.title`)}</strong>
             <span>{t(`trust.${key}.text`)}</span>
           </article>
