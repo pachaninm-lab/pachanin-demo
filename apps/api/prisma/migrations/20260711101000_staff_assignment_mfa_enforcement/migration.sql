@@ -62,9 +62,9 @@ BEGIN
     o."tenantId",
     o.name,
     o.inn,
-    o.status,
-    o."kycStatus",
-    o."amlStatus",
+    o.status::TEXT,
+    o."kycStatus"::TEXT,
+    o."amlStatus"::TEXT,
     o."updatedAt"
   FROM public.organizations o
   ORDER BY o.status, o.name, o.id
@@ -111,9 +111,9 @@ BEGIN
     u.id,
     u.email,
     u."fullName",
-    u.status,
+    u.status::TEXT,
     COALESCE(c.mfa_enabled, u."mfaEnabled"),
-    m.role,
+    m.role::TEXT,
     m."isDefault",
     m."joinedAt"
   FROM public.user_orgs m
