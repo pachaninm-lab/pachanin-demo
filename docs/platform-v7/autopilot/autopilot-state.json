@@ -94,6 +94,11 @@
       "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
       "apps/web/tests/unit/platformV7PublicLiveHardening.test.ts",
       "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "fix/public-locale-query-precedence": [
+      "apps/web/i18n/request.ts",
+      "apps/web/tests/unit/platformV7I18nRequestLocaleGuard.test.ts",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "industrialOneDealFoundation": {
