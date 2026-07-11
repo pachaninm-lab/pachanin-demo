@@ -42,6 +42,13 @@ describe('industrial staff operational workspaces', () => {
     expect(component).toContain("window.removeEventListener('pc:staff-session-changed', refresh)");
   });
 
+  it('clears all privileged projections when the protected session is absent, expired or unverifiable', () => {
+    expect(component).toContain('const clearPrivilegedState = useCallback');
+    expect(component).toContain('if (!next.active || !next.session) clearPrivilegedState()');
+    expect(component).toContain("setContext({ active: false, session: null })");
+    expect(component).toContain('setOrganizationUsers({})');
+  });
+
   it('derives every workspace from server-issued permissions instead of a client-selected role', () => {
     for (const permission of [
       'support-case:read', 'deal:list', 'payment:metadata:read', 'diagnostic:read',
@@ -49,6 +56,15 @@ describe('industrial staff operational workspaces', () => {
     ]) expect(component).toContain(`can('${permission}')`);
     expect(component).not.toContain('setRoleFromUrl');
     expect(component).not.toContain('searchParams.get(\'role\')');
+  });
+
+  it('does not expose unusable people or emergency workspaces outside exact active-session permissions', () => {
+    expect(component).toContain("if (can('staff-session:read')) rows.push('emergency')");
+    expect(component).not.toContain("can('staff-session:read') || can('break-glass:activate')");
+    expect(component).toContain("can('staff-assignment:read')");
+    expect(component).toContain("? await api<ApiObject[]>('/api/staff/workspaces/assignments')");
+    expect(controller).toContain("@Post('break-glass/:id/end')");
+    expect(controller).toContain('@StaffPermissions(StaffPermission.STAFF_SESSION_READ)');
   });
 
   it('keeps UI permission presets aligned with the backend StaffPermission vocabulary', () => {
