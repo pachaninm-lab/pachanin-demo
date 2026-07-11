@@ -9,6 +9,7 @@ const webRoot = currentDir.endsWith(path.join('apps', 'web'))
 const read = (relativePath: string) => fs.readFileSync(path.join(webRoot, relativePath), 'utf8');
 
 const proxy = read('lib/server/staff/staff-api-channel-proxy.ts');
+const platformLayout = read('app/platform-v7/layout.tsx');
 const page = read('app/platform-v7/staff/page.tsx');
 const client = read('components/platform-v7/staff/StaffControlCenterClient.tsx');
 const viewAs = read('components/platform-v7/staff/StaffViewAsClient.tsx');
@@ -41,6 +42,12 @@ describe('platform-v7 industrial Staff Access Control Plane UI', () => {
     expect(client).not.toContain('?role=');
     expect(client).toContain("accessMode: 'CONTROL_PLANE'");
     expect(client).toContain("accessMode: 'VIEW_AS'");
+  });
+
+  it('keeps the staff realm outside the business-role cabinet shell', () => {
+    expect(platformLayout).toContain("const STAFF_PATH_PREFIX = '/platform-v7/staff'");
+    expect(platformLayout).toContain('isStaffPath(pathname)');
+    expect(platformLayout).toContain('pathname.startsWith(`${STAFF_PATH_PREFIX}/`)');
   });
 
   it('keeps VIEW_AS read-only, explicit and attributable to the real actor', () => {
