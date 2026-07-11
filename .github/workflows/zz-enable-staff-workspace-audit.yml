@@ -1,0 +1,48 @@
+name: enable staff workspace audit
+
+on:
+  push:
+    branches:
+      - ops-enable-staff-workspace-audit
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Apply controller audit interceptor
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/api/src/modules/staff-access/staff-workspace.controller.ts')
+          source = path.read_text()
+          source = source.replace('  UseGuards,\n', '  UseGuards,\n  UseInterceptors,\n', 1)
+          source = source.replace(
+            "import { StaffWorkspaceService } from './staff-workspace.service';",
+            "import { StaffWorkspaceAuditInterceptor } from './staff-workspace-audit.interceptor';\nimport { StaffWorkspaceService } from './staff-workspace.service';",
+            1,
+          )
+          source = source.replace(
+            '@UseGuards(StaffAccessGuard)\nexport class StaffWorkspaceController',
+            '@UseGuards(StaffAccessGuard)\n@UseInterceptors(StaffWorkspaceAuditInterceptor)\nexport class StaffWorkspaceController',
+            1,
+          )
+          path.write_text(source)
+          PY
+      - name: Commit audit interceptor wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/api/src/modules/staff-access/staff-workspace.controller.ts
+          git commit -m 'Audit every successful staff workspace access'
+          git push origin HEAD:feat/platform-v7-staff-control-center
