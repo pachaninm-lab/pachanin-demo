@@ -9,6 +9,7 @@ import { StaffAssignmentService } from './staff-assignment.service';
 import { StaffAuditService } from './staff-audit.service';
 import { StaffDelegatedAccessGuard } from './staff-delegated-access.guard';
 import { StaffEmergencyService } from './staff-emergency.service';
+import { StaffProjectionService } from './staff-projection.service';
 
 @Module({
   imports: [AuthModule],
@@ -23,6 +24,7 @@ import { StaffEmergencyService } from './staff-emergency.service';
     StaffAssignmentService,
     StaffAuditService,
     StaffEmergencyService,
+    StaffProjectionService,
     StaffAccessGuard,
     StaffDelegatedAccessGuard,
   ],
