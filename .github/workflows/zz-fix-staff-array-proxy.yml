@@ -1,9 +1,9 @@
 name: fix staff array proxy
 
 on:
-  push:
+  pull_request:
     branches:
-      - ops/fix-staff-array-proxy
+      - main
 
 permissions:
   contents: write
@@ -88,7 +88,6 @@ jobs:
 
           test = Path('apps/web/tests/unit/platformV7StaffControlCenter.test.ts')
           text = test.read_text()
-          marker = "describe('Staff Control Center"
           addition = """
 
 describe('Staff Control Center BFF response shapes', () => {
@@ -103,8 +102,7 @@ describe('Staff Control Center BFF response shapes', () => {
 });
 """
           if 'Staff Control Center BFF response shapes' not in text:
-            text += addition
-            test.write_text(text)
+            test.write_text(text + addition)
           PY
       - name: Commit fix to implementation branch
         shell: bash
