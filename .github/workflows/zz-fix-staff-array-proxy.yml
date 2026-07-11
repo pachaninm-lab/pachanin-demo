@@ -1,0 +1,117 @@
+name: fix staff array proxy
+
+on:
+  push:
+    branches:
+      - ops/fix-staff-array-proxy
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - name: Preserve upstream array response shapes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          primary = Path('apps/web/app/api/staff/[...path]/route.ts')
+          text = primary.read_text()
+          text = text.replace(
+            'function json(body: Record<string, unknown>, status = 200) {',
+            'function json(body: unknown, status = 200) {',
+          )
+          old = """    const payload = await upstream.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>;
+    const safePayload: Record<string, unknown> = { ...payload, correlationId };
+    delete safePayload.accessToken;
+    let response = json(safePayload, upstream.status);
+"""
+          new = """    const payload = await upstream.json().catch(() => ({})) as unknown;
+    const payloadObject = payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : {};
+    const safePayload: Record<string, unknown> = { ...payloadObject, correlationId };
+    delete safePayload.accessToken;
+    let response = json(Array.isArray(payload) ? payload : safePayload, upstream.status);
+"""
+          if old not in text:
+            raise SystemExit('primary payload block not found')
+          text = text.replace(old, new)
+          text = text.replace("typeof payload.accessToken === 'string' ? payload.accessToken : ''", "typeof payloadObject.accessToken === 'string' ? payloadObject.accessToken : ''")
+          text = text.replace("typeof payload.accessSessionId === 'string' ? payload.accessSessionId : ''", "typeof payloadObject.accessSessionId === 'string' ? payloadObject.accessSessionId : ''")
+          primary.write_text(text)
+
+          workspace = Path('apps/web/app/api/staff/workspaces/[...path]/route.ts')
+          text = workspace.read_text()
+          text = text.replace(
+            'function secure(body: Record<string, unknown>, status = 200, correlationId?: string) {',
+            'function secure(body: unknown, status = 200, correlationId?: string) {',
+          )
+          old = """    const text = await upstream.text();
+    let payload: Record<string, unknown>;
+    try {
+      payload = text ? JSON.parse(text) as Record<string, unknown> : {};
+    } catch {
+      return secure({ ok: false, code: 'INVALID_UPSTREAM_RESPONSE', correlationId }, 502, correlationId);
+    }
+    delete payload.accessToken;
+    return secure({ ...payload, correlationId }, upstream.status, correlationId);
+"""
+          new = """    const text = await upstream.text();
+    let payload: unknown;
+    try {
+      payload = text ? JSON.parse(text) as unknown : {};
+    } catch {
+      return secure({ ok: false, code: 'INVALID_UPSTREAM_RESPONSE', correlationId }, 502, correlationId);
+    }
+    const payloadObject = payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : {};
+    delete payloadObject.accessToken;
+    return secure(
+      Array.isArray(payload) ? payload : { ...payloadObject, correlationId },
+      upstream.status,
+      correlationId,
+    );
+"""
+          if old not in text:
+            raise SystemExit('workspace payload block not found')
+          workspace.write_text(text.replace(old, new))
+
+          test = Path('apps/web/tests/unit/platformV7StaffControlCenter.test.ts')
+          text = test.read_text()
+          marker = "describe('Staff Control Center"
+          addition = """
+
+describe('Staff Control Center BFF response shapes', () => {
+  it('preserves upstream arrays instead of spreading them into numeric object keys', () => {
+    const primaryRoute = fs.readFileSync(path.join(webRoot, 'app/api/staff/[...path]/route.ts'), 'utf8');
+    const workspaceRoute = fs.readFileSync(path.join(webRoot, 'app/api/staff/workspaces/[...path]/route.ts'), 'utf8');
+    expect(primaryRoute).toContain('json(Array.isArray(payload) ? payload : safePayload, upstream.status)');
+    expect(workspaceRoute).toContain('Array.isArray(payload) ? payload : { ...payloadObject, correlationId }');
+    expect(primaryRoute).not.toContain('const safePayload: Record<string, unknown> = { ...payload, correlationId }');
+    expect(workspaceRoute).not.toContain('return secure({ ...payload, correlationId }');
+  });
+});
+"""
+          if 'Staff Control Center BFF response shapes' not in text:
+            text += addition
+            test.write_text(text)
+          PY
+      - name: Commit fix to implementation branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add 'apps/web/app/api/staff/[...path]/route.ts' 'apps/web/app/api/staff/workspaces/[...path]/route.ts' apps/web/tests/unit/platformV7StaffControlCenter.test.ts
+          git commit -m 'Preserve Staff Control Center array response shapes'
+          git push origin HEAD:feat/platform-v7-staff-control-center
