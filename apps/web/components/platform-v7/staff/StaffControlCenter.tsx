@@ -379,10 +379,15 @@ export function StaffControlCenter({ locale, copy, identity, apiAvailable }: Pro
       setError(translateError(value));
     } finally {
       setLoading(false);
+      document.documentElement.dataset.staffControlReady = 'true';
+      window.dispatchEvent(new Event('pc:staff-control-ready'));
     }
   }, [apiAvailable, loadPrivileged, translateError]);
 
   useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => () => {
+    delete document.documentElement.dataset.staffControlReady;
+  }, []);
 
   useEffect(() => {
     if (availableModes.length > 0 && !availableModes.includes(mode)) setMode(availableModes[0]);
@@ -512,7 +517,22 @@ export function StaffControlCenter({ locale, copy, identity, apiAvailable }: Pro
   }
 
   if (loading) {
-    return <main className={styles.page}><section className={styles.stateCard} aria-live="polite"><span className={styles.spinner} />{copy.loading}</section></main>;
+    return (
+      <main className={styles.page} data-staff-loading data-locale={locale}>
+        <header className={styles.hero}>
+          <div>
+            <p className={styles.eyebrow}>{copy.eyebrow}</p>
+            <h1>{copy.pageTitle}</h1>
+            <p className={styles.description}>{copy.description}</p>
+          </div>
+          <button type="button" className={styles.secondaryButton} disabled>{copy.refresh}</button>
+        </header>
+        <div className={styles.maturity} role="note">{copy.maturity}</div>
+        <section className={`${styles.stateCard} ${styles.loadingCard}`} aria-live="polite">
+          <span className={styles.spinner} />{copy.loading}
+        </section>
+      </main>
+    );
   }
 
   if (assignments.length === 0) {

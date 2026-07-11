@@ -49,6 +49,7 @@ function uniqueStrings(values: unknown[]) { return [...new Set(values.map((value
 
 export function StaffOperationalWorkspaces({ locale, copy }: Props) {
   const [context, setContext] = useState<SessionContext>({ active: false, session: null });
+  const [controlReady, setControlReady] = useState(false);
   const [tab, setTab] = useState<WorkspaceTab>('support');
   const [data, setData] = useState<ApiObject | ApiObject[] | null>(null);
   const [organizations, setOrganizations] = useState<ApiObject[]>([]);
@@ -100,6 +101,12 @@ export function StaffOperationalWorkspaces({ locale, copy }: Props) {
   }, [clearPrivilegedState, copy.failed]);
 
   useEffect(() => { void loadContext(); }, [loadContext]);
+  useEffect(() => {
+    const ready = () => setControlReady(true);
+    if (document.documentElement.dataset.staffControlReady === 'true') ready();
+    window.addEventListener('pc:staff-control-ready', ready);
+    return () => window.removeEventListener('pc:staff-control-ready', ready);
+  }, []);
   useEffect(() => {
     const refresh = () => { void loadContext(); };
     window.addEventListener('pc:staff-session-changed', refresh);
@@ -169,6 +176,8 @@ export function StaffOperationalWorkspaces({ locale, copy }: Props) {
     } catch (value) { setError(value instanceof Error ? value.message : copy.failed); }
     finally { setBusy(null); }
   }
+
+  if (!controlReady) return null;
 
   if (loading && !context.session && !data) {
     return <section className={styles.section}><div className={styles.locked}><span className={styles.spinner} /> {copy.loading}</div></section>;
