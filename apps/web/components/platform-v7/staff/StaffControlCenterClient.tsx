@@ -161,11 +161,12 @@ function formatDate(value?: string | null) {
 }
 
 function scopeLabel(item: AccessRequest | StaffSession) {
-  return [
-    'target_tenant_id' in item ? item.target_tenant_id : item.effective_tenant_id,
-    'target_organization_id' in item ? item.target_organization_id : item.effective_organization_id,
-    'target_role' in item ? item.target_role : item.effective_role,
-  ].filter(Boolean).join(' / ') || 'platform';
+  if ('requester_user_id' in item) {
+    return [item.target_tenant_id, item.target_organization_id, item.target_role]
+      .filter(Boolean).join(' / ') || 'platform';
+  }
+  return [item.effective_tenant_id, item.effective_organization_id, item.effective_role]
+    .filter(Boolean).join(' / ') || 'platform';
 }
 
 async function requestJson<T>(
