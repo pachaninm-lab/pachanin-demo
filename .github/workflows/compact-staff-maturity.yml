@@ -1,0 +1,35 @@
+name: Apply compact Staff maturity notice
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/compact-staff-maturity.yml
+      - .github/scripts/compact-staff-maturity.py
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'feat/platform-v7-staff-control-center'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/platform-v7-staff-control-center
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python .github/scripts/compact-staff-maturity.py
+      - name: Commit compact maturity notice
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "Compact Staff Control Center maturity notice"
+          git push origin HEAD:feat/platform-v7-staff-control-center
