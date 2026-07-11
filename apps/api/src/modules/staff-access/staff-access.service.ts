@@ -99,9 +99,13 @@ export class StaffAccessService {
   }
 
   async listRequests(user: RequestUser) {
-    const roles = await this.requireAssignments(user);
-    const canReadAll = roles.some(({ role }) => REQUEST_REVIEW_ROLES.has(role));
-    return this.repository.listAccessRequests(this.repository.prisma, user.id, canReadAll);
+    await this.requireAssignments(user);
+    return this.repository.listAccessRequests(this.repository.prisma, user.id, false);
+  }
+
+  async listReviewRequests(user: RequestUser) {
+    await this.requirePermission(user, StaffPermission.STAFF_REQUEST_READ);
+    return this.repository.listAccessRequests(this.repository.prisma, user.id, true);
   }
 
   async requestAccess(
@@ -356,12 +360,9 @@ export class StaffAccessService {
   ) {
     const roles = await this.requireAssignments(user);
     const own = await this.repository.listActiveSessions(this.repository.prisma, user.id);
-    const canRevokeAny = roles.some(({ role }) => ROLE_PERMISSION_CEILING[role].includes(StaffPermission.STAFF_SESSION_REVOKE));
-    const target = canRevokeAny
-      ? (await this.repository.listActiveSessions(this.repository.prisma)).find((session) => session.id === sessionId)
-      : own.find((session) => session.id === sessionId);
+    const target = own.find((session) => session.id === sessionId);
     if (!target || !isStaffRole(target.staff_role)) throw new NotFoundException('Active staff session not found');
-    const ended = await this.repository.endAccessSession(this.repository.prisma, sessionId, target.actor_user_id, reason);
+    const ended = await this.repository.endAccessSession(this.repository.prisma, sessionId, user.id, reason);
     if (!ended) throw new ConflictException('Staff session is no longer active');
     await this.repository.transaction((tx) => this.audit(tx, {
       actor: user,
@@ -377,10 +378,46 @@ export class StaffAccessService {
     return { success: true, sessionId };
   }
 
+  async revokeSession(
+    user: RequestUser,
+    sessionId: string,
+    reason = 'STAFF_REVOKED',
+    correlationId: string = randomUUID(),
+  ) {
+    const staffRole = await this.requirePermission(user, StaffPermission.STAFF_SESSION_REVOKE);
+    const active = await this.repository.listActiveSessions(this.repository.prisma);
+    const target = active.find((session) => session.id === sessionId);
+    if (!target || !isStaffRole(target.staff_role)) throw new NotFoundException('Active staff session not found');
+    const ended = await this.repository.endAccessSession(
+      this.repository.prisma,
+      sessionId,
+      target.actor_user_id,
+      reason,
+    );
+    if (!ended) throw new ConflictException('Staff session is no longer active');
+    await this.repository.transaction((tx) => this.audit(tx, {
+      actor: user,
+      staffRole,
+      accessSessionId: sessionId,
+      grantId: target.grant_id,
+      action: 'staff.session.revoke',
+      outcome: 'SUCCESS',
+      reason,
+      ticketId: target.ticket_id,
+      correlationId,
+      metadata: { targetActorUserId: target.actor_user_id },
+    }));
+    return { success: true, sessionId };
+  }
+
   async listActiveSessions(user: RequestUser) {
-    const roles = await this.requireAssignments(user);
-    const canReadAll = roles.some(({ role }) => ROLE_PERMISSION_CEILING[role].includes(StaffPermission.STAFF_SESSION_READ));
-    return this.repository.listActiveSessions(this.repository.prisma, canReadAll ? undefined : user.id);
+    await this.requireAssignments(user);
+    return this.repository.listActiveSessions(this.repository.prisma, user.id);
+  }
+
+  async listAllActiveSessions(user: RequestUser) {
+    await this.requirePermission(user, StaffPermission.STAFF_SESSION_READ);
+    return this.repository.listActiveSessions(this.repository.prisma);
   }
 
   async activateBreakGlass(
