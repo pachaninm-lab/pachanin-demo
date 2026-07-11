@@ -19,6 +19,8 @@ export interface PolicyInput {
   resource: {
     type: string;
     id?: string;
+    dealId?: string;
+    userId?: string;
     tenantId?: string;
     organizationId?: string;
     sellerOrgId?: string;
@@ -36,6 +38,7 @@ export interface PolicyInput {
     effectiveTenantId?: string | null;
     effectiveOrganizationId?: string | null;
     effectiveUserId?: string | null;
+    targetDealId?: string | null;
     expiresAt: string | Date;
   };
   context?: {
@@ -69,12 +72,29 @@ function staffScopeMatches(input: PolicyInput): boolean {
   if (access.actorUserId !== input.user.id) return false;
   const expiresAt = new Date(access.expiresAt).getTime();
   if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return false;
-  if (access.effectiveTenantId && input.resource.tenantId && access.effectiveTenantId !== input.resource.tenantId) return false;
-  if (
-    access.effectiveOrganizationId
-    && input.resource.organizationId
-    && access.effectiveOrganizationId !== input.resource.organizationId
-  ) return false;
+
+  // Scoped grants fail closed when the protected resource does not carry the
+  // authoritative scope required to prove that it belongs to the grant.
+  if (access.effectiveTenantId && access.effectiveTenantId !== input.resource.tenantId) return false;
+
+  if (access.effectiveOrganizationId) {
+    const resourceOrganizations = [
+      input.resource.organizationId,
+      input.resource.sellerOrgId,
+      input.resource.buyerOrgId,
+      input.resource.ownerOrgId,
+    ].filter((value): value is string => Boolean(value));
+    if (!resourceOrganizations.includes(access.effectiveOrganizationId)) return false;
+  }
+
+  if (access.effectiveUserId && access.effectiveUserId !== input.resource.userId) return false;
+
+  if (access.targetDealId) {
+    const resourceDealId = input.resource.dealId
+      ?? (input.resource.type === 'deal' ? input.resource.id : undefined);
+    if (!resourceDealId || resourceDealId !== access.targetDealId) return false;
+  }
+
   return true;
 }
 
