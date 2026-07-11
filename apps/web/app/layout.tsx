@@ -1,5 +1,4 @@
 import './globals.css';
-import '@/styles/platform-v7-dark-role-fixes.css';
 import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
 import Script from 'next/script';
@@ -13,18 +12,21 @@ const inter = Inter({
   subsets: ['latin', 'cyrillic'],
   variable: '--font-inter',
   display: 'swap',
+  preload: false,
 });
 
 const manrope = Manrope({
   subsets: ['latin', 'cyrillic'],
   variable: '--font-manrope',
   display: 'swap',
+  preload: false,
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
   display: 'swap',
+  preload: false,
 });
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
@@ -84,6 +86,9 @@ const LEAN_PUBLIC_ENTRY_PATHS = new Set([
   '/platform-v7',
   '/platform-v7/login',
   '/platform-v7/forgot-password',
+  '/pc-public-entry/platform-v7',
+  '/pc-public-entry/platform-v7/login',
+  '/pc-public-entry/platform-v7/forgot-password',
 ]);
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
@@ -99,9 +104,16 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     ? children
     : <NextIntlClientProvider locale={locale} messages={await getMessages()}>{children}</NextIntlClientProvider>;
   const showDevPanel = !leanPublicEntry && process.env.NEXT_PUBLIC_DEV_MODE === 'true';
+  const fontVariables = leanPublicEntry ? '' : `${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`;
 
   return (
-    <html lang={HTML_LANG[locale] ?? 'ru'} translate='no' data-theme='light' suppressHydrationWarning className={`notranslate ${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}>
+    <html
+      lang={HTML_LANG[locale] ?? 'ru'}
+      translate='no'
+      data-theme='light'
+      suppressHydrationWarning
+      className={`notranslate${fontVariables ? ` ${fontVariables}` : ''}`}
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <meta name='google' content='notranslate' />

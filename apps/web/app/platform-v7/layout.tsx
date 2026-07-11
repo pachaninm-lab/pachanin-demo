@@ -1,35 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
-import '@/app/v9.css';
-import '@/app/v9-accessibility.css';
-import '@/styles/theme.css';
-import '@/styles/enterprise-ui.css';
-import '@/styles/design-fixes.css';
-import '@/styles/mobile-polish.css';
-import '@/styles/platform-v7-dark-role-fixes.css';
-import '@/styles/platform-v7-shell-clarity.css';
-import '@/styles/platform-v7-work-surfaces.css';
-import '@/styles/platform-v7-mobile-excellence.css';
-import '@/styles/platform-v7-premium-visual-polish.css';
-import '@/styles/platform-v7-final-polish.css';
-import '@/styles/platform-v7-living-deal.css';
-import '@/styles/platform-v7-premium-cockpit.css';
-import '@/styles/platform-v7-entry-fix.css';
-import '@/styles/platform-v7-mobile-hardening.css';
-import '@/styles/platform-v7-mobile-reflow-p0.css';
-import '@/styles/platform-v7-shell-restore.css';
-import '@/styles/platform-v7-register-header-override.css';
-import '@/styles/platform-v7-mobile-screenshot-fixes.css';
-import '@/styles/platform-v7-mobile-shell-p1.css';
-import '@/styles/platform-v7-shell-critical.css';
-import '@/styles/platform-v7-public-header.css';
-import '@/styles/platform-v7-public-auth.css';
-import '@/styles/platform-v7-public-landing.css';
-import '@/styles/platform-v7-public-mobile-safe-area.css';
-import '@/styles/platform-v7-seller-mobile-usability.css';
-import '@/styles/platform-v7-mobile-bottom-tools.css';
-import '@/styles/platform-v7-seller-workspace-v2.css';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
@@ -47,11 +18,15 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://xn----8sbjf4befbjgs9b.xn--p1ai'),
 };
 
-const PUBLIC_EXACT_PATHS = new Set([
-  '/platform-v7',
-  '/platform-v7/open',
+const LANDING_PATH = '/platform-v7';
+const AUTH_PATHS = new Set([
   '/platform-v7/login',
   '/platform-v7/forgot-password',
+]);
+const PUBLIC_EXACT_PATHS = new Set([
+  LANDING_PATH,
+  ...AUTH_PATHS,
+  '/platform-v7/open',
   '/platform-v7/register',
   '/platform-v7/help',
   '/platform-v7/pricing',
@@ -65,18 +40,30 @@ const PUBLIC_EXACT_PATHS = new Set([
 const PUBLIC_PREFIX_PATHS = ['/platform-v7/role-preview'];
 
 function normalizePath(value: string | null) {
-  return (value || '').split('?')[0].replace(/\/$/, '') || '/platform-v7';
+  return (value || '').split('?')[0].replace(/\/$/, '') || LANDING_PATH;
 }
 
-function isPublicPath(value: string | null) {
-  const pathname = normalizePath(value);
+function isPublicPath(pathname: string) {
   return PUBLIC_EXACT_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
 }
 
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const pathname = normalizePath(headers().get('x-pc-pathname'));
-  if (isPublicPath(pathname)) return children;
+
+  // These routes own their minimal CSS in the concrete page/login layout. Keeping
+  // them out of the full runtime prevents protected cockpit CSS from entering the
+  // public critical path.
+  if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children;
+
+  const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
+  if (isPublicPath(pathname)) {
+    return <PlatformV7FullStyleRuntime>{children}</PlatformV7FullStyleRuntime>;
+  }
 
   const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');
-  return <PlatformV7ProtectedRuntime pathname={pathname}>{children}</PlatformV7ProtectedRuntime>;
+  return (
+    <PlatformV7FullStyleRuntime>
+      <PlatformV7ProtectedRuntime pathname={pathname}>{children}</PlatformV7ProtectedRuntime>
+    </PlatformV7FullStyleRuntime>
+  );
 }

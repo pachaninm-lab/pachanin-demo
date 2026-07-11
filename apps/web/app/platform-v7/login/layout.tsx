@@ -1,6 +1,10 @@
+import '@/styles/platform-v7-public-header.css';
+import '@/styles/platform-v7-public-auth.css';
+import '@/styles/platform-v7-public-mobile-safe-area.css';
+import '@/styles/platform-v7-i18n-cjk.css';
+import '@/styles/platform-v7-public-webkit-safe.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { LoginHeaderExitButton } from '@/components/platform-v7/LoginHeaderExitButton';
 
 export const metadata: Metadata = {
   title: 'Вход — Прозрачная Цена',
@@ -15,10 +19,5 @@ export const metadata: Metadata = {
 };
 
 export default function PlatformV7LoginLayout({ children }: { children: ReactNode }) {
-  return (
-    <>
-      <LoginHeaderExitButton />
-      {children}
-    </>
-  );
+  return children;
 }

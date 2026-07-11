@@ -1,26 +1,5 @@
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import '@/styles/platform-v7-public-entry-stable.css';
-import '@/styles/platform-v7-role-cards-stable.css';
-import '@/styles/platform-v7-protected-grid-stable.css';
-import '@/styles/platform-v7-control-tower-mobile.css';
-import '@/styles/platform-v7-bank-mobile.css';
-import '@/styles/platform-v7-elevator-mobile.css';
-import '@/styles/platform-v7-lab-mobile.css';
-import '@/styles/platform-v7-compliance-mobile.css';
-import '@/styles/platform-v7-arbitrator-mobile.css';
-import '@/styles/platform-v7-executive-mobile.css';
-import '@/styles/platform-v7-clean-deal-mobile.css';
-import '@/styles/platform-v7-offer-to-deal-mobile.css';
-import '@/styles/platform-v7-stable-shell.css';
-import '@/styles/platform-v7-viewport-stability.css';
-import '@/styles/platform-v7-adaptive-devices.css';
-import '@/styles/platform-v7-i18n-cjk.css';
-import '@/styles/platform-v7-public-webkit-safe.css';
-import '@/styles/platform-v7-support-chat-polish.css';
-import '@/styles/platform-v7-final-viewport-cleanup.css';
-import '@/styles/platform-v7-public-hero-watermark.css';
-import '@/styles/platform-v7-contextual-wheat-backgrounds.css';
 
 const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7',
