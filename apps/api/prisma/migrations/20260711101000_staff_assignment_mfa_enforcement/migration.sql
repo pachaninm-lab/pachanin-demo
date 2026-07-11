@@ -36,7 +36,7 @@ RETURNS TABLE (
   status TEXT,
   kyc_status TEXT,
   aml_status TEXT,
-  updated_at TIMESTAMPTZ
+  updated_at TIMESTAMP(3) WITHOUT TIME ZONE
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -85,7 +85,7 @@ RETURNS TABLE (
   mfa_enabled BOOLEAN,
   role TEXT,
   is_default BOOLEAN,
-  joined_at TIMESTAMPTZ
+  joined_at TIMESTAMP(3) WITHOUT TIME ZONE
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -136,8 +136,8 @@ RETURNS TABLE (
   deal_number TEXT,
   status TEXT,
   next_action TEXT,
-  sla_at TIMESTAMPTZ,
-  updated_at TIMESTAMPTZ
+  sla_at TIMESTAMP(3) WITHOUT TIME ZONE,
+  updated_at TIMESTAMP(3) WITHOUT TIME ZONE
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
