@@ -143,60 +143,70 @@ const CABINET_ROLES = [
 
 const ACCESS_PRESETS: Record<string, Partial<Record<AccessMode, string[]>>> = {
   PLATFORM_OWNER: {
-    CONTROL_PLANE: ['organization:list', 'user:list', 'staff-request:read', 'staff-request:approve', 'staff-session:read', 'staff-session:revoke', 'audit:read'],
+    CONTROL_PLANE: [
+      'organization:list', 'user:list', 'staff-assignment:read', 'staff-assignment:write',
+      'staff-request:read', 'staff-request:approve', 'staff-session:read', 'staff-session:revoke',
+      'audit:read', 'support-case:read', 'deal:list', 'deal:read', 'deal:blocker:read',
+      'payment:metadata:read', 'payment:reconciliation:read', 'diagnostic:read',
+      'deployment:read', 'feature-flag:read', 'critical-action:approve', 'break-glass:activate',
+    ],
     VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read'],
-    ASSISTED: ['cabinet:assisted-action', 'deal:read'],
-    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read'],
-    JIT_PRIVILEGED: ['diagnostic:read', 'critical-action:request'],
+    ASSISTED: ['cabinet:assisted-action', 'deal:read', 'critical-action:request'],
+    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read', 'critical-action:request'],
+    JIT_PRIVILEGED: ['diagnostic:read', 'deployment:read', 'feature-flag:read', 'feature-flag:write', 'critical-action:request'],
   },
   PLATFORM_ADMIN: {
-    CONTROL_PLANE: ['organization:list', 'user:list', 'staff-request:read', 'staff-request:approve', 'staff-session:read', 'staff-session:revoke', 'audit:read'],
-    VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read'],
-    ASSISTED: ['cabinet:assisted-action', 'deal:read'],
-    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry'],
-    JIT_PRIVILEGED: ['diagnostic:read', 'critical-action:request'],
+    CONTROL_PLANE: [
+      'organization:list', 'organization:read', 'user:list', 'user:read',
+      'staff-assignment:read', 'staff-assignment:write', 'staff-request:read', 'staff-request:approve',
+      'staff-session:read', 'staff-session:revoke', 'audit:read', 'deal:list', 'deal:read',
+      'deal:blocker:read', 'critical-action:approve',
+    ],
+    VIEW_AS: ['cabinet:view-as', 'deal:read'],
+    ASSISTED: ['cabinet:assisted-action', 'deal:read', 'critical-action:request'],
+    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read'],
+    JIT_PRIVILEGED: ['critical-action:request'],
   },
   SUPPORT_L1: {
-    CONTROL_PLANE: ['organization:read', 'user:read', 'support-case:read'],
+    CONTROL_PLANE: ['organization:read', 'user:read', 'user:access-recovery:initiate', 'deal:read', 'deal:blocker:read', 'support-case:read', 'support-case:update', 'document:metadata:read'],
   },
   SUPPORT_L2: {
-    CONTROL_PLANE: ['organization:read', 'user:read', 'support-case:read', 'support-case:update'],
+    CONTROL_PLANE: ['organization:read', 'user:read', 'user:session:revoke', 'user:access-recovery:initiate', 'deal:read', 'deal:blocker:read', 'support-case:read', 'support-case:update', 'document:metadata:read', 'document:content:read', 'diagnostic:read'],
     VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read', 'document:content:read'],
-    ASSISTED: ['cabinet:assisted-action', 'deal:read'],
+    ASSISTED: ['cabinet:assisted-action', 'deal:read', 'support-case:update'],
   },
   OPERATIONS_AGENT: {
-    CONTROL_PLANE: ['deal:list', 'deal:read', 'deal:blocker:read'],
+    CONTROL_PLANE: ['organization:read', 'user:read', 'deal:list', 'deal:read', 'deal:blocker:read', 'document:metadata:read'],
     VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read'],
-    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:request'],
+    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read'],
   },
   OPERATIONS_SUPERVISOR: {
-    CONTROL_PLANE: ['deal:list', 'deal:read', 'deal:blocker:read', 'staff-request:read', 'staff-request:approve'],
+    CONTROL_PLANE: ['organization:read', 'user:read', 'deal:list', 'deal:read', 'deal:blocker:read', 'document:metadata:read', 'document:content:read', 'payment:metadata:read', 'payment:reconciliation:read', 'staff-request:read', 'staff-request:approve', 'critical-action:approve'],
     VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read'],
-    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:request', 'manual-review:route'],
-    JIT_PRIVILEGED: ['diagnostic:read', 'critical-action:request'],
+    OPERATIONS: ['deal:list', 'deal:read', 'deal:blocker:read', 'deal:operation:retry', 'document:metadata:read', 'document:content:read'],
   },
   FINANCE_OPS: {
-    CONTROL_PLANE: ['payment:read', 'bank-event:read', 'reconciliation:read'],
-    JIT_PRIVILEGED: ['payment:read', 'bank-event:read', 'reconciliation:read', 'reconciliation:route', 'critical-action:request'],
+    CONTROL_PLANE: ['organization:read', 'deal:read', 'document:metadata:read', 'payment:metadata:read', 'payment:reconciliation:read', 'payment:manual-review', 'audit:read', 'critical-action:request', 'critical-action:approve'],
+    JIT_PRIVILEGED: ['payment:metadata:read', 'payment:reconciliation:read', 'payment:manual-review', 'critical-action:request'],
   },
   COMPLIANCE_STAFF: {
-    CONTROL_PLANE: ['organization:list', 'user:list', 'staff-request:read', 'staff-request:approve', 'audit:read'],
+    CONTROL_PLANE: ['organization:list', 'organization:read', 'user:list', 'user:read', 'deal:list', 'deal:read', 'document:metadata:read', 'document:content:read', 'payment:metadata:read', 'audit:read', 'audit:export', 'staff-request:read', 'staff-request:approve', 'critical-action:approve'],
     VIEW_AS: ['cabinet:view-as', 'deal:read', 'document:metadata:read', 'document:content:read'],
-    JIT_PRIVILEGED: ['diagnostic:read', 'critical-action:request'],
   },
   DEVELOPER: {
     CONTROL_PLANE: ['diagnostic:read', 'deployment:read', 'feature-flag:read'],
-    JIT_PRIVILEGED: ['diagnostic:read', 'deployment:read', 'feature-flag:read', 'critical-action:request'],
+    JIT_PRIVILEGED: ['diagnostic:read', 'deployment:read', 'feature-flag:read'],
   },
   SRE_ONCALL: {
     CONTROL_PLANE: ['diagnostic:read', 'deployment:read', 'feature-flag:read'],
-    JIT_PRIVILEGED: ['diagnostic:read', 'deployment:read', 'feature-flag:read', 'feature-flag:write', 'critical-action:request'],
+    JIT_PRIVILEGED: ['diagnostic:read', 'deployment:read', 'feature-flag:read', 'feature-flag:write', 'break-glass:activate'],
   },
   SECURITY_AUDITOR: {
-    CONTROL_PLANE: ['staff-assignment:read', 'staff-request:read', 'staff-session:read', 'audit:read'],
+    CONTROL_PLANE: ['organization:read', 'user:read', 'deal:read', 'payment:metadata:read', 'audit:read', 'audit:export', 'staff-assignment:read', 'staff-request:read', 'staff-session:read'],
   },
   BREAK_GLASS_ADMIN: {
-    CONTROL_PLANE: ['staff-session:read', 'staff-session:revoke', 'audit:read'],
+    CONTROL_PLANE: ['diagnostic:read', 'deployment:read', 'feature-flag:read', 'break-glass:activate'],
+    JIT_PRIVILEGED: ['diagnostic:read', 'deployment:read', 'feature-flag:read', 'feature-flag:write', 'break-glass:activate'],
   },
 };
 
