@@ -11,10 +11,12 @@ import { StaffAuditService } from './staff-audit.service';
 import { StaffDelegatedAccessGuard } from './staff-delegated-access.guard';
 import { StaffEmergencyService } from './staff-emergency.service';
 import { StaffProjectionService } from './staff-projection.service';
+import { StaffWorkspaceController } from './staff-workspace.controller';
+import { StaffWorkspaceService } from './staff-workspace.service';
 
 @Module({
   imports: [AuthModule],
-  controllers: [StaffAccessController],
+  controllers: [StaffAccessController, StaffWorkspaceController],
   providers: [
     {
       provide: StaffAccessRepository,
@@ -27,6 +29,7 @@ import { StaffProjectionService } from './staff-projection.service';
     StaffAuditService,
     StaffEmergencyService,
     StaffProjectionService,
+    StaffWorkspaceService,
     StaffAccessGuard,
     StaffDelegatedAccessGuard,
   ],
