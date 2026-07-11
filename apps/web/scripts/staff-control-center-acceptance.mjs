@@ -50,7 +50,7 @@ for (const project of projects) {
     }
     assert((await page.locator('html').getAttribute('lang'))?.startsWith(locale), `${project.name}/${locale}: html lang mismatch`);
     assert(!page.url().includes('role='), `${project.name}/${locale}: role leaked into URL`);
-    await control.getByRole('button', { name: copy.access, exact: true }).click();
+    await control.getByRole('button', { name: copy.access, exact: true }).first().click();
     await control.locator('input[maxlength="128"]').first().fill('OWN-2353');
     await control.locator('textarea[maxlength="2000"]').first().fill('Final protected Staff Control Center acceptance session');
     await control.getByRole('button', { name: copy.submit, exact: true }).click();
