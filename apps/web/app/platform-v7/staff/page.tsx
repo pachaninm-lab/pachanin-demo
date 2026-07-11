@@ -2,9 +2,11 @@ import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { StaffControlCenter } from '@/components/platform-v7/staff/StaffControlCenter';
+import { StaffOperationalWorkspaces } from '@/components/platform-v7/staff/StaffOperationalWorkspaces';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { DEFAULT_LOCALE, isAppLocale, LOCALE_COOKIE, type AppLocale } from '@/i18n/locale';
 import { staffControlCenterMessages } from '@/i18n/staff-control-center-messages';
+import { staffOperationalWorkspaceMessages } from '@/i18n/staff-operational-workspace-messages';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -67,11 +69,16 @@ export default async function StaffControlCenterPage() {
   }
 
   return (
-    <StaffControlCenter
-      locale={locale}
-      copy={staffControlCenterMessages[locale]}
-      identity={verification.status === 'verified' ? verification.identity : null}
-      apiAvailable={verification.status === 'verified'}
-    />
+    <>
+      <StaffControlCenter
+        locale={locale}
+        copy={staffControlCenterMessages[locale]}
+        identity={verification.status === 'verified' ? verification.identity : null}
+        apiAvailable={verification.status === 'verified'}
+      />
+      {verification.status === 'verified' ? (
+        <StaffOperationalWorkspaces locale={locale} copy={staffOperationalWorkspaceMessages[locale]} />
+      ) : null}
+    </>
   );
 }
