@@ -1,7 +1,5 @@
 import type { AppLocale } from './locale';
 
-export type StaffCopy = typeof STAFF_MESSAGES.ru;
-
 export const STAFF_MESSAGES = {
   ru: {
     metadataTitle: 'Центр управления платформой — Прозрачная Цена',
@@ -320,6 +318,8 @@ export const STAFF_MESSAGES = {
   },
 } as const satisfies Record<AppLocale, Record<string, string>>;
 
+export type StaffCopy = { [K in keyof (typeof STAFF_MESSAGES)['ru']]: string };
+
 export function getStaffCopy(locale: string): StaffCopy {
-  return STAFF_MESSAGES[(locale in STAFF_MESSAGES ? locale : 'ru') as AppLocale];
+  return STAFF_MESSAGES[(locale in STAFF_MESSAGES ? locale : 'ru') as AppLocale] as StaffCopy;
 }
