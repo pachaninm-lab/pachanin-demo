@@ -71,7 +71,9 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
           <RbacCabinetGuard />
           <ShellCopyNormalizer />
           <HeaderLanguageSwitch />
-          <StaffControlCenterEntry />
+          <React.Suspense fallback={null}>
+            <StaffControlCenterEntry />
+          </React.Suspense>
           <CalculatorHeaderWidget />
           <NotepadHeaderWidget />
           <SupportHeaderIcon />
