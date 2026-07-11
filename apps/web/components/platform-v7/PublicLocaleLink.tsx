@@ -1,4 +1,3 @@
-import { Languages } from 'lucide-react';
 import { headers } from 'next/headers';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { isAppLocale, SUPPORTED_LOCALES, type AppLocale } from '@/i18n/locale';
@@ -40,7 +39,7 @@ export async function PublicLocaleLink() {
       data-current-locale={locale}
       data-next-locale={next}
     >
-      <Languages size={16} strokeWidth={2.35} aria-hidden='true' />
+      <b aria-hidden='true'>文</b>
       <span>{currentLabel}</span>
     </a>
   );
