@@ -1,0 +1,41 @@
+name: patch staff evidence view as locator
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/staff-control-center-acceptance-2353-final-v4
+          fetch-depth: 0
+      - name: Match the semantic VIEW_AS title element
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/web/scripts/staff-control-center-acceptance.mjs')
+          text = path.read_text()
+          old = "await control.getByRole('heading', { name: copy.cabinet, exact: true }).waitFor({ state: 'visible', timeout: 30_000 });"
+          new = "await control.getByText(copy.cabinet, { exact: true }).first().waitFor({ state: 'visible', timeout: 30_000 });"
+          if old not in text:
+            raise SystemExit('VIEW_AS heading locator not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Commit evidence-only locator correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/web/scripts/staff-control-center-acceptance.mjs
+          git commit -m 'Match Staff Control Center VIEW_AS title element'
+          git push origin HEAD:ops/staff-control-center-acceptance-2353-final-v4
