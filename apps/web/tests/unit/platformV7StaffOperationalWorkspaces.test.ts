@@ -95,17 +95,19 @@ describe('industrial staff operational workspaces', () => {
     expect(supportMigration).toContain('UNIQUE (tenant_id, idempotency_key)');
     expect(supportMigration).toContain('version INTEGER NOT NULL DEFAULT 1');
     expect(supportMigration).toContain('support.case_events is append-only');
-    expect(supportMigration).toContain('BEFORE TRUNCATE ON support.case_events');
+    expect(supportMigration).toContain('BEFORE UPDATE OR DELETE ON support.case_events');
+    expect(supportMigration).not.toMatch(/\bTRUNCATE\b/i);
     expect(supportMigration).toContain('REFERENCES public.users(id)');
     expect(supportService).toContain('ON CONFLICT (tenant_id, idempotency_key) DO NOTHING');
     expect(supportService).toContain('WHERE id = ${caseId} AND version = ${input.expectedVersion}');
     expect(supportService).toContain("deliveryStatus: 'PENDING_DELIVERY'");
   });
 
-  it('writes successful staff workspace reads and mutations to the awaited hash chain', () => {
+  it('writes reads to the awaited hash chain and mutations atomically with business state', () => {
     expect(controller).toContain('@UseInterceptors(StaffWorkspaceAuditInterceptor)');
-    expect(auditInterceptor).toContain('from(this.record(request).then(() => result))');
-    expect(auditInterceptor).toContain("action: `staff.workspace.${method === 'GET' ? 'read' : 'mutate'}`");
+    expect(auditInterceptor).toContain("if (method !== 'GET' && method !== 'HEAD') return result");
+    expect(auditInterceptor).toContain("action: 'staff.workspace.read'");
+    expect(auditInterceptor).toContain('from(this.auditRead(request).then(() => result))');
     expect(auditWriter).toContain('async recordInTransaction');
     expect(auditWriter).toContain('latestEventHash(client, actor.id)');
     expect(auditWriter).toContain('insertEvent(client');
