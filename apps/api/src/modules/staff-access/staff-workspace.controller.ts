@@ -27,6 +27,13 @@ import { StaffAuditService } from './staff-audit.service';
 import { StaffEmergencyService } from './staff-emergency.service';
 import { StaffPermissions } from './staff-permissions.decorator';
 import { StaffProjectionService } from './staff-projection.service';
+import {
+  CreateStaffSupportCaseDto,
+  InitiateUserRecoveryDto,
+  RevokeUserSessionsDto,
+  TransitionStaffSupportCaseDto,
+} from './staff-support.dto';
+import { StaffSupportService } from './staff-support.service';
 import { StaffAccessContext, StaffAccessMode, StaffPermission } from './staff-access.types';
 import { StaffWorkspaceAuditInterceptor } from './staff-workspace-audit.interceptor';
 import { StaffWorkspaceService } from './staff-workspace.service';
@@ -42,6 +49,7 @@ type StaffRequest = {
 export class StaffWorkspaceController {
   constructor(
     private readonly workspaces: StaffWorkspaceService,
+    private readonly supportService: StaffSupportService,
     private readonly assignments: StaffAssignmentService,
     private readonly projection: StaffProjectionService,
     private readonly emergency: StaffEmergencyService,
@@ -54,6 +62,92 @@ export class StaffWorkspaceController {
   @StaffPermissions(StaffPermission.SUPPORT_CASE_READ)
   support(@Req() request: StaffRequest) {
     return this.workspaces.supportQueue(request.user);
+  }
+
+  @Get('support/cases')
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE, StaffAccessMode.ASSISTED)
+  @StaffPermissions(StaffPermission.SUPPORT_CASE_READ)
+  supportCases(
+    @Req() request: StaffRequest,
+    @Query('status') status?: string,
+    @Query('organizationId') organizationId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.supportService.listCases(
+      request.user,
+      this.requireAccessContext(request),
+      { status, organizationId, limit },
+    );
+  }
+
+  @Post('support/cases')
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE, StaffAccessMode.ASSISTED)
+  @StaffPermissions(StaffPermission.SUPPORT_CASE_UPDATE)
+  createSupportCase(
+    @Req() request: StaffRequest,
+    @Body() body: CreateStaffSupportCaseDto,
+    @Headers('x-correlation-id') correlationId?: string,
+  ) {
+    return this.supportService.createCase(
+      request.user,
+      this.requireAccessContext(request),
+      body,
+      correlationId,
+    );
+  }
+
+  @Post('support/cases/:id/transition')
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE, StaffAccessMode.ASSISTED)
+  @StaffPermissions(StaffPermission.SUPPORT_CASE_UPDATE)
+  transitionSupportCase(
+    @Req() request: StaffRequest,
+    @Param('id') id: string,
+    @Body() body: TransitionStaffSupportCaseDto,
+    @Headers('x-correlation-id') correlationId?: string,
+  ) {
+    return this.supportService.transitionCase(
+      request.user,
+      this.requireAccessContext(request),
+      id,
+      body,
+      correlationId,
+    );
+  }
+
+  @Post('support/users/:userId/revoke-sessions')
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE, StaffAccessMode.ASSISTED)
+  @StaffPermissions(StaffPermission.USER_SESSION_REVOKE)
+  revokeUserSessions(
+    @Req() request: StaffRequest,
+    @Param('userId') userId: string,
+    @Body() body: RevokeUserSessionsDto,
+    @Headers('x-correlation-id') correlationId?: string,
+  ) {
+    return this.supportService.revokeUserSessions(
+      request.user,
+      this.requireAccessContext(request),
+      userId,
+      body,
+      correlationId,
+    );
+  }
+
+  @Post('support/users/:userId/recovery')
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE, StaffAccessMode.ASSISTED)
+  @StaffPermissions(StaffPermission.USER_ACCESS_RECOVERY_INITIATE)
+  initiateUserRecovery(
+    @Req() request: StaffRequest,
+    @Param('userId') userId: string,
+    @Body() body: InitiateUserRecoveryDto,
+    @Headers('x-correlation-id') correlationId?: string,
+  ) {
+    return this.supportService.initiateRecovery(
+      request.user,
+      this.requireAccessContext(request),
+      userId,
+      body,
+      correlationId,
+    );
   }
 
   @Get('operations')
@@ -80,7 +174,6 @@ export class StaffWorkspaceController {
   diagnostics(@Req() request: StaffRequest) {
     return this.workspaces.diagnostics(request.user);
   }
-
 
   @Get('critical-actions/mine')
   @StaffAccessModes(
