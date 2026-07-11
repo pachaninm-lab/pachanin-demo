@@ -55,8 +55,10 @@ function roleFromPath(pathname: string): PlatformRole {
 }
 
 export function PlatformV7ProtectedShell({ pathname, children }: { pathname: string; children: React.ReactNode }) {
+  const normalizedPath = normalizePath(pathname);
+  const isStaffControlCenter = normalizedPath === '/platform-v7/staff' || normalizedPath.startsWith('/platform-v7/staff/');
   const initialRole = roleFromPath(pathname);
-  const workSurface = ROLE_INTENT_ROOT_PATHS.has(normalizePath(pathname))
+  const workSurface = ROLE_INTENT_ROOT_PATHS.has(normalizedPath)
     ? <RoleIntentDashboard role={initialRole} />
     : children;
 
@@ -66,9 +68,9 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
       <AppShellV4 initialRole={initialRole}>
         <>
           <ScopedShellGuard />
-          <PlatformV7SingleEntryGuard />
+          {!isStaffControlCenter && <PlatformV7SingleEntryGuard />}
           <PlatformV7ShellUxController />
-          <RbacCabinetGuard />
+          {!isStaffControlCenter && <RbacCabinetGuard />}
           <ShellCopyNormalizer />
           <HeaderLanguageSwitch />
           <React.Suspense fallback={null}>
