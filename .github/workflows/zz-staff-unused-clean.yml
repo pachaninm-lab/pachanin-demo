@@ -1,0 +1,42 @@
+name: clean obsolete staff review constant
+
+on:
+  push:
+    branches:
+      - security/staff-access-control-plane-foundation
+
+permissions:
+  contents: write
+
+jobs:
+  clean-and-remove:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: security/staff-access-control-plane-foundation
+          fetch-depth: 0
+      - name: Remove obsolete constant and self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/api/src/modules/staff-access/staff-access.service.ts')
+          text = path.read_text()
+          start = text.find('const REQUEST_REVIEW_ROLES = new Set<StaffRole>([')
+          if start >= 0:
+              end = text.find(']);', start)
+              if end < 0:
+                  raise SystemExit('REQUEST_REVIEW_ROLES terminator not found')
+              text = text[:start] + text[end + 3:].lstrip('\n')
+          path.write_text(text)
+          PY
+          git rm .github/workflows/zz-staff-unused-clean.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/api/src/modules/staff-access/staff-access.service.ts
+          git add -u
+          git commit -m 'Remove obsolete standing-role review helper'
+          git push origin HEAD:security/staff-access-control-plane-foundation
