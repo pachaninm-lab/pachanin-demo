@@ -301,7 +301,6 @@ export class StaffWorkspaceService {
       || staffAccess.effectiveOrganizationId,
     );
     if (!scoped) return null;
-    if (staffAccess.targetDealId) return [staffAccess.targetDealId];
     const deals = await this.repository.prisma.deal.findMany({
       where: dealScope,
       select: { id: true },

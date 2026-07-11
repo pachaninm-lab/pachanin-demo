@@ -118,6 +118,9 @@ describe('StaffWorkspaceService', () => {
 
   it('applies tenant, organization and deal scope to operations, finance and diagnostics', async () => {
     const { service, prisma } = setup();
+    prisma.deal.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'deal-1' }]);
     await service.operationsQueue(actor, scopedAccess);
     await service.financeQueue(actor, scopedAccess);
     await service.diagnostics(actor, scopedAccess);
@@ -137,6 +140,10 @@ describe('StaffWorkspaceService', () => {
     });
     expect(prisma.payment.findMany.mock.calls[0][0].where).toEqual({ deal: { is: operationsWhere.AND[0] } });
     expect(prisma.bankOperation.findMany.mock.calls[0][0].where).toEqual({ deal: { is: operationsWhere.AND[0] } });
+    expect(prisma.deal.findMany.mock.calls[1][0]).toEqual({
+      where: operationsWhere.AND[0],
+      select: { id: true },
+    });
     expect(prisma.integrationEvent.findMany.mock.calls[0][0].where).toEqual({ dealId: { in: ['deal-1'] } });
     expect(prisma.outboxEntry.findMany.mock.calls[0][0].where).toEqual({ dealId: { in: ['deal-1'] } });
     expect(prisma.dealWorkspaceRuntimeTransactionAttempt.findMany.mock.calls[0][0].where).toEqual({
