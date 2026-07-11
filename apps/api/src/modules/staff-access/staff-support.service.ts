@@ -127,7 +127,7 @@ export class StaffSupportService {
     actor: RequestUser,
     access: StaffAccessContext,
     input: CreateStaffSupportCaseDto,
-    correlationId = randomUUID(),
+    correlationId: string = randomUUID(),
   ) {
     await this.accessService.requirePermission(actor, StaffPermission.SUPPORT_CASE_UPDATE);
     const organization = await this.requireOrganization(input.organizationId);
@@ -192,7 +192,7 @@ export class StaffSupportService {
     access: StaffAccessContext,
     caseId: string,
     input: TransitionStaffSupportCaseDto,
-    correlationId = randomUUID(),
+    correlationId: string = randomUUID(),
   ) {
     await this.accessService.requirePermission(actor, StaffPermission.SUPPORT_CASE_UPDATE);
     return this.repository.transaction(async (tx) => {
@@ -266,7 +266,7 @@ export class StaffSupportService {
     access: StaffAccessContext,
     userId: string,
     input: RevokeUserSessionsDto,
-    correlationId = randomUUID(),
+    correlationId: string = randomUUID(),
   ) {
     await this.accessService.requirePermission(actor, StaffPermission.USER_SESSION_REVOKE);
     const organization = await this.requireOrganization(input.organizationId);
@@ -314,7 +314,7 @@ export class StaffSupportService {
     access: StaffAccessContext,
     userId: string,
     input: InitiateUserRecoveryDto,
-    correlationId = randomUUID(),
+    correlationId: string = randomUUID(),
   ) {
     await this.accessService.requirePermission(actor, StaffPermission.USER_ACCESS_RECOVERY_INITIATE);
     const organization = await this.requireOrganization(input.organizationId);
