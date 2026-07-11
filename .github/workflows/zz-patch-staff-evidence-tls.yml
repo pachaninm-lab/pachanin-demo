@@ -1,0 +1,111 @@
+name: patch staff evidence tls
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/staff-control-center-acceptance-2353-final-v4
+          fetch-depth: 0
+      - name: Run deterministic API over trusted local TLS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          mock = Path('apps/web/scripts/staff-control-center-acceptance-mock.mjs')
+          text = mock.read_text()
+          text = text.replace("import http from 'node:http';", "import fs from 'node:fs';\nimport http from 'node:http';\nimport https from 'node:https';", 1)
+          text = text.replace('const server = http.createServer(async (req, res) => {', 'const handler = async (req, res) => {', 1)
+          old_tail = """});
+server.listen(port, '127.0.0.1', () => console.log(`staff final acceptance mock on ${port}`));
+for (const signal of ['SIGTERM','SIGINT']) process.on(signal, () => server.close(() => process.exit(0)));
+"""
+          new_tail = """};
+const tlsKeyPath = process.env.STAFF_MOCK_TLS_KEY || '';
+const tlsCertPath = process.env.STAFF_MOCK_TLS_CERT || '';
+const useTls = Boolean(tlsKeyPath && tlsCertPath);
+const server = useTls
+  ? https.createServer({ key: fs.readFileSync(tlsKeyPath), cert: fs.readFileSync(tlsCertPath) }, handler)
+  : http.createServer(handler);
+server.listen(port, '127.0.0.1', () => console.log(`staff final acceptance mock on ${useTls ? 'https' : 'http'}://127.0.0.1:${port}`));
+for (const signal of ['SIGTERM','SIGINT']) process.on(signal, () => server.close(() => process.exit(0)));
+"""
+          if old_tail not in text:
+            raise SystemExit('mock server tail not found')
+          mock.write_text(text.replace(old_tail, new_tail, 1))
+
+          exact = Path('.github/workflows/staff-control-center-exact-evidence.yml')
+          text = exact.read_text().replace('API_URL: http://127.0.0.1:4010', 'API_URL: https://127.0.0.1:4010', 1)
+          marker = """      - run: pnpm install --frozen-lockfile
+"""
+          cert_step = """      - name: Generate trusted local API TLS certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl req -x509 -newkey rsa:2048 -nodes \\
+            -keyout /tmp/staff-mock-key.pem \\
+            -out /tmp/staff-mock-cert.pem \\
+            -days 1 \\
+            -subj '/CN=127.0.0.1' \\
+            -addext 'subjectAltName=IP:127.0.0.1,DNS:localhost'
+          echo 'STAFF_MOCK_TLS_KEY=/tmp/staff-mock-key.pem' >> "$GITHUB_ENV"
+          echo 'STAFF_MOCK_TLS_CERT=/tmp/staff-mock-cert.pem' >> "$GITHUB_ENV"
+          echo 'NODE_EXTRA_CA_CERTS=/tmp/staff-mock-cert.pem' >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+"""
+          if 'Generate trusted local API TLS certificate' not in text:
+            if marker not in text:
+              raise SystemExit('exact workflow install marker not found')
+            text = text.replace(marker, cert_step, 1)
+          text = text.replace(
+            "api_status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4010/auth/me || true)",
+            "api_status=$(curl --cacert \"$STAFF_MOCK_TLS_CERT\" --silent --output /dev/null --write-out '%{http_code}' https://127.0.0.1:4010/auth/me || true)",
+            1,
+          )
+          exact.write_text(text)
+
+          probe = Path('.github/workflows/staff-workspace-focused-probe.yml')
+          text = probe.read_text().replace('API_URL: http://127.0.0.1:4010', 'API_URL: https://127.0.0.1:4010', 1)
+          marker = """      - run: pnpm install --frozen-lockfile
+"""
+          cert_step = """      - name: Generate trusted local API TLS certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          openssl req -x509 -newkey rsa:2048 -nodes \\
+            -keyout /tmp/staff-mock-key.pem \\
+            -out /tmp/staff-mock-cert.pem \\
+            -days 1 \\
+            -subj '/CN=127.0.0.1' \\
+            -addext 'subjectAltName=IP:127.0.0.1,DNS:localhost'
+          echo 'STAFF_MOCK_TLS_KEY=/tmp/staff-mock-key.pem' >> "$GITHUB_ENV"
+          echo 'STAFF_MOCK_TLS_CERT=/tmp/staff-mock-cert.pem' >> "$GITHUB_ENV"
+          echo 'NODE_EXTRA_CA_CERTS=/tmp/staff-mock-cert.pem' >> "$GITHUB_ENV"
+      - run: pnpm install --frozen-lockfile
+"""
+          if 'Generate trusted local API TLS certificate' not in text:
+            if marker not in text:
+              raise SystemExit('probe workflow install marker not found')
+            text = text.replace(marker, cert_step, 1)
+          probe.write_text(text)
+          PY
+      - name: Commit TLS evidence update
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'platform-v7-ops'
+          git config user.email 'platform-v7-ops@users.noreply.github.com'
+          git add apps/web/scripts/staff-control-center-acceptance-mock.mjs .github/workflows/staff-control-center-exact-evidence.yml .github/workflows/staff-workspace-focused-probe.yml
+          git commit -m 'Run Staff Control Center evidence over trusted local TLS'
+          git push origin HEAD:ops/staff-control-center-acceptance-2353-final-v4
