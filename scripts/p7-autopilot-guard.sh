@@ -106,6 +106,8 @@ apps/web/app/platform-v7/login/layout.tsx
 apps/web/app/platform-v7/page.tsx
 apps/web/app/platform-v7/template.tsx
 apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx
+apps/web/components/platform-v7/PublicLocaleLink.tsx
+apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx
 apps/web/next.config.js
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
