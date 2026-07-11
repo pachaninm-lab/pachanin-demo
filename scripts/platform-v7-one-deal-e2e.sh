@@ -139,6 +139,7 @@ GRANT EXECUTE ON FUNCTION auth.lock_staff_access_event_chain(TEXT) TO one_deal_a
 GRANT EXECUTE ON FUNCTION auth.staff_organization_directory(TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.staff_organization_users(TEXT, TEXT) TO one_deal_auth;
 GRANT EXECUTE ON FUNCTION auth.staff_cabinet_deals(TEXT, TEXT, TEXT, TEXT) TO one_deal_auth;
+GRANT EXECUTE ON FUNCTION auth.staff_resolve_deal_scope(TEXT, TEXT) TO one_deal_auth;
 SQL
 
 ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text FROM pg_roles WHERE rolname='one_deal_app'")"

@@ -2,18 +2,25 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma, PrismaClient } from '@prisma/client';
 
+const authDatabaseUrl = String(process.env.AUTH_DATABASE_URL ?? '').trim();
+const ambientDatabaseUrl = String(process.env.DATABASE_URL ?? '').trim();
 const email = String(process.env.BOOTSTRAP_PLATFORM_OWNER_EMAIL ?? '').trim().toLowerCase();
 const reason = String(process.env.BOOTSTRAP_PLATFORM_OWNER_REASON ?? '').trim();
 const confirmation = String(process.env.BOOTSTRAP_PLATFORM_OWNER_CONFIRM ?? '').trim();
 
-if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
+if (!authDatabaseUrl) throw new Error('AUTH_DATABASE_URL is required');
+if (ambientDatabaseUrl && authDatabaseUrl === ambientDatabaseUrl) {
+  throw new Error('AUTH_DATABASE_URL must be isolated from DATABASE_URL');
+}
 if (!email) throw new Error('BOOTSTRAP_PLATFORM_OWNER_EMAIL is required');
 if (reason.length < 20) throw new Error('BOOTSTRAP_PLATFORM_OWNER_REASON must be at least 20 characters');
 if (confirmation !== `CREATE_PLATFORM_OWNER:${email}`) {
   throw new Error('BOOTSTRAP_PLATFORM_OWNER_CONFIRM must exactly match CREATE_PLATFORM_OWNER:<email>');
 }
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: { db: { url: authDatabaseUrl } },
+});
 
 function stable(value) {
   if (Array.isArray(value)) return `[${value.map((item) => stable(item)).join(',')}]`;
@@ -27,6 +34,19 @@ const sha256 = (value) => createHash('sha256').update(value, 'utf8').digest('hex
 
 try {
   const result = await prisma.$transaction(async (tx) => {
+    const current = await tx.$queryRaw(Prisma.sql`
+      SELECT current_user AS user_name,
+             rolsuper,
+             rolbypassrls,
+             has_table_privilege(current_user, 'public.deals', 'SELECT') AS can_read_deals
+      FROM pg_roles
+      WHERE rolname = current_user
+    `);
+    const principal = current[0];
+    if (!principal || principal.rolsuper || !principal.rolbypassrls || principal.can_read_deals) {
+      throw new Error('Bootstrap must run through the isolated auth principal, never a superuser or deal principal');
+    }
+
     const existingOwners = await tx.$queryRaw(Prisma.sql`
       SELECT a.id, a.user_id, u.email
       FROM auth.staff_assignments a
@@ -71,7 +91,7 @@ try {
     `);
     const eventId = `sae_${randomUUID()}`;
     const correlationId = `bootstrap_${randomUUID()}`;
-    const metadata = { assignmentId, bootstrap: true };
+    const metadata = { assignmentId, bootstrap: true, authPrincipal: principal.user_name };
     const prevHash = previous[0]?.hash ?? null;
     const payload = {
       id: eventId,
@@ -111,7 +131,7 @@ try {
   console.log(JSON.stringify({
     success: true,
     ...result,
-    note: 'MFA enrollment is required by the staff-assignment trigger before staff access can be used.',
+    note: 'MFA enrollment is mandatory before the owner can activate any staff session.',
   }, null, 2));
 } finally {
   await prisma.$disconnect();
