@@ -89,6 +89,11 @@ export function StaffOperationalWorkspaces({ locale, copy }: Props) {
   }, [copy.failed]);
 
   useEffect(() => { void loadContext(); }, [loadContext]);
+useEffect(() => {
+  const refresh = () => { void loadContext(); };
+  window.addEventListener('pc:staff-session-changed', refresh);
+  return () => window.removeEventListener('pc:staff-session-changed', refresh);
+}, [loadContext]);
   useEffect(() => {
     if (availableTabs.length && !availableTabs.includes(tab)) setTab(availableTabs[0]);
   }, [availableTabs, tab]);

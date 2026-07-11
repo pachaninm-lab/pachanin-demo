@@ -429,6 +429,7 @@ export function StaffControlCenter({ locale, copy, identity, apiAvailable }: Pro
       setLastGrantId(null);
       setNotice(copy.session.bannerControl);
       await reload();
+      window.dispatchEvent(new Event('pc:staff-session-changed'));
       setTab('overview');
     } catch (value) { setError(translateError(value)); }
     finally { setBusy(null); }
@@ -441,6 +442,7 @@ export function StaffControlCenter({ locale, copy, identity, apiAvailable }: Pro
         method: 'POST', body: { reason: 'Staff actor ended the protected session' },
       });
       await reload();
+      window.dispatchEvent(new Event('pc:staff-session-changed'));
     } catch (value) { setError(translateError(value)); }
     finally { setBusy(null); }
   };
