@@ -1,5 +1,9 @@
 import { UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import {
+  currentLogisticsCommandContext,
+  type NormalizedLogisticsBasis,
+} from './logistics-admission-context';
 
 /**
  * A validated JSON object with no undefined values. Keeping the index value as
@@ -7,6 +11,7 @@ import { Prisma } from '@prisma/client';
  * Prisma JSON write contract without weakening the boundary to `unknown`.
  */
 export type JsonRecord = Record<string, Prisma.InputJsonValue>;
+export type LogisticsBasis = NormalizedLogisticsBasis;
 
 const DECIMAL_6 = /^\d+(?:\.\d{1,6})?$/;
 const ISO_WITH_ZONE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
@@ -79,6 +84,23 @@ export function requiredArray(payload: JsonRecord, field: string): Prisma.InputJ
   const value = payload[field];
   if (!Array.isArray(value) || value.length === 0) invalid(field, `Добавь хотя бы одну запись в «${field}».`);
   return value;
+}
+
+/**
+ * Production logistics authority comes only from the normalized PostgreSQL
+ * resolver. The argument is intentionally ignored. A direct call to the legacy
+ * DealCommandService without the guarded command context fails closed.
+ */
+export function parseLogisticsBasis(_value: unknown): LogisticsBasis {
+  const basis = currentLogisticsCommandContext()?.basis;
+  if (!basis) {
+    throw new UnprocessableEntityException({
+      code: 'LOGISTICS_ADMISSION_REQUIRED',
+      field: 'payload',
+      message: 'Назначение перевозки требует действующего допуска из PostgreSQL.',
+    });
+  }
+  return basis;
 }
 
 export function canonicalJson(value: unknown): string {
