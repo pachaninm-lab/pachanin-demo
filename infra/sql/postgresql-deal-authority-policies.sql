@@ -1,6 +1,6 @@
 -- Apply after production-rls-policies.sql.
--- This overlay is intentionally duplicated in the forward-only Prisma migration
--- because deployments re-apply the canonical RLS artifact after migrations.
+-- This overlay is duplicated in the forward-only migration because deployments
+-- re-apply the canonical RLS artifact after migrations.
 
 CREATE OR REPLACE FUNCTION public.app_deal_basis_deal_visible(p_deal jsonb)
 RETURNS boolean
@@ -29,7 +29,16 @@ AS $function$
     AND p_deal -> 'sagaStep' = 'null'::jsonb
     AND p_deal -> 'meta' = 'null'::jsonb
     AND jsonb_typeof(p_deal -> 'sagaState') = 'object'
-    AND jsonb_object_length(p_deal -> 'sagaState') = 18
+    AND NOT EXISTS (
+      SELECT 1
+      FROM jsonb_object_keys(p_deal -> 'sagaState') AS saga_key(key)
+      WHERE saga_key.key NOT IN (
+        'source', 'integrationEventId', 'sourceHash', 'lotId', 'winnerBidId',
+        'sellerOrgId', 'buyerOrgId', 'sellerUserId', 'buyerUserId',
+        'culture', 'cropClass', 'region', 'incoterms', 'volumeTons',
+        'pricePerTon', 'totalKopecks', 'currency', 'paymentTerms'
+      )
+    )
     AND EXISTS (
       SELECT 1
       FROM public."integration_events" ie
@@ -179,10 +188,7 @@ DROP POLICY IF EXISTS integration_events_select ON public."integration_events";
 CREATE POLICY integration_events_select ON public."integration_events" FOR SELECT USING (
   public.app_rls_context_ready()
   AND (
-    (
-      "dealId" IS NOT NULL
-      AND public.app_rls_deal_visible("dealId")
-    )
+    ("dealId" IS NOT NULL AND public.app_rls_deal_visible("dealId"))
     OR (
       "dealId" IS NULL
       AND current_setting('app.current_role', true) = 'FARMER'
@@ -190,12 +196,9 @@ CREATE POLICY integration_events_select ON public."integration_events" FOR SELEC
       AND "eventType" = 'DEAL_BASIS_READY'
       AND "status" = 'CONFIRMED'
       AND COALESCE("responsePayload", "requestPayload") IS NOT NULL
-      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'tenantId'
-        = current_setting('app.current_tenant_id', true)
-      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'sellerOrgId'
-        = current_setting('app.current_org_id', true)
-      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'sellerUserId'
-        = current_setting('app.current_user_id', true)
+      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'tenantId' = current_setting('app.current_tenant_id', true)
+      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'sellerOrgId' = current_setting('app.current_org_id', true)
+      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'sellerUserId' = current_setting('app.current_user_id', true)
     )
   )
 );
@@ -228,10 +231,7 @@ CREATE POLICY organizations_select ON public."organizations" FOR SELECT USING (
         AND confirmed.basis ->> 'tenantId' = current_setting('app.current_tenant_id', true)
         AND confirmed.basis ->> 'sellerOrgId' = current_setting('app.current_org_id', true)
         AND confirmed.basis ->> 'sellerUserId' = current_setting('app.current_user_id', true)
-        AND "organizations"."id" IN (
-          confirmed.basis ->> 'sellerOrgId',
-          confirmed.basis ->> 'buyerOrgId'
-        )
+        AND "organizations"."id" IN (confirmed.basis ->> 'sellerOrgId', confirmed.basis ->> 'buyerOrgId')
     )
   )
 );
@@ -242,13 +242,7 @@ CREATE POLICY deal_participants_insert ON public."deal_participants" FOR INSERT 
   AND "tenantId" = current_setting('app.current_tenant_id', true)
   AND (
     public.app_rls_privileged()
-    OR public.app_deal_basis_participant_allowed(
-      "dealId",
-      "tenantId",
-      "organizationId",
-      "userId",
-      "role"
-    )
+    OR public.app_deal_basis_participant_allowed("dealId", "tenantId", "organizationId", "userId", "role")
   )
 );
 
@@ -259,14 +253,8 @@ BEGIN
   FOREACH role_name IN ARRAY ARRAY['app_service', 'app_deal_api', 'one_deal_app']
   LOOP
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
-      EXECUTE format(
-        'GRANT EXECUTE ON FUNCTION public.app_deal_basis_deal_visible(jsonb) TO %I',
-        role_name
-      );
-      EXECUTE format(
-        'GRANT EXECUTE ON FUNCTION public.app_deal_basis_participant_allowed(text, text, text, text, text) TO %I',
-        role_name
-      );
+      EXECUTE format('GRANT EXECUTE ON FUNCTION public.app_deal_basis_deal_visible(jsonb) TO %I', role_name);
+      EXECUTE format('GRANT EXECUTE ON FUNCTION public.app_deal_basis_participant_allowed(text, text, text, text, text) TO %I', role_name);
     END IF;
   END LOOP;
 END
