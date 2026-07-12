@@ -8,7 +8,8 @@ import { signCabinetSession, verifyHs256Jwt } from '@/lib/platform-v7/verified-s
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const MAX_TTL_SECONDS = 8 * 60 * 60;
+const MAX_CONTROLLED_TTL_SECONDS = 8 * 60 * 60;
+const MAX_API_OWNER_TTL_SECONDS = 60 * 60;
 
 const OWNER_CABINETS = {
   operator: '/platform-v7/control-tower',
@@ -26,12 +27,33 @@ const OWNER_CABINETS = {
 } as const;
 
 type OwnerCabinetRole = keyof typeof OWNER_CABINETS;
+type OwnerAuthority = {
+  actorId: string;
+  email: string;
+  ttlSeconds: number;
+  source: 'controlled' | 'staff-api';
+};
+type AuthorityResult =
+  | { status: 'authorized'; authority: OwnerAuthority }
+  | { status: 'denied' }
+  | { status: 'unavailable' };
+
+type StaffIdentity = {
+  id?: string;
+  email?: string;
+};
+
+type StaffAssignment = {
+  role?: string;
+  status?: string;
+};
 
 function readEnv(name: string): string {
   return String(process.env[name] || '').trim();
 }
 
-function enabled(): boolean {
+function controlledFixtureEnabled(): boolean {
+  if (readEnv('PC_STAFF_TEST_FIXTURE').toLowerCase() !== 'true') return false;
   if (readEnv('PC_CABINET_TEST_ACCESS').toLowerCase() !== 'true') return false;
   const expiresAt = readEnv('PC_CABINET_TEST_ACCESS_EXPIRES_AT');
   if (!expiresAt) return false;
@@ -39,8 +61,20 @@ function enabled(): boolean {
   return Number.isFinite(expiry) && expiry > Date.now();
 }
 
-function secret(): string {
+function signingSecret(): string {
   return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
+}
+
+function apiOrigin(): string {
+  const configured = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim();
+  if (!configured) return '';
+  try {
+    const url = new URL(configured);
+    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') return '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return '';
+  }
 }
 
 function json(body: Record<string, unknown>, status = 200) {
@@ -59,34 +93,129 @@ function isOwnerCabinetRole(value: unknown): value is OwnerCabinetRole {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(OWNER_CABINETS, value);
 }
 
-export async function POST(request: NextRequest) {
-  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+async function controlledOwnerAuthority(accessToken: string, secret: string): Promise<AuthorityResult | null> {
+  if (!controlledFixtureEnabled()) return null;
+  const claims = await verifyHs256Jwt(accessToken, secret);
+  if (!claims || claims.testAccess !== true) return null;
 
-  if (!enabled()) {
-    return json({ ok: false, code: 'OWNER_DIRECT_ACCESS_DISABLED', correlationId }, 404);
-  }
-
-  const csrf = assertCsrf(request);
-  if (!csrf.ok) {
-    return json({ ok: false, code: 'CSRF_REJECTED', message: 'Сессия формы устарела. Обнови страницу.', correlationId }, 403);
-  }
-
-  const signingSecret = secret();
-  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
-  const claims = signingSecret && accessToken ? await verifyHs256Jwt(accessToken, signingSecret) : null;
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const tokenExpiry = typeof claims?.exp === 'number' ? claims.exp : 0;
-
+  const tokenExpiry = typeof claims.exp === 'number' ? claims.exp : 0;
   if (
-    !claims
-    || claims.owner !== true
-    || claims.testAccess !== true
+    claims.owner !== true
     || claims.tokenType !== 'access'
     || typeof claims.sub !== 'string'
     || typeof claims.email !== 'string'
     || tokenExpiry <= nowSeconds
   ) {
-    return json({ ok: false, code: 'PLATFORM_OWNER_REQUIRED', message: 'Требуется активный вход владельца платформы.', correlationId }, 403);
+    return { status: 'denied' };
+  }
+
+  const ttlSeconds = Math.min(MAX_CONTROLLED_TTL_SECONDS, tokenExpiry - nowSeconds);
+  if (ttlSeconds < 60) return { status: 'denied' };
+  return {
+    status: 'authorized',
+    authority: {
+      actorId: claims.sub,
+      email: claims.email,
+      ttlSeconds,
+      source: 'controlled',
+    },
+  };
+}
+
+async function apiOwnerAuthority(accessToken: string, correlationId: string): Promise<AuthorityResult> {
+  const origin = apiOrigin();
+  if (!origin) return { status: 'unavailable' };
+
+  try {
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      'x-correlation-id': correlationId,
+    };
+    const [identityResponse, assignmentsResponse] = await Promise.all([
+      fetch(`${origin}/auth/me`, {
+        headers,
+        cache: 'no-store',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(6_000),
+      }),
+      fetch(`${origin}/staff/assignments/me`, {
+        headers,
+        cache: 'no-store',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(6_000),
+      }),
+    ]);
+
+    if (
+      identityResponse.status === 401
+      || identityResponse.status === 403
+      || assignmentsResponse.status === 401
+      || assignmentsResponse.status === 403
+    ) {
+      return { status: 'denied' };
+    }
+    if (
+      !identityResponse.ok
+      || !assignmentsResponse.ok
+      || (identityResponse.status >= 300 && identityResponse.status < 400)
+      || (assignmentsResponse.status >= 300 && assignmentsResponse.status < 400)
+    ) {
+      return { status: 'unavailable' };
+    }
+
+    const identity = await identityResponse.json().catch(() => null) as StaffIdentity | null;
+    const assignments = await assignmentsResponse.json().catch(() => null) as StaffAssignment[] | null;
+    const activeOwner = Array.isArray(assignments)
+      && assignments.some((item) => item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE');
+
+    if (!identity || typeof identity.id !== 'string' || typeof identity.email !== 'string' || !activeOwner) {
+      return { status: 'denied' };
+    }
+
+    return {
+      status: 'authorized',
+      authority: {
+        actorId: identity.id,
+        email: identity.email,
+        ttlSeconds: MAX_API_OWNER_TTL_SECONDS,
+        source: 'staff-api',
+      },
+    };
+  } catch {
+    return { status: 'unavailable' };
+  }
+}
+
+async function resolveOwnerAuthority(
+  accessToken: string,
+  secret: string,
+  correlationId: string,
+): Promise<AuthorityResult> {
+  const controlled = await controlledOwnerAuthority(accessToken, secret);
+  return controlled || apiOwnerAuthority(accessToken, correlationId);
+}
+
+export async function POST(request: NextRequest) {
+  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+  const csrf = assertCsrf(request);
+  if (!csrf.ok) {
+    return json({ ok: false, code: 'CSRF_REJECTED', message: 'Сессия формы устарела. Обнови страницу.', correlationId }, 403);
+  }
+
+  const secret = signingSecret();
+  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
+  if (!secret || !accessToken) {
+    return json({ ok: false, code: 'OWNER_ACCESS_UNAVAILABLE', message: 'Требуется активный вход владельца платформы.', correlationId }, 401);
+  }
+
+  const authorityResult = await resolveOwnerAuthority(accessToken, secret, correlationId);
+  if (authorityResult.status === 'unavailable') {
+    return json({ ok: false, code: 'OWNER_AUTHORITY_UNAVAILABLE', message: 'Не удалось проверить полномочия владельца.', correlationId }, 503);
+  }
+  if (authorityResult.status === 'denied') {
+    return json({ ok: false, code: 'PLATFORM_OWNER_REQUIRED', message: 'Требуется активное назначение владельца платформы.', correlationId }, 403);
   }
 
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
@@ -95,17 +224,17 @@ export async function POST(request: NextRequest) {
     return json({ ok: false, code: 'INVALID_CABINET_ROLE', message: 'Неизвестный кабинет.', correlationId }, 400);
   }
 
-  const ttlSeconds = Math.min(MAX_TTL_SECONDS, tokenExpiry - nowSeconds);
-  if (ttlSeconds < 60) {
-    return json({ ok: false, code: 'OWNER_SESSION_EXPIRED', message: 'Сессия владельца истекла. Войди снова.', correlationId }, 401);
-  }
-
-  const cabinetToken = await signCabinetSession(role, signingSecret, { nowSeconds, ttlSeconds });
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const { authority } = authorityResult;
+  const cabinetToken = await signCabinetSession(role, secret, {
+    nowSeconds,
+    ttlSeconds: authority.ttlSeconds,
+  });
   if (!cabinetToken) {
     return json({ ok: false, code: 'CABINET_SESSION_UNAVAILABLE', message: 'Не удалось открыть кабинет.', correlationId }, 503);
   }
 
-  const expiresAt = nowSeconds + ttlSeconds;
+  const expiresAt = nowSeconds + authority.ttlSeconds;
   const response = json({
     ok: true,
     role,
@@ -116,7 +245,7 @@ export async function POST(request: NextRequest) {
 
   response.cookies.set(CABINET_SESSION_COOKIE, cabinetToken, {
     path: '/',
-    maxAge: ttlSeconds,
+    maxAge: authority.ttlSeconds,
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -124,19 +253,20 @@ export async function POST(request: NextRequest) {
   });
   response.cookies.set(
     SESSION_COOKIE,
-    encodeURIComponent(JSON.stringify({ role, exp: expiresAt, email: claims.email })),
-    { ...sessionMarkerCookie(), maxAge: ttlSeconds, priority: 'high' },
+    encodeURIComponent(JSON.stringify({ role, exp: expiresAt, email: authority.email })),
+    { ...sessionMarkerCookie(), maxAge: authority.ttlSeconds, priority: 'high' },
   );
   response.cookies.set('pc-role', role, {
     path: '/',
-    maxAge: ttlSeconds,
+    maxAge: authority.ttlSeconds,
     httpOnly: false,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
   });
 
   console.info('owner_direct_cabinet_open', JSON.stringify({
-    actor: claims.sub,
+    actor: authority.actorId,
+    authoritySource: authority.source,
     role,
     correlationId,
   }));
