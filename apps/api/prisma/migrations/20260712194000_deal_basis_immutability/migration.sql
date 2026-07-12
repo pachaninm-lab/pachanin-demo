@@ -1,16 +1,13 @@
--- Confirmed commercial basis is immutable after Deal creation.
--- Lifecycle commands may change status, nextAction, version, closedAt and may add
--- operational saga keys such as logisticsBasis. They cannot rewrite the auction
--- basis, counterparties, price, volume, amount or original basis snapshot.
+-- Confirmed commercial basis and the initial saga snapshot are immutable after
+-- Deal creation. Lifecycle commands may change status, nextAction, version and
+-- closedAt. Operational facts belong in normalized PostgreSQL tables, not in a
+-- mutable JSON authority bag.
 
 CREATE OR REPLACE FUNCTION public.forbid_deal_basis_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = pg_catalog, public
 AS $function$
-DECLARE
-  old_basis jsonb;
-  new_basis jsonb;
 BEGIN
   IF ROW(
     OLD."tenantId",
@@ -29,7 +26,8 @@ BEGIN
     OLD."culture",
     OLD."cropClass",
     OLD."region",
-    OLD."incoterms"
+    OLD."incoterms",
+    OLD."sagaState"
   ) IS DISTINCT FROM ROW(
     NEW."tenantId",
     NEW."lotId",
@@ -47,60 +45,13 @@ BEGIN
     NEW."culture",
     NEW."cropClass",
     NEW."region",
-    NEW."incoterms"
+    NEW."incoterms",
+    NEW."sagaState"
   ) THEN
     RAISE EXCEPTION USING
       ERRCODE = '23514',
-      MESSAGE = 'confirmed deal commercial basis is immutable',
+      MESSAGE = 'confirmed deal commercial and saga basis is immutable',
       CONSTRAINT = 'deals_confirmed_basis_immutable';
-  END IF;
-
-  old_basis := jsonb_build_object(
-    'source', OLD."sagaState" ->> 'source',
-    'integrationEventId', OLD."sagaState" ->> 'integrationEventId',
-    'sourceHash', OLD."sagaState" ->> 'sourceHash',
-    'lotId', OLD."sagaState" ->> 'lotId',
-    'winnerBidId', OLD."sagaState" ->> 'winnerBidId',
-    'sellerOrgId', OLD."sagaState" ->> 'sellerOrgId',
-    'buyerOrgId', OLD."sagaState" ->> 'buyerOrgId',
-    'sellerUserId', OLD."sagaState" ->> 'sellerUserId',
-    'buyerUserId', OLD."sagaState" ->> 'buyerUserId',
-    'culture', OLD."sagaState" ->> 'culture',
-    'cropClass', OLD."sagaState" -> 'cropClass',
-    'region', OLD."sagaState" -> 'region',
-    'incoterms', OLD."sagaState" -> 'incoterms',
-    'volumeTons', OLD."sagaState" ->> 'volumeTons',
-    'pricePerTon', OLD."sagaState" ->> 'pricePerTon',
-    'totalKopecks', OLD."sagaState" ->> 'totalKopecks',
-    'currency', OLD."sagaState" ->> 'currency',
-    'paymentTerms', OLD."sagaState" -> 'paymentTerms'
-  );
-  new_basis := jsonb_build_object(
-    'source', NEW."sagaState" ->> 'source',
-    'integrationEventId', NEW."sagaState" ->> 'integrationEventId',
-    'sourceHash', NEW."sagaState" ->> 'sourceHash',
-    'lotId', NEW."sagaState" ->> 'lotId',
-    'winnerBidId', NEW."sagaState" ->> 'winnerBidId',
-    'sellerOrgId', NEW."sagaState" ->> 'sellerOrgId',
-    'buyerOrgId', NEW."sagaState" ->> 'buyerOrgId',
-    'sellerUserId', NEW."sagaState" ->> 'sellerUserId',
-    'buyerUserId', NEW."sagaState" ->> 'buyerUserId',
-    'culture', NEW."sagaState" ->> 'culture',
-    'cropClass', NEW."sagaState" -> 'cropClass',
-    'region', NEW."sagaState" -> 'region',
-    'incoterms', NEW."sagaState" -> 'incoterms',
-    'volumeTons', NEW."sagaState" ->> 'volumeTons',
-    'pricePerTon', NEW."sagaState" ->> 'pricePerTon',
-    'totalKopecks', NEW."sagaState" ->> 'totalKopecks',
-    'currency', NEW."sagaState" ->> 'currency',
-    'paymentTerms', NEW."sagaState" -> 'paymentTerms'
-  );
-
-  IF old_basis IS DISTINCT FROM new_basis THEN
-    RAISE EXCEPTION USING
-      ERRCODE = '23514',
-      MESSAGE = 'confirmed deal saga basis is immutable',
-      CONSTRAINT = 'deals_confirmed_saga_basis_immutable';
   END IF;
 
   RETURN NEW;
@@ -133,4 +84,4 @@ CREATE TRIGGER deals_basis_immutable
   FOR EACH ROW EXECUTE FUNCTION public.forbid_deal_basis_mutation();
 
 COMMENT ON FUNCTION public.forbid_deal_basis_mutation() IS
-  'Rejects changes to confirmed commercial and saga basis while allowing lifecycle and additive operational saga updates.';
+  'Rejects any rewrite of the confirmed commercial columns or initial saga snapshot; operational facts use normalized tables.';
