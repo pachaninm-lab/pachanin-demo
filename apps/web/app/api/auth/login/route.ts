@@ -26,6 +26,7 @@ type ApiLoginPayload = Partial<AuthenticatedSessionPayload> & {
   challengeExpiresAt?: string;
   setupSecret?: string;
   otpAuthUri?: string;
+  staffOwner?: boolean;
   user?: AuthenticatedSessionPayload['user'];
 };
 
@@ -135,7 +136,7 @@ export async function POST(request: Request) {
     const response = json({
       ok: true,
       mfaRequired: false,
-      redirectTo: platformHome(role),
+      redirectTo: payload.staffOwner ? '/platform-v7/staff' : platformHome(role),
       correlationId,
     });
     const session = await applyAuthenticatedSession(response, payload as AuthenticatedSessionPayload);
