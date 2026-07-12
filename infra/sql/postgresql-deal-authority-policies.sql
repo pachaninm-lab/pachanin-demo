@@ -16,8 +16,20 @@ AS $function$
     AND p_deal ->> 'sellerOrgId' = current_setting('app.current_org_id', true)
     AND p_deal ->> 'status' = 'DRAFT'
     AND p_deal ->> 'version' = '0'
+    AND p_deal ->> 'nextAction' = 'Подтвердить допуск участников'
     AND p_deal -> 'signedAt' = 'null'::jsonb
     AND p_deal -> 'closedAt' = 'null'::jsonb
+    AND p_deal -> 'volumeTons' = 'null'::jsonb
+    AND p_deal -> 'pricePerTon' = 'null'::jsonb
+    AND p_deal -> 'totalRub' = 'null'::jsonb
+    AND p_deal -> 'gost' = 'null'::jsonb
+    AND p_deal -> 'fundingChoice' = 'null'::jsonb
+    AND p_deal -> 'owner' = 'null'::jsonb
+    AND p_deal -> 'slaAt' = 'null'::jsonb
+    AND p_deal -> 'sagaStep' = 'null'::jsonb
+    AND p_deal -> 'meta' = 'null'::jsonb
+    AND jsonb_typeof(p_deal -> 'sagaState') = 'object'
+    AND jsonb_object_length(p_deal -> 'sagaState') = 18
     AND EXISTS (
       SELECT 1
       FROM public."integration_events" ie
@@ -54,9 +66,14 @@ AS $function$
         AND p_deal -> 'sagaState' ->> 'buyerOrgId' = confirmed.basis ->> 'buyerOrgId'
         AND p_deal -> 'sagaState' ->> 'sellerUserId' = confirmed.basis ->> 'sellerUserId'
         AND p_deal -> 'sagaState' ->> 'buyerUserId' = confirmed.basis ->> 'buyerUserId'
+        AND p_deal -> 'sagaState' ->> 'culture' = confirmed.basis ->> 'culture'
+        AND NULLIF(p_deal -> 'sagaState' ->> 'cropClass', '') IS NOT DISTINCT FROM NULLIF(confirmed.basis ->> 'cropClass', '')
+        AND NULLIF(p_deal -> 'sagaState' ->> 'region', '') IS NOT DISTINCT FROM NULLIF(confirmed.basis ->> 'region', '')
+        AND NULLIF(p_deal -> 'sagaState' ->> 'incoterms', '') IS NOT DISTINCT FROM NULLIF(confirmed.basis ->> 'incoterms', '')
         AND p_deal -> 'sagaState' ->> 'volumeTons' = confirmed.basis ->> 'volumeTons'
         AND p_deal -> 'sagaState' ->> 'pricePerTon' = confirmed.basis ->> 'pricePerTon'
         AND p_deal -> 'sagaState' ->> 'totalKopecks' = confirmed.basis ->> 'totalKopecks'
+        AND p_deal -> 'sagaState' ->> 'currency' = confirmed.basis ->> 'currency'
         AND NULLIF(p_deal ->> 'id', '') IS NOT NULL
     )
 $function$;
