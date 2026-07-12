@@ -18,7 +18,7 @@
   "current": "IR-10.1 Documents PostgreSQL Authority",
   "fullTzReadinessPercent": 0,
   "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",
-  "openPr": null,
+  "openPr": "#2410",
   "lastClosed": [
     "#2260 Industrial one-deal foundation",
     "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
