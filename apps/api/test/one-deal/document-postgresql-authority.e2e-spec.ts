@@ -29,8 +29,18 @@ function sha256(value: string): string {
 }
 
 function databaseErrorText(error: unknown): string {
-  const candidate = error as { code?: unknown; message?: unknown; meta?: unknown };
-  return JSON.stringify(candidate);
+  const candidate = error as {
+    name?: unknown;
+    code?: unknown;
+    message?: unknown;
+    meta?: unknown;
+  };
+  return JSON.stringify({
+    name: candidate?.name,
+    code: candidate?.code,
+    message: candidate?.message,
+    meta: candidate?.meta,
+  });
 }
 
 describe('Documents PostgreSQL authority under NOBYPASSRLS principal', () => {
