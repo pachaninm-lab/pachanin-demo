@@ -229,6 +229,39 @@ describe('PostgreSQL deal authority under NOBYPASSRLS application principal', ()
     });
   });
 
+  it('rejects rewriting commercial columns or the persisted saga snapshot', async () => {
+    const result = await repository.create(CREATE_COMMAND, seller) as Record<string, unknown>;
+    const dealId = String(result.id);
+    const current = await rls.withTrustedContext(seller, (tx) => tx.deal.findUniqueOrThrow({
+      where: { id: dealId },
+    }));
+
+    const amountError = await captureDatabaseRejection(
+      rls.withTrustedContext(seller, (tx) => tx.deal.update({
+        where: { id: dealId },
+        data: { totalKopecks: 1n },
+      })),
+    );
+    expect(amountError).toMatch(/immutable|23514|deals_confirmed_basis_immutable/i);
+
+    const sagaError = await captureDatabaseRejection(
+      rls.withTrustedContext(seller, (tx) => tx.deal.update({
+        where: { id: dealId },
+        data: {
+          sagaState: {
+            ...(current.sagaState as Record<string, unknown>),
+            logisticsBasis: { carriers: [{ id: 'forged-carrier' }] },
+          } as any,
+        },
+      })),
+    );
+    expect(sagaError).toMatch(/immutable|23514|deals_confirmed_basis_immutable/i);
+
+    const unchanged = await repository.getById(dealId, seller);
+    expect(unchanged.totalKopecks).toBe('185000000');
+    expect(unchanged.sagaState).toEqual(current.sagaState);
+  });
+
   it('rejects a second Deal row for the same confirmed lot and winning bid', async () => {
     const duplicate = await basisBoundDealData('deal-duplicate-confirmed-basis');
     const error = await captureDatabaseRejection(
