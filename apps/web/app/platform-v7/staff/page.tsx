@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { OwnerAccessCenter } from '@/components/platform-v7/staff/OwnerAccessCenter';
 import { StaffOperationalWorkspacesDeferred } from '@/components/platform-v7/staff/StaffOperationalWorkspacesDeferred';
 import { StaffPlatformShell } from '@/components/platform-v7/staff/StaffPlatformShell';
-import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 import { staffAccessTaskCatalog } from '@/lib/platform-v7/staff-access-task-catalog';
 import { DEFAULT_LOCALE, isAppLocale, LOCALE_COOKIE, type AppLocale } from '@/i18n/locale';
@@ -136,7 +136,9 @@ async function verifyIdentity(accessToken: string): Promise<Verification> {
 
 export default async function StaffControlCenterPage() {
   const locale = resolveLocale();
-  const accessToken = cookies().get(ACCESS_COOKIE)?.value;
+  const cookieStore = cookies();
+  const accessToken = cookieStore.get(ACCESS_COOKIE)?.value;
+  const csrfToken = cookieStore.get(CSRF_COOKIE)?.value || '';
   if (!accessToken) redirect('/platform-v7/login?next=%2Fplatform-v7%2Fstaff');
 
   const verification = await verifyIdentity(accessToken);
@@ -152,6 +154,7 @@ export default async function StaffControlCenterPage() {
         identity={verification.status === 'verified' ? verification.identity : null}
         apiAvailable={verification.status === 'verified'}
         accessCatalog={staffAccessTaskCatalog()}
+        csrfToken={csrfToken}
       />
       {verification.status === 'verified' ? (
         <StaffOperationalWorkspacesDeferred
