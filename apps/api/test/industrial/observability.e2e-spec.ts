@@ -2,18 +2,7 @@ import { register } from 'prom-client';
 import { IndustrialMetricsService } from '../../src/modules/integration-events/industrial-metrics.service';
 import type { ExecuteDealCommandDto } from '../../src/modules/deals/dto/execute-deal-command.dto';
 import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
-import { cleanTenant, createInstance, destroyInstance, provisionDeal, type ServiceInstance } from './harness';
-
-/**
- * Block 3 — Observability on real PostgreSQL.
- *
- * Proves:
- *  - the correlation timeline merges deal events, audit, outbox, bank
- *    operations and matched statement rows into one chronological view,
- *    scoped to deal participants only;
- *  - the /metrics gauges report shared PostgreSQL truth (outbox depth,
- *    dead letters, open reconciliation mismatches, key revocations).
- */
+import { cleanTenant, createInstance, destroyInstance, payloadForAction, provisionDeal, type ServiceInstance } from './harness';
 
 jest.setTimeout(120_000);
 
@@ -39,7 +28,7 @@ async function runAction(fixture: Awaited<ReturnType<typeof provisionDeal>>, act
     idempotencyKey: `idem:${fixture.dealId}:${actionId}`,
     expectedUpdatedAt: deal.updatedAt.toISOString(),
     expectedVersion: deal.version.toString(),
-    payload: {},
+    payload: payloadForAction(fixture, actionId),
   };
   return alpha.commands.execute(fixture.dealId, actionId, dto, fixture.users[userKey]);
 }
@@ -78,15 +67,11 @@ describe('Correlation timeline', () => {
     expect(sources).toContain('outbox');
     expect(sources).toContain('bank_operation');
 
-    // Chronological order holds across sources.
     const stamps = timeline.items.map((item) => item.at);
     expect([...stamps].sort()).toEqual(stamps);
-
-    // The confirmed reserve is present from both the money and evidence sides.
     expect(timeline.items.some((item) => item.source === 'bank_operation' && item.summary.includes('RESERVE'))).toBe(true);
     expect(timeline.items.some((item) => item.source === 'deal_event' && item.kind === 'CONFIRM_RESERVE')).toBe(true);
 
-    // A non-participant is rejected before any read happens.
     const outsider = { ...fixture.users.operator, id: 'user-tl-outsider', sessionId: 'session-tl-outsider' };
     await expect(alpha.gateway.correlationTimeline(fixture.dealId, outsider)).rejects.toMatchObject({ status: 403 });
   });
@@ -100,16 +85,14 @@ describe('Participant-scoped accessible deals list', () => {
     const listing = await alpha.gateway.listAccessibleDeals(mine.users.buyer, 10);
     const ids = listing.items.map((item) => (item as { id: string }).id);
     expect(ids).toContain(mine.dealId);
-    expect(ids).not.toContain(foreign.dealId); // разные пользователи по слагу
+    expect(ids).not.toContain(foreign.dealId);
 
     const row = listing.items.find((item) => (item as { id: string }).id === mine.dealId) as Record<string, unknown>;
-    // bigint-поля сериализуемы: JSON.stringify не падает, суммы выше Int32 сохранены
     expect(() => JSON.stringify(listing)).not.toThrow();
     expect(row.totalKopecks).toBe(9_876_543_210_987);
     expect(typeof row.version).toBe('number');
     expect(row.myRole).toBe('BUYER');
 
-    // Пользователь без единого участия видит пустой список, не ошибку.
     const outsider = { ...mine.users.buyer, id: 'user-list-outsider', sessionId: 'session-list-outsider' };
     await expect(alpha.gateway.listAccessibleDeals(outsider)).resolves.toMatchObject({ count: 0, items: [] });
   });
@@ -117,7 +100,6 @@ describe('Participant-scoped accessible deals list', () => {
 
 describe('Industrial /metrics gauges', () => {
   it('reports outbox depth, mismatches and revocations from shared PostgreSQL state', async () => {
-    // Seed one of each observable condition.
     await alpha.prisma.outboxEntry.create({
       data: { type: 'industrial.e2e.metrics', status: 'DEAD_LETTER', payload: {}, deadLetterAt: new Date() },
     });
