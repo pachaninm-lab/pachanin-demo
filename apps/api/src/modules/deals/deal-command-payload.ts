@@ -8,13 +8,6 @@ import { Prisma } from '@prisma/client';
  */
 export type JsonRecord = Record<string, Prisma.InputJsonValue>;
 
-export type LogisticsBasis = {
-  carriers: Array<{ id: string; status: string; tenantId: string }>;
-  drivers: Array<{ id: string; carrierOrgId: string; status: string; vehicleIds: string[] }>;
-  vehicles: Array<{ id: string; carrierOrgId: string; status: string }>;
-  facilities: Array<{ id: string; organizationId: string; status: string }>;
-};
-
 const DECIMAL_6 = /^\d+(?:\.\d{1,6})?$/;
 const ISO_WITH_ZONE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 
@@ -86,22 +79,6 @@ export function requiredArray(payload: JsonRecord, field: string): Prisma.InputJ
   const value = payload[field];
   if (!Array.isArray(value) || value.length === 0) invalid(field, `Добавь хотя бы одну запись в «${field}».`);
   return value;
-}
-
-export function parseLogisticsBasis(value: unknown): LogisticsBasis {
-  const root = record(value, 'deal.sagaState');
-  const basis = record(root.logisticsBasis, 'deal.sagaState.logisticsBasis');
-  const list = (field: keyof LogisticsBasis): Prisma.InputJsonValue[] => {
-    const items = basis[field];
-    if (!Array.isArray(items)) invalid(`deal.sagaState.logisticsBasis.${field}`, 'В сделке отсутствует подтверждённый справочник логистики.');
-    return items;
-  };
-  return {
-    carriers: list('carriers') as unknown as LogisticsBasis['carriers'],
-    drivers: list('drivers') as unknown as LogisticsBasis['drivers'],
-    vehicles: list('vehicles') as unknown as LogisticsBasis['vehicles'],
-    facilities: list('facilities') as unknown as LogisticsBasis['facilities'],
-  };
 }
 
 export function canonicalJson(value: unknown): string {
