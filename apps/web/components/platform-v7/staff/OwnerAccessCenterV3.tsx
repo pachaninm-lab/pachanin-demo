@@ -154,7 +154,7 @@ export function OwnerAccessCenter(props: Props) {
           <article key={item.role} className={styles.cabinetCard}>
             <span className={styles.number} aria-hidden="true">{item.icon}</span>
             <h2>{item.label}</h2>
-            <form method="post" action="/platform-v7/staff/open-cabinet">
+            <form method="post" action="/platform-v7/staff/open-cabinet/submit">
               <input type="hidden" name="_csrf" value={csrfToken} />
               <button type="submit" name="role" value={item.role} disabled={!csrfToken}>
                 {text.open}
