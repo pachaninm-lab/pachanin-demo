@@ -1,4 +1,5 @@
 import { IsObject, IsOptional, IsString, Length } from 'class-validator';
+import type { Prisma } from '@prisma/client';
 
 /**
  * Deal creation consumes a server-persisted auction basis. Commercial facts,
@@ -34,5 +35,5 @@ export class CreateDealDto {
 
   @IsOptional()
   @IsObject()
-  paymentTerms?: Record<string, unknown>;
+  paymentTerms?: Prisma.InputJsonObject;
 }
