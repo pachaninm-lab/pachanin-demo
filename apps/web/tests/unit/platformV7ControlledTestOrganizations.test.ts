@@ -15,6 +15,7 @@ const staffFixture = read('apps/web/app/staff/[...path]/route.ts');
 const verifiedSession = read('apps/web/lib/platform-v7/verified-session.ts');
 const handoffPage = read('apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx');
 const canonicalSeed = read('apps/api/src/modules/deals/canonical-test-deal.seed.ts');
+const persistentActors = read('apps/api/test/one-deal/persistent-auth-actors.ts');
 
 const roles = [
   'operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor',
@@ -76,5 +77,13 @@ describe('Platform V7 controlled test organization network', () => {
     expect(canonicalSeed.indexOf('await tx.userOrg.updateMany({')).toBeLessThan(
       canonicalSeed.indexOf('const membership = await tx.userOrg.upsert({'),
     );
+  });
+
+  it('discovers all canonical actors through the tenant after organizations are split by role', () => {
+    expect(persistentActors).toContain('primaryPrisma.organization.findMany');
+    expect(persistentActors).toContain('const tenantIds = [...new Set(');
+    expect(persistentActors).toContain('isDefault: true');
+    expect(persistentActors).toContain("user: { id: { endsWith: '-e2e' } }");
+    expect(persistentActors).toContain('organization: { tenantId: { in: tenantIds } }');
   });
 });
