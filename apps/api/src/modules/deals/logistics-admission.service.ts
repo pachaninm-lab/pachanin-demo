@@ -4,7 +4,10 @@ import { Prisma } from '@prisma/client';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
 import { canonicalJson, record, requiredString } from './deal-command-payload';
-import type { LogisticsCommandContext } from './logistics-admission-context';
+import type {
+  LogisticsCommandContext,
+  NormalizedLogisticsBasis,
+} from './logistics-admission-context';
 
 export type ResolvedLogisticsAdmission = LogisticsCommandContext & Readonly<{
   carrierName: string;
@@ -135,23 +138,25 @@ export class LogisticsAdmissionService {
         });
       }
 
+      const basis: NormalizedLogisticsBasis = {
+        carriers: [{ id: row.carrier_org_id, status: 'VERIFIED', tenantId: row.tenant_id }],
+        drivers: [{
+          id: row.driver_user_id,
+          carrierOrgId: row.carrier_org_id,
+          status: 'ACTIVE',
+          vehicleIds: [row.vehicle_id],
+        }],
+        vehicles: [{ id: row.vehicle_id, carrierOrgId: row.carrier_org_id, status: 'ACTIVE' }],
+        facilities: [
+          { id: row.route_from_facility_id, organizationId: deal.sellerOrgId, status: 'ACTIVE' },
+          { id: row.route_to_facility_id, organizationId: deal.buyerOrgId, status: 'ACTIVE' },
+        ],
+      };
+
       return Object.freeze({
         commandId,
         admissionId: row.admission_id,
-        basis: {
-          carriers: [{ id: row.carrier_org_id, status: 'VERIFIED', tenantId: row.tenant_id }],
-          drivers: [{
-            id: row.driver_user_id,
-            carrierOrgId: row.carrier_org_id,
-            status: 'ACTIVE',
-            vehicleIds: [row.vehicle_id],
-          }],
-          vehicles: [{ id: row.vehicle_id, carrierOrgId: row.carrier_org_id, status: 'ACTIVE' }],
-          facilities: [
-            { id: row.route_from_facility_id, organizationId: deal.sellerOrgId, status: 'ACTIVE' },
-            { id: row.route_to_facility_id, organizationId: deal.buyerOrgId, status: 'ACTIVE' },
-          ],
-        },
+        basis,
         carrierName: row.carrier_name,
         driverName: row.driver_name,
         vehicleRegistrationNumber: row.vehicle_registration_number,
