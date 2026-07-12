@@ -1,26 +1,27 @@
 # Netlify deploy refresh
 
-Purpose: safe docs-only marker to force the active Netlify production chain to rebuild `main` after the owner cabinet CSRF bootstrap repair.
+Purpose: safe docs-only marker to force the active Netlify production chain to rebuild `main` after the observable owner cabinet transition fix.
 
-Latest verified main commit before this refresh: `1033f8ba1195c0a6907d431f4dc107b13d60a80b`.
+Latest verified main commit before this refresh: `fa41e114d71aa7ebcdb39265770c0927cb0f55b3`.
 
 Active production host: `https://процент-агро.рф/platform-v7/`.
 Netlify project: `vermillion-kitsune-0e7b97`.
 
-Refresh marker timestamp: 2026-07-12T13:01:00Z.
+Refresh marker timestamp: 2026-07-12T13:20:00Z.
 
 Scope:
-- no platform UI changes in this marker;
+- no additional runtime changes in this marker;
 - no API / DB / live integration changes;
 - deploy trigger only;
-- production must include PR #2389, PR #2391 and PR #2392.
+- production must include PR #2389, PR #2391, PR #2392 and PR #2393.
 
 Expected production content:
-- owner cabinet buttons use the server-verified native POST handoff;
-- existing authenticated owner sessions without a CSRF cookie are repaired before cabinet forms render;
-- PLATFORM_OWNER verification and CSRF validation remain mandatory;
-- signed cabinet context remains authoritative;
-- nine clearly marked test organizations cover all twelve owner-access cabinets;
-- the canonical test deal remains linked to the approved role-to-organization mapping.
+- owner cabinet buttons show an immediate opening state;
+- cabinet opening uses an authenticated JSON POST with CSRF header and same-origin credentials;
+- exact server rejection codes are visible instead of a silent return to the owner page;
+- successful server response navigates directly to the verified cabinet route;
+- native POST remains as a no-JavaScript fallback;
+- PLATFORM_OWNER verification, signed cabinet context and role-to-organization mapping remain authoritative;
+- nine clearly marked test organizations cover all twelve owner-access cabinets.
 
-Created to force the hosting chain `GitHub main → Netlify production deploy` to pick up commit `1033f8ba1195c0a6907d431f4dc107b13d60a80b` instead of the prior production commit `4afc81336045a7283ae5d7c3c67f9d865b174eee`.
+Created to force the hosting chain `GitHub main → Netlify production deploy` to pick up commit `fa41e114d71aa7ebcdb39265770c0927cb0f55b3` instead of the prior production commit `7876c940d5d107f514aadb62a71cb48f0531dba4`.
