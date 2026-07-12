@@ -7,7 +7,7 @@ Review the diff and tests, not the agent report. Return PASS or BLOCKED with the
 ## Required scope checks
 
 - `apps/landing` diff is zero.
-- Platform UI, role cabinets, design/theme/onboarding diff is zero, except the explicitly isolated Owner Access Center concurrent scope below.
+- Platform UI, role cabinets, design/theme/onboarding diff is zero, except the explicitly isolated concurrent scopes below.
 - Package and lockfile diff is zero.
 - Changes remain inside the state `allowedCurrentScope` or an explicitly source-controlled concurrent scope.
 - No in-memory/file production fallback, fake-live adapter or auto-merge behavior is introduced.
@@ -56,6 +56,22 @@ Review requirements for this concurrent scope:
 - Mobile layouts cover 320, 375, 390 and 430 px without horizontal overflow.
 - No forbidden bank, signature, laboratory, acceptance or arbitration authority is added.
 
+## Approved concurrent scope — Public login human copy PR #2398
+
+This scope is isolated to wording and its regression contract on the existing server-authoritative login surface. It does not change layout, authentication, MFA, session, RBAC, tenant resolution, redirect authority, deal execution, money or external integrations.
+
+- apps/web/i18n/public-login-copy.ts
+- apps/web/tests/unit/productEntryM31.test.tsx
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+
+Review requirements for this concurrent scope:
+
+- The form structure and server-authoritative authentication boundary remain unchanged.
+- RU/EN/ZH remain complete and semantically aligned.
+- Copy is direct, familiar and task-oriented; no security or production claims are added.
+- The regression test preserves MFA, server redirect and the ban on client-selected roles.
+- `platform-v7 autopilot guard`, web unit tests, typecheck and build pass on the exact PR head.
+
 ## Mandatory architectural review
 
 - PostgreSQL, not process memory or NDJSON, is authoritative for outbox state.
@@ -92,4 +108,4 @@ Review requirements for this concurrent scope:
 
 ## Review brief
 
-PASS only when the implementation is one durable, fail-closed and auditable PostgreSQL execution path and every acceptance item is demonstrated on the exact PR head. For the approved Owner Access Center concurrent scope, PASS only when the server authority boundary is unchanged and the task-first UX criteria above are demonstrated on the exact PR head.
+PASS only when the implementation is one durable, fail-closed and auditable PostgreSQL execution path and every acceptance item is demonstrated on the exact PR head. For an approved concurrent scope, PASS only when its authority boundary is unchanged and its listed requirements are demonstrated on the exact PR head.
