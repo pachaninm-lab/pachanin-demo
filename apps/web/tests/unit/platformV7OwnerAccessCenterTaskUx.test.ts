@@ -39,6 +39,7 @@ describe('platform-v7 owner access center task UX', () => {
     expect(directCenter).toContain('action="/platform-v7/staff/open-cabinet/submit"');
     expect(directCenter).toContain('name="_csrf"');
     expect(directCenter).toContain('name="role"');
+    expect(directCenter).toContain('name="organizationId"');
     expect(page).toContain('csrfToken={csrfToken}');
     expect(directCenter).not.toContain('sessionStorage');
     expect(directCenter).not.toContain("fetch('/platform-v7/staff/open-cabinet'");
@@ -53,8 +54,9 @@ describe('platform-v7 owner access center task UX', () => {
     expect(submitRoute).toContain("import { POST as issueCabinetSession } from '../route'");
     expect(submitRoute).toContain("target.pathname === '/platform-v7/staff'");
     expect(submitRoute).toContain("new URL('/platform-v7/staff/cabinet-handoff', request.url)");
-    expect(handoffPage).toContain('readVerifiedCabinetSessionRole');
+    expect(handoffPage).toContain('readVerifiedCabinetSessionContext');
     expect(handoffPage).toContain('CABINET_SESSION_COOKIE');
+    expect(handoffPage).toContain('controlledOrganizationById(context.organizationId)');
     expect(handoffPage).toContain('<OwnerCabinetHandoff');
     expect(handoffClient).toContain('useLayoutEffect(() =>');
     expect(handoffClient).toContain('window.sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role)');
@@ -65,7 +67,7 @@ describe('platform-v7 owner access center task UX', () => {
   });
 
   it('does not create a client role marker when the server rejects cabinet opening', () => {
-    expect(directRoute).toContain("redirectBack(request, code)");
+    expect(directRoute).toContain('redirectBack(request, code)');
     expect(submitRoute).toContain('if (!failedBackToOwnerCenter)');
     expect(directCenter).not.toContain('PLATFORM_V7_ACTIVE_ROLE_KEY');
     expect(handoffPage).toContain("redirect('/platform-v7/staff?cabinetError=CABINET_SESSION_UNAVAILABLE')");
