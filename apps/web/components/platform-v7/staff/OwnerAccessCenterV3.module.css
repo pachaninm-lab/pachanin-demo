@@ -1,0 +1,224 @@
+.page {
+  width: min(100%, 1240px);
+  margin: 0 auto;
+  padding: clamp(14px, 2.4vw, 30px);
+  padding-bottom: calc(36px + env(safe-area-inset-bottom));
+  color: #10231d;
+  overflow-x: clip;
+}
+
+.page *,
+.page *::before,
+.page *::after { box-sizing: border-box; }
+
+.hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: clamp(22px, 4vw, 40px);
+  border: 1px solid rgba(19, 75, 55, .15);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(79, 158, 112, .2), transparent 38%),
+    linear-gradient(145deg, rgba(251, 254, 252, .99), rgba(232, 245, 238, .98));
+  box-shadow: 0 22px 60px rgba(15, 51, 39, .08);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #247052;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin: 0;
+  max-width: 760px;
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 1.01;
+  letter-spacing: -.045em;
+}
+
+.hero p:not(.eyebrow) {
+  max-width: 760px;
+  margin: 16px 0 0;
+  color: #4e665c;
+  font-size: clamp(15px, 1.8vw, 18px);
+  line-height: 1.55;
+}
+
+.hero small {
+  display: block;
+  margin-top: 14px;
+  color: #62776f;
+  overflow-wrap: anywhere;
+}
+
+.advancedButton,
+.backButton {
+  min-height: 48px;
+  padding: 11px 16px;
+  border: 1px solid rgba(22, 83, 60, .2);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .94);
+  color: #1e6047;
+  font: inherit;
+  font-weight: 780;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.advancedButton { flex: 0 0 auto; max-width: 250px; }
+
+.error {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(164, 45, 45, .28);
+  border-radius: 16px;
+  background: #fff2f1;
+  color: #812b2b;
+  line-height: 1.45;
+}
+
+.accessSummary {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(18, 71, 52, .13);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 14px 42px rgba(18, 55, 43, .06);
+}
+
+.accessSummary strong {
+  display: block;
+  font-size: clamp(20px, 2.4vw, 28px);
+}
+
+.accessSummary p {
+  margin: 8px 0 0;
+  color: #586e65;
+  line-height: 1.55;
+}
+
+.cabinetGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.cabinetCard {
+  display: grid;
+  min-width: 0;
+  min-height: 190px;
+  padding: 18px;
+  border: 1px solid rgba(20, 78, 57, .14);
+  border-radius: 22px;
+  background: linear-gradient(160deg, #ffffff, #f2f8f5);
+  box-shadow: 0 14px 36px rgba(18, 55, 43, .06);
+}
+
+.number {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #e4f2eb;
+  color: #236048;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.cabinetCard h2 {
+  margin: 18px 0;
+  font-size: clamp(20px, 2vw, 25px);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.cabinetCard button {
+  align-self: end;
+  min-height: 50px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: #155b41;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(21, 91, 65, .18);
+  touch-action: manipulation;
+}
+
+.cabinetCard button:disabled {
+  cursor: wait;
+  opacity: .55;
+  box-shadow: none;
+}
+
+.safetyNote {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px solid rgba(165, 122, 34, .22);
+  border-radius: 20px;
+  background: #fffaf0;
+  color: #69552d;
+  line-height: 1.55;
+}
+
+.loadingCard {
+  margin-top: 24px;
+  padding: 28px;
+  border: 1px solid rgba(18, 71, 52, .13);
+  border-radius: 22px;
+  background: #fff;
+  color: #4f665d;
+  text-align: center;
+  box-shadow: 0 14px 42px rgba(18, 55, 43, .06);
+}
+
+.advancedWrap {
+  min-height: 100%;
+}
+
+.backButton {
+  position: sticky;
+  top: 8px;
+  z-index: 45;
+  margin: 12px 0 0 14px;
+  box-shadow: 0 10px 28px rgba(18, 55, 43, .12);
+}
+
+@media (max-width: 860px) {
+  .cabinetGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hero { flex-direction: column; }
+  .advancedButton { width: 100%; max-width: none; }
+}
+
+@media (max-width: 520px) {
+  .page { padding: 12px; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+  .hero { padding: 22px 18px; border-radius: 24px; }
+  .hero h1 { font-size: clamp(32px, 10vw, 44px); }
+  .cabinetGrid { grid-template-columns: 1fr; gap: 12px; }
+  .cabinetCard { min-height: 154px; padding: 16px; }
+  .cabinetCard h2 { margin: 14px 0; }
+  .cabinetCard button { min-height: 54px; }
+  .backButton { margin-left: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page * { scroll-behavior: auto !important; }
+}
+
+@media (forced-colors: active) {
+  .hero,
+  .accessSummary,
+  .cabinetCard,
+  .safetyNote,
+  .loadingCard { border: 1px solid CanvasText; }
+}
