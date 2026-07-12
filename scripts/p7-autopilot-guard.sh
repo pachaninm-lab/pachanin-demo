@@ -131,6 +131,14 @@ apps/web/tests/unit/platformV7ControlledTestAccess.test.ts
 docs/platform-v7/security/test-access-operations.md
 scripts/p7-autopilot-guard.sh'
 
+OWNER_ACCESS_CENTER_SCOPE='apps/web/app/platform-v7/staff/**
+apps/web/components/platform-v7/staff/**
+apps/web/i18n/owner-access-center-messages.ts
+apps/web/lib/platform-v7/staff-access-task-catalog.ts
+apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts
+apps/web/tests/unit/platformV7StaffControlCenterInitialRender.test.ts
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -141,6 +149,12 @@ fi
 # /platform-v7/staff.
 if [ "${GITHUB_HEAD_REF:-}" = "feat/platform-v7-staff-control-center" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$STAFF_CONTROL_CENTER_TEMPLATE_SCOPE")
+fi
+
+# The owner access redesign is isolated to the privileged staff surface,
+# server-owned task catalogue, translations, and its focused regression tests.
+if [ "${GITHUB_HEAD_REF:-}" = "design/owner-access-center-task-ux" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx'; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$OWNER_ACCESS_CENTER_SCOPE")
 fi
 
 # Controlled test access is isolated to the server login gate, the gated

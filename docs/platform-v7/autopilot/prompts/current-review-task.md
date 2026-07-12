@@ -7,9 +7,9 @@ Review the diff and tests, not the agent report. Return PASS or BLOCKED with the
 ## Required scope checks
 
 - `apps/landing` diff is zero.
-- Platform UI, role cabinets, design/theme/onboarding diff is zero.
+- Platform UI, role cabinets, design/theme/onboarding diff is zero, except the explicitly isolated Owner Access Center concurrent scope below.
 - Package and lockfile diff is zero.
-- Changes remain inside the state `allowedCurrentScope`.
+- Changes remain inside the state `allowedCurrentScope` or an explicitly source-controlled concurrent scope.
 - No in-memory/file production fallback, fake-live adapter or auto-merge behavior is introduced.
 
 ## Current allowed scope
@@ -31,6 +31,30 @@ Review the diff and tests, not the agent report. Return PASS or BLOCKED with the
 - apps/api/test/one-deal/**
 - scripts/platform-v7-one-deal-e2e.sh
 - .github/workflows/ci.yml
+
+## Approved concurrent scope — Owner Access Center PR #2383
+
+This scope is isolated to the privileged staff surface and does not modify deal, money, bank, ledger, participant RBAC or external-integration authority.
+
+- apps/web/app/platform-v7/staff/**
+- apps/web/components/platform-v7/staff/**
+- apps/web/i18n/owner-access-center-messages.ts
+- apps/web/lib/platform-v7/staff-access-task-catalog.ts
+- apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts
+- apps/web/tests/unit/platformV7StaffControlCenterInitialRender.test.ts
+- scripts/p7-autopilot-guard.sh
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+
+Review requirements for this concurrent scope:
+
+- API remains authoritative for assignment, role ceiling, mode, scope, MFA, duration and approval.
+- No role or permission is derived from URL, local storage or client-controlled identity.
+- Technical permission names are not the primary user workflow.
+- Break-glass has an isolated incident form and remains limited to 15 minutes.
+- Protected operational workspaces render only while a verified protected session is active.
+- RU/EN/ZH dictionaries remain structurally identical.
+- Mobile layouts cover 320, 375, 390 and 430 px without horizontal overflow.
+- No forbidden bank, signature, laboratory, acceptance or arbitration authority is added.
 
 ## Mandatory architectural review
 
@@ -68,4 +92,4 @@ Review the diff and tests, not the agent report. Return PASS or BLOCKED with the
 
 ## Review brief
 
-PASS only when the implementation is one durable, fail-closed and auditable PostgreSQL execution path and every acceptance item is demonstrated on the exact PR head.
+PASS only when the implementation is one durable, fail-closed and auditable PostgreSQL execution path and every acceptance item is demonstrated on the exact PR head. For the approved Owner Access Center concurrent scope, PASS only when the server authority boundary is unchanged and the task-first UX criteria above are demonstrated on the exact PR head.

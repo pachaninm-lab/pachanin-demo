@@ -1,20 +1,21 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { StaffControlCenter } from '@/components/platform-v7/staff/StaffControlCenter';
+import { OwnerAccessCenter } from '@/components/platform-v7/staff/OwnerAccessCenter';
 import { StaffOperationalWorkspacesDeferred } from '@/components/platform-v7/staff/StaffOperationalWorkspacesDeferred';
 import { StaffPlatformShell } from '@/components/platform-v7/staff/StaffPlatformShell';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
+import { staffAccessTaskCatalog } from '@/lib/platform-v7/staff-access-task-catalog';
 import { DEFAULT_LOCALE, isAppLocale, LOCALE_COOKIE, type AppLocale } from '@/i18n/locale';
-import { staffControlCenterMessages } from '@/i18n/staff-control-center-messages';
+import { ownerAccessCenterMessages } from '@/i18n/owner-access-center-messages';
 import { staffOperationalWorkspaceMessages } from '@/i18n/staff-operational-workspace-messages';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: 'Центр управления доступом — Прозрачная Цена',
+  title: 'Доступ владельца — Прозрачная Цена',
   robots: { index: false, follow: false, nocache: true },
 };
 
@@ -145,11 +146,12 @@ export default async function StaffControlCenterPage() {
 
   return (
     <StaffPlatformShell locale={locale}>
-      <StaffControlCenter
+      <OwnerAccessCenter
         locale={locale}
-        copy={staffControlCenterMessages[locale]}
+        copy={ownerAccessCenterMessages[locale]}
         identity={verification.status === 'verified' ? verification.identity : null}
         apiAvailable={verification.status === 'verified'}
+        accessCatalog={staffAccessTaskCatalog()}
       />
       {verification.status === 'verified' ? (
         <StaffOperationalWorkspacesDeferred
