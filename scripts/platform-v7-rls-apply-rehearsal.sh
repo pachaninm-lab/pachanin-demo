@@ -41,6 +41,7 @@ DECLARE
   immutability_function_count INTEGER;
   public_execute_count INTEGER;
   required_policy_count INTEGER;
+  basis_only_insert_count INTEGER;
   authority_trigger_count INTEGER;
 BEGIN
   SELECT count(*) INTO enabled_count
@@ -97,6 +98,15 @@ BEGIN
       ('deal_participants', 'deal_participants_insert')
     );
 
+  SELECT count(*) INTO basis_only_insert_count
+  FROM pg_policies
+  WHERE schemaname = 'public'
+    AND tablename = 'deals'
+    AND policyname = 'deals_insert'
+    AND with_check ILIKE '%app_deal_basis_deal_visible%'
+    AND with_check ILIKE '%FARMER%'
+    AND with_check NOT ILIKE '%app_rls_privileged%';
+
   SELECT count(*) INTO authority_trigger_count
   FROM pg_trigger t
   JOIN pg_class c ON c.oid = t.tgrelid
@@ -127,6 +137,9 @@ BEGIN
   END IF;
   IF required_policy_count <> 5 THEN
     RAISE EXCEPTION 'RLS rehearsal: expected 5 final deal authority policies, got %', required_policy_count;
+  END IF;
+  IF basis_only_insert_count <> 1 THEN
+    RAISE EXCEPTION 'RLS rehearsal: final deals_insert policy is not seller-basis-only';
   END IF;
   IF authority_trigger_count <> 2 THEN
     RAISE EXCEPTION 'RLS rehearsal: expected 2 enabled Deal authority triggers, got %', authority_trigger_count;
