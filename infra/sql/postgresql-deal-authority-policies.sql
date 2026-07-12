@@ -2,14 +2,7 @@
 -- This overlay is intentionally duplicated in the forward-only Prisma migration
 -- because deployments re-apply the canonical RLS artifact after migrations.
 
-CREATE OR REPLACE FUNCTION public.app_deal_basis_deal_visible(
-  p_deal_id text,
-  p_tenant_id text,
-  p_seller_org_id text,
-  p_buyer_org_id text,
-  p_lot_id text,
-  p_winner_bid_id text
-)
+CREATE OR REPLACE FUNCTION public.app_deal_basis_deal_visible(p_deal jsonb)
 RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
@@ -19,8 +12,12 @@ AS $function$
   SELECT
     public.app_rls_context_ready()
     AND current_setting('app.current_role', true) = 'FARMER'
-    AND p_tenant_id = current_setting('app.current_tenant_id', true)
-    AND p_seller_org_id = current_setting('app.current_org_id', true)
+    AND p_deal ->> 'tenantId' = current_setting('app.current_tenant_id', true)
+    AND p_deal ->> 'sellerOrgId' = current_setting('app.current_org_id', true)
+    AND p_deal ->> 'status' = 'DRAFT'
+    AND p_deal ->> 'version' = '0'
+    AND p_deal -> 'signedAt' = 'null'::jsonb
+    AND p_deal -> 'closedAt' = 'null'::jsonb
     AND EXISTS (
       SELECT 1
       FROM public."integration_events" ie
@@ -30,16 +27,37 @@ AS $function$
       WHERE ie."dealId" IS NULL
         AND ie."adapterName" = 'auction'
         AND ie."eventType" = 'DEAL_BASIS_READY'
-        AND ie."externalId" = p_lot_id || ':' || p_winner_bid_id
+        AND ie."externalId" = (p_deal ->> 'lotId') || ':' || (p_deal ->> 'sourceLotId')
         AND ie."status" = 'CONFIRMED'
         AND COALESCE(ie."responsePayload", ie."requestPayload") IS NOT NULL
-        AND confirmed.basis ->> 'tenantId' = p_tenant_id
-        AND confirmed.basis ->> 'sellerOrgId' = p_seller_org_id
-        AND confirmed.basis ->> 'buyerOrgId' = p_buyer_org_id
+        AND confirmed.basis ->> 'tenantId' = p_deal ->> 'tenantId'
+        AND confirmed.basis ->> 'dealNumber' = p_deal ->> 'dealNumber'
+        AND confirmed.basis ->> 'sellerOrgId' = p_deal ->> 'sellerOrgId'
+        AND confirmed.basis ->> 'buyerOrgId' = p_deal ->> 'buyerOrgId'
         AND confirmed.basis ->> 'sellerUserId' = current_setting('app.current_user_id', true)
-        AND confirmed.basis ->> 'lotId' = p_lot_id
-        AND confirmed.basis ->> 'winnerBidId' = p_winner_bid_id
-        AND NULLIF(p_deal_id, '') IS NOT NULL
+        AND confirmed.basis ->> 'lotId' = p_deal ->> 'lotId'
+        AND confirmed.basis ->> 'winnerBidId' = p_deal ->> 'sourceLotId'
+        AND (confirmed.basis ->> 'volumeTons')::numeric = (p_deal ->> 'volumeTonsDec')::numeric
+        AND (confirmed.basis ->> 'pricePerTon')::numeric = (p_deal ->> 'pricePerTonDec')::numeric
+        AND (confirmed.basis ->> 'totalKopecks')::bigint = (p_deal ->> 'totalKopecks')::bigint
+        AND confirmed.basis ->> 'currency' = p_deal ->> 'currency'
+        AND confirmed.basis ->> 'culture' = p_deal ->> 'culture'
+        AND NULLIF(confirmed.basis ->> 'cropClass', '') IS NOT DISTINCT FROM NULLIF(p_deal ->> 'cropClass', '')
+        AND NULLIF(confirmed.basis ->> 'region', '') IS NOT DISTINCT FROM NULLIF(p_deal ->> 'region', '')
+        AND NULLIF(confirmed.basis ->> 'incoterms', '') IS NOT DISTINCT FROM NULLIF(p_deal ->> 'incoterms', '')
+        AND p_deal -> 'sagaState' ->> 'source' = 'POSTGRESQL_INTEGRATION_EVENT'
+        AND p_deal -> 'sagaState' ->> 'integrationEventId' = ie."id"
+        AND p_deal -> 'sagaState' ->> 'sourceHash' = confirmed.basis ->> 'sourceHash'
+        AND p_deal -> 'sagaState' ->> 'lotId' = confirmed.basis ->> 'lotId'
+        AND p_deal -> 'sagaState' ->> 'winnerBidId' = confirmed.basis ->> 'winnerBidId'
+        AND p_deal -> 'sagaState' ->> 'sellerOrgId' = confirmed.basis ->> 'sellerOrgId'
+        AND p_deal -> 'sagaState' ->> 'buyerOrgId' = confirmed.basis ->> 'buyerOrgId'
+        AND p_deal -> 'sagaState' ->> 'sellerUserId' = confirmed.basis ->> 'sellerUserId'
+        AND p_deal -> 'sagaState' ->> 'buyerUserId' = confirmed.basis ->> 'buyerUserId'
+        AND p_deal -> 'sagaState' ->> 'volumeTons' = confirmed.basis ->> 'volumeTons'
+        AND p_deal -> 'sagaState' ->> 'pricePerTon' = confirmed.basis ->> 'pricePerTon'
+        AND p_deal -> 'sagaState' ->> 'totalKopecks' = confirmed.basis ->> 'totalKopecks'
+        AND NULLIF(p_deal ->> 'id', '') IS NOT NULL
     )
 $function$;
 
@@ -99,13 +117,9 @@ AS $function$
     )
 $function$;
 
-REVOKE ALL ON FUNCTION public.app_deal_basis_deal_visible(text, text, text, text, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.app_deal_basis_deal_visible(jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_deal_basis_participant_allowed(text, text, text, text, text) FROM PUBLIC;
 
--- Prisma INSERT uses RETURNING. The temporary basis-bound visibility branch is
--- required only until seller/buyer DealParticipant rows are inserted in the same
--- transaction. It cannot expose an arbitrary deal because every commercial key
--- must match one confirmed pre-deal auction basis and the current seller identity.
 DROP POLICY IF EXISTS deals_select ON public."deals";
 CREATE POLICY deals_select ON public."deals" FOR SELECT USING (
   public.app_rls_context_ready()
@@ -127,21 +141,10 @@ CREATE POLICY deals_select ON public."deals" FOR SELECT USING (
         AND p."status" = 'ACTIVE'
         AND p."accessLevel" IN ('READ', 'WORK', 'APPROVE')
     )
-    OR public.app_deal_basis_deal_visible(
-      "id",
-      "tenantId",
-      "sellerOrgId",
-      "buyerOrgId",
-      "lotId",
-      "sourceLotId"
-    )
+    OR public.app_deal_basis_deal_visible(to_jsonb("deals"))
   )
 );
 
--- A FARMER cannot use the runtime principal to insert an arbitrary row. Every
--- field that defines the commercial counterparties and winning basis must match
--- one confirmed server event. Privileged operational roles retain their existing
--- controlled path for recovery and support procedures.
 DROP POLICY IF EXISTS deals_insert ON public."deals";
 CREATE POLICY deals_insert ON public."deals" FOR INSERT WITH CHECK (
   public.app_rls_context_ready()
@@ -150,14 +153,7 @@ CREATE POLICY deals_insert ON public."deals" FOR INSERT WITH CHECK (
     public.app_rls_privileged()
     OR (
       current_setting('app.current_role', true) = 'FARMER'
-      AND public.app_deal_basis_deal_visible(
-        "id",
-        "tenantId",
-        "sellerOrgId",
-        "buyerOrgId",
-        "lotId",
-        "sourceLotId"
-      )
+      AND public.app_deal_basis_deal_visible(to_jsonb("deals"))
     )
   )
 );
@@ -247,7 +243,7 @@ BEGIN
   LOOP
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
       EXECUTE format(
-        'GRANT EXECUTE ON FUNCTION public.app_deal_basis_deal_visible(text, text, text, text, text, text) TO %I',
+        'GRANT EXECUTE ON FUNCTION public.app_deal_basis_deal_visible(jsonb) TO %I',
         role_name
       );
       EXECUTE format(
