@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { platformV7RoleCanOpenHref } from '@/lib/platform-v7/shellRoutes';
+import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 function source(path: string): string {
   return readFileSync(join(process.cwd(), path), 'utf8');
@@ -28,6 +30,15 @@ describe('platform-v7 canonical one-deal workspace', () => {
   it('turns a 409 concurrency conflict into a refresh with a human explanation', () => {
     expect(workspace).toContain('reason.status === 409');
     expect(workspace).toContain('Данные изменились другим участником. Мы обновили экран');
+  });
+
+  it('lets every business role reach the deal execution route so the server can decide membership', () => {
+    const roles: PlatformRole[] = ['operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'bank', 'arbitrator', 'compliance', 'executive'];
+    for (const role of roles) {
+      expect(platformV7RoleCanOpenHref(role, '/platform-v7/deals/DEAL-ANY-001/execution')).toBe(true);
+    }
+    // …but the shell does not widen the rest of the deals surface for field roles.
+    expect(platformV7RoleCanOpenHref('driver', '/platform-v7/deals')).toBe(false);
   });
 
   it('renders the same workspace at every role root instead of the old dashboard below it', () => {
