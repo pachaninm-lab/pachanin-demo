@@ -3,13 +3,12 @@ import '@/styles/platform-v7-public-auth.css';
 import '@/styles/platform-v7-public-mobile-safe-area.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-webkit-safe.css';
-import '@/styles/platform-v7-public-world-class.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
   title: 'Вход — Прозрачная Цена',
-  description: 'Единый вход в личный кабинет Прозрачной Цены: роли, сделки, документы, логистика, деньги и поддержка.',
+  description: 'Единый вход в рабочую платформу «Прозрачная Цена».',
   alternates: {
     canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login',
   },
