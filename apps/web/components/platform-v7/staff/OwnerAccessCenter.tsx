@@ -1,1 +1,1 @@
-export { OwnerAccessCenter } from './OwnerAccessCenterV2';
+export { OwnerAccessCenter } from './OwnerAccessCenterV3';
