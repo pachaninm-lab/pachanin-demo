@@ -92,6 +92,29 @@ describe('Correlation timeline', () => {
   });
 });
 
+describe('Participant-scoped accessible deals list', () => {
+  it('returns only deals where the user is an ACTIVE participant, JSON-safe and bounded', async () => {
+    const mine = await provisionDeal(alpha.prisma, 'list01', 9_876_543_210_987n);
+    const foreign = await provisionDeal(alpha.prisma, 'list02', 100_000n);
+
+    const listing = await alpha.gateway.listAccessibleDeals(mine.users.buyer, 10);
+    const ids = listing.items.map((item) => (item as { id: string }).id);
+    expect(ids).toContain(mine.dealId);
+    expect(ids).not.toContain(foreign.dealId); // разные пользователи по слагу
+
+    const row = listing.items.find((item) => (item as { id: string }).id === mine.dealId) as Record<string, unknown>;
+    // bigint-поля сериализуемы: JSON.stringify не падает, суммы выше Int32 сохранены
+    expect(() => JSON.stringify(listing)).not.toThrow();
+    expect(row.totalKopecks).toBe(9_876_543_210_987);
+    expect(typeof row.version).toBe('number');
+    expect(row.myRole).toBe('BUYER');
+
+    // Пользователь без единого участия видит пустой список, не ошибку.
+    const outsider = { ...mine.users.buyer, id: 'user-list-outsider', sessionId: 'session-list-outsider' };
+    await expect(alpha.gateway.listAccessibleDeals(outsider)).resolves.toMatchObject({ count: 0, items: [] });
+  });
+});
+
 describe('Industrial /metrics gauges', () => {
   it('reports outbox depth, mismatches and revocations from shared PostgreSQL state', async () => {
     // Seed one of each observable condition.

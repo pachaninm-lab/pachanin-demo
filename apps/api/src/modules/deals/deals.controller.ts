@@ -27,6 +27,14 @@ export class DealsController {
     return this.deals.list(user);
   }
 
+  /** Канонический participant-scoped список: скоуп определяет PostgreSQL. */
+  @Get('accessible')
+  @Roles('ANY_AUTHENTICATED')
+  listAccessible(@Query('limit') limit: string | undefined, @CurrentUser() user: RequestUser) {
+    const parsed = Number(limit);
+    return this.industrialCommands.listAccessibleDeals(user, Number.isFinite(parsed) ? parsed : undefined);
+  }
+
   @Get(':id')
   getOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.deals.getOne(id, user);

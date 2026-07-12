@@ -162,7 +162,9 @@
       "apps/web/lib/platform-v7/shellRoutes.ts",
       "apps/web/lib/platform-v7/offline-command-queue.ts",
       "apps/web/tests/unit/platformV7OfflineCommandQueue.test.ts",
-      "apps/web/public/platform-v7/i18n/dictionaries.json"
+      "apps/web/public/platform-v7/i18n/dictionaries.json",
+      "apps/web/components/platform-v7/CanonicalDealsList.tsx",
+      "apps/web/app/platform-v7/deals/page.tsx"
     ]
   },
   "industrialOneDealFoundation": {

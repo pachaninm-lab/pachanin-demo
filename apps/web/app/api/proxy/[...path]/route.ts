@@ -52,7 +52,8 @@ function readSessionRole(jar: ReturnType<typeof cookies>): { role: string; email
 // path would fabricate deal state. CANONICAL_DEAL_ID stays as the default
 // workspace target for role dashboards.
 function requiresRealBackend(path: string): boolean {
-  return /^deals\/[^/]+\/(execution-workspace|correlation-timeline)$/.test(path)
+  return path === 'deals/accessible'
+    || /^deals\/[^/]+\/(execution-workspace|correlation-timeline)$/.test(path)
     || /^deals\/[^/]+\/commands\//.test(path);
 }
 
