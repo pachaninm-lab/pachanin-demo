@@ -76,14 +76,6 @@ const OWNER_COPY = {
   },
 } as const;
 
-function handoffActiveRole(role: SurfaceRole) {
-  try {
-    window.sessionStorage.setItem('pc-v7-active-role', role);
-  } catch {
-    // The server-signed cabinet session remains authoritative; this marker only prevents a client guard bounce.
-  }
-}
-
 export function OwnerAccessCenter(props: Props) {
   const { csrfToken, ...baseProps } = props;
   const { locale, copy, identity, apiAvailable } = baseProps;
@@ -162,11 +154,7 @@ export function OwnerAccessCenter(props: Props) {
           <article key={item.role} className={styles.cabinetCard}>
             <span className={styles.number} aria-hidden="true">{item.icon}</span>
             <h2>{item.label}</h2>
-            <form
-              method="post"
-              action="/platform-v7/staff/open-cabinet"
-              onSubmit={() => handoffActiveRole(item.role)}
-            >
+            <form method="post" action="/platform-v7/staff/open-cabinet">
               <input type="hidden" name="_csrf" value={csrfToken} />
               <button type="submit" name="role" value={item.role} disabled={!csrfToken}>
                 {text.open}
