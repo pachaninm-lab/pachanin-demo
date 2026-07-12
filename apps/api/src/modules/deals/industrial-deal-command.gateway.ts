@@ -84,16 +84,24 @@ export class IndustrialDealCommandGateway {
    * Единая correlation timeline сделки: доменные события, audit, outbox,
    * банковские операции и строки банковской выписки в одной хронологии.
    * Доступ — только участнику сделки (тот же fail-closed membership путь).
+   * Выборки ограничены: берутся последние `perSourceLimit` записей каждого
+   * источника (по индексу createdAt), unbounded-чтений нет.
    */
-  async correlationTimeline(dealId: string, user: RequestUser) {
+  async correlationTimeline(
+    dealId: string,
+    user: RequestUser,
+    options: { perSourceLimit?: number } = {},
+  ) {
+    const perSourceLimit = Math.min(Math.max(Math.trunc(options.perSourceLimit ?? 200), 1), 500);
     const scoped = await this.resolveMembership(dealId, user);
     return this.rls.withTrustedContext(scoped.user, async (tx) => {
+      const bounded = { orderBy: { createdAt: 'desc' as const }, take: perSourceLimit };
       const [dealEvents, auditEvents, outboxEntries, bankOperations, statementEntries] = await Promise.all([
-        tx.dealEvent.findMany({ where: { dealId }, orderBy: { createdAt: 'asc' } }),
-        tx.auditEvent.findMany({ where: { dealId }, orderBy: { createdAt: 'asc' } }),
-        tx.outboxEntry.findMany({ where: { dealId }, orderBy: { createdAt: 'asc' } }),
-        tx.bankOperation.findMany({ where: { dealId }, orderBy: { createdAt: 'asc' } }),
-        tx.bankStatementEntry.findMany({ where: { matchedDealId: dealId }, orderBy: { createdAt: 'asc' } }),
+        tx.dealEvent.findMany({ where: { dealId }, ...bounded }),
+        tx.auditEvent.findMany({ where: { dealId }, ...bounded }),
+        tx.outboxEntry.findMany({ where: { dealId }, ...bounded }),
+        tx.bankOperation.findMany({ where: { dealId }, ...bounded }),
+        tx.bankStatementEntry.findMany({ where: { matchedDealId: dealId }, ...bounded }),
       ]);
 
       const items = [
@@ -144,7 +152,7 @@ export class IndustrialDealCommandGateway {
         })),
       ].sort((left, right) => left.at.localeCompare(right.at));
 
-      return { dealId, count: items.length, items };
+      return { dealId, count: items.length, perSourceLimit, items };
     });
   }
 
