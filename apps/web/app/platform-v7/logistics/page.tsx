@@ -63,7 +63,7 @@ const orders = [
     fgis: 'ФГИС «Зерно» · СДИЗ ожидает подтверждения',
     docs: 'транспортный пакет на проверке',
     next: 'контроль прибытия и подписи ЭТрН',
-    href: '/platform-v7/driver/field',
+    href: '/platform-v7/deal-logistics',
   },
   {
     id: 'LOG-9102',
@@ -86,7 +86,7 @@ const orders = [
     fgis: 'ФГИС «Зерно» · СДИЗ отмечен в предынтеграционном контуре',
     docs: 'акт расхождения не подписан',
     next: 'закрыть инцидент и акт удержания',
-    href: '/platform-v7/driver/field',
+    href: '/platform-v7/deal-logistics',
   },
   {
     id: 'LOG-9103',
@@ -187,26 +187,28 @@ export default async function LogisticsPage() {
         </div>
       </section>
 
-      <CollapsibleSection title='Документы, водители и очередь заказов' summary='детали логистики' defaultOpen={false}>
-        <div style={{ display: 'grid', gap: 12 }}>
-          <section style={card}>
-            <div style={micro}>Документные условия перевозки</div>
-            <div style={gateGrid}>
-              {gates.map((gate) => <Gate key={gate.title} gate={gate} />)}
-            </div>
-          </section>
+      <div id='drivers'>
+        <CollapsibleSection title='Документы, водители и очередь заказов' summary='детали логистики' defaultOpen={false}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <section style={card}>
+              <div style={micro}>Документные условия перевозки</div>
+              <div style={gateGrid}>
+                {gates.map((gate) => <Gate key={gate.title} gate={gate} />)}
+              </div>
+            </section>
 
-          <section style={card}>
-            <div style={micro}>Водители на линии</div>
-            {assignedDrivers.map((order) => <DriverCard key={`driver-${order.id}`} order={order} />)}
-          </section>
+            <section style={card}>
+              <div style={micro}>Водители на линии</div>
+              {assignedDrivers.map((order) => <DriverCard key={`driver-${order.id}`} order={order} />)}
+            </section>
 
-          <section style={card}>
-            <div style={micro}>Текущая очередь заказов</div>
-            {orders.map((order) => <OrderCard key={order.id} order={order} />)}
-          </section>
-        </div>
-      </CollapsibleSection>
+            <section style={card}>
+              <div style={micro}>Текущая очередь заказов</div>
+              {orders.map((order) => <OrderCard key={order.id} order={order} />)}
+            </section>
+          </div>
+        </CollapsibleSection>
+      </div>
 
       <CollapsibleSection title='РЖД ЭТРАН · ж/д отправки' summary='ЭТрН · вагоны · трекинг · ГУ-29у · задержки' defaultOpen={false}>
         <EtranRzdPanel />
@@ -243,7 +245,7 @@ function Gate({ gate }: { gate: GateItem }) {
 function DriverCard({ order }: { order: typeof orders[number] }) {
   const hasIncident = order.incidents !== 'нет';
   return (
-    <Link href='/platform-v7/driver/field' style={{ textDecoration: 'none', color: 'inherit', background: order.status === 'Водитель назначен' ? 'var(--pc-success-bg)' : 'var(--pc-bg-card)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
+    <Link href='/platform-v7/logistics/drivers' style={{ textDecoration: 'none', color: 'inherit', background: order.status === 'Водитель назначен' ? 'var(--pc-success-bg)' : 'var(--pc-bg-card)', border: `1px solid ${hasIncident ? 'rgba(220,38,38,0.18)' : 'rgba(10,122,95,0.18)'}`, borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div>
           <div style={{ color: '#0A7A5F', fontSize: 13, fontWeight: 950 }}>{order.driver} · {order.vehicle}</div>
