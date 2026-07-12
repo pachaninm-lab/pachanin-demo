@@ -1,5 +1,6 @@
 import * as bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.service';
 import { DealCommandService } from '../../src/modules/deals/deal-command.service';
@@ -334,7 +335,7 @@ export async function provisionDeal(
   };
 }
 
-export function payloadForAction(fixture: DealFixture, actionId: DealActionId): Record<string, unknown> {
+export function payloadForAction(fixture: DealFixture, actionId: DealActionId): Prisma.InputJsonObject {
   switch (actionId) {
     case 'seller_sign_contract':
       return { documentId: fixture.contractDocumentId, signedAt: FACT_AT, signatureEvidenceRef: fixture.evidence['seller-signature'] };
@@ -353,7 +354,6 @@ export function payloadForAction(fixture: DealFixture, actionId: DealActionId): 
         shipmentId: fixture.shipmentId,
         actualWeightTons: '150.000000',
         occurredAt: '2026-07-12T10:00:00.000Z',
-        actorId: fixture.users.driver.id,
         basis: 'WEIGHING_TICKET',
         evidenceRef: fixture.evidence.loading,
         unit: 'TON',
@@ -369,7 +369,6 @@ export function payloadForAction(fixture: DealFixture, actionId: DealActionId): 
         tareTons: '30.400000',
         netTons: '149.600000',
         weighingSource: 'ELEVATOR_SCALE',
-        operatorUserId: fixture.users.elevator.id,
         occurredAt: '2026-07-12T13:45:00.000Z',
         evidenceRef: fixture.evidence.weighing,
         equipmentId: `scale:${fixture.dealId}`,
@@ -385,7 +384,6 @@ export function payloadForAction(fixture: DealFixture, actionId: DealActionId): 
         applicableStandard: 'CONTROLLED-STANDARD-E2E',
         finalizedAt: '2026-07-12T15:00:00.000Z',
         signedEvidenceRef: fixture.evidence.lab,
-        declaredResult: 'PASSED',
         indicators: [
           { parameter: 'moisture', value: '12.400000', unit: '%', normMax: '14.000000' },
           { parameter: 'protein', value: '13.200000', unit: '%', normMin: '12.500000' },
