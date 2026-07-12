@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { Prisma } from '@prisma/client';
 import type { ExecuteDealCommandDto } from '../../src/modules/deals/dto/execute-deal-command.dto';
 import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import {
@@ -30,7 +31,7 @@ async function execute(
   fixture: DealFixture,
   actionId: DealActionId,
   userKey: string,
-  payload: Record<string, unknown> = payloadForAction(fixture, actionId),
+  payload: Prisma.InputJsonObject = payloadForAction(fixture, actionId),
   suffix = '',
 ) {
   const deal = await instance.prisma.deal.findUniqueOrThrow({
@@ -104,7 +105,7 @@ describe('Deal command no-fake-live PostgreSQL gate', () => {
   it('does not create a driver, vehicle or route from unverified strings', async () => {
     const fixture = await provisionDeal(instance.prisma, 'nofake-assets', 240_000_000n);
     await throughReserve(fixture);
-    const payload = {
+    const payload: Prisma.InputJsonObject = {
       carrierOrgId: fixture.serviceOrgId,
       driverUserId: 'driver-not-in-basis',
       vehicleId: 'vehicle-not-in-basis',
@@ -141,7 +142,7 @@ describe('Deal command no-fake-live PostgreSQL gate', () => {
     ] as Array<[DealActionId, string]>) await execute(fixture, actionId, userKey);
 
     const before = await snapshot(fixture, 'confirm_weight');
-    const payload = { ...payloadForAction(fixture, 'confirm_weight'), netTons: '149.500000' };
+    const payload: Prisma.InputJsonObject = { ...payloadForAction(fixture, 'confirm_weight'), netTons: '149.500000' };
     await expectUnprocessable(execute(fixture, 'confirm_weight', 'elevator', payload, ':bad-net'), 'netTons');
     expect(await snapshot(fixture, 'confirm_weight')).toEqual(before);
     expect(await instance.prisma.acceptanceRecord.count({ where: { dealId: fixture.dealId } })).toBe(0);
@@ -248,7 +249,11 @@ describe('Deal command no-fake-live PostgreSQL gate', () => {
     const productionUi = [
       readFileSync(resolve(webRoot, 'components/platform-v7/CanonicalDealWorkspace.tsx'), 'utf8'),
       readFileSync(resolve(webRoot, 'components/platform-v7/RoleIntentDashboard.tsx'), 'utf8'),
+      readFileSync(resolve(webRoot, 'components/platform-v7/DealCommandForm.tsx'), 'utf8'),
     ].join('\n');
     expect(productionUi).not.toContain('DEAL-INDUSTRIAL-001');
+    expect(productionUi).not.toContain('actorId');
+    expect(productionUi).not.toContain('operatorUserId');
+    expect(productionUi).not.toContain('declaredResult');
   });
 });
