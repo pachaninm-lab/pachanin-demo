@@ -187,6 +187,14 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
           WHERE user_id = ${user.id}
         `);
 
+        await tx.userOrg.updateMany({
+          where: {
+            userId: user.id,
+            NOT: { organizationId: identity.orgId },
+          },
+          data: { isDefault: false },
+        });
+
         const membership = await tx.userOrg.upsert({
           where: {
             userId_organizationId: {
