@@ -11,6 +11,21 @@
  */
 
 export type ProcessEnv = Record<string, string | undefined>;
+export type CriticalRepositoryMode = 'memory' | 'prisma';
+
+export function parseCriticalRepositoryMode(
+  variable: string,
+  value: string | undefined,
+): CriticalRepositoryMode {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === 'memory' || normalized === 'prisma') return normalized;
+  if (!normalized) {
+    throw new IndustrialStartupError(`${variable} must be explicitly set to "memory" or "prisma".`);
+  }
+  throw new IndustrialStartupError(
+    `${variable} has unknown value "${normalized}"; allowed values are "memory" and "prisma".`,
+  );
+}
 
 export function isIndustrialMode(env: ProcessEnv = process.env): boolean {
   if (env.NODE_ENV === 'production') return true;
@@ -38,6 +53,15 @@ export function assertIndustrialProductionStartup(env: ProcessEnv = process.env)
     throw new IndustrialStartupError(
       'PLATFORM_V7_DEAL_REPOSITORY must be "prisma" in production. ' +
         'The in-memory runtime repository is forbidden as production authority.',
+    );
+  }
+  if (parseCriticalRepositoryMode(
+    'PLATFORM_V7_DOCUMENT_REPOSITORY',
+    env.PLATFORM_V7_DOCUMENT_REPOSITORY,
+  ) !== 'prisma') {
+    throw new IndustrialStartupError(
+      'PLATFORM_V7_DOCUMENT_REPOSITORY must be "prisma" in production. ' +
+        'The in-memory document repository is forbidden as production authority.',
     );
   }
   if (env.AUTH_TEST_ACCOUNTS_ENABLED === '1' || env.AUTH_TEST_ACCOUNTS_ENABLED === 'true') {

@@ -14,7 +14,7 @@
   },
   "mode": "ir-10-documents-postgresql-authority",
   "status": "active",
-  "currentStatus": "ready",
+  "currentStatus": "in_progress",
   "current": "IR-10.1 Documents PostgreSQL Authority",
   "fullTzReadinessPercent": 0,
   "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",

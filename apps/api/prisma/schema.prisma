@@ -248,6 +248,7 @@ model Checkpoint {
 model DealDocument {
   id               String   @id
   dealId           String
+  tenantId         String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
   type             String
   status           String   @default("DRAFT")
   name             String
@@ -266,11 +267,30 @@ model DealDocument {
   edoExternalId    String?
   version          Int      @default(1)
   isImmutable      Boolean  @default(false)
+  sourceFileId     String?
+  signatureFileId  String?
+  supersedesId     String?
+  seriesId         String?
+  idempotencyKey   String?  @unique
+  correlationId    String?
+  createdByOrgId   String?
+  metadata         Json?
 
-  deal             Deal     @relation(fields: [dealId], references: [id])
+  deal             Deal            @relation(fields: [dealId], references: [id])
+  sourceFile       DealDocument?   @relation("DocumentSourceFile", fields: [sourceFileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  sourceFor        DealDocument[]  @relation("DocumentSourceFile")
+  signatureFile    DealDocument?   @relation("DocumentSignatureFile", fields: [signatureFileId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  signatureFor     DealDocument[]  @relation("DocumentSignatureFile")
+  supersedes       DealDocument?   @relation("DocumentSupersession", fields: [supersedesId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  corrections      DealDocument[]  @relation("DocumentSupersession")
 
   @@index([dealId])
+  @@index([tenantId])
   @@index([type])
+  @@index([sourceFileId])
+  @@index([signatureFileId])
+  @@index([supersedesId])
+  @@unique([seriesId, version])
   @@map("deal_documents")
 }
 

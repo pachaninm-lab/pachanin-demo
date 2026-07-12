@@ -1,17 +1,30 @@
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UseGuards } from '@nestjs/common';
-import { Body, Controller, Get, Param, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
-import { DocumentsService } from './documents.service';
-import { DocumentMatrixService } from './document-matrix.service';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import type { RequestUser } from '../../common/types/request-user';
+import { DocAction, DocumentMatrixService } from './document-matrix.service';
 import { DocumentTemplateService, TemplateId } from './document-template.service';
+import { DocumentsService } from './documents.service';
+import { GenerateDocumentPackageDto } from './dto/generate-document-package.dto';
+import { SignDocumentDto } from './dto/sign-document.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 
 @UseGuards(RolesGuard)
-@Roles('FARMER', 'BUYER', 'SUPPORT_MANAGER', 'ACCOUNTING', 'LAB', 'LOGISTICIAN', 'EXECUTIVE', 'ADMIN')
+@Roles(
+  'FARMER',
+  'BUYER',
+  'SUPPORT_MANAGER',
+  'COMPLIANCE_OFFICER',
+  'ACCOUNTING',
+  'LAB',
+  'LOGISTICIAN',
+  'SURVEYOR',
+  'ELEVATOR',
+  'EXECUTIVE',
+  'ADMIN',
+)
 @Controller('documents')
 export class DocumentsController {
   constructor(
@@ -21,88 +34,93 @@ export class DocumentsController {
   ) {}
 
   @Get()
-  list(@CurrentUser() user: any) {
+  list(@CurrentUser() user: RequestUser) {
     return this.documents.list(user);
   }
 
+  @Get('templates')
+  listTemplates() {
+    return this.templates.listTemplates();
+  }
+
   @Get(':id')
-  getOne(@Param('id') id: string, @CurrentUser() user: any) {
+  getOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.documents.getOne(id, user);
   }
 
   @Get(':id/access')
-  access(@Param('id') id: string, @CurrentUser() user: any) {
+  access(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.documents.getSignedAccess(id, user);
   }
 
   @Get(':id/content')
-  async content(@Param('id') id: string, @CurrentUser() user: any) {
+  async content(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     const payload = await this.documents.streamContent(id, user);
     return payload.file;
   }
 
   @RateLimit({ name: 'documents_upload', scope: 'user', limit: 20, windowSeconds: 300, limitEnv: 'RATE_LIMIT_UPLOADS', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
-  upload(@UploadedFile() file: any, @Body() dto: UploadDocumentDto, @CurrentUser() user: any) {
-    return this.documents.upload(file, dto, user);
+  upload(@Body() dto: UploadDocumentDto, @CurrentUser() user: RequestUser) {
+    return this.documents.upload(dto, user);
   }
 
   @Get(':id/download')
-  download(@Param('id') id: string, @CurrentUser() user: any) {
+  download(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.documents.download(id, user);
   }
 
   @Post(':id/sign')
-  sign(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.documents.signDocument(id, user);
+  sign(
+    @Param('id') id: string,
+    @Body() dto: SignDocumentDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.documents.signDocument(id, dto, user);
   }
 
   @Post('generate/:dealId')
-  generate(@Param('dealId') dealId: string, @CurrentUser() user: any) {
-    return this.documents.generateDealPackage(dealId, user);
+  generate(
+    @Param('dealId') dealId: string,
+    @Body() dto: GenerateDocumentPackageDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.documents.generateDealPackage(dealId, dto, user);
   }
 
   @Get(':id/preview')
-  preview(@Param('id') id: string, @CurrentUser() user: any) {
+  preview(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.documents.getPreview(id, user);
   }
 
   @Get(':id/correction')
-  correction(@Param('id') id: string, @CurrentUser() user: any) {
+  correction(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.documents.getCorrectionPlan(id, user);
   }
 
-  /** Returns all doc requirements for a given action */
   @Get('matrix/:action')
   matrixForAction(@Param('action') action: string) {
-    return this.matrix.getRequirementsForAction(action as any);
+    return this.matrix.getRequirementsForAction(action as DocAction);
   }
 
-  /** Full release readiness gate check for a deal */
   @Get('gate/release/:dealId')
-  releaseGate(@Param('dealId') dealId: string, @CurrentUser() user: any) {
+  releaseGate(@Param('dealId') dealId: string, @CurrentUser() user: RequestUser) {
     return this.documents.getReleaseGate(dealId, user);
   }
 
   @Post(':id/edo/send')
-  edoSend(@Param('id') id: string, @Body() body: { recipientInn: string; recipientBoxId?: string }, @CurrentUser() user: any) {
-    return this.documents.edoSend(id, body, user);
+  edoSend() {
+    return this.documents.edoSend();
   }
 
   @Post(':id/edo/sign')
-  edoSign(@Param('id') id: string, @Body() body: { certificateId?: string }, @CurrentUser() user: any) {
-    return this.documents.edoSign(id, body.certificateId, user);
+  edoSign() {
+    return this.documents.edoSign();
   }
 
   @Get(':id/edo/status')
-  edoStatus(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.documents.edoGetStatus(id, user);
-  }
-
-  @Get('templates')
-  listTemplates() {
-    return this.templates.listTemplates();
+  edoStatus() {
+    return this.documents.edoGetStatus();
   }
 
   @Post('templates/:id/generate')
@@ -114,40 +132,22 @@ export class DocumentsController {
   }
 
   @Post(':id/verify-signature')
-  verifySignature(
-    @Param('id') id: string,
-    @Body() body: { signatureBase64: string; certificateId: string; documentHash?: string },
-    @CurrentUser() user: any,
-  ) {
-    return this.documents.verifySignature(id, body, user);
+  verifySignature() {
+    return this.documents.verifySignature();
   }
 
   @Get('certificates/my')
-  getUserCertificates(@CurrentUser() user: any) {
-    return this.documents.getUserCertificates(user);
+  getUserCertificates() {
+    return this.documents.getUserCertificates();
   }
 
   @Get('certificates/:certId/status')
-  checkCertStatus(@Param('certId') certId: string) {
-    return this.documents.checkCertificateStatus(certId);
+  checkCertStatus() {
+    return this.documents.checkCertificateStatus();
   }
 
   @Post('batch-sign')
-  async batchSign(
-    @Body() body: { documentIds: string[]; certificateId?: string },
-    @CurrentUser() user: any,
-  ) {
-    if (body.documentIds.length > 50) {
-      return { error: 'Batch signing limit is 50 documents' };
-    }
-    const results = await Promise.all(
-      body.documentIds.map(id => this.documents.edoSign(id, body.certificateId, user).catch(err => ({ id, error: String(err) })))
-    );
-    return {
-      processed: results.length,
-      signed: results.filter((r: any) => !r.error).length,
-      failed: results.filter((r: any) => r.error).length,
-      results,
-    };
+  batchSign() {
+    return this.documents.edoSign();
   }
 }

@@ -84,6 +84,9 @@ psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/production-rls-polic
 echo "[one-deal] applying PostgreSQL deal-authority RLS overlay"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/postgresql-deal-authority-policies.sql
 
+echo "[one-deal] applying PostgreSQL document-authority RLS overlay"
+psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/postgresql-document-authority-policies.sql
+
 echo "[one-deal] creating restricted deal-execution principal"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
 DO $one_deal_role$
