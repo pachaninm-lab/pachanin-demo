@@ -36,19 +36,23 @@ describe('platform-v7 owner access center task UX', () => {
     expect(directCenter).toContain('action="/platform-v7/staff/open-cabinet"');
     expect(directCenter).toContain('name="_csrf"');
     expect(directCenter).toContain('name="role"');
-    expect(directCenter).toContain("window.sessionStorage.setItem('pc-v7-active-role', role)");
+    expect(page).toContain('csrfToken={csrfToken}');
+    expect(directCenter).not.toContain("window.sessionStorage.setItem('pc-v7-active-role'");
     expect(directCenter).not.toContain("fetch('/platform-v7/staff/open-cabinet'");
     expect(directCenter).not.toContain('Рабочий тикет');
     expect(directCenter).not.toContain('Причина доступа');
   });
 
-  it('uses a native POST redirect so mobile browsers do not remain stuck in the opening state', () => {
+  it('uses a pure native POST redirect so Safari cannot cancel submission after a React state update', () => {
     expect(directRoute).toContain("contentType.includes('application/x-www-form-urlencoded')");
     expect(directRoute).toContain('request.formData()');
     expect(directRoute).toContain('formCsrfValid(request');
     expect(directRoute).toContain('NextResponse.redirect(new URL(OWNER_CABINETS[parsed.role], request.url), 303)');
     expect(directRoute).toContain("transport: parsed.formSubmission ? 'native-form' : 'json-fetch'");
-    expect(directCenter).toContain("window.addEventListener('pageshow', resetBusy)");
+    expect(directCenter).not.toContain('onSubmit=');
+    expect(directCenter).not.toContain('busyRole');
+    expect(directCenter).not.toContain('setBusyRole');
+    expect(directCenter).toContain('<button type="submit" name="role" value={item.role} disabled={!csrfToken}>');
   });
 
   it('requires controlled-owner claims or an active API-backed PLATFORM_OWNER assignment', () => {
@@ -68,7 +72,7 @@ describe('platform-v7 owner access center task UX', () => {
   });
 
   it('retains the task-first PAM surface for staff management and privileged operations', () => {
-    expect(directCenter).toContain('<OwnerAccessCenterV2 {...props} />');
+    expect(directCenter).toContain('<OwnerAccessCenterV2 {...baseProps} />');
     expect(directCenter).toContain('setAdvanced(true)');
     expect(directCenter).toContain('setAdvanced(false)');
     expect(page).toContain('accessCatalog={staffAccessTaskCatalog()}');
