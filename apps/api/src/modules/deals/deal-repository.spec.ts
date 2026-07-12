@@ -93,12 +93,14 @@ describe('production deal DI and route source gate', () => {
   const controllerSource = source('deals.controller.ts');
   const prismaSource = source('prisma-deal.repository.ts');
 
-  it('binds the production repository directly to Prisma without RuntimeCore or a mode factory', () => {
+  it('binds the production repository directly to Prisma without legacy adapters', () => {
     expect(moduleSource).toContain('useExisting: PrismaDealRepository');
     expect(moduleSource).not.toContain('RuntimeCoreService');
     expect(moduleSource).not.toContain('RuntimeDealRepository');
     expect(moduleSource).not.toContain('selectDealRepository');
     expect(moduleSource).not.toContain('DealAutoService');
+    expect(moduleSource).not.toContain('DealEventService');
+    expect(moduleSource).not.toContain('OutboxModule');
   });
 
   it('keeps free-form transition unreachable from service and controller', () => {
