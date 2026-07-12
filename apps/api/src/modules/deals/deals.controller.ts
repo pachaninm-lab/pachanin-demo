@@ -1,20 +1,16 @@
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
-import { UseGuards } from '@nestjs/common';
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, GoneException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DealsService } from './deals.service';
 import { IndustrialDealCommandGateway } from './industrial-deal-command.gateway';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { ExecuteDealCommandDto } from './dto/execute-deal-command.dto';
-import { TransitionDealDto } from './dto/transition-deal.dto';
 import { RequestUser, Role } from '../../common/types/request-user';
-import { CANONICAL_TEST_DEAL_ID } from './deal-command.policy';
-import { isIndustrialMode } from '../../common/config/industrial-mode';
 
 @UseGuards(RolesGuard)
-@Roles('FARMER', 'BUYER', 'SUPPORT_MANAGER', 'EXECUTIVE', 'ADMIN', 'ACCOUNTING')
+@Roles('ANY_AUTHENTICATED')
 @Controller('deals')
 export class DealsController {
   constructor(
@@ -27,9 +23,7 @@ export class DealsController {
     return this.deals.list(user);
   }
 
-  /** Канонический participant-scoped список: скоуп определяет PostgreSQL. */
   @Get('accessible')
-  @Roles('ANY_AUTHENTICATED')
   listAccessible(@Query('limit') limit: string | undefined, @CurrentUser() user: RequestUser) {
     const parsed = Number(limit);
     return this.industrialCommands.listAccessibleDeals(user, Number.isFinite(parsed) ? parsed : undefined);
@@ -46,13 +40,11 @@ export class DealsController {
   }
 
   @Get(':id/execution-workspace')
-  @Roles('ANY_AUTHENTICATED')
   executionWorkspace(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.industrialCommands.workspace(id, user);
   }
 
   @Get(':id/correlation-timeline')
-  @Roles('ANY_AUTHENTICATED')
   correlationTimeline(
     @Param('id') id: string,
     @Query('limit') limit: string | undefined,
@@ -75,15 +67,20 @@ export class DealsController {
   }
 
   @Post()
+  @Roles(Role.FARMER)
+  @RateLimit({
+    name: 'deal_create',
+    scope: 'user',
+    limit: 10,
+    windowSeconds: 60,
+    limitEnv: 'RATE_LIMIT_DEAL_CREATE',
+    windowEnv: 'RATE_LIMIT_DEAL_CREATE_WINDOW_SECONDS',
+  })
   create(@Body() dto: CreateDealDto, @CurrentUser() user: RequestUser) {
-    if (user.role === Role.EXECUTIVE) {
-      throw new ForbiddenException('Executive role cannot create deals');
-    }
     return this.deals.create(dto, user);
   }
 
   @Post(':id/commands/:actionId')
-  @Roles('ANY_AUTHENTICATED')
   @RateLimit({
     name: 'deal_command',
     scope: 'user',
@@ -102,42 +99,26 @@ export class DealsController {
     return this.industrialCommands.executeUser(id, actionId, dto, user);
   }
 
+  /**
+   * Compatibility endpoints remain explicit fail-closed tombstones so an old
+   * client cannot silently fall back to RuntimeCore or a free-form state write.
+   */
   @Patch(':id/transition')
-  transition(
-    @Param('id') id: string,
-    @Body() dto: TransitionDealDto,
-    @CurrentUser() user: RequestUser,
-  ) {
-    this.assertLegacyTransitionAllowed(id, user);
-    return this.deals.transition(id, dto, user);
+  legacyTransitionDisabled(@Param('id') id: string): never {
+    return this.rejectLegacyTransition(id);
   }
 
   @Patch(':id/status')
-  transitionCompat(
-    @Param('id') id: string,
-    @Body() body: { status?: string; nextState?: string; comment?: string },
-    @CurrentUser() user: RequestUser,
-  ) {
-    this.assertLegacyTransitionAllowed(id, user);
-    return this.deals.transition(
-      id,
-      { nextState: (body?.nextState || body?.status || '') as any, comment: body?.comment },
-      user,
-    );
+  legacyStatusDisabled(@Param('id') id: string): never {
+    return this.rejectLegacyTransition(id);
   }
 
-  private assertLegacyTransitionAllowed(id: string, user: RequestUser): void {
-    if (user.role === Role.EXECUTIVE) {
-      throw new ForbiddenException('Executive role is read-only');
-    }
-    // Industrial mode: the server-side domain command is the ONLY status path.
-    // Free-form nextState is a demo-profile capability and never reaches
-    // PostgreSQL-authoritative deals.
-    if (isIndustrialMode() || id === CANONICAL_TEST_DEAL_ID) {
-      throw new BadRequestException({
-        code: 'DEAL_REQUIRES_COMMAND',
-        message: 'Статус сделки меняется только доменной командой. Используйте POST /deals/:id/commands/:actionId.',
-      });
-    }
+  private rejectLegacyTransition(id: string): never {
+    throw new GoneException({
+      code: 'LEGACY_DEAL_TRANSITION_DISABLED',
+      dealId: id,
+      message: 'Свободное изменение статуса отключено. Используйте доменную команду сделки.',
+      commandEndpoint: `/deals/${id}/commands/:actionId`,
+    });
   }
 }
