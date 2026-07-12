@@ -1,11 +1,27 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { CONTROLLED_CABINET_CONTEXTS } from '../../lib/platform-v7/controlled-test-organizations';
 
 const root = process.cwd();
 function read(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
+
+const ownerCabinetMatrix = [
+  { role: 'operator', route: '/platform-v7/control-tower', page: 'apps/web/app/platform-v7/control-tower/page.tsx' },
+  { role: 'buyer', route: '/platform-v7/buyer', page: 'apps/web/app/platform-v7/buyer/page.tsx' },
+  { role: 'seller', route: '/platform-v7/seller', page: 'apps/web/app/platform-v7/seller/page.tsx' },
+  { role: 'logistics', route: '/platform-v7/logistics', page: 'apps/web/app/platform-v7/logistics/page.tsx' },
+  { role: 'driver', route: '/platform-v7/driver/field', page: 'apps/web/app/platform-v7/driver/field/page.tsx' },
+  { role: 'surveyor', route: '/platform-v7/surveyor', page: 'apps/web/app/platform-v7/surveyor/page.tsx' },
+  { role: 'elevator', route: '/platform-v7/elevator', page: 'apps/web/app/platform-v7/elevator/page.tsx' },
+  { role: 'lab', route: '/platform-v7/lab', page: 'apps/web/app/platform-v7/lab/page.tsx' },
+  { role: 'bank', route: '/platform-v7/bank', page: 'apps/web/app/platform-v7/bank/page.tsx' },
+  { role: 'arbitrator', route: '/platform-v7/arbitrator', page: 'apps/web/app/platform-v7/arbitrator/page.tsx' },
+  { role: 'compliance', route: '/platform-v7/compliance', page: 'apps/web/app/platform-v7/compliance/page.tsx' },
+  { role: 'executive', route: '/platform-v7/executive', page: 'apps/web/app/platform-v7/executive/page.tsx' },
+] as const;
 
 describe('platform-v7 role intent dashboard', () => {
   it('keeps the canonical role intent workspace for ordinary cabinet sessions', () => {
@@ -19,8 +35,31 @@ describe('platform-v7 role intent dashboard', () => {
     expect(shell).toContain('ROLE_INTENT_ROOT_PATHS');
     expect(shell).toContain(': <RoleIntentDashboard role={initialRole} />');
 
-    for (const route of ['/platform-v7/control-tower', '/platform-v7/buyer', '/platform-v7/seller', '/platform-v7/logistics', '/platform-v7/driver', '/platform-v7/elevator', '/platform-v7/lab', '/platform-v7/bank', '/platform-v7/compliance', '/platform-v7/arbitrator', '/platform-v7/executive']) {
+    for (const route of [
+      '/platform-v7/control-tower', '/platform-v7/buyer', '/platform-v7/seller',
+      '/platform-v7/logistics', '/platform-v7/driver', '/platform-v7/surveyor',
+      '/platform-v7/elevator', '/platform-v7/lab', '/platform-v7/bank',
+      '/platform-v7/compliance', '/platform-v7/arbitrator', '/platform-v7/executive',
+    ]) {
       expect(shell).toContain(route);
+    }
+  });
+
+  it('keeps all twelve owner cabinet routes, organizations and page implementations connected', () => {
+    const openCabinet = read('apps/web/app/platform-v7/staff/open-cabinet/route.ts');
+
+    expect(ownerCabinetMatrix).toHaveLength(12);
+    expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(12);
+    expect(new Set(ownerCabinetMatrix.map((item) => item.route)).size).toBe(12);
+
+    for (const item of ownerCabinetMatrix) {
+      expect(openCabinet).toContain(`${item.role}: '${item.route}'`);
+      expect(CONTROLLED_CABINET_CONTEXTS[item.role].role).toBe(item.role);
+      expect(CONTROLLED_CABINET_CONTEXTS[item.role].organizationId).toBeTruthy();
+      expect(fs.existsSync(path.join(root, item.page))).toBe(true);
+      const page = read(item.page);
+      expect(page).toMatch(/export default/);
+      expect(page.length).toBeGreaterThan(200);
     }
   });
 
@@ -38,6 +77,17 @@ describe('platform-v7 role intent dashboard', () => {
     expect(shell).toContain('Внешние интеграции, электронная подпись и движение денег не активированы');
     expect(shell).toContain('{children}');
     expect(shell).toContain('const showPlatformFooter = !isRoleRoot || (previewResolved && !ownerPreview)');
+  });
+
+  it('accepts current and legacy URI-encoded owner session markers before choosing the surface', () => {
+    const shell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
+
+    expect(shell).toContain('function parseSessionMarker(raw: string)');
+    expect(shell).toContain('for (let depth = 0; depth < 3; depth += 1)');
+    expect(shell).toContain('JSON.parse(candidate)');
+    expect(shell).toContain('decodeURIComponent(candidate)');
+    expect(shell).toContain('const parsed = parseSessionMarker(raw)');
+    expect(shell).not.toContain('JSON.parse(decodeURIComponent(raw))');
   });
 
   it('keeps the owner marker presentation-only and server authority explicit', () => {
