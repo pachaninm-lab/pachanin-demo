@@ -7,6 +7,13 @@ import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth
 import { CANONICAL_TEST_DEAL_ID } from '../../src/modules/deals/deal-command.policy';
 
 const PASSWORD = 'demo1234';
+const REQUIRED_SIGNED_DOCUMENT_TYPES = [
+  'CONTRACT',
+  'TTN',
+  'WEIGHING_ACT',
+  'LAB_PROTOCOL',
+  'ACCEPTANCE_ACT',
+] as const;
 
 async function main(): Promise<void> {
   if (String(process.env.DB_PRINCIPAL_BOUNDARY_ENFORCED).toLowerCase() !== 'true') {
@@ -46,7 +53,11 @@ async function main(): Promise<void> {
         tx.dealParticipant.count({ where: { dealId: CANONICAL_TEST_DEAL_ID, status: 'ACTIVE' } }),
         tx.dealEvent.count({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
         tx.auditEvent.count({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
-        tx.dealDocument.count({ where: { dealId: CANONICAL_TEST_DEAL_ID, status: 'SIGNED' } }),
+        tx.dealDocument.findMany({
+          where: { dealId: CANONICAL_TEST_DEAL_ID, status: 'SIGNED' },
+          select: { type: true },
+          orderBy: { type: 'asc' },
+        }),
         tx.bankOperation.count({ where: { dealId: CANONICAL_TEST_DEAL_ID, status: 'DONE' } }),
         tx.ledgerEntry.count({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
         tx.$queryRaw<Array<{ successful: bigint; failed: bigint }>>(Prisma.sql`
@@ -79,7 +90,7 @@ async function main(): Promise<void> {
         visibleParticipants,
         events,
         audits,
-        documents,
+        documentTypes: documents.map((document) => document.type),
         bankOperations,
         ledger,
         migrations: migrations[0],
@@ -95,7 +106,15 @@ async function main(): Promise<void> {
     }
     if (restored.events !== 19) throw new Error(`Expected 19 events, got ${restored.events}`);
     if (restored.audits !== 19) throw new Error(`Expected 19 audits, got ${restored.audits}`);
-    if (restored.documents < 6) throw new Error(`Expected at least 6 signed documents, got ${restored.documents}`);
+
+    const restoredDocumentTypes = [...new Set(restored.documentTypes)].sort();
+    const requiredDocumentTypes = [...REQUIRED_SIGNED_DOCUMENT_TYPES].sort();
+    if (JSON.stringify(restoredDocumentTypes) !== JSON.stringify(requiredDocumentTypes)) {
+      throw new Error(
+        `Restored signed document basis mismatch: expected ${requiredDocumentTypes.join(', ')}, got ${restoredDocumentTypes.join(', ') || 'none'}`,
+      );
+    }
+
     if (restored.bankOperations !== 2) throw new Error(`Expected 2 bank operations, got ${restored.bankOperations}`);
     if (restored.ledger !== 2) throw new Error(`Expected 2 ledger entries, got ${restored.ledger}`);
     if (Number(restored.migrations?.successful ?? 0n) < 1 || Number(restored.migrations?.failed ?? 1n) !== 0) {
@@ -120,7 +139,7 @@ async function main(): Promise<void> {
       visibleParticipants: restored.visibleParticipants,
       events: restored.events,
       audits: restored.audits,
-      documents: restored.documents,
+      signedDocumentTypes: restoredDocumentTypes,
       bankOperations: restored.bankOperations,
       ledgerEntries: restored.ledger,
       successfulMigrations: Number(restored.migrations?.successful ?? 0n),
