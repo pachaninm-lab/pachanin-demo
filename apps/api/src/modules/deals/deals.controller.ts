@@ -43,6 +43,12 @@ export class DealsController {
     return this.industrialCommands.workspace(id, user);
   }
 
+  @Get(':id/correlation-timeline')
+  @Roles('ANY_AUTHENTICATED')
+  correlationTimeline(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.industrialCommands.correlationTimeline(id, user);
+  }
+
   @Get(':id/passport')
   passport(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.deals.passport(id, user);

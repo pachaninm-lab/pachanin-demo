@@ -187,6 +187,7 @@ model DealEvent {
   deal        Deal     @relation(fields: [dealId], references: [id])
 
   @@index([dealId])
+  @@index([dealId, createdAt], map: "deal_events_deal_created_idx")
   @@map("deal_events")
 }
 
@@ -317,6 +318,7 @@ model LedgerEntry {
   @@index([dealId])
   @@index([debitAccount])
   @@index([creditAccount])
+  @@index([createdAt], map: "ledger_entries_created_idx")
   @@map("ledger_entries")
 }
 
@@ -398,6 +400,7 @@ model OutboxEntry {
   @@index([dealId])
   @@index([runtimeSnapshotId], map: "outbox_entries_runtime_snapshot_idx")
   @@index([correlationId], map: "outbox_entries_runtime_correlation_idx")
+  @@index([createdAt], map: "outbox_entries_created_idx")
   @@map("outbox_entries")
 }
 
@@ -524,6 +527,7 @@ model AuditEvent {
   @@index([tenantId])
   @@index([runtimeSnapshotId], map: "audit_events_runtime_snapshot_idx")
   @@index([correlationId], map: "audit_events_runtime_correlation_idx")
+  @@index([createdAt], map: "audit_events_created_idx")
   @@map("audit_events")
 }
 
@@ -548,6 +552,7 @@ model IntegrationEvent {
   @@index([adapterName, status])
   @@index([dealId])
   @@index([externalId])
+  @@index([createdAt], map: "integration_events_created_idx")
   @@map("integration_events")
 }
 
