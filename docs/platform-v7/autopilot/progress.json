@@ -1,14 +1,14 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 91,
-  "currentStep": "Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation.",
-  "lastCompletedStep": "#2291 Forward-only backup, restore and DR rehearsal",
+  "fullTzReadinessPercent": 0,
+  "currentStep": "IR-10.1 Documents PostgreSQL Authority",
+  "lastCompletedStep": "#2407 PostgreSQL-authoritative Deal routes",
   "openPr": null,
   "blockedBy": [
-    "Durable financial delivery is not yet implemented: the current outbox relay remains process-memory-led, bank reconciliation checkpoints are not production-durable and partner callback keys do not yet support rotation and revocation."
+    "IR-10.1 Documents PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-10.2 Logistics PostgreSQL Authority."
   ],
-  "nextStep": "Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation.",
-  "updatedAt": "2026-07-10T18:23:00.000Z",
+  "nextStep": "IR-10.1 Documents PostgreSQL Authority",
+  "updatedAt": "2026-07-12T21:23:53.193Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
