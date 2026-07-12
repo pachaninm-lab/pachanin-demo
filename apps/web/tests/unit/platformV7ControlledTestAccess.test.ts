@@ -7,7 +7,6 @@ function source(path: string) {
 }
 
 const openGate = source('app/api/platform-v7/cabinet-lock-login/route.ts');
-const controlledLogin = source('app/auth/login/route.ts');
 const canonicalLogin = source('app/api/auth/login/route.ts');
 const identity = source('app/auth/me/route.ts');
 const staffFixture = source('app/staff/[...path]/route.ts');
@@ -39,23 +38,23 @@ describe('Platform V7 controlled test access', () => {
 
   it('supports the canonical login page with valid email-form test identities', () => {
     for (const role of roles) {
-      expect(controlledLogin).toContain(`'${role}.test@procent-agro.test'`);
+      expect(canonicalLogin).toContain(`'${role}.test@procent-agro.test'`);
     }
-    expect(canonicalLogin).toContain("fetch(`${API_URL}/auth/login`");
+    expect(canonicalLogin).toContain('const controlled = controlledPayload(email, password)');
     expect(canonicalLogin).toContain("payload.staffOwner ? '/platform-v7/staff' : platformHome(role)");
   });
 
   it('requires explicit expiry and server-side secrets', () => {
-    expect(controlledLogin).toContain('PC_CABINET_TEST_ACCESS');
-    expect(controlledLogin).toContain('PC_CABINET_TEST_ACCESS_EXPIRES_AT');
-    expect(controlledLogin).toContain('PC_CABINET_ROLE_PASSWORD');
-    expect(controlledLogin).toContain('PC_CABINET_SESSION_SECRET');
-    expect(controlledLogin).toContain('timingSafeEqual');
+    expect(canonicalLogin).toContain('PC_CABINET_TEST_ACCESS');
+    expect(canonicalLogin).toContain('PC_CABINET_TEST_ACCESS_EXPIRES_AT');
+    expect(canonicalLogin).toContain('PC_CABINET_ROLE_PASSWORD');
+    expect(canonicalLogin).toContain('PC_CABINET_SESSION_SECRET');
+    expect(canonicalLogin).toContain('timingSafeEqual');
     expect(sessionResponse).toContain('process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET');
   });
 
   it('keeps Staff Control Center restricted to the signed owner account', () => {
-    expect(controlledLogin).toContain('staffOwner: account.owner');
+    expect(canonicalLogin).toContain('staffOwner: account.owner');
     expect(identity).toContain('staffOwner: owner');
     expect(staffFixture).toContain('claims.owner !== true');
     expect(staffFixture).toContain("return json({ code: 'OWNER_ACCESS_REQUIRED' }, 403)");
