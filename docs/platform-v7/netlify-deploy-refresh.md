@@ -1,19 +1,26 @@
 # Netlify deploy refresh
 
-Purpose: safe docs-only marker to trigger the active reserve Netlify deployment from `main` after the latest platform-v7 mobile shell and role-dock fixes.
+Purpose: safe docs-only marker to force the active Netlify production chain to rebuild `main` after the owner cabinet handoff fix and the addition of server-mapped test organizations for all twelve cabinets.
 
-Latest verified main commit before this refresh: `923e64dd2ed39ec92e06d143d5eefbce61f27562`.
+Latest verified main commit before this refresh: `4afc81336045a7283ae5d7c3c67f9d865b174eee`.
 
-Active reserve host: `https://vermillion-kitsune-0e7b97.netlify.app/platform-v7/`.
-Secondary reserve host: `https://gleaming-mandazi-bb9856.netlify.app/platform-v7/`.
+Active production host: `https://процент-агро.рф/platform-v7/`.
+Netlify project: `vermillion-kitsune-0e7b97`.
 
-Refresh marker timestamp: 2026-06-18T21:31:00Z.
+Refresh marker timestamp: 2026-07-12T12:39:22Z.
 
 Scope:
 - no platform UI changes in this marker;
 - no runtime logic changes;
 - no API / DB / live integration changes;
-- no Vercel config changes;
-- Netlify reserve deployment refresh only.
+- deploy trigger only;
+- production must include PR #2389 and PR #2391.
 
-Created to force the hosting chain `GitHub main → Netlify production deploy` to pick up the latest mobile shell visibility, role-dock and calculator header fixes on `/platform-v7`.
+Expected production content:
+- owner cabinet buttons use the server-verified native POST handoff;
+- PLATFORM_OWNER verification and CSRF validation remain mandatory;
+- signed cabinet context remains authoritative;
+- nine clearly marked test organizations cover all twelve owner-access cabinets;
+- the canonical test deal remains linked to the approved role-to-organization mapping.
+
+Created to force the hosting chain `GitHub main → Netlify production deploy` to pick up commit `4afc81336045a7283ae5d7c3c67f9d865b174eee` instead of the stale production commit `4aff09572d813b382cc742112541cb75d278740a`.
