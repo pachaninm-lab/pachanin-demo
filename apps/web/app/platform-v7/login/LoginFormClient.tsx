@@ -2,13 +2,9 @@
 
 import * as React from 'react';
 import {
-  Building2,
   Eye,
   EyeOff,
-  History,
   KeyRound,
-  LockKeyhole,
-  Mail,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -33,10 +29,6 @@ export type LoginCopy = {
   lead: string;
   mfaLead: string;
   backupCodesLead: string;
-  secureEyebrow: string;
-  assuranceRole: string;
-  assuranceMfa: string;
-  assuranceAudit: string;
   required: string;
   invalidEmail: string;
   unavailable: string;
@@ -49,10 +41,10 @@ export type LoginCopy = {
   hidePassword: string;
   showPassword: string;
   forgot: string;
+  registerPrompt: string;
   register: string;
   loading: string;
   submit: string;
-  note: string;
   enrollmentTitle: string;
   enrollmentLead: string;
   setupSecretLabel: string;
@@ -69,6 +61,7 @@ export type LoginCopy = {
 async function requestJson(url: string, init: RequestInit) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), 10_000);
+
   try {
     const response = await fetch(url, {
       ...init,
@@ -103,8 +96,8 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
   const errorRef = React.useRef<HTMLParagraphElement>(null);
 
   React.useEffect(() => {
-    if (error) errorRef.current?.focus();
-  }, [error]);
+    if (error && errorField === 'form') errorRef.current?.focus();
+  }, [error, errorField]);
 
   React.useEffect(() => {
     if (step === 'mfa') codeRef.current?.focus();
@@ -126,16 +119,19 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
   async function submitPassword(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
+
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!normalizedEmail) {
       fail(copy.required, 'email', emailRef.current);
       return;
     }
+
     if (emailRef.current && !emailRef.current.validity.valid) {
       fail(copy.invalidEmail, 'email', emailRef.current);
       return;
     }
+
     if (!password) {
       fail(copy.required, 'password', passwordRef.current);
       return;
@@ -144,12 +140,14 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
     setSubmitting(true);
     setError('');
     setErrorField(null);
+
     try {
       const { response, payload } = await requestJson('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: normalizedEmail, password }),
       });
+
       if (!response.ok || !payload.ok) throw new Error('login_failed');
 
       if (payload.mfaRequired) {
@@ -174,7 +172,9 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
   async function submitMfa(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting) return;
+
     const normalizedCode = code.trim();
+
     if (!normalizedCode || (method === 'totp' && !/^\d{6}$/.test(normalizedCode))) {
       fail(copy.mfaError, 'code', codeRef.current);
       return;
@@ -183,12 +183,14 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
     setSubmitting(true);
     setError('');
     setErrorField(null);
+
     try {
       const { response, payload } = await requestJson('/api/auth/mfa-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: normalizedCode, method }),
       });
+
       if (!response.ok || !payload.ok || !payload.redirectTo?.startsWith('/platform-v7/')) {
         throw new Error('mfa_failed');
       }
@@ -199,6 +201,7 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
         setStep('backup-codes');
         return;
       }
+
       globalThis.location.assign(payload.redirectTo);
     } catch {
       fail(copy.mfaError, 'code', codeRef.current);
@@ -209,7 +212,9 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
 
   async function returnToPassword() {
     if (submitting) return;
+
     setSubmitting(true);
+
     try {
       await fetch('/api/auth/mfa-login/cancel', {
         method: 'POST',
@@ -232,6 +237,7 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
     const normalized = method === 'totp'
       ? value.replace(/\D/g, '').slice(0, 6)
       : value.toUpperCase().replace(/\s/g, '').slice(0, 64);
+
     setCode(normalized);
     clearErrorFor('code');
   }
@@ -240,38 +246,43 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
     ? (step === 'mfa' ? copy.mfaLoading : copy.loading)
     : '';
 
+  const heading = step === 'password'
+    ? copy.title
+    : step === 'mfa'
+      ? copy.mfaTitle
+      : copy.backupCodesTitle;
+
+  const lead = step === 'password'
+    ? copy.lead
+    : step === 'mfa'
+      ? copy.mfaLead
+      : copy.backupCodesLead;
+
   return (
     <section className='pc-auth-shell' aria-labelledby='pc-login-title' data-step={step}>
       <div className='pc-auth-heading'>
-        <span className='pc-auth-eyebrow'><ShieldCheck size={16} aria-hidden='true' />{copy.secureEyebrow}</span>
-        <h1 id='pc-login-title'>
-          {step === 'password' ? copy.title : step === 'mfa' ? copy.mfaTitle : copy.backupCodesTitle}
-        </h1>
-        <p>{step === 'password' ? copy.lead : step === 'mfa' ? copy.mfaLead : copy.backupCodesLead}</p>
+        <h1 id='pc-login-title'>{heading}</h1>
+        <p>{lead}</p>
       </div>
 
-      {step === 'password' ? (
-        <div className='pc-auth-assurance' aria-label={copy.secureEyebrow}>
-          <span><Building2 size={17} aria-hidden='true' />{copy.assuranceRole}</span>
-          <span><ShieldCheck size={17} aria-hidden='true' />{copy.assuranceMfa}</span>
-          <span><History size={17} aria-hidden='true' />{copy.assuranceAudit}</span>
-        </div>
-      ) : null}
-
-      <p className='pc-auth-live-status' role='status' aria-live='polite' aria-atomic='true'>{statusText}</p>
+      <p className='pc-auth-live-status' role='status' aria-live='polite' aria-atomic='true'>
+        {statusText}
+      </p>
 
       {step === 'password' ? (
-        <form className='pc-auth-card' onSubmit={submitPassword} noValidate aria-describedby='pc-auth-note'>
+        <form className='pc-auth-card' onSubmit={submitPassword} noValidate>
           <label className='pc-auth-label' htmlFor='pc-auth-email'>
             <span>{copy.email}</span>
             <span className='pc-auth-field'>
-              <Mail size={19} aria-hidden='true' />
               <input
                 id='pc-auth-email'
                 name='email'
                 ref={emailRef}
                 value={email}
-                onChange={(event) => { setEmail(event.target.value); clearErrorFor('email'); }}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  clearErrorFor('email');
+                }}
                 type='email'
                 inputMode='email'
                 autoComplete='username'
@@ -280,7 +291,6 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
                 required
                 maxLength={254}
                 enterKeyHint='next'
-                autoFocus
                 disabled={submitting}
                 aria-invalid={errorField === 'email'}
                 aria-errormessage={errorField === 'email' ? 'pc-auth-error' : undefined}
@@ -290,14 +300,16 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
 
           <label className='pc-auth-label' htmlFor='pc-auth-password'>
             <span>{copy.password}</span>
-            <span className='pc-auth-field'>
-              <LockKeyhole size={19} aria-hidden='true' />
+            <span className='pc-auth-field pc-auth-password-field'>
               <input
                 id='pc-auth-password'
                 name='password'
                 ref={passwordRef}
                 value={password}
-                onChange={(event) => { setPassword(event.target.value); clearErrorFor('password'); }}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  clearErrorFor('password');
+                }}
                 onKeyDown={(event) => setCapsLock(event.getModifierState('CapsLock'))}
                 onKeyUp={(event) => setCapsLock(event.getModifierState('CapsLock'))}
                 onBlur={() => setCapsLock(false)}
@@ -320,24 +332,41 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
                 title={showPassword ? copy.hidePassword : copy.showPassword}
                 aria-pressed={showPassword}
               >
-                {showPassword ? <EyeOff size={19} aria-hidden='true' /> : <Eye size={19} aria-hidden='true' />}
+                {showPassword
+                  ? <EyeOff size={20} aria-hidden='true' />
+                  : <Eye size={20} aria-hidden='true' />}
               </button>
             </span>
           </label>
 
-          {capsLock ? <p className='pc-auth-inline-hint' role='status'>{copy.capsLock}</p> : null}
+          {capsLock ? (
+            <p className='pc-auth-inline-hint' role='status'>{copy.capsLock}</p>
+          ) : null}
 
-          <div className='pc-auth-links'>
-            <a href='/platform-v7/forgot-password'>{copy.forgot}</a>
-            <a href='/platform-v7/register'>{copy.register}</a>
-          </div>
+          <a className='pc-auth-recovery-link' href='/platform-v7/forgot-password'>
+            {copy.forgot}
+          </a>
 
-          {error ? <p ref={errorRef} id='pc-auth-error' className='pc-auth-error' role='alert' tabIndex={-1}>{error}</p> : null}
+          {error ? (
+            <p
+              ref={errorRef}
+              id='pc-auth-error'
+              className='pc-auth-error'
+              role='alert'
+              tabIndex={errorField === 'form' ? -1 : undefined}
+            >
+              {error}
+            </p>
+          ) : null}
 
           <button className='pc-auth-submit' type='submit' disabled={submitting} aria-busy={submitting}>
             <span>{submitting ? copy.loading : copy.submit}</span>
           </button>
-          <p id='pc-auth-note' className='pc-auth-note'>{copy.note}</p>
+
+          <div className='pc-auth-register'>
+            <span>{copy.registerPrompt}</span>
+            <a href='/platform-v7/register'>{copy.register}</a>
+          </div>
         </form>
       ) : null}
 
@@ -356,18 +385,37 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
           ) : null}
 
           <div className='pc-auth-methods' role='group' aria-label={copy.mfaCode}>
-            <button type='button' aria-pressed={method === 'totp'} onClick={() => { setMethod('totp'); setCode(''); setError(''); setErrorField(null); }}>
-              <ShieldCheck size={18} aria-hidden='true' />{copy.totpMethod}
+            <button
+              type='button'
+              aria-pressed={method === 'totp'}
+              onClick={() => {
+                setMethod('totp');
+                setCode('');
+                setError('');
+                setErrorField(null);
+              }}
+            >
+              <ShieldCheck size={18} aria-hidden='true' />
+              {copy.totpMethod}
             </button>
-            <button type='button' aria-pressed={method === 'backup_code'} onClick={() => { setMethod('backup_code'); setCode(''); setError(''); setErrorField(null); }}>
-              <KeyRound size={18} aria-hidden='true' />{copy.backupMethod}
+            <button
+              type='button'
+              aria-pressed={method === 'backup_code'}
+              onClick={() => {
+                setMethod('backup_code');
+                setCode('');
+                setError('');
+                setErrorField(null);
+              }}
+            >
+              <KeyRound size={18} aria-hidden='true' />
+              {copy.backupMethod}
             </button>
           </div>
 
           <label className='pc-auth-label' htmlFor='pc-auth-code'>
             <span>{copy.mfaCode}</span>
             <span className='pc-auth-field'>
-              <KeyRound size={19} aria-hidden='true' />
               <input
                 id='pc-auth-code'
                 name='verification-code'
@@ -391,20 +439,40 @@ export function LoginFormClient({ copy }: { copy: LoginCopy }) {
             </span>
           </label>
 
-          {error ? <p ref={errorRef} id='pc-auth-error' className='pc-auth-error' role='alert' tabIndex={-1}>{error}</p> : null}
+          {error ? (
+            <p ref={errorRef} id='pc-auth-error' className='pc-auth-error' role='alert'>
+              {error}
+            </p>
+          ) : null}
 
           <button className='pc-auth-submit' type='submit' disabled={submitting} aria-busy={submitting}>
             <span>{submitting ? copy.mfaLoading : copy.mfaSubmit}</span>
           </button>
-          <button className='pc-auth-secondary' type='button' onClick={returnToPassword} disabled={submitting}>{copy.mfaBack}</button>
+
+          <button
+            className='pc-auth-secondary'
+            type='button'
+            onClick={returnToPassword}
+            disabled={submitting}
+          >
+            {copy.mfaBack}
+          </button>
         </form>
       ) : null}
 
       {step === 'backup-codes' ? (
         <section className='pc-auth-card pc-auth-backup-codes' aria-live='polite'>
           <ShieldCheck size={36} aria-hidden='true' />
-          <div className='pc-auth-code-grid'>{backupCodes.map((item) => <code key={item}>{item}</code>)}</div>
-          <button className='pc-auth-submit' type='button' onClick={() => globalThis.location.assign(redirectTo)}><span>{copy.submit}</span></button>
+          <div className='pc-auth-code-grid'>
+            {backupCodes.map((item) => <code key={item}>{item}</code>)}
+          </div>
+          <button
+            className='pc-auth-submit'
+            type='button'
+            onClick={() => globalThis.location.assign(redirectTo)}
+          >
+            <span>{copy.submit}</span>
+          </button>
         </section>
       ) : null}
     </section>
