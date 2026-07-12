@@ -95,7 +95,14 @@ export function OwnerAccessCenter(props: Props) {
   const [isOwner, setIsOwner] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [busyRole, setBusyRole] = useState<SurfaceRole | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [csrf, setCsrf] = useState('');
+
+  useEffect(() => {
+    setCsrf(csrfToken());
+    const resetBusy = () => setBusyRole(null);
+    window.addEventListener('pageshow', resetBusy);
+    return () => window.removeEventListener('pageshow', resetBusy);
+  }, []);
 
   useEffect(() => {
     if (!apiAvailable) {
@@ -103,7 +110,11 @@ export function OwnerAccessCenter(props: Props) {
       return;
     }
     let cancelled = false;
-    fetch('/api/staff/assignments/me', { credentials: 'same-origin', cache: 'no-store' })
+    fetch('/api/staff/assignments/me', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8_000),
+    })
       .then(async (response) => response.ok ? response.json() : [])
       .then((rows: StaffAssignment[]) => {
         if (!cancelled) setIsOwner(Array.isArray(rows) && rows.some((item) => item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'));
@@ -122,31 +133,9 @@ export function OwnerAccessCenter(props: Props) {
     [copy],
   );
 
-  const openCabinet = async (role: SurfaceRole) => {
+  const prepareCabinetNavigation = (role: SurfaceRole) => {
     setBusyRole(role);
-    setError(null);
-    try {
-      const response = await fetch('/platform-v7/staff/open-cabinet', {
-        method: 'POST',
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken(),
-        },
-        body: JSON.stringify({ role }),
-      });
-      const payload = await response.json().catch(() => ({})) as { ok?: boolean; redirectTo?: string; role?: SurfaceRole; message?: string };
-      if (!response.ok || !payload.ok || !payload.redirectTo || !payload.role) {
-        throw new Error(payload.message || text.error);
-      }
-      window.sessionStorage.setItem('pc-v7-active-role', payload.role);
-      window.location.assign(payload.redirectTo);
-    } catch (value) {
-      setError(value instanceof Error && value.message ? value.message : text.error);
-      setBusyRole(null);
-    }
+    window.sessionStorage.setItem('pc-v7-active-role', role);
   };
 
   if (advanced || (!checking && !isOwner)) {
@@ -180,8 +169,6 @@ export function OwnerAccessCenter(props: Props) {
         </button>
       </header>
 
-      {error && <div className={styles.error} role="alert">{error}</div>}
-
       <section className={styles.accessSummary}>
         <strong>{text.access}</strong>
         <p>{text.accessBody}</p>
@@ -192,13 +179,17 @@ export function OwnerAccessCenter(props: Props) {
           <article key={item.role} className={styles.cabinetCard}>
             <span className={styles.number} aria-hidden="true">{item.icon}</span>
             <h2>{item.label}</h2>
-            <button
-              type="button"
-              onClick={() => void openCabinet(item.role)}
-              disabled={busyRole !== null}
+            <form
+              method="post"
+              action="/platform-v7/staff/open-cabinet"
+              onSubmit={() => prepareCabinetNavigation(item.role)}
             >
-              {busyRole === item.role ? text.opening : text.open}
-            </button>
+              <input type="hidden" name="_csrf" value={csrf} />
+              <input type="hidden" name="role" value={item.role} />
+              <button type="submit" disabled={!csrf || busyRole !== null}>
+                {busyRole === item.role ? text.opening : text.open}
+              </button>
+            </form>
           </article>
         ))}
       </section>
