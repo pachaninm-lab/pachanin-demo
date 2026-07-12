@@ -1,7 +1,12 @@
 import { UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
-export type JsonRecord = Prisma.InputJsonObject;
+/**
+ * A validated JSON object with no undefined values. Keeping the index value as
+ * Prisma.InputJsonValue makes nested command/event payloads assignable to the
+ * Prisma JSON write contract without weakening the boundary to `unknown`.
+ */
+export type JsonRecord = Record<string, Prisma.InputJsonValue>;
 
 export type LogisticsBasis = {
   carriers: Array<{ id: string; status: string; tenantId: string }>;
