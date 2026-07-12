@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { RequestUser } from '../types/request-user';
 import { Role } from '../types/request-user';
+import { currentCommandExecutionId } from '../command-execution.context';
 import { PrismaService } from './prisma.service';
 
 export type RlsContextErrorCode =
@@ -68,6 +69,7 @@ export class RlsTransactionService {
     options: RlsTransactionOptions = {},
   ): Promise<T> {
     const context = deriveTrustedRlsContext(user);
+    const commandId = currentCommandExecutionId()?.trim() ?? '';
 
     return this.prisma.$transaction(
       async (tx) => {
@@ -78,7 +80,8 @@ export class RlsTransactionService {
               set_config('app.current_org_id', ${context.orgId}, true),
               set_config('app.current_tenant_id', ${context.tenantId}, true),
               set_config('app.current_role', ${context.role}, true),
-              set_config('app.current_session_id', ${context.sessionId}, true)
+              set_config('app.current_session_id', ${context.sessionId}, true),
+              set_config('app.current_command_id', ${commandId}, true)
           `,
         );
 
