@@ -2,8 +2,8 @@
 --
 -- A confirmed auction basis exists before its Deal row, so ordinary participant
 -- visibility cannot authorize Prisma INSERT ... RETURNING or the first seller /
--- buyer participant rows. The policies bind every authoritative commercial field,
--- the initial lifecycle state and the immutable saga snapshot to one confirmed basis.
+-- buyer participant rows. These policies bind every authoritative commercial
+-- field and the initial immutable saga snapshot to one confirmed basis.
 
 CREATE OR REPLACE FUNCTION public.app_deal_basis_deal_visible(p_deal jsonb)
 RETURNS boolean
@@ -32,7 +32,20 @@ AS $function$
     AND p_deal -> 'sagaStep' = 'null'::jsonb
     AND p_deal -> 'meta' = 'null'::jsonb
     AND jsonb_typeof(p_deal -> 'sagaState') = 'object'
-    AND jsonb_object_length(p_deal -> 'sagaState') = 18
+    AND (
+      SELECT count(*)
+      FROM jsonb_object_keys(p_deal -> 'sagaState') AS saga_key(key)
+    ) = 18
+    AND NOT EXISTS (
+      SELECT 1
+      FROM jsonb_object_keys(p_deal -> 'sagaState') AS saga_key(key)
+      WHERE saga_key.key NOT IN (
+        'source', 'integrationEventId', 'sourceHash', 'lotId', 'winnerBidId',
+        'sellerOrgId', 'buyerOrgId', 'sellerUserId', 'buyerUserId',
+        'culture', 'cropClass', 'region', 'incoterms', 'volumeTons',
+        'pricePerTon', 'totalKopecks', 'currency', 'paymentTerms'
+      )
+    )
     AND EXISTS (
       SELECT 1
       FROM public."integration_events" ie
@@ -182,10 +195,7 @@ DROP POLICY IF EXISTS integration_events_select ON public."integration_events";
 CREATE POLICY integration_events_select ON public."integration_events" FOR SELECT USING (
   public.app_rls_context_ready()
   AND (
-    (
-      "dealId" IS NOT NULL
-      AND public.app_rls_deal_visible("dealId")
-    )
+    ("dealId" IS NOT NULL AND public.app_rls_deal_visible("dealId"))
     OR (
       "dealId" IS NULL
       AND current_setting('app.current_role', true) = 'FARMER'
@@ -193,12 +203,9 @@ CREATE POLICY integration_events_select ON public."integration_events" FOR SELEC
       AND "eventType" = 'DEAL_BASIS_READY'
       AND "status" = 'CONFIRMED'
       AND COALESCE("responsePayload", "requestPayload") IS NOT NULL
-      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'tenantId'
-        = current_setting('app.current_tenant_id', true)
-      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'sellerOrgId'
-        = current_setting('app.current_org_id', true)
-      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'sellerUserId'
-        = current_setting('app.current_user_id', true)
+      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'tenantId' = current_setting('app.current_tenant_id', true)
+      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'sellerOrgId' = current_setting('app.current_org_id', true)
+      AND COALESCE("responsePayload", "requestPayload")::jsonb ->> 'sellerUserId' = current_setting('app.current_user_id', true)
     )
   )
 );
@@ -210,7 +217,8 @@ CREATE POLICY organizations_select ON public."organizations" FOR SELECT USING (
     "id" = current_setting('app.current_org_id', true)
     OR public.app_rls_privileged()
     OR EXISTS (
-      SELECT 1 FROM public."deal_participants" dp
+      SELECT 1
+      FROM public."deal_participants" dp
       WHERE dp."organizationId" = "organizations"."id"
         AND dp."tenantId" = current_setting('app.current_tenant_id', true)
         AND dp."userId" = current_setting('app.current_user_id', true)
@@ -246,17 +254,13 @@ CREATE POLICY deal_participants_insert ON public."deal_participants" FOR INSERT 
   AND (
     public.app_rls_privileged()
     OR public.app_deal_basis_participant_allowed(
-      "dealId",
-      "tenantId",
-      "organizationId",
-      "userId",
-      "role"
+      "dealId", "tenantId", "organizationId", "userId", "role"
     )
   )
 );
 
--- One auction basis may produce exactly one Deal. The transaction advisory lock
--- serializes repository and direct SQL attempts before the duplicate check.
+-- One auction basis may produce exactly one Deal. Advisory locking serializes
+-- repository and direct-SQL attempts before the duplicate check.
 CREATE OR REPLACE FUNCTION public.enforce_single_deal_per_basis()
 RETURNS trigger
 LANGUAGE plpgsql
