@@ -29,6 +29,10 @@ AS $function$
     AND p_deal -> 'sagaStep' = 'null'::jsonb
     AND p_deal -> 'meta' = 'null'::jsonb
     AND jsonb_typeof(p_deal -> 'sagaState') = 'object'
+    AND (
+      SELECT count(*)
+      FROM jsonb_object_keys(p_deal -> 'sagaState') AS saga_key(key)
+    ) = 18
     AND NOT EXISTS (
       SELECT 1
       FROM jsonb_object_keys(p_deal -> 'sagaState') AS saga_key(key)
@@ -175,13 +179,8 @@ DROP POLICY IF EXISTS deals_insert ON public."deals";
 CREATE POLICY deals_insert ON public."deals" FOR INSERT WITH CHECK (
   public.app_rls_context_ready()
   AND "tenantId" = current_setting('app.current_tenant_id', true)
-  AND (
-    public.app_rls_privileged()
-    OR (
-      current_setting('app.current_role', true) = 'FARMER'
-      AND public.app_deal_basis_deal_visible(to_jsonb("deals"))
-    )
-  )
+  AND current_setting('app.current_role', true) = 'FARMER'
+  AND public.app_deal_basis_deal_visible(to_jsonb("deals"))
 );
 
 DROP POLICY IF EXISTS integration_events_select ON public."integration_events";
