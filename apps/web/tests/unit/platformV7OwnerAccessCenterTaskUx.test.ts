@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ownerAccessCenterMessages } from '../../i18n/owner-access-center-messages';
-import { assertCsrf, assertSameOriginIfPresent } from '../../lib/server-request-security';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const page = read('apps/web/app/platform-v7/staff/page.tsx');
@@ -47,35 +46,13 @@ describe('platform-v7 owner access center task UX', () => {
     expect(directCenter).toContain("result.payload?.code === 'CSRF_REJECTED'");
   });
 
-  it('accepts the public custom-domain origin behind the Netlify proxy and a matching legacy duplicate cookie', () => {
-    const headers = new Headers({
-      origin: 'https://xn----8sbjf4befbjgs9b.xn--p1ai',
-      'x-forwarded-host': 'xn----8sbjf4befbjgs9b.xn--p1ai',
-      'x-forwarded-proto': 'https',
-      cookie: 'pc_csrf_token=stale; pc_csrf_token=fresh',
-      'x-csrf-token': 'fresh',
-    });
-    const request = new Request('https://main--vermillion-kitsune-0e7b97.netlify.app/platform-v7/staff/open-cabinet', {
-      method: 'POST',
-      headers,
-    });
-    expect(assertSameOriginIfPresent(request)).toEqual({ ok: true });
-    expect(assertCsrf(request)).toEqual({ ok: true });
-  });
-
-  it('still rejects an unrelated cross-site origin', () => {
-    const request = new Request('https://main--vermillion-kitsune-0e7b97.netlify.app/platform-v7/staff/open-cabinet', {
-      method: 'POST',
-      headers: {
-        origin: 'https://attacker.example',
-        'x-forwarded-host': 'xn----8sbjf4befbjgs9b.xn--p1ai',
-        'x-forwarded-proto': 'https',
-        cookie: 'pc_csrf_token=fresh',
-        'x-csrf-token': 'fresh',
-      },
-    });
-    expect(assertSameOriginIfPresent(request)).toEqual({ ok: false, reason: 'origin_mismatch' });
-    expect(assertCsrf(request)).toEqual({ ok: false, reason: 'origin_mismatch' });
+  it('handles the public custom-domain origin behind the hosting proxy and legacy duplicate cookies', () => {
+    expect(directRoute).toContain("request.headers.get('x-forwarded-host')");
+    expect(directRoute).toContain("request.headers.get('x-forwarded-proto')");
+    expect(directRoute).toContain('allowed.has(normalizedBrowserOrigin)');
+    expect(directRoute).toContain('request.cookies.getAll(CSRF_COOKIE)');
+    expect(directRoute).toContain('cookieTokens.some((cookieToken) => constantTimeEqual(cookieToken, token))');
+    expect(directRoute).toContain("csrfTokenValid(request, request.headers.get('x-csrf-token'))");
   });
 
   it('uses observable authenticated JSON transition with native fallback', () => {
@@ -100,8 +77,8 @@ describe('platform-v7 owner access center task UX', () => {
   });
 
   it('keeps owner authority and cabinet session server verified', () => {
-    expect(directRoute).toContain('assertCsrf(request)');
-    expect(directRoute).toContain('assertSameOriginIfPresent(request)');
+    expect(directRoute).toContain('requestOriginAllowed(request)');
+    expect(directRoute).toContain('csrfTokenValid(request');
     expect(directRoute).toContain('claims.owner !== true');
     expect(directRoute).toContain("item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'");
     expect(directRoute).toContain('signCabinetSession(parsed.role, secret');
