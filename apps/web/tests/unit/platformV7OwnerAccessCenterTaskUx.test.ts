@@ -16,6 +16,10 @@ const page = read('apps/web/app/platform-v7/staff/page.tsx');
 const entry = read('apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx');
 const directCenter = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx');
 const directRoute = read('apps/web/app/platform-v7/staff/open-cabinet/route.ts');
+const submitRoute = read('apps/web/app/platform-v7/staff/open-cabinet/submit/route.ts');
+const handoffPage = read('apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx');
+const handoffClient = read('apps/web/components/platform-v7/staff/OwnerCabinetHandoff.tsx');
+const singleEntryGuard = read('apps/web/components/platform-v7/PlatformV7SingleEntryGuard.tsx');
 const directCss = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css');
 const center = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV2.tsx');
 const catalog = read('apps/web/lib/platform-v7/staff-access-task-catalog.ts');
@@ -33,26 +37,39 @@ describe('platform-v7 owner access center task UX', () => {
       expect(directCenter).toContain(`role: '${role}'`);
     }
     expect(directCenter).toContain('method="post"');
-    expect(directCenter).toContain('action="/platform-v7/staff/open-cabinet"');
+    expect(directCenter).toContain('action="/platform-v7/staff/open-cabinet/submit"');
     expect(directCenter).toContain('name="_csrf"');
     expect(directCenter).toContain('name="role"');
     expect(page).toContain('csrfToken={csrfToken}');
-    expect(directCenter).toContain("window.sessionStorage.setItem('pc-v7-active-role', role)");
+    expect(directCenter).not.toContain('sessionStorage');
     expect(directCenter).not.toContain("fetch('/platform-v7/staff/open-cabinet'");
     expect(directCenter).not.toContain('Рабочий тикет');
     expect(directCenter).not.toContain('Причина доступа');
   });
 
-  it('uses native POST while handing off the role without React state mutation', () => {
+  it('uses native POST and performs the client role handoff only after server success', () => {
     expect(directRoute).toContain("contentType.includes('application/x-www-form-urlencoded')");
     expect(directRoute).toContain('request.formData()');
     expect(directRoute).toContain('formCsrfValid(request');
-    expect(directRoute).toContain('NextResponse.redirect(new URL(OWNER_CABINETS[parsed.role], request.url), 303)');
-    expect(directRoute).toContain("transport: parsed.formSubmission ? 'native-form' : 'json-fetch'");
-    expect(directCenter).toContain('onSubmit={() => handoffActiveRole(item.role)}');
+    expect(submitRoute).toContain("import { POST as issueCabinetSession } from '../route'");
+    expect(submitRoute).toContain("target.pathname === '/platform-v7/staff'");
+    expect(submitRoute).toContain("new URL('/platform-v7/staff/cabinet-handoff', request.url)");
+    expect(handoffPage).toContain('readVerifiedCabinetSessionRole');
+    expect(handoffPage).toContain('CABINET_SESSION_COOKIE');
+    expect(handoffPage).toContain('<OwnerCabinetHandoff');
+    expect(handoffClient).toContain('window.sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role)');
+    expect(handoffClient).toContain('window.location.replace(target)');
+    expect(singleEntryGuard).toContain("'/platform-v7/staff/cabinet-handoff'");
+    expect(directCenter).not.toContain('onSubmit=');
     expect(directCenter).not.toContain('busyRole');
     expect(directCenter).not.toContain('setBusyRole');
-    expect(directCenter).toContain('<button type="submit" name="role" value={item.role} disabled={!csrfToken}>');
+  });
+
+  it('does not create a client role marker when the server rejects cabinet opening', () => {
+    expect(directRoute).toContain("redirectBack(request, code)");
+    expect(submitRoute).toContain('if (!failedBackToOwnerCenter)');
+    expect(directCenter).not.toContain('PLATFORM_V7_ACTIVE_ROLE_KEY');
+    expect(handoffPage).toContain("redirect('/platform-v7/staff?cabinetError=CABINET_SESSION_UNAVAILABLE')");
   });
 
   it('requires controlled-owner claims or an active API-backed PLATFORM_OWNER assignment', () => {
