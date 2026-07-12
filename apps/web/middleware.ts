@@ -89,6 +89,12 @@ function isPublic(p: string): boolean {
   return PUBLIC_EXACT.has(p) || isPublicAsset(p);
 }
 
+// These handlers authenticate their own Bearer token and fail closed. Middleware must
+// not redirect server-to-server requests before the handler can verify that token.
+function isTokenAuthenticatedInternalPath(p: string): boolean {
+  return p === '/auth/me' || p.startsWith('/staff/');
+}
+
 function isPlatformV7PublicPath(p: string): boolean {
   return PLATFORM_V7_PUBLIC_EXACT.has(p) || PLATFORM_V7_PUBLIC_PREFIX.some((x) => p.startsWith(x));
 }
@@ -335,7 +341,13 @@ export async function middleware(req: NextRequest) {
     return response;
   }
 
-  if (isPublic(p) || PUBLIC_API_EXACT.has(p) || p.startsWith('/api/auth/') || p.startsWith('/api/runtime-')) {
+  if (
+    isPublic(p)
+    || PUBLIC_API_EXACT.has(p)
+    || p.startsWith('/api/auth/')
+    || p.startsWith('/api/runtime-')
+    || isTokenAuthenticatedInternalPath(p)
+  ) {
     const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath);
     persistRoleCookie(req, response, resolvedRole);
     return response;

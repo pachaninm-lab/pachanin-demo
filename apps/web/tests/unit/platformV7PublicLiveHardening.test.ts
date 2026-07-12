@@ -57,4 +57,11 @@ describe('platform-v7 public live hardening', () => {
     const middleware = read('apps/web/middleware.ts');
     expect(middleware).not.toContain('bluetooth=()');
   });
+
+  it('lets Bearer-authenticated internal handlers reach their own fail-closed guards', () => {
+    const middleware = read('apps/web/middleware.ts');
+    expect(middleware).toContain("p === '/auth/me'");
+    expect(middleware).toContain("p.startsWith('/staff/')");
+    expect(middleware).toContain('isTokenAuthenticatedInternalPath(p)');
+  });
 });
