@@ -65,6 +65,11 @@ const DEAL_ACCEPTANCE_ROUTE = '/platform-v7/deal-acceptance';
 const DEAL_DOCUMENTS_BASIS_ROUTE = '/platform-v7/deal-documents-basis';
 const FGIS_ACCESS_ROUTE = '/platform-v7/fgis-access';
 const SHARED_PREFIXES = [PLATFORM_V7_AI_ROUTE, PLATFORM_V7_PROFILE_ROUTE, PLATFORM_V7_STATUS_ROUTE];
+// The deal execution workspace is open to EVERY business role at the shell
+// level: real authorization is the server-side fail-closed DealParticipant
+// membership check, and the client guard must not reject an active
+// participant (driver, lab, surveyor, …) before the server can answer.
+const SHARED_ROUTE_PATTERNS = [/^\/platform-v7\/deals\/[^/]+\/execution$/];
 const ROLE_BLOCKED_PREFIXES = [PLATFORM_V7_ROLES_ROUTE, '/platform-v7r/roles', '/platform-v7/auth'];
 
 export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNavigationEntry> = {
@@ -320,5 +325,5 @@ export function platformV7RoleRoute(role: PlatformRole): PlatformV7ShellRouteSur
 export function platformV7NavByRole(role: PlatformRole): PlatformV7ShellNavItem[] { return PLATFORM_V7_ROLE_NAVIGATION[role].bottom; }
 export function platformV7DrawerNavByRole(role: PlatformRole): PlatformV7RoleNavItem[] { const entry = PLATFORM_V7_ROLE_NAVIGATION[role]; const configuredDrawer = entry.drawer.length ? entry.drawer : entry.command.filter((item) => !entry.bottom.some((bottomItem) => sameNavTarget(bottomItem, item))); return configuredDrawer; }
 export function platformV7CommandNavByRole(role: PlatformRole): PlatformV7RoleNavItem[] { return PLATFORM_V7_ROLE_NAVIGATION[role].command; }
-export function platformV7RoleCanOpenHref(role: PlatformRole, href: string) { const path = normalizeHref(href); if (ROLE_BLOCKED_PREFIXES.some((prefix) => hrefMatchesPrefix(path, prefix))) return false; if (SHARED_PREFIXES.some((prefix) => hrefMatchesPrefix(path, prefix))) return true; return PLATFORM_V7_ROLE_NAVIGATION[role].allowedPrefixes.some((prefix) => hrefMatchesPrefix(path, prefix)); }
+export function platformV7RoleCanOpenHref(role: PlatformRole, href: string) { const path = normalizeHref(href); if (ROLE_BLOCKED_PREFIXES.some((prefix) => hrefMatchesPrefix(path, prefix))) return false; if (SHARED_PREFIXES.some((prefix) => hrefMatchesPrefix(path, prefix))) return true; if (SHARED_ROUTE_PATTERNS.some((pattern) => pattern.test(path))) return true; return PLATFORM_V7_ROLE_NAVIGATION[role].allowedPrefixes.some((prefix) => hrefMatchesPrefix(path, prefix)); }
 export function platformV7ShellRouteSurface(): readonly PlatformV7ShellRouteSurface[] { return PLATFORM_V7_SHELL_ROUTE_SURFACE; }

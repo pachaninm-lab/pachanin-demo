@@ -132,18 +132,28 @@ function waitingLabel(action: Workspace['roleProjection']['primaryAction']): str
   return action.waitingForRoles.join(', ');
 }
 
+class HttpError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
 async function readJson(response: Response): Promise<any> {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = Array.isArray(payload?.message)
       ? payload.message.join(' · ')
       : payload?.message || payload?.error || `Ошибка ${response.status}`;
-    throw new Error(typeof message === 'string' ? message : JSON.stringify(message));
+    throw new HttpError(typeof message === 'string' ? message : JSON.stringify(message), response.status);
   }
   return payload;
 }
 
-export function CanonicalDealWorkspace({ role }: { role: PlatformRole }) {
+/**
+ * Рабочее место сделки. Работает для любой сделки, доступной участнику:
+ * dealId приходит параметром; по умолчанию — каноническая тестовая сделка.
+ */
+export function CanonicalDealWorkspace({ role, dealId = DEAL_ID }: { role: PlatformRole; dealId?: string }) {
   const [workspace, setWorkspace] = React.useState<Workspace | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
@@ -154,7 +164,7 @@ export function CanonicalDealWorkspace({ role }: { role: PlatformRole }) {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`/api/proxy/deals/${DEAL_ID}/execution-workspace`, {
+      const response = await fetch(`/api/proxy/deals/${dealId}/execution-workspace`, {
         method: 'GET',
         cache: 'no-store',
         headers: { Accept: 'application/json' },
@@ -167,7 +177,7 @@ export function CanonicalDealWorkspace({ role }: { role: PlatformRole }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dealId]);
 
   React.useEffect(() => {
     void load();
@@ -193,6 +203,9 @@ export function CanonicalDealWorkspace({ role }: { role: PlatformRole }) {
           commandId,
           idempotencyKey,
           expectedUpdatedAt: workspace.deal.updatedAt,
+          ...(typeof (workspace.deal as { version?: number }).version === 'number'
+            ? { expectedVersion: String((workspace.deal as { version?: number }).version) }
+            : {}),
           payload: commandPayload(action.id),
         }),
       });
@@ -200,7 +213,14 @@ export function CanonicalDealWorkspace({ role }: { role: PlatformRole }) {
       setNotice(result.duplicate ? 'Команда уже была принята ранее. Показан подтверждённый результат.' : 'Действие подтверждено сервером и записано в журнал сделки.');
       await load();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Команда не выполнена.');
+      if (reason instanceof HttpError && reason.status === 409) {
+        // Optimistic-concurrency conflict: другой участник изменил сделку.
+        // Не ошибка пользователя — обновляем экран и объясняем простыми словами.
+        setNotice('Данные изменились другим участником. Мы обновили экран — проверьте состояние и повторите действие.');
+        await load();
+      } else {
+        setError(reason instanceof Error ? reason.message : 'Команда не выполнена.');
+      }
     } finally {
       setSubmitting(false);
     }
