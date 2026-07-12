@@ -178,6 +178,17 @@
       "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
       "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
       "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "fix/postgresql-deal-authority": [
+      "apps/api/prisma/migrations/20260712193000_postgresql_deal_authority/**",
+      "apps/api/src/modules/deals/**",
+      "apps/api/test/industrial/**",
+      "apps/api/test/one-deal/**",
+      "docs/platform-v7/production-database-deployment-runbook.md",
+      "infra/sql/postgresql-deal-authority-policies.sql",
+      "scripts/platform-v7-one-deal-e2e.sh",
+      "scripts/platform-v7-rls-apply-rehearsal.sh",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "industrialOneDealFoundation": {
