@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE, sessionMarkerCookie } from '@/lib/auth-cookies';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
 import { assertCsrf, assertSameOriginIfPresent } from '@/lib/server-request-security';
+import {
+  controlledCabinetContext,
+  type ControlledCabinetContext,
+} from '@/lib/platform-v7/controlled-test-organizations';
 import { signCabinetSession, verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 
 export const runtime = 'nodejs';
@@ -40,6 +44,7 @@ type AuthorityResult =
   | { status: 'unavailable' };
 type ParsedRequest = {
   role: unknown;
+  organizationId: unknown;
   formSubmission: boolean;
   csrfOk: boolean;
 };
@@ -117,6 +122,7 @@ async function parseRequest(request: NextRequest): Promise<ParsedRequest> {
     const form = await request.formData().catch(() => null);
     return {
       role: form?.get('role'),
+      organizationId: form?.get('organizationId'),
       formSubmission: true,
       csrfOk: formCsrfValid(request, form?.get('_csrf')),
     };
@@ -124,6 +130,7 @@ async function parseRequest(request: NextRequest): Promise<ParsedRequest> {
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   return {
     role: body.role,
+    organizationId: body.organizationId,
     formSubmission: false,
     csrfOk: assertCsrf(request).ok,
   };
@@ -217,12 +224,27 @@ async function resolveOwnerAuthority(accessToken: string, secret: string, correl
   return controlled || apiOwnerAuthority(accessToken, correlationId);
 }
 
+function resolveControlledOrganization(
+  role: OwnerCabinetRole,
+  submittedOrganizationId: unknown,
+  authority: OwnerAuthority,
+): ControlledCabinetContext | null | 'invalid' {
+  if (authority.source !== 'controlled') return null;
+  const context = controlledCabinetContext(role);
+  if (!context) return 'invalid';
+  if (typeof submittedOrganizationId !== 'string' || submittedOrganizationId !== context.organizationId) {
+    return 'invalid';
+  }
+  return context;
+}
+
 function setCabinetCookies(
   response: NextResponse,
   cabinetToken: string,
   role: OwnerCabinetRole,
   authority: OwnerAuthority,
   expiresAt: number,
+  organization: ControlledCabinetContext | null,
 ) {
   response.cookies.set(CABINET_SESSION_COOKIE, cabinetToken, {
     path: '/',
@@ -234,7 +256,14 @@ function setCabinetCookies(
   });
   response.cookies.set(
     SESSION_COOKIE,
-    encodeURIComponent(JSON.stringify({ role, exp: expiresAt, email: authority.email })),
+    encodeURIComponent(JSON.stringify({
+      role,
+      exp: expiresAt,
+      email: authority.email,
+      organizationId: organization?.organizationId || null,
+      tenantId: organization?.tenantId || null,
+      ownerAccess: true,
+    })),
     { ...sessionMarkerCookie(), maxAge: authority.ttlSeconds, priority: 'high' },
   );
   response.cookies.set('pc-role', role, {
@@ -270,11 +299,19 @@ export async function POST(request: NextRequest) {
     return fail('PLATFORM_OWNER_REQUIRED', 'Требуется активное назначение владельца платформы.', 403);
   }
 
-  const nowSeconds = Math.floor(Date.now() / 1000);
   const { authority } = authorityResult;
+  const organization = resolveControlledOrganization(parsed.role, parsed.organizationId, authority);
+  if (organization === 'invalid') {
+    return fail('INVALID_TEST_ORGANIZATION', 'Тестовая организация не соответствует выбранному кабинету.', 400);
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
   const cabinetToken = await signCabinetSession(parsed.role, secret, {
     nowSeconds,
     ttlSeconds: authority.ttlSeconds,
+    organizationId: organization?.organizationId || null,
+    tenantId: organization?.tenantId || null,
+    ownerAccess: true,
   });
   if (!cabinetToken) return fail('CABINET_SESSION_UNAVAILABLE', 'Не удалось открыть кабинет.', 503);
 
@@ -285,17 +322,24 @@ export async function POST(request: NextRequest) {
       ok: true,
       role: parsed.role,
       redirectTo: OWNER_CABINETS[parsed.role],
+      organization: organization ? {
+        id: organization.organizationId,
+        name: organization.organizationName,
+        tenantId: organization.tenantId,
+        testData: true,
+      } : null,
       expiresAt: new Date(expiresAt * 1000).toISOString(),
       correlationId,
     });
 
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-  setCabinetCookies(response, cabinetToken, parsed.role, authority, expiresAt);
+  setCabinetCookies(response, cabinetToken, parsed.role, authority, expiresAt, organization);
 
   console.info('owner_direct_cabinet_open', JSON.stringify({
     actor: authority.actorId,
     authoritySource: authority.source,
     role: parsed.role,
+    organizationId: organization?.organizationId || null,
     correlationId,
     transport: parsed.formSubmission ? 'native-form' : 'json-fetch',
   }));
