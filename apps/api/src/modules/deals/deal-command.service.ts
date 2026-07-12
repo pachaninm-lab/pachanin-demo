@@ -101,18 +101,18 @@ function isUniqueConstraintError(error: unknown): boolean {
   );
 }
 
-function exactJson<T>(value: T): T {
-  if (typeof value === 'bigint') return value.toString() as unknown as T;
-  if (Array.isArray(value)) return value.map(exactJson) as unknown as T;
-  if (value instanceof Date) return value.toISOString() as unknown as T;
+function exactJson(value: unknown): any {
+  if (typeof value === 'bigint') return value.toString();
+  if (Array.isArray(value)) return value.map(exactJson);
+  if (value instanceof Date) return value.toISOString();
   if (value && typeof value === 'object') {
     const maybeDecimal = value as { toFixed?: (digits?: number) => string; constructor?: { name?: string } };
     if (maybeDecimal.constructor?.name === 'Decimal' && typeof maybeDecimal.toFixed === 'function') {
-      return maybeDecimal.toFixed() as unknown as T;
+      return maybeDecimal.toFixed();
     }
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, exactJson(item)]),
-    ) as unknown as T;
+    );
   }
   return value;
 }
@@ -563,12 +563,10 @@ export class DealCommandService {
       const shipmentId = requiredString(payload, 'shipmentId');
       const actualWeightTons = requiredDecimal(payload, 'actualWeightTons');
       const occurredAt = requiredIso(payload, 'occurredAt');
-      const actorId = requiredString(payload, 'actorId');
       const basis = requiredString(payload, 'basis');
       const evidenceRef = requiredString(payload, 'evidenceRef');
       const unit = requiredString(payload, 'unit').toUpperCase();
       if (unit !== 'TON') invalid('unit', 'Для погрузки допустима единица TON.');
-      if (actorId !== user.id) invalid('actorId', 'Исполнитель должен совпадать с подтверждённой сервером сессией.');
       await this.requireShipment(tx, shipmentId, deal.id);
       await this.requireEvidence(tx, evidenceRef, deal.id, shipmentId);
       return { shipmentId, actualWeightTons, occurredAt: occurredAt.toISOString(), actorId: user.id, basis, evidenceRef, unit };
@@ -603,11 +601,9 @@ export class DealCommandService {
       const tareTons = requiredDecimal(payload, 'tareTons', true);
       const netTons = requiredDecimal(payload, 'netTons');
       const weighingSource = requiredString(payload, 'weighingSource');
-      const operatorUserId = requiredString(payload, 'operatorUserId');
       const occurredAt = requiredIso(payload, 'occurredAt');
       const evidenceRef = requiredString(payload, 'evidenceRef');
       const equipmentId = optionalString(payload, 'equipmentId');
-      if (operatorUserId !== user.id) invalid('operatorUserId', 'Оператор взвешивания должен совпадать с подтверждённой сервером сессией.');
       const gross = decimalToMicro(grossTons, 'grossTons');
       const tare = decimalToMicro(tareTons, 'tareTons');
       const net = decimalToMicro(netTons, 'netTons');
@@ -640,8 +636,6 @@ export class DealCommandService {
       const applicableStandard = requiredString(payload, 'applicableStandard');
       const finalizedAt = requiredIso(payload, 'finalizedAt');
       const signedEvidenceRef = requiredString(payload, 'signedEvidenceRef');
-      const declaredResult = requiredString(payload, 'declaredResult').toUpperCase();
-      if (!['PASSED', 'FAILED'].includes(declaredResult)) invalid('declaredResult', 'Итог должен быть PASSED или FAILED.');
       if (labId !== user.orgId) invalid('labId', 'Лаборатория должна совпадать с организацией подтверждённой сессии.');
       const lab = await tx.organization.findUnique({ where: { id: labId } });
       if (!lab || lab.tenantId !== deal.tenantId || lab.status !== 'VERIFIED' || lab.kycStatus !== 'APPROVED') {
@@ -675,9 +669,6 @@ export class DealCommandService {
         };
       });
       const calculatedResult = indicators.every((item) => item.result === 'PASSED') ? 'PASSED' : 'FAILED';
-      if (declaredResult !== calculatedResult) {
-        invalid('declaredResult', `Заявленный итог не совпадает с расчётом по нормам: ${calculatedResult}.`);
-      }
       return { sampleId, protocolNumber, labId, accreditationRef, applicableStandard, finalizedAt: finalizedAt.toISOString(), signedEvidenceRef, declaredResult: calculatedResult, indicators };
     }
 
