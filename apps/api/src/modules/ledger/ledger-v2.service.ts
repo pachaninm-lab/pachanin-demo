@@ -212,4 +212,34 @@ export class LedgerV2Service {
     const totalCredit = entries.reduce((s, e) => s + BigInt(e.amountKopecks), 0n);
     return { balanced: totalDebit === totalCredit, totalKopecks: totalDebit };
   }
+
+  /**
+   * Escrow invariant for one deal: money can never leave the deal's escrow
+   * account beyond what was reserved into it. Computed exclusively from the
+   * append-only ledger — a violation means tampering or a double release.
+   */
+  async verifyDealEscrowInvariant(dealId: string): Promise<{
+    ok: boolean;
+    escrowAccount: string;
+    reservedKopecks: bigint;
+    releasedKopecks: bigint;
+    escrowBalanceKopecks: bigint;
+  }> {
+    const escrowAccount = `escrow:${dealId}`;
+    const entries = await this.prisma.ledgerEntry.findMany({ where: { dealId } });
+    const credited = entries
+      .filter((entry) => entry.creditAccount === escrowAccount)
+      .reduce((sum, entry) => sum + BigInt(entry.amountKopecks), 0n);
+    const debited = entries
+      .filter((entry) => entry.debitAccount === escrowAccount)
+      .reduce((sum, entry) => sum + BigInt(entry.amountKopecks), 0n);
+    const balance = credited - debited;
+    return {
+      ok: balance >= 0n,
+      escrowAccount,
+      reservedKopecks: credited,
+      releasedKopecks: debited,
+      escrowBalanceKopecks: balance,
+    };
+  }
 }

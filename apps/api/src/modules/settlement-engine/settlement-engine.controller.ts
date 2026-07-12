@@ -10,16 +10,14 @@ import { Public } from '../../common/decorators/public.decorator';
 import { SettlementEngineService } from './settlement-engine.service';
 import { RequestUser } from '../../common/types/request-user';
 import { RequiresMfaGuard } from '../../common/guards/mfa.guard';
-import { requireSecret } from '../../common/config/secrets';
 import { IndustrialDealCommandGateway, type VerifiedBankCallbackInput } from '../deals/industrial-deal-command.gateway';
 import { CANONICAL_TEST_DEAL_ID } from '../deals/deal-command.policy';
 import { isIndustrialMode } from '../../common/config/industrial-mode';
+import { BankKeyError, BankKeyRegistryService } from './bank-key-registry.service';
+import { IntegrationEventsService } from '../integration-events/integration-events.service';
 
-const BANK_HMAC_SECRET = requireSecret('BANK_HMAC_SECRET');
 const BANK_CALLBACK_TOLERANCE_SECONDS = 300;
 const BANK_CALLBACK_PATH = '/api/settlement-engine/bank-callback';
-const EXPECTED_BANK_PARTNER_ID = process.env.BANK_PARTNER_ID || 'safe-deals';
-const EXPECTED_BANK_KEY_ID = process.env.BANK_HMAC_KEY_ID || 'primary';
 
 type JsonRecord = Record<string, unknown>;
 
@@ -77,6 +75,8 @@ export class SettlementEngineController {
   constructor(
     private readonly settlementEngine: SettlementEngineService,
     private readonly industrialCommands: IndustrialDealCommandGateway,
+    private readonly bankKeys: BankKeyRegistryService,
+    private readonly integrationEvents: IntegrationEventsService,
   ) {}
 
   @Get('deal/:id')
@@ -190,6 +190,36 @@ export class SettlementEngineController {
   }
 
   /**
+   * Immediate revocation of a bank signing key. Takes effect on the next
+   * callback across every API instance (checked in PostgreSQL per request).
+   * Revocations are permanent and append-only.
+   */
+  @Post('bank-keys/:keyId/revoke')
+  @Roles('ADMIN')
+  @UseGuards(RequiresMfaGuard)
+  @RateLimit({ name: 'bank_key_revoke', scope: 'user', limit: 5, windowSeconds: 60 })
+  async revokeBankKey(
+    @Param('keyId') keyId: string,
+    @Body() body: { reason?: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    const reason = String(body?.reason ?? '').trim();
+    if (reason.length < 5) {
+      throw new BadRequestException('Причина отзыва ключа обязательна.');
+    }
+    const result = await this.bankKeys.revoke(keyId, user.id, reason);
+    await this.integrationEvents.log({
+      adapterName: 'bank-callback',
+      direction: 'OUTBOUND',
+      eventType: 'KEY_REVOKED',
+      externalId: keyId,
+      status: 'SUCCESS',
+      requestPayload: { keyId, reason, revokedByUserId: user.id },
+    });
+    return result;
+  }
+
+  /**
    * The only public bank confirmation path.
    *
    * Required headers:
@@ -231,8 +261,29 @@ export class SettlementEngineController {
     if (!eventIdHeader || eventIdHeader !== bodyEventId) {
       throw new UnauthorizedException('Bank callback event ID mismatch');
     }
-    if (partnerIdHeader !== EXPECTED_BANK_PARTNER_ID || keyIdHeader !== EXPECTED_BANK_KEY_ID) {
-      throw new UnauthorizedException('Unknown bank partner or signing key');
+    if (!partnerIdHeader || !keyIdHeader) {
+      throw new UnauthorizedException('Bank partner and signing key headers are required');
+    }
+
+    // Rotation-aware key resolution: multiple overlapping keys may be valid;
+    // unknown, not-yet-valid, expired and revoked keys all fail closed and
+    // leave a security trail before any signature math happens.
+    let signingSecret: string;
+    try {
+      const key = await this.bankKeys.resolveActiveKey(partnerIdHeader, keyIdHeader);
+      signingSecret = key.secret;
+    } catch (error) {
+      if (error instanceof BankKeyError) {
+        await this.integrationEvents.log({
+          adapterName: 'bank-callback',
+          direction: 'INBOUND',
+          eventType: `KEY_REJECTED:${error.rejection}`,
+          externalId: eventIdHeader,
+          status: 'ERROR',
+          errorMessage: `partner=${partnerIdHeader} keyId=${keyIdHeader} rejection=${error.rejection}`,
+        });
+      }
+      throw error;
     }
 
     const signedPayload = buildBankSignaturePayload({
@@ -242,7 +293,7 @@ export class SettlementEngineController {
       eventId: eventIdHeader,
       body,
     });
-    const expected = `hmac-sha256=${crypto.createHmac('sha256', BANK_HMAC_SECRET).update(signedPayload).digest('hex')}`;
+    const expected = `hmac-sha256=${crypto.createHmac('sha256', signingSecret).update(signedPayload).digest('hex')}`;
     if (!secureSignatureMatch(signature, expected)) {
       throw new UnauthorizedException('Invalid bank signature');
     }

@@ -705,6 +705,76 @@ model Account {
   @@map("accounts")
 }
 
+// ── Bank Reconciliation ───────────────────────────────────────────────────────
+
+model BankStatementEntry {
+  id                     String    @id @default(cuid())
+  importBatchId          String
+  source                 String    @default("MT940")
+  lineNo                 Int
+  statementDate          DateTime? @db.Date
+  valueDate              DateTime? @db.Date
+  amountKopecks          BigInt
+  currency               String    @default("RUB")
+  reference              String
+  counterpartyName       String?
+  counterpartyInn        String?
+  counterpartyAccount    String?
+  description            String?
+  contentHash            String    @unique(map: "bank_statement_entries_content_hash_key")
+  matchStatus            String    @default("UNMATCHED")
+  matchedDealId          String?
+  matchedBankOperationId String?
+  mismatchReason         String?
+  matchedAt              DateTime?
+  matchedByUserId        String?
+  createdAt              DateTime  @default(now())
+
+  @@index([importBatchId], map: "bank_statement_entries_batch_idx")
+  @@index([matchStatus], map: "bank_statement_entries_status_idx")
+  @@index([matchedDealId], map: "bank_statement_entries_deal_idx")
+  @@map("bank_statement_entries")
+}
+
+model ReconciliationRun {
+  id              String    @id @default(cuid())
+  source          String    @default("MT940")
+  importBatchId   String    @unique(map: "reconciliation_runs_batch_key")
+  statementSha256 String
+  importedCount   Int       @default(0)
+  duplicateCount  Int       @default(0)
+  matchedCount    Int       @default(0)
+  mismatchCount   Int       @default(0)
+  unmatchedCount  Int       @default(0)
+  status          String    @default("COMPLETED")
+  startedByUserId String
+  createdAt       DateTime  @default(now())
+  finishedAt      DateTime?
+
+  @@index([createdAt], map: "reconciliation_runs_created_idx")
+  @@map("reconciliation_runs")
+}
+
+model ReconciliationCursor {
+  source              String    @id
+  lastValueDate       DateTime? @db.Date
+  lastRunId           String?
+  lastStatementSha256 String?
+  updatedAt           DateTime  @updatedAt
+
+  @@map("reconciliation_cursors")
+}
+
+model BankKeyRevocation {
+  keyId           String   @id
+  partnerId       String   @default("safe-deals")
+  revokedAt       DateTime @default(now())
+  revokedByUserId String
+  reason          String
+
+  @@map("bank_key_revocations")
+}
+
 // ── Deal Workspace Runtime Persistence ────────────────────────────────────────
 
 model DealWorkspaceRuntimeSnapshot {

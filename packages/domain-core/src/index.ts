@@ -3,6 +3,8 @@ export const DOMAIN_CORE_VERSION = '0.2.0';
 
 export { Money, MoneyError } from './money';
 export type { CurrencyCode as MoneyCurrencyCode } from './money';
+export { Weight, PricePerTon, QualityAdjustment } from './measures';
+export type { QualityAdjustmentDirection } from './measures';
 export * from './canonical-models';
 export * from './canonical-reason-codes';
 export * from './source-of-truth';
