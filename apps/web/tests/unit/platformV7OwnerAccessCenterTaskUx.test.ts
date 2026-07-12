@@ -35,28 +35,41 @@ describe('platform-v7 owner access center task UX', () => {
     expect(directCenter).not.toContain('Причина доступа');
   });
 
-  it('repairs missing CSRF before rendering owner forms', () => {
+  it('repairs missing or stale CSRF before every owner transition', () => {
     expect(page).toContain("verification.status === 'verified' && !csrfToken");
     expect(page).toContain("redirect('/platform-v7/staff/prepare')");
-    expect(prepareRoute).toContain('generateCsrfToken()');
+    expect(prepareRoute).toContain("request.nextUrl.searchParams.get('format') === 'json'");
+    expect(prepareRoute).toContain("NextResponse.json({ ok: true, csrfToken: token })");
     expect(prepareRoute).toContain('response.cookies.set(CSRF_COOKIE');
+    expect(directCenter).toContain("fetch('/platform-v7/staff/prepare?format=json'");
+    expect(directCenter).toContain('let freshToken = await refreshCsrf(controller.signal)');
+    expect(directCenter).toContain("result.payload?.code === 'CSRF_REJECTED'");
+  });
+
+  it('handles the public custom-domain origin behind the hosting proxy and legacy duplicate cookies', () => {
+    expect(directRoute).toContain("request.headers.get('x-forwarded-host')");
+    expect(directRoute).toContain("request.headers.get('x-forwarded-proto')");
+    expect(directRoute).toContain('allowed.has(normalizedBrowserOrigin)');
+    expect(directRoute).toContain('request.cookies.getAll(CSRF_COOKIE)');
+    expect(directRoute).toContain('cookieTokens.some((cookieToken) => constantTimeEqual(cookieToken, token))');
+    expect(directRoute).toContain("csrfTokenValid(request, request.headers.get('x-csrf-token'))");
   });
 
   it('uses observable authenticated JSON transition with native fallback', () => {
     expect(directCenter).toContain("fetch('/platform-v7/staff/open-cabinet'");
-    expect(directCenter).toContain("'X-CSRF-Token': csrfToken");
+    expect(directCenter).toContain("'X-CSRF-Token': token");
     expect(directCenter).toContain("credentials: 'same-origin'");
     expect(directCenter).toContain('onSubmit={(event) => openCabinet');
     expect(directCenter).toContain('busyRole === item.role ? text.opening : text.open');
     expect(directCenter).toContain('role="alert"');
-    expect(directCenter).toContain('window.location.assign(payload.redirectTo)');
+    expect(directCenter).toContain('window.location.replace(result.payload.redirectTo)');
     expect(submitRoute).toContain("import { POST as issueCabinetSession } from '../route'");
   });
 
   it('creates the client role marker only after server success', () => {
-    const failureGate = directCenter.indexOf('if (!response.ok');
+    const failureGate = directCenter.indexOf('if (!result.response.ok');
     const roleMarker = directCenter.indexOf('window.sessionStorage.setItem');
-    const navigation = directCenter.indexOf('window.location.assign(payload.redirectTo)');
+    const navigation = directCenter.indexOf('window.location.replace(result.payload.redirectTo)');
     expect(failureGate).toBeGreaterThan(-1);
     expect(roleMarker).toBeGreaterThan(failureGate);
     expect(navigation).toBeGreaterThan(roleMarker);
@@ -64,8 +77,8 @@ describe('platform-v7 owner access center task UX', () => {
   });
 
   it('keeps owner authority and cabinet session server verified', () => {
-    expect(directRoute).toContain('assertCsrf(request)');
-    expect(directRoute).toContain('assertSameOriginIfPresent(request)');
+    expect(directRoute).toContain('requestOriginAllowed(request)');
+    expect(directRoute).toContain('csrfTokenValid(request');
     expect(directRoute).toContain('claims.owner !== true');
     expect(directRoute).toContain("item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'");
     expect(directRoute).toContain('signCabinetSession(parsed.role, secret');
