@@ -6,7 +6,7 @@ import { OwnerAccessCenter as OwnerAccessCenterV2 } from './OwnerAccessCenterV2'
 import styles from './OwnerAccessCenterV3.module.css';
 
 type StaffAssignment = { id: string; role: string; status: string };
-type Props = ComponentProps<typeof OwnerAccessCenterV2>;
+type Props = ComponentProps<typeof OwnerAccessCenterV2> & { csrfToken: string };
 
 type SurfaceRole =
   | 'operator'
@@ -46,11 +46,9 @@ const OWNER_COPY = {
     accessBody: 'Доступны все 12 рабочих кабинетов и их интерфейсы. Переключение действует в пределах текущего входа владельца.',
     safety: 'Деньги, банковские подтверждения, подпись, лабораторная финализация и решение арбитра не подменяются владельцем и остаются под отдельными серверными правилами.',
     open: 'Открыть кабинет',
-    opening: 'Открываем…',
     advanced: 'Управление сотрудниками и доступами',
     back: 'Вернуться ко всем кабинетам',
     loading: 'Проверяем полномочия владельца…',
-    error: 'Не удалось открыть кабинет. Обнови страницу и повтори.',
   },
   en: {
     eyebrow: 'Platform owner',
@@ -60,11 +58,9 @@ const OWNER_COPY = {
     accessBody: 'All 12 working cabinets and their interfaces are available within the current owner sign-in.',
     safety: 'Money movement, bank confirmations, signatures, laboratory finalization and arbitration decisions remain protected by separate server rules.',
     open: 'Open cabinet',
-    opening: 'Opening…',
     advanced: 'Staff and access management',
     back: 'Back to all cabinets',
     loading: 'Checking owner authority…',
-    error: 'The cabinet could not be opened. Refresh and try again.',
   },
   zh: {
     eyebrow: '平台所有者',
@@ -74,35 +70,19 @@ const OWNER_COPY = {
     accessBody: '当前所有者登录期间可访问全部 12 个工作台及其界面。',
     safety: '资金操作、银行确认、签署、实验室终审和仲裁决定仍受独立服务器规则保护。',
     open: '打开工作台',
-    opening: '正在打开…',
     advanced: '员工与访问管理',
     back: '返回全部工作台',
     loading: '正在检查所有者权限…',
-    error: '无法打开工作台。请刷新后重试。',
   },
 } as const;
 
-function csrfToken() {
-  if (typeof document === 'undefined') return '';
-  const row = document.cookie.split('; ').find((entry) => entry.startsWith('pc_csrf_token='));
-  return row ? decodeURIComponent(row.slice(row.indexOf('=') + 1)) : '';
-}
-
 export function OwnerAccessCenter(props: Props) {
-  const { locale, copy, identity, apiAvailable } = props;
+  const { csrfToken, ...baseProps } = props;
+  const { locale, copy, identity, apiAvailable } = baseProps;
   const text = OWNER_COPY[locale];
   const [checking, setChecking] = useState(apiAvailable);
   const [isOwner, setIsOwner] = useState(false);
   const [advanced, setAdvanced] = useState(false);
-  const [busyRole, setBusyRole] = useState<SurfaceRole | null>(null);
-  const [csrf, setCsrf] = useState('');
-
-  useEffect(() => {
-    setCsrf(csrfToken());
-    const resetBusy = () => setBusyRole(null);
-    window.addEventListener('pageshow', resetBusy);
-    return () => window.removeEventListener('pageshow', resetBusy);
-  }, []);
 
   useEffect(() => {
     if (!apiAvailable) {
@@ -133,11 +113,6 @@ export function OwnerAccessCenter(props: Props) {
     [copy],
   );
 
-  const prepareCabinetNavigation = (role: SurfaceRole) => {
-    setBusyRole(role);
-    window.sessionStorage.setItem('pc-v7-active-role', role);
-  };
-
   if (advanced || (!checking && !isOwner)) {
     return (
       <div className={styles.advancedWrap}>
@@ -146,7 +121,7 @@ export function OwnerAccessCenter(props: Props) {
             ← {text.back}
           </button>
         )}
-        <OwnerAccessCenterV2 {...props} />
+        <OwnerAccessCenterV2 {...baseProps} />
       </div>
     );
   }
@@ -179,15 +154,10 @@ export function OwnerAccessCenter(props: Props) {
           <article key={item.role} className={styles.cabinetCard}>
             <span className={styles.number} aria-hidden="true">{item.icon}</span>
             <h2>{item.label}</h2>
-            <form
-              method="post"
-              action="/platform-v7/staff/open-cabinet"
-              onSubmit={() => prepareCabinetNavigation(item.role)}
-            >
-              <input type="hidden" name="_csrf" value={csrf} />
-              <input type="hidden" name="role" value={item.role} />
-              <button type="submit" disabled={!csrf || busyRole !== null}>
-                {busyRole === item.role ? text.opening : text.open}
+            <form method="post" action="/platform-v7/staff/open-cabinet">
+              <input type="hidden" name="_csrf" value={csrfToken} />
+              <button type="submit" name="role" value={item.role} disabled={!csrfToken}>
+                {text.open}
               </button>
             </form>
           </article>
