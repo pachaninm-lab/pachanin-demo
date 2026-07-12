@@ -68,13 +68,15 @@ BEGIN
   SELECT count(*) INTO public_execute_count
   FROM pg_proc p
   JOIN pg_namespace n ON n.oid = p.pronamespace
+  CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
   WHERE n.nspname = 'public'
     AND p.proname IN (
       'app_deal_basis_deal_visible',
       'app_deal_basis_participant_allowed',
       'enforce_single_deal_per_basis'
     )
-    AND has_function_privilege('public', p.oid, 'EXECUTE');
+    AND acl.grantee = 0
+    AND acl.privilege_type = 'EXECUTE';
 
   SELECT count(*) INTO required_policy_count
   FROM pg_policies
