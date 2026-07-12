@@ -1,27 +1,26 @@
 # Netlify deploy refresh
 
-Purpose: safe docs-only marker to force the active Netlify production chain to rebuild `main` after the observable owner cabinet transition fix.
+Purpose: safe docs-only marker to force the active Netlify production chain to rebuild `main` after the mobile login hierarchy and human-copy corrections.
 
-Latest verified main commit before this refresh: `fa41e114d71aa7ebcdb39265770c0927cb0f55b3`.
+Latest verified main commit before this refresh: `10a09ba484114c6361da6cd4830842e2a1e6fb2e`.
 
 Active production host: `https://процент-агро.рф/platform-v7/`.
 Netlify project: `vermillion-kitsune-0e7b97`.
 
-Refresh marker timestamp: 2026-07-12T13:20:00Z.
+Refresh marker timestamp: 2026-07-12T14:07:00Z.
 
 Scope:
 - no additional runtime changes in this marker;
-- no API / DB / live integration changes;
+- no API, DB, RBAC, MFA or live-integration changes;
 - deploy trigger only;
-- production must include PR #2389, PR #2391, PR #2392 and PR #2393.
+- production must include PR #2394 and PR #2398.
 
 Expected production content:
-- owner cabinet buttons show an immediate opening state;
-- cabinet opening uses an authenticated JSON POST with CSRF header and same-origin credentials;
-- exact server rejection codes are visible instead of a silent return to the owner page;
-- successful server response navigates directly to the verified cabinet route;
-- native POST remains as a no-JavaScript fallback;
-- PLATFORM_OWNER verification, signed cabinet context and role-to-organization mapping remain authoritative;
-- nine clearly marked test organizations cover all twelve owner-access cabinets.
+- decorative security cards and field icons are absent from the login task;
+- the mobile form hierarchy is compact and the primary action is reachable without decorative obstruction;
+- the focused field has one visible focus treatment, not a nested double ring;
+- RU uses `Войти`, `Электронная почта` and `Забыли пароль?`;
+- EN and ZH use the corresponding direct, familiar wording;
+- server-authoritative authentication, MFA continuation, session handling and role resolution remain unchanged.
 
-Created to force the hosting chain `GitHub main → Netlify production deploy` to pick up commit `fa41e114d71aa7ebcdb39265770c0927cb0f55b3` instead of the prior production commit `7876c940d5d107f514aadb62a71cb48f0531dba4`.
+Created to force the hosting chain `GitHub main → Netlify production deploy` to pick up commit `10a09ba484114c6361da6cd4830842e2a1e6fb2e` instead of the previous production commit `98d20bbe3eddfb7ca5d65a766678bc1177118a24`.
