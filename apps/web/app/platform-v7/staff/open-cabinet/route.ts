@@ -2,7 +2,6 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE, sessionMarkerCookie } from '@/lib/auth-cookies';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
-import { assertCsrf, assertSameOriginIfPresent } from '@/lib/server-request-security';
 import {
   controlledCabinetContext,
   type ControlledCabinetContext,
@@ -109,10 +108,54 @@ function constantTimeEqual(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-function formCsrfValid(request: NextRequest, token: unknown): boolean {
-  if (!assertSameOriginIfPresent(request).ok) return false;
-  const cookie = request.cookies.get(CSRF_COOKIE)?.value || '';
-  return typeof token === 'string' && constantTimeEqual(cookie, token);
+function firstForwardedValue(value: string | null): string {
+  return String(value || '').split(',')[0]?.trim() || '';
+}
+
+function originFromHost(protocol: string, host: string): string | null {
+  if (!host) return null;
+  const normalizedProtocol = protocol === 'http:' || protocol === 'https:' ? protocol : 'https:';
+  try {
+    return new URL(`${normalizedProtocol}//${host}`).origin;
+  } catch {
+    return null;
+  }
+}
+
+function requestOriginAllowed(request: NextRequest): boolean {
+  const browserOrigin = request.headers.get('origin');
+  if (!browserOrigin) return true;
+
+  let normalizedBrowserOrigin = '';
+  let requestUrl: URL | null = null;
+  try {
+    normalizedBrowserOrigin = new URL(browserOrigin).origin;
+    requestUrl = new URL(request.url);
+  } catch {
+    return false;
+  }
+
+  const allowed = new Set<string>([requestUrl.origin]);
+  const forwardedProtoRaw = firstForwardedValue(request.headers.get('x-forwarded-proto')).toLowerCase();
+  const forwardedProtocol = forwardedProtoRaw === 'http' || forwardedProtoRaw === 'https'
+    ? `${forwardedProtoRaw}:`
+    : requestUrl.protocol;
+
+  for (const host of [
+    firstForwardedValue(request.headers.get('x-forwarded-host')),
+    firstForwardedValue(request.headers.get('host')),
+  ]) {
+    const candidate = originFromHost(forwardedProtocol, host);
+    if (candidate) allowed.add(candidate);
+  }
+
+  return allowed.has(normalizedBrowserOrigin);
+}
+
+function csrfTokenValid(request: NextRequest, token: unknown): boolean {
+  if (!requestOriginAllowed(request) || typeof token !== 'string' || !token) return false;
+  const cookieTokens = request.cookies.getAll(CSRF_COOKIE).map((cookie) => cookie.value).filter(Boolean);
+  return cookieTokens.some((cookieToken) => constantTimeEqual(cookieToken, token));
 }
 
 async function parseRequest(request: NextRequest): Promise<ParsedRequest> {
@@ -124,7 +167,7 @@ async function parseRequest(request: NextRequest): Promise<ParsedRequest> {
       role: form?.get('role'),
       organizationId: form?.get('organizationId'),
       formSubmission: true,
-      csrfOk: formCsrfValid(request, form?.get('_csrf')),
+      csrfOk: csrfTokenValid(request, form?.get('_csrf')),
     };
   }
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
@@ -132,7 +175,7 @@ async function parseRequest(request: NextRequest): Promise<ParsedRequest> {
     role: body.role,
     organizationId: body.organizationId,
     formSubmission: false,
-    csrfOk: assertCsrf(request).ok,
+    csrfOk: csrfTokenValid(request, request.headers.get('x-csrf-token')),
   };
 }
 
