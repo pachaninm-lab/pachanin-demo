@@ -19,6 +19,11 @@ type OpenCabinetResponse = {
   message?: string;
   redirectTo?: string;
 };
+type CsrfRefreshResponse = {
+  ok?: boolean;
+  code?: string;
+  csrfToken?: string;
+};
 
 const CABINETS: ReadonlyArray<{ role: SurfaceRole; cabinetRole: keyof OwnerAccessCenterCopy['cabinetRoles']; icon: string }> = [
   { role: 'operator', cabinetRole: 'ADMIN', icon: '01' },
@@ -130,43 +135,75 @@ export function OwnerAccessCenter(props: Props) {
     [copy],
   );
 
+  async function refreshCsrf(signal: AbortSignal): Promise<string> {
+    const response = await fetch('/platform-v7/staff/prepare?format=json', {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      signal,
+    });
+    const payload = await response.json().catch(() => null) as CsrfRefreshResponse | null;
+    if (!response.ok || payload?.ok !== true || typeof payload.csrfToken !== 'string' || payload.csrfToken.length < 32) {
+      const code = payload?.code ? ` (${payload.code})` : '';
+      throw new Error(`${text.openFailed}${code}`);
+    }
+    return payload.csrfToken;
+  }
+
+  async function requestCabinet(
+    role: SurfaceRole,
+    organizationId: string,
+    token: string,
+    signal: AbortSignal,
+  ): Promise<{ response: Response; payload: OpenCabinetResponse | null }> {
+    const response = await fetch('/platform-v7/staff/open-cabinet', {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': token,
+      },
+      body: JSON.stringify({
+        role,
+        organizationId: controlledOwner ? organizationId : undefined,
+      }),
+      signal,
+    });
+    const payload = await response.json().catch(() => null) as OpenCabinetResponse | null;
+    return { response, payload };
+  }
+
   async function openCabinet(
     event: FormEvent<HTMLFormElement>,
     role: SurfaceRole,
     organizationId: string,
   ) {
     event.preventDefault();
-    if (!csrfToken || busyRole) return;
+    if (busyRole) return;
 
     setBusyRole(role);
     setOpenError(null);
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
+    const timeoutId = window.setTimeout(() => controller.abort(), 18_000);
 
     try {
-      const response = await fetch('/platform-v7/staff/open-cabinet', {
-        method: 'POST',
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
-        },
-        body: JSON.stringify({
-          role,
-          organizationId: controlledOwner ? organizationId : undefined,
-        }),
-        signal: controller.signal,
-      });
-      const payload = await response.json().catch(() => null) as OpenCabinetResponse | null;
+      let freshToken = await refreshCsrf(controller.signal);
+      let result = await requestCabinet(role, organizationId, freshToken, controller.signal);
 
-      if (!response.ok || payload?.ok !== true) {
-        const detail = payload?.message || text.openFailed;
-        const code = payload?.code ? ` (${payload.code})` : '';
+      if (result.response.status === 403 && result.payload?.code === 'CSRF_REJECTED') {
+        freshToken = await refreshCsrf(controller.signal);
+        result = await requestCabinet(role, organizationId, freshToken, controller.signal);
+      }
+
+      if (!result.response.ok || result.payload?.ok !== true) {
+        const detail = result.payload?.message || text.openFailed;
+        const code = result.payload?.code ? ` (${result.payload.code})` : '';
         throw new Error(`${detail}${code}`);
       }
-      if (!payload.redirectTo || !payload.redirectTo.startsWith('/platform-v7/')) {
+      if (!result.payload.redirectTo || !result.payload.redirectTo.startsWith('/platform-v7/')) {
         throw new Error(text.openFailed);
       }
 
@@ -175,7 +212,7 @@ export function OwnerAccessCenter(props: Props) {
       } catch {
         // The signed, HttpOnly cabinet session remains the authority. Navigation must not stop.
       }
-      window.location.assign(payload.redirectTo);
+      window.location.replace(result.payload.redirectTo);
     } catch (error) {
       const timedOut = error instanceof DOMException && error.name === 'AbortError';
       setOpenError(timedOut ? text.openFailed : error instanceof Error ? error.message : text.openFailed);
