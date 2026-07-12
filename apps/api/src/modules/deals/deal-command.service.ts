@@ -1,9 +1,9 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
@@ -18,6 +18,21 @@ import {
   type DealActionDefinition,
   type DealActionId,
 } from './deal-command.policy';
+import {
+  canonicalJson,
+  decimalToMicro,
+  invalid,
+  microToDecimal,
+  optionalCoordinate,
+  optionalString,
+  parseLogisticsBasis,
+  record,
+  requiredArray,
+  requiredDecimal,
+  requiredIso,
+  requiredString,
+  type JsonRecord,
+} from './deal-command-payload';
 
 const CANONICAL_ROLES = new Set([
   'FARMER',
@@ -53,6 +68,14 @@ const ROLE_FOCUS: Record<string, string> = {
   BANK_CALLBACK: 'Подтверждённое системное событие банка',
 };
 
+const REQUIRED_RELEASE_DOCUMENTS = [
+  'CONTRACT',
+  'TTN',
+  'WEIGHING_ACT',
+  'LAB_PROTOCOL',
+  'ACCEPTANCE_ACT',
+] as const;
+
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable);
   if (value && typeof value === 'object') {
@@ -78,37 +101,36 @@ function isUniqueConstraintError(error: unknown): boolean {
   );
 }
 
-function toNumber(value: bigint | number | null | undefined): number | null {
-  if (value === null || value === undefined) return null;
-  return Number(value);
-}
-
-/**
- * Deep-converts bigint database values (versions, kopeck amounts) into JSON-safe
- * numbers at the read-projection boundary. Money arithmetic stays bigint-only on
- * the server; this conversion exists solely for display projections.
- */
-function jsonSafe<T>(value: T): T {
-  if (typeof value === 'bigint') return Number(value) as unknown as T;
-  if (Array.isArray(value)) return value.map(jsonSafe) as unknown as T;
-  if (value instanceof Date) return value;
+function exactJson<T>(value: T): T {
+  if (typeof value === 'bigint') return value.toString() as unknown as T;
+  if (Array.isArray(value)) return value.map(exactJson) as unknown as T;
+  if (value instanceof Date) return value.toISOString() as unknown as T;
   if (value && typeof value === 'object') {
+    const maybeDecimal = value as { toFixed?: (digits?: number) => string; constructor?: { name?: string } };
+    if (maybeDecimal.constructor?.name === 'Decimal' && typeof maybeDecimal.toFixed === 'function') {
+      return maybeDecimal.toFixed() as unknown as T;
+    }
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, jsonSafe(item)]),
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, exactJson(item)]),
     ) as unknown as T;
   }
   return value;
 }
 
-function requiredBankReference(payload: Record<string, unknown>): string {
+function requiredBankReference(payload: JsonRecord): string {
   const value = typeof payload.bankRef === 'string' ? payload.bankRef.trim() : '';
   if (value.length < 4) {
-    throw new BadRequestException({
-      code: 'BANK_REFERENCE_REQUIRED',
-      message: 'Bank confirmation requires a verified bank reference.',
+    throw new UnprocessableEntityException({
+      code: 'UNPROCESSABLE_ENTITY',
+      field: 'bankRef',
+      message: 'Подтверждение банка должно содержать проверяемую банковскую ссылку.',
     });
   }
   return value;
+}
+
+function activeShipmentStatus(status: string): boolean {
+  return !['DELIVERED', 'CANCELLED', 'CLOSED', 'FAILED'].includes(status);
 }
 
 @Injectable()
@@ -146,22 +168,22 @@ export class DealCommandService {
       const payment = deal.payments[0] ?? null;
       const openDispute = disputes.find((item) => !['RESOLVED', 'CLOSED', 'CANCELLED'].includes(item.status)) ?? null;
 
-      return jsonSafe({
+      return exactJson({
         deal: {
           id: deal.id,
           number: deal.dealNumber,
           status: deal.status,
-          version: toNumber(deal.version),
-          updatedAt: deal.updatedAt.toISOString(),
+          version: deal.version,
+          updatedAt: deal.updatedAt,
           sellerOrgId: deal.sellerOrgId,
           buyerOrgId: deal.buyerOrgId,
           culture: deal.culture,
           cropClass: deal.cropClass,
-          volumeTons: deal.volumeTons,
-          pricePerTon: deal.pricePerTon,
-          totalKopecks: toNumber(deal.totalKopecks),
+          volumeTons: deal.volumeTonsDec ?? (deal.volumeTons === null ? null : String(deal.volumeTons)),
+          pricePerTon: deal.pricePerTonDec ?? (deal.pricePerTon === null ? null : String(deal.pricePerTon)),
+          totalKopecks: deal.totalKopecks,
           currency: deal.currency,
-          closedAt: deal.closedAt?.toISOString() ?? null,
+          closedAt: deal.closedAt,
         },
         roleProjection: {
           role: user.role,
@@ -194,10 +216,10 @@ export class DealCommandService {
           ? {
               id: payment.id,
               status: payment.status,
-              amountKopecks: toNumber(payment.amountKopecks),
-              holdAmountKopecks: toNumber(payment.holdAmountKopecks),
-              refundedKopecks: toNumber(payment.refundedKopecks),
-              commissionKopecks: toNumber(payment.commissionKopecks),
+              amountKopecks: payment.amountKopecks,
+              holdAmountKopecks: payment.holdAmountKopecks,
+              refundedKopecks: payment.refundedKopecks,
+              commissionKopecks: payment.commissionKopecks,
               callbackState: payment.callbackState,
               bankRef: payment.bankRef,
             }
@@ -208,10 +230,7 @@ export class DealCommandService {
         laboratory: deal.labSamples,
         acceptance: deal.acceptanceRecords,
         disputes,
-        bankOperations: deal.bankOperations.map((operation) => ({
-          ...operation,
-          amountKopecks: toNumber(operation.amountKopecks),
-        })),
+        bankOperations: deal.bankOperations,
         timeline: deal.dealEvents,
         persistence: deal.runtimeSnapshots[0] ?? null,
       });
@@ -226,7 +245,11 @@ export class DealCommandService {
   ) {
     this.assertTrustedIdentity(user);
     if (!isDealActionId(rawActionId)) {
-      throw new BadRequestException(`Unknown deal action: ${rawActionId}`);
+      throw new UnprocessableEntityException({
+        code: 'UNPROCESSABLE_ENTITY',
+        field: 'actionId',
+        message: `Неизвестное действие сделки: ${rawActionId}`,
+      });
     }
 
     const actionId = rawActionId as DealActionId;
@@ -235,164 +258,153 @@ export class DealCommandService {
     const receiptKey = this.receiptKey(dealId, dto.idempotencyKey);
 
     try {
-      return await this.rls.withTrustedContext(
-        user,
-        async (tx) => {
-          // Per-deal serialization: an advisory transaction lock orders all
-          // commands of ONE deal while deals stay fully parallel. This is what
-          // the hash chains and CAS need — global Serializable isolation would
-          // create false cross-deal conflicts through index predicate locks
-          // and collapse throughput under load.
-          await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${dealId}, 42)) IS NULL AS locked`;
+      return await this.rls.withTrustedContext(user, async (tx) => {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${dealId}, 42)) IS NULL AS locked`;
 
-          const replay = await tx.outboxEntry.findUnique({ where: { idempotencyKey: receiptKey } });
-          if (replay) return this.resultFromReceipt(replay.payload);
+        const replay = await tx.outboxEntry.findUnique({ where: { idempotencyKey: receiptKey } });
+        if (replay) return this.resultFromReceipt(replay.payload);
 
-          const deal = await tx.deal.findUnique({ where: { id: dealId } });
-          if (!deal) throw new NotFoundException(`Deal ${dealId} not found`);
-          this.assertDealTenant(deal.tenantId, user);
+        const deal = await tx.deal.findUnique({ where: { id: dealId } });
+        if (!deal) throw new NotFoundException(`Deal ${dealId} not found`);
+        this.assertDealTenant(deal.tenantId, user);
 
-          if (deal.status !== definition.from) {
-            throw new ConflictException({
-              code: 'DEAL_STATE_CONFLICT',
-              message: `Action ${actionId} requires status ${definition.from}; current status is ${deal.status}`,
-              currentStatus: deal.status,
-              expectedStatus: definition.from,
-              currentUpdatedAt: deal.updatedAt.toISOString(),
-            });
-          }
-          const currentVersion = BigInt(deal.version ?? 0);
-          if (deal.updatedAt.toISOString() !== dto.expectedUpdatedAt) {
-            throw new ConflictException({
-              code: 'STALE_DEAL_VERSION',
-              message: 'Deal changed after the screen was loaded. Refresh and repeat the action.',
-              currentStatus: deal.status,
-              currentUpdatedAt: deal.updatedAt.toISOString(),
-              currentVersion: Number(currentVersion),
-            });
-          }
-          if (dto.expectedVersion !== undefined && BigInt(dto.expectedVersion) !== currentVersion) {
-            throw new ConflictException({
-              code: 'STALE_DEAL_VERSION',
-              message: 'Deal changed after the screen was loaded. Refresh and repeat the action.',
-              currentStatus: deal.status,
-              currentUpdatedAt: deal.updatedAt.toISOString(),
-              currentVersion: Number(currentVersion),
-            });
-          }
-
-          await this.applySideEffects(tx, definition, deal, dto.payload ?? {}, user);
-
-          const next = getCurrentDealAction(definition.to);
-          const update = await tx.deal.updateMany({
-            where: { id: deal.id, status: definition.from, updatedAt: deal.updatedAt, version: currentVersion },
-            data: {
-              status: definition.to,
-              nextAction: next?.label ?? null,
-              version: { increment: 1 },
-              ...(definition.to === 'CLOSED' ? { closedAt: new Date() } : {}),
-            },
+        if (deal.status !== definition.from) {
+          throw new ConflictException({
+            code: 'DEAL_STATE_CONFLICT',
+            message: `Action ${actionId} requires status ${definition.from}; current status is ${deal.status}`,
+            currentStatus: deal.status,
+            expectedStatus: definition.from,
+            currentUpdatedAt: deal.updatedAt.toISOString(),
           });
-          if (update.count !== 1) {
-            throw new ConflictException({
-              code: 'CONCURRENT_DEAL_UPDATE',
-              message: 'Another command changed the deal concurrently. No partial changes were committed.',
-            });
-          }
-
-          const updatedDeal = await tx.deal.findUniqueOrThrow({ where: { id: deal.id } });
-          const event = await this.appendDealEvent(tx, {
-            dealId: deal.id,
-            eventType: actionId.toUpperCase(),
-            actorId: user.id,
-            actorRole: String(user.role),
-            tenantId: user.tenantId,
-            payload: {
-              commandId: dto.commandId,
-              idempotencyKey: dto.idempotencyKey,
-              actionId,
-              from: definition.from,
-              to: definition.to,
-              payload: dto.payload ?? {},
-              resultingUpdatedAt: updatedDeal.updatedAt.toISOString(),
-            },
+        }
+        const currentVersion = BigInt(deal.version ?? 0);
+        if (deal.updatedAt.toISOString() !== dto.expectedUpdatedAt) {
+          throw new ConflictException({
+            code: 'STALE_DEAL_VERSION',
+            message: 'Сделка изменилась после загрузки экрана. Обнови данные и повтори действие.',
+            currentStatus: deal.status,
+            currentUpdatedAt: deal.updatedAt.toISOString(),
+            currentVersion: currentVersion.toString(),
           });
-          const audit = await this.appendAudit(tx, {
-            dealId: deal.id,
-            actorUserId: user.id,
-            actorRole: String(user.role),
-            tenantId: user.tenantId,
-            orgId: user.orgId,
-            action: `deal.command.${actionId}`,
-            objectType: 'deal',
-            objectId: deal.id,
-            beforeState: { status: definition.from, updatedAt: deal.updatedAt.toISOString() },
-            afterState: { status: definition.to, updatedAt: updatedDeal.updatedAt.toISOString() },
-            metadata: {
-              commandId: dto.commandId,
-              idempotencyKey: dto.idempotencyKey,
-              eventId: event.id,
-              sessionId: user.sessionId,
-            },
+        }
+        if (dto.expectedVersion !== undefined && BigInt(dto.expectedVersion) !== currentVersion) {
+          throw new ConflictException({
+            code: 'STALE_DEAL_VERSION',
+            message: 'Сделка изменилась после загрузки экрана. Обнови данные и повтори действие.',
+            currentStatus: deal.status,
+            currentUpdatedAt: deal.updatedAt.toISOString(),
+            currentVersion: currentVersion.toString(),
           });
+        }
 
-          let externalOutboxId: string | null = null;
-          if (definition.externalOperation) {
-            const external = await tx.outboxEntry.upsert({
-              where: { idempotencyKey: `external:${deal.id}:${actionId}:${dto.commandId}` },
-              update: {},
-              create: {
-                type: definition.externalOperation,
-                dealId: deal.id,
-                status: 'PENDING',
-                idempotencyKey: `external:${deal.id}:${actionId}:${dto.commandId}`,
-                correlationId: dto.commandId,
-                auditId: audit.id,
-                payload: {
-                  dealId: deal.id,
-                  actionId,
-                  commandId: dto.commandId,
-                  // JSON payloads carry money as exact integer strings, never floats.
-                  amountKopecks: BigInt(deal.totalKopecks ?? 0).toString(),
-                },
-              },
-            });
-            externalOutboxId = external.id;
-          }
+        const payload = await this.validatePayload(tx, actionId, deal, dto.payload ?? {}, user);
+        await this.applySideEffects(tx, definition, deal, payload, user);
 
-          const result = {
-            ok: true,
-            duplicate: false,
+        const next = getCurrentDealAction(definition.to);
+        const update = await tx.deal.updateMany({
+          where: { id: deal.id, status: definition.from, updatedAt: deal.updatedAt, version: currentVersion },
+          data: {
+            status: definition.to,
+            nextAction: next?.label ?? null,
+            version: { increment: 1 },
+            ...(definition.to === 'CLOSED' ? { closedAt: new Date() } : {}),
+          },
+        });
+        if (update.count !== 1) {
+          throw new ConflictException({
+            code: 'CONCURRENT_DEAL_UPDATE',
+            message: 'Другая команда одновременно изменила сделку. Частичные изменения не сохранены.',
+          });
+        }
+
+        const updatedDeal = await tx.deal.findUniqueOrThrow({ where: { id: deal.id } });
+        const event = await this.appendDealEvent(tx, {
+          dealId: deal.id,
+          eventType: actionId.toUpperCase(),
+          actorId: user.id,
+          actorRole: String(user.role),
+          tenantId: user.tenantId,
+          payload: {
             commandId: dto.commandId,
             idempotencyKey: dto.idempotencyKey,
-            dealId: deal.id,
             actionId,
-            previousStatus: definition.from,
-            status: definition.to,
-            updatedAt: updatedDeal.updatedAt.toISOString(),
-            version: toNumber(updatedDeal.version),
+            from: definition.from,
+            to: definition.to,
+            payload,
+            resultingUpdatedAt: updatedDeal.updatedAt.toISOString(),
+          },
+        });
+        const audit = await this.appendAudit(tx, {
+          dealId: deal.id,
+          actorUserId: user.id,
+          actorRole: String(user.role),
+          tenantId: user.tenantId,
+          orgId: user.orgId,
+          action: `deal.command.${actionId}`,
+          objectType: 'deal',
+          objectId: deal.id,
+          beforeState: { status: definition.from, updatedAt: deal.updatedAt.toISOString() },
+          afterState: { status: definition.to, updatedAt: updatedDeal.updatedAt.toISOString() },
+          metadata: {
+            commandId: dto.commandId,
+            idempotencyKey: dto.idempotencyKey,
             eventId: event.id,
-            auditId: audit.id,
-            externalOutboxId,
-          };
-          await tx.outboxEntry.create({
-            data: {
-              type: 'deal.command.receipt',
+            sessionId: user.sessionId,
+          },
+        });
+
+        let externalOutboxId: string | null = null;
+        if (definition.externalOperation) {
+          const external = await tx.outboxEntry.upsert({
+            where: { idempotencyKey: `external:${deal.id}:${actionId}:${dto.commandId}` },
+            update: {},
+            create: {
+              type: definition.externalOperation,
               dealId: deal.id,
-              status: 'CONFIRMED',
-              idempotencyKey: receiptKey,
+              status: 'PENDING',
+              idempotencyKey: `external:${deal.id}:${actionId}:${dto.commandId}`,
               correlationId: dto.commandId,
               auditId: audit.id,
-              confirmedAt: new Date(),
-              payload: { result },
+              payload: {
+                dealId: deal.id,
+                actionId,
+                commandId: dto.commandId,
+                amountKopecks: BigInt(deal.totalKopecks ?? 0).toString(),
+              },
             },
           });
-          return result;
-        },
-        // ReadCommitted + per-deal advisory lock: the lock provides the only
-        // ordering the pipeline needs; CAS on version still rejects any writer
-        // that bypassed the command path.
-      );
+          externalOutboxId = external.id;
+        }
+
+        const result = {
+          ok: true,
+          duplicate: false,
+          commandId: dto.commandId,
+          idempotencyKey: dto.idempotencyKey,
+          dealId: deal.id,
+          actionId,
+          previousStatus: definition.from,
+          status: definition.to,
+          updatedAt: updatedDeal.updatedAt.toISOString(),
+          version: updatedDeal.version.toString(),
+          eventId: event.id,
+          auditId: audit.id,
+          externalOutboxId,
+        };
+        await tx.outboxEntry.create({
+          data: {
+            type: 'deal.command.receipt',
+            dealId: deal.id,
+            status: 'CONFIRMED',
+            idempotencyKey: receiptKey,
+            correlationId: dto.commandId,
+            auditId: audit.id,
+            confirmedAt: new Date(),
+            payload: { result },
+          },
+        });
+        return result;
+      });
     } catch (error) {
       if (isUniqueConstraintError(error)) {
         const replay = await this.rls.withTrustedContext(user, async (tx) => {
@@ -440,57 +452,292 @@ export class DealCommandService {
     }
   }
 
+  private async requireEvidence(
+    tx: Prisma.TransactionClient,
+    evidenceId: string,
+    dealId: string,
+    shipmentId?: string,
+  ) {
+    const evidence = await tx.evidenceFile.findUnique({ where: { id: evidenceId } });
+    if (!evidence || evidence.dealId !== dealId || (shipmentId && evidence.shipmentId && evidence.shipmentId !== shipmentId)) {
+      invalid('evidenceRef', 'Подтверждение не найдено в доказательном контуре этой сделки.');
+    }
+    if (!evidence.hash || !evidence.s3Key) {
+      invalid('evidenceRef', 'Подтверждение не зафиксировано: отсутствует content hash или storage reference.');
+    }
+    return evidence;
+  }
+
+  private async requireShipment(tx: Prisma.TransactionClient, shipmentId: string, dealId: string) {
+    const shipment = await tx.shipment.findUnique({ where: { id: shipmentId } });
+    if (!shipment || shipment.dealId !== dealId) invalid('shipmentId', 'Рейс не найден в этой сделке.');
+    return shipment;
+  }
+
+  private async validatePayload(
+    tx: Prisma.TransactionClient,
+    actionId: DealActionId,
+    deal: {
+      id: string;
+      tenantId: string | null;
+      sellerOrgId: string;
+      buyerOrgId: string;
+      sagaState: Prisma.JsonValue | null;
+    },
+    rawPayload: Prisma.InputJsonObject,
+    user: RequestUser,
+  ): Promise<JsonRecord> {
+    const payload = record(rawPayload);
+
+    if (actionId === 'seller_sign_contract' || actionId === 'buyer_sign_contract') {
+      const documentId = requiredString(payload, 'documentId');
+      const signedAt = requiredIso(payload, 'signedAt');
+      const signatureEvidenceRef = requiredString(payload, 'signatureEvidenceRef');
+      const document = await tx.dealDocument.findUnique({ where: { id: documentId } });
+      if (!document || document.dealId !== deal.id || document.type !== 'CONTRACT') {
+        invalid('documentId', 'Загруженный договор этой сделки не найден.');
+      }
+      if (!document.hash || !document.s3Key) invalid('documentId', 'Договор не зафиксирован в хранилище или не имеет content hash.');
+      if (actionId === 'buyer_sign_contract' && document.status !== 'SIGNING') {
+        invalid('documentId', 'Покупатель может подписать только договор, уже подписанный продавцом.');
+      }
+      await this.requireEvidence(tx, signatureEvidenceRef, deal.id);
+      return { documentId, signedAt: signedAt.toISOString(), signatureEvidenceRef };
+    }
+
+    if (actionId === 'assign_logistics') {
+      const carrierOrgId = requiredString(payload, 'carrierOrgId');
+      const driverUserId = requiredString(payload, 'driverUserId');
+      const vehicleId = requiredString(payload, 'vehicleId');
+      const routeFromFacilityId = requiredString(payload, 'routeFromFacilityId');
+      const routeToFacilityId = requiredString(payload, 'routeToFacilityId');
+      const basis = parseLogisticsBasis(deal.sagaState);
+
+      const carrierBasis = basis.carriers.find((item) => item.id === carrierOrgId);
+      if (!carrierBasis || carrierBasis.status !== 'VERIFIED' || carrierBasis.tenantId !== deal.tenantId) {
+        invalid('carrierOrgId', 'Перевозчик не входит в подтверждённое основание сделки или не допущен.');
+      }
+      const carrier = await tx.organization.findUnique({ where: { id: carrierOrgId } });
+      if (!carrier || carrier.tenantId !== deal.tenantId || carrier.status !== 'VERIFIED' || carrier.kycStatus !== 'APPROVED') {
+        invalid('carrierOrgId', 'Перевозчик не прошёл серверную проверку допуска.');
+      }
+
+      const driverBasis = basis.drivers.find((item) => item.id === driverUserId && item.carrierOrgId === carrierOrgId);
+      if (!driverBasis || driverBasis.status !== 'ACTIVE' || !driverBasis.vehicleIds.includes(vehicleId)) {
+        invalid('driverUserId', 'Водитель не активен у выбранного перевозчика или не допущен к машине.');
+      }
+      const driver = await tx.user.findUnique({ where: { id: driverUserId } });
+      const driverMembership = await tx.userOrg.findUnique({
+        where: { userId_organizationId: { userId: driverUserId, organizationId: carrierOrgId } },
+      });
+      if (!driver || driver.status !== 'ACTIVE' || driver.deletedAt || !driverMembership) {
+        invalid('driverUserId', 'Активная принадлежность водителя перевозчику не подтверждена PostgreSQL.');
+      }
+
+      const vehicle = basis.vehicles.find((item) => item.id === vehicleId && item.carrierOrgId === carrierOrgId);
+      if (!vehicle || vehicle.status !== 'ACTIVE') invalid('vehicleId', 'Машина не активна у выбранного перевозчика.');
+      const from = basis.facilities.find((item) => item.id === routeFromFacilityId);
+      const to = basis.facilities.find((item) => item.id === routeToFacilityId);
+      if (!from || from.status !== 'ACTIVE' || from.organizationId !== deal.sellerOrgId) {
+        invalid('routeFromFacilityId', 'Точка отправления не принадлежит продавцу или не активна.');
+      }
+      if (!to || to.status !== 'ACTIVE' || to.organizationId !== deal.buyerOrgId) {
+        invalid('routeToFacilityId', 'Точка назначения не принадлежит покупателю или не активна.');
+      }
+
+      const conflicts = await tx.shipment.findMany({
+        where: {
+          dealId: { not: deal.id },
+          OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
+        },
+        select: { id: true, status: true },
+        take: 20,
+      });
+      if (conflicts.some((item) => activeShipmentStatus(item.status))) {
+        invalid('driverUserId', 'У водителя или машины уже есть конфликтующее активное назначение.');
+      }
+      return { carrierOrgId, driverUserId, vehicleId, routeFromFacilityId, routeToFacilityId };
+    }
+
+    if (actionId === 'confirm_loading') {
+      const shipmentId = requiredString(payload, 'shipmentId');
+      const actualWeightTons = requiredDecimal(payload, 'actualWeightTons');
+      const occurredAt = requiredIso(payload, 'occurredAt');
+      const actorId = requiredString(payload, 'actorId');
+      const basis = requiredString(payload, 'basis');
+      const evidenceRef = requiredString(payload, 'evidenceRef');
+      const unit = requiredString(payload, 'unit').toUpperCase();
+      if (unit !== 'TON') invalid('unit', 'Для погрузки допустима единица TON.');
+      if (actorId !== user.id) invalid('actorId', 'Исполнитель должен совпадать с подтверждённой сервером сессией.');
+      await this.requireShipment(tx, shipmentId, deal.id);
+      await this.requireEvidence(tx, evidenceRef, deal.id, shipmentId);
+      return { shipmentId, actualWeightTons, occurredAt: occurredAt.toISOString(), actorId: user.id, basis, evidenceRef, unit };
+    }
+
+    if (actionId === 'start_transit') {
+      const shipmentId = requiredString(payload, 'shipmentId');
+      const occurredAt = requiredIso(payload, 'occurredAt');
+      const basis = requiredString(payload, 'basis');
+      const evidenceRef = requiredString(payload, 'evidenceRef');
+      await this.requireShipment(tx, shipmentId, deal.id);
+      await this.requireEvidence(tx, evidenceRef, deal.id, shipmentId);
+      return { shipmentId, occurredAt: occurredAt.toISOString(), basis, evidenceRef };
+    }
+
+    if (actionId === 'confirm_arrival') {
+      const shipmentId = requiredString(payload, 'shipmentId');
+      const occurredAt = requiredIso(payload, 'occurredAt');
+      const confirmationMethod = requiredString(payload, 'confirmationMethod');
+      const evidenceRef = requiredString(payload, 'evidenceRef');
+      const lat = optionalCoordinate(payload, 'lat', -90, 90);
+      const lng = optionalCoordinate(payload, 'lng', -180, 180);
+      if ((lat === undefined) !== (lng === undefined)) invalid('lat', 'Координаты передаются только полной парой lat/lng.');
+      await this.requireShipment(tx, shipmentId, deal.id);
+      await this.requireEvidence(tx, evidenceRef, deal.id, shipmentId);
+      return { shipmentId, occurredAt: occurredAt.toISOString(), confirmationMethod, evidenceRef, ...(lat === undefined ? {} : { lat, lng }) };
+    }
+
+    if (actionId === 'confirm_weight') {
+      const shipmentId = requiredString(payload, 'shipmentId');
+      const grossTons = requiredDecimal(payload, 'grossTons');
+      const tareTons = requiredDecimal(payload, 'tareTons', true);
+      const netTons = requiredDecimal(payload, 'netTons');
+      const weighingSource = requiredString(payload, 'weighingSource');
+      const operatorUserId = requiredString(payload, 'operatorUserId');
+      const occurredAt = requiredIso(payload, 'occurredAt');
+      const evidenceRef = requiredString(payload, 'evidenceRef');
+      const equipmentId = optionalString(payload, 'equipmentId');
+      if (operatorUserId !== user.id) invalid('operatorUserId', 'Оператор взвешивания должен совпадать с подтверждённой сервером сессией.');
+      const gross = decimalToMicro(grossTons, 'grossTons');
+      const tare = decimalToMicro(tareTons, 'tareTons');
+      const net = decimalToMicro(netTons, 'netTons');
+      if (gross - tare !== net) invalid('netTons', `Нетто должно равняться брутто минус тара: ${microToDecimal(gross - tare)}.`);
+      await this.requireShipment(tx, shipmentId, deal.id);
+      await this.requireEvidence(tx, evidenceRef, deal.id, shipmentId);
+      return { shipmentId, grossTons, tareTons, netTons, weighingSource, operatorUserId: user.id, occurredAt: occurredAt.toISOString(), evidenceRef, ...(equipmentId ? { equipmentId } : {}) };
+    }
+
+    if (actionId === 'confirm_inspection') {
+      const documentId = requiredString(payload, 'documentId');
+      const evidenceRef = requiredString(payload, 'evidenceRef');
+      const inspectedAt = requiredIso(payload, 'inspectedAt');
+      const document = await tx.dealDocument.findUnique({ where: { id: documentId } });
+      if (!document || document.dealId !== deal.id || document.type !== 'INSPECTION_REPORT') {
+        invalid('documentId', 'Заключение независимого осмотра не найдено в сделке.');
+      }
+      if (!['VALIDATED', 'SIGNED'].includes(document.status) || !document.hash || !document.s3Key) {
+        invalid('documentId', 'Заключение должно быть загружено, иметь content hash и пройти проверку.');
+      }
+      await this.requireEvidence(tx, evidenceRef, deal.id);
+      return { documentId, evidenceRef, inspectedAt: inspectedAt.toISOString() };
+    }
+
+    if (actionId === 'finalize_lab') {
+      const sampleId = requiredString(payload, 'sampleId');
+      const protocolNumber = requiredString(payload, 'protocolNumber');
+      const labId = requiredString(payload, 'labId');
+      const accreditationRef = requiredString(payload, 'accreditationRef');
+      const applicableStandard = requiredString(payload, 'applicableStandard');
+      const finalizedAt = requiredIso(payload, 'finalizedAt');
+      const signedEvidenceRef = requiredString(payload, 'signedEvidenceRef');
+      const declaredResult = requiredString(payload, 'declaredResult').toUpperCase();
+      if (!['PASSED', 'FAILED'].includes(declaredResult)) invalid('declaredResult', 'Итог должен быть PASSED или FAILED.');
+      if (labId !== user.orgId) invalid('labId', 'Лаборатория должна совпадать с организацией подтверждённой сессии.');
+      const lab = await tx.organization.findUnique({ where: { id: labId } });
+      if (!lab || lab.tenantId !== deal.tenantId || lab.status !== 'VERIFIED' || lab.kycStatus !== 'APPROVED') {
+        invalid('labId', 'Лаборатория не имеет действующего допуска в tenant сделки.');
+      }
+      const sample = await tx.labSample.findUnique({ where: { id: sampleId } });
+      if (!sample || sample.dealId !== deal.id || sample.status !== 'PENDING') {
+        invalid('sampleId', 'Активная проба этой сделки не найдена или уже финализирована.');
+      }
+      await this.requireEvidence(tx, signedEvidenceRef, deal.id, sample.shipmentId ?? undefined);
+
+      const indicators = requiredArray(payload, 'indicators').map((item, index) => {
+        const indicator = record(item, `indicators[${index}]`);
+        const parameter = requiredString(indicator, 'parameter');
+        const value = requiredDecimal(indicator, 'value', true);
+        const unit = requiredString(indicator, 'unit');
+        const normMin = optionalString(indicator, 'normMin');
+        const normMax = optionalString(indicator, 'normMax');
+        if (!normMin && !normMax) invalid(`indicators[${index}]`, 'Укажи хотя бы одну применимую границу нормы.');
+        const valueMicro = decimalToMicro(value, `indicators[${index}].value`);
+        const minMicro = normMin ? decimalToMicro(requiredDecimal({ normMin }, 'normMin', true), 'normMin') : null;
+        const maxMicro = normMax ? decimalToMicro(requiredDecimal({ normMax }, 'normMax', true), 'normMax') : null;
+        const passed = (minMicro === null || valueMicro >= minMicro) && (maxMicro === null || valueMicro <= maxMicro);
+        return {
+          parameter,
+          value,
+          unit,
+          normMin: minMicro === null ? null : microToDecimal(minMicro),
+          normMax: maxMicro === null ? null : microToDecimal(maxMicro),
+          result: passed ? 'PASSED' : 'FAILED',
+        };
+      });
+      const calculatedResult = indicators.every((item) => item.result === 'PASSED') ? 'PASSED' : 'FAILED';
+      if (declaredResult !== calculatedResult) {
+        invalid('declaredResult', `Заявленный итог не совпадает с расчётом по нормам: ${calculatedResult}.`);
+      }
+      return { sampleId, protocolNumber, labId, accreditationRef, applicableStandard, finalizedAt: finalizedAt.toISOString(), signedEvidenceRef, declaredResult: calculatedResult, indicators };
+    }
+
+    if (actionId === 'accept_delivery') {
+      const acceptanceId = requiredString(payload, 'acceptanceId');
+      const acceptedAt = requiredIso(payload, 'acceptedAt');
+      const evidenceRef = requiredString(payload, 'evidenceRef');
+      const acceptance = await tx.acceptanceRecord.findUnique({ where: { id: acceptanceId } });
+      if (!acceptance || acceptance.dealId !== deal.id || acceptance.qualityStatus !== 'PASSED') {
+        invalid('acceptanceId', 'Приёмка не найдена или лабораторное качество не подтверждено.');
+      }
+      await this.requireEvidence(tx, evidenceRef, deal.id, acceptance.shipmentId ?? undefined);
+      return { acceptanceId, acceptedAt: acceptedAt.toISOString(), evidenceRef };
+    }
+
+    if (actionId === 'complete_documents') {
+      const documents = await tx.dealDocument.findMany({ where: { dealId: deal.id } });
+      for (const type of REQUIRED_RELEASE_DOCUMENTS) {
+        const document = documents.find((item) => item.type === type && item.status === 'SIGNED');
+        if (!document) invalid('documents', `Отсутствует подписанный документ типа ${type}.`);
+        if (!document.hash || !document.s3Key || !document.isImmutable || !document.signedAt || !document.signatories) {
+          invalid('documents', `Документ ${type} не имеет полного hash/storage/signature основания.`);
+        }
+        if (document.bankRequired && document.bankAcceptance !== 'ACCEPTED') {
+          invalid('documents', `Документ ${type} ещё не принят банковским контуром.`);
+        }
+      }
+      return { verifiedDocumentTypes: [...REQUIRED_RELEASE_DOCUMENTS] };
+    }
+
+    return { ...payload };
+  }
+
   private async applySideEffects(
     tx: Prisma.TransactionClient,
     definition: DealActionDefinition,
     deal: { id: string; totalKopecks: bigint | number | null; sellerOrgId: string; buyerOrgId: string },
-    payload: Record<string, unknown>,
+    payload: JsonRecord,
     user: RequestUser,
   ): Promise<void> {
-    // Money stays integer kopecks end-to-end: bigint from the deal row, BIGINT columns below.
     const amountKopecks = BigInt(deal.totalKopecks ?? 0);
 
     switch (definition.id) {
       case 'seller_sign_contract':
-        await tx.dealDocument.upsert({
-          where: { id: `contract:${deal.id}` },
-          update: {
-            status: 'SIGNING',
-            signatories: JSON.stringify([{ userId: user.id, role: user.role, signedAt: new Date().toISOString() }]),
-          },
-          create: {
-            id: `contract:${deal.id}`,
-            dealId: deal.id,
-            type: 'CONTRACT',
-            status: 'SIGNING',
-            name: 'Договор поставки',
-            signatories: JSON.stringify([{ userId: user.id, role: user.role, signedAt: new Date().toISOString() }]),
-            bankRequired: true,
-            releaseRequired: true,
-          },
-        });
-        break;
-
       case 'buyer_sign_contract': {
-        const contract = await tx.dealDocument.findUnique({ where: { id: `contract:${deal.id}` } });
-        const signatories = contract?.signatories ? JSON.parse(contract.signatories) : [];
-        signatories.push({ userId: user.id, role: user.role, signedAt: new Date().toISOString() });
-        await tx.dealDocument.upsert({
-          where: { id: `contract:${deal.id}` },
-          update: { status: 'SIGNED', signedAt: new Date(), signatories: JSON.stringify(signatories), isImmutable: true, bankAcceptance: 'ACCEPTED' },
-          create: {
-            id: `contract:${deal.id}`,
-            dealId: deal.id,
-            type: 'CONTRACT',
-            status: 'SIGNED',
-            name: 'Договор поставки',
-            signedAt: new Date(),
-            signatories: JSON.stringify(signatories),
-            isImmutable: true,
-            bankRequired: true,
-            releaseRequired: true,
-            bankAcceptance: 'ACCEPTED',
-          },
+        const documentId = String(payload.documentId);
+        const signedAt = new Date(String(payload.signedAt));
+        const contract = await tx.dealDocument.findUniqueOrThrow({ where: { id: documentId } });
+        const signatories = contract.signatories ? JSON.parse(contract.signatories) : [];
+        signatories.push({
+          userId: user.id,
+          role: user.role,
+          signedAt: signedAt.toISOString(),
+          evidenceRef: String(payload.signatureEvidenceRef),
+        });
+        await tx.dealDocument.update({
+          where: { id: documentId },
+          data: definition.id === 'seller_sign_contract'
+            ? { status: 'SIGNING', signatories: JSON.stringify(signatories) }
+            : { status: 'SIGNED', signedAt, signatories: JSON.stringify(signatories), isImmutable: true },
         });
         break;
       }
@@ -509,7 +756,7 @@ export class DealCommandService {
             dealId: deal.id,
             type: 'RESERVE',
             status: 'PENDING',
-            amountKopecks: BigInt(amountKopecks),
+            amountKopecks,
             debitAccount: `buyer:${deal.buyerOrgId}`,
             creditAccount: `escrow:${deal.id}`,
             idempotencyKey: `bank-reserve:${deal.id}`,
@@ -547,98 +794,152 @@ export class DealCommandService {
         break;
       }
 
-      case 'assign_logistics':
+      case 'assign_logistics': {
+        const driver = await tx.user.findUniqueOrThrow({ where: { id: String(payload.driverUserId) } });
+        const carrier = await tx.organization.findUniqueOrThrow({ where: { id: String(payload.carrierOrgId) } });
         await tx.shipment.upsert({
           where: { id: `shipment:${deal.id}` },
           update: {
             status: 'DRIVER_ASSIGNED',
-            carrierOrgId: String(payload.carrierOrgId ?? user.orgId),
-            driverUserId: String(payload.driverUserId ?? 'user-driver-001'),
-            driverName: String(payload.driverName ?? 'Тестовый водитель'),
-            vehicleNumber: String(payload.vehicleNumber ?? 'А001АА77'),
-            routeFrom: String(payload.routeFrom ?? 'Склад продавца'),
-            routeTo: String(payload.routeTo ?? 'Элеватор покупателя'),
+            carrierOrgId: carrier.id,
+            carrierName: carrier.name,
+            driverUserId: driver.id,
+            driverName: driver.fullName,
+            vehicleNumber: String(payload.vehicleId),
+            routeFrom: String(payload.routeFromFacilityId),
+            routeTo: String(payload.routeToFacilityId),
+            nextAction: 'Подтвердить погрузку',
           },
           create: {
             id: `shipment:${deal.id}`,
             dealId: deal.id,
             status: 'DRIVER_ASSIGNED',
-            carrierOrgId: String(payload.carrierOrgId ?? user.orgId),
-            driverUserId: String(payload.driverUserId ?? 'user-driver-001'),
-            driverName: String(payload.driverName ?? 'Тестовый водитель'),
-            vehicleNumber: String(payload.vehicleNumber ?? 'А001АА77'),
-            vehicleType: 'TRUCK',
-            routeFrom: String(payload.routeFrom ?? 'Склад продавца'),
-            routeTo: String(payload.routeTo ?? 'Элеватор покупателя'),
+            carrierOrgId: carrier.id,
+            carrierName: carrier.name,
+            driverUserId: driver.id,
+            driverName: driver.fullName,
+            vehicleNumber: String(payload.vehicleId),
+            routeFrom: String(payload.routeFromFacilityId),
+            routeTo: String(payload.routeToFacilityId),
             nextAction: 'Подтвердить погрузку',
           },
         });
         break;
+      }
 
-      case 'confirm_loading':
-        await tx.shipment.update({ where: { id: `shipment:${deal.id}` }, data: { status: 'LOADED', loadedTons: Number(payload.loadedTons ?? 150), nextAction: 'Начать рейс' } });
-        await tx.checkpoint.create({ data: { shipmentId: `shipment:${deal.id}`, type: 'LOADING_CONFIRMED', completedAt: new Date(), actorId: user.id, note: String(payload.note ?? '') } });
+      case 'confirm_loading': {
+        const shipmentId = String(payload.shipmentId);
+        const evidence = await tx.evidenceFile.findUniqueOrThrow({ where: { id: String(payload.evidenceRef) } });
+        await tx.shipment.update({ where: { id: shipmentId }, data: { status: 'LOADED', nextAction: 'Начать рейс' } });
+        await tx.checkpoint.create({
+          data: {
+            shipmentId,
+            type: 'LOADING_CONFIRMED',
+            completedAt: new Date(String(payload.occurredAt)),
+            actorId: user.id,
+            photoUrl: evidence.s3Key,
+            note: canonicalJson(payload),
+          },
+        });
         break;
+      }
 
-      case 'start_transit':
-        await tx.shipment.update({ where: { id: `shipment:${deal.id}` }, data: { status: 'IN_TRANSIT', nextAction: 'Подтвердить прибытие' } });
-        await tx.checkpoint.create({ data: { shipmentId: `shipment:${deal.id}`, type: 'DEPARTURE', completedAt: new Date(), actorId: user.id } });
+      case 'start_transit': {
+        const shipmentId = String(payload.shipmentId);
+        const evidence = await tx.evidenceFile.findUniqueOrThrow({ where: { id: String(payload.evidenceRef) } });
+        await tx.shipment.update({ where: { id: shipmentId }, data: { status: 'IN_TRANSIT', nextAction: 'Подтвердить прибытие' } });
+        await tx.checkpoint.create({
+          data: { shipmentId, type: 'DEPARTURE', completedAt: new Date(String(payload.occurredAt)), actorId: user.id, photoUrl: evidence.s3Key, note: canonicalJson(payload) },
+        });
         break;
+      }
 
-      case 'confirm_arrival':
-        await tx.shipment.update({ where: { id: `shipment:${deal.id}` }, data: { status: 'ARRIVED', nextAction: 'Зафиксировать вес' } });
-        await tx.checkpoint.create({ data: { shipmentId: `shipment:${deal.id}`, type: 'ARRIVAL', completedAt: new Date(), actorId: user.id, lat: typeof payload.lat === 'number' ? payload.lat : undefined, lng: typeof payload.lng === 'number' ? payload.lng : undefined } });
+      case 'confirm_arrival': {
+        const shipmentId = String(payload.shipmentId);
+        const evidence = await tx.evidenceFile.findUniqueOrThrow({ where: { id: String(payload.evidenceRef) } });
+        await tx.shipment.update({ where: { id: shipmentId }, data: { status: 'ARRIVED', nextAction: 'Зафиксировать вес' } });
+        await tx.checkpoint.create({
+          data: {
+            shipmentId,
+            type: 'ARRIVAL',
+            completedAt: new Date(String(payload.occurredAt)),
+            actorId: user.id,
+            photoUrl: evidence.s3Key,
+            note: canonicalJson(payload),
+            ...(typeof payload.lat === 'number' ? { lat: payload.lat, lng: payload.lng as number } : {}),
+          },
+        });
         break;
+      }
 
       case 'confirm_weight':
         await tx.acceptanceRecord.upsert({
           where: { id: `acceptance:${deal.id}` },
-          update: { status: 'PENDING', weightActualTons: Number(payload.weightActualTons ?? 149.6), actorId: user.id },
-          create: { id: `acceptance:${deal.id}`, dealId: deal.id, shipmentId: `shipment:${deal.id}`, status: 'PENDING', weightActualTons: Number(payload.weightActualTons ?? 149.6), qualityStatus: 'PENDING', actorId: user.id },
+          update: { status: 'PENDING', qualityStatus: 'PENDING', actorId: user.id, notes: canonicalJson(payload) },
+          create: {
+            id: `acceptance:${deal.id}`,
+            dealId: deal.id,
+            shipmentId: String(payload.shipmentId),
+            status: 'PENDING',
+            qualityStatus: 'PENDING',
+            actorId: user.id,
+            notes: canonicalJson(payload),
+          },
         });
         break;
 
       case 'confirm_inspection':
-        await tx.dealDocument.upsert({
-          where: { id: `inspection:${deal.id}` },
-          update: { status: 'SIGNED', signedAt: new Date(), isImmutable: true },
-          create: { id: `inspection:${deal.id}`, dealId: deal.id, type: 'INSPECTION_REPORT', status: 'SIGNED', name: 'Заключение независимого осмотра', signedAt: new Date(), uploadedByUserId: user.id, isImmutable: true, releaseRequired: true },
-        });
         break;
 
-      case 'finalize_lab':
-        await tx.labSample.upsert({
-          where: { id: `sample:${deal.id}` },
-          update: { status: 'DONE', protocol: String(payload.protocol ?? `LAB-${deal.id}`), finalizedAt: new Date(), labId: user.orgId },
-          create: { id: `sample:${deal.id}`, dealId: deal.id, shipmentId: `shipment:${deal.id}`, acceptanceId: `acceptance:${deal.id}`, status: 'DONE', culture: 'Пшеница', protocol: String(payload.protocol ?? `LAB-${deal.id}`), labId: user.orgId, labName: 'Тестовая аккредитованная лаборатория', collectedAt: new Date(), finalizedAt: new Date() },
+      case 'finalize_lab': {
+        const lab = await tx.organization.findUniqueOrThrow({ where: { id: String(payload.labId) } });
+        await tx.labSample.update({
+          where: { id: String(payload.sampleId) },
+          data: {
+            status: 'DONE',
+            protocol: String(payload.protocolNumber),
+            gost: String(payload.applicableStandard),
+            finalizedAt: new Date(String(payload.finalizedAt)),
+            labId: lab.id,
+            labName: lab.name,
+            certificateDocId: String(payload.signedEvidenceRef),
+          },
         });
-        await tx.labTest.deleteMany({ where: { sampleId: `sample:${deal.id}` } });
+        await tx.labTest.deleteMany({ where: { sampleId: String(payload.sampleId) } });
+        const indicators = payload.indicators as Array<{
+          parameter: string;
+          value: string;
+          unit: string;
+          normMin: string | null;
+          normMax: string | null;
+          result: string;
+        }>;
         await tx.labTest.createMany({
-          data: [
-            { sampleId: `sample:${deal.id}`, parameter: 'moisture', value: Number(payload.moisture ?? 12.4), unit: '%', normMax: 14, passed: true },
-            { sampleId: `sample:${deal.id}`, parameter: 'protein', value: Number(payload.protein ?? 13.2), unit: '%', normMin: 12.5, passed: true },
-          ],
+          data: indicators.map((indicator) => ({
+            sampleId: String(payload.sampleId),
+            parameter: indicator.parameter,
+            value: Number(indicator.value),
+            unit: indicator.unit,
+            normMin: indicator.normMin === null ? null : Number(indicator.normMin),
+            normMax: indicator.normMax === null ? null : Number(indicator.normMax),
+            passed: indicator.result === 'PASSED',
+          })),
         });
-        await tx.acceptanceRecord.update({ where: { id: `acceptance:${deal.id}` }, data: { qualityStatus: 'PASSED', gost: String(payload.gost ?? 'ГОСТ 9353-2016') } });
+        await tx.acceptanceRecord.update({
+          where: { id: `acceptance:${deal.id}` },
+          data: { qualityStatus: String(payload.declaredResult), gost: String(payload.applicableStandard) },
+        });
         break;
+      }
 
       case 'accept_delivery':
-        await tx.acceptanceRecord.update({ where: { id: `acceptance:${deal.id}` }, data: { status: 'ACCEPTED', actSignedAt: new Date(), actorId: user.id } });
+        await tx.acceptanceRecord.update({
+          where: { id: String(payload.acceptanceId) },
+          data: { status: 'ACCEPTED', actSignedAt: new Date(String(payload.acceptedAt)), actDocId: String(payload.evidenceRef), actorId: user.id },
+        });
         break;
 
       case 'complete_documents':
-        for (const document of [
-          { id: `ttn:${deal.id}`, type: 'TTN', name: 'Транспортная накладная' },
-          { id: `weighing:${deal.id}`, type: 'WEIGHING_ACT', name: 'Акт взвешивания' },
-          { id: `lab-protocol:${deal.id}`, type: 'LAB_PROTOCOL', name: 'Лабораторный протокол' },
-          { id: `acceptance-act:${deal.id}`, type: 'ACCEPTANCE_ACT', name: 'Акт приёмки' },
-        ]) {
-          await tx.dealDocument.upsert({
-            where: { id: document.id },
-            update: { status: 'SIGNED', signedAt: new Date(), isImmutable: true, bankAcceptance: 'ACCEPTED' },
-            create: { ...document, dealId: deal.id, status: 'SIGNED', signedAt: new Date(), uploadedByUserId: user.id, isImmutable: true, bankRequired: true, releaseRequired: true, bankAcceptance: 'ACCEPTED' },
-          });
-        }
         break;
 
       case 'request_release':
@@ -646,7 +947,18 @@ export class DealCommandService {
         await tx.bankOperation.upsert({
           where: { id: `bank-release:${deal.id}` },
           update: { status: 'PENDING', requestPayload: payload as Prisma.InputJsonValue },
-          create: { id: `bank-release:${deal.id}`, dealId: deal.id, type: 'RELEASE', status: 'PENDING', amountKopecks: BigInt(amountKopecks), debitAccount: `escrow:${deal.id}`, creditAccount: `seller:${deal.sellerOrgId}`, idempotencyKey: `bank-release:${deal.id}`, initiatorUserId: user.id, requestPayload: payload as Prisma.InputJsonValue },
+          create: {
+            id: `bank-release:${deal.id}`,
+            dealId: deal.id,
+            type: 'RELEASE',
+            status: 'PENDING',
+            amountKopecks,
+            debitAccount: `escrow:${deal.id}`,
+            creditAccount: `seller:${deal.sellerOrgId}`,
+            idempotencyKey: `bank-release:${deal.id}`,
+            initiatorUserId: user.id,
+            requestPayload: payload as Prisma.InputJsonValue,
+          },
         });
         break;
 
@@ -657,7 +969,16 @@ export class DealCommandService {
         await tx.ledgerEntry.upsert({
           where: { idempotencyKey: `ledger-release:${deal.id}` },
           update: {},
-          create: { dealId: deal.id, entryType: 'RELEASE', debitAccount: `escrow:${deal.id}`, creditAccount: `seller:${deal.sellerOrgId}`, amountKopecks, idempotencyKey: `ledger-release:${deal.id}`, description: 'Подтверждённая выплата продавцу', createdByUserId: user.id },
+          create: {
+            dealId: deal.id,
+            entryType: 'RELEASE',
+            debitAccount: `escrow:${deal.id}`,
+            creditAccount: `seller:${deal.sellerOrgId}`,
+            amountKopecks,
+            idempotencyKey: `ledger-release:${deal.id}`,
+            description: 'Подтверждённая выплата продавцу',
+            createdByUserId: user.id,
+          },
         });
         break;
       }
