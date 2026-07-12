@@ -17,6 +17,7 @@ const entry = read('apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx'
 const directCenter = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx');
 const directRoute = read('apps/web/app/platform-v7/staff/open-cabinet/route.ts');
 const submitRoute = read('apps/web/app/platform-v7/staff/open-cabinet/submit/route.ts');
+const prepareRoute = read('apps/web/app/platform-v7/staff/prepare/route.ts');
 const handoffPage = read('apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx');
 const handoffClient = read('apps/web/components/platform-v7/staff/OwnerCabinetHandoff.tsx');
 const directCss = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css');
@@ -45,6 +46,20 @@ describe('platform-v7 owner access center task UX', () => {
     expect(directCenter).not.toContain("fetch('/platform-v7/staff/open-cabinet'");
     expect(directCenter).not.toContain('Рабочий тикет');
     expect(directCenter).not.toContain('Причина доступа');
+  });
+
+  it('repairs an existing verified owner session before rendering a form without CSRF', () => {
+    expect(page).toContain("cookieStore.get(CSRF_COOKIE)?.value || ''");
+    expect(page).toContain("verification.status === 'verified' && !csrfToken");
+    expect(page).toContain("redirect('/platform-v7/staff/prepare')");
+    expect(prepareRoute).toContain('request.cookies.get(ACCESS_COOKIE)');
+    expect(prepareRoute).toContain("target.pathname = '/platform-v7/login'");
+    expect(prepareRoute).toContain('generateCsrfToken()');
+    expect(prepareRoute).toContain('response.cookies.set(CSRF_COOKIE');
+    expect(prepareRoute).toContain('csrfCookieSecurity()');
+    expect(prepareRoute).toContain("new URL('/platform-v7/staff', request.url)");
+    expect(prepareRoute).toContain('NextResponse.redirect(target, 303)');
+    expect(prepareRoute).toContain("'Cache-Control', 'no-store, no-cache, must-revalidate, private'");
   });
 
   it('uses native POST and performs the client role handoff only after server success', () => {
