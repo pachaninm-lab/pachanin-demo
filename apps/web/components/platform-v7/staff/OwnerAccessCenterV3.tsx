@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ComponentProps } from 'react';
+import { useEffect, useMemo, useState, type ComponentProps, type FormEvent } from 'react';
+import { PLATFORM_V7_ACTIVE_ROLE_KEY } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import type { OwnerAccessCenterCopy } from '@/i18n/owner-access-center-messages';
 import {
   CONTROLLED_CABINET_CONTEXTS,
@@ -12,6 +13,12 @@ import styles from './OwnerAccessCenterV3.module.css';
 type StaffAssignment = { id: string; role: string; status: string };
 type Props = ComponentProps<typeof OwnerAccessCenterV2> & { csrfToken: string };
 type SurfaceRole = ControlledCabinetRole;
+type OpenCabinetResponse = {
+  ok?: boolean;
+  code?: string;
+  message?: string;
+  redirectTo?: string;
+};
 
 const CABINETS: ReadonlyArray<{ role: SurfaceRole; cabinetRole: keyof OwnerAccessCenterCopy['cabinetRoles']; icon: string }> = [
   { role: 'operator', cabinetRole: 'ADMIN', icon: '01' },
@@ -39,6 +46,8 @@ const OWNER_COPY = {
     testNetworkBody: 'Для каждого кабинета назначена связанная тестовая организация. Все компании работают вокруг одной канонической тестовой сделки и помечены как тестовые данные.',
     safety: 'Деньги, банковские подтверждения, подпись, лабораторная финализация и решение арбитра не подменяются владельцем и остаются под отдельными серверными правилами.',
     open: 'Открыть кабинет',
+    opening: 'Открываем кабинет…',
+    openFailed: 'Не удалось открыть кабинет. Повтори попытку.',
     advanced: 'Управление сотрудниками и доступами',
     back: 'Вернуться ко всем кабинетам',
     loading: 'Проверяем полномочия владельца…',
@@ -53,6 +62,8 @@ const OWNER_COPY = {
     testNetworkBody: 'Each cabinet is linked to a controlled test organization. All organizations participate in one canonical test deal and are explicitly marked as test data.',
     safety: 'Money movement, bank confirmations, signatures, laboratory finalization and arbitration decisions remain protected by separate server rules.',
     open: 'Open cabinet',
+    opening: 'Opening cabinet…',
+    openFailed: 'The cabinet could not be opened. Try again.',
     advanced: 'Staff and access management',
     back: 'Back to all cabinets',
     loading: 'Checking owner authority…',
@@ -67,6 +78,8 @@ const OWNER_COPY = {
     testNetworkBody: '每个工作台都绑定到受控测试组织。所有组织围绕同一笔标准测试交易运行，并明确标记为测试数据。',
     safety: '资金操作、银行确认、签署、实验室终审和仲裁决定仍受独立服务器规则保护。',
     open: '打开工作台',
+    opening: '正在打开工作台…',
+    openFailed: '无法打开工作台，请重试。',
     advanced: '员工与访问管理',
     back: '返回全部工作台',
     loading: '正在检查所有者权限…',
@@ -80,6 +93,8 @@ export function OwnerAccessCenter(props: Props) {
   const [checking, setChecking] = useState(apiAvailable);
   const [isOwner, setIsOwner] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  const [busyRole, setBusyRole] = useState<SurfaceRole | null>(null);
+  const [openError, setOpenError] = useState<string | null>(null);
   const controlledOwner = identity?.id === 'owner-controlled-test';
 
   useEffect(() => {
@@ -114,6 +129,61 @@ export function OwnerAccessCenter(props: Props) {
     })),
     [copy],
   );
+
+  async function openCabinet(
+    event: FormEvent<HTMLFormElement>,
+    role: SurfaceRole,
+    organizationId: string,
+  ) {
+    event.preventDefault();
+    if (!csrfToken || busyRole) return;
+
+    setBusyRole(role);
+    setOpenError(null);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
+
+    try {
+      const response = await fetch('/platform-v7/staff/open-cabinet', {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken,
+        },
+        body: JSON.stringify({
+          role,
+          organizationId: controlledOwner ? organizationId : undefined,
+        }),
+        signal: controller.signal,
+      });
+      const payload = await response.json().catch(() => null) as OpenCabinetResponse | null;
+
+      if (!response.ok || payload?.ok !== true) {
+        const detail = payload?.message || text.openFailed;
+        const code = payload?.code ? ` (${payload.code})` : '';
+        throw new Error(`${detail}${code}`);
+      }
+      if (!payload.redirectTo || !payload.redirectTo.startsWith('/platform-v7/')) {
+        throw new Error(text.openFailed);
+      }
+
+      try {
+        window.sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
+      } catch {
+        // The signed, HttpOnly cabinet session remains the authority. Navigation must not stop.
+      }
+      window.location.assign(payload.redirectTo);
+    } catch (error) {
+      const timedOut = error instanceof DOMException && error.name === 'AbortError';
+      setOpenError(timedOut ? text.openFailed : error instanceof Error ? error.message : text.openFailed);
+      setBusyRole(null);
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
 
   if (advanced || (!checking && !isOwner)) {
     return (
@@ -151,6 +221,8 @@ export function OwnerAccessCenter(props: Props) {
         <p>{text.accessBody}</p>
       </section>
 
+      {openError && <section className={styles.error} role="alert" aria-live="assertive">{openError}</section>}
+
       {controlledOwner && (
         <section className={styles.testNetwork} aria-label={text.testNetwork}>
           <span>TEST</span>
@@ -161,7 +233,7 @@ export function OwnerAccessCenter(props: Props) {
         </section>
       )}
 
-      <section className={styles.cabinetGrid} aria-label={text.title}>
+      <section className={styles.cabinetGrid} aria-label={text.title} aria-busy={busyRole !== null}>
         {cabinetLabels.map((item) => (
           <article key={item.role} className={styles.cabinetCard}>
             <span className={styles.number} aria-hidden="true">{item.icon}</span>
@@ -172,13 +244,17 @@ export function OwnerAccessCenter(props: Props) {
                 <strong>{item.organization.organizationName}</strong>
               </p>
             )}
-            <form method="post" action="/platform-v7/staff/open-cabinet/submit">
+            <form
+              method="post"
+              action="/platform-v7/staff/open-cabinet/submit"
+              onSubmit={(event) => openCabinet(event, item.role, item.organization.organizationId)}
+            >
               <input type="hidden" name="_csrf" value={csrfToken} />
               {controlledOwner && (
                 <input type="hidden" name="organizationId" value={item.organization.organizationId} />
               )}
-              <button type="submit" name="role" value={item.role} disabled={!csrfToken}>
-                {text.open}
+              <button type="submit" name="role" value={item.role} disabled={!csrfToken || busyRole !== null}>
+                {busyRole === item.role ? text.opening : text.open}
               </button>
             </form>
           </article>
