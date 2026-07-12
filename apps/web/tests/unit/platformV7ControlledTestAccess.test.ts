@@ -2,10 +2,16 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = readFileSync(
-  resolve(process.cwd(), 'app/api/platform-v7/cabinet-lock-login/route.ts'),
-  'utf8',
-);
+function source(path: string) {
+  return readFileSync(resolve(process.cwd(), path), 'utf8');
+}
+
+const openGate = source('app/api/platform-v7/cabinet-lock-login/route.ts');
+const controlledLogin = source('app/auth/login/route.ts');
+const canonicalLogin = source('app/api/auth/login/route.ts');
+const identity = source('app/auth/me/route.ts');
+const staffFixture = source('app/staff/[...path]/route.ts');
+const sessionResponse = source('lib/server/auth-session-response.ts');
 
 const roles = [
   'operator',
@@ -23,25 +29,41 @@ const roles = [
 ];
 
 describe('Platform V7 controlled test access', () => {
-  it('keeps every role-specific account bound to one server-side role', () => {
+  it('keeps the legacy open gate role accounts bound to one server-side role', () => {
     for (const role of roles) {
-      expect(source).toContain(`'${role}.test': '${role}'`);
+      expect(openGate).toContain(`'${role}.test': '${role}'`);
     }
-    expect(source).toContain("reason: 'role_mismatch'");
-    expect(source).toContain('effectiveRole = fixedRole as string');
+    expect(openGate).toContain("reason: 'role_mismatch'");
+    expect(openGate).toContain('effectiveRole = fixedRole as string');
   });
 
-  it('requires an explicit time-bound test-access switch and server-side secrets', () => {
-    expect(source).toContain("PC_CABINET_TEST_ACCESS");
-    expect(source).toContain("PC_CABINET_TEST_ACCESS_EXPIRES_AT");
-    expect(source).toContain("PC_CABINET_ROLE_PASSWORD");
-    expect(source).toContain("PC_CABINET_SESSION_SECRET");
-    expect(source).toContain("reason: 'cabinet_not_configured'");
+  it('supports the canonical login page with valid email-form test identities', () => {
+    for (const role of roles) {
+      expect(controlledLogin).toContain(`'${role}.test@procent-agro.test'`);
+    }
+    expect(canonicalLogin).toContain("fetch(`${API_URL}/auth/login`");
+    expect(canonicalLogin).toContain("payload.staffOwner ? '/platform-v7/staff' : platformHome(role)");
   });
 
-  it('preserves an owner-only account that can select any test cabinet', () => {
-    expect(source).toContain("accountType: 'owner_test' | 'role_test'");
-    expect(source).toContain("accountType = 'owner_test'");
-    expect(source).toContain('ownerPasswords.some');
+  it('requires explicit expiry and server-side secrets', () => {
+    expect(controlledLogin).toContain('PC_CABINET_TEST_ACCESS');
+    expect(controlledLogin).toContain('PC_CABINET_TEST_ACCESS_EXPIRES_AT');
+    expect(controlledLogin).toContain('PC_CABINET_ROLE_PASSWORD');
+    expect(controlledLogin).toContain('PC_CABINET_SESSION_SECRET');
+    expect(controlledLogin).toContain('timingSafeEqual');
+    expect(sessionResponse).toContain('process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET');
+  });
+
+  it('keeps Staff Control Center restricted to the signed owner account', () => {
+    expect(controlledLogin).toContain('staffOwner: account.owner');
+    expect(identity).toContain('staffOwner: owner');
+    expect(staffFixture).toContain('claims.owner !== true');
+    expect(staffFixture).toContain("return json({ code: 'OWNER_ACCESS_REQUIRED' }, 403)");
+  });
+
+  it('uses stable token expiry when Staff BFF verifies activated sessions', () => {
+    expect(staffFixture).toContain('new Date(claims.exp * 1000).toISOString()');
+    expect(staffFixture).toContain("session('CONTROL_PLANE', claims)");
+    expect(staffFixture).toContain("session('VIEW_AS', claims)");
   });
 });
