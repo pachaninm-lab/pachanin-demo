@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 POLICY_FILE="$ROOT_DIR/infra/sql/production-rls-policies.sql"
+DEAL_AUTHORITY_POLICY_FILE="$ROOT_DIR/infra/sql/postgresql-deal-authority-policies.sql"
 VALIDATOR="$ROOT_DIR/scripts/platform-v7-rls-validate.mjs"
 PROTECTED_TABLES="deals organizations audit_events ledger_entries integration_events outbox_entries deal_workspace_runtime_snapshots deal_workspace_runtime_transaction_attempts"
 
@@ -29,12 +30,14 @@ TABLE_ARRAY="$(printf "'%s'," $PROTECTED_TABLES | sed 's/,$//')"
 {
   echo 'BEGIN;'
   cat "$POLICY_FILE"
+  cat "$DEAL_AUTHORITY_POLICY_FILE"
   cat <<SQL
 DO \$rehearsal\$
 DECLARE
   enabled_count INTEGER;
   forced_count INTEGER;
   policy_count INTEGER;
+  basis_function_count INTEGER;
 BEGIN
   SELECT count(*) INTO enabled_count
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -48,6 +51,13 @@ BEGIN
   FROM pg_policies
   WHERE schemaname = 'public' AND tablename IN ($TABLE_ARRAY);
 
+  SELECT count(*) INTO basis_function_count
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.proname = 'app_deal_basis_participant_allowed'
+    AND p.prosecdef;
+
   IF enabled_count <> 8 THEN
     RAISE EXCEPTION 'RLS rehearsal: expected 8 enabled tables, got %', enabled_count;
   END IF;
@@ -56,6 +66,9 @@ BEGIN
   END IF;
   IF policy_count < 16 THEN
     RAISE EXCEPTION 'RLS rehearsal: expected at least 16 policies, got %', policy_count;
+  END IF;
+  IF basis_function_count <> 1 THEN
+    RAISE EXCEPTION 'RLS rehearsal: deal basis SECURITY DEFINER predicate is missing';
   END IF;
 END
 \$rehearsal\$;
