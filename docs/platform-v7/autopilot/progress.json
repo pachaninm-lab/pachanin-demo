@@ -8,7 +8,7 @@
     "IR-10.1 Documents PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-10.2 Logistics PostgreSQL Authority."
   ],
   "nextStep": "IR-10.1 Documents PostgreSQL Authority",
-  "updatedAt": "2026-07-12T21:13:10.271Z",
+  "updatedAt": "2026-07-12T21:23:53.193Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

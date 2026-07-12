@@ -21,6 +21,7 @@ Review the diff, not the agent report.
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
 - docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md
 - docs/platform-v7/execution-queue.md
 - apps/api/src/common/config/industrial-mode.ts
 - apps/api/src/modules/documents/**
@@ -73,6 +74,7 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
 - docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md
 - docs/platform-v7/execution-queue.md
 - apps/api/src/common/config/industrial-mode.ts
 - apps/api/src/modules/documents/**
