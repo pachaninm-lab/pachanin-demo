@@ -7,7 +7,7 @@ import { StaffPlatformShell } from '@/components/platform-v7/staff/StaffPlatform
 import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 import { staffAccessTaskCatalog } from '@/lib/platform-v7/staff-access-task-catalog';
-import { DEFAULT_LOCALE, isAppLocale, LOCALE_COOKIE, type AppLocale } from '@/i18n/locale';
+import { DEFAULT_LOCALE, isAppLocale, type AppLocale } from '@/i18n/locale';
 import { ownerAccessCenterMessages } from '@/i18n/owner-access-center-messages';
 import { staffOperationalWorkspaceMessages } from '@/i18n/staff-operational-workspace-messages';
 
@@ -105,9 +105,7 @@ async function verifyControlledIdentity(accessToken: string): Promise<Verificati
 
 function resolveLocale(): AppLocale {
   const headerLocale = headers().get('x-pc-locale');
-  if (isAppLocale(headerLocale)) return headerLocale;
-  const cookieLocale = cookies().get(LOCALE_COOKIE)?.value;
-  return isAppLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
+  return isAppLocale(headerLocale) ? headerLocale : DEFAULT_LOCALE;
 }
 
 async function verifyIdentity(accessToken: string): Promise<Verification> {
