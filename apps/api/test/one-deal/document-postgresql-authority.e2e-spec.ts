@@ -172,7 +172,15 @@ describe('Documents PostgreSQL authority under NOBYPASSRLS principal', () => {
     await expect(rls.withTrustedContext(seller, (tx) => tx.dealDocument.update({
       where: { id: created.document.id },
       data: { status: 'SIGNED' },
-    }))).rejects.toThrow(/append-only|23514|confirmed document versions/i);
+    }))).rejects.toThrow(/record.*not found|row-level security|policy/i);
+    await expect(repository.getById(created.document.id, seller)).resolves.toMatchObject({
+      status: 'PENDING_REVIEW',
+      isImmutable: true,
+    });
+    await expect(admin.dealDocument.update({
+      where: { id: created.document.id },
+      data: { status: 'SIGNED' },
+    })).rejects.toThrow(/append-only|23514|confirmed document versions/i);
 
     await app.$disconnect();
     const restarted = new PrismaService();
