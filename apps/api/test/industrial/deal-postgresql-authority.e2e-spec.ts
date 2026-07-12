@@ -287,13 +287,14 @@ describe('PostgreSQL-authoritative DealRepository', () => {
   it('denies non-participant object reads and returns no foreign deals', async () => {
     const dealId = String((await repository.list(seller) as Array<Record<string, unknown>>)[0].id);
     await expect(repository.list(outsider)).resolves.toEqual([]);
-    for (const read of [
-      repository.getById(dealId, outsider),
-      repository.workspace(dealId, outsider),
-      repository.passport(dealId, outsider),
-      repository.timeline(dealId, outsider),
-    ]) {
-      await expect(read).rejects.toMatchObject({
+    const reads = [
+      () => repository.getById(dealId, outsider),
+      () => repository.workspace(dealId, outsider),
+      () => repository.passport(dealId, outsider),
+      () => repository.timeline(dealId, outsider),
+    ];
+    for (const read of reads) {
+      await expect(read()).rejects.toMatchObject({
         status: 403,
         response: expect.objectContaining({ code: 'DEAL_PARTICIPANT_REQUIRED' }),
       });
