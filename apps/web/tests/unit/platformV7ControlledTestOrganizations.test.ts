@@ -14,6 +14,7 @@ const openCabinet = read('apps/web/app/platform-v7/staff/open-cabinet/route.ts')
 const staffFixture = read('apps/web/app/staff/[...path]/route.ts');
 const verifiedSession = read('apps/web/lib/platform-v7/verified-session.ts');
 const handoffPage = read('apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx');
+const canonicalSeed = read('apps/api/src/modules/deals/canonical-test-deal.seed.ts');
 
 const roles = [
   'operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor',
@@ -50,7 +51,7 @@ describe('Platform V7 controlled test organization network', () => {
   it('binds the signed owner cabinet session to a server-approved organization', () => {
     expect(openCabinet).toContain('resolveControlledOrganization');
     expect(openCabinet).toContain("authority.source !== 'controlled'");
-    expect(openCabinet).toContain("submittedOrganizationId !== context.organizationId");
+    expect(openCabinet).toContain('submittedOrganizationId !== context.organizationId');
     expect(openCabinet).toContain('organizationId: organization?.organizationId || null');
     expect(openCabinet).toContain('tenantId: organization?.tenantId || null');
     expect(openCabinet).toContain('ownerAccess: true');
@@ -66,5 +67,14 @@ describe('Platform V7 controlled test organization network', () => {
     expect(staffFixture).toContain('organization_name: item.organizationName');
     expect(staffFixture).toContain("id: 'deal-canonical-test'");
     expect(staffFixture).toContain('testData: true');
+  });
+
+  it('demotes stale default memberships before moving a seeded user to another organization', () => {
+    expect(canonicalSeed).toContain('await tx.userOrg.updateMany({');
+    expect(canonicalSeed).toContain('NOT: { organizationId: identity.orgId }');
+    expect(canonicalSeed).toContain('data: { isDefault: false }');
+    expect(canonicalSeed.indexOf('await tx.userOrg.updateMany({')).toBeLessThan(
+      canonicalSeed.indexOf('const membership = await tx.userOrg.upsert({'),
+    );
   });
 });
