@@ -123,6 +123,32 @@ LOCKED:
 - IR-80 Security and compliance evidence;
 - IR-90 end-to-end acceptance and evidence pack.
 
+NEXT:
+- Layer: IR-10.2 Logistics PostgreSQL Authority
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/autopilot/progress.json
+  - docs/platform-v7/autopilot/prompts/current-codex-task.md
+  - docs/platform-v7/autopilot/prompts/current-review-task.md
+  - docs/platform-v7/execution-queue.md
+  - apps/api/src/common/config/industrial-mode.ts
+  - apps/api/src/modules/logistics/**
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/20260713*_logistics_postgresql_authority/**
+  - apps/api/test/industrial/logistics-postgresql-authority.e2e-spec.ts
+  - apps/api/test/one-deal/logistics-postgresql-authority.e2e-spec.ts
+  - infra/sql/postgresql-logistics-authority-policies.sql
+  - scripts/platform-v7-forward-only-migration-check.mjs
+  - scripts/platform-v7-one-deal-e2e.sh
+  - .github/workflows/ci.yml
+- Success criteria:
+  - production LogisticsModule binds a complete Prisma repository with no RuntimeCore or optional-Prisma path;
+  - tenant, actor, role, Deal, carrier, driver, vehicle, route and admission authority are server-derived under trusted RLS;
+  - shipment commands, audit and outbox commit or roll back atomically;
+  - restart, multi-instance, idempotency, optimistic-concurrency and cross-tenant tests pass;
+  - empty/baseline migrations, drift, RLS and exact-head CI are green.
+- Readiness remains NO-GO.
+
 TRANSITION RULE:
 - one narrow PR at a time in dependency order;
 - no auto-merge;

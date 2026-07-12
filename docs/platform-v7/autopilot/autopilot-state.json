@@ -163,7 +163,8 @@
     "pre-integration",
     "isolated-postgresql-evidence-only",
     "industrial-integration-ready-no-go",
-    "platform-temporarily-without-live-external-integrations"
+    "platform-temporarily-without-live-external-integrations",
+    "platform-temporarily-without-external-integrations"
   ],
   "forbiddenClaims": [
     "Industrial Integration-Ready before IR-90 acceptance",
@@ -177,7 +178,10 @@
   "forbiddenZones": [
     "apps/landing",
     "apps/web",
-    "packages and lockfiles",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "packages",
     "live integration activation",
     "production migration execution",
     "production credentials and secret material"
