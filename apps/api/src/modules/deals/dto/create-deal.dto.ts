@@ -1,5 +1,4 @@
-import { IsObject, IsOptional, IsString, Length } from 'class-validator';
-import type { Prisma } from '@prisma/client';
+import { IsEmpty, IsOptional, IsString, Length } from 'class-validator';
 
 /**
  * Deal creation consumes a server-persisted auction basis. Commercial facts,
@@ -33,7 +32,11 @@ export class CreateDealDto {
   @IsString()
   culture?: string;
 
-  @IsOptional()
-  @IsObject()
-  paymentTerms?: Prisma.InputJsonObject;
+  /**
+   * Legacy field kept only to return a deterministic validation error to old
+   * clients. Payment terms are commercial authority and cannot be supplied by
+   * the caller until they are part of the signed server-side deal basis.
+   */
+  @IsEmpty({ message: 'paymentTerms задаются только подтверждённым основанием сделки.' })
+  paymentTerms?: never;
 }
