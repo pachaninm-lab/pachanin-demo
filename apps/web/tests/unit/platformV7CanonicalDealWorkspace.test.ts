@@ -44,6 +44,10 @@ describe('platform-v7 canonical one-deal workspace', () => {
   it('renders the same workspace at every role root instead of the old dashboard below it', () => {
     expect(dashboard).toContain('<CanonicalDealWorkspace role={role} />');
     expect(dashboard).not.toContain('getRoleIntentConfig');
+    // The dashboard opens the user's own most recent accessible deal and only
+    // falls back to the canonical test deal when the server has none.
+    expect(dashboard).toContain('/api/proxy/deals/accessible');
+    expect(dashboard).toContain('<CanonicalDealWorkspace role={role} dealId={dealId} />');
     expect(shell).toContain("'/platform-v7/surveyor'");
     expect(shell).toContain('? <RoleIntentDashboard role={initialRole} />');
     expect(shell).toContain(': children;');
