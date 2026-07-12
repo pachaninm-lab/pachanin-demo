@@ -49,6 +49,18 @@ export function assertIndustrialProductionStartup(env: ProcessEnv = process.env)
   if (!env.DATABASE_URL?.trim()) {
     throw new IndustrialStartupError('DATABASE_URL is required: PostgreSQL is the only source of truth.');
   }
+  if (!env.STORAGE_DATABASE_URL?.trim()) {
+    throw new IndustrialStartupError(
+      'STORAGE_DATABASE_URL is required for the isolated evidence-finalization principal.',
+    );
+  }
+  const dealPrincipal = databasePrincipal(env.DATABASE_URL);
+  const storagePrincipal = databasePrincipal(env.STORAGE_DATABASE_URL);
+  if (!storagePrincipal || storagePrincipal === dealPrincipal) {
+    throw new IndustrialStartupError(
+      'STORAGE_DATABASE_URL must use a PostgreSQL principal distinct from DATABASE_URL.',
+    );
+  }
   if (env.PLATFORM_V7_DEAL_REPOSITORY !== 'prisma') {
     throw new IndustrialStartupError(
       'PLATFORM_V7_DEAL_REPOSITORY must be "prisma" in production. ' +
@@ -74,3 +86,11 @@ export function assertIndustrialProductionStartup(env: ProcessEnv = process.env)
 
 /** The migration that establishes the industrial transaction core schema. */
 export const INDUSTRIAL_CORE_MIGRATION = '20260712090000_industrial_transaction_core';
+
+function databasePrincipal(value: string | undefined): string {
+  try {
+    return decodeURIComponent(new URL(String(value ?? '')).username).trim();
+  } catch {
+    throw new IndustrialStartupError('PostgreSQL datasource URL is invalid.');
+  }
+}

@@ -24,6 +24,15 @@ const otherTenant: RequestUser = {
   sessionId: 'document-rls-cross-tenant-session',
 };
 
+const sameTenantOutsider: RequestUser = {
+  ...seller,
+  id: 'document-same-tenant-outsider',
+  orgId: 'org-document-same-tenant-outsider',
+  role: Role.BUYER,
+  email: 'document-same-tenant-outsider@industrial.test',
+  sessionId: 'document-same-tenant-outsider-session',
+};
+
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -158,6 +167,7 @@ describe('Documents PostgreSQL authority under NOBYPASSRLS principal', () => {
       duplicate: true,
     });
     await expect(repository.list(otherTenant)).resolves.toEqual([]);
+    await expect(repository.list(sameTenantOutsider)).resolves.toEqual([]);
     await expect(repository.getById(created.document.id, otherTenant)).rejects.toThrow(/not available/i);
 
     const forgedEvidenceError = await captureDatabaseRejection(rls.withTrustedContext(seller, (tx) =>
@@ -179,6 +189,40 @@ describe('Documents PostgreSQL authority under NOBYPASSRLS principal', () => {
         },
       })));
     expect(forgedEvidenceError).toMatch(/UPLOAD_PENDING|23514|row-level security|policy/i);
+
+    const pendingEvidenceId = 'file-forged-pending-transition';
+    await rls.withTrustedContext(seller, (tx) => tx.dealDocument.create({
+      data: {
+        id: pendingEvidenceId,
+        dealId: DEAL_ID,
+        tenantId: TENANT_ID,
+        type: 'EVIDENCE_FILE',
+        status: 'UPLOAD_PENDING',
+        name: 'pending-forgery.pdf',
+        mimeType: 'application/pdf',
+        s3Key: `tenant/${TENANT_ID}/deal/${DEAL_ID}/${pendingEvidenceId}/pending-forgery.pdf`,
+        sizeBytes: 128,
+        uploadedByUserId: seller.id,
+        version: 1,
+        isImmutable: false,
+      },
+    }));
+    const forgedTransitionError = await captureDatabaseRejection(rls.withTrustedContext(seller, (tx) =>
+      tx.dealDocument.update({
+        where: { id: pendingEvidenceId },
+        data: {
+          status: 'VERIFIED',
+          hash: sha256('forged-pending-transition'),
+          sizeBytes: 128,
+          mimeType: 'application/pdf',
+          isImmutable: true,
+          version: { increment: 1 },
+        },
+      })));
+    expect(forgedTransitionError).toMatch(/row-level security|42501|policy|record.*not found/i);
+    await expect(rls.withTrustedContext(seller, (tx) => tx.dealDocument.findUnique({
+      where: { id: pendingEvidenceId },
+    }))).resolves.toMatchObject({ status: 'UPLOAD_PENDING', hash: null, isImmutable: false });
 
     const sourceLessError = await captureDatabaseRejection(rls.withTrustedContext(seller, (tx) =>
       tx.dealDocument.create({

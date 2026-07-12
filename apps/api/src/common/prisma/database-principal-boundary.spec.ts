@@ -3,6 +3,7 @@ import {
   evaluateAuthPrincipalBoundary,
   evaluateDealPrincipalBoundary,
   resolveAuthDatabaseUrl,
+  resolveStorageDatabaseUrl,
   shouldEnforceDatabasePrincipalBoundary,
 } from './database-principal-boundary';
 
@@ -122,8 +123,30 @@ describe('database principal boundaries', () => {
     })).toBe('postgresql://auth@db/platform');
   });
 
+  it('requires a distinct storage-finalization principal in production', () => {
+    expect(() => resolveStorageDatabaseUrl({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://deal@db/platform',
+      AUTH_DATABASE_URL: 'postgresql://auth@db/platform',
+    })).toThrow(/STORAGE_DATABASE_URL is required/);
+    expect(() => resolveStorageDatabaseUrl({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://deal@db/platform',
+      AUTH_DATABASE_URL: 'postgresql://auth@db/platform',
+      STORAGE_DATABASE_URL: 'postgresql://deal:different-password@db/platform',
+    })).toThrow(/different PostgreSQL principal than DATABASE_URL/);
+    expect(resolveStorageDatabaseUrl({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://deal@db/platform',
+      AUTH_DATABASE_URL: 'postgresql://auth@db/platform',
+      STORAGE_DATABASE_URL: 'postgresql://app_storage@db/platform',
+    })).toBe('postgresql://app_storage@db/platform');
+  });
+
   it('allows non-production fallback but enforces boundaries when explicitly requested', () => {
     expect(resolveAuthDatabaseUrl({ NODE_ENV: 'test', DATABASE_URL: 'postgresql://dev@db/platform' }))
+      .toBe('postgresql://dev@db/platform');
+    expect(resolveStorageDatabaseUrl({ NODE_ENV: 'test', DATABASE_URL: 'postgresql://dev@db/platform' }))
       .toBe('postgresql://dev@db/platform');
     expect(shouldEnforceDatabasePrincipalBoundary({ NODE_ENV: 'test' })).toBe(false);
     expect(shouldEnforceDatabasePrincipalBoundary({

@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ADMIN_URL="${ONE_DEAL_ADMIN_URL:?ONE_DEAL_ADMIN_URL is required}"
 AUTH_URL="${ONE_DEAL_AUTH_URL:?ONE_DEAL_AUTH_URL is required}"
 APP_URL="${ONE_DEAL_APP_URL:?ONE_DEAL_APP_URL is required}"
+STORAGE_URL="${ONE_DEAL_STORAGE_URL:?ONE_DEAL_STORAGE_URL is required}"
 EVIDENCE_LOG="${ONE_DEAL_EVIDENCE_LOG:-/tmp/platform-v7-one-deal-e2e.log}"
 DRIFT_SQL="${ONE_DEAL_DRIFT_SQL:-/tmp/platform-v7-one-deal-schema-drift.sql}"
 
@@ -16,14 +17,15 @@ if [[ -n "${DATABASE_URL:-}" && "$ADMIN_URL" == "$DATABASE_URL" ]]; then
   echo "Refusing one-deal E2E: admin URL equals ambient DATABASE_URL" >&2
   exit 2
 fi
-for candidate in "$ADMIN_URL" "$AUTH_URL" "$APP_URL"; do
+for candidate in "$ADMIN_URL" "$AUTH_URL" "$APP_URL" "$STORAGE_URL"; do
   if [[ "$candidate" =~ (^|[^a-z])(prod|production)([^a-z]|$) ]]; then
     echo "Refusing one-deal E2E: datasource appears production-like" >&2
     exit 2
   fi
 done
-if [[ "$ADMIN_URL" == "$AUTH_URL" || "$ADMIN_URL" == "$APP_URL" || "$AUTH_URL" == "$APP_URL" ]]; then
-  echo "Refusing one-deal E2E: admin, auth and application URLs must differ" >&2
+if [[ "$ADMIN_URL" == "$AUTH_URL" || "$ADMIN_URL" == "$APP_URL" || "$ADMIN_URL" == "$STORAGE_URL" \
+  || "$AUTH_URL" == "$APP_URL" || "$AUTH_URL" == "$STORAGE_URL" || "$APP_URL" == "$STORAGE_URL" ]]; then
+  echo "Refusing one-deal E2E: admin, auth, application and storage URLs must differ" >&2
   exit 2
 fi
 
@@ -110,6 +112,24 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO on
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO one_deal_app;
 SQL
 
+echo "[one-deal] creating isolated evidence-finalization principal"
+psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
+DO $one_deal_storage_role$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'one_deal_storage') THEN
+    DROP OWNED BY one_deal_storage;
+    DROP ROLE one_deal_storage;
+  END IF;
+  CREATE ROLE one_deal_storage LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ephemeral_one_deal_storage_only';
+END
+$one_deal_storage_role$;
+GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_storage;
+GRANT USAGE ON SCHEMA public TO one_deal_storage;
+GRANT SELECT ON public.deals, public.deal_participants TO one_deal_storage;
+GRANT SELECT, UPDATE ON public.deal_documents TO one_deal_storage;
+REVOKE INSERT, DELETE ON public.deal_documents FROM one_deal_storage;
+SQL
+
 echo "[one-deal] creating isolated trusted identity principal"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
 DO $one_deal_auth_role$
@@ -157,6 +177,12 @@ AUTH_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rol
 echo "[one-deal] auth principal proof super:bypass:deal-select = $AUTH_ROLE_PROOF"
 if [[ "$AUTH_ROLE_PROOF" != "false:true:false" && "$AUTH_ROLE_PROOF" != "f:t:f" ]]; then
   echo "Auth principal privilege boundary is invalid: $AUTH_ROLE_PROOF" >&2
+  exit 1
+fi
+STORAGE_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','SELECT')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','UPDATE')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','INSERT')::text || ':' || has_table_privilege('one_deal_storage','public.deal_documents','DELETE')::text FROM pg_roles WHERE rolname='one_deal_storage'")"
+echo "[one-deal] storage principal proof super:bypass:select:update:insert:delete = $STORAGE_ROLE_PROOF"
+if [[ "$STORAGE_ROLE_PROOF" != "false:false:true:true:false:false" && "$STORAGE_ROLE_PROOF" != "f:f:t:t:f:f" ]]; then
+  echo "Storage principal privilege boundary is invalid: $STORAGE_ROLE_PROOF" >&2
   exit 1
 fi
 
@@ -208,6 +234,7 @@ echo "[one-deal] proving strict Nest runtime datasource boundaries"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
 AUTH_DATABASE_URL="$AUTH_URL" \
+STORAGE_DATABASE_URL="$STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 pnpm --filter @pc/api exec ts-node test/one-deal/runtime-principal-startup-proof.ts
 
@@ -215,6 +242,7 @@ echo "[one-deal] running persistent-auth-backed exploitation suite"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
 AUTH_DATABASE_URL="$AUTH_URL" \
+STORAGE_DATABASE_URL="$STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 JWT_SECRET="$JWT_SECRET" \
 AUTH_TOKEN_PEPPER="$AUTH_TOKEN_PEPPER" \
@@ -226,6 +254,7 @@ echo "[one-deal] running staff-access PostgreSQL exploitation suite"
 NODE_ENV=test \
 DATABASE_URL="$APP_URL" \
 AUTH_DATABASE_URL="$AUTH_URL" \
+STORAGE_DATABASE_URL="$STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 JWT_SECRET="$JWT_SECRET" \
 AUTH_TOKEN_PEPPER="$AUTH_TOKEN_PEPPER" \

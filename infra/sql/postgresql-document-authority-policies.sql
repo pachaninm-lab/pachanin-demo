@@ -3,6 +3,31 @@
 -- 20260713090000_documents_postgresql_authority for drift-controlled rollout.
 -- Apply only after the matching forward migration added the referenced columns.
 
+CREATE OR REPLACE FUNCTION public.app_document_deal_authorized(p_deal_id TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $function$
+  SELECT
+    public.app_rls_context_ready()
+    AND (
+      public.app_rls_privileged()
+      OR EXISTS (
+        SELECT 1
+        FROM public."deal_participants" participant
+        WHERE participant."dealId" = p_deal_id
+          AND participant."tenantId" = current_setting('app.current_tenant_id', true)
+          AND participant."organizationId" = current_setting('app.current_org_id', true)
+          AND participant."userId" = current_setting('app.current_user_id', true)
+          AND participant."role" = current_setting('app.current_role', true)
+          AND participant."status" = 'ACTIVE'
+          AND participant."accessLevel" IN ('READ', 'WORK', 'APPROVE')
+      )
+    )
+$function$;
+
 CREATE OR REPLACE FUNCTION public.app_document_validate_authority()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -214,14 +239,14 @@ CREATE POLICY deal_documents_select ON public."deal_documents"
 FOR SELECT USING (
   public.app_rls_context_ready()
   AND "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_rls_deal_visible("dealId")
+  AND public.app_document_deal_authorized("dealId")
 );
 
 CREATE POLICY deal_documents_insert ON public."deal_documents"
 FOR INSERT WITH CHECK (
   public.app_rls_context_ready()
   AND "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_rls_deal_visible("dealId")
+  AND public.app_document_deal_authorized("dealId")
   AND (
     (
       "type" = 'EVIDENCE_FILE'
@@ -271,12 +296,21 @@ CREATE POLICY deal_documents_update ON public."deal_documents"
 FOR UPDATE USING (
   public.app_rls_context_ready()
   AND "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_rls_deal_visible("dealId")
+  AND public.app_document_deal_authorized("dealId")
   AND (
     (
       "type" = 'EVIDENCE_FILE'
       AND NOT "isImmutable"
-      AND "status" IN ('UPLOAD_PENDING', 'UPLOAD_EXPIRED', 'DELETE_PENDING', 'DELETE_FAILED')
+      AND (
+        (
+          current_user IN ('app_storage', 'one_deal_storage')
+          AND "status" = 'UPLOAD_PENDING'
+        )
+        OR (
+          current_user NOT IN ('app_storage', 'one_deal_storage')
+          AND "status" IN ('UPLOAD_PENDING', 'UPLOAD_EXPIRED', 'DELETE_PENDING', 'DELETE_FAILED')
+        )
+      )
       AND (
         "uploadedByUserId" = current_setting('app.current_user_id', true)
         OR public.app_rls_privileged()
@@ -295,16 +329,21 @@ FOR UPDATE USING (
 WITH CHECK (
   public.app_rls_context_ready()
   AND "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_rls_deal_visible("dealId")
+  AND public.app_document_deal_authorized("dealId")
   AND (
     (
       "type" = 'EVIDENCE_FILE'
       AND (
-        "status" IN (
-          'UPLOAD_PENDING', 'VERIFIED', 'UPLOAD_EXPIRED',
-          'DELETE_PENDING', 'DELETE_FAILED', 'DELETED'
+        (
+          current_user IN ('app_storage', 'one_deal_storage')
+          AND ("status" = 'VERIFIED' OR left("status", 12) = 'QUARANTINED_')
         )
-        OR left("status", 12) = 'QUARANTINED_'
+        OR (
+          current_user NOT IN ('app_storage', 'one_deal_storage')
+          AND "status" IN (
+            'UPLOAD_PENDING', 'UPLOAD_EXPIRED', 'DELETE_PENDING', 'DELETE_FAILED', 'DELETED'
+          )
+        )
       )
       AND (
         "uploadedByUserId" = current_setting('app.current_user_id', true)
@@ -322,3 +361,17 @@ WITH CHECK (
 );
 
 -- No DELETE policy. Immutable versions are corrected by append-only creation.
+
+DO $storage_roles$
+DECLARE
+  role_name TEXT;
+BEGIN
+  FOREACH role_name IN ARRAY ARRAY['app_storage', 'one_deal_storage']
+  LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
+      EXECUTE format('GRANT SELECT, UPDATE ON TABLE public."deal_documents" TO %I', role_name);
+      EXECUTE format('REVOKE INSERT, DELETE ON TABLE public."deal_documents" FROM %I', role_name);
+    END IF;
+  END LOOP;
+END
+$storage_roles$;

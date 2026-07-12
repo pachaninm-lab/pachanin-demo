@@ -3,7 +3,9 @@ import {
   OBJECT_STORAGE_ADAPTER,
   createObjectStorageAdapterFromEnv,
 } from './object-storage.adapter';
+import { StoragePrismaService } from '../../common/prisma/storage-prisma.service';
 import { StorageController } from './storage.controller';
+import { StorageFinalizationRepository } from './storage-finalization.repository';
 import { StorageService } from './storage.service';
 
 const objectStorageAdapterProvider: Provider = {
@@ -13,7 +15,12 @@ const objectStorageAdapterProvider: Provider = {
 
 @Module({
   controllers: [StorageController],
-  providers: [objectStorageAdapterProvider, StorageService],
+  providers: [
+    objectStorageAdapterProvider,
+    StoragePrismaService,
+    StorageFinalizationRepository,
+    StorageService,
+  ],
   exports: [StorageService, OBJECT_STORAGE_ADAPTER],
 })
 export class StorageModule {}

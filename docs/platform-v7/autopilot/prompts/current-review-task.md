@@ -24,15 +24,24 @@ Review the diff, not the agent report.
 - docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md
 - docs/platform-v7/execution-queue.md
 - apps/api/src/common/config/industrial-mode.ts
+- apps/api/src/common/prisma/database-principal-boundary.ts
+- apps/api/src/common/prisma/database-principal-boundary.spec.ts
+- apps/api/src/common/prisma/storage-prisma.service.ts
 - apps/api/src/modules/documents/**
+- apps/api/src/modules/storage/storage-finalization.repository.ts
+- apps/api/src/modules/storage/storage.module.ts
+- apps/api/src/modules/storage/storage.service.ts
 - apps/api/prisma/schema.prisma
 - apps/api/prisma/migrations/20260713*_documents_postgresql_authority/**
 - apps/api/test/industrial/document-postgresql-authority.e2e-spec.ts
 - apps/api/test/industrial/deal-command-no-fake-live.e2e-spec.ts
 - apps/api/test/one-deal/document-postgresql-authority.e2e-spec.ts
+- apps/api/test/one-deal/durable-storage.e2e-spec.ts
+- apps/api/test/one-deal/runtime-principal-startup-proof.ts
 - infra/sql/postgresql-document-authority-policies.sql
 - scripts/platform-v7-forward-only-migration-check.mjs
 - scripts/platform-v7-one-deal-e2e.sh
+- scripts/platform-v7-database-dr-rehearsal.sh
 - .github/workflows/ci.yml
 
 ## Transition guard
@@ -78,15 +87,24 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md
 - docs/platform-v7/execution-queue.md
 - apps/api/src/common/config/industrial-mode.ts
+- apps/api/src/common/prisma/database-principal-boundary.ts
+- apps/api/src/common/prisma/database-principal-boundary.spec.ts
+- apps/api/src/common/prisma/storage-prisma.service.ts
 - apps/api/src/modules/documents/**
+- apps/api/src/modules/storage/storage-finalization.repository.ts
+- apps/api/src/modules/storage/storage.module.ts
+- apps/api/src/modules/storage/storage.service.ts
 - apps/api/prisma/schema.prisma
 - apps/api/prisma/migrations/20260713*_documents_postgresql_authority/**
 - apps/api/test/industrial/document-postgresql-authority.e2e-spec.ts
 - apps/api/test/industrial/deal-command-no-fake-live.e2e-spec.ts
 - apps/api/test/one-deal/document-postgresql-authority.e2e-spec.ts
+- apps/api/test/one-deal/durable-storage.e2e-spec.ts
+- apps/api/test/one-deal/runtime-principal-startup-proof.ts
 - infra/sql/postgresql-document-authority-policies.sql
 - scripts/platform-v7-forward-only-migration-check.mjs
 - scripts/platform-v7-one-deal-e2e.sh
+- scripts/platform-v7-database-dr-rehearsal.sh
 - .github/workflows/ci.yml
 
 CURRENT CRITERIA:

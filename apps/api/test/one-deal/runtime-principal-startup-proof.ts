@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
+import { StoragePrismaService } from '../../src/common/prisma/storage-prisma.service';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
 
 async function main(): Promise<void> {
@@ -9,18 +10,27 @@ async function main(): Promise<void> {
 
   const dealPrisma = new PrismaService();
   const authPrisma = new AuthPrismaService();
-  await Promise.all([dealPrisma.onModuleInit(), authPrisma.onModuleInit()]);
+  const storagePrisma = new StoragePrismaService();
+  await Promise.all([
+    dealPrisma.onModuleInit(),
+    authPrisma.onModuleInit(),
+    storagePrisma.onModuleInit(),
+  ]);
 
   try {
-    const [dealIdentity, authIdentity] = await Promise.all([
+    const [dealIdentity, authIdentity, storageIdentity] = await Promise.all([
       dealPrisma.$queryRaw<Array<{ current_user: string }>>(Prisma.sql`SELECT current_user`),
       authPrisma.$queryRaw<Array<{ current_user: string }>>(Prisma.sql`SELECT current_user`),
+      storagePrisma.$queryRaw<Array<{ current_user: string }>>(Prisma.sql`SELECT current_user`),
     ]);
     if (dealIdentity[0]?.current_user !== 'one_deal_app') {
       throw new Error(`Deal runtime connected as ${dealIdentity[0]?.current_user ?? 'unknown'}`);
     }
     if (authIdentity[0]?.current_user !== 'one_deal_auth') {
       throw new Error(`Auth runtime connected as ${authIdentity[0]?.current_user ?? 'unknown'}`);
+    }
+    if (storageIdentity[0]?.current_user !== 'one_deal_storage') {
+      throw new Error(`Storage runtime connected as ${storageIdentity[0]?.current_user ?? 'unknown'}`);
     }
 
     let authDealDenied = false;
@@ -58,11 +68,16 @@ async function main(): Promise<void> {
       runtimePrincipalBoundary: 'passed',
       dealPrincipal: dealIdentity[0].current_user,
       authPrincipal: authIdentity[0].current_user,
+      storagePrincipal: storageIdentity[0].current_user,
       authDealDenied,
       crossTenantCount,
     })}\n`);
   } finally {
-    await Promise.all([dealPrisma.onModuleDestroy(), authPrisma.onModuleDestroy()]);
+    await Promise.all([
+      dealPrisma.onModuleDestroy(),
+      authPrisma.onModuleDestroy(),
+      storagePrisma.onModuleDestroy(),
+    ]);
   }
 }
 

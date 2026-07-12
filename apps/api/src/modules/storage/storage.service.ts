@@ -17,6 +17,7 @@ import {
   PresignedObjectUrl,
   normalizeMimeType,
 } from './object-storage.adapter';
+import { StorageFinalizationRepository } from './storage-finalization.repository';
 
 const STORAGE_DOCUMENT_TYPE = 'EVIDENCE_FILE';
 const STATUS_PENDING = 'UPLOAD_PENDING';
@@ -92,6 +93,7 @@ export class StorageService {
   constructor(
     private readonly rls: RlsTransactionService,
     @Inject(OBJECT_STORAGE_ADAPTER) private readonly adapter: ObjectStorageAdapter,
+    private readonly finalization: StorageFinalizationRepository,
   ) {}
 
   async requestUpload(
@@ -180,37 +182,14 @@ export class StorageService {
 
     const quarantine = this.quarantineReason(record, inspection, normalizedHash);
     if (quarantine) {
-      await this.quarantine(record, quarantine, inspection, user);
+      await this.finalization.quarantine(record, quarantine, inspection, user);
       throw new BadRequestException({
         code: quarantine,
         message: 'Uploaded object failed integrity validation and was quarantined.',
       });
     }
 
-    const updated = await this.rls.withTrustedContext(user, async (tx) => {
-      const result = await tx.dealDocument.updateMany({
-        where: {
-          id: record.id,
-          type: STORAGE_DOCUMENT_TYPE,
-          status: STATUS_PENDING,
-          version: record.version,
-        },
-        data: {
-          status: STATUS_VERIFIED,
-          hash: inspection.sha256,
-          sizeBytes: inspection.sizeBytes,
-          mimeType: normalizeMimeType(inspection.contentType),
-          isImmutable: true,
-          version: { increment: 1 },
-        },
-      });
-      if (result.count !== 1) {
-        throw new ConflictException('Upload confirmation lost an optimistic concurrency race.');
-      }
-      return tx.dealDocument.findUnique({ where: { id: record.id } });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-
-    if (!updated) throw new ConflictException('Verified upload record disappeared.');
+    const updated = await this.finalization.markVerified(record, inspection, user);
     return toStoredFileRecord(updated);
   }
 
@@ -372,30 +351,6 @@ export class StorageService {
     if (normalizeMimeType(record.mimeType ?? '') !== normalizeMimeType(inspection.contentType)) return 'MIME_MISMATCH';
     if (!timingSafeStringEqual(claimedHash, inspection.sha256)) return 'CLIENT_HASH_MISMATCH';
     return null;
-  }
-
-  private async quarantine(
-    record: { id: string; version: number; status: string },
-    reason: string,
-    inspection: ObjectInspection,
-    user: RequestUser,
-  ): Promise<void> {
-    await this.rls.withTrustedContext(user, async (tx) => {
-      const result = await tx.dealDocument.updateMany({
-        where: { id: record.id, status: record.status, version: record.version },
-        data: {
-          status: `${QUARANTINED_PREFIX}${reason}`,
-          hash: inspection.sha256,
-          sizeBytes: inspection.sizeBytes,
-          mimeType: normalizeMimeType(inspection.contentType),
-          isImmutable: true,
-          version: { increment: 1 },
-        },
-      });
-      if (result.count !== 1) {
-        throw new ConflictException('Quarantine transition lost an optimistic concurrency race.');
-      }
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   private async transitionStatus(

@@ -70,7 +70,8 @@ describe('Documents repository composition', () => {
 describe('production startup document authority gate', () => {
   const base = {
     NODE_ENV: 'production',
-    DATABASE_URL: 'postgresql://production.invalid/db',
+    DATABASE_URL: 'postgresql://deal@production.invalid/db',
+    STORAGE_DATABASE_URL: 'postgresql://app_storage@production.invalid/db',
     PLATFORM_V7_DEAL_REPOSITORY: 'prisma',
     PLATFORM_V7_DOCUMENT_REPOSITORY: 'prisma',
   };
