@@ -1,0 +1,289 @@
+/* Focused sign-in surface: mobile-first, accessible and intentionally free of marketing noise. */
+.pc-auth-world-class {
+  --auth-header-height: 60px;
+  background: #f6f8f6;
+}
+
+.pc-auth-world-class .pc-site-header {
+  height: var(--auth-header-height);
+  padding-inline: clamp(14px, 3vw, 28px);
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.98);
+  border-bottom-color: rgba(7, 22, 17, 0.1);
+  box-shadow: 0 1px 0 rgba(7, 22, 17, 0.04);
+}
+
+.pc-auth-world-class .pc-site-header::after {
+  display: none;
+}
+
+.pc-auth-world-class .pc-site-brand {
+  gap: 10px;
+}
+
+.pc-auth-world-class .pc-site-brand-mark {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+  border-radius: 10px;
+}
+
+.pc-auth-world-class .pc-site-brand-text strong {
+  font-size: 17px;
+  font-weight: 820;
+  letter-spacing: -0.025em;
+}
+
+.pc-auth-world-class .pc-site-action,
+.pc-auth-world-class .pc-site-locale-switch {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 12px;
+  background: #ffffff;
+  border-color: rgba(7, 22, 17, 0.13);
+}
+
+.pc-auth-world-class .pc-site-locale-switch {
+  color: #075f31;
+  background: rgba(8, 122, 59, 0.06);
+  border-color: rgba(8, 122, 59, 0.18);
+}
+
+.pc-auth-world-class .pc-site-locale-switch span {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pc-auth-world-class .pc-auth-shell {
+  width: min(100%, 460px);
+  min-height: calc(100dvh - var(--auth-header-height));
+  justify-content: center;
+  gap: 22px;
+  padding: 34px 20px calc(36px + env(safe-area-inset-bottom));
+}
+
+.pc-auth-world-class .pc-auth-heading {
+  gap: 10px;
+}
+
+.pc-auth-world-class .pc-auth-eyebrow,
+.pc-auth-world-class .pc-auth-assurance {
+  display: none;
+}
+
+.pc-auth-world-class .pc-auth-heading h1 {
+  max-width: 440px;
+  font-size: clamp(36px, 6vw, 44px);
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+
+.pc-auth-world-class .pc-auth-heading p {
+  max-width: 420px;
+  color: #526159;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.pc-auth-world-class .pc-auth-card {
+  width: 100%;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid rgba(7, 22, 17, 0.11);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(7, 22, 17, 0.07);
+}
+
+.pc-auth-world-class .pc-auth-label {
+  gap: 7px;
+}
+
+.pc-auth-world-class .pc-auth-label > span:first-child {
+  color: #20342a;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 720;
+  letter-spacing: 0;
+}
+
+.pc-auth-world-class .pc-auth-field {
+  height: 56px;
+  padding-inline: 14px;
+  border: 1px solid #cbd4cf;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.pc-auth-world-class .pc-auth-field:hover {
+  border-color: #9eada5;
+}
+
+.pc-auth-world-class .pc-auth-field:focus-within {
+  border-color: #087a3b;
+  box-shadow: 0 0 0 3px rgba(8, 122, 59, 0.16);
+}
+
+.pc-auth-world-class .pc-auth-field:has(input[aria-invalid='true']) {
+  border-color: #b42318;
+}
+
+.pc-auth-world-class .pc-auth-field:has(input[aria-invalid='true']):focus-within {
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.14);
+}
+
+.pc-auth-world-class .pc-auth-field input {
+  min-width: 0;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+/* The wrapper owns the visible focus ring; suppress the nested duplicate outline. */
+.pc-auth-world-class .pc-auth-field input:focus-visible {
+  outline: none;
+}
+
+.pc-auth-world-class .pc-auth-password-toggle {
+  width: 44px;
+  height: 44px;
+  flex-basis: 44px;
+  border-radius: 10px;
+}
+
+.pc-auth-world-class .pc-auth-links {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pc-auth-world-class .pc-auth-links a {
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 720;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.pc-auth-world-class .pc-auth-submit,
+.pc-auth-world-class .pc-auth-secondary {
+  min-height: 54px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.pc-auth-world-class .pc-auth-submit {
+  background: #087a3b;
+  box-shadow: none;
+}
+
+.pc-auth-world-class .pc-auth-submit:hover:not(:disabled) {
+  background: #066b34;
+}
+
+.pc-auth-world-class .pc-auth-note {
+  display: none;
+}
+
+.pc-auth-world-class .pc-auth-error {
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+@media (max-width: 520px) {
+  .pc-auth-world-class {
+    --auth-header-height: 56px;
+  }
+
+  .pc-auth-world-class .pc-site-header {
+    padding-inline: 12px;
+    gap: 8px;
+  }
+
+  .pc-auth-world-class .pc-site-brand {
+    gap: 8px;
+  }
+
+  .pc-auth-world-class .pc-site-brand-mark {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+
+  .pc-auth-world-class .pc-site-brand-text strong {
+    font-size: 16px;
+  }
+
+  .pc-auth-world-class .pc-site-locale-switch svg {
+    display: none;
+  }
+
+  .pc-auth-world-class .pc-auth-shell {
+    min-height: calc(100dvh - var(--auth-header-height));
+    justify-content: flex-start;
+    gap: 20px;
+    padding: 28px 16px calc(28px + env(safe-area-inset-bottom));
+  }
+
+  .pc-auth-world-class .pc-auth-heading h1 {
+    font-size: 36px;
+  }
+
+  .pc-auth-world-class .pc-auth-heading p {
+    font-size: 15px;
+  }
+
+  .pc-auth-world-class .pc-auth-card {
+    gap: 15px;
+    padding: 22px 18px;
+    border-radius: 16px;
+    box-shadow: 0 8px 22px rgba(7, 22, 17, 0.06);
+  }
+}
+
+@media (max-width: 374px) {
+  .pc-auth-world-class .pc-site-brand-text strong {
+    font-size: 15px;
+  }
+
+  .pc-auth-world-class .pc-auth-links {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
+  }
+}
+
+@media (max-height: 700px) and (max-width: 520px) {
+  .pc-auth-world-class .pc-auth-shell {
+    gap: 16px;
+    padding-top: 20px;
+  }
+
+  .pc-auth-world-class .pc-auth-heading {
+    gap: 6px;
+  }
+
+  .pc-auth-world-class .pc-auth-heading h1 {
+    font-size: 32px;
+  }
+
+  .pc-auth-world-class .pc-auth-card {
+    padding-block: 18px;
+  }
+}
+
+@media (forced-colors: active) {
+  .pc-auth-world-class .pc-auth-field:focus-within {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+}
