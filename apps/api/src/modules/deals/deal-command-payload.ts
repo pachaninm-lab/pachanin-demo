@@ -1,6 +1,7 @@
 import { UnprocessableEntityException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
-export type JsonRecord = Record<string, unknown>;
+export type JsonRecord = Prisma.InputJsonObject;
 
 export type LogisticsBasis = {
   carriers: Array<{ id: string; status: string; tenantId: string }>;
@@ -28,13 +29,15 @@ export function record(value: unknown, field = 'payload'): JsonRecord {
 }
 
 export function requiredString(payload: JsonRecord, field: string, min = 1): string {
-  const value = typeof payload[field] === 'string' ? payload[field].trim() : '';
+  const candidate = payload[field];
+  const value = typeof candidate === 'string' ? candidate.trim() : '';
   if (value.length < min) invalid(field, `Заполни поле «${field}».`);
   return value;
 }
 
 export function optionalString(payload: JsonRecord, field: string): string | undefined {
-  const value = typeof payload[field] === 'string' ? payload[field].trim() : '';
+  const candidate = payload[field];
+  const value = typeof candidate === 'string' ? candidate.trim() : '';
   return value || undefined;
 }
 
@@ -67,13 +70,14 @@ export function microToDecimal(value: bigint): string {
 }
 
 export function optionalCoordinate(payload: JsonRecord, field: string, min: number, max: number): number | undefined {
-  if (payload[field] === undefined || payload[field] === null || payload[field] === '') return undefined;
-  const value = typeof payload[field] === 'number' ? payload[field] : Number(payload[field]);
+  const candidate = payload[field];
+  if (candidate === undefined || candidate === null || candidate === '') return undefined;
+  const value = typeof candidate === 'number' ? candidate : Number(candidate);
   if (!Number.isFinite(value) || value < min || value > max) invalid(field, `Значение ${field} вне допустимого диапазона.`);
   return value;
 }
 
-export function requiredArray(payload: JsonRecord, field: string): unknown[] {
+export function requiredArray(payload: JsonRecord, field: string): Prisma.InputJsonValue[] {
   const value = payload[field];
   if (!Array.isArray(value) || value.length === 0) invalid(field, `Добавь хотя бы одну запись в «${field}».`);
   return value;
@@ -82,26 +86,26 @@ export function requiredArray(payload: JsonRecord, field: string): unknown[] {
 export function parseLogisticsBasis(value: unknown): LogisticsBasis {
   const root = record(value, 'deal.sagaState');
   const basis = record(root.logisticsBasis, 'deal.sagaState.logisticsBasis');
-  const list = (field: keyof LogisticsBasis): any[] => {
-    const value = basis[field];
-    if (!Array.isArray(value)) invalid(`deal.sagaState.logisticsBasis.${field}`, 'В сделке отсутствует подтверждённый справочник логистики.');
-    return value;
+  const list = (field: keyof LogisticsBasis): Prisma.InputJsonValue[] => {
+    const items = basis[field];
+    if (!Array.isArray(items)) invalid(`deal.sagaState.logisticsBasis.${field}`, 'В сделке отсутствует подтверждённый справочник логистики.');
+    return items;
   };
   return {
-    carriers: list('carriers') as LogisticsBasis['carriers'],
-    drivers: list('drivers') as LogisticsBasis['drivers'],
-    vehicles: list('vehicles') as LogisticsBasis['vehicles'],
-    facilities: list('facilities') as LogisticsBasis['facilities'],
+    carriers: list('carriers') as unknown as LogisticsBasis['carriers'],
+    drivers: list('drivers') as unknown as LogisticsBasis['drivers'],
+    vehicles: list('vehicles') as unknown as LogisticsBasis['vehicles'],
+    facilities: list('facilities') as unknown as LogisticsBasis['facilities'],
   };
 }
 
 export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value && typeof value === 'object') {
-    return `{${Object.entries(value as JsonRecord)
+    return `{${Object.entries(value as Record<string, unknown>)
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`)
       .join(',')}}`;
   }
-  return JSON.stringify(value);
+  return JSON.stringify(value) ?? 'null';
 }
