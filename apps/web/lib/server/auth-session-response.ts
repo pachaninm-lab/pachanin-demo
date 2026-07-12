@@ -79,7 +79,7 @@ export async function applyAuthenticatedSession(
   const role = normalizeSurfaceRole(payload.user.role, payload.user.surfaceRole);
   const expiresIn = Math.max(60, Math.min(Number(payload.expiresIn || 900), 24 * 60 * 60));
   const exp = Math.floor(Date.now() / 1000) + expiresIn;
-  const secret = String(process.env.JWT_SECRET || '').trim();
+  const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
   const cabinetToken = await signCabinetSession(role, secret, {
     nowSeconds: Math.floor(Date.now() / 1000),
     ttlSeconds: expiresIn,

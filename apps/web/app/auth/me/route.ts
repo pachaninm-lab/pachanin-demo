@@ -12,7 +12,7 @@ function testFixtureEnabled(): boolean {
   if (readEnv('PC_STAFF_TEST_FIXTURE').toLowerCase() !== 'true') return false;
   if (readEnv('PC_CABINET_TEST_ACCESS').toLowerCase() !== 'true') return false;
   const expiresAt = readEnv('PC_CABINET_TEST_ACCESS_EXPIRES_AT');
-  if (!expiresAt) return true;
+  if (!expiresAt) return false;
   const expiry = Date.parse(expiresAt);
   return Number.isFinite(expiry) && expiry > Date.now();
 }
@@ -42,16 +42,24 @@ export async function GET(request: NextRequest) {
   const claims = secret ? await verifyHs256Jwt(token, secret) : null;
   const expiresAt = typeof claims?.exp === 'number' ? claims.exp : 0;
 
-  if (!claims || expiresAt <= Math.floor(Date.now() / 1000) || typeof claims.cab !== 'string') {
+  if (
+    !claims
+    || claims.testAccess !== true
+    || expiresAt <= Math.floor(Date.now() / 1000)
+    || typeof claims.email !== 'string'
+    || typeof claims.role !== 'string'
+  ) {
     return json({ code: 'UNAUTHENTICATED' }, 401);
   }
 
+  const owner = claims.owner === true;
   return json({
-    id: 'owner-controlled-test',
-    email: 'maxim.owner@test.local',
-    fullName: 'Максим — владелец платформы',
-    role: 'ADMIN',
-    organizationId: 'org-canonical-platform',
-    tenantId: 'tenant-canonical-test',
+    id: typeof claims.sub === 'string' ? claims.sub : owner ? 'owner-controlled-test' : `test:${String(claims.surfaceRole || 'user')}`,
+    email: claims.email,
+    fullName: typeof claims.fullName === 'string' ? claims.fullName : owner ? 'Максим — владелец платформы' : 'Тестовый пользователь',
+    role: owner ? 'ADMIN' : claims.role,
+    organizationId: typeof claims.organizationId === 'string' ? claims.organizationId : owner ? 'org-canonical-platform' : 'org-canonical-platform',
+    tenantId: typeof claims.tenantId === 'string' ? claims.tenantId : 'tenant-canonical-test',
+    staffOwner: owner,
   });
 }

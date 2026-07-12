@@ -1,5 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 
+// This encrypted ticket module is part of the canonical authentication boundary.
+// Changes to controlled single-login access are reviewed under the same auth scope.
 export const MFA_PENDING_COOKIE = 'pc_mfa_pending';
 export const MFA_PENDING_TTL_SECONDS = 10 * 60;
 
