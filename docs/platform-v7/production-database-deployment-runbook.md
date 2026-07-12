@@ -31,7 +31,7 @@ The release owner creates one evidence directory containing:
 - release commit SHA and container image digest;
 - `prisma migrate status` output;
 - migration SQL diff and forward-only gate output;
-- current protected-table RLS/policy/function inventory, including the deal-authority overlay;
+- current protected-table RLS/policy/function/trigger inventory, including the deal-authority overlay;
 - deal/auth principal capability snapshots;
 - backup identifier and SHA-256 where exportable;
 - backup start/completion timestamps;
@@ -100,7 +100,12 @@ psql "$MIGRATION_DATABASE_URL" \
   --file infra/sql/postgresql-deal-authority-policies.sql
 ```
 
-4. Verify that `public.app_deal_basis_participant_allowed` is `SECURITY DEFINER`, is not executable by `PUBLIC`, and the final `integration_events_select` and `deal_participants_insert` policies match the release SHA.
+4. Verify all of the following against the release SHA:
+   - `public.app_deal_basis_deal_visible`, `public.app_deal_basis_participant_allowed` and `public.enforce_single_deal_per_basis` are `SECURITY DEFINER`;
+   - `PUBLIC` has no `EXECUTE` privilege on those functions;
+   - final `deals_select`, `deals_insert`, `integration_events_select`, `organizations_select` and `deal_participants_insert` policies are installed;
+   - trigger `public.deals_single_basis` is enabled on `public.deals`;
+   - a direct Deal insert without a confirmed basis fails, and reuse of one tenant/lot/winner basis fails with the single-use constraint.
 5. Validate schema drift, migration history, RLS inventory and principal capabilities.
 6. Start one application instance with production boundary enforcement.
 7. Run authentication, tenant isolation, participant-scoped deal create/read and signed callback smoke checks.
@@ -131,7 +136,7 @@ Use only for corruption, destructive operator action or unrecoverable migration 
    - migration history;
    - source/recovery fingerprints where the source remains readable;
    - deal/auth runtime principal startup;
-   - `ENABLE + FORCE RLS`, policy/function inventory and deal-authority overlay;
+   - `ENABLE + FORCE RLS`, policy/function/trigger inventory and deal-authority overlay;
    - cross-tenant visibility equals zero;
    - persistent login/session verification;
    - deal, participant, document, bank-operation, ledger, audit and outbox reconciliation.
@@ -166,6 +171,7 @@ It proves:
 - successful Prisma migration history;
 - eight protected tables retain enabled and forced RLS;
 - persistent deal creation works under a restricted `NOBYPASSRLS` principal using a seller-scoped confirmed basis;
+- direct unbacked Deal insert and duplicate basis reuse fail at PostgreSQL level;
 - auth runtime cannot read deals;
 - deal runtime has zero cross-tenant visibility;
 - persistent login works after restore;
