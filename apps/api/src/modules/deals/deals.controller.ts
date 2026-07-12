@@ -2,7 +2,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { UseGuards } from '@nestjs/common';
-import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Patch, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DealsService } from './deals.service';
 import { IndustrialDealCommandGateway } from './industrial-deal-command.gateway';
@@ -41,6 +41,19 @@ export class DealsController {
   @Roles('ANY_AUTHENTICATED')
   executionWorkspace(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.industrialCommands.workspace(id, user);
+  }
+
+  @Get(':id/correlation-timeline')
+  @Roles('ANY_AUTHENTICATED')
+  correlationTimeline(
+    @Param('id') id: string,
+    @Query('limit') limit: string | undefined,
+    @CurrentUser() user: RequestUser,
+  ) {
+    const parsed = Number(limit);
+    return this.industrialCommands.correlationTimeline(id, user, {
+      perSourceLimit: Number.isFinite(parsed) ? parsed : undefined,
+    });
   }
 
   @Get(':id/passport')

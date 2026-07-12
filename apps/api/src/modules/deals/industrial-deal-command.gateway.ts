@@ -80,6 +80,82 @@ export class IndustrialDealCommandGateway {
     return this.commands.workspace(dealId, scoped.user);
   }
 
+  /**
+   * Единая correlation timeline сделки: доменные события, audit, outbox,
+   * банковские операции и строки банковской выписки в одной хронологии.
+   * Доступ — только участнику сделки (тот же fail-closed membership путь).
+   * Выборки ограничены: берутся последние `perSourceLimit` записей каждого
+   * источника (по индексу createdAt), unbounded-чтений нет.
+   */
+  async correlationTimeline(
+    dealId: string,
+    user: RequestUser,
+    options: { perSourceLimit?: number } = {},
+  ) {
+    const perSourceLimit = Math.min(Math.max(Math.trunc(options.perSourceLimit ?? 200), 1), 500);
+    const scoped = await this.resolveMembership(dealId, user);
+    return this.rls.withTrustedContext(scoped.user, async (tx) => {
+      const bounded = { orderBy: { createdAt: 'desc' as const }, take: perSourceLimit };
+      const [dealEvents, auditEvents, outboxEntries, bankOperations, statementEntries] = await Promise.all([
+        tx.dealEvent.findMany({ where: { dealId }, ...bounded }),
+        tx.auditEvent.findMany({ where: { dealId }, ...bounded }),
+        tx.outboxEntry.findMany({ where: { dealId }, ...bounded }),
+        tx.bankOperation.findMany({ where: { dealId }, ...bounded }),
+        tx.bankStatementEntry.findMany({ where: { matchedDealId: dealId }, ...bounded }),
+      ]);
+
+      const items = [
+        ...dealEvents.map((event) => ({
+          at: event.createdAt.toISOString(),
+          source: 'deal_event' as const,
+          id: event.id,
+          kind: event.eventType,
+          actor: event.actorId,
+          correlationId: null as string | null,
+          summary: event.eventType,
+        })),
+        ...auditEvents.map((event) => ({
+          at: event.createdAt.toISOString(),
+          source: 'audit' as const,
+          id: event.id,
+          kind: event.action,
+          actor: event.actorUserId,
+          correlationId: event.correlationId,
+          summary: `${event.action} → ${event.outcome}`,
+        })),
+        ...outboxEntries.map((entry) => ({
+          at: entry.createdAt.toISOString(),
+          source: 'outbox' as const,
+          id: entry.id,
+          kind: entry.type,
+          actor: null as string | null,
+          correlationId: entry.correlationId,
+          summary: `${entry.type} [${entry.status}]`,
+        })),
+        ...bankOperations.map((operation) => ({
+          at: operation.createdAt.toISOString(),
+          source: 'bank_operation' as const,
+          id: operation.id,
+          kind: operation.type,
+          actor: operation.initiatorUserId,
+          correlationId: operation.bankRef,
+          summary: `${operation.type} ${operation.amountKopecks} коп. [${operation.status}]`,
+        })),
+        ...statementEntries.map((entry) => ({
+          at: entry.createdAt.toISOString(),
+          source: 'bank_statement' as const,
+          id: entry.id,
+          kind: 'STATEMENT_ROW',
+          actor: null as string | null,
+          correlationId: entry.reference,
+          summary: `Выписка ${entry.amountKopecks} коп. [${entry.matchStatus}]`,
+        })),
+      ].sort((left, right) => left.at.localeCompare(right.at));
+
+      return { dealId, count: items.length, perSourceLimit, items };
+    });
+  }
+
   async executeUser(
     dealId: string,
     rawActionId: string,
