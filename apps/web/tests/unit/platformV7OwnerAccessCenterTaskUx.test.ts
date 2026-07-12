@@ -32,22 +32,35 @@ describe('platform-v7 owner access center task UX', () => {
     ]) {
       expect(directCenter).toContain(`role: '${role}'`);
     }
-    expect(directCenter).toContain("fetch('/platform-v7/staff/open-cabinet'");
-    expect(directCenter).toContain("window.sessionStorage.setItem('pc-v7-active-role', payload.role)");
-    expect(directCenter).toContain('window.location.assign(payload.redirectTo)');
+    expect(directCenter).toContain('method="post"');
+    expect(directCenter).toContain('action="/platform-v7/staff/open-cabinet"');
+    expect(directCenter).toContain('name="_csrf"');
+    expect(directCenter).toContain('name="role"');
+    expect(directCenter).toContain("window.sessionStorage.setItem('pc-v7-active-role', role)");
+    expect(directCenter).not.toContain("fetch('/platform-v7/staff/open-cabinet'");
     expect(directCenter).not.toContain('Рабочий тикет');
     expect(directCenter).not.toContain('Причина доступа');
   });
 
+  it('uses a native POST redirect so mobile browsers do not remain stuck in the opening state', () => {
+    expect(directRoute).toContain("contentType.includes('application/x-www-form-urlencoded')");
+    expect(directRoute).toContain('request.formData()');
+    expect(directRoute).toContain('formCsrfValid(request');
+    expect(directRoute).toContain('NextResponse.redirect(new URL(OWNER_CABINETS[parsed.role], request.url), 303)');
+    expect(directRoute).toContain("transport: parsed.formSubmission ? 'native-form' : 'json-fetch'");
+    expect(directCenter).toContain("window.addEventListener('pageshow', resetBusy)");
+  });
+
   it('requires controlled-owner claims or an active API-backed PLATFORM_OWNER assignment', () => {
     expect(directRoute).toContain('assertCsrf(request)');
+    expect(directRoute).toContain('assertSameOriginIfPresent(request)');
     expect(directRoute).toContain('claims.owner !== true');
     expect(directRoute).toContain('claims.testAccess !== true');
     expect(directRoute).toContain("claims.tokenType !== 'access'");
     expect(directRoute).toContain("fetch(`${origin}/auth/me`");
     expect(directRoute).toContain("fetch(`${origin}/staff/assignments/me`");
     expect(directRoute).toContain("item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'");
-    expect(directRoute).toContain('signCabinetSession(role, secret');
+    expect(directRoute).toContain('signCabinetSession(parsed.role, secret');
     expect(directRoute).toContain('response.cookies.set(CABINET_SESSION_COOKIE');
     expect(directRoute).toContain('response.cookies.set(SESSION_COOKIE');
     expect(directRoute).toContain("response.cookies.set('pc-role'");
