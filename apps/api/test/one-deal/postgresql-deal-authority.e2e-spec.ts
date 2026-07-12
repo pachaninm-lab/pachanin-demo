@@ -5,6 +5,7 @@ import { Role, type RequestUser } from '../../src/common/types/request-user';
 
 const LOT_ID = 'LOT-RLS-AUTHORITY-001';
 const BID_ID = 'BID-RLS-AUTHORITY-001';
+const BASIS_EVENT_ID = 'basis-event-rls-authority-001';
 const CREATE_COMMAND = {
   commandId: 'restricted-authority-command-0001',
   idempotencyKey: 'restricted-authority-idempotency-0001',
@@ -71,6 +72,57 @@ async function captureDatabaseRejection(work: Promise<unknown>): Promise<string>
   throw new Error('Expected PostgreSQL to reject the write.');
 }
 
+async function basisBoundDealData(
+  id: string,
+  overrides: Record<string, unknown> = {},
+): Promise<Record<string, unknown>> {
+  const event = await rls.withTrustedContext(seller, (tx) => tx.integrationEvent.findUniqueOrThrow({
+    where: { id: BASIS_EVENT_ID },
+  }));
+  const basis = (event.responsePayload ?? event.requestPayload) as Record<string, string>;
+
+  return {
+    id,
+    lotId: basis.lotId,
+    sourceLotId: basis.winnerBidId,
+    dealNumber: basis.dealNumber,
+    status: 'DRAFT',
+    tenantId: basis.tenantId,
+    sellerOrgId: basis.sellerOrgId,
+    buyerOrgId: basis.buyerOrgId,
+    volumeTonsDec: basis.volumeTons,
+    pricePerTonDec: basis.pricePerTon,
+    totalKopecks: BigInt(basis.totalKopecks),
+    currency: basis.currency,
+    culture: basis.culture,
+    cropClass: basis.cropClass,
+    region: basis.region,
+    incoterms: basis.incoterms,
+    sagaState: {
+      source: 'POSTGRESQL_INTEGRATION_EVENT',
+      integrationEventId: event.id,
+      sourceHash: basis.sourceHash,
+      lotId: basis.lotId,
+      winnerBidId: basis.winnerBidId,
+      sellerOrgId: basis.sellerOrgId,
+      buyerOrgId: basis.buyerOrgId,
+      sellerUserId: basis.sellerUserId,
+      buyerUserId: basis.buyerUserId,
+      culture: basis.culture,
+      cropClass: basis.cropClass ?? null,
+      region: basis.region ?? null,
+      incoterms: basis.incoterms ?? null,
+      volumeTons: basis.volumeTons,
+      pricePerTon: basis.pricePerTon,
+      totalKopecks: basis.totalKopecks,
+      currency: basis.currency,
+      paymentTerms: null,
+    },
+    nextAction: 'Подтвердить допуск участников',
+    ...overrides,
+  };
+}
+
 beforeAll(async () => {
   prisma = new PrismaService();
   await prisma.$connect();
@@ -91,7 +143,7 @@ describe('PostgreSQL deal authority under NOBYPASSRLS application principal', ()
       }),
     );
     expect(visible).toEqual([{
-      id: 'basis-event-rls-authority-001',
+      id: BASIS_EVENT_ID,
       externalId: `${LOT_ID}:${BID_ID}`,
     }]);
 
@@ -117,6 +169,18 @@ describe('PostgreSQL deal authority under NOBYPASSRLS application principal', ()
           currency: 'RUB',
         },
       })),
+    );
+
+    expect(error).toMatch(/row-level security|42501|policy/i);
+  });
+
+  it('rejects direct tampering with amount or state even when lot and winner match', async () => {
+    const tampered = await basisBoundDealData('deal-tampered-confirmed-basis', {
+      totalKopecks: 1n,
+      status: 'CLOSED',
+    });
+    const error = await captureDatabaseRejection(
+      rls.withTrustedContext(seller, (tx) => tx.deal.create({ data: tampered as any })),
     );
 
     expect(error).toMatch(/row-level security|42501|policy/i);
@@ -166,24 +230,9 @@ describe('PostgreSQL deal authority under NOBYPASSRLS application principal', ()
   });
 
   it('rejects a second Deal row for the same confirmed lot and winning bid', async () => {
+    const duplicate = await basisBoundDealData('deal-duplicate-confirmed-basis');
     const error = await captureDatabaseRejection(
-      rls.withTrustedContext(seller, (tx) => tx.deal.create({
-        data: {
-          id: 'deal-duplicate-confirmed-basis',
-          lotId: LOT_ID,
-          sourceLotId: BID_ID,
-          dealNumber: 'ТП-RLS-AUTHORITY-DUPLICATE',
-          status: 'DRAFT',
-          tenantId: seller.tenantId,
-          sellerOrgId: seller.orgId,
-          buyerOrgId: buyer.orgId,
-          volumeTonsDec: '100.000000',
-          pricePerTonDec: '18500.000000',
-          totalKopecks: 185000000n,
-          currency: 'RUB',
-          culture: 'Пшеница',
-        },
-      })),
+      rls.withTrustedContext(seller, (tx) => tx.deal.create({ data: duplicate as any })),
     );
 
     expect(error).toMatch(/already been consumed|23505|P2002|deals_tenant_lot_winner_single_use/i);
