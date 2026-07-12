@@ -3,6 +3,18 @@
 -- closedAt. Operational facts belong in normalized PostgreSQL tables, not in a
 -- mutable JSON authority bag.
 
+-- Until payment terms are included in the signed server-side auction basis,
+-- callers may not inject them into a PostgreSQL-authoritative Deal snapshot.
+ALTER TABLE public."deals"
+  ADD CONSTRAINT deals_server_basis_payment_terms_authority
+  CHECK (
+    "sagaState" IS NULL
+    OR "sagaState" ->> 'source' IS DISTINCT FROM 'POSTGRESQL_INTEGRATION_EVENT'
+    OR "sagaState" -> 'paymentTerms' IS NOT DISTINCT FROM 'null'::jsonb
+  ) NOT VALID;
+ALTER TABLE public."deals"
+  VALIDATE CONSTRAINT deals_server_basis_payment_terms_authority;
+
 CREATE OR REPLACE FUNCTION public.forbid_deal_basis_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -83,5 +95,7 @@ CREATE TRIGGER deals_basis_immutable
   ON public."deals"
   FOR EACH ROW EXECUTE FUNCTION public.forbid_deal_basis_mutation();
 
+COMMENT ON CONSTRAINT deals_server_basis_payment_terms_authority ON public."deals" IS
+  'Client-authored payment terms are forbidden until the signed server-side basis owns them.';
 COMMENT ON FUNCTION public.forbid_deal_basis_mutation() IS
   'Rejects any rewrite of the confirmed commercial columns or initial saga snapshot; operational facts use normalized tables.';
