@@ -154,7 +154,11 @@
       "docs/platform-v7/autopilot/autopilot-state.json",
       "apps/api/src/modules/bank-reconciliation/**",
       "packages/domain-core/src/measures.ts",
-      "packages/domain-core/src/measures.test.ts"
+      "packages/domain-core/src/measures.test.ts",
+      "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+      "apps/web/app/api/proxy/[...path]/route.ts",
+      "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
+      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
     ]
   },
   "industrialOneDealFoundation": {

@@ -15,12 +15,19 @@ describe('platform-v7 canonical one-deal workspace', () => {
   const loginClient = source('app/platform-v7/login/LoginFormClient.tsx');
   const loginRoute = source('app/api/auth/login/route.ts');
 
-  it('uses one canonical deal identifier and the authenticated execution workspace', () => {
+  it('serves any accessible deal through the authenticated execution workspace', () => {
     expect(workspace).toContain("const DEAL_ID = 'DEAL-INDUSTRIAL-001'");
-    expect(workspace).toContain('/execution-workspace');
+    expect(workspace).toContain('dealId = DEAL_ID');
+    expect(workspace).toContain('/api/proxy/deals/${dealId}/execution-workspace');
     expect(workspace).toContain('/commands/${action.id}');
     expect(workspace).toContain('expectedUpdatedAt: workspace.deal.updatedAt');
+    expect(workspace).toContain('expectedVersion');
     expect(workspace).toContain('idempotencyKey');
+  });
+
+  it('turns a 409 concurrency conflict into a refresh with a human explanation', () => {
+    expect(workspace).toContain('reason.status === 409');
+    expect(workspace).toContain('Данные изменились другим участником. Мы обновили экран');
   });
 
   it('renders the same workspace at every role root instead of the old dashboard below it', () => {
@@ -32,9 +39,11 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(shell).not.toContain('{showRoleIntentDashboard ? <RoleIntentDashboard role={initialRole} /> : null}');
   });
 
-  it('never fabricates a successful canonical response when the real API is unavailable', () => {
+  it('never fabricates a successful execution response for any deal when the real API is unavailable', () => {
     expect(proxy).toContain("const CANONICAL_DEAL_ID = 'DEAL-INDUSTRIAL-001'");
     expect(proxy).toContain('requiresRealBackend');
+    expect(proxy).toContain('^deals\\/[^/]+\\/(execution-workspace|correlation-timeline)$');
+    expect(proxy).toContain('^deals\\/[^/]+\\/commands\\/');
     expect(proxy).toContain("code: 'REAL_BACKEND_REQUIRED'");
     expect(proxy).toContain("if (strictRealPath) return realBackendUnavailable('real_backend_not_used')");
   });

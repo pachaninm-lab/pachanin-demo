@@ -47,9 +47,13 @@ function readSessionRole(jar: ReturnType<typeof cookies>): { role: string; email
   }
 }
 
+// The industrial execution surface is strictly real-backend-only for EVERY
+// deal (not just the canonical test deal): a silent demo fallback on a command
+// path would fabricate deal state. CANONICAL_DEAL_ID stays as the default
+// workspace target for role dashboards.
 function requiresRealBackend(path: string): boolean {
-  return path === `deals/${CANONICAL_DEAL_ID}/execution-workspace`
-    || path.startsWith(`deals/${CANONICAL_DEAL_ID}/commands/`);
+  return /^deals\/[^/]+\/(execution-workspace|correlation-timeline)$/.test(path)
+    || /^deals\/[^/]+\/commands\//.test(path);
 }
 
 function realBackendUnavailable(reason: string) {
