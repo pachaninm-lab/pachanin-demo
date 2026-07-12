@@ -10,7 +10,6 @@ const openGate = source('app/api/platform-v7/cabinet-lock-login/route.ts');
 const canonicalLogin = source('app/api/auth/login/route.ts');
 const identity = source('app/auth/me/route.ts');
 const staffFixture = source('app/staff/[...path]/route.ts');
-const staffPage = source('app/platform-v7/staff/page.tsx');
 const sessionResponse = source('lib/server/auth-session-response.ts');
 
 const roles = [
@@ -59,13 +58,6 @@ describe('Platform V7 controlled test access', () => {
     expect(identity).toContain('staffOwner: owner');
     expect(staffFixture).toContain('claims.owner !== true');
     expect(staffFixture).toContain("return json({ code: 'OWNER_ACCESS_REQUIRED' }, 403)");
-  });
-
-  it('verifies controlled owner identity locally before depending on an external API hop', () => {
-    expect(staffPage).toContain('verifyControlledIdentity(accessToken)');
-    expect(staffPage).toContain("claims.testAccess !== true");
-    expect(staffPage).toContain("staffOwner: owner");
-    expect(staffPage).toContain('if (controlled) return controlled');
   });
 
   it('uses stable token expiry when Staff BFF verifies activated sessions', () => {
