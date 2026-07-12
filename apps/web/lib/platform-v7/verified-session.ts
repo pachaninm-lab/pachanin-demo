@@ -30,6 +30,13 @@ const VALID_CABINET_ROLES: ReadonlySet<string> = new Set<PlatformRole>([
   'elevator', 'lab', 'bank', 'arbitrator', 'compliance', 'executive',
 ]);
 
+export type VerifiedCabinetSessionContext = {
+  role: PlatformRole;
+  organizationId: string | null;
+  tenantId: string | null;
+  ownerAccess: boolean;
+};
+
 export function mapApiRoleToCabinetRole(apiRole: unknown): PlatformRole | null {
   if (typeof apiRole !== 'string') return null;
   return API_ROLE_TO_CABINET[apiRole] ?? null;
@@ -112,14 +119,27 @@ function bytesToBase64Url(bytes: Uint8Array): string {
 export async function signCabinetSession(
   role: string,
   secret: string,
-  opts: { readonly nowSeconds: number; readonly ttlSeconds: number },
+  opts: {
+    readonly nowSeconds: number;
+    readonly ttlSeconds: number;
+    readonly organizationId?: string | null;
+    readonly tenantId?: string | null;
+    readonly ownerAccess?: boolean;
+  },
 ): Promise<string | null> {
   if (!secret || !VALID_CABINET_ROLES.has(role)) return null;
   try {
     const enc = new TextEncoder();
     const header = bytesToBase64Url(enc.encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
     const payload = bytesToBase64Url(
-      enc.encode(JSON.stringify({ cab: role, iat: opts.nowSeconds, exp: opts.nowSeconds + opts.ttlSeconds })),
+      enc.encode(JSON.stringify({
+        cab: role,
+        org: opts.organizationId || undefined,
+        tenant: opts.tenantId || undefined,
+        ownerAccess: opts.ownerAccess === true,
+        iat: opts.nowSeconds,
+        exp: opts.nowSeconds + opts.ttlSeconds,
+      })),
     );
     const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
     const signature = await crypto.subtle.sign('HMAC', key, enc.encode(`${header}.${payload}`));
@@ -129,16 +149,30 @@ export async function signCabinetSession(
   }
 }
 
-export async function readVerifiedCabinetSessionRole(
+export async function readVerifiedCabinetSessionContext(
   token: string | null | undefined,
   secret: string,
   nowSeconds: number,
-): Promise<PlatformRole | null> {
+): Promise<VerifiedCabinetSessionContext | null> {
   if (!token) return null;
   const claims = await verifyHs256Jwt(token, secret);
   if (!claims) return null;
   if (typeof claims.exp === 'number' && claims.exp <= nowSeconds) return null;
   if (typeof claims.nbf === 'number' && claims.nbf > nowSeconds) return null;
   const cab = claims.cab;
-  return typeof cab === 'string' && VALID_CABINET_ROLES.has(cab) ? (cab as PlatformRole) : null;
+  if (typeof cab !== 'string' || !VALID_CABINET_ROLES.has(cab)) return null;
+  return {
+    role: cab as PlatformRole,
+    organizationId: typeof claims.org === 'string' ? claims.org : null,
+    tenantId: typeof claims.tenant === 'string' ? claims.tenant : null,
+    ownerAccess: claims.ownerAccess === true,
+  };
+}
+
+export async function readVerifiedCabinetSessionRole(
+  token: string | null | undefined,
+  secret: string,
+  nowSeconds: number,
+): Promise<PlatformRole | null> {
+  return (await readVerifiedCabinetSessionContext(token, secret, nowSeconds))?.role || null;
 }
