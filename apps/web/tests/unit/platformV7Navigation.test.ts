@@ -20,15 +20,16 @@ describe('platform-v7 navigation', () => {
     expect(platformV7RoleRoute('bank')).toBe('/platform-v7/bank');
   });
 
-  it('routes driver entry to the field shell', () => {
+  it('keeps the driver field route inside the driver cabinet', () => {
     expect(platformV7RoleRoute('driver')).toBe('/platform-v7/driver/field');
     expect(platformV7NavItems('driver')).toEqual([
       { href: '/platform-v7/driver/field', label: 'Маршрут', icon: 'logistics' },
     ]);
-    expect(platformV7NavItems('logistics').some((item) => item.href === '/platform-v7/driver/field')).toBe(true);
+    expect(platformV7NavItems('logistics').some((item) => item.href === '/platform-v7/driver/field')).toBe(false);
+    expect(platformV7NavItems('logistics').some((item) => item.href === '/platform-v7/logistics/drivers')).toBe(true);
   });
 
-  it('keeps default role navigation free of demo scenario entry points', () => {
+  it('keeps default role navigation free of scenario entry points', () => {
     Object.values(PLATFORM_V7_NAV_BY_ROLE).flat().forEach((item) => {
       expect(item.href).not.toContain('/demo');
       expect(item.label.toLowerCase()).not.toContain('демо');
