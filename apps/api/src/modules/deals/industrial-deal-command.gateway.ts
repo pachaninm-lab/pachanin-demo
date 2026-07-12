@@ -3,7 +3,6 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import type { Prisma } from '@prisma/client';
@@ -13,7 +12,6 @@ import { RequestUser, Role } from '../../common/types/request-user';
 import { DealCommandService } from './deal-command.service';
 import { ExecuteDealCommandDto } from './dto/execute-deal-command.dto';
 import {
-  CANONICAL_TEST_DEAL_ID,
   getDealActionDefinition,
   isDealActionId,
   type DealActionId,
@@ -38,7 +36,7 @@ type CanonicalDealRecord = {
   readonly buyerOrgId: string;
   readonly status: string;
   readonly updatedAt: Date;
-  readonly totalKopecks: number | null;
+  readonly totalKopecks: bigint | number | null;
 };
 
 type CanonicalMembershipCandidate = {
@@ -47,8 +45,6 @@ type CanonicalMembershipCandidate = {
   readonly isDefault: boolean;
 };
 
-const CANONICAL_TENANT_ID = 'tenant-canonical-test';
-const CANONICAL_BUYER_ORG_ID = 'org-canonical-buyer';
 const KNOWN_ROLES = new Set<string>(Object.values(Role));
 
 function stable(value: unknown): unknown {
@@ -80,7 +76,7 @@ export class IndustrialDealCommandGateway {
   ) {}
 
   async workspace(dealId: string, user: RequestUser) {
-    const scoped = await this.resolveCanonicalMembership(dealId, user);
+    const scoped = await this.resolveMembership(dealId, user);
     return this.commands.workspace(dealId, scoped.user);
   }
 
@@ -103,7 +99,7 @@ export class IndustrialDealCommandGateway {
       });
     }
 
-    const scoped = await this.resolveCanonicalMembership(dealId, user);
+    const scoped = await this.resolveMembership(dealId, user);
     return this.commands.execute(
       dealId,
       actionId,
@@ -114,10 +110,9 @@ export class IndustrialDealCommandGateway {
 
   async executeBankCallback(input: VerifiedBankCallbackInput) {
     this.validateBankCallback(input);
-    this.assertCanonicalDealId(input.dealId);
 
-    const callbackUser = this.bankCallbackUser(input);
-    const deal = await this.readCanonicalDeal(input.dealId, callbackUser);
+    const callbackUser = await this.bankCallbackUser(input);
+    const deal = await this.readDealInTrustedScope(input.dealId, callbackUser);
     const actionId: DealActionId = input.operation === 'RESERVE' ? 'confirm_reserve' : 'confirm_release';
     const definition = getDealActionDefinition(actionId);
 
@@ -196,14 +191,32 @@ export class IndustrialDealCommandGateway {
     };
   }
 
-  private bankCallbackUser(input: VerifiedBankCallbackInput): RequestUser {
+  /**
+   * The bank is a cryptographically verified system actor, not a tenant user.
+   * Its trusted RLS scope is resolved through the SECURITY DEFINER binding
+   * (dealId, operationId) → (tenant, buyer org): the callback can only ever
+   * act on a deal for which the platform itself issued that bank operation.
+   * No binding → no scope → no money effect (fail closed).
+   */
+  private async bankCallbackUser(input: VerifiedBankCallbackInput): Promise<RequestUser> {
+    const scopes = await this.prisma.$queryRaw<Array<{ tenantId: string; buyerOrgId: string }>>`
+      SELECT "tenantId", "buyerOrgId"
+      FROM public.app_bank_callback_scope(${input.dealId}, ${input.operationId ?? ''})
+    `;
+    const scope = scopes[0];
+    if (!scope?.tenantId) {
+      throw new ConflictException({
+        code: 'BANK_OPERATION_NOT_PENDING',
+        message: 'Callback is not bound to a platform-issued bank operation for this deal.',
+      });
+    }
     return {
       id: `bank-callback:${input.partnerId ?? 'safe-deals'}`,
       email: 'bank-callback@system.invalid',
       fullName: 'Verified bank callback',
       role: Role.BANK_CALLBACK,
-      orgId: CANONICAL_BUYER_ORG_ID,
-      tenantId: CANONICAL_TENANT_ID,
+      orgId: scope.buyerOrgId,
+      tenantId: scope.tenantId,
       sessionId: `bank-event:${input.eventId}`,
       mfaVerified: true,
     };
@@ -214,8 +227,7 @@ export class IndustrialDealCommandGateway {
    * UserOrg identity membership -> exact ACTIVE DealParticipant -> Organization -> Deal.
    * Client-supplied role and orgId never select scope.
    */
-  private async resolveCanonicalMembership(dealId: string, user: RequestUser) {
-    this.assertCanonicalDealId(dealId);
+  private async resolveMembership(dealId: string, user: RequestUser) {
     if (!user.tenantId) {
       throw new ForbiddenException({
         code: 'TENANT_CONTEXT_REQUIRED',
@@ -301,11 +313,10 @@ export class IndustrialDealCommandGateway {
     });
   }
 
-  private async readCanonicalDeal(
+  private async readDealInTrustedScope(
     dealId: string,
     trustedUser: RequestUser,
   ): Promise<CanonicalDealRecord> {
-    this.assertCanonicalDealId(dealId);
     const deal = await this.rls.withTrustedContext(trustedUser, (tx) =>
       tx.deal.findUnique({
         where: { id: dealId },
@@ -328,12 +339,6 @@ export class IndustrialDealCommandGateway {
       });
     }
     return deal as CanonicalDealRecord;
-  }
-
-  private assertCanonicalDealId(dealId: string): void {
-    if (dealId !== CANONICAL_TEST_DEAL_ID) {
-      throw new NotFoundException('Industrial execution workspace is enabled only for the canonical test deal.');
-    }
   }
 
   private validateBankCallback(input: VerifiedBankCallbackInput): void {

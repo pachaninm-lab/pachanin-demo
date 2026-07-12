@@ -13,6 +13,11 @@ export class ExecuteDealCommandDto {
   @IsISO8601({ strict: true })
   expectedUpdatedAt!: string;
 
+  /** Optimistic-concurrency token: the deal `version` the client last saw. */
+  @IsOptional()
+  @IsString()
+  expectedVersion?: string;
+
   @IsOptional()
   @IsObject()
   payload?: Prisma.InputJsonObject;

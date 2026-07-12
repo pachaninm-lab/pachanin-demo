@@ -63,6 +63,11 @@ function fixture() {
         },
       ]),
     },
+    // Bank-callback scope resolution: the SECURITY DEFINER binding
+    // (dealId, operationId) → (tenant, buyer org) replaces hardcoded values.
+    $queryRaw: jest.fn().mockResolvedValue([
+      { tenantId: DEAL.tenantId, buyerOrgId: DEAL.buyerOrgId },
+    ]),
   } as any;
   const rls = {
     withTrustedContext: jest.fn(async (_user: RequestUser, work: (client: typeof tx) => Promise<unknown>) =>

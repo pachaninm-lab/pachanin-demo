@@ -1,6 +1,8 @@
 // Package version — bump this on every breaking or notable change
 export const DOMAIN_CORE_VERSION = '0.2.0';
 
+export { Money, MoneyError } from './money';
+export type { CurrencyCode as MoneyCurrencyCode } from './money';
 export * from './canonical-models';
 export * from './canonical-reason-codes';
 export * from './source-of-truth';

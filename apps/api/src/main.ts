@@ -7,6 +7,8 @@ import { AppModule } from './app.module';
 import { register, collectDefaultMetrics, Counter, Histogram } from 'prom-client';
 import { MaskedLoggerService } from './common/logger/masked-logger.service';
 import { createTrustedProxyPolicy } from './common/security/trusted-proxy';
+import { assertIndustrialProductionStartup, INDUSTRIAL_CORE_MIGRATION } from './common/config/industrial-mode';
+import { PrismaService } from './common/prisma/prisma.service';
 
 // Prometheus metrics setup
 collectDefaultMetrics({ prefix: 'grainflow_' });
@@ -26,6 +28,10 @@ async function bootstrap() {
   // Proxy trust must be explicit before Express derives req.ip. In production an
   // omitted/invalid mode terminates startup instead of trusting arbitrary XFF.
   const trustedProxyPolicy = createTrustedProxyPolicy(process.env);
+
+  // Fail closed before anything binds: production cannot start on in-memory
+  // authority, without PostgreSQL, or with test-account/runtime-mutation flags.
+  assertIndustrialProductionStartup(process.env);
 
   // Configure external integrations from env before anything binds: swap the
   // in-memory mocks for live adapters wherever `<NAME>_MODE=live|sandbox`, and
@@ -88,8 +94,32 @@ async function bootstrap() {
     res.json({ status: 'ok', ts: new Date().toISOString(), env: process.env.NODE_ENV || 'development' });
   });
 
-  app.getHttpAdapter().get('/ready', (_req: any, res: any) => {
-    res.json({ status: 'ready', checks: { api: 'ok', database: 'ok' }, ts: new Date().toISOString() });
+  // /ready reports readiness only after real dependency checks: a live
+  // PostgreSQL round-trip and fully applied migrations including the
+  // industrial transaction core. /health above stays a pure liveness probe.
+  const prisma = app.get(PrismaService, { strict: false });
+  app.getHttpAdapter().get('/ready', async (_req: any, res: any) => {
+    const checks: Record<string, string> = { api: 'ok', database: 'unknown', migrations: 'unknown' };
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      checks.database = 'ok';
+      const rows = (await prisma.$queryRaw`
+        SELECT
+          (SELECT COUNT(*)::int FROM "_prisma_migrations" WHERE finished_at IS NULL AND rolled_back_at IS NULL) AS unfinished,
+          (SELECT COUNT(*)::int FROM "_prisma_migrations" WHERE migration_name = ${INDUSTRIAL_CORE_MIGRATION} AND finished_at IS NOT NULL) AS core
+      `) as Array<{ unfinished: number; core: number }>;
+      const state = rows[0];
+      checks.migrations = state && state.unfinished === 0 && state.core > 0 ? 'ok' : 'pending';
+    } catch {
+      checks.database = checks.database === 'ok' ? 'ok' : 'failed';
+      if (checks.migrations === 'unknown') checks.migrations = 'failed';
+    }
+    const ready = checks.database === 'ok' && checks.migrations === 'ok';
+    res.status(ready ? 200 : 503).json({
+      status: ready ? 'ready' : 'unavailable',
+      checks,
+      ts: new Date().toISOString(),
+    });
   });
 
   app.getHttpAdapter().get('/version', (_req: any, res: any) => {
@@ -110,9 +140,10 @@ async function bootstrap() {
   app.getHttpAdapter().get('/health/detailed', async (_req: any, res: any) => {
     const { integrationRegistry } = await import('../../../packages/integration-sdk/src/registry');
     const adapterHealth = await integrationRegistry.healthCheckAll().catch(() => ({}));
-    res.json({
-      status: 'ok',
-      database: 'ok',
+    const database = await prisma.$queryRaw`SELECT 1`.then(() => 'ok').catch(() => 'failed');
+    res.status(database === 'ok' ? 200 : 503).json({
+      status: database === 'ok' ? 'ok' : 'degraded',
+      database,
       integrations: adapterHealth,
       ts: new Date().toISOString(),
     });

@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { createHash, randomUUID } from 'crypto';
 
 export type LedgerEntryType =
   | 'RESERVE'
@@ -16,7 +16,7 @@ export interface LedgerMutationParams {
   entryType: LedgerEntryType;
   debitAccount: string;
   creditAccount: string;
-  amountKopecks: number;
+  amountKopecks: bigint | number;
   currency?: string;
   reference?: string;
   idempotencyKey: string;
@@ -26,9 +26,9 @@ export interface LedgerMutationParams {
 
 export interface AccountBalance {
   accountId: string;
-  totalCreditKopecks: number;
-  totalDebitKopecks: number;
-  balanceKopecks: number;
+  totalCreditKopecks: bigint;
+  totalDebitKopecks: bigint;
+  balanceKopecks: bigint;
 }
 
 // System accounts
@@ -38,21 +38,31 @@ export const SYSTEM_ACCOUNTS = {
   DISPUTE_HOLD: 'sys:dispute-hold',
 } as const;
 
+function toKopecks(value: bigint | number): bigint {
+  if (typeof value === 'bigint') return value;
+  if (!Number.isSafeInteger(value)) {
+    throw new BadRequestException(`Kopeck amount must be a safe integer, got: ${value}`);
+  }
+  return BigInt(value);
+}
+
 @Injectable()
 export class LedgerV2Service {
   private readonly logger = new Logger(LedgerV2Service.name);
 
-  // In-memory balance cache (in production: materialized view in DB)
-  private readonly balances = new Map<string, number>(); // accountId → kopecks
-
   constructor(private readonly prisma: PrismaService) {}
 
-  private getBalance(accountId: string): number {
-    return this.balances.get(accountId) ?? 0;
+  /**
+   * Account balance is derived from the append-only ledger itself —
+   * PostgreSQL is the only source of truth, never process memory.
+   */
+  private async currentBalance(accountId: string): Promise<bigint> {
+    const balance = await this.getAccountBalance(accountId);
+    return balance.balanceKopecks;
   }
 
-  private assertSufficientBalance(accountId: string, amountKopecks: number): void {
-    const balance = this.getBalance(accountId);
+  private async assertSufficientBalance(accountId: string, amountKopecks: bigint): Promise<void> {
+    const balance = await this.currentBalance(accountId);
     if (balance < amountKopecks) {
       throw new BadRequestException(
         `Insufficient balance for account ${accountId}: have ${balance} kopecks, need ${amountKopecks}`,
@@ -60,15 +70,16 @@ export class LedgerV2Service {
     }
   }
 
-  async record(params: LedgerMutationParams): Promise<{ id: string; balanceAfter: number }> {
-    if (params.amountKopecks <= 0) {
+  async record(params: LedgerMutationParams): Promise<{ id: string; balanceAfter: bigint }> {
+    const amountKopecks = toKopecks(params.amountKopecks);
+    if (amountKopecks <= 0n) {
       throw new BadRequestException('Amount must be positive');
     }
 
     // Validate balance for debit operations
     const debitRequired: LedgerEntryType[] = ['RESERVE', 'HOLD', 'RELEASE', 'REFUND', 'COMMISSION', 'PLATFORM_FEE', 'PENALTY'];
     if (debitRequired.includes(params.entryType) && params.debitAccount !== SYSTEM_ACCOUNTS.PLATFORM) {
-      this.assertSufficientBalance(params.debitAccount, params.amountKopecks);
+      await this.assertSufficientBalance(params.debitAccount, amountKopecks);
     }
 
     // Write to DB with idempotency
@@ -80,7 +91,7 @@ export class LedgerV2Service {
           entryType: params.entryType,
           debitAccount: params.debitAccount,
           creditAccount: params.creditAccount,
-          amountKopecks: params.amountKopecks,
+          amountKopecks,
           currency: params.currency ?? 'RUB',
           reference: params.reference,
           idempotencyKey: params.idempotencyKey,
@@ -94,21 +105,17 @@ export class LedgerV2Service {
         const existing = await this.prisma.ledgerEntry.findUnique({
           where: { idempotencyKey: params.idempotencyKey },
         });
-        return { id: existing!.id, balanceAfter: this.getBalance(params.creditAccount) };
+        return { id: existing!.id, balanceAfter: await this.currentBalance(params.creditAccount) };
       }
       throw err;
     }
 
-    // Update in-memory balances
-    this.balances.set(params.debitAccount, this.getBalance(params.debitAccount) - params.amountKopecks);
-    this.balances.set(params.creditAccount, this.getBalance(params.creditAccount) + params.amountKopecks);
+    this.logger.log(`Ledger: ${params.entryType} ${amountKopecks}k ${params.debitAccount}→${params.creditAccount} [${params.dealId ?? 'no deal'}]`);
 
-    this.logger.log(`Ledger: ${params.entryType} ${params.amountKopecks}k ${params.debitAccount}→${params.creditAccount} [${params.dealId ?? 'no deal'}]`);
-
-    return { id: entry.id, balanceAfter: this.getBalance(params.creditAccount) };
+    return { id: entry.id, balanceAfter: await this.currentBalance(params.creditAccount) };
   }
 
-  async reserve(dealId: string, buyerOrgId: string, amountKopecks: number, ref: string): Promise<string> {
+  async reserve(dealId: string, buyerOrgId: string, amountKopecks: bigint | number, ref: string): Promise<string> {
     const { id } = await this.record({
       dealId,
       entryType: 'RESERVE',
@@ -122,7 +129,7 @@ export class LedgerV2Service {
     return id;
   }
 
-  async release(dealId: string, sellerOrgId: string, amountKopecks: number, commissionKopecks: number, ref: string): Promise<void> {
+  async release(dealId: string, sellerOrgId: string, amountKopecks: bigint | number, commissionKopecks: bigint | number, ref: string): Promise<void> {
     // Release to seller
     await this.record({
       dealId,
@@ -135,7 +142,7 @@ export class LedgerV2Service {
       description: `Выплата продавцу по сделке ${dealId}`,
     });
     // Commission to platform
-    if (commissionKopecks > 0) {
+    if (toKopecks(commissionKopecks) > 0n) {
       await this.record({
         dealId,
         entryType: 'COMMISSION',
@@ -149,7 +156,7 @@ export class LedgerV2Service {
     }
   }
 
-  async holdForDispute(dealId: string, disputeId: string, amountKopecks: number): Promise<void> {
+  async holdForDispute(dealId: string, disputeId: string, amountKopecks: bigint | number): Promise<void> {
     await this.record({
       dealId,
       entryType: 'HOLD',
@@ -161,7 +168,7 @@ export class LedgerV2Service {
     });
   }
 
-  async refundFromDispute(dealId: string, disputeId: string, buyerOrgId: string, amountKopecks: number): Promise<void> {
+  async refundFromDispute(dealId: string, disputeId: string, buyerOrgId: string, amountKopecks: bigint | number): Promise<void> {
     await this.record({
       dealId,
       entryType: 'REFUND',
@@ -174,16 +181,19 @@ export class LedgerV2Service {
   }
 
   async getAccountBalance(accountId: string): Promise<AccountBalance> {
-    const entries = await this.prisma.ledgerEntry.findMany({
-      where: { OR: [{ debitAccount: accountId }, { creditAccount: accountId }] },
-    });
-    let totalCredit = 0;
-    let totalDebit = 0;
-    for (const e of entries) {
-      if (e.creditAccount === accountId) totalCredit += e.amountKopecks;
-      if (e.debitAccount === accountId) totalDebit += e.amountKopecks;
-    }
-    return { accountId, totalCreditKopecks: totalCredit, totalDebitKopecks: totalDebit, balanceKopecks: totalCredit - totalDebit };
+    const rows = await this.prisma.$queryRaw<Array<{ credit: bigint | null; debit: bigint | null }>>(Prisma.sql`
+      SELECT
+        (SELECT COALESCE(SUM("amountKopecks"), 0)::bigint FROM "ledger_entries" WHERE "creditAccount" = ${accountId}) AS credit,
+        (SELECT COALESCE(SUM("amountKopecks"), 0)::bigint FROM "ledger_entries" WHERE "debitAccount" = ${accountId}) AS debit
+    `);
+    const totalCredit = rows[0]?.credit ?? 0n;
+    const totalDebit = rows[0]?.debit ?? 0n;
+    return {
+      accountId,
+      totalCreditKopecks: totalCredit,
+      totalDebitKopecks: totalDebit,
+      balanceKopecks: totalCredit - totalDebit,
+    };
   }
 
   async getDealLedger(dealId: string) {
@@ -193,11 +203,13 @@ export class LedgerV2Service {
     });
   }
 
-  // Verify double-entry balance: sum(debit) == sum(credit) for a deal
-  async verifyDealBalance(dealId: string): Promise<{ balanced: boolean; totalKopecks: number }> {
+  // Verify double-entry balance: sum(debit) == sum(credit) for a deal.
+  // Entries are stored in compact form (one row = one debit/credit pair),
+  // so the same positive amount is posted to both sides by construction.
+  async verifyDealBalance(dealId: string): Promise<{ balanced: boolean; totalKopecks: bigint }> {
     const entries = await this.prisma.ledgerEntry.findMany({ where: { dealId } });
-    const totalDebit = entries.reduce((s, e) => s + e.amountKopecks, 0);
-    const totalCredit = entries.reduce((s, e) => s + e.amountKopecks, 0);
+    const totalDebit = entries.reduce((s, e) => s + BigInt(e.amountKopecks), 0n);
+    const totalCredit = entries.reduce((s, e) => s + BigInt(e.amountKopecks), 0n);
     return { balanced: totalDebit === totalCredit, totalKopecks: totalDebit };
   }
 }

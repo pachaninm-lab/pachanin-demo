@@ -133,6 +133,25 @@
       "docs/platform-v7/security/staff-access-control-plane.md",
       "docs/platform-v7/security/staff-access-production-runbook.md",
       "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "claude/industrial-transaction-core-sgth0p": [
+      "apps/api/prisma/schema.prisma",
+      "apps/api/prisma/migrations/**",
+      "apps/api/src/common/config/industrial-mode.ts",
+      "apps/api/src/main.ts",
+      "apps/api/src/modules/arbitrator/arbitrator.service.ts",
+      "apps/api/src/modules/deals/**",
+      "apps/api/src/modules/integration-events/**",
+      "apps/api/src/modules/ledger/ledger-v2.service.ts",
+      "apps/api/src/modules/settlement-engine/**",
+      "apps/api/test/industrial/**",
+      "apps/api/test/one-deal/**",
+      "docs/platform-v7/industrial-gap-register.md",
+      "packages/domain-core/src/index.ts",
+      "packages/domain-core/src/money.ts",
+      "packages/domain-core/src/money.test.ts",
+      "scripts/platform-v7-forward-only-migration-check.mjs",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "industrialOneDealFoundation": {

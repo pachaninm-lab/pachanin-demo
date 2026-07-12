@@ -11,7 +11,6 @@ import { RlsTransactionService } from '../../common/prisma/rls-transaction.servi
 import type { RequestUser } from '../../common/types/request-user';
 import { ExecuteDealCommandDto } from './dto/execute-deal-command.dto';
 import {
-  CANONICAL_TEST_DEAL_ID,
   buildDealSpine,
   getCurrentDealAction,
   getDealActionDefinition,
@@ -84,6 +83,23 @@ function toNumber(value: bigint | number | null | undefined): number | null {
   return Number(value);
 }
 
+/**
+ * Deep-converts bigint database values (versions, kopeck amounts) into JSON-safe
+ * numbers at the read-projection boundary. Money arithmetic stays bigint-only on
+ * the server; this conversion exists solely for display projections.
+ */
+function jsonSafe<T>(value: T): T {
+  if (typeof value === 'bigint') return Number(value) as unknown as T;
+  if (Array.isArray(value)) return value.map(jsonSafe) as unknown as T;
+  if (value instanceof Date) return value;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, jsonSafe(item)]),
+    ) as unknown as T;
+  }
+  return value;
+}
+
 function requiredBankReference(payload: Record<string, unknown>): string {
   const value = typeof payload.bankRef === 'string' ? payload.bankRef.trim() : '';
   if (value.length < 4) {
@@ -100,7 +116,7 @@ export class DealCommandService {
   constructor(private readonly rls: RlsTransactionService) {}
 
   async workspace(dealId: string, user: RequestUser) {
-    this.assertCanonicalIdentity(dealId, user);
+    this.assertTrustedIdentity(user);
 
     return this.rls.withTrustedContext(user, async (tx) => {
       const deal = await tx.deal.findUnique({
@@ -130,11 +146,12 @@ export class DealCommandService {
       const payment = deal.payments[0] ?? null;
       const openDispute = disputes.find((item) => !['RESOLVED', 'CLOSED', 'CANCELLED'].includes(item.status)) ?? null;
 
-      return {
+      return jsonSafe({
         deal: {
           id: deal.id,
           number: deal.dealNumber,
           status: deal.status,
+          version: toNumber(deal.version),
           updatedAt: deal.updatedAt.toISOString(),
           sellerOrgId: deal.sellerOrgId,
           buyerOrgId: deal.buyerOrgId,
@@ -142,7 +159,7 @@ export class DealCommandService {
           cropClass: deal.cropClass,
           volumeTons: deal.volumeTons,
           pricePerTon: deal.pricePerTon,
-          totalKopecks: deal.totalKopecks,
+          totalKopecks: toNumber(deal.totalKopecks),
           currency: deal.currency,
           closedAt: deal.closedAt?.toISOString() ?? null,
         },
@@ -177,10 +194,10 @@ export class DealCommandService {
           ? {
               id: payment.id,
               status: payment.status,
-              amountKopecks: payment.amountKopecks,
-              holdAmountKopecks: payment.holdAmountKopecks,
-              refundedKopecks: payment.refundedKopecks,
-              commissionKopecks: payment.commissionKopecks,
+              amountKopecks: toNumber(payment.amountKopecks),
+              holdAmountKopecks: toNumber(payment.holdAmountKopecks),
+              refundedKopecks: toNumber(payment.refundedKopecks),
+              commissionKopecks: toNumber(payment.commissionKopecks),
               callbackState: payment.callbackState,
               bankRef: payment.bankRef,
             }
@@ -197,7 +214,7 @@ export class DealCommandService {
         })),
         timeline: deal.dealEvents,
         persistence: deal.runtimeSnapshots[0] ?? null,
-      };
+      });
     });
   }
 
@@ -207,7 +224,7 @@ export class DealCommandService {
     dto: ExecuteDealCommandDto,
     user: RequestUser,
   ) {
-    this.assertCanonicalIdentity(dealId, user);
+    this.assertTrustedIdentity(user);
     if (!isDealActionId(rawActionId)) {
       throw new BadRequestException(`Unknown deal action: ${rawActionId}`);
     }
@@ -237,12 +254,23 @@ export class DealCommandService {
               currentUpdatedAt: deal.updatedAt.toISOString(),
             });
           }
+          const currentVersion = BigInt(deal.version ?? 0);
           if (deal.updatedAt.toISOString() !== dto.expectedUpdatedAt) {
             throw new ConflictException({
               code: 'STALE_DEAL_VERSION',
               message: 'Deal changed after the screen was loaded. Refresh and repeat the action.',
               currentStatus: deal.status,
               currentUpdatedAt: deal.updatedAt.toISOString(),
+              currentVersion: Number(currentVersion),
+            });
+          }
+          if (dto.expectedVersion !== undefined && BigInt(dto.expectedVersion) !== currentVersion) {
+            throw new ConflictException({
+              code: 'STALE_DEAL_VERSION',
+              message: 'Deal changed after the screen was loaded. Refresh and repeat the action.',
+              currentStatus: deal.status,
+              currentUpdatedAt: deal.updatedAt.toISOString(),
+              currentVersion: Number(currentVersion),
             });
           }
 
@@ -250,10 +278,11 @@ export class DealCommandService {
 
           const next = getCurrentDealAction(definition.to);
           const update = await tx.deal.updateMany({
-            where: { id: deal.id, status: definition.from, updatedAt: deal.updatedAt },
+            where: { id: deal.id, status: definition.from, updatedAt: deal.updatedAt, version: currentVersion },
             data: {
               status: definition.to,
               nextAction: next?.label ?? null,
+              version: { increment: 1 },
               ...(definition.to === 'CLOSED' ? { closedAt: new Date() } : {}),
             },
           });
@@ -316,7 +345,8 @@ export class DealCommandService {
                   dealId: deal.id,
                   actionId,
                   commandId: dto.commandId,
-                  amountKopecks: deal.totalKopecks,
+                  // JSON payloads carry money as exact integer strings, never floats.
+                  amountKopecks: BigInt(deal.totalKopecks ?? 0).toString(),
                 },
               },
             });
@@ -333,6 +363,7 @@ export class DealCommandService {
             previousStatus: definition.from,
             status: definition.to,
             updatedAt: updatedDeal.updatedAt.toISOString(),
+            version: toNumber(updatedDeal.version),
             eventId: event.id,
             auditId: audit.id,
             externalOutboxId,
@@ -375,10 +406,7 @@ export class DealCommandService {
     return { ...result, duplicate: true };
   }
 
-  private assertCanonicalIdentity(dealId: string, user: RequestUser): void {
-    if (dealId !== CANONICAL_TEST_DEAL_ID) {
-      throw new NotFoundException('Canonical command service only accepts the industrial test deal.');
-    }
+  private assertTrustedIdentity(user: RequestUser): void {
     if (!CANONICAL_ROLES.has(String(user.role))) {
       throw new ForbiddenException('Role is not part of the canonical deal execution model.');
     }
@@ -406,11 +434,12 @@ export class DealCommandService {
   private async applySideEffects(
     tx: Prisma.TransactionClient,
     definition: DealActionDefinition,
-    deal: { id: string; totalKopecks: number | null; sellerOrgId: string; buyerOrgId: string },
+    deal: { id: string; totalKopecks: bigint | number | null; sellerOrgId: string; buyerOrgId: string },
     payload: Record<string, unknown>,
     user: RequestUser,
   ): Promise<void> {
-    const amountKopecks = deal.totalKopecks ?? 0;
+    // Money stays integer kopecks end-to-end: bigint from the deal row, BIGINT columns below.
+    const amountKopecks = BigInt(deal.totalKopecks ?? 0);
 
     switch (definition.id) {
       case 'seller_sign_contract':
