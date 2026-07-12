@@ -164,7 +164,8 @@
       "apps/web/tests/unit/platformV7OfflineCommandQueue.test.ts",
       "apps/web/public/platform-v7/i18n/dictionaries.json",
       "apps/web/components/platform-v7/CanonicalDealsList.tsx",
-      "apps/web/app/platform-v7/deals/page.tsx"
+      "apps/web/app/platform-v7/deals/page.tsx",
+      "apps/web/components/platform-v7/RoleIntentDashboard.tsx"
     ]
   },
   "industrialOneDealFoundation": {
