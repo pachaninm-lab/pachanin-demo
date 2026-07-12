@@ -138,6 +138,30 @@ CREATE POLICY deals_select ON public."deals" FOR SELECT USING (
   )
 );
 
+-- A FARMER cannot use the runtime principal to insert an arbitrary row. Every
+-- field that defines the commercial counterparties and winning basis must match
+-- one confirmed server event. Privileged operational roles retain their existing
+-- controlled path for recovery and support procedures.
+DROP POLICY IF EXISTS deals_insert ON public."deals";
+CREATE POLICY deals_insert ON public."deals" FOR INSERT WITH CHECK (
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND (
+    public.app_rls_privileged()
+    OR (
+      current_setting('app.current_role', true) = 'FARMER'
+      AND public.app_deal_basis_deal_visible(
+        "id",
+        "tenantId",
+        "sellerOrgId",
+        "buyerOrgId",
+        "lotId",
+        "sourceLotId"
+      )
+    )
+  )
+);
+
 DROP POLICY IF EXISTS integration_events_select ON public."integration_events";
 CREATE POLICY integration_events_select ON public."integration_events" FOR SELECT USING (
   public.app_rls_context_ready()
