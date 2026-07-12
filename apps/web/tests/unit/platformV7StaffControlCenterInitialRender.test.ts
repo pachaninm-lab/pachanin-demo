@@ -9,12 +9,11 @@ function source(path: string) {
 const rootLayout = source('app/layout.tsx');
 const page = source('app/platform-v7/staff/page.tsx');
 const control = source('components/platform-v7/staff/StaffControlCenter.tsx');
-const ownerCenter = source('components/platform-v7/staff/OwnerAccessCenter.tsx');
+const ownerCenter = source('components/platform-v7/staff/OwnerAccessCenterV2.tsx');
 const deferred = source('components/platform-v7/staff/StaffOperationalWorkspacesDeferred.tsx');
 const workspaces = source('components/platform-v7/staff/StaffOperationalWorkspaces.tsx');
 const css = source('components/platform-v7/staff/StaffControlCenter.module.css');
 const messages = source('i18n/staff-control-center-messages.ts');
-
 
 describe('Staff Control Center initial render stability', () => {
   it('renders a stable access shell before privileged data hydration completes', () => {
