@@ -1,8 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { DealRepository } from './deal.repository';
 import { RuntimeDealRepository } from './runtime-deal.repository';
-import { PrismaDealRepository } from './prisma-deal.repository';
 import { selectDealRepository } from './deal-repository.factory';
 
-function makeRuntime() {
+function makeRuntimeCore() {
   return {
     listDeals: jest.fn().mockReturnValue([{ id: 'D1' }]),
     getDeal: jest.fn().mockReturnValue({ id: 'D1' }),
@@ -10,80 +12,110 @@ function makeRuntime() {
     dealPassport: jest.fn().mockReturnValue({ id: 'PP' }),
     dealTimeline: jest.fn().mockReturnValue([{ id: 'T1' }]),
     createDeal: jest.fn().mockReturnValue({ id: 'D2' }),
-    transitionDeal: jest.fn().mockReturnValue({ id: 'D1', status: 'SIGNED' }),
   } as any;
 }
 
-describe('RuntimeDealRepository (default adapter)', () => {
-  it('delegates every read and write to RuntimeCore unchanged', async () => {
-    const runtime = makeRuntime();
-    const repo = new RuntimeDealRepository(runtime);
-    const user = { id: 'u1' } as any;
+function makePrismaRepository(): DealRepository {
+  return {
+    list: jest.fn(),
+    getById: jest.fn(),
+    workspace: jest.fn(),
+    passport: jest.fn(),
+    timeline: jest.fn(),
+    create: jest.fn(),
+  };
+}
 
-    expect(await repo.list(user)).toEqual([{ id: 'D1' }]);
-    expect(runtime.listDeals).toHaveBeenCalledWith(user);
-    expect(await repo.getById('D1')).toEqual({ id: 'D1' });
-    expect(runtime.getDeal).toHaveBeenCalledWith('D1');
-    expect(repo.workspace('D1')).toEqual({ id: 'WS' });
-    expect(repo.passport('D1')).toEqual({ id: 'PP' });
-    expect(repo.timeline('D1')).toEqual([{ id: 'T1' }]);
-    expect(repo.create({} as any, user)).toEqual({ id: 'D2' });
-    expect(repo.transition('D1', 'SETTLED', user, 'note')).toEqual({ id: 'D1', status: 'SIGNED' });
-    expect(runtime.transitionDeal).toHaveBeenCalledWith('D1', 'SETTLED', user, 'note');
+const USER = {
+  id: 'u1',
+  sessionId: 's1',
+  orgId: 'o1',
+  tenantId: 't1',
+  role: 'FARMER',
+} as any;
+
+describe('RuntimeDealRepository explicit test adapter', () => {
+  it('delegates only when a test profile explicitly constructs it', async () => {
+    const runtime = makeRuntimeCore();
+    const repository = new RuntimeDealRepository(runtime);
+
+    await expect(repository.list(USER)).resolves.toEqual([{ id: 'D1' }]);
+    await expect(repository.getById('D1', USER)).resolves.toEqual({ id: 'D1' });
+    await expect(repository.workspace('D1', USER)).resolves.toEqual({ id: 'WS' });
+    await expect(repository.passport('D1', USER)).resolves.toEqual({ id: 'PP' });
+    await expect(repository.timeline('D1', USER)).resolves.toEqual([{ id: 'T1' }]);
+    await expect(repository.create({} as any, USER)).resolves.toEqual({ id: 'D2' });
   });
 });
 
-describe('PrismaDealRepository (disabled DB-backed skeleton)', () => {
-  it('requires PrismaService — constructing without it fails loudly', () => {
-    expect(() => new PrismaDealRepository(undefined)).toThrow(/PrismaService/);
+describe('selectDealRepository fail-closed configuration', () => {
+  const prisma = makePrismaRepository();
+  const runtime = new RuntimeDealRepository(makeRuntimeCore());
+
+  it('defaults to PostgreSQL when mode is absent', () => {
+    expect(selectDealRepository(prisma, runtime, { mode: undefined, nodeEnv: 'production' })).toBe(prisma);
   });
 
-  it('supports read snapshots (list/getById) via Prisma when explicitly used', async () => {
-    const prisma = {
-      deal: {
-        findMany: jest.fn().mockResolvedValue([{ id: 'DB1' }]),
-        findUnique: jest.fn().mockResolvedValue({ id: 'DB1' }),
-      },
-    } as any;
-    const repo = new PrismaDealRepository(prisma);
-    expect(await repo.list()).toEqual([{ id: 'DB1' }]);
-    expect(prisma.deal.findMany).toHaveBeenCalledWith({ orderBy: { createdAt: 'desc' } });
-    expect(await repo.getById('DB1')).toEqual({ id: 'DB1' });
+  it('selects PostgreSQL for the explicit prisma mode', () => {
+    expect(selectDealRepository(prisma, runtime, { mode: 'prisma', nodeEnv: 'production' })).toBe(prisma);
   });
 
-  it('getById fails loudly when the row is missing — no silent fallback', async () => {
-    const prisma = {
-      deal: { findMany: jest.fn(), findUnique: jest.fn().mockResolvedValue(null) },
-    } as any;
-    const repo = new PrismaDealRepository(prisma);
-    await expect(repo.getById('X')).rejects.toThrow(/not found in DB-backed/);
+  it('rejects RuntimeCore in production and ordinary development', () => {
+    expect(() => selectDealRepository(prisma, runtime, {
+      mode: 'runtime', nodeEnv: 'production', profile: 'demo',
+    })).toThrow(/NODE_ENV=test/);
+    expect(() => selectDealRepository(prisma, runtime, {
+      mode: 'runtime', nodeEnv: 'development', profile: 'test',
+    })).toThrow(/NODE_ENV=test/);
   });
 
-  it('does not support workspace/passport/timeline/create/transition (fails loudly)', () => {
-    const prisma = { deal: {} } as any;
-    const repo = new PrismaDealRepository(prisma);
-    expect(() => repo.workspace()).toThrow(/not supported/);
-    expect(() => repo.passport()).toThrow(/not supported/);
-    expect(() => repo.timeline()).toThrow(/not supported/);
-    expect(() => repo.create()).toThrow(/not supported/);
-    expect(() => repo.transition()).toThrow(/not supported/);
+  it('allows RuntimeCore only for an explicit test or demo profile under NODE_ENV=test', () => {
+    expect(selectDealRepository(prisma, runtime, {
+      mode: 'runtime', nodeEnv: 'test', profile: 'test',
+    })).toBe(runtime);
+    expect(selectDealRepository(prisma, runtime, {
+      mode: 'runtime', nodeEnv: 'test', profile: 'demo',
+    })).toBe(runtime);
+  });
+
+  it('fails startup selection for unknown values instead of falling back', () => {
+    for (const mode of ['true', '1', 'memory', 'postgres', 'unknown']) {
+      expect(() => selectDealRepository(prisma, runtime, { mode, nodeEnv: 'production' }))
+        .toThrow(/Unknown PLATFORM_V7_DEAL_REPOSITORY/);
+    }
   });
 });
 
-describe('selectDealRepository (no silent Prisma activation)', () => {
-  const runtime = makeRuntime();
-  const prisma = { deal: {} } as any;
+describe('production deal DI and route source gate', () => {
+  const source = (file: string) => readFileSync(join(__dirname, file), 'utf8');
+  const moduleSource = source('deals.module.ts');
+  const serviceSource = source('deals.service.ts');
+  const controllerSource = source('deals.controller.ts');
+  const prismaSource = source('prisma-deal.repository.ts');
 
-  it('defaults to the runtime adapter when no flag is set', () => {
-    expect(selectDealRepository(runtime, prisma, undefined)).toBeInstanceOf(RuntimeDealRepository);
+  it('binds the production repository directly to Prisma without RuntimeCore or a mode factory', () => {
+    expect(moduleSource).toContain('useExisting: PrismaDealRepository');
+    expect(moduleSource).not.toContain('RuntimeCoreService');
+    expect(moduleSource).not.toContain('RuntimeDealRepository');
+    expect(moduleSource).not.toContain('selectDealRepository');
+    expect(moduleSource).not.toContain('DealAutoService');
   });
 
-  it('keeps the runtime adapter for unrelated flag values', () => {
-    expect(selectDealRepository(runtime, prisma, 'true')).toBeInstanceOf(RuntimeDealRepository);
-    expect(selectDealRepository(runtime, prisma, '1')).toBeInstanceOf(RuntimeDealRepository);
+  it('keeps free-form transition unreachable from service and controller', () => {
+    expect(serviceSource).not.toContain('transition(');
+    expect(serviceSource).not.toContain('ActionExecutorService');
+    expect(serviceSource).not.toContain('DealSagaService');
+    expect(controllerSource).toContain('LEGACY_DEAL_TRANSITION_DISABLED');
+    expect(controllerSource).toContain('GoneException');
+    expect(controllerSource).not.toContain('this.deals.transition');
   });
 
-  it('selects the Prisma adapter only under the explicit prisma flag', () => {
-    expect(selectDealRepository(runtime, prisma, 'prisma')).toBeInstanceOf(PrismaDealRepository);
+  it('contains no unsupported Prisma repository methods or runtime fallback language', () => {
+    expect(prismaSource).not.toContain('not supported');
+    expect(prismaSource).not.toContain('RuntimeCore');
+    expect(prismaSource).not.toContain('fallback');
+    for (const method of ['async list(', 'async getById(', 'async workspace(', 'async passport(', 'async timeline(', 'async create(']) {
+      expect(prismaSource).toContain(method);
+    }
   });
 });
