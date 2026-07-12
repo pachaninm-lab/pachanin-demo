@@ -72,6 +72,32 @@ Review requirements for this concurrent scope:
 - The regression test preserves MFA, server redirect and the ban on client-selected roles.
 - `platform-v7 autopilot guard`, web unit tests, typecheck and build pass on the exact PR head.
 
+## Approved concurrent scope — PostgreSQL Deal authority PR #2407
+
+This scope replaces the ordinary Deal routes' runtime fallback with one PostgreSQL-authoritative boundary. It does not activate live auction, bank, FGIS, EDI or signature integrations and does not broaden client authority.
+
+- apps/api/prisma/migrations/20260712193000_postgresql_deal_authority/**
+- apps/api/src/modules/deals/**
+- apps/api/test/industrial/deal-postgresql-authority.e2e-spec.ts
+- apps/api/test/one-deal/postgresql-deal-authority.e2e-spec.ts
+- apps/api/test/one-deal/seed.ts
+- docs/platform-v7/production-database-deployment-runbook.md
+- infra/sql/postgresql-deal-authority-policies.sql
+- scripts/platform-v7-one-deal-e2e.sh
+- scripts/platform-v7-rls-apply-rehearsal.sh
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+
+Review requirements for this concurrent scope:
+
+- Production dependency injection binds ordinary Deal reads and creation directly to Prisma; RuntimeCore is unavailable outside an explicit test profile.
+- `POST /deals` accepts only a confirmed, tenant-scoped PostgreSQL auction basis and derives seller, buyer, commercial values and participants from that server basis rather than client authority.
+- Deal, exactly two basis-bound participants, initial event, audit event and idempotent receipt commit atomically; failed or conflicting creation leaves no partial rows.
+- Legacy free-form status and transition routes fail closed and cannot mutate the Deal state machine.
+- Every `SECURITY DEFINER` predicate has a fixed `search_path`, no `PUBLIC` execute permission and an exact tenant, actor, organization, lot and winning-bid boundary.
+- A restricted `NOBYPASSRLS` principal proves create, replay, participant visibility, cross-tenant denial and rollback behavior on the exact PR head.
+- No production deployment, production scale or live external-integration claim is introduced.
+
 ## Mandatory architectural review
 
 - PostgreSQL, not process memory or NDJSON, is authoritative for outbox state.

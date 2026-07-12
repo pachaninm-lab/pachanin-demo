@@ -347,7 +347,7 @@ export class PrismaDealRepository implements DealRepository {
   async create(dto: CreateDealDto, user: RequestUser): Promise<any> {
     this.assertIdentity(user);
     const basisExternalId = `${dto.lotId}:${dto.winnerBidId}`;
-    const receiptKey = `deal-create:${user.tenantId}:${dto.idempotencyKey}`;
+    const receiptKey = `deal-create:${user.tenantId}:${user.id}:${dto.idempotencyKey}`;
     const requestFingerprint = digest({
       commandId: dto.commandId,
       idempotencyKey: dto.idempotencyKey,
@@ -360,7 +360,8 @@ export class PrismaDealRepository implements DealRepository {
 
     try {
       return await this.rls.withTrustedContext(user, async (tx) => {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${basisExternalId}, 83)) IS NULL AS locked`;
+        const tenantBasisLock = `${user.tenantId}:${basisExternalId}`;
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${tenantBasisLock}, 83)) IS NULL AS locked`;
         const existingReceipt = await tx.outboxEntry.findUnique({ where: { idempotencyKey: receiptKey } });
         if (existingReceipt) return this.replayCreate(existingReceipt.payload, requestFingerprint);
 
@@ -396,7 +397,6 @@ export class PrismaDealRepository implements DealRepository {
         if (dto.culture && dto.culture !== basis.culture) {
           throw new ConflictException({ code: 'CLIENT_BASIS_MISMATCH', field: 'culture' });
         }
-
         const alreadyCreated = await tx.deal.findFirst({
           where: { tenantId: basis.tenantId, lotId: basis.lotId, sourceLotId: basis.winnerBidId },
           select: { id: true },
@@ -428,7 +428,7 @@ export class PrismaDealRepository implements DealRepository {
           pricePerTon: basis.pricePerTon,
           totalKopecks: basis.totalKopecks,
           currency: basis.currency,
-          paymentTerms: dto.paymentTerms ?? null,
+          paymentTerms: null,
         };
 
         const deal = await tx.deal.create({
@@ -478,6 +478,10 @@ export class PrismaDealRepository implements DealRepository {
               assignedByUserId: user.id,
             },
           ],
+        });
+        await tx.deal.update({
+          where: { id: dealId },
+          data: { sagaStep: 'PARTICIPANTS_BOUND' },
         });
 
         const eventId = `event-${randomUUID()}`;

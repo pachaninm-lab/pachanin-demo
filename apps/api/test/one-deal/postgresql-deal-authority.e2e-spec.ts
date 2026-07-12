@@ -6,6 +6,7 @@ import { Role, type RequestUser } from '../../src/common/types/request-user';
 const LOT_ID = 'LOT-RLS-AUTHORITY-001';
 const BID_ID = 'BID-RLS-AUTHORITY-001';
 const BASIS_EVENT_ID = 'basis-event-rls-authority-001';
+const AUTHORITY_CROSS_TENANT_ORG_ID = 'org-rls-authority-foreign-tenant';
 const CREATE_COMMAND = {
   commandId: 'restricted-authority-command-0001',
   idempotencyKey: 'restricted-authority-idempotency-0001',
@@ -42,6 +43,15 @@ const outsider: RequestUser = {
   role: Role.DRIVER,
   orgId: 'org-canonical-logistics',
   sessionId: 'restricted-authority-outsider-session',
+};
+
+const operator: RequestUser = {
+  ...seller,
+  id: 'operator-e2e',
+  email: 'operator@demo.ru',
+  role: Role.SUPPORT_MANAGER,
+  orgId: 'org-canonical-platform',
+  sessionId: 'restricted-authority-operator-session',
 };
 
 let prisma: PrismaService;
@@ -206,6 +216,7 @@ describe('PostgreSQL deal authority under NOBYPASSRLS application principal', ()
     expect(sellerProjection.participants[0]).toMatchObject({ userId: 'farmer-e2e', role: 'FARMER' });
     expect(buyerProjection.participants).toHaveLength(1);
     expect(buyerProjection.participants[0]).toMatchObject({ userId: 'buyer-e2e', role: 'BUYER' });
+    expect(sellerProjection.sagaStep).toBe('PARTICIPANTS_BOUND');
 
     const sellerCounts = await rls.withTrustedContext(seller, async (tx) => ({
       events: await tx.dealEvent.count({ where: { dealId } }),
@@ -310,5 +321,30 @@ describe('PostgreSQL deal authority under NOBYPASSRLS application principal', ()
       status: 403,
       response: expect.objectContaining({ code: 'DEAL_PARTICIPANT_REQUIRED' }),
     });
+  });
+
+  it('does not retain basis fallback visibility after the seller participant is revoked', async () => {
+    const result = await repository.create(CREATE_COMMAND, seller) as Record<string, unknown>;
+    const dealId = String(result.id);
+    await rls.withTrustedContext(operator, (tx) => tx.dealParticipant.updateMany({
+      where: { dealId, userId: seller.id, role: Role.FARMER },
+      data: { status: 'REVOKED', revokedAt: new Date() },
+    }));
+    try {
+      const visible = await rls.withTrustedContext(seller, (tx) => tx.deal.count({ where: { id: dealId } }));
+      expect(visible).toBe(0);
+    } finally {
+      await rls.withTrustedContext(operator, (tx) => tx.dealParticipant.updateMany({
+        where: { dealId, userId: seller.id, role: Role.FARMER },
+        data: { status: 'ACTIVE', revokedAt: null },
+      }));
+    }
+  });
+
+  it('keeps privileged organization reads inside the trusted tenant', async () => {
+    const visible = await rls.withTrustedContext(operator, (tx) => tx.organization.count({
+      where: { id: AUTHORITY_CROSS_TENANT_ORG_ID },
+    }));
+    expect(visible).toBe(0);
   });
 });

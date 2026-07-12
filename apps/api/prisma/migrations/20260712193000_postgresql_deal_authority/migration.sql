@@ -213,6 +213,7 @@ CREATE POLICY integration_events_select ON public."integration_events" FOR SELEC
 DROP POLICY IF EXISTS organizations_select ON public."organizations";
 CREATE POLICY organizations_select ON public."organizations" FOR SELECT USING (
   public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
   AND (
     "id" = current_setting('app.current_org_id', true)
     OR public.app_rls_privileged()
@@ -253,8 +254,18 @@ CREATE POLICY deal_participants_insert ON public."deal_participants" FOR INSERT 
   AND "tenantId" = current_setting('app.current_tenant_id', true)
   AND (
     public.app_rls_privileged()
-    OR public.app_deal_basis_participant_allowed(
-      "dealId", "tenantId", "organizationId", "userId", "role"
+    OR (
+      "accessLevel" = 'APPROVE'
+      AND "status" = 'ACTIVE'
+      AND "assignedByUserId" = current_setting('app.current_user_id', true)
+      AND "revokedAt" IS NULL
+      AND public.app_deal_basis_participant_allowed(
+        "dealId",
+        "tenantId",
+        "organizationId",
+        "userId",
+        "role"
+      )
     )
   )
 );

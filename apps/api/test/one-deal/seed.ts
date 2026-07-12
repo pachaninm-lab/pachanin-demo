@@ -8,6 +8,7 @@ import { CANONICAL_TEST_DEAL_ID } from '../../src/modules/deals/deal-command.pol
 export const AUTHORITY_LOT_ID = 'LOT-RLS-AUTHORITY-001';
 export const AUTHORITY_BID_ID = 'BID-RLS-AUTHORITY-001';
 export const AUTHORITY_BASIS_EVENT_ID = 'basis-event-rls-authority-001';
+export const AUTHORITY_CROSS_TENANT_ORG_ID = 'org-rls-authority-foreign-tenant';
 
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable);
@@ -75,6 +76,22 @@ async function main(): Promise<void> {
         status: 'CONFIRMED',
         responsePayload: basis as Prisma.InputJsonValue,
         idempotencyKey: 'basis-rls-authority-001',
+      },
+    });
+    await prisma.organization.upsert({
+      where: { id: AUTHORITY_CROSS_TENANT_ORG_ID },
+      update: {
+        tenantId: 'tenant-rls-authority-foreign',
+        status: 'VERIFIED',
+        kycStatus: 'APPROVED',
+      },
+      create: {
+        id: AUTHORITY_CROSS_TENANT_ORG_ID,
+        inn: '990000000099',
+        name: 'RLS foreign tenant organization',
+        tenantId: 'tenant-rls-authority-foreign',
+        status: 'VERIFIED',
+        kycStatus: 'APPROVED',
       },
     });
 
