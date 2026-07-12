@@ -11,7 +11,7 @@ export default async function LoginPage() {
   const chrome = await getTranslations('publicEntry.chrome');
 
   return (
-    <main id='main-content' className='pc-v7-public-entry pc-auth-page pc-auth-world-class'>
+    <main id='main-content' className='pc-v7-public-entry pc-auth-page'>
       <a className='pc-skip-link' href='#pc-login-title'>{chrome('skipToContent')}</a>
       <PublicSiteHeader
         ariaLabel={publicNav}
