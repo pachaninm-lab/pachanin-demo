@@ -16,8 +16,9 @@ describe('CreateDealDto authority boundary', () => {
   });
 
   it('rejects client-authored payment terms', async () => {
-    const dto = validDto() as CreateDealDto & { paymentTerms?: unknown };
-    dto.paymentTerms = { advancePercent: 50 };
+    const dto = Object.assign(validDto(), {
+      paymentTerms: { advancePercent: 50 },
+    }) as unknown as CreateDealDto;
 
     const errors = await validate(dto);
     expect(errors).toEqual(expect.arrayContaining([
