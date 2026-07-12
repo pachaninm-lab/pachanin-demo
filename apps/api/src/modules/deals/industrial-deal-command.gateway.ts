@@ -81,6 +81,79 @@ export class IndustrialDealCommandGateway {
   }
 
   /**
+   * Список сделок, в которых пользователь — активный участник.
+   * Скоуп определяет PostgreSQL (DealParticipant + RLS trusted context),
+   * никогда — клиент. Выборка ограничена и JSON-safe (bigint → number).
+   */
+  async listAccessibleDeals(user: RequestUser, take = 50) {
+    if (!user.tenantId) {
+      throw new ForbiddenException({ code: 'TENANT_CONTEXT_REQUIRED' });
+    }
+    const bounded = Math.min(Math.max(Math.trunc(take), 1), 100);
+    const memberships = (await this.prisma.userOrg.findMany({
+      where: { userId: user.id },
+      select: { organizationId: true, role: true },
+      orderBy: [{ isDefault: 'desc' }, { joinedAt: 'asc' }],
+    })) as Array<{ organizationId: string; role: string }>;
+
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const membership of memberships) {
+      if (!KNOWN_ROLES.has(membership.role) || membership.role === Role.BANK_CALLBACK) continue;
+      const scopedUser: RequestUser = {
+        ...user,
+        role: membership.role as Role,
+        orgId: membership.organizationId,
+        tenantId: user.tenantId,
+      };
+      const deals = await this.rls.withTrustedContext(scopedUser, (tx) =>
+        tx.deal.findMany({
+          where: {
+            tenantId: user.tenantId,
+            participants: {
+              some: {
+                userId: user.id,
+                organizationId: membership.organizationId,
+                role: membership.role,
+                status: 'ACTIVE',
+              },
+            },
+          },
+          orderBy: { updatedAt: 'desc' },
+          take: bounded,
+          select: {
+            id: true,
+            dealNumber: true,
+            status: true,
+            culture: true,
+            cropClass: true,
+            region: true,
+            volumeTons: true,
+            totalKopecks: true,
+            currency: true,
+            version: true,
+            updatedAt: true,
+            nextAction: true,
+          },
+        }),
+      );
+      for (const deal of deals) {
+        byId.set(deal.id, {
+          ...deal,
+          totalKopecks: deal.totalKopecks === null ? null : Number(deal.totalKopecks),
+          version: Number(deal.version),
+          updatedAt: deal.updatedAt.toISOString(),
+          myRole: membership.role,
+        });
+      }
+    }
+
+    const items = [...byId.values()]
+      .sort((left, right) => String(right.updatedAt).localeCompare(String(left.updatedAt)))
+      .slice(0, bounded);
+    return { count: items.length, items };
+  }
+
+  /**
    * Единая correlation timeline сделки: доменные события, audit, outbox,
    * банковские операции и строки банковской выписки в одной хронологии.
    * Доступ — только участнику сделки (тот же fail-closed membership путь).

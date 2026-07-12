@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';
 import { DEAL360_SCENARIOS } from '@/lib/platform-v7/deal360-source-of-truth';
 import { ExcelExportButton } from '@/components/platform-v7/ExcelExportButton';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
@@ -30,6 +31,7 @@ export default function PlatformV7DealsPage() {
 
   return (
     <div data-testid='platform-v7-deals-page' style={{ display: 'grid', gap: 18 }}>
+      <CanonicalDealsList />
       <style dangerouslySetInnerHTML={{ __html: `
         @media(max-width:767px){
           [data-testid='platform-v7-deals-page']{gap:12px!important}
