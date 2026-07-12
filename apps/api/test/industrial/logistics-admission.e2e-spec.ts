@@ -229,6 +229,26 @@ async function seed(prisma: PrismaService): Promise<void> {
   });
 }
 
+async function commandDto(prisma: PrismaService) {
+  const deal = await prisma.deal.findUniqueOrThrow({
+    where: { id: DEAL_ID },
+    select: { version: true, updatedAt: true },
+  });
+  return {
+    commandId: 'command-logistics-e2e-0001',
+    idempotencyKey: 'idempotency-logistics-e2e-0001',
+    expectedVersion: deal.version.toString(),
+    expectedUpdatedAt: deal.updatedAt.toISOString(),
+    payload: {
+      carrierOrgId: CARRIER_ORG,
+      driverUserId: DRIVER_ID,
+      vehicleId: VEHICLE_ID,
+      routeFromFacilityId: ORIGIN_ID,
+      routeToFacilityId: DESTINATION_ID,
+    },
+  };
+}
+
 describe('normalized PostgreSQL logistics admission', () => {
   let prisma: PrismaService;
   let service: PostgresqlDealCommandService;
@@ -251,18 +271,12 @@ describe('normalized PostgreSQL logistics admission', () => {
   });
 
   it('assigns Shipment, consumes admission and commits one binding atomically', async () => {
-    const result = await service.execute(DEAL_ID, 'assign_logistics', {
-      commandId: 'command-logistics-e2e-0001',
-      idempotencyKey: 'idempotency-logistics-e2e-0001',
-      expectedVersion: '0',
-      payload: {
-        carrierOrgId: CARRIER_ORG,
-        driverUserId: DRIVER_ID,
-        vehicleId: VEHICLE_ID,
-        routeFromFacilityId: ORIGIN_ID,
-        routeToFacilityId: DESTINATION_ID,
-      },
-    }, logistician) as Record<string, unknown>;
+    const result = await service.execute(
+      DEAL_ID,
+      'assign_logistics',
+      await commandDto(prisma),
+      logistician,
+    ) as Record<string, unknown>;
 
     expect(result).toMatchObject({
       actionId: 'assign_logistics',
@@ -304,18 +318,12 @@ describe('normalized PostgreSQL logistics admission', () => {
   });
 
   it('replays idempotently without consuming a second admission', async () => {
-    const replay = await service.execute(DEAL_ID, 'assign_logistics', {
-      commandId: 'command-logistics-e2e-0001',
-      idempotencyKey: 'idempotency-logistics-e2e-0001',
-      expectedVersion: '0',
-      payload: {
-        carrierOrgId: CARRIER_ORG,
-        driverUserId: DRIVER_ID,
-        vehicleId: VEHICLE_ID,
-        routeFromFacilityId: ORIGIN_ID,
-        routeToFacilityId: DESTINATION_ID,
-      },
-    }, logistician) as Record<string, unknown>;
+    const replay = await service.execute(
+      DEAL_ID,
+      'assign_logistics',
+      await commandDto(prisma),
+      logistician,
+    ) as Record<string, unknown>;
 
     expect(replay.duplicate).toBe(true);
     const [admissionCount, bindingCount] = await Promise.all([
