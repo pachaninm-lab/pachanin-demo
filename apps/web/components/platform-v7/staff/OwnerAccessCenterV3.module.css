@@ -103,6 +103,43 @@
   line-height: 1.55;
 }
 
+.testNetwork {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid rgba(36, 112, 82, .2);
+  border-radius: 20px;
+  background: linear-gradient(145deg, #eff9f3, #ffffff);
+  box-shadow: 0 14px 42px rgba(18, 55, 43, .05);
+}
+
+.testNetwork > span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 54px;
+  min-height: 32px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #dff0e7;
+  color: #1f684c;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.testNetwork strong {
+  display: block;
+  font-size: 18px;
+}
+
+.testNetwork p {
+  margin: 6px 0 0;
+  color: #587066;
+  line-height: 1.5;
+}
+
 .cabinetGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -113,7 +150,7 @@
 .cabinetCard {
   display: grid;
   min-width: 0;
-  min-height: 190px;
+  min-height: 230px;
   padding: 18px;
   border: 1px solid rgba(20, 78, 57, .14);
   border-radius: 22px;
@@ -134,14 +171,43 @@
 }
 
 .cabinetCard h2 {
-  margin: 18px 0;
+  margin: 18px 0 8px;
   font-size: clamp(20px, 2vw, 25px);
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
 
-.cabinetCard button {
+.organization {
+  margin: 0 0 16px;
+  color: #526a60;
+  line-height: 1.4;
+}
+
+.organization span,
+.organization strong {
+  display: block;
+}
+
+.organization span {
+  margin-bottom: 3px;
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.organization strong {
+  color: #183d30;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.cabinetCard form {
   align-self: end;
+}
+
+.cabinetCard button {
+  width: 100%;
   min-height: 50px;
   padding: 12px 16px;
   border: 0;
@@ -204,9 +270,10 @@
   .page { padding: 12px; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
   .hero { padding: 22px 18px; border-radius: 24px; }
   .hero h1 { font-size: clamp(32px, 10vw, 44px); }
+  .testNetwork { align-items: flex-start; padding: 15px; }
   .cabinetGrid { grid-template-columns: 1fr; gap: 12px; }
-  .cabinetCard { min-height: 154px; padding: 16px; }
-  .cabinetCard h2 { margin: 14px 0; }
+  .cabinetCard { min-height: 198px; padding: 16px; }
+  .cabinetCard h2 { margin-top: 14px; }
   .cabinetCard button { min-height: 54px; }
   .backButton { margin-left: 10px; }
 }
@@ -218,6 +285,7 @@
 @media (forced-colors: active) {
   .hero,
   .accessSummary,
+  .testNetwork,
   .cabinetCard,
   .safetyNote,
   .loadingCard { border: 1px solid CanvasText; }

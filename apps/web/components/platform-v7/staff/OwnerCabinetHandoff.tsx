@@ -8,9 +8,11 @@ type Props = {
   role: PlatformRole;
   target: string;
   label: string;
+  organizationName: string | null;
+  testData: boolean;
 };
 
-export function OwnerCabinetHandoff({ role, target, label }: Props) {
+export function OwnerCabinetHandoff({ role, target, label, organizationName, testData }: Props) {
   useLayoutEffect(() => {
     window.sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
     window.location.replace(target);
@@ -40,8 +42,30 @@ export function OwnerCabinetHandoff({ role, target, label }: Props) {
           boxShadow: '0 18px 48px rgba(15,51,39,.09)',
         }}
       >
+        {testData && (
+          <span
+            style={{
+              display: 'inline-block',
+              marginBottom: '12px',
+              padding: '6px 10px',
+              borderRadius: '999px',
+              background: '#e3f2e9',
+              color: '#1f684c',
+              fontSize: '12px',
+              fontWeight: 900,
+              letterSpacing: '.08em',
+            }}
+          >
+            TEST
+          </span>
+        )}
         <strong style={{ display: 'block', fontSize: '24px', lineHeight: 1.2 }}>Открываем кабинет</strong>
         <p style={{ margin: '12px 0 0', color: '#5a7067', lineHeight: 1.5 }}>{label}</p>
+        {organizationName && (
+          <p style={{ margin: '6px 0 0', color: '#183d30', fontWeight: 750, lineHeight: 1.45 }}>
+            {organizationName}
+          </p>
+        )}
         <noscript>
           <a href={target}>Продолжить</a>
         </noscript>

@@ -1,4 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  CONTROLLED_CABINET_CONTEXTS,
+  CONTROLLED_TEST_ORGANIZATIONS,
+  controlledCabinetContext,
+  controlledOrganizationById,
+  controlledOrganizationForRole,
+  type ControlledCabinetRole,
+} from '@/lib/platform-v7/controlled-test-organizations';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 
 export const runtime = 'nodejs';
@@ -14,18 +22,8 @@ const CONTROL_PERMISSIONS = [
 ] as const;
 
 const VIEW_AS_PERMISSIONS = ['cabinet:view-as','deal:read','document:metadata:read'] as const;
-const ORGANIZATION = {
-  id: 'org-canonical-buyer',
-  tenantId: 'tenant-canonical-test',
-  tenant_id: 'tenant-canonical-test',
-  name: 'ООО «Тестовый покупатель»',
-  inn: '990000000002',
-  status: 'ACTIVE',
-  kycStatus: 'VERIFIED',
-  kyc_status: 'VERIFIED',
-  amlStatus: 'CLEAR',
-  aml_status: 'CLEAR',
-};
+const DEFAULT_ORGANIZATION = controlledOrganizationForRole('buyer')!;
+const SELLER_ORGANIZATION = controlledOrganizationForRole('seller')!;
 
 type OwnerClaims = Record<string, unknown> & {
   sub: string;
@@ -98,8 +96,8 @@ function session(mode: 'CONTROL_PLANE' | 'VIEW_AS', claims: OwnerClaims) {
     staff_role: 'PLATFORM_OWNER',
     access_mode: mode,
     permissions: viewAs ? [...VIEW_AS_PERMISSIONS] : [...CONTROL_PERMISSIONS],
-    effective_tenant_id: viewAs ? ORGANIZATION.tenantId : null,
-    effective_organization_id: viewAs ? ORGANIZATION.id : null,
+    effective_tenant_id: viewAs ? DEFAULT_ORGANIZATION.tenantId : null,
+    effective_organization_id: viewAs ? DEFAULT_ORGANIZATION.id : null,
     effective_user_id: null,
     effective_role: viewAs ? 'BUYER' : null,
     target_deal_id: null,
@@ -108,6 +106,38 @@ function session(mode: 'CONTROL_PLANE' | 'VIEW_AS', claims: OwnerClaims) {
     expires_at: new Date(claims.exp * 1000).toISOString(),
     created_at: iso(-60_000),
   };
+}
+
+function organizationIdFromPath(path: string): string | null {
+  const match = path.match(/^organizations\/([^/]+)/);
+  return match ? match[1] : null;
+}
+
+function organizationMembers(organizationId: string) {
+  return Object.values(CONTROLLED_CABINET_CONTEXTS)
+    .filter((context) => context.organizationId === organizationId)
+    .map((context, index) => ({
+      membership_id: `m-${context.role}-test`,
+      user_id: `test:${context.role}`,
+      email: context.memberEmail,
+      full_name: context.memberName,
+      user_status: 'ACTIVE',
+      mfa_enabled: true,
+      role: context.apiRole,
+      is_default: index === 0,
+      joined_at: iso(-86_400_000),
+      test_data: true,
+    }));
+}
+
+function organizationCabinet(path: string) {
+  const match = path.match(/^organizations\/([^/]+)\/cabinet\/([^/]+)$/);
+  if (!match) return null;
+  const organization = controlledOrganizationById(match[1]);
+  const role = match[2] as ControlledCabinetRole;
+  const context = controlledCabinetContext(role);
+  if (!organization || !context || context.organizationId !== organization.id) return null;
+  return { organization, context };
 }
 
 async function handle(request: NextRequest, context: { params: { path?: string[] } }) {
@@ -150,18 +180,32 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
   }
   if (method === 'POST' && /^access\/sessions\/[^/]+\/(end|revoke)$/.test(path)) return json({ success: true });
 
-  if (method === 'GET' && path === 'organizations') return json([ORGANIZATION]);
+  if (method === 'GET' && path === 'organizations') return json(CONTROLLED_TEST_ORGANIZATIONS);
   if (method === 'GET' && /^organizations\/[^/]+\/users$/.test(path)) {
-    return json([{ membership_id: 'm-buyer-test', user_id: 'buyer-e2e', email: 'buyer@demo.ru', full_name: 'Тестовый покупатель', user_status: 'ACTIVE', mfa_enabled: true, role: 'BUYER', is_default: true, joined_at: iso(-86_400_000) }]);
+    const organizationId = organizationIdFromPath(path);
+    const organization = controlledOrganizationById(organizationId);
+    if (!organization) return json({ code: 'ORGANIZATION_NOT_FOUND' }, 404);
+    return json(organizationMembers(organization.id));
   }
   if (method === 'GET' && /^organizations\/[^/]+\/cabinet\/[^/]+$/.test(path)) {
-    const role = path.split('/').at(-1) || 'BUYER';
+    const cabinet = organizationCabinet(path);
+    if (!cabinet) return json({ code: 'CABINET_CONTEXT_NOT_FOUND' }, 404);
     return json({
       mode: 'READ_ONLY_VIEW_AS',
-      effectiveOrganization: ORGANIZATION,
-      effectiveRole: role,
-      roleMembers: 1,
-      deals: [{ id: 'deal-canonical-test', dealNumber: 'ТП-000001', deal_number: 'ТП-000001', status: 'IN_EXECUTION', nextAction: 'Проверить документы', next_action: 'Проверить документы', updatedAt: iso(-5_000), updated_at: iso(-5_000) }],
+      effectiveOrganization: cabinet.organization,
+      effectiveRole: cabinet.context.apiRole,
+      roleMembers: organizationMembers(cabinet.organization.id).length,
+      deals: [{
+        id: 'deal-canonical-test',
+        dealNumber: 'ТП-000001',
+        deal_number: 'ТП-000001',
+        status: 'IN_EXECUTION',
+        nextAction: 'Продолжить каноническую тестовую сделку',
+        next_action: 'Продолжить каноническую тестовую сделку',
+        updatedAt: iso(-5_000),
+        updated_at: iso(-5_000),
+        testData: true,
+      }],
     });
   }
   if (method === 'GET' && path === 'audit/events') {
@@ -172,12 +216,12 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
   if (method === 'POST' && /^break-glass\/[^/]+\/end$/.test(path)) return json({ success: true });
 
   if (method === 'GET' && path === 'workspaces/support') {
-    return json({ generatedAt: iso(), deals: [{ id: 'deal-canonical-test', dealNumber: 'ТП-000001', status: 'IN_EXECUTION', seller: { id: 'org-canonical-seller', name: 'Тестовый продавец' }, buyer: ORGANIZATION, nextAction: 'Проверить ЭПД', slaAt: iso(-30_000), overdue: true, blockers: [{ shipmentId: 'shipment-test', blocker: 'Отсутствует ЭПД', nextAction: 'Запросить документ' }] }], kycTasks: [] });
+    return json({ generatedAt: iso(), deals: [{ id: 'deal-canonical-test', dealNumber: 'ТП-000001', status: 'IN_EXECUTION', seller: SELLER_ORGANIZATION, buyer: DEFAULT_ORGANIZATION, nextAction: 'Проверить ЭПД', slaAt: iso(-30_000), overdue: true, blockers: [{ shipmentId: 'shipment-test', blocker: 'Отсутствует ЭПД', nextAction: 'Запросить документ' }] }], kycTasks: [] });
   }
   if (method === 'GET' && path === 'workspaces/support/cases') return json([]);
   if (method === 'POST' && path === 'workspaces/support/cases') return json({ case: { id: 'sup-controlled-test', status: 'OPEN', version: 1 }, replayed: false }, 201);
   if (method === 'GET' && path === 'workspaces/operations') {
-    return json({ generatedAt: iso(), items: [{ id: 'deal-canonical-test', dealNumber: 'ТП-000001', status: 'IN_EXECUTION', seller: { name: 'Тестовый продавец' }, buyer: ORGANIZATION, nextAction: 'Проверить ЭПД', slaAt: iso(600_000), overdue: false, shipmentSummary: { total: 2, active: 1, blocked: 1 }, documentSummary: { total: 5, pending: 1, releaseBlocking: 1 }, payment: { status: 'RESERVED' }, openDisputes: 0 }] });
+    return json({ generatedAt: iso(), items: [{ id: 'deal-canonical-test', dealNumber: 'ТП-000001', status: 'IN_EXECUTION', seller: SELLER_ORGANIZATION, buyer: DEFAULT_ORGANIZATION, nextAction: 'Проверить ЭПД', slaAt: iso(600_000), overdue: false, shipmentSummary: { total: 2, active: 1, blocked: 1 }, documentSummary: { total: 5, pending: 1, releaseBlocking: 1 }, payment: { status: 'RESERVED' }, openDisputes: 0 }] });
   }
   if (method === 'GET' && path === 'workspaces/finance') {
     return json({ generatedAt: iso(), payments: [{ id: 'pay-test', dealId: 'deal-canonical-test', status: 'RESERVED', amountKopecks: 240000000, callbackState: 'NONE', updatedAt: iso(), deal: { dealNumber: 'ТП-000001' } }], bankOperations: [] });
@@ -185,7 +229,24 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
   if (method === 'GET' && path === 'workspaces/diagnostics') {
     return json({ generatedAt: iso(), integrations: [{ id: 'integration-test', adapterName: 'bank-sandbox', eventType: 'CALLBACK', status: 'PENDING', createdAt: iso() }], outbox: [{ id: 'outbox-test', type: 'deal.updated', dealId: 'deal-canonical-test', status: 'CONFIRMED', retryCount: 0, maxRetries: 5, correlationId: 'controlled-test', createdAt: iso() }], runtimeAttempts: [] });
   }
-  if (method === 'GET' && path === 'workspaces/assignments') return json([{ id: 'sta-owner-controlled-test', email: claims.email, full_name: 'Максим — владелец платформы', role: 'PLATFORM_OWNER', status: 'ACTIVE', valid_from: iso(-86_400_000), valid_until: null, reason: 'Controlled test access' }]);
+  if (method === 'GET' && path === 'workspaces/assignments') {
+    const organizationAssignments = Object.values(CONTROLLED_CABINET_CONTEXTS).map((item) => ({
+      id: `sta-${item.role}-controlled-test`,
+      email: item.memberEmail,
+      full_name: item.memberName,
+      role: item.apiRole,
+      status: 'ACTIVE',
+      organization_id: item.organizationId,
+      organization_name: item.organizationName,
+      valid_from: iso(-86_400_000),
+      valid_until: null,
+      reason: 'Controlled test organization access',
+    }));
+    return json([
+      { id: 'sta-owner-controlled-test', email: claims.email, full_name: 'Максим — владелец платформы', role: 'PLATFORM_OWNER', status: 'ACTIVE', valid_from: iso(-86_400_000), valid_until: null, reason: 'Controlled test access' },
+      ...organizationAssignments,
+    ]);
+  }
   if (method === 'GET' && path === 'workspaces/critical-actions') return json([]);
   if (method === 'GET' && path === 'workspaces/critical-actions/mine') return json([]);
   if (method === 'GET' && path === 'workspaces/break-glass') return json([]);

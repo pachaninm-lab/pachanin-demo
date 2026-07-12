@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { OwnerCabinetHandoff } from '@/components/platform-v7/staff/OwnerCabinetHandoff';
+import { controlledOrganizationById } from '@/lib/platform-v7/controlled-test-organizations';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
-import { readVerifiedCabinetSessionRole } from '@/lib/platform-v7/verified-session';
+import { readVerifiedCabinetSessionContext } from '@/lib/platform-v7/verified-session';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 export const dynamic = 'force-dynamic';
@@ -51,11 +52,20 @@ function signingSecret(): string {
 export default async function OwnerCabinetHandoffPage() {
   const secret = signingSecret();
   const token = cookies().get(CABINET_SESSION_COOKIE)?.value;
-  const role = secret
-    ? await readVerifiedCabinetSessionRole(token, secret, Math.floor(Date.now() / 1000))
+  const context = secret
+    ? await readVerifiedCabinetSessionContext(token, secret, Math.floor(Date.now() / 1000))
     : null;
 
-  if (!role) redirect('/platform-v7/staff?cabinetError=CABINET_SESSION_UNAVAILABLE');
+  if (!context) redirect('/platform-v7/staff?cabinetError=CABINET_SESSION_UNAVAILABLE');
 
-  return <OwnerCabinetHandoff role={role} target={TARGETS[role]} label={LABELS[role]} />;
+  const organization = controlledOrganizationById(context.organizationId);
+  return (
+    <OwnerCabinetHandoff
+      role={context.role}
+      target={TARGETS[context.role]}
+      label={LABELS[context.role]}
+      organizationName={organization?.name || null}
+      testData={organization?.testData === true}
+    />
+  );
 }
