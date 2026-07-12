@@ -23,4 +23,14 @@ describe('platform-v7 product entry', () => {
     expect(loginClient).not.toContain('usePlatformV7RStore');
     expect(loginClient).not.toContain('?role=');
   });
+
+  it('uses direct human login copy in all supported locales', () => {
+    expect(loginCopy).toContain("email: 'Электронная почта'");
+    expect(loginCopy).toContain("forgot: 'Забыли пароль?'");
+    expect(loginCopy).toContain("email: 'Email'");
+    expect(loginCopy).toContain("forgot: 'Forgot password?'");
+    expect(loginCopy).toContain("email: '电子邮箱'");
+    expect(loginCopy).toContain("forgot: '忘记密码？'");
+    expect(loginCopy).not.toContain("email: 'Корпоративная почта'");
+  });
 });
