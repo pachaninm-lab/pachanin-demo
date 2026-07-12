@@ -7,7 +7,16 @@ import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RS
 
 export const PLATFORM_V7_ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 
-const PUBLIC_PATHS = new Set(['/platform-v7', '/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/demo', '/platform-v7/contact', '/platform-v7/request']);
+const PUBLIC_PATHS = new Set([
+  '/platform-v7',
+  '/platform-v7/open',
+  '/platform-v7/login',
+  '/platform-v7/register',
+  '/platform-v7/demo',
+  '/platform-v7/contact',
+  '/platform-v7/request',
+  '/platform-v7/staff/cabinet-handoff',
+]);
 
 const PLATFORM_ROLES: readonly PlatformRole[] = [
   'operator',
