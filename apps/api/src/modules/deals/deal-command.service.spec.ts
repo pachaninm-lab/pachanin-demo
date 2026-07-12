@@ -6,24 +6,27 @@ const USER: RequestUser = {
   id: 'compliance-user-1',
   email: 'compliance@test.local',
   role: 'COMPLIANCE_OFFICER' as any,
-  orgId: 'org-canonical-platform',
+  orgId: 'org-production-platform',
   fullName: 'Compliance User',
-  tenantId: 'tenant-canonical-test',
+  tenantId: 'tenant-command-test',
   sessionId: 'session-compliance-1',
 };
 
+const DEAL_ID = 'DEAL-COMMAND-TEST-001';
 const UPDATED_AT = new Date('2026-07-10T09:00:00.000Z');
 const NEXT_UPDATED_AT = new Date('2026-07-10T09:00:01.000Z');
 
-function deal(status = 'DRAFT') {
+function deal(status = 'DRAFT', version = 0n) {
   return {
-    id: 'DEAL-INDUSTRIAL-001',
+    id: DEAL_ID,
     status,
+    version,
     updatedAt: UPDATED_AT,
-    tenantId: 'tenant-canonical-test',
-    sellerOrgId: 'org-canonical-seller',
-    buyerOrgId: 'org-canonical-buyer',
-    totalKopecks: 240_000_000,
+    tenantId: 'tenant-command-test',
+    sellerOrgId: 'org-command-seller',
+    buyerOrgId: 'org-command-buyer',
+    totalKopecks: 240_000_000n,
+    sagaState: null,
   };
 }
 
@@ -32,6 +35,7 @@ function command(overrides: Record<string, unknown> = {}) {
     commandId: 'command-0001',
     idempotencyKey: 'idem-001',
     expectedUpdatedAt: UPDATED_AT.toISOString(),
+    expectedVersion: '0',
     payload: {},
     ...overrides,
   } as any;
@@ -55,7 +59,7 @@ describe('DealCommandService atomic canonical command path', () => {
       deal: {
         findUnique: jest.fn().mockResolvedValue(deal()),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findUniqueOrThrow: jest.fn().mockResolvedValue({ ...deal('ADMISSION_APPROVED'), updatedAt: NEXT_UPDATED_AT }),
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ ...deal('ADMISSION_APPROVED', 1n), updatedAt: NEXT_UPDATED_AT }),
       },
       dealEvent: {
         findFirst: jest.fn().mockResolvedValue(null),
@@ -69,18 +73,13 @@ describe('DealCommandService atomic canonical command path', () => {
     const rls = rlsFixture(tx);
     const service = new DealCommandService(rls as any);
 
-    const result = await service.execute(
-      'DEAL-INDUSTRIAL-001',
-      'approve_admission',
-      command(),
-      USER,
-    );
+    const result = await service.execute(DEAL_ID, 'approve_admission', command(), USER);
 
     expect(rls.withTrustedContext).toHaveBeenCalledTimes(1);
     expect(rls.withTrustedContext).toHaveBeenCalledWith(USER, expect.any(Function));
-    expect(tx.$queryRaw).toHaveBeenCalled(); // per-deal advisory lock acquired first
+    expect(tx.$queryRaw).toHaveBeenCalled();
     expect(tx.deal.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ id: 'DEAL-INDUSTRIAL-001', status: 'DRAFT', updatedAt: UPDATED_AT }),
+      where: expect.objectContaining({ id: DEAL_ID, status: 'DRAFT', updatedAt: UPDATED_AT }),
       data: expect.objectContaining({ status: 'ADMISSION_APPROVED' }),
     }));
     expect(tx.dealEvent.create).toHaveBeenCalledTimes(1);
@@ -89,7 +88,7 @@ describe('DealCommandService atomic canonical command path', () => {
       data: expect.objectContaining({
         type: 'deal.command.receipt',
         status: 'CONFIRMED',
-        idempotencyKey: 'deal-command:DEAL-INDUSTRIAL-001:idem-001',
+        idempotencyKey: `deal-command:${DEAL_ID}:idem-001`,
       }),
     }));
     expect(result).toMatchObject({
@@ -97,42 +96,38 @@ describe('DealCommandService atomic canonical command path', () => {
       duplicate: false,
       previousStatus: 'DRAFT',
       status: 'ADMISSION_APPROVED',
+      version: '1',
       eventId: 'event-1',
       auditId: 'audit-1',
     });
   });
 
-  it('returns the stored command receipt from the trusted transaction without another mutation', async () => {
+  it('returns the stored receipt without another mutation', async () => {
     const storedResult = {
       ok: true,
       duplicate: false,
       commandId: 'command-0001',
       idempotencyKey: 'idem-001',
-      dealId: 'DEAL-INDUSTRIAL-001',
+      dealId: DEAL_ID,
       actionId: 'approve_admission',
       previousStatus: 'DRAFT',
       status: 'ADMISSION_APPROVED',
       updatedAt: NEXT_UPDATED_AT.toISOString(),
+      version: '1',
       eventId: 'event-1',
       auditId: 'audit-1',
       externalOutboxId: null,
     };
     const tx = {
       $queryRaw: jest.fn().mockResolvedValue([{ pg_advisory_xact_lock: null }]),
-      outboxEntry: {
-        findUnique: jest.fn().mockResolvedValue({ payload: { result: storedResult } }),
-      },
+      outboxEntry: { findUnique: jest.fn().mockResolvedValue({ payload: { result: storedResult } }) },
       deal: { updateMany: jest.fn() },
     };
     const rls = rlsFixture(tx);
     const service = new DealCommandService(rls as any);
 
-    await expect(service.execute(
-      'DEAL-INDUSTRIAL-001',
-      'approve_admission',
-      command(),
-      USER,
-    )).resolves.toMatchObject({ ...storedResult, duplicate: true });
+    await expect(service.execute(DEAL_ID, 'approve_admission', command(), USER))
+      .resolves.toMatchObject({ ...storedResult, duplicate: true });
     expect(rls.withTrustedContext).toHaveBeenCalledTimes(1);
     expect(tx.deal.updateMany).not.toHaveBeenCalled();
   });
@@ -141,16 +136,13 @@ describe('DealCommandService atomic canonical command path', () => {
     const tx = {
       $queryRaw: jest.fn().mockResolvedValue([{ pg_advisory_xact_lock: null }]),
       outboxEntry: { findUnique: jest.fn().mockResolvedValue(null) },
-      deal: {
-        findUnique: jest.fn().mockResolvedValue(deal()),
-        updateMany: jest.fn(),
-      },
+      deal: { findUnique: jest.fn().mockResolvedValue(deal()), updateMany: jest.fn() },
     };
     const rls = rlsFixture(tx);
     const service = new DealCommandService(rls as any);
 
     await expect(service.execute(
-      'DEAL-INDUSTRIAL-001',
+      DEAL_ID,
       'approve_admission',
       command({ expectedUpdatedAt: '2026-07-10T08:59:59.000Z' }),
       USER,
