@@ -44,12 +44,38 @@ const outsider: RequestUser = {
 };
 
 let prisma: PrismaService;
+let rls: RlsTransactionService;
 let repository: PrismaDealRepository;
+
+function databaseErrorText(error: unknown): string {
+  const candidate = error as {
+    name?: unknown;
+    code?: unknown;
+    message?: unknown;
+    meta?: unknown;
+  };
+  return JSON.stringify({
+    name: candidate?.name,
+    code: candidate?.code,
+    message: candidate?.message,
+    meta: candidate?.meta,
+  });
+}
+
+async function captureDatabaseRejection(work: Promise<unknown>): Promise<string> {
+  try {
+    await work;
+  } catch (error) {
+    return databaseErrorText(error);
+  }
+  throw new Error('Expected PostgreSQL to reject the write.');
+}
 
 beforeAll(async () => {
   prisma = new PrismaService();
   await prisma.$connect();
-  repository = new PrismaDealRepository(new RlsTransactionService(prisma));
+  rls = new RlsTransactionService(prisma);
+  repository = new PrismaDealRepository(rls);
 });
 
 afterAll(async () => {
@@ -58,7 +84,7 @@ afterAll(async () => {
 
 describe('PostgreSQL deal authority under NOBYPASSRLS application principal', () => {
   it('exposes only the seller-scoped confirmed pre-deal basis', async () => {
-    const visible = await new RlsTransactionService(prisma).withTrustedContext(seller, (tx) =>
+    const visible = await rls.withTrustedContext(seller, (tx) =>
       tx.integrationEvent.findMany({
         where: { adapterName: 'auction', eventType: 'DEAL_BASIS_READY', dealId: null },
         select: { id: true, externalId: true },
@@ -69,10 +95,31 @@ describe('PostgreSQL deal authority under NOBYPASSRLS application principal', ()
       externalId: `${LOT_ID}:${BID_ID}`,
     }]);
 
-    const buyerVisible = await new RlsTransactionService(prisma).withTrustedContext(buyer, (tx) =>
+    const buyerVisible = await rls.withTrustedContext(buyer, (tx) =>
       tx.integrationEvent.count({ where: { dealId: null, eventType: 'DEAL_BASIS_READY' } }),
     );
     expect(buyerVisible).toBe(0);
+  });
+
+  it('rejects a direct Deal INSERT that is not backed by a confirmed basis', async () => {
+    const error = await captureDatabaseRejection(
+      rls.withTrustedContext(seller, (tx) => tx.deal.create({
+        data: {
+          id: 'deal-forged-without-basis',
+          lotId: 'LOT-FORGED-WITHOUT-BASIS',
+          sourceLotId: 'BID-FORGED-WITHOUT-BASIS',
+          dealNumber: 'ТП-FORGED-WITHOUT-BASIS',
+          status: 'DRAFT',
+          tenantId: seller.tenantId,
+          sellerOrgId: seller.orgId,
+          buyerOrgId: buyer.orgId,
+          totalKopecks: 100n,
+          currency: 'RUB',
+        },
+      })),
+    );
+
+    expect(error).toMatch(/row-level security|42501|policy/i);
   });
 
   it('creates the deal and exactly basis-bound seller/buyer participants in one transaction', async () => {
@@ -96,7 +143,7 @@ describe('PostgreSQL deal authority under NOBYPASSRLS application principal', ()
     expect(buyerProjection.participants).toHaveLength(1);
     expect(buyerProjection.participants[0]).toMatchObject({ userId: 'buyer-e2e', role: 'BUYER' });
 
-    const sellerCounts = await new RlsTransactionService(prisma).withTrustedContext(seller, async (tx) => ({
+    const sellerCounts = await rls.withTrustedContext(seller, async (tx) => ({
       events: await tx.dealEvent.count({ where: { dealId } }),
       audits: await tx.auditEvent.count({ where: { dealId } }),
       receipts: await tx.outboxEntry.count({ where: { dealId, type: 'deal.create.receipt' } }),
@@ -116,6 +163,38 @@ describe('PostgreSQL deal authority under NOBYPASSRLS application principal', ()
       labs: 0,
       bankOperations: 0,
     });
+  });
+
+  it('rejects a second Deal row for the same confirmed lot and winning bid', async () => {
+    const error = await captureDatabaseRejection(
+      rls.withTrustedContext(seller, (tx) => tx.deal.create({
+        data: {
+          id: 'deal-duplicate-confirmed-basis',
+          lotId: LOT_ID,
+          sourceLotId: BID_ID,
+          dealNumber: 'ТП-RLS-AUTHORITY-DUPLICATE',
+          status: 'DRAFT',
+          tenantId: seller.tenantId,
+          sellerOrgId: seller.orgId,
+          buyerOrgId: buyer.orgId,
+          volumeTonsDec: '100.000000',
+          pricePerTonDec: '18500.000000',
+          totalKopecks: 185000000n,
+          currency: 'RUB',
+          culture: 'Пшеница',
+        },
+      })),
+    );
+
+    expect(error).toMatch(/already been consumed|23505|P2002|deals_tenant_lot_winner_single_use/i);
+    const matchingDeals = await rls.withTrustedContext(seller, (tx) => tx.deal.count({
+      where: {
+        tenantId: seller.tenantId,
+        lotId: LOT_ID,
+        sourceLotId: BID_ID,
+      },
+    }));
+    expect(matchingDeals).toBe(1);
   });
 
   it('replays idempotently across a fresh application instance', async () => {
