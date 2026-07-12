@@ -2,25 +2,16 @@
 
 import { useEffect, useMemo, useState, type ComponentProps } from 'react';
 import type { OwnerAccessCenterCopy } from '@/i18n/owner-access-center-messages';
+import {
+  CONTROLLED_CABINET_CONTEXTS,
+  type ControlledCabinetRole,
+} from '@/lib/platform-v7/controlled-test-organizations';
 import { OwnerAccessCenter as OwnerAccessCenterV2 } from './OwnerAccessCenterV2';
 import styles from './OwnerAccessCenterV3.module.css';
 
 type StaffAssignment = { id: string; role: string; status: string };
 type Props = ComponentProps<typeof OwnerAccessCenterV2> & { csrfToken: string };
-
-type SurfaceRole =
-  | 'operator'
-  | 'buyer'
-  | 'seller'
-  | 'logistics'
-  | 'driver'
-  | 'surveyor'
-  | 'elevator'
-  | 'lab'
-  | 'bank'
-  | 'arbitrator'
-  | 'compliance'
-  | 'executive';
+type SurfaceRole = ControlledCabinetRole;
 
 const CABINETS: ReadonlyArray<{ role: SurfaceRole; cabinetRole: keyof OwnerAccessCenterCopy['cabinetRoles']; icon: string }> = [
   { role: 'operator', cabinetRole: 'ADMIN', icon: '01' },
@@ -44,6 +35,8 @@ const OWNER_COPY = {
     description: 'Открывай любой рабочий кабинет одним нажатием. Повторный пароль, тикет, причина и отдельный запрос для просмотра не требуются.',
     access: 'Максимальный обзор',
     accessBody: 'Доступны все 12 рабочих кабинетов и их интерфейсы. Переключение действует в пределах текущего входа владельца.',
+    testNetwork: 'Тестовый контур компаний',
+    testNetworkBody: 'Для каждого кабинета назначена связанная тестовая организация. Все компании работают вокруг одной канонической тестовой сделки и помечены как тестовые данные.',
     safety: 'Деньги, банковские подтверждения, подпись, лабораторная финализация и решение арбитра не подменяются владельцем и остаются под отдельными серверными правилами.',
     open: 'Открыть кабинет',
     advanced: 'Управление сотрудниками и доступами',
@@ -56,6 +49,8 @@ const OWNER_COPY = {
     description: 'Open any working cabinet with one tap. No repeated password, ticket, reason or separate read-access request is required.',
     access: 'Maximum visibility',
     accessBody: 'All 12 working cabinets and their interfaces are available within the current owner sign-in.',
+    testNetwork: 'Test organization network',
+    testNetworkBody: 'Each cabinet is linked to a controlled test organization. All organizations participate in one canonical test deal and are explicitly marked as test data.',
     safety: 'Money movement, bank confirmations, signatures, laboratory finalization and arbitration decisions remain protected by separate server rules.',
     open: 'Open cabinet',
     advanced: 'Staff and access management',
@@ -68,6 +63,8 @@ const OWNER_COPY = {
     description: '一次点击即可打开任意工作台。只读访问无需再次输入密码、工单、原因或单独提交请求。',
     access: '最大可见范围',
     accessBody: '当前所有者登录期间可访问全部 12 个工作台及其界面。',
+    testNetwork: '测试组织网络',
+    testNetworkBody: '每个工作台都绑定到受控测试组织。所有组织围绕同一笔标准测试交易运行，并明确标记为测试数据。',
     safety: '资金操作、银行确认、签署、实验室终审和仲裁决定仍受独立服务器规则保护。',
     open: '打开工作台',
     advanced: '员工与访问管理',
@@ -83,6 +80,7 @@ export function OwnerAccessCenter(props: Props) {
   const [checking, setChecking] = useState(apiAvailable);
   const [isOwner, setIsOwner] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  const controlledOwner = identity?.id === 'owner-controlled-test';
 
   useEffect(() => {
     if (!apiAvailable) {
@@ -109,7 +107,11 @@ export function OwnerAccessCenter(props: Props) {
   }, [apiAvailable]);
 
   const cabinetLabels = useMemo(
-    () => CABINETS.map((item) => ({ ...item, label: copy.cabinetRoles[item.cabinetRole] })),
+    () => CABINETS.map((item) => ({
+      ...item,
+      label: copy.cabinetRoles[item.cabinetRole],
+      organization: CONTROLLED_CABINET_CONTEXTS[item.role],
+    })),
     [copy],
   );
 
@@ -149,13 +151,32 @@ export function OwnerAccessCenter(props: Props) {
         <p>{text.accessBody}</p>
       </section>
 
+      {controlledOwner && (
+        <section className={styles.testNetwork} aria-label={text.testNetwork}>
+          <span>TEST</span>
+          <div>
+            <strong>{text.testNetwork}</strong>
+            <p>{text.testNetworkBody}</p>
+          </div>
+        </section>
+      )}
+
       <section className={styles.cabinetGrid} aria-label={text.title}>
         {cabinetLabels.map((item) => (
           <article key={item.role} className={styles.cabinetCard}>
             <span className={styles.number} aria-hidden="true">{item.icon}</span>
             <h2>{item.label}</h2>
+            {controlledOwner && (
+              <p className={styles.organization}>
+                <span>Тестовая организация</span>
+                <strong>{item.organization.organizationName}</strong>
+              </p>
+            )}
             <form method="post" action="/platform-v7/staff/open-cabinet/submit">
               <input type="hidden" name="_csrf" value={csrfToken} />
+              {controlledOwner && (
+                <input type="hidden" name="organizationId" value={item.organization.organizationId} />
+              )}
               <button type="submit" name="role" value={item.role} disabled={!csrfToken}>
                 {text.open}
               </button>
