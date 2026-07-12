@@ -16,11 +16,11 @@ const identities = [
   { userId: 'logistician-e2e', email: 'logistician@demo.ru', fullName: 'Тестовый логист', role: Role.LOGISTICIAN, orgId: 'org-canonical-logistics', requireMfa: false },
   { userId: 'driver-e2e', email: 'driver@demo.ru', fullName: 'Тестовый водитель', role: Role.DRIVER, orgId: 'org-canonical-logistics', requireMfa: false },
   { userId: 'surveyor-e2e', email: 'surveyor@demo.ru', fullName: 'Тестовый сюрвейер', role: Role.SURVEYOR, orgId: 'org-canonical-surveyor', requireMfa: false },
-  { userId: 'elevator-e2e', email: 'elevator@demo.ru', fullName: 'Тестовый элеватор', role: Role.ELEVATOR, orgId: 'org-canonical-elevator', requireMfa: false },
-  { userId: 'lab-e2e', email: 'lab@demo.ru', fullName: 'Тестовая лаборатория', role: Role.LAB, orgId: 'org-canonical-lab', requireMfa: false },
+  { userId: 'elevator-e2e', email: 'elevator@demo.ru', fullName: 'Тестовый сотрудник элеватора', role: Role.ELEVATOR, orgId: 'org-canonical-elevator', requireMfa: false },
+  { userId: 'lab-e2e', email: 'lab@demo.ru', fullName: 'Тестовый лаборант', role: Role.LAB, orgId: 'org-canonical-lab', requireMfa: false },
   { userId: 'accounting-e2e', email: 'accounting@demo.ru', fullName: 'Тестовый банковский сотрудник', role: Role.ACCOUNTING, orgId: 'org-canonical-bank', requireMfa: true },
   { userId: 'compliance-e2e', email: 'compliance@demo.ru', fullName: 'Тестовый комплаенс', role: Role.COMPLIANCE_OFFICER, orgId: 'org-canonical-platform', requireMfa: false },
-  { userId: 'arbitrator-e2e', email: 'arbitrator@demo.ru', fullName: 'Тестовый арбитр', role: Role.ARBITRATOR, orgId: 'org-canonical-platform', requireMfa: false },
+  { userId: 'arbitrator-e2e', email: 'arbitrator@demo.ru', fullName: 'Тестовый арбитр', role: Role.ARBITRATOR, orgId: 'org-canonical-arbitrator', requireMfa: false },
   { userId: 'operator-e2e', email: 'operator@demo.ru', fullName: 'Тестовый оператор', role: Role.SUPPORT_MANAGER, orgId: 'org-canonical-platform', requireMfa: false },
   { userId: 'executive-e2e', email: 'executive@demo.ru', fullName: 'Тестовый руководитель', role: Role.EXECUTIVE, orgId: 'org-canonical-platform', requireMfa: false },
 ] as const;
@@ -60,14 +60,15 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
 
   private async seed(): Promise<void> {
     const organizations = [
-      { id: 'org-canonical-seller', inn: '990000000001', name: 'Тестовый продавец', type: 'LEGAL' },
-      { id: 'org-canonical-buyer', inn: '990000000002', name: 'Тестовый покупатель', type: 'LEGAL' },
-      { id: 'org-canonical-logistics', inn: '990000000003', name: 'Тестовый перевозчик', type: 'LEGAL' },
-      { id: 'org-canonical-lab', inn: '990000000004', name: 'Тестовая лаборатория', type: 'LEGAL' },
-      { id: 'org-canonical-elevator', inn: '990000000005', name: 'Тестовый элеватор', type: 'LEGAL' },
-      { id: 'org-canonical-platform', inn: '990000000006', name: 'Оператор тестового контура', type: 'LEGAL' },
-      { id: 'org-canonical-bank', inn: '990000000007', name: 'Тестовый банковский контур', type: 'LEGAL' },
-      { id: 'org-canonical-surveyor', inn: '990000000008', name: 'Тестовый сюрвейер', type: 'LEGAL' },
+      { id: 'org-canonical-platform', inn: '990000000001', name: 'АО «Прозрачная Цена — тестовый контур»', type: 'LEGAL' },
+      { id: 'org-canonical-buyer', inn: '990000000002', name: 'ООО «АгроТрейд Тест»', type: 'LEGAL' },
+      { id: 'org-canonical-seller', inn: '990000000003', name: 'ООО «Золотое Поле Тест»', type: 'LEGAL' },
+      { id: 'org-canonical-logistics', inn: '990000000004', name: 'ООО «ТрансАгро Тест»', type: 'LEGAL' },
+      { id: 'org-canonical-surveyor', inn: '990000000005', name: 'ООО «АгроКонтроль Тест»', type: 'LEGAL' },
+      { id: 'org-canonical-elevator', inn: '990000000006', name: 'АО «Центральный Элеватор Тест»', type: 'LEGAL' },
+      { id: 'org-canonical-lab', inn: '990000000007', name: 'ООО «ЗерноЛаб Тест»', type: 'LEGAL' },
+      { id: 'org-canonical-bank', inn: '990000000008', name: 'АО «Банк-партнёр Тест»', type: 'LEGAL' },
+      { id: 'org-canonical-arbitrator', inn: '990000000009', name: 'АНО «АгроАрбитраж Тест»', type: 'LEGAL' },
     ] as const;
 
     await this.prisma.$transaction(async (tx) => {
