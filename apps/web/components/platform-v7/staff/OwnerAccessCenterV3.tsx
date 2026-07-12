@@ -1,31 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import type { AppLocale } from '@/i18n/locale';
+import { useEffect, useMemo, useState, type ComponentProps } from 'react';
 import type { OwnerAccessCenterCopy } from '@/i18n/owner-access-center-messages';
 import { OwnerAccessCenter as OwnerAccessCenterV2 } from './OwnerAccessCenterV2';
 import styles from './OwnerAccessCenterV3.module.css';
 
-type StaffIdentity = { id?: string; email?: string; fullName?: string };
 type StaffAssignment = { id: string; role: string; status: string };
-type AccessTask = {
-  id: string;
-  accessMode: string;
-  defaultDurationMinutes: number;
-  approvalLevel: string;
-  requiresOrganization: boolean;
-  requiresCabinetRole: boolean;
-  allowsDeal: boolean;
-  permissionsByRole: Record<string, string[]>;
-};
-
-type Props = {
-  locale: AppLocale;
-  copy: OwnerAccessCenterCopy;
-  identity: StaffIdentity | null;
-  apiAvailable: boolean;
-  accessCatalog: AccessTask[];
-};
+type Props = ComponentProps<typeof OwnerAccessCenterV2>;
 
 type SurfaceRole =
   | 'operator'
@@ -62,7 +43,7 @@ const OWNER_COPY = {
     title: 'Все кабинеты — без повторного входа',
     description: 'Открывай любой рабочий кабинет одним нажатием. Повторный пароль, тикет, причина и отдельный запрос для просмотра не требуются.',
     access: 'Максимальный обзор',
-    accessBody: 'Доступны все 12 рабочих кабинетов и их реальные интерфейсы. Переключение действует в пределах текущего входа владельца.',
+    accessBody: 'Доступны все 12 рабочих кабинетов и их интерфейсы. Переключение действует в пределах текущего входа владельца.',
     safety: 'Деньги, банковские подтверждения, подпись, лабораторная финализация и решение арбитра не подменяются владельцем и остаются под отдельными серверными правилами.',
     open: 'Открыть кабинет',
     opening: 'Открываем…',
@@ -76,7 +57,7 @@ const OWNER_COPY = {
     title: 'Every cabinet without signing in again',
     description: 'Open any working cabinet with one tap. No repeated password, ticket, reason or separate read-access request is required.',
     access: 'Maximum visibility',
-    accessBody: 'All 12 working cabinets and their actual interfaces are available within the current owner sign-in.',
+    accessBody: 'All 12 working cabinets and their interfaces are available within the current owner sign-in.',
     safety: 'Money movement, bank confirmations, signatures, laboratory finalization and arbitration decisions remain protected by separate server rules.',
     open: 'Open cabinet',
     opening: 'Opening…',
@@ -90,7 +71,7 @@ const OWNER_COPY = {
     title: '无需重复登录即可进入全部工作台',
     description: '一次点击即可打开任意工作台。只读访问无需再次输入密码、工单、原因或单独提交请求。',
     access: '最大可见范围',
-    accessBody: '当前所有者登录期间可访问全部 12 个工作台及其实际界面。',
+    accessBody: '当前所有者登录期间可访问全部 12 个工作台及其界面。',
     safety: '资金操作、银行确认、签署、实验室终审和仲裁决定仍受独立服务器规则保护。',
     open: '打开工作台',
     opening: '正在打开…',
@@ -145,7 +126,7 @@ export function OwnerAccessCenter(props: Props) {
     setBusyRole(role);
     setError(null);
     try {
-      const response = await fetch('/api/staff/owner-cabinet/open', {
+      const response = await fetch('/platform-v7/staff/open-cabinet', {
         method: 'POST',
         credentials: 'same-origin',
         cache: 'no-store',
