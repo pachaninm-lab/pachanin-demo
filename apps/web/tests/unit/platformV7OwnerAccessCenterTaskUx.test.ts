@@ -19,7 +19,6 @@ const directRoute = read('apps/web/app/platform-v7/staff/open-cabinet/route.ts')
 const submitRoute = read('apps/web/app/platform-v7/staff/open-cabinet/submit/route.ts');
 const handoffPage = read('apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx');
 const handoffClient = read('apps/web/components/platform-v7/staff/OwnerCabinetHandoff.tsx');
-const singleEntryGuard = read('apps/web/components/platform-v7/PlatformV7SingleEntryGuard.tsx');
 const directCss = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css');
 const center = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV2.tsx');
 const catalog = read('apps/web/lib/platform-v7/staff-access-task-catalog.ts');
@@ -57,9 +56,9 @@ describe('platform-v7 owner access center task UX', () => {
     expect(handoffPage).toContain('readVerifiedCabinetSessionRole');
     expect(handoffPage).toContain('CABINET_SESSION_COOKIE');
     expect(handoffPage).toContain('<OwnerCabinetHandoff');
+    expect(handoffClient).toContain('useLayoutEffect(() =>');
     expect(handoffClient).toContain('window.sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role)');
     expect(handoffClient).toContain('window.location.replace(target)');
-    expect(singleEntryGuard).toContain("'/platform-v7/staff/cabinet-handoff'");
     expect(directCenter).not.toContain('onSubmit=');
     expect(directCenter).not.toContain('busyRole');
     expect(directCenter).not.toContain('setBusyRole');
