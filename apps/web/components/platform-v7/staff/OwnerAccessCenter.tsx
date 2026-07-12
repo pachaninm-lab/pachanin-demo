@@ -1,5 +1,5 @@
 // Owner-only cabinet selector. Role authority remains server-verified.
-// Cabinet navigation is a native server POST and must not depend on React submit state.
+// Cabinet opening uses an authenticated JSON transition with native POST fallback.
 // Existing authenticated sessions are repaired server-side before a CSRF-protected form is rendered.
-// The client role handoff only prevents a legacy guard bounce; it never grants authority.
+// Client loading and role handoff improve navigation only; they never grant authority.
 export { OwnerAccessCenter } from './OwnerAccessCenterV3';
