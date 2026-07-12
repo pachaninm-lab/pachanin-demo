@@ -15,6 +15,8 @@ describe('canonical deal command source invariants', () => {
   it('binds reads and mutations to the trusted RLS transaction service', () => {
     expect(source).toContain('RlsTransactionService');
     expect(source).toContain('withTrustedContext');
-    expect(source).toContain('TransactionIsolationLevel.Serializable');
+    // Per-deal ordering: advisory transaction lock instead of global
+    // Serializable isolation (which thrashes under cross-deal concurrency).
+    expect(source).toContain('pg_advisory_xact_lock');
   });
 });

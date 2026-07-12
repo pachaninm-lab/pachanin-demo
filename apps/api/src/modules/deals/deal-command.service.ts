@@ -238,6 +238,13 @@ export class DealCommandService {
       return await this.rls.withTrustedContext(
         user,
         async (tx) => {
+          // Per-deal serialization: an advisory transaction lock orders all
+          // commands of ONE deal while deals stay fully parallel. This is what
+          // the hash chains and CAS need — global Serializable isolation would
+          // create false cross-deal conflicts through index predicate locks
+          // and collapse throughput under load.
+          await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${dealId}, 42)) IS NULL AS locked`;
+
           const replay = await tx.outboxEntry.findUnique({ where: { idempotencyKey: receiptKey } });
           if (replay) return this.resultFromReceipt(replay.payload);
 
@@ -382,7 +389,9 @@ export class DealCommandService {
           });
           return result;
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        // ReadCommitted + per-deal advisory lock: the lock provides the only
+        // ordering the pipeline needs; CAS on version still rejects any writer
+        // that bypassed the command path.
       );
     } catch (error) {
       if (isUniqueConstraintError(error)) {

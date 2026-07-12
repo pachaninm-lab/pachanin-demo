@@ -64,6 +64,67 @@ jobs:
           name: ci-web-unit-log
           path: /tmp/ci-web-unit.log
 
+  industrial-core-e2e:
+    name: "Industrial core · races · outbox · reconciliation · load proof"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: industrial_admin
+          POSTGRES_PASSWORD: ephemeral_industrial_admin_only
+          POSTGRES_DB: industrial_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U industrial_admin -d industrial_e2e"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://industrial_admin:ephemeral_industrial_admin_only@127.0.0.1:5432/industrial_e2e
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @pc/api exec prisma generate --schema prisma/schema.prisma
+
+      - name: Apply forward-only migrations
+        run: pnpm --filter @pc/api exec prisma migrate deploy --schema prisma/schema.prisma
+
+      - name: Run industrial transaction-core gate
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --config test/industrial/jest.config.json 2>&1 | tee /tmp/industrial-core-e2e.log
+
+      - name: Upload industrial core evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-industrial-core-evidence
+          path: /tmp/industrial-core-e2e.log
+          if-no-files-found: error
+          retention-days: 14
+
   one-deal-e2e:
     name: "12 roles · 19 commands · PostgreSQL RLS · DR restore"
     runs-on: ubuntu-latest

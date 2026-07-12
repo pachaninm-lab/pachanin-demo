@@ -46,6 +46,7 @@ function rlsFixture(tx: Record<string, unknown>) {
 describe('DealCommandService atomic canonical command path', () => {
   it('commits deal state, event, audit and receipt through one trusted RLS transaction callback', async () => {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ pg_advisory_xact_lock: null }]),
       outboxEntry: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({ id: 'receipt-1' }),
@@ -76,11 +77,8 @@ describe('DealCommandService atomic canonical command path', () => {
     );
 
     expect(rls.withTrustedContext).toHaveBeenCalledTimes(1);
-    expect(rls.withTrustedContext).toHaveBeenCalledWith(
-      USER,
-      expect.any(Function),
-      expect.objectContaining({ isolationLevel: 'Serializable' }),
-    );
+    expect(rls.withTrustedContext).toHaveBeenCalledWith(USER, expect.any(Function));
+    expect(tx.$queryRaw).toHaveBeenCalled(); // per-deal advisory lock acquired first
     expect(tx.deal.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ id: 'DEAL-INDUSTRIAL-001', status: 'DRAFT', updatedAt: UPDATED_AT }),
       data: expect.objectContaining({ status: 'ADMISSION_APPROVED' }),
@@ -120,6 +118,7 @@ describe('DealCommandService atomic canonical command path', () => {
       externalOutboxId: null,
     };
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ pg_advisory_xact_lock: null }]),
       outboxEntry: {
         findUnique: jest.fn().mockResolvedValue({ payload: { result: storedResult } }),
       },
@@ -140,6 +139,7 @@ describe('DealCommandService atomic canonical command path', () => {
 
   it('rejects a stale version before any mutation is attempted', async () => {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([{ pg_advisory_xact_lock: null }]),
       outboxEntry: { findUnique: jest.fn().mockResolvedValue(null) },
       deal: {
         findUnique: jest.fn().mockResolvedValue(deal()),
