@@ -108,8 +108,21 @@ export async function createPersistentActorHarness(
       throw new Error(`Persistent auth harness connected as unexpected principal ${currentUser}`);
     }
 
+    const organizationRows = await primaryPrisma.organization.findMany({
+      where: { id: { in: [...organizationIds] } },
+      select: { tenantId: true },
+    });
+    const tenantIds = [...new Set(organizationRows.map((item) => item.tenantId).filter(Boolean))];
+    if (tenantIds.length === 0) {
+      throw new Error('Persistent auth harness could not resolve a canonical tenant');
+    }
+
     const memberships = (await primaryPrisma.userOrg.findMany({
-      where: { organizationId: { in: [...organizationIds] } },
+      where: {
+        isDefault: true,
+        organization: { tenantId: { in: tenantIds } },
+        user: { id: { endsWith: '-e2e' } },
+      },
       include: { user: true, organization: true },
       orderBy: { role: 'asc' },
     })) as MembershipRow[];
