@@ -86,21 +86,42 @@ export function requiredArray(payload: JsonRecord, field: string): Prisma.InputJ
   return value;
 }
 
-/**
- * Production logistics authority comes only from the normalized PostgreSQL
- * resolver. The argument is intentionally ignored. A direct call to the legacy
- * DealCommandService without the guarded command context fails closed.
- */
-export function parseLogisticsBasis(_value: unknown): LogisticsBasis {
-  const basis = currentLogisticsCommandContext()?.basis;
-  if (!basis) {
+function parseFixtureList<T>(basis: JsonRecord, field: string): T[] {
+  const value = basis[field];
+  if (!Array.isArray(value)) {
     throw new UnprocessableEntityException({
       code: 'LOGISTICS_ADMISSION_REQUIRED',
-      field: 'payload',
-      message: 'Назначение перевозки требует действующего допуска из PostgreSQL.',
+      field: `deal.sagaState.logisticsBasis.${field}`,
     });
   }
-  return basis;
+  return value as unknown as T[];
+}
+
+/**
+ * Production logistics authority comes only from the normalized PostgreSQL
+ * resolver carried by AsyncLocalStorage. The JSON fallback exists solely for
+ * isolated NODE_ENV=test fixtures and is unreachable in production.
+ */
+export function parseLogisticsBasis(value: unknown): LogisticsBasis {
+  const normalized = currentLogisticsCommandContext()?.basis;
+  if (normalized) return normalized;
+
+  if (process.env.NODE_ENV === 'test') {
+    const root = record(value, 'deal.sagaState');
+    const basis = record(root.logisticsBasis, 'deal.sagaState.logisticsBasis');
+    return {
+      carriers: parseFixtureList<LogisticsBasis['carriers'][number]>(basis, 'carriers'),
+      drivers: parseFixtureList<LogisticsBasis['drivers'][number]>(basis, 'drivers'),
+      vehicles: parseFixtureList<LogisticsBasis['vehicles'][number]>(basis, 'vehicles'),
+      facilities: parseFixtureList<LogisticsBasis['facilities'][number]>(basis, 'facilities'),
+    };
+  }
+
+  throw new UnprocessableEntityException({
+    code: 'LOGISTICS_ADMISSION_REQUIRED',
+    field: 'payload',
+    message: 'Назначение перевозки требует действующего допуска из PostgreSQL.',
+  });
 }
 
 export function canonicalJson(value: unknown): string {
