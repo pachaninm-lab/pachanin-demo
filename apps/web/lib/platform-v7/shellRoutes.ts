@@ -61,6 +61,7 @@ export const PLATFORM_V7_ROLE_ROUTES: Record<PlatformRole, string> = {
 const AUCTION_ROUTE = '/platform-v7/auction';
 const AUCTION_ADMISSION_ROUTE = '/platform-v7/auction/admission';
 const DEAL_LOGISTICS_ROUTE = '/platform-v7/deal-logistics';
+const LOGISTICS_DRIVERS_ROUTE = '/platform-v7/logistics/drivers';
 const DEAL_ACCEPTANCE_ROUTE = '/platform-v7/deal-acceptance';
 const DEAL_DOCUMENTS_BASIS_ROUTE = '/platform-v7/deal-documents-basis';
 const FGIS_ACCESS_ROUTE = '/platform-v7/fgis-access';
@@ -147,19 +148,19 @@ export const PLATFORM_V7_ROLE_NAVIGATION: Record<PlatformRole, PlatformV7RoleNav
     bottom: [
       { href: PLATFORM_V7_LOGISTICS_ROUTE, label: 'Главная' },
       { href: DEAL_LOGISTICS_ROUTE, label: 'Рейсы' },
-      { href: PLATFORM_V7_DRIVER_FIELD_ROUTE, label: 'Водители' },
+      { href: LOGISTICS_DRIVERS_ROUTE, label: 'Водители' },
       { href: DEAL_DOCUMENTS_BASIS_ROUTE, label: 'Документы' },
       { href: PLATFORM_V7_STATUS_ROUTE, label: 'Ещё' },
     ],
     drawer: [],
     command: [
-      { href: PLATFORM_V7_LOGISTICS_ROUTE, label: 'Рейсы' },
+      { href: PLATFORM_V7_LOGISTICS_ROUTE, label: 'Диспетчерская' },
       { href: DEAL_LOGISTICS_ROUTE, label: 'Рейс сделки' },
-      { href: PLATFORM_V7_DRIVER_FIELD_ROUTE, label: 'Водитель' },
+      { href: LOGISTICS_DRIVERS_ROUTE, label: 'Водители' },
       { href: PLATFORM_V7_PROCUREMENT_ROUTE, label: 'Заявки' },
       { href: DEAL_DOCUMENTS_BASIS_ROUTE, label: 'Документы' },
     ],
-    allowedPrefixes: [PLATFORM_V7_LOGISTICS_ROUTE, DEAL_LOGISTICS_ROUTE, PLATFORM_V7_DRIVER_FIELD_ROUTE, PLATFORM_V7_PROCUREMENT_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE, DEAL_DOCUMENTS_BASIS_ROUTE, DEAL_ACCEPTANCE_ROUTE, PLATFORM_V7_DISPUTES_ROUTE],
+    allowedPrefixes: [PLATFORM_V7_LOGISTICS_ROUTE, DEAL_LOGISTICS_ROUTE, PLATFORM_V7_PROCUREMENT_ROUTE, PLATFORM_V7_DOCUMENTS_ROUTE, DEAL_DOCUMENTS_BASIS_ROUTE, DEAL_ACCEPTANCE_ROUTE, PLATFORM_V7_DISPUTES_ROUTE],
   },
   driver: {
     home: PLATFORM_V7_DRIVER_FIELD_ROUTE,
