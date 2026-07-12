@@ -4,6 +4,7 @@ import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
 import { CanonicalTestDealSeedService } from '../../src/modules/deals/canonical-test-deal.seed';
 import { CANONICAL_TEST_DEAL_ID } from '../../src/modules/deals/deal-command.policy';
+import { seedCanonicalLogisticsAdmission } from './seed-logistics-admission';
 
 export const AUTHORITY_LOT_ID = 'LOT-RLS-AUTHORITY-001';
 export const AUTHORITY_BID_ID = 'BID-RLS-AUTHORITY-001';
@@ -40,6 +41,7 @@ async function main(): Promise<void> {
     const authRepository = new PersistentAuthRepository(prisma);
     const seed = new CanonicalTestDealSeedService(prisma, authRepository);
     await seed.onModuleInit();
+    await seedCanonicalLogisticsAdmission(prisma);
 
     const basisMaterial = {
       dealNumber: 'ТП-RLS-AUTHORITY-001',
@@ -95,7 +97,7 @@ async function main(): Promise<void> {
       },
     });
 
-    const [deal, memberships, credentialStates, authorityBasis] = await Promise.all([
+    const [deal, memberships, credentialStates, authorityBasis, logisticsAdmission] = await Promise.all([
       prisma.deal.findUnique({ where: { id: CANONICAL_TEST_DEAL_ID } }),
       prisma.userOrg.findMany({
         where: { organization: { tenantId: 'tenant-canonical-test' } },
@@ -113,6 +115,11 @@ async function main(): Promise<void> {
         )
       `,
       prisma.integrationEvent.findUnique({ where: { id: AUTHORITY_BASIS_EVENT_ID } }),
+      prisma.$queryRaw<Array<{ id: string; status: string }>>(Prisma.sql`
+        SELECT id, status
+        FROM logistics.deal_admissions
+        WHERE deal_id = ${CANONICAL_TEST_DEAL_ID}
+      `),
     ]);
 
     if (!deal || deal.status !== 'DRAFT' || deal.tenantId !== 'tenant-canonical-test') {
@@ -120,6 +127,9 @@ async function main(): Promise<void> {
     }
     if (!authorityBasis || authorityBasis.status !== 'CONFIRMED' || authorityBasis.dealId !== null) {
       throw new Error('RLS authority deal basis was not seeded as an unconsumed confirmed event.');
+    }
+    if (logisticsAdmission.length !== 1 || logisticsAdmission[0].status !== 'CONFIRMED') {
+      throw new Error('Canonical normalized logistics admission is missing or not CONFIRMED.');
     }
 
     const roles = new Set(memberships.map((item) => item.role));
@@ -161,6 +171,7 @@ async function main(): Promise<void> {
         lotId: AUTHORITY_LOT_ID,
         winnerBidId: AUTHORITY_BID_ID,
       },
+      logisticsAdmission: logisticsAdmission[0],
     })}\n`);
   } finally {
     await prisma.$disconnect();
