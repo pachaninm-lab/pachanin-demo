@@ -1,27 +1,31 @@
 import * as bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.service';
 import { DealCommandService } from '../../src/modules/deals/deal-command.service';
 import { IndustrialDealCommandGateway } from '../../src/modules/deals/industrial-deal-command.gateway';
+import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import { Role, type RequestUser } from '../../src/common/types/request-user';
 
-/**
- * Industrial transaction-core test harness.
- *
- * Provisions arbitrary (non-canonical) deals with real PostgreSQL rows —
- * organizations, users, memberships, DealParticipant assignments — and builds
- * fully independent service "instances" (separate Prisma connections) so tests
- * can prove multi-instance and restart behaviour, not just single-process flow.
- */
-
 export const INDUSTRIAL_TENANT = 'tenant-industrial-e2e';
+const FACT_AT = '2026-07-12T09:00:00.000Z';
 
 export interface DealFixture {
   dealId: string;
   sellerOrgId: string;
   buyerOrgId: string;
+  serviceOrgId: string;
   totalKopecks: bigint;
+  shipmentId: string;
+  acceptanceId: string;
+  sampleId: string;
+  contractDocumentId: string;
+  inspectionDocumentId: string;
+  vehicleId: string;
+  routeFromFacilityId: string;
+  routeToFacilityId: string;
+  evidence: Record<string, string>;
   users: Record<string, RequestUser>;
 }
 
@@ -32,7 +36,6 @@ export interface ServiceInstance {
   gateway: IndustrialDealCommandGateway;
 }
 
-/** A separate PrismaService per instance = a separate connection pool, like a separate API pod. */
 export async function createInstance(): Promise<ServiceInstance> {
   const prisma = new PrismaService();
   await prisma.$connect();
@@ -65,11 +68,10 @@ function accessFor(role: Role): 'READ' | 'WORK' | 'APPROVE' {
   return 'WORK';
 }
 
-/**
- * Provision one arbitrary deal with a full participant set inside the
- * industrial test tenant. Every id is namespaced by `slug`, so a suite can
- * provision any number of parallel deals.
- */
+function fixtureHash(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
 export async function provisionDeal(
   prisma: PrismaService,
   slug: string,
@@ -79,7 +81,20 @@ export async function provisionDeal(
   const sellerOrgId = `org-e2e-${slug}-seller`;
   const buyerOrgId = `org-e2e-${slug}-buyer`;
   const serviceOrgId = `org-e2e-${slug}-services`;
+  const shipmentId = `shipment:${dealId}`;
+  const acceptanceId = `acceptance:${dealId}`;
+  const sampleId = `sample:${dealId}`;
+  const contractDocumentId = `contract:${dealId}`;
+  const inspectionDocumentId = `inspection:${dealId}`;
+  const vehicleId = `vehicle:${dealId}`;
+  const routeFromFacilityId = `facility:${sellerOrgId}:dispatch`;
+  const routeToFacilityId = `facility:${buyerOrgId}:acceptance`;
   const passwordHash = bcrypt.hashSync('industrial-e2e', 4);
+
+  const evidence: Record<string, string> = Object.fromEntries(
+    ['seller-signature', 'buyer-signature', 'loading', 'departure', 'arrival', 'weighing', 'inspection', 'lab', 'acceptance']
+      .map((kind) => [kind, `evidence:${dealId}:${kind}`]),
+  );
 
   const orgFor = (role: Role): string => {
     if (role === Role.FARMER) return sellerOrgId;
@@ -91,14 +106,13 @@ export async function provisionDeal(
     let innSuffix = 0;
     for (const orgId of [sellerOrgId, buyerOrgId, serviceOrgId]) {
       innSuffix += 1;
-      // Deterministic, collision-free synthetic INN derived from the slug hash.
       const innDigits = BigInt(`0x${createHash('sha256').update(slug).digest('hex').slice(0, 10)}`)
         .toString()
         .padStart(8, '0')
         .slice(0, 8);
       await tx.organization.upsert({
         where: { id: orgId },
-        update: { tenantId: INDUSTRIAL_TENANT, status: 'VERIFIED' },
+        update: { tenantId: INDUSTRIAL_TENANT, status: 'VERIFIED', kycStatus: 'APPROVED' },
         create: {
           id: orgId,
           inn: `77${innDigits}${innSuffix}`,
@@ -110,6 +124,17 @@ export async function provisionDeal(
       });
     }
 
+    const driverId = `user-e2e-${slug}-driver`;
+    const logisticsBasis = {
+      carriers: [{ id: serviceOrgId, status: 'VERIFIED', tenantId: INDUSTRIAL_TENANT }],
+      drivers: [{ id: driverId, carrierOrgId: serviceOrgId, status: 'ACTIVE', vehicleIds: [vehicleId] }],
+      vehicles: [{ id: vehicleId, carrierOrgId: serviceOrgId, status: 'ACTIVE' }],
+      facilities: [
+        { id: routeFromFacilityId, organizationId: sellerOrgId, status: 'ACTIVE' },
+        { id: routeToFacilityId, organizationId: buyerOrgId, status: 'ACTIVE' },
+      ],
+    };
+
     await tx.deal.upsert({
       where: { id: dealId },
       update: {
@@ -118,6 +143,7 @@ export async function provisionDeal(
         totalKopecks,
         version: 0,
         closedAt: null,
+        sagaState: { logisticsBasis },
       },
       create: {
         id: dealId,
@@ -129,7 +155,8 @@ export async function provisionDeal(
         totalKopecks,
         currency: 'RUB',
         culture: 'Пшеница',
-        region: 'Тестовый регион',
+        region: 'Контролируемый тестовый регион',
+        sagaState: { logisticsBasis },
       },
     });
 
@@ -173,6 +200,106 @@ export async function provisionDeal(
         },
       });
     }
+
+    for (const [kind, evidenceId] of Object.entries(evidence)) {
+      await tx.evidenceFile.upsert({
+        where: { id: evidenceId },
+        update: {
+          dealId,
+          shipmentId: ['loading', 'departure', 'arrival', 'weighing', 'lab', 'acceptance'].includes(kind) ? shipmentId : null,
+          hash: fixtureHash(evidenceId),
+          s3Key: `industrial-e2e/${dealId}/${kind}.json`,
+        },
+        create: {
+          id: evidenceId,
+          dealId,
+          shipmentId: ['loading', 'departure', 'arrival', 'weighing', 'lab', 'acceptance'].includes(kind) ? shipmentId : null,
+          type: kind.toUpperCase(),
+          filename: `${kind}.json`,
+          mimeType: 'application/json',
+          sizeBytes: 256,
+          hash: fixtureHash(evidenceId),
+          s3Key: `industrial-e2e/${dealId}/${kind}.json`,
+          uploadedBy: `user-e2e-${slug}-operator`,
+        },
+      });
+    }
+
+    await tx.dealDocument.upsert({
+      where: { id: contractDocumentId },
+      update: { status: 'UPLOADED', signedAt: null, signatories: null, isImmutable: false, bankAcceptance: 'ACCEPTED' },
+      create: {
+        id: contractDocumentId,
+        dealId,
+        type: 'CONTRACT',
+        status: 'UPLOADED',
+        name: 'Контролируемый договор поставки',
+        s3Key: `industrial-e2e/${dealId}/contract.pdf`,
+        hash: fixtureHash(contractDocumentId),
+        uploadedByUserId: `user-e2e-${slug}-farmer`,
+        bankRequired: true,
+        releaseRequired: true,
+        bankAcceptance: 'ACCEPTED',
+      },
+    });
+
+    await tx.dealDocument.upsert({
+      where: { id: inspectionDocumentId },
+      update: { status: 'VALIDATED', signedAt: null, isImmutable: false },
+      create: {
+        id: inspectionDocumentId,
+        dealId,
+        type: 'INSPECTION_REPORT',
+        status: 'VALIDATED',
+        name: 'Контролируемое заключение осмотра',
+        s3Key: `industrial-e2e/${dealId}/inspection.pdf`,
+        hash: fixtureHash(inspectionDocumentId),
+        uploadedByUserId: `user-e2e-${slug}-surveyor`,
+        releaseRequired: true,
+      },
+    });
+
+    for (const document of [
+      { id: `ttn:${dealId}`, type: 'TTN', name: 'Транспортная накладная' },
+      { id: `weighing:${dealId}`, type: 'WEIGHING_ACT', name: 'Акт взвешивания' },
+      { id: `lab-protocol:${dealId}`, type: 'LAB_PROTOCOL', name: 'Лабораторный протокол' },
+      { id: `acceptance-act:${dealId}`, type: 'ACCEPTANCE_ACT', name: 'Акт приёмки' },
+    ]) {
+      await tx.dealDocument.upsert({
+        where: { id: document.id },
+        update: {},
+        create: {
+          ...document,
+          dealId,
+          status: 'SIGNED',
+          s3Key: `industrial-e2e/${dealId}/${document.type}.pdf`,
+          hash: fixtureHash(document.id),
+          signedAt: new Date(FACT_AT),
+          signatories: JSON.stringify([{ userId: `user-e2e-${slug}-operator`, signedAt: FACT_AT, evidenceRef: evidence.acceptance }]),
+          uploadedByUserId: `user-e2e-${slug}-operator`,
+          isImmutable: true,
+          bankRequired: true,
+          releaseRequired: true,
+          bankAcceptance: 'ACCEPTED',
+        },
+      });
+    }
+
+    await tx.labSample.upsert({
+      where: { id: sampleId },
+      update: { status: 'PENDING', protocol: null, finalizedAt: null, labId: serviceOrgId, labName: serviceOrgId },
+      create: {
+        id: sampleId,
+        dealId,
+        shipmentId,
+        acceptanceId,
+        status: 'PENDING',
+        culture: 'Пшеница',
+        labId: serviceOrgId,
+        labName: serviceOrgId,
+        collectedAt: new Date(FACT_AT),
+      },
+    });
   });
 
   const users: Record<string, RequestUser> = {};
@@ -189,13 +316,87 @@ export async function provisionDeal(
     };
   }
 
-  return { dealId, sellerOrgId, buyerOrgId, totalKopecks, users };
+  return {
+    dealId,
+    sellerOrgId,
+    buyerOrgId,
+    serviceOrgId,
+    totalKopecks,
+    shipmentId,
+    acceptanceId,
+    sampleId,
+    contractDocumentId,
+    inspectionDocumentId,
+    vehicleId,
+    routeFromFacilityId,
+    routeToFacilityId,
+    evidence,
+    users,
+  };
 }
 
-/** Remove every row belonging to the industrial e2e tenant so runs are repeatable. */
+export function payloadForAction(fixture: DealFixture, actionId: DealActionId): Prisma.InputJsonObject {
+  switch (actionId) {
+    case 'seller_sign_contract':
+      return { documentId: fixture.contractDocumentId, signedAt: FACT_AT, signatureEvidenceRef: fixture.evidence['seller-signature'] };
+    case 'buyer_sign_contract':
+      return { documentId: fixture.contractDocumentId, signedAt: '2026-07-12T09:05:00.000Z', signatureEvidenceRef: fixture.evidence['buyer-signature'] };
+    case 'assign_logistics':
+      return {
+        carrierOrgId: fixture.serviceOrgId,
+        driverUserId: fixture.users.driver.id,
+        vehicleId: fixture.vehicleId,
+        routeFromFacilityId: fixture.routeFromFacilityId,
+        routeToFacilityId: fixture.routeToFacilityId,
+      };
+    case 'confirm_loading':
+      return {
+        shipmentId: fixture.shipmentId,
+        actualWeightTons: '150.000000',
+        occurredAt: '2026-07-12T10:00:00.000Z',
+        basis: 'WEIGHING_TICKET',
+        evidenceRef: fixture.evidence.loading,
+        unit: 'TON',
+      };
+    case 'start_transit':
+      return { shipmentId: fixture.shipmentId, occurredAt: '2026-07-12T10:15:00.000Z', basis: 'DRIVER_CONFIRMATION', evidenceRef: fixture.evidence.departure };
+    case 'confirm_arrival':
+      return { shipmentId: fixture.shipmentId, occurredAt: '2026-07-12T13:30:00.000Z', confirmationMethod: 'ELEVATOR_CHECKPOINT', evidenceRef: fixture.evidence.arrival };
+    case 'confirm_weight':
+      return {
+        shipmentId: fixture.shipmentId,
+        grossTons: '180.000000',
+        tareTons: '30.400000',
+        netTons: '149.600000',
+        weighingSource: 'ELEVATOR_SCALE',
+        occurredAt: '2026-07-12T13:45:00.000Z',
+        evidenceRef: fixture.evidence.weighing,
+        equipmentId: `scale:${fixture.dealId}`,
+      };
+    case 'confirm_inspection':
+      return { documentId: fixture.inspectionDocumentId, evidenceRef: fixture.evidence.inspection, inspectedAt: '2026-07-12T14:00:00.000Z' };
+    case 'finalize_lab':
+      return {
+        sampleId: fixture.sampleId,
+        protocolNumber: `PROTOCOL-${fixture.dealId}`,
+        labId: fixture.serviceOrgId,
+        accreditationRef: `ACCREDITATION-${fixture.serviceOrgId}`,
+        applicableStandard: 'CONTROLLED-STANDARD-E2E',
+        finalizedAt: '2026-07-12T15:00:00.000Z',
+        signedEvidenceRef: fixture.evidence.lab,
+        indicators: [
+          { parameter: 'moisture', value: '12.400000', unit: '%', normMax: '14.000000' },
+          { parameter: 'protein', value: '13.200000', unit: '%', normMin: '12.500000' },
+        ],
+      };
+    case 'accept_delivery':
+      return { acceptanceId: fixture.acceptanceId, acceptedAt: '2026-07-12T15:30:00.000Z', evidenceRef: fixture.evidence.acceptance };
+    default:
+      return {};
+  }
+}
+
 export async function cleanTenant(prisma: PrismaService): Promise<void> {
-  // Append-only tables must be truncated via session_replication_role to
-  // bypass the industrial append-only triggers — allowed for test cleanup only.
   await prisma.$executeRawUnsafe(`SET session_replication_role = replica`);
   try {
     const dealIds = (
@@ -208,6 +409,7 @@ export async function cleanTenant(prisma: PrismaService): Promise<void> {
         `DELETE FROM "deal_events" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "audit_events" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "outbox_entries" WHERE "dealId" IN (${inList})`,
+        `DELETE FROM "bank_statement_entries" WHERE "matchedDealId" IN (${inList})`,
         `DELETE FROM "bank_operations" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "payments" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "lab_tests" WHERE "sampleId" IN (SELECT id FROM "lab_samples" WHERE "dealId" IN (${inList}))`,
@@ -216,6 +418,7 @@ export async function cleanTenant(prisma: PrismaService): Promise<void> {
         `DELETE FROM "checkpoints" WHERE "shipmentId" IN (SELECT id FROM "shipments" WHERE "dealId" IN (${inList}))`,
         `DELETE FROM "shipments" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "deal_documents" WHERE "dealId" IN (${inList})`,
+        `DELETE FROM "evidence_files" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "deal_participants" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "deals" WHERE "id" IN (${inList})`,
       ]) {
@@ -225,12 +428,8 @@ export async function cleanTenant(prisma: PrismaService): Promise<void> {
     await prisma.$executeRawUnsafe(
       `DELETE FROM "user_orgs" WHERE "organizationId" IN (SELECT id FROM "organizations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}')`,
     );
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM "users" WHERE "id" LIKE 'user-e2e-%'`,
-    );
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM "organizations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}'`,
-    );
+    await prisma.$executeRawUnsafe(`DELETE FROM "users" WHERE "id" LIKE 'user-e2e-%'`);
+    await prisma.$executeRawUnsafe(`DELETE FROM "organizations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}'`);
   } finally {
     await prisma.$executeRawUnsafe(`SET session_replication_role = DEFAULT`);
   }

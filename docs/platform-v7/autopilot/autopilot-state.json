@@ -167,6 +167,17 @@
       "apps/web/app/platform-v7/deals/page.tsx",
       "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
       "docs/platform-v7/industrial-plan-session-report-2026-07-12.md"
+    ],
+    "fix/deal-command-no-fake-live": [
+      "apps/api/src/modules/deals/**",
+      "apps/api/test/industrial/**",
+      "apps/api/test/one-deal/**",
+      "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+      "apps/web/components/platform-v7/DealCommandForm.tsx",
+      "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
+      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "industrialOneDealFoundation": {

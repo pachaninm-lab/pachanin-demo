@@ -27,6 +27,15 @@ const BANK_SECRET = process.env.BANK_HMAC_SECRET ?? '';
 const BANK_PARTNER_ID = process.env.BANK_PARTNER_ID ?? 'safe-deals';
 const BANK_KEY_ID = process.env.BANK_HMAC_KEY_ID ?? 'primary';
 const DEAL_AMOUNT_KOPECKS = 240_000_000;
+const FACT_AT = '2026-07-12T09:00:00.000Z';
+const SHIPMENT_ID = `shipment:${CANONICAL_TEST_DEAL_ID}`;
+const ACCEPTANCE_ID = `acceptance:${CANONICAL_TEST_DEAL_ID}`;
+const SAMPLE_ID = `sample:${CANONICAL_TEST_DEAL_ID}`;
+const CONTRACT_ID = `contract:${CANONICAL_TEST_DEAL_ID}`;
+const INSPECTION_ID = `inspection:${CANONICAL_TEST_DEAL_ID}`;
+const VEHICLE_ID = `vehicle:${CANONICAL_TEST_DEAL_ID}`;
+const ROUTE_FROM_ID = 'facility:org-canonical-seller:dispatch';
+const ROUTE_TO_ID = 'facility:org-canonical-buyer:acceptance';
 const CANONICAL_ORG_IDS = [
   'org-canonical-seller',
   'org-canonical-buyer',
@@ -92,25 +101,78 @@ const actionRole: Record<UserActionId, Role> = {
   close_deal: Role.SUPPORT_MANAGER,
 };
 
+function evidence(kind: string): string {
+  return `evidence:${CANONICAL_TEST_DEAL_ID}:${kind}`;
+}
+
 function payload(actionId: DealActionId): Prisma.InputJsonObject {
   switch (actionId) {
+    case 'seller_sign_contract':
+      return { documentId: CONTRACT_ID, signedAt: FACT_AT, signatureEvidenceRef: evidence('seller-signature') };
+    case 'buyer_sign_contract':
+      return { documentId: CONTRACT_ID, signedAt: '2026-07-12T09:05:00.000Z', signatureEvidenceRef: evidence('buyer-signature') };
     case 'assign_logistics':
       return {
         carrierOrgId: 'org-canonical-logistics',
         driverUserId: 'driver-e2e',
-        driverName: 'Тестовый водитель',
-        vehicleNumber: 'А001АА77',
-        routeFrom: 'Склад продавца',
-        routeTo: 'Элеватор покупателя',
+        vehicleId: VEHICLE_ID,
+        routeFromFacilityId: ROUTE_FROM_ID,
+        routeToFacilityId: ROUTE_TO_ID,
       };
     case 'confirm_loading':
-      return { loadedTons: 150, note: 'Погрузка подтверждена' };
+      return {
+        shipmentId: SHIPMENT_ID,
+        actualWeightTons: '150.000000',
+        occurredAt: '2026-07-12T10:00:00.000Z',
+        basis: 'WEIGHING_TICKET',
+        evidenceRef: evidence('loading'),
+        unit: 'TON',
+      };
+    case 'start_transit':
+      return {
+        shipmentId: SHIPMENT_ID,
+        occurredAt: '2026-07-12T10:15:00.000Z',
+        basis: 'DRIVER_CONFIRMATION',
+        evidenceRef: evidence('departure'),
+      };
     case 'confirm_arrival':
-      return { lat: 52.7212, lng: 41.4523 };
+      return {
+        shipmentId: SHIPMENT_ID,
+        occurredAt: '2026-07-12T13:30:00.000Z',
+        confirmationMethod: 'ELEVATOR_CHECKPOINT',
+        evidenceRef: evidence('arrival'),
+        lat: 52.7212,
+        lng: 41.4523,
+      };
     case 'confirm_weight':
-      return { weightActualTons: 149.6 };
+      return {
+        shipmentId: SHIPMENT_ID,
+        grossTons: '180.000000',
+        tareTons: '30.400000',
+        netTons: '149.600000',
+        weighingSource: 'ELEVATOR_SCALE',
+        occurredAt: '2026-07-12T13:45:00.000Z',
+        evidenceRef: evidence('weighing'),
+        equipmentId: `scale:${CANONICAL_TEST_DEAL_ID}`,
+      };
+    case 'confirm_inspection':
+      return { documentId: INSPECTION_ID, evidenceRef: evidence('inspection'), inspectedAt: '2026-07-12T14:00:00.000Z' };
     case 'finalize_lab':
-      return { moisture: 12.4, protein: 13.2, gost: 'ГОСТ 9353-2016', protocol: 'LAB-E2E-001' };
+      return {
+        sampleId: SAMPLE_ID,
+        protocolNumber: `PROTOCOL-${CANONICAL_TEST_DEAL_ID}`,
+        labId: 'org-canonical-lab',
+        accreditationRef: 'ACCREDITATION-ORG-CANONICAL-LAB',
+        applicableStandard: 'CONTROLLED-STANDARD-E2E',
+        finalizedAt: '2026-07-12T15:00:00.000Z',
+        signedEvidenceRef: evidence('lab'),
+        indicators: [
+          { parameter: 'moisture', value: '12.400000', unit: '%', normMax: '14.000000' },
+          { parameter: 'protein', value: '13.200000', unit: '%', normMin: '12.500000' },
+        ],
+      };
+    case 'accept_delivery':
+      return { acceptanceId: ACCEPTANCE_ID, acceptedAt: '2026-07-12T15:30:00.000Z', evidenceRef: evidence('acceptance') };
     default:
       return {};
   }
@@ -210,7 +272,7 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     if (!BANK_SECRET) throw new Error('BANK_HMAC_SECRET is required for signed callback fixtures.');
     await prisma.$connect();
     authHarness = await createPersistentActorHarness(CANONICAL_ORG_IDS);
-    for (const [role, actor] of authHarness.actorsByRole) usersByRole.set(role, actor);
+    for (const [role, authenticatedActor] of authHarness.actorsByRole) usersByRole.set(role, authenticatedActor);
     expect(usersByRole.size).toBe(12);
   });
 
@@ -682,9 +744,9 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
         tx.auditEvent.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { createdAt: 'asc' } }),
         tx.outboxEntry.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
         tx.dealDocument.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
-        tx.shipment.findUnique({ where: { id: `shipment:${CANONICAL_TEST_DEAL_ID}` } }),
-        tx.labSample.findUnique({ where: { id: `sample:${CANONICAL_TEST_DEAL_ID}` }, include: { tests: true } }),
-        tx.acceptanceRecord.findUnique({ where: { id: `acceptance:${CANONICAL_TEST_DEAL_ID}` } }),
+        tx.shipment.findUnique({ where: { id: SHIPMENT_ID } }),
+        tx.labSample.findUnique({ where: { id: SAMPLE_ID }, include: { tests: true } }),
+        tx.acceptanceRecord.findUnique({ where: { id: ACCEPTANCE_ID } }),
         tx.payment.findUnique({ where: { id: `payment:${CANONICAL_TEST_DEAL_ID}` } }),
         tx.bankOperation.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { type: 'asc' } }),
         tx.ledgerEntry.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { createdAt: 'asc' } }),
@@ -715,9 +777,11 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     expect(reconciled.audits).toHaveLength(DEAL_ACTIONS.length);
     expect(reconciled.outbox.filter((item) => item.type === 'deal.command.receipt')).toHaveLength(DEAL_ACTIONS.length);
     expect(reconciled.documents.length).toBeGreaterThanOrEqual(6);
-    expect(reconciled.documents.every((item) => item.status === 'SIGNED')).toBe(true);
-    expect(reconciled.shipment).toMatchObject({ status: 'ARRIVED', vehicleNumber: 'А001АА77' });
-    expect(reconciled.sample).toMatchObject({ status: 'DONE', protocol: 'LAB-E2E-001' });
+    const requiredReleaseTypes = new Set(['CONTRACT', 'TTN', 'WEIGHING_ACT', 'LAB_PROTOCOL', 'ACCEPTANCE_ACT']);
+    expect(reconciled.documents.filter((item) => requiredReleaseTypes.has(item.type)).every((item) => item.status === 'SIGNED')).toBe(true);
+    expect(reconciled.documents.find((item) => item.type === 'INSPECTION_REPORT')).toMatchObject({ status: 'VALIDATED' });
+    expect(reconciled.shipment).toMatchObject({ status: 'ARRIVED', vehicleNumber: VEHICLE_ID, driverUserId: 'driver-e2e' });
+    expect(reconciled.sample).toMatchObject({ status: 'DONE', protocol: `PROTOCOL-${CANONICAL_TEST_DEAL_ID}` });
     expect(reconciled.sample?.tests).toHaveLength(2);
     expect(reconciled.acceptance).toMatchObject({ status: 'ACCEPTED', qualityStatus: 'PASSED' });
     expect(reconciled.payment).toMatchObject({

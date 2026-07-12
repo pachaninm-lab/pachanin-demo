@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -8,6 +9,15 @@ import { CANONICAL_TEST_DEAL_ID } from './deal-command.policy';
 
 const CANONICAL_TENANT_ID = 'tenant-canonical-test';
 const TEST_PASSWORD = 'demo1234';
+const TEST_FACT_AT = '2026-07-12T09:00:00.000Z';
+const TEST_SHIPMENT_ID = `shipment:${CANONICAL_TEST_DEAL_ID}`;
+const TEST_ACCEPTANCE_ID = `acceptance:${CANONICAL_TEST_DEAL_ID}`;
+const TEST_SAMPLE_ID = `sample:${CANONICAL_TEST_DEAL_ID}`;
+const TEST_CONTRACT_ID = `contract:${CANONICAL_TEST_DEAL_ID}`;
+const TEST_INSPECTION_ID = `inspection:${CANONICAL_TEST_DEAL_ID}`;
+const TEST_VEHICLE_ID = `vehicle:${CANONICAL_TEST_DEAL_ID}`;
+const TEST_ROUTE_FROM_ID = 'facility:org-canonical-seller:dispatch';
+const TEST_ROUTE_TO_ID = 'facility:org-canonical-buyer:acceptance';
 const enabled = (name: string) => String(process.env[name] ?? '').toLowerCase() === 'true';
 
 const identities = [
@@ -33,6 +43,10 @@ function participantAccess(role: Role): 'READ' | 'WORK' | 'APPROVE' {
     || role === Role.SUPPORT_MANAGER
   ) return 'APPROVE';
   return 'WORK';
+}
+
+function fixtureHash(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
 }
 
 @Injectable()
@@ -71,6 +85,16 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
       { id: 'org-canonical-arbitrator', inn: '990000000009', name: 'АНО «АгроАрбитраж Тест»', type: 'LEGAL' },
     ] as const;
 
+    const logisticsBasis = {
+      carriers: [{ id: 'org-canonical-logistics', status: 'VERIFIED', tenantId: CANONICAL_TENANT_ID }],
+      drivers: [{ id: 'driver-e2e', carrierOrgId: 'org-canonical-logistics', status: 'ACTIVE', vehicleIds: [TEST_VEHICLE_ID] }],
+      vehicles: [{ id: TEST_VEHICLE_ID, carrierOrgId: 'org-canonical-logistics', status: 'ACTIVE' }],
+      facilities: [
+        { id: TEST_ROUTE_FROM_ID, organizationId: 'org-canonical-seller', status: 'ACTIVE' },
+        { id: TEST_ROUTE_TO_ID, organizationId: 'org-canonical-buyer', status: 'ACTIVE' },
+      ],
+    };
+
     await this.prisma.$transaction(async (tx) => {
       for (const organization of organizations) {
         await tx.organization.upsert({
@@ -99,6 +123,7 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
           tenantId: CANONICAL_TENANT_ID,
           sellerOrgId: 'org-canonical-seller',
           buyerOrgId: 'org-canonical-buyer',
+          sagaState: { logisticsBasis },
         },
         create: {
           id: CANONICAL_TEST_DEAL_ID,
@@ -120,6 +145,7 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
           fundingChoice: 'SAFE_DEAL',
           owner: 'operator',
           nextAction: 'Подтвердить допуск участников',
+          sagaState: { logisticsBasis },
           meta: JSON.stringify({
             canonicalTestDeal: true,
             purpose: 'persistent-auth-backed-industrial-flow',
@@ -142,6 +168,135 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
     });
 
     await this.seedPersistentIdentitiesMembershipsAndParticipants();
+    await this.seedControlledExecutionFacts();
+  }
+
+  private async seedControlledExecutionFacts(): Promise<void> {
+    const evidenceKinds = [
+      'seller-signature',
+      'buyer-signature',
+      'loading',
+      'departure',
+      'arrival',
+      'weighing',
+      'inspection',
+      'lab',
+      'acceptance',
+    ] as const;
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const kind of evidenceKinds) {
+        const id = `evidence:${CANONICAL_TEST_DEAL_ID}:${kind}`;
+        await tx.evidenceFile.upsert({
+          where: { id },
+          update: {
+            dealId: CANONICAL_TEST_DEAL_ID,
+            shipmentId: null,
+            hash: fixtureHash(id),
+            s3Key: `controlled-test/${CANONICAL_TEST_DEAL_ID}/${kind}.json`,
+          },
+          create: {
+            id,
+            dealId: CANONICAL_TEST_DEAL_ID,
+            type: kind.toUpperCase(),
+            filename: `${kind}.json`,
+            mimeType: 'application/json',
+            sizeBytes: 256,
+            hash: fixtureHash(id),
+            s3Key: `controlled-test/${CANONICAL_TEST_DEAL_ID}/${kind}.json`,
+            uploadedBy: 'operator-e2e',
+          },
+        });
+      }
+
+      await tx.dealDocument.upsert({
+        where: { id: TEST_CONTRACT_ID },
+        update: {
+          status: 'UPLOADED',
+          signedAt: null,
+          signatories: null,
+          isImmutable: false,
+          bankAcceptance: 'ACCEPTED',
+        },
+        create: {
+          id: TEST_CONTRACT_ID,
+          dealId: CANONICAL_TEST_DEAL_ID,
+          type: 'CONTRACT',
+          status: 'UPLOADED',
+          name: 'Договор поставки — контролируемый тестовый контур',
+          s3Key: `controlled-test/${CANONICAL_TEST_DEAL_ID}/contract.pdf`,
+          hash: fixtureHash(TEST_CONTRACT_ID),
+          uploadedByUserId: 'farmer-e2e',
+          bankRequired: true,
+          releaseRequired: true,
+          bankAcceptance: 'ACCEPTED',
+        },
+      });
+
+      await tx.dealDocument.upsert({
+        where: { id: TEST_INSPECTION_ID },
+        update: { status: 'VALIDATED', signedAt: null, isImmutable: false },
+        create: {
+          id: TEST_INSPECTION_ID,
+          dealId: CANONICAL_TEST_DEAL_ID,
+          type: 'INSPECTION_REPORT',
+          status: 'VALIDATED',
+          name: 'Заключение осмотра — контролируемый тестовый контур',
+          s3Key: `controlled-test/${CANONICAL_TEST_DEAL_ID}/inspection.pdf`,
+          hash: fixtureHash(TEST_INSPECTION_ID),
+          uploadedByUserId: 'surveyor-e2e',
+          releaseRequired: true,
+        },
+      });
+
+      for (const document of [
+        { id: `ttn:${CANONICAL_TEST_DEAL_ID}`, type: 'TTN', name: 'Транспортная накладная' },
+        { id: `weighing:${CANONICAL_TEST_DEAL_ID}`, type: 'WEIGHING_ACT', name: 'Акт взвешивания' },
+        { id: `lab-protocol:${CANONICAL_TEST_DEAL_ID}`, type: 'LAB_PROTOCOL', name: 'Лабораторный протокол' },
+        { id: `acceptance-act:${CANONICAL_TEST_DEAL_ID}`, type: 'ACCEPTANCE_ACT', name: 'Акт приёмки' },
+      ]) {
+        await tx.dealDocument.upsert({
+          where: { id: document.id },
+          update: {},
+          create: {
+            ...document,
+            dealId: CANONICAL_TEST_DEAL_ID,
+            status: 'SIGNED',
+            s3Key: `controlled-test/${CANONICAL_TEST_DEAL_ID}/${document.type}.pdf`,
+            hash: fixtureHash(document.id),
+            signedAt: new Date(TEST_FACT_AT),
+            signatories: JSON.stringify([{ userId: 'operator-e2e', signedAt: TEST_FACT_AT, evidenceRef: `evidence:${CANONICAL_TEST_DEAL_ID}:acceptance` }]),
+            uploadedByUserId: 'operator-e2e',
+            isImmutable: true,
+            bankRequired: true,
+            releaseRequired: true,
+            bankAcceptance: 'ACCEPTED',
+          },
+        });
+      }
+
+      await tx.labSample.upsert({
+        where: { id: TEST_SAMPLE_ID },
+        update: {
+          status: 'PENDING',
+          protocol: null,
+          finalizedAt: null,
+          labId: 'org-canonical-lab',
+          labName: 'ООО «ЗерноЛаб Тест»',
+        },
+        create: {
+          id: TEST_SAMPLE_ID,
+          dealId: CANONICAL_TEST_DEAL_ID,
+          shipmentId: null,
+          acceptanceId: TEST_ACCEPTANCE_ID,
+          status: 'PENDING',
+          culture: 'Пшеница',
+          labId: 'org-canonical-lab',
+          labName: 'ООО «ЗерноЛаб Тест»',
+          collectedAt: new Date(TEST_FACT_AT),
+        },
+      });
+    });
   }
 
   private async seedPersistentIdentitiesMembershipsAndParticipants(): Promise<void> {

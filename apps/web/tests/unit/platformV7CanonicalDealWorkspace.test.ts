@@ -10,6 +10,7 @@ function source(path: string): string {
 
 describe('platform-v7 canonical one-deal workspace', () => {
   const workspace = source('components/platform-v7/CanonicalDealWorkspace.tsx');
+  const commandForm = source('components/platform-v7/DealCommandForm.tsx');
   const dashboard = source('components/platform-v7/RoleIntentDashboard.tsx');
   const shell = source('components/platform-v7/PlatformV7ProtectedShell.tsx');
   const proxy = source('app/api/proxy/[...path]/route.ts');
@@ -17,19 +18,47 @@ describe('platform-v7 canonical one-deal workspace', () => {
   const loginClient = source('app/platform-v7/login/LoginFormClient.tsx');
   const loginRoute = source('app/api/auth/login/route.ts');
 
-  it('serves any accessible deal through the authenticated execution workspace', () => {
-    expect(workspace).toContain("const DEAL_ID = 'DEAL-INDUSTRIAL-001'");
-    expect(workspace).toContain('dealId = DEAL_ID');
-    expect(workspace).toContain('/api/proxy/deals/${dealId}/execution-workspace');
-    expect(workspace).toContain('/commands/${action.id}');
+  it('requires a real accessible deal id and never mounts a canonical default', () => {
+    expect(workspace).toContain('dealId: string');
+    expect(workspace).not.toContain("const DEAL_ID = 'DEAL-INDUSTRIAL-001'");
+    expect(workspace).not.toContain('dealId = DEAL_ID');
+    expect(dashboard).toContain('<CanonicalDealWorkspace role={role} dealId={current.id} />');
+    expect(dashboard).not.toContain('<CanonicalDealWorkspace role={role} />');
+    expect(dashboard).toContain('У вас пока нет активных сделок');
+    expect(dashboard).toContain('Не удалось загрузить сделки');
+    expect(dashboard).toContain('Повторить');
+  });
+
+  it('submits only user-entered payload through real task-first forms', () => {
+    expect(workspace).toContain('/commands/${encodeURIComponent(action.id)}');
     expect(workspace).toContain('expectedUpdatedAt: workspace.deal.updatedAt');
-    expect(workspace).toContain('expectedVersion');
-    expect(workspace).toContain('idempotencyKey');
+    expect(workspace).toContain('expectedVersion: workspace.deal.version');
+    expect(workspace).toContain('<DealCommandForm');
+    expect(workspace).not.toContain('commandPayload(');
+    expect(workspace).not.toContain('user-driver-001');
+    expect(workspace).not.toContain('Тестовый водитель');
+    expect(workspace).not.toContain('А001АА77');
+    expect(commandForm).toContain("assign_logistics");
+    expect(commandForm).toContain("confirm_loading");
+    expect(commandForm).toContain("confirm_weight");
+    expect(commandForm).toContain("finalize_lab");
+    expect(commandForm).toContain('Итог PASSED/FAILED рассчитывает сервер');
+    expect(commandForm).not.toContain('12.4');
+    expect(commandForm).not.toContain('13.2');
+    expect(commandForm).not.toContain('ГОСТ 9353-2016');
   });
 
   it('turns a 409 concurrency conflict into a refresh with a human explanation', () => {
     expect(workspace).toContain('reason.status === 409');
-    expect(workspace).toContain('Данные изменились другим участником. Мы обновили экран');
+    expect(workspace).toContain('Данные изменились другим участником');
+    expect(workspace).toContain('await load()');
+  });
+
+  it('does not pretend an offline command was stored before the identity-bound IndexedDB queue exists', () => {
+    expect(workspace).toContain('Действие не отправлено и не сохранено на устройстве');
+    expect(workspace).not.toContain('enqueueCommand');
+    expect(workspace).not.toContain('pendingForDeal');
+    expect(workspace).not.toContain('localStorage');
   });
 
   it('lets every business role reach the deal execution route so the server can decide membership', () => {
@@ -37,27 +66,20 @@ describe('platform-v7 canonical one-deal workspace', () => {
     for (const role of roles) {
       expect(platformV7RoleCanOpenHref(role, '/platform-v7/deals/DEAL-ANY-001/execution')).toBe(true);
     }
-    // …but the shell does not widen the rest of the deals surface for field roles.
     expect(platformV7RoleCanOpenHref('driver', '/platform-v7/deals')).toBe(false);
   });
 
-  it('keeps the canonical workspace at ordinary role roots and the full page only for controlled owner review', () => {
-    expect(dashboard).toContain('<CanonicalDealWorkspace role={role} />');
+  it('keeps the complete cabinet only for controlled owner review', () => {
     expect(dashboard).not.toContain('getRoleIntentConfig');
-    // The dashboard opens the user's own most recent accessible deal and only
-    // falls back to the canonical test deal when the server has none.
     expect(dashboard).toContain('/api/proxy/deals/accessible');
-    expect(dashboard).toContain('<CanonicalDealWorkspace role={role} dealId={dealId} />');
     expect(shell).toContain("'/platform-v7/surveyor'");
     expect(shell).toContain(': <RoleIntentDashboard role={initialRole} />');
     expect(shell).toContain("data-controlled-owner-cabinet-preview='true'");
     expect(shell).toContain('{children}');
     expect(shell).toContain(': children;');
-    expect(shell).not.toContain('{showRoleIntentDashboard ? <RoleIntentDashboard role={initialRole} /> : null}');
   });
 
-  it('never fabricates a successful execution response for any deal when the real API is unavailable', () => {
-    expect(proxy).toContain("const CANONICAL_DEAL_ID = 'DEAL-INDUSTRIAL-001'");
+  it('never fabricates a successful execution response when the real API is unavailable', () => {
     expect(proxy).toContain('requiresRealBackend');
     expect(proxy).toContain('^deals\\/[^/]+\\/(execution-workspace|correlation-timeline)$');
     expect(proxy).toContain('^deals\\/[^/]+\\/commands\\/');
