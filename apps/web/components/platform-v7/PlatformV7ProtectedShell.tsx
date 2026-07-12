@@ -45,6 +45,11 @@ type ControlledOwnerPreview = {
   organizationName: string;
 };
 
+type PreviewState = {
+  path: string;
+  preview: ControlledOwnerPreview | null;
+};
+
 function normalizePath(pathname: string): string {
   return pathname.split('?')[0].replace(/\/$/, '') || '/platform-v7';
 }
@@ -110,6 +115,16 @@ function readControlledOwnerPreview(expectedRole: PlatformRole): ControlledOwner
 export function PlatformV7ProtectedShell({ pathname, children }: { pathname: string; children: React.ReactNode }) {
   const normalizedPath = normalizePath(pathname);
   const isStaffControlCenter = normalizedPath === '/platform-v7/staff' || normalizedPath.startsWith('/platform-v7/staff/');
+  const initialRole = roleFromPath(pathname);
+  const isRoleRoot = ROLE_INTENT_ROOT_PATHS.has(normalizedPath);
+  const [previewState, setPreviewState] = React.useState<PreviewState | null>(null);
+
+  React.useEffect(() => {
+    setPreviewState({
+      path: normalizedPath,
+      preview: isRoleRoot ? readControlledOwnerPreview(initialRole) : null,
+    });
+  }, [initialRole, isRoleRoot, normalizedPath]);
 
   // Staff authority is a separate control plane. It must not inherit business-role
   // navigation, role widgets, onboarding, footer copy or client-side cabinet guards.
@@ -123,20 +138,8 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
     );
   }
 
-  const initialRole = roleFromPath(pathname);
-  const isRoleRoot = ROLE_INTENT_ROOT_PATHS.has(normalizedPath);
-  const [ownerPreview, setOwnerPreview] = React.useState<ControlledOwnerPreview | null>(null);
-  const [previewResolved, setPreviewResolved] = React.useState(!isRoleRoot);
-
-  React.useEffect(() => {
-    if (!isRoleRoot) {
-      setOwnerPreview(null);
-      setPreviewResolved(true);
-      return;
-    }
-    setOwnerPreview(readControlledOwnerPreview(initialRole));
-    setPreviewResolved(true);
-  }, [initialRole, isRoleRoot, normalizedPath]);
+  const previewResolved = !isRoleRoot || previewState?.path === normalizedPath;
+  const ownerPreview = previewResolved ? previewState?.preview || null : null;
 
   const workSurface = isRoleRoot
     ? !previewResolved
