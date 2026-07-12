@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -53,7 +53,7 @@ function digest(value: string): Buffer {
 
 function safeEqual(a: string, b: string): boolean {
   if (!a || !b) return false;
-  return digest(a).equals(digest(b));
+  return timingSafeEqual(digest(a), digest(b));
 }
 
 function base64Url(value: string): string {
