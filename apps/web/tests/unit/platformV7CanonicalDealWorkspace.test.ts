@@ -41,7 +41,7 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(platformV7RoleCanOpenHref('driver', '/platform-v7/deals')).toBe(false);
   });
 
-  it('renders the same workspace at every role root instead of the old dashboard below it', () => {
+  it('keeps the canonical workspace at ordinary role roots and the full page only for controlled owner review', () => {
     expect(dashboard).toContain('<CanonicalDealWorkspace role={role} />');
     expect(dashboard).not.toContain('getRoleIntentConfig');
     // The dashboard opens the user's own most recent accessible deal and only
@@ -49,7 +49,9 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(dashboard).toContain('/api/proxy/deals/accessible');
     expect(dashboard).toContain('<CanonicalDealWorkspace role={role} dealId={dealId} />');
     expect(shell).toContain("'/platform-v7/surveyor'");
-    expect(shell).toContain('? <RoleIntentDashboard role={initialRole} />');
+    expect(shell).toContain(': <RoleIntentDashboard role={initialRole} />');
+    expect(shell).toContain("data-controlled-owner-cabinet-preview='true'");
+    expect(shell).toContain('{children}');
     expect(shell).toContain(': children;');
     expect(shell).not.toContain('{showRoleIntentDashboard ? <RoleIntentDashboard role={initialRole} /> : null}');
   });
