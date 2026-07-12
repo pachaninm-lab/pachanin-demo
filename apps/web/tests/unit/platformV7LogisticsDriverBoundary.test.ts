@@ -10,6 +10,7 @@ import {
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const logisticsPage = read('apps/web/app/platform-v7/logistics/page.tsx');
 const logisticsDriversPage = read('apps/web/app/platform-v7/logistics/drivers/page.tsx');
+const driverLayout = read('apps/web/app/platform-v7/driver/layout.tsx');
 
 describe('platform-v7 logistics and driver role boundary', () => {
   it('does not permit the logistics role to open the driver field cabinet', () => {
@@ -38,5 +39,14 @@ describe('platform-v7 logistics and driver role boundary', () => {
     expect(logisticsDriversPage).toContain('Водители и машины');
     expect(logisticsDriversPage).toContain('Это экран логиста, а не личный кабинет водителя.');
     expect(logisticsDriversPage).not.toContain('/platform-v7/driver/field');
+  });
+
+  it('enforces the driver cabinet from a verified server session', () => {
+    expect(driverLayout).toContain('readVerifiedCabinetSessionRole');
+    expect(driverLayout).toContain('readVerifiedCabinetRole');
+    expect(driverLayout).toContain("verifiedRole !== 'driver'");
+    expect(driverLayout).toContain('redirect(platformV7RoleRoute(verifiedRole))');
+    expect(driverLayout).not.toContain('pc-role');
+    expect(driverLayout).not.toContain('<RbacGuard');
   });
 });
