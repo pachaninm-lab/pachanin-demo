@@ -17,10 +17,12 @@ describe('platform-v7 product entry', () => {
   it('keeps login as one server-authoritative entry with MFA', () => {
     expect(loginPage).toContain('getPublicLoginCopy(locale)');
     expect(loginPage).toContain('<LoginFormClient copy={form} />');
-    expect(loginCopy).toContain("secureEyebrow: 'Защищённый вход'");
+    expect(loginCopy).toContain("lead: 'Введите рабочую почту и пароль.'");
     expect(loginClient).toContain("requestJson('/api/auth/login'");
     expect(loginClient).toContain("requestJson('/api/auth/mfa-login'");
     expect(loginClient).not.toContain('usePlatformV7RStore');
     expect(loginClient).not.toContain('?role=');
+    expect(loginClient).not.toContain('pc-auth-assurance');
+    expect(loginClient).not.toContain('autoFocus');
   });
 });
