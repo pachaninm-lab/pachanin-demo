@@ -1,48 +1,97 @@
 {
   "project": "platform-v7",
-  "mode": "durable-outbox-bank-reconciliation-key-rotation",
+  "governingSpecification": {
+    "id": "industrial-integration-readiness-v1.0",
+    "date": "2026-07-12",
+    "path": "docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md",
+    "targetStatus": "Industrial Integration-Ready"
+  },
+  "baseline": {
+    "branch": "main",
+    "commit": "66bf4655eede522ca3f3963d6d7aaa5cee9c50a5",
+    "verifiedAt": "2026-07-12",
+    "gitObjectDatabase": "fsck-passed"
+  },
+  "mode": "ir-10-documents-postgresql-authority",
   "status": "active",
   "currentStatus": "ready",
-  "current": "Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation.",
-  "fullTzReadinessPercent": 91,
+  "current": "IR-10.1 Documents PostgreSQL Authority",
+  "fullTzReadinessPercent": 0,
+  "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",
   "openPr": null,
   "lastClosed": [
-    "#2241 VP-3.33 Runtime Persistence Prisma Schema and Migration Implementation",
-    "#2245 VP-3.37 Runtime Persistence Postgres Repository Adapter Implementation",
-    "#2250 VP-3.41 Runtime Persistence Internal Service Wiring Implementation",
-    "#2252 VP-3.42 Runtime Persistence Authenticated Internal Command Boundary",
-    "#2254 VP-3.43 Transaction-Local Trusted RLS Context",
-    "#2256 VP-3.44 Runtime Persistence Trusted Transaction Binding",
-    "#2258 VP-3.45 Physical Table RLS Policy Alignment and Rehearsal",
     "#2260 Industrial one-deal foundation",
-    "#2267 Canonical gateway consolidation",
     "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
-    "#2274 PostgreSQL One Deal Recovery Matrix",
+    "#2274 PostgreSQL one-deal recovery matrix",
     "#2276 Persistent identity, session rotation, revocation and MFA",
     "#2280 One-time MFA backup-code consumption",
     "#2282 Persistent-auth-backed 12-role one-deal execution",
     "#2283 JWT authority-claim injection regression",
     "#2287 Runtime separation of auth and deal PostgreSQL principals",
-    "#2291 Forward-only backup, restore and DR rehearsal",
-    "#2345 Industrial public entry standard"
+    "#2291 Forward-only backup, restore and isolated DR rehearsal",
+    "#2378 Industrial transaction core and durable PostgreSQL outbox worker",
+    "#2379 PostgreSQL bank reconciliation and callback-key rotation/revocation",
+    "#2380 Money-contour observability and correlation timeline",
+    "#2404 Industrial CI correctness/load gate and per-deal advisory locking",
+    "#2406 Fail closed on missing deal execution facts",
+    "#2407 PostgreSQL-authoritative Deal routes"
   ],
+  "closedCapabilities": {
+    "persistentIdentityAndMfa": {
+      "status": "merged-isolated-postgresql-evidence",
+      "prs": ["#2276", "#2280", "#2282", "#2283"]
+    },
+    "restrictedDatabasePrincipals": {
+      "status": "merged-isolated-postgresql-evidence",
+      "pr": "#2287"
+    },
+    "dealCommandCore": {
+      "status": "merged-isolated-postgresql-evidence",
+      "prs": ["#2260", "#2270", "#2274", "#2378", "#2406", "#2407"],
+      "latestMergeCommit": "66bf4655eede522ca3f3963d6d7aaa5cee9c50a5"
+    },
+    "durableOutboxWorkerImplementation": {
+      "status": "merged-but-not-exclusive-production-owner",
+      "pr": "#2378",
+      "remainingBoundary": "IR-20 must remove the legacy process-memory relay and enforce one production owner."
+    },
+    "bankReconciliationAndKeyRotation": {
+      "status": "merged-isolated-postgresql-evidence",
+      "pr": "#2379"
+    },
+    "isolatedBackupRestore": {
+      "status": "merged-ci-rehearsal-only",
+      "pr": "#2291",
+      "productionAcceptance": false
+    },
+    "ciScaleLoadCorrectness": {
+      "status": "merged-ci-scale-only",
+      "pr": "#2404",
+      "productionCapacityAcceptance": false
+    }
+  },
   "openBlockers": [
-    "durable PostgreSQL outbox worker and delivery leases",
-    "bank reconciliation, mismatch handling and persisted checkpoints",
-    "bank callback partner-key rotation and revocation",
-    "live bank FGIS EDO ESIA and signature evidence",
-    "production migration and deployment execution evidence",
-    "provider PITR, production-sized restore, measured RTO and approved RPO",
-    "production load, high-availability and operational acceptance",
-    "production auth API, secret-scoped auth keys and seeded MFA E2E"
+    "Documents, Logistics, Labs, Settlement reads/commands and Disputes can still bind process-memory repositories.",
+    "Legacy OutboxRelayService and process-memory OutboxService still coexist with DurableOutboxWorker.",
+    "Inbound webhook idempotency is process-memory and no durable integration inbox exists.",
+    "Partner API credentials and webhook subscriptions are process-memory.",
+    "Canonical Auction/Deal Basis and versioned Payment Terms are incomplete; winnerBidId is carried in a legacy field.",
+    "Logistics admission, laboratory custody, document lifecycle and dispute state machines are not yet fully PostgreSQL-authoritative.",
+    "Evidence object retention, malware quarantine and repeatable signature verification are not accepted.",
+    "Adapter conformance, vendor mappings and fail-closed live configuration are incomplete.",
+    "Role cabinets and offline acknowledgement are not fully proven against authoritative server state.",
+    "Production configuration, dedicated worker topology, SLO operations, HA, provider PITR/restore, production-scale load and external security acceptance are unproven."
   ],
-  "blockerNotes": "Deal execution, persistent identity, MFA, separate PostgreSQL runtime principals, 12-role/19-command recovery and isolated backup/restore are merged and green. The current outbox relay is still process-memory-led and performs best-effort PostgreSQL updates; the bank callback accepts only one static configured key; production reconciliation and provider recovery remain unproven. The next layer must replace these gaps without changing UI or claiming live bank integration.",
+  "blockerNotes": "The merged Deal, identity, reconciliation and durable-worker slices are retained as evidence, not extrapolated into platform-wide readiness. Industrial Integration-Ready remains NO-GO until every mandatory gate in the governing specification has exact-commit evidence.",
   "lockedUntilCurrentGreen": [
-    "platform UI and role-cabinet migration",
-    "live external integration activation",
-    "production migration execution",
-    "production bank money movement",
-    "production load and disaster-recovery claims"
+    "IR-10.2 Logistics PostgreSQL Authority",
+    "IR-10.3 Labs PostgreSQL Authority",
+    "IR-10.4 Settlement PostgreSQL Authority",
+    "IR-10.5 Disputes PostgreSQL Authority",
+    "IR-20 Canonical Durable Outbox",
+    "IR-21 Durable Integration Inbox",
+    "IR-22 Persistent Partner API and Outbound Webhooks",
+    "IR-30 through IR-90 in dependency order"
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -50,16 +99,14 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
+    "apps/api/src/common/config/industrial-mode.ts",
+    "apps/api/src/modules/documents/**",
     "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/**",
-    "apps/api/src/common/outbox/**",
-    "apps/api/src/common/kafka/**",
-    "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/modules/settlement-engine/**",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/test/outbox/**",
-    "apps/api/test/one-deal/**",
+    "apps/api/prisma/migrations/20260713*_documents_postgresql_authority/**",
+    "apps/api/test/industrial/document-postgresql-authority.e2e-spec.ts",
+    "apps/api/test/one-deal/document-postgresql-authority.e2e-spec.ts",
+    "infra/sql/postgresql-document-authority-policies.sql",
+    "scripts/platform-v7-forward-only-migration-check.mjs",
     "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
   ],
@@ -69,309 +116,71 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
+    "apps/api/src/common/config/industrial-mode.ts",
+    "apps/api/src/modules/documents/**",
     "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/**",
-    "apps/api/src/common/outbox/**",
-    "apps/api/src/common/kafka/**",
-    "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/modules/settlement-engine/**",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/test/outbox/**",
-    "apps/api/test/one-deal/**",
+    "apps/api/prisma/migrations/20260713*_documents_postgresql_authority/**",
+    "apps/api/test/industrial/document-postgresql-authority.e2e-spec.ts",
+    "apps/api/test/one-deal/document-postgresql-authority.e2e-spec.ts",
+    "infra/sql/postgresql-document-authority-policies.sql",
+    "scripts/platform-v7-forward-only-migration-check.mjs",
     "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
   ],
-  "approvedConcurrentScopes": {
-    "agent/fix-platform-v7-public-live-defects": [
-      "apps/web/app/layout.tsx",
-      "apps/web/app/v9.css",
-      "apps/web/app/platform-v7/page.tsx",
-      "apps/web/middleware.ts",
-      "apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx",
-      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
-      "apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx",
-      "apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts",
-      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
-      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
-      "apps/web/tests/unit/platformV7PublicLiveHardening.test.ts",
-      "docs/platform-v7/autopilot/autopilot-state.json"
-    ],
-    "security/staff-access-control-plane-foundation": [
-      "apps/api/prisma/migrations/20260711100000_staff_access_control_plane/**",
-      "apps/api/prisma/migrations/20260711101000_staff_assignment_mfa_enforcement/**",
-      "apps/api/prisma/migrations/20260711102000_staff_deal_scope_resolution/**",
-      "apps/api/prisma/migrations/20260711103000_staff_audit_chain_enforcement/**",
-      "apps/api/src/app.module.ts",
-      "apps/api/src/common/guards/auth.guard.ts",
-      "apps/api/src/common/guards/roles.guard.ts",
-      "apps/api/src/common/security/policy-engine.service.ts",
-      "apps/api/src/common/types/request-user.ts",
-      "apps/api/src/modules/security/security-e2e.spec.ts",
-      "apps/api/src/modules/staff-access/**",
-      "apps/api/test/staff-access/**",
-      "docs/platform-v7/security/staff-access-control-plane.md",
-      "docs/platform-v7/security/staff-access-production-runbook.md",
-      "scripts/bootstrap-platform-owner.mjs",
-      "scripts/bootstrap-platform-owner-auth.mjs",
-      "scripts/platform-v7-one-deal-e2e.sh",
-      "docs/platform-v7/autopilot/autopilot-state.json"
-    ],
-    "feat/platform-v7-staff-control-center": [
-      "apps/api/prisma/migrations/20260711110000_staff_support_cases/**",
-      "apps/api/src/modules/staff-access/**",
-      "apps/api/test/staff-access/**",
-      "apps/web/app/api/staff/**",
-      "apps/web/app/platform-v7/staff/**",
-      "apps/web/components/platform-v7/staff/**",
-      "apps/web/components/platform-v7/StaffControlCenterEntry.tsx",
-      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
-      "apps/web/i18n/staff-control-center-messages.ts",
-      "apps/web/i18n/staff-operational-workspace-messages.ts",
-      "apps/web/tests/unit/platformV7StaffControlCenter*.test.ts",
-      "apps/web/tests/unit/platformV7StaffOperationalWorkspaces.test.ts",
-      "docs/platform-v7/security/staff-access-control-plane.md",
-      "docs/platform-v7/security/staff-access-production-runbook.md",
-      "docs/platform-v7/autopilot/autopilot-state.json"
-    ],
-    "claude/industrial-transaction-core-sgth0p": [
-      "apps/api/prisma/schema.prisma",
-      "apps/api/prisma/migrations/**",
-      "apps/api/src/common/config/industrial-mode.ts",
-      "apps/api/src/main.ts",
-      "apps/api/src/modules/arbitrator/arbitrator.service.ts",
-      "apps/api/src/modules/deals/**",
-      "apps/api/src/modules/integration-events/**",
-      "apps/api/src/modules/ledger/ledger-v2.service.ts",
-      "apps/api/src/modules/settlement-engine/**",
-      "apps/api/test/industrial/**",
-      "apps/api/test/one-deal/**",
-      "docs/platform-v7/industrial-gap-register.md",
-      "packages/domain-core/src/index.ts",
-      "packages/domain-core/src/money.ts",
-      "packages/domain-core/src/money.test.ts",
-      "scripts/platform-v7-forward-only-migration-check.mjs",
-      "docs/platform-v7/autopilot/autopilot-state.json",
-      "apps/api/src/modules/bank-reconciliation/**",
-      "packages/domain-core/src/measures.ts",
-      "packages/domain-core/src/measures.test.ts",
-      "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
-      "apps/web/app/api/proxy/[...path]/route.ts",
-      "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
-      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
-      "apps/web/lib/platform-v7/shellRoutes.ts",
-      "apps/web/lib/platform-v7/offline-command-queue.ts",
-      "apps/web/tests/unit/platformV7OfflineCommandQueue.test.ts",
-      "apps/web/public/platform-v7/i18n/dictionaries.json",
-      "apps/web/components/platform-v7/CanonicalDealsList.tsx",
-      "apps/web/app/platform-v7/deals/page.tsx",
-      "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
-      "docs/platform-v7/industrial-plan-session-report-2026-07-12.md"
-    ],
-    "fix/deal-command-no-fake-live": [
-      "apps/api/src/modules/deals/**",
-      "apps/api/test/industrial/**",
-      "apps/api/test/one-deal/**",
-      "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
-      "apps/web/components/platform-v7/DealCommandForm.tsx",
-      "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
-      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
-      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
-      "docs/platform-v7/autopilot/autopilot-state.json"
-    ],
-    "fix/postgresql-deal-authority": [
-      "apps/api/prisma/migrations/20260712193000_postgresql_deal_authority/**",
-      "apps/api/src/modules/deals/**",
-      "apps/api/test/industrial/**",
-      "apps/api/test/one-deal/**",
-      "docs/platform-v7/production-database-deployment-runbook.md",
-      "infra/sql/postgresql-deal-authority-policies.sql",
-      "scripts/platform-v7-one-deal-e2e.sh",
-      "scripts/platform-v7-rls-apply-rehearsal.sh",
-      "docs/platform-v7/autopilot/autopilot-state.json"
-    ]
-  },
-  "industrialOneDealFoundation": {
-    "status": "merged_green",
-    "canonicalDealId": "DEAL-INDUSTRIAL-001",
-    "mergeCommit": "950e93f12b9ddd9b21dde46f74d057b1581763b7"
-  },
-  "industrialOneDealE2e": {
-    "implementationPr": "#2270",
-    "status": "merged_green",
-    "mergeCommit": "45a7fd7826eade875b81c1c631eb3a049c3fba94"
-  },
-  "industrialOneDealRecovery": {
-    "implementationPr": "#2274",
-    "status": "merged_green",
-    "mergeCommit": "cc10110293d9716c2f93790e7756589ead017afd"
-  },
-  "persistentIdentity": {
-    "implementationPr": "#2276",
-    "status": "merged_green",
-    "mergeCommit": "807928e54645af4ca425bf68e7b93931a01fb13d",
-    "securityFollowUps": [
-      "#2280 one-time backup codes",
-      "#2282 persistent-auth 12-role flow",
-      "#2283 injected JWT claims ignored"
-    ]
-  },
-  "databaseRuntimeBoundary": {
-    "implementationPr": "#2287",
-    "status": "merged_green",
-    "mergeCommit": "7c719e50d9712922ff164b26115e596ddbb93cfb",
-    "evidence": [
-      "separate deal and auth pools",
-      "deal principal NOBYPASSRLS and FORCE RLS",
-      "auth principal denied access to deals",
-      "NOINHERIT and no role memberships"
-    ]
-  },
-  "databaseRecoveryRehearsal": {
-    "implementationPr": "#2291",
-    "status": "merged_green",
-    "mergeCommit": "7c499ede59fc416cbf546d58dc7950b49dc1a77f",
-    "evidence": [
-      "forward-only migration gate",
-      "custom-format backup and SHA-256",
-      "restore into separate PostgreSQL database",
-      "source and restore fingerprints equal",
-      "eight protected tables retain ENABLE and FORCE RLS",
-      "persistent login and CLOSED deal survive restore"
-    ],
-    "productionAcceptance": false
-  },
+  "approvedConcurrentScopes": {},
   "currentAcceptance": [
-    "PostgreSQL is the only outbox source of truth",
-    "multiple workers claim rows with bounded leases and SKIP LOCKED",
-    "delivery is at-least-once with stable idempotency keys",
-    "crash after publish and before acknowledgement is recoverable",
-    "retry schedule, dead-letter and manual-review states are durable",
-    "bank reconciliation uses persisted cursor and immutable evidence",
-    "reconciliation mismatch cannot release or reserve money automatically",
-    "bank callback keys support overlapping rotation windows and immediate revocation",
-    "unknown, expired, not-yet-valid and revoked keys fail closed",
-    "12-role one-deal, persistent auth, RLS and DR gates remain green"
+    "Production DocumentsModule binds DOCUMENT_REPOSITORY directly to a complete Prisma implementation; RuntimeCore is absent from the production Documents dependency graph.",
+    "Repository mode parsing is typed and fail-closed; production rejects memory, missing and unknown document repository modes before accepting traffic.",
+    "Memory implementation remains available only through an explicit test or development profile.",
+    "Document list, read, upload metadata, sign-state transition and deal-package generation persist through restart and a second API instance.",
+    "Tenant, actor, role, deal access and immutable-state authority are derived on the server and enforced inside a trusted RLS transaction.",
+    "Cross-tenant reads and writes fail under a restricted NOBYPASSRLS principal; every tenant-owned document table has ENABLE and FORCE RLS.",
+    "Document state change, audit event and outbox event commit atomically or roll back together.",
+    "Confirmed document evidence cannot be overwritten; correction creates a new version linked to the superseded version.",
+    "No production method returns synthetic file content, mock signature success or a client-authored evidence status.",
+    "Forward migration succeeds on an empty and baseline database, drift is empty, targeted unit/integration/restart/idempotency/concurrency/RLS tests pass, and exact-head CI is green."
   ],
   "nextAfterCurrentGreen": [
-    "truthful driver offline acknowledgement",
-    "server-rendered RU EN ZH i18n",
-    "complete mobile-first design-system and role-cabinet migration",
-    "production load high-availability observability and accessibility acceptance",
-    "live integration activation only after partner credentials and contracts"
-  ],
-  "designContractReserved": {
-    "status": "queued_after_financial_delivery_boundary",
-    "principles": [
-      "verified server session is the only role tenant and shell projection source",
-      "one primary action per state",
-      "status blocker reason and next step are immediately visible",
-      "technical diagnostics are second-level information",
-      "mobile first across RU EN ZH",
-      "remove URL-derived role localStorage authority and CSS hotfix cascade",
-      "visual regression accessibility and low-bandwidth states are mandatory"
-    ]
-  },
-  "forbiddenZones": [
-    "apps/landing",
-    "apps/web/app/platform-v7",
-    "apps/web/components/platform-v7",
-    "apps/web/components/v7r",
-    "apps/web/lib/platform-v7",
-    "apps/web/app/api",
-    "package.json",
-    "package-lock.json",
-    "pnpm-lock.yaml",
-    ".env files",
-    "production migration execution"
+    "IR-10.2 Logistics PostgreSQL Authority",
+    "IR-10.3 Labs PostgreSQL Authority",
+    "IR-10.4 Settlement PostgreSQL Authority",
+    "IR-10.5 Disputes PostgreSQL Authority",
+    "IR-20 Canonical Durable Outbox",
+    "IR-21 Durable Integration Inbox",
+    "IR-22 Persistent Partner API and Outbound Webhooks",
+    "IR-30 Canonical Deal and Payment Basis",
+    "IR-31 Normalized Logistics and Acceptance",
+    "IR-32 Lab, Documents and Disputes State Machines",
+    "IR-40 Evidence Object Storage",
+    "IR-41 Signature Verification",
+    "IR-50 Adapter Conformance followed by IR-51 through IR-55",
+    "IR-60 and IR-61 Role UI, Offline, Localization and Accessibility",
+    "IR-70 through IR-72 Production Profile, Operations, Load, HA and DR",
+    "IR-80 Security and Compliance Evidence",
+    "IR-90 End-to-End Acceptance"
   ],
   "maturityLanguage": [
-    "isolated-postgresql-e2e-proven",
-    "persistent-identity-proven-in-isolated-postgresql",
-    "separate-runtime-principals-proven-in-isolated-postgresql",
-    "isolated-backup-restore-rehearsal-proven",
-    "durable-financial-delivery-in-progress",
-    "platform-temporarily-without-external-integrations"
+    "pre-integration",
+    "isolated-postgresql-evidence-only",
+    "industrial-integration-ready-no-go",
+    "platform-temporarily-without-live-external-integrations"
   ],
   "forbiddenClaims": [
-    "full production readiness",
-    "production migration applied",
-    "production DR accepted",
+    "Industrial Integration-Ready before IR-90 acceptance",
+    "production deployment accepted",
+    "provider DR accepted",
     "production RTO or RPO established",
-    "external integration completion",
+    "live external integration",
     "live bank money movement",
     "production scale proven"
   ],
-  "readiness": "91% honest architectural and isolated-runtime readiness. Canonical execution, persistent identity, separate DB principals and backup/restore are proven in isolated PostgreSQL. Durable financial delivery, live integrations, production deployment, provider recovery and scale remain unproven. Production exploitation remains NO-GO.",
-  "publicEntryProduction": {
-    "implementationPr": "#2345",
-    "mergeCommit": "bf32eccb27a1119e07000ada30cc471d343bbe46",
-    "netlifyDeployId": "6a51a3af86bae5000855ba47",
-    "deploymentStatus": "ready",
-    "productionRoutes": [
-      "/platform-v7",
-      "/platform-v7/login",
-      "/platform-v7/forgot-password"
-    ],
-    "browserEvidencePr": "#2347",
-    "browserEvidenceStatus": "green",
-    "monitoring": "hourly condition watch enabled",
-    "authBoundary": "server-authoritative and fail-closed",
-    "authExploitation": "not proven without deployed auth API and seeded MFA account",
-    "blockerIssue": "#2348",
-    "productionAcceptance": false,
-    "browserEvidenceRun": "29136362609",
-    "browserEvidence": {
-      "chromiumDesktop1440": "9/9 green",
-      "chromiumMobile390": "9/9 green",
-      "webkitIPhone13": "9/9 green",
-      "localeCycles": [
-        "ru",
-        "en",
-        "zh",
-        "ru"
-      ],
-      "axeSeriousCritical": 0,
-      "consoleRuntimeNetworkErrors": 0,
-      "failClosedLogin": {
-        "status": 503,
-        "authCookies": 0,
-        "remainedOnLogin": true
-      },
-      "lighthouse": {
-        "landing": {
-          "performance": 99,
-          "accessibility": 99,
-          "bestPractices": 100,
-          "seo": 100,
-          "lcpMs": 2021,
-          "tbtMs": 50,
-          "cls": 0
-        },
-        "login": {
-          "performance": 99,
-          "accessibility": 100,
-          "bestPractices": 100,
-          "lcpMs": 1969,
-          "tbtMs": 16,
-          "cls": 0
-        },
-        "recovery": {
-          "performance": 99,
-          "accessibility": 100,
-          "bestPractices": 100,
-          "lcpMs": 1816,
-          "tbtMs": 42,
-          "cls": 0
-        }
-      },
-      "artifactDigests": {
-        "criticalPaths": "sha256:e98664a4d03d1d07fa5526b5ad7e8f5c596e532bf19c80af916fdbb550fe606f",
-        "lighthouse": "sha256:739dee97aa6aa46a4741f70245055ac510a589a8f83e0b46f8395bcec112975d",
-        "webkit": "sha256:e55fdc12224cf37994977bb98c8b82ff5e3f5425c551699a1653e51284153517",
-        "chromiumMobile": "sha256:7b1ea8897bf8793238eefcf1bb3ed6abb7dd5e1294b964cb772ed9f554074aff",
-        "chromiumDesktop": "sha256:07d096ecd7a9a55f7bbbbe4c6cfd179a82dffbf024f19ea311fb8c3e7ddf3294"
-      }
-    }
-  }
+  "forbiddenZones": [
+    "apps/landing",
+    "apps/web",
+    "packages and lockfiles",
+    "live integration activation",
+    "production migration execution",
+    "production credentials and secret material"
+  ],
+  "readiness": "NO-GO. Baseline 66bf4655 contains a PostgreSQL-authoritative Deal core and isolated evidence for identity, reconciliation, durable worker mechanics and CI-scale correctness. Platform-wide repository authority, single outbox ownership, durable inbox/partner state, canonical evidence, production operations, HA/DR/load and external security acceptance remain open."
 }

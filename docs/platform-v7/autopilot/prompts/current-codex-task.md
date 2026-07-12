@@ -1,9 +1,9 @@
-# Codex current task — Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation
+# Codex current task — IR-10.1 Documents PostgreSQL Authority
 
-Maturity: industrial architecture and isolated PostgreSQL proof; platform temporarily without external integrations.
-Do not claim production deployment, live bank movement, provider DR acceptance or production scale.
-Do not change `apps/landing`, platform UI, design/theme/onboarding, package files or lockfiles.
-Do not auto-merge. Exact-head green checks and review are required.
+Maturity: controlled-pilot / pre-integration.
+Do not overstate maturity or imply live external integrations.
+Do not change apps/landing, production UI, visual/theme/onboarding, adapters, server actions, AI gateway runtime, DB/migrations or lockfiles unless the current step explicitly allows it.
+Do not auto-merge. Human review and green checks are required.
 
 ## Source of truth
 
@@ -13,11 +13,15 @@ Do not auto-merge. Exact-head green checks and review are required.
 
 ## Current step
 
-Durable PostgreSQL Outbox Workers, Bank Reconciliation and Partner-Key Rotation.
+IR-10.1 Documents PostgreSQL Authority
 
-## Baseline
+## Next candidate
 
-Persistent identity/MFA, server-derived 12-role execution, separate PostgreSQL runtime principals and isolated backup/restore rehearsal are merged and green through #2291.
+IR-10.2 Logistics PostgreSQL Authority
+
+## Transition guard
+
+- BLOCKED: IR-10.1 Documents PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-10.2 Logistics PostgreSQL Authority.
 
 ## Allowed current scope
 
@@ -26,50 +30,123 @@ Persistent identity/MFA, server-derived 12-role execution, separate PostgreSQL r
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
 - docs/platform-v7/autopilot/prompts/current-review-task.md
 - docs/platform-v7/execution-queue.md
+- apps/api/src/common/config/industrial-mode.ts
+- apps/api/src/modules/documents/**
 - apps/api/prisma/schema.prisma
-- apps/api/prisma/migrations/**
-- apps/api/src/common/outbox/**
-- apps/api/src/common/kafka/**
-- apps/api/src/common/prisma/rls-transaction.service.ts
-- apps/api/src/modules/settlement-engine/**
-- apps/api/src/modules/deals/industrial-deal-command.gateway.ts
-- apps/api/src/modules/deals/deal-command.service.ts
-- apps/api/test/outbox/**
-- apps/api/test/one-deal/**
+- apps/api/prisma/migrations/20260713*_documents_postgresql_authority/**
+- apps/api/test/industrial/document-postgresql-authority.e2e-spec.ts
+- apps/api/test/one-deal/document-postgresql-authority.e2e-spec.ts
+- infra/sql/postgresql-document-authority-policies.sql
+- scripts/platform-v7-forward-only-migration-check.mjs
 - scripts/platform-v7-one-deal-e2e.sh
 - .github/workflows/ci.yml
 
-## Required implementation
+## Forbidden zones
 
-- PostgreSQL is the only outbox source of truth; remove production process-memory/file authority.
-- Enqueue Deal/payment/audit/outbox atomically in the trusted transaction.
-- Claim batches with bounded leases and `FOR UPDATE SKIP LOCKED`.
-- Use PENDING/PROCESSING/RETRY/SENT-or-CONFIRMED/DEAD transitions with DB-time retry scheduling.
-- Treat Kafka `send=false` and exceptions as failures; never falsely confirm delivery.
-- Recover expired leases after crash and preserve stable idempotency keys.
-- Persist reconciliation cursor/checkpoint and immutable mismatch evidence.
-- Never reserve or release money from reconciliation mismatch.
-- Support callback key versioning, validity windows, overlap and immediate revocation.
-- Reject unknown, expired, future and revoked keys fail-closed.
-- Require an explicit production worker mode and avoid simultaneous API + dedicated relay ownership.
-- Preserve the canonical Deal, persistent-auth, RLS and DR gates.
+- apps/landing
+- apps/web
+- packages and lockfiles
+- live integration activation
+- production migration execution
+- production credentials and secret material
 
-## Acceptance
+## Active queue
 
-- Two workers process each claimed row once per lease cycle without double confirmation.
-- Crash after claim is recoverable; transport failure remains RETRY/DEAD, never SENT.
-- Restart preserves pending/retry/dead state.
-- Concurrent duplicate enqueue creates one durable record.
-- Reconciliation and key-rotation negative cases are proven.
-- Forward migrations/drift, API typecheck/tests/build, persistent auth, 12-role/19-command RLS, backup/restore and security gates are green.
+# platform-v7 Industrial Integration Readiness queue
 
-## Forbidden claims
+CURRENT: IR-10.1 Documents PostgreSQL Authority
 
-- exactly-once delivery to external systems;
-- live bank, ФГИС, ЭДО or ЕСИА integration;
-- production migration applied;
-- production RTO/RPO or scale proven.
+GOVERNING SPECIFICATION:
+- `docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md`
+- target gate: Industrial Integration-Ready;
+- current gate: NO-GO;
+- exact baseline: `66bf4655eede522ca3f3963d6d7aaa5cee9c50a5` on `main`.
+
+BASELINE PROVEN:
+- persistent identity, session rotation/revocation, MFA and one-time backup codes are merged with isolated PostgreSQL evidence (#2276, #2280, #2282, #2283);
+- separate restricted auth and deal PostgreSQL principals are merged (#2287);
+- canonical Deal command execution, idempotency, optimistic concurrency, bank-callback authority, transactional audit/outbox creation and isolated recovery evidence are merged (#2260, #2270, #2274, #2378, #2406);
+- durable PostgreSQL outbox worker mechanics exist with leases and `FOR UPDATE SKIP LOCKED`, but IR-20 remains open because the legacy process-memory relay still starts;
+- PostgreSQL bank reconciliation, immutable mismatch evidence and callback-key rotation/revocation are merged (#2379);
+- ordinary Deal routes are PostgreSQL-authoritative and legacy free-form transitions fail closed (#2407);
+- CI-scale correctness and isolated backup/restore are evidence only; they do not prove production capacity, HA or provider DR.
+
+CURRENT GOAL:
+- make Documents PostgreSQL-authoritative by construction;
+- remove RuntimeCore and optional Prisma injection from the production Documents graph;
+- preserve an explicit memory adapter only for test/development;
+- enforce server-derived tenant, actor, role, deal and immutable-state authority through trusted RLS transactions;
+- persist document workflow changes, audit and outbox atomically;
+- prove restart, multi-instance, idempotency, concurrency and cross-tenant denial;
+- keep object-storage retention and cryptographic provider activation outside this PR for IR-40 and IR-41;
+- introduce no live EDO or signature claim.
+
+CURRENT ALLOWED:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/src/common/config/industrial-mode.ts
+- apps/api/src/modules/documents/**
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20260713*_documents_postgresql_authority/**
+- apps/api/test/industrial/document-postgresql-authority.e2e-spec.ts
+- apps/api/test/one-deal/document-postgresql-authority.e2e-spec.ts
+- infra/sql/postgresql-document-authority-policies.sql
+- scripts/platform-v7-forward-only-migration-check.mjs
+- scripts/platform-v7-one-deal-e2e.sh
+- .github/workflows/ci.yml
+
+CURRENT CRITERIA:
+- production bootstrap fails before traffic when the Documents repository mode is missing, memory or unknown;
+- production DocumentsModule contains no RuntimeCore provider, optional Prisma dependency or silent fallback;
+- reads and writes run with a trusted server-derived RLS context;
+- cross-tenant read/write and client-authored tenant, actor, role, deal status or evidence state are denied;
+- upload metadata, sign-state transition and package generation survive restart and instance change;
+- confirmed evidence is immutable; corrections create linked versions;
+- document mutation, audit and outbox commit or roll back as one transaction;
+- no synthetic file body, mock signature success or fake EDO success exists in the authoritative path;
+- empty/baseline migrations, drift, RLS, restart, concurrency, idempotency and exact-head CI gates pass.
+
+LOCKED:
+- IR-10.2 Logistics PostgreSQL Authority;
+- IR-10.3 Labs PostgreSQL Authority;
+- IR-10.4 Settlement PostgreSQL Authority;
+- IR-10.5 Disputes PostgreSQL Authority;
+- IR-20 Canonical Durable Outbox;
+- IR-21 Durable Integration Inbox;
+- IR-22 Persistent Partner API and Outbound Webhooks;
+- IR-30 Canonical Deal and Payment Basis;
+- IR-31 Normalized Logistics and Acceptance;
+- IR-32 Lab, Documents and Disputes State Machines;
+- IR-40 Evidence Object Storage;
+- IR-41 Signature Verification;
+- IR-50 Adapter Conformance;
+- IR-51 ESIA/SMEV;
+- IR-52 FGIS Grain;
+- IR-53 EDO and signature provider mapping;
+- IR-54 Bank adapter;
+- IR-55 GPS/telematics;
+- IR-60 Role cabinets on authoritative data;
+- IR-61 Offline, RU/EN/ZH and accessibility;
+- IR-70 Production configuration and infrastructure profile;
+- IR-71 Observability, SLO and operations;
+- IR-72 Production-scale load, HA and DR;
+- IR-80 Security and compliance evidence;
+- IR-90 end-to-end acceptance and evidence pack.
+
+TRANSITION RULE:
+- one narrow PR at a time in dependency order;
+- no auto-merge;
+- advance only after exact-head checks and diff review;
+- update state, queue, progress and prompts after merge before opening the next work package;
+- mock, simulator and CI-scale evidence must remain explicitly labelled and cannot be used as live or production acceptance.
+
+READINESS:
+Industrial Integration-Ready remains NO-GO until every mandatory gate in IR-90 has commit- and deployment-linked evidence.
+
 
 ## Implementation brief
 
-Implement the current step strictly inside the allowed scope. Prefer one canonical PostgreSQL path, explicit failure states, idempotency and auditable evidence over compatibility with obsolete in-memory paths.
+Implement IR-10.1 Documents PostgreSQL Authority strictly inside the state allowed scope.
