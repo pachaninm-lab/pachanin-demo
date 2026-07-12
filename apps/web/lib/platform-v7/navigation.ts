@@ -55,10 +55,9 @@ export const PLATFORM_V7_NAV_BY_ROLE: Record<PlatformRole, PlatformV7NavItem[]> 
   ],
   logistics: [
     { href: '/platform-v7/logistics', label: 'Диспетчерская', icon: 'logistics' },
-    { href: '/platform-v7/driver/field', label: PLATFORM_V7_LEXICON.nav.driver, icon: 'cabinet' },
-    { href: '/platform-v7/elevator/terminal', label: 'Элеваторный терминал', icon: 'receiving' },
-    { href: '/platform-v7/elevator', label: PLATFORM_V7_LEXICON.nav.receiving, icon: 'receiving' },
-    { href: '/platform-v7/lab', label: PLATFORM_V7_LEXICON.nav.lab, icon: 'lab' },
+    { href: '/platform-v7/logistics/drivers', label: 'Водители', icon: 'cabinet' },
+    { href: '/platform-v7/deal-logistics', label: 'Рейсы сделки', icon: 'logistics' },
+    { href: '/platform-v7/deal-documents-basis', label: 'Документы', icon: 'integrations' },
   ],
   driver: [{ href: '/platform-v7/driver/field', label: 'Маршрут', icon: 'logistics' }],
   surveyor: [{ href: '/platform-v7/surveyor', label: 'Назначения', icon: 'cabinet' }],
