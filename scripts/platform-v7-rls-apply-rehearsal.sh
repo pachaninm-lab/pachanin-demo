@@ -38,9 +38,10 @@ DECLARE
   forced_count INTEGER;
   policy_count INTEGER;
   authority_function_count INTEGER;
+  immutability_function_count INTEGER;
   public_execute_count INTEGER;
   required_policy_count INTEGER;
-  single_basis_trigger_count INTEGER;
+  authority_trigger_count INTEGER;
 BEGIN
   SELECT count(*) INTO enabled_count
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -65,6 +66,12 @@ BEGIN
     )
     AND p.prosecdef;
 
+  SELECT count(*) INTO immutability_function_count
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.proname = 'forbid_deal_basis_mutation';
+
   SELECT count(*) INTO public_execute_count
   FROM pg_proc p
   JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -73,7 +80,8 @@ BEGIN
     AND p.proname IN (
       'app_deal_basis_deal_visible',
       'app_deal_basis_participant_allowed',
-      'enforce_single_deal_per_basis'
+      'enforce_single_deal_per_basis',
+      'forbid_deal_basis_mutation'
     )
     AND acl.grantee = 0
     AND acl.privilege_type = 'EXECUTE';
@@ -89,13 +97,13 @@ BEGIN
       ('deal_participants', 'deal_participants_insert')
     );
 
-  SELECT count(*) INTO single_basis_trigger_count
+  SELECT count(*) INTO authority_trigger_count
   FROM pg_trigger t
   JOIN pg_class c ON c.oid = t.tgrelid
   JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE n.nspname = 'public'
     AND c.relname = 'deals'
-    AND t.tgname = 'deals_single_basis'
+    AND t.tgname IN ('deals_single_basis', 'deals_basis_immutable')
     AND NOT t.tgisinternal
     AND t.tgenabled IN ('O', 'A');
 
@@ -111,14 +119,17 @@ BEGIN
   IF authority_function_count <> 3 THEN
     RAISE EXCEPTION 'RLS rehearsal: expected 3 SECURITY DEFINER authority functions, got %', authority_function_count;
   END IF;
+  IF immutability_function_count <> 1 THEN
+    RAISE EXCEPTION 'RLS rehearsal: immutable-basis trigger function is missing';
+  END IF;
   IF public_execute_count <> 0 THEN
     RAISE EXCEPTION 'RLS rehearsal: PUBLIC can execute % authority function(s)', public_execute_count;
   END IF;
   IF required_policy_count <> 5 THEN
     RAISE EXCEPTION 'RLS rehearsal: expected 5 final deal authority policies, got %', required_policy_count;
   END IF;
-  IF single_basis_trigger_count <> 1 THEN
-    RAISE EXCEPTION 'RLS rehearsal: single-basis trigger is missing or disabled';
+  IF authority_trigger_count <> 2 THEN
+    RAISE EXCEPTION 'RLS rehearsal: expected 2 enabled Deal authority triggers, got %', authority_trigger_count;
   END IF;
 END
 \$rehearsal\$;
