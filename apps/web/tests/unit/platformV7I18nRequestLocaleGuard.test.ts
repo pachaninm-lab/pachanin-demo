@@ -8,17 +8,24 @@ function read(relativePath: string) {
 }
 
 describe('platform-v7 i18n request locale precedence', () => {
-  it('treats a valid middleware locale header as authoritative even when it is the default RU locale', () => {
+  it('uses RU for a clean request and only accepts an explicit middleware locale header', () => {
     const source = read('apps/web/i18n/request.ts');
 
-    expect(source).toContain("headers } from 'next/headers'");
+    expect(source).toContain("import { headers } from 'next/headers';");
     expect(source).toContain("LOCALE_HEADER = 'x-pc-locale'");
-    expect(source).toContain('let headerLocaleResolved = false');
+    expect(source).toContain('let locale = DEFAULT_LOCALE');
     expect(source).toContain('headerStore.get(LOCALE_HEADER)');
-    expect(source).toContain('if (isAppLocale(headerLocale)) {');
-    expect(source).toContain('headerLocaleResolved = true');
-    expect(source).toContain('if (!headerLocaleResolved) {');
-    expect(source).toContain('cookieStore.get(LOCALE_COOKIE)');
-    expect(source).not.toContain('if (locale === DEFAULT_LOCALE)');
+    expect(source).toContain('if (isAppLocale(headerLocale)) locale = headerLocale');
+    expect(source).not.toContain('cookies()');
+    expect(source).not.toContain('LOCALE_COOKIE');
+  });
+
+  it('does not restore a stale locale cookie in the owner control center', () => {
+    const source = read('apps/web/app/platform-v7/staff/page.tsx');
+
+    expect(source).toContain("headers().get('x-pc-locale')");
+    expect(source).toContain('isAppLocale(headerLocale) ? headerLocale : DEFAULT_LOCALE');
+    expect(source).not.toContain('cookieLocale');
+    expect(source).not.toContain('LOCALE_COOKIE');
   });
 });

@@ -139,6 +139,13 @@ apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts
 apps/web/tests/unit/platformV7StaffControlCenterInitialRender.test.ts
 scripts/p7-autopilot-guard.sh'
 
+RUSSIAN_DEFAULT_LOCALE_SCOPE='apps/web/app/platform-v7/staff/page.tsx
+apps/web/components/platform-v7/HeaderLanguageSwitch.tsx
+apps/web/i18n/request.ts
+apps/web/tests/unit/platformV7I18nRequestLocaleGuard.test.ts
+apps/web/tests/unit/platformV7LanguageReloadGuard.test.ts
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -161,6 +168,12 @@ fi
 # self-hosted fixture endpoints, tests and its operations document.
 if [ "${GITHUB_HEAD_REF:-}" = "fix/controlled-test-access" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$CONTROLLED_TEST_ACCESS_SCOPE")
+fi
+
+# A clean Platform V7 URL must always resolve to Russian; EN/ZH remain explicit
+# language choices and must not be restored from stale browser persistence.
+if [ "${GITHUB_HEAD_REF:-}" = "fix/platform-v7-russian-default-locale" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$RUSSIAN_DEFAULT_LOCALE_SCOPE")
 fi
 
 # Pull-request workflows can check out refs/pull/<n>/merge and expose an empty or
