@@ -143,6 +143,9 @@ export default async function StaffControlCenterPage() {
   if (verification.status === 'unauthenticated') {
     redirect('/platform-v7/login?next=%2Fplatform-v7%2Fstaff');
   }
+  if (verification.status === 'verified' && !csrfToken) {
+    redirect('/platform-v7/staff/prepare');
+  }
 
   return (
     <StaffPlatformShell locale={locale}>
