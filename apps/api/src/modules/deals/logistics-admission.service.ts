@@ -100,19 +100,25 @@ export class LogisticsAdmissionService {
     }
 
     return this.rls.withTrustedContext(user, async (tx) => {
-      const rows = await tx.$queryRaw<AdmissionRow[]>(Prisma.sql`
-        SELECT *
-        FROM logistics.resolve_deal_admission(
-          ${dealId},
-          ${carrierOrgId},
-          ${driverUserId},
-          ${vehicleId},
-          ${routeFromFacilityId},
-          ${routeToFacilityId}
-        )
-      `);
+      const [rows, deal] = await Promise.all([
+        tx.$queryRaw<AdmissionRow[]>(Prisma.sql`
+          SELECT *
+          FROM logistics.resolve_deal_admission(
+            ${dealId},
+            ${carrierOrgId},
+            ${driverUserId},
+            ${vehicleId},
+            ${routeFromFacilityId},
+            ${routeToFacilityId}
+          )
+        `),
+        tx.deal.findUnique({
+          where: { id: dealId },
+          select: { tenantId: true, sellerOrgId: true, buyerOrgId: true },
+        }),
+      ]);
       const row = rows[0];
-      if (!row) {
+      if (!row || !deal || deal.tenantId !== user.tenantId) {
         throw new UnprocessableEntityException({
           code: 'LOGISTICS_ADMISSION_REQUIRED',
           field: 'payload',
@@ -142,8 +148,8 @@ export class LogisticsAdmissionService {
           }],
           vehicles: [{ id: row.vehicle_id, carrierOrgId: row.carrier_org_id, status: 'ACTIVE' }],
           facilities: [
-            { id: row.route_from_facility_id, organizationId: '', status: 'ACTIVE' },
-            { id: row.route_to_facility_id, organizationId: '', status: 'ACTIVE' },
+            { id: row.route_from_facility_id, organizationId: deal.sellerOrgId, status: 'ACTIVE' },
+            { id: row.route_to_facility_id, organizationId: deal.buyerOrgId, status: 'ACTIVE' },
           ],
         },
         carrierName: row.carrier_name,
