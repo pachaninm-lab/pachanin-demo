@@ -6,6 +6,8 @@ import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.s
 import { RequestUser, Role } from '../../src/common/types/request-user';
 import { IndustrialDealCommandGateway } from '../../src/modules/deals/industrial-deal-command.gateway';
 import { DealCommandService } from '../../src/modules/deals/deal-command.service';
+import { BankKeyRegistryService } from '../../src/modules/settlement-engine/bank-key-registry.service';
+import { IntegrationEventsService } from '../../src/modules/integration-events/integration-events.service';
 import type { ExecuteDealCommandDto } from '../../src/modules/deals/dto/execute-deal-command.dto';
 import {
   CANONICAL_TEST_DEAL_ID,
@@ -119,7 +121,9 @@ function createRuntime() {
   const rls = new RlsTransactionService(prisma);
   const commands = new DealCommandService(rls);
   const gateway = new IndustrialDealCommandGateway(prisma, rls, commands);
-  const settlement = new SettlementEngineController({} as never, gateway);
+  const bankKeys = new BankKeyRegistryService(prisma);
+  const integrationEvents = new IntegrationEventsService(prisma);
+  const settlement = new SettlementEngineController({} as never, gateway, bankKeys, integrationEvents);
   return { prisma, rls, gateway, settlement };
 }
 

@@ -151,7 +151,10 @@
       "packages/domain-core/src/money.ts",
       "packages/domain-core/src/money.test.ts",
       "scripts/platform-v7-forward-only-migration-check.mjs",
-      "docs/platform-v7/autopilot/autopilot-state.json"
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "apps/api/src/modules/bank-reconciliation/**",
+      "packages/domain-core/src/measures.ts",
+      "packages/domain-core/src/measures.test.ts"
     ]
   },
   "industrialOneDealFoundation": {

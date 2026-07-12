@@ -1,43 +1,67 @@
-import { ForbiddenException, Injectable, Optional } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { createHash, randomUUID } from 'crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 
 const ALLOWED_ROLES: Role[] = [Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE];
 
-export interface BankPayment {
-  id: string;
-  date: string;
-  valueDate: string;
-  amountKopecks: number;
-  currency: string;
+/**
+ * Bank reconciliation on PostgreSQL.
+ *
+ * Invariants:
+ *  - imported statement rows are immutable evidence (DB trigger blocks any
+ *    content change and every DELETE); only the match verdict may change;
+ *  - import is idempotent: a row's contentHash is unique, re-importing the
+ *    same statement adds nothing and reports duplicates honestly;
+ *  - a persisted cursor (reconciliation_cursors) survives restarts and is
+ *    shared by every API instance;
+ *  - a reconciliation MISMATCH can only ever mark rows for manual review —
+ *    this module has no code path that touches payments, deals or the ledger;
+ *  - there is no demo fallback: content that parses to zero rows imports zero
+ *    rows.
+ */
+
+interface ParsedStatementRow {
+  lineNo: number;
+  statementDate: string | null;
+  valueDate: string | null;
+  amountKopecks: bigint;
   reference: string;
-  counterpartyName: string;
-  counterpartyInn?: string;
-  counterpartyAccount: string;
-  description: string;
-  matchedDealId?: string;
-  matchStatus: 'UNMATCHED' | 'MATCHED' | 'MANUAL';
-  importBatchId: string;
-  createdAt: string;
+  counterpartyName: string | null;
+  counterpartyInn: string | null;
+  counterpartyAccount: string | null;
+  description: string | null;
+  contentHash: string;
 }
 
-export interface ReconciliationReport {
-  period: { from: string; to: string };
-  totalImported: number;
-  totalMatched: number;
-  totalUnmatched: number;
-  matchedAmountKopecks: number;
-  unmatchedAmountKopecks: number;
-  payments: BankPayment[];
+export interface ImportResult {
+  runId: string;
+  batchId: string;
+  imported: number;
+  duplicates: number;
+  matched: number;
+  mismatched: number;
+  unmatched: number;
+}
+
+function sha256(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function parseKopecksFromDecimal(raw: string): bigint {
+  const normalized = raw.replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
+    throw new BadRequestException(`Некорректная сумма в выписке: ${raw}`);
+  }
+  const [whole, fraction = ''] = normalized.split('.');
+  return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'));
 }
 
 @Injectable()
 export class BankReconciliationService {
-  private readonly payments: BankPayment[] = [];
-  private batchCounter = 0;
-  private paymentCounter = 0;
+  private readonly logger = new Logger(BankReconciliationService.name);
 
-  constructor(@Optional() private readonly prisma?: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   private assertRole(user: RequestUser): void {
     if (!ALLOWED_ROLES.includes(user.role as Role)) {
@@ -45,170 +69,257 @@ export class BankReconciliationService {
     }
   }
 
-  async importMT940(content: string, user: RequestUser): Promise<{ batchId: string; imported: number; matched: number }> {
+  private assertCanMutate(user: RequestUser): void {
     this.assertRole(user);
-    const batchId = `BATCH-${String(++this.batchCounter).padStart(4, '0')}`;
-    const parsed = this.parseMT940(content, batchId);
-
-    let matched = 0;
-    for (const p of parsed) {
-      const dealId = await this.tryAutoMatch(p);
-      if (dealId) {
-        p.matchedDealId = dealId;
-        p.matchStatus = 'MATCHED';
-        matched++;
-      }
-      this.payments.push(p);
+    if (user.role === Role.EXECUTIVE) {
+      throw new ForbiddenException('Руководитель имеет доступ к сверке только на чтение');
     }
-
-    return { batchId, imported: parsed.length, matched };
   }
 
-  private parseMT940(content: string, batchId: string): BankPayment[] {
-    // Real MT940 parser would use proper field tags (:60F:, :61:, :86:, etc.)
-    // Here we implement a simplified line-based parser that recognizes key patterns
-    const payments: BankPayment[] = [];
-    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+  async importMT940(content: string, user: RequestUser): Promise<ImportResult> {
+    this.assertCanMutate(user);
+    const trimmed = String(content ?? '').trim();
+    if (!trimmed) throw new BadRequestException('Пустая выписка не может быть импортирована.');
 
-    let currentDate = new Date().toISOString().split('T')[0];
-    let i = 0;
+    const batchId = `BATCH-${randomUUID()}`;
+    const statementSha256 = sha256(trimmed);
+    const rows = this.parseMT940(trimmed);
 
-    while (i < lines.length) {
-      const line = lines[i];
+    let imported = 0;
+    let duplicates = 0;
+    let matched = 0;
+    let mismatched = 0;
 
-      // :60F: Opening balance with date YYMMDD
-      if (line.startsWith(':60F:') || line.startsWith(':60M:')) {
-        const dateStr = line.slice(5, 11);
-        if (dateStr.match(/^\d{6}$/)) {
-          currentDate = `20${dateStr.slice(0, 2)}-${dateStr.slice(2, 4)}-${dateStr.slice(4, 6)}`;
-        }
-        i++;
-        continue;
-      }
-
-      // :61: Transaction line format: YYMMDD[MMDD]CRD<amount>N<ref>
-      if (line.startsWith(':61:')) {
-        const rest = line.slice(4);
-        const dateMatch = rest.match(/^(\d{6})(\d{4})?(C|D)(RD?|CR?)(\d+,?\d*)(N\w+)?(\S+)?/);
-        if (dateMatch) {
-          const txDate = `20${rest.slice(0, 2)}-${rest.slice(2, 4)}-${rest.slice(4, 6)}`;
-          const amtStr = (dateMatch[5] ?? '0').replace(',', '.');
-          const amountKopecks = Math.round(parseFloat(amtStr) * 100);
-          const reference = dateMatch[7] ?? `REF-${Date.now()}`;
-
-          // Look ahead for :86: narrative
-          let description = '';
-          let counterpartyName = 'Неизвестный';
-          let counterpartyInn: string | undefined;
-          let counterpartyAccount = '';
-
-          if (lines[i + 1]?.startsWith(':86:')) {
-            description = lines[i + 1].slice(4);
-            const innMatch = description.match(/ИНН[:\s]*(\d{10,12})/);
-            if (innMatch) counterpartyInn = innMatch[1];
-            const nameMatch = description.match(/(?:Плательщик|Получатель)[:\s]*([^|/\\]+)/);
-            if (nameMatch) counterpartyName = nameMatch[1].trim();
-            const acctMatch = description.match(/р[\/]?с[:\s]*(\d{20})/);
-            if (acctMatch) counterpartyAccount = acctMatch[1];
-            i++;
-          }
-
-          payments.push({
-            id: `PAY-${String(++this.paymentCounter).padStart(6, '0')}`,
-            date: txDate,
-            valueDate: txDate,
-            amountKopecks,
-            currency: 'RUB',
-            reference,
-            counterpartyName,
-            counterpartyInn,
-            counterpartyAccount,
-            description,
-            matchStatus: 'UNMATCHED',
+    for (const row of rows) {
+      const verdict = await this.matchAgainstBankOperations(row);
+      try {
+        await this.prisma.bankStatementEntry.create({
+          data: {
             importBatchId: batchId,
-            createdAt: new Date().toISOString(),
-          });
+            source: 'MT940',
+            lineNo: row.lineNo,
+            statementDate: row.statementDate ? new Date(row.statementDate) : null,
+            valueDate: row.valueDate ? new Date(row.valueDate) : null,
+            amountKopecks: row.amountKopecks,
+            reference: row.reference,
+            counterpartyName: row.counterpartyName,
+            counterpartyInn: row.counterpartyInn,
+            counterpartyAccount: row.counterpartyAccount,
+            description: row.description,
+            contentHash: row.contentHash,
+            matchStatus: verdict.status,
+            matchedDealId: verdict.dealId,
+            matchedBankOperationId: verdict.bankOperationId,
+            mismatchReason: verdict.mismatchReason,
+            matchedAt: verdict.status === 'MATCHED' ? new Date() : null,
+          },
+        });
+        imported += 1;
+        if (verdict.status === 'MATCHED') matched += 1;
+        if (verdict.status === 'MISMATCH') mismatched += 1;
+      } catch (error) {
+        if ((error as { code?: string })?.code === 'P2002') {
+          duplicates += 1; // same statement row already imported earlier
+          continue;
         }
-        i++;
-        continue;
+        throw error;
       }
-
-      i++;
     }
 
-    // If no transactions found (e.g., non-MT940 content), generate one mock entry to demonstrate
-    if (payments.length === 0 && content.length > 0) {
-      payments.push({
-        id: `PAY-${String(++this.paymentCounter).padStart(6, '0')}`,
-        date: currentDate,
-        valueDate: currentDate,
-        amountKopecks: 500_000_00,
-        currency: 'RUB',
-        reference: `REF-${batchId}`,
-        counterpartyName: 'ООО "Агро Трейд"',
-        counterpartyInn: '7701234567',
-        counterpartyAccount: '40702810123456789012',
-        description: content.slice(0, 200),
-        matchStatus: 'UNMATCHED',
+    const unmatched = imported - matched - mismatched;
+    const run = await this.prisma.reconciliationRun.create({
+      data: {
+        source: 'MT940',
         importBatchId: batchId,
-        createdAt: new Date().toISOString(),
+        statementSha256,
+        importedCount: imported,
+        duplicateCount: duplicates,
+        matchedCount: matched,
+        mismatchCount: mismatched,
+        unmatchedCount: unmatched,
+        status: mismatched > 0 ? 'MANUAL_REVIEW_REQUIRED' : 'COMPLETED',
+        startedByUserId: user.id,
+        finishedAt: new Date(),
+      },
+    });
+
+    const latestValueDate = rows
+      .map((row) => row.valueDate)
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .at(-1);
+    await this.prisma.reconciliationCursor.upsert({
+      where: { source: 'MT940' },
+      update: {
+        lastValueDate: latestValueDate ? new Date(latestValueDate) : undefined,
+        lastRunId: run.id,
+        lastStatementSha256: statementSha256,
+      },
+      create: {
+        source: 'MT940',
+        lastValueDate: latestValueDate ? new Date(latestValueDate) : null,
+        lastRunId: run.id,
+        lastStatementSha256: statementSha256,
+      },
+    });
+
+    this.logger.log(
+      `Reconciliation run ${run.id}: imported=${imported} duplicates=${duplicates} matched=${matched} mismatch=${mismatched}`,
+    );
+    return { runId: run.id, batchId, imported, duplicates, matched, mismatched, unmatched };
+  }
+
+  /**
+   * Match a statement row against platform-issued bank operations.
+   * Exact bankRef + exact amount → MATCHED. Same bankRef with a different
+   * amount → MISMATCH (manual review; money never moves from here).
+   */
+  private async matchAgainstBankOperations(row: ParsedStatementRow): Promise<{
+    status: 'MATCHED' | 'MISMATCH' | 'UNMATCHED';
+    dealId: string | null;
+    bankOperationId: string | null;
+    mismatchReason: string | null;
+  }> {
+    const operation = await this.prisma.bankOperation.findFirst({
+      where: { bankRef: row.reference },
+      select: { id: true, dealId: true, amountKopecks: true, status: true },
+    });
+    if (!operation) return { status: 'UNMATCHED', dealId: null, bankOperationId: null, mismatchReason: null };
+
+    if (BigInt(operation.amountKopecks) !== row.amountKopecks) {
+      return {
+        status: 'MISMATCH',
+        dealId: operation.dealId,
+        bankOperationId: operation.id,
+        mismatchReason: `Сумма в выписке ${row.amountKopecks} коп. не совпадает с операцией ${operation.amountKopecks} коп.`,
+      };
+    }
+    return { status: 'MATCHED', dealId: operation.dealId, bankOperationId: operation.id, mismatchReason: null };
+  }
+
+  private parseMT940(content: string): ParsedStatementRow[] {
+    const rows: ParsedStatementRow[] = [];
+    const lines = content.split('\n').map((line) => line.trim()).filter(Boolean);
+
+    let statementDate: string | null = null;
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+
+      if (line.startsWith(':60F:') || line.startsWith(':60M:')) {
+        const dateStr = line.slice(5, 11);
+        if (/^\d{6}$/.test(dateStr)) {
+          statementDate = `20${dateStr.slice(0, 2)}-${dateStr.slice(2, 4)}-${dateStr.slice(4, 6)}`;
+        }
+        continue;
+      }
+
+      if (!line.startsWith(':61:')) continue;
+
+      const rest = line.slice(4);
+      const match = rest.match(/^(\d{6})(\d{4})?(C|D)(RD?|CR?)?(\d+,?\d*)(N\w{3})?(\S+)?/);
+      if (!match) continue;
+
+      const valueDate = `20${rest.slice(0, 2)}-${rest.slice(2, 4)}-${rest.slice(4, 6)}`;
+      const amountKopecks = parseKopecksFromDecimal(match[5] ?? '0');
+      const reference = (match[7] ?? '').trim();
+      if (!reference) continue; // a row without a bank reference cannot be reconciled
+
+      let description: string | null = null;
+      let counterpartyName: string | null = null;
+      let counterpartyInn: string | null = null;
+      let counterpartyAccount: string | null = null;
+      if (lines[i + 1]?.startsWith(':86:')) {
+        description = lines[i + 1].slice(4);
+        counterpartyInn = description.match(/ИНН[:\s]*(\d{10,12})/)?.[1] ?? null;
+        counterpartyName = description.match(/(?:Плательщик|Получатель)[:\s]*([^|/\\]+)/)?.[1]?.trim() ?? null;
+        counterpartyAccount = description.match(/р[/]?с[:\s]*(\d{20})/)?.[1] ?? null;
+        i += 1;
+      }
+
+      rows.push({
+        lineNo: rows.length + 1,
+        statementDate,
+        valueDate,
+        amountKopecks,
+        reference,
+        counterpartyName,
+        counterpartyInn,
+        counterpartyAccount,
+        description,
+        // The full source line pair is the identity of the evidence row.
+        contentHash: sha256(`${line}\n${description ?? ''}`),
       });
     }
 
-    return payments;
+    return rows;
   }
 
-  private async tryAutoMatch(payment: BankPayment): Promise<string | undefined> {
-    if (!this.prisma) return undefined;
+  async manualMatch(entryId: string, dealId: string, user: RequestUser) {
+    this.assertCanMutate(user);
+    const entry = await this.prisma.bankStatementEntry.findUnique({ where: { id: entryId } });
+    if (!entry) throw new NotFoundException(`Строка выписки ${entryId} не найдена`);
+    if (entry.matchStatus === 'MATCHED') {
+      throw new BadRequestException('Строка уже сверена автоматически и не подлежит ручной перепривязке.');
+    }
+    const deal = await this.prisma.deal.findUnique({ where: { id: dealId }, select: { id: true } });
+    if (!deal) throw new NotFoundException(`Сделка ${dealId} не найдена`);
 
-    // Match by reference in deal's payment reference or by amount + date proximity
-    const deals = await this.prisma.deal.findMany({
-      where: {
-        totalKopecks: payment.amountKopecks,
-        status: { in: ['PAYMENT_AWAITING', 'PAYMENT_RESERVED', 'IN_TRANSIT'] },
+    const updated = await this.prisma.bankStatementEntry.update({
+      where: { id: entryId },
+      data: {
+        matchStatus: 'MANUAL',
+        matchedDealId: dealId,
+        matchedAt: new Date(),
+        matchedByUserId: user.id,
       },
-      select: { id: true },
-      take: 1,
-    }).catch(() => []);
-
-    return deals[0]?.id;
+    });
+    return { ...updated, amountKopecks: updated.amountKopecks.toString() };
   }
 
-  async manualMatch(paymentId: string, dealId: string, user: RequestUser): Promise<BankPayment> {
+  async listUnmatched(user: RequestUser, take = 100) {
     this.assertRole(user);
-    const payment = this.payments.find(p => p.id === paymentId);
-    if (!payment) throw new Error(`Payment ${paymentId} not found`);
-    payment.matchedDealId = dealId;
-    payment.matchStatus = 'MANUAL';
-    return payment;
+    const entries = await this.prisma.bankStatementEntry.findMany({
+      where: { matchStatus: { in: ['UNMATCHED', 'MISMATCH'] } },
+      orderBy: { createdAt: 'asc' },
+      take: Math.min(Math.max(take, 1), 500),
+    });
+    return entries.map((entry) => ({ ...entry, amountKopecks: entry.amountKopecks.toString() }));
   }
 
-  listUnmatched(user: RequestUser): BankPayment[] {
-    this.assertRole(user);
-    return this.payments.filter(p => p.matchStatus === 'UNMATCHED');
-  }
-
-  getReport(user: RequestUser, params?: { from?: string; to?: string }): ReconciliationReport {
+  async getReport(user: RequestUser, params?: { from?: string; to?: string }) {
     this.assertRole(user);
     const from = params?.from ? new Date(params.from) : new Date(Date.now() - 30 * 24 * 3600_000);
     const to = params?.to ? new Date(params.to) : new Date();
 
-    const period = this.payments.filter(p => {
-      const d = new Date(p.date);
-      return d >= from && d <= to;
-    });
+    const [entries, cursor, lastRuns] = await Promise.all([
+      this.prisma.bankStatementEntry.findMany({
+        where: { createdAt: { gte: from, lte: to } },
+        orderBy: { createdAt: 'asc' },
+        take: 1000,
+      }),
+      this.prisma.reconciliationCursor.findUnique({ where: { source: 'MT940' } }),
+      this.prisma.reconciliationRun.findMany({ orderBy: { createdAt: 'desc' }, take: 10 }),
+    ]);
 
-    const matched = period.filter(p => p.matchStatus !== 'UNMATCHED');
-    const unmatched = period.filter(p => p.matchStatus === 'UNMATCHED');
+    const sum = (filter: (entry: (typeof entries)[number]) => boolean) =>
+      entries.filter(filter).reduce((acc, entry) => acc + BigInt(entry.amountKopecks), 0n);
+
+    const matched = entries.filter((entry) => entry.matchStatus === 'MATCHED' || entry.matchStatus === 'MANUAL');
+    const mismatched = entries.filter((entry) => entry.matchStatus === 'MISMATCH');
+    const unmatched = entries.filter((entry) => entry.matchStatus === 'UNMATCHED');
 
     return {
       period: { from: from.toISOString(), to: to.toISOString() },
-      totalImported: period.length,
+      cursor,
+      runs: lastRuns,
+      totalImported: entries.length,
       totalMatched: matched.length,
+      totalMismatched: mismatched.length,
       totalUnmatched: unmatched.length,
-      matchedAmountKopecks: matched.reduce((s, p) => s + p.amountKopecks, 0),
-      unmatchedAmountKopecks: unmatched.reduce((s, p) => s + p.amountKopecks, 0),
-      payments: period,
+      matchedAmountKopecks: sum((entry) => entry.matchStatus === 'MATCHED' || entry.matchStatus === 'MANUAL').toString(),
+      mismatchedAmountKopecks: sum((entry) => entry.matchStatus === 'MISMATCH').toString(),
+      unmatchedAmountKopecks: sum((entry) => entry.matchStatus === 'UNMATCHED').toString(),
+      payments: entries.map((entry) => ({ ...entry, amountKopecks: entry.amountKopecks.toString() })),
     };
   }
 }

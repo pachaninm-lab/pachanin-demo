@@ -15,16 +15,17 @@ export class BankReconciliationController {
   }
 
   @Get('unmatched')
-  listUnmatched(@CurrentUser() user: RequestUser) {
-    return { items: this.bankReconciliation.listUnmatched(user) };
+  async listUnmatched(@CurrentUser() user: RequestUser) {
+    return { items: await this.bankReconciliation.listUnmatched(user) };
   }
 
   @Post('match')
   manualMatch(
-    @Body() body: { paymentId: string; dealId: string },
+    @Body() body: { paymentId?: string; entryId?: string; dealId: string },
     @CurrentUser() user: RequestUser,
   ) {
-    return this.bankReconciliation.manualMatch(body.paymentId, body.dealId, user);
+    // `paymentId` is the legacy field name for the statement entry id.
+    return this.bankReconciliation.manualMatch(body.entryId ?? body.paymentId ?? '', body.dealId, user);
   }
 
   @Get('report')
