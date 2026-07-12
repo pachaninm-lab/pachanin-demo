@@ -113,18 +113,19 @@ export class ArbitratorService {
       throw new ForbiddenException('Only the assigned arbitrator can resolve');
     }
 
-    // Execute money resolution
-    const holdAmount = dispute.moneyHold?.amountKopecks ?? 0;
-    if (holdAmount > 0 && dispute.dealId) {
+    // Execute money resolution — integer kopecks only, bigint arithmetic
+    const holdAmount = BigInt(dispute.moneyHold?.amountKopecks ?? 0);
+    if (holdAmount > 0n && dispute.dealId) {
       if (resolution.outcome === 'BUYER_WINS') {
         await this.ledger.refundFromDispute(dispute.dealId, disputeId, dispute.initiatorOrgId, holdAmount);
       } else if (resolution.outcome === 'SELLER_WINS') {
         await this.ledger.release(dispute.dealId, dispute.respondentOrgId ?? '', holdAmount, 0, `dispute-resolve:${disputeId}`);
       } else if (resolution.outcome === 'SPLIT' && resolution.splitPct !== undefined) {
-        const buyerShare = Math.round(holdAmount * resolution.splitPct / 100);
+        // Round half up, deterministically, in integer space
+        const buyerShare = (holdAmount * BigInt(Math.trunc(resolution.splitPct)) + 50n) / 100n;
         const sellerShare = holdAmount - buyerShare;
-        if (buyerShare > 0) await this.ledger.refundFromDispute(dispute.dealId, disputeId, dispute.initiatorOrgId, buyerShare);
-        if (sellerShare > 0) await this.ledger.release(dispute.dealId, dispute.respondentOrgId ?? '', sellerShare, 0, `dispute-split:${disputeId}`);
+        if (buyerShare > 0n) await this.ledger.refundFromDispute(dispute.dealId, disputeId, dispute.initiatorOrgId, buyerShare);
+        if (sellerShare > 0n) await this.ledger.release(dispute.dealId, dispute.respondentOrgId ?? '', sellerShare, 0, `dispute-split:${disputeId}`);
       }
     }
 

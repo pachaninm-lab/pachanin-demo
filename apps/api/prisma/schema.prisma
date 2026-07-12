@@ -108,7 +108,10 @@ model Deal {
   volumeTons        Float?
   pricePerTon       Float?
   totalRub          Float?
-  totalKopecks      Int?
+  totalKopecks      BigInt?
+  pricePerTonDec    Decimal? @db.Decimal(20, 6)
+  volumeTonsDec     Decimal? @db.Decimal(20, 6)
+  version           BigInt   @default(0)
   currency          String   @default("RUB")
   culture           String?
   cropClass         String?
@@ -204,6 +207,7 @@ model Shipment {
   etaHours      Float?
   loadedTons    Float?
   pinVerified   Boolean  @default(false)
+  version       BigInt   @default(0)
   nextAction    String?
   blockers      String?
   geoLat        Float?
@@ -276,12 +280,13 @@ model Payment {
   dealId              String
   status              String   @default("PENDING")
   amountRub           Float?
-  amountKopecks       Int?
+  amountKopecks       BigInt?
   reservedAt          DateTime?
   releasedAt          DateTime?
-  holdAmountKopecks   Int?
-  refundedKopecks     Int?
-  commissionKopecks   Int?
+  holdAmountKopecks   BigInt?
+  refundedKopecks     BigInt?
+  commissionKopecks   BigInt?
+  version             BigInt   @default(0)
   callbackState       String   @default("NONE")
   bankRef             String?
   escrowAccount       String?
@@ -301,7 +306,7 @@ model LedgerEntry {
   entryType         String
   debitAccount      String
   creditAccount     String
-  amountKopecks     Int
+  amountKopecks     BigInt
   currency          String   @default("RUB")
   reference         String?
   idempotencyKey    String   @unique
@@ -331,7 +336,7 @@ model LabSample {
   collectedAt       DateTime?
   finalizedAt       DateTime?
   moneyDeltaRub     Float?
-  moneyDeltaKopecks Int?
+  moneyDeltaKopecks BigInt?
   certificateDocId  String?
   version           Int      @default(1)
   createdAt         DateTime @default(now())
@@ -378,6 +383,9 @@ model OutboxEntry {
   auditId               String?
   runtimeSnapshotId     String?
   runtimeIdempotencyKey String?
+  leaseOwner            String?
+  leaseExpiresAt        DateTime?
+  deadLetterAt          DateTime?
   createdAt             DateTime @default(now())
   sentAt                DateTime?
   confirmedAt           DateTime?
@@ -386,6 +394,7 @@ model OutboxEntry {
   runtimeSnapshot       DealWorkspaceRuntimeSnapshot? @relation("RuntimeSnapshotOutbox")
 
   @@index([status, nextRetryAt])
+  @@index([status, leaseExpiresAt], map: "outbox_entries_lease_idx")
   @@index([dealId])
   @@index([runtimeSnapshotId], map: "outbox_entries_runtime_snapshot_idx")
   @@index([correlationId], map: "outbox_entries_runtime_correlation_idx")
@@ -404,7 +413,7 @@ model Dispute {
   initiatorOrgId      String
   respondentOrgId     String?
   claimAmountRub      Float?
-  claimAmountKopecks  Int?
+  claimAmountKopecks  BigInt?
   severity            String   @default("MEDIUM")
   slaMinutes          Int?
   arbitratorId        String?
@@ -429,7 +438,7 @@ model DisputeMoneyHold {
   id              String   @id @default(cuid())
   disputeId       String   @unique
   amountRub       Float?
-  amountKopecks   Int?
+  amountKopecks   BigInt?
   reason          String
   heldAt          DateTime @default(now())
   releasedAt      DateTime?
@@ -644,7 +653,7 @@ model AcceptanceRecord {
   actSignedAt        DateTime?
   actorId            String
   notes              String?
-  moneyAdjustKopecks Int?
+  moneyAdjustKopecks BigInt?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

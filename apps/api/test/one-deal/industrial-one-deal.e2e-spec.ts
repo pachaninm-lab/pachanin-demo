@@ -701,7 +701,8 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
       };
     });
 
-    expect(reconciled.deal).toMatchObject({ status: 'CLOSED', totalKopecks: DEAL_AMOUNT_KOPECKS });
+    // Money columns are BIGINT: raw reads return bigint kopecks.
+    expect(reconciled.deal).toMatchObject({ status: 'CLOSED', totalKopecks: BigInt(DEAL_AMOUNT_KOPECKS) });
     expect(reconciled.participants).toHaveLength(12);
     expect(reconciled.participants.filter((item) => item.role === Role.EXECUTIVE)).toEqual([
       expect.objectContaining({ accessLevel: 'READ', status: 'ACTIVE' }),

@@ -10,6 +10,20 @@ const ROOT = path.resolve(SCRIPT_DIR, '..');
 const MIGRATIONS_DIR = path.join(ROOT, 'apps/api/prisma/migrations');
 const ACCEPTED_BASELINE = '20260710150000_persistent_identity_sessions';
 
+// Lossless widening conversions are forward-safe: every value representable in
+// the old type is representable in the new one (Int → BIGINT, Int/Float →
+// DECIMAL/NUMERIC). Narrowing or lossy rewrites remain forbidden.
+const LOSSLESS_WIDENING_TYPES = /^(BIGINT|DECIMAL(\s*\(\s*\d+\s*,\s*\d+\s*\))?|NUMERIC(\s*\(\s*\d+\s*,\s*\d+\s*\))?)$/i;
+
+function findUnsafeTypeRewrites(sql) {
+  const unsafe = [];
+  const matcher = /\bALTER\s+COLUMN\s+"?[\w]+"?\s+TYPE\s+([A-Za-z]+(?:\s*\(\s*\d+\s*,\s*\d+\s*\))?)/gi;
+  for (const match of sql.matchAll(matcher)) {
+    if (!LOSSLESS_WIDENING_TYPES.test(match[1].trim())) unsafe.push(match[1].trim());
+  }
+  return unsafe;
+}
+
 const destructivePatterns = [
   { name: 'DROP TABLE', pattern: /\bDROP\s+TABLE\b/i },
   { name: 'DROP COLUMN', pattern: /\bDROP\s+COLUMN\b/i },
@@ -17,7 +31,6 @@ const destructivePatterns = [
   { name: 'mass DELETE', pattern: /\bDELETE\s+FROM\b/i },
   { name: 'column rename', pattern: /\bRENAME\s+COLUMN\b/i },
   { name: 'table rename', pattern: /\bRENAME\s+TO\b/i },
-  { name: 'type rewrite', pattern: /\bALTER\s+COLUMN\b[\s\S]{0,160}\bTYPE\b/i },
   { name: 'SET NOT NULL', pattern: /\bALTER\s+COLUMN\b[\s\S]{0,160}\bSET\s+NOT\s+NULL\b/i },
   { name: 'RLS disable', pattern: /\bDISABLE\s+ROW\s+LEVEL\s+SECURITY\b/i },
   { name: 'FORCE RLS removal', pattern: /\bNO\s+FORCE\s+ROW\s+LEVEL\s+SECURITY\b/i },
@@ -46,6 +59,9 @@ for (const migration of newMigrations) {
   const sql = withoutComments(await readFile(file, 'utf8'));
   for (const rule of destructivePatterns) {
     if (rule.pattern.test(sql)) violations.push(`${migration}: ${rule.name}`);
+  }
+  for (const target of findUnsafeTypeRewrites(sql)) {
+    violations.push(`${migration}: type rewrite to ${target}`);
   }
 }
 

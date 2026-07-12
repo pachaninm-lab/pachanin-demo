@@ -11,6 +11,7 @@ import { ExecuteDealCommandDto } from './dto/execute-deal-command.dto';
 import { TransitionDealDto } from './dto/transition-deal.dto';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { CANONICAL_TEST_DEAL_ID } from './deal-command.policy';
+import { isIndustrialMode } from '../../common/config/industrial-mode';
 
 @UseGuards(RolesGuard)
 @Roles('FARMER', 'BUYER', 'SUPPORT_MANAGER', 'EXECUTIVE', 'ADMIN', 'ACCOUNTING')
@@ -108,10 +109,13 @@ export class DealsController {
     if (user.role === Role.EXECUTIVE) {
       throw new ForbiddenException('Executive role is read-only');
     }
-    if (id === CANONICAL_TEST_DEAL_ID) {
+    // Industrial mode: the server-side domain command is the ONLY status path.
+    // Free-form nextState is a demo-profile capability and never reaches
+    // PostgreSQL-authoritative deals.
+    if (isIndustrialMode() || id === CANONICAL_TEST_DEAL_ID) {
       throw new BadRequestException({
-        code: 'CANONICAL_DEAL_REQUIRES_COMMAND',
-        message: 'Canonical deal cannot accept an arbitrary nextState. Use POST /deals/:id/commands/:actionId.',
+        code: 'DEAL_REQUIRES_COMMAND',
+        message: 'Статус сделки меняется только доменной командой. Используйте POST /deals/:id/commands/:actionId.',
       });
     }
   }

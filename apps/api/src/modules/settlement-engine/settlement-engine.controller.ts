@@ -13,6 +13,7 @@ import { RequiresMfaGuard } from '../../common/guards/mfa.guard';
 import { requireSecret } from '../../common/config/secrets';
 import { IndustrialDealCommandGateway, type VerifiedBankCallbackInput } from '../deals/industrial-deal-command.gateway';
 import { CANONICAL_TEST_DEAL_ID } from '../deals/deal-command.policy';
+import { isIndustrialMode } from '../../common/config/industrial-mode';
 
 const BANK_HMAC_SECRET = requireSecret('BANK_HMAC_SECRET');
 const BANK_CALLBACK_TOLERANCE_SECONDS = 300;
@@ -156,12 +157,15 @@ export class SettlementEngineController {
     return this.settlementEngine.requestRelease(id, user);
   }
 
-  /** Legacy manual confirmation. It remains outside the canonical deal path. */
+  /** Legacy manual confirmation. Demo profile only — never a bank substitute. */
   @Post('deal/:id/confirm')
   @RateLimit({ name: 'money_legacy_confirm', scope: 'user', limit: 6, windowSeconds: 60, includeParams: ['id'] })
   async confirm(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    if (id === CANONICAL_TEST_DEAL_ID) {
-      throw new UnauthorizedException('Canonical money state can only be confirmed by a verified bank callback.');
+    // Industrial mode: the platform can never self-confirm money for any deal.
+    // Reserve/release state changes arrive exclusively through the verified
+    // bank callback below.
+    if (isIndustrialMode() || id === CANONICAL_TEST_DEAL_ID) {
+      throw new UnauthorizedException('Money state can only be confirmed by a verified bank callback.');
     }
     return this.settlementEngine.confirmWorksheet(id, user);
   }
@@ -243,8 +247,11 @@ export class SettlementEngineController {
       throw new UnauthorizedException('Invalid bank signature');
     }
 
-    if (body.dealId === CANONICAL_TEST_DEAL_ID) {
-      const dealId = String(body.dealId);
+    if (isIndustrialMode() || body.dealId === CANONICAL_TEST_DEAL_ID) {
+      // Industrial mode: every verified bank callback is executed through the
+      // canonical PostgreSQL command path — idempotent, hash-chained, atomic.
+      // There is no runtime fallback: an unknown deal fails without any money effect.
+      const dealId = String(body.dealId ?? '');
       const operationId = typeof body.operationId === 'string' ? body.operationId : '';
       const requiredOperationId = expectedBankOperationId(dealId, body.operation);
       if (operationId !== requiredOperationId) {
@@ -256,6 +263,7 @@ export class SettlementEngineController {
 
       return this.industrialCommands.executeBankCallback({
         ...(body as unknown as VerifiedBankCallbackInput),
+        dealId,
         operationId,
         partnerId: partnerIdHeader,
       });
