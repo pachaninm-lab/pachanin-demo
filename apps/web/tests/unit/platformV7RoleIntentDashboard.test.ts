@@ -24,13 +24,20 @@ const ownerCabinetMatrix = [
 ] as const;
 
 describe('platform-v7 role intent dashboard', () => {
-  it('keeps the canonical role intent workspace for ordinary cabinet sessions', () => {
+  it('opens only a participant-scoped real deal and exposes honest empty/error states', () => {
     const model = read('apps/web/lib/platform-v7/roleIntentActions.ts');
     const dashboard = read('apps/web/components/platform-v7/RoleIntentDashboard.tsx');
     const shell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 
     expect(model).toContain('ROLE_INTENT_ACTIONS');
-    expect(dashboard).toContain('<CanonicalDealWorkspace role={role} />');
+    expect(dashboard).toContain('/api/proxy/deals/accessible?limit=5');
+    expect(dashboard).toContain('<CanonicalDealWorkspace role={role} dealId={current.id} />');
+    expect(dashboard).not.toContain('<CanonicalDealWorkspace role={role} />');
+    expect(dashboard).not.toContain('DEAL-INDUSTRIAL-001');
+    expect(dashboard).toContain('У вас пока нет активных сделок');
+    expect(dashboard).toContain('Не удалось загрузить сделки');
+    expect(dashboard).toContain('Сервер вернул некорректный список сделок');
+    expect(dashboard).toContain('Повторить');
     expect(dashboard).not.toContain('getRoleIntentConfig');
     expect(shell).toContain('ROLE_INTENT_ROOT_PATHS');
     expect(shell).toContain(': <RoleIntentDashboard role={initialRole} />');
