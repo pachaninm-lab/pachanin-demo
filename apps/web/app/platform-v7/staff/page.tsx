@@ -5,6 +5,7 @@ import { StaffControlCenter } from '@/components/platform-v7/staff/StaffControlC
 import { StaffOperationalWorkspacesDeferred } from '@/components/platform-v7/staff/StaffOperationalWorkspacesDeferred';
 import { StaffPlatformShell } from '@/components/platform-v7/staff/StaffPlatformShell';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 import { DEFAULT_LOCALE, isAppLocale, LOCALE_COOKIE, type AppLocale } from '@/i18n/locale';
 import { staffControlCenterMessages } from '@/i18n/staff-control-center-messages';
 import { staffOperationalWorkspaceMessages } from '@/i18n/staff-operational-workspace-messages';
@@ -16,6 +17,23 @@ export const metadata: Metadata = {
   title: 'Центр управления доступом — Прозрачная Цена',
   robots: { index: false, follow: false, nocache: true },
 };
+
+function readEnv(name: string): string {
+  return String(process.env[name] || '').trim();
+}
+
+function controlledFixtureEnabled(): boolean {
+  if (readEnv('PC_STAFF_TEST_FIXTURE').toLowerCase() !== 'true') return false;
+  if (readEnv('PC_CABINET_TEST_ACCESS').toLowerCase() !== 'true') return false;
+  const expiresAt = readEnv('PC_CABINET_TEST_ACCESS_EXPIRES_AT');
+  if (!expiresAt) return false;
+  const expiry = Date.parse(expiresAt);
+  return Number.isFinite(expiry) && expiry > Date.now();
+}
+
+function controlledSessionSecret(): string {
+  return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
+}
 
 function resolveApiOrigin(): string {
   const configured = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim();
@@ -38,7 +56,51 @@ type VerifiedIdentity = {
   role?: string;
   organizationId?: string;
   tenantId?: string;
+  staffOwner?: boolean;
 };
+
+type Verification =
+  | { status: 'verified'; identity: VerifiedIdentity }
+  | { status: 'unauthenticated' }
+  | { status: 'unavailable' };
+
+async function verifyControlledIdentity(accessToken: string): Promise<Verification | null> {
+  if (!controlledFixtureEnabled()) return null;
+  const secret = controlledSessionSecret();
+  if (!secret) return { status: 'unavailable' };
+
+  const claims = await verifyHs256Jwt(accessToken, secret);
+  const expiresAt = typeof claims?.exp === 'number' ? claims.exp : 0;
+  if (!claims || claims.testAccess !== true) return null;
+  if (
+    expiresAt <= Math.floor(Date.now() / 1000)
+    || typeof claims.sub !== 'string'
+    || typeof claims.email !== 'string'
+    || typeof claims.role !== 'string'
+  ) {
+    return { status: 'unauthenticated' };
+  }
+
+  const owner = claims.owner === true;
+  return {
+    status: 'verified',
+    identity: {
+      id: claims.sub,
+      email: claims.email,
+      fullName: typeof claims.fullName === 'string'
+        ? claims.fullName
+        : owner ? 'Максим — владелец платформы' : 'Тестовый пользователь',
+      role: owner ? 'ADMIN' : claims.role,
+      organizationId: typeof claims.organizationId === 'string'
+        ? claims.organizationId
+        : 'org-canonical-platform',
+      tenantId: typeof claims.tenantId === 'string'
+        ? claims.tenantId
+        : 'tenant-canonical-test',
+      staffOwner: owner,
+    },
+  };
+}
 
 function resolveLocale(): AppLocale {
   const headerLocale = headers().get('x-pc-locale');
@@ -47,11 +109,9 @@ function resolveLocale(): AppLocale {
   return isAppLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
 }
 
-async function verifyIdentity(accessToken: string): Promise<
-  | { status: 'verified'; identity: VerifiedIdentity }
-  | { status: 'unauthenticated' }
-  | { status: 'unavailable' }
-> {
+async function verifyIdentity(accessToken: string): Promise<Verification> {
+  const controlled = await verifyControlledIdentity(accessToken);
+  if (controlled) return controlled;
   if (!API_ORIGIN) return { status: 'unavailable' };
   try {
     const response = await fetch(`${API_ORIGIN}/auth/me`, {
