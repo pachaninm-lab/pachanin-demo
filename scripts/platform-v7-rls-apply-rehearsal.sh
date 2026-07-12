@@ -37,7 +37,10 @@ DECLARE
   enabled_count INTEGER;
   forced_count INTEGER;
   policy_count INTEGER;
-  basis_function_count INTEGER;
+  authority_function_count INTEGER;
+  public_execute_count INTEGER;
+  required_policy_count INTEGER;
+  single_basis_trigger_count INTEGER;
 BEGIN
   SELECT count(*) INTO enabled_count
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -51,12 +54,48 @@ BEGIN
   FROM pg_policies
   WHERE schemaname = 'public' AND tablename IN ($TABLE_ARRAY);
 
-  SELECT count(*) INTO basis_function_count
+  SELECT count(*) INTO authority_function_count
   FROM pg_proc p
   JOIN pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public'
-    AND p.proname = 'app_deal_basis_participant_allowed'
+    AND p.proname IN (
+      'app_deal_basis_deal_visible',
+      'app_deal_basis_participant_allowed',
+      'enforce_single_deal_per_basis'
+    )
     AND p.prosecdef;
+
+  SELECT count(*) INTO public_execute_count
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.proname IN (
+      'app_deal_basis_deal_visible',
+      'app_deal_basis_participant_allowed',
+      'enforce_single_deal_per_basis'
+    )
+    AND has_function_privilege('public', p.oid, 'EXECUTE');
+
+  SELECT count(*) INTO required_policy_count
+  FROM pg_policies
+  WHERE schemaname = 'public'
+    AND (tablename, policyname) IN (
+      ('deals', 'deals_select'),
+      ('deals', 'deals_insert'),
+      ('integration_events', 'integration_events_select'),
+      ('organizations', 'organizations_select'),
+      ('deal_participants', 'deal_participants_insert')
+    );
+
+  SELECT count(*) INTO single_basis_trigger_count
+  FROM pg_trigger t
+  JOIN pg_class c ON c.oid = t.tgrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relname = 'deals'
+    AND t.tgname = 'deals_single_basis'
+    AND NOT t.tgisinternal
+    AND t.tgenabled IN ('O', 'A');
 
   IF enabled_count <> 8 THEN
     RAISE EXCEPTION 'RLS rehearsal: expected 8 enabled tables, got %', enabled_count;
@@ -67,8 +106,17 @@ BEGIN
   IF policy_count < 16 THEN
     RAISE EXCEPTION 'RLS rehearsal: expected at least 16 policies, got %', policy_count;
   END IF;
-  IF basis_function_count <> 1 THEN
-    RAISE EXCEPTION 'RLS rehearsal: deal basis SECURITY DEFINER predicate is missing';
+  IF authority_function_count <> 3 THEN
+    RAISE EXCEPTION 'RLS rehearsal: expected 3 SECURITY DEFINER authority functions, got %', authority_function_count;
+  END IF;
+  IF public_execute_count <> 0 THEN
+    RAISE EXCEPTION 'RLS rehearsal: PUBLIC can execute % authority function(s)', public_execute_count;
+  END IF;
+  IF required_policy_count <> 5 THEN
+    RAISE EXCEPTION 'RLS rehearsal: expected 5 final deal authority policies, got %', required_policy_count;
+  END IF;
+  IF single_basis_trigger_count <> 1 THEN
+    RAISE EXCEPTION 'RLS rehearsal: single-basis trigger is missing or disabled';
   END IF;
 END
 \$rehearsal\$;
