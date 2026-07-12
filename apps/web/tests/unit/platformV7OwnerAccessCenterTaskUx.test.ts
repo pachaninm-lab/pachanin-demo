@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ownerAccessCenterMessages } from '../../i18n/owner-access-center-messages';
+import { assertCsrf, assertSameOriginIfPresent } from '../../lib/server-request-security';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const page = read('apps/web/app/platform-v7/staff/page.tsx');
@@ -35,28 +36,63 @@ describe('platform-v7 owner access center task UX', () => {
     expect(directCenter).not.toContain('Причина доступа');
   });
 
-  it('repairs missing CSRF before rendering owner forms', () => {
+  it('repairs missing or stale CSRF before every owner transition', () => {
     expect(page).toContain("verification.status === 'verified' && !csrfToken");
     expect(page).toContain("redirect('/platform-v7/staff/prepare')");
-    expect(prepareRoute).toContain('generateCsrfToken()');
+    expect(prepareRoute).toContain("request.nextUrl.searchParams.get('format') === 'json'");
+    expect(prepareRoute).toContain("NextResponse.json({ ok: true, csrfToken: token })");
     expect(prepareRoute).toContain('response.cookies.set(CSRF_COOKIE');
+    expect(directCenter).toContain("fetch('/platform-v7/staff/prepare?format=json'");
+    expect(directCenter).toContain('let freshToken = await refreshCsrf(controller.signal)');
+    expect(directCenter).toContain("result.payload?.code === 'CSRF_REJECTED'");
+  });
+
+  it('accepts the public custom-domain origin behind the Netlify proxy and a matching legacy duplicate cookie', () => {
+    const headers = new Headers({
+      origin: 'https://xn----8sbjf4befbjgs9b.xn--p1ai',
+      'x-forwarded-host': 'xn----8sbjf4befbjgs9b.xn--p1ai',
+      'x-forwarded-proto': 'https',
+      cookie: 'pc_csrf_token=stale; pc_csrf_token=fresh',
+      'x-csrf-token': 'fresh',
+    });
+    const request = new Request('https://main--vermillion-kitsune-0e7b97.netlify.app/platform-v7/staff/open-cabinet', {
+      method: 'POST',
+      headers,
+    });
+    expect(assertSameOriginIfPresent(request)).toEqual({ ok: true });
+    expect(assertCsrf(request)).toEqual({ ok: true });
+  });
+
+  it('still rejects an unrelated cross-site origin', () => {
+    const request = new Request('https://main--vermillion-kitsune-0e7b97.netlify.app/platform-v7/staff/open-cabinet', {
+      method: 'POST',
+      headers: {
+        origin: 'https://attacker.example',
+        'x-forwarded-host': 'xn----8sbjf4befbjgs9b.xn--p1ai',
+        'x-forwarded-proto': 'https',
+        cookie: 'pc_csrf_token=fresh',
+        'x-csrf-token': 'fresh',
+      },
+    });
+    expect(assertSameOriginIfPresent(request)).toEqual({ ok: false, reason: 'origin_mismatch' });
+    expect(assertCsrf(request)).toEqual({ ok: false, reason: 'origin_mismatch' });
   });
 
   it('uses observable authenticated JSON transition with native fallback', () => {
     expect(directCenter).toContain("fetch('/platform-v7/staff/open-cabinet'");
-    expect(directCenter).toContain("'X-CSRF-Token': csrfToken");
+    expect(directCenter).toContain("'X-CSRF-Token': token");
     expect(directCenter).toContain("credentials: 'same-origin'");
     expect(directCenter).toContain('onSubmit={(event) => openCabinet');
     expect(directCenter).toContain('busyRole === item.role ? text.opening : text.open');
     expect(directCenter).toContain('role="alert"');
-    expect(directCenter).toContain('window.location.assign(payload.redirectTo)');
+    expect(directCenter).toContain('window.location.replace(result.payload.redirectTo)');
     expect(submitRoute).toContain("import { POST as issueCabinetSession } from '../route'");
   });
 
   it('creates the client role marker only after server success', () => {
-    const failureGate = directCenter.indexOf('if (!response.ok');
+    const failureGate = directCenter.indexOf('if (!result.response.ok');
     const roleMarker = directCenter.indexOf('window.sessionStorage.setItem');
-    const navigation = directCenter.indexOf('window.location.assign(payload.redirectTo)');
+    const navigation = directCenter.indexOf('window.location.replace(result.payload.redirectTo)');
     expect(failureGate).toBeGreaterThan(-1);
     expect(roleMarker).toBeGreaterThan(failureGate);
     expect(navigation).toBeGreaterThan(roleMarker);
