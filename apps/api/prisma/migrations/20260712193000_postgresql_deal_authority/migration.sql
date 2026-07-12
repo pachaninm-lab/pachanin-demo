@@ -1,7 +1,7 @@
 -- PostgreSQL-authoritative deal creation boundary.
 --
 -- A confirmed auction basis exists before its Deal row, so ordinary participant
--- visibility cannot authorize Prisma INSERT ... RETURNING or the first seller / 
+-- visibility cannot authorize Prisma INSERT ... RETURNING or the first seller /
 -- buyer participant rows. The functions and policies below permit only the exact
 -- tenant, seller, buyer, lot and winning bid encoded in one confirmed basis.
 
@@ -137,6 +137,26 @@ CREATE POLICY deals_select ON public."deals" FOR SELECT USING (
   )
 );
 
+DROP POLICY IF EXISTS deals_insert ON public."deals";
+CREATE POLICY deals_insert ON public."deals" FOR INSERT WITH CHECK (
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND (
+    public.app_rls_privileged()
+    OR (
+      current_setting('app.current_role', true) = 'FARMER'
+      AND public.app_deal_basis_deal_visible(
+        "id",
+        "tenantId",
+        "sellerOrgId",
+        "buyerOrgId",
+        "lotId",
+        "sourceLotId"
+      )
+    )
+  )
+);
+
 DROP POLICY IF EXISTS integration_events_select ON public."integration_events";
 CREATE POLICY integration_events_select ON public."integration_events" FOR SELECT USING (
   public.app_rls_context_ready()
@@ -216,6 +236,53 @@ CREATE POLICY deal_participants_insert ON public."deal_participants" FOR INSERT 
   )
 );
 
+-- One auction basis may produce exactly one Deal. The transaction advisory lock
+-- makes the invariant effective even for concurrent direct SQL attempts using
+-- the restricted runtime principal; the trigger is invisible to Prisma schema
+-- drift because Prisma does not model triggers.
+CREATE OR REPLACE FUNCTION public.enforce_single_deal_per_basis()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $function$
+BEGIN
+  IF NEW."tenantId" IS NULL OR NEW."lotId" IS NULL OR NEW."sourceLotId" IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended(
+      NEW."tenantId" || chr(31) || NEW."lotId" || chr(31) || NEW."sourceLotId",
+      84
+    )
+  );
+
+  IF EXISTS (
+    SELECT 1
+    FROM public."deals" d
+    WHERE d."tenantId" = NEW."tenantId"
+      AND d."lotId" = NEW."lotId"
+      AND d."sourceLotId" = NEW."sourceLotId"
+      AND d."id" <> NEW."id"
+  ) THEN
+    RAISE EXCEPTION USING
+      ERRCODE = '23505',
+      MESSAGE = 'confirmed auction basis has already been consumed by another deal',
+      CONSTRAINT = 'deals_tenant_lot_winner_single_use';
+  END IF;
+
+  RETURN NEW;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.enforce_single_deal_per_basis() FROM PUBLIC;
+DROP TRIGGER IF EXISTS deals_single_basis ON public."deals";
+CREATE TRIGGER deals_single_basis
+  BEFORE INSERT OR UPDATE OF "tenantId", "lotId", "sourceLotId"
+  ON public."deals"
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_single_deal_per_basis();
+
 DO $grant_deal_basis_predicates$
 DECLARE
   role_name text;
@@ -240,3 +307,5 @@ COMMENT ON FUNCTION public.app_deal_basis_deal_visible(text, text, text, text, t
   'Provides temporary seller visibility for one confirmed-basis Deal INSERT RETURNING before participant rows exist.';
 COMMENT ON FUNCTION public.app_deal_basis_participant_allowed(text, text, text, text, text) IS
   'Allows only seller/buyer participant rows encoded by the confirmed tenant-scoped auction basis for a newly created deal.';
+COMMENT ON FUNCTION public.enforce_single_deal_per_basis() IS
+  'Serializes and rejects reuse of the same tenant/lot/winning-bid basis across Deal rows.';
