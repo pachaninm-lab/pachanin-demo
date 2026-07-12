@@ -39,12 +39,15 @@ describe('platform-v7 owner access center task UX', () => {
     expect(directCenter).not.toContain('Причина доступа');
   });
 
-  it('requires a signed owner access token and switches only server-verified cabinet state', () => {
+  it('requires controlled-owner claims or an active API-backed PLATFORM_OWNER assignment', () => {
     expect(directRoute).toContain('assertCsrf(request)');
     expect(directRoute).toContain('claims.owner !== true');
     expect(directRoute).toContain('claims.testAccess !== true');
     expect(directRoute).toContain("claims.tokenType !== 'access'");
-    expect(directRoute).toContain('signCabinetSession(role, signingSecret');
+    expect(directRoute).toContain("fetch(`${origin}/auth/me`");
+    expect(directRoute).toContain("fetch(`${origin}/staff/assignments/me`");
+    expect(directRoute).toContain("item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'");
+    expect(directRoute).toContain('signCabinetSession(role, secret');
     expect(directRoute).toContain('response.cookies.set(CABINET_SESSION_COOKIE');
     expect(directRoute).toContain('response.cookies.set(SESSION_COOKIE');
     expect(directRoute).toContain("response.cookies.set('pc-role'");
