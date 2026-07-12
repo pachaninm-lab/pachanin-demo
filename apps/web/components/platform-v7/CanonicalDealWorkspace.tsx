@@ -196,7 +196,8 @@ export function CanonicalDealWorkspace({ role, dealId = DEAL_ID }: { role: Platf
       return;
     }
     const { outcome, message } = await flushPendingCommand(dealId);
-    if (outcome === 'still-offline') {
+    if (outcome === 'still-offline' || outcome === 'retry-later') {
+      // Сеть или сервер ещё недоступны: запись остаётся, попробуем снова.
       setPendingSync(pendingForDeal(dealId) ?? null);
       return;
     }
@@ -269,8 +270,13 @@ export function CanonicalDealWorkspace({ role, dealId = DEAL_ID }: { role: Platf
             : {}),
           payload: commandPayload(action.id),
         });
-        setPendingSync(saved);
-        setNotice('Нет связи. Действие сохранено на устройстве и будет отправлено автоматически, когда сеть появится.');
+        if (saved) {
+          setPendingSync(saved);
+          setNotice('Нет связи. Действие сохранено на устройстве и будет отправлено автоматически, когда сеть появится.');
+        } else {
+          // Хранилище недоступно — честно говорим, что НЕ сохранили.
+          setError('Нет связи, и на этом устройстве не удалось сохранить действие. Повторите, когда сеть появится.');
+        }
       } else {
         setError(reason instanceof Error ? reason.message : 'Команда не выполнена.');
       }

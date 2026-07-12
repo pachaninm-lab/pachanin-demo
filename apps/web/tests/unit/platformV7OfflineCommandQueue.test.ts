@@ -70,6 +70,37 @@ describe('platform-v7 offline command queue', () => {
     expect(readQueue()).toHaveLength(0);
   });
 
+  it('keeps the command queued through transient server failures (5xx/429)', async () => {
+    enqueueCommand(BASE);
+    for (const status of [500, 502, 503, 504, 429]) {
+      const doFetch = vi.fn().mockResolvedValue(new Response('{}', { status }));
+      const result = await flushPendingCommand('DEAL-OFFLINE-1', doFetch as unknown as typeof fetch);
+      expect(result.outcome).toBe('retry-later');
+      expect(pendingForDeal('DEAL-OFFLINE-1')).toBeDefined();
+    }
+  });
+
+  it('returns null instead of promising a save when local storage is unavailable', () => {
+    const original = window.localStorage;
+    const broken = {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException('QuotaExceededError');
+      },
+      removeItem: () => undefined,
+      clear: () => undefined,
+      key: () => null,
+      length: 0,
+    } as unknown as Storage;
+    Object.defineProperty(window, 'localStorage', { value: broken, configurable: true });
+    try {
+      expect(enqueueCommand(BASE)).toBeNull();
+    } finally {
+      Object.defineProperty(window, 'localStorage', { value: original, configurable: true });
+    }
+    expect(readQueue()).toHaveLength(0);
+  });
+
   it('surfaces a server rejection instead of retrying silently forever', async () => {
     enqueueCommand(BASE);
     const doFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'Роль не может выполнить действие' }), { status: 403 }));

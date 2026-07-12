@@ -43,23 +43,30 @@ export function readQueue(): PendingCommand[] {
   }
 }
 
-function writeQueue(queue: PendingCommand[]): void {
+function writeQueue(queue: PendingCommand[]): boolean {
   const store = storage();
-  if (!store) return;
+  if (!store) return false;
   try {
     store.setItem(STORAGE_KEY, JSON.stringify(queue.slice(-MAX_QUEUE)));
+    return true;
   } catch {
-    // Хранилище недоступно (приватный режим/квота): очередь живёт в памяти вкладки.
+    // Хранилище недоступно (приватный режим/квота): сохранить нечем.
+    return false;
   }
 }
 
-/** Одна отложенная команда на сделку: повторное нажатие не создаёт дубликат. */
-export function enqueueCommand(command: Omit<PendingCommand, 'savedAt'>): PendingCommand {
+/**
+ * Одна отложенная команда на сделку: повторное нажатие не создаёт дубликат.
+ * Возвращает null, если локальное хранилище недоступно — UI обязан честно
+ * сказать «не сохранено», а не обещать доставку, которой не будет.
+ */
+export function enqueueCommand(command: Omit<PendingCommand, 'savedAt'>): PendingCommand | null {
   const entry: PendingCommand = { ...command, savedAt: new Date().toISOString() };
   const queue = readQueue().filter((item) => item.dealId !== command.dealId);
   queue.push(entry);
-  writeQueue(queue);
-  return entry;
+  if (!writeQueue(queue)) return null;
+  // Проверяем, что запись реально легла в хранилище, прежде чем обещать доставку.
+  return pendingForDeal(command.dealId)?.commandId === command.commandId ? entry : null;
 }
 
 export function pendingForDeal(dealId: string): PendingCommand | undefined {
@@ -70,15 +77,20 @@ export function removeCommand(dealId: string, commandId: string): void {
   writeQueue(readQueue().filter((item) => !(item.dealId === dealId && item.commandId === commandId)));
 }
 
-export type FlushOutcome = 'delivered' | 'conflict' | 'still-offline' | 'rejected';
+export type FlushOutcome = 'delivered' | 'conflict' | 'still-offline' | 'retry-later' | 'rejected';
+
+const TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 /**
  * Пытается доставить отложенную команду сделки.
  * - 2xx (включая duplicate-реплей сервера) → delivered, запись удаляется;
  * - 409 → conflict, запись удаляется (сделку изменил другой участник);
  * - сетевая ошибка → still-offline, запись остаётся;
- * - другой ответ сервера (4xx/5xx) → rejected, запись удаляется, причина
- *   показывается пользователю — молчаливых бесконечных ретраев нет.
+ * - 429/5xx → retry-later, запись ОСТАЁТСЯ: сервер команду не принял, и
+ *   обещанное «сохранено на устройстве» не может пропасть из-за временного
+ *   сбоя сервера;
+ * - другой ответ сервера (окончательный 4xx) → rejected, запись удаляется,
+ *   причина показывается пользователю — молчаливых бесконечных ретраев нет.
  */
 export async function flushPendingCommand(
   dealId: string,
@@ -112,6 +124,9 @@ export async function flushPendingCommand(
   if (response.status === 409) {
     removeCommand(pending.dealId, pending.commandId);
     return { outcome: 'conflict' };
+  }
+  if (TRANSIENT_STATUSES.has(response.status)) {
+    return { outcome: 'retry-later' };
   }
   const payload = await response.json().catch(() => ({}));
   removeCommand(pending.dealId, pending.commandId);
