@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 import { PLATFORM_V7_ACTIVE_ROLE_KEY } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
@@ -11,7 +11,7 @@ type Props = {
 };
 
 export function OwnerCabinetHandoff({ role, target, label }: Props) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     window.sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
     window.location.replace(target);
   }, [role, target]);
