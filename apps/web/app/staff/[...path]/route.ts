@@ -27,6 +27,14 @@ const ORGANIZATION = {
   aml_status: 'CLEAR',
 };
 
+type OwnerClaims = Record<string, unknown> & {
+  sub: string;
+  email: string;
+  exp: number;
+  owner: true;
+  testAccess: true;
+};
+
 function readEnv(name: string): string {
   return String(process.env[name] || '').trim();
 }
@@ -35,7 +43,7 @@ function enabled(): boolean {
   if (readEnv('PC_STAFF_TEST_FIXTURE').toLowerCase() !== 'true') return false;
   if (readEnv('PC_CABINET_TEST_ACCESS').toLowerCase() !== 'true') return false;
   const expiresAt = readEnv('PC_CABINET_TEST_ACCESS_EXPIRES_AT');
-  if (!expiresAt) return true;
+  if (!expiresAt) return false;
   const expiry = Date.parse(expiresAt);
   return Number.isFinite(expiry) && expiry > Date.now();
 }
@@ -60,21 +68,29 @@ function json(body: unknown, status = 200) {
   });
 }
 
-async function authorized(request: NextRequest): Promise<boolean> {
+async function ownerClaims(request: NextRequest): Promise<OwnerClaims | null> {
   const authorization = request.headers.get('authorization') || '';
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
   const signingSecret = secret();
-  if (!token || !signingSecret) return false;
+  if (!token || !signingSecret) return null;
   const claims = await verifyHs256Jwt(token, signingSecret);
   const exp = typeof claims?.exp === 'number' ? claims.exp : 0;
-  return Boolean(claims && typeof claims.cab === 'string' && exp > Math.floor(Date.now() / 1000));
+  if (
+    !claims
+    || claims.owner !== true
+    || claims.testAccess !== true
+    || typeof claims.sub !== 'string'
+    || typeof claims.email !== 'string'
+    || exp <= Math.floor(Date.now() / 1000)
+  ) return null;
+  return claims as OwnerClaims;
 }
 
 function normalizedPath(parts: string[] | undefined) {
   return (parts || []).map((part) => decodeURIComponent(part)).join('/');
 }
 
-function session(mode: 'CONTROL_PLANE' | 'VIEW_AS') {
+function session(mode: 'CONTROL_PLANE' | 'VIEW_AS', claims: OwnerClaims) {
   const viewAs = mode === 'VIEW_AS';
   return {
     id: viewAs ? 'sas-view_as' : 'sas-control_plane',
@@ -89,14 +105,15 @@ function session(mode: 'CONTROL_PLANE' | 'VIEW_AS') {
     target_deal_id: null,
     reason: 'Controlled owner testing',
     ticket_id: 'OWNER-TEST-ACCESS',
-    expires_at: iso(60 * 60 * 1000),
+    expires_at: new Date(claims.exp * 1000).toISOString(),
     created_at: iso(-60_000),
   };
 }
 
 async function handle(request: NextRequest, context: { params: { path?: string[] } }) {
   if (!enabled()) return json({ code: 'NOT_FOUND' }, 404);
-  if (!(await authorized(request))) return json({ code: 'AUTH_REQUIRED' }, 401);
+  const claims = await ownerClaims(request);
+  if (!claims) return json({ code: 'OWNER_ACCESS_REQUIRED' }, 403);
 
   const path = normalizedPath(context.params.path);
   const method = request.method.toUpperCase();
@@ -107,8 +124,8 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
   }
   if (method === 'GET' && path === 'access/requests') return json([]);
   if (method === 'GET' && path === 'access/requests/review') return json([]);
-  if (method === 'GET' && path === 'access/sessions') return json([session('CONTROL_PLANE'), session('VIEW_AS')]);
-  if (method === 'GET' && path === 'access/sessions/review') return json([session('CONTROL_PLANE'), session('VIEW_AS')]);
+  if (method === 'GET' && path === 'access/sessions') return json([session('CONTROL_PLANE', claims), session('VIEW_AS', claims)]);
+  if (method === 'GET' && path === 'access/sessions/review') return json([session('CONTROL_PLANE', claims), session('VIEW_AS', claims)]);
   if (method === 'POST' && path === 'access/requests') {
     const mode = body.accessMode === 'VIEW_AS' ? 'VIEW_AS' : 'CONTROL_PLANE';
     return json({ status: 'GRANTED', requestId: `sar-${mode.toLowerCase()}`, grantId: `sag-${mode.toLowerCase()}` }, 201);
@@ -116,7 +133,7 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
   const activate = path.match(/^access\/grants\/(sag-(control_plane|view_as))\/activate$/);
   if (method === 'POST' && activate) {
     const mode = activate[2] === 'view_as' ? 'VIEW_AS' : 'CONTROL_PLANE';
-    const active = session(mode);
+    const active = session(mode, claims);
     return json({
       accessSessionId: active.id,
       accessMode: active.access_mode,
@@ -148,7 +165,7 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
     });
   }
   if (method === 'GET' && path === 'audit/events') {
-    return json({ items: [{ id: 'sae-controlled-1', actor_user_id: 'owner-controlled-test', staff_role: 'PLATFORM_OWNER', action: 'staff.session.test-access', outcome: 'SUCCESS', correlation_id: 'owner-controlled-test', created_at: iso(-10_000) }] });
+    return json({ items: [{ id: 'sae-controlled-1', actor_user_id: claims.sub, staff_role: 'PLATFORM_OWNER', action: 'staff.session.test-access', outcome: 'SUCCESS', correlation_id: 'owner-controlled-test', created_at: iso(-10_000) }] });
   }
   if (method === 'GET' && path === 'break-glass/active') return json([]);
   if (method === 'POST' && path === 'break-glass/activate') return json({ success: true, mode: 'BREAK_GLASS', expiresAt: iso(15 * 60 * 1000) });
@@ -168,7 +185,7 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
   if (method === 'GET' && path === 'workspaces/diagnostics') {
     return json({ generatedAt: iso(), integrations: [{ id: 'integration-test', adapterName: 'bank-sandbox', eventType: 'CALLBACK', status: 'PENDING', createdAt: iso() }], outbox: [{ id: 'outbox-test', type: 'deal.updated', dealId: 'deal-canonical-test', status: 'CONFIRMED', retryCount: 0, maxRetries: 5, correlationId: 'controlled-test', createdAt: iso() }], runtimeAttempts: [] });
   }
-  if (method === 'GET' && path === 'workspaces/assignments') return json([{ id: 'sta-owner-controlled-test', email: 'maxim.owner@test.local', full_name: 'Максим — владелец платформы', role: 'PLATFORM_OWNER', status: 'ACTIVE', valid_from: iso(-86_400_000), valid_until: null, reason: 'Controlled test access' }]);
+  if (method === 'GET' && path === 'workspaces/assignments') return json([{ id: 'sta-owner-controlled-test', email: claims.email, full_name: 'Максим — владелец платформы', role: 'PLATFORM_OWNER', status: 'ACTIVE', valid_from: iso(-86_400_000), valid_until: null, reason: 'Controlled test access' }]);
   if (method === 'GET' && path === 'workspaces/critical-actions') return json([]);
   if (method === 'GET' && path === 'workspaces/critical-actions/mine') return json([]);
   if (method === 'GET' && path === 'workspaces/break-glass') return json([]);
