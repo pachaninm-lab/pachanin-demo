@@ -2,10 +2,9 @@
 --
 -- A confirmed auction basis exists before its Deal row, so the ordinary
 -- integration_events policy (dealId must already be visible) cannot expose it.
--- The policy below reveals only the exact seller-scoped, tenant-scoped basis.
--- A SECURITY DEFINER predicate then permits that seller to create exactly the
--- seller and buyer participant rows encoded in that immutable basis. No other
--- integration event or participant write is widened.
+-- The policies below reveal only the exact seller-scoped, tenant-scoped basis
+-- and the seller/buyer organizations encoded in it. A SECURITY DEFINER predicate
+-- permits that seller to create exactly those two participant rows.
 
 CREATE OR REPLACE FUNCTION public.app_deal_basis_participant_allowed(
   p_deal_id text,
@@ -65,9 +64,6 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.app_deal_basis_participant_allowed(text, text, text, text, text) FROM PUBLIC;
 
--- The seller may read only the one confirmed pre-deal basis that identifies the
--- current tenant, organization and user. Existing deal-bound integration event
--- visibility is unchanged.
 DROP POLICY IF EXISTS integration_events_select ON public."integration_events";
 CREATE POLICY integration_events_select ON public."integration_events" FOR SELECT USING (
   public.app_rls_context_ready()
@@ -93,8 +89,44 @@ CREATE POLICY integration_events_select ON public."integration_events" FOR SELEC
   )
 );
 
--- Preserve privileged participant administration and add one narrowly verified
--- creation path for the seller encoded in the confirmed auction basis.
+-- The seller may verify only the two organizations encoded in its confirmed
+-- pre-deal basis. This does not expose the wider organization directory.
+DROP POLICY IF EXISTS organizations_select ON public."organizations";
+CREATE POLICY organizations_select ON public."organizations" FOR SELECT USING (
+  public.app_rls_context_ready()
+  AND (
+    "id" = current_setting('app.current_org_id', true)
+    OR public.app_rls_privileged()
+    OR EXISTS (
+      SELECT 1 FROM public."deal_participants" dp
+      WHERE dp."organizationId" = "organizations"."id"
+        AND dp."tenantId" = current_setting('app.current_tenant_id', true)
+        AND dp."userId" = current_setting('app.current_user_id', true)
+        AND dp."status" = 'ACTIVE'
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public."integration_events" ie
+      CROSS JOIN LATERAL (
+        SELECT COALESCE(ie."responsePayload", ie."requestPayload")::jsonb AS basis
+      ) confirmed
+      WHERE ie."dealId" IS NULL
+        AND current_setting('app.current_role', true) = 'FARMER'
+        AND ie."adapterName" = 'auction'
+        AND ie."eventType" = 'DEAL_BASIS_READY'
+        AND ie."status" = 'CONFIRMED'
+        AND COALESCE(ie."responsePayload", ie."requestPayload") IS NOT NULL
+        AND confirmed.basis ->> 'tenantId' = current_setting('app.current_tenant_id', true)
+        AND confirmed.basis ->> 'sellerOrgId' = current_setting('app.current_org_id', true)
+        AND confirmed.basis ->> 'sellerUserId' = current_setting('app.current_user_id', true)
+        AND "organizations"."id" IN (
+          confirmed.basis ->> 'sellerOrgId',
+          confirmed.basis ->> 'buyerOrgId'
+        )
+    )
+  )
+);
+
 DROP POLICY IF EXISTS deal_participants_insert ON public."deal_participants";
 CREATE POLICY deal_participants_insert ON public."deal_participants" FOR INSERT WITH CHECK (
   public.app_rls_context_ready()
