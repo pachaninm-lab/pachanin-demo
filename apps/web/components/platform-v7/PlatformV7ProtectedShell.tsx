@@ -70,6 +70,29 @@ function roleFromPath(pathname: string): PlatformRole {
   return 'operator';
 }
 
+function parseSessionMarker(raw: string): Record<string, unknown> | null {
+  let candidate = raw;
+  for (let depth = 0; depth < 3; depth += 1) {
+    try {
+      const parsed = JSON.parse(candidate);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? parsed as Record<string, unknown>
+        : null;
+    } catch {
+      // Current and legacy Next.js cookie writers may leave one extra URI-encoding layer.
+    }
+
+    try {
+      const decoded = decodeURIComponent(candidate);
+      if (decoded === candidate) return null;
+      candidate = decoded;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 /**
  * Presentation-only marker for the controlled owner review surface.
  *
@@ -89,25 +112,22 @@ function readControlledOwnerPreview(expectedRole: PlatformRole): ControlledOwner
     .reverse();
 
   for (const raw of candidates) {
-    try {
-      const parsed = JSON.parse(decodeURIComponent(raw)) as Record<string, unknown>;
-      if (
-        parsed.ownerAccess !== true
-        || parsed.role !== expectedRole
-        || parsed.tenantId !== CONTROLLED_TEST_TENANT_ID
-        || typeof parsed.organizationId !== 'string'
-      ) continue;
+    const parsed = parseSessionMarker(raw);
+    if (!parsed) continue;
+    if (
+      parsed.ownerAccess !== true
+      || parsed.role !== expectedRole
+      || parsed.tenantId !== CONTROLLED_TEST_TENANT_ID
+      || typeof parsed.organizationId !== 'string'
+    ) continue;
 
-      const organization = controlledOrganizationById(parsed.organizationId);
-      if (!organization?.testData || organization.tenantId !== CONTROLLED_TEST_TENANT_ID) continue;
-      return {
-        role: expectedRole,
-        organizationId: organization.id,
-        organizationName: organization.name,
-      };
-    } catch {
-      // Ignore stale or malformed presentation cookies. Server authority is unaffected.
-    }
+    const organization = controlledOrganizationById(parsed.organizationId);
+    if (!organization?.testData || organization.tenantId !== CONTROLLED_TEST_TENANT_ID) continue;
+    return {
+      role: expectedRole,
+      organizationId: organization.id,
+      organizationName: organization.name,
+    };
   }
   return null;
 }
