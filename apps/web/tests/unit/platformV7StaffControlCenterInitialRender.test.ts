@@ -9,22 +9,25 @@ function source(path: string) {
 const rootLayout = source('app/layout.tsx');
 const page = source('app/platform-v7/staff/page.tsx');
 const control = source('components/platform-v7/staff/StaffControlCenter.tsx');
+const ownerCenter = source('components/platform-v7/staff/OwnerAccessCenter.tsx');
 const deferred = source('components/platform-v7/staff/StaffOperationalWorkspacesDeferred.tsx');
 const workspaces = source('components/platform-v7/staff/StaffOperationalWorkspaces.tsx');
 const css = source('components/platform-v7/staff/StaffControlCenter.module.css');
 const messages = source('i18n/staff-control-center-messages.ts');
 
+
 describe('Staff Control Center initial render stability', () => {
-  it('renders the real hero before privileged data hydration completes', () => {
+  it('renders a stable access shell before privileged data hydration completes', () => {
     expect(control).toContain('data-staff-loading');
     expect(control).toContain('<h1>{copy.pageTitle}</h1>');
     expect(control).toContain('<p className={styles.description}>{copy.description}</p>');
-    expect(control).toContain("document.documentElement.dataset.staffControlReady = 'true'");
-    expect(control).toContain('pc:staff-control-ready');
+    expect(ownerCenter).toContain('copy.loading');
+    expect(ownerCenter).toContain("document.documentElement.dataset.staffControlReady = 'true'");
+    expect(ownerCenter).toContain('pc:staff-control-ready');
     expect(css).toContain('.loadingCard { margin-top: 18px; }');
   });
 
-  it('keeps the critical hero and authority notice concise in every supported locale', () => {
+  it('keeps the legacy authority copy complete for supported operational workspaces', () => {
     expect(messages).toContain("description: 'Данные клиентов доступны только в ограниченной защищённой сессии.'");
     expect(messages).toContain("description: 'Customer data is available only in a time-bound protected session.'");
     expect(messages).toContain("description: '客户数据仅在限时受保护会话中可用。'");
@@ -43,7 +46,8 @@ describe('Staff Control Center initial render stability', () => {
     expect(deferred).toContain('dynamic(');
     expect(deferred).toContain("import('./StaffOperationalWorkspaces')");
     expect(deferred).toContain('{ ssr: false }');
-    expect(deferred).toContain('if (!ready) return null');
+    expect(deferred).toContain('if (!ready || !active) return null');
+    expect(deferred).toContain("fetch('/api/staff/session-context'");
   });
 
   it('does not insert operational workspaces before the control plane first render settles', () => {
