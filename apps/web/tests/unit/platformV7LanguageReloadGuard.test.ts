@@ -8,12 +8,14 @@ function read(relativePath: string) {
 }
 
 describe('platform-v7 language switch reload', () => {
-  it('uses the locale cookie as the authoritative SSR language source', () => {
+  it('uses an explicit lang query or the server-rendered document language, not stale storage', () => {
     const source = read('apps/web/components/platform-v7/HeaderLanguageSwitch.tsx');
 
-    expect(source).toContain('readLocaleCookie');
-    expect(source).toContain('readAuthoritativeLanguage');
-    expect(source).toContain('readLocaleCookie() ?? readStoredLanguage()');
+    expect(source).toContain('readLanguageFromUrl');
+    expect(source).toContain('readLanguageFromDocument');
+    expect(source).toContain('readLanguageFromUrl() ?? readLanguageFromDocument()');
+    expect(source).not.toContain('readLocaleCookie');
+    expect(source).not.toContain('readStoredLanguage');
   });
 
   it('reloads the current route after changing language so server translations rerender', () => {
