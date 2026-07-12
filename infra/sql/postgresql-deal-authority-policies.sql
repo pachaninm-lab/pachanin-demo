@@ -85,6 +85,42 @@ CREATE POLICY integration_events_select ON public."integration_events" FOR SELEC
   )
 );
 
+DROP POLICY IF EXISTS organizations_select ON public."organizations";
+CREATE POLICY organizations_select ON public."organizations" FOR SELECT USING (
+  public.app_rls_context_ready()
+  AND (
+    "id" = current_setting('app.current_org_id', true)
+    OR public.app_rls_privileged()
+    OR EXISTS (
+      SELECT 1 FROM public."deal_participants" dp
+      WHERE dp."organizationId" = "organizations"."id"
+        AND dp."tenantId" = current_setting('app.current_tenant_id', true)
+        AND dp."userId" = current_setting('app.current_user_id', true)
+        AND dp."status" = 'ACTIVE'
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public."integration_events" ie
+      CROSS JOIN LATERAL (
+        SELECT COALESCE(ie."responsePayload", ie."requestPayload")::jsonb AS basis
+      ) confirmed
+      WHERE ie."dealId" IS NULL
+        AND current_setting('app.current_role', true) = 'FARMER'
+        AND ie."adapterName" = 'auction'
+        AND ie."eventType" = 'DEAL_BASIS_READY'
+        AND ie."status" = 'CONFIRMED'
+        AND COALESCE(ie."responsePayload", ie."requestPayload") IS NOT NULL
+        AND confirmed.basis ->> 'tenantId' = current_setting('app.current_tenant_id', true)
+        AND confirmed.basis ->> 'sellerOrgId' = current_setting('app.current_org_id', true)
+        AND confirmed.basis ->> 'sellerUserId' = current_setting('app.current_user_id', true)
+        AND "organizations"."id" IN (
+          confirmed.basis ->> 'sellerOrgId',
+          confirmed.basis ->> 'buyerOrgId'
+        )
+    )
+  )
+);
+
 DROP POLICY IF EXISTS deal_participants_insert ON public."deal_participants";
 CREATE POLICY deal_participants_insert ON public."deal_participants" FOR INSERT WITH CHECK (
   public.app_rls_context_ready()
