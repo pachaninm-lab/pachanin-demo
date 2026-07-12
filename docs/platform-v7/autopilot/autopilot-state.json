@@ -159,7 +159,10 @@
       "apps/web/app/api/proxy/[...path]/route.ts",
       "apps/web/app/platform-v7/deals/[id]/execution/page.tsx",
       "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
-      "apps/web/lib/platform-v7/shellRoutes.ts"
+      "apps/web/lib/platform-v7/shellRoutes.ts",
+      "apps/web/lib/platform-v7/offline-command-queue.ts",
+      "apps/web/tests/unit/platformV7OfflineCommandQueue.test.ts",
+      "apps/web/public/platform-v7/i18n/dictionaries.json"
     ]
   },
   "industrialOneDealFoundation": {
