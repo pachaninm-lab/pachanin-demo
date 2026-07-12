@@ -59,36 +59,39 @@ describe('Documents PostgreSQL authority', () => {
         currency: 'RUB',
       },
     });
-    for (const file of [
-      { id: SOURCE_ID, name: 'contract.pdf', mimeType: 'application/pdf' },
-      { id: CORRECTION_SOURCE_ID, name: 'contract-v2.pdf', mimeType: 'application/pdf' },
-      { id: SIGNATURE_ID, name: 'contract.p7s', mimeType: 'application/pkcs7-signature' },
-    ]) {
-      await admin.dealDocument.upsert({
-        where: { id: file.id },
-        update: {
-          tenantId: TENANT_ID,
-          status: 'VERIFIED',
-          hash: sha256(file.id),
-          isImmutable: true,
-        },
-        create: {
-          id: file.id,
-          dealId: DEAL_ID,
-          tenantId: TENANT_ID,
-          type: 'EVIDENCE_FILE',
-          status: 'VERIFIED',
-          name: file.name,
-          mimeType: file.mimeType,
-          s3Key: `tenant/${TENANT_ID}/deal/${DEAL_ID}/${file.id}/${file.name}`,
-          sizeBytes: 256,
-          hash: sha256(file.id),
-          uploadedByUserId: owner.id,
-          version: 2,
-          isImmutable: true,
-        },
-      });
-    }
+    await admin.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+      for (const file of [
+        { id: SOURCE_ID, name: 'contract.pdf', mimeType: 'application/pdf' },
+        { id: CORRECTION_SOURCE_ID, name: 'contract-v2.pdf', mimeType: 'application/pdf' },
+        { id: SIGNATURE_ID, name: 'contract.p7s', mimeType: 'application/pkcs7-signature' },
+      ]) {
+        await tx.dealDocument.upsert({
+          where: { id: file.id },
+          update: {
+            tenantId: TENANT_ID,
+            status: 'VERIFIED',
+            hash: sha256(file.id),
+            isImmutable: true,
+          },
+          create: {
+            id: file.id,
+            dealId: DEAL_ID,
+            tenantId: TENANT_ID,
+            type: 'EVIDENCE_FILE',
+            status: 'VERIFIED',
+            name: file.name,
+            mimeType: file.mimeType,
+            s3Key: `tenant/${TENANT_ID}/deal/${DEAL_ID}/${file.id}/${file.name}`,
+            sizeBytes: 256,
+            hash: sha256(file.id),
+            uploadedByUserId: owner.id,
+            version: 2,
+            isImmutable: true,
+          },
+        });
+      }
+    });
   });
 
   afterAll(async () => {

@@ -43,6 +43,15 @@ function databaseErrorText(error: unknown): string {
   });
 }
 
+async function captureDatabaseRejection(work: Promise<unknown>): Promise<string> {
+  try {
+    await work;
+  } catch (error) {
+    return databaseErrorText(error);
+  }
+  throw new Error('Expected PostgreSQL to reject the document write.');
+}
+
 describe('Documents PostgreSQL authority under NOBYPASSRLS principal', () => {
   const admin = new PrismaService({ datasources: { db: { url: ADMIN_URL } } });
   const app = new PrismaService();
@@ -84,24 +93,27 @@ describe('Documents PostgreSQL authority under NOBYPASSRLS principal', () => {
         accessLevel: 'WORK',
       },
     });
-    await admin.dealDocument.upsert({
-      where: { id: SOURCE_ID },
-      update: { tenantId: TENANT_ID, status: 'VERIFIED', isImmutable: true },
-      create: {
-        id: SOURCE_ID,
-        dealId: DEAL_ID,
-        tenantId: TENANT_ID,
-        type: 'EVIDENCE_FILE',
-        status: 'VERIFIED',
-        name: 'contract.pdf',
-        mimeType: 'application/pdf',
-        s3Key: `tenant/${TENANT_ID}/deal/${DEAL_ID}/${SOURCE_ID}/contract.pdf`,
-        sizeBytes: 128,
-        hash: sha256(SOURCE_ID),
-        uploadedByUserId: seller.id,
-        version: 2,
-        isImmutable: true,
-      },
+    await admin.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+      await tx.dealDocument.upsert({
+        where: { id: SOURCE_ID },
+        update: { tenantId: TENANT_ID, status: 'VERIFIED', isImmutable: true },
+        create: {
+          id: SOURCE_ID,
+          dealId: DEAL_ID,
+          tenantId: TENANT_ID,
+          type: 'EVIDENCE_FILE',
+          status: 'VERIFIED',
+          name: 'contract.pdf',
+          mimeType: 'application/pdf',
+          s3Key: `tenant/${TENANT_ID}/deal/${DEAL_ID}/${SOURCE_ID}/contract.pdf`,
+          sizeBytes: 128,
+          hash: sha256(SOURCE_ID),
+          uploadedByUserId: seller.id,
+          version: 2,
+          isImmutable: true,
+        },
+      });
     });
   });
 
@@ -148,6 +160,65 @@ describe('Documents PostgreSQL authority under NOBYPASSRLS principal', () => {
     await expect(repository.list(otherTenant)).resolves.toEqual([]);
     await expect(repository.getById(created.document.id, otherTenant)).rejects.toThrow(/not available/i);
 
+    const forgedEvidenceError = await captureDatabaseRejection(rls.withTrustedContext(seller, (tx) =>
+      tx.dealDocument.create({
+        data: {
+          id: 'file-forged-verified',
+          dealId: DEAL_ID,
+          tenantId: TENANT_ID,
+          type: 'EVIDENCE_FILE',
+          status: 'VERIFIED',
+          name: 'forged.pdf',
+          mimeType: 'application/pdf',
+          s3Key: `tenant/${TENANT_ID}/deal/${DEAL_ID}/file-forged-verified/forged.pdf`,
+          sizeBytes: 128,
+          hash: sha256('file-forged-verified'),
+          uploadedByUserId: seller.id,
+          version: 1,
+          isImmutable: true,
+        },
+      })));
+    expect(forgedEvidenceError).toMatch(/UPLOAD_PENDING|23514|row-level security|policy/i);
+
+    const sourceLessError = await captureDatabaseRejection(rls.withTrustedContext(seller, (tx) =>
+      tx.dealDocument.create({
+        data: {
+          id: 'document-forged-without-source',
+          dealId: DEAL_ID,
+          tenantId: TENANT_ID,
+          type: 'contract',
+          status: 'PENDING_REVIEW',
+          name: 'source-less.pdf',
+          uploadedByUserId: seller.id,
+          createdByOrgId: seller.orgId,
+          idempotencyKey: 'document-forged-without-source-idempotency',
+          isImmutable: true,
+        },
+      })));
+    expect(sourceLessError).toMatch(/verified evidence source|23514|row-level security|policy/i);
+
+    const mismatchedSourceError = await captureDatabaseRejection(rls.withTrustedContext(seller, (tx) =>
+      tx.dealDocument.create({
+        data: {
+          id: 'document-forged-source-metadata',
+          dealId: DEAL_ID,
+          tenantId: TENANT_ID,
+          type: 'contract',
+          status: 'PENDING_REVIEW',
+          name: 'mismatched-source.pdf',
+          mimeType: 'application/pdf',
+          s3Key: `tenant/${TENANT_ID}/deal/${DEAL_ID}/${SOURCE_ID}/contract.pdf`,
+          sizeBytes: 128,
+          hash: sha256('attacker-authored-hash'),
+          uploadedByUserId: seller.id,
+          createdByOrgId: seller.orgId,
+          sourceFileId: SOURCE_ID,
+          idempotencyKey: 'document-forged-source-metadata-idempotency',
+          isImmutable: true,
+        },
+      })));
+    expect(mismatchedSourceError).toMatch(/verified immutable evidence|23514|row-level security|policy/i);
+
     let forgedError = '';
     try {
       await rls.withTrustedContext(seller, (tx) => tx.dealDocument.create({
@@ -180,6 +251,10 @@ describe('Documents PostgreSQL authority under NOBYPASSRLS principal', () => {
     await expect(admin.dealDocument.update({
       where: { id: created.document.id },
       data: { status: 'SIGNED' },
+    })).rejects.toThrow(/append-only|23514|confirmed document versions/i);
+    await expect(admin.dealDocument.update({
+      where: { id: SOURCE_ID },
+      data: { hash: sha256('overwritten-source') },
     })).rejects.toThrow(/append-only|23514|confirmed document versions/i);
 
     await app.$disconnect();
