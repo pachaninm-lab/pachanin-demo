@@ -13,7 +13,8 @@ function keys(value: unknown, prefix = ''): string[] {
 }
 
 const page = read('apps/web/app/platform-v7/staff/page.tsx');
-const center = read('apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx');
+const entry = read('apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx');
+const center = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV2.tsx');
 const catalog = read('apps/web/lib/platform-v7/staff-access-task-catalog.ts');
 const css = read('apps/web/components/platform-v7/staff/OwnerAccessCenter.module.css');
 const deferred = read('apps/web/components/platform-v7/staff/StaffOperationalWorkspacesDeferred.tsx');
@@ -22,6 +23,7 @@ describe('platform-v7 owner access center task UX', () => {
   it('replaces mode-first navigation with human task selection', () => {
     expect(page).toContain('<OwnerAccessCenter');
     expect(page).toContain('accessCatalog={staffAccessTaskCatalog()}');
+    expect(entry).toContain("export { OwnerAccessCenter } from './OwnerAccessCenterV2'");
     expect(center).toContain('copy.home.tasksTitle');
     expect(center).toContain('copy.tasks[task.id].title');
     expect(center).not.toContain('ACCESS_PRESETS');
@@ -47,6 +49,13 @@ describe('platform-v7 owner access center task UX', () => {
     expect(center).toContain('emergencyReason');
     expect(center).toContain('emergencyConfirmed');
     expect(center).not.toContain("reason.trim().length < 20 || ticketId.trim().length < 3");
+  });
+
+  it('always leaves a manual organization-id path and closes directory sessions before switching tasks', () => {
+    expect(center).toContain('placeholder={copy.request.organizationIdPlaceholder}');
+    expect(center).toContain('organizations.length === 0 && canBrowseOrganizations');
+    expect(center).toContain("'Organization selected; directory session closed'");
+    expect(center).toContain('openTask(resumeTask, { allowWhileActive: true })');
   });
 
   it('does not render privileged operational workspaces without an active protected session', () => {
