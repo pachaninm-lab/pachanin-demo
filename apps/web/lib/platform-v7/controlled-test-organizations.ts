@@ -250,9 +250,11 @@ export function controlledOrganizationById(id: string | null | undefined): Contr
 }
 
 export function controlledCabinetContext(role: string | null | undefined): ControlledCabinetContext | null {
-  return role && Object.prototype.hasOwnProperty.call(CONTROLLED_CABINET_CONTEXTS, role)
-    ? CONTROLLED_CABINET_CONTEXTS[role as ControlledCabinetRole]
-    : null;
+  if (!role) return null;
+  if (Object.prototype.hasOwnProperty.call(CONTROLLED_CABINET_CONTEXTS, role)) {
+    return CONTROLLED_CABINET_CONTEXTS[role as ControlledCabinetRole];
+  }
+  return Object.values(CONTROLLED_CABINET_CONTEXTS).find((item) => item.apiRole === role) || null;
 }
 
 export function controlledOrganizationForRole(role: string | null | undefined): ControlledTestOrganization | null {
