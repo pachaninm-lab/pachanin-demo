@@ -28,6 +28,7 @@ Review the diff, not the agent report.
 - apps/api/prisma/schema.prisma
 - apps/api/prisma/migrations/20260713*_documents_postgresql_authority/**
 - apps/api/test/industrial/document-postgresql-authority.e2e-spec.ts
+- apps/api/test/industrial/deal-command-no-fake-live.e2e-spec.ts
 - apps/api/test/one-deal/document-postgresql-authority.e2e-spec.ts
 - infra/sql/postgresql-document-authority-policies.sql
 - scripts/platform-v7-forward-only-migration-check.mjs
@@ -81,6 +82,7 @@ CURRENT ALLOWED:
 - apps/api/prisma/schema.prisma
 - apps/api/prisma/migrations/20260713*_documents_postgresql_authority/**
 - apps/api/test/industrial/document-postgresql-authority.e2e-spec.ts
+- apps/api/test/industrial/deal-command-no-fake-live.e2e-spec.ts
 - apps/api/test/one-deal/document-postgresql-authority.e2e-spec.ts
 - infra/sql/postgresql-document-authority-policies.sql
 - scripts/platform-v7-forward-only-migration-check.mjs

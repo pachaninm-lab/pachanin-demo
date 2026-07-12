@@ -92,6 +92,16 @@ describe('Documents PostgreSQL authority', () => {
   });
 
   afterAll(async () => {
+    await admin.$transaction(async (tx) => {
+      // This isolated test owns the fixed deal id. Bypass append-only triggers
+      // only while removing its fixtures so no PENDING event leaks into the
+      // durable-outbox suite that shares the CI database.
+      await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+      await tx.outboxEntry.deleteMany({ where: { dealId: DEAL_ID } });
+      await tx.auditEvent.deleteMany({ where: { dealId: DEAL_ID } });
+      await tx.dealDocument.deleteMany({ where: { dealId: DEAL_ID } });
+      await tx.deal.deleteMany({ where: { id: DEAL_ID } });
+    });
     await admin.$disconnect();
   });
 

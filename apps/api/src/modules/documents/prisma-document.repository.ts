@@ -431,7 +431,9 @@ export class PrismaDocumentRepository implements DocumentRepository {
   ): Promise<DocumentMutationResult> {
     // Seed 42 is shared with the canonical Deal command pipeline so the audit
     // hash chain is ordered across domains, not merely inside Documents.
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${plan.dealId}, 42))`;
+    await tx.$queryRaw`
+      SELECT pg_advisory_xact_lock(hashtextextended(${plan.dealId}, 42)) IS NULL AS locked
+    `;
     const auditId = `audit-${randomUUID()}`;
     const outboxId = `outbox-${randomUUID()}`;
     const documentId = String(plan.create.id);

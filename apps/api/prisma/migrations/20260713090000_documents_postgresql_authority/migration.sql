@@ -111,6 +111,9 @@ BEGIN
   IF OLD."type" <> 'EVIDENCE_FILE' AND OLD."isImmutable" THEN
     RAISE EXCEPTION 'confirmed document versions are append-only' USING ERRCODE = '23514';
   END IF;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
   RETURN NEW;
 END
 $function$;
