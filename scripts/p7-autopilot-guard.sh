@@ -146,6 +146,16 @@ apps/web/tests/unit/platformV7I18nRequestLocaleGuard.test.ts
 apps/web/tests/unit/platformV7LanguageReloadGuard.test.ts
 scripts/p7-autopilot-guard.sh'
 
+TEST_ORGANIZATIONS_SCOPE='apps/api/src/modules/deals/canonical-test-deal.seed.ts
+apps/web/app/platform-v7/staff/**
+apps/web/app/staff/[...path]/route.ts
+apps/web/components/platform-v7/staff/**
+apps/web/lib/platform-v7/controlled-test-organizations.ts
+apps/web/lib/platform-v7/verified-session.ts
+apps/web/tests/unit/platformV7ControlledTestOrganization*.test.ts
+apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -168,6 +178,12 @@ fi
 # self-hosted fixture endpoints, tests and its operations document.
 if [ "${GITHUB_HEAD_REF:-}" = "fix/controlled-test-access" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$CONTROLLED_TEST_ACCESS_SCOPE")
+fi
+
+# The controlled test organization network binds the twelve owner cabinets to
+# an explicit server-owned organization catalogue and one canonical test deal.
+if [ "${GITHUB_HEAD_REF:-}" = "fix/test-organizations-all-cabinets" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$TEST_ORGANIZATIONS_SCOPE")
 fi
 
 # A clean Platform V7 URL must always resolve to Russian; EN/ZH remain explicit
