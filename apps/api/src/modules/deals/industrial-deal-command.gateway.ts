@@ -534,6 +534,10 @@ export class IndustrialDealCommandGateway {
     };
 
     return this.rls.withTrustedContext(callbackUser, async (tx) => {
+      // Тот же per-deal advisory lock, что и в командном pipeline: провальный
+      // callback дописывает те же hash-цепочки и не должен гоняться с командами.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${deal.id}, 42)) IS NULL AS locked`;
+
       const existing = await tx.outboxEntry.findUnique({
         where: { idempotencyKey: callbackKey },
       });
