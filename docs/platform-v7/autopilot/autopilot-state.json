@@ -165,7 +165,8 @@
       "apps/web/public/platform-v7/i18n/dictionaries.json",
       "apps/web/components/platform-v7/CanonicalDealsList.tsx",
       "apps/web/app/platform-v7/deals/page.tsx",
-      "apps/web/components/platform-v7/RoleIntentDashboard.tsx"
+      "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
+      "docs/platform-v7/industrial-plan-session-report-2026-07-12.md"
     ]
   },
   "industrialOneDealFoundation": {
