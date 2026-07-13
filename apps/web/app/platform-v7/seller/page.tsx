@@ -5,10 +5,9 @@ import { KeyFact, KeyFactGrid } from '@/components/transaction-ux/FieldTaskTempl
 import workspace from '@/components/transaction-ux/CommercialRoleWorkspace.module.css';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
-import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpits';
+import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentReadinessMiniMatrix';
 import { WorkflowActionPanel } from '@/components/platform-v7/WorkflowActionPanel';
-import { MoneyGateRing } from '@/components/platform-v7/visual/MoneyGateRing';
 import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { UnlockPath } from '@/components/platform-v7/visual/UnlockPath';
@@ -91,15 +90,6 @@ export default function SellerPage() {
 
       <CollapsibleSection title='Деньги и банковская проверка' summary='резерв 9,65 млн ₽ · к проверке 0 ₽' defaultOpen={false}>
         <div className={workspace.sectionStack}>
-          <MoneyGateRing
-            title='Деньги по сделке DL-9106'
-            totalRub={9_648_000}
-            segments={[
-              { label: 'Банк подтвердил выплату', amountRub: 0, state: 'released' },
-              { label: 'Резерв заявлен покупателем', amountRub: 9_648_000, state: 'reserved' },
-            ]}
-            caption='Платформа показывает документные условия. Подтверждение и движение денег остаются за банком.'
-          />
           <MoneyImpactSummaryStrip
             amountContext='резерв 9,65 млн ₽ · к проверке банком 0 ₽'
             pilotState='waiting'

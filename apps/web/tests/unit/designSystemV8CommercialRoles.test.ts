@@ -44,8 +44,8 @@ describe('Design System v8 commercial-role migration', () => {
     const bank = read(rolePages[2]);
     expect(seller).toContain('SellerInlineLotEditor');
     expect(seller).toContain('DocumentReadinessMiniMatrix');
-    expect(buyer).toContain('P7ExecutionActionsPanel');
-    expect(buyer).toContain('EscrowPanel');
+    expect(buyer).toContain('WorkflowActionPanel');
+    expect(buyer).toContain('MoneyImpactSummaryStrip');
     expect(bank).toContain('BankCleanView');
     expect(bank).toContain('LedgerPanel');
   });

@@ -3,18 +3,12 @@ import { NextActionCard, StatusChip, Surface } from '@pc/design-system-v8';
 import { DealRoleWorkbenchTemplate } from '@/components/transaction-ux/DealRoleWorkbenchTemplate';
 import { KeyFact, KeyFactGrid } from '@/components/transaction-ux/FieldTaskTemplate';
 import workspace from '@/components/transaction-ux/CommercialRoleWorkspace.module.css';
-import { BuyerFavoritesPanel } from '@/components/platform-v7/BuyerFavoritesPanel';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
-import { P7ExecutionActionsPanel } from '@/components/platform-v7/P7ExecutionActionsPanel';
-import { buyerSdizActionItems, buyerSdizInitialState } from '@/lib/platform-v7/buyer-sdiz-actions';
-import { CreditBureauPanel } from '@/components/platform-v7/CreditBureauPanel';
-import { EscrowPanel } from '@/components/platform-v7/EscrowPanel';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
-import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpits';
+import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentReadinessMiniMatrix';
 import { WorkflowActionPanel } from '@/components/platform-v7/WorkflowActionPanel';
-import { MoneyGateRing } from '@/components/platform-v7/visual/MoneyGateRing';
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { UnlockPath } from '@/components/platform-v7/visual/UnlockPath';
 import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
@@ -79,16 +73,6 @@ export default function BuyerPage() {
       <section id='buyer-money' className={workspace.sectionAnchor}>
         <CollapsibleSection title='Деньги, резерв и удержание' summary='резерв 9,65 млн ₽ · удержание 624 тыс. ₽' defaultOpen>
           <div className={workspace.sectionStack}>
-            <MoneyGateRing
-              title='Деньги покупателя по сделке DL-9106'
-              totalRub={9_648_000}
-              segments={[
-                { label: 'Банк подтвердил выплату', amountRub: 0, state: 'released' },
-                { label: 'Резерв заявлен покупателем', amountRub: 9_024_000, state: 'reserved' },
-                { label: 'Удержано по спору', amountRub: 624_000, state: 'held' },
-              ]}
-              caption='Платформа отображает основание и статусы. Банковское подтверждение обязательно; платформа деньги не выпускает.'
-            />
             <MoneyImpactSummaryStrip
               amountContext='резерв 9,65 млн ₽ · удержание 624 тыс. ₽'
               pilotState='waiting'
@@ -107,12 +91,6 @@ export default function BuyerPage() {
       <CollapsibleSection title='Документы и СДИЗ покупателя' summary='СДИЗ · ручная проверка · действия' defaultOpen={false}>
         <div className={workspace.sectionStack}>
           <DocumentReadinessMiniMatrix role='buyer' />
-          <P7ExecutionActionsPanel
-            title='СДИЗ покупателя'
-            subtitle='Погасить СДИЗ, зафиксировать отказ или отправить статус на ручную проверку. Банк получает основание для проверки, а не сигнал выплаты.'
-            items={buyerSdizActionItems}
-            initialState={buyerSdizInitialState}
-          />
           <WorkflowActionPanel context='buyer' />
         </div>
       </CollapsibleSection>
@@ -168,12 +146,6 @@ export default function BuyerPage() {
           </div>
         </div>
       </CollapsibleSection>
-
-      <CollapsibleSection title='Риск и финансовые инструменты' summary='скоринг · escrow' defaultOpen={false}>
-        <div className={workspace.grid2}><Surface><CreditBureauPanel /></Surface><Surface><EscrowPanel /></Surface></div>
-      </CollapsibleSection>
-
-      <CollapsibleSection title='Избранные лоты и поставщики' summary='быстрый доступ · рейтинги' defaultOpen={false}><BuyerFavoritesPanel /></CollapsibleSection>
     </div>
   );
 

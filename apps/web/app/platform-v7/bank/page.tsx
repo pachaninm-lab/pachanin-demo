@@ -17,6 +17,7 @@ import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMini
 import { ActionFeedbackPreviewStrip } from '@/components/platform-v7/ActionFeedbackPreviewStrip';
 import { BankCompliancePilotPanel } from '@/components/platform-v7/BankCompliancePilotPanel';
 import { RoleExecutionCockpitPage } from '@/components/platform-v7/RoleExecutionCockpit';
+import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getOutboxStatus } from '@/lib/outbox-server';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
@@ -172,7 +173,7 @@ export default async function PlatformV7BankPage() {
       </CollapsibleSection>
 
       <CollapsibleSection title='Банковый и комплаенс-контур' summary='готовность · ограничения · ручная проверка' defaultOpen={false}><BankCompliancePilotPanel mode='bank' /></CollapsibleSection>
-      <CollapsibleSection title='Полный ролевой cockpit банка' summary='очередь · блокеры · действия' defaultOpen={false}><RoleExecutionCockpitPage role='bank' /></CollapsibleSection>
+      <CollapsibleSection title='Полный ролевой cockpit банка' summary='очередь · блокеры · действия' defaultOpen={false}><RoleExecutionCockpitPage cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.bank} /></CollapsibleSection>
       <CollapsibleSection title='Ledger · двойная запись' summary='резерв · подтверждение · комиссии · idempotency' defaultOpen={false}><LedgerPanel /></CollapsibleSection>
       <CollapsibleSection title='Жизненный цикл денег' summary='RESERVE → RELEASE → COMMISSION · HOLD · REFUND' defaultOpen={false}><MoneyLifecyclePanel /></CollapsibleSection>
       <Surface><p className={workspace.muted}>Все статусы денег должны подтверждаться банковскими callback и reconciliation. UI не является источником финансовой истины.</p></Surface>
@@ -187,7 +188,7 @@ export default async function PlatformV7BankPage() {
       description='Первый уровень показывает сумму, стоп-фактор, удержание и одно следующее действие. Ledger, документы и доказательства раскрываются по запросу.'
       statusLabel='Выплата заблокирована'
       statusTone='critical'
-      liveStatus={<LiveApiStatusBar apiOnline={apiOnline} liveStops={liveStops} pendingBankOps={outbox.totalPending} openDisputes={disputeCount} role='BANK · Проверка выплаты' summary={apiOnline ? `${outbox.totalPending} операций в очереди · ${disputeCount} открытых споров · ${heldRub > 0 ? `${(heldRub / 1_000_000).toFixed(2)} млн ₽ удержано` : 'удержаний нет'}` : 'Данные статичные — API недоступен'} />}
+      liveStatus={<LiveApiStatusBar apiOnline={apiOnline} blockers={liveStops} pendingBankOps={outbox.totalPending} openDisputes={disputeCount} role='BANK · Проверка выплаты' summary={apiOnline ? `${outbox.totalPending} операций в очереди · ${disputeCount} открытых споров · ${heldRub > 0 ? `${(heldRub / 1_000_000).toFixed(2)} млн ₽ удержано` : 'удержаний нет'}` : 'Данные статичные — API недоступен'} />}
       primary={primary}
       context={context}
       details={details}
