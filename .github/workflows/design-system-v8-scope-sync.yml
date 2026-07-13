@@ -1,0 +1,45 @@
+name: Design System v8 test scope sync
+
+on:
+  push:
+    branches:
+      - codex/design-system-v8-industrial
+    paths:
+      - .github/workflows/design-system-v8-scope-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/design-system-v8-industrial
+          fetch-depth: 0
+
+      - name: Add v8 regression test to governed scope
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('scripts/p7-autopilot-guard.sh')
+          text = path.read_text()
+          anchor = 'apps/web/next.config.js\npackage.json'
+          replacement = 'apps/web/next.config.js\napps/web/tests/unit/designSystemV8Architecture.test.ts\npackage.json'
+          if replacement not in text:
+              if anchor not in text:
+                  raise SystemExit('Design System v8 scope anchor not found')
+              text = text.replace(anchor, replacement, 1)
+          path.write_text(text)
+
+      - name: Commit scope change
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/p7-autopilot-guard.sh
+          git diff --cached --quiet && exit 0
+          git commit -m "Govern Design System v8 regression test"
+          git push origin HEAD:codex/design-system-v8-industrial
