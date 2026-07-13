@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
 import { JournalPreview } from '@/components/platform-v7/JournalPreview';
 import { ArbitratorDisputeRoom } from '@/components/platform-v7/ArbitratorDisputeRoom';
@@ -7,113 +8,107 @@ import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
 import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import {
+  OperationalCockpitSection,
+  OperationalDecisionCockpit,
+  operationalCockpitClasses,
+} from '@/components/transaction-ux/OperationalDecisionCockpit';
 
-const decisionGuardCards = [
-  ['Сумма спора', 'решение должно иметь сумму и основание'],
-  ['Доказательства', 'акт, протокол, вес, фото и журнал должны быть видимы'],
-  ['Следующий шаг', 'оператор передаёт основание на ручную проверку'],
-  ['Журнал', 'решение и причина фиксируются в истории сделки'],
-] as const;
+function formatMoney(rub: number): string {
+  if (rub >= 1_000_000) return `${(rub / 1_000_000).toFixed(2)} млн ₽`;
+  if (rub >= 1_000) return `${(rub / 1_000).toFixed(0)} тыс. ₽`;
+  return `${rub} ₽`;
+}
 
-export default async function Page() {
+export default async function ArbitratorPage() {
   const disputes = await getDisputes();
   const disputeCount = openDisputeCount(disputes);
   const heldRub = disputeTotalHeldRub(disputes);
+  const active = disputes.find((dispute) => dispute.status === 'OPEN' || dispute.status === 'UNDER_REVIEW');
 
   const liveBlockers = disputes
-    .filter((d) => d.status === 'OPEN' || d.status === 'UNDER_REVIEW')
-    .map((d) => ({
-      id: d.id,
-      label: `Спор ${d.id}: ${d.description.slice(0, 60)}`,
-      severity: (d.severity === 'HIGH' || d.severity === 'CRITICAL' ? 'stop' : 'warn') as 'stop' | 'warn',
+    .filter((dispute) => dispute.status === 'OPEN' || dispute.status === 'UNDER_REVIEW')
+    .map((dispute) => ({
+      id: dispute.id,
+      label: `Спор ${dispute.id}: ${dispute.description.slice(0, 60)}`,
+      severity: (dispute.severity === 'HIGH' || dispute.severity === 'CRITICAL' ? 'stop' : 'warn') as 'stop' | 'warn',
       responsibleRole: 'ARBITRATOR',
-      nextAction: d.status === 'OPEN' ? 'Взять в работу' : 'Продолжить расследование',
+      nextAction: dispute.status === 'OPEN' ? 'Взять в работу' : 'Зафиксировать решение',
     }));
 
   return (
-    <div style={{ display: 'grid', gap: 18 }}>
-      <LiveApiStatusBar
-        apiOnline={disputeCount > 0}
-        blockers={liveBlockers}
-        openDisputes={disputeCount}
-        role="ARBITRATOR · Арбитраж"
-        summary={
-          disputeCount > 0
-            ? `${disputeCount} открытых споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'без удержания'}`
-            : 'Открытых споров нет'
-        }
-      />
-      <QuietIntelligenceHint
-        problem='Открытый спор по DL-9102 · удержание 624 тыс. ₽ · акт расхождения не закрыт.'
-        action='Рассмотреть доказательства и зафиксировать решение с суммой и основанием.'
-        outcome='Решение уходит оператору на ручную проверку и фиксируется в журнале сделки.'
-      />
-      <RoleExecutionSummary role="arbitrator" />
-      <section data-testid="platform-v7-arbitrator-decision-guard" style={decisionGuard}>
-        <div style={micro}>Арбитр · рамка решения</div>
-        <div style={title}>Решение арбитра создаёт основание для ручной проверки</div>
-        <div style={lead}>
-          Арбитр фиксирует сумму спора, доказательства, причину остановки и рекомендуемое действие. Следующий шаг требует ручной сверки основания оператором.
-        </div>
-        <div style={cardsGrid}>
-          {decisionGuardCards.map(([cardTitle, text]) => (
-            <div key={cardTitle} style={guardCard}>
-              <div style={{ fontSize: 13, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{cardTitle}</div>
-              <div style={{ marginTop: 5, fontSize: 12, color: 'var(--pc-text-muted, #64748B)', lineHeight: 1.45 }}>{text}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-      <CauseLine
-        cause={{ text: 'Акт расхождения DL-9102 не закрыт', tone: 'blocked' }}
-        relation='blocks'
-        effect={{ text: 'Удержание не снимается', tone: 'blocked' }}
-        moneyAmount='624 тыс. ₽'
-        moneyTone='hold'
-      />
-      <TrustDot state='test' size='sm' label='Предынтеграционный контур · Арбитраж требует реальных договоров' />
-      <SmartSectionSummary
-        label='Активные споры'
-        items={[
-          { text: 'DL-9102 · Отклонение веса · Удержание 624 тыс. ₽ · Акт расхождения не подписан', tone: 'block' },
-        ]}
-      />
+    <OperationalDecisionCockpit
+      testId='platform-v7-arbitrator-v8'
+      eyebrow='Арбитраж · доказательства → решение → основание'
+      title='Решение начинается с проверяемых фактов'
+      description='Арбитр видит сумму спора, доказательства сторон, причинную связь, удержание и следующий шаг. Решение фиксируется в Сделке и не выпускает деньги самостоятельно.'
+      statusLabel={disputeCount > 0 ? 'есть открытые споры' : 'очередь чистая'}
+      statusTone={disputeCount > 0 ? 'critical' : 'success'}
+      liveStatus={(
+        <LiveApiStatusBar
+          apiOnline={disputeCount > 0}
+          blockers={liveBlockers}
+          openDisputes={disputeCount}
+          role='ARBITRATOR · Споры и доказательства'
+          summary={`${disputeCount} открытых споров · ${formatMoney(heldRub)} удержано`}
+        />
+      )}
+      priority={{
+        state: active ? 'critical' : 'ready',
+        title: active ? `Рассмотреть спор ${active.id}` : 'Открытых споров нет',
+        description: active
+          ? 'Проверьте акт, протокол, вес, фото, временные метки и журнал. Зафиксируйте сумму, основание и рекомендуемый следующий шаг.'
+          : 'Новые споры появятся в очереди только после серверной регистрации и привязки к Сделке.',
+        blocker: active ? 'доказательный пакет требует решения' : 'нет',
+        owner: 'арбитр',
+        impact: formatMoney(heldRub),
+        result: 'мотивированное решение + неизменяемый журнал',
+        primaryAction: active ? <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/disputes'>Открыть спор</Link> : undefined,
+        secondaryAction: <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/deals/DL-9102/audit'>Журнал Сделки</Link>,
+      }}
+      facts={[
+        { label: 'Открытых споров', value: String(disputeCount), hint: 'только серверно зарегистрированные дела' },
+        { label: 'Удержано', value: formatMoney(heldRub), hint: 'спорная часть остаётся под контролем банка' },
+        { label: 'Обязательные доказательства', value: 'акт + протокол + фото + журнал', hint: 'каждый факт имеет источник и время' },
+        { label: 'После решения', value: 'ручная сверка основания', hint: 'оператор и банк получают только подтверждённый результат' },
+      ]}
+      boundary='Арбитр создаёт мотивированное основание. Он не меняет лабораторный факт, не подписывает документы за стороны и не подтверждает движение денег.'
+    >
+      {active ? (
+        <QuietIntelligenceHint
+          problem={`Открытый спор ${active.id} удерживает часть расчёта.`}
+          action='Проверить доказательства и зафиксировать сумму и основание решения.'
+          outcome='Решение передаётся оператору и банку как основание для следующей проверки.'
+        />
+      ) : null}
 
-      <JournalPreview role="arbitrator" />
+      <OperationalCockpitSection id='decision'>
+        <RoleExecutionSummary role='arbitrator' />
+        <CauseLine
+          cause={{ text: 'Акт расхождения не закрыт', tone: 'blocked' }}
+          relation='blocks'
+          effect={{ text: 'Удержание не снимается', tone: 'blocked' }}
+          moneyAmount={formatMoney(heldRub)}
+          moneyTone='hold'
+        />
+        <SmartSectionSummary
+          label='Рамка решения'
+          items={[
+            { text: 'Сумма и предмет спора подтверждены', tone: 'warn' },
+            { text: 'Доказательства сторон доступны в одном пакете', tone: 'warn' },
+            { text: 'Причина, решение и следующий шаг фиксируются в журнале', tone: 'warn' },
+          ]}
+        />
+      </OperationalCockpitSection>
+
       <ArbitratorDisputeRoom />
-    </div>
+
+      <CollapsibleSection title='Журнал арбитража' summary='события · автор · основание · время' defaultOpen={false}>
+        <JournalPreview role='arbitrator' />
+      </CollapsibleSection>
+
+      <TrustDot state='test' size='sm' label='Арбитражный контур требует договоров, правил и реального назначения арбитра' />
+    </OperationalDecisionCockpit>
   );
 }
-
-const decisionGuard = {
-  background: 'linear-gradient(135deg,#FFFFFF 0%,#F8FAFB 58%,#FEF2F2 100%)',
-  border: '1px solid var(--pc-border, #E4E6EA)',
-  borderRadius: 24,
-  padding: 20,
-  display: 'grid',
-  gap: 12,
-  boxShadow: '0 16px 38px rgba(127,29,29,0.075)',
-} as const;
-const micro = {
-  fontSize: 11,
-  color: '#B91C1C',
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-} as const;
-const title = {
-  fontSize: 24,
-  lineHeight: 1.1,
-  fontWeight: 950,
-  color: 'var(--pc-text-primary, #0F1419)',
-  letterSpacing: '-0.035em',
-} as const;
-const lead = { fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 } as const;
-const cardsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 } as const;
-const guardCard = {
-  border: '1px solid rgba(220,38,38,0.12)',
-  borderRadius: 16,
-  padding: 12,
-  background: 'linear-gradient(180deg,#FFFFFF 0%,#F8FAFB 100%)',
-  boxShadow: '0 10px 24px rgba(15,23,42,0.045)',
-} as const;
