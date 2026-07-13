@@ -37,7 +37,6 @@ const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 const STORE_KEY = 'pc-session-v10';
 const NOTE_STORAGE_KEY = 'platform-v7-header-notepad';
 const LOGOUT_TARGET = '/platform-v7/login?logout=1';
-const CALCULATOR_EVENT = 'platform-v7:open-calculator';
 
 type Panel = 'menu' | 'notepad' | null;
 
@@ -115,6 +114,7 @@ export function HeaderUtilityMenu() {
   const bodyMount = useMount('body');
   const [panel, setPanel] = React.useState<Panel>(null);
   const [note, setNote] = React.useState('');
+  const [noteReady, setNoteReady] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState('');
   const closeButtonRef = React.useRef<HTMLButtonElement>(null);
 
@@ -123,6 +123,8 @@ export function HeaderUtilityMenu() {
       setNote(window.localStorage.getItem(NOTE_STORAGE_KEY) || '');
     } catch {
       setNote('');
+    } finally {
+      setNoteReady(true);
     }
   }, []);
 
@@ -142,28 +144,20 @@ export function HeaderUtilityMenu() {
   React.useEffect(() => setPanel(null), [path]);
 
   React.useEffect(() => {
+    if (!noteReady) return;
     try {
       window.localStorage.setItem(NOTE_STORAGE_KEY, note);
-      if (note || savedAt) {
-        setSavedAt(new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
-      }
+      setSavedAt(new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }));
     } catch {
       setSavedAt('локальное сохранение недоступно');
     }
-    // savedAt deliberately excluded: it is output, not input.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [note]);
+  }, [note, noteReady]);
 
   if (PUBLIC_PATHS.has(path) || !headerMount || !bodyMount) return null;
 
   const runNativeAction = (selector: string) => {
     setPanel(null);
     window.requestAnimationFrame(() => activateNativeAction(selector));
-  };
-
-  const openCalculator = () => {
-    setPanel(null);
-    window.requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(CALCULATOR_EVENT)));
   };
 
   const logout = () => {
@@ -238,7 +232,7 @@ export function HeaderUtilityMenu() {
             <section className={styles.section} aria-labelledby='utility-tools-title'>
               <h2 className={styles.sectionTitle} id='utility-tools-title'>Дополнительно</h2>
               <div className={styles.actionGrid}>
-                <ActionCard icon={<Calculator size={18} aria-hidden='true' />} title='Калькулятор' description='Обычный и ролевой расчёт' onClick={openCalculator} />
+                <ActionCard icon={<Calculator size={18} aria-hidden='true' />} title='Калькулятор' description='Обычный и ролевой расчёт' onClick={() => runNativeAction("button[aria-label='Открыть калькулятор']")} />
                 <ActionCard icon={<FileText size={18} aria-hidden='true' />} title='Блокнот' description='Записать вес, сумму или задачу' onClick={() => setPanel('notepad')} />
                 <ActionCard icon={<Moon size={18} aria-hidden='true' />} title='Сменить тему' description='Светлый или тёмный экран' onClick={() => runNativeAction('.pc-v4-theme-toggle')} />
               </div>
