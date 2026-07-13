@@ -1,0 +1,7 @@
+.surface { min-width: 0; }
+.paddingNone { padding: 0; }
+.paddingCompact { padding: var(--ds-space-3); }
+.paddingComfortable { padding: var(--ds-space-4); }
+.paddingField { padding: var(--ds-space-6); }
+.raised { box-shadow: var(--ds-shadow-overlay); }
+@media (max-width: 640px) { .paddingField { padding: var(--ds-space-4); } }
