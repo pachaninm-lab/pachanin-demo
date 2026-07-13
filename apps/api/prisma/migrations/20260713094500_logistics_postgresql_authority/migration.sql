@@ -16,6 +16,16 @@ FROM public."deals" d
 WHERE d."id" = s."dealId"
   AND s."tenantId" IS NULL;
 
+DO $guard$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public."shipments" WHERE "tenantId" IS NULL
+  ) THEN
+    RAISE EXCEPTION 'shipments tenant backfill incomplete';
+  END IF;
+END
+$guard$;
+
 ALTER TABLE public."shipments"
   ALTER COLUMN "tenantId" SET DEFAULT current_setting('app.current_tenant_id'::text, true),
   ALTER COLUMN "tenantId" SET NOT NULL;
@@ -51,6 +61,16 @@ SET "tenantId" = s."tenantId"
 FROM public."shipments" s
 WHERE s."id" = c."shipmentId"
   AND c."tenantId" IS NULL;
+
+DO $guard$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public."checkpoints" WHERE "tenantId" IS NULL
+  ) THEN
+    RAISE EXCEPTION 'checkpoints tenant backfill incomplete';
+  END IF;
+END
+$guard$;
 
 ALTER TABLE public."checkpoints"
   ALTER COLUMN "tenantId" SET DEFAULT current_setting('app.current_tenant_id'::text, true),
