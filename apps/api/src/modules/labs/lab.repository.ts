@@ -43,6 +43,7 @@ export type RecordLabTestCommand = LabCommand & Readonly<{
   equipmentCode: string;
   evidenceRef: string;
   occurredAt: string;
+  supersedesId?: string;
   note?: string;
 }>;
 
