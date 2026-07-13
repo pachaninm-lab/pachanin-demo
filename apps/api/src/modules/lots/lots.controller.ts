@@ -4,6 +4,8 @@ import { UseGuards } from '@nestjs/common';
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import type { RequestUser } from '../../common/types/request-user';
+import { AuctionAuthorityService } from '../auctions/auction-authority.service';
 import { LotsService } from './lots.service';
 import { CreateLotDto } from './dto/create-lot.dto';
 
@@ -11,7 +13,10 @@ import { CreateLotDto } from './dto/create-lot.dto';
 @Roles('FARMER', 'BUYER', 'SUPPORT_MANAGER')
 @Controller('lots')
 export class LotsController {
-  constructor(private readonly lots: LotsService) {}
+  constructor(
+    private readonly lots: LotsService,
+    private readonly auctionAuthority: AuctionAuthorityService,
+  ) {}
 
   @Public()
   @Get()
@@ -31,9 +36,10 @@ export class LotsController {
     return this.lots.getReport(id, user);
   }
 
+  @Roles('FARMER', 'BUYER', 'SUPPORT_MANAGER', 'ADMIN', 'COMPLIANCE_OFFICER', 'EXECUTIVE')
   @Get('my')
-  my(@CurrentUser() user: any) {
-    return this.lots.list(user);
+  my(@CurrentUser() user: RequestUser) {
+    return this.auctionAuthority.listAccessibleLots(user);
   }
 
   @Post()
