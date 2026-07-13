@@ -5,6 +5,7 @@ export const LAB_REPOSITORY = 'LAB_REPOSITORY';
 export type LabSampleStatus =
   | 'PENDING'
   | 'COLLECTED'
+  | 'IN_TRANSIT'
   | 'RECEIVED'
   | 'ANALYSIS_IN_PROGRESS'
   | 'READY_FOR_FINALIZATION'
@@ -91,11 +92,15 @@ export type CreateLabSampleCommand = Readonly<{
   correlationId?: string;
 }>;
 
-export type CollectLabSampleCommand = LabCommandBase & Readonly<{
+export type CustodyLabSampleCommand = LabCommandBase & Readonly<{
   evidenceRef: string;
   occurredAt: string | Date;
   note?: string;
 }>;
+
+export type CollectLabSampleCommand = CustodyLabSampleCommand;
+export type HandoffLabSampleCommand = CustodyLabSampleCommand;
+export type ReceiveLabSampleCommand = CustodyLabSampleCommand;
 
 export type RecordLabTestCommand = LabCommandBase & Readonly<{
   metric: string;
@@ -132,6 +137,8 @@ export interface LabRepository {
   getById(id: string, user: RequestUser): Promise<LabWorkspace>;
   create(command: CreateLabSampleCommand, user: RequestUser): Promise<LabMutationResult>;
   collect(id: string, command: CollectLabSampleCommand, user: RequestUser): Promise<LabMutationResult>;
+  handoff(id: string, command: HandoffLabSampleCommand, user: RequestUser): Promise<LabMutationResult>;
+  receive(id: string, command: ReceiveLabSampleCommand, user: RequestUser): Promise<LabMutationResult>;
   recordTest(id: string, command: RecordLabTestCommand, user: RequestUser): Promise<LabMutationResult>;
   finalize(id: string, command: FinalizeLabSampleCommand, user: RequestUser): Promise<LabMutationResult>;
 }
