@@ -36,34 +36,6 @@ const TO_INSPECTION_SEQUENCE: ReadonlyArray<{ actionId: DealActionId; userKey: s
   { actionId: 'confirm_inspection', userKey: 'surveyor' },
 ];
 
-function stable(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(stable);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, item]) => [key, stable(item)]),
-    );
-  }
-  return value;
-}
-
-function gatewayInternalIdempotencyKey(
-  dealId: string,
-  actionId: DealActionId,
-  dto: ExecuteDealCommandDto,
-): string {
-  const material = {
-    dealId,
-    actionId,
-    commandId: dto.commandId,
-    clientIdempotencyKey: dto.idempotencyKey,
-    expectedUpdatedAt: dto.expectedUpdatedAt,
-    payload: dto.payload ?? {},
-  };
-  return `fp:${createHash('sha256').update(JSON.stringify(stable(material))).digest('hex')}`;
-}
-
 async function currentDeal(instance: ServiceInstance, dealId: string) {
   return instance.prisma.deal.findUniqueOrThrow({
     where: { id: dealId },
@@ -297,9 +269,8 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
       `);
       expect(protocolCount[0].count).toBe(1n);
 
-      await expect(second.commands.execute(fixture.dealId, 'finalize_lab', {
+      await expect(second.gateway.executeUser(fixture.dealId, 'finalize_lab', {
         ...dto,
-        idempotencyKey: gatewayInternalIdempotencyKey(fixture.dealId, 'finalize_lab', dto),
         payload: { sampleId: fixture.sampleId, signedEvidenceRef: 'foreign-evidence' },
       }, fixture.users.lab)).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'IDEMPOTENCY_KEY_REUSED' }),
