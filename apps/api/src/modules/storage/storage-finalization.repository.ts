@@ -12,6 +12,8 @@ type PendingEvidence = Readonly<{
   status: string;
 }>;
 
+const MAX_FINALIZATION_ATTEMPTS = 3;
+
 @Injectable()
 export class StorageFinalizationRepository {
   private readonly rls: RlsTransactionService;
@@ -43,28 +45,72 @@ export class StorageFinalizationRepository {
     status: string,
     user: RequestUser,
   ): Promise<DealDocument> {
-    return this.rls.withTrustedContext(user, async (tx) => {
-      const result = await tx.dealDocument.updateMany({
-        where: {
-          id: record.id,
-          type: 'EVIDENCE_FILE',
-          status: record.status,
-          version: record.version,
-          isImmutable: false,
-        },
-        data: {
-          status,
-          hash: inspection.sha256,
-          sizeBytes: inspection.sizeBytes,
-          mimeType: normalizeMimeType(inspection.contentType),
-          isImmutable: true,
-          version: { increment: 1 },
-        },
-      });
-      if (result.count !== 1) {
-        throw new ConflictException('Evidence finalization lost an optimistic concurrency race.');
+    for (let attempt = 1; attempt <= MAX_FINALIZATION_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.rls.withTrustedContext(user, async (tx) => {
+          const result = await tx.dealDocument.updateMany({
+            where: {
+              id: record.id,
+              type: 'EVIDENCE_FILE',
+              status: record.status,
+              version: record.version,
+              isImmutable: false,
+            },
+            data: {
+              status,
+              hash: inspection.sha256,
+              sizeBytes: inspection.sizeBytes,
+              mimeType: normalizeMimeType(inspection.contentType),
+              isImmutable: true,
+              version: { increment: 1 },
+            },
+          });
+          if (result.count !== 1) {
+            throw new ConflictException('Evidence finalization lost an optimistic concurrency race.');
+          }
+          return tx.dealDocument.findUniqueOrThrow({ where: { id: record.id } });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      } catch (error) {
+        const converged = await this.findConverged(record.id, status, inspection, user);
+        if (converged) return converged;
+        if (!isTransientTransactionConflict(error) || attempt === MAX_FINALIZATION_ATTEMPTS) throw error;
+        await wait(20 * attempt);
       }
-      return tx.dealDocument.findUniqueOrThrow({ where: { id: record.id } });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }
+    throw new ConflictException('Evidence finalization did not converge.');
   }
+
+  private async findConverged(
+    id: string,
+    status: string,
+    inspection: ObjectInspection,
+    user: RequestUser,
+  ): Promise<DealDocument | null> {
+    return this.rls.withTrustedContext(user, async (tx) => {
+      const persisted = await tx.dealDocument.findFirst({
+        where: { id, type: 'EVIDENCE_FILE', status, isImmutable: true },
+      });
+      if (!persisted) return null;
+      const sameFact = persisted.hash === inspection.sha256
+        && persisted.sizeBytes === inspection.sizeBytes
+        && normalizeMimeType(persisted.mimeType ?? '') === normalizeMimeType(inspection.contentType);
+      return sameFact ? persisted : null;
+    });
+  }
+}
+
+function isTransientTransactionConflict(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2034') return true;
+    if (error.code === 'P2010') {
+      const meta = error.meta as Record<string, unknown> | undefined;
+      return meta?.code === '40001' || meta?.code === '40P01';
+    }
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return /write conflict|deadlock|serialization failure/i.test(message);
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
