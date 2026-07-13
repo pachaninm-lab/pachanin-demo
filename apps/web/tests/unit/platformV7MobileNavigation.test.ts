@@ -33,9 +33,11 @@ describe('platform-v7 mobile navigation', () => {
 
   it('keeps bottom nav from closing primary CTA area', () => {
     const shell = read('apps/web/components/v7r/AppShellV4.tsx');
+    const shellStyles = read('apps/web/components/v7r/AppShellV4.module.css');
 
-    expect(shell).toContain('.pc-v4-bottomnav');
-    expect(shell).toContain('padding-bottom: calc(env(safe-area-inset-bottom) + 84px)');
+    expect(shell).toContain('pc-v4-bottomnav');
     expect(shell).toContain('items.slice(0, 5)');
+    expect(shellStyles).toContain('.bottomNav');
+    expect(shellStyles).toContain('padding: calc(var(--shell-header-offset) + 12px) var(--ds-space-4) calc(env(safe-area-inset-bottom) + 84px)');
   });
 });
