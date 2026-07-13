@@ -1,0 +1,21 @@
+.stack, .sectionStack, .evidenceStack { min-width: 0; display: grid; gap: var(--ds-space-3); }
+.contextList { margin: 0; padding: 0; display: grid; gap: var(--ds-space-3); list-style: none; }
+.contextList li { min-width: 0; padding: var(--ds-space-3); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); background: var(--ds-color-surface-subtle); display: grid; gap: var(--ds-space-1); }
+.contextList strong { color: var(--ds-color-text-primary); font-size: 14px; line-height: 1.35; }
+.contextList span, .contextList small, .muted { color: var(--ds-color-text-secondary); font-size: 12px; line-height: 1.45; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+.primaryLink, .secondaryLink { min-height: var(--ds-control-height); padding: 0 var(--ds-space-4); border: 1px solid transparent; border-radius: var(--ds-radius-md); display: inline-flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; font-weight: 850; }
+.primaryLink { background: var(--ds-color-action-primary); color: var(--ds-color-on-action); }
+.secondaryLink { border-color: var(--ds-color-border); background: var(--ds-color-surface); color: var(--ds-color-text-primary); }
+.primaryLink:focus-visible, .secondaryLink:focus-visible, .assignmentCard:focus-visible { outline: 3px solid var(--ds-color-focus); outline-offset: 2px; }
+.twoColumn { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ds-space-3); }
+.alert { padding: var(--ds-space-3); border: 1px solid var(--ds-color-critical); border-radius: var(--ds-radius-md); background: var(--ds-color-critical-bg); color: var(--ds-color-critical); font-size: 13px; font-weight: 750; line-height: 1.5; }
+.assignmentList { display: grid; gap: var(--ds-space-2); }
+.assignmentCard { min-height: var(--ds-control-height); padding: var(--ds-space-3); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); background: var(--ds-color-surface-subtle); color: var(--ds-color-text-primary); text-decoration: none; display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-3); }
+.assignmentCopy { min-width: 0; display: grid; gap: var(--ds-space-1); }
+.assignmentCopy strong, .assignmentCopy span, .assignmentCopy small { overflow-wrap: anywhere; }
+.assignmentCopy span, .assignmentCopy small { color: var(--ds-color-text-secondary); }
+.sectionAnchor { scroll-margin-top: calc(64px + var(--ds-space-4)); }
+.muted { font-size: 13px; line-height: 1.5; }
+@media (max-width: 640px) { .actions { display: grid; } .primaryLink, .secondaryLink { width: 100%; } .twoColumn { grid-template-columns: 1fr; } .assignmentCard { align-items: flex-start; } }
+@media (forced-colors: active) { .primaryLink, .secondaryLink, .contextList li, .alert, .assignmentCard { border-color: CanvasText; } }
