@@ -108,6 +108,7 @@ async function verifyRequestedEvidence(
   instance: ServiceInstance,
   requested: { fileId: string; objectKey: string },
   body: string,
+  user: RequestUser,
 ): Promise<string> {
   const sizeBytes = Buffer.byteLength(body);
   const sha256 = createHash('sha256').update(body).digest('hex');
@@ -117,30 +118,10 @@ async function verifyRequestedEvidence(
     sha256,
     eTag: `e2e-${sha256.slice(0, 16)}`,
   });
-  const verified = await instance.storage.confirmUpload(requested.fileId, sha256, await evidenceOwner(instance, requested.fileId));
+  const verified = await instance.storage.confirmUpload(requested.fileId, sha256, user);
   expect(verified.status).toBe('VERIFIED');
   expect(verified.immutable).toBe(true);
   return requested.fileId;
-}
-
-async function evidenceOwner(instance: ServiceInstance, fileId: string): Promise<RequestUser> {
-  const document = await instance.prisma.dealDocument.findUniqueOrThrow({
-    where: { id: fileId },
-    select: { uploadedByUserId: true, dealId: true },
-  });
-  const participant = await instance.prisma.dealParticipant.findFirstOrThrow({
-    where: { dealId: document.dealId, userId: document.uploadedByUserId },
-  });
-  return {
-    id: document.uploadedByUserId,
-    email: `${document.uploadedByUserId}@industrial-e2e.invalid`,
-    fullName: document.uploadedByUserId,
-    role: participant.role as Role,
-    orgId: participant.organizationId,
-    tenantId: participant.tenantId,
-    sessionId: `evidence-owner:${fileId}`,
-    mfaVerified: true,
-  };
 }
 
 async function createPurposeEvidence(
@@ -168,7 +149,7 @@ async function createPurposeEvidence(
     ...(options.supersedesId ? { supersedesId: options.supersedesId } : {}),
     ...(options.protocolNumber ? { protocolNumber: options.protocolNumber } : {}),
   }, user);
-  return verifyRequestedEvidence(instance, requested, body);
+  return verifyRequestedEvidence(instance, requested, body, user);
 }
 
 async function createProvisioningEvidence(
@@ -191,7 +172,7 @@ async function createProvisioningEvidence(
       ? { shipmentId: fixture.shipmentId, acceptanceId: fixture.acceptanceId }
       : {}),
   }, fixture.users.operator);
-  return verifyRequestedEvidence(instance, requested, body);
+  return verifyRequestedEvidence(instance, requested, body, fixture.users.operator);
 }
 
 function outsider(fixture: DealFixture, tenantId = fixture.users.lab.tenantId): RequestUser {
