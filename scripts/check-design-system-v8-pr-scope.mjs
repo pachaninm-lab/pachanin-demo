@@ -36,6 +36,7 @@ const exact = new Set([
   'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx',
   'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx',
   'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx',
+  'apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx',
   'apps/web/components/platform-v7/RoleIntentDashboard.tsx',
   'apps/web/components/platform-v7/RoleIntentDashboard.module.css',
   'apps/web/components/v7r/AppShellV4.tsx',
