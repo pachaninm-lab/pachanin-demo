@@ -43,27 +43,32 @@ IR-10.2 Logistics PostgreSQL Authority — PR #2412, merge `a272a1e64b1a30d1e5b2
 - Finalization time is server-authoritative or cryptographically bound and strictly validated; arbitrary client time is rejected.
 - Corrections create superseding facts and preserve history. Protocol aggregation ignores superseded facts and uses one deterministic active fact per parameter.
 - Canonical `finalize_lab` and Deal/acceptance/event/audit/outbox changes commit or roll back together.
+- Evidence purpose metadata is immutable from the first `UPLOAD_PENDING` INSERT. Never weaken the shared document-authority trigger or permit a post-insert metadata enrichment path merely to support fixtures.
+- Fix shared test infrastructure at its root. Never alias `createRememberedInstance` separately across industrial suites, and never remove unrelated comments or assertions while repairing Labs.
 
 ## Immediate execution order
 
 Do not spend another iteration only changing prompts, comments or static marker tests. Implement the production path in this order:
 
-1. Fix deterministic fixture failures without weakening the database: every canonical/industrial `dealDocument.create` must carry the trusted Deal `tenantId`; remove all `session_replication_role=replica`, trigger/RLS bypasses and destructive `labTest.deleteMany` reseeding.
-2. Replace the unsafe logic in `20260713121000_labs_postgresql_authority/migration.sql`: remove `PENDING -> FINALIZED`, silent `RETURN NULL` append-only handling, ANALYST signing and client-time acceptance. Every forbidden mutation must raise and roll back.
-3. Add one server-side evidence-purpose verifier requiring exact tenant, deal, sample, shipment, operation purpose and, for final protocol evidence, protocol number. Missing binding metadata is denial.
-4. Enforce actor type at every production command and PostgreSQL trigger boundary: SAMPLER, COURIER/RECEIVER, ANALYST, SIGNATORY. Privileged staff may authorize or observe but must not silently become the physical laboratory actor.
-5. Implement corrections as new immutable test facts with `supersedesId`; prevent cycles and double supersede; derive exactly one active fact per parameter and exclude superseded facts from protocol aggregation.
-6. Replace legacy `DONE`/trigger-normalization with one explicit `FINALIZED` state in the canonical Deal command. The canonical transaction must lock the sample/basis, derive protocol authority from PostgreSQL, update acceptance from the persisted protocol and atomically write Deal event, audit, PENDING outbox and durable receipt.
-7. Add real exact PostgreSQL E2E files, not marker-only tests. Cover the complete state path, same-payload replay, different-payload idempotency conflict, two-instance race, restart, same-tenant outsider, cross-tenant, every wrong actor type, expired accreditation/calibration, incomplete/reordered custody, missing/foreign/wrong-purpose evidence, correction history, append-only denials and full rollback.
-8. Run typecheck/unit first, then empty/baseline migration plus zero Prisma drift, then industrial one-deal and transaction-core gates. Fix the first deterministic failure; do not mask it by modifying acceptance criteria.
+1. Fix `apps/api/test/industrial/harness.ts` at the root: exported `createInstance()` must register its returned `ServiceInstance` in `activeInstances`. Restore all suites to the normal `createInstance` import; do not patch `load-proof`, `observability` or `money-reconciliation` one by one.
+2. Replace `createVerifiedEvidence()` with a controlled fixture path that writes the final purpose metadata in the initial trusted-RLS `UPLOAD_PENDING` INSERT, then uses the existing storage finalization principal. Do not add or restore a migration that relaxes `deal_documents` metadata immutability.
+3. Bind harness mutations to the same production repository boundary as `LabsModule`: `AuthorizedPrismaLabRepository` wrapping the Prisma delegate, not the raw delegate.
+4. Persist laboratory corrections completely: normalize `supersedesId`, include it in the append-only `lab_tests` INSERT, event, audit and receipt material, preserve the predecessor and let protocol aggregation ignore superseded facts.
+5. Enforce actor type at every production command and PostgreSQL trigger boundary: SAMPLER, COURIER/RECEIVER, ANALYST, SIGNATORY. Privileged staff may authorize or observe but must not silently become the physical laboratory actor.
+6. Use `PostgresqlDealCommandService` in canonical one-deal runtime. After `confirm_inspection`, prepare authority, admission, sample, custody, tests and protocol evidence through the production laboratory boundary, then execute canonical `finalize_lab`.
+7. Reject duplicate or reordered custody at the INSERT/command transaction. Prove zero custody, sample-version, audit and outbox partial effects after rejection; do not store a corrupted chain and defer detection to finalization.
+8. Add real exact PostgreSQL E2E files, not marker-only tests. Cover the complete state path, same-payload replay, different-payload idempotency conflict, two-instance race, restart, same-tenant outsider, cross-tenant, every wrong actor type, expired accreditation/calibration, incomplete/reordered custody, missing/foreign/wrong-purpose evidence, correction history, append-only denials and full rollback.
+9. Run typecheck/unit first, then empty/baseline migration plus zero Prisma drift, then industrial one-deal and transaction-core gates. Fix the first deterministic failure; do not mask it by modifying acceptance criteria.
 
-Current known deterministic failures that must be eliminated:
+Current deterministic blockers that must be eliminated:
 
-- `canonical-test-deal.seed.ts` and `apps/api/test/industrial/harness.ts` contain authority bypass/destructive legacy fixtures and missing `tenantId` on Deal document creation.
-- `20260713121000_labs_postgresql_authority/migration.sql` still contains `PENDING -> FINALIZED`, silent DELETE/late INSERT no-op, ANALYST signing and arbitrary client finalization time.
-- `prisma-lab.repository.ts` does not yet prove operation-specific actor enforcement or exact evidence-purpose binding.
-- `postgresql-deal-command.service.ts` still accepts client `finalizedAt` and writes legacy `DONE`.
-- `apps/api/test/industrial/labs-postgresql-authority.e2e-spec.ts` is absent; a static existence/keyword test is not exploitation evidence.
+- `createInstance()` does not register itself; callers fail inside `provisionDeal()`. The fix belongs in the harness factory, not in every suite import.
+- `createVerifiedEvidence()` currently mutates `deal_documents.metadata` after the object identity was inserted. Purpose metadata must exist in the initial insert; the shared document trigger remains strict.
+- `PrismaLabRepository.recordTest()` accepts `supersedesId` in the command type but does not normalize or persist it.
+- Exact laboratory E2E must use `AuthorizedPrismaLabRepository`, not bypass it through the raw Prisma delegate.
+- Canonical one-deal must execute the real laboratory lifecycle before `finalize_lab` and use `PostgresqlDealCommandService`.
+- Duplicate/reordered custody must fail atomically when recorded, not remain as a confirmed fact.
+- Changes in `load-proof.e2e-spec.ts`, `observability.e2e-spec.ts` and `money-reconciliation.e2e-spec.ts` are outside the accepted IR-10.3 repair path and must be reverted after the harness root fix.
 
 No PASS may be claimed while any item above remains in the exact-head diff or while the non-bypass regression gate is red.
 
@@ -111,6 +116,9 @@ No PASS may be claimed while any item above remains in the exact-head diff or wh
 - production credentials and secret material
 - temporary or self-modifying workflows
 - direct pushes from GitHub Actions
+- apps/api/test/industrial/load-proof.e2e-spec.ts
+- apps/api/test/industrial/observability.e2e-spec.ts
+- apps/api/test/industrial/money-reconciliation.e2e-spec.ts
 
 ## Acceptance
 
