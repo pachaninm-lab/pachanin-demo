@@ -56,6 +56,15 @@ describe('Transaction UX v8 shared role cockpit', () => {
     expect(dashboardCss).toContain('@media (forced-colors: active)');
   });
 
+  it('ships explicit RU EN ZH copy without DOM translation', () => {
+    expect(dashboard).toContain("type Locale = 'ru' | 'en' | 'zh'");
+    expect(dashboard).toContain("import { useLocale } from 'next-intl'");
+    expect(dashboard).toContain('Собираем задачи на сегодня');
+    expect(dashboard).toContain('Preparing today’s tasks');
+    expect(dashboard).toContain('正在整理今日任务');
+    expect(dashboard).toContain('data-locale={locale}');
+  });
+
   it('keeps both role cockpit files inside the enforced governance boundary', () => {
     expect(governance.governedRoots).toContain('apps/web/components/platform-v7/RoleIntentDashboard.tsx');
     expect(governance.governedRoots).toContain('apps/web/components/platform-v7/RoleIntentDashboard.module.css');
