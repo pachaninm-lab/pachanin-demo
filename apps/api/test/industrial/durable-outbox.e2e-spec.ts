@@ -72,7 +72,10 @@ describe('DurableOutboxWorker on real PostgreSQL', () => {
 
     const claimedIds = [...batchA, ...batchB].map((entry) => entry.id);
     expect(new Set(claimedIds).size).toBe(claimedIds.length); // no overlap
-    expect(claimedIds.length).toBe(ids.length);
+    // The worker owns one global queue. Other suites may have valid due events,
+    // so the proof is that every row seeded by this test was claimed exactly once,
+    // not that the global claim contained only this test's event type.
+    expect(ids.every((id) => claimedIds.includes(id))).toBe(true);
 
     const processing = await prismaA.outboxEntry.findMany({
       where: { id: { in: ids } },
