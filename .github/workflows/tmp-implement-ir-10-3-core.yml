@@ -1,0 +1,1041 @@
+name: Temporary IR-10.3 core implementation
+
+on:
+  push:
+    branches:
+      - agent/ir-10-3-labs-postgresql-authority-v2
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[ir-10-3-core-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ir-10-3-labs-postgresql-authority-v2
+          fetch-depth: 0
+      - name: Install PostgreSQL-authoritative Labs core
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('.')
+
+          def write(path: str, content: str) -> None:
+              target = root / path
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(content)
+
+          write('apps/api/src/modules/labs/lab.repository.ts', r'''import type { RequestUser } from '../../common/types/request-user';
+
+export const LAB_REPOSITORY = 'LAB_REPOSITORY';
+
+export type LabCommand = Readonly<{
+  commandId: string;
+  idempotencyKey: string;
+  expectedVersion: string;
+  correlationId?: string;
+}>;
+
+export type CreateSampleCommand = LabCommand & Readonly<{
+  dealId: string;
+  shipmentId?: string;
+  note?: string;
+}>;
+
+export type CollectSampleCommand = LabCommand & Readonly<{
+  occurredAt: string;
+  evidenceRef: string;
+}>;
+
+export type RecordLabTestCommand = LabCommand & Readonly<{
+  metric: string;
+  value: number;
+  unit?: string;
+  note?: string;
+  methodId: string;
+  equipmentId: string;
+}>;
+
+export type FinalizeSampleCommand = LabCommand & Readonly<{
+  protocolBasisId: string;
+  finalizedAt: string;
+}>;
+
+export type LabSampleRecord = Readonly<{
+  id: string;
+  dealId: string;
+  shipmentId: string | null;
+  acceptanceId: string | null;
+  status: string;
+  culture: string | null;
+  protocol: string | null;
+  gost: string | null;
+  labId: string | null;
+  labName: string | null;
+  collectedAt: Date | null;
+  finalizedAt: Date | null;
+  certificateDocId: string | null;
+  version: string;
+  createdAt: Date;
+}>;
+
+export type LabTestRecord = Readonly<{
+  id: string;
+  sampleId: string;
+  parameter: string;
+  value: number;
+  unit: string | null;
+  normMin: number | null;
+  normMax: number | null;
+  passed: boolean;
+  gradeDelta: number | null;
+  recordedAt: Date;
+}>;
+
+export type CustodyEventRecord = Readonly<{
+  id: string;
+  sampleId: string;
+  eventType: string;
+  fromOrgId: string | null;
+  toOrgId: string | null;
+  actorUserId: string;
+  evidenceFileId: string;
+  occurredAt: Date;
+  commandId: string;
+}>;
+
+export type LabWorkspace = Readonly<{
+  sample: LabSampleRecord;
+  tests: LabTestRecord[];
+  custody: CustodyEventRecord[];
+}>;
+
+export type LabMutationResult = Readonly<{
+  sample: LabSampleRecord;
+  auditId: string;
+  outboxId: string;
+  duplicate: boolean;
+  test?: LabTestRecord;
+}>;
+
+export interface LabRepository {
+  list(user: RequestUser): Promise<LabSampleRecord[]>;
+  getById(id: string, user: RequestUser): Promise<LabSampleRecord>;
+  workspace(id: string, user: RequestUser): Promise<LabWorkspace>;
+  create(command: CreateSampleCommand, user: RequestUser): Promise<LabMutationResult>;
+  collect(id: string, command: CollectSampleCommand, user: RequestUser): Promise<LabMutationResult>;
+  recordTest(id: string, command: RecordLabTestCommand, user: RequestUser): Promise<LabMutationResult>;
+  finalize(id: string, command: FinalizeSampleCommand, user: RequestUser): Promise<LabMutationResult>;
+}
+''')
+
+          write('apps/api/src/modules/labs/dto/lab-command.dto.ts', r'''import { IsOptional, IsString, Matches } from 'class-validator';
+
+export class LabCommandDto {
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_.-]{1,200}$/)
+  commandId!: string;
+
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_.-]{1,200}$/)
+  idempotencyKey!: string;
+
+  @IsString()
+  @Matches(/^\d+$/)
+  expectedVersion!: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_.-]{1,200}$/)
+  correlationId?: string;
+}
+''')
+
+          write('apps/api/src/modules/labs/dto/create-sample.dto.ts', r'''import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { LabCommandDto } from './lab-command.dto';
+
+export class CreateSampleDto extends LabCommandDto {
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_.-]{1,200}$/)
+  dealId!: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_.-]{1,200}$/)
+  shipmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+}
+''')
+
+          write('apps/api/src/modules/labs/dto/collect-sample.dto.ts', r'''import { IsISO8601, IsString, Matches } from 'class-validator';
+import { LabCommandDto } from './lab-command.dto';
+
+export class CollectSampleDto extends LabCommandDto {
+  @IsISO8601()
+  occurredAt!: string;
+
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_.-]{1,200}$/)
+  evidenceRef!: string;
+}
+''')
+
+          write('apps/api/src/modules/labs/dto/record-test.dto.ts', r'''import { IsNumber, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { LabCommandDto } from './lab-command.dto';
+
+export class RecordTestDto extends LabCommandDto {
+  @IsString()
+  @Matches(/^[A-Za-z0-9_.:-]{1,120}$/)
+  metric!: string;
+
+  @IsNumber()
+  value!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  unit?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_.-]{1,200}$/)
+  methodId!: string;
+
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_.-]{1,200}$/)
+  equipmentId!: string;
+}
+''')
+
+          write('apps/api/src/modules/labs/dto/finalize-sample.dto.ts', r'''import { IsISO8601, IsString, Matches } from 'class-validator';
+import { LabCommandDto } from './lab-command.dto';
+
+export class FinalizeSampleDto extends LabCommandDto {
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_.-]{1,200}$/)
+  protocolBasisId!: string;
+
+  @IsISO8601()
+  finalizedAt!: string;
+}
+''')
+
+          write('apps/api/src/modules/labs/labs.module.ts', r'''import { Module } from '@nestjs/common';
+import { LabsController } from './labs.controller';
+import { LabsService } from './labs.service';
+import { PrismaLabRepository } from './prisma-lab.repository';
+import { LAB_REPOSITORY } from './lab.repository';
+
+/**
+ * Production laboratory execution is PostgreSQL-authoritative by construction.
+ * RuntimeCore, repository factories, optional Prisma and process-memory protocol
+ * authority are absent from this dependency graph.
+ */
+@Module({
+  controllers: [LabsController],
+  providers: [
+    LabsService,
+    PrismaLabRepository,
+    { provide: LAB_REPOSITORY, useExisting: PrismaLabRepository },
+  ],
+  exports: [LabsService],
+})
+export class LabsModule {}
+''')
+
+          write('apps/api/src/modules/labs/labs.service.ts', r'''import { Inject, Injectable } from '@nestjs/common';
+import type { RequestUser } from '../../common/types/request-user';
+import { CreateSampleDto } from './dto/create-sample.dto';
+import { CollectSampleDto } from './dto/collect-sample.dto';
+import { RecordTestDto } from './dto/record-test.dto';
+import { FinalizeSampleDto } from './dto/finalize-sample.dto';
+import { LAB_REPOSITORY, type LabRepository } from './lab.repository';
+
+@Injectable()
+export class LabsService {
+  constructor(@Inject(LAB_REPOSITORY) private readonly labs: LabRepository) {}
+
+  list(user: RequestUser) {
+    return this.labs.list(user);
+  }
+
+  getOne(id: string, user: RequestUser) {
+    return this.labs.getById(id, user);
+  }
+
+  workspace(id: string, user: RequestUser) {
+    return this.labs.workspace(id, user);
+  }
+
+  create(dto: CreateSampleDto, user: RequestUser) {
+    return this.labs.create(dto, user);
+  }
+
+  collect(id: string, dto: CollectSampleDto, user: RequestUser) {
+    return this.labs.collect(id, dto, user);
+  }
+
+  recordTest(id: string, dto: RecordTestDto, user: RequestUser) {
+    return this.labs.recordTest(id, dto, user);
+  }
+
+  finalize(id: string, dto: FinalizeSampleDto, user: RequestUser) {
+    return this.labs.finalize(id, dto, user);
+  }
+}
+''')
+
+          write('apps/api/src/modules/labs/labs.controller.ts', r'''import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import type { RequestUser } from '../../common/types/request-user';
+import { LabsService } from './labs.service';
+import { CreateSampleDto } from './dto/create-sample.dto';
+import { CollectSampleDto } from './dto/collect-sample.dto';
+import { RecordTestDto } from './dto/record-test.dto';
+import { FinalizeSampleDto } from './dto/finalize-sample.dto';
+
+@UseGuards(RolesGuard)
+@Roles('LAB', 'SURVEYOR', 'ELEVATOR', 'SUPPORT_MANAGER', 'ADMIN', 'BUYER', 'FARMER')
+@Controller('labs')
+export class LabsController {
+  constructor(private readonly labs: LabsService) {}
+
+  @Get('samples')
+  list(@CurrentUser() user: RequestUser) {
+    return this.labs.list(user);
+  }
+
+  @Get('samples/:id')
+  getOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.labs.getOne(id, user);
+  }
+
+  @Get('samples/:id/workspace')
+  workspace(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.labs.workspace(id, user);
+  }
+
+  @Post('samples')
+  create(@Body() dto: CreateSampleDto, @CurrentUser() user: RequestUser) {
+    return this.labs.create(dto, user);
+  }
+
+  @Patch('samples/:id/collect')
+  collect(@Param('id') id: string, @Body() dto: CollectSampleDto, @CurrentUser() user: RequestUser) {
+    return this.labs.collect(id, dto, user);
+  }
+
+  @Post('samples/:id/tests')
+  recordTest(@Param('id') id: string, @Body() dto: RecordTestDto, @CurrentUser() user: RequestUser) {
+    return this.labs.recordTest(id, dto, user);
+  }
+
+  @Patch('samples/:id/finalize')
+  finalize(@Param('id') id: string, @Body() dto: FinalizeSampleDto, @CurrentUser() user: RequestUser) {
+    return this.labs.finalize(id, dto, user);
+  }
+}
+''')
+
+          write('apps/api/src/modules/labs/prisma-lab.repository.ts', r'''import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { createHash, randomUUID } from 'crypto';
+import { Prisma } from '@prisma/client';
+import {
+  RlsTransactionService,
+  TrustedRlsContext,
+} from '../../common/prisma/rls-transaction.service';
+import { Role, type RequestUser } from '../../common/types/request-user';
+import {
+  CollectSampleCommand,
+  CreateSampleCommand,
+  CustodyEventRecord,
+  FinalizeSampleCommand,
+  LabCommand,
+  LabMutationResult,
+  LabRepository,
+  LabSampleRecord,
+  LabTestRecord,
+  LabWorkspace,
+  RecordLabTestCommand,
+} from './lab.repository';
+
+type SampleAuthorityRecord = Omit<LabSampleRecord, 'version'> & Readonly<{ version: number }>;
+
+type MutationArtifacts = Readonly<{
+  sample: SampleAuthorityRecord;
+  test?: LabTestRecord;
+  eventPayload: Prisma.InputJsonObject;
+}>;
+
+type ProtocolBasisRecord = Readonly<{
+  id: string;
+  protocol_number: string;
+  applicable_standard: string;
+  signed_evidence_id: string;
+}>;
+
+const SAMPLE_MUTATION_ROLES = new Set<string>([
+  Role.LAB,
+  Role.SURVEYOR,
+  Role.ELEVATOR,
+  Role.SUPPORT_MANAGER,
+  Role.ADMIN,
+]);
+
+@Injectable()
+export class PrismaLabRepository implements LabRepository {
+  constructor(private readonly rls: RlsTransactionService) {}
+
+  async list(user: RequestUser): Promise<LabSampleRecord[]> {
+    return this.rls.withTrustedContext(user, async (tx) => {
+      const rows = await tx.$queryRaw<SampleAuthorityRecord[]>(Prisma.sql`
+        SELECT sample.*
+        FROM public."lab_samples" sample
+        ORDER BY sample."createdAt" DESC, sample."id" ASC
+        LIMIT 500
+      `);
+      return rows.map(publicSample);
+    });
+  }
+
+  async getById(id: string, user: RequestUser): Promise<LabSampleRecord> {
+    const sampleId = requiredIdentifier(id, 'sampleId');
+    return this.rls.withTrustedContext(user, async (tx) => {
+      const sample = await this.findSample(tx, sampleId);
+      if (!sample) throw scopedNotFound();
+      return publicSample(sample);
+    });
+  }
+
+  async workspace(id: string, user: RequestUser): Promise<LabWorkspace> {
+    const sampleId = requiredIdentifier(id, 'sampleId');
+    return this.rls.withTrustedContext(user, async (tx) => {
+      const sample = await this.findSample(tx, sampleId);
+      if (!sample) throw scopedNotFound();
+      const [tests, custody] = await Promise.all([
+        this.findTests(tx, sampleId),
+        tx.$queryRaw<CustodyEventRecord[]>(Prisma.sql`
+          SELECT event.id, event.sample_id AS "sampleId", event.event_type AS "eventType",
+                 event.from_org_id AS "fromOrgId", event.to_org_id AS "toOrgId",
+                 event.actor_user_id AS "actorUserId", event.evidence_file_id AS "evidenceFileId",
+                 event.occurred_at AS "occurredAt", event.command_id AS "commandId"
+          FROM laboratory.custody_events event
+          WHERE event.sample_id = ${sampleId}
+          ORDER BY event.occurred_at ASC, event.id ASC
+          LIMIT 1000
+        `),
+      ]);
+      return { sample: publicSample(sample), tests, custody };
+    });
+  }
+
+  async create(command: CreateSampleCommand, user: RequestUser): Promise<LabMutationResult> {
+    this.assertMutationRole(user);
+    const normalized = {
+      commandId: requiredIdentifier(command.commandId, 'commandId'),
+      idempotencyKey: requiredIdentifier(command.idempotencyKey, 'idempotencyKey'),
+      expectedVersion: requiredVersion(command.expectedVersion),
+      correlationId: optionalIdentifier(command.correlationId, 'correlationId') ?? command.commandId,
+      dealId: requiredIdentifier(command.dealId, 'dealId'),
+      shipmentId: optionalIdentifier(command.shipmentId, 'shipmentId'),
+      note: optionalText(command.note, 1000),
+    };
+    if (normalized.expectedVersion !== 0n) {
+      throw new ConflictException({ code: 'NEW_SAMPLE_VERSION_MUST_BE_ZERO' });
+    }
+    const requestFingerprint = digest({ action: 'laboratory.sample.create', command: normalized });
+    try {
+      return await this.rls.withTrustedContext(user, async (tx, context) => {
+        const persistentKey = this.persistentKey(context, normalized.idempotencyKey);
+        const replay = await this.replay(tx, persistentKey, requestFingerprint);
+        if (replay) return replay;
+        await tx.$queryRaw(Prisma.sql`
+          SELECT pg_advisory_xact_lock(hashtextextended(${normalized.dealId}, 43)) IS NULL AS locked
+        `);
+        const lockedReplay = await this.replay(tx, persistentKey, requestFingerprint);
+        if (lockedReplay) return lockedReplay;
+
+        const deal = await tx.deal.findUnique({ where: { id: normalized.dealId } });
+        if (!deal || deal.tenantId !== context.tenantId) throw scopedNotFound();
+        if (normalized.shipmentId) {
+          const shipment = await tx.shipment.findUnique({ where: { id: normalized.shipmentId } });
+          if (!shipment || shipment.dealId !== deal.id) throw new BadRequestException({ code: 'SHIPMENT_SCOPE_MISMATCH' });
+        }
+        const authority = await tx.$queryRaw<Array<{
+          lab_org_id: string;
+          organization_id: string;
+          accreditation_id: string;
+          method_id: string;
+          equipment_id: string;
+        }>>(Prisma.sql`
+          SELECT lab.id AS lab_org_id, lab.organization_id, accreditation.id AS accreditation_id,
+                 method.id AS method_id, equipment.id AS equipment_id
+          FROM laboratory.lab_organizations lab
+          JOIN laboratory.accreditations accreditation
+            ON accreditation.lab_org_id = lab.id AND accreditation.tenant_id = lab.tenant_id
+          JOIN laboratory.methods method
+            ON method.lab_org_id = lab.id AND method.tenant_id = lab.tenant_id
+          JOIN laboratory.equipment equipment
+            ON equipment.lab_org_id = lab.id AND equipment.tenant_id = lab.tenant_id
+          JOIN public."deal_participants" participant
+            ON participant."dealId" = ${deal.id}
+           AND participant."tenantId" = lab.tenant_id
+           AND participant."organizationId" = lab.organization_id
+           AND participant."role" = 'LAB'
+           AND participant."status" = 'ACTIVE'
+          JOIN laboratory.samplers sampler
+            ON sampler.tenant_id = lab.tenant_id
+           AND sampler.user_id = ${context.userId}
+           AND sampler.status = 'ACTIVE'
+          WHERE lab.tenant_id = ${context.tenantId}
+            AND lab.status = 'VERIFIED'
+            AND accreditation.status = 'ACTIVE'
+            AND method.status = 'ACTIVE'
+            AND equipment.status = 'ACTIVE'
+            AND now() >= accreditation.valid_from
+            AND (accreditation.valid_until IS NULL OR accreditation.valid_until > now())
+          ORDER BY CASE WHEN lab.organization_id = ${context.orgId} THEN 0 ELSE 1 END, lab.id
+          LIMIT 1
+        `);
+        const selected = authority[0];
+        if (!selected) throw new ForbiddenException({ code: 'LABORATORY_AUTHORITY_NOT_FOUND' });
+
+        const sampleId = `sample-${randomUUID()}`;
+        const rows = await tx.$queryRaw<SampleAuthorityRecord[]>(Prisma.sql`
+          INSERT INTO public."lab_samples" (
+            "id", "dealId", "shipmentId", "status", "labId", "labName", "version", "createdAt"
+          )
+          SELECT ${sampleId}, ${deal.id}, ${normalized.shipmentId ?? null}, 'PENDING',
+                 organization.id, organization.name, 1, now()
+          FROM public."organizations" organization
+          WHERE organization.id = ${selected.organization_id}
+          RETURNING *
+        `);
+        const sample = rows[0];
+        if (!sample) throw new ConflictException('Laboratory sample insert returned no authoritative row.');
+        await tx.$executeRaw(Prisma.sql`
+          INSERT INTO laboratory.sample_authorities (
+            sample_id, tenant_id, deal_id, lab_org_id, accreditation_id,
+            sampler_user_id, method_id, equipment_id, status, note
+          ) VALUES (
+            ${sample.id}, ${context.tenantId}, ${deal.id}, ${selected.lab_org_id},
+            ${selected.accreditation_id}, ${context.userId}, ${selected.method_id},
+            ${selected.equipment_id}, 'ACTIVE', ${normalized.note ?? null}
+          )
+        `);
+        return this.persistArtifacts(tx, context, normalized, requestFingerprint, {
+          sample,
+          eventPayload: { sampleId: sample.id, dealId: deal.id },
+        }, 'laboratory.sample.create', 'laboratory.sample.created');
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 20000 });
+    } catch (error) {
+      return this.replayAfterUnique(error, user, normalized.idempotencyKey, requestFingerprint);
+    }
+  }
+
+  async collect(id: string, command: CollectSampleCommand, user: RequestUser): Promise<LabMutationResult> {
+    this.assertMutationRole(user);
+    const normalized = normalizeCommand(command, {
+      occurredAt: requiredDate(command.occurredAt, 'occurredAt'),
+      evidenceRef: requiredIdentifier(command.evidenceRef, 'evidenceRef'),
+    });
+    return this.executeExistingMutation(
+      requiredIdentifier(id, 'sampleId'), normalized, user,
+      'laboratory.sample.collect', 'laboratory.sample.collected',
+      async (tx, sample, context) => {
+        this.assertVersion(sample, normalized.expectedVersion);
+        if (!['PENDING', 'COLLECTED'].includes(sample.status)) {
+          throw new ConflictException({ code: 'LAB_SAMPLE_STATE_CONFLICT', currentStatus: sample.status });
+        }
+        await this.assertEvidence(tx, normalized.evidenceRef as string, sample.dealId);
+        const rows = await tx.$queryRaw<SampleAuthorityRecord[]>(Prisma.sql`
+          UPDATE public."lab_samples"
+          SET "status" = 'COLLECTED', "collectedAt" = ${normalized.occurredAt as Date},
+              "version" = "version" + 1
+          WHERE "id" = ${sample.id} AND "version" = ${sample.version}
+          RETURNING *
+        `);
+        const updated = rows[0];
+        if (!updated) throw staleVersion(sample.version);
+        await tx.$executeRaw(Prisma.sql`
+          INSERT INTO laboratory.custody_events (
+            id, tenant_id, deal_id, sample_id, event_type, from_org_id, to_org_id,
+            actor_user_id, evidence_file_id, occurred_at, command_id
+          )
+          SELECT ${`custody-${randomUUID()}`}, ${context.tenantId}, ${sample.dealId}, ${sample.id},
+                 'RECEIVED_BY_LAB', ${context.orgId}, lab.organization_id,
+                 ${context.userId}, ${normalized.evidenceRef as string},
+                 ${normalized.occurredAt as Date}, ${normalized.commandId}
+          FROM laboratory.sample_authorities authority
+          JOIN laboratory.lab_organizations lab ON lab.id = authority.lab_org_id
+          WHERE authority.sample_id = ${sample.id} AND authority.status = 'ACTIVE'
+        `);
+        return { sample: updated, eventPayload: { sampleId: sample.id, evidenceRef: normalized.evidenceRef as string } };
+      },
+    );
+  }
+
+  async recordTest(id: string, command: RecordLabTestCommand, user: RequestUser): Promise<LabMutationResult> {
+    if (![Role.LAB, Role.SUPPORT_MANAGER, Role.ADMIN].includes(user.role as never)) {
+      throw new ForbiddenException({ code: 'LAB_TEST_ROLE_DENIED' });
+    }
+    const normalized = normalizeCommand(command, {
+      metric: requiredMetric(command.metric),
+      value: requiredFinite(command.value, 'value'),
+      unit: optionalText(command.unit, 40),
+      note: optionalText(command.note, 1000),
+      methodId: requiredIdentifier(command.methodId, 'methodId'),
+      equipmentId: requiredIdentifier(command.equipmentId, 'equipmentId'),
+    });
+    return this.executeExistingMutation(
+      requiredIdentifier(id, 'sampleId'), normalized, user,
+      'laboratory.test.record', 'laboratory.test.recorded',
+      async (tx, sample, context) => {
+        this.assertVersion(sample, normalized.expectedVersion);
+        if (!['COLLECTED', 'TESTING'].includes(sample.status)) {
+          throw new ConflictException({ code: 'LAB_SAMPLE_STATE_CONFLICT', currentStatus: sample.status });
+        }
+        const authority = await tx.$queryRaw<Array<{ ok: boolean }>>(Prisma.sql`
+          SELECT TRUE AS ok
+          FROM laboratory.sample_authorities sample_authority
+          JOIN laboratory.authorized_actors actor
+            ON actor.lab_org_id = sample_authority.lab_org_id
+           AND actor.tenant_id = sample_authority.tenant_id
+           AND actor.user_id = ${context.userId}
+           AND actor.status = 'ACTIVE'
+          JOIN laboratory.methods method
+            ON method.id = ${normalized.methodId as string}
+           AND method.lab_org_id = sample_authority.lab_org_id
+           AND method.status = 'ACTIVE'
+          JOIN laboratory.equipment equipment
+            ON equipment.id = ${normalized.equipmentId as string}
+           AND equipment.lab_org_id = sample_authority.lab_org_id
+           AND equipment.status = 'ACTIVE'
+          WHERE sample_authority.sample_id = ${sample.id}
+            AND sample_authority.status = 'ACTIVE'
+          LIMIT 1
+        `);
+        if (!authority[0]) throw new ForbiddenException({ code: 'LAB_TEST_AUTHORITY_DENIED' });
+        const testId = `lab-test-${randomUUID()}`;
+        const tests = await tx.$queryRaw<LabTestRecord[]>(Prisma.sql`
+          INSERT INTO public."lab_tests" (
+            "id", "sampleId", "parameter", "value", "unit", "passed", "recordedAt"
+          ) VALUES (
+            ${testId}, ${sample.id}, ${normalized.metric as string}, ${normalized.value as number},
+            ${normalized.unit as string | undefined ?? null}, TRUE, now()
+          )
+          RETURNING *
+        `);
+        const test = tests[0];
+        if (!test) throw new ConflictException('Laboratory test insert returned no authoritative row.');
+        const rows = await tx.$queryRaw<SampleAuthorityRecord[]>(Prisma.sql`
+          UPDATE public."lab_samples"
+          SET "status" = 'TESTING', "version" = "version" + 1
+          WHERE "id" = ${sample.id} AND "version" = ${sample.version}
+          RETURNING *
+        `);
+        const updated = rows[0];
+        if (!updated) throw staleVersion(sample.version);
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE laboratory.test_facts
+          SET method_id = ${normalized.methodId as string},
+              equipment_id = ${normalized.equipmentId as string},
+              note = ${normalized.note as string | undefined ?? null}
+          WHERE lab_test_id = ${test.id}
+        `);
+        return { sample: updated, test, eventPayload: { sampleId: sample.id, testId: test.id } };
+      },
+    );
+  }
+
+  async finalize(id: string, command: FinalizeSampleCommand, user: RequestUser): Promise<LabMutationResult> {
+    if (![Role.LAB, Role.SUPPORT_MANAGER, Role.ADMIN].includes(user.role as never)) {
+      throw new ForbiddenException({ code: 'LAB_FINALIZE_ROLE_DENIED' });
+    }
+    const normalized = normalizeCommand(command, {
+      protocolBasisId: requiredIdentifier(command.protocolBasisId, 'protocolBasisId'),
+      finalizedAt: requiredDate(command.finalizedAt, 'finalizedAt'),
+    });
+    return this.executeExistingMutation(
+      requiredIdentifier(id, 'sampleId'), normalized, user,
+      'laboratory.sample.finalize', 'laboratory.protocol.finalized',
+      async (tx, sample) => {
+        this.assertVersion(sample, normalized.expectedVersion);
+        if (!['COLLECTED', 'TESTING'].includes(sample.status)) {
+          throw new ConflictException({ code: 'LAB_SAMPLE_STATE_CONFLICT', currentStatus: sample.status });
+        }
+        const bases = await tx.$queryRaw<ProtocolBasisRecord[]>(Prisma.sql`
+          SELECT id, protocol_number, applicable_standard, signed_evidence_id
+          FROM laboratory.protocol_bases
+          WHERE id = ${normalized.protocolBasisId as string}
+            AND sample_id = ${sample.id}
+            AND status = 'ACTIVE'
+            AND valid_from <= now()
+            AND (valid_until IS NULL OR valid_until > now())
+          FOR UPDATE
+        `);
+        const basis = bases[0];
+        if (!basis) throw new ConflictException({ code: 'ACTIVE_PROTOCOL_BASIS_NOT_FOUND' });
+        const rows = await tx.$queryRaw<SampleAuthorityRecord[]>(Prisma.sql`
+          UPDATE public."lab_samples"
+          SET "status" = 'DONE', "protocol" = ${basis.protocol_number},
+              "gost" = ${basis.applicable_standard}, "finalizedAt" = ${normalized.finalizedAt as Date},
+              "certificateDocId" = ${basis.signed_evidence_id}, "version" = "version" + 1
+          WHERE "id" = ${sample.id} AND "version" = ${sample.version}
+          RETURNING *
+        `);
+        const updated = rows[0];
+        if (!updated) throw staleVersion(sample.version);
+        return { sample: updated, eventPayload: { sampleId: sample.id, protocolBasisId: basis.id } };
+      },
+    );
+  }
+
+  private async executeExistingMutation(
+    sampleId: string,
+    command: Record<string, unknown> & { commandId: string; idempotencyKey: string; expectedVersion: bigint; correlationId?: string },
+    user: RequestUser,
+    action: string,
+    eventType: string,
+    work: (
+      tx: Prisma.TransactionClient,
+      sample: SampleAuthorityRecord,
+      context: TrustedRlsContext,
+    ) => Promise<MutationArtifacts>,
+  ): Promise<LabMutationResult> {
+    const requestFingerprint = digest({ action, sampleId, command });
+    try {
+      return await this.rls.withTrustedContext(user, async (tx, context) => {
+        const persistentKey = this.persistentKey(context, command.idempotencyKey);
+        const replay = await this.replay(tx, persistentKey, requestFingerprint);
+        if (replay) return replay;
+        const candidate = await this.findSample(tx, sampleId);
+        if (!candidate) throw scopedNotFound();
+        await tx.$queryRaw(Prisma.sql`
+          SELECT pg_advisory_xact_lock(hashtextextended(${candidate.dealId}, 43)) IS NULL AS locked
+        `);
+        const lockedReplay = await this.replay(tx, persistentKey, requestFingerprint);
+        if (lockedReplay) return lockedReplay;
+        const sample = await this.findSample(tx, sampleId);
+        if (!sample) throw scopedNotFound();
+        const artifacts = await work(tx, sample, context);
+        return this.persistArtifacts(tx, context, command, requestFingerprint, artifacts, action, eventType, sample);
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 20000 });
+    } catch (error) {
+      return this.replayAfterUnique(error, user, command.idempotencyKey, requestFingerprint);
+    }
+  }
+
+  private async persistArtifacts(
+    tx: Prisma.TransactionClient,
+    context: TrustedRlsContext,
+    command: { commandId: string; idempotencyKey: string; correlationId?: string },
+    requestFingerprint: string,
+    artifacts: MutationArtifacts,
+    action: string,
+    eventType: string,
+    before?: SampleAuthorityRecord,
+  ): Promise<LabMutationResult> {
+    const persistentKey = this.persistentKey(context, command.idempotencyKey);
+    const auditId = `audit-${randomUUID()}`;
+    const outboxId = `outbox-${randomUUID()}`;
+    const previousAudit = await tx.auditEvent.findFirst({
+      where: { dealId: artifacts.sample.dealId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    const auditMaterial = {
+      id: auditId,
+      action,
+      actorUserId: context.userId,
+      actorRole: context.role,
+      tenantId: context.tenantId,
+      orgId: context.orgId,
+      dealId: artifacts.sample.dealId,
+      objectType: 'lab_sample',
+      objectId: artifacts.sample.id,
+      beforeState: before ? sampleState(before) : null,
+      afterState: sampleState(artifacts.sample),
+      outcome: 'SUCCESS',
+      correlationId: command.correlationId ?? command.commandId,
+      metadata: {
+        commandId: command.commandId,
+        idempotencyKey: persistentKey,
+        eventType,
+        ...artifacts.eventPayload,
+      },
+      prevHash: previousAudit?.hash ?? null,
+    };
+    await tx.auditEvent.create({
+      data: {
+        ...auditMaterial,
+        beforeState: auditMaterial.beforeState as Prisma.InputJsonValue | undefined,
+        afterState: auditMaterial.afterState as Prisma.InputJsonValue,
+        metadata: auditMaterial.metadata as Prisma.InputJsonValue,
+        hash: digest(auditMaterial),
+      },
+    });
+    await tx.outboxEntry.create({
+      data: {
+        id: outboxId,
+        type: eventType,
+        dealId: artifacts.sample.dealId,
+        status: 'PENDING',
+        idempotencyKey: persistentKey,
+        correlationId: command.correlationId ?? command.commandId,
+        auditId,
+        payload: {
+          schemaVersion: 'laboratory-event.v1',
+          requestFingerprint,
+          sampleId: artifacts.sample.id,
+          testId: artifacts.test?.id ?? null,
+          ...artifacts.eventPayload,
+        } as Prisma.InputJsonValue,
+      },
+    });
+    return {
+      sample: publicSample(artifacts.sample),
+      test: artifacts.test,
+      auditId,
+      outboxId,
+      duplicate: false,
+    };
+  }
+
+  private async replay(
+    tx: Prisma.TransactionClient,
+    persistentKey: string,
+    requestFingerprint: string,
+  ): Promise<LabMutationResult | null> {
+    const outbox = await tx.outboxEntry.findUnique({ where: { idempotencyKey: persistentKey } });
+    if (!outbox) return null;
+    const payload = jsonObject(outbox.payload);
+    if (payload.requestFingerprint !== requestFingerprint) {
+      throw new ConflictException({ code: 'IDEMPOTENCY_KEY_REUSED' });
+    }
+    if (!outbox.auditId || typeof payload.sampleId !== 'string') {
+      throw new ConflictException('Atomic laboratory receipt is incomplete.');
+    }
+    const sample = await this.findSample(tx, payload.sampleId);
+    if (!sample) throw new ConflictException('Laboratory replay sample is no longer visible.');
+    const test = typeof payload.testId === 'string' ? await this.findTest(tx, payload.testId) : undefined;
+    return {
+      sample: publicSample(sample),
+      test,
+      auditId: outbox.auditId,
+      outboxId: outbox.id,
+      duplicate: true,
+    };
+  }
+
+  private async replayAfterUnique(
+    error: unknown,
+    user: RequestUser,
+    idempotencyKey: string,
+    requestFingerprint: string,
+  ): Promise<LabMutationResult> {
+    if (!isUniqueConstraintError(error)) throw error;
+    return this.rls.withTrustedContext(user, async (tx, context) => {
+      const replay = await this.replay(tx, this.persistentKey(context, idempotencyKey), requestFingerprint);
+      if (!replay) throw error;
+      return replay;
+    });
+  }
+
+  private async findSample(tx: Prisma.TransactionClient, id: string): Promise<SampleAuthorityRecord | null> {
+    const rows = await tx.$queryRaw<SampleAuthorityRecord[]>(Prisma.sql`
+      SELECT sample.* FROM public."lab_samples" sample WHERE sample."id" = ${id} LIMIT 1
+    `);
+    return rows[0] ?? null;
+  }
+
+  private async findTests(tx: Prisma.TransactionClient, sampleId: string): Promise<LabTestRecord[]> {
+    return tx.$queryRaw<LabTestRecord[]>(Prisma.sql`
+      SELECT test.* FROM public."lab_tests" test
+      WHERE test."sampleId" = ${sampleId}
+      ORDER BY test."recordedAt" ASC, test."id" ASC
+      LIMIT 5000
+    `);
+  }
+
+  private async findTest(tx: Prisma.TransactionClient, id: string): Promise<LabTestRecord | undefined> {
+    const rows = await tx.$queryRaw<LabTestRecord[]>(Prisma.sql`
+      SELECT test.* FROM public."lab_tests" test WHERE test."id" = ${id} LIMIT 1
+    `);
+    return rows[0];
+  }
+
+  private async assertEvidence(tx: Prisma.TransactionClient, evidenceId: string, dealId: string): Promise<void> {
+    const rows = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
+      SELECT public.app_laboratory_evidence_valid(${evidenceId}, current_setting('app.current_tenant_id', true), ${dealId}) AS valid
+    `);
+    if (!rows[0]?.valid) throw new BadRequestException({ code: 'LAB_EVIDENCE_INVALID' });
+  }
+
+  private assertMutationRole(user: RequestUser): void {
+    if (!SAMPLE_MUTATION_ROLES.has(String(user.role))) {
+      throw new ForbiddenException({ code: 'LAB_SAMPLE_MUTATION_ROLE_DENIED' });
+    }
+  }
+
+  private assertVersion(sample: SampleAuthorityRecord, expected: bigint): void {
+    if (BigInt(sample.version) !== expected) throw staleVersion(sample.version);
+  }
+
+  private persistentKey(context: TrustedRlsContext, clientKey: string): string {
+    return `laboratory:${context.tenantId}:${context.userId}:${clientKey}`;
+  }
+}
+
+function normalizeCommand<T extends Record<string, unknown>>(
+  command: LabCommand,
+  extra: T,
+): T & { commandId: string; idempotencyKey: string; expectedVersion: bigint; correlationId?: string } {
+  return {
+    ...extra,
+    commandId: requiredIdentifier(command.commandId, 'commandId'),
+    idempotencyKey: requiredIdentifier(command.idempotencyKey, 'idempotencyKey'),
+    expectedVersion: requiredVersion(command.expectedVersion),
+    correlationId: optionalIdentifier(command.correlationId, 'correlationId') ?? command.commandId,
+  };
+}
+
+function publicSample(sample: SampleAuthorityRecord): LabSampleRecord {
+  return { ...sample, version: String(sample.version) };
+}
+
+function sampleState(sample: SampleAuthorityRecord): Prisma.InputJsonObject {
+  return {
+    id: sample.id,
+    dealId: sample.dealId,
+    shipmentId: sample.shipmentId,
+    status: sample.status,
+    protocol: sample.protocol,
+    gost: sample.gost,
+    labId: sample.labId,
+    collectedAt: sample.collectedAt?.toISOString() ?? null,
+    finalizedAt: sample.finalizedAt?.toISOString() ?? null,
+    version: String(sample.version),
+  };
+}
+
+function scopedNotFound(): NotFoundException {
+  return new NotFoundException({ code: 'LAB_SAMPLE_NOT_FOUND' });
+}
+
+function staleVersion(current: number): ConflictException {
+  return new ConflictException({ code: 'STALE_LAB_SAMPLE_VERSION', currentVersion: String(current) });
+}
+
+function requiredIdentifier(value: string | undefined, field: string): string {
+  const normalized = String(value ?? '').trim();
+  if (!normalized || normalized.length > 200 || !/^[A-Za-z0-9:_.-]+$/.test(normalized)) {
+    throw new BadRequestException({ code: 'INVALID_IDENTIFIER', field });
+  }
+  return normalized;
+}
+
+function optionalIdentifier(value: string | undefined, field: string): string | undefined {
+  return value === undefined ? undefined : requiredIdentifier(value, field);
+}
+
+function requiredVersion(value: string): bigint {
+  const normalized = String(value ?? '').trim();
+  if (!/^\d+$/.test(normalized)) throw new BadRequestException({ code: 'INVALID_EXPECTED_VERSION' });
+  return BigInt(normalized);
+}
+
+function requiredDate(value: string, field: string): Date {
+  const date = new Date(String(value ?? ''));
+  if (!value || Number.isNaN(date.getTime())) throw new BadRequestException({ code: 'INVALID_DATE', field });
+  return date;
+}
+
+function requiredMetric(value: string): string {
+  const normalized = String(value ?? '').trim();
+  if (!normalized || normalized.length > 120 || !/^[A-Za-z0-9_.:-]+$/.test(normalized)) {
+    throw new BadRequestException({ code: 'INVALID_LAB_METRIC' });
+  }
+  return normalized;
+}
+
+function requiredFinite(value: number, field: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new BadRequestException({ code: 'INVALID_NUMBER', field });
+  }
+  return value;
+}
+
+function optionalText(value: string | undefined, max: number): string | undefined {
+  if (value === undefined) return undefined;
+  const normalized = String(value).trim();
+  if (normalized.length > max) throw new BadRequestException({ code: 'TEXT_TOO_LONG' });
+  return normalized || undefined;
+}
+
+function jsonObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function stable(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stable);
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'bigint') return value.toString();
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => [key, stable(child)]),
+    );
+  }
+  return value;
+}
+
+function digest(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && (error as { code?: unknown }).code === 'P2002');
+}
+''')
+
+          for legacy in [
+              'apps/api/src/modules/labs/runtime-lab.repository.ts',
+              'apps/api/src/modules/labs/lab-repository.factory.ts',
+              'apps/api/src/modules/labs/lab-repository.spec.ts',
+          ]:
+              path = root / legacy
+              if path.exists():
+                  path.unlink()
+
+          (root / '.github/workflows/tmp-implement-ir-10-3-core.yml').unlink()
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(labs): make Prisma repository the exclusive runtime boundary [ir-10-3-core-applied]"
+          git push origin HEAD:agent/ir-10-3-labs-postgresql-authority-v2
