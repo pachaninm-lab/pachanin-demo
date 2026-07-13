@@ -1,0 +1,160 @@
+name: Temporary IR-10.3 Prisma drift reconciliation
+
+on:
+  push:
+    branches:
+      - agent/ir-10-3-labs-postgresql-authority-v2
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[ir-10-3-drift-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ir-10-3-labs-postgresql-authority-v2
+          fetch-depth: 0
+      - name: Reconcile public Prisma schema and labs authority migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          schema = Path('apps/api/prisma/schema.prisma')
+          source = schema.read_text()
+          old = '''model LabSample {
+            id                String   @id
+            dealId            String
+            shipmentId        String?
+            acceptanceId      String?
+            status            String   @default("PENDING")
+            culture           String?
+            protocol          String?
+            gost              String?
+            labId             String?
+            labName           String?
+            collectedAt       DateTime?
+            finalizedAt       DateTime?
+            moneyDeltaRub     Float?
+            moneyDeltaKopecks BigInt?
+            certificateDocId  String?
+            version           Int      @default(1)
+            createdAt         DateTime @default(now())
+
+            tests             LabTest[]
+            deal              Deal      @relation(fields: [dealId], references: [id])
+
+            @@index([dealId])
+            @@map("lab_samples")
+          }
+
+          model LabTest {
+            id         String   @id @default(cuid())
+            sampleId   String
+            parameter  String
+            value      Float
+            unit       String?
+            normMin    Float?
+            normMax    Float?
+            passed     Boolean  @default(true)
+            gradeDelta Float?
+            recordedAt DateTime @default(now())
+
+            sample     LabSample @relation(fields: [sampleId], references: [id])
+
+            @@index([sampleId])
+            @@map("lab_tests")
+          }'''
+          new = '''model LabSample {
+            id                    String   @id
+            dealId                String
+            shipmentId            String?
+            acceptanceId          String?
+            tenantId              String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+            status                String   @default("PENDING")
+            custodyStatus         String   @default("CREATED")
+            sampleCode            String?
+            culture               String?
+            protocol              String?
+            protocolResult        String?
+            gost                  String?
+            labId                 String?
+            labName               String?
+            assignedActorUserId   String?
+            collectedAt           DateTime?
+            finalizedAt           DateTime?
+            moneyDeltaRub         Float?
+            moneyDeltaKopecks     BigInt?
+            certificateDocId      String?
+            latestEvidenceFileId  String?
+            version               BigInt   @default(0)
+            createdAt             DateTime @default(now())
+            updatedAt             DateTime @default(now())
+
+            tests                 LabTest[]
+            deal                  Deal      @relation(fields: [dealId], references: [id])
+
+            @@unique([tenantId, sampleCode], map: "lab_samples_tenant_sampleCode_key")
+            @@index([dealId])
+            @@index([tenantId], map: "lab_samples_tenantId_idx")
+            @@index([shipmentId], map: "lab_samples_shipmentId_idx")
+            @@index([acceptanceId], map: "lab_samples_acceptanceId_idx")
+            @@index([labId], map: "lab_samples_labId_idx")
+            @@index([status], map: "lab_samples_status_idx")
+            @@map("lab_samples")
+          }
+
+          model LabTest {
+            id                String   @id @default(cuid())
+            sampleId          String
+            tenantId          String?  @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+            parameter         String
+            value             Float
+            valueDec          Decimal? @db.Decimal(20, 6)
+            unit              String?
+            normMin           Float?
+            normMax           Float?
+            normMinDec        Decimal? @db.Decimal(20, 6)
+            normMaxDec        Decimal? @db.Decimal(20, 6)
+            passed            Boolean  @default(true)
+            result            String?
+            gradeDelta        Float?
+            methodId          String?
+            equipmentId       String?
+            evidenceFileId    String?
+            actorUserId       String?
+            commandId         String?
+            idempotencyKey    String?  @unique(map: "lab_tests_idempotencyKey_key")
+            correlationId     String?
+            supersedesId      String?
+            recordedAt        DateTime @default(now())
+
+            sample            LabSample @relation(fields: [sampleId], references: [id])
+
+            @@index([sampleId])
+            @@index([tenantId], map: "lab_tests_tenantId_idx")
+            @@index([sampleId, recordedAt], map: "lab_tests_sample_recorded_idx")
+            @@index([methodId], map: "lab_tests_methodId_idx")
+            @@index([equipmentId], map: "lab_tests_equipmentId_idx")
+            @@index([correlationId], map: "lab_tests_correlationId_idx")
+            @@map("lab_tests")
+          }'''
+          if old not in source:
+              raise SystemExit('LabSample/LabTest Prisma block changed; aborting instead of blind edit')
+          schema.write_text(source.replace(old, new))
+
+          migration = Path('apps/api/prisma/migrations/20260713122000_labs_postgresql_authority/migration.sql')
+          migration.parent.mkdir(parents=True, exist_ok=True)
+          migration.write_text('''-- IR-10.3 Prisma/public-schema reconciliation.\n-- Cross-schema laboratory authority remains trigger-validated; public Prisma\n-- models do not own the normalized labs schema.\n\nALTER TABLE public."lab_tests"\n  DROP CONSTRAINT IF EXISTS "lab_tests_methodId_fkey",\n  DROP CONSTRAINT IF EXISTS "lab_tests_equipmentId_fkey",\n  DROP CONSTRAINT IF EXISTS "lab_tests_evidenceFileId_fkey",\n  DROP CONSTRAINT IF EXISTS "lab_tests_actorUserId_fkey",\n  DROP CONSTRAINT IF EXISTS "lab_tests_supersedesId_fkey";\n\nALTER TABLE public."lab_samples"\n  ALTER COLUMN "updatedAt" TYPE TIMESTAMP(3)\n  USING ("updatedAt" AT TIME ZONE 'UTC');\n\nDROP INDEX IF EXISTS public."lab_samples_tenant_sampleCode_key";\nCREATE UNIQUE INDEX "lab_samples_tenant_sampleCode_key"\n  ON public."lab_samples" ("tenantId", "sampleCode");\n\nDROP INDEX IF EXISTS public."lab_tests_idempotencyKey_key";\nCREATE UNIQUE INDEX "lab_tests_idempotencyKey_key"\n  ON public."lab_tests" ("idempotencyKey");\n''')
+
+          Path('.github/workflows/tmp-fix-ir-10-3-prisma-drift.yml').unlink()
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(labs): reconcile public Prisma schema and cross-schema authority [ir-10-3-drift-fixed]"
+          git push origin HEAD:agent/ir-10-3-labs-postgresql-authority-v2
