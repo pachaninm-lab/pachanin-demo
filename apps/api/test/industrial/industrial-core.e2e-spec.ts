@@ -4,9 +4,10 @@ import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import type { RequestUser } from '../../src/common/types/request-user';
 import {
   cleanTenant,
-  createInstance,
+  createRememberedInstance as createInstance,
   destroyInstance,
   payloadForAction,
+  prepareLaboratoryLifecycle,
   provisionDeal,
   type DealFixture,
   type ServiceInstance,
@@ -73,6 +74,15 @@ async function runUserAction(
   return instance.commands.execute(fixture.dealId, actionId, dto, user);
 }
 
+async function runPostReserveSequence(instance: ServiceInstance, fixture: DealFixture): Promise<void> {
+  for (const step of POST_RESERVE_SEQUENCE) {
+    if (step.actionId === 'finalize_lab') {
+      await prepareLaboratoryLifecycle(instance, fixture);
+    }
+    await runUserAction(instance, fixture, step.actionId, fixture.users[step.userKey]);
+  }
+}
+
 function bankCallback(fixture: DealFixture, operation: 'RESERVE' | 'RELEASE', eventSuffix = '1') {
   const kind = operation === 'RESERVE' ? 'bank-reserve' : 'bank-release';
   return {
@@ -106,9 +116,7 @@ describe('Industrial transaction core on real PostgreSQL', () => {
       const reserved = await alpha.gateway.executeBankCallback(bankCallback(fixture, 'RESERVE'));
       expect(reserved).toMatchObject({ status: 'RESERVED' });
 
-      for (const step of POST_RESERVE_SEQUENCE) {
-        await runUserAction(alpha, fixture, step.actionId, fixture.users[step.userKey]);
-      }
+      await runPostReserveSequence(alpha, fixture);
 
       const released = await alpha.gateway.executeBankCallback(bankCallback(fixture, 'RELEASE'));
       expect(released).toMatchObject({ status: 'RELEASED' });
