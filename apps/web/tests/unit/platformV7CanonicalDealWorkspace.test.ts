@@ -77,7 +77,8 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(utilityMenu).toContain('Помощь и инструменты');
     expect(utilityMenu).toContain('Все дополнительные функции собраны в одном месте');
     expect(utilityMenu).toContain("runNativeAction('.pc-v4-search')");
-    expect(utilityMenu).toContain("button[aria-label='Открыть уведомления']");
+    expect(utilityMenu).toContain("const NOTIFICATIONS_ROUTE = '/platform-v7/notifications'");
+    expect(utilityMenu).not.toContain("button[aria-label='Открыть уведомления']");
     expect(utilityMenu).toContain("button[aria-label='Открыть калькулятор']");
     expect(utilityMenu).toContain('PLATFORM_V7_AI_ROUTE');
     expect(utilityMenu).toContain('Статус, инструкция и поддержка');
