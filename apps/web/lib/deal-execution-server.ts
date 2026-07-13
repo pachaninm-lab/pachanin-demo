@@ -99,6 +99,27 @@ export type DealEvidenceFile = Readonly<{
   uploadedAt: string;
 }>;
 
+export type DealExecutionDocument = Readonly<{
+  id: string;
+  dealId: string;
+  tenantId: string;
+  type: string;
+  status: string;
+  name: string;
+  s3Key: string | null;
+  hash: string | null;
+  uploadedAt: string;
+  signedAt: string | null;
+  signatories: string | null;
+  bankRequired: boolean;
+  releaseRequired: boolean;
+  bankAcceptance: string;
+  edoStatus: string | null;
+  edoExternalId: string | null;
+  version: number;
+  isImmutable: boolean;
+}>;
+
 export type CanonicalDealExecutionWorkspace = Readonly<{
   deal: Readonly<{
     id: string;
@@ -114,6 +135,7 @@ export type CanonicalDealExecutionWorkspace = Readonly<{
     shipments: DealExecutionShipment[];
     acceptanceRecords: DealAcceptanceRecord[];
     labSamples: DealLabSample[];
+    documents: DealExecutionDocument[];
     updatedAt: string;
   }>;
   viewer: Readonly<{
@@ -146,6 +168,37 @@ export type AcceptanceProjection = Readonly<{
   weight: AcceptanceWeightFact | null;
   laboratory: DealLabSample | null;
   evidence: DealEvidenceFile[];
+  blockers: string[];
+  ready: boolean;
+}>;
+
+export const REQUIRED_RELEASE_DOCUMENT_TYPES = [
+  'CONTRACT',
+  'TTN',
+  'WEIGHING_ACT',
+  'LAB_PROTOCOL',
+  'ACCEPTANCE_ACT',
+] as const;
+
+export type RequiredReleaseDocumentType = typeof REQUIRED_RELEASE_DOCUMENT_TYPES[number];
+export type DocumentReadinessState = 'ready' | 'review' | 'required';
+
+export type ReleaseDocumentReadiness = Readonly<{
+  type: RequiredReleaseDocumentType;
+  state: DocumentReadinessState;
+  document: DealExecutionDocument | null;
+  blockers: string[];
+}>;
+
+export type DocumentBasisProjection = Readonly<{
+  dealId: string;
+  tenantId: string;
+  dealVersion: string;
+  lotId: string | null;
+  shipmentId: string;
+  acceptance: AcceptanceProjection;
+  documents: ReleaseDocumentReadiness[];
+  readyCount: number;
   blockers: string[];
   ready: boolean;
 }>;
@@ -230,6 +283,74 @@ export function buildAcceptanceProjection(
   });
 }
 
+export function buildDocumentBasisProjection(
+  workspace: CanonicalDealExecutionWorkspace,
+  shipmentIdInput?: string,
+): DocumentBasisProjection | null {
+  const acceptance = buildAcceptanceProjection(workspace, shipmentIdInput);
+  if (!acceptance) return null;
+
+  const documents = REQUIRED_RELEASE_DOCUMENT_TYPES.map((type) =>
+    evaluateReleaseDocument(type, workspace.deal.documents),
+  );
+  const blockers = [
+    ...acceptance.blockers.map((blocker) => `ACCEPTANCE:${blocker}`),
+    ...documents.flatMap((item) => item.blockers),
+  ];
+  const readyCount = documents.filter((item) => item.state === 'ready').length;
+  const ready = acceptance.ready && readyCount === REQUIRED_RELEASE_DOCUMENT_TYPES.length;
+
+  return Object.freeze({
+    dealId: workspace.deal.id,
+    tenantId: workspace.deal.tenantId,
+    dealVersion: workspace.deal.version,
+    lotId: workspace.deal.sourceLotId ?? workspace.deal.lotId,
+    shipmentId: acceptance.shipment.id,
+    acceptance,
+    documents,
+    readyCount,
+    blockers: [...new Set(blockers)],
+    ready,
+  });
+}
+
+function evaluateReleaseDocument(
+  type: RequiredReleaseDocumentType,
+  allDocuments: readonly DealExecutionDocument[],
+): ReleaseDocumentReadiness {
+  const candidates = allDocuments
+    .filter((document) => document.type === type)
+    .sort((left, right) => right.version - left.version || right.uploadedAt.localeCompare(left.uploadedAt));
+  const latestVersion = candidates[0]?.version ?? null;
+  const latest = latestVersion === null
+    ? []
+    : candidates.filter((document) => document.version === latestVersion);
+  const document = latest[0] ?? null;
+  const blockers: string[] = [];
+
+  if (!document) {
+    blockers.push(`DOCUMENT:${type}:MISSING`);
+    return Object.freeze({ type, state: 'required', document: null, blockers });
+  }
+  if (latest.length !== 1) blockers.push(`DOCUMENT:${type}:DUPLICATE_LATEST_VERSION`);
+  if (document.status !== 'SIGNED') blockers.push(`DOCUMENT:${type}:STATUS_NOT_SIGNED`);
+  if (!document.hash) blockers.push(`DOCUMENT:${type}:HASH_MISSING`);
+  if (!document.s3Key) blockers.push(`DOCUMENT:${type}:STORAGE_MISSING`);
+  if (!document.isImmutable) blockers.push(`DOCUMENT:${type}:NOT_IMMUTABLE`);
+  if (!document.signedAt) blockers.push(`DOCUMENT:${type}:SIGNED_AT_MISSING`);
+  if (!validSignatories(document.signatories)) blockers.push(`DOCUMENT:${type}:SIGNATORIES_INVALID`);
+  if (document.bankRequired && document.bankAcceptance !== 'ACCEPTED') {
+    blockers.push(`DOCUMENT:${type}:BANK_NOT_ACCEPTED`);
+  }
+
+  return Object.freeze({
+    type,
+    state: blockers.length === 0 ? 'ready' : 'review',
+    document,
+    blockers,
+  });
+}
+
 function parseWorkspace(value: unknown): CanonicalDealExecutionWorkspace {
   const root = record(value, 'deal workspace');
   const deal = record(root.deal, 'deal');
@@ -240,7 +361,12 @@ function parseWorkspace(value: unknown): CanonicalDealExecutionWorkspace {
   const shipments = array(deal.shipments, 'deal.shipments').map(parseShipment);
   const acceptanceRecords = array(deal.acceptanceRecords, 'deal.acceptanceRecords').map(parseAcceptance);
   const labSamples = array(deal.labSamples, 'deal.labSamples').map(parseLabSample);
+  const documents = array(deal.documents, 'deal.documents').map(parseDocument);
   const evidence = array(projections.evidence, 'projections.evidence').map(parseEvidence);
+  const projectedDocumentIds = array(projections.documents, 'projections.documents')
+    .map((item, index) => requiredIdentifier(record(item, `projections.documents[${index}]`).id, `projections.documents[${index}].id`))
+    .sort();
+  const documentIds = documents.map((document) => document.id).sort();
 
   if (shipments.some((item) => item.dealId !== dealId || item.tenantId !== tenantId)) {
     throw new Error('shipment authority does not match Deal tenant');
@@ -256,6 +382,12 @@ function parseWorkspace(value: unknown): CanonicalDealExecutionWorkspace {
   }
   if (labSamples.some((item) => item.shipmentId && !shipments.some((shipment) => shipment.id === item.shipmentId))) {
     throw new Error('laboratory shipment is outside the Deal');
+  }
+  if (documents.some((item) => item.dealId !== dealId || item.tenantId !== tenantId)) {
+    throw new Error('document authority does not match Deal tenant');
+  }
+  if (documentIds.length !== projectedDocumentIds.length || documentIds.some((id, index) => id !== projectedDocumentIds[index])) {
+    throw new Error('document projections contradict the canonical Deal envelope');
   }
   if (evidence.some((item) => item.dealId !== dealId)) {
     throw new Error('evidence authority does not match Deal');
@@ -276,6 +408,7 @@ function parseWorkspace(value: unknown): CanonicalDealExecutionWorkspace {
       shipments,
       acceptanceRecords,
       labSamples,
+      documents,
       updatedAt: requiredDate(deal.updatedAt, 'deal.updatedAt'),
     }),
     viewer: Object.freeze({
@@ -403,6 +536,30 @@ function parseLabTest(value: unknown): DealLabTest {
   });
 }
 
+function parseDocument(value: unknown): DealExecutionDocument {
+  const item = record(value, 'deal document');
+  return Object.freeze({
+    id: requiredIdentifier(item.id, 'document.id'),
+    dealId: requiredIdentifier(item.dealId, 'document.dealId'),
+    tenantId: requiredIdentifier(item.tenantId, 'document.tenantId'),
+    type: requiredText(item.type, 'document.type'),
+    status: requiredText(item.status, 'document.status'),
+    name: requiredText(item.name, 'document.name'),
+    s3Key: nullableText(item.s3Key, 'document.s3Key'),
+    hash: nullableText(item.hash, 'document.hash'),
+    uploadedAt: requiredDate(item.uploadedAt, 'document.uploadedAt'),
+    signedAt: nullableDate(item.signedAt, 'document.signedAt'),
+    signatories: nullableText(item.signatories, 'document.signatories'),
+    bankRequired: requiredBoolean(item.bankRequired, 'document.bankRequired'),
+    releaseRequired: requiredBoolean(item.releaseRequired, 'document.releaseRequired'),
+    bankAcceptance: requiredText(item.bankAcceptance, 'document.bankAcceptance'),
+    edoStatus: nullableText(item.edoStatus, 'document.edoStatus'),
+    edoExternalId: nullableText(item.edoExternalId, 'document.edoExternalId'),
+    version: requiredInteger(item.version, 'document.version'),
+    isImmutable: requiredBoolean(item.isImmutable, 'document.isImmutable'),
+  });
+}
+
 function parseEvidence(value: unknown): DealEvidenceFile {
   const item = record(value, 'evidence file');
   return Object.freeze({
@@ -437,6 +594,20 @@ function parseWeightFact(notes: string | null, shipmentId: string): AcceptanceWe
     });
   } catch {
     return null;
+  }
+}
+
+function validSignatories(value: string | null): boolean {
+  if (!value) return false;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) && parsed.length > 0 && parsed.every((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+      const signatory = item as Record<string, unknown>;
+      return Boolean(identifier(signatory.userId) && typeof signatory.signedAt === 'string' && !Number.isNaN(Date.parse(signatory.signedAt)));
+    });
+  } catch {
+    return false;
   }
 }
 
@@ -508,6 +679,12 @@ function nullableText(value: unknown, field: string): string | null {
 function requiredBoolean(value: unknown, field: string): boolean {
   if (typeof value !== 'boolean') throw new Error(`${field} is invalid`);
   return value;
+}
+
+function requiredInteger(value: unknown, field: string): number {
+  const number = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : Number.NaN;
+  if (!Number.isSafeInteger(number) || number < 1) throw new Error(`${field} is invalid`);
+  return number;
 }
 
 function requiredFiniteNumber(value: unknown, field: string): number {
