@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 const exact = new Set([
   '.github/workflows/design-system-v8.yml',
   '.github/workflows/platform-v7-autopilot-guard.yml',
+  'apps/web/app/platform-v7/layout.tsx',
   'apps/web/app/platform-v7/driver/field/page.tsx',
   'apps/web/app/platform-v7/elevator/page.tsx',
   'apps/web/app/platform-v7/lab/page.tsx',
@@ -33,6 +34,7 @@ const exact = new Set([
   'apps/web/components/platform-v7/CanonicalDealsList.module.css',
   'apps/web/components/platform-v7/NextActionCard.tsx',
   'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx',
+  'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx',
   'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx',
   'apps/web/components/platform-v7/RoleIntentDashboard.tsx',
   'apps/web/components/platform-v7/RoleIntentDashboard.module.css',
@@ -64,6 +66,7 @@ const exact = new Set([
   'apps/web/tests/unit/platformV7MobileNavigation.test.ts',
   'apps/web/tests/unit/platformV7RealDealsRegistry.test.ts',
   'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts',
+  'apps/web/tests/unit/platformV7ServerVerifiedShell.test.ts',
   'apps/web/tests/unit/platformV7TodayWorkspace.test.ts',
   'apps/web/tests/unit/transactionRoleCockpitsV8.test.ts',
   'apps/web/tests/unit/transactionUxV8Migration.test.ts',
