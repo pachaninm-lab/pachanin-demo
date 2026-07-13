@@ -69,6 +69,7 @@ const exact = new Set([
   'apps/web/tests/unit/platformV7RealDealsRegistry.test.ts',
   'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts',
   'apps/web/tests/unit/platformV7ServerVerifiedShell.test.ts',
+  'apps/web/tests/unit/platformV7ShellNotificationAuthority.test.ts',
   'apps/web/tests/unit/platformV7TodayWorkspace.test.ts',
   'apps/web/tests/unit/transactionRoleCockpitsV8.test.ts',
   'apps/web/tests/unit/transactionUxV8Migration.test.ts',
