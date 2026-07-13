@@ -2,48 +2,52 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const root = process.cwd();
+const cwd = process.cwd();
+const root = [cwd, path.resolve(cwd, '../..')]
+  .find((candidate) => fs.existsSync(path.join(candidate, 'design-governance-v8.json')));
+
+if (!root) throw new Error(`Cannot resolve repository root from ${cwd}`);
 
 function read(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
 describe('platform-v7 deal execution chain', () => {
-  it('keeps auction deal basis connected to logistics execution', () => {
-    const dealBasisPage = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
+  it('keeps auction transition tied to a server-issued canonical Deal', () => {
+    const page = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
+    const copy = read('apps/web/lib/platform-v7/auctionAuthorityCopy.ts');
 
-    expect(dealBasisPage).toContain('/platform-v7/deal-logistics');
-    expect(dealBasisPage).toContain('Назначить рейс');
+    expect(page).toContain("getAuctionAuthorityRouteCopy('deal-basis'");
+    expect(copy).toContain('winner lock → canonical Deal');
+    expect(copy).toContain('/deals/{dealId}/execution');
+    expect(copy).toContain('только по server-issued Deal ID');
+    expect(copy).toContain('idempotent');
+    expect(copy).toContain('audit/outbox');
   });
 
-  it('keeps auction deal basis guard tied to winner, price, lot, sdiz, logistics and icons', () => {
-    const bridge = read('apps/web/lib/platform-v7/auctionDealBridge.ts');
-    const dealBasisPage = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
+  it('removes the local winner, price, lot and Deal bridge from the authority path', () => {
+    const pages = [
+      'apps/web/app/platform-v7/auction/page.tsx',
+      'apps/web/app/platform-v7/auction/import/page.tsx',
+      'apps/web/app/platform-v7/auction/admission/page.tsx',
+      'apps/web/app/platform-v7/auction/bids/page.tsx',
+      'apps/web/app/platform-v7/auction/deal-basis/page.tsx',
+    ].map(read).join('\n');
 
-    for (const token of ['guardAuctionDealBasisReady', 'winner', 'lotNumber', 'sdizNumber', 'priceRubPerTon', '/platform-v7/deal-logistics', 'route-icons', 'winner-price-match', 'volume-within-available']) {
-      expect(bridge).toContain(token);
+    for (const token of ['AUCTION_DEAL_BRIDGE', 'AUCTION_DEAL_BASIS', 'FGIS_AUCTION_STATE', 'guardAuctionDealBasisReady', 'auctionDealAmountRub']) {
+      expect(pages).not.toContain(token);
     }
-
-    for (const token of ['platformV7RouteIcon', "platformV7RouteIcon('deal')", "platformV7RouteIcon('logistics')", 'action.iconKey']) {
-      expect(dealBasisPage).toContain(token);
-    }
-
-    for (const token of ["iconKey: 'auction'", "iconKey: 'documents'", "iconKey: 'dispute'", "iconKey: 'logistics'"]) {
-      expect(bridge).toContain(token);
+    for (const token of ['FGIS-LOT-2607-014', 'BID-001', 'DL-2607-014', 'isWinner: true']) {
+      expect(pages).not.toContain(token);
     }
   });
 
-  it('keeps auction deal basis visually explicit and action-oriented', () => {
-    const bridge = read('apps/web/lib/platform-v7/auctionDealBridge.ts');
-    const dealBasisPage = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
+  it('keeps logistics closed until the canonical Deal exists', () => {
+    const copy = read('apps/web/lib/platform-v7/auctionAuthorityCopy.ts');
 
-    for (const token of ['Победитель', 'Цена победителя', 'ФГИС-лот', 'СДИЗ', 'Владелец', 'Покупатель', 'Объём', 'Сумма', 'Условия поставки', 'Что фиксируется в журнале', 'Почему можно формировать рейс']) {
-      expect(dealBasisPage).toContain(token);
-    }
-
-    for (const token of ['Назначить рейс', 'Открыть документы', 'Открыть спор', 'Вернуться к ставкам', '/platform-v7/deal-documents-basis', '/platform-v7/disputes', '/platform-v7/auction/bids']) {
-      expect(bridge).toContain(token);
-    }
+    expect(copy).toContain('логистика, документы и деньги не запускаются');
+    expect(copy).toContain('Without the receipt, logistics and money remain closed');
+    expect(copy).not.toContain("href: '/platform-v7/deal-logistics'");
   });
 
   it('keeps logistics execution connected to deal acceptance', () => {
