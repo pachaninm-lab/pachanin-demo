@@ -92,6 +92,9 @@ psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/postgresql-document-
 echo "[one-deal] applying PostgreSQL logistics-authority RLS overlay"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/postgresql-logistics-authority-policies.sql
 
+echo "[one-deal] applying PostgreSQL labs-authority RLS overlay"
+psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/postgresql-labs-authority-policies.sql
+
 echo "[one-deal] creating restricted deal-execution principal"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
 DO $one_deal_role$
@@ -104,7 +107,7 @@ BEGIN
 END
 $one_deal_role$;
 GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_app;
-GRANT USAGE ON SCHEMA public, security, logistics TO one_deal_app;
+GRANT USAGE ON SCHEMA public, security, logistics, labs TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;

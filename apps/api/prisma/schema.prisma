@@ -387,47 +387,175 @@ model LedgerEntry {
 // ── Lab Samples ───────────────────────────────────────────────────────────────
 
 model LabSample {
-  id                String   @id
-  dealId            String
-  shipmentId        String?
-  acceptanceId      String?
-  status            String   @default("PENDING")
-  culture           String?
-  protocol          String?
-  gost              String?
-  labId             String?
-  labName           String?
-  collectedAt       DateTime?
-  finalizedAt       DateTime?
-  moneyDeltaRub     Float?
-  moneyDeltaKopecks BigInt?
-  certificateDocId  String?
-  version           Int      @default(1)
-  createdAt         DateTime @default(now())
+  id                       String   @id
+  dealId                   String
+  shipmentId               String?
+  acceptanceId             String?
+  tenantId                 String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  labId                    String   @default(dbgenerated("current_setting('app.current_org_id'::text, true)"))
+  assignedLabUserId        String   @default(dbgenerated("current_setting('app.current_user_id'::text, true)"))
+  samplerUserId            String?
+  currentCustodianOrgId    String   @default(dbgenerated("current_setting('app.current_org_id'::text, true)"))
+  currentCustodianUserId   String   @default(dbgenerated("current_setting('app.current_user_id'::text, true)"))
+  status                   String   @default("PENDING")
+  culture                  String?
+  protocol                 String?
+  gost                     String?
+  labName                  String?
+  accreditationId          String?
+  collectedAt              DateTime?
+  finalizedAt              DateTime?
+  finalizedByUserId        String?
+  protocolHash             String?
+  moneyDeltaRub            Float?
+  moneyDeltaKopecks        BigInt?
+  certificateDocId         String?
+  version                  BigInt   @default(0)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
-  tests             LabTest[]
-  deal              Deal      @relation(fields: [dealId], references: [id])
+  tests                    LabTest[]
+  custodyEvents            LabCustodyEvent[]
+  deal                     Deal      @relation(fields: [dealId], references: [id], onDelete: Restrict)
 
   @@index([dealId])
+  @@index([tenantId])
+  @@index([labId, status])
+  @@index([assignedLabUserId, status])
+  @@index([shipmentId])
   @@map("lab_samples")
 }
 
 model LabTest {
-  id         String   @id @default(cuid())
-  sampleId   String
-  parameter  String
-  value      Float
-  unit       String?
-  normMin    Float?
-  normMax    Float?
-  passed     Boolean  @default(true)
-  gradeDelta Float?
-  recordedAt DateTime @default(now())
+  id                 String   @id @default(cuid())
+  sampleId           String
+  tenantId           String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  parameter          String
+  value              Decimal  @db.Decimal(20, 6)
+  unit               String?
+  normMin            Decimal? @db.Decimal(20, 6)
+  normMax            Decimal? @db.Decimal(20, 6)
+  passed             Boolean  @default(true)
+  gradeDelta         Float?
+  methodId           String
+  equipmentId        String
+  actorUserId        String
+  correctionOfTestId String?
+  commandId          String
+  idempotencyKey     String   @unique
+  correlationId      String?
+  note               String?
+  recordedAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
 
-  sample     LabSample @relation(fields: [sampleId], references: [id])
+  sample             LabSample @relation(fields: [sampleId], references: [id], onDelete: Restrict)
 
-  @@index([sampleId])
+  @@index([sampleId, recordedAt])
+  @@index([tenantId])
+  @@index([methodId])
+  @@index([equipmentId])
+  @@index([correctionOfTestId])
   @@map("lab_tests")
+}
+
+model LabCustodyEvent {
+  id             String   @id
+  sampleId       String
+  tenantId       String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  eventType      String
+  fromOrgId      String?
+  fromUserId     String?
+  toOrgId        String
+  toUserId       String
+  evidenceRef    String
+  occurredAt     DateTime
+  commandId      String
+  idempotencyKey String   @unique
+  correlationId  String?
+  createdAt      DateTime @default(now())
+
+  sample         LabSample @relation(fields: [sampleId], references: [id], onDelete: Restrict)
+
+  @@index([sampleId, occurredAt])
+  @@index([tenantId])
+  @@index([toOrgId, toUserId])
+  @@index([correlationId])
+  @@map("lab_custody_events")
+}
+
+model LabAssignment {
+  id          String   @id
+  tenantId    String
+  dealId      String
+  labOrgId    String
+  labUserId   String
+  status      String   @default("ACTIVE")
+  validFrom   DateTime @default(now())
+  validUntil  DateTime?
+  evidenceRef String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([dealId, labUserId])
+  @@index([tenantId, labOrgId, status])
+  @@index([labUserId, status])
+  @@map("lab_assignments")
+}
+
+model LabAccreditation {
+  id          String   @id
+  tenantId    String
+  labOrgId    String
+  reference   String
+  status      String   @default("ACTIVE")
+  scope       Json?
+  validFrom   DateTime
+  validUntil  DateTime?
+  verifiedAt  DateTime?
+  evidenceRef String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, labOrgId, reference])
+  @@index([labOrgId, status])
+  @@map("lab_accreditations")
+}
+
+model LabMethod {
+  id                 String   @id
+  tenantId           String
+  labOrgId           String
+  code               String
+  name               String
+  applicableStandard String
+  status             String   @default("ACTIVE")
+  validFrom          DateTime @default(now())
+  validUntil         DateTime?
+  evidenceRef        String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([tenantId, labOrgId, code])
+  @@index([labOrgId, status])
+  @@map("lab_methods")
+}
+
+model LabEquipment {
+  id                    String   @id
+  tenantId              String
+  labOrgId              String
+  name                  String
+  serialNumber          String
+  status                String   @default("ACTIVE")
+  calibratedAt          DateTime?
+  calibrationValidUntil DateTime?
+  calibrationEvidenceRef String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([tenantId, labOrgId, serialNumber])
+  @@index([labOrgId, status])
+  @@map("lab_equipment")
 }
 
 // ── Outbox ────────────────────────────────────────────────────────────────────

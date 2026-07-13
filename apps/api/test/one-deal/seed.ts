@@ -170,6 +170,85 @@ async function seedNormalizedLogisticsAdmission(prisma: PrismaService): Promise<
   });
 }
 
+
+async function seedNormalizedLabAuthority(prisma: PrismaService): Promise<void> {
+  const evidenceRef = `evidence:${CANONICAL_TEST_DEAL_ID}:lab`;
+  const assignmentId = `lab-assignment:${CANONICAL_TEST_DEAL_ID}`;
+  const accreditationId = `lab-accreditation:${CANONICAL_TEST_DEAL_ID}`;
+  const methodId = `lab-method:${CANONICAL_TEST_DEAL_ID}:gost-9353`;
+  const equipmentId = `lab-equipment:${CANONICAL_TEST_DEAL_ID}:analyzer-1`;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO public."lab_assignments" (
+        "id", "tenantId", "dealId", "labOrgId", "labUserId", "status", "evidenceRef"
+      ) VALUES (
+        ${assignmentId}, ${CANONICAL_TENANT_ID}, ${CANONICAL_TEST_DEAL_ID},
+        'org-canonical-lab', 'lab-e2e', 'ACTIVE', ${evidenceRef}
+      )
+      ON CONFLICT ("dealId", "labUserId") DO UPDATE SET
+        "tenantId" = EXCLUDED."tenantId", "labOrgId" = EXCLUDED."labOrgId",
+        "status" = 'ACTIVE', "validUntil" = NULL, "evidenceRef" = EXCLUDED."evidenceRef",
+        "updatedAt" = CURRENT_TIMESTAMP
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO public."lab_accreditations" (
+        "id", "tenantId", "labOrgId", "reference", "status", "scope",
+        "validFrom", "validUntil", "verifiedAt", "evidenceRef"
+      ) VALUES (
+        ${accreditationId}, ${CANONICAL_TENANT_ID}, 'org-canonical-lab',
+        'TEST-ACCREDITATION-NO-LIVE', 'ACTIVE',
+        ${JSON.stringify({ cultures: ['Пшеница'], standards: ['ГОСТ 9353-2016'], testOnly: true })}::jsonb,
+        TIMESTAMPTZ '2026-01-01T00:00:00Z', TIMESTAMPTZ '2027-01-01T00:00:00Z',
+        TIMESTAMPTZ '2026-07-12T09:00:00Z', ${evidenceRef}
+      )
+      ON CONFLICT ("tenantId", "labOrgId", "reference") DO UPDATE SET
+        "status" = 'ACTIVE', "scope" = EXCLUDED."scope", "validUntil" = EXCLUDED."validUntil",
+        "verifiedAt" = EXCLUDED."verifiedAt", "evidenceRef" = EXCLUDED."evidenceRef",
+        "updatedAt" = CURRENT_TIMESTAMP
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO public."lab_methods" (
+        "id", "tenantId", "labOrgId", "code", "name", "applicableStandard",
+        "status", "validFrom", "validUntil", "evidenceRef"
+      ) VALUES (
+        ${methodId}, ${CANONICAL_TENANT_ID}, 'org-canonical-lab', 'GOST-9353',
+        'Controlled test grain method', 'ГОСТ 9353-2016', 'ACTIVE',
+        TIMESTAMPTZ '2026-01-01T00:00:00Z', TIMESTAMPTZ '2027-01-01T00:00:00Z', ${evidenceRef}
+      )
+      ON CONFLICT ("tenantId", "labOrgId", "code") DO UPDATE SET
+        "status" = 'ACTIVE', "applicableStandard" = EXCLUDED."applicableStandard",
+        "validUntil" = EXCLUDED."validUntil", "evidenceRef" = EXCLUDED."evidenceRef",
+        "updatedAt" = CURRENT_TIMESTAMP
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO public."lab_equipment" (
+        "id", "tenantId", "labOrgId", "name", "serialNumber", "status",
+        "calibratedAt", "calibrationValidUntil", "calibrationEvidenceRef"
+      ) VALUES (
+        ${equipmentId}, ${CANONICAL_TENANT_ID}, 'org-canonical-lab',
+        'Controlled test analyzer', 'TEST-ANALYZER-001', 'ACTIVE',
+        TIMESTAMPTZ '2026-06-01T00:00:00Z', TIMESTAMPTZ '2027-01-01T00:00:00Z', ${evidenceRef}
+      )
+      ON CONFLICT ("tenantId", "labOrgId", "serialNumber") DO UPDATE SET
+        "status" = 'ACTIVE', "calibratedAt" = EXCLUDED."calibratedAt",
+        "calibrationValidUntil" = EXCLUDED."calibrationValidUntil",
+        "calibrationEvidenceRef" = EXCLUDED."calibrationEvidenceRef",
+        "updatedAt" = CURRENT_TIMESTAMP
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      UPDATE public."lab_samples"
+      SET "tenantId" = ${CANONICAL_TENANT_ID}, "labId" = 'org-canonical-lab',
+          "assignedLabUserId" = 'lab-e2e', "currentCustodianOrgId" = 'org-canonical-lab',
+          "currentCustodianUserId" = 'lab-e2e', "accreditationId" = NULL,
+          "finalizedByUserId" = NULL, "protocolHash" = NULL, "status" = 'PENDING',
+          "protocol" = NULL, "gost" = NULL, "finalizedAt" = NULL, "version" = 0,
+          "updatedAt" = CURRENT_TIMESTAMP
+      WHERE "id" = ${`sample:${CANONICAL_TEST_DEAL_ID}`}
+    `);
+  });
+}
+
 async function main(): Promise<void> {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('One-deal E2E seed is forbidden in production.');
@@ -185,6 +264,7 @@ async function main(): Promise<void> {
     const seed = new CanonicalTestDealSeedService(prisma, authRepository);
     await seed.onModuleInit();
     await seedNormalizedLogisticsAdmission(prisma);
+    await seedNormalizedLabAuthority(prisma);
 
     const basisMaterial = {
       dealNumber: 'ТП-RLS-AUTHORITY-001',
