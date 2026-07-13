@@ -1,10 +1,8 @@
+import { ForbiddenException } from '@nestjs/common';
 import { PolicyEngineService, PolicyInput } from '../../common/security/policy-engine.service';
 import { SettlementEngineService } from '../settlement-engine/settlement-engine.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { OutboxService } from '../../common/outbox/outbox.service';
-import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
-import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 
 function makeUser(overrides: Partial<RequestUser> = {}): RequestUser {
@@ -41,6 +39,22 @@ function makePrisma() {
       update: jest.fn().mockResolvedValue({}),
     },
   } as unknown as PrismaService;
+}
+
+function makeSettlement(): SettlementEngineService {
+  return new SettlementEngineService({
+    listPayments: jest.fn(),
+    paymentDetail: jest.fn(),
+    worksheet: jest.fn(),
+    bankWorkspace: jest.fn(),
+    outboxStatus: jest.fn(),
+    configureTerms: jest.fn(),
+    requestOperation: jest.fn(),
+    placeHold: jest.fn(),
+    releaseHold: jest.fn(),
+    reconcileOperation: jest.fn(),
+    registerVerifiedCallback: jest.fn(),
+  } as any);
 }
 
 describe('Security E2E - unauthorized access policy', () => {
@@ -129,42 +143,26 @@ describe('Security E2E - unauthorized access policy', () => {
   });
 });
 
-describe('Security E2E - money invariants: double release rejected', () => {
-  let settlement: SettlementEngineService;
-  let runtime: jest.Mocked<RuntimeCoreService>;
-  let prisma: PrismaService;
-  let outbox: OutboxService;
+describe('Security E2E - money authority is callback-only', () => {
+  it.each([
+    ['confirmWorksheet', 'VERIFIED_BANK_CALLBACK_REQUIRED'],
+    ['releasePayment', 'VERIFIED_BANK_CALLBACK_REQUIRED'],
+    ['adjustWorksheet', 'MANUAL_MONEY_ADJUSTMENT_FORBIDDEN'],
+  ] as const)('%s rejects every human attempt before repository effects', (method, code) => {
+    const settlement = makeSettlement();
+    const repository = (settlement as any).repository;
 
-  beforeEach(() => {
-    prisma = makePrisma();
-    outbox = new OutboxService(prisma);
-    runtime = {
-      releasePayment: jest
-        .fn()
-        .mockReturnValueOnce({ dealId: 'deal-1', released: true, payment: { id: 'pay-1' } })
-        .mockImplementationOnce(() => { throw new Error('already released'); }),
-    } as unknown as jest.Mocked<RuntimeCoreService>;
-
-    settlement = new SettlementEngineService(
-      runtime,
-      {} as ActionExecutorService,
-      outbox,
-      prisma,
-    );
-  });
-
-  it('second release attempt on same deal is rejected', () => {
-    const user = makeUser({ id: 'admin-1', orgId: 'org-platform', role: Role.ADMIN, email: 'admin@example.test' });
-    const first = settlement.releasePayment('deal-1', user);
-    let second: unknown;
     try {
-      second = settlement.releasePayment('deal-1', user);
+      (settlement[method] as () => never)();
+      throw new Error('expected fail-closed rejection');
     } catch (error) {
-      second = { error: (error as Error).message };
+      expect(error).toBeInstanceOf(ForbiddenException);
+      expect((error as ForbiddenException).getResponse()).toMatchObject({ code });
     }
 
-    expect(first).toHaveProperty('released', true);
-    expect(second).toHaveProperty('error');
+    for (const operation of Object.values(repository) as jest.Mock[]) {
+      expect(operation).not.toHaveBeenCalled();
+    }
   });
 });
 

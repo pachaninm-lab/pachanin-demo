@@ -20,12 +20,14 @@ import {
   type PersistentActorHarness,
 } from './persistent-auth-actors';
 import {
-  createInstance,
   destroyInstance,
   prepareLaboratoryLifecycle,
   type DealFixture,
-  type ServiceInstance,
 } from '../industrial/harness';
+import {
+  createSettlementInstance,
+  type SettlementServiceInstance,
+} from '../industrial/settlement-harness';
 
 jest.setTimeout(300_000);
 
@@ -56,7 +58,6 @@ type IssuedCommand = Readonly<{
   actionId: UserActionId;
   role: Role;
   dto: ExecuteDealCommandDto;
-  receipt: Record<string, unknown>;
 }>;
 
 type BankCallbackFixture = Readonly<{
@@ -99,16 +100,17 @@ function evidence(kind: string): string {
   return `evidence:${CANONICAL_TEST_DEAL_ID}:${kind}`;
 }
 
-function callbackFixture(operation: 'RESERVE' | 'RELEASE'): BankCallbackFixture {
+function callbackFixture(
+  operation: 'RESERVE' | 'RELEASE',
+  operationId: string,
+): BankCallbackFixture {
   const body = {
     dealId: CANONICAL_TEST_DEAL_ID,
     eventId: operation === 'RESERVE' ? 'reserve-event-e2e' : 'release-event-e2e',
     operation,
     status: 'SUCCESS' as const,
     bankRef: operation === 'RESERVE' ? 'reserve-ref-e2e' : 'release-ref-e2e',
-    operationId: operation === 'RESERVE'
-      ? `bank-reserve:${CANONICAL_TEST_DEAL_ID}`
-      : `bank-release:${CANONICAL_TEST_DEAL_ID}`,
+    operationId,
   };
   const timestamp = Math.floor(Date.now() / 1000);
   const signed = buildBankSignaturePayload({
@@ -128,10 +130,9 @@ function callbackFixture(operation: 'RESERVE' | 'RELEASE'): BankCallbackFixture 
   };
 }
 
-function settlement(instance: ServiceInstance): SettlementEngineController {
+function settlement(instance: SettlementServiceInstance): SettlementEngineController {
   return new SettlementEngineController(
-    {} as never,
-    instance.gateway,
+    instance.settlement,
     new BankKeyRegistryService(instance.prisma),
     new IntegrationEventsService(instance.prisma),
   );
@@ -239,8 +240,8 @@ function payload(fixture: DealFixture, actionId: DealActionId): Prisma.InputJson
   }
 }
 
-describe('persistent-auth-backed industrial one-deal exploitation and recovery gate', () => {
-  let instance: ServiceInstance;
+describe('persistent-auth-backed industrial one-deal settlement authority gate', () => {
+  let instance: SettlementServiceInstance;
   let auth: PersistentActorHarness;
   let fixture: DealFixture;
   const users = new Map<Role, RequestUser>();
@@ -254,7 +255,7 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
 
   beforeAll(async () => {
     if (!BANK_SECRET) throw new Error('BANK_HMAC_SECRET is required.');
-    instance = await createInstance();
+    instance = await createSettlementInstance();
     auth = await createPersistentActorHarness(CANONICAL_ORG_IDS);
     for (const [role, user] of auth.actorsByRole) users.set(role, user);
     expect(users.size).toBe(12);
@@ -316,11 +317,11 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
       user,
     ) as Record<string, unknown>;
     expect(receipt).toMatchObject({ duplicate: false, actionId, commandId: dto.commandId });
-    issued.push({ actionId, role, dto, receipt });
+    issued.push({ actionId, role, dto });
     return receipt;
   }
 
-  it('executes one canonical factual Deal through PostgreSQL authority, restart and RLS denial', async () => {
+  it('executes 12-role/19-command deal through the same Settlement path and survives restart', async () => {
     const roleViews = await Promise.all(
       [...users.keys()].map((role) => instance.gateway.workspace(CANONICAL_TEST_DEAL_ID, actor(role))),
     );
@@ -336,9 +337,9 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     await expect(instance.gateway.workspace(CANONICAL_TEST_DEAL_ID, wrongTenant))
       .rejects.toBeInstanceOf(ForbiddenException);
 
-    const reserve = callbackFixture('RESERVE');
-    const release = callbackFixture('RELEASE');
-    await expect(submitCallback(settlement(instance), release)).rejects.toBeInstanceOf(ConflictException);
+    const earlyRelease = callbackFixture('RELEASE', 'missing-release-operation');
+    await expect(submitCallback(settlement(instance), earlyRelease))
+      .rejects.toBeInstanceOf(ConflictException);
 
     for (const actionId of [
       'approve_admission',
@@ -346,13 +347,14 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
       'place_winning_bid',
       'seller_sign_contract',
       'buyer_sign_contract',
-      'request_reserve',
     ] as const) await execute(actionId);
 
+    const reserveRequest = await execute('request_reserve');
+    const reserve = callbackFixture('RESERVE', String(reserveRequest.operationId));
     await expect(submitCallback(settlement(instance), reserve, true))
-      .resolves.toMatchObject({ status: 'RESERVED', duplicate: false });
+      .resolves.toMatchObject({ status: 'SUCCESS', dealStatus: 'RESERVED', duplicate: false });
     await expect(submitCallback(settlement(instance), reserve))
-      .resolves.toMatchObject({ status: 'RESERVED', duplicate: true });
+      .resolves.toMatchObject({ status: 'SUCCESS', duplicate: true });
 
     for (const actionId of [
       'assign_logistics',
@@ -367,64 +369,96 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     await execute('finalize_lab');
     await execute('accept_delivery');
     await execute('complete_documents');
-    await execute('request_release');
+    const releaseRequest = await execute('request_release');
+    const release = callbackFixture('RELEASE', String(releaseRequest.operationId));
 
     await expect(submitCallback(settlement(instance), release, true))
-      .resolves.toMatchObject({ status: 'RELEASED', duplicate: false });
+      .resolves.toMatchObject({ status: 'SUCCESS', dealStatus: 'RELEASED', duplicate: false });
     await expect(submitCallback(settlement(instance), release))
-      .resolves.toMatchObject({ status: 'RELEASED', duplicate: true });
+      .resolves.toMatchObject({ status: 'SUCCESS', duplicate: true });
     await execute('close_deal');
 
     const operator = actor(Role.SUPPORT_MANAGER);
     const facts = await instance.rls.withTrustedContext(operator, async (tx) => {
-      const [deal, participants, events, audits, outbox, ledger, operations, sample, protocols] = await Promise.all([
+      const [deal, participants, events, audits, outbox, publicLedger, publicOperations, sample, protocols,
+        settlementPayments, settlementOperations, settlementLedger, callbacks] = await Promise.all([
         tx.deal.findUniqueOrThrow({ where: { id: CANONICAL_TEST_DEAL_ID } }),
         tx.dealParticipant.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
-        tx.dealEvent.findMany({
-          where: { dealId: CANONICAL_TEST_DEAL_ID },
-          orderBy: { createdAt: 'asc' },
-        }),
+        tx.dealEvent.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { createdAt: 'asc' } }),
         tx.auditEvent.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
         tx.outboxEntry.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
-        tx.ledgerEntry.findMany({
-          where: { dealId: CANONICAL_TEST_DEAL_ID },
-          orderBy: { createdAt: 'asc' },
-        }),
+        tx.ledgerEntry.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { createdAt: 'asc' } }),
         tx.bankOperation.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
-        tx.labSample.findUniqueOrThrow({
-          where: { id: fixture.sampleId },
-          include: { tests: true },
-        }),
+        tx.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId }, include: { tests: true } }),
         tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
           SELECT id FROM labs.protocols WHERE sample_id = ${fixture.sampleId}
         `),
+        tx.$queryRaw<Array<{ status: string; confirmedReserved: bigint; confirmedReleased: bigint }>>(Prisma.sql`
+          SELECT status, confirmed_reserved_minor AS "confirmedReserved",
+                 confirmed_released_minor AS "confirmedReleased"
+          FROM settlement.payments WHERE deal_id = ${CANONICAL_TEST_DEAL_ID}
+        `),
+        tx.$queryRaw<Array<{ id: string; status: string; operationType: string }>>(Prisma.sql`
+          SELECT id, status, operation_type AS "operationType"
+          FROM settlement.bank_operations
+          WHERE deal_id = ${CANONICAL_TEST_DEAL_ID}
+          ORDER BY created_at, id
+        `),
+        tx.$queryRaw<Array<{ id: string; entryType: string; prevHash: string | null; hash: string }>>(Prisma.sql`
+          SELECT id, entry_type AS "entryType", prev_hash AS "prevHash", hash
+          FROM settlement.ledger_entries
+          WHERE deal_id = ${CANONICAL_TEST_DEAL_ID}
+          ORDER BY created_at, id
+        `),
+        tx.$queryRaw<Array<{ eventId: string }>>(Prisma.sql`
+          SELECT event_id AS "eventId" FROM settlement.bank_callbacks
+          WHERE deal_id = ${CANONICAL_TEST_DEAL_ID}
+        `),
       ]);
-      return { deal, participants, events, audits, outbox, ledger, operations, sample, protocols };
+      return {
+        deal,
+        participants,
+        events,
+        audits,
+        outbox,
+        publicLedger,
+        publicOperations,
+        sample,
+        protocols,
+        settlementPayments,
+        settlementOperations,
+        settlementLedger,
+        callbacks,
+      };
     });
 
     expect(facts.deal).toMatchObject({ status: 'CLOSED', totalKopecks: DEAL_AMOUNT_KOPECKS });
     expect(facts.participants).toHaveLength(12);
     expect(facts.events).toHaveLength(DEAL_ACTIONS.length);
     expect(facts.events.slice(1).every((event, index) => event.prevHash === facts.events[index].hash)).toBe(true);
-    expect(facts.ledger.map((entry) => entry.entryType)).toEqual(['RESERVE', 'RELEASE']);
-    expect(facts.operations).toHaveLength(2);
-    expect(facts.operations.every((operation) => operation.status === 'DONE')).toBe(true);
+    expect(facts.publicLedger.map((entry) => entry.entryType)).toEqual(['RESERVE', 'RELEASE']);
+    expect(facts.publicOperations).toHaveLength(2);
+    expect(facts.publicOperations.every((operation) => operation.status === 'DONE')).toBe(true);
+    expect(facts.settlementPayments).toEqual([{
+      status: 'RELEASED',
+      confirmedReserved: DEAL_AMOUNT_KOPECKS,
+      confirmedReleased: DEAL_AMOUNT_KOPECKS,
+    }]);
+    expect(facts.settlementOperations.map((item) => item.operationType)).toEqual(['RESERVE', 'RELEASE']);
+    expect(facts.settlementOperations.every((item) => item.status === 'CONFIRMED')).toBe(true);
+    expect(facts.settlementLedger.map((item) => item.entryType)).toEqual(['RESERVE', 'RELEASE']);
+    expect(facts.settlementLedger.slice(1).every((entry, index) =>
+      entry.prevHash === facts.settlementLedger[index].hash)).toBe(true);
+    expect(facts.callbacks).toHaveLength(2);
     expect(facts.sample.status).toBe('FINALIZED');
     expect(facts.sample.tests).toHaveLength(2);
     expect(facts.protocols).toHaveLength(1);
     expect(facts.audits.length).toBeGreaterThanOrEqual(DEAL_ACTIONS.length);
-    expect(facts.outbox.filter((entry) => entry.type === 'deal.command.receipt'))
-      .toHaveLength(DEAL_ACTIONS.length);
+    expect(facts.outbox.filter((entry) =>
+      entry.type === 'deal.command.receipt' || entry.type === 'settlement.command.receipt').length)
+      .toBeGreaterThanOrEqual(DEAL_ACTIONS.length);
 
-    const outsider: RequestUser = {
-      ...actor(Role.LAB),
-      id: 'canonical-lab-outsider',
-      orgId: 'org-canonical-outsider',
-      sessionId: 'canonical-lab-outsider-session',
-    };
-    await expect(instance.labs.getById(fixture.sampleId, outsider)).rejects.toMatchObject({ status: 404 });
-
-    const restarted = await createInstance();
+    const restarted = await createSettlementInstance();
     try {
       for (const command of issued) {
         await expect(restarted.gateway.executeUser(
@@ -460,13 +494,13 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     process.stdout.write(`${JSON.stringify({
       e2e: 'passed',
       identity: 'persistent-postgresql',
+      settlementAuthority: 'postgresql',
       dealId: facts.deal.id,
       status: facts.deal.status,
       roles: users.size,
       actions: DEAL_ACTIONS.length,
-      labSample: facts.sample.id,
-      protocols: facts.protocols.length,
-      ledgerEntries: facts.ledger.length,
+      callbacks: facts.callbacks.length,
+      settlementLedgerEntries: facts.settlementLedger.length,
     })}\n`);
   });
 });

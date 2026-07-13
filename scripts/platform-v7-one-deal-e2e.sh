@@ -95,6 +95,9 @@ psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/postgresql-logistics
 echo "[one-deal] applying PostgreSQL labs-authority RLS overlay"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/postgresql-labs-authority-policies.sql
 
+echo "[one-deal] applying PostgreSQL settlement-authority RLS overlay"
+psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/postgresql-settlement-authority-policies.sql
+
 echo "[one-deal] creating restricted deal-execution principal"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
 DO $one_deal_role$
@@ -107,7 +110,7 @@ BEGIN
 END
 $one_deal_role$;
 GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_app;
-GRANT USAGE ON SCHEMA public, security, logistics, labs TO one_deal_app;
+GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
@@ -131,8 +134,22 @@ TO one_deal_app;
 GRANT SELECT, INSERT ON labs.sample_custody_events TO one_deal_app;
 GRANT SELECT ON labs.protocols TO one_deal_app;
 REVOKE DELETE ON ALL TABLES IN SCHEMA labs FROM one_deal_app;
+GRANT SELECT, INSERT ON
+  settlement.payment_terms,
+  settlement.beneficiaries,
+  settlement.bank_callbacks,
+  settlement.ledger_entries,
+  settlement.reconciliation_facts
+TO one_deal_app;
+GRANT SELECT, INSERT, UPDATE ON
+  settlement.payments,
+  settlement.holds,
+  settlement.bank_operations
+TO one_deal_app;
+REVOKE DELETE ON ALL TABLES IN SCHEMA settlement FROM one_deal_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO one_deal_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO one_deal_app;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA settlement TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA security GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA logistics GRANT SELECT ON TABLES TO one_deal_app;
@@ -211,6 +228,12 @@ LABS_ROLE_PROOF="$(psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_s
 echo "[one-deal] labs principal proof usage:select:insert:protocol-delete = $LABS_ROLE_PROOF"
 if [[ "$LABS_ROLE_PROOF" != "true:true:true:false" && "$LABS_ROLE_PROOF" != "t:t:t:f" ]]; then
   echo "Deal application labs privilege boundary is invalid: $LABS_ROLE_PROOF" >&2
+  exit 1
+fi
+SETTLEMENT_ROLE_PROOF="$(psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege(current_user,'settlement','USAGE')::text || ':' || has_table_privilege(current_user,'settlement.payments','SELECT')::text || ':' || has_table_privilege(current_user,'settlement.payments','UPDATE')::text || ':' || has_table_privilege(current_user,'settlement.ledger_entries','DELETE')::text")"
+echo "[one-deal] settlement principal proof usage:select:update:ledger-delete = $SETTLEMENT_ROLE_PROOF"
+if [[ "$SETTLEMENT_ROLE_PROOF" != "true:true:true:false" && "$SETTLEMENT_ROLE_PROOF" != "t:t:t:f" ]]; then
+  echo "Deal application settlement privilege boundary is invalid: $SETTLEMENT_ROLE_PROOF" >&2
   exit 1
 fi
 AUTH_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || has_table_privilege('one_deal_auth','public.deals','SELECT')::text FROM pg_roles WHERE rolname='one_deal_auth'")"
