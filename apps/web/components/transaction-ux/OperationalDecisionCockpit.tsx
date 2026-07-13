@@ -23,6 +23,16 @@ export type OperationalPriority = {
   secondaryAction?: ReactNode;
 };
 
+export type OperationalCockpitLabels = {
+  blocker: string;
+  owner: string;
+  impact: string;
+  result: string;
+  nextAction: string;
+  prioritySection: string;
+  factsSection: string;
+};
+
 export type OperationalDecisionCockpitProps = {
   eyebrow: string;
   title: string;
@@ -33,8 +43,19 @@ export type OperationalDecisionCockpitProps = {
   priority: OperationalPriority;
   facts: OperationalFact[];
   boundary?: ReactNode;
+  labels?: Partial<OperationalCockpitLabels>;
   children: ReactNode;
   testId?: string;
+};
+
+const DEFAULT_LABELS: OperationalCockpitLabels = {
+  blocker: 'Блокер',
+  owner: 'Ответственный',
+  impact: 'Влияние',
+  result: 'Результат',
+  nextAction: 'Следующее действие',
+  prioritySection: 'Главная операционная задача',
+  factsSection: 'Ключевые факты',
 };
 
 export function OperationalDecisionCockpit({
@@ -47,14 +68,16 @@ export function OperationalDecisionCockpit({
   priority,
   facts,
   boundary,
+  labels,
   children,
   testId,
 }: OperationalDecisionCockpitProps) {
+  const copy = { ...DEFAULT_LABELS, ...labels };
   const meta = [
-    priority.blocker ? { label: 'Блокер', value: priority.blocker } : null,
-    priority.owner ? { label: 'Ответственный', value: priority.owner } : null,
-    priority.impact ? { label: 'Влияние', value: priority.impact } : null,
-    priority.result ? { label: 'Результат', value: priority.result } : null,
+    priority.blocker ? { label: copy.blocker, value: priority.blocker } : null,
+    priority.owner ? { label: copy.owner, value: priority.owner } : null,
+    priority.impact ? { label: copy.impact, value: priority.impact } : null,
+    priority.result ? { label: copy.result, value: priority.result } : null,
   ].filter((item): item is { label: string; value: string } => Boolean(item));
 
   const priorityClass = priority.state === 'ready'
@@ -77,8 +100,8 @@ export function OperationalDecisionCockpit({
         <div className={styles.status}><StatusChip tone={statusTone}>{statusLabel}</StatusChip></div>
       </header>
 
-      <section className={`${styles.priority} ${priorityClass}`} aria-label='Главная операционная задача'>
-        <span className={styles.priorityEyebrow}>{priority.eyebrow ?? 'Следующее действие'}</span>
+      <section className={`${styles.priority} ${priorityClass}`} aria-label={copy.prioritySection}>
+        <span className={styles.priorityEyebrow}>{priority.eyebrow ?? copy.nextAction}</span>
         <h2 className={styles.priorityTitle}>{priority.title}</h2>
         <p className={styles.priorityDescription}>{priority.description}</p>
         {meta.length > 0 ? (
@@ -96,7 +119,7 @@ export function OperationalDecisionCockpit({
         ) : null}
       </section>
 
-      <section className={styles.factGrid} aria-label='Ключевые факты'>
+      <section className={styles.factGrid} aria-label={copy.factsSection}>
         {facts.map((fact) => (
           <article className={styles.fact} key={fact.label}>
             <span className={styles.factLabel}>{fact.label}</span>
