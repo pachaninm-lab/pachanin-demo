@@ -161,7 +161,7 @@ export function RoleIntentDashboard({ role }: { role: PlatformRole }) {
         <div className={styles.stateContent}>
           <CheckCircle2 className={styles.emptyIcon} size={28} aria-hidden='true' />
           <h1>Сегодня нет активных сделок</h1>
-          <p>Новая сделка появится здесь только после подтверждения вашего участия сервером.</p>
+          <p>У вас пока нет активных сделок, подтверждённых сервером. Новая сделка появится здесь после подтверждения вашего участия.</p>
         </div>
       </section>
     );
