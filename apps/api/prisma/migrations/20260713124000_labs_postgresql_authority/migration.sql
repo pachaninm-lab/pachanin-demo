@@ -118,11 +118,8 @@ BEGIN
     RAISE EXCEPTION 'active normalized laboratory sample admission not found' USING ERRCODE = '23514';
   END IF;
   IF NEW."assignedActorUserId" <> current_user_id
-     OR (
-       NOT public.app_rls_privileged()
-       AND NOT public.app_labs_actor_valid(
-         NEW."tenantId", NEW."labId", current_user_id, 'SAMPLER', now()
-       )
+     OR NOT public.app_labs_actor_valid(
+       NEW."tenantId", NEW."labId", current_user_id, 'SAMPLER', now()
      )
   THEN
     RAISE EXCEPTION 'authorized SAMPLER assignment is required' USING ERRCODE = '42501';
@@ -203,8 +200,7 @@ BEGIN
   IF required_actor_type IS NULL THEN
     RAISE EXCEPTION 'unsupported custody event type' USING ERRCODE = '23514';
   END IF;
-  IF NOT public.app_rls_privileged()
-     AND NOT public.app_labs_actor_valid(
+  IF NOT public.app_labs_actor_valid(
        NEW.tenant_id, NEW.laboratory_org_id, NEW.actor_user_id,
        required_actor_type, NEW.occurred_at
      )
