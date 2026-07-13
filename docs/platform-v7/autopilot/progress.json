@@ -1,14 +1,14 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 0,
-  "currentStep": "IR-10.2 Logistics PostgreSQL Authority",
-  "lastCompletedStep": "#2410 Documents PostgreSQL Authority",
-  "openPr": "#2412",
+  "currentStep": "IR-10.3 Labs PostgreSQL Authority",
+  "lastCompletedStep": "#2412 Logistics PostgreSQL Authority",
+  "openPr": null,
   "blockedBy": [
-    "IR-10.2 final exact-head CI is running after the atomic admission-binding trigger, live one-deal gate and restored-database acceptance were aligned."
+    "Production LabsModule still permits RuntimeCore and an incomplete Prisma lab repository; normalized custody and protocol authority are not yet exclusive in PostgreSQL."
   ],
-  "nextStep": "IR-10.2 Logistics PostgreSQL Authority",
-  "updatedAt": "2026-07-13T07:02:00.000Z",
+  "nextStep": "IR-10.3 Labs PostgreSQL Authority",
+  "updatedAt": "2026-07-13T07:10:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
