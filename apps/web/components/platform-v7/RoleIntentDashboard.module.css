@@ -118,7 +118,8 @@
   color: var(--pc-accent-strong);
 }
 
-.retryButton {
+.retryButton,
+.loadMoreButton {
   min-height: 48px;
   border: 1px solid var(--pc-accent);
   border-radius: 14px;
@@ -132,6 +133,16 @@
   font: inherit;
   font-weight: 850;
   cursor: pointer;
+}
+
+.loadMoreButton {
+  width: 100%;
+}
+
+.retryButton:disabled,
+.loadMoreButton:disabled {
+  opacity: 0.62;
+  cursor: wait;
 }
 
 .otherDeals {
@@ -157,11 +168,16 @@
   background: var(--pc-bg-elevated);
 }
 
+.dealListBody {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
 .dealLinks {
   max-height: min(440px, 55dvh);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 12px;
   display: grid;
   gap: 8px;
 }
@@ -213,7 +229,20 @@
   line-height: 1.35;
 }
 
+.loadMoreError {
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--pc-danger, #b42318) 28%, var(--pc-border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--pc-danger-bg, #fff3f2) 72%, var(--pc-bg-card));
+  color: var(--pc-danger, #b42318);
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 800;
+}
+
 .retryButton:focus-visible,
+.loadMoreButton:focus-visible,
 .dealLink:focus-visible,
 .otherDeals summary:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--pc-accent) 42%, transparent);
@@ -267,7 +296,7 @@
     padding: 20px 16px;
   }
 
-  .dealLinks {
+  .dealListBody {
     padding: 9px;
   }
 
@@ -288,7 +317,9 @@
   .stateCard,
   .otherDeals,
   .dealLink,
-  .retryButton {
+  .retryButton,
+  .loadMoreButton,
+  .loadMoreError {
     border: 1px solid CanvasText;
   }
 }

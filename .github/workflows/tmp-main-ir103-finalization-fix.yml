@@ -1,0 +1,74 @@
+name: Temporary IR-10.3 finalization fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tmp-ir103-finalization-fix
+  cancel-in-progress: false
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ir-10-3-labs-authority-v3
+          fetch-depth: 0
+      - name: Remove false custody transfer from protocol finalization
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/api/src/modules/labs/prisma-lab.repository.ts')
+          text = path.read_text()
+          old = """        const custody = await this.insertCustody(
+            tx, updated, context, 'FINALIZED', sample.currentCustodianOrgId,
+            sample.currentCustodianUserId, sample.labId, sample.assignedLabUserId,
+            signedEvidence.id, normalized.finalizedAt as Date,
+            normalized.commandId as string, `${persistentKey}:custody`,
+            normalized.correlationId as string,
+          );
+          return {
+            sample: updated,
+            custody,
+            eventPayload: {
+              custodyEventId: custody.id,
+              protocolHash,
+              qualityStatus,
+              effectiveTestCount: effectiveTests.length,
+            },
+          };
+          """
+          new = """        return {
+            sample: updated,
+            eventPayload: {
+              protocolDocumentId: signedEvidence.id,
+              protocolHash,
+              qualityStatus,
+              effectiveTestCount: effectiveTests.length,
+            },
+          };
+          """
+          if text.count(old) != 1:
+              raise SystemExit(f'finalization custody block count={text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/api/src/modules/labs/prisma-lab.repository.ts
+          git commit -m 'fix(labs): keep protocol finalization out of custody chain'
+          git push origin HEAD:agent/ir-10-3-labs-authority-v3
+
+          git fetch origin main
+          git switch -C main origin/main
+          rm -f .github/workflows/tmp-main-ir103-finalization-fix.yml .tmp-main-ir103-finalization-trigger
+          git add -A
+          git commit -m 'chore: remove one-shot lab finalization fix'
+          git push origin HEAD:main
