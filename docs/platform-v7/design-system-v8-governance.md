@@ -2,7 +2,7 @@
 
 ## Status
 
-Design System v8 is introduced as an additive controlled-migration layer. It does not claim that the legacy interface has already been removed or that every route has passed the final design gates.
+Design System v8 is the controlled visual and interaction layer for the active Transaction UX surfaces. This status does not mean that every secondary route or historical Platform v7 component has already been removed. Migration acceptance remains evidence-based and route-scoped.
 
 ## Source of truth
 
@@ -23,13 +23,15 @@ Product components may consume semantic, component or context tokens. Raw core v
 
 ## Governed components
 
-The following are controlled by v8 immediately:
+The following are controlled by v8:
 
 - all files under `packages/design-system-v8/src`;
 - all files under `apps/web/components/transaction-ux`;
+- the active `AppShellV4` TSX and CSS Module;
+- the shared `RoleIntentDashboard` TSX and CSS Module used by all twelve business-role roots;
 - every file registered in `migratedFiles` inside `design-governance-v8.json`.
 
-A migrated product file must consume `@pc/design-system-v8`. New local copies of a migrated pattern are not allowed.
+A migrated product file must consume `@pc/design-system-v8` or be an explicitly governed token-only template. New local copies of a migrated pattern are not allowed.
 
 ## Prohibited patterns
 
@@ -70,16 +72,54 @@ Migration is route-by-route and reversible:
 1. register the target route and user task;
 2. replace local patterns with v8 primitives/domain components;
 3. add the migrated files to the governance registry;
-4. add RU/EN/ZH messages before the route is accepted;
+4. add RU/EN/ZH copy before the route is accepted;
 5. cover mobile, keyboard, forced-colors and reduced-motion states;
 6. pass visual, accessibility and performance baselines;
 7. remove legacy imports only after the route no longer depends on them.
 
 Big-bang replacement is prohibited.
 
-## Current reference slice
+## Accepted Transaction UX slices
 
-The first migrated domain component is `NextActionCard`. The canonical Deal Workspace remains the reference Transaction UX slice, but its complete token and component migration is a separate acceptance step. Existing AppShellV4 and legacy role pages remain legacy until explicitly registered as migrated.
+### Foundation
+
+- DTCG-compatible token source and generated CSS runtime;
+- reusable v8 primitives and `NextActionCard`;
+- automated governance and concurrent-scope isolation.
+
+### Active application shell
+
+- fixed header and mobile bottom navigation;
+- role-scoped drawer and command palette;
+- notification and theme controls;
+- no runtime style injection, inline style objects, literal colors or `!important`.
+
+### Canonical Deal Workspace
+
+- one server-authoritative Deal;
+- task-first next action and blocker states;
+- idempotency and optimistic concurrency preserved;
+- bank callback remains an external-confirmation state;
+- token-only responsive presentation.
+
+### Field-role workspaces
+
+The driver, surveyor, elevator and laboratory routes use governed field-role templates for mobile-first execution while preserving server-owned authority and the canonical Deal.
+
+### Twelve-role root cockpit
+
+The operator, buyer, seller, logistics, driver, surveyor, elevator, laboratory, bank, compliance, arbitrator and executive root routes use one shared `RoleIntentDashboard` template. The template:
+
+- loads only participant-scoped deals from the server;
+- prioritizes a deal requiring action without hiding other deals;
+- uses v8 primitives and semantic tokens;
+- has loading, empty, error, pagination and retry states;
+- supports RU, EN and ZH through `next-intl` locale selection;
+- preserves server-owned RBAC and the canonical Deal Workspace.
+
+## Remaining boundary
+
+Secondary role pages and historical components are not automatically accepted merely because they render under the v8 shell. Each secondary route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
 
 ## Decision authority
 

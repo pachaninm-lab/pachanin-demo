@@ -3,7 +3,12 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CONTROLLED_CABINET_CONTEXTS } from '../../lib/platform-v7/controlled-test-organizations';
 
-const root = process.cwd();
+const cwd = process.cwd();
+const root = [cwd, path.resolve(cwd, '../..')]
+  .find((candidate) => fs.existsSync(path.join(candidate, 'design-governance-v8.json')));
+
+if (!root) throw new Error(`Cannot resolve repository root from ${cwd}`);
+
 function read(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
@@ -44,7 +49,10 @@ describe('platform-v7 role intent dashboard', () => {
     expect(dashboard).toContain('Сервер вернул некорректный список сделок');
     expect(dashboard).toContain('Повторить');
     expect(dashboard).not.toContain('getRoleIntentConfig');
-    expect(dashboardStyles).toContain('min-height: 48px');
+    expect(dashboard).toContain("from '@pc/design-system-v8'");
+    expect(dashboard).toContain("data-transaction-role-cockpit='v8'");
+    expect(dashboardStyles).toContain('var(--ds-color');
+    expect(dashboardStyles).not.toContain('var(--pc-');
     expect(dashboardStyles).toContain('@media (max-width: 430px)');
     expect(dashboardStyles).toContain('@media (forced-colors: active)');
     expect(shell).toContain('ROLE_INTENT_ROOT_PATHS');

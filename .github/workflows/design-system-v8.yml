@@ -7,6 +7,8 @@ on:
       - 'packages/design-system-v8/**'
       - 'apps/web/components/transaction-ux/**'
       - 'apps/web/components/platform-v7/NextActionCard.tsx'
+      - 'apps/web/components/platform-v7/RoleIntentDashboard.tsx'
+      - 'apps/web/components/platform-v7/RoleIntentDashboard.module.css'
       - 'apps/web/components/v7r/AppShellV4.tsx'
       - 'apps/web/components/v7r/AppShellV4.module.css'
       - 'apps/web/app/platform-v7/driver/field/page.tsx'
@@ -14,7 +16,11 @@ on:
       - 'apps/web/app/platform-v7/lab/page.tsx'
       - 'apps/web/app/platform-v7/surveyor/page.tsx'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
+      - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
+      - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
+      - 'apps/web/tests/unit/platformV7TodayWorkspace.test.ts'
+      - 'apps/web/tests/unit/transactionRoleCockpitsV8.test.ts'
       - 'design-governance-v8.json'
       - 'scripts/check-design-system-v8.mjs'
       - '.github/workflows/design-system-v8.yml'
@@ -25,6 +31,8 @@ on:
       - 'packages/design-system-v8/**'
       - 'apps/web/components/transaction-ux/**'
       - 'apps/web/components/platform-v7/NextActionCard.tsx'
+      - 'apps/web/components/platform-v7/RoleIntentDashboard.tsx'
+      - 'apps/web/components/platform-v7/RoleIntentDashboard.module.css'
       - 'apps/web/components/v7r/AppShellV4.tsx'
       - 'apps/web/components/v7r/AppShellV4.module.css'
       - 'apps/web/app/platform-v7/driver/field/page.tsx'
@@ -32,7 +40,11 @@ on:
       - 'apps/web/app/platform-v7/lab/page.tsx'
       - 'apps/web/app/platform-v7/surveyor/page.tsx'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
+      - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
+      - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
+      - 'apps/web/tests/unit/platformV7TodayWorkspace.test.ts'
+      - 'apps/web/tests/unit/transactionRoleCockpitsV8.test.ts'
       - 'design-governance-v8.json'
       - 'scripts/check-design-system-v8.mjs'
 
@@ -58,5 +70,11 @@ jobs:
         run: node ./scripts/check-design-system-v8.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
-      - name: Run field-role v8 regression tests
-        run: pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8FieldRoles.test.ts
+      - name: Run v8 role regressions
+        run: >-
+          pnpm --filter @pc/web exec vitest run
+          tests/unit/designSystemV8FieldRoles.test.ts
+          tests/unit/platformV7CanonicalDealWorkspace.test.ts
+          tests/unit/platformV7RoleIntentDashboard.test.ts
+          tests/unit/platformV7TodayWorkspace.test.ts
+          tests/unit/transactionRoleCockpitsV8.test.ts

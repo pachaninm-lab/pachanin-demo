@@ -15,6 +15,7 @@ describe('platform-v7 canonical one-deal workspace', () => {
   const commandFormStyles = source('components/platform-v7/DealCommandForm.module.css');
   const dashboard = source('components/platform-v7/RoleIntentDashboard.tsx');
   const dashboardStyles = source('components/platform-v7/RoleIntentDashboard.module.css');
+  const designSystemStyles = source('../../packages/design-system-v8/src/components.module.css');
   const shell = source('components/platform-v7/PlatformV7ProtectedShell.tsx');
   const utilityMenu = source('components/platform-v7/HeaderUtilityMenu.tsx');
   const utilityStyles = source('components/platform-v7/HeaderUtilityMenu.module.css');
@@ -47,7 +48,9 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(shell).not.toContain('style={{');
     expect(workspaceStyles).toContain('min-height: 48px');
     expect(workspaceStyles).toContain('@media (max-width: 430px)');
-    expect(dashboardStyles).toContain('min-height: 48px');
+    expect(dashboard).toContain("from '@pc/design-system-v8'");
+    expect(designSystemStyles).toContain('min-height: var(--ds-control-height)');
+    expect(dashboardStyles).toContain('var(--ds-color');
   });
 
   it('guides a low-literacy user through forms without exposing deal-context ids', () => {
@@ -62,8 +65,8 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(commandForm).toContain("current?.fields.filter((field) => !field.contextual)");
     expect(commandForm).toContain('Выбрано автоматически из сделки');
     expect(workspace).toContain('initialValues={commandInitialValues(action.id, workspace)}');
-    expect(workspace).toContain("values.shipmentId = shipmentId");
-    expect(workspace).toContain("values.acceptanceId = acceptanceId");
+    expect(workspace).toContain('values.shipmentId = shipmentId');
+    expect(workspace).toContain('values.acceptanceId = acceptanceId');
     expect(commandFormStyles).toContain('min-height: 48px');
     expect(commandFormStyles).toContain('@media (max-width: 560px)');
   });
@@ -101,10 +104,10 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(workspace).not.toContain('user-driver-001');
     expect(workspace).not.toContain('Тестовый водитель');
     expect(workspace).not.toContain('А001АА77');
-    expect(commandForm).toContain("assign_logistics");
-    expect(commandForm).toContain("confirm_loading");
-    expect(commandForm).toContain("confirm_weight");
-    expect(commandForm).toContain("finalize_lab");
+    expect(commandForm).toContain('assign_logistics');
+    expect(commandForm).toContain('confirm_loading');
+    expect(commandForm).toContain('confirm_weight');
+    expect(commandForm).toContain('finalize_lab');
     expect(commandForm).toContain('Итог PASSED/FAILED рассчитывает сервер');
     expect(commandForm).not.toContain('12.4');
     expect(commandForm).not.toContain('13.2');
@@ -144,8 +147,8 @@ describe('platform-v7 canonical one-deal workspace', () => {
 
   it('never fabricates a successful execution response when the real API is unavailable', () => {
     expect(proxy).toContain('requiresRealBackend');
-    expect(proxy).toContain('^deals\\/[^/]+\\/(execution-workspace|correlation-timeline)$');
-    expect(proxy).toContain('^deals\\/[^/]+\\/commands\\/');
+    expect(proxy).toContain(String.raw`^deals\/[^/]+\/(execution-workspace|correlation-timeline)$`);
+    expect(proxy).toContain(String.raw`^deals\/[^/]+\/commands\/`);
     expect(proxy).toContain("code: 'REAL_BACKEND_REQUIRED'");
     expect(proxy).toContain("if (strictRealPath) return realBackendUnavailable('real_backend_not_used')");
   });
