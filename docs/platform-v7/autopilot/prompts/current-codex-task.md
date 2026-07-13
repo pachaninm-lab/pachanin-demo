@@ -51,7 +51,7 @@ IR-10.2 Logistics PostgreSQL Authority — PR #2412, merge `a272a1e64b1a30d1e5b2
 Do not spend another iteration only changing prompts, comments or static marker tests. Implement the production path in this order:
 
 1. Fix `apps/api/test/industrial/harness.ts` at the root: exported `createInstance()` must register its returned `ServiceInstance` in `activeInstances`. Restore all suites to the normal `createInstance` import; do not patch `load-proof`, `observability` or `money-reconciliation` one by one.
-2. Replace `createVerifiedEvidence()` with a controlled fixture path that writes the final purpose metadata in the initial trusted-RLS `UPLOAD_PENDING` INSERT, then uses the existing storage finalization principal. Do not add or restore a migration that relaxes `deal_documents` metadata immutability.
+2. Extend `StorageService.requestUpload()` and its controller contract so a validated flat evidence metadata object is persisted in the original trusted-RLS `UPLOAD_PENDING` INSERT. Then replace fixture direct metadata UPDATEs with `requestUpload({ ..., metadata })` followed by normal confirmation. Do not add or restore a migration that relaxes `deal_documents` metadata immutability.
 3. Bind harness mutations to the same production repository boundary as `LabsModule`: `AuthorizedPrismaLabRepository` wrapping the Prisma delegate, not the raw delegate.
 4. Persist laboratory corrections completely: normalize `supersedesId`, include it in the append-only `lab_tests` INSERT, event, audit and receipt material, preserve the predecessor and let protocol aggregation ignore superseded facts.
 5. Enforce actor type at every production command and PostgreSQL trigger boundary: SAMPLER, COURIER/RECEIVER, ANALYST, SIGNATORY. Privileged staff may authorize or observe but must not silently become the physical laboratory actor.
@@ -88,6 +88,8 @@ No PASS may be claimed while any item above remains in the exact-head diff or wh
 - apps/api/src/modules/deals/deal-command-payload.ts
 - apps/api/src/modules/deals/postgresql-deal-command.service.ts
 - apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
+- apps/api/src/modules/storage/storage.service.ts
+- apps/api/src/modules/storage/storage.controller.ts
 - apps/api/src/modules/labs/**
 - apps/api/prisma/schema.prisma
 - apps/api/prisma/migrations/20260713*_labs_postgresql_authority/**
