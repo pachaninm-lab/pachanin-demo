@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -33,7 +33,12 @@
     "apps/web/app/platform-v7/documents/page.tsx",
     "apps/web/app/platform-v7/disputes/page.tsx",
     "apps/web/app/platform-v7/bank/release-safety/page.tsx",
-    "apps/web/app/platform-v7/money/page.tsx"
+    "apps/web/app/platform-v7/money/page.tsx",
+    "apps/web/app/platform-v7/auction/page.tsx",
+    "apps/web/app/platform-v7/auction/import/page.tsx",
+    "apps/web/app/platform-v7/auction/admission/page.tsx",
+    "apps/web/app/platform-v7/auction/bids/page.tsx",
+    "apps/web/app/platform-v7/auction/deal-basis/page.tsx"
   ],
   "allowedGlobalStyleEntrypoints": [
     "packages/design-tokens/tokens.css"
