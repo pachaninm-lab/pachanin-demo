@@ -1,3 +1,5 @@
+.simplifiedShell {}
+
 .root {
   position: relative;
   display: inline-flex;
@@ -256,12 +258,16 @@
 }
 
 /* Native shell actions remain functional and are activated from this single menu. */
-:global(.pc-v4-actions > .pc-v4-search),
-:global(.pc-v4-actions > .pc-v4-theme-toggle),
-:global(.pc-v4-actions button[aria-label='Открыть уведомления']),
-:global(.pc-v4-actions button[aria-label='Открыть калькулятор']),
-:global(.pc-v4-actions .p7-note-widget),
-:global(.pc-v4-actions .p7-role-support) {
+.simplifiedShell :global(.pc-v4-actions > .pc-v4-search),
+.simplifiedShell :global(.pc-v4-actions > .pc-v4-theme-toggle),
+.simplifiedShell :global(.pc-v4-actions button[aria-label='Открыть уведомления']),
+.simplifiedShell :global(.pc-v4-actions button[aria-label='Открыть калькулятор']),
+.simplifiedShell :global(.pc-v4-actions .p7-note-widget),
+.simplifiedShell :global(.pc-v4-actions .p7-role-support),
+.simplifiedShell :global(.pc-v7-role-dock a[href='/platform-v7/ai']),
+.simplifiedShell :global(.pc-v7-safe-drawer-link[href='/platform-v7/ai']),
+.simplifiedShell :global(.pc-v4-bottomnav a[href='/platform-v7/ai']),
+.simplifiedShell :global(.pc-v7-role-dock button.pc-v7-role-dock-item) {
   display: none !important;
 }
 
