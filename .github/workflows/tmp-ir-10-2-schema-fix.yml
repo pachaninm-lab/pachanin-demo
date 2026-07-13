@@ -14,17 +14,18 @@ concurrency:
 
 jobs:
   patch:
+    if: ${{ !contains(github.event.head_commit.message, '[tmp-schema-fixed]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: agent/ir-10-2-logistics-postgresql-authority
           fetch-depth: 0
-      - name: Correct Prisma schema without touching logistics scope
+      - name: Correct Prisma schema and remove temporary workflow
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
+          python3 - <<'PY'
           from pathlib import Path
           p = Path('apps/api/prisma/schema.prisma')
           s = p.read_text()
@@ -35,20 +36,16 @@ jobs:
               '  correlationId   String?\n  createdByOrgId': '  correlationId    String?\n  createdByOrgId',
           }
           for old, new in replacements.items():
-              if old in s:
-                  s = s.replace(old, new)
+              s = s.replace(old, new)
           p.write_text(s)
+          Path('.github/workflows/tmp-ir-10-2-schema-fix.yml').unlink()
           PY
-          pnpm --filter @pc/api exec prisma validate --schema prisma/schema.prisma
       - name: Commit correction
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- apps/api/prisma/schema.prisma; then
-            exit 0
-          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add apps/api/prisma/schema.prisma
-          git commit -m 'fix(logistics): restore unique Prisma FK map names'
+          git add -A
+          git commit -m 'fix(logistics): restore Prisma FK maps [tmp-schema-fixed]'
           git push origin HEAD:agent/ir-10-2-logistics-postgresql-authority
