@@ -17,15 +17,13 @@ const LOSSLESS_WIDENING_TYPES = /^(BIGINT|DECIMAL(\s*\(\s*\d+\s*,\s*\d+\s*\))?|N
 
 const CONTROLLED_UTC_NORMALIZATION_MIGRATIONS = new Set([
   '20260713102000_logistics_postgresql_authority',
-  '20260713122000_labs_postgresql_authority',
 ]);
 
 function controlledUtcTimestampRewrite(migration, sql, target) {
-  // IR-10.2/IR-10.3 introduce these columns in immediately preceding,
-  // unmerged additive migrations. Prisma represents the public DateTime fields
-  // as TIMESTAMP(3), so the follow-up normalizes only newly introduced values
-  // to UTC before either slice can reach main. The allow-list is exact; future
-  // timestamp rewrites remain forbidden by default.
+  // IR-10.2 introduced these columns in the immediately preceding unmerged
+  // additive migration. Prisma represents the public DateTime fields as
+  // TIMESTAMP(3), so the follow-up normalizes only those newly introduced values
+  // to UTC before the slice can reach main. Future rewrites remain forbidden.
   return CONTROLLED_UTC_NORMALIZATION_MIGRATIONS.has(migration)
     && /^TIMESTAMP\s*\(\s*3\s*\)$/i.test(target)
     && /AT\s+TIME\s+ZONE\s+'UTC'/i.test(sql);
