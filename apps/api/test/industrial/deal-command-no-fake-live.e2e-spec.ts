@@ -8,6 +8,7 @@ import {
   createInstance,
   destroyInstance,
   payloadForAction,
+  prepareLaboratoryFacts,
   provisionDeal,
   type DealFixture,
   type ServiceInstance,
@@ -73,7 +74,10 @@ async function advance(
   fixture: DealFixture,
   sequence: Array<[DealActionId, string]>,
 ) {
-  for (const [actionId, userKey] of sequence) await execute(fixture, actionId, userKey);
+  for (const [actionId, userKey] of sequence) {
+    if (actionId === 'finalize_lab') await prepareLaboratoryFacts(instance, fixture);
+    await execute(fixture, actionId, userKey);
+  }
 }
 
 async function snapshot(fixture: DealFixture, actionId: DealActionId) {

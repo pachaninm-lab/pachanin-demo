@@ -591,12 +591,26 @@ OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
 
     if (actionId === 'confirm_inspection') {
       const shipmentId = requiredString(payload, 'shipmentId');
+      const documentId = requiredString(payload, 'documentId');
       const inspectionResult = requiredString(payload, 'inspectionResult');
       const inspectedAt = requiredIso(payload, 'inspectedAt');
       const evidenceRef = requiredString(payload, 'evidenceRef');
       await this.requireShipment(tx, shipmentId, deal.id);
+      const document = await tx.dealDocument.findUnique({ where: { id: documentId } });
+      if (
+        !document || document.dealId !== deal.id || document.type !== 'INSPECTION_REPORT'
+        || !['VALIDATED', 'SIGNED'].includes(document.status) || !document.hash || !document.s3Key
+      ) {
+        invalid('documentId', 'Подтверждённое заключение независимого осмотра не найдено в сделке.');
+      }
       await this.requireEvidence(tx, evidenceRef, deal.id, shipmentId);
-      return { shipmentId, inspectionResult, inspectedAt: inspectedAt.toISOString(), evidenceRef };
+      return {
+        shipmentId,
+        documentId,
+        inspectionResult,
+        inspectedAt: inspectedAt.toISOString(),
+        evidenceRef,
+      };
     }
 
     if (actionId === 'finalize_lab') {
@@ -627,12 +641,17 @@ OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
       if (!acceptance || acceptance.dealId !== deal.id) {
         invalid('sampleId', 'Связанная запись приёмки не найдена в этой сделке.');
       }
-      await this.requireEvidence(
-        tx,
-        sample.certificateDocId,
-        deal.id,
-        sample.shipmentId ?? undefined,
-      );
+      const protocolDocument = await tx.dealDocument.findUnique({
+        where: { id: sample.certificateDocId },
+      });
+      if (
+        !protocolDocument || protocolDocument.dealId !== deal.id
+        || protocolDocument.type !== 'LAB_PROTOCOL' || protocolDocument.status !== 'SIGNED'
+        || !protocolDocument.signedAt || !protocolDocument.isImmutable
+        || !protocolDocument.hash || !protocolDocument.s3Key
+      ) {
+        invalid('sampleId', 'Подписанный неизменяемый лабораторный протокол не найден в сделке.');
+      }
       if (sample.tests.length === 0) {
         invalid('sampleId', 'В финализированной пробе отсутствуют сохранённые лабораторные факты.');
       }

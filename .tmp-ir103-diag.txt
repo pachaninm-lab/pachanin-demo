@@ -1,8 +1,0 @@
-service-confirm=1
-service-finalize-evidence=1
-harness-import=1
-harness-sample-upsert=1
-harness-payload=1
-one-payload=1
-one-snapshot=1
-seed-custody=1

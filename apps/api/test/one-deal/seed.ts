@@ -239,8 +239,8 @@ async function seedNormalizedLabAuthority(prisma: PrismaService): Promise<void> 
     await tx.$executeRaw(Prisma.sql`
       UPDATE public."lab_samples"
       SET "tenantId" = ${CANONICAL_TENANT_ID}, "labId" = 'org-canonical-lab',
-          "assignedLabUserId" = 'lab-e2e', "currentCustodianOrgId" = 'org-canonical-lab',
-          "currentCustodianUserId" = 'lab-e2e', "accreditationId" = NULL,
+          "assignedLabUserId" = 'lab-e2e', "currentCustodianOrgId" = 'org-canonical-surveyor',
+          "currentCustodianUserId" = 'surveyor-e2e', "accreditationId" = NULL,
           "finalizedByUserId" = NULL, "protocolHash" = NULL, "status" = 'PENDING',
           "protocol" = NULL, "gost" = NULL, "finalizedAt" = NULL, "version" = 0,
           "updatedAt" = CURRENT_TIMESTAMP

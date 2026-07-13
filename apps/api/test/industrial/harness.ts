@@ -5,6 +5,7 @@ import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.service';
 import { DealCommandService } from '../../src/modules/deals/deal-command.service';
 import { IndustrialDealCommandGateway } from '../../src/modules/deals/industrial-deal-command.gateway';
+import { PrismaLabRepository } from '../../src/modules/labs/prisma-lab.repository';
 import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import { Role, type RequestUser } from '../../src/common/types/request-user';
 
@@ -25,6 +26,10 @@ export interface DealFixture {
   vehicleId: string;
   routeFromFacilityId: string;
   routeToFacilityId: string;
+  labProtocolDocumentId: string;
+  labAccreditationId: string;
+  labMethodId: string;
+  labEquipmentId: string;
   evidence: Record<string, string>;
   users: Record<string, RequestUser>;
 }
@@ -34,6 +39,7 @@ export interface ServiceInstance {
   rls: RlsTransactionService;
   commands: DealCommandService;
   gateway: IndustrialDealCommandGateway;
+  labs: PrismaLabRepository;
 }
 
 export async function createInstance(): Promise<ServiceInstance> {
@@ -42,7 +48,8 @@ export async function createInstance(): Promise<ServiceInstance> {
   const rls = new RlsTransactionService(prisma);
   const commands = new DealCommandService(rls);
   const gateway = new IndustrialDealCommandGateway(prisma, rls, commands);
-  return { prisma, rls, commands, gateway };
+  const labs = new PrismaLabRepository(rls);
+  return { prisma, rls, commands, gateway, labs };
 }
 
 export async function destroyInstance(instance: ServiceInstance): Promise<void> {
@@ -224,6 +231,10 @@ export async function provisionDeal(
   const vehicleId = `vehicle:${dealId}`;
   const routeFromFacilityId = `facility:${sellerOrgId}:dispatch`;
   const routeToFacilityId = `facility:${buyerOrgId}:acceptance`;
+  const labProtocolDocumentId = `lab-protocol:${dealId}`;
+  const labAccreditationId = `lab-accreditation:${dealId}`;
+  const labMethodId = `lab-method:${dealId}:controlled-standard`;
+  const labEquipmentId = `lab-equipment:${dealId}:analyzer-1`;
   const passwordHash = bcrypt.hashSync('industrial-e2e', 4);
 
   const evidence: Record<string, string> = Object.fromEntries(
@@ -397,7 +408,7 @@ export async function provisionDeal(
     for (const document of [
       { id: `ttn:${dealId}`, type: 'TTN', name: 'Транспортная накладная' },
       { id: `weighing:${dealId}`, type: 'WEIGHING_ACT', name: 'Акт взвешивания' },
-      { id: `lab-protocol:${dealId}`, type: 'LAB_PROTOCOL', name: 'Лабораторный протокол' },
+      { id: labProtocolDocumentId, type: 'LAB_PROTOCOL', name: 'Лабораторный протокол' },
       { id: `acceptance-act:${dealId}`, type: 'ACCEPTANCE_ACT', name: 'Акт приёмки' },
     ]) {
       await tx.dealDocument.upsert({
@@ -420,19 +431,144 @@ export async function provisionDeal(
       });
     }
 
+    const labUserId = `user-e2e-${slug}-lab`;
+    const surveyorUserId = `user-e2e-${slug}-surveyor`;
+    await tx.labAssignment.upsert({
+      where: { dealId_labUserId: { dealId, labUserId } },
+      update: {
+        tenantId: INDUSTRIAL_TENANT,
+        labOrgId: serviceOrgId,
+        status: 'ACTIVE',
+        validUntil: null,
+        evidenceRef: evidence.lab,
+      },
+      create: {
+        id: `lab-assignment:${dealId}`,
+        tenantId: INDUSTRIAL_TENANT,
+        dealId,
+        labOrgId: serviceOrgId,
+        labUserId,
+        status: 'ACTIVE',
+        evidenceRef: evidence.lab,
+      },
+    });
+    await tx.labAccreditation.upsert({
+      where: {
+        tenantId_labOrgId_reference: {
+          tenantId: INDUSTRIAL_TENANT,
+          labOrgId: serviceOrgId,
+          reference: `ACCREDITATION-${serviceOrgId}`,
+        },
+      },
+      update: {
+        status: 'ACTIVE',
+        scope: { cultures: ['Пшеница'], standards: ['CONTROLLED-STANDARD-E2E'], testOnly: true },
+        validUntil: new Date('2027-01-01T00:00:00.000Z'),
+        verifiedAt: new Date(FACT_AT),
+        evidenceRef: evidence.lab,
+      },
+      create: {
+        id: labAccreditationId,
+        tenantId: INDUSTRIAL_TENANT,
+        labOrgId: serviceOrgId,
+        reference: `ACCREDITATION-${serviceOrgId}`,
+        status: 'ACTIVE',
+        scope: { cultures: ['Пшеница'], standards: ['CONTROLLED-STANDARD-E2E'], testOnly: true },
+        validFrom: new Date('2026-01-01T00:00:00.000Z'),
+        validUntil: new Date('2027-01-01T00:00:00.000Z'),
+        verifiedAt: new Date(FACT_AT),
+        evidenceRef: evidence.lab,
+      },
+    });
+    await tx.labMethod.upsert({
+      where: {
+        tenantId_labOrgId_code: {
+          tenantId: INDUSTRIAL_TENANT,
+          labOrgId: serviceOrgId,
+          code: 'CONTROLLED-E2E',
+        },
+      },
+      update: {
+        status: 'ACTIVE',
+        applicableStandard: 'CONTROLLED-STANDARD-E2E',
+        validUntil: new Date('2027-01-01T00:00:00.000Z'),
+        evidenceRef: evidence.lab,
+      },
+      create: {
+        id: labMethodId,
+        tenantId: INDUSTRIAL_TENANT,
+        labOrgId: serviceOrgId,
+        code: 'CONTROLLED-E2E',
+        name: 'Controlled industrial E2E method',
+        applicableStandard: 'CONTROLLED-STANDARD-E2E',
+        status: 'ACTIVE',
+        validFrom: new Date('2026-01-01T00:00:00.000Z'),
+        validUntil: new Date('2027-01-01T00:00:00.000Z'),
+        evidenceRef: evidence.lab,
+      },
+    });
+    await tx.labEquipment.upsert({
+      where: {
+        tenantId_labOrgId_serialNumber: {
+          tenantId: INDUSTRIAL_TENANT,
+          labOrgId: serviceOrgId,
+          serialNumber: `TEST-ANALYZER-${slug}`,
+        },
+      },
+      update: {
+        status: 'ACTIVE',
+        calibratedAt: new Date('2026-06-01T00:00:00.000Z'),
+        calibrationValidUntil: new Date('2027-01-01T00:00:00.000Z'),
+        calibrationEvidenceRef: evidence.lab,
+      },
+      create: {
+        id: labEquipmentId,
+        tenantId: INDUSTRIAL_TENANT,
+        labOrgId: serviceOrgId,
+        name: 'Controlled industrial E2E analyzer',
+        serialNumber: `TEST-ANALYZER-${slug}`,
+        status: 'ACTIVE',
+        calibratedAt: new Date('2026-06-01T00:00:00.000Z'),
+        calibrationValidUntil: new Date('2027-01-01T00:00:00.000Z'),
+        calibrationEvidenceRef: evidence.lab,
+      },
+    });
     await tx.labSample.upsert({
       where: { id: sampleId },
-      update: { status: 'PENDING', protocol: null, finalizedAt: null, labId: serviceOrgId, labName: serviceOrgId },
+      update: {
+        tenantId: INDUSTRIAL_TENANT,
+        shipmentId,
+        acceptanceId,
+        labId: serviceOrgId,
+        assignedLabUserId: labUserId,
+        samplerUserId: null,
+        currentCustodianOrgId: serviceOrgId,
+        currentCustodianUserId: surveyorUserId,
+        status: 'PENDING',
+        protocol: null,
+        gost: null,
+        accreditationId: null,
+        finalizedAt: null,
+        finalizedByUserId: null,
+        protocolHash: null,
+        certificateDocId: null,
+        version: 0,
+        labName: serviceOrgId,
+        collectedAt: null,
+      },
       create: {
         id: sampleId,
         dealId,
         shipmentId,
         acceptanceId,
+        tenantId: INDUSTRIAL_TENANT,
+        labId: serviceOrgId,
+        assignedLabUserId: labUserId,
+        currentCustodianOrgId: serviceOrgId,
+        currentCustodianUserId: surveyorUserId,
         status: 'PENDING',
         culture: 'Пшеница',
-        labId: serviceOrgId,
         labName: serviceOrgId,
-        collectedAt: new Date(FACT_AT),
       },
     });
   });
@@ -476,9 +612,88 @@ export async function provisionDeal(
     vehicleId,
     routeFromFacilityId,
     routeToFacilityId,
+    labProtocolDocumentId,
+    labAccreditationId,
+    labMethodId,
+    labEquipmentId,
     evidence,
     users,
   };
+}
+
+export async function prepareLaboratoryFacts(
+  instance: ServiceInstance,
+  fixture: DealFixture,
+): Promise<void> {
+  const surveyor = fixture.users.surveyor;
+  const lab = fixture.users.lab;
+  let workspace = await instance.labs.getById(fixture.sampleId, lab);
+  if (workspace.sample.status === 'FINALIZED') return;
+
+  if (workspace.sample.status === 'PENDING') {
+    await instance.labs.collect(fixture.sampleId, {
+      commandId: `lab:${fixture.dealId}:collect`,
+      idempotencyKey: `lab:${fixture.dealId}:collect`,
+      expectedVersion: workspace.sample.version,
+      occurredAt: '2026-07-12T14:05:00.000Z',
+      evidenceRef: fixture.evidence.inspection,
+    }, surveyor);
+    workspace = await instance.labs.getById(fixture.sampleId, lab);
+  }
+  if (workspace.sample.status === 'COLLECTED') {
+    await instance.labs.handoff(fixture.sampleId, {
+      commandId: `lab:${fixture.dealId}:handoff`,
+      idempotencyKey: `lab:${fixture.dealId}:handoff`,
+      expectedVersion: workspace.sample.version,
+      occurredAt: '2026-07-12T14:10:00.000Z',
+      evidenceRef: fixture.evidence.lab,
+    }, surveyor);
+    workspace = await instance.labs.getById(fixture.sampleId, lab);
+  }
+  if (workspace.sample.status === 'IN_TRANSIT') {
+    await instance.labs.receive(fixture.sampleId, {
+      commandId: `lab:${fixture.dealId}:receive`,
+      idempotencyKey: `lab:${fixture.dealId}:receive`,
+      expectedVersion: workspace.sample.version,
+      occurredAt: '2026-07-12T14:15:00.000Z',
+      evidenceRef: fixture.evidence.lab,
+    }, lab);
+    workspace = await instance.labs.getById(fixture.sampleId, lab);
+  }
+
+  for (const test of [
+    { metric: 'moisture', value: 12.4, normMax: 14, at: '2026-07-12T14:30:00.000Z' },
+    { metric: 'protein', value: 13.2, normMin: 12.5, at: '2026-07-12T14:40:00.000Z' },
+  ]) {
+    if (workspace.tests.some((item) => item.parameter === test.metric && !item.correctionOfTestId)) continue;
+    await instance.labs.recordTest(fixture.sampleId, {
+      commandId: `lab:${fixture.dealId}:test:${test.metric}`,
+      idempotencyKey: `lab:${fixture.dealId}:test:${test.metric}`,
+      expectedVersion: workspace.sample.version,
+      metric: test.metric,
+      value: test.value,
+      unit: '%',
+      ...(test.normMin === undefined ? {} : { normMin: test.normMin }),
+      ...(test.normMax === undefined ? {} : { normMax: test.normMax }),
+      methodId: fixture.labMethodId,
+      equipmentId: fixture.labEquipmentId,
+      recordedAt: test.at,
+    }, lab);
+    workspace = await instance.labs.getById(fixture.sampleId, lab);
+  }
+
+  if (workspace.sample.status !== 'FINALIZED') {
+    await instance.labs.finalize(fixture.sampleId, {
+      commandId: `lab:${fixture.dealId}:finalize`,
+      idempotencyKey: `lab:${fixture.dealId}:finalize`,
+      expectedVersion: workspace.sample.version,
+      protocolNumber: `PROTOCOL-${fixture.dealId}`,
+      applicableStandard: 'CONTROLLED-STANDARD-E2E',
+      accreditationId: fixture.labAccreditationId,
+      signedEvidenceRef: fixture.labProtocolDocumentId,
+      finalizedAt: '2026-07-12T15:00:00.000Z',
+    }, lab);
+  }
 }
 
 export function payloadForAction(fixture: DealFixture, actionId: DealActionId): Prisma.InputJsonObject {
@@ -520,21 +735,15 @@ export function payloadForAction(fixture: DealFixture, actionId: DealActionId): 
         equipmentId: `scale:${fixture.dealId}`,
       };
     case 'confirm_inspection':
-      return { documentId: fixture.inspectionDocumentId, evidenceRef: fixture.evidence.inspection, inspectedAt: '2026-07-12T14:00:00.000Z' };
-    case 'finalize_lab':
       return {
-        sampleId: fixture.sampleId,
-        protocolNumber: `PROTOCOL-${fixture.dealId}`,
-        labId: fixture.serviceOrgId,
-        accreditationRef: `ACCREDITATION-${fixture.serviceOrgId}`,
-        applicableStandard: 'CONTROLLED-STANDARD-E2E',
-        finalizedAt: '2026-07-12T15:00:00.000Z',
-        signedEvidenceRef: fixture.evidence.lab,
-        indicators: [
-          { parameter: 'moisture', value: '12.400000', unit: '%', normMax: '14.000000' },
-          { parameter: 'protein', value: '13.200000', unit: '%', normMin: '12.500000' },
-        ],
+        shipmentId: fixture.shipmentId,
+        documentId: fixture.inspectionDocumentId,
+        inspectionResult: 'CONFORMING',
+        evidenceRef: fixture.evidence.inspection,
+        inspectedAt: '2026-07-12T14:00:00.000Z',
       };
+    case 'finalize_lab':
+      return { sampleId: fixture.sampleId };
     case 'accept_delivery':
       return { acceptanceId: fixture.acceptanceId, acceptedAt: '2026-07-12T15:30:00.000Z', evidenceRef: fixture.evidence.acceptance };
     default:
@@ -563,8 +772,13 @@ export async function cleanTenant(prisma: PrismaService): Promise<void> {
         `DELETE FROM "bank_statement_entries" WHERE "matchedDealId" IN (${inList})`,
         `DELETE FROM "bank_operations" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "payments" WHERE "dealId" IN (${inList})`,
+        `DELETE FROM "lab_custody_events" WHERE "sampleId" IN (SELECT id FROM "lab_samples" WHERE "dealId" IN (${inList}))`,
         `DELETE FROM "lab_tests" WHERE "sampleId" IN (SELECT id FROM "lab_samples" WHERE "dealId" IN (${inList}))`,
         `DELETE FROM "lab_samples" WHERE "dealId" IN (${inList})`,
+        `DELETE FROM "lab_assignments" WHERE "dealId" IN (${inList})`,
+        `DELETE FROM "lab_accreditations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}'`,
+        `DELETE FROM "lab_methods" WHERE "tenantId" = '${INDUSTRIAL_TENANT}'`,
+        `DELETE FROM "lab_equipment" WHERE "tenantId" = '${INDUSTRIAL_TENANT}'`,
         `DELETE FROM "acceptance_records" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "checkpoints" WHERE "shipmentId" IN (SELECT id FROM "shipments" WHERE "dealId" IN (${inList}))`,
         `DELETE FROM "shipments" WHERE "dealId" IN (${inList})`,

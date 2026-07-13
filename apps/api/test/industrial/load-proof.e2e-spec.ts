@@ -6,6 +6,7 @@ import {
   createInstance,
   destroyInstance,
   payloadForAction,
+  prepareLaboratoryFacts,
   provisionDeal,
   type DealFixture,
   type ServiceInstance,
@@ -81,6 +82,7 @@ async function runStep(
   userKey: string,
 ): Promise<void> {
   const MAX_ATTEMPTS = 12;
+  if (actionId === 'finalize_lab') await prepareLaboratoryFacts(instance, fixture);
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     const deal = await instance.prisma.deal.findUniqueOrThrow({
       where: { id: fixture.dealId },

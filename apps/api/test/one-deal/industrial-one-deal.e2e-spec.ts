@@ -7,6 +7,7 @@ import { RequestUser, Role } from '../../src/common/types/request-user';
 import { IndustrialDealCommandGateway } from '../../src/modules/deals/industrial-deal-command.gateway';
 import { DealCommandService } from '../../src/modules/deals/deal-command.service';
 import { PrismaShipmentRepository } from '../../src/modules/logistics/prisma-shipment.repository';
+import { PrismaLabRepository } from '../../src/modules/labs/prisma-lab.repository';
 import { BankKeyRegistryService } from '../../src/modules/settlement-engine/bank-key-registry.service';
 import { IntegrationEventsService } from '../../src/modules/integration-events/integration-events.service';
 import type { ExecuteDealCommandDto } from '../../src/modules/deals/dto/execute-deal-command.dto';
@@ -157,21 +158,15 @@ function payload(actionId: DealActionId): Prisma.InputJsonObject {
         equipmentId: `scale:${CANONICAL_TEST_DEAL_ID}`,
       };
     case 'confirm_inspection':
-      return { documentId: INSPECTION_ID, evidenceRef: evidence('inspection'), inspectedAt: '2026-07-12T14:00:00.000Z' };
-    case 'finalize_lab':
       return {
-        sampleId: SAMPLE_ID,
-        protocolNumber: `PROTOCOL-${CANONICAL_TEST_DEAL_ID}`,
-        labId: 'org-canonical-lab',
-        accreditationRef: 'ACCREDITATION-ORG-CANONICAL-LAB',
-        applicableStandard: 'CONTROLLED-STANDARD-E2E',
-        finalizedAt: '2026-07-12T15:00:00.000Z',
-        signedEvidenceRef: evidence('lab'),
-        indicators: [
-          { parameter: 'moisture', value: '12.400000', unit: '%', normMax: '14.000000' },
-          { parameter: 'protein', value: '13.200000', unit: '%', normMin: '12.500000' },
-        ],
+        shipmentId: SHIPMENT_ID,
+        documentId: INSPECTION_ID,
+        inspectionResult: 'CONFORMING',
+        evidenceRef: evidence('inspection'),
+        inspectedAt: '2026-07-12T14:00:00.000Z',
       };
+    case 'finalize_lab':
+      return { sampleId: SAMPLE_ID };
     case 'accept_delivery':
       return { acceptanceId: ACCEPTANCE_ID, acceptedAt: '2026-07-12T15:30:00.000Z', evidenceRef: evidence('acceptance') };
     default:
@@ -184,10 +179,11 @@ function createRuntime() {
   const rls = new RlsTransactionService(prisma);
   const commands = new DealCommandService(rls);
   const gateway = new IndustrialDealCommandGateway(prisma, rls, commands);
+  const labs = new PrismaLabRepository(rls);
   const bankKeys = new BankKeyRegistryService(prisma);
   const integrationEvents = new IntegrationEventsService(prisma);
   const settlement = new SettlementEngineController({} as never, gateway, bankKeys, integrationEvents);
-  return { prisma, rls, gateway, settlement };
+  return { prisma, rls, gateway, settlement, labs };
 }
 
 type Runtime = ReturnType<typeof createRuntime>;
@@ -324,6 +320,68 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     const receipt = requireReceipt(raw);
     issuedUserCommands.push({ actionId, role, dto, receipt });
     return receipt;
+  }
+
+  async function prepareLaboratoryFacts(): Promise<void> {
+    const surveyor = actor(Role.SURVEYOR);
+    const lab = actor(Role.LAB);
+    let current = await primary.labs.getById(SAMPLE_ID, lab);
+    if (current.sample.status === 'FINALIZED') return;
+    if (current.sample.status === 'PENDING') {
+      await primary.labs.collect(SAMPLE_ID, {
+        commandId: 'lab-command-collect', idempotencyKey: 'lab-idempotency-collect',
+        expectedVersion: current.sample.version, evidenceRef: evidence('inspection'),
+        occurredAt: '2026-07-12T14:05:00.000Z',
+      }, surveyor);
+      current = await primary.labs.getById(SAMPLE_ID, lab);
+    }
+    if (current.sample.status === 'COLLECTED') {
+      await primary.labs.handoff(SAMPLE_ID, {
+        commandId: 'lab-command-handoff', idempotencyKey: 'lab-idempotency-handoff',
+        expectedVersion: current.sample.version, evidenceRef: evidence('lab'),
+        occurredAt: '2026-07-12T14:10:00.000Z',
+      }, surveyor);
+      current = await primary.labs.getById(SAMPLE_ID, lab);
+    }
+    if (current.sample.status === 'IN_TRANSIT') {
+      await primary.labs.receive(SAMPLE_ID, {
+        commandId: 'lab-command-receive', idempotencyKey: 'lab-idempotency-receive',
+        expectedVersion: current.sample.version, evidenceRef: evidence('lab'),
+        occurredAt: '2026-07-12T14:15:00.000Z',
+      }, lab);
+      current = await primary.labs.getById(SAMPLE_ID, lab);
+    }
+    for (const test of [
+      { metric: 'moisture', value: 12.4, normMax: 14, at: '2026-07-12T14:30:00.000Z' },
+      { metric: 'protein', value: 13.2, normMin: 12.5, at: '2026-07-12T14:40:00.000Z' },
+    ]) {
+      if (current.tests.some((item) => item.parameter === test.metric && !item.correctionOfTestId)) continue;
+      await primary.labs.recordTest(SAMPLE_ID, {
+        commandId: `lab-command-test-${test.metric}`,
+        idempotencyKey: `lab-idempotency-test-${test.metric}`,
+        expectedVersion: current.sample.version,
+        metric: test.metric,
+        value: test.value,
+        unit: '%',
+        ...(test.normMin === undefined ? {} : { normMin: test.normMin }),
+        ...(test.normMax === undefined ? {} : { normMax: test.normMax }),
+        methodId: `lab-method:${CANONICAL_TEST_DEAL_ID}:gost-9353`,
+        equipmentId: `lab-equipment:${CANONICAL_TEST_DEAL_ID}:analyzer-1`,
+        recordedAt: test.at,
+      }, lab);
+      current = await primary.labs.getById(SAMPLE_ID, lab);
+    }
+    if (current.sample.status !== 'FINALIZED') {
+      await primary.labs.finalize(SAMPLE_ID, {
+        commandId: 'lab-command-finalize', idempotencyKey: 'lab-idempotency-finalize',
+        expectedVersion: current.sample.version,
+        protocolNumber: `PROTOCOL-${CANONICAL_TEST_DEAL_ID}`,
+        applicableStandard: 'ГОСТ 9353-2016',
+        accreditationId: `lab-accreditation:${CANONICAL_TEST_DEAL_ID}`,
+        signedEvidenceRef: `lab-protocol:${CANONICAL_TEST_DEAL_ID}`,
+        finalizedAt: '2026-07-12T15:00:00.000Z',
+      }, lab);
+    }
   }
 
   async function evidenceSnapshot(targetRls: RlsTransactionService, user: RequestUser) {
@@ -841,6 +899,7 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     await executeUserAction('confirm_arrival');
     await executeUserAction('confirm_weight');
     await executeUserAction('confirm_inspection');
+    await prepareLaboratoryFacts();
     await executeUserAction('finalize_lab');
     await executeUserAction('accept_delivery');
     await executeUserAction('complete_documents');

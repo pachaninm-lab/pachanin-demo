@@ -7,6 +7,7 @@ import {
   createInstance,
   destroyInstance,
   payloadForAction,
+  prepareLaboratoryFacts,
   provisionDeal,
   type DealFixture,
   type ServiceInstance,
@@ -62,6 +63,7 @@ async function runUserAction(
   user: RequestUser,
   suffix = '',
 ) {
+  if (actionId === 'finalize_lab') await prepareLaboratoryFacts(instance, fixture);
   const deal = await currentDeal(instance, fixture.dealId);
   const dto: ExecuteDealCommandDto = {
     commandId: `cmd:${fixture.dealId}:${actionId}${suffix}`,
