@@ -1,91 +1,140 @@
 import Link from 'next/link';
-import { DEAL_LOGISTICS_STATE, logisticsAdmissionLabel, logisticsStageLabel } from '@/lib/platform-v7/dealLogisticsEngine';
+import { getLocale } from 'next-intl/server';
+import { StatusChip } from '@pc/design-system-v8';
+import { DEAL_LOGISTICS_STATE } from '@/lib/platform-v7/dealLogisticsEngine';
+import {
+  PhysicalExecutionCockpit,
+  PhysicalExecutionDetailGrid,
+  PhysicalExecutionList,
+  PhysicalExecutionPanel,
+  PhysicalExecutionSplit,
+  physicalExecutionClasses,
+} from '@/components/transaction-ux/PhysicalExecutionCockpit';
+import {
+  PHYSICAL_EXECUTION_COPY,
+  buildPhysicalExecutionPhases,
+  formatPhysicalNumber,
+  normalizePhysicalExecutionLocale,
+} from '@/components/transaction-ux/physicalExecutionCopy';
 
 const state = DEAL_LOGISTICS_STATE;
 
-function statusText(value: string) {
-  if (value === 'ok') return 'готово';
-  if (value === 'review') return 'проверка';
-  return 'закрыто';
-}
+export default async function DealLogisticsPage() {
+  const locale = normalizePhysicalExecutionLocale(await getLocale());
+  const copy = PHYSICAL_EXECUTION_COPY[locale];
+  const carrierReady = state.vehicle.admission === 'ok';
+  const phases = buildPhysicalExecutionPhases(locale, 'logistics', {
+    logistics: 'current',
+    acceptance: carrierReady ? 'available' : 'blocked',
+    documents: 'blocked',
+    bank: 'blocked',
+  });
 
-export default function DealLogisticsPage() {
+  const controlStatus = (status: 'ok' | 'review' | 'block') => status === 'ok'
+    ? { label: copy.common.complete, tone: 'success' as const }
+    : status === 'review'
+      ? { label: copy.common.review, tone: 'warning' as const }
+      : { label: copy.common.blocked, tone: 'critical' as const };
+
   return (
-    <main style={{ display: 'grid', gap: 16 }}>
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--pc-accent)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Сделка → рейс</span>
-        <h1 style={{ margin: 0, fontSize: 'clamp(24px, 5vw, 38px)', color: 'var(--pc-text-primary)', lineHeight: 1.08 }}>{logisticsStageLabel(state.stage)}</h1>
-        <p style={{ margin: 0, maxWidth: 820, fontSize: 14, lineHeight: 1.55, color: 'var(--pc-text-secondary)' }}>Рейс создаётся из основания сделки: лот ФГИС, СДИЗ, покупатель, продавец, объём и базис остаются связаны с маршрутом, водителем, приёмкой, документами и банковским шагом.</p>
-      </section>
+    <PhysicalExecutionCockpit
+      testId='platform-v7-deal-logistics-v8'
+      eyebrow={copy.logistics.eyebrow}
+      title={copy.logistics.title}
+      description={copy.logistics.description}
+      statusLabel={carrierReady ? copy.logistics.statusReady : copy.logistics.statusBlocked}
+      statusTone={carrierReady ? 'success' : 'critical'}
+      labels={copy.meta}
+      priority={{
+        state: carrierReady ? 'ready' : 'critical',
+        title: carrierReady ? copy.logistics.priorityReadyTitle : copy.logistics.priorityBlockedTitle,
+        description: carrierReady ? copy.logistics.priorityReadyDescription : copy.logistics.priorityBlockedDescription,
+        blocker: carrierReady ? copy.logistics.blockerReady : copy.logistics.blockerBlocked,
+        owner: copy.logistics.owner,
+        impact: carrierReady ? copy.logistics.impactReady : copy.logistics.impactBlocked,
+        result: copy.logistics.result,
+        primaryAction: carrierReady
+          ? <Link className={physicalExecutionClasses.primaryLink} href='/platform-v7/deal-acceptance'>{copy.common.openAcceptance}</Link>
+          : <Link className={physicalExecutionClasses.primaryLink} href='/platform-v7/logistics'>{copy.common.openLogistics}</Link>,
+        secondaryAction: <Link className={physicalExecutionClasses.secondaryLink} href={`/platform-v7/deals/${encodeURIComponent(state.dealId)}/clean`}>{copy.common.openDeal}</Link>,
+      }}
+      facts={[
+        { label: copy.logistics.facts.deal, value: state.dealId, hint: copy.common.sourceSnapshot },
+        { label: copy.logistics.facts.lot, value: state.lotNumber, hint: copy.common.sourceSnapshot },
+        { label: copy.logistics.facts.certificate, value: state.sdizNumber, hint: copy.common.externalBoundary },
+        { label: copy.logistics.facts.seller, value: state.sellerName },
+        { label: copy.logistics.facts.buyer, value: state.buyerName },
+        { label: copy.logistics.facts.volume, value: `${formatPhysicalNumber(state.volumeTons, locale)} t`, hint: state.basis },
+      ]}
+      boundary={`${copy.common.projectionBoundary} ${copy.common.externalBoundary}`}
+      phases={phases}
+      phaseNavLabel={copy.phaseNavLabel}
+    >
+      <PhysicalExecutionDetailGrid
+        label={copy.logistics.routeTitle}
+        items={state.route.map((point, index) => ({
+          label: `${index + 1}. ${point.label}`,
+          value: point.address,
+          hint: `${point.window} · ${point.owner}`,
+        }))}
+      />
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
-        {[
-          ['Сделка', state.dealId],
-          ['ФГИС-лот', state.lotNumber],
-          ['СДИЗ', state.sdizNumber],
-          ['Продавец', state.sellerName],
-          ['Покупатель', state.buyerName],
-          ['Объём', `${state.volumeTons} т`],
-        ].map(([label, value]) => (
-          <div key={label} style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 18, padding: 14, display: 'grid', gap: 5 }}>
-            <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-            <strong style={{ fontSize: 15, color: 'var(--pc-text-primary)' }}>{value}</strong>
-          </div>
-        ))}
-      </section>
+      <PhysicalExecutionSplit>
+        <PhysicalExecutionPanel title={copy.logistics.vehicleTitle} description={copy.logistics.vehicleDescription}>
+          <PhysicalExecutionList
+            label={copy.logistics.vehicleTitle}
+            items={[
+              { id: 'carrier', title: copy.logistics.carrier, detail: state.vehicle.carrierName },
+              { id: 'vehicle', title: copy.logistics.vehicle, detail: state.vehicle.plate },
+              { id: 'driver', title: copy.logistics.driver, detail: state.vehicle.driverName },
+              { id: 'contact', title: copy.logistics.contact, detail: state.vehicle.driverPhoneMasked },
+              { id: 'capacity', title: copy.logistics.capacity, detail: `${formatPhysicalNumber(state.vehicle.capacityTons, locale)} t` },
+              {
+                id: 'admission',
+                title: copy.logistics.admission,
+                detail: copy.admissions[state.vehicle.admission],
+                status: <StatusChip tone={carrierReady ? 'success' : state.vehicle.admission === 'review' ? 'warning' : 'critical'}>{copy.admissions[state.vehicle.admission]}</StatusChip>,
+              },
+            ]}
+          />
+        </PhysicalExecutionPanel>
 
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Маршрут</h2>
-        {state.route.map((point, index) => (
-          <div key={point.label} style={{ display: 'grid', gridTemplateColumns: '32px minmax(0,1fr)', gap: 10, alignItems: 'start', padding: 12, borderRadius: 14, border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface-soft)' }}>
-            <span style={{ width: 28, height: 28, borderRadius: 999, background: 'var(--pc-accent-bg)', color: 'var(--pc-accent-strong)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 950 }}>{index + 1}</span>
-            <div style={{ display: 'grid', gap: 3 }}>
-              <strong style={{ fontSize: 13, color: 'var(--pc-text-primary)' }}>{point.label}</strong>
-              <span style={{ fontSize: 11, color: 'var(--pc-text-secondary)' }}>{point.address}</span>
-              <span style={{ fontSize: 11, color: 'var(--pc-text-muted)' }}>{point.window} · {point.owner}</span>
-            </div>
-          </div>
-        ))}
-      </section>
+        <PhysicalExecutionPanel title={copy.logistics.controlsTitle} description={copy.logistics.controlsDescription}>
+          <PhysicalExecutionList
+            label={copy.logistics.controlsTitle}
+            items={state.controls.map((item, index) => {
+              const status = controlStatus(item.status);
+              return {
+                id: `control-${index}`,
+                title: item.label,
+                detail: `${copy.common.owner}: ${item.owner}`,
+                status: <StatusChip tone={status.tone}>{status.label}</StatusChip>,
+              };
+            })}
+          />
+        </PhysicalExecutionPanel>
+      </PhysicalExecutionSplit>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12 }}>
-        <div style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>Машина и водитель</h2>
-          {[
-            ['Перевозчик', state.vehicle.carrierName],
-            ['Машина', state.vehicle.plate],
-            ['Водитель', state.vehicle.driverName],
-            ['Контакт', state.vehicle.driverPhoneMasked],
-            ['Грузоподъёмность', `${state.vehicle.capacityTons} т`],
-            ['Допуск', logisticsAdmissionLabel(state.vehicle.admission)],
-          ].map(([label, value]) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 10px', borderRadius: 12, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)' }}>
-              <span style={{ fontSize: 12, color: 'var(--pc-text-secondary)' }}>{label}</span>
-              <strong style={{ fontSize: 12, color: 'var(--pc-text-primary)' }}>{value}</strong>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>Контроль</h2>
-          {state.controls.map((item) => (
-            <div key={item.label} style={{ display: 'grid', gap: 3, padding: '9px 10px', borderRadius: 12, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)' }}>
-              <strong style={{ fontSize: 12, color: 'var(--pc-text-primary)' }}>{item.label}</strong>
-              <span style={{ fontSize: 11, color: 'var(--pc-text-muted)' }}>{item.owner} · {statusText(item.status)}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Следующие действия</h2>
-        {state.nextRoutes.map((route) => (
-          <Link key={route.href} href={route.href} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 13, border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)', background: 'var(--pc-shell-surface-soft)' }}>
-            <strong style={{ fontSize: 13 }}>{route.label}</strong>
-            <span style={{ fontSize: 10, color: 'var(--pc-text-muted)' }}>{route.owner}</span>
-          </Link>
-        ))}
-      </section>
-    </main>
+      <PhysicalExecutionPanel title={copy.logistics.nextTitle} description={copy.logistics.nextDescription}>
+        <PhysicalExecutionList
+          label={copy.logistics.nextTitle}
+          items={state.nextRoutes.map((route) => {
+            const isDriver = route.href === '/platform-v7/driver-field';
+            const isAcceptance = route.href === '/platform-v7/deal-acceptance';
+            const isDocuments = route.href === '/platform-v7/documents';
+            const blocked = (isDriver || isAcceptance) ? !carrierReady : isDocuments;
+            const href = isDriver ? '/platform-v7/driver/field' : route.href;
+            return {
+              id: route.href,
+              title: route.label,
+              detail: `${copy.common.owner}: ${route.owner}`,
+              href,
+              blocked,
+              status: <StatusChip tone={blocked ? 'critical' : 'information'}>{blocked ? copy.common.blocked : copy.common.review}</StatusChip>,
+            };
+          })}
+        />
+      </PhysicalExecutionPanel>
+    </PhysicalExecutionCockpit>
   );
 }
