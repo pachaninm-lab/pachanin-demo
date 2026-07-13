@@ -29,6 +29,7 @@ on:
       - 'apps/web/app/platform-v7/compliance/page.tsx'
       - 'apps/web/app/platform-v7/arbitrator/page.tsx'
       - 'apps/web/app/platform-v7/executive/page.tsx'
+      - 'apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx'
       - 'apps/web/tests/unit/designSystemV8DocumentsRoute.test.ts'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts'
@@ -73,6 +74,7 @@ on:
       - 'apps/web/app/platform-v7/compliance/page.tsx'
       - 'apps/web/app/platform-v7/arbitrator/page.tsx'
       - 'apps/web/app/platform-v7/executive/page.tsx'
+      - 'apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx'
       - 'apps/web/tests/unit/designSystemV8DocumentsRoute.test.ts'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts'
@@ -114,6 +116,7 @@ jobs:
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
+            tests/unit/bankReleaseSafetyRoute.test.tsx \
             tests/unit/designSystemV8DocumentsRoute.test.ts \
             tests/unit/designSystemV8FieldRoles.test.ts \
             tests/unit/designSystemV8MoneyRoles.test.ts \
