@@ -38,16 +38,38 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Enforce Design System v8 architecture
-        run: pnpm design:v8:check
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm design:v8:check 2>&1 | tee /tmp/design-system-v8.log
 
       - name: Typecheck design tokens
-        run: pnpm --filter @pc/design-tokens typecheck
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/design-tokens typecheck 2>&1 | tee -a /tmp/design-system-v8.log
 
       - name: Typecheck Design System v8
-        run: pnpm --filter @pc/design-system-v8 typecheck
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/design-system-v8 typecheck 2>&1 | tee -a /tmp/design-system-v8.log
 
       - name: Typecheck web integration
-        run: pnpm --filter @pc/web typecheck
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web typecheck 2>&1 | tee -a /tmp/design-system-v8.log
 
       - name: Run Design System v8 regression tests
-        run: pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8Architecture.test.ts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8Architecture.test.ts 2>&1 | tee -a /tmp/design-system-v8.log
+
+      - name: Upload Design System v8 diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-system-v8-log
+          path: /tmp/design-system-v8.log
