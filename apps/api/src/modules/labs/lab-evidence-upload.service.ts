@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -67,10 +68,6 @@ type SampleScope = Readonly<{
   sampleCode: string | null;
 }>;
 
-/**
- * Derives immutable laboratory evidence metadata from authoritative PostgreSQL
- * state. Generic storage requests cannot author laboratory purpose metadata.
- */
 @Injectable()
 export class LabEvidenceUploadService {
   private readonly maxBytes = boundedInteger(
@@ -96,19 +93,25 @@ export class LabEvidenceUploadService {
     dto: RequestSampleEvidenceUploadDto,
     user: RequestUser,
   ) {
+    const requestedSupersedesId = dto.supersedesId
+      ? requiredIdentifier(dto.supersedesId, 'supersedesId')
+      : undefined;
+    if (requestedSupersedesId && dto.purpose !== 'TEST') {
+      throw new UnprocessableEntityException({
+        code: 'LAB_CORRECTION_ONLY_ALLOWED_FOR_TEST_EVIDENCE',
+        field: 'supersedesId',
+      });
+    }
+
     const scope = await this.rls.withTrustedContext(user, async (tx, context) => {
       const rows = await tx.$queryRaw<SampleScope[]>(Prisma.sql`
         SELECT
-          sample."id",
-          sample."dealId",
-          sample."shipmentId",
-          sample."acceptanceId",
-          sample."tenantId",
-          sample."labId" AS "laboratoryOrgId",
-          sample."sampleCode"
+          sample."id", sample."dealId", sample."shipmentId", sample."acceptanceId",
+          sample."tenantId", sample."labId" AS "laboratoryOrgId", sample."sampleCode"
         FROM public."lab_samples" sample
         WHERE sample."id" = ${sampleId}
           AND sample."tenantId" = ${context.tenantId}
+          AND public.app_labs_deal_authorized(sample."dealId", sample."labId", true)
         LIMIT 1
       `);
       const sample = rows[0];
@@ -124,10 +127,26 @@ export class LabEvidenceUploadService {
         ) AS valid
       `);
       if (!actor[0]?.valid) {
-        throw new ForbiddenException({
-          code: 'LAB_PHYSICAL_ACTOR_TYPE_REQUIRED',
-          actorType,
-        });
+        throw new ForbiddenException({ code: 'LAB_PHYSICAL_ACTOR_TYPE_REQUIRED', actorType });
+      }
+
+      if (requestedSupersedesId) {
+        const correction = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
+          SELECT EXISTS (
+            SELECT 1
+            FROM public."lab_tests" predecessor
+            WHERE predecessor."id" = ${requestedSupersedesId}
+              AND predecessor."sampleId" = ${sample.id}
+              AND predecessor."tenantId" = ${context.tenantId}
+              AND NOT EXISTS (
+                SELECT 1 FROM public."lab_tests" successor
+                WHERE successor."supersedesId" = predecessor."id"
+              )
+          ) AS valid
+        `);
+        if (!correction[0]?.valid) {
+          throw new ConflictException({ code: 'LAB_CORRECTION_PREDECESSOR_NOT_ACTIVE' });
+        }
       }
       return sample;
     });
@@ -135,10 +154,7 @@ export class LabEvidenceUploadService {
     let protocolNumber: string | undefined;
     if (dto.purpose === 'PROTOCOL') {
       if (!scope.sampleCode) {
-        throw new UnprocessableEntityException({
-          code: 'LAB_SAMPLE_CODE_REQUIRED',
-          field: 'sampleId',
-        });
+        throw new UnprocessableEntityException({ code: 'LAB_SAMPLE_CODE_REQUIRED', field: 'sampleId' });
       }
       protocolNumber = `LAB-${scope.sampleCode}-V1`;
     }
@@ -155,6 +171,7 @@ export class LabEvidenceUploadService {
         acceptanceId: scope.acceptanceId,
         laboratoryOrgId: scope.laboratoryOrgId,
         ...(protocolNumber ? { protocolNumber } : {}),
+        ...(requestedSupersedesId ? { supersedesId: requestedSupersedesId } : {}),
       },
     }, user);
   }
@@ -217,10 +234,7 @@ export class LabEvidenceUploadService {
         });
       }
 
-      return {
-        dealId: deal.id,
-        laboratoryOrgId: laboratory.id,
-      };
+      return { dealId: deal.id, laboratoryOrgId: laboratory.id };
     });
 
     return this.requestBoundUpload({
@@ -259,11 +273,7 @@ export class LabEvidenceUploadService {
     const metadata = normalizeMetadata(input.metadata);
     const fileId = `file_${randomUUID()}`;
     const objectKey = `tenant/${tenantId}/deal/${dealId}/${fileId}/${filename}`;
-    const presigned = await this.adapter.getPresignedUploadUrl(
-      objectKey,
-      mimeType,
-      this.uploadTtlSeconds,
-    );
+    const presigned = await this.adapter.getPresignedUploadUrl(objectKey, mimeType, this.uploadTtlSeconds);
 
     await this.rls.withTrustedContext(user, async (tx, context) => {
       const deal = await tx.deal.findUnique({
