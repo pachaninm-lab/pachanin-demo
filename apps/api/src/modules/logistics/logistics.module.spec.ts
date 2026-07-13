@@ -1,3 +1,4 @@
+import { LogisticsController } from './logistics.controller';
 import { LogisticsModule } from './logistics.module';
 import { PrismaShipmentRepository } from './prisma-shipment.repository';
 import { RuntimeShipmentRepository } from './runtime-shipment.repository';
@@ -15,5 +16,10 @@ describe('LogisticsModule production composition', () => {
     });
     expect(providers).not.toContain(RuntimeShipmentRepository);
     expect(providers).not.toContain(RuntimeCoreService);
+  });
+
+  it('exposes only the PostgreSQL-authoritative logistics controller', () => {
+    const controllers = Reflect.getMetadata('controllers', LogisticsModule) as unknown[];
+    expect(controllers).toEqual([LogisticsController]);
   });
 });
