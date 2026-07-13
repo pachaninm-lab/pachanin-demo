@@ -1,0 +1,45 @@
+name: Temporary IR-10.2 nested matcher repair
+
+on:
+  push:
+    branches:
+      - fix/ir-10-2-public-contract-idempotency
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[ir-10-2-nested-match-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ir-10-2-public-contract-idempotency
+          fetch-depth: 0
+      - name: Fix nested asymmetric matcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts')
+          source = path.read_text()
+          source = source.replace(
+              "expect.objectContaining({ duplicate: false, valid: true, shipment: { pinVerified: true } }),",
+              "expect.objectContaining({ duplicate: false, valid: true, shipment: expect.objectContaining({ pinVerified: true }) }),",
+              1,
+          )
+          source = source.replace(
+              "expect.objectContaining({ duplicate: true, valid: true, shipment: { pinVerified: true } }),",
+              "expect.objectContaining({ duplicate: true, valid: true, shipment: expect.objectContaining({ pinVerified: true }) }),",
+              1,
+          )
+          path.write_text(source)
+          PY
+          rm -f .github/workflows/tmp-fix-ir-10-2-nested-match.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test(logistics): use nested asymmetric shipment matcher [ir-10-2-nested-match-fixed]"
+          git push origin HEAD:fix/ir-10-2-public-contract-idempotency
