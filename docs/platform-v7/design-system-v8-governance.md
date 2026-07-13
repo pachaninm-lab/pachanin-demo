@@ -30,7 +30,8 @@ The following are controlled by v8:
 - the active `AppShellV4` TSX and CSS Module;
 - the shared `RoleIntentDashboard` TSX and CSS Module used by all twelve business-role roots;
 - the canonical deals registry page, list component and their CSS Modules;
-- the document readiness, dispute queue, money hub, bank payout-readiness and canonical auction routes;
+- the document readiness, dispute queue, money hub and bank payout-readiness routes;
+- the FGIS access boundary and canonical auction routes;
 - every file registered in `migratedFiles` inside `design-governance-v8.json`.
 
 A migrated product file must consume `@pc/design-system-v8` or the governed `transaction-ux` boundary. New local copies of a migrated pattern are not allowed.
@@ -188,23 +189,43 @@ The `/platform-v7/bank/release-safety` route is a governed server-authorized ent
 
 This UI acceptance does not assert live bank connectivity or PostgreSQL-authoritative Settlement where those backend acceptance gates remain separate. It proves that the active views do not overstate authority or synthesize money status.
 
-### Canonical auction execution
+### FGIS access boundary
 
-The canonical flow consists of `/platform-v7/auction`, `/auction/import`, `/auction/admission`, `/auction/bids` and `/auction/deal-basis`. It:
+The `/platform-v7/fgis-access` route exposes the protected organization flow and the server trust boundary. It:
 
-- keeps the public-registry lot, certificate, owner, available mass, quality and documents in one source snapshot;
-- requires batch and buyer admission before new bids can be accepted;
-- keeps the bid journal immutable and constrains bid volume to available mass;
-- creates a Deal basis from the locked winner, never a payment;
-- links price, lot, certificate, seller, buyer, volume, amount and next execution routes;
-- fails closed when the current admission is incomplete, even when historical bid and winner fixtures exist;
-- blocks transition to logistics until both admission and the Deal-basis guard pass;
-- supports RU, EN and ZH for route copy, statuses, rules, checks and guard labels;
-- explicitly states that the displayed source snapshot does not prove live FGIS connectivity and that the UI cannot release money.
+- starts organization confirmation through `/api/platform-v7/gov-id/start?flow=fgis`;
+- never asks the user for an FGIS password;
+- does not present a local organization, tax identifier, lot, SDIZ, mass, quality or API version as an external fact;
+- requires backend validation of identity claims, organization membership and representative authority;
+- accepts lot data only from an approved adapter response carrying provenance, retrieval time and a source fingerprint;
+- fails closed when the external contour is unavailable;
+- supports RU, EN and ZH.
+
+Production FGIS connectivity, token exchange and lot retrieval remain unconfirmed until contracts, credentials and runtime evidence exist.
+
+### Server-authoritative auction boundary
+
+The canonical flow consists of `/platform-v7/auction`, `/auction/import`, `/auction/admission`, `/auction/bids` and `/auction/deal-basis`. These routes use one governed `AuctionAuthorityRoute` and deliberately remove the former local authority engines and cockpit projection. The active path:
+
+- shows no organization, lot, SDIZ, buyer, bid, price, leader, winner or Deal ID without a server-authoritative state;
+- keeps import, admission and bid acceptance fail-closed;
+- derives role, organization, lot access and bidding authority from the server rather than URL, cookies or local storage;
+- treats accepted bids as append-only, idempotent events carrying actor, timestamp and auction version;
+- requires optimistic concurrency and rejects stale auction versions;
+- prohibits retrospective bid deletion or client-side winner replacement;
+- locks the winner atomically when the bidding window closes;
+- creates no reserve, hold or payment state from the auction winner;
+- requires an idempotent server transaction to create exactly one canonical Deal;
+- commits the winner lock, Deal creation result, audit and outbox evidence consistently;
+- permits navigation to `/deals/{dealId}/execution` only after a server-issued Deal receipt;
+- keeps logistics, documents and money closed until that receipt exists;
+- supports RU, EN and ZH.
+
+The removed local files were presentation fixtures, not accepted runtime authorities. This route hardening does not prove that a production auction service or live FGIS adapter is deployed. It proves that the UI no longer fabricates those states while the server contour remains unconfirmed.
 
 ## Remaining boundary
 
-Detailed settlement operations, server-authoritative auction persistence, historical auction routes outside the canonical flow and other non-critical pages are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
+Detailed settlement operations, the production server auction service, live external adapters, downstream legacy execution screens and other non-critical pages remain separate acceptance scopes. Production operating maturity and live integrations require deployment evidence, credentials, contracts, exploitation tests and observed transactions; route-level v8 acceptance does not prove them.
 
 ## Decision authority
 
