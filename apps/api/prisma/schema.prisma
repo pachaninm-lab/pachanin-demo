@@ -154,8 +154,8 @@ model DealParticipant {
   organizationId   String
   userId           String
   role             String
-  accessLevel      String   @default("WORK")
-  status           String   @default("ACTIVE")
+  accessLevel      String   @default("WORK") // READ | WORK | APPROVE
+  status           String   @default("ACTIVE") // ACTIVE | SUSPENDED | REVOKED
   assignedByUserId String?
   assignedAt       DateTime @default(now())
   revokedAt        DateTime?
@@ -314,7 +314,7 @@ model DealDocument {
   supersedesId     String?
   seriesId         String?
   idempotencyKey   String?  @unique
-  correlationId   String?
+  correlationId    String?
   createdByOrgId   String?
   metadata         Json?
 
@@ -868,14 +868,14 @@ model DealWorkspaceRuntimeSnapshot {
   updatedAt            DateTime @updatedAt
 
   deal                 Deal      @relation("RuntimeSnapshotDeal", fields: [dealId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_deal_fkey")
-  outboxEntry          OutboxEntry? @relation("RuntimeSnapshotOutbox", fields: [outboxEntryId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_outbox_entry_id_key")
-  auditEvent           AuditEvent? @relation("RuntimeSnapshotAudit", fields: [auditEventId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_audit_event_id_key")
+  outboxEntry          OutboxEntry? @relation("RuntimeSnapshotOutbox", fields: [outboxEntryId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_outbox_fkey")
+  auditEvent           AuditEvent? @relation("RuntimeSnapshotAudit", fields: [auditEventId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_audit_fkey")
   attempts             DealWorkspaceRuntimeTransactionAttempt[]
 
   @@unique([runtimeSnapshotId], map: "dw_runtime_snapshots_runtime_snapshot_id_key")
   @@unique([idempotencyKey], map: "dw_runtime_snapshots_idempotency_key_key")
-  @@unique([outboxEntryId], map: "dw_runtime_snapshots_outbox_entry_id_key")
-  @@unique([auditEventId], map: "dw_runtime_snapshots_audit_event_id_key")
+  @@unique([outboxEntryId], map: "dw_runtime_snapshots_outbox_fkey")
+  @@unique([auditEventId], map: "dw_runtime_snapshots_audit_fkey")
   @@index([dealId, createdAt], map: "dw_runtime_snapshots_deal_created_idx")
   @@index([intentId, state], map: "dw_runtime_snapshots_intent_state_idx")
   @@index([correlationId], map: "dw_runtime_snapshots_correlation_idx")
