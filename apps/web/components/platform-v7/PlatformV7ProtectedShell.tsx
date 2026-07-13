@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { TransactionAppShell } from '@/components/transaction-ux/TransactionAppShell';
+import { AppShellV4 } from '@/components/v7r/AppShellV4';
 import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
@@ -191,7 +191,7 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
   return (
     <>
       <ShellCopyNormalizer />
-      <TransactionAppShell initialRole={initialRole}>
+      <AppShellV4 initialRole={initialRole}>
         <>
           <ScopedShellGuard />
           <PlatformV7SingleEntryGuard />
@@ -209,7 +209,7 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
           {showPlatformFooter ? <PlatformFooter /> : null}
           <OnboardingTour />
         </>
-      </TransactionAppShell>
+      </AppShellV4>
     </>
   );
 }
