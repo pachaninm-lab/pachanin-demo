@@ -1,6 +1,6 @@
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render, waitFor } from '@testing-library/react';
 import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 
 const usePathname = vi.fn();
@@ -19,70 +19,71 @@ const FIELD_PATHS = ['/platform-v7/driver', '/platform-v7/surveyor', '/platform-
 const ROLE_SCOPED_ROLES = ['buyer', 'seller', 'logistics', 'bank', 'arbitrator', 'compliance'] as const;
 const ROLE_SCOPED_PATHS = ['/platform-v7/buyer', '/platform-v7/seller', '/platform-v7/procurement', '/platform-v7/logistics', '/platform-v7/bank', '/platform-v7/arbitrator', '/platform-v7/compliance'] as const;
 
-// Policy markers: each shell policy carries a unique main-offset rule.
-const FIELD_MARKER = 'env(safe-area-inset-top) + 66px';
-const ROLE_SCOPED_MARKER = 'var(--pc-header-offset) + 8px';
-
-function renderedStyle() {
-  const { container } = render(<ScopedShellGuard />);
-  return container.querySelector('style')?.textContent ?? '';
+function shell() {
+  return document.querySelector<HTMLElement>('.pc-shell-root-v4');
 }
 
+async function renderPolicy() {
+  const result = render(<ScopedShellGuard />);
+  await waitFor(() => expect(shell()?.dataset.shellPolicy).toBeTruthy());
+  return result;
+}
+
+beforeEach(() => {
+  activeRole = 'operator';
+  usePathname.mockReset();
+  document.body.innerHTML = '<div class="pc-shell-root-v4"></div>';
+});
+
+afterEach(() => {
+  cleanup();
+  document.body.innerHTML = '';
+});
+
 describe('ScopedShellGuard', () => {
-  it('keeps operator control surfaces on the operator shell policy', () => {
-    activeRole = 'operator';
+  it('keeps operator control surfaces on the operator shell policy without injecting CSS', async () => {
     usePathname.mockReturnValue('/platform-v7/control-tower');
 
-    const style = renderedStyle();
+    const { container } = await renderPolicy();
 
-    expect(style).not.toBe('');
-    expect(style).not.toContain(FIELD_MARKER);
-    expect(style).not.toContain(ROLE_SCOPED_MARKER);
+    expect(shell()?.dataset.shellPolicy).toBe('operator');
+    expect(shell()?.dataset.shellRole).toBe('operator');
+    expect(container.querySelector('style')).toBeNull();
   });
 
-  it.each(FIELD_PATHS)('renders field shell isolation styles on %s', (path) => {
-    activeRole = 'operator';
+  it.each(FIELD_PATHS)('applies field shell metadata on %s', async (path) => {
     usePathname.mockReturnValue(path);
 
-    const style = renderedStyle();
+    await renderPolicy();
 
-    expect(style).toContain(FIELD_MARKER);
-    expect(style).toContain('.pc-v4-search');
-    expect(style).toContain('.pc-v4-select');
-    expect(style).toContain('.pc-v4-mobile-role');
-    expect(style).toContain('.pc-v4-meta');
+    expect(shell()?.dataset.shellPolicy).toBe('field');
   });
 
-  it.each(FIELD_ROLES)('protects any platform route when the active role is %s', (role) => {
+  it.each(FIELD_ROLES)('protects any platform route when the active role is %s', async (role) => {
     activeRole = role;
-    usePathname.mockReturnValue('/platform-v7/deals/DL-9106');
+    usePathname.mockReturnValue('/platform-v7/deals/deal-1/execution');
 
-    const style = renderedStyle();
+    await renderPolicy();
 
-    expect(style).toContain(FIELD_MARKER);
-    expect(style).toContain('.pc-v4-mobile-role');
+    expect(shell()?.dataset.shellPolicy).toBe('field');
+    expect(shell()?.dataset.shellRole).toBe(role);
   });
 
-  it.each(ROLE_SCOPED_PATHS)('applies compact role-scoped shell policy on %s', (path) => {
-    activeRole = 'operator';
+  it.each(ROLE_SCOPED_PATHS)('applies role-scoped metadata on %s', async (path) => {
     usePathname.mockReturnValue(path);
 
-    const style = renderedStyle();
+    await renderPolicy();
 
-    expect(style).toContain(ROLE_SCOPED_MARKER);
-    expect(style).toContain('.pc-v4-statuses');
-    expect(style).toContain('.pc-v4-pilot-note');
-    expect(style).toContain("nav[data-testid='platform-v7-work-route-nav']");
+    expect(shell()?.dataset.shellPolicy).toBe('role-scoped');
   });
 
-  it.each(ROLE_SCOPED_ROLES)('applies compact role-scoped shell policy when active role is %s', (role) => {
+  it.each(ROLE_SCOPED_ROLES)('applies role-scoped policy when active role is %s', async (role) => {
     activeRole = role;
-    usePathname.mockReturnValue('/platform-v7/deals/DL-9106');
+    usePathname.mockReturnValue('/platform-v7/deals/deal-1/execution');
 
-    const style = renderedStyle();
+    await renderPolicy();
 
-    expect(style).toContain(ROLE_SCOPED_MARKER);
-    expect(style).toContain('.pc-v4-search');
-    expect(style).toContain('.pc-v4-pilot-note');
+    expect(shell()?.dataset.shellPolicy).toBe('role-scoped');
+    expect(shell()?.dataset.shellRole).toBe(role);
   });
 });
