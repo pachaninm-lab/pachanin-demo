@@ -1,12 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-
-const PlatformV7ProtectedShell = dynamic(
-  () => import('@/components/platform-v7/PlatformV7ProtectedShell').then((module) => module.PlatformV7ProtectedShell)
-);
 
 const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7',
@@ -34,8 +29,15 @@ function isPublicPath(pathname: string): boolean {
   return PUBLIC_EXACT_PATHS.has(path) || PUBLIC_PREFIX_PATHS.some((prefix) => path.startsWith(prefix));
 }
 
+/**
+ * Legacy compatibility boundary for old public-layout imports.
+ *
+ * Protected business routes must be mounted only by the server layout after a
+ * signed cabinet/access JWT has been verified. This client component therefore
+ * renders public children only and fails closed for every protected pathname;
+ * it can never instantiate PlatformV7ProtectedShell or assign a role.
+ */
 export function PlatformV7ShellSwitch({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '/platform-v7';
-  if (isPublicPath(pathname)) return <>{children}</>;
-  return <PlatformV7ProtectedShell pathname={pathname}>{children}</PlatformV7ProtectedShell>;
+  return isPublicPath(pathname) ? <>{children}</> : null;
 }

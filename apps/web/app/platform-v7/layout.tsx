@@ -1,9 +1,18 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getLocale } from 'next-intl/server';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
+import { platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
+import {
+  readVerifiedCabinetRole,
+  readVerifiedCabinetSessionRole,
+} from '@/lib/platform-v7/verified-session';
+import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
@@ -23,6 +32,7 @@ export const metadata: Metadata = {
 
 const LANDING_PATH = '/platform-v7';
 const STAFF_PREFIX = '/platform-v7/staff';
+const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
 const AUTH_PATHS = new Set([
   '/platform-v7/login',
   '/platform-v7/forgot-password',
@@ -77,6 +87,22 @@ function isStaffPath(pathname: string) {
   return pathname === STAFF_PREFIX || pathname.startsWith(`${STAFF_PREFIX}/`);
 }
 
+function loginHref(pathname: string): string {
+  return `/platform-v7/login?next=${encodeURIComponent(pathname)}`;
+}
+
+async function verifiedCabinetRole(): Promise<PlatformRole | null> {
+  const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
+  if (!secret) return null;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const cookieStore = cookies();
+  return (
+    await readVerifiedCabinetSessionRole(cookieStore.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, nowSeconds)
+  ) ?? (
+    await readVerifiedCabinetRole(cookieStore.get(ACCESS_COOKIE)?.value ?? null, secret, nowSeconds)
+  );
+}
+
 async function PlatformV7PublicPageShell({ children }: { children: ReactNode }) {
   const locale = await getLocale();
   const copy = SUPPORTING_COPY[locale === 'en' || locale === 'zh' ? locale : 'ru'];
@@ -112,8 +138,8 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // Landing and authentication stay lean and server-rendered.
   if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children;
 
-  // Staff remains a separate privileged authority plane. The root CSS contract
-  // fixes its shell without mounting business-role providers or observers.
+  // Staff remains a separate privileged authority plane and authenticates through
+  // its own server-issued staff session rather than a business cabinet role.
   if (isStaffPath(pathname)) return children;
 
   const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
@@ -125,10 +151,18 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
     return <PlatformV7FullStyleRuntime>{publicContent}</PlatformV7FullStyleRuntime>;
   }
 
+  // A protected business cabinet is rendered only after the signed cabinet/access
+  // JWT has been verified. URL, query, pc-role, localStorage and client state never
+  // assign the role. Unauthorized routes are rejected before any role-specific UI
+  // or page code reaches the client.
+  const role = await verifiedCabinetRole();
+  if (!role) redirect(loginHref(pathname));
+  if (!canRoleAccessCabinet(role, pathname)) redirect(platformV7RoleRoute(role));
+
   const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');
   return (
     <PlatformV7FullStyleRuntime>
-      <PlatformV7ProtectedRuntime pathname={pathname}>{children}</PlatformV7ProtectedRuntime>
+      <PlatformV7ProtectedRuntime pathname={pathname} verifiedRole={role}>{children}</PlatformV7ProtectedRuntime>
     </PlatformV7FullStyleRuntime>
   );
 }

@@ -37,7 +37,7 @@ describe('Transaction UX v8 shared role cockpit', () => {
     expect(roleRoots).toHaveLength(12);
     expect(new Set(roleRoots).size).toBe(12);
     for (const route of roleRoots) expect(protectedShell).toContain(route);
-    expect(protectedShell).toContain(': <RoleIntentDashboard role={initialRole} />');
+    expect(protectedShell).toContain(': <RoleIntentDashboard role={verifiedRole} />');
     expect(dashboard).toContain("data-transaction-role-cockpit='v8'");
   });
 
