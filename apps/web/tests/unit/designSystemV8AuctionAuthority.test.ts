@@ -63,8 +63,16 @@ describe('Design System v8 auction server authority', () => {
     expect(workspace).not.toContain('DL-2607-014');
   });
 
-  it('removes the synthetic auction bridge and hard-coded FGIS state', () => {
-    expect(fs.existsSync(path.join(root, 'apps/web/lib/platform-v7/auctionDealBridge.ts'))).toBe(false);
+  it('keeps the legacy bridge as types only and removes hard-coded FGIS state', () => {
+    const bridge = read('apps/web/lib/platform-v7/auctionDealBridge.ts');
+    expect(bridge).toContain('Type-only compatibility contract');
+    expect(bridge).toContain('export type AuctionStage');
+    expect(bridge).toContain('export type AuctionDealBasisGuard');
+    expect(bridge).not.toContain('FGIS_AUCTION_STATE');
+    expect(bridge).not.toContain('AUCTION_DEAL_BRIDGE');
+    expect(bridge).not.toContain('AUCTION_DEAL_BASIS');
+    expect(bridge).not.toMatch(/export\s+(?:const|function|class)\s+/);
+
     const engine = read('apps/web/lib/platform-v7/fgisAuctionEngine.ts');
     expect(engine).not.toContain('FGIS_AUCTION_STATE');
     expect(engine).not.toContain('FGIS-LOT-2607-014');
