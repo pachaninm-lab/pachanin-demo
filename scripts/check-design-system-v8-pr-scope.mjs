@@ -10,6 +10,7 @@ const exact = new Set([
   'apps/web/app/platform-v7/seller/page.tsx',
   'apps/web/app/platform-v7/buyer/page.tsx',
   'apps/web/app/platform-v7/bank/page.tsx',
+  'apps/web/app/platform-v7/bank/release-safety/page.tsx',
   'apps/web/app/platform-v7/operator/page.tsx',
   'apps/web/app/platform-v7/logistics/page.tsx',
   'apps/web/app/platform-v7/compliance/page.tsx',
@@ -18,6 +19,7 @@ const exact = new Set([
   'apps/web/app/platform-v7/deals/page.tsx',
   'apps/web/app/platform-v7/deals/deals.module.css',
   'apps/web/app/platform-v7/documents/page.tsx',
+  'apps/web/app/platform-v7/disputes/page.tsx',
   'apps/web/components/platform-v7/CanonicalDealsList.tsx',
   'apps/web/components/platform-v7/CanonicalDealsList.module.css',
   'apps/web/components/platform-v7/NextActionCard.tsx',
@@ -28,6 +30,7 @@ const exact = new Set([
   'apps/web/components/v7r/AppShellV4.tsx',
   'apps/web/components/v7r/AppShellV4.module.css',
   'apps/web/tests/unit/designSystemV8DocumentsRoute.test.ts',
+  'apps/web/tests/unit/designSystemV8DisputesBankRelease.test.ts',
   'apps/web/tests/unit/designSystemV8FieldRoles.test.ts',
   'apps/web/tests/unit/designSystemV8Foundation.test.ts',
   'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
@@ -87,7 +90,7 @@ try {
 let mergeBase;
 try {
   mergeBase = git(['merge-base', base, 'HEAD']);
-} catch {
+} catch (error) {
   console.error(`[design-system-v8-scope] Cannot resolve merge base for ${base}.`);
   process.exit(1);
 }
