@@ -9,6 +9,7 @@ function source(path: string): string {
 describe('platform-v7 Today workspace scale and cognitive safety', () => {
   const dashboard = source('components/platform-v7/RoleIntentDashboard.tsx');
   const styles = source('components/platform-v7/RoleIntentDashboard.module.css');
+  const designSystemStyles = source('../../packages/design-system-v8/src/components.module.css');
 
   it('keeps one primary deal while supporting server cursor pagination', () => {
     expect(dashboard).toContain('const PAGE_SIZE = 20');
@@ -20,15 +21,16 @@ describe('platform-v7 Today workspace scale and cognitive safety', () => {
   });
 
   it('deduplicates pages and never replaces an already usable screen with a load-more failure', () => {
-    expect(dashboard).toContain("const byId = new Map<string, AccessibleDealRef>()");
+    expect(dashboard).toContain('const byId = new Map<string, AccessibleDealRef>()');
     expect(dashboard).toContain("current.kind === 'ready'");
     expect(dashboard).toContain('loadMoreError: message');
     expect(dashboard).toContain("role='alert'");
   });
 
-  it('keeps large touch targets and mobile-safe scrolling', () => {
+  it('inherits large touch targets from v8 and keeps mobile-safe scrolling', () => {
+    expect(dashboard).toContain("from '@pc/design-system-v8'");
     expect(styles).toContain('.loadMoreButton');
-    expect(styles).toContain('min-height: 48px');
+    expect(designSystemStyles).toContain('min-height: var(--ds-control-height)');
     expect(styles).toContain('overscroll-behavior: contain');
     expect(styles).toContain('@media (max-width: 430px)');
     expect(styles).toContain('@media (forced-colors: active)');
