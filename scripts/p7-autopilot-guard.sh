@@ -139,6 +139,27 @@ apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts
 apps/web/tests/unit/platformV7StaffControlCenterInitialRender.test.ts
 scripts/p7-autopilot-guard.sh'
 
+
+DESIGN_SYSTEM_V8_SCOPE='packages/design-system-v8/**
+packages/design-tokens/**
+apps/web/components/transaction-ux/**
+apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx
+apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx
+apps/web/app/platform-v7/driver/field/page.tsx
+apps/web/app/platform-v7/elevator/page.tsx
+apps/web/app/platform-v7/lab/page.tsx
+apps/web/app/platform-v7/surveyor/page.tsx
+apps/web/package.json
+apps/web/tsconfig.json
+apps/web/next.config.js
+package.json
+pnpm-lock.yaml
+scripts/check-design-system-v8.mjs
+.github/workflows/design-system-v8.yml
+scripts/p7-autopilot-guard.sh'
+
+DESIGN_SYSTEM_V8_ACTIVE=0
+
 RUSSIAN_DEFAULT_LOCALE_SCOPE='apps/web/app/platform-v7/staff/page.tsx
 apps/web/components/platform-v7/HeaderLanguageSwitch.tsx
 apps/web/i18n/request.ts
@@ -203,6 +224,12 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-lcp-css-boundary" ] || [ "${GITH
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_LCP_FIX_SCOPE")
 fi
 
+
+if [ "${GITHUB_HEAD_REF:-}" = "codex/design-system-v8-industrial" ] || [ "${P7_DESIGN_SYSTEM_V8_SCOPE:-}" = "1" ]; then
+  DESIGN_SYSTEM_V8_ACTIVE=1
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$DESIGN_SYSTEM_V8_SCOPE")
+fi
+
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
 const fs = require('fs');
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
@@ -218,11 +245,25 @@ if [ -n "$APPROVED_BRANCH_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$APPROVED_BRANCH_SCOPE")
 fi
 
-FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$|\.env|.*\.pem$|.*\.key$)'
+FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|\.env|.*\.pem$|.*\.key$)'
 
 if printf '%s\n' "$DIFF_FILES" | grep -E "$FORBIDDEN_ALWAYS"; then
   echo "Forbidden path changed for platform-v7 autopilot."
   exit 1
+fi
+
+
+if printf '%s\n' "$DIFF_FILES" | grep -qx 'pnpm-lock.yaml'; then
+  if [ "$DESIGN_SYSTEM_V8_ACTIVE" != "1" ]; then
+    echo "pnpm-lock.yaml changed outside the approved Design System v8 workspace migration."
+    exit 1
+  fi
+  for manifest in package.json apps/web/package.json packages/design-system-v8/package.json packages/design-tokens/package.json; do
+    if ! printf '%s\n' "$DIFF_FILES" | grep -qx "$manifest"; then
+      echo "pnpm-lock.yaml requires the Design System v8 manifest set; missing $manifest."
+      exit 1
+    fi
+  done
 fi
 
 SCOPE_RESULT=$(DIFF_FILES="$DIFF_FILES" ALLOWED_CURRENT="$ALLOWED_CURRENT" node - <<'JS'
