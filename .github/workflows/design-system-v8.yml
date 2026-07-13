@@ -18,7 +18,12 @@ on:
       - 'apps/web/app/platform-v7/disputes/page.tsx'
       - 'apps/web/app/platform-v7/bank/release-safety/page.tsx'
       - 'apps/web/app/platform-v7/money/page.tsx'
+      - 'apps/web/app/platform-v7/fgis-access/page.tsx'
       - 'apps/web/app/platform-v7/auction/**'
+      - 'apps/web/lib/platform-v7/auctionAuthorityCopy.ts'
+      - 'apps/web/lib/platform-v7/auctionDealBridge.ts'
+      - 'apps/web/lib/platform-v7/farmerFgisAccessEngine.ts'
+      - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
       - 'apps/web/app/platform-v7/driver/field/page.tsx'
       - 'apps/web/app/platform-v7/elevator/page.tsx'
       - 'apps/web/app/platform-v7/lab/page.tsx'
@@ -40,7 +45,9 @@ on:
       - 'apps/web/tests/unit/designSystemV8OperationalRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8SettlementViews.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
+      - 'apps/web/tests/unit/platformV7DealExecutionChain.test.ts'
       - 'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx'
+      - 'apps/web/tests/unit/platformV7FgisAccessFlow.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'apps/web/tests/unit/platformV7RealDealsRegistry.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
@@ -67,7 +74,12 @@ on:
       - 'apps/web/app/platform-v7/disputes/page.tsx'
       - 'apps/web/app/platform-v7/bank/release-safety/page.tsx'
       - 'apps/web/app/platform-v7/money/page.tsx'
+      - 'apps/web/app/platform-v7/fgis-access/page.tsx'
       - 'apps/web/app/platform-v7/auction/**'
+      - 'apps/web/lib/platform-v7/auctionAuthorityCopy.ts'
+      - 'apps/web/lib/platform-v7/auctionDealBridge.ts'
+      - 'apps/web/lib/platform-v7/farmerFgisAccessEngine.ts'
+      - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
       - 'apps/web/app/platform-v7/driver/field/page.tsx'
       - 'apps/web/app/platform-v7/elevator/page.tsx'
       - 'apps/web/app/platform-v7/lab/page.tsx'
@@ -89,7 +101,9 @@ on:
       - 'apps/web/tests/unit/designSystemV8OperationalRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8SettlementViews.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
+      - 'apps/web/tests/unit/platformV7DealExecutionChain.test.ts'
       - 'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx'
+      - 'apps/web/tests/unit/platformV7FgisAccessFlow.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'apps/web/tests/unit/platformV7RealDealsRegistry.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
@@ -120,7 +134,7 @@ jobs:
         run: node ./scripts/check-design-system-v8.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
-      - name: Run v8 role, registry, auction, critical-route and settlement regressions
+      - name: Run v8 role, critical-route, settlement and auction authority regressions
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
@@ -133,7 +147,9 @@ jobs:
             tests/unit/designSystemV8OperationalRoles.test.ts \
             tests/unit/designSystemV8SettlementViews.test.ts \
             tests/unit/platformV7CanonicalDealWorkspace.test.ts \
+            tests/unit/platformV7DealExecutionChain.test.ts \
             tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx \
+            tests/unit/platformV7FgisAccessFlow.test.ts \
             tests/unit/platformV7RealDealsRegistry.test.ts \
             tests/unit/platformV7RoleIntentDashboard.test.ts \
             tests/unit/platformV7TodayWorkspace.test.ts \
