@@ -53,7 +53,8 @@ describe('Design System v8 foundation', () => {
   it('registers automatic governance', () => {
     const governance = JSON.parse(read('design-governance-v8.json'));
     expect(governance.migratedFiles).toContain('apps/web/components/platform-v7/NextActionCard.tsx');
-    expect(governance.migratedFiles).toContain('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
+    expect(governance.governedRoots).toContain('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
+    expect(governance.legacyCompatibilityFiles).toContain('apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx');
     expect(read('package.json')).toContain('design:v8:guard');
     expect(read('.github/workflows/design-system-v8.yml')).toContain('check-design-system-v8.mjs');
   });
