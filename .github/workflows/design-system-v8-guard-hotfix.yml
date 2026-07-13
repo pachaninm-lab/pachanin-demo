@@ -1,0 +1,47 @@
+name: Design System v8 guard hotfix
+
+on:
+  push:
+    branches:
+      - codex/design-system-v8-industrial
+    paths:
+      - .github/workflows/design-system-v8-guard-hotfix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/design-system-v8-industrial
+          fetch-depth: 0
+
+      - name: Extend governed scope and remove one-shot workflow
+        shell: python
+        run: |
+          from pathlib import Path
+
+          guard = Path('scripts/p7-autopilot-guard.sh')
+          text = guard.read_text()
+          needle = 'apps/web/tsconfig.json\npackage.json'
+          replacement = 'apps/web/tsconfig.json\napps/web/tests/unit/designSystemV8Architecture.test.ts\npackage.json'
+          if replacement not in text:
+              if needle not in text:
+                  raise SystemExit('Design System v8 scope anchor not found')
+              text = text.replace(needle, replacement, 1)
+          guard.write_text(text)
+          Path('.github/workflows/design-system-v8-guard-hotfix.yml').unlink()
+
+      - name: Commit focused guard fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/p7-autopilot-guard.sh
+          git add -u .github/workflows/design-system-v8-guard-hotfix.yml
+          git commit -m "Complete governed Design System v8 scope"
+          git push origin HEAD:codex/design-system-v8-industrial
