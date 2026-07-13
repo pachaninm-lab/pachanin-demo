@@ -28,6 +28,14 @@ export class LabsService {
     return this.labs.collect(id, dto, user);
   }
 
+  handoff(id: string, dto: CollectSampleDto, user: RequestUser) {
+    return this.labs.handoff(id, dto, user);
+  }
+
+  receive(id: string, dto: CollectSampleDto, user: RequestUser) {
+    return this.labs.receive(id, dto, user);
+  }
+
   recordTest(id: string, dto: RecordTestDto, user: RequestUser) {
     return this.labs.recordTest(id, dto, user);
   }
