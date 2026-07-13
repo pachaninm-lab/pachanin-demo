@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import type { RequestUser } from '../../common/types/request-user';
@@ -49,6 +50,8 @@ const FAIL_CLOSED_ACCESS = {
 
 @Injectable()
 export class SettlementEngineService {
+  private readonly logger = new Logger(SettlementEngineService.name);
+
   constructor(
     private readonly repository: SettlementPostgresqlRepository,
     private readonly access: SettlementAccessService = FAIL_CLOSED_ACCESS,
@@ -210,6 +213,12 @@ export class SettlementEngineService {
         || ['23505', '23514', '40001', '40P01'].includes(metaCode)
         || /could not serialize|serialization failure|write conflict|deadlock|concurrent|exact pending settlement operation/.test(message)
       ) {
+        this.logger.warn(JSON.stringify({
+          event: 'settlement.invariant_conflict',
+          prismaCode: code || null,
+          databaseCode: metaCode || null,
+          reason: message.slice(0, 500),
+        }));
         throw new ConflictException({ code: 'CONCURRENT_SETTLEMENT_OPERATION' });
       }
       throw error;
