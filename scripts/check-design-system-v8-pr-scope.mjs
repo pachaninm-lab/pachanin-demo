@@ -39,6 +39,7 @@ const exact = new Set([
   'apps/web/components/v7r/AppShellV4.tsx',
   'apps/web/components/v7r/AppShellV4.module.css',
   'apps/web/lib/auction-server.ts',
+  'apps/web/lib/logistics-server.ts',
   'apps/web/lib/platform-v7/fgisAuctionEngine.ts',
   'apps/web/lib/platform-v7/auctionDealBridge.ts',
   'apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx',
