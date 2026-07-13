@@ -104,11 +104,10 @@ function ActionCard({ icon, title, description, onClick }: ActionCardProps) {
   );
 }
 
-export function HeaderUtilityMenu() {
+export function HeaderUtilityMenu({ role }: { role: PlatformRole }) {
   const pathname = usePathname();
   const router = useRouter();
   const path = normalize(pathname);
-  const role = usePlatformV7RStore((state) => state.role) || 'operator';
   const clearRoleSelection = usePlatformV7RStore((state) => state.clearRoleSelection);
   const headerMount = useMount('.pc-v4-actions');
   const bodyMount = useMount('body');
