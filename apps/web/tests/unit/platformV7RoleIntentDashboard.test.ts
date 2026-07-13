@@ -24,21 +24,28 @@ const ownerCabinetMatrix = [
 ] as const;
 
 describe('platform-v7 role intent dashboard', () => {
-  it('opens only a participant-scoped real deal and exposes honest empty/error states', () => {
+  it('opens only participant-scoped real deals and exposes honest Today states', () => {
     const model = read('apps/web/lib/platform-v7/roleIntentActions.ts');
     const dashboard = read('apps/web/components/platform-v7/RoleIntentDashboard.tsx');
+    const dashboardStyles = read('apps/web/components/platform-v7/RoleIntentDashboard.module.css');
     const shell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 
     expect(model).toContain('ROLE_INTENT_ACTIONS');
-    expect(dashboard).toContain('/api/proxy/deals/accessible?limit=5');
+    expect(dashboard).toContain('/api/proxy/deals/accessible?limit=20');
+    expect(dashboard).toContain('function prioritizeDeals');
+    expect(dashboard).toContain('(deal.nextAction ? actionable : waiting).push(deal)');
+    expect(dashboard).toContain('Сначала показана сделка, где от вас уже требуется действие');
     expect(dashboard).toContain('<CanonicalDealWorkspace role={role} dealId={current.id} />');
     expect(dashboard).not.toContain('<CanonicalDealWorkspace role={role} />');
     expect(dashboard).not.toContain('DEAL-INDUSTRIAL-001');
-    expect(dashboard).toContain('У вас пока нет активных сделок');
-    expect(dashboard).toContain('Не удалось загрузить сделки');
+    expect(dashboard).toContain('Сегодня нет активных сделок');
+    expect(dashboard).toContain('Не удалось загрузить задачи');
     expect(dashboard).toContain('Сервер вернул некорректный список сделок');
     expect(dashboard).toContain('Повторить');
     expect(dashboard).not.toContain('getRoleIntentConfig');
+    expect(dashboardStyles).toContain('min-height: 48px');
+    expect(dashboardStyles).toContain('@media (max-width: 430px)');
+    expect(dashboardStyles).toContain('@media (forced-colors: active)');
     expect(shell).toContain('ROLE_INTENT_ROOT_PATHS');
     expect(shell).toContain(': <RoleIntentDashboard role={initialRole} />');
 
