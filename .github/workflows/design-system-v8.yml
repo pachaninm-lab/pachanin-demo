@@ -15,7 +15,11 @@ on:
       - 'apps/web/app/platform-v7/elevator/page.tsx'
       - 'apps/web/app/platform-v7/lab/page.tsx'
       - 'apps/web/app/platform-v7/surveyor/page.tsx'
+      - 'apps/web/app/platform-v7/seller/page.tsx'
+      - 'apps/web/app/platform-v7/buyer/page.tsx'
+      - 'apps/web/app/platform-v7/bank/page.tsx'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
+      - 'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
@@ -39,7 +43,11 @@ on:
       - 'apps/web/app/platform-v7/elevator/page.tsx'
       - 'apps/web/app/platform-v7/lab/page.tsx'
       - 'apps/web/app/platform-v7/surveyor/page.tsx'
+      - 'apps/web/app/platform-v7/seller/page.tsx'
+      - 'apps/web/app/platform-v7/buyer/page.tsx'
+      - 'apps/web/app/platform-v7/bank/page.tsx'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
+      - 'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
@@ -71,10 +79,21 @@ jobs:
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
       - name: Run v8 role regressions
-        run: >-
-          pnpm --filter @pc/web exec vitest run
-          tests/unit/designSystemV8FieldRoles.test.ts
-          tests/unit/platformV7CanonicalDealWorkspace.test.ts
-          tests/unit/platformV7RoleIntentDashboard.test.ts
-          tests/unit/platformV7TodayWorkspace.test.ts
-          tests/unit/transactionRoleCockpitsV8.test.ts
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/designSystemV8FieldRoles.test.ts \
+            tests/unit/designSystemV8MoneyRoles.test.ts \
+            tests/unit/platformV7CanonicalDealWorkspace.test.ts \
+            tests/unit/platformV7RoleIntentDashboard.test.ts \
+            tests/unit/platformV7TodayWorkspace.test.ts \
+            tests/unit/transactionRoleCockpitsV8.test.ts \
+            2>&1 | tee design-system-v8-tests.log
+      - name: Upload v8 regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-system-v8-tests-${{ github.sha }}
+          path: design-system-v8-tests.log
+          if-no-files-found: error
+          retention-days: 7
