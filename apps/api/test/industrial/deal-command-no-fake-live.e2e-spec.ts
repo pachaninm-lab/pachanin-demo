@@ -5,9 +5,10 @@ import type { ExecuteDealCommandDto } from '../../src/modules/deals/dto/execute-
 import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import {
   cleanTenant,
-  createInstance,
+  createRememberedInstance as createInstance,
   destroyInstance,
   payloadForAction,
+  prepareLaboratoryLifecycle,
   provisionDeal,
   type DealFixture,
   type ServiceInstance,
@@ -73,7 +74,12 @@ async function advance(
   fixture: DealFixture,
   sequence: Array<[DealActionId, string]>,
 ) {
-  for (const [actionId, userKey] of sequence) await execute(fixture, actionId, userKey);
+  for (const [actionId, userKey] of sequence) {
+    if (actionId === 'finalize_lab') {
+      await prepareLaboratoryLifecycle(instance, fixture);
+    }
+    await execute(fixture, actionId, userKey);
+  }
 }
 
 async function snapshot(fixture: DealFixture, actionId: DealActionId) {
@@ -186,13 +192,15 @@ describe('Deal command no-fake-live PostgreSQL gate', () => {
       ['confirm_weight', 'elevator'],
       ['confirm_inspection', 'surveyor'],
     ]);
+    await prepareLaboratoryLifecycle(instance, fixture);
     const before = await snapshot(fixture, 'finalize_lab');
+    const beforeTests = await instance.prisma.labTest.count({ where: { sampleId: fixture.sampleId } });
 
     await expectUnprocessable(execute(fixture, 'finalize_lab', 'lab', {}, ':empty-lab'), 'sampleId');
     expect(await snapshot(fixture, 'finalize_lab')).toEqual(before);
-    expect(await instance.prisma.labTest.count({ where: { sampleId: fixture.sampleId } })).toBe(0);
+    expect(await instance.prisma.labTest.count({ where: { sampleId: fixture.sampleId } })).toBe(beforeTests);
     expect((await instance.prisma.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId } })).status)
-      .toBe('PENDING');
+      .toBe('ANALYSIS_IN_PROGRESS');
     expect((await instance.prisma.acceptanceRecord.findUniqueOrThrow({ where: { id: fixture.acceptanceId } })).qualityStatus)
       .toBe('PENDING');
   });
