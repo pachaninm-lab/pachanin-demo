@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Checkpoint, Prisma, Shipment, ShipmentGpsPoint } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { compare } from 'bcryptjs';
 import { createHash, randomUUID } from 'crypto';
 import {
@@ -18,21 +18,31 @@ import {
   LogisticsCommand,
   RecordCheckpointCommand,
   RecordGpsCommand,
+  ShipmentCheckpointRecord,
+  ShipmentGpsPointRecord,
   ShipmentMutationResult,
+  ShipmentRecord,
   ShipmentRepository,
   ShipmentWorkspace,
   VerifyPinCommand,
 } from './shipment.repository';
 
+type NormalizedCommand = Readonly<{
+  commandId: string;
+  idempotencyKey: string;
+  expectedVersion: bigint;
+  correlationId?: string;
+}> & Record<string, unknown>;
+
 type MutationArtifacts = Readonly<{
-  shipment: Shipment;
-  checkpoint?: Checkpoint;
-  gpsPoint?: ShipmentGpsPoint;
+  shipment: ShipmentRecord;
+  checkpoint?: ShipmentCheckpointRecord;
+  gpsPoint?: ShipmentGpsPointRecord;
   valid?: boolean;
   eventPayload: Prisma.InputJsonObject;
 }>;
 
-const CHECKPOINT_ROLES = new Set<Role>([
+const CHECKPOINT_ROLES = new Set<string>([
   Role.DRIVER,
   Role.LOGISTICIAN,
   Role.ELEVATOR,
@@ -44,43 +54,41 @@ const CHECKPOINT_ROLES = new Set<Role>([
 export class PrismaShipmentRepository implements ShipmentRepository {
   constructor(private readonly rls: RlsTransactionService) {}
 
-  async list(user: RequestUser): Promise<Shipment[]> {
-    return this.rls.withTrustedContext(user, (tx) => tx.shipment.findMany({
-      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
-      take: 500,
-    }));
+  async list(user: RequestUser): Promise<ShipmentRecord[]> {
+    return this.rls.withTrustedContext(user, async (tx) => tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
+      SELECT s.*
+      FROM public."shipments" s
+      ORDER BY s."updatedAt" DESC, s."id" ASC
+      LIMIT 500
+    `));
   }
 
-  async getById(id: string, user: RequestUser): Promise<Shipment> {
+  async getById(id: string, user: RequestUser): Promise<ShipmentRecord> {
     const shipmentId = requiredIdentifier(id, 'shipmentId');
-    const shipment = await this.rls.withTrustedContext(user, (tx) => tx.shipment.findUnique({
-      where: { id: shipmentId },
-    }));
-    if (!shipment) throw new NotFoundException('Shipment is not available in the authenticated scope.');
-    return shipment;
+    return this.rls.withTrustedContext(user, async (tx) => {
+      const shipment = await this.findShipment(tx, shipmentId);
+      if (!shipment) throw scopedNotFound();
+      return shipment;
+    });
   }
 
   async workspace(id: string, user: RequestUser): Promise<ShipmentWorkspace> {
     const shipmentId = requiredIdentifier(id, 'shipmentId');
-    const workspace = await this.rls.withTrustedContext(user, async (tx) => {
-      const shipment = await tx.shipment.findUnique({ where: { id: shipmentId } });
-      if (!shipment) return null;
+    return this.rls.withTrustedContext(user, async (tx) => {
+      const shipment = await this.findShipment(tx, shipmentId);
+      if (!shipment) throw scopedNotFound();
       const [checkpoints, gpsTrack] = await Promise.all([
-        tx.checkpoint.findMany({
-          where: { shipmentId },
-          orderBy: [{ completedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-          take: 1_000,
-        }),
-        tx.shipmentGpsPoint.findMany({
-          where: { shipmentId },
-          orderBy: [{ recordedAt: 'asc' }, { id: 'asc' }],
-          take: 5_000,
-        }),
+        tx.$queryRaw<ShipmentCheckpointRecord[]>(Prisma.sql`
+          SELECT c.*
+          FROM public."checkpoints" c
+          WHERE c."shipmentId" = ${shipmentId}
+          ORDER BY c."completedAt" ASC NULLS LAST, c."createdAt" ASC, c."id" ASC
+          LIMIT 1000
+        `),
+        this.findGpsTrack(tx, shipmentId),
       ]);
       return { shipment, checkpoints, gpsTrack };
     });
-    if (!workspace) throw new NotFoundException('Shipment is not available in the authenticated scope.');
-    return workspace;
   }
 
   async recordCheckpoint(
@@ -91,7 +99,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
     if (!CHECKPOINT_ROLES.has(user.role)) {
       throw new ForbiddenException('Role cannot record shipment checkpoints.');
     }
-    const normalized = {
+    const normalized: NormalizedCommand = {
       shipmentId: requiredIdentifier(id, 'shipmentId'),
       commandId: requiredIdentifier(command.commandId, 'commandId'),
       idempotencyKey: requiredIdentifier(command.idempotencyKey, 'idempotencyKey'),
@@ -101,49 +109,53 @@ export class PrismaShipmentRepository implements ShipmentRepository {
       occurredAt: requiredDate(command.occurredAt, 'occurredAt'),
       lat: optionalCoordinate(command.lat, 'lat', -90, 90),
       lng: optionalCoordinate(command.lng, 'lng', -180, 180),
-      note: optionalText(command.note, 'note', 1_000),
+      note: optionalText(command.note, 'note', 1000),
     };
     if ((normalized.lat === undefined) !== (normalized.lng === undefined)) {
       throw new BadRequestException({ code: 'COORDINATE_PAIR_REQUIRED' });
     }
 
     return this.executeMutation(
-      normalized.shipmentId,
+      normalized.shipmentId as string,
       normalized,
       user,
       'shipment.checkpoint.record',
       'shipment.checkpoint.recorded',
       async (tx, shipment, context) => {
-        const checkpoint = await tx.checkpoint.create({
-          data: {
-            id: `checkpoint-${randomUUID()}`,
-            shipmentId: shipment.id,
-            tenantId: context.tenantId,
-            type: normalized.type,
-            completedAt: normalized.occurredAt,
-            lat: normalized.lat ?? null,
-            lng: normalized.lng ?? null,
-            note: normalized.note ?? null,
-            actorId: context.userId,
-            commandId: normalized.commandId,
-            idempotencyKey: this.persistentKey(context, normalized.idempotencyKey),
-            correlationId: normalized.correlationId,
-          },
-        });
-        const updated = await this.casUpdateShipment(tx, shipment, normalized.expectedVersion, {
-          ...(normalized.lat === undefined ? {} : {
-            geoLat: normalized.lat,
-            geoLng: normalized.lng,
-            lastGeoAt: normalized.occurredAt,
-          }),
-        });
+        if (user.role === Role.DRIVER && shipment.driverUserId !== context.userId) {
+          throw new ForbiddenException('Driver is not assigned to this shipment.');
+        }
+        const persistentKey = this.persistentKey(context, normalized.idempotencyKey);
+        const checkpointId = `checkpoint-${randomUUID()}`;
+        const checkpoints = await tx.$queryRaw<ShipmentCheckpointRecord[]>(Prisma.sql`
+          INSERT INTO public."checkpoints" (
+            "id", "shipmentId", "tenantId", "type", "completedAt", "lat", "lng",
+            "note", "actorId", "commandId", "idempotencyKey", "correlationId", "createdAt"
+          ) VALUES (
+            ${checkpointId}, ${shipment.id}, ${context.tenantId}, ${normalized.type as string},
+            ${normalized.occurredAt as Date}, ${nullableNumber(normalized.lat)}, ${nullableNumber(normalized.lng)},
+            ${nullableString(normalized.note)}, ${context.userId}, ${normalized.commandId},
+            ${persistentKey}, ${nullableString(normalized.correlationId)}, now()
+          )
+          RETURNING *
+        `);
+        const checkpoint = checkpoints[0];
+        if (!checkpoint) throw new ConflictException('Checkpoint insert did not return an authoritative row.');
+        const updated = await this.casPositionUpdate(
+          tx,
+          shipment,
+          normalized.expectedVersion,
+          normalized.lat as number | undefined,
+          normalized.lng as number | undefined,
+          normalized.occurredAt as Date,
+        );
         return {
           shipment: updated,
           checkpoint,
           eventPayload: {
             checkpointId: checkpoint.id,
             checkpointType: checkpoint.type,
-            occurredAt: checkpoint.completedAt?.toISOString() ?? normalized.occurredAt.toISOString(),
+            occurredAt: checkpoint.completedAt?.toISOString() ?? null,
           },
         };
       },
@@ -158,7 +170,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
     if (user.role !== Role.DRIVER && user.role !== Role.SUPPORT_MANAGER && user.role !== Role.ADMIN) {
       throw new ForbiddenException('Only the assigned driver or an explicit control role may record GPS facts.');
     }
-    const normalized = {
+    const normalized: NormalizedCommand = {
       shipmentId: requiredIdentifier(id, 'shipmentId'),
       commandId: requiredIdentifier(command.commandId, 'commandId'),
       idempotencyKey: requiredIdentifier(command.idempotencyKey, 'idempotencyKey'),
@@ -168,12 +180,12 @@ export class PrismaShipmentRepository implements ShipmentRepository {
       lng: requiredCoordinate(command.lng, 'lng', -180, 180),
       speedKmh: optionalRange(command.speedKmh, 'speedKmh', 0, 250),
       headingDeg: optionalRange(command.headingDeg, 'headingDeg', 0, 360),
-      accuracyM: optionalRange(command.accuracyM, 'accuracyM', 0, 10_000),
+      accuracyM: optionalRange(command.accuracyM, 'accuracyM', 0, 10000),
       recordedAt: requiredDate(command.recordedAt, 'recordedAt'),
     };
 
     return this.executeMutation(
-      normalized.shipmentId,
+      normalized.shipmentId as string,
       normalized,
       user,
       'shipment.gps.record',
@@ -182,28 +194,32 @@ export class PrismaShipmentRepository implements ShipmentRepository {
         if (user.role === Role.DRIVER && shipment.driverUserId !== context.userId) {
           throw new ForbiddenException('Driver is not assigned to this shipment.');
         }
-        const gpsPoint = await tx.shipmentGpsPoint.create({
-          data: {
-            id: `gps-${randomUUID()}`,
-            shipmentId: shipment.id,
-            tenantId: context.tenantId,
-            actorUserId: context.userId,
-            lat: normalized.lat,
-            lng: normalized.lng,
-            speedKmh: normalized.speedKmh ?? null,
-            headingDeg: normalized.headingDeg ?? null,
-            accuracyM: normalized.accuracyM ?? null,
-            recordedAt: normalized.recordedAt,
-            commandId: normalized.commandId,
-            idempotencyKey: this.persistentKey(context, normalized.idempotencyKey),
-            correlationId: normalized.correlationId,
-          },
-        });
-        const updated = await this.casUpdateShipment(tx, shipment, normalized.expectedVersion, {
-          geoLat: normalized.lat,
-          geoLng: normalized.lng,
-          lastGeoAt: normalized.recordedAt,
-        });
+        const persistentKey = this.persistentKey(context, normalized.idempotencyKey);
+        const gpsId = `gps-${randomUUID()}`;
+        const rows = await tx.$queryRaw<ShipmentGpsPointRecord[]>(Prisma.sql`
+          INSERT INTO public."shipment_gps_points" (
+            "id", "shipmentId", "tenantId", "actorUserId", "lat", "lng",
+            "speedKmh", "headingDeg", "accuracyM", "recordedAt", "commandId",
+            "idempotencyKey", "correlationId", "createdAt"
+          ) VALUES (
+            ${gpsId}, ${shipment.id}, ${context.tenantId}, ${context.userId},
+            ${normalized.lat as number}, ${normalized.lng as number},
+            ${nullableNumber(normalized.speedKmh)}, ${nullableNumber(normalized.headingDeg)},
+            ${nullableNumber(normalized.accuracyM)}, ${normalized.recordedAt as Date},
+            ${normalized.commandId}, ${persistentKey}, ${nullableString(normalized.correlationId)}, now()
+          )
+          RETURNING *
+        `);
+        const gpsPoint = rows[0];
+        if (!gpsPoint) throw new ConflictException('GPS insert did not return an authoritative row.');
+        const updated = await this.casPositionUpdate(
+          tx,
+          shipment,
+          normalized.expectedVersion,
+          normalized.lat as number,
+          normalized.lng as number,
+          normalized.recordedAt as Date,
+        );
         return {
           shipment: updated,
           gpsPoint,
@@ -216,16 +232,12 @@ export class PrismaShipmentRepository implements ShipmentRepository {
     );
   }
 
-  async getGpsTrack(id: string, user: RequestUser): Promise<ShipmentGpsPoint[]> {
+  async getGpsTrack(id: string, user: RequestUser): Promise<ShipmentGpsPointRecord[]> {
     const shipmentId = requiredIdentifier(id, 'shipmentId');
     return this.rls.withTrustedContext(user, async (tx) => {
-      const shipment = await tx.shipment.findUnique({ where: { id: shipmentId } });
-      if (!shipment) throw new NotFoundException('Shipment is not available in the authenticated scope.');
-      return tx.shipmentGpsPoint.findMany({
-        where: { shipmentId },
-        orderBy: [{ recordedAt: 'asc' }, { id: 'asc' }],
-        take: 5_000,
-      });
+      const shipment = await this.findShipment(tx, shipmentId);
+      if (!shipment) throw scopedNotFound();
+      return this.findGpsTrack(tx, shipmentId);
     });
   }
 
@@ -239,7 +251,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
     }
     const pin = String(command.pin ?? '').trim();
     if (!/^\d{4,12}$/.test(pin)) throw new BadRequestException({ code: 'INVALID_PIN_FORMAT' });
-    const normalized = {
+    const normalized: NormalizedCommand = {
       shipmentId: requiredIdentifier(id, 'shipmentId'),
       commandId: requiredIdentifier(command.commandId, 'commandId'),
       idempotencyKey: requiredIdentifier(command.idempotencyKey, 'idempotencyKey'),
@@ -249,7 +261,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
     };
 
     return this.executeMutation(
-      normalized.shipmentId,
+      normalized.shipmentId as string,
       normalized,
       user,
       'shipment.pin.verify',
@@ -273,17 +285,16 @@ export class PrismaShipmentRepository implements ShipmentRepository {
         const lockedUntil = !valid && failedAttempts >= 5
           ? new Date(now.getTime() + 15 * 60_000)
           : null;
-        const updated = await this.casUpdateShipment(tx, shipment, normalized.expectedVersion, valid ? {
-          pinVerified: true,
-          pinVerifiedAt: now,
-          pinVerifiedByUserId: context.userId,
-          pinFailedAttempts: 0,
-          pinLockedUntil: null,
-        } : {
-          pinVerified: false,
-          pinFailedAttempts: failedAttempts,
-          pinLockedUntil: lockedUntil,
-        });
+        const updated = await this.casPinUpdate(
+          tx,
+          shipment,
+          normalized.expectedVersion,
+          valid,
+          failedAttempts,
+          lockedUntil,
+          context.userId,
+          now,
+        );
         return {
           shipment: updated,
           valid,
@@ -297,15 +308,15 @@ export class PrismaShipmentRepository implements ShipmentRepository {
     );
   }
 
-  private async executeMutation<T extends LogisticsCommand>(
+  private async executeMutation(
     shipmentId: string,
-    command: T,
+    command: NormalizedCommand,
     user: RequestUser,
     action: string,
     eventType: string,
     work: (
       tx: Prisma.TransactionClient,
-      shipment: Shipment,
+      shipment: ShipmentRecord,
       context: TrustedRlsContext,
     ) => Promise<MutationArtifacts>,
   ): Promise<ShipmentMutationResult> {
@@ -316,11 +327,11 @@ export class PrismaShipmentRepository implements ShipmentRepository {
         const replay = await this.replay(tx, persistentKey, requestFingerprint);
         if (replay) return replay;
 
-        const shipment = await tx.shipment.findUnique({ where: { id: shipmentId } });
-        if (!shipment) throw new NotFoundException('Shipment is not available in the authenticated scope.');
-        await tx.$queryRaw`
+        const shipment = await this.findShipment(tx, shipmentId);
+        if (!shipment) throw scopedNotFound();
+        await tx.$queryRaw(Prisma.sql`
           SELECT pg_advisory_xact_lock(hashtextextended(${shipment.dealId}, 42)) IS NULL AS locked
-        `;
+        `);
 
         const artifacts = await work(tx, shipment, context);
         const auditId = `audit-${randomUUID()}`;
@@ -391,7 +402,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
         };
       }, {
         isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
-        timeout: 20_000,
+        timeout: 20000,
       });
     } catch (error) {
       if (!isUniqueConstraintError(error)) throw error;
@@ -424,13 +435,13 @@ export class PrismaShipmentRepository implements ShipmentRepository {
     if (!outbox.auditId || typeof payload.shipmentId !== 'string') {
       throw new ConflictException('Atomic logistics receipt is incomplete.');
     }
-    const shipment = await tx.shipment.findUnique({ where: { id: payload.shipmentId } });
+    const shipment = await this.findShipment(tx, payload.shipmentId);
     if (!shipment) throw new ConflictException('Logistics replay shipment is no longer visible.');
     const checkpoint = typeof payload.checkpointId === 'string'
-      ? await tx.checkpoint.findUnique({ where: { id: payload.checkpointId } }) ?? undefined
+      ? await this.findCheckpoint(tx, payload.checkpointId)
       : undefined;
     const gpsPoint = typeof payload.gpsPointId === 'string'
-      ? await tx.shipmentGpsPoint.findUnique({ where: { id: payload.gpsPointId } }) ?? undefined
+      ? await this.findGpsPoint(tx, payload.gpsPointId)
       : undefined;
     return {
       shipment,
@@ -443,26 +454,111 @@ export class PrismaShipmentRepository implements ShipmentRepository {
     };
   }
 
-  private async casUpdateShipment(
+  private async findShipment(
     tx: Prisma.TransactionClient,
-    shipment: Shipment,
+    shipmentId: string,
+  ): Promise<ShipmentRecord | null> {
+    const rows = await tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
+      SELECT s.*
+      FROM public."shipments" s
+      WHERE s."id" = ${shipmentId}
+      LIMIT 1
+    `);
+    return rows[0] ?? null;
+  }
+
+  private async findCheckpoint(
+    tx: Prisma.TransactionClient,
+    checkpointId: string,
+  ): Promise<ShipmentCheckpointRecord | undefined> {
+    const rows = await tx.$queryRaw<ShipmentCheckpointRecord[]>(Prisma.sql`
+      SELECT c.*
+      FROM public."checkpoints" c
+      WHERE c."id" = ${checkpointId}
+      LIMIT 1
+    `);
+    return rows[0];
+  }
+
+  private async findGpsPoint(
+    tx: Prisma.TransactionClient,
+    gpsPointId: string,
+  ): Promise<ShipmentGpsPointRecord | undefined> {
+    const rows = await tx.$queryRaw<ShipmentGpsPointRecord[]>(Prisma.sql`
+      SELECT p.*
+      FROM public."shipment_gps_points" p
+      WHERE p."id" = ${gpsPointId}
+      LIMIT 1
+    `);
+    return rows[0];
+  }
+
+  private async findGpsTrack(
+    tx: Prisma.TransactionClient,
+    shipmentId: string,
+  ): Promise<ShipmentGpsPointRecord[]> {
+    return tx.$queryRaw<ShipmentGpsPointRecord[]>(Prisma.sql`
+      SELECT p.*
+      FROM public."shipment_gps_points" p
+      WHERE p."shipmentId" = ${shipmentId}
+      ORDER BY p."recordedAt" ASC, p."id" ASC
+      LIMIT 5000
+    `);
+  }
+
+  private async casPositionUpdate(
+    tx: Prisma.TransactionClient,
+    shipment: ShipmentRecord,
     expectedVersion: bigint,
-    data: Prisma.ShipmentUpdateManyMutationInput,
-  ): Promise<Shipment> {
-    if (shipment.version !== expectedVersion) {
-      throw new ConflictException({
-        code: 'STALE_SHIPMENT_VERSION',
-        currentVersion: shipment.version.toString(),
-      });
-    }
-    const update = await tx.shipment.updateMany({
-      where: { id: shipment.id, version: expectedVersion },
-      data: { ...data, version: { increment: 1 } },
-    });
-    if (update.count !== 1) {
-      throw new ConflictException({ code: 'CONCURRENT_SHIPMENT_UPDATE' });
-    }
-    return tx.shipment.findUniqueOrThrow({ where: { id: shipment.id } });
+    lat: number | undefined,
+    lng: number | undefined,
+    occurredAt: Date,
+  ): Promise<ShipmentRecord> {
+    if (shipment.version !== expectedVersion) throw staleVersion(shipment.version);
+    const rows = lat === undefined
+      ? await tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
+          UPDATE public."shipments"
+          SET "version" = "version" + 1, "updatedAt" = now()
+          WHERE "id" = ${shipment.id} AND "version" = ${expectedVersion}
+          RETURNING *
+        `)
+      : await tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
+          UPDATE public."shipments"
+          SET "geoLat" = ${lat}, "geoLng" = ${lng as number}, "lastGeoAt" = ${occurredAt},
+              "version" = "version" + 1, "updatedAt" = now()
+          WHERE "id" = ${shipment.id} AND "version" = ${expectedVersion}
+          RETURNING *
+        `);
+    if (!rows[0]) throw new ConflictException({ code: 'CONCURRENT_SHIPMENT_UPDATE' });
+    return rows[0];
+  }
+
+  private async casPinUpdate(
+    tx: Prisma.TransactionClient,
+    shipment: ShipmentRecord,
+    expectedVersion: bigint,
+    valid: boolean,
+    failedAttempts: number,
+    lockedUntil: Date | null,
+    actorUserId: string,
+    now: Date,
+  ): Promise<ShipmentRecord> {
+    if (shipment.version !== expectedVersion) throw staleVersion(shipment.version);
+    const rows = await tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
+      UPDATE public."shipments"
+      SET
+        "pinVerified" = ${valid},
+        "pinVerifiedAt" = ${valid ? now : null},
+        "pinVerifiedByUserId" = ${valid ? actorUserId : null},
+        "pinFailedAttempts" = ${failedAttempts},
+        "pinLockedUntil" = ${lockedUntil},
+        "version" = "version" + 1,
+        "updatedAt" = now()
+      WHERE "id" = ${shipment.id} AND "version" = ${expectedVersion}
+      RETURNING *
+    `);
+    if (!rows[0]) throw new ConflictException({ code: 'CONCURRENT_SHIPMENT_UPDATE' });
+    return rows[0];
   }
 
   private persistentKey(context: TrustedRlsContext, clientKey: string): string {
@@ -470,7 +566,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
   }
 }
 
-function shipmentState(shipment: Shipment): Prisma.InputJsonObject {
+function shipmentState(shipment: ShipmentRecord): Prisma.InputJsonObject {
   return {
     id: shipment.id,
     dealId: shipment.dealId,
@@ -489,10 +585,9 @@ function shipmentState(shipment: Shipment): Prisma.InputJsonObject {
   };
 }
 
-function redactCommand(command: LogisticsCommand): Record<string, unknown> {
-  const candidate = command as unknown as Record<string, unknown>;
+function redactCommand(command: NormalizedCommand): Record<string, unknown> {
   return Object.fromEntries(
-    Object.entries(candidate).map(([key, value]) => [key, key === 'pin' ? digest(String(value)) : value]),
+    Object.entries(command).map(([key, value]) => [key, key === 'pin' ? digest(String(value)) : value]),
   );
 }
 
@@ -590,6 +685,29 @@ function optionalRange(
   return value;
 }
 
+function nullableString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function nullableNumber(value: unknown): number | null {
+  return typeof value === 'number' ? value : null;
+}
+
+function scopedNotFound(): NotFoundException {
+  return new NotFoundException('Shipment is not available in the authenticated scope.');
+}
+
+function staleVersion(currentVersion: bigint): ConflictException {
+  return new ConflictException({
+    code: 'STALE_SHIPMENT_VERSION',
+    currentVersion: currentVersion.toString(),
+  });
+}
+
 function isUniqueConstraintError(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (error.code === 'P2002') return true;
+  if (error.code !== 'P2010') return false;
+  const meta = error.meta as Record<string, unknown> | undefined;
+  return meta?.code === '23505';
 }
