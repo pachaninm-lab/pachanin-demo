@@ -105,7 +105,7 @@ export function NextActionPanel({
     <Surface className='pc-v8-next-action' elevation='raised' padding='field'>
       <div className='pc-v8-next-action-copy'>
         {eyebrow ? <span className='pc-v8-eyebrow'>{eyebrow}</span> : null}
-        <h1>{title}</h1>
+        <h2>{title}</h2>
         {description ? <p>{description}</p> : null}
         {(blocker || deadline || moneyImpact) ? (
           <div className='pc-v8-action-meta'>
@@ -205,10 +205,10 @@ export function WorkbenchTemplate({
         </div>
         {status}
       </header>
-      <main className='pc-v8-workbench-main'>
+      <section className='pc-v8-workbench-main' aria-label='Рабочая область'>
         <div className='pc-v8-workbench-primary'>{primary}</div>
         {secondary ? <aside className='pc-v8-workbench-secondary'>{secondary}</aside> : null}
-      </main>
+      </section>
       {evidence ? <section className='pc-v8-workbench-evidence' aria-label='Доказательства'>{evidence}</section> : null}
     </div>
   );
@@ -228,7 +228,7 @@ export function AppFrame({ header, navigation, children, mobileNavigation, drawe
       <header className='pc-v8-app-header'>{header}</header>
       <aside className='pc-v8-app-navigation' aria-label='Основная навигация'>{navigation}</aside>
       <main className='pc-v8-app-main' id='main-content'>{children}</main>
-      {mobileNavigation ? <nav className='pc-v8-app-mobile-navigation' aria-label='Быстрые действия'>{mobileNavigation}</nav> : null}
+      {mobileNavigation ? <nav className='pc-v8-app-mobile-navigation' aria-label='Навигация кабинета'>{mobileNavigation}</nav> : null}
     </div>
   );
 }
