@@ -69,6 +69,10 @@ function isPublicPath(pathname: string) {
   return PUBLIC_EXACT_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
 }
 
+function needsPublicHeader(pathname: string) {
+  return PUBLIC_HEADERLESS_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
+}
+
 function isStaffPath(pathname: string) {
   return pathname === STAFF_PREFIX || pathname.startsWith(`${STAFF_PREFIX}/`);
 }
@@ -114,7 +118,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
 
   const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
   if (isPublicPath(pathname)) {
-    const publicContent = PUBLIC_HEADERLESS_PATHS.has(pathname)
+    const publicContent = needsPublicHeader(pathname)
       ? <PlatformV7PublicPageShell>{children}</PlatformV7PublicPageShell>
       : children;
 
