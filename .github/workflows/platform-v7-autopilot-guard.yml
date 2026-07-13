@@ -38,6 +38,11 @@ jobs:
         run: |
           node scripts/check-design-system-v8-pr-scope.mjs
           node scripts/check-design-system-v8.mjs
+      - name: Validate Design System v8 field-role scope
+        if: github.event_name == 'pull_request' && github.head_ref == 'codex/design-system-v8-field-roles'
+        run: |
+          node scripts/check-design-system-v8-field-roles-scope.mjs
+          node scripts/check-design-system-v8.mjs
       - name: Validate active platform-v7 autopilot scope
-        if: github.event_name != 'pull_request' || (github.head_ref != 'agent/design-system-v8-foundation' && github.head_ref != 'agent/transaction-shell-deal-workspace-v8')
+        if: github.event_name != 'pull_request' || (github.head_ref != 'agent/design-system-v8-foundation' && github.head_ref != 'agent/transaction-shell-deal-workspace-v8' && github.head_ref != 'codex/design-system-v8-field-roles')
         run: bash scripts/p7-autopilot-guard.sh
