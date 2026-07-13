@@ -351,3 +351,5 @@ Industrial Integration-Ready remains NO-GO until every mandatory gate in IR-90 h
           git commit -m "IR-10 transition: advance source of truth to Labs authority [ir-10-3-transitioned]"
           git pull --rebase origin main
           git push origin HEAD:main
+
+# Trigger commit: workflow already exists on main before this push.
