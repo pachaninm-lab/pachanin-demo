@@ -15,6 +15,7 @@ const releaseMutation = /fetch\s*\(|method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)['
 const documents = read('apps/web/app/platform-v7/documents/page.tsx');
 const disputes = read('apps/web/app/platform-v7/disputes/page.tsx');
 const releaseSafety = read('apps/web/app/platform-v7/bank/release-safety/page.tsx');
+const designSystemIndex = read('packages/design-system-v8/src/index.ts');
 const governance = JSON.parse(read('design-governance-v8.json')) as { migratedFiles: string[] };
 
 describe('Design System v8 critical transaction routes', () => {
@@ -32,16 +33,27 @@ describe('Design System v8 critical transaction routes', () => {
     expect(disputes).toContain('await getDisputes()');
     expect(disputes).toContain('disputeTotalHeldRub');
     expect(disputes).toContain('openDisputeCount');
+    expect(disputes).toContain('sortActiveDisputes');
     expect(disputes).toContain('EvidenceDecisionPanel');
     expect(disputes).toContain('EvidenceReadinessMiniMatrix');
     expect(disputes).toContain('DecisionRecommendationStrip');
-    expect(disputes).toContain('DecisionPackMiniPanel');
     expect(disputes).toContain('ActionFeedbackPreviewStrip');
     expect(disputes).not.toContain("grain-execution/mock-data");
     expect(disputes).not.toContain('staticDisputes');
+    expect(disputes).not.toContain("?? 'DL-9102'");
+    expect(disputes).not.toContain("?? 'DL-9106'");
     expect(disputes).toContain('A dispute explains why money is held');
     expect(disputes).toContain('争议说明资金为何被冻结');
     expect(disputes).not.toMatch(forbiddenPresentation);
+  });
+
+  it('marks dispute fallback data as non-authoritative in all languages', () => {
+    expect(disputes).toContain('Резервные строки показаны только для устойчивости интерфейса');
+    expect(disputes).toContain('cannot be used as a legal or monetary basis');
+    expect(disputes).toContain('不能作为法律或资金依据');
+    expect(disputes).toContain('labels={copy.labels}');
+    expect(disputes).toContain("import { EmptyState } from '@pc/design-system-v8'");
+    expect(designSystemIndex).toContain("export { EmptyState } from './EmptyState'");
   });
 
   it('keeps bank release review server-selected, read-only and callback-authoritative', () => {
