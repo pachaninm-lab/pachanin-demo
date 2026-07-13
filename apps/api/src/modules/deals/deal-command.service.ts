@@ -25,7 +25,6 @@ import {
   microToDecimal,
   optionalCoordinate,
   optionalString,
-  parseLogisticsBasis,
   record,
   requiredArray,
   requiredDecimal,
@@ -130,7 +129,7 @@ function requiredBankReference(payload: JsonRecord): string {
 }
 
 function activeShipmentStatus(status: string): boolean {
-  return !['DELIVERED', 'CANCELLED', 'CLOSED', 'FAILED'].includes(status);
+  return !['DELIVERED', 'COMPLETED', 'CANCELLED', 'CLOSED', 'FAILED'].includes(status);
 }
 
 @Injectable()
@@ -260,6 +259,9 @@ export class DealCommandService {
     try {
       return await this.rls.withTrustedContext(user, async (tx) => {
         await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${dealId}, 42)) IS NULL AS locked`;
+        await tx.$queryRaw(Prisma.sql`
+SELECT set_config('app.current_command_id', ${dto.commandId}, true)
+        `);
 
         const replay = await tx.outboxEntry.findUnique({ where: { idempotencyKey: receiptKey } });
         if (replay) return this.resultFromReceipt(replay.payload);
@@ -511,44 +513,31 @@ export class DealCommandService {
       const vehicleId = requiredString(payload, 'vehicleId');
       const routeFromFacilityId = requiredString(payload, 'routeFromFacilityId');
       const routeToFacilityId = requiredString(payload, 'routeToFacilityId');
-      const basis = parseLogisticsBasis(deal.sagaState);
 
-      const carrierBasis = basis.carriers.find((item) => item.id === carrierOrgId);
-      if (!carrierBasis || carrierBasis.status !== 'VERIFIED' || carrierBasis.tenantId !== deal.tenantId) {
-        invalid('carrierOrgId', 'Перевозчик не входит в подтверждённое основание сделки или не допущен.');
-      }
-      const carrier = await tx.organization.findUnique({ where: { id: carrierOrgId } });
-      if (!carrier || carrier.tenantId !== deal.tenantId || carrier.status !== 'VERIFIED' || carrier.kycStatus !== 'APPROVED') {
-        invalid('carrierOrgId', 'Перевозчик не прошёл серверную проверку допуска.');
-      }
-
-      const driverBasis = basis.drivers.find((item) => item.id === driverUserId && item.carrierOrgId === carrierOrgId);
-      if (!driverBasis || driverBasis.status !== 'ACTIVE' || !driverBasis.vehicleIds.includes(vehicleId)) {
-        invalid('driverUserId', 'Водитель не активен у выбранного перевозчика или не допущен к машине.');
-      }
-      const driver = await tx.user.findUnique({ where: { id: driverUserId } });
-      const driverMembership = await tx.userOrg.findUnique({
-        where: { userId_organizationId: { userId: driverUserId, organizationId: carrierOrgId } },
-      });
-      if (!driver || driver.status !== 'ACTIVE' || driver.deletedAt || !driverMembership) {
-        invalid('driverUserId', 'Активная принадлежность водителя перевозчику не подтверждена PostgreSQL.');
-      }
-
-      const vehicle = basis.vehicles.find((item) => item.id === vehicleId && item.carrierOrgId === carrierOrgId);
-      if (!vehicle || vehicle.status !== 'ACTIVE') invalid('vehicleId', 'Машина не активна у выбранного перевозчика.');
-      const from = basis.facilities.find((item) => item.id === routeFromFacilityId);
-      const to = basis.facilities.find((item) => item.id === routeToFacilityId);
-      if (!from || from.status !== 'ACTIVE' || from.organizationId !== deal.sellerOrgId) {
-        invalid('routeFromFacilityId', 'Точка отправления не принадлежит продавцу или не активна.');
-      }
-      if (!to || to.status !== 'ACTIVE' || to.organizationId !== deal.buyerOrgId) {
-        invalid('routeToFacilityId', 'Точка назначения не принадлежит покупателю или не активна.');
+      const admissions = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT admission.id
+        FROM logistics.deal_admissions admission
+        WHERE admission.tenant_id = ${deal.tenantId}
+AND admission.deal_id = ${deal.id}
+AND admission.carrier_org_id = ${carrierOrgId}
+AND admission.driver_user_id = ${driverUserId}
+AND admission.vehicle_id = ${vehicleId}
+AND admission.route_from_facility_id = ${routeFromFacilityId}
+AND admission.route_to_facility_id = ${routeToFacilityId}
+AND admission.status = 'ACTIVE'
+AND admission.valid_from <= now()
+AND (admission.valid_until IS NULL OR admission.valid_until > now())
+        FOR UPDATE
+        LIMIT 1
+      `);
+      if (!admissions[0]) {
+        invalid('carrierOrgId', 'Активный нормализованный допуск логистики для сделки не найден.');
       }
 
       const conflicts = await tx.shipment.findMany({
         where: {
-          dealId: { not: deal.id },
-          OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
+dealId: { not: deal.id },
+OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
         },
         select: { id: true, status: true },
         take: 20,
@@ -788,32 +777,20 @@ export class DealCommandService {
       case 'assign_logistics': {
         const driver = await tx.user.findUniqueOrThrow({ where: { id: String(payload.driverUserId) } });
         const carrier = await tx.organization.findUniqueOrThrow({ where: { id: String(payload.carrierOrgId) } });
-        await tx.shipment.upsert({
-          where: { id: `shipment:${deal.id}` },
-          update: {
-            status: 'DRIVER_ASSIGNED',
-            carrierOrgId: carrier.id,
-            carrierName: carrier.name,
-            driverUserId: driver.id,
-            driverName: driver.fullName,
-            vehicleNumber: String(payload.vehicleId),
-            routeFrom: String(payload.routeFromFacilityId),
-            routeTo: String(payload.routeToFacilityId),
-            nextAction: 'Подтвердить погрузку',
-          },
-          create: {
-            id: `shipment:${deal.id}`,
-            dealId: deal.id,
-            status: 'DRIVER_ASSIGNED',
-            carrierOrgId: carrier.id,
-            carrierName: carrier.name,
-            driverUserId: driver.id,
-            driverName: driver.fullName,
-            vehicleNumber: String(payload.vehicleId),
-            routeFrom: String(payload.routeFromFacilityId),
-            routeTo: String(payload.routeToFacilityId),
-            nextAction: 'Подтвердить погрузку',
-          },
+        await tx.shipment.create({
+data: {
+  id: `shipment:${deal.id}`,
+  dealId: deal.id,
+  status: 'DRIVER_ASSIGNED',
+  carrierOrgId: carrier.id,
+  carrierName: carrier.name,
+  driverUserId: driver.id,
+  driverName: driver.fullName,
+  vehicleNumber: String(payload.vehicleId),
+  routeFrom: String(payload.routeFromFacilityId),
+  routeTo: String(payload.routeToFacilityId),
+  nextAction: 'Подтвердить погрузку',
+},
         });
         break;
       }

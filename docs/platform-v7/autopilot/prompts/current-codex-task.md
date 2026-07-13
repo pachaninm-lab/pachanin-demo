@@ -41,6 +41,8 @@ IR-10.1 Documents PostgreSQL Authority — PR #2410, merge `a485371e54b31fc787c0
 - apps/api/src/common/command-execution.context.ts
 - apps/api/src/common/prisma/rls-transaction.service.ts
 - apps/api/src/modules/documents/document-repository.spec.ts
+- apps/api/src/modules/deals/deal-command.service.ts
+- apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
 - apps/api/src/modules/deals/deal-command-payload.ts
 - apps/api/src/modules/deals/deals.module.ts
 - apps/api/src/modules/deals/logistics-admission-context.ts

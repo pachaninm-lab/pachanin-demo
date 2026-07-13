@@ -1,3 +1,4 @@
+import * as bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
@@ -17,6 +18,7 @@ const LOGISTICS_VEHICLE_ID = `vehicle:${CANONICAL_TEST_DEAL_ID}`;
 const LOGISTICS_ROUTE_FROM_ID = 'facility:org-canonical-seller:dispatch';
 const LOGISTICS_ROUTE_TO_ID = 'facility:org-canonical-buyer:acceptance';
 const LOGISTICS_EVIDENCE_ID = `file-logistics-admission:${CANONICAL_TEST_DEAL_ID}`;
+export const LOGISTICS_TEST_PIN = '246810';
 
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable);
@@ -150,16 +152,18 @@ async function seedNormalizedLogisticsAdmission(prisma: PrismaService): Promise<
     await tx.$executeRaw(Prisma.sql`
       INSERT INTO logistics.deal_admissions (
         id, tenant_id, deal_id, carrier_org_id, driver_user_id, vehicle_id,
-        route_from_facility_id, route_to_facility_id, status, evidence_file_id
+        route_from_facility_id, route_to_facility_id, status, evidence_file_id,
+        driver_pin_hash
       ) VALUES (
         ${`admission:${CANONICAL_TEST_DEAL_ID}`}, ${CANONICAL_TENANT_ID},
         ${CANONICAL_TEST_DEAL_ID}, ${LOGISTICS_CARRIER_ORG_ID},
         ${LOGISTICS_DRIVER_USER_ID}, ${LOGISTICS_VEHICLE_ID},
         ${LOGISTICS_ROUTE_FROM_ID}, ${LOGISTICS_ROUTE_TO_ID}, 'ACTIVE',
-        ${LOGISTICS_EVIDENCE_ID}
+        ${LOGISTICS_EVIDENCE_ID}, ${bcrypt.hashSync(LOGISTICS_TEST_PIN, 4)}
       )
       ON CONFLICT (id) DO UPDATE SET
         status = 'ACTIVE', evidence_file_id = EXCLUDED.evidence_file_id,
+        driver_pin_hash = EXCLUDED.driver_pin_hash,
         consumed_at = NULL, consumed_by_command_id = NULL,
         valid_until = NULL, updated_at = now()
     `);

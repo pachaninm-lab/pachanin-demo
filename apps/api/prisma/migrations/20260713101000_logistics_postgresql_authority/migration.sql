@@ -15,7 +15,8 @@ DECLARE
 BEGIN
   command_id := NULLIF(current_setting('app.current_command_id', true), '');
   IF command_id IS NULL THEN
-    command_id := NEW."id";
+    RAISE EXCEPTION 'trusted command id is required for shipment admission consumption'
+      USING ERRCODE = '23514';
   END IF;
 
   UPDATE logistics.deal_admissions admission

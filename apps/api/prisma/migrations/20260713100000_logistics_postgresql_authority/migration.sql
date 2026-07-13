@@ -212,6 +212,7 @@ CREATE TABLE IF NOT EXISTS logistics.deal_admissions (
   route_to_facility_id TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'ACTIVE',
   evidence_file_id TEXT NOT NULL,
+  driver_pin_hash TEXT NOT NULL,
   valid_from TIMESTAMPTZ NOT NULL DEFAULT now(),
   valid_until TIMESTAMPTZ,
   consumed_at TIMESTAMPTZ,
@@ -233,6 +234,7 @@ CREATE TABLE IF NOT EXISTS logistics.deal_admissions (
     FOREIGN KEY (route_to_facility_id) REFERENCES logistics.facilities(id) ON DELETE RESTRICT,
   CONSTRAINT logistics_admissions_evidence_fkey
     FOREIGN KEY (evidence_file_id) REFERENCES public."deal_documents"("id") ON DELETE RESTRICT,
+  CONSTRAINT logistics_admissions_driver_pin_hash_check CHECK (length(driver_pin_hash) BETWEEN 59 AND 255),
   CONSTRAINT logistics_admissions_status_check CHECK (status IN ('ACTIVE', 'CONSUMED', 'EXPIRED', 'REVOKED'))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS logistics_deal_admissions_active_vehicle_key
@@ -527,6 +529,7 @@ BEGIN
     RAISE EXCEPTION 'driver or vehicle has a conflicting active shipment' USING ERRCODE = '23514';
   END IF;
 
+  NEW."driverPinHash" := admission.driver_pin_hash;
   RETURN NEW;
 END
 $function$;

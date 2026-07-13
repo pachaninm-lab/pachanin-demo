@@ -47,7 +47,6 @@ export type ShipmentRecord = Readonly<{
   etaHours: number | null;
   loadedTons: number | null;
   pinVerified: boolean;
-  driverPinHash: string | null;
   pinVerifiedAt: Date | null;
   pinVerifiedByUserId: string | null;
   pinFailedAttempts: number;

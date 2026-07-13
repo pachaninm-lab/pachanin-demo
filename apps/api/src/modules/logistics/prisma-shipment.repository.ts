@@ -34,8 +34,10 @@ type NormalizedCommand = Readonly<{
   correlationId?: string;
 }> & Record<string, unknown>;
 
+type ShipmentAuthorityRecord = ShipmentRecord & Readonly<{ driverPinHash: string | null }>;
+
 type MutationArtifacts = Readonly<{
-  shipment: ShipmentRecord;
+  shipment: ShipmentAuthorityRecord;
   checkpoint?: ShipmentCheckpointRecord;
   gpsPoint?: ShipmentGpsPointRecord;
   valid?: boolean;
@@ -55,12 +57,15 @@ export class PrismaShipmentRepository implements ShipmentRepository {
   constructor(private readonly rls: RlsTransactionService) {}
 
   async list(user: RequestUser): Promise<ShipmentRecord[]> {
-    return this.rls.withTrustedContext(user, async (tx) => tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
-      SELECT s.*
-      FROM public."shipments" s
-      ORDER BY s."updatedAt" DESC, s."id" ASC
-      LIMIT 500
-    `));
+    return this.rls.withTrustedContext(user, async (tx) => {
+      const rows = await tx.$queryRaw<ShipmentAuthorityRecord[]>(Prisma.sql`
+        SELECT s.*
+        FROM public."shipments" s
+        ORDER BY s."updatedAt" DESC, s."id" ASC
+        LIMIT 500
+      `);
+      return rows.map(publicShipment);
+    });
   }
 
   async getById(id: string, user: RequestUser): Promise<ShipmentRecord> {
@@ -68,7 +73,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
     return this.rls.withTrustedContext(user, async (tx) => {
       const shipment = await this.findShipment(tx, shipmentId);
       if (!shipment) throw scopedNotFound();
-      return shipment;
+      return publicShipment(shipment);
     });
   }
 
@@ -87,7 +92,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
         `),
         this.findGpsTrack(tx, shipmentId),
       ]);
-      return { shipment, checkpoints, gpsTrack };
+      return { shipment: publicShipment(shipment), checkpoints, gpsTrack };
     });
   }
 
@@ -316,7 +321,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
     eventType: string,
     work: (
       tx: Prisma.TransactionClient,
-      shipment: ShipmentRecord,
+      shipment: ShipmentAuthorityRecord,
       context: TrustedRlsContext,
     ) => Promise<MutationArtifacts>,
   ): Promise<ShipmentMutationResult> {
@@ -392,7 +397,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
           },
         });
         return {
-          shipment: artifacts.shipment,
+          shipment: publicShipment(artifacts.shipment),
           auditId,
           outboxId,
           duplicate: false,
@@ -444,7 +449,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
       ? await this.findGpsPoint(tx, payload.gpsPointId)
       : undefined;
     return {
-      shipment,
+      shipment: publicShipment(shipment),
       auditId: outbox.auditId,
       outboxId: outbox.id,
       duplicate: true,
@@ -457,8 +462,8 @@ export class PrismaShipmentRepository implements ShipmentRepository {
   private async findShipment(
     tx: Prisma.TransactionClient,
     shipmentId: string,
-  ): Promise<ShipmentRecord | null> {
-    const rows = await tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
+  ): Promise<ShipmentAuthorityRecord | null> {
+    const rows = await tx.$queryRaw<ShipmentAuthorityRecord[]>(Prisma.sql`
       SELECT s.*
       FROM public."shipments" s
       WHERE s."id" = ${shipmentId}
@@ -508,12 +513,12 @@ export class PrismaShipmentRepository implements ShipmentRepository {
 
   private async casPositionUpdate(
     tx: Prisma.TransactionClient,
-    shipment: ShipmentRecord,
+    shipment: ShipmentAuthorityRecord,
     expectedVersion: bigint,
     lat: number | undefined,
     lng: number | undefined,
     occurredAt: Date,
-  ): Promise<ShipmentRecord> {
+  ): Promise<ShipmentAuthorityRecord> {
     if (shipment.version !== expectedVersion) throw staleVersion(shipment.version);
     const rows = lat === undefined
       ? await tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
@@ -535,14 +540,14 @@ export class PrismaShipmentRepository implements ShipmentRepository {
 
   private async casPinUpdate(
     tx: Prisma.TransactionClient,
-    shipment: ShipmentRecord,
+    shipment: ShipmentAuthorityRecord,
     expectedVersion: bigint,
     valid: boolean,
     failedAttempts: number,
     lockedUntil: Date | null,
     actorUserId: string,
     now: Date,
-  ): Promise<ShipmentRecord> {
+  ): Promise<ShipmentAuthorityRecord> {
     if (shipment.version !== expectedVersion) throw staleVersion(shipment.version);
     const rows = await tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
       UPDATE public."shipments"
@@ -566,7 +571,12 @@ export class PrismaShipmentRepository implements ShipmentRepository {
   }
 }
 
-function shipmentState(shipment: ShipmentRecord): Prisma.InputJsonObject {
+function publicShipment(shipment: ShipmentAuthorityRecord): ShipmentRecord {
+  const { driverPinHash: _driverPinHash, ...publicRecord } = shipment;
+  return publicRecord;
+}
+
+function shipmentState(shipment: ShipmentAuthorityRecord): Prisma.InputJsonObject {
   return {
     id: shipment.id,
     dealId: shipment.dealId,

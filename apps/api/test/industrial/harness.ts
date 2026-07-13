@@ -190,15 +190,17 @@ async function seedNormalizedLogisticsAdmission(
     await tx.$executeRaw(Prisma.sql`
       INSERT INTO logistics.deal_admissions (
         id, tenant_id, deal_id, carrier_org_id, driver_user_id, vehicle_id,
-        route_from_facility_id, route_to_facility_id, status, evidence_file_id
+        route_from_facility_id, route_to_facility_id, status, evidence_file_id,
+        driver_pin_hash
       ) VALUES (
         ${`admission:${input.dealId}`}, ${INDUSTRIAL_TENANT}, ${input.dealId},
         ${input.carrierOrgId}, ${input.driverUserId}, ${input.vehicleId},
         ${input.routeFromFacilityId}, ${input.routeToFacilityId}, 'ACTIVE',
-        ${evidenceId}
+        ${evidenceId}, ${bcrypt.hashSync('246810', 4)}
       )
       ON CONFLICT (id) DO UPDATE SET
         status = 'ACTIVE', evidence_file_id = EXCLUDED.evidence_file_id,
+        driver_pin_hash = EXCLUDED.driver_pin_hash,
         consumed_at = NULL, consumed_by_command_id = NULL,
         valid_until = NULL, updated_at = now()
     `);
