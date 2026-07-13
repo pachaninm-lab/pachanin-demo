@@ -41,7 +41,12 @@
   "closedCapabilities": {
     "persistentIdentityAndMfa": {
       "status": "merged-isolated-postgresql-evidence",
-      "prs": ["#2276", "#2280", "#2282", "#2283"]
+      "prs": [
+        "#2276",
+        "#2280",
+        "#2282",
+        "#2283"
+      ]
     },
     "restrictedDatabasePrincipals": {
       "status": "merged-isolated-postgresql-evidence",
@@ -49,20 +54,35 @@
     },
     "dealCommandCore": {
       "status": "merged-isolated-postgresql-evidence",
-      "prs": ["#2260", "#2270", "#2274", "#2378", "#2406", "#2407"],
+      "prs": [
+        "#2260",
+        "#2270",
+        "#2274",
+        "#2378",
+        "#2406",
+        "#2407"
+      ],
       "latestMergeCommit": "66bf4655eede522ca3f3963d6d7aaa5cee9c50a5"
     },
     "documentsPostgresqlAuthority": {
       "status": "merged-isolated-postgresql-evidence",
       "pr": "#2410",
       "mergeCommit": "a485371e54b31fc787c061643c0068184e373c7b",
-      "remainingBoundaries": ["IR-32 document state machines", "IR-40 evidence retention", "IR-41 signature verification", "IR-53 EDO mapping"]
+      "remainingBoundaries": [
+        "IR-32 document state machines",
+        "IR-40 evidence retention",
+        "IR-41 signature verification",
+        "IR-53 EDO mapping"
+      ]
     },
     "logisticsPostgresqlAuthority": {
       "status": "merged-isolated-postgresql-evidence",
       "pr": "#2412",
       "mergeCommit": "a272a1e64b1a30d1e5b2a3052ca66653afd7b66f",
-      "remainingBoundaries": ["IR-31 normalized logistics and acceptance", "IR-55 telematics and GIS EPD provider conformance"]
+      "remainingBoundaries": [
+        "IR-31 normalized logistics and acceptance",
+        "IR-55 telematics and GIS EPD provider conformance"
+      ]
     },
     "durableOutboxWorkerImplementation": {
       "status": "merged-but-not-exclusive-production-owner",
@@ -114,6 +134,7 @@
     "apps/api/src/common/config/industrial-mode.ts",
     "apps/api/src/common/command-execution.context.ts",
     "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "apps/api/src/modules/documents/document-repository.spec.ts",
     "apps/api/src/modules/deals/deal-command.service.ts",
     "apps/api/src/modules/deals/deal-command-payload.ts",
     "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
@@ -142,6 +163,7 @@
     "apps/api/src/common/config/industrial-mode.ts",
     "apps/api/src/common/command-execution.context.ts",
     "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "apps/api/src/modules/documents/document-repository.spec.ts",
     "apps/api/src/modules/deals/deal-command.service.ts",
     "apps/api/src/modules/deals/deal-command-payload.ts",
     "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
