@@ -203,8 +203,8 @@ export default function NotificationsPage() {
       </section>
 
       {actionError ? (
-        <div className={styles.actionError} role='alert'>
-          <AlertTriangle aria-hidden='true' />
+        <div className={styles.controls} role='alert'>
+          <AlertTriangle className={styles.errorIcon} aria-hidden='true' />
           <span>{actionError}</span>
         </div>
       ) : null}
