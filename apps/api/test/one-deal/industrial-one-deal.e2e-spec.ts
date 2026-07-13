@@ -904,7 +904,15 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
       expect.objectContaining({ accessLevel: 'READ', status: 'ACTIVE' }),
     ]);
     expect(reconciled.events).toHaveLength(DEAL_ACTIONS.length);
-    expect(reconciled.audits).toHaveLength(DEAL_ACTIONS.length);
+    const dealCommandAudits = reconciled.audits.filter((item) => item.action.startsWith('deal.command.'));
+    const logisticsAudits = reconciled.audits.filter((item) => item.action.startsWith('shipment.'));
+    expect(dealCommandAudits).toHaveLength(DEAL_ACTIONS.length);
+    expect(logisticsAudits.map((item) => item.action)).toEqual([
+      'shipment.gps.record',
+      'shipment.checkpoint.record',
+      'shipment.pin.verify',
+    ]);
+    expect(reconciled.audits).toHaveLength(DEAL_ACTIONS.length + logisticsAudits.length);
     expect(reconciled.outbox.filter((item) => item.type === 'deal.command.receipt')).toHaveLength(DEAL_ACTIONS.length);
     expect(reconciled.documents.length).toBeGreaterThanOrEqual(6);
     const requiredReleaseTypes = new Set(['CONTRACT', 'TTN', 'WEIGHING_ACT', 'LAB_PROTOCOL', 'ACCEPTANCE_ACT']);
