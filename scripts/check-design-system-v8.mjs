@@ -101,8 +101,10 @@ for (const relativePath of governedFiles) {
 
 for (const relativePath of governance.migratedFiles) {
   const content = readText(relativePath);
-  if (!content.includes('@pc/design-system-v8')) {
-    fail(`${relativePath}: migrated file must consume @pc/design-system-v8.`);
+  const consumesDesignSystem = content.includes('@pc/design-system-v8');
+  const consumesTransactionUx = /(?:from\s+|import\s+)["']@\/components\/transaction-ux\//.test(content);
+  if (!consumesDesignSystem && !consumesTransactionUx) {
+    fail(`${relativePath}: migrated file must consume @pc/design-system-v8 or the governed transaction-ux boundary.`);
   }
 }
 

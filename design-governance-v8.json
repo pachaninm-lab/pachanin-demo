@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -18,7 +18,12 @@
     "apps/web/app/platform-v7/surveyor/page.tsx",
     "apps/web/app/platform-v7/seller/page.tsx",
     "apps/web/app/platform-v7/buyer/page.tsx",
-    "apps/web/app/platform-v7/bank/page.tsx"
+    "apps/web/app/platform-v7/bank/page.tsx",
+    "apps/web/app/platform-v7/operator/page.tsx",
+    "apps/web/app/platform-v7/logistics/page.tsx",
+    "apps/web/app/platform-v7/compliance/page.tsx",
+    "apps/web/app/platform-v7/arbitrator/page.tsx",
+    "apps/web/app/platform-v7/executive/page.tsx"
   ],
   "allowedGlobalStyleEntrypoints": [
     "packages/design-tokens/tokens.css"
