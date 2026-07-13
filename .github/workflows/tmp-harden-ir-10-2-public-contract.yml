@@ -1,0 +1,173 @@
+name: Temporary IR-10.2 public contract hardening
+
+on:
+  push:
+    branches:
+      - agent/ir-10-2-logistics-postgresql-authority
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[ir-10-2-public-contract-hardened]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ir-10-2-logistics-postgresql-authority
+          fetch-depth: 0
+      - name: Harden JSON contract, concurrent replay and PIN authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          contract = Path('apps/api/src/modules/logistics/shipment.repository.ts')
+          source = contract.read_text()
+          old = '  version: bigint;\n'
+          if source.count(old) != 1:
+              raise SystemExit('ShipmentRecord version anchor not found exactly once')
+          contract.write_text(source.replace(old, '  version: string;\n', 1))
+
+          repository = Path('apps/api/src/modules/logistics/prisma-shipment.repository.ts')
+          source = repository.read_text()
+          old = "type ShipmentAuthorityRecord = ShipmentRecord & Readonly<{ driverPinHash: string | null }>;"
+          new = """type ShipmentAuthorityRecord = Omit<ShipmentRecord, 'version'> & Readonly<{
+            version: bigint;
+            driverPinHash: string | null;
+          }>;"""
+          if source.count(old) != 1:
+              raise SystemExit('ShipmentAuthorityRecord anchor not found exactly once')
+          source = source.replace(old, new, 1)
+
+          old = '''        const shipment = await this.findShipment(tx, shipmentId);
+                  if (!shipment) throw scopedNotFound();
+                  await tx.$queryRaw(Prisma.sql`
+                    SELECT pg_advisory_xact_lock(hashtextextended(${shipment.dealId}, 42)) IS NULL AS locked
+                  `);
+          
+                  const artifacts = await work(tx, shipment, context);'''
+          new = '''        const candidate = await this.findShipment(tx, shipmentId);
+                  if (!candidate) throw scopedNotFound();
+                  await tx.$queryRaw(Prisma.sql`
+                    SELECT pg_advisory_xact_lock(hashtextextended(${candidate.dealId}, 42)) IS NULL AS locked
+                  `);
+          
+                  // Another API instance may have committed the same idempotency key
+                  // while this transaction waited for the per-Deal lock. Recheck the
+                  // durable receipt after locking and reload the current CAS version.
+                  const lockedReplay = await this.replay(tx, persistentKey, requestFingerprint);
+                  if (lockedReplay) return lockedReplay;
+                  const shipment = await this.findShipment(tx, shipmentId);
+                  if (!shipment) throw scopedNotFound();
+          
+                  const artifacts = await work(tx, shipment, context);'''
+          if source.count(old) != 1:
+              raise SystemExit('executeMutation lock anchor not found exactly once')
+          source = source.replace(old, new, 1)
+
+          old = '''function publicShipment(shipment: ShipmentAuthorityRecord): ShipmentRecord {
+            const { driverPinHash: _driverPinHash, ...publicRecord } = shipment;
+            return publicRecord;
+          }'''
+          new = '''function publicShipment(shipment: ShipmentAuthorityRecord): ShipmentRecord {
+            const {
+              driverPinHash: _driverPinHash,
+              version,
+              ...publicRecord
+            } = shipment;
+            return { ...publicRecord, version: version.toString() };
+          }'''
+          if source.count(old) != 1:
+              raise SystemExit('publicShipment anchor not found exactly once')
+          repository.write_text(source.replace(old, new, 1))
+
+          test = Path('apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts')
+          source = test.read_text()
+          old = '''    const publicShipment = await repository.getById(SHIPMENT_ID, driver);
+              expect(publicShipment).not.toHaveProperty('driverPinHash');'''
+          new = '''    const publicShipment = await repository.getById(SHIPMENT_ID, driver);
+              expect(publicShipment).not.toHaveProperty('driverPinHash');
+              expect(typeof publicShipment.version).toBe('string');
+              expect(() => JSON.stringify(publicShipment)).not.toThrow();'''
+          if source.count(old) != 1:
+              raise SystemExit('public shipment JSON test anchor not found exactly once')
+          source = source.replace(old, new, 1)
+
+          old = '''    const pin = await repository.verifyPin(SHIPMENT_ID, pinCommand, driver);
+              expect(pin).toMatchObject({ duplicate: false, valid: true, shipment: { pinVerified: true } });
+              await expect(repository.verifyPin(SHIPMENT_ID, pinCommand, driver)).resolves.toMatchObject({
+                duplicate: true,
+                valid: true,
+              });'''
+          new = '''    const pinResults = await Promise.all([
+                repository.verifyPin(SHIPMENT_ID, pinCommand, driver),
+                repository.verifyPin(SHIPMENT_ID, pinCommand, driver),
+              ]);
+              expect(pinResults.filter((item) => item.duplicate)).toHaveLength(1);
+              expect(pinResults.filter((item) => !item.duplicate)).toHaveLength(1);
+              expect(pinResults).toEqual(expect.arrayContaining([
+                expect.objectContaining({ duplicate: false, valid: true, shipment: { pinVerified: true } }),
+                expect.objectContaining({ duplicate: true, valid: true, shipment: { pinVerified: true } }),
+              ]));'''
+          if source.count(old) != 1:
+              raise SystemExit('PIN replay test anchor not found exactly once')
+          source = source.replace(old, new, 1)
+
+          old = '''    await expect(rls.withTrustedContext(logistician, (tx) => tx.shipment.update({
+                where: { id: SHIPMENT_ID },
+                data: { vehicleNumber: 'vehicle-forged-reassignment' },
+              }))).rejects.toThrow(/immutable/i);'''
+          new = '''    await expect(rls.withTrustedContext(logistician, (tx) => tx.shipment.update({
+                where: { id: SHIPMENT_ID },
+                data: { vehicleNumber: 'vehicle-forged-reassignment' },
+              }))).rejects.toThrow(/immutable/i);
+              await expect(rls.withTrustedContext(logistician, (tx) => tx.shipment.update({
+                where: { id: SHIPMENT_ID },
+                data: { driverPinHash: 'forged-driver-pin-authority' },
+              }))).rejects.toThrow(/immutable/i);'''
+          if source.count(old) != 1:
+              raise SystemExit('assignment immutability test anchor not found exactly once')
+          test.write_text(source.replace(old, new, 1))
+
+          migration = Path('apps/api/prisma/migrations/20260713105000_logistics_postgresql_authority/migration.sql')
+          if migration.exists():
+              raise SystemExit('1050 migration already exists')
+          migration.parent.mkdir(parents=True, exist_ok=True)
+          migration.write_text('''-- IR-10.2: the PIN hash copied from normalized admission is assignment authority.
+          -- Operational PIN verification may update verification state and counters, but
+          -- no application path may replace the authoritative secret after assignment.
+          
+          CREATE OR REPLACE FUNCTION public.app_logistics_pin_hash_immutable()
+          RETURNS trigger
+          LANGUAGE plpgsql
+          SECURITY INVOKER
+          SET search_path = pg_catalog, public
+          AS $function$
+          BEGIN
+            IF NEW."driverPinHash" IS DISTINCT FROM OLD."driverPinHash" THEN
+              RAISE EXCEPTION 'shipment driver PIN authority is immutable'
+                USING ERRCODE = '23514';
+            END IF;
+            RETURN NEW;
+          END
+          $function$;
+          
+          DROP TRIGGER IF EXISTS shipments_pin_hash_immutable ON public."shipments";
+          CREATE TRIGGER shipments_pin_hash_immutable
+          BEFORE UPDATE OF "driverPinHash" ON public."shipments"
+          FOR EACH ROW EXECUTE FUNCTION public.app_logistics_pin_hash_immutable();
+          
+          REVOKE ALL ON FUNCTION public.app_logistics_pin_hash_immutable() FROM PUBLIC;
+          COMMENT ON FUNCTION public.app_logistics_pin_hash_immutable() IS
+            'Prevents replacement of the driver PIN hash copied from the consumed normalized logistics admission.';
+          ''')
+          PY
+          rm -f .github/workflows/tmp-harden-ir-10-2-public-contract.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(logistics): harden public version, replay and PIN authority [ir-10-2-public-contract-hardened]"
+          git push origin HEAD:agent/ir-10-2-logistics-postgresql-authority
