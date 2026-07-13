@@ -5,10 +5,10 @@
   "lastCompletedStep": "#2412 Logistics PostgreSQL Authority",
   "openPr": "#2428",
   "blockedBy": [
-    "IR-10.3 implementation is active; exact-head compilation, migrations, RLS and canonical finalize_lab evidence are being closed."
+    "IR-10.3 canonical finalize_lab, normalized custody and exact-head PostgreSQL evidence are being verified."
   ],
   "nextStep": "IR-10.3 Labs PostgreSQL Authority",
-  "updatedAt": "2026-07-13T07:41:00.000Z",
+  "updatedAt": "2026-07-13T07:46:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
