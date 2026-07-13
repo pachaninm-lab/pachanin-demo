@@ -75,10 +75,12 @@ function prioritizeDeals(deals: AccessibleDealRef[]): AccessibleDealRef[] {
 
 function actionCountLabel(count: number): string {
   if (count === 0) return 'Новых действий нет';
+
   const mod10 = count % 10;
   const mod100 = count % 100;
-  const noun = mod10 === 1 && mod100 !== 11 ? 'сделка требует' : 'сделок требуют';
-  return `${count} ${noun} действия`;
+  if (mod10 === 1 && mod100 !== 11) return `${count} сделка требует действия`;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `${count} сделки требуют действия`;
+  return `${count} сделок требуют действия`;
 }
 
 function dealTitle(deal: AccessibleDealRef): string {
@@ -194,14 +196,14 @@ export function RoleIntentDashboard({ role }: { role: PlatformRole }) {
         </div>
         <div className={styles.todayFacts} aria-label='Сводка задач на сегодня'>
           <strong>{actionCountLabel(actionableCount)}</strong>
-          <span>Активных сделок: {state.deals.length}</span>
+          <span>Показано активных сделок: {state.deals.length}</span>
         </div>
       </section>
 
       {otherDeals.length > 0 ? (
         <details className={styles.otherDeals}>
-          <summary>Другие активные сделки: {otherDeals.length}</summary>
-          <nav className={styles.dealLinks} aria-label='Другие активные сделки'>
+          <summary>Другие показанные сделки: {otherDeals.length}</summary>
+          <nav className={styles.dealLinks} aria-label='Другие показанные сделки'>
             {otherDeals.map((deal) => (
               <Link className={styles.dealLink} key={deal.id} href={`/platform-v7/deals/${encodeURIComponent(deal.id)}/execution`}>
                 <span className={styles.dealCopy}>
