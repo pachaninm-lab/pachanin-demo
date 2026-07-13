@@ -30,7 +30,7 @@ The following are controlled by v8:
 - the active `AppShellV4` TSX and CSS Module;
 - the shared `RoleIntentDashboard` TSX and CSS Module used by all twelve business-role roots;
 - the canonical deals registry page, list component and their CSS Modules;
-- the document readiness, dispute queue, money hub, bank payout-readiness and canonical auction routes;
+- the document readiness, dispute queue, money hub, bank payout-readiness, canonical auction and physical execution routes;
 - every file registered in `migratedFiles` inside `design-governance-v8.json`.
 
 A migrated product file must consume `@pc/design-system-v8` or the governed `transaction-ux` boundary. New local copies of a migrated pattern are not allowed.
@@ -202,9 +202,23 @@ The canonical flow consists of `/platform-v7/auction`, `/auction/import`, `/auct
 - supports RU, EN and ZH for route copy, statuses, rules, checks and guard labels;
 - explicitly states that the displayed source snapshot does not prove live FGIS connectivity and that the UI cannot release money.
 
+### Physical Deal execution chain
+
+The governed physical chain consists of `/platform-v7/deal-logistics`, `/platform-v7/deal-acceptance` and `/platform-v7/deal-documents-basis`. It:
+
+- keeps Deal, trip, lot, certificate, carrier, vehicle, driver, elevator, weight, quality and evidence visibly linked;
+- blocks driver and acceptance transitions until carrier admission is complete;
+- blocks the document basis until acceptance is signed and all quality and evidence checks are complete;
+- blocks bank payout-readiness until every mandatory document item is confirmed;
+- removes route-local inline styles and uses one responsive execution cockpit for mobile and desktop;
+- supports RU, EN and ZH for stages, statuses, facts, blockers and authority boundaries;
+- cannot sign documents, confirm an external registry fact, create a bank status or move money.
+
+The data engines currently used by these three routes are local execution projections. Their governed UX and fail-closed transitions do not prove PostgreSQL-authoritative logistics, acceptance or document persistence, live external integrations or confirmed production operation.
+
 ## Remaining boundary
 
-Detailed settlement operations, server-authoritative auction persistence, historical auction routes outside the canonical flow and other non-critical pages are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
+Detailed settlement operations, server-authoritative auction persistence, server-authoritative logistics/acceptance/document persistence, historical auction routes outside the canonical flow and other non-critical pages are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
 
 ## Decision authority
 

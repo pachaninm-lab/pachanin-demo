@@ -1,5 +1,5 @@
 {
-  "version": 11,
+  "version": 12,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -38,7 +38,10 @@
     "apps/web/app/platform-v7/auction/import/page.tsx",
     "apps/web/app/platform-v7/auction/admission/page.tsx",
     "apps/web/app/platform-v7/auction/bids/page.tsx",
-    "apps/web/app/platform-v7/auction/deal-basis/page.tsx"
+    "apps/web/app/platform-v7/auction/deal-basis/page.tsx",
+    "apps/web/app/platform-v7/deal-logistics/page.tsx",
+    "apps/web/app/platform-v7/deal-acceptance/page.tsx",
+    "apps/web/app/platform-v7/deal-documents-basis/page.tsx"
   ],
   "allowedGlobalStyleEntrypoints": [
     "packages/design-tokens/tokens.css"
