@@ -156,6 +156,15 @@ apps/web/tests/unit/platformV7ControlledTestOrganization*.test.ts
 apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts
 scripts/p7-autopilot-guard.sh'
 
+DEAL_REGISTRY_READ_MODEL_SCOPE='apps/api/prisma/migrations/20260713130000_deal_registry_postgresql_read_model/**
+apps/api/src/modules/deals/deal-registry-query.service.ts
+apps/api/src/modules/deals/deal-registry-query.service.spec.ts
+apps/api/src/modules/deals/deals.controller.ts
+apps/api/src/modules/deals/deals.module.ts
+apps/api/src/modules/deals/dto/deal-registry-query.dto.ts
+apps/api/test/industrial/deal-registry-postgresql.e2e-spec.ts
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -190,6 +199,13 @@ fi
 # language choices and must not be restored from stale browser persistence.
 if [ "${GITHUB_HEAD_REF:-}" = "fix/platform-v7-russian-default-locale" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$RUSSIAN_DEFAULT_LOCALE_SCOPE")
+fi
+
+# The registry read model is an isolated read-only slice. It may change the
+# participant-scoped query endpoint, its PostgreSQL function/indexes and exact
+# tests, but never the IndustrialDealCommandGateway or command state machine.
+if [ "${GITHUB_HEAD_REF:-}" = "agent/deal-registry-postgresql-read-model" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$DEAL_REGISTRY_READ_MODEL_SCOPE")
 fi
 
 # Pull-request workflows can check out refs/pull/<n>/merge and expose an empty or
