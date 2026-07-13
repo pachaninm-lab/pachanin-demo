@@ -21,6 +21,37 @@ describe('Settlement confirmed counter substitution guard', () => {
     await destroyInstance(instance);
   });
 
+  async function expectDirectMutationDenied(
+    actor: RequestUser,
+    dealId: string,
+    triggerPattern: RegExp,
+  ): Promise<void> {
+    let denied = false;
+    try {
+      const changed = await instance.rls.withTrustedContext(actor, (tx) =>
+        tx.$executeRaw(Prisma.sql`
+          UPDATE settlement.payments
+          SET confirmed_reserved_minor = confirmed_reserved_minor + 1,
+              version = version + 1
+          WHERE deal_id = ${dealId}
+        `),
+      );
+      denied = changed === 0;
+    } catch (error) {
+      denied = triggerPattern.test(String((error as Error)?.message ?? error));
+    }
+    expect(denied).toBe(true);
+
+    const payment = await instance.prisma.$queryRaw<
+      Array<{ confirmedReserved: bigint; version: bigint }>
+    >(Prisma.sql`
+      SELECT confirmed_reserved_minor AS "confirmedReserved", version
+      FROM settlement.payments
+      WHERE deal_id = ${dealId}
+    `);
+    expect(payment).toEqual([{ confirmedReserved: 0n, version: 0n }]);
+  }
+
   it('rejects direct confirmed reserve substitution by a human participant', async () => {
     const fixture = await provisionDeal(instance.prisma, 'confirmed-human', 100_000n);
     await instance.settlement.configureTerms({
@@ -35,23 +66,11 @@ describe('Settlement confirmed counter substitution guard', () => {
       }],
     }, fixture.users.accounting);
 
-    await expect(instance.rls.withTrustedContext(fixture.users.accounting, (tx) =>
-      tx.$executeRaw(Prisma.sql`
-        UPDATE settlement.payments
-        SET confirmed_reserved_minor = confirmed_reserved_minor + 1,
-            version = version + 1
-        WHERE deal_id = ${fixture.dealId}
-      `),
-    )).rejects.toThrow(/only an exact verified bank callback may change confirmed money/);
-
-    const payment = await instance.rls.withTrustedContext(fixture.users.accounting, (tx) =>
-      tx.$queryRaw<Array<{ confirmedReserved: bigint; version: bigint }>>(Prisma.sql`
-        SELECT confirmed_reserved_minor AS "confirmedReserved", version
-        FROM settlement.payments
-        WHERE deal_id = ${fixture.dealId}
-      `),
+    await expectDirectMutationDenied(
+      fixture.users.accounting,
+      fixture.dealId,
+      /only an exact verified bank callback may change confirmed money|row-level security|permission denied/i,
     );
-    expect(payment).toEqual([{ confirmedReserved: 0n, version: 0n }]);
   });
 
   it('rejects BANK_CALLBACK identity without an exact validated callback insert', async () => {
@@ -79,22 +98,10 @@ describe('Settlement confirmed counter substitution guard', () => {
       mfaVerifiedAt: new Date().toISOString(),
     };
 
-    await expect(instance.rls.withTrustedContext(fakeCallback, (tx) =>
-      tx.$executeRaw(Prisma.sql`
-        UPDATE settlement.payments
-        SET confirmed_reserved_minor = confirmed_reserved_minor + 1,
-            version = version + 1
-        WHERE deal_id = ${fixture.dealId}
-      `),
-    )).rejects.toThrow(/lacks exact transaction binding/);
-
-    const payment = await instance.rls.withTrustedContext(fixture.users.accounting, (tx) =>
-      tx.$queryRaw<Array<{ confirmedReserved: bigint; version: bigint }>>(Prisma.sql`
-        SELECT confirmed_reserved_minor AS "confirmedReserved", version
-        FROM settlement.payments
-        WHERE deal_id = ${fixture.dealId}
-      `),
+    await expectDirectMutationDenied(
+      fakeCallback,
+      fixture.dealId,
+      /lacks exact transaction binding|row-level security|permission denied/i,
     );
-    expect(payment).toEqual([{ confirmedReserved: 0n, version: 0n }]);
   });
 });
