@@ -7,6 +7,7 @@ import { Role } from '../types/request-user';
 import { PrismaService } from './prisma.service';
 import {
   deriveTrustedRlsContext,
+  isRetryableTransactionConflict,
   RlsContextError,
   RlsTransactionService,
   type TrustedRlsContext,
@@ -139,6 +140,62 @@ describe('RlsTransactionService', () => {
       timeout: 2_000,
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
+  });
+
+  it('retries a serializable callback after bounded PostgreSQL P2034 conflicts', async () => {
+    const test = fixture();
+    let attempt = 0;
+    test.transaction.mockImplementation(async (callback) => {
+      const result = await callback(test.tx);
+      attempt += 1;
+      if (attempt < 3) throw Object.assign(new Error('write conflict'), { code: 'P2034' });
+      return result;
+    });
+    const work = jest.fn(async () => 'persisted');
+
+    await expect(test.service.withTrustedContext(
+      TRUSTED_USER,
+      work,
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        retryDelayMs: 0,
+      },
+    )).resolves.toBe('persisted');
+
+    expect(test.transaction).toHaveBeenCalledTimes(3);
+    expect(test.queryRaw).toHaveBeenCalledTimes(3);
+    expect(work).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not retry ReadCommitted work unless retries are explicitly enabled', async () => {
+    const test = fixture();
+    const conflict = Object.assign(new Error('write conflict'), { code: 'P2034' });
+    test.transaction.mockRejectedValue(conflict);
+
+    await expect(test.service.withTrustedContext(
+      TRUSTED_USER,
+      async () => 'unreachable',
+      { retryDelayMs: 0 },
+    )).rejects.toBe(conflict);
+    expect(test.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('recognizes Prisma and PostgreSQL serialization/deadlock codes only', () => {
+    expect(isRetryableTransactionConflict({ code: 'P2034' })).toBe(true);
+    expect(isRetryableTransactionConflict({ code: 'P2010', meta: { sqlState: '40001' } })).toBe(true);
+    expect(isRetryableTransactionConflict({ meta: { database_error_code: '40P01' } })).toBe(true);
+    expect(isRetryableTransactionConflict({ code: 'P2002' })).toBe(false);
+    expect(isRetryableTransactionConflict(new Error('ordinary failure'))).toBe(false);
+  });
+
+  it('rejects unsafe retry settings before opening a transaction', async () => {
+    const test = fixture();
+    await expect(test.service.withTrustedContext(
+      TRUSTED_USER,
+      async () => 'unreachable',
+      { maxConflictRetries: 6 },
+    )).rejects.toBeInstanceOf(RangeError);
+    expect(test.transaction).not.toHaveBeenCalled();
   });
 
   it('does not execute business work when RLS context initialization fails', async () => {
