@@ -24,6 +24,7 @@ const routeSources = routes.map(read);
 const workspace = read('apps/web/components/transaction-ux/AuctionPostgresAuthorityWorkspace.tsx');
 const serverBoundary = read('apps/web/lib/auction-server.ts');
 const engine = read('apps/web/lib/platform-v7/fgisAuctionEngine.ts');
+const adapter = read('apps/web/lib/platform-v7/fgisAuctionAdapter.ts');
 const bridge = read('apps/web/lib/platform-v7/auctionDealBridge.ts');
 const governance = JSON.parse(read('design-governance-v8.json')) as { migratedFiles: string[] };
 const workflow = read('.github/workflows/design-system-v8.yml');
@@ -82,15 +83,20 @@ describe('Design System v8 canonical auction PostgreSQL read authority', () => {
     expect(workspace).not.toContain('SDIZ-2607-5512');
   });
 
-  it('removes runtime fixture authority and the obsolete local auction cockpit', () => {
-    expect(engine).not.toContain('FGIS_AUCTION_STATE');
-    expect(engine).not.toContain('FGIS-LOT-2607-014');
-    expect(engine).toContain('export type FgisAuctionState');
-    expect(engine).toContain('export function canOpenAuction');
-    expect(bridge).toContain('Type-only compatibility contract');
-    expect(bridge).not.toContain('AUCTION_DEAL_BRIDGE');
-    expect(bridge).not.toContain('AUCTION_DEAL_BASIS');
-    expect(bridge).not.toMatch(/export\s+(?:const|function|class)\s+/);
+  it('keeps every historical auction helper as a type-only compatibility contract', () => {
+    for (const contract of [engine, adapter, bridge]) {
+      expect(contract).toContain('Type-only compatibility contract');
+      expect(contract).not.toMatch(/export\s+(?:const|let|var|function|class)\b/);
+      expect(contract).not.toContain('FGIS_AUCTION_STATE');
+      expect(contract).not.toContain('AUCTION_DEAL_BRIDGE');
+      expect(contract).not.toContain('AUCTION_DEAL_BASIS');
+      expect(contract).not.toContain('FGIS-LOT-2607-014');
+      expect(contract).not.toContain('SDIZ-2607-5512');
+    }
+    expect(engine).not.toContain('canOpenAuction');
+    expect(engine).not.toContain('kgToTons');
+    expect(adapter).not.toContain('buildFgisAuctionImportChecks');
+    expect(adapter).not.toContain('explainFgisAuctionImport');
     expect(exists('apps/web/components/transaction-ux/AuctionExecutionCockpit.tsx')).toBe(false);
     expect(exists('apps/web/components/transaction-ux/AuctionExecutionCockpit.module.css')).toBe(false);
     expect(exists('apps/web/components/transaction-ux/auctionExecutionCopy.ts')).toBe(false);
