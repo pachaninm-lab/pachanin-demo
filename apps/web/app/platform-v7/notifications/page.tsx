@@ -64,9 +64,11 @@ export default function NotificationsPage() {
   const [state, setState] = React.useState<LoadState>({ kind: 'loading' });
   const [unreadOnly, setUnreadOnly] = React.useState(false);
   const [busyIds, setBusyIds] = React.useState<Set<string>>(new Set());
+  const [actionError, setActionError] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     setState({ kind: 'loading' });
+    setActionError(null);
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 12_000);
 
@@ -105,6 +107,7 @@ export default function NotificationsPage() {
   }, [load]);
 
   const markRead = React.useCallback(async (id: string) => {
+    setActionError(null);
     setBusyIds((current) => new Set(current).add(id));
     try {
       const response = await fetch(`/api/proxy/notifications/${encodeURIComponent(id)}/read`, {
@@ -117,7 +120,7 @@ export default function NotificationsPage() {
         ? { kind: 'ready', items: current.items.map((item) => item.id === id ? { ...item, read: true, readAt: new Date().toISOString() } : item) }
         : current);
     } catch {
-      setState((current) => current.kind === 'ready' ? current : { kind: 'error', message: 'Не удалось обновить уведомление.' });
+      setActionError('Не удалось сохранить отметку. Уведомление осталось непрочитанным.');
     } finally {
       setBusyIds((current) => {
         const next = new Set(current);
@@ -130,6 +133,7 @@ export default function NotificationsPage() {
   const markAllRead = React.useCallback(async () => {
     const unreadIds = state.kind === 'ready' ? state.items.filter((item) => !item.read).map((item) => item.id) : [];
     if (!unreadIds.length) return;
+    setActionError(null);
     setBusyIds(new Set(unreadIds));
     try {
       const response = await fetch('/api/proxy/notifications/read-all', {
@@ -141,6 +145,8 @@ export default function NotificationsPage() {
       setState((current) => current.kind === 'ready'
         ? { kind: 'ready', items: current.items.map((item) => ({ ...item, read: true, readAt: item.readAt ?? new Date().toISOString() })) }
         : current);
+    } catch {
+      setActionError('Не удалось отметить все уведомления. Попробуй ещё раз.');
     } finally {
       setBusyIds(new Set());
     }
@@ -195,6 +201,13 @@ export default function NotificationsPage() {
           <CheckCheck aria-hidden='true' />Прочитать все
         </button>
       </section>
+
+      {actionError ? (
+        <div className={styles.actionError} role='alert'>
+          <AlertTriangle aria-hidden='true' />
+          <span>{actionError}</span>
+        </div>
+      ) : null}
 
       {visibleItems.length === 0 ? (
         <section className={styles.emptyCard}>
