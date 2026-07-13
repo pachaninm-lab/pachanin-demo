@@ -1,0 +1,50 @@
+name: Design System v8
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: design-system-v8-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  architecture-and-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Enforce Design System v8 architecture
+        run: pnpm design:v8:check
+
+      - name: Typecheck design tokens
+        run: pnpm --filter @pc/design-tokens typecheck
+
+      - name: Typecheck Design System v8
+        run: pnpm --filter @pc/design-system-v8 typecheck
+
+      - name: Typecheck web integration
+        run: pnpm --filter @pc/web typecheck
