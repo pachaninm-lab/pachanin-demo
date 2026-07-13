@@ -1,0 +1,349 @@
+.widget {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.trigger {
+  width: var(--ds-control-height);
+  min-width: var(--ds-control-height);
+  height: var(--ds-control-height);
+  min-height: var(--ds-control-height);
+  padding: 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text-secondary);
+  box-shadow: var(--ds-shadow-surface);
+  cursor: pointer;
+}
+
+.trigger:hover,
+.trigger[data-open='true'] {
+  border-color: var(--ds-color-action-primary);
+  color: var(--ds-color-action-primary);
+}
+
+.trigger:focus-visible,
+.closeButton:focus-visible,
+.key:focus-visible,
+.resetButton:focus-visible,
+.fieldInput:focus-visible {
+  outline: 3px solid var(--ds-color-focus);
+  outline-offset: 2px;
+}
+
+.panel {
+  position: absolute;
+  top: calc(var(--ds-control-height) + var(--ds-space-2));
+  right: 0;
+  z-index: 520;
+  display: grid;
+  width: min(440px, calc(100vw - var(--ds-space-5)));
+  max-height: min(720px, calc(100dvh - 84px));
+  gap: var(--ds-space-2);
+  overflow: auto;
+  padding: var(--ds-space-3);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text-primary);
+  box-shadow: var(--ds-shadow-overlay);
+}
+
+.head,
+.roleTitle {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+}
+
+.headCopy,
+.roleTitleCopy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.headTitle {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.headSubtitle,
+.roleSubtitle {
+  color: var(--ds-color-text-muted);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.closeButton,
+.resetButton {
+  flex: 0 0 auto;
+  border: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text-secondary);
+  cursor: pointer;
+}
+
+.closeButton {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--ds-radius-md);
+}
+
+.resetButton {
+  min-height: 36px;
+  padding: 0 var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.display {
+  display: grid;
+  min-height: 76px;
+  align-content: center;
+  justify-items: end;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface-subtle);
+}
+
+.displayMeta {
+  color: var(--ds-color-text-muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.displayValue {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-overflow: ellipsis;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.key {
+  display: inline-flex;
+  min-width: 0;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.key:hover {
+  border-color: var(--ds-color-text-muted);
+}
+
+.softKey {
+  color: var(--ds-color-text-secondary);
+}
+
+.operatorKey {
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 30%, var(--ds-color-border));
+  background: var(--ds-color-action-primary-subtle);
+  color: var(--ds-color-action-primary);
+}
+
+.equalsKey {
+  border-color: var(--ds-color-action-primary);
+  background: var(--ds-color-action-primary);
+  color: var(--ds-color-on-action);
+}
+
+.roleCalculator {
+  display: grid;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface-subtle);
+}
+
+.roleTitleCopy strong {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ds-space-2);
+}
+
+.field {
+  display: grid;
+  min-width: 0;
+  gap: var(--ds-space-1);
+}
+
+.fieldLabel {
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.fieldControl {
+  display: flex;
+  min-width: 0;
+  height: 38px;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+}
+
+.fieldControl:focus-within {
+  border-color: var(--ds-color-focus);
+}
+
+.fieldInput {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--ds-space-2);
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ds-color-text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.fieldSuffix {
+  padding-right: var(--ds-space-2);
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.result {
+  display: grid;
+  min-width: 0;
+  min-height: 68px;
+  align-content: center;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-2);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+}
+
+.result span,
+.result small {
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.result strong {
+  overflow-wrap: anywhere;
+  color: var(--ds-color-text-primary);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.strongResult {
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 32%, var(--ds-color-border));
+  background: var(--ds-color-action-primary-subtle);
+}
+
+.strongResult strong {
+  color: var(--ds-color-action-primary);
+}
+
+.formula {
+  margin: 0;
+  color: var(--ds-color-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+@media (max-width: 767px) {
+  .trigger {
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    min-height: 42px;
+    border-radius: var(--ds-radius-lg);
+  }
+
+  .panel {
+    position: fixed;
+    inset: calc(env(safe-area-inset-top) + 58px) var(--ds-space-2) auto;
+    width: auto;
+    max-height: calc(100dvh - env(safe-area-inset-top) - 74px);
+  }
+
+  .fields,
+  .results {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .trigger,
+  .key,
+  .closeButton,
+  .resetButton {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .trigger,
+  .panel,
+  .closeButton,
+  .resetButton,
+  .display,
+  .key,
+  .roleCalculator,
+  .fieldControl,
+  .result {
+    border-color: CanvasText;
+  }
+
+  .equalsKey {
+    background: ButtonFace;
+    color: ButtonText;
+  }
+}
