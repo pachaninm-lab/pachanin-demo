@@ -42,6 +42,26 @@ export class LabsController {
     return this.labs.collect(id, dto, user);
   }
 
+  @Patch('samples/:id/handoff')
+  @Roles('ELEVATOR', 'SURVEYOR', 'SUPPORT_MANAGER', 'ADMIN')
+  handoff(
+    @Param('id') id: string,
+    @Body() dto: CollectSampleDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.labs.handoff(id, dto, user);
+  }
+
+  @Patch('samples/:id/receive')
+  @Roles('LAB')
+  receive(
+    @Param('id') id: string,
+    @Body() dto: CollectSampleDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.labs.receive(id, dto, user);
+  }
+
   @Post('samples/:id/tests')
   @Roles('LAB')
   recordTest(
