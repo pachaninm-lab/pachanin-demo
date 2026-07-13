@@ -77,6 +77,21 @@ function requiredString(payload: JsonRecord, field: string): string {
   return value;
 }
 
+function clientIdempotencyKey(payload: JsonRecord, fallback: string): string {
+  const candidate = typeof payload.clientIdempotencyKey === 'string'
+    ? payload.clientIdempotencyKey.trim()
+    : '';
+  if (!candidate) return fallback;
+  if (candidate.length > 240 || !/^[A-Za-z0-9:_.-]+$/.test(candidate)) {
+    throw new UnprocessableEntityException({
+      code: 'UNPROCESSABLE_ENTITY',
+      field: 'clientIdempotencyKey',
+      message: 'Ключ идемпотентности должен содержать безопасный идентификатор.',
+    });
+  }
+  return candidate;
+}
+
 /**
  * PostgreSQL-authoritative specialization for the canonical laboratory
  * finalization transition. The client identifies only the sample and verified
@@ -125,7 +140,8 @@ export class PostgresqlDealCommandService extends DealCommandService {
       sampleId,
       signedEvidenceRef,
     });
-    const receiptKey = `deal-command:${dealId}:${dto.idempotencyKey}`;
+    const logicalIdempotencyKey = clientIdempotencyKey(clientPayload, dto.idempotencyKey);
+    const receiptKey = `deal-command:${dealId}:${logicalIdempotencyKey}`;
 
     try {
       return await this.postgresRls.withTrustedContext(
@@ -320,7 +336,7 @@ export class PostgresqlDealCommandService extends DealCommandService {
           const eventId = `event-${randomUUID()}`;
           const eventPayload = {
             commandId: dto.commandId,
-            idempotencyKey: dto.idempotencyKey,
+            idempotencyKey: logicalIdempotencyKey,
             actionId: 'finalize_lab',
             from: definition.from,
             to: definition.to,
@@ -393,7 +409,7 @@ export class PostgresqlDealCommandService extends DealCommandService {
             correlationId: dto.commandId,
             metadata: {
               commandId: dto.commandId,
-              idempotencyKey: dto.idempotencyKey,
+              idempotencyKey: logicalIdempotencyKey,
               eventId,
               sessionId: user.sessionId,
               protocolId: protocol.id,
@@ -437,7 +453,7 @@ export class PostgresqlDealCommandService extends DealCommandService {
             ok: true,
             duplicate: false,
             commandId: dto.commandId,
-            idempotencyKey: dto.idempotencyKey,
+            idempotencyKey: logicalIdempotencyKey,
             dealId: deal.id,
             actionId: 'finalize_lab',
             previousStatus: definition.from,
