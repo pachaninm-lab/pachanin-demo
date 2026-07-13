@@ -451,6 +451,8 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     const repository = new PrismaShipmentRepository(rls);
     const publicShipment = await repository.getById(SHIPMENT_ID, driver);
     expect(publicShipment).not.toHaveProperty('driverPinHash');
+    expect(typeof publicShipment.version).toBe('string');
+    expect(() => JSON.stringify(publicShipment)).not.toThrow();
 
     const authority = await rls.withTrustedContext(logistician, async (tx) => {
       const admissions = await tx.$queryRaw<Array<{ status: string; consumed_by_command_id: string }>>(Prisma.sql`
@@ -521,12 +523,16 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
       expectedVersion: afterCheckpoint.version.toString(),
       pin: '246810',
     };
-    const pin = await repository.verifyPin(SHIPMENT_ID, pinCommand, driver);
-    expect(pin).toMatchObject({ duplicate: false, valid: true, shipment: { pinVerified: true } });
-    await expect(repository.verifyPin(SHIPMENT_ID, pinCommand, driver)).resolves.toMatchObject({
-      duplicate: true,
-      valid: true,
-    });
+    const pinResults = await Promise.all([
+      repository.verifyPin(SHIPMENT_ID, pinCommand, driver),
+      repository.verifyPin(SHIPMENT_ID, pinCommand, driver),
+    ]);
+    expect(pinResults.filter((item) => item.duplicate)).toHaveLength(1);
+    expect(pinResults.filter((item) => !item.duplicate)).toHaveLength(1);
+    expect(pinResults).toEqual(expect.arrayContaining([
+      expect.objectContaining({ duplicate: false, valid: true, shipment: expect.objectContaining({ pinVerified: true }) }),
+      expect.objectContaining({ duplicate: true, valid: true, shipment: expect.objectContaining({ pinVerified: true }) }),
+    ]));
 
     const sameTenantOutsider: RequestUser = {
       ...logistician,
@@ -539,6 +545,10 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     await expect(rls.withTrustedContext(logistician, (tx) => tx.shipment.update({
       where: { id: SHIPMENT_ID },
       data: { vehicleNumber: 'vehicle-forged-reassignment' },
+    }))).rejects.toThrow(/immutable/i);
+    await expect(rls.withTrustedContext(logistician, (tx) => tx.shipment.update({
+      where: { id: SHIPMENT_ID },
+      data: { driverPinHash: 'forged-driver-pin-authority' },
     }))).rejects.toThrow(/immutable/i);
 
     await withFreshRuntime(async (fresh) => {
