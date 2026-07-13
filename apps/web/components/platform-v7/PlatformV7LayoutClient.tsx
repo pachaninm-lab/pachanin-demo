@@ -48,7 +48,7 @@ export function PlatformV7LayoutClient({ children, initialRole }: { children: Re
         <>
           <ScopedShellGuard />
           <PlatformV7SingleEntryGuard />
-          <PlatformV7ShellUxController />
+          <PlatformV7ShellUxController role={initialRole} />
           <RbacCabinetGuard />
           <ShellCopyNormalizer />
           <CalculatorHeaderWidget />
