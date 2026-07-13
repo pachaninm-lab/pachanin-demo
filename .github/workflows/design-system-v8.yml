@@ -15,6 +15,8 @@ on:
       - 'apps/web/components/v7r/AppShellV4.module.css'
       - 'apps/web/app/platform-v7/deals/**'
       - 'apps/web/app/platform-v7/documents/page.tsx'
+      - 'apps/web/app/platform-v7/disputes/page.tsx'
+      - 'apps/web/app/platform-v7/bank/release-safety/page.tsx'
       - 'apps/web/app/platform-v7/driver/field/page.tsx'
       - 'apps/web/app/platform-v7/elevator/page.tsx'
       - 'apps/web/app/platform-v7/lab/page.tsx'
@@ -28,6 +30,7 @@ on:
       - 'apps/web/app/platform-v7/arbitrator/page.tsx'
       - 'apps/web/app/platform-v7/executive/page.tsx'
       - 'apps/web/tests/unit/designSystemV8DocumentsRoute.test.ts'
+      - 'apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8OperationalRoles.test.ts'
@@ -55,6 +58,8 @@ on:
       - 'apps/web/components/v7r/AppShellV4.module.css'
       - 'apps/web/app/platform-v7/deals/**'
       - 'apps/web/app/platform-v7/documents/page.tsx'
+      - 'apps/web/app/platform-v7/disputes/page.tsx'
+      - 'apps/web/app/platform-v7/bank/release-safety/page.tsx'
       - 'apps/web/app/platform-v7/driver/field/page.tsx'
       - 'apps/web/app/platform-v7/elevator/page.tsx'
       - 'apps/web/app/platform-v7/lab/page.tsx'
@@ -68,6 +73,7 @@ on:
       - 'apps/web/app/platform-v7/arbitrator/page.tsx'
       - 'apps/web/app/platform-v7/executive/page.tsx'
       - 'apps/web/tests/unit/designSystemV8DocumentsRoute.test.ts'
+      - 'apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8OperationalRoles.test.ts'
@@ -102,11 +108,12 @@ jobs:
         run: node ./scripts/check-design-system-v8.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
-      - name: Run v8 role, registry and document regressions
+      - name: Run v8 role, registry and critical-route regressions
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
             tests/unit/designSystemV8DocumentsRoute.test.ts \
+            tests/unit/designSystemV8CriticalRoutes.test.ts \
             tests/unit/designSystemV8FieldRoles.test.ts \
             tests/unit/designSystemV8MoneyRoles.test.ts \
             tests/unit/designSystemV8OperationalRoles.test.ts \
