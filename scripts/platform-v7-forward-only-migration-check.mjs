@@ -28,7 +28,7 @@ function controlledUtcTimestampRewrite(migration, sql, target) {
 
 function findUnsafeTypeRewrites(migration, sql) {
   const unsafe = [];
-  const matcher = /\bALTER\s+COLUMN\s+"?[\w]+"?\s+TYPE\s+([A-Za-z]+(?:\s*\(\s*\d+\s*,\s*\d+\s*\))?)/gi;
+  const matcher = /\bALTER\s+COLUMN\s+"?[\w]+"?\s+TYPE\s+([A-Za-z]+(?:\s*\(\s*\d+(?:\s*,\s*\d+)?\s*\))?)/gi;
   for (const match of sql.matchAll(matcher)) {
     const target = match[1].trim();
     if (!LOSSLESS_WIDENING_TYPES.test(target)
