@@ -162,6 +162,12 @@
       "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
       "apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css",
       "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
+    ],
+    "agent/transaction-action-forms-cognitive-ux": [
+      "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+      "apps/web/components/platform-v7/DealCommandForm.tsx",
+      "apps/web/components/platform-v7/DealCommandForm.module.css",
+      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
     ]
   },
   "currentAcceptance": [
