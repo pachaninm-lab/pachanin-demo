@@ -1,46 +1,28 @@
 .todayWorkspace {
   display: grid;
-  gap: 14px;
+  gap: var(--ds-space-3);
 }
 
 .todayHeader {
-  border: 1px solid var(--pc-accent-border);
-  border-radius: 22px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--pc-accent-bg) 86%, var(--pc-bg-card)), var(--pc-bg-card));
-  padding: 18px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 18px;
-  box-shadow: var(--pc-shadow-sm);
+  gap: var(--ds-space-5);
+  padding: var(--ds-space-5);
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 34%, var(--ds-color-border));
+  background: linear-gradient(135deg, var(--ds-color-action-primary-subtle), var(--ds-color-surface));
 }
 
 .todayCopy {
   min-width: 0;
   display: grid;
-  gap: 6px;
-}
-
-.todayLabel {
-  width: fit-content;
-  min-height: 28px;
-  border: 1px solid var(--pc-accent-border);
-  border-radius: 999px;
-  background: var(--pc-bg-card);
-  color: var(--pc-accent-strong);
-  padding: 0 10px;
-  display: inline-flex;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 950;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  justify-items: start;
+  gap: var(--ds-space-2);
 }
 
 .todayCopy h1 {
   margin: 0;
-  color: var(--pc-text-primary);
+  color: var(--ds-color-text-primary);
   font-size: clamp(22px, 4vw, 30px);
   line-height: 1.12;
   letter-spacing: -0.025em;
@@ -49,43 +31,36 @@
 .todayCopy p {
   margin: 0;
   max-width: 62ch;
-  color: var(--pc-text-secondary);
-  font-size: 14px;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-body);
   line-height: 1.5;
 }
 
 .todayFacts {
   min-width: 190px;
-  border: 1px solid var(--pc-border);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--pc-bg-card) 94%, transparent);
-  padding: 13px 14px;
+  padding: var(--ds-space-3) var(--ds-space-4);
   display: grid;
-  gap: 5px;
+  gap: var(--ds-space-1);
 }
 
 .todayFacts strong {
-  color: var(--pc-text-primary);
+  color: var(--ds-color-text-primary);
   font-size: 14px;
   line-height: 1.25;
 }
 
 .todayFacts span {
-  color: var(--pc-text-muted);
-  font-size: 12px;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-caption);
   line-height: 1.35;
   font-weight: 750;
 }
 
 .stateCard {
   min-height: 220px;
-  border: 1px solid var(--pc-border);
-  border-radius: 22px;
-  background: var(--pc-shell-surface);
-  padding: 24px;
   display: grid;
   place-items: center;
-  color: var(--pc-text-secondary);
+  color: var(--ds-color-text-secondary);
   text-align: center;
 }
 
@@ -93,12 +68,12 @@
   width: min(100%, 480px);
   display: grid;
   justify-items: center;
-  gap: 10px;
+  gap: var(--ds-space-3);
 }
 
 .stateContent h1 {
   margin: 0;
-  color: var(--pc-text-primary);
+  color: var(--ds-color-text-primary);
   font-size: clamp(21px, 4vw, 28px);
   line-height: 1.2;
 }
@@ -106,72 +81,69 @@
 .stateContent p {
   margin: 0;
   max-width: 44ch;
-  font-size: 14px;
+  font-size: var(--ds-font-body);
   line-height: 1.55;
 }
 
 .errorIcon {
-  color: var(--pc-danger, #b42318);
+  color: var(--ds-color-critical);
 }
 
 .emptyIcon {
-  color: var(--pc-accent-strong);
-}
-
-.retryButton,
-.loadMoreButton {
-  min-height: 48px;
-  border: 1px solid var(--pc-accent);
-  border-radius: 14px;
-  background: var(--pc-accent);
-  color: var(--pc-on-accent, #fff);
-  padding: 0 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font: inherit;
-  font-weight: 850;
-  cursor: pointer;
-}
-
-.loadMoreButton {
-  width: 100%;
-}
-
-.retryButton:disabled,
-.loadMoreButton:disabled {
-  opacity: 0.62;
-  cursor: wait;
+  color: var(--ds-color-success);
 }
 
 .otherDeals {
-  border: 1px solid var(--pc-border);
-  border-radius: 18px;
-  background: var(--pc-shell-surface);
-  color: var(--pc-text-secondary);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text-secondary);
   overflow: clip;
 }
 
 .otherDeals summary {
   min-height: 52px;
-  padding: 0 16px;
+  padding: 0 var(--ds-space-4);
   display: flex;
   align-items: center;
+  gap: var(--ds-space-2);
   cursor: pointer;
   font-size: 14px;
   font-weight: 900;
 }
 
+.otherDeals summary::marker {
+  content: '';
+}
+
+.summaryShow,
+.summaryHide {
+  margin-left: auto;
+  color: var(--ds-color-action-primary);
+  font-size: var(--ds-font-caption);
+}
+
+.summaryHide {
+  display: none;
+}
+
+.otherDeals[open] .summaryShow {
+  display: none;
+}
+
+.otherDeals[open] .summaryHide {
+  display: inline;
+}
+
 .otherDeals[open] summary {
-  border-bottom: 1px solid var(--pc-border);
-  background: var(--pc-bg-elevated);
+  border-bottom: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
 }
 
 .dealListBody {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-3);
 }
 
 .dealLinks {
@@ -179,73 +151,64 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   display: grid;
-  gap: 8px;
+  gap: var(--ds-space-2);
 }
 
 .dealLink {
   min-height: 58px;
-  border: 1px solid var(--pc-border);
-  border-radius: 15px;
-  background: var(--pc-bg-card);
-  padding: 10px 12px;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  color: var(--pc-text-primary);
+  gap: var(--ds-space-3);
+  color: var(--ds-color-text-primary);
   text-decoration: none;
 }
 
 .dealLink:hover {
-  border-color: var(--pc-accent-border);
-  background: var(--pc-accent-bg);
+  border-color: var(--ds-color-action-primary);
+  background: var(--ds-color-action-primary-subtle);
 }
 
 .dealLink svg {
-  color: var(--pc-accent-strong);
+  color: var(--ds-color-action-primary);
 }
 
 .dealCopy {
   min-width: 0;
   display: grid;
-  gap: 3px;
+  gap: var(--ds-space-1);
 }
 
-.dealCopy strong {
+.dealCopy strong,
+.dealCopy small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dealCopy strong {
   font-size: 13px;
   line-height: 1.25;
   font-weight: 900;
 }
 
 .dealCopy small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--pc-text-muted);
-  font-size: 11px;
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-caption);
   line-height: 1.35;
 }
 
-.loadMoreError {
-  margin: 0;
-  border: 1px solid color-mix(in srgb, var(--pc-danger, #b42318) 28%, var(--pc-border));
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--pc-danger-bg, #fff3f2) 72%, var(--pc-bg-card));
-  color: var(--pc-danger, #b42318);
-  padding: 10px 12px;
-  font-size: 12px;
-  line-height: 1.45;
-  font-weight: 800;
+.loadMoreButton {
+  width: 100%;
 }
 
-.retryButton:focus-visible,
-.loadMoreButton:focus-visible,
 .dealLink:focus-visible,
 .otherDeals summary:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--pc-accent) 42%, transparent);
+  outline: 3px solid var(--ds-color-focus);
   outline-offset: 3px;
 }
 
@@ -260,7 +223,7 @@
 @media (max-width: 720px) {
   .todayHeader {
     grid-template-columns: 1fr;
-    padding: 16px;
+    padding: var(--ds-space-4);
   }
 
   .todayFacts {
@@ -271,16 +234,11 @@
 
 @media (max-width: 430px) {
   .todayWorkspace {
-    gap: 10px;
-  }
-
-  .todayHeader,
-  .stateCard {
-    border-radius: 18px;
+    gap: var(--ds-space-2);
   }
 
   .todayHeader {
-    padding: 14px;
+    padding: var(--ds-space-3);
   }
 
   .todayCopy h1 {
@@ -293,11 +251,11 @@
 
   .stateCard {
     min-height: 200px;
-    padding: 20px 16px;
+    padding: var(--ds-space-4);
   }
 
   .dealListBody {
-    padding: 9px;
+    padding: var(--ds-space-2);
   }
 
   .dealLink {
@@ -316,10 +274,7 @@
   .todayFacts,
   .stateCard,
   .otherDeals,
-  .dealLink,
-  .retryButton,
-  .loadMoreButton,
-  .loadMoreError {
-    border: 1px solid CanvasText;
+  .dealLink {
+    border-color: CanvasText;
   }
 }
