@@ -30,7 +30,7 @@ The following are controlled by v8:
 - the active `AppShellV4` TSX and CSS Module;
 - the shared `RoleIntentDashboard` TSX and CSS Module used by all twelve business-role roots;
 - the canonical deals registry page, list component and their CSS Modules;
-- the document readiness, dispute queue and bank release-review routes;
+- the document readiness, dispute queue, money hub and bank payout-readiness routes;
 - every file registered in `migratedFiles` inside `design-governance-v8.json`.
 
 A migrated product file must consume `@pc/design-system-v8` or the governed `transaction-ux` boundary. New local copies of a migrated pattern are not allowed.
@@ -110,7 +110,7 @@ The driver, surveyor, elevator and laboratory routes use governed field-role tem
 
 ### Money and obligation workspaces
 
-Seller, buyer and bank use one governed money-and-obligation contract. Reserve, hold, release request and bank-confirmed release remain different states; the UI cannot manufacture a callback or release funds.
+Seller, buyer and bank use one governed money-and-obligation contract. Reserve, hold, release request and bank-confirmed release remain different states; the UI cannot manufacture a callback or release funds. The shared contract exposes localizable meta and accessibility labels for RU, EN and ZH.
 
 ### Operational and oversight workspaces
 
@@ -163,16 +163,30 @@ The `/platform-v7/disputes` route uses server-registered disputes as the primary
 - supports RU, EN and ZH route copy;
 - cannot alter laboratory facts, sign documents for a party or release held money.
 
-### Bank release-review route
+### Money hub
 
-The `/platform-v7/bank/release-safety` route is a governed read-only projection of domain release guards. It:
+The `/platform-v7/money` route is a governed entry into money work for a specific server-authorized Deal. It:
 
-- differentiates reserve, hold, release candidate and bank-confirmed movement of money;
-- shows blocker codes through localized reason labels;
-- preserves the release pipeline, decision package and execution state machine as read-only controls;
-- contains no HTTP mutation or command that can request, confirm or execute release;
-- requires an external bank callback and reconciliation before a bank state is treated as confirmed;
-- supports RU, EN and ZH route copy.
+- removes fixture-derived portfolio totals and hard-coded Deal amounts;
+- does not aggregate money across organizations without a server-confirmed payment set;
+- starts from the participant-scoped canonical Deal registry;
+- keeps reserve, hold, payout request, callback confirmation and reconciliation as distinct states;
+- treats the request as an outbox command, not movement of money;
+- supports RU, EN and ZH, including money cockpit labels and accessibility labels.
+
+### Bank payout-readiness route
+
+The `/platform-v7/bank/release-safety` route is a governed server-authorized entry into payout checks for a specific Deal. It:
+
+- removes fixture-derived `canonicalDomainDeals`, hard-coded Deal IDs and client-side readiness aggregation;
+- requires the user to select a participant-scoped Deal before reviewing actual server blockers;
+- differentiates reserve, hold, release request and bank-confirmed movement of money;
+- contains no HTTP mutation or command that can confirm or execute release;
+- reserves RESERVED and RELEASED confirmation for a verified bank callback;
+- routes callback error, conflict or reconciliation mismatch to manual review;
+- supports RU, EN and ZH route copy and localized cockpit labels.
+
+This UI acceptance does not assert live bank connectivity or PostgreSQL-authoritative Settlement where those backend acceptance gates remain separate. It proves that the active views do not overstate authority or synthesize money status.
 
 ## Remaining boundary
 
