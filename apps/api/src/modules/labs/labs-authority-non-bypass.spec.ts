@@ -11,10 +11,10 @@ const canonicalSeedPath = 'apps/api/src/modules/deals/canonical-test-deal.seed.t
 const industrialHarnessPath = 'apps/api/test/industrial/harness.ts';
 const finalizeMigrationPath =
   'apps/api/prisma/migrations/20260713121000_labs_postgresql_authority/migration.sql';
-const strictAuthorityMigrationPath =
-  'apps/api/prisma/migrations/20260713123000_labs_postgresql_authority/migration.sql';
 const provisioningMigrationPath =
   'apps/api/prisma/migrations/20260713124000_labs_postgresql_authority/migration.sql';
+const physicalActorMigrationPath =
+  'apps/api/prisma/migrations/20260713125000_labs_postgresql_authority/migration.sql';
 const prismaRepositoryPath = 'apps/api/src/modules/labs/prisma-lab.repository.ts';
 const postgresDealCommandPath =
   'apps/api/src/modules/deals/postgresql-deal-command.service.ts';
@@ -88,7 +88,7 @@ describe('IR-10.3 laboratory PostgreSQL authority cannot be bypassed', () => {
   });
 
   it('does not let privileged staff impersonate a physical laboratory actor', () => {
-    for (const migrationPath of [strictAuthorityMigrationPath, provisioningMigrationPath]) {
+    for (const migrationPath of [provisioningMigrationPath, physicalActorMigrationPath]) {
       const migration = readRepoFile(migrationPath);
 
       expect(migration).not.toMatch(
@@ -98,6 +98,12 @@ describe('IR-10.3 laboratory PostgreSQL authority cannot be bypassed', () => {
         /NOT\s+public\.app_rls_privileged\(\)\s*\n\s*AND\s+NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+labs\.authorized_actors/si,
       );
     }
+
+    const finalEnforcement = readRepoFile(physicalActorMigrationPath);
+    expect(finalEnforcement).toContain('app_labs_test_physical_actor_guard');
+    expect(finalEnforcement).toContain('app_labs_sample_physical_actor_guard');
+    expect(finalEnforcement).toContain('app_labs_custody_chain_valid');
+    expect(finalEnforcement).toContain("'SIGNATORY'");
   });
 
   it('enforces operation-specific laboratory actor types in the production repository', () => {
