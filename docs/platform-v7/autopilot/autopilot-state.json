@@ -185,6 +185,7 @@
       "apps/web/components/platform-v7/PlatformV7ShellUxController.module.css",
       "apps/web/components/platform-v7/PlatformV7ShellUxController.tsx",
       "apps/web/lib/platform-v7/cabinet-access-policy.ts",
+      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
       "apps/web/tests/unit/platformV7CognitiveDrawerLabels.test.ts",
       "apps/web/tests/unit/platformV7CognitiveNavigation.test.ts",
       "apps/web/tests/unit/platformV7CognitiveShellNoRoleOverride.test.ts",
