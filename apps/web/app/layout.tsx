@@ -1,4 +1,6 @@
 import './globals.css';
+import './platform-v7/_styles/fixed-header-contract.css';
+import './platform-v7/_styles/public-supporting-shell.css';
 import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
 import Script from 'next/script';
