@@ -5,10 +5,10 @@
   "lastCompletedStep": "#2410 Documents PostgreSQL Authority",
   "openPr": "#2412",
   "blockedBy": [
-    "IR-10.2 exact-head CI is rerunning after reconciling the 19 Deal command audit events with 3 authoritative Shipment audit events."
+    "IR-10.2 exact-head CI is rerunning after the live one-deal gate passed and the restored-database audit acceptance was updated to distinguish 19 Deal command audits from 3 Shipment operational audits."
   ],
   "nextStep": "IR-10.2 Logistics PostgreSQL Authority",
-  "updatedAt": "2026-07-13T06:51:00.000Z",
+  "updatedAt": "2026-07-13T06:55:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
