@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import '@pc/design-system-v8/styles.css';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
 import '@/styles/theme.css';
@@ -56,6 +57,7 @@ import '@/styles/platform-v7-contextual-wheat-backgrounds.css';
 
 const HEADER_SELECTOR = [
   '.pc-site-header',
+  '.pc-v8-app-header',
   '.pc-v4-header',
   '.pc-fixed-header',
   '.p7-flow-header',
@@ -69,6 +71,7 @@ const HEADER_SELECTOR = [
 const ROOT_SELECTOR = [
   '[data-public-supporting-shell]',
   'main',
+  '.pc-shell-root-v8',
   '.pc-shell-root-v4',
   '.pc-shell-root',
 ].join(',');
