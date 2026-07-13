@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { PLATFORM_V7_AI_ROUTE } from '@/lib/platform-v7/routes';
-import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
+import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
 import { SESSION_COOKIE } from '@/lib/auth-cookies';
 import styles from './HeaderUtilityMenu.module.css';
 
@@ -45,21 +45,6 @@ type ActionCardProps = {
   title: string;
   description: string;
   onClick: () => void;
-};
-
-const ROLE_HELP: Record<PlatformRole, string> = {
-  operator: 'Помощь оператору',
-  buyer: 'Помощь покупателю',
-  seller: 'Помощь продавцу',
-  logistics: 'Помощь логистике',
-  driver: 'Помощь водителю',
-  surveyor: 'Помощь сюрвейеру',
-  elevator: 'Помощь при приёмке',
-  lab: 'Помощь лаборатории',
-  bank: 'Помощь банковской проверке',
-  arbitrator: 'Помощь арбитру',
-  compliance: 'Помощь комплаенсу',
-  executive: 'Помощь руководителю',
 };
 
 function normalize(pathname: string | null): string {
@@ -104,7 +89,7 @@ function ActionCard({ icon, title, description, onClick }: ActionCardProps) {
   );
 }
 
-export function HeaderUtilityMenu({ role }: { role: PlatformRole }) {
+export function HeaderUtilityMenu() {
   const pathname = usePathname();
   const router = useRouter();
   const path = normalize(pathname);
@@ -231,9 +216,9 @@ export function HeaderUtilityMenu({ role }: { role: PlatformRole }) {
                   <span className={styles.actionIcon}><FileSearch2 size={18} aria-hidden='true' /></span>
                   <span className={styles.actionCopy}><strong>Разобрать шаг</strong><span>Объяснить текущую задачу</span></span>
                 </Link>
-                <Link className={styles.linkAction} href={`/platform-v7/status?role=${role}`} onClick={() => setPanel(null)}>
+                <Link className={styles.linkAction} href='/platform-v7/status' onClick={() => setPanel(null)}>
                   <span className={styles.actionIcon}><CircleHelp size={18} aria-hidden='true' /></span>
-                  <span className={styles.actionCopy}><strong>{ROLE_HELP[role]}</strong><span>Статус, инструкция и поддержка</span></span>
+                  <span className={styles.actionCopy}><strong>Помощь по работе</strong><span>Статус, инструкция и поддержка</span></span>
                 </Link>
               </div>
             </section>
