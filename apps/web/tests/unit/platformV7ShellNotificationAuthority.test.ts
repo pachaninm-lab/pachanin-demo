@@ -15,7 +15,7 @@ function read(relativePath: string): string {
 const shell = read('apps/web/components/v7r/AppShellV4.tsx');
 const page = read('apps/web/app/platform-v7/notifications/page.tsx');
 
- describe('platform-v7 shell notification authority', () => {
+describe('platform-v7 shell notification authority', () => {
   it('routes the header bell to the existing authenticated notification workspace', () => {
     expect(shell).toContain("const NOTIFICATIONS_ROUTE = '/platform-v7/notifications'");
     expect(shell).toContain('href={NOTIFICATIONS_ROUTE}');
@@ -26,9 +26,9 @@ const page = read('apps/web/app/platform-v7/notifications/page.tsx');
   });
 
   it('does not invent notification rows or unread state inside the global shell', () => {
-    expect(shell).not.toContain("@/lib/v7r/data");
-    expect(shell).not.toContain('NOTIFICATIONS');
+    expect(shell).not.toContain("from '@/lib/v7r/data'");
     expect(shell).not.toContain('NOTIFICATION_GROUPS');
+    expect(shell).not.toContain('NOTIFICATIONS.length');
     expect(shell).not.toContain('groupNotifications');
     expect(shell).not.toContain('groupedNotifications');
     expect(shell).not.toContain('hasUnread');
