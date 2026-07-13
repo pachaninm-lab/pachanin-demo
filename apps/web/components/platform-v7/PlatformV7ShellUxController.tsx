@@ -33,6 +33,10 @@ const PUBLIC_PATHS = new Set([
   '/platform-v7/register',
 ]);
 
+const ROLE_NEUTRAL_PATHS = new Set([
+  '/platform-v7/notifications',
+]);
+
 function normalize(pathname: string): string {
   return pathname.split('?')[0].split('#')[0].replace(/\/$/, '') || '/platform-v7';
 }
@@ -133,7 +137,9 @@ export function PlatformV7ShellUxController({ role }: { role: PlatformRole }) {
   const roleHome = platformV7RoleRoute(role);
   const primary = React.useMemo(() => primaryNavigation(role), [role]);
   const extra = React.useMemo(() => extraNavigation(role, primary), [primary, role]);
-  const publicPath = PUBLIC_PATHS.has(normalize(pathname));
+  const normalizedPath = normalize(pathname);
+  const publicPath = PUBLIC_PATHS.has(normalizedPath);
+  const roleNeutralPath = ROLE_NEUTRAL_PATHS.has(normalizedPath);
 
   React.useEffect(() => setMounted(true), []);
 
@@ -142,13 +148,14 @@ export function PlatformV7ShellUxController({ role }: { role: PlatformRole }) {
   }, [pathname]);
 
   React.useEffect(() => {
+    if (roleNeutralPath) return;
     document.querySelectorAll<HTMLAnchorElement>('.pc-v4-header .pc-v4-brand, .pc-v4-drawer .pc-v4-brand').forEach((item) => {
       item.href = roleHome;
       item.setAttribute('aria-label', 'Прозрачная Цена — в мой кабинет');
     });
-  }, [pathname, roleHome]);
+  }, [pathname, roleHome, roleNeutralPath]);
 
-  const showShellControls = mounted && !publicPath;
+  const showShellControls = mounted && !publicPath && !roleNeutralPath;
   const closeDrawer = () => window.setTimeout(closeLegacyDrawer, 0);
 
   return (
