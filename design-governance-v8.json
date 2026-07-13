@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -29,7 +29,8 @@
     "apps/web/app/platform-v7/arbitrator/page.tsx",
     "apps/web/app/platform-v7/executive/page.tsx",
     "apps/web/app/platform-v7/deals/page.tsx",
-    "apps/web/components/platform-v7/CanonicalDealsList.tsx"
+    "apps/web/components/platform-v7/CanonicalDealsList.tsx",
+    "apps/web/app/platform-v7/documents/page.tsx"
   ],
   "allowedGlobalStyleEntrypoints": [
     "packages/design-tokens/tokens.css"

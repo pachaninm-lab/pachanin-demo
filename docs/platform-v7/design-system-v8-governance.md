@@ -30,6 +30,7 @@ The following are controlled by v8:
 - the active `AppShellV4` TSX and CSS Module;
 - the shared `RoleIntentDashboard` TSX and CSS Module used by all twelve business-role roots;
 - the canonical deals registry page, list component and their CSS Modules;
+- the document readiness route;
 - every file registered in `migratedFiles` inside `design-governance-v8.json`.
 
 A migrated product file must consume `@pc/design-system-v8` or the governed `transaction-ux` boundary. New local copies of a migrated pattern are not allowed.
@@ -113,7 +114,7 @@ Seller, buyer and bank use one governed money-and-obligation contract. Reserve, 
 
 ### Operational and oversight workspaces
 
-Operator, logistics, compliance, arbitrator and executive use one governed decision-cockpit contract. Business queues are separated from engineering observability, authority boundaries stay role-specific and executive remains read-only.
+Operator, logistics, compliance, arbitrator and executive use one governed decision-cockpit contract. Business queues are separated from engineering observability, authority boundaries stay role-specific and executive remains read-only. The shared cockpit exposes localizable labels so new accepted surfaces do not leave Russian-only meta labels inside EN or ZH sessions.
 
 ### Twelve-role root cockpit
 
@@ -138,9 +139,21 @@ The `/platform-v7/deals` route and `CanonicalDealsList` are governed v8 surfaces
 - has loading, empty, access-denied, offline, invalid-response, export-error and pagination-error states;
 - uses token-only mobile, keyboard, reduced-motion and forced-colors behavior.
 
+### Document readiness route
+
+The `/platform-v7/documents` route is a governed server-authoritative entry into document work for a specific Deal. It deliberately removes the former synthetic global archive and hard-coded Deal scenarios. The route:
+
+- lists only Deals returned by the participant-scoped canonical registry;
+- keeps documents inside the canonical Deal instead of creating an independent document source of truth;
+- directs the user to the Deal workspace for the actual document step;
+- treats document completeness as a payout-readiness condition without allowing the UI to release funds;
+- treats FGIS, EDI, state e-transport, qualified-signature and bank states as externally confirmed facts, never local toggles;
+- supports RU, EN and ZH, including cockpit meta labels and accessibility labels;
+- inherits mobile, keyboard, reduced-motion and forced-colors behavior from governed v8 components.
+
 ## Remaining boundary
 
-Documents, payment and settlement views, dispute operations, auctions and other secondary routes are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
+Payment and settlement views, dispute operations, auctions and other secondary routes are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
 
 ## Decision authority
 
