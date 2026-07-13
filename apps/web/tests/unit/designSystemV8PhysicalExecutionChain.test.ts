@@ -17,11 +17,13 @@ const acceptancePath = 'apps/web/app/platform-v7/deal-acceptance/page.tsx';
 const documentsPath = 'apps/web/app/platform-v7/deal-documents-basis/page.tsx';
 const logisticsServerPath = 'apps/web/lib/logistics-server.ts';
 const dealExecutionServerPath = 'apps/web/lib/deal-execution-server.ts';
+const documentBasisServerPath = 'apps/web/lib/deal-document-basis-server.ts';
 const logistics = read(logisticsPath);
 const acceptance = read(acceptancePath);
 const documents = read(documentsPath);
 const logisticsServer = read(logisticsServerPath);
 const dealExecutionServer = read(dealExecutionServerPath);
+const documentBasisServer = read(documentBasisServerPath);
 const cockpit = read('apps/web/components/transaction-ux/PhysicalExecutionCockpit.tsx');
 const cockpitCss = read('apps/web/components/transaction-ux/PhysicalExecutionCockpit.module.css');
 const copy = read('apps/web/components/transaction-ux/physicalExecutionCopy.ts');
@@ -74,9 +76,22 @@ describe('Design System v8 physical Deal execution chain', () => {
     expect(dealExecutionServer).not.toContain('DL-2607-014');
   });
 
-  it('keeps document-basis legacy explicit until its controlled authority migration', () => {
-    expect(documents).toContain('DEAL_ACCEPTANCE_STATE');
-    expect(documents).toContain('state.dealId');
+  it('uses canonical Deal documents and rejects local document-basis fixtures', () => {
+    expect(documents).toContain('getCanonicalDealDocumentWorkspace');
+    expect(documents).toContain('buildDocumentBasisProjection');
+    expect(documents).toContain('projection.documentsReady');
+    expect(documents).toContain('projection.bankBasisReady');
+    expect(documents).toContain('if (!dealId) return renderUnavailable(locale)');
+    expect(documents).toContain('if (!projection) return renderUnavailable(locale)');
+    expect(documents).not.toContain('DEAL_ACCEPTANCE_STATE');
+    expect(documentBasisServer).toContain("serverApiUrl(`/deals/${encodeURIComponent(dealId)}/workspace`)");
+    expect(documentBasisServer).toContain('serverAuthHeaders()');
+    expect(documentBasisServer).toContain("cache: 'no-store'");
+    expect(documentBasisServer).toContain('item.dealId !== dealId || item.tenantId !== tenantId');
+    expect(documentBasisServer).toContain("AUTHORITATIVE_DOCUMENT_STATUSES = new Set(['SIGNED', 'VALIDATED', 'CONFIRMED'])");
+    expect(documentBasisServer).toContain("blockers.push('ACCEPTANCE_ACT_NOT_SIGNED')");
+    expect(documentBasisServer).not.toContain('DEAL_ACCEPTANCE_STATE');
+    expect(documentBasisServer).not.toContain('SDIZ-77-2026-000483');
   });
 
   it('fails closed before carrier admission, signed acceptance and complete documents', () => {
@@ -92,9 +107,10 @@ describe('Design System v8 physical Deal execution chain', () => {
     expect(dealExecutionServer).toContain("blockers.push('WEIGHT_FACT_INVALID_OR_MISSING')");
     expect(dealExecutionServer).toContain("blockers.push('LAB_RESULT_NOT_FINAL')");
     expect(dealExecutionServer).toContain("blockers.push('ACCEPTANCE_ACT_NOT_SIGNED')");
-    expect(documents).toContain("const documentsReady = packageItems.every((item) => item.status === 'ready')");
-    expect(documents).toContain("bank: documentsReady ? 'available' : 'blocked'");
-    expect(documents).toContain('blocked: !documentsReady');
+    expect(documents).toContain("bank: projection.documentsReady ? 'available' : 'blocked'");
+    expect(documents).toContain('blocked: !projection.documentsReady');
+    expect(documentBasisServer).toContain("blockers.push('LAB_RESULT_NOT_FINAL')");
+    expect(documentBasisServer).toContain('const documentsReady = blockers.length === 0');
   });
 
   it('keeps physical facts, documents and bank authority separated', () => {
@@ -107,8 +123,13 @@ describe('Design System v8 physical Deal execution chain', () => {
     expect(acceptance).toContain('Интерфейс не фиксирует вес, качество, акт приёмки');
     expect(acceptance).toContain('The interface cannot record weight, quality, acceptance acts');
     expect(acceptance).toContain('界面不能记录重量、质量、验收文件');
-    expect(documents).toContain("href='/platform-v7/bank/release-safety'");
+    expect(documents).toContain('Интерфейс не создаёт версии, не проверяет КЭП');
+    expect(documents).toContain('The interface cannot create versions, verify signatures');
+    expect(documents).toContain('界面不能创建版本、验证签名');
+    expect(documents).toContain("href={bankHref}");
     expect(documents).not.toContain("href='/platform-v7/bank/payment-basis'");
+    expect(documentBasisServer).toContain('const documentsReady = blockers.length === 0');
+    expect(documentBasisServer).toContain('const bankBasisReady = Boolean(');
   });
 
   it('provides RU EN ZH copy and accessible mobile behavior', () => {
@@ -124,6 +145,9 @@ describe('Design System v8 physical Deal execution chain', () => {
     expect(acceptance).toContain('Серверные факты приёмки недоступны');
     expect(acceptance).toContain('Server acceptance facts are unavailable');
     expect(acceptance).toContain('服务器验收事实不可用');
+    expect(documents).toContain('Серверное документное основание недоступно');
+    expect(documents).toContain('Server document basis is unavailable');
+    expect(documents).toContain('服务器文件依据不可用');
     expect(cockpitCss).toContain('min-height: var(--ds-control-height)');
     expect(cockpitCss).toContain(':focus-visible');
     expect(cockpitCss).toContain('@media (max-width: 640px)');
@@ -140,6 +164,8 @@ describe('Design System v8 physical Deal execution chain', () => {
     expect(workflow).toContain(logisticsPath);
     expect(workflow).toContain(acceptancePath);
     expect(workflow).toContain(documentsPath);
+    expect(workflow).toContain(documentBasisServerPath);
+    expect(workflow).toContain('tests/unit/dealDocumentBasisServer.test.ts');
     expect(workflow).toContain('tests/unit/designSystemV8PhysicalExecutionChain.test.ts');
   });
 });
