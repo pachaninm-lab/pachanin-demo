@@ -41,6 +41,7 @@ export type AuctionBidRule = {
   label: string;
 };
 
+/** Type-only compatibility contract. Runtime auction facts come from authenticated PostgreSQL authority envelopes. */
 export type FgisAuctionState = {
   lot: FgisLotSnapshot;
   admission: AuctionAdmissionStatus;
@@ -50,28 +51,3 @@ export type FgisAuctionState = {
   bidRules: AuctionBidRule[];
   nextRoutes: Array<{ label: string; href: string; owner: string }>;
 };
-
-export function kgToTons(value: number) {
-  return value / 1000;
-}
-
-export function canOpenAuction(state: FgisAuctionState) {
-  return state.checks.every((check) => check.status !== 'block')
-    && state.checks.every((check) => check.status !== 'review');
-}
-
-export function admissionLabel(status: AuctionAdmissionStatus) {
-  if (status === 'admitted') return 'допущен к торгам';
-  if (status === 'review_required') return 'требует проверки';
-  return 'заблокирован';
-}
-
-export function importStatusLabel(status: FgisImportStatus) {
-  switch (status) {
-    case 'matched': return 'лот сверен';
-    case 'requested': return 'запрос отправлен';
-    case 'requires_review': return 'требует проверки';
-    case 'rejected': return 'отклонён';
-    default: return 'ожидает подключения';
-  }
-}

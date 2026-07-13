@@ -139,7 +139,7 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(dashboard).not.toContain('getRoleIntentConfig');
     expect(dashboard).toContain('/api/proxy/deals/accessible');
     expect(shell).toContain("'/platform-v7/surveyor'");
-    expect(shell).toContain(': <RoleIntentDashboard role={initialRole} />');
+    expect(shell).toContain(': <RoleIntentDashboard role={verifiedRole} />');
     expect(shell).toContain("data-controlled-owner-cabinet-preview='true'");
     expect(shell).toContain('{children}');
     expect(shell).toContain(': children;');

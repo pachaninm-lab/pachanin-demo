@@ -6,6 +6,9 @@ on:
       - 'packages/design-tokens/**'
       - 'packages/design-system-v8/**'
       - 'apps/web/components/transaction-ux/**'
+      - 'apps/web/app/platform-v7/layout.tsx'
+      - 'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx'
+      - 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'
       - 'apps/web/components/platform-v7/NextActionCard.tsx'
       - 'apps/web/components/platform-v7/RoleIntentDashboard.tsx'
       - 'apps/web/components/platform-v7/RoleIntentDashboard.module.css'
@@ -15,6 +18,9 @@ on:
       - 'apps/web/components/v7r/AppShellV4.module.css'
       - 'apps/web/lib/deal-execution-server.ts'
       - 'apps/web/lib/bank-release-server.ts'
+      - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
+      - 'apps/web/lib/platform-v7/fgisAuctionAdapter.ts'
+      - 'apps/web/lib/platform-v7/auctionDealBridge.ts'
       - 'apps/web/lib/platform-v7/dealLogisticsEngine.ts'
       - 'apps/web/lib/platform-v7/dealAcceptanceEngine.ts'
       - 'apps/web/lib/platform-v7/dealDocumentBasisEngine.ts'
@@ -55,6 +61,7 @@ on:
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'apps/web/tests/unit/platformV7RealDealsRegistry.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
+      - 'apps/web/tests/unit/platformV7ServerVerifiedShell.test.ts'
       - 'apps/web/tests/unit/platformV7TodayWorkspace.test.ts'
       - 'apps/web/tests/unit/transactionRoleCockpitsV8.test.ts'
       - 'design-governance-v8.json'
@@ -66,6 +73,9 @@ on:
       - 'packages/design-tokens/**'
       - 'packages/design-system-v8/**'
       - 'apps/web/components/transaction-ux/**'
+      - 'apps/web/app/platform-v7/layout.tsx'
+      - 'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx'
+      - 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'
       - 'apps/web/components/platform-v7/NextActionCard.tsx'
       - 'apps/web/components/platform-v7/RoleIntentDashboard.tsx'
       - 'apps/web/components/platform-v7/RoleIntentDashboard.module.css'
@@ -75,6 +85,9 @@ on:
       - 'apps/web/components/v7r/AppShellV4.module.css'
       - 'apps/web/lib/deal-execution-server.ts'
       - 'apps/web/lib/bank-release-server.ts'
+      - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
+      - 'apps/web/lib/platform-v7/fgisAuctionAdapter.ts'
+      - 'apps/web/lib/platform-v7/auctionDealBridge.ts'
       - 'apps/web/lib/platform-v7/dealLogisticsEngine.ts'
       - 'apps/web/lib/platform-v7/dealAcceptanceEngine.ts'
       - 'apps/web/lib/platform-v7/dealDocumentBasisEngine.ts'
@@ -115,6 +128,7 @@ on:
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'apps/web/tests/unit/platformV7RealDealsRegistry.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
+      - 'apps/web/tests/unit/platformV7ServerVerifiedShell.test.ts'
       - 'apps/web/tests/unit/platformV7TodayWorkspace.test.ts'
       - 'apps/web/tests/unit/transactionRoleCockpitsV8.test.ts'
       - 'design-governance-v8.json'
@@ -142,7 +156,7 @@ jobs:
         run: node ./scripts/check-design-system-v8.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
-      - name: Run v8 role, registry, auction, physical-execution, critical-route and settlement regressions
+      - name: Run v8 role, registry, server-shell, auction, physical-execution, critical-route and settlement regressions
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
@@ -161,6 +175,7 @@ jobs:
             tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx \
             tests/unit/platformV7RealDealsRegistry.test.ts \
             tests/unit/platformV7RoleIntentDashboard.test.ts \
+            tests/unit/platformV7ServerVerifiedShell.test.ts \
             tests/unit/platformV7TodayWorkspace.test.ts \
             tests/unit/transactionRoleCockpitsV8.test.ts 2>&1 | tee design-system-v8-tests.log
       - name: Upload v8 regression log
