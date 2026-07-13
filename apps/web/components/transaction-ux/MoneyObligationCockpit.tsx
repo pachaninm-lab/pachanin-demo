@@ -23,6 +23,16 @@ export type MoneyPriority = {
   secondaryAction?: ReactNode;
 };
 
+export type MoneyCockpitLabels = {
+  money: string;
+  blocker: string;
+  owner: string;
+  result: string;
+  nextAction: string;
+  prioritySection: string;
+  factsSection: string;
+};
+
 export type MoneyObligationCockpitProps = {
   eyebrow: string;
   title: string;
@@ -32,8 +42,19 @@ export type MoneyObligationCockpitProps = {
   liveStatus?: ReactNode;
   priority: MoneyPriority;
   facts: MoneyFact[];
+  labels?: Partial<MoneyCockpitLabels>;
   children: ReactNode;
   testId?: string;
+};
+
+const DEFAULT_LABELS: MoneyCockpitLabels = {
+  money: 'Деньги',
+  blocker: 'Блокер',
+  owner: 'Ответственный',
+  result: 'Результат',
+  nextAction: 'Следующее безопасное действие',
+  prioritySection: 'Главное обязательство',
+  factsSection: 'Ключевые факты',
 };
 
 export function MoneyObligationCockpit({
@@ -45,14 +66,16 @@ export function MoneyObligationCockpit({
   liveStatus,
   priority,
   facts,
+  labels,
   children,
   testId,
 }: MoneyObligationCockpitProps) {
+  const copy = { ...DEFAULT_LABELS, ...labels };
   const meta = [
-    priority.amount ? { label: 'Деньги', value: priority.amount } : null,
-    priority.blocker ? { label: 'Блокер', value: priority.blocker } : null,
-    priority.owner ? { label: 'Ответственный', value: priority.owner } : null,
-    priority.result ? { label: 'Результат', value: priority.result } : null,
+    priority.amount ? { label: copy.money, value: priority.amount } : null,
+    priority.blocker ? { label: copy.blocker, value: priority.blocker } : null,
+    priority.owner ? { label: copy.owner, value: priority.owner } : null,
+    priority.result ? { label: copy.result, value: priority.result } : null,
   ].filter((item): item is { label: string; value: string } => Boolean(item));
 
   const priorityClass = priority.state === 'ready'
@@ -73,8 +96,8 @@ export function MoneyObligationCockpit({
         <div className={styles.status}><StatusChip tone={statusTone}>{statusLabel}</StatusChip></div>
       </header>
 
-      <section className={`${styles.priority} ${priorityClass}`} aria-label='Главное обязательство'>
-        <span className={styles.priorityEyebrow}>{priority.eyebrow ?? 'Следующее безопасное действие'}</span>
+      <section className={`${styles.priority} ${priorityClass}`} aria-label={copy.prioritySection}>
+        <span className={styles.priorityEyebrow}>{priority.eyebrow ?? copy.nextAction}</span>
         <h2 className={styles.priorityTitle}>{priority.title}</h2>
         <p className={styles.priorityDescription}>{priority.description}</p>
         {meta.length > 0 ? (
@@ -90,7 +113,7 @@ export function MoneyObligationCockpit({
         <div className={styles.actions}>{priority.primaryAction}{priority.secondaryAction}</div>
       </section>
 
-      <section className={styles.factGrid} aria-label='Ключевые факты'>
+      <section className={styles.factGrid} aria-label={copy.factsSection}>
         {facts.map((fact) => (
           <article className={styles.fact} key={fact.label}>
             <span className={styles.factLabel}>{fact.label}</span>
