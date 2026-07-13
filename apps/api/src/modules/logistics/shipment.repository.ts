@@ -51,7 +51,7 @@ export type ShipmentRecord = Readonly<{
   pinVerifiedByUserId: string | null;
   pinFailedAttempts: number;
   pinLockedUntil: Date | null;
-  version: bigint;
+  version: string;
   nextAction: string | null;
   blockers: string | null;
   geoLat: number | null;

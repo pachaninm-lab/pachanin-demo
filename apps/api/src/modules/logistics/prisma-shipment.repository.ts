@@ -34,7 +34,10 @@ type NormalizedCommand = Readonly<{
   correlationId?: string;
 }> & Record<string, unknown>;
 
-type ShipmentAuthorityRecord = ShipmentRecord & Readonly<{ driverPinHash: string | null }>;
+type ShipmentAuthorityRecord = Omit<ShipmentRecord, 'version'> & Readonly<{
+  version: bigint;
+  driverPinHash: string | null;
+}>;
 
 type MutationArtifacts = Readonly<{
   shipment: ShipmentAuthorityRecord;
@@ -332,11 +335,19 @@ export class PrismaShipmentRepository implements ShipmentRepository {
         const replay = await this.replay(tx, persistentKey, requestFingerprint);
         if (replay) return replay;
 
+        const candidate = await this.findShipment(tx, shipmentId);
+        if (!candidate) throw scopedNotFound();
+        await tx.$queryRaw(Prisma.sql`
+          SELECT pg_advisory_xact_lock(hashtextextended(${candidate.dealId}, 42)) IS NULL AS locked
+        `);
+
+        // Another API instance may have committed the same idempotency key
+        // while this transaction waited for the per-Deal lock. Recheck the
+        // durable receipt after locking and reload the current CAS version.
+        const lockedReplay = await this.replay(tx, persistentKey, requestFingerprint);
+        if (lockedReplay) return lockedReplay;
         const shipment = await this.findShipment(tx, shipmentId);
         if (!shipment) throw scopedNotFound();
-        await tx.$queryRaw(Prisma.sql`
-          SELECT pg_advisory_xact_lock(hashtextextended(${shipment.dealId}, 42)) IS NULL AS locked
-        `);
 
         const artifacts = await work(tx, shipment, context);
         const auditId = `audit-${randomUUID()}`;
@@ -572,8 +583,12 @@ export class PrismaShipmentRepository implements ShipmentRepository {
 }
 
 function publicShipment(shipment: ShipmentAuthorityRecord): ShipmentRecord {
-  const { driverPinHash: _driverPinHash, ...publicRecord } = shipment;
-  return publicRecord;
+  const {
+    driverPinHash: _driverPinHash,
+    version,
+    ...publicRecord
+  } = shipment;
+  return { ...publicRecord, version: version.toString() };
 }
 
 function shipmentState(shipment: ShipmentAuthorityRecord): Prisma.InputJsonObject {
