@@ -3,7 +3,12 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CONTROLLED_CABINET_CONTEXTS } from '../../lib/platform-v7/controlled-test-organizations';
 
-const root = process.cwd();
+const cwd = process.cwd();
+const root = [cwd, path.resolve(cwd, '../..')]
+  .find((candidate) => fs.existsSync(path.join(candidate, 'design-governance-v8.json')));
+
+if (!root) throw new Error(`Cannot resolve repository root from ${cwd}`);
+
 function read(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
