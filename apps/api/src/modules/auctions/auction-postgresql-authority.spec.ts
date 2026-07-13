@@ -17,7 +17,7 @@ describe('auction PostgreSQL authority', () => {
   it('creates no hard-coded auction or Deal facts', () => {
     const implementation = [read(migrationPath), read(servicePath)].join('\n');
 
-    expect(implementation).not.toMatch(/INSERT\s+INTO\s+public\.auction_/i);
+    expect(implementation).not.toMatch(/INSERT\s+INTO\s+auction\./i);
     expect(implementation).not.toContain('LOT-001');
     expect(implementation).not.toContain('BID-001');
     expect(implementation).not.toContain('DL-2607-014');
@@ -26,13 +26,16 @@ describe('auction PostgreSQL authority', () => {
     expect(implementation).not.toContain('Date.now');
   });
 
-  it('enforces tenant FORCE-RLS for every auction authority table', () => {
+  it('isolates the bounded context and enforces tenant FORCE-RLS on every authority table', () => {
     const migration = read(migrationPath);
 
-    for (const table of ['auction_lots', 'auction_bids', 'auction_awards']) {
-      expect(migration).toContain(`ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`);
-      expect(migration).toContain(`ALTER TABLE public.${table} FORCE ROW LEVEL SECURITY`);
-      expect(migration).toContain(`ON public.${table}\nFOR SELECT`);
+    expect(migration).toContain('CREATE SCHEMA IF NOT EXISTS auction');
+    expect(migration).toContain('REVOKE ALL ON SCHEMA auction FROM PUBLIC');
+    expect(migration).toContain('GRANT USAGE ON SCHEMA auction TO app_deal');
+    for (const table of ['lots', 'bids', 'awards']) {
+      expect(migration).toContain(`ALTER TABLE auction.${table} ENABLE ROW LEVEL SECURITY`);
+      expect(migration).toContain(`ALTER TABLE auction.${table} FORCE ROW LEVEL SECURITY`);
+      expect(migration).toContain(`ON auction.${table}\nFOR SELECT`);
     }
     expect(migration).toContain("current_setting('app.current_tenant_id', true)");
     expect(migration).not.toMatch(/CREATE\s+POLICY[\s\S]+FOR\s+(?:INSERT|UPDATE|DELETE|ALL)/i);
@@ -60,6 +63,9 @@ describe('auction PostgreSQL authority', () => {
     expect(service).toContain('current_database() AS database_name');
     expect(service).toContain('tenantId: context.tenantId');
     expect(service).toContain('actorId: context.userId');
+    expect(service).toContain('FROM auction.lots l');
+    expect(service).toContain('FROM auction.bids b');
+    expect(service).toContain('FROM auction.awards a');
   });
 
   it('exposes only read endpoints and does not create bids, awards or Deals', () => {
