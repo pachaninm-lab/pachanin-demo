@@ -7,7 +7,6 @@ import { StoragePrismaService } from '../../common/prisma/storage-prisma.service
 import { StorageController } from './storage.controller';
 import { StorageFinalizationRepository } from './storage-finalization.repository';
 import { StorageService } from './storage.service';
-import { ServerBoundEvidenceUploadService } from './server-bound-evidence-upload.service';
 
 const objectStorageAdapterProvider: Provider = {
   provide: OBJECT_STORAGE_ADAPTER,
@@ -21,12 +20,7 @@ const objectStorageAdapterProvider: Provider = {
     StoragePrismaService,
     StorageFinalizationRepository,
     StorageService,
-    ServerBoundEvidenceUploadService,
   ],
-  exports: [
-    StorageService,
-    ServerBoundEvidenceUploadService,
-    OBJECT_STORAGE_ADAPTER,
-  ],
+  exports: [StorageService, OBJECT_STORAGE_ADAPTER],
 })
 export class StorageModule {}
