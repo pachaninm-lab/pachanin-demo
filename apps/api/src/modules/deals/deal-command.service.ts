@@ -531,7 +531,7 @@ AND (admission.valid_until IS NULL OR admission.valid_until > now())
         LIMIT 1
       `);
       if (!admissions[0]) {
-        invalid('carrierOrgId', 'Активный нормализованный допуск логистики для сделки не найден.');
+        invalid('driverUserId', 'Активный нормализованный допуск логистики для сделки не найден.');
       }
 
       const conflicts = await tx.shipment.findMany({
