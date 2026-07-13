@@ -1,25 +1,71 @@
-/**
- * Injection token for the shipment data-access boundary.
- *
- * Controlled-pilot / pre-integration: default is the in-memory RuntimeCore
- * adapter. The DB-backed (Prisma) adapter is a disabled skeleton selected only
- * under the explicit PLATFORM_V7_SHIPMENT_REPOSITORY=prisma flag. No silent
- * Prisma activation. No live GPS / telematics integration.
- */
+import type { Checkpoint, Shipment, ShipmentGpsPoint } from '@prisma/client';
+import type { RequestUser } from '../../common/types/request-user';
+
+/** PostgreSQL-backed shipment data-access boundary used by production. */
 export const SHIPMENT_REPOSITORY = 'SHIPMENT_REPOSITORY';
 
-/**
- * Repository boundary for shipment reads/writes. Abstracts how shipments are
- * stored away from LogisticsService (which keeps driver-isolation access
- * checks). Read methods are async to allow a future DB-backed adapter; the
- * runtime adapter resolves synchronously under the hood.
- */
+export type LogisticsCommand = Readonly<{
+  commandId: string;
+  idempotencyKey: string;
+  expectedVersion: string;
+  correlationId?: string;
+}>;
+
+export type RecordCheckpointCommand = LogisticsCommand & Readonly<{
+  type: string;
+  occurredAt: string;
+  lat?: number;
+  lng?: number;
+  note?: string;
+}>;
+
+export type RecordGpsCommand = LogisticsCommand & Readonly<{
+  lat: number;
+  lng: number;
+  speedKmh?: number;
+  headingDeg?: number;
+  accuracyM?: number;
+  recordedAt: string;
+}>;
+
+export type VerifyPinCommand = LogisticsCommand & Readonly<{
+  pin: string;
+}>;
+
+export type ShipmentWorkspace = Readonly<{
+  shipment: Shipment;
+  checkpoints: Checkpoint[];
+  gpsTrack: ShipmentGpsPoint[];
+}>;
+
+export type ShipmentMutationResult = Readonly<{
+  shipment: Shipment;
+  auditId: string;
+  outboxId: string;
+  duplicate: boolean;
+  checkpoint?: Checkpoint;
+  gpsPoint?: ShipmentGpsPoint;
+  valid?: boolean;
+}>;
+
 export interface ShipmentRepository {
-  list(): Promise<any[]>;
-  getById(id: string): Promise<any>;
-  workspace(id: string): any;
-  create(dto: any, user: any): any;
-  transition(id: string, dto: any, user: any): any;
-  recordCheckpoint(id: string, body: any, user: any): any;
-  verifyPin(id: string, pin: string): any;
+  list(user: RequestUser): Promise<Shipment[]>;
+  getById(id: string, user: RequestUser): Promise<Shipment>;
+  workspace(id: string, user: RequestUser): Promise<ShipmentWorkspace>;
+  recordCheckpoint(
+    id: string,
+    command: RecordCheckpointCommand,
+    user: RequestUser,
+  ): Promise<ShipmentMutationResult>;
+  recordGps(
+    id: string,
+    command: RecordGpsCommand,
+    user: RequestUser,
+  ): Promise<ShipmentMutationResult>;
+  getGpsTrack(id: string, user: RequestUser): Promise<ShipmentGpsPoint[]>;
+  verifyPin(
+    id: string,
+    command: VerifyPinCommand,
+    user: RequestUser,
+  ): Promise<ShipmentMutationResult>;
 }
