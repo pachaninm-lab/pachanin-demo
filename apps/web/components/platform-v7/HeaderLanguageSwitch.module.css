@@ -81,14 +81,6 @@
   margin-left: auto;
 }
 
-:global(.login-header) > :global(.login-brand) {
-  order: 1;
-}
-
-:global(.login-header) > :global(.login-back) {
-  order: 3;
-}
-
 :global(.login-header) > .root .button {
   width: 56px;
   min-width: 56px;
@@ -102,24 +94,24 @@
   color: var(--ds-color-action-primary, ButtonText);
 }
 
-:global(.p7-register-actions) :global(.p7-register-action-exit) {
+:global(.p7-register-actions):has(.root) :global(.p7-register-action-exit) {
   display: none;
 }
 
 @media (max-width: 767px) {
-  :global(.pc-site-actions) {
+  :global(.pc-site-actions):has(.root) {
     gap: var(--ds-space-1, 4px);
   }
 
-  :global(.pc-site-actions) :global(.entry-login) {
+  :global(.pc-site-actions):has(.root) :global(.entry-login) {
     min-width: 76px;
     min-height: 40px;
     padding: 0 var(--ds-space-3, 12px);
     font-size: 14px;
   }
 
-  :global(.pc-site-actions) :global(.entry-login) svg,
-  :global(.pc-site-actions) :global(.entry-header-register) {
+  :global(.pc-site-actions):has(.root) :global(.entry-login) svg,
+  :global(.pc-site-actions):has(.root) :global(.entry-header-register) {
     display: none;
   }
 
