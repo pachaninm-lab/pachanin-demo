@@ -118,6 +118,13 @@ export function HeaderUtilityMenu() {
   const closeButtonRef = React.useRef<HTMLButtonElement>(null);
 
   React.useEffect(() => {
+    const shell = headerMount?.closest('.pc-shell-root-v4');
+    if (!shell) return;
+    shell.classList.add(styles.simplifiedShell);
+    return () => shell.classList.remove(styles.simplifiedShell);
+  }, [headerMount]);
+
+  React.useEffect(() => {
     try {
       setNote(window.localStorage.getItem(NOTE_STORAGE_KEY) || '');
     } catch {
