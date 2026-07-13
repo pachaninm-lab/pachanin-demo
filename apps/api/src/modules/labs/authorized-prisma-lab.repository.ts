@@ -15,7 +15,6 @@ import type {
   RecordLabCustodyCommand,
   RecordLabTestCommand,
 } from './lab.repository';
-import { PrismaLabRepository } from './prisma-lab.repository';
 
 type ActorType = 'SAMPLER' | 'COURIER' | 'RECEIVER' | 'ANALYST' | 'SIGNATORY';
 type EvidencePurpose =
@@ -48,7 +47,7 @@ type SampleAuthority = Readonly<{
 @Injectable()
 export class AuthorizedPrismaLabRepository implements LabRepository {
   constructor(
-    private readonly delegate: PrismaLabRepository,
+    private readonly delegate: LabRepository,
     private readonly rls: RlsTransactionService,
   ) {}
 
