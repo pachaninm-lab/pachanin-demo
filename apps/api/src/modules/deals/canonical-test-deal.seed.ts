@@ -10,9 +10,6 @@ import { CANONICAL_TEST_DEAL_ID } from './deal-command.policy';
 const CANONICAL_TENANT_ID = 'tenant-canonical-test';
 const TEST_PASSWORD = 'demo1234';
 const TEST_FACT_AT = '2026-07-12T09:00:00.000Z';
-const TEST_SHIPMENT_ID = `shipment:${CANONICAL_TEST_DEAL_ID}`;
-const TEST_ACCEPTANCE_ID = `acceptance:${CANONICAL_TEST_DEAL_ID}`;
-const TEST_SAMPLE_ID = `sample:${CANONICAL_TEST_DEAL_ID}`;
 const TEST_CONTRACT_ID = `contract:${CANONICAL_TEST_DEAL_ID}`;
 const TEST_INSPECTION_ID = `inspection:${CANONICAL_TEST_DEAL_ID}`;
 const TEST_VEHICLE_ID = `vehicle:${CANONICAL_TEST_DEAL_ID}`;
@@ -274,28 +271,6 @@ export class CanonicalTestDealSeedService implements OnModuleInit {
           },
         });
       }
-
-      await tx.labSample.upsert({
-        where: { id: TEST_SAMPLE_ID },
-        update: {
-          status: 'PENDING',
-          protocol: null,
-          finalizedAt: null,
-          labId: 'org-canonical-lab',
-          labName: 'ООО «ЗерноЛаб Тест»',
-        },
-        create: {
-          id: TEST_SAMPLE_ID,
-          dealId: CANONICAL_TEST_DEAL_ID,
-          shipmentId: null,
-          acceptanceId: TEST_ACCEPTANCE_ID,
-          status: 'PENDING',
-          culture: 'Пшеница',
-          labId: 'org-canonical-lab',
-          labName: 'ООО «ЗерноЛаб Тест»',
-          collectedAt: new Date(TEST_FACT_AT),
-        },
-      });
     });
   }
 

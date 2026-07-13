@@ -6,6 +6,7 @@ import {
   createInstance,
   destroyInstance,
   payloadForAction,
+  prepareLaboratoryLifecycle,
   provisionDeal,
   type DealFixture,
   type ServiceInstance,
@@ -156,7 +157,11 @@ describe('Industrial core load proof on two instances', () => {
         await bankConfirm(index % 2 === 0 ? alpha : beta, fixture, 'RESERVE');
         for (let step = 0; step < POST_RESERVE_STEPS.length; step += 1) {
           const instance = (index + step) % 2 === 0 ? beta : alpha;
-          await runStep(instance, fixture, POST_RESERVE_STEPS[step].actionId, POST_RESERVE_STEPS[step].userKey);
+          const currentStep = POST_RESERVE_STEPS[step];
+          if (currentStep.actionId === 'finalize_lab') {
+            await prepareLaboratoryLifecycle(instance, fixture);
+          }
+          await runStep(instance, fixture, currentStep.actionId, currentStep.userKey);
         }
         await bankConfirm(index % 2 === 0 ? beta : alpha, fixture, 'RELEASE');
         await runStep(alpha, fixture, 'close_deal', 'operator');

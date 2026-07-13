@@ -92,6 +92,9 @@ psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/postgresql-document-
 echo "[one-deal] applying PostgreSQL logistics-authority RLS overlay"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/postgresql-logistics-authority-policies.sql
 
+echo "[one-deal] applying PostgreSQL labs-authority RLS overlay"
+psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 --file infra/sql/postgresql-labs-authority-policies.sql
+
 echo "[one-deal] creating restricted deal-execution principal"
 psql "$ADMIN_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
 DO $one_deal_role$
@@ -104,7 +107,7 @@ BEGIN
 END
 $one_deal_role$;
 GRANT CONNECT ON DATABASE one_deal_e2e TO one_deal_app;
-GRANT USAGE ON SCHEMA public, security, logistics TO one_deal_app;
+GRANT USAGE ON SCHEMA public, security, logistics, labs TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
@@ -118,6 +121,16 @@ GRANT SELECT ON
   logistics.shipment_bindings
 TO one_deal_app;
 REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA logistics FROM one_deal_app;
+GRANT SELECT, INSERT, UPDATE ON
+  labs.laboratories,
+  labs.authorized_actors,
+  labs.methods,
+  labs.equipment,
+  labs.sample_admissions
+TO one_deal_app;
+GRANT SELECT, INSERT ON labs.sample_custody_events TO one_deal_app;
+GRANT SELECT ON labs.protocols TO one_deal_app;
+REVOKE DELETE ON ALL TABLES IN SCHEMA labs FROM one_deal_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO one_deal_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO one_deal_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO one_deal_app;
@@ -192,6 +205,12 @@ LOGISTICS_ROLE_PROOF="$(psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT 
 echo "[one-deal] logistics principal proof usage:select:update = $LOGISTICS_ROLE_PROOF"
 if [[ "$LOGISTICS_ROLE_PROOF" != "true:true:false" && "$LOGISTICS_ROLE_PROOF" != "t:t:f" ]]; then
   echo "Deal application logistics privilege boundary is invalid: $LOGISTICS_ROLE_PROOF" >&2
+  exit 1
+fi
+LABS_ROLE_PROOF="$(psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege(current_user,'labs','USAGE')::text || ':' || has_table_privilege(current_user,'labs.laboratories','SELECT')::text || ':' || has_table_privilege(current_user,'labs.laboratories','INSERT')::text || ':' || has_table_privilege(current_user,'labs.protocols','DELETE')::text")"
+echo "[one-deal] labs principal proof usage:select:insert:protocol-delete = $LABS_ROLE_PROOF"
+if [[ "$LABS_ROLE_PROOF" != "true:true:true:false" && "$LABS_ROLE_PROOF" != "t:t:t:f" ]]; then
+  echo "Deal application labs privilege boundary is invalid: $LABS_ROLE_PROOF" >&2
   exit 1
 fi
 AUTH_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || has_table_privilege('one_deal_auth','public.deals','SELECT')::text FROM pg_roles WHERE rolname='one_deal_auth'")"

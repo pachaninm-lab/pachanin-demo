@@ -7,6 +7,7 @@ import { DealCommandService } from './deal-command.service';
 import { IndustrialDealCommandGateway } from './industrial-deal-command.gateway';
 import { CanonicalTestDealSeedService } from './canonical-test-deal.seed';
 import { DEAL_REPOSITORY } from './deal.repository';
+import { PostgresqlDealCommandService } from './postgresql-deal-command.service';
 import { PrismaDealRepository } from './prisma-deal.repository';
 
 /**
@@ -19,7 +20,8 @@ import { PrismaDealRepository } from './prisma-deal.repository';
   controllers: [DealsController],
   providers: [
     DealsService,
-    DealCommandService,
+    PostgresqlDealCommandService,
+    { provide: DealCommandService, useExisting: PostgresqlDealCommandService },
     IndustrialDealCommandGateway,
     PrismaDealRepository,
     CanonicalTestDealSeedService,

@@ -16,14 +16,48 @@ import { DurableOutboxWorker } from '../../src/modules/integration-events/durabl
 jest.setTimeout(120_000);
 
 const TYPE = 'industrial.e2e.test';
+const FOREIGN_DEFER_UNTIL = new Date('2099-01-01T00:00:00.000Z');
 
 let prismaA: PrismaService;
 let prismaB: PrismaService;
 let workerA: DurableOutboxWorker;
 let workerB: DurableOutboxWorker;
 
+const deferredForeignRows = new Map<string, Date>();
+
+async function deferForeignDueEntries(): Promise<void> {
+  const foreign = await prismaA.outboxEntry.findMany({
+    where: {
+      type: { not: { startsWith: 'industrial.e2e' } },
+      status: 'PENDING',
+      nextRetryAt: { lte: new Date() },
+    },
+    select: { id: true, nextRetryAt: true },
+  });
+  for (const row of foreign) {
+    if (!deferredForeignRows.has(row.id)) deferredForeignRows.set(row.id, row.nextRetryAt);
+  }
+  if (foreign.length > 0) {
+    await prismaA.outboxEntry.updateMany({
+      where: { id: { in: foreign.map((row) => row.id) }, status: 'PENDING' },
+      data: { nextRetryAt: FOREIGN_DEFER_UNTIL },
+    });
+  }
+}
+
+async function restoreForeignSchedules(): Promise<void> {
+  for (const [id, nextRetryAt] of deferredForeignRows) {
+    await prismaA.outboxEntry.updateMany({
+      where: { id, status: 'PENDING', nextRetryAt: FOREIGN_DEFER_UNTIL },
+      data: { nextRetryAt },
+    });
+  }
+  deferredForeignRows.clear();
+}
+
 async function purge(): Promise<void> {
   await prismaA.outboxEntry.deleteMany({ where: { type: { startsWith: 'industrial.e2e' } } });
+  await deferForeignDueEntries();
 }
 
 async function seedEntries(count: number, overrides: Record<string, unknown> = {}): Promise<string[]> {
@@ -55,7 +89,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await purge();
+  await prismaA.outboxEntry.deleteMany({ where: { type: { startsWith: 'industrial.e2e' } } });
+  await restoreForeignSchedules();
   await prismaA.$disconnect();
   await prismaB.$disconnect();
 });
@@ -71,8 +106,8 @@ describe('DurableOutboxWorker on real PostgreSQL', () => {
     ]);
 
     const claimedIds = [...batchA, ...batchB].map((entry) => entry.id);
-    expect(new Set(claimedIds).size).toBe(claimedIds.length); // no overlap
-    expect(claimedIds.length).toBe(ids.length);
+    expect(new Set(claimedIds).size).toBe(claimedIds.length);
+    expect(new Set(claimedIds)).toEqual(new Set(ids));
 
     const processing = await prismaA.outboxEntry.findMany({
       where: { id: { in: ids } },
@@ -110,7 +145,6 @@ describe('DurableOutboxWorker on real PostgreSQL', () => {
       throw new Error(`provider unavailable (attempt ${attempts})`);
     });
 
-    // Attempt 1 → retry scheduled in the future
     let report = await workerA.drainOnce('worker-a', 10);
     expect(report).toMatchObject({ claimed: 1, delivered: 0, retried: 1, deadLettered: 0 });
     let row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
@@ -119,12 +153,10 @@ describe('DurableOutboxWorker on real PostgreSQL', () => {
     expect(row.lastError).toContain('provider unavailable');
     expect(row.nextRetryAt.getTime()).toBeGreaterThan(Date.now());
 
-    // Force due, attempt 2 → still retrying
     await prismaA.outboxEntry.update({ where: { id }, data: { nextRetryAt: new Date(Date.now() - 1000) } });
     report = await workerA.drainOnce('worker-a', 10);
     expect(report.retried).toBe(1);
 
-    // Force due, attempt 3 = maxRetries → DEAD_LETTER
     await prismaA.outboxEntry.update({ where: { id }, data: { nextRetryAt: new Date(Date.now() - 1000) } });
     report = await workerA.drainOnce('worker-a', 10);
     expect(report.deadLettered).toBe(1);
@@ -132,10 +164,8 @@ describe('DurableOutboxWorker on real PostgreSQL', () => {
     expect(row.status).toBe('DEAD_LETTER');
     expect(row.deadLetterAt).not.toBeNull();
 
-    // Not claimable while dead-lettered
     expect(await workerA.claimBatch('worker-a', 10)).toHaveLength(0);
 
-    // Operator re-drive → delivered on a healthy handler
     expect(await workerA.redrive(id)).toBe(true);
     workerA.registerHandler(TYPE, async () => undefined);
     report = await workerA.drainOnce('worker-a', 10);
@@ -145,27 +175,24 @@ describe('DurableOutboxWorker on real PostgreSQL', () => {
     expect(row.sentAt).not.toBeNull();
   });
 
-  it('reclaims entries from a crashed worker after lease expiry', async () => {
+  it('reclaims its own entry from a crashed worker after lease expiry even with foreign queue facts', async () => {
     await purge();
     const [id] = await seedEntries(1);
 
-    // Worker A claims with a 1-second lease and "crashes" (никогда не отвечает).
     const claimed = await workerA.claimBatch('worker-a', 10, 1);
-    expect(claimed).toHaveLength(1);
+    expect(claimed.map((entry) => entry.id)).toContain(id);
 
-    // Before expiry: worker B must not steal the lease.
-    expect(await workerB.claimBatch('worker-b', 10)).toHaveLength(0);
+    const beforeExpiry = await workerB.claimBatch('worker-b', 10);
+    expect(beforeExpiry.map((entry) => entry.id)).not.toContain(id);
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    // After expiry: worker B reclaims and completes the work.
     const reclaimed = await workerB.claimBatch('worker-b', 10);
-    expect(reclaimed.map((entry) => entry.id)).toEqual([id]);
+    expect(reclaimed.map((entry) => entry.id)).toContain(id);
     await workerB.markDelivered('worker-b', id);
     const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
     expect(row.status).toBe('SENT');
 
-    // The crashed worker's late ack must not corrupt the record.
     await workerA.markDelivered('worker-a', id);
     const after = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
     expect(after.status).toBe('SENT');
