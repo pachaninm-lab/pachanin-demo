@@ -1,331 +1,397 @@
 import Link from 'next/link';
-import { CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
-import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
+import { getLocale } from 'next-intl/server';
+import { EmptyState } from '@pc/design-system-v8';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { EvidenceStrengthMeter } from '@/components/platform-v7/visual/EvidenceStrengthMeter';
-import { calculateEvidencePackReadiness, evidencePackBlocker } from '@/lib/platform-v7/grain-execution/automation/evidence-pack-engine';
-import { disputes as executionDisputes, evidencePacks } from '@/lib/platform-v7/grain-execution/mock-data';
-import { formatRub } from '@/lib/platform-v7/grain-execution/format';
-import { P7HiddenDetails } from '@/components/platform-v7/P7HiddenDetails';
 import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
 import { EvidenceDecisionPanel } from '@/components/platform-v7/EvidenceDecisionPanel';
 import { EvidenceReadinessMiniMatrix } from '@/components/platform-v7/EvidenceReadinessMiniMatrix';
 import { DecisionRecommendationStrip } from '@/components/platform-v7/DecisionRecommendationStrip';
-import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
 import { ActionFeedbackPreviewStrip } from '@/components/platform-v7/ActionFeedbackPreviewStrip';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
-import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
+import {
+  getDisputes,
+  disputeTotalHeldRub,
+  openDisputeCount,
+  type DisputeServerItem,
+} from '@/lib/disputes-server';
+import {
+  OperationalCockpitSection,
+  OperationalDecisionCockpit,
+  OperationalQueue,
+  OperationalQueueLink,
+  operationalCockpitClasses,
+  type OperationalCockpitLabels,
+} from '@/components/transaction-ux/OperationalDecisionCockpit';
 
-const disputesHandoff: HandoffItem[] = [
-  {
-    direction: 'awaits',
-    role: 'споры ← элеватор',
-    requirement: 'акт расхождения от элеватора — без него удержание не закрывается',
-    documentImpact: true,
-    moneyImpact: true,
-  },
-  {
-    direction: 'awaits',
-    role: 'споры ← лабораторный контур качества',
-    requirement: 'протокол качества — основание для решения по спорной сумме',
-    documentImpact: true,
-  },
-  {
-    direction: 'sends',
-    role: 'споры → оператор',
-    requirement: 'рекомендация по удержанию или спорной сумме — передаётся оператору на ручную проверку оснований',
-    moneyImpact: true,
-  },
-  {
-    direction: 'sends',
-    role: 'споры → контур документов',
-    requirement: 'доказательный пакет: акт, вес, фото, протокол и журнал — в контур банка',
-    documentImpact: true,
-  },
-  {
-    direction: 'blockedBy',
-    requirement: 'спор не закрыт — спорная сумма остаётся на ручной проверке до решения оператора',
-    moneyImpact: true,
-  },
-  {
-    direction: 'next',
-    requirement: 'закрыть акт расхождения DSP-9102-WEIGHT и получить протокол DSP-9106-QUALITY',
-    documentImpact: true,
-    moneyImpact: true,
-  },
-];
+type Locale = 'ru' | 'en' | 'zh';
 
-const staticDisputes = [
-  {
-    id: 'DSP-9102-WEIGHT',
-    deal: 'DL-9102',
-    lot: 'LOT-2402',
-    reason: 'Отклонение веса',
-    amount: '624 тыс. ₽',
-    status: 'удержание активно',
-    responsible: 'оператор',
-    sla: '4 часа до решения',
-    next: 'закрыть акт расхождения и решение по удержанию',
-    href: '/platform-v7/deals/DL-9102/clean',
-    evidence: ['весовая ведомость', 'акт расхождения', 'фото приёмки', 'журнал рейса'],
-  },
-  {
-    id: 'DSP-9106-QUALITY',
-    deal: 'DL-9106',
-    lot: 'LOT-2403',
-    reason: 'Протокол качества ожидается',
-    amount: '9,65 млн ₽',
-    status: 'проверка выплаты остановлена',
-    responsible: 'лаборатория',
-    sla: 'до 18:00 сегодня',
-    next: 'получить протокол качества и закрыть акт приёмки',
-    href: '/platform-v7/elevator',
-    evidence: ['проба', 'показатели качества', 'акт приёмки', 'журнал элеватора'],
-  },
-] as const;
-
-const evidenceGateRows = executionDisputes.map((dispute) => {
-  const pack = evidencePacks.find((item) => item.id === dispute.evidencePackId);
-  const readiness = pack ? calculateEvidencePackReadiness(pack) : null;
-  const blocker = pack ? evidencePackBlocker(pack) : null;
-  return {
-    id: dispute.id,
-    deal: dispute.dealId,
-    evidencePackId: dispute.evidencePackId,
-    reason: dispute.reason,
-    disputedAmount: formatRub(dispute.disputedAmount),
-    status: dispute.status,
-    readiness,
-    blocker,
-    href: `/platform-v7/disputes?dispute=${encodeURIComponent(dispute.id)}`,
+type Copy = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  openStatus: string;
+  clearStatus: string;
+  fallbackStatus: string;
+  activeTitle: (id: string) => string;
+  noActiveTitle: string;
+  activeDescription: string;
+  noActiveDescription: string;
+  blocker: string;
+  noBlocker: string;
+  owner: string;
+  impact: string;
+  result: string;
+  openDispute: string;
+  audit: string;
+  deals: string;
+  facts: {
+    open: string;
+    held: string;
+    evidence: string;
+    deadline: string;
+    serverHint: string;
+    fallbackHint: string;
+    heldHint: string;
+    evidenceHint: string;
+    deadlineHint: string;
   };
-});
+  boundary: string;
+  fallbackBoundary: string;
+  queueTitle: string;
+  queueSummary: string;
+  statusOpen: string;
+  statusReview: string;
+  noAmount: string;
+  noDeadline: string;
+  noOwner: string;
+  emptyQueueTitle: string;
+  emptyQueueDescription: string;
+  evidenceTitle: string;
+  evidenceSummary: string;
+  decisionTitle: string;
+  decisionSummary: string;
+  handoffTitle: string;
+  handoff: HandoffItem[];
+  liveRole: string;
+  liveSummary: (count: number, amount: string, fallback: boolean) => string;
+  evidenceFactors: [string, string, string, string];
+  labels: OperationalCockpitLabels;
+};
 
-const readyDisputeCount = evidenceGateRows.filter((item) => item.readiness?.ready).length;
-const blockedDisputeCount = evidenceGateRows.filter((item) => !item.readiness?.ready).length;
+const COPY: Record<Locale, Copy> = {
+  ru: {
+    eyebrow: 'Спор · доказательства → решение → основание',
+    title: 'Спор объясняет, почему сумма удержана',
+    description: 'Очередь строится по данным сервера. Сначала видны сумма, причина, срок, ответственный и действие; доказательства и решение раскрываются ниже.',
+    openStatus: 'есть открытые споры',
+    clearStatus: 'очередь чистая',
+    fallbackStatus: 'сервер споров недоступен',
+    activeTitle: (id) => `Рассмотреть спор ${id}`,
+    noActiveTitle: 'Открытых споров нет',
+    activeDescription: 'Проверьте акт, вес, фото, протокол, временные метки и журнал. Решение должно содержать сумму, основание и следующий шаг.',
+    noActiveDescription: 'Новый спор появится только после серверной регистрации и привязки к конкретной Сделке.',
+    blocker: 'доказательный пакет требует решения',
+    noBlocker: 'нет активного блокера',
+    owner: 'арбитр → оператор → банк',
+    impact: 'удержание сохраняется до подтверждённого решения',
+    result: 'мотивированное решение + журнал + банковское основание',
+    openDispute: 'Открыть спор',
+    audit: 'Журнал Сделки',
+    deals: 'Реестр Сделок',
+    facts: {
+      open: 'Открытых споров',
+      held: 'Удержано',
+      evidence: 'Доказательств',
+      deadline: 'Ближайший срок',
+      serverHint: 'только зарегистрированные сервером дела',
+      fallbackHint: 'показаны резервные данные, не основание для решения',
+      heldHint: 'интерфейс не выпускает спорную сумму',
+      evidenceHint: 'по приоритетному спору',
+      deadlineHint: 'SLA из данных спора',
+    },
+    boundary: 'Арбитр формирует мотивированное решение. Платформа не меняет лабораторный факт, не подписывает документы за стороны и не подтверждает движение денег.',
+    fallbackBoundary: 'Сервер споров недоступен. Резервные строки показаны только для устойчивости интерфейса и не могут использоваться как юридическое или денежное основание.',
+    queueTitle: 'Очередь споров',
+    queueSummary: 'сумма · причина · SLA · ответственный',
+    statusOpen: 'открыт',
+    statusReview: 'на рассмотрении',
+    noAmount: 'сумма не указана',
+    noDeadline: 'срок не установлен',
+    noOwner: 'ответственный не назначен',
+    emptyQueueTitle: 'Споров, требующих решения, нет',
+    emptyQueueDescription: 'Очередь появится после серверной регистрации спора и проверки доступа к Сделке.',
+    evidenceTitle: 'Доказательный пакет',
+    evidenceSummary: 'готовность · источник · непротиворечивость',
+    decisionTitle: 'Решение и рекомендации',
+    decisionSummary: 'основание · следующий шаг · обратная связь',
+    handoffTitle: 'Передача между элеватором, лабораторией, арбитром, оператором и банком',
+    handoff: [
+      { direction: 'awaits', role: 'арбитр ← элеватор', requirement: 'акт расхождения и весовая ведомость', documentImpact: true, moneyImpact: true },
+      { direction: 'awaits', role: 'арбитр ← лаборатория', requirement: 'подписанный протокол качества', documentImpact: true, moneyImpact: true },
+      { direction: 'sends', role: 'арбитр → оператор', requirement: 'мотивированное решение и сумма', documentImpact: true, moneyImpact: true },
+      { direction: 'sends', role: 'оператор → банк', requirement: 'проверенное основание, а не команда на выплату', documentImpact: true, moneyImpact: true },
+    ],
+    liveRole: 'ARBITRATOR · Споры и доказательства',
+    liveSummary: (count, amount, fallback) => `${fallback ? 'резервные данные · ' : ''}${count} открытых споров · ${amount} удержано`,
+    evidenceFactors: ['Доказательства со ссылкой на источник', 'Временная шкала событий', 'Подписанные акты и протоколы', 'Неизменяемый журнал аудита'],
+    labels: {
+      blocker: 'Блокер', owner: 'Ответственный', impact: 'Влияние', result: 'Результат', nextAction: 'Следующее действие', prioritySection: 'Главная задача по спору', factsSection: 'Ключевые факты спора',
+    },
+  },
+  en: {
+    eyebrow: 'Dispute · evidence → decision → basis',
+    title: 'A dispute explains why money is held',
+    description: 'The queue is built from server data. Amount, reason, deadline, owner and action come first; evidence and decision details are disclosed below.',
+    openStatus: 'open disputes require action',
+    clearStatus: 'queue clear',
+    fallbackStatus: 'dispute server unavailable',
+    activeTitle: (id) => `Review dispute ${id}`,
+    noActiveTitle: 'No open disputes',
+    activeDescription: 'Review the act, weight data, photos, protocol, timestamps and journal. The decision must include amount, basis and next step.',
+    noActiveDescription: 'A new dispute appears only after server registration and linkage to a specific Deal.',
+    blocker: 'the evidence package requires a decision',
+    noBlocker: 'no active blocker',
+    owner: 'arbitrator → operator → bank',
+    impact: 'the hold remains until a verified decision exists',
+    result: 'reasoned decision + journal + bank basis',
+    openDispute: 'Open dispute',
+    audit: 'Deal journal',
+    deals: 'Deal registry',
+    facts: {
+      open: 'Open disputes', held: 'Held amount', evidence: 'Evidence items', deadline: 'Nearest deadline',
+      serverHint: 'server-registered cases only', fallbackHint: 'fallback data, not a decision basis', heldHint: 'the interface cannot release the disputed amount', evidenceHint: 'for the priority dispute', deadlineHint: 'SLA from dispute data',
+    },
+    boundary: 'The arbitrator creates a reasoned decision. The platform does not alter laboratory facts, sign for parties or confirm movement of money.',
+    fallbackBoundary: 'The dispute server is unavailable. Fallback rows exist only for interface resilience and cannot be used as a legal or monetary basis.',
+    queueTitle: 'Dispute queue',
+    queueSummary: 'amount · reason · SLA · owner',
+    statusOpen: 'open',
+    statusReview: 'under review',
+    noAmount: 'amount not specified',
+    noDeadline: 'no deadline',
+    noOwner: 'owner not assigned',
+    emptyQueueTitle: 'No disputes require a decision',
+    emptyQueueDescription: 'The queue appears after server registration and Deal-access verification.',
+    evidenceTitle: 'Evidence package',
+    evidenceSummary: 'readiness · source · consistency',
+    decisionTitle: 'Decision and recommendations',
+    decisionSummary: 'basis · next step · feedback',
+    handoffTitle: 'Handoff between elevator, laboratory, arbitrator, operator and bank',
+    handoff: [
+      { direction: 'awaits', role: 'arbitrator ← elevator', requirement: 'discrepancy act and weight record', documentImpact: true, moneyImpact: true },
+      { direction: 'awaits', role: 'arbitrator ← laboratory', requirement: 'signed quality protocol', documentImpact: true, moneyImpact: true },
+      { direction: 'sends', role: 'arbitrator → operator', requirement: 'reasoned decision and amount', documentImpact: true, moneyImpact: true },
+      { direction: 'sends', role: 'operator → bank', requirement: 'verified basis, not a payout command', documentImpact: true, moneyImpact: true },
+    ],
+    liveRole: 'ARBITRATOR · Disputes and evidence',
+    liveSummary: (count, amount, fallback) => `${fallback ? 'fallback data · ' : ''}${count} open disputes · ${amount} held`,
+    evidenceFactors: ['Source-linked evidence', 'Event timeline', 'Signed acts and protocols', 'Immutable audit trail'],
+    labels: {
+      blocker: 'Blocker', owner: 'Owner', impact: 'Impact', result: 'Result', nextAction: 'Next action', prioritySection: 'Priority dispute task', factsSection: 'Key dispute facts',
+    },
+  },
+  zh: {
+    eyebrow: '争议 · 证据 → 裁决 → 依据',
+    title: '争议说明资金为何被冻结',
+    description: '队列来自服务器数据。首先显示金额、原因、期限、负责人和操作；证据与裁决细节在下方展开。',
+    openStatus: '存在待处理争议',
+    clearStatus: '队列为空',
+    fallbackStatus: '争议服务器不可用',
+    activeTitle: (id) => `审查争议 ${id}`,
+    noActiveTitle: '没有未决争议',
+    activeDescription: '检查差异单、重量、照片、质量报告、时间戳和日志。裁决必须包含金额、依据和下一步。',
+    noActiveDescription: '只有服务器登记并关联到具体交易后，新争议才会出现。',
+    blocker: '证据包需要裁决',
+    noBlocker: '没有活动阻塞项',
+    owner: '仲裁员 → 运营人员 → 银行',
+    impact: '在形成已验证裁决前冻结继续有效',
+    result: '有理由的裁决 + 日志 + 银行依据',
+    openDispute: '打开争议',
+    audit: '交易日志',
+    deals: '交易登记册',
+    facts: {
+      open: '未决争议', held: '冻结金额', evidence: '证据数量', deadline: '最近期限',
+      serverHint: '仅服务器登记的案件', fallbackHint: '备用数据，不能作为裁决依据', heldHint: '界面不能释放争议金额', evidenceHint: '针对优先争议', deadlineHint: '来自争议数据的 SLA',
+    },
+    boundary: '仲裁员形成有理由的裁决。平台不更改实验室事实、不代表交易方签署，也不确认资金流动。',
+    fallbackBoundary: '争议服务器不可用。备用记录仅用于界面韧性，不能作为法律或资金依据。',
+    queueTitle: '争议队列',
+    queueSummary: '金额 · 原因 · SLA · 负责人',
+    statusOpen: '未决',
+    statusReview: '审查中',
+    noAmount: '未指定金额',
+    noDeadline: '未设置期限',
+    noOwner: '未指定负责人',
+    emptyQueueTitle: '没有需要裁决的争议',
+    emptyQueueDescription: '服务器登记争议并验证交易访问权限后，队列才会出现。',
+    evidenceTitle: '证据包',
+    evidenceSummary: '就绪度 · 来源 · 一致性',
+    decisionTitle: '裁决和建议',
+    decisionSummary: '依据 · 下一步 · 反馈',
+    handoffTitle: '粮库、实验室、仲裁员、运营人员和银行之间的交接',
+    handoff: [
+      { direction: 'awaits', role: '仲裁员 ← 粮库', requirement: '差异单和称重记录', documentImpact: true, moneyImpact: true },
+      { direction: 'awaits', role: '仲裁员 ← 实验室', requirement: '已签署质量报告', documentImpact: true, moneyImpact: true },
+      { direction: 'sends', role: '仲裁员 → 运营人员', requirement: '有理由的裁决和金额', documentImpact: true, moneyImpact: true },
+      { direction: 'sends', role: '运营人员 → 银行', requirement: '已验证依据，而不是付款指令', documentImpact: true, moneyImpact: true },
+    ],
+    liveRole: 'ARBITRATOR · 争议和证据',
+    liveSummary: (count, amount, fallback) => `${fallback ? '备用数据 · ' : ''}${count} 个未决争议 · 冻结 ${amount}`,
+    evidenceFactors: ['关联来源的证据', '事件时间线', '已签署的差异单和报告', '不可变审计日志'],
+    labels: {
+      blocker: '阻塞项', owner: '负责人', impact: '影响', result: '结果', nextAction: '下一步', prioritySection: '优先争议任务', factsSection: '争议关键事实',
+    },
+  },
+};
 
-const disputeSummary = [
-  { label: 'Что сейчас', value: '2 открытых спора', note: 'Каждый спор объясняет, почему сумма остановлена или удержана.' },
-  { label: 'Сумма влияния', value: '15,89 млн ₽', note: 'Включает активное удержание и сделку, где проверка выплаты остановлена до качества.' },
-  { label: 'Удержание', value: '624 тыс. ₽', note: 'Удержание нельзя снять без решения, суммы и основания.' },
-  { label: 'Срок', value: '4 часа / до 18:00', note: 'Очередь должна сортироваться по срочности и влиянию на деньги.' },
-  { label: 'Владельцы', value: 'оператор · лаборатория · элеватор', note: 'У каждого спора есть ответственный за следующий шаг.' },
-  { label: 'Доказательства', value: 'акт · вес · фото · протокол · журнал', note: 'Спор не закрывается устной перепиской или ручным обходом.' },
-] as const;
+function normalizeLocale(value: string): Locale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
+}
+
+function formatMoney(rub: number, locale: Locale): string {
+  return new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : locale === 'en' ? 'en-GB' : 'ru-RU', {
+    style: 'currency',
+    currency: 'RUB',
+    maximumFractionDigits: 0,
+  }).format(rub);
+}
+
+function formatDeadline(dispute: DisputeServerItem | undefined, locale: Locale, fallback: string): string {
+  if (!dispute?.slaDeadline) return fallback;
+  const value = new Date(dispute.slaDeadline);
+  if (Number.isNaN(value.getTime())) return fallback;
+  return new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : locale === 'en' ? 'en-GB' : 'ru-RU', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  }).format(value);
+}
+
+function isFallbackData(disputes: DisputeServerItem[]): boolean {
+  return disputes.length > 0 && disputes.every((dispute) => dispute.id === 'DISPUTE-001' || dispute.id === 'DISPUTE-002');
+}
+
+function severityRank(severity: DisputeServerItem['severity']): number {
+  if (severity === 'CRITICAL') return 0;
+  if (severity === 'HIGH') return 1;
+  if (severity === 'MEDIUM') return 2;
+  return 3;
+}
+
+function sortActiveDisputes(disputes: DisputeServerItem[]): DisputeServerItem[] {
+  return disputes
+    .filter((dispute) => dispute.status === 'OPEN' || dispute.status === 'UNDER_REVIEW')
+    .sort((left, right) => {
+      const severity = severityRank(left.severity) - severityRank(right.severity);
+      if (severity !== 0) return severity;
+      const leftDeadline = left.slaDeadline ? Date.parse(left.slaDeadline) : Number.POSITIVE_INFINITY;
+      const rightDeadline = right.slaDeadline ? Date.parse(right.slaDeadline) : Number.POSITIVE_INFINITY;
+      return leftDeadline - rightDeadline;
+    });
+}
 
 export default async function PlatformV7DisputesPage() {
-  const liveDisputes = await getDisputes();
-  const heldRub = disputeTotalHeldRub(liveDisputes);
-  const disputeCount = openDisputeCount(liveDisputes);
+  const locale = normalizeLocale(await getLocale());
+  const copy = COPY[locale];
+  const disputes = await getDisputes();
+  const fallback = isFallbackData(disputes);
+  const activeDisputes = sortActiveDisputes(disputes);
+  const active = activeDisputes[0];
+  const heldRub = disputeTotalHeldRub(disputes);
+  const disputeCount = openDisputeCount(disputes);
+  const evidenceCount = active?.evidenceCount ?? 0;
+  const heldLabel = formatMoney(heldRub, locale);
+  const activeDisputeHref = active ? `/platform-v7/disputes/${encodeURIComponent(active.id)}` : '/platform-v7/disputes';
+  const auditHref = active ? `/platform-v7/deals/${encodeURIComponent(active.dealId)}/audit` : '/platform-v7/deals';
 
-  const liveBlockers = liveDisputes
-    .filter((d) => d.status === 'OPEN' || d.status === 'UNDER_REVIEW')
-    .map((d) => ({
-      id: d.id,
-      label: `Спор ${d.id}: ${d.description.slice(0, 60)}`,
-      severity: 'stop' as const,
-      responsibleRole: 'ARBITRATOR',
-      nextAction: d.status === 'OPEN' ? 'Взять в работу (triage)' : 'Продолжить расследование',
-    }));
+  const liveBlockers = activeDisputes.map((dispute) => ({
+    id: dispute.id,
+    label: `${dispute.id}: ${dispute.description.slice(0, 72)}`,
+    severity: (dispute.severity === 'HIGH' || dispute.severity === 'CRITICAL' ? 'stop' : 'warn') as 'stop' | 'warn',
+    responsibleRole: 'ARBITRATOR',
+    nextAction: dispute.status === 'OPEN' ? copy.openDispute : copy.statusReview,
+  }));
 
   return (
-    <main style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
-      <LiveApiStatusBar
-        apiOnline={liveDisputes.some((d) => d.id.startsWith('DSP') && !d.id.includes('MOCK'))}
-        blockers={liveBlockers}
-        openDisputes={disputeCount}
-        role="ARBITRATOR · Управление спорами"
-        summary={
-          disputeCount > 0
-            ? `${disputeCount} открытых споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'удержаний нет'}`
-            : 'Открытых споров нет'
-        }
-      />
-      <CockpitHero
-        eyebrow='Споры и удержания'
-        title='Спор объясняет, почему сумма остановлена'
-        lead='Здесь сверху видны только причина, сумма влияния, срок, ответственный и следующий шаг. Доказательства, правила и передача между ролями раскрываются отдельно.'
-      >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
-          <PremiumCtaButton href='/platform-v7/operator' glyph='gauge'>Центр управления</PremiumCtaButton>
-          <PremiumCtaButton href='/platform-v7/bank' variant='ghost'>Банковская проверка</PremiumCtaButton>
-        </div>
-      </CockpitHero>
+    <OperationalDecisionCockpit
+      testId='platform-v7-disputes-v8'
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+      description={copy.description}
+      statusLabel={fallback ? copy.fallbackStatus : disputeCount > 0 ? copy.openStatus : copy.clearStatus}
+      statusTone={fallback ? 'warning' : disputeCount > 0 ? 'critical' : 'success'}
+      labels={copy.labels}
+      liveStatus={(
+        <LiveApiStatusBar
+          apiOnline={!fallback}
+          blockers={liveBlockers}
+          openDisputes={disputeCount}
+          role={copy.liveRole}
+          summary={copy.liveSummary(disputeCount, heldLabel, fallback)}
+        />
+      )}
+      priority={{
+        state: active ? 'critical' : 'ready',
+        title: active ? copy.activeTitle(active.id) : copy.noActiveTitle,
+        description: active ? copy.activeDescription : copy.noActiveDescription,
+        blocker: active ? copy.blocker : copy.noBlocker,
+        owner: active?.owner ?? copy.owner,
+        impact: copy.impact,
+        result: copy.result,
+        primaryAction: active ? <Link className={operationalCockpitClasses.primaryLink} href={activeDisputeHref}>{copy.openDispute}</Link> : undefined,
+        secondaryAction: <Link className={operationalCockpitClasses.secondaryLink} href={auditHref}>{active ? copy.audit : copy.deals}</Link>,
+      }}
+      facts={[
+        { label: copy.facts.open, value: String(disputeCount), hint: fallback ? copy.facts.fallbackHint : copy.facts.serverHint },
+        { label: copy.facts.held, value: heldLabel, hint: copy.facts.heldHint },
+        { label: copy.facts.evidence, value: String(evidenceCount), hint: copy.facts.evidenceHint },
+        { label: copy.facts.deadline, value: formatDeadline(active, locale, copy.noDeadline), hint: copy.facts.deadlineHint },
+      ]}
+      boundary={fallback ? copy.fallbackBoundary : copy.boundary}
+    >
+      <OperationalCockpitSection id='dispute-queue'>
+        <CollapsibleSection title={copy.queueTitle} summary={copy.queueSummary} defaultOpen>
+          {activeDisputes.length > 0 ? (
+            <OperationalQueue>
+              {activeDisputes.map((dispute) => (
+                <OperationalQueueLink
+                  key={dispute.id}
+                  href={`/platform-v7/disputes/${encodeURIComponent(dispute.id)}`}
+                  title={`${dispute.id} · ${dispute.status === 'OPEN' ? copy.statusOpen : copy.statusReview}`}
+                  detail={`${dispute.description} · ${formatMoney(dispute.claimAmountRub ?? dispute.moneyHold?.amountRub ?? 0, locale)} · ${formatDeadline(dispute, locale, copy.noDeadline)} · ${dispute.owner ?? copy.noOwner}`}
+                />
+              ))}
+            </OperationalQueue>
+          ) : (
+            <EmptyState title={copy.emptyQueueTitle} description={copy.emptyQueueDescription} />
+          )}
+        </CollapsibleSection>
+        <RoleExecutionHandoff items={copy.handoff} title={copy.handoffTitle} />
+      </OperationalCockpitSection>
 
-      <section style={darkCard}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ ...micro, color: '#FECACA' }}>контроль спора</div>
-          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#FEE2E2', fontSize: 14, lineHeight: 1.55 }}>Спор — это сумма влияния, причина, срок, ответственный, доказательства и решение по деньгам.</p>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 10 }}>
-          {disputeSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
-        </div>
-      </section>
-
-      <section style={metricsGrid}>
-        <Metric label='Открытых споров' value='2' danger />
-        <Metric label='Под удержанием' value='624 тыс. ₽' danger />
-        <Metric label='Деньги под влиянием' value='15,89 млн ₽' danger />
-        <Metric label='Готово к решению' value={String(readyDisputeCount)} />
-        <Metric label='Закрыто доказательствами' value={String(blockedDisputeCount)} danger />
-      </section>
-
-      <SmartSectionSummary
-        label='Споры'
-        moneyFact='15,89 млн ₽ под влиянием'
-        blockers={['624 тыс. ₽ · активное удержание', 'DSP-9102-WEIGHT · акт расхождения не закрыт']}
-        warnings={['DSP-9106-QUALITY · ожидает протокол качества']}
-        facts={['2 открытых спора', `${readyDisputeCount} готово к решению`]}
-      />
-
-      <section style={card}>
-        <div style={micro}>Очередь споров</div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {staticDisputes.map((item) => <DisputeCard key={item.id} item={item} />)}
-        </div>
-      </section>
-
-      <EvidenceStrengthMeter
-        score={readyDisputeCount * 20}
-        maxScore={40}
-        factors={[
-          { id: 'gps',    label: 'GPS-трек рейса',       points: 5,  earned: 5,  status: 'present'  },
-          { id: 'photo',  label: 'Фото приёмки',         points: 10, earned: readyDisputeCount >= 1 ? 10 : 0, status: readyDisputeCount >= 1 ? 'present' : 'absent' },
-          { id: 'weight', label: 'Акт расхождения веса', points: 10, earned: 0,  status: 'absent'   },
-          { id: 'lab',    label: 'Протокол качества',    points: 10, earned: 0,  status: 'pending'  },
-          { id: 'act',    label: 'Акт приёмки',          points: 5,  earned: 5,  status: 'present'  },
-        ]}
-        compact
-      />
-
-      <P7HiddenDetails title='Проверка доказательного пакета' meta='готовность, недостающие доказательства, сумма спора и блокировка решения'>
-        <section style={cardInner}>
-          <div style={micro}>Проверка доказательного пакета</div>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {evidenceGateRows.map((item) => <EvidenceGateCard key={item.id} item={item} />)}
-          </div>
-        </section>
-      </P7HiddenDetails>
-
-      <P7HiddenDetails title='Решение и рекомендации' meta='панель решения, рекомендация, пакет решения и обратная связь'>
-        <EvidenceDecisionPanel />
-        <DecisionRecommendationStrip context='disputes' />
-        <DecisionPackMiniPanel context='dl9102_dispute_hold' />
+      <CollapsibleSection title={copy.evidenceTitle} summary={copy.evidenceSummary} defaultOpen={false}>
+        <EvidenceStrengthMeter
+          score={Math.min(evidenceCount * 10, 40)}
+          maxScore={40}
+          factors={[
+            { id: 'source', label: copy.evidenceFactors[0], points: 10, earned: evidenceCount > 0 ? 10 : 0, status: evidenceCount > 0 ? 'present' : 'absent' },
+            { id: 'timeline', label: copy.evidenceFactors[1], points: 10, earned: evidenceCount >= 2 ? 10 : 0, status: evidenceCount >= 2 ? 'present' : 'pending' },
+            { id: 'documents', label: copy.evidenceFactors[2], points: 10, earned: evidenceCount >= 3 ? 10 : 0, status: evidenceCount >= 3 ? 'present' : 'pending' },
+            { id: 'audit', label: copy.evidenceFactors[3], points: 10, earned: evidenceCount >= 4 ? 10 : 0, status: evidenceCount >= 4 ? 'present' : 'pending' },
+          ]}
+          compact
+        />
         <EvidenceReadinessMiniMatrix context='disputes' />
-        <ActionFeedbackPreviewStrip context='disputes' />
-      </P7HiddenDetails>
+      </CollapsibleSection>
 
-      <P7HiddenDetails title='Правила закрытия спора' meta='решение, сумма, основание и запись в журнал сделки'>
-        <section style={cardInner}>
-          <div style={micro}>Правила закрытия</div>
-          <div style={grid2}>
-            <Rule title='Решение' text='нужно указать: удержать, выплатить, пересчитать или вернуть' />
-            <Rule title='Сумма' text='спорная часть должна быть выражена в рублях' />
-            <Rule title='Основание' text='акт, протокол, весовая ведомость или документ ЭДО' />
-            <Rule title='Журнал' text='закрытие спора записывается в журнал сделки' />
-          </div>
-        </section>
-      </P7HiddenDetails>
-
-      <P7HiddenDetails title='Передача между ролями' meta='что споры ожидают, что отправляют и что блокирует деньги'>
-        <RoleExecutionHandoff items={disputesHandoff} title='исполнение: что споры отправляют и ожидают' />
-      </P7HiddenDetails>
-    </main>
+      <CollapsibleSection title={copy.decisionTitle} summary={copy.decisionSummary} defaultOpen={false}>
+        <div className={operationalCockpitClasses.toolGrid}>
+          <EvidenceDecisionPanel />
+          <DecisionRecommendationStrip context='disputes' />
+          <ActionFeedbackPreviewStrip context='disputes' />
+        </div>
+      </CollapsibleSection>
+    </OperationalDecisionCockpit>
   );
 }
-
-function SummaryCard({ item }: { item: typeof disputeSummary[number] }) {
-  return <div style={{ background: 'rgba(255,255,255,0.09)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 20, padding: 14, display: 'grid', gap: 7, boxShadow: '0 12px 26px rgba(15,23,42,0.12)' }}><div style={{ ...micro, color: '#FECACA' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4 }}>{item.value}</strong><p style={{ margin: 0, color: '#FEE2E2', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
-}
-
-function DisputeCard({ item }: { item: typeof staticDisputes[number] }) {
-  return (
-    <Link href={item.href} style={disputeCard}>
-      <div style={rowHead}>
-        <div>
-          <div style={idText}>{item.id} · {item.deal} · {item.lot}</div>
-          <h2 style={h2}>{item.reason}</h2>
-          <p style={muted}>{item.status}</p>
-        </div>
-        <span style={dangerPill}>держит сумму</span>
-      </div>
-      <div style={grid2}>
-        <Cell label='Сумма влияния' value={item.amount} danger />
-        <Cell label='Срок' value={item.sla} danger />
-        <Cell label='Ответственный' value={item.responsible} />
-        <Cell label='Следующее действие' value={item.next} strong />
-      </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {item.evidence.map((evidence) => <span key={evidence} style={evidencePill}>{evidence}</span>)}
-      </div>
-    </Link>
-  );
-}
-
-function EvidenceGateCard({ item }: { item: typeof evidenceGateRows[number] }) {
-  const ready = Boolean(item.readiness?.ready);
-  const missing = item.readiness?.missing ?? [];
-  const present = item.readiness?.present ?? [];
-
-  return (
-    <div style={disputeCard}>
-      <div style={rowHead}>
-        <div>
-          <div style={idText}>{item.id} · {item.deal} · {item.evidencePackId}</div>
-          <h2 style={h2}>{ready ? 'Решение можно готовить' : 'Решение закрыто до комплекта доказательств'}</h2>
-          <p style={muted}>{item.blocker?.description ?? 'Минимальный доказательный пакет собран.'}</p>
-        </div>
-        <span style={ready ? safePill : dangerPill}>{ready ? 'пакет готов' : 'решение заблокировано'}</span>
-      </div>
-      <div style={grid2}>
-        <Cell label='Готовность' value={`${item.readiness?.score ?? 0}%`} danger={!ready} />
-        <Cell label='Сумма спора' value={item.disputedAmount} danger />
-        <Cell label='Статус' value={item.status} />
-        <Cell label='Действие' value={ready ? 'подготовить решение по спору' : 'дособрать доказательства'} strong />
-      </div>
-      <div style={{ display: 'grid', gap: 6 }}>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {present.map((evidence) => <span key={evidence} style={evidencePill}>есть: {evidence}</span>)}
-        </div>
-        {missing.length > 0 ? <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{missing.map((evidence) => <span key={evidence} style={missingEvidencePill}>нет: {evidence}</span>)}</div> : null}
-      </div>
-    </div>
-  );
-}
-
-function Metric({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
-  return <div style={metric}><div style={micro}>{label}</div><div style={{ marginTop: 8, color: danger ? '#B91C1C' : 'var(--pc-text-primary, #0F1419)', fontSize: 29, lineHeight: 1, fontWeight: 950, letterSpacing: '-0.035em' }}>{value}</div></div>;
-}
-
-function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
-  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.3, fontWeight: 900 }}>{value}</div></div>;
-}
-
-function Rule({ title, text }: { title: string; text: string }) {
-  return <div style={cell}><strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 14 }}>{title}</strong><p style={{ margin: '5px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.4 }}>{text}</p></div>;
-}
-
-const hero = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 28, padding: 24, display: 'grid', gap: 12, boxShadow: '0 18px 44px rgba(127,29,29,0.08)' } as const;
-const darkCard = { background: 'linear-gradient(135deg,#7F1D1D 0%,#991B1B 58%,#450A0A 120%)', color: '#fff', borderRadius: 26, padding: 20, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(127,29,29,0.2)' } as const;
-const card = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
-const cardInner = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 14, display: 'grid', gap: 12, boxShadow: '0 10px 22px rgba(15,23,42,0.045)' } as const;
-const metric = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 20, padding: 16, boxShadow: '0 12px 28px rgba(15,23,42,0.055)' } as const;
-const badge = { display: 'inline-flex', width: 'fit-content', padding: '7px 11px', borderRadius: 999, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
-const h1 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 'clamp(30px,8vw,48px)', lineHeight: 1.03, letterSpacing: '-0.045em', fontWeight: 950 } as const;
-const h2 = { margin: '6px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 20, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.02em' } as const;
-const lead = { margin: 0, color: 'var(--pc-text-secondary, #475569)', fontSize: 15, lineHeight: 1.6 } as const;
-const muted = { margin: '6px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13 } as const;
-const rowHead = { display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' } as const;
-const idText = { color: '#B91C1C', fontSize: 13, fontWeight: 950 } as const;
-const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
-const metricsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 10 } as const;
-const grid2 = { display: 'grid', gridTemplateColumns: 'repeat(2,minmax(120px,1fr))', gap: 8 } as const;
-const cell = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
-const actions = { display: 'flex', gap: 8, flexWrap: 'wrap' } as const;
-const primaryBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: '#B91C1C', color: '#fff', fontSize: 14, fontWeight: 900, boxShadow: '0 14px 30px rgba(185,28,28,0.18)' } as const;
-const ghostBtn = { textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '11px 14px', borderRadius: 14, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 850, boxShadow: '0 10px 24px rgba(15,23,42,0.06)' } as const;
-const disputeCard = { textDecoration: 'none', color: 'inherit', background: 'var(--pc-danger-bg)', border: '1px solid rgba(220,38,38,0.16)', borderRadius: 22, padding: 16, display: 'grid', gap: 10, boxShadow: '0 12px 30px rgba(127,29,29,0.07)' } as const;
-const dangerPill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'var(--pc-bg-card)', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
-const safePill = { display: 'inline-flex', width: 'fit-content', alignItems: 'center', padding: '7px 10px', borderRadius: 999, background: 'var(--pc-bg-card)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F', fontSize: 12, fontWeight: 900 } as const;
-const evidencePill = { display: 'inline-flex', width: 'fit-content', padding: '6px 9px', borderRadius: 999, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 850 } as const;
-const missingEvidencePill = { display: 'inline-flex', width: 'fit-content', padding: '6px 9px', borderRadius: 999, background: 'var(--pc-bg-card)', border: '1px solid rgba(220,38,38,0.22)', color: '#B91C1C', fontSize: 12, fontWeight: 900 } as const;
