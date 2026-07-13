@@ -29,9 +29,17 @@ function walk(path) {
   return result;
 }
 
+const fieldRolePages = [
+  'apps/web/app/platform-v7/driver/field/page.tsx',
+  'apps/web/app/platform-v7/elevator/page.tsx',
+  'apps/web/app/platform-v7/lab/page.tsx',
+  'apps/web/app/platform-v7/surveyor/page.tsx',
+];
+
 const governedSources = [
   ...walk('packages/design-system-v8/src'),
   ...walk('apps/web/components/transaction-ux'),
+  ...fieldRolePages,
 ].filter((path) => ['.ts', '.tsx', '.css'].includes(extname(path)));
 
 const literalColor = /(?:#[0-9a-fA-F]{3,8}\b|\brgba?\s*\()/g;
@@ -85,6 +93,16 @@ const allowedShellFiles = new Set([
 for (const path of walk('apps/web/components')) {
   if (!/AppShell.*\.tsx$|\/app-shell\.tsx$/.test(path)) continue;
   if (!allowedShellFiles.has(path)) fail(`${path}: new competing App Shell implementation is forbidden`);
+}
+
+for (const path of fieldRolePages) {
+  const source = read(path);
+  if (!source.includes("@/components/transaction-ux/FieldTaskTemplate")) {
+    fail(`${path}: migrated field role must use FieldTaskTemplate or IntakeWorkbenchTemplate`);
+  }
+  for (const forbiddenRoute of ['/platform-v7/bank', '/platform-v7/investor', '/platform-v7/control-tower']) {
+    if (source.includes(forbiddenRoute)) fail(`${path}: field role must not link to ${forbiddenRoute}`);
+  }
 }
 
 const tokenPath = 'packages/design-tokens/src/tokens.json';
