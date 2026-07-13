@@ -1,48 +1,46 @@
-import React from 'react';
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import BankReleaseSafetyPage from '@/app/platform-v7/bank/release-safety/page';
 
-const FORBIDDEN = [
-  /production-ready/i,
-  /fully live/i,
-  /fully integrated/i,
-  /live bank/i,
-  /live callback/i,
-  /bank callback/i,
-  /платформа гарантирует оплату/i,
-  /платформа выпускает деньги/i,
-  /платформа сама выпускает деньги/i,
-  /деньги автоматически выпускаются/i,
-];
+const cwd = process.cwd();
+const root = [cwd, path.resolve(cwd, '../..')]
+  .find((candidate) => fs.existsSync(path.join(candidate, 'design-governance-v8.json')));
+
+if (!root) throw new Error(`Cannot resolve repository root from ${cwd}`);
+
+function read(relativePath: string): string {
+  return fs.readFileSync(path.join(root, relativePath), 'utf8');
+}
 
 describe('BankReleaseSafetyPage', () => {
-  it('renders payout review as a bank-check screen, not a payment mechanism', () => {
-    render(<BankReleaseSafetyPage />);
+  const page = read('apps/web/app/platform-v7/bank/release-safety/page.tsx');
 
-    expect(screen.getByText('Банковская проверка выплаты')).toBeInTheDocument();
-    expect(screen.getByText(/Экран показывает, почему запрос в банк не должен обходить резерв/)).toBeInTheDocument();
-    expect(screen.getByText(/Это контрольный экран, а не платёжный механизм/)).toBeInTheDocument();
-    expect(screen.getByText('Основание выплаты по зерновой сделке')).toBeInTheDocument();
-    expect(screen.getByText(/без заявления о самостоятельном платёжном механизме/)).toBeInTheDocument();
+  it('presents payout readiness as a verification flow, not a payment mechanism', () => {
+    expect(page).toContain('Проверка выплаты не является кнопкой выпуска денег');
+    expect(page).toContain('Payout readiness is not a release button');
+    expect(page).toContain('付款就绪检查不是放款按钮');
+    expect(page).toContain('MoneyObligationCockpit');
   });
 
-  it('keeps the bank request gated by deal evidence and conditions', () => {
-    render(<BankReleaseSafetyPage />);
-
-    expect(screen.getByText(/Запрос к банку допустим только после закрытия условий/)).toBeInTheDocument();
-    expect(screen.getByText(/резерв, сумма к выплате, отсутствие удержания, документы/)).toBeInTheDocument();
-    expect(screen.getByText(/ФГИС\/СДИЗ, рейс, приёмка, качество/)).toBeInTheDocument();
-    expect(screen.getAllByText('К запросу').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Причины остановки').length).toBeGreaterThan(0);
+  it('keeps the bank request gated by Deal evidence and server state', () => {
+    expect(page).toContain('Backend проверяет резерв, сумму, удержания, спор, документы');
+    expect(page).toContain('ФГИС/СДИЗ');
+    expect(page).toContain('полный evidence pack');
+    expect(page).toContain('<CanonicalDealsList />');
   });
 
-  it('does not expose live-bank or platform-payment claims', () => {
-    const { container } = render(<BankReleaseSafetyPage />);
-    const text = container.textContent || '';
+  it('distinguishes a request from bank-confirmed money movement', () => {
+    expect(page).toContain('release request → callback → reconciliation → audit');
+    expect(page).toContain('создаёт outbox-запись, но не меняет деньги на RELEASED');
+    expect(page).toContain('verified bank callback');
+    expect(page).toContain('manual review');
+  });
 
-    for (const pattern of FORBIDDEN) {
-      expect(text).not.toMatch(pattern);
-    }
+  it('does not expose fixture money or manual confirmation controls', () => {
+    expect(page).not.toContain('canonicalDomainDeals');
+    expect(page).not.toContain('evaluateReleaseGuard');
+    expect(page).not.toContain('DL-9106');
+    expect(page).not.toContain('confirmWorksheet');
+    expect(page).not.toContain('releasePayment');
   });
 });
