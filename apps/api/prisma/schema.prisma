@@ -28,8 +28,16 @@ model Organization {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  users            UserOrg[]
-  dealParticipants DealParticipant[]
+  users                         UserOrg[]
+  dealParticipants              DealParticipant[]
+  labAssignments                 LabAssignment[]    @relation("LabAssignmentOrganization")
+  labAccreditations              LabAccreditation[] @relation("LabAccreditationOrganization")
+  labMethods                     LabMethod[]        @relation("LabMethodOrganization")
+  labEquipment                   LabEquipment[]     @relation("LabEquipmentOrganization")
+  labSamplesAsLab                LabSample[]        @relation("LabSampleLabOrganization")
+  labSamplesAsCurrentCustodian   LabSample[]        @relation("LabSampleCustodianOrganization")
+  labCustodyEventsFrom           LabCustodyEvent[]  @relation("LabCustodyFromOrganization")
+  labCustodyEventsTo             LabCustodyEvent[]  @relation("LabCustodyToOrganization")
 
   @@index([tenantId])
   @@index([inn])
@@ -50,9 +58,17 @@ model User {
   updatedAt        DateTime @updatedAt
   deletedAt        DateTime?
 
-  orgs             UserOrg[]
-  ukepCerts        UkepCertificate[]
-  dealParticipants DealParticipant[]
+  orgs                       UserOrg[]
+  ukepCerts                  UkepCertificate[]
+  dealParticipants           DealParticipant[]
+  labAssignments             LabAssignment[]   @relation("LabAssignmentUser")
+  labSamplesAssigned         LabSample[]       @relation("LabSampleAssignedUser")
+  labSamplesSampled          LabSample[]       @relation("LabSampleSamplerUser")
+  labSamplesAsCustodian      LabSample[]       @relation("LabSampleCustodianUser")
+  labSamplesFinalized        LabSample[]       @relation("LabSampleFinalizedUser")
+  labTestsRecorded           LabTest[]         @relation("LabTestActorUser")
+  labCustodyEventsFrom       LabCustodyEvent[] @relation("LabCustodyFromUser")
+  labCustodyEventsTo         LabCustodyEvent[] @relation("LabCustodyToUser")
 
   @@map("users")
 }
@@ -139,6 +155,7 @@ model Deal {
   acceptanceRecords AcceptanceRecord[]
   bankOperations    BankOperation[]
   runtimeSnapshots  DealWorkspaceRuntimeSnapshot[] @relation("RuntimeSnapshotDeal")
+  labAssignments   LabAssignment[]
 
   @@index([sellerOrgId])
   @@index([buyerOrgId])
@@ -412,11 +429,18 @@ model LabSample {
   certificateDocId         String?
   version                  BigInt   @default(0)
   createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  updatedAt                DateTime @default(now()) @updatedAt
 
   tests                    LabTest[]
   custodyEvents            LabCustodyEvent[]
-  deal                     Deal      @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  deal                     Deal              @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  lab                      Organization      @relation("LabSampleLabOrganization", fields: [labId], references: [id], onDelete: Restrict)
+  assignedLabUser          User              @relation("LabSampleAssignedUser", fields: [assignedLabUserId], references: [id], onDelete: Restrict)
+  samplerUser              User?             @relation("LabSampleSamplerUser", fields: [samplerUserId], references: [id], onDelete: Restrict)
+  currentCustodianOrg      Organization      @relation("LabSampleCustodianOrganization", fields: [currentCustodianOrgId], references: [id], onDelete: Restrict)
+  currentCustodianUser     User              @relation("LabSampleCustodianUser", fields: [currentCustodianUserId], references: [id], onDelete: Restrict)
+  accreditation            LabAccreditation? @relation("LabSampleAccreditation", fields: [accreditationId], references: [id], onDelete: Restrict)
+  finalizedByUser          User?             @relation("LabSampleFinalizedUser", fields: [finalizedByUserId], references: [id], onDelete: Restrict)
 
   @@index([dealId])
   @@index([tenantId])
@@ -448,7 +472,12 @@ model LabTest {
   recordedAt         DateTime @default(now())
   createdAt          DateTime @default(now())
 
-  sample             LabSample @relation(fields: [sampleId], references: [id], onDelete: Restrict)
+  sample             LabSample    @relation(fields: [sampleId], references: [id], onDelete: Restrict)
+  method             LabMethod    @relation(fields: [methodId], references: [id], onDelete: Restrict)
+  equipment          LabEquipment @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  actorUser          User         @relation("LabTestActorUser", fields: [actorUserId], references: [id], onDelete: Restrict)
+  correctionOf       LabTest?     @relation("LabTestCorrection", fields: [correctionOfTestId], references: [id], onDelete: Restrict)
+  corrections        LabTest[]    @relation("LabTestCorrection")
 
   @@index([sampleId, recordedAt])
   @@index([tenantId])
@@ -474,7 +503,12 @@ model LabCustodyEvent {
   correlationId  String?
   createdAt      DateTime @default(now())
 
-  sample         LabSample @relation(fields: [sampleId], references: [id], onDelete: Restrict)
+  sample         LabSample     @relation(fields: [sampleId], references: [id], onDelete: Restrict)
+  fromOrg        Organization? @relation("LabCustodyFromOrganization", fields: [fromOrgId], references: [id], onDelete: Restrict)
+  fromUser       User?         @relation("LabCustodyFromUser", fields: [fromUserId], references: [id], onDelete: Restrict)
+  toOrg          Organization  @relation("LabCustodyToOrganization", fields: [toOrgId], references: [id], onDelete: Restrict)
+  toUser         User          @relation("LabCustodyToUser", fields: [toUserId], references: [id], onDelete: Restrict)
+  evidence       EvidenceFile  @relation("LabCustodyEvidence", fields: [evidenceRef], references: [id], onDelete: Restrict)
 
   @@index([sampleId, occurredAt])
   @@index([tenantId])
@@ -494,11 +528,16 @@ model LabAssignment {
   validUntil  DateTime?
   evidenceRef String
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now()) @updatedAt
 
-  @@unique([dealId, labUserId])
-  @@index([tenantId, labOrgId, status])
-  @@index([labUserId, status])
+  deal        Deal         @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  labOrg      Organization @relation("LabAssignmentOrganization", fields: [labOrgId], references: [id], onDelete: Restrict)
+  labUser     User         @relation("LabAssignmentUser", fields: [labUserId], references: [id], onDelete: Restrict)
+  evidence    EvidenceFile @relation("LabAssignmentEvidence", fields: [evidenceRef], references: [id], onDelete: Restrict)
+
+  @@unique([dealId, labUserId], map: "lab_assignments_deal_user_key")
+  @@index([tenantId, labOrgId, status], map: "lab_assignments_tenant_lab_status_idx")
+  @@index([labUserId, status], map: "lab_assignments_user_status_idx")
   @@map("lab_assignments")
 }
 
@@ -514,10 +553,14 @@ model LabAccreditation {
   verifiedAt  DateTime?
   evidenceRef String
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now()) @updatedAt
 
-  @@unique([tenantId, labOrgId, reference])
-  @@index([labOrgId, status])
+  labOrg      Organization @relation("LabAccreditationOrganization", fields: [labOrgId], references: [id], onDelete: Restrict)
+  evidence    EvidenceFile @relation("LabAccreditationEvidence", fields: [evidenceRef], references: [id], onDelete: Restrict)
+  samples     LabSample[]  @relation("LabSampleAccreditation")
+
+  @@unique([tenantId, labOrgId, reference], map: "lab_accreditations_tenant_org_reference_key")
+  @@index([labOrgId, status], map: "lab_accreditations_org_status_idx")
   @@map("lab_accreditations")
 }
 
@@ -533,28 +576,36 @@ model LabMethod {
   validUntil         DateTime?
   evidenceRef        String
   createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  updatedAt          DateTime @default(now()) @updatedAt
 
-  @@unique([tenantId, labOrgId, code])
-  @@index([labOrgId, status])
+  labOrg             Organization @relation("LabMethodOrganization", fields: [labOrgId], references: [id], onDelete: Restrict)
+  evidence           EvidenceFile @relation("LabMethodEvidence", fields: [evidenceRef], references: [id], onDelete: Restrict)
+  tests              LabTest[]
+
+  @@unique([tenantId, labOrgId, code], map: "lab_methods_tenant_org_code_key")
+  @@index([labOrgId, status], map: "lab_methods_org_status_idx")
   @@map("lab_methods")
 }
 
 model LabEquipment {
-  id                    String   @id
-  tenantId              String
-  labOrgId              String
-  name                  String
-  serialNumber          String
-  status                String   @default("ACTIVE")
-  calibratedAt          DateTime?
-  calibrationValidUntil DateTime?
+  id                     String   @id
+  tenantId               String
+  labOrgId               String
+  name                   String
+  serialNumber           String
+  status                 String   @default("ACTIVE")
+  calibratedAt           DateTime?
+  calibrationValidUntil  DateTime?
   calibrationEvidenceRef String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @default(now()) @updatedAt
 
-  @@unique([tenantId, labOrgId, serialNumber])
-  @@index([labOrgId, status])
+  labOrg                 Organization  @relation("LabEquipmentOrganization", fields: [labOrgId], references: [id], onDelete: Restrict)
+  calibrationEvidence    EvidenceFile? @relation("LabEquipmentCalibrationEvidence", fields: [calibrationEvidenceRef], references: [id], onDelete: Restrict)
+  tests                  LabTest[]
+
+  @@unique([tenantId, labOrgId, serialNumber], map: "lab_equipment_tenant_org_serial_key")
+  @@index([labOrgId, status], map: "lab_equipment_org_status_idx")
   @@map("lab_equipment")
 }
 
@@ -676,7 +727,13 @@ model EvidenceFile {
   s3Key       String?
   uploadedBy  String
   uploadedAt  DateTime @default(now())
-  metadata    Json?
+  metadata                    Json?
+
+  labAssignments              LabAssignment[]    @relation("LabAssignmentEvidence")
+  labAccreditations           LabAccreditation[] @relation("LabAccreditationEvidence")
+  labMethods                  LabMethod[]        @relation("LabMethodEvidence")
+  labEquipmentCalibrations    LabEquipment[]     @relation("LabEquipmentCalibrationEvidence")
+  labCustodyEvents            LabCustodyEvent[]  @relation("LabCustodyEvidence")
 
   @@index([dealId])
   @@index([disputeId])

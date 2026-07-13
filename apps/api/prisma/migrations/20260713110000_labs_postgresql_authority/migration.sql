@@ -214,6 +214,7 @@ ALTER TABLE public."lab_tests"
   ADD CONSTRAINT "lab_tests_norm_bounds_check" CHECK ("normMin" IS NULL OR "normMax" IS NULL OR "normMin" <= "normMax"),
   ADD CONSTRAINT "lab_tests_idempotencyKey_key" UNIQUE ("idempotencyKey");
 
+DROP INDEX IF EXISTS public."lab_tests_sampleId_idx";
 CREATE INDEX IF NOT EXISTS "lab_tests_sampleId_recordedAt_idx" ON public."lab_tests" ("sampleId", "recordedAt");
 CREATE INDEX IF NOT EXISTS "lab_tests_tenantId_idx" ON public."lab_tests" ("tenantId");
 CREATE INDEX IF NOT EXISTS "lab_tests_methodId_idx" ON public."lab_tests" ("methodId");

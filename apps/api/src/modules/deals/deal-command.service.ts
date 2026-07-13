@@ -701,16 +701,24 @@ OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
     const amountKopecks = BigInt(deal.totalKopecks ?? 0);
 
     switch (definition.id) {
-      case 'buyer_confirm_terms':
-        await tx.payment.upsert({
-          where: { id: `payment:${deal.id}` },
-          update: { amountKopecks },
-          create: { id: `payment:${deal.id}`, dealId: deal.id, amountKopecks, amountRub: Number(amountKopecks) / 100 },
-        });
-        break;
-
       case 'request_reserve':
-        await tx.payment.update({ where: { id: `payment:${deal.id}` }, data: { status: 'RESERVE_REQUESTED', callbackState: 'PENDING' } });
+      await tx.payment.upsert({
+        where: { id: `payment:${deal.id}` },
+        update: {
+          status: 'RESERVE_REQUESTED',
+          amountKopecks,
+          amountRub: Number(amountKopecks) / 100,
+          callbackState: 'PENDING',
+        },
+        create: {
+          id: `payment:${deal.id}`,
+          dealId: deal.id,
+          status: 'RESERVE_REQUESTED',
+          amountKopecks,
+          amountRub: Number(amountKopecks) / 100,
+          callbackState: 'PENDING',
+        },
+      });
         await tx.bankOperation.upsert({
           where: { id: `bank-reserve:${deal.id}` },
           update: { status: 'PENDING', requestPayload: payload as Prisma.InputJsonValue },
