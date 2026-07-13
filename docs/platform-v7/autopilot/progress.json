@@ -5,10 +5,10 @@
   "lastCompletedStep": "#2410 Documents PostgreSQL Authority",
   "openPr": "#2412",
   "blockedBy": [
-    "IR-10.2 exact-head CI is rerunning with a column-scoped PostgreSQL row-lock capability and a table-owner guard that blocks direct normalized-admission mutation."
+    "IR-10.2 exact-head CI is rerunning after reconciling the 19 Deal command audit events with 3 authoritative Shipment audit events."
   ],
   "nextStep": "IR-10.2 Logistics PostgreSQL Authority",
-  "updatedAt": "2026-07-13T06:43:00.000Z",
+  "updatedAt": "2026-07-13T06:51:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
