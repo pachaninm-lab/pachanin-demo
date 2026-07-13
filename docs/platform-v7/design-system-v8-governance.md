@@ -31,6 +31,7 @@ The following are controlled by v8:
 - the shared `RoleIntentDashboard` TSX and CSS Module used by all twelve business-role roots;
 - the canonical deals registry page, list component and their CSS Modules;
 - the document readiness route;
+- the money hub and bank payout-readiness route;
 - every file registered in `migratedFiles` inside `design-governance-v8.json`.
 
 A migrated product file must consume `@pc/design-system-v8` or the governed `transaction-ux` boundary. New local copies of a migrated pattern are not allowed.
@@ -110,7 +111,7 @@ The driver, surveyor, elevator and laboratory routes use governed field-role tem
 
 ### Money and obligation workspaces
 
-Seller, buyer and bank use one governed money-and-obligation contract. Reserve, hold, release request and bank-confirmed release remain different states; the UI cannot manufacture a callback or release funds.
+Seller, buyer and bank use one governed money-and-obligation contract. Reserve, hold, release request and bank-confirmed release remain different states; the UI cannot manufacture a callback or release funds. The shared cockpit exposes localizable meta and accessibility labels so RU, EN and ZH sessions do not mix languages.
 
 ### Operational and oversight workspaces
 
@@ -151,9 +152,24 @@ The `/platform-v7/documents` route is a governed server-authoritative entry into
 - supports RU, EN and ZH, including cockpit meta labels and accessibility labels;
 - inherits mobile, keyboard, reduced-motion and forced-colors behavior from governed v8 components.
 
+### Money and payout-readiness routes
+
+The `/platform-v7/money` and `/platform-v7/bank/release-safety` routes are governed entries into the monetary state of a specific server-authorized Deal. They deliberately remove fixture-derived portfolio totals, hard-coded Deal identifiers and client-side release calculations. The routes:
+
+- start from the participant-scoped canonical Deal registry;
+- keep reserve, hold, release request, callback confirmation and reconciliation as distinct states;
+- do not aggregate money across organizations without a server-confirmed payment set;
+- treat a release request as an idempotent outbox command, not money movement;
+- reserve RESERVED and RELEASED confirmation for a verified bank callback;
+- route callback errors, conflicts or mismatches to manual review rather than manufacturing success;
+- support RU, EN and ZH, including money cockpit meta and accessibility labels;
+- inherit mobile, keyboard, reduced-motion and forced-colors behavior from governed v8 components.
+
+This UI acceptance does not assert live bank connectivity or PostgreSQL-authoritative Settlement where those backend acceptance gates remain separate. It proves only that the active views do not overstate authority or synthesize money status.
+
 ## Remaining boundary
 
-Payment and settlement views, dispute operations, auctions and other secondary routes are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
+Dispute operations, auctions and other secondary routes are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
 
 ## Decision authority
 
