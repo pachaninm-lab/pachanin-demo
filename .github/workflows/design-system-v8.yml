@@ -20,6 +20,7 @@ on:
       - 'apps/web/lib/bank-release-server.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionAdapter.ts'
+      - 'apps/web/lib/platform-v7/farmerFgisAccessEngine.ts'
       - 'apps/web/lib/platform-v7/auctionDealBridge.ts'
       - 'apps/web/lib/platform-v7/dealLogisticsEngine.ts'
       - 'apps/web/lib/platform-v7/dealAcceptanceEngine.ts'
@@ -29,6 +30,7 @@ on:
       - 'apps/web/app/platform-v7/disputes/page.tsx'
       - 'apps/web/app/platform-v7/bank/release-safety/page.tsx'
       - 'apps/web/app/platform-v7/money/page.tsx'
+      - 'apps/web/app/platform-v7/fgis-access/page.tsx'
       - 'apps/web/app/platform-v7/auction/**'
       - 'apps/web/app/platform-v7/deal-logistics/page.tsx'
       - 'apps/web/app/platform-v7/deal-acceptance/page.tsx'
@@ -58,6 +60,7 @@ on:
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7DealExecutionChain.test.ts'
       - 'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx'
+      - 'apps/web/tests/unit/platformV7FgisAccessFlow.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'apps/web/tests/unit/platformV7RealDealsRegistry.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
@@ -88,6 +91,7 @@ on:
       - 'apps/web/lib/bank-release-server.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionAdapter.ts'
+      - 'apps/web/lib/platform-v7/farmerFgisAccessEngine.ts'
       - 'apps/web/lib/platform-v7/auctionDealBridge.ts'
       - 'apps/web/lib/platform-v7/dealLogisticsEngine.ts'
       - 'apps/web/lib/platform-v7/dealAcceptanceEngine.ts'
@@ -97,6 +101,7 @@ on:
       - 'apps/web/app/platform-v7/disputes/page.tsx'
       - 'apps/web/app/platform-v7/bank/release-safety/page.tsx'
       - 'apps/web/app/platform-v7/money/page.tsx'
+      - 'apps/web/app/platform-v7/fgis-access/page.tsx'
       - 'apps/web/app/platform-v7/auction/**'
       - 'apps/web/app/platform-v7/deal-logistics/page.tsx'
       - 'apps/web/app/platform-v7/deal-acceptance/page.tsx'
@@ -126,6 +131,7 @@ on:
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7DealExecutionChain.test.ts'
       - 'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx'
+      - 'apps/web/tests/unit/platformV7FgisAccessFlow.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'apps/web/tests/unit/platformV7RealDealsRegistry.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
@@ -158,7 +164,7 @@ jobs:
         run: node ./scripts/check-design-system-v8.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
-      - name: Run v8 role, registry, server-shell, notification-authority, auction, physical-execution, critical-route and settlement regressions
+      - name: Run v8 role, registry, server-shell, notification-authority, FGIS, auction, physical-execution, critical-route and settlement regressions
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
@@ -175,6 +181,7 @@ jobs:
             tests/unit/platformV7CanonicalDealWorkspace.test.ts \
             tests/unit/platformV7DealExecutionChain.test.ts \
             tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx \
+            tests/unit/platformV7FgisAccessFlow.test.ts \
             tests/unit/platformV7RealDealsRegistry.test.ts \
             tests/unit/platformV7RoleIntentDashboard.test.ts \
             tests/unit/platformV7ServerVerifiedShell.test.ts \
