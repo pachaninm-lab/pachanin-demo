@@ -1,0 +1,47 @@
+name: Temporary IR-10.2 Prisma unique correction
+
+on:
+  push:
+    branches:
+      - agent/ir-10-2-logistics-postgresql-authority
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[tmp-unique-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ir-10-2-logistics-postgresql-authority
+          fetch-depth: 0
+      - name: Correct only unique constraint maps
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('apps/api/prisma/schema.prisma')
+          s = p.read_text()
+          s = s.replace(
+              '@@unique([outboxEntryId], map: "dw_runtime_snapshots_outbox_fkey")',
+              '@@unique([outboxEntryId], map: "dw_runtime_snapshots_outbox_entry_id_key")',
+          )
+          s = s.replace(
+              '@@unique([auditEventId], map: "dw_runtime_snapshots_audit_fkey")',
+              '@@unique([auditEventId], map: "dw_runtime_snapshots_audit_event_id_key")',
+          )
+          p.write_text(s)
+          Path('.github/workflows/tmp-ir-10-2-schema-unique-fix.yml').unlink()
+          PY
+      - name: Commit correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(logistics): separate Prisma relation and unique maps [tmp-unique-fixed]'
+          git push origin HEAD:agent/ir-10-2-logistics-postgresql-authority
