@@ -13,6 +13,8 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@pc/design-system-v8": "workspace:*",
+    "@pc/design-tokens": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-scroll-area": "^1.2.10",
