@@ -1,86 +1,144 @@
 import Link from 'next/link';
-import { DEAL_ACCEPTANCE_STATE, acceptanceStageLabel, acceptanceStatusLabel, kgToTonsString } from '@/lib/platform-v7/dealAcceptanceEngine';
+import { getLocale } from 'next-intl/server';
+import { StatusChip } from '@pc/design-system-v8';
+import { DEAL_ACCEPTANCE_STATE } from '@/lib/platform-v7/dealAcceptanceEngine';
+import {
+  PhysicalExecutionCockpit,
+  PhysicalExecutionDetailGrid,
+  PhysicalExecutionList,
+  PhysicalExecutionPanel,
+  PhysicalExecutionSplit,
+  physicalExecutionClasses,
+} from '@/components/transaction-ux/PhysicalExecutionCockpit';
+import {
+  PHYSICAL_EXECUTION_COPY,
+  buildPhysicalExecutionPhases,
+  formatPhysicalNumber,
+  normalizePhysicalExecutionLocale,
+} from '@/components/transaction-ux/physicalExecutionCopy';
 
 const state = DEAL_ACCEPTANCE_STATE;
 
-export default function DealAcceptancePage() {
+function isAcceptanceSigned() {
+  return state.stage === 'acceptance_signed' || state.stage === 'documents_basis_ready';
+}
+
+export default async function DealAcceptancePage() {
+  const locale = normalizePhysicalExecutionLocale(await getLocale());
+  const copy = PHYSICAL_EXECUTION_COPY[locale];
+  const qualityBlocked = state.quality.some((item) => item.status !== 'ok');
+  const evidenceBlocked = state.evidence.some((item) => item.status !== 'ok');
+  const acceptanceReady = isAcceptanceSigned() && !qualityBlocked && !evidenceBlocked;
+  const phases = buildPhysicalExecutionPhases(locale, 'acceptance', {
+    logistics: 'complete',
+    acceptance: 'current',
+    documents: acceptanceReady ? 'available' : 'blocked',
+    bank: 'blocked',
+  });
+  const statusTone = (status: 'ok' | 'review' | 'dispute') => status === 'ok'
+    ? 'success' as const
+    : status === 'review'
+      ? 'warning' as const
+      : 'critical' as const;
+  const weight = (value: number) => `${formatPhysicalNumber(value / 1000, locale)} t`;
+
   return (
-    <main style={{ display: 'grid', gap: 16 }}>
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--pc-accent)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Рейс → приёмка</span>
-        <h1 style={{ margin: 0, fontSize: 'clamp(24px, 5vw, 38px)', color: 'var(--pc-text-primary)', lineHeight: 1.08 }}>{acceptanceStageLabel(state.stage)}</h1>
-        <p style={{ margin: 0, maxWidth: 840, fontSize: 14, lineHeight: 1.55, color: 'var(--pc-text-secondary)' }}>Приёмка фиксирует не только факт прибытия, а доказательства: время, место, машина, СДИЗ, вес, качество, источник данных и отклонения. Эти факты становятся основанием для документов, банковского шага или спора.</p>
-      </section>
+    <PhysicalExecutionCockpit
+      testId='platform-v7-deal-acceptance-v8'
+      eyebrow={copy.acceptance.eyebrow}
+      title={copy.acceptance.title}
+      description={copy.acceptance.description}
+      statusLabel={acceptanceReady ? copy.acceptance.statusReady : copy.acceptance.statusBlocked}
+      statusTone={acceptanceReady ? 'success' : 'critical'}
+      labels={copy.meta}
+      priority={{
+        state: acceptanceReady ? 'ready' : 'critical',
+        title: acceptanceReady ? copy.acceptance.priorityReadyTitle : copy.acceptance.priorityBlockedTitle,
+        description: acceptanceReady ? copy.acceptance.priorityReadyDescription : copy.acceptance.priorityBlockedDescription,
+        blocker: acceptanceReady ? copy.acceptance.blockerReady : copy.acceptance.blockerBlocked,
+        owner: copy.acceptance.owner,
+        impact: acceptanceReady ? copy.acceptance.impactReady : copy.acceptance.impactBlocked,
+        result: copy.acceptance.result,
+        primaryAction: acceptanceReady
+          ? <Link className={physicalExecutionClasses.primaryLink} href='/platform-v7/deal-documents-basis'>{copy.common.openDocuments}</Link>
+          : <Link className={physicalExecutionClasses.primaryLink} href='#quality'>{copy.common.openLab}</Link>,
+        secondaryAction: <Link className={physicalExecutionClasses.secondaryLink} href={`/platform-v7/deals/${encodeURIComponent(state.dealId)}/clean`}>{copy.common.openDeal}</Link>,
+      }}
+      facts={[
+        { label: copy.acceptance.facts.deal, value: state.dealId, hint: copy.common.sourceSnapshot },
+        { label: copy.acceptance.facts.route, value: state.routeId, hint: copy.acceptanceStages[state.stage] },
+        { label: copy.acceptance.facts.lot, value: state.lotNumber, hint: copy.common.sourceSnapshot },
+        { label: copy.acceptance.facts.certificate, value: state.sdizNumber, hint: copy.common.externalBoundary },
+        { label: copy.acceptance.facts.vehicle, value: state.vehiclePlate, hint: state.driverName },
+        { label: copy.acceptance.facts.elevator, value: state.elevatorName },
+      ]}
+      boundary={`${copy.common.projectionBoundary} ${copy.common.externalBoundary}`}
+      phases={phases}
+      phaseNavLabel={copy.phaseNavLabel}
+    >
+      <PhysicalExecutionSplit>
+        <PhysicalExecutionPanel title={copy.acceptance.weightTitle} description={copy.acceptance.weightDescription}>
+          <PhysicalExecutionList
+            label={copy.acceptance.weightTitle}
+            items={[
+              { id: 'arrival-window', title: copy.acceptance.arrivalWindow, detail: state.arrival.expectedWindow },
+              { id: 'arrival-fact', title: copy.acceptance.arrivalFact, detail: state.arrival.fixedAt },
+              { id: 'geo', title: copy.acceptance.geo, detail: state.arrival.geoPoint },
+              { id: 'gross', title: copy.acceptance.gross, detail: weight(state.weight.grossKg) },
+              { id: 'tare', title: copy.acceptance.tare, detail: weight(state.weight.tareKg) },
+              { id: 'net', title: copy.acceptance.net, detail: weight(state.weight.netKg) },
+              { id: 'delta', title: copy.acceptance.delta, detail: weight(state.weight.deltaKg), status: <StatusChip tone={state.weight.deltaKg === 0 ? 'success' : 'warning'}>{state.weight.deltaKg === 0 ? copy.common.complete : copy.common.review}</StatusChip> },
+            ]}
+          />
+        </PhysicalExecutionPanel>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
-        {[
-          ['Сделка', state.dealId],
-          ['Рейс', state.routeId],
-          ['ФГИС-лот', state.lotNumber],
-          ['СДИЗ', state.sdizNumber],
-          ['Машина', state.vehiclePlate],
-          ['Элеватор', state.elevatorName],
-        ].map(([label, value]) => (
-          <div key={label} style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 18, padding: 14, display: 'grid', gap: 5 }}>
-            <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-            <strong style={{ fontSize: 15, color: 'var(--pc-text-primary)' }}>{value}</strong>
-          </div>
-        ))}
-      </section>
+        <PhysicalExecutionPanel id='quality' title={copy.acceptance.qualityTitle} description={copy.acceptance.qualityDescription}>
+          <PhysicalExecutionList
+            label={copy.acceptance.qualityTitle}
+            items={state.quality.map((item, index) => ({
+              id: `quality-${index}`,
+              title: item.label,
+              detail: `${copy.acceptance.contract}: ${item.contractValue} · ${copy.acceptance.actual}: ${item.actualValue}`,
+              status: <StatusChip tone={statusTone(item.status)}>{copy.factStatuses[item.status]}</StatusChip>,
+            }))}
+          />
+        </PhysicalExecutionPanel>
+      </PhysicalExecutionSplit>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12 }}>
-        <div style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>Прибытие и вес</h2>
-          {[
-            ['Окно прибытия', state.arrival.expectedWindow],
-            ['Факт прибытия', state.arrival.fixedAt],
-            ['Геоточка', state.arrival.geoPoint],
-            ['Брутто', kgToTonsString(state.weight.grossKg)],
-            ['Тара', kgToTonsString(state.weight.tareKg)],
-            ['Нетто', kgToTonsString(state.weight.netKg)],
-            ['Отклонение', kgToTonsString(state.weight.deltaKg)],
-          ].map(([label, value]) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 10px', borderRadius: 12, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)' }}>
-              <span style={{ fontSize: 12, color: 'var(--pc-text-secondary)' }}>{label}</span>
-              <strong style={{ fontSize: 12, color: 'var(--pc-text-primary)' }}>{value}</strong>
-            </div>
-          ))}
-        </div>
+      <PhysicalExecutionPanel title={copy.acceptance.evidenceTitle} description={copy.acceptance.evidenceDescription}>
+        <PhysicalExecutionList
+          label={copy.acceptance.evidenceTitle}
+          items={state.evidence.map((item) => ({
+            id: item.id,
+            title: item.label,
+            detail: item.source,
+            meta: item.fixedAt,
+            status: <StatusChip tone={statusTone(item.status)}>{copy.factStatuses[item.status]}</StatusChip>,
+          }))}
+        />
+      </PhysicalExecutionPanel>
 
-        <div style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>Качество</h2>
-          {state.quality.map((item) => (
-            <div key={item.label} style={{ display: 'grid', gap: 4, padding: '9px 10px', borderRadius: 12, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)' }}>
-              <strong style={{ fontSize: 12, color: 'var(--pc-text-primary)' }}>{item.label}</strong>
-              <span style={{ fontSize: 11, color: 'var(--pc-text-secondary)' }}>договор: {item.contractValue} · факт: {item.actualValue}</span>
-              <span style={{ fontSize: 11, color: 'var(--pc-text-muted)' }}>{acceptanceStatusLabel(item.status)}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      <PhysicalExecutionDetailGrid
+        label={copy.phaseNavLabel}
+        items={state.nextRoutes.map((route) => {
+          const documentsRoute = route.href === '/platform-v7/deal-documents-basis';
+          const bankRoute = route.href === '/platform-v7/bank/payment-basis';
+          const blocked = (documentsRoute && !acceptanceReady) || bankRoute;
+          const href = bankRoute ? '/platform-v7/bank/release-safety' : route.href;
+          return {
+            label: route.label,
+            value: blocked ? copy.common.blocked : copy.common.review,
+            hint: `${copy.common.owner}: ${route.owner} · ${blocked ? copy.common.required : href}`,
+          };
+        })}
+      />
 
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Доказательства</h2>
-        {state.evidence.map((item) => (
-          <div key={item.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 10, alignItems: 'center', padding: 12, borderRadius: 14, border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface-soft)' }}>
-            <div style={{ display: 'grid', gap: 3 }}>
-              <strong style={{ fontSize: 13, color: 'var(--pc-text-primary)' }}>{item.label}</strong>
-              <span style={{ fontSize: 11, color: 'var(--pc-text-muted)' }}>{item.source} · {item.fixedAt}</span>
-            </div>
-            <strong style={{ fontSize: 12, color: 'var(--pc-text-primary)' }}>{acceptanceStatusLabel(item.status)}</strong>
-          </div>
-        ))}
-      </section>
-
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Следующие действия</h2>
-        {state.nextRoutes.map((route) => (
-          <Link key={route.href} href={route.href} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 13, border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)', background: 'var(--pc-shell-surface-soft)' }}>
-            <strong style={{ fontSize: 13 }}>{route.label}</strong>
-            <span style={{ fontSize: 10, color: 'var(--pc-text-muted)' }}>{route.owner}</span>
-          </Link>
-        ))}
-      </section>
-    </main>
+      {!acceptanceReady ? (
+        <PhysicalExecutionPanel title={copy.common.blocked} description={copy.acceptance.priorityBlockedDescription}>
+          <p className={physicalExecutionClasses.warningText}>{copy.acceptance.impactBlocked}</p>
+          <Link className={physicalExecutionClasses.secondaryLink} href='/platform-v7/disputes'>{copy.common.openDisputes}</Link>
+        </PhysicalExecutionPanel>
+      ) : null}
+    </PhysicalExecutionCockpit>
   );
 }
