@@ -48,3 +48,6 @@ jobs:
 
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
+
+      - name: Run Design System v8 regression tests
+        run: pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8Architecture.test.ts
