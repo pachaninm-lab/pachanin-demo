@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -10,19 +10,21 @@ import {
   VerifyShipmentPinDto,
 } from './dto/shipment-fact-command.dto';
 import { TransitionShipmentDto } from './dto/transition-shipment.dto';
-import { EtnService } from './etn.service';
-import { Geofence, GeofenceService } from './geofence.service';
 import { LogisticsService } from './logistics.service';
 
+/**
+ * PostgreSQL-authoritative logistics boundary.
+ *
+ * Shipment lifecycle creation/transitions remain available only through the
+ * canonical Deal command endpoint. This controller exposes scoped reads and
+ * append-only operational facts. Mock GIS EPD and process-memory geofencing are
+ * deliberately absent from the production dependency graph.
+ */
 @UseGuards(RolesGuard)
 @Roles('LOGISTICIAN', 'DRIVER', 'ELEVATOR', 'SUPPORT_MANAGER', 'ADMIN')
 @Controller('logistics')
 export class LogisticsController {
-  constructor(
-    private readonly logistics: LogisticsService,
-    private readonly etn: EtnService,
-    private readonly geofence: GeofenceService,
-  ) {}
+  constructor(private readonly logistics: LogisticsService) {}
 
   @Get('summary')
   summary(@CurrentUser() user: RequestUser) {
@@ -102,84 +104,5 @@ export class LogisticsController {
   @Get('shipments/:id/gps/track')
   getGpsTrack(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.logistics.getGpsTrack(id, user);
-  }
-
-  /** GIS EPD remains fail-closed until provider activation is accepted. */
-  @Post('etn')
-  createEtn(
-    @Body() body: {
-      dealId: string;
-      shipper: { name: string; inn: string; address: string };
-      consignee: { name: string; inn: string; address: string };
-      carrier: { name: string; inn: string };
-      vehicleNumber: string;
-      driverName: string;
-      driverLicenseNumber: string;
-      loadingAddress: string;
-      unloadingAddress: string;
-      cargoDescription: string;
-      weightTons: number;
-      volumeM3?: number;
-      loadingDate: string;
-      deliveryDatePlan: string;
-    },
-    @CurrentUser() user: RequestUser,
-  ) {
-    return this.etn.createEtn(body, user);
-  }
-
-  @Get('etn/deal/:dealId')
-  listEtnByDeal(@Param('dealId') dealId: string) {
-    return this.etn.listByDeal(dealId);
-  }
-
-  @Get('etn/:id')
-  getEtnStatus(@Param('id') id: string) {
-    return this.etn.getEtnStatus(id);
-  }
-
-  @Post('etn/:id/sign')
-  signEtn(
-    @Param('id') id: string,
-    @Body() body: { signerRole: 'SHIPPER' | 'CARRIER' | 'CONSIGNEE'; certificateId?: string },
-    @CurrentUser() user: RequestUser,
-  ) {
-    return this.etn.signEtn(id, body.signerRole, body.certificateId ?? '', user);
-  }
-
-  @Post('geofences')
-  createGeofence(@Body() body: Geofence) {
-    return this.geofence.upsert(body);
-  }
-
-  @Get('geofences')
-  listGeofences(@Query('dealId') dealId?: string) {
-    return this.geofence.listFences(dealId);
-  }
-
-  @Post('geofences/deal/:dealId')
-  createForDeal(
-    @Param('dealId') dealId: string,
-    @Body() body: { coordinates?: Array<{ kind: Geofence['kind']; lat: number; lon: number }> },
-  ) {
-    return this.geofence.createForDeal(dealId, body);
-  }
-
-  @Delete('geofences/:id')
-  deleteGeofence(@Param('id') id: string) {
-    return { deleted: this.geofence.deleteFence(id) };
-  }
-
-  @Post('vehicles/:vehicleId/gps-evaluate')
-  evaluateGpsPoint(
-    @Param('vehicleId') vehicleId: string,
-    @Body() body: { lat: number; lon: number; recordedAt?: string; shipmentId?: string },
-  ) {
-    return this.geofence.evaluatePoint(vehicleId, body, body.shipmentId);
-  }
-
-  @Get('vehicles/:vehicleId/state')
-  getVehicleState(@Param('vehicleId') vehicleId: string) {
-    return this.geofence.getVehicleState(vehicleId);
   }
 }
