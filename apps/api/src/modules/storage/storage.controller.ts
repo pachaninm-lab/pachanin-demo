@@ -8,7 +8,6 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { RequestUser } from '../../common/types/request-user';
@@ -35,7 +34,6 @@ export class StorageController {
       mimeType: string;
       sizeBytes: number;
       dealId: string;
-      metadata?: Prisma.InputJsonObject;
     },
     @CurrentUser() user: RequestUser,
   ) {
