@@ -4,16 +4,24 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import type { RequestUser } from '../../common/types/request-user';
 import { LabsService } from './labs.service';
+import { LabEvidenceUploadService } from './lab-evidence-upload.service';
 import { CreateSampleDto } from './dto/create-sample.dto';
 import { CollectSampleDto } from './dto/collect-sample.dto';
 import { RecordCustodyDto } from './dto/record-custody.dto';
 import { RecordTestDto } from './dto/record-test.dto';
+import {
+  RequestProvisioningEvidenceUploadDto,
+  RequestSampleEvidenceUploadDto,
+} from './dto/request-lab-evidence-upload.dto';
 
 @UseGuards(RolesGuard)
 @Roles('LAB', 'SUPPORT_MANAGER', 'ADMIN', 'BUYER', 'FARMER', 'SURVEYOR', 'ELEVATOR', 'COMPLIANCE_OFFICER')
 @Controller('labs')
 export class LabsController {
-  constructor(private readonly labs: LabsService) {}
+  constructor(
+    private readonly labs: LabsService,
+    private readonly evidenceUploads: LabEvidenceUploadService,
+  ) {}
 
   @Get('samples')
   list(@CurrentUser() user: RequestUser) {
@@ -64,6 +72,25 @@ export class LabsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.labs.recordTest(id, dto, user);
+  }
+
+  @Roles('LAB', 'SUPPORT_MANAGER', 'ADMIN')
+  @Post('samples/:id/evidence-upload')
+  requestSampleEvidenceUpload(
+    @Param('id') id: string,
+    @Body() dto: RequestSampleEvidenceUploadDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.evidenceUploads.requestForSample(id, dto, user);
+  }
+
+  @Roles('SUPPORT_MANAGER', 'ADMIN', 'COMPLIANCE_OFFICER')
+  @Post('evidence-upload/provisioning')
+  requestProvisioningEvidenceUpload(
+    @Body() dto: RequestProvisioningEvidenceUploadDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.evidenceUploads.requestForProvisioning(dto, user);
   }
 
   @Roles('LAB', 'SUPPORT_MANAGER', 'ADMIN')
