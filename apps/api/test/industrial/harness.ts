@@ -225,6 +225,11 @@ export async function provisionDeal(
   const routeFromFacilityId = `facility:${sellerOrgId}:dispatch`;
   const routeToFacilityId = `facility:${buyerOrgId}:acceptance`;
   const passwordHash = bcrypt.hashSync('industrial-e2e', 4);
+  const labActorUserId = `user-e2e-${slug}-lab`;
+  const labEvidenceId = `evidence:${dealId}:lab`;
+  const labMethodMoistureId = `lab-method:${dealId}:moisture`;
+  const labMethodProteinId = `lab-method:${dealId}:protein`;
+  const labEquipmentId = `lab-equipment:${dealId}`;
 
   const evidence: Record<string, string> = Object.fromEntries(
     ['seller-signature', 'buyer-signature', 'loading', 'departure', 'arrival', 'weighing', 'inspection', 'lab', 'acceptance']
@@ -238,6 +243,9 @@ export async function provisionDeal(
   };
 
   await prisma.$transaction(async (tx) => {
+    // Isolated CI fixture only. Production rows must pass every authority trigger.
+    await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+
     let innSuffix = 0;
     for (const orgId of [sellerOrgId, buyerOrgId, serviceOrgId]) {
       innSuffix += 1;
@@ -361,6 +369,32 @@ export async function provisionDeal(
     }
 
     await tx.dealDocument.upsert({
+      where: { id: labEvidenceId },
+      update: {
+        tenantId: INDUSTRIAL_TENANT,
+        type: 'EVIDENCE_FILE',
+        status: 'VERIFIED',
+        hash: fixtureHash(labEvidenceId),
+        isImmutable: true,
+      },
+      create: {
+        id: labEvidenceId,
+        dealId,
+        tenantId: INDUSTRIAL_TENANT,
+        type: 'EVIDENCE_FILE',
+        status: 'VERIFIED',
+        name: 'authoritative-laboratory-basis.json',
+        mimeType: 'application/json',
+        s3Key: `industrial-e2e/${dealId}/authoritative-laboratory-basis.json`,
+        sizeBytes: 1024,
+        hash: fixtureHash(labEvidenceId),
+        uploadedByUserId: `user-e2e-${slug}-operator`,
+        version: 2,
+        isImmutable: true,
+      },
+    });
+
+    await tx.dealDocument.upsert({
       where: { id: contractDocumentId },
       update: { status: 'UPLOADED', signedAt: null, signatories: null, isImmutable: false, bankAcceptance: 'ACCEPTED' },
       create: {
@@ -420,21 +454,166 @@ export async function provisionDeal(
       });
     }
 
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO labs.laboratories (
+        id, tenant_id, organization_id, status, accreditation_status,
+        accreditation_ref, evidence_file_id
+      ) VALUES (
+        ${`laboratory:${dealId}`}, ${INDUSTRIAL_TENANT}, ${serviceOrgId},
+        'ACTIVE', 'VERIFIED', ${`ACCREDITATION-${serviceOrgId}`}, ${labEvidenceId}
+      )
+      ON CONFLICT (tenant_id, organization_id) DO UPDATE SET
+        status = 'ACTIVE', accreditation_status = 'VERIFIED',
+        accreditation_ref = EXCLUDED.accreditation_ref,
+        evidence_file_id = EXCLUDED.evidence_file_id,
+        valid_until = NULL, updated_at = now()
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO labs.authorized_actors (
+        id, tenant_id, laboratory_org_id, user_id, actor_type, status, evidence_file_id
+      ) VALUES (
+        ${`lab-actor:${dealId}`}, ${INDUSTRIAL_TENANT}, ${serviceOrgId},
+        ${labActorUserId}, 'SIGNATORY', 'ACTIVE', ${labEvidenceId}
+      )
+      ON CONFLICT (tenant_id, laboratory_org_id, user_id) DO UPDATE SET
+        actor_type = 'SIGNATORY', status = 'ACTIVE',
+        evidence_file_id = EXCLUDED.evidence_file_id,
+        valid_until = NULL, updated_at = now()
+    `);
+    for (const method of [
+      { id: labMethodMoistureId, code: 'MOISTURE', parameter: 'moisture', unit: '%', min: null, max: '14.000000' },
+      { id: labMethodProteinId, code: 'PROTEIN', parameter: 'protein', unit: '%', min: '12.500000', max: null },
+    ]) {
+      await tx.$executeRaw(Prisma.sql`
+        INSERT INTO labs.methods (
+          id, tenant_id, laboratory_org_id, code, parameter, unit,
+          standard_ref, norm_min, norm_max, status, evidence_file_id
+        ) VALUES (
+          ${method.id}, ${INDUSTRIAL_TENANT}, ${serviceOrgId}, ${method.code},
+          ${method.parameter}, ${method.unit}, 'CONTROLLED-STANDARD-E2E',
+          ${method.min}::NUMERIC, ${method.max}::NUMERIC, 'ACTIVE', ${labEvidenceId}
+        )
+        ON CONFLICT (tenant_id, laboratory_org_id, code) DO UPDATE SET
+          parameter = EXCLUDED.parameter, unit = EXCLUDED.unit,
+          standard_ref = EXCLUDED.standard_ref, norm_min = EXCLUDED.norm_min,
+          norm_max = EXCLUDED.norm_max, status = 'ACTIVE',
+          evidence_file_id = EXCLUDED.evidence_file_id,
+          valid_until = NULL, updated_at = now()
+      `);
+    }
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO labs.equipment (
+        id, tenant_id, laboratory_org_id, code, name, serial_number,
+        status, calibration_valid_until, evidence_file_id
+      ) VALUES (
+        ${labEquipmentId}, ${INDUSTRIAL_TENANT}, ${serviceOrgId},
+        'CONTROLLED-ANALYZER', 'Controlled laboratory analyzer', ${`LAB-${slug}`},
+        'ACTIVE', '2035-01-01T00:00:00.000Z'::TIMESTAMPTZ, ${labEvidenceId}
+      )
+      ON CONFLICT (tenant_id, laboratory_org_id, code) DO UPDATE SET
+        status = 'ACTIVE', calibration_valid_until = EXCLUDED.calibration_valid_until,
+        evidence_file_id = EXCLUDED.evidence_file_id, updated_at = now()
+    `);
+
     await tx.labSample.upsert({
       where: { id: sampleId },
-      update: { status: 'PENDING', protocol: null, finalizedAt: null, labId: serviceOrgId, labName: serviceOrgId },
+      update: {
+        tenantId: INDUSTRIAL_TENANT,
+        shipmentId,
+        acceptanceId,
+        status: 'PENDING',
+        custodyStatus: 'ANALYSIS_IN_PROGRESS',
+        sampleCode: `SAMPLE-${dealId}`,
+        protocol: null,
+        protocolResult: null,
+        finalizedAt: null,
+        labId: serviceOrgId,
+        labName: serviceOrgId,
+        assignedActorUserId: labActorUserId,
+        latestEvidenceFileId: labEvidenceId,
+        version: 0,
+      },
       create: {
         id: sampleId,
         dealId,
         shipmentId,
         acceptanceId,
+        tenantId: INDUSTRIAL_TENANT,
         status: 'PENDING',
+        custodyStatus: 'ANALYSIS_IN_PROGRESS',
+        sampleCode: `SAMPLE-${dealId}`,
         culture: 'Пшеница',
         labId: serviceOrgId,
         labName: serviceOrgId,
+        assignedActorUserId: labActorUserId,
+        latestEvidenceFileId: labEvidenceId,
         collectedAt: new Date(FACT_AT),
+        version: 0,
       },
     });
+
+    await tx.labTest.deleteMany({ where: { sampleId } });
+    await tx.labTest.createMany({
+      data: [
+        {
+          id: `lab-test:${dealId}:moisture`,
+          sampleId,
+          tenantId: INDUSTRIAL_TENANT,
+          parameter: 'moisture',
+          value: 12.4,
+          valueDec: '12.400000',
+          unit: '%',
+          normMax: 14,
+          normMaxDec: '14.000000',
+          passed: true,
+          result: 'PASSED',
+          methodId: labMethodMoistureId,
+          equipmentId: labEquipmentId,
+          evidenceFileId: labEvidenceId,
+          actorUserId: labActorUserId,
+          commandId: `fixture:${dealId}:moisture`,
+          idempotencyKey: `fixture:${dealId}:moisture`,
+          correlationId: `fixture:${dealId}:labs`,
+          recordedAt: new Date(FACT_AT),
+        },
+        {
+          id: `lab-test:${dealId}:protein`,
+          sampleId,
+          tenantId: INDUSTRIAL_TENANT,
+          parameter: 'protein',
+          value: 13.2,
+          valueDec: '13.200000',
+          unit: '%',
+          normMin: 12.5,
+          normMinDec: '12.500000',
+          passed: true,
+          result: 'PASSED',
+          methodId: labMethodProteinId,
+          equipmentId: labEquipmentId,
+          evidenceFileId: labEvidenceId,
+          actorUserId: labActorUserId,
+          commandId: `fixture:${dealId}:protein`,
+          idempotencyKey: `fixture:${dealId}:protein`,
+          correlationId: `fixture:${dealId}:labs`,
+          recordedAt: new Date(FACT_AT),
+        },
+      ],
+    });
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO labs.sample_custody_events (
+        id, sample_id, tenant_id, event_type, from_status, to_status,
+        actor_user_id, laboratory_org_id, evidence_file_id, command_id,
+        idempotency_key, correlation_id, occurred_at, note, hash
+      ) VALUES (
+        ${`lab-custody:${dealId}:received`}, ${sampleId}, ${INDUSTRIAL_TENANT},
+        'RECEIVED', 'IN_TRANSIT', 'RECEIVED', ${labActorUserId}, ${serviceOrgId},
+        ${labEvidenceId}, ${`fixture:${dealId}:custody`},
+        ${`fixture:${dealId}:custody`}, ${`fixture:${dealId}:labs`},
+        ${new Date(FACT_AT)}, 'Controlled fixture custody receipt',
+        ${fixtureHash(`custody:${dealId}`)}
+      )
+      ON CONFLICT (id) DO NOTHING
+    `);
   });
 
   await seedNormalizedLogisticsAdmission(prisma, {
@@ -553,6 +732,9 @@ export async function cleanTenant(prisma: PrismaService): Promise<void> {
     if (dealIds.length > 0) {
       const inList = dealIds.map((id) => `'${id}'`).join(',');
       for (const statement of [
+        `DELETE FROM labs.protocols WHERE sample_id IN (SELECT id FROM "lab_samples" WHERE "dealId" IN (${inList}))`,
+        `DELETE FROM labs.sample_custody_events WHERE sample_id IN (SELECT id FROM "lab_samples" WHERE "dealId" IN (${inList}))`,
+        `DELETE FROM labs.sample_admissions WHERE deal_id IN (${inList})`,
         `DELETE FROM logistics.shipment_bindings WHERE deal_id IN (${inList})`,
         `DELETE FROM logistics.deal_admissions WHERE deal_id IN (${inList})`,
         `DELETE FROM "shipment_gps_points" WHERE "shipmentId" IN (SELECT id FROM "shipments" WHERE "dealId" IN (${inList}))`,
@@ -576,6 +758,10 @@ export async function cleanTenant(prisma: PrismaService): Promise<void> {
         await tx.$executeRawUnsafe(statement);
       }
     }
+    await tx.$executeRawUnsafe(`DELETE FROM labs.equipment WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await tx.$executeRawUnsafe(`DELETE FROM labs.methods WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await tx.$executeRawUnsafe(`DELETE FROM labs.authorized_actors WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await tx.$executeRawUnsafe(`DELETE FROM labs.laboratories WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
     await tx.$executeRawUnsafe(`DELETE FROM logistics.driver_vehicle_links WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
     await tx.$executeRawUnsafe(`DELETE FROM logistics.vehicles WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
     await tx.$executeRawUnsafe(`DELETE FROM logistics.drivers WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
