@@ -13,3 +13,6 @@ export type {
   StatusChipProps,
   SurfaceProps,
 } from './components';
+
+export { EmptyState } from './EmptyState';
+export type { EmptyStateProps } from './EmptyState';
