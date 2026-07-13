@@ -1,9 +1,12 @@
 -- Auction facts are PostgreSQL-authoritative. This migration intentionally creates
--- no fixture lots, bids, awards or Deals. Application users receive SELECT-only
--- access through tenant FORCE-RLS; future mutations must use separately reviewed
--- canonical command functions and cannot be introduced through the read API.
+-- no fixture lots, bids, awards or Deals. The bounded auction schema is outside
+-- Prisma's public-schema ownership while remaining migration-managed, FORCE-RLS
+-- protected and available to the application through explicit SELECT-only grants.
 
-CREATE TABLE public.auction_lots (
+CREATE SCHEMA IF NOT EXISTS auction;
+REVOKE ALL ON SCHEMA auction FROM PUBLIC;
+
+CREATE TABLE auction.lots (
   id text PRIMARY KEY,
   tenant_id text NOT NULL,
   seller_org_id text NOT NULL,
@@ -40,7 +43,7 @@ CREATE TABLE public.auction_lots (
   )
 );
 
-CREATE TABLE public.auction_bids (
+CREATE TABLE auction.bids (
   id text PRIMARY KEY,
   tenant_id text NOT NULL,
   lot_id text NOT NULL,
@@ -55,10 +58,10 @@ CREATE TABLE public.auction_bids (
   updated_at timestamptz NOT NULL DEFAULT transaction_timestamp(),
   CONSTRAINT auction_bids_tenant_lot_id_key UNIQUE (tenant_id, lot_id, id),
   CONSTRAINT auction_bids_lot_fkey FOREIGN KEY (tenant_id, lot_id)
-    REFERENCES public.auction_lots (tenant_id, id) ON DELETE RESTRICT ON UPDATE CASCADE
+    REFERENCES auction.lots (tenant_id, id) ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
-CREATE TABLE public.auction_awards (
+CREATE TABLE auction.awards (
   id text PRIMARY KEY,
   tenant_id text NOT NULL,
   lot_id text NOT NULL,
@@ -72,9 +75,9 @@ CREATE TABLE public.auction_awards (
   updated_at timestamptz NOT NULL DEFAULT transaction_timestamp(),
   CONSTRAINT auction_awards_tenant_lot_key UNIQUE (tenant_id, lot_id),
   CONSTRAINT auction_awards_lot_fkey FOREIGN KEY (tenant_id, lot_id)
-    REFERENCES public.auction_lots (tenant_id, id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    REFERENCES auction.lots (tenant_id, id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT auction_awards_winning_bid_fkey FOREIGN KEY (tenant_id, lot_id, winning_bid_id)
-    REFERENCES public.auction_bids (tenant_id, lot_id, id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    REFERENCES auction.bids (tenant_id, lot_id, id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT auction_awards_deal_fkey FOREIGN KEY (deal_id)
     REFERENCES public.deals (id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT auction_awards_deal_state_check CHECK (
@@ -84,21 +87,21 @@ CREATE TABLE public.auction_awards (
 );
 
 CREATE INDEX auction_lots_tenant_status_idx
-  ON public.auction_lots (tenant_id, status, auction_ends_at DESC, id);
+  ON auction.lots (tenant_id, status, auction_ends_at DESC, id);
 CREATE INDEX auction_lots_seller_idx
-  ON public.auction_lots (tenant_id, seller_org_id, updated_at DESC);
+  ON auction.lots (tenant_id, seller_org_id, updated_at DESC);
 CREATE INDEX auction_bids_lot_amount_idx
-  ON public.auction_bids (tenant_id, lot_id, amount_rub_per_ton DESC, placed_at ASC, id);
+  ON auction.bids (tenant_id, lot_id, amount_rub_per_ton DESC, placed_at ASC, id);
 CREATE INDEX auction_bids_buyer_idx
-  ON public.auction_bids (tenant_id, buyer_org_id, placed_at DESC);
+  ON auction.bids (tenant_id, buyer_org_id, placed_at DESC);
 CREATE INDEX auction_awards_deal_idx
-  ON public.auction_awards (tenant_id, deal_id);
+  ON auction.awards (tenant_id, deal_id);
 
-CREATE OR REPLACE FUNCTION public.app_auction_touch_version()
+CREATE OR REPLACE FUNCTION auction.touch_version()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY INVOKER
-SET search_path = pg_catalog, public
+SET search_path = pg_catalog, public, auction
 AS $function$
 BEGIN
   NEW.updated_at := transaction_timestamp();
@@ -108,28 +111,28 @@ END
 $function$;
 
 CREATE TRIGGER auction_lots_touch_version
-BEFORE UPDATE ON public.auction_lots
-FOR EACH ROW EXECUTE FUNCTION public.app_auction_touch_version();
+BEFORE UPDATE ON auction.lots
+FOR EACH ROW EXECUTE FUNCTION auction.touch_version();
 
 CREATE TRIGGER auction_bids_touch_version
-BEFORE UPDATE ON public.auction_bids
-FOR EACH ROW EXECUTE FUNCTION public.app_auction_touch_version();
+BEFORE UPDATE ON auction.bids
+FOR EACH ROW EXECUTE FUNCTION auction.touch_version();
 
 CREATE TRIGGER auction_awards_touch_version
-BEFORE UPDATE ON public.auction_awards
-FOR EACH ROW EXECUTE FUNCTION public.app_auction_touch_version();
+BEFORE UPDATE ON auction.awards
+FOR EACH ROW EXECUTE FUNCTION auction.touch_version();
 
-CREATE OR REPLACE FUNCTION public.app_auction_bid_guard()
+CREATE OR REPLACE FUNCTION auction.bid_guard()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public
+SET search_path = pg_catalog, public, auction
 AS $function$
 DECLARE
-  lot_record public.auction_lots%ROWTYPE;
+  lot_record auction.lots%ROWTYPE;
 BEGIN
   SELECT * INTO lot_record
-  FROM public.auction_lots
+  FROM auction.lots
   WHERE tenant_id = NEW.tenant_id
     AND id = NEW.lot_id
   FOR KEY SHARE;
@@ -156,23 +159,23 @@ END
 $function$;
 
 CREATE TRIGGER auction_bids_authority_guard
-BEFORE INSERT OR UPDATE ON public.auction_bids
-FOR EACH ROW EXECUTE FUNCTION public.app_auction_bid_guard();
+BEFORE INSERT OR UPDATE ON auction.bids
+FOR EACH ROW EXECUTE FUNCTION auction.bid_guard();
 
-CREATE OR REPLACE FUNCTION public.app_auction_award_guard()
+CREATE OR REPLACE FUNCTION auction.award_guard()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public
+SET search_path = pg_catalog, public, auction
 AS $function$
 DECLARE
-  lot_record public.auction_lots%ROWTYPE;
+  lot_record auction.lots%ROWTYPE;
   bid_status text;
   deal_tenant_id text;
   deal_source_lot_id text;
 BEGIN
   SELECT * INTO lot_record
-  FROM public.auction_lots
+  FROM auction.lots
   WHERE tenant_id = NEW.tenant_id
     AND id = NEW.lot_id
   FOR UPDATE;
@@ -182,7 +185,7 @@ BEGIN
   END IF;
 
   SELECT status INTO bid_status
-  FROM public.auction_bids
+  FROM auction.bids
   WHERE tenant_id = NEW.tenant_id
     AND lot_id = NEW.lot_id
     AND id = NEW.winning_bid_id
@@ -216,50 +219,55 @@ END
 $function$;
 
 CREATE TRIGGER auction_awards_authority_guard
-BEFORE INSERT OR UPDATE ON public.auction_awards
-FOR EACH ROW EXECUTE FUNCTION public.app_auction_award_guard();
+BEFORE INSERT OR UPDATE ON auction.awards
+FOR EACH ROW EXECUTE FUNCTION auction.award_guard();
 
-ALTER TABLE public.auction_lots ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.auction_lots FORCE ROW LEVEL SECURITY;
-ALTER TABLE public.auction_bids ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.auction_bids FORCE ROW LEVEL SECURITY;
-ALTER TABLE public.auction_awards ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.auction_awards FORCE ROW LEVEL SECURITY;
+ALTER TABLE auction.lots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE auction.lots FORCE ROW LEVEL SECURITY;
+ALTER TABLE auction.bids ENABLE ROW LEVEL SECURITY;
+ALTER TABLE auction.bids FORCE ROW LEVEL SECURITY;
+ALTER TABLE auction.awards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE auction.awards FORCE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS auction_lots_tenant_select ON public.auction_lots;
+DROP POLICY IF EXISTS auction_lots_tenant_select ON auction.lots;
 CREATE POLICY auction_lots_tenant_select
-ON public.auction_lots
+ON auction.lots
 FOR SELECT
 USING (
   NULLIF(current_setting('app.current_tenant_id', true), '') IS NOT NULL
   AND tenant_id = current_setting('app.current_tenant_id', true)
 );
 
-DROP POLICY IF EXISTS auction_bids_tenant_select ON public.auction_bids;
+DROP POLICY IF EXISTS auction_bids_tenant_select ON auction.bids;
 CREATE POLICY auction_bids_tenant_select
-ON public.auction_bids
+ON auction.bids
 FOR SELECT
 USING (
   NULLIF(current_setting('app.current_tenant_id', true), '') IS NOT NULL
   AND tenant_id = current_setting('app.current_tenant_id', true)
 );
 
-DROP POLICY IF EXISTS auction_awards_tenant_select ON public.auction_awards;
+DROP POLICY IF EXISTS auction_awards_tenant_select ON auction.awards;
 CREATE POLICY auction_awards_tenant_select
-ON public.auction_awards
+ON auction.awards
 FOR SELECT
 USING (
   NULLIF(current_setting('app.current_tenant_id', true), '') IS NOT NULL
   AND tenant_id = current_setting('app.current_tenant_id', true)
 );
+
+REVOKE ALL ON FUNCTION auction.touch_version() FROM PUBLIC;
+REVOKE ALL ON FUNCTION auction.bid_guard() FROM PUBLIC;
+REVOKE ALL ON FUNCTION auction.award_guard() FROM PUBLIC;
 
 DO $auction_authority_grants$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
-    GRANT SELECT ON public.auction_lots, public.auction_bids, public.auction_awards TO app_deal;
-    GRANT EXECUTE ON FUNCTION public.app_auction_bid_guard() TO app_deal;
-    GRANT EXECUTE ON FUNCTION public.app_auction_award_guard() TO app_deal;
-    GRANT EXECUTE ON FUNCTION public.app_auction_touch_version() TO app_deal;
+    GRANT USAGE ON SCHEMA auction TO app_deal;
+    GRANT SELECT ON auction.lots, auction.bids, auction.awards TO app_deal;
+    GRANT EXECUTE ON FUNCTION auction.bid_guard() TO app_deal;
+    GRANT EXECUTE ON FUNCTION auction.award_guard() TO app_deal;
+    GRANT EXECUTE ON FUNCTION auction.touch_version() TO app_deal;
   END IF;
 END
 $auction_authority_grants$;
