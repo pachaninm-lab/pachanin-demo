@@ -1,41 +1,43 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
-import { MockGisEpdAdapter, EtnCreateRequest, EtnDocument } from '../../../../../packages/integration-sdk/src/adapters/gis-epd.adapter';
-import { RequestUser } from '../../common/types/request-user';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import type {
+  EtnCreateRequest,
+  EtnDocument,
+} from '../../../../../packages/integration-sdk/src/adapters/gis-epd.adapter';
+import type { RequestUser } from '../../common/types/request-user';
 
+/**
+ * GIS EPD is not an active production integration. The API remains explicit and
+ * fail-closed so callers cannot mistake a simulator result for a legally valid
+ * electronic transport document or signature.
+ */
 @Injectable()
 export class EtnService {
-  private readonly logger = new Logger(EtnService.name);
-
-  private get gisEpd(): MockGisEpdAdapter {
-    return integrationRegistry.get<MockGisEpdAdapter>('GIS_EPD');
+  createEtn(_params: EtnCreateRequest, _user: RequestUser): Promise<EtnDocument> {
+    return integrationNotActivated('GIS_EPD_CREATE');
   }
 
-  async createEtn(params: EtnCreateRequest, user: RequestUser): Promise<EtnDocument> {
-    this.logger.log(`Creating ETN for deal ${params.dealId} by user ${user.id}`);
-    const doc = await this.gisEpd.createEtn(params);
-    return doc;
-  }
-
-  async signEtn(
-    etnId: string,
-    signerRole: 'SHIPPER' | 'CARRIER' | 'CONSIGNEE',
-    certificateId: string,
-    user: RequestUser,
+  signEtn(
+    _etnId: string,
+    _signerRole: 'SHIPPER' | 'CARRIER' | 'CONSIGNEE',
+    _certificateId: string,
+    _user: RequestUser,
   ): Promise<EtnDocument> {
-    return this.gisEpd.signEtn({
-      etnId,
-      signerRole,
-      signatureBase64: `mock-sig-${user.id}-${Date.now()}`,
-      certificateId,
-    });
+    return integrationNotActivated('GIS_EPD_SIGNATURE');
   }
 
-  async getEtnStatus(etnId: string): Promise<EtnDocument> {
-    return this.gisEpd.getStatus(etnId);
+  getEtnStatus(_etnId: string): Promise<EtnDocument> {
+    return integrationNotActivated('GIS_EPD_STATUS');
   }
 
-  async listByDeal(dealId: string): Promise<EtnDocument[]> {
-    return this.gisEpd.listByDeal(dealId);
+  listByDeal(_dealId: string): Promise<EtnDocument[]> {
+    return integrationNotActivated('GIS_EPD_LIST');
   }
+}
+
+function integrationNotActivated(capability: string): never {
+  throw new ServiceUnavailableException({
+    code: 'INTEGRATION_NOT_ACTIVATED',
+    capability,
+    message: 'GIS EPD has not completed contract, credential and conformance activation.',
+  });
 }
