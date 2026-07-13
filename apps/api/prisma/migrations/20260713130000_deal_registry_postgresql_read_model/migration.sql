@@ -55,7 +55,8 @@ CREATE INDEX IF NOT EXISTS deals_registry_region_priority_idx
   );
 
 CREATE INDEX IF NOT EXISTS deal_participants_registry_user_idx
-  ON public."deal_participants" ("tenantId", "userId", "status", "dealId", "role");
+  ON public."deal_participants" ("tenantId", "userId", "dealId", "role", "organizationId")
+  WHERE "status" = 'ACTIVE' AND "accessLevel" IN ('READ', 'WORK', 'APPROVE');
 
 CREATE OR REPLACE FUNCTION public.app_deal_registry_page(
   p_limit integer,
