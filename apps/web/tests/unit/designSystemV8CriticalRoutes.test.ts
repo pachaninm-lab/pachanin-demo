@@ -44,14 +44,15 @@ describe('Design System v8 critical transaction routes', () => {
     expect(disputes).not.toMatch(forbiddenPresentation);
   });
 
-  it('keeps bank release review read-only and callback-authoritative', () => {
+  it('keeps bank release review server-selected, read-only and callback-authoritative', () => {
     expect(releaseSafety).toContain('MoneyObligationCockpit');
-    expect(releaseSafety).toContain('evaluateReleaseGuard');
-    expect(releaseSafety).toContain('ReleasePipelineStrip');
-    expect(releaseSafety).toContain('P7ExecutionMachineReadOnlyStrip');
-    expect(releaseSafety).toContain('Only the bank confirms reserve, review and movement of money');
-    expect(releaseSafety).toContain('只有银行可以确认预留、审核和资金流动');
-    expect(releaseSafety).toContain('ручная кнопка не заменяет callback и reconciliation');
+    expect(releaseSafety).toContain('CanonicalDealsList');
+    expect(releaseSafety).toContain('verified bank callback');
+    expect(releaseSafety).toContain('Payout readiness is not a release button');
+    expect(releaseSafety).toContain('付款就绪检查不是放款按钮');
+    expect(releaseSafety).not.toContain('canonicalDomainDeals');
+    expect(releaseSafety).not.toContain('evaluateReleaseGuard');
+    expect(releaseSafety).not.toContain('DL-9106');
     expect(releaseSafety).not.toMatch(releaseMutation);
     expect(releaseSafety).not.toMatch(forbiddenPresentation);
   });
