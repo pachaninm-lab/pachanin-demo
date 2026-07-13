@@ -30,7 +30,7 @@
 }
 
 .iconButton,
-:global(.pc-v4-iconbtn) {
+.root :global(.pc-v4-iconbtn) {
   width: var(--pc-v8-control-comfortable);
   min-width: var(--pc-v8-control-comfortable);
   height: var(--pc-v8-control-comfortable);
@@ -46,10 +46,10 @@
 }
 
 .iconButton:hover,
-:global(.pc-v4-iconbtn:hover) { color: var(--pc-v8-text); }
+.root :global(.pc-v4-iconbtn:hover) { color: var(--pc-v8-text); }
 
 .iconButton:focus-visible,
-:global(.pc-v4-iconbtn:focus-visible) {
+.root :global(.pc-v4-iconbtn:focus-visible) {
   outline: 3px solid color-mix(in srgb, var(--pc-v8-focus) 42%, transparent);
   outline-offset: 2px;
 }
@@ -169,7 +169,7 @@
   .brandCopy strong { font-size: 14px; }
   .actions { gap: var(--pc-v8-space-1); }
   .iconButton,
-  :global(.pc-v4-iconbtn) {
+  .root :global(.pc-v4-iconbtn) {
     width: var(--pc-v8-control-field);
     min-width: var(--pc-v8-control-field);
     height: var(--pc-v8-control-field);
@@ -183,7 +183,7 @@
 
 @media (forced-colors: active) {
   .iconButton,
-  :global(.pc-v4-iconbtn),
+  .root :global(.pc-v4-iconbtn),
   .drawerLink,
   .mobileLink { border-color: CanvasText; }
 }
