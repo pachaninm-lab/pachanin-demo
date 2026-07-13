@@ -9,8 +9,11 @@ on:
       - 'apps/web/components/platform-v7/NextActionCard.tsx'
       - 'apps/web/components/platform-v7/RoleIntentDashboard.tsx'
       - 'apps/web/components/platform-v7/RoleIntentDashboard.module.css'
+      - 'apps/web/components/platform-v7/CanonicalDealsList.tsx'
+      - 'apps/web/components/platform-v7/CanonicalDealsList.module.css'
       - 'apps/web/components/v7r/AppShellV4.tsx'
       - 'apps/web/components/v7r/AppShellV4.module.css'
+      - 'apps/web/app/platform-v7/deals/**'
       - 'apps/web/app/platform-v7/driver/field/page.tsx'
       - 'apps/web/app/platform-v7/elevator/page.tsx'
       - 'apps/web/app/platform-v7/lab/page.tsx'
@@ -28,6 +31,7 @@ on:
       - 'apps/web/tests/unit/designSystemV8OperationalRoles.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
+      - 'apps/web/tests/unit/platformV7RealDealsRegistry.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
       - 'apps/web/tests/unit/platformV7TodayWorkspace.test.ts'
       - 'apps/web/tests/unit/transactionRoleCockpitsV8.test.ts'
@@ -43,8 +47,11 @@ on:
       - 'apps/web/components/platform-v7/NextActionCard.tsx'
       - 'apps/web/components/platform-v7/RoleIntentDashboard.tsx'
       - 'apps/web/components/platform-v7/RoleIntentDashboard.module.css'
+      - 'apps/web/components/platform-v7/CanonicalDealsList.tsx'
+      - 'apps/web/components/platform-v7/CanonicalDealsList.module.css'
       - 'apps/web/components/v7r/AppShellV4.tsx'
       - 'apps/web/components/v7r/AppShellV4.module.css'
+      - 'apps/web/app/platform-v7/deals/**'
       - 'apps/web/app/platform-v7/driver/field/page.tsx'
       - 'apps/web/app/platform-v7/elevator/page.tsx'
       - 'apps/web/app/platform-v7/lab/page.tsx'
@@ -62,6 +69,7 @@ on:
       - 'apps/web/tests/unit/designSystemV8OperationalRoles.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
+      - 'apps/web/tests/unit/platformV7RealDealsRegistry.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
       - 'apps/web/tests/unit/platformV7TodayWorkspace.test.ts'
       - 'apps/web/tests/unit/transactionRoleCockpitsV8.test.ts'
@@ -90,7 +98,7 @@ jobs:
         run: node ./scripts/check-design-system-v8.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
-      - name: Run v8 role regressions
+      - name: Run v8 role and registry regressions
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
@@ -98,6 +106,7 @@ jobs:
             tests/unit/designSystemV8MoneyRoles.test.ts \
             tests/unit/designSystemV8OperationalRoles.test.ts \
             tests/unit/platformV7CanonicalDealWorkspace.test.ts \
+            tests/unit/platformV7RealDealsRegistry.test.ts \
             tests/unit/platformV7RoleIntentDashboard.test.ts \
             tests/unit/platformV7TodayWorkspace.test.ts \
             tests/unit/transactionRoleCockpitsV8.test.ts 2>&1 | tee design-system-v8-tests.log
