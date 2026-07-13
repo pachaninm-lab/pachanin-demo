@@ -149,10 +149,14 @@ html body :is(
   .p7-request-page,
   .pc-shell-root-v4,
   .pc-shell-root,
+  [data-public-supporting-shell],
   [data-staff-platform-shell]
 ) {
+  transform: none !important;
   perspective: none !important;
   filter: none !important;
+  contain: none !important;
+  will-change: auto !important;
 }
 
 @media (max-width: 980px) {
