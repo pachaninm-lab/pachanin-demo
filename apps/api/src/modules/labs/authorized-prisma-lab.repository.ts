@@ -114,7 +114,15 @@ export class AuthorizedPrismaLabRepository implements LabRepository {
   }
 
   async recordTest(id: string, command: RecordLabTestCommand, user: RequestUser): Promise<LabMutationResult> {
-    await this.requireSampleOperation(id, command.evidenceRef, command.occurredAt, user, 'ANALYST', 'TEST');
+    await this.requireSampleOperation(
+      id,
+      command.evidenceRef,
+      command.occurredAt,
+      user,
+      'ANALYST',
+      'TEST',
+      optionalIdentifier(command.supersedesId, 'supersedesId'),
+    );
     return this.delegate.recordTest(id, command, user);
   }
 
@@ -140,6 +148,7 @@ export class AuthorizedPrismaLabRepository implements LabRepository {
     user: RequestUser,
     actorType: ActorType,
     purpose: EvidencePurpose,
+    supersedesId: string | null = null,
   ): Promise<void> {
     const occurredAt = requiredDate(occurredAtValue, 'occurredAt');
     await this.rls.withTrustedContext(user, async (tx, context) => {
@@ -166,7 +175,32 @@ export class AuthorizedPrismaLabRepository implements LabRepository {
         laboratoryOrgId: sample.labId,
         protocolNumber: null,
       });
+      if (purpose === 'TEST') {
+        await this.requireCorrectionBinding(tx, evidenceId, supersedesId);
+      }
     });
+  }
+
+  private async requireCorrectionBinding(
+    tx: Prisma.TransactionClient,
+    evidenceId: string,
+    commandSupersedesId: string | null,
+  ): Promise<void> {
+    const evidence = await tx.dealDocument.findUnique({
+      where: { id: evidenceId },
+      select: { metadata: true },
+    });
+    const metadata = jsonObject(evidence?.metadata ?? null);
+    const evidenceSupersedesId = typeof metadata.supersedesId === 'string'
+      ? optionalIdentifier(metadata.supersedesId, 'evidence.supersedesId')
+      : null;
+    if (evidenceSupersedesId !== commandSupersedesId) {
+      throw new UnprocessableEntityException({
+        code: 'LAB_CORRECTION_EVIDENCE_MISMATCH',
+        commandSupersedesId,
+        evidenceSupersedesId,
+      });
+    }
   }
 
   private async requireActor(
@@ -219,4 +253,19 @@ function requiredDate(value: string, field: string): Date {
     throw new UnprocessableEntityException({ code: 'INVALID_DATE', field });
   }
   return date;
+}
+
+function optionalIdentifier(value: unknown, field: string): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  const normalized = String(value).trim();
+  if (!normalized || normalized.length > 200 || !/^[A-Za-z0-9:_.-]+$/.test(normalized)) {
+    throw new UnprocessableEntityException({ code: 'INVALID_IDENTIFIER', field });
+  }
+  return normalized;
+}
+
+function jsonObject(value: Prisma.JsonValue | null): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }
