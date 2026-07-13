@@ -1,0 +1,217 @@
+.workbench {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-4);
+}
+
+.workbenchHeader {
+  min-width: 0;
+  padding: clamp(var(--ds-space-4), 4vw, var(--ds-space-6));
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-color-surface);
+  box-shadow: var(--ds-shadow-surface);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--ds-space-4);
+}
+
+.workbenchHeading {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-2);
+}
+
+.workbenchTitle {
+  margin: 0;
+  color: var(--ds-color-text-primary);
+  font-size: clamp(26px, 5vw, 42px);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  overflow-wrap: anywhere;
+}
+
+.workbenchDescription {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-body);
+  line-height: 1.6;
+}
+
+.workbenchStatus { justify-self: end; }
+
+.workbenchBody {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  align-items: start;
+  gap: var(--ds-space-4);
+}
+
+.workbenchPrimary,
+.workbenchSecondary,
+.workbenchEvidence {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-3);
+}
+
+.workbenchEvidence { grid-column: 1 / -1; }
+
+.statusBadge {
+  min-height: var(--ds-control-height-compact);
+  width: fit-content;
+  max-width: 100%;
+  padding: 0 var(--ds-space-3);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-font-caption);
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+.statusNeutral { color: var(--ds-color-text-secondary); background: var(--ds-color-surface-subtle); }
+.statusSuccess { color: var(--ds-color-success); background: var(--ds-color-success-bg); }
+.statusWarning { color: var(--ds-color-warning); background: var(--ds-color-warning-bg); }
+.statusDanger { color: var(--ds-color-critical); background: var(--ds-color-critical-bg); }
+.statusInformation { color: var(--ds-color-information); background: var(--ds-color-information-bg); }
+
+.nextActionPanel {
+  min-width: 0;
+  padding: clamp(var(--ds-space-4), 4vw, var(--ds-space-6));
+  border: 2px solid var(--ds-color-action-primary);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-color-action-primary-subtle);
+  display: grid;
+  gap: var(--ds-space-4);
+}
+
+.nextActionBlocked {
+  border-color: var(--ds-color-warning);
+  background: var(--ds-color-warning-bg);
+}
+
+.nextActionEyebrow {
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-caption);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nextActionTitle {
+  margin: 0;
+  color: var(--ds-color-text-primary);
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+
+.nextActionDescription {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-body);
+  line-height: 1.6;
+}
+
+.nextActionMeta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ds-space-2);
+}
+
+.nextActionMetaItem {
+  min-width: 0;
+  padding: var(--ds-space-3);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  display: grid;
+  gap: var(--ds-space-1);
+}
+
+.nextActionMetaItem dt { color: var(--ds-color-text-muted); font-size: var(--ds-font-caption); }
+.nextActionMetaItem dd { margin: 0; color: var(--ds-color-text-primary); font-size: 14px; font-weight: 850; overflow-wrap: anywhere; }
+.nextActionControls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+
+.keyFactGrid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--ds-space-2);
+}
+
+.keyFact {
+  min-width: 0;
+  padding: var(--ds-space-3);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  display: grid;
+  align-content: start;
+  gap: var(--ds-space-1);
+}
+
+.keyFactLabel { color: var(--ds-color-text-muted); font-size: var(--ds-font-caption); font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; }
+.keyFactValue { color: var(--ds-color-text-primary); font-size: 16px; font-weight: 900; line-height: 1.3; overflow-wrap: anywhere; }
+.keyFactHint { color: var(--ds-color-text-secondary); font-size: var(--ds-font-caption); line-height: 1.45; }
+
+.emptyState {
+  min-height: 180px;
+  padding: var(--ds-space-6);
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+.emptyStateCopy { width: min(100%, 480px); display: grid; gap: var(--ds-space-2); }
+.emptyStateTitle { margin: 0; color: var(--ds-color-text-primary); font-size: var(--ds-font-title); }
+.emptyStateDescription { margin: 0; color: var(--ds-color-text-secondary); font-size: var(--ds-font-body); line-height: 1.55; }
+
+.statusBadge:focus-visible,
+.nextActionPanel a:focus-visible,
+.emptyState a:focus-visible {
+  outline: 3px solid var(--ds-color-focus);
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .workbenchBody { grid-template-columns: 1fr; }
+  .workbenchSecondary { order: -1; }
+  .workbenchEvidence { grid-column: auto; }
+  .keyFactGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .workbench { gap: var(--ds-space-3); }
+  .workbenchHeader { grid-template-columns: 1fr; padding: var(--ds-space-4); }
+  .workbenchStatus { justify-self: start; }
+  .nextActionPanel { padding: var(--ds-space-4); }
+  .nextActionMeta { grid-template-columns: 1fr; }
+  .nextActionControls > * { width: 100%; }
+  .keyFactGrid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 360px) {
+  .keyFactGrid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nextActionPanel,
+  .statusBadge { scroll-behavior: auto; }
+}
+
+@media (forced-colors: active) {
+  .workbenchHeader,
+  .statusBadge,
+  .nextActionPanel,
+  .nextActionMetaItem,
+  .keyFact { border-color: CanvasText; }
+}
