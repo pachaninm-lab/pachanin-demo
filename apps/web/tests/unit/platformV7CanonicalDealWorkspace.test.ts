@@ -16,6 +16,9 @@ describe('platform-v7 canonical one-deal workspace', () => {
   const dashboard = source('components/platform-v7/RoleIntentDashboard.tsx');
   const dashboardStyles = source('components/platform-v7/RoleIntentDashboard.module.css');
   const shell = source('components/platform-v7/PlatformV7ProtectedShell.tsx');
+  const utilityMenu = source('components/platform-v7/HeaderUtilityMenu.tsx');
+  const utilityStyles = source('components/platform-v7/HeaderUtilityMenu.module.css');
+  const assistant = source('components/platform-v7/RoleAssistantWidget.tsx');
   const proxy = source('app/api/proxy/[...path]/route.ts');
   const loginPage = source('app/platform-v7/login/page.tsx');
   const loginClient = source('app/platform-v7/login/LoginFormClient.tsx');
@@ -63,6 +66,29 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(workspace).toContain("values.acceptanceId = acceptanceId");
     expect(commandFormStyles).toContain('min-height: 48px');
     expect(commandFormStyles).toContain('@media (max-width: 560px)');
+  });
+
+  it('keeps header complexity behind one clearly labelled utility menu', () => {
+    expect(shell).toContain('<HeaderUtilityMenu />');
+    expect(shell).toContain('<CalculatorHeaderWidget />');
+    expect(shell).not.toContain('<MobileHeaderActionRail />');
+    expect(shell).not.toContain('<NotepadHeaderWidget />');
+    expect(shell).not.toContain('<SupportHeaderIcon />');
+    expect(utilityMenu).toContain('Помощь и инструменты');
+    expect(utilityMenu).toContain('Все дополнительные функции собраны в одном месте');
+    expect(utilityMenu).toContain("runNativeAction('.pc-v4-search')");
+    expect(utilityMenu).toContain("button[aria-label='Открыть уведомления']");
+    expect(utilityMenu).toContain("button[aria-label='Открыть калькулятор']");
+    expect(utilityMenu).toContain('PLATFORM_V7_AI_ROUTE');
+    expect(utilityMenu).toContain('Статус, инструкция и поддержка');
+    expect(utilityMenu).toContain('Выйти из платформы');
+    expect(utilityMenu).not.toContain('ROLE_NOTICE');
+    expect(utilityMenu).not.toContain('Есть действие');
+    expect(utilityStyles).toContain("button[aria-label='Открыть калькулятор']");
+    expect(utilityStyles).toContain('min-height: 48px');
+    expect(utilityStyles).toContain('@media (max-width: 767px)');
+    expect(assistant).not.toContain('pc-v7-assistant-widget');
+    expect(assistant).toContain('<WorkStepGuide />');
   });
 
   it('submits only user-entered payload through real task-first forms', () => {
