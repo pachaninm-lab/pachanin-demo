@@ -3,10 +3,9 @@ import type { ExecuteDealCommandDto } from '../../src/modules/deals/dto/execute-
 import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import {
   cleanTenant,
-  createRememberedInstance as createInstance,
+  createInstance,
   destroyInstance,
   payloadForAction,
-  prepareLaboratoryLifecycle,
   provisionDeal,
   type DealFixture,
   type ServiceInstance,
@@ -157,11 +156,7 @@ describe('Industrial core load proof on two instances', () => {
         await bankConfirm(index % 2 === 0 ? alpha : beta, fixture, 'RESERVE');
         for (let step = 0; step < POST_RESERVE_STEPS.length; step += 1) {
           const instance = (index + step) % 2 === 0 ? beta : alpha;
-          const action = POST_RESERVE_STEPS[step];
-          if (action.actionId === 'finalize_lab') {
-            await prepareLaboratoryLifecycle(instance, fixture);
-          }
-          await runStep(instance, fixture, action.actionId, action.userKey);
+          await runStep(instance, fixture, POST_RESERVE_STEPS[step].actionId, POST_RESERVE_STEPS[step].userKey);
         }
         await bankConfirm(index % 2 === 0 ? beta : alpha, fixture, 'RELEASE');
         await runStep(alpha, fixture, 'close_deal', 'operator');
