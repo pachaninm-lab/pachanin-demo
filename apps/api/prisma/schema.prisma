@@ -154,8 +154,8 @@ model DealParticipant {
   organizationId   String
   userId           String
   role             String
-  accessLevel      String   @default("WORK") // READ | WORK | APPROVE
-  status           String   @default("ACTIVE") // ACTIVE | SUSPENDED | REVOKED
+  accessLevel      String   @default("WORK")
+  status           String   @default("ACTIVE")
   assignedByUserId String?
   assignedAt       DateTime @default(now())
   revokedAt        DateTime?
@@ -194,53 +194,95 @@ model DealEvent {
 // ── Shipments ─────────────────────────────────────────────────────────────────
 
 model Shipment {
-  id            String   @id
-  dealId        String
-  status        String   @default("PENDING")
-  driverUserId  String?
-  driverName    String?
-  vehicleNumber String?
-  vehicleType   String?
-  carrierOrgId  String?
-  carrierName   String?
-  routeFrom     String?
-  routeTo       String?
-  etaHours      Float?
-  loadedTons    Float?
-  pinVerified   Boolean  @default(false)
-  version       BigInt   @default(0)
-  nextAction    String?
-  blockers      String?
-  geoLat        Float?
-  geoLng        Float?
-  lastGeoAt     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                    String   @id
+  dealId                String
+  tenantId              String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  status                String   @default("PENDING")
+  driverUserId          String?
+  driverName            String?
+  vehicleNumber         String?
+  vehicleType           String?
+  carrierOrgId          String?
+  carrierName           String?
+  routeFrom             String?
+  routeTo               String?
+  etaHours              Float?
+  loadedTons            Float?
+  pinVerified           Boolean  @default(false)
+  driverPinHash         String?
+  pinVerifiedAt         DateTime?
+  pinVerifiedByUserId   String?
+  pinFailedAttempts     Int      @default(0)
+  pinLockedUntil        DateTime?
+  version               BigInt   @default(0)
+  nextAction            String?
+  blockers              String?
+  geoLat                Float?
+  geoLng                Float?
+  lastGeoAt             DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  deal          Deal       @relation(fields: [dealId], references: [id])
-  checkpoints   Checkpoint[]
+  deal                  Deal               @relation(fields: [dealId], references: [id])
+  checkpoints           Checkpoint[]
+  gpsPoints             ShipmentGpsPoint[]
 
   @@index([dealId])
+  @@index([tenantId])
   @@index([driverUserId])
+  @@index([carrierOrgId])
   @@index([status])
   @@map("shipments")
 }
 
 model Checkpoint {
-  id          String   @id @default(cuid())
-  shipmentId  String
-  type        String
-  completedAt DateTime?
-  lat         Float?
-  lng         Float?
-  note        String?
-  photoUrl    String?
-  actorId     String?
+  id             String   @id @default(cuid())
+  shipmentId     String
+  tenantId       String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  type           String
+  completedAt    DateTime?
+  lat            Float?
+  lng            Float?
+  note           String?
+  photoUrl       String?
+  actorId        String?
+  commandId      String?
+  idempotencyKey String?  @unique
+  correlationId  String?
+  createdAt      DateTime @default(now())
 
-  shipment    Shipment @relation(fields: [shipmentId], references: [id])
+  shipment       Shipment @relation(fields: [shipmentId], references: [id])
 
   @@index([shipmentId])
+  @@index([tenantId])
+  @@index([completedAt])
+  @@index([correlationId])
   @@map("checkpoints")
+}
+
+model ShipmentGpsPoint {
+  id             String   @id
+  shipmentId     String
+  tenantId       String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  actorUserId    String
+  lat            Float
+  lng            Float
+  speedKmh       Float?
+  headingDeg     Float?
+  accuracyM      Float?
+  recordedAt     DateTime
+  commandId      String
+  idempotencyKey String   @unique
+  correlationId  String?
+  createdAt      DateTime @default(now())
+
+  shipment       Shipment @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+
+  @@index([shipmentId, recordedAt])
+  @@index([tenantId])
+  @@index([actorUserId])
+  @@index([correlationId])
+  @@map("shipment_gps_points")
 }
 
 // ── Documents ─────────────────────────────────────────────────────────────────
@@ -272,7 +314,7 @@ model DealDocument {
   supersedesId     String?
   seriesId         String?
   idempotencyKey   String?  @unique
-  correlationId    String?
+  correlationId   String?
   createdByOrgId   String?
   metadata         Json?
 
@@ -826,8 +868,8 @@ model DealWorkspaceRuntimeSnapshot {
   updatedAt            DateTime @updatedAt
 
   deal                 Deal      @relation("RuntimeSnapshotDeal", fields: [dealId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_deal_fkey")
-  outboxEntry          OutboxEntry? @relation("RuntimeSnapshotOutbox", fields: [outboxEntryId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_outbox_fkey")
-  auditEvent           AuditEvent? @relation("RuntimeSnapshotAudit", fields: [auditEventId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_audit_fkey")
+  outboxEntry          OutboxEntry? @relation("RuntimeSnapshotOutbox", fields: [outboxEntryId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_outbox_entry_id_key")
+  auditEvent           AuditEvent? @relation("RuntimeSnapshotAudit", fields: [auditEventId], references: [id], onDelete: Restrict, map: "dw_runtime_snapshots_audit_event_id_key")
   attempts             DealWorkspaceRuntimeTransactionAttempt[]
 
   @@unique([runtimeSnapshotId], map: "dw_runtime_snapshots_runtime_snapshot_id_key")
