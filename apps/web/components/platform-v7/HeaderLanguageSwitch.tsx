@@ -18,6 +18,7 @@ import {
   type DictionaryState,
   type LanguageCode,
 } from '@/lib/platform-v7/i18n/translation-runtime';
+import styles from './HeaderLanguageSwitch.module.css';
 
 const TARGETS = [
   '.pc-site-actions',
@@ -131,13 +132,11 @@ export function HeaderLanguageSwitch() {
     }).catch(() => undefined);
   }, []);
 
-  useEffect(() => {
-    return subscribeToLanguageChanges((next) => {
-      const safeNext = normalizeLanguage(next);
-      setLanguage(safeNext);
-      lockBrowserAutoTranslate(safeNext);
-    });
-  }, []);
+  useEffect(() => subscribeToLanguageChanges((next) => {
+    const safeNext = normalizeLanguage(next);
+    setLanguage(safeNext);
+    lockBrowserAutoTranslate(safeNext);
+  }), []);
 
   useEffect(() => {
     if (!mounted) return;
@@ -176,13 +175,13 @@ export function HeaderLanguageSwitch() {
   const meta = getLanguageMeta(language);
   const next = getLanguageMeta(nextLanguage(language));
   const languagesCount = SUPPORTED_LANGUAGES.length;
+  const rootClassName = target ? styles.root : `${styles.root} ${styles.fallback}`;
 
   const node = (
-    <span className='p7-header-lang' data-p7-no-translate='true'>
-      <style>{css}</style>
+    <span className={rootClassName} data-p7-no-translate='true'>
       <button
         type='button'
-        className='p7-header-lang-button'
+        className={styles.button}
         aria-label={`Язык ${meta.short}. Нажмите для переключения на ${next.short}. Всего языков: ${languagesCount}`}
         title={`Язык: ${meta.short}. Следующий: ${next.short}`}
         onClick={chooseNextLanguage}
@@ -194,11 +193,5 @@ export function HeaderLanguageSwitch() {
     </span>
   );
 
-  const portalTarget = target ?? document.body;
-  return createPortal(target ? node : <span className='p7-header-lang p7-header-lang-fallback' data-p7-no-translate='true'><style>{css}</style>{node}</span>, portalTarget);
+  return createPortal(node, target ?? document.body);
 }
-
-const css = `
-.p7-register-actions .p7-register-action-exit{display:none!important}
-.p7-header-lang{position:relative;display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;z-index:3800}.p7-header-lang-button{inline-size:54px!important;min-inline-size:54px!important;max-inline-size:54px!important;block-size:42px!important;min-block-size:42px!important;max-block-size:42px!important;border-radius:14px!important;border:1px solid rgba(8,122,59,.22)!important;background:rgba(8,122,59,.08)!important;color:#087a3b!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;padding:0!important;box-shadow:0 8px 20px rgba(7,22,17,.045)!important;cursor:pointer!important;appearance:none!important;-webkit-tap-highlight-color:transparent!important;white-space:nowrap!important}.p7-header-lang-button:hover{border-color:rgba(8,122,59,.34)!important;background:rgba(8,122,59,.12)}.p7-header-lang-button:focus-visible{outline:3px solid rgba(8,122,59,.30)!important;outline-offset:3px!important}.p7-header-lang-button b{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:19px!important;font-size:10.5px!important;font-weight:950!important;line-height:1!important;color:#075f32!important;letter-spacing:.02em!important}.p7-header-lang-fallback{position:fixed!important;right:12px!important;top:calc(env(safe-area-inset-top) + 12px)!important}.pc-site-actions .p7-header-lang,.entry-header-actions .p7-header-lang,.pc-v4-actions .p7-header-lang,.p7-flow-actions .p7-header-lang,.p7-request-actions .p7-header-lang,.p7-contact-nav .p7-header-lang,.p7-contact-fixed-actions .p7-header-lang,.p7-register-actions .p7-header-lang{order:-5!important}.pc-v4-actions .p7-header-lang-button{background:var(--pc-bg-card)!important;border-color:var(--pc-border)!important;color:var(--pc-text-secondary)!important;box-shadow:var(--pc-shadow-sm)!important}.pc-v4-actions .p7-header-lang-button b{color:var(--pc-text-primary)!important}.login-header>.login-brand{order:1!important}.login-header>.p7-header-lang{order:2!important;margin-left:auto!important}.login-header>.login-back{order:3!important}.login-header>.p7-header-lang .p7-header-lang-button{inline-size:56px!important;min-inline-size:56px!important;max-inline-size:56px!important;block-size:56px!important;min-block-size:56px!important;max-block-size:56px!important;border-radius:18px!important;background:#fff!important;color:#087a3b!important;border-color:rgba(7,22,17,.1)!important;box-shadow:0 10px 26px rgba(7,22,17,.06)!important}.login-header>.p7-header-lang .p7-header-lang-button b{font-size:11px!important;color:#087a3b!important}@media(max-width:767px){.pc-site-actions{gap:6px!important}.pc-site-actions .entry-login{min-width:76px!important;height:40px!important;min-height:40px!important;padding:0 12px!important;font-size:14px!important}.pc-site-actions .entry-login svg{display:none!important}.pc-site-actions .entry-header-register{display:none!important}.p7-header-lang-button{inline-size:50px!important;min-inline-size:50px!important;max-inline-size:50px!important;block-size:40px!important;min-block-size:40px!important;max-block-size:40px!important;border-radius:13px!important}.p7-header-lang-button svg{width:15px!important;height:15px!important}.p7-header-lang-button b{display:inline-flex!important;font-size:10px!important;min-width:18px!important}.pc-v4-actions .p7-header-lang-button{inline-size:46px!important;min-inline-size:46px!important;max-inline-size:46px!important;block-size:38px!important;min-block-size:38px!important;max-block-size:38px!important}.login-header>.p7-header-lang .p7-header-lang-button{inline-size:52px!important;min-inline-size:52px!important;max-inline-size:52px!important;block-size:52px!important;min-block-size:52px!important;max-block-size:52px!important;border-radius:17px!important}.login-header>.p7-header-lang .p7-header-lang-button b{font-size:10px!important}}@media(max-width:374px){.p7-header-lang-button{inline-size:46px!important;min-inline-size:46px!important;max-inline-size:46px!important}.p7-header-lang-button svg{width:14px!important;height:14px!important}.p7-header-lang-button b{font-size:9.5px!important}.login-header>.p7-header-lang .p7-header-lang-button{inline-size:48px!important;min-inline-size:48px!important;max-inline-size:48px!important;block-size:48px!important;min-block-size:48px!important;max-block-size:48px!important;border-radius:17px!important}}
-`;
