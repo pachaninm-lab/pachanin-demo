@@ -2,12 +2,8 @@
  * Industrial mode — the PostgreSQL-authoritative operating profile.
  *
  * In industrial mode every deal mutation must go through the canonical
- * command path (POST /deals/:id/commands/:actionId) and money state can only
- * be confirmed by a verified bank callback. Legacy runtime (in-memory)
- * repositories and free-form transitions are demo-profile-only.
- *
- * Production is always industrial: the process refuses to start otherwise
- * (fail closed) instead of silently serving in-memory state.
+ * command path and money state can only be confirmed by a verified bank
+ * callback. Legacy runtime repositories are never valid production authority.
  */
 
 export type ProcessEnv = Record<string, string | undefined>;
@@ -67,33 +63,11 @@ export function assertIndustrialProductionStartup(env: ProcessEnv = process.env)
         'The in-memory runtime repository is forbidden as production authority.',
     );
   }
-  if (parseCriticalRepositoryMode(
-    'PLATFORM_V7_DOCUMENT_REPOSITORY',
-    env.PLATFORM_V7_DOCUMENT_REPOSITORY,
-  ) !== 'prisma') {
-    throw new IndustrialStartupError(
-      'PLATFORM_V7_DOCUMENT_REPOSITORY must be "prisma" in production. ' +
-        'The in-memory document repository is forbidden as production authority.',
-    );
-  }
-  if (parseCriticalRepositoryMode(
-    'PLATFORM_V7_SHIPMENT_REPOSITORY',
-    env.PLATFORM_V7_SHIPMENT_REPOSITORY,
-  ) !== 'prisma') {
-    throw new IndustrialStartupError(
-      'PLATFORM_V7_SHIPMENT_REPOSITORY must be "prisma" in production. ' +
-        'The in-memory shipment repository is forbidden as production authority.',
-    );
-  }
-  if (parseCriticalRepositoryMode(
-    'PLATFORM_V7_LAB_REPOSITORY',
-    env.PLATFORM_V7_LAB_REPOSITORY,
-  ) !== 'prisma') {
-    throw new IndustrialStartupError(
-      'PLATFORM_V7_LAB_REPOSITORY must be "prisma" in production. ' +
-        'The in-memory laboratory repository is forbidden as production authority.',
-    );
-  }
+  assertPrismaRepository(env, 'PLATFORM_V7_DOCUMENT_REPOSITORY', 'document');
+  assertPrismaRepository(env, 'PLATFORM_V7_SHIPMENT_REPOSITORY', 'shipment');
+  assertPrismaRepository(env, 'PLATFORM_V7_LAB_REPOSITORY', 'laboratory');
+  assertPrismaRepository(env, 'PLATFORM_V7_PAYMENT_REPOSITORY', 'payment and settlement');
+
   if (env.AUTH_TEST_ACCOUNTS_ENABLED === '1' || env.AUTH_TEST_ACCOUNTS_ENABLED === 'true') {
     throw new IndustrialStartupError('Test accounts must be disabled in production live mode.');
   }
@@ -104,6 +78,19 @@ export function assertIndustrialProductionStartup(env: ProcessEnv = process.env)
 
 /** The migration that establishes the industrial transaction core schema. */
 export const INDUSTRIAL_CORE_MIGRATION = '20260712090000_industrial_transaction_core';
+
+function assertPrismaRepository(
+  env: ProcessEnv,
+  variable: string,
+  authorityName: string,
+): void {
+  if (parseCriticalRepositoryMode(variable, env[variable]) !== 'prisma') {
+    throw new IndustrialStartupError(
+      `${variable} must be "prisma" in production. ` +
+        `The in-memory ${authorityName} repository is forbidden as production authority.`,
+    );
+  }
+}
 
 function databasePrincipal(value: string | undefined): string {
   try {
