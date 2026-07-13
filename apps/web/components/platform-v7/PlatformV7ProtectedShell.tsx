@@ -195,7 +195,7 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
         <>
           <ScopedShellGuard />
           <PlatformV7SingleEntryGuard />
-          <PlatformV7ShellUxController />
+          <PlatformV7ShellUxController role={initialRole} />
           <RbacCabinetGuard />
           <ShellCopyNormalizer />
           <HeaderLanguageSwitch />
