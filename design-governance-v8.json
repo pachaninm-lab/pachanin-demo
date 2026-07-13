@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -15,7 +15,10 @@
     "apps/web/app/platform-v7/driver/field/page.tsx",
     "apps/web/app/platform-v7/elevator/page.tsx",
     "apps/web/app/platform-v7/lab/page.tsx",
-    "apps/web/app/platform-v7/surveyor/page.tsx"
+    "apps/web/app/platform-v7/surveyor/page.tsx",
+    "apps/web/app/platform-v7/seller/page.tsx",
+    "apps/web/app/platform-v7/buyer/page.tsx",
+    "apps/web/app/platform-v7/bank/page.tsx"
   ],
   "allowedGlobalStyleEntrypoints": [
     "packages/design-tokens/tokens.css"
