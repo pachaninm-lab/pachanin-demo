@@ -10,8 +10,10 @@ function source(path: string): string {
 
 describe('platform-v7 canonical one-deal workspace', () => {
   const workspace = source('components/platform-v7/CanonicalDealWorkspace.tsx');
+  const workspaceStyles = source('components/platform-v7/CanonicalDealWorkspace.module.css');
   const commandForm = source('components/platform-v7/DealCommandForm.tsx');
   const dashboard = source('components/platform-v7/RoleIntentDashboard.tsx');
+  const dashboardStyles = source('components/platform-v7/RoleIntentDashboard.module.css');
   const shell = source('components/platform-v7/PlatformV7ProtectedShell.tsx');
   const proxy = source('app/api/proxy/[...path]/route.ts');
   const loginPage = source('app/platform-v7/login/page.tsx');
@@ -27,6 +29,21 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(dashboard).toContain('У вас пока нет активных сделок');
     expect(dashboard).toContain('Не удалось загрузить сделки');
     expect(dashboard).toContain('Повторить');
+  });
+
+  it('puts one next action first and hides secondary complexity progressively', () => {
+    expect(workspace).toContain('Твоё следующее действие');
+    expect(workspace).toContain('Сейчас ничего делать не нужно');
+    expect(workspace).toContain('Показать весь путь сделки');
+    expect(workspace).toContain('Факты и доказательства');
+    expect(workspace).toContain("import styles from './CanonicalDealWorkspace.module.css'");
+    expect(dashboard).toContain("import styles from './RoleIntentDashboard.module.css'");
+    expect(workspace).not.toContain('<style jsx>');
+    expect(dashboard).not.toContain('<style jsx>');
+    expect(shell).not.toContain('style={{');
+    expect(workspaceStyles).toContain('min-height: 48px');
+    expect(workspaceStyles).toContain('@media (max-width: 430px)');
+    expect(dashboardStyles).toContain('min-height: 48px');
   });
 
   it('submits only user-entered payload through real task-first forms', () => {
