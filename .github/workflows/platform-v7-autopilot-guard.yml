@@ -8,11 +8,16 @@ on:
     paths:
       - 'apps/web/app/platform-v7/**'
       - 'apps/web/components/platform-v7/**'
+      - 'apps/web/components/transaction-ux/**'
       - 'apps/web/components/v7r/**'
       - 'apps/web/lib/platform-v7/**'
       - 'apps/web/tests/**'
+      - 'packages/design-system-v8/**'
+      - 'packages/design-tokens/**'
       - 'packages/domain-core/src/execution-simulation/**'
       - 'docs/platform-v7/**'
+      - 'design-governance-v8.json'
+      - 'scripts/check-design-system-v8*.mjs'
       - 'scripts/p7-autopilot-guard.sh'
       - '.github/workflows/platform-v7-autopilot-guard.yml'
 
@@ -28,4 +33,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: bash scripts/p7-autopilot-guard.sh
+      - name: Validate Design System v8 concurrent scope
+        if: github.event_name == 'pull_request' && github.head_ref == 'agent/design-system-v8-foundation'
+        run: |
+          node scripts/check-design-system-v8-pr-scope.mjs
+          node scripts/check-design-system-v8.mjs
+      - name: Validate active platform-v7 autopilot scope
+        if: github.event_name != 'pull_request' || github.head_ref != 'agent/design-system-v8-foundation'
+        run: bash scripts/p7-autopilot-guard.sh
