@@ -33,11 +33,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Validate Design System v8 concurrent scope
+      - name: Validate Design System v8 foundation scope
         if: github.event_name == 'pull_request' && github.head_ref == 'agent/design-system-v8-foundation'
         run: |
           node scripts/check-design-system-v8-pr-scope.mjs
           node scripts/check-design-system-v8.mjs
+      - name: Validate Design System v8 shell and field-role scope
+        if: github.event_name == 'pull_request' && github.head_ref == 'codex/design-system-v8-shell-field-roles'
+        run: |
+          node scripts/check-design-system-v8-shell-scope.mjs
+          node scripts/check-design-system-v8.mjs
       - name: Validate active platform-v7 autopilot scope
-        if: github.event_name != 'pull_request' || github.head_ref != 'agent/design-system-v8-foundation'
+        if: github.event_name != 'pull_request' || (github.head_ref != 'agent/design-system-v8-foundation' && github.head_ref != 'codex/design-system-v8-shell-field-roles')
         run: bash scripts/p7-autopilot-guard.sh
