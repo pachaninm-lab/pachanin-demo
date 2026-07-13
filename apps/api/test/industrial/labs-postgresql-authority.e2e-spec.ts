@@ -1,6 +1,10 @@
+import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
+import type { ExecuteDealCommandDto } from '../../src/modules/deals/dto/execute-deal-command.dto';
+import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import type { RequestUser } from '../../src/common/types/request-user';
 import { Role } from '../../src/common/types/request-user';
+import { AuthorizedPrismaLabRepository } from '../../src/modules/labs/authorized-prisma-lab.repository';
 import {
   createRememberedInstance,
   destroyInstance,
@@ -11,110 +15,87 @@ import {
   type ServiceInstance,
 } from './harness';
 
-const PRE_LAB_ACTIONS = [
-  'admit_parties',
-  'seller_sign_contract',
-  'buyer_sign_contract',
-  'open_reserve',
-  'confirm_reserve',
-  'choose_funding',
-  'mark_paid',
-  'assign_logistics',
-  'confirm_loading',
-  'start_transit',
-  'confirm_arrival',
-  'confirm_weight',
-  'confirm_inspection',
-] as const;
+jest.setTimeout(240_000);
 
-type ActionId = (typeof PRE_LAB_ACTIONS)[number] | 'finalize_lab';
+const PRE_RESERVE_SEQUENCE: ReadonlyArray<{ actionId: DealActionId; userKey: string }> = [
+  { actionId: 'approve_admission', userKey: 'compliance' },
+  { actionId: 'publish_auction', userKey: 'farmer' },
+  { actionId: 'place_winning_bid', userKey: 'buyer' },
+  { actionId: 'seller_sign_contract', userKey: 'farmer' },
+  { actionId: 'buyer_sign_contract', userKey: 'buyer' },
+  { actionId: 'request_reserve', userKey: 'buyer' },
+];
 
-function actorKey(actionId: ActionId): string {
-  const map: Record<ActionId, string> = {
-    admit_parties: 'compliance',
-    seller_sign_contract: 'farmer',
-    buyer_sign_contract: 'buyer',
-    open_reserve: 'accounting',
-    confirm_reserve: 'accounting',
-    choose_funding: 'buyer',
-    mark_paid: 'accounting',
-    assign_logistics: 'logistician',
-    confirm_loading: 'farmer',
-    start_transit: 'driver',
-    confirm_arrival: 'elevator',
-    confirm_weight: 'elevator',
-    confirm_inspection: 'surveyor',
-    finalize_lab: 'lab',
-  };
-  return map[actionId];
+const TO_INSPECTION_SEQUENCE: ReadonlyArray<{ actionId: DealActionId; userKey: string }> = [
+  { actionId: 'assign_logistics', userKey: 'logistician' },
+  { actionId: 'confirm_loading', userKey: 'driver' },
+  { actionId: 'start_transit', userKey: 'driver' },
+  { actionId: 'confirm_arrival', userKey: 'driver' },
+  { actionId: 'confirm_weight', userKey: 'elevator' },
+  { actionId: 'confirm_inspection', userKey: 'surveyor' },
+];
+
+async function currentDeal(instance: ServiceInstance, dealId: string) {
+  return instance.prisma.deal.findUniqueOrThrow({
+    where: { id: dealId },
+    select: { id: true, status: true, updatedAt: true, version: true },
+  });
 }
 
 async function executeAction(
   instance: ServiceInstance,
   fixture: DealFixture,
-  actionId: ActionId,
-  options: { commandId?: string; idempotencyKey?: string; payload?: Prisma.InputJsonObject } = {},
+  actionId: DealActionId,
+  user: RequestUser,
+  options: Readonly<{
+    commandId?: string;
+    idempotencyKey?: string;
+    payload?: Prisma.InputJsonObject;
+  }> = {},
 ) {
-  const workspace = await instance.gateway.getWorkspace(fixture.dealId, fixture.users.operator);
-  const commandId = options.commandId ?? `cmd-${fixture.dealId}-${actionId}`;
-  const idempotencyKey = options.idempotencyKey ?? `idem-${fixture.dealId}-${actionId}`;
-  return instance.gateway.execute(
-    fixture.dealId,
-    actionId,
-    {
-      commandId,
-      idempotencyKey,
-      expectedUpdatedAt: workspace.deal.updatedAt,
-      expectedVersion: workspace.deal.version,
-      payload: options.payload ?? payloadForAction(fixture, actionId),
-    },
-    fixture.users[actorKey(actionId)],
-  );
+  const deal = await currentDeal(instance, fixture.dealId);
+  const dto: ExecuteDealCommandDto = {
+    commandId: options.commandId ?? `cmd:${fixture.dealId}:${actionId}`,
+    idempotencyKey: options.idempotencyKey ?? `idem:${fixture.dealId}:${actionId}`,
+    expectedUpdatedAt: deal.updatedAt.toISOString(),
+    expectedVersion: deal.version.toString(),
+    payload: options.payload ?? payloadForAction(fixture, actionId),
+  };
+  return instance.gateway.executeUser(fixture.dealId, actionId, dto, user);
 }
 
-async function reserveCallback(instance: ServiceInstance, fixture: DealFixture): Promise<void> {
-  const operation = await instance.prisma.bankOperation.findFirstOrThrow({
-    where: { dealId: fixture.dealId, type: 'RESERVE' },
-    orderBy: { createdAt: 'desc' },
-  });
-  await instance.commands.applyBankCallback({
-    eventId: `evt-reserve-${fixture.dealId}`,
-    operationId: operation.id,
-    providerOperationId: operation.providerOperationId,
-    bankRef: `bank-reserve-${fixture.dealId}`,
-    provider: 'CI_BANK',
-    type: 'RESERVE_CONFIRMED',
-    status: 'SUCCEEDED',
-    amountKopecks: fixture.totalKopecks.toString(),
-    occurredAt: new Date().toISOString(),
-  });
-}
-
-async function paymentCallback(instance: ServiceInstance, fixture: DealFixture): Promise<void> {
-  const payment = await instance.prisma.payment.findFirstOrThrow({
-    where: { dealId: fixture.dealId },
-  });
-  await instance.commands.applyBankCallback({
-    eventId: `evt-payment-reserve-${fixture.dealId}`,
-    operationId: `payment:${fixture.dealId}`,
-    providerOperationId: `payment:${fixture.dealId}`,
-    bankRef: `bank-payment-reserve-${fixture.dealId}`,
-    provider: 'CI_BANK',
-    type: 'RESERVE_CONFIRMED',
-    status: 'SUCCEEDED',
-    amountKopecks: (payment.amountKopecks ?? fixture.totalKopecks).toString(),
-    occurredAt: new Date().toISOString(),
-  });
+function reserveCallback(fixture: DealFixture) {
+  return {
+    dealId: fixture.dealId,
+    eventId: `bank-event-${fixture.dealId}-RESERVE-1`,
+    operation: 'RESERVE' as const,
+    status: 'SUCCESS' as const,
+    bankRef: `BANK-RESERVE-${fixture.dealId}`,
+    operationId: `bank-reserve:${fixture.dealId}`,
+    partnerId: 'safe-deals',
+  };
 }
 
 async function driveToLaboratory(instance: ServiceInstance, fixture: DealFixture): Promise<void> {
-  for (const actionId of PRE_LAB_ACTIONS) {
-    if (actionId === 'confirm_reserve') await reserveCallback(instance, fixture);
-    if (actionId === 'mark_paid') await paymentCallback(instance, fixture);
-    await executeAction(instance, fixture, actionId);
+  for (const step of PRE_RESERVE_SEQUENCE) {
+    await executeAction(instance, fixture, step.actionId, fixture.users[step.userKey]);
   }
-  const deal = await instance.prisma.deal.findUniqueOrThrow({ where: { id: fixture.dealId } });
-  expect(deal.status).toBe('INSPECTION_CONFIRMED');
+  await instance.gateway.executeBankCallback(reserveCallback(fixture));
+  for (const step of TO_INSPECTION_SEQUENCE) {
+    await executeAction(instance, fixture, step.actionId, fixture.users[step.userKey]);
+  }
+  expect((await currentDeal(instance, fixture.dealId)).status).toBe('INSPECTION_CONFIRMED');
+}
+
+async function createPreparedFixture(slug: string): Promise<{
+  instance: ServiceInstance;
+  fixture: DealFixture;
+}> {
+  const instance = await createRememberedInstance();
+  const fixture = await provisionDeal(instance.prisma, slug, 240_000_000n);
+  await driveToLaboratory(instance, fixture);
+  await prepareLaboratoryLifecycle(instance, fixture);
+  return { instance, fixture };
 }
 
 async function createPurposeEvidence(
@@ -126,7 +107,7 @@ async function createPurposeEvidence(
   metadata: Prisma.InputJsonObject,
 ): Promise<string> {
   const body = JSON.stringify({ purpose, suffix, metadata });
-  const sha256 = require('crypto').createHash('sha256').update(body).digest('hex');
+  const sha256 = createHash('sha256').update(body).digest('hex');
   const requested = await instance.storage.requestUpload({
     dealId: fixture.dealId,
     filename: `${suffix}.json`,
@@ -142,12 +123,7 @@ async function createPurposeEvidence(
   await instance.rls.withTrustedContext(user, async (tx) => {
     const updated = await tx.dealDocument.updateMany({
       where: { id: requested.fileId, status: 'UPLOAD_PENDING', version: 1, isImmutable: false },
-      data: {
-        metadata: {
-          labPurpose: purpose,
-          ...metadata,
-        },
-      },
+      data: { metadata: { labPurpose: purpose, ...metadata } },
     });
     expect(updated.count).toBe(1);
   });
@@ -170,24 +146,22 @@ function outsider(fixture: DealFixture, tenantId = fixture.users.lab.tenantId): 
   };
 }
 
-async function createPreparedFixture(slug: string): Promise<{
-  instance: ServiceInstance;
-  fixture: DealFixture;
-}> {
-  const instance = await createRememberedInstance();
-  const fixture = await provisionDeal(instance.prisma, slug, 240_000_000n);
-  await driveToLaboratory(instance, fixture);
-  await prepareLaboratoryLifecycle(instance, fixture);
-  return { instance, fixture };
+async function finalizeDto(instance: ServiceInstance, fixture: DealFixture, key: string): Promise<ExecuteDealCommandDto> {
+  const deal = await currentDeal(instance, fixture.dealId);
+  return {
+    commandId: `cmd:${fixture.dealId}:finalize_lab:${key}`,
+    idempotencyKey: `idem:${fixture.dealId}:finalize_lab:${key}`,
+    expectedUpdatedAt: deal.updatedAt.toISOString(),
+    expectedVersion: deal.version.toString(),
+    payload: payloadForAction(fixture, 'finalize_lab'),
+  };
 }
 
 describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
   it('denies same-tenant outsider and cross-tenant reads under FORCE RLS', async () => {
     const { instance, fixture } = await createPreparedFixture('labs-scope');
     try {
-      await expect(instance.labs.getById(fixture.sampleId, outsider(fixture))).rejects.toMatchObject({
-        status: 404,
-      });
+      await expect(instance.labs.getById(fixture.sampleId, outsider(fixture))).rejects.toMatchObject({ status: 404 });
       await expect(
         instance.labs.getById(fixture.sampleId, outsider(fixture, 'cross-tenant-labs')),
       ).rejects.toMatchObject({ status: 404 });
@@ -199,6 +173,7 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
   it('prevents a privileged platform actor from impersonating an ANALYST', async () => {
     const { instance, fixture } = await createPreparedFixture('labs-privileged');
     try {
+      const guarded = new AuthorizedPrismaLabRepository(instance.labs, instance.rls);
       const sample = await instance.prisma.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId } });
       const evidenceRef = await createPurposeEvidence(
         instance,
@@ -213,7 +188,7 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
           laboratoryOrgId: fixture.serviceOrgId,
         },
       );
-      await expect(instance.labs.recordTest(fixture.sampleId, {
+      await expect(guarded.recordTest(fixture.sampleId, {
         commandId: `privileged-test-${fixture.dealId}`,
         idempotencyKey: `privileged-test-${fixture.dealId}`,
         expectedVersion: sample.version.toString(),
@@ -224,21 +199,24 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
         equipmentCode: 'CONTROLLED_ANALYZER',
         evidenceRef,
         occurredAt: new Date().toISOString(),
-      }, fixture.users.operator)).rejects.toBeDefined();
+      }, fixture.users.operator)).rejects.toMatchObject({ status: 403 });
     } finally {
       await destroyInstance(instance);
     }
   });
 
-  it('preserves an ordered continuous custody hash chain and rejects reordered custody', async () => {
+  it('rejects reordered custody and requires a continuous custody hash chain', async () => {
     const { instance, fixture } = await createPreparedFixture('labs-hash-chain');
     try {
       const events = await instance.prisma.$queryRaw<Array<{
+        id: string;
         eventType: string;
+        evidenceFileId: string;
         prevHash: string | null;
         hash: string;
       }>>(Prisma.sql`
-        SELECT event_type AS "eventType", prev_hash AS "prevHash", hash
+        SELECT id, event_type AS "eventType", evidence_file_id AS "evidenceFileId",
+               prev_hash AS "prevHash", hash
         FROM labs.sample_custody_events
         WHERE sample_id = ${fixture.sampleId}
         ORDER BY occurred_at, id
@@ -251,74 +229,104 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
         expect(events[index].prevHash).toBe(index === 0 ? null : events[index - 1].hash);
       }
 
-      const sample = await instance.prisma.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId } });
-      await expect(instance.labs.recordCustody(fixture.sampleId, {
-        commandId: `reordered-custody-${fixture.dealId}`,
-        idempotencyKey: `reordered-custody-${fixture.dealId}`,
-        expectedVersion: sample.version.toString(),
-        eventType: 'HANDOFF',
-        evidenceRef: fixture.evidence.lab,
-        occurredAt: new Date().toISOString(),
-      }, fixture.users.lab)).rejects.toBeDefined();
+      const handoff = events.find((event) => event.eventType === 'HANDOFF');
+      const tail = events.at(-1);
+      expect(handoff).toBeDefined();
+      expect(tail).toBeDefined();
+      await instance.rls.withTrustedContext(fixture.users.lab, async (tx) => {
+        const material = `duplicate-handoff:${fixture.sampleId}:${tail!.hash}`;
+        await tx.$executeRaw(Prisma.sql`
+          INSERT INTO labs.sample_custody_events (
+            id, sample_id, tenant_id, event_type, from_status, to_status,
+            actor_user_id, laboratory_org_id, evidence_file_id, command_id,
+            idempotency_key, correlation_id, occurred_at, prev_hash, hash
+          ) VALUES (
+            ${`duplicate-handoff:${fixture.dealId}`}, ${fixture.sampleId},
+            ${fixture.users.lab.tenantId}, 'HANDOFF', 'COLLECTED', 'IN_TRANSIT',
+            ${fixture.users.lab.id}, ${fixture.serviceOrgId}, ${handoff!.evidenceFileId},
+            ${`duplicate-handoff:${fixture.dealId}`}, ${`duplicate-handoff:${fixture.dealId}`},
+            ${`duplicate-handoff:${fixture.dealId}`}, now(), ${tail!.hash},
+            ${createHash('sha256').update(material).digest('hex')}
+          )
+        `);
+      });
+
+      await expect(
+        instance.gateway.executeUser(
+          fixture.dealId,
+          'finalize_lab',
+          await finalizeDto(instance, fixture, 'reordered-custody'),
+          fixture.users.lab,
+        ),
+      ).rejects.toBeDefined();
+      expect((await currentDeal(instance, fixture.dealId)).status).toBe('INSPECTION_CONFIRMED');
     } finally {
       await destroyInstance(instance);
     }
   });
 
-  it('converges a two-instance exact idempotency race and rejects payload mismatch', async () => {
+  it('converges a two-instance idempotency race, survives restart and rejects payload mismatch', async () => {
     const { instance, fixture } = await createPreparedFixture('labs-two-instance');
     const second = await createRememberedInstance();
     try {
-      const workspace = await instance.gateway.getWorkspace(fixture.dealId, fixture.users.operator);
-      const commandId = `labs-finalize-race-${fixture.dealId}`;
-      const idempotencyKey = `labs-finalize-race-${fixture.dealId}`;
-      const dto = {
-        commandId,
-        idempotencyKey,
-        expectedUpdatedAt: workspace.deal.updatedAt,
-        expectedVersion: workspace.deal.version,
-        payload: payloadForAction(fixture, 'finalize_lab'),
-      };
-      const [first, replay] = await Promise.all([
-        instance.gateway.execute(fixture.dealId, 'finalize_lab', dto, fixture.users.lab),
-        second.gateway.execute(fixture.dealId, 'finalize_lab', dto, fixture.users.lab),
+      const dto = await finalizeDto(instance, fixture, 'race');
+      const outcomes = await Promise.allSettled([
+        instance.gateway.executeUser(fixture.dealId, 'finalize_lab', dto, fixture.users.lab),
+        second.gateway.executeUser(fixture.dealId, 'finalize_lab', dto, fixture.users.lab),
       ]);
-      expect([Boolean(first.duplicate), Boolean(replay.duplicate)].sort()).toEqual([false, true]);
+      const fulfilled = outcomes.filter(
+        (outcome): outcome is PromiseFulfilledResult<Record<string, unknown>> => outcome.status === 'fulfilled',
+      );
+      expect(fulfilled).toHaveLength(2);
+      expect(fulfilled.map((outcome) => Boolean(outcome.value.duplicate)).sort()).toEqual([false, true]);
 
+      expect(await instance.prisma.outboxEntry.count({
+        where: { dealId: fixture.dealId, type: 'lab.protocol.finalized' },
+      })).toBe(1);
       const protocolCount = await instance.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
         SELECT count(*)::bigint AS count FROM labs.protocols WHERE sample_id = ${fixture.sampleId}
       `);
       expect(protocolCount[0].count).toBe(1n);
-      expect(await instance.prisma.outboxEntry.count({
-        where: { dealId: fixture.dealId, type: 'lab.protocol.finalized' },
-      })).toBe(1);
 
-      await expect(second.gateway.execute(fixture.dealId, 'finalize_lab', {
+      await expect(second.gateway.executeUser(fixture.dealId, 'finalize_lab', {
         ...dto,
         payload: { sampleId: fixture.sampleId, signedEvidenceRef: 'foreign-evidence' },
-      }, fixture.users.lab)).rejects.toMatchObject({ status: 409 });
+      }, fixture.users.lab)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'IDEMPOTENCY_KEY_REUSED' }),
+      });
+
+      const restarted = await createRememberedInstance();
+      try {
+        const persisted = await restarted.prisma.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId } });
+        expect(persisted.status).toBe('FINALIZED');
+        expect(await restarted.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+          SELECT count(*)::bigint AS count FROM labs.protocols WHERE sample_id = ${fixture.sampleId}
+        `)).toEqual([{ count: 1n }]);
+      } finally {
+        await destroyInstance(restarted);
+      }
     } finally {
       await destroyInstance(second);
       await destroyInstance(instance);
     }
   });
 
-  it('rolls back protocol, Deal, audit and outbox when accreditation is expired', async () => {
-    const { instance, fixture } = await createPreparedFixture('labs-expired-accreditation');
+  it('rejects foreign or wrong-purpose evidence and fully rolls back Deal, protocol, audit and outbox', async () => {
+    const { instance, fixture } = await createPreparedFixture('labs-evidence-rollback');
     try {
-      await instance.prisma.$executeRaw(Prisma.sql`
-        UPDATE labs.laboratories
-        SET valid_until = now() - interval '1 second'
-        WHERE tenant_id = ${fixture.users.lab.tenantId}
-          AND organization_id = ${fixture.serviceOrgId}
-      `);
       const beforeAudit = await instance.prisma.auditEvent.count({ where: { dealId: fixture.dealId } });
       const beforeOutbox = await instance.prisma.outboxEntry.count({ where: { dealId: fixture.dealId } });
-      await expect(executeAction(instance, fixture, 'finalize_lab')).rejects.toBeDefined();
+      const dto = await finalizeDto(instance, fixture, 'wrong-purpose');
+      await expect(instance.gateway.executeUser(fixture.dealId, 'finalize_lab', {
+        ...dto,
+        payload: { sampleId: fixture.sampleId, signedEvidenceRef: fixture.contractDocumentId },
+      }, fixture.users.lab)).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'LAB_PROTOCOL_EVIDENCE_NOT_PURPOSE_BOUND' }),
+      });
 
       const [sample, deal, protocols, auditAfter, outboxAfter] = await Promise.all([
         instance.prisma.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId } }),
-        instance.prisma.deal.findUniqueOrThrow({ where: { id: fixture.dealId } }),
+        currentDeal(instance, fixture.dealId),
         instance.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
           SELECT count(*)::bigint AS count FROM labs.protocols WHERE sample_id = ${fixture.sampleId}
         `),
@@ -335,19 +343,84 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
     }
   });
 
-  it('rejects expired calibration and keeps correction history for active aggregation', async () => {
-    const { instance, fixture } = await createPreparedFixture('labs-expired-calibration-correction');
+  it('rejects expired accreditation and expired calibration without deleting correction history', async () => {
+    const { instance, fixture } = await createPreparedFixture('labs-expiry-correction');
     try {
+      const original = await instance.prisma.labTest.findFirstOrThrow({
+        where: { sampleId: fixture.sampleId, parameter: 'moisture', supersedesId: null },
+      });
+      const sampleBeforeCorrection = await instance.prisma.labSample.findUniqueOrThrow({
+        where: { id: fixture.sampleId },
+      });
+      const correctionEvidence = await createPurposeEvidence(
+        instance,
+        fixture,
+        fixture.users.lab,
+        'TEST',
+        'moisture-correction',
+        {
+          sampleId: fixture.sampleId,
+          shipmentId: fixture.shipmentId,
+          acceptanceId: fixture.acceptanceId,
+          laboratoryOrgId: fixture.serviceOrgId,
+        },
+      );
+      await instance.labs.recordTest(fixture.sampleId, {
+        commandId: `correction:${fixture.dealId}:moisture`,
+        idempotencyKey: `correction:${fixture.dealId}:moisture`,
+        expectedVersion: sampleBeforeCorrection.version.toString(),
+        metric: 'moisture',
+        value: 13.1,
+        unit: '%',
+        methodCode: 'MOISTURE',
+        equipmentCode: 'CONTROLLED_ANALYZER',
+        evidenceRef: correctionEvidence,
+        occurredAt: new Date().toISOString(),
+        supersedesId: original.id,
+      }, fixture.users.lab);
+      expect(await instance.prisma.labTest.count({ where: { sampleId: fixture.sampleId } })).toBe(3);
+      expect(await instance.prisma.labTest.count({ where: { supersedesId: original.id } })).toBe(1);
+
       await instance.prisma.$executeRaw(Prisma.sql`
         UPDATE labs.equipment
         SET calibration_valid_until = '2020-01-01T00:00:00.000Z'::timestamptz
         WHERE tenant_id = ${fixture.users.lab.tenantId}
           AND laboratory_org_id = ${fixture.serviceOrgId}
       `);
-      await expect(executeAction(instance, fixture, 'finalize_lab')).rejects.toBeDefined();
-      expect(await instance.prisma.labTest.count({ where: { sampleId: fixture.sampleId } })).toBe(2);
-      // correction proof is completed by the dedicated correction command test;
-      // this assertion ensures failed finalization does not erase historical facts.
+      await expect(
+        instance.gateway.executeUser(
+          fixture.dealId,
+          'finalize_lab',
+          await finalizeDto(instance, fixture, 'expired-calibration'),
+          fixture.users.lab,
+        ),
+      ).rejects.toBeDefined();
+      expect(await instance.prisma.labTest.count({ where: { sampleId: fixture.sampleId } })).toBe(3);
+
+      await instance.prisma.$executeRaw(Prisma.sql`
+        UPDATE labs.equipment
+        SET calibration_valid_until = '2035-01-01T00:00:00.000Z'::timestamptz
+        WHERE tenant_id = ${fixture.users.lab.tenantId}
+          AND laboratory_org_id = ${fixture.serviceOrgId}
+      `);
+      await instance.prisma.$executeRaw(Prisma.sql`
+        UPDATE labs.laboratories
+        SET valid_until = now() - interval '1 second'
+        WHERE tenant_id = ${fixture.users.lab.tenantId}
+          AND organization_id = ${fixture.serviceOrgId}
+      `);
+      await expect(
+        instance.gateway.executeUser(
+          fixture.dealId,
+          'finalize_lab',
+          await finalizeDto(instance, fixture, 'expired-accreditation'),
+          fixture.users.lab,
+        ),
+      ).rejects.toBeDefined();
+      expect((await currentDeal(instance, fixture.dealId)).status).toBe('INSPECTION_CONFIRMED');
+      expect(await instance.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+        SELECT count(*)::bigint AS count FROM labs.protocols WHERE sample_id = ${fixture.sampleId}
+      `)).toEqual([{ count: 0n }]);
     } finally {
       await destroyInstance(instance);
     }
