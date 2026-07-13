@@ -36,6 +36,34 @@ const TO_INSPECTION_SEQUENCE: ReadonlyArray<{ actionId: DealActionId; userKey: s
   { actionId: 'confirm_inspection', userKey: 'surveyor' },
 ];
 
+function stable(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stable);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, stable(item)]),
+    );
+  }
+  return value;
+}
+
+function gatewayInternalIdempotencyKey(
+  dealId: string,
+  actionId: DealActionId,
+  dto: ExecuteDealCommandDto,
+): string {
+  const material = {
+    dealId,
+    actionId,
+    commandId: dto.commandId,
+    clientIdempotencyKey: dto.idempotencyKey,
+    expectedUpdatedAt: dto.expectedUpdatedAt,
+    payload: dto.payload ?? {},
+  };
+  return `fp:${createHash('sha256').update(JSON.stringify(stable(material))).digest('hex')}`;
+}
+
 async function currentDeal(instance: ServiceInstance, dealId: string) {
   return instance.prisma.deal.findUniqueOrThrow({
     where: { id: dealId },
@@ -172,13 +200,7 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
     try {
       const guarded = instance.labs;
       const sample = await instance.prisma.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId } });
-      const evidenceRef = await createPurposeEvidence(
-        instance,
-        fixture,
-        fixture.users.lab,
-        'TEST',
-        'privileged-test-attempt',
-      );
+      const evidenceRef = await createPurposeEvidence(instance, fixture, fixture.users.lab, 'TEST', 'privileged-test-attempt');
       await expect(guarded.recordTest(fixture.sampleId, {
         commandId: `privileged-test-${fixture.dealId}`,
         idempotencyKey: `privileged-test-${fixture.dealId}`,
@@ -242,14 +264,12 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
         `);
       });
 
-      await expect(
-        instance.gateway.executeUser(
-          fixture.dealId,
-          'finalize_lab',
-          await finalizeDto(instance, fixture, 'reordered-custody'),
-          fixture.users.lab,
-        ),
-      ).rejects.toBeDefined();
+      await expect(instance.gateway.executeUser(
+        fixture.dealId,
+        'finalize_lab',
+        await finalizeDto(instance, fixture, 'reordered-custody'),
+        fixture.users.lab,
+      )).rejects.toBeDefined();
       expect((await currentDeal(instance, fixture.dealId)).status).toBe('INSPECTION_CONFIRMED');
     } finally {
       await destroyInstance(instance);
@@ -265,9 +285,7 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
         instance.gateway.executeUser(fixture.dealId, 'finalize_lab', dto, fixture.users.lab),
         second.gateway.executeUser(fixture.dealId, 'finalize_lab', dto, fixture.users.lab),
       ]);
-      const fulfilled = outcomes.flatMap((outcome) =>
-        outcome.status === 'fulfilled' ? [outcome.value] : [],
-      );
+      const fulfilled = outcomes.flatMap((outcome) => outcome.status === 'fulfilled' ? [outcome.value] : []);
       expect(fulfilled).toHaveLength(2);
       expect(fulfilled.map((value) => Boolean(value.duplicate)).sort()).toEqual([false, true]);
 
@@ -279,8 +297,9 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
       `);
       expect(protocolCount[0].count).toBe(1n);
 
-      await expect(second.gateway.executeUser(fixture.dealId, 'finalize_lab', {
+      await expect(second.commands.execute(fixture.dealId, 'finalize_lab', {
         ...dto,
+        idempotencyKey: gatewayInternalIdempotencyKey(fixture.dealId, 'finalize_lab', dto),
         payload: { sampleId: fixture.sampleId, signedEvidenceRef: 'foreign-evidence' },
       }, fixture.users.lab)).rejects.toMatchObject({
         response: expect.objectContaining({ code: 'IDEMPOTENCY_KEY_REUSED' }),
@@ -340,9 +359,7 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
       const original = await instance.prisma.labTest.findFirstOrThrow({
         where: { sampleId: fixture.sampleId, parameter: 'moisture', supersedesId: null },
       });
-      const sampleBeforeCorrection = await instance.prisma.labSample.findUniqueOrThrow({
-        where: { id: fixture.sampleId },
-      });
+      const sampleBeforeCorrection = await instance.prisma.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId } });
       const correctionEvidence = await createPurposeEvidence(
         instance,
         fixture,
@@ -373,14 +390,12 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
         WHERE tenant_id = ${fixture.users.lab.tenantId}
           AND laboratory_org_id = ${fixture.serviceOrgId}
       `);
-      await expect(
-        instance.gateway.executeUser(
-          fixture.dealId,
-          'finalize_lab',
-          await finalizeDto(instance, fixture, 'expired-calibration'),
-          fixture.users.lab,
-        ),
-      ).rejects.toBeDefined();
+      await expect(instance.gateway.executeUser(
+        fixture.dealId,
+        'finalize_lab',
+        await finalizeDto(instance, fixture, 'expired-calibration'),
+        fixture.users.lab,
+      )).rejects.toBeDefined();
       expect(await instance.prisma.labTest.count({ where: { sampleId: fixture.sampleId } })).toBe(3);
 
       await instance.prisma.$executeRaw(Prisma.sql`
@@ -395,14 +410,12 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
         WHERE tenant_id = ${fixture.users.lab.tenantId}
           AND organization_id = ${fixture.serviceOrgId}
       `);
-      await expect(
-        instance.gateway.executeUser(
-          fixture.dealId,
-          'finalize_lab',
-          await finalizeDto(instance, fixture, 'expired-accreditation'),
-          fixture.users.lab,
-        ),
-      ).rejects.toBeDefined();
+      await expect(instance.gateway.executeUser(
+        fixture.dealId,
+        'finalize_lab',
+        await finalizeDto(instance, fixture, 'expired-accreditation'),
+        fixture.users.lab,
+      )).rejects.toBeDefined();
       expect((await currentDeal(instance, fixture.dealId)).status).toBe('INSPECTION_CONFIRMED');
       expect(await instance.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
         SELECT count(*)::bigint AS count FROM labs.protocols WHERE sample_id = ${fixture.sampleId}
