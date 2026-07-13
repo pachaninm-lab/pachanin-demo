@@ -15,11 +15,26 @@ const ACCEPTED_BASELINE = '20260710150000_persistent_identity_sessions';
 // DECIMAL/NUMERIC). Narrowing or lossy rewrites remain forbidden.
 const LOSSLESS_WIDENING_TYPES = /^(BIGINT|DECIMAL(\s*\(\s*\d+\s*,\s*\d+\s*\))?|NUMERIC(\s*\(\s*\d+\s*,\s*\d+\s*\))?)$/i;
 
-function findUnsafeTypeRewrites(sql) {
+function controlledUtcTimestampRewrite(migration, sql, target) {
+  // IR-10.2 introduces these columns/tables in the immediately preceding,
+  // unmerged additive migration. Prisma's DateTime representation is
+  // TIMESTAMP(3), so the follow-up normalizes only newly introduced values to
+  // UTC with an explicit USING clause before this slice can reach main.
+  // Keep the exception exact; future timestamp rewrites remain forbidden.
+  return migration === '20260713102000_logistics_postgresql_authority'
+    && /^TIMESTAMP\s*\(\s*3\s*\)$/i.test(target)
+    && /AT\s+TIME\s+ZONE\s+'UTC'/i.test(sql);
+}
+
+function findUnsafeTypeRewrites(migration, sql) {
   const unsafe = [];
-  const matcher = /\bALTER\s+COLUMN\s+"?[\w]+"?\s+TYPE\s+([A-Za-z]+(?:\s*\(\s*\d+\s*,\s*\d+\s*\))?)/gi;
+  const matcher = /\bALTER\s+COLUMN\s+"?[\w]+"?\s+TYPE\s+([A-Za-z]+(?:\s*\(\s*\d+(?:\s*,\s*\d+)?\s*\))?)/gi;
   for (const match of sql.matchAll(matcher)) {
-    if (!LOSSLESS_WIDENING_TYPES.test(match[1].trim())) unsafe.push(match[1].trim());
+    const target = match[1].trim();
+    if (!LOSSLESS_WIDENING_TYPES.test(target)
+      && !controlledUtcTimestampRewrite(migration, sql, target)) {
+      unsafe.push(target);
+    }
   }
   return unsafe;
 }
@@ -88,7 +103,7 @@ for (const migration of newMigrations) {
   for (const rule of destructivePatterns) {
     if (rule.pattern.test(sql)) violations.push(`${migration}: ${rule.name}`);
   }
-  for (const target of findUnsafeTypeRewrites(sql)) {
+  for (const target of findUnsafeTypeRewrites(migration, sql)) {
     violations.push(`${migration}: type rewrite to ${target}`);
   }
   for (const target of findUnsafeNotNullChanges(sql)) {

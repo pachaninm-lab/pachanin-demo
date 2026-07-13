@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { createHmac } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
@@ -6,6 +6,7 @@ import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.s
 import { RequestUser, Role } from '../../src/common/types/request-user';
 import { IndustrialDealCommandGateway } from '../../src/modules/deals/industrial-deal-command.gateway';
 import { DealCommandService } from '../../src/modules/deals/deal-command.service';
+import { PrismaShipmentRepository } from '../../src/modules/logistics/prisma-shipment.repository';
 import { BankKeyRegistryService } from '../../src/modules/settlement-engine/bank-key-registry.service';
 import { IntegrationEventsService } from '../../src/modules/integration-events/integration-events.service';
 import type { ExecuteDealCommandDto } from '../../src/modules/deals/dto/execute-deal-command.dto';
@@ -441,6 +442,134 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     expect(await evidenceSnapshot(rls, accounting)).toEqual(before);
   }
 
+  async function proveLogisticsAuthority(): Promise<void> {
+    const logistician = actor(Role.LOGISTICIAN);
+    const driver = actor(Role.DRIVER);
+    const issued = issuedUserCommands.find((item) => item.actionId === 'assign_logistics');
+    if (!issued) throw new Error('assign_logistics receipt is missing');
+
+    const repository = new PrismaShipmentRepository(rls);
+    const publicShipment = await repository.getById(SHIPMENT_ID, driver);
+    expect(publicShipment).not.toHaveProperty('driverPinHash');
+
+    const authority = await rls.withTrustedContext(logistician, async (tx) => {
+      const admissions = await tx.$queryRaw<Array<{ status: string; consumed_by_command_id: string }>>(Prisma.sql`
+        SELECT status, consumed_by_command_id
+        FROM logistics.deal_admissions
+        WHERE deal_id = ${CANONICAL_TEST_DEAL_ID}
+      `);
+      const bindings = await tx.$queryRaw<Array<{ shipment_id: string; command_id: string }>>(Prisma.sql`
+        SELECT shipment_id, command_id
+        FROM logistics.shipment_bindings
+        WHERE deal_id = ${CANONICAL_TEST_DEAL_ID}
+      `);
+      return { admissions, bindings };
+    });
+    expect(authority.admissions).toEqual([{ status: 'CONSUMED', consumed_by_command_id: issued.dto.commandId }]);
+    expect(authority.bindings).toEqual([{ shipment_id: SHIPMENT_ID, command_id: issued.dto.commandId }]);
+
+    await expect(gateway.executeUser(
+      CANONICAL_TEST_DEAL_ID,
+      'assign_logistics',
+      issued.dto,
+      logistician,
+    )).resolves.toMatchObject({ duplicate: true, commandId: issued.dto.commandId });
+
+    const gpsCommand = {
+      commandId: 'command-logistics-gps-1',
+      idempotencyKey: 'idempotency-logistics-gps-1',
+      expectedVersion: publicShipment.version.toString(),
+      recordedAt: '2026-07-12T09:45:00.000Z',
+      lat: 52.7212,
+      lng: 41.4523,
+      speedKmh: 42,
+      accuracyM: 5,
+    };
+    const gps = await repository.recordGps(SHIPMENT_ID, gpsCommand, driver);
+    expect(gps).toMatchObject({ duplicate: false, gpsPoint: { shipmentId: SHIPMENT_ID } });
+    await expect(repository.recordGps(SHIPMENT_ID, gpsCommand, driver)).resolves.toMatchObject({
+      duplicate: true,
+      gpsPoint: { id: gps.gpsPoint?.id },
+    });
+
+    await expect(repository.recordCheckpoint(SHIPMENT_ID, {
+      commandId: 'command-logistics-stale-checkpoint',
+      idempotencyKey: 'idempotency-logistics-stale-checkpoint',
+      expectedVersion: publicShipment.version.toString(),
+      type: 'DRIVER_CONFIRMED',
+      occurredAt: '2026-07-12T09:46:00.000Z',
+    }, driver)).rejects.toBeInstanceOf(ConflictException);
+
+    const afterGps = await repository.getById(SHIPMENT_ID, driver);
+    const checkpointCommand = {
+      commandId: 'command-logistics-checkpoint-1',
+      idempotencyKey: 'idempotency-logistics-checkpoint-1',
+      expectedVersion: afterGps.version.toString(),
+      type: 'DRIVER_CONFIRMED',
+      occurredAt: '2026-07-12T09:46:00.000Z',
+    };
+    const checkpoint = await repository.recordCheckpoint(SHIPMENT_ID, checkpointCommand, driver);
+    await expect(repository.recordCheckpoint(SHIPMENT_ID, checkpointCommand, driver)).resolves.toMatchObject({
+      duplicate: true,
+      checkpoint: { id: checkpoint.checkpoint?.id },
+    });
+
+    const afterCheckpoint = await repository.getById(SHIPMENT_ID, driver);
+    const pinCommand = {
+      commandId: 'command-logistics-pin-1',
+      idempotencyKey: 'idempotency-logistics-pin-1',
+      expectedVersion: afterCheckpoint.version.toString(),
+      pin: '246810',
+    };
+    const pin = await repository.verifyPin(SHIPMENT_ID, pinCommand, driver);
+    expect(pin).toMatchObject({ duplicate: false, valid: true, shipment: { pinVerified: true } });
+    await expect(repository.verifyPin(SHIPMENT_ID, pinCommand, driver)).resolves.toMatchObject({
+      duplicate: true,
+      valid: true,
+    });
+
+    const sameTenantOutsider: RequestUser = {
+      ...logistician,
+      id: 'same-tenant-logistics-outsider',
+      sessionId: 'same-tenant-logistics-outsider-session',
+    };
+    await expect(repository.getById(SHIPMENT_ID, sameTenantOutsider)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(repository.getById(SHIPMENT_ID, { ...driver, tenantId: 'tenant-other' })).rejects.toBeInstanceOf(NotFoundException);
+
+    await expect(rls.withTrustedContext(logistician, (tx) => tx.shipment.update({
+      where: { id: SHIPMENT_ID },
+      data: { vehicleNumber: 'vehicle-forged-reassignment' },
+    }))).rejects.toThrow(/immutable/i);
+
+    await withFreshRuntime(async (fresh) => {
+      const freshRepository = new PrismaShipmentRepository(fresh.rls);
+      const workspace = await freshRepository.workspace(SHIPMENT_ID, driver);
+      expect(workspace.gpsTrack).toEqual([expect.objectContaining({ id: gps.gpsPoint?.id })]);
+      expect(workspace.checkpoints).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: checkpoint.checkpoint?.id }),
+      ]));
+      expect(workspace.shipment).toMatchObject({ pinVerified: true });
+      expect(workspace.shipment).not.toHaveProperty('driverPinHash');
+    });
+
+    const atomic = await rls.withTrustedContext(logistician, async (tx) => ({
+      gpsAudit: await tx.auditEvent.count({ where: { dealId: CANONICAL_TEST_DEAL_ID, action: 'shipment.gps.record' } }),
+      gpsOutbox: await tx.outboxEntry.count({ where: { dealId: CANONICAL_TEST_DEAL_ID, type: 'shipment.gps.recorded', status: 'PENDING' } }),
+      checkpointAudit: await tx.auditEvent.count({ where: { dealId: CANONICAL_TEST_DEAL_ID, action: 'shipment.checkpoint.record' } }),
+      checkpointOutbox: await tx.outboxEntry.count({ where: { dealId: CANONICAL_TEST_DEAL_ID, type: 'shipment.checkpoint.recorded', status: 'PENDING' } }),
+      pinAudit: await tx.auditEvent.count({ where: { dealId: CANONICAL_TEST_DEAL_ID, action: 'shipment.pin.verify' } }),
+      pinOutbox: await tx.outboxEntry.count({ where: { dealId: CANONICAL_TEST_DEAL_ID, type: 'shipment.pin.verification.recorded', status: 'PENDING' } }),
+    }));
+    expect(atomic).toEqual({
+      gpsAudit: 1,
+      gpsOutbox: 1,
+      checkpointAudit: 1,
+      checkpointOutbox: 1,
+      pinAudit: 1,
+      pinOutbox: 1,
+    });
+  }
+
   async function proveRlsPoolIsolation(): Promise<void> {
     const valid = actor(Role.BUYER);
     const wrongTenant = { ...valid, tenantId: 'tenant-other', sessionId: 'rls-wrong-tenant' };
@@ -696,6 +825,7 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     expect(await evidenceSnapshot(rls, actor(Role.ACCOUNTING))).toEqual(beforeReserveReplay);
 
     await executeUserAction('assign_logistics');
+    await proveLogisticsAuthority();
     await executeUserAction('confirm_loading');
     await executeUserAction('start_transit');
     await executeUserAction('confirm_arrival');
@@ -774,7 +904,15 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
       expect.objectContaining({ accessLevel: 'READ', status: 'ACTIVE' }),
     ]);
     expect(reconciled.events).toHaveLength(DEAL_ACTIONS.length);
-    expect(reconciled.audits).toHaveLength(DEAL_ACTIONS.length);
+    const dealCommandAudits = reconciled.audits.filter((item) => item.action.startsWith('deal.command.'));
+    const logisticsAudits = reconciled.audits.filter((item) => item.action.startsWith('shipment.'));
+    expect(dealCommandAudits).toHaveLength(DEAL_ACTIONS.length);
+    expect(logisticsAudits.map((item) => item.action)).toEqual([
+      'shipment.gps.record',
+      'shipment.checkpoint.record',
+      'shipment.pin.verify',
+    ]);
+    expect(reconciled.audits).toHaveLength(DEAL_ACTIONS.length + logisticsAudits.length);
     expect(reconciled.outbox.filter((item) => item.type === 'deal.command.receipt')).toHaveLength(DEAL_ACTIONS.length);
     expect(reconciled.documents.length).toBeGreaterThanOrEqual(6);
     const requiredReleaseTypes = new Set(['CONTRACT', 'TTN', 'WEIGHING_ACT', 'LAB_PROTOCOL', 'ACCEPTANCE_ACT']);

@@ -76,6 +76,15 @@ export function assertIndustrialProductionStartup(env: ProcessEnv = process.env)
         'The in-memory document repository is forbidden as production authority.',
     );
   }
+  if (parseCriticalRepositoryMode(
+    'PLATFORM_V7_SHIPMENT_REPOSITORY',
+    env.PLATFORM_V7_SHIPMENT_REPOSITORY,
+  ) !== 'prisma') {
+    throw new IndustrialStartupError(
+      'PLATFORM_V7_SHIPMENT_REPOSITORY must be "prisma" in production. ' +
+        'The in-memory shipment repository is forbidden as production authority.',
+    );
+  }
   if (env.AUTH_TEST_ACCOUNTS_ENABLED === '1' || env.AUTH_TEST_ACCOUNTS_ENABLED === 'true') {
     throw new IndustrialStartupError('Test accounts must be disabled in production live mode.');
   }

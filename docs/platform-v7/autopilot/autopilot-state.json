@@ -8,7 +8,7 @@
   },
   "baseline": {
     "branch": "main",
-    "commit": "a485371e54b31fc787c061643c0068184e373c7b",
+    "commit": "b5379c2ebcd47c202603944c3852a3452ebe1d7e",
     "verifiedAt": "2026-07-13",
     "gitObjectDatabase": "fsck-passed-on-approved-baseline"
   },
@@ -18,7 +18,7 @@
   "current": "IR-10.2 Logistics PostgreSQL Authority",
   "fullTzReadinessPercent": 0,
   "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",
-  "openPr": null,
+  "openPr": "#2412",
   "lastClosed": [
     "#2260 Industrial one-deal foundation",
     "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
@@ -40,7 +40,12 @@
   "closedCapabilities": {
     "persistentIdentityAndMfa": {
       "status": "merged-isolated-postgresql-evidence",
-      "prs": ["#2276", "#2280", "#2282", "#2283"]
+      "prs": [
+        "#2276",
+        "#2280",
+        "#2282",
+        "#2283"
+      ]
     },
     "restrictedDatabasePrincipals": {
       "status": "merged-isolated-postgresql-evidence",
@@ -48,14 +53,26 @@
     },
     "dealCommandCore": {
       "status": "merged-isolated-postgresql-evidence",
-      "prs": ["#2260", "#2270", "#2274", "#2378", "#2406", "#2407"],
+      "prs": [
+        "#2260",
+        "#2270",
+        "#2274",
+        "#2378",
+        "#2406",
+        "#2407"
+      ],
       "latestMergeCommit": "66bf4655eede522ca3f3963d6d7aaa5cee9c50a5"
     },
     "documentsPostgresqlAuthority": {
       "status": "merged-isolated-postgresql-evidence",
       "pr": "#2410",
       "mergeCommit": "a485371e54b31fc787c061643c0068184e373c7b",
-      "remainingBoundaries": ["IR-32 document state machines", "IR-40 evidence retention", "IR-41 signature verification", "IR-53 EDO mapping"]
+      "remainingBoundaries": [
+        "IR-32 document state machines",
+        "IR-40 evidence retention",
+        "IR-41 signature verification",
+        "IR-53 EDO mapping"
+      ]
     },
     "durableOutboxWorkerImplementation": {
       "status": "merged-but-not-exclusive-production-owner",
@@ -108,6 +125,10 @@
     "apps/api/src/common/config/industrial-mode.ts",
     "apps/api/src/common/command-execution.context.ts",
     "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "apps/api/src/modules/documents/document-repository.spec.ts",
+    "apps/api/src/modules/deals/deal-command.service.ts",
+    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
+    "apps/api/test/one-deal/restored-database-acceptance.ts",
     "apps/api/src/modules/deals/deal-command-payload.ts",
     "apps/api/src/modules/deals/deals.module.ts",
     "apps/api/src/modules/deals/logistics-admission-context.ts",
@@ -117,6 +138,7 @@
     "apps/api/src/modules/logistics/**",
     "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/20260713*_logistics_postgresql_authority/**",
+    "apps/api/test/industrial/harness.ts",
     "apps/api/test/industrial/logistics-postgresql-authority.e2e-spec.ts",
     "apps/api/test/one-deal/logistics-postgresql-authority.e2e-spec.ts",
     "apps/api/test/one-deal/seed-logistics-admission.ts",
@@ -135,6 +157,10 @@
     "apps/api/src/common/config/industrial-mode.ts",
     "apps/api/src/common/command-execution.context.ts",
     "apps/api/src/common/prisma/rls-transaction.service.ts",
+    "apps/api/src/modules/documents/document-repository.spec.ts",
+    "apps/api/src/modules/deals/deal-command.service.ts",
+    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
+    "apps/api/test/one-deal/restored-database-acceptance.ts",
     "apps/api/src/modules/deals/deal-command-payload.ts",
     "apps/api/src/modules/deals/deals.module.ts",
     "apps/api/src/modules/deals/logistics-admission-context.ts",
@@ -144,6 +170,7 @@
     "apps/api/src/modules/logistics/**",
     "apps/api/prisma/schema.prisma",
     "apps/api/prisma/migrations/20260713*_logistics_postgresql_authority/**",
+    "apps/api/test/industrial/harness.ts",
     "apps/api/test/industrial/logistics-postgresql-authority.e2e-spec.ts",
     "apps/api/test/one-deal/logistics-postgresql-authority.e2e-spec.ts",
     "apps/api/test/one-deal/seed-logistics-admission.ts",

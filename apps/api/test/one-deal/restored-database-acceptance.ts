@@ -45,7 +45,19 @@ async function main(): Promise<void> {
     const rls = new RlsTransactionService(dealPrisma);
 
     const restored = await rls.withTrustedContext(actor, async (tx) => {
-      const [deal, visibleParticipants, events, audits, documents, bankOperations, ledger, migrations, rlsTables] = await Promise.all([
+      const [
+        deal,
+        visibleParticipants,
+        events,
+        audits,
+        dealCommandAudits,
+        shipmentAudits,
+        documents,
+        bankOperations,
+        ledger,
+        migrations,
+        rlsTables,
+      ] = await Promise.all([
         tx.deal.findUnique({
           where: { id: CANONICAL_TEST_DEAL_ID },
           select: { id: true, status: true, totalKopecks: true, closedAt: true },
@@ -53,6 +65,12 @@ async function main(): Promise<void> {
         tx.dealParticipant.count({ where: { dealId: CANONICAL_TEST_DEAL_ID, status: 'ACTIVE' } }),
         tx.dealEvent.count({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
         tx.auditEvent.count({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
+        tx.auditEvent.count({
+          where: { dealId: CANONICAL_TEST_DEAL_ID, action: { startsWith: 'deal.command.' } },
+        }),
+        tx.auditEvent.count({
+          where: { dealId: CANONICAL_TEST_DEAL_ID, action: { startsWith: 'shipment.' } },
+        }),
         tx.dealDocument.findMany({
           where: { dealId: CANONICAL_TEST_DEAL_ID, status: 'SIGNED' },
           select: { type: true },
@@ -90,6 +108,8 @@ async function main(): Promise<void> {
         visibleParticipants,
         events,
         audits,
+        dealCommandAudits,
+        shipmentAudits,
         documentTypes: documents.map((document) => document.type),
         bankOperations,
         ledger,
@@ -105,7 +125,17 @@ async function main(): Promise<void> {
       throw new Error(`Farmer must see only its own participant row, got ${restored.visibleParticipants}`);
     }
     if (restored.events !== 19) throw new Error(`Expected 19 events, got ${restored.events}`);
-    if (restored.audits !== 19) throw new Error(`Expected 19 audits, got ${restored.audits}`);
+    if (restored.dealCommandAudits !== 19) {
+      throw new Error(`Expected 19 Deal command audits, got ${restored.dealCommandAudits}`);
+    }
+    if (restored.shipmentAudits !== 3) {
+      throw new Error(`Expected 3 Shipment audits, got ${restored.shipmentAudits}`);
+    }
+    if (restored.audits !== restored.dealCommandAudits + restored.shipmentAudits) {
+      throw new Error(
+        `Unexpected restored audit class: total ${restored.audits}, Deal ${restored.dealCommandAudits}, Shipment ${restored.shipmentAudits}`,
+      );
+    }
 
     const restoredDocumentTypes = [...new Set(restored.documentTypes)].sort();
     const requiredDocumentTypes = [...REQUIRED_SIGNED_DOCUMENT_TYPES].sort();
@@ -139,6 +169,8 @@ async function main(): Promise<void> {
       visibleParticipants: restored.visibleParticipants,
       events: restored.events,
       audits: restored.audits,
+      dealCommandAudits: restored.dealCommandAudits,
+      shipmentAudits: restored.shipmentAudits,
       signedDocumentTypes: restoredDocumentTypes,
       bankOperations: restored.bankOperations,
       ledgerEntries: restored.ledger,

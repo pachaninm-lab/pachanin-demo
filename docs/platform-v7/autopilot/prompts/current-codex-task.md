@@ -40,6 +40,9 @@ IR-10.1 Documents PostgreSQL Authority — PR #2410, merge `a485371e54b31fc787c0
 - apps/api/src/common/config/industrial-mode.ts
 - apps/api/src/common/command-execution.context.ts
 - apps/api/src/common/prisma/rls-transaction.service.ts
+- apps/api/src/modules/documents/document-repository.spec.ts
+- apps/api/src/modules/deals/deal-command.service.ts
+- apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
 - apps/api/src/modules/deals/deal-command-payload.ts
 - apps/api/src/modules/deals/deals.module.ts
 - apps/api/src/modules/deals/logistics-admission-context.ts
@@ -49,6 +52,7 @@ IR-10.1 Documents PostgreSQL Authority — PR #2410, merge `a485371e54b31fc787c0
 - apps/api/src/modules/logistics/**
 - apps/api/prisma/schema.prisma
 - apps/api/prisma/migrations/20260713*_logistics_postgresql_authority/**
+- apps/api/test/industrial/harness.ts
 - apps/api/test/industrial/logistics-postgresql-authority.e2e-spec.ts
 - apps/api/test/one-deal/logistics-postgresql-authority.e2e-spec.ts
 - apps/api/test/one-deal/seed-logistics-admission.ts

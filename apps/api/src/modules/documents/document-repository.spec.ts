@@ -74,6 +74,7 @@ describe('production startup document authority gate', () => {
     STORAGE_DATABASE_URL: 'postgresql://app_storage@production.invalid/db',
     PLATFORM_V7_DEAL_REPOSITORY: 'prisma',
     PLATFORM_V7_DOCUMENT_REPOSITORY: 'prisma',
+    PLATFORM_V7_SHIPMENT_REPOSITORY: 'prisma',
   };
 
   it('accepts only the explicit Prisma document binding', () => {
