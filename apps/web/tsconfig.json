@@ -18,6 +18,18 @@
       "@/components/platform-v7/GrainExecutionPage": [
         "./components/platform-v7/GrainExecutionPageFixed.tsx"
       ],
+      "@pc/design-system-v8": [
+        "../../packages/design-system-v8/src/index.tsx"
+      ],
+      "@pc/design-system-v8/styles.css": [
+        "../../packages/design-system-v8/src/styles.css"
+      ],
+      "@pc/design-tokens": [
+        "../../packages/design-tokens/src/index.ts"
+      ],
+      "@pc/design-tokens/tokens.css": [
+        "../../packages/design-tokens/src/tokens.css"
+      ],
       "@/*": [
         "./*"
       ]
