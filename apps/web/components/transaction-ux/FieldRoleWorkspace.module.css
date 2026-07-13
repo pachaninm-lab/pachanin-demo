@@ -1,0 +1,175 @@
+.stack {
+  min-width: 0;
+  display: grid;
+  gap: var(--pc-v8-space-3);
+}
+
+.sectionStack {
+  min-width: 0;
+  display: grid;
+  gap: var(--pc-v8-space-3);
+}
+
+.contextList {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--pc-v8-space-3);
+  list-style: none;
+}
+
+.contextList li {
+  min-width: 0;
+  padding: var(--pc-v8-space-3);
+  border: 1px solid var(--pc-v8-border);
+  border-radius: var(--pc-v8-radius-md);
+  background: var(--pc-v8-surface-muted);
+  display: grid;
+  gap: var(--pc-v8-space-1);
+}
+
+.contextList strong {
+  color: var(--pc-v8-text);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.contextList span,
+.contextList small {
+  color: var(--pc-v8-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pc-v8-space-2);
+}
+
+.primaryLink,
+.secondaryLink {
+  min-height: var(--pc-v8-control-field);
+  padding: 0 var(--pc-v8-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--pc-v8-radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 850;
+}
+
+.primaryLink {
+  background: var(--pc-v8-accent);
+  color: var(--pc-v8-color-neutral-0);
+}
+
+.secondaryLink {
+  border-color: var(--pc-v8-border);
+  background: var(--pc-v8-surface);
+  color: var(--pc-v8-text);
+}
+
+.primaryLink:focus-visible,
+.secondaryLink:focus-visible,
+.assignmentCard:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--pc-v8-focus) 42%, transparent);
+  outline-offset: 2px;
+}
+
+.twoColumn {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--pc-v8-space-3);
+}
+
+.fourColumn {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--pc-v8-space-3);
+}
+
+.evidenceStack {
+  min-width: 0;
+  display: grid;
+  gap: var(--pc-v8-space-3);
+}
+
+.alert {
+  padding: var(--pc-v8-space-3);
+  border: 1px solid color-mix(in srgb, var(--pc-v8-color-danger) 36%, var(--pc-v8-border));
+  border-radius: var(--pc-v8-radius-md);
+  background: color-mix(in srgb, var(--pc-v8-color-danger) 7%, var(--pc-v8-surface));
+  color: var(--pc-v8-color-danger);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.assignmentList {
+  display: grid;
+  gap: var(--pc-v8-space-2);
+}
+
+.assignmentCard {
+  min-height: var(--pc-v8-control-field);
+  padding: var(--pc-v8-space-3);
+  border: 1px solid var(--pc-v8-border);
+  border-radius: var(--pc-v8-radius-md);
+  background: var(--pc-v8-surface-muted);
+  color: var(--pc-v8-text);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pc-v8-space-3);
+}
+
+.assignmentCopy {
+  min-width: 0;
+  display: grid;
+  gap: var(--pc-v8-space-1);
+}
+
+.assignmentCopy strong {
+  overflow-wrap: anywhere;
+}
+
+.assignmentCopy span,
+.assignmentCopy small {
+  color: var(--pc-v8-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.sectionAnchor {
+  scroll-margin-top: calc(64px + var(--pc-v8-space-4));
+}
+
+.muted {
+  color: var(--pc-v8-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 820px) {
+  .fourColumn { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .actions { display: grid; }
+  .primaryLink,
+  .secondaryLink { width: 100%; }
+  .twoColumn,
+  .fourColumn { grid-template-columns: 1fr; }
+  .assignmentCard { align-items: flex-start; }
+}
+
+@media (forced-colors: active) {
+  .primaryLink,
+  .secondaryLink,
+  .contextList li,
+  .alert,
+  .assignmentCard { border-color: CanvasText; }
+}
