@@ -4,7 +4,6 @@ import type { ExecuteDealCommandDto } from '../../src/modules/deals/dto/execute-
 import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import type { RequestUser } from '../../src/common/types/request-user';
 import { Role } from '../../src/common/types/request-user';
-import { AuthorizedPrismaLabRepository } from '../../src/modules/labs/authorized-prisma-lab.repository';
 import { LabEvidenceUploadService } from '../../src/modules/labs/lab-evidence-upload.service';
 import type { LabOperationEvidencePurpose } from '../../src/modules/labs/dto/request-lab-evidence-upload.dto';
 import {
@@ -169,7 +168,7 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
   it('prevents a privileged platform actor from impersonating an ANALYST', async () => {
     const { instance, fixture } = await createPreparedFixture('labs-privileged');
     try {
-      const guarded = new AuthorizedPrismaLabRepository(instance.labs, instance.rls);
+      const guarded = instance.labs;
       const sample = await instance.prisma.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId } });
       const evidenceRef = await createPurposeEvidence(
         instance,
