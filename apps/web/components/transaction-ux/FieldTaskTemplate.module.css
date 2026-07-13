@@ -1,0 +1,28 @@
+.root {
+  min-width: 0;
+  display: grid;
+  gap: var(--pc-v8-space-3);
+}
+
+.heading {
+  display: grid;
+  gap: var(--pc-v8-space-2);
+}
+
+.eyebrow {
+  color: var(--pc-v8-accent);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.contextStack {
+  min-width: 0;
+  display: grid;
+  gap: var(--pc-v8-space-3);
+}
+
+.contextStack > section {
+  min-width: 0;
+}
