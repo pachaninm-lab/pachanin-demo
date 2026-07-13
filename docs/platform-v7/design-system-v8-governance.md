@@ -30,7 +30,7 @@ The following are controlled by v8:
 - the active `AppShellV4` TSX and CSS Module;
 - the shared `RoleIntentDashboard` TSX and CSS Module used by all twelve business-role roots;
 - the canonical deals registry page, list component and their CSS Modules;
-- the document readiness route;
+- the document readiness, dispute queue and bank release-review routes;
 - every file registered in `migratedFiles` inside `design-governance-v8.json`.
 
 A migrated product file must consume `@pc/design-system-v8` or the governed `transaction-ux` boundary. New local copies of a migrated pattern are not allowed.
@@ -151,9 +151,32 @@ The `/platform-v7/documents` route is a governed server-authoritative entry into
 - supports RU, EN and ZH, including cockpit meta labels and accessibility labels;
 - inherits mobile, keyboard, reduced-motion and forced-colors behavior from governed v8 components.
 
+### Dispute queue
+
+The `/platform-v7/disputes` route uses server-registered disputes as the primary queue. It:
+
+- calculates open count and held amount from the server-backed dispute model;
+- keeps evidence readiness, recommendations, decision package and feedback behind progressive disclosure;
+- removes scenario mock data from the authority path;
+- links every dispute to its Deal and audit trail;
+- keeps the arbitrator, operator and bank as distinct decision authorities;
+- supports RU, EN and ZH route copy;
+- cannot alter laboratory facts, sign documents for a party or release held money.
+
+### Bank release-review route
+
+The `/platform-v7/bank/release-safety` route is a governed read-only projection of domain release guards. It:
+
+- differentiates reserve, hold, release candidate and bank-confirmed movement of money;
+- shows blocker codes through localized reason labels;
+- preserves the release pipeline, decision package and execution state machine as read-only controls;
+- contains no HTTP mutation or command that can request, confirm or execute release;
+- requires an external bank callback and reconciliation before a bank state is treated as confirmed;
+- supports RU, EN and ZH route copy.
+
 ## Remaining boundary
 
-Payment and settlement views, dispute operations, auctions and other secondary routes are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
+Auction execution, detailed settlement operations and historical or non-critical routes are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
 
 ## Decision authority
 
