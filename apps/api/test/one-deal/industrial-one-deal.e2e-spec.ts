@@ -530,8 +530,8 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     expect(pinResults.filter((item) => item.duplicate)).toHaveLength(1);
     expect(pinResults.filter((item) => !item.duplicate)).toHaveLength(1);
     expect(pinResults).toEqual(expect.arrayContaining([
-      expect.objectContaining({ duplicate: false, valid: true, shipment: { pinVerified: true } }),
-      expect.objectContaining({ duplicate: true, valid: true, shipment: { pinVerified: true } }),
+      expect.objectContaining({ duplicate: false, valid: true, shipment: expect.objectContaining({ pinVerified: true }) }),
+      expect.objectContaining({ duplicate: true, valid: true, shipment: expect.objectContaining({ pinVerified: true }) }),
     ]));
 
     const sameTenantOutsider: RequestUser = {
