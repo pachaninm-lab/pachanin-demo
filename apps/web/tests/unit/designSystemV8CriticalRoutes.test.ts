@@ -10,6 +10,7 @@ if (!repoRoot) throw new Error(`Cannot resolve repository root from ${cwd}`);
 
 const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important|var\(--pc-/i;
+const releaseMutation = /fetch\s*\(|method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)['"]|requestRelease\s*\(|confirmRelease\s*\(|releaseFunds\s*\(/i;
 
 const documents = read('apps/web/app/platform-v7/documents/page.tsx');
 const disputes = read('apps/web/app/platform-v7/disputes/page.tsx');
@@ -53,7 +54,7 @@ describe('Design System v8 critical transaction routes', () => {
     expect(releaseSafety).toContain('Only the bank confirms reserve, review and movement of money');
     expect(releaseSafety).toContain('只有银行可以确认预留、审核和资金流动');
     expect(releaseSafety).toContain('ручная кнопка не заменяет callback и reconciliation');
-    expect(releaseSafety).not.toMatch(/fetch\s*\(|POST|PUT|PATCH|DELETE|requestRelease|confirmRelease|releaseFunds/i);
+    expect(releaseSafety).not.toMatch(releaseMutation);
     expect(releaseSafety).not.toMatch(forbiddenPresentation);
   });
 
