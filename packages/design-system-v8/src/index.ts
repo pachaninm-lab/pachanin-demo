@@ -13,3 +13,21 @@ export type {
   StatusChipProps,
   SurfaceProps,
 } from './components';
+
+export {
+  EmptyState,
+  KeyFact,
+  KeyFactGrid,
+  NextActionPanel,
+  StatusBadge,
+  WorkbenchTemplate,
+} from './templates';
+
+export type {
+  EmptyStateProps,
+  KeyFactProps,
+  NextActionPanelProps,
+  StatusBadgeProps,
+  StatusTone,
+  WorkbenchTemplateProps,
+} from './templates';
