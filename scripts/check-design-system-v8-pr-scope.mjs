@@ -21,6 +21,11 @@ const exact = new Set([
   'apps/web/app/platform-v7/disputes/page.tsx',
   'apps/web/app/platform-v7/bank/release-safety/page.tsx',
   'apps/web/app/platform-v7/money/page.tsx',
+  'apps/web/app/platform-v7/auction/page.tsx',
+  'apps/web/app/platform-v7/auction/import/page.tsx',
+  'apps/web/app/platform-v7/auction/admission/page.tsx',
+  'apps/web/app/platform-v7/auction/bids/page.tsx',
+  'apps/web/app/platform-v7/auction/deal-basis/page.tsx',
   'apps/web/components/platform-v7/CanonicalDealsList.tsx',
   'apps/web/components/platform-v7/CanonicalDealsList.module.css',
   'apps/web/components/platform-v7/NextActionCard.tsx',
@@ -31,6 +36,7 @@ const exact = new Set([
   'apps/web/components/v7r/AppShellV4.tsx',
   'apps/web/components/v7r/AppShellV4.module.css',
   'apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx',
+  'apps/web/tests/unit/designSystemV8AuctionRoutes.test.ts',
   'apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts',
   'apps/web/tests/unit/designSystemV8DocumentsRoute.test.ts',
   'apps/web/tests/unit/designSystemV8FieldRoles.test.ts',
@@ -94,7 +100,7 @@ try {
 let mergeBase;
 try {
   mergeBase = git(['merge-base', base, 'HEAD']);
-} catch {
+} catch (error) {
   console.error(`[design-system-v8-scope] Cannot resolve merge base for ${base}.`);
   process.exit(1);
 }
