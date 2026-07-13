@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
+const repositoryRoot = path.resolve(process.cwd(), '../..');
+const read = (relativePath: string) => fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8');
 
 const fieldRolePages = [
   'apps/web/app/platform-v7/driver/field/page.tsx',
