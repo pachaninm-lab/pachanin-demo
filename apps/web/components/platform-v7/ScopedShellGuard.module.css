@@ -1,0 +1,54 @@
+.policyRoot {
+  isolation: isolate;
+}
+
+.policyRoot > header [data-tone],
+.policyRoot > header > div > div:nth-child(2),
+.policyRoot > main > p:first-child,
+.policyRoot nav[data-testid='platform-v7-work-route-nav'] {
+  display: none;
+}
+
+.policyRoot[data-shell-policy='field'] > header button[aria-label='Открыть поиск'],
+.policyRoot[data-shell-policy='role-scoped'] > header button[aria-label='Открыть поиск'] {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .policyRoot {
+    --shell-header-offset: 68px;
+  }
+
+  .policyRoot > header > div {
+    gap: var(--ds-space-1);
+    padding: calc(env(safe-area-inset-top) + var(--ds-space-2)) var(--ds-space-2) var(--ds-space-2);
+  }
+
+  .policyRoot > header > div > div:first-child {
+    gap: var(--ds-space-1);
+  }
+
+  .policyRoot > header a[aria-label*='кабинет'] > span:last-child {
+    display: none;
+  }
+
+  .policyRoot > main,
+  .policyRoot > main > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .policyRoot *,
+  .policyRoot *::before,
+  .policyRoot *::after {
+    scroll-behavior: auto;
+  }
+}
+
+@media (forced-colors: active) {
+  .policyRoot > header {
+    border-color: CanvasText;
+  }
+}
