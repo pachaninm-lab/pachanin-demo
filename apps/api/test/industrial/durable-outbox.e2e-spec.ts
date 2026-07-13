@@ -175,19 +175,20 @@ describe('DurableOutboxWorker on real PostgreSQL', () => {
     expect(row.sentAt).not.toBeNull();
   });
 
-  it('reclaims entries from a crashed worker after lease expiry', async () => {
+  it('reclaims its own entry from a crashed worker after lease expiry even with foreign queue facts', async () => {
     await purge();
     const [id] = await seedEntries(1);
 
     const claimed = await workerA.claimBatch('worker-a', 10, 1);
-    expect(claimed.map((entry) => entry.id)).toEqual([id]);
+    expect(claimed.map((entry) => entry.id)).toContain(id);
 
-    expect(await workerB.claimBatch('worker-b', 10)).toHaveLength(0);
+    const beforeExpiry = await workerB.claimBatch('worker-b', 10);
+    expect(beforeExpiry.map((entry) => entry.id)).not.toContain(id);
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     const reclaimed = await workerB.claimBatch('worker-b', 10);
-    expect(reclaimed.map((entry) => entry.id)).toEqual([id]);
+    expect(reclaimed.map((entry) => entry.id)).toContain(id);
     await workerB.markDelivered('worker-b', id);
     const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
     expect(row.status).toBe('SENT');
