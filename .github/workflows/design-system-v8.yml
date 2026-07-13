@@ -9,9 +9,14 @@ on:
       - 'apps/web/components/platform-v7/NextActionCard.tsx'
       - 'apps/web/components/v7r/AppShellV4.tsx'
       - 'apps/web/components/v7r/AppShellV4.module.css'
+      - 'apps/web/app/platform-v7/driver/field/page.tsx'
+      - 'apps/web/app/platform-v7/elevator/page.tsx'
+      - 'apps/web/app/platform-v7/lab/page.tsx'
+      - 'apps/web/app/platform-v7/surveyor/page.tsx'
+      - 'apps/web/tests/unit/designSystemV8*.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'design-governance-v8.json'
-      - 'scripts/check-design-system-v8.mjs'
+      - 'scripts/check-design-system-v8*.mjs'
       - '.github/workflows/design-system-v8.yml'
   push:
     branches: [main]
@@ -22,21 +27,42 @@ on:
       - 'apps/web/components/platform-v7/NextActionCard.tsx'
       - 'apps/web/components/v7r/AppShellV4.tsx'
       - 'apps/web/components/v7r/AppShellV4.module.css'
+      - 'apps/web/app/platform-v7/driver/field/page.tsx'
+      - 'apps/web/app/platform-v7/elevator/page.tsx'
+      - 'apps/web/app/platform-v7/lab/page.tsx'
+      - 'apps/web/app/platform-v7/surveyor/page.tsx'
+      - 'apps/web/tests/unit/designSystemV8*.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'design-governance-v8.json'
-      - 'scripts/check-design-system-v8.mjs'
+      - 'scripts/check-design-system-v8*.mjs'
 
 permissions:
   contents: read
 
+concurrency:
+  group: design-system-v8-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  governance:
+  governance-and-field-role-integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
       - name: Enforce Design System v8 boundaries
         run: node ./scripts/check-design-system-v8.mjs
+      - name: Typecheck web integration
+        run: pnpm --filter @pc/web typecheck
+      - name: Run Design System v8 foundation regression
+        run: pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8Foundation.test.ts
+      - name: Run field-role regression
+        run: pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8FieldRoles.test.ts
