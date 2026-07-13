@@ -30,7 +30,35 @@ CURRENT GOAL:
 - keep live SberAPI, nominal account, credit and money movement outside this PR.
 
 CURRENT ALLOWED:
-Use the exact `allowedCurrentScope` from `docs/platform-v7/autopilot/autopilot-state.json`.
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/src/common/config/industrial-mode.ts
+- apps/api/src/common/command-execution.context.ts
+- apps/api/src/common/prisma/rls-transaction.service.ts
+- apps/api/src/modules/deals/deal-command-payload.ts
+- apps/api/src/modules/deals/deal-command.service.ts
+- apps/api/src/modules/deals/deals.module.ts
+- apps/api/src/modules/deals/industrial-deal-command.gateway.ts
+- apps/api/src/modules/deals/postgresql-deal-command.service.ts
+- apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
+- apps/api/src/modules/settlement-engine/**
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20260713*_settlement_postgresql_authority/**
+- apps/api/test/industrial/harness.ts
+- apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts
+- apps/api/test/industrial/industrial-core.e2e-spec.ts
+- apps/api/test/industrial/reconciliation.e2e-spec.ts
+- apps/api/test/industrial/durable-outbox.e2e-spec.ts
+- apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
+- apps/api/test/one-deal/restored-database-acceptance.ts
+- apps/api/test/one-deal/seed.ts
+- infra/sql/postgresql-settlement-authority-policies.sql
+- scripts/platform-v7-forward-only-migration-check.mjs
+- scripts/platform-v7-one-deal-e2e.sh
+- .github/workflows/ci.yml
 
 CURRENT CRITERIA:
 - production startup fails before traffic when payment repository mode is missing, memory or unknown;
@@ -54,9 +82,37 @@ LOCKED:
 
 NEXT:
 - Layer: IR-10.5 Disputes PostgreSQL Authority
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/autopilot/progress.json
+  - docs/platform-v7/autopilot/prompts/current-codex-task.md
+  - docs/platform-v7/autopilot/prompts/current-review-task.md
+  - docs/platform-v7/execution-queue.md
+  - apps/api/src/common/config/industrial-mode.ts
+  - apps/api/src/common/command-execution.context.ts
+  - apps/api/src/common/prisma/rls-transaction.service.ts
+  - apps/api/src/modules/deals/deal-command-payload.ts
+  - apps/api/src/modules/deals/deal-command.service.ts
+  - apps/api/src/modules/deals/deals.module.ts
+  - apps/api/src/modules/deals/industrial-deal-command.gateway.ts
+  - apps/api/src/modules/deals/postgresql-deal-command.service.ts
+  - apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
+  - apps/api/src/modules/disputes/**
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/20260713*_disputes_postgresql_authority/**
+  - apps/api/test/industrial/harness.ts
+  - apps/api/test/industrial/disputes-postgresql-authority.e2e-spec.ts
+  - apps/api/test/industrial/industrial-core.e2e-spec.ts
+  - apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
+  - apps/api/test/one-deal/restored-database-acceptance.ts
+  - apps/api/test/one-deal/seed.ts
+  - infra/sql/postgresql-disputes-authority-policies.sql
+  - scripts/platform-v7-forward-only-migration-check.mjs
+  - scripts/platform-v7-one-deal-e2e.sh
+  - .github/workflows/ci.yml
 - Success criteria:
-  - production dispute reads and commands are PostgreSQL-authoritative;
-  - holds, claims, evidence, decisions and financial consequences are tenant-scoped, immutable and atomic;
+  - production Disputes module binds complete PostgreSQL repositories with no RuntimeCore path;
+  - claims, holds, evidence, decisions and financial consequences are tenant-scoped, immutable and atomic;
   - restart, multi-instance, idempotency, optimistic concurrency, RLS and exact-head CI pass.
 - Readiness remains NO-GO.
 
