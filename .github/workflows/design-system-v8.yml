@@ -61,4 +61,13 @@ jobs:
       - name: Run Design System v8 foundation regression
         run: pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8Foundation.test.ts
       - name: Run shell and field-role regression
-        run: pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8ShellFieldRoles.test.ts
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8ShellFieldRoles.test.ts 2>&1 | tee /tmp/design-system-v8-shell.log
+      - name: Upload shell regression diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-system-v8-shell-regression-log
+          path: /tmp/design-system-v8-shell.log
