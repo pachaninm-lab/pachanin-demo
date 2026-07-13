@@ -17,6 +17,7 @@ const admission = read('apps/web/app/platform-v7/auction/admission/page.tsx');
 const bids = read('apps/web/app/platform-v7/auction/bids/page.tsx');
 const basis = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
 const serverWorkspace = read('apps/web/components/transaction-ux/AuctionServerAuthorityWorkspace.tsx');
+const operationalCockpit = read('apps/web/components/transaction-ux/OperationalDecisionCockpit.tsx');
 const visualCockpit = read('apps/web/components/transaction-ux/AuctionExecutionCockpit.tsx');
 const cockpitCss = read('apps/web/components/transaction-ux/AuctionExecutionCockpit.module.css');
 const copy = read('apps/web/components/transaction-ux/auctionExecutionCopy.ts');
@@ -33,7 +34,8 @@ describe('Design System v8 canonical auction execution', () => {
       expect(source).not.toContain('FGIS_AUCTION_STATE');
       expect(source).not.toContain('AUCTION_DEAL_BRIDGE');
     }
-    expect(serverWorkspace).toContain("data-operational-decision-cockpit='v8'");
+    expect(serverWorkspace).toContain('OperationalDecisionCockpit');
+    expect(operationalCockpit).toContain("data-operational-decision-cockpit='v8'");
   });
 
   it('keeps the reusable auction visual contract accessible and token governed', () => {
