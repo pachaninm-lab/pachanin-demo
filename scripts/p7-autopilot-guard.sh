@@ -152,6 +152,7 @@ apps/web/app/platform-v7/surveyor/page.tsx
 apps/web/package.json
 apps/web/tsconfig.json
 apps/web/next.config.js
+apps/web/tests/unit/designSystemV8Architecture.test.ts
 package.json
 pnpm-lock.yaml
 scripts/check-design-system-v8.mjs
