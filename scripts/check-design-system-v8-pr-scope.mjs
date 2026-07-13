@@ -1,12 +1,14 @@
 import { execFileSync } from 'node:child_process';
-import path from 'node:path';
 
 const exact = new Set([
   '.github/workflows/design-system-v8.yml',
   '.github/workflows/platform-v7-autopilot-guard.yml',
   'apps/web/components/platform-v7/NextActionCard.tsx',
   'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx',
+  'apps/web/components/v7r/AppShellV4.tsx',
+  'apps/web/components/v7r/AppShellV4.module.css',
   'apps/web/tests/unit/designSystemV8Foundation.test.ts',
+  'apps/web/tests/unit/platformV7MobileNavigation.test.ts',
   'apps/web/tsconfig.json',
   'design-governance-v8.json',
   'docs/platform-v7/design-system-v8-governance.md',
@@ -55,7 +57,7 @@ try {
 let mergeBase;
 try {
   mergeBase = git(['merge-base', base, 'HEAD']);
-} catch (error) {
+} catch {
   console.error(`[design-system-v8-scope] Cannot resolve merge base for ${base}.`);
   process.exit(1);
 }
