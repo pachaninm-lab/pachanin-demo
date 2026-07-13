@@ -1,0 +1,127 @@
+.stateCard {
+  min-height: 180px;
+  border: 1px solid var(--pc-border);
+  border-radius: 20px;
+  background: var(--pc-shell-surface);
+  padding: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--pc-text-secondary);
+  text-align: center;
+}
+
+.stateContent {
+  width: min(100%, 460px);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.stateContent h1 {
+  margin: 0;
+  color: var(--pc-text-primary);
+  font-size: clamp(20px, 4vw, 26px);
+  line-height: 1.2;
+}
+
+.stateContent p {
+  margin: 0;
+  max-width: 42ch;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.errorIcon {
+  color: var(--pc-danger, #b42318);
+}
+
+.retryButton {
+  min-height: 48px;
+  border: 1px solid var(--pc-accent);
+  border-radius: 14px;
+  background: var(--pc-accent);
+  color: var(--pc-on-accent, #fff);
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.retryButton:focus-visible,
+.dealLink:focus-visible,
+.otherDeals summary:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--pc-accent) 45%, transparent);
+  outline-offset: 3px;
+}
+
+.otherDeals {
+  margin: 0 0 12px;
+  border: 1px solid var(--pc-border);
+  border-radius: 16px;
+  background: var(--pc-shell-surface);
+  color: var(--pc-text-secondary);
+}
+
+.otherDeals summary {
+  min-height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.dealLinks {
+  padding: 0 12px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.dealLink {
+  min-height: 48px;
+  border: 1px solid var(--pc-border);
+  border-radius: 13px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--pc-text-primary);
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.dealLink::after {
+  content: 'Открыть';
+  color: var(--pc-accent);
+  font-size: 12px;
+}
+
+.spin {
+  animation: role-spin 0.85s linear infinite;
+}
+
+@keyframes role-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 430px) {
+  .stateCard { padding: 20px 16px; }
+  .dealLink { align-items: flex-start; flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
+}
+
+@media (forced-colors: active) {
+  .stateCard,
+  .otherDeals,
+  .dealLink,
+  .retryButton { border: 1px solid CanvasText; }
+}
