@@ -1,7 +1,7 @@
 import * as React from 'react';
 import styles from './components.module.css';
 
-type Tone = 'neutral' | 'success' | 'warning' | 'critical' | 'information';
+export type StatusTone = 'neutral' | 'success' | 'warning' | 'critical' | 'information';
 type ButtonVariant = 'primary' | 'secondary' | 'danger';
 type SurfaceVariant = 'default' | 'plain' | 'subtle';
 
@@ -56,7 +56,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   );
 });
 
-const toneClasses: Record<Tone, string> = {
+const toneClasses: Record<StatusTone, string> = {
   neutral: styles.chipNeutral,
   success: styles.chipSuccess,
   warning: styles.chipWarning,
@@ -65,14 +65,14 @@ const toneClasses: Record<Tone, string> = {
 };
 
 export type StatusChipProps = React.HTMLAttributes<HTMLSpanElement> & {
-  tone?: Tone;
+  tone?: StatusTone;
 };
 
 export function StatusChip({ tone = 'neutral', className, ...props }: StatusChipProps) {
   return <span {...props} className={cx(styles.chip, toneClasses[tone], className)} />;
 }
 
-const noticeToneClasses: Record<Tone, string> = {
+const noticeToneClasses: Record<StatusTone, string> = {
   neutral: styles.noticeNeutral,
   success: styles.noticeSuccess,
   warning: styles.noticeWarning,
@@ -81,7 +81,7 @@ const noticeToneClasses: Record<Tone, string> = {
 };
 
 export type InlineNoticeProps = React.HTMLAttributes<HTMLDivElement> & {
-  tone?: Tone;
+  tone?: StatusTone;
   icon?: React.ReactNode;
   title: string;
   children?: React.ReactNode;
@@ -162,5 +162,117 @@ export function NextActionCard({
 
       {actions ? <div className={styles.nextActionActions}>{actions}</div> : null}
     </section>
+  );
+}
+
+export function KeyFactGrid({ children, className, ...props }: React.HTMLAttributes<HTMLDListElement>) {
+  return <dl {...props} className={cx(styles.keyFactGrid, className)}>{children}</dl>;
+}
+
+export type KeyFactProps = {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  hint?: React.ReactNode;
+};
+
+export function KeyFact({ label, value, hint }: KeyFactProps) {
+  return (
+    <div className={styles.keyFact}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+      {hint ? <small>{hint}</small> : null}
+    </div>
+  );
+}
+
+export type WorkbenchTemplateProps = {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  status?: React.ReactNode;
+  primary: React.ReactNode;
+  secondary?: React.ReactNode;
+  evidence?: React.ReactNode;
+  density?: 'compact' | 'comfortable' | 'field';
+};
+
+export function WorkbenchTemplate({
+  title,
+  description,
+  status,
+  primary,
+  secondary,
+  evidence,
+  density = 'comfortable',
+}: WorkbenchTemplateProps) {
+  return (
+    <div className={styles.workbench} data-density={density}>
+      <header className={styles.workbenchHeader}>
+        <div>
+          <h1>{title}</h1>
+          {description ? <p>{description}</p> : null}
+        </div>
+        {status}
+      </header>
+      <section className={styles.workbenchMain} aria-label='Рабочая область'>
+        <div className={styles.workbenchPrimary}>{primary}</div>
+        {secondary ? <aside className={styles.workbenchSecondary}>{secondary}</aside> : null}
+      </section>
+      {evidence ? <section className={styles.workbenchEvidence} aria-label='Доказательства'>{evidence}</section> : null}
+    </div>
+  );
+}
+
+export type AiTransparencyProps = {
+  facts: React.ReactNode;
+  inference?: React.ReactNode;
+  sources?: React.ReactNode;
+  limitation?: React.ReactNode;
+  reviewRequired?: boolean;
+};
+
+export function AiTransparency({
+  facts,
+  inference,
+  sources,
+  limitation,
+  reviewRequired = true,
+}: AiTransparencyProps) {
+  return (
+    <Surface className={styles.aiTransparency} aria-label='Основание рекомендации ИИ'>
+      <header>
+        <div>
+          <span className={styles.nextActionLabel}>ИИ-помощник</span>
+          <h2>Основание рекомендации</h2>
+        </div>
+        <StatusChip tone={reviewRequired ? 'warning' : 'success'}>
+          {reviewRequired ? 'Нужна проверка человеком' : 'Проверено'}
+        </StatusChip>
+      </header>
+      <dl>
+        <div><dt>Факты</dt><dd>{facts}</dd></div>
+        {inference ? <div><dt>Вывод</dt><dd>{inference}</dd></div> : null}
+        {sources ? <div><dt>Источники</dt><dd>{sources}</dd></div> : null}
+        {limitation ? <div><dt>Ограничения</dt><dd>{limitation}</dd></div> : null}
+      </dl>
+    </Surface>
+  );
+}
+
+export type AppFrameProps = {
+  header: React.ReactNode;
+  navigation: React.ReactNode;
+  children: React.ReactNode;
+  mobileNavigation?: React.ReactNode;
+  drawerOpen?: boolean;
+};
+
+export function AppFrame({ header, navigation, children, mobileNavigation, drawerOpen = false }: AppFrameProps) {
+  return (
+    <div className={styles.appFrame} data-drawer-open={drawerOpen ? 'true' : 'false'}>
+      <header className={styles.appHeader}>{header}</header>
+      <aside className={styles.appNavigation} aria-label='Основная навигация'>{navigation}</aside>
+      <main className={styles.appMain} id='main-content'>{children}</main>
+      {mobileNavigation ? <nav className={styles.appMobileNavigation} aria-label='Навигация кабинета'>{mobileNavigation}</nav> : null}
+    </div>
   );
 }
