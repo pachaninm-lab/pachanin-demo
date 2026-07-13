@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/codeql-platform-v7-report.yml"
+      - "apps/api/**"
       - "apps/web/app/platform-v7/**"
       - "apps/web/components/platform-v7/**"
       - "apps/web/components/v7r/**"

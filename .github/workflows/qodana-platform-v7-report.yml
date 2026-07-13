@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/qodana-platform-v7-report.yml"
       - "qodana.yaml"
+      - "apps/api/**"
       - "apps/web/app/platform-v7/**"
       - "apps/web/components/platform-v7/**"
       - "apps/web/components/v7r/**"
