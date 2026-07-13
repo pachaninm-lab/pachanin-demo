@@ -85,9 +85,9 @@ RETURNS TABLE (
   total_kopecks bigint,
   currency text,
   deal_version bigint,
-  updated_at timestamptz,
+  updated_at timestamp(3) without time zone,
   next_action text,
-  sla_at timestamptz,
+  sla_at timestamp(3) without time zone,
   my_role text,
   my_access_level text,
   priority_reason text,
@@ -96,6 +96,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public
+SET timezone = 'UTC'
 STABLE
 AS $function$
 DECLARE
