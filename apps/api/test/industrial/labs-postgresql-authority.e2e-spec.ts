@@ -274,11 +274,11 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
         instance.gateway.executeUser(fixture.dealId, 'finalize_lab', dto, fixture.users.lab),
         second.gateway.executeUser(fixture.dealId, 'finalize_lab', dto, fixture.users.lab),
       ]);
-      const fulfilled = outcomes.filter(
-        (outcome): outcome is PromiseFulfilledResult<Record<string, unknown>> => outcome.status === 'fulfilled',
+      const fulfilled = outcomes.flatMap((outcome) =>
+        outcome.status === 'fulfilled' ? [outcome.value] : [],
       );
       expect(fulfilled).toHaveLength(2);
-      expect(fulfilled.map((outcome) => Boolean(outcome.value.duplicate)).sort()).toEqual([false, true]);
+      expect(fulfilled.map((value) => Boolean(value.duplicate)).sort()).toEqual([false, true]);
 
       expect(await instance.prisma.outboxEntry.count({
         where: { dealId: fixture.dealId, type: 'lab.protocol.finalized' },
