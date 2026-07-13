@@ -1,299 +1,236 @@
-import { ForbiddenException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
-import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
-import { OutboxService } from '../../common/outbox/outbox.service';
-import { PrismaService } from '../../common/prisma/prisma.service';
-import { RequestUser, Role } from '../../common/types/request-user';
-import { PAYMENT_REPOSITORY, type PaymentRepository } from './payment.repository';
-import { RuntimePaymentRepository } from './runtime-payment.repository';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import type { RequestUser } from '../../common/types/request-user';
+import { SettlementAccessService } from './settlement-access.service';
+import {
+  type ConfigureSettlementTermsInput,
+  type PlaceSettlementHoldInput,
+  type ReconcileSettlementOperationInput,
+  type ReleaseSettlementHoldInput,
+  type RequestSettlementOperationInput,
+  SettlementPostgresqlRepository,
+  type VerifiedSettlementCallbackInput,
+} from './settlement-postgresql.repository';
 
-const MONEY_MUTATION_ROLES: Set<Role> = new Set([
-  Role.ADMIN,
-  Role.SUPPORT_MANAGER,
-  Role.ACCOUNTING,
-]);
+export type SettlementCommandEnvelope = Readonly<{
+  commandId?: string;
+  idempotencyKey?: string;
+  expectedPaymentVersion?: string | number | bigint;
+  expectedDealVersion?: string | number | bigint;
+}>;
+
+export type SettlementReleaseRequest = SettlementCommandEnvelope & Readonly<{
+  amountKopecks?: string | number | bigint;
+  beneficiaryId?: string;
+  partnerId?: string;
+}>;
+
+export type SettlementRefundRequest = SettlementCommandEnvelope & Readonly<{
+  amountKopecks: string | number | bigint;
+  partnerId?: string;
+}>;
+
+const FAIL_CLOSED_ACCESS = {
+  async assertDealAccess(): Promise<never> {
+    throw new ForbiddenException({ code: 'SETTLEMENT_ACCESS_SERVICE_REQUIRED' });
+  },
+  async assertPaymentAccess(): Promise<never> {
+    throw new ForbiddenException({ code: 'SETTLEMENT_ACCESS_SERVICE_REQUIRED' });
+  },
+  async filterReadablePayments(): Promise<never> {
+    throw new ForbiddenException({ code: 'SETTLEMENT_ACCESS_SERVICE_REQUIRED' });
+  },
+} as unknown as SettlementAccessService;
 
 @Injectable()
 export class SettlementEngineService {
-  private readonly logger = new Logger(SettlementEngineService.name);
-
-  /**
-   * Payment READ boundary. Defaults to the runtime adapter when not injected
-   * (e.g. direct instantiation in tests); the module selects runtime/prisma by
-   * flag. Money mutations never go through this — they stay on RuntimeCore.
-   */
-  private readonly payments: PaymentRepository;
-
   constructor(
-    private readonly runtime: RuntimeCoreService,
-    private readonly executor: ActionExecutorService,
-    private readonly outbox: OutboxService,
-    @Optional() private readonly prisma?: PrismaService,
-    @Optional() @Inject(PAYMENT_REPOSITORY) payments?: PaymentRepository,
-  ) {
-    this.payments = payments ?? new RuntimePaymentRepository(runtime);
-  }
-
-  worksheet(dealId: string, user: RequestUser) {
-    this.assertDealScope(dealId, user);
-    return this.payments.worksheet(dealId);
-  }
-
-  bankWorkspace(dealId: string, user: RequestUser) {
-    this.assertDealScope(dealId, user);
-    return this.payments.bankWorkspace(dealId);
-  }
+    private readonly repository: SettlementPostgresqlRepository,
+    private readonly access: SettlementAccessService = FAIL_CLOSED_ACCESS,
+  ) {}
 
   async listPayments(user: RequestUser) {
-    const payments = await this.payments.list();
-    return this.filterPaymentsByScope(payments, user);
+    const rows = await this.repository.listPayments(user) as Array<{ dealId?: unknown }>;
+    return this.access.filterReadablePayments(rows, user);
   }
 
-  async paymentDetail(id: string, user: RequestUser) {
-    const detail = await this.payments.detail(id);
-    if (detail?.dealId) this.assertDealScope(detail.dealId, user);
-    return detail;
+  async getPayment(paymentId: string, user: RequestUser) {
+    await this.access.assertPaymentAccess(paymentId, user, false);
+    return this.repository.paymentDetail(paymentId, user);
   }
 
-  /**
-   * Bank basis / settlement is the most sensitive money surface. Platform-level
-   * oversight roles (ADMIN, SUPPORT_MANAGER, EXECUTIVE) are cross-deal; every
-   * other allowed role (notably an org's ACCOUNTING) may only touch a deal its
-   * own organization is a party to. Fails closed when the deal is unresolved.
-   */
-  private assertDealScope(dealId: string, user: RequestUser): void {
-    const role = String(user?.role || '');
-    if (role === Role.ADMIN || role === Role.SUPPORT_MANAGER || role === Role.EXECUTIVE) return;
-    let deal: any = null;
+  async getWorksheet(dealId: string, user: RequestUser) {
+    await this.access.assertDealAccess(dealId, user, false);
+    return this.repository.worksheet(dealId, user);
+  }
+
+  async getBankWorkspace(dealId: string, user: RequestUser) {
+    await this.access.assertDealAccess(dealId, user, false);
+    return this.repository.bankWorkspace(dealId, user);
+  }
+
+  async getOutboxStatus(dealId: string | undefined, user: RequestUser) {
+    if (dealId) await this.access.assertDealAccess(dealId, user, false);
+    return this.repository.outboxStatus(dealId, user);
+  }
+
+  async configureTerms(input: ConfigureSettlementTermsInput, user: RequestUser) {
+    await this.access.assertDealAccess(input.dealId, user, true);
+    return this.repository.configureTerms(input, user);
+  }
+
+  async requestReserve(
+    dealId: string,
+    user: RequestUser,
+    input: SettlementCommandEnvelope = {},
+  ) {
+    await this.access.assertDealAccess(dealId, user, true);
+    const envelope = this.envelope('reserve', dealId, user, input);
+    return this.executeOperation(() => this.repository.requestOperation({
+      ...envelope,
+      dealId,
+      operation: 'RESERVE',
+    }, user));
+  }
+
+  async requestRelease(
+    dealId: string,
+    user: RequestUser,
+    input: SettlementReleaseRequest = {},
+  ) {
+    await this.access.assertDealAccess(dealId, user, true);
+    const envelope = this.envelope('release', dealId, user, input);
+    let beneficiaryId = input.beneficiaryId;
+    let amountKopecks = input.amountKopecks;
+
+    if (!beneficiaryId || amountKopecks === undefined) {
+      const workspace = await this.repository.worksheet(dealId, user) as Record<string, any>;
+      const beneficiaries = Array.isArray(workspace.beneficiaries)
+        ? workspace.beneficiaries as Array<Record<string, unknown>>
+        : [];
+      const seller = beneficiaries.find((item) => item.role === 'SELLER') ?? beneficiaries[0];
+      beneficiaryId ??= typeof seller?.id === 'string' ? seller.id : undefined;
+      amountKopecks ??= workspace.availableKopecks as string | number | bigint | undefined;
+    }
+
+    if (!beneficiaryId) {
+      throw new ConflictException({ code: 'SETTLEMENT_BENEFICIARY_REQUIRED' });
+    }
+    if (amountKopecks === undefined) {
+      throw new ConflictException({ code: 'SETTLEMENT_AVAILABLE_AMOUNT_REQUIRED' });
+    }
+
+    return this.executeOperation(() => this.repository.requestOperation({
+      ...envelope,
+      dealId,
+      operation: 'RELEASE',
+      amountKopecks,
+      beneficiaryId,
+      partnerId: input.partnerId,
+    }, user));
+  }
+
+  async requestRefund(dealId: string, user: RequestUser, input: SettlementRefundRequest) {
+    if (!input || input.amountKopecks === undefined) {
+      throw new BadRequestException({ code: 'REFUND_AMOUNT_REQUIRED' });
+    }
+    await this.access.assertDealAccess(dealId, user, true);
+    const envelope = this.envelope('refund', dealId, user, input);
+    return this.executeOperation(() => this.repository.requestOperation({
+      ...envelope,
+      dealId,
+      operation: 'REFUND',
+      amountKopecks: input.amountKopecks,
+      partnerId: input.partnerId,
+    }, user));
+  }
+
+  async placeHold(input: PlaceSettlementHoldInput, user: RequestUser) {
+    await this.access.assertDealAccess(input.dealId, user, true);
+    return this.repository.placeHold(input, user);
+  }
+
+  async releaseHold(input: ReleaseSettlementHoldInput, user: RequestUser) {
+    await this.access.assertDealAccess(input.dealId, user, true);
+    return this.repository.releaseHold(input, user);
+  }
+
+  async reconcileOperation(input: ReconcileSettlementOperationInput, user: RequestUser) {
+    await this.access.assertDealAccess(input.dealId, user, true);
+    return this.repository.reconcileOperation(input, user);
+  }
+
+  registerBankCallback(input: VerifiedSettlementCallbackInput) {
+    return this.executeOperation(() => this.repository.registerVerifiedCallback(input));
+  }
+
+  confirmWorksheet(): never {
+    throw new ForbiddenException({ code: 'VERIFIED_BANK_CALLBACK_REQUIRED' });
+  }
+
+  releasePayment(): never {
+    throw new ForbiddenException({ code: 'VERIFIED_BANK_CALLBACK_REQUIRED' });
+  }
+
+  adjustWorksheet(): never {
+    throw new ForbiddenException({ code: 'MANUAL_MONEY_ADJUSTMENT_FORBIDDEN' });
+  }
+
+  importStatement(): never {
+    throw new ForbiddenException({
+      code: 'USE_POSTGRESQL_RECONCILIATION_PATH',
+      message: 'Statement evidence must be imported by the PostgreSQL reconciliation service.',
+    });
+  }
+
+  replayOutbox(): never {
+    throw new ForbiddenException({
+      code: 'DURABLE_OUTBOX_WORKER_REQUIRED',
+      message: 'Outbox replay is lease-driven from PostgreSQL and cannot be triggered as a memory retry.',
+    });
+  }
+
+  private async executeOperation<T>(factory: () => Promise<T>): Promise<T> {
     try {
-      deal = this.runtime.getDeal(dealId);
-    } catch {
-      deal = null;
-    }
-    const isParty =
-      !!deal && (deal.sellerOrgId === user?.orgId || deal.buyerOrgId === user?.orgId);
-    if (!isParty) {
-      throw new ForbiddenException(`Cross-organization access denied for deal:${dealId}`);
-    }
-  }
-
-  private filterPaymentsByScope(payments: any[], user: RequestUser): any[] {
-    const role = String(user?.role || '');
-    if (role === Role.ADMIN || role === Role.SUPPORT_MANAGER || role === Role.EXECUTIVE) {
-      return payments;
-    }
-    return payments.filter((p: any) => {
-      let deal: any = null;
-      try {
-        deal = p?.dealId ? this.runtime.getDeal(p.dealId) : null;
-      } catch {
-        deal = null;
-      }
-      return !!deal && (deal.sellerOrgId === user?.orgId || deal.buyerOrgId === user?.orgId);
-    });
-  }
-
-  async exportDeals(_params: any, user: RequestUser) {
-    const payments = this.filterPaymentsByScope(await this.payments.list(), user);
-    const rows = [
-      ['dealId', 'status', 'amountRub', 'callbackState'],
-      ...payments.map((p: any) => [p.dealId, p.status, String(p.amountRub), p.callbackState ?? '']),
-    ];
-    return {
-      contentType: 'text/csv',
-      fileName: 'deals-export.csv',
-      body: rows.map((row) => row.join(',')).join('\n'),
-    };
-  }
-
-  async exportContractors(user: RequestUser) {
-    const rows = [['dealId', 'beneficiaryId', 'role', 'bankStatus']];
-    for (const payment of this.filterPaymentsByScope(await this.payments.list(), user)) {
-      const bank = this.payments.bankWorkspace((payment as any).dealId);
-      for (const beneficiary of bank.beneficiaries) {
-        rows.push([(payment as any).dealId, beneficiary.id, beneficiary.role, beneficiary.bankStatus]);
-      }
-    }
-    return {
-      contentType: 'text/csv',
-      fileName: 'contractors.csv',
-      body: rows.map((row) => row.join(',')).join('\n'),
-    };
-  }
-
-  /**
-   * Request reserve: creates an outbox entry for the bank.
-   * Payment stays RESERVE_PENDING until bank callback arrives.
-   * Platform never self-confirms a reserve.
-   */
-  async requestReserve(dealId: string, user: RequestUser) {
-    this.assertMoneyMutationRole(user);
-    this.assertDealScope(dealId, user);
-    const ws = this.payments.worksheet(dealId);
-    const { result } = await this.executor.execute({
-      user,
-      action: 'money.reserve.request',
-      scope: { objectType: 'deal', objectId: dealId },
-      bankOutbox: {
-        type: 'BANK_RESERVE_REQUEST',
-        payload: {
-          dealId,
-          amountRub: ws.payment?.amountRub,
-          bankEventId: ws.payment?.bankEventId,
-        },
-      },
-      fn: () => this.runtime.reservePrepayment(dealId, user),
-    });
-    const outboxEntries = this.outbox.getByDeal(dealId);
-    const ws2 = this.payments.worksheet(dealId);
-    this.upsertPayment(dealId, ws2.payment).catch((e) => this.logger.debug(`Payment DB write skipped: ${e.message}`));
-    return { ...result, outboxStatus: 'PENDING', outboxId: outboxEntries.at(-1)?.id };
-  }
-
-  /**
-   * Request release: creates an outbox entry for the bank.
-   * Payment stays CALLBACK_PENDING until bank release callback arrives.
-   * Platform never self-releases money.
-   */
-  async requestRelease(dealId: string, user: RequestUser) {
-    this.assertMoneyMutationRole(user);
-    this.assertDealScope(dealId, user);
-    const ws = this.runtime.dealWorkspace(dealId);
-    const blockers = ws.blockers ?? [];
-
-    if (blockers.length > 0) {
-      return {
-        dealId,
-        released: false,
-        blocked: true,
-        blockers,
-        message: 'Release blocked — resolve all blockers first',
-      };
-    }
-
-    const { result } = await this.executor.execute({
-      user,
-      action: 'money.release.request',
-      scope: { objectType: 'deal', objectId: dealId },
-      gates: {
-        disputeOpen: ws.payment?.status === 'HOLD_ACTIVE' && ws.blockers?.some((b: string) => b.includes('спор')),
-        documentsComplete: ws.completeness?.isComplete,
-        reserveConfirmed: ['RESERVED', 'HOLD_ACTIVE', 'READY_FOR_RELEASE'].includes(ws.payment?.status),
-      },
-      bankOutbox: {
-        type: 'BANK_RELEASE_REQUEST',
-        payload: {
-          dealId,
-          amountRub: ws.payment?.undisputedAmountRub,
-          bankEventId: ws.payment?.bankEventId,
-          beneficiaries: ws.bankWorkspace?.beneficiaries,
-        },
-      },
-      fn: () => ({
-        dealId,
-        status: 'RELEASE_REQUEST_SENT',
-        message: 'Release request queued for bank. Awaiting bank callback.',
-      }),
-    });
-
-    return result;
-  }
-
-  /**
-   * @deprecated Use requestReserve / bank callbacks instead.
-   * Kept for operator override in demo context only.
-   */
-  confirmWorksheet(dealId: string, user: RequestUser) {
-    if (!MONEY_MUTATION_ROLES.has(user.role) && user.role !== Role.ADMIN) {
-      throw new ForbiddenException('Only accounting/admin can override reserve confirmation');
-    }
-    this.assertDealScope(dealId, user);
-    return this.runtime.confirmWorksheet(dealId, user);
-  }
-
-  /**
-   * @deprecated Use requestRelease / bank callbacks instead.
-   * Kept for operator override only.
-   */
-  releasePayment(dealId: string, user: RequestUser) {
-    if (!MONEY_MUTATION_ROLES.has(user.role) && user.role !== Role.ADMIN) {
-      throw new ForbiddenException('Only accounting/admin can manually release payment');
-    }
-    this.assertDealScope(dealId, user);
-    return this.runtime.releasePayment(dealId, user);
-  }
-
-  adjustWorksheet(dealId: string, adjustments: any[], user: RequestUser) {
-    this.assertMoneyMutationRole(user);
-    this.assertDealScope(dealId, user);
-    return this.runtime.adjustWorksheet(dealId, adjustments, user);
-  }
-
-  importBankStatement(content: string, format: string, user: RequestUser) {
-    this.assertMoneyMutationRole(user);
-    return this.runtime.importBankStatement(content, format, user);
-  }
-
-  registerSafeDealsCallback(payload: any) {
-    // Bank callback: only path to confirm reserve or release
-    const outboxEntries = this.outbox.getByDeal(payload?.dealId);
-    const pending = outboxEntries.find((e) => e.status === 'PENDING' || e.status === 'SENT');
-    if (pending) {
-      if (payload?.status === 'SUCCESS') {
-        this.outbox.confirm(pending.id);
-      } else {
-        this.outbox.markFailed(pending.id, payload?.errorMessage ?? 'callback_failure');
-      }
-    }
-    const result = this.runtime.registerSafeDealsCallback(payload);
-    if (payload?.dealId) {
-      const ws = this.payments.worksheet(payload.dealId);
-      this.upsertPayment(payload.dealId, ws.payment).catch((e) =>
-        this.logger.debug(`Payment DB callback write skipped: ${e.message}`),
+      return await factory();
+    } catch (error) {
+      if (error instanceof ConflictException) throw error;
+      const code = String((error as { code?: unknown })?.code ?? '');
+      const metaCode = String(
+        ((error as { meta?: { code?: unknown } })?.meta?.code) ?? '',
       );
+      const message = String((error as { message?: unknown })?.message ?? '').toLowerCase();
+      if (
+        ['P2002', 'P2010', 'P2034', '40001', '40P01'].includes(code)
+        || ['23505', '23514', '40001', '40P01'].includes(metaCode)
+        || /could not serialize|serialization failure|write conflict|deadlock|concurrent|exact pending settlement operation/.test(message)
+      ) {
+        throw new ConflictException({ code: 'CONCURRENT_SETTLEMENT_OPERATION' });
+      }
+      throw error;
     }
-    return result;
   }
 
-  getOutboxStatus(dealId?: string) {
+  private envelope(
+    kind: string,
+    dealId: string,
+    user: RequestUser,
+    input: SettlementCommandEnvelope,
+  ): Pick<
+    RequestSettlementOperationInput,
+    'commandId' | 'idempotencyKey' | 'expectedPaymentVersion' | 'expectedDealVersion'
+  > {
+    const deterministic = `settlement-${kind}:${dealId}:${user.id}`;
     return {
-      totalPending: dealId ? this.outbox.getByDeal(dealId).length : this.outbox.listPending().length,
-      pending: dealId ? this.outbox.getByDeal(dealId) : this.outbox.listPending(),
-      manualReview: this.outbox.listManualReview(),
+      commandId: input.commandId ?? `${deterministic}:${randomUUID()}`,
+      idempotencyKey: input.idempotencyKey ?? deterministic,
+      expectedPaymentVersion: input.expectedPaymentVersion,
+      expectedDealVersion: input.expectedDealVersion,
     };
-  }
-
-  private async upsertPayment(dealId: string, payment: any) {
-    if (!this.prisma || !payment?.id) return;
-    const amountRub = payment.amountRub ?? payment.holdAmountRub ?? null;
-    await this.prisma.payment.upsert({
-      where: { id: payment.id },
-      update: {
-        status: payment.status,
-        amountRub,
-        reservedAt: payment.reserveConfirmedAt ? new Date(payment.reserveConfirmedAt) : null,
-        releasedAt: payment.releasedAt ? new Date(payment.releasedAt) : null,
-        callbackState: payment.callbackState ?? 'NONE',
-        bankRef: payment.bankEventId ?? null,
-      },
-      create: {
-        id: payment.id,
-        dealId,
-        status: payment.status ?? 'PENDING',
-        amountRub,
-        reservedAt: payment.reserveConfirmedAt ? new Date(payment.reserveConfirmedAt) : null,
-        releasedAt: payment.releasedAt ? new Date(payment.releasedAt) : null,
-        callbackState: payment.callbackState ?? 'NONE',
-        bankRef: payment.bankEventId ?? null,
-      },
-    });
-  }
-
-  private assertMoneyMutationRole(user: RequestUser): void {
-    if (!MONEY_MUTATION_ROLES.has(user.role) && user.role !== Role.ADMIN) {
-      throw new ForbiddenException(
-        `Role ${user.role} cannot perform money operations. Allowed: ACCOUNTING, ADMIN, SUPPORT_MANAGER`,
-      );
-    }
   }
 }

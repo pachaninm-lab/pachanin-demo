@@ -76,9 +76,10 @@ describe('production startup document authority gate', () => {
     PLATFORM_V7_DOCUMENT_REPOSITORY: 'prisma',
     PLATFORM_V7_SHIPMENT_REPOSITORY: 'prisma',
     PLATFORM_V7_LAB_REPOSITORY: 'prisma',
+    PLATFORM_V7_PAYMENT_REPOSITORY: 'prisma',
   };
 
-  it('accepts only the explicit Prisma document binding', () => {
+  it('accepts only the explicit Prisma document and settlement bindings', () => {
     expect(() => assertIndustrialProductionStartup(base)).not.toThrow();
   });
 

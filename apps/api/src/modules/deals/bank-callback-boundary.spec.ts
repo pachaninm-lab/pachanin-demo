@@ -6,6 +6,10 @@ describe('canonical bank callback boundary', () => {
     join(__dirname, '../settlement-engine/settlement-engine.controller.ts'),
     'utf8',
   );
+  const repository = readFileSync(
+    join(__dirname, '../settlement-engine/settlement-postgresql.repository.ts'),
+    'utf8',
+  );
   const policy = readFileSync(join(__dirname, 'deal-command.policy.ts'), 'utf8');
   const workspace = readFileSync(
     join(__dirname, '../../../../web/components/platform-v7/CanonicalDealWorkspace.tsx'),
@@ -23,11 +27,14 @@ describe('canonical bank callback boundary', () => {
     expect(controller).toContain('timingSafeEqual');
   });
 
-  it('requires the exact pending operation identifier before canonical confirmation', () => {
-    expect(controller).toContain('expectedBankOperationId');
-    expect(controller).toContain("`bank-reserve:${dealId}`");
-    expect(controller).toContain("`bank-release:${dealId}`");
-    expect(controller).toContain("code: 'BANK_OPERATION_ID_MISMATCH'");
+  it('requires an opaque operation identifier returned by the PostgreSQL request receipt', () => {
+    expect(controller).toContain('BANK_OPERATION_ID_MUST_COME_FROM_REQUEST_RECEIPT');
+    expect(controller).toContain('operationId');
+    expect(controller).not.toContain('`bank-reserve:${dealId}`');
+    expect(controller).not.toContain('`bank-release:${dealId}`');
+    expect(repository).toContain('operationId');
+    expect(repository).toContain('settlement.bank_operations');
+    expect(repository).toContain('BANK_CALLBACK_OPERATION_MISMATCH');
   });
 
   it('keeps money confirmation server-only across policy and UI', () => {
