@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X } from 'lucide-react';
+import { Menu, Moon, Sun, X } from 'lucide-react';
 import { AppFrame } from '@pc/design-system-v8';
 import { BrandMark } from '@/components/v7r/BrandMark';
 import {
@@ -41,8 +41,17 @@ export function TransactionAppShell({
 }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
   const navigation = PLATFORM_V7_ROLE_NAVIGATION[role];
   const roleHome = platformV7RoleRoute(role);
+
+  React.useEffect(() => {
+    const stored = window.localStorage.getItem('pc-theme');
+    const nextTheme = stored === 'dark' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    window.localStorage.setItem('pc-theme', nextTheme);
+    document.documentElement.setAttribute('data-theme', nextTheme);
+  }, []);
 
   React.useEffect(() => {
     setDrawerOpen(false);
@@ -61,6 +70,15 @@ export function TransactionAppShell({
       document.body.style.overflow = previousOverflow;
     };
   }, [drawerOpen]);
+
+  const toggleTheme = React.useCallback(() => {
+    setTheme((current) => {
+      const nextTheme = current === 'dark' ? 'light' : 'dark';
+      window.localStorage.setItem('pc-theme', nextTheme);
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      return nextTheme;
+    });
+  }, []);
 
   const drawerItems = navigation.command;
   const mobileItems = navigation.bottom.slice(0, 5);
@@ -83,7 +101,17 @@ export function TransactionAppShell({
           <small>{ROLE_LABELS[role]} · исполнение сделки</small>
         </span>
       </Link>
-      <div className={`${styles.actions} pc-v4-actions`} data-pc-header-actions />
+      <div className={`${styles.actions} pc-v4-actions`} data-pc-header-actions>
+        <button
+          type='button'
+          className={styles.iconButton}
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
+          title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+        >
+          {theme === 'dark' ? <Sun aria-hidden='true' size={19} /> : <Moon aria-hidden='true' size={19} />}
+        </button>
+      </div>
     </div>
   );
 
