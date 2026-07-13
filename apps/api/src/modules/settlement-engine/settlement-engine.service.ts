@@ -1,299 +1,182 @@
-import { ForbiddenException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
-import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
-import { OutboxService } from '../../common/outbox/outbox.service';
-import { PrismaService } from '../../common/prisma/prisma.service';
-import { RequestUser, Role } from '../../common/types/request-user';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
+import type { RequestUser } from '../../common/types/request-user';
+import { Role } from '../../common/types/request-user';
+import { BankReconciliationService } from '../bank-reconciliation/bank-reconciliation.service';
+import { IndustrialDealCommandGateway } from '../deals/industrial-deal-command.gateway';
+import type { ExecuteDealCommandDto } from '../deals/dto/execute-deal-command.dto';
 import { PAYMENT_REPOSITORY, type PaymentRepository } from './payment.repository';
-import { RuntimePaymentRepository } from './runtime-payment.repository';
 
-const MONEY_MUTATION_ROLES: Set<Role> = new Set([
+const MONEY_REQUEST_ROLES = new Set<Role>([
   Role.ADMIN,
-  Role.SUPPORT_MANAGER,
   Role.ACCOUNTING,
 ]);
 
 @Injectable()
 export class SettlementEngineService {
-  private readonly logger = new Logger(SettlementEngineService.name);
-
-  /**
-   * Payment READ boundary. Defaults to the runtime adapter when not injected
-   * (e.g. direct instantiation in tests); the module selects runtime/prisma by
-   * flag. Money mutations never go through this — they stay on RuntimeCore.
-   */
-  private readonly payments: PaymentRepository;
-
   constructor(
-    private readonly runtime: RuntimeCoreService,
-    private readonly executor: ActionExecutorService,
-    private readonly outbox: OutboxService,
-    @Optional() private readonly prisma?: PrismaService,
-    @Optional() @Inject(PAYMENT_REPOSITORY) payments?: PaymentRepository,
-  ) {
-    this.payments = payments ?? new RuntimePaymentRepository(runtime);
-  }
+    @Inject(PAYMENT_REPOSITORY) private readonly payments: PaymentRepository,
+    private readonly industrialCommands: IndustrialDealCommandGateway,
+    private readonly reconciliation: BankReconciliationService,
+  ) {}
 
   worksheet(dealId: string, user: RequestUser) {
-    this.assertDealScope(dealId, user);
-    return this.payments.worksheet(dealId);
+    return this.payments.worksheet(dealId, user);
   }
 
   bankWorkspace(dealId: string, user: RequestUser) {
-    this.assertDealScope(dealId, user);
-    return this.payments.bankWorkspace(dealId);
+    return this.payments.bankWorkspace(dealId, user);
   }
 
-  async listPayments(user: RequestUser) {
-    const payments = await this.payments.list();
-    return this.filterPaymentsByScope(payments, user);
+  listPayments(user: RequestUser) {
+    return this.payments.list(user);
   }
 
-  async paymentDetail(id: string, user: RequestUser) {
-    const detail = await this.payments.detail(id);
-    if (detail?.dealId) this.assertDealScope(detail.dealId, user);
-    return detail;
+  paymentDetail(id: string, user: RequestUser) {
+    return this.payments.detail(id, user);
   }
 
-  /**
-   * Bank basis / settlement is the most sensitive money surface. Platform-level
-   * oversight roles (ADMIN, SUPPORT_MANAGER, EXECUTIVE) are cross-deal; every
-   * other allowed role (notably an org's ACCOUNTING) may only touch a deal its
-   * own organization is a party to. Fails closed when the deal is unresolved.
-   */
-  private assertDealScope(dealId: string, user: RequestUser): void {
-    const role = String(user?.role || '');
-    if (role === Role.ADMIN || role === Role.SUPPORT_MANAGER || role === Role.EXECUTIVE) return;
-    let deal: any = null;
-    try {
-      deal = this.runtime.getDeal(dealId);
-    } catch {
-      deal = null;
-    }
-    const isParty =
-      !!deal && (deal.sellerOrgId === user?.orgId || deal.buyerOrgId === user?.orgId);
-    if (!isParty) {
-      throw new ForbiddenException(`Cross-organization access denied for deal:${dealId}`);
-    }
+  exportDeals(
+    params: { format?: string; from?: string; to?: string },
+    user: RequestUser,
+  ) {
+    return this.payments.exportDeals(params, user);
   }
 
-  private filterPaymentsByScope(payments: any[], user: RequestUser): any[] {
-    const role = String(user?.role || '');
-    if (role === Role.ADMIN || role === Role.SUPPORT_MANAGER || role === Role.EXECUTIVE) {
-      return payments;
-    }
-    return payments.filter((p: any) => {
-      let deal: any = null;
-      try {
-        deal = p?.dealId ? this.runtime.getDeal(p.dealId) : null;
-      } catch {
-        deal = null;
-      }
-      return !!deal && (deal.sellerOrgId === user?.orgId || deal.buyerOrgId === user?.orgId);
-    });
-  }
-
-  async exportDeals(_params: any, user: RequestUser) {
-    const payments = this.filterPaymentsByScope(await this.payments.list(), user);
-    const rows = [
-      ['dealId', 'status', 'amountRub', 'callbackState'],
-      ...payments.map((p: any) => [p.dealId, p.status, String(p.amountRub), p.callbackState ?? '']),
-    ];
-    return {
-      contentType: 'text/csv',
-      fileName: 'deals-export.csv',
-      body: rows.map((row) => row.join(',')).join('\n'),
-    };
-  }
-
-  async exportContractors(user: RequestUser) {
-    const rows = [['dealId', 'beneficiaryId', 'role', 'bankStatus']];
-    for (const payment of this.filterPaymentsByScope(await this.payments.list(), user)) {
-      const bank = this.payments.bankWorkspace((payment as any).dealId);
-      for (const beneficiary of bank.beneficiaries) {
-        rows.push([(payment as any).dealId, beneficiary.id, beneficiary.role, beneficiary.bankStatus]);
-      }
-    }
-    return {
-      contentType: 'text/csv',
-      fileName: 'contractors.csv',
-      body: rows.map((row) => row.join(',')).join('\n'),
-    };
+  exportContractors(user: RequestUser) {
+    return this.payments.exportContractors(user);
   }
 
   /**
-   * Request reserve: creates an outbox entry for the bank.
-   * Payment stays RESERVE_PENDING until bank callback arrives.
-   * Platform never self-confirms a reserve.
+   * Creates the canonical reserve request. The payment remains pending until a
+   * verified bank callback executes `confirm_reserve`.
    */
-  async requestReserve(dealId: string, user: RequestUser) {
-    this.assertMoneyMutationRole(user);
-    this.assertDealScope(dealId, user);
-    const ws = this.payments.worksheet(dealId);
-    const { result } = await this.executor.execute({
+  requestReserve(dealId: string, command: ExecuteDealCommandDto, user: RequestUser) {
+    this.assertMoneyRequestRole(user);
+    return this.industrialCommands.executeUser(
+      dealId,
+      'request_reserve',
+      normalizeCommand(command),
       user,
-      action: 'money.reserve.request',
-      scope: { objectType: 'deal', objectId: dealId },
-      bankOutbox: {
-        type: 'BANK_RESERVE_REQUEST',
-        payload: {
-          dealId,
-          amountRub: ws.payment?.amountRub,
-          bankEventId: ws.payment?.bankEventId,
-        },
-      },
-      fn: () => this.runtime.reservePrepayment(dealId, user),
-    });
-    const outboxEntries = this.outbox.getByDeal(dealId);
-    const ws2 = this.payments.worksheet(dealId);
-    this.upsertPayment(dealId, ws2.payment).catch((e) => this.logger.debug(`Payment DB write skipped: ${e.message}`));
-    return { ...result, outboxStatus: 'PENDING', outboxId: outboxEntries.at(-1)?.id };
+    );
   }
 
   /**
-   * Request release: creates an outbox entry for the bank.
-   * Payment stays CALLBACK_PENDING until bank release callback arrives.
-   * Platform never self-releases money.
+   * Creates the canonical release request. No human or platform operator can
+   * convert the request into a confirmed payout.
    */
-  async requestRelease(dealId: string, user: RequestUser) {
-    this.assertMoneyMutationRole(user);
-    this.assertDealScope(dealId, user);
-    const ws = this.runtime.dealWorkspace(dealId);
-    const blockers = ws.blockers ?? [];
-
-    if (blockers.length > 0) {
-      return {
-        dealId,
-        released: false,
-        blocked: true,
-        blockers,
-        message: 'Release blocked — resolve all blockers first',
-      };
-    }
-
-    const { result } = await this.executor.execute({
+  requestRelease(dealId: string, command: ExecuteDealCommandDto, user: RequestUser) {
+    this.assertMoneyRequestRole(user);
+    return this.industrialCommands.executeUser(
+      dealId,
+      'request_release',
+      normalizeCommand(command),
       user,
-      action: 'money.release.request',
-      scope: { objectType: 'deal', objectId: dealId },
-      gates: {
-        disputeOpen: ws.payment?.status === 'HOLD_ACTIVE' && ws.blockers?.some((b: string) => b.includes('спор')),
-        documentsComplete: ws.completeness?.isComplete,
-        reserveConfirmed: ['RESERVED', 'HOLD_ACTIVE', 'READY_FOR_RELEASE'].includes(ws.payment?.status),
-      },
-      bankOutbox: {
-        type: 'BANK_RELEASE_REQUEST',
-        payload: {
-          dealId,
-          amountRub: ws.payment?.undisputedAmountRub,
-          bankEventId: ws.payment?.bankEventId,
-          beneficiaries: ws.bankWorkspace?.beneficiaries,
-        },
-      },
-      fn: () => ({
-        dealId,
-        status: 'RELEASE_REQUEST_SENT',
-        message: 'Release request queued for bank. Awaiting bank callback.',
-      }),
+    );
+  }
+
+  /** Manual bank confirmation is structurally absent from the settlement service. */
+  confirmWorksheet(): never {
+    throw new UnauthorizedException(
+      'Money state can only be confirmed by a verified bank callback.',
+    );
+  }
+
+  /** Manual payout is structurally absent from the settlement service. */
+  releasePayment(): never {
+    throw new UnauthorizedException(
+      'Money state can only be confirmed by a verified bank callback.',
+    );
+  }
+
+  /**
+   * Free-form monetary adjustment is blocked until the versioned payment-terms
+   * command is accepted. Silently mutating the amount would split authority.
+   */
+  adjustWorksheet(_dealId: string, _adjustments: unknown[], _user: RequestUser): never {
+    throw new ConflictException({
+      code: 'VERSIONED_PAYMENT_TERMS_REQUIRED',
+      message: 'Изменение суммы допускается только через версионированное основание расчёта.',
     });
-
-    return result;
-  }
-
-  /**
-   * @deprecated Use requestReserve / bank callbacks instead.
-   * Kept for operator override in demo context only.
-   */
-  confirmWorksheet(dealId: string, user: RequestUser) {
-    if (!MONEY_MUTATION_ROLES.has(user.role) && user.role !== Role.ADMIN) {
-      throw new ForbiddenException('Only accounting/admin can override reserve confirmation');
-    }
-    this.assertDealScope(dealId, user);
-    return this.runtime.confirmWorksheet(dealId, user);
-  }
-
-  /**
-   * @deprecated Use requestRelease / bank callbacks instead.
-   * Kept for operator override only.
-   */
-  releasePayment(dealId: string, user: RequestUser) {
-    if (!MONEY_MUTATION_ROLES.has(user.role) && user.role !== Role.ADMIN) {
-      throw new ForbiddenException('Only accounting/admin can manually release payment');
-    }
-    this.assertDealScope(dealId, user);
-    return this.runtime.releasePayment(dealId, user);
-  }
-
-  adjustWorksheet(dealId: string, adjustments: any[], user: RequestUser) {
-    this.assertMoneyMutationRole(user);
-    this.assertDealScope(dealId, user);
-    return this.runtime.adjustWorksheet(dealId, adjustments, user);
   }
 
   importBankStatement(content: string, format: string, user: RequestUser) {
-    this.assertMoneyMutationRole(user);
-    return this.runtime.importBankStatement(content, format, user);
-  }
-
-  registerSafeDealsCallback(payload: any) {
-    // Bank callback: only path to confirm reserve or release
-    const outboxEntries = this.outbox.getByDeal(payload?.dealId);
-    const pending = outboxEntries.find((e) => e.status === 'PENDING' || e.status === 'SENT');
-    if (pending) {
-      if (payload?.status === 'SUCCESS') {
-        this.outbox.confirm(pending.id);
-      } else {
-        this.outbox.markFailed(pending.id, payload?.errorMessage ?? 'callback_failure');
-      }
+    const normalizedFormat = String(format ?? '').trim().toUpperCase();
+    if (normalizedFormat !== 'MT940') {
+      throw new BadRequestException({
+        code: 'UNSUPPORTED_BANK_STATEMENT_FORMAT',
+        supported: ['MT940'],
+      });
     }
-    const result = this.runtime.registerSafeDealsCallback(payload);
-    if (payload?.dealId) {
-      const ws = this.payments.worksheet(payload.dealId);
-      this.upsertPayment(payload.dealId, ws.payment).catch((e) =>
-        this.logger.debug(`Payment DB callback write skipped: ${e.message}`),
-      );
-    }
-    return result;
+    return this.reconciliation.importMT940(content, user);
   }
 
-  getOutboxStatus(dealId?: string) {
-    return {
-      totalPending: dealId ? this.outbox.getByDeal(dealId).length : this.outbox.listPending().length,
-      pending: dealId ? this.outbox.getByDeal(dealId) : this.outbox.listPending(),
-      manualReview: this.outbox.listManualReview(),
-    };
+  getOutboxStatus(dealId: string | undefined, user: RequestUser) {
+    return this.payments.outboxStatus(dealId, user);
   }
 
-  private async upsertPayment(dealId: string, payment: any) {
-    if (!this.prisma || !payment?.id) return;
-    const amountRub = payment.amountRub ?? payment.holdAmountRub ?? null;
-    await this.prisma.payment.upsert({
-      where: { id: payment.id },
-      update: {
-        status: payment.status,
-        amountRub,
-        reservedAt: payment.reserveConfirmedAt ? new Date(payment.reserveConfirmedAt) : null,
-        releasedAt: payment.releasedAt ? new Date(payment.releasedAt) : null,
-        callbackState: payment.callbackState ?? 'NONE',
-        bankRef: payment.bankEventId ?? null,
-      },
-      create: {
-        id: payment.id,
-        dealId,
-        status: payment.status ?? 'PENDING',
-        amountRub,
-        reservedAt: payment.reserveConfirmedAt ? new Date(payment.reserveConfirmedAt) : null,
-        releasedAt: payment.releasedAt ? new Date(payment.releasedAt) : null,
-        callbackState: payment.callbackState ?? 'NONE',
-        bankRef: payment.bankEventId ?? null,
-      },
-    });
-  }
-
-  private assertMoneyMutationRole(user: RequestUser): void {
-    if (!MONEY_MUTATION_ROLES.has(user.role) && user.role !== Role.ADMIN) {
-      throw new ForbiddenException(
-        `Role ${user.role} cannot perform money operations. Allowed: ACCOUNTING, ADMIN, SUPPORT_MANAGER`,
-      );
+  private assertMoneyRequestRole(user: RequestUser): void {
+    if (!MONEY_REQUEST_ROLES.has(user.role)) {
+      throw new ForbiddenException({
+        code: 'MONEY_REQUEST_ROLE_DENIED',
+        allowed: [...MONEY_REQUEST_ROLES],
+      });
     }
   }
+}
+
+function normalizeCommand(command: ExecuteDealCommandDto): ExecuteDealCommandDto {
+  const commandId = requiredText(command?.commandId, 'commandId', 8, 128);
+  const idempotencyKey = requiredText(command?.idempotencyKey, 'idempotencyKey', 8, 200);
+  const expectedUpdatedAt = requiredIso(command?.expectedUpdatedAt, 'expectedUpdatedAt');
+  const expectedVersion = command?.expectedVersion === undefined
+    ? undefined
+    : requiredUnsignedInteger(command.expectedVersion, 'expectedVersion');
+  const payload = command?.payload && typeof command.payload === 'object' && !Array.isArray(command.payload)
+    ? command.payload as Prisma.InputJsonObject
+    : undefined;
+  return {
+    commandId,
+    idempotencyKey,
+    expectedUpdatedAt,
+    ...(expectedVersion === undefined ? {} : { expectedVersion }),
+    ...(payload === undefined ? {} : { payload }),
+  };
+}
+
+function requiredText(
+  value: unknown,
+  field: string,
+  min: number,
+  max: number,
+): string {
+  const normalized = String(value ?? '').trim();
+  if (normalized.length < min || normalized.length > max || /[\u0000-\u001f\u007f]/.test(normalized)) {
+    throw new BadRequestException({ code: 'INVALID_SETTLEMENT_COMMAND_FIELD', field });
+  }
+  return normalized;
+}
+
+function requiredIso(value: unknown, field: string): string {
+  const normalized = String(value ?? '').trim();
+  const parsed = new Date(normalized);
+  if (!normalized || Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException({ code: 'INVALID_SETTLEMENT_COMMAND_FIELD', field });
+  }
+  return parsed.toISOString();
+}
+
+function requiredUnsignedInteger(value: unknown, field: string): string {
+  const normalized = String(value ?? '').trim();
+  if (!/^\d+$/.test(normalized)) {
+    throw new BadRequestException({ code: 'INVALID_SETTLEMENT_COMMAND_FIELD', field });
+  }
+  return normalized;
 }
