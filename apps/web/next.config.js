@@ -30,6 +30,7 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  transpilePackages: ['@pc/design-system-v8', '@pc/design-tokens'],
   typescript: {
     ignoreBuildErrors: true,
   },
