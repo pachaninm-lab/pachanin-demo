@@ -1,0 +1,116 @@
+name: IR-10.2 precise patch
+
+on:
+  push:
+    branches:
+      - agent/ir-10-2-logistics-postgresql-authority
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[ir10-patch-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ir-10-2-logistics-postgresql-authority
+          fetch-depth: 0
+      - name: Apply precise source changes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          schema_path = Path('apps/api/prisma/schema.prisma')
+          schema = schema_path.read_text()
+          schema = schema.replace(
+              'map: "dw_runtime_snapshots_outbox_entry_id_key")',
+              'map: "dw_runtime_snapshots_outbox_fkey")',
+          )
+          schema = schema.replace(
+              'map: "dw_runtime_snapshots_audit_event_id_key")',
+              'map: "dw_runtime_snapshots_audit_fkey")',
+          )
+          schema_path.write_text(schema)
+
+          path = Path('apps/api/src/modules/deals/deal-command.service.ts')
+          source = path.read_text()
+          source = source.replace('  parseLogisticsBasis,\n', '')
+          old_call = """        const payload = await this.validatePayload(tx, actionId, deal, dto.payload ?? {}, user);\n        await this.applySideEffects(tx, definition, deal, payload, user);"""
+          new_call = """        await tx.$queryRaw(Prisma.sql`\n          SELECT set_config('app.current_command_id', ${dto.commandId}, true)\n        `);\n        const payload = await this.validatePayload(tx, actionId, deal, dto.payload ?? {}, user);\n        await this.applySideEffects(tx, definition, deal, payload, user);"""
+          if old_call not in source:
+              raise SystemExit('deal command call anchor not found')
+          source = source.replace(old_call, new_call, 1)
+
+          pattern = re.compile(
+              r"    if \(actionId === 'assign_logistics'\) \{.*?\n    \}\n\n    if \(actionId === 'confirm_loading'\) \{",
+              re.S,
+          )
+          replacement = """    if (actionId === 'assign_logistics') {
+      const carrierOrgId = requiredString(payload, 'carrierOrgId');
+      const driverUserId = requiredString(payload, 'driverUserId');
+      const vehicleId = requiredString(payload, 'vehicleId');
+      const routeFromFacilityId = requiredString(payload, 'routeFromFacilityId');
+      const routeToFacilityId = requiredString(payload, 'routeToFacilityId');
+
+      const admissions = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT admission.id
+        FROM logistics.deal_admissions admission
+        WHERE admission.tenant_id = ${deal.tenantId}
+          AND admission.deal_id = ${deal.id}
+          AND admission.carrier_org_id = ${carrierOrgId}
+          AND admission.driver_user_id = ${driverUserId}
+          AND admission.vehicle_id = ${vehicleId}
+          AND admission.route_from_facility_id = ${routeFromFacilityId}
+          AND admission.route_to_facility_id = ${routeToFacilityId}
+          AND admission.status = 'ACTIVE'
+          AND admission.valid_from <= now()
+          AND (admission.valid_until IS NULL OR admission.valid_until > now())
+        FOR UPDATE
+        LIMIT 1
+      `);
+      const admissionId = admissions[0]?.id;
+      if (!admissionId) {
+        invalid('carrierOrgId', 'Активный нормализованный допуск логистики для сделки не найден.');
+      }
+
+      const conflicts = await tx.shipment.findMany({
+        where: {
+          dealId: { not: deal.id },
+          OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
+        },
+        select: { id: true, status: true },
+        take: 20,
+      });
+      if (conflicts.some((item) => activeShipmentStatus(item.status))) {
+        invalid('driverUserId', 'У водителя или машины уже есть конфликтующее активное назначение.');
+      }
+      return {
+        admissionId,
+        carrierOrgId,
+        driverUserId,
+        vehicleId,
+        routeFromFacilityId,
+        routeToFacilityId,
+      };
+    }
+
+    if (actionId === 'confirm_loading') {"""
+          source, count = pattern.subn(replacement, source, count=1)
+          if count != 1:
+              raise SystemExit(f'assign_logistics block replacement count={count}')
+          path.write_text(source)
+
+          Path('.github/workflows/ir10-2-precise-patch.yml').unlink()
+          PY
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name "IR-10.2 automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(logistics): use normalized admission in canonical command [ir10-patch-applied]"
+          git push origin HEAD:agent/ir-10-2-logistics-postgresql-authority
