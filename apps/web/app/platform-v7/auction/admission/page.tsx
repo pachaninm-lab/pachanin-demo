@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
-import { AuctionServerAuthorityWorkspace } from '@/components/transaction-ux/AuctionServerAuthorityWorkspace';
+import {
+  AuctionPostgresAuthorityWorkspace,
+  getAuctionAuthorityMetadata,
+} from '@/components/transaction-ux/AuctionPostgresAuthorityWorkspace';
 
-export const metadata: Metadata = {
-  title: 'Допуск к торгам',
-  description: 'Серверные блокеры и готовность лота до открытия ценового окна.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return getAuctionAuthorityMetadata('admission');
+}
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   const candidate = Array.isArray(value) ? value[0] : value;
@@ -13,5 +15,5 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 }
 
 export default function AuctionAdmissionPage({ searchParams }: { searchParams?: { lotId?: string | string[] } }) {
-  return <AuctionServerAuthorityWorkspace stage='admission' lotId={firstParam(searchParams?.lotId)} />;
+  return <AuctionPostgresAuthorityWorkspace stage='admission' lotId={firstParam(searchParams?.lotId)} />;
 }
