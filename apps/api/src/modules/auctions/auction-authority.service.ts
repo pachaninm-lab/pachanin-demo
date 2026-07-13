@@ -13,6 +13,7 @@ import { Role, type RequestUser } from '../../common/types/request-user';
 
 const LOT_ID_PATTERN = /^[^\u0000-\u001F\u007F]{1,200}$/;
 const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
+const LOT_PAGE_LIMIT = 500;
 
 type DatabaseClockRow = Readonly<{
   observed_at: Date;
@@ -53,6 +54,12 @@ type AuctionBidRow = Readonly<{
   amount_rub_per_ton: string;
   status: string;
   version: bigint;
+}>;
+
+type AuctionBidSummaryRow = Readonly<{
+  active_count: bigint;
+  winner_count: bigint;
+  max_version: bigint | null;
 }>;
 
 type AuctionAwardRow = Readonly<{
@@ -121,12 +128,19 @@ export class AuctionAuthorityService {
         WHERE l.tenant_id = ${context.tenantId}
           AND (${scope})
         ORDER BY l.updated_at DESC, l.id ASC
-        LIMIT 500
+        LIMIT ${LOT_PAGE_LIMIT + 1}
       `);
+      const hasMore = rows.length > LOT_PAGE_LIMIT;
+      const page = rows.slice(0, LOT_PAGE_LIMIT);
 
       return {
-        authority: authorityProof(context, clock, rows.map((row) => row.version)),
-        items: rows.map(toAccessibleLot),
+        authority: authorityProof(context, clock, page.map((row) => row.version)),
+        items: page.map(toAccessibleLot),
+        pageInfo: {
+          limit: LOT_PAGE_LIMIT,
+          returned: page.length,
+          hasMore,
+        },
       };
     });
   }
@@ -222,7 +236,32 @@ export class AuctionAuthorityService {
       `);
       const award = awards[0] ?? null;
 
-      const bids = await tx.$queryRaw<AuctionBidRow[]>(Prisma.sql`
+      const summaries = await tx.$queryRaw<AuctionBidSummaryRow[]>(Prisma.sql`
+        SELECT
+          count(*) FILTER (
+            WHERE b.status NOT IN ('REJECTED', 'CANCELLED')
+          )::bigint AS active_count,
+          count(*) FILTER (
+            WHERE b.status IN ('WINNING', 'ACCEPTED')
+          )::bigint AS winner_count,
+          max(b.version) FILTER (
+            WHERE b.status NOT IN ('REJECTED', 'CANCELLED')
+          )::bigint AS max_version
+        FROM public.auction_bids b
+        WHERE b.tenant_id = ${context.tenantId}
+          AND b.lot_id = ${lotId}
+      `);
+      const summary = summaries[0];
+      if (!summary) {
+        throw new InternalServerErrorException({ code: 'AUCTION_BID_SUMMARY_UNAVAILABLE' });
+      }
+      const bidCount = safeInteger(summary.active_count, 'auction bid count');
+      const winnerCount = safeInteger(summary.winner_count, 'auction winner count');
+
+      const selectedBidFilter = award
+        ? Prisma.sql`AND b.id = ${award.winning_bid_id}`
+        : Prisma.empty;
+      const selectedBids = await tx.$queryRaw<AuctionBidRow[]>(Prisma.sql`
         SELECT
           b.id,
           b.buyer_org_id,
@@ -234,17 +273,21 @@ export class AuctionAuthorityService {
         WHERE b.tenant_id = ${context.tenantId}
           AND b.lot_id = ${lotId}
           AND b.status NOT IN ('REJECTED', 'CANCELLED')
-        ORDER BY
-          CASE WHEN b.id = ${award?.winning_bid_id ?? null} THEN 0 ELSE 1 END,
-          b.amount_rub_per_ton DESC,
-          b.placed_at ASC,
-          b.id ASC
-        LIMIT 10000
+          ${selectedBidFilter}
+        ORDER BY b.amount_rub_per_ton DESC, b.placed_at ASC, b.id ASC
+        LIMIT 1
       `);
+      const bestBid = selectedBids[0] ?? null;
 
-      assertPersistedAuctionConsistency(lot, bids, award, context);
+      assertPersistedAuctionConsistency(
+        lot,
+        bidCount,
+        winnerCount,
+        bestBid,
+        award,
+        context,
+      );
 
-      const bestBid = bids[0] ?? null;
       const dealCreated = Boolean(
         award?.deal_id
           && award.award_status === 'DEAL_CREATED'
@@ -255,15 +298,17 @@ export class AuctionAuthorityService {
       const observedAt = clock.observed_at;
       const blockers = workspaceBlockers(lot, award, dealCreated, observedAt);
       const liveStatus = lot.status === 'OPEN' || lot.status === 'BIDDING';
-      const readyForLive = liveStatus && lot.auction_ends_at.getTime() > observedAt.getTime() && blockers.length === 0;
+      const readyForLive = liveStatus
+        && lot.auction_ends_at.getTime() > observedAt.getTime()
+        && blockers.length === 0;
       const minutesToEnd = Math.max(
         0,
         Math.floor((lot.auction_ends_at.getTime() - observedAt.getTime()) / 60_000),
       );
-      const nextRequiredMilestones = requiredMilestones(lot, bids, award, dealCreated);
+      const nextRequiredMilestones = requiredMilestones(lot, bidCount, award, dealCreated);
       const versions = [
         lot.version,
-        ...bids.map((bid) => bid.version),
+        summary.max_version,
         award?.award_version,
         award?.deal_version,
       ].filter((value): value is bigint => typeof value === 'bigint');
@@ -284,11 +329,15 @@ export class AuctionAuthorityService {
           },
           readiness: {
             score: Math.max(0, 100 - blockers.length * 20),
-            band: blockers.length === 0 ? (readyForLive ? 'READY' : 'COMPLETE') : blockers.length <= 2 ? 'REVIEW' : 'BLOCKED',
+            band: blockers.length === 0
+              ? (readyForLive ? 'READY' : 'COMPLETE')
+              : blockers.length <= 2
+                ? 'REVIEW'
+                : 'BLOCKED',
             blockers,
             readyForLive,
             bestBid: bestBid ? finiteNumber(bestBid.amount_rub_per_ton, 'best bid') : null,
-            nextAction: nextAction(lot, bids, award, dealCreated),
+            nextAction: nextAction(lot, bidCount, award, dealCreated),
           },
           timer: {
             auctionEndsAt: lot.auction_ends_at.toISOString(),
@@ -309,7 +358,7 @@ export class AuctionAuthorityService {
                 status: bestBid.status,
               }
             : null,
-          bidCount: bids.length,
+          bidCount,
           executionBridge: {
             dealCreated,
             dealId: dealCreated ? award?.deal_id ?? null : null,
@@ -413,7 +462,10 @@ function workspaceBlockers(
   if (lot.status === 'DRAFT' || lot.status === 'CANCELLED') {
     blockers.push(`lot_status_${lot.status.toLowerCase()}`);
   }
-  if ((lot.status === 'OPEN' || lot.status === 'BIDDING') && lot.auction_ends_at <= observedAt) {
+  if (
+    (lot.status === 'OPEN' || lot.status === 'BIDDING')
+    && lot.auction_ends_at.getTime() <= observedAt.getTime()
+  ) {
     blockers.push('auction_window_closed');
   }
   if (lot.status === 'MATCHED' || lot.status === 'IN_DEAL' || lot.status === 'CLOSED') {
@@ -425,15 +477,15 @@ function workspaceBlockers(
 
 function requiredMilestones(
   lot: AuctionLotRow,
-  bids: readonly AuctionBidRow[],
+  bidCount: number,
   award: AuctionAwardRow | null,
   dealCreated: boolean,
 ): string[] {
   const milestones: string[] = [];
   if (!lot.source_external_id?.trim() || !lot.source_verified_at) milestones.push('verify_lot_source');
   if (lot.admission_status !== 'ADMITTED') milestones.push('complete_admission');
-  if (bids.length === 0) milestones.push('receive_server_bid');
-  if (bids.length > 0 && !award) milestones.push('issue_server_award');
+  if (bidCount === 0) milestones.push('receive_server_bid');
+  if (bidCount > 0 && !award) milestones.push('issue_server_award');
   if (award && !dealCreated) milestones.push('create_canonical_deal');
   return milestones;
 }
@@ -446,7 +498,7 @@ function originNextStep(lot: AuctionLotRow): string | null {
 
 function nextAction(
   lot: AuctionLotRow,
-  bids: readonly AuctionBidRow[],
+  bidCount: number,
   award: AuctionAwardRow | null,
   dealCreated: boolean,
 ): string {
@@ -454,39 +506,49 @@ function nextAction(
   if (lot.admission_status !== 'ADMITTED') return 'COMPLETE_ADMISSION';
   if (dealCreated) return 'OPEN_CANONICAL_DEAL';
   if (award) return 'CREATE_CANONICAL_DEAL_SERVER_SIDE';
-  if (bids.length > 0) return 'WAIT_FOR_SERVER_AWARD';
+  if (bidCount > 0) return 'WAIT_FOR_SERVER_AWARD';
   if (lot.status === 'OPEN' || lot.status === 'BIDDING') return 'WAIT_FOR_SERVER_BIDS';
   return 'REVIEW_AUCTION_STATE';
 }
 
 function assertPersistedAuctionConsistency(
   lot: AuctionLotRow,
-  bids: readonly AuctionBidRow[],
+  bidCount: number,
+  winnerCount: number,
+  bestBid: AuctionBidRow | null,
   award: AuctionAwardRow | null,
   context: TrustedRlsContext,
 ): void {
   if (lot.tenant_id !== context.tenantId) {
     throw new InternalServerErrorException({ code: 'AUCTION_TENANT_AUTHORITY_MISMATCH' });
   }
-
-  const winningBids = bids.filter((bid) => bid.status === 'WINNING' || bid.status === 'ACCEPTED');
-  if (!award && winningBids.length > 0) {
+  if ((bidCount === 0) !== (bestBid === null)) {
+    throw new InternalServerErrorException({ code: 'AUCTION_BID_AGGREGATE_MISMATCH' });
+  }
+  if (!award && winnerCount > 0) {
     throw new InternalServerErrorException({ code: 'AUCTION_WINNER_WITHOUT_AWARD' });
   }
   if (award) {
-    const persistedWinner = bids.find((bid) => bid.id === award.winning_bid_id);
-    if (!persistedWinner || !['WINNING', 'ACCEPTED'].includes(persistedWinner.status)) {
+    if (
+      !bestBid
+      || bestBid.id !== award.winning_bid_id
+      || !['WINNING', 'ACCEPTED'].includes(bestBid.status)
+      || winnerCount !== 1
+    ) {
       throw new InternalServerErrorException({ code: 'AUCTION_AWARD_BID_MISMATCH' });
     }
     if (!['MATCHED', 'IN_DEAL', 'CLOSED'].includes(lot.status)) {
       throw new InternalServerErrorException({ code: 'AUCTION_AWARD_LOT_STATE_MISMATCH' });
     }
-    if (award.deal_id && (
-      award.award_status !== 'DEAL_CREATED'
-      || award.deal_tenant_id !== context.tenantId
-      || award.deal_source_lot_id !== lot.id
-      || !award.deal_exists
-    )) {
+    if (
+      award.deal_id
+      && (
+        award.award_status !== 'DEAL_CREATED'
+        || award.deal_tenant_id !== context.tenantId
+        || award.deal_source_lot_id !== lot.id
+        || !award.deal_exists
+      )
+    ) {
       throw new InternalServerErrorException({ code: 'AUCTION_DEAL_AUTHORITY_MISMATCH' });
     }
   }
