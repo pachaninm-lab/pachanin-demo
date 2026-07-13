@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "tokenSource": "packages/design-tokens/tokens.json",
+  "tokenCss": "packages/design-tokens/tokens.css",
+  "governedRoots": [
+    "packages/design-system-v8/src",
+    "apps/web/components/transaction-ux"
+  ],
+  "migratedFiles": [
+    "apps/web/components/platform-v7/NextActionCard.tsx"
+  ],
+  "allowedGlobalStyleEntrypoints": [
+    "packages/design-tokens/tokens.css"
+  ],
+  "rules": {
+    "forbidInlineStyle": true,
+    "forbidDangerousStyleInjection": true,
+    "forbidLiteralColors": true,
+    "forbidImportant": true,
+    "forbidLegacyStyleImports": true
+  }
+}
