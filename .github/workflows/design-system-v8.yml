@@ -17,6 +17,7 @@ on:
       - 'apps/web/app/platform-v7/documents/page.tsx'
       - 'apps/web/app/platform-v7/disputes/page.tsx'
       - 'apps/web/app/platform-v7/bank/release-safety/page.tsx'
+      - 'apps/web/app/platform-v7/auction/**'
       - 'apps/web/app/platform-v7/driver/field/page.tsx'
       - 'apps/web/app/platform-v7/elevator/page.tsx'
       - 'apps/web/app/platform-v7/lab/page.tsx'
@@ -29,6 +30,7 @@ on:
       - 'apps/web/app/platform-v7/compliance/page.tsx'
       - 'apps/web/app/platform-v7/arbitrator/page.tsx'
       - 'apps/web/app/platform-v7/executive/page.tsx'
+      - 'apps/web/tests/unit/designSystemV8AuctionRoutes.test.ts'
       - 'apps/web/tests/unit/designSystemV8DocumentsRoute.test.ts'
       - 'apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
@@ -60,6 +62,7 @@ on:
       - 'apps/web/app/platform-v7/documents/page.tsx'
       - 'apps/web/app/platform-v7/disputes/page.tsx'
       - 'apps/web/app/platform-v7/bank/release-safety/page.tsx'
+      - 'apps/web/app/platform-v7/auction/**'
       - 'apps/web/app/platform-v7/driver/field/page.tsx'
       - 'apps/web/app/platform-v7/elevator/page.tsx'
       - 'apps/web/app/platform-v7/lab/page.tsx'
@@ -72,6 +75,7 @@ on:
       - 'apps/web/app/platform-v7/compliance/page.tsx'
       - 'apps/web/app/platform-v7/arbitrator/page.tsx'
       - 'apps/web/app/platform-v7/executive/page.tsx'
+      - 'apps/web/tests/unit/designSystemV8AuctionRoutes.test.ts'
       - 'apps/web/tests/unit/designSystemV8DocumentsRoute.test.ts'
       - 'apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
@@ -108,10 +112,11 @@ jobs:
         run: node ./scripts/check-design-system-v8.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
-      - name: Run v8 role, registry and critical-route regressions
+      - name: Run v8 role, registry, critical-route and auction regressions
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
+            tests/unit/designSystemV8AuctionRoutes.test.ts \
             tests/unit/designSystemV8DocumentsRoute.test.ts \
             tests/unit/designSystemV8CriticalRoutes.test.ts \
             tests/unit/designSystemV8FieldRoles.test.ts \
