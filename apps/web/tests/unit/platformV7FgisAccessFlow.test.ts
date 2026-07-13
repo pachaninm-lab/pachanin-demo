@@ -19,7 +19,7 @@ const auctionRoutes = [
   'apps/web/app/platform-v7/auction/deal-basis/page.tsx',
 ].map(read);
 
-const forbiddenFixtureTokens = [
+const forbiddenFixtureMarkers = [
   'FARMER_FGIS_ACCESS_STATE',
   'FGIS-LOT-2607-014',
   'SDIZ-2607-5512',
@@ -35,7 +35,7 @@ describe('platform-v7 FGIS access PostgreSQL authority flow', () => {
     expect(accessPage).toContain("getAuctionAuthorityMetadata('import')");
     expect(accessPage).not.toContain('style={{');
     expect(accessPage).not.toContain('platformV7RouteIcon');
-    for (const token of forbiddenFixtureTokens) expect(accessPage).not.toContain(token);
+    for (const marker of forbiddenFixtureMarkers) expect(accessPage).not.toContain(marker);
   });
 
   it('retains organization confirmation without claiming live FGIS access', () => {
@@ -55,7 +55,7 @@ describe('platform-v7 FGIS access PostgreSQL authority flow', () => {
     expect(accessContract).not.toContain('canPullFgisDealSeed');
     expect(accessContract).not.toContain('fgisAccessStatusLabel');
     expect(accessContract).not.toContain('fgisPullStatusLabel');
-    for (const token of forbiddenFixtureTokens) expect(accessContract).not.toContain(token);
+    for (const marker of forbiddenFixtureMarkers) expect(accessContract).not.toContain(marker);
   });
 
   it('accepts only authenticated tenant-scoped PostgreSQL auction envelopes', () => {
