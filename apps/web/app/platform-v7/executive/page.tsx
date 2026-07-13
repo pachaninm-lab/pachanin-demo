@@ -6,12 +6,16 @@ import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
 import { getOutboxStatus } from '@/lib/outbox-server';
-import { CockpitHero, PremiumStatCard } from '@/components/platform-v7/premium';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getPlatformV7BiCockpitState } from '@/lib/platform-v7/runtime/bi-cockpit-state';
 import { UnitEconomicsPassport } from '@/components/platform-v7/UnitEconomicsPassport';
 import { ClickHouseAnalyticsPanel } from '@/components/platform-v7/ClickHouseAnalyticsPanel';
 import { MlPricePredictorPanel } from '@/components/platform-v7/MlPricePredictorPanel';
+import {
+  OperationalCockpitSection,
+  OperationalDecisionCockpit,
+  operationalCockpitClasses,
+} from '@/components/transaction-ux/OperationalDecisionCockpit';
 
 function formatMoney(rub: number): string {
   if (rub >= 1_000_000_000) return `${(rub / 1_000_000_000).toFixed(2)} млрд ₽`;
@@ -28,10 +32,9 @@ export default async function ExecutivePage() {
     getOutboxStatus(),
   ]);
 
-  const apiOnline = outbox.isApiAvailable;
   const dealList: any[] = Array.isArray(deals) ? deals : [];
-  const activeDeals = dealList.filter((d) => !['CLOSED', 'CANCELLED'].includes(d.status));
-  const totalVolume = dealList.reduce((sum, d) => sum + (d.totalRub ?? 0), 0);
+  const activeDeals = dealList.filter((deal) => !['CLOSED', 'CANCELLED'].includes(deal.status));
+  const totalVolume = dealList.reduce((sum, deal) => sum + (deal.totalRub ?? 0), 0);
   const heldRub = disputeTotalHeldRub(disputes);
   const disputeCount = openDisputeCount(disputes);
   const shipmentCount = activeShipmentCount(shipments);
@@ -39,167 +42,101 @@ export default async function ExecutivePage() {
   const bi = getPlatformV7BiCockpitState();
 
   const liveBlockers = [
-    ...(disputeCount > 0 ? [{ id: 'disp', label: `${disputeCount} открытых спора — удержано ${formatMoney(heldRub)}`, severity: 'stop' as const }] : []),
-    ...(pendingBank > 0 ? [{ id: 'outbox', label: `${pendingBank} банковских операций ожидают подтверждения`, severity: 'warn' as const }] : []),
+    ...(disputeCount > 0 ? [{ id: 'disputes', label: `${disputeCount} открытых спора · ${formatMoney(heldRub)} удержано`, severity: 'stop' as const }] : []),
+    ...(pendingBank > 0 ? [{ id: 'bank', label: `${pendingBank} банковских операций ожидают подтверждения`, severity: 'warn' as const }] : []),
   ];
-
-  const mainBlocker = liveBlockers[0]?.label ?? 'блокеров нет';
 
   const signals: ExecutiveSignal[] = [
-    {
-      label: 'Деньги в блоке',
-      value: formatMoney(heldRub),
-      detail: disputeCount > 0 ? 'удержано до решения открытых споров' : 'удержаний по спорам нет',
-      state: heldRub > 0 ? 'stop' : 'ok',
-    },
-    {
-      label: 'Открытые споры',
-      value: String(disputeCount),
-      detail: disputeCount > 0 ? 'каждый спор останавливает свою часть выплаты' : 'спорных сделок нет',
-      state: disputeCount > 0 ? 'stop' : 'ok',
-    },
-    {
-      label: 'Главный блокер',
-      value: liveBlockers.length > 0 ? String(liveBlockers.length) : '0',
-      detail: mainBlocker,
-      state: liveBlockers.some((b) => b.severity === 'stop') ? 'stop' : liveBlockers.length > 0 ? 'wait' : 'ok',
-    },
-    {
-      label: 'Банк ожидает',
-      value: String(pendingBank),
-      detail: pendingBank > 0 ? 'операции ждут банковского подтверждения' : 'нет операций в ожидании банка',
-      state: pendingBank > 0 ? 'wait' : 'ok',
-    },
-    {
-      label: 'Портфель',
-      value: formatMoney(totalVolume),
-      detail: `${dealList.length} сделок · ${activeDeals.length} активных · ${shipmentCount} рейсов`,
-      state: 'ok',
-    },
+    { label: 'Деньги в блоке', value: formatMoney(heldRub), detail: disputeCount > 0 ? 'удержано до решения споров' : 'удержаний нет', state: heldRub > 0 ? 'stop' : 'ok' },
+    { label: 'Открытые споры', value: String(disputeCount), detail: 'каждый спор связан с конкретной Сделкой', state: disputeCount > 0 ? 'stop' : 'ok' },
+    { label: 'Банк ожидает', value: String(pendingBank), detail: 'операции требуют внешнего подтверждения', state: pendingBank > 0 ? 'wait' : 'ok' },
+    { label: 'Портфель', value: formatMoney(totalVolume), detail: `${dealList.length} сделок · ${activeDeals.length} активных`, state: 'ok' },
   ];
 
-  const th: React.CSSProperties = {
-    padding: '10px 14px',
-    textAlign: 'left',
-    color: 'var(--pc-text-muted, #58606E)',
-    fontWeight: 600,
-    fontSize: 11,
-    letterSpacing: '0.06em',
-    textTransform: 'uppercase',
-    borderBottom: '1px solid var(--pc-border, rgba(63,56,38,0.12))',
-  };
-  const td: React.CSSProperties = {
-    padding: '10px 14px',
-    color: 'var(--pc-text-secondary, #475569)',
-    fontVariantNumeric: 'tabular-nums',
-  };
-
   return (
-    <main style={{ display: 'grid', gap: 16, maxWidth: 1080, margin: '0 auto', padding: '12px 16px 32px' }}>
-      <CockpitHero
-        eyebrow='Руководитель · только просмотр'
-        title='Стратегический контроль.'
-        accent='Фокус на результате.'
-        lead='Исполнительная панель: деньги, споры, блокеры и портфель без права действия.'
-      >
-        <div className='pc-prem-kpis' aria-label='Ключевые показатели руководителя'>
-          <PremiumStatCard glyph='coins' tone={heldRub > 0 ? 'danger' : 'success'} value={formatMoney(heldRub)} label='Деньги в блоке' />
-          <PremiumStatCard glyph='bag' tone='info' value={String(activeDeals.length)} label='Сделок под контролем' />
-          <PremiumStatCard glyph='alert' tone={disputeCount > 0 ? 'danger' : 'neutral'} value={String(disputeCount)} label='Открытых споров' />
-          <PremiumStatCard glyph='shield-check' tone={pendingBank > 0 ? 'warning' : 'success'} value={String(pendingBank)} label='Банк ожидает' />
-        </div>
-      </CockpitHero>
-
-      <LiveApiStatusBar
-        apiOnline={apiOnline}
-        blockers={liveBlockers}
-        pendingBankOps={pendingBank}
-        openDisputes={disputeCount}
-        activeShipments={shipmentCount}
-      />
-
+    <OperationalDecisionCockpit
+      testId='platform-v7-executive-v8'
+      eyebrow='Руководитель · только просмотр'
+      title='Контроль результата без операционного вмешательства'
+      description='Руководитель видит деньги, споры, блокеры, портфель и динамику. Экран не даёт полномочий менять Сделку или подтверждать чужие действия.'
+      statusLabel={liveBlockers.length > 0 ? 'есть отклонения' : 'контур стабилен'}
+      statusTone={liveBlockers.some((item) => item.severity === 'stop') ? 'critical' : liveBlockers.length > 0 ? 'warning' : 'success'}
+      liveStatus={(
+        <LiveApiStatusBar
+          apiOnline={outbox.isApiAvailable}
+          blockers={liveBlockers}
+          pendingBankOps={pendingBank}
+          openDisputes={disputeCount}
+          activeShipments={shipmentCount}
+          role='EXECUTIVE · Стратегический обзор'
+          summary={`${activeDeals.length} активных сделок · ${formatMoney(totalVolume)} портфель · ${formatMoney(heldRub)} удержано`}
+        />
+      )}
+      priority={{
+        state: 'readonly',
+        eyebrow: 'Главный управленческий сигнал',
+        title: heldRub > 0 ? `Разобрать причины удержания ${formatMoney(heldRub)}` : 'Критических удержаний нет',
+        description: heldRub > 0
+          ? 'Руководитель видит причины, владельцев и сроки, но операционные действия выполняют уполномоченные роли внутри Сделки.'
+          : 'Продолжайте контролировать портфель, SLA и динамику без вмешательства в полномочия участников.',
+        blocker: disputeCount > 0 ? `${disputeCount} открытых спора` : 'нет',
+        owner: 'оператор + арбитр + банк',
+        impact: formatMoney(heldRub),
+        result: 'эскалация владельцу процесса, а не ручная правка данных',
+      }}
+      facts={[
+        { label: 'Портфель', value: formatMoney(totalVolume), hint: `${dealList.length} сделок всего` },
+        { label: 'Активных сделок', value: String(activeDeals.length), hint: 'не закрыты и не отменены' },
+        { label: 'Открытых споров', value: String(disputeCount), hint: 'влияют на удержание и срок закрытия' },
+        { label: 'Активных рейсов', value: String(shipmentCount), hint: 'операционный объём исполнения' },
+      ]}
+      boundary='Руководитель имеет read-only обзор. Экран не расширяет RBAC, не создаёт банк-статус и не позволяет обходить ответственных участников Сделки.'
+    >
       <ExecutiveSignalWall signals={signals} />
 
-      <CollapsibleSection title='Юнит-экономика (BI)' summary='из runtime-сделок' defaultOpen={false}>
-        <div style={{ display: 'grid', gap: 10 }}>
-          <div className='pc-prem-kpis' aria-label='Юнит-экономика'>
-            {bi.metrics.map((m) => (
-              <PremiumStatCard
-                key={m.key}
-                glyph={m.key === 'gmv' ? 'coins' : m.key === 'dispute-rate' ? 'alert' : m.basis === 'scenario' ? 'gauge' : 'bag'}
-                tone={m.basis === 'scenario' ? 'neutral' : 'info'}
-                value={m.value}
-                label={m.label}
-              />
-            ))}
-          </div>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--pc-text-muted, #58606E)', lineHeight: 1.5 }}>{bi.note}</p>
-        </div>
-      </CollapsibleSection>
-
-      <CollapsibleSection title='Unit Economics Passport' summary='GMV · Take Rate · LTV · CAC · 3 сценария' defaultOpen={false}>
-        <UnitEconomicsPassport />
-      </CollapsibleSection>
-
-      <CollapsibleSection title='Аналитика GMV · предынтеграционный макет' summary='структура ClickHouse · сценарные данные · без промышленного SLA' defaultOpen={false}>
-        <ClickHouseAnalyticsPanel />
-      </CollapsibleSection>
-
-      <CollapsibleSection title='Ценовой прогноз · сценарный ML-макет' summary='модельный экран · доверительный интервал · не торговая рекомендация' defaultOpen={false}>
-        <MlPricePredictorPanel />
-      </CollapsibleSection>
-
-      <CollapsibleSection title='Динамика цен на зерно' summary='12 мес · пшеница · ячмень · кукуруза' defaultOpen={false}>
-        <PriceChart cultures={['wheat_3', 'wheat_4', 'barley', 'corn', 'sunflower']} defaultPeriod={12} />
-      </CollapsibleSection>
-
-      <section
-        style={{
-          background: 'var(--pc-bg-card, #fff)',
-          border: '1px solid var(--pc-border, rgba(63,56,38,0.12))',
-          borderRadius: 16,
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            padding: '14px 16px',
-            borderBottom: '1px solid var(--pc-border, rgba(63,56,38,0.12))',
-            fontWeight: 700,
-            fontSize: 14,
-            color: 'var(--pc-text-primary, #0F1419)',
-          }}
-        >
-          Сделки
-        </div>
+      <OperationalCockpitSection id='portfolio'>
         {dealList.length === 0 ? (
-          <EmptyState title='Сделок пока нет' description='Когда сделки появятся в контуре исполнения, они отобразятся здесь с суммами, статусом и блокерами.' />
+          <EmptyState title='Сделок пока нет' description='После регистрации Сделок здесь появятся сумма, статус, культура, объём и владелец.' />
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <div className={operationalCockpitClasses.tableWrap}>
+            <table className={operationalCockpitClasses.readOnlyTable}>
               <thead>
-                <tr style={{ background: 'var(--pc-bg-subtle, #F5F1E8)' }}>
-                  {['ID', 'Статус', 'Культура', 'Объём, т', 'Сумма', 'Владелец'].map((h) => (
-                    <th key={h} style={th}>{h}</th>
-                  ))}
-                </tr>
+                <tr>{['ID', 'Статус', 'Культура', 'Объём, т', 'Сумма', 'Владелец'].map((header) => <th key={header}>{header}</th>)}</tr>
               </thead>
               <tbody>
-                {dealList.slice(0, 20).map((d, i) => (
-                  <tr key={d.id} style={{ borderBottom: i < dealList.length - 1 ? '1px solid var(--pc-border, rgba(63,56,38,0.08))' : undefined }}>
-                    <td style={{ ...td, fontFamily: 'var(--pc-font-mono, monospace)', color: 'var(--pc-text-primary, #0F1419)' }}>{d.id}</td>
-                    <td style={td}>{d.status}</td>
-                    <td style={td}>{d.culture ?? '—'}</td>
-                    <td style={td}>{d.volumeTons ?? '—'}</td>
-                    <td style={td}>{d.totalRub ? formatMoney(d.totalRub) : '—'}</td>
-                    <td style={td}>{d.owner ?? '—'}</td>
+                {dealList.slice(0, 20).map((deal) => (
+                  <tr key={deal.id}>
+                    <td>{deal.id}</td>
+                    <td>{deal.status}</td>
+                    <td>{deal.culture ?? '—'}</td>
+                    <td>{deal.volumeTons ?? '—'}</td>
+                    <td>{deal.totalRub ? formatMoney(deal.totalRub) : '—'}</td>
+                    <td>{deal.owner ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </section>
-    </main>
+      </OperationalCockpitSection>
+
+      <CollapsibleSection title='Юнит-экономика' summary='GMV · take rate · margin · CAC · LTV' defaultOpen={false}>
+        <p className={operationalCockpitClasses.muted}>{bi.note}</p>
+        <UnitEconomicsPassport />
+      </CollapsibleSection>
+
+      <div className={operationalCockpitClasses.toolGrid}>
+        <CollapsibleSection title='Аналитика GMV' summary='сценарный ClickHouse-контур' defaultOpen={false}>
+          <ClickHouseAnalyticsPanel />
+        </CollapsibleSection>
+        <CollapsibleSection title='Ценовой прогноз' summary='модельный экран · не торговая рекомендация' defaultOpen={false}>
+          <MlPricePredictorPanel />
+        </CollapsibleSection>
+      </div>
+
+      <CollapsibleSection title='Динамика цен' summary='12 месяцев · основные культуры' defaultOpen={false}>
+        <PriceChart cultures={['wheat_3', 'wheat_4', 'barley', 'corn', 'sunflower']} defaultPeriod={12} />
+      </CollapsibleSection>
+    </OperationalDecisionCockpit>
   );
 }
