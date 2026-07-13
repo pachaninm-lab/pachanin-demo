@@ -10,6 +10,7 @@ const exact = new Set([
   'apps/web/components/v7r/AppShellV4.module.css',
   'apps/web/tests/unit/designSystemV8Foundation.test.ts',
   'apps/web/tests/unit/platformV7MobileNavigation.test.ts',
+  'apps/web/tests/unit/transactionUxV8Migration.test.ts',
   'apps/web/tsconfig.json',
   'design-governance-v8.json',
   'docs/platform-v7/design-system-v8-governance.md',
