@@ -1,0 +1,90 @@
+name: Temporary IR-10.2 cleanup transaction repair
+
+on:
+  push:
+    branches:
+      - agent/ir-10-2-logistics-postgresql-authority
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[ir-10-2-cleanup-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ir-10-2-logistics-postgresql-authority
+          fetch-depth: 0
+      - name: Keep trigger bypass on one PostgreSQL connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/api/test/industrial/harness.ts')
+          source = path.read_text()
+          marker = 'export async function cleanTenant(prisma: PrismaService): Promise<void> {'
+          start = source.find(marker)
+          if start < 0:
+              raise SystemExit('cleanTenant marker not found')
+          if source[source.rfind('}') + 1:].strip():
+              raise SystemExit('unexpected content after cleanTenant')
+
+          replacement = '''export async function cleanTenant(prisma: PrismaService): Promise<void> {
+            await prisma.$transaction(async (tx) => {
+              // session_replication_role is connection-local. Keep the trigger bypass and
+              // every cleanup statement on one transaction-bound PostgreSQL connection.
+              await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = replica`);
+              const dealIds = (
+                await tx.deal.findMany({ where: { tenantId: INDUSTRIAL_TENANT }, select: { id: true } })
+              ).map((deal) => deal.id);
+              if (dealIds.length > 0) {
+                const inList = dealIds.map((id) => `'${id}'`).join(',');
+                for (const statement of [
+                  `DELETE FROM logistics.shipment_bindings WHERE deal_id IN (${inList})`,
+                  `DELETE FROM logistics.deal_admissions WHERE deal_id IN (${inList})`,
+                  `DELETE FROM "shipment_gps_points" WHERE "shipmentId" IN (SELECT id FROM "shipments" WHERE "dealId" IN (${inList}))`,
+                  `DELETE FROM "ledger_entries" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "deal_events" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "audit_events" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "outbox_entries" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "bank_statement_entries" WHERE "matchedDealId" IN (${inList})`,
+                  `DELETE FROM "bank_operations" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "payments" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "lab_tests" WHERE "sampleId" IN (SELECT id FROM "lab_samples" WHERE "dealId" IN (${inList}))`,
+                  `DELETE FROM "lab_samples" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "acceptance_records" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "checkpoints" WHERE "shipmentId" IN (SELECT id FROM "shipments" WHERE "dealId" IN (${inList}))`,
+                  `DELETE FROM "shipments" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "deal_documents" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "evidence_files" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "deal_participants" WHERE "dealId" IN (${inList})`,
+                  `DELETE FROM "deals" WHERE "id" IN (${inList})`,
+                ]) {
+                  await tx.$executeRawUnsafe(statement);
+                }
+              }
+              await tx.$executeRawUnsafe(`DELETE FROM logistics.driver_vehicle_links WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+              await tx.$executeRawUnsafe(`DELETE FROM logistics.vehicles WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+              await tx.$executeRawUnsafe(`DELETE FROM logistics.drivers WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+              await tx.$executeRawUnsafe(`DELETE FROM logistics.facilities WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+              await tx.$executeRawUnsafe(`DELETE FROM logistics.carriers WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+              await tx.$executeRawUnsafe(
+                `DELETE FROM "user_orgs" WHERE "organizationId" IN (SELECT id FROM "organizations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}')`,
+              );
+              await tx.$executeRawUnsafe(`DELETE FROM "users" WHERE "id" LIKE 'user-e2e-%'`);
+              await tx.$executeRawUnsafe(`DELETE FROM "organizations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}'`);
+            });
+          }
+          '''
+          path.write_text(source[:start] + replacement)
+          PY
+          rm -f .github/workflows/tmp-fix-ir-10-2-cleanup-transaction.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test(industrial): keep cleanup trigger bypass transaction-local [ir-10-2-cleanup-fixed]"
+          git push origin HEAD:agent/ir-10-2-logistics-postgresql-authority
