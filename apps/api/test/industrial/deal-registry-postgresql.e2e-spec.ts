@@ -174,13 +174,13 @@ describe('Deal registry PostgreSQL keyset read model', () => {
         }
         cursor = page.nextCursor;
       }
-      expect(seen).toEqual(expect.arrayContaining([
+      expect([...seen].sort()).toEqual([
         fixture.dealId,
         'DEAL-REGISTRY-001',
         'DEAL-REGISTRY-002',
         'DEAL-REGISTRY-003',
         'DEAL-REGISTRY-004',
-      ]));
+      ].sort());
       expect(seen.has('DEAL-REGISTRY-NO-PARTICIPANT')).toBe(false);
       expect(seen.has('DEAL-REGISTRY-CROSS-TENANT')).toBe(false);
 
