@@ -108,6 +108,15 @@ GRANT USAGE ON SCHEMA public, security, logistics TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO one_deal_app;
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
+GRANT SELECT ON
+  logistics.carriers,
+  logistics.drivers,
+  logistics.vehicles,
+  logistics.driver_vehicle_links,
+  logistics.facilities,
+  logistics.deal_admissions,
+  logistics.shipment_bindings
+TO one_deal_app;
 REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA logistics FROM one_deal_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO one_deal_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO one_deal_app;
@@ -177,6 +186,12 @@ SQL
 ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text FROM pg_roles WHERE rolname='one_deal_app'")"
 if [[ "$ROLE_PROOF" != "false:false" && "$ROLE_PROOF" != "f:f" ]]; then
   echo "Deal application principal is not NOSUPERUSER NOBYPASSRLS: $ROLE_PROOF" >&2
+  exit 1
+fi
+LOGISTICS_ROLE_PROOF="$(psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege(current_user,'logistics','USAGE')::text || ':' || has_table_privilege(current_user,'logistics.deal_admissions','SELECT')::text || ':' || has_table_privilege(current_user,'logistics.deal_admissions','UPDATE')::text")"
+echo "[one-deal] logistics principal proof usage:select:update = $LOGISTICS_ROLE_PROOF"
+if [[ "$LOGISTICS_ROLE_PROOF" != "true:true:false" && "$LOGISTICS_ROLE_PROOF" != "t:t:f" ]]; then
+  echo "Deal application logistics privilege boundary is invalid: $LOGISTICS_ROLE_PROOF" >&2
   exit 1
 fi
 AUTH_ROLE_PROOF="$(psql "$ADMIN_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT rolsuper::text || ':' || rolbypassrls::text || ':' || has_table_privilege('one_deal_auth','public.deals','SELECT')::text FROM pg_roles WHERE rolname='one_deal_auth'")"
