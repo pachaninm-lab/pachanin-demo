@@ -3,17 +3,30 @@
   "fullTzReadinessPercent": 0,
   "currentStep": "IR-10.4 Settlement PostgreSQL Authority",
   "lastCompletedStep": "#2426 Labs PostgreSQL Authority",
-  "openPr": null,
+  "openPr": "#2439",
+  "currentStatus": "security_hardening_pending_exact_head_ci",
+  "previousVerifiedImplementationHead": "194cc10bdf9f00d3b81c16c2f2b1c17d5a3d9fe9",
+  "candidateHead": "pending-after-source-of-truth-sync",
   "blockedBy": [
-    "Production settlement still permits RuntimeCore, process-memory outbox, optional Prisma and repository selection; PostgreSQL authority is not yet exclusive."
+    "Final exact-head CI and manual review must validate strict financial MFA, exact DealParticipant scope and confirmed-counter operation binding before PR #2439 can leave draft."
   ],
-  "nextStep": "IR-10.4 Settlement PostgreSQL Authority",
-  "updatedAt": "2026-07-13T12:27:00.000Z",
+  "nextStep": "Run full exact-head checks, resolve the first deterministic failure without weakening invariants, then record manual PASS; IR-10.5 remains locked.",
+  "updatedAt": "2026-07-13T18:00:00.000Z",
+  "evidenceBoundary": {
+    "class": "isolated-postgresql-exact-head-ci",
+    "liveBank": false,
+    "nominalAccount": false,
+    "realMoneyMovement": false,
+    "productionCapacity": false,
+    "providerDr": false,
+    "productionRtoRpo": false
+  },
   "rules": {
     "noAppsLanding": true,
+    "noAppsWeb": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
-    "controlledPilotOnly": true,
+    "isolatedPostgresqlEvidenceOnly": true,
     "noSelfModifyingWorkflow": true,
     "noDirectPushToMain": true
   }
