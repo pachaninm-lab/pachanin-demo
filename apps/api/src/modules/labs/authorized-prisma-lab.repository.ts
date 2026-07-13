@@ -1,4 +1,10 @@
-import { ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RlsTransactionService, type TrustedRlsContext } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
@@ -23,6 +29,8 @@ type SampleAuthority = Readonly<{
   acceptanceId: string | null;
   tenantId: string;
   labId: string | null;
+  status: string;
+  custodyStatus: string;
 }>;
 
 @Injectable()
@@ -155,7 +163,7 @@ export class AuthorizedPrismaLabRepository implements LabRepository {
     await this.rls.withTrustedContext(user, async (tx, context) => {
       const rows = await tx.$queryRaw<SampleAuthority[]>(Prisma.sql`
         SELECT sample."id", sample."dealId", sample."shipmentId", sample."acceptanceId",
-               sample."tenantId", sample."labId"
+               sample."tenantId", sample."labId", sample."status", sample."custodyStatus"
         FROM public."lab_samples" sample
         WHERE sample."id" = ${sampleId}
           AND sample."tenantId" = ${context.tenantId}
@@ -164,6 +172,24 @@ export class AuthorizedPrismaLabRepository implements LabRepository {
       `);
       const sample = rows[0];
       if (!sample?.labId) throw new NotFoundException({ code: 'LAB_SAMPLE_NOT_AVAILABLE' });
+      if (purpose === 'TEST') {
+        const opened = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
+          SELECT (
+            ${sample.custodyStatus} IN ('OPENED', 'ANALYSIS_IN_PROGRESS')
+            AND EXISTS (
+              SELECT 1
+              FROM labs.sample_custody_events event
+              WHERE event.sample_id = ${sample.id}
+                AND event.tenant_id = ${context.tenantId}
+                AND event.event_type = 'OPENED'
+                AND event.occurred_at <= ${occurredAt}
+            )
+          ) AS valid
+        `);
+        if (opened[0]?.valid !== true) {
+          throw new ConflictException({ code: 'LAB_CUSTODY_OPENED_REQUIRED' });
+        }
+      }
       await this.requireActor(tx, context, sample.labId, actorType, occurredAt);
       await this.requirePurposeEvidence(tx, {
         evidenceId,
