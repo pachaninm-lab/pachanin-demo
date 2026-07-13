@@ -1,0 +1,50 @@
+name: Temporary IR-10.3 patch diagnostics
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ir-10-3-labs-authority-v3
+          fetch-depth: 0
+      - name: Record patch anchor counts
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          checks = {
+            'service-confirm': ('apps/api/src/modules/deals/deal-command.service.ts', "if (actionId === 'confirm_inspection')"),
+            'service-finalize-evidence': ('apps/api/src/modules/deals/deal-command.service.ts', 'await this.requireEvidence(\n        tx,\n        sample.certificateDocId'),
+            'harness-import': ('apps/api/test/industrial/harness.ts', "import { IndustrialDealCommandGateway } from '../../src/modules/deals/industrial-deal-command.gateway';"),
+            'harness-sample-upsert': ('apps/api/test/industrial/harness.ts', 'await tx.labSample.upsert({'),
+            'harness-payload': ('apps/api/test/industrial/harness.ts', "case 'confirm_inspection':"),
+            'one-payload': ('apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts', "case 'confirm_inspection':"),
+            'one-snapshot': ('apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts', 'async function evidenceSnapshot'),
+            'seed-custody': ('apps/api/test/one-deal/seed.ts', '"currentCustodianOrgId" = \'org-canonical-lab\''),
+          }
+          lines=[]
+          for name,(path,needle) in checks.items():
+              text=Path(path).read_text()
+              lines.append(f'{name}={text.count(needle)}')
+          Path('.tmp-ir103-diag.txt').write_text('\n'.join(lines)+'\n')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .tmp-ir103-diag.txt
+          git commit -m 'chore: record IR-10.3 patch diagnostics'
+          git push origin HEAD:agent/ir-10-3-labs-authority-v3
+
+          git fetch origin main
+          git switch -C main origin/main
+          rm -f .github/workflows/tmp-main-ir103-diag.yml .tmp-main-ir103-diag-trigger
+          git add -A
+          git commit -m 'chore: remove IR-10.3 patch diagnostics runner'
+          git push origin HEAD:main
