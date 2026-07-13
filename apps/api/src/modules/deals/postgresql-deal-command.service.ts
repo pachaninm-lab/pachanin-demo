@@ -77,24 +77,12 @@ function requiredString(payload: JsonRecord, field: string): string {
   return value;
 }
 
-function requiredDate(payload: JsonRecord, field: string): Date {
-  const value = requiredString(payload, field);
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) {
-    throw new UnprocessableEntityException({
-      code: 'UNPROCESSABLE_ENTITY',
-      field,
-      message: `Поле ${field} должно содержать корректную дату ISO 8601.`,
-    });
-  }
-  return date;
-}
-
 /**
  * PostgreSQL-authoritative specialization for the one canonical laboratory
  * transition. All other deal commands retain the shared industrial command
- * path. The client can identify a sample and signed protocol evidence, but it
- * cannot supply laboratory authority, norms, methods, equipment or results.
+ * path. The client identifies only the persisted sample, protocol number and
+ * signed evidence. PostgreSQL derives laboratory, accreditation, standards,
+ * result and finalization time from normalized authority.
  */
 @Injectable()
 export class PostgresqlDealCommandService extends DealCommandService {
@@ -182,7 +170,6 @@ export class PostgresqlDealCommandService extends DealCommandService {
           const clientPayload = (dto.payload ?? {}) as JsonRecord;
           const sampleId = requiredString(clientPayload, 'sampleId');
           const protocolNumber = requiredString(clientPayload, 'protocolNumber');
-          const finalizedAt = requiredDate(clientPayload, 'finalizedAt');
           const signedEvidenceRef = requiredString(clientPayload, 'signedEvidenceRef');
 
           const samples = await tx.$queryRaw<LockedLabSample[]>(Prisma.sql`
@@ -215,9 +202,8 @@ export class PostgresqlDealCommandService extends DealCommandService {
           const finalizedSample = await tx.labSample.update({
             where: { id: sample.id },
             data: {
-              status: 'DONE',
+              status: 'FINALIZED',
               protocol: protocolNumber,
-              finalizedAt,
               certificateDocId: signedEvidenceRef,
             },
           });
