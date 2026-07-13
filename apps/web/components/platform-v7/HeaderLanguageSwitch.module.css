@@ -1,0 +1,184 @@
+.root {
+  position: relative;
+  z-index: 3800;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.button {
+  display: inline-flex;
+  width: 54px;
+  min-width: 54px;
+  max-width: 54px;
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ds-space-1, 4px);
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--ds-color-action-primary, ButtonText) 24%, transparent);
+  border-radius: var(--ds-radius-lg, 16px);
+  appearance: none;
+  background: color-mix(in srgb, var(--ds-color-action-primary, ButtonText) 8%, var(--ds-color-surface, Canvas));
+  color: var(--ds-color-action-primary, ButtonText);
+  box-shadow: var(--ds-shadow-surface, none);
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.button:hover {
+  border-color: color-mix(in srgb, var(--ds-color-action-primary, ButtonText) 38%, transparent);
+  background: color-mix(in srgb, var(--ds-color-action-primary, ButtonText) 14%, var(--ds-color-surface, Canvas));
+}
+
+.button:focus-visible {
+  outline: 3px solid var(--ds-color-focus, Highlight);
+  outline-offset: 3px;
+}
+
+.button b {
+  display: inline-flex;
+  min-width: 19px;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.fallback {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + var(--ds-space-3, 12px));
+  right: var(--ds-space-3, 12px);
+}
+
+:global(.pc-site-actions) .root,
+:global(.entry-header-actions) .root,
+:global(.pc-v4-actions) .root,
+:global(.p7-flow-actions) .root,
+:global(.p7-request-actions) .root,
+:global(.p7-contact-nav) .root,
+:global(.p7-contact-fixed-actions) .root,
+:global(.p7-register-actions) .root {
+  order: -5;
+}
+
+:global(.pc-v4-actions) .button {
+  border-color: var(--ds-color-border, CanvasText);
+  background: var(--ds-color-surface, Canvas);
+  color: var(--ds-color-text-secondary, CanvasText);
+  box-shadow: var(--ds-shadow-surface, none);
+}
+
+:global(.login-header) > .root {
+  order: 2;
+  margin-left: auto;
+}
+
+:global(.login-header) > :global(.login-brand) {
+  order: 1;
+}
+
+:global(.login-header) > :global(.login-back) {
+  order: 3;
+}
+
+:global(.login-header) > .root .button {
+  width: 56px;
+  min-width: 56px;
+  max-width: 56px;
+  height: 56px;
+  min-height: 56px;
+  max-height: 56px;
+  border-color: color-mix(in srgb, CanvasText 12%, transparent);
+  border-radius: var(--ds-radius-xl, 22px);
+  background: var(--ds-color-surface, Canvas);
+  color: var(--ds-color-action-primary, ButtonText);
+}
+
+:global(.p7-register-actions) :global(.p7-register-action-exit) {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  :global(.pc-site-actions) {
+    gap: var(--ds-space-1, 4px);
+  }
+
+  :global(.pc-site-actions) :global(.entry-login) {
+    min-width: 76px;
+    min-height: 40px;
+    padding: 0 var(--ds-space-3, 12px);
+    font-size: 14px;
+  }
+
+  :global(.pc-site-actions) :global(.entry-login) svg,
+  :global(.pc-site-actions) :global(.entry-header-register) {
+    display: none;
+  }
+
+  .button {
+    width: 50px;
+    min-width: 50px;
+    max-width: 50px;
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
+    border-radius: var(--ds-radius-md, 10px);
+  }
+
+  :global(.pc-v4-actions) .button {
+    width: 46px;
+    min-width: 46px;
+    max-width: 46px;
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
+  }
+
+  :global(.login-header) > .root .button {
+    width: 52px;
+    min-width: 52px;
+    max-width: 52px;
+    height: 52px;
+    min-height: 52px;
+    max-height: 52px;
+  }
+}
+
+@media (max-width: 374px) {
+  .button {
+    width: 46px;
+    min-width: 46px;
+    max-width: 46px;
+  }
+
+  :global(.login-header) > .root .button {
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    height: 48px;
+    min-height: 48px;
+    max-height: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .button {
+    border-color: CanvasText;
+    background: ButtonFace;
+    color: ButtonText;
+  }
+}
