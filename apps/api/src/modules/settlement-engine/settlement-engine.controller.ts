@@ -1,8 +1,20 @@
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
-import { BadRequestException, Headers, HttpCode, UnauthorizedException, UseGuards } from '@nestjs/common';
-import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  Query,
+  Res,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import * as crypto from 'crypto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -10,9 +22,11 @@ import { Public } from '../../common/decorators/public.decorator';
 import { SettlementEngineService } from './settlement-engine.service';
 import { RequestUser } from '../../common/types/request-user';
 import { RequiresMfaGuard } from '../../common/guards/mfa.guard';
-import { IndustrialDealCommandGateway, type VerifiedBankCallbackInput } from '../deals/industrial-deal-command.gateway';
-import { CANONICAL_TEST_DEAL_ID } from '../deals/deal-command.policy';
-import { isIndustrialMode } from '../../common/config/industrial-mode';
+import {
+  IndustrialDealCommandGateway,
+  type VerifiedBankCallbackInput,
+} from '../deals/industrial-deal-command.gateway';
+import { ExecuteDealCommandDto } from '../deals/dto/execute-deal-command.dto';
 import { BankKeyError, BankKeyRegistryService } from './bank-key-registry.service';
 import { IntegrationEventsService } from '../integration-events/integration-events.service';
 
@@ -50,7 +64,10 @@ export function buildBankSignaturePayload(input: {
   eventId: string;
   body: JsonRecord;
 }): string {
-  const bodyHash = crypto.createHash('sha256').update(canonicalizeBankPayload(input.body)).digest('hex');
+  const bodyHash = crypto
+    .createHash('sha256')
+    .update(canonicalizeBankPayload(input.body))
+    .digest('hex');
   return [
     'POST',
     BANK_CALLBACK_PATH,
@@ -65,7 +82,8 @@ export function buildBankSignaturePayload(input: {
 function secureSignatureMatch(actual: string | undefined, expected: string): boolean {
   const actualBuffer = Buffer.from(actual ?? '', 'utf8');
   const expectedBuffer = Buffer.from(expected, 'utf8');
-  return actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+  return actualBuffer.length === expectedBuffer.length
+    && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
 }
 
 @UseGuards(RolesGuard)
@@ -80,28 +98,31 @@ export class SettlementEngineController {
   ) {}
 
   @Get('deal/:id')
-  async worksheet(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  worksheet(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.settlementEngine.worksheet(id, user);
   }
 
   @Get('deal/:id/bank-workspace')
-  async bankWorkspace(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  bankWorkspace(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.settlementEngine.bankWorkspace(id, user);
   }
 
   @Get('payments')
-  async payments(@CurrentUser() user: RequestUser) {
+  payments(@CurrentUser() user: RequestUser) {
     return this.settlementEngine.listPayments(user);
   }
 
   @Get('payments/:id')
-  async paymentDetail(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  paymentDetail(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.settlementEngine.paymentDetail(id, user);
   }
 
   @Get('outbox')
-  async outbox(@Query('dealId') dealId: string | undefined) {
-    return this.settlementEngine.getOutboxStatus(dealId);
+  outbox(
+    @Query('dealId') dealId: string | undefined,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.settlementEngine.getOutboxStatus(dealId, user);
   }
 
   @Get('export')
@@ -119,14 +140,17 @@ export class SettlementEngineController {
   }
 
   @Get('export/contractors')
-  async exportContractors(@CurrentUser() user: RequestUser, @Res({ passthrough: true }) res: Response) {
+  async exportContractors(
+    @CurrentUser() user: RequestUser,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const payload = await this.settlementEngine.exportContractors(user);
     res.setHeader('Content-Type', payload.contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${payload.fileName}"`);
     return payload.body;
   }
 
-  /** Request bank reserve — creates outbox entry, does NOT self-confirm. */
+  /** Request bank reserve; confirmation is callback-only. */
   @Post('deal/:id/reserve')
   @RateLimit({
     name: 'money_reserve_request',
@@ -137,11 +161,15 @@ export class SettlementEngineController {
     windowEnv: 'RATE_LIMIT_MONEY_WINDOW_SECONDS',
     includeParams: ['id'],
   })
-  async requestReserve(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    return this.settlementEngine.requestReserve(id, user);
+  requestReserve(
+    @Param('id') id: string,
+    @Body() command: ExecuteDealCommandDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.settlementEngine.requestReserve(id, command, user);
   }
 
-  /** Request bank release — creates outbox entry, does NOT self-release. */
+  /** Request bank release; confirmation is callback-only. */
   @Post('deal/:id/release')
   @UseGuards(RequiresMfaGuard)
   @RateLimit({
@@ -153,47 +181,57 @@ export class SettlementEngineController {
     windowEnv: 'RATE_LIMIT_MONEY_WINDOW_SECONDS',
     includeParams: ['id'],
   })
-  async requestRelease(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    return this.settlementEngine.requestRelease(id, user);
+  requestRelease(
+    @Param('id') id: string,
+    @Body() command: ExecuteDealCommandDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.settlementEngine.requestRelease(id, command, user);
   }
 
-  /** Legacy manual confirmation. Demo profile only — never a bank substitute. */
+  /** Retained as a fail-closed compatibility endpoint. */
   @Post('deal/:id/confirm')
-  @RateLimit({ name: 'money_legacy_confirm', scope: 'user', limit: 6, windowSeconds: 60, includeParams: ['id'] })
-  async confirm(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    // Industrial mode: the platform can never self-confirm money for any deal.
-    // Reserve/release state changes arrive exclusively through the verified
-    // bank callback below.
-    if (isIndustrialMode() || id === CANONICAL_TEST_DEAL_ID) {
-      throw new UnauthorizedException('Money state can only be confirmed by a verified bank callback.');
-    }
-    return this.settlementEngine.confirmWorksheet(id, user);
+  @RateLimit({
+    name: 'money_legacy_confirm',
+    scope: 'user',
+    limit: 6,
+    windowSeconds: 60,
+    includeParams: ['id'],
+  })
+  confirm() {
+    return this.settlementEngine.confirmWorksheet();
   }
 
   @Post('deal/:id/adjust')
-  @RateLimit({ name: 'money_adjust', scope: 'user', limit: 10, windowSeconds: 60, includeParams: ['id'] })
-  async adjust(
+  @RateLimit({
+    name: 'money_adjust',
+    scope: 'user',
+    limit: 10,
+    windowSeconds: 60,
+    includeParams: ['id'],
+  })
+  adjust(
     @Param('id') id: string,
-    @Body() body: { adjustments: any[] },
+    @Body() body: { adjustments: unknown[] },
     @CurrentUser() user: RequestUser,
   ) {
     return this.settlementEngine.adjustWorksheet(id, body.adjustments, user);
   }
 
   @Post('import-bank-statement')
-  @RateLimit({ name: 'bank_statement_import', scope: 'user', limit: 5, windowSeconds: 300 })
-  async importBankStatement(
+  @RateLimit({
+    name: 'bank_statement_import',
+    scope: 'user',
+    limit: 5,
+    windowSeconds: 300,
+  })
+  importBankStatement(
     @Body() body: { content: string; format: string },
     @CurrentUser() user: RequestUser,
   ) {
     return this.settlementEngine.importBankStatement(body.content, body.format, user);
   }
 
-  /**
-   * Immediate revocation of a bank signing key. Takes effect on the next
-   * callback across every API instance (checked in PostgreSQL per request).
-   * Revocations are permanent and append-only.
-   */
   @Post('bank-keys/:keyId/revoke')
   @Roles('ADMIN')
   @UseGuards(RequiresMfaGuard)
@@ -220,17 +258,8 @@ export class SettlementEngineController {
   }
 
   /**
-   * The only public bank confirmation path.
-   *
-   * Required headers:
-   * - X-Bank-Partner-Id: configured partner identity;
-   * - X-Bank-Key-Id: configured signing-key version;
-   * - X-Bank-Event-Id: globally unique event identifier;
-   * - X-Bank-Timestamp: Unix seconds, accepted within ±5 minutes;
-   * - X-Bank-Signature: hmac-sha256=<hex> over buildBankSignaturePayload(...).
-   *
-   * Required body for the canonical deal:
-   * { dealId, eventId, operation, operationId, status, bankRef }
+   * The only bank confirmation path. The signed callback is always routed to
+   * the canonical PostgreSQL command gateway; no runtime fallback exists.
    */
   @Public()
   @Post('bank-callback')
@@ -253,7 +282,10 @@ export class SettlementEngineController {
   ) {
     const timestamp = Number(timestampHeader);
     const nowSeconds = Math.floor(Date.now() / 1000);
-    if (!Number.isInteger(timestamp) || Math.abs(nowSeconds - timestamp) > BANK_CALLBACK_TOLERANCE_SECONDS) {
+    if (
+      !Number.isInteger(timestamp)
+      || Math.abs(nowSeconds - timestamp) > BANK_CALLBACK_TOLERANCE_SECONDS
+    ) {
       throw new UnauthorizedException('Expired or invalid bank callback timestamp');
     }
 
@@ -265,9 +297,6 @@ export class SettlementEngineController {
       throw new UnauthorizedException('Bank partner and signing key headers are required');
     }
 
-    // Rotation-aware key resolution: multiple overlapping keys may be valid;
-    // unknown, not-yet-valid, expired and revoked keys all fail closed and
-    // leave a security trail before any signature math happens.
     let signingSecret: string;
     try {
       const key = await this.bankKeys.resolveActiveKey(partnerIdHeader, keyIdHeader);
@@ -293,33 +322,29 @@ export class SettlementEngineController {
       eventId: eventIdHeader,
       body,
     });
-    const expected = `hmac-sha256=${crypto.createHmac('sha256', signingSecret).update(signedPayload).digest('hex')}`;
+    const expected = `hmac-sha256=${crypto
+      .createHmac('sha256', signingSecret)
+      .update(signedPayload)
+      .digest('hex')}`;
     if (!secureSignatureMatch(signature, expected)) {
       throw new UnauthorizedException('Invalid bank signature');
     }
 
-    if (isIndustrialMode() || body.dealId === CANONICAL_TEST_DEAL_ID) {
-      // Industrial mode: every verified bank callback is executed through the
-      // canonical PostgreSQL command path — idempotent, hash-chained, atomic.
-      // There is no runtime fallback: an unknown deal fails without any money effect.
-      const dealId = String(body.dealId ?? '');
-      const operationId = typeof body.operationId === 'string' ? body.operationId : '';
-      const requiredOperationId = expectedBankOperationId(dealId, body.operation);
-      if (operationId !== requiredOperationId) {
-        throw new BadRequestException({
-          code: 'BANK_OPERATION_ID_MISMATCH',
-          expectedOperationId: requiredOperationId,
-        });
-      }
-
-      return this.industrialCommands.executeBankCallback({
-        ...(body as unknown as VerifiedBankCallbackInput),
-        dealId,
-        operationId,
-        partnerId: partnerIdHeader,
+    const dealId = String(body.dealId ?? '');
+    const operationId = typeof body.operationId === 'string' ? body.operationId : '';
+    const requiredOperationId = expectedBankOperationId(dealId, body.operation);
+    if (operationId !== requiredOperationId) {
+      throw new BadRequestException({
+        code: 'BANK_OPERATION_ID_MISMATCH',
+        expectedOperationId: requiredOperationId,
       });
     }
 
-    return this.settlementEngine.registerSafeDealsCallback(body);
+    return this.industrialCommands.executeBankCallback({
+      ...(body as unknown as VerifiedBankCallbackInput),
+      dealId,
+      operationId,
+      partnerId: partnerIdHeader,
+    });
   }
 }
