@@ -259,7 +259,7 @@
 :global(.pc-v4-actions > .pc-v4-search),
 :global(.pc-v4-actions > .pc-v4-theme-toggle),
 :global(.pc-v4-actions button[aria-label='Открыть уведомления']),
-:global(.pc-v4-actions .p7-calc-trigger),
+:global(.pc-v4-actions button[aria-label='Открыть калькулятор']),
 :global(.pc-v4-actions .p7-note-widget),
 :global(.pc-v4-actions .p7-role-support) {
   display: none !important;
