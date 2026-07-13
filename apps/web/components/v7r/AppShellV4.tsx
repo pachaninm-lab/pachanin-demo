@@ -4,7 +4,6 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  AlertTriangle,
   BarChart3,
   Bell,
   Briefcase,
@@ -28,12 +27,13 @@ import {
 } from 'lucide-react';
 import { CommandPalette } from '@/components/v7r/CommandPalette';
 import { BrandMark } from '@/components/v7r/BrandMark';
-import { NOTIFICATIONS, NOTIFICATION_GROUPS, type NotificationGroup } from '@/lib/v7r/data';
 import { platformV7NavByRole, platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import { PLATFORM_V7_AI_ROUTE } from '@/lib/platform-v7/routes';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import { PLATFORM_V7_LIGHT_DEFAULT_VERSION, PLATFORM_V7_THEME_VERSION_KEY } from '@/components/v7r/PlatformThemeSync';
 import styles from './AppShellV4.module.css';
+
+const NOTIFICATIONS_ROUTE = '/platform-v7/notifications';
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
   operator: 'Оператор',
@@ -128,36 +128,6 @@ function breadcrumbs(pathname: string) {
   }));
 }
 
-function systemStatus(pathname: string) {
-  return [
-    {
-      label: 'ФГИС',
-      detail: pathname.startsWith('/platform-v7/connectors') ? 'требует проверки' : 'контур проверки',
-      tone: 'review' as const,
-      icon: ShieldCheck,
-    },
-    {
-      label: 'Банк',
-      detail: pathname.startsWith('/platform-v7/bank') ? 'ручная проверка' : 'ожидает подтверждение',
-      tone: 'review' as const,
-      icon: Landmark,
-    },
-    {
-      label: 'Споры',
-      detail: pathname.startsWith('/platform-v7/disputes') ? 'в работе' : 'без критического стопа',
-      tone: pathname.startsWith('/platform-v7/disputes') ? 'risk' as const : 'ok' as const,
-      icon: AlertTriangle,
-    },
-  ];
-}
-
-function groupNotifications() {
-  return NOTIFICATIONS.reduce<Record<NotificationGroup, typeof NOTIFICATIONS>>((acc, item) => {
-    (acc[item.group] ||= []).push(item);
-    return acc;
-  }, {} as Record<NotificationGroup, typeof NOTIFICATIONS>);
-}
-
 function iconForHref(href: string): LucideIcon {
   if (href.includes('/control-tower')) return LayoutDashboard;
   if (href.includes('/deals')) return FolderOpen;
@@ -181,11 +151,8 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const { role, setRole } = usePlatformV7RStore();
   const [mounted, setMounted] = React.useState(false);
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
-  const [alertsOpen, setAlertsOpen] = React.useState(false);
-  const [alertsSeen, setAlertsSeen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
-  const hasUnread = !alertsSeen && NOTIFICATIONS.length > 0;
 
   React.useEffect(() => {
     usePlatformV7RStore.persist.rehydrate();
@@ -211,7 +178,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
 
   React.useEffect(() => {
     setSidebarOpen(false);
-    setAlertsOpen(false);
     setPaletteOpen(false);
   }, [pathname]);
 
@@ -251,8 +217,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const stage = ROLE_STAGE[displayRole];
   const crumbs = breadcrumbs(pathname);
   const showCrumbs = pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' && crumbs.length > 1;
-  const statuses = systemStatus(pathname);
-  const groupedNotifications = React.useMemo(() => groupNotifications(), []);
   const RoleIcon = ROLE_ICONS[displayRole];
   const roleHomeHref = platformV7RoleRoute(displayRole);
   const showCabinetChrome = pathname !== '/platform-v7' && pathname !== '/platform-v7/roles';
@@ -332,39 +296,9 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
               >
                 {theme === 'dark' ? <Sun size={17} aria-hidden='true' /> : <Moon size={17} aria-hidden='true' />}
               </button>
-              <div className={styles.alertsWrap}>
-                <button
-                  className={styles.iconButton}
-                  type='button'
-                  onClick={() => { setAlertsOpen((value) => !value); setAlertsSeen(true); }}
-                  aria-label='Открыть уведомления'
-                  aria-expanded={alertsOpen}
-                >
-                  <Bell size={17} aria-hidden='true' />
-                  {hasUnread ? <span className={styles.unreadDot} aria-hidden='true' /> : null}
-                </button>
-                {alertsOpen ? (
-                  <div className={styles.alertPanel} role='dialog' aria-label='Уведомления'>
-                    <div className={styles.alertHeader}>
-                      <strong className={styles.alertTitle}>Уведомления</strong>
-                      <button className={`${styles.iconButton} ${styles.alertClose}`} type='button' onClick={() => setAlertsOpen(false)} aria-label='Закрыть уведомления'>
-                        <X size={15} aria-hidden='true' />
-                      </button>
-                    </div>
-                    {(Object.keys(groupedNotifications) as NotificationGroup[]).map((group) => (
-                      <div key={group} className={styles.notificationGroup}>
-                        <div className={styles.notificationGroupLabel}>{NOTIFICATION_GROUPS[group]}</div>
-                        {groupedNotifications[group].map((item) => (
-                          <Link key={item.id} href={item.href} className={styles.notification}>
-                            <span className={styles.notificationText}>{item.text}</span>
-                            <span className={styles.notificationTime}>{new Date(item.ts).toLocaleString('ru-RU')}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+              <Link className={styles.iconButton} href={NOTIFICATIONS_ROUTE} aria-label='Открыть уведомления' title='Уведомления'>
+                <Bell size={17} aria-hidden='true' />
+              </Link>
             </div>
           </div>
 
@@ -381,16 +315,6 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
                 </React.Fragment>
               )) : <span className={styles.crumb}>Мой кабинет</span>}
             </nav>
-            <div className={styles.statuses}>
-              {statuses.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <span key={item.label} className={styles.status} data-tone={item.tone}>
-                    <Icon size={13} aria-hidden='true' /> {item.label}: {item.detail}
-                  </span>
-                );
-              })}
-            </div>
           </div>
         </div>
       </header>
