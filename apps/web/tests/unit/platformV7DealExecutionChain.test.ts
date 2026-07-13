@@ -12,10 +12,12 @@ function read(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
+const auctionWorkspacePath = 'apps/web/components/transaction-ux/AuctionPostgresAuthorityWorkspace.tsx';
+
 describe('platform-v7 deal execution chain', () => {
   it('keeps auction Deal basis connected only through a server-issued dealId', () => {
     const dealBasisPage = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
-    const workspace = read('apps/web/components/transaction-ux/AuctionServerAuthorityWorkspace.tsx');
+    const workspace = read(auctionWorkspacePath);
 
     expect(dealBasisPage).toContain("stage='deal-basis'");
     expect(dealBasisPage).toContain('lotId');
@@ -27,28 +29,30 @@ describe('platform-v7 deal execution chain', () => {
 
   it('fails closed instead of constructing winner, price, lot and Deal basis in the browser', () => {
     const serverBoundary = read('apps/web/lib/auction-server.ts');
-    const workspace = read('apps/web/components/transaction-ux/AuctionServerAuthorityWorkspace.tsx');
+    const workspace = read(auctionWorkspacePath);
 
     expect(serverBoundary).toContain("serverApiUrl('/lots/my')");
     expect(serverBoundary).toContain('/auctions/lots/${safeLotId}/workspace');
-    expect(serverBoundary).toContain('if (dealCreated && !dealId) return null');
-    expect(serverBoundary).toContain('auction workspace invalid envelope');
+    expect(serverBoundary).toContain('auction workspace missing PostgreSQL authority proof');
+    expect(serverBoundary).toContain('dealCreated !== Boolean(dealId)');
     expect(workspace).toContain('The UI is read-only');
     expect(workspace).toContain('界面仅供读取');
+    expect(workspace).toContain('sameAuthority');
 
     for (const forbidden of ['AUCTION_DEAL_BRIDGE', 'AUCTION_DEAL_BASIS', 'FGIS_AUCTION_STATE', 'BID-001', 'DL-2607-014']) {
       expect(workspace).not.toContain(forbidden);
     }
   });
 
-  it('keeps award, admission and Deal creation as separate server milestones', () => {
-    const workspace = read('apps/web/components/transaction-ux/AuctionServerAuthorityWorkspace.tsx');
+  it('keeps authority, admission, bid journal and Deal creation as separate milestones', () => {
+    const workspace = read(auctionWorkspacePath);
 
-    expect(workspace).toContain("award: { ru: 'серверная фиксация победителя'");
-    expect(workspace).toContain("'winner admission'");
-    expect(workspace).toContain("'deal passport'");
-    expect(workspace).toContain('The Deal link appears only when the server returns dealCreated=true');
-    expect(workspace).toContain('只有服务器返回 dealCreated=true');
+    expect(workspace).toContain('Authority proof');
+    expect(workspace).toContain('Допуск');
+    expect(workspace).toContain('Полный неизменяемый журнал ставок не входит');
+    expect(workspace).toContain('Ссылка на Сделку появляется только при dealCreated=true');
+    expect(workspace).toContain('The Deal link appears only when dealCreated=true');
+    expect(workspace).toContain('只有 dealCreated=true');
   });
 
   it('keeps logistics execution connected to deal acceptance', () => {
