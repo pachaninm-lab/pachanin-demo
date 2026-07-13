@@ -351,6 +351,7 @@ export class PrismaLabRepository implements LabRepository {
       methodCode: requiredIdentifier(command.methodCode, 'methodCode'),
       equipmentCode: requiredIdentifier(command.equipmentCode, 'equipmentCode'),
       evidenceRef: requiredIdentifier(command.evidenceRef, 'evidenceRef'),
+      supersedesId: optionalIdentifier(command.supersedesId, 'supersedesId'),
       occurredAt: requiredDate(command.occurredAt, 'occurredAt'),
       note: optionalText(command.note, 'note', 1000),
     });
@@ -398,7 +399,7 @@ export class PrismaLabRepository implements LabRepository {
             "id", "sampleId", "tenantId", "parameter", "value", "valueDec", "unit",
             "normMin", "normMax", "normMinDec", "normMaxDec", "passed", "result",
             "methodId", "equipmentId", "evidenceFileId", "actorUserId", "commandId",
-            "idempotencyKey", "correlationId", "recordedAt"
+            "idempotencyKey", "correlationId", "supersedesId", "recordedAt"
           ) VALUES (
             ${testId}, ${sample.id}, ${context.tenantId}, ${method.parameter},
             ${Number(value)}, CAST(${value} AS numeric), ${method.unit},
@@ -407,7 +408,9 @@ export class PrismaLabRepository implements LabRepository {
             CAST(${method.normMin} AS numeric), CAST(${method.normMax} AS numeric),
             ${result === 'PASSED'}, ${result}, ${method.id}, ${equipment.id},
             ${normalized.evidenceRef as string}, ${context.userId}, ${normalized.commandId},
-            ${persistentKey}, ${normalized.correlationId}, ${normalized.occurredAt as Date}
+            ${persistentKey}, ${normalized.correlationId},
+            ${(normalized.supersedesId as string | undefined) ?? null},
+            ${normalized.occurredAt as Date}
           )
           RETURNING
             "id", "sampleId", "tenantId", "parameter", "valueDec"::text AS "value",
@@ -431,6 +434,7 @@ export class PrismaLabRepository implements LabRepository {
             equipmentId: equipment.id,
             result,
             standardRef: method.standardRef,
+            supersedesId: test.supersedesId,
           },
         };
       },
