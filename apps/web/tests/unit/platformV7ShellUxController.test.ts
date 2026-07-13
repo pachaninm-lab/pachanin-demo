@@ -46,6 +46,13 @@ describe('PlatformV7ShellUxController', () => {
     expect(controllerStyles).toContain('.pc-v4-meta');
   });
 
+  it('does not show an operator dock on role-neutral utility routes', () => {
+    expect(controller).toContain("const ROLE_NEUTRAL_PATHS = new Set([");
+    expect(controller).toContain("'/platform-v7/notifications'");
+    expect(controller).toContain('const roleNeutralPath = ROLE_NEUTRAL_PATHS.has(normalizedPath)');
+    expect(controller).toContain('mounted && !publicPath && !roleNeutralPath');
+  });
+
   it('keeps large touch targets and a mobile-first role dock', () => {
     expect(controllerStyles).toContain('min-height: 56px');
     expect(controllerStyles).toContain('@media (max-width: 640px)');
@@ -58,7 +65,7 @@ describe('PlatformV7ShellUxController', () => {
     expect(utilityMenu).toContain('Открыть фактические события аккаунта');
     expect(notificationsPage).toContain("fetch('/api/proxy/notifications'");
     expect(notificationsPage).toContain("method: 'PATCH'");
-    expect(notificationsPage).toContain("/api/proxy/notifications/read-all");
+    expect(notificationsPage).toContain('/api/proxy/notifications/read-all');
     expect(notificationsPage).not.toContain('INITIAL_ITEMS');
     expect(notificationsPage).not.toContain('DL-9102');
     expect(notificationsStyles).toContain('min-height: 48px');
