@@ -1,118 +1,161 @@
 import Link from 'next/link';
-import { AlertTriangle, ArrowRight, BadgeCheck, CheckCircle2, CircleDollarSign, ClipboardList, FileCheck2, ListChecks, ShieldCheck } from 'lucide-react';
-import { AUCTION_DEAL_BASIS, auctionDealAmountRub, guardAuctionDealBasisReady } from '@/lib/platform-v7/auctionDealBridge';
-import { platformV7RouteIcon } from '@/lib/platform-v7/platformV7RouteIcons';
+import { getLocale } from 'next-intl/server';
+import { StatusChip } from '@pc/design-system-v8';
+import {
+  AUCTION_DEAL_BASIS,
+  AUCTION_DEAL_BRIDGE,
+  guardAuctionDealBasisReady,
+  isAuctionDealBasisReady,
+} from '@/lib/platform-v7/auctionDealBridge';
+import { FGIS_AUCTION_STATE, canOpenAuction } from '@/lib/platform-v7/fgisAuctionEngine';
+import {
+  AuctionDetailGrid,
+  AuctionExecutionCockpit,
+  AuctionList,
+  AuctionPanel,
+  AuctionSplit,
+  auctionCockpitClasses,
+} from '@/components/transaction-ux/AuctionExecutionCockpit';
+import {
+  AUCTION_COPY,
+  buildAuctionPhases,
+  formatAuctionMoney,
+  normalizeAuctionLocale,
+  translateGuard,
+  translateOwner,
+} from '@/components/transaction-ux/auctionExecutionCopy';
 
-const money = new Intl.NumberFormat('ru-RU');
-const DealIcon = platformV7RouteIcon('deal');
-const AuctionIcon = platformV7RouteIcon('auction');
-const FgisIcon = platformV7RouteIcon('fgis');
-const LogisticsIcon = platformV7RouteIcon('logistics');
-
-export default function AuctionDealBasisPage() {
+export default async function AuctionDealBasisPage() {
+  const locale = normalizeAuctionLocale(await getLocale());
+  const copy = AUCTION_COPY[locale];
   const basis = AUCTION_DEAL_BASIS;
+  const admissionReady = canOpenAuction(FGIS_AUCTION_STATE) && FGIS_AUCTION_STATE.admission === 'admitted';
+  const guards = guardAuctionDealBasisReady(basis);
+  const basisGuardReady = isAuctionDealBasisReady(basis);
+  const ready = Boolean(basis && admissionReady && basisGuardReady);
+  const winner = AUCTION_DEAL_BRIDGE.winnerBid;
+  const phases = buildAuctionPhases(locale, 'deal-basis', {
+    import: FGIS_AUCTION_STATE.lot.importStatus === 'matched' ? 'complete' : 'blocked',
+    admission: admissionReady ? 'complete' : 'available',
+    bids: admissionReady && winner ? 'complete' : 'blocked',
+    'deal-basis': ready ? 'complete' : 'blocked',
+  });
 
-  if (!basis) {
-    return (
-      <main style={{ display: 'grid', gap: 16 }}>
-        <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 10 }}>
-          <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--pc-danger)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'inline-flex', alignItems: 'center', gap: 7 }}><AlertTriangle size={16} />Основание не готово</span>
-          <h1 style={{ margin: 0, fontSize: 'clamp(24px, 5vw, 38px)', color: 'var(--pc-text-primary)', lineHeight: 1.08 }}>Нет зафиксированного победителя</h1>
-          <p style={{ margin: 0, maxWidth: 760, fontSize: 14, lineHeight: 1.55, color: 'var(--pc-text-secondary)' }}>Сделку нельзя продолжить без победившей ставки. Вернитесь к журналу ставок и зафиксируйте победителя.</p>
-          <Link href='/platform-v7/auction/bids' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, width: 'fit-content', padding: '10px 12px', borderRadius: 14, background: 'var(--pc-accent)', color: '#fff', fontSize: 13, fontWeight: 900 }}><AuctionIcon size={16} />Вернуться к ставкам</Link>
-        </section>
-      </main>
-    );
-  }
-
-  const guard = guardAuctionDealBasisReady(basis);
-  const amount = money.format(auctionDealAmountRub());
+  const statusLabel = !basis ? copy.basisPage.statusMissing : ready ? copy.basisPage.statusReady : copy.basisPage.statusBlocked;
+  const priorityTitle = !basis ? copy.basisPage.priorityMissingTitle : ready ? copy.basisPage.priorityReadyTitle : copy.basisPage.priorityBlockedTitle;
+  const priorityDescription = !basis ? copy.basisPage.priorityMissingDescription : ready ? copy.basisPage.priorityReadyDescription : copy.basisPage.priorityBlockedDescription;
+  const priorityBlocker = !basis ? copy.basisPage.blockerMissing : ready ? copy.basisPage.blockerReady : copy.basisPage.blockerBlocked;
+  const priorityImpact = ready ? copy.basisPage.impactReady : copy.basisPage.impactBlocked;
+  const priorityResult = ready ? copy.basisPage.resultReady : copy.basisPage.resultBlocked;
 
   return (
-    <main style={{ display: 'grid', gap: 16 }}>
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 12 }}>
-        <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--pc-accent)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'inline-flex', alignItems: 'center', gap: 7 }}><DealIcon size={16} />Победитель → основание сделки</span>
-        <h1 style={{ margin: 0, fontSize: 'clamp(24px, 5vw, 38px)', color: 'var(--pc-text-primary)', lineHeight: 1.08 }}>Основание сделки</h1>
-        <p style={{ margin: 0, maxWidth: 820, fontSize: 14, lineHeight: 1.55, color: 'var(--pc-text-secondary)' }}>Победившая ставка связана с ФГИС-лотом, СДИЗ, владельцем, покупателем, объёмом и суммой. Рейс формируется из этого основания; банковский блок получает только проверяемое основание, без обещания автоматического выпуска денег.</p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Link href='/platform-v7/auction/bids' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, width: 'fit-content', padding: '10px 12px', borderRadius: 14, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)', fontSize: 13, fontWeight: 900 }}><AuctionIcon size={16} />Вернуться к ставкам</Link>
-          <Link href='/platform-v7/deal-logistics' style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, width: 'fit-content', padding: '10px 12px', borderRadius: 14, background: 'var(--pc-accent)', color: '#fff', fontSize: 13, fontWeight: 900 }}><LogisticsIcon size={16} />Назначить рейс</Link>
-        </div>
-      </section>
+    <AuctionExecutionCockpit
+      testId='platform-v7-auction-deal-basis-v8'
+      eyebrow={copy.basisPage.eyebrow}
+      title={basis ? copy.basisPage.title : copy.basisPage.noBasisTitle}
+      description={!basis ? copy.basisPage.noBasisDescription : ready ? copy.basisPage.descriptionReady : copy.basisPage.descriptionBlocked}
+      statusLabel={statusLabel}
+      statusTone={ready ? 'success' : 'critical'}
+      labels={copy.meta}
+      priority={{
+        state: ready ? 'ready' : 'critical',
+        title: priorityTitle,
+        description: priorityDescription,
+        blocker: priorityBlocker,
+        owner: copy.basisPage.owner,
+        impact: priorityImpact,
+        result: priorityResult,
+        primaryAction: ready
+          ? <Link className={auctionCockpitClasses.primaryLink} href='/platform-v7/deal-logistics'>{copy.common.openLogistics}</Link>
+          : <Link className={auctionCockpitClasses.primaryLink} href={basis ? '/platform-v7/auction/admission' : '/platform-v7/auction/bids'}>{basis ? copy.common.openAdmission : copy.common.openBids}</Link>,
+        secondaryAction: <Link className={auctionCockpitClasses.secondaryLink} href='/platform-v7/auction/bids'>{copy.common.openBids}</Link>,
+      }}
+      facts={[
+        { label: copy.basisPage.facts.winner, value: basis?.buyerName ?? copy.common.notConfirmed, hint: basis?.winnerBidId },
+        { label: copy.basisPage.facts.price, value: basis ? `${formatAuctionMoney(basis.priceRubPerTon, locale)}/t` : copy.common.notConfirmed, hint: copy.common.sourceSnapshot },
+        { label: copy.basisPage.facts.lot, value: basis?.lotNumber ?? FGIS_AUCTION_STATE.lot.lotNumber, hint: copy.common.sourceSnapshot },
+        { label: copy.basisPage.facts.certificate, value: basis?.sdizNumber ?? FGIS_AUCTION_STATE.lot.sdizNumber ?? copy.common.required, hint: copy.common.notConfirmed },
+        { label: copy.basisPage.facts.volume, value: basis ? `${basis.volumeTons} t` : copy.common.notConfirmed, hint: copy.common.available },
+        { label: copy.basisPage.facts.amount, value: basis ? formatAuctionMoney(basis.amountRub, locale) : copy.common.notConfirmed, hint: copy.common.boundary },
+      ]}
+      boundary={`${copy.common.boundary} ${copy.common.externalBoundary}`}
+      phases={phases}
+      phaseNavLabel={copy.phaseNavLabel}
+    >
+      {basis ? (
+        <AuctionDetailGrid
+          label={copy.basisPage.title}
+          items={[
+            { label: copy.basisPage.facts.winner, value: basis.buyerName, hint: basis.winnerBidId },
+            { label: copy.basisPage.facts.price, value: `${formatAuctionMoney(basis.priceRubPerTon, locale)}/t`, hint: basis.winner.placedAt },
+            { label: copy.basisPage.facts.lot, value: basis.lotNumber, hint: basis.sdizNumber },
+            { label: copy.basisPage.facts.seller, value: basis.sellerName, hint: `INN ${basis.ownerInn}` },
+            { label: copy.basisPage.facts.buyer, value: basis.buyerName, hint: basis.region },
+            { label: copy.basisPage.facts.volume, value: `${basis.volumeTons} t`, hint: basis.culture },
+            { label: copy.basisPage.facts.amount, value: formatAuctionMoney(basis.amountRub, locale), hint: copy.common.boundary },
+            { label: copy.basisPage.facts.terms, value: basis.deliveryTerms, hint: basis.region },
+            { label: copy.basisPage.facts.storage, value: basis.storagePlace, hint: basis.className },
+          ]}
+        />
+      ) : null}
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
-        {[
-          ['Победитель', basis.buyerName],
-          ['Цена победителя', `${money.format(basis.priceRubPerTon)} ₽/т`],
-          ['ФГИС-лот', basis.lotNumber],
-          ['СДИЗ', basis.sdizNumber],
-          ['Владелец', `${basis.sellerName} · ИНН ${basis.ownerInn}`],
-          ['Покупатель', basis.buyerName],
-          ['Объём', `${basis.volumeTons} т`],
-          ['Сумма', `${amount} ₽`],
-          ['Условия поставки', basis.deliveryTerms],
-          ['Место хранения', basis.storagePlace],
-        ].map(([label, value]) => (
-          <div key={label} style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 18, padding: 14, display: 'grid', gap: 5 }}>
-            <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'inline-flex', alignItems: 'center', gap: 6 }}><FgisIcon size={14} />{label}</span>
-            <strong style={{ fontSize: 15, color: 'var(--pc-text-primary)', lineHeight: 1.28 }}>{value}</strong>
-          </div>
-        ))}
-      </section>
+      <AuctionSplit>
+        <AuctionPanel title={copy.basisPage.journalTitle} description={copy.basisPage.journalDescription}>
+          <AuctionList
+            label={copy.basisPage.journalTitle}
+            items={(basis?.journalLocks ?? []).map((item, index) => ({
+              id: `journal-${index}`,
+              title: copy.journalLocks[index] ?? item.label,
+              detail: `${copy.common.owner}: ${translateOwner(item.owner, locale)}`,
+              status: <StatusChip tone='information'>{copy.common.complete}</StatusChip>,
+            }))}
+          />
+        </AuctionPanel>
+        <AuctionPanel title={copy.basisPage.readinessTitle} description={copy.basisPage.readinessDescription}>
+          <AuctionList
+            label={copy.basisPage.readinessTitle}
+            items={(basis?.readinessReasons ?? []).map((item, index) => ({
+              id: `readiness-${index}`,
+              title: copy.readinessReasons[index] ?? item,
+              status: <StatusChip tone={ready ? 'success' : 'warning'}>{ready ? copy.common.complete : copy.common.review}</StatusChip>,
+            }))}
+          />
+        </AuctionPanel>
+      </AuctionSplit>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 12 }}>
-        <div style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18, display: 'inline-flex', alignItems: 'center', gap: 8 }}><ClipboardList size={18} />Что фиксируется в журнале</h2>
-          {basis.journalLocks.map((item) => (
-            <div key={item.label} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 13, border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface-soft)' }}>
-              <strong style={{ fontSize: 13, color: 'var(--pc-text-primary)', lineHeight: 1.3 }}>{item.label}</strong>
-              <span style={{ fontSize: 10, color: 'var(--pc-text-muted)', whiteSpace: 'nowrap' }}>{item.owner}</span>
-            </div>
-          ))}
-        </div>
+      <AuctionPanel title={copy.basisPage.guardsTitle} description={copy.basisPage.guardsDescription}>
+        <AuctionList
+          label={copy.basisPage.guardsTitle}
+          items={guards.map((guard) => ({
+            id: guard.key,
+            title: translateGuard(guard, locale),
+            detail: `${copy.common.owner}: ${translateOwner(guard.owner, locale)}`,
+            status: <StatusChip tone={guard.status === 'ok' ? 'success' : 'critical'}>{guard.status === 'ok' ? copy.common.complete : copy.common.blocked}</StatusChip>,
+          }))}
+        />
+      </AuctionPanel>
 
-        <div style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-          <h2 style={{ margin: 0, fontSize: 18, display: 'inline-flex', alignItems: 'center', gap: 8 }}><ShieldCheck size={18} />Почему можно формировать рейс</h2>
-          {basis.readinessReasons.map((item) => (
-            <div key={item} style={{ fontSize: 12, lineHeight: 1.45, color: 'var(--pc-text-secondary)', padding: '9px 11px', borderRadius: 12, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)', display: 'flex', gap: 8, alignItems: 'flex-start' }}><CheckCircle2 size={15} style={{ flex: '0 0 auto', marginTop: 1 }} />{item}</div>
-          ))}
-        </div>
-      </section>
+      <AuctionPanel title={copy.basisPage.nextTitle} description={copy.basisPage.nextDescription}>
+        <AuctionList
+          label={copy.basisPage.nextTitle}
+          items={(basis?.nextRoutes ?? []).map((action) => {
+            const translated = copy.nextActions[action.href] ?? { label: action.label, result: action.resultLabel };
+            const disabled = action.href === '/platform-v7/deal-logistics' && !ready;
+            return {
+              id: action.href,
+              title: translated.label,
+              detail: translated.result,
+              meta: `${copy.common.owner}: ${translateOwner(action.owner, locale)}`,
+              href: disabled ? '/platform-v7/auction/admission' : action.href,
+              status: <StatusChip tone={disabled ? 'critical' : 'information'}>{disabled ? copy.common.blocked : copy.common.available}</StatusChip>,
+            };
+          })}
+        />
+      </AuctionPanel>
 
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18, display: 'inline-flex', alignItems: 'center', gap: 8 }}><ListChecks size={18} />Guard основания сделки</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 10 }}>
-          {guard.map((item) => (
-            <div key={item.key} style={{ padding: 12, borderRadius: 14, border: '1px solid var(--pc-border)', background: item.status === 'ok' ? 'var(--pc-accent-bg)' : 'var(--pc-shell-surface-soft)', display: 'grid', gap: 4 }}>
-              <strong style={{ fontSize: 12, color: 'var(--pc-text-primary)', display: 'inline-flex', alignItems: 'center', gap: 7 }}><BadgeCheck size={14} />{item.label}</strong>
-              <span style={{ fontSize: 10, color: 'var(--pc-text-muted)' }}>{item.owner} · {item.status === 'ok' ? 'проверено' : 'блокировка'}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18, display: 'inline-flex', alignItems: 'center', gap: 8 }}><CircleDollarSign size={18} />Следующее действие</h2>
-        {basis.nextRoutes.map((action) => {
-          const Icon = platformV7RouteIcon(action.iconKey);
-
-          return (
-            <Link key={action.href} href={action.href} style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr) auto', gap: 10, alignItems: 'center', padding: '11px 12px', borderRadius: 14, border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)', background: action.href === '/platform-v7/deal-logistics' ? 'var(--pc-accent-bg)' : 'var(--pc-shell-surface-soft)' }}>
-              <Icon size={17} />
-              <span style={{ display: 'grid', gap: 3 }}>
-                <strong style={{ fontSize: 13 }}>{action.label}</strong>
-                <span style={{ fontSize: 11, color: 'var(--pc-text-muted)', lineHeight: 1.35 }}>{action.resultLabel}</span>
-              </span>
-              <ArrowRight size={15} />
-            </Link>
-          );
-        })}
-      </section>
-
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18, display: 'inline-flex', alignItems: 'center', gap: 8 }}><FileCheck2 size={18} />Ограничение денежного контура</h2>
-        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--pc-text-secondary)' }}>Этот экран не подтверждает live banking и не выпускает деньги. Он собирает проверяемое основание: победитель, ФГИС-лот, СДИЗ, объём, сумма, поставка, журнал и следующий рейс.</p>
-      </section>
-    </main>
+      <AuctionPanel title={copy.basisPage.moneyTitle} description={copy.basisPage.moneyDescription}>
+        <p className={auctionCockpitClasses.warningText}>{copy.basisPage.moneyDescription}</p>
+      </AuctionPanel>
+    </AuctionExecutionCockpit>
   );
 }
