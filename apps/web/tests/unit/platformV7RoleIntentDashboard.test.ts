@@ -31,7 +31,8 @@ describe('platform-v7 role intent dashboard', () => {
     const shell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 
     expect(model).toContain('ROLE_INTENT_ACTIONS');
-    expect(dashboard).toContain('/api/proxy/deals/accessible?limit=20');
+    expect(dashboard).toContain('const PAGE_SIZE = 20');
+    expect(dashboard).toContain("params.set('cursor', cursor)");
     expect(dashboard).toContain('function prioritizeDeals');
     expect(dashboard).toContain('(deal.nextAction ? actionable : waiting).push(deal)');
     expect(dashboard).toContain('Сначала показана сделка, где от вас уже требуется действие');
@@ -57,6 +58,20 @@ describe('platform-v7 role intent dashboard', () => {
     ]) {
       expect(shell).toContain(route);
     }
+  });
+
+  it('scales the Today queue without hiding or replacing the primary deal', () => {
+    const dashboard = read('apps/web/components/platform-v7/RoleIntentDashboard.tsx');
+    const dashboardStyles = read('apps/web/components/platform-v7/RoleIntentDashboard.module.css');
+
+    expect(dashboard).toContain('nextCursor: string | null');
+    expect(dashboard).toContain('mergeDeals(current.deals, page.deals)');
+    expect(dashboard).toContain('const byId = new Map<string, AccessibleDealRef>()');
+    expect(dashboard).toContain('Показать ещё сделки');
+    expect(dashboard).toContain('loadMoreError: message');
+    expect(dashboard).toContain('<CanonicalDealWorkspace role={role} dealId={current.id} />');
+    expect(dashboardStyles).toContain('.loadMoreButton');
+    expect(dashboardStyles).toContain('overscroll-behavior: contain');
   });
 
   it('keeps all twelve owner cabinet routes, organizations and page implementations connected', () => {
