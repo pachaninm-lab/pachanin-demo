@@ -139,6 +139,24 @@ async function bankConfirm(
   }
 }
 
+async function runDealCycle(fixture: DealFixture, index: number): Promise<void> {
+  for (let step = 0; step < USER_STEPS.length; step += 1) {
+    const instance = (index + step) % 2 === 0 ? alpha : beta;
+    await runStep(instance, fixture, USER_STEPS[step].actionId, USER_STEPS[step].userKey);
+  }
+  await bankConfirm(index % 2 === 0 ? alpha : beta, fixture, 'RESERVE');
+  for (let step = 0; step < POST_RESERVE_STEPS.length; step += 1) {
+    const instance = (index + step) % 2 === 0 ? beta : alpha;
+    const currentStep = POST_RESERVE_STEPS[step];
+    if (currentStep.actionId === 'finalize_lab') {
+      await prepareLaboratoryLifecycle(instance, fixture);
+    }
+    await runStep(instance, fixture, currentStep.actionId, currentStep.userKey);
+  }
+  await bankConfirm(index % 2 === 0 ? beta : alpha, fixture, 'RELEASE');
+  await runStep(alpha, fixture, 'close_deal', 'operator');
+}
+
 describe('Industrial core load proof on two instances', () => {
   it(`drives ${DEALS} deals through full concurrent cycles with zero duplicate money`, async () => {
     latenciesMs.length = 0;
@@ -148,25 +166,16 @@ describe('Industrial core load proof on two instances', () => {
     }
 
     const startedAt = Date.now();
-    await Promise.all(
-      fixtures.map(async (fixture, index) => {
-        for (let step = 0; step < USER_STEPS.length; step += 1) {
-          const instance = (index + step) % 2 === 0 ? alpha : beta;
-          await runStep(instance, fixture, USER_STEPS[step].actionId, USER_STEPS[step].userKey);
-        }
-        await bankConfirm(index % 2 === 0 ? alpha : beta, fixture, 'RESERVE');
-        for (let step = 0; step < POST_RESERVE_STEPS.length; step += 1) {
-          const instance = (index + step) % 2 === 0 ? beta : alpha;
-          const currentStep = POST_RESERVE_STEPS[step];
-          if (currentStep.actionId === 'finalize_lab') {
-            await prepareLaboratoryLifecycle(instance, fixture);
-          }
-          await runStep(instance, fixture, currentStep.actionId, currentStep.userKey);
-        }
-        await bankConfirm(index % 2 === 0 ? beta : alpha, fixture, 'RELEASE');
-        await runStep(alpha, fixture, 'close_deal', 'operator');
-      }),
+    const outcomes = await Promise.allSettled(
+      fixtures.map((fixture, index) => runDealCycle(fixture, index)),
     );
+    const failures = outcomes.filter((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected');
+    if (failures.length > 0) {
+      throw new AggregateError(
+        failures.map((failure) => failure.reason),
+        `${failures.length} of ${fixtures.length} concurrent Deal cycles failed`,
+      );
+    }
     const wallMs = Date.now() - startedAt;
 
     for (const fixture of fixtures) {
