@@ -31,9 +31,10 @@ export type RlsTransactionOptions = Readonly<{
   timeout?: number;
   isolationLevel?: Prisma.TransactionIsolationLevel;
   /**
-   * Explicit opt-in retry count for PostgreSQL serialization failures and deadlocks.
-   * Keep this disabled for work that performs non-transactional side effects inside
-   * the callback. A retried callback must be database-only and idempotent.
+   * Override the retry count for PostgreSQL serialization failures and deadlocks.
+   * Serializable transactions default to three retries; other isolation levels
+   * default to none. Callbacks must keep non-database side effects outside the
+   * transaction because PostgreSQL can require the callback to execute again.
    */
   maxConflictRetries?: number;
   retryDelayMs?: number;
@@ -75,12 +76,19 @@ export class RlsTransactionService {
     options: RlsTransactionOptions = {},
   ): Promise<T> {
     const context = deriveTrustedRlsContext(user);
-    const maxConflictRetries = boundedInteger(options.maxConflictRetries, 0, 5, 0);
+    const isolationLevel = options.isolationLevel ?? Prisma.TransactionIsolationLevel.ReadCommitted;
+    const defaultConflictRetries = isolationLevel === Prisma.TransactionIsolationLevel.Serializable ? 3 : 0;
+    const maxConflictRetries = boundedInteger(
+      options.maxConflictRetries,
+      0,
+      5,
+      defaultConflictRetries,
+    );
     const retryDelayMs = boundedInteger(options.retryDelayMs, 0, 1_000, 10);
     const transactionOptions = {
       maxWait: options.maxWait ?? 5_000,
       timeout: options.timeout ?? 15_000,
-      isolationLevel: options.isolationLevel ?? Prisma.TransactionIsolationLevel.ReadCommitted,
+      isolationLevel,
     };
 
     for (let attempt = 0; ; attempt += 1) {
