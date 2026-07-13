@@ -1,7 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowLeft, ArrowRight, Check, Loader2, Plus, Trash2 } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Crosshair,
+  Loader2,
+  Plus,
+  Trash2,
+} from 'lucide-react';
+import styles from './DealCommandForm.module.css';
 
 type Payload = Record<string, unknown>;
 
@@ -10,95 +20,188 @@ type Props = {
   label: string;
   disabled?: boolean;
   submitting?: boolean;
+  initialValues?: Record<string, string>;
   onSubmit: (payload: Payload) => Promise<void> | void;
+};
+
+type FieldOption = {
+  value: string;
+  label: string;
 };
 
 type Field = {
   name: string;
   label: string;
-  type?: 'text' | 'decimal' | 'datetime-local';
+  type?: 'text' | 'decimal' | 'datetime-local' | 'select';
   required?: boolean;
   hint?: string;
+  placeholder?: string;
+  options?: FieldOption[];
+  contextual?: boolean;
+  reviewLabel?: string;
 };
 
-type Step = { title: string; fields: Field[] };
+type Step = {
+  title: string;
+  hint?: string;
+  fields: Field[];
+};
+
+const CONFIRMATION_OPTIONS: FieldOption[] = [
+  { value: 'DEVICE_GPS', label: 'Геопозиция устройства' },
+  { value: 'FACILITY_GEOFENCE', label: 'Геозона объекта' },
+  { value: 'PHOTO_EVIDENCE', label: 'Фото на территории' },
+  { value: 'DISPATCH_CONFIRMATION', label: 'Подтверждение диспетчера' },
+];
+
+const WEIGHING_OPTIONS: FieldOption[] = [
+  { value: 'ELEVATOR_SCALE', label: 'Весы элеватора' },
+  { value: 'MOBILE_SCALE', label: 'Мобильные весы' },
+  { value: 'OTHER_VERIFIED_SCALE', label: 'Другие проверенные весы' },
+];
 
 const ACTION_STEPS: Record<string, Step[]> = {
-  seller_sign_contract: [{ title: 'Подтверждение подписи продавца', fields: [
-    { name: 'documentId', label: 'Загруженный договор', required: true },
-    { name: 'signedAt', label: 'Время подписи', type: 'datetime-local', required: true },
-    { name: 'signatureEvidenceRef', label: 'Подтверждение подписи', required: true },
-  ] }],
-  buyer_sign_contract: [{ title: 'Подтверждение подписи покупателя', fields: [
-    { name: 'documentId', label: 'Договор, подписанный продавцом', required: true },
-    { name: 'signedAt', label: 'Время подписи', type: 'datetime-local', required: true },
-    { name: 'signatureEvidenceRef', label: 'Подтверждение подписи', required: true },
-  ] }],
+  seller_sign_contract: [{
+    title: 'Подтверди подпись продавца',
+    hint: 'Договор выбирается из текущей сделки автоматически. Проверь время и подтверждение подписи.',
+    fields: [
+      { name: 'documentId', label: 'Договор', required: true, contextual: true, reviewLabel: 'Договор' },
+      { name: 'signedAt', label: 'Когда подписан договор?', type: 'datetime-local', required: true },
+      { name: 'signatureEvidenceRef', label: 'Подтверждение подписи', required: true, placeholder: 'Ссылка или номер файла', hint: 'Укажи уже загруженный файл с подтверждением подписи.' },
+    ],
+  }],
+  buyer_sign_contract: [{
+    title: 'Подтверди подпись покупателя',
+    hint: 'Договор выбирается из текущей сделки автоматически. Проверь время и подтверждение подписи.',
+    fields: [
+      { name: 'documentId', label: 'Договор', required: true, contextual: true, reviewLabel: 'Договор' },
+      { name: 'signedAt', label: 'Когда подписан договор?', type: 'datetime-local', required: true },
+      { name: 'signatureEvidenceRef', label: 'Подтверждение подписи', required: true, placeholder: 'Ссылка или номер файла', hint: 'Укажи уже загруженный файл с подтверждением подписи.' },
+    ],
+  }],
   assign_logistics: [
-    { title: 'Перевозчик и водитель', fields: [
-      { name: 'carrierOrgId', label: 'Перевозчик', required: true },
-      { name: 'driverUserId', label: 'Водитель', required: true },
-      { name: 'vehicleId', label: 'Машина', required: true },
-    ] },
-    { title: 'Маршрут', fields: [
-      { name: 'routeFromFacilityId', label: 'Точка отправления', required: true },
-      { name: 'routeToFacilityId', label: 'Точка назначения', required: true },
-    ] },
+    {
+      title: 'Кто повезёт груз?',
+      hint: 'Используй только подтверждённые записи из реестра перевозчиков. Случайные значения не пройдут серверную проверку.',
+      fields: [
+        { name: 'carrierOrgId', label: 'Код перевозчика', required: true, placeholder: 'Код организации из реестра' },
+        { name: 'driverUserId', label: 'Код водителя', required: true, placeholder: 'Код водителя из реестра' },
+        { name: 'vehicleId', label: 'Код машины', required: true, placeholder: 'Код машины из реестра' },
+      ],
+    },
+    {
+      title: 'Откуда и куда ехать?',
+      fields: [
+        { name: 'routeFromFacilityId', label: 'Код точки отправления', required: true, placeholder: 'Объект погрузки из реестра' },
+        { name: 'routeToFacilityId', label: 'Код точки назначения', required: true, placeholder: 'Объект приёмки из реестра' },
+      ],
+    },
   ],
   confirm_loading: [
-    { title: 'Фактическая погрузка', fields: [
-      { name: 'shipmentId', label: 'Рейс', required: true },
-      { name: 'actualWeightTons', label: 'Фактическая масса, т', type: 'decimal', required: true },
-      { name: 'occurredAt', label: 'Точное время', type: 'datetime-local', required: true },
-    ] },
-    { title: 'Основание', fields: [
-      { name: 'basis', label: 'Основание операции', required: true },
-      { name: 'evidenceRef', label: 'Фото или документ', required: true },
-    ] },
+    {
+      title: 'Что фактически погрузили?',
+      hint: 'Рейс выбран автоматически. Укажи только фактический вес и время.',
+      fields: [
+        { name: 'shipmentId', label: 'Рейс', required: true, contextual: true },
+        { name: 'actualWeightTons', label: 'Фактический вес, тонн', type: 'decimal', required: true, placeholder: 'Например, 20,5' },
+        { name: 'occurredAt', label: 'Когда закончилась погрузка?', type: 'datetime-local', required: true },
+      ],
+    },
+    {
+      title: 'Чем подтверждается погрузка?',
+      fields: [
+        { name: 'basis', label: 'Основание', required: true, placeholder: 'Например, весовой талон № 125' },
+        { name: 'evidenceRef', label: 'Фото или документ', required: true, placeholder: 'Ссылка или номер файла', hint: 'Укажи уже загруженное подтверждение.' },
+      ],
+    },
   ],
-  start_transit: [{ title: 'Начало рейса', fields: [
-    { name: 'shipmentId', label: 'Рейс', required: true },
-    { name: 'occurredAt', label: 'Точное время выезда', type: 'datetime-local', required: true },
-    { name: 'basis', label: 'Основание', required: true },
-    { name: 'evidenceRef', label: 'Подтверждение', required: true },
-  ] }],
+  start_transit: [{
+    title: 'Подтверди начало рейса',
+    hint: 'Рейс выбран автоматически. Проверь время выезда и приложенное подтверждение.',
+    fields: [
+      { name: 'shipmentId', label: 'Рейс', required: true, contextual: true },
+      { name: 'occurredAt', label: 'Когда машина выехала?', type: 'datetime-local', required: true },
+      { name: 'basis', label: 'Основание', required: true, placeholder: 'Например, путевой лист' },
+      { name: 'evidenceRef', label: 'Подтверждение', required: true, placeholder: 'Ссылка или номер файла' },
+    ],
+  }],
   confirm_arrival: [
-    { title: 'Прибытие', fields: [
-      { name: 'shipmentId', label: 'Рейс', required: true },
-      { name: 'occurredAt', label: 'Точное время прибытия', type: 'datetime-local', required: true },
-      { name: 'confirmationMethod', label: 'Способ подтверждения', required: true },
-      { name: 'evidenceRef', label: 'Подтверждение', required: true },
-    ] },
-    { title: 'Координаты — только при наличии', fields: [
-      { name: 'lat', label: 'Широта', type: 'decimal' },
-      { name: 'lng', label: 'Долгота', type: 'decimal' },
-    ] },
+    {
+      title: 'Подтверди прибытие',
+      hint: 'Рейс выбран автоматически.',
+      fields: [
+        { name: 'shipmentId', label: 'Рейс', required: true, contextual: true },
+        { name: 'occurredAt', label: 'Когда машина прибыла?', type: 'datetime-local', required: true },
+        { name: 'confirmationMethod', label: 'Как подтверждено прибытие?', type: 'select', required: true, options: CONFIRMATION_OPTIONS },
+        { name: 'evidenceRef', label: 'Подтверждение', required: true, placeholder: 'Ссылка или номер файла' },
+      ],
+    },
+    {
+      title: 'Геопозиция',
+      hint: 'Нажми кнопку, чтобы определить координаты автоматически. Координаты можно оставить пустыми, если разрешение недоступно.',
+      fields: [
+        { name: 'lat', label: 'Широта', type: 'decimal', placeholder: 'Определится автоматически' },
+        { name: 'lng', label: 'Долгота', type: 'decimal', placeholder: 'Определится автоматически' },
+      ],
+    },
   ],
   confirm_weight: [
-    { title: 'Показания весов', fields: [
-      { name: 'shipmentId', label: 'Рейс', required: true },
-      { name: 'grossTons', label: 'Брутто, т', type: 'decimal', required: true },
-      { name: 'tareTons', label: 'Тара, т', type: 'decimal', required: true },
-      { name: 'netTons', label: 'Нетто, т', type: 'decimal', required: true, hint: 'Сервер проверит: брутто − тара = нетто.' },
-    ] },
-    { title: 'Подтверждение взвешивания', fields: [
-      { name: 'weighingSource', label: 'Источник взвешивания', required: true },
-      { name: 'occurredAt', label: 'Точное время', type: 'datetime-local', required: true },
-      { name: 'evidenceRef', label: 'Фото талона или документ', required: true },
-      { name: 'equipmentId', label: 'Оборудование, если предусмотрено' },
-    ] },
+    {
+      title: 'Введи показания весов',
+      hint: 'Рейс выбран автоматически. Значения можно вводить через запятую.',
+      fields: [
+        { name: 'shipmentId', label: 'Рейс', required: true, contextual: true },
+        { name: 'grossTons', label: 'Вес машины с грузом, тонн', type: 'decimal', required: true, placeholder: 'Брутто' },
+        { name: 'tareTons', label: 'Вес пустой машины, тонн', type: 'decimal', required: true, placeholder: 'Тара' },
+        { name: 'netTons', label: 'Вес груза, тонн', type: 'decimal', required: true, placeholder: 'Нетто', hint: 'Сервер проверит: вес с грузом − вес пустой машины = вес груза.' },
+      ],
+    },
+    {
+      title: 'Чем подтверждается взвешивание?',
+      fields: [
+        { name: 'weighingSource', label: 'Где взвешивали?', type: 'select', required: true, options: WEIGHING_OPTIONS },
+        { name: 'occurredAt', label: 'Когда взвешивали?', type: 'datetime-local', required: true },
+        { name: 'evidenceRef', label: 'Фото талона или документ', required: true, placeholder: 'Ссылка или номер файла' },
+        { name: 'equipmentId', label: 'Код весов, если предусмотрено', placeholder: 'Можно оставить пустым' },
+      ],
+    },
   ],
-  confirm_inspection: [{ title: 'Независимый осмотр', fields: [
-    { name: 'documentId', label: 'Проверенное заключение', required: true },
-    { name: 'evidenceRef', label: 'Подтверждение осмотра', required: true },
-    { name: 'inspectedAt', label: 'Время осмотра', type: 'datetime-local', required: true },
-  ] }],
-  accept_delivery: [{ title: 'Приёмка поставки', fields: [
-    { name: 'acceptanceId', label: 'Запись приёмки', required: true },
-    { name: 'acceptedAt', label: 'Время приёмки', type: 'datetime-local', required: true },
-    { name: 'evidenceRef', label: 'Подписанный акт или подтверждение', required: true },
-  ] }],
+  confirm_inspection: [{
+    title: 'Подтверди независимый осмотр',
+    hint: 'Заключение выбирается из текущей сделки автоматически.',
+    fields: [
+      { name: 'documentId', label: 'Заключение', required: true, contextual: true },
+      { name: 'evidenceRef', label: 'Подтверждение осмотра', required: true, placeholder: 'Ссылка или номер файла' },
+      { name: 'inspectedAt', label: 'Когда проведён осмотр?', type: 'datetime-local', required: true },
+    ],
+  }],
+  accept_delivery: [{
+    title: 'Подтверди приёмку поставки',
+    hint: 'Запись приёмки выбрана автоматически.',
+    fields: [
+      { name: 'acceptanceId', label: 'Приёмка', required: true, contextual: true },
+      { name: 'acceptedAt', label: 'Когда поставка принята?', type: 'datetime-local', required: true },
+      { name: 'evidenceRef', label: 'Подписанный акт или подтверждение', required: true, placeholder: 'Ссылка или номер файла' },
+    ],
+  }],
 };
+
+function localDateTimeValue(date = new Date()): string {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function allFields(steps: Step[]): Field[] {
+  return steps.flatMap((step) => step.fields);
+}
+
+function buildInitialValues(steps: Step[], supplied: Record<string, string> | undefined): Record<string, string> {
+  const values = { ...(supplied || {}) };
+  for (const field of allFields(steps)) {
+    if (field.type === 'datetime-local' && !values[field.name]) values[field.name] = localDateTimeValue();
+  }
+  return values;
+}
 
 function toIso(value: string): string {
   if (!value) return value;
@@ -106,153 +209,394 @@ function toIso(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
-function normalizedPayload(values: Record<string, string>): Payload {
+function normalizeDecimal(value: string): string {
+  return value.trim().replace(',', '.');
+}
+
+function normalizedPayload(values: Record<string, string>, fields: Field[]): Payload {
   const payload: Payload = {};
+  const fieldByName = new Map(fields.map((field) => [field.name, field]));
   for (const [key, raw] of Object.entries(values)) {
     const value = raw.trim();
     if (!value) continue;
-    payload[key] = key.endsWith('At') ? toIso(value) : value;
+    const field = fieldByName.get(key);
+    if (field?.type === 'datetime-local' || key.endsWith('At')) payload[key] = toIso(value);
+    else if (field?.type === 'decimal') payload[key] = normalizeDecimal(value);
+    else payload[key] = value;
   }
   return payload;
 }
 
-function LabForm({ disabled, submitting, onSubmit }: Pick<Props, 'disabled' | 'submitting' | 'onSubmit'>) {
-  const [step, setStep] = React.useState(0);
-  const [values, setValues] = React.useState<Record<string, string>>({});
-  const [indicators, setIndicators] = React.useState([{ parameter: '', value: '', unit: '', normMin: '', normMax: '' }]);
+function valueForReview(field: Field, value: string): string {
+  if (field.contextual) return 'Выбрано автоматически из сделки';
+  if (field.type === 'datetime-local') {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date.toLocaleString('ru-RU');
+  }
+  if (field.type === 'select') return field.options?.find((option) => option.value === value)?.label || value;
+  return value || 'Не указано';
+}
 
-  const setValue = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+function fieldErrorId(actionId: string, fieldName: string): string {
+  return `${actionId}-${fieldName}-error`;
+}
+
+function fieldHintId(actionId: string, fieldName: string): string {
+  return `${actionId}-${fieldName}-hint`;
+}
+
+function FieldControl({
+  actionId,
+  field,
+  value,
+  showError,
+  onChange,
+}: {
+  actionId: string;
+  field: Field;
+  value: string;
+  showError: boolean;
+  onChange: (value: string) => void;
+}) {
+  const invalid = showError && field.required && !value.trim();
+  const describedBy = [field.hint ? fieldHintId(actionId, field.name) : '', invalid ? fieldErrorId(actionId, field.name) : ''].filter(Boolean).join(' ') || undefined;
+
+  return (
+    <label className={styles.field}>
+      <span className={styles.fieldLabel}>
+        {field.label}
+        {field.required ? <span className={styles.requiredMark} aria-hidden='true'>*</span> : null}
+      </span>
+      {field.type === 'select' ? (
+        <select
+          className={`${styles.select} ${invalid ? styles.invalid : ''}`}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          required={field.required}
+          aria-invalid={invalid}
+          aria-describedby={describedBy}
+        >
+          <option value=''>Выбери вариант</option>
+          {(field.options || []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      ) : (
+        <input
+          className={`${styles.input} ${invalid ? styles.invalid : ''}`}
+          type={field.type === 'datetime-local' ? 'datetime-local' : 'text'}
+          inputMode={field.type === 'decimal' ? 'decimal' : undefined}
+          value={value}
+          placeholder={field.placeholder}
+          onChange={(event) => onChange(event.target.value)}
+          required={field.required}
+          aria-invalid={invalid}
+          aria-describedby={describedBy}
+        />
+      )}
+      {field.hint ? <small className={styles.hint} id={fieldHintId(actionId, field.name)}>{field.hint}</small> : null}
+      {invalid ? <small className={styles.fieldError} id={fieldErrorId(actionId, field.name)}>Заполни это поле.</small> : null}
+    </label>
+  );
+}
+
+function ReviewStep({ steps, values }: { steps: Step[]; values: Record<string, string> }) {
+  return (
+    <section className={styles.review} aria-labelledby='command-review-title'>
+      <h3 id='command-review-title' tabIndex={-1}>Проверь перед подтверждением</h3>
+      <p className={styles.reviewIntro}>Вернись назад, если что-то указано неверно. После подтверждения сервер ещё раз проверит права и состояние сделки.</p>
+      <dl className={styles.reviewList}>
+        {allFields(steps).map((field) => (
+          <div className={styles.reviewRow} key={field.name}>
+            <dt>{field.reviewLabel || field.label}</dt>
+            <dd className={field.contextual ? styles.autoContext : undefined}>{valueForReview(field, values[field.name] || '')}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function LabForm({ disabled, submitting, initialValues, onSubmit }: Pick<Props, 'disabled' | 'submitting' | 'initialValues' | 'onSubmit'>) {
+  const [step, setStep] = React.useState(0);
+  const [showErrors, setShowErrors] = React.useState(false);
+  const [values, setValues] = React.useState<Record<string, string>>(() => ({
+    finalizedAt: localDateTimeValue(),
+    ...(initialValues || {}),
+  }));
+  const [indicators, setIndicators] = React.useState([{ parameter: '', value: '', unit: '', normMin: '', normMax: '' }]);
+  const headingRef = React.useRef<HTMLLegendElement>(null);
+  const totalSteps = 4;
+
+  React.useEffect(() => {
+    headingRef.current?.focus();
+  }, [step]);
+
+  const setValue = (name: string, value: string) => {
+    setShowErrors(false);
+    setValues((current) => ({ ...current, [name]: value }));
+  };
+
   const canContinue = step === 0
     ? ['sampleId', 'protocolNumber', 'labId', 'accreditationRef'].every((key) => values[key]?.trim())
     : step === 1
       ? indicators.every((item) => item.parameter.trim() && item.value.trim() && item.unit.trim() && (item.normMin.trim() || item.normMax.trim()))
-      : ['applicableStandard', 'finalizedAt', 'signedEvidenceRef'].every((key) => values[key]?.trim());
+      : step === 2
+        ? ['applicableStandard', 'finalizedAt', 'signedEvidenceRef'].every((key) => values[key]?.trim())
+        : true;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (step < 2) {
-      if (canContinue) setStep((current) => current + 1);
+    if (step < 3 && !canContinue) {
+      setShowErrors(true);
       return;
     }
-    if (!canContinue) return;
+    if (step < 3) {
+      setStep((current) => current + 1);
+      setShowErrors(false);
+      return;
+    }
     await onSubmit({
-      ...normalizedPayload(values),
+      ...normalizedPayload(values, [
+        { name: 'finalizedAt', label: '', type: 'datetime-local' },
+      ]),
       indicators: indicators.map((item) => ({
         parameter: item.parameter.trim(),
-        value: item.value.trim(),
+        value: normalizeDecimal(item.value),
         unit: item.unit.trim(),
-        ...(item.normMin.trim() ? { normMin: item.normMin.trim() } : {}),
-        ...(item.normMax.trim() ? { normMax: item.normMax.trim() } : {}),
+        ...(item.normMin.trim() ? { normMin: normalizeDecimal(item.normMin) } : {}),
+        ...(item.normMax.trim() ? { normMax: normalizeDecimal(item.normMax) } : {}),
       })),
     });
   }
 
   return (
-    <form className='command-form' onSubmit={submit}>
-      <div className='form-progress' aria-label={`Шаг ${step + 1} из 3`}><span style={{ width: `${((step + 1) / 3) * 100}%` }} /></div>
+    <form className={styles.form} onSubmit={submit} noValidate>
+      <div className={styles.progressBlock}>
+        <div className={styles.progressText}><span>Шаг {step + 1} из {totalSteps}</span><span>{step === 3 ? 'Проверка' : 'Заполнение'}</span></div>
+        <progress className={styles.progress} value={step + 1} max={totalSteps} aria-label={`Шаг ${step + 1} из ${totalSteps}`} />
+      </div>
+
+      {showErrors ? (
+        <div className={styles.errorSummary} role='alert'><AlertCircle size={20} aria-hidden='true' /><div><strong>Не всё заполнено</strong>Проверь выделенные поля.</div></div>
+      ) : null}
+
       {step === 0 ? (
-        <fieldset><legend>Проба и лаборатория</legend>
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>Проба и лаборатория</legend>
+          <p className={styles.stepHint}>Перепиши данные с маркировки пробы и карточки лаборатории.</p>
           {[
-            ['sampleId', 'Проба'], ['protocolNumber', 'Номер протокола'], ['labId', 'Лаборатория'], ['accreditationRef', 'Сведения об аккредитации'],
-          ].map(([name, label]) => <label key={name}><span>{label}</span><input value={values[name] || ''} onChange={(event) => setValue(name, event.target.value)} required /></label>)}
+            ['sampleId', 'Номер пробы'],
+            ['protocolNumber', 'Номер протокола'],
+            ['labId', 'Код лаборатории'],
+            ['accreditationRef', 'Номер аккредитации'],
+          ].map(([name, label]) => (
+            <FieldControl key={name} actionId='finalize_lab' field={{ name, label, required: true }} value={values[name] || ''} showError={showErrors} onChange={(value) => setValue(name, value)} />
+          ))}
         </fieldset>
       ) : null}
+
       {step === 1 ? (
-        <fieldset><legend>Фактические показатели</legend>
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>Фактические показатели</legend>
+          <p className={styles.stepHint}>Добавь каждый показатель отдельно. Для нормы достаточно нижней или верхней границы.</p>
           {indicators.map((indicator, index) => (
-            <section className='indicator-card' key={index}>
-              <div className='indicator-head'><strong>Показатель {index + 1}</strong>{indicators.length > 1 ? <button type='button' aria-label='Удалить показатель' onClick={() => setIndicators((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={17} /></button> : null}</div>
+            <section className={styles.indicatorCard} key={index}>
+              <div className={styles.indicatorHead}>
+                <strong>Показатель {index + 1}</strong>
+                {indicators.length > 1 ? (
+                  <button className={styles.iconButton} type='button' aria-label={`Удалить показатель ${index + 1}`} onClick={() => setIndicators((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                    <Trash2 size={18} aria-hidden='true' />
+                  </button>
+                ) : null}
+              </div>
               {(['parameter', 'value', 'unit', 'normMin', 'normMax'] as const).map((name) => {
-                const labels = { parameter: 'Наименование', value: 'Значение', unit: 'Единица', normMin: 'Норма от', normMax: 'Норма до' };
-                return <label key={name}><span>{labels[name]}</span><input inputMode={name === 'value' || name.startsWith('norm') ? 'decimal' : undefined} value={indicator[name]} onChange={(event) => setIndicators((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [name]: event.target.value } : item))} required={name === 'parameter' || name === 'value' || name === 'unit'} /></label>;
+                const labels = { parameter: 'Название', value: 'Значение', unit: 'Единица измерения', normMin: 'Норма от', normMax: 'Норма до' };
+                const required = name === 'parameter' || name === 'value' || name === 'unit';
+                const missingNorm = showErrors && (name === 'normMin' || name === 'normMax') && !indicator.normMin.trim() && !indicator.normMax.trim();
+                return (
+                  <label className={styles.field} key={name}>
+                    <span className={styles.fieldLabel}>{labels[name]}{required ? <span className={styles.requiredMark} aria-hidden='true'>*</span> : null}</span>
+                    <input
+                      className={`${styles.input} ${(showErrors && required && !indicator[name].trim()) || missingNorm ? styles.invalid : ''}`}
+                      inputMode={name === 'value' || name.startsWith('norm') ? 'decimal' : undefined}
+                      value={indicator[name]}
+                      onChange={(event) => {
+                        setShowErrors(false);
+                        setIndicators((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [name]: event.target.value } : item));
+                      }}
+                    />
+                    {showErrors && required && !indicator[name].trim() ? <small className={styles.fieldError}>Заполни это поле.</small> : null}
+                    {missingNorm && name === 'normMax' ? <small className={styles.fieldError}>Укажи хотя бы одну границу нормы.</small> : null}
+                  </label>
+                );
               })}
             </section>
           ))}
-          <button className='add-indicator' type='button' onClick={() => setIndicators((current) => [...current, { parameter: '', value: '', unit: '', normMin: '', normMax: '' }])}><Plus size={17} />Добавить показатель</button>
+          <button className={styles.addButton} type='button' onClick={() => setIndicators((current) => [...current, { parameter: '', value: '', unit: '', normMin: '', normMax: '' }])}>
+            <Plus size={18} aria-hidden='true' />Добавить показатель
+          </button>
         </fieldset>
       ) : null}
+
       {step === 2 ? (
-        <fieldset><legend>Норма и подписанный протокол</legend>
-          {[
-            ['applicableStandard', 'Применимая норма', 'text'], ['finalizedAt', 'Время завершения', 'datetime-local'], ['signedEvidenceRef', 'Подписанный протокол', 'text'],
-          ].map(([name, label, type]) => <label key={name}><span>{label}</span><input type={type} value={values[name] || ''} onChange={(event) => setValue(name, event.target.value)} required /></label>)}
-          <p className='form-note'>Итог PASSED/FAILED рассчитывает сервер по введённым значениям и нормам. Интерфейс не назначает результат.</p>
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>Норма и подписанный протокол</legend>
+          <FieldControl actionId='finalize_lab' field={{ name: 'applicableStandard', label: 'Применимая норма', required: true, placeholder: 'ГОСТ, ТУ или условие договора' }} value={values.applicableStandard || ''} showError={showErrors} onChange={(value) => setValue('applicableStandard', value)} />
+          <FieldControl actionId='finalize_lab' field={{ name: 'finalizedAt', label: 'Когда анализ завершён?', type: 'datetime-local', required: true }} value={values.finalizedAt || ''} showError={showErrors} onChange={(value) => setValue('finalizedAt', value)} />
+          <FieldControl actionId='finalize_lab' field={{ name: 'signedEvidenceRef', label: 'Подписанный протокол', required: true, placeholder: 'Ссылка или номер файла' }} value={values.signedEvidenceRef || ''} showError={showErrors} onChange={(value) => setValue('signedEvidenceRef', value)} />
+          <p className={styles.note}>Итог PASSED/FAILED рассчитывает сервер по введённым значениям и нормам. Интерфейс не назначает результат.</p>
         </fieldset>
       ) : null}
-      <div className='form-actions'>{step > 0 ? <button className='secondary' type='button' onClick={() => setStep((current) => current - 1)}><ArrowLeft size={18} />Назад</button> : <span />}
-        <button className='primary' type='submit' disabled={disabled || submitting || !canContinue}>{submitting ? <Loader2 className='spin' size={18} /> : step < 2 ? <ArrowRight size={18} /> : <Check size={18} />}{submitting ? 'Подтверждаем…' : step < 2 ? 'Продолжить' : 'Подтвердить результат'}</button></div>
-      <style jsx>{styles}</style>
+
+      {step === 3 ? (
+        <section className={styles.review} aria-labelledby='lab-review-title'>
+          <h3 id='lab-review-title' ref={headingRef as React.RefObject<HTMLHeadingElement>} tabIndex={-1}>Проверь результат</h3>
+          <p className={styles.reviewIntro}>Проба: {values.sampleId}. Протокол: {values.protocolNumber}. Показателей: {indicators.length}. После подтверждения сервер рассчитает итог.</p>
+        </section>
+      ) : null}
+
+      <div className={styles.actions}>
+        {step > 0 ? (
+          <button className={styles.secondaryButton} type='button' onClick={() => { setStep((current) => current - 1); setShowErrors(false); }}>
+            <ArrowLeft size={18} aria-hidden='true' />Назад
+          </button>
+        ) : <span className={styles.actionsSpacer} />}
+        <button className={styles.primaryButton} type='submit' disabled={disabled || submitting}>
+          {submitting ? <Loader2 className={styles.spin} size={18} aria-hidden='true' /> : step < 3 ? <ArrowRight size={18} aria-hidden='true' /> : <Check size={18} aria-hidden='true' />}
+          {submitting ? 'Подтверждаем…' : step < 3 ? 'Продолжить' : 'Подтвердить результат'}
+        </button>
+      </div>
     </form>
   );
 }
 
-export function DealCommandForm({ actionId, label, disabled, submitting, onSubmit }: Props) {
+export function DealCommandForm({ actionId, label, disabled, submitting, initialValues, onSubmit }: Props) {
   const steps = ACTION_STEPS[actionId];
+  const initialValuesKey = JSON.stringify(initialValues || {});
   const [step, setStep] = React.useState(0);
-  const [values, setValues] = React.useState<Record<string, string>>({});
+  const [showErrors, setShowErrors] = React.useState(false);
+  const [values, setValues] = React.useState<Record<string, string>>(() => buildInitialValues(steps || [], initialValues));
+  const [geoStatus, setGeoStatus] = React.useState('');
+  const headingRef = React.useRef<HTMLLegendElement>(null);
 
   React.useEffect(() => {
     setStep(0);
-    setValues({});
-  }, [actionId]);
+    setShowErrors(false);
+    setValues(buildInitialValues(steps || [], initialValues));
+    setGeoStatus('');
+  }, [actionId, initialValuesKey]);
 
-  if (actionId === 'finalize_lab') return <LabForm disabled={disabled} submitting={submitting} onSubmit={onSubmit} />;
+  React.useEffect(() => {
+    headingRef.current?.focus();
+  }, [step]);
+
+  if (actionId === 'finalize_lab') return <LabForm disabled={disabled} submitting={submitting} initialValues={initialValues} onSubmit={onSubmit} />;
 
   if (!steps) {
     return (
-      <div className='simple-command'>
-        <p>Сервер проверит права, актуальную версию сделки и все обязательные основания до изменения состояния.</p>
-        <button type='button' onClick={() => void onSubmit({})} disabled={disabled || submitting}>{submitting ? <Loader2 className='spin' size={18} /> : <Check size={18} />}{submitting ? 'Подтверждаем…' : label}</button>
-        <style jsx>{styles}</style>
+      <div className={styles.simpleCommand}>
+        <p>После нажатия сервер проверит твои права, актуальное состояние сделки и обязательные основания. Действие не выполнится, если условия изменились.</p>
+        <button className={styles.simpleButton} type='button' onClick={() => void onSubmit({})} disabled={disabled || submitting}>
+          {submitting ? <Loader2 className={styles.spin} size={18} aria-hidden='true' /> : <Check size={18} aria-hidden='true' />}
+          {submitting ? 'Подтверждаем…' : label}
+        </button>
       </div>
     );
   }
 
-  const current = steps[step];
-  const canContinue = current.fields.filter((field) => field.required).every((field) => values[field.name]?.trim());
-  const setValue = (name: string, value: string) => setValues((existing) => ({ ...existing, [name]: value }));
+  const isReview = step === steps.length;
+  const current = isReview ? null : steps[step];
+  const currentVisibleFields = current?.fields.filter((field) => !field.contextual) || [];
+  const missingContext = current?.fields.filter((field) => field.contextual && !values[field.name]?.trim()) || [];
+  const missingRequired = current?.fields.filter((field) => field.required && !values[field.name]?.trim()) || [];
+  const canContinue = missingContext.length === 0 && missingRequired.length === 0;
+  const totalSteps = steps.length + 1;
+  const hasLocationFields = Boolean(current?.fields.some((field) => field.name === 'lat') && current.fields.some((field) => field.name === 'lng'));
+
+  const setValue = (name: string, value: string) => {
+    setShowErrors(false);
+    setValues((existing) => ({ ...existing, [name]: value }));
+  };
+
+  function requestLocation() {
+    if (!navigator.geolocation) {
+      setGeoStatus('На этом устройстве геопозиция недоступна. Поля можно оставить пустыми.');
+      return;
+    }
+    setGeoStatus('Определяем геопозицию…');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setValues((existing) => ({
+          ...existing,
+          lat: position.coords.latitude.toFixed(6),
+          lng: position.coords.longitude.toFixed(6),
+        }));
+        setGeoStatus('Геопозиция определена. Проверь координаты.');
+      },
+      () => setGeoStatus('Не удалось получить геопозицию. Разреши доступ или оставь поля пустыми.'),
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!canContinue) return;
-    if (step < steps.length - 1) {
-      setStep((currentStep) => currentStep + 1);
+    if (!isReview && !canContinue) {
+      setShowErrors(true);
       return;
     }
-    const payload = normalizedPayload(values);
+    if (!isReview) {
+      setStep((currentStep) => currentStep + 1);
+      setShowErrors(false);
+      return;
+    }
+    const payload = normalizedPayload(values, allFields(steps));
     if (actionId === 'confirm_loading') payload.unit = 'TON';
     await onSubmit(payload);
   }
 
   return (
-    <form className='command-form' onSubmit={submit}>
-      {steps.length > 1 ? <div className='form-progress' aria-label={`Шаг ${step + 1} из ${steps.length}`}><span style={{ width: `${((step + 1) / steps.length) * 100}%` }} /></div> : null}
-      <fieldset><legend>{current.title}</legend>
-        {current.fields.map((field) => (
-          <label key={field.name}>
-            <span>{field.label}</span>
-            <input
-              type={field.type === 'datetime-local' ? 'datetime-local' : 'text'}
-              inputMode={field.type === 'decimal' ? 'decimal' : undefined}
-              value={values[field.name] || ''}
-              onChange={(event) => setValue(field.name, event.target.value)}
-              required={field.required}
-              aria-describedby={field.hint ? `${actionId}-${field.name}-hint` : undefined}
-            />
-            {field.hint ? <small id={`${actionId}-${field.name}-hint`}>{field.hint}</small> : null}
-          </label>
-        ))}
-      </fieldset>
-      <div className='form-actions'>{step > 0 ? <button className='secondary' type='button' onClick={() => setStep((currentStep) => currentStep - 1)}><ArrowLeft size={18} />Назад</button> : <span />}
-        <button className='primary' type='submit' disabled={disabled || submitting || !canContinue}>{submitting ? <Loader2 className='spin' size={18} /> : step < steps.length - 1 ? <ArrowRight size={18} /> : <Check size={18} />}{submitting ? 'Подтверждаем…' : step < steps.length - 1 ? 'Продолжить' : label}</button></div>
-      <style jsx>{styles}</style>
+    <form className={styles.form} onSubmit={submit} noValidate>
+      <div className={styles.progressBlock}>
+        <div className={styles.progressText}><span>Шаг {step + 1} из {totalSteps}</span><span>{isReview ? 'Проверка' : 'Заполнение'}</span></div>
+        <progress className={styles.progress} value={step + 1} max={totalSteps} aria-label={`Шаг ${step + 1} из ${totalSteps}`} />
+      </div>
+
+      {showErrors && missingRequired.length > 0 ? (
+        <div className={styles.errorSummary} role='alert'><AlertCircle size={20} aria-hidden='true' /><div><strong>Не всё заполнено</strong>Проверь выделенные поля.</div></div>
+      ) : null}
+
+      {missingContext.length > 0 ? (
+        <div className={styles.contextError} role='alert'><AlertCircle size={20} aria-hidden='true' /><div><strong>Не удалось выбрать данные сделки</strong>Обнови экран. Не вводи технические коды вручную.</div></div>
+      ) : null}
+
+      {current ? (
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.legend} ref={headingRef} tabIndex={-1}>{current.title}</legend>
+          {current.hint ? <p className={styles.stepHint}>{current.hint}</p> : null}
+          {currentVisibleFields.map((field) => (
+            <FieldControl key={field.name} actionId={actionId} field={field} value={values[field.name] || ''} showError={showErrors} onChange={(value) => setValue(field.name, value)} />
+          ))}
+          {hasLocationFields ? (
+            <div className={styles.locationBlock}>
+              <button className={styles.locationButton} type='button' onClick={requestLocation}>
+                <Crosshair size={18} aria-hidden='true' />Определить координаты
+              </button>
+              {geoStatus ? <p className={styles.geoStatus} role='status'>{geoStatus}</p> : null}
+            </div>
+          ) : null}
+        </fieldset>
+      ) : <ReviewStep steps={steps} values={values} />}
+
+      <div className={styles.actions}>
+        {step > 0 ? (
+          <button className={styles.secondaryButton} type='button' onClick={() => { setStep((currentStep) => currentStep - 1); setShowErrors(false); }}>
+            <ArrowLeft size={18} aria-hidden='true' />Назад
+          </button>
+        ) : <span className={styles.actionsSpacer} />}
+        <button className={styles.primaryButton} type='submit' disabled={disabled || submitting || missingContext.length > 0}>
+          {submitting ? <Loader2 className={styles.spin} size={18} aria-hidden='true' /> : isReview ? <Check size={18} aria-hidden='true' /> : <ArrowRight size={18} aria-hidden='true' />}
+          {submitting ? 'Подтверждаем…' : isReview ? label : 'Продолжить'}
+        </button>
+      </div>
     </form>
   );
 }
-
-const styles = `
-  .command-form{display:grid;gap:14px}.command-form fieldset{border:0;padding:0;margin:0;display:grid;gap:12px}.command-form legend{font-size:17px;font-weight:900;margin-bottom:12px}.command-form label{display:grid;gap:6px;text-align:left}.command-form label>span{font-size:12px;font-weight:850;color:var(--pc-text-secondary)}.command-form input{width:100%;min-height:46px;border:1px solid var(--pc-border);border-radius:13px;background:var(--pc-shell-surface);color:var(--pc-text-primary);padding:10px 12px;font:inherit}.command-form input:focus{outline:3px solid var(--pc-accent-bg);border-color:var(--pc-accent)}.command-form small,.form-note{font-size:11px;color:var(--pc-text-muted);line-height:1.4;margin:0}.form-progress{height:5px;border-radius:999px;background:var(--pc-border);overflow:hidden}.form-progress span{display:block;height:100%;background:var(--pc-accent);transition:width .2s ease}.form-actions{display:flex;align-items:center;justify-content:space-between;gap:10px}.form-actions button,.simple-command button,.add-indicator,.indicator-head button{min-height:44px;border-radius:13px;padding:0 14px;font-weight:900;display:inline-flex;align-items:center;justify-content:center;gap:8px}.primary,.simple-command button{border:0;background:var(--pc-accent);color:#fff}.secondary,.add-indicator{border:1px solid var(--pc-border);background:var(--pc-shell-surface);color:var(--pc-text-primary)}button:disabled{opacity:.5;cursor:not-allowed}.simple-command{display:grid;gap:13px}.simple-command p{margin:0;font-size:12px;color:var(--pc-text-secondary);line-height:1.45}.indicator-card{display:grid;gap:10px;border:1px solid var(--pc-border);border-radius:16px;padding:13px;background:var(--pc-shell-surface-soft)}.indicator-head{display:flex;justify-content:space-between;align-items:center}.indicator-head button{width:44px;padding:0;border:0;background:transparent;color:#a12a2a}.add-indicator{width:100%}.spin{animation:command-spin .8s linear infinite}@keyframes command-spin{to{transform:rotate(360deg)}}
-  @media(max-width:430px){.form-actions{position:sticky;bottom:calc(var(--pc-bottom-nav-height,0px) + 8px);background:var(--pc-shell-surface);padding:8px 0;z-index:2}.form-actions .primary{flex:1}.command-form input{font-size:16px}}
-  @media(prefers-reduced-motion:reduce){.form-progress span{transition:none}.spin{animation:none}}
-  @media(forced-colors:active){.command-form input,.form-actions button,.simple-command button,.add-indicator,.indicator-card{border:1px solid CanvasText}}
-`;
