@@ -16,70 +16,71 @@ const importPage = read('apps/web/app/platform-v7/auction/import/page.tsx');
 const admission = read('apps/web/app/platform-v7/auction/admission/page.tsx');
 const bids = read('apps/web/app/platform-v7/auction/bids/page.tsx');
 const basis = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
-const cockpit = read('apps/web/components/transaction-ux/AuctionExecutionCockpit.tsx');
+const serverWorkspace = read('apps/web/components/transaction-ux/AuctionServerAuthorityWorkspace.tsx');
+const visualCockpit = read('apps/web/components/transaction-ux/AuctionExecutionCockpit.tsx');
 const cockpitCss = read('apps/web/components/transaction-ux/AuctionExecutionCockpit.module.css');
 const copy = read('apps/web/components/transaction-ux/auctionExecutionCopy.ts');
+const serverBoundary = read('apps/web/lib/auction-server.ts');
 const governance = JSON.parse(read('design-governance-v8.json')) as { migratedFiles: string[] };
 
 const routeSources = [overview, importPage, admission, bids, basis];
 
 describe('Design System v8 canonical auction execution', () => {
-  it('uses one governed auction cockpit on all canonical stages', () => {
-    expect(cockpit).toContain("data-auction-execution-cockpit='v8'");
+  it('uses one governed server-authority workspace on all canonical stages', () => {
     for (const source of routeSources) {
-      expect(source).toContain('AuctionExecutionCockpit');
+      expect(source).toContain('AuctionServerAuthorityWorkspace');
       expect(source).not.toMatch(forbiddenPresentation);
+      expect(source).not.toContain('FGIS_AUCTION_STATE');
+      expect(source).not.toContain('AUCTION_DEAL_BRIDGE');
     }
+    expect(serverWorkspace).toContain("data-operational-decision-cockpit='v8'");
+  });
+
+  it('keeps the reusable auction visual contract accessible and token governed', () => {
+    expect(visualCockpit).toContain("data-auction-execution-cockpit='v8'");
     expect(cockpitCss).not.toMatch(forbiddenPresentation);
-  });
-
-  it('preserves engine and Deal-basis authority', () => {
-    expect(overview).toContain('FGIS_AUCTION_STATE');
-    expect(overview).toContain('AUCTION_DEAL_BRIDGE');
-    expect(importPage).toContain('FGIS_AUCTION_STATE');
-    expect(admission).toContain('canOpenAuction');
-    expect(bids).toContain('AUCTION_DEAL_BRIDGE.lot.bids');
-    expect(basis).toContain('guardAuctionDealBasisReady');
-    expect(basis).toContain('isAuctionDealBasisReady');
-    expect(basis).toContain('admissionReady && basisGuardReady');
-  });
-
-  it('fails closed when current admission is incomplete', () => {
-    expect(admission).toContain("href='/platform-v7/auction/bids'");
-    expect(admission).toContain("href='#checks'");
-    expect(bids).toContain('descriptionBlocked');
-    expect(bids).toContain("href='/platform-v7/auction/admission'");
-    expect(basis).toContain("href={basis ? '/platform-v7/auction/admission' : '/platform-v7/auction/bids'}");
-    expect(basis).toContain("action.href === '/platform-v7/deal-logistics' && !ready");
-  });
-
-  it('preserves immutable bid, volume and winner-to-Deal rules', () => {
-    expect(copy).toContain("'journal-fixed'");
-    expect(copy).toContain("'volume-lock'");
-    expect(copy).toContain("'admitted-buyer-only'");
-    expect(copy).toContain("'winner-to-deal'");
-    expect(copy).toContain('the interface cannot cancel a recorded bid');
-    expect(copy).toContain('界面不能取消已记录报价');
-  });
-
-  it('does not claim live FGIS or bank release', () => {
-    expect(copy).toContain('не подтверждает live-подключение ФГИС');
-    expect(copy).toContain('does not prove a live public-registry connection');
-    expect(copy).toContain('不能证明政府登记系统已实时连接');
-    expect(copy).toContain('Экран не подтверждает live banking и не выпускает деньги');
-    expect(copy).toContain('cannot release money');
-    expect(copy).toContain('不能释放资金');
-  });
-
-  it('provides RU EN ZH copy and accessible mobile modes', () => {
-    expect(copy).toContain('Цена появляется только после допуска');
-    expect(copy).toContain('Price appears only after admission');
-    expect(copy).toContain('只有完成准入后才形成价格');
     expect(cockpitCss).toContain('min-height: var(--ds-control-height)');
     expect(cockpitCss).toContain(':focus-visible');
     expect(cockpitCss).toContain('@media (max-width: 640px)');
     expect(cockpitCss).toContain('@media (prefers-reduced-motion: reduce)');
     expect(cockpitCss).toContain('@media (forced-colors: active)');
+  });
+
+  it('preserves server-owned lot and Deal-basis authority', () => {
+    expect(serverBoundary).toContain("serverApiUrl('/lots/my')");
+    expect(serverBoundary).toContain('/auctions/lots/${safeLotId}/workspace');
+    expect(serverBoundary).toContain('parseAuctionWorkspace');
+    expect(serverBoundary).toContain('if (dealCreated && !dealId) return null');
+    expect(serverWorkspace).toContain('executionBridge.dealCreated');
+    expect(serverWorkspace).toContain('executionBridge.dealId');
+    expect(serverWorkspace).toContain('/execution');
+  });
+
+  it('fails closed when lot access or the auction workspace is unavailable', () => {
+    expect(serverWorkspace).toContain('accessDenied');
+    expect(serverWorkspace).toContain('workspaceUnavailable');
+    expect(serverWorkspace).toContain('Локальные демонстрационные лоты не подставлены');
+    expect(serverWorkspace).toContain('No local demonstration lots were substituted');
+    expect(serverWorkspace).toContain('没有替换为本地演示批次');
+    expect(serverWorkspace).not.toContain('BID-001');
+    expect(serverWorkspace).not.toContain('DL-2607-014');
+  });
+
+  it('keeps bid, award and winner-to-Deal rules read-only', () => {
+    expect(serverWorkspace).toContain('Полный неизменяемый журнал ставок не входит');
+    expect(serverWorkspace).toContain('The immutable full bid journal is not part');
+    expect(serverWorkspace).toContain('当前工作区响应不包含完整且不可变的报价日志');
+    expect(serverWorkspace).toContain('dealCreated=true');
+    expect(serverWorkspace).not.toMatch(/method:\s*['"](?:POST|PATCH|PUT|DELETE)/);
+  });
+
+  it('does not claim live FGIS, PostgreSQL auction authority or bank release', () => {
+    expect(serverWorkspace).toContain('не доказывает PostgreSQL-authoritative auction backend');
+    expect(serverWorkspace).toContain('does not prove a PostgreSQL-authoritative auction backend');
+    expect(serverWorkspace).toContain('不证明 PostgreSQL 权威竞价后端');
+    expect(copy).toContain('не подтверждает live-подключение ФГИС');
+    expect(copy).toContain('cannot release money');
+    expect(copy).toContain('不能释放资金');
   });
 
   it('registers every canonical auction route in governance', () => {
