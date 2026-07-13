@@ -33,6 +33,22 @@ export function Surface({
   );
 }
 
+export type EmptyStateProps = {
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  action?: React.ReactNode;
+};
+
+export function EmptyState({ title, description, action }: EmptyStateProps) {
+  return (
+    <Surface className={styles.emptyState} padding='field'>
+      <h2>{title}</h2>
+      {description ? <p>{description}</p> : null}
+      {action}
+    </Surface>
+  );
+}
+
 export type StatusBadgeTone = StatusTone | 'danger' | 'info';
 export type StatusBadgeProps = React.HTMLAttributes<HTMLSpanElement> & { tone?: StatusBadgeTone };
 
