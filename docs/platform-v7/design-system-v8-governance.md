@@ -30,7 +30,8 @@ The following are controlled by v8:
 - the active `AppShellV4` TSX and CSS Module;
 - the shared `RoleIntentDashboard` TSX and CSS Module used by all twelve business-role roots;
 - the canonical deals registry page, list component and their CSS Modules;
-- the document readiness, dispute queue, money hub and bank payout-readiness routes;
+- document readiness, dispute queue, money hub and bank payout-readiness routes;
+- FGIS access and the complete auction route chain;
 - every file registered in `migratedFiles` inside `design-governance-v8.json`.
 
 A migrated product file must consume `@pc/design-system-v8` or the governed `transaction-ux` boundary. New local copies of a migrated pattern are not allowed.
@@ -188,9 +189,50 @@ The `/platform-v7/bank/release-safety` route is a governed server-authorized ent
 
 This UI acceptance does not assert live bank connectivity or PostgreSQL-authoritative Settlement where those backend acceptance gates remain separate. It proves that the active views do not overstate authority or synthesize money status.
 
+### FGIS access boundary
+
+The `/platform-v7/fgis-access` route now exposes only the protected organization flow and the server-side trust boundary. It:
+
+- keeps `/api/platform-v7/gov-id/start?flow=fgis` as the start of organization confirmation;
+- does not collect a user’s FGIS password;
+- does not present a local organization, tax identifier, lot, SDIZ, mass or quality as an external fact;
+- requires server validation of claims, organization membership and representative authority;
+- accepts lot data only from an approved adapter response with provenance, time and source fingerprint;
+- fails closed when the external contour is unavailable;
+- supports RU, EN and ZH.
+
+Production FGIS connectivity, token exchange and lot retrieval remain unconfirmed until contracts, credentials and runtime evidence exist.
+
+### Auction authority chain
+
+The following routes use one governed `AuctionAuthorityRoute` template:
+
+- `/platform-v7/auction`;
+- `/platform-v7/auction/import`;
+- `/platform-v7/auction/admission`;
+- `/platform-v7/auction/bids`;
+- `/platform-v7/auction/deal-basis`.
+
+The accepted boundary deliberately removes the former local engines that hard-coded an FGIS lot, organization, buyers, bids, winner and Deal ID. The routes now:
+
+- show no lot, buyer, bid, price, leader, winner or Deal until a server-authoritative state exists;
+- keep import, admission and bid acceptance fail-closed;
+- require participant and role authority from the server rather than URL, cookie or local storage;
+- treat accepted bids as append-only, idempotent events with actor, timestamp and auction version;
+- require optimistic concurrency and reject stale auction versions;
+- lock the winner atomically when the bidding window closes;
+- prohibit retrospective deletion or client-side replacement of a bid;
+- create no money state from the winner;
+- require an idempotent server transaction to create exactly one canonical Deal;
+- require audit/outbox evidence and a server-issued Deal receipt before navigating to `/deals/{dealId}/execution`;
+- keep logistics, documents and money closed until that receipt exists;
+- support RU, EN and ZH.
+
+This is an honest UI and architecture boundary, not proof of a deployed production auction service or live FGIS integration.
+
 ## Remaining boundary
 
-Auction execution, detailed settlement operations and historical or non-critical routes are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
+Detailed settlement operations, downstream legacy execution screens and historical or non-critical routes are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
 
 ## Decision authority
 
