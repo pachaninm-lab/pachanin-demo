@@ -42,6 +42,7 @@ const exact = new Set([
   'apps/web/lib/logistics-server.ts',
   'apps/web/lib/deal-execution-server.ts',
   'apps/web/lib/platform-v7/fgisAuctionEngine.ts',
+  'apps/web/lib/platform-v7/fgisAuctionAdapter.ts',
   'apps/web/lib/platform-v7/auctionDealBridge.ts',
   'apps/web/lib/platform-v7/dealLogisticsEngine.ts',
   'apps/web/lib/platform-v7/dealAcceptanceEngine.ts',
