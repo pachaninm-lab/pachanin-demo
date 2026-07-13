@@ -1,107 +1,38 @@
 -- IR-10.4 Settlement PostgreSQL Authority.
--- Financial authority is integer-minor-unit, tenant-scoped and callback-only
--- for confirmed reserve/release/refund effects.
+-- New financial authority is isolated in the settlement schema so legacy
+-- Prisma projections remain compatible while PostgreSQL enforces money invariants.
 
 CREATE SCHEMA IF NOT EXISTS settlement;
 REVOKE ALL ON SCHEMA settlement FROM PUBLIC;
 
-ALTER TABLE public."payments"
-  ADD COLUMN IF NOT EXISTS "tenantId" TEXT,
-  ADD COLUMN IF NOT EXISTS "reservedKopecks" BIGINT NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS "releasedKopecks" BIGINT NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS "pendingReleaseKopecks" BIGINT NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS "paymentTermsVersion" BIGINT,
-  ADD COLUMN IF NOT EXISTS "correlationId" TEXT;
-
+-- Legacy floating-point money is removed from authority. New writes must use
+-- amountKopecks and the settlement balance projection below.
 UPDATE public."payments" payment
-SET "tenantId" = deal."tenantId",
-    "amountKopecks" = COALESCE(payment."amountKopecks", deal."totalKopecks"),
+SET "amountKopecks" = COALESCE(payment."amountKopecks", deal."totalKopecks"),
     "amountRub" = NULL
 FROM public."deals" deal
 WHERE deal."id" = payment."dealId";
 
-DO $payment_backfill$
+DO $payment_minor_unit_backfill$
 BEGIN
-  IF EXISTS (
-    SELECT 1 FROM public."payments"
-    WHERE "tenantId" IS NULL OR "amountKopecks" IS NULL
-  ) THEN
-    RAISE EXCEPTION 'payment tenant/minor-unit backfill is incomplete';
+  IF EXISTS (SELECT 1 FROM public."payments" WHERE "amountKopecks" IS NULL) THEN
+    RAISE EXCEPTION 'payment minor-unit backfill is incomplete';
   END IF;
 END
-$payment_backfill$;
+$payment_minor_unit_backfill$;
 
-ALTER TABLE public."payments"
-  ALTER COLUMN "tenantId" SET DEFAULT current_setting('app.current_tenant_id'::text, true),
-  ALTER COLUMN "tenantId" SET NOT NULL,
-  ALTER COLUMN "amountKopecks" SET NOT NULL;
-
-ALTER TABLE public."bank_operations"
-  ADD COLUMN IF NOT EXISTS "tenantId" TEXT,
-  ADD COLUMN IF NOT EXISTS "version" BIGINT NOT NULL DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS "callbackEventId" TEXT,
-  ADD COLUMN IF NOT EXISTS "callbackPayloadHash" TEXT,
-  ADD COLUMN IF NOT EXISTS "correlationId" TEXT;
-
-UPDATE public."bank_operations" operation
-SET "tenantId" = deal."tenantId"
-FROM public."deals" deal
-WHERE deal."id" = operation."dealId" AND operation."tenantId" IS NULL;
-
-ALTER TABLE public."bank_operations"
-  ALTER COLUMN "tenantId" SET DEFAULT current_setting('app.current_tenant_id'::text, true),
-  ALTER COLUMN "tenantId" SET NOT NULL;
-
-ALTER TABLE public."ledger_entries"
-  ADD COLUMN IF NOT EXISTS "tenantId" TEXT,
-  ADD COLUMN IF NOT EXISTS "bankOperationId" TEXT,
-  ADD COLUMN IF NOT EXISTS "auditId" TEXT,
-  ADD COLUMN IF NOT EXISTS "correlationId" TEXT;
-
-UPDATE public."ledger_entries" entry
-SET "tenantId" = deal."tenantId"
-FROM public."deals" deal
-WHERE deal."id" = entry."dealId" AND entry."tenantId" IS NULL;
-
-DO $ledger_backfill$
-BEGIN
-  IF EXISTS (SELECT 1 FROM public."ledger_entries" WHERE "tenantId" IS NULL) THEN
-    RAISE EXCEPTION 'ledger tenant backfill is incomplete';
-  END IF;
-END
-$ledger_backfill$;
-
-ALTER TABLE public."ledger_entries"
-  ALTER COLUMN "tenantId" SET DEFAULT current_setting('app.current_tenant_id'::text, true),
-  ALTER COLUMN "tenantId" SET NOT NULL;
-
-CREATE INDEX IF NOT EXISTS payments_tenant_deal_idx
-  ON public."payments" ("tenantId", "dealId");
-CREATE INDEX IF NOT EXISTS bank_operations_tenant_deal_idx
-  ON public."bank_operations" ("tenantId", "dealId");
-CREATE INDEX IF NOT EXISTS ledger_entries_tenant_deal_idx
-  ON public."ledger_entries" ("tenantId", "dealId", "createdAt");
-CREATE UNIQUE INDEX IF NOT EXISTS bank_operations_callback_event_key
-  ON public."bank_operations" ("tenantId", "callbackEventId")
-  WHERE "callbackEventId" IS NOT NULL;
-
-ALTER TABLE public."payments" DROP CONSTRAINT IF EXISTS payments_minor_units_check;
-ALTER TABLE public."payments" ADD CONSTRAINT payments_minor_units_check CHECK (
-  "amountKopecks" >= 0
-  AND "reservedKopecks" >= 0
-  AND "releasedKopecks" >= 0
-  AND "pendingReleaseKopecks" >= 0
+ALTER TABLE public."payments" DROP CONSTRAINT IF EXISTS payments_existing_minor_units_check;
+ALTER TABLE public."payments" ADD CONSTRAINT payments_existing_minor_units_check CHECK (
+  "amountKopecks" IS NOT NULL
+  AND "amountKopecks" >= 0
   AND COALESCE("holdAmountKopecks", 0) >= 0
   AND COALESCE("refundedKopecks", 0) >= 0
   AND COALESCE("commissionKopecks", 0) >= 0
-  AND "reservedKopecks" <= "amountKopecks"
-  AND "releasedKopecks" + "pendingReleaseKopecks"
-      + COALESCE("refundedKopecks", 0) + COALESCE("commissionKopecks", 0)
-      <= "reservedKopecks"
-  AND COALESCE("holdAmountKopecks", 0) <=
-      "reservedKopecks" - "releasedKopecks" - COALESCE("refundedKopecks", 0)
+  AND COALESCE("holdAmountKopecks", 0)
+      + COALESCE("refundedKopecks", 0)
+      + COALESCE("commissionKopecks", 0)
+      <= "amountKopecks"
 );
-
 ALTER TABLE public."bank_operations" DROP CONSTRAINT IF EXISTS bank_operations_positive_amount_check;
 ALTER TABLE public."bank_operations" ADD CONSTRAINT bank_operations_positive_amount_check
   CHECK ("amountKopecks" > 0);
@@ -143,6 +74,45 @@ CREATE UNIQUE INDEX IF NOT EXISTS settlement_payment_terms_active_key
   ON settlement.payment_terms (tenant_id, deal_id) WHERE status = 'ACTIVE';
 CREATE INDEX IF NOT EXISTS settlement_payment_terms_lookup_idx
   ON settlement.payment_terms (tenant_id, deal_id, version DESC);
+
+CREATE TABLE IF NOT EXISTS settlement.payment_balances (
+  payment_id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  deal_id TEXT NOT NULL UNIQUE,
+  payment_terms_id TEXT,
+  authorized_kopecks BIGINT NOT NULL,
+  reserved_kopecks BIGINT NOT NULL DEFAULT 0,
+  released_kopecks BIGINT NOT NULL DEFAULT 0,
+  pending_release_kopecks BIGINT NOT NULL DEFAULT 0,
+  hold_kopecks BIGINT NOT NULL DEFAULT 0,
+  refunded_kopecks BIGINT NOT NULL DEFAULT 0,
+  commission_kopecks BIGINT NOT NULL DEFAULT 0,
+  version BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT settlement_balance_payment_fkey
+    FOREIGN KEY (payment_id) REFERENCES public."payments"("id") ON DELETE RESTRICT,
+  CONSTRAINT settlement_balance_deal_fkey
+    FOREIGN KEY (deal_id) REFERENCES public."deals"("id") ON DELETE RESTRICT,
+  CONSTRAINT settlement_balance_terms_fkey
+    FOREIGN KEY (payment_terms_id) REFERENCES settlement.payment_terms(id) ON DELETE RESTRICT,
+  CONSTRAINT settlement_balance_nonnegative_check CHECK (
+    authorized_kopecks >= 0
+    AND reserved_kopecks >= 0
+    AND released_kopecks >= 0
+    AND pending_release_kopecks >= 0
+    AND hold_kopecks >= 0
+    AND refunded_kopecks >= 0
+    AND commission_kopecks >= 0
+  ),
+  CONSTRAINT settlement_balance_bounds_check CHECK (
+    reserved_kopecks <= authorized_kopecks
+    AND released_kopecks + pending_release_kopecks + refunded_kopecks + commission_kopecks
+        <= reserved_kopecks
+    AND hold_kopecks <= reserved_kopecks - released_kopecks - refunded_kopecks
+  )
+);
+CREATE INDEX IF NOT EXISTS settlement_payment_balances_tenant_idx
+  ON settlement.payment_balances (tenant_id, deal_id);
 
 CREATE TABLE IF NOT EXISTS settlement.beneficiary_allocations (
   id TEXT PRIMARY KEY,
@@ -227,8 +197,30 @@ CREATE TABLE IF NOT EXISTS settlement.refund_requests (
 CREATE INDEX IF NOT EXISTS settlement_refunds_lookup_idx
   ON settlement.refund_requests (tenant_id, deal_id, status);
 
--- Existing Deals are intentionally quarantined rather than promoted to an
--- ACTIVE payment basis without explicit immutable evidence.
+CREATE TABLE IF NOT EXISTS settlement.callback_receipts (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  deal_id TEXT NOT NULL,
+  bank_operation_id TEXT NOT NULL,
+  partner_id TEXT NOT NULL,
+  key_id TEXT NOT NULL,
+  event_id TEXT NOT NULL,
+  payload_hash TEXT NOT NULL,
+  operation TEXT NOT NULL,
+  status TEXT NOT NULL,
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT settlement_callback_deal_fkey
+    FOREIGN KEY (deal_id) REFERENCES public."deals"("id") ON DELETE RESTRICT,
+  CONSTRAINT settlement_callback_operation_fkey
+    FOREIGN KEY (bank_operation_id) REFERENCES public."bank_operations"("id") ON DELETE RESTRICT,
+  CONSTRAINT settlement_callback_event_key UNIQUE (tenant_id, partner_id, event_id),
+  CONSTRAINT settlement_callback_operation_check CHECK (operation IN ('RESERVE', 'RELEASE', 'REFUND'))
+);
+CREATE INDEX IF NOT EXISTS settlement_callback_lookup_idx
+  ON settlement.callback_receipts (tenant_id, deal_id, received_at DESC);
+
+-- Existing Deals are quarantined; they are not promoted to ACTIVE terms without
+-- explicit immutable evidence and an accepted terms command.
 INSERT INTO settlement.payment_terms (
   id, tenant_id, deal_id, version, total_kopecks, currency, release_model,
   status, evidence_file_id, created_by_user_id, effective_at
@@ -242,6 +234,25 @@ WHERE deal."tenantId" IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM settlement.payment_terms terms WHERE terms.deal_id = deal."id"
   );
+
+INSERT INTO settlement.payment_balances (
+  payment_id, tenant_id, deal_id, payment_terms_id, authorized_kopecks,
+  reserved_kopecks, released_kopecks, pending_release_kopecks,
+  hold_kopecks, refunded_kopecks, commission_kopecks
+)
+SELECT
+  payment."id", deal."tenantId", payment."dealId", NULL,
+  payment."amountKopecks",
+  CASE WHEN payment."status" IN ('RESERVED', 'RELEASE_REQUESTED', 'RELEASED', 'REFUNDED')
+       THEN payment."amountKopecks" ELSE 0 END,
+  CASE WHEN payment."status" = 'RELEASED' THEN payment."amountKopecks" ELSE 0 END,
+  0,
+  COALESCE(payment."holdAmountKopecks", 0),
+  COALESCE(payment."refundedKopecks", 0),
+  COALESCE(payment."commissionKopecks", 0)
+FROM public."payments" payment
+JOIN public."deals" deal ON deal."id" = payment."dealId"
+ON CONFLICT (payment_id) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION public.app_settlement_deal_authorized(
   p_deal_id TEXT,
@@ -283,24 +294,6 @@ AS $function$
     )
 $function$;
 
-CREATE OR REPLACE FUNCTION public.app_settlement_derive_tenant()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY INVOKER
-SET search_path = pg_catalog, public
-AS $function$
-DECLARE
-  deal_tenant TEXT;
-BEGIN
-  SELECT "tenantId" INTO deal_tenant FROM public."deals" WHERE "id" = NEW."dealId";
-  IF NOT FOUND OR deal_tenant IS NULL THEN
-    RAISE EXCEPTION 'settlement deal has no tenant authority' USING ERRCODE = '23514';
-  END IF;
-  NEW."tenantId" := deal_tenant;
-  RETURN NEW;
-END
-$function$;
-
 CREATE OR REPLACE FUNCTION public.app_settlement_payment_guard()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -310,22 +303,19 @@ AS $function$
 DECLARE
   actor_role TEXT := current_setting('app.current_role', true);
 BEGIN
-  IF NEW."amountRub" IS NOT NULL THEN
-    RAISE EXCEPTION 'floating-point money authority is forbidden' USING ERRCODE = '23514';
+  IF NEW."amountRub" IS NOT NULL OR NEW."amountKopecks" IS NULL OR NEW."amountKopecks" < 0 THEN
+    RAISE EXCEPTION 'integer minor-unit payment authority is required' USING ERRCODE = '23514';
   END IF;
   IF TG_OP = 'UPDATE' THEN
     IF NEW."dealId" IS DISTINCT FROM OLD."dealId"
-       OR NEW."tenantId" IS DISTINCT FROM OLD."tenantId"
        OR NEW."amountKopecks" IS DISTINCT FROM OLD."amountKopecks"
-       OR NEW."paymentTermsVersion" IS DISTINCT FROM OLD."paymentTermsVersion"
     THEN
-      RAISE EXCEPTION 'payment basis is immutable; create a new versioned basis' USING ERRCODE = '23514';
+      RAISE EXCEPTION 'payment basis is immutable; create versioned payment terms' USING ERRCODE = '23514';
     END IF;
     IF (
-      NEW."reservedKopecks" IS DISTINCT FROM OLD."reservedKopecks"
-      OR NEW."releasedKopecks" IS DISTINCT FROM OLD."releasedKopecks"
-      OR NEW."refundedKopecks" IS DISTINCT FROM OLD."refundedKopecks"
-      OR NEW."status" IN ('RESERVED', 'RELEASED', 'REFUNDED') AND NEW."status" IS DISTINCT FROM OLD."status"
+      NEW."refundedKopecks" IS DISTINCT FROM OLD."refundedKopecks"
+      OR NEW."status" IN ('RESERVED', 'RELEASED', 'REFUNDED')
+         AND NEW."status" IS DISTINCT FROM OLD."status"
     ) AND actor_role <> 'BANK_CALLBACK' THEN
       RAISE EXCEPTION 'confirmed money state is callback-only' USING ERRCODE = '42501';
     END IF;
@@ -334,23 +324,47 @@ BEGIN
 END
 $function$;
 
-DROP TRIGGER IF EXISTS payments_derive_tenant ON public."payments";
-CREATE TRIGGER payments_derive_tenant
-BEFORE INSERT OR UPDATE OF "dealId", "tenantId" ON public."payments"
-FOR EACH ROW EXECUTE FUNCTION public.app_settlement_derive_tenant();
-DROP TRIGGER IF EXISTS bank_operations_derive_tenant ON public."bank_operations";
-CREATE TRIGGER bank_operations_derive_tenant
-BEFORE INSERT OR UPDATE OF "dealId", "tenantId" ON public."bank_operations"
-FOR EACH ROW EXECUTE FUNCTION public.app_settlement_derive_tenant();
-DROP TRIGGER IF EXISTS ledger_entries_derive_tenant ON public."ledger_entries";
-CREATE TRIGGER ledger_entries_derive_tenant
-BEFORE INSERT OR UPDATE OF "dealId", "tenantId" ON public."ledger_entries"
-FOR EACH ROW WHEN (NEW."dealId" IS NOT NULL)
-EXECUTE FUNCTION public.app_settlement_derive_tenant();
 DROP TRIGGER IF EXISTS payments_authority_guard ON public."payments";
 CREATE TRIGGER payments_authority_guard
 BEFORE INSERT OR UPDATE ON public."payments"
 FOR EACH ROW EXECUTE FUNCTION public.app_settlement_payment_guard();
+
+CREATE OR REPLACE FUNCTION public.app_settlement_balance_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public, settlement
+AS $function$
+DECLARE
+  actor_role TEXT := current_setting('app.current_role', true);
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    IF NEW.payment_id IS DISTINCT FROM OLD.payment_id
+       OR NEW.tenant_id IS DISTINCT FROM OLD.tenant_id
+       OR NEW.deal_id IS DISTINCT FROM OLD.deal_id
+       OR NEW.authorized_kopecks IS DISTINCT FROM OLD.authorized_kopecks
+       OR NEW.payment_terms_id IS DISTINCT FROM OLD.payment_terms_id
+    THEN
+      RAISE EXCEPTION 'settlement balance basis is immutable' USING ERRCODE = '23514';
+    END IF;
+    IF (
+      NEW.reserved_kopecks IS DISTINCT FROM OLD.reserved_kopecks
+      OR NEW.released_kopecks IS DISTINCT FROM OLD.released_kopecks
+      OR NEW.refunded_kopecks IS DISTINCT FROM OLD.refunded_kopecks
+    ) AND actor_role <> 'BANK_CALLBACK' THEN
+      RAISE EXCEPTION 'confirmed settlement balance is callback-only' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  NEW.version := CASE WHEN TG_OP = 'UPDATE' THEN OLD.version + 1 ELSE NEW.version END;
+  NEW.updated_at := now();
+  RETURN NEW;
+END
+$function$;
+
+DROP TRIGGER IF EXISTS settlement_balance_guard ON settlement.payment_balances;
+CREATE TRIGGER settlement_balance_guard
+BEFORE INSERT OR UPDATE ON settlement.payment_balances
+FOR EACH ROW EXECUTE FUNCTION public.app_settlement_balance_guard();
 
 CREATE OR REPLACE FUNCTION public.app_settlement_append_only()
 RETURNS trigger
@@ -374,6 +388,10 @@ FOR EACH ROW EXECUTE FUNCTION public.app_settlement_append_only();
 DROP TRIGGER IF EXISTS beneficiary_allocations_append_only ON settlement.beneficiary_allocations;
 CREATE TRIGGER beneficiary_allocations_append_only
 BEFORE UPDATE OR DELETE ON settlement.beneficiary_allocations
+FOR EACH ROW EXECUTE FUNCTION public.app_settlement_append_only();
+DROP TRIGGER IF EXISTS callback_receipts_append_only ON settlement.callback_receipts;
+CREATE TRIGGER callback_receipts_append_only
+BEFORE UPDATE OR DELETE ON settlement.callback_receipts
 FOR EACH ROW EXECUTE FUNCTION public.app_settlement_append_only();
 
 CREATE OR REPLACE FUNCTION public.app_settlement_beneficiary_guard()
@@ -415,32 +433,32 @@ ALTER TABLE public."ledger_entries" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."ledger_entries" FORCE ROW LEVEL SECURITY;
 ALTER TABLE settlement.payment_terms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settlement.payment_terms FORCE ROW LEVEL SECURITY;
+ALTER TABLE settlement.payment_balances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE settlement.payment_balances FORCE ROW LEVEL SECURITY;
 ALTER TABLE settlement.beneficiary_allocations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settlement.beneficiary_allocations FORCE ROW LEVEL SECURITY;
 ALTER TABLE settlement.money_holds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settlement.money_holds FORCE ROW LEVEL SECURITY;
 ALTER TABLE settlement.refund_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settlement.refund_requests FORCE ROW LEVEL SECURITY;
+ALTER TABLE settlement.callback_receipts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE settlement.callback_receipts FORCE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS payments_select ON public."payments";
 DROP POLICY IF EXISTS payments_insert ON public."payments";
 DROP POLICY IF EXISTS payments_update ON public."payments";
 DROP POLICY IF EXISTS payments_delete ON public."payments";
 CREATE POLICY payments_select ON public."payments" FOR SELECT USING (
-  "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_settlement_deal_authorized("dealId", false)
+  public.app_settlement_deal_authorized("dealId", false)
 );
 CREATE POLICY payments_insert ON public."payments" FOR INSERT WITH CHECK (
-  "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_settlement_deal_authorized("dealId", true)
+  public.app_settlement_deal_authorized("dealId", true)
   AND current_setting('app.current_role', true) IN ('BUYER', 'ACCOUNTING', 'BANK_CALLBACK', 'ADMIN')
 );
 CREATE POLICY payments_update ON public."payments" FOR UPDATE USING (
-  "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_settlement_deal_authorized("dealId", true)
+  public.app_settlement_deal_authorized("dealId", true)
 ) WITH CHECK (
-  "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_settlement_deal_authorized("dealId", true)
+  public.app_settlement_deal_authorized("dealId", true)
   AND current_setting('app.current_role', true) IN ('BUYER', 'ACCOUNTING', 'BANK_CALLBACK', 'ADMIN')
 );
 CREATE POLICY payments_delete ON public."payments" FOR DELETE USING (false);
@@ -450,21 +468,17 @@ DROP POLICY IF EXISTS bank_operations_insert ON public."bank_operations";
 DROP POLICY IF EXISTS bank_operations_update ON public."bank_operations";
 DROP POLICY IF EXISTS bank_operations_delete ON public."bank_operations";
 CREATE POLICY bank_operations_select ON public."bank_operations" FOR SELECT USING (
-  "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_settlement_deal_authorized("dealId", false)
+  public.app_settlement_deal_authorized("dealId", false)
 );
 CREATE POLICY bank_operations_insert ON public."bank_operations" FOR INSERT WITH CHECK (
-  "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_settlement_deal_authorized("dealId", true)
+  public.app_settlement_deal_authorized("dealId", true)
   AND current_setting('app.current_role', true) IN ('BUYER', 'ACCOUNTING', 'BANK_CALLBACK', 'ADMIN')
 );
 CREATE POLICY bank_operations_update ON public."bank_operations" FOR UPDATE USING (
-  "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_settlement_deal_authorized("dealId", true)
+  public.app_settlement_deal_authorized("dealId", true)
   AND current_setting('app.current_role', true) IN ('BANK_CALLBACK', 'ADMIN')
 ) WITH CHECK (
-  "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_settlement_deal_authorized("dealId", true)
+  public.app_settlement_deal_authorized("dealId", true)
   AND current_setting('app.current_role', true) IN ('BANK_CALLBACK', 'ADMIN')
 );
 CREATE POLICY bank_operations_delete ON public."bank_operations" FOR DELETE USING (false);
@@ -474,13 +488,10 @@ DROP POLICY IF EXISTS ledger_entries_insert ON public."ledger_entries";
 DROP POLICY IF EXISTS ledger_entries_update ON public."ledger_entries";
 DROP POLICY IF EXISTS ledger_entries_delete ON public."ledger_entries";
 CREATE POLICY ledger_entries_select ON public."ledger_entries" FOR SELECT USING (
-  "dealId" IS NOT NULL
-  AND "tenantId" = current_setting('app.current_tenant_id', true)
-  AND public.app_settlement_deal_authorized("dealId", false)
+  "dealId" IS NOT NULL AND public.app_settlement_deal_authorized("dealId", false)
 );
 CREATE POLICY ledger_entries_insert ON public."ledger_entries" FOR INSERT WITH CHECK (
   "dealId" IS NOT NULL
-  AND "tenantId" = current_setting('app.current_tenant_id', true)
   AND public.app_settlement_deal_authorized("dealId", true)
   AND current_setting('app.current_role', true) IN ('BANK_CALLBACK', 'ADMIN')
 );
@@ -498,6 +509,25 @@ CREATE POLICY settlement_terms_insert ON settlement.payment_terms FOR INSERT WIT
 );
 CREATE POLICY settlement_terms_update ON settlement.payment_terms FOR UPDATE USING (false);
 CREATE POLICY settlement_terms_delete ON settlement.payment_terms FOR DELETE USING (false);
+
+CREATE POLICY settlement_balances_select ON settlement.payment_balances FOR SELECT USING (
+  tenant_id = current_setting('app.current_tenant_id', true)
+  AND public.app_settlement_deal_authorized(deal_id, false)
+);
+CREATE POLICY settlement_balances_insert ON settlement.payment_balances FOR INSERT WITH CHECK (
+  tenant_id = current_setting('app.current_tenant_id', true)
+  AND public.app_settlement_deal_authorized(deal_id, true)
+  AND current_setting('app.current_role', true) IN ('BUYER', 'ACCOUNTING', 'BANK_CALLBACK', 'ADMIN')
+);
+CREATE POLICY settlement_balances_update ON settlement.payment_balances FOR UPDATE USING (
+  tenant_id = current_setting('app.current_tenant_id', true)
+  AND public.app_settlement_deal_authorized(deal_id, true)
+) WITH CHECK (
+  tenant_id = current_setting('app.current_tenant_id', true)
+  AND public.app_settlement_deal_authorized(deal_id, true)
+  AND current_setting('app.current_role', true) IN ('ACCOUNTING', 'BANK_CALLBACK', 'ADMIN')
+);
+CREATE POLICY settlement_balances_delete ON settlement.payment_balances FOR DELETE USING (false);
 
 CREATE POLICY settlement_beneficiaries_select ON settlement.beneficiary_allocations FOR SELECT USING (
   tenant_id = current_setting('app.current_tenant_id', true)
@@ -549,9 +579,21 @@ CREATE POLICY settlement_refunds_update ON settlement.refund_requests FOR UPDATE
 );
 CREATE POLICY settlement_refunds_delete ON settlement.refund_requests FOR DELETE USING (false);
 
+CREATE POLICY settlement_callbacks_select ON settlement.callback_receipts FOR SELECT USING (
+  tenant_id = current_setting('app.current_tenant_id', true)
+  AND public.app_settlement_deal_authorized(deal_id, false)
+);
+CREATE POLICY settlement_callbacks_insert ON settlement.callback_receipts FOR INSERT WITH CHECK (
+  tenant_id = current_setting('app.current_tenant_id', true)
+  AND public.app_settlement_deal_authorized(deal_id, true)
+  AND current_setting('app.current_role', true) = 'BANK_CALLBACK'
+);
+CREATE POLICY settlement_callbacks_update ON settlement.callback_receipts FOR UPDATE USING (false);
+CREATE POLICY settlement_callbacks_delete ON settlement.callback_receipts FOR DELETE USING (false);
+
 REVOKE ALL ON FUNCTION public.app_settlement_deal_authorized(TEXT, BOOLEAN) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.app_settlement_derive_tenant() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_settlement_payment_guard() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.app_settlement_balance_guard() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_settlement_append_only() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_settlement_beneficiary_guard() FROM PUBLIC;
 
@@ -560,12 +602,14 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
     GRANT USAGE ON SCHEMA settlement TO app_deal;
     GRANT SELECT, INSERT ON settlement.payment_terms TO app_deal;
+    GRANT SELECT, INSERT, UPDATE ON settlement.payment_balances TO app_deal;
     GRANT SELECT, INSERT ON settlement.beneficiary_allocations TO app_deal;
     GRANT SELECT, INSERT, UPDATE ON settlement.money_holds TO app_deal;
     GRANT SELECT, INSERT, UPDATE ON settlement.refund_requests TO app_deal;
+    GRANT SELECT, INSERT ON settlement.callback_receipts TO app_deal;
     GRANT EXECUTE ON FUNCTION public.app_settlement_deal_authorized(TEXT, BOOLEAN) TO app_deal;
-    GRANT EXECUTE ON FUNCTION public.app_settlement_derive_tenant() TO app_deal;
     GRANT EXECUTE ON FUNCTION public.app_settlement_payment_guard() TO app_deal;
+    GRANT EXECUTE ON FUNCTION public.app_settlement_balance_guard() TO app_deal;
     GRANT EXECUTE ON FUNCTION public.app_settlement_append_only() TO app_deal;
     GRANT EXECUTE ON FUNCTION public.app_settlement_beneficiary_guard() TO app_deal;
   END IF;
