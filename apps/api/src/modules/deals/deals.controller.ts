@@ -5,7 +5,9 @@ import { Body, Controller, Get, GoneException, Param, Patch, Post, Query, UseGua
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DealsService } from './deals.service';
 import { IndustrialDealCommandGateway } from './industrial-deal-command.gateway';
+import { DealRegistryQueryService } from './deal-registry-query.service';
 import { CreateDealDto } from './dto/create-deal.dto';
+import { DealRegistryQueryDto } from './dto/deal-registry-query.dto';
 import { ExecuteDealCommandDto } from './dto/execute-deal-command.dto';
 import { RequestUser, Role } from '../../common/types/request-user';
 
@@ -15,6 +17,7 @@ import { RequestUser, Role } from '../../common/types/request-user';
 export class DealsController {
   constructor(
     private readonly deals: DealsService,
+    private readonly registry: DealRegistryQueryService,
     private readonly industrialCommands: IndustrialDealCommandGateway,
   ) {}
 
@@ -24,9 +27,8 @@ export class DealsController {
   }
 
   @Get('accessible')
-  listAccessible(@Query('limit') limit: string | undefined, @CurrentUser() user: RequestUser) {
-    const parsed = Number(limit);
-    return this.industrialCommands.listAccessibleDeals(user, Number.isFinite(parsed) ? parsed : undefined);
+  listAccessible(@Query() query: DealRegistryQueryDto, @CurrentUser() user: RequestUser) {
+    return this.registry.listAccessible(query, user);
   }
 
   @Get(':id')
