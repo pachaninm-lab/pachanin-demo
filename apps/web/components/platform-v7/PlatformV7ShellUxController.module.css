@@ -1,0 +1,311 @@
+:global(.pc-shell-root-v4) {
+  --pc-header-offset: 72px !important;
+}
+
+:global(.pc-v4-meta),
+:global(.pc-v4-pilot-note),
+:global(.pc-v4-actions .pc-v4-stage),
+:global(.pc-v4-actions button[aria-label='Открыть уведомления']),
+:global(.pc-v4-bottomnav),
+:global(.pc-v4-switch-cabinet),
+:global(.pc-v4-drawer .pc-v4-nav),
+:global(.pc-v4-drawer > div:not(:first-child)) {
+  display: none !important;
+}
+
+:global(.pc-v4-main) {
+  max-width: 1440px !important;
+  overflow-x: hidden !important;
+  contain: inline-size;
+  padding-top: calc(var(--pc-header-offset) + 12px) !important;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 92px) !important;
+}
+
+:global(.pc-v4-main *),
+:global(.pc-v4-drawer *) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+:global(.pc-v4-main img),
+:global(.pc-v4-main svg),
+:global(.pc-v4-main canvas) {
+  max-width: 100% !important;
+}
+
+.drawerNavigation {
+  position: absolute;
+  inset: 142px 0 0;
+  overflow-y: auto;
+  padding: 12px;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  background: var(--pc-bg-card);
+}
+
+.drawerSection {
+  display: grid;
+  gap: 8px;
+}
+
+.drawerSection h2 {
+  margin: 0 4px;
+  color: var(--pc-text-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.drawerLinks {
+  display: grid;
+  gap: 7px;
+}
+
+.drawerLink {
+  min-height: 58px;
+  border: 1px solid var(--pc-border);
+  border-radius: 16px;
+  background: var(--pc-bg-elevated);
+  color: var(--pc-text-primary);
+  padding: 9px 11px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.drawerLink:hover {
+  border-color: var(--pc-accent-border);
+  background: var(--pc-accent-bg);
+}
+
+.drawerLink[data-active='true'] {
+  border-color: var(--pc-accent-border);
+  background: var(--pc-accent-bg);
+  color: var(--pc-accent-strong);
+}
+
+.moreSections {
+  border-top: 1px solid var(--pc-border);
+  padding-top: 10px;
+}
+
+.moreSections summary {
+  min-height: 48px;
+  border: 1px solid var(--pc-border);
+  border-radius: 14px;
+  background: var(--pc-bg-card);
+  color: var(--pc-text-secondary);
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  list-style: none;
+}
+
+.moreSections summary::-webkit-details-marker {
+  display: none;
+}
+
+.moreSections summary::after {
+  content: 'Показать';
+  color: var(--pc-accent-strong);
+  font-size: 11px;
+}
+
+.moreSections[open] summary::after {
+  content: 'Скрыть';
+}
+
+.moreSections .drawerLinks {
+  margin-top: 8px;
+}
+
+.navIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--pc-bg-card);
+  color: currentColor;
+  display: grid;
+  place-items: center;
+}
+
+.navIcon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.navCopy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.navCopy strong {
+  color: currentColor;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+.navCopy span {
+  color: var(--pc-text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.roleDock {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 300;
+  padding: 7px 10px calc(env(safe-area-inset-bottom) + 7px);
+  border-top: 1px solid var(--pc-border);
+  background: color-mix(in srgb, var(--pc-bg-header) 97%, transparent);
+  box-shadow: 0 -10px 28px rgba(3, 8, 7, 0.1);
+  backdrop-filter: blur(18px);
+}
+
+.roleDockInner {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  display: grid;
+  gap: 5px;
+}
+
+.twoItems {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.threeItems {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fourItems {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dockLink {
+  min-height: 56px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--pc-text-muted);
+  padding: 5px 4px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.dockLink:hover {
+  color: var(--pc-text-primary);
+}
+
+.dockLink[data-active='true'] {
+  border-color: var(--pc-accent-border);
+  background: var(--pc-accent-bg);
+  color: var(--pc-accent-strong);
+}
+
+.dockLink .navIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.dockLink .navIcon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.dockLink .navCopy {
+  display: block;
+  width: 100%;
+}
+
+.dockLink .navCopy strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  line-height: 1.1;
+  font-weight: 900;
+}
+
+.dockLink .navCopy span {
+  display: none;
+}
+
+.drawerLink:focus-visible,
+.dockLink:focus-visible,
+.moreSections summary:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--pc-accent) 36%, transparent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  :global(.pc-shell-root-v4) {
+    --pc-header-offset: 64px !important;
+  }
+
+  :global(.pc-v4-main) {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    padding-top: calc(var(--pc-header-offset) + 10px) !important;
+  }
+
+  :global(.pc-v4-main [style*='grid-template-columns']) {
+    grid-template-columns: 1fr !important;
+  }
+
+  .drawerNavigation {
+    inset-block-start: 132px;
+  }
+}
+
+@media (max-width: 374px) {
+  .roleDock {
+    padding-inline: 6px;
+  }
+
+  .roleDockInner {
+    gap: 3px;
+  }
+
+  .dockLink {
+    min-height: 52px;
+  }
+
+  .dockLink .navCopy strong {
+    font-size: 9.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawerLink,
+  .dockLink {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .drawerLink,
+  .moreSections summary,
+  .dockLink[data-active='true'],
+  .roleDock {
+    border: 1px solid CanvasText;
+  }
+}
