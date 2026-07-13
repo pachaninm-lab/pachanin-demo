@@ -9,10 +9,6 @@ ALTER TABLE public."lab_tests"
   DROP CONSTRAINT IF EXISTS "lab_tests_actorUserId_fkey",
   DROP CONSTRAINT IF EXISTS "lab_tests_supersedesId_fkey";
 
-ALTER TABLE public."lab_samples"
-  ALTER COLUMN "updatedAt" TYPE TIMESTAMP(3)
-  USING ("updatedAt" AT TIME ZONE 'UTC');
-
 DROP INDEX IF EXISTS public."lab_samples_tenant_sampleCode_key";
 CREATE UNIQUE INDEX "lab_samples_tenant_sampleCode_key"
   ON public."lab_samples" ("tenantId", "sampleCode");
