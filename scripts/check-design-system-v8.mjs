@@ -72,6 +72,11 @@ const checks = [
     pattern: /dangerouslySetInnerHTML/,
   },
   {
+    enabled: governance.rules.forbidDangerousStyleInjection,
+    label: 'runtime style element',
+    pattern: /<style(?:\s|>)/,
+  },
+  {
     enabled: governance.rules.forbidLiteralColors,
     label: 'literal color',
     pattern: /#[0-9a-fA-F]{3,8}\b|\brgba?\s*\(|\bhsla?\s*\(/,
@@ -105,6 +110,56 @@ for (const relativePath of governance.migratedFiles) {
   const consumesTransactionUx = /(?:from\s+|import\s+)["']@\/components\/transaction-ux\//.test(content);
   if (!consumesDesignSystem && !consumesTransactionUx) {
     fail(`${relativePath}: migrated file must consume @pc/design-system-v8 or the governed transaction-ux boundary.`);
+  }
+}
+
+const compatibilityFiles = governance.legacyCompatibilityFiles ?? [];
+for (const relativePath of compatibilityFiles) {
+  if (!fs.existsSync(path.join(root, relativePath))) {
+    fail(`Legacy compatibility file does not exist: ${relativePath}`);
+  }
+  if (governedFiles.includes(relativePath)) {
+    fail(`${relativePath}: legacy compatibility file cannot be inside the governed v8 surface.`);
+  }
+}
+
+if (governance.rules.requireRouteScopedLegacyIsolation) {
+  const v8RuntimePath = 'apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx';
+  const legacyRuntimePath = 'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx';
+  const layoutPath = 'apps/web/app/platform-v7/layout.tsx';
+  const routeRegistryPath = 'apps/web/lib/platform-v7/design-system-v8-routes.ts';
+  const v8Runtime = readText(v8RuntimePath);
+  const legacyRuntime = readText(legacyRuntimePath);
+  const layout = readText(layoutPath);
+  const routeRegistry = readText(routeRegistryPath);
+
+  if (!v8Runtime.includes('packages/design-tokens/tokens.css')) {
+    fail(`${v8RuntimePath}: v8 runtime must load the generated token output.`);
+  }
+  if (v8Runtime.includes('PlatformV7FullStyleRuntime') || /@\/app\/v9|@\/styles\/platform-v7-/.test(v8Runtime)) {
+    fail(`${v8RuntimePath}: v8 runtime imports the legacy compatibility boundary.`);
+  }
+  if (!legacyRuntime.includes('@/app/v9.css') || !legacyRuntime.includes('@/styles/platform-v7-')) {
+    fail(`${legacyRuntimePath}: compatibility boundary no longer explicitly owns legacy style imports.`);
+  }
+  if (!layout.includes('isDesignSystemV8Route(pathname)')
+      || !layout.includes('PlatformV7DesignSystemV8Runtime')
+      || !layout.includes('PlatformV7FullStyleRuntime')) {
+    fail(`${layoutPath}: protected routes must choose explicitly between v8 and compatibility runtimes.`);
+  }
+  if (!routeRegistry.includes('CANONICAL_DEAL_EXECUTION_ROUTE')
+      || !routeRegistry.includes('/platform-v7/auction/deal-basis')) {
+    fail(`${routeRegistryPath}: accepted route registry is incomplete.`);
+  }
+
+  for (const relativePath of [
+    'apps/web/components/platform-v7/ScopedShellGuard.tsx',
+    'apps/web/components/platform-v7/CalculatorHeaderWidget.tsx',
+    'apps/web/components/platform-v7/HeaderLanguageSwitch.tsx',
+  ]) {
+    const content = readText(relativePath);
+    if (!content.includes('.module.css')) fail(`${relativePath}: active shell control must consume a scoped CSS module.`);
+    if (/dangerouslySetInnerHTML|<style(?:\s|>)/.test(content)) fail(`${relativePath}: active shell control injects runtime CSS.`);
   }
 }
 
