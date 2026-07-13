@@ -22,7 +22,7 @@ const surveyorSteps = [
 const assignments = [
   { id: 'QC-DL-9102', deal: 'DL-9102', cargo: 'Пшеница 4 кл.', location: 'Элеватор Тамбов', time: '11:00', status: 'Требует акта' },
   { id: 'QC-DL-9108', deal: 'DL-9108', cargo: 'Ячмень 3 кл.', location: 'Склад Курск', time: '14:30', status: 'Ожидает' },
-] as const;
+];
 
 export default function Page() {
   const urgent = assignments.filter((assignment) => assignment.status === 'Требует акта');
