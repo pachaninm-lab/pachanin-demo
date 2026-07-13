@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 const HEADER_SELECTOR = [
   '.pc-site-header',
   '.pc-v4-header',
+  '.pc-shell-root-v4 > header',
   '.pc-fixed-header',
   '.p7-flow-header',
   '.p7-demo-clean > header',
@@ -23,18 +24,20 @@ const ROOT_SELECTOR = [
   '.pc-shell-root',
 ].join(',');
 
-/** Presentation-only header measurement. It never reads role or authority data. */
+/** Presentation-only shell measurement. It never reads role or authority data. */
 export function PlatformV7FixedHeaderRuntime({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   React.useEffect(() => {
     let activeHeader: HTMLElement | null = null;
     let activeRoot: HTMLElement | null = null;
+    let activeActions: HTMLElement | null = null;
+    let addedActionsClass = false;
     let resizeObserver: ResizeObserver | null = null;
     let mutationObserver: MutationObserver | null = null;
     let frame = 0;
 
-    const clearBinding = () => {
+    const clearHeaderBinding = () => {
       resizeObserver?.disconnect();
       resizeObserver = null;
       if (activeHeader) activeHeader.removeAttribute('data-pc-fixed-header');
@@ -44,6 +47,12 @@ export function PlatformV7FixedHeaderRuntime({ children }: { children: ReactNode
       }
       activeHeader = null;
       activeRoot = null;
+    };
+
+    const clearActionsBinding = () => {
+      if (activeActions && addedActionsClass) activeActions.classList.remove('pc-v4-actions');
+      activeActions = null;
+      addedActionsClass = false;
     };
 
     const updateOffset = () => {
@@ -57,14 +66,26 @@ export function PlatformV7FixedHeaderRuntime({ children }: { children: ReactNode
       });
     };
 
-    const bind = () => {
+    const bindActions = () => {
+      const searchButton = document.querySelector<HTMLElement>(".pc-shell-root-v4 button[aria-label='Открыть поиск']");
+      const nextActions = searchButton?.parentElement ?? null;
+      if (nextActions === activeActions) return;
+
+      clearActionsBinding();
+      if (!nextActions) return;
+      activeActions = nextActions;
+      addedActionsClass = !activeActions.classList.contains('pc-v4-actions');
+      activeActions.classList.add('pc-v4-actions');
+    };
+
+    const bindHeader = () => {
       const nextHeader = document.querySelector<HTMLElement>(HEADER_SELECTOR);
       if (!nextHeader) return;
       const nextRoot = nextHeader.closest(ROOT_SELECTOR) as HTMLElement | null;
       if (!nextRoot) return;
 
       if (nextHeader !== activeHeader || nextRoot !== activeRoot) {
-        clearBinding();
+        clearHeaderBinding();
         activeHeader = nextHeader;
         activeRoot = nextRoot;
         activeHeader.setAttribute('data-pc-fixed-header', 'true');
@@ -74,6 +95,11 @@ export function PlatformV7FixedHeaderRuntime({ children }: { children: ReactNode
         }
       }
       updateOffset();
+    };
+
+    const bind = () => {
+      bindActions();
+      bindHeader();
     };
 
     bind();
@@ -89,7 +115,8 @@ export function PlatformV7FixedHeaderRuntime({ children }: { children: ReactNode
       window.removeEventListener('resize', bind);
       window.removeEventListener('orientationchange', bind);
       window.visualViewport?.removeEventListener('resize', bind);
-      clearBinding();
+      clearActionsBinding();
+      clearHeaderBinding();
     };
   }, [pathname]);
 
