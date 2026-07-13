@@ -15,17 +15,30 @@ describe('Design System v8 foundation', () => {
     expect(tokens.semantic.action.primary.$value).toBe('{core.color.green.700}');
   });
 
-  it('loads the generated token output before legacy platform styles', () => {
+  it('uses a legacy-free runtime for accepted v8 routes', () => {
+    const runtime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
+    const layout = read('apps/web/app/platform-v7/layout.tsx');
+
+    expect(runtime).toContain('packages/design-tokens/tokens.css');
+    expect(runtime).not.toContain('@/app/v9');
+    expect(runtime).not.toContain('@/styles/platform-v7-');
+    expect(layout).toContain('isDesignSystemV8Route(pathname)');
+    expect(layout).toContain('<PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>');
+  });
+
+  it('keeps legacy styles inside an explicit compatibility runtime', () => {
     const runtime = read('apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx');
-    const tokenImport = runtime.indexOf("packages/design-tokens/tokens.css");
-    const legacyImport = runtime.indexOf("@/app/v9.css");
+    const tokenImport = runtime.indexOf('packages/design-tokens/tokens.css');
+    const legacyImport = runtime.indexOf('@/app/v9.css');
+
     expect(tokenImport).toBeGreaterThanOrEqual(0);
     expect(tokenImport).toBeLessThan(legacyImport);
+    expect(runtime).toContain('Historical and partially migrated routes');
   });
 
   it('migrates NextActionCard without local styling', () => {
     const component = read('apps/web/components/platform-v7/NextActionCard.tsx');
-    expect(component).toContain("@pc/design-system-v8");
+    expect(component).toContain('@pc/design-system-v8');
     expect(component).not.toMatch(/style\s*=\s*\{\{/);
     expect(component).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   });
@@ -40,6 +53,7 @@ describe('Design System v8 foundation', () => {
   it('registers automatic governance', () => {
     const governance = JSON.parse(read('design-governance-v8.json'));
     expect(governance.migratedFiles).toContain('apps/web/components/platform-v7/NextActionCard.tsx');
+    expect(governance.migratedFiles).toContain('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
     expect(read('package.json')).toContain('design:v8:guard');
     expect(read('.github/workflows/design-system-v8.yml')).toContain('check-design-system-v8.mjs');
   });
