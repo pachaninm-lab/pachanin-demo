@@ -387,46 +387,77 @@ model LedgerEntry {
 // ── Lab Samples ───────────────────────────────────────────────────────────────
 
 model LabSample {
-  id                String   @id
-  dealId            String
-  shipmentId        String?
-  acceptanceId      String?
-  status            String   @default("PENDING")
-  culture           String?
-  protocol          String?
-  gost              String?
-  labId             String?
-  labName           String?
-  collectedAt       DateTime?
-  finalizedAt       DateTime?
-  moneyDeltaRub     Float?
-  moneyDeltaKopecks BigInt?
-  certificateDocId  String?
-  version           Int      @default(1)
-  createdAt         DateTime @default(now())
+  id                    String   @id
+  dealId                String
+  shipmentId            String?
+  acceptanceId          String?
+  tenantId              String   @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  status                String   @default("PENDING")
+  custodyStatus         String   @default("CREATED")
+  sampleCode            String?
+  culture               String?
+  protocol              String?
+  protocolResult        String?
+  gost                  String?
+  labId                 String?
+  labName               String?
+  assignedActorUserId   String?
+  collectedAt           DateTime?
+  finalizedAt           DateTime?
+  moneyDeltaRub         Float?
+  moneyDeltaKopecks     BigInt?
+  certificateDocId      String?
+  latestEvidenceFileId  String?
+  version               BigInt   @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @default(now())
 
-  tests             LabTest[]
-  deal              Deal      @relation(fields: [dealId], references: [id])
+  tests                 LabTest[]
+  deal                  Deal      @relation(fields: [dealId], references: [id])
 
+  @@unique([tenantId, sampleCode], map: "lab_samples_tenant_sampleCode_key")
   @@index([dealId])
+  @@index([tenantId], map: "lab_samples_tenantId_idx")
+  @@index([shipmentId], map: "lab_samples_shipmentId_idx")
+  @@index([acceptanceId], map: "lab_samples_acceptanceId_idx")
+  @@index([labId], map: "lab_samples_labId_idx")
+  @@index([status], map: "lab_samples_status_idx")
   @@map("lab_samples")
 }
 
 model LabTest {
-  id         String   @id @default(cuid())
-  sampleId   String
-  parameter  String
-  value      Float
-  unit       String?
-  normMin    Float?
-  normMax    Float?
-  passed     Boolean  @default(true)
-  gradeDelta Float?
-  recordedAt DateTime @default(now())
+  id                String   @id @default(cuid())
+  sampleId          String
+  tenantId          String?  @default(dbgenerated("current_setting('app.current_tenant_id'::text, true)"))
+  parameter         String
+  value             Float
+  valueDec          Decimal? @db.Decimal(20, 6)
+  unit              String?
+  normMin           Float?
+  normMax           Float?
+  normMinDec        Decimal? @db.Decimal(20, 6)
+  normMaxDec        Decimal? @db.Decimal(20, 6)
+  passed            Boolean  @default(true)
+  result            String?
+  gradeDelta        Float?
+  methodId          String?
+  equipmentId       String?
+  evidenceFileId    String?
+  actorUserId       String?
+  commandId         String?
+  idempotencyKey    String?  @unique(map: "lab_tests_idempotencyKey_key")
+  correlationId     String?
+  supersedesId      String?
+  recordedAt        DateTime @default(now())
 
-  sample     LabSample @relation(fields: [sampleId], references: [id])
+  sample            LabSample @relation(fields: [sampleId], references: [id])
 
   @@index([sampleId])
+  @@index([tenantId], map: "lab_tests_tenantId_idx")
+  @@index([sampleId, recordedAt], map: "lab_tests_sample_recorded_idx")
+  @@index([methodId], map: "lab_tests_methodId_idx")
+  @@index([equipmentId], map: "lab_tests_equipmentId_idx")
+  @@index([correlationId], map: "lab_tests_correlationId_idx")
   @@map("lab_tests")
 }
 
