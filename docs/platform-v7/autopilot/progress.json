@@ -5,10 +5,10 @@
   "lastCompletedStep": "#2410 Documents PostgreSQL Authority",
   "openPr": "#2412",
   "blockedBy": [
-    "IR-10.2 exact-head CI is rerunning after restoring normalized-admission error semantics and least-privilege access to the logistics authority schema."
+    "IR-10.2 exact-head CI is rerunning with explicit least-privilege logistics table grants and a runtime privilege proof."
   ],
   "nextStep": "IR-10.2 Logistics PostgreSQL Authority",
-  "updatedAt": "2026-07-13T06:27:00.000Z",
+  "updatedAt": "2026-07-13T06:31:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
