@@ -77,10 +77,13 @@ describe('Design System v8 auction authority routes', () => {
     expect(copy).not.toContain("href: '/platform-v7/deal-logistics'");
   });
 
-  it('removes the obsolete fixture engines', () => {
-    expect(fs.existsSync(path.join(root, 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'))).toBe(false);
-    expect(fs.existsSync(path.join(root, 'apps/web/lib/platform-v7/auctionDealBridge.ts'))).toBe(false);
-    expect(fs.existsSync(path.join(root, 'apps/web/lib/platform-v7/farmerFgisAccessEngine.ts'))).toBe(false);
+  it('removes obsolete fixture engines and the unused client adapter', () => {
+    for (const relativePath of [
+      'apps/web/lib/platform-v7/fgisAuctionEngine.ts',
+      'apps/web/lib/platform-v7/fgisAuctionAdapter.ts',
+      'apps/web/lib/platform-v7/auctionDealBridge.ts',
+      'apps/web/lib/platform-v7/farmerFgisAccessEngine.ts',
+    ]) expect(fs.existsSync(path.join(root, relativePath))).toBe(false);
   });
 
   it('is enforced by governance and exact v8 CI', () => {
