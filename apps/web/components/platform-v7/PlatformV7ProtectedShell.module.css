@@ -1,0 +1,74 @@
+.cabinetLoading,
+.ownerPreview {
+  margin: 8px 0 18px;
+  border: 1px solid var(--pc-border);
+  border-radius: 18px;
+  background: var(--pc-shell-surface);
+  color: var(--pc-text-primary);
+}
+
+.cabinetLoading {
+  min-height: 88px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ownerPreview {
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  border-color: color-mix(in srgb, var(--pc-accent) 38%, var(--pc-border));
+  background: color-mix(in srgb, var(--pc-accent-bg) 72%, var(--pc-shell-surface));
+}
+
+.previewHeading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.previewBadge {
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  background: var(--pc-accent-bg);
+  color: var(--pc-accent);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.previewTitle {
+  font-size: 17px;
+}
+
+.organizationName {
+  color: var(--pc-text-primary);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.previewText {
+  margin: 0;
+  max-width: 78ch;
+  color: var(--pc-text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+@media (max-width: 430px) {
+  .cabinetLoading,
+  .ownerPreview { border-radius: 16px; }
+  .ownerPreview { padding: 14px; }
+}
+
+@media (forced-colors: active) {
+  .cabinetLoading,
+  .ownerPreview,
+  .previewBadge { border: 1px solid CanvasText; }
+}
