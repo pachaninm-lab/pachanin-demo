@@ -1,0 +1,25 @@
+.stack, .detailsStack, .sectionStack { min-width: 0; display: grid; gap: var(--ds-space-3); }
+.contextList { margin: 0; padding: 0; display: grid; gap: var(--ds-space-2); list-style: none; }
+.contextList li { min-width: 0; padding: var(--ds-space-3); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); background: var(--ds-color-surface-subtle); display: grid; gap: var(--ds-space-1); }
+.contextList span, .muted { color: var(--ds-color-text-secondary); font-size: 12px; line-height: 1.45; }
+.contextList strong { color: var(--ds-color-text-primary); font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); }
+.primaryLink, .secondaryLink { min-height: var(--ds-control-height); padding: 0 var(--ds-space-4); border: 1px solid transparent; border-radius: var(--ds-radius-md); display: inline-flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; font-weight: 850; }
+.primaryLink { background: var(--ds-color-action-primary); color: var(--ds-color-on-action); }
+.secondaryLink { border-color: var(--ds-color-border); background: var(--ds-color-surface); color: var(--ds-color-text-primary); }
+.primaryLink:focus-visible, .secondaryLink:focus-visible, .routeCard:focus-visible, .queueCard:focus-visible { outline: 3px solid var(--ds-color-focus); outline-offset: 2px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ds-space-3); }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ds-space-3); }
+.routeGrid, .queueList { display: grid; gap: var(--ds-space-2); }
+.routeGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.routeCard, .queueCard { min-width: 0; padding: var(--ds-space-3); border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); background: var(--ds-color-surface); color: var(--ds-color-text-primary); text-decoration: none; display: grid; gap: var(--ds-space-1); }
+.routeCard:hover, .queueCard:hover { background: var(--ds-color-surface-subtle); }
+.routeCard small, .queueCard small { color: var(--ds-color-text-secondary); line-height: 1.45; }
+.queueCard { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.queueCopy { min-width: 0; display: grid; gap: var(--ds-space-1); }
+.queueCopy strong, .queueCopy span { overflow-wrap: anywhere; }
+.queueCopy span { color: var(--ds-color-text-secondary); font-size: 12px; }
+.sectionAnchor { scroll-margin-top: calc(64px + var(--ds-space-4)); }
+.boundary { padding: var(--ds-space-3); border: 1px solid var(--ds-color-warning); border-radius: var(--ds-radius-md); background: var(--ds-color-warning-bg); color: var(--ds-color-warning); font-size: 13px; font-weight: 750; line-height: 1.5; }
+@media (max-width: 760px) { .grid3, .routeGrid { grid-template-columns: 1fr; } .grid2 { grid-template-columns: 1fr; } .actions { display: grid; } .primaryLink, .secondaryLink { width: 100%; } .queueCard { grid-template-columns: 1fr; } }
+@media (forced-colors: active) { .routeCard, .queueCard, .primaryLink, .secondaryLink, .contextList li, .boundary { border-color: CanvasText; } }
