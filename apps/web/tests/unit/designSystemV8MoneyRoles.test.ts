@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
+const repoRoot = path.resolve(process.cwd(), '../..');
+const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const seller = read('apps/web/app/platform-v7/seller/page.tsx');
 const buyer = read('apps/web/app/platform-v7/buyer/page.tsx');
