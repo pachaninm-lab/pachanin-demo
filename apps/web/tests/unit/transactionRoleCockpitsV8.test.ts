@@ -2,7 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
+const cwd = process.cwd();
+const repoRoot = [cwd, path.resolve(cwd, '../..')]
+  .find((candidate) => fs.existsSync(path.join(candidate, 'design-governance-v8.json')));
+
+if (!repoRoot) throw new Error(`Cannot resolve repository root from ${cwd}`);
+
+const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const dashboard = read('apps/web/components/platform-v7/RoleIntentDashboard.tsx');
 const dashboardCss = read('apps/web/components/platform-v7/RoleIntentDashboard.module.css');
