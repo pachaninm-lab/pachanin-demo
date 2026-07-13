@@ -147,8 +147,8 @@ describe('platform-v7 canonical one-deal workspace', () => {
 
   it('never fabricates a successful execution response when the real API is unavailable', () => {
     expect(proxy).toContain('requiresRealBackend');
-    expect(proxy).toContain('^deals\/[^/]+\/(execution-workspace|correlation-timeline)$');
-    expect(proxy).toContain('^deals\/[^/]+\/commands\/');
+    expect(proxy).toContain(String.raw`^deals\/[^/]+\/(execution-workspace|correlation-timeline)$`);
+    expect(proxy).toContain(String.raw`^deals\/[^/]+\/commands\/`);
     expect(proxy).toContain("code: 'REAL_BACKEND_REQUIRED'");
     expect(proxy).toContain("if (strictRealPath) return realBackendUnavailable('real_backend_not_used')");
   });
