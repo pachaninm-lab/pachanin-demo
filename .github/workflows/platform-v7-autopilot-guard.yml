@@ -34,10 +34,10 @@ jobs:
         with:
           fetch-depth: 0
       - name: Validate Design System v8 concurrent scope
-        if: github.event_name == 'pull_request' && github.head_ref == 'agent/design-system-v8-foundation'
+        if: github.event_name == 'pull_request' && (github.head_ref == 'agent/design-system-v8-foundation' || github.head_ref == 'agent/transaction-shell-deal-workspace-v8')
         run: |
           node scripts/check-design-system-v8-pr-scope.mjs
           node scripts/check-design-system-v8.mjs
       - name: Validate active platform-v7 autopilot scope
-        if: github.event_name != 'pull_request' || github.head_ref != 'agent/design-system-v8-foundation'
+        if: github.event_name != 'pull_request' || (github.head_ref != 'agent/design-system-v8-foundation' && github.head_ref != 'agent/transaction-shell-deal-workspace-v8')
         run: bash scripts/p7-autopilot-guard.sh
