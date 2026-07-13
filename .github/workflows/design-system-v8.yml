@@ -58,8 +58,7 @@ jobs:
         run: node ./scripts/check-design-system-v8.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
-      - name: Run Design System v8 regression tests
-        run: |
-          pnpm --filter @pc/web exec vitest run \
-            tests/unit/designSystemV8Foundation.test.ts \
-            tests/unit/designSystemV8ShellFieldRoles.test.ts
+      - name: Run Design System v8 foundation regression
+        run: pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8Foundation.test.ts
+      - name: Run shell and field-role regression
+        run: pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8ShellFieldRoles.test.ts
