@@ -3,12 +3,12 @@
   "fullTzReadinessPercent": 0,
   "currentStep": "IR-10.3 Labs PostgreSQL Authority",
   "lastCompletedStep": "#2412 Logistics PostgreSQL Authority",
-  "openPr": null,
+  "openPr": "#2425",
   "blockedBy": [
     "Production LabsModule still permits RuntimeCore and an incomplete Prisma lab repository; normalized custody and protocol authority are not yet exclusive in PostgreSQL."
   ],
   "nextStep": "IR-10.3 Labs PostgreSQL Authority",
-  "updatedAt": "2026-07-13T07:10:00.000Z",
+  "updatedAt": "2026-07-13T07:21:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
