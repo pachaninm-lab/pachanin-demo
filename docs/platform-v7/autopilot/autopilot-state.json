@@ -210,6 +210,11 @@
       "apps/web/tests/unit/platformV7ShellTouchTargets.test.ts",
       "apps/web/tests/unit/platformV7ShellUxController.test.ts",
       "apps/web/tests/unit/platformV7ShellVisualClutter.test.ts"
+    ],
+    "agent/today-priority-workspace": [
+      "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
+      "apps/web/components/platform-v7/RoleIntentDashboard.module.css",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts"
     ]
   },
   "currentAcceptance": [
