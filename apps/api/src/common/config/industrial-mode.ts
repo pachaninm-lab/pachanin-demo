@@ -4,7 +4,7 @@
  * In industrial mode every deal mutation must go through the canonical
  * command path (POST /deals/:id/commands/:actionId) and money state can only
  * be confirmed by a verified bank callback. Legacy runtime (in-memory)
- * repositories and free-form transitions are development/test-profile-only.
+ * repositories and free-form transitions are demo-profile-only.
  *
  * Production is always industrial: the process refuses to start otherwise
  * (fail closed) instead of silently serving in-memory state.
@@ -39,14 +39,6 @@ export class IndustrialStartupError extends Error {
   }
 }
 
-function requirePrismaRepository(env: ProcessEnv, variable: string, label: string): void {
-  if (parseCriticalRepositoryMode(variable, env[variable]) !== 'prisma') {
-    throw new IndustrialStartupError(
-      `${variable} must be "prisma" in production. The in-memory ${label} repository is forbidden as production authority.`,
-    );
-  }
-}
-
 /**
  * Production startup contract. Called from bootstrap before the port opens.
  * Every violation terminates startup — there is no degraded in-memory mode.
@@ -75,9 +67,24 @@ export function assertIndustrialProductionStartup(env: ProcessEnv = process.env)
         'The in-memory runtime repository is forbidden as production authority.',
     );
   }
-  requirePrismaRepository(env, 'PLATFORM_V7_DOCUMENT_REPOSITORY', 'document');
-  requirePrismaRepository(env, 'PLATFORM_V7_SHIPMENT_REPOSITORY', 'shipment');
-
+  if (parseCriticalRepositoryMode(
+    'PLATFORM_V7_DOCUMENT_REPOSITORY',
+    env.PLATFORM_V7_DOCUMENT_REPOSITORY,
+  ) !== 'prisma') {
+    throw new IndustrialStartupError(
+      'PLATFORM_V7_DOCUMENT_REPOSITORY must be "prisma" in production. ' +
+        'The in-memory document repository is forbidden as production authority.',
+    );
+  }
+  if (parseCriticalRepositoryMode(
+    'PLATFORM_V7_SHIPMENT_REPOSITORY',
+    env.PLATFORM_V7_SHIPMENT_REPOSITORY,
+  ) !== 'prisma') {
+    throw new IndustrialStartupError(
+      'PLATFORM_V7_SHIPMENT_REPOSITORY must be "prisma" in production. ' +
+        'The in-memory shipment repository is forbidden as production authority.',
+    );
+  }
   if (env.AUTH_TEST_ACCOUNTS_ENABLED === '1' || env.AUTH_TEST_ACCOUNTS_ENABLED === 'true') {
     throw new IndustrialStartupError('Test accounts must be disabled in production live mode.');
   }
