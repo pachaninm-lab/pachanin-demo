@@ -1,48 +1,74 @@
-import { LogisticsService } from './logistics.service';
+import { GoneException } from '@nestjs/common';
 import { Role } from '../../common/types/request-user';
+import { LogisticsService } from './logistics.service';
 
-function makeRepo(shipment: any) {
+function makeRepo() {
   return {
-    getById: jest.fn().mockResolvedValue(shipment),
-    workspace: jest.fn().mockReturnValue(shipment),
-    list: jest.fn().mockResolvedValue([shipment]),
-    create: jest.fn((dto: any) => dto),
+    list: jest.fn().mockResolvedValue([{ id: 'SHIP-1', status: 'IN_TRANSIT' }]),
+    getById: jest.fn().mockResolvedValue({ id: 'SHIP-1' }),
+    workspace: jest.fn().mockResolvedValue({ shipment: { id: 'SHIP-1' }, checkpoints: [], gpsTrack: [] }),
+    recordCheckpoint: jest.fn().mockResolvedValue({ shipment: { id: 'SHIP-1' }, duplicate: false }),
+    recordGps: jest.fn().mockResolvedValue({ shipment: { id: 'SHIP-1' }, duplicate: false }),
+    getGpsTrack: jest.fn().mockResolvedValue([]),
+    verifyPin: jest.fn().mockResolvedValue({ shipment: { id: 'SHIP-1' }, valid: true, duplicate: false }),
   } as any;
 }
 
-const OWN_SHIPMENT = { id: 'SHIP-1', dealId: 'D1', logisticsOrgId: 'org-log-1', driverUserId: 'drv-1' };
+const user = {
+  id: 'driver-1',
+  role: Role.DRIVER,
+  orgId: 'carrier-1',
+  tenantId: 'tenant-1',
+  sessionId: 'session-1',
+  email: 'driver@example.test',
+} as any;
 
-describe('LogisticsService access scope', () => {
-  it('lets a logistician read a shipment stamped with their own org (H5)', async () => {
-    const svc = new LogisticsService(makeRepo(OWN_SHIPMENT));
-    const logi = { id: 'u1', role: Role.LOGISTICIAN, orgId: 'org-log-1', email: 'l@x.ru' } as any;
-    await expect(svc.getOne('SHIP-1', logi)).resolves.toMatchObject({ id: 'SHIP-1' });
+describe('LogisticsService PostgreSQL authority boundary', () => {
+  it('passes trusted user scope to every repository read', async () => {
+    const repo = makeRepo();
+    const service = new LogisticsService(repo);
+
+    await service.list(user);
+    await service.getOne('SHIP-1', user);
+    await service.workspace('SHIP-1', user);
+    await service.getGpsTrack('SHIP-1', user);
+
+    expect(repo.list).toHaveBeenCalledWith(user);
+    expect(repo.getById).toHaveBeenCalledWith('SHIP-1', user);
+    expect(repo.workspace).toHaveBeenCalledWith('SHIP-1', user);
+    expect(repo.getGpsTrack).toHaveBeenCalledWith('SHIP-1', user);
   });
 
-  it('denies a logistician from another org (H5 — carrier-org isolation)', async () => {
-    const svc = new LogisticsService(makeRepo(OWN_SHIPMENT));
-    const foreign = { id: 'u2', role: Role.LOGISTICIAN, orgId: 'org-log-2', email: 'l2@x.ru' } as any;
-    await expect(svc.getOne('SHIP-1', foreign)).rejects.toThrow(/own organization shipments/);
+  it('delegates typed checkpoint, GPS and PIN commands without local mutation', async () => {
+    const repo = makeRepo();
+    const service = new LogisticsService(repo);
+    const base = {
+      commandId: 'command-1',
+      idempotencyKey: 'key-1',
+      expectedVersion: '0',
+    };
+
+    await service.recordCheckpoint('SHIP-1', {
+      ...base,
+      type: 'ARRIVAL',
+      occurredAt: new Date().toISOString(),
+    }, user);
+    await service.updateGps('SHIP-1', {
+      ...base,
+      lat: 52,
+      lng: 41,
+      recordedAt: new Date().toISOString(),
+    }, user);
+    await service.verifyPin('SHIP-1', { ...base, pin: '1234' }, user);
+
+    expect(repo.recordCheckpoint).toHaveBeenCalledWith('SHIP-1', expect.objectContaining({ type: 'ARRIVAL' }), user);
+    expect(repo.recordGps).toHaveBeenCalledWith('SHIP-1', expect.objectContaining({ lat: 52, lng: 41 }), user);
+    expect(repo.verifyPin).toHaveBeenCalledWith('SHIP-1', expect.objectContaining({ pin: '1234' }), user);
   });
 
-  it('keeps legacy unstamped shipments accessible to logisticians (non-breaking)', async () => {
-    const legacy = { ...OWN_SHIPMENT, logisticsOrgId: null };
-    const svc = new LogisticsService(makeRepo(legacy));
-    const anyLogi = { id: 'u3', role: Role.LOGISTICIAN, orgId: 'org-log-9', email: 'l3@x.ru' } as any;
-    await expect(svc.getOne('SHIP-1', anyLogi)).resolves.toMatchObject({ id: 'SHIP-1' });
-  });
-
-  it('denies a driver an unassigned shipment (driver isolation hardening)', async () => {
-    const svc = new LogisticsService(makeRepo({ ...OWN_SHIPMENT, driverUserId: null }));
-    const driver = { id: 'drv-x', role: Role.DRIVER, orgId: 'org-log-1', email: 'd@x.ru' } as any;
-    await expect(svc.getOne('SHIP-1', driver)).rejects.toThrow(/own assigned shipment/);
-  });
-
-  it('stamps the creating logistician org onto new shipments', () => {
-    const repo = makeRepo(OWN_SHIPMENT);
-    const svc = new LogisticsService(repo);
-    const logi = { id: 'u1', role: Role.LOGISTICIAN, orgId: 'org-log-7', email: 'l@x.ru' } as any;
-    svc.create({ dealId: 'D9' } as any, logi);
-    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ logisticsOrgId: 'org-log-7' }), logi);
+  it('fails closed on legacy create and free-form transition routes', () => {
+    const service = new LogisticsService(makeRepo());
+    expect(() => service.create({ dealId: 'DEAL-1' } as any, user)).toThrow(GoneException);
+    expect(() => service.transition('SHIP-1', { nextState: 'IN_TRANSIT' } as any, user)).toThrow(GoneException);
   });
 });
