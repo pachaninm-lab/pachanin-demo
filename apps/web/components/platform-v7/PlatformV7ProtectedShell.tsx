@@ -23,6 +23,7 @@ import {
   controlledOrganizationById,
 } from '@/lib/platform-v7/controlled-test-organizations';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
+import styles from './PlatformV7ProtectedShell.module.css';
 
 const ROLE_INTENT_ROOT_PATHS = new Set([
   '/platform-v7/control-tower',
@@ -164,31 +165,20 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
   const workSurface = isRoleRoot
     ? !previewResolved
       ? (
-        <section aria-live='polite' style={{ margin: '8px 0 20px', padding: 18, borderRadius: 22, border: '1px solid #D7E5DF', background: '#F7FBF9' }}>
+        <section className={styles.cabinetLoading} aria-live='polite'>
           <strong>Открываем интерфейс кабинета…</strong>
         </section>
       )
       : ownerPreview
         ? (
           <>
-            <section
-              data-controlled-owner-cabinet-preview='true'
-              style={{
-                margin: '4px 0 14px',
-                padding: 16,
-                borderRadius: 22,
-                border: '1px solid #A8D5C5',
-                background: 'linear-gradient(135deg, #EFFAF5, #FFFFFF)',
-                display: 'grid',
-                gap: 7,
-              }}
-            >
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span style={{ padding: '5px 10px', borderRadius: 999, background: '#DDF4EA', color: '#116149', fontSize: 12, fontWeight: 950, letterSpacing: '0.08em' }}>TEST</span>
-                <strong style={{ color: '#102B22', fontSize: 17 }}>Полный интерфейс кабинета</strong>
+            <section className={styles.ownerPreview} data-controlled-owner-cabinet-preview='true'>
+              <div className={styles.previewHeading}>
+                <span className={styles.previewBadge}>TEST</span>
+                <strong className={styles.previewTitle}>Полный интерфейс кабинета</strong>
               </div>
-              <div style={{ color: '#31564A', fontSize: 14, lineHeight: 1.5, fontWeight: 750 }}>{ownerPreview.organizationName}</div>
-              <p style={{ margin: 0, color: '#587168', fontSize: 13, lineHeight: 1.5 }}>
+              <div className={styles.organizationName}>{ownerPreview.organizationName}</div>
+              <p className={styles.previewText}>
                 Данные и сценарии тестовые. Внешние интеграции, электронная подпись и движение денег не активированы. Действия исполняются только после серверной проверки полномочий.
               </p>
             </section>
