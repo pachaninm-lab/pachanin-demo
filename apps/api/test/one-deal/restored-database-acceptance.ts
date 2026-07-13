@@ -14,6 +14,7 @@ const REQUIRED_SIGNED_DOCUMENT_TYPES = [
   'LAB_PROTOCOL',
   'ACCEPTANCE_ACT',
 ] as const;
+const REQUIRED_LAB_AUDITS = 10;
 
 async function main(): Promise<void> {
   if (String(process.env.DB_PRINCIPAL_BOUNDARY_ENFORCED).toLowerCase() !== 'true') {
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
         events,
         audits,
         dealCommandAudits,
-        shipmentAudits,
+        labAudits,
         documents,
         bankOperations,
         ledger,
@@ -69,7 +70,7 @@ async function main(): Promise<void> {
           where: { dealId: CANONICAL_TEST_DEAL_ID, action: { startsWith: 'deal.command.' } },
         }),
         tx.auditEvent.count({
-          where: { dealId: CANONICAL_TEST_DEAL_ID, action: { startsWith: 'shipment.' } },
+          where: { dealId: CANONICAL_TEST_DEAL_ID, action: { startsWith: 'lab.' } },
         }),
         tx.dealDocument.findMany({
           where: { dealId: CANONICAL_TEST_DEAL_ID, status: 'SIGNED' },
@@ -109,7 +110,7 @@ async function main(): Promise<void> {
         events,
         audits,
         dealCommandAudits,
-        shipmentAudits,
+        labAudits,
         documentTypes: documents.map((document) => document.type),
         bankOperations,
         ledger,
@@ -128,12 +129,12 @@ async function main(): Promise<void> {
     if (restored.dealCommandAudits !== 19) {
       throw new Error(`Expected 19 Deal command audits, got ${restored.dealCommandAudits}`);
     }
-    if (restored.shipmentAudits !== 3) {
-      throw new Error(`Expected 3 Shipment audits, got ${restored.shipmentAudits}`);
+    if (restored.labAudits !== REQUIRED_LAB_AUDITS) {
+      throw new Error(`Expected ${REQUIRED_LAB_AUDITS} Labs authority audits, got ${restored.labAudits}`);
     }
-    if (restored.audits !== restored.dealCommandAudits + restored.shipmentAudits) {
+    if (restored.audits !== restored.dealCommandAudits + restored.labAudits) {
       throw new Error(
-        `Unexpected restored audit class: total ${restored.audits}, Deal ${restored.dealCommandAudits}, Shipment ${restored.shipmentAudits}`,
+        `Unexpected restored audit class: total ${restored.audits}, Deal ${restored.dealCommandAudits}, Labs ${restored.labAudits}`,
       );
     }
 
@@ -170,7 +171,7 @@ async function main(): Promise<void> {
       events: restored.events,
       audits: restored.audits,
       dealCommandAudits: restored.dealCommandAudits,
-      shipmentAudits: restored.shipmentAudits,
+      labAudits: restored.labAudits,
       signedDocumentTypes: restoredDocumentTypes,
       bankOperations: restored.bankOperations,
       ledgerEntries: restored.ledger,
