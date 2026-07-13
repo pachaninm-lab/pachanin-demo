@@ -36,6 +36,7 @@ const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 const STORE_KEY = 'pc-session-v10';
 const NOTE_STORAGE_KEY = 'platform-v7-header-notepad';
 const LOGOUT_TARGET = '/platform-v7/login?logout=1';
+const NOTIFICATIONS_ROUTE = '/platform-v7/notifications';
 
 type Panel = 'menu' | 'notepad' | null;
 
@@ -217,7 +218,10 @@ export function HeaderUtilityMenu() {
               <h2 className={styles.sectionTitle} id='utility-work-title'>Работа</h2>
               <div className={styles.actionGrid}>
                 <ActionCard icon={<Search size={18} aria-hidden='true' />} title='Найти' description='Открыть поиск по платформе' onClick={() => runNativeAction('.pc-v4-search')} />
-                <ActionCard icon={<Bell size={18} aria-hidden='true' />} title='Уведомления' description='Посмотреть реальные события' onClick={() => runNativeAction("button[aria-label='Открыть уведомления']")} />
+                <Link className={styles.linkAction} href={NOTIFICATIONS_ROUTE} onClick={() => setPanel(null)}>
+                  <span className={styles.actionIcon}><Bell size={18} aria-hidden='true' /></span>
+                  <span className={styles.actionCopy}><strong>Уведомления</strong><span>Открыть фактические события аккаунта</span></span>
+                </Link>
               </div>
             </section>
 
