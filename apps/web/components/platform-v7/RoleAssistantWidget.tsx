@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { UxFinalQuietLayer } from '@/components/platform-v7/UxFinalQuietLayer';
 import { WorkStepGuide } from '@/components/platform-v7/WorkStepGuide';
-import './RoleAssistantWidget.module.css';
+import styles from './RoleAssistantWidget.module.css';
 
 const PUBLIC_PATHS = new Set([
   '/platform-v7',
@@ -32,9 +32,9 @@ export function RoleAssistantWidget() {
   if (PUBLIC_PATHS.has(path) || path.startsWith('/platform-v7/role-preview')) return null;
 
   return (
-    <>
+    <div className={styles.scope}>
       <UxFinalQuietLayer />
       <WorkStepGuide />
-    </>
+    </div>
   );
 }
