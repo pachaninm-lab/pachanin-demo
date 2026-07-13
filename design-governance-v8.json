@@ -1,5 +1,5 @@
 {
-  "version": 13,
+  "version": 14,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -34,6 +34,7 @@
     "apps/web/app/platform-v7/disputes/page.tsx",
     "apps/web/app/platform-v7/bank/release-safety/page.tsx",
     "apps/web/app/platform-v7/money/page.tsx",
+    "apps/web/app/platform-v7/fgis-access/page.tsx",
     "apps/web/app/platform-v7/auction/page.tsx",
     "apps/web/app/platform-v7/auction/import/page.tsx",
     "apps/web/app/platform-v7/auction/admission/page.tsx",
