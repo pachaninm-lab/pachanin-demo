@@ -874,8 +874,8 @@ model DealWorkspaceRuntimeSnapshot {
 
   @@unique([runtimeSnapshotId], map: "dw_runtime_snapshots_runtime_snapshot_id_key")
   @@unique([idempotencyKey], map: "dw_runtime_snapshots_idempotency_key_key")
-  @@unique([outboxEntryId], map: "dw_runtime_snapshots_outbox_fkey")
-  @@unique([auditEventId], map: "dw_runtime_snapshots_audit_fkey")
+  @@unique([outboxEntryId], map: "dw_runtime_snapshots_outbox_entry_id_key")
+  @@unique([auditEventId], map: "dw_runtime_snapshots_audit_event_id_key")
   @@index([dealId, createdAt], map: "dw_runtime_snapshots_deal_created_idx")
   @@index([intentId, state], map: "dw_runtime_snapshots_intent_state_idx")
   @@index([correlationId], map: "dw_runtime_snapshots_correlation_idx")
