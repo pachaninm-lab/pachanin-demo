@@ -30,6 +30,11 @@ export class RecordTestDto extends VersionedLabCommandDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
+  supersedesId?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(1000)
   note?: string;
 }
