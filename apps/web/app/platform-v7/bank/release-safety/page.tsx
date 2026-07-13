@@ -1,202 +1,221 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
-import { DecisionPackMiniPanel } from '@/components/platform-v7/DecisionPackMiniPanel';
-import { P7ExecutionMachineReadOnlyStrip } from '@/components/platform-v7/P7ExecutionMachineReadOnlyStrip';
-import { ReleasePipelineStrip } from '@/components/platform-v7/ReleasePipelineStrip';
-import { P7Grid, P7LinkButton, P7MetricCard, P7Notice, P7PanelShell } from '@/components/platform-v7/P7UiPrimitives';
-import { canonicalDomainDeals } from '@/lib/domain/selectors';
-import { evaluateReleaseGuard, type ReleaseGuardBlocker } from '@/lib/platform-v7/domain/release-guard';
-import { formatCompactMoney } from '@/lib/v7r/helpers';
+import { getLocale } from 'next-intl/server';
+import { InlineNotice } from '@pc/design-system-v8';
+import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';
 import {
-  PLATFORM_V7_BANK_ROUTE,
-  PLATFORM_V7_CONTROL_TOWER_ROUTE,
-  PLATFORM_V7_OPERATOR_ROUTE,
-} from '@/lib/platform-v7/routes';
+  MoneyBoundary,
+  MoneyCockpitSection,
+  MoneyObligationCockpit,
+  moneyCockpitClasses,
+  type MoneyCockpitLabels,
+} from '@/components/transaction-ux/MoneyObligationCockpit';
 
-const SS = 'var(--pc-bg-elevated)';
-const B = 'var(--pc-border)';
-const T = 'var(--pc-text-primary)';
-const M = 'var(--pc-text-secondary)';
-const BRAND = '#0A7A5F';
-const BRAND_BG = 'rgba(10,122,95,0.08)';
-const BRAND_BORDER = 'rgba(10,122,95,0.18)';
-const WARN = '#B45309';
-const WARN_BG = 'rgba(217,119,6,0.08)';
-const WARN_BORDER = 'rgba(217,119,6,0.18)';
-const ERR = '#B91C1C';
-const ERR_BG = 'rgba(220,38,38,0.08)';
-const ERR_BORDER = 'rgba(220,38,38,0.18)';
+type Locale = 'ru' | 'en' | 'zh';
 
-const reasonLabels: Record<ReleaseGuardBlocker, string> = {
-  NO_RESERVED_MONEY: 'нет подтверждённого резерва',
-  NO_RELEASE_AMOUNT: 'нет суммы к выплате',
-  HOLD_AMOUNT_ACTIVE: 'есть активное удержание',
-  OPEN_DISPUTE: 'открыт спор',
-  DOCUMENTS_NOT_READY: 'документы не закрыты',
-  FGIS_NOT_READY: 'ФГИС/СДИЗ не подтверждены',
-  TRANSPORT_NOT_READY: 'рейс или транспортные документы не закрыты',
-  ACCEPTANCE_NOT_CONFIRMED: 'приёмка не подтверждена',
-  QUALITY_NOT_APPROVED: 'качество не подтверждено',
-  MANUAL_BLOCKER: 'есть ручная остановка',
-  DEAL_NOT_READY: 'стадия сделки не готова к банковской проверке',
+type ReleaseCopy = {
+  metadataTitle: string;
+  metadataDescription: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  status: string;
+  priorityTitle: string;
+  priorityDescription: string;
+  amount: string;
+  blocker: string;
+  owner: string;
+  result: string;
+  registryAction: string;
+  bankAction: string;
+  reserveLabel: string;
+  reserveValue: string;
+  reserveHint: string;
+  evidenceLabel: string;
+  evidenceValue: string;
+  evidenceHint: string;
+  requestLabel: string;
+  requestValue: string;
+  requestHint: string;
+  callbackLabel: string;
+  callbackValue: string;
+  callbackHint: string;
+  boundary: string;
+  noticeTitle: string;
+  noticeBody: string;
+  labels: MoneyCockpitLabels;
 };
 
-function payoutReviewState(row: { readonly stopped: boolean; readonly canExecuteRelease: boolean }) {
-  if (row.stopped) return { label: 'Закрыть условия', note: 'Запрос на банковскую проверку скрыт до закрытия причин остановки.', bg: ERR_BG, border: ERR_BORDER, color: ERR };
-  if (!row.canExecuteRelease) return { label: 'Запросить проверку', note: 'Можно подготовить запрос в банк, но это ещё не движение денег.', bg: WARN_BG, border: WARN_BORDER, color: WARN };
-  return { label: 'Ожидает банк', note: 'Основание готово к внешнему банковому подтверждению.', bg: BRAND_BG, border: BRAND_BORDER, color: BRAND };
+const COPY: Record<Locale, ReleaseCopy> = {
+  ru: {
+    metadataTitle: 'Проверка выплаты',
+    metadataDescription: 'Серверно подтверждённый вход в проверку условий выплаты по конкретной Сделке без клиентского выпуска денег.',
+    eyebrow: 'Выплата · основание · внешний банковский callback',
+    title: 'Проверка выплаты не является кнопкой выпуска денег',
+    description: 'Выбери серверно доступную Сделку. Backend проверяет резерв, сумму, удержания, спор, документы, ФГИС/СДИЗ, транспорт, приёмку, качество и ручные остановки до создания запроса банку.',
+    status: 'release подтверждает только банк',
+    priorityTitle: 'Открой Сделку и проверь её фактические блокеры',
+    priorityDescription: 'Глобальный экран не имеет права вычислять готовность на fixture-данных. Решение принимается только по текущему серверному состоянию конкретной Сделки и полномочиям участника.',
+    amount: 'определяется сервером внутри Сделки',
+    blocker: 'готовность не подтверждена без выбранной Сделки',
+    owner: 'участники закрывают условия; банк подтверждает операцию',
+    result: 'release request → callback → reconciliation → audit',
+    registryAction: 'Выбрать Сделку',
+    bankAction: 'Вернуться в кабинет банка',
+    reserveLabel: 'Резерв',
+    reserveValue: 'должен быть подтверждён',
+    reserveHint: 'запрос резерва сам по себе не открывает выплату',
+    evidenceLabel: 'Основание',
+    evidenceValue: 'полный evidence pack',
+    evidenceHint: 'документы, приёмка, качество, транспорт и отсутствие открытого спора',
+    requestLabel: 'Release request',
+    requestValue: 'идемпотентная команда',
+    requestHint: 'создаёт outbox-запись, но не меняет деньги на RELEASED',
+    callbackLabel: 'Финальное подтверждение',
+    callbackValue: 'verified bank callback',
+    callbackHint: 'подпись, event ID, operation ID, replay protection и последующая сверка',
+    boundary: 'Платформа не может вручную присвоить RESERVED или RELEASED. Даже при закрытых условиях она только создаёт запрос. Денежное состояние меняется после проверенного банковского callback; ошибка, конфликт или расхождение переводят операцию в manual review.',
+    noticeTitle: 'Порядок безопасной проверки',
+    noticeBody: 'Выбери Сделку ниже. В её рабочем месте сервер показывает реальный следующий шаг и блокеры. Закрой обязательные условия, затем уполномоченная денежная роль с актуальной MFA может отправить release request. До callback банка деньги считаются неподтверждёнными.',
+    labels: {
+      money: 'Сумма',
+      blocker: 'Блокер',
+      owner: 'Ответственный',
+      result: 'Цепочка результата',
+      nextAction: 'Следующее безопасное действие',
+      prioritySection: 'Главная задача проверки выплаты',
+      factsSection: 'Неизменяемые границы выплаты',
+    },
+  },
+  en: {
+    metadataTitle: 'Payout readiness',
+    metadataDescription: 'Server-authorized access to payout-condition checks for a specific Deal without client-side fund release.',
+    eyebrow: 'Payout · basis · external bank callback',
+    title: 'Payout readiness is not a release button',
+    description: 'Select a server-accessible Deal. The backend checks reserve, amount, holds, dispute, documents, regulatory status, transport, acceptance, quality and manual stops before creating a bank request.',
+    status: 'release is confirmed by the bank only',
+    priorityTitle: 'Open a Deal and inspect its actual blockers',
+    priorityDescription: 'A global screen must not calculate readiness from fixtures. The decision uses only the current server state of a specific Deal and the participant’s authority.',
+    amount: 'determined by the server inside the Deal',
+    blocker: 'readiness is unconfirmed without a selected Deal',
+    owner: 'participants close conditions; the bank confirms the operation',
+    result: 'release request → callback → reconciliation → audit',
+    registryAction: 'Select a Deal',
+    bankAction: 'Return to bank workspace',
+    reserveLabel: 'Reserve',
+    reserveValue: 'must be confirmed',
+    reserveHint: 'a reserve request does not by itself enable payout',
+    evidenceLabel: 'Basis',
+    evidenceValue: 'complete evidence pack',
+    evidenceHint: 'documents, acceptance, quality, transport and no open dispute',
+    requestLabel: 'Release request',
+    requestValue: 'idempotent command',
+    requestHint: 'creates an outbox record but does not set money to RELEASED',
+    callbackLabel: 'Final confirmation',
+    callbackValue: 'verified bank callback',
+    callbackHint: 'signature, event ID, operation ID, replay protection and reconciliation',
+    boundary: 'The platform cannot manually assign RESERVED or RELEASED. Even when all conditions are closed, it only creates a request. Money state changes after a verified bank callback; an error, conflict or mismatch routes the operation to manual review.',
+    noticeTitle: 'Safe verification sequence',
+    noticeBody: 'Select a Deal below. Its workspace shows the real next action and blockers from the server. Close the mandatory conditions, then an authorized money role with current MFA may send a release request. Until the bank callback arrives, the funds remain unconfirmed.',
+    labels: {
+      money: 'Amount',
+      blocker: 'Blocker',
+      owner: 'Owner',
+      result: 'Result chain',
+      nextAction: 'Next safe action',
+      prioritySection: 'Primary payout-readiness task',
+      factsSection: 'Non-negotiable payout boundaries',
+    },
+  },
+  zh: {
+    metadataTitle: '付款就绪检查',
+    metadataDescription: '进入具体交易的付款条件检查，访问权限由服务器确认，客户端不能放款。',
+    eyebrow: '付款 · 依据 · 外部银行回调',
+    title: '付款就绪检查不是放款按钮',
+    description: '请选择服务器确认可访问的交易。Backend 会在创建银行申请前检查预留、金额、冻结、争议、文件、监管状态、运输、验收、质量和人工停止项。',
+    status: '只有银行可以确认付款',
+    priorityTitle: '打开交易并检查实际阻塞项',
+    priorityDescription: '全局页面不得根据 fixture 数据计算付款就绪状态。判断只能基于具体交易的当前服务器状态和参与方权限。',
+    amount: '由服务器在具体交易中确定',
+    blocker: '未选择交易时，付款就绪状态无法确认',
+    owner: '参与方关闭条件，银行确认操作',
+    result: '付款申请 → 回调 → 对账 → 审计',
+    registryAction: '选择交易',
+    bankAction: '返回银行工作区',
+    reserveLabel: '资金预留',
+    reserveValue: '必须已确认',
+    reserveHint: '预留申请本身不能开启付款',
+    evidenceLabel: '付款依据',
+    evidenceValue: '完整证据包',
+    evidenceHint: '文件、验收、质量、运输以及不存在未结争议',
+    requestLabel: '付款申请',
+    requestValue: '幂等命令',
+    requestHint: '创建 outbox 记录，但不会把资金状态设为 RELEASED',
+    callbackLabel: '最终确认',
+    callbackValue: '经过验证的银行回调',
+    callbackHint: '签名、事件 ID、操作 ID、防重放和后续对账',
+    boundary: '平台不能手动设置 RESERVED 或 RELEASED。即使所有条件已关闭，平台也只能创建申请。只有经过验证的银行回调才能改变资金状态；错误、冲突或不一致会转入人工复核。',
+    noticeTitle: '安全检查顺序',
+    noticeBody: '请在下方选择交易。交易工作区会显示服务器返回的实际下一步和阻塞项。关闭必备条件后，具有当前 MFA 的授权资金角色可以发送付款申请。在银行回调到达之前，资金仍视为未确认。',
+    labels: {
+      money: '金额',
+      blocker: '阻塞项',
+      owner: '负责人',
+      result: '结果链',
+      nextAction: '下一项安全操作',
+      prioritySection: '主要付款检查任务',
+      factsSection: '不可绕过的付款边界',
+    },
+  },
+};
+
+function normalizeLocale(value: string): Locale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
 }
 
-function reasonText(reasons: readonly ReleaseGuardBlocker[]) {
-  return reasons.length ? reasons.map((reason) => reasonLabels[reason]).join(', ') : 'условия закрыты для запроса проверки';
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = COPY[normalizeLocale(await getLocale())];
+  return { title: copy.metadataTitle, description: copy.metadataDescription };
 }
 
-export default function BankReleaseSafetyPage() {
-  const rows = canonicalDomainDeals.slice(0, 12).map((deal) => {
-    const check = evaluateReleaseGuard(deal);
-    return {
-      id: deal.id,
-      grain: deal.grain,
-      reserved: check.reservedAmount,
-      hold: deal.money.holdAmount,
-      release: check.releaseAmount,
-      reasons: check.blockers,
-      stopped: !check.canRequestRelease,
-      canExecuteRelease: check.canExecuteRelease,
-    };
-  });
-
-  const stoppedRows = rows.filter((row) => row.stopped);
-  const payoutCandidate = rows.filter((row) => !row.stopped).reduce((sum, row) => sum + row.release, 0);
-  const moneyUnderCheck = stoppedRows.reduce((sum, row) => sum + Math.max(row.hold, row.release), 0);
+export default async function BankReleaseSafetyPage() {
+  const locale = normalizeLocale(await getLocale());
+  const copy = COPY[locale];
 
   return (
-    <div data-testid="platform-v7-bank-release-safety-page" style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media(max-width:767px){
-          [data-testid='platform-v7-bank-release-safety-page']{gap:10px!important;padding:0!important}
-          [data-testid='bank-release-hero'] > section{padding:16px!important;border-radius:24px!important}
-          [data-testid='bank-release-hero'] > section > div{display:grid!important;gap:10px!important}
-          [data-testid='bank-release-hero'] > section > div > div:first-child > div:nth-child(2){font-size:clamp(24px,7vw,34px)!important;line-height:1.06!important}
-          [data-testid='bank-release-hero'] > section > div > div:first-child > div:nth-child(3){display:none!important}
-          [data-testid='bank-release-hero'] a{width:100%!important;min-height:54px!important;border-radius:16px!important}
-          [data-testid='bank-release-hero'] a:nth-of-type(n+3){display:none!important}
-          [data-testid='bank-release-metrics'] > div{grid-template-columns:1fr 1fr!important;gap:8px!important}
-          [data-testid='bank-release-metrics'] section{padding:12px!important;border-radius:16px!important}
-          [data-testid='bank-release-metrics'] section:nth-child(3){display:none!important}
-          [data-testid='bank-release-grain'] > section{padding:14px!important;border-radius:20px!important}
-          [data-testid='bank-release-grain'] > section > div{display:grid!important;gap:10px!important}
-          [data-testid='bank-release-grain'] > section > div > div:first-child > div:nth-child(3){display:none!important}
-          [data-testid='bank-release-grain'] a{width:100%!important;min-height:52px!important;border-radius:16px!important}
-          [data-testid='bank-release-grain'] a:nth-of-type(2){display:none!important}
-          [data-testid='bank-release-rows'] > section{padding:14px!important;border-radius:20px!important}
-          [data-testid='bank-release-rows'] > section > div:nth-child(2){gap:8px!important}
-          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div{padding:12px!important;border-radius:16px!important}
-          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div:nth-child(n+7){display:none!important}
-          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div > div:nth-child(2){grid-template-columns:1fr 1fr!important;gap:7px!important}
-          [data-testid='bank-release-rows'] > section > div:nth-child(2) > div > div:nth-child(2) > div:nth-child(n+4){display:none!important}
-        }
-      ` }} />
-      <div data-testid="bank-release-hero">
-        <P7PanelShell>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontSize: 11, color: WARN, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Проверка выплаты · предынтеграционный контур</div>
-              <div style={{ marginTop: 6, fontSize: 26, lineHeight: 1.1, fontWeight: 900, color: T }}>Банковская проверка выплаты</div>
-              <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 860 }}>
-                Экран показывает, почему запрос в банк не должен обходить резерв, документы, ФГИС/СДИЗ, рейс, приёмку, качество, спор и удержание. Это контрольный экран, а не платёжный механизм.
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <P7LinkButton href={PLATFORM_V7_BANK_ROUTE}>← Банк</P7LinkButton>
-              <P7LinkButton href={PLATFORM_V7_OPERATOR_ROUTE}>Оператор</P7LinkButton>
-              <P7LinkButton href={PLATFORM_V7_CONTROL_TOWER_ROUTE}>Центр управления</P7LinkButton>
-              <P7LinkButton href='/platform-v7/deals/grain-release'>Основание выплаты</P7LinkButton>
-            </div>
-          </div>
-        </P7PanelShell>
-      </div>
-
-      <ReleasePipelineStrip dealId="DL-9106" />
-
-      <DecisionPackMiniPanel context='dl9106_payout_review' />
-
-      <div data-testid="bank-release-metrics">
-        <P7Grid min={200} gap={14}>
-          <P7MetricCard title='К запросу после проверки' value={formatCompactMoney(payoutCandidate)} tone='green' />
-          <P7MetricCard title='Остановлено' value={String(stoppedRows.length)} tone={stoppedRows.length > 0 ? 'red' : 'green'} />
-          <P7MetricCard title='На проверке' value={formatCompactMoney(moneyUnderCheck)} tone={moneyUnderCheck > 0 ? 'red' : 'green'} />
-        </P7Grid>
-      </div>
-
-      <SmartSectionSummary
-        label='Проверка выплаты'
-        moneyFact={`к запросу ${formatCompactMoney(payoutCandidate)}`}
-        blockers={stoppedRows.slice(0, 3).map((row) => `${row.id} · ${reasonLabels[row.reasons[0]] ?? row.reasons[0] ?? 'условия не выполнены'}`)}
-        facts={[`${rows.length} сделок`, `${stoppedRows.length} остановлено`]}
-      />
-
-      <div data-testid="bank-release-grain">
-        <P7PanelShell>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: 11, color: BRAND, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Зерновой контур</div>
-              <div style={{ marginTop: 6, fontSize: 20, lineHeight: 1.15, fontWeight: 900, color: T }}>Основание выплаты по зерновой сделке</div>
-              <div style={{ marginTop: 8, fontSize: 13, color: M, maxWidth: 760 }}>
-                Отдельный экран показывает частичную выплату, удержание спорной части, документы, СДИЗ и основание банковского подтверждения без заявления о самостоятельном платёжном механизме.
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <P7LinkButton href='/platform-v7/deals/grain-release'>Открыть основание выплаты</P7LinkButton>
-              <P7LinkButton href='/platform-v7/control-tower/grain'>Открыть зерновой контур</P7LinkButton>
-            </div>
-          </div>
-        </P7PanelShell>
-      </div>
-
-      <P7Notice title='Правило' tone='amber'>
-        Запрос к банку допустим только после закрытия условий: резерв, сумма к выплате, отсутствие удержания, документы, ФГИС/СДИЗ, рейс, приёмка, качество, отсутствие спора и ручных остановок.
-      </P7Notice>
-
-      <P7ExecutionMachineReadOnlyStrip compact />
-
-      <div data-testid="bank-release-rows">
-        <P7PanelShell>
-          <div style={{ fontSize: 16, fontWeight: 900, color: T, marginBottom: 14 }}>Сделки и условия выплаты</div>
-          <div style={{ display: 'grid', gap: 10 }}>
-            {rows.map((row) => {
-              const actionState = payoutReviewState(row);
-              return (
-                <div key={row.id} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <div>
-                      <Link href={`/platform-v7/deals/${row.id}`} style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 900, color: BRAND, textDecoration: 'none' }}>{row.id}</Link>
-                      <span style={{ marginLeft: 8, fontSize: 13, color: M }}>{row.grain}</span>
-                    </div>
-                    <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: actionState.bg, border: `1px solid ${actionState.border}`, color: actionState.color }}>{actionState.label}</span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginTop: 12 }}>
-                    <Cell label='Резерв' value={formatCompactMoney(row.reserved)} />
-                    <Cell label='Удержано' value={formatCompactMoney(row.hold)} danger={row.hold > 0} />
-                    <Cell label='К запросу' value={formatCompactMoney(row.release)} />
-                    <Cell label='Причины остановки' value={reasonText(row.reasons)} danger={row.reasons.length > 0} />
-                    <Cell label='Доступное действие' value={actionState.note} danger={row.stopped} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </P7PanelShell>
-      </div>
-    </div>
-  );
-}
-
-function Cell({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
-  return (
-    <div>
-      <div style={{ fontSize: 10, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-      <div style={{ marginTop: 4, fontSize: 13, fontWeight: 800, color: danger ? ERR : T, wordBreak: 'break-word' }}>{value}</div>
-    </div>
+    <MoneyObligationCockpit
+      testId='platform-v7-bank-release-safety-v8'
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+      description={copy.description}
+      statusLabel={copy.status}
+      statusTone='warning'
+      labels={copy.labels}
+      priority={{
+        state: 'waiting',
+        title: copy.priorityTitle,
+        description: copy.priorityDescription,
+        amount: copy.amount,
+        blocker: copy.blocker,
+        owner: copy.owner,
+        result: copy.result,
+        primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.registryAction}</Link>,
+        secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/bank'>{copy.bankAction}</Link>,
+      }}
+      facts={[
+        { label: copy.reserveLabel, value: copy.reserveValue, hint: copy.reserveHint },
+        { label: copy.evidenceLabel, value: copy.evidenceValue, hint: copy.evidenceHint },
+        { label: copy.requestLabel, value: copy.requestValue, hint: copy.requestHint },
+        { label: copy.callbackLabel, value: copy.callbackValue, hint: copy.callbackHint },
+      ]}
+    >
+      <MoneyBoundary>{copy.boundary}</MoneyBoundary>
+      <MoneyCockpitSection id='release-deals'>
+        <InlineNotice tone='warning' title={copy.noticeTitle}>{copy.noticeBody}</InlineNotice>
+        <CanonicalDealsList />
+      </MoneyCockpitSection>
+    </MoneyObligationCockpit>
   );
 }
