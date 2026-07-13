@@ -1,0 +1,1 @@
+Apply `docs/platform-v7/autopilot/prompts/ir-10-3-runtime-fix.md` to the canonical branch, then delete this marker and `.tmp-ir-10-3-runtime-fix-trigger` in the same follow-up commit.
