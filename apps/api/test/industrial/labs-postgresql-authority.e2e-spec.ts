@@ -5,6 +5,8 @@ import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import type { RequestUser } from '../../src/common/types/request-user';
 import { Role } from '../../src/common/types/request-user';
 import { AuthorizedPrismaLabRepository } from '../../src/modules/labs/authorized-prisma-lab.repository';
+import { LabEvidenceUploadService } from '../../src/modules/labs/lab-evidence-upload.service';
+import type { LabOperationEvidencePurpose } from '../../src/modules/labs/dto/request-lab-evidence-upload.dto';
 import {
   createRememberedInstance,
   destroyInstance,
@@ -102,30 +104,24 @@ async function createPurposeEvidence(
   instance: ServiceInstance,
   fixture: DealFixture,
   user: RequestUser,
-  purpose: string,
+  purpose: LabOperationEvidencePurpose,
   suffix: string,
-  metadata: Prisma.InputJsonObject,
 ): Promise<string> {
-  const body = JSON.stringify({ purpose, suffix, metadata });
+  const body = JSON.stringify({ purpose, suffix, sampleId: fixture.sampleId });
+  const sizeBytes = Buffer.byteLength(body);
   const sha256 = createHash('sha256').update(body).digest('hex');
-  const requested = await instance.storage.requestUpload({
-    dealId: fixture.dealId,
+  const uploads = new LabEvidenceUploadService(instance.rls, instance.storageAdapter);
+  const requested = await uploads.requestForSample(fixture.sampleId, {
+    purpose,
     filename: `${suffix}.json`,
     mimeType: 'application/json',
-    sizeBytes: Buffer.byteLength(body),
+    sizeBytes,
   }, user);
   instance.storageAdapter.put(requested.objectKey, {
-    sizeBytes: Buffer.byteLength(body),
+    sizeBytes,
     contentType: 'application/json',
     sha256,
     eTag: `e2e-${sha256.slice(0, 16)}`,
-  });
-  await instance.rls.withTrustedContext(user, async (tx) => {
-    const updated = await tx.dealDocument.updateMany({
-      where: { id: requested.fileId, status: 'UPLOAD_PENDING', version: 1, isImmutable: false },
-      data: { metadata: { labPurpose: purpose, ...metadata } },
-    });
-    expect(updated.count).toBe(1);
   });
   const verified = await instance.storage.confirmUpload(requested.fileId, sha256, user);
   expect(verified.status).toBe('VERIFIED');
@@ -178,15 +174,9 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
       const evidenceRef = await createPurposeEvidence(
         instance,
         fixture,
-        fixture.users.operator,
+        fixture.users.lab,
         'TEST',
         'privileged-test-attempt',
-        {
-          sampleId: fixture.sampleId,
-          shipmentId: fixture.shipmentId,
-          acceptanceId: fixture.acceptanceId,
-          laboratoryOrgId: fixture.serviceOrgId,
-        },
       );
       await expect(guarded.recordTest(fixture.sampleId, {
         commandId: `privileged-test-${fixture.dealId}`,
@@ -358,12 +348,6 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
         fixture.users.lab,
         'TEST',
         'moisture-correction',
-        {
-          sampleId: fixture.sampleId,
-          shipmentId: fixture.shipmentId,
-          acceptanceId: fixture.acceptanceId,
-          laboratoryOrgId: fixture.serviceOrgId,
-        },
       );
       await instance.labs.recordTest(fixture.sampleId, {
         commandId: `correction:${fixture.dealId}:moisture`,
