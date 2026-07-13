@@ -72,6 +72,139 @@ function fixtureHash(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
+async function seedNormalizedLogisticsAdmission(
+  prisma: PrismaService,
+  input: {
+    dealId: string;
+    sellerOrgId: string;
+    buyerOrgId: string;
+    carrierOrgId: string;
+    driverUserId: string;
+    vehicleId: string;
+    routeFromFacilityId: string;
+    routeToFacilityId: string;
+  },
+): Promise<void> {
+  const evidenceId = `file-logistics-admission:${input.dealId}`;
+  const evidenceHash = fixtureHash(JSON.stringify(input));
+
+  await prisma.$transaction(async (tx) => {
+    // Isolated CI fixture only. Production evidence reaches VERIFIED exclusively
+    // through the storage finalization principal introduced by IR-10.1.
+    await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+    await tx.dealDocument.upsert({
+      where: { id: evidenceId },
+      update: {
+        tenantId: INDUSTRIAL_TENANT,
+        status: 'VERIFIED',
+        hash: evidenceHash,
+        isImmutable: true,
+      },
+      create: {
+        id: evidenceId,
+        dealId: input.dealId,
+        tenantId: INDUSTRIAL_TENANT,
+        type: 'EVIDENCE_FILE',
+        status: 'VERIFIED',
+        name: 'normalized-logistics-admission.json',
+        mimeType: 'application/json',
+        s3Key: `controlled-test/${input.dealId}/normalized-logistics-admission.json`,
+        sizeBytes: 512,
+        hash: evidenceHash,
+        uploadedByUserId: `user-e2e-${input.dealId.slice('DEAL-E2E-'.length)}-operator`,
+        version: 2,
+        isImmutable: true,
+      },
+    });
+
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO logistics.carriers (
+        id, tenant_id, organization_id, status, evidence_file_id
+      ) VALUES (
+        ${`carrier:${input.carrierOrgId}`}, ${INDUSTRIAL_TENANT},
+        ${input.carrierOrgId}, 'VERIFIED', ${evidenceId}
+      )
+      ON CONFLICT (tenant_id, organization_id) DO UPDATE SET
+        status = 'VERIFIED', evidence_file_id = EXCLUDED.evidence_file_id,
+        valid_until = NULL, updated_at = now()
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO logistics.drivers (
+        id, tenant_id, carrier_org_id, user_id, status, evidence_file_id
+      ) VALUES (
+        ${`driver-registry:${input.driverUserId}`}, ${INDUSTRIAL_TENANT},
+        ${input.carrierOrgId}, ${input.driverUserId}, 'ACTIVE', ${evidenceId}
+      )
+      ON CONFLICT (tenant_id, user_id) DO UPDATE SET
+        carrier_org_id = EXCLUDED.carrier_org_id, status = 'ACTIVE',
+        evidence_file_id = EXCLUDED.evidence_file_id, valid_until = NULL,
+        updated_at = now()
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO logistics.vehicles (
+        id, tenant_id, carrier_org_id, registration_number, vehicle_type,
+        status, evidence_file_id
+      ) VALUES (
+        ${input.vehicleId}, ${INDUSTRIAL_TENANT}, ${input.carrierOrgId},
+        ${input.vehicleId}, 'TRUCK', 'ACTIVE', ${evidenceId}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        carrier_org_id = EXCLUDED.carrier_org_id, status = 'ACTIVE',
+        evidence_file_id = EXCLUDED.evidence_file_id, valid_until = NULL,
+        updated_at = now()
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO logistics.driver_vehicle_links (
+        id, tenant_id, driver_id, vehicle_id, status
+      ) VALUES (
+        ${`driver-vehicle:${input.dealId}`}, ${INDUSTRIAL_TENANT},
+        ${`driver-registry:${input.driverUserId}`}, ${input.vehicleId}, 'ACTIVE'
+      )
+      ON CONFLICT (tenant_id, driver_id, vehicle_id) DO UPDATE SET
+        status = 'ACTIVE', valid_until = NULL
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO logistics.facilities (
+        id, tenant_id, organization_id, facility_type, name, status,
+        evidence_file_id
+      ) VALUES (
+        ${input.routeFromFacilityId}, ${INDUSTRIAL_TENANT}, ${input.sellerOrgId},
+        'DISPATCH', 'Seller dispatch', 'ACTIVE', ${evidenceId}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        status = 'ACTIVE', evidence_file_id = EXCLUDED.evidence_file_id,
+        valid_until = NULL, updated_at = now()
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO logistics.facilities (
+        id, tenant_id, organization_id, facility_type, name, status,
+        evidence_file_id
+      ) VALUES (
+        ${input.routeToFacilityId}, ${INDUSTRIAL_TENANT}, ${input.buyerOrgId},
+        'ACCEPTANCE', 'Buyer acceptance', 'ACTIVE', ${evidenceId}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        status = 'ACTIVE', evidence_file_id = EXCLUDED.evidence_file_id,
+        valid_until = NULL, updated_at = now()
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO logistics.deal_admissions (
+        id, tenant_id, deal_id, carrier_org_id, driver_user_id, vehicle_id,
+        route_from_facility_id, route_to_facility_id, status, evidence_file_id
+      ) VALUES (
+        ${`admission:${input.dealId}`}, ${INDUSTRIAL_TENANT}, ${input.dealId},
+        ${input.carrierOrgId}, ${input.driverUserId}, ${input.vehicleId},
+        ${input.routeFromFacilityId}, ${input.routeToFacilityId}, 'ACTIVE',
+        ${evidenceId}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        status = 'ACTIVE', evidence_file_id = EXCLUDED.evidence_file_id,
+        consumed_at = NULL, consumed_by_command_id = NULL,
+        valid_until = NULL, updated_at = now()
+    `);
+  });
+}
+
 export async function provisionDeal(
   prisma: PrismaService,
   slug: string,
@@ -302,6 +435,17 @@ export async function provisionDeal(
     });
   });
 
+  await seedNormalizedLogisticsAdmission(prisma, {
+    dealId,
+    sellerOrgId,
+    buyerOrgId,
+    carrierOrgId: serviceOrgId,
+    driverUserId: `user-e2e-${slug}-driver`,
+    vehicleId,
+    routeFromFacilityId,
+    routeToFacilityId,
+  });
+
   const users: Record<string, RequestUser> = {};
   for (const { role, key } of ROLE_SET) {
     users[key] = {
@@ -405,6 +549,9 @@ export async function cleanTenant(prisma: PrismaService): Promise<void> {
     if (dealIds.length > 0) {
       const inList = dealIds.map((id) => `'${id}'`).join(',');
       for (const statement of [
+        `DELETE FROM logistics.shipment_bindings WHERE deal_id IN (${inList})`,
+        `DELETE FROM logistics.deal_admissions WHERE deal_id IN (${inList})`,
+        `DELETE FROM "shipment_gps_points" WHERE "shipmentId" IN (SELECT id FROM "shipments" WHERE "dealId" IN (${inList}))`,
         `DELETE FROM "ledger_entries" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "deal_events" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "audit_events" WHERE "dealId" IN (${inList})`,
@@ -425,6 +572,11 @@ export async function cleanTenant(prisma: PrismaService): Promise<void> {
         await prisma.$executeRawUnsafe(statement);
       }
     }
+    await prisma.$executeRawUnsafe(`DELETE FROM logistics.driver_vehicle_links WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await prisma.$executeRawUnsafe(`DELETE FROM logistics.vehicles WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await prisma.$executeRawUnsafe(`DELETE FROM logistics.drivers WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await prisma.$executeRawUnsafe(`DELETE FROM logistics.facilities WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await prisma.$executeRawUnsafe(`DELETE FROM logistics.carriers WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
     await prisma.$executeRawUnsafe(
       `DELETE FROM "user_orgs" WHERE "organizationId" IN (SELECT id FROM "organizations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}')`,
     );
