@@ -1,0 +1,27 @@
+.root {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-3);
+}
+
+.heading {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-2);
+}
+
+.eyebrow {
+  color: var(--ds-color-action-primary);
+  font-size: var(--ds-font-caption);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.contextStack {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-3);
+}
+
+.contextStack > section { min-width: 0; }
