@@ -9,7 +9,10 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
+import {
+  RlsTransactionService,
+  type TrustedRlsContext,
+} from '../../common/prisma/rls-transaction.service';
 import { Role, type RequestUser } from '../../common/types/request-user';
 import {
   OBJECT_STORAGE_ADAPTER,
@@ -68,6 +71,16 @@ type SampleScope = Readonly<{
   sampleCode: string | null;
 }>;
 
+type BoundUploadBinding = Readonly<{
+  dealId: string;
+  metadata: Prisma.InputJsonObject;
+}>;
+
+type BoundUploadAuthorizer = (
+  tx: Prisma.TransactionClient,
+  context: TrustedRlsContext,
+) => Promise<BoundUploadBinding>;
+
 @Injectable()
 export class LabEvidenceUploadService {
   private readonly maxBytes = boundedInteger(
@@ -76,6 +89,7 @@ export class LabEvidenceUploadService {
     HARD_MAX_BYTES,
     DEFAULT_MAX_BYTES,
   );
+
   private readonly uploadTtlSeconds = boundedInteger(
     Number(process.env.OBJECT_STORAGE_UPLOAD_TTL_SECONDS ?? DEFAULT_UPLOAD_TTL_SECONDS),
     60,
@@ -89,13 +103,15 @@ export class LabEvidenceUploadService {
   ) {}
 
   async requestForSample(
-    sampleId: string,
+    sampleIdInput: string,
     dto: RequestSampleEvidenceUploadDto,
     user: RequestUser,
   ) {
+    const sampleId = requiredIdentifier(sampleIdInput, 'sampleId');
     const requestedSupersedesId = dto.supersedesId
       ? requiredIdentifier(dto.supersedesId, 'supersedesId')
       : undefined;
+
     if (requestedSupersedesId && dto.purpose !== 'TEST') {
       throw new UnprocessableEntityException({
         code: 'LAB_CORRECTION_ONLY_ALLOWED_FOR_TEST_EVIDENCE',
@@ -103,77 +119,85 @@ export class LabEvidenceUploadService {
       });
     }
 
-    const scope = await this.rls.withTrustedContext(user, async (tx, context) => {
-      const rows = await tx.$queryRaw<SampleScope[]>(Prisma.sql`
-        SELECT
-          sample."id", sample."dealId", sample."shipmentId", sample."acceptanceId",
-          sample."tenantId", sample."labId" AS "laboratoryOrgId", sample."sampleCode"
-        FROM public."lab_samples" sample
-        WHERE sample."id" = ${sampleId}
-          AND sample."tenantId" = ${context.tenantId}
-          AND public.app_labs_deal_authorized(sample."dealId", sample."labId", true)
-        LIMIT 1
-      `);
-      const sample = rows[0];
-      if (!sample || !sample.laboratoryOrgId) {
-        throw new NotFoundException({ code: 'LAB_SAMPLE_NOT_AVAILABLE' });
-      }
+    return this.requestBoundUpload(
+      {
+        filename: dto.filename,
+        mimeType: dto.mimeType,
+        sizeBytes: dto.sizeBytes,
+      },
+      user,
+      async (tx, context) => {
+        const rows = await tx.$queryRaw<SampleScope[]>(Prisma.sql`
+          SELECT
+            sample."id", sample."dealId", sample."shipmentId", sample."acceptanceId",
+            sample."tenantId", sample."labId" AS "laboratoryOrgId", sample."sampleCode"
+          FROM public."lab_samples" sample
+          WHERE sample."id" = ${sampleId}
+            AND sample."tenantId" = ${context.tenantId}
+            AND public.app_labs_deal_authorized(sample."dealId", sample."labId", true)
+          LIMIT 1
+          FOR SHARE
+        `);
+        const sample = rows[0];
+        if (!sample || !sample.laboratoryOrgId) {
+          throw new NotFoundException({ code: 'LAB_SAMPLE_NOT_AVAILABLE' });
+        }
 
-      const actorType = ACTOR_BY_PURPOSE[dto.purpose];
-      const actor = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
-        SELECT public.app_labs_actor_valid(
-          ${context.tenantId}, ${sample.laboratoryOrgId}, ${context.userId},
-          ${actorType}, now()
-        ) AS valid
-      `);
-      if (!actor[0]?.valid) {
-        throw new ForbiddenException({ code: 'LAB_PHYSICAL_ACTOR_TYPE_REQUIRED', actorType });
-      }
-
-      if (requestedSupersedesId) {
-        const correction = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
-          SELECT EXISTS (
-            SELECT 1
-            FROM public."lab_tests" predecessor
-            WHERE predecessor."id" = ${requestedSupersedesId}
-              AND predecessor."sampleId" = ${sample.id}
-              AND predecessor."tenantId" = ${context.tenantId}
-              AND NOT EXISTS (
-                SELECT 1 FROM public."lab_tests" successor
-                WHERE successor."supersedesId" = predecessor."id"
-              )
+        const actorType = ACTOR_BY_PURPOSE[dto.purpose];
+        const actor = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
+          SELECT public.app_labs_actor_valid(
+            ${context.tenantId}, ${sample.laboratoryOrgId}, ${context.userId},
+            ${actorType}, now()
           ) AS valid
         `);
-        if (!correction[0]?.valid) {
-          throw new ConflictException({ code: 'LAB_CORRECTION_PREDECESSOR_NOT_ACTIVE' });
+        if (!actor[0]?.valid) {
+          throw new ForbiddenException({ code: 'LAB_PHYSICAL_ACTOR_TYPE_REQUIRED', actorType });
         }
-      }
-      return sample;
-    });
 
-    let protocolNumber: string | undefined;
-    if (dto.purpose === 'PROTOCOL') {
-      if (!scope.sampleCode) {
-        throw new UnprocessableEntityException({ code: 'LAB_SAMPLE_CODE_REQUIRED', field: 'sampleId' });
-      }
-      protocolNumber = `LAB-${scope.sampleCode}-V1`;
-    }
+        if (requestedSupersedesId) {
+          const correction = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
+            SELECT EXISTS (
+              SELECT 1
+              FROM public."lab_tests" predecessor
+              WHERE predecessor."id" = ${requestedSupersedesId}
+                AND predecessor."sampleId" = ${sample.id}
+                AND predecessor."tenantId" = ${context.tenantId}
+                AND NOT EXISTS (
+                  SELECT 1 FROM public."lab_tests" successor
+                  WHERE successor."supersedesId" = predecessor."id"
+                )
+            ) AS valid
+          `);
+          if (!correction[0]?.valid) {
+            throw new ConflictException({ code: 'LAB_CORRECTION_PREDECESSOR_NOT_ACTIVE' });
+          }
+        }
 
-    return this.requestBoundUpload({
-      dealId: scope.dealId,
-      filename: dto.filename,
-      mimeType: dto.mimeType,
-      sizeBytes: dto.sizeBytes,
-      metadata: {
-        labPurpose: dto.purpose,
-        sampleId: scope.id,
-        shipmentId: scope.shipmentId,
-        acceptanceId: scope.acceptanceId,
-        laboratoryOrgId: scope.laboratoryOrgId,
-        ...(protocolNumber ? { protocolNumber } : {}),
-        ...(requestedSupersedesId ? { supersedesId: requestedSupersedesId } : {}),
+        let protocolNumber: string | undefined;
+        if (dto.purpose === 'PROTOCOL') {
+          if (!sample.sampleCode) {
+            throw new UnprocessableEntityException({
+              code: 'LAB_SAMPLE_CODE_REQUIRED',
+              field: 'sampleId',
+            });
+          }
+          protocolNumber = `LAB-${sample.sampleCode}-V1`;
+        }
+
+        return {
+          dealId: sample.dealId,
+          metadata: {
+            labPurpose: dto.purpose,
+            sampleId: sample.id,
+            shipmentId: sample.shipmentId,
+            acceptanceId: sample.acceptanceId,
+            laboratoryOrgId: sample.laboratoryOrgId,
+            ...(protocolNumber ? { protocolNumber } : {}),
+            ...(requestedSupersedesId ? { supersedesId: requestedSupersedesId } : {}),
+          },
+        };
       },
-    }, user);
+    );
   }
 
   async requestForProvisioning(
@@ -184,75 +208,92 @@ export class LabEvidenceUploadService {
       throw new ForbiddenException({ code: 'LAB_PROVISIONING_ROLE_REQUIRED' });
     }
 
-    const scope = await this.rls.withTrustedContext(user, async (tx, context) => {
-      const deal = await tx.deal.findUnique({
-        where: { id: dto.dealId },
-        select: { id: true, tenantId: true },
+    const dealId = requiredIdentifier(dto.dealId, 'dealId');
+    const laboratoryOrgId = requiredIdentifier(dto.laboratoryOrgId, 'laboratoryOrgId');
+    const shipmentId = dto.shipmentId
+      ? requiredIdentifier(dto.shipmentId, 'shipmentId')
+      : undefined;
+    const acceptanceId = dto.acceptanceId
+      ? requiredIdentifier(dto.acceptanceId, 'acceptanceId')
+      : undefined;
+
+    if (dto.purpose === 'ADMISSION' && (!shipmentId || !acceptanceId)) {
+      throw new UnprocessableEntityException({
+        code: 'LAB_ADMISSION_SCOPE_REQUIRED',
+        fields: ['shipmentId', 'acceptanceId'],
       });
-      if (!deal || deal.tenantId !== context.tenantId) {
-        throw new NotFoundException({ code: 'LAB_PROVISIONING_DEAL_NOT_AVAILABLE' });
-      }
-      const laboratory = await tx.organization.findUnique({
-        where: { id: dto.laboratoryOrgId },
-        select: { id: true, tenantId: true, status: true, kycStatus: true },
+    }
+    if (dto.purpose !== 'ADMISSION' && (shipmentId !== undefined || acceptanceId !== undefined)) {
+      throw new UnprocessableEntityException({
+        code: 'LAB_PROVISIONING_SCOPE_NOT_ALLOWED',
+        fields: ['shipmentId', 'acceptanceId'],
       });
-      if (
-        !laboratory
-        || laboratory.tenantId !== context.tenantId
-        || laboratory.status !== 'VERIFIED'
-        || laboratory.kycStatus !== 'APPROVED'
-      ) {
-        throw new NotFoundException({ code: 'LABORATORY_ORGANIZATION_NOT_AVAILABLE' });
-      }
+    }
 
-      if (dto.purpose === 'ADMISSION') {
-        const shipmentId = dto.shipmentId;
-        const acceptanceId = dto.acceptanceId;
-        if (!shipmentId || !acceptanceId) {
-          throw new UnprocessableEntityException({
-            code: 'LAB_ADMISSION_SCOPE_REQUIRED',
-            fields: ['shipmentId', 'acceptanceId'],
-          });
-        }
-        const [shipment, acceptance] = await Promise.all([
-          tx.shipment.findFirst({
-            where: { id: shipmentId, dealId: dto.dealId },
-            select: { id: true },
-          }),
-          tx.acceptanceRecord.findFirst({
-            where: { id: acceptanceId, dealId: dto.dealId, shipmentId },
-            select: { id: true },
-          }),
-        ]);
-        if (!shipment || !acceptance) {
-          throw new NotFoundException({ code: 'LAB_ADMISSION_SCOPE_NOT_AVAILABLE' });
-        }
-      } else if (dto.shipmentId !== undefined || dto.acceptanceId !== undefined) {
-        throw new UnprocessableEntityException({
-          code: 'LAB_PROVISIONING_SCOPE_NOT_ALLOWED',
-          fields: ['shipmentId', 'acceptanceId'],
-        });
-      }
-
-      return { dealId: deal.id, laboratoryOrgId: laboratory.id };
-    });
-
-    return this.requestBoundUpload({
-      dealId: scope.dealId,
-      filename: dto.filename,
-      mimeType: dto.mimeType,
-      sizeBytes: dto.sizeBytes,
-      metadata: {
-        labPurpose: dto.purpose,
-        laboratoryOrgId: scope.laboratoryOrgId,
-        ...(dto.purpose === 'ADMISSION'
-          ? {
-              shipmentId: dto.shipmentId as string,
-              acceptanceId: dto.acceptanceId as string,
-            }
-          : {}),
+    return this.requestBoundUpload(
+      {
+        filename: dto.filename,
+        mimeType: dto.mimeType,
+        sizeBytes: dto.sizeBytes,
       },
-    }, user);
+      user,
+      async (tx, context) => {
+        const deal = await tx.deal.findUnique({
+          where: { id: dealId },
+          select: { id: true, tenantId: true },
+        });
+        if (!deal || deal.tenantId !== context.tenantId) {
+          throw new NotFoundException({ code: 'LAB_PROVISIONING_DEAL_NOT_AVAILABLE' });
+        }
+
+        const laboratory = await tx.organization.findUnique({
+          where: { id: laboratoryOrgId },
+          select: { id: true, tenantId: true, status: true, kycStatus: true },
+        });
+        if (
+          !laboratory
+          || laboratory.tenantId !== context.tenantId
+          || laboratory.status !== 'VERIFIED'
+          || laboratory.kycStatus !== 'APPROVED'
+        ) {
+          throw new NotFoundException({ code: 'LABORATORY_ORGANIZATION_NOT_AVAILABLE' });
+        }
+
+        if (dto.purpose === 'ADMISSION') {
+          const [shipment, acceptance] = await Promise.all([
+            tx.shipment.findFirst({
+              where: { id: shipmentId as string, dealId },
+              select: { id: true },
+            }),
+            tx.acceptanceRecord.findFirst({
+              where: {
+                id: acceptanceId as string,
+                dealId,
+                shipmentId: shipmentId as string,
+              },
+              select: { id: true },
+            }),
+          ]);
+          if (!shipment || !acceptance) {
+            throw new NotFoundException({ code: 'LAB_ADMISSION_SCOPE_NOT_AVAILABLE' });
+          }
+        }
+
+        return {
+          dealId,
+          metadata: {
+            labPurpose: dto.purpose,
+            laboratoryOrgId: laboratory.id,
+            ...(dto.purpose === 'ADMISSION'
+              ? {
+                  shipmentId: shipmentId as string,
+                  acceptanceId: acceptanceId as string,
+                }
+              : {}),
+          },
+        };
+      },
+    );
   }
 
   private async requestBoundUpload(
@@ -260,22 +301,21 @@ export class LabEvidenceUploadService {
       filename: string;
       mimeType: string;
       sizeBytes: number;
-      dealId: string;
-      metadata: Prisma.InputJsonObject;
     }>,
     user: RequestUser,
+    authorizeAndBind: BoundUploadAuthorizer,
   ) {
-    const dealId = requiredIdentifier(input.dealId, 'dealId');
-    const tenantId = requiredIdentifier(user.tenantId ?? '', 'tenantId');
     const filename = sanitizeFilename(input.filename);
     const mimeType = allowedMime(input.mimeType);
     const sizeBytes = allowedSize(input.sizeBytes, this.maxBytes);
-    const metadata = normalizeMetadata(input.metadata);
     const fileId = `file_${randomUUID()}`;
-    const objectKey = `tenant/${tenantId}/deal/${dealId}/${fileId}/${filename}`;
-    const presigned = await this.adapter.getPresignedUploadUrl(objectKey, mimeType, this.uploadTtlSeconds);
 
-    await this.rls.withTrustedContext(user, async (tx, context) => {
+    const persisted = await this.rls.withTrustedContext(user, async (tx, context) => {
+      const binding = await authorizeAndBind(tx, context);
+      const dealId = requiredIdentifier(binding.dealId, 'dealId');
+      const metadata = normalizeMetadata(binding.metadata);
+      const objectKey = `tenant/${context.tenantId}/deal/${dealId}/${fileId}/${filename}`;
+
       const deal = await tx.deal.findUnique({
         where: { id: dealId },
         select: { id: true, tenantId: true },
@@ -283,6 +323,7 @@ export class LabEvidenceUploadService {
       if (!deal || deal.tenantId !== context.tenantId) {
         throw new NotFoundException({ code: 'LAB_EVIDENCE_DEAL_NOT_AVAILABLE' });
       }
+
       await tx.dealDocument.create({
         data: {
           id: fileId,
@@ -300,11 +341,19 @@ export class LabEvidenceUploadService {
           isImmutable: false,
         },
       });
+
+      return { objectKey };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    const presigned = await this.adapter.getPresignedUploadUrl(
+      persisted.objectKey,
+      mimeType,
+      this.uploadTtlSeconds,
+    );
 
     return {
       fileId,
-      objectKey,
+      objectKey: persisted.objectKey,
       uploadUrl: presigned.url,
       expiresAt: presigned.expiresAt,
       requiredHeaders: presigned.requiredHeaders,
@@ -315,7 +364,10 @@ export class LabEvidenceUploadService {
 function normalizeMetadata(value: Prisma.InputJsonObject): Prisma.InputJsonObject {
   const serialized = JSON.stringify(value);
   if (!serialized || Buffer.byteLength(serialized, 'utf8') > MAX_METADATA_BYTES) {
-    throw new BadRequestException({ code: 'INVALID_EVIDENCE_METADATA_SIZE', maxBytes: MAX_METADATA_BYTES });
+    throw new BadRequestException({
+      code: 'INVALID_EVIDENCE_METADATA_SIZE',
+      maxBytes: MAX_METADATA_BYTES,
+    });
   }
   const normalized = JSON.parse(serialized) as Prisma.InputJsonObject;
   if (Object.keys(normalized).length === 0) {
