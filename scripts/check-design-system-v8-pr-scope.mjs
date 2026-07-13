@@ -29,6 +29,7 @@ const exact = new Set([
   'apps/web/components/platform-v7/RoleIntentDashboard.module.css',
   'apps/web/components/v7r/AppShellV4.tsx',
   'apps/web/components/v7r/AppShellV4.module.css',
+  'apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx',
   'apps/web/tests/unit/designSystemV8DocumentsRoute.test.ts',
   'apps/web/tests/unit/designSystemV8FieldRoles.test.ts',
   'apps/web/tests/unit/designSystemV8Foundation.test.ts',
