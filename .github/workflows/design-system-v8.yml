@@ -67,4 +67,14 @@ jobs:
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
       - name: Run v8 role regression tests
-        run: pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8FieldRoles.test.ts tests/unit/designSystemV8MoneyRoles.test.ts
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web exec vitest run tests/unit/designSystemV8FieldRoles.test.ts tests/unit/designSystemV8MoneyRoles.test.ts 2>&1 | tee design-system-v8-tests.log
+      - name: Upload v8 regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-system-v8-tests-${{ github.sha }}
+          path: design-system-v8-tests.log
+          if-no-files-found: error
+          retention-days: 7
