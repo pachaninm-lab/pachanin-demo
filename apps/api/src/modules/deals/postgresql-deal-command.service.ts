@@ -208,9 +208,10 @@ export class PostgresqlDealCommandService extends DealCommandService {
 
           const expectedProtocolNumber = `LAB-${sample.sampleCode}-V1`;
           const evidenceCheck = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
-            SELECT public.app_labs_protocol_evidence_valid(
-              ${signedEvidenceRef}, ${sample.tenantId}, ${sample.dealId},
-              ${sample.id}, ${sample.shipmentId}, ${expectedProtocolNumber}
+            SELECT public.app_labs_evidence_purpose_valid(
+              ${signedEvidenceRef}, ${sample.tenantId}, ${sample.dealId}, 'PROTOCOL',
+              ${sample.id}, ${sample.shipmentId}, ${sample.acceptanceId},
+              ${sample.labId}, ${expectedProtocolNumber}
             ) AS valid
           `);
           if (evidenceCheck[0]?.valid !== true) {
@@ -221,15 +222,8 @@ export class PostgresqlDealCommandService extends DealCommandService {
           }
 
           const signatory = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
-            SELECT EXISTS (
-              SELECT 1 FROM labs.authorized_actors actor
-              WHERE actor.tenant_id = ${sample.tenantId}
-                AND actor.laboratory_org_id = ${sample.labId}
-                AND actor.user_id = ${user.id}
-                AND actor.actor_type = 'SIGNATORY'
-                AND actor.status = 'ACTIVE'
-                AND actor.valid_from <= now()
-                AND (actor.valid_until IS NULL OR actor.valid_until > now())
+            SELECT public.app_labs_actor_valid(
+              ${sample.tenantId}, ${sample.labId}, ${user.id}, 'SIGNATORY', now()
             ) AS valid
           `);
           if (signatory[0]?.valid !== true) {
@@ -241,7 +235,6 @@ export class PostgresqlDealCommandService extends DealCommandService {
             data: {
               status: 'FINALIZED',
               protocol: expectedProtocolNumber,
-              finalizedAt: new Date(),
               certificateDocId: signedEvidenceRef,
             },
           });
