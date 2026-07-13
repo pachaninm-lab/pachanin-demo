@@ -499,7 +499,7 @@ SELECT set_config('app.current_command_id', ${dto.commandId}, true)
       if (!document || document.dealId !== deal.id || document.type !== 'CONTRACT') {
         invalid('documentId', 'Загруженный договор этой сделки не найден.');
       }
-      if (!document.hash || !document.s3Key) invalid('documentId', 'Договор не зафиксирован в хранилище или не имеет content hash.');
+      if (!document.hash || !document.s3Key) invalid('documentId', 'Договор не зафиксирован или не имеет content hash.');
       if (actionId === 'buyer_sign_contract' && document.status !== 'SIGNING') {
         invalid('documentId', 'Покупатель может подписать только договор, уже подписанный продавцом.');
       }
@@ -536,7 +536,7 @@ AND (admission.valid_until IS NULL OR admission.valid_until > now())
 
       const conflicts = await tx.shipment.findMany({
         where: {
-dealId: { not: deal.id },
+          dealId: { not: deal.id },
 OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
         },
         select: { id: true, status: true },
@@ -554,40 +554,27 @@ OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
       const occurredAt = requiredIso(payload, 'occurredAt');
       const basis = requiredString(payload, 'basis');
       const evidenceRef = requiredString(payload, 'evidenceRef');
-      const unit = requiredString(payload, 'unit').toUpperCase();
-      if (unit !== 'TON') invalid('unit', 'Для погрузки допустима единица TON.');
       await this.requireShipment(tx, shipmentId, deal.id);
       await this.requireEvidence(tx, evidenceRef, deal.id, shipmentId);
-      return { shipmentId, actualWeightTons, occurredAt: occurredAt.toISOString(), actorId: user.id, basis, evidenceRef, unit };
+      return { shipmentId, actualWeightTons, occurredAt: occurredAt.toISOString(), basis, evidenceRef };
     }
 
-    if (actionId === 'start_transit') {
+    if (actionId === 'start_transit' || actionId === 'confirm_arrival') {
       const shipmentId = requiredString(payload, 'shipmentId');
       const occurredAt = requiredIso(payload, 'occurredAt');
-      const basis = requiredString(payload, 'basis');
-      const evidenceRef = requiredString(payload, 'evidenceRef');
-      await this.requireShipment(tx, shipmentId, deal.id);
-      await this.requireEvidence(tx, evidenceRef, deal.id, shipmentId);
-      return { shipmentId, occurredAt: occurredAt.toISOString(), basis, evidenceRef };
-    }
-
-    if (actionId === 'confirm_arrival') {
-      const shipmentId = requiredString(payload, 'shipmentId');
-      const occurredAt = requiredIso(payload, 'occurredAt');
-      const confirmationMethod = requiredString(payload, 'confirmationMethod');
       const evidenceRef = requiredString(payload, 'evidenceRef');
       const lat = optionalCoordinate(payload, 'lat', -90, 90);
       const lng = optionalCoordinate(payload, 'lng', -180, 180);
-      if ((lat === undefined) !== (lng === undefined)) invalid('lat', 'Координаты передаются только полной парой lat/lng.');
+      if ((lat === undefined) !== (lng === undefined)) invalid('lat', 'Координаты должны передаваться парой.');
       await this.requireShipment(tx, shipmentId, deal.id);
       await this.requireEvidence(tx, evidenceRef, deal.id, shipmentId);
-      return { shipmentId, occurredAt: occurredAt.toISOString(), confirmationMethod, evidenceRef, ...(lat === undefined ? {} : { lat, lng }) };
+      return { shipmentId, occurredAt: occurredAt.toISOString(), evidenceRef, ...(lat !== undefined ? { lat, lng } : {}) };
     }
 
     if (actionId === 'confirm_weight') {
       const shipmentId = requiredString(payload, 'shipmentId');
       const grossTons = requiredDecimal(payload, 'grossTons');
-      const tareTons = requiredDecimal(payload, 'tareTons', true);
+      const tareTons = requiredDecimal(payload, 'tareTons');
       const netTons = requiredDecimal(payload, 'netTons');
       const weighingSource = requiredString(payload, 'weighingSource');
       const occurredAt = requiredIso(payload, 'occurredAt');
@@ -596,69 +583,80 @@ OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
       const gross = decimalToMicro(grossTons, 'grossTons');
       const tare = decimalToMicro(tareTons, 'tareTons');
       const net = decimalToMicro(netTons, 'netTons');
-      if (gross - tare !== net) invalid('netTons', `Нетто должно равняться брутто минус тара: ${microToDecimal(gross - tare)}.`);
+      if (gross - tare !== net) invalid('netTons', `Нетто должно равнятся брутто минус тара: ${microToDecimal(gross - tare)}.`);
       await this.requireShipment(tx, shipmentId, deal.id);
       await this.requireEvidence(tx, evidenceRef, deal.id, shipmentId);
       return { shipmentId, grossTons, tareTons, netTons, weighingSource, operatorUserId: user.id, occurredAt: occurredAt.toISOString(), evidenceRef, ...(equipmentId ? { equipmentId } : {}) };
     }
 
     if (actionId === 'confirm_inspection') {
-      const documentId = requiredString(payload, 'documentId');
-      const evidenceRef = requiredString(payload, 'evidenceRef');
+      const shipmentId = requiredString(payload, 'shipmentId');
+      const inspectionResult = requiredString(payload, 'inspectionResult');
       const inspectedAt = requiredIso(payload, 'inspectedAt');
-      const document = await tx.dealDocument.findUnique({ where: { id: documentId } });
-      if (!document || document.dealId !== deal.id || document.type !== 'INSPECTION_REPORT') {
-        invalid('documentId', 'Заключение независимого осмотра не найдено в сделке.');
-      }
-      if (!['VALIDATED', 'SIGNED'].includes(document.status) || !document.hash || !document.s3Key) {
-        invalid('documentId', 'Заключение должно быть загружено, иметь content hash и пройти проверку.');
-      }
-      await this.requireEvidence(tx, evidenceRef, deal.id);
-      return { documentId, evidenceRef, inspectedAt: inspectedAt.toISOString() };
+      const evidenceRef = requiredString(payload, 'evidenceRef');
+      await this.requireShipment(tx, shipmentId, deal.id);
+      await this.requireEvidence(tx, evidenceRef, deal.id, shipmentId);
+      return { shipmentId, inspectionResult, inspectedAt: inspectedAt.toISOString(), evidenceRef };
     }
 
     if (actionId === 'finalize_lab') {
       const sampleId = requiredString(payload, 'sampleId');
-      const protocolNumber = requiredString(payload, 'protocolNumber');
-      const labId = requiredString(payload, 'labId');
-      const accreditationRef = requiredString(payload, 'accreditationRef');
-      const applicableStandard = requiredString(payload, 'applicableStandard');
-      const finalizedAt = requiredIso(payload, 'finalizedAt');
-      const signedEvidenceRef = requiredString(payload, 'signedEvidenceRef');
-      if (labId !== user.orgId) invalid('labId', 'Лаборатория должна совпадать с организацией подтверждённой сессии.');
-      const lab = await tx.organization.findUnique({ where: { id: labId } });
-      if (!lab || lab.tenantId !== deal.tenantId || lab.status !== 'VERIFIED' || lab.kycStatus !== 'APPROVED') {
-        invalid('labId', 'Лаборатория не имеет действующего допуска в tenant сделки.');
-      }
-      const sample = await tx.labSample.findUnique({ where: { id: sampleId } });
-      if (!sample || sample.dealId !== deal.id || sample.status !== 'PENDING') {
-        invalid('sampleId', 'Активная проба этой сделки не найдена или уже финализирована.');
-      }
-      await this.requireEvidence(tx, signedEvidenceRef, deal.id, sample.shipmentId ?? undefined);
-
-      const indicators = requiredArray(payload, 'indicators').map((item, index) => {
-        const indicator = record(item, `indicators[${index}]`);
-        const parameter = requiredString(indicator, 'parameter');
-        const value = requiredDecimal(indicator, 'value', true);
-        const unit = requiredString(indicator, 'unit');
-        const normMin = optionalString(indicator, 'normMin');
-        const normMax = optionalString(indicator, 'normMax');
-        if (!normMin && !normMax) invalid(`indicators[${index}]`, 'Укажи хотя бы одну применимую границу нормы.');
-        const valueMicro = decimalToMicro(value, `indicators[${index}].value`);
-        const minMicro = normMin ? decimalToMicro(requiredDecimal({ normMin }, 'normMin', true), 'normMin') : null;
-        const maxMicro = normMax ? decimalToMicro(requiredDecimal({ normMax }, 'normMax', true), 'normMax') : null;
-        const passed = (minMicro === null || valueMicro >= minMicro) && (maxMicro === null || valueMicro <= maxMicro);
-        return {
-          parameter,
-          value,
-          unit,
-          normMin: minMicro === null ? null : microToDecimal(minMicro),
-          normMax: maxMicro === null ? null : microToDecimal(maxMicro),
-          result: passed ? 'PASSED' : 'FAILED',
-        };
+      const sample = await tx.labSample.findUnique({
+        where: { id: sampleId },
+        include: { tests: { orderBy: [{ recordedAt: 'asc' }, { id: 'asc' }] } },
       });
-      const calculatedResult = indicators.every((item) => item.result === 'PASSED') ? 'PASSED' : 'FAILED';
-      return { sampleId, protocolNumber, labId, accreditationRef, applicableStandard, finalizedAt: finalizedAt.toISOString(), signedEvidenceRef, declaredResult: calculatedResult, indicators };
+      if (!sample || sample.dealId !== deal.id) {
+        invalid('sampleId', 'Проба не найдена в этой сделке.');
+      }
+      if (sample.status !== 'FINALIZED') {
+        invalid('sampleId', 'Лабораторный протокол ещё не финализирован в подтверждённом контуре.');
+      }
+      if (sample.labId !== user.orgId || sample.assignedLabUserId !== user.id) {
+        invalid('sampleId', 'Финализированный протокол не принадлежит подтверждённой лабораторной сессии.');
+      }
+      if (
+        !sample.protocol || !sample.gost || !sample.accreditationId
+        || !sample.certificateDocId || !sample.protocolHash || !sample.finalizedAt
+      ) {
+        invalid('sampleId', 'Финализированная проба не содержит полного протокольного основания.');
+      }
+      if (!sample.acceptanceId) {
+        invalid('sampleId', 'Проба не связана с записью приёмки сделки.');
+      }
+      const acceptance = await tx.acceptanceRecord.findUnique({ where: { id: sample.acceptanceId } });
+      if (!acceptance || acceptance.dealId !== deal.id) {
+        invalid('sampleId', 'Связанная запись приёмки не найдена в этой сделке.');
+      }
+      await this.requireEvidence(
+        tx,
+        sample.certificateDocId,
+        deal.id,
+        sample.shipmentId ?? undefined,
+      );
+      if (sample.tests.length === 0) {
+        invalid('sampleId', 'В финализированной пробе отсутствуют сохранённые лабораторные факты.');
+      }
+      const invalidFact = sample.tests.find((test) => (
+        !test.methodId || !test.equipmentId || !test.actorUserId
+        || !test.commandId || !test.idempotencyKey
+      ));
+      if (invalidFact) {
+        invalid('sampleId', 'Лабораторные факты не имеют полного серверного основания.');
+      }
+      const declaredResult = sample.tests.every((test) => test.passed) ? 'PASSED' : 'FAILED';
+      return {
+        sampleId,
+        acceptanceId: sample.acceptanceId,
+        protocolNumber: sample.protocol,
+        labId: sample.labId,
+        accreditationId: sample.accreditationId,
+        applicableStandard: sample.gost,
+        finalizedAt: sample.finalizedAt.toISOString(),
+        signedEvidenceRef: sample.certificateDocId,
+        protocolHash: sample.protocolHash,
+        declaredResult,
+        effectiveTestIds: sample.tests.map((test) => test.id),
+      };
     }
 
     if (actionId === 'accept_delivery') {
@@ -666,68 +664,53 @@ OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
       const acceptedAt = requiredIso(payload, 'acceptedAt');
       const evidenceRef = requiredString(payload, 'evidenceRef');
       const acceptance = await tx.acceptanceRecord.findUnique({ where: { id: acceptanceId } });
-      if (!acceptance || acceptance.dealId !== deal.id || acceptance.qualityStatus !== 'PASSED') {
-        invalid('acceptanceId', 'Приёмка не найдена или лабораторное качество не подтверждено.');
-      }
+      if (!acceptance || acceptance.dealId !== deal.id) invalid('acceptanceId', 'Запись приёмки сделки не найдена.');
       await this.requireEvidence(tx, evidenceRef, deal.id, acceptance.shipmentId ?? undefined);
       return { acceptanceId, acceptedAt: acceptedAt.toISOString(), evidenceRef };
     }
 
     if (actionId === 'complete_documents') {
-      const documents = await tx.dealDocument.findMany({ where: { dealId: deal.id } });
-      for (const type of REQUIRED_RELEASE_DOCUMENTS) {
-        const document = documents.find((item) => item.type === type && item.status === 'SIGNED');
-        if (!document) invalid('documents', `Отсутствует подписанный документ типа ${type}.`);
-        if (!document.hash || !document.s3Key || !document.isImmutable || !document.signedAt || !document.signatories) {
-          invalid('documents', `Документ ${type} не имеет полного hash/storage/signature основания.`);
-        }
-        if (document.bankRequired && document.bankAcceptance !== 'ACCEPTED') {
-          invalid('documents', `Документ ${type} ещё не принят банковским контуром.`);
-        }
-      }
-      return { verifiedDocumentTypes: [...REQUIRED_RELEASE_DOCUMENTS] };
+      const documents = await tx.dealDocument.findMany({ where: { dealId: deal.id, type: { in: [...REQUIRED_RELEASE_DOCUMENTS] } } });
+      const missing = REQUIRED_RELEASE_DOCUMENTS.filter((type) => !documents.some((item) => item.type === type && ['SIGNED', 'VERIFIED'].includes(item.status)));
+      if (missing.length > 0) invalid('documents', `Не готовы обязательные документы: ${missing.join(', ')}`);
+      return { documentIds: documents.map((item) => item.id) };
     }
 
-    return { ...payload };
+    if (actionId === 'request_release') {
+      const expectedAmountKopecks = BigInt(deal.id ? (await tx.deal.findUniqueOrThrow({ where: { id: deal.id } })).totalKopecks ?? 0 : 0);
+      const amountKopecks = BigInt(requiredString(payload, 'amountKopecks'));
+      if (amountKopecks !== expectedAmountKopecks) invalid('amountKopecks', 'Запрошенная сумма не совпадает с суммой сделки.');
+      return { amountKopecks: amountKopecks.toString() };
+    }
+
+    if (actionId === 'confirm_reserve' || actionId === 'confirm_release') {
+      const bankRef = requiredBankReference(payload);
+      return { ...payload, bankRef };
+    }
+
+    return payload;
   }
 
   private async applySideEffects(
     tx: Prisma.TransactionClient,
     definition: DealActionDefinition,
-    deal: { id: string; totalKopecks: bigint | number | null; sellerOrgId: string; buyerOrgId: string },
+    deal: { id: string; sellerOrgId: string; buyerOrgId: string; totalKopecks: bigint | null },
     payload: JsonRecord,
     user: RequestUser,
-  ): Promise<void> {
+  ) {
     const amountKopecks = BigInt(deal.totalKopecks ?? 0);
 
     switch (definition.id) {
-      case 'seller_sign_contract':
-      case 'buyer_sign_contract': {
-        const documentId = String(payload.documentId);
-        const signedAt = new Date(String(payload.signedAt));
-        const contract = await tx.dealDocument.findUniqueOrThrow({ where: { id: documentId } });
-        const signatories = contract.signatories ? JSON.parse(contract.signatories) : [];
-        signatories.push({
-          userId: user.id,
-          role: user.role,
-          signedAt: signedAt.toISOString(),
-          evidenceRef: String(payload.signatureEvidenceRef),
-        });
-        await tx.dealDocument.update({
-          where: { id: documentId },
-          data: definition.id === 'seller_sign_contract'
-            ? { status: 'SIGNING', signatories: JSON.stringify(signatories) }
-            : { status: 'SIGNED', signedAt, signatories: JSON.stringify(signatories), isImmutable: true },
-        });
-        break;
-      }
-
-      case 'request_reserve':
+      case 'buyer_confirm_terms':
         await tx.payment.upsert({
           where: { id: `payment:${deal.id}` },
-          update: { status: 'RESERVE_REQUESTED', amountKopecks, callbackState: 'PENDING' },
-          create: { id: `payment:${deal.id}`, dealId: deal.id, status: 'RESERVE_REQUESTED', amountKopecks, callbackState: 'PENDING' },
+          update: { amountKopecks },
+          create: { id: `payment:${deal.id}`, dealId: deal.id, amountKopecks, amountRub: Number(amountKopecks) / 100 },
         });
+        break;
+
+      case 'request_reserve':
+        await tx.payment.update({ where: { id: `payment:${deal.id}` }, data: { status: 'RESERVE_REQUESTED', callbackState: 'PENDING' } });
         await tx.bankOperation.upsert({
           where: { id: `bank-reserve:${deal.id}` },
           update: { status: 'PENDING', requestPayload: payload as Prisma.InputJsonValue },
@@ -748,15 +731,8 @@ OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
 
       case 'confirm_reserve': {
         const bankRef = requiredBankReference(payload);
-        await tx.payment.upsert({
-          where: { id: `payment:${deal.id}` },
-          update: { status: 'RESERVED', amountKopecks, reservedAt: new Date(), callbackState: 'CONFIRMED', bankRef },
-          create: { id: `payment:${deal.id}`, dealId: deal.id, status: 'RESERVED', amountKopecks, reservedAt: new Date(), callbackState: 'CONFIRMED', bankRef },
-        });
-        await tx.bankOperation.update({
-          where: { id: `bank-reserve:${deal.id}` },
-          data: { status: 'DONE', confirmedAt: new Date(), bankRef, responsePayload: payload as Prisma.InputJsonValue },
-        });
+        await tx.payment.update({ where: { id: `payment:${deal.id}` }, data: { status: 'RESERVED', reservedAt: new Date(), callbackState: 'CONFIRMED', bankRef } });
+        await tx.bankOperation.update({ where: { id: `bank-reserve:${deal.id}` }, data: { status: 'DONE', confirmedAt: new Date(), bankRef, responsePayload: payload as Prisma.InputJsonValue } });
         await tx.ledgerEntry.upsert({
           where: { idempotencyKey: `ledger-reserve:${deal.id}` },
           update: {},
@@ -767,30 +743,46 @@ OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
             creditAccount: `escrow:${deal.id}`,
             amountKopecks,
             idempotencyKey: `ledger-reserve:${deal.id}`,
-            description: 'Подтверждённый резерв банка',
+            description: 'Подтверждённое резервирование банка',
             createdByUserId: user.id,
           },
         });
         break;
       }
 
+      case 'seller_sign_contract':
+      case 'buyer_sign_contract': {
+        const documentId = String(payload.documentId);
+        const document = await tx.dealDocument.findUniqueOrThrow({ where: { id: documentId } });
+        const signatories = JSON.parse(document.signatories ?? '[]') as Array<Record<string, unknown>>;
+        signatories.push({ userId: user.id, orgId: user.orgId, role: user.role, signedAt: payload.signedAt, evidenceRef: payload.signatureEvidenceRef });
+        await tx.dealDocument.update({
+          where: { id: documentId },
+          data: definition.id === 'seller_sign_contract'
+            ? { status: 'SIGNING', signatories: JSON.stringify(signatories) }
+            : { status: 'SIGNED', signedAt: new Date(String(payload.signedAt)), signatories: JSON.stringify(signatories), isImmutable: true },
+        });
+        break;
+      }
+
       case 'assign_logistics': {
-        const driver = await tx.user.findUniqueOrThrow({ where: { id: String(payload.driverUserId) } });
         const carrier = await tx.organization.findUniqueOrThrow({ where: { id: String(payload.carrierOrgId) } });
+        const shipmentId = `shipment:${deal.id}`;
         await tx.shipment.create({
-data: {
-  id: `shipment:${deal.id}`,
-  dealId: deal.id,
-  status: 'DRIVER_ASSIGNED',
-  carrierOrgId: carrier.id,
-  carrierName: carrier.name,
-  driverUserId: driver.id,
-  driverName: driver.fullName,
-  vehicleNumber: String(payload.vehicleId),
-  routeFrom: String(payload.routeFromFacilityId),
-  routeTo: String(payload.routeToFacilityId),
-  nextAction: 'Подтвердить погрузку',
-},
+          data: {
+            id: shipmentId,
+            dealId: deal.id,
+            status: 'DRIVER_ASSIGNED',
+            driverUserId: String(payload.driverUserId),
+            driverName: null,
+            vehicleNumber: String(payload.vehicleId),
+            vehicleType: null,
+            carrierOrgId: carrier.id,
+            carrierName: carrier.name,
+            routeFrom: String(payload.routeFromFacilityId),
+            routeTo: String(payload.routeToFacilityId),
+            nextAction: 'Подтвердить загрузку',
+          },
         });
         break;
       }
@@ -860,42 +852,20 @@ data: {
         break;
 
       case 'finalize_lab': {
-        const lab = await tx.organization.findUniqueOrThrow({ where: { id: String(payload.labId) } });
-        await tx.labSample.update({
-          where: { id: String(payload.sampleId) },
-          data: {
-            status: 'DONE',
-            protocol: String(payload.protocolNumber),
-            gost: String(payload.applicableStandard),
-            finalizedAt: new Date(String(payload.finalizedAt)),
-            labId: lab.id,
-            labName: lab.name,
-            certificateDocId: String(payload.signedEvidenceRef),
-          },
-        });
-        await tx.labTest.deleteMany({ where: { sampleId: String(payload.sampleId) } });
-        const indicators = payload.indicators as Array<{
-          parameter: string;
-          value: string;
-          unit: string;
-          normMin: string | null;
-          normMax: string | null;
-          result: string;
-        }>;
-        await tx.labTest.createMany({
-          data: indicators.map((indicator) => ({
-            sampleId: String(payload.sampleId),
-            parameter: indicator.parameter,
-            value: Number(indicator.value),
-            unit: indicator.unit,
-            normMin: indicator.normMin === null ? null : Number(indicator.normMin),
-            normMax: indicator.normMax === null ? null : Number(indicator.normMax),
-            passed: indicator.result === 'PASSED',
-          })),
-        });
+        const sampleId = String(payload.sampleId);
+        const sample = await tx.labSample.findUniqueOrThrow({ where: { id: sampleId } });
+        if (
+          sample.dealId !== deal.id || sample.status !== 'FINALIZED'
+          || sample.protocolHash !== String(payload.protocolHash)
+        ) {
+          throw new ConflictException({ code: 'LAB_PROTOCOL_AUTHORITY_CHANGED' });
+        }
         await tx.acceptanceRecord.update({
-          where: { id: `acceptance:${deal.id}` },
-          data: { qualityStatus: String(payload.declaredResult), gost: String(payload.applicableStandard) },
+          where: { id: String(payload.acceptanceId) },
+          data: {
+            qualityStatus: String(payload.declaredResult),
+            gost: String(payload.applicableStandard),
+          },
         });
         break;
       }
