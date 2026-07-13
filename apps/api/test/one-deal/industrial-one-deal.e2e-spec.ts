@@ -165,9 +165,17 @@ async function submitCallback(
 function payload(fixture: DealFixture, actionId: DealActionId): Prisma.InputJsonObject {
   switch (actionId) {
     case 'seller_sign_contract':
-      return { documentId: CONTRACT_ID, signedAt: '2026-07-12T09:00:00.000Z', signatureEvidenceRef: evidence('seller-signature') };
+      return {
+        documentId: CONTRACT_ID,
+        signedAt: '2026-07-12T09:00:00.000Z',
+        signatureEvidenceRef: evidence('seller-signature'),
+      };
     case 'buyer_sign_contract':
-      return { documentId: CONTRACT_ID, signedAt: '2026-07-12T09:05:00.000Z', signatureEvidenceRef: evidence('buyer-signature') };
+      return {
+        documentId: CONTRACT_ID,
+        signedAt: '2026-07-12T09:05:00.000Z',
+        signatureEvidenceRef: evidence('buyer-signature'),
+      };
     case 'assign_logistics':
       return {
         carrierOrgId: 'org-canonical-logistics',
@@ -213,11 +221,19 @@ function payload(fixture: DealFixture, actionId: DealActionId): Prisma.InputJson
         equipmentId: `scale:${CANONICAL_TEST_DEAL_ID}`,
       };
     case 'confirm_inspection':
-      return { documentId: INSPECTION_ID, evidenceRef: evidence('inspection'), inspectedAt: '2026-07-12T14:00:00.000Z' };
+      return {
+        documentId: INSPECTION_ID,
+        evidenceRef: evidence('inspection'),
+        inspectedAt: '2026-07-12T14:00:00.000Z',
+      };
     case 'finalize_lab':
       return { sampleId: fixture.sampleId, signedEvidenceRef: fixture.evidence.lab };
     case 'accept_delivery':
-      return { acceptanceId: ACCEPTANCE_ID, acceptedAt: '2026-07-12T15:30:00.000Z', evidenceRef: evidence('acceptance') };
+      return {
+        acceptanceId: ACCEPTANCE_ID,
+        acceptedAt: '2026-07-12T15:30:00.000Z',
+        evidenceRef: evidence('acceptance'),
+      };
     default:
       return {};
   }
@@ -293,20 +309,32 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
       expectedVersion: String(workspace.deal.version),
       payload: payload(fixture, actionId),
     };
-    const receipt = await instance.gateway.executeUser(CANONICAL_TEST_DEAL_ID, actionId, dto, user) as Record<string, unknown>;
+    const receipt = await instance.gateway.executeUser(
+      CANONICAL_TEST_DEAL_ID,
+      actionId,
+      dto,
+      user,
+    ) as Record<string, unknown>;
     expect(receipt).toMatchObject({ duplicate: false, actionId, commandId: dto.commandId });
     issued.push({ actionId, role, dto, receipt });
     return receipt;
   }
 
   it('executes one canonical factual Deal through PostgreSQL authority, restart and RLS denial', async () => {
-    const roleViews = await Promise.all([...users.keys()].map((role) => instance.gateway.workspace(CANONICAL_TEST_DEAL_ID, actor(role))));
+    const roleViews = await Promise.all(
+      [...users.keys()].map((role) => instance.gateway.workspace(CANONICAL_TEST_DEAL_ID, actor(role))),
+    );
     expect(roleViews.every((view) => view.deal.id === CANONICAL_TEST_DEAL_ID)).toBe(true);
     expect(roleViews.every((view) => view.deal.status === 'DRAFT')).toBe(true);
     await auth.verifyWithFreshInstance();
 
-    const wrongTenant = { ...actor(Role.BUYER), tenantId: 'tenant-other', sessionId: 'wrong-tenant' };
-    await expect(instance.gateway.workspace(CANONICAL_TEST_DEAL_ID, wrongTenant)).rejects.toBeInstanceOf(ForbiddenException);
+    const wrongTenant = {
+      ...actor(Role.BUYER),
+      tenantId: 'tenant-other',
+      sessionId: 'wrong-tenant',
+    };
+    await expect(instance.gateway.workspace(CANONICAL_TEST_DEAL_ID, wrongTenant))
+      .rejects.toBeInstanceOf(ForbiddenException);
 
     const reserve = callbackFixture('RESERVE');
     const release = callbackFixture('RELEASE');
@@ -321,8 +349,10 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
       'request_reserve',
     ] as const) await execute(actionId);
 
-    await expect(submitCallback(settlement(instance), reserve, true)).resolves.toMatchObject({ status: 'RESERVED', duplicate: false });
-    await expect(submitCallback(settlement(instance), reserve)).resolves.toMatchObject({ status: 'RESERVED', duplicate: true });
+    await expect(submitCallback(settlement(instance), reserve, true))
+      .resolves.toMatchObject({ status: 'RESERVED', duplicate: false });
+    await expect(submitCallback(settlement(instance), reserve))
+      .resolves.toMatchObject({ status: 'RESERVED', duplicate: true });
 
     for (const actionId of [
       'assign_logistics',
@@ -339,8 +369,10 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     await execute('complete_documents');
     await execute('request_release');
 
-    await expect(submitCallback(settlement(instance), release, true)).resolves.toMatchObject({ status: 'RELEASED', duplicate: false });
-    await expect(submitCallback(settlement(instance), release)).resolves.toMatchObject({ status: 'RELEASED', duplicate: true });
+    await expect(submitCallback(settlement(instance), release, true))
+      .resolves.toMatchObject({ status: 'RELEASED', duplicate: false });
+    await expect(submitCallback(settlement(instance), release))
+      .resolves.toMatchObject({ status: 'RELEASED', duplicate: true });
     await execute('close_deal');
 
     const operator = actor(Role.SUPPORT_MANAGER);
@@ -348,13 +380,24 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
       const [deal, participants, events, audits, outbox, ledger, operations, sample, protocols] = await Promise.all([
         tx.deal.findUniqueOrThrow({ where: { id: CANONICAL_TEST_DEAL_ID } }),
         tx.dealParticipant.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
-        tx.dealEvent.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { createdAt: 'asc' } }),
+        tx.dealEvent.findMany({
+          where: { dealId: CANONICAL_TEST_DEAL_ID },
+          orderBy: { createdAt: 'asc' },
+        }),
         tx.auditEvent.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
         tx.outboxEntry.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
-        tx.ledgerEntry.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID }, orderBy: { createdAt: 'asc' } }),
+        tx.ledgerEntry.findMany({
+          where: { dealId: CANONICAL_TEST_DEAL_ID },
+          orderBy: { createdAt: 'asc' },
+        }),
         tx.bankOperation.findMany({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
-        tx.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId }, include: { tests: true } }),
-        tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT id FROM labs.protocols WHERE sample_id = ${fixture.sampleId}`),
+        tx.labSample.findUniqueOrThrow({
+          where: { id: fixture.sampleId },
+          include: { tests: true },
+        }),
+        tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+          SELECT id FROM labs.protocols WHERE sample_id = ${fixture.sampleId}
+        `),
       ]);
       return { deal, participants, events, audits, outbox, ledger, operations, sample, protocols };
     });
@@ -370,7 +413,8 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
     expect(facts.sample.tests).toHaveLength(2);
     expect(facts.protocols).toHaveLength(1);
     expect(facts.audits.length).toBeGreaterThanOrEqual(DEAL_ACTIONS.length);
-    expect(facts.outbox.filter((entry) => entry.type === 'deal.command.receipt')).toHaveLength(DEAL_ACTIONS.length);
+    expect(facts.outbox.filter((entry) => entry.type === 'deal.command.receipt'))
+      .toHaveLength(DEAL_ACTIONS.length);
 
     const outsider: RequestUser = {
       ...actor(Role.LAB),
@@ -390,18 +434,28 @@ describe('persistent-auth-backed industrial one-deal exploitation and recovery g
           actor(command.role),
         )).resolves.toMatchObject({ duplicate: true, commandId: command.dto.commandId });
       }
-      await expect(submitCallback(settlement(restarted), reserve)).resolves.toMatchObject({ duplicate: true });
-      await expect(submitCallback(settlement(restarted), release)).resolves.toMatchObject({ duplicate: true });
+      await expect(submitCallback(settlement(restarted), reserve))
+        .resolves.toMatchObject({ duplicate: true });
+      await expect(submitCallback(settlement(restarted), release))
+        .resolves.toMatchObject({ duplicate: true });
     } finally {
       await destroyInstance(restarted);
     }
 
-    const before = await instance.prisma.deal.findUniqueOrThrow({ where: { id: CANONICAL_TEST_DEAL_ID } });
+    const before = await instance.rls.withTrustedContext(operator, (tx) =>
+      tx.deal.findUniqueOrThrow({ where: { id: CANONICAL_TEST_DEAL_ID } }),
+    );
     await expect(instance.rls.withTrustedContext(operator, async (tx) => {
-      await tx.deal.update({ where: { id: CANONICAL_TEST_DEAL_ID }, data: { nextAction: 'rollback-probe' } });
+      await tx.deal.update({
+        where: { id: CANONICAL_TEST_DEAL_ID },
+        data: { nextAction: 'rollback-probe' },
+      });
       throw new Error('forced-rollback');
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })).rejects.toThrow('forced-rollback');
-    expect(await instance.prisma.deal.findUniqueOrThrow({ where: { id: CANONICAL_TEST_DEAL_ID } })).toEqual(before);
+    const after = await instance.rls.withTrustedContext(operator, (tx) =>
+      tx.deal.findUniqueOrThrow({ where: { id: CANONICAL_TEST_DEAL_ID } }),
+    );
+    expect(after).toEqual(before);
 
     process.stdout.write(`${JSON.stringify({
       e2e: 'passed',
