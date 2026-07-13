@@ -1,199 +1,220 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { P7HiddenDetails } from '@/components/platform-v7/P7HiddenDetails';
-import { CockpitHero, PremiumCtaButton } from '@/components/platform-v7/premium';
-import { getDeal360Scenario } from '@/lib/platform-v7/deal360-source-of-truth';
-import { DocumentsTree } from '@/components/platform-v7/DocumentsTree';
-import { buildDemoDocumentTree } from '@/components/platform-v7/DocumentsTree.data';
+import { getLocale } from 'next-intl/server';
+import { InlineNotice } from '@pc/design-system-v8';
+import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';
+import {
+  OperationalCockpitSection,
+  OperationalDecisionCockpit,
+  operationalCockpitClasses,
+  type OperationalCockpitLabels,
+} from '@/components/transaction-ux/OperationalDecisionCockpit';
 
-export const metadata: Metadata = {
-  title: 'Документы',
-  description: 'Документный слой сделки: документы, подписи, споры и влияние на банковскую проверку выплаты.',
+type Locale = 'ru' | 'en' | 'zh';
+
+type DocumentsCopy = {
+  metadataTitle: string;
+  metadataDescription: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  status: string;
+  priorityTitle: string;
+  priorityDescription: string;
+  blocker: string;
+  owner: string;
+  impact: string;
+  result: string;
+  openDeals: string;
+  payoutReadiness: string;
+  factScopeLabel: string;
+  factScopeValue: string;
+  factScopeHint: string;
+  factAuthorityLabel: string;
+  factAuthorityValue: string;
+  factAuthorityHint: string;
+  factMoneyLabel: string;
+  factMoneyValue: string;
+  factMoneyHint: string;
+  factEvidenceLabel: string;
+  factEvidenceValue: string;
+  factEvidenceHint: string;
+  boundary: string;
+  noticeTitle: string;
+  noticeBody: string;
+  labels: OperationalCockpitLabels;
 };
 
-const scenario = getDeal360Scenario('DL-9106');
+const COPY: Record<Locale, DocumentsCopy> = {
+  ru: {
+    metadataTitle: 'Документы сделки',
+    metadataDescription: 'Серверно подтверждённый вход в документы, доказательства и готовность выплаты по конкретной Сделке.',
+    eyebrow: 'Документы · доказательства · готовность денег',
+    title: 'Документы существуют только внутри Сделки',
+    description: 'Выбери серверно доступную Сделку. В её рабочем месте видны обязательный комплект, источник каждого документа, ответственный, подпись, доказательства и влияние на деньги.',
+    status: 'доступ определяет сервер',
+    priorityTitle: 'Открой Сделку, которая требует документного действия',
+    priorityDescription: 'Глобальный архив не должен смешивать организации, роли и права. Документный статус читается и меняется только в контексте конкретной Сделки и подтверждённого участия.',
+    blocker: 'нет выбранной серверно доступной Сделки',
+    owner: 'назначенный участник документного шага',
+    impact: 'неполный обязательный комплект блокирует готовность выплаты',
+    result: 'проверяемый evidence pack в истории Сделки',
+    openDeals: 'Открыть реестр Сделок',
+    payoutReadiness: 'Проверка готовности выплаты',
+    factScopeLabel: 'Контекст',
+    factScopeValue: 'одна Сделка',
+    factScopeHint: 'никаких документов вне tenant и participant scope',
+    factAuthorityLabel: 'Источник статуса',
+    factAuthorityValue: 'сервер + внешний контур',
+    factAuthorityHint: 'клиентский экран не создаёт подтверждение ФГИС, ЭДО, ЭПД или КЭП',
+    factMoneyLabel: 'Граница денег',
+    factMoneyValue: 'подтверждает банк',
+    factMoneyHint: 'документ создаёт основание, но интерфейс не выпускает средства',
+    factEvidenceLabel: 'Доказательность',
+    factEvidenceValue: 'источник + подпись + время',
+    factEvidenceHint: 'факт должен быть воспроизводим в споре и аудите',
+    boundary: 'Внешние ФГИС, ЭДО, ГИС ЭПД, КЭП и банковые статусы считаются подтверждёнными только после реального ответа соответствующего контура. Платформа не подменяет их локальной отметкой.',
+    noticeTitle: 'Почему здесь нет общего файлового архива',
+    noticeBody: 'Рабочий документ — это часть исполнения Сделки, а не независимое вложение. Ниже показаны только Сделки, доступ к которым подтвердил сервер. Открой нужную Сделку и продолжи её документный шаг.',
+    labels: {
+      blocker: 'Блокер',
+      owner: 'Ответственный',
+      impact: 'Влияние',
+      result: 'Результат',
+      nextAction: 'Следующее действие',
+      prioritySection: 'Главная документная задача',
+      factsSection: 'Правила документного контура',
+    },
+  },
+  en: {
+    metadataTitle: 'Deal documents',
+    metadataDescription: 'Server-authorized access to documents, evidence and payout readiness for a specific Deal.',
+    eyebrow: 'Documents · evidence · money readiness',
+    title: 'Documents exist only inside a Deal',
+    description: 'Select a server-accessible Deal. Its workspace shows the mandatory set, source, responsible party, signature, evidence and monetary impact of each document.',
+    status: 'access is server-owned',
+    priorityTitle: 'Open the Deal that requires document work',
+    priorityDescription: 'A global archive must not mix organizations, roles or permissions. Document state is read and changed only within a specific Deal and confirmed participation.',
+    blocker: 'no server-accessible Deal has been selected',
+    owner: 'participant assigned to the document step',
+    impact: 'an incomplete mandatory set blocks payout readiness',
+    result: 'a verifiable evidence pack in Deal history',
+    openDeals: 'Open Deal registry',
+    payoutReadiness: 'Check payout readiness',
+    factScopeLabel: 'Context',
+    factScopeValue: 'one Deal',
+    factScopeHint: 'no documents outside tenant and participant scope',
+    factAuthorityLabel: 'Status authority',
+    factAuthorityValue: 'server + external system',
+    factAuthorityHint: 'the client cannot manufacture FGIS, EDI, e-transport or signature confirmation',
+    factMoneyLabel: 'Money boundary',
+    factMoneyValue: 'confirmed by the bank',
+    factMoneyHint: 'a document creates a basis; the interface cannot release funds',
+    factEvidenceLabel: 'Evidence',
+    factEvidenceValue: 'source + signature + time',
+    factEvidenceHint: 'every fact must be reproducible in a dispute and audit',
+    boundary: 'FGIS, EDI, state e-transport, qualified-signature and bank states are confirmed only by a real response from the corresponding external system. The platform does not replace them with a local flag.',
+    noticeTitle: 'Why there is no global file archive',
+    noticeBody: 'An operational document is part of Deal execution, not an independent attachment. Only server-authorized Deals are listed below. Open the required Deal and continue its document step.',
+    labels: {
+      blocker: 'Blocker',
+      owner: 'Owner',
+      impact: 'Impact',
+      result: 'Result',
+      nextAction: 'Next action',
+      prioritySection: 'Primary document task',
+      factsSection: 'Document workflow rules',
+    },
+  },
+  zh: {
+    metadataTitle: '交易文件',
+    metadataDescription: '进入特定交易的文件、证据和付款就绪状态，访问权限由服务器确认。',
+    eyebrow: '文件 · 证据 · 资金就绪',
+    title: '文件只能存在于具体交易中',
+    description: '请选择服务器确认可访问的交易。交易工作区会显示必备文件、来源、负责人、签署、证据及其对资金的影响。',
+    status: '访问权限由服务器决定',
+    priorityTitle: '打开需要处理文件的交易',
+    priorityDescription: '全局档案不能混合不同组织、角色和权限。文件状态只能在具体交易和已确认参与关系中读取或变更。',
+    blocker: '尚未选择服务器确认可访问的交易',
+    owner: '被分配到文件步骤的参与方',
+    impact: '必备文件不完整会阻止付款就绪',
+    result: '交易历史中的可验证证据包',
+    openDeals: '打开交易登记',
+    payoutReadiness: '检查付款就绪状态',
+    factScopeLabel: '上下文',
+    factScopeValue: '一笔交易',
+    factScopeHint: '不得访问租户和参与范围之外的文件',
+    factAuthorityLabel: '状态权威来源',
+    factAuthorityValue: '服务器 + 外部系统',
+    factAuthorityHint: '客户端不能伪造监管、电子单证、电子运输或签名确认',
+    factMoneyLabel: '资金边界',
+    factMoneyValue: '由银行确认',
+    factMoneyHint: '文件形成依据，但界面不能自行放款',
+    factEvidenceLabel: '证据要求',
+    factEvidenceValue: '来源 + 签名 + 时间',
+    factEvidenceHint: '每个事实都必须能在争议和审计中复现',
+    boundary: '监管、电子单证、国家电子运输、合格电子签名和银行状态，只有在相应外部系统真实返回后才视为已确认。平台不会用本地标记替代外部确认。',
+    noticeTitle: '为什么没有全局文件档案',
+    noticeBody: '工作文件属于交易执行过程，不是独立附件。下方只列出服务器确认可访问的交易。打开目标交易并继续其文件步骤。',
+    labels: {
+      blocker: '阻塞项',
+      owner: '负责人',
+      impact: '影响',
+      result: '结果',
+      nextAction: '下一步',
+      prioritySection: '主要文件任务',
+      factsSection: '文件流程规则',
+    },
+  },
+};
 
-const controlCards = [
-  { label: 'Сделка', value: scenario.dealId, href: `/platform-v7/deals/${scenario.dealId}/clean` },
-  { label: 'Лот', value: scenario.lotId, href: `/platform-v7/lots/${scenario.lotId}` },
-  { label: 'ЭТрН', value: 'ждёт подписи', href: `/platform-v7/deals/${scenario.dealId}/clean` },
-  { label: 'Выплата', value: 'остановлена', href: '/platform-v7/bank/release-safety' },
-] as const;
-
-const documentSummary = [
-  { label: 'Что сейчас', value: 'DL-9106 · неполный пакет', note: 'Документы показаны как условия выплаты, а не как архив файлов.' },
-  { label: 'Что блокирует', value: 'СДИЗ, ЭТрН, УПД, акт, качество', note: 'Без полного пакета банковская проверка выплаты продавцу не должна продолжаться.' },
-  { label: 'Источник', value: 'ФГИС · ЭДО · ГИС ЭПД · КЭП · лаборатория', note: 'Внутренняя карточка не подменяет внешний контур.' },
-  { label: 'Ответственный', value: 'продавец · логист · элеватор · подписант · оператор', note: 'У каждого документа должен быть владелец шага.' },
-  { label: 'Деньги', value: 'к выплате 0 ₽', note: 'Влияние документа на деньги видно в каждой строке.' },
-  { label: 'Следующий шаг', value: 'закрыть СДИЗ и транспортный пакет', note: 'Действие должно попасть в карточку сделки и журнал.' },
-] as const;
-
-const requiredDocuments = [
-  { title: 'СДИЗ', source: 'ФГИС «Зерно»', responsible: 'продавец + оператор', status: 'не оформлен', impact: 'останавливает финальную банковскую проверку выплаты' },
-  { title: 'ЭТрН', source: 'ЭДО-провайдер ЭТрН', responsible: 'логист + перевозчик', status: 'ждёт подписи', impact: 'останавливает закрытие рейса' },
-  { title: 'ГИС ЭПД', source: 'государственный контур ЭПД', responsible: 'логист + перевозчик', status: 'ожидает ЭТрН', impact: 'останавливает транспортное основание' },
-  { title: 'УПД', source: 'Контур.Диадок', responsible: 'продавец + покупатель', status: 'не запущен', impact: 'останавливает расчётное закрытие' },
-  { title: 'КЭП / МЧД', source: 'КриптоПро DSS', responsible: 'уполномоченный подписант', status: 'не подписано', impact: 'останавливает юридически значимое подписание' },
-  { title: 'Акт приёмки', source: 'элеватор / точка приёмки', responsible: 'элеватор', status: 'готовится', impact: 'подтверждает факт исполнения и вес' },
-  { title: 'Акт расхождения', source: 'элеватор + стороны сделки', responsible: 'элеватор + оператор', status: 'требуется', impact: 'создаёт удержание до согласования' },
-  { title: 'Протокол качества', source: 'ФГБУ ЦОК АПК / лаборатория', responsible: 'лаборатория', status: 'ожидается', impact: 'меняет расчётную базу и может открыть спор' },
-] as const;
-
-const history = [
-  { id: 'DL-9102', status: 'спор по весу', href: '/platform-v7/deals/DL-9102/clean' },
-  { id: 'DL-9106', status: 'неполный пакет', href: '/platform-v7/deals/DL-9106/clean' },
-] as const;
-
-function badgeTone(state: string, blocks = false) {
-  if (blocks || state.includes('не') || state.includes('ждёт') || state.includes('ожида') || state.includes('треб')) return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: '#B91C1C' };
-  if (state.includes('готов') || state.includes('подписан')) return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
-  return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
+function normalizeLocale(value: string): Locale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
 }
 
-export default function PlatformV7DocumentsPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = COPY[normalizeLocale(await getLocale())];
+  return { title: copy.metadataTitle, description: copy.metadataDescription };
+}
+
+export default async function PlatformV7DocumentsPage() {
+  const locale = normalizeLocale(await getLocale());
+  const copy = COPY[locale];
+
   return (
-    <main data-testid="platform-v7-documents-page" style={{ display: 'grid', gap: 14, width: '100%', maxWidth: 1120, minWidth: 0, margin: '0 auto', overflowX: 'clip' }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        [data-testid='platform-v7-documents-page'] *{min-width:0;overflow-wrap:anywhere}
-        @media(max-width:767px){
-          [data-testid='platform-v7-documents-page']{gap:10px!important;max-width:100%!important;overflow-x:hidden!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1){padding:16px!important;border-radius:24px!important;gap:10px!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) p{display:none!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) h1{font-size:clamp(28px,8vw,38px)!important;line-height:1.03!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) a{min-height:54px!important;border-radius:16px!important;justify-content:center!important;white-space:normal!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:first-child > div:last-child{display:grid!important;grid-template-columns:1fr!important;width:100%!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:first-child > div:last-child a:nth-of-type(2){display:none!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:nth-child(3){grid-template-columns:1fr 1fr!important;gap:8px!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:nth-child(3) a{padding:11px!important;border-radius:15px!important;min-height:auto!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:nth-child(3) a:nth-of-type(n+3){display:none!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(2){display:none!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3){padding:14px!important;border-radius:20px!important;gap:9px!important;max-width:100%!important;overflow:hidden!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article{padding:12px!important;border-radius:16px!important;gap:8px!important;overflow:hidden!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article h2{font-size:16px!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article > div:nth-child(2){grid-template-columns:1fr!important;gap:7px!important}
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(3) article > div:nth-child(2) > div:nth-child(-n+2){display:none!important}
-        }
-        @media(max-width:380px){
-          [data-testid='platform-v7-documents-page'] > section:nth-of-type(1) > div:nth-child(3){grid-template-columns:1fr!important}
-        }
-      ` }} />
-      <CockpitHero
-        eyebrow='Документы как условие выплаты'
-        title='Матрица документов сделки'
-        lead='Документы показаны не как архив файлов, а как условия сделки: кто должен закрыть документ, какой источник используется и блокирует ли документ выплату продавцу.'
-      >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8, minWidth: 0 }}>
-          <PremiumCtaButton href={`/platform-v7/deals/${scenario.dealId}/clean`} glyph='doc'>Открыть карточку сделки</PremiumCtaButton>
-          <PremiumCtaButton href='/platform-v7/bank/release-safety' variant='ghost'>Проверка выплаты</PremiumCtaButton>
-        </div>
-        <div style={cardsGrid}>
-          {controlCards.map((item) => (
-            <Link key={item.label} href={item.href} style={controlCard}>
-              <span style={micro}>{item.label}</span>
-              <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 15, overflowWrap: 'anywhere' }}>{item.value}</strong>
-            </Link>
-          ))}
-        </div>
-      </CockpitHero>
-
-      <section style={{ background: 'var(--p7-color-surface, #0E1A18)', border: '1px solid var(--p7-color-border, #24342F)', borderRadius: 20, padding: '1.25rem', minWidth: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '1rem', gap: 8, flexWrap: 'wrap' }}>
-          <h2 className="heading-4" style={{ margin: 0, color: 'var(--pc-text-primary)' }}>Архив документов</h2>
-          <span className="caption">Год → Месяц → Сделка</span>
-        </div>
-        <DocumentsTree data={buildDemoDocumentTree()} />
-      </section>
-
-      <section style={darkCard}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={{ ...micro, color: '#A7F3D0' }}>документный контроль</div>
-          <h2 style={{ margin: 0, color: '#fff', fontSize: 'clamp(24px,6vw,36px)', lineHeight: 1.08, letterSpacing: '-0.04em', fontWeight: 950 }}>Что должно быть понятно за 5 секунд</h2>
-          <p style={{ margin: 0, color: '#D1FAE5', fontSize: 14, lineHeight: 1.55 }}>Документ — это не вложение. Это источник, ответственный, статус и прямое влияние на деньги.</p>
-        </div>
-        <div style={cardsGrid}>
-          {documentSummary.map((item) => <SummaryCard key={item.label} item={item} />)}
-        </div>
-      </section>
-
-      <section style={card}>
-        <div style={micro}>DL-9106 · документы, источники и влияние на деньги</div>
-        <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
-          {requiredDocuments.map((doc) => {
-            const tone = badgeTone(doc.status, true);
-            return (
-              <article key={`${doc.title}-${doc.source}`} style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.16)', borderRadius: 16, padding: 13, display: 'grid', gap: 10, minWidth: 0, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <h2 style={h2}>{doc.title}</h2>
-                    <p style={muted}>{doc.source} · ответственный: {doc.responsible}</p>
-                  </div>
-                  <span style={{ ...pill, background: tone.bg, borderColor: tone.border, color: tone.color }}>{doc.status}</span>
-                </div>
-                <div style={rowGrid}>
-                  <Cell label='Источник' value={doc.source} />
-                  <Cell label='Ответственный' value={doc.responsible} />
-                  <Cell label='Статус' value={doc.status} danger />
-                  <Cell label='Влияние на деньги' value={doc.impact} danger />
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <P7HiddenDetails title='Именные контуры документов' meta='ФГИС, ЭДО, ЭПД, КЭП, лаборатория и назначение каждого контура'>
-        <section style={cardInner}>
-          <div style={micro}>Именные контуры документов</div>
-          <div style={cardsGrid}>
-            <ProviderCard title='ФГИС «Зерно»' text='СДИЗ партии зерна и статус прослеживаемости.' />
-            <ProviderCard title='ЭДО-провайдер ЭТрН' text='Электронная транспортная накладная и подписи по перевозке.' />
-            <ProviderCard title='ГИС ЭПД' text='Государственный контур электронных перевозочных документов.' />
-            <ProviderCard title='Контур.Диадок' text='Договор, УПД, акт, подписи сторон.' />
-            <ProviderCard title='КриптоПро DSS' text='КЭП, сертификат и полномочия подписанта.' />
-            <ProviderCard title='ФГБУ ЦОК АПК' text='Протокол качества и основание для приёмки.' />
-          </div>
-        </section>
-      </P7HiddenDetails>
-
-      <P7HiddenDetails title='Связанные сделки' meta='сделки, где документный пакет влияет на деньги или спор'>
-        <section style={cardInner}>
-          <div style={micro}>Связанные сделки</div>
-          <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
-            {history.map((item) => (
-              <Link key={item.id} href={item.href} style={historyRow}>
-                <strong style={{ color: 'var(--pc-text-primary, #0F1419)', overflowWrap: 'anywhere' }}>{item.id}</strong>
-                <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13, overflowWrap: 'anywhere' }}>{item.status}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      </P7HiddenDetails>
-    </main>
+    <OperationalDecisionCockpit
+      testId='platform-v7-documents-v8'
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+      description={copy.description}
+      statusLabel={copy.status}
+      statusTone='information'
+      labels={copy.labels}
+      priority={{
+        state: 'active',
+        title: copy.priorityTitle,
+        description: copy.priorityDescription,
+        blocker: copy.blocker,
+        owner: copy.owner,
+        impact: copy.impact,
+        result: copy.result,
+        primaryAction: <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/deals'>{copy.openDeals}</Link>,
+        secondaryAction: <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/bank/release-safety'>{copy.payoutReadiness}</Link>,
+      }}
+      facts={[
+        { label: copy.factScopeLabel, value: copy.factScopeValue, hint: copy.factScopeHint },
+        { label: copy.factAuthorityLabel, value: copy.factAuthorityValue, hint: copy.factAuthorityHint },
+        { label: copy.factMoneyLabel, value: copy.factMoneyValue, hint: copy.factMoneyHint },
+        { label: copy.factEvidenceLabel, value: copy.factEvidenceValue, hint: copy.factEvidenceHint },
+      ]}
+      boundary={copy.boundary}
+    >
+      <OperationalCockpitSection id='document-deals'>
+        <InlineNotice tone='information' title={copy.noticeTitle}>{copy.noticeBody}</InlineNotice>
+        <CanonicalDealsList />
+      </OperationalCockpitSection>
+    </OperationalDecisionCockpit>
   );
 }
-
-function SummaryCard({ item }: { item: typeof documentSummary[number] }) {
-  return <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 18, padding: 13, display: 'grid', gap: 7, minWidth: 0, overflowWrap: 'anywhere' }}><div style={{ ...micro, color: '#A7F3D0' }}>{item.label}</div><strong style={{ color: '#fff', fontSize: 14, lineHeight: 1.4, overflowWrap: 'anywhere' }}>{item.value}</strong><p style={{ margin: 0, color: '#D1FAE5', fontSize: 12, lineHeight: 1.45 }}>{item.note}</p></div>;
-}
-
-function Cell({ label, value, strong = false, danger = false }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
-  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: danger ? '#B91C1C' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 900, lineHeight: 1.25, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{value}</div></div>;
-}
-
-function ProviderCard({ title, text }: { title: string; text: string }) {
-  return <div style={controlCard}><strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 15, overflowWrap: 'anywhere' }}>{title}</strong><span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.35, overflowWrap: 'anywhere' }}>{text}</span><span style={{ ...pill, background: 'rgba(217,119,6,0.08)', borderColor: 'rgba(217,119,6,0.18)', color: '#B45309' }}>требует внешнего подтверждения</span></div>;
-}
-
-const darkCard = { background: '#064E3B', color: '#fff', borderRadius: 24, padding: 18, display: 'grid', gap: 13, boxShadow: '0 18px 44px rgba(6,78,59,0.16)', minWidth: 0, overflow: 'hidden' } as const;
-const card = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 18, display: 'grid', gap: 12, minWidth: 0, overflow: 'hidden' } as const;
-const cardInner = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 14, display: 'grid', gap: 12, minWidth: 0, overflow: 'hidden' } as const;
-const h2 = { margin: 0, color: 'var(--pc-text-primary, #0F1419)', fontSize: 18, lineHeight: 1.1, fontWeight: 950, overflowWrap: 'anywhere' } as const;
-const muted = { margin: '5px 0 0', color: 'var(--pc-text-muted, #64748B)', fontSize: 13, overflowWrap: 'anywhere' } as const;
-const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em', overflowWrap: 'anywhere' } as const;
-const cardsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10, minWidth: 0, maxWidth: '100%' } as const;
-const rowGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 8, minWidth: 0, maxWidth: '100%' } as const;
-const controlCard = { textDecoration: 'none', background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 14, display: 'grid', gap: 7, minWidth: 0, overflow: 'hidden' } as const;
-const cell = { background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 13, padding: 10, minWidth: 0, overflow: 'hidden' } as const;
-const pill = { display: 'inline-flex', width: 'fit-content', maxWidth: '100%', alignItems: 'center', padding: '5px 9px', borderRadius: 999, border: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, fontWeight: 900, overflowWrap: 'anywhere' } as const;
-const historyRow = { textDecoration: 'none', color: 'inherit', background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 12, display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', minWidth: 0 } as const;
