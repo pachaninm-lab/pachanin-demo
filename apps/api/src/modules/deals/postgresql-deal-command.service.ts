@@ -23,6 +23,7 @@ type LockedLabSample = {
   tenantId: string;
   status: string;
   labId: string | null;
+  sampleCode: string | null;
   version: bigint;
 };
 
@@ -57,32 +58,30 @@ function digest(value: unknown): string {
 }
 
 function isUniqueConstraintError(error: unknown): boolean {
-  return Boolean(
-    error &&
-      typeof error === 'object' &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'P2002',
-  );
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (error.code === 'P2002') return true;
+  if (error.code !== 'P2010') return false;
+  const meta = error.meta as Record<string, unknown> | undefined;
+  return meta?.code === '23505';
 }
 
 function requiredString(payload: JsonRecord, field: string): string {
   const value = typeof payload[field] === 'string' ? payload[field].trim() : '';
-  if (!value) {
+  if (!value || value.length > 240 || !/^[A-Za-z0-9:_.-]+$/.test(value)) {
     throw new UnprocessableEntityException({
       code: 'UNPROCESSABLE_ENTITY',
       field,
-      message: `Поле ${field} обязательно.`,
+      message: `Поле ${field} обязательно и должно содержать безопасный идентификатор.`,
     });
   }
   return value;
 }
 
 /**
- * PostgreSQL-authoritative specialization for the one canonical laboratory
- * transition. All other deal commands retain the shared industrial command
- * path. The client identifies only the persisted sample, protocol number and
- * signed evidence. PostgreSQL derives laboratory, accreditation, standards,
- * result and finalization time from normalized authority.
+ * PostgreSQL-authoritative specialization for the canonical laboratory
+ * finalization transition. The client identifies only the sample and verified
+ * signature evidence. Laboratory, accreditation, protocol number, standard,
+ * result and finalization time are derived server-side.
  */
 @Injectable()
 export class PostgresqlDealCommandService extends DealCommandService {
@@ -117,7 +116,17 @@ export class PostgresqlDealCommandService extends DealCommandService {
       });
     }
 
+    const clientPayload = (dto.payload ?? {}) as JsonRecord;
+    const sampleId = requiredString(clientPayload, 'sampleId');
+    const signedEvidenceRef = requiredString(clientPayload, 'signedEvidenceRef');
+    const requestFingerprint = digest({
+      actionId: 'finalize_lab',
+      dealId,
+      sampleId,
+      signedEvidenceRef,
+    });
     const receiptKey = `deal-command:${dealId}:${dto.idempotencyKey}`;
+
     try {
       return await this.postgresRls.withTrustedContext(
         user,
@@ -130,7 +139,9 @@ export class PostgresqlDealCommandService extends DealCommandService {
           const storedReceipt = await tx.outboxEntry.findUnique({
             where: { idempotencyKey: receiptKey },
           });
-          if (storedReceipt) return this.postgresResultFromReceipt(storedReceipt.payload);
+          if (storedReceipt) {
+            return this.postgresResultFromReceipt(storedReceipt.payload, requestFingerprint);
+          }
 
           const deal = await tx.deal.findUnique({ where: { id: dealId } });
           if (!deal) throw new NotFoundException(`Deal ${dealId} not found`);
@@ -167,15 +178,11 @@ export class PostgresqlDealCommandService extends DealCommandService {
             });
           }
 
-          const clientPayload = (dto.payload ?? {}) as JsonRecord;
-          const sampleId = requiredString(clientPayload, 'sampleId');
-          const protocolNumber = requiredString(clientPayload, 'protocolNumber');
-          const signedEvidenceRef = requiredString(clientPayload, 'signedEvidenceRef');
-
           const samples = await tx.$queryRaw<LockedLabSample[]>(Prisma.sql`
             SELECT
               sample."id", sample."dealId", sample."shipmentId", sample."acceptanceId",
-              sample."tenantId", sample."status", sample."labId", sample."version"
+              sample."tenantId", sample."status", sample."labId", sample."sampleCode",
+              sample."version"
             FROM public."lab_samples" sample
             WHERE sample."id" = ${sampleId}
             FOR UPDATE
@@ -191,19 +198,50 @@ export class PostgresqlDealCommandService extends DealCommandService {
           if (sample.status !== 'ANALYSIS_IN_PROGRESS') {
             throw new ConflictException({
               code: 'LAB_SAMPLE_NOT_READY',
-              message: 'Финализация разрешена только после завершённой цепочки хранения и записи лабораторных тестов.',
+              message: 'Финализация разрешена только после полной цепочки хранения и записи лабораторных тестов.',
               currentStatus: sample.status,
             });
           }
-          if (!sample.acceptanceId || !sample.shipmentId || !sample.labId) {
+          if (!sample.acceptanceId || !sample.shipmentId || !sample.labId || !sample.sampleCode) {
             throw new ConflictException({ code: 'LAB_SAMPLE_AUTHORITY_BASIS_INCOMPLETE' });
+          }
+
+          const expectedProtocolNumber = `LAB-${sample.sampleCode}-V1`;
+          const evidenceCheck = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
+            SELECT public.app_labs_protocol_evidence_valid(
+              ${signedEvidenceRef}, ${sample.tenantId}, ${sample.dealId},
+              ${sample.id}, ${sample.shipmentId}, ${expectedProtocolNumber}
+            ) AS valid
+          `);
+          if (evidenceCheck[0]?.valid !== true) {
+            throw new ConflictException({
+              code: 'LAB_PROTOCOL_EVIDENCE_NOT_PURPOSE_BOUND',
+              message: 'Подписанное evidence не связано с этой пробой, перевозкой и номером протокола.',
+            });
+          }
+
+          const signatory = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
+            SELECT EXISTS (
+              SELECT 1 FROM labs.authorized_actors actor
+              WHERE actor.tenant_id = ${sample.tenantId}
+                AND actor.laboratory_org_id = ${sample.labId}
+                AND actor.user_id = ${user.id}
+                AND actor.actor_type = 'SIGNATORY'
+                AND actor.status = 'ACTIVE'
+                AND actor.valid_from <= now()
+                AND (actor.valid_until IS NULL OR actor.valid_until > now())
+            ) AS valid
+          `);
+          if (signatory[0]?.valid !== true) {
+            throw new ForbiddenException({ code: 'LAB_SIGNATORY_AUTHORITY_REQUIRED' });
           }
 
           const finalizedSample = await tx.labSample.update({
             where: { id: sample.id },
             data: {
               status: 'FINALIZED',
-              protocol: protocolNumber,
+              protocol: expectedProtocolNumber,
+              finalizedAt: new Date(),
               certificateDocId: signedEvidenceRef,
             },
           });
@@ -234,9 +272,10 @@ export class PostgresqlDealCommandService extends DealCommandService {
           }
           const protocol = protocols[0];
           if (
-            protocol.protocolNumber !== protocolNumber ||
+            protocol.protocolNumber !== expectedProtocolNumber ||
             protocol.signedEvidenceFileId !== signedEvidenceRef ||
-            protocol.laboratoryOrgId !== sample.labId
+            protocol.laboratoryOrgId !== sample.labId ||
+            protocol.finalizedByUserId !== user.id
           ) {
             throw new ConflictException({ code: 'LAB_PROTOCOL_AUTHORITY_MISMATCH' });
           }
@@ -365,6 +404,7 @@ export class PostgresqlDealCommandService extends DealCommandService {
               eventId,
               sessionId: user.sessionId,
               protocolId: protocol.id,
+              requestFingerprint,
             },
             prevHash: previousAudit?.hash ?? null,
           };
@@ -415,6 +455,7 @@ export class PostgresqlDealCommandService extends DealCommandService {
             auditId,
             externalOutboxId: laboratoryOutbox.id,
             protocolId: protocol.id,
+            protocolNumber: protocol.protocolNumber,
             protocolResult: protocol.result,
           };
           await tx.outboxEntry.create({
@@ -426,7 +467,7 @@ export class PostgresqlDealCommandService extends DealCommandService {
               correlationId: dto.commandId,
               auditId,
               confirmedAt: new Date(),
-              payload: { result },
+              payload: { requestFingerprint, result },
             },
           });
           return result;
@@ -439,9 +480,11 @@ export class PostgresqlDealCommandService extends DealCommandService {
           const receipt = await tx.outboxEntry.findUnique({
             where: { idempotencyKey: receiptKey },
           });
-          return receipt ? this.postgresResultFromReceipt(receipt.payload) : null;
+          return receipt
+            ? this.postgresResultFromReceipt(receipt.payload, requestFingerprint)
+            : null;
         });
-        if (replay) return { ...replay, duplicate: true };
+        if (replay) return replay;
       }
       throw error;
     }
@@ -453,9 +496,23 @@ export class PostgresqlDealCommandService extends DealCommandService {
     }
   }
 
-  private postgresResultFromReceipt(payload: Prisma.JsonValue) {
-    const result = (payload as { result?: Record<string, unknown> } | null)?.result;
-    if (!result) throw new ConflictException('Stored command receipt is incomplete');
-    return { ...result, duplicate: true };
+  private postgresResultFromReceipt(
+    payload: Prisma.JsonValue,
+    requestFingerprint: string,
+  ) {
+    const receipt = payload as {
+      requestFingerprint?: unknown;
+      result?: Record<string, unknown>;
+    } | null;
+    if (!receipt?.result) {
+      throw new ConflictException('Stored command receipt is incomplete');
+    }
+    if (receipt.requestFingerprint !== requestFingerprint) {
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_KEY_REUSED',
+        message: 'The idempotency key is already bound to a different laboratory finalization request.',
+      });
+    }
+    return { ...receipt.result, duplicate: true };
   }
 }
