@@ -3,7 +3,6 @@ import { ArrowLeft, LogIn } from 'lucide-react';
 import { getLocale } from 'next-intl/server';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
-import '@/styles/platform-v7-public-supporting-shell.css';
 
 type ShellLocale = 'ru' | 'en' | 'zh';
 
