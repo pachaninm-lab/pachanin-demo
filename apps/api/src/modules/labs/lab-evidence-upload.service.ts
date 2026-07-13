@@ -64,6 +64,7 @@ type SampleScope = Readonly<{
   acceptanceId: string | null;
   tenantId: string;
   laboratoryOrgId: string | null;
+  sampleCode: string | null;
 }>;
 
 /**
@@ -103,7 +104,8 @@ export class LabEvidenceUploadService {
           sample."shipmentId",
           sample."acceptanceId",
           sample."tenantId",
-          sample."labId" AS "laboratoryOrgId"
+          sample."labId" AS "laboratoryOrgId",
+          sample."sampleCode"
         FROM public."lab_samples" sample
         WHERE sample."id" = ${sampleId}
           AND sample."tenantId" = ${context.tenantId}
@@ -130,14 +132,15 @@ export class LabEvidenceUploadService {
       return sample;
     });
 
-    const protocolNumber = dto.purpose === 'PROTOCOL'
-      ? requiredProtocolNumber(dto.protocolNumber)
-      : undefined;
-    if (dto.purpose !== 'PROTOCOL' && dto.protocolNumber !== undefined) {
-      throw new UnprocessableEntityException({
-        code: 'LAB_PROTOCOL_NUMBER_NOT_ALLOWED',
-        field: 'protocolNumber',
-      });
+    let protocolNumber: string | undefined;
+    if (dto.purpose === 'PROTOCOL') {
+      if (!scope.sampleCode) {
+        throw new UnprocessableEntityException({
+          code: 'LAB_SAMPLE_CODE_REQUIRED',
+          field: 'sampleId',
+        });
+      }
+      protocolNumber = `LAB-${scope.sampleCode}-V1`;
     }
 
     return this.requestBoundUpload({
@@ -297,17 +300,6 @@ export class LabEvidenceUploadService {
       requiredHeaders: presigned.requiredHeaders,
     };
   }
-}
-
-function requiredProtocolNumber(value: string | undefined): string {
-  const normalized = String(value ?? '').trim();
-  if (!normalized || normalized.length > 200) {
-    throw new UnprocessableEntityException({
-      code: 'LAB_PROTOCOL_NUMBER_REQUIRED',
-      field: 'protocolNumber',
-    });
-  }
-  return normalized;
 }
 
 function normalizeMetadata(value: Prisma.InputJsonObject): Prisma.InputJsonObject {
