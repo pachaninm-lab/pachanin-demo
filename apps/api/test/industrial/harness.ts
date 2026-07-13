@@ -543,10 +543,12 @@ export function payloadForAction(fixture: DealFixture, actionId: DealActionId): 
 }
 
 export async function cleanTenant(prisma: PrismaService): Promise<void> {
-  await prisma.$executeRawUnsafe(`SET session_replication_role = replica`);
-  try {
+  await prisma.$transaction(async (tx) => {
+    // session_replication_role is connection-local. Keep the trigger bypass and
+    // every cleanup statement on one transaction-bound PostgreSQL connection.
+    await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = replica`);
     const dealIds = (
-      await prisma.deal.findMany({ where: { tenantId: INDUSTRIAL_TENANT }, select: { id: true } })
+      await tx.deal.findMany({ where: { tenantId: INDUSTRIAL_TENANT }, select: { id: true } })
     ).map((deal) => deal.id);
     if (dealIds.length > 0) {
       const inList = dealIds.map((id) => `'${id}'`).join(',');
@@ -571,20 +573,18 @@ export async function cleanTenant(prisma: PrismaService): Promise<void> {
         `DELETE FROM "deal_participants" WHERE "dealId" IN (${inList})`,
         `DELETE FROM "deals" WHERE "id" IN (${inList})`,
       ]) {
-        await prisma.$executeRawUnsafe(statement);
+        await tx.$executeRawUnsafe(statement);
       }
     }
-    await prisma.$executeRawUnsafe(`DELETE FROM logistics.driver_vehicle_links WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await prisma.$executeRawUnsafe(`DELETE FROM logistics.vehicles WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await prisma.$executeRawUnsafe(`DELETE FROM logistics.drivers WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await prisma.$executeRawUnsafe(`DELETE FROM logistics.facilities WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await prisma.$executeRawUnsafe(`DELETE FROM logistics.carriers WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await prisma.$executeRawUnsafe(
+    await tx.$executeRawUnsafe(`DELETE FROM logistics.driver_vehicle_links WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await tx.$executeRawUnsafe(`DELETE FROM logistics.vehicles WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await tx.$executeRawUnsafe(`DELETE FROM logistics.drivers WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await tx.$executeRawUnsafe(`DELETE FROM logistics.facilities WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await tx.$executeRawUnsafe(`DELETE FROM logistics.carriers WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
+    await tx.$executeRawUnsafe(
       `DELETE FROM "user_orgs" WHERE "organizationId" IN (SELECT id FROM "organizations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}')`,
     );
-    await prisma.$executeRawUnsafe(`DELETE FROM "users" WHERE "id" LIKE 'user-e2e-%'`);
-    await prisma.$executeRawUnsafe(`DELETE FROM "organizations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}'`);
-  } finally {
-    await prisma.$executeRawUnsafe(`SET session_replication_role = DEFAULT`);
-  }
+    await tx.$executeRawUnsafe(`DELETE FROM "users" WHERE "id" LIKE 'user-e2e-%'`);
+    await tx.$executeRawUnsafe(`DELETE FROM "organizations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}'`);
+  });
 }
