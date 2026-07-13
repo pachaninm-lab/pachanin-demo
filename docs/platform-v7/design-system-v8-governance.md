@@ -138,9 +138,18 @@ The `/platform-v7/deals` route and `CanonicalDealsList` are governed v8 surfaces
 - has loading, empty, access-denied, offline, invalid-response, export-error and pagination-error states;
 - uses token-only mobile, keyboard, reduced-motion and forced-colors behavior.
 
+### Critical secondary transaction routes
+
+The document matrix, dispute queue and bank release-review route are governed v8 surfaces:
+
+- `/platform-v7/documents` keeps every document attached to a source, owner, status and Deal impact; internal status never substitutes for ФГИС, EDI, e-transport, qualified signature, laboratory or bank confirmation;
+- `/platform-v7/disputes` uses server-registered disputes for the primary queue, keeps evidence and decision tools behind progressive disclosure and does not derive authority from scenario fixtures;
+- `/platform-v7/bank/release-safety` remains read-only, evaluates domain release guards and cannot create a bank callback, confirm reserve or release funds;
+- all three routes provide RU, EN and ZH route copy and remain inside the same authority boundaries as the underlying Deal.
+
 ## Remaining boundary
 
-Documents, payment and settlement views, dispute operations, auctions and other secondary routes are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
+Auction execution, settlement detail routes and historical or non-critical pages are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
 
 ## Decision authority
 
