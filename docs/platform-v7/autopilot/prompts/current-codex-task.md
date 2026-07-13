@@ -1,27 +1,34 @@
-# Codex current task — IR-10.1 Documents PostgreSQL Authority
+# Codex current task — IR-10.2 Logistics PostgreSQL Authority
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
-Do not change apps/landing, production UI, visual/theme/onboarding, adapters, server actions, AI gateway runtime, DB/migrations or lockfiles unless the current step explicitly allows it.
-Do not auto-merge. Human review and green checks are required.
+Do not change apps/landing, apps/web, lockfiles, packages or live integration configuration.
+Do not auto-merge. Exact-head green checks and diff review are required.
 
 ## Source of truth
 
 - State: `docs/platform-v7/autopilot/autopilot-state.json`
 - Queue: `docs/platform-v7/execution-queue.md`
 - Progress: `docs/platform-v7/autopilot/progress.json`
+- Governing specification: `docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md`
 
 ## Current step
 
-IR-10.1 Documents PostgreSQL Authority
-
-## Next candidate
-
 IR-10.2 Logistics PostgreSQL Authority
 
-## Transition guard
+## Last completed
 
-- BLOCKED: IR-10.1 Documents PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-10.2 Logistics PostgreSQL Authority.
+IR-10.1 Documents PostgreSQL Authority — PR #2410, merge `a485371e54b31fc787c061643c0068184e373c7b`.
+
+## Current objective
+
+1. Bind production `LogisticsModule` directly to a complete Prisma shipment repository.
+2. Remove RuntimeCore, optional Prisma, silent fallback and process-memory logistics authority from the production graph.
+3. Normalize and validate Deal-specific carrier, driver, vehicle, route and admission authority in PostgreSQL.
+4. Enforce direct Deal participant, assigned-driver or explicit privileged-staff scope through trusted RLS.
+5. Persist shipment operational facts with optimistic concurrency, idempotency, audit and PENDING outbox in one transaction.
+6. Prove restart, multi-instance, cross-tenant and same-tenant outsider denial.
+7. Keep telematics/GIS EPD providers disabled unless real activation is separately accepted.
 
 ## Allowed current scope
 
@@ -29,27 +36,26 @@ IR-10.2 Logistics PostgreSQL Authority
 - docs/platform-v7/autopilot/progress.json
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
 - docs/platform-v7/autopilot/prompts/current-review-task.md
-- docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md
 - docs/platform-v7/execution-queue.md
 - apps/api/src/common/config/industrial-mode.ts
-- apps/api/src/common/prisma/database-principal-boundary.ts
-- apps/api/src/common/prisma/database-principal-boundary.spec.ts
-- apps/api/src/common/prisma/storage-prisma.service.ts
-- apps/api/src/modules/documents/**
-- apps/api/src/modules/storage/storage-finalization.repository.ts
-- apps/api/src/modules/storage/storage.module.ts
-- apps/api/src/modules/storage/storage.service.ts
+- apps/api/src/common/command-execution.context.ts
+- apps/api/src/common/prisma/rls-transaction.service.ts
+- apps/api/src/modules/deals/deal-command-payload.ts
+- apps/api/src/modules/deals/deals.module.ts
+- apps/api/src/modules/deals/logistics-admission-context.ts
+- apps/api/src/modules/deals/logistics-admission.service.ts
+- apps/api/src/modules/deals/postgresql-deal-command.service.ts
+- apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
+- apps/api/src/modules/logistics/**
 - apps/api/prisma/schema.prisma
-- apps/api/prisma/migrations/20260713*_documents_postgresql_authority/**
-- apps/api/test/industrial/document-postgresql-authority.e2e-spec.ts
-- apps/api/test/industrial/deal-command-no-fake-live.e2e-spec.ts
-- apps/api/test/one-deal/document-postgresql-authority.e2e-spec.ts
-- apps/api/test/one-deal/durable-storage.e2e-spec.ts
-- apps/api/test/one-deal/runtime-principal-startup-proof.ts
-- infra/sql/postgresql-document-authority-policies.sql
+- apps/api/prisma/migrations/20260713*_logistics_postgresql_authority/**
+- apps/api/test/industrial/logistics-postgresql-authority.e2e-spec.ts
+- apps/api/test/one-deal/logistics-postgresql-authority.e2e-spec.ts
+- apps/api/test/one-deal/seed-logistics-admission.ts
+- apps/api/test/one-deal/seed.ts
+- infra/sql/postgresql-logistics-authority-policies.sql
 - scripts/platform-v7-forward-only-migration-check.mjs
 - scripts/platform-v7-one-deal-e2e.sh
-- scripts/platform-v7-database-dr-rehearsal.sh
 - .github/workflows/ci.yml
 
 ## Forbidden zones
@@ -64,140 +70,23 @@ IR-10.2 Logistics PostgreSQL Authority
 - production migration execution
 - production credentials and secret material
 
-## Active queue
+## Acceptance
 
-# platform-v7 Industrial Integration Readiness queue
+- production bootstrap rejects missing, memory and unknown shipment repository modes;
+- production module graph has no RuntimeCore or optional Prisma path;
+- shipment list/get/workspace and operational facts are PostgreSQL-authoritative;
+- same-tenant nonparticipants and cross-tenant users cannot read or mutate shipments;
+- assignment consumes a valid normalized admission and binds one Shipment atomically;
+- retry of the exact command replays durably without consuming another admission;
+- checkpoint, GPS and PIN facts persist across restart/instances and never rely on process memory;
+- mutations are idempotent, CAS-protected and atomic with audit/outbox;
+- migrations pass on empty and baseline databases with zero drift;
+- exact-head CI and manual review pass.
 
-CURRENT: IR-10.1 Documents PostgreSQL Authority
+## Next candidate
 
-GOVERNING SPECIFICATION:
-- `docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md`
-- target gate: Industrial Integration-Ready;
-- current gate: NO-GO;
-- exact baseline: `66bf4655eede522ca3f3963d6d7aaa5cee9c50a5` on `main`.
-
-BASELINE PROVEN:
-- persistent identity, session rotation/revocation, MFA and one-time backup codes are merged with isolated PostgreSQL evidence (#2276, #2280, #2282, #2283);
-- separate restricted auth and deal PostgreSQL principals are merged (#2287);
-- canonical Deal command execution, idempotency, optimistic concurrency, bank-callback authority, transactional audit/outbox creation and isolated recovery evidence are merged (#2260, #2270, #2274, #2378, #2406);
-- durable PostgreSQL outbox worker mechanics exist with leases and `FOR UPDATE SKIP LOCKED`, but IR-20 remains open because the legacy process-memory relay still starts;
-- PostgreSQL bank reconciliation, immutable mismatch evidence and callback-key rotation/revocation are merged (#2379);
-- ordinary Deal routes are PostgreSQL-authoritative and legacy free-form transitions fail closed (#2407);
-- CI-scale correctness and isolated backup/restore are evidence only; they do not prove production capacity, HA or provider DR.
-
-CURRENT GOAL:
-- make Documents PostgreSQL-authoritative by construction;
-- remove RuntimeCore and optional Prisma injection from the production Documents graph;
-- preserve an explicit memory adapter only for test/development;
-- enforce server-derived tenant, actor, role, deal and immutable-state authority through trusted RLS transactions;
-- persist document workflow changes, audit and outbox atomically;
-- prove restart, multi-instance, idempotency, concurrency and cross-tenant denial;
-- keep object-storage retention and cryptographic provider activation outside this PR for IR-40 and IR-41;
-- introduce no live EDO or signature claim.
-
-CURRENT ALLOWED:
-- docs/platform-v7/autopilot/autopilot-state.json
-- docs/platform-v7/autopilot/progress.json
-- docs/platform-v7/autopilot/prompts/current-codex-task.md
-- docs/platform-v7/autopilot/prompts/current-review-task.md
-- docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md
-- docs/platform-v7/execution-queue.md
-- apps/api/src/common/config/industrial-mode.ts
-- apps/api/src/common/prisma/database-principal-boundary.ts
-- apps/api/src/common/prisma/database-principal-boundary.spec.ts
-- apps/api/src/common/prisma/storage-prisma.service.ts
-- apps/api/src/modules/documents/**
-- apps/api/src/modules/storage/storage-finalization.repository.ts
-- apps/api/src/modules/storage/storage.module.ts
-- apps/api/src/modules/storage/storage.service.ts
-- apps/api/prisma/schema.prisma
-- apps/api/prisma/migrations/20260713*_documents_postgresql_authority/**
-- apps/api/test/industrial/document-postgresql-authority.e2e-spec.ts
-- apps/api/test/industrial/deal-command-no-fake-live.e2e-spec.ts
-- apps/api/test/one-deal/document-postgresql-authority.e2e-spec.ts
-- apps/api/test/one-deal/durable-storage.e2e-spec.ts
-- apps/api/test/one-deal/runtime-principal-startup-proof.ts
-- infra/sql/postgresql-document-authority-policies.sql
-- scripts/platform-v7-forward-only-migration-check.mjs
-- scripts/platform-v7-one-deal-e2e.sh
-- scripts/platform-v7-database-dr-rehearsal.sh
-- .github/workflows/ci.yml
-
-CURRENT CRITERIA:
-- production bootstrap fails before traffic when the Documents repository mode is missing, memory or unknown;
-- production DocumentsModule contains no RuntimeCore provider, optional Prisma dependency or silent fallback;
-- reads and writes run with a trusted server-derived RLS context;
-- cross-tenant read/write and client-authored tenant, actor, role, deal status or evidence state are denied;
-- upload metadata, sign-state transition and package generation survive restart and instance change;
-- confirmed evidence is immutable; corrections create linked versions;
-- document mutation, audit and outbox commit or roll back as one transaction;
-- no synthetic file body, mock signature success or fake EDO success exists in the authoritative path;
-- empty/baseline migrations, drift, RLS, restart, concurrency, idempotency and exact-head CI gates pass.
-
-LOCKED:
-- IR-10.2 Logistics PostgreSQL Authority;
-- IR-10.3 Labs PostgreSQL Authority;
-- IR-10.4 Settlement PostgreSQL Authority;
-- IR-10.5 Disputes PostgreSQL Authority;
-- IR-20 Canonical Durable Outbox;
-- IR-21 Durable Integration Inbox;
-- IR-22 Persistent Partner API and Outbound Webhooks;
-- IR-30 Canonical Deal and Payment Basis;
-- IR-31 Normalized Logistics and Acceptance;
-- IR-32 Lab, Documents and Disputes State Machines;
-- IR-40 Evidence Object Storage;
-- IR-41 Signature Verification;
-- IR-50 Adapter Conformance;
-- IR-51 ESIA/SMEV;
-- IR-52 FGIS Grain;
-- IR-53 EDO and signature provider mapping;
-- IR-54 Bank adapter;
-- IR-55 GPS/telematics;
-- IR-60 Role cabinets on authoritative data;
-- IR-61 Offline, RU/EN/ZH and accessibility;
-- IR-70 Production configuration and infrastructure profile;
-- IR-71 Observability, SLO and operations;
-- IR-72 Production-scale load, HA and DR;
-- IR-80 Security and compliance evidence;
-- IR-90 end-to-end acceptance and evidence pack.
-
-NEXT:
-- Layer: IR-10.2 Logistics PostgreSQL Authority
-- Allowed files:
-  - docs/platform-v7/autopilot/autopilot-state.json
-  - docs/platform-v7/autopilot/progress.json
-  - docs/platform-v7/autopilot/prompts/current-codex-task.md
-  - docs/platform-v7/autopilot/prompts/current-review-task.md
-  - docs/platform-v7/execution-queue.md
-  - apps/api/src/common/config/industrial-mode.ts
-  - apps/api/src/modules/logistics/**
-  - apps/api/prisma/schema.prisma
-  - apps/api/prisma/migrations/20260713*_logistics_postgresql_authority/**
-  - apps/api/test/industrial/logistics-postgresql-authority.e2e-spec.ts
-  - apps/api/test/one-deal/logistics-postgresql-authority.e2e-spec.ts
-  - infra/sql/postgresql-logistics-authority-policies.sql
-  - scripts/platform-v7-forward-only-migration-check.mjs
-  - scripts/platform-v7-one-deal-e2e.sh
-  - .github/workflows/ci.yml
-- Success criteria:
-  - production LogisticsModule binds a complete Prisma repository with no RuntimeCore or optional-Prisma path;
-  - tenant, actor, role, Deal, carrier, driver, vehicle, route and admission authority are server-derived under trusted RLS;
-  - shipment commands, audit and outbox commit or roll back atomically;
-  - restart, multi-instance, idempotency, optimistic-concurrency and cross-tenant tests pass;
-  - empty/baseline migrations, drift, RLS and exact-head CI are green.
-- Readiness remains NO-GO.
-
-TRANSITION RULE:
-- one narrow PR at a time in dependency order;
-- no auto-merge;
-- advance only after exact-head checks and diff review;
-- update state, queue, progress and prompts after merge before opening the next work package;
-- mock, simulator and CI-scale evidence must remain explicitly labelled and cannot be used as live or production acceptance.
-
-READINESS:
-Industrial Integration-Ready remains NO-GO until every mandatory gate in IR-90 has commit- and deployment-linked evidence.
-
+IR-10.3 Labs PostgreSQL Authority. It remains locked until IR-10.2 is merged and state is synchronized.
 
 ## Implementation brief
 
-Implement IR-10.1 Documents PostgreSQL Authority strictly inside the state allowed scope.
+Implement IR-10.2 strictly inside the allowed scope. Treat the existing draft PR #2408 as untrusted prior work: reuse only verified architectural ideas, not its stale base, failed CI status or incomplete repository skeleton.
