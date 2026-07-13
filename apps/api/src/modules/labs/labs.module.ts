@@ -1,32 +1,21 @@
-import { Module, type Provider } from '@nestjs/common';
-import { AccessScopeService } from '../../common/security/access.service';
-import { AuditModule } from '../audit/audit.module';
+import { Module } from '@nestjs/common';
 import { LabsController } from './labs.controller';
 import { LabsService } from './labs.service';
+import { PrismaLabRepository } from './prisma-lab.repository';
 import { LAB_REPOSITORY } from './lab.repository';
-import { selectLabRepository } from './lab-repository.factory';
-import { RuntimeCoreService } from '../runtime-core/runtime-core.service';
-import { PrismaService } from '../../common/prisma/prisma.service';
 
 /**
- * Lab repository binding.
- *
- * Default (controlled-pilot / pre-integration): in-memory RuntimeCore adapter.
- * The DB-backed Prisma adapter is selected ONLY when
- * PLATFORM_V7_LAB_REPOSITORY=prisma is explicitly set. No silent Prisma
- * activation and no silent fallback between adapters.
+ * Production laboratory operations are PostgreSQL-authoritative by construction.
+ * RuntimeCore, repository factories, optional Prisma dependencies and simulated
+ * external laboratory providers are absent from this dependency graph.
  */
-const labRepositoryProvider: Provider = {
-  provide: LAB_REPOSITORY,
-  useFactory: (runtime: RuntimeCoreService, prisma?: PrismaService) =>
-    selectLabRepository(runtime, prisma),
-  inject: [RuntimeCoreService, { token: PrismaService, optional: true }],
-};
-
 @Module({
-  imports: [AuditModule],
   controllers: [LabsController],
-  providers: [LabsService, AccessScopeService, labRepositoryProvider],
-  exports: [LabsService]
+  providers: [
+    LabsService,
+    PrismaLabRepository,
+    { provide: LAB_REPOSITORY, useExisting: PrismaLabRepository },
+  ],
+  exports: [LabsService],
 })
 export class LabsModule {}
