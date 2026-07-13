@@ -8,76 +8,108 @@ function read(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
-describe('platform-v7 deal execution chain', () => {
-  it('keeps auction deal basis connected to logistics execution', () => {
-    const dealBasisPage = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
+const auctionDealBasis = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
+const auctionWorkspace = read('apps/web/components/transaction-ux/AuctionPostgresAuthorityWorkspace.tsx');
+const logisticsPage = read('apps/web/app/platform-v7/deal-logistics/page.tsx');
+const acceptancePage = read('apps/web/app/platform-v7/deal-acceptance/page.tsx');
+const documentsPage = read('apps/web/app/platform-v7/deal-documents-basis/page.tsx');
+const auctionServer = read('apps/web/lib/auction-server.ts');
+const logisticsServer = read('apps/web/lib/logistics-server.ts');
+const dealExecutionServer = read('apps/web/lib/deal-execution-server.ts');
+const logisticsContract = read('apps/web/lib/platform-v7/dealLogisticsEngine.ts');
+const acceptanceContract = read('apps/web/lib/platform-v7/dealAcceptanceEngine.ts');
+const documentContract = read('apps/web/lib/platform-v7/dealDocumentBasisEngine.ts');
 
-    expect(dealBasisPage).toContain('/platform-v7/deal-logistics');
-    expect(dealBasisPage).toContain('Назначить рейс');
+const forbiddenFixtureTokens = [
+  'DL-2607-014',
+  'FGIS-LOT-2607-014',
+  'SDIZ-2607-5512',
+  'A234BC68',
+  'DOC-DEAL',
+  'DOC-SDIZ',
+  'DOC-WEIGHT',
+  'DOC-QUALITY',
+  'DOC-ACCEPTANCE',
+  'DOC-UPD',
+];
+
+describe('platform-v7 authoritative Deal execution chain', () => {
+  it('moves from auction to a canonical server-issued Deal only through PostgreSQL authority', () => {
+    expect(auctionDealBasis).toContain('AuctionPostgresAuthorityWorkspace');
+    expect(auctionDealBasis).toContain("stage='deal-basis'");
+    expect(auctionWorkspace).toContain("dealCreated=true");
+    expect(auctionWorkspace).toContain('dealId');
+    expect(auctionWorkspace).toContain('PostgreSQL authority proof');
+    expect(auctionServer).toContain("source: 'POSTGRESQL'");
+    expect(auctionServer).toContain("scope: 'AUCTION'");
+    expect(auctionServer).toContain('serverAuthHeaders()');
+    expect(auctionServer).toContain("cache: 'no-store'");
   });
 
-  it('keeps auction deal basis guard tied to winner, price, lot, sdiz, logistics and icons', () => {
-    const bridge = read('apps/web/lib/platform-v7/auctionDealBridge.ts');
-    const dealBasisPage = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
+  it('keeps logistics, acceptance and documents bound to authenticated server reads', () => {
+    expect(logisticsPage).toContain('getShipmentWorkspace');
+    expect(logisticsPage).toContain('dealId=');
+    expect(logisticsPage).toContain('shipmentId=');
+    expect(logisticsServer).toContain('serverAuthHeaders()');
+    expect(logisticsServer).toContain("cache: 'no-store'");
 
-    for (const token of ['guardAuctionDealBasisReady', 'winner', 'lotNumber', 'sdizNumber', 'priceRubPerTon', '/platform-v7/deal-logistics', 'route-icons', 'winner-price-match', 'volume-within-available']) {
-      expect(bridge).toContain(token);
+    expect(acceptancePage).toContain('getCanonicalDealExecutionWorkspace');
+    expect(acceptancePage).toContain('buildAcceptanceProjection');
+    expect(documentsPage).toContain('getCanonicalDealExecutionWorkspace');
+    expect(documentsPage).toContain('buildDocumentBasisProjection');
+    expect(dealExecutionServer).toContain("serverApiUrl(`/deals/${encodeURIComponent(dealId)}/workspace`)");
+    expect(dealExecutionServer).toContain('serverAuthHeaders()');
+    expect(dealExecutionServer).toContain("cache: 'no-store'");
+  });
+
+  it('requires persisted acceptance and the canonical five-document release package', () => {
+    for (const blocker of [
+      'ARRIVAL_NOT_PERSISTED',
+      'WEIGHT_FACT_INVALID_OR_MISSING',
+      'LAB_RESULT_NOT_FINAL',
+      'ACCEPTANCE_ACT_NOT_SIGNED',
+    ]) {
+      expect(dealExecutionServer).toContain(blocker);
     }
 
-    for (const token of ['platformV7RouteIcon', "platformV7RouteIcon('deal')", "platformV7RouteIcon('logistics')", 'action.iconKey']) {
-      expect(dealBasisPage).toContain(token);
+    for (const type of ['CONTRACT', 'TTN', 'WEIGHING_ACT', 'LAB_PROTOCOL', 'ACCEPTANCE_ACT']) {
+      expect(dealExecutionServer).toContain(`'${type}'`);
     }
+    expect(dealExecutionServer).toContain("document.status !== 'SIGNED'");
+    expect(dealExecutionServer).toContain('!document.hash');
+    expect(dealExecutionServer).toContain('!document.s3Key');
+    expect(dealExecutionServer).toContain('!document.isImmutable');
+    expect(dealExecutionServer).toContain("document.bankAcceptance !== 'ACCEPTED'");
+    expect(documentsPage).toContain("bank: projection.ready ? 'available' : 'blocked'");
+  });
 
-    for (const token of ["iconKey: 'auction'", "iconKey: 'documents'", "iconKey: 'dispute'", "iconKey: 'logistics'"]) {
-      expect(bridge).toContain(token);
+  it('keeps all three former engines as type-only compatibility contracts', () => {
+    for (const contract of [logisticsContract, acceptanceContract, documentContract]) {
+      expect(contract).toContain('Type-only compatibility contract');
+      expect(contract).not.toMatch(/export\s+(?:const|let|var|function|class)\b/);
+      expect(contract).not.toContain('/platform-v7/');
+      for (const token of forbiddenFixtureTokens) expect(contract).not.toContain(token);
     }
   });
 
-  it('keeps auction deal basis visually explicit and action-oriented', () => {
-    const bridge = read('apps/web/lib/platform-v7/auctionDealBridge.ts');
-    const dealBasisPage = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
-
-    for (const token of ['Победитель', 'Цена победителя', 'ФГИС-лот', 'СДИЗ', 'Владелец', 'Покупатель', 'Объём', 'Сумма', 'Условия поставки', 'Что фиксируется в журнале', 'Почему можно формировать рейс']) {
-      expect(dealBasisPage).toContain(token);
-    }
-
-    for (const token of ['Назначить рейс', 'Открыть документы', 'Открыть спор', 'Вернуться к ставкам', '/platform-v7/deal-documents-basis', '/platform-v7/disputes', '/platform-v7/auction/bids']) {
-      expect(bridge).toContain(token);
-    }
-  });
-
-  it('keeps logistics execution connected to deal acceptance', () => {
-    const logisticsEngine = read('apps/web/lib/platform-v7/dealLogisticsEngine.ts');
-
-    expect(logisticsEngine).toContain('/platform-v7/deal-acceptance');
-    expect(logisticsEngine).toContain('Приёмка сделки');
-  });
-
-  it('keeps acceptance connected to document basis, settlement, and dispute routes', () => {
-    const acceptanceEngine = read('apps/web/lib/platform-v7/dealAcceptanceEngine.ts');
-    const documentBasisEngine = read('apps/web/lib/platform-v7/dealDocumentBasisEngine.ts');
-
-    expect(acceptanceEngine).toContain('/platform-v7/deal-documents-basis');
-    expect(acceptanceEngine).toContain('/platform-v7/bank/payment-basis');
-    expect(acceptanceEngine).toContain('/platform-v7/disputes');
-    expect(documentBasisEngine).toContain('/platform-v7/deal-acceptance');
-    expect(documentBasisEngine).toContain('/platform-v7/bank/payment-basis');
-    expect(documentBasisEngine).toContain('/platform-v7/disputes');
-  });
-
-  it('keeps core evidence identifiers in the acceptance contour', () => {
-    const acceptanceEngine = read('apps/web/lib/platform-v7/dealAcceptanceEngine.ts');
-
-    for (const token of ['dealId', 'routeId', 'lotNumber', 'sdizNumber', 'vehiclePlate', 'grossKg', 'tareKg', 'netKg', 'quality', 'evidence']) {
-      expect(acceptanceEngine).toContain(token);
+  it('contains no runtime import of the former fixture engines', () => {
+    const runtimeRoutes = [auctionDealBasis, logisticsPage, acceptancePage, documentsPage];
+    for (const route of runtimeRoutes) {
+      expect(route).not.toContain("from '@/lib/platform-v7/dealLogisticsEngine'");
+      expect(route).not.toContain("from '@/lib/platform-v7/dealAcceptanceEngine'");
+      expect(route).not.toContain("from '@/lib/platform-v7/dealDocumentBasisEngine'");
+      expect(route).not.toContain('DEAL_LOGISTICS_STATE');
+      expect(route).not.toContain('DEAL_ACCEPTANCE_STATE');
+      expect(route).not.toContain('DEAL_DOCUMENT_BASIS_STATE');
     }
   });
 
-  it('keeps core document basis identifiers and required documents', () => {
-    const documentBasisEngine = read('apps/web/lib/platform-v7/dealDocumentBasisEngine.ts');
-
-    for (const token of ['dealId', 'routeId', 'lotNumber', 'sdizNumber', 'amountRub', 'documents', 'checks', 'DOC-DEAL', 'DOC-SDIZ', 'DOC-WEIGHT', 'DOC-QUALITY', 'DOC-ACCEPTANCE', 'DOC-UPD']) {
-      expect(documentBasisEngine).toContain(token);
+  it('keeps the physical execution UI read-only and fail-closed', () => {
+    for (const route of [logisticsPage, acceptancePage, documentsPage]) {
+      expect(route).toContain('renderUnavailable');
+      expect(route).not.toMatch(/method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/);
     }
+    expect(auctionWorkspace).toContain('The UI is read-only');
+    expect(documentsPage).toContain('не выпускает деньги');
   });
 });
