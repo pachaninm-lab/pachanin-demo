@@ -1,0 +1,74 @@
+name: Temporary IR-10.2 logistics privilege proof repair
+
+on:
+  push:
+    branches:
+      - agent/ir-10-2-logistics-postgresql-authority
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[ir-10-2-logistics-grant-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ir-10-2-logistics-postgresql-authority
+          fetch-depth: 0
+      - name: Enforce and prove logistics schema privileges
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/platform-v7-one-deal-e2e.sh')
+          source = path.read_text()
+
+          grant_anchor = '''GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
+          REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA logistics FROM one_deal_app;'''
+          grant_replacement = '''GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO one_deal_app;
+          GRANT SELECT ON
+            logistics.carriers,
+            logistics.drivers,
+            logistics.vehicles,
+            logistics.driver_vehicle_links,
+            logistics.facilities,
+            logistics.deal_admissions,
+            logistics.shipment_bindings
+          TO one_deal_app;
+          REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA logistics FROM one_deal_app;'''
+          if source.count(grant_anchor) != 1:
+              raise SystemExit('logistics grant anchor not found exactly once')
+          source = source.replace(grant_anchor, grant_replacement, 1)
+
+          proof_anchor = '''if [[ "$ROLE_PROOF" != "false:false" && "$ROLE_PROOF" != "f:f" ]]; then
+            echo "Deal application principal is not NOSUPERUSER NOBYPASSRLS: $ROLE_PROOF" >&2
+            exit 1
+          fi
+          AUTH_ROLE_PROOF='''
+          proof_replacement = '''if [[ "$ROLE_PROOF" != "false:false" && "$ROLE_PROOF" != "f:f" ]]; then
+            echo "Deal application principal is not NOSUPERUSER NOBYPASSRLS: $ROLE_PROOF" >&2
+            exit 1
+          fi
+          LOGISTICS_ROLE_PROOF="$(psql "$APP_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT has_schema_privilege(current_user,'logistics','USAGE')::text || ':' || has_table_privilege(current_user,'logistics.deal_admissions','SELECT')::text || ':' || has_table_privilege(current_user,'logistics.deal_admissions','UPDATE')::text")"
+          echo "[one-deal] logistics principal proof usage:select:update = $LOGISTICS_ROLE_PROOF"
+          if [[ "$LOGISTICS_ROLE_PROOF" != "true:true:false" && "$LOGISTICS_ROLE_PROOF" != "t:t:f" ]]; then
+            echo "Deal application logistics privilege boundary is invalid: $LOGISTICS_ROLE_PROOF" >&2
+            exit 1
+          fi
+          AUTH_ROLE_PROOF='''
+          if source.count(proof_anchor) != 1:
+              raise SystemExit('role proof anchor not found exactly once')
+          source = source.replace(proof_anchor, proof_replacement, 1)
+
+          path.write_text(source)
+          PY
+          rm -f .github/workflows/tmp-fix-ir-10-2-logistics-grant.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(logistics): prove least-privilege admission access [ir-10-2-logistics-grant-fixed]"
+          git push origin HEAD:agent/ir-10-2-logistics-postgresql-authority
