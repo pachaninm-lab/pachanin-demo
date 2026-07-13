@@ -144,6 +144,13 @@ export function PlatformV7ShellUxController({ role }: { role: PlatformRole }) {
   React.useEffect(() => setMounted(true), []);
 
   React.useEffect(() => {
+    const shell = document.querySelector<HTMLElement>('.pc-shell-root-v4');
+    if (!shell) return;
+    shell.classList.add(styles.shellScope);
+    return () => shell.classList.remove(styles.shellScope);
+  }, []);
+
+  React.useEffect(() => {
     setDrawerNode(document.querySelector<HTMLElement>('.pc-v4-drawer'));
   }, [pathname]);
 
