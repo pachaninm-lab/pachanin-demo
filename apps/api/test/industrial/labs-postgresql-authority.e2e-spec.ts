@@ -5,7 +5,10 @@ import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import type { RequestUser } from '../../src/common/types/request-user';
 import { Role } from '../../src/common/types/request-user';
 import { LabEvidenceUploadService } from '../../src/modules/labs/lab-evidence-upload.service';
-import type { LabOperationEvidencePurpose } from '../../src/modules/labs/dto/request-lab-evidence-upload.dto';
+import type {
+  LabOperationEvidencePurpose,
+  LabProvisioningEvidencePurpose,
+} from '../../src/modules/labs/dto/request-lab-evidence-upload.dto';
 import {
   createRememberedInstance,
   destroyInstance,
@@ -17,6 +20,8 @@ import {
 } from './harness';
 
 jest.setTimeout(240_000);
+
+const FUTURE_AUTHORITY_AT = '2035-01-01T00:00:00.000Z';
 
 const PRE_RESERVE_SEQUENCE: ReadonlyArray<{ actionId: DealActionId; userKey: string }> = [
   { actionId: 'approve_admission', userKey: 'compliance' },
@@ -99,35 +104,94 @@ async function createPreparedFixture(slug: string): Promise<{
   return { instance, fixture };
 }
 
-async function createPurposeEvidence(
+async function verifyRequestedEvidence(
   instance: ServiceInstance,
-  fixture: DealFixture,
-  user: RequestUser,
-  purpose: LabOperationEvidencePurpose,
-  suffix: string,
-  supersedesId?: string,
+  requested: { fileId: string; objectKey: string },
+  body: string,
 ): Promise<string> {
-  const body = JSON.stringify({ purpose, suffix, sampleId: fixture.sampleId, supersedesId: supersedesId ?? null });
   const sizeBytes = Buffer.byteLength(body);
   const sha256 = createHash('sha256').update(body).digest('hex');
-  const uploads = new LabEvidenceUploadService(instance.rls, instance.storageAdapter);
-  const requested = await uploads.requestForSample(fixture.sampleId, {
-    purpose,
-    filename: `${suffix}.json`,
-    mimeType: 'application/json',
-    sizeBytes,
-    ...(supersedesId ? { supersedesId } : {}),
-  }, user);
   instance.storageAdapter.put(requested.objectKey, {
     sizeBytes,
     contentType: 'application/json',
     sha256,
     eTag: `e2e-${sha256.slice(0, 16)}`,
   });
-  const verified = await instance.storage.confirmUpload(requested.fileId, sha256, user);
+  const verified = await instance.storage.confirmUpload(requested.fileId, sha256, await evidenceOwner(instance, requested.fileId));
   expect(verified.status).toBe('VERIFIED');
   expect(verified.immutable).toBe(true);
   return requested.fileId;
+}
+
+async function evidenceOwner(instance: ServiceInstance, fileId: string): Promise<RequestUser> {
+  const document = await instance.prisma.dealDocument.findUniqueOrThrow({
+    where: { id: fileId },
+    select: { uploadedByUserId: true, dealId: true },
+  });
+  const participant = await instance.prisma.dealParticipant.findFirstOrThrow({
+    where: { dealId: document.dealId, userId: document.uploadedByUserId },
+  });
+  return {
+    id: document.uploadedByUserId,
+    email: `${document.uploadedByUserId}@industrial-e2e.invalid`,
+    fullName: document.uploadedByUserId,
+    role: participant.role as Role,
+    orgId: participant.organizationId,
+    tenantId: participant.tenantId,
+    sessionId: `evidence-owner:${fileId}`,
+    mfaVerified: true,
+  };
+}
+
+async function createPurposeEvidence(
+  instance: ServiceInstance,
+  fixture: DealFixture,
+  user: RequestUser,
+  purpose: LabOperationEvidencePurpose,
+  suffix: string,
+  options: Readonly<{ supersedesId?: string; protocolNumber?: string }> = {},
+): Promise<string> {
+  const body = JSON.stringify({
+    purpose,
+    suffix,
+    sampleId: fixture.sampleId,
+    supersedesId: options.supersedesId ?? null,
+    protocolNumber: options.protocolNumber ?? null,
+  });
+  const sizeBytes = Buffer.byteLength(body);
+  const uploads = new LabEvidenceUploadService(instance.rls, instance.storageAdapter);
+  const requested = await uploads.requestForSample(fixture.sampleId, {
+    purpose,
+    filename: `${suffix}.json`,
+    mimeType: 'application/json',
+    sizeBytes,
+    ...(options.supersedesId ? { supersedesId: options.supersedesId } : {}),
+    ...(options.protocolNumber ? { protocolNumber: options.protocolNumber } : {}),
+  }, user);
+  return verifyRequestedEvidence(instance, requested, body);
+}
+
+async function createProvisioningEvidence(
+  instance: ServiceInstance,
+  fixture: DealFixture,
+  purpose: LabProvisioningEvidencePurpose,
+  suffix: string,
+): Promise<string> {
+  const body = JSON.stringify({ purpose, suffix, dealId: fixture.dealId });
+  const sizeBytes = Buffer.byteLength(body);
+  const uploads = new LabEvidenceUploadService(instance.rls, instance.storageAdapter);
+  const requested = await uploads.requestForProvisioning({
+    purpose,
+    filename: `${suffix}.json`,
+    mimeType: 'application/json',
+    sizeBytes,
+    dealId: fixture.dealId,
+    laboratoryOrgId: fixture.serviceOrgId,
+    ...(purpose === 'ADMISSION'
+      ? { shipmentId: fixture.shipmentId, acceptanceId: fixture.acceptanceId }
+      : {}),
+  }, fixture.users.operator);
+  return verifyRequestedEvidence(instance, requested, body);
 }
 
 function outsider(fixture: DealFixture, tenantId = fixture.users.lab.tenantId): RequestUser {
@@ -170,10 +234,9 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
   it('prevents a privileged platform actor from impersonating an ANALYST', async () => {
     const { instance, fixture } = await createPreparedFixture('labs-privileged');
     try {
-      const guarded = instance.labs;
       const sample = await instance.prisma.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId } });
       const evidenceRef = await createPurposeEvidence(instance, fixture, fixture.users.lab, 'TEST', 'privileged-test-attempt');
-      await expect(guarded.recordTest(fixture.sampleId, {
+      await expect(instance.labs.recordTest(fixture.sampleId, {
         commandId: `privileged-test-${fixture.dealId}`,
         idempotencyKey: `privileged-test-${fixture.dealId}`,
         expectedVersion: sample.version.toString(),
@@ -185,6 +248,121 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
         evidenceRef,
         occurredAt: new Date().toISOString(),
       }, fixture.users.operator)).rejects.toMatchObject({ status: 403 });
+    } finally {
+      await destroyInstance(instance);
+    }
+  });
+
+  it('rejects analysis and finalization when custody is incomplete and OPENED is missing', async () => {
+    const { instance, fixture } = await createPreparedFixture('labs-incomplete-custody');
+    try {
+      const admissionEvidence = await createProvisioningEvidence(
+        instance,
+        fixture,
+        'ADMISSION',
+        'second-sample-admission',
+      );
+      await instance.labAuthority.issueSampleAdmission({
+        commandId: `lab-admission-incomplete:${fixture.dealId}`,
+        idempotencyKey: `lab-admission-incomplete:${fixture.dealId}`,
+        dealId: fixture.dealId,
+        shipmentId: fixture.shipmentId,
+        acceptanceId: fixture.acceptanceId,
+        laboratoryOrgId: fixture.serviceOrgId,
+        evidenceRef: admissionEvidence,
+        validUntil: FUTURE_AUTHORITY_AT,
+      }, fixture.users.operator);
+
+      const created = await instance.labs.create({
+        commandId: `lab-create-incomplete:${fixture.dealId}`,
+        idempotencyKey: `lab-create-incomplete:${fixture.dealId}`,
+        dealId: fixture.dealId,
+        shipmentId: fixture.shipmentId,
+        acceptanceId: fixture.acceptanceId,
+        evidenceRef: admissionEvidence,
+        occurredAt: new Date().toISOString(),
+      }, fixture.users.lab);
+      fixture.sampleId = created.sample.id;
+
+      const collectionEvidence = await createPurposeEvidence(
+        instance,
+        fixture,
+        fixture.users.lab,
+        'COLLECTION',
+        'incomplete-collection',
+      );
+      let mutation = await instance.labs.collect(fixture.sampleId, {
+        commandId: `lab-collect-incomplete:${fixture.dealId}`,
+        idempotencyKey: `lab-collect-incomplete:${fixture.dealId}`,
+        expectedVersion: created.sample.version,
+        evidenceRef: collectionEvidence,
+        occurredAt: new Date().toISOString(),
+      }, fixture.users.lab);
+
+      for (const eventType of ['SEALED', 'HANDOFF', 'RECEIVED'] as const) {
+        const evidenceRef = await createPurposeEvidence(
+          instance,
+          fixture,
+          fixture.users.lab,
+          eventType,
+          `incomplete-${eventType.toLowerCase()}`,
+        );
+        mutation = await instance.labs.recordCustody(fixture.sampleId, {
+          commandId: `lab-incomplete:${fixture.dealId}:${eventType}`,
+          idempotencyKey: `lab-incomplete:${fixture.dealId}:${eventType}`,
+          expectedVersion: mutation.sample.version,
+          eventType,
+          evidenceRef,
+          occurredAt: new Date().toISOString(),
+        }, fixture.users.lab);
+      }
+
+      const testEvidence = await createPurposeEvidence(
+        instance,
+        fixture,
+        fixture.users.lab,
+        'TEST',
+        'incomplete-test',
+      );
+      await expect(instance.labs.recordTest(fixture.sampleId, {
+        commandId: `lab-test-incomplete:${fixture.dealId}`,
+        idempotencyKey: `lab-test-incomplete:${fixture.dealId}`,
+        expectedVersion: mutation.sample.version,
+        metric: 'moisture',
+        value: 12.7,
+        unit: '%',
+        methodCode: 'MOISTURE',
+        equipmentCode: 'CONTROLLED_ANALYZER',
+        evidenceRef: testEvidence,
+        occurredAt: new Date().toISOString(),
+      }, fixture.users.lab)).rejects.toBeDefined();
+
+      const sample = await instance.prisma.labSample.findUniqueOrThrow({ where: { id: fixture.sampleId } });
+      expect(sample.status).toBe('RECEIVED');
+      expect(sample.custodyStatus).toBe('RECEIVED');
+      expect(await instance.prisma.labTest.count({ where: { sampleId: fixture.sampleId } })).toBe(0);
+
+      const protocolNumber = `LAB-${sample.sampleCode}-V1`;
+      fixture.evidence.lab = await createPurposeEvidence(
+        instance,
+        fixture,
+        fixture.users.lab,
+        'PROTOCOL',
+        'incomplete-protocol',
+        { protocolNumber },
+      );
+      await expect(instance.gateway.executeUser(
+        fixture.dealId,
+        'finalize_lab',
+        await finalizeDto(instance, fixture, 'incomplete-custody'),
+        fixture.users.lab,
+      )).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'LAB_SAMPLE_NOT_READY' }),
+      });
+      expect((await currentDeal(instance, fixture.dealId)).status).toBe('INSPECTION_CONFIRMED');
+      expect(await instance.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+        SELECT count(*)::bigint AS count FROM labs.protocols WHERE sample_id = ${fixture.sampleId}
+      `)).toEqual([{ count: 0n }]);
     } finally {
       await destroyInstance(instance);
     }
@@ -292,6 +470,52 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
     }
   });
 
+  it('fails loudly on UPDATE or DELETE of append-only tests, custody and protocol facts', async () => {
+    const { instance, fixture } = await createPreparedFixture('labs-append-only');
+    try {
+      await instance.gateway.executeUser(
+        fixture.dealId,
+        'finalize_lab',
+        await finalizeDto(instance, fixture, 'append-only'),
+        fixture.users.lab,
+      );
+      const test = await instance.prisma.labTest.findFirstOrThrow({ where: { sampleId: fixture.sampleId } });
+      const [custody] = await instance.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT id FROM labs.sample_custody_events WHERE sample_id = ${fixture.sampleId} ORDER BY created_at LIMIT 1
+      `);
+      const [protocol] = await instance.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT id FROM labs.protocols WHERE sample_id = ${fixture.sampleId} LIMIT 1
+      `);
+
+      await expect(instance.rls.withTrustedContext(fixture.users.lab, (tx) => tx.labTest.update({
+        where: { id: test.id },
+        data: { value: 99 },
+      }))).rejects.toBeDefined();
+      await expect(instance.rls.withTrustedContext(fixture.users.lab, (tx) => tx.labTest.delete({
+        where: { id: test.id },
+      }))).rejects.toBeDefined();
+      await expect(instance.rls.withTrustedContext(fixture.users.lab, (tx) => tx.$executeRaw(Prisma.sql`
+        UPDATE labs.sample_custody_events SET note = 'forbidden' WHERE id = ${custody.id}
+      `))).rejects.toBeDefined();
+      await expect(instance.rls.withTrustedContext(fixture.users.lab, (tx) => tx.$executeRaw(Prisma.sql`
+        DELETE FROM labs.sample_custody_events WHERE id = ${custody.id}
+      `))).rejects.toBeDefined();
+      await expect(instance.rls.withTrustedContext(fixture.users.lab, (tx) => tx.$executeRaw(Prisma.sql`
+        UPDATE labs.protocols SET result = 'FAILED' WHERE id = ${protocol.id}
+      `))).rejects.toBeDefined();
+      await expect(instance.rls.withTrustedContext(fixture.users.lab, (tx) => tx.$executeRaw(Prisma.sql`
+        DELETE FROM labs.protocols WHERE id = ${protocol.id}
+      `))).rejects.toBeDefined();
+
+      expect(await instance.prisma.labTest.count({ where: { sampleId: fixture.sampleId } })).toBe(2);
+      expect(await instance.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+        SELECT count(*)::bigint AS count FROM labs.protocols WHERE sample_id = ${fixture.sampleId}
+      `)).toEqual([{ count: 1n }]);
+    } finally {
+      await destroyInstance(instance);
+    }
+  });
+
   it('rejects foreign or wrong-purpose evidence and fully rolls back Deal, protocol, audit and outbox', async () => {
     const { instance, fixture } = await createPreparedFixture('labs-evidence-rollback');
     try {
@@ -337,7 +561,7 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
         fixture.users.lab,
         'TEST',
         'moisture-correction',
-        original.id,
+        { supersedesId: original.id },
       );
       await instance.labs.recordTest(fixture.sampleId, {
         commandId: `correction:${fixture.dealId}:moisture`,
