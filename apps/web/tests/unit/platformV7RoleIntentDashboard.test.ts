@@ -44,7 +44,10 @@ describe('platform-v7 role intent dashboard', () => {
     expect(dashboard).toContain('Сервер вернул некорректный список сделок');
     expect(dashboard).toContain('Повторить');
     expect(dashboard).not.toContain('getRoleIntentConfig');
-    expect(dashboardStyles).toContain('min-height: 48px');
+    expect(dashboard).toContain("from '@pc/design-system-v8'");
+    expect(dashboard).toContain("data-transaction-role-cockpit='v8'");
+    expect(dashboardStyles).toContain('var(--ds-color');
+    expect(dashboardStyles).not.toContain('var(--pc-');
     expect(dashboardStyles).toContain('@media (max-width: 430px)');
     expect(dashboardStyles).toContain('@media (forced-colors: active)');
     expect(shell).toContain('ROLE_INTENT_ROOT_PATHS');
