@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -8,7 +8,11 @@
     "apps/web/components/v7r/AppShellV4.tsx",
     "apps/web/components/v7r/AppShellV4.module.css",
     "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
-    "apps/web/components/platform-v7/RoleIntentDashboard.module.css"
+    "apps/web/components/platform-v7/RoleIntentDashboard.module.css",
+    "apps/web/app/platform-v7/deals/page.tsx",
+    "apps/web/app/platform-v7/deals/deals.module.css",
+    "apps/web/components/platform-v7/CanonicalDealsList.tsx",
+    "apps/web/components/platform-v7/CanonicalDealsList.module.css"
   ],
   "migratedFiles": [
     "apps/web/components/platform-v7/NextActionCard.tsx",
