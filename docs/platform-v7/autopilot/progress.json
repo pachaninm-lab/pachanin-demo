@@ -5,10 +5,10 @@
   "lastCompletedStep": "#2410 Documents PostgreSQL Authority",
   "openPr": "#2412",
   "blockedBy": [
-    "IR-10.2 implementation requires exact-head migration, RLS, restart, idempotency, concurrency and one-deal/DR evidence before merge."
+    "IR-10.2 final authority implementation is under exact-head migration, RLS, restart, idempotency, concurrency and one-deal/DR verification."
   ],
   "nextStep": "IR-10.2 Logistics PostgreSQL Authority",
-  "updatedAt": "2026-07-13T05:40:00.000Z",
+  "updatedAt": "2026-07-13T05:42:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
