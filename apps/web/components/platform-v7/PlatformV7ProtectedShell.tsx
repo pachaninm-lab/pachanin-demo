@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { AppShellV4 } from '@/components/v7r/AppShellV4';
+import { TransactionAppShell } from '@/components/transaction-ux/TransactionAppShell';
 import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
@@ -92,14 +92,7 @@ function parseSessionMarker(raw: string): Record<string, unknown> | null {
   return null;
 }
 
-/**
- * Presentation-only marker for the controlled owner review surface.
- *
- * It never grants a role, tenant or action permission. Every protected action is
- * still authorized by the API and the signed HttpOnly cabinet session. The
- * marker only decides whether the owner sees the complete existing cabinet UI
- * or the backend-only canonical workspace on the cabinet root.
- */
+/** Presentation-only marker; it never grants role, tenant or command authority. */
 function readControlledOwnerPreview(expectedRole: PlatformRole): ControlledOwnerPreview | null {
   if (typeof document === 'undefined') return null;
   const prefix = `${SESSION_COOKIE}=`;
@@ -145,40 +138,22 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
     });
   }, [initialRole, isRoleRoot, normalizedPath]);
 
-  // Staff authority is a separate control plane. It must not inherit business-role
-  // navigation, role widgets, onboarding, footer copy or client-side cabinet guards.
-  // The staff route owns its own shell and all authority remains server-issued.
   if (isStaffControlCenter) {
-    return (
-      <>
-        <ShellCopyNormalizer />
-        {children}
-      </>
-    );
+    return <><ShellCopyNormalizer />{children}</>;
   }
 
   const previewResolved = !isRoleRoot || previewState?.path === normalizedPath;
   const ownerPreview = previewResolved ? previewState?.preview || null : null;
-
   const workSurface = isRoleRoot
     ? !previewResolved
-      ? (
-        <section className={styles.cabinetLoading} aria-live='polite'>
-          <strong>Открываем интерфейс кабинета…</strong>
-        </section>
-      )
+      ? <section className={styles.cabinetLoading} aria-live='polite'><strong>Открываем интерфейс кабинета…</strong></section>
       : ownerPreview
         ? (
           <>
             <section className={styles.ownerPreview} data-controlled-owner-cabinet-preview='true'>
-              <div className={styles.previewHeading}>
-                <span className={styles.previewBadge}>TEST</span>
-                <strong className={styles.previewTitle}>Полный интерфейс кабинета</strong>
-              </div>
+              <div className={styles.previewHeading}><span className={styles.previewBadge}>TEST</span><strong className={styles.previewTitle}>Полный интерфейс кабинета</strong></div>
               <div className={styles.organizationName}>{ownerPreview.organizationName}</div>
-              <p className={styles.previewText}>
-                Данные и сценарии тестовые. Внешние интеграции, электронная подпись и движение денег не активированы. Действия исполняются только после серверной проверки полномочий.
-              </p>
+              <p className={styles.previewText}>Данные и сценарии тестовые. Внешние интеграции, электронная подпись и движение денег не активированы. Действия исполняются только после серверной проверки полномочий.</p>
             </section>
             {children}
           </>
@@ -191,7 +166,7 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
   return (
     <>
       <ShellCopyNormalizer />
-      <AppShellV4 initialRole={initialRole}>
+      <TransactionAppShell role={initialRole}>
         <>
           <ScopedShellGuard />
           <PlatformV7SingleEntryGuard />
@@ -199,9 +174,7 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
           <RbacCabinetGuard />
           <ShellCopyNormalizer />
           <HeaderLanguageSwitch />
-          <React.Suspense fallback={null}>
-            <StaffControlCenterEntry />
-          </React.Suspense>
+          <React.Suspense fallback={null}><StaffControlCenterEntry /></React.Suspense>
           <CalculatorHeaderWidget />
           <HeaderUtilityMenu />
           <RoleAssistantWidget />
@@ -209,7 +182,7 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
           {showPlatformFooter ? <PlatformFooter /> : null}
           <OnboardingTour />
         </>
-      </AppShellV4>
+      </TransactionAppShell>
     </>
   );
 }
