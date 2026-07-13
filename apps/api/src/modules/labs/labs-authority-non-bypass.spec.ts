@@ -11,6 +11,10 @@ const canonicalSeedPath = 'apps/api/src/modules/deals/canonical-test-deal.seed.t
 const industrialHarnessPath = 'apps/api/test/industrial/harness.ts';
 const finalizeMigrationPath =
   'apps/api/prisma/migrations/20260713121000_labs_postgresql_authority/migration.sql';
+const strictAuthorityMigrationPath =
+  'apps/api/prisma/migrations/20260713123000_labs_postgresql_authority/migration.sql';
+const provisioningMigrationPath =
+  'apps/api/prisma/migrations/20260713124000_labs_postgresql_authority/migration.sql';
 const prismaRepositoryPath = 'apps/api/src/modules/labs/prisma-lab.repository.ts';
 const postgresDealCommandPath =
   'apps/api/src/modules/deals/postgresql-deal-command.service.ts';
@@ -70,10 +74,30 @@ describe('IR-10.3 laboratory PostgreSQL authority cannot be bypassed', () => {
     expect(migration).toMatch(/actor\.actor_type\s*=\s*'SIGNATORY'/);
   });
 
-  it('derives finalization time on the server instead of trusting arbitrary client time', () => {
+  it('derives finalization time on the server instead of injecting application time', () => {
     const command = readRepoFile(postgresDealCommandPath);
 
     expect(command).not.toMatch(/requiredDate\(clientPayload,\s*'finalizedAt'\)/);
+    expect(command).not.toMatch(/finalizedAt\s*:\s*new\s+Date\s*\(/);
+  });
+
+  it('uses one canonical exact-purpose evidence contract for finalization', () => {
+    const command = readRepoFile(postgresDealCommandPath);
+
+    expect(command).not.toContain('app_labs_protocol_evidence_valid');
+  });
+
+  it('does not let privileged staff impersonate a physical laboratory actor', () => {
+    for (const migrationPath of [strictAuthorityMigrationPath, provisioningMigrationPath]) {
+      const migration = readRepoFile(migrationPath);
+
+      expect(migration).not.toMatch(
+        /NOT\s+public\.app_rls_privileged\(\)\s+AND\s+NOT\s+public\.app_labs_actor_valid/si,
+      );
+      expect(migration).not.toMatch(
+        /NOT\s+public\.app_rls_privileged\(\)\s*\n\s*AND\s+NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+labs\.authorized_actors/si,
+      );
+    }
   });
 
   it('enforces operation-specific laboratory actor types in the production repository', () => {
@@ -104,6 +128,10 @@ describe('IR-10.3 laboratory PostgreSQL authority cannot be bypassed', () => {
       'correction',
       'rollback',
       'idempotency',
+      'payload mismatch',
+      'reordered custody',
+      'hash chain',
+      'privileged',
     ]) {
       expect(e2e.toLowerCase()).toContain(proofMarker);
     }
