@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { CanonicalDealWorkspace } from '@/components/platform-v7/CanonicalDealWorkspace';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
+import styles from './RoleIntentDashboard.module.css';
 
 type AccessibleDealRef = { id: string; dealNumber: string | null };
 type LoadState =
@@ -75,20 +76,40 @@ export function RoleIntentDashboard({ role }: { role: PlatformRole }) {
   }, [load]);
 
   if (state.kind === 'loading') {
-    return <section className='role-deals-state' aria-live='polite'><RefreshCw className='spin' size={22} /><strong>Загружаем ваши сделки…</strong><style jsx>{styles}</style></section>;
+    return (
+      <section className={styles.stateCard} aria-live='polite'>
+        <div className={styles.stateContent}>
+          <RefreshCw className={styles.spin} size={24} aria-hidden='true' />
+          <h1>Открываем твою рабочую сделку</h1>
+          <p>Покажем только то, что требует твоего внимания сейчас.</p>
+        </div>
+      </section>
+    );
   }
 
   if (state.kind === 'empty') {
-    return <section className='role-deals-state' data-empty-deals><strong>У вас пока нет активных сделок</strong><p>Новая сделка появится здесь после подтверждения вашего участия сервером.</p><style jsx>{styles}</style></section>;
+    return (
+      <section className={styles.stateCard} data-empty-deals>
+        <div className={styles.stateContent}>
+          <h1>У вас пока нет активных сделок</h1>
+          <p>Новая сделка появится здесь после подтверждения вашего участия сервером.</p>
+        </div>
+      </section>
+    );
   }
 
   if (state.kind === 'error') {
     return (
-      <section className='role-deals-state error' role='alert' data-deals-error>
-        <AlertTriangle size={23} />
-        <div><strong>Не удалось загрузить сделки</strong><p>{state.message}</p></div>
-        <button type='button' onClick={() => void load()}><RefreshCw size={17} />Повторить</button>
-        <style jsx>{styles}</style>
+      <section className={styles.stateCard} role='alert' data-deals-error>
+        <div className={styles.stateContent}>
+          <AlertTriangle className={styles.errorIcon} size={26} aria-hidden='true' />
+          <h1>Не удалось загрузить сделки</h1>
+          <p>{state.message}</p>
+          <button className={styles.retryButton} type='button' onClick={() => void load()}>
+            <RefreshCw size={18} aria-hidden='true' />
+            Повторить
+          </button>
+        </div>
       </section>
     );
   }
@@ -97,26 +118,18 @@ export function RoleIntentDashboard({ role }: { role: PlatformRole }) {
   return (
     <>
       {otherDeals.length > 0 ? (
-        <nav className='role-deal-switcher' aria-label='Другие активные сделки'>
-          <span>Активных сделок: {state.deals.length}</span>
-          {state.deals.map((deal) => (
-            <Link key={deal.id} href={`/platform-v7/deals/${encodeURIComponent(deal.id)}/execution`}>
-              {deal.dealNumber || deal.id}
-            </Link>
-          ))}
-          <style jsx>{styles}</style>
-        </nav>
+        <details className={styles.otherDeals}>
+          <summary>Другие активные сделки: {otherDeals.length}</summary>
+          <nav className={styles.dealLinks} aria-label='Другие активные сделки'>
+            {otherDeals.map((deal) => (
+              <Link className={styles.dealLink} key={deal.id} href={`/platform-v7/deals/${encodeURIComponent(deal.id)}/execution`}>
+                {deal.dealNumber || deal.id}
+              </Link>
+            ))}
+          </nav>
+        </details>
       ) : null}
       <CanonicalDealWorkspace role={role} dealId={current.id} />
     </>
   );
 }
-
-const styles = `
-  .role-deals-state{min-height:180px;border:1px solid var(--pc-border);border-radius:22px;background:var(--pc-shell-surface);padding:22px;display:flex;align-items:center;justify-content:center;gap:12px;color:var(--pc-text-secondary);text-align:center;flex-wrap:wrap}
-  .role-deals-state div{min-width:0;flex:1;text-align:left}.role-deals-state p{margin:5px 0 0;font-size:13px;line-height:1.45}.role-deals-state.error{border-color:#efc5c5;background:#fff8f8;color:#8f2525}.role-deals-state button{min-height:44px;border:1px solid currentColor;border-radius:13px;background:transparent;color:inherit;padding:0 14px;display:inline-flex;align-items:center;gap:7px;font-weight:850}
-  .role-deal-switcher{margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--pc-text-secondary);font-weight:800}.role-deal-switcher a{color:#0A7A5F;border:1px solid rgba(10,122,95,.25);border-radius:999px;padding:8px 12px;text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
-  .spin{animation:role-spin .85s linear infinite}@keyframes role-spin{to{transform:rotate(360deg)}}
-  @media(prefers-reduced-motion:reduce){.spin{animation:none}}
-  @media(forced-colors:active){.role-deals-state,.role-deal-switcher a,.role-deals-state button{border:1px solid CanvasText}}
-`;
