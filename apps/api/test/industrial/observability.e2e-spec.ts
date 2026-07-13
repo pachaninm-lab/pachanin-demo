@@ -2,7 +2,14 @@ import { register } from 'prom-client';
 import { IndustrialMetricsService } from '../../src/modules/integration-events/industrial-metrics.service';
 import type { ExecuteDealCommandDto } from '../../src/modules/deals/dto/execute-deal-command.dto';
 import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
-import { cleanTenant, createInstance, destroyInstance, payloadForAction, provisionDeal, type ServiceInstance } from './harness';
+import {
+  cleanTenant,
+  createRememberedInstance as createInstance,
+  destroyInstance,
+  payloadForAction,
+  provisionDeal,
+  type ServiceInstance,
+} from './harness';
 
 jest.setTimeout(120_000);
 
