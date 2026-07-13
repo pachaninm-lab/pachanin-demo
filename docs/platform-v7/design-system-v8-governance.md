@@ -30,7 +30,7 @@ The following are controlled by v8:
 - the active `AppShellV4` TSX and CSS Module;
 - the shared `RoleIntentDashboard` TSX and CSS Module used by all twelve business-role roots;
 - the canonical deals registry page, list component and their CSS Modules;
-- the document readiness, dispute queue and bank release-review routes;
+- the document readiness, dispute queue, bank release-review and canonical auction routes;
 - every file registered in `migratedFiles` inside `design-governance-v8.json`.
 
 A migrated product file must consume `@pc/design-system-v8` or the governed `transaction-ux` boundary. New local copies of a migrated pattern are not allowed.
@@ -174,9 +174,23 @@ The `/platform-v7/bank/release-safety` route is a governed read-only projection 
 - requires an external bank callback and reconciliation before a bank state is treated as confirmed;
 - supports RU, EN and ZH route copy.
 
+### Canonical auction execution
+
+The canonical flow consists of `/platform-v7/auction`, `/auction/import`, `/auction/admission`, `/auction/bids` and `/auction/deal-basis`. It:
+
+- keeps the public-registry lot, certificate, owner, available mass, quality and documents in one source snapshot;
+- requires batch and buyer admission before new bids can be accepted;
+- keeps the bid journal immutable and constrains bid volume to available mass;
+- creates a Deal basis from the locked winner, never a payment;
+- links price, lot, certificate, seller, buyer, volume, amount and next execution routes;
+- fails closed when the current admission is incomplete, even when historical bid and winner fixtures exist;
+- blocks transition to logistics until both admission and the Deal-basis guard pass;
+- supports RU, EN and ZH for route copy, statuses, rules, checks and guard labels;
+- explicitly states that the displayed source snapshot does not prove live FGIS connectivity and that the UI cannot release money.
+
 ## Remaining boundary
 
-Auction execution, detailed settlement operations and historical or non-critical routes are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
+Detailed settlement operations, historical auction routes outside the canonical flow and other non-critical pages are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
 
 ## Decision authority
 
