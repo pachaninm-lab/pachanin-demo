@@ -1,0 +1,9 @@
+.root { min-width: 0; display: grid; gap: var(--ds-space-4); }
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--ds-space-4); }
+.headingGroup { min-width: 0; display: grid; gap: var(--ds-space-2); }
+.eyebrow { color: var(--ds-color-action-primary); font-size: var(--ds-font-caption); font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; }
+.headingGroup h1 { margin: 0; color: var(--ds-color-text-primary); font-size: clamp(var(--ds-font-title), 4vw, var(--ds-font-display)); line-height: 1.08; letter-spacing: -0.035em; }
+.headingGroup p { margin: 0; max-width: 74ch; color: var(--ds-color-text-secondary); line-height: 1.55; }
+.workArea { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: var(--ds-space-4); align-items: start; }
+.primary, .context, .details { min-width: 0; display: grid; gap: var(--ds-space-4); }
+@media (max-width: 860px) { .header { display: grid; } .workArea { grid-template-columns: 1fr; } .context { order: 2; } }
