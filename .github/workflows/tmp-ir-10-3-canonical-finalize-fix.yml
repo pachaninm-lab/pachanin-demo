@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - agent/ir-10-3-labs-authority-v3
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    if: ${{ !contains(github.event.head_commit.message, '[ir-10-3-canonical-finalize-fixed]') }}
+    if: ${{ github.event_name == 'push' || github.head_ref == 'agent/ir-10-3-labs-authority-v3' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -117,11 +120,14 @@ jobs:
           source = source[:effect_start] + effect + source[effect_end:]
           path.write_text(source)
 
-          stale_spec = Path('apps/api/src/modules/labs/lab-repository.spec.ts')
-          if stale_spec.exists():
-              stale_spec.unlink()
-
-          Path('.github/workflows/tmp-ir-10-3-canonical-finalize-fix.yml').unlink()
+          for stale in [
+              'apps/api/src/modules/labs/lab-repository.spec.ts',
+              'docs/platform-v7/autopilot/ir-10-3-canonical-finalize.trigger',
+              '.github/workflows/tmp-ir-10-3-canonical-finalize-fix.yml',
+          ]:
+              stale_path = Path(stale)
+              if stale_path.exists():
+                  stale_path.unlink()
           PY
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
