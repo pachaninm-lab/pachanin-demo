@@ -21,11 +21,16 @@ const exact = new Set([
   'apps/web/app/platform-v7/disputes/page.tsx',
   'apps/web/app/platform-v7/bank/release-safety/page.tsx',
   'apps/web/app/platform-v7/money/page.tsx',
+  'apps/web/app/platform-v7/fgis-access/page.tsx',
   'apps/web/app/platform-v7/auction/page.tsx',
   'apps/web/app/platform-v7/auction/import/page.tsx',
   'apps/web/app/platform-v7/auction/admission/page.tsx',
   'apps/web/app/platform-v7/auction/bids/page.tsx',
   'apps/web/app/platform-v7/auction/deal-basis/page.tsx',
+  'apps/web/lib/platform-v7/auctionAuthorityCopy.ts',
+  'apps/web/lib/platform-v7/auctionDealBridge.ts',
+  'apps/web/lib/platform-v7/farmerFgisAccessEngine.ts',
+  'apps/web/lib/platform-v7/fgisAuctionEngine.ts',
   'apps/web/components/platform-v7/CanonicalDealsList.tsx',
   'apps/web/components/platform-v7/CanonicalDealsList.module.css',
   'apps/web/components/platform-v7/NextActionCard.tsx',
@@ -33,6 +38,9 @@ const exact = new Set([
   'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx',
   'apps/web/components/platform-v7/RoleIntentDashboard.tsx',
   'apps/web/components/platform-v7/RoleIntentDashboard.module.css',
+  'apps/web/components/transaction-ux/AuctionExecutionCockpit.tsx',
+  'apps/web/components/transaction-ux/AuctionExecutionCockpit.module.css',
+  'apps/web/components/transaction-ux/auctionExecutionCopy.ts',
   'apps/web/components/v7r/AppShellV4.tsx',
   'apps/web/components/v7r/AppShellV4.module.css',
   'apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx',
@@ -45,7 +53,9 @@ const exact = new Set([
   'apps/web/tests/unit/designSystemV8OperationalRoles.test.ts',
   'apps/web/tests/unit/designSystemV8SettlementViews.test.ts',
   'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts',
+  'apps/web/tests/unit/platformV7DealExecutionChain.test.ts',
   'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx',
+  'apps/web/tests/unit/platformV7FgisAccessFlow.test.ts',
   'apps/web/tests/unit/platformV7MobileNavigation.test.ts',
   'apps/web/tests/unit/platformV7RealDealsRegistry.test.ts',
   'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts',
@@ -100,7 +110,7 @@ try {
 let mergeBase;
 try {
   mergeBase = git(['merge-base', base, 'HEAD']);
-} catch (error) {
+} catch {
   console.error(`[design-system-v8-scope] Cannot resolve merge base for ${base}.`);
   process.exit(1);
 }
