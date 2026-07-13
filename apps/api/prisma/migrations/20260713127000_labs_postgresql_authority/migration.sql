@@ -24,8 +24,10 @@ BEGIN
   IF sample_record."status" = 'FINALIZED' THEN
     RAISE EXCEPTION 'late laboratory test insert is forbidden after finalization' USING ERRCODE = '23514';
   END IF;
-  IF sample_record."status" NOT IN ('RECEIVED','ANALYSIS_IN_PROGRESS') THEN
-    RAISE EXCEPTION 'laboratory sample is not ready for test recording' USING ERRCODE = '23514';
+  IF sample_record."status" NOT IN ('RECEIVED','ANALYSIS_IN_PROGRESS')
+     OR sample_record."custodyStatus" NOT IN ('OPENED','ANALYSIS_IN_PROGRESS')
+  THEN
+    RAISE EXCEPTION 'laboratory sample must have a completed OPENED custody fact before test recording' USING ERRCODE = '23514';
   END IF;
 
   SELECT * INTO method_record FROM labs.methods WHERE id = NEW."methodId";
@@ -44,11 +46,8 @@ BEGIN
     RAISE EXCEPTION 'laboratory method or equipment authority is invalid at recorded time' USING ERRCODE = '23514';
   END IF;
   IF NEW."actorUserId" <> current_setting('app.current_user_id', true)
-     OR (
-       NOT public.app_rls_privileged()
-       AND NOT public.app_labs_actor_valid(
-         sample_record."tenantId", sample_record."labId", NEW."actorUserId", 'ANALYST', NEW."recordedAt"
-       )
+     OR NOT public.app_labs_actor_valid(
+       sample_record."tenantId", sample_record."labId", NEW."actorUserId", 'ANALYST', NEW."recordedAt"
      )
   THEN
     RAISE EXCEPTION 'authorized ANALYST assignment is required' USING ERRCODE = '42501';
