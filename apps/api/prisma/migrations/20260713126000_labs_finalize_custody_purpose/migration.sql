@@ -59,7 +59,8 @@ BEGIN
   IF NOT public.app_labs_evidence_purpose_valid(
        NEW.evidence_file_id, NEW.tenant_id, sample_record."dealId", required_purpose,
        evidence_sample_id, sample_record."shipmentId", sample_record."acceptanceId",
-       NEW.laboratory_org_id, NULL
+       NEW.laboratory_org_id,
+       CASE WHEN NEW.event_type = 'FINALIZED' THEN sample_record."protocol" ELSE NULL END
      )
   THEN
     RAISE EXCEPTION 'custody evidence is not purpose-bound to the exact operation' USING ERRCODE = '23514';
