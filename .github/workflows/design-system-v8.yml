@@ -18,8 +18,14 @@ on:
       - 'apps/web/app/platform-v7/seller/page.tsx'
       - 'apps/web/app/platform-v7/buyer/page.tsx'
       - 'apps/web/app/platform-v7/bank/page.tsx'
+      - 'apps/web/app/platform-v7/operator/page.tsx'
+      - 'apps/web/app/platform-v7/logistics/page.tsx'
+      - 'apps/web/app/platform-v7/compliance/page.tsx'
+      - 'apps/web/app/platform-v7/arbitrator/page.tsx'
+      - 'apps/web/app/platform-v7/executive/page.tsx'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts'
+      - 'apps/web/tests/unit/designSystemV8OperationalRoles.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
@@ -46,8 +52,14 @@ on:
       - 'apps/web/app/platform-v7/seller/page.tsx'
       - 'apps/web/app/platform-v7/buyer/page.tsx'
       - 'apps/web/app/platform-v7/bank/page.tsx'
+      - 'apps/web/app/platform-v7/operator/page.tsx'
+      - 'apps/web/app/platform-v7/logistics/page.tsx'
+      - 'apps/web/app/platform-v7/compliance/page.tsx'
+      - 'apps/web/app/platform-v7/arbitrator/page.tsx'
+      - 'apps/web/app/platform-v7/executive/page.tsx'
       - 'apps/web/tests/unit/designSystemV8FieldRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts'
+      - 'apps/web/tests/unit/designSystemV8OperationalRoles.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
@@ -84,6 +96,7 @@ jobs:
           pnpm --filter @pc/web exec vitest run \
             tests/unit/designSystemV8FieldRoles.test.ts \
             tests/unit/designSystemV8MoneyRoles.test.ts \
+            tests/unit/designSystemV8OperationalRoles.test.ts \
             tests/unit/platformV7CanonicalDealWorkspace.test.ts \
             tests/unit/platformV7RoleIntentDashboard.test.ts \
             tests/unit/platformV7TodayWorkspace.test.ts \
