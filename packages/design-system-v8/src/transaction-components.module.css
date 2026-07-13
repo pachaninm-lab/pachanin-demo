@@ -4,4 +4,7 @@
 .paddingComfortable { padding: var(--ds-space-4); }
 .paddingField { padding: var(--ds-space-6); }
 .raised { box-shadow: var(--ds-shadow-overlay); }
+.emptyState { min-height: 220px; display: grid; place-content: center; justify-items: center; gap: var(--ds-space-3); text-align: center; }
+.emptyState h2, .emptyState p { margin: 0; }
+.emptyState p { max-width: 56ch; color: var(--ds-color-text-secondary); line-height: 1.55; }
 @media (max-width: 640px) { .paddingField { padding: var(--ds-space-4); } }
