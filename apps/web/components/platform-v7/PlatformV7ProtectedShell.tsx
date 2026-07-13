@@ -203,7 +203,7 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
             <StaffControlCenterEntry />
           </React.Suspense>
           <CalculatorHeaderWidget />
-          <HeaderUtilityMenu role={initialRole} />
+          <HeaderUtilityMenu />
           <RoleAssistantWidget />
           {workSurface}
           {showPlatformFooter ? <PlatformFooter /> : null}
