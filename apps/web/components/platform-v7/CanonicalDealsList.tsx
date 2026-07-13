@@ -14,9 +14,7 @@ import {
 } from 'lucide-react';
 import styles from './CanonicalDealsList.module.css';
 
-const INITIAL_LIMIT = 20;
-const LIMIT_STEP = 20;
-const MAX_LIMIT = 100;
+const PAGE_LIMIT = 20;
 
 type AccessibleDeal = {
   id: string;
@@ -27,16 +25,29 @@ type AccessibleDeal = {
   region: string | null;
   volumeTons: string | null;
   totalKopecks: number | null;
+  moneyImpactKopecks: string | null;
   currency: string;
   nextAction: string | null;
+  deadlineAt: string | null;
+  priorityReason: string;
+  priorityRank: number;
   myRole: string;
+  myAccessLevel: string;
   updatedAt: string;
+};
+
+type RegistryPage = {
+  items: AccessibleDeal[];
+  nextCursor: string | null;
+  hasMore: boolean;
 };
 
 type RegistryState =
   | { kind: 'loading' }
-  | { kind: 'ready'; items: AccessibleDeal[]; limit: number }
-  | { kind: 'error'; message: string; limit: number };
+  | { kind: 'ready'; items: AccessibleDeal[]; nextCursor: string | null; hasMore: boolean }
+  | { kind: 'error'; message: string };
+
+type LoadMode = 'initial' | 'more' | 'retry';
 
 function optionalString(value: unknown): string | null | undefined {
   if (value === null || value === undefined) return null;
@@ -49,11 +60,16 @@ function requiredString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function parseDeals(payload: unknown): AccessibleDeal[] | null {
-  if (!payload || typeof payload !== 'object' || !Array.isArray((payload as { items?: unknown }).items)) return null;
+function parseRegistryPage(payload: unknown): RegistryPage | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const envelope = payload as Record<string, unknown>;
+  if (!Array.isArray(envelope.items) || typeof envelope.hasMore !== 'boolean') return null;
 
-  const result: AccessibleDeal[] = [];
-  for (const item of (payload as { items: unknown[] }).items) {
+  const nextCursor = optionalString(envelope.nextCursor);
+  if (nextCursor === undefined || (envelope.hasMore && !nextCursor)) return null;
+
+  const items: AccessibleDeal[] = [];
+  for (const item of envelope.items) {
     if (!item || typeof item !== 'object') return null;
     const row = item as Record<string, unknown>;
 
@@ -61,27 +77,35 @@ function parseDeals(payload: unknown): AccessibleDeal[] | null {
     const status = requiredString(row.status);
     const currency = requiredString(row.currency) || 'RUB';
     const myRole = requiredString(row.myRole);
+    const myAccessLevel = requiredString(row.myAccessLevel);
     const updatedAt = requiredString(row.updatedAt);
+    const priorityReason = requiredString(row.priorityReason);
     const dealNumber = optionalString(row.dealNumber);
     const culture = optionalString(row.culture);
     const cropClass = optionalString(row.cropClass);
     const region = optionalString(row.region);
     const volumeTons = optionalString(row.volumeTons);
     const nextAction = optionalString(row.nextAction);
+    const deadlineAt = optionalString(row.deadlineAt);
+    const moneyImpactKopecks = optionalString(row.moneyImpactKopecks);
     const totalKopecks = row.totalKopecks === null || row.totalKopecks === undefined
       ? null
       : typeof row.totalKopecks === 'number' && Number.isFinite(row.totalKopecks)
         ? row.totalKopecks
         : undefined;
+    const priorityRank = typeof row.priorityRank === 'number' && Number.isInteger(row.priorityRank)
+      ? row.priorityRank
+      : undefined;
 
     if (
-      !id || !status || !myRole || !updatedAt
+      !id || !status || !myRole || !myAccessLevel || !updatedAt || !priorityReason
       || dealNumber === undefined || culture === undefined || cropClass === undefined
       || region === undefined || volumeTons === undefined || nextAction === undefined
-      || totalKopecks === undefined
+      || deadlineAt === undefined || moneyImpactKopecks === undefined
+      || totalKopecks === undefined || priorityRank === undefined
     ) return null;
 
-    result.push({
+    items.push({
       id,
       dealNumber,
       status,
@@ -90,26 +114,48 @@ function parseDeals(payload: unknown): AccessibleDeal[] | null {
       region,
       volumeTons,
       totalKopecks,
+      moneyImpactKopecks,
       currency,
       nextAction,
+      deadlineAt,
+      priorityReason,
+      priorityRank,
       myRole,
+      myAccessLevel,
       updatedAt,
     });
   }
 
-  return result;
+  return { items, nextCursor, hasMore: envelope.hasMore };
+}
+
+function appendUniqueDeals(current: AccessibleDeal[], incoming: AccessibleDeal[]): AccessibleDeal[] {
+  const byId = new Map(current.map((deal) => [deal.id, deal]));
+  for (const deal of incoming) byId.set(deal.id, deal);
+  return [...byId.values()];
 }
 
 function humanStatus(value: string): string {
   const known: Record<string, string> = {
     CREATED: 'Создана',
-    ACTIVE: 'В работе',
-    IN_PROGRESS: 'В работе',
+    DRAFT: 'Черновик',
+    ADMISSION_APPROVED: 'Допуск подтверждён',
+    AUCTION_OPEN: 'Идут торги',
+    AUCTION_WON: 'Победитель выбран',
+    CONTRACT_SIGNED: 'Договор подписан',
+    RESERVE_REQUESTED: 'Запрошен резерв',
+    RESERVED: 'Деньги зарезервированы',
+    LOGISTICS_ASSIGNED: 'Перевозка назначена',
+    LOADED: 'Погрузка подтверждена',
     IN_TRANSIT: 'Груз в пути',
-    ACCEPTANCE: 'Приёмка',
-    LABORATORY: 'Проверка качества',
-    DOCUMENTS: 'Документы',
-    PAYMENT: 'Расчёты',
+    ARRIVED: 'Груз прибыл',
+    WEIGHED: 'Вес подтверждён',
+    INSPECTION_CONFIRMED: 'Осмотр подтверждён',
+    QUALITY_ACCEPTED: 'Качество принято',
+    DELIVERY_ACCEPTED: 'Поставка принята',
+    DOCUMENTS_COMPLETE: 'Документы готовы',
+    RELEASE_REQUESTED: 'Запрошена выплата',
+    RELEASED: 'Выплата подтверждена',
     DISPUTE: 'Открыт спор',
     COMPLETED: 'Завершена',
     CLOSED: 'Закрыта',
@@ -118,21 +164,53 @@ function humanStatus(value: string): string {
   return known[value] || value.toLowerCase().replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase());
 }
 
-function formatMoney(kopecks: number | null, currency: string): string {
-  if (kopecks === null || !Number.isFinite(kopecks)) return 'Сумма не указана';
+function priorityLabel(value: string): string {
+  const known: Record<string, string> = {
+    DISPUTE_CONTROL: 'Спор требует контроля',
+    MONEY_CONTROL: 'Деньги требуют контроля',
+    OVERDUE_ACTION: 'Срок нарушен',
+    DEADLINE_ACTION: 'Есть срок',
+    ACTION_REQUIRED: 'Нужно действие',
+    RECENT_ACTIVITY: 'Наблюдение',
+  };
+  return known[value] || 'Требует внимания';
+}
+
+function formatMoney(exactKopecks: string | null, fallbackKopecks: number | null, currency: string): string {
+  if (exactKopecks && /^-?\d+$/.test(exactKopecks)) {
+    try {
+      return new Intl.NumberFormat('ru-RU', {
+        style: 'currency',
+        currency: currency || 'RUB',
+        maximumFractionDigits: 0,
+      }).format(BigInt(exactKopecks) / 100n);
+    } catch {
+      // Fall through to the validated legacy-safe numeric projection.
+    }
+  }
+  if (fallbackKopecks === null || !Number.isFinite(fallbackKopecks)) return 'Сумма не указана';
   return new Intl.NumberFormat('ru-RU', {
     style: 'currency',
     currency: currency || 'RUB',
     maximumFractionDigits: 0,
-  }).format(kopecks / 100);
+  }).format(fallbackKopecks / 100);
 }
 
-function formatUpdatedAt(value: string): string {
+function exportMoney(exactKopecks: string | null, fallbackKopecks: number | null): number | string | null {
+  if (fallbackKopecks !== null && Number.isSafeInteger(fallbackKopecks)) return fallbackKopecks / 100;
+  if (!exactKopecks || !/^\d+$/.test(exactKopecks)) return null;
+  const padded = exactKopecks.padStart(3, '0');
+  return `${padded.slice(0, -2)}.${padded.slice(-2)}`;
+}
+
+function formatDateTime(value: string | null, fallback: string): string {
+  if (!value) return fallback;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'время не указано';
+  if (Number.isNaN(date.getTime())) return fallback;
   return new Intl.DateTimeFormat('ru-RU', {
     day: '2-digit',
     month: '2-digit',
+    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
@@ -154,9 +232,11 @@ async function exportVisibleDeals(items: AccessibleDeal[]): Promise<void> {
     { header: 'Культура', key: 'culture', width: 20 },
     { header: 'Класс', key: 'cropClass', width: 14 },
     { header: 'Регион', key: 'region', width: 24 },
-    { header: 'Статус', key: 'status', width: 22 },
+    { header: 'Статус', key: 'status', width: 24 },
+    { header: 'Причина приоритета', key: 'priority', width: 28 },
     { header: 'Следующий шаг', key: 'nextAction', width: 36 },
-    { header: 'Сумма', key: 'amount', width: 18 },
+    { header: 'Срок', key: 'deadlineAt', width: 20 },
+    { header: 'Сумма', key: 'amount', width: 20 },
     { header: 'Валюта', key: 'currency', width: 10 },
     { header: 'Обновлена', key: 'updatedAt', width: 20 },
   ];
@@ -168,8 +248,10 @@ async function exportVisibleDeals(items: AccessibleDeal[]): Promise<void> {
       cropClass: deal.cropClass || '',
       region: deal.region || '',
       status: humanStatus(deal.status),
+      priority: priorityLabel(deal.priorityReason),
       nextAction: deal.nextAction || 'Действие не требуется',
-      amount: deal.totalKopecks === null ? null : deal.totalKopecks / 100,
+      deadlineAt: deal.deadlineAt ? new Date(deal.deadlineAt) : null,
+      amount: exportMoney(deal.moneyImpactKopecks, deal.totalKopecks),
       currency: deal.currency,
       updatedAt: new Date(deal.updatedAt),
     });
@@ -182,9 +264,10 @@ async function exportVisibleDeals(items: AccessibleDeal[]): Promise<void> {
   header.height = 24;
 
   sheet.getColumn('amount').numFmt = '#,##0.00';
+  sheet.getColumn('deadlineAt').numFmt = 'dd.mm.yyyy hh:mm';
   sheet.getColumn('updatedAt').numFmt = 'dd.mm.yyyy hh:mm';
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
-  sheet.autoFilter = { from: 'A1', to: 'I1' };
+  sheet.autoFilter = { from: 'A1', to: 'K1' };
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -199,21 +282,27 @@ async function exportVisibleDeals(items: AccessibleDeal[]): Promise<void> {
 export function CanonicalDealsList() {
   const [state, setState] = React.useState<RegistryState>({ kind: 'loading' });
   const [loadingMore, setLoadingMore] = React.useState(false);
+  const [loadMoreError, setLoadMoreError] = React.useState('');
   const [exporting, setExporting] = React.useState(false);
   const [exportError, setExportError] = React.useState('');
   const requestRef = React.useRef(0);
 
-  const load = React.useCallback(async (limit: number, mode: 'initial' | 'more' | 'retry' = 'initial') => {
-    const boundedLimit = Math.min(Math.max(Math.trunc(limit), INITIAL_LIMIT), MAX_LIMIT);
+  const load = React.useCallback(async (mode: LoadMode = 'initial', cursor: string | null = null) => {
     const requestId = ++requestRef.current;
-    if (mode === 'more') setLoadingMore(true);
-    else setState({ kind: 'loading' });
+    if (mode === 'more') {
+      setLoadingMore(true);
+      setLoadMoreError('');
+    } else {
+      setState({ kind: 'loading' });
+    }
 
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 12_000);
+    const params = new URLSearchParams({ limit: String(PAGE_LIMIT) });
+    if (cursor) params.set('cursor', cursor);
 
     try {
-      const response = await fetch(`/api/proxy/deals/accessible?limit=${boundedLimit}`, {
+      const response = await fetch(`/api/proxy/deals/accessible?${params.toString()}`, {
         cache: 'no-store',
         headers: { Accept: 'application/json' },
         signal: controller.signal,
@@ -228,26 +317,38 @@ export function CanonicalDealsList() {
         const message = payload && typeof payload === 'object' && typeof (payload as { message?: unknown }).message === 'string'
           ? String((payload as { message: string }).message)
           : fallback;
-        setState({ kind: 'error', message, limit: boundedLimit });
+        if (mode === 'more') setLoadMoreError(message);
+        else setState({ kind: 'error', message });
         return;
       }
 
-      const items = parseDeals(payload);
-      if (!items) {
-        setState({ kind: 'error', message: 'Сервер вернул некорректный реестр сделок.', limit: boundedLimit });
+      const page = parseRegistryPage(payload);
+      if (!page) {
+        const message = 'Сервер вернул некорректный реестр сделок.';
+        if (mode === 'more') setLoadMoreError(message);
+        else setState({ kind: 'error', message });
         return;
       }
 
-      setState({ kind: 'ready', items, limit: boundedLimit });
+      if (mode === 'more') {
+        setState((current) => current.kind === 'ready'
+          ? {
+              kind: 'ready',
+              items: appendUniqueDeals(current.items, page.items),
+              nextCursor: page.nextCursor,
+              hasMore: page.hasMore,
+            }
+          : { kind: 'ready', ...page });
+      } else {
+        setState({ kind: 'ready', ...page });
+      }
     } catch (error) {
       if (requestId !== requestRef.current) return;
-      setState({
-        kind: 'error',
-        limit: boundedLimit,
-        message: error instanceof DOMException && error.name === 'AbortError'
-          ? 'Сервер не ответил вовремя. Повтори загрузку.'
-          : 'Нет связи с сервером. Реестр не был заменён локальными данными.',
-      });
+      const message = error instanceof DOMException && error.name === 'AbortError'
+        ? 'Сервер не ответил вовремя. Повтори загрузку.'
+        : 'Нет связи с сервером. Реестр не был заменён локальными данными.';
+      if (mode === 'more') setLoadMoreError(message);
+      else setState({ kind: 'error', message });
     } finally {
       window.clearTimeout(timeout);
       if (requestId === requestRef.current) setLoadingMore(false);
@@ -255,7 +356,7 @@ export function CanonicalDealsList() {
   }, []);
 
   React.useEffect(() => {
-    void load(INITIAL_LIMIT);
+    void load('initial');
     return () => {
       requestRef.current += 1;
     };
@@ -289,17 +390,16 @@ export function CanonicalDealsList() {
         <AlertTriangle className={styles.errorIcon} size={28} aria-hidden='true' />
         <h2>Реестр временно недоступен</h2>
         <p>{state.message}</p>
-        <button className={styles.primaryButton} type='button' onClick={() => void load(state.limit, 'retry')}>
+        <button className={styles.primaryButton} type='button' onClick={() => void load('retry')}>
           <RefreshCw size={18} aria-hidden='true' /> Повторить
         </button>
       </section>
     );
   }
 
-  const { items, limit } = state;
+  const { items, nextCursor, hasMore } = state;
   const actionableCount = items.filter((deal) => Boolean(deal.nextAction)).length;
-  const canLoadMore = items.length === limit && limit < MAX_LIMIT;
-  const reachedMaximum = items.length === MAX_LIMIT && limit === MAX_LIMIT;
+  const canLoadMore = hasMore && Boolean(nextCursor);
 
   if (items.length === 0) {
     return (
@@ -317,11 +417,11 @@ export function CanonicalDealsList() {
         <div className={styles.registryTitle}>
           <span className={styles.kicker}><ShieldCheck size={16} aria-hidden='true' /> Доступ подтверждён сервером</span>
           <h2>Все показанные сделки</h2>
-          <p>Открывай сделку по следующему действию. Технические идентификаторы и внутренние сценарии не подменяют реальные данные.</p>
+          <p>Сначала показаны сделки с наибольшим операционным и денежным влиянием. Реестр продолжает выборку по серверному курсору.</p>
         </div>
         <div className={styles.summary} aria-label='Сводка показанного реестра'>
           <strong>{items.length}</strong>
-          <span>показано сделок</span>
+          <span>загружено сделок</span>
           <small>{actionableCount ? `${actionableCount} требуют действия` : 'новых действий нет'}</small>
         </div>
       </header>
@@ -336,7 +436,7 @@ export function CanonicalDealsList() {
           {exporting ? <Loader2 className={styles.spin} size={18} aria-hidden='true' /> : <Download size={18} aria-hidden='true' />}
           {exporting ? 'Формируем Excel…' : 'Скачать показанные сделки'}
         </button>
-        <button className={styles.iconButton} type='button' aria-label='Обновить реестр сделок' onClick={() => void load(limit, 'retry')}>
+        <button className={styles.iconButton} type='button' aria-label='Обновить реестр сделок' onClick={() => void load('retry')}>
           <RefreshCw size={18} aria-hidden='true' />
         </button>
       </div>
@@ -349,12 +449,18 @@ export function CanonicalDealsList() {
             <div className={styles.dealMain}>
               <span className={styles.dealIdentity}><Wheat size={15} aria-hidden='true' /> {dealTitle(deal)}</span>
               <strong>{deal.culture || 'Зерно'}{deal.cropClass ? ` · ${deal.cropClass} класс` : ''}</strong>
-              <span>{deal.region || 'Регион не указан'} · {formatMoney(deal.totalKopecks, deal.currency)}</span>
+              <span>{deal.region || 'Регион не указан'} · {formatMoney(deal.moneyImpactKopecks, deal.totalKopecks, deal.currency)}</span>
             </div>
             <div className={styles.dealState}>
-              <span className={styles.status}>{humanStatus(deal.status)}</span>
+              <div className={styles.stateBadges}>
+                <span className={styles.status}>{humanStatus(deal.status)}</span>
+                <span className={styles.priorityBadge} data-priority={deal.priorityReason}>{priorityLabel(deal.priorityReason)}</span>
+              </div>
               <strong>{deal.nextAction || 'Сейчас действие не требуется'}</strong>
-              <small>Обновлена {formatUpdatedAt(deal.updatedAt)}</small>
+              <div className={styles.dealMeta}>
+                <small>{deal.deadlineAt ? `Срок: ${formatDateTime(deal.deadlineAt, 'не указан')}` : 'Срок не установлен'}</small>
+                <small>Обновлена {formatDateTime(deal.updatedAt, 'время не указано')}</small>
+              </div>
             </div>
             <span className={styles.openAction}>Открыть <ArrowRight size={18} aria-hidden='true' /></span>
           </Link>
@@ -362,18 +468,30 @@ export function CanonicalDealsList() {
       </div>
 
       <footer className={styles.registryFooter}>
-        {canLoadMore ? (
+        {loadMoreError ? (
+          <div className={styles.loadMoreFailure} role='alert'>
+            <span>{loadMoreError}</span>
+            <button
+              className={styles.secondaryButton}
+              type='button'
+              disabled={loadingMore || !nextCursor}
+              onClick={() => void load('more', nextCursor)}
+            >
+              Повторить загрузку
+            </button>
+          </div>
+        ) : canLoadMore ? (
           <button
             className={styles.primaryButton}
             type='button'
             disabled={loadingMore}
-            onClick={() => void load(Math.min(limit + LIMIT_STEP, MAX_LIMIT), 'more')}
+            onClick={() => void load('more', nextCursor)}
           >
             {loadingMore ? <Loader2 className={styles.spin} size={18} aria-hidden='true' /> : null}
             {loadingMore ? 'Загружаем…' : 'Показать ещё сделки'}
           </button>
         ) : (
-          <p>{reachedMaximum ? 'Показаны первые 100 сделок. Полный промышленный реестр требует серверной cursor-пагинации.' : 'Показаны все сделки, возвращённые сервером.'}</p>
+          <p>Показаны все доступные сделки по выбранному сервером порядку.</p>
         )}
       </footer>
     </section>
