@@ -3,7 +3,11 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const cwd = process.cwd();
-const repoRoot = fs.existsSync(path.join(cwd, 'apps', 'web')) ? cwd : path.resolve(cwd, '../..');
+const repoRoot = [cwd, path.resolve(cwd, '../..')]
+  .find((candidate) => fs.existsSync(path.join(candidate, 'design-governance-v8.json')));
+
+if (!repoRoot) throw new Error(`Cannot resolve repository root from ${cwd}`);
+
 const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const fieldRolePages = [
