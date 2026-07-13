@@ -1,6 +1,8 @@
+import '@/styles/platform-v7-fixed-header-contract.css';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
+import { PlatformV7HeaderOffsetRuntime } from '@/components/platform-v7/PlatformV7HeaderOffsetRuntime';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
@@ -55,20 +57,43 @@ function isStaffPath(pathname: string) {
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const pathname = normalizePath(headers().get('x-pc-pathname'));
 
-  // Landing/auth and the privileged Staff control plane own isolated critical
-  // paths. Staff must not download business-cockpit CSS, role runtime or widgets:
-  // this reduces authority-boundary coupling and keeps mobile LCP predictable.
-  if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname) || isStaffPath(pathname)) return children;
+  // Landing and authentication stay lean and server-rendered. Their canonical
+  // header has a deterministic CSS offset and does not need a client observer.
+  if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children;
 
+  const headerOffsetRuntime = <PlatformV7HeaderOffsetRuntime />;
+
+  // The privileged Staff control plane owns an isolated critical path. It keeps
+  // its own authority shell, while sharing only the presentation-level fixed
+  // header measurement contract.
+  if (isStaffPath(pathname)) {
+    return (
+      <>
+        {headerOffsetRuntime}
+        {children}
+      </>
+    );
+  }
+
+  // Public supporting pages and protected business workspaces use the same
+  // physical header contract without sharing identity or role authority.
   const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
   if (isPublicPath(pathname)) {
-    return <PlatformV7FullStyleRuntime>{children}</PlatformV7FullStyleRuntime>;
+    return (
+      <>
+        {headerOffsetRuntime}
+        <PlatformV7FullStyleRuntime>{children}</PlatformV7FullStyleRuntime>
+      </>
+    );
   }
 
   const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');
   return (
-    <PlatformV7FullStyleRuntime>
-      <PlatformV7ProtectedRuntime pathname={pathname}>{children}</PlatformV7ProtectedRuntime>
-    </PlatformV7FullStyleRuntime>
+    <>
+      {headerOffsetRuntime}
+      <PlatformV7FullStyleRuntime>
+        <PlatformV7ProtectedRuntime pathname={pathname}>{children}</PlatformV7ProtectedRuntime>
+      </PlatformV7FullStyleRuntime>
+    </>
   );
 }
