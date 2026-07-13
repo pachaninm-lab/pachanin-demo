@@ -153,7 +153,17 @@
     "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
   ],
-  "approvedConcurrentScopes": {},
+  "approvedConcurrentScopes": {
+    "agent/transaction-ux-v8-reference-slice": [
+      "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+      "apps/web/components/platform-v7/CanonicalDealWorkspace.module.css",
+      "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
+      "apps/web/components/platform-v7/RoleIntentDashboard.module.css",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css",
+      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
+    ]
+  },
   "currentAcceptance": [
     "Production LogisticsModule binds SHIPMENT_REPOSITORY directly to a complete Prisma implementation; RuntimeCore, optional Prisma and repository factory are absent from the production Logistics dependency graph.",
     "Production startup fails closed when the shipment repository mode is missing, memory or unknown.",

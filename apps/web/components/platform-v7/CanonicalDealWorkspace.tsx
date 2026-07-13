@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import { DealCommandForm } from '@/components/platform-v7/DealCommandForm';
+import styles from './CanonicalDealWorkspace.module.css';
 
 type SpineState = 'done' | 'active' | 'pending';
 type ActionSource = 'USER' | 'BANK_CALLBACK';
@@ -134,10 +135,42 @@ function roleLabel(role: PlatformRole): string {
   return labels[role];
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Ожидается',
+  WAITING: 'Ожидается',
+  CREATED: 'Создано',
+  RESERVED: 'Деньги зарезервированы',
+  HOLD: 'Деньги удерживаются',
+  CONFIRMED: 'Подтверждено',
+  COMPLETED: 'Завершено',
+  CLOSED: 'Закрыто',
+  SIGNED: 'Подписано',
+  IN_TRANSIT: 'В пути',
+  ARRIVED: 'Прибыл',
+  ACCEPTED: 'Принято',
+  REJECTED: 'Отклонено',
+  PASSED: 'Соответствует',
+  FAILED: 'Не соответствует',
+  OPEN: 'Открыто',
+  NOT_STARTED: 'Не начато',
+};
+
+function humanStatus(value: string | null | undefined, emptyLabel = 'Нет данных'): string {
+  if (!value) return emptyLabel;
+  return STATUS_LABELS[value] || value.toLowerCase().replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase());
+}
+
 function waitingLabel(action: Workspace['roleProjection']['primaryAction']): string {
   if (!action) return '';
-  if (action.source === 'BANK_CALLBACK' || action.waitingForRoles.includes('BANK_CALLBACK')) return 'подтверждённый callback банка';
-  return action.waitingForRoles.join(', ');
+  if (action.source === 'BANK_CALLBACK' || action.waitingForRoles.includes('BANK_CALLBACK')) return 'подтверждение банка';
+  if (action.waitingForRoles.length === 0) return 'другой участник сделки';
+  return action.waitingForRoles.map((role) => humanStatus(role)).join(', ');
+}
+
+function stepStateLabel(state: SpineState): string {
+  if (state === 'done') return 'Готово';
+  if (state === 'active') return 'Сейчас';
+  return 'Позже';
 }
 
 export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; dealId: string }) {
@@ -202,7 +235,7 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
         }),
       });
       const result = await readJson(response) as CommandResult;
-      setNotice(result.duplicate ? 'Команда уже была принята ранее. Показан сохранённый результат.' : 'Действие подтверждено сервером и записано в журнал сделки.');
+      setNotice(result.duplicate ? 'Это действие уже было выполнено. Показан сохранённый результат.' : 'Готово. Результат записан в сделку.');
       await load();
     } catch (reason) {
       if (reason instanceof HttpError && reason.status === 409) {
@@ -220,16 +253,29 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
   }
 
   if (loading && !workspace) {
-    return <section className='deal-loading' aria-live='polite'><Loader2 size={24} className='spin' /><strong>Загружаем сделку…</strong><style jsx>{styles}</style></section>;
+    return (
+      <section className={styles.loading} aria-live='polite'>
+        <div className={styles.stateContent}>
+          <Loader2 size={25} className={styles.spin} aria-hidden='true' />
+          <h1>Открываем сделку</h1>
+          <p>Сейчас покажем только твой следующий шаг.</p>
+        </div>
+      </section>
+    );
   }
 
   if (!workspace) {
     return (
-      <section className='deal-error' role='alert'>
-        <AlertTriangle size={25} />
-        <div><strong>Рабочая сделка недоступна</strong><p>{error || 'Backend не вернул подтверждённое состояние.'}</p></div>
-        <button type='button' onClick={() => void load()}><RefreshCw size={17} />Повторить</button>
-        <style jsx>{styles}</style>
+      <section className={styles.errorState} role='alert'>
+        <div className={styles.stateContent}>
+          <AlertTriangle size={27} aria-hidden='true' />
+          <h1>Рабочая сделка недоступна</h1>
+          <p>{error || 'Сервер не вернул подтверждённое состояние.'}</p>
+          <button className={styles.retryButton} type='button' onClick={() => void load()}>
+            <RefreshCw size={18} aria-hidden='true' />
+            Повторить
+          </button>
+        </div>
       </section>
     );
   }
@@ -239,62 +285,148 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
   const systemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
   const shipment = workspace.shipments[0];
   const acceptance = workspace.acceptance[0];
+  const signedDocuments = workspace.documents.filter((item) => item.status === 'SIGNED').length;
+  const hasBlockers = workspace.blockers.length > 0;
+
+  const taskTitle = hasBlockers
+    ? workspace.blockers[0]
+    : systemAction
+      ? 'Жди подтверждение банка'
+      : action?.enabled
+        ? action.label
+        : action
+          ? `Жди: ${waitingLabel(action)}`
+          : 'Сейчас ничего делать не нужно';
+
+  const taskExplanation = hasBlockers
+    ? 'Сначала устрани указанный стоп-фактор. До этого следующий шаг сделки заблокирован.'
+    : systemAction
+      ? 'Банк проверяет операцию. Состояние изменится автоматически после подтверждённого callback.'
+      : action?.enabled
+        ? workspace.attention || 'Заполни только обязательные поля и подтверди действие.'
+        : action
+          ? `Следующий шаг выполняет ${waitingLabel(action)}. Экран обновится после подтверждения.`
+          : 'Сделка завершена или ожидает системного события.';
+
+  const TaskIcon = hasBlockers ? AlertTriangle : systemAction ? Banknote : ArrowRight;
 
   return (
-    <section className='deal-workspace' data-canonical-deal={workspace.deal.id} data-role={role}>
-      <header className='deal-hero'>
-        <div className='deal-hero-copy'>
-          <span className='deal-kicker'><Wheat size={16} /> Сквозная сделка</span>
-          <h1>{workspace.deal.number || workspace.deal.id}</h1>
-          <p>{workspace.deal.culture || 'Зерно'}{workspace.deal.cropClass ? ` · ${workspace.deal.cropClass} класс` : ''} · {formatDecimal(workspace.deal.volumeTons, 'т')}</p>
+    <section className={styles.workspace} data-canonical-deal={workspace.deal.id} data-role={role}>
+      <header className={styles.summary}>
+        <div className={styles.summaryTop}>
+          <div>
+            <span className={styles.eyebrow}><Wheat size={17} aria-hidden='true' /> Сделка</span>
+            <h1>{workspace.deal.number || workspace.deal.id}</h1>
+            <p className={styles.summarySubtitle}>
+              {workspace.deal.culture || 'Зерно'}
+              {workspace.deal.cropClass ? ` · ${workspace.deal.cropClass} класс` : ''}
+              {' · '}{formatDecimal(workspace.deal.volumeTons, 'т')}
+            </p>
+          </div>
+          <div className={styles.stage} title={workspace.deal.status}>
+            <small>Сейчас</small>
+            <strong>{activeStep?.stage || humanStatus(workspace.deal.status)}</strong>
+          </div>
         </div>
-        <div className='deal-status'><small>Текущий этап</small><strong>{activeStep?.stage || (workspace.deal.status === 'CLOSED' ? 'Закрыто' : workspace.deal.status)}</strong><span>{workspace.deal.status}</span></div>
+        <div className={styles.roleLine}>
+          <span><ShieldCheck size={17} aria-hidden='true' />{roleLabel(role)}</span>
+          <strong>{workspace.roleProjection.focus}</strong>
+          <button className={styles.refreshButton} type='button' onClick={() => void load()} aria-label='Обновить сделку' disabled={loading}>
+            <RefreshCw size={18} className={loading ? styles.spin : undefined} aria-hidden='true' />
+          </button>
+        </div>
       </header>
 
-      <div className='deal-role-strip'><span><ShieldCheck size={17} />{roleLabel(role)}</span><strong>{workspace.roleProjection.focus}</strong></div>
+      <section className={`${styles.nextTask} ${hasBlockers ? styles.nextTaskBlocked : ''}`} aria-labelledby='deal-next-task'>
+        <div className={styles.taskHeading}>
+          <div className={styles.taskIcon}><TaskIcon size={24} aria-hidden='true' /></div>
+          <div>
+            <span className={styles.taskLabel}>{hasBlockers ? 'Сначала реши проблему' : systemAction ? 'Сейчас делать ничего не нужно' : 'Твоё следующее действие'}</span>
+            <h2 id='deal-next-task'>{taskTitle}</h2>
+            <p className={styles.taskExplanation}>{taskExplanation}</p>
+          </div>
+        </div>
 
-      <section className={`deal-attention ${workspace.blockers.length ? 'blocked' : ''}`}>
-        <div className='attention-icon'>{workspace.blockers.length ? <AlertTriangle size={23} /> : systemAction ? <Banknote size={23} /> : <ArrowRight size={23} />}</div>
-        <div><small>{workspace.blockers.length ? 'Стоп-фактор' : systemAction ? 'Ожидаем внешнее подтверждение' : 'Что происходит сейчас'}</small><h2>{workspace.blockers[0] || (systemAction ? 'Банк обрабатывает операцию' : workspace.attention)}</h2>{action && !action.enabled ? <p>Следующий подтверждённый шаг выполняет: {waitingLabel(action)}.</p> : null}</div>
+        {hasBlockers && workspace.blockers.length > 1 ? (
+          <ul className={styles.blockerList}>
+            {workspace.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+          </ul>
+        ) : null}
+
+        {!hasBlockers && systemAction ? (
+          <p className={styles.taskExplanation}>Ручное подтверждение невозможно.</p>
+        ) : null}
+
+        {!hasBlockers && action?.enabled && !systemAction ? (
+          <DealCommandForm
+            actionId={action.id}
+            label={action.label}
+            submitting={submitting}
+            disabled={false}
+            onSubmit={executePrimaryAction}
+          />
+        ) : null}
       </section>
 
-      {error ? <p className='deal-message error' role='alert'>{error}</p> : null}
-      {notice ? <p className='deal-message success' role='status'><CheckCircle2 size={17} />{notice}</p> : null}
+      {error || notice ? (
+        <div className={styles.messages}>
+          {error ? <p className={`${styles.message} ${styles.errorMessage}`} role='alert'><AlertTriangle size={18} aria-hidden='true' />{error}</p> : null}
+          {notice ? <p className={`${styles.message} ${styles.successMessage}`} role='status'><CheckCircle2 size={18} aria-hidden='true' />{notice}</p> : null}
+        </div>
+      ) : null}
 
-      <div className='deal-metrics'>
-        <article><Banknote size={18} /><span><small>Сумма сделки</small><strong>{formatMoney(workspace.deal.totalKopecks, workspace.deal.currency)}</strong></span></article>
-        <article><ShieldCheck size={18} /><span><small>Деньги</small><strong>{workspace.money?.status || 'PENDING'}</strong></span></article>
-        <article><Truck size={18} /><span><small>Рейс</small><strong>{shipment?.status || 'Не назначен'}</strong></span></article>
-        <article><FileCheck2 size={18} /><span><small>Документы</small><strong>{workspace.documents.filter((item) => item.status === 'SIGNED').length}/{workspace.documents.length} подписано</strong></span></article>
-      </div>
+      <section className={styles.metrics} aria-label='Главные факты сделки'>
+        <article className={styles.metric}>
+          <Banknote size={19} aria-hidden='true' />
+          <span><small>Сумма</small><strong>{formatMoney(workspace.deal.totalKopecks, workspace.deal.currency)}</strong></span>
+        </article>
+        <article className={styles.metric} title={workspace.money?.status || undefined}>
+          <ShieldCheck size={19} aria-hidden='true' />
+          <span><small>Деньги</small><strong>{humanStatus(workspace.money?.status, 'Ожидаются')}</strong></span>
+        </article>
+        <article className={styles.metric} title={shipment?.status}>
+          <Truck size={19} aria-hidden='true' />
+          <span><small>Рейс</small><strong>{humanStatus(shipment?.status, 'Не назначен')}</strong></span>
+        </article>
+        <article className={styles.metric}>
+          <FileCheck2 size={19} aria-hidden='true' />
+          <span><small>Документы</small><strong>{workspace.documents.length === 0 ? 'Пока нет' : `${signedDocuments} из ${workspace.documents.length} подписано`}</strong></span>
+        </article>
+      </section>
 
-      <div className='deal-grid'>
-        <section className='deal-spine-card'>
-          <div className='section-heading'><div><span>Линия сделки</span><h2>Один путь для всех ролей</h2></div><button type='button' onClick={() => void load()} aria-label='Обновить сделку' disabled={loading}><RefreshCw size={17} className={loading ? 'spin' : ''} /></button></div>
-          <ol className='deal-spine'>{workspace.spine.map((step) => <li key={step.id} className={step.state}><span className='step-marker'>{step.state === 'done' ? <Check size={15} /> : step.state === 'active' ? <Clock3 size={15} /> : null}</span><div><small>{step.stage}</small><strong>{step.label}</strong></div><em>{step.state === 'done' ? 'Сделано' : step.state === 'active' ? 'Сейчас' : 'Далее'}</em></li>)}</ol>
-        </section>
+      <details className={styles.details}>
+        <summary>Показать весь путь сделки</summary>
+        <div className={styles.detailsBody}>
+          <ol className={styles.spine}>
+            {workspace.spine.map((step) => (
+              <li
+                key={step.id}
+                className={`${styles.spineItem} ${step.state === 'done' ? styles.spineItemDone : ''} ${step.state === 'active' ? styles.spineItemActive : ''}`}
+              >
+                <span className={styles.stepMarker}>
+                  {step.state === 'done' ? <Check size={16} aria-hidden='true' /> : step.state === 'active' ? <Clock3 size={16} aria-hidden='true' /> : null}
+                </span>
+                <span className={styles.stepCopy}><small>{step.stage}</small><strong>{step.label}</strong></span>
+                <span className={styles.stepState}>{stepStateLabel(step.state)}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </details>
 
-        <aside className='deal-side'>
-          <section className='deal-action-card'>
-            <small>{systemAction ? 'Системное событие' : 'Твоё следующее действие'}</small>
-            <h2>{systemAction ? 'Ожидаем подтверждение банка' : action?.label || 'Действий нет'}</h2>
-            {systemAction ? <p>Состояние изменится только после проверки подписанного банковского callback. Ручное подтверждение невозможно.</p> : action ? action.enabled ? <DealCommandForm actionId={action.id} label={action.label} submitting={submitting} disabled={workspace.blockers.length > 0} onSubmit={executePrimaryAction} /> : <p>Сейчас действие недоступно этой роли.</p> : <p>Сделка завершена или ожидает системного события.</p>}
-          </section>
-
-          <section className='deal-facts-card'><h3>Факты сделки</h3><dl><div><dt>Цена</dt><dd>{formatDecimal(workspace.deal.pricePerTon, '₽/т')}</dd></div><div><dt>Вес приёмки</dt><dd>{formatDecimal(acceptance?.weightActualTons, 'т')}</dd></div><div><dt>Качество</dt><dd>{acceptance?.qualityStatus || 'Не проверено'}</dd></div><div><dt>События</dt><dd>{workspace.timeline.length}</dd></div><div><dt>Споры</dt><dd>{workspace.disputes.length}</dd></div></dl></section>
-        </aside>
-      </div>
-      <style jsx>{styles}</style>
+      <details className={styles.details}>
+        <summary>Факты и доказательства</summary>
+        <div className={styles.detailsBody}>
+          <dl className={styles.factGrid}>
+            <div className={styles.factRow}><dt>Цена</dt><dd>{formatDecimal(workspace.deal.pricePerTon, '₽/т')}</dd></div>
+            <div className={styles.factRow}><dt>Вес приёмки</dt><dd>{formatDecimal(acceptance?.weightActualTons, 'т')}</dd></div>
+            <div className={styles.factRow}><dt>Качество</dt><dd>{humanStatus(acceptance?.qualityStatus, 'Не проверено')}</dd></div>
+            <div className={styles.factRow}><dt>Лаборатория</dt><dd>{workspace.laboratory.length ? humanStatus(workspace.laboratory[0].status) : 'Нет результата'}</dd></div>
+            <div className={styles.factRow}><dt>События</dt><dd>{workspace.timeline.length}</dd></div>
+            <div className={styles.factRow}><dt>Споры</dt><dd>{workspace.disputes.length || 'Нет'}</dd></div>
+          </dl>
+        </div>
+      </details>
     </section>
   );
 }
-
-const styles = `
-  .deal-workspace{display:grid;gap:14px;color:var(--pc-text-primary)}.deal-loading,.deal-error{min-height:220px;border:1px solid var(--pc-border);background:var(--pc-shell-surface);border-radius:24px;display:flex;align-items:center;justify-content:center;gap:12px;padding:24px;color:var(--pc-text-secondary)}.deal-error{justify-content:flex-start;flex-wrap:wrap}.deal-error>svg{color:#c2413c}.deal-error div{flex:1;min-width:200px}.deal-error p{margin:4px 0 0}.deal-error button{border:1px solid var(--pc-border);background:var(--pc-shell-surface-soft);color:var(--pc-text-primary);border-radius:13px;min-height:44px;padding:0 14px;display:inline-flex;align-items:center;gap:7px;font-weight:850}
-  .deal-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:clamp(20px,4vw,34px);border-radius:28px;background:linear-gradient(135deg,#092d20 0%,#0b5a38 66%,#0a7543 100%);color:#fff;box-shadow:0 24px 55px rgba(8,65,40,.18);overflow:hidden;position:relative}.deal-hero:after{content:"";position:absolute;width:260px;height:260px;border-radius:50%;right:-90px;top:-150px;border:42px solid rgba(255,255,255,.07)}.deal-kicker{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:#bce4cb}.deal-hero h1{margin:10px 0 5px;font-size:clamp(32px,7vw,64px);line-height:.95;letter-spacing:-.055em}.deal-hero p{margin:0;color:#d7ebdf;font-weight:700}.deal-status{position:relative;z-index:1;min-width:160px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);backdrop-filter:blur(12px)}.deal-status small,.deal-status span{display:block;color:#cbe6d5;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.06em}.deal-status strong{display:block;margin:5px 0;font-size:18px}
-  .deal-role-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 15px;border-radius:16px;background:var(--pc-shell-surface);border:1px solid var(--pc-border)}.deal-role-strip span{display:inline-flex;align-items:center;gap:7px;color:var(--pc-accent);font-size:12px;font-weight:900}.deal-role-strip strong{font-size:13px}.deal-attention{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:14px;padding:18px;border:1px solid rgba(8,122,59,.18);background:var(--pc-accent-bg);border-radius:22px}.deal-attention.blocked{border-color:rgba(194,65,60,.28);background:rgba(194,65,60,.07)}.attention-icon{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;background:var(--pc-shell-surface);color:var(--pc-accent)}.deal-attention small{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--pc-text-muted);font-weight:900}.deal-attention h2{margin:4px 0 0;font-size:clamp(17px,3vw,23px);line-height:1.2}.deal-attention p{margin:6px 0 0;color:var(--pc-text-secondary);font-size:12px}.deal-message{margin:0;padding:12px 14px;border-radius:14px;font-size:13px;font-weight:800;display:flex;gap:8px;align-items:center}.deal-message.error{background:#fff1f1;color:#9b2525;border:1px solid #f2c5c5}.deal-message.success{background:#edf8f1;color:#08683a;border:1px solid #c8e8d3}
-  .deal-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.deal-metrics article{display:flex;align-items:center;gap:10px;padding:14px;border-radius:18px;background:var(--pc-shell-surface);border:1px solid var(--pc-border);min-width:0}.deal-metrics svg{color:var(--pc-accent);flex:0 0 auto}.deal-metrics span{display:grid;min-width:0}.deal-metrics small{font-size:10px;color:var(--pc-text-muted);font-weight:850;text-transform:uppercase}.deal-metrics strong{margin-top:3px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.deal-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:14px;align-items:start}.deal-spine-card,.deal-action-card,.deal-facts-card{border:1px solid var(--pc-border);background:var(--pc-shell-surface);border-radius:24px;box-shadow:var(--pc-shadow-xs)}.deal-spine-card{padding:18px}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.section-heading span,.deal-action-card>small{font-size:10px;color:var(--pc-accent);font-weight:900;text-transform:uppercase;letter-spacing:.07em}.section-heading h2{margin:3px 0 0;font-size:20px}.section-heading button{width:44px;height:44px;border-radius:13px;border:1px solid var(--pc-border);background:var(--pc-shell-surface-soft);color:var(--pc-text-secondary);display:grid;place-items:center}.deal-spine{list-style:none;margin:0;padding:0;display:grid}.deal-spine li{position:relative;display:grid;grid-template-columns:32px minmax(0,1fr) auto;align-items:center;gap:10px;min-height:62px;padding:8px 0}.deal-spine li:not(:last-child):before{content:"";position:absolute;left:15px;top:45px;bottom:-9px;width:2px;background:var(--pc-border)}.step-marker{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--pc-border);background:var(--pc-shell-surface);z-index:1}.deal-spine li.done .step-marker{background:var(--pc-accent);border-color:var(--pc-accent);color:white}.deal-spine li.active .step-marker{border-color:var(--pc-accent);color:var(--pc-accent);box-shadow:0 0 0 5px var(--pc-accent-bg)}.deal-spine li.done:not(:last-child):before{background:var(--pc-accent)}.deal-spine li div{display:grid;gap:2px}.deal-spine small{font-size:10px;color:var(--pc-text-muted);font-weight:850;text-transform:uppercase}.deal-spine strong{font-size:13px}.deal-spine em{font-style:normal;font-size:10px;font-weight:900;color:var(--pc-text-muted)}.deal-side{display:grid;gap:14px}.deal-action-card{padding:20px}.deal-action-card h2{margin:9px 0 14px;font-size:22px;line-height:1.12}.deal-action-card>p{margin:0;color:var(--pc-text-secondary);font-size:12px;line-height:1.5}.deal-facts-card{padding:18px}.deal-facts-card h3{margin:0 0 10px;font-size:16px}.deal-facts-card dl{margin:0;display:grid}.deal-facts-card dl div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--pc-border)}.deal-facts-card dt{color:var(--pc-text-muted);font-size:11px}.deal-facts-card dd{margin:0;text-align:right;font-size:12px;font-weight:850}.spin{animation:deal-spin .85s linear infinite}@keyframes deal-spin{to{transform:rotate(360deg)}}
-  @media(max-width:800px){.deal-grid{grid-template-columns:1fr}.deal-side{order:-1}.deal-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.deal-hero{align-items:flex-start;flex-direction:column}.deal-status{width:100%}}
-  @media(max-width:430px){.deal-workspace{gap:10px}.deal-hero{border-radius:22px;padding:20px}.deal-hero h1{font-size:34px;word-break:break-word}.deal-metrics{gap:8px}.deal-metrics article{padding:11px}.deal-spine-card,.deal-action-card,.deal-facts-card{border-radius:20px}.deal-action-card{padding:16px}.deal-spine-card{padding:14px}}
-  @media(prefers-reduced-motion:reduce){.spin{animation:none}}@media(forced-colors:active){.deal-hero,.deal-status,.deal-attention,.deal-spine-card,.deal-action-card,.deal-facts-card{border:1px solid CanvasText}}
-`;
