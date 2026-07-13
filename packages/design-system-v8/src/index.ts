@@ -7,7 +7,6 @@ export {
   KeyFactGrid,
   NextActionCard,
   StatusChip,
-  Surface,
   WorkbenchTemplate,
 } from './components';
 
@@ -20,6 +19,18 @@ export type {
   NextActionCardProps,
   StatusChipProps,
   StatusTone,
-  SurfaceProps,
   WorkbenchTemplateProps,
 } from './components';
+
+export {
+  NextActionPanel,
+  StatusBadge,
+  Surface,
+} from './transaction-components';
+
+export type {
+  NextActionPanelProps,
+  StatusBadgeProps,
+  StatusBadgeTone,
+  SurfaceProps,
+} from './transaction-components';
