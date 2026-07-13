@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import { PlatformV7HeaderOffsetRuntime } from '@/components/platform-v7/PlatformV7HeaderOffsetRuntime';
+import { PlatformV7PublicPageShell } from '@/components/platform-v7/PlatformV7PublicPageShell';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
@@ -39,6 +40,11 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/contact',
   '/platform-v7/request',
   '/platform-v7/docs',
+]);
+const PUBLIC_HEADERLESS_PATHS = new Set([
+  '/platform-v7/help',
+  '/platform-v7/pricing',
+  '/platform-v7/roadmap',
 ]);
 const PUBLIC_PREFIX_PATHS = ['/platform-v7/role-preview'];
 
@@ -79,10 +85,14 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // physical header contract without sharing identity or role authority.
   const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
   if (isPublicPath(pathname)) {
+    const publicContent = PUBLIC_HEADERLESS_PATHS.has(pathname)
+      ? <PlatformV7PublicPageShell>{children}</PlatformV7PublicPageShell>
+      : children;
+
     return (
       <>
         {headerOffsetRuntime}
-        <PlatformV7FullStyleRuntime>{children}</PlatformV7FullStyleRuntime>
+        <PlatformV7FullStyleRuntime>{publicContent}</PlatformV7FullStyleRuntime>
       </>
     );
   }
