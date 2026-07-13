@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
-import { AuctionServerAuthorityWorkspace } from '@/components/transaction-ux/AuctionServerAuthorityWorkspace';
+import {
+  AuctionPostgresAuthorityWorkspace,
+  getAuctionAuthorityMetadata,
+} from '@/components/transaction-ux/AuctionPostgresAuthorityWorkspace';
 
-export const metadata: Metadata = {
-  title: 'Ставки аукциона',
-  description: 'Read-only агрегаты серверного журнала ставок без локального выбора победителя.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return getAuctionAuthorityMetadata('bids');
+}
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   const candidate = Array.isArray(value) ? value[0] : value;
@@ -13,5 +15,5 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 }
 
 export default function AuctionBidsPage({ searchParams }: { searchParams?: { lotId?: string | string[] } }) {
-  return <AuctionServerAuthorityWorkspace stage='bids' lotId={firstParam(searchParams?.lotId)} />;
+  return <AuctionPostgresAuthorityWorkspace stage='bids' lotId={firstParam(searchParams?.lotId)} />;
 }
