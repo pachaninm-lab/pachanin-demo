@@ -1,9 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import {
-  RlsTransactionService,
-  type TrustedRlsContext,
-} from '../../common/prisma/rls-transaction.service';
+import { RlsTransactionService, type TrustedRlsContext } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
 import type {
   CollectLabSampleCommand,
@@ -17,16 +14,7 @@ import type {
 } from './lab.repository';
 
 type ActorType = 'SAMPLER' | 'COURIER' | 'RECEIVER' | 'ANALYST' | 'SIGNATORY';
-type EvidencePurpose =
-  | 'ADMISSION'
-  | 'COLLECTION'
-  | 'SEALED'
-  | 'HANDOFF'
-  | 'RECEIVED'
-  | 'OPENED'
-  | 'TEST'
-  | 'PROTOCOL';
-
+type EvidencePurpose = 'ADMISSION' | 'COLLECTION' | 'SEALED' | 'HANDOFF' | 'RECEIVED' | 'OPENED' | 'TEST' | 'PROTOCOL';
 type SampleAuthority = Readonly<{
   id: string;
   dealId: string;
@@ -36,14 +24,6 @@ type SampleAuthority = Readonly<{
   labId: string | null;
 }>;
 
-/**
- * Production application guard around the PostgreSQL repository.
- *
- * The database triggers remain the final authority and repeat every check inside
- * the mutation transaction. This preflight exists to fail early with stable API
- * errors and to prevent privileged platform roles from being treated as the
- * physical sampler, courier, receiver, analyst or signatory.
- */
 @Injectable()
 export class AuthorizedPrismaLabRepository implements LabRepository {
   constructor(
@@ -51,15 +31,28 @@ export class AuthorizedPrismaLabRepository implements LabRepository {
     private readonly rls: RlsTransactionService,
   ) {}
 
-  list(user: RequestUser): Promise<LabSampleRecord[]> {
-    return this.delegate.list(user);
+  async list(user: RequestUser): Promise<LabSampleRecord[]> {
+    const ids = await this.rls.withTrustedContext(user, async (tx, context) => {
+      const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT sample."id"
+        FROM public."lab_samples" sample
+        WHERE sample."tenantId" = ${context.tenantId}
+          AND public.app_labs_deal_authorized(sample."dealId", sample."labId", false)
+        ORDER BY sample."updatedAt" DESC, sample."id" ASC
+        LIMIT 500
+      `);
+      return new Set(rows.map((row) => row.id));
+    });
+    return (await this.delegate.list(user)).filter((sample) => ids.has(sample.id));
   }
 
-  getById(id: string, user: RequestUser): Promise<LabSampleRecord> {
+  async getById(id: string, user: RequestUser): Promise<LabSampleRecord> {
+    await this.requireReadableSample(id, user);
     return this.delegate.getById(id, user);
   }
 
-  workspace(id: string, user: RequestUser): Promise<LabWorkspace> {
+  async workspace(id: string, user: RequestUser): Promise<LabWorkspace> {
+    await this.requireReadableSample(id, user);
     return this.delegate.workspace(id, user);
   }
 
@@ -76,13 +69,12 @@ export class AuthorizedPrismaLabRepository implements LabRepository {
           AND admission.status = 'ACTIVE'
           AND admission.valid_from <= ${occurredAt}
           AND (admission.valid_until IS NULL OR admission.valid_until > ${occurredAt})
+          AND public.app_labs_deal_authorized(admission.deal_id, admission.laboratory_org_id, true)
         ORDER BY admission.created_at DESC, admission.id DESC
         LIMIT 1
       `);
       const admission = rows[0];
-      if (!admission) {
-        throw new NotFoundException({ code: 'ACTIVE_LAB_SAMPLE_ADMISSION_REQUIRED' });
-      }
+      if (!admission) throw new NotFoundException({ code: 'ACTIVE_LAB_SAMPLE_ADMISSION_REQUIRED' });
       await this.requireActor(tx, context, admission.laboratoryOrgId, 'SAMPLER', occurredAt);
       await this.requirePurposeEvidence(tx, {
         evidenceId: command.evidenceRef,
@@ -99,58 +91,46 @@ export class AuthorizedPrismaLabRepository implements LabRepository {
     return this.delegate.create(command, user);
   }
 
-  async collect(
-    id: string,
-    command: CollectLabSampleCommand,
-    user: RequestUser,
-  ): Promise<LabMutationResult> {
-    await this.requireSampleOperation(
-      id,
-      command.evidenceRef,
-      command.occurredAt,
-      user,
-      'SAMPLER',
-      'COLLECTION',
-    );
+  async collect(id: string, command: CollectLabSampleCommand, user: RequestUser): Promise<LabMutationResult> {
+    await this.requireSampleOperation(id, command.evidenceRef, command.occurredAt, user, 'SAMPLER', 'COLLECTION');
     return this.delegate.collect(id, command, user);
   }
 
-  async recordCustody(
-    id: string,
-    command: RecordLabCustodyCommand,
-    user: RequestUser,
-  ): Promise<LabMutationResult> {
+  async recordCustody(id: string, command: RecordLabCustodyCommand, user: RequestUser): Promise<LabMutationResult> {
     const actorType: ActorType = command.eventType === 'RECEIVED'
       ? 'RECEIVER'
       : command.eventType === 'OPENED'
         ? 'ANALYST'
         : 'COURIER';
-    const purpose = command.eventType as EvidencePurpose;
     await this.requireSampleOperation(
       id,
       command.evidenceRef,
       command.occurredAt,
       user,
       actorType,
-      purpose,
+      command.eventType as EvidencePurpose,
     );
     return this.delegate.recordCustody(id, command, user);
   }
 
-  async recordTest(
-    id: string,
-    command: RecordLabTestCommand,
-    user: RequestUser,
-  ): Promise<LabMutationResult> {
-    await this.requireSampleOperation(
-      id,
-      command.evidenceRef,
-      command.occurredAt,
-      user,
-      'ANALYST',
-      'TEST',
-    );
+  async recordTest(id: string, command: RecordLabTestCommand, user: RequestUser): Promise<LabMutationResult> {
+    await this.requireSampleOperation(id, command.evidenceRef, command.occurredAt, user, 'ANALYST', 'TEST');
     return this.delegate.recordTest(id, command, user);
+  }
+
+  private async requireReadableSample(sampleId: string, user: RequestUser): Promise<void> {
+    const visible = await this.rls.withTrustedContext(user, async (tx, context) => {
+      const rows = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
+        SELECT EXISTS (
+          SELECT 1 FROM public."lab_samples" sample
+          WHERE sample."id" = ${sampleId}
+            AND sample."tenantId" = ${context.tenantId}
+            AND public.app_labs_deal_authorized(sample."dealId", sample."labId", false)
+        ) AS valid
+      `);
+      return rows[0]?.valid === true;
+    });
+    if (!visible) throw new NotFoundException({ code: 'LAB_SAMPLE_NOT_AVAILABLE' });
   }
 
   private async requireSampleOperation(
@@ -164,18 +144,16 @@ export class AuthorizedPrismaLabRepository implements LabRepository {
     const occurredAt = requiredDate(occurredAtValue, 'occurredAt');
     await this.rls.withTrustedContext(user, async (tx, context) => {
       const rows = await tx.$queryRaw<SampleAuthority[]>(Prisma.sql`
-        SELECT
-          sample."id", sample."dealId", sample."shipmentId", sample."acceptanceId",
-          sample."tenantId", sample."labId"
+        SELECT sample."id", sample."dealId", sample."shipmentId", sample."acceptanceId",
+               sample."tenantId", sample."labId"
         FROM public."lab_samples" sample
         WHERE sample."id" = ${sampleId}
           AND sample."tenantId" = ${context.tenantId}
+          AND public.app_labs_deal_authorized(sample."dealId", sample."labId", true)
         LIMIT 1
       `);
       const sample = rows[0];
-      if (!sample || !sample.labId) {
-        throw new NotFoundException({ code: 'LAB_SAMPLE_NOT_AVAILABLE' });
-      }
+      if (!sample?.labId) throw new NotFoundException({ code: 'LAB_SAMPLE_NOT_AVAILABLE' });
       await this.requireActor(tx, context, sample.labId, actorType, occurredAt);
       await this.requirePurposeEvidence(tx, {
         evidenceId,
@@ -200,15 +178,11 @@ export class AuthorizedPrismaLabRepository implements LabRepository {
   ): Promise<void> {
     const rows = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
       SELECT public.app_labs_actor_valid(
-        ${context.tenantId}, ${laboratoryOrgId}, ${context.userId},
-        ${actorType}, ${occurredAt}
+        ${context.tenantId}, ${laboratoryOrgId}, ${context.userId}, ${actorType}, ${occurredAt}
       ) AS valid
     `);
     if (!rows[0]?.valid) {
-      throw new ForbiddenException({
-        code: 'LAB_PHYSICAL_ACTOR_TYPE_REQUIRED',
-        actorType,
-      });
+      throw new ForbiddenException({ code: 'LAB_PHYSICAL_ACTOR_TYPE_REQUIRED', actorType });
     }
   }
 
@@ -228,16 +202,13 @@ export class AuthorizedPrismaLabRepository implements LabRepository {
   ): Promise<void> {
     const rows = await tx.$queryRaw<Array<{ valid: boolean }>>(Prisma.sql`
       SELECT public.app_labs_evidence_purpose_valid(
-        ${input.evidenceId}, ${input.context.tenantId}, ${input.dealId},
-        ${input.purpose}, ${input.sampleId}, ${input.shipmentId},
-        ${input.acceptanceId}, ${input.laboratoryOrgId}, ${input.protocolNumber}
+        ${input.evidenceId}, ${input.context.tenantId}, ${input.dealId}, ${input.purpose},
+        ${input.sampleId}, ${input.shipmentId}, ${input.acceptanceId},
+        ${input.laboratoryOrgId}, ${input.protocolNumber}
       ) AS valid
     `);
     if (!rows[0]?.valid) {
-      throw new UnprocessableEntityException({
-        code: 'LAB_EVIDENCE_PURPOSE_MISMATCH',
-        purpose: input.purpose,
-      });
+      throw new UnprocessableEntityException({ code: 'LAB_EVIDENCE_PURPOSE_MISMATCH', purpose: input.purpose });
     }
   }
 }
