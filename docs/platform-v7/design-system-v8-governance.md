@@ -29,9 +29,10 @@ The following are controlled by v8:
 - all files under `apps/web/components/transaction-ux`;
 - the active `AppShellV4` TSX and CSS Module;
 - the shared `RoleIntentDashboard` TSX and CSS Module used by all twelve business-role roots;
+- the canonical deals registry page, list component and their CSS Modules;
 - every file registered in `migratedFiles` inside `design-governance-v8.json`.
 
-A migrated product file must consume `@pc/design-system-v8` or be an explicitly governed token-only template. New local copies of a migrated pattern are not allowed.
+A migrated product file must consume `@pc/design-system-v8` or the governed `transaction-ux` boundary. New local copies of a migrated pattern are not allowed.
 
 ## Prohibited patterns
 
@@ -106,6 +107,14 @@ Big-bang replacement is prohibited.
 
 The driver, surveyor, elevator and laboratory routes use governed field-role templates for mobile-first execution while preserving server-owned authority and the canonical Deal.
 
+### Money and obligation workspaces
+
+Seller, buyer and bank use one governed money-and-obligation contract. Reserve, hold, release request and bank-confirmed release remain different states; the UI cannot manufacture a callback or release funds.
+
+### Operational and oversight workspaces
+
+Operator, logistics, compliance, arbitrator and executive use one governed decision-cockpit contract. Business queues are separated from engineering observability, authority boundaries stay role-specific and executive remains read-only.
+
 ### Twelve-role root cockpit
 
 The operator, buyer, seller, logistics, driver, surveyor, elevator, laboratory, bank, compliance, arbitrator and executive root routes use one shared `RoleIntentDashboard` template. The template:
@@ -117,9 +126,21 @@ The operator, buyer, seller, logistics, driver, surveyor, elevator, laboratory, 
 - supports RU, EN and ZH through `next-intl` locale selection;
 - preserves server-owned RBAC and the canonical Deal Workspace.
 
+### Canonical deals registry
+
+The `/platform-v7/deals` route and `CanonicalDealsList` are governed v8 surfaces. The registry:
+
+- accepts only participant-scoped server pages and validates the response envelope;
+- uses a server-issued cursor, preserves loaded rows on later-page failure and deduplicates by Deal ID;
+- displays server priority, deadline and integer-minor-unit money projections without introducing client authority;
+- exports exactly the rows already loaded from the server;
+- supports RU, EN and ZH for page copy, states, controls, labels and export headers;
+- has loading, empty, access-denied, offline, invalid-response, export-error and pagination-error states;
+- uses token-only mobile, keyboard, reduced-motion and forced-colors behavior.
+
 ## Remaining boundary
 
-Secondary role pages and historical components are not automatically accepted merely because they render under the v8 shell. Each secondary route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
+Documents, payment and settlement views, dispute operations, auctions and other secondary routes are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
 
 ## Decision authority
 
