@@ -177,7 +177,8 @@ export class LabAuthorityService {
             ) VALUES (
               ${`lab-method-${randomUUID()}`}, ${context.tenantId},
               ${normalized.laboratoryOrgId}, ${method.code}, ${method.parameter},
-              ${method.unit}, ${method.standardRef}, ${method.normMin}, ${method.normMax},
+              ${method.unit}, ${method.standardRef},
+              CAST(${method.normMin} AS numeric), CAST(${method.normMax} AS numeric),
               'ACTIVE', ${method.evidenceRef}, now(), ${method.validUntil}, 0
             )
             ON CONFLICT (tenant_id, laboratory_org_id, code) DO UPDATE SET
