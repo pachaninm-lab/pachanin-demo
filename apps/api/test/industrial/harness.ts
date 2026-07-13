@@ -9,7 +9,13 @@ import { IndustrialDealCommandGateway } from '../../src/modules/deals/industrial
 import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import { Role, type RequestUser } from '../../src/common/types/request-user';
 import { PrismaLabRepository } from '../../src/modules/labs/prisma-lab.repository';
+import { AuthorizedPrismaLabRepository } from '../../src/modules/labs/authorized-prisma-lab.repository';
 import { LabAuthorityService } from '../../src/modules/labs/lab-authority.service';
+import { LabEvidenceUploadService } from '../../src/modules/labs/lab-evidence-upload.service';
+import type {
+  LabOperationEvidencePurpose,
+  LabProvisioningEvidencePurpose,
+} from '../../src/modules/labs/dto/request-lab-evidence-upload.dto';
 import { StorageFinalizationRepository } from '../../src/modules/storage/storage-finalization.repository';
 import { StorageService } from '../../src/modules/storage/storage.service';
 import type {
@@ -46,8 +52,9 @@ export interface ServiceInstance {
   rls: RlsTransactionService;
   commands: PostgresqlDealCommandService;
   gateway: IndustrialDealCommandGateway;
-  labs: PrismaLabRepository;
+  labs: AuthorizedPrismaLabRepository;
   labAuthority: LabAuthorityService;
+  labEvidenceUploads: LabEvidenceUploadService;
   storage: StorageService;
   storageAdapter: ControlledObjectStorageAdapter;
 }
@@ -89,6 +96,13 @@ class ControlledObjectStorageAdapter implements ObjectStorageAdapter {
   }
 }
 
+const activeInstances = new WeakMap<PrismaService, ServiceInstance>();
+
+function rememberInstance(instance: ServiceInstance): ServiceInstance {
+  activeInstances.set(instance.prisma, instance);
+  return instance;
+}
+
 export async function createInstance(): Promise<ServiceInstance> {
   const prisma = new PrismaService();
   await prisma.$connect();
@@ -97,12 +111,14 @@ export async function createInstance(): Promise<ServiceInstance> {
   const rls = new RlsTransactionService(prisma);
   const commands = new PostgresqlDealCommandService(rls);
   const gateway = new IndustrialDealCommandGateway(prisma, rls, commands);
-  const labs = new PrismaLabRepository(rls);
+  const prismaLabs = new PrismaLabRepository(rls);
+  const labs = new AuthorizedPrismaLabRepository(prismaLabs, rls);
   const labAuthority = new LabAuthorityService(rls);
   const storageAdapter = new ControlledObjectStorageAdapter();
+  const labEvidenceUploads = new LabEvidenceUploadService(rls, storageAdapter);
   const finalization = new StorageFinalizationRepository(storagePrisma);
   const storage = new StorageService(rls, storageAdapter, finalization);
-  return {
+  return rememberInstance({
     prisma,
     storagePrisma,
     rls,
@@ -110,12 +126,18 @@ export async function createInstance(): Promise<ServiceInstance> {
     gateway,
     labs,
     labAuthority,
+    labEvidenceUploads,
     storage,
     storageAdapter,
-  };
+  });
+}
+
+export async function createRememberedInstance(): Promise<ServiceInstance> {
+  return createInstance();
 }
 
 export async function destroyInstance(instance: ServiceInstance): Promise<void> {
+  activeInstances.delete(instance.prisma);
   await instance.storagePrisma.$disconnect();
   await instance.prisma.$disconnect();
 }
@@ -143,53 +165,91 @@ function fixtureHash(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-async function createVerifiedEvidence(
+async function confirmControlledUpload(
   instance: ServiceInstance,
   user: RequestUser,
-  input: {
-    dealId: string;
-    filename: string;
-    metadata?: Prisma.InputJsonObject;
-  },
+  requested: { fileId: string; objectKey: string },
+  body: string,
 ): Promise<string> {
-  const body = JSON.stringify({
-    dealId: input.dealId,
-    filename: input.filename,
-    metadata: input.metadata ?? {},
-  });
   const sizeBytes = Buffer.byteLength(body);
   const sha256 = fixtureHash(body);
-  const requested = await instance.storage.requestUpload({
-    dealId: input.dealId,
-    filename: input.filename,
-    mimeType: 'application/json',
-    sizeBytes,
-  }, user);
   instance.storageAdapter.put(requested.objectKey, {
     sizeBytes,
     contentType: 'application/json',
     sha256,
     eTag: `controlled-${sha256.slice(0, 16)}`,
   });
-  if (input.metadata) {
-    await instance.rls.withTrustedContext(user, async (tx) => {
-      const updated = await tx.dealDocument.updateMany({
-        where: {
-          id: requested.fileId,
-          status: 'UPLOAD_PENDING',
-          isImmutable: false,
-          version: 1,
-        },
-        data: { metadata: input.metadata },
-      });
-      if (updated.count !== 1) throw new Error('Pending evidence metadata update lost its CAS boundary.');
-    });
-  }
   const verified = await instance.storage.confirmUpload(requested.fileId, sha256, user);
   if (verified.status !== 'VERIFIED' || !verified.immutable || verified.sha256 !== sha256) {
     throw new Error('Controlled evidence did not reach immutable VERIFIED state.');
   }
   return requested.fileId;
+}
+
+async function createVerifiedEvidence(
+  instance: ServiceInstance,
+  user: RequestUser,
+  input: {
+    dealId: string;
+    filename: string;
+  },
+): Promise<string> {
+  const body = JSON.stringify({
+    dealId: input.dealId,
+    filename: input.filename,
+  });
+  const requested = await instance.storage.requestUpload({
+    dealId: input.dealId,
+    filename: input.filename,
+    mimeType: 'application/json',
+    sizeBytes: Buffer.byteLength(body),
+  }, user);
+  return confirmControlledUpload(instance, user, requested, body);
+}
+
+async function createProvisioningEvidence(
+  instance: ServiceInstance,
+  user: RequestUser,
+  input: {
+    purpose: LabProvisioningEvidencePurpose;
+    dealId: string;
+    laboratoryOrgId: string;
+    filename: string;
+    shipmentId?: string;
+    acceptanceId?: string;
+  },
+): Promise<string> {
+  const body = JSON.stringify(input);
+  const requested = await instance.labEvidenceUploads.requestForProvisioning({
+    purpose: input.purpose,
+    dealId: input.dealId,
+    laboratoryOrgId: input.laboratoryOrgId,
+    filename: input.filename,
+    mimeType: 'application/json',
+    sizeBytes: Buffer.byteLength(body),
+    shipmentId: input.shipmentId,
+    acceptanceId: input.acceptanceId,
+  }, user);
+  return confirmControlledUpload(instance, user, requested, body);
+}
+
+async function createOperationEvidence(
+  instance: ServiceInstance,
+  user: RequestUser,
+  input: {
+    sampleId: string;
+    purpose: LabOperationEvidencePurpose;
+    filename: string;
+  },
+): Promise<string> {
+  const body = JSON.stringify(input);
+  const requested = await instance.labEvidenceUploads.requestForSample(input.sampleId, {
+    purpose: input.purpose,
+    filename: input.filename,
+    mimeType: 'application/json',
+    sizeBytes: Buffer.byteLength(body),
+  }, user);
+  return confirmControlledUpload(instance, user, requested, body);
 }
 
 async function seedNormalizedLogisticsAdmission(
@@ -199,15 +259,6 @@ async function seedNormalizedLogisticsAdmission(
   const evidenceId = await createVerifiedEvidence(instance, fixture.users.operator, {
     dealId: fixture.dealId,
     filename: 'normalized-logistics-admission.json',
-    metadata: {
-      purpose: 'LOGISTICS_ADMISSION',
-      dealId: fixture.dealId,
-      carrierOrgId: fixture.serviceOrgId,
-      driverUserId: fixture.users.driver.id,
-      vehicleId: fixture.vehicleId,
-      routeFromFacilityId: fixture.routeFromFacilityId,
-      routeToFacilityId: fixture.routeToFacilityId,
-    },
   });
 
   await instance.prisma.$transaction(async (tx) => {
@@ -526,55 +577,44 @@ export async function provisionDeal(
   return fixture;
 }
 
-const activeInstances = new WeakMap<PrismaService, ServiceInstance>();
-
-function rememberInstance(instance: ServiceInstance): ServiceInstance {
-  activeInstances.set(instance.prisma, instance);
-  return instance;
-}
-
-const originalCreateInstance = createInstance;
-
-export async function createRememberedInstance(): Promise<ServiceInstance> {
-  return rememberInstance(await originalCreateInstance());
-}
-
 export async function prepareLaboratoryLifecycle(
   instance: ServiceInstance,
   fixture: DealFixture,
 ): Promise<void> {
   const operator = fixture.users.operator;
   const labUser = fixture.users.lab;
-  const metadataBase = {
+
+  const authorityEvidence = await createProvisioningEvidence(instance, operator, {
+    purpose: 'LAB_AUTHORITY',
+    dealId: fixture.dealId,
+    laboratoryOrgId: fixture.serviceOrgId,
+    filename: 'laboratory-authority.json',
+  });
+  const actorEvidence = await createProvisioningEvidence(instance, operator, {
+    purpose: 'ACTOR_AUTHORITY',
+    dealId: fixture.dealId,
+    laboratoryOrgId: fixture.serviceOrgId,
+    filename: 'laboratory-actors.json',
+  });
+  const methodEvidence = await createProvisioningEvidence(instance, operator, {
+    purpose: 'METHOD_AUTHORITY',
+    dealId: fixture.dealId,
+    laboratoryOrgId: fixture.serviceOrgId,
+    filename: 'laboratory-methods.json',
+  });
+  const equipmentEvidence = await createProvisioningEvidence(instance, operator, {
+    purpose: 'EQUIPMENT_AUTHORITY',
+    dealId: fixture.dealId,
+    laboratoryOrgId: fixture.serviceOrgId,
+    filename: 'laboratory-equipment.json',
+  });
+  const admissionEvidence = await createProvisioningEvidence(instance, operator, {
+    purpose: 'ADMISSION',
+    dealId: fixture.dealId,
+    laboratoryOrgId: fixture.serviceOrgId,
     shipmentId: fixture.shipmentId,
     acceptanceId: fixture.acceptanceId,
-    laboratoryOrgId: fixture.serviceOrgId,
-  };
-
-  const authorityEvidence = await createVerifiedEvidence(instance, operator, {
-    dealId: fixture.dealId,
-    filename: 'laboratory-authority.json',
-    metadata: { labPurpose: 'LAB_AUTHORITY', laboratoryOrgId: fixture.serviceOrgId },
-  });
-  const actorEvidence = await createVerifiedEvidence(instance, operator, {
-    dealId: fixture.dealId,
-    filename: 'laboratory-actors.json',
-    metadata: { labPurpose: 'ACTOR_AUTHORITY', laboratoryOrgId: fixture.serviceOrgId },
-  });
-  const methodEvidence = await createVerifiedEvidence(instance, operator, {
-    dealId: fixture.dealId,
-    filename: 'laboratory-methods.json',
-    metadata: { labPurpose: 'METHOD_AUTHORITY', laboratoryOrgId: fixture.serviceOrgId },
-  });
-  const equipmentEvidence = await createVerifiedEvidence(instance, operator, {
-    dealId: fixture.dealId,
-    filename: 'laboratory-equipment.json',
-    metadata: { labPurpose: 'EQUIPMENT_AUTHORITY', laboratoryOrgId: fixture.serviceOrgId },
-  });
-  const admissionEvidence = await createVerifiedEvidence(instance, operator, {
-    dealId: fixture.dealId,
     filename: 'laboratory-admission.json',
-    metadata: { labPurpose: 'ADMISSION', ...metadataBase },
   });
 
   await instance.labAuthority.provision({
@@ -642,22 +682,11 @@ export async function prepareLaboratoryLifecycle(
   }, labUser);
   fixture.sampleId = created.sample.id;
 
-  const createOperationEvidence = async (
-    purpose: string,
-    filename: string,
-    extra: Prisma.InputJsonObject = {},
-  ) => createVerifiedEvidence(instance, operator, {
-    dealId: fixture.dealId,
-    filename,
-    metadata: {
-      labPurpose: purpose,
-      sampleId: fixture.sampleId,
-      ...metadataBase,
-      ...extra,
-    },
+  const collectionEvidence = await createOperationEvidence(instance, labUser, {
+    sampleId: fixture.sampleId,
+    purpose: 'COLLECTION',
+    filename: 'sample-collection.json',
   });
-
-  const collectionEvidence = await createOperationEvidence('COLLECTION', 'sample-collection.json');
   let mutation = await instance.labs.collect(fixture.sampleId, {
     commandId: `lab-collect:${fixture.dealId}`,
     idempotencyKey: `lab-collect:${fixture.dealId}`,
@@ -667,7 +696,11 @@ export async function prepareLaboratoryLifecycle(
   }, labUser);
 
   for (const eventType of ['SEALED', 'HANDOFF', 'RECEIVED', 'OPENED'] as const) {
-    const evidenceRef = await createOperationEvidence(eventType, `sample-${eventType.toLowerCase()}.json`);
+    const evidenceRef = await createOperationEvidence(instance, labUser, {
+      sampleId: fixture.sampleId,
+      purpose: eventType,
+      filename: `sample-${eventType.toLowerCase()}.json`,
+    });
     mutation = await instance.labs.recordCustody(fixture.sampleId, {
       commandId: `lab-custody:${fixture.dealId}:${eventType}`,
       idempotencyKey: `lab-custody:${fixture.dealId}:${eventType}`,
@@ -678,7 +711,11 @@ export async function prepareLaboratoryLifecycle(
     }, labUser);
   }
 
-  const moistureEvidence = await createOperationEvidence('TEST', 'test-moisture.json');
+  const moistureEvidence = await createOperationEvidence(instance, labUser, {
+    sampleId: fixture.sampleId,
+    purpose: 'TEST',
+    filename: 'test-moisture.json',
+  });
   mutation = await instance.labs.recordTest(fixture.sampleId, {
     commandId: `lab-test:${fixture.dealId}:moisture`,
     idempotencyKey: `lab-test:${fixture.dealId}:moisture`,
@@ -692,7 +729,11 @@ export async function prepareLaboratoryLifecycle(
     occurredAt: new Date().toISOString(),
   }, labUser);
 
-  const proteinEvidence = await createOperationEvidence('TEST', 'test-protein.json');
+  const proteinEvidence = await createOperationEvidence(instance, labUser, {
+    sampleId: fixture.sampleId,
+    purpose: 'TEST',
+    filename: 'test-protein.json',
+  });
   mutation = await instance.labs.recordTest(fixture.sampleId, {
     commandId: `lab-test:${fixture.dealId}:protein`,
     idempotencyKey: `lab-test:${fixture.dealId}:protein`,
@@ -706,13 +747,10 @@ export async function prepareLaboratoryLifecycle(
     occurredAt: new Date().toISOString(),
   }, labUser);
 
-  const sample = await instance.prisma.labSample.findUniqueOrThrow({
-    where: { id: fixture.sampleId },
-    select: { sampleCode: true },
-  });
-  const protocolNumber = `LAB-${sample.sampleCode}-V1`;
-  fixture.evidence.lab = await createOperationEvidence('PROTOCOL', 'signed-laboratory-protocol.json', {
-    protocolNumber,
+  fixture.evidence.lab = await createOperationEvidence(instance, labUser, {
+    sampleId: fixture.sampleId,
+    purpose: 'PROTOCOL',
+    filename: 'signed-laboratory-protocol.json',
   });
 }
 
