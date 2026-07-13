@@ -23,12 +23,14 @@ export type {
 } from './components';
 
 export {
+  EmptyState,
   NextActionPanel,
   StatusBadge,
   Surface,
 } from './transaction-components';
 
 export type {
+  EmptyStateProps,
   NextActionPanelProps,
   StatusBadgeProps,
   StatusBadgeTone,
