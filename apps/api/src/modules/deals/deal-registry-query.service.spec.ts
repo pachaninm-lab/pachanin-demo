@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import { Role, type RequestUser } from '../../common/types/request-user';
 import { DealRegistryQueryService } from './deal-registry-query.service';
 
@@ -104,7 +103,7 @@ describe('DealRegistryQueryService', () => {
       limit: 1,
       status: 'RESERVED',
       cursor: page.nextCursor!,
-    }, user)).rejects.toMatchObject<Partial<BadRequestException>>({
+    }, user)).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'DEAL_REGISTRY_CURSOR_FILTER_MISMATCH' }),
     });
 
