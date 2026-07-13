@@ -168,6 +168,14 @@
       "apps/web/components/platform-v7/DealCommandForm.tsx",
       "apps/web/components/platform-v7/DealCommandForm.module.css",
       "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
+    ],
+    "agent/cognitive-app-shell-utilities": [
+      "apps/web/components/platform-v7/HeaderUtilityMenu.tsx",
+      "apps/web/components/platform-v7/HeaderUtilityMenu.module.css",
+      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
+      "apps/web/components/platform-v7/RoleAssistantWidget.tsx",
+      "apps/web/components/platform-v7/RoleAssistantWidget.module.css",
+      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
     ]
   },
   "currentAcceptance": [
