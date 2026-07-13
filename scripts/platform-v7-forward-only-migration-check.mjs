@@ -15,13 +15,18 @@ const ACCEPTED_BASELINE = '20260710150000_persistent_identity_sessions';
 // DECIMAL/NUMERIC). Narrowing or lossy rewrites remain forbidden.
 const LOSSLESS_WIDENING_TYPES = /^(BIGINT|DECIMAL(\s*\(\s*\d+\s*,\s*\d+\s*\))?|NUMERIC(\s*\(\s*\d+\s*,\s*\d+\s*\))?)$/i;
 
+const CONTROLLED_UTC_NORMALIZATION_MIGRATIONS = new Set([
+  '20260713102000_logistics_postgresql_authority',
+  '20260713122000_labs_postgresql_authority',
+]);
+
 function controlledUtcTimestampRewrite(migration, sql, target) {
-  // IR-10.2 introduces these columns/tables in the immediately preceding,
-  // unmerged additive migration. Prisma's DateTime representation is
-  // TIMESTAMP(3), so the follow-up normalizes only newly introduced values to
-  // UTC with an explicit USING clause before this slice can reach main.
-  // Keep the exception exact; future timestamp rewrites remain forbidden.
-  return migration === '20260713102000_logistics_postgresql_authority'
+  // IR-10.2/IR-10.3 introduce these columns in immediately preceding,
+  // unmerged additive migrations. Prisma represents the public DateTime fields
+  // as TIMESTAMP(3), so the follow-up normalizes only newly introduced values
+  // to UTC before either slice can reach main. The allow-list is exact; future
+  // timestamp rewrites remain forbidden by default.
+  return CONTROLLED_UTC_NORMALIZATION_MIGRATIONS.has(migration)
     && /^TIMESTAMP\s*\(\s*3\s*\)$/i.test(target)
     && /AT\s+TIME\s+ZONE\s+'UTC'/i.test(sql);
 }
