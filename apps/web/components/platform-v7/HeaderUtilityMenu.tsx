@@ -10,7 +10,6 @@ import {
   FileSearch2,
   FileText,
   LogOut,
-  Menu,
   Moon,
   Search,
   Trash2,
@@ -185,7 +184,7 @@ export function HeaderUtilityMenu() {
         data-open={panel ? 'true' : 'false'}
         onClick={() => setPanel((current) => current ? null : 'menu')}
       >
-        <Menu size={18} aria-hidden='true' />
+        <CircleHelp size={18} aria-hidden='true' />
         <span className={styles.triggerText}>Помощь</span>
       </button>
     </div>
