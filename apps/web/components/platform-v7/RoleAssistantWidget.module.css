@@ -1,16 +1,13 @@
-:global(.pc-v7-role-dock a[href='/platform-v7/ai']),
-:global(.pc-v7-safe-drawer-link[href='/platform-v7/ai']),
-:global(.pc-v4-bottomnav a[href='/platform-v7/ai']),
-:global(.pc-v7-role-dock button.pc-v7-role-dock-item) {
-  display: none !important;
+.scope {
+  display: contents;
 }
 
-:global([data-testid='platform-v7-work-step-guide']) {
+.scope :global([data-testid='platform-v7-work-step-guide']) {
   padding: 8px !important;
   border-radius: 16px !important;
 }
 
-:global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row) {
+.scope :global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row) {
   display: flex !important;
   align-items: center !important;
   gap: 7px !important;
@@ -18,13 +15,13 @@
   min-width: 0 !important;
 }
 
-:global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row > div:first-child) {
+.scope :global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row > div:first-child) {
   min-width: 86px !important;
   max-width: 148px !important;
   flex: 0 1 auto !important;
 }
 
-:global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row > div:last-child) {
+.scope :global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row > div:last-child) {
   display: flex !important;
   flex-wrap: nowrap !important;
   overflow-x: auto !important;
@@ -32,27 +29,27 @@
   scrollbar-width: none !important;
 }
 
-:global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row > div:last-child::-webkit-scrollbar) {
+.scope :global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row > div:last-child::-webkit-scrollbar) {
   display: none !important;
 }
 
-:global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row a) {
+.scope :global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row a) {
   width: auto !important;
   min-height: 32px !important;
   flex: 0 0 auto !important;
   justify-content: center !important;
 }
 
-:global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row span) {
+.scope :global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row span) {
   flex: 0 0 auto !important;
 }
 
 @media (max-width: 640px) {
-  :global([data-testid='platform-v7-work-step-guide']) {
+  .scope :global([data-testid='platform-v7-work-step-guide']) {
     padding: 7px !important;
   }
 
-  :global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row > div:first-child) {
+  .scope :global([data-testid='platform-v7-work-step-guide'] .p7-work-actions-row > div:first-child) {
     min-width: 70px !important;
     max-width: 104px !important;
     font-size: 11px !important;
