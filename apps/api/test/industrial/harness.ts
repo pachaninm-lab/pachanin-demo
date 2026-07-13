@@ -2,14 +2,25 @@ import * as bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
+import { StoragePrismaService } from '../../src/common/prisma/storage-prisma.service';
 import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.service';
-import { DealCommandService } from '../../src/modules/deals/deal-command.service';
+import { PostgresqlDealCommandService } from '../../src/modules/deals/postgresql-deal-command.service';
 import { IndustrialDealCommandGateway } from '../../src/modules/deals/industrial-deal-command.gateway';
 import type { DealActionId } from '../../src/modules/deals/deal-command.policy';
 import { Role, type RequestUser } from '../../src/common/types/request-user';
+import { PrismaLabRepository } from '../../src/modules/labs/prisma-lab.repository';
+import { LabAuthorityService } from '../../src/modules/labs/lab-authority.service';
+import { StorageFinalizationRepository } from '../../src/modules/storage/storage-finalization.repository';
+import { StorageService } from '../../src/modules/storage/storage.service';
+import type {
+  ObjectInspection,
+  ObjectStorageAdapter,
+  PresignedObjectUrl,
+} from '../../src/modules/storage/object-storage.adapter';
 
 export const INDUSTRIAL_TENANT = 'tenant-industrial-e2e';
 const FACT_AT = '2026-07-12T09:00:00.000Z';
+const FUTURE_AUTHORITY_AT = '2035-01-01T00:00:00.000Z';
 
 export interface DealFixture {
   dealId: string;
@@ -31,21 +42,81 @@ export interface DealFixture {
 
 export interface ServiceInstance {
   prisma: PrismaService;
+  storagePrisma: StoragePrismaService;
   rls: RlsTransactionService;
-  commands: DealCommandService;
+  commands: PostgresqlDealCommandService;
   gateway: IndustrialDealCommandGateway;
+  labs: PrismaLabRepository;
+  labAuthority: LabAuthorityService;
+  storage: StorageService;
+  storageAdapter: ControlledObjectStorageAdapter;
+}
+
+class ControlledObjectStorageAdapter implements ObjectStorageAdapter {
+  readonly driver = 'filesystem' as const;
+  private readonly objects = new Map<string, ObjectInspection>();
+
+  async getPresignedUploadUrl(
+    key: string,
+    _mimeType: string,
+    ttlSeconds: number,
+  ): Promise<PresignedObjectUrl> {
+    return {
+      url: `https://controlled.invalid/upload/${encodeURIComponent(key)}`,
+      expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString(),
+    };
+  }
+
+  async getPresignedDownloadUrl(key: string, ttlSeconds: number): Promise<PresignedObjectUrl> {
+    return {
+      url: `https://controlled.invalid/download/${encodeURIComponent(key)}`,
+      expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString(),
+    };
+  }
+
+  async inspectAndHashObject(key: string): Promise<ObjectInspection> {
+    const inspection = this.objects.get(key);
+    if (!inspection) throw new Error(`Controlled object is missing: ${key}`);
+    return inspection;
+  }
+
+  async deleteObject(key: string): Promise<void> {
+    this.objects.delete(key);
+  }
+
+  put(key: string, inspection: ObjectInspection): void {
+    this.objects.set(key, inspection);
+  }
 }
 
 export async function createInstance(): Promise<ServiceInstance> {
   const prisma = new PrismaService();
   await prisma.$connect();
+  const storagePrisma = new StoragePrismaService();
+  await storagePrisma.$connect();
   const rls = new RlsTransactionService(prisma);
-  const commands = new DealCommandService(rls);
+  const commands = new PostgresqlDealCommandService(rls);
   const gateway = new IndustrialDealCommandGateway(prisma, rls, commands);
-  return { prisma, rls, commands, gateway };
+  const labs = new PrismaLabRepository(rls);
+  const labAuthority = new LabAuthorityService(rls);
+  const storageAdapter = new ControlledObjectStorageAdapter();
+  const finalization = new StorageFinalizationRepository(storagePrisma);
+  const storage = new StorageService(rls, storageAdapter, finalization);
+  return {
+    prisma,
+    storagePrisma,
+    rls,
+    commands,
+    gateway,
+    labs,
+    labAuthority,
+    storage,
+    storageAdapter,
+  };
 }
 
 export async function destroyInstance(instance: ServiceInstance): Promise<void> {
+  await instance.storagePrisma.$disconnect();
   await instance.prisma.$disconnect();
 }
 
@@ -72,57 +143,80 @@ function fixtureHash(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
-async function seedNormalizedLogisticsAdmission(
-  prisma: PrismaService,
+async function createVerifiedEvidence(
+  instance: ServiceInstance,
+  user: RequestUser,
   input: {
     dealId: string;
-    sellerOrgId: string;
-    buyerOrgId: string;
-    carrierOrgId: string;
-    driverUserId: string;
-    vehicleId: string;
-    routeFromFacilityId: string;
-    routeToFacilityId: string;
+    filename: string;
+    metadata?: Prisma.InputJsonObject;
   },
-): Promise<void> {
-  const evidenceId = `file-logistics-admission:${input.dealId}`;
-  const evidenceHash = fixtureHash(JSON.stringify(input));
-
-  await prisma.$transaction(async (tx) => {
-    // Isolated CI fixture only. Production evidence reaches VERIFIED exclusively
-    // through the storage finalization principal introduced by IR-10.1.
-    await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
-    await tx.dealDocument.upsert({
-      where: { id: evidenceId },
-      update: {
-        tenantId: INDUSTRIAL_TENANT,
-        status: 'VERIFIED',
-        hash: evidenceHash,
-        isImmutable: true,
-      },
-      create: {
-        id: evidenceId,
-        dealId: input.dealId,
-        tenantId: INDUSTRIAL_TENANT,
-        type: 'EVIDENCE_FILE',
-        status: 'VERIFIED',
-        name: 'normalized-logistics-admission.json',
-        mimeType: 'application/json',
-        s3Key: `controlled-test/${input.dealId}/normalized-logistics-admission.json`,
-        sizeBytes: 512,
-        hash: evidenceHash,
-        uploadedByUserId: `user-e2e-${input.dealId.slice('DEAL-E2E-'.length)}-operator`,
-        version: 2,
-        isImmutable: true,
-      },
+): Promise<string> {
+  const body = JSON.stringify({
+    dealId: input.dealId,
+    filename: input.filename,
+    metadata: input.metadata ?? {},
+  });
+  const sizeBytes = Buffer.byteLength(body);
+  const sha256 = fixtureHash(body);
+  const requested = await instance.storage.requestUpload({
+    dealId: input.dealId,
+    filename: input.filename,
+    mimeType: 'application/json',
+    sizeBytes,
+  }, user);
+  instance.storageAdapter.put(requested.objectKey, {
+    sizeBytes,
+    contentType: 'application/json',
+    sha256,
+    eTag: `controlled-${sha256.slice(0, 16)}`,
+  });
+  if (input.metadata) {
+    await instance.rls.withTrustedContext(user, async (tx) => {
+      const updated = await tx.dealDocument.updateMany({
+        where: {
+          id: requested.fileId,
+          status: 'UPLOAD_PENDING',
+          isImmutable: false,
+          version: 1,
+        },
+        data: { metadata: input.metadata },
+      });
+      if (updated.count !== 1) throw new Error('Pending evidence metadata update lost its CAS boundary.');
     });
+  }
+  const verified = await instance.storage.confirmUpload(requested.fileId, sha256, user);
+  if (verified.status !== 'VERIFIED' || !verified.immutable || verified.sha256 !== sha256) {
+    throw new Error('Controlled evidence did not reach immutable VERIFIED state.');
+  }
+  return requested.fileId;
+}
 
+async function seedNormalizedLogisticsAdmission(
+  instance: ServiceInstance,
+  fixture: DealFixture,
+): Promise<void> {
+  const evidenceId = await createVerifiedEvidence(instance, fixture.users.operator, {
+    dealId: fixture.dealId,
+    filename: 'normalized-logistics-admission.json',
+    metadata: {
+      purpose: 'LOGISTICS_ADMISSION',
+      dealId: fixture.dealId,
+      carrierOrgId: fixture.serviceOrgId,
+      driverUserId: fixture.users.driver.id,
+      vehicleId: fixture.vehicleId,
+      routeFromFacilityId: fixture.routeFromFacilityId,
+      routeToFacilityId: fixture.routeToFacilityId,
+    },
+  });
+
+  await instance.prisma.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`
       INSERT INTO logistics.carriers (
         id, tenant_id, organization_id, status, evidence_file_id
       ) VALUES (
-        ${`carrier:${input.carrierOrgId}`}, ${INDUSTRIAL_TENANT},
-        ${input.carrierOrgId}, 'VERIFIED', ${evidenceId}
+        ${`carrier:${fixture.serviceOrgId}`}, ${INDUSTRIAL_TENANT},
+        ${fixture.serviceOrgId}, 'VERIFIED', ${evidenceId}
       )
       ON CONFLICT (tenant_id, organization_id) DO UPDATE SET
         status = 'VERIFIED', evidence_file_id = EXCLUDED.evidence_file_id,
@@ -132,8 +226,8 @@ async function seedNormalizedLogisticsAdmission(
       INSERT INTO logistics.drivers (
         id, tenant_id, carrier_org_id, user_id, status, evidence_file_id
       ) VALUES (
-        ${`driver-registry:${input.driverUserId}`}, ${INDUSTRIAL_TENANT},
-        ${input.carrierOrgId}, ${input.driverUserId}, 'ACTIVE', ${evidenceId}
+        ${`driver-registry:${fixture.users.driver.id}`}, ${INDUSTRIAL_TENANT},
+        ${fixture.serviceOrgId}, ${fixture.users.driver.id}, 'ACTIVE', ${evidenceId}
       )
       ON CONFLICT (tenant_id, user_id) DO UPDATE SET
         carrier_org_id = EXCLUDED.carrier_org_id, status = 'ACTIVE',
@@ -145,8 +239,8 @@ async function seedNormalizedLogisticsAdmission(
         id, tenant_id, carrier_org_id, registration_number, vehicle_type,
         status, evidence_file_id
       ) VALUES (
-        ${input.vehicleId}, ${INDUSTRIAL_TENANT}, ${input.carrierOrgId},
-        ${input.vehicleId}, 'TRUCK', 'ACTIVE', ${evidenceId}
+        ${fixture.vehicleId}, ${INDUSTRIAL_TENANT}, ${fixture.serviceOrgId},
+        ${fixture.vehicleId}, 'TRUCK', 'ACTIVE', ${evidenceId}
       )
       ON CONFLICT (id) DO UPDATE SET
         carrier_org_id = EXCLUDED.carrier_org_id, status = 'ACTIVE',
@@ -157,8 +251,8 @@ async function seedNormalizedLogisticsAdmission(
       INSERT INTO logistics.driver_vehicle_links (
         id, tenant_id, driver_id, vehicle_id, status
       ) VALUES (
-        ${`driver-vehicle:${input.dealId}`}, ${INDUSTRIAL_TENANT},
-        ${`driver-registry:${input.driverUserId}`}, ${input.vehicleId}, 'ACTIVE'
+        ${`driver-vehicle:${fixture.dealId}`}, ${INDUSTRIAL_TENANT},
+        ${`driver-registry:${fixture.users.driver.id}`}, ${fixture.vehicleId}, 'ACTIVE'
       )
       ON CONFLICT (tenant_id, driver_id, vehicle_id) DO UPDATE SET
         status = 'ACTIVE', valid_until = NULL
@@ -168,7 +262,7 @@ async function seedNormalizedLogisticsAdmission(
         id, tenant_id, organization_id, facility_type, name, status,
         evidence_file_id
       ) VALUES (
-        ${input.routeFromFacilityId}, ${INDUSTRIAL_TENANT}, ${input.sellerOrgId},
+        ${fixture.routeFromFacilityId}, ${INDUSTRIAL_TENANT}, ${fixture.sellerOrgId},
         'DISPATCH', 'Seller dispatch', 'ACTIVE', ${evidenceId}
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -180,7 +274,7 @@ async function seedNormalizedLogisticsAdmission(
         id, tenant_id, organization_id, facility_type, name, status,
         evidence_file_id
       ) VALUES (
-        ${input.routeToFacilityId}, ${INDUSTRIAL_TENANT}, ${input.buyerOrgId},
+        ${fixture.routeToFacilityId}, ${INDUSTRIAL_TENANT}, ${fixture.buyerOrgId},
         'ACCEPTANCE', 'Buyer acceptance', 'ACTIVE', ${evidenceId}
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -193,9 +287,9 @@ async function seedNormalizedLogisticsAdmission(
         route_from_facility_id, route_to_facility_id, status, evidence_file_id,
         driver_pin_hash
       ) VALUES (
-        ${`admission:${input.dealId}`}, ${INDUSTRIAL_TENANT}, ${input.dealId},
-        ${input.carrierOrgId}, ${input.driverUserId}, ${input.vehicleId},
-        ${input.routeFromFacilityId}, ${input.routeToFacilityId}, 'ACTIVE',
+        ${`admission:${fixture.dealId}`}, ${INDUSTRIAL_TENANT}, ${fixture.dealId},
+        ${fixture.serviceOrgId}, ${fixture.users.driver.id}, ${fixture.vehicleId},
+        ${fixture.routeFromFacilityId}, ${fixture.routeToFacilityId}, 'ACTIVE',
         ${evidenceId}, ${bcrypt.hashSync('246810', 4)}
       )
       ON CONFLICT (id) DO UPDATE SET
@@ -218,21 +312,15 @@ export async function provisionDeal(
   const serviceOrgId = `org-e2e-${slug}-services`;
   const shipmentId = `shipment:${dealId}`;
   const acceptanceId = `acceptance:${dealId}`;
-  const sampleId = `sample:${dealId}`;
   const contractDocumentId = `contract:${dealId}`;
   const inspectionDocumentId = `inspection:${dealId}`;
   const vehicleId = `vehicle:${dealId}`;
   const routeFromFacilityId = `facility:${sellerOrgId}:dispatch`;
   const routeToFacilityId = `facility:${buyerOrgId}:acceptance`;
   const passwordHash = bcrypt.hashSync('industrial-e2e', 4);
-  const labActorUserId = `user-e2e-${slug}-lab`;
-  const labEvidenceId = `evidence:${dealId}:lab`;
-  const labMethodMoistureId = `lab-method:${dealId}:moisture`;
-  const labMethodProteinId = `lab-method:${dealId}:protein`;
-  const labEquipmentId = `lab-equipment:${dealId}`;
 
   const evidence: Record<string, string> = Object.fromEntries(
-    ['seller-signature', 'buyer-signature', 'loading', 'departure', 'arrival', 'weighing', 'inspection', 'lab', 'acceptance']
+    ['seller-signature', 'buyer-signature', 'loading', 'departure', 'arrival', 'weighing', 'inspection', 'acceptance']
       .map((kind) => [kind, `evidence:${dealId}:${kind}`]),
   );
 
@@ -243,9 +331,6 @@ export async function provisionDeal(
   };
 
   await prisma.$transaction(async (tx) => {
-    // Isolated CI fixture only. Production rows must pass every authority trigger.
-    await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
-
     let innSuffix = 0;
     for (const orgId of [sellerOrgId, buyerOrgId, serviceOrgId]) {
       innSuffix += 1;
@@ -253,16 +338,16 @@ export async function provisionDeal(
         .toString()
         .padStart(8, '0')
         .slice(0, 8);
-      await tx.organization.upsert({
-        where: { id: orgId },
-        update: { tenantId: INDUSTRIAL_TENANT, status: 'VERIFIED', kycStatus: 'APPROVED' },
-        create: {
+      await tx.organization.create({
+        data: {
           id: orgId,
           inn: `77${innDigits}${innSuffix}`,
           name: orgId,
           tenantId: INDUSTRIAL_TENANT,
           status: 'VERIFIED',
           kycStatus: 'APPROVED',
+          amlStatus: 'CLEAR',
+          verifiedAt: new Date(),
         },
       });
     }
@@ -278,17 +363,8 @@ export async function provisionDeal(
       ],
     };
 
-    await tx.deal.upsert({
-      where: { id: dealId },
-      update: {
-        status: 'DRAFT',
-        tenantId: INDUSTRIAL_TENANT,
-        totalKopecks,
-        version: 0,
-        closedAt: null,
-        sagaState: { logisticsBasis },
-      },
-      create: {
+    await tx.deal.create({
+      data: {
         id: dealId,
         dealNumber: `ТП-E2E-${slug}`,
         status: 'DRAFT',
@@ -306,10 +382,8 @@ export async function provisionDeal(
     for (const { role, key } of ROLE_SET) {
       const userId = `user-e2e-${slug}-${key}`;
       const orgId = orgFor(role);
-      await tx.user.upsert({
-        where: { id: userId },
-        update: { status: 'ACTIVE', deletedAt: null },
-        create: {
+      await tx.user.create({
+        data: {
           id: userId,
           email: `${key}-${slug}@industrial-e2e.invalid`,
           passwordHash,
@@ -317,21 +391,11 @@ export async function provisionDeal(
           status: 'ACTIVE',
         },
       });
-      await tx.userOrg.upsert({
-        where: { userId_organizationId: { userId, organizationId: orgId } },
-        update: { role, isDefault: true },
-        create: { userId, organizationId: orgId, role, isDefault: true },
+      await tx.userOrg.create({
+        data: { userId, organizationId: orgId, role, isDefault: true },
       });
-      await tx.dealParticipant.upsert({
-        where: { dealId_userId_role: { dealId, userId, role } },
-        update: {
-          tenantId: INDUSTRIAL_TENANT,
-          organizationId: orgId,
-          accessLevel: accessFor(role),
-          status: 'ACTIVE',
-          revokedAt: null,
-        },
-        create: {
+      await tx.dealParticipant.create({
+        data: {
           id: `participant:${dealId}:${key}`,
           dealId,
           tenantId: INDUSTRIAL_TENANT,
@@ -345,18 +409,13 @@ export async function provisionDeal(
     }
 
     for (const [kind, evidenceId] of Object.entries(evidence)) {
-      await tx.evidenceFile.upsert({
-        where: { id: evidenceId },
-        update: {
-          dealId,
-          shipmentId: ['loading', 'departure', 'arrival', 'weighing', 'lab', 'acceptance'].includes(kind) ? shipmentId : null,
-          hash: fixtureHash(evidenceId),
-          s3Key: `industrial-e2e/${dealId}/${kind}.json`,
-        },
-        create: {
+      await tx.evidenceFile.create({
+        data: {
           id: evidenceId,
           dealId,
-          shipmentId: ['loading', 'departure', 'arrival', 'weighing', 'lab', 'acceptance'].includes(kind) ? shipmentId : null,
+          shipmentId: ['loading', 'departure', 'arrival', 'weighing', 'acceptance'].includes(kind)
+            ? shipmentId
+            : null,
           type: kind.toUpperCase(),
           filename: `${kind}.json`,
           mimeType: 'application/json',
@@ -368,38 +427,11 @@ export async function provisionDeal(
       });
     }
 
-    await tx.dealDocument.upsert({
-      where: { id: labEvidenceId },
-      update: {
-        tenantId: INDUSTRIAL_TENANT,
-        type: 'EVIDENCE_FILE',
-        status: 'VERIFIED',
-        hash: fixtureHash(labEvidenceId),
-        isImmutable: true,
-      },
-      create: {
-        id: labEvidenceId,
-        dealId,
-        tenantId: INDUSTRIAL_TENANT,
-        type: 'EVIDENCE_FILE',
-        status: 'VERIFIED',
-        name: 'authoritative-laboratory-basis.json',
-        mimeType: 'application/json',
-        s3Key: `industrial-e2e/${dealId}/authoritative-laboratory-basis.json`,
-        sizeBytes: 1024,
-        hash: fixtureHash(labEvidenceId),
-        uploadedByUserId: `user-e2e-${slug}-operator`,
-        version: 2,
-        isImmutable: true,
-      },
-    });
-
-    await tx.dealDocument.upsert({
-      where: { id: contractDocumentId },
-      update: { status: 'UPLOADED', signedAt: null, signatories: null, isImmutable: false, bankAcceptance: 'ACCEPTED' },
-      create: {
+    await tx.dealDocument.create({
+      data: {
         id: contractDocumentId,
         dealId,
+        tenantId: INDUSTRIAL_TENANT,
         type: 'CONTRACT',
         status: 'UPLOADED',
         name: 'Контролируемый договор поставки',
@@ -411,13 +443,11 @@ export async function provisionDeal(
         bankAcceptance: 'ACCEPTED',
       },
     });
-
-    await tx.dealDocument.upsert({
-      where: { id: inspectionDocumentId },
-      update: { status: 'VALIDATED', signedAt: null, isImmutable: false },
-      create: {
+    await tx.dealDocument.create({
+      data: {
         id: inspectionDocumentId,
         dealId,
+        tenantId: INDUSTRIAL_TENANT,
         type: 'INSPECTION_REPORT',
         status: 'VALIDATED',
         name: 'Контролируемое заключение осмотра',
@@ -434,17 +464,20 @@ export async function provisionDeal(
       { id: `lab-protocol:${dealId}`, type: 'LAB_PROTOCOL', name: 'Лабораторный протокол' },
       { id: `acceptance-act:${dealId}`, type: 'ACCEPTANCE_ACT', name: 'Акт приёмки' },
     ]) {
-      await tx.dealDocument.upsert({
-        where: { id: document.id },
-        update: {},
-        create: {
+      await tx.dealDocument.create({
+        data: {
           ...document,
           dealId,
+          tenantId: INDUSTRIAL_TENANT,
           status: 'SIGNED',
           s3Key: `industrial-e2e/${dealId}/${document.type}.pdf`,
           hash: fixtureHash(document.id),
           signedAt: new Date(FACT_AT),
-          signatories: JSON.stringify([{ userId: `user-e2e-${slug}-operator`, signedAt: FACT_AT, evidenceRef: evidence.acceptance }]),
+          signatories: JSON.stringify([{
+            userId: `user-e2e-${slug}-operator`,
+            signedAt: FACT_AT,
+            evidenceRef: evidence.acceptance,
+          }]),
           uploadedByUserId: `user-e2e-${slug}-operator`,
           isImmutable: true,
           bankRequired: true,
@@ -453,178 +486,6 @@ export async function provisionDeal(
         },
       });
     }
-
-    await tx.$executeRaw(Prisma.sql`
-      INSERT INTO labs.laboratories (
-        id, tenant_id, organization_id, status, accreditation_status,
-        accreditation_ref, evidence_file_id
-      ) VALUES (
-        ${`laboratory:${dealId}`}, ${INDUSTRIAL_TENANT}, ${serviceOrgId},
-        'ACTIVE', 'VERIFIED', ${`ACCREDITATION-${serviceOrgId}`}, ${labEvidenceId}
-      )
-      ON CONFLICT (tenant_id, organization_id) DO UPDATE SET
-        status = 'ACTIVE', accreditation_status = 'VERIFIED',
-        accreditation_ref = EXCLUDED.accreditation_ref,
-        evidence_file_id = EXCLUDED.evidence_file_id,
-        valid_until = NULL, updated_at = now()
-    `);
-    await tx.$executeRaw(Prisma.sql`
-      INSERT INTO labs.authorized_actors (
-        id, tenant_id, laboratory_org_id, user_id, actor_type, status, evidence_file_id
-      ) VALUES (
-        ${`lab-actor:${dealId}`}, ${INDUSTRIAL_TENANT}, ${serviceOrgId},
-        ${labActorUserId}, 'SIGNATORY', 'ACTIVE', ${labEvidenceId}
-      )
-      ON CONFLICT (tenant_id, laboratory_org_id, user_id) DO UPDATE SET
-        actor_type = 'SIGNATORY', status = 'ACTIVE',
-        evidence_file_id = EXCLUDED.evidence_file_id,
-        valid_until = NULL, updated_at = now()
-    `);
-    for (const method of [
-      { id: labMethodMoistureId, code: 'MOISTURE', parameter: 'moisture', unit: '%', min: null, max: '14.000000' },
-      { id: labMethodProteinId, code: 'PROTEIN', parameter: 'protein', unit: '%', min: '12.500000', max: null },
-    ]) {
-      await tx.$executeRaw(Prisma.sql`
-        INSERT INTO labs.methods (
-          id, tenant_id, laboratory_org_id, code, parameter, unit,
-          standard_ref, norm_min, norm_max, status, evidence_file_id
-        ) VALUES (
-          ${method.id}, ${INDUSTRIAL_TENANT}, ${serviceOrgId}, ${method.code},
-          ${method.parameter}, ${method.unit}, 'CONTROLLED-STANDARD-E2E',
-          ${method.min}::NUMERIC, ${method.max}::NUMERIC, 'ACTIVE', ${labEvidenceId}
-        )
-        ON CONFLICT (tenant_id, laboratory_org_id, code) DO UPDATE SET
-          parameter = EXCLUDED.parameter, unit = EXCLUDED.unit,
-          standard_ref = EXCLUDED.standard_ref, norm_min = EXCLUDED.norm_min,
-          norm_max = EXCLUDED.norm_max, status = 'ACTIVE',
-          evidence_file_id = EXCLUDED.evidence_file_id,
-          valid_until = NULL, updated_at = now()
-      `);
-    }
-    await tx.$executeRaw(Prisma.sql`
-      INSERT INTO labs.equipment (
-        id, tenant_id, laboratory_org_id, code, name, serial_number,
-        status, calibration_valid_until, evidence_file_id
-      ) VALUES (
-        ${labEquipmentId}, ${INDUSTRIAL_TENANT}, ${serviceOrgId},
-        'CONTROLLED-ANALYZER', 'Controlled laboratory analyzer', ${`LAB-${slug}`},
-        'ACTIVE', '2035-01-01T00:00:00.000Z'::TIMESTAMPTZ, ${labEvidenceId}
-      )
-      ON CONFLICT (tenant_id, laboratory_org_id, code) DO UPDATE SET
-        status = 'ACTIVE', calibration_valid_until = EXCLUDED.calibration_valid_until,
-        evidence_file_id = EXCLUDED.evidence_file_id, updated_at = now()
-    `);
-
-    await tx.labSample.upsert({
-      where: { id: sampleId },
-      update: {
-        tenantId: INDUSTRIAL_TENANT,
-        shipmentId,
-        acceptanceId,
-        status: 'PENDING',
-        custodyStatus: 'ANALYSIS_IN_PROGRESS',
-        sampleCode: `SAMPLE-${dealId}`,
-        protocol: null,
-        protocolResult: null,
-        finalizedAt: null,
-        labId: serviceOrgId,
-        labName: serviceOrgId,
-        assignedActorUserId: labActorUserId,
-        latestEvidenceFileId: labEvidenceId,
-        version: 0,
-      },
-      create: {
-        id: sampleId,
-        dealId,
-        shipmentId,
-        acceptanceId,
-        tenantId: INDUSTRIAL_TENANT,
-        status: 'PENDING',
-        custodyStatus: 'ANALYSIS_IN_PROGRESS',
-        sampleCode: `SAMPLE-${dealId}`,
-        culture: 'Пшеница',
-        labId: serviceOrgId,
-        labName: serviceOrgId,
-        assignedActorUserId: labActorUserId,
-        latestEvidenceFileId: labEvidenceId,
-        collectedAt: new Date(FACT_AT),
-        version: 0,
-      },
-    });
-
-    await tx.labTest.deleteMany({ where: { sampleId } });
-    await tx.labTest.createMany({
-      data: [
-        {
-          id: `lab-test:${dealId}:moisture`,
-          sampleId,
-          tenantId: INDUSTRIAL_TENANT,
-          parameter: 'moisture',
-          value: 12.4,
-          valueDec: '12.400000',
-          unit: '%',
-          normMax: 14,
-          normMaxDec: '14.000000',
-          passed: true,
-          result: 'PASSED',
-          methodId: labMethodMoistureId,
-          equipmentId: labEquipmentId,
-          evidenceFileId: labEvidenceId,
-          actorUserId: labActorUserId,
-          commandId: `fixture:${dealId}:moisture`,
-          idempotencyKey: `fixture:${dealId}:moisture`,
-          correlationId: `fixture:${dealId}:labs`,
-          recordedAt: new Date(FACT_AT),
-        },
-        {
-          id: `lab-test:${dealId}:protein`,
-          sampleId,
-          tenantId: INDUSTRIAL_TENANT,
-          parameter: 'protein',
-          value: 13.2,
-          valueDec: '13.200000',
-          unit: '%',
-          normMin: 12.5,
-          normMinDec: '12.500000',
-          passed: true,
-          result: 'PASSED',
-          methodId: labMethodProteinId,
-          equipmentId: labEquipmentId,
-          evidenceFileId: labEvidenceId,
-          actorUserId: labActorUserId,
-          commandId: `fixture:${dealId}:protein`,
-          idempotencyKey: `fixture:${dealId}:protein`,
-          correlationId: `fixture:${dealId}:labs`,
-          recordedAt: new Date(FACT_AT),
-        },
-      ],
-    });
-    await tx.$executeRaw(Prisma.sql`
-      INSERT INTO labs.sample_custody_events (
-        id, sample_id, tenant_id, event_type, from_status, to_status,
-        actor_user_id, laboratory_org_id, evidence_file_id, command_id,
-        idempotency_key, correlation_id, occurred_at, note, hash
-      ) VALUES (
-        ${`lab-custody:${dealId}:received`}, ${sampleId}, ${INDUSTRIAL_TENANT},
-        'RECEIVED', 'IN_TRANSIT', 'RECEIVED', ${labActorUserId}, ${serviceOrgId},
-        ${labEvidenceId}, ${`fixture:${dealId}:custody`},
-        ${`fixture:${dealId}:custody`}, ${`fixture:${dealId}:labs`},
-        ${new Date(FACT_AT)}, 'Controlled fixture custody receipt',
-        ${fixtureHash(`custody:${dealId}`)}
-      )
-      ON CONFLICT (id) DO NOTHING
-    `);
-  });
-
-  await seedNormalizedLogisticsAdmission(prisma, {
-    dealId,
-    sellerOrgId,
-    buyerOrgId,
-    carrierOrgId: serviceOrgId,
-    driverUserId: `user-e2e-${slug}-driver`,
-    vehicleId,
-    routeFromFacilityId,
-    routeToFacilityId,
   });
 
   const users: Record<string, RequestUser> = {};
@@ -641,7 +502,7 @@ export async function provisionDeal(
     };
   }
 
-  return {
+  const fixture: DealFixture = {
     dealId,
     sellerOrgId,
     buyerOrgId,
@@ -649,7 +510,7 @@ export async function provisionDeal(
     totalKopecks,
     shipmentId,
     acceptanceId,
-    sampleId,
+    sampleId: '',
     contractDocumentId,
     inspectionDocumentId,
     vehicleId,
@@ -658,6 +519,201 @@ export async function provisionDeal(
     evidence,
     users,
   };
+
+  const instance = activeInstances.get(prisma);
+  if (!instance) throw new Error('provisionDeal requires a PrismaService created by createInstance().');
+  await seedNormalizedLogisticsAdmission(instance, fixture);
+  return fixture;
+}
+
+const activeInstances = new WeakMap<PrismaService, ServiceInstance>();
+
+function rememberInstance(instance: ServiceInstance): ServiceInstance {
+  activeInstances.set(instance.prisma, instance);
+  return instance;
+}
+
+const originalCreateInstance = createInstance;
+
+export async function createRememberedInstance(): Promise<ServiceInstance> {
+  return rememberInstance(await originalCreateInstance());
+}
+
+export async function prepareLaboratoryLifecycle(
+  instance: ServiceInstance,
+  fixture: DealFixture,
+): Promise<void> {
+  const operator = fixture.users.operator;
+  const labUser = fixture.users.lab;
+  const metadataBase = {
+    shipmentId: fixture.shipmentId,
+    acceptanceId: fixture.acceptanceId,
+    laboratoryOrgId: fixture.serviceOrgId,
+  };
+
+  const authorityEvidence = await createVerifiedEvidence(instance, operator, {
+    dealId: fixture.dealId,
+    filename: 'laboratory-authority.json',
+    metadata: { labPurpose: 'LAB_AUTHORITY', laboratoryOrgId: fixture.serviceOrgId },
+  });
+  const actorEvidence = await createVerifiedEvidence(instance, operator, {
+    dealId: fixture.dealId,
+    filename: 'laboratory-actors.json',
+    metadata: { labPurpose: 'ACTOR_AUTHORITY', laboratoryOrgId: fixture.serviceOrgId },
+  });
+  const methodEvidence = await createVerifiedEvidence(instance, operator, {
+    dealId: fixture.dealId,
+    filename: 'laboratory-methods.json',
+    metadata: { labPurpose: 'METHOD_AUTHORITY', laboratoryOrgId: fixture.serviceOrgId },
+  });
+  const equipmentEvidence = await createVerifiedEvidence(instance, operator, {
+    dealId: fixture.dealId,
+    filename: 'laboratory-equipment.json',
+    metadata: { labPurpose: 'EQUIPMENT_AUTHORITY', laboratoryOrgId: fixture.serviceOrgId },
+  });
+  const admissionEvidence = await createVerifiedEvidence(instance, operator, {
+    dealId: fixture.dealId,
+    filename: 'laboratory-admission.json',
+    metadata: { labPurpose: 'ADMISSION', ...metadataBase },
+  });
+
+  await instance.labAuthority.provision({
+    commandId: `lab-authority:${fixture.dealId}`,
+    idempotencyKey: `lab-authority:${fixture.dealId}`,
+    dealId: fixture.dealId,
+    laboratoryOrgId: fixture.serviceOrgId,
+    accreditationRef: `ACCREDITATION-${fixture.serviceOrgId}`,
+    evidenceRef: authorityEvidence,
+    validUntil: FUTURE_AUTHORITY_AT,
+    actors: ['SAMPLER', 'COURIER', 'RECEIVER', 'ANALYST', 'SIGNATORY'].map((actorType) => ({
+      userId: labUser.id,
+      actorType: actorType as 'SAMPLER' | 'COURIER' | 'RECEIVER' | 'ANALYST' | 'SIGNATORY',
+      evidenceRef: actorEvidence,
+      validUntil: FUTURE_AUTHORITY_AT,
+    })),
+    methods: [
+      {
+        code: 'MOISTURE',
+        parameter: 'moisture',
+        unit: '%',
+        standardRef: 'CONTROLLED-STANDARD-E2E',
+        normMax: '14.000000',
+        evidenceRef: methodEvidence,
+        validUntil: FUTURE_AUTHORITY_AT,
+      },
+      {
+        code: 'PROTEIN',
+        parameter: 'protein',
+        unit: '%',
+        standardRef: 'CONTROLLED-STANDARD-E2E',
+        normMin: '12.500000',
+        evidenceRef: methodEvidence,
+        validUntil: FUTURE_AUTHORITY_AT,
+      },
+    ],
+    equipment: [{
+      code: 'CONTROLLED_ANALYZER',
+      name: 'Controlled laboratory analyzer',
+      serialNumber: `LAB-${fixture.dealId}`,
+      calibrationValidUntil: FUTURE_AUTHORITY_AT,
+      evidenceRef: equipmentEvidence,
+    }],
+  }, operator);
+
+  await instance.labAuthority.issueSampleAdmission({
+    commandId: `lab-admission:${fixture.dealId}`,
+    idempotencyKey: `lab-admission:${fixture.dealId}`,
+    dealId: fixture.dealId,
+    shipmentId: fixture.shipmentId,
+    acceptanceId: fixture.acceptanceId,
+    laboratoryOrgId: fixture.serviceOrgId,
+    evidenceRef: admissionEvidence,
+    validUntil: FUTURE_AUTHORITY_AT,
+  }, operator);
+
+  const created = await instance.labs.create({
+    commandId: `lab-create:${fixture.dealId}`,
+    idempotencyKey: `lab-create:${fixture.dealId}`,
+    dealId: fixture.dealId,
+    shipmentId: fixture.shipmentId,
+    acceptanceId: fixture.acceptanceId,
+    evidenceRef: admissionEvidence,
+    occurredAt: new Date().toISOString(),
+  }, labUser);
+  fixture.sampleId = created.sample.id;
+
+  const createOperationEvidence = async (
+    purpose: string,
+    filename: string,
+    extra: Prisma.InputJsonObject = {},
+  ) => createVerifiedEvidence(instance, operator, {
+    dealId: fixture.dealId,
+    filename,
+    metadata: {
+      labPurpose: purpose,
+      sampleId: fixture.sampleId,
+      ...metadataBase,
+      ...extra,
+    },
+  });
+
+  const collectionEvidence = await createOperationEvidence('COLLECTION', 'sample-collection.json');
+  let mutation = await instance.labs.collect(fixture.sampleId, {
+    commandId: `lab-collect:${fixture.dealId}`,
+    idempotencyKey: `lab-collect:${fixture.dealId}`,
+    expectedVersion: created.sample.version,
+    evidenceRef: collectionEvidence,
+    occurredAt: new Date().toISOString(),
+  }, labUser);
+
+  for (const eventType of ['SEALED', 'HANDOFF', 'RECEIVED', 'OPENED'] as const) {
+    const evidenceRef = await createOperationEvidence(eventType, `sample-${eventType.toLowerCase()}.json`);
+    mutation = await instance.labs.recordCustody(fixture.sampleId, {
+      commandId: `lab-custody:${fixture.dealId}:${eventType}`,
+      idempotencyKey: `lab-custody:${fixture.dealId}:${eventType}`,
+      expectedVersion: mutation.sample.version,
+      eventType,
+      evidenceRef,
+      occurredAt: new Date().toISOString(),
+    }, labUser);
+  }
+
+  const moistureEvidence = await createOperationEvidence('TEST', 'test-moisture.json');
+  mutation = await instance.labs.recordTest(fixture.sampleId, {
+    commandId: `lab-test:${fixture.dealId}:moisture`,
+    idempotencyKey: `lab-test:${fixture.dealId}:moisture`,
+    expectedVersion: mutation.sample.version,
+    metric: 'moisture',
+    value: 12.4,
+    unit: '%',
+    methodCode: 'MOISTURE',
+    equipmentCode: 'CONTROLLED_ANALYZER',
+    evidenceRef: moistureEvidence,
+    occurredAt: new Date().toISOString(),
+  }, labUser);
+
+  const proteinEvidence = await createOperationEvidence('TEST', 'test-protein.json');
+  mutation = await instance.labs.recordTest(fixture.sampleId, {
+    commandId: `lab-test:${fixture.dealId}:protein`,
+    idempotencyKey: `lab-test:${fixture.dealId}:protein`,
+    expectedVersion: mutation.sample.version,
+    metric: 'protein',
+    value: 13.2,
+    unit: '%',
+    methodCode: 'PROTEIN',
+    equipmentCode: 'CONTROLLED_ANALYZER',
+    evidenceRef: proteinEvidence,
+    occurredAt: new Date().toISOString(),
+  }, labUser);
+
+  const sample = await instance.prisma.labSample.findUniqueOrThrow({
+    where: { id: fixture.sampleId },
+    select: { sampleCode: true },
+  });
+  const protocolNumber = `LAB-${sample.sampleCode}-V1`;
+  fixture.evidence.lab = await createOperationEvidence('PROTOCOL', 'signed-laboratory-protocol.json', {
+    protocolNumber,
+  });
 }
 
 export function payloadForAction(fixture: DealFixture, actionId: DealActionId): Prisma.InputJsonObject {
@@ -703,16 +759,7 @@ export function payloadForAction(fixture: DealFixture, actionId: DealActionId): 
     case 'finalize_lab':
       return {
         sampleId: fixture.sampleId,
-        protocolNumber: `PROTOCOL-${fixture.dealId}`,
-        labId: fixture.serviceOrgId,
-        accreditationRef: `ACCREDITATION-${fixture.serviceOrgId}`,
-        applicableStandard: 'CONTROLLED-STANDARD-E2E',
-        finalizedAt: '2026-07-12T15:00:00.000Z',
         signedEvidenceRef: fixture.evidence.lab,
-        indicators: [
-          { parameter: 'moisture', value: '12.400000', unit: '%', normMax: '14.000000' },
-          { parameter: 'protein', value: '13.200000', unit: '%', normMin: '12.500000' },
-        ],
       };
     case 'accept_delivery':
       return { acceptanceId: fixture.acceptanceId, acceptedAt: '2026-07-12T15:30:00.000Z', evidenceRef: fixture.evidence.acceptance };
@@ -721,56 +768,12 @@ export function payloadForAction(fixture: DealFixture, actionId: DealActionId): 
   }
 }
 
-export async function cleanTenant(prisma: PrismaService): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    // session_replication_role is connection-local. Keep the trigger bypass and
-    // every cleanup statement on one transaction-bound PostgreSQL connection.
-    await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = replica`);
-    const dealIds = (
-      await tx.deal.findMany({ where: { tenantId: INDUSTRIAL_TENANT }, select: { id: true } })
-    ).map((deal) => deal.id);
-    if (dealIds.length > 0) {
-      const inList = dealIds.map((id) => `'${id}'`).join(',');
-      for (const statement of [
-        `DELETE FROM labs.protocols WHERE sample_id IN (SELECT id FROM "lab_samples" WHERE "dealId" IN (${inList}))`,
-        `DELETE FROM labs.sample_custody_events WHERE sample_id IN (SELECT id FROM "lab_samples" WHERE "dealId" IN (${inList}))`,
-        `DELETE FROM labs.sample_admissions WHERE deal_id IN (${inList})`,
-        `DELETE FROM logistics.shipment_bindings WHERE deal_id IN (${inList})`,
-        `DELETE FROM logistics.deal_admissions WHERE deal_id IN (${inList})`,
-        `DELETE FROM "shipment_gps_points" WHERE "shipmentId" IN (SELECT id FROM "shipments" WHERE "dealId" IN (${inList}))`,
-        `DELETE FROM "ledger_entries" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "deal_events" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "audit_events" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "outbox_entries" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "bank_statement_entries" WHERE "matchedDealId" IN (${inList})`,
-        `DELETE FROM "bank_operations" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "payments" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "lab_tests" WHERE "sampleId" IN (SELECT id FROM "lab_samples" WHERE "dealId" IN (${inList}))`,
-        `DELETE FROM "lab_samples" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "acceptance_records" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "checkpoints" WHERE "shipmentId" IN (SELECT id FROM "shipments" WHERE "dealId" IN (${inList}))`,
-        `DELETE FROM "shipments" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "deal_documents" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "evidence_files" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "deal_participants" WHERE "dealId" IN (${inList})`,
-        `DELETE FROM "deals" WHERE "id" IN (${inList})`,
-      ]) {
-        await tx.$executeRawUnsafe(statement);
-      }
-    }
-    await tx.$executeRawUnsafe(`DELETE FROM labs.equipment WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await tx.$executeRawUnsafe(`DELETE FROM labs.methods WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await tx.$executeRawUnsafe(`DELETE FROM labs.authorized_actors WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await tx.$executeRawUnsafe(`DELETE FROM labs.laboratories WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await tx.$executeRawUnsafe(`DELETE FROM logistics.driver_vehicle_links WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await tx.$executeRawUnsafe(`DELETE FROM logistics.vehicles WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await tx.$executeRawUnsafe(`DELETE FROM logistics.drivers WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await tx.$executeRawUnsafe(`DELETE FROM logistics.facilities WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await tx.$executeRawUnsafe(`DELETE FROM logistics.carriers WHERE tenant_id = '${INDUSTRIAL_TENANT}'`);
-    await tx.$executeRawUnsafe(
-      `DELETE FROM "user_orgs" WHERE "organizationId" IN (SELECT id FROM "organizations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}')`,
-    );
-    await tx.$executeRawUnsafe(`DELETE FROM "users" WHERE "id" LIKE 'user-e2e-%'`);
-    await tx.$executeRawUnsafe(`DELETE FROM "organizations" WHERE "tenantId" = '${INDUSTRIAL_TENANT}'`);
-  });
+/**
+ * Industrial suites run against a disposable PostgreSQL database created by the
+ * CI job. Confirmed evidence and append-only facts are intentionally not deleted
+ * through an application path. Test isolation is provided by unique Deal ids and
+ * database disposal after the job, not by disabling production triggers.
+ */
+export async function cleanTenant(_prisma: PrismaService): Promise<void> {
+  return Promise.resolve();
 }
