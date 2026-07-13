@@ -35,14 +35,15 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', fullWidth = false, className, type = 'button', ...props },
+  { variant = 'primary', fullWidth = false, className, type, ...props },
   ref,
 ) {
+  const safeType: 'button' | 'submit' | 'reset' = type ?? 'button';
   return (
     <button
       {...props}
       ref={ref}
-      type={type}
+      type={safeType}
       className={cx(
         styles.button,
         variant === 'primary' && styles.buttonPrimary,
