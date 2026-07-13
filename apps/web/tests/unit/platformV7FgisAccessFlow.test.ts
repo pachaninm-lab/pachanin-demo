@@ -20,6 +20,8 @@ const auctionRoutes = [
   'apps/web/app/platform-v7/auction/deal-basis/page.tsx',
 ];
 
+const workspacePath = 'apps/web/components/transaction-ux/AuctionPostgresAuthorityWorkspace.tsx';
+
 describe('platform-v7 FGIS access flow', () => {
   it('keeps FGIS page connected to organisation check and deal import flow', () => {
     const page = read('apps/web/app/platform-v7/fgis-access/page.tsx');
@@ -46,10 +48,10 @@ describe('platform-v7 FGIS access flow', () => {
     expect(engine).toContain('sdizNumber');
   });
 
-  it('routes every auction phase through one server-authoritative workspace', () => {
+  it('routes every auction phase through one PostgreSQL-proof workspace', () => {
     for (const route of auctionRoutes) {
       const source = read(route);
-      expect(source).toContain('AuctionServerAuthorityWorkspace');
+      expect(source).toContain('AuctionPostgresAuthorityWorkspace');
       expect(source).toContain('lotId');
       expect(source).not.toContain('FGIS_AUCTION_STATE');
       expect(source).not.toContain('AUCTION_DEAL_BRIDGE');
@@ -59,14 +61,21 @@ describe('platform-v7 FGIS access flow', () => {
   });
 
   it('preserves import, admission, bids and Deal-basis stages without local authority', () => {
-    const workspace = read('apps/web/components/transaction-ux/AuctionServerAuthorityWorkspace.tsx');
+    const workspace = read(workspacePath);
     expect(workspace).toContain("'overview' | 'import' | 'admission' | 'bids' | 'deal-basis'");
     expect(workspace).toContain('getAccessibleAuctionLotsCanonical');
     expect(workspace).toContain('getAuctionWorkspaceCanonical');
+    expect(workspace).toContain('sameAuthority');
     expect(workspace).toContain('dealCreated=true');
-    expect(workspace).toContain('server dealId');
     expect(workspace).not.toContain('BID-001');
     expect(workspace).not.toContain('DL-2607-014');
     expect(workspace).not.toContain('FGIS-LOT-2607-014');
+  });
+
+  it('keeps FGIS and SDIZ external until their identifiers are confirmed', () => {
+    const workspace = read(workspacePath);
+    expect(workspace).toContain('Текущий workspace не содержит подтверждённых реквизитов ФГИС/СДИЗ');
+    expect(workspace).toContain('does not include confirmed registry/certificate identifiers');
+    expect(workspace).toContain('不包含已确认的登记/凭证标识');
   });
 });
