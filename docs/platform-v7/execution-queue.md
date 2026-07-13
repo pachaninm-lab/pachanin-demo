@@ -77,6 +77,29 @@ LOCKED:
 
 NEXT:
 - Layer: IR-10.4 Settlement PostgreSQL Authority
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/autopilot/progress.json
+  - docs/platform-v7/autopilot/prompts/current-codex-task.md
+  - docs/platform-v7/autopilot/prompts/current-review-task.md
+  - docs/platform-v7/execution-queue.md
+  - apps/api/src/common/config/industrial-mode.ts
+  - apps/api/src/common/prisma/rls-transaction.service.ts
+  - apps/api/src/modules/deals/deals.module.ts
+  - apps/api/src/modules/deals/postgresql-deal-command.service.ts
+  - apps/api/src/modules/settlement-engine/**
+  - apps/api/src/modules/bank-reconciliation/**
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/*_settlement_postgresql_authority/**
+  - apps/api/test/industrial/harness.ts
+  - apps/api/test/industrial/industrial-core.e2e-spec.ts
+  - apps/api/test/industrial/reconciliation.e2e-spec.ts
+  - apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
+  - apps/api/test/one-deal/restored-database-acceptance.ts
+  - infra/sql/postgresql-settlement-authority-policies.sql
+  - scripts/platform-v7-forward-only-migration-check.mjs
+  - scripts/platform-v7-one-deal-e2e.sh
+  - .github/workflows/ci.yml
 - Success criteria:
   - production Settlement reads and commands bind complete PostgreSQL repositories with no RuntimeCore path;
   - payment, bank operation, callback and reconciliation authority is exclusive, durable and RLS-scoped;
