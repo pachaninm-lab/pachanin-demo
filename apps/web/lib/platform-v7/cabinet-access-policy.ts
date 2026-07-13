@@ -4,7 +4,14 @@ import { platformV7RoleCanOpenHref, platformV7RoleRoute } from './shellRoutes';
 export const PLATFORM_V7_RBAC_FLAG = 'NEXT_PUBLIC_PLATFORM_V7_RBAC';
 
 const OVERSIGHT_ROLES: ReadonlySet<PlatformRole> = new Set(['operator', 'executive']);
-const SHARED_PATHS = ['/platform-v7/open', '/platform-v7/login', '/platform-v7/register', '/platform-v7/demo', '/platform-v7/contact'];
+const SHARED_PATHS = [
+  '/platform-v7/open',
+  '/platform-v7/login',
+  '/platform-v7/register',
+  '/platform-v7/demo',
+  '/platform-v7/contact',
+  '/platform-v7/notifications',
+];
 const INTERNAL_OVERSIGHT_ROUTES = ['/platform-v7/support'];
 const NON_CORE_OVERSIGHT_ROUTES = ['/platform-v7/investor'];
 
@@ -61,7 +68,6 @@ export function cabinetAccessDecision(
   if (canRoleAccessCabinet(role, clean)) {
     return { allowed: true, enforced, redirectTo: null, reason: `Роль «${role}» имеет доступ к маршруту.` };
   }
-  // Перенаправление: сначала домашний маршрут роли, иначе redirectTo: '/platform-v7/login'
   const redirectTo = platformV7RoleRoute(role) || '/platform-v7/login';
   return {
     allowed: false,

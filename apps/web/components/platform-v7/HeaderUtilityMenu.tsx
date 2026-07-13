@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { PLATFORM_V7_AI_ROUTE } from '@/lib/platform-v7/routes';
-import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
+import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
 import { SESSION_COOKIE } from '@/lib/auth-cookies';
 import styles from './HeaderUtilityMenu.module.css';
 
@@ -36,6 +36,7 @@ const ACTIVE_ROLE_KEY = 'pc-v7-active-role';
 const STORE_KEY = 'pc-session-v10';
 const NOTE_STORAGE_KEY = 'platform-v7-header-notepad';
 const LOGOUT_TARGET = '/platform-v7/login?logout=1';
+const NOTIFICATIONS_ROUTE = '/platform-v7/notifications';
 
 type Panel = 'menu' | 'notepad' | null;
 
@@ -44,21 +45,6 @@ type ActionCardProps = {
   title: string;
   description: string;
   onClick: () => void;
-};
-
-const ROLE_HELP: Record<PlatformRole, string> = {
-  operator: 'Помощь оператору',
-  buyer: 'Помощь покупателю',
-  seller: 'Помощь продавцу',
-  logistics: 'Помощь логистике',
-  driver: 'Помощь водителю',
-  surveyor: 'Помощь сюрвейеру',
-  elevator: 'Помощь при приёмке',
-  lab: 'Помощь лаборатории',
-  bank: 'Помощь банковской проверке',
-  arbitrator: 'Помощь арбитру',
-  compliance: 'Помощь комплаенсу',
-  executive: 'Помощь руководителю',
 };
 
 function normalize(pathname: string | null): string {
@@ -107,7 +93,6 @@ export function HeaderUtilityMenu() {
   const pathname = usePathname();
   const router = useRouter();
   const path = normalize(pathname);
-  const role = usePlatformV7RStore((state) => state.role) || 'operator';
   const clearRoleSelection = usePlatformV7RStore((state) => state.clearRoleSelection);
   const headerMount = useMount('.pc-v4-actions');
   const bodyMount = useMount('body');
@@ -217,7 +202,10 @@ export function HeaderUtilityMenu() {
               <h2 className={styles.sectionTitle} id='utility-work-title'>Работа</h2>
               <div className={styles.actionGrid}>
                 <ActionCard icon={<Search size={18} aria-hidden='true' />} title='Найти' description='Открыть поиск по платформе' onClick={() => runNativeAction('.pc-v4-search')} />
-                <ActionCard icon={<Bell size={18} aria-hidden='true' />} title='Уведомления' description='Посмотреть реальные события' onClick={() => runNativeAction("button[aria-label='Открыть уведомления']")} />
+                <Link className={styles.linkAction} href={NOTIFICATIONS_ROUTE} onClick={() => setPanel(null)}>
+                  <span className={styles.actionIcon}><Bell size={18} aria-hidden='true' /></span>
+                  <span className={styles.actionCopy}><strong>Уведомления</strong><span>Открыть фактические события аккаунта</span></span>
+                </Link>
               </div>
             </section>
 
@@ -228,9 +216,9 @@ export function HeaderUtilityMenu() {
                   <span className={styles.actionIcon}><FileSearch2 size={18} aria-hidden='true' /></span>
                   <span className={styles.actionCopy}><strong>Разобрать шаг</strong><span>Объяснить текущую задачу</span></span>
                 </Link>
-                <Link className={styles.linkAction} href={`/platform-v7/status?role=${role}`} onClick={() => setPanel(null)}>
+                <Link className={styles.linkAction} href='/platform-v7/status' onClick={() => setPanel(null)}>
                   <span className={styles.actionIcon}><CircleHelp size={18} aria-hidden='true' /></span>
-                  <span className={styles.actionCopy}><strong>{ROLE_HELP[role]}</strong><span>Статус, инструкция и поддержка</span></span>
+                  <span className={styles.actionCopy}><strong>Помощь по работе</strong><span>Статус, инструкция и поддержка</span></span>
                 </Link>
               </div>
             </section>

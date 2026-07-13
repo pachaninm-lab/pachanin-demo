@@ -2,51 +2,73 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const file = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7ShellUxController.tsx'), 'utf8');
+function source(relativePath: string): string {
+  return fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
+}
 
-// Role home, bottom dock and drawer links now come from the canonical navigation
-// registry (`lib/platform-v7/shellRoutes`) — covered by
-// platformV7RoleNavigationRegistry.test.ts and platformV7ShellUxRegistry.test.ts.
-// The controller-local `HOME_BY_ROLE` / `DOCK_BY_ROLE` constants were removed, so
-// the per-role link assertions live with the registry. This file keeps the
-// controller's own behavioural guards.
+const controller = source('components/platform-v7/PlatformV7ShellUxController.tsx');
+const controllerStyles = source('components/platform-v7/PlatformV7ShellUxController.module.css');
+const protectedShell = source('components/platform-v7/PlatformV7ProtectedShell.tsx');
+const utilityMenu = source('components/platform-v7/HeaderUtilityMenu.tsx');
+const notificationsPage = source('app/platform-v7/notifications/page.tsx');
+const notificationsStyles = source('app/platform-v7/notifications/notifications.module.css');
+const accessPolicy = source('lib/platform-v7/cabinet-access-policy.ts');
 
 describe('PlatformV7ShellUxController', () => {
-  it('logs out by clearing role state and returning to public entry', () => {
-    expect(file).toContain('window.sessionStorage.removeItem(ACTIVE_ROLE_KEY)');
-    expect(file).toContain('window.localStorage.removeItem(STORE_KEY)');
-    expect(file).toContain("document.cookie = 'pc-role=; Max-Age=0; Path=/; SameSite=Lax'");
-    expect(file).toContain("router.replace('/platform-v7')");
+  it('binds navigation to the role resolved by the protected shell, never session storage', () => {
+    expect(protectedShell).toContain('<PlatformV7ShellUxController role={initialRole} />');
+    expect(controller).toContain('export function PlatformV7ShellUxController({ role }');
+    expect(controller).not.toContain('sessionStorage');
+    expect(controller).not.toContain('readActiveRole');
   });
 
-  it('forces logo to public role-entry page, not login or role home', () => {
-    expect(file).toContain("item.href = '/platform-v7'");
-    expect(file).toContain('главная страница с описанием платформы и выбором роли');
-    expect(file).not.toContain('item.href = roleHome');
+  it('shows no more than four unique primary destinations and removes the vague More item', () => {
+    expect(controller).toContain("item.label === 'Ещё'");
+    expect(controller).toContain('seen.has(key)');
+    expect(controller).toContain('.slice(0, 4)');
+    expect(controller).toContain('primaryNavigation(role)');
   });
 
-  it('hides legacy shell navigation and protects against horizontal overflow', () => {
-    expect(file).toContain('.pc-v4-bottomnav{display:none!important}');
-    expect(file).toContain('.pc-v4-switch-cabinet{display:none!important}');
-    expect(file).toContain('.pc-v4-drawer .pc-v4-nav{display:none!important}');
-    expect(file).toContain('.pc-v4-drawer > div:not(:first-child){display:none!important}');
-    expect(file).toContain(".pc-v4-actions button[aria-label='Открыть уведомления']{display:none!important}");
-    expect(file).toContain('overflow-x:hidden!important');
-    expect(file).toContain('pc-v7-safe-drawer-nav');
+  it('uses progressive disclosure for secondary sections instead of showing every route at once', () => {
+    expect(controller).toContain('<details className={styles.moreSections}>');
+    expect(controller).toContain('<summary>Все разделы</summary>');
+    expect(controller).toContain('Основное');
+    expect(controllerStyles).toContain('.drawerNavigation');
+    expect(controllerStyles).toContain('.moreSections');
   });
 
-  it('sources role home, dock and drawer links from the canonical registry, not local constants', () => {
-    expect(file).toContain('platformV7RoleRoute');
-    expect(file).toContain('platformV7NavByRole');
-    expect(file).toContain('platformV7DrawerNavByRole');
-    expect(file).not.toContain('const DOCK_BY_ROLE');
-    expect(file).not.toContain('const HOME_BY_ROLE');
-    expect(file).not.toContain("label: 'ИИ'");
+  it('removes synthetic role notices and duplicate shell controls', () => {
+    expect(controller).not.toContain('NOTICES_BY_ROLE');
+    expect(controller).not.toContain('Уведомления роли');
+    expect(controller).not.toContain('LogOut');
+    expect(controllerStyles).toContain("button[aria-label='Открыть уведомления']");
+    expect(controllerStyles).toContain('.pc-v4-pilot-note');
+    expect(controllerStyles).toContain('.pc-v4-meta');
   });
 
-  it('renders role scoped notices instead of global notifications', () => {
-    expect(file).toContain('NOTICES_BY_ROLE');
-    expect(file).toContain('Уведомления роли');
-    expect(file).toContain('pc-v7-notice-panel');
+  it('does not show an operator dock on role-neutral utility routes', () => {
+    expect(controller).toContain("const ROLE_NEUTRAL_PATHS = new Set([");
+    expect(controller).toContain("'/platform-v7/notifications'");
+    expect(controller).toContain('const roleNeutralPath = ROLE_NEUTRAL_PATHS.has(normalizedPath)');
+    expect(controller).toContain('mounted && !publicPath && !roleNeutralPath');
+  });
+
+  it('keeps large touch targets and a mobile-first role dock', () => {
+    expect(controllerStyles).toContain('min-height: 56px');
+    expect(controllerStyles).toContain('@media (max-width: 640px)');
+    expect(controllerStyles).toContain('@media (forced-colors: active)');
+    expect(controllerStyles).toContain('@media (prefers-reduced-motion: reduce)');
+  });
+
+  it('routes notifications to an API-backed inbox without synthetic initial items', () => {
+    expect(utilityMenu).toContain("const NOTIFICATIONS_ROUTE = '/platform-v7/notifications'");
+    expect(utilityMenu).toContain('Открыть фактические события аккаунта');
+    expect(notificationsPage).toContain("fetch('/api/proxy/notifications'");
+    expect(notificationsPage).toContain("method: 'PATCH'");
+    expect(notificationsPage).toContain('/api/proxy/notifications/read-all');
+    expect(notificationsPage).not.toContain('INITIAL_ITEMS');
+    expect(notificationsPage).not.toContain('DL-9102');
+    expect(notificationsStyles).toContain('min-height: 48px');
+    expect(accessPolicy).toContain("'/platform-v7/notifications'");
   });
 });
