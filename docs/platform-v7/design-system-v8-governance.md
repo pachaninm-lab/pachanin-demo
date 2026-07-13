@@ -188,19 +188,23 @@ The `/platform-v7/bank/release-safety` route is a governed server-authorized ent
 
 This UI acceptance does not assert live bank connectivity or PostgreSQL-authoritative Settlement where those backend acceptance gates remain separate. It proves that the active views do not overstate authority or synthesize money status.
 
-### Canonical auction execution
+### Canonical auction routes
 
-The canonical flow consists of `/platform-v7/auction`, `/auction/import`, `/auction/admission`, `/auction/bids` and `/auction/deal-basis`. It:
+The `/platform-v7/auction`, `/auction/import`, `/auction/admission`, `/auction/bids` and `/auction/deal-basis` routes are governed read-only entry points into auction execution. They:
 
-- keeps the public-registry lot, certificate, owner, available mass, quality and documents in one source snapshot;
-- requires batch and buyer admission before new bids can be accepted;
-- keeps the bid journal immutable and constrains bid volume to available mass;
-- creates a Deal basis from the locked winner, never a payment;
-- links price, lot, certificate, seller, buyer, volume, amount and next execution routes;
-- fails closed when the current admission is incomplete, even when historical bid and winner fixtures exist;
-- blocks transition to logistics until both admission and the Deal-basis guard pass;
-- supports RU, EN and ZH for route copy, statuses, rules, checks and guard labels;
-- explicitly states that the displayed source snapshot does not prove live FGIS connectivity and that the UI cannot release money.
+- load accessible lots only through authenticated `/lots/my`, without local seeds or a public-report fallback;
+- preserve the selected `lotId` across overview, import, admission, bids and Deal-basis stages;
+- validate the `/auctions/lots/:lotId/workspace` response before displaying readiness, bid aggregates or the execution bridge;
+- require explicit `POSTGRESQL` / `AUCTION` authority proof with tenant, actor, version and observation time;
+- cross-check tenant, actor and selected lot identity between the lot registry and workspace envelopes;
+- fail closed when the lot is not in the server-confirmed accessible set or the workspace response is unavailable, invalid or inconsistent;
+- do not place or cancel bids, choose a winner, manufacture an award or create a Deal in the browser;
+- show a Deal link only when the server returns `dealCreated=true` and a non-empty canonical `dealId`;
+- keep the former bridge and FGIS engine modules as type-only compatibility contracts with no runtime fixtures or selectors;
+- remove hard-coded FGIS lots, SDIZ identifiers, buyers, bids, winners and Deal IDs from the active authority path;
+- support RU, EN and ZH and preserve governed mobile, keyboard, reduced-motion and forced-colors behavior.
+
+This acceptance proves the fail-closed authority boundary of the active auction UI. It does not prove that the current backend already exposes the required PostgreSQL authority envelopes, a complete immutable bid journal, bid/award command processing or live FGIS/SDIZ integration. Until those contracts are available and valid, the auction routes intentionally remain unavailable rather than substituting local data.
 
 ### Physical Deal execution chain
 
@@ -218,7 +222,7 @@ The data engines currently used by these three routes are local execution projec
 
 ## Remaining boundary
 
-Detailed settlement operations, server-authoritative auction persistence, server-authoritative logistics/acceptance/document persistence, historical auction routes outside the canonical flow and other non-critical pages are not automatically accepted merely because they render under the v8 shell. Each route must be registered, migrated and proven before its legacy styling can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
+Detailed settlement operations, auction backend command authority, server-authoritative logistics/acceptance/document persistence, historical routes and other non-critical pages are not automatically accepted merely because they render under the v8 shell. Each route or backend authority must be registered, migrated and proven before its legacy implementation can be removed. Production operating maturity and live external integrations remain separate acceptance questions.
 
 ## Decision authority
 
