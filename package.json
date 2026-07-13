@@ -23,13 +23,14 @@
     "pilot:up": "bash ./scripts/pilot-up.sh",
     "audit:roles": "node ./scripts/audit-role-contract-consistency.mjs",
     "audit:flows": "node ./scripts/audit-critical-flows.mjs",
+    "design:v8:check": "node ./scripts/check-design-system-v8.mjs",
     "release:industrial": "node ./scripts/build-industrial-release.mjs",
     "db:seed:service-providers": "pnpm --filter @pc/api ts-node prisma/service-providers.seed.ts",
     "verify:shared": "tsc -p ./tsconfig.shared-verify.json --noEmit",
     "typecheck:domain": "tsc -p ./packages/domain-core/tsconfig.json --noEmit",
     "i18n:platform-v7": "node ./scripts/check-platform-v7-i18n.mjs",
     "i18n:messages": "node ./scripts/build-platform-v7-messages.mjs",
-    "verify:repo:contour": "node ./scripts/run-repo-build-test-contour.mjs"
+    "verify:repo:contour": "node ./scripts/check-design-system-v8.mjs && node ./scripts/run-repo-build-test-contour.mjs"
   },
   "workspaces": ["apps/api", "apps/web", "packages/*"],
   "pnpm": {"overrides": {"glob": ">=10.5.0", "picomatch": ">=4.0.4", "fast-uri": ">=3.1.1"}},
