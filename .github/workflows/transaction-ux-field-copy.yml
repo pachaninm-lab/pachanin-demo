@@ -1,0 +1,46 @@
+name: Transaction UX field role copy
+
+on:
+  push:
+    branches:
+      - codex/transaction-ux-v8-shell-field-roles
+    paths:
+      - .github/workflows/transaction-ux-field-copy.yml
+
+permissions:
+  contents: write
+
+jobs:
+  copy-verified-field-slice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/transaction-ux-v8-shell-field-roles
+          fetch-depth: 0
+      - name: Fetch verified source branch
+        run: git fetch origin codex/design-system-v8-industrial
+      - name: Copy field role pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_ref=origin/codex/design-system-v8-industrial
+          files=(
+            apps/web/app/platform-v7/driver/field/page.tsx
+            apps/web/app/platform-v7/elevator/page.tsx
+            apps/web/app/platform-v7/lab/page.tsx
+            apps/web/app/platform-v7/surveyor/page.tsx
+          )
+          for file in "${files[@]}"; do
+            git show "$source_ref:$file" > "$file"
+          done
+      - name: Commit copied slice
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/app/platform-v7/driver/field/page.tsx apps/web/app/platform-v7/elevator/page.tsx apps/web/app/platform-v7/lab/page.tsx apps/web/app/platform-v7/surveyor/page.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Migrate four field roles to Transaction UX v8"
+          git push origin HEAD:codex/transaction-ux-v8-shell-field-roles
