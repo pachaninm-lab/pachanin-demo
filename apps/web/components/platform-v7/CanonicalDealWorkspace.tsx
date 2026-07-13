@@ -173,6 +173,36 @@ function stepStateLabel(state: SpineState): string {
   return 'Позже';
 }
 
+function matchingDocument(workspace: Workspace, patterns: RegExp[]): Workspace['documents'][number] | undefined {
+  return workspace.documents.find((document) => {
+    const searchable = `${document.type} ${document.name}`;
+    return patterns.some((pattern) => pattern.test(searchable));
+  });
+}
+
+function commandInitialValues(actionId: string, workspace: Workspace): Record<string, string> {
+  const values: Record<string, string> = {};
+  const shipmentId = workspace.shipments[0]?.id;
+  const acceptanceId = workspace.acceptance[0]?.id;
+
+  if (['confirm_loading', 'start_transit', 'confirm_arrival', 'confirm_weight'].includes(actionId) && shipmentId) {
+    values.shipmentId = shipmentId;
+  }
+  if (actionId === 'accept_delivery' && acceptanceId) values.acceptanceId = acceptanceId;
+
+  if (actionId === 'seller_sign_contract' || actionId === 'buyer_sign_contract') {
+    const contract = matchingDocument(workspace, [/contract/i, /договор/i]);
+    if (contract) values.documentId = contract.id;
+  }
+
+  if (actionId === 'confirm_inspection') {
+    const inspection = matchingDocument(workspace, [/inspection/i, /survey/i, /осмотр/i, /заключен/i]);
+    if (inspection) values.documentId = inspection.id;
+  }
+
+  return values;
+}
+
 export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; dealId: string }) {
   const [workspace, setWorkspace] = React.useState<Workspace | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -363,6 +393,7 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
             label={action.label}
             submitting={submitting}
             disabled={false}
+            initialValues={commandInitialValues(action.id, workspace)}
             onSubmit={executePrimaryAction}
           />
         ) : null}

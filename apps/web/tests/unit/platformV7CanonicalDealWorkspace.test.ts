@@ -12,6 +12,7 @@ describe('platform-v7 canonical one-deal workspace', () => {
   const workspace = source('components/platform-v7/CanonicalDealWorkspace.tsx');
   const workspaceStyles = source('components/platform-v7/CanonicalDealWorkspace.module.css');
   const commandForm = source('components/platform-v7/DealCommandForm.tsx');
+  const commandFormStyles = source('components/platform-v7/DealCommandForm.module.css');
   const dashboard = source('components/platform-v7/RoleIntentDashboard.tsx');
   const dashboardStyles = source('components/platform-v7/RoleIntentDashboard.module.css');
   const shell = source('components/platform-v7/PlatformV7ProtectedShell.tsx');
@@ -44,6 +45,24 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(workspaceStyles).toContain('min-height: 48px');
     expect(workspaceStyles).toContain('@media (max-width: 430px)');
     expect(dashboardStyles).toContain('min-height: 48px');
+  });
+
+  it('guides a low-literacy user through forms without exposing deal-context ids', () => {
+    expect(commandForm).toContain("import styles from './DealCommandForm.module.css'");
+    expect(commandForm).not.toContain('<style jsx>');
+    expect(commandForm).not.toContain('style={{');
+    expect(commandForm).toContain('Проверь перед подтверждением');
+    expect(commandForm).toContain('Не всё заполнено');
+    expect(commandForm).toContain('Определить координаты');
+    expect(commandForm).toContain("replace(',', '.')");
+    expect(commandForm).toContain('contextual: true');
+    expect(commandForm).toContain("current?.fields.filter((field) => !field.contextual)");
+    expect(commandForm).toContain('Выбрано автоматически из сделки');
+    expect(workspace).toContain('initialValues={commandInitialValues(action.id, workspace)}');
+    expect(workspace).toContain("values.shipmentId = shipmentId");
+    expect(workspace).toContain("values.acceptanceId = acceptanceId");
+    expect(commandFormStyles).toContain('min-height: 48px');
+    expect(commandFormStyles).toContain('@media (max-width: 560px)');
   });
 
   it('submits only user-entered payload through real task-first forms', () => {
