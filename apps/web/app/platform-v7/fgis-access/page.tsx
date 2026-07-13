@@ -1,104 +1,187 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Building2, DatabaseZap, FileKey2, KeyRound, ShieldCheck } from 'lucide-react';
-import { FARMER_FGIS_ACCESS_STATE, fgisAccessStatusLabel, fgisPullStatusLabel } from '@/lib/platform-v7/farmerFgisAccessEngine';
-import { platformV7RouteIcon } from '@/lib/platform-v7/platformV7RouteIcons';
+import { getLocale } from 'next-intl/server';
+import { InlineNotice, StatusChip } from '@pc/design-system-v8';
+import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import {
+  OperationalCockpitSection,
+  OperationalDecisionCockpit,
+  OperationalQueue,
+  OperationalQueueLink,
+  operationalCockpitClasses,
+  type OperationalCockpitLabels,
+} from '@/components/transaction-ux/OperationalDecisionCockpit';
 
-const state = FARMER_FGIS_ACCESS_STATE;
-const FgisIcon = platformV7RouteIcon('fgis');
-const AuctionIcon = platformV7RouteIcon('auction');
-const ComplianceIcon = platformV7RouteIcon('compliance');
+type Locale = 'ru' | 'en' | 'zh';
 
-function stepText(value: string) {
-  if (value === 'ok') return 'готово';
-  if (value === 'action') return 'действие';
-  if (value === 'review') return 'проверка';
-  return 'закрыто';
+type Copy = {
+  metadataTitle: string;
+  metadataDescription: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  status: string;
+  priorityTitle: string;
+  priorityDescription: string;
+  blocker: string;
+  owner: string;
+  impact: string;
+  result: string;
+  start: string;
+  auction: string;
+  labels: OperationalCockpitLabels;
+  facts: { organization: string; authority: string; lot: string; certificate: string; notConfirmed: string; notSelected: string };
+  stepsTitle: string;
+  stepsSummary: string;
+  steps: Array<{ id: string; title: string; detail: string; status: string }>;
+  boundaryTitle: string;
+  boundary: string;
+  nextTitle: string;
+  nextSummary: string;
+  openImport: string;
+  openAuction: string;
+};
+
+const COPY: Record<Locale, Copy> = {
+  ru: {
+    metadataTitle: 'Доступ к ФГИС Зерно',
+    metadataDescription: 'Fail-closed подтверждение организации и полномочий до импорта партии в аукцион.',
+    eyebrow: 'ФГИС Зерно · организация → полномочие → импорт',
+    title: 'Сначала подтвердить право действовать от организации',
+    description: 'Платформа не принимает пароль от ФГИС и не создаёт локальную организацию, лот или СДИЗ. Сервер должен подтвердить организацию, представителя и право на импорт партии.',
+    status: 'полномочия не подтверждены',
+    priorityTitle: 'Подтвердить организацию через государственный контур',
+    priorityDescription: 'После возврата из gov-ID сервер обязан проверить claims, ИНН/ОГРН, представителя, membership и аудит. До этого импорт и торги остаются закрытыми.',
+    blocker: 'нет подтверждённого server-side результата идентификации',
+    owner: 'представитель организации · комплаенс · интеграция',
+    impact: 'партия не может стать лотом аукциона',
+    result: 'подтверждённая организация → право на импорт → серверный лот',
+    start: 'Подтвердить организацию',
+    auction: 'Открыть аукцион',
+    labels: { blocker: 'Блокер', owner: 'Ответственный', impact: 'Влияние', result: 'Результат', nextAction: 'Следующее безопасное действие', prioritySection: 'Главная задача доступа', factsSection: 'Подтверждённые факты' },
+    facts: { organization: 'Организация', authority: 'Полномочие', lot: 'Лот', certificate: 'СДИЗ', notConfirmed: 'не подтверждено сервером', notSelected: 'не выбран' },
+    stepsTitle: 'Обязательные проверки', stepsSummary: 'без локального статуса «готово»',
+    steps: [
+      { id: 'identity', title: 'Подтвердить организацию', detail: 'получить проверенные claims из gov-ID', status: 'действие' },
+      { id: 'representative', title: 'Проверить представителя', detail: 'сверить право действовать от имени организации', status: 'заблокировано' },
+      { id: 'membership', title: 'Создать серверное membership', detail: 'роль и tenant назначает backend, не URL и не клиент', status: 'заблокировано' },
+      { id: 'fgis', title: 'Подтвердить внешний доступ', detail: 'боевой API или утверждённый ручной регламент без хранения пароля', status: 'заблокировано' },
+      { id: 'import', title: 'Импортировать партию', detail: 'лот и СДИЗ принимаются только с authority proof', status: 'заблокировано' },
+    ],
+    boundaryTitle: 'Граница доказанности',
+    boundary: 'Этот экран не доказывает live-подключение ФГИС, ЕСИА или промышленный импорт. Он намеренно не показывает вымышленные ИНН, лот, СДИЗ, массу, качество и API-версию. До подтверждённого серверного результата контур fail-closed.',
+    nextTitle: 'После подтверждения', nextSummary: 'аукцион также проверит PostgreSQL authority proof', openImport: 'Перейти к импорту', openAuction: 'Открыть обзор аукциона',
+  },
+  en: {
+    metadataTitle: 'Grain registry access', metadataDescription: 'Fail-closed organization and authority verification before importing a lot into auction.',
+    eyebrow: 'Grain registry · organization → authority → import', title: 'Confirm the right to act for the organization first',
+    description: 'The platform does not accept a registry password or manufacture a local organization, lot or certificate. The server must confirm the organization, representative and import authority.',
+    status: 'authority not confirmed', priorityTitle: 'Confirm the organization through the government identity contour', priorityDescription: 'After the gov-ID callback, the server must verify claims, legal identifiers, representative, membership and audit. Import and trading remain closed until then.',
+    blocker: 'no confirmed server-side identity result', owner: 'organization representative · compliance · integration', impact: 'the batch cannot become an auction lot', result: 'confirmed organization → import authority → server lot',
+    start: 'Confirm organization', auction: 'Open auction', labels: { blocker: 'Blocker', owner: 'Owner', impact: 'Impact', result: 'Result', nextAction: 'Next safe action', prioritySection: 'Primary access task', factsSection: 'Confirmed facts' },
+    facts: { organization: 'Organization', authority: 'Authority', lot: 'Lot', certificate: 'Certificate', notConfirmed: 'not confirmed by server', notSelected: 'not selected' },
+    stepsTitle: 'Mandatory checks', stepsSummary: 'no local “ready” status',
+    steps: [
+      { id: 'identity', title: 'Confirm the organization', detail: 'receive verified claims from gov-ID', status: 'action' },
+      { id: 'representative', title: 'Verify the representative', detail: 'confirm the right to act for the organization', status: 'blocked' },
+      { id: 'membership', title: 'Create server membership', detail: 'backend assigns role and tenant, never URL or client state', status: 'blocked' },
+      { id: 'fgis', title: 'Confirm external access', detail: 'production API or approved manual procedure without storing passwords', status: 'blocked' },
+      { id: 'import', title: 'Import the batch', detail: 'lot and certificate are accepted only with authority proof', status: 'blocked' },
+    ],
+    boundaryTitle: 'Evidence boundary', boundary: 'This screen does not prove a live registry, identity or production import connection. It deliberately shows no invented legal ID, lot, certificate, mass, quality or API version. The contour fails closed until a confirmed server result exists.',
+    nextTitle: 'After confirmation', nextSummary: 'the auction also requires PostgreSQL authority proof', openImport: 'Go to import', openAuction: 'Open auction overview',
+  },
+  zh: {
+    metadataTitle: '粮食登记访问', metadataDescription: '在批次导入竞价前，以 fail-closed 方式验证组织和权限。',
+    eyebrow: '粮食登记 · 组织 → 权限 → 导入', title: '首先确认代表组织行事的权利',
+    description: '平台不接收登记系统密码，也不会在本地伪造组织、批次或凭证。服务器必须确认组织、代表和导入权限。',
+    status: '权限尚未确认', priorityTitle: '通过政府身份流程确认组织', priorityDescription: 'gov-ID 回调后，服务器必须验证 claims、法人标识、代表、membership 和审计。在此之前，导入和竞价保持关闭。',
+    blocker: '没有已确认的服务器端身份结果', owner: '组织代表 · 合规 · 集成', impact: '该批次不能成为竞价批次', result: '已确认组织 → 导入权限 → 服务器批次',
+    start: '确认组织', auction: '打开竞价', labels: { blocker: '阻塞项', owner: '负责人', impact: '影响', result: '结果', nextAction: '下一项安全操作', prioritySection: '主要访问任务', factsSection: '已确认事实' },
+    facts: { organization: '组织', authority: '权限', lot: '批次', certificate: '凭证', notConfirmed: '服务器未确认', notSelected: '未选择' },
+    stepsTitle: '强制检查', stepsSummary: '不使用本地“就绪”状态',
+    steps: [
+      { id: 'identity', title: '确认组织', detail: '从 gov-ID 获取已验证 claims', status: '操作' },
+      { id: 'representative', title: '验证代表', detail: '确认代表组织行事的权利', status: '已阻塞' },
+      { id: 'membership', title: '创建服务器 membership', detail: '角色和 tenant 只能由 backend 分配', status: '已阻塞' },
+      { id: 'fgis', title: '确认外部访问', detail: '生产 API 或不保存密码的批准人工流程', status: '已阻塞' },
+      { id: 'import', title: '导入批次', detail: '只有带 authority proof 的批次和凭证才被接受', status: '已阻塞' },
+    ],
+    boundaryTitle: '证据边界', boundary: '此页面不能证明登记、身份或生产导入已经实时连接。页面不会展示虚构的法人标识、批次、凭证、重量、质量或 API 版本。在服务器结果确认前，流程 fail-closed。',
+    nextTitle: '确认之后', nextSummary: '竞价同样要求 PostgreSQL 权威证明', openImport: '进入导入', openAuction: '打开竞价概览',
+  },
+};
+
+function localeOf(value: string): Locale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
 }
 
-function metricIcon(label: string) {
-  if (label === 'Организация' || label === 'ИНН') return Building2;
-  if (label === 'Импорт' || label === 'API') return DatabaseZap;
-  if (label === 'Лот') return FgisIcon;
-  if (label === 'СДИЗ') return FileKey2;
-  return KeyRound;
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = COPY[localeOf(await getLocale())];
+  return { title: copy.metadataTitle, description: copy.metadataDescription };
 }
 
-function routeIcon(label: string) {
-  if (label.includes('Импорт')) return FgisIcon;
-  if (label.includes('Допуск')) return ComplianceIcon;
-  return AuctionIcon;
-}
+export default async function FarmerFgisAccessPage() {
+  const copy = COPY[localeOf(await getLocale())];
 
-export default function FarmerFgisAccessPage() {
   return (
-    <main style={{ display: 'grid', gap: 16 }}>
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 22, padding: 18, boxShadow: 'var(--pc-shadow-sm)', display: 'grid', gap: 10 }}>
-        <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--pc-accent)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'inline-flex', alignItems: 'center', gap: 7 }}><FgisIcon size={16} />ФГИС Зерно</span>
-        <h1 style={{ margin: 0, fontSize: 'clamp(24px, 5vw, 38px)', color: 'var(--pc-text-primary)', lineHeight: 1.08 }}>{fgisAccessStatusLabel(state.status)}</h1>
-        <p style={{ margin: 0, maxWidth: 840, fontSize: 14, lineHeight: 1.55, color: 'var(--pc-text-secondary)' }}>Фермер подключает не пароль от ФГИС, а право на импорт партии: организация, полномочие, номер лота или СДИЗ и сверка владельца. После этого платформа создаёт основание сделки из данных ФГИС.</p>
-        <Link href='/api/platform-v7/gov-id/start?flow=fgis' style={{ width: 'max-content', maxWidth: '100%', textDecoration: 'none', minHeight: 42, borderRadius: 15, background: 'var(--pc-accent)', color: '#fff', padding: '0 14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 13, fontWeight: 950 }}><ShieldCheck size={18} />Подтвердить организацию для ФГИС</Link>
-      </section>
+    <OperationalDecisionCockpit
+      testId='platform-v7-fgis-access-authority-v8'
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+      description={copy.description}
+      statusLabel={copy.status}
+      statusTone='warning'
+      labels={copy.labels}
+      priority={{
+        state: 'critical',
+        title: copy.priorityTitle,
+        description: copy.priorityDescription,
+        blocker: copy.blocker,
+        owner: copy.owner,
+        impact: copy.impact,
+        result: copy.result,
+        primaryAction: <Link className={operationalCockpitClasses.primaryLink} href='/api/platform-v7/gov-id/start?flow=fgis'>{copy.start}</Link>,
+        secondaryAction: <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/auction'>{copy.auction}</Link>,
+      }}
+      facts={[
+        { label: copy.facts.organization, value: copy.facts.notConfirmed },
+        { label: copy.facts.authority, value: copy.facts.notConfirmed },
+        { label: copy.facts.lot, value: copy.facts.notSelected },
+        { label: copy.facts.certificate, value: copy.facts.notConfirmed },
+      ]}
+      boundary={copy.boundary}
+    >
+      <OperationalCockpitSection id='fgis-access-checks'>
+        <CollapsibleSection title={copy.stepsTitle} summary={copy.stepsSummary} defaultOpen>
+          <OperationalQueue>
+            {copy.steps.map((step, index) => (
+              <OperationalQueueLink
+                key={step.id}
+                href={index === 0 ? '/api/platform-v7/gov-id/start?flow=fgis' : '/platform-v7/fgis-access'}
+                title={step.title}
+                detail={step.detail}
+                status={<StatusChip tone={index === 0 ? 'information' : 'critical'}>{step.status}</StatusChip>}
+              />
+            ))}
+          </OperationalQueue>
+        </CollapsibleSection>
+      </OperationalCockpitSection>
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 12 }}>
-        {[
-          ['Организация', state.farmerName],
-          ['ИНН', state.farmerInn],
-          ['Импорт', fgisPullStatusLabel(state.pullStatus)],
-          ['Лот', state.importKeys.lotNumber ?? 'указать'],
-          ['СДИЗ', state.importKeys.sdizNumber ?? 'указать'],
-          ['API', state.dealSeed.apiVersion],
-        ].map(([label, value]) => {
-          const Icon = metricIcon(label);
-          return (
-            <div key={label} style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 18, padding: 14, display: 'grid', gap: 5 }}>
-              <span style={{ fontSize: 10, fontWeight: 900, color: 'var(--pc-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Icon size={14} />{label}</span>
-              <strong style={{ fontSize: 15, color: 'var(--pc-text-primary)' }}>{value}</strong>
-            </div>
-          );
-        })}
-      </section>
+      <OperationalCockpitSection>
+        <InlineNotice tone='warning' title={copy.boundaryTitle}>{copy.boundary}</InlineNotice>
+      </OperationalCockpitSection>
 
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Что должен сделать фермер</h2>
-        {state.steps.map((step) => (
-          <div key={step.key} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 10, alignItems: 'center', padding: 12, borderRadius: 14, border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface-soft)' }}>
-            <div style={{ display: 'grid', gap: 3 }}>
-              <strong style={{ fontSize: 13, color: 'var(--pc-text-primary)' }}>{step.label}</strong>
-              <span style={{ fontSize: 11, color: 'var(--pc-text-muted)' }}>{step.owner}</span>
-            </div>
-            <strong style={{ fontSize: 12, color: 'var(--pc-text-primary)' }}>{stepText(step.status)}</strong>
-          </div>
-        ))}
-      </section>
-
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Что импортируем</h2>
-        {[
-          ['Источник', state.dealSeed.source],
-          ['Партия', `${state.dealSeed.culture} · ${state.dealSeed.className}`],
-          ['Масса', `${state.dealSeed.massKg / 1000} т`],
-          ['Доступно', `${state.dealSeed.availableKg / 1000} т`],
-          ['Хранение', state.dealSeed.storagePlace],
-        ].map(([label, value]) => (
-          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 10px', borderRadius: 12, background: 'var(--pc-shell-surface-soft)', border: '1px solid var(--pc-border)' }}>
-            <span style={{ fontSize: 12, color: 'var(--pc-text-secondary)' }}>{label}</span>
-            <strong style={{ fontSize: 12, color: 'var(--pc-text-primary)' }}>{value}</strong>
-          </div>
-        ))}
-      </section>
-
-      <section style={{ border: '1px solid var(--pc-border)', background: 'var(--pc-shell-surface)', borderRadius: 20, padding: 16, display: 'grid', gap: 10 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>Дальше</h2>
-        {state.nextRoutes.map((route) => {
-          const Icon = routeIcon(route.label);
-          return (
-            <Link key={route.href} href={route.href} style={{ textDecoration: 'none', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 13, border: '1px solid var(--pc-border)', color: 'var(--pc-text-primary)', background: 'var(--pc-shell-surface-soft)' }}>
-              <strong style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 8 }}><Icon size={16} />{route.label}</strong>
-              <span style={{ fontSize: 10, color: 'var(--pc-text-muted)' }}>{route.owner}</span>
-            </Link>
-          );
-        })}
-      </section>
-    </main>
+      <OperationalCockpitSection>
+        <CollapsibleSection title={copy.nextTitle} summary={copy.nextSummary}>
+          <OperationalQueue>
+            <OperationalQueueLink href='/platform-v7/auction/import' title={copy.openImport} detail={copy.nextSummary} status={<StatusChip tone='critical'>{copy.status}</StatusChip>} />
+            <OperationalQueueLink href='/platform-v7/auction' title={copy.openAuction} detail={copy.nextSummary} status={<StatusChip tone='critical'>{copy.status}</StatusChip>} />
+          </OperationalQueue>
+        </CollapsibleSection>
+      </OperationalCockpitSection>
+    </OperationalDecisionCockpit>
   );
 }
