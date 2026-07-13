@@ -1,4 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { BankKeyRegistryService, BankKeyError } from '../../src/modules/settlement-engine/bank-key-registry.service';
 import { BankReconciliationService } from '../../src/modules/bank-reconciliation/bank-reconciliation.service';
@@ -33,6 +34,8 @@ const ACCOUNTANT: RequestUser = {
   mfaVerified: true,
 };
 
+const compromisedKeyId = `rotation-compromised-${randomUUID()}`;
+
 let alpha: ServiceInstance;
 let registryA: BankKeyRegistryService;
 let registryB: BankKeyRegistryService;
@@ -40,13 +43,12 @@ let prismaB: PrismaService;
 let reconciliation: BankReconciliationService;
 let ledger: LedgerV2Service;
 
-async function purge(): Promise<void> {
+async function purgeReconciliationState(): Promise<void> {
   await alpha.prisma.$executeRawUnsafe(`SET session_replication_role = replica`);
   try {
     await alpha.prisma.$executeRawUnsafe(`DELETE FROM "bank_statement_entries"`);
     await alpha.prisma.$executeRawUnsafe(`DELETE FROM "reconciliation_runs"`);
     await alpha.prisma.$executeRawUnsafe(`DELETE FROM "reconciliation_cursors"`);
-    await alpha.prisma.$executeRawUnsafe(`DELETE FROM "bank_key_revocations"`);
   } finally {
     await alpha.prisma.$executeRawUnsafe(`SET session_replication_role = DEFAULT`);
   }
@@ -61,7 +63,7 @@ beforeAll(async () => {
     { keyId: 'rotation-new', secret: testSecret('new'), notBefore: '2020-01-01T00:00:00Z' },
     { keyId: 'rotation-future', secret: testSecret('future'), notBefore: '2099-01-01T00:00:00Z' },
     { keyId: 'rotation-expired', secret: testSecret('expired'), notAfter: '2020-01-01T00:00:00Z' },
-    { keyId: 'rotation-compromised', secret: testSecret('compromised') },
+    { keyId: compromisedKeyId, secret: testSecret('compromised') },
   ]);
   process.env.BANK_HMAC_SECRET = testSecret('legacy-static');
 
@@ -73,11 +75,11 @@ beforeAll(async () => {
   reconciliation = new BankReconciliationService(alpha.prisma);
   ledger = new LedgerV2Service(alpha.prisma);
   await cleanTenant(alpha.prisma);
-  await purge();
+  await purgeReconciliationState();
 });
 
 afterAll(async () => {
-  await purge();
+  await purgeReconciliationState();
   await cleanTenant(alpha.prisma);
   await prismaB.$disconnect();
   await destroyInstance(alpha);
@@ -100,24 +102,24 @@ describe('Bank signing-key rotation and revocation', () => {
   });
 
   it('applies revocation instantly on every instance and keeps it permanent', async () => {
-    await expect(registryB.resolveActiveKey('safe-deals', 'rotation-compromised')).resolves.toBeDefined();
+    await expect(registryB.resolveActiveKey('safe-deals', compromisedKeyId)).resolves.toBeDefined();
 
     // Instance A revokes; instance B (separate connection) rejects immediately.
-    await registryA.revoke('rotation-compromised', 'security-officer-1', 'key leak suspected');
-    await expect(registryB.resolveActiveKey('safe-deals', 'rotation-compromised')).rejects.toMatchObject({ rejection: 'KEY_REVOKED' });
+    await registryA.revoke(compromisedKeyId, 'security-officer-1', 'key leak suspected');
+    await expect(registryB.resolveActiveKey('safe-deals', compromisedKeyId)).rejects.toMatchObject({ rejection: 'KEY_REVOKED' });
 
     // The revocation row is append-only: it cannot be deleted or rewritten.
     await expect(
-      alpha.prisma.$executeRawUnsafe(`DELETE FROM "bank_key_revocations" WHERE "keyId" = 'rotation-compromised'`),
+      alpha.prisma.$executeRaw`DELETE FROM "bank_key_revocations" WHERE "keyId" = ${compromisedKeyId}`,
     ).rejects.toThrow(/append-only/);
     await expect(
-      alpha.prisma.$executeRawUnsafe(`UPDATE "bank_key_revocations" SET "reason" = 'undo' WHERE "keyId" = 'rotation-compromised'`),
+      alpha.prisma.$executeRaw`UPDATE "bank_key_revocations" SET "reason" = 'undo' WHERE "keyId" = ${compromisedKeyId}`,
     ).rejects.toThrow(/append-only/);
 
     // Re-revoking is a no-op, not a rewrite.
-    const again = await registryA.revoke('rotation-compromised', 'security-officer-2', 'duplicate call');
-    expect(again.keyId).toBe('rotation-compromised');
-    expect(await registryB.resolveActiveKey('safe-deals', 'rotation-compromised').catch((e: BankKeyError) => e.rejection)).toBe('KEY_REVOKED');
+    const again = await registryA.revoke(compromisedKeyId, 'security-officer-2', 'duplicate call');
+    expect(again.keyId).toBe(compromisedKeyId);
+    expect(await registryB.resolveActiveKey('safe-deals', compromisedKeyId).catch((e: BankKeyError) => e.rejection)).toBe('KEY_REVOKED');
   });
 });
 
@@ -131,7 +133,7 @@ describe('Bank reconciliation with persisted cursor', () => {
   }
 
   it('imports honestly, deduplicates by content hash and persists the cursor', async () => {
-    await purge();
+    await purgeReconciliationState();
 
     // Content with no statement rows imports exactly zero rows — no demo data.
     await expect(reconciliation.importMT940('это не выписка', ACCOUNTANT)).resolves.toMatchObject({ imported: 0 });
@@ -153,7 +155,7 @@ describe('Bank reconciliation with persisted cursor', () => {
   });
 
   it('matches platform-issued bank operations exactly and records mismatches without touching money', async () => {
-    await purge();
+    await purgeReconciliationState();
     const fixture = await provisionDeal(alpha.prisma, 'recon1', 240_000_000n);
 
     await alpha.prisma.bankOperation.create({
