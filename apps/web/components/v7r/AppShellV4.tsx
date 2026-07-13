@@ -33,6 +33,7 @@ import { platformV7NavByRole, platformV7RoleRoute } from '@/lib/platform-v7/shel
 import { PLATFORM_V7_AI_ROUTE } from '@/lib/platform-v7/routes';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import { PLATFORM_V7_LIGHT_DEFAULT_VERSION, PLATFORM_V7_THEME_VERSION_KEY } from '@/components/v7r/PlatformThemeSync';
+import styles from './AppShellV4.module.css';
 
 const ROLE_LABELS: Record<PlatformRole, string> = {
   operator: 'Оператор',
@@ -64,13 +65,14 @@ const ROLE_STAGE: Record<PlatformRole, { label: string; tone: 'pilot' | 'test' |
   lab: { label: 'Полевой режим', tone: 'field' },
 };
 
-// Bank nav copy policy — wording enforced by platformV7ShellBankSafeCopy.test.ts
+// Bank nav copy policy — wording enforced by platformV7ShellBankSafeCopy.test.ts.
 // The platform shows reserve status and bank-controlled decisions; it never claims to release money autonomously.
 const BANK_NAV_COPY_POLICY = [
   { section: 'reserve', note: 'резерв и банковская проверка' },
   { section: 'conditions', note: 'резерв и условия банка' },
   { section: 'hold', note: 'резерв, удержание, подтверждение' },
 ] as const;
+void BANK_NAV_COPY_POLICY;
 
 const ROLE_ICONS: Record<PlatformRole, LucideIcon> = {
   operator: LayoutDashboard,
@@ -126,18 +128,6 @@ function breadcrumbs(pathname: string) {
   }));
 }
 
-function stageColors(tone: 'pilot' | 'test' | 'field') {
-  if (tone === 'pilot') return { bg: 'rgba(126,242,196,0.12)', border: 'rgba(126,242,196,0.24)', color: 'var(--pc-accent)' };
-  if (tone === 'test') return { bg: 'rgba(92,158,255,0.12)', border: 'rgba(92,158,255,0.24)', color: '#93C5FD' };
-  return { bg: 'rgba(245,180,30,0.12)', border: 'rgba(245,180,30,0.24)', color: '#F5B41E' };
-}
-
-function statusPalette(tone: 'ok' | 'review' | 'risk') {
-  if (tone === 'ok') return { bg: 'rgba(126,242,196,0.10)', border: 'rgba(126,242,196,0.22)', color: 'var(--pc-accent)' };
-  if (tone === 'review') return { bg: 'rgba(245,180,30,0.10)', border: 'rgba(245,180,30,0.22)', color: '#F5B41E' };
-  return { bg: 'rgba(255,139,144,0.10)', border: 'rgba(255,139,144,0.22)', color: '#FF8B90' };
-}
-
 function systemStatus(pathname: string) {
   return [
     {
@@ -168,10 +158,6 @@ function groupNotifications() {
   }, {} as Record<NotificationGroup, typeof NOTIFICATIONS>);
 }
 
-function iconTone(active: boolean) {
-  return active ? 'var(--pc-accent)' : 'var(--pc-text-muted)';
-}
-
 function iconForHref(href: string): LucideIcon {
   if (href.includes('/control-tower')) return LayoutDashboard;
   if (href.includes('/deals')) return FolderOpen;
@@ -197,9 +183,9 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [alertsOpen, setAlertsOpen] = React.useState(false);
   const [alertsSeen, setAlertsSeen] = React.useState(false);
-  const hasUnread = !alertsSeen && NOTIFICATIONS.length > 0;
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [theme, setTheme] = React.useState<'light' | 'dark'>('light');
+  const hasUnread = !alertsSeen && NOTIFICATIONS.length > 0;
 
   React.useEffect(() => {
     usePlatformV7RStore.persist.rehydrate();
@@ -249,8 +235,8 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   }, []);
 
   const toggleTheme = React.useCallback(() => {
-    setTheme((prev) => {
-      const next = prev === 'dark' ? 'light' : 'dark';
+    setTheme((previous) => {
+      const next = previous === 'dark' ? 'light' : 'dark';
       if (typeof window !== 'undefined') {
         window.localStorage.setItem('pc-theme', next);
         window.localStorage.setItem(PLATFORM_V7_THEME_VERSION_KEY, PLATFORM_V7_LIGHT_DEFAULT_VERSION);
@@ -263,158 +249,115 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
   const displayRole: PlatformRole = mounted ? (role || initialRole) : initialRole;
   const items = platformV7NavByRole(displayRole);
   const stage = ROLE_STAGE[displayRole];
-  const stageTone = stageColors(stage.tone);
   const crumbs = breadcrumbs(pathname);
   const showCrumbs = pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' && crumbs.length > 1;
   const statuses = systemStatus(pathname);
   const groupedNotifications = React.useMemo(() => groupNotifications(), []);
   const RoleIcon = ROLE_ICONS[displayRole];
   const roleHomeHref = platformV7RoleRoute(displayRole);
+  const showCabinetChrome = pathname !== '/platform-v7' && pathname !== '/platform-v7/roles';
 
   return (
-    <div className='pc-shell-root-v4' style={{ minHeight: '100dvh', background: 'var(--pc-bg)', overflowX: 'hidden' }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        html, body { overflow-x: hidden; max-width: 100%; }
-        *, *::before, *::after { box-sizing: border-box; }
-        .pc-shell-root-v4 { --pc-header-offset: 98px; }
-        .pc-v4-header { position: fixed; inset: 0 0 auto 0; z-index: 100; background: color-mix(in srgb, var(--pc-bg-header) 94%, transparent); backdrop-filter: blur(18px); border-bottom: 1px solid var(--pc-border); box-shadow: var(--pc-shadow-sm); }
-        .pc-v4-header-inner { max-width: 1440px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 8px) 16px 8px; display: grid; gap: 8px; }
-        .pc-v4-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
-        .pc-v4-brand { display: flex; align-items: center; gap: 12px; min-width: 0; text-decoration: none; color: inherit; }
-        .pc-v4-title { font-size: 16px; font-weight: 950; color: var(--pc-text-primary); line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pc-v4-subtitle { font-size: 11px; color: var(--pc-text-muted); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pc-v4-actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; min-width: 0; }
-        .pc-v4-iconbtn { position: relative; min-width: 44px; min-height: 44px; border-radius: 14px; border: 1px solid var(--pc-border); background: var(--pc-bg-card); color: var(--pc-text-secondary); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--pc-shadow-sm); }
-        .pc-v4-iconbtn:hover { color: var(--pc-text-primary); border-color: var(--pc-border-light); }
-        .pc-v4-search { min-height: 44px; min-width: 260px; border-radius: 14px; border: 1px solid var(--pc-border); background: var(--pc-bg-card); color: var(--pc-text-secondary); display: inline-flex; align-items: center; gap: 10px; padding: 0 14px; cursor: pointer; box-shadow: var(--pc-shadow-sm); }
-        .pc-v4-search strong { color: var(--pc-text-primary); font-size: 13px; }
-        .pc-v4-stage { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; border-radius: 999px; padding: 0 11px; border: 1px solid var(--stage-border); background: var(--stage-bg); color: var(--stage-color); font-size: 11px; font-weight: 900; white-space: nowrap; }
-        .pc-v4-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
-        .pc-v4-crumbs { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
-        .pc-v4-statuses { display: flex; align-items: center; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
-        .pc-v4-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 999px; border: 1px solid var(--status-border); background: var(--status-bg); color: var(--status-color); font-size: 11px; font-weight: 850; white-space: nowrap; }
-        .pc-v4-main { max-width: 1440px; margin: 0 auto; padding: calc(var(--pc-header-offset) + 12px) 16px 24px; }
-        .pc-v4-pilot-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 16px; background: var(--pc-bg-card); border: 1px solid var(--pc-border); color: var(--pc-text-secondary); font-size: 12px; line-height: 1.55; box-shadow: var(--pc-shadow-sm); }
-        .pc-v4-drawer { position: fixed; top: 0; bottom: 0; left: 0; width: 360px; max-width: 88vw; z-index: 120; transform: translateX(-100%); transition: transform 0.2s ease; background: var(--pc-bg-card); border-right: 1px solid var(--pc-border); box-shadow: var(--pc-shadow-lg); display: flex; flex-direction: column; }
-        .pc-v4-drawer[data-open='true'] { transform: translateX(0); }
-        .pc-v4-nav { display: grid; gap: 6px; padding: 12px; overflow-y: auto; }
-        .pc-v4-nav-item { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; align-items: center; text-decoration: none; padding: 10px 11px; border-radius: 16px; border: 1px solid transparent; background: transparent; color: var(--pc-text-secondary); }
-        .pc-v4-nav-item:hover { background: var(--pc-bg-elevated); border-color: var(--pc-border); }
-        .pc-v4-nav-item[data-active='true'] { background: var(--pc-accent-bg); border-color: var(--pc-accent-border); color: var(--pc-accent-strong); }
-        .pc-v4-nav-label { font-size: 13px; font-weight: 900; color: var(--pc-text-primary); }
-        .pc-v4-nav-note { font-size: 11px; color: var(--pc-text-muted); margin-top: 2px; line-height: 1.35; }
-        .pc-v4-alert-panel { position: absolute; right: 0; top: 50px; width: 370px; max-width: calc(100vw - 32px); max-height: 70vh; overflow: auto; border-radius: 18px; border: 1px solid var(--pc-border); background: var(--pc-bg-card); box-shadow: var(--pc-shadow-lg); padding: 12px; display: grid; gap: 10px; }
-        .pc-v4-notification { display: grid; gap: 4px; padding: 10px 11px; border-radius: 14px; border: 1px solid var(--pc-border); background: var(--pc-bg-elevated); text-decoration: none; }
-        .pc-v4-bottomnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 96; padding: 7px 10px calc(env(safe-area-inset-bottom) + 7px); background: color-mix(in srgb, var(--pc-bg-header) 96%, transparent); backdrop-filter: blur(18px); border-top: 1px solid var(--pc-border); box-shadow: 0 -10px 28px rgba(3,8,7,0.10); }
-        .pc-v4-bottomnav-inner { max-width: 720px; margin: 0 auto; width: 100%; display: flex; gap: 4px; justify-content: space-around; }
-        .pc-v4-bn-item { flex: 1 1 0; min-width: 0; display: grid; justify-items: center; gap: 3px; padding: 6px 4px; border-radius: 14px; text-decoration: none; color: var(--pc-text-muted); border: 1px solid transparent; transition: background 0.15s ease, color 0.15s ease; }
-        .pc-v4-bn-item:hover { color: var(--pc-text-primary); }
-        .pc-v4-bn-item[data-active='true'] { color: var(--pc-accent-strong); background: var(--pc-accent-bg); border-color: var(--pc-accent-border); }
-        .pc-v4-bn-icon { display: inline-flex; align-items: center; justify-content: center; }
-        .pc-v4-bn-label { font-size: 10.5px; font-weight: 850; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.1; }
-        .pc-v4-main { padding-bottom: calc(env(safe-area-inset-bottom) + 84px) !important; }
-        @media (max-width: 980px) {
-          .pc-shell-root-v4 { --pc-header-offset: 92px; }
-          .pc-v4-search { min-width: 44px; padding: 0 12px; }
-          .pc-v4-search strong, .pc-v4-search span { display: none; }
-          .pc-v4-stage { display: none; }
-          .pc-v4-statuses { display: none; }
-        }
-        @media (max-width: 640px) {
-          .pc-shell-root-v4 { --pc-header-offset: 82px; }
-          .pc-v4-header-inner { padding: calc(env(safe-area-inset-top) + 7px) 10px 7px; gap: 6px; }
-          .pc-v4-top { grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
-          .pc-v4-brand { gap: 9px; }
-          .pc-v4-subtitle, .pc-v4-crumbs { display: none; }
-          .pc-v4-title { font-size: 14px; }
-          .pc-v4-actions { gap: 6px; }
-          .pc-v4-iconbtn, .pc-v4-search { min-width: 42px; min-height: 42px; border-radius: 13px; }
-          .pc-v4-meta { display: none; }
-          .pc-v4-main { padding: calc(var(--pc-header-offset) + 10px) 10px 20px; }
-          .pc-v4-pilot-note { font-size: 11px; padding: 9px 11px; }
-          .pc-v4-alert-panel { position: fixed; left: 10px; right: 10px; top: calc(env(safe-area-inset-top) + 62px); width: auto; max-width: none; }
-        }
-      ` }} />
+    <div className={`pc-shell-root-v4 ${styles.root}`}>
+      {sidebarOpen ? (
+        <button className={styles.backdrop} type='button' onClick={() => setSidebarOpen(false)} aria-label='Закрыть меню' />
+      ) : null}
 
-      {sidebarOpen ? <div onClick={() => setSidebarOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(3,8,7,0.62)', zIndex: 110 }} aria-hidden /> : null}
-
-      <aside className='pc-v4-drawer' data-open={sidebarOpen ? 'true' : 'false'} aria-label='Основное меню'>
-        <div style={{ padding: 16, borderBottom: '1px solid var(--pc-border)', display: 'grid', gap: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-            <Link href={roleHomeHref} className='pc-v4-brand' aria-label='Прозрачная Цена — в мой кабинет' onClick={() => setSidebarOpen(false)}>
+      <aside className={styles.drawer} data-open={sidebarOpen ? 'true' : 'false'} aria-label='Основное меню'>
+        <div className={styles.drawerHeader}>
+          <div className={styles.drawerTop}>
+            <Link href={roleHomeHref} className={styles.brand} aria-label='Прозрачная Цена — в мой кабинет' onClick={() => setSidebarOpen(false)}>
               <BrandMark size={36} />
-              <span style={{ minWidth: 0 }}>
-                <span className='pc-v4-title'>Прозрачная Цена</span>
-                <span className='pc-v4-subtitle'>Контур исполнения сделки</span>
+              <span className={styles.brandCopy}>
+                <span className={styles.title}>Прозрачная Цена</span>
+                <span className={styles.subtitle}>Контур исполнения сделки</span>
               </span>
             </Link>
-            <button className='pc-v4-iconbtn' onClick={() => setSidebarOpen(false)} aria-label='Закрыть меню'><X size={18} /></button>
+            <button className={styles.iconButton} type='button' onClick={() => setSidebarOpen(false)} aria-label='Закрыть меню'>
+              <X size={18} aria-hidden='true' />
+            </button>
           </div>
 
-          <div style={{ display: 'grid', gap: 8, padding: 12, borderRadius: 16, border: '1px solid var(--pc-border)', background: 'var(--pc-bg-elevated)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: 'var(--pc-text-primary)', fontSize: 14, fontWeight: 950 }}><RoleIcon size={17} />{ROLE_LABELS[displayRole]}</span>
-              <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
+          <div className={styles.roleCard}>
+            <div className={styles.roleTop}>
+              <span className={styles.roleLabel}><RoleIcon size={17} aria-hidden='true' />{ROLE_LABELS[displayRole]}</span>
+              <span className={styles.stage} data-tone={stage.tone}>{stage.label}</span>
             </div>
-            <p style={{ margin: 0, color: 'var(--pc-text-muted)', fontSize: 12, lineHeight: 1.5 }}>Внешние подключения требуют договоров, доступов и подтверждения на реальных сделках.</p>
+            <p className={styles.roleNote}>Внешние подключения требуют договоров, доступов и подтверждения на реальных сделках.</p>
           </div>
         </div>
 
-        <nav className='pc-v4-nav'>
+        <nav className={styles.nav}>
           {items.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = iconForHref(item.href);
             return (
-              <Link key={item.href} href={item.href} className='pc-v4-nav-item' data-active={active ? 'true' : 'false'}>
-                <span style={{ color: iconTone(active), display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={18} /></span>
-                <span style={{ minWidth: 0 }}>
-                  <span className='pc-v4-nav-label'>{item.label}</span>
-                </span>
+              <Link key={item.href} href={item.href} className={styles.navItem} data-active={active ? 'true' : 'false'} aria-current={active ? 'page' : undefined}>
+                <span className={styles.navIcon}><Icon size={18} aria-hidden='true' /></span>
+                <span className={styles.navCopy}><span className={styles.navLabel}>{item.label}</span></span>
               </Link>
             );
           })}
         </nav>
       </aside>
 
-      <header className='pc-v4-header'>
-        <div className='pc-v4-header-inner'>
-          <div className='pc-v4-top'>
-            <button className='pc-v4-iconbtn' onClick={() => setSidebarOpen(true)} aria-label='Открыть меню'><Menu size={19} /></button>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <div className={styles.top}>
+            <button className={styles.iconButton} type='button' onClick={() => setSidebarOpen(true)} aria-label='Открыть меню'>
+              <Menu size={19} aria-hidden='true' />
+            </button>
 
-            <Link href={roleHomeHref} className='pc-v4-brand' aria-label='Прозрачная Цена — в мой кабинет'>
+            <Link href={roleHomeHref} className={styles.brand} aria-label='Прозрачная Цена — в мой кабинет'>
               <BrandMark size={38} />
-              <span style={{ minWidth: 0 }}>
-                <span className='pc-v4-title'>Прозрачная Цена</span>
-                <span className='pc-v4-subtitle'>Сделка · логистика · документы · деньги</span>
+              <span className={styles.brandCopy}>
+                <span className={styles.title}>Прозрачная Цена</span>
+                <span className={styles.subtitle}>Сделка · логистика · документы · деньги</span>
               </span>
             </Link>
 
-            <div className='pc-v4-actions'>
-              <button className='pc-v4-search' onClick={() => setPaletteOpen(true)} aria-label='Открыть поиск'>
-                <Search size={17} />
+            <div className={styles.actions}>
+              <button className={styles.searchButton} type='button' onClick={() => setPaletteOpen(true)} aria-label='Открыть поиск'>
+                <Search size={17} aria-hidden='true' />
                 <strong>Поиск</strong>
-                <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>⌘K</span>
+                <span className={styles.searchHint}>⌘K</span>
               </button>
-              <span className='pc-v4-stage' style={{ '--stage-bg': stageTone.bg, '--stage-border': stageTone.border, '--stage-color': stageTone.color } as React.CSSProperties}>{stage.label}</span>
-              <button className='pc-v4-iconbtn pc-v4-theme-toggle' onClick={toggleTheme} aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'} title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button>
-              <div style={{ position: 'relative' }}>
-                <button className='pc-v4-iconbtn' onClick={() => { setAlertsOpen((value) => !value); setAlertsSeen(true); }} aria-label='Открыть уведомления'>
-                  <Bell size={17} />
-                  {hasUnread ? <span style={{ position: 'absolute', right: 7, top: 7, width: 8, height: 8, borderRadius: 999, background: '#FF8B90', border: '2px solid var(--pc-bg-card)' }} /> : null}
+              <span className={styles.stage} data-tone={stage.tone}>{stage.label}</span>
+              <button
+                className={`pc-v4-theme-toggle ${styles.iconButton}`}
+                type='button'
+                onClick={toggleTheme}
+                aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
+                title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+              >
+                {theme === 'dark' ? <Sun size={17} aria-hidden='true' /> : <Moon size={17} aria-hidden='true' />}
+              </button>
+              <div className={styles.alertsWrap}>
+                <button
+                  className={styles.iconButton}
+                  type='button'
+                  onClick={() => { setAlertsOpen((value) => !value); setAlertsSeen(true); }}
+                  aria-label='Открыть уведомления'
+                  aria-expanded={alertsOpen}
+                >
+                  <Bell size={17} aria-hidden='true' />
+                  {hasUnread ? <span className={styles.unreadDot} aria-hidden='true' /> : null}
                 </button>
                 {alertsOpen ? (
-                  <div className='pc-v4-alert-panel'>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
-                      <strong style={{ color: 'var(--pc-text-primary)', fontSize: 14 }}>Уведомления</strong>
-                      <button className='pc-v4-iconbtn' onClick={() => setAlertsOpen(false)} aria-label='Закрыть уведомления' style={{ minWidth: 34, minHeight: 34, borderRadius: 12 }}><X size={15} /></button>
+                  <div className={styles.alertPanel} role='dialog' aria-label='Уведомления'>
+                    <div className={styles.alertHeader}>
+                      <strong className={styles.alertTitle}>Уведомления</strong>
+                      <button className={`${styles.iconButton} ${styles.alertClose}`} type='button' onClick={() => setAlertsOpen(false)} aria-label='Закрыть уведомления'>
+                        <X size={15} aria-hidden='true' />
+                      </button>
                     </div>
                     {(Object.keys(groupedNotifications) as NotificationGroup[]).map((group) => (
-                      <div key={group} style={{ display: 'grid', gap: 6 }}>
-                        <div style={{ color: 'var(--pc-text-muted)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{NOTIFICATION_GROUPS[group]}</div>
+                      <div key={group} className={styles.notificationGroup}>
+                        <div className={styles.notificationGroupLabel}>{NOTIFICATION_GROUPS[group]}</div>
                         {groupedNotifications[group].map((item) => (
-                          <Link key={item.id} href={item.href} className='pc-v4-notification'>
-                            <span style={{ color: 'var(--pc-text-primary)', fontSize: 12, lineHeight: 1.45, fontWeight: 800 }}>{item.text}</span>
-                            <span style={{ color: 'var(--pc-text-muted)', fontSize: 11 }}>{new Date(item.ts).toLocaleString('ru-RU')}</span>
+                          <Link key={item.id} href={item.href} className={styles.notification}>
+                            <span className={styles.notificationText}>{item.text}</span>
+                            <span className={styles.notificationTime}>{new Date(item.ts).toLocaleString('ru-RU')}</span>
                           </Link>
                         ))}
                       </div>
@@ -425,26 +368,25 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
             </div>
           </div>
 
-          <div className='pc-v4-meta'>
-            <nav className='pc-v4-crumbs' aria-label='Путь'>
+          <div className={styles.meta}>
+            <nav className={styles.crumbs} aria-label='Путь'>
               {showCrumbs ? crumbs.map((crumb, index) => (
                 <React.Fragment key={crumb.href}>
-                  {index > 0 ? <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>/</span> : null}
+                  {index > 0 ? <span className={styles.crumbSeparator}>/</span> : null}
                   {crumb.isLast || crumb.href === '/platform-v7' ? (
-                    <span style={{ color: crumb.isLast ? 'var(--pc-text-primary)' : 'var(--pc-text-muted)', fontSize: 12, fontWeight: crumb.isLast ? 900 : 750 }}>{crumb.label}</span>
+                    <span className={`${styles.crumb} ${crumb.isLast ? styles.crumbCurrent : ''}`}>{crumb.label}</span>
                   ) : (
-                    <Link href={crumb.href} style={{ color: 'var(--pc-text-muted)', fontSize: 12, fontWeight: 750, textDecoration: 'none' }}>{crumb.label}</Link>
+                    <Link href={crumb.href} className={styles.crumbLink}>{crumb.label}</Link>
                   )}
                 </React.Fragment>
-              )) : <span style={{ color: 'var(--pc-text-muted)', fontSize: 12 }}>Мой кабинет</span>}
+              )) : <span className={styles.crumb}>Мой кабинет</span>}
             </nav>
-            <div className='pc-v4-statuses'>
+            <div className={styles.statuses}>
               {statuses.map((item) => {
                 const Icon = item.icon;
-                const tone = statusPalette(item.tone);
                 return (
-                  <span key={item.label} className='pc-v4-status' style={{ '--status-bg': tone.bg, '--status-border': tone.border, '--status-color': tone.color } as React.CSSProperties}>
-                    <Icon size={13} /> {item.label}: {item.detail}
+                  <span key={item.label} className={styles.status} data-tone={item.tone}>
+                    <Icon size={13} aria-hidden='true' /> {item.label}: {item.detail}
                   </span>
                 );
               })}
@@ -453,16 +395,19 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         </div>
       </header>
 
-      <main className='pc-v4-main' id='main-content'>
-        {pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' ? (
-          <p className='pc-v4-pilot-note'>Внешние контуры требуют договоров, доступов и подтверждений. Экран показывает основания, документы, статус, удержание и причину остановки. <Link href='/platform-v7/execution-map' style={{ color: 'var(--pc-accent)', fontWeight: 900, textDecoration: 'none' }}>Карта исполнения</Link></p>
+      <main className={styles.main} id='main-content'>
+        {showCabinetChrome ? (
+          <p className={styles.pilotNote}>
+            Внешние контуры требуют договоров, доступов и подтверждений. Экран показывает основания, документы, статус, удержание и причину остановки.{' '}
+            <Link href='/platform-v7/execution-map' className={styles.executionLink}>Карта исполнения</Link>
+          </p>
         ) : null}
         {children}
       </main>
 
-      {pathname !== '/platform-v7' && pathname !== '/platform-v7/roles' ? (
-        <nav className='pc-v4-bottomnav' aria-label='Навигация кабинета'>
-          <div className='pc-v4-bottomnav-inner'>
+      {showCabinetChrome ? (
+        <nav className={`pc-v4-bottomnav ${styles.bottomNav}`} aria-label='Навигация кабинета'>
+          <div className={styles.bottomNavInner}>
             {items.slice(0, 5).map((item) => {
               const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
               const Icon = iconForHref(item.href);
@@ -470,12 +415,12 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
                 <Link
                   key={item.href}
                   href={item.href}
-                  className='pc-v4-bn-item'
+                  className={styles.bottomNavItem}
                   data-active={active ? 'true' : 'false'}
                   aria-current={active ? 'page' : undefined}
                 >
-                  <span className='pc-v4-bn-icon'><Icon size={20} /></span>
-                  <span className='pc-v4-bn-label'>{item.label}</span>
+                  <span className={styles.bottomNavIcon}><Icon size={20} aria-hidden='true' /></span>
+                  <span className={styles.bottomNavLabel}>{item.label}</span>
                 </Link>
               );
             })}

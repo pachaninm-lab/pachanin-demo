@@ -21,6 +21,9 @@
       "react/*": [
         "./node_modules/@types/react/*"
       ],
+      "@/components/platform-v7/CanonicalDealWorkspace": [
+        "./components/transaction-ux/CanonicalDealWorkspace.tsx"
+      ],
       "@/components/platform-v7/GrainExecutionPage": [
         "./components/platform-v7/GrainExecutionPageFixed.tsx"
       ],
