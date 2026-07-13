@@ -20,7 +20,7 @@ import {
   CONTROLLED_TEST_TENANT_ID,
   controlledOrganizationById,
 } from '@/lib/platform-v7/controlled-test-organizations';
-import type { PlatformRole } from '@/stores/usePlatformV7RStore';
+import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import styles from './PlatformV7ProtectedShell.module.css';
 
 const ROLE_INTENT_ROOT_PATHS = new Set([
@@ -51,22 +51,6 @@ type PreviewState = {
 
 function normalizePath(pathname: string): string {
   return pathname.split('?')[0].replace(/\/$/, '') || '/platform-v7';
-}
-
-function roleFromPath(pathname: string): PlatformRole {
-  const path = normalizePath(pathname);
-  if (path.startsWith('/platform-v7/driver')) return 'driver';
-  if (path.startsWith('/platform-v7/surveyor')) return 'surveyor';
-  if (path.startsWith('/platform-v7/elevator')) return 'elevator';
-  if (path.startsWith('/platform-v7/lab')) return 'lab';
-  if (path.startsWith('/platform-v7/bank')) return 'bank';
-  if (path.startsWith('/platform-v7/arbitrator') || path.startsWith('/platform-v7/disputes')) return 'arbitrator';
-  if (path.startsWith('/platform-v7/compliance') || path.startsWith('/platform-v7/connectors')) return 'compliance';
-  if (path.startsWith('/platform-v7/buyer') || path.startsWith('/platform-v7/procurement')) return 'buyer';
-  if (path.startsWith('/platform-v7/seller') || path.startsWith('/platform-v7/lots')) return 'seller';
-  if (path.startsWith('/platform-v7/logistics')) return 'logistics';
-  if (path.startsWith('/platform-v7/executive') || path.startsWith('/platform-v7/analytics')) return 'executive';
-  return 'operator';
 }
 
 function parseSessionMarker(raw: string): Record<string, unknown> | null {
@@ -131,19 +115,36 @@ function readControlledOwnerPreview(expectedRole: PlatformRole): ControlledOwner
   return null;
 }
 
-export function PlatformV7ProtectedShell({ pathname, children }: { pathname: string; children: React.ReactNode }) {
+export function PlatformV7ProtectedShell({
+  pathname,
+  verifiedRole,
+  children,
+}: {
+  pathname: string;
+  verifiedRole: PlatformRole;
+  children: React.ReactNode;
+}) {
   const normalizedPath = normalizePath(pathname);
   const isStaffControlCenter = normalizedPath === '/platform-v7/staff' || normalizedPath.startsWith('/platform-v7/staff/');
-  const initialRole = roleFromPath(pathname);
   const isRoleRoot = ROLE_INTENT_ROOT_PATHS.has(normalizedPath);
+  const setRole = usePlatformV7RStore((state) => state.setRole);
   const [previewState, setPreviewState] = React.useState<PreviewState | null>(null);
+
+  // The role has already been verified by the server layout. Synchronize the
+  // presentation store before paint so a persisted role from another cabinet can
+  // never flash foreign navigation. This store remains presentation-only; API and
+  // server layout authorization do not read it as authority.
+  React.useLayoutEffect(() => {
+    usePlatformV7RStore.persist.rehydrate();
+    setRole(verifiedRole);
+  }, [setRole, verifiedRole]);
 
   React.useEffect(() => {
     setPreviewState({
       path: normalizedPath,
-      preview: isRoleRoot ? readControlledOwnerPreview(initialRole) : null,
+      preview: isRoleRoot ? readControlledOwnerPreview(verifiedRole) : null,
     });
-  }, [initialRole, isRoleRoot, normalizedPath]);
+  }, [isRoleRoot, normalizedPath, verifiedRole]);
 
   // Staff authority is a separate control plane. It must not inherit business-role
   // navigation, role widgets, onboarding, footer copy or client-side cabinet guards.
@@ -183,7 +184,7 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
             {children}
           </>
         )
-        : <RoleIntentDashboard role={initialRole} />
+        : <RoleIntentDashboard role={verifiedRole} />
     : children;
 
   const showPlatformFooter = !isRoleRoot || (previewResolved && !ownerPreview);
@@ -191,11 +192,11 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
   return (
     <>
       <ShellCopyNormalizer />
-      <AppShellV4 initialRole={initialRole}>
+      <AppShellV4 initialRole={verifiedRole}>
         <>
           <ScopedShellGuard />
           <PlatformV7SingleEntryGuard />
-          <PlatformV7ShellUxController role={initialRole} />
+          <PlatformV7ShellUxController role={verifiedRole} />
           <RbacCabinetGuard />
           <ShellCopyNormalizer />
           <HeaderLanguageSwitch />
