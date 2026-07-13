@@ -98,7 +98,7 @@ describe('Design System v8 canonical auction PostgreSQL read authority', () => {
 
   it('registers and runs all canonical routes in exact v8 governance', () => {
     expect(governance.migratedFiles).toEqual(expect.arrayContaining(routes));
-    for (const route of routes) expect(workflow).toContain(route);
+    expect(workflow).toContain("'apps/web/app/platform-v7/auction/**'");
     expect(workflow).toContain('tests/unit/designSystemV8AuctionRoutes.test.ts');
   });
 });
