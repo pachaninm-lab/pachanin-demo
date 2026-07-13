@@ -4,7 +4,6 @@
 
 .policyRoot > header [data-tone],
 .policyRoot > header > div > div:nth-child(2),
-.policyRoot > main > p:first-child,
 .policyRoot nav[data-testid='platform-v7-work-route-nav'] {
   display: none;
 }
