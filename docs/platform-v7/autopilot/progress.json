@@ -1,14 +1,18 @@
 {
-  "project": "platform-v7",
-  "governingSpecification": "docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md",
-  "currentLayer": "IR-10.2 Logistics PostgreSQL Authority",
-  "currentStatus": "in_progress",
-  "baselineCommit": "b5379c2ebcd47c202603944c3852a3452ebe1d7e",
-  "openPr": "#2412",
-  "readiness": "NO-GO",
-  "notes": [
-    "IR-10.1 Documents PostgreSQL Authority is merged with isolated PostgreSQL evidence.",
-    "IR-10.2 remains open until exact-head migration, RLS, restart, concurrency and canonical Deal-command evidence are green.",
-    "Industrial Integration-Ready is not accepted."
-  ]
+  "project": "platform-v7 / Прозрачная Цена",
+  "fullTzReadinessPercent": 0,
+  "currentStep": "IR-10.2 Logistics PostgreSQL Authority",
+  "lastCompletedStep": "#2410 Documents PostgreSQL Authority",
+  "openPr": null,
+  "blockedBy": [
+    "Production LogisticsModule still permits RuntimeCore and an incomplete Prisma shipment repository."
+  ],
+  "nextStep": "IR-10.2 Logistics PostgreSQL Authority",
+  "updatedAt": "2026-07-13T03:55:00.000Z",
+  "rules": {
+    "noAppsLanding": true,
+    "noFakeLiveClaims": true,
+    "noAutoMerge": true,
+    "controlledPilotOnly": true
+  }
 }
