@@ -30,6 +30,8 @@ Do not auto-merge. Review the exact diff and exact-head evidence.
 - apps/api/src/modules/deals/deal-command-payload.ts
 - apps/api/src/modules/deals/postgresql-deal-command.service.ts
 - apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
+- apps/api/src/modules/storage/storage.service.ts
+- apps/api/src/modules/storage/storage.controller.ts
 - apps/api/src/modules/labs/**
 - apps/api/prisma/schema.prisma
 - apps/api/prisma/migrations/20260713*_labs_postgresql_authority/**
@@ -59,6 +61,7 @@ Any item below is an immediate BLOCKED decision:
 8. Protocol aggregation that includes superseded test facts or loses correction history.
 9. Missing exact PostgreSQL Labs E2E, or tests that prove only object reuse/single process.
 10. Green CI obtained by weakening a database constraint, trigger, RLS policy, state machine or non-bypass regression test.
+11. Evidence purpose metadata written after the original `UPLOAD_PENDING` insert, accepted through an undeclared controller property, or validated as nested/arbitrary JSON.
 
 ## Review questions
 
@@ -72,8 +75,9 @@ Any item below is an immediate BLOCKED decision:
 8. Do restart and two-instance race tests prove persistence and serialization rather than object reuse?
 9. Are finalized facts immutable, with corrections represented as explicit superseding records and excluded from active-result aggregation?
 10. Is signed evidence purpose-bound to the exact sample/protocol, with server-authoritative time and provenance?
-11. Are live LIMS, accreditation registry, КЭП and EDO paths disabled rather than simulated as live?
-12. Do empty/baseline migrations, zero drift, typecheck, build, unit, industrial, one-deal, non-bypass and exact-head CI pass?
+11. Does the storage request contract bind a validated flat metadata object in the initial evidence row and reject nested/oversized/control-character input?
+12. Are live LIMS, accreditation registry, КЭП and EDO paths disabled rather than simulated as live?
+13. Do empty/baseline migrations, zero drift, typecheck, build, unit, industrial, one-deal, non-bypass and exact-head CI pass?
 
 ## Mandatory exact PostgreSQL proof matrix
 
