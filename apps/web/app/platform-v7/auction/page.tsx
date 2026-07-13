@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
-import { AuctionServerAuthorityWorkspace } from '@/components/transaction-ux/AuctionServerAuthorityWorkspace';
+import {
+  AuctionPostgresAuthorityWorkspace,
+  getAuctionAuthorityMetadata,
+} from '@/components/transaction-ux/AuctionPostgresAuthorityWorkspace';
 
-export const metadata: Metadata = {
-  title: 'Аукцион',
-  description: 'Серверно подтверждённый контур лота, допуска, ставок и перехода победителя в каноническую Сделку.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return getAuctionAuthorityMetadata('overview');
+}
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   const candidate = Array.isArray(value) ? value[0] : value;
@@ -13,5 +15,5 @@ function firstParam(value: string | string[] | undefined): string | undefined {
 }
 
 export default function PlatformV7AuctionPage({ searchParams }: { searchParams?: { lotId?: string | string[] } }) {
-  return <AuctionServerAuthorityWorkspace stage='overview' lotId={firstParam(searchParams?.lotId)} />;
+  return <AuctionPostgresAuthorityWorkspace stage='overview' lotId={firstParam(searchParams?.lotId)} />;
 }
