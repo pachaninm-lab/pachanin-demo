@@ -1,6 +1,7 @@
 -- IR-10.2: the PIN hash copied from normalized admission is assignment authority.
 -- Operational PIN verification may update verification state and counters, but
 -- no application path may replace the authoritative secret after assignment.
+-- Forward-only hardening; no existing migration is rewritten.
 
 CREATE OR REPLACE FUNCTION public.app_logistics_pin_hash_immutable()
 RETURNS trigger
