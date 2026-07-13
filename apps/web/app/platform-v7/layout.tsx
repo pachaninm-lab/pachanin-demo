@@ -1,4 +1,5 @@
 import '@/styles/platform-v7-fixed-header-contract.css';
+import '@/styles/platform-v7-public-supporting-shell.css';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
