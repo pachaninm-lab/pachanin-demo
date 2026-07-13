@@ -3,6 +3,7 @@ import { LabsController } from './labs.controller';
 import { LabsService } from './labs.service';
 import { PrismaLabRepository } from './prisma-lab.repository';
 import { LAB_REPOSITORY } from './lab.repository';
+import { LabAuthorityService } from './lab-authority.service';
 
 /**
  * Production laboratory operations are PostgreSQL-authoritative by construction.
@@ -13,9 +14,10 @@ import { LAB_REPOSITORY } from './lab.repository';
   controllers: [LabsController],
   providers: [
     LabsService,
+    LabAuthorityService,
     PrismaLabRepository,
     { provide: LAB_REPOSITORY, useExisting: PrismaLabRepository },
   ],
-  exports: [LabsService],
+  exports: [LabsService, LabAuthorityService, PrismaLabRepository],
 })
 export class LabsModule {}
