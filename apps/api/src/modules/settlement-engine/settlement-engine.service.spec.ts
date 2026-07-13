@@ -1,131 +1,115 @@
+import { ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { SettlementEngineService } from './settlement-engine.service';
+import { Role, type RequestUser } from '../../common/types/request-user';
 
-function makeRuntime() {
+const accountingUser: RequestUser = {
+  id: 'u1',
+  role: Role.ACCOUNTING,
+  orgId: 'org1',
+  tenantId: 'tenant1',
+  sessionId: 'session1',
+  email: 'acc@test.com',
+};
+
+const command = {
+  commandId: 'command-reserve-0001',
+  idempotencyKey: 'idempotency-reserve-0001',
+  expectedUpdatedAt: '2026-07-13T12:00:00.000Z',
+  expectedVersion: '5',
+  payload: {},
+};
+
+function makePayments() {
   return {
-    worksheet: jest.fn().mockReturnValue({ payment: { amountRub: 1000000, bankEventId: 'EVT1' } }),
-    bankWorkspace: jest.fn().mockReturnValue({ beneficiaries: [] }),
-    listPayments: jest.fn().mockReturnValue([]),
-    paymentDetail: jest.fn().mockReturnValue({}),
-    reservePrepayment: jest.fn().mockReturnValue({ status: 'RESERVE_PENDING' }),
-    releasePayment: jest.fn().mockReturnValue({ status: 'RELEASED' }),
-    confirmWorksheet: jest.fn().mockReturnValue({ status: 'RESERVED' }),
-    adjustWorksheet: jest.fn().mockReturnValue({}),
-    importBankStatement: jest.fn().mockReturnValue({}),
-    registerSafeDealsCallback: jest.fn().mockReturnValue({ status: 'OK' }),
-    dealWorkspace: jest.fn().mockReturnValue({ blockers: [], payment: { status: 'RESERVED' }, completeness: { isComplete: true }, bankWorkspace: { beneficiaries: [] } }),
-    getDeal: jest.fn().mockReturnValue({ id: 'D1', sellerOrgId: 'org1', buyerOrgId: 'org2', status: 'RESERVED' }),
+    list: jest.fn().mockResolvedValue([]),
+    detail: jest.fn().mockResolvedValue({ id: 'payment-1' }),
+    worksheet: jest.fn().mockResolvedValue({ deal: { id: 'D1' }, blockers: [] }),
+    bankWorkspace: jest.fn().mockResolvedValue({ deal: { id: 'D1' }, blockers: [] }),
+    outboxStatus: jest.fn().mockResolvedValue({ totalPending: 0, pending: [], manualReview: [] }),
+    exportDeals: jest.fn().mockResolvedValue({ contentType: 'text/csv', fileName: 'payments.csv', body: '' }),
+    exportContractors: jest.fn().mockResolvedValue({ contentType: 'text/csv', fileName: 'contractors.csv', body: '' }),
   } as any;
 }
 
-function makeExecutor() {
+function makeGateway() {
   return {
-    execute: jest.fn().mockResolvedValue({ result: { status: 'OK' } }),
+    executeUser: jest.fn().mockResolvedValue({ ok: true, duplicate: false }),
   } as any;
 }
 
-function makeOutbox(pending: any[] = []) {
+function makeReconciliation() {
   return {
-    getByDeal: jest.fn().mockReturnValue(pending),
-    listPending: jest.fn().mockReturnValue(pending),
-    listManualReview: jest.fn().mockReturnValue([]),
-    confirm: jest.fn(),
-    markFailed: jest.fn(),
-    enqueue: jest.fn().mockReturnValue({ id: 'O1' }),
+    importMT940: jest.fn().mockResolvedValue({ imported: 1 }),
   } as any;
 }
 
-const accountingUser = { id: 'u1', role: 'ACCOUNTING' as any, orgId: 'org1', email: 'acc@test.com' };
+describe('SettlementEngineService PostgreSQL authority', () => {
+  it('delegates reads to the trusted-RLS payment repository', async () => {
+    const payments = makePayments();
+    const service = new SettlementEngineService(payments, makeGateway(), makeReconciliation());
 
-describe('SettlementEngineService', () => {
-  describe('requestReserve()', () => {
-    it('enqueues outbox and returns pending status', async () => {
-      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), makeOutbox([{ id: 'O1', status: 'PENDING' }]));
-      const result = await svc.requestReserve('D1', accountingUser);
-      expect(result.outboxStatus).toBe('PENDING');
-    });
+    await expect(service.worksheet('D1', accountingUser)).resolves.toMatchObject({ deal: { id: 'D1' } });
+    await expect(service.bankWorkspace('D1', accountingUser)).resolves.toMatchObject({ deal: { id: 'D1' } });
+    await service.listPayments(accountingUser);
+    await service.paymentDetail('payment-1', accountingUser);
+    await service.getOutboxStatus('D1', accountingUser);
 
-    it('throws ForbiddenException for non-money roles', async () => {
-      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), makeOutbox());
-      const driver = { id: 'u2', role: 'DRIVER' as any, orgId: 'org1', email: 'd@test.com' };
-      await expect(svc.requestReserve('D1', driver)).rejects.toThrow(/DRIVER cannot perform money/);
-    });
-
-    it('denies an accounting user whose org is not a party to the deal (BOLA)', async () => {
-      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), makeOutbox());
-      const foreignAccounting = { id: 'u9', role: 'ACCOUNTING' as any, orgId: 'org-foreign', email: 'x@test.com' };
-      await expect(svc.requestReserve('D1', foreignAccounting)).rejects.toThrow(/Cross-organization access denied/);
-    });
+    expect(payments.worksheet).toHaveBeenCalledWith('D1', accountingUser);
+    expect(payments.outboxStatus).toHaveBeenCalledWith('D1', accountingUser);
   });
 
-  describe('worksheet() / bankWorkspace() bank-basis scope', () => {
-    it('allows a party accounting user and blocks a non-party one', () => {
-      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), makeOutbox());
-      expect(() => svc.worksheet('D1', accountingUser)).not.toThrow();
-      const foreign = { id: 'u9', role: 'ACCOUNTING' as any, orgId: 'org-foreign', email: 'x@test.com' };
-      expect(() => svc.bankWorkspace('D1', foreign)).toThrow(/Cross-organization access denied/);
-    });
+  it('routes reserve and release requests through canonical Deal commands', async () => {
+    const gateway = makeGateway();
+    const service = new SettlementEngineService(makePayments(), gateway, makeReconciliation());
 
-    it('lets platform oversight (EXECUTIVE) read any deal bank basis', () => {
-      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), makeOutbox());
-      const exec = { id: 'e1', role: 'EXECUTIVE' as any, orgId: 'org-hq', email: 'e@test.com' };
-      expect(() => svc.worksheet('D1', exec)).not.toThrow();
-    });
+    await service.requestReserve('D1', command, accountingUser);
+    await service.requestRelease('D1', { ...command, commandId: 'command-release-0001' }, accountingUser);
+
+    expect(gateway.executeUser).toHaveBeenNthCalledWith(
+      1,
+      'D1',
+      'request_reserve',
+      expect.objectContaining({ expectedVersion: '5' }),
+      accountingUser,
+    );
+    expect(gateway.executeUser).toHaveBeenNthCalledWith(
+      2,
+      'D1',
+      'request_release',
+      expect.any(Object),
+      accountingUser,
+    );
   });
 
-  describe('requestRelease()', () => {
-    it('returns blocked when deal has blockers', async () => {
-      const runtime = makeRuntime();
-      runtime.dealWorkspace = jest.fn().mockReturnValue({ blockers: ['dispute open'] });
-      const svc = new SettlementEngineService(runtime, makeExecutor(), makeOutbox());
-      const result = await svc.requestRelease('D1', accountingUser) as any;
-      expect(result.blocked).toBe(true);
-      expect(result.blockers).toEqual(['dispute open']);
-    });
+  it('denies roles that cannot request money operations', async () => {
+    const service = new SettlementEngineService(makePayments(), makeGateway(), makeReconciliation());
+    const driver = { ...accountingUser, id: 'driver-1', role: Role.DRIVER };
 
-    it('enqueues release when no blockers', async () => {
-      const executor = makeExecutor();
-      const svc = new SettlementEngineService(makeRuntime(), executor, makeOutbox());
-      await svc.requestRelease('D1', accountingUser);
-      expect(executor.execute).toHaveBeenCalledTimes(1);
-    });
+    await expect(service.requestReserve('D1', command, driver)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.requestRelease('D1', command, driver)).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  describe('registerSafeDealsCallback()', () => {
-    it('confirms pending outbox entry on SUCCESS callback', () => {
-      const outbox = makeOutbox([{ id: 'O1', status: 'PENDING' }]);
-      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), outbox);
-      svc.registerSafeDealsCallback({ dealId: 'D1', status: 'SUCCESS' });
-      expect(outbox.confirm).toHaveBeenCalledWith('O1');
-    });
+  it('has no human reserve-confirmation or payout path', () => {
+    const service = new SettlementEngineService(makePayments(), makeGateway(), makeReconciliation());
 
-    it('marks failed outbox entry on FAILED callback', () => {
-      const outbox = makeOutbox([{ id: 'O1', status: 'SENT' }]);
-      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), outbox);
-      svc.registerSafeDealsCallback({ dealId: 'D1', status: 'FAILED', errorMessage: 'nsf' });
-      expect(outbox.markFailed).toHaveBeenCalledWith('O1', 'nsf');
-    });
-
-    it('does nothing when no pending outbox entries', () => {
-      const outbox = makeOutbox([]);
-      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), outbox);
-      svc.registerSafeDealsCallback({ dealId: 'D1', status: 'SUCCESS' });
-      expect(outbox.confirm).not.toHaveBeenCalled();
-    });
+    expect(() => service.confirmWorksheet()).toThrow(UnauthorizedException);
+    expect(() => service.releasePayment()).toThrow(UnauthorizedException);
   });
 
-  describe('getOutboxStatus()', () => {
-    it('returns all pending when no dealId provided', () => {
-      const outbox = makeOutbox([{ id: 'O1' }]);
-      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), outbox);
-      const result = svc.getOutboxStatus();
-      expect(outbox.listPending).toHaveBeenCalled();
-    });
+  it('fails closed on free-form amount adjustment', () => {
+    const service = new SettlementEngineService(makePayments(), makeGateway(), makeReconciliation());
 
-    it('returns deal-specific pending when dealId provided', () => {
-      const outbox = makeOutbox([{ id: 'O1', dealId: 'D1' }]);
-      const svc = new SettlementEngineService(makeRuntime(), makeExecutor(), outbox);
-      svc.getOutboxStatus('D1');
-      expect(outbox.getByDeal).toHaveBeenCalledWith('D1');
-    });
+    expect(() => service.adjustWorksheet('D1', [{ deltaKopecks: 100 }], accountingUser))
+      .toThrow(ConflictException);
+  });
+
+  it('delegates only MT940 to the durable PostgreSQL reconciliation service', async () => {
+    const reconciliation = makeReconciliation();
+    const service = new SettlementEngineService(makePayments(), makeGateway(), reconciliation);
+
+    await expect(service.importBankStatement(':20:TEST', 'MT940', accountingUser))
+      .resolves.toMatchObject({ imported: 1 });
+    expect(reconciliation.importMT940).toHaveBeenCalledWith(':20:TEST', accountingUser);
+    await expect(service.importBankStatement('csv', 'CSV', accountingUser)).rejects.toThrow();
   });
 });
