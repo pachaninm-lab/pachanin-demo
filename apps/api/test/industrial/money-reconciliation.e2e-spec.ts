@@ -4,7 +4,13 @@ import { BankKeyRegistryService, BankKeyError } from '../../src/modules/settleme
 import { BankReconciliationService } from '../../src/modules/bank-reconciliation/bank-reconciliation.service';
 import { LedgerV2Service } from '../../src/modules/ledger/ledger-v2.service';
 import { Role, type RequestUser } from '../../src/common/types/request-user';
-import { cleanTenant, createInstance, destroyInstance, provisionDeal, type ServiceInstance } from './harness';
+import {
+  cleanTenant,
+  createRememberedInstance as createInstance,
+  destroyInstance,
+  provisionDeal,
+  type ServiceInstance,
+} from './harness';
 
 /**
  * Block 2 — Money & Ledger on real PostgreSQL.
@@ -95,18 +101,15 @@ describe('Bank signing-key rotation and revocation', () => {
     await expect(registryA.resolveActiveKey('safe-deals', 'rotation-future')).rejects.toMatchObject({ rejection: 'KEY_NOT_YET_VALID' });
     await expect(registryA.resolveActiveKey('safe-deals', 'rotation-expired')).rejects.toMatchObject({ rejection: 'KEY_EXPIRED' });
     await expect(registryA.resolveActiveKey('another-partner', 'rotation-new')).rejects.toMatchObject({ rejection: 'PARTNER_MISMATCH' });
-    // every rejection is an HTTP 401, never a fallback
     await expect(registryA.resolveActiveKey('safe-deals', 'no-such-key')).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('applies revocation instantly on every instance and keeps it permanent', async () => {
     await expect(registryB.resolveActiveKey('safe-deals', 'rotation-compromised')).resolves.toBeDefined();
 
-    // Instance A revokes; instance B (separate connection) rejects immediately.
     await registryA.revoke('rotation-compromised', 'security-officer-1', 'key leak suspected');
     await expect(registryB.resolveActiveKey('safe-deals', 'rotation-compromised')).rejects.toMatchObject({ rejection: 'KEY_REVOKED' });
 
-    // The revocation row is append-only: it cannot be deleted or rewritten.
     await expect(
       alpha.prisma.$executeRawUnsafe(`DELETE FROM "bank_key_revocations" WHERE "keyId" = 'rotation-compromised'`),
     ).rejects.toThrow(/append-only/);
@@ -114,7 +117,6 @@ describe('Bank signing-key rotation and revocation', () => {
       alpha.prisma.$executeRawUnsafe(`UPDATE "bank_key_revocations" SET "reason" = 'undo' WHERE "keyId" = 'rotation-compromised'`),
     ).rejects.toThrow(/append-only/);
 
-    // Re-revoking is a no-op, not a rewrite.
     const again = await registryA.revoke('rotation-compromised', 'security-officer-2', 'duplicate call');
     expect(again.keyId).toBe('rotation-compromised');
     expect(await registryB.resolveActiveKey('safe-deals', 'rotation-compromised').catch((e: BankKeyError) => e.rejection)).toBe('KEY_REVOKED');
@@ -133,13 +135,11 @@ describe('Bank reconciliation with persisted cursor', () => {
   it('imports honestly, deduplicates by content hash and persists the cursor', async () => {
     await purge();
 
-    // Content with no statement rows imports exactly zero rows — no demo data.
     await expect(reconciliation.importMT940('это не выписка', ACCOUNTANT)).resolves.toMatchObject({ imported: 0 });
 
     const first = await reconciliation.importMT940(statement('REF-CURSOR-1', '1500,50'), ACCOUNTANT);
     expect(first).toMatchObject({ imported: 1, duplicates: 0, unmatched: 1 });
 
-    // Re-importing the same statement adds nothing.
     const second = await reconciliation.importMT940(statement('REF-CURSOR-1', '1500,50'), ACCOUNTANT);
     expect(second).toMatchObject({ imported: 0, duplicates: 1 });
 
@@ -172,11 +172,9 @@ describe('Bank reconciliation with persisted cursor', () => {
     const paymentBefore = await alpha.prisma.payment.findMany({ where: { dealId: fixture.dealId } });
     const dealBefore = await alpha.prisma.deal.findUniqueOrThrow({ where: { id: fixture.dealId } });
 
-    // Exact match: amount equals the platform operation.
     const matchedRun = await reconciliation.importMT940(statement('REF-RECON-EXACT', '2400000,00'), ACCOUNTANT);
     expect(matchedRun).toMatchObject({ imported: 1, matched: 1, mismatched: 0 });
 
-    // Mismatch: same bankRef, wrong amount → MANUAL_REVIEW, zero money movement.
     const mismatchRun = await reconciliation.importMT940(
       statement('REF-RECON-EXACT', '2399999,99', '260711'),
       ACCOUNTANT,
@@ -189,7 +187,6 @@ describe('Bank reconciliation with persisted cursor', () => {
     expect(mismatchEntry.matchedDealId).toBe(fixture.dealId);
     expect(mismatchEntry.mismatchReason).toContain('не совпадает');
 
-    // Reconciliation never reserved, released or changed anything financial.
     const paymentAfter = await alpha.prisma.payment.findMany({ where: { dealId: fixture.dealId } });
     const dealAfter = await alpha.prisma.deal.findUniqueOrThrow({ where: { id: fixture.dealId } });
     const ledgerEntries = await alpha.prisma.ledgerEntry.count({ where: { dealId: fixture.dealId } });
@@ -209,7 +206,6 @@ describe('Bank reconciliation with persisted cursor', () => {
     await expect(
       alpha.prisma.$executeRawUnsafe(`DELETE FROM "bank_statement_entries" WHERE "id" = '${entry.id}'`),
     ).rejects.toThrow(/append-only/);
-    // …while the match verdict itself stays correctable:
     await expect(
       alpha.prisma.bankStatementEntry.update({
         where: { id: entry.id },
@@ -223,13 +219,12 @@ describe('Bank reconciliation with persisted cursor', () => {
     const farmer = { ...ACCOUNTANT, role: Role.FARMER };
     await expect(reconciliation.importMT940(statement('REF-DENY', '1,00'), executive)).rejects.toMatchObject({ status: 403 });
     await expect(reconciliation.importMT940(statement('REF-DENY', '1,00'), farmer)).rejects.toMatchObject({ status: 403 });
-    await expect(reconciliation.getReport(executive)).resolves.toBeDefined(); // read stays allowed
+    await expect(reconciliation.getReport(executive)).resolves.toBeDefined();
   });
 });
 
 describe('Deal escrow invariant from the append-only ledger', () => {
   it('holds through reserve/release and exposes a forged over-release', async () => {
-    // The ledger is append-only, so each run works with a fresh synthetic deal.
     const dealId = `DEAL-E2E-escrow-${Date.now()}`;
 
     await alpha.prisma.ledgerEntry.create({
@@ -266,7 +261,6 @@ describe('Deal escrow invariant from the append-only ledger', () => {
     const healthy = await ledger.verifyDealEscrowInvariant(dealId);
     expect(healthy).toMatchObject({ ok: true, escrowBalanceKopecks: 0n });
 
-    // A second (forged) release beyond the reserve flips the invariant.
     await alpha.prisma.ledgerEntry.create({
       data: {
         dealId,
