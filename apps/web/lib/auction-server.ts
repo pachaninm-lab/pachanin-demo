@@ -1,5 +1,14 @@
 import { serverApiUrl, serverAuthHeaders } from './server-api';
 
+export type AuctionAuthorityProof = {
+  source: 'POSTGRESQL';
+  scope: 'AUCTION';
+  tenantId: string;
+  actorId: string;
+  observedAt: string;
+  version: number;
+};
+
 export type AccessibleAuctionLot = {
   id: string;
   title: string;
@@ -54,9 +63,10 @@ export type CanonicalAuctionWorkspace = {
   };
 };
 
-type ReadResult<T> = {
+export type AuctionReadResult<T> = {
   source: string;
   available: boolean;
+  authority: AuctionAuthorityProof | null;
   data: T | null;
   error: string | null;
 };
@@ -74,10 +84,32 @@ function finiteNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function validIsoDate(value: string | null): boolean {
+  return value === null || Number.isFinite(Date.parse(value));
+}
+
 function stringArray(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null;
   const normalized = value.map(requiredString);
   return normalized.every((item): item is string => Boolean(item)) ? normalized : null;
+}
+
+function parseAuthorityProof(value: unknown): AuctionAuthorityProof | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  const source = requiredString(row.source)?.toUpperCase();
+  const scope = requiredString(row.scope)?.toUpperCase();
+  const tenantId = requiredString(row.tenantId);
+  const actorId = requiredString(row.actorId);
+  const observedAt = requiredString(row.observedAt);
+  const version = finiteNumber(row.version);
+
+  if (
+    source !== 'POSTGRESQL' || scope !== 'AUCTION' || !tenantId || !actorId || !observedAt
+    || !validIsoDate(observedAt) || version === null || !Number.isInteger(version) || version < 1
+  ) return null;
+
+  return { source: 'POSTGRESQL', scope: 'AUCTION', tenantId, actorId, observedAt, version };
 }
 
 function parseAccessibleLot(value: unknown): AccessibleAuctionLot | null {
@@ -97,9 +129,11 @@ function parseAccessibleLot(value: unknown): AccessibleAuctionLot | null {
   const updatedAt = optionalString(row.updatedAt);
 
   if (
-    !id || !title || !culture || grade === undefined || volumeTons === null
-    || startPriceRubPerTon === null || stepPriceRubPerTon === null || !region
-    || address === undefined || !status || !auctionEndsAt || updatedAt === undefined
+    !id || !title || !culture || grade === undefined || volumeTons === null || volumeTons <= 0
+    || startPriceRubPerTon === null || startPriceRubPerTon < 0
+    || stepPriceRubPerTon === null || stepPriceRubPerTon <= 0 || !region
+    || address === undefined || !status || !auctionEndsAt || !validIsoDate(auctionEndsAt)
+    || updatedAt === undefined || !validIsoDate(updatedAt)
   ) return null;
 
   return {
@@ -153,12 +187,16 @@ function parseAuctionWorkspace(value: unknown): CanonicalAuctionWorkspace | null
 
   if (
     !lotId || !title || !lotStatus || !originId || !originTitle || !originDescription
-    || originNextStep === undefined || score === null || !band || blockers === null
-    || readyForLive === null || (readiness.bestBid !== null && readinessBestBid === null)
-    || !nextAction || auctionEndsAt === undefined || minutesToEnd === null
-    || shouldAutoExtend === null || autoExtendMinutes === null || bidCount === null
+    || originNextStep === undefined || score === null || !Number.isInteger(score) || score < 0 || score > 100
+    || !band || blockers === null || readyForLive === null
+    || (readiness.bestBid !== null && (readinessBestBid === null || readinessBestBid < 0))
+    || !nextAction || auctionEndsAt === undefined || !validIsoDate(auctionEndsAt)
+    || minutesToEnd === null || shouldAutoExtend === null || autoExtendMinutes === null
+    || !Number.isInteger(autoExtendMinutes) || autoExtendMinutes < 0
+    || bidCount === null || !Number.isInteger(bidCount) || bidCount < 0
     || dealCreated === null || dealId === undefined || nextRequiredMilestones === null
-    || !Number.isInteger(bidCount) || bidCount < 0
+    || (readyForLive && blockers.length > 0)
+    || dealCreated !== Boolean(dealId)
   ) return null;
 
   let bestBid: CanonicalAuctionWorkspace['bestBid'] = null;
@@ -170,11 +208,12 @@ function parseAuctionWorkspace(value: unknown): CanonicalAuctionWorkspace | null
     const buyerName = requiredString(bid.buyerName);
     const buyerOrgId = optionalString(bid.buyerOrgId);
     const status = optionalString(bid.status);
-    if (!id || amount === null || !buyerName || buyerOrgId === undefined || status === undefined) return null;
+    if (!id || amount === null || amount < 0 || !buyerName || buyerOrgId === undefined || status === undefined) return null;
     bestBid = { id, amount, buyerName, buyerOrgId, status };
   }
 
-  if (dealCreated && !dealId) return null;
+  if ((bidCount === 0) !== (bestBid === null)) return null;
+  if (bestBid && readinessBestBid !== null && bestBid.amount !== readinessBestBid) return null;
 
   return {
     lotId,
@@ -189,7 +228,17 @@ function parseAuctionWorkspace(value: unknown): CanonicalAuctionWorkspace | null
   };
 }
 
-export async function getAccessibleAuctionLotsCanonical(): Promise<ReadResult<AccessibleAuctionLot[]>> {
+function unavailable<T>(source: string, error: unknown): AuctionReadResult<T> {
+  return {
+    source,
+    available: false,
+    authority: null,
+    data: null,
+    error: error instanceof Error ? error.message : String(error || 'auction authority unavailable'),
+  };
+}
+
+export async function getAccessibleAuctionLotsCanonical(): Promise<AuctionReadResult<AccessibleAuctionLot[]>> {
   try {
     const response = await fetch(serverApiUrl('/lots/my'), {
       cache: 'no-store',
@@ -197,26 +246,26 @@ export async function getAccessibleAuctionLotsCanonical(): Promise<ReadResult<Ac
     });
     if (!response.ok) throw new Error(`auction lots ${response.status}`);
     const payload: unknown = await response.json();
-    if (!Array.isArray(payload)) throw new Error('auction lots invalid envelope');
-    const items = payload.map(parseAccessibleLot);
+    if (!payload || typeof payload !== 'object') throw new Error('auction lots invalid envelope');
+    const envelope = payload as Record<string, unknown>;
+    const authority = parseAuthorityProof(envelope.authority);
+    if (!authority) throw new Error('auction lots missing PostgreSQL authority proof');
+    if (!Array.isArray(envelope.items)) throw new Error('auction lots invalid items');
+    const items = envelope.items.map(parseAccessibleLot);
     if (items.some((item) => item === null)) throw new Error('auction lots invalid item');
     return {
-      source: 'canonical.lots.my',
+      source: 'postgresql.auction.lots',
       available: true,
+      authority,
       data: items as AccessibleAuctionLot[],
       error: null,
     };
   } catch (error) {
-    return {
-      source: 'unavailable.lots.my',
-      available: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'auction lots unavailable',
-    };
+    return unavailable('unavailable.auction.lots', error);
   }
 }
 
-export async function getAuctionWorkspaceCanonical(lotId: string): Promise<ReadResult<CanonicalAuctionWorkspace>> {
+export async function getAuctionWorkspaceCanonical(lotId: string): Promise<AuctionReadResult<CanonicalAuctionWorkspace>> {
   try {
     const safeLotId = encodeURIComponent(lotId);
     const response = await fetch(serverApiUrl(`/auctions/lots/${safeLotId}/workspace`), {
@@ -224,39 +273,34 @@ export async function getAuctionWorkspaceCanonical(lotId: string): Promise<ReadR
       headers: serverAuthHeaders(),
     });
     if (!response.ok) throw new Error(`auction workspace ${response.status}`);
-    const parsed = parseAuctionWorkspace(await response.json());
-    if (!parsed) throw new Error('auction workspace invalid envelope');
-    return { source: 'canonical.auctions.workspace', available: true, data: parsed, error: null };
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== 'object') throw new Error('auction workspace invalid envelope');
+    const envelope = payload as Record<string, unknown>;
+    const authority = parseAuthorityProof(envelope.authority);
+    if (!authority) throw new Error('auction workspace missing PostgreSQL authority proof');
+    const workspace = parseAuctionWorkspace(envelope.workspace);
+    if (!workspace) throw new Error('auction workspace invalid payload');
+    return { source: 'postgresql.auction.workspace', available: true, authority, data: workspace, error: null };
   } catch (error) {
-    return {
-      source: 'unavailable.auctions.workspace',
-      available: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'auction workspace unavailable',
-    };
+    return unavailable('unavailable.auction.workspace', error);
   }
 }
 
-export async function getTradingOriginModesCanonical() {
+export async function getTradingOriginModesCanonical(): Promise<AuctionReadResult<unknown[]>> {
   try {
     const response = await fetch(serverApiUrl('/auctions/origin-modes'), {
       cache: 'no-store',
       headers: serverAuthHeaders(),
     });
     if (!response.ok) throw new Error(`origin modes ${response.status}`);
-    const data: unknown = await response.json();
-    return {
-      source: 'canonical.auctions.origin-modes',
-      available: true,
-      items: Array.isArray(data) ? data : [],
-      error: null as string | null,
-    };
+    const payload: unknown = await response.json();
+    if (!payload || typeof payload !== 'object') throw new Error('origin modes invalid envelope');
+    const envelope = payload as Record<string, unknown>;
+    const authority = parseAuthorityProof(envelope.authority);
+    if (!authority) throw new Error('origin modes missing PostgreSQL authority proof');
+    if (!Array.isArray(envelope.items)) throw new Error('origin modes invalid items');
+    return { source: 'postgresql.auction.origin-modes', available: true, authority, data: envelope.items, error: null };
   } catch (error) {
-    return {
-      source: 'unavailable.auctions.origin-modes',
-      available: false,
-      items: [] as unknown[],
-      error: error instanceof Error ? error.message : 'origin modes unavailable',
-    };
+    return unavailable('unavailable.auction.origin-modes', error);
   }
 }
