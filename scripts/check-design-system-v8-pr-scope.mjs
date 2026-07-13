@@ -30,6 +30,7 @@ const exact = new Set([
   'apps/web/lib/platform-v7/auctionAuthorityCopy.ts',
   'apps/web/lib/platform-v7/auctionDealBridge.ts',
   'apps/web/lib/platform-v7/farmerFgisAccessEngine.ts',
+  'apps/web/lib/platform-v7/fgisAuctionAdapter.ts',
   'apps/web/lib/platform-v7/fgisAuctionEngine.ts',
   'apps/web/components/platform-v7/CanonicalDealsList.tsx',
   'apps/web/components/platform-v7/CanonicalDealsList.module.css',
