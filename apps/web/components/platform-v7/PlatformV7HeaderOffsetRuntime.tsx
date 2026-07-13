@@ -17,6 +17,7 @@ const HEADER_SELECTOR = [
 ].join(',');
 
 const ROOT_SELECTOR = [
+  '[data-public-supporting-shell]',
   'main',
   '[data-staff-platform-shell]',
   '.pc-shell-root-v4',
