@@ -49,11 +49,6 @@ class LabEvidenceUploadFileDto {
 export class RequestSampleEvidenceUploadDto extends LabEvidenceUploadFileDto {
   @IsIn(LAB_OPERATION_EVIDENCE_PURPOSES)
   purpose!: LabOperationEvidencePurpose;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  protocolNumber?: string;
 }
 
 export class RequestProvisioningEvidenceUploadDto extends LabEvidenceUploadFileDto {
