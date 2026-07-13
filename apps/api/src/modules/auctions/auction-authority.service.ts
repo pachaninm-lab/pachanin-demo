@@ -124,7 +124,7 @@ export class AuctionAuthorityService {
           l.auto_extend_minutes,
           l.version,
           l.updated_at
-        FROM public.auction_lots l
+        FROM auction.lots l
         WHERE l.tenant_id = ${context.tenantId}
           AND (${scope})
         ORDER BY l.updated_at DESC, l.id ASC
@@ -154,7 +154,7 @@ export class AuctionAuthorityService {
           l.source_type,
           count(*)::bigint AS lot_count,
           max(l.version)::bigint AS version
-        FROM public.auction_lots l
+        FROM auction.lots l
         WHERE l.tenant_id = ${context.tenantId}
           AND (${scope})
         GROUP BY l.source_type
@@ -205,7 +205,7 @@ export class AuctionAuthorityService {
           l.auto_extend_minutes,
           l.version,
           l.updated_at
-        FROM public.auction_lots l
+        FROM auction.lots l
         WHERE l.tenant_id = ${context.tenantId}
           AND l.id = ${lotId}
           AND (${scope})
@@ -227,7 +227,7 @@ export class AuctionAuthorityService {
           d."tenantId" AS deal_tenant_id,
           COALESCE(d."sourceLotId", d."lotId") AS deal_source_lot_id,
           d.version AS deal_version
-        FROM public.auction_awards a
+        FROM auction.awards a
         LEFT JOIN public.deals d ON d.id = a.deal_id
         WHERE a.tenant_id = ${context.tenantId}
           AND a.lot_id = ${lotId}
@@ -247,7 +247,7 @@ export class AuctionAuthorityService {
           max(b.version) FILTER (
             WHERE b.status NOT IN ('REJECTED', 'CANCELLED')
           )::bigint AS max_version
-        FROM public.auction_bids b
+        FROM auction.bids b
         WHERE b.tenant_id = ${context.tenantId}
           AND b.lot_id = ${lotId}
       `);
@@ -269,7 +269,7 @@ export class AuctionAuthorityService {
           b.amount_rub_per_ton::text AS amount_rub_per_ton,
           b.status,
           b.version
-        FROM public.auction_bids b
+        FROM auction.bids b
         WHERE b.tenant_id = ${context.tenantId}
           AND b.lot_id = ${lotId}
           AND b.status NOT IN ('REJECTED', 'CANCELLED')
