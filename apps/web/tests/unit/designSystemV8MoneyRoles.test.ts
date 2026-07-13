@@ -53,7 +53,7 @@ describe('Design System v8 money role reference slice', () => {
     expect(bank).toContain('EvidenceReadinessMiniMatrix');
     expect(bank).toContain('LedgerPanel');
     expect(bank).toContain('MoneyLifecyclePanel');
-    expect(bank).toContain('интерфейс не выпускает деньги');
+    expect(bank).toMatch(/интерфейс не выпускает деньги/i);
     expect(bank).toContain('Только банк подтверждает резерв, проверку и движение денег');
     expect(bank).toContain('Ручная кнопка не может заменить банковскую проверку и подтверждённый callback');
   });
