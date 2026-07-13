@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { getLocale } from 'next-intl/server';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-routes';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
@@ -116,8 +117,8 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // fixes its shell without mounting business-role providers or observers.
   if (isStaffPath(pathname)) return children;
 
-  const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
   if (isPublicPath(pathname)) {
+    const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
     const publicContent = needsPublicHeader(pathname)
       ? <PlatformV7PublicPageShell>{children}</PlatformV7PublicPageShell>
       : children;
@@ -126,9 +127,17 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   }
 
   const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');
-  return (
-    <PlatformV7FullStyleRuntime>
-      <PlatformV7ProtectedRuntime pathname={pathname}>{children}</PlatformV7ProtectedRuntime>
-    </PlatformV7FullStyleRuntime>
+  const protectedContent = (
+    <PlatformV7ProtectedRuntime pathname={pathname}>{children}</PlatformV7ProtectedRuntime>
   );
+
+  if (isDesignSystemV8Route(pathname)) {
+    const { PlatformV7DesignSystemV8Runtime } = await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime');
+    return <PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>;
+  }
+
+  // Historical and partially migrated routes keep the compatibility bundle until
+  // their own v8 acceptance evidence exists. This boundary is explicit and reversible.
+  const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
+  return <PlatformV7FullStyleRuntime>{protectedContent}</PlatformV7FullStyleRuntime>;
 }
