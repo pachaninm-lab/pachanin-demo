@@ -12,6 +12,15 @@ import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSumm
 import { BatonStrip } from '@/components/platform-v7/BatonStrip';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 
+type SurveyorAssignment = {
+  id: string;
+  deal: string;
+  cargo: string;
+  location: string;
+  time: string;
+  status: 'Требует акта' | 'Ожидает';
+};
+
 const surveyorSteps = [
   { label: 'Осмотр', value: 'фото и состояние', note: 'что видно на площадке без пересказа сторон' },
   { label: 'Расхождение', value: 'причина и место', note: 'где возникло отклонение и чем подтверждается' },
@@ -19,7 +28,7 @@ const surveyorSteps = [
   { label: 'Заключение', value: 'независимая фиксация', note: 'основание уходит в доказательный контур' },
 ] as const;
 
-const assignments = [
+const assignments: SurveyorAssignment[] = [
   { id: 'QC-DL-9102', deal: 'DL-9102', cargo: 'Пшеница 4 кл.', location: 'Элеватор Тамбов', time: '11:00', status: 'Требует акта' },
   { id: 'QC-DL-9108', deal: 'DL-9108', cargo: 'Ячмень 3 кл.', location: 'Склад Курск', time: '14:30', status: 'Ожидает' },
 ];
