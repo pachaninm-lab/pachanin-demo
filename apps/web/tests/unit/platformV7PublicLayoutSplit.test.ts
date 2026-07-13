@@ -26,6 +26,8 @@ const intelligenceStrip = read('apps/web/components/v7r/PlatformV7IntelligenceSt
 const publicHeaderCss = read('apps/web/styles/platform-v7-public-header.css');
 const publicAuthCss = read('apps/web/styles/platform-v7-public-auth.css');
 const publicLandingCss = read('apps/web/styles/platform-v7-public-landing.css');
+const fixedHeaderCss = read('apps/web/app/platform-v7/_styles/fixed-header-contract.css');
+const supportingShellCss = read('apps/web/app/platform-v7/_styles/public-supporting-shell.css');
 const middleware = read('apps/web/middleware.ts');
 
 describe('platform-v7 public/protected runtime split', () => {
@@ -87,6 +89,7 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(landing).not.toContain("from 'lucide-react'");
     expect(intelligenceStrip).not.toContain("from 'lucide-react'");
     expect(publicLocaleLink).not.toContain("from 'lucide-react'");
+    expect(layout).not.toContain("from 'lucide-react'");
     expect(landing).toContain('function EntryGlyph');
     expect(intelligenceStrip).toContain("const glyphs = ['✓', '→', '₽']");
     expect(publicLocaleLink).toContain("<b aria-hidden='true'>文</b>");
@@ -150,6 +153,47 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(publicAuthCss).toContain('.pc-recovery-page');
     expect(publicLandingCss).toContain('.pc-v7-public-entry');
     expect(publicLandingCss).toContain('.entry-intelligence-section');
+  });
+
+  it('keeps the header fixed and offsets every platform surface', () => {
+    expect(rootLayout).toContain("import './platform-v7/_styles/fixed-header-contract.css'");
+    expect(rootLayout).toContain("import './platform-v7/_styles/public-supporting-shell.css'");
+
+    for (const selector of [
+      '.pc-site-header',
+      '.p7-flow-header',
+      '.p7-demo-clean > header',
+      '.p7-docs-clean > header',
+      '.p7-contact-header',
+      '.open-header',
+      '.p7-request-header',
+      '.pc-v4-header',
+      '.pc-fixed-header',
+      '[data-staff-platform-shell] > header',
+    ]) {
+      expect(fixedHeaderCss).toContain(selector);
+    }
+
+    expect(fixedHeaderCss).toContain('position: fixed !important');
+    expect(fixedHeaderCss).toContain('env(safe-area-inset-top, 0px)');
+    expect(fixedHeaderCss).toContain('--pc-local-fixed-header-height');
+    expect(fixedHeaderCss).toContain('transform: none !important');
+    expect(fullStyleRuntime).toContain('ResizeObserver');
+    expect(fullStyleRuntime).toContain('MutationObserver');
+    expect(fullStyleRuntime).toContain("window.visualViewport?.addEventListener('resize'");
+    expect(fullStyleRuntime).toContain("activeRoot.style.setProperty('--pc-local-fixed-header-height'");
+    expect(supportingShellCss).toContain('[data-public-supporting-shell]');
+  });
+
+  it('adds the canonical public header to supporting routes that had none', () => {
+    for (const route of ['/platform-v7/help', '/platform-v7/pricing', '/platform-v7/roadmap']) {
+      expect(layout).toContain(route);
+    }
+    expect(layout).toContain('PUBLIC_HEADERLESS_PATHS');
+    expect(layout).toContain('async function PlatformV7PublicPageShell');
+    expect(layout).toContain('<PublicSiteHeader');
+    expect(layout).toContain('localeControl={<PublicLocaleLink />}');
+    expect(layout).toContain("href='/platform-v7/login'");
   });
 
   it('does not reset browser caches or mount dev tooling without an explicit flag', () => {
