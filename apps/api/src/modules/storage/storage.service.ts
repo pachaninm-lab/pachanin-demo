@@ -31,6 +31,7 @@ const DEFAULT_MAX_BYTES = 50 * 1024 * 1024;
 const HARD_MAX_BYTES = 200 * 1024 * 1024;
 const DEFAULT_UPLOAD_TTL_SECONDS = 900;
 const MAX_DOWNLOAD_TTL_SECONDS = 900;
+const MAX_EVIDENCE_METADATA_BYTES = 16 * 1024;
 
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -68,11 +69,12 @@ export type StoredFileRecord = {
   createdAt: string;
 };
 
-type UploadRequest = {
+export type UploadRequest = {
   filename: string;
   mimeType: string;
   sizeBytes: number;
   dealId: string;
+  metadata?: Prisma.InputJsonObject;
 };
 
 @Injectable()
@@ -111,6 +113,7 @@ export class StorageService {
     const filename = sanitizeFilename(params.filename);
     const mimeType = this.assertAllowedMime(params.mimeType);
     const sizeBytes = this.assertAllowedSize(params.sizeBytes);
+    const metadata = normalizeEvidenceMetadata(params.metadata);
     const fileId = `file_${randomUUID()}`;
     const objectKey = buildObjectKey(user.tenantId ?? '', dealId, fileId, filename);
     const presigned = await this.adapter.getPresignedUploadUrl(
@@ -140,6 +143,7 @@ export class StorageService {
           uploadedByUserId: context.userId,
           version: 1,
           isImmutable: false,
+          ...(metadata ? { metadata } : {}),
         },
       });
     });
@@ -427,6 +431,32 @@ function requiredIdentifier(value: string, field: string): string {
   const normalized = String(value ?? '').trim();
   if (!normalized || normalized.length > 180 || !/^[A-Za-z0-9:_-]+$/.test(normalized)) {
     throw new BadRequestException({ code: 'INVALID_IDENTIFIER', field });
+  }
+  return normalized;
+}
+
+function normalizeEvidenceMetadata(value: unknown): Prisma.InputJsonObject | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new BadRequestException({ code: 'INVALID_EVIDENCE_METADATA' });
+  }
+
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(value);
+  } catch {
+    throw new BadRequestException({ code: 'INVALID_EVIDENCE_METADATA' });
+  }
+  if (!serialized || Buffer.byteLength(serialized, 'utf8') > MAX_EVIDENCE_METADATA_BYTES) {
+    throw new BadRequestException({
+      code: 'EVIDENCE_METADATA_TOO_LARGE',
+      maxBytes: MAX_EVIDENCE_METADATA_BYTES,
+    });
+  }
+
+  const normalized = JSON.parse(serialized) as Prisma.InputJsonObject;
+  if (Object.keys(normalized).length === 0) {
+    throw new BadRequestException({ code: 'EMPTY_EVIDENCE_METADATA' });
   }
   return normalized;
 }
