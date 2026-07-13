@@ -157,14 +157,14 @@
 }
 
 .dealCard {
-  min-height: 82px;
+  min-height: 92px;
   border: 1px solid var(--pc-border);
   border-radius: 18px;
   background: var(--pc-bg-card);
   color: var(--pc-text-primary);
   padding: 13px 14px;
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.25fr) auto;
   align-items: center;
   gap: 14px;
   text-decoration: none;
@@ -179,7 +179,7 @@
 .dealState {
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 5px;
 }
 
 .dealIdentity {
@@ -212,18 +212,67 @@
   line-height: 1.35;
 }
 
-.status {
+.stateBadges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.status,
+.priorityBadge {
   width: fit-content;
   min-height: 26px;
   border: 1px solid var(--pc-border);
   border-radius: 999px;
-  background: var(--pc-bg-elevated);
-  color: var(--pc-text-secondary);
   padding: 0 9px;
   display: inline-flex;
   align-items: center;
   font-size: 10px;
   font-weight: 900;
+}
+
+.status {
+  background: var(--pc-bg-elevated);
+  color: var(--pc-text-secondary);
+}
+
+.priorityBadge {
+  border-color: var(--pc-accent-border);
+  background: var(--pc-accent-bg);
+  color: var(--pc-accent-strong);
+}
+
+.priorityBadge[data-priority='DISPUTE_CONTROL'],
+.priorityBadge[data-priority='OVERDUE_ACTION'] {
+  border-color: color-mix(in srgb, var(--pc-danger, #b42318) 34%, var(--pc-border));
+  background: color-mix(in srgb, var(--pc-danger-bg, #fff3f2) 76%, var(--pc-bg-card));
+  color: var(--pc-danger, #b42318);
+}
+
+.priorityBadge[data-priority='MONEY_CONTROL'],
+.priorityBadge[data-priority='DEADLINE_ACTION'] {
+  border-color: color-mix(in srgb, #a15c00 30%, var(--pc-border));
+  background: color-mix(in srgb, #fff1d6 72%, var(--pc-bg-card));
+  color: color-mix(in srgb, #7a4400 88%, var(--pc-text-primary));
+}
+
+.priorityBadge[data-priority='RECENT_ACTIVITY'] {
+  border-color: var(--pc-border);
+  background: var(--pc-bg-elevated);
+  color: var(--pc-text-muted);
+}
+
+.dealMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+}
+
+.dealMeta small:first-child {
+  color: var(--pc-text-secondary);
+  font-weight: 800;
 }
 
 .openAction {
@@ -253,6 +302,22 @@
   color: var(--pc-text-muted);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.loadMoreFailure {
+  width: min(100%, 620px);
+  border: 1px solid color-mix(in srgb, var(--pc-danger, #b42318) 30%, var(--pc-border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--pc-danger-bg, #fff3f2) 72%, var(--pc-bg-card));
+  padding: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  color: var(--pc-danger, #b42318);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: left;
 }
 
 .stateCard {
@@ -356,11 +421,21 @@
     white-space: normal;
   }
 
+  .dealMeta {
+    display: grid;
+    gap: 3px;
+  }
+
   .openAction {
     grid-column: 1;
     grid-row: auto;
     width: 100%;
     min-height: 48px;
+  }
+
+  .loadMoreFailure {
+    grid-template-columns: 1fr;
+    text-align: center;
   }
 }
 
@@ -378,6 +453,8 @@
   .iconButton,
   .dealCard,
   .status,
+  .priorityBadge,
+  .loadMoreFailure,
   .stateCard {
     border: 1px solid CanvasText;
   }
