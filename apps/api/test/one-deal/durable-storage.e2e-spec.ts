@@ -8,10 +8,12 @@ import { RequestUser, Role } from '../../src/common/types/request-user';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
 import { LocalFilesystemStorageAdapter } from '../../src/modules/storage/object-storage.adapter';
+import { StorageFinalizationRepository } from '../../src/modules/storage/storage-finalization.repository';
 import { StorageService } from '../../src/modules/storage/storage.service';
 
 const ADMIN_URL = String(process.env.ONE_DEAL_ADMIN_URL ?? '');
 const AUTH_URL = String(process.env.ONE_DEAL_AUTH_URL ?? '');
+const STORAGE_URL = String(process.env.STORAGE_DATABASE_URL ?? '');
 const PASSWORD = 'Storage-E2E-9!';
 const DEAL_ID = 'DEAL-STORAGE-E2E-001';
 const TENANT_A = 'tenant-storage-a';
@@ -94,17 +96,36 @@ describe('durable evidence object storage', () => {
   const auth = new AuthService(new PersistentAuthRepository(authPrisma));
   const appOne = prisma();
   const appTwo = prisma();
+  const storageOne = prisma(STORAGE_URL);
+  const storageTwo = prisma(STORAGE_URL);
   const root = `/tmp/platform-v7-storage-e2e-${randomUUID()}`;
   const adapterOne = new LocalFilesystemStorageAdapter(root);
   const adapterTwo = new LocalFilesystemStorageAdapter(root);
-  const serviceOne = new StorageService(new RlsTransactionService(appOne), adapterOne);
-  const serviceTwo = new StorageService(new RlsTransactionService(appTwo), adapterTwo);
+  const serviceOne = new StorageService(
+    new RlsTransactionService(appOne),
+    adapterOne,
+    new StorageFinalizationRepository(storageOne),
+  );
+  const serviceTwo = new StorageService(
+    new RlsTransactionService(appTwo),
+    adapterTwo,
+    new StorageFinalizationRepository(storageTwo),
+  );
   let owner: RequestUser;
   let attacker: RequestUser;
 
   beforeAll(async () => {
-    if (!ADMIN_URL || !AUTH_URL) throw new Error('ONE_DEAL_ADMIN_URL and ONE_DEAL_AUTH_URL are required.');
-    await Promise.all([admin.$connect(), authPrisma.$connect(), appOne.$connect(), appTwo.$connect()]);
+    if (!ADMIN_URL || !AUTH_URL || !STORAGE_URL) {
+      throw new Error('ONE_DEAL_ADMIN_URL, ONE_DEAL_AUTH_URL and STORAGE_DATABASE_URL are required.');
+    }
+    await Promise.all([
+      admin.$connect(),
+      authPrisma.$connect(),
+      appOne.$connect(),
+      appTwo.$connect(),
+      storageOne.$connect(),
+      storageTwo.$connect(),
+    ]);
     await seedIdentity(admin, {
       userId: USER_A,
       email: 'storage-owner@auth.test',
@@ -156,6 +177,8 @@ describe('durable evidence object storage', () => {
       authPrisma.$disconnect(),
       appOne.$disconnect(),
       appTwo.$disconnect(),
+      storageOne.$disconnect(),
+      storageTwo.$disconnect(),
       fs.rm(root, { recursive: true, force: true }),
     ]);
   });
@@ -195,9 +218,14 @@ describe('durable evidence object storage', () => {
     expect(concurrent.filter((item) => item.status === 'rejected')).toHaveLength(1);
 
     const freshPrisma = prisma();
-    await freshPrisma.$connect();
+    const freshStoragePrisma = prisma(STORAGE_URL);
+    await Promise.all([freshPrisma.$connect(), freshStoragePrisma.$connect()]);
     const freshAdapter = new LocalFilesystemStorageAdapter(root);
-    const freshService = new StorageService(new RlsTransactionService(freshPrisma), freshAdapter);
+    const freshService = new StorageService(
+      new RlsTransactionService(freshPrisma),
+      freshAdapter,
+      new StorageFinalizationRepository(freshStoragePrisma),
+    );
     try {
       const persisted = await freshService.getRecord(requested.fileId, owner);
       expect(persisted).toMatchObject({
@@ -219,7 +247,7 @@ describe('durable evidence object storage', () => {
       await expect(freshService.delete(requested.fileId, owner))
         .rejects.toBeInstanceOf(ConflictException);
     } finally {
-      await freshPrisma.$disconnect();
+      await Promise.all([freshPrisma.$disconnect(), freshStoragePrisma.$disconnect()]);
     }
 
     const tamperedContent = Buffer.from('%PDF-1.7\ntampered evidence\n');

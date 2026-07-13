@@ -24,6 +24,35 @@ function findUnsafeTypeRewrites(sql) {
   return unsafe;
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function findUnsafeNotNullChanges(sql) {
+  const unsafe = [];
+  const matcher = /\bALTER\s+TABLE\s+(?:public\.)?"?([\w]+)"?[\s\S]{0,200}?\bALTER\s+COLUMN\s+"?([\w]+)"?\s+SET\s+NOT\s+NULL\b/gi;
+  for (const match of sql.matchAll(matcher)) {
+    const table = escapeRegExp(match[1]);
+    const column = escapeRegExp(match[2]);
+    const addedInMigration = new RegExp(
+      `\\bADD\\s+COLUMN\\s+IF\\s+NOT\\s+EXISTS\\s+"?${column}"?`,
+      'i',
+    ).test(sql);
+    const backfilled = new RegExp(
+      `\\bUPDATE\\s+(?:public\\.)?"?${table}"?[\\s\\S]{0,500}?\\bSET\\s+"?${column}"?\\s*=`,
+      'i',
+    ).test(sql);
+    const guarded = new RegExp(
+      `\\bIF\\s+EXISTS\\s*\\([\\s\\S]{0,300}?\\bFROM\\s+(?:public\\.)?"?${table}"?[\\s\\S]{0,200}?"?${column}"?\\s+IS\\s+NULL`,
+      'i',
+    ).test(sql);
+    if (!addedInMigration || !backfilled || !guarded) {
+      unsafe.push(`${match[1]}.${match[2]}`);
+    }
+  }
+  return unsafe;
+}
+
 const destructivePatterns = [
   { name: 'DROP TABLE', pattern: /\bDROP\s+TABLE\b/i },
   { name: 'DROP COLUMN', pattern: /\bDROP\s+COLUMN\b/i },
@@ -31,7 +60,6 @@ const destructivePatterns = [
   { name: 'mass DELETE', pattern: /\bDELETE\s+FROM\b/i },
   { name: 'column rename', pattern: /\bRENAME\s+COLUMN\b/i },
   { name: 'table rename', pattern: /\bRENAME\s+TO\b/i },
-  { name: 'SET NOT NULL', pattern: /\bALTER\s+COLUMN\b[\s\S]{0,160}\bSET\s+NOT\s+NULL\b/i },
   { name: 'RLS disable', pattern: /\bDISABLE\s+ROW\s+LEVEL\s+SECURITY\b/i },
   { name: 'FORCE RLS removal', pattern: /\bNO\s+FORCE\s+ROW\s+LEVEL\s+SECURITY\b/i },
 ];
@@ -62,6 +90,9 @@ for (const migration of newMigrations) {
   }
   for (const target of findUnsafeTypeRewrites(sql)) {
     violations.push(`${migration}: type rewrite to ${target}`);
+  }
+  for (const target of findUnsafeNotNullChanges(sql)) {
+    violations.push(`${migration}: unguarded SET NOT NULL on ${target}`);
   }
 }
 

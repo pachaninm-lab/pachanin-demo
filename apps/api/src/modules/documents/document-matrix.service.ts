@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { DealDocument } from '@prisma/client';
 
 export type DocType =
   | 'contract'
@@ -115,6 +116,8 @@ const RELEASE_DOCS: Set<DocType> = new Set(
   DOCUMENT_REQUIREMENTS.filter((r) => r.blocks.includes('money.release.request')).map((r) => r.docType),
 );
 
+const AUTHORITATIVE_DOCUMENT_STATUSES = new Set(['SIGNED', 'VALIDATED', 'CONFIRMED']);
+
 @Injectable()
 export class DocumentMatrixService {
   getRequirementsForAction(action: DocAction): DocRequirement[] {
@@ -157,6 +160,14 @@ export class DocumentMatrixService {
           nextAction: `Документ на ручной проверке: ${req.label}`,
           reason: 'manual_review',
         });
+      } else if (!AUTHORITATIVE_DOCUMENT_STATUSES.has(doc.status)) {
+        blocking.push({
+          docType: req.docType,
+          label: req.label,
+          responsibleRole: req.responsibleRole,
+          nextAction: `Завершить серверную проверку: ${req.label}`,
+          reason: 'manual_review',
+        });
       }
     }
 
@@ -170,22 +181,27 @@ export class DocumentMatrixService {
     return this.checkGate('money.release.request', presentDocs);
   }
 
-  /**
-   * Convert raw doc list from RuntimeCoreService to PresentDoc format.
-   */
-  toPresentDocs(rawDocs: any[]): PresentDoc[] {
-    return rawDocs.map((d) => ({
-      type: d.type as DocType,
-      status: d.status as DocStatus,
-      id: d.id,
-      bankAcceptance: d.bankAcceptance,
+  /** Select the latest immutable version of every canonical document type. */
+  toPresentDocs(rawDocs: DealDocument[]): PresentDoc[] {
+    const latest = new Map<DocType, DealDocument>();
+    for (const document of rawDocs) {
+      if (!DOCUMENT_REQUIREMENTS.some((requirement) => requirement.docType === document.type)) continue;
+      const type = document.type as DocType;
+      const current = latest.get(type);
+      if (!current || document.version > current.version) latest.set(type, document);
+    }
+    return [...latest.values()].map((document) => ({
+      type: document.type as DocType,
+      status: document.status,
+      id: document.id,
+      bankAcceptance: document.bankAcceptance,
     }));
   }
 
   /**
    * Returns a summary of which doc types are required for release but missing/blocked.
    */
-  releaseBlockerSummary(rawDocs: any[]): {
+  releaseBlockerSummary(rawDocs: DealDocument[]): {
     requiredForRelease: DocType[];
     missing: DocType[];
     rejected: DocType[];
@@ -204,11 +220,9 @@ export class DocumentMatrixService {
   }
 }
 
-export type DocStatus = 'DRAFT' | 'UPLOADED' | 'GENERATED' | 'SIGNED' | 'REJECTED' | 'EXPIRED' | 'MANUAL_REVIEW';
-
 export interface PresentDoc {
   id: string;
   type: DocType;
-  status: DocStatus;
+  status: string;
   bankAcceptance?: string;
 }

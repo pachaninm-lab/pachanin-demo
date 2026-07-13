@@ -6,6 +6,7 @@ SOURCE_ADMIN_URL="${DR_SOURCE_ADMIN_URL:?DR_SOURCE_ADMIN_URL is required}"
 RESTORE_ADMIN_URL="${DR_RESTORE_ADMIN_URL:?DR_RESTORE_ADMIN_URL is required}"
 RESTORE_AUTH_URL="${DR_RESTORE_AUTH_URL:?DR_RESTORE_AUTH_URL is required}"
 RESTORE_APP_URL="${DR_RESTORE_APP_URL:?DR_RESTORE_APP_URL is required}"
+RESTORE_STORAGE_URL="${DR_RESTORE_STORAGE_URL:?DR_RESTORE_STORAGE_URL is required}"
 BACKUP_PATH="${DR_BACKUP_PATH:-/tmp/platform-v7-predeploy.backup}"
 MANIFEST_PATH="${DR_MANIFEST_PATH:-/tmp/platform-v7-dr-manifest.json}"
 EVIDENCE_LOG="${DR_EVIDENCE_LOG:-/tmp/platform-v7-dr-rehearsal.log}"
@@ -14,7 +15,7 @@ if [[ "${NODE_ENV:-}" == "production" ]]; then
   echo "Refusing DR rehearsal with NODE_ENV=production" >&2
   exit 2
 fi
-for candidate in "$SOURCE_ADMIN_URL" "$RESTORE_ADMIN_URL" "$RESTORE_AUTH_URL" "$RESTORE_APP_URL"; do
+for candidate in "$SOURCE_ADMIN_URL" "$RESTORE_ADMIN_URL" "$RESTORE_AUTH_URL" "$RESTORE_APP_URL" "$RESTORE_STORAGE_URL"; do
   if [[ "$candidate" =~ (^|[^a-z])(prod|production)([^a-z]|$) ]]; then
     echo "Refusing DR rehearsal: datasource appears production-like" >&2
     exit 2
@@ -24,8 +25,9 @@ if [[ "$SOURCE_ADMIN_URL" == "$RESTORE_ADMIN_URL" ]]; then
   echo "Refusing DR rehearsal: source and restore admin URLs are identical" >&2
   exit 2
 fi
-if [[ "$RESTORE_AUTH_URL" == "$RESTORE_APP_URL" ]]; then
-  echo "Refusing DR rehearsal: restore auth and app URLs must use different principals" >&2
+if [[ "$RESTORE_AUTH_URL" == "$RESTORE_APP_URL" || "$RESTORE_AUTH_URL" == "$RESTORE_STORAGE_URL" \
+  || "$RESTORE_APP_URL" == "$RESTORE_STORAGE_URL" ]]; then
+  echo "Refusing DR rehearsal: restore auth, app and storage URLs must use different principals" >&2
   exit 2
 fi
 
@@ -112,11 +114,16 @@ RESTORE_SECONDS="$(( $(date +%s) - RESTORE_STARTED_EPOCH ))"
 
 echo "[dr] restoring least-privilege runtime grants"
 psql "$RESTORE_ADMIN_URL" -X --set ON_ERROR_STOP=1 <<SQL
-GRANT CONNECT ON DATABASE "$RESTORE_DATABASE" TO one_deal_app, one_deal_auth;
+GRANT CONNECT ON DATABASE "$RESTORE_DATABASE" TO one_deal_app, one_deal_auth, one_deal_storage;
 GRANT USAGE ON SCHEMA public TO one_deal_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO one_deal_app;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO one_deal_app;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO one_deal_app;
+
+GRANT USAGE ON SCHEMA public TO one_deal_storage;
+GRANT SELECT ON public.deals, public.deal_participants TO one_deal_storage;
+GRANT SELECT, UPDATE ON public.deal_documents TO one_deal_storage;
+REVOKE INSERT, DELETE ON public.deal_documents FROM one_deal_storage;
 
 GRANT USAGE ON SCHEMA public, auth TO one_deal_auth;
 GRANT SELECT, INSERT, UPDATE ON public.users, public.user_orgs, public.organizations TO one_deal_auth;
@@ -152,6 +159,7 @@ fi
 NODE_ENV=test \
 DATABASE_URL="$RESTORE_APP_URL" \
 AUTH_DATABASE_URL="$RESTORE_AUTH_URL" \
+STORAGE_DATABASE_URL="$RESTORE_STORAGE_URL" \
 DB_PRINCIPAL_BOUNDARY_ENFORCED=true \
 JWT_SECRET="${JWT_SECRET:?JWT_SECRET is required}" \
 AUTH_TOKEN_PEPPER="${AUTH_TOKEN_PEPPER:?AUTH_TOKEN_PEPPER is required}" \

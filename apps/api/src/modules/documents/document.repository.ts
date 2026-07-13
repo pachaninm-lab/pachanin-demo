@@ -1,25 +1,55 @@
-import type { RuntimeCoreService } from '../runtime-core/runtime-core.service';
+import type { DealDocument, Prisma } from '@prisma/client';
+import type { RequestUser } from '../../common/types/request-user';
 
-/**
- * Injection token for the document data-access boundary.
- *
- * Controlled-pilot / pre-integration: default is the in-memory RuntimeCore
- * adapter. The DB-backed (Prisma) adapter is a disabled skeleton selected only
- * under the explicit PLATFORM_V7_DOCUMENT_REPOSITORY=prisma flag. No silent
- * Prisma activation.
- */
 export const DOCUMENT_REPOSITORY = 'DOCUMENT_REPOSITORY';
 
-/**
- * Repository boundary for document reads/writes. Abstracts how documents are
- * stored away from DocumentsService (which keeps matrix / completeness /
- * release-gate logic). Read methods are async to allow a future DB-backed
- * adapter; the runtime adapter resolves synchronously under the hood.
- */
+export type CreateDocumentVersionCommand = Readonly<{
+  sourceFileId: string;
+  type: string;
+  name?: string;
+  supersedesId?: string;
+  commandId: string;
+  idempotencyKey: string;
+  correlationId?: string;
+}>;
+
+export type SubmitDocumentSignatureCommand = Readonly<{
+  signatureFileId: string;
+  commandId: string;
+  idempotencyKey: string;
+  correlationId?: string;
+}>;
+
+export type GenerateDocumentPackageCommand = Readonly<{
+  commandId: string;
+  idempotencyKey: string;
+  correlationId?: string;
+}>;
+
+export type DocumentMutationResult = Readonly<{
+  document: DealDocument;
+  auditId: string;
+  outboxId: string;
+  duplicate: boolean;
+}>;
+
 export interface DocumentRepository {
-  list(): Promise<any[]>;
-  getById(id: string): Promise<any>;
-  upload(file: any, dto: any, user: any): any;
-  sign(id: string, user: any): any;
-  generateDealPackage(dealId: string, user: any): any;
+  list(user: RequestUser, dealId?: string): Promise<DealDocument[]>;
+  getById(id: string, user: RequestUser): Promise<DealDocument>;
+  createVersion(
+    command: CreateDocumentVersionCommand,
+    user: RequestUser,
+  ): Promise<DocumentMutationResult>;
+  submitSignature(
+    id: string,
+    command: SubmitDocumentSignatureCommand,
+    user: RequestUser,
+  ): Promise<DocumentMutationResult>;
+  generateDealPackage(
+    dealId: string,
+    command: GenerateDocumentPackageCommand,
+    user: RequestUser,
+  ): Promise<DocumentMutationResult>;
 }
+
+export type DocumentTransaction = Prisma.TransactionClient;

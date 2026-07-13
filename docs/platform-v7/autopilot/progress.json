@@ -3,12 +3,12 @@
   "fullTzReadinessPercent": 0,
   "currentStep": "IR-10.1 Documents PostgreSQL Authority",
   "lastCompletedStep": "#2407 PostgreSQL-authoritative Deal routes",
-  "openPr": null,
+  "openPr": "#2410",
   "blockedBy": [
     "IR-10.1 Documents PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-10.2 Logistics PostgreSQL Authority."
   ],
   "nextStep": "IR-10.1 Documents PostgreSQL Authority",
-  "updatedAt": "2026-07-12T21:23:53.193Z",
+  "updatedAt": "2026-07-12T23:13:25.350Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

@@ -90,6 +90,16 @@ async function snapshot(fixture: DealFixture, actionId: DealActionId) {
   };
 }
 
+async function removeDocumentFixture(documentId: string) {
+  await instance.prisma.$transaction(async (tx) => {
+    // The production principal cannot bypass RLS or the append-only trigger.
+    // This isolated admin-only setup removes an existing fixture so the test
+    // can prove that command execution never manufactures missing evidence.
+    await tx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
+    await tx.dealDocument.delete({ where: { id: documentId } });
+  });
+}
+
 function mutablePayload(fixture: DealFixture, actionId: DealActionId): Record<string, Prisma.InputJsonValue> {
   return { ...payloadForAction(fixture, actionId) };
 }
@@ -189,7 +199,7 @@ describe('Deal command no-fake-live PostgreSQL gate', () => {
 
   it('does not create a missing contract as already signed', async () => {
     const fixture = await provisionDeal(instance.prisma, 'nofake-contract', 240_000_000n);
-    await instance.prisma.dealDocument.delete({ where: { id: fixture.contractDocumentId } });
+    await removeDocumentFixture(fixture.contractDocumentId);
     await advance(fixture, [
       ['approve_admission', 'compliance'],
       ['publish_auction', 'farmer'],
@@ -236,7 +246,7 @@ describe('Deal command no-fake-live PostgreSQL gate', () => {
       ['finalize_lab', 'lab'],
       ['accept_delivery', 'buyer'],
     ]);
-    await instance.prisma.dealDocument.delete({ where: { id: `ttn:${fixture.dealId}` } });
+    await removeDocumentFixture(`ttn:${fixture.dealId}`);
     const beforeCount = await instance.prisma.dealDocument.count({ where: { dealId: fixture.dealId } });
     const before = await snapshot(fixture, 'complete_documents');
 

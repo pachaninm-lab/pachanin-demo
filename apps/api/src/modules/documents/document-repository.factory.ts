@@ -1,21 +1,17 @@
-import type { DocumentRepository } from './document.repository';
-import { RuntimeDocumentRepository } from './runtime-document.repository';
-import { PrismaDocumentRepository } from './prisma-document.repository';
+import { parseCriticalRepositoryMode } from '../../common/config/industrial-mode';
+import type { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import type { RuntimeCoreService } from '../runtime-core/runtime-core.service';
-import type { PrismaService } from '../../common/prisma/prisma.service';
+import type { DocumentRepository } from './document.repository';
+import { PrismaDocumentRepository } from './prisma-document.repository';
+import { RuntimeDocumentRepository } from './runtime-document.repository';
 
-/**
- * Selects the active document repository adapter. Default: runtime adapter.
- * The Prisma adapter is selected only when mode === 'prisma'
- * (PLATFORM_V7_DOCUMENT_REPOSITORY=prisma). No silent Prisma activation.
- */
+/** Explicit development/test composition helper. Production binds Prisma directly. */
 export function selectDocumentRepository(
   runtime: RuntimeCoreService,
-  prisma?: PrismaService,
-  mode: string | undefined = process.env.PLATFORM_V7_DOCUMENT_REPOSITORY,
+  rls: RlsTransactionService,
+  mode: string | undefined,
 ): DocumentRepository {
-  if (mode === 'prisma') {
-    return new PrismaDocumentRepository(prisma);
-  }
+  const selected = parseCriticalRepositoryMode('PLATFORM_V7_DOCUMENT_REPOSITORY', mode);
+  if (selected === 'prisma') return new PrismaDocumentRepository(rls);
   return new RuntimeDocumentRepository(runtime);
 }

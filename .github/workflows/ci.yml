@@ -148,11 +148,13 @@ jobs:
       ONE_DEAL_ADMIN_URL: postgresql://one_deal_admin:ephemeral_one_deal_admin_only@127.0.0.1:5432/one_deal_e2e
       ONE_DEAL_AUTH_URL: postgresql://one_deal_auth:ephemeral_one_deal_auth_only@127.0.0.1:5432/one_deal_e2e
       ONE_DEAL_APP_URL: postgresql://one_deal_app:ephemeral_one_deal_app_only@127.0.0.1:5432/one_deal_e2e
+      ONE_DEAL_STORAGE_URL: postgresql://one_deal_storage:ephemeral_one_deal_storage_only@127.0.0.1:5432/one_deal_e2e
       ONE_DEAL_EVIDENCE_LOG: /tmp/platform-v7-one-deal-e2e.log
       DR_SOURCE_ADMIN_URL: postgresql://one_deal_admin:ephemeral_one_deal_admin_only@127.0.0.1:5432/one_deal_e2e
       DR_RESTORE_ADMIN_URL: postgresql://one_deal_admin:ephemeral_one_deal_admin_only@127.0.0.1:5432/one_deal_restore
       DR_RESTORE_AUTH_URL: postgresql://one_deal_auth:ephemeral_one_deal_auth_only@127.0.0.1:5432/one_deal_restore
       DR_RESTORE_APP_URL: postgresql://one_deal_app:ephemeral_one_deal_app_only@127.0.0.1:5432/one_deal_restore
+      DR_RESTORE_STORAGE_URL: postgresql://one_deal_storage:ephemeral_one_deal_storage_only@127.0.0.1:5432/one_deal_restore
       DR_BACKUP_PATH: /tmp/platform-v7-predeploy.backup
       DR_MANIFEST_PATH: /tmp/platform-v7-dr-manifest.json
       DR_EVIDENCE_LOG: /tmp/platform-v7-dr-rehearsal.log

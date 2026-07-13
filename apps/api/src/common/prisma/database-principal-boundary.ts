@@ -62,6 +62,38 @@ export function resolveAuthDatabaseUrl(
   return authUrl || dealUrl || undefined;
 }
 
+function databasePrincipal(url: string): string {
+  try {
+    return decodeURIComponent(new URL(url).username).trim();
+  } catch {
+    throw new Error('PostgreSQL datasource URL is invalid.');
+  }
+}
+
+export function resolveStorageDatabaseUrl(
+  environment: DatabaseEnvironment = process.env,
+): string | undefined {
+  const storageUrl = String(environment.STORAGE_DATABASE_URL ?? '').trim();
+  const dealUrl = String(environment.DATABASE_URL ?? '').trim();
+  const authUrl = String(environment.AUTH_DATABASE_URL ?? '').trim();
+  const production = isProductionEnvironment(environment);
+
+  if (production && !storageUrl) {
+    throw new Error('STORAGE_DATABASE_URL is required in production.');
+  }
+  if (storageUrl) {
+    const storagePrincipal = databasePrincipal(storageUrl);
+    if (!storagePrincipal) throw new Error('STORAGE_DATABASE_URL must include a PostgreSQL principal.');
+    for (const [label, candidate] of [['DATABASE_URL', dealUrl], ['AUTH_DATABASE_URL', authUrl]] as const) {
+      if (candidate && databasePrincipal(candidate) === storagePrincipal) {
+        throw new Error(`STORAGE_DATABASE_URL must use a different PostgreSQL principal than ${label}.`);
+      }
+    }
+  }
+
+  return storageUrl || dealUrl || undefined;
+}
+
 function evaluateRoleIsolation(snapshot: DatabasePrincipalSnapshot, label: 'deal' | 'auth'): string[] {
   const errors: string[] = [];
   if (snapshot.roleInherit) errors.push(`${label} principal must be NOINHERIT`);
