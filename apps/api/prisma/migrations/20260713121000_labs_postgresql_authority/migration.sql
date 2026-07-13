@@ -1,7 +1,38 @@
--- IR-10.3 canonical finalize guard.
--- The legacy Deal command shape is retained as an input contract, while
--- PostgreSQL derives the authoritative protocol from persisted custody, methods,
--- calibrated equipment and immutable test facts. Client indicator rewrites are ignored.
+-- IR-10.3 canonical protocol finalization guard.
+-- PostgreSQL derives the protocol from persisted custody, active methods,
+-- calibrated equipment and immutable, non-superseded test facts.
+
+CREATE OR REPLACE FUNCTION public.app_labs_protocol_evidence_valid(
+  p_evidence_id TEXT,
+  p_tenant_id TEXT,
+  p_deal_id TEXT,
+  p_sample_id TEXT,
+  p_shipment_id TEXT,
+  p_protocol_number TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = pg_catalog, public
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public."deal_documents" evidence
+    WHERE evidence."id" = p_evidence_id
+      AND evidence."tenantId" = p_tenant_id
+      AND evidence."dealId" = p_deal_id
+      AND evidence."type" = 'EVIDENCE_FILE'
+      AND evidence."status" = 'VERIFIED'
+      AND evidence."isImmutable"
+      AND evidence."hash" IS NOT NULL
+      AND evidence."s3Key" IS NOT NULL
+      AND evidence."metadata" ->> 'purpose' = 'LAB_PROTOCOL_SIGNATURE'
+      AND evidence."metadata" ->> 'sampleId' = p_sample_id
+      AND evidence."metadata" ->> 'shipmentId' = p_shipment_id
+      AND evidence."metadata" ->> 'protocolNumber' = p_protocol_number
+  )
+$function$;
 
 CREATE OR REPLACE FUNCTION public.app_labs_sample_state_guard()
 RETURNS trigger
@@ -13,10 +44,12 @@ DECLARE
   laboratory labs.laboratories%ROWTYPE;
   derived_result TEXT;
   derived_standard TEXT;
+  derived_protocol_number TEXT;
   protocol_id TEXT;
   command_id TEXT;
   previous_custody_hash TEXT;
   custody_material TEXT;
+  active_test_count INTEGER;
 BEGIN
   IF NEW."id" IS DISTINCT FROM OLD."id"
      OR NEW."dealId" IS DISTINCT FROM OLD."dealId"
@@ -34,28 +67,42 @@ BEGIN
     RAISE EXCEPTION 'finalized laboratory sample is immutable' USING ERRCODE = '23514';
   END IF;
 
-  -- Canonical Deal command historically emits DONE. Normalize it to the single
-  -- industrial state without exposing a second state machine.
-  IF NEW."status" = 'DONE' THEN
-    NEW."status" := 'FINALIZED';
-  END IF;
-
   IF NEW."status" IS DISTINCT FROM OLD."status" AND NOT (
     (OLD."status" = 'CREATED' AND NEW."status" = 'COLLECTED') OR
     (OLD."status" = 'COLLECTED' AND NEW."status" = 'IN_TRANSIT') OR
     (OLD."status" = 'IN_TRANSIT' AND NEW."status" = 'RECEIVED') OR
     (OLD."status" = 'RECEIVED' AND NEW."status" = 'ANALYSIS_IN_PROGRESS') OR
-    (OLD."status" IN ('PENDING','ANALYSIS_IN_PROGRESS') AND NEW."status" = 'FINALIZED')
+    (OLD."status" = 'ANALYSIS_IN_PROGRESS' AND NEW."status" = 'FINALIZED')
   ) THEN
     RAISE EXCEPTION 'invalid laboratory sample state transition' USING ERRCODE = '23514';
   END IF;
 
   IF NEW."status" = 'FINALIZED' AND OLD."status" <> 'FINALIZED' THEN
-    IF OLD."custodyStatus" NOT IN ('RECEIVED','OPENED','ANALYSIS_IN_PROGRESS') THEN
+    IF OLD."custodyStatus" NOT IN ('OPENED','ANALYSIS_IN_PROGRESS') THEN
       RAISE EXCEPTION 'complete laboratory custody is required for finalization' USING ERRCODE = '23514';
     END IF;
-    IF NEW."labId" IS NULL OR NEW."certificateDocId" IS NULL OR NEW."protocol" IS NULL THEN
-      RAISE EXCEPTION 'protocol, laboratory and signed evidence are required' USING ERRCODE = '23514';
+    IF OLD."shipmentId" IS NULL OR OLD."acceptanceId" IS NULL OR OLD."labId" IS NULL
+       OR NEW."certificateDocId" IS NULL THEN
+      RAISE EXCEPTION 'sample, shipment, acceptance, laboratory and signed evidence are required' USING ERRCODE = '23514';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM labs.sample_custody_events event
+      WHERE event.sample_id = OLD."id" AND event.event_type = 'CREATED'
+    ) OR NOT EXISTS (
+      SELECT 1 FROM labs.sample_custody_events event
+      WHERE event.sample_id = OLD."id" AND event.event_type = 'COLLECTED'
+    ) OR NOT EXISTS (
+      SELECT 1 FROM labs.sample_custody_events event
+      WHERE event.sample_id = OLD."id" AND event.event_type = 'HANDOFF'
+    ) OR NOT EXISTS (
+      SELECT 1 FROM labs.sample_custody_events event
+      WHERE event.sample_id = OLD."id" AND event.event_type = 'RECEIVED'
+    ) OR NOT EXISTS (
+      SELECT 1 FROM labs.sample_custody_events event
+      WHERE event.sample_id = OLD."id" AND event.event_type = 'OPENED'
+    ) THEN
+      RAISE EXCEPTION 'complete append-only custody chain is required' USING ERRCODE = '23514';
     END IF;
 
     SELECT * INTO laboratory
@@ -72,62 +119,108 @@ BEGIN
       RAISE EXCEPTION 'active accredited laboratory authority is required' USING ERRCODE = '23514';
     END IF;
 
-    IF NOT public.app_labs_evidence_valid(
-      NEW."certificateDocId", OLD."tenantId", OLD."dealId"
-    ) THEN
-      RAISE EXCEPTION 'signed protocol evidence is not verified immutable Deal evidence' USING ERRCODE = '23514';
-    END IF;
-
     IF current_setting('app.current_role', true) NOT IN ('LAB','SUPPORT_MANAGER','ADMIN') THEN
       RAISE EXCEPTION 'laboratory protocol finalization role denied' USING ERRCODE = '42501';
     END IF;
-    IF current_setting('app.current_role', true) = 'LAB' AND (
-      current_setting('app.current_org_id', true) <> OLD."labId"
-      OR NOT EXISTS (
-        SELECT 1 FROM labs.authorized_actors actor
-        WHERE actor.tenant_id = OLD."tenantId"
-          AND actor.laboratory_org_id = OLD."labId"
-          AND actor.user_id = current_setting('app.current_user_id', true)
-          AND actor.actor_type IN ('ANALYST','SIGNATORY')
-          AND actor.status = 'ACTIVE'
-          AND actor.valid_from <= now()
-          AND (actor.valid_until IS NULL OR actor.valid_until > now())
-      )
+    IF NOT public.app_rls_privileged() AND NOT EXISTS (
+      SELECT 1 FROM labs.authorized_actors actor
+      WHERE actor.tenant_id = OLD."tenantId"
+        AND actor.laboratory_org_id = OLD."labId"
+        AND actor.user_id = current_setting('app.current_user_id', true)
+        AND actor.actor_type = 'SIGNATORY'
+        AND actor.status = 'ACTIVE'
+        AND actor.valid_from <= now()
+        AND (actor.valid_until IS NULL OR actor.valid_until > now())
     ) THEN
       RAISE EXCEPTION 'authorized laboratory signatory is required' USING ERRCODE = '42501';
     END IF;
 
-    IF NOT EXISTS (
-      SELECT 1
+    derived_protocol_number := 'LAB-' || OLD."sampleCode" || '-V1';
+    IF NOT public.app_labs_protocol_evidence_valid(
+      NEW."certificateDocId", OLD."tenantId", OLD."dealId", OLD."id",
+      OLD."shipmentId", derived_protocol_number
+    ) THEN
+      RAISE EXCEPTION 'signed protocol evidence is not bound to this sample and protocol' USING ERRCODE = '23514';
+    END IF;
+
+    WITH active_tests AS (
+      SELECT test.*
       FROM public."lab_tests" test
-      JOIN labs.methods method ON method.id = test."methodId"
-      JOIN labs.equipment equipment ON equipment.id = test."equipmentId"
       WHERE test."sampleId" = OLD."id"
         AND test."tenantId" = OLD."tenantId"
-        AND test."evidenceFileId" IS NOT NULL
-        AND test."actorUserId" IS NOT NULL
-        AND test."commandId" IS NOT NULL
-        AND test."idempotencyKey" IS NOT NULL
-        AND method.tenant_id = OLD."tenantId"
-        AND method.laboratory_org_id = OLD."labId"
-        AND method.status = 'ACTIVE'
-        AND equipment.tenant_id = OLD."tenantId"
-        AND equipment.laboratory_org_id = OLD."labId"
-        AND equipment.status = 'ACTIVE'
-        AND equipment.calibration_valid_until > test."recordedAt"
-        AND public.app_labs_evidence_valid(test."evidenceFileId", OLD."tenantId", OLD."dealId")
-    ) THEN
+        AND NOT EXISTS (
+          SELECT 1 FROM public."lab_tests" correction
+          WHERE correction."supersedesId" = test."id"
+        )
+    )
+    SELECT count(*) INTO active_test_count FROM active_tests;
+    IF active_test_count = 0 THEN
       RAISE EXCEPTION 'at least one persisted authoritative laboratory test is required' USING ERRCODE = '23514';
     END IF;
 
+    IF EXISTS (
+      WITH active_tests AS (
+        SELECT test.*
+        FROM public."lab_tests" test
+        WHERE test."sampleId" = OLD."id"
+          AND test."tenantId" = OLD."tenantId"
+          AND NOT EXISTS (
+            SELECT 1 FROM public."lab_tests" correction
+            WHERE correction."supersedesId" = test."id"
+          )
+      )
+      SELECT 1 FROM active_tests GROUP BY "parameter" HAVING count(*) <> 1
+    ) THEN
+      RAISE EXCEPTION 'protocol requires exactly one active fact per parameter' USING ERRCODE = '23514';
+    END IF;
+
+    IF EXISTS (
+      WITH active_tests AS (
+        SELECT test.*
+        FROM public."lab_tests" test
+        WHERE test."sampleId" = OLD."id"
+          AND test."tenantId" = OLD."tenantId"
+          AND NOT EXISTS (
+            SELECT 1 FROM public."lab_tests" correction
+            WHERE correction."supersedesId" = test."id"
+          )
+      )
+      SELECT 1
+      FROM active_tests test
+      JOIN labs.methods method ON method.id = test."methodId"
+      JOIN labs.equipment equipment ON equipment.id = test."equipmentId"
+      WHERE test."evidenceFileId" IS NULL
+         OR test."actorUserId" IS NULL
+         OR test."commandId" IS NULL
+         OR test."idempotencyKey" IS NULL
+         OR method.tenant_id <> OLD."tenantId"
+         OR method.laboratory_org_id <> OLD."labId"
+         OR method.status <> 'ACTIVE'
+         OR equipment.tenant_id <> OLD."tenantId"
+         OR equipment.laboratory_org_id <> OLD."labId"
+         OR equipment.status <> 'ACTIVE'
+         OR equipment.calibration_valid_until <= test."recordedAt"
+         OR NOT public.app_labs_evidence_valid(test."evidenceFileId", OLD."tenantId", OLD."dealId")
+    ) THEN
+      RAISE EXCEPTION 'active laboratory test authority is invalid' USING ERRCODE = '23514';
+    END IF;
+
+    WITH active_tests AS (
+      SELECT test.*
+      FROM public."lab_tests" test
+      WHERE test."sampleId" = OLD."id"
+        AND test."tenantId" = OLD."tenantId"
+        AND NOT EXISTS (
+          SELECT 1 FROM public."lab_tests" correction
+          WHERE correction."supersedesId" = test."id"
+        )
+    )
     SELECT
       CASE WHEN bool_and(test."result" = 'PASSED') THEN 'PASSED' ELSE 'FAILED' END,
       string_agg(DISTINCT method.standard_ref, ',' ORDER BY method.standard_ref)
     INTO derived_result, derived_standard
-    FROM public."lab_tests" test
-    JOIN labs.methods method ON method.id = test."methodId"
-    WHERE test."sampleId" = OLD."id"
-      AND test."tenantId" = OLD."tenantId";
+    FROM active_tests test
+    JOIN labs.methods method ON method.id = test."methodId";
 
     IF derived_result IS NULL OR derived_standard IS NULL THEN
       RAISE EXCEPTION 'protocol result and standard cannot be derived' USING ERRCODE = '23514';
@@ -138,6 +231,7 @@ BEGIN
       RAISE EXCEPTION 'trusted command id is required for protocol finalization' USING ERRCODE = '23514';
     END IF;
 
+    NEW."protocol" := derived_protocol_number;
     NEW."protocolResult" := derived_result;
     NEW."gost" := derived_standard;
     NEW."labName" := (
@@ -145,7 +239,7 @@ BEGIN
       WHERE organization."id" = OLD."labId"
     );
     NEW."custodyStatus" := 'FINALIZED';
-    NEW."finalizedAt" := COALESCE(NEW."finalizedAt", now());
+    NEW."finalizedAt" := now();
     NEW."latestEvidenceFileId" := NEW."certificateDocId";
     NEW."version" := OLD."version" + 1;
     NEW."updatedAt" := now();
@@ -156,7 +250,7 @@ BEGIN
       accreditation_ref, standard_ref, result, signed_evidence_file_id,
       finalized_by_user_id, finalized_at, version
     ) VALUES (
-      protocol_id, OLD."id", OLD."tenantId", NEW."protocol", OLD."labId",
+      protocol_id, OLD."id", OLD."tenantId", derived_protocol_number, OLD."labId",
       laboratory.accreditation_ref, derived_standard, derived_result,
       NEW."certificateDocId", current_setting('app.current_user_id', true),
       NEW."finalizedAt", 1
@@ -192,9 +286,6 @@ BEGIN
 END
 $function$;
 
--- Existing canonical code attempts delete/recreate after updating the sample.
--- Never delete confirmed tests. Returning NULL makes the legacy delete a no-op;
--- a subsequent insert against a FINALIZED sample is also ignored by the insert guard.
 CREATE OR REPLACE FUNCTION public.app_labs_test_append_only()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -202,9 +293,6 @@ SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $function$
 BEGIN
-  IF TG_OP = 'DELETE' THEN
-    RETURN NULL;
-  END IF;
   RAISE EXCEPTION 'confirmed laboratory test facts are append-only' USING ERRCODE = '23514';
 END
 $function$;
@@ -229,7 +317,7 @@ BEGIN
     RAISE EXCEPTION 'laboratory sample does not exist' USING ERRCODE = '23503';
   END IF;
   IF sample_record."status" = 'FINALIZED' THEN
-    RETURN NULL;
+    RAISE EXCEPTION 'finalized laboratory sample cannot accept new test facts' USING ERRCODE = '23514';
   END IF;
   IF sample_record."status" NOT IN ('RECEIVED','ANALYSIS_IN_PROGRESS') THEN
     RAISE EXCEPTION 'laboratory sample is not ready for test recording' USING ERRCODE = '23514';
@@ -242,14 +330,41 @@ BEGIN
      OR method_record.laboratory_org_id <> sample_record."labId"
      OR equipment_record.laboratory_org_id <> sample_record."labId"
      OR method_record.status <> 'ACTIVE' OR equipment_record.status <> 'ACTIVE'
-     OR equipment_record.calibration_valid_until <= now()
+     OR method_record.valid_from > NEW."recordedAt"
+     OR (method_record.valid_until IS NOT NULL AND method_record.valid_until <= NEW."recordedAt")
+     OR equipment_record.calibration_valid_until <= NEW."recordedAt"
   THEN
     RAISE EXCEPTION 'laboratory method or equipment authority is invalid' USING ERRCODE = '23514';
   END IF;
   IF NEW."actorUserId" <> current_setting('app.current_user_id', true)
-     OR NOT public.app_labs_evidence_valid(NEW."evidenceFileId", sample_record."tenantId", sample_record."dealId")
+     OR NOT EXISTS (
+       SELECT 1 FROM labs.authorized_actors actor
+       WHERE actor.tenant_id = sample_record."tenantId"
+         AND actor.laboratory_org_id = sample_record."labId"
+         AND actor.user_id = NEW."actorUserId"
+         AND actor.actor_type = 'ANALYST'
+         AND actor.status = 'ACTIVE'
+         AND actor.valid_from <= NEW."recordedAt"
+         AND (actor.valid_until IS NULL OR actor.valid_until > NEW."recordedAt")
+     )
+     OR NOT public.app_labs_evidence_valid(
+       NEW."evidenceFileId", sample_record."tenantId", sample_record."dealId"
+     )
   THEN
     RAISE EXCEPTION 'laboratory test actor or evidence authority is invalid' USING ERRCODE = '23514';
+  END IF;
+  IF NEW."supersedesId" IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public."lab_tests" prior
+      WHERE prior."id" = NEW."supersedesId"
+        AND prior."sampleId" = NEW."sampleId"
+        AND prior."parameter" = method_record.parameter
+    ) OR EXISTS (
+      SELECT 1 FROM public."lab_tests" correction
+      WHERE correction."supersedesId" = NEW."supersedesId"
+    ) THEN
+      RAISE EXCEPTION 'laboratory correction must supersede one active fact of the same parameter' USING ERRCODE = '23514';
+    END IF;
   END IF;
   NEW."tenantId" := sample_record."tenantId";
   NEW."parameter" := method_record.parameter;
@@ -265,6 +380,10 @@ BEGIN
   RETURN NEW;
 END
 $function$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS lab_tests_one_correction_per_fact_key
+  ON public."lab_tests" ("supersedesId")
+  WHERE "supersedesId" IS NOT NULL;
 
 CREATE OR REPLACE FUNCTION public.app_labs_acceptance_quality_guard()
 RETURNS trigger
