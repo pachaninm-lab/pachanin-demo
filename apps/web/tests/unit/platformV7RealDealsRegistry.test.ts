@@ -25,22 +25,53 @@ describe('platform-v7 real deals registry', () => {
     expect(page).not.toContain('dangerouslySetInnerHTML');
   });
 
-  it('loads only participant-scoped server data with bounded growth', () => {
-    expect(registry).toContain("const INITIAL_LIMIT = 20");
-    expect(registry).toContain("const MAX_LIMIT = 100");
-    expect(registry).toContain('/api/proxy/deals/accessible?limit=${boundedLimit}');
-    expect(registry).toContain('Math.min(limit + LIMIT_STEP, MAX_LIMIT)');
+  it('appends participant-scoped server pages by signed cursor instead of reloading the first N rows', () => {
+    expect(registry).toContain('const PAGE_LIMIT = 20');
+    expect(registry).toContain("params.set('cursor', cursor)");
+    expect(registry).toContain("void load('more', nextCursor)");
+    expect(registry).toContain('appendUniqueDeals(current.items, page.items)');
+    expect(registry).toContain('hasMore && Boolean(nextCursor)');
     expect(registry).toContain('Список формирует сервер с учётом участия и полномочий');
     expect(registry).toContain('Реестр не был заменён локальными данными');
+    expect(registry).not.toContain('MAX_LIMIT');
+    expect(registry).not.toContain('LIMIT_STEP');
+    expect(registry).not.toContain('Math.min(limit +');
+    expect(registry).not.toContain('Показаны первые 100 сделок');
     expect(registry).not.toContain('DL-9102');
     expect(registry).not.toContain('LOT-2401');
     expect(registry).not.toContain("new Date('2024-");
   });
 
-  it('exports exactly the currently loaded real rows instead of fixture data', () => {
+  it('validates and displays server priority, deadline and exact money impact', () => {
+    expect(registry).toContain('moneyImpactKopecks: string | null');
+    expect(registry).toContain('deadlineAt: string | null');
+    expect(registry).toContain('priorityReason: string');
+    expect(registry).toContain('priorityRank: number');
+    expect(registry).toContain('myAccessLevel: string');
+    expect(registry).toContain("DISPUTE_CONTROL: 'Спор требует контроля'");
+    expect(registry).toContain("MONEY_CONTROL: 'Деньги требуют контроля'");
+    expect(registry).toContain("OVERDUE_ACTION: 'Срок нарушен'");
+    expect(registry).toContain('formatMoney(deal.moneyImpactKopecks, deal.totalKopecks, deal.currency)');
+    expect(registry).toContain('deal.deadlineAt ? `Срок:');
+    expect(registryStyles).toContain(".priorityBadge[data-priority='DISPUTE_CONTROL']");
+    expect(registryStyles).toContain(".priorityBadge[data-priority='MONEY_CONTROL']");
+  });
+
+  it('keeps loaded rows visible when the next cursor page fails', () => {
+    expect(registry).toContain("if (mode === 'more') setLoadMoreError(message)");
+    expect(registry).toContain("current.kind === 'ready'");
+    expect(registry).toContain('loadMoreError ? (');
+    expect(registry).toContain('Повторить загрузку');
+    expect(registry).not.toContain("setState({ kind: 'error', message, limit:");
+  });
+
+  it('exports exactly the currently loaded real rows with priority and deadline', () => {
     expect(registry).toContain('async function exportVisibleDeals(items: AccessibleDeal[])');
     expect(registry).toContain("workbook.creator = 'Прозрачная Цена'");
     expect(registry).toContain('for (const deal of items)');
+    expect(registry).toContain("header: 'Причина приоритета'");
+    expect(registry).toContain("header: 'Срок'");
+    expect(registry).toContain('exportMoney(deal.moneyImpactKopecks, deal.totalKopecks)');
     expect(registry).toContain('Скачать показанные сделки');
     expect(registry).toContain('прозрачная-цена-сделки-');
   });
