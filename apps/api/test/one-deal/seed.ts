@@ -73,79 +73,95 @@ async function seedNormalizedLogisticsAdmission(prisma: PrismaService): Promise<
       },
     });
 
-    await tx.$executeRawUnsafe(`
+    await tx.$executeRaw(Prisma.sql`
       INSERT INTO logistics.carriers (
         id, tenant_id, organization_id, status, evidence_file_id
       ) VALUES (
-        'carrier:${LOGISTICS_CARRIER_ORG_ID}', '${CANONICAL_TENANT_ID}',
-        '${LOGISTICS_CARRIER_ORG_ID}', 'VERIFIED', '${LOGISTICS_EVIDENCE_ID}'
+        ${`carrier:${LOGISTICS_CARRIER_ORG_ID}`}, ${CANONICAL_TENANT_ID},
+        ${LOGISTICS_CARRIER_ORG_ID}, 'VERIFIED', ${LOGISTICS_EVIDENCE_ID}
       )
       ON CONFLICT (tenant_id, organization_id) DO UPDATE SET
         status = 'VERIFIED', evidence_file_id = EXCLUDED.evidence_file_id,
-        valid_until = NULL, updated_at = now();
-
+        valid_until = NULL, updated_at = now()
+    `);
+    await tx.$executeRaw(Prisma.sql`
       INSERT INTO logistics.drivers (
         id, tenant_id, carrier_org_id, user_id, status, evidence_file_id
       ) VALUES (
-        'driver-registry:${LOGISTICS_DRIVER_USER_ID}', '${CANONICAL_TENANT_ID}',
-        '${LOGISTICS_CARRIER_ORG_ID}', '${LOGISTICS_DRIVER_USER_ID}', 'ACTIVE',
-        '${LOGISTICS_EVIDENCE_ID}'
+        ${`driver-registry:${LOGISTICS_DRIVER_USER_ID}`}, ${CANONICAL_TENANT_ID},
+        ${LOGISTICS_CARRIER_ORG_ID}, ${LOGISTICS_DRIVER_USER_ID}, 'ACTIVE',
+        ${LOGISTICS_EVIDENCE_ID}
       )
       ON CONFLICT (tenant_id, user_id) DO UPDATE SET
         carrier_org_id = EXCLUDED.carrier_org_id, status = 'ACTIVE',
         evidence_file_id = EXCLUDED.evidence_file_id, valid_until = NULL,
-        updated_at = now();
-
+        updated_at = now()
+    `);
+    await tx.$executeRaw(Prisma.sql`
       INSERT INTO logistics.vehicles (
         id, tenant_id, carrier_org_id, registration_number, vehicle_type,
         status, evidence_file_id
       ) VALUES (
-        '${LOGISTICS_VEHICLE_ID}', '${CANONICAL_TENANT_ID}',
-        '${LOGISTICS_CARRIER_ORG_ID}', 'А001АА77', 'TRUCK', 'ACTIVE',
-        '${LOGISTICS_EVIDENCE_ID}'
+        ${LOGISTICS_VEHICLE_ID}, ${CANONICAL_TENANT_ID},
+        ${LOGISTICS_CARRIER_ORG_ID}, 'А001АА77', 'TRUCK', 'ACTIVE',
+        ${LOGISTICS_EVIDENCE_ID}
       )
       ON CONFLICT (id) DO UPDATE SET
         carrier_org_id = EXCLUDED.carrier_org_id, status = 'ACTIVE',
         evidence_file_id = EXCLUDED.evidence_file_id, valid_until = NULL,
-        updated_at = now();
-
+        updated_at = now()
+    `);
+    await tx.$executeRaw(Prisma.sql`
       INSERT INTO logistics.driver_vehicle_links (
         id, tenant_id, driver_id, vehicle_id, status
       ) VALUES (
-        'driver-vehicle:${LOGISTICS_DRIVER_USER_ID}', '${CANONICAL_TENANT_ID}',
-        'driver-registry:${LOGISTICS_DRIVER_USER_ID}', '${LOGISTICS_VEHICLE_ID}', 'ACTIVE'
+        ${`driver-vehicle:${LOGISTICS_DRIVER_USER_ID}`}, ${CANONICAL_TENANT_ID},
+        ${`driver-registry:${LOGISTICS_DRIVER_USER_ID}`}, ${LOGISTICS_VEHICLE_ID}, 'ACTIVE'
       )
       ON CONFLICT (tenant_id, driver_id, vehicle_id) DO UPDATE SET
-        status = 'ACTIVE', valid_until = NULL;
-
+        status = 'ACTIVE', valid_until = NULL
+    `);
+    await tx.$executeRaw(Prisma.sql`
       INSERT INTO logistics.facilities (
         id, tenant_id, organization_id, facility_type, name, status,
         evidence_file_id
-      ) VALUES
-        ('${LOGISTICS_ROUTE_FROM_ID}', '${CANONICAL_TENANT_ID}',
-         'org-canonical-seller', 'DISPATCH', 'Seller dispatch', 'ACTIVE',
-         '${LOGISTICS_EVIDENCE_ID}'),
-        ('${LOGISTICS_ROUTE_TO_ID}', '${CANONICAL_TENANT_ID}',
-         'org-canonical-buyer', 'ACCEPTANCE', 'Buyer acceptance', 'ACTIVE',
-         '${LOGISTICS_EVIDENCE_ID}')
+      ) VALUES (
+        ${LOGISTICS_ROUTE_FROM_ID}, ${CANONICAL_TENANT_ID},
+        'org-canonical-seller', 'DISPATCH', 'Seller dispatch', 'ACTIVE',
+        ${LOGISTICS_EVIDENCE_ID}
+      )
       ON CONFLICT (id) DO UPDATE SET
         status = 'ACTIVE', evidence_file_id = EXCLUDED.evidence_file_id,
-        valid_until = NULL, updated_at = now();
-
+        valid_until = NULL, updated_at = now()
+    `);
+    await tx.$executeRaw(Prisma.sql`
+      INSERT INTO logistics.facilities (
+        id, tenant_id, organization_id, facility_type, name, status,
+        evidence_file_id
+      ) VALUES (
+        ${LOGISTICS_ROUTE_TO_ID}, ${CANONICAL_TENANT_ID},
+        'org-canonical-buyer', 'ACCEPTANCE', 'Buyer acceptance', 'ACTIVE',
+        ${LOGISTICS_EVIDENCE_ID}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        status = 'ACTIVE', evidence_file_id = EXCLUDED.evidence_file_id,
+        valid_until = NULL, updated_at = now()
+    `);
+    await tx.$executeRaw(Prisma.sql`
       INSERT INTO logistics.deal_admissions (
         id, tenant_id, deal_id, carrier_org_id, driver_user_id, vehicle_id,
         route_from_facility_id, route_to_facility_id, status, evidence_file_id
       ) VALUES (
-        'admission:${CANONICAL_TEST_DEAL_ID}', '${CANONICAL_TENANT_ID}',
-        '${CANONICAL_TEST_DEAL_ID}', '${LOGISTICS_CARRIER_ORG_ID}',
-        '${LOGISTICS_DRIVER_USER_ID}', '${LOGISTICS_VEHICLE_ID}',
-        '${LOGISTICS_ROUTE_FROM_ID}', '${LOGISTICS_ROUTE_TO_ID}', 'ACTIVE',
-        '${LOGISTICS_EVIDENCE_ID}'
+        ${`admission:${CANONICAL_TEST_DEAL_ID}`}, ${CANONICAL_TENANT_ID},
+        ${CANONICAL_TEST_DEAL_ID}, ${LOGISTICS_CARRIER_ORG_ID},
+        ${LOGISTICS_DRIVER_USER_ID}, ${LOGISTICS_VEHICLE_ID},
+        ${LOGISTICS_ROUTE_FROM_ID}, ${LOGISTICS_ROUTE_TO_ID}, 'ACTIVE',
+        ${LOGISTICS_EVIDENCE_ID}
       )
       ON CONFLICT (id) DO UPDATE SET
         status = 'ACTIVE', evidence_file_id = EXCLUDED.evidence_file_id,
         consumed_at = NULL, consumed_by_command_id = NULL,
-        valid_until = NULL, updated_at = now();
+        valid_until = NULL, updated_at = now()
     `);
   });
 }
