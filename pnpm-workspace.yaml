@@ -2,3 +2,5 @@ packages:
   - "apps/api"
   - "apps/web"
   - "packages/*"
+  - "!packages/design-tokens"
+  - "!packages/design-system-v8"
