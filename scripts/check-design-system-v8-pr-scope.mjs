@@ -5,6 +5,7 @@ const exact = new Set([
   '.github/workflows/platform-v7-autopilot-guard.yml',
   'apps/web/components/platform-v7/NextActionCard.tsx',
   'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx',
+  'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx',
   'apps/web/components/v7r/AppShellV4.tsx',
   'apps/web/components/v7r/AppShellV4.module.css',
   'apps/web/tests/unit/designSystemV8Foundation.test.ts',
