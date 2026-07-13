@@ -1,9 +1,10 @@
 'use client';
 
 import { Calculator, Delete, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
+import styles from './CalculatorHeaderWidget.module.css';
 
 function useHeaderActionsMount() {
   const [mount, setMount] = useState<Element | null>(null);
@@ -65,7 +66,7 @@ function readNumber(value: string | number | undefined) {
 
 function formatMoney(value: number) {
   if (!Number.isFinite(value)) return '—';
-  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(value)) + ' ₽';
+  return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(value))} ₽`;
 }
 
 function formatPlain(value: number, suffix = '') {
@@ -278,6 +279,7 @@ function CalculatorPanel({ role, onClose }: { role: PlatformRole; onClose: () =>
   const [operator, setOperator] = useState<Operator>(null);
   const [fresh, setFresh] = useState(true);
   const [roleValues, setRoleValues] = useState<Record<string, string>>({});
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const shownOperator = useMemo(() => operator ?? '—', [operator]);
   const rolePreset = ROLE_CALCULATORS[role];
@@ -290,11 +292,25 @@ function CalculatorPanel({ role, onClose }: { role: PlatformRole; onClose: () =>
     setRoleValues(Object.fromEntries(rolePreset.fields.map((field) => [field.key, field.defaultValue])));
   }, [rolePreset]);
 
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
+
   const numericRoleValues = useMemo(
-    () => rolePreset ? Object.fromEntries(rolePreset.fields.map((field) => [field.key, readNumber(roleValues[field.key])])) : {},
-    [rolePreset, roleValues]
+    () => rolePreset
+      ? Object.fromEntries(rolePreset.fields.map((field) => [field.key, readNumber(roleValues[field.key])]))
+      : {},
+    [rolePreset, roleValues],
   );
-  const roleResults = useMemo(() => rolePreset ? rolePreset.compute(numericRoleValues) : [], [numericRoleValues, rolePreset]);
+  const roleResults = useMemo(
+    () => rolePreset ? rolePreset.compute(numericRoleValues) : [],
+    [numericRoleValues, rolePreset],
+  );
 
   const inputDigit = (digit: string) => {
     setDisplay((value) => {
@@ -307,7 +323,7 @@ function CalculatorPanel({ role, onClose }: { role: PlatformRole; onClose: () =>
   const inputDecimal = () => {
     setDisplay((value) => {
       if (fresh || value === 'Ошибка') return '0,';
-      return value.includes(',') ? value : value + ',';
+      return value.includes(',') ? value : `${value},`;
     });
     setFresh(false);
   };
@@ -357,29 +373,41 @@ function CalculatorPanel({ role, onClose }: { role: PlatformRole; onClose: () =>
 
   const buttons = ['7', '8', '9', '÷', '4', '5', '6', '×', '1', '2', '3', '-', '0', ',', '=', '+'];
 
+  const keyClassName = (button: string) => {
+    if (button === '=') return `${styles.key} ${styles.equalsKey}`;
+    if (['+', '-', '×', '÷'].includes(button)) return `${styles.key} ${styles.operatorKey}`;
+    return styles.key;
+  };
+
   return (
-    <div className='p7-calc-panel' role='dialog' aria-label='Калькулятор'>
-      <div className='p7-calc-head'>
-        <div>
-          <strong>Калькулятор</strong>
-          <span>{rolePreset ? `${ROLE_LABELS[role]} · обычный + ролевой расчёт` : `${ROLE_LABELS[role]} · обычный расчёт`}</span>
+    <div className={styles.panel} role='dialog' aria-modal='false' aria-label='Калькулятор'>
+      <div className={styles.head}>
+        <div className={styles.headCopy}>
+          <strong className={styles.headTitle}>Калькулятор</strong>
+          <span className={styles.headSubtitle}>
+            {rolePreset ? `${ROLE_LABELS[role]} · обычный + ролевой расчёт` : `${ROLE_LABELS[role]} · обычный расчёт`}
+          </span>
         </div>
-        <button type='button' onClick={onClose} aria-label='Закрыть калькулятор'><X size={15} /></button>
+        <button ref={closeButtonRef} className={styles.closeButton} type='button' onClick={onClose} aria-label='Закрыть калькулятор'>
+          <X size={16} aria-hidden='true' />
+        </button>
       </div>
-      <div className='p7-calc-display'>
-        <span>{stored !== null ? `${formatValue(stored)} ${shownOperator}` : 'Обычный расчёт'}</span>
-        <strong>{display}</strong>
+
+      <div className={styles.display} aria-live='polite'>
+        <span className={styles.displayMeta}>{stored !== null ? `${formatValue(stored)} ${shownOperator}` : 'Обычный расчёт'}</span>
+        <strong className={styles.displayValue}>{display}</strong>
       </div>
-      <div className='p7-calc-grid'>
-        <button type='button' className='p7-calc-soft' onClick={clear}>C</button>
-        <button type='button' className='p7-calc-soft' onClick={backspace}><Delete size={15} /></button>
-        <button type='button' className='p7-calc-soft' onClick={() => chooseOperator('÷')}>÷</button>
-        <button type='button' className='p7-calc-soft' onClick={() => chooseOperator('×')}>×</button>
+
+      <div className={styles.grid} aria-label='Клавиши калькулятора'>
+        <button type='button' className={`${styles.key} ${styles.softKey}`} onClick={clear}>C</button>
+        <button type='button' className={`${styles.key} ${styles.softKey}`} onClick={backspace} aria-label='Удалить последнюю цифру'>
+          <Delete size={15} aria-hidden='true' />
+        </button>
         {buttons.map((button) => (
           <button
             type='button'
             key={button}
-            className={button === '=' ? 'p7-calc-equals' : ['+', '-', '×', '÷'].includes(button) ? 'p7-calc-op' : undefined}
+            className={keyClassName(button)}
             onClick={() => {
               if (button === ',') inputDecimal();
               else if (button === '=') equals();
@@ -391,41 +419,45 @@ function CalculatorPanel({ role, onClose }: { role: PlatformRole; onClose: () =>
           </button>
         ))}
       </div>
+
       {rolePreset ? (
-        <section className='p7-role-calc' aria-label={`Ролевой расчёт: ${ROLE_LABELS[role]}`}>
-          <div className='p7-role-calc-title'>
-            <div>
+        <section className={styles.roleCalculator} aria-label={`Ролевой расчёт: ${ROLE_LABELS[role]}`}>
+          <div className={styles.roleTitle}>
+            <div className={styles.roleTitleCopy}>
               <strong>{rolePreset.title}</strong>
-              <span>{rolePreset.subtitle}</span>
+              <span className={styles.roleSubtitle}>{rolePreset.subtitle}</span>
             </div>
-            <button type='button' onClick={resetRoleValues}>Сброс</button>
+            <button className={styles.resetButton} type='button' onClick={resetRoleValues}>Сброс</button>
           </div>
-          <div className='p7-role-calc-fields'>
+
+          <div className={styles.fields}>
             {rolePreset.fields.map((field) => (
-              <label key={field.key}>
-                <span>{field.label}</span>
-                <div>
+              <label className={styles.field} key={field.key}>
+                <span className={styles.fieldLabel}>{field.label}</span>
+                <span className={styles.fieldControl}>
                   <input
+                    className={styles.fieldInput}
                     inputMode='decimal'
                     value={roleValues[field.key] ?? ''}
                     onChange={(event) => setRoleValues((values) => ({ ...values, [field.key]: event.target.value }))}
                     aria-label={field.label}
                   />
-                  <em>{field.suffix}</em>
-                </div>
+                  <em className={styles.fieldSuffix}>{field.suffix}</em>
+                </span>
               </label>
             ))}
           </div>
-          <div className='p7-role-calc-results'>
+
+          <div className={styles.results} aria-live='polite'>
             {roleResults.map((result) => (
-              <div key={result.label} className={result.tone === 'strong' ? 'p7-role-calc-result p7-role-calc-result-strong' : 'p7-role-calc-result'}>
+              <div key={result.label} className={result.tone === 'strong' ? `${styles.result} ${styles.strongResult}` : styles.result}>
                 <span>{result.label}</span>
                 <strong>{result.value}</strong>
                 {result.hint ? <small>{result.hint}</small> : null}
               </div>
             ))}
           </div>
-          <p>{rolePreset.formula}</p>
+          <p className={styles.formula}>{rolePreset.formula}</p>
         </section>
       ) : null}
     </div>
@@ -436,24 +468,29 @@ export function CalculatorHeaderWidget() {
   const [open, setOpen] = useState(false);
   const mount = useHeaderActionsMount();
   const role = usePlatformV7RStore((state) => state.role);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const close = () => {
+    setOpen(false);
+    window.requestAnimationFrame(() => triggerRef.current?.focus());
+  };
 
   const widget = (
-    <div className='p7-calc-widget'>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .p7-calc-widget{position:relative;display:inline-flex!important;flex:0 0 auto!important}
-        .p7-calc-panel{position:absolute;right:0;top:50px;width:min(440px,calc(100vw - 20px));max-height:min(720px,calc(100vh - 84px));overflow:auto;padding:12px;border:1px solid var(--pc-border);border-radius:20px;background:var(--pc-bg-card);box-shadow:var(--pc-shadow-lg);z-index:520;display:grid;gap:10px;color:var(--pc-text-primary)}
-        .p7-calc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.p7-calc-head div{display:grid;gap:2px}.p7-calc-head strong{font-size:14px;font-weight:950}.p7-calc-head span{font-size:11px;color:var(--pc-text-muted);font-weight:800}.p7-calc-head button{width:32px;height:32px;border-radius:12px;border:1px solid var(--pc-border);background:var(--pc-bg-elevated);color:var(--pc-text-secondary);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
-        .p7-calc-display{min-height:76px;border:1px solid var(--pc-border);border-radius:17px;background:var(--pc-bg-elevated);padding:10px 12px;display:grid;align-content:center;justify-items:end;gap:4px}.p7-calc-display span{font-size:11px;color:var(--pc-text-muted);font-weight:800}.p7-calc-display strong{font-size:30px;line-height:1;font-weight:950;letter-spacing:-.04em;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-        .p7-calc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.p7-calc-grid button{height:42px;border-radius:14px;border:1px solid var(--pc-border);background:var(--pc-bg-elevated);color:var(--pc-text-primary);font-size:16px;font-weight:900;display:inline-flex;align-items:center;justify-content:center}.p7-calc-grid button:hover{border-color:var(--pc-border-light)}.p7-calc-grid .p7-calc-soft{color:var(--pc-text-secondary)}.p7-calc-grid .p7-calc-op{color:var(--pc-accent-strong);background:var(--pc-accent-bg);border-color:var(--pc-accent-border)}.p7-calc-grid .p7-calc-equals{color:white;background:var(--pc-accent);border-color:var(--pc-accent)}
-        .p7-role-calc{border:1px solid var(--pc-border);border-radius:18px;background:var(--pc-bg-elevated);padding:10px;display:grid;gap:10px}.p7-role-calc-title{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.p7-role-calc-title div{display:grid;gap:3px}.p7-role-calc-title strong{font-size:13px;font-weight:950}.p7-role-calc-title span{font-size:11px;line-height:1.35;color:var(--pc-text-muted);font-weight:750}.p7-role-calc-title button{height:30px;padding:0 9px;border-radius:11px;border:1px solid var(--pc-border);background:var(--pc-bg-card);color:var(--pc-text-secondary);font-size:11px;font-weight:900;flex:0 0 auto}
-        .p7-role-calc-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.p7-role-calc-fields label{display:grid;gap:4px}.p7-role-calc-fields label>span{font-size:10px;color:var(--pc-text-muted);font-weight:850}.p7-role-calc-fields label>div{height:36px;border:1px solid var(--pc-border);border-radius:12px;background:var(--pc-bg-card);display:flex;align-items:center;overflow:hidden}.p7-role-calc-fields input{min-width:0;width:100%;height:100%;border:0;background:transparent;color:var(--pc-text-primary);padding:0 8px;font-size:13px;font-weight:850;outline:none}.p7-role-calc-fields em{font-style:normal;color:var(--pc-text-muted);font-size:10px;font-weight:850;padding-right:8px;white-space:nowrap}
-        .p7-role-calc-results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.p7-role-calc-result{min-height:62px;border:1px solid var(--pc-border);border-radius:14px;background:var(--pc-bg-card);padding:8px;display:grid;align-content:center;gap:4px}.p7-role-calc-result span{font-size:10px;color:var(--pc-text-muted);font-weight:850}.p7-role-calc-result strong{font-size:14px;line-height:1.12;font-weight:950;color:var(--pc-text-primary);word-break:break-word}.p7-role-calc-result-strong{border-color:var(--pc-accent-border);background:var(--pc-accent-bg)}.p7-role-calc-result-strong strong{color:var(--pc-accent-strong)}.p7-role-calc p{margin:0;color:var(--pc-text-muted);font-size:10px;line-height:1.35;font-weight:750}
-        @media(max-width:767px){.p7-calc-widget .pc-v4-iconbtn{width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;min-height:42px!important;border-radius:13px!important}.p7-calc-panel{position:fixed;top:calc(env(safe-area-inset-top) + 58px);right:10px;left:10px;width:auto;max-height:calc(100vh - env(safe-area-inset-top) - 74px)}.p7-role-calc-fields{grid-template-columns:1fr}.p7-role-calc-results{grid-template-columns:1fr}}
-      ` }} />
-      <button type='button' className='pc-v4-iconbtn' aria-label='Открыть калькулятор' title='Калькулятор' onClick={() => setOpen((value) => !value)}>
-        <Calculator size={18} strokeWidth={2.35} />
+    <div className={styles.widget}>
+      <button
+        ref={triggerRef}
+        type='button'
+        className={styles.trigger}
+        aria-label='Открыть калькулятор'
+        title='Калькулятор'
+        aria-expanded={open}
+        aria-haspopup='dialog'
+        data-open={open ? 'true' : 'false'}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Calculator size={18} strokeWidth={2.35} aria-hidden='true' />
       </button>
-      {open ? <CalculatorPanel role={role} onClose={() => setOpen(false)} /> : null}
+      {open ? <CalculatorPanel role={role} onClose={close} /> : null}
     </div>
   );
 
