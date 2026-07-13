@@ -521,13 +521,13 @@ export class PrismaShipmentRepository implements ShipmentRepository {
   ): Promise<ShipmentAuthorityRecord> {
     if (shipment.version !== expectedVersion) throw staleVersion(shipment.version);
     const rows = lat === undefined
-      ? await tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
+      ? await tx.$queryRaw<ShipmentAuthorityRecord[]>(Prisma.sql`
           UPDATE public."shipments"
           SET "version" = "version" + 1, "updatedAt" = now()
           WHERE "id" = ${shipment.id} AND "version" = ${expectedVersion}
           RETURNING *
         `)
-      : await tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
+      : await tx.$queryRaw<ShipmentAuthorityRecord[]>(Prisma.sql`
           UPDATE public."shipments"
           SET "geoLat" = ${lat}, "geoLng" = ${lng as number}, "lastGeoAt" = ${occurredAt},
               "version" = "version" + 1, "updatedAt" = now()
@@ -549,7 +549,7 @@ export class PrismaShipmentRepository implements ShipmentRepository {
     now: Date,
   ): Promise<ShipmentAuthorityRecord> {
     if (shipment.version !== expectedVersion) throw staleVersion(shipment.version);
-    const rows = await tx.$queryRaw<ShipmentRecord[]>(Prisma.sql`
+    const rows = await tx.$queryRaw<ShipmentAuthorityRecord[]>(Prisma.sql`
       UPDATE public."shipments"
       SET
         "pinVerified" = ${valid},
