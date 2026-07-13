@@ -67,6 +67,18 @@ describe('Settlement confirmed counter substitution guard', () => {
 
   async function provisionPendingPayment(suffix: string) {
     const fixture = await provisionDeal(instance.prisma, suffix, 100_000n);
+
+    // This test targets the confirmed-counter database guard rather than the
+    // full Deal lifecycle. Put the isolated fixture at the exact canonical
+    // reserve-request boundary before creating the real PENDING payment.
+    await instance.prisma.deal.update({
+      where: { id: fixture.dealId },
+      data: {
+        status: 'CONTRACT_SIGNED',
+        nextAction: 'Запросить резервирование средств',
+      },
+    });
+
     await instance.settlement.configureTerms({
       commandId: `terms:${fixture.dealId}`,
       idempotencyKey: `terms:${fixture.dealId}`,
