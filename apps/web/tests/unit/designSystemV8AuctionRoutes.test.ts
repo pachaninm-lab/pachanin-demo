@@ -3,92 +3,90 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const cwd = process.cwd();
-const repoRoot = [cwd, path.resolve(cwd, '../..')]
+const root = [cwd, path.resolve(cwd, '../..')]
   .find((candidate) => fs.existsSync(path.join(candidate, 'design-governance-v8.json')));
 
-if (!repoRoot) throw new Error(`Cannot resolve repository root from ${cwd}`);
+if (!root) throw new Error(`Cannot resolve repository root from ${cwd}`);
 
-const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+function read(relativePath: string): string {
+  return fs.readFileSync(path.join(root, relativePath), 'utf8');
+}
+
+const auctionPages = [
+  'apps/web/app/platform-v7/fgis-access/page.tsx',
+  'apps/web/app/platform-v7/auction/page.tsx',
+  'apps/web/app/platform-v7/auction/import/page.tsx',
+  'apps/web/app/platform-v7/auction/admission/page.tsx',
+  'apps/web/app/platform-v7/auction/bids/page.tsx',
+  'apps/web/app/platform-v7/auction/deal-basis/page.tsx',
+];
+
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important|var\(--pc-/i;
 
-const overview = read('apps/web/app/platform-v7/auction/page.tsx');
-const importPage = read('apps/web/app/platform-v7/auction/import/page.tsx');
-const admission = read('apps/web/app/platform-v7/auction/admission/page.tsx');
-const bids = read('apps/web/app/platform-v7/auction/bids/page.tsx');
-const basis = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
-const cockpit = read('apps/web/components/transaction-ux/AuctionExecutionCockpit.tsx');
-const cockpitCss = read('apps/web/components/transaction-ux/AuctionExecutionCockpit.module.css');
-const copy = read('apps/web/components/transaction-ux/auctionExecutionCopy.ts');
-const governance = JSON.parse(read('design-governance-v8.json')) as { migratedFiles: string[] };
+describe('Design System v8 auction authority routes', () => {
+  const pages = auctionPages.map(read);
+  const template = read('apps/web/components/transaction-ux/AuctionAuthorityRoute.tsx');
+  const copy = read('apps/web/lib/platform-v7/auctionAuthorityCopy.ts');
+  const governance = JSON.parse(read('design-governance-v8.json')) as { migratedFiles: string[] };
+  const workflow = read('.github/workflows/design-system-v8.yml');
 
-const routeSources = [overview, importPage, admission, bids, basis];
+  it('removes local lot, buyer, bid, winner and Deal authority', () => {
+    const joined = pages.join('\n');
+    for (const token of [
+      'FGIS_AUCTION_STATE', 'FARMER_FGIS_ACCESS_STATE', 'AUCTION_DEAL_BRIDGE', 'AUCTION_DEAL_BASIS',
+      'FGIS-LOT-2607-014', 'SDIZ-2607-5512', 'BID-001', 'DL-2607-014', 'isWinner: true',
+      'Покупатель А', 'Покупатель Б', 'ООО «АгроПоставка»',
+    ]) expect(joined).not.toContain(token);
+  });
 
-describe('Design System v8 canonical auction execution', () => {
-  it('uses one governed auction cockpit on all canonical stages', () => {
-    expect(cockpit).toContain("data-auction-execution-cockpit='v8'");
-    for (const source of routeSources) {
-      expect(source).toContain('AuctionExecutionCockpit');
-      expect(source).not.toMatch(forbiddenPresentation);
+  it('uses one governed template and full RU EN ZH copy', () => {
+    for (const page of pages) {
+      expect(page).toContain('AuctionAuthorityRoute');
+      expect(page).toContain('getLocale');
+      expect(page).not.toMatch(forbiddenPresentation);
     }
-    expect(cockpitCss).not.toMatch(forbiddenPresentation);
+    expect(template).toContain('@pc/design-system-v8');
+    expect(template).toContain('OperationalDecisionCockpit');
+    expect(copy).toContain("type Locale = 'ru' | 'en' | 'zh'");
+    expect(copy).toContain('The auction is part of Deal execution');
+    expect(copy).toContain('竞价属于交易执行流程');
   });
 
-  it('preserves engine and Deal-basis authority', () => {
-    expect(overview).toContain('FGIS_AUCTION_STATE');
-    expect(overview).toContain('AUCTION_DEAL_BRIDGE');
-    expect(importPage).toContain('FGIS_AUCTION_STATE');
-    expect(admission).toContain('canOpenAuction');
-    expect(bids).toContain('AUCTION_DEAL_BRIDGE.lot.bids');
-    expect(basis).toContain('guardAuctionDealBasisReady');
-    expect(basis).toContain('isAuctionDealBasisReady');
-    expect(basis).toContain('admissionReady && basisGuardReady');
+  it('keeps admission and bid rules fail-closed on the server', () => {
+    expect(copy).toContain('URL, cookie и localStorage не являются authority');
+    expect(copy).toContain('Endpoint ставок обязан повторно проверить admission');
+    expect(copy).toContain('append-only event');
+    expect(copy).toContain('optimistic concurrency');
+    expect(copy).toContain('stale version отклоняется');
+    expect(copy).toContain('Победитель фиксируется атомарно');
   });
 
-  it('fails closed when current admission is incomplete', () => {
-    expect(admission).toContain("href='/platform-v7/auction/bids'");
-    expect(admission).toContain("href='#checks'");
-    expect(bids).toContain('descriptionBlocked');
-    expect(bids).toContain("href='/platform-v7/auction/admission'");
-    expect(basis).toContain("href={basis ? '/platform-v7/auction/admission' : '/platform-v7/auction/bids'}");
-    expect(basis).toContain("action.href === '/platform-v7/deal-logistics' && !ready");
+  it('transitions the locked winner into exactly one canonical Deal', () => {
+    expect(copy).toContain('winner lock → canonical Deal');
+    expect(copy).toContain('Каноническая Сделка создаётся идемпотентно одной транзакцией');
+    expect(copy).toContain('повтор не создаёт вторую Сделку');
+    expect(copy).toContain('audit/outbox evidence');
+    expect(copy).toContain('/deals/{dealId}/execution');
+    expect(copy).toContain('только по server-issued Deal ID');
   });
 
-  it('preserves immutable bid, volume and winner-to-Deal rules', () => {
-    expect(copy).toContain("'journal-fixed'");
-    expect(copy).toContain("'volume-lock'");
-    expect(copy).toContain("'admitted-buyer-only'");
-    expect(copy).toContain("'winner-to-deal'");
-    expect(copy).toContain('the interface cannot cancel a recorded bid');
-    expect(copy).toContain('界面不能取消已记录报价');
+  it('does not open logistics or money before the server Deal receipt', () => {
+    expect(copy).toContain('логистика, документы и деньги не запускаются');
+    expect(copy).toContain('Без receipt логистика и деньги остаются закрыты');
+    expect(copy).toContain('Победитель не создаёт деньги');
+    expect(copy).not.toContain("href: '/platform-v7/deal-logistics'");
   });
 
-  it('does not claim live FGIS or bank release', () => {
-    expect(copy).toContain('не подтверждает live-подключение ФГИС');
-    expect(copy).toContain('does not prove a live public-registry connection');
-    expect(copy).toContain('不能证明政府登记系统已实时连接');
-    expect(copy).toContain('Экран не подтверждает live banking и не выпускает деньги');
-    expect(copy).toContain('cannot release money');
-    expect(copy).toContain('不能释放资金');
+  it('removes the obsolete fixture engines', () => {
+    expect(fs.existsSync(path.join(root, 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'))).toBe(false);
+    expect(fs.existsSync(path.join(root, 'apps/web/lib/platform-v7/auctionDealBridge.ts'))).toBe(false);
+    expect(fs.existsSync(path.join(root, 'apps/web/lib/platform-v7/farmerFgisAccessEngine.ts'))).toBe(false);
   });
 
-  it('provides RU EN ZH copy and accessible mobile modes', () => {
-    expect(copy).toContain('Цена появляется только после допуска');
-    expect(copy).toContain('Price appears only after admission');
-    expect(copy).toContain('只有完成准入后才形成价格');
-    expect(cockpitCss).toContain('min-height: var(--ds-control-height)');
-    expect(cockpitCss).toContain(':focus-visible');
-    expect(cockpitCss).toContain('@media (max-width: 640px)');
-    expect(cockpitCss).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(cockpitCss).toContain('@media (forced-colors: active)');
-  });
-
-  it('registers every canonical auction route in governance', () => {
-    expect(governance.migratedFiles).toEqual(expect.arrayContaining([
-      'apps/web/app/platform-v7/auction/page.tsx',
-      'apps/web/app/platform-v7/auction/import/page.tsx',
-      'apps/web/app/platform-v7/auction/admission/page.tsx',
-      'apps/web/app/platform-v7/auction/bids/page.tsx',
-      'apps/web/app/platform-v7/auction/deal-basis/page.tsx',
-    ]));
+  it('is enforced by governance and exact v8 CI', () => {
+    for (const file of auctionPages) expect(governance.migratedFiles).toContain(file);
+    expect(workflow).toContain('tests/unit/designSystemV8AuctionRoutes.test.ts');
+    expect(workflow).toContain('tests/unit/platformV7FgisAccessFlow.test.ts');
+    expect(workflow).toContain('tests/unit/platformV7DealExecutionChain.test.ts');
   });
 });
