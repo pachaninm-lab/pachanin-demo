@@ -21,11 +21,30 @@ describe('Settlement confirmed counter substitution guard', () => {
     await destroyInstance(instance);
   });
 
+  async function readPayment(
+    verifier: RequestUser,
+    dealId: string,
+  ): Promise<Array<{ confirmedReserved: bigint; pendingReserved: bigint; version: bigint }>> {
+    return instance.rls.withTrustedContext(verifier, (tx) => tx.$queryRaw(Prisma.sql`
+      SELECT
+        confirmed_reserved_minor AS "confirmedReserved",
+        pending_reserved_minor AS "pendingReserved",
+        version
+      FROM settlement.payments
+      WHERE deal_id = ${dealId}
+    `));
+  }
+
   async function expectDirectMutationDenied(
     actor: RequestUser,
+    verifier: RequestUser,
     dealId: string,
     triggerPattern: RegExp,
   ): Promise<void> {
+    const before = await readPayment(verifier, dealId);
+    expect(before).toHaveLength(1);
+    expect(before[0].pendingReserved).toBeGreaterThan(0n);
+
     let denied = false;
     try {
       const changed = await instance.rls.withTrustedContext(actor, (tx) =>
@@ -42,18 +61,12 @@ describe('Settlement confirmed counter substitution guard', () => {
     }
     expect(denied).toBe(true);
 
-    const payment = await instance.prisma.$queryRaw<
-      Array<{ confirmedReserved: bigint; version: bigint }>
-    >(Prisma.sql`
-      SELECT confirmed_reserved_minor AS "confirmedReserved", version
-      FROM settlement.payments
-      WHERE deal_id = ${dealId}
-    `);
-    expect(payment).toEqual([{ confirmedReserved: 0n, version: 0n }]);
+    const after = await readPayment(verifier, dealId);
+    expect(after).toEqual(before);
   }
 
-  it('rejects direct confirmed reserve substitution by a human participant', async () => {
-    const fixture = await provisionDeal(instance.prisma, 'confirmed-human', 100_000n);
+  async function provisionPendingPayment(suffix: string) {
+    const fixture = await provisionDeal(instance.prisma, suffix, 100_000n);
     await instance.settlement.configureTerms({
       commandId: `terms:${fixture.dealId}`,
       idempotencyKey: `terms:${fixture.dealId}`,
@@ -65,8 +78,18 @@ describe('Settlement confirmed counter substitution guard', () => {
         allocationKopecks: fixture.totalKopecks,
       }],
     }, fixture.users.accounting);
+    await instance.settlement.requestReserve(fixture.dealId, fixture.users.buyer, {
+      commandId: `reserve:${fixture.dealId}`,
+      idempotencyKey: `reserve:${fixture.dealId}`,
+    });
+    return fixture;
+  }
+
+  it('rejects direct confirmed reserve substitution by a human participant', async () => {
+    const fixture = await provisionPendingPayment('confirmed-human');
 
     await expectDirectMutationDenied(
+      fixture.users.accounting,
       fixture.users.accounting,
       fixture.dealId,
       /only an exact verified bank callback may change confirmed money|row-level security|permission denied/i,
@@ -74,18 +97,7 @@ describe('Settlement confirmed counter substitution guard', () => {
   });
 
   it('rejects BANK_CALLBACK identity without an exact validated callback insert', async () => {
-    const fixture = await provisionDeal(instance.prisma, 'confirmed-callback', 100_000n);
-    await instance.settlement.configureTerms({
-      commandId: `terms:${fixture.dealId}`,
-      idempotencyKey: `terms:${fixture.dealId}`,
-      dealId: fixture.dealId,
-      reserveAmountKopecks: fixture.totalKopecks,
-      beneficiaries: [{
-        organizationId: fixture.sellerOrgId,
-        role: 'SELLER',
-        allocationKopecks: fixture.totalKopecks,
-      }],
-    }, fixture.users.accounting);
+    const fixture = await provisionPendingPayment('confirmed-callback');
 
     const fakeCallback: RequestUser = {
       id: 'bank-callback:forged',
@@ -100,6 +112,7 @@ describe('Settlement confirmed counter substitution guard', () => {
 
     await expectDirectMutationDenied(
       fakeCallback,
+      fixture.users.accounting,
       fixture.dealId,
       /lacks exact transaction binding|row-level security|permission denied/i,
     );
