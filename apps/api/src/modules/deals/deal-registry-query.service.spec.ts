@@ -29,6 +29,7 @@ function row(id: string, input: Partial<Record<string, unknown>> = {}) {
     my_role: 'BUYER',
     my_access_level: 'WORK',
     priority_reason: 'ACTION_REQUIRED',
+    priority_rank: 2,
     ...input,
   };
 }
@@ -47,11 +48,22 @@ function serviceWithRows(rows: unknown[]) {
 }
 
 describe('DealRegistryQueryService', () => {
+  const previousSecret = process.env.DEAL_REGISTRY_CURSOR_SECRET;
+
+  beforeAll(() => {
+    process.env.DEAL_REGISTRY_CURSOR_SECRET = 'registry-cursor-test-secret-at-least-32-bytes';
+  });
+
+  afterAll(() => {
+    if (previousSecret === undefined) delete process.env.DEAL_REGISTRY_CURSOR_SECRET;
+    else process.env.DEAL_REGISTRY_CURSOR_SECRET = previousSecret;
+  });
+
   it('returns an exact-money keyset page without an offset or total count', async () => {
     const unsafeMoney = BigInt(Number.MAX_SAFE_INTEGER) + 100n;
     const { service, queryRaw } = serviceWithRows([
-      row('deal-1', { sla_at: new Date('2026-07-14T08:00:00.000Z') }),
-      row('deal-2', { total_kopecks: unsafeMoney }),
+      row('deal-1', { priority_rank: 0, sla_at: new Date('2026-07-14T08:00:00.000Z') }),
+      row('deal-2', { priority_rank: 1, total_kopecks: unsafeMoney }),
       row('deal-3'),
     ]);
 
@@ -60,9 +72,11 @@ describe('DealRegistryQueryService', () => {
     expect(queryRaw).toHaveBeenCalledTimes(1);
     expect(result.count).toBe(2);
     expect(result.hasMore).toBe(true);
-    expect(result.nextCursor).toEqual(expect.any(String));
+    expect(result.nextCursor).toEqual(expect.stringMatching(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/));
     expect(result.pageInfo.order).toEqual([
+      'priorityRank:asc',
       'deadlineAt:asc:nulls-last',
+      'moneyImpactKopecks:desc:nulls-last',
       'updatedAt:desc',
       'id:asc',
     ]);
@@ -72,11 +86,12 @@ describe('DealRegistryQueryService', () => {
       totalKopecks: null,
       moneyImpactKopecks: unsafeMoney.toString(),
       priorityReason: 'ACTION_REQUIRED',
+      priorityRank: 1,
       myAccessLevel: 'WORK',
     });
   });
 
-  it('binds a cursor to the normalized server filter set', async () => {
+  it('binds a signed cursor to the normalized server filter set', async () => {
     const first = serviceWithRows([row('deal-1'), row('deal-2')]);
     const page = await first.service.listAccessible({ limit: 1, status: 'draft' }, user);
     expect(page.nextCursor).toEqual(expect.any(String));
@@ -92,6 +107,15 @@ describe('DealRegistryQueryService', () => {
     }, user)).rejects.toMatchObject<Partial<BadRequestException>>({
       response: expect.objectContaining({ code: 'DEAL_REGISTRY_CURSOR_FILTER_MISMATCH' }),
     });
+
+    const tampered = `${page.nextCursor!.slice(0, -1)}${page.nextCursor!.endsWith('A') ? 'B' : 'A'}`;
+    await expect(second.service.listAccessible({
+      limit: 1,
+      status: 'DRAFT',
+      cursor: tampered,
+    }, user)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'INVALID_DEAL_REGISTRY_CURSOR' }),
+    });
   });
 
   it('rejects malformed status and cursor input before PostgreSQL execution', async () => {
@@ -100,7 +124,7 @@ describe('DealRegistryQueryService', () => {
     await expect(service.listAccessible({ status: 'DRAFT,not valid!' }, user)).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'INVALID_DEAL_REGISTRY_STATUS_FILTER' }),
     });
-    await expect(service.listAccessible({ cursor: 'not+base64' }, user)).rejects.toMatchObject({
+    await expect(service.listAccessible({ cursor: 'not-a-signed-cursor' }, user)).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'INVALID_DEAL_REGISTRY_CURSOR' }),
     });
     expect(queryRaw).not.toHaveBeenCalled();
