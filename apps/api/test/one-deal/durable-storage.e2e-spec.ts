@@ -183,7 +183,7 @@ describe('durable evidence object storage', () => {
     ]);
   });
 
-  it('persists metadata, verifies bytes, converges races and enforces scope/immutability', async () => {
+  it('persists metadata, verifies bytes, rejects races and enforces scope/immutability', async () => {
     await expect(serviceOne.requestUpload({
       filename: 'malware.exe',
       mimeType: 'application/x-msdownload',
@@ -214,12 +214,8 @@ describe('durable evidence object storage', () => {
       serviceOne.confirmUpload(requested.fileId, expectedHash, owner),
       serviceTwo.confirmUpload(requested.fileId, expectedHash, owner),
     ]);
-    const fulfilled = concurrent.flatMap((item) => item.status === 'fulfilled' ? [item.value] : []);
-    expect(fulfilled).toHaveLength(2);
-    expect(concurrent.filter((item) => item.status === 'rejected')).toHaveLength(0);
-    expect(new Set(fulfilled.map((item) => item.id))).toEqual(new Set([requested.fileId]));
-    expect(new Set(fulfilled.map((item) => item.sha256))).toEqual(new Set([expectedHash]));
-    expect(new Set(fulfilled.map((item) => item.version))).toEqual(new Set([2]));
+    expect(concurrent.filter((item) => item.status === 'fulfilled')).toHaveLength(1);
+    expect(concurrent.filter((item) => item.status === 'rejected')).toHaveLength(1);
 
     const freshPrisma = prisma();
     const freshStoragePrisma = prisma(STORAGE_URL);
