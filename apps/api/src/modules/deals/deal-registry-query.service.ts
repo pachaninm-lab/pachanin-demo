@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
@@ -22,7 +22,9 @@ type RegistryFilters = Readonly<{
 }>;
 
 type RegistryCursor = Readonly<{
+  priorityRank: number;
   slaAt: Date | null;
+  moneyKopecks: bigint;
   updatedAt: Date;
   id: string;
 }>;
@@ -30,7 +32,9 @@ type RegistryCursor = Readonly<{
 type CursorPayload = Readonly<{
   v: 1;
   f: string;
+  p: number;
   s: string | null;
+  m: string;
   u: string;
   i: string;
 }>;
@@ -52,6 +56,7 @@ type RegistryRow = Readonly<{
   my_role: string;
   my_access_level: string;
   priority_reason: string;
+  priority_rank: number;
 }>;
 
 @Injectable()
@@ -86,12 +91,18 @@ export class DealRegistryQueryService {
       const minimumMoneySql = filters.minMoneyKopecks === null
         ? Prisma.sql`NULL::bigint`
         : Prisma.sql`${filters.minMoneyKopecks}::bigint`;
+      const cursorPrioritySql = cursor === null
+        ? Prisma.sql`NULL::integer`
+        : Prisma.sql`${cursor.priorityRank}::integer`;
       const cursorSlaIsNullSql = cursor === null
         ? Prisma.sql`NULL::boolean`
         : Prisma.sql`${cursor.slaAt === null}::boolean`;
       const cursorSlaSql = cursor?.slaAt
         ? Prisma.sql`${cursor.slaAt}::timestamptz`
         : Prisma.sql`NULL::timestamptz`;
+      const cursorMoneySql = cursor === null
+        ? Prisma.sql`NULL::bigint`
+        : Prisma.sql`${cursor.moneyKopecks}::bigint`;
       const cursorUpdatedSql = cursor
         ? Prisma.sql`${cursor.updatedAt}::timestamptz`
         : Prisma.sql`NULL::timestamptz`;
@@ -110,8 +121,10 @@ export class DealRegistryQueryService {
           ${roleSql},
           ${deadlineSql},
           ${minimumMoneySql},
+          ${cursorPrioritySql},
           ${cursorSlaIsNullSql},
           ${cursorSlaSql},
+          ${cursorMoneySql},
           ${cursorUpdatedSql},
           ${cursorIdSql}
         )
@@ -123,7 +136,13 @@ export class DealRegistryQueryService {
     const items = pageRows.map(toRegistryItem);
     const last = pageRows.at(-1);
     const nextCursor = hasMore && last
-      ? encodeCursor({ slaAt: last.sla_at, updatedAt: last.updated_at, id: last.deal_id }, filterFingerprint)
+      ? encodeCursor({
+          priorityRank: last.priority_rank,
+          slaAt: last.sla_at,
+          moneyKopecks: last.total_kopecks ?? -1n,
+          updatedAt: last.updated_at,
+          id: last.deal_id,
+        }, filterFingerprint)
       : null;
 
     return {
@@ -136,7 +155,13 @@ export class DealRegistryQueryService {
         returned: items.length,
         hasMore,
         nextCursor,
-        order: ['deadlineAt:asc:nulls-last', 'updatedAt:desc', 'id:asc'],
+        order: [
+          'priorityRank:asc',
+          'deadlineAt:asc:nulls-last',
+          'moneyImpactKopecks:desc:nulls-last',
+          'updatedAt:desc',
+          'id:asc',
+        ],
       },
       appliedFilters: {
         status: filters.statuses,
@@ -210,26 +235,51 @@ function fingerprintFilters(filters: RegistryFilters): string {
   })).digest('hex');
 }
 
+function cursorSecret(): string {
+  const secret = process.env.DEAL_REGISTRY_CURSOR_SECRET || process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new InternalServerErrorException({ code: 'DEAL_REGISTRY_CURSOR_SECRET_REQUIRED' });
+  }
+  return secret;
+}
+
+function signCursor(encoded: string): string {
+  return createHmac('sha256', cursorSecret()).update(encoded).digest('base64url');
+}
+
 function encodeCursor(cursor: RegistryCursor, filterFingerprint: string): string {
   const payload: CursorPayload = {
     v: 1,
     f: filterFingerprint,
+    p: cursor.priorityRank,
     s: cursor.slaAt?.toISOString() ?? null,
+    m: cursor.moneyKopecks.toString(),
     u: cursor.updatedAt.toISOString(),
     i: cursor.id,
   };
-  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  return `${encoded}.${signCursor(encoded)}`;
 }
 
 function decodeCursor(value: string, expectedFilterFingerprint: string): RegistryCursor {
   try {
-    if (!/^[A-Za-z0-9_-]+$/.test(value) || value.length > 2048) throw new Error('invalid encoding');
-    const decoded = Buffer.from(value, 'base64url').toString('utf8');
+    const [encoded, signature, extra] = value.split('.');
+    if (!encoded || !signature || extra || value.length > 4096) throw new Error('invalid encoding');
+    const actual = Buffer.from(signature, 'base64url');
+    const expected = Buffer.from(signCursor(encoded), 'base64url');
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+      throw new Error('invalid signature');
+    }
+
+    const decoded = Buffer.from(encoded, 'base64url').toString('utf8');
     const payload = JSON.parse(decoded) as Partial<CursorPayload>;
     if (
       payload.v !== 1
       || typeof payload.f !== 'string'
       || payload.f !== expectedFilterFingerprint
+      || !Number.isInteger(payload.p)
+      || typeof payload.m !== 'string'
+      || !/^-?\d+$/.test(payload.m)
       || typeof payload.u !== 'string'
       || typeof payload.i !== 'string'
       || !CURSOR_ID_PATTERN.test(payload.i)
@@ -242,15 +292,22 @@ function decodeCursor(value: string, expectedFilterFingerprint: string): Registr
     }
     const updatedAt = new Date(payload.u);
     const slaAt = payload.s === null ? null : new Date(payload.s);
+    const moneyKopecks = BigInt(payload.m);
     if (Number.isNaN(updatedAt.getTime()) || (slaAt && Number.isNaN(slaAt.getTime()))) {
       throw new Error('invalid cursor timestamp');
     }
-    return Object.freeze({ slaAt, updatedAt, id: payload.i });
+    return Object.freeze({
+      priorityRank: payload.p as number,
+      slaAt,
+      moneyKopecks,
+      updatedAt,
+      id: payload.i,
+    });
   } catch (error) {
     if (error instanceof BadRequestException) throw error;
     throw new BadRequestException({
       code: 'INVALID_DEAL_REGISTRY_CURSOR',
-      message: 'Registry cursor is malformed or unsupported.',
+      message: 'Registry cursor is malformed, unsigned or unsupported.',
     });
   }
 }
@@ -280,6 +337,7 @@ function toRegistryItem(row: RegistryRow) {
     nextAction: row.next_action,
     deadlineAt: row.sla_at?.toISOString() ?? null,
     priorityReason: row.priority_reason,
+    priorityRank: row.priority_rank,
     myRole: row.my_role,
     myAccessLevel: row.my_access_level,
   };
