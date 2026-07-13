@@ -1,0 +1,52 @@
+name: Temporary IR-10.2 audit accounting repair
+
+on:
+  push:
+    branches:
+      - agent/ir-10-2-logistics-postgresql-authority
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[ir-10-2-audit-accounting-fixed]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/ir-10-2-logistics-postgresql-authority
+          fetch-depth: 0
+      - name: Account for authoritative logistics audit events
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts')
+          source = path.read_text()
+          old = """    expect(reconciled.events).toHaveLength(DEAL_ACTIONS.length);
+              expect(reconciled.audits).toHaveLength(DEAL_ACTIONS.length);
+              expect(reconciled.outbox.filter((item) => item.type === 'deal.command.receipt')).toHaveLength(DEAL_ACTIONS.length);"""
+          new = """    expect(reconciled.events).toHaveLength(DEAL_ACTIONS.length);
+              const dealCommandAudits = reconciled.audits.filter((item) => item.action.startsWith('deal.command.'));
+              const logisticsAudits = reconciled.audits.filter((item) => item.action.startsWith('shipment.'));
+              expect(dealCommandAudits).toHaveLength(DEAL_ACTIONS.length);
+              expect(logisticsAudits.map((item) => item.action)).toEqual([
+                'shipment.gps.record',
+                'shipment.checkpoint.record',
+                'shipment.pin.verify',
+              ]);
+              expect(reconciled.audits).toHaveLength(DEAL_ACTIONS.length + logisticsAudits.length);
+              expect(reconciled.outbox.filter((item) => item.type === 'deal.command.receipt')).toHaveLength(DEAL_ACTIONS.length);"""
+          if source.count(old) != 1:
+              raise SystemExit('audit accounting anchor not found exactly once')
+          path.write_text(source.replace(old, new, 1))
+          PY
+          rm -f .github/workflows/tmp-fix-ir-10-2-audit-accounting.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test(logistics): reconcile deal and shipment audit facts [ir-10-2-audit-accounting-fixed]"
+          git push origin HEAD:agent/ir-10-2-logistics-postgresql-authority
