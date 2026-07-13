@@ -8,12 +8,10 @@ import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
 import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7ShellUxController';
 import { CalculatorHeaderWidget } from '@/components/platform-v7/CalculatorHeaderWidget';
-import { MobileHeaderActionRail } from '@/components/platform-v7/MobileHeaderActionRail';
-import { NotepadHeaderWidget } from '@/components/platform-v7/NotepadHeaderWidget';
+import { HeaderUtilityMenu } from '@/components/platform-v7/HeaderUtilityMenu';
 import { RoleAssistantWidget } from '@/components/platform-v7/RoleAssistantWidget';
 import { PlatformFooter } from '@/components/platform-v7/PlatformFooter';
 import { OnboardingTour } from '@/components/platform-v7/OnboardingTour';
-import { SupportHeaderIcon } from '@/components/platform-v7/SupportHeaderIcon';
 import { HeaderLanguageSwitch } from '@/components/platform-v7/HeaderLanguageSwitch';
 import { StaffControlCenterEntry } from '@/components/platform-v7/StaffControlCenterEntry';
 import { RoleIntentDashboard } from '@/components/platform-v7/RoleIntentDashboard';
@@ -205,9 +203,7 @@ export function PlatformV7ProtectedShell({ pathname, children }: { pathname: str
             <StaffControlCenterEntry />
           </React.Suspense>
           <CalculatorHeaderWidget />
-          <NotepadHeaderWidget />
-          <SupportHeaderIcon />
-          <MobileHeaderActionRail />
+          <HeaderUtilityMenu />
           <RoleAssistantWidget />
           {workSurface}
           {showPlatformFooter ? <PlatformFooter /> : null}
