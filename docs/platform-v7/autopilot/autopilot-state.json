@@ -181,6 +181,7 @@
       "apps/web/app/platform-v7/notifications/notifications.module.css",
       "apps/web/app/platform-v7/notifications/page.tsx",
       "apps/web/components/platform-v7/HeaderUtilityMenu.tsx",
+      "apps/web/components/platform-v7/PlatformV7LayoutClient.tsx",
       "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
       "apps/web/components/platform-v7/PlatformV7ShellUxController.module.css",
       "apps/web/components/platform-v7/PlatformV7ShellUxController.tsx",
