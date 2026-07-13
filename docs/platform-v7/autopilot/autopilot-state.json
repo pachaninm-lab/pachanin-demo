@@ -8,17 +8,17 @@
   },
   "baseline": {
     "branch": "main",
-    "commit": "b5379c2ebcd47c202603944c3852a3452ebe1d7e",
+    "commit": "a272a1e64b1a30d1e5b2a3052ca66653afd7b66f",
     "verifiedAt": "2026-07-13",
-    "gitObjectDatabase": "fsck-passed-on-approved-baseline"
+    "gitObjectDatabase": "exact-merge-baseline"
   },
-  "mode": "ir-10-logistics-postgresql-authority",
+  "mode": "ir-10-labs-postgresql-authority",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "IR-10.2 Logistics PostgreSQL Authority",
+  "current": "IR-10.3 Labs PostgreSQL Authority",
   "fullTzReadinessPercent": 0,
   "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",
-  "openPr": "#2412",
+  "openPr": null,
   "lastClosed": [
     "#2260 Industrial one-deal foundation",
     "#2270 Industrial one-deal PostgreSQL 16 E2E exploitation gate",
@@ -35,17 +35,13 @@
     "#2404 Industrial CI correctness/load gate and per-deal advisory locking",
     "#2406 Fail closed on missing deal execution facts",
     "#2407 PostgreSQL-authoritative Deal routes",
-    "#2410 Documents PostgreSQL Authority"
+    "#2410 Documents PostgreSQL Authority",
+    "#2412 Logistics PostgreSQL Authority"
   ],
   "closedCapabilities": {
     "persistentIdentityAndMfa": {
       "status": "merged-isolated-postgresql-evidence",
-      "prs": [
-        "#2276",
-        "#2280",
-        "#2282",
-        "#2283"
-      ]
+      "prs": ["#2276", "#2280", "#2282", "#2283"]
     },
     "restrictedDatabasePrincipals": {
       "status": "merged-isolated-postgresql-evidence",
@@ -53,26 +49,20 @@
     },
     "dealCommandCore": {
       "status": "merged-isolated-postgresql-evidence",
-      "prs": [
-        "#2260",
-        "#2270",
-        "#2274",
-        "#2378",
-        "#2406",
-        "#2407"
-      ],
-      "latestMergeCommit": "66bf4655eede522ca3f3963d6d7aaa5cee9c50a5"
+      "prs": ["#2260", "#2270", "#2274", "#2378", "#2406", "#2407"]
     },
     "documentsPostgresqlAuthority": {
       "status": "merged-isolated-postgresql-evidence",
       "pr": "#2410",
       "mergeCommit": "a485371e54b31fc787c061643c0068184e373c7b",
-      "remainingBoundaries": [
-        "IR-32 document state machines",
-        "IR-40 evidence retention",
-        "IR-41 signature verification",
-        "IR-53 EDO mapping"
-      ]
+      "remainingBoundaries": ["IR-32 document state machines", "IR-40 evidence retention", "IR-41 signature verification", "IR-53 EDO mapping"]
+    },
+    "logisticsPostgresqlAuthority": {
+      "status": "merged-isolated-postgresql-evidence",
+      "pr": "#2412",
+      "mergeCommit": "a272a1e64b1a30d1e5b2a3052ca66653afd7b66f",
+      "verifiedHead": "4c880433811adc70c3fcb4b76edf1bbe81556c99",
+      "remainingBoundaries": ["IR-31 normalized logistics and acceptance", "IR-50 adapter conformance", "IR-54 GIS EPD mapping", "IR-70 production load, HA and operations"]
     },
     "durableOutboxWorkerImplementation": {
       "status": "merged-but-not-exclusive-production-owner",
@@ -95,20 +85,19 @@
     }
   },
   "openBlockers": [
-    "Logistics, Labs, Settlement reads/commands and Disputes can still bind process-memory repositories.",
+    "Labs, Settlement reads/commands and Disputes can still bind process-memory repositories.",
+    "Laboratory sample custody, test facts, accreditation basis and protocol finalization are not yet PostgreSQL-authoritative.",
     "Legacy OutboxRelayService and process-memory OutboxService still coexist with DurableOutboxWorker.",
     "Inbound webhook idempotency is process-memory and no durable integration inbox exists.",
     "Partner API credentials and webhook subscriptions are process-memory.",
     "Canonical Auction/Deal Basis and versioned Payment Terms are incomplete; winnerBidId is carried in a legacy field.",
-    "Logistics admission, shipment facts, laboratory custody and dispute state machines are not yet fully PostgreSQL-authoritative.",
     "Evidence object retention, malware quarantine and repeatable signature verification are not accepted.",
     "Adapter conformance, vendor mappings and fail-closed live configuration are incomplete.",
     "Role cabinets and offline acknowledgement are not fully proven against authoritative server state.",
     "Production configuration, dedicated worker topology, SLO operations, HA, provider PITR/restore, production-scale load and external security acceptance are unproven."
   ],
-  "blockerNotes": "The merged Deal, identity, Documents, reconciliation and durable-worker slices are retained as evidence, not extrapolated into platform-wide readiness. Industrial Integration-Ready remains NO-GO until every mandatory gate in the governing specification has exact-commit evidence.",
+  "blockerNotes": "Merged Deal, identity, Documents, Logistics, reconciliation and durable-worker slices are retained as exact-commit evidence only. Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has accepted evidence.",
   "lockedUntilCurrentGreen": [
-    "IR-10.3 Labs PostgreSQL Authority",
     "IR-10.4 Settlement PostgreSQL Authority",
     "IR-10.5 Disputes PostgreSQL Authority",
     "IR-20 Canonical Durable Outbox",
@@ -125,25 +114,20 @@
     "apps/api/src/common/config/industrial-mode.ts",
     "apps/api/src/common/command-execution.context.ts",
     "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/modules/documents/document-repository.spec.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
-    "apps/api/test/one-deal/restored-database-acceptance.ts",
     "apps/api/src/modules/deals/deal-command-payload.ts",
-    "apps/api/src/modules/deals/deals.module.ts",
-    "apps/api/src/modules/deals/logistics-admission-context.ts",
-    "apps/api/src/modules/deals/logistics-admission.service.ts",
+    "apps/api/src/modules/deals/deal-command.service.ts",
     "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
     "apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts",
-    "apps/api/src/modules/logistics/**",
+    "apps/api/src/modules/labs/**",
     "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/20260713*_logistics_postgresql_authority/**",
+    "apps/api/prisma/migrations/20260713*_labs_postgresql_authority/**",
     "apps/api/test/industrial/harness.ts",
-    "apps/api/test/industrial/logistics-postgresql-authority.e2e-spec.ts",
-    "apps/api/test/one-deal/logistics-postgresql-authority.e2e-spec.ts",
-    "apps/api/test/one-deal/seed-logistics-admission.ts",
+    "apps/api/test/industrial/labs-postgresql-authority.e2e-spec.ts",
+    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
+    "apps/api/test/one-deal/labs-postgresql-authority.e2e-spec.ts",
+    "apps/api/test/one-deal/restored-database-acceptance.ts",
     "apps/api/test/one-deal/seed.ts",
-    "infra/sql/postgresql-logistics-authority-policies.sql",
+    "infra/sql/postgresql-labs-authority-policies.sql",
     "scripts/platform-v7-forward-only-migration-check.mjs",
     "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
@@ -157,112 +141,45 @@
     "apps/api/src/common/config/industrial-mode.ts",
     "apps/api/src/common/command-execution.context.ts",
     "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/modules/documents/document-repository.spec.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
-    "apps/api/test/one-deal/restored-database-acceptance.ts",
     "apps/api/src/modules/deals/deal-command-payload.ts",
-    "apps/api/src/modules/deals/deals.module.ts",
-    "apps/api/src/modules/deals/logistics-admission-context.ts",
-    "apps/api/src/modules/deals/logistics-admission.service.ts",
+    "apps/api/src/modules/deals/deal-command.service.ts",
     "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
     "apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts",
-    "apps/api/src/modules/logistics/**",
+    "apps/api/src/modules/labs/**",
     "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/20260713*_logistics_postgresql_authority/**",
+    "apps/api/prisma/migrations/20260713*_labs_postgresql_authority/**",
     "apps/api/test/industrial/harness.ts",
-    "apps/api/test/industrial/logistics-postgresql-authority.e2e-spec.ts",
-    "apps/api/test/one-deal/logistics-postgresql-authority.e2e-spec.ts",
-    "apps/api/test/one-deal/seed-logistics-admission.ts",
+    "apps/api/test/industrial/labs-postgresql-authority.e2e-spec.ts",
+    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
+    "apps/api/test/one-deal/labs-postgresql-authority.e2e-spec.ts",
+    "apps/api/test/one-deal/restored-database-acceptance.ts",
     "apps/api/test/one-deal/seed.ts",
-    "infra/sql/postgresql-logistics-authority-policies.sql",
+    "infra/sql/postgresql-labs-authority-policies.sql",
     "scripts/platform-v7-forward-only-migration-check.mjs",
     "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
-    "agent/transaction-ux-v8-reference-slice": [
-      "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
-      "apps/web/components/platform-v7/CanonicalDealWorkspace.module.css",
-      "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
-      "apps/web/components/platform-v7/RoleIntentDashboard.module.css",
-      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
-      "apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css",
-      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
-    ],
-    "agent/transaction-action-forms-cognitive-ux": [
-      "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
-      "apps/web/components/platform-v7/DealCommandForm.tsx",
-      "apps/web/components/platform-v7/DealCommandForm.module.css",
-      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
-    ],
-    "agent/cognitive-app-shell-utilities": [
-      "apps/web/components/platform-v7/HeaderUtilityMenu.tsx",
-      "apps/web/components/platform-v7/HeaderUtilityMenu.module.css",
-      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
-      "apps/web/components/platform-v7/RoleAssistantWidget.tsx",
-      "apps/web/components/platform-v7/RoleAssistantWidget.module.css",
-      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
-    ],
-    "agent/cognitive-shell-navigation-cleanup": [
-      "apps/web/app/platform-v7/notifications/notifications.module.css",
-      "apps/web/app/platform-v7/notifications/page.tsx",
-      "apps/web/components/platform-v7/HeaderUtilityMenu.tsx",
-      "apps/web/components/platform-v7/PlatformV7LayoutClient.tsx",
-      "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
-      "apps/web/components/platform-v7/PlatformV7ShellUxController.module.css",
-      "apps/web/components/platform-v7/PlatformV7ShellUxController.tsx",
-      "apps/web/lib/platform-v7/cabinet-access-policy.ts",
-      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts",
-      "apps/web/tests/unit/platformV7CognitiveDrawerLabels.test.ts",
-      "apps/web/tests/unit/platformV7CognitiveNavigation.test.ts",
-      "apps/web/tests/unit/platformV7CognitiveShellNoRoleOverride.test.ts",
-      "apps/web/tests/unit/platformV7CognitiveShellProgressiveDisclosure.test.ts",
-      "apps/web/tests/unit/platformV7CognitiveShellStyles.test.ts",
-      "apps/web/tests/unit/platformV7NoSyntheticRoleNotices.test.ts",
-      "apps/web/tests/unit/platformV7NotificationAccountScopeCopy.test.ts",
-      "apps/web/tests/unit/platformV7NotificationActionErrors.test.ts",
-      "apps/web/tests/unit/platformV7NotificationDateFormatting.test.ts",
-      "apps/web/tests/unit/platformV7NotificationErrorStates.test.ts",
-      "apps/web/tests/unit/platformV7NotificationInbox.test.ts",
-      "apps/web/tests/unit/platformV7NotificationMobileActions.test.ts",
-      "apps/web/tests/unit/platformV7NotificationNoDecorativeMetrics.test.ts",
-      "apps/web/tests/unit/platformV7NotificationNoFakeActions.test.ts",
-      "apps/web/tests/unit/platformV7NotificationNoFixtureIds.test.ts",
-      "apps/web/tests/unit/platformV7NotificationPlainLanguage.test.ts",
-      "apps/web/tests/unit/platformV7NotificationReadState.test.ts",
-      "apps/web/tests/unit/platformV7NotificationRouteAccess.test.ts",
-      "apps/web/tests/unit/platformV7NotificationSinglePurpose.test.ts",
-      "apps/web/tests/unit/platformV7ResolvedRoleUtilities.test.ts",
-      "apps/web/tests/unit/platformV7ShellTouchTargets.test.ts",
-      "apps/web/tests/unit/platformV7ShellUxController.test.ts",
-      "apps/web/tests/unit/platformV7ShellVisualClutter.test.ts"
-    ],
     "agent/today-priority-workspace": [
       "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
       "apps/web/components/platform-v7/RoleIntentDashboard.module.css",
-      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts"
-    ],
-    "agent/real-deals-registry": [
-      "apps/web/app/platform-v7/deals/page.tsx",
-      "apps/web/app/platform-v7/deals/deals.module.css",
-      "apps/web/components/platform-v7/CanonicalDealsList.tsx",
-      "apps/web/components/platform-v7/CanonicalDealsList.module.css",
-      "apps/web/tests/unit/platformV7RealDealsRegistry.test.ts"
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "apps/web/tests/unit/platformV7TodayWorkspace.test.ts"
     ]
   },
   "currentAcceptance": [
-    "Production LogisticsModule binds SHIPMENT_REPOSITORY directly to a complete Prisma implementation; RuntimeCore, optional Prisma and repository factory are absent from the production Logistics dependency graph.",
-    "Production startup fails closed when the shipment repository mode is missing, memory or unknown.",
-    "Shipment reads and operational facts execute in trusted server-derived RLS transactions and deny cross-tenant and same-tenant nonparticipant access.",
-    "Carrier, driver, vehicle, route and admission authority is normalized in PostgreSQL and cannot be supplied by a client-authored Deal snapshot.",
-    "Canonical assign_logistics consumes one valid admission and binds the Shipment atomically with Deal mutation, audit and PENDING outbox receipt.",
-    "Checkpoint, GPS and driver verification facts persist through restart and a second API instance; no process-memory track or fire-and-forget write remains authoritative.",
-    "Every logistics mutation is idempotent, optimistic-concurrency protected and commits business state, audit and outbox together or rolls back together.",
+    "Production LabsModule binds LAB_REPOSITORY directly to a complete Prisma implementation; RuntimeCore, optional Prisma and repository factory are absent from the production Labs dependency graph.",
+    "Production startup fails closed when the lab repository mode is missing, memory or unknown.",
+    "Sample reads and custody mutations execute in trusted server-derived RLS transactions and deny cross-tenant and same-tenant nonparticipant access.",
+    "Laboratory actor, sample custody, method, equipment, accreditation basis and protocol authority are normalized and cannot be supplied as client authority.",
+    "Collection, handoff, receipt, testing and finalization use an explicit state machine with optimistic concurrency and durable idempotency.",
+    "Each lab mutation commits sample/test state, append-only custody fact, audit and PENDING outbox together or rolls back together.",
+    "Finalized protocol facts are immutable and linked to verified evidence; corrections create explicit superseding records rather than overwriting confirmed facts.",
+    "Restart, second-instance, concurrent mutation, same-tenant outsider and cross-tenant denial are proven on restricted PostgreSQL principals.",
+    "No fake accreditation, live laboratory connection or external protocol upload claim is introduced.",
     "Forward migration succeeds on empty and baseline databases, drift is empty, restricted-principal RLS and exact-head CI are green."
   ],
   "nextAfterCurrentGreen": [
-    "IR-10.3 Labs PostgreSQL Authority",
     "IR-10.4 Settlement PostgreSQL Authority",
     "IR-10.5 Disputes PostgreSQL Authority",
     "IR-20 Canonical Durable Outbox",
@@ -283,8 +200,7 @@
     "pre-integration",
     "isolated-postgresql-evidence-only",
     "industrial-integration-ready-no-go",
-    "platform-temporarily-without-live-external-integrations",
-    "platform-temporarily-without-external-integrations"
+    "platform-temporarily-without-live-external-integrations"
   ],
   "forbiddenClaims": [
     "Industrial Integration-Ready before IR-90 acceptance",
@@ -292,6 +208,7 @@
     "provider DR accepted",
     "production RTO or RPO established",
     "live external integration",
+    "live laboratory integration",
     "live bank money movement",
     "production scale proven"
   ],
@@ -306,5 +223,5 @@
     "production migration execution",
     "production credentials and secret material"
   ],
-  "readiness": "NO-GO. Documents PostgreSQL authority is merged at a485371e. Logistics repository authority, single outbox ownership, durable inbox/partner state, canonical evidence, production operations, HA/DR/load and external security acceptance remain open."
+  "readiness": "NO-GO. Logistics PostgreSQL authority is merged at a272a1e6. Labs, Settlement, Disputes, single outbox ownership, durable inbox/partner state, canonical evidence, production operations, HA/DR/load and external security acceptance remain open."
 }
