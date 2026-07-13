@@ -1,10 +1,12 @@
 {
-  "version": 1,
+  "version": 2,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
     "packages/design-system-v8/src",
-    "apps/web/components/transaction-ux"
+    "apps/web/components/transaction-ux",
+    "apps/web/components/v7r/AppShellV4.tsx",
+    "apps/web/components/v7r/AppShellV4.module.css"
   ],
   "migratedFiles": [
     "apps/web/components/platform-v7/NextActionCard.tsx"
