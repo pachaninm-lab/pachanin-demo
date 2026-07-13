@@ -1,178 +1,84 @@
 import Link from 'next/link';
+import { NextActionCard, StatusChip, Surface } from '@pc/design-system-v8';
+import { DealRoleWorkbenchTemplate } from '@/components/transaction-ux/DealRoleWorkbenchTemplate';
+import { KeyFact, KeyFactGrid } from '@/components/transaction-ux/FieldTaskTemplate';
+import workspace from '@/components/transaction-ux/CommercialRoleWorkspace.module.css';
 import { BuyerFavoritesPanel } from '@/components/platform-v7/BuyerFavoritesPanel';
-import { getDealsCanonical } from '@/lib/deals-server';
-import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
-import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
-import { WorkflowActionPanel } from '../../../components/platform-v7/WorkflowActionPanel';
-import { RoleExecutionHandoff, type HandoffItem } from '../../../components/platform-v7/RoleExecutionHandoff';
-import { P7ActionStateChip } from '../../../components/platform-v7/P7ActionStateChip';
-import { JournalPreview } from '../../../components/platform-v7/JournalPreview';
-import { ConditionReasonStrip } from '../../../components/platform-v7/ConditionReasonStrip';
-import { DocumentReadinessMiniMatrix } from '../../../components/platform-v7/DocumentReadinessMiniMatrix';
-import { MoneyImpactSummaryStrip } from '../../../components/platform-v7/MoneyImpactSummaryStrip';
-import { MoneyGateRing } from '@/components/v7r/MoneyGateRing';
-import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
-import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
-import { ActionFeedbackPreviewStrip } from '../../../components/platform-v7/ActionFeedbackPreviewStrip';
-import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
-import { TrustDot } from '@/components/platform-v7/visual/TrustDot';
-import { SmartSectionSummary } from '@/components/platform-v7/visual/SmartSectionSummary';
-import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
-import { UnlockPath } from '@/components/platform-v7/visual/UnlockPath';
-import { P7ExecutionActionsPanel, type PlatformV7ExecutionActionUiItem } from '@/components/platform-v7/P7ExecutionActionsPanel';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { P7ExecutionActionsPanel } from '@/components/platform-v7/P7ExecutionActionsPanel';
+import { buyerSdizActionItems, buyerSdizInitialState } from '@/lib/platform-v7/buyer-sdiz-actions';
 import { CreditBureauPanel } from '@/components/platform-v7/CreditBureauPanel';
 import { EscrowPanel } from '@/components/platform-v7/EscrowPanel';
-import { PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE, type PlatformV7ExecutionActionState } from '@/lib/platform-v7/execution-action-core';
-import {
-  CockpitHero,
-  PremiumStatCard,
-  DonutGauge,
-  TrendSparkline,
-  StatusPill,
-  PremiumCtaButton,
-} from '@/components/platform-v7/premium';
+import { RoleExecutionHandoff, type HandoffItem } from '@/components/platform-v7/RoleExecutionHandoff';
+import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecutionCockpit';
+import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpits';
+import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentReadinessMiniMatrix';
+import { WorkflowActionPanel } from '@/components/platform-v7/WorkflowActionPanel';
+import { MoneyGateRing } from '@/components/platform-v7/visual/MoneyGateRing';
+import { CauseLine } from '@/components/platform-v7/visual/CauseLine';
+import { UnlockPath } from '@/components/platform-v7/visual/UnlockPath';
+import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
+import { ActionFeedbackPreviewStrip } from '@/components/platform-v7/ActionFeedbackPreviewStrip';
+import { JournalPreview } from '@/components/platform-v7/JournalPreview';
+import { QuietIntelligenceHint } from '@/components/platform-v7/visual/QuietIntelligenceHint';
 
 const buyerHandoff: HandoffItem[] = [
-  { direction: 'sends', role: 'покупатель → банк', requirement: 'запрос банковского подтверждения резерва', entity: 'DL-9106', href: '/platform-v7/deals/DL-9106/money', moneyImpact: true },
-  { direction: 'sends', role: 'покупатель → продавец', requirement: 'предложение с условиями: цена, объём, базис и документы', entity: 'LOT-2403', href: '/platform-v7/lots/LOT-2403', documentImpact: true },
-  { direction: 'awaits', role: 'от банка', requirement: 'резерв ожидает банковского подтверждения — до этого сделка не переходит к логистике', moneyImpact: true },
-  { direction: 'awaits', role: 'от элеватора', requirement: 'акт приёмки и протокол качества влияют на итоговый расчёт и удержание', documentImpact: true, moneyImpact: true },
-  { direction: 'next', requirement: 'запросить банковское подтверждение резерва и перейти к логистике после статуса банка', entity: 'DL-9106', href: '/platform-v7/deals/DL-9106/clean', moneyImpact: true },
+  { direction: 'sends', role: 'покупатель → банк', requirement: 'запрос подтверждения резерва по сделке', moneyImpact: true },
+  { direction: 'sends', role: 'покупатель → логистика', requirement: 'подтверждённые условия партии и окно поставки', documentImpact: true },
+  { direction: 'awaits', role: 'от банка', requirement: 'подтверждение резерва до старта логистики', moneyImpact: true },
+  { direction: 'blockedBy', requirement: 'резерв не подтверждён банком; спорная часть 624 тыс. ₽ удержана', documentImpact: true, moneyImpact: true },
+  { direction: 'next', requirement: 'запросить подтверждение резерва и закрыть расхождение веса актом', entity: 'DL-9106', documentImpact: true, moneyImpact: true },
+];
+
+const buyerPaths = [
+  { href: '/platform-v7/procurement', title: 'Закупки', note: 'Заявки, лимиты и предложения поставщиков' },
+  { href: '/platform-v7/lots', title: 'Рынок партий', note: 'Сравнение партий, качества и условий' },
+  { href: '/platform-v7/deals', title: 'Сделки', note: 'Резерв, логистика, документы и споры' },
 ];
 
 const buyerLots = [
-  { id: 'LOT-2405', title: 'Пшеница 4 класса · 240 т · Тамбовская область', price: '16 120 ₽/т', status: 'лучшая ставка', next: 'повысить ставку или ждать окончания окна', href: '/platform-v7/lots/LOT-2405' },
-  { id: 'LOT-2403', title: 'Пшеница 4 класса · 600 т · Тамбовская область', price: '16 080 ₽/т', status: 'ставка принята', next: 'запросить банковское подтверждение резерва', href: '/platform-v7/lots/LOT-2403' },
-] as const;
+  { id: 'LOT-2403', title: 'Пшеница 4 класс · 600 т', price: '16 080 ₽/т', status: 'сделка DL-9106', next: 'подтвердить резерв', href: '/platform-v7/deals/DL-9106/clean' },
+  { id: 'LOT-2410', title: 'Ячмень 3 класс · 420 т', price: '15 320 ₽/т', status: 'приём ставок', next: 'сравнить предложения', href: '/platform-v7/lots/LOT-2410' },
+];
 
-const buyerPaths = [
-  { title: 'Создать закупочный запрос', href: '/platform-v7/buyer/rfq/new', note: 'культура, объём, регион, базис, документы' },
-  { title: 'Подобрать партии', href: '/platform-v7/buyer/matches', note: 'цена до точки, качество, логистика и риск' },
-  { title: 'Предложения покупателя', href: '/platform-v7/buyer/offers', note: 'версии условий, срок действия и принятие' },
-  { title: 'Резерв денег', href: '/platform-v7/deals/DL-9106/money', note: 'готовность денег без преждевременного движения денег' },
-] as const;
-
-const buyerFirstScreenFacts = [
-  { label: 'Что произошло', value: 'ставка по LOT-2403 принята, сделка DL-9106 собрана к исполнению', warning: false },
-  { label: 'Что блокирует', value: 'банк ещё не подтвердил резерв — логистика не стартует', warning: false },
-  { label: 'Деньги под риском', value: '9,65 млн ₽ резерв · 624 тыс. ₽ удержание по весу', warning: true },
-  { label: 'Ответственный', value: 'покупатель запрашивает подтверждение, банк фиксирует статус', warning: false },
-  { label: 'Следующий шаг', value: 'открыть деньги сделки и запросить банковское подтверждение', href: '/platform-v7/deals/DL-9106/money', warning: false },
-] as const;
-
-const buyerSdizInitialState = {
-  ...PLATFORM_V7_INITIAL_EXECUTION_ACTION_STATE,
-  dealId: 'DL-9106',
-  draftDealId: 'DL-9106',
-} satisfies PlatformV7ExecutionActionState;
-
-const buyerSdizActionItems = [
-  { title: 'Отправить СДИЗ на ручную проверку', description: 'Создаёт задачу оператору проверить статус СДИЗ во ФГИС или по документу пилота. Это не внешнее подтверждение ФГИС.', targetId: 'e4-send-sdiz-manual-review', actionId: 'sendSdizManualReview', actorRole: 'buyer', actorId: 'buyer-user-1', entityId: 'SDIZ-DL-9106', mode: 'manual' },
-  { title: 'Погасить СДИЗ', description: 'Доступно только после оформления, подписи и передачи СДИЗ покупателю; результат остаётся ручной проверкой до внешнего подтверждения.', targetId: 'e4-redeem-sdiz', actionId: 'redeemSdiz', actorRole: 'buyer', actorId: 'buyer-user-1', entityId: 'SDIZ-DL-9106', mode: 'manual' },
-  { title: 'Зафиксировать отказ от погашения', description: 'Блокирует выпуск и передаёт задачу поддержке/комплаенсу для обработки основания отказа.', targetId: 'e4-refuse-sdiz-redemption', actionId: 'refuseSdizRedemption', actorRole: 'buyer', actorId: 'buyer-user-1', entityId: 'SDIZ-DL-9106', mode: 'manual' },
-] satisfies readonly PlatformV7ExecutionActionUiItem[];
-
-export default async function PlatformV7BuyerPage() {
-  const [deals, disputes] = await Promise.all([getDealsCanonical(), getDisputes()]);
-  const apiOnline = deals.length > 0;
-  const disputeCount = openDisputeCount(disputes);
-  const heldRub = disputeTotalHeldRub(disputes);
-
-  return (
-    <main data-platform-v7-buyer-cockpit-pass='true' style={{ display: 'grid', gap: 14, padding: '4px 0 24px' }}>
-      <LiveApiStatusBar
-        apiOnline={apiOnline}
-        openDisputes={disputeCount}
-        role="BUYER · Кабинет покупателя"
-        summary={
-          apiOnline
-            ? `${deals.length} сделок · ${disputeCount} споров · ${heldRub > 0 ? (heldRub / 1_000_000).toFixed(2) + ' млн ₽ удержано' : 'удержаний нет'}`
-            : 'Данные статичные — API недоступен'
-        }
+export default function BuyerPage() {
+  const primary = (
+    <div className={workspace.stack}>
+      <NextActionCard
+        label='Одно следующее действие'
+        action='Запросить банковское подтверждение резерва'
+        reason='До подтверждения банка логистика по DL-9106 не стартует. Спорная часть 624 тыс. ₽ остаётся под удержанием до закрытия расхождения веса.'
+        blocked
+        impact='9,65 млн ₽ резерв · 624 тыс. ₽ удержание'
+        owner='Покупатель и банк'
+        actions={(
+          <div className={workspace.actions}>
+            <Link className={workspace.primaryLink} href='/platform-v7/deals/DL-9106/clean'>Открыть сделку DL-9106</Link>
+            <a className={workspace.secondaryLink} href='#buyer-money'>Проверить резерв</a>
+          </div>
+        )}
       />
+
+      <KeyFactGrid>
+        <KeyFact label='Сделка' value='DL-9106' hint='Пшеница 4 класс · 600 т' />
+        <KeyFact label='Резерв' value='9,65 млн ₽' hint='ожидает подтверждения банка' />
+        <KeyFact label='Удержание' value='624 тыс. ₽' hint='расхождение веса' />
+        <KeyFact label='Следующий этап' value='логистика' hint='после подтверждения резерва' />
+      </KeyFactGrid>
 
       <QuietIntelligenceHint
-        problem='Резерв 9,65 млн ₽ ждёт банковского подтверждения — логистика не стартует.'
-        action='Запросить подтверждение резерва через сделку DL-9106.'
-        outcome='После подтверждения банка сделка перейдёт к логистике.'
+        problem='Банк ещё не подтвердил резерв, поэтому логистика не может стартовать.'
+        action='Отправить запрос банку и проверить, что основание сделки и документы доступны для проверки.'
+        outcome='После банковского подтверждения резерв открывает логистический этап; удержание остаётся до закрытия акта расхождения.'
       />
 
-      <CockpitHero
-        eyebrow='Кабинет покупателя · запрос → резерв → логистика'
-        title='Подтвердить резерв,'
-        accent='чтобы сделка пошла в исполнение'
-        lead='Покупатель видит не доску партий, а контур закупки: запрос, выбранную партию, ставку, резерв, удержание, документы и причину, почему сделка ещё не перешла к логистике.'
-        aside={
-          <div style={blockerCard}>
-            <div style={micro}>главный блокер</div>
-            <strong style={{ color: 'var(--pc-prem-warn, #B45309)', fontSize: 18, lineHeight: 1.2 }}>резерв ждёт подтверждение банка</strong>
-            <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 12, lineHeight: 1.45 }}>логистика не стартует до статуса банка</span>
-          </div>
-        }
-      >
-        <div className='pc-prem-kpis' aria-label='Ключевые показатели закупки'>
-          <PremiumStatCard glyph='bag' tone='info' value={String(deals.length)} label='Сделок в работе' />
-          <PremiumStatCard glyph='coins' tone='success' value='9,65 млн ₽' label='Резерв · ждёт банк' />
-          <PremiumStatCard glyph='scale' tone='warning' value='624 тыс. ₽' label='Под удержанием · вес' />
-          <PremiumStatCard glyph='alert' tone={disputeCount > 0 ? 'danger' : 'neutral'} value={String(disputeCount)} label='Открытых споров' />
-        </div>
+      <CollapsibleSection title='Обзор закупки' summary='заявка · партия · статус' defaultOpen>
+        <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.buyer} />
+      </CollapsibleSection>
 
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-          <DonutGauge value={78} sublabel='готовность' caption='Уверенность к поставке' tone='success' />
-          <div style={{ flex: '1 1 220px', minWidth: 200, display: 'grid', gap: 8 }}>
-            <StatusPill tone='warning'>Резерв ждёт банковского подтверждения</StatusPill>
-            <TrendSparkline points={[58, 61, 60, 67, 71, 74, 78]} deltaLabel='+20 п.п.' caption='Динамика готовности · сценарий' />
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
-          <PremiumCtaButton href='#money' glyph='shield-check'>Деньги и резерв</PremiumCtaButton>
-          <PremiumCtaButton href='/platform-v7/deals/DL-9106' variant='ghost'>Открыть сделку</PremiumCtaButton>
-        </div>
-        <TrustDot state='test' size='sm' label='Контур исполнения · Внешние подключения требуют договоров' />
-      </CockpitHero>
-
-      <section aria-label='Первый экран контроля покупателя' style={firstScreenCard}>
-        <div style={{ display: 'grid', gap: 6 }}>
-          <div style={micro}>операционный срез покупателя</div>
-          <h2 style={{ ...h2, margin: 0 }}>Что делать сейчас</h2>
-          <p style={{ margin: 0, color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.5 }}>
-            Экран: платформа показывает причину, деньги и маршрут. Банковское подтверждение обязательно для передачи средств.
-          </p>
-        </div>
-        <div style={factGrid}>
-          {buyerFirstScreenFacts.map((fact) => {
-            const content = (
-              <>
-                <div style={micro}>{fact.label}</div>
-                <div style={{ marginTop: 6, color: fact.warning ? '#B45309' : 'var(--pc-text-primary, #0F1419)', fontSize: 14, lineHeight: 1.4, fontWeight: 900 }}>{fact.value}</div>
-                {'href' in fact ? <div style={{ marginTop: 10, color: '#2563EB', fontSize: 12, fontWeight: 900 }}>Открыть маршрут</div> : null}
-              </>
-            );
-
-            return 'href' in fact ? (
-              <Link key={fact.label} href={fact.href} style={factCardLink}>
-                {content}
-              </Link>
-            ) : (
-              <div key={fact.label} style={factCard}>
-                {content}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section id='overview' style={anchorSection}>
-        <CollapsibleSection title='Обзор закупки' summary='заявка · партия · статус' defaultOpen>
-          <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.buyer} />
-        </CollapsibleSection>
-      </section>
-
-      <section id='money' style={anchorSection}>
-        <CollapsibleSection title='Деньги, резерв и удержание' summary='резерв 9,65 млн ₽ · удержание 624 тыс. ₽' defaultOpen={false}>
-          <div style={{ display: 'grid', gap: 12 }}>
+      <section id='buyer-money' className={workspace.sectionAnchor}>
+        <CollapsibleSection title='Деньги, резерв и удержание' summary='резерв 9,65 млн ₽ · удержание 624 тыс. ₽' defaultOpen>
+          <div className={workspace.sectionStack}>
             <MoneyGateRing
               title='Деньги покупателя по сделке DL-9106'
               totalRub={9_648_000}
@@ -181,157 +87,107 @@ export default async function PlatformV7BuyerPage() {
                 { label: 'Резерв заявлен покупателем', amountRub: 9_024_000, state: 'reserved' },
                 { label: 'Удержано по спору', amountRub: 624_000, state: 'held' },
               ]}
-              caption='Резерв ожидает банковского подтверждения; спорная часть удержана до закрытия расхождения по весу. Платформа деньги не выпускает.'
+              caption='Платформа отображает основание и статусы. Банковское подтверждение обязательно; платформа деньги не выпускает.'
             />
             <MoneyImpactSummaryStrip
               amountContext='резерв 9,65 млн ₽ · удержание 624 тыс. ₽'
               pilotState='waiting'
-              pilotStateLabel='контур исполнения · ожидание подтверждения'
+              pilotStateLabel='ожидание подтверждения'
               responsible='покупатель · банк'
-              nextStep='ожидать банковского подтверждения резерва'
+              nextStep='запросить банковское подтверждение резерва'
               stopReason='сделка не переходит к логистике до банковского подтверждения'
-              requiredEvidence='банковское подтверждение резерва; по спорной части — акт приёмки и протокол качества'
-              afterResolved='после подтверждения резерва сделка переходит к логистике; спорная часть остаётся под удержанием до закрытия расхождения'
-              bankPlatformBoundary='платформа показывает причину и следующий шаг, банк подтверждает резерв и дальнейшее движение денег'
+              requiredEvidence='банковское подтверждение резерва; для спорной части — акт приёмки и протокол качества'
+              afterResolved='подтверждённый резерв открывает логистику; спорная часть остаётся под удержанием'
+              bankPlatformBoundary='платформа показывает причину и следующий шаг; банк подтверждает резерв и движение денег'
             />
           </div>
         </CollapsibleSection>
       </section>
 
-      <section id='documents' style={anchorSection}>
-        <CollapsibleSection title='Документы и СДИЗ покупателя' summary='СДИЗ · ручная проверка · действия' defaultOpen={false}>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <DocumentReadinessMiniMatrix role='buyer' />
-            <P7ExecutionActionsPanel
-              title='СДИЗ покупателя'
-              subtitle='Покупатель видит три честных действия: погасить СДИЗ, зафиксировать отказ или отправить статус на ручную проверку. Банк получает только основание для проверки, не сигнал выплаты.'
-              items={buyerSdizActionItems}
-              initialState={buyerSdizInitialState}
-            />
-            <WorkflowActionPanel context='buyer' />
+      <CollapsibleSection title='Документы и СДИЗ покупателя' summary='СДИЗ · ручная проверка · действия' defaultOpen={false}>
+        <div className={workspace.sectionStack}>
+          <DocumentReadinessMiniMatrix role='buyer' />
+          <P7ExecutionActionsPanel
+            title='СДИЗ покупателя'
+            subtitle='Погасить СДИЗ, зафиксировать отказ или отправить статус на ручную проверку. Банк получает основание для проверки, а не сигнал выплаты.'
+            items={buyerSdizActionItems}
+            initialState={buyerSdizInitialState}
+          />
+          <WorkflowActionPanel context='buyer' />
+        </div>
+      </CollapsibleSection>
+    </div>
+  );
+
+  const context = (
+    <div className={workspace.stack}>
+      <StatusChip tone='warning'>Ожидается решение банка</StatusChip>
+      <ol className={workspace.contextList}>
+        <li><span>1. Резерв</span><strong>отправить запрос на подтверждение</strong></li>
+        <li><span>2. Логистика</span><strong>стартует только после ответа банка</strong></li>
+        <li><span>3. Расхождение</span><strong>закрыть актом приёмки</strong></li>
+        <li><span>Граница</span><strong>платформа не выпускает деньги</strong></li>
+      </ol>
+    </div>
+  );
+
+  const details = (
+    <div className={workspace.detailsStack}>
+      <CollapsibleSection title='Блокеры и путь разблокировки' summary='резерв → логистика → удержание' defaultOpen={false}>
+        <div className={workspace.sectionStack}>
+          <CauseLine cause={{ text: 'Банк не подтвердил резерв', tone: 'blocked' }} relation='blocks' effect={{ text: 'Логистика не стартует', tone: 'blocked' }} moneyAmount='9,65 млн ₽' moneyTone='hold' />
+          <CauseLine cause={{ text: 'Вес расходится с актом', tone: 'warning' }} relation='affects' effect={{ text: 'Удержание на спорную часть', tone: 'warning' }} moneyAmount='624 тыс. ₽' moneyTone='hold' />
+          <UnlockPath title='Чтобы открыть исполнение сделки покупателя:' steps={[
+            { id: '1', label: 'Запросить банковское подтверждение резерва', status: 'current', detail: 'DL-9106 · 9,65 млн ₽' },
+            { id: '2', label: 'Дождаться статуса банка', status: 'upcoming', detail: 'без этого логистика не стартует' },
+            { id: '3', label: 'Закрыть расхождение веса через акт', status: 'upcoming', detail: 'снимет удержание 624 тыс. ₽' },
+          ]} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title='Рабочие действия и передача' summary='ответственный · ожидание · журнал' defaultOpen={false}>
+        <div className={workspace.sectionStack}>
+          <ActionFeedbackPreviewStrip context='buyer' />
+          <RoleExecutionHandoff items={buyerHandoff} title='исполнение: что покупатель отправляет и ожидает' />
+          <JournalPreview role='buyer' maxEntries={3} />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection title='Закупки, партии и маршруты покупателя' summary='заявки · предложения · партии' defaultOpen={false}>
+        <div className={workspace.sectionStack}>
+          <div className={workspace.routeGrid}>
+            {buyerPaths.map((item) => <Link key={item.href} href={item.href} className={workspace.routeCard}><strong>{item.title}</strong><small>{item.note}</small></Link>)}
           </div>
-        </CollapsibleSection>
-      </section>
-
-      <section id='blockers' style={anchorSection}>
-        <CollapsibleSection title='Блокеры и путь разблокировки' summary='резерв → логистика → удержание' defaultOpen={false}>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <P7ActionStateChip status='active' label='пилотный сценарий' nextActor='покупатель' moneyEffect='резерв после банковского подтверждения' />
-            <ConditionReasonStrip condition='пилотный сценарий' responsible='покупатель' documentState='ожидает банковского подтверждения' />
-            <CauseLine cause={{ text: 'Банк не подтвердил резерв', tone: 'blocked' }} relation='blocks' effect={{ text: 'Логистика не стартует', tone: 'blocked' }} moneyAmount='9,65 млн ₽' moneyTone='hold' />
-            <CauseLine cause={{ text: 'Вес расходится с актом', tone: 'warning' }} relation='affects' effect={{ text: 'Удержание на спорную часть', tone: 'warning' }} moneyAmount='624 тыс. ₽' moneyTone='hold' />
-            <UnlockPath
-              title='Чтобы открыть движение денег покупателя:'
-              steps={[
-                { id: '1', label: 'Запросить банковское подтверждение резерва', status: 'current', detail: 'DL-9106 · 9,65 млн ₽' },
-                { id: '2', label: 'Дождаться статуса банка', status: 'upcoming', detail: 'без этого логистика не стартует' },
-                { id: '3', label: 'Закрыть расхождение веса через акт', status: 'upcoming', detail: 'снимет удержание 624 тыс. ₽' },
-              ]}
-            />
+          <div className={workspace.queueList}>
+            {buyerLots.map((lot) => (
+              <Link key={lot.id} href={lot.href} className={workspace.queueCard}>
+                <span className={workspace.queueCopy}><strong>{lot.id} · {lot.title}</strong><span>{lot.status} · {lot.price}</span><small>{lot.next}</small></span>
+                <StatusChip tone={lot.id === 'LOT-2403' ? 'warning' : 'information'}>{lot.status}</StatusChip>
+              </Link>
+            ))}
           </div>
-        </CollapsibleSection>
-      </section>
+        </div>
+      </CollapsibleSection>
 
-      <section id='actions' style={anchorSection}>
-        <CollapsibleSection title='Рабочие действия и передача' summary='действие · ответственный · ожидание' defaultOpen={false}>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <ActionFeedbackPreviewStrip context='buyer' />
-            <RoleExecutionHandoff items={buyerHandoff} title='исполнение: что покупатель отправляет и ожидает' />
-          </div>
-        </CollapsibleSection>
-      </section>
+      <CollapsibleSection title='Риск и финансовые инструменты' summary='скоринг · escrow' defaultOpen={false}>
+        <div className={workspace.grid2}><Surface><CreditBureauPanel /></Surface><Surface><EscrowPanel /></Surface></div>
+      </CollapsibleSection>
 
-      <section id='journal' style={anchorSection}>
-        <CollapsibleSection title='Журнал событий' summary='резерв · удержание · последние события' defaultOpen={false}>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <SmartSectionSummary
-              label='Журнал'
-              items={[
-                { text: 'Резерв 9,65 млн ₽ зарезервирован · ожидает банковского подтверждения', tone: 'warn' },
-                { text: 'Удержание 624 тыс. ₽ · расхождение веса по LOT-2403', tone: 'warn' },
-              ]}
-            />
-            <JournalPreview role='buyer' maxEntries={3} />
-          </div>
-        </CollapsibleSection>
-      </section>
+      <CollapsibleSection title='Избранные лоты и поставщики' summary='быстрый доступ · рейтинги' defaultOpen={false}><BuyerFavoritesPanel /></CollapsibleSection>
+    </div>
+  );
 
-      <section id='procurement' style={anchorSection}>
-        <CollapsibleSection title='Закупки, партии и маршруты покупателя' summary='заявки · предложения · партии' defaultOpen={false}>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <section style={card}>
-              <div style={micro}>рабочие маршруты покупателя</div>
-              <div style={pathGrid}>
-                {buyerPaths.map((path) => (
-                  <Link key={path.href} href={path.href} style={pathCard}>
-                    <strong style={{ color: 'var(--pc-text-primary, #0F1419)', fontSize: 16 }}>{path.title}</strong>
-                    <span style={{ color: 'var(--pc-text-muted, #64748B)', fontSize: 13, lineHeight: 1.45 }}>{path.note}</span>
-                    <span style={{ color: '#2563EB', fontSize: 12, fontWeight: 900 }}>Открыть</span>
-                  </Link>
-                ))}
-              </div>
-            </section>
-
-            <section style={card}>
-              <div style={micro}>партии для закупки</div>
-              <div style={{ display: 'grid', gap: 8 }}>
-                {buyerLots.map((lot) => (
-                  <Link key={lot.id} href={lot.href} style={lotRow}>
-                    <div>
-                      <div style={idText}>{lot.id}</div>
-                      <h2 style={h2}>{lot.title}</h2>
-                    </div>
-                    <div style={rowGrid}>
-                      <Cell label='Цена' value={lot.price} strong />
-                      <Cell label='Статус' value={lot.status} />
-                      <Cell label='Следующее действие' value={lot.next} warning />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          </div>
-        </CollapsibleSection>
-      </section>
-      {/* Кредитное бюро */}
-      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' }}>
-        <CollapsibleSection title='Кредитное бюро · Скоринг контрагентов' summary='НБКИ · ОКБ · Эквифакс · грейд AAA→CCC · лимиты' defaultOpen={false}>
-          <CreditBureauPanel />
-        </CollapsibleSection>
-      </section>
-
-      {/* Escrow */}
-      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' }}>
-        <CollapsibleSection title='Escrow · Счета условного депонирования' summary='Сбер Безопасные Сделки · резерв · release · спор · условия выпуска' defaultOpen={false}>
-          <EscrowPanel />
-        </CollapsibleSection>
-      </section>
-
-      {/* Избранное и рейтинги поставщиков */}
-      <section style={{ background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' }}>
-        <div style={micro}>Избранные лоты и поставщики</div>
-        <BuyerFavoritesPanel />
-      </section>
-    </main>
+  return (
+    <DealRoleWorkbenchTemplate
+      testId='platform-v7-buyer-v8'
+      eyebrow='Покупатель · исполнение сделки'
+      title='Закупка, резерв и запуск логистики'
+      description='Первый уровень показывает одну сделку, состояние резерва, удержание и следующий шаг. Каталог, скоринг и финансовые инструменты раскрываются только при необходимости.'
+      statusLabel='Ожидается банк'
+      statusTone='warning'
+      primary={primary}
+      context={context}
+      details={details}
+    />
   );
 }
-
-function Cell({ label, value, strong = false, warning = false }: { label: string; value: string; strong?: boolean; warning?: boolean }) {
-  return <div style={cell}><div style={micro}>{label}</div><div style={{ marginTop: 4, color: warning ? '#B45309' : strong ? '#0A7A5F' : 'var(--pc-text-primary, #0F1419)', fontSize: 13, lineHeight: 1.35, fontWeight: 900 }}>{value}</div></div>;
-}
-
-const card = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 24, padding: 18, display: 'grid', gap: 12, boxShadow: '0 14px 34px rgba(15,23,42,0.055)' } as const;
-const h2 = { margin: '4px 0 0', color: 'var(--pc-text-primary, #0F1419)', fontSize: 22, lineHeight: 1.08, fontWeight: 950, letterSpacing: '-0.025em' } as const;
-const blockerCard = { display: 'grid', gap: 6, minWidth: 220, maxWidth: 280, padding: 14, borderRadius: 18, background: '#FFFBEB', border: '1px solid #FDE68A', boxShadow: '0 12px 28px rgba(180,83,9,0.08)' } as const;
-const firstScreenCard = { background: 'linear-gradient(135deg, rgba(255,251,235,0.84), rgba(255,255,255,0.92))', border: '1px solid #FDE68A', borderRadius: 28, padding: 18, display: 'grid', gap: 14, boxShadow: '0 18px 40px rgba(180,83,9,0.08)' } as const;
-const factGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 } as const;
-const factCard = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 14, minHeight: 116, boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
-const factCardLink = { ...factCard, textDecoration: 'none', color: 'inherit' } as const;
-const pathGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 } as const;
-const pathCard = { textDecoration: 'none', minHeight: 132, display: 'grid', alignContent: 'start', gap: 8, padding: 14, borderRadius: 20, background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', boxShadow: '0 10px 24px rgba(15,23,42,0.045)' } as const;
-const lotRow = { textDecoration: 'none', color: 'inherit', background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 22, padding: 16, display: 'grid', gap: 12, boxShadow: '0 12px 30px rgba(15,23,42,0.055)' } as const;
-const rowGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))', gap: 8 } as const;
-const cell = { background: 'var(--pc-bg-card)', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 10, minWidth: 0, boxShadow: '0 8px 18px rgba(15,23,42,0.035)' } as const;
-const idText = { color: '#2563EB', fontSize: 13, fontWeight: 950 } as const;
-const micro = { color: 'var(--pc-text-muted, #64748B)', fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.07em' } as const;
-const anchorSection = { scrollMarginTop: 86 } as const;
