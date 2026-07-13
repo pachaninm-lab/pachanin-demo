@@ -58,34 +58,15 @@ const extensions = new Set(['.ts', '.tsx', '.css', '.scss']);
 const governedFiles = [
   ...governance.governedRoots.flatMap(walk),
   ...governance.migratedFiles,
+  ...(governance.architectureFiles ?? []),
 ].filter((relativePath, index, all) => all.indexOf(relativePath) === index && extensions.has(path.extname(relativePath)));
 
 const checks = [
-  {
-    enabled: governance.rules.forbidInlineStyle,
-    label: 'inline style',
-    pattern: /\bstyle\s*=\s*\{\{/,
-  },
-  {
-    enabled: governance.rules.forbidDangerousStyleInjection,
-    label: 'dangerouslySetInnerHTML style injection',
-    pattern: /dangerouslySetInnerHTML/,
-  },
-  {
-    enabled: governance.rules.forbidLiteralColors,
-    label: 'literal color',
-    pattern: /#[0-9a-fA-F]{3,8}\b|\brgba?\s*\(|\bhsla?\s*\(/,
-  },
-  {
-    enabled: governance.rules.forbidImportant,
-    label: '!important',
-    pattern: /!important/,
-  },
-  {
-    enabled: governance.rules.forbidLegacyStyleImports,
-    label: 'legacy global style import',
-    pattern: /(?:from\s+|import\s+)["']@\/styles\/platform-v7-|(?:from\s+|import\s+)["']@\/app\/v9/,
-  },
+  { enabled: governance.rules.forbidInlineStyle, label: 'inline style', pattern: /\bstyle\s*=\s*\{\{/ },
+  { enabled: governance.rules.forbidDangerousStyleInjection, label: 'dangerouslySetInnerHTML style injection', pattern: /dangerouslySetInnerHTML/ },
+  { enabled: governance.rules.forbidLiteralColors, label: 'literal color', pattern: /#[0-9a-fA-F]{3,8}\b|\brgba?\s*\(|\bhsla?\s*\(/ },
+  { enabled: governance.rules.forbidImportant, label: '!important', pattern: /!important/ },
+  { enabled: governance.rules.forbidLegacyStyleImports, label: 'legacy global style import', pattern: /(?:from\s+|import\s+)["']@\/styles\/platform-v7-|(?:from\s+|import\s+)["']@\/app\/v9/ },
 ];
 
 for (const relativePath of governedFiles) {
@@ -103,6 +84,34 @@ for (const relativePath of governance.migratedFiles) {
   const content = readText(relativePath);
   if (!content.includes('@pc/design-system-v8')) {
     fail(`${relativePath}: migrated file must consume @pc/design-system-v8.`);
+  }
+}
+
+const protectedShellPath = 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx';
+const protectedShell = readText(protectedShellPath);
+if (!protectedShell.includes("@/components/transaction-ux/TransactionAppShell")) {
+  fail(`${protectedShellPath}: canonical TransactionAppShell must be mounted.`);
+}
+if (/AppShellV[1-9]|components\/v7r\/AppShell|components\/v9\/layout\/AppShell/.test(protectedShell)) {
+  fail(`${protectedShellPath}: legacy App Shell import is forbidden.`);
+}
+
+const canonicalShellPath = 'apps/web/components/transaction-ux/TransactionAppShell.tsx';
+const canonicalShell = readText(canonicalShellPath);
+for (const forbidden of ['setRole(', "localStorage.getItem('role')", 'localStorage.getItem("role")']) {
+  if (canonicalShell.includes(forbidden)) fail(`${canonicalShellPath}: client role authority is forbidden (${forbidden}).`);
+}
+if (!canonicalShell.includes('PLATFORM_V7_ROLE_NAVIGATION')) {
+  fail(`${canonicalShellPath}: canonical role navigation contract is required.`);
+}
+
+for (const relativePath of governance.migratedFiles.filter((file) => file.includes('/platform-v7/') && file.endsWith('/page.tsx'))) {
+  const content = readText(relativePath);
+  if (!content.includes("@/components/transaction-ux/FieldTaskTemplate")) {
+    fail(`${relativePath}: field role must use FieldTaskTemplate or IntakeWorkbenchTemplate.`);
+  }
+  for (const forbiddenRoute of ['/platform-v7/bank', '/platform-v7/investor', '/platform-v7/control-tower']) {
+    if (content.includes(forbiddenRoute)) fail(`${relativePath}: field role must not link to ${forbiddenRoute}.`);
   }
 }
 
