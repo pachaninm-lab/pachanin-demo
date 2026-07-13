@@ -142,7 +142,7 @@ export class PostgresqlDealCommandService extends DealCommandService {
           const storedReceipt = await tx.outboxEntry.findUnique({
             where: { idempotencyKey: receiptKey },
           });
-          if (storedReceipt) return this.resultFromReceipt(storedReceipt.payload);
+          if (storedReceipt) return this.postgresResultFromReceipt(storedReceipt.payload);
 
           const deal = await tx.deal.findUnique({ where: { id: dealId } });
           if (!deal) throw new NotFoundException(`Deal ${dealId} not found`);
@@ -212,9 +212,6 @@ export class PostgresqlDealCommandService extends DealCommandService {
             throw new ConflictException({ code: 'LAB_SAMPLE_AUTHORITY_BASIS_INCOMPLETE' });
           }
 
-          // PostgreSQL trigger validates accreditation, signatory, custody,
-          // calibrated equipment, methods and immutable evidence; it derives
-          // result and standard and inserts exactly one protocol and custody fact.
           const finalizedSample = await tx.labSample.update({
             where: { id: sample.id },
             data: {
@@ -456,7 +453,7 @@ export class PostgresqlDealCommandService extends DealCommandService {
           const receipt = await tx.outboxEntry.findUnique({
             where: { idempotencyKey: receiptKey },
           });
-          return receipt ? this.resultFromReceipt(receipt.payload) : null;
+          return receipt ? this.postgresResultFromReceipt(receipt.payload) : null;
         });
         if (replay) return { ...replay, duplicate: true };
       }
@@ -470,7 +467,7 @@ export class PostgresqlDealCommandService extends DealCommandService {
     }
   }
 
-  private resultFromReceipt(payload: Prisma.JsonValue) {
+  private postgresResultFromReceipt(payload: Prisma.JsonValue) {
     const result = (payload as { result?: Record<string, unknown> } | null)?.result;
     if (!result) throw new ConflictException('Stored command receipt is incomplete');
     return { ...result, duplicate: true };
