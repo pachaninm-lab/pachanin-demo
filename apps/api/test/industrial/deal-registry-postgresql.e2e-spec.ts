@@ -62,7 +62,18 @@ async function seedRegistryDeal(
 }
 
 describe('Deal registry PostgreSQL keyset read model', () => {
-  it('paginates stably, filters on the server and denies non-participant rows', async () => {
+  const previousSecret = process.env.DEAL_REGISTRY_CURSOR_SECRET;
+
+  beforeAll(() => {
+    process.env.DEAL_REGISTRY_CURSOR_SECRET = 'industrial-registry-cursor-secret-at-least-32-bytes';
+  });
+
+  afterAll(() => {
+    if (previousSecret === undefined) delete process.env.DEAL_REGISTRY_CURSOR_SECRET;
+    else process.env.DEAL_REGISTRY_CURSOR_SECRET = previousSecret;
+  });
+
+  it('paginates stably, orders by priority/deadline/money and denies non-participant rows', async () => {
     const instance = await createRememberedInstance();
     try {
       const fixture = await provisionDeal(instance.prisma, 'deal-registry-page', 90_000_000n);
@@ -133,17 +144,24 @@ describe('Deal registry PostgreSQL keyset read model', () => {
       const registry = new DealRegistryQueryService(instance.rls);
       const first = await registry.listAccessible({ limit: 2 }, buyer);
       expect(first.items.map((item) => item.id)).toEqual([
-        'DEAL-REGISTRY-001',
         'DEAL-REGISTRY-002',
+        'DEAL-REGISTRY-003',
       ]);
       expect(first.hasMore).toBe(true);
-      expect(first.nextCursor).toEqual(expect.any(String));
-      expect(first.items[1]).toMatchObject({
+      expect(first.nextCursor).toEqual(expect.stringMatching(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/));
+      expect(first.items[0]).toMatchObject({
         priorityReason: 'MONEY_CONTROL',
+        priorityRank: 1,
         deadlineAt: '2026-07-15T08:00:00.000Z',
         moneyImpactKopecks: '220000000',
         myRole: 'BUYER',
         myAccessLevel: 'WORK',
+      });
+      expect(first.items[1]).toMatchObject({
+        priorityReason: 'MONEY_CONTROL',
+        priorityRank: 1,
+        deadlineAt: null,
+        moneyImpactKopecks: '330000000',
       });
 
       const seen = new Set(first.items.map((item) => item.id));
