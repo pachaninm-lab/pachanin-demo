@@ -5,10 +5,10 @@
   "lastCompletedStep": "#2410 Documents PostgreSQL Authority",
   "openPr": "#2412",
   "blockedBy": [
-    "IR-10.2 exact-head CI is rerunning after correcting shipment authority typing and the one-deal NotFoundException import."
+    "IR-10.2 exact-head CI is rerunning after restoring normalized-admission error semantics and least-privilege access to the logistics authority schema."
   ],
   "nextStep": "IR-10.2 Logistics PostgreSQL Authority",
-  "updatedAt": "2026-07-13T06:24:00.000Z",
+  "updatedAt": "2026-07-13T06:27:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
