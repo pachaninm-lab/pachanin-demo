@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import '../../../../packages/design-tokens/tokens.css';
 import '@/app/v9.css';
 import '@/app/v9-accessibility.css';
 import '@/styles/theme.css';

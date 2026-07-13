@@ -1,0 +1,91 @@
+:root {
+  --ds-color-canvas: #f7f9f8;
+  --ds-color-surface: #ffffff;
+  --ds-color-surface-subtle: #eef2f0;
+  --ds-color-text-primary: #101814;
+  --ds-color-text-secondary: #34413b;
+  --ds-color-text-muted: #66756e;
+  --ds-color-border: #dce4e0;
+  --ds-color-focus: #175cd3;
+  --ds-color-action-primary: #086534;
+  --ds-color-action-primary-hover: #034423;
+  --ds-color-action-primary-subtle: #edf8f1;
+  --ds-color-on-action: #ffffff;
+  --ds-color-success: #086534;
+  --ds-color-success-bg: #edf8f1;
+  --ds-color-warning: #9b6100;
+  --ds-color-warning-bg: #fff8e6;
+  --ds-color-critical: #b42318;
+  --ds-color-critical-bg: #fff1f0;
+  --ds-color-information: #175cd3;
+  --ds-color-information-bg: #eef6ff;
+
+  --ds-space-0: 0;
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-8: 32px;
+  --ds-space-10: 40px;
+
+  --ds-radius-sm: 6px;
+  --ds-radius-md: 10px;
+  --ds-radius-lg: 16px;
+  --ds-radius-xl: 22px;
+  --ds-control-height: 48px;
+  --ds-control-height-compact: 40px;
+  --ds-content-max: 1440px;
+  --ds-font-caption: 12px;
+  --ds-font-body: 15px;
+  --ds-font-title: 24px;
+  --ds-font-display: 36px;
+  --ds-motion-fast: 120ms;
+  --ds-motion-standard: 200ms;
+
+  --ds-shadow-surface: 0 1px 2px rgb(16 24 20 / 0.06), 0 10px 28px rgb(16 24 20 / 0.05);
+  --ds-shadow-overlay: 0 18px 48px rgb(16 24 20 / 0.18);
+}
+
+[data-theme='dark'] {
+  --ds-color-canvas: #0d1511;
+  --ds-color-surface: #142019;
+  --ds-color-surface-subtle: #1b2a22;
+  --ds-color-text-primary: #f4f8f5;
+  --ds-color-text-secondary: #c9d5ce;
+  --ds-color-text-muted: #93a39a;
+  --ds-color-border: #314239;
+  --ds-color-focus: #84adff;
+  --ds-color-action-primary: #7ee0a7;
+  --ds-color-action-primary-hover: #a0edbf;
+  --ds-color-action-primary-subtle: #173424;
+  --ds-color-on-action: #07140d;
+  --ds-color-success: #7ee0a7;
+  --ds-color-success-bg: #173424;
+  --ds-color-warning: #f5c451;
+  --ds-color-warning-bg: #3a2d0d;
+  --ds-color-critical: #ffaaa5;
+  --ds-color-critical-bg: #3c1c1a;
+  --ds-color-information: #9ec5ff;
+  --ds-color-information-bg: #162a45;
+  --ds-shadow-surface: 0 1px 2px rgb(0 0 0 / 0.2), 0 14px 36px rgb(0 0 0 / 0.22);
+  --ds-shadow-overlay: 0 22px 64px rgb(0 0 0 / 0.42);
+}
+
+@media (forced-colors: active) {
+  :root {
+    --ds-color-canvas: Canvas;
+    --ds-color-surface: Canvas;
+    --ds-color-surface-subtle: Canvas;
+    --ds-color-text-primary: CanvasText;
+    --ds-color-text-secondary: CanvasText;
+    --ds-color-text-muted: CanvasText;
+    --ds-color-border: CanvasText;
+    --ds-color-focus: Highlight;
+    --ds-color-action-primary: ButtonText;
+    --ds-color-action-primary-hover: ButtonText;
+    --ds-color-action-primary-subtle: Canvas;
+    --ds-color-on-action: ButtonFace;
+  }
+}

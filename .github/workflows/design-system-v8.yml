@@ -1,0 +1,36 @@
+name: Design System v8 Gate
+
+on:
+  pull_request:
+    paths:
+      - 'packages/design-tokens/**'
+      - 'packages/design-system-v8/**'
+      - 'apps/web/components/transaction-ux/**'
+      - 'apps/web/components/platform-v7/NextActionCard.tsx'
+      - 'design-governance-v8.json'
+      - 'scripts/check-design-system-v8.mjs'
+      - '.github/workflows/design-system-v8.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/design-tokens/**'
+      - 'packages/design-system-v8/**'
+      - 'apps/web/components/transaction-ux/**'
+      - 'apps/web/components/platform-v7/NextActionCard.tsx'
+      - 'design-governance-v8.json'
+      - 'scripts/check-design-system-v8.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enforce Design System v8 boundaries
+        run: node ./scripts/check-design-system-v8.mjs

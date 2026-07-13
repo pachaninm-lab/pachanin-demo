@@ -1,0 +1,89 @@
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+
+const exact = new Set([
+  '.github/workflows/design-system-v8.yml',
+  '.github/workflows/platform-v7-autopilot-guard.yml',
+  'apps/web/components/platform-v7/NextActionCard.tsx',
+  'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx',
+  'apps/web/tests/unit/designSystemV8Foundation.test.ts',
+  'apps/web/tsconfig.json',
+  'design-governance-v8.json',
+  'docs/platform-v7/design-system-v8-governance.md',
+  'package.json',
+  'pnpm-workspace.yaml',
+  'scripts/check-design-system-v8.mjs',
+  'scripts/check-design-system-v8-pr-scope.mjs',
+]);
+
+const prefixes = [
+  'apps/web/components/transaction-ux/',
+  'packages/design-system-v8/',
+  'packages/design-tokens/',
+];
+
+const forbidden = [
+  /^apps\/landing\//,
+  /^apps\/api\//,
+  /^packages\/domain-core\//,
+  /^infra\//,
+  /^\.env/,
+  /(?:^|\/)package-lock\.json$/,
+  /(?:^|\/)pnpm-lock\.yaml$/,
+  /\.(?:pem|key)$/,
+];
+
+function normalize(file) {
+  return file.trim().replaceAll('\\', '/').replace(/^\.\//, '');
+}
+
+function allowed(file) {
+  return exact.has(file) || prefixes.some((prefix) => file.startsWith(prefix));
+}
+
+function git(args) {
+  return execFileSync('git', args, { encoding: 'utf8' }).trim();
+}
+
+let base = process.env.BASE_REF || 'origin/main';
+try {
+  git(['rev-parse', '--verify', base]);
+} catch {
+  base = 'main';
+}
+
+let mergeBase;
+try {
+  mergeBase = git(['merge-base', base, 'HEAD']);
+} catch (error) {
+  console.error(`[design-system-v8-scope] Cannot resolve merge base for ${base}.`);
+  process.exit(1);
+}
+
+const files = git(['diff', '--name-only', `${mergeBase}...HEAD`])
+  .split(/\r?\n/)
+  .map(normalize)
+  .filter(Boolean);
+
+if (files.length === 0) {
+  console.error('[design-system-v8-scope] No changed files found.');
+  process.exit(1);
+}
+
+const violations = [];
+for (const file of files) {
+  if (forbidden.some((pattern) => pattern.test(file))) {
+    violations.push(`${file}: forbidden zone`);
+    continue;
+  }
+  if (!allowed(file)) violations.push(`${file}: outside approved Design System v8 scope`);
+}
+
+if (violations.length > 0) {
+  console.error('[design-system-v8-scope] FAIL');
+  for (const violation of violations) console.error(`- ${violation}`);
+  process.exit(1);
+}
+
+console.log(`[design-system-v8-scope] PASS: ${files.length} changed files are inside the approved scope.`);
+for (const file of files) console.log(`- ${file}`);

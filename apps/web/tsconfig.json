@@ -15,8 +15,20 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
+      "react": [
+        "./node_modules/@types/react/index.d.ts"
+      ],
+      "react/*": [
+        "./node_modules/@types/react/*"
+      ],
       "@/components/platform-v7/GrainExecutionPage": [
         "./components/platform-v7/GrainExecutionPageFixed.tsx"
+      ],
+      "@pc/design-system-v8": [
+        "../../packages/design-system-v8/src/index.ts"
+      ],
+      "@pc/design-tokens": [
+        "../../packages/design-tokens/src/index.ts"
       ],
       "@/*": [
         "./*"
@@ -31,6 +43,9 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    "../../packages/design-system-v8/src/**/*.ts",
+    "../../packages/design-system-v8/src/**/*.tsx",
+    "../../packages/design-tokens/src/**/*.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [
