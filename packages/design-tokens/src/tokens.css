@@ -1,0 +1,85 @@
+:root {
+  --pc-v8-color-brand-50: #eef8f3;
+  --pc-v8-color-brand-100: #d8eee3;
+  --pc-v8-color-brand-600: #176b4a;
+  --pc-v8-color-brand-700: #11563c;
+  --pc-v8-color-brand-800: #0b432f;
+  --pc-v8-color-neutral-0: #ffffff;
+  --pc-v8-color-neutral-50: #f7f9f8;
+  --pc-v8-color-neutral-100: #edf1ef;
+  --pc-v8-color-neutral-300: #c9d2cd;
+  --pc-v8-color-neutral-600: #52615a;
+  --pc-v8-color-neutral-800: #233129;
+  --pc-v8-color-neutral-950: #101814;
+  --pc-v8-color-success: #16794f;
+  --pc-v8-color-warning: #9a5b00;
+  --pc-v8-color-danger: #b42318;
+  --pc-v8-color-info: #175cd3;
+  --pc-v8-space-1: 4px;
+  --pc-v8-space-2: 8px;
+  --pc-v8-space-3: 12px;
+  --pc-v8-space-4: 16px;
+  --pc-v8-space-5: 20px;
+  --pc-v8-space-6: 24px;
+  --pc-v8-space-8: 32px;
+  --pc-v8-space-10: 40px;
+  --pc-v8-space-12: 48px;
+  --pc-v8-radius-sm: 8px;
+  --pc-v8-radius-md: 12px;
+  --pc-v8-radius-lg: 16px;
+  --pc-v8-radius-xl: 20px;
+  --pc-v8-radius-pill: 999px;
+  --pc-v8-control-compact: 40px;
+  --pc-v8-control-comfortable: 44px;
+  --pc-v8-control-field: 48px;
+  --pc-v8-content-max: 1440px;
+  --pc-v8-duration-fast: 120ms;
+  --pc-v8-duration-normal: 180ms;
+
+  --pc-v8-bg: var(--pc-v8-color-neutral-50);
+  --pc-v8-surface: var(--pc-v8-color-neutral-0);
+  --pc-v8-surface-muted: var(--pc-v8-color-neutral-100);
+  --pc-v8-text: var(--pc-v8-color-neutral-950);
+  --pc-v8-text-secondary: var(--pc-v8-color-neutral-600);
+  --pc-v8-border: var(--pc-v8-color-neutral-300);
+  --pc-v8-accent: var(--pc-v8-color-brand-700);
+  --pc-v8-accent-strong: var(--pc-v8-color-brand-800);
+  --pc-v8-focus: var(--pc-v8-color-info);
+  --pc-v8-shadow-sm: 0 1px 2px rgb(16 24 20 / 8%);
+  --pc-v8-shadow-lg: 0 18px 48px rgb(16 24 20 / 18%);
+}
+
+[data-theme='dark'] {
+  --pc-v8-bg: var(--pc-v8-color-neutral-950);
+  --pc-v8-surface: var(--pc-v8-color-neutral-800);
+  --pc-v8-surface-muted: color-mix(in srgb, var(--pc-v8-color-neutral-800) 82%, var(--pc-v8-color-neutral-600));
+  --pc-v8-text: var(--pc-v8-color-neutral-0);
+  --pc-v8-text-secondary: var(--pc-v8-color-neutral-300);
+  --pc-v8-border: color-mix(in srgb, var(--pc-v8-color-neutral-300) 32%, transparent);
+  --pc-v8-accent: #7ee0b6;
+  --pc-v8-accent-strong: #b7f4d9;
+  --pc-v8-focus: #84adff;
+}
+
+@media (forced-colors: active) {
+  :root {
+    --pc-v8-bg: Canvas;
+    --pc-v8-surface: Canvas;
+    --pc-v8-surface-muted: Canvas;
+    --pc-v8-text: CanvasText;
+    --pc-v8-text-secondary: CanvasText;
+    --pc-v8-border: CanvasText;
+    --pc-v8-accent: LinkText;
+    --pc-v8-accent-strong: LinkText;
+    --pc-v8-focus: Highlight;
+    --pc-v8-shadow-sm: none;
+    --pc-v8-shadow-lg: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --pc-v8-duration-fast: 0ms;
+    --pc-v8-duration-normal: 0ms;
+  }
+}
