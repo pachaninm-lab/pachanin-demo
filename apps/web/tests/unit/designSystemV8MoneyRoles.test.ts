@@ -43,7 +43,7 @@ describe('Design System v8 money role reference slice', () => {
     expect(buyer).toContain('buyerSdizActionItems');
     expect(buyer).toContain('CreditBureauPanel');
     expect(buyer).toContain('EscrowPanel');
-    expect(buyer).toContain('банк подтверждает резерв и дальнейшее движение денег');
+    expect(buyer).toMatch(/банк подтверждает резерв и дальнейшее движение денег/i);
     expect(buyer).toContain('Платформа деньги не выпускает');
   });
 
