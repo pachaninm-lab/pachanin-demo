@@ -16,6 +16,7 @@ const provisioningMigrationPath =
 const physicalActorMigrationPath =
   'apps/api/prisma/migrations/20260713125000_labs_postgresql_authority/migration.sql';
 const prismaRepositoryPath = 'apps/api/src/modules/labs/prisma-lab.repository.ts';
+const authorityServicePath = 'apps/api/src/modules/labs/lab-authority.service.ts';
 const postgresDealCommandPath =
   'apps/api/src/modules/deals/postgresql-deal-command.service.ts';
 const industrialE2ePath =
@@ -85,6 +86,8 @@ describe('IR-10.3 laboratory PostgreSQL authority cannot be bypassed', () => {
     const command = readRepoFile(postgresDealCommandPath);
 
     expect(command).not.toContain('app_labs_protocol_evidence_valid');
+    expect(command).toContain('app_labs_evidence_purpose_valid');
+    expect(command).toContain("'PROTOCOL'");
   });
 
   it('does not let privileged staff impersonate a physical laboratory actor', () => {
@@ -106,8 +109,13 @@ describe('IR-10.3 laboratory PostgreSQL authority cannot be bypassed', () => {
     expect(finalEnforcement).toContain("'SIGNATORY'");
   });
 
-  it('enforces operation-specific laboratory actor types in the production repository', () => {
-    const repository = readRepoFile(prismaRepositoryPath);
+  it('enforces operation-specific actor types across the production service, repository and FORCE-RLS triggers', () => {
+    const implementation = [
+      readRepoFile(authorityServicePath),
+      readRepoFile(prismaRepositoryPath),
+      readRepoFile(provisioningMigrationPath),
+      readRepoFile(physicalActorMigrationPath),
+    ].join('\n');
 
     for (const actorType of [
       'SAMPLER',
@@ -116,8 +124,9 @@ describe('IR-10.3 laboratory PostgreSQL authority cannot be bypassed', () => {
       'ANALYST',
       'SIGNATORY',
     ]) {
-      expect(repository).toContain(actorType);
+      expect(implementation).toContain(actorType);
     }
+    expect(implementation).toContain('app_labs_actor_valid');
   });
 
   it('ships an exact PostgreSQL exploitation suite for Labs authority', () => {
