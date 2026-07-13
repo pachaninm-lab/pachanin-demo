@@ -1,19 +1,19 @@
-:global(.pc-shell-root-v4) {
+.shellScope:global(.pc-shell-root-v4) {
   --pc-header-offset: 72px !important;
 }
 
-:global(.pc-v4-meta),
-:global(.pc-v4-pilot-note),
-:global(.pc-v4-actions .pc-v4-stage),
-:global(.pc-v4-actions button[aria-label='Открыть уведомления']),
-:global(.pc-v4-bottomnav),
-:global(.pc-v4-switch-cabinet),
-:global(.pc-v4-drawer .pc-v4-nav),
-:global(.pc-v4-drawer > div:not(:first-child)) {
+.shellScope :global(.pc-v4-meta),
+.shellScope :global(.pc-v4-pilot-note),
+.shellScope :global(.pc-v4-actions .pc-v4-stage),
+.shellScope :global(.pc-v4-actions button[aria-label='Открыть уведомления']),
+.shellScope :global(.pc-v4-bottomnav),
+.shellScope :global(.pc-v4-switch-cabinet),
+.shellScope :global(.pc-v4-drawer .pc-v4-nav),
+.shellScope :global(.pc-v4-drawer > div:not(:first-child)) {
   display: none !important;
 }
 
-:global(.pc-v4-main) {
+.shellScope :global(.pc-v4-main) {
   max-width: 1440px !important;
   overflow-x: hidden !important;
   contain: inline-size;
@@ -21,16 +21,16 @@
   padding-bottom: calc(env(safe-area-inset-bottom) + 92px) !important;
 }
 
-:global(.pc-v4-main *),
-:global(.pc-v4-drawer *) {
+.shellScope :global(.pc-v4-main *),
+.shellScope :global(.pc-v4-drawer *) {
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
 }
 
-:global(.pc-v4-main img),
-:global(.pc-v4-main svg),
-:global(.pc-v4-main canvas) {
+.shellScope :global(.pc-v4-main img),
+.shellScope :global(.pc-v4-main svg),
+.shellScope :global(.pc-v4-main canvas) {
   max-width: 100% !important;
 }
 
@@ -257,17 +257,17 @@
 }
 
 @media (max-width: 640px) {
-  :global(.pc-shell-root-v4) {
+  .shellScope:global(.pc-shell-root-v4) {
     --pc-header-offset: 64px !important;
   }
 
-  :global(.pc-v4-main) {
+  .shellScope :global(.pc-v4-main) {
     padding-left: 12px !important;
     padding-right: 12px !important;
     padding-top: calc(var(--pc-header-offset) + 10px) !important;
   }
 
-  :global(.pc-v4-main [style*='grid-template-columns']) {
+  .shellScope :global(.pc-v4-main [style*='grid-template-columns']) {
     grid-template-columns: 1fr !important;
   }
 
