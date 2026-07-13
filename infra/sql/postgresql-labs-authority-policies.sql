@@ -1,5 +1,5 @@
 -- Canonical RLS overlay for IR-10.3 Labs PostgreSQL Authority.
--- Apply after production-rls-policies.sql and the labs authority migration.
+-- Apply after production-rls-policies.sql and the labs authority migrations.
 
 ALTER TABLE public."lab_samples" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."lab_samples" FORCE ROW LEVEL SECURITY;
@@ -79,8 +79,9 @@ DROP POLICY IF EXISTS lab_custody_events_delete ON public."lab_custody_events";
 
 DROP POLICY IF EXISTS lab_assignments_select ON public."lab_assignments";
 CREATE POLICY lab_assignments_select ON public."lab_assignments" FOR SELECT USING (
-  public.app_rls_context_ready() AND "tenantId" = current_setting('app.current_tenant_id', true)
-  AND (current_setting('app.current_role', true) IN ('SUPPORT_MANAGER','ADMIN') OR "labUserId" = current_setting('app.current_user_id', true))
+  public.app_rls_context_ready()
+  AND "tenantId" = current_setting('app.current_tenant_id', true)
+  AND public.app_rls_deal_visible("dealId")
 );
 DROP POLICY IF EXISTS lab_accreditations_select ON public."lab_accreditations";
 CREATE POLICY lab_accreditations_select ON public."lab_accreditations" FOR SELECT USING (
@@ -97,4 +98,3 @@ CREATE POLICY lab_equipment_select ON public."lab_equipment" FOR SELECT USING (
   public.app_rls_context_ready() AND "tenantId" = current_setting('app.current_tenant_id', true)
   AND (current_setting('app.current_role', true) IN ('SUPPORT_MANAGER','ADMIN') OR "labOrgId" = current_setting('app.current_org_id', true))
 );
-
