@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -7,7 +7,14 @@
     "apps/web/components/transaction-ux"
   ],
   "migratedFiles": [
-    "apps/web/components/platform-v7/NextActionCard.tsx"
+    "apps/web/components/platform-v7/NextActionCard.tsx",
+    "apps/web/app/platform-v7/driver/field/page.tsx",
+    "apps/web/app/platform-v7/elevator/page.tsx",
+    "apps/web/app/platform-v7/lab/page.tsx",
+    "apps/web/app/platform-v7/surveyor/page.tsx"
+  ],
+  "architectureFiles": [
+    "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx"
   ],
   "allowedGlobalStyleEntrypoints": [
     "packages/design-tokens/tokens.css"
