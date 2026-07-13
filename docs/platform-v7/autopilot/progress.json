@@ -3,12 +3,12 @@
   "fullTzReadinessPercent": 0,
   "currentStep": "IR-10.2 Logistics PostgreSQL Authority",
   "lastCompletedStep": "#2410 Documents PostgreSQL Authority",
-  "openPr": null,
+  "openPr": "#2412",
   "blockedBy": [
-    "Production LogisticsModule still permits RuntimeCore and an incomplete Prisma shipment repository."
+    "IR-10.2 implementation requires exact-head migration, RLS, restart, idempotency, concurrency and one-deal/DR evidence before merge."
   ],
   "nextStep": "IR-10.2 Logistics PostgreSQL Authority",
-  "updatedAt": "2026-07-13T03:55:00.000Z",
+  "updatedAt": "2026-07-13T05:40:00.000Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
