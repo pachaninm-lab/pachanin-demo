@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { AlertTriangle, ArrowRight, CheckCircle2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
 import { CanonicalDealWorkspace } from '@/components/platform-v7/CanonicalDealWorkspace';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import styles from './RoleIntentDashboard.module.css';
@@ -14,11 +14,19 @@ type AccessibleDealRef = {
   nextAction: string | null;
 };
 
+type AccessibleDealsPage = {
+  deals: AccessibleDealRef[];
+  nextCursor: string | null;
+  total: number | null;
+};
+
 type LoadState =
   | { kind: 'loading' }
-  | { kind: 'ready'; deals: AccessibleDealRef[] }
+  | { kind: 'ready'; deals: AccessibleDealRef[]; nextCursor: string | null; total: number | null; loadingMore: boolean; loadMoreError: string }
   | { kind: 'empty' }
   | { kind: 'error'; message: string };
+
+const PAGE_SIZE = 20;
 
 const ROLE_FOCUS: Record<PlatformRole, string> = {
   operator: 'Управление исполнением сделок',
@@ -42,11 +50,19 @@ function optionalString(value: unknown): string | null | undefined {
   return normalized || null;
 }
 
-function validDeals(payload: unknown): AccessibleDealRef[] | null {
-  if (!payload || typeof payload !== 'object' || !Array.isArray((payload as { items?: unknown }).items)) return null;
+function optionalNonNegativeInteger(value: unknown): number | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) return undefined;
+  return value;
+}
+
+function validDealsPage(payload: unknown): AccessibleDealsPage | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const root = payload as Record<string, unknown>;
+  if (!Array.isArray(root.items)) return null;
 
   const deals: AccessibleDealRef[] = [];
-  for (const item of (payload as { items: unknown[] }).items) {
+  for (const item of root.items) {
     if (!item || typeof item !== 'object') return null;
 
     const row = item as Record<string, unknown>;
@@ -59,7 +75,14 @@ function validDeals(payload: unknown): AccessibleDealRef[] | null {
     deals.push({ id, dealNumber, status, nextAction });
   }
 
-  return deals;
+  const pagination = root.pagination && typeof root.pagination === 'object'
+    ? root.pagination as Record<string, unknown>
+    : null;
+  const nextCursor = optionalString(root.nextCursor ?? pagination?.nextCursor);
+  const total = optionalNonNegativeInteger(root.total ?? pagination?.total);
+  if (nextCursor === undefined || total === undefined) return null;
+
+  return { deals, nextCursor, total };
 }
 
 function prioritizeDeals(deals: AccessibleDealRef[]): AccessibleDealRef[] {
@@ -71,6 +94,13 @@ function prioritizeDeals(deals: AccessibleDealRef[]): AccessibleDealRef[] {
   }
 
   return [...actionable, ...waiting];
+}
+
+function mergeDeals(current: AccessibleDealRef[], incoming: AccessibleDealRef[]): AccessibleDealRef[] {
+  const byId = new Map<string, AccessibleDealRef>();
+  for (const deal of current) byId.set(deal.id, deal);
+  for (const deal of incoming) byId.set(deal.id, deal);
+  return prioritizeDeals([...byId.values()]);
 }
 
 function actionCountLabel(count: number): string {
@@ -87,18 +117,31 @@ function dealTitle(deal: AccessibleDealRef): string {
   return deal.dealNumber || deal.id;
 }
 
+function pageUrl(cursor: string | null): string {
+  const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+  if (cursor) params.set('cursor', cursor);
+  return `/api/proxy/deals/accessible?${params.toString()}`;
+}
+
 export function RoleIntentDashboard({ role }: { role: PlatformRole }) {
   const [state, setState] = React.useState<LoadState>({ kind: 'loading' });
   const requestRef = React.useRef(0);
 
-  const load = React.useCallback(async () => {
+  const load = React.useCallback(async (cursor: string | null = null, append = false) => {
     const requestId = ++requestRef.current;
-    setState({ kind: 'loading' });
+    if (append) {
+      setState((current) => current.kind === 'ready'
+        ? { ...current, loadingMore: true, loadMoreError: '' }
+        : current);
+    } else {
+      setState({ kind: 'loading' });
+    }
+
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 12_000);
 
     try {
-      const response = await fetch('/api/proxy/deals/accessible?limit=20', {
+      const response = await fetch(pageUrl(cursor), {
         cache: 'no-store',
         headers: { Accept: 'application/json' },
         signal: controller.signal,
@@ -107,30 +150,67 @@ export function RoleIntentDashboard({ role }: { role: PlatformRole }) {
       if (requestId !== requestRef.current) return;
 
       if (!response.ok) {
-        setState({
-          kind: 'error',
-          message: response.status === 401 || response.status === 403
-            ? 'Доступ к сделкам не подтверждён. Войди заново.'
-            : 'Не удалось загрузить сделки.',
-        });
+        const message = response.status === 401 || response.status === 403
+          ? 'Доступ к сделкам не подтверждён. Войди заново.'
+          : 'Не удалось загрузить сделки.';
+        if (append) {
+          setState((current) => current.kind === 'ready'
+            ? { ...current, loadingMore: false, loadMoreError: message }
+            : current);
+        } else {
+          setState({ kind: 'error', message });
+        }
         return;
       }
 
-      const deals = validDeals(payload);
-      if (!deals) {
-        setState({ kind: 'error', message: 'Сервер вернул некорректный список сделок.' });
+      const page = validDealsPage(payload);
+      if (!page) {
+        const message = 'Сервер вернул некорректный список сделок.';
+        if (append) {
+          setState((current) => current.kind === 'ready'
+            ? { ...current, loadingMore: false, loadMoreError: message }
+            : current);
+        } else {
+          setState({ kind: 'error', message });
+        }
         return;
       }
 
-      setState(deals.length === 0 ? { kind: 'empty' } : { kind: 'ready', deals: prioritizeDeals(deals) });
+      if (append) {
+        setState((current) => current.kind === 'ready'
+          ? {
+              kind: 'ready',
+              deals: mergeDeals(current.deals, page.deals),
+              nextCursor: page.nextCursor,
+              total: page.total ?? current.total,
+              loadingMore: false,
+              loadMoreError: '',
+            }
+          : current);
+      } else {
+        setState(page.deals.length === 0
+          ? { kind: 'empty' }
+          : {
+              kind: 'ready',
+              deals: prioritizeDeals(page.deals),
+              nextCursor: page.nextCursor,
+              total: page.total,
+              loadingMore: false,
+              loadMoreError: '',
+            });
+      }
     } catch (error) {
       if (requestId !== requestRef.current) return;
-      setState({
-        kind: 'error',
-        message: error instanceof DOMException && error.name === 'AbortError'
-          ? 'Сервер не ответил вовремя. Повтори загрузку.'
-          : 'Не удалось загрузить сделки.',
-      });
+      const message = error instanceof DOMException && error.name === 'AbortError'
+        ? 'Сервер не ответил вовремя. Повтори загрузку.'
+        : 'Не удалось загрузить сделки.';
+      if (append) {
+        setState((current) => current.kind === 'ready'
+          ? { ...current, loadingMore: false, loadMoreError: message }
+          : current);
+      } else {
+        setState({ kind: 'error', message });
+      }
     } finally {
       window.clearTimeout(timeout);
     }
@@ -185,6 +265,9 @@ export function RoleIntentDashboard({ role }: { role: PlatformRole }) {
 
   const [current, ...otherDeals] = state.deals;
   const actionableCount = state.deals.filter((deal) => deal.nextAction).length;
+  const loadedCountLabel = state.total === null
+    ? `Загружено активных сделок: ${state.deals.length}`
+    : `Загружено ${state.deals.length} из ${state.total}`;
 
   return (
     <div className={styles.todayWorkspace}>
@@ -196,24 +279,42 @@ export function RoleIntentDashboard({ role }: { role: PlatformRole }) {
         </div>
         <div className={styles.todayFacts} aria-label='Сводка задач на сегодня'>
           <strong>{actionCountLabel(actionableCount)}</strong>
-          <span>Показано активных сделок: {state.deals.length}</span>
+          <span>{loadedCountLabel}</span>
         </div>
       </section>
 
-      {otherDeals.length > 0 ? (
+      {otherDeals.length > 0 || state.nextCursor ? (
         <details className={styles.otherDeals}>
-          <summary>Другие показанные сделки: {otherDeals.length}</summary>
-          <nav className={styles.dealLinks} aria-label='Другие показанные сделки'>
-            {otherDeals.map((deal) => (
-              <Link className={styles.dealLink} key={deal.id} href={`/platform-v7/deals/${encodeURIComponent(deal.id)}/execution`}>
-                <span className={styles.dealCopy}>
-                  <strong>{dealTitle(deal)}</strong>
-                  <small>{deal.nextAction || 'Сейчас действие не требуется'}</small>
-                </span>
-                <ArrowRight size={18} aria-hidden='true' />
-              </Link>
-            ))}
-          </nav>
+          <summary>Все загруженные сделки: {state.deals.length}</summary>
+          <div className={styles.dealListBody}>
+            {otherDeals.length > 0 ? (
+              <nav className={styles.dealLinks} aria-label='Другие загруженные сделки'>
+                {otherDeals.map((deal) => (
+                  <Link className={styles.dealLink} key={deal.id} href={`/platform-v7/deals/${encodeURIComponent(deal.id)}/execution`}>
+                    <span className={styles.dealCopy}>
+                      <strong>{dealTitle(deal)}</strong>
+                      <small>{deal.nextAction || 'Сейчас действие не требуется'}</small>
+                    </span>
+                    <ArrowRight size={18} aria-hidden='true' />
+                  </Link>
+                ))}
+              </nav>
+            ) : null}
+
+            {state.nextCursor ? (
+              <button
+                className={styles.loadMoreButton}
+                type='button'
+                disabled={state.loadingMore}
+                onClick={() => void load(state.nextCursor, true)}
+              >
+                {state.loadingMore ? <Loader2 className={styles.spin} size={18} aria-hidden='true' /> : <ArrowRight size={18} aria-hidden='true' />}
+                {state.loadingMore ? 'Загружаем ещё' : 'Показать ещё сделки'}
+              </button>
+            ) : null}
+
+            {state.loadMoreError ? <p className={styles.loadMoreError} role='alert'>{state.loadMoreError}</p> : null}
+          </div>
         </details>
       ) : null}
 
