@@ -30,7 +30,7 @@ export class LabsController {
     return this.labs.workspace(id, user);
   }
 
-  @Roles('LAB', 'SUPPORT_MANAGER', 'ADMIN')
+  @Roles('LAB', 'SURVEYOR', 'SUPPORT_MANAGER', 'ADMIN')
   @Post('samples')
   create(@Body() dto: CreateSampleDto, @CurrentUser() user: RequestUser) {
     return this.labs.create(dto, user);
