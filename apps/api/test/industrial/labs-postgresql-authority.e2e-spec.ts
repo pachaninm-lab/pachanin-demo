@@ -105,8 +105,9 @@ async function createPurposeEvidence(
   user: RequestUser,
   purpose: LabOperationEvidencePurpose,
   suffix: string,
+  supersedesId?: string,
 ): Promise<string> {
-  const body = JSON.stringify({ purpose, suffix, sampleId: fixture.sampleId });
+  const body = JSON.stringify({ purpose, suffix, sampleId: fixture.sampleId, supersedesId: supersedesId ?? null });
   const sizeBytes = Buffer.byteLength(body);
   const sha256 = createHash('sha256').update(body).digest('hex');
   const uploads = new LabEvidenceUploadService(instance.rls, instance.storageAdapter);
@@ -115,6 +116,7 @@ async function createPurposeEvidence(
     filename: `${suffix}.json`,
     mimeType: 'application/json',
     sizeBytes,
+    ...(supersedesId ? { supersedesId } : {}),
   }, user);
   instance.storageAdapter.put(requested.objectKey, {
     sizeBytes,
@@ -347,6 +349,7 @@ describe('IR-10.3 Labs PostgreSQL authority exploitation', () => {
         fixture.users.lab,
         'TEST',
         'moisture-correction',
+        original.id,
       );
       await instance.labs.recordTest(fixture.sampleId, {
         commandId: `correction:${fixture.dealId}:moisture`,
