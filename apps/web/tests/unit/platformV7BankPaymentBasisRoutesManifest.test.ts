@@ -1,17 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
-import { buildPlatformV7BankPaymentBasisRuntimeAction } from '@/lib/platform-v7/bank-payment-basis-runtime-action';
-import type { PlatformV7BankPaymentBasisRuntimeInput } from '@/lib/platform-v7/bank-payment-basis-runtime-action';
 import { PLATFORM_V7_ROUTES_MANIFEST, CRITICAL_ROUTES, MANIFEST_ROLES } from '@/lib/platform-v7/routes-manifest';
 import type { RouteEntry } from '@/lib/platform-v7/routes-manifest';
 
 const SHELL_FILES = [
-  'lib/platform-v7/bank-payment-basis-runtime-action.ts',
   'lib/platform-v7/routes-manifest.ts',
   'lib/platform-v7/support-contour-smoke.ts',
 ];
 
-describe('bank basis runtime and routes manifest', () => {
+describe('bank basis canonical route and routes manifest', () => {
   for (const file of SHELL_FILES) {
     it(`${file} exists and has no direct network calls`, () => {
       expect(existsSync(file)).toBe(true);
@@ -22,24 +19,9 @@ describe('bank basis runtime and routes manifest', () => {
     });
   }
 
-  const makeInput = (overrides: Partial<PlatformV7BankPaymentBasisRuntimeInput> = {}): PlatformV7BankPaymentBasisRuntimeInput => ({
-    actorRole: 'operator',
-    dealId: 'DL-9106',
-    ...overrides,
-  });
-
-  it('keeps bank basis request blocked until strict deal conditions are closed', () => {
-    const result = buildPlatformV7BankPaymentBasisRuntimeAction(makeInput());
-    expect(result.status).toBe('blocked');
-    expect(result.dealId).toBe('DL-9106');
-    expect(result.uiStatusLabel).toBe('основание не передано');
-    expect(result.uiSafetyNote.length).toBeGreaterThan(20);
-  });
-
-  it('blocks non-operator roles', () => {
-    expect(buildPlatformV7BankPaymentBasisRuntimeAction(makeInput({ actorRole: 'seller' })).status).toBe('blocked');
-    expect(buildPlatformV7BankPaymentBasisRuntimeAction(makeInput({ actorRole: 'driver' })).status).toBe('blocked');
-    expect(buildPlatformV7BankPaymentBasisRuntimeAction(makeInput({ actorRole: 'logistics' })).status).toBe('blocked');
+  it('does not retain the deleted fixture-backed payment basis action', () => {
+    expect(existsSync('lib/platform-v7/bank-payment-basis-runtime-action.ts')).toBe(false);
+    expect(existsSync('components/platform-v7/P7BankPaymentBasisRuntimePanel.tsx')).toBe(false);
   });
 
   it('keeps routes manifest structured and unique', () => {
