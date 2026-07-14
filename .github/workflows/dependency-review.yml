@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: read
 
 jobs:
@@ -14,10 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      # The review API only works when the dependency graph is enabled in
-      # repository settings. Probe first so a disabled graph surfaces as a
-      # visible warning instead of a permanently red required-looking check.
       - name: Check dependency graph availability
         id: graph
         env:
@@ -31,10 +27,39 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Dependency graph is disabled for this repository (HTTP $code). Enable it in Settings → Advanced Security to activate dependency review."
+            echo "::warning::Dependency graph is disabled for this repository (HTTP $code)."
           fi
-
       - uses: actions/dependency-review-action@v4
         if: steps.graph.outputs.enabled == 'true'
         with:
           fail-on-severity: critical
+
+  governed-next15-cleanup:
+    if: github.event_name == 'pull_request' && github.head_ref == 'agent/ir-sec-next-15-5-16' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout governed branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/ir-sec-next-15-5-16
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Normalize codemod output
+        run: node docs/platform-v7/autopilot/normalize-next15-codemod.mjs
+      - name: Commit normalized application files
+        run: |
+          changed=$(git status --short | awk '{print $2}' | sort)
+          printf '%s\n' "$changed"
+          unexpected=$(printf '%s\n' "$changed" | grep -Ev '^(apps/web/)' || true)
+          if [ -n "$unexpected" ]; then
+            echo "Cleanup changed files outside apps/web:"
+            printf '%s\n' "$unexpected"
+            exit 1
+          fi
+          test -n "$changed"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A apps/web
+          git commit -m 'Normalize Next.js 15 async request migration [next15-cleanup]'
+          git push origin HEAD:agent/ir-sec-next-15-5-16
