@@ -12,6 +12,7 @@ import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceI
 import {
   PublicExperienceLink,
   PublicExperiencePageView,
+  PublicExperienceScrollCoordinator,
 } from '@/components/platform-v7/PublicExperienceAnalytics';
 import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import type { TourPerspective } from '@/lib/platform-v7/public-product-experience-state';
@@ -80,6 +81,7 @@ export default async function PlatformV7RootPage() {
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-root-execution-cockpit'>
       <a className='pc-skip-link' href='#pc-ppe-hero-title'>{chrome('skipToContent')}</a>
       <PublicExperiencePageView locale={locale} name='home_view' />
+      <PublicExperienceScrollCoordinator />
 
       <PublicSiteHeader
         ariaLabel={copy.header.aria}
