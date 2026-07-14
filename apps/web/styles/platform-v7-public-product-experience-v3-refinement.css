@@ -81,6 +81,12 @@
   overflow-anchor: none;
 }
 
+html[data-pc-ppe-scrolling='true'] .pc-ppe-page .p7-support-chat-button {
+  opacity: 0.28;
+  pointer-events: none;
+  transform: scale(0.82);
+}
+
 @media (max-width: 1100px) {
   .pc-ppe-hero-copy-only {
     grid-template-columns: minmax(0, 1fr) minmax(360px, 0.92fr);
