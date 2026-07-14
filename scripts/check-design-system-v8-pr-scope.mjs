@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 const exact = new Set([
@@ -209,9 +210,18 @@ const exact = new Set([
   'pnpm-workspace.yaml',
   'scripts/check-design-system-v8.mjs',
   'scripts/check-design-system-v8-pr-scope.mjs',
+  'scripts/design-system-v8-route-migration-scope.json',
   'scripts/platform-v7-route-inventory.mjs',
   'scripts/p7-autopilot-guard.sh',
 ]);
+
+const migrationScopeFiles = JSON.parse(
+  fs.readFileSync(new URL('./design-system-v8-route-migration-scope.json', import.meta.url), 'utf8'),
+);
+if (!Array.isArray(migrationScopeFiles) || migrationScopeFiles.some((file) => typeof file !== 'string' || !file.trim())) {
+  throw new Error('Design System v8 route migration scope must be a non-empty string array.');
+}
+for (const file of migrationScopeFiles) exact.add(normalize(file));
 
 const prefixes = [
   'apps/web/components/transaction-ux/',

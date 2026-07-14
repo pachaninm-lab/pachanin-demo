@@ -1,5 +1,5 @@
-import { LiveDealInvestorRuntime } from '@/components/v7r/LiveDealInvestorRuntime';
+import { redirect } from 'next/navigation';
 
-export default function Page({ params }) {
-  return <LiveDealInvestorRuntime id={params.dealId} />;
+export default function InvestorDealPage({ params }: { params: { dealId: string } }) {
+  redirect(`/platform-v7/deals/${encodeURIComponent(params.dealId)}`);
 }
