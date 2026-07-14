@@ -1,5 +1,5 @@
 {
-  "version": 21,
+  "version": 22,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -39,6 +39,7 @@
     "apps/web/app/platform-v7/executive/page.tsx",
     "apps/web/app/platform-v7/status/page.tsx",
     "apps/web/app/platform-v7/connectors/page.tsx",
+    "apps/web/app/platform-v7/api-docs/page.tsx",
     "apps/web/app/platform-v7/profile/page.tsx",
     "apps/web/app/platform-v7/reports/page.tsx",
     "apps/web/app/platform-v7/deals/page.tsx",
