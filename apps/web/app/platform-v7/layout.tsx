@@ -7,6 +7,7 @@ import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
+import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
 import { platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import {
   readVerifiedCabinetRole,
@@ -142,8 +143,8 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // its own server-issued staff session rather than a business cabinet role.
   if (isStaffPath(pathname)) return children;
 
-  const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
   if (isPublicPath(pathname)) {
+    const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
     const publicContent = needsPublicHeader(pathname)
       ? <PlatformV7PublicPageShell>{children}</PlatformV7PublicPageShell>
       : children;
@@ -160,9 +161,15 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   if (!canRoleAccessCabinet(role, pathname)) redirect(platformV7RoleRoute(role));
 
   const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');
-  return (
-    <PlatformV7FullStyleRuntime>
-      <PlatformV7ProtectedRuntime pathname={pathname} verifiedRole={role}>{children}</PlatformV7ProtectedRuntime>
-    </PlatformV7FullStyleRuntime>
+  const protectedContent = (
+    <PlatformV7ProtectedRuntime pathname={pathname} verifiedRole={role}>{children}</PlatformV7ProtectedRuntime>
   );
+
+  if (isDesignSystemV8Route(pathname)) {
+    const { PlatformV7DesignSystemV8Runtime } = await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime');
+    return <PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>;
+  }
+
+  const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
+  return <PlatformV7FullStyleRuntime>{protectedContent}</PlatformV7FullStyleRuntime>;
 }
