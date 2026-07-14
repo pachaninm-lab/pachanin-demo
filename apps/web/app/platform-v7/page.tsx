@@ -58,7 +58,6 @@ function PerspectiveCard({
       eventName='perspective_selected'
       locale={locale}
       params={{ perspective, source: 'home' }}
-      role='listitem'
     >
       <span><PublicExperienceIcon name={perspective} size={22} /></span>
       <span>
@@ -140,7 +139,7 @@ export default async function PlatformV7RootPage() {
             <h2 id='pc-ppe-perspectives-title'>{copy.home.perspectives.title}</h2>
             <p>{copy.home.perspectives.lead}</p>
           </div>
-          <div className='pc-ppe-perspective-grid' role='list'>
+          <div className='pc-ppe-perspective-grid' role='group' aria-labelledby='pc-ppe-perspectives-title'>
             {primaryPerspectives.map((perspective) => (
               <PerspectiveCard
                 key={perspective}
@@ -156,7 +155,7 @@ export default async function PlatformV7RootPage() {
               <span>{copy.home.perspectives.all}</span>
               <PublicExperienceIcon name='arrow' size={20} />
             </summary>
-            <div className='pc-ppe-perspective-grid' role='list'>
+            <div className='pc-ppe-perspective-grid' role='group' aria-label={copy.home.perspectives.all}>
               {secondaryPerspectives.map((perspective) => (
                 <PerspectiveCard
                   key={perspective}
