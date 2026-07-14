@@ -31,7 +31,8 @@ function rub(value: number) {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(value);
 }
 
-export default function PlatformV7CleanDealPage({ params }: { params: { id: string } }) {
+export default async function PlatformV7CleanDealPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const deal = selectDealById(params.id);
 
   if (!deal) {

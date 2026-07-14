@@ -24,11 +24,12 @@ function matchDemoRole(returnTo: string) {
   return DEMO_ROLES.find((item) => returnTo === item.to || returnTo.startsWith(`${item.to}/`));
 }
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-}) {
+export default async function LoginPage(
+  props: {
+    searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const returnTo = normalizeReturnTo(searchParams?.returnTo);
   const matchedRole = matchDemoRole(returnTo);
 

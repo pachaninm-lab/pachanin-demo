@@ -1,4 +1,5 @@
-'use client';
+'use client';;
+import { use } from "react";
 
 import { CanonicalDealWorkspace } from '@/components/platform-v7/CanonicalDealWorkspace';
 import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
@@ -11,7 +12,8 @@ import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
  * подтверждает только сервер (fail-closed membership в API); роль из
  * client-store используется исключительно для отображения.
  */
-export default function PlatformV7DealExecutionPage({ params }: { params: { id: string } }) {
-  const role = usePlatformV7RStore((state) => state.role);
-  return <CanonicalDealWorkspace role={role} dealId={params.id} />;
+export default function PlatformV7DealExecutionPage(props: { params: Promise<{ id: string }> }) {
+ const params = use(props.params);
+ const role = usePlatformV7RStore((state) => state.role);
+ return <CanonicalDealWorkspace role={role} dealId={params.id} />;
 }

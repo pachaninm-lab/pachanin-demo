@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # The review API only works when the dependency graph is enabled in
+      # repository settings. Probe first so a disabled graph surfaces as a
+      # visible warning instead of a permanently red required-looking check.
       - name: Check dependency graph availability
         id: graph
         env:
@@ -27,51 +31,10 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Dependency graph is disabled for this repository (HTTP $code)."
+            echo "::warning::Dependency graph is disabled for this repository (HTTP $code). Enable it in Settings → Advanced Security to activate dependency review."
           fi
+
       - uses: actions/dependency-review-action@v4
         if: steps.graph.outputs.enabled == 'true'
         with:
           fail-on-severity: critical
-
-  governed-next15-codemod:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/ir-sec-next-15-5-16' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout governed branch
-        uses: actions/checkout@v4
-        with:
-          ref: agent/ir-sec-next-15-5-16
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.2.1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
-      - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Run official async request API codemod
-        run: pnpm dlx @next/codemod@15.5.16 next-async-request-api apps/web
-      - name: Enforce codemod boundary
-        run: |
-          changed=$(git status --short | awk '{print $2}' | sort)
-          printf '%s\n' "$changed"
-          unexpected=$(printf '%s\n' "$changed" | grep -Ev '^(apps/web/)' || true)
-          if [ -n "$unexpected" ]; then
-            echo "Codemod changed files outside apps/web:"
-            printf '%s\n' "$unexpected"
-            exit 1
-          fi
-          test -n "$changed"
-      - name: Restore trusted workflow surface and commit
-        run: |
-          git checkout origin/main -- .github/workflows/dependency-review.yml
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A apps/web .github/workflows/dependency-review.yml
-          git commit -m 'Migrate Next.js dynamic request APIs [next15-codemod]'
-          git push origin HEAD:agent/ir-sec-next-15-5-16

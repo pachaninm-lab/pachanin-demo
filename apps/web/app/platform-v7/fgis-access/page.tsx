@@ -45,11 +45,12 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return normalized || undefined;
 }
 
-export default async function FarmerFgisAccessPage({
-  searchParams,
-}: {
-  searchParams?: { lotId?: string | string[] };
-}) {
+export default async function FarmerFgisAccessPage(
+  props: {
+    searchParams?: Promise<{ lotId?: string | string[] }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const copy = COPY[localeOf(await getLocale())];
 
   return (

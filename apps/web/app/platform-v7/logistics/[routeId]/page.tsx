@@ -128,7 +128,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: copy.metadataTitle, description: copy.metadataDescription, robots: { index: false, follow: false } };
 }
 
-export default async function RouteDetailPage({ params }: { params: { routeId: string } }) {
+export default async function RouteDetailPage(props: { params: Promise<{ routeId: string }> }) {
+  const params = await props.params;
   const locale = localeOf(await getLocale());
   const copy = COPY[locale];
   const routeId = decodeURIComponent(params.routeId);

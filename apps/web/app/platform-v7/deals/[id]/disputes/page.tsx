@@ -1,6 +1,7 @@
 import { GrainWorkflowPage } from '../../../../../components/platform-v7/GrainWorkflowPage';
 
-export default function DealDisputesPage({ params }: { params: { id: string } }) {
+export default async function DealDisputesPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return <GrainWorkflowPage eyebrow='Сделка · спор' title={`Спорный контур ${params.id}`} lead='Спор открывается на конкретную причину, сумму, материалы, решение и следующий шаг.' primaryHref='/platform-v7/disputes' primaryLabel='Споры' items={[
     { title: 'Причина', value: 'фиксируется', href: '/platform-v7/disputes', tone: 'warn', note: 'Качество, вес, документы, логистика или расчёт.' },
     { title: 'Сумма', value: 'отделена', href: '/platform-v7/settlement/grain', tone: 'warn', note: 'Спорная часть не смешивается со всей суммой.' },

@@ -256,10 +256,12 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
   return json({ code: 'NOT_FOUND', path }, 404);
 }
 
-export function GET(request: NextRequest, context: { params: { path?: string[] } }) {
-  return handle(request, context);
+export function GET(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
+  return handle(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
+  context);
 }
 
-export function POST(request: NextRequest, context: { params: { path?: string[] } }) {
-  return handle(request, context);
+export function POST(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
+  return handle(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
+  context);
 }

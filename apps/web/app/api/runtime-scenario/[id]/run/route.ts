@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { runtimeApiUrl, runtimeAuthHeaders } from '../../../runtime-auth-helpers';
 import { assertCsrf } from '../../../../../lib/server-request-security';
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const trusted = assertCsrf(request);
   if (trusted.ok === false) {
     return NextResponse.json({ ok: false, error: trusted.reason }, { status: 403 });

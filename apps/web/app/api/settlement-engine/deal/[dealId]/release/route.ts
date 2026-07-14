@@ -7,7 +7,8 @@ import { runtimeApiUrl, runtimeAuthHeaders } from '../../../../runtime-auth-help
  * scope, the deal state machine, blockers, and MFA. This route never fabricates
  * a "money released" result — it returns exactly what the backend decides.
  */
-export async function POST(_request: Request, { params }: { params: { dealId: string } }) {
+export async function POST(_request: Request, props: { params: Promise<{ dealId: string }> }) {
+  const params = await props.params;
   try {
     const response = await fetch(runtimeApiUrl(`/settlement-engine/deal/${params.dealId}/release`), {
       method: 'POST',

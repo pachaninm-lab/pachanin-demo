@@ -3,7 +3,8 @@ import { selectDealById } from '@/lib/domain/selectors';
 import type { DomainDeal } from '@/lib/domain/types';
 import { formatMoney, statusLabel } from '@/lib/v7r/helpers';
 
-export default function DealsComparePage({ searchParams }: { searchParams?: { ids?: string } }) {
+export default async function DealsComparePage(props: { searchParams?: Promise<{ ids?: string }> }) {
+  const searchParams = await props.searchParams;
   const ids = (searchParams?.ids ?? '').split(',').map((item) => item.trim()).filter(Boolean).slice(0, 3);
   const deals: DomainDeal[] = ids.map((id) => selectDealById(id)).filter((item): item is DomainDeal => Boolean(item));
 

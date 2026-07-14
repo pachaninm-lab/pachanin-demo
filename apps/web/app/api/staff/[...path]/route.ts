@@ -430,10 +430,12 @@ async function proxy(request: NextRequest, context: { params: { path?: string[] 
   }
 }
 
-export function GET(request: NextRequest, context: { params: { path?: string[] } }) {
-  return proxy(request, context);
+export function GET(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
+  return proxy(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
+  context);
 }
 
-export function POST(request: NextRequest, context: { params: { path?: string[] } }) {
-  return proxy(request, context);
+export function POST(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
+  return proxy(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
+  context);
 }

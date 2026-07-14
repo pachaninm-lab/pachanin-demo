@@ -35,7 +35,8 @@ function signatureStatusLabel(status: string) {
   return 'Ожидается';
 }
 
-export default function DealTransportDocumentsPage({ params }: { params: { id: string } }) {
+export default async function DealTransportDocumentsPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const deal = selectDealById(params.id);
   if (!deal) return notFound();
 

@@ -101,7 +101,7 @@ function normalizePath(value: string | null) {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
-  const pathname = normalizePath(headers().get('x-pc-pathname'));
+  const pathname = normalizePath((await headers()).get('x-pc-pathname'));
   const leanPublicEntry = LEAN_PUBLIC_ENTRY_PATHS.has(pathname)
     || pathname === '/platform-v7/staff'
     || pathname.startsWith('/platform-v7/staff/');

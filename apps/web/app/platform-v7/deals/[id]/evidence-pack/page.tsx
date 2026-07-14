@@ -3,7 +3,8 @@ import { DealEvidencePackPreview } from '@/components/v7r/DealEvidencePackPrevie
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getEvidencePack } from '@/lib/evidence-server';
 
-export default async function DealEvidencePackPage({ params }: { params: { id: string } }) {
+export default async function DealEvidencePackPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const dealId = decodeURIComponent(params.id);
   const { files, chainVerified } = await getEvidencePack(dealId);
 

@@ -11,11 +11,12 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return normalized || undefined;
 }
 
-export default function AuctionAdmissionPage({
-  searchParams,
-}: {
-  searchParams?: { lotId?: string | string[] };
-}) {
+export default async function AuctionAdmissionPage(
+  props: {
+    searchParams?: Promise<{ lotId?: string | string[] }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   return (
     <AuctionPostgresAuthorityWorkspace
       stage='admission'

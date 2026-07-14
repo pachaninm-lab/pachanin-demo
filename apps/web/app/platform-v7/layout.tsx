@@ -210,7 +210,7 @@ async function verifiedCabinetRole(): Promise<PlatformRole | null> {
   const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
   if (!secret) return null;
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   return (
     await readVerifiedCabinetSessionRole(cookieStore.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, nowSeconds)
   ) ?? (
@@ -219,7 +219,7 @@ async function verifiedCabinetRole(): Promise<PlatformRole | null> {
 }
 
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
-  const pathname = normalizePath(headers().get('x-pc-pathname'));
+  const pathname = normalizePath((await headers()).get('x-pc-pathname'));
 
   // Every public route owns its static route-level shell, locale copy and CSS.
   if (isPublicPath(pathname)) return children;

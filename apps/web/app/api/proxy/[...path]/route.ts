@@ -36,7 +36,7 @@ const demoNotifications = [
   { id: 'N-003', type: 'dispute.opened', title: 'Новый спор DISPUTE-002', body: 'Открыт спор по весу. SLA: 30 минут.', createdAt: '2026-04-03T09:00:00Z', read: true, href: '/disputes/DISPUTE-002' },
 ];
 
-function readSessionRole(jar: ReturnType<typeof cookies>): { role: string; email: string } {
+function readSessionRole(jar: Awaited<Awaited<ReturnType<typeof cookies>>>): { role: string; email: string } {
   try {
     const raw = jar.get(SESSION_COOKIE)?.value;
     if (!raw) return { role: 'GUEST', email: '' };
@@ -69,7 +69,7 @@ function realBackendUnavailable(reason: string) {
   );
 }
 
-function demoResponse(method: string, path: string, jar: ReturnType<typeof cookies>, body: any): Response | null {
+function demoResponse(method: string, path: string, jar: Awaited<Awaited<ReturnType<typeof cookies>>>, body: any): Response | null {
   const { role, email } = readSessionRole(jar);
   const key = `${method.toUpperCase()} /${path}`;
 
@@ -116,7 +116,7 @@ function demoResponse(method: string, path: string, jar: ReturnType<typeof cooki
 
 async function proxy(request: Request, params: { path: string[] }) {
   const path = params.path.join('/');
-  const jar = cookies();
+  const jar = await cookies();
   const token = jar.get(ACCESS_COOKIE)?.value || '';
   const strictRealPath = requiresRealBackend(path);
   const isDemo = !API_URL || token.startsWith('demo.');
@@ -163,18 +163,23 @@ async function proxy(request: Request, params: { path: string[] }) {
   return NextResponse.json({ ok: false, demo: true, path, message: 'Demo endpoint is not implemented.' }, { status: 404 });
 }
 
-export async function GET(request: Request, { params }: { params: { path: string[] } }) {
+export async function GET(request: Request, props: { params: Promise<{ path: string[] }> }) {
+  const params = await props.params;
   return proxy(request, params);
 }
-export async function POST(request: Request, { params }: { params: { path: string[] } }) {
+export async function POST(request: Request, props: { params: Promise<{ path: string[] }> }) {
+  const params = await props.params;
   return proxy(request, params);
 }
-export async function PATCH(request: Request, { params }: { params: { path: string[] } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ path: string[] }> }) {
+  const params = await props.params;
   return proxy(request, params);
 }
-export async function PUT(request: Request, { params }: { params: { path: string[] } }) {
+export async function PUT(request: Request, props: { params: Promise<{ path: string[] }> }) {
+  const params = await props.params;
   return proxy(request, params);
 }
-export async function DELETE(request: Request, { params }: { params: { path: string[] } }) {
+export async function DELETE(request: Request, props: { params: Promise<{ path: string[] }> }) {
+  const params = await props.params;
   return proxy(request, params);
 }

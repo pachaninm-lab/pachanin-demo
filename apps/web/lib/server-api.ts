@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { cookies, type UnsafeUnwrappedCookies } from 'next/headers';
 import { ACCESS_COOKIE } from './auth-cookies';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
@@ -8,7 +8,7 @@ export function serverApiUrl(path: string) {
 }
 
 export function serverAuthHeaders(extra?: HeadersInit) {
-  const token = cookies().get(ACCESS_COOKIE)?.value;
+  const token = ((cookies() as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies).get(ACCESS_COOKIE)?.value;
   const headers = new Headers(extra || {});
   if (token) headers.set('Authorization', `Bearer ${token}`);
   return headers;

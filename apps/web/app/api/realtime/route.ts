@@ -13,7 +13,7 @@ const DEMO_EVENTS = [
 ];
 
 export async function GET() {
-  const jar = cookies();
+  const jar = await cookies();
   const raw = jar.get(SESSION_COOKIE)?.value;
   let role = 'GUEST';
   try {

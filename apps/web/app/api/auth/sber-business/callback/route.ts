@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(`${API_URL}/auth/sber-business/callback?${url.searchParams.toString()}`, { cache: 'no-store' });
     const payload = await response.json().catch(() => ({}));
-    const jar = cookies();
+    const jar = await cookies();
     if (payload?.accessToken) jar.set(ACCESS_COOKIE, payload.accessToken, cookieSecurity());
     if (payload?.refreshToken) jar.set(REFRESH_COOKIE, payload.refreshToken, cookieSecurity());
     if (payload?.accessToken || payload?.refreshToken) {

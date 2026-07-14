@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { runtimeApiUrl, runtimeAuthHeaders } from '../../../runtime-auth-helpers';
 
-export async function GET(_: Request, { params }: { params: { dealId: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ dealId: string }> }) {
+  const params = await props.params;
   try {
     const response = await fetch(runtimeApiUrl(`/runtime/deals/${params.dealId}/operational-view`), { cache: 'no-store', headers: runtimeAuthHeaders() });
     const payload = await response.json().catch(() => ({}));

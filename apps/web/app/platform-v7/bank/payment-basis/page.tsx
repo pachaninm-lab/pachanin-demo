@@ -9,7 +9,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function BankPaymentBasisPage({ searchParams }: { searchParams?: PageSearchParams }) {
+export default async function BankPaymentBasisPage(props: { searchParams?: Promise<PageSearchParams> }) {
+  const searchParams = await props.searchParams;
   const query = new URLSearchParams();
   const dealId = firstParam(searchParams?.dealId);
   const shipmentId = firstParam(searchParams?.shipmentId);
