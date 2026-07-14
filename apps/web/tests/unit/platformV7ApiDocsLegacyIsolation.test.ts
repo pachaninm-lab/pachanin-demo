@@ -8,11 +8,14 @@ const exists = (relativePath: string) => fs.existsSync(path.join(repoRoot, relat
 
 const apiDocsPage = read('apps/web/app/platform-v7/api-docs/page.tsx');
 const compliancePage = read('apps/web/app/platform-v7/compliance/page.tsx');
+const canonicalOpenApi = read('docs/api/openapi.yaml');
+const publishedOpenApi = read('apps/web/public/platform-v7/openapi.yaml');
 
 describe('platform-v7 API docs legacy isolation', () => {
   it('keeps one canonical governed API documentation workspace', () => {
     expect(apiDocsPage).toContain('OperationalDecisionCockpit');
-    expect(apiDocsPage).toContain('apps/api/openapi.yaml');
+    expect(apiDocsPage).toContain("href='/platform-v7/openapi.yaml'");
+    expect(canonicalOpenApi).toBe(publishedOpenApi);
     expect(compliancePage).toContain("href='/platform-v7/api-docs'");
     expect(compliancePage).toContain('OperationalQueueLink');
   });
@@ -27,10 +30,13 @@ describe('platform-v7 API docs legacy isolation', () => {
   });
 
   it('does not weaken the evidence boundary of the canonical page', () => {
-    expect(apiDocsPage).toContain('не создаёт API-ключи');
-    expect(apiDocsPage).toContain('does not create API keys');
-    expect(apiDocsPage).toContain('不会创建 API 密钥');
-    expect(apiDocsPage).toContain('не подтверждает production-доступность');
-    expect(apiDocsPage).toContain('does not prove a published endpoint');
+    expect(apiDocsPage).toContain('Write API пока не опубликован');
+    expect(apiDocsPage).toContain('Write API is not published yet');
+    expect(apiDocsPage).toContain('写入 API 尚未发布');
+    expect(apiDocsPage).toContain('не подтверждает договор, боевые credentials');
+    expect(apiDocsPage).toContain('does not confirm a contract, production credentials');
+    expect(apiDocsPage).toContain('不证明合同、生产凭据');
+    expect(canonicalOpenApi).not.toContain('\n    post:');
+    expect(canonicalOpenApi).not.toContain('\n    patch:');
   });
 });
