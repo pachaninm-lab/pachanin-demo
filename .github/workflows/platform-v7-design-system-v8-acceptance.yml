@@ -15,68 +15,83 @@ on:
       - 'packages/design-tokens/**'
       - 'docs/platform-v7/qa/DESIGN_SYSTEM_V8_FINAL_ACCEPTANCE.md'
       - '.github/workflows/platform-v7-design-system-v8-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/app/platform-v7/**'
+      - 'apps/web/components/platform-v7/**'
+      - 'apps/web/components/v7r/AppShellV4*'
+      - 'apps/web/lib/platform-v7/**'
+      - 'apps/web/styles/platform-v7-public-*.css'
+      - 'apps/web/playwright.acceptance.config.ts'
+      - 'apps/web/tests/e2e/platform-v7-*.spec.ts'
+      - 'packages/design-system-v8/**'
+      - 'packages/design-tokens/**'
+      - '.github/workflows/platform-v7-design-system-v8-acceptance.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: platform-v7-design-system-v8-acceptance-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  apply-exact-wcag-patch:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/public-product-experience-v3'
+  browser-accessibility-matrix:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 45
+    env:
+      PC_ACCEPTANCE_JWT_SECRET: pc-design-system-v8-acceptance-secret-2026
+      JWT_SECRET: pc-design-system-v8-acceptance-secret-2026
+      PC_CABINET_SESSION_SECRET: pc-design-system-v8-acceptance-secret-2026
+      NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
-          ref: agent/public-product-experience-v3
-          fetch-depth: 0
-      - name: Fix semantic definition list and contrast
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium, Firefox and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+      - name: Build production web bundle
+        run: pnpm --filter @pc/web build
+      - name: Run Design System v8 browser and accessibility matrix
+        working-directory: apps/web
+        run: pnpm exec playwright test --config=playwright.acceptance.config.ts
+      - name: Publish acceptance summary
+        if: always()
+        working-directory: apps/web
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          explorer_path = Path('apps/web/components/platform-v7/PublicDealExplorer.tsx')
-          explorer = explorer_path.read_text(encoding='utf-8')
-          old = """        <div key={label}>
-          <span className='pc-ppe-causal-index'>{index + 1}</span>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>"""
-          new = """        <div key={label}>
-          <dt>
-            <span className='pc-ppe-causal-index' aria-hidden='true'>{index + 1}</span>
-            <span>{label}</span>
-          </dt>
-          <dd>{value}</dd>
-        </div>"""
-          if explorer.count(old) != 1:
-              raise SystemExit(f'expected one causal definition-list block, found {explorer.count(old)}')
-          explorer_path.write_text(explorer.replace(old, new, 1), encoding='utf-8')
-
-          css_path = Path('apps/web/styles/platform-v7-public-product-experience-v3.css')
-          css = css_path.read_text(encoding='utf-8')
-          old_css = "  color: #65756d;\n  font-size: 12px;"
-          new_css = "  color: #52635b;\n  font-size: 12px;"
-          if css.count(old_css) != 1:
-              raise SystemExit(f'expected one shared dt color token, found {css.count(old_css)}')
-          css_path.write_text(css.replace(old_css, new_css, 1), encoding='utf-8')
-
-          for temporary in (
-              Path('.github/workflows/patch-public-product-accessibility.yml'),
-              Path('.github/workflows/patch-public-product-experience-wcag.yml'),
-          ):
-              if temporary.exists():
-                  temporary.unlink()
-          PY
-      - name: Commit exact patch to branch
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add apps/web/components/platform-v7/PublicDealExplorer.tsx apps/web/styles/platform-v7-public-product-experience-v3.css
-          git add -u .github/workflows
-          git commit -m 'Fix Public Product Experience WCAG acceptance'
-          git push origin HEAD:agent/public-product-experience-v3
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'design-system-v8-acceptance-results.json';
+          if (!fs.existsSync(path)) {
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '## Design System v8 acceptance\n\nJSON result was not produced.\n');
+            process.exit(0);
+          }
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const stats = report.stats || {};
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `## Design System v8 acceptance\n\n- Expected: ${stats.expected ?? 0}\n- Unexpected: ${stats.unexpected ?? 0}\n- Flaky: ${stats.flaky ?? 0}\n- Skipped: ${stats.skipped ?? 0}\n- Duration: ${Math.round((stats.duration || 0) / 1000)} s\n`,
+          );
+          NODE
+      - name: Upload browser acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-design-system-v8-acceptance-${{ github.sha }}
+          path: |
+            apps/web/design-system-v8-acceptance-results.json
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: warn
+          retention-days: 14
