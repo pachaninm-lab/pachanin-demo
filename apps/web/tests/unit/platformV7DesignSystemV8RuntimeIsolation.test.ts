@@ -52,15 +52,21 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
     expect(routePolicy).not.toContain('document.');
   });
 
-  it('selects the v8 boundary only after verified role enforcement and never falls back to legacy styles', () => {
+  it('fails unknown paths before auth and selects the v8 boundary only after verified role enforcement', () => {
     expect(layout).toContain("from '@/lib/platform-v7/design-system-v8-route-policy'");
+    expect(layout).toContain('if (!isKnownProtectedPath(pathname)) notFound()');
     expect(layout).toContain('if (!role) redirect');
     expect(layout).toContain('if (!canRoleAccessCabinet(role, pathname))');
     expect(layout).toContain("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')");
     expect(layout).toContain("await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime')");
     expect(layout).toContain('<PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>');
     expect(layout).toContain('if (!isDesignSystemV8Route(pathname)) return protectedContent');
-    expect(layout.indexOf('if (!role) redirect')).toBeLessThan(layout.indexOf('isDesignSystemV8Route(pathname)'));
+    expect(layout.indexOf('if (!isKnownProtectedPath(pathname)) notFound()')).toBeLessThan(
+      layout.indexOf('if (!role) redirect'),
+    );
+    expect(layout.indexOf('if (!role) redirect')).toBeLessThan(
+      layout.indexOf('if (!isDesignSystemV8Route(pathname)) return protectedContent'),
+    );
     expect(layout).not.toContain('PlatformV7FullStyleRuntime');
   });
 
