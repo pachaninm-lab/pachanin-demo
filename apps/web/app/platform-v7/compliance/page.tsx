@@ -9,7 +9,6 @@ import { KycQueuePanel } from '@/components/platform-v7/KycQueuePanel';
 import { FraudDetectorPanel } from '@/components/platform-v7/FraudDetectorPanel';
 import { RosselhoznadzorPanel } from '@/components/platform-v7/RosselhoznadzorPanel';
 import { OpaAbacPanel } from '@/components/platform-v7/OpaAbacPanel';
-import { ApiDocPanel } from '@/components/platform-v7/ApiDocPanel';
 import { SecurityAttackPanel } from '@/components/platform-v7/SecurityAttackPanel';
 import {
   OperationalCockpitSection,
@@ -75,10 +74,6 @@ export default function CompliancePage() {
           </CollapsibleSection>
         </div>
       </OperationalCockpitSection>
-
-      <CollapsibleSection title='API и интеграционные контракты' summary='технический второй уровень' defaultOpen={false}>
-        <ApiDocPanel />
-      </CollapsibleSection>
     </OperationalDecisionCockpit>
   );
 }
