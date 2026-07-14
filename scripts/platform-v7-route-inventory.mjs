@@ -22,7 +22,8 @@ function extractBlock(source, pattern, label) {
 }
 
 function parseRoutePolicy(repoRoot) {
-  const source = readRequired(path.join(repoRoot, 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'));
+  const policyPath = path.join(repoRoot, 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
+  const source = readRequired(policyPath);
   const exact = extractQuotedRoutes(extractBlock(
     source,
     /const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set\(\[([\s\S]*?)\]\);/,
@@ -33,7 +34,16 @@ function parseRoutePolicy(repoRoot) {
     /const DESIGN_SYSTEM_V8_PREFIX_ROUTES = \[([\s\S]*?)\] as const;/,
     'Design System v8 prefix routes',
   ));
-  return { exact: new Set(exact.map(normalizeRoute)), prefixes: prefixes.map(normalizeRoute) };
+  const aliases = extractQuotedRoutes(extractBlock(
+    source,
+    /export const LEGACY_ROUTE_ALIAS_INVENTORY_ROUTES = \[([\s\S]*?)\] as const;/,
+    'central legacy route aliases',
+  ));
+  return {
+    exact: new Set(exact.map(normalizeRoute)),
+    prefixes: prefixes.map(normalizeRoute),
+    aliases: new Set(aliases.map(normalizeRoute)),
+  };
 }
 
 function parseLayoutPolicy(repoRoot) {
@@ -98,6 +108,7 @@ function pageClassification({ route, source, v8Policy, layoutPolicy }) {
   if (routeMatches(route, layoutPolicy.exact, layoutPolicy.prefixes)) return 'public';
   if (route === layoutPolicy.staffPrefix || route.startsWith(`${layoutPolicy.staffPrefix}/`)) return 'staff-plane';
   if (/\bredirect\s*\(/.test(source)) return 'alias-redirect';
+  if (v8Policy.aliases.has(normalizeRoute(route))) return 'alias-redirect';
   if (routeMatches(route, v8Policy.exact, v8Policy.prefixes)) return 'design-system-v8';
   return 'protected-legacy';
 }
@@ -139,7 +150,7 @@ export function buildPlatformV7RouteInventory(repoRoot = DEFAULT_REPO_ROOT) {
     .map(({ route, file }) => ({ route, file }));
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedFrom: 'apps/web/app/platform-v7/**/page.tsx',
     policySources: [
       'apps/web/app/platform-v7/layout.tsx',
@@ -179,7 +190,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       fs.writeFileSync(target, json, 'utf8');
     }
     process.stdout.write(json);
-    if (options.requireZeroLegacy && !inventory.summary.zeroLegacy) process.exitCode = 1;
+    const enforceZeroLegacy = options.requireZeroLegacy || process.env.CI === 'true';
+    if (enforceZeroLegacy && !inventory.summary.zeroLegacy) process.exitCode = 1;
   } catch (error) {
     console.error(`[platform-v7-route-inventory] ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
