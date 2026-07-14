@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { AppShellV4 } from '@/components/v7r/AppShellV4';
-import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
 import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import { PlatformV7ShellUxController } from '@/components/platform-v7/PlatformV7ShellUxController';
@@ -15,6 +14,7 @@ import { HeaderLanguageSwitch } from '@/components/platform-v7/HeaderLanguageSwi
 import { StaffControlCenterEntry } from '@/components/platform-v7/StaffControlCenterEntry';
 import { RoleIntentDashboard } from '@/components/platform-v7/RoleIntentDashboard';
 import { SESSION_COOKIE } from '@/lib/auth-cookies';
+import { getShellPolicy } from '@/lib/platform-v7/shell-role-policy';
 import {
   CONTROLLED_TEST_TENANT_ID,
   controlledOrganizationById,
@@ -126,6 +126,7 @@ export function PlatformV7ProtectedShell({
   const normalizedPath = normalizePath(pathname);
   const isStaffControlCenter = normalizedPath === '/platform-v7/staff' || normalizedPath.startsWith('/platform-v7/staff/');
   const isRoleRoot = ROLE_INTENT_ROOT_PATHS.has(normalizedPath);
+  const shellPolicy = getShellPolicy(verifiedRole, normalizedPath);
   const setRole = usePlatformV7RStore((state) => state.setRole);
   const [previewState, setPreviewState] = React.useState<PreviewState | null>(null);
 
@@ -182,23 +183,24 @@ export function PlatformV7ProtectedShell({
   const showPlatformFooter = !isRoleRoot || (previewResolved && !ownerPreview);
 
   return (
-    <AppShellV4 initialRole={verifiedRole}>
-      <>
-        <ScopedShellGuard />
-        <PlatformV7SingleEntryGuard />
-        <PlatformV7ShellUxController role={verifiedRole} />
-        <RbacCabinetGuard />
-        <HeaderLanguageSwitch />
-        <React.Suspense fallback={null}>
-          <StaffControlCenterEntry />
-        </React.Suspense>
-        <CalculatorHeaderWidget />
-        <HeaderUtilityMenu />
-        <RoleAssistantWidget />
-        {workSurface}
-        {showPlatformFooter ? <PlatformFooter /> : null}
-        <OnboardingTour />
-      </>
-    </AppShellV4>
+    <div className={styles.shellPolicy} data-shell-policy={shellPolicy} data-shell-role={verifiedRole}>
+      <AppShellV4 initialRole={verifiedRole}>
+        <>
+          <PlatformV7SingleEntryGuard />
+          <PlatformV7ShellUxController role={verifiedRole} />
+          <RbacCabinetGuard />
+          <HeaderLanguageSwitch />
+          <React.Suspense fallback={null}>
+            <StaffControlCenterEntry />
+          </React.Suspense>
+          <CalculatorHeaderWidget />
+          <HeaderUtilityMenu />
+          <RoleAssistantWidget />
+          {workSurface}
+          {showPlatformFooter ? <PlatformFooter /> : null}
+          <OnboardingTour />
+        </>
+      </AppShellV4>
+    </div>
   );
 }
