@@ -7,6 +7,7 @@ const read = (relativePath: string) => fs.readFileSync(path.join(root, relativeP
 
 const layout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');
+const controlTower = read('apps/web/app/platform-v7/control-tower/page.tsx');
 const routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
 const v8Runtime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
 const legacyRuntime = read('apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx');
@@ -29,6 +30,7 @@ const roleRoutes = [
 ];
 
 const criticalRoutes = [
+  '/platform-v7/control-tower',
   '/platform-v7/deals',
   '/platform-v7/documents',
   '/platform-v7/disputes',
@@ -74,7 +76,7 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
   });
 
   it('keeps the governed runtime token-only and free of DOM/style repair code', () => {
-    expect(v8Runtime).toContain("packages/design-tokens/tokens.css");
+    expect(v8Runtime).toContain('packages/design-tokens/tokens.css');
     expect(v8Runtime).toContain('<ChatSupportWidget />');
     expect(v8Runtime).not.toContain('PlatformV7FullStyleRuntime');
     expect(v8Runtime).not.toContain('PlatformV7TemplateGuards');
@@ -83,8 +85,23 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
     expect(v8Runtime).not.toContain('setInterval');
     expect(v8Runtime).not.toContain('setTimeout');
     expect(v8Runtime).not.toContain('<style');
-    expect(v8Runtime).not.toContain("@/styles/");
-    expect(legacyRuntime).toContain("@/styles/platform-v7-final-polish.css");
+    expect(v8Runtime).not.toContain('@/styles/');
+    expect(legacyRuntime).toContain('@/styles/platform-v7-final-polish.css');
+  });
+
+  it('keeps one canonical role-safe operator or executive workspace instead of a duplicate synthetic cockpit', () => {
+    expect(controlTower).toContain('readVerifiedCabinetSessionRole');
+    expect(controlTower).toContain('readVerifiedCabinetRole');
+    expect(controlTower).toContain("role === 'executive'");
+    expect(controlTower).toContain("redirect('/platform-v7/executive')");
+    expect(controlTower).toContain("redirect('/platform-v7/operator')");
+    expect(controlTower).not.toContain('selectRuntimeDeals');
+    expect(controlTower).not.toContain('canonicalDomainDeals');
+    expect(controlTower).not.toContain('ControlTowerCharts');
+    expect(controlTower).not.toContain('dangerouslySetInnerHTML');
+    expect(controlTower).not.toContain('style=');
+    expect(controlTower).not.toContain('useSearchParams');
+    expect(controlTower).not.toContain('localStorage');
   });
 
   it('prevents root compatibility CSS from overriding the governed AppShell module', () => {
