@@ -23,6 +23,7 @@
     "pilot:up": "bash ./scripts/pilot-up.sh",
     "audit:roles": "node ./scripts/audit-role-contract-consistency.mjs",
     "audit:flows": "node ./scripts/audit-critical-flows.mjs",
+    "audit:industrial-readiness": "node ./scripts/check-industrial-readiness-inventory.mjs",
     "release:industrial": "node ./scripts/build-industrial-release.mjs",
     "db:seed:service-providers": "pnpm --filter @pc/api ts-node prisma/service-providers.seed.ts",
     "verify:shared": "tsc -p ./tsconfig.shared-verify.json --noEmit",
