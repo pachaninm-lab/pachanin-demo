@@ -8,6 +8,7 @@ const EXCEPTIONS_PATH = resolve('docs/platform-v7/autopilot/security-exceptions.
 const SCHEMA_PATH = resolve('docs/platform-v7/autopilot/security-exceptions.schema.json');
 const SCOPE_PATH = resolve('docs/platform-v7/autopilot/security-release-scope.json');
 const SEMGREP_PATH = resolve('docs/platform-v7/autopilot/semgrep-security.yml');
+const TRIVY_EVALUATOR_PATH = resolve('docs/platform-v7/autopilot/evaluate-trivy-report.mjs');
 const WORKFLOW_PATH = resolve('.github/workflows/security-quality-gate.yml');
 const REPORT_PATH = resolve(process.env.SECURITY_POLICY_REPORT ?? 'artifacts/security/security-policy-validation.json');
 const IGNORE_DIR = resolve(process.env.TRIVY_IGNORE_DIR ?? 'artifacts/security');
@@ -58,25 +59,6 @@ function overlaps(left, right) {
   return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
 }
 
-function purlFromPnpmManifest(path) {
-  const normalized = normalizePath(path);
-  const match = normalized.match(/(?:^|\/)\.pnpm\/([^/]+)\/node_modules\/(.+)\/package\.json$/);
-  if (!match) return null;
-
-  const [, pnpmSegment, packageName] = match;
-  const packageToken = packageName.replace('/', '+');
-  const versionPrefix = `${packageToken}@`;
-  if (!pnpmSegment.startsWith(versionPrefix)) return null;
-
-  const version = pnpmSegment.slice(versionPrefix.length).split('_', 1)[0];
-  if (!version) return null;
-
-  const encodedPackageName = packageName.startsWith('@')
-    ? `%40${packageName.slice(1)}`
-    : packageName;
-  return `pkg:npm/${encodedPackageName}@${version}`;
-}
-
 function yamlDocument(entries) {
   const document = { vulnerabilities: [], misconfigurations: [], secrets: [] };
   for (const exception of entries) {
@@ -87,20 +69,8 @@ function yamlDocument(entries) {
       expired_at: String(exception.expiresAt).slice(0, 10),
       statement: `${exception.id} ${exception.ticket}: ${exception.rationale}`,
     };
-
-    const explicitPurls = Array.isArray(exception.purls) ? exception.purls : [];
-    const manifestPaths = Array.isArray(exception.paths) ? exception.paths : [];
-    const derivedPurls = manifestPaths.map(purlFromPnpmManifest);
-    const canUseDerivedPurls = manifestPaths.length > 0 && derivedPurls.every(Boolean);
-
-    if (explicitPurls.length > 0) {
-      item.purls = explicitPurls;
-    } else if (canUseDerivedPurls) {
-      item.purls = [...new Set(derivedPurls)];
-    } else if (manifestPaths.length > 0) {
-      item.paths = manifestPaths;
-    }
-
+    if (Array.isArray(exception.paths) && exception.paths.length > 0) item.paths = exception.paths;
+    if (Array.isArray(exception.purls) && exception.purls.length > 0) item.purls = exception.purls;
     document[key].push(item);
   }
   return `${JSON.stringify(document, null, 2)}\n`;
@@ -204,17 +174,27 @@ for (const exception of exceptions) {
 const forbiddenWorkflowPatterns = [
   [/\|\|\s*true/g, 'blocking workflow must not suppress failures with || true'],
   [/continue-on-error:\s*true/g, 'blocking workflow must not use continue-on-error: true'],
-  [/exit-code:\s*['"]?0['"]?/g, 'blocking Trivy scans must not use exit-code 0'],
   [/@master\b/g, 'GitHub Actions must not use mutable @master refs'],
   [/apps\/api\/Dockerfile/g, 'workflow must build the canonical infra/docker/Dockerfile.api'],
 ];
 for (const [pattern, message] of forbiddenWorkflowPatterns) if (pattern.test(workflow)) errors.push(message);
 
+const zeroExitCodes = workflow.match(/exit-code:\s*['"]?0['"]?/g) ?? [];
+check(errors, zeroExitCodes.length === 1, 'Exactly one Trivy exit-code 0 collector is allowed; all other scanner gates must remain blocking.');
+
 const requiredWorkflowFragments = [
   'ref: ${{ env.EXACT_HEAD }}',
   'infra/docker/Dockerfile.api',
   'aquasecurity/trivy-action@v0.36.0',
+  "exit-code: '0'",
   "exit-code: '1'",
+  'id: collect-container',
+  'format: json',
+  'trivy-container.json',
+  'trivy-container-evaluation.json',
+  'TRIVY_SCAN_RESULT: ${{ steps.collect-container.outcome }}',
+  'evaluate-trivy-report.mjs',
+  'trivy convert --format sarif',
   'scan-type: config',
   'scan-ref: infra/docker',
   'scanners: secret',
@@ -228,6 +208,7 @@ const requiredWorkflowFragments = [
 for (const fragment of requiredWorkflowFragments) check(errors, workflow.includes(fragment), `Security workflow is missing required fragment: ${fragment}`);
 
 check(errors, existsSync(SEMGREP_PATH), 'Deterministic local Semgrep policy is missing.');
+check(errors, existsSync(TRIVY_EVALUATOR_PATH), 'Fail-closed Trivy report evaluator is missing.');
 check(errors, existsSync(resolve('infra/docker/Dockerfile.api')), 'Canonical API Dockerfile is missing.');
 check(errors, existsSync(resolve('docker-compose.yml')), 'Local production-like topology definition is missing.');
 
