@@ -9,11 +9,12 @@ import { KycQueuePanel } from '@/components/platform-v7/KycQueuePanel';
 import { FraudDetectorPanel } from '@/components/platform-v7/FraudDetectorPanel';
 import { RosselhoznadzorPanel } from '@/components/platform-v7/RosselhoznadzorPanel';
 import { OpaAbacPanel } from '@/components/platform-v7/OpaAbacPanel';
-import { ApiDocPanel } from '@/components/platform-v7/ApiDocPanel';
 import { SecurityAttackPanel } from '@/components/platform-v7/SecurityAttackPanel';
 import {
   OperationalCockpitSection,
   OperationalDecisionCockpit,
+  OperationalQueue,
+  OperationalQueueLink,
   operationalCockpitClasses,
 } from '@/components/transaction-ux/OperationalDecisionCockpit';
 
@@ -76,9 +77,15 @@ export default function CompliancePage() {
         </div>
       </OperationalCockpitSection>
 
-      <CollapsibleSection title='API и интеграционные контракты' summary='технический второй уровень' defaultOpen={false}>
-        <ApiDocPanel />
-      </CollapsibleSection>
+      <OperationalCockpitSection>
+        <OperationalQueue>
+          <OperationalQueueLink
+            href='/platform-v7/api-docs'
+            title='API и интеграционные контракты'
+            detail='Исходный OpenAPI-контракт и обязательные доказательства до выдачи партнёрского доступа.'
+          />
+        </OperationalQueue>
+      </OperationalCockpitSection>
     </OperationalDecisionCockpit>
   );
 }
