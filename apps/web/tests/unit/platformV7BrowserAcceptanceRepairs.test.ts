@@ -9,11 +9,11 @@ const serverLayout = read('apps/web/app/platform-v7/layout.tsx');
 const guard = read('apps/web/components/platform-v7/PlatformV7SingleEntryGuard.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
+const protectedShellCss = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css');
 const designSystemRuntime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const supportMount = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
 const quietLayer = read('apps/web/components/platform-v7/UxFinalQuietLayer.tsx');
-const quietCss = read('apps/web/components/platform-v7/UxFinalQuietLayer.module.css');
 const headerCss = read('apps/web/app/platform-v7/_styles/public-header-accessibility.css');
 const rootLayout = read('apps/web/app/layout.tsx');
 const languageSwitch = read('apps/web/components/platform-v7/HeaderLanguageSwitch.tsx');
@@ -59,13 +59,14 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(supportMount).not.toContain('React.useEffect');
   });
 
-  it('loads final quiet UX rules from a static CSS module instead of hydration text', () => {
-    expect(quietLayer).toContain("import styles from './UxFinalQuietLayer.module.css'");
+  it('loads final quiet UX rules from the governed shell stylesheet instead of hydration text', () => {
+    expect(quietLayer).toContain('return null');
     expect(quietLayer).not.toContain('<style');
     expect(quietLayer).not.toContain('dangerouslySetInnerHTML');
-    expect(quietCss).toContain("[data-testid^='role-execution-summary-']");
-    expect(quietCss).toContain("[aria-label='Логика работы']");
-    expect(quietCss).toContain('@media (max-width: 640px)');
+    expect(quietLayer).not.toContain('UxFinalQuietLayer.module.css');
+    expect(protectedShellCss).toContain("[data-testid^='role-execution-summary-']");
+    expect(protectedShellCss).toContain("[aria-label='Логика работы']");
+    expect(protectedShellCss).toContain('@media (max-width: 640px)');
   });
 
   it('reserves independent public header tracks and WCAG-sized controls', () => {
