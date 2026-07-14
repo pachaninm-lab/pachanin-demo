@@ -6,6 +6,7 @@ const exact = new Set([
   'apps/web/app/platform-v7/layout.tsx',
   'apps/web/app/platform-v7/template.tsx',
   'apps/web/app/platform-v7/_styles/fixed-header-contract.css',
+  'apps/web/app/platform-v7/control-tower/page.tsx',
   'apps/web/app/platform-v7/driver/field/page.tsx',
   'apps/web/app/platform-v7/elevator/page.tsx',
   'apps/web/app/platform-v7/lab/page.tsx',
