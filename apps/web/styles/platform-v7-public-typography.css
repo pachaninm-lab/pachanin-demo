@@ -303,21 +303,52 @@ html:is([lang='zh-CN'], [data-p7-language='zh']) .pc-v7-public-entry :where(h1, 
 @media (max-width: 720px) {
   .pc-v7-public-entry .pc-site-brand-text strong {
     font-size: 16px;
+    font-weight: 700;
+  }
+
+  .pc-v7-public-entry .entry-kicker {
+    max-width: 100%;
+    padding-inline: 10px;
+    font-size: clamp(9.5px, 2.55vw, 11px);
+    font-weight: 680;
+    line-height: 1.25;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
   }
 
   .pc-v7-public-entry .entry-hero h1 {
-    font-size: clamp(38px, 10.6vw, 52px);
-    line-height: 1.04;
-    letter-spacing: -0.038em;
+    display: block;
+    max-width: none;
+    font-size: clamp(34px, 9vw, 40px);
+    font-weight: 700;
+    line-height: 1.03;
+    letter-spacing: -0.035em;
+    text-wrap: pretty;
+  }
+
+  .pc-v7-public-entry .entry-hero h1 span {
+    display: inline;
+  }
+
+  .pc-v7-public-entry .entry-hero h1 span:first-child::after {
+    content: " ";
   }
 
   .pc-v7-public-entry .entry-hero p {
-    font-size: 17px;
-    line-height: 1.55;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: -0.004em;
+  }
+
+  .pc-v7-public-entry :where(.entry-primary-cta, .entry-secondary-cta) {
+    font-size: 15px;
+    font-weight: 650;
+    line-height: 1.25;
   }
 
   .pc-v7-public-entry .entry-section-head h2 {
-    font-size: clamp(30px, 8.5vw, 42px);
+    font-size: clamp(30px, 8.2vw, 40px);
     line-height: 1.1;
   }
 
@@ -328,11 +359,11 @@ html:is([lang='zh-CN'], [data-p7-language='zh']) .pc-v7-public-entry :where(h1, 
 
 @media (max-width: 380px) {
   .pc-v7-public-entry .entry-hero h1 {
-    font-size: clamp(35px, 10vw, 43px);
+    font-size: 33px;
   }
 
   .pc-v7-public-entry .entry-kicker {
-    font-size: 10px;
-    letter-spacing: 0.045em;
+    font-size: 9px;
+    letter-spacing: 0.035em;
   }
 }
