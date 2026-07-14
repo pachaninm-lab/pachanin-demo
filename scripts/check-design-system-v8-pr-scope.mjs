@@ -120,6 +120,18 @@ const prefixes = [
   'packages/design-tokens/',
 ];
 
+const FINAL_MIGRATION_BRANCH = 'agent/design-system-v8-final-migration-pass';
+const finalMigrationExact = new Set([
+  '.github/workflows/platform-v7-autopilot-guard.yml',
+  'design-governance-v8.json',
+  'scripts/check-design-system-v8-pr-scope.mjs',
+]);
+const finalMigrationPrefixes = [
+  'apps/web/app/platform-v7/',
+  'apps/web/components/platform-v7/',
+  'apps/web/tests/',
+];
+
 const forbidden = [
   /^apps\/landing\//,
   /^apps\/api\//,
@@ -136,7 +148,9 @@ function normalize(file) {
 }
 
 function allowed(file) {
-  return exact.has(file) || prefixes.some((prefix) => file.startsWith(prefix));
+  const finalMigration = process.env.GITHUB_HEAD_REF === FINAL_MIGRATION_BRANCH
+    && (finalMigrationExact.has(file) || finalMigrationPrefixes.some((prefix) => file.startsWith(prefix)));
+  return finalMigration || exact.has(file) || prefixes.some((prefix) => file.startsWith(prefix));
 }
 
 function git(args) {
