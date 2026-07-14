@@ -7,9 +7,12 @@ const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relat
 const exists = (relativePath: string) => fs.existsSync(path.join(repoRoot, relativePath));
 
 const page = read('apps/web/app/platform-v7/reports/page.tsx');
+const esgPage = read('apps/web/app/platform-v7/reports/esg/page.tsx');
+const regulatorPage = read('apps/web/app/platform-v7/reports/regulator/page.tsx');
 const reader = read('apps/web/lib/reporting-server.ts');
 const routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
 const governance = JSON.parse(read('design-governance-v8.json'));
+const scopePolicy = read('scripts/check-design-system-v8-pr-scope.mjs');
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important/i;
 
 describe('platform-v7 reporting authority', () => {
@@ -44,6 +47,18 @@ describe('platform-v7 reporting authority', () => {
     }
   });
 
+  it('removes unsupported ESG and regulator metrics behind canonical redirects', () => {
+    for (const legacyPage of [esgPage, regulatorPage]) {
+      expect(legacyPage).toContain("import { redirect } from 'next/navigation'");
+      expect(legacyPage).toContain("redirect('/platform-v7/reports')");
+      expect(legacyPage).not.toMatch(forbiddenPresentation);
+    }
+    for (const forbidden of ['78%', '64%', '92%', '31', '84%', '4.8 дня', 'Тамбовская область']) {
+      expect(esgPage).not.toContain(forbidden);
+      expect(regulatorPage).not.toContain(forbidden);
+    }
+  });
+
   it('keeps the reporting reader authenticated, bounded and fail-closed', () => {
     expect(reader).toContain("serverApiUrl('/deals')");
     expect(reader).toContain('serverAuthHeaders()');
@@ -70,5 +85,7 @@ describe('platform-v7 reporting authority', () => {
     expect(routePolicy).toContain("'/platform-v7/reports'");
     expect(governance.governedRoots).toContain('apps/web/lib/reporting-server.ts');
     expect(governance.migratedFiles).toContain('apps/web/app/platform-v7/reports/page.tsx');
+    expect(scopePolicy).toContain("'apps/web/app/platform-v7/reports/esg/page.tsx'");
+    expect(scopePolicy).toContain("'apps/web/app/platform-v7/reports/regulator/page.tsx'");
   });
 });
