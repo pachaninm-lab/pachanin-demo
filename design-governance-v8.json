@@ -1,5 +1,5 @@
 {
-  "version": 30,
+  "version": 31,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -42,6 +42,7 @@
     "apps/web/app/platform-v7/seller/page.tsx",
     "apps/web/app/platform-v7/buyer/page.tsx",
     "apps/web/app/platform-v7/buyer/rfq/page.tsx",
+    "apps/web/app/platform-v7/buyer/financing/page.tsx",
     "apps/web/app/platform-v7/bank/page.tsx",
     "apps/web/app/platform-v7/bank/factoring/page.tsx",
     "apps/web/app/platform-v7/operator/page.tsx",
