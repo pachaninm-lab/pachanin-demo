@@ -17,7 +17,7 @@ describe('platform-v7 public product experience v3', () => {
     expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
     expect(page).toContain("className='pc-ppe-hero pc-ppe-hero-copy-only'");
     expect(page).toContain('<PublicDealPreview copy={copy} locale={locale} />');
-    expect(page).toContain("className='pc-ppe-perspective-grid' role='list'");
+    expect(page).toContain("className='pc-ppe-perspective-grid' role='group'");
     expect(page).toContain("className='pc-ppe-proof-panel'");
     expect(page).toContain("className='pc-ppe-final-cta'");
     expect(page).not.toContain('entry-control-grid');
@@ -31,7 +31,7 @@ describe('platform-v7 public product experience v3', () => {
     expect(page).not.toContain('/platform-v7/login?role=');
     expect(page).not.toContain("href: '/platform-v7/seller'");
     expect(page).not.toContain("href: '/platform-v7/buyer'");
-    expect(page).toContain("role='listitem'");
+    expect(page).not.toContain("role='listitem'");
     expect(explorer).toContain("selectPerspective(event.target.value as TourPerspective)");
     expect(explorer).not.toContain('membership');
     expect(explorer).not.toContain('authorization');
