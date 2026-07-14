@@ -64,31 +64,6 @@
       "rationale": "Temporary exception while Next.js is upgraded and locale middleware bypass tests are added for the public and protected contours.",
       "createdAt": "2026-07-14T19:36:00Z",
       "expiresAt": "2026-07-28T23:59:59Z"
-    },
-    {
-      "id": "SEC-2026-010",
-      "scanner": "pnpm-audit",
-      "findingId": "1120252",
-      "severity": "HIGH",
-      "owner": "platform-security",
-      "approvedBy": "project-technical-owner",
-      "ticket": "#2604",
-      "rationale": "Temporary exception while OpenTelemetry SDK is upgraded and malformed metrics requests are verified not to terminate the API process.",
-      "createdAt": "2026-07-14T19:36:00Z",
-      "expiresAt": "2026-07-28T23:59:59Z"
-    },
-    {
-      "id": "SEC-2026-013",
-      "scanner": "trivy-container",
-      "findingType": "vulnerability",
-      "findingId": "CVE-2026-44902",
-      "severity": "HIGH",
-      "owner": "platform-security",
-      "approvedBy": "project-technical-owner",
-      "ticket": "#2604",
-      "rationale": "Temporary exact-CVE exception in the canonical API image while OpenTelemetry SDK is upgraded and malformed metrics requests are verified not to terminate the process.",
-      "createdAt": "2026-07-14T19:46:00Z",
-      "expiresAt": "2026-07-28T23:59:59Z"
     }
   ]
 }
