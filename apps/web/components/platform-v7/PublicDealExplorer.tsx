@@ -403,8 +403,10 @@ function ExecutionLens({ copy, stage }: { copy: PublicProductExperienceCopy; sta
     <dl className='pc-ppe-causal-list'>
       {items.map(([label, value], index) => (
         <div key={label}>
-          <span className='pc-ppe-causal-index'>{index + 1}</span>
-          <dt>{label}</dt>
+          <dt>
+            <span className='pc-ppe-causal-index' aria-hidden='true'>{index + 1}</span>
+            <span>{label}</span>
+          </dt>
           <dd>{value}</dd>
         </div>
       ))}

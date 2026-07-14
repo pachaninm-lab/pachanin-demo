@@ -329,7 +329,7 @@ html[lang='zh'] .pc-ppe-page {
 .pc-ppe-document-card dt,
 .pc-ppe-scenario-card dt {
   margin: 0 0 5px;
-  color: #65756d;
+  color: var(--pc-ppe-muted);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.025em;
@@ -866,7 +866,7 @@ html[lang='zh'] .pc-ppe-page {
 
 .pc-ppe-causal-list > div {
   display: grid;
-  grid-template-columns: 36px minmax(150px, 0.35fr) minmax(0, 1fr);
+  grid-template-columns: minmax(186px, 0.4fr) minmax(0, 1fr);
   gap: 14px;
   align-items: center;
   min-height: 68px;
@@ -888,6 +888,11 @@ html[lang='zh'] .pc-ppe-page {
 }
 
 .pc-ppe-causal-list dt {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  margin: 0;
   font-weight: 750;
 }
 
@@ -1482,11 +1487,11 @@ html[lang='zh'] .pc-ppe-page {
   }
 
   .pc-ppe-causal-list > div {
-    grid-template-columns: 36px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .pc-ppe-causal-list dd {
-    grid-column: 2;
+    padding-left: 50px;
   }
 }
 
