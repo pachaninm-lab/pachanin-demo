@@ -9,6 +9,7 @@ describe('platform-v7 public product experience v3', () => {
   const explorerPage = read('app/platform-v7/how-it-works/page.tsx');
   const explorer = read('components/platform-v7/PublicDealExplorer.tsx');
   const entryGate = read('components/platform-v7/PublicDealEntryGate.tsx');
+  const analytics = read('components/platform-v7/PublicExperienceAnalytics.tsx');
   const stateMachine = read('lib/platform-v7/public-product-experience-state.ts');
   const icons = read('components/platform-v7/PublicExperienceIcon.tsx');
   const copy = read('i18n/public-product-experience-v3.ts');
@@ -94,7 +95,12 @@ describe('platform-v7 public product experience v3', () => {
     expect(css).toContain('scroll-padding-bottom: 88px');
     expect(refinementCss).toContain('.pc-ppe-hero-contour');
     expect(refinementCss).toContain('overflow-x: auto');
+    expect(refinementCss).toContain("html[data-pc-ppe-scrolling='true'] .pc-ppe-page .p7-support-chat-button");
     expect(entryCss).toContain('@media (max-width: 420px)');
+    expect(page).toContain('<PublicExperienceScrollCoordinator />');
+    expect(explorerPage).toContain('<PublicExperienceScrollCoordinator />');
+    expect(analytics).toContain("root.setAttribute('data-pc-ppe-scrolling', 'true')");
+    expect(analytics).toContain("window.addEventListener('scroll', onScroll, { passive: true })");
     expect(explorer).toContain("aria-current={active ? 'step' : undefined}");
     expect(explorer).toContain("window.addEventListener('popstate'");
     expect(entryGate).toContain("window.addEventListener('popstate'");
