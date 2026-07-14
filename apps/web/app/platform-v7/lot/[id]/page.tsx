@@ -1,5 +1,5 @@
-import { LotDetailRuntime } from '@/components/v7r/LotDetailRuntime';
+import { redirect } from 'next/navigation';
 
-export default function PlatformV7LotAliasPage({ params }: { params: { id: string } }) {
-  return <LotDetailRuntime id={params.id} />;
+export default function PlatformV7LotByIdAliasPage({ params }: { params: { id: string } }) {
+  redirect(`/platform-v7/auction?lotId=${encodeURIComponent(params.id)}`);
 }
