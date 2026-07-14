@@ -7,6 +7,7 @@ import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-webkit-safe.css';
 import '@/styles/platform-v7-public-hero-watermark.css';
 import '@/styles/platform-v7-public-world-class.css';
+import '@/styles/platform-v7-public-typography.css';
 import type { CSSProperties } from 'react';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
@@ -99,7 +100,7 @@ const GLYPH_STYLE: CSSProperties = {
   background: 'rgba(0,122,47,.08)',
   color: '#087a3b',
   fontSize: 18,
-  fontWeight: 950,
+  fontWeight: 800,
   lineHeight: 1,
 };
 
@@ -123,13 +124,7 @@ const LANDING_REFINEMENT_CSS = `
 @media(max-width:720px){
   .pc-v7-public-entry .entry-hero{padding-top:24px;padding-bottom:30px}
   .pc-v7-public-entry .entry-hero-copy{gap:18px}
-  .pc-v7-public-entry .entry-hero h1{font-size:clamp(42px,11.4vw,50px);line-height:.98;letter-spacing:-.055em}
-  .pc-v7-public-entry .entry-hero p{font-size:18px;line-height:1.42}
   .pc-v7-public-entry .entry-hero-actions{margin-top:2px}
-}
-@media(max-width:380px){
-  .pc-v7-public-entry .entry-hero h1{font-size:clamp(38px,10.7vw,44px)}
-  .pc-v7-public-entry .entry-kicker{font-size:10px;letter-spacing:.06em;padding-inline:12px}
 }
 `;
 
