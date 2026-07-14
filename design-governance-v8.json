@@ -1,5 +1,5 @@
 {
-  "version": 27,
+  "version": 28,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
