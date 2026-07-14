@@ -68,8 +68,8 @@ async function installBrowserSignals(page: Page): Promise<BrowserSignals> {
 async function loginAs(page: Page, role: Role): Promise<void> {
   expect(ROLE_PASSWORD, 'PC_CABINET_ROLE_PASSWORD must be configured').not.toBe('');
   await page.addInitScript(({ key, value }) => window.sessionStorage.setItem(key, value), { key: ACTIVE_ROLE_KEY, value: role });
-  const response = await page.request.post('/api/platform-v7/cabinet-lock-login', {
-    data: { login: `${role}.test`, password: ROLE_PASSWORD, role },
+  const response = await page.request.post('/api/auth/login', {
+    data: { email: `${role}.test@procent-agro.test`, password: ROLE_PASSWORD },
   });
   const body = await response.text();
   expect(response.ok(), `controlled login failed for ${role}: ${response.status()} ${body}`).toBe(true);
