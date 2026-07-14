@@ -1,5 +1,5 @@
 {
-  "version": 26,
+  "version": 27,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -9,6 +9,10 @@
     "apps/web/app/platform-v7/template.tsx",
     "apps/web/app/platform-v7/control-tower/page.tsx",
     "apps/web/app/platform-v7/operator-cockpit/queues/page.tsx",
+    "apps/web/app/platform-v7/buyer/rfq/new/page.tsx",
+    "apps/web/app/platform-v7/buyer/rfq/create/page.tsx",
+    "apps/web/app/platform-v7/buyer/rfq/detail/page.tsx",
+    "apps/web/app/platform-v7/buyer/rfq/[rfqId]/page.tsx",
     "apps/web/lib/disputes-server.ts",
     "apps/web/lib/integrations-server.ts",
     "apps/web/lib/auth-profile-server.ts",
@@ -33,6 +37,7 @@
     "apps/web/app/platform-v7/surveyor/page.tsx",
     "apps/web/app/platform-v7/seller/page.tsx",
     "apps/web/app/platform-v7/buyer/page.tsx",
+    "apps/web/app/platform-v7/buyer/rfq/page.tsx",
     "apps/web/app/platform-v7/bank/page.tsx",
     "apps/web/app/platform-v7/operator/page.tsx",
     "apps/web/app/platform-v7/logistics/page.tsx",
