@@ -85,5 +85,10 @@
   "scripts/patch-platform-v7-i18n.mjs",
   "scripts/check-design-system-v8-zero-reference.mjs",
   "scripts/design-system-v8-route-migration-scope.json",
-  "design-governance-v8.json"
+  "design-governance-v8.json",
+  ".github/workflows/design-system-v8-browser-acceptance.yml",
+  "apps/web/playwright.design-system-v8.config.ts",
+  "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+  "docs/platform-v7/qa/design-system-v8-final-acceptance.md",
+  "docs/platform-v7/design-system-v8-governance.md"
 ]
