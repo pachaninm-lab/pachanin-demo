@@ -1,12 +1,5 @@
-export default function DeployCheckPage() {
-  return (
-    <div style={{ maxWidth: 880, margin: '0 auto', display: 'grid', gap: 16 }}>
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Deploy Check</div>
-        <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Техническая страница для проверки, что production-алиас действительно обновляется после прямого коммита в main. Маркер: main-refresh-3.
-        </div>
-      </section>
-    </div>
-  );
+import { redirect } from 'next/navigation';
+
+export default function DeployCheckCompatibilityPage() {
+  redirect('/platform-v7/status');
 }
