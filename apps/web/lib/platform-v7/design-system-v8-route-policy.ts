@@ -18,6 +18,7 @@ const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([
   '/platform-v7/lab',
   '/platform-v7/surveyor',
   '/platform-v7/bank',
+  '/platform-v7/bank/payment-basis',
   '/platform-v7/compliance',
   '/platform-v7/arbitrator',
   '/platform-v7/executive',
