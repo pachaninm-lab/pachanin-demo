@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const webRoot = path.resolve(__dirname, '../..');
+const repoRoot = path.resolve(webRoot, '../..');
 const packageJson = JSON.parse(fs.readFileSync(path.join(webRoot, 'package.json'), 'utf8')) as {
   dependencies?: Record<string, string>;
 };
@@ -57,5 +58,21 @@ describe('Next.js 15 runtime boundary', () => {
       expect(source).toContain('params: Promise<{ path?: string[] }>');
       expect(source).toContain('await context.params');
     }
+  });
+
+  it('binds the lockfile exception to the frozen remediation branch only', () => {
+    const guard = fs.readFileSync(path.join(repoRoot, 'scripts/p7-autopilot-guard.sh'), 'utf8');
+    expect(guard).toContain('agent/ir-sec-next-15-5-16-final');
+    expect(guard).not.toContain('agent/ir-sec-next-15-5-16"');
+    expect(guard).toContain("NEXT15_REMEDIATION_SCOPE='apps/web/**");
+  });
+
+  it('contains no one-shot migration workflow in the final diff surface', () => {
+    const dependencyWorkflow = fs.readFileSync(
+      path.join(repoRoot, '.github/workflows/dependency-review.yml'),
+      'utf8',
+    );
+    expect(dependencyWorkflow).not.toContain('retarget-next15-governance');
+    expect(dependencyWorkflow).not.toContain('governed-next15');
   });
 });
