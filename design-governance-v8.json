@@ -41,6 +41,7 @@
     "apps/web/app/platform-v7/surveyor/page.tsx",
     "apps/web/app/platform-v7/seller/page.tsx",
     "apps/web/app/platform-v7/seller/rfq/page.tsx",
+    "apps/web/app/platform-v7/seller/reputation/page.tsx",
     "apps/web/app/platform-v7/buyer/page.tsx",
     "apps/web/app/platform-v7/buyer/rfq/page.tsx",
     "apps/web/app/platform-v7/buyer/financing/page.tsx",
