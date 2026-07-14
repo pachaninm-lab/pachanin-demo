@@ -10,6 +10,7 @@ const exact = new Set([
   'apps/web/app/platform-v7/status/page.tsx',
   'apps/web/app/platform-v7/connectors/page.tsx',
   'apps/web/app/platform-v7/profile/page.tsx',
+  'apps/web/app/platform-v7/reports/page.tsx',
   'apps/web/app/platform-v7/driver/field/page.tsx',
   'apps/web/app/platform-v7/elevator/page.tsx',
   'apps/web/app/platform-v7/lab/page.tsx',
@@ -40,6 +41,7 @@ const exact = new Set([
   'apps/web/components/platform-v7/ApiKeysPanel.tsx',
   'apps/web/components/platform-v7/FgisZernoPanel.tsx',
   'apps/web/components/platform-v7/MfaSecurityPanel.tsx',
+  'apps/web/components/platform-v7/RegulatoryReportsPanel.tsx',
   'apps/web/components/platform-v7/CanonicalDealsList.tsx',
   'apps/web/components/platform-v7/CanonicalDealsList.module.css',
   'apps/web/components/platform-v7/NextActionCard.tsx',
@@ -60,6 +62,7 @@ const exact = new Set([
   'apps/web/lib/disputes-server.ts',
   'apps/web/lib/integrations-server.ts',
   'apps/web/lib/auth-profile-server.ts',
+  'apps/web/lib/reporting-server.ts',
   'apps/web/lib/platform-v7/design-system-v8-route-policy.ts',
   'apps/web/lib/platform-v7/operator-execution-queue.ts',
   'apps/web/lib/platform-v7/fgisAuctionEngine.ts',
@@ -83,6 +86,7 @@ const exact = new Set([
   'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts',
   'apps/web/tests/unit/platformV7ConnectorsAuthority.test.ts',
   'apps/web/tests/unit/platformV7ProfileAuthority.test.ts',
+  'apps/web/tests/unit/platformV7ReportsAuthority.test.ts',
   'apps/web/tests/unit/platformV7DealExecutionChain.test.ts',
   'apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts',
   'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx',
@@ -105,6 +109,7 @@ const exact = new Set([
   'pnpm-workspace.yaml',
   'scripts/check-design-system-v8.mjs',
   'scripts/check-design-system-v8-pr-scope.mjs',
+  'scripts/p7-autopilot-guard.sh',
 ]);
 
 const prefixes = [
