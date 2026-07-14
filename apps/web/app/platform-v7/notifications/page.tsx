@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Bell, Check, CheckCheck, RefreshCw } from 'lucide-react';
+import { Surface } from '@pc/design-system-v8';
 import styles from './notifications.module.css';
 
 type NotificationItem = {
@@ -81,7 +82,12 @@ export default function NotificationsPage() {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        setState({ kind: 'error', message: response.status === 401 || response.status === 403 ? 'Сессия не подтверждена. Войди в платформу заново.' : 'Не удалось получить уведомления.' });
+        setState({
+          kind: 'error',
+          message: response.status === 401 || response.status === 403
+            ? 'Сессия не подтверждена. Войди в платформу заново.'
+            : 'Не удалось получить уведомления.',
+        });
         return;
       }
       const items = parseItems(payload);
@@ -117,7 +123,12 @@ export default function NotificationsPage() {
       });
       if (!response.ok) throw new Error('mark_read_failed');
       setState((current) => current.kind === 'ready'
-        ? { kind: 'ready', items: current.items.map((item) => item.id === id ? { ...item, read: true, readAt: new Date().toISOString() } : item) }
+        ? {
+            kind: 'ready',
+            items: current.items.map((item) => item.id === id
+              ? { ...item, read: true, readAt: new Date().toISOString() }
+              : item),
+          }
         : current);
     } catch {
       setActionError('Не удалось сохранить отметку. Уведомление осталось непрочитанным.');
@@ -131,7 +142,9 @@ export default function NotificationsPage() {
   }, []);
 
   const markAllRead = React.useCallback(async () => {
-    const unreadIds = state.kind === 'ready' ? state.items.filter((item) => !item.read).map((item) => item.id) : [];
+    const unreadIds = state.kind === 'ready'
+      ? state.items.filter((item) => !item.read).map((item) => item.id)
+      : [];
     if (!unreadIds.length) return;
     setActionError(null);
     setBusyIds(new Set(unreadIds));
@@ -143,7 +156,14 @@ export default function NotificationsPage() {
       });
       if (!response.ok) throw new Error('mark_all_failed');
       setState((current) => current.kind === 'ready'
-        ? { kind: 'ready', items: current.items.map((item) => ({ ...item, read: true, readAt: item.readAt ?? new Date().toISOString() })) }
+        ? {
+            kind: 'ready',
+            items: current.items.map((item) => ({
+              ...item,
+              read: true,
+              readAt: item.readAt ?? new Date().toISOString(),
+            })),
+          }
         : current);
     } catch {
       setActionError('Не удалось отметить все уведомления. Попробуй ещё раз.');
@@ -155,11 +175,11 @@ export default function NotificationsPage() {
   if (state.kind === 'loading') {
     return (
       <main className={styles.page}>
-        <section className={styles.stateCard} aria-live='polite'>
+        <Surface className={styles.stateCard} aria-live='polite'>
           <RefreshCw className={styles.spin} aria-hidden='true' />
           <h1>Загружаем уведомления</h1>
           <p>Покажем только события, полученные для твоего аккаунта.</p>
-        </section>
+        </Surface>
       </main>
     );
   }
@@ -167,14 +187,14 @@ export default function NotificationsPage() {
   if (state.kind === 'error') {
     return (
       <main className={styles.page}>
-        <section className={styles.stateCard} role='alert'>
+        <Surface className={styles.stateCard} role='alert'>
           <AlertTriangle className={styles.errorIcon} aria-hidden='true' />
           <h1>Уведомления недоступны</h1>
           <p>{state.message}</p>
           <button className={styles.primaryButton} type='button' onClick={() => void load()}>
             <RefreshCw aria-hidden='true' />Повторить
           </button>
-        </section>
+        </Surface>
       </main>
     );
   }
@@ -192,7 +212,7 @@ export default function NotificationsPage() {
         </div>
       </header>
 
-      <section className={styles.controls} aria-label='Настройки списка уведомлений'>
+      <Surface variant='plain' padded={false} className={styles.controls} aria-label='Настройки списка уведомлений'>
         <label className={styles.switchLabel}>
           <input type='checkbox' checked={unreadOnly} onChange={(event) => setUnreadOnly(event.target.checked)} />
           <span>Только непрочитанные</span>
@@ -200,27 +220,27 @@ export default function NotificationsPage() {
         <button className={styles.secondaryButton} type='button' disabled={!unreadCount || busyIds.size > 0} onClick={() => void markAllRead()}>
           <CheckCheck aria-hidden='true' />Прочитать все
         </button>
-      </section>
+      </Surface>
 
       {actionError ? (
-        <div className={styles.controls} role='alert'>
+        <Surface variant='subtle' className={styles.controls} role='alert'>
           <AlertTriangle className={styles.errorIcon} aria-hidden='true' />
           <span>{actionError}</span>
-        </div>
+        </Surface>
       ) : null}
 
       {visibleItems.length === 0 ? (
-        <section className={styles.emptyCard}>
+        <Surface className={styles.emptyCard}>
           <Check className={styles.successIcon} aria-hidden='true' />
           <h2>{unreadOnly ? 'Все уведомления прочитаны' : 'Уведомлений пока нет'}</h2>
           <p>Здесь появятся только фактические события твоего аккаунта и доступных сделок.</p>
-        </section>
+        </Surface>
       ) : (
         <section className={styles.list} aria-label='Список уведомлений'>
           {visibleItems.map((item) => {
             const busy = busyIds.has(item.id);
             return (
-              <article className={styles.item} data-read={item.read ? 'true' : 'false'} key={item.id}>
+              <Surface className={styles.item} data-read={item.read ? 'true' : 'false'} key={item.id} role='article'>
                 <div className={styles.itemTop}>
                   <span className={styles.typeLabel}>{typeLabel(item.type)}</span>
                   <time dateTime={item.createdAt}>{formatTime(item.createdAt)}</time>
@@ -241,7 +261,7 @@ export default function NotificationsPage() {
                     </button>
                   ) : <span className={styles.readStatus}><Check aria-hidden='true' />Прочитано</span>}
                 </div>
-              </article>
+              </Surface>
             );
           })}
         </section>
