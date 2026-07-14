@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { AppShellV4 } from '@/components/v7r/AppShellV4';
-import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
 import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
@@ -149,14 +148,7 @@ export function PlatformV7ProtectedShell({
   // Staff authority is a separate control plane. It must not inherit business-role
   // navigation, role widgets, onboarding, footer copy or client-side cabinet guards.
   // The staff route owns its own shell and all authority remains server-issued.
-  if (isStaffControlCenter) {
-    return (
-      <>
-        <ShellCopyNormalizer />
-        {children}
-      </>
-    );
-  }
+  if (isStaffControlCenter) return children;
 
   const previewResolved = !isRoleRoot || previewState?.path === normalizedPath;
   const ownerPreview = previewResolved ? previewState?.preview || null : null;
@@ -190,27 +182,23 @@ export function PlatformV7ProtectedShell({
   const showPlatformFooter = !isRoleRoot || (previewResolved && !ownerPreview);
 
   return (
-    <>
-      <ShellCopyNormalizer />
-      <AppShellV4 initialRole={verifiedRole}>
-        <>
-          <ScopedShellGuard />
-          <PlatformV7SingleEntryGuard />
-          <PlatformV7ShellUxController role={verifiedRole} />
-          <RbacCabinetGuard />
-          <ShellCopyNormalizer />
-          <HeaderLanguageSwitch />
-          <React.Suspense fallback={null}>
-            <StaffControlCenterEntry />
-          </React.Suspense>
-          <CalculatorHeaderWidget />
-          <HeaderUtilityMenu />
-          <RoleAssistantWidget />
-          {workSurface}
-          {showPlatformFooter ? <PlatformFooter /> : null}
-          <OnboardingTour />
-        </>
-      </AppShellV4>
-    </>
+    <AppShellV4 initialRole={verifiedRole}>
+      <>
+        <ScopedShellGuard />
+        <PlatformV7SingleEntryGuard />
+        <PlatformV7ShellUxController role={verifiedRole} />
+        <RbacCabinetGuard />
+        <HeaderLanguageSwitch />
+        <React.Suspense fallback={null}>
+          <StaffControlCenterEntry />
+        </React.Suspense>
+        <CalculatorHeaderWidget />
+        <HeaderUtilityMenu />
+        <RoleAssistantWidget />
+        {workSurface}
+        {showPlatformFooter ? <PlatformFooter /> : null}
+        <OnboardingTour />
+      </>
+    </AppShellV4>
   );
 }
