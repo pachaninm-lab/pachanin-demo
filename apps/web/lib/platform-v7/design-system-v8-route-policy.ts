@@ -35,6 +35,7 @@ const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([
 const DESIGN_SYSTEM_V8_PREFIX_ROUTES = [
   '/platform-v7/deals/',
   '/platform-v7/auction',
+  '/platform-v7/buyer/rfq',
 ] as const;
 
 function normalizePath(value: string | null | undefined): string {
