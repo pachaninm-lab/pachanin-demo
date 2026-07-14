@@ -23,7 +23,7 @@ describe('platform-v7 bank secondary authority', () => {
     expect(factoring).toContain('profile.available');
     expect(factoring).toContain('profile.orgId');
     expect(factoring).not.toMatch(forbiddenPresentation);
-    for (const forbidden of ['useState', 'useMemo', 'runPlatformAction', 'P7ActionButton', 'initialApplications', 'FAC-201', '48 млн ₽', 'КС + 4.2%', 'factoring-advance']) {
+    for (const forbidden of ['useState', 'useMemo', 'runPlatformAction', 'P7ActionButton', 'initialApplications', 'FAC-201', 'Предварительный лимит', 'КС + 4.2%', 'factoring-advance']) {
       expect(factoring).not.toContain(forbidden);
     }
   });
