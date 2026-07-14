@@ -1,12 +1,10 @@
-import type { Metadata } from 'next';
-import { SupportCaseRouteClient } from '@/components/platform-v7/SupportCaseRouteClient';
+import { SupportParticipantAuthority, getSupportAuthorityMetadata } from '@/components/transaction-ux/SupportParticipantAuthority';
 
-export const metadata: Metadata = {
-  title: 'Карточка обращения',
-  description: 'Карточка обращения поддержки исполнения сделки.',
-};
+export function generateMetadata() {
+  return getSupportAuthorityMetadata('detail');
+}
 
 export default async function SupportCasePage({ params }: { params: Promise<{ caseId: string }> | { caseId: string } }) {
   const { caseId } = await Promise.resolve(params);
-  return <SupportCaseRouteClient caseId={caseId} />;
+  return <SupportParticipantAuthority mode='detail' caseId={caseId} />;
 }
