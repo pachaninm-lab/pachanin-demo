@@ -50,4 +50,20 @@ describe('platform-v7 public homepage typography', () => {
     expect(typography).toContain('font-weight: 700;');
     expect(typography).toContain('font-size: 16px;');
   });
+
+  it('keeps mobile control and role content readable instead of forcing dense two-column cards', () => {
+    expect(typography).toContain('html body .pc-v7-public-entry .entry-control-grid');
+    expect(typography).toContain('html body .pc-v7-public-entry .entry-role-grid');
+    expect(typography).toContain('grid-template-columns: minmax(0, 1fr) !important;');
+    expect(typography).toContain('grid-template-columns: 44px minmax(0, 1fr) !important;');
+    expect(typography).toContain('font-size: 14px !important;');
+    expect(typography).toContain('background: transparent !important;');
+  });
+
+  it('reduces fixed support overlap and preserves text glyph rendering on iOS', () => {
+    expect(typography).toContain('html body .pc-v7-public-entry .p7-support-chat-button');
+    expect(typography).toContain('width: 48px !important;');
+    expect(typography).toContain('height: 48px !important;');
+    expect(typography).toContain('font-variant-emoji: text;');
+  });
 });
