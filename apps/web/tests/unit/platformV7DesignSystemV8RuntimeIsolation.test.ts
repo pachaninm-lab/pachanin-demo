@@ -13,6 +13,10 @@ const v8Runtime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8
 const legacyRuntime = read('apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx');
 const legacyTemplate = read('apps/web/components/platform-v7/PlatformV7ProtectedTemplateRuntime.tsx');
 const fixedHeaderContract = read('apps/web/app/platform-v7/_styles/fixed-header-contract.css');
+const bankGrain = read('apps/web/app/platform-v7/bank/grain/page.tsx');
+const bankEvents = read('apps/web/app/platform-v7/bank/events/page.tsx');
+const bankEventDetail = read('apps/web/app/platform-v7/bank/events/[id]/page.tsx');
+const bankFactoring = read('apps/web/app/platform-v7/bank/factoring/page.tsx');
 
 const roleRoutes = [
   'operator',
@@ -48,6 +52,8 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
     for (const route of criticalRoutes) expect(routePolicy).toContain(`'${route}'`);
     expect(routePolicy).toContain("'/platform-v7/deals/'");
     expect(routePolicy).toContain("'/platform-v7/auction'");
+    expect(routePolicy).toContain("'/platform-v7/buyer/rfq'");
+    expect(routePolicy).toContain("'/platform-v7/bank'");
     expect(routePolicy).toContain('isDesignSystemV8Route');
     expect(routePolicy).not.toContain("'use client'");
     expect(routePolicy).not.toContain('window.');
@@ -73,6 +79,35 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
       template.indexOf("await import('@/components/platform-v7/PlatformV7ProtectedTemplateRuntime')"),
     );
     expect(legacyTemplate).toContain('PlatformV7TemplateGuards');
+  });
+
+  it('canonicalizes duplicate bank surfaces and removes browser-owned factoring authority', () => {
+    for (const alias of [bankGrain, bankEvents, bankEventDetail]) {
+      expect(alias).toContain("import { redirect } from 'next/navigation'");
+      expect(alias).toContain("'/platform-v7/bank'");
+      expect(alias).not.toContain('DL-91');
+      expect(alias).not.toContain('BE-');
+      expect(alias).not.toContain('selectBankCallbackById');
+      expect(alias).not.toContain('style=');
+    }
+
+    expect(bankFactoring).toContain('OperationalDecisionCockpit');
+    expect(bankFactoring).toContain('getAuthProfile');
+    expect(bankFactoring).toContain('getDealsCanonical');
+    expect(bankFactoring).toContain('нет подтверждённых factoring API');
+    expect(bankFactoring).toContain('no confirmed factoring API');
+    expect(bankFactoring).toContain('没有已确认的 factoring API');
+    expect(bankFactoring).toContain('Браузер не создаёт заявку');
+    expect(bankFactoring).toContain('The browser does not create an application');
+    expect(bankFactoring).toContain('浏览器不会创建申请');
+    expect(bankFactoring).not.toContain("'use client'");
+    expect(bankFactoring).not.toContain('useState');
+    expect(bankFactoring).not.toContain('runPlatformAction');
+    expect(bankFactoring).not.toContain('initialApplications');
+    expect(bankFactoring).not.toContain('FAC-');
+    expect(bankFactoring).not.toContain('48 млн ₽');
+    expect(bankFactoring).not.toContain('КС + 4.2%');
+    expect(bankFactoring).not.toContain('style=');
   });
 
   it('keeps the governed runtime token-only and free of DOM/style repair code', () => {
