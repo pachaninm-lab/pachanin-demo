@@ -16,7 +16,7 @@ type Copy = Readonly<{
   status: string; priorityTitle: string; priorityDescription: string; owner: string; impact: string; result: string;
   download: string; connectors: string; boundaryTitle: string; boundary: string; catalogueTitle: string;
   catalogueDescription: string; unpublishedTitle: string; unpublishedDescription: string;
-  facts: ReadonlyArray<Readonly<{ label: string; value: string; hint: string }>>;
+  facts: Array<{ label: string; value: string; hint: string }>;
   groups: ReadonlyArray<Readonly<{ id: string; title: string; detail: string }>>;
 }>;
 
