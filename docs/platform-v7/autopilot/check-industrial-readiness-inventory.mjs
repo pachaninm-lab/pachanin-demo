@@ -14,8 +14,7 @@ function readJson(path) {
   catch (error) { throw new Error(`Cannot parse ${path}: ${error instanceof Error ? error.message : String(error)}`); }
 }
 
-function currentCommit() {
-  if (/^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA ?? '')) return process.env.GITHUB_SHA;
+function checkedOutCommit() {
   try { return execFileSync('git', ['rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(); }
   catch { return 'UNKNOWN'; }
 }
@@ -25,6 +24,10 @@ function assert(errors, condition, message) { if (!condition) errors.push(messag
 const inventory = readJson(INVENTORY_PATH);
 const schema = readJson(SCHEMA_PATH);
 const errors = [];
+const validatedCommit = checkedOutCommit();
+const expectedCommit = process.env.INDUSTRIAL_READINESS_COMMIT ?? '';
+assert(errors, /^[0-9a-f]{40}$/.test(expectedCommit), 'INDUSTRIAL_READINESS_COMMIT must be a full exact-head SHA.');
+assert(errors, validatedCommit === expectedCommit, `Checked out commit ${validatedCommit} does not match exact head ${expectedCommit}.`);
 assert(errors, schema?.properties?.schemaVersion?.const === 1, 'Schema version contract must remain 1.');
 assert(errors, inventory.schemaVersion === 1, 'Inventory schemaVersion must equal 1.');
 assert(errors, inventory.repository === 'pachaninm-lab/pachanin-demo', 'Unexpected repository identifier.');
@@ -73,7 +76,7 @@ const report = {
   repository: inventory.repository,
   programIssue: inventory.programIssue,
   inventoryBaselineCommit: inventory.baselineCommit,
-  validatedCommit: currentCommit(),
+  validatedCommit,
   validatedAt: new Date().toISOString(),
   inventoryPath: 'docs/platform-v7/autopilot/industrial-readiness-inventory.json',
   valid: errors.length === 0,
