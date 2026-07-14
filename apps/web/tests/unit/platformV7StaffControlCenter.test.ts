@@ -86,9 +86,9 @@ describe('platform-v7 Staff Control Center authority boundary', () => {
   });
 
   it('renders Staff authority in a dedicated shell instead of a business-role cabinet', () => {
-    expect(platformTemplate).toContain("const STAFF_PREFIX = '/platform-v7/staff'");
-    expect(platformTemplate).toContain('if (isPublicPath(pathname) || isStaffPath(pathname)) return children');
-    expect(platformTemplate.indexOf('isStaffPath(pathname)')).toBeLessThan(platformTemplate.indexOf('PlatformV7ProtectedTemplateRuntime'));
+    expect(platformTemplate).toContain('return children');
+    expect(platformTemplate).not.toContain('headers()');
+    expect(platformTemplate).not.toContain('PlatformV7ProtectedTemplateRuntime');
     expect(protectedShell).toContain('if (isStaffControlCenter)');
     expect(protectedShell).toContain('{children}');
     expect(protectedShell.indexOf('if (isStaffControlCenter)')).toBeLessThan(protectedShell.indexOf('<AppShellV4'));
