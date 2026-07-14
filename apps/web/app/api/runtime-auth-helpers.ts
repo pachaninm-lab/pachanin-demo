@@ -8,7 +8,7 @@ export function runtimeApiUrl(path: string) {
 }
 
 export function runtimeAuthHeaders(extra?: HeadersInit) {
-  const token = ((cookies() as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies).get(ACCESS_COOKIE)?.value;
+  const token = ((((cookies() as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies).get(ACCESS_COOKIE)?.value;
   const headers = new Headers(extra || {});
   if (token) headers.set('Authorization', `Bearer ${token}`);
   return headers;

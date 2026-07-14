@@ -104,7 +104,7 @@ async function verifyControlledIdentity(accessToken: string): Promise<Verificati
 }
 
 function resolveLocale(): AppLocale {
-  const headerLocale = ((headers() as unknown as UnsafeUnwrappedHeaders) as unknown as UnsafeUnwrappedHeaders).get('x-pc-locale');
+  const headerLocale = ((((headers() as unknown as UnsafeUnwrappedHeaders) as unknown as UnsafeUnwrappedHeaders) as unknown as UnsafeUnwrappedHeaders) as unknown as UnsafeUnwrappedHeaders).get('x-pc-locale');
   return isAppLocale(headerLocale) ? headerLocale : DEFAULT_LOCALE;
 }
 

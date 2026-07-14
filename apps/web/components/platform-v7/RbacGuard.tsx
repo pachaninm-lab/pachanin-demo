@@ -21,7 +21,7 @@ const ROLE_ACTOR: Partial<Record<PlatformV7AccessRole, PlatformV7AccessActor>> =
 };
 
 function roleFromCookie(surface: PlatformV7GuardedSurface): PlatformV7AccessRole {
-  const cookieRole = ((cookies() as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies).get('pc-role')?.value;
+  const cookieRole = ((((cookies() as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies).get('pc-role')?.value;
   if (!cookieRole) return SURFACE_ROLE[surface];
 
   const canonical = toPlatformV7CanonicalRole(cookieRole);
