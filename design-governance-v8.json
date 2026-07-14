@@ -1,5 +1,5 @@
 {
-  "version": 24,
+  "version": 25,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -8,6 +8,7 @@
     "apps/web/app/platform-v7/layout.tsx",
     "apps/web/app/platform-v7/template.tsx",
     "apps/web/app/platform-v7/control-tower/page.tsx",
+    "apps/web/app/platform-v7/operator-cockpit/queues/page.tsx",
     "apps/web/lib/disputes-server.ts",
     "apps/web/lib/integrations-server.ts",
     "apps/web/lib/auth-profile-server.ts",
