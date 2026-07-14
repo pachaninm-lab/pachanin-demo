@@ -12,7 +12,6 @@
     "apps/web/lib/integrations-server.ts",
     "apps/web/lib/auth-profile-server.ts",
     "apps/web/lib/reporting-server.ts",
-    "apps/web/lib/api-contracts-server.ts",
     "apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx",
     "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
     "apps/web/components/v7r/AppShellV4.tsx",
