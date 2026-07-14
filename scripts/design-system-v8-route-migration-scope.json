@@ -1,6 +1,7 @@
 [
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css",
+  "apps/web/components/platform-v7/PlatformV7LayoutClient.tsx",
   "apps/web/components/platform-v7/ScopedShellGuard.tsx",
   "apps/web/components/platform-v7/PublicBrandLogoFinal.tsx",
   "apps/web/components/platform-v7/PublicEntryCleanup.tsx",
