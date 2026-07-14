@@ -1,18 +1,21 @@
 #!/usr/bin/env node
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = 'apps/web';
 const extensions = new Set(['.ts', '.tsx']);
+const excludedDirectories = new Set(['.next', 'node_modules', 'coverage', 'dist', 'out']);
 const changed = [];
 
 function filesUnder(directory) {
   const output = [];
-  for (const name of readdirSync(directory)) {
-    const path = join(directory, name);
-    const stat = statSync(path);
-    if (stat.isDirectory()) output.push(...filesUnder(path));
-    else if ([...extensions].some((extension) => name.endsWith(extension))) output.push(path);
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory() && excludedDirectories.has(entry.name)) continue;
+
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) output.push(...filesUnder(path));
+    else if (entry.isFile() && [...extensions].some((extension) => entry.name.endsWith(extension))) output.push(path);
   }
   return output;
 }
