@@ -14,9 +14,23 @@ export interface TelemetryEnvironment {
 export const DEFAULT_OTEL_ENDPOINT = 'http://otel-collector:4317';
 export const TELEMETRY_SERVICE_NAME = 'grainflow-api';
 
+function validateOtelEndpoint(endpoint: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(endpoint);
+  } catch {
+    throw new Error('OTEL_EXPORTER_OTLP_ENDPOINT must be an absolute HTTP(S) URL.');
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('OTEL_EXPORTER_OTLP_ENDPOINT must use HTTP or HTTPS.');
+  }
+  return endpoint.replace(/\/+$/, '');
+}
+
 export function resolveOtelEndpoint(environment: TelemetryEnvironment = process.env): string {
   const endpoint = environment.OTEL_EXPORTER_OTLP_ENDPOINT?.trim();
-  return endpoint || DEFAULT_OTEL_ENDPOINT;
+  return validateOtelEndpoint(endpoint || DEFAULT_OTEL_ENDPOINT);
 }
 
 export function createTelemetryResource(environment: TelemetryEnvironment = process.env): Resource {
