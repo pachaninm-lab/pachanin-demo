@@ -7,7 +7,10 @@ import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
-import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
+import {
+  isDesignSystemV8Route,
+  resolveLegacyRouteAlias,
+} from '@/lib/platform-v7/design-system-v8-route-policy';
 import { platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import {
   readVerifiedCabinetRole,
@@ -51,13 +54,21 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/contact',
   '/platform-v7/request',
   '/platform-v7/docs',
+  '/platform-v7/about',
+  '/platform-v7/oferta',
+  '/platform-v7/privacy',
+  '/platform-v7/roles',
+  '/platform-v7/terms',
 ]);
 const PUBLIC_HEADERLESS_PATHS = new Set([
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
 ]);
-const PUBLIC_PREFIX_PATHS = ['/platform-v7/role-preview'];
+const PUBLIC_PREFIX_PATHS = [
+  '/platform-v7/role-preview',
+  '/platform-v7/demo',
+];
 
 type ShellLocale = 'ru' | 'en' | 'zh';
 
@@ -152,6 +163,12 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
     return <PlatformV7FullStyleRuntime>{publicContent}</PlatformV7FullStyleRuntime>;
   }
 
+  // Compatibility URLs are resolved server-side before RBAC evaluation. The
+  // canonical target remains the only authority and performs its own session,
+  // tenant, role and object-scope checks.
+  const legacyAlias = resolveLegacyRouteAlias(pathname);
+  if (legacyAlias) redirect(legacyAlias);
+
   // A protected business cabinet is rendered only after the signed cabinet/access
   // JWT has been verified. URL, query, pc-role, localStorage and client state never
   // assign the role. Unauthorized routes are rejected before any role-specific UI
@@ -170,6 +187,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
     return <PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>;
   }
 
-  const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
-  return <PlatformV7FullStyleRuntime>{protectedContent}</PlatformV7FullStyleRuntime>;
+  // Legacy protected rendering is closed. A newly added protected route must be
+  // explicitly registered as Design System v8 or as a compatibility alias.
+  redirect('/platform-v7/status');
 }
