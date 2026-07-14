@@ -8,9 +8,12 @@ const read = (relativePath: string) => fs.readFileSync(path.join(root, relativeP
 const serverLayout = read('apps/web/app/platform-v7/layout.tsx');
 const guard = read('apps/web/components/platform-v7/PlatformV7SingleEntryGuard.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
+const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const designSystemRuntime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const supportMount = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
+const quietLayer = read('apps/web/components/platform-v7/UxFinalQuietLayer.tsx');
+const quietCss = read('apps/web/components/platform-v7/UxFinalQuietLayer.module.css');
 const headerCss = read('apps/web/app/platform-v7/_styles/public-header-accessibility.css');
 const rootLayout = read('apps/web/app/layout.tsx');
 const languageSwitch = read('apps/web/components/platform-v7/HeaderLanguageSwitch.tsx');
@@ -32,12 +35,15 @@ describe('platform-v7 browser acceptance repairs', () => {
     ]) expect(guard).not.toContain(forbidden);
   });
 
-  it('keeps the verified protected shell server-rendered without a client-only loading gate', () => {
+  it('keeps the verified protected shell server-rendered without client loading replacement', () => {
     expect(protectedRuntime).toContain('<ToastProvider>');
     expect(protectedRuntime).toContain('<PlatformThemeSync />');
     expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname} verifiedRole={verifiedRole}>');
     expect(protectedRuntime).not.toContain('data-protected-shell-hydration');
     expect(protectedRuntime).not.toContain('setHydrated');
+    expect(protectedShell).toContain(': <RoleIntentDashboard role={verifiedRole} />');
+    expect(protectedShell).not.toContain('cabinetLoading');
+    expect(protectedShell).not.toContain('Открываем интерфейс кабинета');
   });
 
   it('keeps support entirely outside the server and initial hydration tree', () => {
@@ -51,6 +57,15 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(supportMount).toContain('loading: () => null');
     expect(supportMount).not.toContain('setMounted');
     expect(supportMount).not.toContain('React.useEffect');
+  });
+
+  it('loads final quiet UX rules from a static CSS module instead of hydration text', () => {
+    expect(quietLayer).toContain("import styles from './UxFinalQuietLayer.module.css'");
+    expect(quietLayer).not.toContain('<style');
+    expect(quietLayer).not.toContain('dangerouslySetInnerHTML');
+    expect(quietCss).toContain("[data-testid^='role-execution-summary-']");
+    expect(quietCss).toContain("[aria-label='Логика работы']");
+    expect(quietCss).toContain('@media (max-width: 640px)');
   });
 
   it('reserves independent public header tracks and WCAG-sized controls', () => {

@@ -13,6 +13,8 @@
   "apps/web/components/platform-v7/PlatformV7ProtectedRuntime.module.css",
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css",
+  "apps/web/components/platform-v7/UxFinalQuietLayer.tsx",
+  "apps/web/components/platform-v7/UxFinalQuietLayer.module.css",
   "apps/web/components/platform-v7/PlatformV7LayoutClient.tsx",
   "apps/web/components/platform-v7/ScopedShellGuard.tsx",
   "apps/web/components/platform-v7/PublicBrandLogoFinal.tsx",

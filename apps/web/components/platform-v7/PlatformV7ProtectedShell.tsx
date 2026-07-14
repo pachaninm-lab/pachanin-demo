@@ -151,36 +151,35 @@ export function PlatformV7ProtectedShell({
   // The staff route owns its own shell and all authority remains server-issued.
   if (isStaffControlCenter) return children;
 
-  const previewResolved = !isRoleRoot || previewState?.path === normalizedPath;
-  const ownerPreview = previewResolved ? previewState?.preview || null : null;
+  const ownerPreview = isRoleRoot && previewState?.path === normalizedPath
+    ? previewState.preview
+    : null;
 
+  // Normal role roots render their final canonical dashboard on the server and on
+  // the first client tree. The presentation-only owner preview may replace it only
+  // after its explicit test marker is resolved, so regular users never incur a
+  // loading-card-to-dashboard layout shift.
   const workSurface = isRoleRoot
-    ? !previewResolved
+    ? ownerPreview
       ? (
-        <section className={styles.cabinetLoading} aria-live='polite'>
-          <strong>Открываем интерфейс кабинета…</strong>
-        </section>
+        <>
+          <section className={styles.ownerPreview} data-controlled-owner-cabinet-preview='true'>
+            <div className={styles.previewHeading}>
+              <span className={styles.previewBadge}>TEST</span>
+              <strong className={styles.previewTitle}>Полный интерфейс кабинета</strong>
+            </div>
+            <div className={styles.organizationName}>{ownerPreview.organizationName}</div>
+            <p className={styles.previewText}>
+              Данные и сценарии тестовые. Внешние интеграции, электронная подпись и движение денег не активированы. Действия исполняются только после серверной проверки полномочий.
+            </p>
+          </section>
+          {children}
+        </>
       )
-      : ownerPreview
-        ? (
-          <>
-            <section className={styles.ownerPreview} data-controlled-owner-cabinet-preview='true'>
-              <div className={styles.previewHeading}>
-                <span className={styles.previewBadge}>TEST</span>
-                <strong className={styles.previewTitle}>Полный интерфейс кабинета</strong>
-              </div>
-              <div className={styles.organizationName}>{ownerPreview.organizationName}</div>
-              <p className={styles.previewText}>
-                Данные и сценарии тестовые. Внешние интеграции, электронная подпись и движение денег не активированы. Действия исполняются только после серверной проверки полномочий.
-              </p>
-            </section>
-            {children}
-          </>
-        )
-        : <RoleIntentDashboard role={verifiedRole} />
+      : <RoleIntentDashboard role={verifiedRole} />
     : children;
 
-  const showPlatformFooter = !isRoleRoot || (previewResolved && !ownerPreview);
+  const showPlatformFooter = !isRoleRoot || !ownerPreview;
 
   return (
     <div className={styles.shellPolicy} data-shell-policy={shellPolicy} data-shell-role={verifiedRole}>
