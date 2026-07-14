@@ -19,10 +19,6 @@
     "apps/web/components/platform-v7/CanonicalDealsList.module.css"
   ],
   "migratedFiles": [
-    "apps/web/app/platform-v7/layout.tsx",
-    "apps/web/app/platform-v7/template.tsx",
-    "apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx",
-    "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
     "apps/web/components/platform-v7/NextActionCard.tsx",
     "apps/web/app/platform-v7/driver/field/page.tsx",
     "apps/web/app/platform-v7/elevator/page.tsx",
