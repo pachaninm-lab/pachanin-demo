@@ -11,6 +11,7 @@ const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([
   '/platform-v7/operator-cockpit/queues',
   '/platform-v7/buyer',
   '/platform-v7/buyer/financing',
+  '/platform-v7/buyer/reputation',
   '/platform-v7/seller',
   '/platform-v7/logistics',
   '/platform-v7/driver',
