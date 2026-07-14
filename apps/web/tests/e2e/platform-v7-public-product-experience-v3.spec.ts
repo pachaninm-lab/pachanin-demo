@@ -78,7 +78,7 @@ test.describe('Public Product Experience V3 browser acceptance', () => {
 
     for (const locale of ['ru', 'en', 'zh'] as const) {
       const response = await page.goto(
-        `/platform-v7/how-it-works?lang=${locale}&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0`,
+        `/platform-v7/how-it-works?lang=${locale}&entry=deal&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0`,
         { waitUntil: 'load' },
       );
       expect(response?.ok(), `${locale} deal explorer response`).toBe(true);
@@ -98,10 +98,44 @@ test.describe('Public Product Experience V3 browser acceptance', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
+  test('role-first, problem-first and deal-first entries resolve into the same deal', async ({ page }) => {
+    const runtimeFailures = collectRuntimeFailures(page);
+
+    await page.goto('/platform-v7/how-it-works?lang=ru&entry=role', { waitUntil: 'load' });
+    const roleGate = page.locator('.pc-ppe-entry-gate');
+    await expect(roleGate).toHaveAttribute('data-entry-variant', 'role');
+    await expect(page.locator('.pc-ppe-entry-option')).toHaveCount(4);
+    await page.getByRole('button', { name: /Я контролирую деньги и риски/ }).click();
+    await expect(page.locator('.pc-ppe-explorer')).toHaveAttribute('data-lens', 'money');
+    await expect(page.locator('.pc-ppe-select-label select')).toHaveValue('bank');
+    await expect(page).toHaveURL(/entry=deal/);
+    await expect(page).toHaveURL(/source=role-first/);
+    await expect(page).not.toHaveURL(/[?&](role|membership|token|permission)=/);
+
+    await page.goBack();
+    await expect(roleGate).toHaveAttribute('data-entry-variant', 'role');
+
+    await page.goto('/platform-v7/how-it-works?lang=ru&entry=problem', { waitUntil: 'load' });
+    const problemGate = page.locator('.pc-ppe-entry-gate');
+    await expect(problemGate).toHaveAttribute('data-entry-variant', 'problem');
+    await expect(page.locator('.pc-ppe-entry-option')).toHaveCount(4);
+    await page.getByRole('button', { name: /Что происходит при отклонении/ }).click();
+    await expect(page.locator('.pc-ppe-explorer')).toHaveAttribute('data-lens', 'risk');
+    await expect(page).toHaveURL(/source=problem-first/);
+
+    await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal', { waitUntil: 'load' });
+    await expect(page.locator('.pc-ppe-entry-gate')).toHaveCount(0);
+    await expect(page.locator('.pc-ppe-explorer')).toBeVisible();
+
+    await expectNoSeriousAxeViolations(page);
+    await expectNoHorizontalOverflow(page);
+    expect(runtimeFailures).toEqual([]);
+  });
+
   test('lenses, scenarios, AI layer and browser history remain operable', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     await page.goto(
-      '/platform-v7/how-it-works?lang=ru&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0',
+      '/platform-v7/how-it-works?lang=ru&entry=deal&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0',
       { waitUntil: 'load' },
     );
 
@@ -136,8 +170,13 @@ test.describe('Public Product Experience V3 browser acceptance', () => {
     await page.setViewportSize({ width: 320, height: 900 });
 
     for (const locale of ['ru', 'en', 'zh'] as const) {
-      const response = await page.goto(`/platform-v7/how-it-works?lang=${locale}`, { waitUntil: 'load' });
-      expect(response?.ok(), `${locale} 320px response`).toBe(true);
+      const entryResponse = await page.goto(`/platform-v7/how-it-works?lang=${locale}&entry=role`, { waitUntil: 'load' });
+      expect(entryResponse?.ok(), `${locale} role entry 320px response`).toBe(true);
+      await expectNoHorizontalOverflow(page);
+      await expectMinimumTargets(page, '.pc-ppe-entry-option');
+
+      const response = await page.goto(`/platform-v7/how-it-works?lang=${locale}&entry=deal`, { waitUntil: 'load' });
+      expect(response?.ok(), `${locale} explorer 320px response`).toBe(true);
       await expectNoHorizontalOverflow(page);
       await expectMinimumTargets(page, '.pc-ppe-lens-list button');
       await expectMinimumTargets(page, '.pc-ppe-segmented button');
