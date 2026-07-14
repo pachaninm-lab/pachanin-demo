@@ -40,7 +40,7 @@ describe('Next.js 15 runtime contracts', () => {
     }
   });
 
-  it('contains no unresolved Next.js codemod escape hatches or nested generated types', () => {
+  it('contains no unresolved codemod escape hatches or generated compatibility artifacts', () => {
     const unresolved: string[] = [];
 
     for (const file of sourceFiles('apps/web/app')) {
@@ -49,6 +49,8 @@ describe('Next.js 15 runtime contracts', () => {
         source.includes('@next-codemod-error')
         || source.includes('UnsafeUnwrapped')
         || source.includes('Awaited<Awaited<')
+        || source.includes('Promise<Promise<')
+        || /import\s+\{\s*use\s*\}\s+from\s+['"]react['"]/.test(source)
       ) {
         unresolved.push(file);
       }
