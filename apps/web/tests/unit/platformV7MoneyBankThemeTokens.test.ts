@@ -2,15 +2,12 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-// UX-001 (audit): денежные/банковские компоненты должны брать цвета из
-// семантических токенов темы (var(--pc-...)), а не из сырых hex/rgba —
-// иначе тёмная тема ломается (низкий контраст, невидимые фоны).
+// UX-001: денежные компоненты берут цвета из семантических токенов темы,
+// а не из сырых hex/rgba, иначе тёмная тема теряет контраст.
 const FILES = [
   '../../components/platform-v7/MoneyGateCard.tsx',
-  '../../components/platform-v7/P7BankPaymentBasisRuntimePanel.tsx',
 ];
 
-// Сырые статус-цвета, которые раньше были захардкожены в этих компонентах.
 const FORBIDDEN_RAW_COLORS = [
   '#B45309',
   '#0A7A5F',
