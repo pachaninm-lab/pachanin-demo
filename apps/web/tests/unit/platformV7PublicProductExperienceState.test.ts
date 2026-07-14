@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_TOUR_STATE,
+  TOUR_ENTRY_VARIANTS,
   TOUR_LENSES,
   TOUR_PERSPECTIVES,
   TOUR_SCENARIOS,
   TOUR_STAGES,
+  normalizeTourEntryVariant,
   normalizeTourState,
   normalizeTourStateFromSearchParams,
   reduceTourState,
@@ -13,10 +15,19 @@ import {
 
 describe('public product experience state machine', () => {
   it('keeps the architecture cardinalities explicit', () => {
+    expect(TOUR_ENTRY_VARIANTS).toEqual(['role', 'problem', 'deal']);
     expect(TOUR_LENSES).toHaveLength(6);
     expect(TOUR_PERSPECTIVES).toHaveLength(12);
     expect(TOUR_SCENARIOS).toHaveLength(3);
     expect(TOUR_STAGES).toHaveLength(10);
+  });
+
+  it('normalizes usability entry variants without introducing an auth role', () => {
+    expect(normalizeTourEntryVariant('role')).toBe('role');
+    expect(normalizeTourEntryVariant(['problem', 'deal'])).toBe('problem');
+    expect(normalizeTourEntryVariant('deal')).toBe('deal');
+    expect(normalizeTourEntryVariant('admin')).toBe('deal');
+    expect(normalizeTourEntryVariant(undefined)).toBe('deal');
   });
 
   it('normalizes deep links and rejects unknown values', () => {
@@ -71,14 +82,17 @@ describe('public product experience state machine', () => {
     const params = writeTourStateToSearchParams(state);
     expect(params.has('role')).toBe(false);
     expect(params.has('membership')).toBe(false);
+    expect(params.has('token')).toBe(false);
+    expect(params.has('permission')).toBe(false);
     expect(normalizeTourStateFromSearchParams(params)).toEqual(state);
   });
 
   it('preserves unrelated campaign parameters while updating the public view', () => {
-    const current = new URLSearchParams('source=partner&campaign=july');
+    const current = new URLSearchParams('source=partner&campaign=july&entry=role');
     const params = writeTourStateToSearchParams(DEFAULT_TOUR_STATE, current);
     expect(params.get('source')).toBe('partner');
     expect(params.get('campaign')).toBe('july');
+    expect(params.get('entry')).toBe('role');
     expect(params.get('perspective')).toBe('seller');
   });
 });
