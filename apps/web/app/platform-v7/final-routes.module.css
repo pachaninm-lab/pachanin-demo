@@ -1,0 +1,209 @@
+.page {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.hero {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.heroHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.heroCopy {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+  max-width: 56rem;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--pc-accent);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  color: var(--pc-text-primary);
+  font-size: clamp(1.65rem, 5vw, 2.35rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.description {
+  margin: 0;
+  color: var(--pc-text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.primaryLink,
+.secondaryLink {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.primaryLink {
+  background: var(--pc-accent);
+  color: var(--pc-action-on-primary);
+  border: 1px solid var(--pc-accent);
+}
+
+.secondaryLink {
+  background: var(--pc-shell-surface);
+  color: var(--pc-text-primary);
+  border: 1px solid var(--pc-border);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.75rem;
+}
+
+.metric {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.metricLabel {
+  margin: 0;
+  color: var(--pc-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metricValue {
+  margin: 0;
+  color: var(--pc-text-primary);
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--pc-text-primary);
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.item {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.8rem;
+  border: 1px solid var(--pc-border);
+  border-radius: 0.8rem;
+  background: var(--pc-shell-surface-soft);
+  min-width: 0;
+}
+
+.itemHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.itemTitle {
+  margin: 0;
+  color: var(--pc-text-primary);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.itemText,
+.itemMeta {
+  margin: 0;
+  color: var(--pc-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.filterRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.filterLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--pc-text-primary);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.buttonRow {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.mono {
+  font-family: var(--pc-font-mono);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 42rem) {
+  .page {
+    gap: 0.75rem;
+  }
+
+  .actions,
+  .buttonRow {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .primaryLink,
+  .secondaryLink {
+    width: 100%;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
