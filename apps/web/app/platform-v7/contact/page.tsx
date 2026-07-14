@@ -23,9 +23,8 @@ function isSent(searchParams: ContactSearchParams) {
 }
 
 export default async function PlatformV7ContactPage(
-  props: { searchParams?: Promise<Promise<ContactSearchParams> | ContactSearchParams> }
+  props: { searchParams?: Promise<ContactSearchParams> },
 ) {
-  const searchParams = await props.searchParams;
-  const params = await Promise.resolve(searchParams ?? {});
+  const params = (await props.searchParams) ?? {};
   return <ContactClient sent={isSent(params)} />;
 }
