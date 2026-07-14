@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, type AnchorHTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 
 function viewportGroup() {
   if (typeof window === 'undefined') return 'server';
@@ -16,6 +16,13 @@ function emit(name: string, locale: string, params: Record<string, string> = {})
   }));
 }
 
+type PublicExperienceLinkProps = Pick<AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'className' | 'role' | 'aria-label'> & {
+  eventName: string;
+  locale: string;
+  params?: Record<string, string>;
+  children: ReactNode;
+};
+
 export function PublicExperiencePageView({ locale, name }: { locale: string; name: 'home_view' | 'deal_xray_open' }) {
   useEffect(() => emit(name, locale), [locale, name]);
   return null;
@@ -24,18 +31,13 @@ export function PublicExperiencePageView({ locale, name }: { locale: string; nam
 export function PublicExperienceLink({
   href,
   className,
+  role,
+  'aria-label': ariaLabel,
   eventName,
   locale,
   params,
   children,
-}: {
-  href: string;
-  className?: string;
-  eventName: string;
-  locale: string;
-  params?: Record<string, string>;
-  children: ReactNode;
-}) {
+}: PublicExperienceLinkProps) {
   const onClick = (_event: MouseEvent<HTMLAnchorElement>) => emit(eventName, locale, params);
-  return <a href={href} className={className} onClick={onClick}>{children}</a>;
+  return <a href={href} className={className} role={role} aria-label={ariaLabel} onClick={onClick}>{children}</a>;
 }
