@@ -17,19 +17,19 @@ if (!text.includes(scope)) {
   text = text.replace(scopeAnchor, `${scope}${scopeAnchor}`);
 }
 
-const branchGuard = `if [ "${GITHUB_HEAD_REF:-}" = "${branch}" ]; then
+const branchGuard = `if [ "\${GITHUB_HEAD_REF:-}" = "${branch}" ]; then
   ALLOWED_CURRENT=$(printf '%s\\n%s\\n' "$ALLOWED_CURRENT" "$TRANSITIVE_RUNTIME_REMEDIATION_SCOPE")
 fi
 
 `;
-const branchAnchor = `APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'`;
+const branchAnchor = `APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="\${GITHUB_HEAD_REF:-}" node - <<'JS'`;
 if (!text.includes(branchGuard)) {
   if (!text.includes(branchAnchor)) throw new Error('Branch-scope anchor is missing.');
   text = text.replace(branchAnchor, `${branchGuard}${branchAnchor}`);
 }
 
 const oldForbidden = `FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\\.json$|pnpm-lock\\.yaml$|\\.env|.*\\.pem$|.*\\.key$)'`;
-const branchForbidden = `if [ "${GITHUB_HEAD_REF:-}" = "${branch}" ]; then
+const branchForbidden = `if [ "\${GITHUB_HEAD_REF:-}" = "${branch}" ]; then
   FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\\.json$|\\.env|.*\\.pem$|.*\\.key$)'
 else
   FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\\.json$|pnpm-lock\\.yaml$|\\.env|.*\\.pem$|.*\\.key$)'
