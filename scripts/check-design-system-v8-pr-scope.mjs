@@ -20,6 +20,8 @@ const exact = new Set([
   'apps/web/app/platform-v7/profile/page.tsx',
   'apps/web/app/platform-v7/profile/team/page.tsx',
   'apps/web/app/platform-v7/reports/page.tsx',
+  'apps/web/app/platform-v7/reports/esg/page.tsx',
+  'apps/web/app/platform-v7/reports/regulator/page.tsx',
   'apps/web/app/platform-v7/driver/field/page.tsx',
   'apps/web/app/platform-v7/elevator/page.tsx',
   'apps/web/app/platform-v7/lab/page.tsx',
