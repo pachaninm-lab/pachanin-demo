@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { isDesignSystemV8Route } from '../../lib/platform-v7/design-system-v8-route-policy';
 
 const root = process.cwd();
 const absolute = (relativePath: string) => path.join(root, relativePath);
@@ -40,6 +41,41 @@ const criticalRoutes = [
   '/platform-v7/deal-documents-basis',
 ];
 
+function extractExactAliases(): Set<string> {
+  const block = layout.match(/const ALIAS_EXACT_PATHS = new Set\(\[([\s\S]*?)\]\);/)?.[1] ?? '';
+  return new Set([...block.matchAll(/'([^']+)'/g)].map((match) => match[1]));
+}
+
+function extractDynamicAliases(): RegExp[] {
+  const block = layout.match(/const ALIAS_DYNAMIC_PATHS = \[([\s\S]*?)\] as const;/)?.[1] ?? '';
+  return block
+    .split('\n')
+    .map((line) => line.trim().replace(/,$/, ''))
+    .filter((line) => line.startsWith('/^') && line.endsWith('/'))
+    .map((line) => new RegExp(line.slice(1, -1)));
+}
+
+function walkPages(directory: string, output: string[] = []): string[] {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const child = path.join(directory, entry.name);
+    if (entry.isDirectory()) walkPages(child, output);
+    else if (entry.isFile() && entry.name === 'page.tsx') output.push(child);
+  }
+  return output;
+}
+
+function routeFromPage(pagePath: string): string {
+  const appRoot = absolute('apps/web/app/platform-v7');
+  const segments = path.relative(appRoot, pagePath).split(path.sep);
+  segments.pop();
+  const routeSegments = segments.filter((segment) => !/^\(.+\)$/.test(segment) && !segment.startsWith('@'));
+  return ['/platform-v7', ...routeSegments].join('/').replace(/\/$/, '') || '/platform-v7';
+}
+
+function sampleRoute(route: string): string {
+  return route.replace(/\[[^/]+\]/g, 'sample-id');
+}
+
 describe('platform-v7 Design System v8 runtime isolation', () => {
   it('registers all twelve role roots and accepted transaction routes in one server-safe policy', () => {
     for (const role of roleRoutes) expect(routePolicy).toContain(`'/platform-v7/${role}'`);
@@ -68,6 +104,22 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
       layout.indexOf('if (!isDesignSystemV8Route(pathname)) return protectedContent'),
     );
     expect(layout).not.toContain('PlatformV7FullStyleRuntime');
+  });
+
+  it('keeps every server redirect route reachable through the exact fail-closed policy', () => {
+    const exactAliases = extractExactAliases();
+    const dynamicAliases = extractDynamicAliases();
+    const redirectRoutes = walkPages(absolute('apps/web/app/platform-v7'))
+      .filter((pagePath) => /\bredirect\s*\(/.test(fs.readFileSync(pagePath, 'utf8')))
+      .map(routeFromPage);
+
+    for (const route of redirectRoutes) {
+      const sample = sampleRoute(route);
+      const covered = isDesignSystemV8Route(sample)
+        || exactAliases.has(route)
+        || dynamicAliases.some((pattern) => pattern.test(sample));
+      expect(covered, `redirect route is absent from fail-closed policy: ${route}`).toBe(true);
+    }
   });
 
   it('keeps the route template free of client guards and mutation repair', () => {
