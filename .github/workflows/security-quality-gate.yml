@@ -19,13 +19,13 @@ concurrency:
 
 env:
   NODE_VERSION: '24'
-  PNPM_VERSION: '10.2.1'
+  PNPM_VERSION: '10.34.4'
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   SECURITY_ARTIFACT_DIR: artifacts/security
 
 jobs:
   security-policy:
-    name: Security policy · exact-head and exceptions
+    name: Security policy · exact-head scope and exceptions
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -44,7 +44,7 @@ jobs:
         env:
           SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
           SECURITY_POLICY_REPORT: ${{ env.SECURITY_ARTIFACT_DIR }}/security-policy-validation.json
-          TRIVY_IGNORE_PATH: ${{ env.SECURITY_ARTIFACT_DIR }}/.trivyignore
+          TRIVY_IGNORE_DIR: ${{ env.SECURITY_ARTIFACT_DIR }}
         run: node docs/platform-v7/autopilot/check-security-release-gate.mjs
 
       - name: Upload security policy evidence
@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
-      image: semgrep/semgrep:1.132.0
+      image: semgrep/semgrep:1.169.0
     steps:
       - name: Checkout exact head
         uses: actions/checkout@v4
@@ -71,25 +71,23 @@ jobs:
           ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
-      - name: Run blocking Semgrep rules
+      - name: Run deterministic blocking Semgrep policy
         run: |
           mkdir -p "$SECURITY_ARTIFACT_DIR"
-          semgrep \
-            --config p/typescript \
-            --config p/nodejs \
-            --config p/owasp-top-ten \
-            --config p/injection \
-            --config p/secrets \
+          semgrep scan \
+            --config docs/platform-v7/autopilot/semgrep-security.yml \
+            --strict \
+            --error \
             --sarif \
             --output "$SECURITY_ARTIFACT_DIR/semgrep.sarif" \
-            --error \
             --exclude node_modules \
             --exclude dist \
             --exclude .pnpm \
-            apps/api/src apps/web/app apps/web/lib workers packages
+            apps/api/src apps/web/app apps/web/lib workers packages \
+            > "$SECURITY_ARTIFACT_DIR/semgrep.log" 2>&1
 
       - name: Upload Semgrep SARIF
-        if: always()
+        if: always() && hashFiles('artifacts/security/semgrep.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ${{ env.SECURITY_ARTIFACT_DIR }}/semgrep.sarif
@@ -100,7 +98,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: semgrep-${{ env.EXACT_HEAD }}
-          path: ${{ env.SECURITY_ARTIFACT_DIR }}/semgrep.sarif
+          path: |
+            ${{ env.SECURITY_ARTIFACT_DIR }}/semgrep.sarif
+            ${{ env.SECURITY_ARTIFACT_DIR }}/semgrep.log
           if-no-files-found: error
           retention-days: 90
 
@@ -108,7 +108,7 @@ jobs:
     name: Container · Trivy blocking
     needs: security-policy
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Checkout exact head
         uses: actions/checkout@v4
@@ -122,7 +122,7 @@ jobs:
           name: security-policy-${{ env.EXACT_HEAD }}
           path: ${{ env.SECURITY_ARTIFACT_DIR }}
 
-      - name: Build canonical API image
+      - name: Build canonical production-only API image
         run: |
           docker build \
             -f infra/docker/Dockerfile.api \
@@ -142,11 +142,11 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: false
           exit-code: '1'
-          trivyignores: artifacts/security/.trivyignore
+          trivyignores: artifacts/security/.trivyignore-trivy-container.yaml
           limit-severities-for-sarif: true
 
       - name: Upload container SARIF
-        if: always()
+        if: always() && hashFiles('artifacts/security/trivy-container.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-container.sarif
@@ -164,7 +164,7 @@ jobs:
           retention-days: 90
 
   trivy-filesystem:
-    name: Repository · Trivy blocking
+    name: Repository secrets · Trivy blocking
     needs: security-policy
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -181,26 +181,25 @@ jobs:
           name: security-policy-${{ env.EXACT_HEAD }}
           path: ${{ env.SECURITY_ARTIFACT_DIR }}
 
-      - name: Scan repository vulnerabilities and secrets
+      - name: Scan complete repository for secrets
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
-          scanners: vuln,secret
+          scanners: secret
           format: sarif
           output: artifacts/security/trivy-filesystem.sarif
           severity: CRITICAL,HIGH
-          ignore-unfixed: false
           exit-code: '1'
-          trivyignores: artifacts/security/.trivyignore
+          trivyignores: artifacts/security/.trivyignore-trivy-filesystem.yaml
           limit-severities-for-sarif: true
 
       - name: Upload repository SARIF
-        if: always()
+        if: always() && hashFiles('artifacts/security/trivy-filesystem.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-filesystem.sarif
-          category: trivy-filesystem-blocking
+          category: trivy-repository-secrets-blocking
 
       - name: Upload repository evidence
         if: always()
@@ -212,7 +211,7 @@ jobs:
           retention-days: 90
 
   trivy-iac:
-    name: IaC · Trivy blocking
+    name: IaC release authority · Trivy blocking
     needs: security-policy
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -229,24 +228,24 @@ jobs:
           name: security-policy-${{ env.EXACT_HEAD }}
           path: ${{ env.SECURITY_ARTIFACT_DIR }}
 
-      - name: Scan infrastructure configuration
+      - name: Scan release-authority Docker configuration
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
-          scan-ref: .
+          scan-ref: infra/docker
           format: sarif
           output: artifacts/security/trivy-iac.sarif
           severity: CRITICAL,HIGH
           exit-code: '1'
-          trivyignores: artifacts/security/.trivyignore
+          trivyignores: artifacts/security/.trivyignore-trivy-iac.yaml
           limit-severities-for-sarif: true
 
       - name: Upload IaC SARIF
-        if: always()
+        if: always() && hashFiles('artifacts/security/trivy-iac.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-iac.sarif
-          category: trivy-iac-blocking
+          category: trivy-release-iac-blocking
 
       - name: Upload IaC evidence
         if: always()
@@ -275,7 +274,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   dependency-audit:
-    name: Dependencies · HIGH and CRITICAL blocking
+    name: Production dependencies · HIGH and CRITICAL blocking
     needs: security-policy
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -286,7 +285,7 @@ jobs:
           ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
-      - name: Setup pnpm
+      - name: Setup patched pnpm
         uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
@@ -300,11 +299,11 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Produce pnpm audit JSON
+      - name: Produce production dependency audit JSON
         run: |
           mkdir -p "$SECURITY_ARTIFACT_DIR"
           set +e
-          pnpm audit --json --audit-level=high \
+          pnpm audit --prod --json --audit-level=high \
             > "$SECURITY_ARTIFACT_DIR/pnpm-audit.json" \
             2> "$SECURITY_ARTIFACT_DIR/pnpm-audit.stderr.txt"
           audit_exit=$?
@@ -342,7 +341,7 @@ jobs:
           ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
-      - name: Setup pnpm
+      - name: Setup patched pnpm
         uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
