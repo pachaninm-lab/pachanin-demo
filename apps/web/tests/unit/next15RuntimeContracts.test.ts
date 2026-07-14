@@ -52,4 +52,9 @@ describe('Next.js 15 runtime contracts', () => {
 
     expect(unresolved).toEqual([]);
   });
+
+  it('does not retain one-shot migration authority after source normalization', () => {
+    expect(fs.existsSync(path.join(ROOT, 'docs/platform-v7/autopilot/normalize-next15-codemod.mjs'))).toBe(false);
+    expect(read('.github/workflows/dependency-review.yml')).not.toContain('governed-next15');
+  });
 });
