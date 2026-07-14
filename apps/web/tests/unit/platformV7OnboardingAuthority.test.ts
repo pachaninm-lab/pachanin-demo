@@ -6,10 +6,12 @@ const repoRoot = path.resolve(process.cwd(), '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const page = read('apps/web/app/platform-v7/onboarding/page.tsx');
+const legacyAccessPage = read('apps/web/app/platform-v7/access/page.tsx');
 const profileReader = read('apps/web/lib/auth-profile-server.ts');
 const dealReader = read('apps/web/lib/reporting-server.ts');
 const routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
 const governance = JSON.parse(read('design-governance-v8.json'));
+const scopePolicy = read('scripts/check-design-system-v8-pr-scope.mjs');
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important/i;
 
 describe('platform-v7 onboarding authority', () => {
@@ -29,7 +31,7 @@ describe('platform-v7 onboarding authority', () => {
     expect(page).toContain('profile.mfaVerified');
     expect(page).toContain('registry.available');
     expect(page).toContain('registry.deals.length');
-    expect(page).toContain("profile.surfaceRole || profile.role");
+    expect(page).toContain('profile.surfaceRole || profile.role');
     expect(page).toContain('encodeURIComponent(firstDeal.id)');
   });
 
@@ -67,6 +69,17 @@ describe('platform-v7 onboarding authority', () => {
     expect(page).toContain('不会在浏览器中选择角色');
   });
 
+  it('replaces the legacy approved pilot request with the canonical server authority', () => {
+    expect(legacyAccessPage).toContain("import { redirect } from 'next/navigation'");
+    expect(legacyAccessPage).toContain("redirect('/platform-v7/onboarding')");
+    expect(legacyAccessPage).not.toContain('ACCESS-PILOT');
+    expect(legacyAccessPage).not.toContain('КФХ «Северное поле»');
+    expect(legacyAccessPage).not.toContain("status: 'approved'");
+    expect(legacyAccessPage).not.toContain('requestedRole');
+    expect(legacyAccessPage).not.toContain('CockpitHero');
+    expect(legacyAccessPage).not.toMatch(forbiddenPresentation);
+  });
+
   it('keeps external systems outside the onboarding authority boundary', () => {
     expect(page).toContain('не подключает банк, ФГИС, ЭДО или ЭПД');
     expect(page).toContain('connect a bank, grain registry, EDI or transport system');
@@ -79,5 +92,6 @@ describe('platform-v7 onboarding authority', () => {
     expect(governance.migratedFiles).toContain('apps/web/app/platform-v7/onboarding/page.tsx');
     expect(governance.governedRoots).toContain('apps/web/lib/auth-profile-server.ts');
     expect(governance.governedRoots).toContain('apps/web/lib/reporting-server.ts');
+    expect(scopePolicy).toContain("'apps/web/app/platform-v7/access/page.tsx'");
   });
 });
