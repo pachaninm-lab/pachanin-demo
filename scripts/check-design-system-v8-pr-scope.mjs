@@ -3,6 +3,10 @@ import { execFileSync } from 'node:child_process';
 const exact = new Set([
   '.github/workflows/design-system-v8.yml',
   '.github/workflows/platform-v7-autopilot-guard.yml',
+  'apps/api/src/modules/auth/auth.controller.ts',
+  'apps/api/src/modules/auth/auth.module.ts',
+  'apps/api/src/modules/auth/organization-team.service.ts',
+  'apps/api/src/modules/auth/organization-team.service.spec.ts',
   'apps/web/app/platform-v7/layout.tsx',
   'apps/web/app/platform-v7/template.tsx',
   'apps/web/app/platform-v7/_styles/fixed-header-contract.css',
@@ -12,6 +16,7 @@ const exact = new Set([
   'apps/web/app/platform-v7/api-docs/page.tsx',
   'apps/web/app/platform-v7/onboarding/page.tsx',
   'apps/web/app/platform-v7/profile/page.tsx',
+  'apps/web/app/platform-v7/profile/team/page.tsx',
   'apps/web/app/platform-v7/reports/page.tsx',
   'apps/web/app/platform-v7/driver/field/page.tsx',
   'apps/web/app/platform-v7/elevator/page.tsx',
@@ -66,6 +71,7 @@ const exact = new Set([
   'apps/web/lib/integrations-server.ts',
   'apps/web/lib/auth-profile-server.ts',
   'apps/web/lib/reporting-server.ts',
+  'apps/web/lib/organization-team-server.ts',
   'apps/web/lib/platform-v7/design-system-v8-route-policy.ts',
   'apps/web/lib/platform-v7/operator-execution-queue.ts',
   'apps/web/lib/platform-v7/fgisAuctionEngine.ts',
@@ -89,6 +95,7 @@ const exact = new Set([
   'apps/web/tests/unit/platformV7ApiDocsAuthority.test.ts',
   'apps/web/tests/unit/platformV7ApiDocsLegacyIsolation.test.ts',
   'apps/web/tests/unit/platformV7OnboardingAuthority.test.ts',
+  'apps/web/tests/unit/platformV7OrganizationTeamAuthority.test.ts',
   'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts',
   'apps/web/tests/unit/platformV7ConnectorsAuthority.test.ts',
   'apps/web/tests/unit/platformV7ProfileAuthority.test.ts',
@@ -126,7 +133,6 @@ const prefixes = [
 
 const forbidden = [
   /^apps\/landing\//,
-  /^apps\/api\//,
   /^packages\/domain-core\//,
   /^infra\//,
   /^\.env/,
