@@ -84,7 +84,7 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
   it('canonicalizes duplicate bank surfaces and removes browser-owned factoring authority', () => {
     for (const alias of [bankGrain, bankEvents, bankEventDetail]) {
       expect(alias).toContain("import { redirect } from 'next/navigation'");
-      expect(alias).toContain("'/platform-v7/bank'");
+      expect(alias).toMatch(/PLATFORM_V7_BANK_ROUTE|'\/platform-v7\/bank'/);
       expect(alias).not.toContain('DL-91');
       expect(alias).not.toContain('BE-');
       expect(alias).not.toContain('selectBankCallbackById');
