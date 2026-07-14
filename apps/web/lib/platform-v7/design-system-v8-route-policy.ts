@@ -43,7 +43,7 @@ const DESIGN_SYSTEM_V8_PREFIX_ROUTES = [
   '/platform-v7/bank',
 ] as const;
 
-const LEGACY_ROUTE_ALIAS_EXACT = Object.freeze({
+const LEGACY_ROUTE_ALIAS_EXACT: Readonly<Record<string, string>> = Object.freeze({
   '/platform-v7/access': '/platform-v7/onboarding',
   '/platform-v7/admin': '/platform-v7/control-tower',
   '/platform-v7/ai': '/platform-v7/deals?view=assistant',
@@ -89,7 +89,7 @@ const LEGACY_ROUTE_ALIAS_EXACT = Object.freeze({
   '/platform-v7/support/operator': '/platform-v7/control-tower?view=support',
   '/platform-v7/support': '/platform-v7/request?source=cabinet-support',
   '/platform-v7/trust': '/platform-v7/compliance?view=trust',
-} satisfies Record<string, string>);
+});
 
 const LEGACY_ROUTE_ALIAS_PATTERNS = [
   {
