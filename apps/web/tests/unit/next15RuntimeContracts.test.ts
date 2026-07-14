@@ -59,6 +59,22 @@ describe('Next.js 15 runtime contracts', () => {
     expect(unresolved).toEqual([]);
   });
 
+  it('awaits every async authorization-header helper before fetch', () => {
+    const unresolved: string[] = [];
+
+    for (const file of sourceFiles('apps/web/app/api')) {
+      const source = read(file);
+      if (
+        /headers:\s*runtimeAuthHeaders\s*\(/.test(source)
+        || /headers:\s*serverAuthHeaders\s*\(/.test(source)
+      ) {
+        unresolved.push(file);
+      }
+    }
+
+    expect(unresolved).toEqual([]);
+  });
+
   it('does not retain one-shot migration authority after source normalization', () => {
     expect(fs.existsSync(path.join(ROOT, 'docs/platform-v7/autopilot/normalize-next15-codemod.mjs'))).toBe(false);
     expect(read('.github/workflows/dependency-review.yml')).not.toContain('governed-next15');
