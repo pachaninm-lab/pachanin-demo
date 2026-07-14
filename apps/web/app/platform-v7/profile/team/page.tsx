@@ -1,314 +1,248 @@
-'use client';
-
-import * as React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getLocale } from 'next-intl/server';
+import { InlineNotice, StatusChip } from '@pc/design-system-v8';
+import { getAuthProfile } from '@/lib/auth-profile-server';
+import {
+  OperationalCockpitSection,
+  OperationalDecisionCockpit,
+  OperationalQueue,
+  OperationalQueueLink,
+  operationalCockpitClasses,
+  type OperationalPriority,
+} from '@/components/transaction-ux/OperationalDecisionCockpit';
 
-type TeamMember = {
-  name: string;
-  role: string;
-  access: string;
-  note: string;
-  status: 'Активен' | 'Ограниченный доступ' | 'Ожидает подтверждения';
-  rights: string[];
-  email: string;
+type Locale = 'ru' | 'en' | 'zh';
+
+type Copy = Readonly<{
+  metadataTitle: string;
+  metadataDescription: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  statusProfile: string;
+  statusUnavailable: string;
+  blocker: string;
+  owner: string;
+  impact: string;
+  result: string;
+  nextAction: string;
+  prioritySection: string;
+  factsSection: string;
+  availableTitle: string;
+  availableDescription: string;
+  unavailableTitle: string;
+  unavailableDescription: string;
+  registryBlocker: string;
+  profileBlocker: string;
+  ownerValue: string;
+  registryImpact: string;
+  registryResult: string;
+  profileImpact: string;
+  profileResult: string;
+  openProfile: string;
+  openStatus: string;
+  facts: Readonly<{
+    identity: string;
+    identityHint: string;
+    organization: string;
+    organizationHint: string;
+    membership: string;
+    membershipHint: string;
+    role: string;
+    roleHint: string;
+  }>;
+  values: Readonly<{
+    unavailable: string;
+    confirmed: string;
+    notConfirmed: string;
+  }>;
+  noticeTitle: string;
+  notice: string;
+  boundaryTitle: string;
+  boundary: string;
+  currentMembershipTitle: string;
+  currentMembershipDetail: string;
+  capabilities: ReadonlyArray<Readonly<{ title: string; detail: string }>>;
+}>;
+
+const COPY: Record<Locale, Copy> = {
+  ru: {
+    metadataTitle: 'Команда и доступ · Прозрачная Цена',
+    metadataDescription: 'Проверяемая граница команды организации без фиктивных участников, приглашений и клиентского управления ролями.',
+    eyebrow: 'Команда и доступ',
+    title: 'Показывать только подтверждённые membership и полномочия',
+    description: 'Текущий пользователь и его membership берутся из активной серверной сессии. Полный состав команды, приглашения и изменения ролей не имитируются в браузере.',
+    statusProfile: 'текущий membership подтверждён',
+    statusUnavailable: 'профиль не подтверждён',
+    blocker: 'Блокер', owner: 'Ответственный', impact: 'Влияние', result: 'Результат', nextAction: 'Следующее действие',
+    prioritySection: 'Главная задача управления доступом', factsSection: 'Подтверждённые факты',
+    availableTitle: 'Создать серверный реестр команды до включения администрирования',
+    availableDescription: 'Активная сессия подтверждает только текущего пользователя. Список участников, приглашения, изменение ролей и отзыв доступа требуют отдельного tenant-scoped API, серверных команд и аудита.',
+    unavailableTitle: 'Восстановить серверный профиль доступа',
+    unavailableDescription: 'Ответ `/auth/me` недоступен или некорректен. Экран не подставляет фиктивную организацию, участников или полномочия.',
+    registryBlocker: 'нет подтверждённого tenant-scoped реестра команды и admin-команд',
+    profileBlocker: 'активный пользователь и membership не подтверждены',
+    ownerValue: 'Администратор организации / владелец IAM',
+    registryImpact: 'невозможно безопасно приглашать, менять роли и отзывать доступ',
+    registryResult: 'серверный реестр участников с RBAC, MFA, аудитом и отзывом сессий',
+    profileImpact: 'невозможно доказать организацию и текущие полномочия',
+    profileResult: 'валидный `/auth/me` профиль активной сессии',
+    openProfile: 'Открыть профиль доступа', openStatus: 'Проверить состояние системы',
+    facts: {
+      identity: 'Текущий пользователь', identityHint: 'fullName, email или server user ID из `/auth/me`',
+      organization: 'Организация', organizationHint: 'server orgId и tenant boundary',
+      membership: 'Membership', membershipHint: 'активное членство из серверной сессии',
+      role: 'Роль', roleHint: 'назначена сервером, а не URL или состоянием браузера',
+    },
+    values: { unavailable: 'Недоступно', confirmed: 'Подтверждено', notConfirmed: 'Не подтверждено' },
+    noticeTitle: 'Полный состав команды не подтверждён',
+    notice: 'Удалены фиктивные сотрудники, почтовые адреса, приглашения, метрики IAM, матрица доступа и локальные кнопки изменения статуса. Пустой или недоступный серверный контур не заменяется демонстрационными данными.',
+    boundaryTitle: 'Граница администрирования',
+    boundary: 'Браузер не создаёт membership, не назначает роль и не отзывает доступ. Каждая команда должна проверять администратора, tenant и организацию, требовать MFA для критических изменений, быть идемпотентной, отзывать активные сессии при понижении прав и оставлять неизменяемый audit trail.',
+    currentMembershipTitle: 'Текущий membership',
+    currentMembershipDetail: 'Единственная запись, которую этот экран может подтвердить через активную серверную сессию.',
+    capabilities: [
+      { title: 'Список участников', detail: 'Нужен tenant-scoped read endpoint с минимальным набором персональных данных и серверной пагинацией.' },
+      { title: 'Приглашение участника', detail: 'Нужны одноразовый токен, срок действия, проверка домена/организации, rate limit и audit.' },
+      { title: 'Изменение роли', detail: 'Нужны RBAC/SoD, MFA, optimistic concurrency и запрет клиентского повышения полномочий.' },
+      { title: 'Отзыв доступа', detail: 'Нужны атомарная деактивация membership, отзыв всех сессий и журнал причины.' },
+    ],
+  },
+  en: {
+    metadataTitle: 'Team and access · Transparent Price',
+    metadataDescription: 'A verifiable organization-team boundary without fictional members, invitations or client-side role administration.',
+    eyebrow: 'Team and access', title: 'Show only confirmed memberships and authority',
+    description: 'The current user and membership come from the active server session. The full team, invitations and role changes are never simulated in the browser.',
+    statusProfile: 'current membership confirmed', statusUnavailable: 'profile not confirmed',
+    blocker: 'Blocker', owner: 'Owner', impact: 'Impact', result: 'Result', nextAction: 'Next action', prioritySection: 'Primary access-management task', factsSection: 'Confirmed facts',
+    availableTitle: 'Create a server team registry before enabling administration',
+    availableDescription: 'The active session confirms only the current user. Member lists, invitations, role changes and access revocation require a separate tenant-scoped API, server commands and audit.',
+    unavailableTitle: 'Restore the server access profile', unavailableDescription: 'The `/auth/me` response is unavailable or invalid. The screen does not substitute a fictional organization, members or authority.',
+    registryBlocker: 'no confirmed tenant-scoped team registry or administration commands', profileBlocker: 'active user and membership are not confirmed',
+    ownerValue: 'Organization administrator / IAM owner', registryImpact: 'members cannot be invited, re-roled or revoked safely', registryResult: 'server member registry with RBAC, MFA, audit and session revocation',
+    profileImpact: 'organization and current authority cannot be proven', profileResult: 'a valid active-session `/auth/me` profile',
+    openProfile: 'Open access profile', openStatus: 'Check system status',
+    facts: {
+      identity: 'Current user', identityHint: 'fullName, email or server user ID from `/auth/me`', organization: 'Organization', organizationHint: 'server orgId and tenant boundary', membership: 'Membership', membershipHint: 'active membership from the server session', role: 'Role', roleHint: 'assigned by the server, not URL or browser state',
+    },
+    values: { unavailable: 'Unavailable', confirmed: 'Confirmed', notConfirmed: 'Not confirmed' },
+    noticeTitle: 'The complete team is not confirmed', notice: 'Fictional employees, email addresses, invitations, IAM metrics, access matrix and local status-change controls were removed. An empty or unavailable server circuit is never replaced with demonstration data.',
+    boundaryTitle: 'Administration boundary', boundary: 'The browser does not create memberships, assign roles or revoke access. Every command must verify administrator, tenant and organization, require MFA for critical changes, be idempotent, revoke active sessions after privilege reduction and leave an immutable audit trail.',
+    currentMembershipTitle: 'Current membership', currentMembershipDetail: 'The only record this screen can confirm through the active server session.',
+    capabilities: [
+      { title: 'Member list', detail: 'Requires a tenant-scoped read endpoint with minimal personal data and server pagination.' },
+      { title: 'Member invitation', detail: 'Requires a one-time token, expiry, domain/organization checks, rate limiting and audit.' },
+      { title: 'Role change', detail: 'Requires RBAC/SoD, MFA, optimistic concurrency and prevention of client-side privilege escalation.' },
+      { title: 'Access revocation', detail: 'Requires atomic membership deactivation, revocation of all sessions and a recorded reason.' },
+    ],
+  },
+  zh: {
+    metadataTitle: '团队与访问 · 透明价格', metadataDescription: '可验证的组织团队边界，不展示虚构成员、邀请或客户端角色管理。',
+    eyebrow: '团队与访问', title: '只显示已确认的 membership 和权限', description: '当前用户和 membership 来自活动服务器会话。完整团队、邀请和角色变更不会在浏览器中模拟。',
+    statusProfile: '当前 membership 已确认', statusUnavailable: '档案未确认', blocker: '阻塞项', owner: '负责人', impact: '影响', result: '结果', nextAction: '下一步', prioritySection: '主要访问管理任务', factsSection: '已确认事实',
+    availableTitle: '启用管理前创建服务器团队登记册', availableDescription: '活动会话只能确认当前用户。成员列表、邀请、角色变更和访问撤销需要独立的 tenant-scoped API、服务器命令和审计。',
+    unavailableTitle: '恢复服务器访问档案', unavailableDescription: '`/auth/me` 响应不可用或无效。界面不会替换虚构组织、成员或权限。',
+    registryBlocker: '没有已确认的 tenant-scoped 团队登记册和管理命令', profileBlocker: '活动用户和 membership 未确认', ownerValue: '组织管理员 / IAM 负责人',
+    registryImpact: '无法安全邀请成员、变更角色或撤销访问', registryResult: '具备 RBAC、MFA、审计和会话撤销的服务器成员登记册', profileImpact: '无法证明组织和当前权限', profileResult: '有效的活动会话 `/auth/me` 档案',
+    openProfile: '打开访问档案', openStatus: '检查系统状态',
+    facts: { identity: '当前用户', identityHint: '来自 `/auth/me` 的 fullName、email 或服务器 user ID', organization: '组织', organizationHint: '服务器 orgId 和 tenant 边界', membership: 'Membership', membershipHint: '服务器会话中的活动 membership', role: '角色', roleHint: '由服务器分配，不来自 URL 或浏览器状态' },
+    values: { unavailable: '不可用', confirmed: '已确认', notConfirmed: '未确认' },
+    noticeTitle: '完整团队尚未确认', notice: '已删除虚构员工、邮箱、邀请、IAM 指标、访问矩阵和本地状态变更按钮。空或不可用的服务器闭环不会被演示数据替代。',
+    boundaryTitle: '管理边界', boundary: '浏览器不会创建 membership、分配角色或撤销访问。每条命令必须验证管理员、tenant 和组织；关键变更需要 MFA；命令必须幂等；降权后撤销活动会话；并留下不可变审计轨迹。',
+    currentMembershipTitle: '当前 membership', currentMembershipDetail: '该页面通过活动服务器会话能够确认的唯一记录。',
+    capabilities: [
+      { title: '成员列表', detail: '需要 tenant-scoped 读取端点、最小个人数据和服务器分页。' },
+      { title: '邀请成员', detail: '需要一次性令牌、有效期、域名/组织校验、限流和审计。' },
+      { title: '角色变更', detail: '需要 RBAC/SoD、MFA、乐观并发控制并阻止客户端提权。' },
+      { title: '撤销访问', detail: '需要原子停用 membership、撤销全部会话并记录原因。' },
+    ],
+  },
 };
 
-type Invite = {
-  id: string;
-  name: string;
-  role: string;
-  email: string;
-  state: 'Отправлено' | 'Ожидает подтверждения';
-};
-
-const TEAM: TeamMember[] = [
-  {
-    name: 'Максим П.',
-    role: 'Директор / владелец процесса',
-    access: 'Полный контур: сделки, банк, стратегия',
-    note: 'Финальное решение по пилоту, клиентам и банковому сценарию.',
-    status: 'Активен',
-    rights: ['Сделки', 'Банк', 'Контрагенты', 'Настройки компании', 'Отчёты'],
-    email: 'директор@компания.рф',
-  },
-  {
-    name: 'Оператор сделки',
-    role: 'Операционный контур',
-    access: 'Control Tower, сделки, документы, споры',
-    note: 'Следит за тем, чтобы сделка не выпадала из единого контура.',
-    status: 'Активен',
-    rights: ['Control Tower', 'Сделки', 'Документы', 'Споры'],
-    email: 'операции@компания.рф',
-  },
-  {
-    name: 'Бухгалтер / финконтур',
-    role: 'Деньги и документы',
-    access: 'Платежи, release, резерв, документы',
-    note: 'Не должен менять логистику и полевые действия, но видит денежный слой.',
-    status: 'Ограниченный доступ',
-    rights: ['Платежи', 'Резерв', 'Release', 'Документы'],
-    email: 'финансы@компания.рф',
-  },
-  {
-    name: 'Логист',
-    role: 'Маршруты и рейсы',
-    access: 'Логистика, водитель, приёмка',
-    note: 'Управляет движением машин и фактом прибытия.',
-    status: 'Активен',
-    rights: ['Логистика', 'Водитель', 'Приёмка'],
-    email: 'логистика@компания.рф',
-  },
-];
-
-const INITIAL_INVITES: Invite[] = [
-  { id: 'INV-201', name: 'Юрист компании', role: 'Юрист / документы', email: 'юрист@компания.рф', state: 'Отправлено' },
-  { id: 'INV-202', name: 'Финконтролёр', role: 'Финконтроль', email: 'контроль@компания.рф', state: 'Ожидает подтверждения' },
-];
-
-const IAM_METRICS = [
-  { label: 'Пользователей', value: '4', note: 'Активные члены команды в контуре' },
-  { label: 'Ролей', value: '4', note: 'Директор, оператор, бухгалтер, логист' },
-  { label: 'Ограничений', value: '6', note: 'Денежный слой и операционные границы доступа' },
-];
-
-const ACCESS_MATRIX = [
-  { scope: 'Control Tower', director: true, operator: true, finance: false, logistics: false },
-  { scope: 'Сделки', director: true, operator: true, finance: false, logistics: false },
-  { scope: 'Банк / release', director: true, operator: false, finance: true, logistics: false },
-  { scope: 'Документы', director: true, operator: true, finance: true, logistics: false },
-  { scope: 'Логистика', director: false, operator: false, finance: false, logistics: true },
-  { scope: 'Отчёты и профиль', director: true, operator: false, finance: true, logistics: false },
-];
-
-function statusTone(status: TeamMember['status'] | Invite['state']) {
-  if (status === 'Активен') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F' };
-  if (status === 'Ограниченный доступ') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
-  return { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB' };
+function localeOf(value: string): Locale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
 }
 
-export default function TeamPage() {
-  const [members, setMembers] = React.useState<TeamMember[]>(TEAM);
-  const [invites, setInvites] = React.useState<Invite[]>(INITIAL_INVITES);
-  const [filter, setFilter] = React.useState<'Все' | 'Активные' | 'Ограниченные'>('Все');
-  const [toast, setToast] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3000);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  const visibleMembers = members.filter((member) => {
-    if (filter === 'Активные') return member.status === 'Активен';
-    if (filter === 'Ограниченные') return member.status === 'Ограниченный доступ';
-    return true;
-  });
-
-  function sendInvite() {
-    const next: Invite = {
-      id: `INV-${203 + invites.length}`,
-      name: 'Новый участник',
-      role: 'Роль уточняется',
-      email: `новый${invites.length + 1}@компания.рф`,
-      state: 'Отправлено',
-    };
-    setInvites((prev) => [next, ...prev]);
-    setToast(`Приглашение отправлено: ${next.id}`);
-  }
-
-  function resendInvite(id: string) {
-    setToast(`Приглашение отправлено повторно: ${id}`);
-  }
-
-  function revokeInvite(id: string) {
-    setInvites((prev) => prev.filter((item) => item.id !== id));
-    setToast(`Приглашение отозвано: ${id}`);
-  }
-
-  function toggleMemberStatus(name: string) {
-    setMembers((prev) => prev.map((member) => member.name === name ? { ...member, status: member.status === 'Активен' ? 'Ограниченный доступ' : 'Активен' } : member));
-    setToast(`Статус доступа обновлён: ${name}`);
-  }
-
-  return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Команда компании</div>
-            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-              Рабочая страница multi-user контура: кто в компании за что отвечает, какой у него уровень доступа и где проходит граница между деньгами, исполнением и стратегией.
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={sendInvite} style={{ padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-              Пригласить участника
-            </button>
-            <Link href='/platform-v7/auth' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
-              Контур доступа
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-        {IAM_METRICS.map((item) => (
-          <div key={item.label} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{item.label}</div>
-            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.value}</div>
-            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{item.note}</div>
-          </div>
-        ))}
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Состав команды</div>
-            <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>Живой multi-user слой: фильтры, статусы и быстрые действия по доступам.</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {(['Все', 'Активные', 'Ограниченные'] as const).map((item) => (
-              <button key={item} onClick={() => setFilter(item)} style={{ padding: '8px 10px', borderRadius: 999, background: filter === item ? 'rgba(10,122,95,0.08)' : '#F8FAFB', border: filter === item ? '1px solid rgba(10,122,95,0.18)' : '1px solid var(--pc-border, #E4E6EA)', color: filter === item ? '#0A7A5F' : 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>{item}</button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gap: 12 }}>
-          {visibleMembers.map((member) => {
-            const tone = statusTone(member.status);
-            return (
-              <section key={member.name} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{member.name}</div>
-                    <div style={{ marginTop: 4, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 700 }}>{member.role}</div>
-                    <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{member.email}</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
-                      {member.status}
-                    </span>
-                    <button onClick={() => toggleMemberStatus(member.name)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                      Переключить доступ
-                    </button>
-                  </div>
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}><strong>Контур:</strong> {member.access}</div>
-                <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}>{member.note}</div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {member.rights.map((item) => (
-                    <span key={item} style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 12, fontWeight: 700 }}>
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Приглашения и подключение</div>
-          <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>Кто уже приглашён в компанию и на какой стадии подключение в контур.</div>
-        </div>
-
-        <div style={{ display: 'grid', gap: 10 }}>
-          {invites.map((invite) => {
-            const tone = statusTone(invite.state);
-            return (
-              <div key={invite.id} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14, background: '#F8FAFB', display: 'grid', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 12 }}>{invite.id}</div>
-                    <div style={{ marginTop: 4, fontSize: 15, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{invite.name}</div>
-                    <div style={{ marginTop: 4, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)' }}>{invite.role} · {invite.email}</div>
-                  </div>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
-                    {invite.state}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button onClick={() => resendInvite(invite.id)} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-primary, #0F1419)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Отправить повторно</button>
-                  <button onClick={() => revokeInvite(invite.id)} style={{ padding: '8px 12px', borderRadius: 10, background: '#fff', border: '1px solid rgba(220,38,38,0.18)', color: '#B91C1C', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Отозвать</button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Матрица доступов</div>
-          <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>Чёткая граница: кто видит деньги, кто — исполнение, а кто — только стратегию и отчёты.</div>
-        </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
-            <thead>
-              <tr style={{ textAlign: 'left', background: '#F8FAFB' }}>
-                <th style={{ padding: '12px 14px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Контур</th>
-                <th style={{ padding: '12px 14px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Директор</th>
-                <th style={{ padding: '12px 14px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Оператор</th>
-                <th style={{ padding: '12px 14px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Финконтур</th>
-                <th style={{ padding: '12px 14px', borderBottom: '1px solid var(--pc-border, #E4E6EA)', fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Логист</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ACCESS_MATRIX.map((row) => (
-                <tr key={row.scope} style={{ borderTop: '1px solid var(--pc-border, #E4E6EA)' }}>
-                  <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{row.scope}</td>
-                  <Cell ok={row.director} />
-                  <Cell ok={row.operator} />
-                  <Cell ok={row.finance} />
-                  <Cell ok={row.logistics} />
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {toast ? (
-        <div role='status' aria-live='polite' style={{ padding: '10px 14px', background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', borderRadius: 12, color: '#0A7A5F', fontSize: 12, fontWeight: 700 }}>
-          {toast}
-        </div>
-      ) : null}
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Почему это важно</div>
-        <Bullet text='Одна компания — не один пользователь. В сделке участвуют директор, оператор, бухгалтер и логист.' />
-        <Bullet text='Разделение доступов снижает хаос и риск случайных действий не в своей зоне.' />
-        <Bullet text='Это усиливает банковый и комплаенс-контур: видно, кто отвечает за деньги, а кто — за исполнение.' />
-      </section>
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link href='/platform-v7/profile' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-          Профиль компании
-        </Link>
-        <Link href='/platform-v7/control-tower' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
-          Вернуться в платформу
-        </Link>
-      </div>
-    </div>
-  );
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = COPY[localeOf(await getLocale())];
+  return { title: copy.metadataTitle, description: copy.metadataDescription, robots: { index: false, follow: true } };
 }
 
-function Cell({ ok }: { ok: boolean }) {
-  return (
-    <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 800, color: ok ? '#0A7A5F' : '#B91C1C' }}>
-      {ok ? 'Да' : 'Нет'}
-    </td>
-  );
-}
+export default async function TeamPage() {
+  const copy = COPY[localeOf(await getLocale())];
+  const profile = await getAuthProfile();
+  const identity = profile.fullName || profile.email || profile.id || copy.values.unavailable;
+  const role = profile.surfaceRole || profile.role || copy.values.unavailable;
+  const priority: OperationalPriority = profile.available
+    ? {
+        state: 'active',
+        title: copy.availableTitle,
+        description: copy.availableDescription,
+        blocker: copy.registryBlocker,
+        owner: copy.ownerValue,
+        impact: copy.registryImpact,
+        result: copy.registryResult,
+        primaryAction: <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/profile'>{copy.openProfile}</Link>,
+        secondaryAction: <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/status'>{copy.openStatus}</Link>,
+      }
+    : {
+        state: 'critical',
+        title: copy.unavailableTitle,
+        description: copy.unavailableDescription,
+        blocker: copy.profileBlocker,
+        owner: copy.ownerValue,
+        impact: copy.profileImpact,
+        result: copy.profileResult,
+        primaryAction: <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/profile'>{copy.openProfile}</Link>,
+        secondaryAction: <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/status'>{copy.openStatus}</Link>,
+      };
 
-function Bullet({ text }: { text: string }) {
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>
-      <span style={{ fontWeight: 900 }}>•</span>
-      <span>{text}</span>
-    </div>
+    <OperationalDecisionCockpit
+      testId='platform-v7-profile-team-v8'
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+      description={copy.description}
+      statusLabel={profile.available ? copy.statusProfile : copy.statusUnavailable}
+      statusTone={profile.available ? 'information' : 'warning'}
+      priority={priority}
+      facts={[
+        { label: copy.facts.identity, value: identity, hint: copy.facts.identityHint },
+        { label: copy.facts.organization, value: profile.orgId || copy.values.unavailable, hint: copy.facts.organizationHint },
+        { label: copy.facts.membership, value: profile.membershipId || copy.values.unavailable, hint: copy.facts.membershipHint },
+        { label: copy.facts.role, value: role, hint: copy.facts.roleHint },
+      ]}
+      boundary={copy.boundary}
+      labels={{ blocker: copy.blocker, owner: copy.owner, impact: copy.impact, result: copy.result, nextAction: copy.nextAction, prioritySection: copy.prioritySection, factsSection: copy.factsSection }}
+    >
+      <InlineNotice tone='warning' title={copy.noticeTitle}>{copy.notice}</InlineNotice>
+
+      <OperationalCockpitSection>
+        <OperationalQueue>
+          <OperationalQueueLink
+            href='/platform-v7/profile'
+            title={copy.currentMembershipTitle}
+            detail={copy.currentMembershipDetail}
+            status={<StatusChip tone={profile.available ? 'success' : 'warning'}>{profile.available ? copy.values.confirmed : copy.values.notConfirmed}</StatusChip>}
+          />
+          {copy.capabilities.map((capability) => (
+            <OperationalQueueLink
+              key={capability.title}
+              href='/platform-v7/api-docs'
+              title={capability.title}
+              detail={capability.detail}
+              status={<StatusChip tone='warning'>{copy.values.notConfirmed}</StatusChip>}
+            />
+          ))}
+        </OperationalQueue>
+      </OperationalCockpitSection>
+
+      <OperationalCockpitSection>
+        <InlineNotice tone='information' title={copy.boundaryTitle}>{copy.boundary}</InlineNotice>
+      </OperationalCockpitSection>
+    </OperationalDecisionCockpit>
   );
 }
