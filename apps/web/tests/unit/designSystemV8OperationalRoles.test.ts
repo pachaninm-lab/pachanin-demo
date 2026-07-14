@@ -6,6 +6,7 @@ const repoRoot = path.resolve(process.cwd(), '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const operator = read('apps/web/app/platform-v7/operator/page.tsx');
+const disputesServer = read('apps/web/lib/disputes-server.ts');
 const logistics = read('apps/web/app/platform-v7/logistics/page.tsx');
 const compliance = read('apps/web/app/platform-v7/compliance/page.tsx');
 const arbitrator = read('apps/web/app/platform-v7/arbitrator/page.tsx');
@@ -28,11 +29,51 @@ describe('Design System v8 operational and oversight roles', () => {
     expect(cockpitCss).not.toMatch(forbiddenPresentation);
   });
 
-  it('preserves operator and logistics execution tools', () => {
-    expect(operator).toContain('OperatorExecutionQueue');
-    expect(operator).toContain('OperatorKpiDashboard');
-    expect(operator).toContain('OperatorInboxPanel');
-    expect(operator).toContain('IntegrationStatusWidget');
+  it('builds the operator workspace from authenticated server queues only', () => {
+    expect(operator).toContain('getDealsCanonical');
+    expect(operator).toContain('getDisputes');
+    expect(operator).toContain('getShipments');
+    expect(operator).toContain('getOutboxStatus');
+    expect(operator).toContain('sourceUnavailable');
+    expect(operator).toContain('openDisputes.map');
+    expect(operator).toContain('outbox.manualReview.map');
+    expect(operator).toContain('blockedShipments.map');
+    expect(operator).toContain('OperationalQueueLink');
+    expect(operator).toContain('InlineNotice');
+    expect(operator).toContain('StatusChip');
+    expect(operator).toContain("startsWith('en')");
+    expect(operator).toContain("startsWith('zh')");
+
+    for (const forbidden of [
+      'DL-9106',
+      'OperatorExecutionQueue',
+      'OperatorKpiDashboard',
+      'OperatorInboxPanel',
+      'IntegrationStatusWidget',
+      'RecentlyViewedWidget',
+      'PushNotificationBanner',
+      'LiveApiStatusBar',
+      'canonicalDomainDeals',
+      'selectRuntimeDeals',
+    ]) {
+      expect(operator).not.toContain(forbidden);
+    }
+  });
+
+  it('keeps the dispute reader fail-closed instead of substituting local cases', () => {
+    expect(disputesServer).toContain("serverApiUrl('/disputes')");
+    expect(disputesServer).toContain("cache: 'no-store'");
+    expect(disputesServer).toContain('serverAuthHeaders()');
+    expect(disputesServer).toContain('return []');
+    expect(disputesServer).toContain('return null');
+    expect(disputesServer).toContain('parseDispute');
+    expect(disputesServer).not.toContain('STATIC_FALLBACK');
+    expect(disputesServer).not.toContain('DISPUTE-001');
+    expect(disputesServer).not.toContain('DEAL-001');
+    expect(disputesServer).not.toContain('operator@demo.ru');
+  });
+
+  it('preserves logistics execution tools', () => {
     expect(logistics).toContain('GpsGeofencePanel');
     expect(logistics).toContain('IoTWeighingPanel');
     expect(logistics).toContain('EtranRzdPanel');
@@ -68,5 +109,6 @@ describe('Design System v8 operational and oversight roles', () => {
       'apps/web/app/platform-v7/arbitrator/page.tsx',
       'apps/web/app/platform-v7/executive/page.tsx',
     ]));
+    expect(governance.governedRoots).toContain('apps/web/lib/disputes-server.ts');
   });
 });
