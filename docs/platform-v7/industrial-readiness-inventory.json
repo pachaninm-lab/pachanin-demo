@@ -5,13 +5,13 @@
   "baselineCommit": "4dd24f9dcfdfa25f692012aeba7bc9eb6c9e9b9c",
   "auditedAt": "2026-07-14T18:37:02Z",
   "classificationPolicy": {
-    "IMPLEMENTED_AND_VERIFIED": "Implementation exists, persistent authority is identified, automated verification and a CI workflow are present.",
-    "IMPLEMENTED_NOT_VERIFIED": "Implementation exists, but the required production-like acceptance target has not been measured.",
+    "IMPLEMENTED_AND_VERIFIED": "Implementation, persistent authority, automated tests and a CI workflow are present.",
+    "IMPLEMENTED_NOT_VERIFIED": "Implementation exists, but the required production-like target has not been measured.",
     "PARTIAL": "Only part of the required capability or proof is present.",
-    "FAIL_CLOSED": "The capability is deliberately unavailable until a trusted dependency or credential exists.",
-    "MOCK_ONLY": "Only a sandbox, adapter contract or simulated dependency exists; no live claim is allowed.",
-    "LEGACY": "Retired or non-authoritative behavior still affects repository or release state.",
-    "DUPLICATE_AUTHORITY": "More than one mutable source of truth is reachable in the same release mode.",
+    "FAIL_CLOSED": "The capability is deliberately unavailable until a trusted dependency exists.",
+    "MOCK_ONLY": "Only a sandbox, adapter contract or simulated dependency exists.",
+    "LEGACY": "Retired behavior still affects repository or release state.",
+    "DUPLICATE_AUTHORITY": "More than one mutable source of truth is reachable in one release mode.",
     "NOT_IMPLEMENTED": "No qualifying implementation was found.",
     "OUT_OF_RELEASE_SCOPE": "Explicitly excluded from this technical release program."
   },
@@ -39,12 +39,12 @@
         "tests": [],
         "workflows": []
       },
-      "finding": "The current main commit still receives failed Deno and Vercel external statuses although those contours are not release authorities.",
-      "nextGate": "Remove or disable obsolete GitHub App/webhook status publishers and verify a clean exact-head combined status."
+      "finding": "Main still receives failed Deno and Vercel statuses although those contours are not release authorities.",
+      "nextGate": "Disable obsolete status publishers and verify a clean exact-head combined status."
     },
     {
       "id": "auth_sessions",
-      "name": "Persistent authentication, session rotation, revocation and MFA",
+      "name": "Persistent authentication and sessions",
       "status": "IMPLEMENTED_AND_VERIFIED",
       "severity": "P0",
       "authority": "PostgreSQL",
@@ -53,26 +53,26 @@
         "tests": ["apps/api/test/auth/persistent-auth.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "Persistent sessions, one-time refresh rotation, revocation and MFA have a PostgreSQL-backed CI gate.",
-      "nextGate": "Retain as a blocking gate and include auth evidence in the release manifest."
+      "finding": "Persistent sessions, one-time refresh rotation, revocation and MFA have PostgreSQL-backed CI evidence.",
+      "nextGate": "Retain this as a blocking release gate."
     },
     {
       "id": "membership_rbac_tenant",
-      "name": "Membership-derived roles, object authorization and tenant isolation",
+      "name": "Membership RBAC and tenant isolation",
       "status": "IMPLEMENTED_AND_VERIFIED",
       "severity": "P0",
-      "authority": "PostgreSQL memberships, deal participants and RLS",
+      "authority": "PostgreSQL memberships, participants and RLS",
       "evidence": {
         "implementation": ["infra/sql/production-rls-policies.sql", "apps/api/src/common/prisma/rls-transaction.service.ts"],
         "tests": ["apps/api/test/one-deal/postgresql-deal-authority.e2e-spec.ts", "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "The canonical transaction path resolves role and tenant from server authority and exercises the twelve-role scenario under PostgreSQL RLS.",
-      "nextGate": "Expand the negative object-level matrix to every public command endpoint and preserve zero tenant escape."
+      "finding": "The canonical transaction path resolves role and tenant from server authority and runs the twelve-role scenario under RLS.",
+      "nextGate": "Expand the negative matrix to every public command endpoint."
     },
     {
       "id": "deal_command_core",
-      "name": "Canonical Deal aggregate, idempotency, optimistic concurrency and atomic command pipeline",
+      "name": "Canonical Deal command core",
       "status": "IMPLEMENTED_AND_VERIFIED",
       "severity": "P0",
       "authority": "PostgreSQL",
@@ -81,26 +81,26 @@
         "tests": ["apps/api/test/industrial/industrial-core.e2e-spec.ts", "apps/api/test/industrial/deal-postgresql-authority.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "Business state, hash-chained audit, outbox receipt, idempotency result and money effects are committed through the canonical PostgreSQL command path with version-CAS.",
-      "nextGate": "Prove every remaining write endpoint routes through this authority or is fail-closed in industrial mode."
+      "finding": "Business state, audit, outbox, idempotency and money effects use the canonical PostgreSQL command path with version CAS.",
+      "nextGate": "Prove every remaining write endpoint uses this authority or fails closed."
     },
     {
       "id": "auction_execution",
-      "name": "Auction admission, immutable bidding, deterministic close and atomic Deal creation",
+      "name": "Auction execution and atomic award",
       "status": "PARTIAL",
       "severity": "P0",
-      "authority": "PostgreSQL read authority; command completeness not yet fully evidenced",
+      "authority": "PostgreSQL read authority; command proof incomplete",
       "evidence": {
         "implementation": ["apps/api/src/modules/auctions/auction-authority.service.ts"],
         "tests": ["apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "PostgreSQL lot, bid and award state is visible and the one-deal path includes auction milestones, but a dedicated concurrent bid/close/winner worker acceptance suite was not found.",
-      "nextGate": "Add atomic bid placement and close commands with idempotency, edge-of-close rules, deterministic tie-break, two-closer race and worker-restart proof."
+      "finding": "PostgreSQL lot, bid and award state exists, but a dedicated concurrent bid, close and unique-winner suite is absent.",
+      "nextGate": "Add idempotent bid and close commands, deterministic tie-break, two-closer race and worker-restart proof."
     },
     {
       "id": "logistics_acceptance",
-      "name": "Carrier assignment, trip lifecycle, arrival, weighing and acceptance",
+      "name": "Logistics and acceptance lifecycle",
       "status": "PARTIAL",
       "severity": "P0",
       "authority": "PostgreSQL through Deal command pipeline",
@@ -109,12 +109,12 @@
         "tests": ["apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "The canonical lifecycle persists assignment, loading, transit, arrival, weight and acceptance, but dedicated overlap, replacement and duplicate-arrival race proofs are incomplete.",
-      "nextGate": "Add conflicting assignment, driver overlap, carrier replacement, duplicate arrival and crash-between-state-and-outbox tests."
+      "finding": "The lifecycle persists assignment, transit, arrival, weight and acceptance, but overlap and replacement race proofs are incomplete.",
+      "nextGate": "Add assignment conflict, driver overlap, carrier replacement and duplicate-arrival tests."
     },
     {
       "id": "laboratory",
-      "name": "Laboratory lifecycle, versions and evidence binding",
+      "name": "Laboratory lifecycle and evidence binding",
       "status": "IMPLEMENTED_AND_VERIFIED",
       "severity": "P0",
       "authority": "PostgreSQL",
@@ -123,26 +123,26 @@
         "tests": ["apps/api/test/industrial/labs-postgresql-authority.e2e-spec.ts", "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "Laboratory state is persisted and independently exercised through a PostgreSQL authority test and the full Deal lifecycle.",
-      "nextGate": "Retain supersede and evidence-hash invariants as blocking migration and E2E checks."
+      "finding": "Laboratory state is persisted and exercised by PostgreSQL authority and full Deal lifecycle tests.",
+      "nextGate": "Retain supersede and evidence-hash invariants as blocking checks."
     },
     {
       "id": "documents_evidence",
-      "name": "Document storage, immutable evidence chain, retention and recovery",
+      "name": "Documents and immutable evidence",
       "status": "PARTIAL",
       "severity": "P0",
-      "authority": "Durable metadata exists; external object immutability is not proven",
+      "authority": "Durable metadata; external object immutability unproven",
       "evidence": {
         "implementation": ["apps/api/prisma/schema.prisma"],
         "tests": ["apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "Deal evidence references and durable metadata exist, but WORM/Object Lock, antivirus enforcement, signed URL isolation, retention and object restore drill are not proven.",
-      "nextGate": "Implement and test S3-compatible immutable object storage, MIME/size/AV gates, tombstones, critical download audit and restore reconciliation."
+      "finding": "Evidence metadata exists, but Object Lock, antivirus, signed URL isolation, retention and object restore are not proven.",
+      "nextGate": "Implement and test immutable object storage, upload validation, tombstones, download audit and restore reconciliation."
     },
     {
       "id": "settlement_ledger_callbacks",
-      "name": "Internal settlement authority, bigint ledger, signed callbacks and reconciliation",
+      "name": "Settlement ledger and callbacks",
       "status": "IMPLEMENTED_AND_VERIFIED",
       "severity": "P0",
       "authority": "PostgreSQL append-only ledger and callback registry",
@@ -151,12 +151,12 @@
         "tests": ["apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts", "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "Internal reserve/release authority uses integer minor units, signed idempotent callbacks, append-only ledger and reconciliation without claiming live money movement.",
-      "nextGate": "Preserve fail-closed live status and add provider-contract acceptance only after external credentials exist."
+      "finding": "Internal reserve and release use integer minor units, signed idempotent callbacks, append-only ledger and reconciliation.",
+      "nextGate": "Keep provider status non-live until external credentials and acceptance exist."
     },
     {
       "id": "disputes",
-      "name": "Dispute, money freeze, evidence, partial resolution and superseding decisions",
+      "name": "Dispute and money freeze lifecycle",
       "status": "PARTIAL",
       "severity": "P0",
       "authority": "PostgreSQL domain state",
@@ -165,12 +165,12 @@
         "tests": ["apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "Dispute-related persistence exists, but the required partial dispute, freeze, superseding decision and release/refund scenario is not fully represented in the current mandatory one-deal flow.",
-      "nextGate": "Add a complete positive and negative dispute lifecycle with money freeze and immutable superseding decision proof."
+      "finding": "Dispute persistence exists, but partial dispute, freeze, superseding decision and release or refund are not fully gated.",
+      "nextGate": "Add complete positive and negative dispute lifecycle evidence."
     },
     {
       "id": "audit_outbox",
-      "name": "Atomic audit, transactional outbox and durable multi-worker processing",
+      "name": "Atomic audit and durable outbox",
       "status": "IMPLEMENTED_AND_VERIFIED",
       "severity": "P0",
       "authority": "PostgreSQL",
@@ -179,12 +179,12 @@
         "tests": ["apps/api/test/industrial/industrial-core.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "Atomic write coupling, append-only event history, lease, retry, dead-letter and multi-worker recovery are covered by the industrial core gate.",
-      "nextGate": "Add release evidence for poison-message isolation, backlog recovery time and manual redrive authorization."
+      "finding": "Atomic coupling, append-only history, lease, retry, dead-letter and multi-worker recovery are covered by the industrial core gate.",
+      "nextGate": "Add poison-message isolation and backlog recovery evidence."
     },
     {
       "id": "observability",
-      "name": "Structured logs, metrics, traces, alerts and business monitoring",
+      "name": "Logs metrics traces alerts and business monitoring",
       "status": "PARTIAL",
       "severity": "P1",
       "authority": "Application telemetry",
@@ -193,12 +193,12 @@
         "tests": ["apps/api/test/industrial/observability.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "An observability E2E exists, but end-to-end trace propagation, secret redaction, production alert routing and all required business alerts are not yet accepted on production-like topology.",
-      "nextGate": "Prove request-to-worker-to-callback traces and executable alerts for 5xx, p99, DB saturation, outbox lag, money invariant, audit absence and restore failure."
+      "finding": "An observability E2E exists, but complete trace propagation, redaction and production alert routing are not accepted.",
+      "nextGate": "Prove request-to-worker-to-callback traces and executable technical and business alerts."
     },
     {
       "id": "load_capacity",
-      "name": "Target load profile and measured scalability",
+      "name": "Target load profile",
       "status": "IMPLEMENTED_NOT_VERIFIED",
       "severity": "P1",
       "authority": "CI-scale PostgreSQL load proof",
@@ -207,12 +207,12 @@
         "tests": ["apps/api/test/industrial/load-proof.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml", ".github/workflows/security-quality-gate.yml"]
       },
-      "finding": "A concurrency/load proof exists, but the required 5,000 sessions, 500 RPS for 30 minutes, 1,000 RPS burst, 50,000 deals and 10 million events have not been measured.",
-      "nextGate": "Run a reproducible production-like load suite, fix bottlenecks and persist before/after raw evidence tied to artifact digest."
+      "finding": "Concurrency proof exists, but 5000 sessions, 500 RPS sustained, 1000 RPS burst, 50000 deals and 10 million events are unmeasured.",
+      "nextGate": "Run the full production-like load suite and retain raw before and after evidence."
     },
     {
       "id": "fault_injection",
-      "name": "Automated fault injection and recovery invariants",
+      "name": "Fault injection and recovery invariants",
       "status": "PARTIAL",
       "severity": "P1",
       "authority": "Test harnesses",
@@ -221,12 +221,12 @@
         "tests": ["apps/api/test/industrial/industrial-core.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "Worker lease recovery and race behavior are tested, but API/worker termination, PostgreSQL failover, storage timeout, pool exhaustion and restart-under-load are not a complete automated suite.",
-      "nextGate": "Create deterministic fault scenarios with post-failure invariant verification and no manual database repair."
+      "finding": "Worker recovery is tested, but API termination, database failover, storage timeout, pool exhaustion and restart under load are incomplete.",
+      "nextGate": "Create deterministic fault scenarios with post-failure invariant verification."
     },
     {
       "id": "backup_restore_dr",
-      "name": "Backup, restore and disaster recovery measurement",
+      "name": "Backup restore and disaster recovery",
       "status": "PARTIAL",
       "severity": "P1",
       "authority": "PostgreSQL CI restore rehearsal",
@@ -235,12 +235,12 @@
         "tests": ["scripts/platform-v7-one-deal-e2e.sh"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "A backup/restore rehearsal and manifest exist for ephemeral PostgreSQL, but encrypted retention, object metadata recovery, regional topology and measured RPO/RTO targets are not proven.",
-      "nextGate": "Run isolated encrypted restore drills on production-like topology and record machine-verifiable RPO/RTO without extrapolation."
+      "finding": "Database restore evidence exists, but encrypted retention, object recovery, regional topology and measured RPO or RTO do not.",
+      "nextGate": "Run isolated production-like restore drills and record measured RPO and RTO."
     },
     {
       "id": "security_gates",
-      "name": "Blocking SAST, dependency, secret, container, IaC and abuse-case verification",
+      "name": "Blocking security gates",
       "status": "PARTIAL",
       "severity": "P0",
       "authority": "GitHub Actions security workflows",
@@ -249,40 +249,40 @@
         "tests": ["apps/api/test/industrial/deal-command-no-fake-live.e2e-spec.ts"],
         "workflows": [".github/workflows/security-quality-gate.yml"]
       },
-      "finding": "SAST, Trivy and performance smoke steps currently tolerate failures or use non-blocking exit codes; the release gate therefore does not yet enforce the stated Critical/High policy.",
-      "nextGate": "Make Critical findings, missing container build and required abuse tests blocking; add IaC scan, API fuzzing, callback replay and tenant escape gates."
+      "finding": "SAST, Trivy and performance steps tolerate failures, so the current workflow does not enforce the declared Critical and High policy.",
+      "nextGate": "Make required scans blocking and add IaC, API fuzz, callback replay and tenant escape gates."
     },
     {
       "id": "deployment_iac",
-      "name": "Reproducible production-like infrastructure, immutable artifact, deploy and rollback",
+      "name": "Production-like infrastructure and deployment",
       "status": "PARTIAL",
       "severity": "P1",
       "authority": "Repository deployment configuration",
       "evidence": {
-        "implementation": ["apps/api/Dockerfile", "CANONICAL_DEPLOY.md", "docs/ops/active-hosting-contour.md"],
+        "implementation": ["docker-compose.yml", "CANONICAL_DEPLOY.md", "docs/ops/active-hosting-contour.md"],
         "tests": [],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "Build and health primitives exist, but a fully reproducible local/CI/staging/production topology, immutable image promotion, schema compatibility gate and rollback acceptance are not proven.",
-      "nextGate": "Add production-like IaC, build-once promotion, readiness, graceful termination, migration gate, smoke, rollback and artifact digest evidence."
+      "finding": "No API Dockerfile exists; immutable image build, build-once promotion, schema compatibility and rollback acceptance are not proven.",
+      "nextGate": "Add production-like IaC, immutable image build, migration gate, smoke, rollback and artifact digest evidence."
     },
     {
       "id": "browser_i18n_accessibility",
-      "name": "Design System v8 browser matrix, mobile-first behavior, RU/EN/ZH and accessibility",
+      "name": "Browser i18n and accessibility acceptance",
       "status": "IMPLEMENTED_AND_VERIFIED",
       "severity": "P1",
-      "authority": "Server-rendered application and Playwright acceptance",
+      "authority": "Server-rendered application and Playwright",
       "evidence": {
         "implementation": ["packages/design-system-v8", "apps/web/app/platform-v7"],
         "tests": ["apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts"],
         "workflows": [".github/workflows/platform-v7-design-system-v8-acceptance.yml"]
       },
-      "finding": "The final Design System v8 browser and accessibility matrix is merged at the baseline commit without claiming production operation.",
-      "nextGate": "Keep the matrix blocking for all transaction-critical UI changes and add command-conflict UX scenarios."
+      "finding": "The Design System v8 browser and accessibility matrix is merged without claiming production operation.",
+      "nextGate": "Keep it blocking and add command-conflict UX scenarios."
     },
     {
       "id": "external_integrations",
-      "name": "FGIS, EDO, GIS EPD, ESIA, bank and other live adapters",
+      "name": "Live external integrations",
       "status": "MOCK_ONLY",
       "severity": "P1",
       "authority": "Adapter contracts and sandbox capabilities",
@@ -291,12 +291,12 @@
         "tests": ["apps/api/test/industrial/deal-command-no-fake-live.e2e-spec.ts"],
         "workflows": [".github/workflows/ci.yml"]
       },
-      "finding": "Internal contracts and sandbox paths exist; live credentials, legal connectivity and real provider acceptance are external gates and must not be represented as connected.",
-      "nextGate": "Keep all unavailable adapters fail-closed with explicit designed/sandbox/live status and execute provider acceptance only after external access is granted."
+      "finding": "Adapter contracts and sandbox paths exist; live credentials, connectivity and provider acceptance are external gates.",
+      "nextGate": "Keep unavailable adapters fail closed and execute provider acceptance only after access is granted."
     },
     {
       "id": "machine_evidence",
-      "name": "Release evidence bound to commit, environment and artifact digest",
+      "name": "Commit-bound release evidence",
       "status": "PARTIAL",
       "severity": "P1",
       "authority": "GitHub Actions artifacts",
@@ -305,8 +305,8 @@
         "tests": ["scripts/platform-v7-database-dr-rehearsal.sh"],
         "workflows": [".github/workflows/ci.yml", ".github/workflows/platform-v7-design-system-v8-acceptance.yml"]
       },
-      "finding": "Several logs and manifests are uploaded, but there is no single release manifest binding JUnit, scan results, load evidence, RTO/RPO, container digest, deployment digest and exact-head workflows.",
-      "nextGate": "Generate a signed machine-readable release evidence index keyed by commit SHA, environment and immutable artifact digest."
+      "finding": "Evidence artifacts exist, but no single manifest binds JUnit, scans, load, RPO or RTO, container and deployment digests to exact head.",
+      "nextGate": "Generate a machine-readable release evidence index keyed by commit, environment and immutable artifact digest."
     }
   ]
 }
