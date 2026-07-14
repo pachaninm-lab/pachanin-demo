@@ -1,0 +1,338 @@
+/* Public landing typography: one predictable scale across header, hero, cards and footer. */
+.pc-v7-public-entry {
+  --pc-entry-font-body: "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --pc-entry-font-display: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--pc-entry-font-body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  font-kerning: normal;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.pc-v7-public-entry :where(button, input, select, textarea) {
+  font: inherit;
+}
+
+.pc-v7-public-entry :where(
+  .pc-site-brand-text strong,
+  .entry-hero h1,
+  .entry-visual-id,
+  .entry-section-head h2,
+  .entry-role-access strong,
+  .entry-intelligence-main h2,
+  .entry-footer-brand strong
+) {
+  font-family: var(--pc-entry-font-display);
+}
+
+.pc-v7-public-entry .pc-site-header {
+  font-family: var(--pc-entry-font-body);
+}
+
+.pc-v7-public-entry .pc-site-brand-text strong {
+  font-size: 18px;
+  font-weight: 760;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.pc-v7-public-entry .pc-site-brand-text small {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.pc-v7-public-entry .pc-site-nav {
+  font-size: 14px;
+  font-weight: 620;
+  letter-spacing: -0.005em;
+}
+
+.pc-v7-public-entry :where(.entry-login, .entry-header-register, .pc-site-locale-switch) {
+  font-weight: 680;
+  letter-spacing: -0.005em;
+}
+
+.pc-v7-public-entry .pc-site-locale-switch span {
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.035em;
+}
+
+.pc-v7-public-entry .entry-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.055em;
+}
+
+.pc-v7-public-entry .entry-hero h1 {
+  max-width: 820px;
+  font-size: clamp(46px, 5.8vw, 76px);
+  font-weight: 760;
+  line-height: 1.01;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.pc-v7-public-entry .entry-hero p {
+  max-width: 720px;
+  font-size: clamp(18px, 1.65vw, 21px);
+  font-weight: 430;
+  line-height: 1.55;
+  letter-spacing: -0.008em;
+  text-wrap: pretty;
+}
+
+.pc-v7-public-entry :where(.entry-primary-cta, .entry-secondary-cta) {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.012em;
+}
+
+.pc-v7-public-entry :where(.entry-visual-label, .entry-visual-live) {
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.pc-v7-public-entry .entry-visual-label {
+  letter-spacing: 0.055em;
+}
+
+.pc-v7-public-entry .entry-visual-live {
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.pc-v7-public-entry .entry-visual-id {
+  font-size: clamp(32px, 3.7vw, 46px);
+  font-weight: 740;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pc-v7-public-entry .entry-signal-row b {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.pc-v7-public-entry .entry-signal-row em {
+  font-size: 13px;
+  font-weight: 590;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.pc-v7-public-entry .entry-visual-basis span {
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: 0.05em;
+}
+
+.pc-v7-public-entry .entry-visual-basis strong {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.pc-v7-public-entry .entry-section-head h2 {
+  max-width: 720px;
+  font-size: clamp(32px, 3.8vw, 52px);
+  font-weight: 740;
+  line-height: 1.08;
+  letter-spacing: -0.038em;
+  text-wrap: balance;
+}
+
+.pc-v7-public-entry .entry-section-head p {
+  max-width: 520px;
+  font-size: 16px;
+  font-weight: 430;
+  line-height: 1.58;
+  letter-spacing: -0.004em;
+  text-wrap: pretty;
+}
+
+.pc-v7-public-entry :where(.entry-control-tile, .entry-role-tile) > strong {
+  font-size: 20px;
+  font-weight: 670;
+  line-height: 1.25;
+  letter-spacing: -0.022em;
+}
+
+.pc-v7-public-entry :where(.entry-control-tile, .entry-role-tile) > span {
+  font-size: 15px;
+  font-weight: 430;
+  line-height: 1.52;
+  letter-spacing: -0.003em;
+}
+
+.pc-v7-public-entry .entry-process-index {
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.pc-v7-public-entry .entry-process-tile strong {
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.28;
+  letter-spacing: -0.018em;
+}
+
+.pc-v7-public-entry .entry-process-tile small {
+  font-size: 13px;
+  font-weight: 430;
+  line-height: 1.46;
+  letter-spacing: -0.002em;
+}
+
+.pc-v7-public-entry .entry-role-tile em {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: 0.015em;
+}
+
+.pc-v7-public-entry .entry-role-access strong {
+  font-size: clamp(21px, 2vw, 28px);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.028em;
+}
+
+.pc-v7-public-entry .entry-role-access span {
+  font-size: 14px;
+  font-weight: 440;
+  line-height: 1.58;
+  letter-spacing: -0.002em;
+}
+
+.pc-v7-public-entry .entry-role-access-cta,
+.pc-v7-public-entry .entry-trust-cta {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.008em;
+}
+
+.pc-v7-public-entry .entry-trust-item strong {
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.014em;
+}
+
+.pc-v7-public-entry .entry-trust-item span {
+  font-size: 13px;
+  font-weight: 430;
+  line-height: 1.45;
+}
+
+.pc-v7-public-entry .entry-intelligence-main h2 {
+  font-size: clamp(25px, 2.35vw, 36px);
+  font-weight: 740;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+
+.pc-v7-public-entry .entry-intelligence-main p {
+  font-size: 14.5px;
+  font-weight: 470;
+  line-height: 1.55;
+  letter-spacing: -0.003em;
+}
+
+.pc-v7-public-entry .entry-intelligence-flow span {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+.pc-v7-public-entry .entry-intelligence-tile strong {
+  font-size: 16px;
+  font-weight: 660;
+  line-height: 1.3;
+  letter-spacing: -0.016em;
+}
+
+.pc-v7-public-entry .entry-intelligence-tile small {
+  font-size: 12.5px;
+  font-weight: 430;
+  line-height: 1.48;
+  letter-spacing: 0;
+}
+
+.pc-v7-public-entry .entry-footer-brand strong {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
+}
+
+.pc-v7-public-entry :where(.entry-footer-brand span, .entry-footer small) {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.pc-v7-public-entry .entry-footer nav a {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+html:is([lang='zh-CN'], [data-p7-language='zh']) .pc-v7-public-entry {
+  --pc-entry-font-body: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --pc-entry-font-display: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+}
+
+html:is([lang='zh-CN'], [data-p7-language='zh']) .pc-v7-public-entry :where(h1, h2, h3, strong, span, p, small, em, a) {
+  letter-spacing: 0;
+}
+
+@media (max-width: 720px) {
+  .pc-v7-public-entry .pc-site-brand-text strong {
+    font-size: 16px;
+  }
+
+  .pc-v7-public-entry .entry-hero h1 {
+    font-size: clamp(38px, 10.6vw, 52px);
+    line-height: 1.04;
+    letter-spacing: -0.038em;
+  }
+
+  .pc-v7-public-entry .entry-hero p {
+    font-size: 17px;
+    line-height: 1.55;
+  }
+
+  .pc-v7-public-entry .entry-section-head h2 {
+    font-size: clamp(30px, 8.5vw, 42px);
+    line-height: 1.1;
+  }
+
+  .pc-v7-public-entry .entry-section-head p {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 380px) {
+  .pc-v7-public-entry .entry-hero h1 {
+    font-size: clamp(35px, 10vw, 43px);
+  }
+
+  .pc-v7-public-entry .entry-kicker {
+    font-size: 10px;
+    letter-spacing: 0.045em;
+  }
+}
