@@ -1,5 +1,5 @@
-import { GrainExecutionPage } from '@/components/platform-v7/GrainExecutionPage';
+import { redirect } from 'next/navigation';
 
-export default function PlatformV7SellerQuickSalePage() {
-  return <GrainExecutionPage mode='quick-sale' role='seller' />;
+export default function SellerQuickSaleAliasPage() {
+  redirect('/platform-v7/auction/import');
 }
