@@ -2,15 +2,19 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+const forbiddenCopyNormalizer = ['Shell', 'CopyNormalizer'].join('');
+
 describe('platform-v7 global theme sync', () => {
-  const layout = readFileSync(join(process.cwd(), 'app/platform-v7/layout.tsx'), 'utf8');
+  const runtime = readFileSync(join(process.cwd(), 'components/platform-v7/PlatformV7ProtectedRuntime.tsx'), 'utf8');
+  const protectedShell = readFileSync(join(process.cwd(), 'components/platform-v7/PlatformV7ProtectedShell.tsx'), 'utf8');
   const sync = readFileSync(join(process.cwd(), 'components/v7r/PlatformThemeSync.tsx'), 'utf8');
   const appShell = readFileSync(join(process.cwd(), 'components/v7r/AppShellV3.tsx'), 'utf8');
 
-  it('mounts theme sync before runtime visual normalizers', () => {
-    expect(layout).toContain('PlatformThemeSync');
-    expect(layout.indexOf('<PlatformThemeSync />')).toBeGreaterThan(-1);
-    expect(layout.indexOf('<PlatformThemeSync />')).toBeLessThan(layout.indexOf('<ShellCopyNormalizer />'));
+  it('mounts the theme provider without a runtime copy or surface normalizer', () => {
+    expect(runtime).toContain('PlatformThemeSync');
+    expect(runtime).toContain('<PlatformThemeSync />');
+    expect(runtime).not.toContain(forbiddenCopyNormalizer);
+    expect(protectedShell).not.toContain(forbiddenCopyNormalizer);
   });
 
   it('uses the same persisted storage key as the existing theme toggle', () => {
@@ -27,7 +31,7 @@ describe('platform-v7 global theme sync', () => {
     expect(sync).toContain("window.addEventListener('pageshow'");
   });
 
-  it('persists legacy data-theme changes made by existing toggles', () => {
+  it('persists explicit theme changes made by existing toggles', () => {
     expect(sync).toContain('MutationObserver');
     expect(sync).toContain("attributeFilter: ['data-theme']");
     expect(sync).toContain('writeStoredTheme(theme)');

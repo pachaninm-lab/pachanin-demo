@@ -74,7 +74,9 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
       - name: Enforce Design System v8 boundaries
-        run: node ./scripts/check-design-system-v8.mjs
+        run: |
+          node ./scripts/check-design-system-v8.mjs
+          node ./scripts/check-design-system-v8-zero-reference.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
       - name: Run governed v8 regressions
@@ -101,6 +103,7 @@ jobs:
             tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts \
             tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx \
             tests/unit/platformV7FgisAccessFlow.test.ts \
+            tests/unit/platformV7LegacyRuntimeZeroReference.test.ts \
             tests/unit/platformV7LogisticsSecondaryAuthority.test.ts \
             tests/unit/platformV7NotificationsAuthority.test.ts \
             tests/unit/platformV7OperatorCompatibilityAliases.test.ts \

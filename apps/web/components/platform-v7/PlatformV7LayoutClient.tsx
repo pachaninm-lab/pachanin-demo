@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import { AppShellV4 } from '@/components/v7r/AppShellV4';
 import { ToastProvider } from '@/components/v7r/Toast';
 import { PlatformThemeSync } from '@/components/v7r/PlatformThemeSync';
-import { ShellCopyNormalizer } from '@/components/v7r/ShellCopyNormalizer';
 import { ScopedShellGuard } from '@/components/platform-v7/ScopedShellGuard';
 import { RbacCabinetGuard } from '@/components/platform-v7/RbacCabinetGuard';
 import { PlatformV7SingleEntryGuard } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
@@ -43,14 +42,12 @@ export function PlatformV7LayoutClient({ children, initialRole }: { children: Re
   return (
     <ToastProvider>
       <PlatformThemeSync />
-      <ShellCopyNormalizer />
       <AppShellV4 initialRole={initialRole}>
         <>
           <ScopedShellGuard />
           <PlatformV7SingleEntryGuard />
           <PlatformV7ShellUxController role={initialRole} />
           <RbacCabinetGuard />
-          <ShellCopyNormalizer />
           <CalculatorHeaderWidget />
           <NotepadHeaderWidget />
           <SupportHeaderIcon />
