@@ -1,0 +1,92 @@
+name: Design System v8 Browser Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'packages/design-tokens/**'
+      - 'packages/design-system-v8/**'
+      - 'apps/web/app/platform-v7/**'
+      - 'apps/web/components/platform-v7/**'
+      - 'apps/web/components/transaction-ux/**'
+      - 'apps/web/components/v7r/**'
+      - 'apps/web/lib/platform-v7/**'
+      - 'apps/web/playwright.design-system-v8.config.ts'
+      - 'apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts'
+      - 'docs/platform-v7/qa/design-system-v8-final-acceptance.md'
+      - 'scripts/design-system-v8-route-migration-scope.json'
+      - '.github/workflows/design-system-v8-browser-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/design-tokens/**'
+      - 'packages/design-system-v8/**'
+      - 'apps/web/app/platform-v7/**'
+      - 'apps/web/components/platform-v7/**'
+      - 'apps/web/components/transaction-ux/**'
+      - 'apps/web/components/v7r/**'
+      - 'apps/web/lib/platform-v7/**'
+      - 'apps/web/playwright.design-system-v8.config.ts'
+      - 'apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts'
+      - 'docs/platform-v7/qa/design-system-v8-final-acceptance.md'
+      - 'scripts/design-system-v8-route-migration-scope.json'
+      - '.github/workflows/design-system-v8-browser-acceptance.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: design-system-v8-browser-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      JWT_SECRET: 'design-system-v8-browser-acceptance-jwt-secret-2026-07-14'
+      PC_CABINET_SESSION_SECRET: 'design-system-v8-browser-acceptance-jwt-secret-2026-07-14'
+      PC_CABINET_TEST_ACCESS: 'true'
+      PC_CABINET_ROLE_PASSWORD: 'DesignSystemV8-Browser-Acceptance-2026!'
+      NEXT_PUBLIC_DEV_MODE: 'false'
+    steps:
+      - name: Checkout exact ref
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build production web application
+        run: pnpm --filter @pc/web build
+
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Run protected browser, mobile, accessibility and localization matrix
+        working-directory: apps/web
+        run: pnpm exec playwright test --config=playwright.design-system-v8.config.ts
+
+      - name: Upload exact-head browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-system-v8-browser-acceptance-${{ github.sha }}
+          path: |
+            apps/web/test-results/design-system-v8-browser-acceptance.json
+            apps/web/test-results/design-system-v8-artifacts
+            apps/web/playwright-report/design-system-v8
+          if-no-files-found: error
+          retention-days: 14
