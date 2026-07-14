@@ -23,24 +23,37 @@ const publicHeaderCss = read('apps/web/styles/platform-v7-public-header.css');
 const publicAuthCss = read('apps/web/styles/platform-v7-public-auth.css');
 const publicLandingCss = read('apps/web/styles/platform-v7-public-landing.css');
 const fixedHeaderCss = read('apps/web/app/platform-v7/_styles/fixed-header-contract.css');
-const supportingShellCss = read('apps/web/app/platform-v7/_styles/public-supporting-shell.css');
 
 const removedRuntimes = [
   'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx',
   'apps/web/components/platform-v7/PlatformV7ProtectedTemplateRuntime.tsx',
   'apps/web/components/platform-v7/PlatformV7TemplateSwitch.tsx',
+  'apps/web/components/platform-v7/PlatformV7PublicRuntime.tsx',
 ];
 
+const removedPublicShellCss = 'apps/web/app/platform-v7/_styles/public-supporting-shell.css';
+
 describe('platform-v7 public/protected runtime split', () => {
-  it('resolves public paths without creating a legacy client style tree', () => {
+  it('returns public route content without creating a universal client or supporting shell', () => {
     expect(layout).toContain("from 'next/headers'");
     expect(layout).toContain("headers().get('x-pc-pathname')");
-    expect(layout).toContain('if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children');
-    expect(layout).toContain('if (isPublicPath(pathname))');
-    expect(layout).toContain('<PlatformV7PublicPageShell>{children}</PlatformV7PublicPageShell>');
+    expect(layout).toContain('if (isPublicPath(pathname)) return children');
     expect(layout).toContain("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')");
+    expect(layout).not.toContain('PlatformV7PublicPageShell');
+    expect(layout).not.toContain('PublicSiteHeader');
     expect(layout).not.toContain('PlatformV7FullStyleRuntime');
     expect(layout).not.toContain('PlatformV7ShellSwitch');
+  });
+
+  it('fails unknown protected paths closed before auth, RBAC or role shell creation', () => {
+    expect(layout).toContain('function isKnownProtectedPath(value: string)');
+    expect(layout).toContain('ALIAS_EXACT_PATHS.has(value)');
+    expect(layout).toContain('ALIAS_DYNAMIC_PATHS.some((pattern) => pattern.test(value))');
+    expect(layout).toContain('if (!isKnownProtectedPath(pathname)) notFound();');
+    expect(layout.indexOf('if (!isKnownProtectedPath(pathname)) notFound();'))
+      .toBeLessThan(layout.indexOf('const role = await verifiedCabinetRole();'));
+    expect(layout.indexOf('if (!isKnownProtectedPath(pathname)) notFound();'))
+      .toBeLessThan(layout.indexOf("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')"));
   });
 
   it('rewrites only the three public entry URLs into a physically isolated route tree', () => {
@@ -68,13 +81,13 @@ describe('platform-v7 public/protected runtime split', () => {
   it('keeps protected providers and shell in the protected-only runtime', () => {
     expect(protectedRuntime).toContain('<ToastProvider>');
     expect(protectedRuntime).toContain('<PlatformThemeSync />');
-    expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname}>');
+    expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname} verifiedRole={verifiedRole}>');
     expect(protectedShell).toContain('<AppShellV4 initialRole={initialRole}>');
     expect(protectedShell).toContain('<PlatformV7SingleEntryGuard />');
     expect(protectedShell).toContain('<RbacCabinetGuard />');
   });
 
-  it('uses server-rendered locale navigation on public entry routes', () => {
+  it('uses server-rendered locale navigation on isolated public entry routes', () => {
     expect(publicLocaleLink).not.toContain("'use client'");
     expect(publicLocaleLink).toContain("getTranslations('publicEntry.language')");
     expect(publicLocaleLink).toContain('href={`${pathname}?lang=${next}`}');
@@ -84,8 +97,9 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(publicHeader).toContain("<a href='/platform-v7' className='pc-site-brand'");
   });
 
-  it('loads public CSS from concrete routes instead of a universal runtime bundle', () => {
+  it('loads public CSS from concrete routes and removes the obsolete supporting shell stylesheet', () => {
     expect(rootLayout).not.toContain('platform-v7-dark-role-fixes.css');
+    expect(rootLayout).not.toContain('public-supporting-shell.css');
     expect(layout).not.toContain("import '@/styles/");
     expect(template).not.toContain("import '@/styles/");
     expect(landing).toContain("import '@/styles/platform-v7-public-header.css'");
@@ -95,16 +109,15 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(publicHeaderCss).toContain('.pc-site-header');
     expect(publicAuthCss).toContain('.pc-auth-page');
     expect(publicLandingCss).toContain('.pc-v7-public-entry');
+    expect(fs.existsSync(absolute(removedPublicShellCss))).toBe(false);
     for (const runtime of removedRuntimes) expect(fs.existsSync(absolute(runtime))).toBe(false);
   });
 
-  it('keeps the fixed-header contract static and removes runtime measurement', () => {
+  it('keeps the remaining fixed-header contract static and free of runtime measurement', () => {
     expect(rootLayout).toContain("import './platform-v7/_styles/fixed-header-contract.css'");
-    expect(rootLayout).toContain("import './platform-v7/_styles/public-supporting-shell.css'");
     expect(fixedHeaderCss).toContain('.pc-site-header');
     expect(fixedHeaderCss).toContain('[data-staff-platform-shell] > header');
     expect(fixedHeaderCss).toContain('env(safe-area-inset-top, 0px)');
-    expect(supportingShellCss).toContain('[data-public-supporting-shell]');
     expect(layout).not.toContain('ResizeObserver');
     expect(layout).not.toContain('MutationObserver');
     expect(layout).not.toContain('visualViewport');
