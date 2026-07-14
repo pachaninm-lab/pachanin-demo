@@ -140,12 +140,13 @@ function organizationCabinet(path: string) {
   return { organization, context };
 }
 
-async function handle(request: NextRequest, context: { params: { path?: string[] } }) {
+async function handle(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
   if (!enabled()) return json({ code: 'NOT_FOUND' }, 404);
   const claims = await ownerClaims(request);
   if (!claims) return json({ code: 'OWNER_ACCESS_REQUIRED' }, 403);
 
-  const path = normalizedPath(context.params.path);
+  const { path: pathSegments } = await context.params;
+  const path = normalizedPath(pathSegments);
   const method = request.method.toUpperCase();
   const body = method === 'POST' ? await request.json().catch(() => ({})) as Record<string, unknown> : {};
 
@@ -257,11 +258,9 @@ async function handle(request: NextRequest, context: { params: { path?: string[]
 }
 
 export function GET(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
-  return handle(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
-  context);
+  return handle(request, context);
 }
 
 export function POST(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
-  return handle(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
-  context);
+  return handle(request, context);
 }

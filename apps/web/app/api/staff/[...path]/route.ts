@@ -274,9 +274,10 @@ async function verifiedSessionContext(
   }
 }
 
-async function proxy(request: NextRequest, context: { params: { path?: string[] } }) {
+async function proxy(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
   const method = request.method.toUpperCase();
-  const path = normalizePath(context.params.path || []);
+  const { path: pathSegments = [] } = await context.params;
+  const path = normalizePath(pathSegments);
   const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
 
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
@@ -431,11 +432,9 @@ async function proxy(request: NextRequest, context: { params: { path?: string[] 
 }
 
 export function GET(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
-  return proxy(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
-  context);
+  return proxy(request, context);
 }
 
 export function POST(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
-  return proxy(request, /* @next-codemod-error 'context' is passed as an argument. Any asynchronous properties of 'props' must be awaited when accessed. */
-  context);
+  return proxy(request, context);
 }
