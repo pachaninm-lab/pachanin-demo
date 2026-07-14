@@ -1,19 +1,13 @@
 'use client';
 
-import * as React from 'react';
-import { ChatSupportWidget } from '@/components/platform-v7/ChatSupportWidget';
+import dynamic from 'next/dynamic';
 
 /**
- * Support is an interactive browser surface. Rendering it only after the first
- * client commit keeps the server and initial client trees byte-stable while
- * preserving the widget on every public page immediately after hydration.
+ * Support is a browser-only interaction surface. A no-SSR dynamic boundary keeps
+ * its inline style payload out of streamed HTML and the React hydration tree,
+ * while preserving the widget immediately after the client bundle is ready.
  */
-export function HydrationSafeChatSupport() {
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  return mounted ? <ChatSupportWidget /> : null;
-}
+export const HydrationSafeChatSupport = dynamic(
+  () => import('@/components/platform-v7/ChatSupportWidget').then((module) => module.ChatSupportWidget),
+  { ssr: false, loading: () => null },
+);

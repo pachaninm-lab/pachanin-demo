@@ -40,14 +40,17 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(protectedRuntime).not.toContain('setHydrated');
   });
 
-  it('mounts every support widget only after the initial hydration tree is committed', () => {
+  it('keeps support entirely outside the server and initial hydration tree', () => {
     expect(publicHeader).toContain('<HydrationSafeChatSupport />');
     expect(publicHeader).not.toContain('<ChatSupportWidget />');
     expect(designSystemRuntime).toContain('<HydrationSafeChatSupport />');
     expect(designSystemRuntime).not.toContain('<ChatSupportWidget />');
-    expect(supportMount).toContain('const [mounted, setMounted] = React.useState(false)');
-    expect(supportMount).toContain('React.useEffect');
-    expect(supportMount).toContain('return mounted ? <ChatSupportWidget /> : null');
+    expect(supportMount).toContain("import dynamic from 'next/dynamic'");
+    expect(supportMount).toContain("import('@/components/platform-v7/ChatSupportWidget')");
+    expect(supportMount).toContain('ssr: false');
+    expect(supportMount).toContain('loading: () => null');
+    expect(supportMount).not.toContain('setMounted');
+    expect(supportMount).not.toContain('React.useEffect');
   });
 
   it('reserves independent public header tracks and WCAG-sized controls', () => {
