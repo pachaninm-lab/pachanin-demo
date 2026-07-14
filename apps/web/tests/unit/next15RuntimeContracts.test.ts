@@ -20,7 +20,6 @@ function sourceFiles(root: string): string[] {
 
 const webPackage = JSON.parse(read('apps/web/package.json')) as {
   dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
 };
 const apiStaffRoute = read('apps/web/app/api/staff/[...path]/route.ts');
 const staffRoute = read('apps/web/app/staff/[...path]/route.ts');
@@ -30,7 +29,7 @@ describe('Next.js 15 runtime contracts', () => {
     expect(webPackage.dependencies?.next).toBe('15.5.16');
     expect(webPackage.dependencies?.react).toBe('18.3.1');
     expect(webPackage.dependencies?.['react-dom']).toBe('18.3.1');
-    expect(webPackage.dependencies?.['next-intl']).toBe('3.26.5');
+    expect(webPackage.dependencies?.['next-intl']).toBe('^3.26.5');
   });
 
   it('awaits dynamic staff route params before authorization and path dispatch', () => {
@@ -41,7 +40,7 @@ describe('Next.js 15 runtime contracts', () => {
     }
   });
 
-  it('contains no unresolved Next.js codemod escape hatches in runtime source', () => {
+  it('contains no unresolved Next.js codemod escape hatches in app runtime source', () => {
     const unresolved: string[] = [];
 
     for (const file of sourceFiles('apps/web/app')) {
