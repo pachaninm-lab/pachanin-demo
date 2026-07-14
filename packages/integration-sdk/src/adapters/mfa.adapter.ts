@@ -1,4 +1,31 @@
+import { randomBytes } from 'node:crypto';
 import type { IntegrationAdapter, HealthStatus } from '../adapter.interface';
+
+const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+function encodeBase32(input: Uint8Array): string {
+  let buffer = 0;
+  let bitCount = 0;
+  let output = '';
+
+  for (const byte of input) {
+    buffer = (buffer << 8) | byte;
+    bitCount += 8;
+
+    while (bitCount >= 5) {
+      bitCount -= 5;
+      output += BASE32_ALPHABET[(buffer >>> bitCount) & 31];
+    }
+
+    buffer &= bitCount === 0 ? 0 : (1 << bitCount) - 1;
+  }
+
+  if (bitCount > 0) {
+    output += BASE32_ALPHABET[(buffer << (5 - bitCount)) & 31];
+  }
+
+  return output;
+}
 
 // ── TOTP ─────────────────────────────────────────────────────────────────────
 
@@ -66,7 +93,7 @@ export class MockTotpAdapter implements TotpAdapter {
   private readonly secrets = new Map<string, string>();
 
   async enroll(req: TotpEnrollRequest): Promise<TotpEnrollResponse> {
-    const secret = 'JBSWY3DPEHPK3PXP'; // deterministic mock secret
+    const secret = encodeBase32(randomBytes(20));
     this.secrets.set(req.userId, secret);
     const issuer = req.issuer ?? 'GrainFlow';
     return {
@@ -77,7 +104,7 @@ export class MockTotpAdapter implements TotpAdapter {
   }
 
   async verify(req: TotpVerifyRequest): Promise<TotpVerifyResponse> {
-    // In mock: code '000000' is always invalid, any 6-digit code passes
+    // In mock: code '000000' is always invalid, any 6-digit code passes.
     const valid = /^\d{6}$/.test(req.code) && req.code !== '000000';
     return { valid };
   }

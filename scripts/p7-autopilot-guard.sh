@@ -161,6 +161,19 @@ apps/web/tests/unit/platformV7ControlledTestOrganization*.test.ts
 apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts
 scripts/p7-autopilot-guard.sh'
 
+INDUSTRIAL_SECURITY_GATE_SCOPE='.github/workflows/security-quality-gate.yml
+docs/platform-v7/autopilot/check-security-release-gate.mjs
+docs/platform-v7/autopilot/evaluate-pnpm-audit.mjs
+docs/platform-v7/autopilot/security-exceptions.json
+docs/platform-v7/autopilot/security-exceptions.schema.json
+docs/platform-v7/autopilot/security-release-scope.json
+docs/platform-v7/autopilot/semgrep-security.yml
+infra/docker/Dockerfile.api
+infra/docker/Dockerfile.web
+infra/docker/Dockerfile.worker
+packages/integration-sdk/src/adapters/mfa.adapter.ts
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -169,47 +182,36 @@ if [ "${GITHUB_HEAD_REF:-}" = "agent/public-home-typography" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_HOME_TYPOGRAPHY_SCOPE")
 fi
 
-# The Staff Control Center is a separate privileged control plane. Its exact
-# server layout and template bypass are reviewed with the staff branch so
-# generic business shell hydration and DOM-mutating guards cannot enter
-# /platform-v7/staff.
 if [ "${GITHUB_HEAD_REF:-}" = "feat/platform-v7-staff-control-center" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$STAFF_CONTROL_CENTER_TEMPLATE_SCOPE")
 fi
 
-# The owner access redesign is isolated to the privileged staff surface,
-# server-owned task catalogue, translations, and its focused regression tests.
 if [ "${GITHUB_HEAD_REF:-}" = "design/owner-access-center-task-ux" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx'; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$OWNER_ACCESS_CENTER_SCOPE")
 fi
 
-# Controlled test access is isolated to the server login gate, the gated
-# self-hosted fixture endpoints, tests and its operations document.
 if [ "${GITHUB_HEAD_REF:-}" = "fix/controlled-test-access" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$CONTROLLED_TEST_ACCESS_SCOPE")
 fi
 
-# The controlled test organization network binds the twelve owner cabinets to
-# an explicit server-owned organization catalogue and one canonical test deal.
 if [ "${GITHUB_HEAD_REF:-}" = "fix/test-organizations-all-cabinets" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$TEST_ORGANIZATIONS_SCOPE")
 fi
 
-# A clean Platform V7 URL must always resolve to Russian; EN/ZH remain explicit
-# language choices and must not be restored from stale browser persistence.
 if [ "${GITHUB_HEAD_REF:-}" = "fix/platform-v7-russian-default-locale" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$RUSSIAN_DEFAULT_LOCALE_SCOPE")
 fi
 
-# Pull-request workflows can check out refs/pull/<n>/merge and expose an empty or
-# synthetic branch variable. The unique encrypted MFA ticket file is therefore
-# also used as a deterministic, reviewable signature for this exact auth scope.
 if [ "${GITHUB_HEAD_REF:-}" = "fix/public-auth-server-authority" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/lib/server/mfa-login-ticket.ts'; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_AUTH_FIX_SCOPE")
 fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-lcp-css-boundary" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx'; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_LCP_FIX_SCOPE")
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "agent/industrial-readiness-v1-security-gates-v2" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$INDUSTRIAL_SECURITY_GATE_SCOPE")
 fi
 
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
