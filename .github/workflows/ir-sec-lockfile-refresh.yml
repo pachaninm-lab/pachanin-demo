@@ -1,9 +1,8 @@
 name: IR-SEC governed lockfile refresh
 
 on:
-  push:
-    branches:
-      - agent/ir-sec-transitive-runtime-remediation
+  pull_request:
+    branches: [main]
     paths:
       - package.json
       - .github/workflows/ir-sec-lockfile-refresh.yml
@@ -18,7 +17,7 @@ concurrency:
 
 jobs:
   refresh:
-    if: github.ref == 'refs/heads/agent/ir-sec-transitive-runtime-remediation' && github.actor != 'github-actions[bot]'
+    if: github.event.pull_request.head.ref == 'agent/ir-sec-transitive-runtime-remediation' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
