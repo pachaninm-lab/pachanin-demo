@@ -24,16 +24,25 @@ describe('telemetry configuration', () => {
     expect(resource.attributes['telemetry.sdk.language']).toBe('nodejs');
   });
 
-  it('uses deterministic defaults and trims configured values', () => {
+  it('uses deterministic defaults and normalizes configured values', () => {
     const resource = createTelemetryResource({ APP_VERSION: '  ', NODE_ENV: '  ' });
 
     expect(resource.attributes[ATTR_SERVICE_VERSION]).toBe('3.0.0');
     expect(resource.attributes[ATTR_DEPLOYMENT_ENVIRONMENT_NAME]).toBe('development');
     expect(resolveOtelEndpoint({ OTEL_EXPORTER_OTLP_ENDPOINT: '  ' })).toBe(DEFAULT_OTEL_ENDPOINT);
-    expect(resolveOtelEndpoint({ OTEL_EXPORTER_OTLP_ENDPOINT: '  http://collector:4317  ' })).toBe(
+    expect(resolveOtelEndpoint({ OTEL_EXPORTER_OTLP_ENDPOINT: '  http://collector:4317/  ' })).toBe(
       'http://collector:4317',
     );
   });
+
+  it.each(['collector:4317', 'grpc://collector:4317', 'file:///tmp/telemetry'])(
+    'rejects unsafe or non-absolute OTLP endpoint %s',
+    (endpoint) => {
+      expect(() => resolveOtelEndpoint({ OTEL_EXPORTER_OTLP_ENDPOINT: endpoint })).toThrow(
+        'OTEL_EXPORTER_OTLP_ENDPOINT',
+      );
+    },
+  );
 
   it.each(['/health', '/ready', '/metrics', '/metrics?format=prometheus'])(
     'excludes operational probe %s from incoming request traces',
