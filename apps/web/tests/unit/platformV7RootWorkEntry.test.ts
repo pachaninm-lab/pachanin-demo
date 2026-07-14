@@ -8,10 +8,14 @@ describe('platform-v7 public product experience v3', () => {
   const page = read('app/platform-v7/page.tsx');
   const explorerPage = read('app/platform-v7/how-it-works/page.tsx');
   const explorer = read('components/platform-v7/PublicDealExplorer.tsx');
+  const entryGate = read('components/platform-v7/PublicDealEntryGate.tsx');
+  const stateMachine = read('lib/platform-v7/public-product-experience-state.ts');
   const icons = read('components/platform-v7/PublicExperienceIcon.tsx');
   const copy = read('i18n/public-product-experience-v3.ts');
+  const entryCopy = read('i18n/public-product-entry-variants.ts');
   const css = read('styles/platform-v7-public-product-experience-v3.css');
   const refinementCss = read('styles/platform-v7-public-product-experience-v3-refinement.css');
+  const entryCss = read('styles/platform-v7-public-product-entry-variants.css');
 
   it('uses one deal as the root public product model', () => {
     expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
@@ -33,9 +37,9 @@ describe('platform-v7 public product experience v3', () => {
     expect(page).not.toContain("href: '/platform-v7/buyer'");
     expect(page).not.toContain("role='listitem'");
     expect(explorer).toContain("selectPerspective(event.target.value as TourPerspective)");
-    expect(explorer).not.toContain('membership');
-    expect(explorer).not.toContain('authorization');
-    expect(explorer).not.toContain('accessToken');
+    expect(`${explorer}\n${entryGate}`).not.toContain('membership');
+    expect(`${explorer}\n${entryGate}`).not.toContain('authorization');
+    expect(`${explorer}\n${entryGate}`).not.toContain('accessToken');
   });
 
   it('exposes one primary hero action and an explicit illustrative label', () => {
@@ -45,6 +49,19 @@ describe('platform-v7 public product experience v3', () => {
     expect(copy).toContain("eyebrow: 'Пример прохождения сделки'");
     expect(copy).toContain("exampleBadge: 'Пример прохождения сделки'");
     expect(page).not.toContain('fake-live');
+  });
+
+  it('provides role-first, problem-first and deal-first validation entries', () => {
+    expect(explorerPage).toContain('<PublicDealEntryGate');
+    expect(explorerPage).toContain('normalizeTourEntryVariant(searchParams?.entry)');
+    expect(stateMachine).toContain("export const TOUR_ENTRY_VARIANTS = ['role', 'problem', 'deal'] as const");
+    expect(entryGate).toContain("data-entry-variant={entry}");
+    expect(entryGate).toContain("'role-first'");
+    expect(entryGate).toContain("'problem-first'");
+    expect(entryCopy).toContain("title: 'Кто вы в сделке?'");
+    expect(entryCopy).toContain("title: 'Что вы хотите контролировать?'");
+    expect(entryCopy).toContain('не влияет на права доступа');
+    expect(entryCss).toContain('min-height: 44px');
   });
 
   it('provides six lenses, twelve perspectives, three scenarios and ten stages', () => {
@@ -65,6 +82,7 @@ describe('platform-v7 public product experience v3', () => {
     for (const token of ["glyph: '§'", "glyph: '∴'", "glyph: '∑'", "glyph: '⚖'"]) {
       expect(page).not.toContain(token);
       expect(explorer).not.toContain(token);
+      expect(entryGate).not.toContain(token);
     }
   });
 
@@ -76,12 +94,14 @@ describe('platform-v7 public product experience v3', () => {
     expect(css).toContain('scroll-padding-bottom: 88px');
     expect(refinementCss).toContain('.pc-ppe-hero-contour');
     expect(refinementCss).toContain('overflow-x: auto');
+    expect(entryCss).toContain('@media (max-width: 420px)');
     expect(explorer).toContain("aria-current={active ? 'step' : undefined}");
     expect(explorer).toContain("window.addEventListener('popstate'");
+    expect(entryGate).toContain("window.addEventListener('popstate'");
   });
 
   it('keeps maturity language truthful and external systems isolated', () => {
-    const combined = `${page}\n${explorerPage}\n${explorer}\n${copy}`.toLowerCase();
+    const combined = `${page}\n${explorerPage}\n${explorer}\n${entryGate}\n${copy}\n${entryCopy}`.toLowerCase();
     const forbidden = [
       'production' + '-ready',
       'fully ' + 'live',
