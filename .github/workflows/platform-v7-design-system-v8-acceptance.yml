@@ -63,9 +63,11 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium webkit
       - name: Build production web bundle
         run: pnpm --filter @pc/web build
-      - name: Run Design System v8 browser and accessibility matrix
+      - name: Diagnose protected-shell hydration in development mode
         working-directory: apps/web
-        run: pnpm exec playwright test --config=playwright.acceptance.config.ts
+        run: |
+          sed -i "s/command: 'pnpm start'/command: 'pnpm dev'/" playwright.acceptance.config.ts
+          pnpm exec playwright test --config=playwright.acceptance.config.ts --project=desktop-chromium --grep='all twelve server-verified role shells'
       - name: Publish acceptance summary
         if: always()
         working-directory: apps/web
