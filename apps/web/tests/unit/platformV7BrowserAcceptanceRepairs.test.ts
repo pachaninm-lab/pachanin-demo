@@ -14,6 +14,8 @@ const designSystemRuntime = read('apps/web/components/platform-v7/PlatformV7Desi
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const supportMount = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
 const quietLayer = read('apps/web/components/platform-v7/UxFinalQuietLayer.tsx');
+const workStepGuide = read('apps/web/components/platform-v7/WorkStepGuide.tsx');
+const workStepGuideCss = read('apps/web/components/platform-v7/WorkStepGuide.module.css');
 const headerCss = read('apps/web/app/platform-v7/_styles/public-header-accessibility.css');
 const rootLayout = read('apps/web/app/layout.tsx');
 const languageSwitch = read('apps/web/components/platform-v7/HeaderLanguageSwitch.tsx');
@@ -67,6 +69,14 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(protectedShellCss).toContain("[data-testid^='role-execution-summary-']");
     expect(protectedShellCss).toContain("[aria-label='Логика работы']");
     expect(protectedShellCss).toContain('@media (max-width: 640px)');
+  });
+
+  it('keeps work-step responsive rules out of hydration text', () => {
+    expect(workStepGuide).toContain("from './WorkStepGuide.module.css'");
+    expect(workStepGuide).not.toContain('<style');
+    expect(workStepGuide).not.toContain('dangerouslySetInnerHTML');
+    expect(workStepGuideCss).toContain('@media (max-width: 760px)');
+    expect(workStepGuideCss).toContain('.row a');
   });
 
   it('reserves independent public header tracks and WCAG-sized controls', () => {
