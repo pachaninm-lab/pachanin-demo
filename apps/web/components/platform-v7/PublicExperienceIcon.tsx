@@ -25,14 +25,6 @@ export type PublicExperienceIconName =
   | 'play'
   | 'close';
 
-const common = {
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.8,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
-};
-
 export function PublicExperienceIcon({
   name,
   size = 22,
@@ -46,7 +38,11 @@ export function PublicExperienceIcon({
       viewBox='0 0 24 24'
       width={size}
       height={size}
-      {...common}
+      fill='none'
+      stroke='currentColor'
+      strokeWidth={1.8}
+      strokeLinecap='round'
+      strokeLinejoin='round'
       {...props}
     >
       {body}
