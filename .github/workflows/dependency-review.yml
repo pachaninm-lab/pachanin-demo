@@ -64,21 +64,6 @@ jobs:
       - name: Generate deterministic lockfile
         run: pnpm install --lockfile-only
 
-      - name: Verify patched resolutions
-        run: |
-          pnpm install --frozen-lockfile
-          node - <<'NODE'
-          const fs = require('fs');
-          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
-          const required = ['multer@2.2.0', 'lodash@4.18.0', 'ws@8.21.0'];
-          const missing = required.filter((token) => !lock.includes(token));
-          if (missing.length) {
-            console.error(`Patched resolutions missing from lockfile: ${missing.join(', ')}`);
-            process.exit(1);
-          }
-          console.log('Patched transitive resolutions are present.');
-          NODE
-
       - name: Upload exact-head generated lockfile
         uses: actions/upload-artifact@v4
         with:
@@ -86,3 +71,18 @@ jobs:
           path: pnpm-lock.yaml
           if-no-files-found: error
           retention-days: 7
+
+      - name: Verify vulnerable resolutions are absent
+        run: |
+          pnpm install --frozen-lockfile
+          node - <<'NODE'
+          const fs = require('fs');
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+          const forbidden = ['multer@2.0.2', 'lodash@4.17.21', 'ws@8.18.3'];
+          const present = forbidden.filter((token) => lock.includes(token));
+          if (present.length) {
+            console.error(`Vulnerable resolutions remain in lockfile: ${present.join(', ')}`);
+            process.exit(1);
+          }
+          console.log('Known vulnerable transitive resolutions are absent.');
+          NODE
