@@ -59,6 +59,10 @@ function extractPublicPolicy(): { exact: Set<string>; prefixes: string[] } {
   };
 }
 
+function extractStaffPrefix(): string {
+  return layout.match(/const STAFF_PREFIX = '([^']+)'/)?.[1] ?? '';
+}
+
 function extractExactAliases(): Set<string> {
   const block = layout.match(/const ALIAS_EXACT_PATHS = new Set\(\[([\s\S]*?)\]\);/)?.[1] ?? '';
   return new Set(quotedRoutes(block));
@@ -94,6 +98,10 @@ function sampleRoute(route: string): string {
   return route.replace(/\[[^/]+\]/g, 'sample-id');
 }
 
+function matchesPrefix(route: string, prefix: string): boolean {
+  return Boolean(prefix) && (route === prefix || route.startsWith(`${prefix}/`));
+}
+
 describe('platform-v7 Design System v8 runtime isolation', () => {
   it('registers all twelve role roots and accepted transaction routes in one server-safe policy', () => {
     for (const role of roleRoutes) expect(routePolicy).toContain(`'/platform-v7/${role}'`);
@@ -126,17 +134,21 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
 
   it('keeps every server redirect route reachable through an explicit route class', () => {
     const publicPolicy = extractPublicPolicy();
+    const staffPrefix = extractStaffPrefix();
     const exactAliases = extractExactAliases();
     const dynamicAliases = extractDynamicAliases();
     const redirectRoutes = walkPages(absolute('apps/web/app/platform-v7'))
       .filter((pagePath) => /\bredirect\s*\(/.test(fs.readFileSync(pagePath, 'utf8')))
       .map(routeFromPage);
 
+    expect(staffPrefix).toBe('/platform-v7/staff');
+
     for (const route of redirectRoutes) {
       const sample = sampleRoute(route);
       const publicRoute = publicPolicy.exact.has(route)
-        || publicPolicy.prefixes.some((prefix) => sample === prefix || sample.startsWith(`${prefix}/`));
+        || publicPolicy.prefixes.some((prefix) => matchesPrefix(sample, prefix));
       const covered = publicRoute
+        || matchesPrefix(sample, staffPrefix)
         || isDesignSystemV8Route(sample)
         || exactAliases.has(route)
         || dynamicAliases.some((pattern) => pattern.test(sample));
