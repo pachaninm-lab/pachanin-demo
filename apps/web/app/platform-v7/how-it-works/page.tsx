@@ -9,7 +9,10 @@ import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicDealExplorer } from '@/components/platform-v7/PublicDealExplorer';
 import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
-import { PublicExperienceLink } from '@/components/platform-v7/PublicExperienceAnalytics';
+import {
+  PublicExperienceLink,
+  PublicExperienceScrollCoordinator,
+} from '@/components/platform-v7/PublicExperienceAnalytics';
 import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import { normalizeTourState } from '@/lib/platform-v7/public-product-experience-state';
 
@@ -44,6 +47,7 @@ export default async function PublicDealFromInsidePage({
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-deal-from-inside'>
       <a className='pc-skip-link' href='#pc-ppe-explorer-title'>{chrome('skipToContent')}</a>
+      <PublicExperienceScrollCoordinator />
       <PublicSiteHeader
         ariaLabel={copy.header.aria}
         brandHomeLabel={copy.header.brandHome}
