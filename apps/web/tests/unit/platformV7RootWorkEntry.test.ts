@@ -7,7 +7,8 @@ describe('platform-v7 root working entry', () => {
   const landingCopy = readFileSync(join(process.cwd(), 'i18n/public-landing-copy.ts'), 'utf8');
   const landingCss = readFileSync(join(process.cwd(), 'styles/platform-v7-public-landing.css'), 'utf8');
   const worldClassCss = readFileSync(join(process.cwd(), 'styles/platform-v7-public-world-class.css'), 'utf8');
-  const mobileShell = readFileSync(join(process.cwd(), 'styles/platform-v7-mobile-shell-p1.css'), 'utf8');
+  const mobileSafeAreaCss = readFileSync(join(process.cwd(), 'styles/platform-v7-public-mobile-safe-area.css'), 'utf8');
+  const webkitSafeCss = readFileSync(join(process.cwd(), 'styles/platform-v7-public-webkit-safe.css'), 'utf8');
 
   it('uses the public execution surface as the root entry', () => {
     expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
@@ -48,7 +49,7 @@ describe('platform-v7 root working entry', () => {
     expect(page).toContain("publicLanding('visualBasisText')");
   });
 
-  it('keeps mobile, accessibility and resilient-display gates in static CSS', () => {
+  it('keeps mobile, accessibility and resilient-display gates in active public CSS', () => {
     expect(landingCss).toContain('--entry-header-height:64px');
     expect(landingCss).toContain('.entry-process-row{display:flex;gap:10px;overflow-x:auto;padding:0 2px 8px;scroll-snap-type:x proximity}');
     expect(landingCss).toContain('.entry-process-row::-webkit-scrollbar{display:none}');
@@ -59,9 +60,10 @@ describe('platform-v7 root working entry', () => {
     expect(worldClassCss).toContain('@media (forced-colors: active)');
     expect(worldClassCss).toContain('.entry-role-access');
     expect(worldClassCss).toContain('.entry-footer');
-    expect(mobileShell).toContain('html:has(input:focus, textarea:focus, select:focus)');
-    expect(mobileShell).toContain('.pc-v7-role-dock');
-    expect(mobileShell).toContain('.p7-support-chat-button');
+    expect(mobileSafeAreaCss).toContain('env(safe-area-inset-top,0px)');
+    expect(mobileSafeAreaCss).toContain('min-height:100dvh');
+    expect(mobileSafeAreaCss).toContain('grid-template-columns:1fr');
+    expect(webkitSafeCss).toContain('@supports');
   });
 
   it('keeps maturity language truthful', () => {

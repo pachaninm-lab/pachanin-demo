@@ -1,5 +1,0 @@
-@media(max-width:767px){
-  html body .p7-mobile-tool-panel{top:auto!important;left:10px!important;right:10px!important;bottom:92px!important;max-height:48vh!important;overflow:auto!important;border-radius:24px!important;background:rgba(255,255,255,.98)!important;color:#071611!important;box-shadow:0 22px 72px rgba(7,22,17,.18)!important}
-  html body .p7-mobile-tool-grid{gap:8px!important}
-  html body .p7-mobile-tool-grid a{background:#fff!important;color:#071611!important}
-}

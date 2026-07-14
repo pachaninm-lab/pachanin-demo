@@ -1,3 +1,26 @@
+.shellPolicy {
+  display: contents;
+}
+
+.shellPolicy :global(.pc-v4-pilot-note),
+.shellPolicy :global(.pc-v4-statuses),
+.shellPolicy :global(.pc-v4-stage),
+.shellPolicy :global(.pc-v4-mobile-role),
+.shellPolicy :global(.pc-v4-select),
+.shellPolicy :global([data-role-header-switcher-wrap='true']),
+.shellPolicy :global([data-role-header-label='true']),
+.shellPolicy :global(nav[data-testid='platform-v7-work-route-nav']),
+.shellPolicy :global(.pc-shell-root-v4) > header [data-tone],
+.shellPolicy :global(.pc-shell-root-v4) > header > div > div:nth-child(2),
+.shellPolicy :global(.pc-shell-root-v4) > main > p:first-child {
+  display: none;
+}
+
+.shellPolicy[data-shell-policy='field'] :global(.pc-shell-root-v4) > header button[aria-label='Открыть поиск'],
+.shellPolicy[data-shell-policy='role-scoped'] :global(.pc-shell-root-v4) > header button[aria-label='Открыть поиск'] {
+  display: none;
+}
+
 .cabinetLoading,
 .ownerPreview {
   margin: 8px 0 18px;
@@ -61,14 +84,91 @@
   line-height: 1.55;
 }
 
+@media (max-width: 767px) {
+  .shellPolicy :global(.pc-shell-root-v4) > main,
+  .shellPolicy :global(.pc-shell-root-v4) > main > *,
+  .shellPolicy :global(.pc-shell-root-v4) > main > main > *,
+  .shellPolicy :global(.pc-shell-root-v4) > main > div > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .shellPolicy :global(.pc-shell-root-v4) > main,
+  .shellPolicy :global(.pc-shell-root-v4) > main > main,
+  .shellPolicy :global(.pc-shell-root-v4) > main > div {
+    gap: 12px;
+  }
+
+  .shellPolicy[data-shell-role='buyer'] :global(.pc-v7-buyer-kpi),
+  .shellPolicy[data-shell-role='seller'] :global(.pc-v7-seller-kpi),
+  .shellPolicy[data-shell-role='bank'] :global(.pc-v7-bank-kpi),
+  .shellPolicy[data-shell-role='compliance'] :global(.pc-v7-compliance-kpi),
+  .shellPolicy[data-shell-role='operator'] :global(.pc-v7-operator-kpi) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shellPolicy[data-shell-role='buyer'] :global(.pc-v7-buyer-rfq-list),
+  .shellPolicy[data-shell-role='seller'] :global(.pc-v7-seller-lots),
+  .shellPolicy[data-shell-role='bank'] :global(.pc-v7-bank-basis),
+  .shellPolicy[data-shell-role='compliance'] :global(.pc-v7-compliance-list),
+  .shellPolicy[data-shell-role='operator'] :global(.pc-v7-control-tower) {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  .shellPolicy :global(.pc-shell-root-v4) {
+    --shell-header-offset: 56px;
+  }
+
+  .shellPolicy :global(.pc-shell-root-v4) > header > div {
+    min-height: 56px;
+    padding: calc(env(safe-area-inset-top) + 7px) 10px 7px;
+  }
+
+  .shellPolicy :global(.pc-shell-root-v4) > header > div > div:first-child {
+    gap: 6px;
+  }
+
+  .shellPolicy :global(.pc-shell-root-v4) > header a > span > span {
+    display: none;
+  }
+
+  .shellPolicy :global(.pc-shell-root-v4) > header button,
+  .shellPolicy :global(.pc-shell-root-v4) > header a[aria-label='Открыть уведомления'] {
+    min-width: 42px;
+    min-height: 42px;
+  }
+
+  .shellPolicy :global(.pc-shell-root-v4) > main {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
 @media (max-width: 430px) {
   .cabinetLoading,
-  .ownerPreview { border-radius: 16px; }
-  .ownerPreview { padding: 14px; }
+  .ownerPreview {
+    border-radius: 16px;
+  }
+
+  .ownerPreview {
+    padding: 14px;
+  }
+
+  .shellPolicy[data-shell-role='buyer'] :global(.pc-v7-buyer-kpi),
+  .shellPolicy[data-shell-role='seller'] :global(.pc-v7-seller-kpi),
+  .shellPolicy[data-shell-role='bank'] :global(.pc-v7-bank-kpi),
+  .shellPolicy[data-shell-role='compliance'] :global(.pc-v7-compliance-kpi),
+  .shellPolicy[data-shell-role='operator'] :global(.pc-v7-operator-kpi) {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (forced-colors: active) {
   .cabinetLoading,
   .ownerPreview,
-  .previewBadge { border: 1px solid CanvasText; }
+  .previewBadge {
+    border: 1px solid CanvasText;
+  }
 }

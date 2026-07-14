@@ -75,8 +75,19 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Enforce Design System v8 boundaries
         run: |
-          node ./scripts/check-design-system-v8.mjs
-          node ./scripts/check-design-system-v8-zero-reference.mjs
+          set -o pipefail
+          {
+            node ./scripts/check-design-system-v8.mjs
+            node ./scripts/check-design-system-v8-zero-reference.mjs
+          } 2>&1 | tee design-system-v8-boundary.log
+      - name: Upload boundary log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-system-v8-boundary-${{ github.sha }}
+          path: design-system-v8-boundary.log
+          if-no-files-found: error
+          retention-days: 7
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
       - name: Run governed v8 regressions
