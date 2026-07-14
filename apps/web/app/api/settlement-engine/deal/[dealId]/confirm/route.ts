@@ -12,7 +12,7 @@ export async function POST(_request: Request, props: { params: Promise<{ dealId:
     const response = await fetch(runtimeApiUrl(`/settlement-engine/deal/${params.dealId}/confirm`), {
       method: 'POST',
       cache: 'no-store',
-      headers: runtimeAuthHeaders({ 'content-type': 'application/json' }),
+      headers: await runtimeAuthHeaders({ 'content-type': 'application/json' }),
     });
     const payload = await response.json().catch(() => ({ ok: false }));
     return NextResponse.json(payload, { status: response.status });
