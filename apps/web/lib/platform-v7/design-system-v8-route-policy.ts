@@ -1,6 +1,7 @@
 const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([
   '/platform-v7/control-tower',
   '/platform-v7/status',
+  '/platform-v7/health',
   '/platform-v7/connectors',
   '/platform-v7/api-docs',
   '/platform-v7/profile',
