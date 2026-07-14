@@ -22,7 +22,7 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(config).toContain("command: 'pnpm start'");
   });
 
-  it('uses cryptographically signed cabinet sessions for every protected role', () => {
+  it('uses cryptographically signed and isolated cabinet sessions for every protected role', () => {
     expect(spec).toContain('signCabinetSession');
     for (const role of [
       'operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor',
@@ -30,6 +30,8 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     ]) {
       expect(spec).toContain(`['${role}', '/platform-v7/`);
     }
+    expect(spec).toContain("page.goto('about:blank'");
+    expect(spec.indexOf("page.goto('about:blank'")).toBeLessThan(spec.indexOf('page.context().clearCookies()'));
     expect(spec).not.toContain('pc-role');
     expect(spec).not.toContain('localStorage');
   });
