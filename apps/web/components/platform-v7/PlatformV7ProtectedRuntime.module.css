@@ -1,0 +1,30 @@
+.hydrationSurface {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--ds-space-6, 24px);
+  background: var(--ds-color-canvas, #f7f9f8);
+  color: var(--ds-color-text-primary, #101814);
+}
+
+.hydrationCard {
+  width: min(100%, 480px);
+  display: grid;
+  gap: var(--ds-space-3, 12px);
+  padding: var(--ds-space-6, 24px);
+  border: 1px solid var(--ds-color-border, #dce4e0);
+  border-radius: var(--ds-radius-xl, 22px);
+  background: var(--ds-color-surface, #ffffff);
+  box-shadow: var(--ds-shadow-surface, 0 1px 2px rgb(16 24 20 / 0.06));
+}
+
+.hydrationCard strong {
+  font-size: var(--ds-font-title, 24px);
+  line-height: 1.2;
+}
+
+.hydrationCard span {
+  color: var(--ds-color-text-secondary, #34413b);
+  font-size: var(--ds-font-body, 15px);
+  line-height: 1.5;
+}
