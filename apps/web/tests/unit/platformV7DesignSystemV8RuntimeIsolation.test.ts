@@ -41,9 +41,27 @@ const criticalRoutes = [
   '/platform-v7/deal-documents-basis',
 ];
 
+function quotedRoutes(block: string): string[] {
+  return [...block.matchAll(/'([^']+)'/g)].map((match) => match[1]);
+}
+
+function extractPublicPolicy(): { exact: Set<string>; prefixes: string[] } {
+  const exactBlock = layout.match(/const PUBLIC_EXACT_PATHS = new Set\(\[([\s\S]*?)\]\);/)?.[1] ?? '';
+  const prefixBlock = layout.match(/const PUBLIC_PREFIX_PATHS = \[([\s\S]*?)\];/)?.[1] ?? '';
+  return {
+    exact: new Set([
+      '/platform-v7',
+      '/platform-v7/login',
+      '/platform-v7/forgot-password',
+      ...quotedRoutes(exactBlock),
+    ]),
+    prefixes: quotedRoutes(prefixBlock),
+  };
+}
+
 function extractExactAliases(): Set<string> {
   const block = layout.match(/const ALIAS_EXACT_PATHS = new Set\(\[([\s\S]*?)\]\);/)?.[1] ?? '';
-  return new Set([...block.matchAll(/'([^']+)'/g)].map((match) => match[1]));
+  return new Set(quotedRoutes(block));
 }
 
 function extractDynamicAliases(): RegExp[] {
@@ -106,7 +124,8 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
     expect(layout).not.toContain('PlatformV7FullStyleRuntime');
   });
 
-  it('keeps every server redirect route reachable through the exact fail-closed policy', () => {
+  it('keeps every server redirect route reachable through an explicit route class', () => {
+    const publicPolicy = extractPublicPolicy();
     const exactAliases = extractExactAliases();
     const dynamicAliases = extractDynamicAliases();
     const redirectRoutes = walkPages(absolute('apps/web/app/platform-v7'))
@@ -115,10 +134,13 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
 
     for (const route of redirectRoutes) {
       const sample = sampleRoute(route);
-      const covered = isDesignSystemV8Route(sample)
+      const publicRoute = publicPolicy.exact.has(route)
+        || publicPolicy.prefixes.some((prefix) => sample === prefix || sample.startsWith(`${prefix}/`));
+      const covered = publicRoute
+        || isDesignSystemV8Route(sample)
         || exactAliases.has(route)
         || dynamicAliases.some((pattern) => pattern.test(sample));
-      expect(covered, `redirect route is absent from fail-closed policy: ${route}`).toBe(true);
+      expect(covered, `redirect route is absent from route policy: ${route}`).toBe(true);
     }
   });
 
