@@ -69,6 +69,11 @@ async function setCabinetRole(page: Page, role: CabinetRole) {
     ttlSeconds: 60 * 60,
   });
   expect(token, `signed cabinet token for ${role}`).toBeTruthy();
+
+  // Destroy the previous cabinet document before rotating the signed HttpOnly
+  // session. Otherwise its background RSC prefetch can continue under the next
+  // role and WebKit correctly reports the server's RBAC denial as a page error.
+  await page.goto('about:blank', { waitUntil: 'load' });
   await page.context().clearCookies();
   await page.context().addCookies([{
     name: 'pc_v7_cabinet',
