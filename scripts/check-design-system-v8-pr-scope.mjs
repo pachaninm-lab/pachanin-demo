@@ -58,6 +58,7 @@ const exact = new Set([
   'apps/web/components/platform-v7/RoleIntentDashboard.module.css',
   'apps/web/components/v7r/AppShellV4.tsx',
   'apps/web/components/v7r/AppShellV4.module.css',
+  'apps/web/public/platform-v7/openapi.yaml',
   'apps/web/lib/auction-server.ts',
   'apps/web/lib/logistics-server.ts',
   'apps/web/lib/deal-execution-server.ts',
@@ -66,6 +67,7 @@ const exact = new Set([
   'apps/web/lib/integrations-server.ts',
   'apps/web/lib/auth-profile-server.ts',
   'apps/web/lib/reporting-server.ts',
+  'apps/web/lib/platform-v7/cabinet-access-policy.ts',
   'apps/web/lib/platform-v7/design-system-v8-route-policy.ts',
   'apps/web/lib/platform-v7/operator-execution-queue.ts',
   'apps/web/lib/platform-v7/fgisAuctionEngine.ts',
@@ -110,6 +112,7 @@ const exact = new Set([
   'apps/web/tests/unit/transactionUxV8Migration.test.ts',
   'apps/web/tsconfig.json',
   'design-governance-v8.json',
+  'docs/api/openapi.yaml',
   'docs/platform-v7/design-system-v8-governance.md',
   'package.json',
   'pnpm-workspace.yaml',
@@ -157,7 +160,7 @@ try {
 let mergeBase;
 try {
   mergeBase = git(['merge-base', base, 'HEAD']);
-} catch (error) {
+} catch {
   console.error(`[design-system-v8-scope] Cannot resolve merge base for ${base}.`);
   process.exit(1);
 }
