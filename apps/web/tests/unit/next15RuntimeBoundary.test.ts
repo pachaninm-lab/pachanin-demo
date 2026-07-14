@@ -46,4 +46,16 @@ describe('Next.js 15 runtime boundary', () => {
     });
     expect(unresolved).toEqual([]);
   });
+
+  it('awaits catch-all staff route parameters before path authorization', () => {
+    const routes = [
+      path.join(webRoot, 'app/api/staff/[...path]/route.ts'),
+      path.join(webRoot, 'app/staff/[...path]/route.ts'),
+    ];
+    for (const route of routes) {
+      const source = fs.readFileSync(route, 'utf8');
+      expect(source).toContain('params: Promise<{ path?: string[] }>');
+      expect(source).toContain('await context.params');
+    }
+  });
 });
