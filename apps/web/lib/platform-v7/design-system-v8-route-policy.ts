@@ -9,6 +9,7 @@ const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([
   '/platform-v7/profile/team',
   '/platform-v7/reports',
   '/platform-v7/onboarding',
+  '/platform-v7/notifications',
   '/platform-v7/operator',
   '/platform-v7/operator-cockpit/queues',
   '/platform-v7/buyer',

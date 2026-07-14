@@ -1,11 +1,5 @@
-import type { Metadata } from 'next';
-import { SupportIndexPage } from '@/components/platform-v7/SupportIndexPage';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = {
-  title: 'Центр поддержки исполнения сделки',
-  description: 'Контур обращений, связанных со сделкой, деньгами, документами, рейсом и блокерами.',
-};
-
-export default function SupportPage() {
-  return <SupportIndexPage />;
+export default function PlatformV7SupportPage() {
+  redirect('/platform-v7/contact?source=support');
 }

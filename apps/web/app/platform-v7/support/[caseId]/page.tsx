@@ -1,12 +1,10 @@
-import type { Metadata } from 'next';
-import { SupportCaseRouteClient } from '@/components/platform-v7/SupportCaseRouteClient';
+import { redirect } from 'next/navigation';
 
-export const metadata: Metadata = {
-  title: 'Карточка обращения',
-  description: 'Карточка обращения поддержки исполнения сделки.',
-};
-
-export default async function SupportCasePage({ params }: { params: Promise<{ caseId: string }> | { caseId: string } }) {
+export default async function PlatformV7SupportCasePage({
+  params,
+}: {
+  params: Promise<{ caseId: string }> | { caseId: string };
+}) {
   const { caseId } = await Promise.resolve(params);
-  return <SupportCaseRouteClient caseId={caseId} />;
+  redirect(`/platform-v7/contact?source=support-case&legacyCaseId=${encodeURIComponent(caseId)}`);
 }
