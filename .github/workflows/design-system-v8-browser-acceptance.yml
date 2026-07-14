@@ -47,6 +47,7 @@ jobs:
       JWT_SECRET: 'design-system-v8-browser-acceptance-jwt-secret-2026-07-14'
       PC_CABINET_SESSION_SECRET: 'design-system-v8-browser-acceptance-jwt-secret-2026-07-14'
       PC_CABINET_TEST_ACCESS: 'true'
+      PC_CABINET_TEST_ACCESS_EXPIRES_AT: '2099-01-01T00:00:00Z'
       PC_CABINET_ROLE_PASSWORD: 'DesignSystemV8-Browser-Acceptance-2026!'
       NEXT_PUBLIC_DEV_MODE: 'false'
     steps:
