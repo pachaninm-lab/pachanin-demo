@@ -94,7 +94,7 @@ const forbiddenTokens = [
   symbol('Scoped', 'ShellGuard'),
   symbol('Shell', 'CopyNormalizer'),
   symbol('Ai', 'ShellEnhancer'),
-  symbol('PlatformV7', 'NotificationCenter'),
+  '@/components/v7r/PlatformV7NotificationCenter',
   symbol('PlatformV7', 'I18nGuard'),
   symbol('Platform', 'Translator'),
   symbol('V7Register', 'ExactPatch'),
