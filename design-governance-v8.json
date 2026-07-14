@@ -1,5 +1,5 @@
 {
-  "version": 27,
+  "version": 26,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -34,7 +34,6 @@
     "apps/web/app/platform-v7/seller/page.tsx",
     "apps/web/app/platform-v7/buyer/page.tsx",
     "apps/web/app/platform-v7/bank/page.tsx",
-    "apps/web/app/platform-v7/bank/payment-basis/page.tsx",
     "apps/web/app/platform-v7/operator/page.tsx",
     "apps/web/app/platform-v7/logistics/page.tsx",
     "apps/web/app/platform-v7/compliance/page.tsx",
