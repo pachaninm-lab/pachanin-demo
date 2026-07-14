@@ -5,75 +5,78 @@ import { describe, expect, it } from 'vitest';
 const repoRoot = path.resolve(process.cwd(), '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
+const canonical = read('docs/api/openapi.yaml');
+const published = read('apps/web/public/platform-v7/openapi.yaml');
 const page = read('apps/web/app/platform-v7/api-docs/page.tsx');
-const contract = read('apps/api/openapi.yaml');
 const routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
+const cabinetPolicy = read('apps/web/lib/platform-v7/cabinet-access-policy.ts');
 const governance = JSON.parse(read('design-governance-v8.json'));
+const authController = read('apps/api/src/modules/auth/auth.controller.ts');
+const dealsController = read('apps/api/src/modules/deals/deals.controller.ts');
+const logisticsController = read('apps/api/src/modules/logistics/logistics.controller.ts');
+const disputesController = read('apps/api/src/modules/disputes/disputes.controller.ts');
+const settlementController = read('apps/api/src/modules/settlement-engine/settlement-engine.controller.ts');
+const integrationsController = read('apps/api/src/modules/integrations/integrations.controller.ts');
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important/i;
 
-describe('platform-v7 partner API authority boundary', () => {
-  it('uses the governed v8 cockpit without route-local visual overrides', () => {
-    expect(page).toContain('OperationalDecisionCockpit');
-    expect(page).toContain('OperationalQueueLink');
-    expect(page).toContain('InlineNotice');
-    expect(page).toContain('StatusChip');
-    expect(page).not.toMatch(forbiddenPresentation);
-  });
+const confirmedPaths = [
+  '/health', '/ready', '/version', '/api/auth/me', '/api/deals',
+  '/api/deals/{dealId}/workspace', '/api/deals/{dealId}/execution-workspace',
+  '/api/logistics/shipments', '/api/logistics/shipments/{shipmentId}/workspace',
+  '/api/disputes', '/api/disputes/{disputeId}',
+  '/api/settlement-engine/deal/{dealId}/bank-workspace',
+  '/api/settlement-engine/outbox', '/api/integrations/health',
+] as const;
 
-  it('matches the source-controlled OpenAPI contract without presenting it as a live endpoint', () => {
-    expect(contract).toContain('openapi: "3.0.3"');
-    expect(contract).toContain('version: "3.0.0"');
-    expect(contract).toContain('BearerAuth:');
-    expect(contract).toContain('name: X-Api-Key');
-    expect(page).toContain('OpenAPI 3.0.3');
-    expect(page).toContain('версия контракта 3.0.0');
-    expect(page).toContain('не подтверждён этим экраном');
-    expect(page).toContain('does not prove a published endpoint');
-    expect(page).toContain('不能证明 endpoint 已发布');
-  });
-
-  it('keeps credential and webhook authority server-side and Deal-scoped', () => {
-    for (const required of [
-      'Deal-scoped авторизация',
-      'Жизненный цикл credentials',
-      'durable inbox',
-      'replay-защита',
-      'rate limits',
-      'audit trail',
-      'reconciliation',
-      'server-side credential issuance and revocation',
-      '交易范围授权',
-    ]) {
-      expect(page).toContain(required);
-    }
-
+describe('platform-v7 verified API contract', () => {
+  it('publishes one byte-identical conservative source', () => {
+    expect(published).toBe(canonical);
+    expect(canonical).toContain('openapi: 3.0.3');
+    expect(canonical).toContain('x-maturity: controlled-integration-contract');
+    expect(canonical.match(/\n    get:\n/g)).toHaveLength(14);
+    for (const apiPath of confirmedPaths) expect(canonical).toContain(`  ${apiPath}:`);
     for (const forbidden of [
-      'ApiKeysPanel',
-      'generateApiKey',
-      'createApiKey',
-      'localStorage',
-      'sessionStorage',
-      'setTimeout',
-      'sk_live_',
-      'api.grainflow.ru',
-      'Production подключён',
-    ]) {
-      expect(page).not.toContain(forbidden);
-    }
+      'GrainFlow', 'grainflow.ru', '/api/v1', '/market-news', '/scenario-runtime',
+      '/handoff-runtime', '\n    post:', '\n    patch:', '\n    put:', '\n    delete:',
+    ]) expect(canonical).not.toContain(forbidden);
   });
 
-  it('states the non-production evidence boundary in RU EN and ZH', () => {
-    expect(page).toContain('не создаёт API-ключи');
-    expect(page).toContain('does not create API keys');
-    expect(page).toContain('不会创建 API 密钥');
-    expect(page).toContain('не подтверждает production-доступность');
-    expect(page).toContain('confirm production availability');
-    expect(page).toContain('确认生产可用性');
+  it('grounds published routes in actual controllers', () => {
+    expect(authController).toContain("@Get('me')");
+    expect(dealsController).toContain("@Get(':id/workspace')");
+    expect(dealsController).toContain("@Get(':id/execution-workspace')");
+    expect(logisticsController).toContain("@Get('shipments')");
+    expect(logisticsController).toContain("@Get('shipments/:id/workspace')");
+    expect(disputesController).toContain("@Get(':id')");
+    expect(settlementController).toContain("@Get('deal/:id/bank-workspace')");
+    expect(settlementController).toContain("@Get('outbox')");
+    expect(integrationsController).toContain("@Get('health')");
   });
 
-  it('runs on the minimal v8 runtime and is registered in governance', () => {
+  it('uses a protected v8 route with RU EN ZH and no local presentation overrides', () => {
+    expect(page).toContain("testId='platform-v7-api-docs-v8'");
+    expect(page).toContain("href='/platform-v7/openapi.yaml'");
+    expect(page).toContain("startsWith('en')");
+    expect(page).toContain("startsWith('zh')");
+    expect(page).toContain('Write API пока не опубликован');
+    expect(page).toContain('Write API is not published yet');
+    expect(page).toContain('写入 API 尚未发布');
+    expect(page).not.toMatch(forbiddenPresentation);
     expect(routePolicy).toContain("'/platform-v7/api-docs'");
+    expect(cabinetPolicy).toContain("'/platform-v7/api-docs'");
+  });
+
+  it('keeps mutating and provider contracts unpublished', () => {
+    for (const forbidden of [
+      '/bank-callback', '/fgis/webhook', '/edo/webhook', '/commands/{actionId}',
+      '/reserve', '/release', '/api/api/partner',
+    ]) expect(canonical).not.toContain(forbidden);
+  });
+
+  it('remains governed alongside onboarding and profile team', () => {
     expect(governance.migratedFiles).toContain('apps/web/app/platform-v7/api-docs/page.tsx');
-    expect(governance.version).toBeGreaterThanOrEqual(22);
+    expect(governance.migratedFiles).toContain('apps/web/app/platform-v7/onboarding/page.tsx');
+    expect(governance.migratedFiles).toContain('apps/web/app/platform-v7/profile/team/page.tsx');
+    expect(governance.version).toBeGreaterThanOrEqual(27);
   });
 });
