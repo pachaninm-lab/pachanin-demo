@@ -1,3 +1,5 @@
+export const TOUR_ENTRY_VARIANTS = ['role', 'problem', 'deal'] as const;
+
 export const TOUR_LENSES = [
   'execution',
   'participants',
@@ -46,6 +48,7 @@ export const TOUR_RISKS = [
   'paymentBasis',
 ] as const;
 
+export type TourEntryVariant = (typeof TOUR_ENTRY_VARIANTS)[number];
 export type TourLens = (typeof TOUR_LENSES)[number];
 export type TourStage = (typeof TOUR_STAGES)[number];
 export type TourScenario = (typeof TOUR_SCENARIOS)[number];
@@ -87,6 +90,11 @@ function includes<T extends readonly string[]>(values: T, value: unknown): value
 
 function one(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
+}
+
+export function normalizeTourEntryVariant(value: string | string[] | undefined): TourEntryVariant {
+  const entry = one(value);
+  return includes(TOUR_ENTRY_VARIANTS, entry) ? entry : 'deal';
 }
 
 export function normalizeTourState(
