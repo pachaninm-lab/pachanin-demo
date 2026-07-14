@@ -180,7 +180,7 @@ test.describe('Design System v8 final browser acceptance', () => {
       const shell = page.locator('.pc-shell-root-v4');
       const header = shell.locator(':scope > header');
       const main = page.locator('main#main-content');
-      const bottomNav = page.getByRole('navigation', { name: 'Навигация кабинета' });
+      const bottomNav = page.getByRole('navigation', { name: 'Основные действия кабинета' });
 
       await expect(shell).toBeVisible();
       await expect(header).toBeVisible();
@@ -194,7 +194,7 @@ test.describe('Design System v8 final browser acceptance', () => {
       const geometry = await page.evaluate(() => {
         const headerElement = document.querySelector('.pc-shell-root-v4 > header') as HTMLElement | null;
         const mainElement = document.querySelector('main#main-content') as HTMLElement | null;
-        const navElement = document.querySelector('nav[aria-label="Навигация кабинета"]') as HTMLElement | null;
+        const navElement = document.querySelector('nav[aria-label="Основные действия кабинета"]') as HTMLElement | null;
         if (!headerElement || !mainElement || !navElement) return null;
         const headerBox = headerElement.getBoundingClientRect();
         const mainBox = mainElement.getBoundingClientRect();
