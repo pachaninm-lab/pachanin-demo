@@ -73,8 +73,8 @@
   box-shadow: 0 10px 24px rgba(8, 122, 59, 0.24);
 }
 
-.pc-ppe-perspective-card[role='listitem'] {
-  min-width: 0;
+.pc-ppe-segmented button {
+  min-height: 44px;
 }
 
 .pc-ppe-page [aria-live='polite'] {
