@@ -154,14 +154,11 @@
       "scanner": "trivy-container",
       "findingType": "vulnerability",
       "findingId": "CVE-2026-44902",
-      "paths": [
-        "app/node_modules/**/@opentelemetry+sdk-node@0.52.1_*/node_modules/@opentelemetry/sdk-node/package.json"
-      ],
       "severity": "HIGH",
       "owner": "platform-security",
       "approvedBy": "project-technical-owner",
       "ticket": "#2604",
-      "rationale": "Temporary version-scoped exception while OpenTelemetry SDK is upgraded and malformed metrics requests are verified not to terminate the API process.",
+      "rationale": "Temporary exact-CVE exception in the canonical API image while OpenTelemetry SDK is upgraded and malformed metrics requests are verified not to terminate the process.",
       "createdAt": "2026-07-14T19:46:00Z",
       "expiresAt": "2026-07-28T23:59:59Z"
     },
@@ -170,14 +167,11 @@
       "scanner": "trivy-container",
       "findingType": "vulnerability",
       "findingId": "CVE-2026-4800",
-      "paths": [
-        "app/node_modules/**/lodash@4.17.21/node_modules/lodash/package.json"
-      ],
       "severity": "HIGH",
       "owner": "platform-security",
       "approvedBy": "project-technical-owner",
       "ticket": "#2604",
-      "rationale": "Temporary version-scoped exception while lodash is upgraded and its runtime dependency path is removed or patched.",
+      "rationale": "Temporary exact-CVE exception in the canonical API image while lodash is upgraded and its runtime dependency path is removed or patched.",
       "createdAt": "2026-07-14T19:46:00Z",
       "expiresAt": "2026-07-28T23:59:59Z"
     },
@@ -186,14 +180,11 @@
       "scanner": "trivy-container",
       "findingType": "vulnerability",
       "findingId": "CVE-2026-2359",
-      "paths": [
-        "app/node_modules/**/multer@2.0.2/node_modules/multer/package.json"
-      ],
       "severity": "HIGH",
       "owner": "platform-security",
       "approvedBy": "project-technical-owner",
       "ticket": "#2604",
-      "rationale": "Temporary version-scoped exception while Multer is upgraded and upload limits and cleanup behavior are requalified.",
+      "rationale": "Temporary exact-CVE exception in the canonical API image while Multer is upgraded and upload limits and cleanup behavior are requalified.",
       "createdAt": "2026-07-14T19:46:00Z",
       "expiresAt": "2026-07-28T23:59:59Z"
     },
@@ -202,14 +193,11 @@
       "scanner": "trivy-container",
       "findingType": "vulnerability",
       "findingId": "CVE-2026-3304",
-      "paths": [
-        "app/node_modules/**/multer@2.0.2/node_modules/multer/package.json"
-      ],
       "severity": "HIGH",
       "owner": "platform-security",
       "approvedBy": "project-technical-owner",
       "ticket": "#2604",
-      "rationale": "Temporary version-scoped exception while Multer resource exhaustion protections are upgraded and tested.",
+      "rationale": "Temporary exact-CVE exception in the canonical API image while Multer resource exhaustion protections are upgraded and tested.",
       "createdAt": "2026-07-14T19:46:00Z",
       "expiresAt": "2026-07-28T23:59:59Z"
     },
@@ -218,14 +206,11 @@
       "scanner": "trivy-container",
       "findingType": "vulnerability",
       "findingId": "CVE-2026-3520",
-      "paths": [
-        "app/node_modules/**/multer@2.0.2/node_modules/multer/package.json"
-      ],
       "severity": "HIGH",
       "owner": "platform-security",
       "approvedBy": "project-technical-owner",
       "ticket": "#2604",
-      "rationale": "Temporary version-scoped exception while deeply nested multipart field handling is upgraded and verified fail closed.",
+      "rationale": "Temporary exact-CVE exception in the canonical API image while deeply nested multipart field handling is upgraded and verified fail closed.",
       "createdAt": "2026-07-14T19:46:00Z",
       "expiresAt": "2026-07-28T23:59:59Z"
     },
@@ -234,14 +219,11 @@
       "scanner": "trivy-container",
       "findingType": "vulnerability",
       "findingId": "CVE-2026-5079",
-      "paths": [
-        "app/node_modules/**/multer@2.0.2/node_modules/multer/package.json"
-      ],
       "severity": "HIGH",
       "owner": "platform-security",
       "approvedBy": "project-technical-owner",
       "ticket": "#2604",
-      "rationale": "Temporary version-scoped exception while Multer is upgraded to a patched line and multipart denial-of-service tests are added.",
+      "rationale": "Temporary exact-CVE exception in the canonical API image while Multer is upgraded to a patched line and multipart denial-of-service tests are added.",
       "createdAt": "2026-07-14T19:46:00Z",
       "expiresAt": "2026-07-28T23:59:59Z"
     },
@@ -250,14 +232,11 @@
       "scanner": "trivy-container",
       "findingType": "vulnerability",
       "findingId": "CVE-2026-48779",
-      "paths": [
-        "app/node_modules/**/ws@8.18.3/node_modules/ws/package.json"
-      ],
       "severity": "HIGH",
       "owner": "platform-security",
       "approvedBy": "project-technical-owner",
       "ticket": "#2604",
-      "rationale": "Temporary version-scoped exception while ws is upgraded and fragmented-frame memory exhaustion tests are added.",
+      "rationale": "Temporary exact-CVE exception in the canonical API image while ws is upgraded and fragmented-frame memory exhaustion tests are added.",
       "createdAt": "2026-07-14T19:46:00Z",
       "expiresAt": "2026-07-28T23:59:59Z"
     }
