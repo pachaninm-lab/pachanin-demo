@@ -1,5 +1,5 @@
 {
-  "version": 24,
+  "version": 25,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -12,6 +12,7 @@
     "apps/web/lib/integrations-server.ts",
     "apps/web/lib/auth-profile-server.ts",
     "apps/web/lib/reporting-server.ts",
+    "apps/web/lib/organization-team-server.ts",
     "apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx",
     "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
     "apps/web/components/v7r/AppShellV4.tsx",
