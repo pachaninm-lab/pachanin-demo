@@ -1,5 +1,6 @@
 const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([
   '/platform-v7/control-tower',
+  '/platform-v7/status',
   '/platform-v7/operator',
   '/platform-v7/buyer',
   '/platform-v7/seller',

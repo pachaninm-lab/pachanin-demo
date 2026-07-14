@@ -10,6 +10,7 @@ on:
       - 'apps/web/app/platform-v7/template.tsx'
       - 'apps/web/app/platform-v7/_styles/fixed-header-contract.css'
       - 'apps/web/app/platform-v7/control-tower/page.tsx'
+      - 'apps/web/app/platform-v7/status/page.tsx'
       - 'apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'
@@ -73,6 +74,7 @@ on:
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
       - 'apps/web/tests/unit/platformV7ServerVerifiedShell.test.ts'
       - 'apps/web/tests/unit/platformV7ShellNotificationAuthority.test.ts'
+      - 'apps/web/tests/unit/platformV7StatusAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7TodayWorkspace.test.ts'
       - 'apps/web/tests/unit/transactionRoleCockpitsV8.test.ts'
       - 'design-governance-v8.json'
@@ -88,6 +90,7 @@ on:
       - 'apps/web/app/platform-v7/template.tsx'
       - 'apps/web/app/platform-v7/_styles/fixed-header-contract.css'
       - 'apps/web/app/platform-v7/control-tower/page.tsx'
+      - 'apps/web/app/platform-v7/status/page.tsx'
       - 'apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'
@@ -151,6 +154,7 @@ on:
       - 'apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts'
       - 'apps/web/tests/unit/platformV7ServerVerifiedShell.test.ts'
       - 'apps/web/tests/unit/platformV7ShellNotificationAuthority.test.ts'
+      - 'apps/web/tests/unit/platformV7StatusAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7TodayWorkspace.test.ts'
       - 'apps/web/tests/unit/transactionRoleCockpitsV8.test.ts'
       - 'design-governance-v8.json'
@@ -178,7 +182,7 @@ jobs:
         run: node ./scripts/check-design-system-v8.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
-      - name: Run v8 runtime-isolation, role, registry, server-shell, notification-authority, FGIS, auction, physical-execution, critical-route and settlement regressions
+      - name: Run v8 runtime-isolation, role, registry, status, server-shell, notification-authority, FGIS, auction, physical-execution, critical-route and settlement regressions
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
@@ -201,6 +205,7 @@ jobs:
             tests/unit/platformV7RoleIntentDashboard.test.ts \
             tests/unit/platformV7ServerVerifiedShell.test.ts \
             tests/unit/platformV7ShellNotificationAuthority.test.ts \
+            tests/unit/platformV7StatusAuthority.test.ts \
             tests/unit/platformV7TodayWorkspace.test.ts \
             tests/unit/transactionRoleCockpitsV8.test.ts 2>&1 | tee design-system-v8-tests.log
       - name: Upload v8 regression log

@@ -1,185 +1,255 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getLocale } from 'next-intl/server';
+import { InlineNotice, StatusChip } from '@pc/design-system-v8';
+import { getOutboxStatus } from '@/lib/outbox-server';
+import {
+  OperationalCockpitSection,
+  OperationalDecisionCockpit,
+  OperationalQueue,
+  OperationalQueueLink,
+  operationalCockpitClasses,
+  type OperationalPriority,
+} from '@/components/transaction-ux/OperationalDecisionCockpit';
 
-export const metadata: Metadata = {
-  title: 'Статус контура — Прозрачная Цена',
-  description:
-    'Честный статус контролируемого преинтеграционного контура: ФГИС, банк, ЭДО, лаборатории, внешние доступы и готовность к проверке.',
-  alternates: {
-    canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/status',
+type Locale = 'ru' | 'en' | 'zh';
+
+type Copy = Readonly<{
+  metadataTitle: string;
+  metadataDescription: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  statusAvailable: string;
+  statusUnavailable: string;
+  blocker: string;
+  owner: string;
+  impact: string;
+  result: string;
+  nextAction: string;
+  prioritySection: string;
+  factsSection: string;
+  availableTitle: string;
+  availableDescription: string;
+  unavailableTitle: string;
+  unavailableDescription: string;
+  unavailableImpact: string;
+  unavailableResult: string;
+  openOperator: string;
+  openConnectors: string;
+  integrationsTitle: string;
+  boundaryTitle: string;
+  boundary: string;
+  facts: Readonly<{
+    delivery: string;
+    deliveryHint: string;
+    pending: string;
+    pendingHint: string;
+    manualReview: string;
+    manualReviewHint: string;
+    external: string;
+    externalHint: string;
+  }>;
+  states: Readonly<{
+    available: string;
+    unavailable: string;
+    externalRequired: string;
+  }>;
+  integrations: ReadonlyArray<Readonly<{
+    href: string;
+    title: string;
+    detail: string;
+  }>>;
+}>;
+
+const COPY: Record<Locale, Copy> = {
+  ru: {
+    metadataTitle: 'Состояние контуров · Прозрачная Цена',
+    metadataDescription: 'Подтверждаемая доступность внутреннего контура и честные границы внешних интеграций.',
+    eyebrow: 'Состояние системы',
+    title: 'Показываем только подтверждаемые сигналы',
+    description: 'Внутренняя очередь событий проверяется через серверный контур. Для ФГИС, банка, ЭДО, ЭПД и лабораторных систем не отображаются выдуманные uptime или подключения.',
+    statusAvailable: 'внутренний контур доступен',
+    statusUnavailable: 'внутренний контур недоступен',
+    blocker: 'Блокер',
+    owner: 'Ответственный',
+    impact: 'Влияние',
+    result: 'Результат',
+    nextAction: 'Следующее действие',
+    prioritySection: 'Главная проверка',
+    factsSection: 'Подтверждённые факты',
+    availableTitle: 'Внутренняя очередь событий отвечает',
+    availableDescription: 'Доступны серверные pending и manual-review состояния. Это не подтверждает доступность внешних систем.',
+    unavailableTitle: 'Восстановить внутренний канал событий',
+    unavailableDescription: 'Серверная очередь событий недоступна. Бизнес-экран не должен трактовать это как отсутствие проблем.',
+    unavailableImpact: 'нельзя подтвердить доставку и ручную проверку внешних событий',
+    unavailableResult: 'восстановленная серверная очередь и повторная сверка',
+    openOperator: 'Вернуться оператору',
+    openConnectors: 'Открыть интеграции',
+    integrationsTitle: 'Внешние контуры',
+    boundaryTitle: 'Граница статуса',
+    boundary: 'Экран не измеряет uptime внешних систем и не объявляет интеграцию подключённой. Статус ФГИС, банка, ЭДО, ЭПД и лабораторий появляется только после подтверждённого внешнего обмена и эксплуатационного мониторинга.',
+    facts: {
+      delivery: 'Очередь событий', deliveryHint: 'серверный settlement/outbox reader',
+      pending: 'Ожидают отправки', pendingHint: 'подтверждённые pending-записи',
+      manualReview: 'Ручная проверка', manualReviewHint: 'подтверждённые manual-review записи',
+      external: 'Внешние подключения', externalHint: 'production-доступность не подтверждена',
+    },
+    states: { available: 'Доступна', unavailable: 'Недоступна', externalRequired: 'Требует внешнего подтверждения' },
+    integrations: [
+      { href: '/platform-v7/fgis-access', title: 'ФГИС «Зерно» / СДИЗ', detail: 'Организация и полномочия не заменяют production-доступ и реальный обмен.' },
+      { href: '/platform-v7/bank/release-safety', title: 'Банк / движение денег', detail: 'Резерв, запрос и callback подтверждаются только банковским контуром.' },
+      { href: '/platform-v7/documents', title: 'ЭДО / ГИС ЭПД / КЭП', detail: 'Подписание, доставка и исправление документов требуют внешнего подтверждения.' },
+      { href: '/platform-v7/lab', title: 'Лабораторные системы', detail: 'Протоколы и полномочия не доказывают live LIMS или реестр аккредитации.' },
+    ],
   },
-  robots: {
-    index: false,
-    follow: true,
+  en: {
+    metadataTitle: 'Circuit status · Transparent Price',
+    metadataDescription: 'Verifiable internal availability and explicit external-integration boundaries.',
+    eyebrow: 'System status',
+    title: 'Only verifiable signals are displayed',
+    description: 'The internal event queue is checked through the server circuit. No invented uptime or connection state is shown for grain registry, bank, EDI, e-transport or laboratory systems.',
+    statusAvailable: 'internal circuit available',
+    statusUnavailable: 'internal circuit unavailable',
+    blocker: 'Blocker', owner: 'Owner', impact: 'Impact', result: 'Result', nextAction: 'Next action',
+    prioritySection: 'Primary check', factsSection: 'Confirmed facts',
+    availableTitle: 'The internal event queue responds',
+    availableDescription: 'Server-confirmed pending and manual-review states are available. This does not prove external-system availability.',
+    unavailableTitle: 'Restore the internal event channel',
+    unavailableDescription: 'The server event queue is unavailable. The business UI must not interpret this as an all-clear state.',
+    unavailableImpact: 'external delivery and manual-review state cannot be confirmed',
+    unavailableResult: 'restored server queue and repeated reconciliation',
+    openOperator: 'Return to operator', openConnectors: 'Open integrations', integrationsTitle: 'External circuits', boundaryTitle: 'Status boundary',
+    boundary: 'This screen does not measure external-system uptime or declare an integration connected. Grain registry, bank, EDI, e-transport and laboratory status requires confirmed external exchange and operational monitoring.',
+    facts: {
+      delivery: 'Event queue', deliveryHint: 'server settlement/outbox reader',
+      pending: 'Pending delivery', pendingHint: 'confirmed pending records',
+      manualReview: 'Manual review', manualReviewHint: 'confirmed manual-review records',
+      external: 'External connections', externalHint: 'production availability is not confirmed',
+    },
+    states: { available: 'Available', unavailable: 'Unavailable', externalRequired: 'External confirmation required' },
+    integrations: [
+      { href: '/platform-v7/fgis-access', title: 'Grain registry / SDIZ', detail: 'Organization and authority do not replace production access or real exchange.' },
+      { href: '/platform-v7/bank/release-safety', title: 'Bank / movement of money', detail: 'Reserve, request and callback are confirmed only by the bank circuit.' },
+      { href: '/platform-v7/documents', title: 'EDI / e-transport / qualified signature', detail: 'Signing, delivery and correction require external confirmation.' },
+      { href: '/platform-v7/lab', title: 'Laboratory systems', detail: 'Protocols and authority do not prove live LIMS or an accreditation registry.' },
+    ],
+  },
+  zh: {
+    metadataTitle: '系统闭环状态 · 透明价格',
+    metadataDescription: '可验证的内部可用性以及明确的外部集成边界。',
+    eyebrow: '系统状态',
+    title: '仅显示可验证信号',
+    description: '内部事件队列通过服务器闭环检查。粮食登记、银行、电子文件、电子运输和实验室系统不会显示虚构的在线率或连接状态。',
+    statusAvailable: '内部闭环可用', statusUnavailable: '内部闭环不可用',
+    blocker: '阻塞项', owner: '负责人', impact: '影响', result: '结果', nextAction: '下一步',
+    prioritySection: '主要检查', factsSection: '已确认事实',
+    availableTitle: '内部事件队列正常响应',
+    availableDescription: '可以读取服务器确认的待发送和人工复核状态。这不代表外部系统可用。',
+    unavailableTitle: '恢复内部事件通道',
+    unavailableDescription: '服务器事件队列不可用。业务界面不能将其解释为没有问题。',
+    unavailableImpact: '无法确认外部事件发送和人工复核状态',
+    unavailableResult: '恢复服务器队列并重新对账',
+    openOperator: '返回运营工作区', openConnectors: '打开集成', integrationsTitle: '外部闭环', boundaryTitle: '状态边界',
+    boundary: '此页面不测量外部系统在线率，也不会宣布集成已连接。粮食登记、银行、电子文件、电子运输和实验室状态必须来自已确认的外部交换和运行监控。',
+    facts: {
+      delivery: '事件队列', deliveryHint: '服务器 settlement/outbox reader',
+      pending: '等待发送', pendingHint: '已确认的 pending 记录',
+      manualReview: '人工复核', manualReviewHint: '已确认的 manual-review 记录',
+      external: '外部连接', externalHint: '尚未确认生产可用性',
+    },
+    states: { available: '可用', unavailable: '不可用', externalRequired: '需要外部确认' },
+    integrations: [
+      { href: '/platform-v7/fgis-access', title: '粮食登记 / SDIZ', detail: '组织和权限不能替代生产访问和真实交换。' },
+      { href: '/platform-v7/bank/release-safety', title: '银行 / 资金流动', detail: '预留、请求和回调只能由银行闭环确认。' },
+      { href: '/platform-v7/documents', title: '电子文件 / 电子运输 / 合格签名', detail: '签署、发送和更正都需要外部确认。' },
+      { href: '/platform-v7/lab', title: '实验室系统', detail: '协议和权限不能证明 live LIMS 或资质登记可用。' },
+    ],
   },
 };
 
-const SERVICES = [
-  {
-    id: 'fgis',
-    name: 'ФГИС / СДИЗ',
-    status: 'degraded',
-    uptime: 'Проверка',
-    note: 'Предынтеграционная сверка партий и источников. Нужны доступы, ключи и подтверждение на реальных партиях.',
-    incidents: ['Проверить доступ к внешнему контуру', 'Сверить фактические расхождения данных и источников'],
-  },
-  {
-    id: 'bank',
-    name: 'Банк / события оплаты',
-    status: 'degraded',
-    uptime: 'Ручной контур',
-    note: 'Показываем основания, блокеры и ручную сверку. Банковские операции требуют договора и согласованного регламента.',
-    incidents: ['Согласовать банковский договор', 'Описать удержание, выпуск и сверку событий'],
-  },
-  {
-    id: 'edo',
-    name: 'ЭДО / ЭПД',
-    status: 'test_mode',
-    uptime: 'Контур',
-    note: 'Маршрут документов есть в интерфейсе. Подписание, обмен и исправления требуют внешних доступов.',
-    incidents: ['Закрепить матрицу документов', 'Подтвердить роли подписантов'],
-  },
-  {
-    id: 'labs',
-    name: 'Лаборатории / протоколы',
-    status: 'test_mode',
-    uptime: 'Контур',
-    note: 'Качество и протоколы отражены как рабочий контур. Часть данных требует ручного сопровождения.',
-    incidents: ['Утвердить формат протокола', 'Описать повторный анализ'],
-  },
-];
-
-const MODULES = [
-  {
-    title: 'Вход и роль',
-    readiness: 'UI-контур',
-    note: 'Есть login, register, auth hub и role-lock на уровне интерфейса. Server-side RBAC остаётся отдельным этапом.',
-    href: '/platform-v7/profile',
-  },
-  {
-    title: 'Банк и удержания',
-    readiness: 'Предынтеграционно',
-    note: 'Банковские поверхности показывают основание проверки, но договор и регламент остаются внешним условием.',
-    href: '/platform-v7/bank',
-  },
-  {
-    title: 'Доверительный слой',
-    readiness: 'UI-контур',
-    note: 'Карточки контрагентов, команда и отзывы помогают проверке, но требуют подтверждения на реальных сделках.',
-    href: '/platform-v7/profile',
-  },
-  {
-    title: 'Помощь роли',
-    readiness: 'Сопровождение',
-    note: 'Иконка помощи ведёт на этот статусный экран без смены личного кабинета.',
-    href: '/platform-v7/status',
-  },
-];
-
-function serviceTone(status: string) {
-  if (status === 'ok') return { bg: 'rgba(10,122,95,0.08)', border: 'rgba(10,122,95,0.18)', color: '#0A7A5F', label: 'ОК' };
-  if (status === 'degraded') return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'Требует проверки' };
-  return { bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.18)', color: '#2563EB', label: 'Тестовый режим' };
+function localeOf(value: string): Locale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
 }
 
-export default function StatusPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = COPY[localeOf(await getLocale())];
+  return {
+    title: copy.metadataTitle,
+    description: copy.metadataDescription,
+    robots: { index: false, follow: false },
+  };
+}
+
+export default async function StatusPage() {
+  const copy = COPY[localeOf(await getLocale())];
+  const outbox = await getOutboxStatus();
+  const available = outbox.isApiAvailable;
+  const priority: OperationalPriority = available
+    ? {
+        state: 'ready',
+        title: copy.availableTitle,
+        description: copy.availableDescription,
+        impact: `${outbox.totalPending} / ${outbox.manualReview.length}`,
+        result: copy.states.available,
+        primaryAction: <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/operator'>{copy.openOperator}</Link>,
+      }
+    : {
+        state: 'critical',
+        title: copy.unavailableTitle,
+        description: copy.unavailableDescription,
+        blocker: copy.unavailableDescription,
+        impact: copy.unavailableImpact,
+        result: copy.unavailableResult,
+        primaryAction: <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/connectors'>{copy.openConnectors}</Link>,
+        secondaryAction: <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/operator'>{copy.openOperator}</Link>,
+      };
+
   return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Статус контура</div>
-        <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Честный статус интеграций и внешних контуров. Здесь видно: что собрано в интерфейсе, что требует ручной проверки, а что ждёт договоров, доступов и предынтеграционной сверки.
-        </div>
-      </section>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-        <Metric title='Подключено' value='0' note='Внешние подключения требуют подтверждения.' />
-        <Metric title='Требует проверки' value='2' note='ФГИС/СДИЗ и банк требуют доступа и сверки.' />
-        <Metric title='Тестовый режим' value='2' note='ЭДО/ЭПД и лабораторный контур требуют сопровождения.' />
-        <Metric title='Режим' value='Контур' note='Controlled-pilot / pre-integration.' />
-      </div>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Модули и готовность</div>
-          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
-            Здесь показан статус рабочих поверхностей, которые помогают исполнению сделки, но не подменяют договоры, банк и внешние системы.
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-          {MODULES.map((item) => (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 16, lineHeight: 1.25, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 11, fontWeight: 800 }}>{item.readiness}</span>
-              </div>
-              <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--pc-text-secondary, #475569)' }}>{item.note}</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
-            </Link>
+    <OperationalDecisionCockpit
+      testId='platform-v7-status-v8'
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+      description={copy.description}
+      statusLabel={available ? copy.statusAvailable : copy.statusUnavailable}
+      statusTone={available ? 'success' : 'critical'}
+      priority={priority}
+      labels={{
+        blocker: copy.blocker,
+        owner: copy.owner,
+        impact: copy.impact,
+        result: copy.result,
+        nextAction: copy.nextAction,
+        prioritySection: copy.prioritySection,
+        factsSection: copy.factsSection,
+      }}
+      facts={[
+        { label: copy.facts.delivery, value: available ? copy.states.available : copy.states.unavailable, hint: copy.facts.deliveryHint },
+        { label: copy.facts.pending, value: available ? String(outbox.totalPending) : '—', hint: copy.facts.pendingHint },
+        { label: copy.facts.manualReview, value: available ? String(outbox.manualReview.length) : '—', hint: copy.facts.manualReviewHint },
+        { label: copy.facts.external, value: copy.states.externalRequired, hint: copy.facts.externalHint },
+      ]}
+      boundary={copy.boundary}
+    >
+      <OperationalCockpitSection id='external-integrations'>
+        <OperationalQueue>
+          {copy.integrations.map((integration) => (
+            <OperationalQueueLink
+              key={integration.href}
+              href={integration.href}
+              title={integration.title}
+              detail={integration.detail}
+              status={<StatusChip tone='warning'>{copy.states.externalRequired}</StatusChip>}
+            />
           ))}
-        </div>
-      </section>
+        </OperationalQueue>
+      </OperationalCockpitSection>
 
-      <section style={{ display: 'grid', gap: 12 }}>
-        {SERVICES.map((service) => {
-          const tone = serviceTone(service.status);
-          return (
-            <article key={service.id} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{service.name}</div>
-                  <div style={{ marginTop: 6, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{service.note}</div>
-                </div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 10px', borderRadius: 999, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color, fontSize: 11, fontWeight: 800 }}>
-                  {tone.label}
-                </span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-                <Cell label='Состояние' value={service.uptime} />
-                <Cell label='Последний статус' value={tone.label} />
-              </div>
-
-              <div style={{ display: 'grid', gap: 8 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Следующие проверки</div>
-                {service.incidents.map((incident) => (
-                  <div key={incident} style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#F8FAFB', fontSize: 12, color: 'var(--pc-text-secondary, #475569)' }}>
-                    {incident}
-                  </div>
-                ))}
-              </div>
-            </article>
-          );
-        })}
-      </section>
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link href='/platform-v7/connectors' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-          Проверить интеграции
-        </Link>
-        <Link href='/platform-v7/control-tower' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
-          Вернуться в Центр управления
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function Metric({ title, value, note }: { title: string; value: string; note: string }) {
-  return (
-    <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-      <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{title}</div>
-      <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{value}</div>
-      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.6 }}>{note}</div>
-    </section>
-  );
-}
-
-function Cell({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#fff' }}>
-      <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
-      <div style={{ marginTop: 6, fontSize: 14, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{value}</div>
-    </div>
+      <InlineNotice tone='information' title={copy.boundaryTitle}>
+        {copy.boundary}
+      </InlineNotice>
+    </OperationalDecisionCockpit>
   );
 }
