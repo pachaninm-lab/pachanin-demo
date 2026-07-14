@@ -14,6 +14,7 @@ const reports = read('apps/web/app/platform-v7/reports/page.tsx');
 const documents = read('apps/web/app/platform-v7/documents/page.tsx');
 const dealWorkspace = read('apps/web/app/platform-v7/deals/[dealId]/page.tsx');
 const scope = read('scripts/check-design-system-v8-pr-scope.mjs');
+const migrationScope = JSON.parse(read('scripts/design-system-v8-route-migration-scope.json')) as string[];
 
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important/i;
 
@@ -52,6 +53,14 @@ describe('platform-v7 data-room and investor compatibility authority', () => {
     expect(dealWorkspace).toContain('params.dealId');
   });
 
+  it('loads an exact route migration manifest without weakening scope to a wildcard', () => {
+    expect(scope).toContain("import fs from 'node:fs'");
+    expect(scope).toContain("new URL('./design-system-v8-route-migration-scope.json', import.meta.url)");
+    expect(scope).toContain('for (const file of migrationScopeFiles) exact.add(normalize(file))');
+    expect(scope).not.toContain("'apps/web/app/platform-v7/'");
+    expect(new Set(migrationScope).size).toBe(migrationScope.length);
+  });
+
   it('keeps this cluster and the exact remaining inventory inside migration scope', () => {
     for (const file of [
       'apps/web/app/platform-v7/data-room/page.tsx',
@@ -66,7 +75,7 @@ describe('platform-v7 data-room and investor compatibility authority', () => {
       'apps/web/app/platform-v7/readiness/page.tsx',
       'apps/web/app/platform-v7/support/page.tsx',
     ]) {
-      expect(scope).toContain(`'${file}'`);
+      expect(migrationScope).toContain(file);
     }
   });
 });
