@@ -14,6 +14,7 @@ const DESIGN_SYSTEM_V8_EXACT_ROUTES = new Set([
   '/platform-v7/buyer/reputation',
   '/platform-v7/seller',
   '/platform-v7/seller/rfq',
+  '/platform-v7/seller/reputation',
   '/platform-v7/logistics',
   '/platform-v7/driver',
   '/platform-v7/driver/field',
