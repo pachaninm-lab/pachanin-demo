@@ -104,6 +104,8 @@ const exact = new Set([
   'apps/web/tests/unit/platformV7OrganizationTeamAuthority.test.ts',
   'apps/web/tests/unit/platformV7OperatorQueuesCanonicalRoute.test.ts',
   'apps/web/tests/unit/platformV7BankPaymentBasisRuntimeGuard.test.ts',
+  'apps/web/tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts',
+  'apps/web/tests/unit/platformV7DarkThemeTokens.test.ts',
   'apps/web/tests/unit/platformV7MoneyBankThemeTokens.test.ts',
   'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts',
   'apps/web/tests/unit/platformV7ConnectorsAuthority.test.ts',
