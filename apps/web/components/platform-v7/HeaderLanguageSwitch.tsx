@@ -37,6 +37,15 @@ const LANGUAGE_RELOAD_KEY = 'pc-v7-language-reload-target';
 
 function findTarget() {
   if (typeof document === 'undefined') return null;
+
+  // AppShellV4 uses CSS modules, so the protected action rail has no stable
+  // global class. Anchor the portal to its semantic notification control
+  // instead of falling back to a fixed element over the header.
+  const protectedNotification = document.querySelector<HTMLElement>(
+    '.pc-shell-root-v4 a[aria-label="Открыть уведомления"]',
+  );
+  if (protectedNotification?.parentElement) return protectedNotification.parentElement;
+
   for (const selector of TARGETS) {
     const target = document.querySelector<Element>(selector);
     if (target) return target;
@@ -172,6 +181,11 @@ export function HeaderLanguageSwitch() {
   }, [dictionaries]);
 
   if (!mounted || typeof document === 'undefined') return null;
+
+  // Never place a fixed fallback above a protected header while its semantic
+  // action rail is mounting. The mutation observer will attach the portal as
+  // soon as the notification control exists.
+  if (!target && document.querySelector('.pc-shell-root-v4')) return null;
 
   const meta = getLanguageMeta(language);
   const next = getLanguageMeta(nextLanguage(language));
