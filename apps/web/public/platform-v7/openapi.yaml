@@ -1,0 +1,209 @@
+openapi: 3.0.3
+info:
+  title: Прозрачная Цена · подтверждённый API-контракт
+  version: 1.0.0-controlled
+  description: |
+    Консервативный read-only контракт для интеграционной подготовки.
+    В спецификацию включены только маршруты, подтверждённые фактическими NestJS-контроллерами.
+    Наличие маршрута не подтверждает production-доступность внешних систем, банковских callback,
+    ФГИС, ЭДО, ГИС ЭПД, КЭП или LIMS.
+  x-maturity: controlled-integration-contract
+servers:
+  - url: /
+    description: Same-origin API gateway
+tags:
+  - name: Runtime
+    description: Liveness, readiness and build identity.
+  - name: Identity
+    description: Authenticated server identity and membership context.
+  - name: Deals
+    description: Participant-scoped canonical Deal reads.
+  - name: Logistics
+    description: Role-scoped shipment reads.
+  - name: Disputes
+    description: Role-scoped dispute and evidence reads.
+  - name: Settlement
+    description: Role-scoped bank workspace and durable event-delivery reads.
+  - name: Integrations
+    description: Internal adapter diagnostics. Diagnostics are not live-integration proof.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    DealId:
+      in: path
+      name: dealId
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 200 }
+    ShipmentId:
+      in: path
+      name: shipmentId
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 200 }
+    DisputeId:
+      in: path
+      name: disputeId
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 200 }
+  responses:
+    Unauthorized:
+      description: Authentication is missing, invalid or expired.
+    Forbidden:
+      description: The authenticated role or tenant membership cannot access the resource.
+    NotFound:
+      description: The resource does not exist inside the authenticated participant scope.
+    Unavailable:
+      description: A required internal dependency is unavailable. No synthetic data is substituted.
+paths:
+  /health:
+    get:
+      tags: [Runtime]
+      summary: Process liveness
+      operationId: getLiveness
+      security: []
+      responses:
+        '200': { description: API process is responding. }
+  /ready:
+    get:
+      tags: [Runtime]
+      summary: PostgreSQL and migration readiness
+      operationId: getReadiness
+      security: []
+      responses:
+        '200': { description: Database round-trip and required migrations are confirmed. }
+        '503': { $ref: '#/components/responses/Unavailable' }
+  /version:
+    get:
+      tags: [Runtime]
+      summary: Runtime version and build identity
+      operationId: getVersion
+      security: []
+      responses:
+        '200': { description: Version, commit, build date and environment identity. }
+  /api/auth/me:
+    get:
+      tags: [Identity]
+      summary: Authenticated user, organization, tenant, role and membership context
+      operationId: getAuthenticatedIdentity
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Server-confirmed authenticated context. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/deals:
+    get:
+      tags: [Deals]
+      summary: List Deals visible to the authenticated participant
+      operationId: listParticipantDeals
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Participant-scoped Deal list. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/deals/{dealId}/workspace:
+    get:
+      tags: [Deals]
+      summary: Read canonical Deal workspace
+      operationId: getDealWorkspace
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/DealId' }]
+      responses:
+        '200': { description: Deal, shipment, acceptance, laboratory and evidence facts validated for one tenant. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/deals/{dealId}/execution-workspace:
+    get:
+      tags: [Deals]
+      summary: Read the canonical execution state and allowed next actions
+      operationId: getDealExecutionWorkspace
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/DealId' }]
+      responses:
+        '200': { description: PostgreSQL-authoritative execution workspace. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/logistics/shipments:
+    get:
+      tags: [Logistics]
+      summary: List shipments visible to the authenticated logistics role
+      operationId: listShipments
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Role- and tenant-scoped shipment list. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/logistics/shipments/{shipmentId}/workspace:
+    get:
+      tags: [Logistics]
+      summary: Read shipment, checkpoints and GPS track
+      operationId: getShipmentWorkspace
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ShipmentId' }]
+      responses:
+        '200': { description: Shipment workspace with tenant-consistent checkpoints and GPS facts. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/disputes:
+    get:
+      tags: [Disputes]
+      summary: List disputes visible to the authenticated role
+      operationId: listDisputes
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Role- and tenant-scoped dispute list. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/disputes/{disputeId}:
+    get:
+      tags: [Disputes]
+      summary: Read one dispute and its confirmed facts
+      operationId: getDispute
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/DisputeId' }]
+      responses:
+        '200': { description: Dispute visible inside the authenticated scope. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/settlement-engine/deal/{dealId}/bank-workspace:
+    get:
+      tags: [Settlement]
+      summary: Read bank workspace for one Deal
+      operationId: getBankWorkspace
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/DealId' }]
+      responses:
+        '200': { description: Settlement terms, operations, holds, receipts and reconciliation facts. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/settlement-engine/outbox:
+    get:
+      tags: [Settlement]
+      summary: Read pending and manual-review integration events
+      operationId: getSettlementOutbox
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: dealId
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        '200': { description: Durable event-delivery state inside the authenticated scope. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/integrations/health:
+    get:
+      tags: [Integrations]
+      summary: Read internal adapter diagnostic state
+      operationId: getIntegrationDiagnostics
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Internal adapter diagnostics. This response is not production connectivity evidence. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
