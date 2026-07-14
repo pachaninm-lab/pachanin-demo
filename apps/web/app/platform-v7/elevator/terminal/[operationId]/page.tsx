@@ -1,5 +1,5 @@
-import { GrainExecutionPage } from '@/components/platform-v7/GrainExecutionPage';
+import { redirect } from 'next/navigation';
 
-export default function PlatformV7ElevatorOperationPage() {
-  return <GrainExecutionPage mode='elevator-operation' role='elevator' />;
+export default function PlatformV7ElevatorOperationPage({ params }: { params: { operationId: string } }) {
+  redirect(`/platform-v7/elevator?operationId=${encodeURIComponent(params.operationId)}`);
 }
