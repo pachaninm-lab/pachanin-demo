@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getLocale } from 'next-intl/server';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
-import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
+import { isKnownPlatformV7Route } from '@/lib/platform-v7/known-route-policy';
 import { platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import {
   readVerifiedCabinetRole,
@@ -158,13 +158,14 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   if (isStaffPath(pathname)) return children;
 
   if (isPublicPath(pathname)) {
-    const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
-    const publicContent = needsPublicHeader(pathname)
+    return needsPublicHeader(pathname)
       ? <PlatformV7PublicPageShell>{children}</PlatformV7PublicPageShell>
       : children;
-
-    return <PlatformV7FullStyleRuntime>{publicContent}</PlatformV7FullStyleRuntime>;
   }
+
+  // Unknown Platform V7 URLs fail closed before auth redirects, role shell creation,
+  // or any client runtime can disclose navigation or cabinet context.
+  if (!isKnownPlatformV7Route(pathname)) notFound();
 
   // A protected business cabinet is rendered only after the signed cabinet/access
   // JWT has been verified. URL, query, pc-role, localStorage and client state never
@@ -175,15 +176,10 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   if (!canRoleAccessCabinet(role, pathname)) redirect(platformV7RoleRoute(role));
 
   const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');
+  const { PlatformV7DesignSystemV8Runtime } = await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime');
   const protectedContent = (
     <PlatformV7ProtectedRuntime pathname={pathname} verifiedRole={role}>{children}</PlatformV7ProtectedRuntime>
   );
 
-  if (isDesignSystemV8Route(pathname)) {
-    const { PlatformV7DesignSystemV8Runtime } = await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime');
-    return <PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>;
-  }
-
-  const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
-  return <PlatformV7FullStyleRuntime>{protectedContent}</PlatformV7FullStyleRuntime>;
+  return <PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>;
 }
