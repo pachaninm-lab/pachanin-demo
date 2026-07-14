@@ -38,6 +38,7 @@ describe('platform-v7 canonical operator queues route', () => {
 
   it('keeps the alias inside the minimal v8 runtime and governance boundary', () => {
     expect(routePolicy).toContain("'/platform-v7/operator-cockpit/queues'");
-    expect(governance.migratedFiles).toContain('apps/web/app/platform-v7/operator-cockpit/queues/page.tsx');
+    expect(governance.governedRoots).toContain('apps/web/app/platform-v7/operator-cockpit/queues/page.tsx');
+    expect(governance.migratedFiles).not.toContain('apps/web/app/platform-v7/operator-cockpit/queues/page.tsx');
   });
 });
