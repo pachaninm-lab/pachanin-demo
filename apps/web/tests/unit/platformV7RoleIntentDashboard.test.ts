@@ -113,7 +113,8 @@ describe('platform-v7 role intent dashboard', () => {
     expect(shell).toContain('Данные и сценарии тестовые');
     expect(shell).toContain('Внешние интеграции, электронная подпись и движение денег не активированы');
     expect(shell).toContain('{children}');
-    expect(shell).toContain('const showPlatformFooter = !isRoleRoot || (previewResolved && !ownerPreview)');
+    expect(shell).toContain('const showPlatformFooter = !isRoleRoot || !ownerPreview');
+    expect(shell).not.toContain('cabinetLoading');
   });
 
   it('accepts current and legacy URI-encoded owner session markers before choosing the surface', () => {

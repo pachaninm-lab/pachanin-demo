@@ -1,0 +1,35 @@
+/* Canonical public-header geometry: reserve independent grid tracks so navigation targets cannot sit underneath locale/actions. */
+.pc-site-header.pc-site-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: 16px;
+}
+
+.pc-site-header .pc-site-nav {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  gap: 12px;
+}
+
+.pc-site-header .pc-site-nav > a {
+  min-width: 32px;
+  min-height: 44px;
+  padding-inline: 6px;
+}
+
+.pc-site-header .pc-site-actions {
+  margin-left: 0;
+  padding-left: 4px;
+}
+
+.pc-site-header .pc-site-locale-switch {
+  min-width: 56px;
+  min-height: 44px;
+}
+
+@media (max-width: 1080px) {
+  .pc-site-header.pc-site-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}

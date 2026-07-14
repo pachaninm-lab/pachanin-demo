@@ -1,0 +1,97 @@
+name: Platform V7 Design System v8 Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/app/platform-v7/**'
+      - 'apps/web/components/platform-v7/**'
+      - 'apps/web/components/v7r/AppShellV4*'
+      - 'apps/web/lib/platform-v7/**'
+      - 'apps/web/styles/platform-v7-public-*.css'
+      - 'apps/web/playwright.acceptance.config.ts'
+      - 'apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts'
+      - 'apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts'
+      - 'packages/design-system-v8/**'
+      - 'packages/design-tokens/**'
+      - 'docs/platform-v7/qa/DESIGN_SYSTEM_V8_FINAL_ACCEPTANCE.md'
+      - '.github/workflows/platform-v7-design-system-v8-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/app/platform-v7/**'
+      - 'apps/web/components/platform-v7/**'
+      - 'apps/web/components/v7r/AppShellV4*'
+      - 'apps/web/lib/platform-v7/**'
+      - 'apps/web/styles/platform-v7-public-*.css'
+      - 'apps/web/playwright.acceptance.config.ts'
+      - 'apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts'
+      - 'packages/design-system-v8/**'
+      - 'packages/design-tokens/**'
+      - '.github/workflows/platform-v7-design-system-v8-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-v7-design-system-v8-acceptance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-accessibility-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PC_ACCEPTANCE_JWT_SECRET: pc-design-system-v8-acceptance-secret-2026
+      JWT_SECRET: pc-design-system-v8-acceptance-secret-2026
+      PC_CABINET_SESSION_SECRET: pc-design-system-v8-acceptance-secret-2026
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Build production web bundle
+        run: pnpm --filter @pc/web build
+      - name: Run Design System v8 browser and accessibility matrix
+        working-directory: apps/web
+        run: pnpm exec playwright test --config=playwright.acceptance.config.ts
+      - name: Publish acceptance summary
+        if: always()
+        working-directory: apps/web
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'design-system-v8-acceptance-results.json';
+          if (!fs.existsSync(path)) {
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '## Design System v8 acceptance\n\nJSON result was not produced.\n');
+            process.exit(0);
+          }
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const stats = report.stats || {};
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `## Design System v8 acceptance\n\n- Expected: ${stats.expected ?? 0}\n- Unexpected: ${stats.unexpected ?? 0}\n- Flaky: ${stats.flaky ?? 0}\n- Skipped: ${stats.skipped ?? 0}\n- Duration: ${Math.round((stats.duration || 0) / 1000)} s\n`,
+          );
+          NODE
+      - name: Upload browser acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-design-system-v8-acceptance-${{ github.sha }}
+          path: |
+            apps/web/design-system-v8-acceptance-results.json
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: warn
+          retention-days: 14

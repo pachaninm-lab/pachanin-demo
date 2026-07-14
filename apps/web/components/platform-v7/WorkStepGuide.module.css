@@ -1,0 +1,23 @@
+.root {
+  max-width: 100%;
+}
+
+.row {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .root {
+    padding: 9px !important;
+    border-radius: 16px !important;
+  }
+
+  .row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .row a {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+}

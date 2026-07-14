@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { ArrowRight, Banknote, FileText, Gauge, ShieldAlert, Truck } from 'lucide-react';
 import { DEALS, DISPUTES, getDealById, getDisputeById } from '@/lib/v7r/data';
 import { formatCompactMoney } from '@/lib/v7r/helpers';
+import styles from './WorkStepGuide.module.css';
 
 type Tone = 'risk' | 'money' | 'docs' | 'logistics' | 'neutral';
 type Action = { label: string; href: string; tone?: Tone };
@@ -166,8 +167,8 @@ export function WorkStepGuide() {
   const tone = toneMap[config.tone];
 
   return (
-    <nav data-testid="platform-v7-work-step-guide" aria-label="Рабочие действия" style={{ border: `1px solid ${tone.border}`, borderRadius: 18, background: '#fff', boxShadow: 'var(--pc-shadow-sm)', padding: 10, display: 'grid', gap: 8, maxWidth: '100%', overflow: 'hidden' }}>
-      <div className="p7-work-actions-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(110px, 180px) minmax(0, auto) minmax(160px, 1fr)', gap: 8, alignItems: 'center' }}>
+    <nav className={styles.root} data-testid="platform-v7-work-step-guide" aria-label="Рабочие действия" style={{ border: `1px solid ${tone.border}`, borderRadius: 18, background: '#fff', boxShadow: 'var(--pc-shadow-sm)', padding: 10, display: 'grid', gap: 8, maxWidth: '100%', overflow: 'hidden' }}>
+      <div className={`p7-work-actions-row ${styles.row}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(110px, 180px) minmax(0, auto) minmax(160px, 1fr)', gap: 8, alignItems: 'center' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0, color: tone.text, fontSize: 12, fontWeight: 900 }}>
           <span style={{ width: 30, height: 30, borderRadius: 11, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: tone.bg, border: `1px solid ${tone.border}`, color: tone.icon, flex: '0 0 auto' }}><Icon size={15} strokeWidth={2.3} /></span>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{config.title}</span>
@@ -178,7 +179,6 @@ export function WorkStepGuide() {
           {config.facts.map((item) => <span key={`${item.label}-${item.value}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minHeight: 30, padding: '5px 8px', borderRadius: 999, background: 'var(--pc-shell-surface-soft, #F8FAFB)', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)', fontSize: 11, fontWeight: 780, whiteSpace: 'nowrap' }}><b style={{ color: 'var(--pc-text-muted, #64748B)', fontWeight: 850 }}>{item.label}</b>{item.value}</span>)}
         </div>
       </div>
-      <style>{`@media(max-width:760px){[data-testid="platform-v7-work-step-guide"]{padding:9px!important;border-radius:16px!important}.p7-work-actions-row{grid-template-columns:1fr!important}.p7-work-actions-row a{width:100%!important;justify-content:space-between!important}}`}</style>
     </nav>
   );
 }

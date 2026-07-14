@@ -12,8 +12,31 @@
 .shellPolicy :global(nav[data-testid='platform-v7-work-route-nav']),
 .shellPolicy :global(.pc-shell-root-v4) > header [data-tone],
 .shellPolicy :global(.pc-shell-root-v4) > header > div > div:nth-child(2),
-.shellPolicy :global(.pc-shell-root-v4) > main > p:first-child {
+.shellPolicy :global(.pc-shell-root-v4) > main > p:first-child,
+.shellPolicy :global([data-testid^='role-execution-summary-'] h1),
+.shellPolicy :global([data-testid^='role-execution-summary-'] h1 + p),
+.shellPolicy :global([data-testid^='role-execution-summary-'] [aria-label='Логика работы']),
+.shellPolicy :global([data-testid^='role-execution-summary-'] [data-testid^='role-primary-task-'] > div > span:first-child),
+.shellPolicy :global([data-testid^='role-intent-surface-'] h2 + div),
+.shellPolicy :global([data-testid='platform-v7-role-workspace-hint']) {
   display: none;
+}
+
+.shellPolicy :global([data-testid^='role-execution-summary-']) {
+  gap: 12px;
+}
+
+.shellPolicy :global([data-testid^='role-intent-surface-']) {
+  padding: 14px;
+}
+
+.shellPolicy :global([data-testid^='role-intent-surface-'] h2) {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.shellPolicy :global([data-testid^='role-execution-summary-'] a) {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .shellPolicy[data-shell-policy='field'] :global(.pc-shell-root-v4) > header button[aria-label='Открыть поиск'],
@@ -143,6 +166,38 @@
   .shellPolicy :global(.pc-shell-root-v4) > main {
     padding-left: 10px;
     padding-right: 10px;
+  }
+
+  .shellPolicy :global([data-testid^='role-execution-summary-']) {
+    gap: 10px;
+  }
+
+  .shellPolicy :global([data-testid^='role-intent-surface-']) {
+    padding: 12px;
+  }
+
+  .shellPolicy :global([data-testid^='role-intent-surface-'] h2) {
+    font-size: 15px;
+  }
+
+  .shellPolicy :global([data-testid^='role-primary-task-']) {
+    padding: 12px;
+  }
+
+  .shellPolicy :global(.pc-v7-assistant-widget) {
+    right: 12px;
+    bottom: calc(env(safe-area-inset-bottom) + 82px);
+    width: 42px;
+    min-width: 42px;
+    max-width: 42px;
+    min-height: 42px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 15px;
+  }
+
+  .shellPolicy :global(.pc-v7-assistant-widget span) {
+    display: none;
   }
 }
 
