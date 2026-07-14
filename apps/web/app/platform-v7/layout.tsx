@@ -56,6 +56,12 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/privacy',
   '/platform-v7/roles',
   '/platform-v7/terms',
+  '/platform-v7/secure-grain-deal',
+  '/platform-v7/grain-logistics',
+  '/platform-v7/grain-quality',
+  '/platform-v7/grain-documents',
+  '/platform-v7/grain-payment',
+  '/platform-v7/fgis-zerno',
 ]);
 const PUBLIC_HEADERLESS_PATHS = new Set([
   '/platform-v7/help',
