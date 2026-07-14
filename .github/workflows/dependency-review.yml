@@ -38,3 +38,51 @@ jobs:
         if: steps.graph.outputs.enabled == 'true'
         with:
           fail-on-severity: critical
+
+  governed-lockfile-artifact:
+    if: github.event_name == 'pull_request' && github.head_ref == 'agent/ir-sec-transitive-runtime-remediation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup pinned pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Generate deterministic lockfile
+        run: pnpm install --lockfile-only
+
+      - name: Verify patched resolutions
+        run: |
+          pnpm install --frozen-lockfile
+          node - <<'NODE'
+          const fs = require('fs');
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+          const required = ['multer@2.2.0', 'lodash@4.18.0', 'ws@8.21.0'];
+          const missing = required.filter((token) => !lock.includes(token));
+          if (missing.length) {
+            console.error(`Patched resolutions missing from lockfile: ${missing.join(', ')}`);
+            process.exit(1);
+          }
+          console.log('Patched transitive resolutions are present.');
+          NODE
+
+      - name: Upload exact-head generated lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: governed-lockfile-${{ github.event.pull_request.head.sha }}
+          path: pnpm-lock.yaml
+          if-no-files-found: error
+          retention-days: 7
