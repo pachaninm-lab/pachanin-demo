@@ -1,5 +1,5 @@
-import { GrainExecutionPage } from '@/components/platform-v7/GrainExecutionPage';
+import { redirect } from 'next/navigation';
 
-export default function PlatformV7NewBatchPage() {
-  return <GrainExecutionPage mode='quick-sale' role='seller' />;
+export default function PlatformV7NewBatchAliasPage() {
+  redirect('/platform-v7/fgis-access');
 }
