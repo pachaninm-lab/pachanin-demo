@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
+// WCAG assertions stay fail-closed across every configured desktop and mobile engine.
 function installLayoutShiftObserver(page: Page) {
   return page.addInitScript(() => {
     (window as Window & { __pcPublicExperienceLayoutShift?: number }).__pcPublicExperienceLayoutShift = 0;
