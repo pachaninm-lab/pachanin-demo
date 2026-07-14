@@ -17,6 +17,7 @@ const exact = new Set([
   'apps/web/app/platform-v7/control-tower/canonical-reconciliation/page.tsx',
   'apps/web/app/platform-v7/control-tower/hotlist/page.tsx',
   'apps/web/app/platform-v7/status/page.tsx',
+  'apps/web/app/platform-v7/health/page.tsx',
   'apps/web/app/platform-v7/connectors/page.tsx',
   'apps/web/app/platform-v7/api-docs/page.tsx',
   'apps/web/app/platform-v7/onboarding/page.tsx',
