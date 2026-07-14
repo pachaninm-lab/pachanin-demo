@@ -62,7 +62,8 @@ describe('platform-v7 public product experience v3', () => {
     expect(entryCopy).toContain("title: 'Кто вы в сделке?'");
     expect(entryCopy).toContain("title: 'Что вы хотите контролировать?'");
     expect(entryCopy).toContain('не влияет на права доступа');
-    expect(entryCss).toContain('min-height: 44px');
+    expect(entryCss).toContain('min-height: 116px');
+    expect(entryCss).toContain('min-height: 104px');
   });
 
   it('provides six lenses, twelve perspectives, three scenarios and ten stages', () => {
