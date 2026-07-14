@@ -7,6 +7,14 @@ const packageJson = JSON.parse(fs.readFileSync(path.join(webRoot, 'package.json'
   dependencies?: Record<string, string>;
 };
 
+function collectSourceFiles(directory: string): string[] {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) return collectSourceFiles(absolute);
+    return /\.(?:ts|tsx|js|jsx)$/.test(entry.name) ? [absolute] : [];
+  });
+}
+
 describe('Next.js 15 runtime boundary', () => {
   it('pins the minimum security-qualified Next.js release', () => {
     expect(packageJson.dependencies?.next).toBe('15.5.16');
@@ -19,5 +27,23 @@ describe('Next.js 15 runtime boundary', () => {
 
   it('retains the existing next-intl line that declares Next.js 15 and React 18 compatibility', () => {
     expect(packageJson.dependencies?.['next-intl']).toBe('^3.26.5');
+  });
+
+  it('keeps production builds fail-closed on TypeScript errors', () => {
+    const nextConfig = fs.readFileSync(path.join(webRoot, 'next.config.js'), 'utf8');
+    expect(nextConfig).not.toContain('ignoreBuildErrors');
+  });
+
+  it('contains no unresolved async request API codemod markers', () => {
+    const sourceFiles = [
+      ...collectSourceFiles(path.join(webRoot, 'app')),
+      ...collectSourceFiles(path.join(webRoot, 'components')),
+      ...collectSourceFiles(path.join(webRoot, 'lib')),
+    ];
+    const unresolved = sourceFiles.filter((file) => {
+      const source = fs.readFileSync(file, 'utf8');
+      return source.includes('@next/codemod') || source.includes('UnsafeUnwrapped');
+    });
+    expect(unresolved).toEqual([]);
   });
 });
