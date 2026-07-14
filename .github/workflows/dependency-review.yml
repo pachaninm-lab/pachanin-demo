@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # The review API only works when the dependency graph is enabled in
+      # repository settings. Probe first so a disabled graph surfaces as a
+      # visible warning instead of a permanently red required-looking check.
       - name: Check dependency graph availability
         id: graph
         env:
@@ -27,67 +31,10 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Dependency graph is disabled for this repository (HTTP $code)."
+            echo "::warning::Dependency graph is disabled for this repository (HTTP $code). Enable it in Settings → Advanced Security to activate dependency review."
           fi
+
       - uses: actions/dependency-review-action@v4
         if: steps.graph.outputs.enabled == 'true'
         with:
           fail-on-severity: critical
-
-  governed-opentelemetry-lockfile:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/ir-sec-opentelemetry-220' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout governed branch
-        uses: actions/checkout@v4
-        with:
-          ref: agent/ir-sec-opentelemetry-220
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.2.1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
-      - name: Generate deterministic lockfile
-        run: pnpm install --lockfile-only
-      - name: Verify coordinated OpenTelemetry generation
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm --filter @pc/api typecheck
-          pnpm --filter @pc/api test -- --runInBand telemetry-config.spec.ts
-          node - <<'NODE'
-          const fs = require('fs');
-          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
-          const required = [
-            '@opentelemetry/sdk-node@0.220.0',
-            '@opentelemetry/exporter-trace-otlp-grpc@0.220.0',
-            '@opentelemetry/exporter-metrics-otlp-grpc@0.220.0',
-            '@opentelemetry/resources@2.9.0',
-            '@opentelemetry/sdk-metrics@2.9.0',
-            '@opentelemetry/sdk-trace-node@2.9.0',
-            '@opentelemetry/instrumentation-http@0.220.0',
-            '@opentelemetry/instrumentation-express@0.68.0',
-            '@opentelemetry/instrumentation-nestjs-core@0.66.0',
-            '@opentelemetry/instrumentation-pg@0.72.0',
-          ];
-          const missing = required.filter((token) => !lock.includes(token));
-          if (missing.length) throw new Error(`Missing OpenTelemetry resolutions: ${missing.join(', ')}`);
-          if (lock.includes('@opentelemetry/sdk-node@0.52.1')) {
-            throw new Error('Vulnerable @opentelemetry/sdk-node 0.52.1 remains in lockfile.');
-          }
-          NODE
-      - name: Patch branch governance
-        run: node docs/platform-v7/autopilot/patch-opentelemetry-remediation-guard.mjs
-      - name: Restore trusted workflow surface and commit
-        run: |
-          git checkout origin/main -- .github/workflows/dependency-review.yml
-          git rm -f docs/platform-v7/autopilot/patch-opentelemetry-remediation-guard.mjs
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add pnpm-lock.yaml scripts/p7-autopilot-guard.sh .github/workflows/dependency-review.yml
-          git commit -m 'Regenerate OpenTelemetry 2.x lockfile [lockfile-refresh]'
-          git push origin HEAD:agent/ir-sec-opentelemetry-220
