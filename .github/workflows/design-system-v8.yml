@@ -13,6 +13,12 @@ on:
       - 'apps/web/app/platform-v7/status/page.tsx'
       - 'apps/web/app/platform-v7/connectors/page.tsx'
       - 'apps/web/app/platform-v7/profile/page.tsx'
+      - 'apps/web/app/platform-v7/reports/page.tsx'
+      - 'apps/web/app/platform-v7/api-docs/**'
+      - 'apps/web/app/platform-v7/compliance/page.tsx'
+      - 'apps/web/public/platform-v7/openapi.yaml'
+      - 'docs/api/openapi.yaml'
+      - 'apps/web/components/platform-v7/ApiDocPanel.tsx'
       - 'apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'
@@ -31,6 +37,8 @@ on:
       - 'apps/web/lib/disputes-server.ts'
       - 'apps/web/lib/integrations-server.ts'
       - 'apps/web/lib/auth-profile-server.ts'
+      - 'apps/web/lib/reporting-server.ts'
+      - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
       - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionAdapter.ts'
@@ -58,7 +66,6 @@ on:
       - 'apps/web/app/platform-v7/bank/page.tsx'
       - 'apps/web/app/platform-v7/operator/page.tsx'
       - 'apps/web/app/platform-v7/logistics/page.tsx'
-      - 'apps/web/app/platform-v7/compliance/page.tsx'
       - 'apps/web/app/platform-v7/arbitrator/page.tsx'
       - 'apps/web/app/platform-v7/executive/page.tsx'
       - 'apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx'
@@ -71,9 +78,11 @@ on:
       - 'apps/web/tests/unit/designSystemV8OperationalRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8PhysicalExecutionChain.test.ts'
       - 'apps/web/tests/unit/designSystemV8SettlementViews.test.ts'
+      - 'apps/web/tests/unit/platformV7ApiDocsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7ConnectorsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7ProfileAuthority.test.ts'
+      - 'apps/web/tests/unit/platformV7ReportsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7DealExecutionChain.test.ts'
       - 'apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts'
       - 'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx'
@@ -102,6 +111,12 @@ on:
       - 'apps/web/app/platform-v7/status/page.tsx'
       - 'apps/web/app/platform-v7/connectors/page.tsx'
       - 'apps/web/app/platform-v7/profile/page.tsx'
+      - 'apps/web/app/platform-v7/reports/page.tsx'
+      - 'apps/web/app/platform-v7/api-docs/**'
+      - 'apps/web/app/platform-v7/compliance/page.tsx'
+      - 'apps/web/public/platform-v7/openapi.yaml'
+      - 'docs/api/openapi.yaml'
+      - 'apps/web/components/platform-v7/ApiDocPanel.tsx'
       - 'apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'
@@ -120,6 +135,8 @@ on:
       - 'apps/web/lib/disputes-server.ts'
       - 'apps/web/lib/integrations-server.ts'
       - 'apps/web/lib/auth-profile-server.ts'
+      - 'apps/web/lib/reporting-server.ts'
+      - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
       - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionAdapter.ts'
@@ -147,7 +164,6 @@ on:
       - 'apps/web/app/platform-v7/bank/page.tsx'
       - 'apps/web/app/platform-v7/operator/page.tsx'
       - 'apps/web/app/platform-v7/logistics/page.tsx'
-      - 'apps/web/app/platform-v7/compliance/page.tsx'
       - 'apps/web/app/platform-v7/arbitrator/page.tsx'
       - 'apps/web/app/platform-v7/executive/page.tsx'
       - 'apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx'
@@ -160,9 +176,11 @@ on:
       - 'apps/web/tests/unit/designSystemV8OperationalRoles.test.ts'
       - 'apps/web/tests/unit/designSystemV8PhysicalExecutionChain.test.ts'
       - 'apps/web/tests/unit/designSystemV8SettlementViews.test.ts'
+      - 'apps/web/tests/unit/platformV7ApiDocsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7ConnectorsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7ProfileAuthority.test.ts'
+      - 'apps/web/tests/unit/platformV7ReportsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7DealExecutionChain.test.ts'
       - 'apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts'
       - 'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx'
@@ -200,7 +218,7 @@ jobs:
         run: node ./scripts/check-design-system-v8.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
-      - name: Run v8 runtime-isolation, role, registry, status, connectors, profile, server-shell, notification-authority, FGIS, auction, physical-execution, critical-route and settlement regressions
+      - name: Run v8 runtime-isolation, role, registry, API-contract, status, connectors, profile, reports, server-shell, FGIS, auction, physical-execution, critical-route and settlement regressions
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
@@ -214,9 +232,11 @@ jobs:
             tests/unit/designSystemV8OperationalRoles.test.ts \
             tests/unit/designSystemV8PhysicalExecutionChain.test.ts \
             tests/unit/designSystemV8SettlementViews.test.ts \
+            tests/unit/platformV7ApiDocsAuthority.test.ts \
             tests/unit/platformV7CanonicalDealWorkspace.test.ts \
             tests/unit/platformV7ConnectorsAuthority.test.ts \
             tests/unit/platformV7ProfileAuthority.test.ts \
+            tests/unit/platformV7ReportsAuthority.test.ts \
             tests/unit/platformV7DealExecutionChain.test.ts \
             tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts \
             tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx \
