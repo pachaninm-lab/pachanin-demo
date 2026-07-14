@@ -171,6 +171,7 @@ docs/platform-v7/autopilot/semgrep-security.yml
 infra/docker/Dockerfile.api
 infra/docker/Dockerfile.web
 infra/docker/Dockerfile.worker
+packages/integration-sdk/src/adapters/mfa.adapter.ts
 scripts/p7-autopilot-guard.sh'
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ]; then
