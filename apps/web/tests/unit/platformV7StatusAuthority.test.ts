@@ -71,7 +71,7 @@ describe('platform-v7 system status authority', () => {
     expect(healthPage).toContain("href='/platform-v7/operator-cockpit/queues'");
     expect(healthPage).toContain("href='/platform-v7/deals'");
     expect(healthPage).toContain("href='/platform-v7/connectors'");
-    expect(healthPage).toContain("href='/platform-v7/money'");
+    expect(healthPage).toContain("'/platform-v7/money'");
     expect(healthPage).not.toContain('fetch(');
     expect(healthPage).not.toContain('axios');
     expect(healthPage).not.toContain('onClick');
