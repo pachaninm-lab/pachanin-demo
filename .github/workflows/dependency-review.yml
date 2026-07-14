@@ -37,7 +37,7 @@ jobs:
   governed-lockfile-commit:
     if: github.event_name == 'pull_request' && github.head_ref == 'agent/ir-sec-transitive-runtime-remediation' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - name: Checkout governed branch
         uses: actions/checkout@v4
@@ -45,49 +45,18 @@ jobs:
           ref: agent/ir-sec-transitive-runtime-remediation
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.2.1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
-      - name: Generate deterministic lockfile
-        run: pnpm install --lockfile-only
-      - name: Patch branch guard
+      - name: Download retained exact-head lockfile artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('scripts/p7-autopilot-guard.sh')
-          s = p.read_text()
-          branch = 'agent/ir-sec-transitive-runtime-remediation'
-          scope = "TRANSITIVE_RUNTIME_REMEDIATION_SCOPE='package.json\npnpm-lock.yaml\ndocs/platform-v7/autopilot/security-exceptions.json\nscripts/p7-autopilot-guard.sh'\n\n"
-          marker = 'if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ]'
-          if scope not in s:
-              s = s.replace(marker, scope + marker, 1)
-          guard = f'''if [ "${{GITHUB_HEAD_REF:-}}" = "{branch}" ]; then
-            ALLOWED_CURRENT=$(printf '%s\\n%s\\n' "$ALLOWED_CURRENT" "$TRANSITIVE_RUNTIME_REMEDIATION_SCOPE")
-          fi
-
-          '''
-          anchor = 'APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<\'JS\''
-          if guard not in s:
-              s = s.replace(anchor, guard + anchor, 1)
-          old = "FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\\.json$|pnpm-lock\\.yaml$|\\.env|.*\\.pem$|.*\\.key$)'"
-          new = f'''if [ "${{GITHUB_HEAD_REF:-}}" = "{branch}" ]; then
-            FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\\.json$|\\.env|.*\\.pem$|.*\\.key$)'
-          else
-            FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\\.json$|pnpm-lock\\.yaml$|\\.env|.*\\.pem$|.*\\.key$)'
-          fi'''
-          if old in s:
-              s = s.replace(old, new, 1)
-          if scope not in s or guard not in s or new not in s:
-              raise SystemExit('Guard patch incomplete')
-          p.write_text(s)
-          PY
-      - name: Verify patched lockfile
+          gh api repos/${{ github.repository }}/actions/artifacts/8327291694/zip > /tmp/governed-lockfile.zip
+          mkdir -p /tmp/governed-lockfile
+          unzip -q /tmp/governed-lockfile.zip -d /tmp/governed-lockfile
+          cp /tmp/governed-lockfile/pnpm-lock.yaml pnpm-lock.yaml
+      - name: Verify artifact and patch guard
         run: |
-          pnpm install --frozen-lockfile
+          echo '8a13268a71246430aa0c19a92f168347a4b29e71d971cd01bac97d4dc2021e17  /tmp/governed-lockfile.zip' | sha256sum -c -
+          node docs/platform-v7/autopilot/patch-transitive-runtime-guard.mjs
           node - <<'NODE'
           const fs = require('fs');
           const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
@@ -99,10 +68,13 @@ jobs:
           ];
           if (errors.length) throw new Error(errors.join(','));
           NODE
-      - name: Commit generated files
+      - name: Restore workflow surface and commit
         run: |
+          git checkout origin/main -- .github/workflows/dependency-review.yml
+          git rm -f .github/workflows/ir-sec-lockfile-refresh.yml
+          git rm -f docs/platform-v7/autopilot/patch-transitive-runtime-guard.mjs
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add pnpm-lock.yaml scripts/p7-autopilot-guard.sh
+          git add pnpm-lock.yaml scripts/p7-autopilot-guard.sh .github/workflows/dependency-review.yml
           git commit -m 'Regenerate patched runtime dependency lockfile [lockfile-refresh]'
           git push origin HEAD:agent/ir-sec-transitive-runtime-remediation
