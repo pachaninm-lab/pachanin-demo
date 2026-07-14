@@ -2,7 +2,7 @@
 
 const PARTNERS = [
   { id: 'fgis',     label: 'ФГИС «Зерно»',        tagline: 'Минсельхоз РФ',        color: '#1B5E20' },
-  { id: 'sber',     label: 'СберБизнес',            tagline: 'Банк-партнёр',          color: '#21A038' },
+  { id: 'sber',     label: 'СберБизнес',            tagline: 'Банк-партнёр',          color: '#087A3B' },
   { id: 'rshb',     label: 'Россельхозбанк',        tagline: 'Агрофинансирование',    color: '#00833E' },
   { id: 'diadok',   label: 'Диадок',                tagline: 'ЭДО Контур',            color: '#2D3F9E' },
   { id: 'gis_epd',  label: 'ГИС ЭПД',              tagline: 'Эл. путевые листы',     color: '#344054' },
