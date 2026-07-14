@@ -42,4 +42,12 @@ describe('platform-v7 public homepage typography', () => {
     expect(landing).not.toContain('font-size:clamp(42px,11.4vw,50px)');
     expect(landing).not.toContain('font-size:clamp(38px,10.7vw,44px)');
   });
+
+  it('prevents the mobile hero title from becoming a five-line oversized block', () => {
+    expect(typography).toContain('font-size: clamp(34px, 9vw, 40px)');
+    expect(typography).toContain('.pc-v7-public-entry .entry-hero h1 span:first-child::after');
+    expect(typography).toContain('display: inline;');
+    expect(typography).toContain('font-weight: 700;');
+    expect(typography).toContain('font-size: 16px;');
+  });
 });
