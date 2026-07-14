@@ -8,7 +8,6 @@ const read = (relativePath: string) => fs.readFileSync(path.join(root, relativeP
 const serverLayout = read('apps/web/app/platform-v7/layout.tsx');
 const guard = read('apps/web/components/platform-v7/PlatformV7SingleEntryGuard.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
-const protectedRuntimeCss = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.module.css');
 const designSystemRuntime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const supportMount = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
@@ -33,13 +32,12 @@ describe('platform-v7 browser acceptance repairs', () => {
     ]) expect(guard).not.toContain(forbidden);
   });
 
-  it('mounts the protected shell only after a deterministic hydration boundary', () => {
-    expect(protectedRuntime).toContain('const [hydrated, setHydrated] = React.useState(false)');
-    expect(protectedRuntime).toContain('React.useEffect(() =>');
-    expect(protectedRuntime).toContain("data-protected-shell-hydration='pending'");
+  it('keeps the verified protected shell server-rendered without a client-only loading gate', () => {
+    expect(protectedRuntime).toContain('<ToastProvider>');
+    expect(protectedRuntime).toContain('<PlatformThemeSync />');
     expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname} verifiedRole={verifiedRole}>');
-    expect(protectedRuntimeCss).toContain('var(--ds-color-canvas');
-    expect(protectedRuntimeCss).toContain('var(--ds-color-surface');
+    expect(protectedRuntime).not.toContain('data-protected-shell-hydration');
+    expect(protectedRuntime).not.toContain('setHydrated');
   });
 
   it('mounts every support widget only after the initial hydration tree is committed', () => {
