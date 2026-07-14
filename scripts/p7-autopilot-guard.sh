@@ -120,6 +120,11 @@ apps/web/next.config.js
 apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts
 scripts/p7-autopilot-guard.sh'
 
+PUBLIC_HOME_TYPOGRAPHY_SCOPE='apps/web/app/platform-v7/page.tsx
+apps/web/styles/platform-v7-public-typography.css
+apps/web/tests/unit/platformV7PublicTypography.test.ts
+scripts/p7-autopilot-guard.sh'
+
 STAFF_CONTROL_CENTER_TEMPLATE_SCOPE='apps/web/app/layout.tsx
 apps/web/app/platform-v7/layout.tsx
 apps/web/app/platform-v7/template.tsx'
@@ -158,6 +163,10 @@ scripts/p7-autopilot-guard.sh'
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "agent/public-home-typography" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_HOME_TYPOGRAPHY_SCOPE")
 fi
 
 # The Staff Control Center is a separate privileged control plane. Its exact
