@@ -1,4 +1,6 @@
 [
+  "apps/web/app/platform-v7/notifications/page.tsx",
+  "apps/web/app/platform-v7/notifications/notifications.module.css",
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css",
   "apps/web/components/platform-v7/PlatformV7LayoutClient.tsx",
@@ -61,6 +63,7 @@
   "apps/web/styles/platform-v7-contextual-wheat-backgrounds.css",
   "apps/web/tests/unit/platformV7StaticShellPolicy.test.ts",
   "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+  "apps/web/tests/unit/platformV7NotificationsAuthority.test.ts",
   "apps/web/tests/unit/driverFieldShellGuard.test.tsx",
   "apps/web/tests/unit/platformV7AiShellEnhancerNotificationBridge.test.tsx",
   "apps/web/tests/unit/platformV7HideLegacyHeaderBell.test.ts",
