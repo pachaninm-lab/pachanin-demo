@@ -1,0 +1,44 @@
+rules:
+  - id: pc-typescript-no-dynamic-eval
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Dynamic code evaluation is forbidden in production runtime.
+    metadata:
+      category: security
+      cwe: CWE-95
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+
+  - id: pc-prisma-no-unsafe-raw-query
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Prisma unsafe raw-query APIs are forbidden; use parameterized tagged templates.
+    metadata:
+      category: security
+      cwe: CWE-89
+    pattern-either:
+      - pattern: $DB.$queryRawUnsafe(...)
+      - pattern: $DB.$executeRawUnsafe(...)
+
+  - id: pc-node-no-shell-exec
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Shell command execution is forbidden in application runtime.
+    metadata:
+      category: security
+      cwe: CWE-78
+    pattern-either:
+      - pattern: require("child_process").exec(...)
+      - pattern: require("node:child_process").exec(...)
+      - pattern: require("child_process").execSync(...)
+      - pattern: require("node:child_process").execSync(...)
+
+  - id: pc-no-hardcoded-sensitive-literal
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Sensitive credentials must come from a secret manager or runtime environment.
+    metadata:
+      category: security
+      cwe: CWE-798
+    pattern-regex: '(?i)(password|secret|token|api[_-]?key)\s*[:=]\s*["''][A-Za-z0-9_./+=-]{16,}["'']'
