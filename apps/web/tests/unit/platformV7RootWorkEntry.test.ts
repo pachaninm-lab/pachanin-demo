@@ -88,6 +88,16 @@ describe('platform-v7 public product experience v3', () => {
     }
   });
 
+  it('keeps definition lists valid and text contrast above the AA boundary', () => {
+    expect(explorer).toContain("<span className='pc-ppe-causal-index' aria-hidden='true'>{index + 1}</span>");
+    expect(explorer).toContain('<span>{label}</span>');
+    expect(explorer).not.toContain("<span className='pc-ppe-causal-index'>{index + 1}</span>\n          <dt>");
+    expect(css).toContain('color: var(--pc-ppe-muted);\n  font-size: 12px;');
+    expect(css).toContain('grid-template-columns: minmax(186px, 0.4fr) minmax(0, 1fr);');
+    expect(css).toContain('grid-template-columns: 36px minmax(0, 1fr);');
+    expect(css).toContain('padding-left: 50px;');
+  });
+
   it('keeps mobile, accessibility and resilient-display gates active', () => {
     expect(css).toContain('min-height: 44px');
     expect(css).toContain('@media (max-width: 360px)');
