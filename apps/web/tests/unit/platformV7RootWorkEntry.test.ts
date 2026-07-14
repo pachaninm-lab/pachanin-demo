@@ -61,7 +61,7 @@ describe('platform-v7 public product experience v3', () => {
 
   it('uses one SVG system and no legacy glyph cards', () => {
     expect(icons).toContain("viewBox='0 0 24 24'");
-    expect(icons).toContain("stroke: 'currentColor'");
+    expect(icons).toContain("stroke='currentColor'");
     for (const token of ["glyph: '§'", "glyph: '∴'", "glyph: '∑'", "glyph: '⚖'"]) {
       expect(page).not.toContain(token);
       expect(explorer).not.toContain(token);
