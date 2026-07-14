@@ -7,6 +7,9 @@ on:
       - 'packages/design-system-v8/**'
       - 'apps/web/components/transaction-ux/**'
       - 'apps/web/app/platform-v7/layout.tsx'
+      - 'apps/web/app/platform-v7/template.tsx'
+      - 'apps/web/app/platform-v7/_styles/fixed-header-contract.css'
+      - 'apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'
       - 'apps/web/components/platform-v7/NextActionCard.tsx'
@@ -18,6 +21,7 @@ on:
       - 'apps/web/components/v7r/AppShellV4.module.css'
       - 'apps/web/lib/deal-execution-server.ts'
       - 'apps/web/lib/bank-release-server.ts'
+      - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionAdapter.ts'
       - 'apps/web/lib/platform-v7/farmerFgisAccessEngine.ts'
@@ -59,6 +63,7 @@ on:
       - 'apps/web/tests/unit/designSystemV8SettlementViews.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7DealExecutionChain.test.ts'
+      - 'apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts'
       - 'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx'
       - 'apps/web/tests/unit/platformV7FgisAccessFlow.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
@@ -78,6 +83,9 @@ on:
       - 'packages/design-system-v8/**'
       - 'apps/web/components/transaction-ux/**'
       - 'apps/web/app/platform-v7/layout.tsx'
+      - 'apps/web/app/platform-v7/template.tsx'
+      - 'apps/web/app/platform-v7/_styles/fixed-header-contract.css'
+      - 'apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'
       - 'apps/web/components/platform-v7/NextActionCard.tsx'
@@ -89,6 +97,7 @@ on:
       - 'apps/web/components/v7r/AppShellV4.module.css'
       - 'apps/web/lib/deal-execution-server.ts'
       - 'apps/web/lib/bank-release-server.ts'
+      - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionAdapter.ts'
       - 'apps/web/lib/platform-v7/farmerFgisAccessEngine.ts'
@@ -130,6 +139,7 @@ on:
       - 'apps/web/tests/unit/designSystemV8SettlementViews.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7DealExecutionChain.test.ts'
+      - 'apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts'
       - 'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx'
       - 'apps/web/tests/unit/platformV7FgisAccessFlow.test.ts'
       - 'apps/web/tests/unit/platformV7MobileNavigation.test.ts'
@@ -164,7 +174,7 @@ jobs:
         run: node ./scripts/check-design-system-v8.mjs
       - name: Typecheck web integration
         run: pnpm --filter @pc/web typecheck
-      - name: Run v8 role, registry, server-shell, notification-authority, FGIS, auction, physical-execution, critical-route and settlement regressions
+      - name: Run v8 runtime-isolation, role, registry, server-shell, notification-authority, FGIS, auction, physical-execution, critical-route and settlement regressions
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
@@ -180,6 +190,7 @@ jobs:
             tests/unit/designSystemV8SettlementViews.test.ts \
             tests/unit/platformV7CanonicalDealWorkspace.test.ts \
             tests/unit/platformV7DealExecutionChain.test.ts \
+            tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts \
             tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx \
             tests/unit/platformV7FgisAccessFlow.test.ts \
             tests/unit/platformV7RealDealsRegistry.test.ts \

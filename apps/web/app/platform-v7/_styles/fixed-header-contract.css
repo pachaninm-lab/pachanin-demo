@@ -1,7 +1,7 @@
 /*
- * Canonical fixed-header contract for every Platform V7 surface.
- * Dynamic heights are measured by PlatformV7FullStyleRuntime on non-lean pages;
- * deterministic safe-area fallbacks protect server-rendered and staff routes.
+ * Fixed-header compatibility contract for public, staff and historical Platform
+ * V7 surfaces. The governed Design System v8 AppShell owns its own header and
+ * content offset through AppShellV4.module.css and is intentionally absent here.
  */
 :root {
   --pc-fixed-header-safe-top: env(safe-area-inset-top, 0px);
@@ -72,7 +72,7 @@ html body .p7-docs-clean {
   padding-top: calc(var(--pc-standalone-header-fallback) + 12px) !important;
 }
 
-html body :is(.pc-v4-header, .pc-fixed-header) {
+html body .pc-fixed-header {
   position: fixed !important;
   inset: 0 0 auto !important;
   top: 0 !important;
@@ -116,10 +116,6 @@ html body [data-pc-has-fixed-header='true']:is(
   padding-top: calc(var(--pc-local-fixed-header-height, var(--pc-standalone-header-fallback)) + 12px) !important;
 }
 
-html body .pc-shell-root-v4[data-pc-has-fixed-header='true'] .pc-v4-main {
-  padding-top: calc(var(--pc-local-fixed-header-height, 98px) + 12px) !important;
-}
-
 html body .pc-shell-root[data-pc-has-fixed-header='true'] .pc-main {
   padding-top: calc(var(--pc-local-fixed-header-height, 148px) + 12px) !important;
 }
@@ -137,7 +133,6 @@ html body :is(
   .p7-contact-page,
   .pc-open-v2,
   .p7-request-page,
-  .pc-shell-root-v4,
   .pc-shell-root,
   [data-public-supporting-shell],
   [data-staff-platform-shell]
@@ -174,7 +169,6 @@ html body :is(
     .p7-contact-header,
     .open-header,
     .p7-request-header,
-    .pc-v4-header,
     .pc-fixed-header,
     [data-staff-platform-shell] > header
   ) {
