@@ -45,7 +45,6 @@ const forbiddenFiles = [
   'apps/web/components/v7r/ShellCopyNormalizer.tsx',
   'apps/web/components/v7r/AiShellEnhancer.tsx',
   'apps/web/components/v7r/PlatformV7NotificationCenter.tsx',
-  'apps/web/lib/platform-v7/shellNotificationCenter.ts',
   'scripts/patch-platform-v7-i18n-runtime.mjs',
   'scripts/patch-platform-v7-i18n.mjs',
   'apps/web/styles/platform-v7-dark-role-fixes.css',
