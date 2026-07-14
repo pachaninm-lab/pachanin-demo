@@ -117,3 +117,5 @@ jobs:
           git add pnpm-lock.yaml scripts/p7-autopilot-guard.sh
           git commit -m 'Regenerate patched runtime dependency lockfile [lockfile-refresh]'
           git push origin HEAD:agent/ir-sec-transitive-runtime-remediation
+
+# One-shot trusted branch workflow. Remove after the generated commit is retained.
