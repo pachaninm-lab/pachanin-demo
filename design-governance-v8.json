@@ -1,5 +1,5 @@
 {
-  "version": 22,
+  "version": 23,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -12,6 +12,7 @@
     "apps/web/lib/integrations-server.ts",
     "apps/web/lib/auth-profile-server.ts",
     "apps/web/lib/reporting-server.ts",
+    "apps/web/lib/api-contracts-server.ts",
     "apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx",
     "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
     "apps/web/components/v7r/AppShellV4.tsx",
@@ -42,6 +43,7 @@
     "apps/web/app/platform-v7/api-docs/page.tsx",
     "apps/web/app/platform-v7/profile/page.tsx",
     "apps/web/app/platform-v7/reports/page.tsx",
+    "apps/web/app/platform-v7/onboarding/page.tsx",
     "apps/web/app/platform-v7/deals/page.tsx",
     "apps/web/components/platform-v7/CanonicalDealsList.tsx",
     "apps/web/app/platform-v7/documents/page.tsx",
