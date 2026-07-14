@@ -11,6 +11,10 @@ const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx'
 const supportMount = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
 const headerCss = read('apps/web/app/platform-v7/_styles/public-header-accessibility.css');
 const rootLayout = read('apps/web/app/layout.tsx');
+const languageSwitch = read('apps/web/components/platform-v7/HeaderLanguageSwitch.tsx');
+const platformFooter = read('apps/web/components/platform-v7/PlatformFooter.tsx');
+const tokenCss = read('packages/design-tokens/tokens.css');
+const tokenJson = read('packages/design-tokens/tokens.json');
 
 describe('platform-v7 browser acceptance repairs', () => {
   it('keeps protected route authority exclusively in the verified server layout', () => {
@@ -42,5 +46,19 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(headerCss).toContain('padding-inline: 6px');
     expect(headerCss).toContain('.pc-site-header .pc-site-locale-switch');
     expect(headerCss).toContain('min-width: 56px');
+  });
+
+  it('keeps Design System muted text and partner branding above WCAG AA contrast', () => {
+    expect(tokenCss).toContain('--ds-color-text-muted: #5f6e67;');
+    expect(tokenJson).toContain('"500": { "$value": "#5f6e67" }');
+    expect(platformFooter).toContain("label: 'СберБизнес'");
+    expect(platformFooter).toContain("color: '#087A3B'");
+    expect(platformFooter).not.toContain("color: '#21A038'");
+  });
+
+  it('anchors the protected language control to the semantic header action rail', () => {
+    expect(languageSwitch).toContain('.pc-shell-root-v4 a[aria-label="Открыть уведомления"]');
+    expect(languageSwitch).toContain('protectedNotification?.parentElement');
+    expect(languageSwitch).toContain("if (!target && document.querySelector('.pc-shell-root-v4')) return null");
   });
 });
