@@ -8,175 +8,140 @@ import {
   OperationalQueue,
   OperationalQueueLink,
   operationalCockpitClasses,
-  type OperationalPriority,
 } from '@/components/transaction-ux/OperationalDecisionCockpit';
 
 type Locale = 'ru' | 'en' | 'zh';
-
-type Copy = Readonly<{
-  metadataTitle: string;
-  metadataDescription: string;
+type Copy = {
+  metaTitle: string;
+  metaDescription: string;
   eyebrow: string;
   title: string;
   description: string;
-  statusLabel: string;
-  blocker: string;
+  status: string;
+  priorityTitle: string;
+  priorityDescription: string;
   owner: string;
   impact: string;
   result: string;
-  nextAction: string;
-  prioritySection: string;
-  factsSection: string;
-  priorityTitle: string;
-  priorityDescription: string;
-  priorityBlocker: string;
-  priorityImpact: string;
-  priorityResult: string;
-  ownerValue: string;
-  openConnectors: string;
-  openDeals: string;
-  contractSection: string;
-  controlsSection: string;
+  download: string;
+  connectors: string;
   boundaryTitle: string;
   boundary: string;
-  values: Readonly<{
-    sourceControlled: string;
-    notConfirmed: string;
-    serverOnly: string;
-    required: string;
-    documented: string;
-  }>;
-  facts: Readonly<{
-    contract: string;
-    contractHint: string;
-    publication: string;
-    publicationHint: string;
-    credentials: string;
-    credentialsHint: string;
-    dealBoundary: string;
-    dealBoundaryHint: string;
-  }>;
-  contractItems: ReadonlyArray<Readonly<{ title: string; detail: string }>>;
-  controlItems: ReadonlyArray<Readonly<{ title: string; detail: string }>>;
-}>;
+  catalogueTitle: string;
+  catalogueDescription: string;
+  unpublishedTitle: string;
+  unpublishedDescription: string;
+  facts: Array<{ label: string; value: string; hint: string }>;
+  groups: Array<{ id: string; title: string; detail: string }>;
+};
 
 const COPY: Record<Locale, Copy> = {
   ru: {
-    metadataTitle: 'Партнёрский API · Прозрачная Цена',
-    metadataDescription: 'Документированный контракт партнёрского API без фиктивных ключей, подключений и production-утверждений.',
-    eyebrow: 'Партнёрский API',
-    title: 'Контракт API не равен подключённому партнёру',
-    description: 'Экран фиксирует границу интеграции: что описано в исходном OpenAPI-контракте и какие доказательства нужны до доступа к данным и действиям конкретной Сделки.',
-    statusLabel: 'контракт задокументирован',
-    blocker: 'Блокер', owner: 'Ответственный', impact: 'Влияние', result: 'Результат', nextAction: 'Следующее действие',
-    prioritySection: 'Главная интеграционная задача', factsSection: 'Подтверждённые факты',
-    priorityTitle: 'Подтвердить внешний контур до выдачи доступа',
-    priorityDescription: 'Наличие OpenAPI-файла не доказывает опубликованный endpoint, действующий ключ, разрешённый scope, доставку webhook или production-SLA.',
-    priorityBlocker: 'нет подтверждённого end-to-end обмена с конкретным партнёром',
-    priorityImpact: 'несанкционированный доступ, повтор события или действие вне границ Сделки',
-    priorityResult: 'проверенный партнёрский контур с минимальными правами и полным аудитом',
-    ownerValue: 'Владелец интеграции / безопасность',
-    openConnectors: 'Проверить интеграционные контуры', openDeals: 'Открыть реестр Сделок',
-    contractSection: 'Что зафиксировано в контракте', controlsSection: 'Что обязательно до подключения',
-    boundaryTitle: 'Граница доказательства',
-    boundary: 'Этот экран не создаёт API-ключи, не показывает секреты, не активирует webhook и не подтверждает production-доступность. Доступ партнёра считается действующим только после серверной выдачи и отзыва credentials, Deal-scoped авторизации, проверки подписи и replay-защиты, durable inbox/outbox, rate limits, audit trail, мониторинга и успешного внешнего обмена.',
-    values: { sourceControlled: 'В кодовой базе', notConfirmed: 'Не подтверждено', serverOnly: 'Только сервер', required: 'Обязательно', documented: 'Задокументировано' },
-    facts: {
-      contract: 'Спецификация', contractHint: 'OpenAPI 3.0.3; версия контракта 3.0.0 в apps/api/openapi.yaml',
-      publication: 'Публичный endpoint', publicationHint: 'не подтверждён этим экраном или репозиторным файлом',
-      credentials: 'Партнёрские credentials', credentialsHint: 'не создаются и не хранятся в браузере',
-      dealBoundary: 'Граница доступа', dealBoundaryHint: 'конкретная Сделка, tenant, роль и минимальный scope',
-    },
-    contractItems: [
-      { title: 'Формат контракта', detail: 'Исходная спецификация использует OpenAPI 3.0.3 и версию контракта 3.0.0.' },
-      { title: 'Схемы авторизации', detail: 'В контракте объявлены Bearer JWT и X-Api-Key. Объявление схемы не доказывает выдачу или работоспособность credentials.' },
-      { title: 'Денежные значения', detail: 'Для денежных операций канонической единицей остаются целые minor units. Float не может быть источником истины.' },
-      { title: 'Системные методы', detail: 'Health, readiness, metrics и version описаны как технические методы. Они не подтверждают доступность внешнего партнёрского контура.' },
+    metaTitle: 'API-контракт · Прозрачная Цена',
+    metaDescription: 'Подтверждённый read-only OpenAPI-контракт без фиктивных интеграций и неподтверждённых команд.',
+    eyebrow: 'Интеграционный контракт',
+    title: 'Документируем только подтверждённую серверную поверхность',
+    description: 'Каталог содержит маршруты, существование которых подтверждено фактическими NestJS-контроллерами. Доступ к данным ограничивается серверной ролью, организацией, tenant и участием в Сделке.',
+    status: 'read-only контракт',
+    priorityTitle: 'Проверить OpenAPI до проектирования интеграции',
+    priorityDescription: 'Сначала согласуются GET-маршруты, авторизация и границы данных. Команды, webhooks и денежные операции публикуются только отдельным принятым контрактом.',
+    owner: 'архитектор интеграции / безопасность',
+    impact: 'совместимость, RBAC и отсутствие ложных обещаний',
+    result: 'согласованный контракт и перечень необходимых write-сценариев',
+    download: 'Скачать OpenAPI YAML',
+    connectors: 'Проверить подключения',
+    boundaryTitle: 'Граница доказательности',
+    boundary: 'Спецификация подтверждает внутренний HTTP-маршрут, но не подтверждает договор, боевые credentials, внешний callback, reconciliation, SLA или промышленную эксплуатацию. Диагностика адаптера не равна live-интеграции.',
+    catalogueTitle: 'Опубликованные области',
+    catalogueDescription: '14 подтверждённых GET-маршрутов. Все изменяющие операции исключены.',
+    unpublishedTitle: 'Write API пока не опубликован',
+    unpublishedDescription: 'Для публикации нужны точные DTO, идемпотентность, rate limits, MFA или подпись, audit trail, callback/reconciliation и эксплуатационные доказательства.',
+    facts: [
+      { label: 'Маршрутов', value: '14 GET', hint: 'только подтверждённые контроллеры' },
+      { label: 'Областей', value: '7', hint: 'runtime, identity, Deal, logistics, disputes, settlement, integrations' },
+      { label: 'Write-команд', value: '0', hint: 'не публикуются до отдельной приёмки' },
+      { label: 'Формат', value: 'OpenAPI 3.0.3', hint: 'same-origin server URL' },
     ],
-    controlItems: [
-      { title: 'Deal-scoped авторизация', detail: 'Каждый запрос проверяет tenant, участника, роль, ресурс и разрешённое действие по конкретной Сделке.' },
-      { title: 'Жизненный цикл credentials', detail: 'Выдача, хранение хэша, ротация, отзыв, срок действия и последний факт использования находятся только на сервере.' },
-      { title: 'Webhook и callback', detail: 'Подпись, timestamp, nonce, replay-защита, durable inbox, идемпотентность и ручная проверка обязательны.' },
-      { title: 'Ограничения и наблюдаемость', detail: 'Rate limits, correlation ID, журнал аудита, метрики, алерты и reconciliation должны быть проверяемыми.' },
-      { title: 'Production-допуск', detail: 'Нужны договор, доступы, внешний обмен, эксплуатационные evidence, SLO и процедура отзыва без остановки Сделки.' },
+    groups: [
+      { id: 'runtime', title: 'Runtime', detail: 'Liveness, PostgreSQL/migration readiness и идентичность сборки.' },
+      { id: 'identity', title: 'Identity', detail: 'Серверно подтверждённые пользователь, организация, tenant, роль и membership.' },
+      { id: 'deals', title: 'Canonical Deal', detail: 'Participant-scoped реестр, workspace и execution workspace.' },
+      { id: 'logistics', title: 'Logistics', detail: 'Ролевой реестр рейсов, checkpoints и GPS-факты.' },
+      { id: 'disputes', title: 'Disputes', detail: 'Ролевой реестр споров и подтверждённых фактов.' },
+      { id: 'settlement', title: 'Settlement', detail: 'Bank workspace и durable outbox без подтверждения денег из UI.' },
+      { id: 'integrations', title: 'Integrations', detail: 'Внутренняя диагностика адаптеров, не доказательство live-подключения.' },
     ],
   },
   en: {
-    metadataTitle: 'Partner API · Transparent Price',
-    metadataDescription: 'A documented partner API contract without fake keys, connections or production claims.',
-    eyebrow: 'Partner API', title: 'An API contract is not a connected partner',
-    description: 'This workspace defines the integration boundary: what is documented in the source-controlled OpenAPI contract and what evidence is required before access to a specific Deal.',
-    statusLabel: 'contract documented',
-    blocker: 'Blocker', owner: 'Owner', impact: 'Impact', result: 'Result', nextAction: 'Next action',
-    prioritySection: 'Primary integration task', factsSection: 'Confirmed facts',
-    priorityTitle: 'Verify the external circuit before granting access',
-    priorityDescription: 'An OpenAPI file does not prove a published endpoint, active key, permitted scope, webhook delivery or a production SLA.',
-    priorityBlocker: 'no confirmed end-to-end exchange with a specific partner',
-    priorityImpact: 'unauthorized access, replayed events or an action outside the Deal boundary',
-    priorityResult: 'a verified partner circuit with least privilege and complete auditability',
-    ownerValue: 'Integration owner / security',
-    openConnectors: 'Review integration circuits', openDeals: 'Open Deal registry',
-    contractSection: 'What the contract documents', controlsSection: 'Required before connection',
+    metaTitle: 'API contract · Transparent Price',
+    metaDescription: 'Verified read-only OpenAPI contract without simulated integrations or unconfirmed commands.',
+    eyebrow: 'Integration contract',
+    title: 'Document only the confirmed server surface',
+    description: 'The catalogue contains routes confirmed by actual NestJS controllers. Data access remains constrained by server role, organization, tenant and Deal participation.',
+    status: 'read-only contract',
+    priorityTitle: 'Review OpenAPI before integration design',
+    priorityDescription: 'GET routes, authentication and data boundaries are agreed first. Commands, webhooks and money operations require a separately accepted contract.',
+    owner: 'integration architect / security',
+    impact: 'compatibility, RBAC and no false claims',
+    result: 'agreed contract and required write-scenario inventory',
+    download: 'Download OpenAPI YAML',
+    connectors: 'Review connections',
     boundaryTitle: 'Evidence boundary',
-    boundary: 'This screen does not create API keys, display secrets, activate webhooks or confirm production availability. Partner access is active only after server-side credential issuance and revocation, Deal-scoped authorization, signature and replay verification, durable inbox/outbox, rate limits, audit trail, monitoring and a successful external exchange.',
-    values: { sourceControlled: 'Source-controlled', notConfirmed: 'Not confirmed', serverOnly: 'Server only', required: 'Required', documented: 'Documented' },
-    facts: {
-      contract: 'Specification', contractHint: 'OpenAPI 3.0.3; contract version 3.0.0 in apps/api/openapi.yaml',
-      publication: 'Public endpoint', publicationHint: 'not proven by this screen or the repository file',
-      credentials: 'Partner credentials', credentialsHint: 'never created or stored in the browser',
-      dealBoundary: 'Access boundary', dealBoundaryHint: 'specific Deal, tenant, role and least-privilege scope',
-    },
-    contractItems: [
-      { title: 'Contract format', detail: 'The source specification uses OpenAPI 3.0.3 and contract version 3.0.0.' },
-      { title: 'Authorization schemes', detail: 'Bearer JWT and X-Api-Key are declared. A declared scheme does not prove credential issuance or operation.' },
-      { title: 'Money values', detail: 'Integer minor units remain canonical for money operations. Float cannot be an authority.' },
-      { title: 'System methods', detail: 'Health, readiness, metrics and version are documented as technical methods. They do not prove an external partner circuit.' },
+    boundary: 'The specification confirms an internal HTTP route. It does not confirm a contract, production credentials, external callback, reconciliation, SLA or production operation. Adapter diagnostics are not live-integration proof.',
+    catalogueTitle: 'Published areas',
+    catalogueDescription: '14 confirmed GET routes. All mutating operations are excluded.',
+    unpublishedTitle: 'Write API is not published yet',
+    unpublishedDescription: 'Publication requires exact DTOs, idempotency, rate limits, MFA or signatures, audit trail, callback/reconciliation and operating evidence.',
+    facts: [
+      { label: 'Routes', value: '14 GET', hint: 'confirmed controllers only' },
+      { label: 'Areas', value: '7', hint: 'runtime, identity, Deal, logistics, disputes, settlement, integrations' },
+      { label: 'Write commands', value: '0', hint: 'not published before separate acceptance' },
+      { label: 'Format', value: 'OpenAPI 3.0.3', hint: 'same-origin server URL' },
     ],
-    controlItems: [
-      { title: 'Deal-scoped authorization', detail: 'Every request verifies tenant, participant, role, resource and permitted action for a specific Deal.' },
-      { title: 'Credential lifecycle', detail: 'Issuance, hash storage, rotation, revocation, expiry and last-use evidence remain server-side.' },
-      { title: 'Webhook and callback', detail: 'Signature, timestamp, nonce, replay protection, durable inbox, idempotency and manual review are mandatory.' },
-      { title: 'Limits and observability', detail: 'Rate limits, correlation ID, audit log, metrics, alerts and reconciliation must be verifiable.' },
-      { title: 'Production admission', detail: 'Contract, access, external exchange, operational evidence, SLO and a non-disruptive revocation procedure are required.' },
+    groups: [
+      { id: 'runtime', title: 'Runtime', detail: 'Liveness, PostgreSQL/migration readiness and build identity.' },
+      { id: 'identity', title: 'Identity', detail: 'Server-confirmed user, organization, tenant, role and membership.' },
+      { id: 'deals', title: 'Canonical Deal', detail: 'Participant-scoped registry, workspace and execution workspace.' },
+      { id: 'logistics', title: 'Logistics', detail: 'Role-scoped shipments, checkpoints and GPS facts.' },
+      { id: 'disputes', title: 'Disputes', detail: 'Role-scoped disputes and confirmed facts.' },
+      { id: 'settlement', title: 'Settlement', detail: 'Bank workspace and durable outbox without UI money confirmation.' },
+      { id: 'integrations', title: 'Integrations', detail: 'Internal adapter diagnostics, not live-connection evidence.' },
     ],
   },
   zh: {
-    metadataTitle: '合作伙伴 API · 透明价格',
-    metadataDescription: '已记录的合作伙伴 API 合同，不伪造密钥、连接或生产声明。',
-    eyebrow: '合作伙伴 API', title: 'API 合同不等于合作伙伴已连接',
-    description: '此工作区明确集成边界：源代码管理的 OpenAPI 合同记录了什么，以及在访问具体交易前需要哪些证据。',
-    statusLabel: '合同已记录',
-    blocker: '阻塞项', owner: '负责人', impact: '影响', result: '结果', nextAction: '下一步',
-    prioritySection: '主要集成任务', factsSection: '已确认事实',
-    priorityTitle: '授权前验证外部闭环',
-    priorityDescription: 'OpenAPI 文件不能证明 endpoint 已发布、密钥有效、scope 已授权、webhook 已送达或存在生产 SLA。',
-    priorityBlocker: '尚无与具体合作伙伴完成的端到端交换证明',
-    priorityImpact: '未授权访问、事件重放或在交易边界之外执行操作',
-    priorityResult: '具有最小权限和完整审计的已验证合作伙伴闭环',
-    ownerValue: '集成负责人 / 安全',
-    openConnectors: '检查集成闭环', openDeals: '打开交易登记册',
-    contractSection: '合同记录的内容', controlsSection: '连接前的必要条件',
+    metaTitle: 'API 合同 · 透明价格',
+    metaDescription: '经过确认的只读 OpenAPI 合同，不包含模拟集成或未确认命令。',
+    eyebrow: '集成合同',
+    title: '仅记录已确认的服务器接口',
+    description: '目录只包含已由实际 NestJS 控制器确认的路由。数据访问仍由服务器角色、组织、租户和交易参与关系限制。',
+    status: '只读合同',
+    priorityTitle: '在设计集成前审查 OpenAPI',
+    priorityDescription: '先确认 GET 路由、认证方式和数据边界。命令、webhook 和资金操作必须经过单独合同验收。',
+    owner: '集成架构师 / 安全',
+    impact: '兼容性、RBAC 和避免虚假承诺',
+    result: '已确认合同和所需写入场景清单',
+    download: '下载 OpenAPI YAML',
+    connectors: '检查连接',
     boundaryTitle: '证据边界',
-    boundary: '此页面不会创建 API 密钥、显示秘密、激活 webhook 或确认生产可用性。只有完成服务器端凭证签发和撤销、交易范围授权、签名与重放验证、持久化 inbox/outbox、限流、审计轨迹、监控以及成功的外部交换后，合作伙伴访问才可视为有效。',
-    values: { sourceControlled: '源代码管理', notConfirmed: '未确认', serverOnly: '仅服务器', required: '必须', documented: '已记录' },
-    facts: {
-      contract: '规范', contractHint: 'apps/api/openapi.yaml 中的 OpenAPI 3.0.3；合同版本 3.0.0',
-      publication: '公共 endpoint', publicationHint: '此页面或仓库文件均不能证明其已发布',
-      credentials: '合作伙伴凭证', credentialsHint: '不会在浏览器中创建或保存',
-      dealBoundary: '访问边界', dealBoundaryHint: '具体交易、tenant、角色和最小权限 scope',
-    },
-    contractItems: [
-      { title: '合同格式', detail: '源规范使用 OpenAPI 3.0.3 和合同版本 3.0.0。' },
-      { title: '授权方案', detail: '合同声明了 Bearer JWT 和 X-Api-Key。声明方案不能证明凭证已签发或可用。' },
-      { title: '资金数值', detail: '资金操作以整数 minor units 为规范单位。Float 不能成为权威来源。' },
-      { title: '系统方法', detail: 'Health、readiness、metrics 和 version 被记录为技术方法，但不能证明外部合作伙伴闭环。' },
+    boundary: '规范只确认内部 HTTP 路由，不证明合同、生产凭据、外部回调、对账、SLA 或生产运行。适配器诊断不等于实时集成证明。',
+    catalogueTitle: '已发布领域',
+    catalogueDescription: '14 个已确认 GET 路由。不包含任何修改操作。',
+    unpublishedTitle: '写入 API 尚未发布',
+    unpublishedDescription: '发布需要精确 DTO、幂等性、限流、MFA 或签名、审计轨迹、回调/对账及运行证据。',
+    facts: [
+      { label: '路由', value: '14 GET', hint: '仅已确认控制器' },
+      { label: '领域', value: '7', hint: '运行、身份、交易、物流、争议、结算、集成' },
+      { label: '写入命令', value: '0', hint: '单独验收前不发布' },
+      { label: '格式', value: 'OpenAPI 3.0.3', hint: '同源服务器 URL' },
     ],
-    controlItems: [
-      { title: '交易范围授权', detail: '每个请求都必须核验具体交易的 tenant、参与方、角色、资源和允许的操作。' },
-      { title: '凭证生命周期', detail: '签发、哈希存储、轮换、撤销、有效期和最后使用证据仅存在于服务器。' },
-      { title: 'Webhook 和 callback', detail: '签名、timestamp、nonce、重放保护、持久化 inbox、幂等性和人工复核为必需项。' },
-      { title: '限制与可观测性', detail: '限流、correlation ID、审计日志、指标、告警和对账必须可验证。' },
-      { title: '生产准入', detail: '需要合同、访问权限、外部交换、运行证据、SLO 和不中断交易的撤销流程。' },
+    groups: [
+      { id: 'runtime', title: '运行状态', detail: '存活、PostgreSQL/迁移就绪状态和构建标识。' },
+      { id: 'identity', title: '身份', detail: '服务器确认的用户、组织、租户、角色和成员关系。' },
+      { id: 'deals', title: '规范交易', detail: '参与方范围的登记册、工作区和执行工作区。' },
+      { id: 'logistics', title: '物流', detail: '角色范围的运输、检查点和 GPS 事实。' },
+      { id: 'disputes', title: '争议', detail: '角色范围的争议和已确认事实。' },
+      { id: 'settlement', title: '结算', detail: '银行工作区和持久 outbox，界面不能确认资金。' },
+      { id: 'integrations', title: '集成', detail: '内部适配器诊断，不是实时连接证明。' },
     ],
   },
 };
@@ -189,70 +154,53 @@ function localeOf(value: string): Locale {
 
 export async function generateMetadata(): Promise<Metadata> {
   const copy = COPY[localeOf(await getLocale())];
-  return { title: copy.metadataTitle, description: copy.metadataDescription, robots: { index: false, follow: false } };
+  return { title: copy.metaTitle, description: copy.metaDescription, robots: { index: false, follow: false } };
 }
 
 export default async function ApiDocsPage() {
   const copy = COPY[localeOf(await getLocale())];
-  const priority: OperationalPriority = {
-    state: 'active',
-    title: copy.priorityTitle,
-    description: copy.priorityDescription,
-    blocker: copy.priorityBlocker,
-    owner: copy.ownerValue,
-    impact: copy.priorityImpact,
-    result: copy.priorityResult,
-    primaryAction: <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/connectors'>{copy.openConnectors}</Link>,
-    secondaryAction: <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/deals'>{copy.openDeals}</Link>,
-  };
-
   return (
     <OperationalDecisionCockpit
       testId='platform-v7-api-docs-v8'
       eyebrow={copy.eyebrow}
       title={copy.title}
       description={copy.description}
-      statusLabel={copy.statusLabel}
-      statusTone='warning'
-      priority={priority}
-      labels={{ blocker: copy.blocker, owner: copy.owner, impact: copy.impact, result: copy.result, nextAction: copy.nextAction, prioritySection: copy.prioritySection, factsSection: copy.factsSection }}
-      facts={[
-        { label: copy.facts.contract, value: copy.values.sourceControlled, hint: copy.facts.contractHint },
-        { label: copy.facts.publication, value: copy.values.notConfirmed, hint: copy.facts.publicationHint },
-        { label: copy.facts.credentials, value: copy.values.serverOnly, hint: copy.facts.credentialsHint },
-        { label: copy.facts.dealBoundary, value: copy.values.required, hint: copy.facts.dealBoundaryHint },
-      ]}
+      statusLabel={copy.status}
+      statusTone='information'
+      priority={{
+        state: 'active',
+        title: copy.priorityTitle,
+        description: copy.priorityDescription,
+        owner: copy.owner,
+        impact: copy.impact,
+        result: copy.result,
+        primaryAction: <a className={operationalCockpitClasses.primaryLink} href='/platform-v7/openapi.yaml' download>{copy.download}</a>,
+        secondaryAction: <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/connectors'>{copy.connectors}</Link>,
+      }}
+      facts={copy.facts}
       boundary={copy.boundary}
     >
-      <OperationalCockpitSection id='api-contract'>
+      <OperationalCockpitSection id='contract-boundary'>
+        <InlineNotice tone='information' title={copy.boundaryTitle}>{copy.boundary}</InlineNotice>
+      </OperationalCockpitSection>
+      <OperationalCockpitSection id='published-areas'>
+        <StatusChip tone='information'>{copy.catalogueTitle}</StatusChip>
         <OperationalQueue>
-          {copy.contractItems.map((item) => (
+          {copy.groups.map((group) => (
             <OperationalQueueLink
-              key={item.title}
-              href='/platform-v7/connectors'
-              title={item.title}
-              detail={item.detail}
-              status={<StatusChip tone='information'>{copy.values.documented}</StatusChip>}
+              key={group.id}
+              href='/platform-v7/openapi.yaml'
+              title={group.title}
+              detail={group.detail}
+              status={<StatusChip tone='success'>GET</StatusChip>}
             />
           ))}
         </OperationalQueue>
+        <InlineNotice tone='neutral' title={copy.catalogueTitle}>{copy.catalogueDescription}</InlineNotice>
       </OperationalCockpitSection>
-
-      <OperationalCockpitSection id='api-controls'>
-        <OperationalQueue>
-          {copy.controlItems.map((item) => (
-            <OperationalQueueLink
-              key={item.title}
-              href='/platform-v7/connectors'
-              title={item.title}
-              detail={item.detail}
-              status={<StatusChip tone='warning'>{copy.values.required}</StatusChip>}
-            />
-          ))}
-        </OperationalQueue>
+      <OperationalCockpitSection id='unpublished-commands'>
+        <InlineNotice tone='warning' title={copy.unpublishedTitle}>{copy.unpublishedDescription}</InlineNotice>
       </OperationalCockpitSection>
-
-      <InlineNotice tone='warning' title={copy.boundaryTitle}>{copy.boundary}</InlineNotice>
     </OperationalDecisionCockpit>
   );
 }
