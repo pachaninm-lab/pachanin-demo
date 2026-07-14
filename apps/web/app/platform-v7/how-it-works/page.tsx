@@ -3,18 +3,23 @@ import '@/styles/platform-v7-public-mobile-safe-area.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-product-experience-v3.css';
 import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
+import '@/styles/platform-v7-public-product-entry-variants.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
-import { PublicDealExplorer } from '@/components/platform-v7/PublicDealExplorer';
+import { PublicDealEntryGate } from '@/components/platform-v7/PublicDealEntryGate';
 import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
 import {
   PublicExperienceLink,
   PublicExperienceScrollCoordinator,
 } from '@/components/platform-v7/PublicExperienceAnalytics';
+import { getPublicProductEntryVariantsCopy } from '@/i18n/public-product-entry-variants';
 import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
-import { normalizeTourState } from '@/lib/platform-v7/public-product-experience-state';
+import {
+  normalizeTourEntryVariant,
+  normalizeTourState,
+} from '@/lib/platform-v7/public-product-experience-state';
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
@@ -41,7 +46,9 @@ export default async function PublicDealFromInsidePage({
 }) {
   const locale = await getLocale();
   const copy = getPublicProductExperienceCopy(locale);
+  const entryCopy = getPublicProductEntryVariantsCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
+  const initialEntry = normalizeTourEntryVariant(searchParams?.entry);
   const initialState = normalizeTourState(searchParams ?? {});
 
   return (
@@ -83,7 +90,13 @@ export default async function PublicDealFromInsidePage({
           </div>
         </header>
 
-        <PublicDealExplorer copy={copy} locale={locale} initialState={initialState} />
+        <PublicDealEntryGate
+          copy={copy}
+          entryCopy={entryCopy}
+          locale={locale}
+          initialEntry={initialEntry}
+          initialState={initialState}
+        />
       </div>
     </main>
   );
