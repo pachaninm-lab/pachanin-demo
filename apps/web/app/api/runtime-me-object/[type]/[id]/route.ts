@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(_: Request, props: { params: Promise<{ type: string; id: string }> }) {
   const params = await props.params;
   try {
-    const response = await fetch(runtimeApiUrl(`/runtime/me/object/${params.type}/${params.id}`), { cache: 'no-store', headers: runtimeAuthHeaders() });
+    const response = await fetch(runtimeApiUrl(`/runtime/me/object/${params.type}/${params.id}`), { cache: 'no-store', headers: await runtimeAuthHeaders() });
     const payload = await response.json().catch(() => ({}));
     return NextResponse.json(payload, { status: response.ok ? 200 : response.status });
   } catch {
