@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { isDesignSystemV8Route } from '../../lib/platform-v7/design-system-v8-route-policy';
 
 const absolute = (file: string) => path.join(process.cwd(), file);
 const read = (file: string) => fs.readFileSync(absolute(file), 'utf8');
@@ -31,6 +32,41 @@ const removedRuntimes = [
   'apps/web/components/platform-v7/PlatformV7TemplateSwitch.tsx',
 ];
 
+function extractExactAliases(): Set<string> {
+  const block = layout.match(/const ALIAS_EXACT_PATHS = new Set\(\[([\s\S]*?)\]\);/)?.[1] ?? '';
+  return new Set([...block.matchAll(/'([^']+)'/g)].map((match) => match[1]));
+}
+
+function extractDynamicAliases(): RegExp[] {
+  const block = layout.match(/const ALIAS_DYNAMIC_PATHS = \[([\s\S]*?)\] as const;/)?.[1] ?? '';
+  return block
+    .split('\n')
+    .map((line) => line.trim().replace(/,$/, ''))
+    .filter((line) => line.startsWith('/^') && line.endsWith('/'))
+    .map((line) => new RegExp(line.slice(1, -1)));
+}
+
+function walkPages(directory: string, output: string[] = []): string[] {
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const child = path.join(directory, entry.name);
+    if (entry.isDirectory()) walkPages(child, output);
+    else if (entry.isFile() && entry.name === 'page.tsx') output.push(child);
+  }
+  return output;
+}
+
+function routeFromPage(pagePath: string): string {
+  const appRoot = absolute('apps/web/app/platform-v7');
+  const segments = path.relative(appRoot, pagePath).split(path.sep);
+  segments.pop();
+  const routeSegments = segments.filter((segment) => !/^\(.+\)$/.test(segment) && !segment.startsWith('@'));
+  return ['/platform-v7', ...routeSegments].join('/').replace(/\/$/, '') || '/platform-v7';
+}
+
+function sampleRoute(route: string): string {
+  return route.replace(/\[[^/]+\]/g, 'sample-id');
+}
+
 describe('platform-v7 public/protected runtime split', () => {
   it('resolves public paths without creating a legacy client style tree', () => {
     expect(layout).toContain("from 'next/headers'");
@@ -41,6 +77,34 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(layout).toContain("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')");
     expect(layout).not.toContain('PlatformV7FullStyleRuntime');
     expect(layout).not.toContain('PlatformV7ShellSwitch');
+  });
+
+  it('fails unknown routes closed before login, RBAC and shell creation', () => {
+    expect(layout).toContain("import { notFound, redirect } from 'next/navigation'");
+    expect(layout).toContain('if (!isKnownProtectedPath(pathname)) notFound()');
+    expect(layout.indexOf('if (!isKnownProtectedPath(pathname)) notFound()')).toBeLessThan(
+      layout.indexOf('const role = await verifiedCabinetRole()'),
+    );
+    expect(layout).toContain('ALIAS_EXACT_PATHS');
+    expect(layout).toContain('ALIAS_DYNAMIC_PATHS');
+    expect(layout).toContain("'/platform-v7/support'");
+    expect(layout).toContain('/^\\/platform-v7\\/support\\/[^/]+$/');
+  });
+
+  it('keeps the alias allowlist synchronized with server redirect pages', () => {
+    const exactAliases = extractExactAliases();
+    const dynamicAliases = extractDynamicAliases();
+    const redirectRoutes = walkPages(absolute('apps/web/app/platform-v7'))
+      .filter((pagePath) => /\bredirect\s*\(/.test(fs.readFileSync(pagePath, 'utf8')))
+      .map(routeFromPage);
+
+    for (const route of redirectRoutes) {
+      const sample = sampleRoute(route);
+      const covered = isDesignSystemV8Route(sample)
+        || exactAliases.has(route)
+        || dynamicAliases.some((pattern) => pattern.test(sample));
+      expect(covered, `redirect route is absent from fail-closed policy: ${route}`).toBe(true);
+    }
   });
 
   it('rewrites only the three public entry URLs into a physically isolated route tree', () => {
@@ -68,7 +132,7 @@ describe('platform-v7 public/protected runtime split', () => {
   it('keeps protected providers and shell in the protected-only runtime', () => {
     expect(protectedRuntime).toContain('<ToastProvider>');
     expect(protectedRuntime).toContain('<PlatformThemeSync />');
-    expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname}>');
+    expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname} verifiedRole={verifiedRole}>');
     expect(protectedShell).toContain('<AppShellV4 initialRole={initialRole}>');
     expect(protectedShell).toContain('<PlatformV7SingleEntryGuard />');
     expect(protectedShell).toContain('<RbacCabinetGuard />');
