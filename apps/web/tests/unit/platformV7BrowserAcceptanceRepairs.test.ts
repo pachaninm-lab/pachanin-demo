@@ -7,6 +7,8 @@ const read = (relativePath: string) => fs.readFileSync(path.join(root, relativeP
 
 const serverLayout = read('apps/web/app/platform-v7/layout.tsx');
 const guard = read('apps/web/components/platform-v7/PlatformV7SingleEntryGuard.tsx');
+const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
+const protectedRuntimeCss = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.module.css');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const supportMount = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
 const headerCss = read('apps/web/app/platform-v7/_styles/public-header-accessibility.css');
@@ -28,6 +30,15 @@ describe('platform-v7 browser acceptance repairs', () => {
       'router.replace',
       'roleAllows(',
     ]) expect(guard).not.toContain(forbidden);
+  });
+
+  it('mounts the protected shell only after a deterministic hydration boundary', () => {
+    expect(protectedRuntime).toContain('const [hydrated, setHydrated] = React.useState(false)');
+    expect(protectedRuntime).toContain('React.useEffect(() =>');
+    expect(protectedRuntime).toContain("data-protected-shell-hydration='pending'");
+    expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname} verifiedRole={verifiedRole}>');
+    expect(protectedRuntimeCss).toContain('var(--ds-color-canvas');
+    expect(protectedRuntimeCss).toContain('var(--ds-color-surface');
   });
 
   it('mounts interactive support only after the initial hydration tree is committed', () => {
