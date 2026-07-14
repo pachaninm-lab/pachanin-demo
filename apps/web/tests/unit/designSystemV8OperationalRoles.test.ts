@@ -17,6 +17,13 @@ const governance = JSON.parse(read('design-governance-v8.json'));
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important/i;
 
 const roleSources = [operator, logistics, compliance, arbitrator, executive];
+const operatorAliases = {
+  admin: read('apps/web/app/platform-v7/admin/page.tsx'),
+  antiBypass: read('apps/web/app/platform-v7/control-tower/anti-bypass/page.tsx'),
+  bypassRisk: read('apps/web/app/platform-v7/control-tower/bypass-risk/page.tsx'),
+  reconciliation: read('apps/web/app/platform-v7/control-tower/canonical-reconciliation/page.tsx'),
+  hotlist: read('apps/web/app/platform-v7/control-tower/hotlist/page.tsx'),
+};
 
 describe('Design System v8 operational and oversight roles', () => {
   it('uses one governed decision cockpit without local presentation logic', () => {
@@ -57,6 +64,25 @@ describe('Design System v8 operational and oversight roles', () => {
       'selectRuntimeDeals',
     ]) {
       expect(operator).not.toContain(forbidden);
+    }
+  });
+
+  it('keeps duplicate operator routes redirect-only and fixture-free', () => {
+    for (const source of Object.values(operatorAliases)) {
+      expect(source).toContain("import { redirect } from 'next/navigation'");
+      expect(source).toContain('redirect(');
+      expect(source).not.toContain("'use client'");
+      expect(source).not.toMatch(forbiddenPresentation);
+    }
+    expect(operatorAliases.admin).toContain("redirect('/platform-v7/control-tower')");
+    expect(operatorAliases.antiBypass).toContain("redirect('/platform-v7/control-tower')");
+    expect(operatorAliases.bypassRisk).toContain("redirect('/platform-v7/control-tower')");
+    expect(operatorAliases.hotlist).toContain("redirect('/platform-v7/control-tower')");
+    expect(operatorAliases.reconciliation).toContain("redirect('/platform-v7/reports')");
+
+    const combined = Object.values(operatorAliases).join('\n');
+    for (const forbidden of ['BYP-1', 'BYP-2', 'BUYER-1', 'SELLER-1', 'LOT-2403', 'getTransportHotlist', 'CanonicalKpiReconciliation']) {
+      expect(combined).not.toContain(forbidden);
     }
   });
 
