@@ -12,6 +12,7 @@ const exact = new Set([
   'apps/web/app/platform-v7/_styles/fixed-header-contract.css',
   'apps/web/app/platform-v7/control-tower/page.tsx',
   'apps/web/app/platform-v7/status/page.tsx',
+  'apps/web/app/platform-v7/health/page.tsx',
   'apps/web/app/platform-v7/connectors/page.tsx',
   'apps/web/app/platform-v7/api-docs/page.tsx',
   'apps/web/app/platform-v7/onboarding/page.tsx',
