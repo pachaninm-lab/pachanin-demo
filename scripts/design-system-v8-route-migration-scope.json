@@ -14,7 +14,6 @@
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css",
   "apps/web/components/platform-v7/UxFinalQuietLayer.tsx",
-  "apps/web/components/platform-v7/UxFinalQuietLayer.module.css",
   "apps/web/components/platform-v7/WorkStepGuide.tsx",
   "apps/web/components/platform-v7/WorkStepGuide.module.css",
   "apps/web/components/platform-v7/PlatformV7LayoutClient.tsx",
