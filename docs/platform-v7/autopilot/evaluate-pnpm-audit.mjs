@@ -6,6 +6,7 @@ const AUDIT_PATH = resolve(process.env.PNPM_AUDIT_JSON ?? 'artifacts/security/pn
 const EXCEPTIONS_PATH = resolve('docs/platform-v7/autopilot/security-exceptions.json');
 const REPORT_PATH = resolve(process.env.PNPM_AUDIT_REPORT ?? 'artifacts/security/pnpm-audit-evaluation.json');
 const EXACT_HEAD = process.env.SECURITY_EXACT_HEAD ?? '';
+const SCANNER_EXIT = Number(process.env.PNPM_AUDIT_EXIT ?? 'NaN');
 
 function parseJson(path, label) {
   try {
@@ -74,9 +75,44 @@ const activeExceptions = new Set(
     .filter((exception) => exception?.scanner === 'pnpm-audit' && new Date(exception?.expiresAt ?? 0).getTime() > Date.now())
     .map((exception) => String(exception.findingId)),
 );
-const findings = collectFindings(audit).filter((finding) => ['HIGH', 'CRITICAL'].includes(finding.severity));
+const allFindings = collectFindings(audit);
+const findings = allFindings.filter((finding) => ['HIGH', 'CRITICAL'].includes(finding.severity));
 const blocked = [];
 const excepted = [];
+const hasRecognizedAuditShape = Boolean(
+  (audit?.advisories && typeof audit.advisories === 'object')
+  || (audit?.vulnerabilities && typeof audit.vulnerabilities === 'object')
+  || (audit?.metadata && typeof audit.metadata === 'object'),
+);
+
+if (!Number.isInteger(SCANNER_EXIT) || SCANNER_EXIT < 0) {
+  blocked.push({
+    findingId: 'PNPM_AUDIT_EXECUTION',
+    severity: 'CRITICAL',
+    package: 'pnpm',
+    title: 'pnpm audit exit code is missing or invalid',
+    url: '',
+    reason: 'Scanner execution cannot be verified.',
+  });
+} else if (!hasRecognizedAuditShape) {
+  blocked.push({
+    findingId: 'PNPM_AUDIT_OUTPUT',
+    severity: 'CRITICAL',
+    package: 'pnpm',
+    title: 'pnpm audit did not produce a recognized audit payload',
+    url: '',
+    reason: 'Scanner failure or registry failure must fail closed.',
+  });
+} else if (SCANNER_EXIT !== 0 && findings.length === 0) {
+  blocked.push({
+    findingId: 'PNPM_AUDIT_UNEXPLAINED_EXIT',
+    severity: 'CRITICAL',
+    package: 'pnpm',
+    title: `pnpm audit exited ${SCANNER_EXIT} without HIGH or CRITICAL findings`,
+    url: '',
+    reason: 'An unexplained scanner failure cannot be accepted.',
+  });
+}
 
 for (const finding of findings) {
   if (finding.severity === 'CRITICAL') {
@@ -98,6 +134,8 @@ const report = {
   commitSha: EXACT_HEAD,
   evaluatedAt: new Date().toISOString(),
   scanner: 'pnpm-audit',
+  scannerExitCode: Number.isFinite(SCANNER_EXIT) ? SCANNER_EXIT : null,
+  recognizedAuditShape: hasRecognizedAuditShape,
   reportedTotal,
   highOrCriticalFindings: findings,
   excepted,
@@ -108,7 +146,7 @@ mkdirSync(dirname(REPORT_PATH), { recursive: true });
 writeFileSync(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`);
 
 if (blocked.length > 0) {
-  console.error(`pnpm audit blocked the release: ${blocked.length} HIGH/CRITICAL finding(s).`);
+  console.error(`pnpm audit blocked the release: ${blocked.length} blocking finding(s).`);
   for (const finding of blocked) {
     console.error(`- ${finding.severity} ${finding.findingId} ${finding.package}: ${finding.title}`);
   }
