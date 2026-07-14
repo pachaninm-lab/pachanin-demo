@@ -45,9 +45,28 @@ jobs:
           ref: agent/ir-sec-next-15-5-16
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Normalize codemod output
-        run: node docs/platform-v7/autopilot/normalize-next15-codemod.mjs
+      - name: Normalize codemod output and retain diagnostics
+        id: cleanup
+        run: |
+          set +e
+          node docs/platform-v7/autopilot/normalize-next15-codemod.mjs > next15-cleanup.log 2>&1
+          code=$?
+          set -e
+          cat next15-cleanup.log
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+      - name: Upload complete cleanup diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next15-cleanup-${{ github.event.pull_request.head.sha }}
+          path: next15-cleanup.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce cleanup success
+        if: steps.cleanup.outputs.exit_code != '0'
+        run: exit 1
       - name: Commit normalized application files
+        if: steps.cleanup.outputs.exit_code == '0'
         run: |
           changed=$(git status --short | awk '{print $2}' | sort)
           printf '%s\n' "$changed"
