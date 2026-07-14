@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
+import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
 
 const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7',
@@ -37,10 +38,10 @@ export default async function PlatformV7Template({ children }: { children: React
   const pathname = normalizePath(headers().get('x-pc-pathname'));
 
   // Public pages and the privileged Staff control plane own their own minimal
-  // server-rendered shells. The Staff route must not inherit business-cabinet
-  // DOM mutation, mobile navigation or universal style guards: those create an
-  // authority-boundary leak and can also invalidate React hydration.
-  if (isPublicPath(pathname) || isStaffPath(pathname)) return children;
+  // server-rendered shells. Governed v8 routes also bypass every historical DOM,
+  // viewport, copy and style patch; their AppShell and route components own the
+  // complete presentation contract through tokens and CSS Modules.
+  if (isPublicPath(pathname) || isStaffPath(pathname) || isDesignSystemV8Route(pathname)) return children;
 
   const { PlatformV7ProtectedTemplateRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedTemplateRuntime');
   return <PlatformV7ProtectedTemplateRuntime>{children}</PlatformV7ProtectedTemplateRuntime>;
