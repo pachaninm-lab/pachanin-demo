@@ -1,5 +1,5 @@
 {
-  "version": 34,
+  "version": 35,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -50,6 +50,9 @@
     "apps/web/app/platform-v7/bank/factoring/page.tsx",
     "apps/web/app/platform-v7/operator/page.tsx",
     "apps/web/app/platform-v7/logistics/page.tsx",
+    "apps/web/app/platform-v7/logistics/[routeId]/page.tsx",
+    "apps/web/app/platform-v7/logistics/drivers/page.tsx",
+    "apps/web/app/platform-v7/logistics/inbox/page.tsx",
     "apps/web/app/platform-v7/compliance/page.tsx",
     "apps/web/app/platform-v7/arbitrator/page.tsx",
     "apps/web/app/platform-v7/executive/page.tsx",
