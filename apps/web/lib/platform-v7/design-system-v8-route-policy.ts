@@ -41,6 +41,7 @@ const DESIGN_SYSTEM_V8_PREFIX_ROUTES = [
   '/platform-v7/auction',
   '/platform-v7/buyer/rfq',
   '/platform-v7/bank',
+  '/platform-v7/logistics',
 ] as const;
 
 function normalizePath(value: string | null | undefined): string {
