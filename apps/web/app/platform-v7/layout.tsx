@@ -157,13 +157,12 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // its own server-issued staff session rather than a business cabinet role.
   if (isStaffPath(pathname)) return children;
 
+  // Every public surface owns its concrete CSS imports and server-rendered shell.
+  // No client DOM/style repair runtime is mounted around public content.
   if (isPublicPath(pathname)) {
-    const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
-    const publicContent = needsPublicHeader(pathname)
+    return needsPublicHeader(pathname)
       ? <PlatformV7PublicPageShell>{children}</PlatformV7PublicPageShell>
       : children;
-
-    return <PlatformV7FullStyleRuntime>{publicContent}</PlatformV7FullStyleRuntime>;
   }
 
   // A protected business cabinet is rendered only after the signed cabinet/access
@@ -179,11 +178,8 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
     <PlatformV7ProtectedRuntime pathname={pathname} verifiedRole={role}>{children}</PlatformV7ProtectedRuntime>
   );
 
-  if (isDesignSystemV8Route(pathname)) {
-    const { PlatformV7DesignSystemV8Runtime } = await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime');
-    return <PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>;
-  }
+  if (!isDesignSystemV8Route(pathname)) return protectedContent;
 
-  const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
-  return <PlatformV7FullStyleRuntime>{protectedContent}</PlatformV7FullStyleRuntime>;
+  const { PlatformV7DesignSystemV8Runtime } = await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime');
+  return <PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>;
 }
