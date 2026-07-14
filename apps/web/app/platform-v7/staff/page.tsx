@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { cookies, headers, type UnsafeUnwrappedHeaders } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { OwnerAccessCenter } from '@/components/platform-v7/staff/OwnerAccessCenter';
 import { StaffOperationalWorkspacesDeferred } from '@/components/platform-v7/staff/StaffOperationalWorkspacesDeferred';
@@ -103,8 +103,8 @@ async function verifyControlledIdentity(accessToken: string): Promise<Verificati
   };
 }
 
-function resolveLocale(): AppLocale {
-  const headerLocale = ((((headers() as unknown as UnsafeUnwrappedHeaders) as unknown as UnsafeUnwrappedHeaders) as unknown as UnsafeUnwrappedHeaders) as unknown as UnsafeUnwrappedHeaders).get('x-pc-locale');
+async function resolveLocale(): Promise<AppLocale> {
+  const headerLocale = (await headers()).get('x-pc-locale');
   return isAppLocale(headerLocale) ? headerLocale : DEFAULT_LOCALE;
 }
 
@@ -133,7 +133,7 @@ async function verifyIdentity(accessToken: string): Promise<Verification> {
 }
 
 export default async function StaffControlCenterPage() {
-  const locale = resolveLocale();
+  const locale = await resolveLocale();
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(ACCESS_COOKIE)?.value;
   const csrfToken = cookieStore.get(CSRF_COOKIE)?.value || '';
