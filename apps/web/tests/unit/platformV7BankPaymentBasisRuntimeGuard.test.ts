@@ -1,41 +1,33 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildPlatformV7BankPaymentBasisRuntimeAction } from '@/lib/platform-v7/bank-payment-basis-runtime-action';
 
-const source = fs.readFileSync(path.join(process.cwd(), 'apps/web/lib/platform-v7/bank-payment-basis-runtime-action.ts'), 'utf8');
+const repoRoot = path.resolve(process.cwd(), '../..');
+const pagePath = path.join(repoRoot, 'apps/web/app/platform-v7/bank/payment-basis/page.tsx');
+const page = fs.readFileSync(pagePath, 'utf8');
+const routePolicy = fs.readFileSync(path.join(repoRoot, 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'), 'utf8');
+const governance = JSON.parse(fs.readFileSync(path.join(repoRoot, 'design-governance-v8.json'), 'utf8'));
 
-describe('platform-v7 bank payment basis runtime guard', () => {
-  it('blocks DL-9106 basis handoff while the full bank-check matrix is not closed', () => {
-    const result = buildPlatformV7BankPaymentBasisRuntimeAction({ actorRole: 'operator', dealId: 'DL-9106' });
-
-    expect(result.status).toBe('blocked');
-    expect(result.uiStatusLabel).toBe('основание не передано');
-    expect(result.uiSafetyNote).toContain('Основание для банковской проверки заблокировано');
-    expect(result.uiSafetyNote).toContain('ФГИС/СДИЗ');
-    expect(result.uiSafetyNote).toContain('качество');
+describe('platform-v7 bank payment basis canonical route', () => {
+  it('redirects the legacy route to the canonical release-safety authority', () => {
+    expect(page).toContain("redirect(`/platform-v7/bank/release-safety${suffix}`)");
+    expect(page).toContain("query.set('dealId', dealId)");
+    expect(page).toContain("query.set('shipmentId', shipmentId)");
+    expect(page).not.toContain('DL-9106');
+    expect(page).not.toContain('actorRole');
   });
 
-  it('blocks empty and unknown deal ids', () => {
-    expect(buildPlatformV7BankPaymentBasisRuntimeAction({ actorRole: 'operator', dealId: '' }).status).toBe('blocked');
-    expect(buildPlatformV7BankPaymentBasisRuntimeAction({ actorRole: 'operator', dealId: 'UNKNOWN-DEAL' }).status).toBe('blocked');
+  it('removes fixture-backed browser actions and their client panel', () => {
+    expect(fs.existsSync(path.join(repoRoot, 'apps/web/components/platform-v7/P7BankPaymentBasisRuntimePanel.tsx'))).toBe(false);
+    expect(fs.existsSync(path.join(repoRoot, 'apps/web/lib/platform-v7/bank-payment-basis-runtime-action.ts'))).toBe(false);
+    expect(fs.existsSync(path.join(repoRoot, 'apps/web/tests/unit/p7BankPaymentBasisRuntimePanel.test.tsx'))).toBe(false);
+    expect(page).not.toContain("'use client'");
+    expect(page).not.toContain('useState');
+    expect(page).not.toContain('buildPlatformV7RuntimeActionEvent');
   });
 
-  it('keeps runtime handoff tied to evaluateReleaseGuard before creating action events', () => {
-    const guardIndex = source.indexOf('evaluateReleaseGuard(deal)');
-    const eventIndex = source.indexOf('buildPlatformV7RuntimeActionEvent');
-
-    expect(source).toContain('canonicalDomainDeals.find');
-    expect(source).toContain('check.canRequestRelease');
-    expect(source).toContain('check.canExecuteRelease');
-    expect(guardIndex).toBeGreaterThanOrEqual(0);
-    expect(eventIndex).toBeGreaterThanOrEqual(0);
-    expect(guardIndex).toBeLessThan(eventIndex);
-  });
-
-  it('does not frame payment-basis handoff as money movement', () => {
-    expect(source).toContain('Это не выпуск денег');
-    expect(source).toContain('не подтверждение выплаты');
-    expect(source).toContain('не замена внешнего банковского события');
+  it('keeps the compatibility route inside the governed minimal runtime', () => {
+    expect(routePolicy).toContain("'/platform-v7/bank/payment-basis'");
+    expect(governance.migratedFiles).toContain('apps/web/app/platform-v7/bank/payment-basis/page.tsx');
   });
 });
