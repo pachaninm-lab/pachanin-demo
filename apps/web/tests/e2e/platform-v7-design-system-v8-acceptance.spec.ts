@@ -199,11 +199,13 @@ test.describe('Design System v8 final browser acceptance', () => {
         const headerBox = headerElement.getBoundingClientRect();
         const mainBox = mainElement.getBoundingClientRect();
         const navBox = navElement.getBoundingClientRect();
+        const mainStyle = getComputedStyle(mainElement);
+        const mainPaddingTop = Number.parseFloat(mainStyle.paddingTop) || 0;
         return {
           headerPosition: getComputedStyle(headerElement).position,
           headerTop: headerBox.top,
           headerBottom: headerBox.bottom,
-          mainTop: mainBox.top,
+          mainContentTop: mainBox.top + mainPaddingTop,
           navPosition: getComputedStyle(navElement).position,
           navBottom: window.innerHeight - navBox.bottom,
         };
@@ -212,7 +214,7 @@ test.describe('Design System v8 final browser acceptance', () => {
       expect(geometry, `${role} shell geometry`).not.toBeNull();
       expect(geometry?.headerPosition).toBe('fixed');
       expect(Math.abs(geometry?.headerTop || 0)).toBeLessThanOrEqual(1);
-      expect(geometry?.mainTop || 0).toBeGreaterThanOrEqual((geometry?.headerBottom || 0) - 2);
+      expect(geometry?.mainContentTop || 0).toBeGreaterThanOrEqual((geometry?.headerBottom || 0) - 2);
       expect(geometry?.navPosition).toBe('fixed');
       expect(Math.abs(geometry?.navBottom || 0)).toBeLessThanOrEqual(1);
       await expectNoHorizontalOverflow(page);
