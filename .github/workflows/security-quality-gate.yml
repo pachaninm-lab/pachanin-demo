@@ -1,121 +1,271 @@
-name: Security Quality Gate (ТЗ 13.1)
+name: Security Quality Gate
 
 on:
   push:
-    branches: [main, 'claude/**']
+    branches: [main]
   pull_request:
   schedule:
     - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
 
 concurrency:
-  group: security-gate-${{ github.ref }}
+  group: security-gate-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20'
-  PNPM_VERSION: '10.2.1'
+  NODE_VERSION: '24'
+  PNPM_VERSION: '10.34.4'
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  SECURITY_ARTIFACT_DIR: artifacts/security
 
 jobs:
+  security-policy:
+    name: Security policy · exact-head scope and exceptions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Validate fail-closed policy
+        env:
+          SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          SECURITY_POLICY_REPORT: ${{ env.SECURITY_ARTIFACT_DIR }}/security-policy-validation.json
+          TRIVY_IGNORE_DIR: ${{ env.SECURITY_ARTIFACT_DIR }}
+        run: node docs/platform-v7/autopilot/check-security-release-gate.mjs
+
+      - name: Upload security policy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-policy-${{ env.EXACT_HEAD }}
+          path: ${{ env.SECURITY_ARTIFACT_DIR }}
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+
   semgrep-sast:
-    name: SAST · Semgrep
+    name: SAST · Semgrep blocking
+    needs: security-policy
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep:1.169.0
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
 
-      - name: Semgrep scan (TypeScript / Node.js security rules)
+      - name: Run deterministic blocking Semgrep policy
         run: |
-          semgrep \
-            --config p/typescript \
-            --config p/nodejs \
-            --config p/owasp-top-ten \
-            --config p/injection \
-            --config p/secrets \
-            --sarif --output semgrep.sarif \
+          mkdir -p "$SECURITY_ARTIFACT_DIR"
+          semgrep scan \
+            --config docs/platform-v7/autopilot/semgrep-security.yml \
+            --strict \
             --error \
+            --sarif \
+            --output "$SECURITY_ARTIFACT_DIR/semgrep.sarif" \
             --exclude node_modules \
             --exclude dist \
             --exclude .pnpm \
-            apps/api/src || true
+            apps/api/src apps/web/app apps/web/lib workers packages \
+            > "$SECURITY_ARTIFACT_DIR/semgrep.log" 2>&1
 
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && hashFiles('artifacts/security/semgrep.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: semgrep.sarif
-          category: semgrep-sast
-        continue-on-error: true
+          sarif_file: ${{ env.SECURITY_ARTIFACT_DIR }}/semgrep.sarif
+          category: semgrep-blocking
 
-      - name: Semgrep summary
-        run: |
-          if [ -f semgrep.sarif ]; then
-            FINDINGS=$(python3 -c "import json,sys; d=json.load(open('semgrep.sarif')); print(sum(len(r.get('results',[])) for r in d.get('runs',[])))" 2>/dev/null || echo "?")
-            echo "### Semgrep SAST: $FINDINGS finding(s)" >> $GITHUB_STEP_SUMMARY
-          fi
+      - name: Upload Semgrep evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-${{ env.EXACT_HEAD }}
+          path: |
+            ${{ env.SECURITY_ARTIFACT_DIR }}/semgrep.sarif
+            ${{ env.SECURITY_ARTIFACT_DIR }}/semgrep.log
+          if-no-files-found: error
+          retention-days: 90
 
   trivy-container:
-    name: Trivy · Container image
+    name: Container · Trivy blocking
+    needs: security-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Download governed exceptions
+        uses: actions/download-artifact@v4
+        with:
+          name: security-policy-${{ env.EXACT_HEAD }}
+          path: ${{ env.SECURITY_ARTIFACT_DIR }}
+
+      - name: Build canonical production-only API image
+        run: |
+          docker build \
+            -f infra/docker/Dockerfile.api \
+            -t prozrachnaya-cena-api:security-${EXACT_HEAD} \
+            .
+          docker image inspect \
+            --format='{{.Id}}' \
+            prozrachnaya-cena-api:security-${EXACT_HEAD} \
+            > "$SECURITY_ARTIFACT_DIR/container-image-digest.txt"
+
+      - name: Scan API image for HIGH and CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: prozrachnaya-cena-api:security-${{ env.EXACT_HEAD }}
+          format: sarif
+          output: artifacts/security/trivy-container.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          exit-code: '1'
+          trivyignores: artifacts/security/.trivyignore-trivy-container.yaml
+          limit-severities-for-sarif: true
+
+      - name: Upload container SARIF
+        if: always() && hashFiles('artifacts/security/trivy-container.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-container.sarif
+          category: trivy-container-blocking
+
+      - name: Upload container evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-container-${{ env.EXACT_HEAD }}
+          path: |
+            ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-container.sarif
+            ${{ env.SECURITY_ARTIFACT_DIR }}/container-image-digest.txt
+          if-no-files-found: error
+          retention-days: 90
+
+  trivy-filesystem:
+    name: Repository secrets · Trivy blocking
+    needs: security-policy
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Build API image (for scanning)
-        run: |
-          docker build \
-            -f apps/api/Dockerfile \
-            -t grainflow-api:scan-${{ github.sha }} \
-            apps/api/ \
-          || echo "Dockerfile not found, skipping image build"
-        continue-on-error: true
-
-      - name: Trivy image scan
-        uses: aquasecurity/trivy-action@master
+      - name: Checkout exact head
+        uses: actions/checkout@v4
         with:
-          image-ref: grainflow-api:scan-${{ github.sha }}
-          format: sarif
-          output: trivy-container.sarif
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '0'
-        continue-on-error: true
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
 
-      - name: Trivy filesystem scan (always runs)
-        uses: aquasecurity/trivy-action@master
+      - name: Download governed exceptions
+        uses: actions/download-artifact@v4
+        with:
+          name: security-policy-${{ env.EXACT_HEAD }}
+          path: ${{ env.SECURITY_ARTIFACT_DIR }}
+
+      - name: Scan complete repository for secrets
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
+          scanners: secret
           format: sarif
-          output: trivy-fs.sarif
+          output: artifacts/security/trivy-filesystem.sarif
           severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '0'
+          exit-code: '1'
+          trivyignores: artifacts/security/.trivyignore-trivy-filesystem.yaml
+          limit-severities-for-sarif: true
 
-      - name: Upload Trivy SARIF (container)
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+      - name: Upload repository SARIF
+        if: always() && hashFiles('artifacts/security/trivy-filesystem.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: trivy-container.sarif
-          category: trivy-container
-        continue-on-error: true
+          sarif_file: ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-filesystem.sarif
+          category: trivy-repository-secrets-blocking
 
-      - name: Upload Trivy SARIF (filesystem)
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Upload repository evidence
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          sarif_file: trivy-fs.sarif
-          category: trivy-filesystem
-        continue-on-error: true
+          name: trivy-filesystem-${{ env.EXACT_HEAD }}
+          path: ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-filesystem.sarif
+          if-no-files-found: error
+          retention-days: 90
+
+  trivy-iac:
+    name: IaC release authority · Trivy blocking
+    needs: security-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Download governed exceptions
+        uses: actions/download-artifact@v4
+        with:
+          name: security-policy-${{ env.EXACT_HEAD }}
+          path: ${{ env.SECURITY_ARTIFACT_DIR }}
+
+      - name: Scan release-authority Docker configuration
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: infra/docker
+          format: sarif
+          output: artifacts/security/trivy-iac.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          trivyignores: artifacts/security/.trivyignore-trivy-iac.yaml
+          limit-severities-for-sarif: true
+
+      - name: Upload IaC SARIF
+        if: always() && hashFiles('artifacts/security/trivy-iac.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-iac.sarif
+          category: trivy-release-iac-blocking
+
+      - name: Upload IaC evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-iac-${{ env.EXACT_HEAD }}
+          path: ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-iac.sarif
+          if-no-files-found: error
+          retention-days: 90
 
   gitleaks:
-    name: Secrets · Gitleaks
+    name: Secrets · Gitleaks blocking
+    needs: security-policy
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact head and history
+        uses: actions/checkout@v4
         with:
+          ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
       - name: Run Gitleaks
@@ -124,190 +274,131 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   dependency-audit:
-    name: Dependencies · npm audit
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Audit (CRITICAL only — blocking)
-        run: pnpm audit --audit-level=critical
-
-      - name: Audit (HIGH — informational)
-        run: pnpm audit --audit-level=high || true
-
-  typescript-check:
-    name: TypeScript · strict
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: tsc --noEmit (API)
-        run: |
-          cd apps/api
-          npx tsc --project tsconfig.json --noEmit 2>&1 | grep -v "TS5101\|TS5107\|aka.ms" | tee /tmp/tsc-output.txt
-          if grep -q "error TS" /tmp/tsc-output.txt; then
-            echo "TypeScript errors found!" && exit 1
-          fi
-          echo "TypeScript: OK" >> $GITHUB_STEP_SUMMARY
-
-  k6-smoke:
-    name: Performance · k6 smoke gate
+    name: Production dependencies · HIGH and CRITICAL blocking
+    needs: security-policy
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [typescript-check]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup patched pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: API compiled build diagnostic
-        continue-on-error: true
+      - name: Produce production dependency audit JSON
         run: |
-          set -o pipefail
-          pnpm --filter @pc/api build 2>&1 | tee /tmp/api-k6-build.log
+          mkdir -p "$SECURITY_ARTIFACT_DIR"
+          set +e
+          pnpm audit --prod --json --audit-level=high \
+            > "$SECURITY_ARTIFACT_DIR/pnpm-audit.json" \
+            2> "$SECURITY_ARTIFACT_DIR/pnpm-audit.stderr.txt"
+          audit_exit=$?
+          set -e
+          echo "PNPM_AUDIT_EXIT=$audit_exit" >> "$GITHUB_ENV"
 
-      - name: Upload API build log
+      - name: Evaluate audit against formal exceptions
+        env:
+          SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          PNPM_AUDIT_JSON: ${{ env.SECURITY_ARTIFACT_DIR }}/pnpm-audit.json
+          PNPM_AUDIT_REPORT: ${{ env.SECURITY_ARTIFACT_DIR }}/pnpm-audit-evaluation.json
+        run: node docs/platform-v7/autopilot/evaluate-pnpm-audit.mjs
+
+      - name: Upload dependency evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: api-k6-build-log
-          path: /tmp/api-k6-build.log
+          name: pnpm-audit-${{ env.EXACT_HEAD }}
+          path: |
+            ${{ env.SECURITY_ARTIFACT_DIR }}/pnpm-audit.json
+            ${{ env.SECURITY_ARTIFACT_DIR }}/pnpm-audit.stderr.txt
+            ${{ env.SECURITY_ARTIFACT_DIR }}/pnpm-audit-evaluation.json
+          if-no-files-found: error
+          retention-days: 90
 
-      - name: Start API server (background)
-        run: |
-          cd apps/api
-          NODE_ENV=test PORT=3000 \
-            JWT_SECRET=test-secret-32chars-minimum-length \
-            MFA_BYPASS=true \
-            pnpm exec ts-node --transpile-only src/main.ts > /tmp/api-k6-smoke.log 2>&1 &
-          echo "API_PID=$!" >> $GITHUB_ENV
-
-      - name: Wait for API to be healthy
-        run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then
-              echo "API is healthy after ${i}s"
-              exit 0
-            fi
-            sleep 2
-          done
-
-          echo "API failed to start"
-          echo "----- API smoke log -----"
-          cat /tmp/api-k6-smoke.log || true
-          exit 1
-
-      - name: Install k6
-        run: |
-          curl -fsSL https://github.com/grafana/k6/releases/download/v0.53.0/k6-v0.53.0-linux-amd64.tar.gz \
-            | tar -xz --strip-components=1
-          sudo mv k6 /usr/local/bin/k6
-
-      - name: Run k6 smoke test (5 VUs × 30s)
-        run: |
-          k6 run \
-            --vus 5 \
-            --duration 30s \
-            --env BASE_URL=http://localhost:3000 \
-            --env AUTH_TOKEN=test-jwt-token \
-            --summary-export /tmp/k6-summary.json \
-            apps/api/tests/load/k6-load-test.js \
-          || true
-
-      - name: Evaluate k6 results
-        run: |
-          if [ -f /tmp/k6-summary.json ]; then
-            P95=$(python3 -c "
-          import json
-          d = json.load(open('/tmp/k6-summary.json'))
-          v = d.get('metrics', {}).get('http_req_duration', {}).get('values', {})
-          print(v.get('p(95)', 9999))
-          " 2>/dev/null || echo "9999")
-            ERRORS=$(python3 -c "
-          import json
-          d = json.load(open('/tmp/k6-summary.json'))
-          v = d.get('metrics', {}).get('http_req_failed', {}).get('values', {})
-          print(v.get('rate', 1.0))
-          " 2>/dev/null || echo "1.0")
-            echo "### k6 Smoke Results" >> $GITHUB_STEP_SUMMARY
-            echo "- p95 latency: ${P95}ms (threshold: 500ms)" >> $GITHUB_STEP_SUMMARY
-            echo "- Error rate: ${ERRORS} (threshold: 0.01)" >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Upload API smoke log
-        if: failure()
-        uses: actions/upload-artifact@v4
+  typescript-check:
+    name: TypeScript · strict blocking
+    needs: security-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
         with:
-          name: api-k6-smoke-log
-          path: /tmp/api-k6-smoke.log
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
 
-      - name: Kill API server
-        if: always()
-        run: kill $API_PID 2>/dev/null || true
+      - name: Setup patched pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run strict API typecheck
+        run: pnpm --filter @pc/api typecheck
 
   security-gate:
-    name: Security Gate · all checks
+    name: Security Gate · all blocking checks
     runs-on: ubuntu-latest
+    if: always()
     needs:
+      - security-policy
       - semgrep-sast
       - trivy-container
+      - trivy-filesystem
+      - trivy-iac
       - gitleaks
       - dependency-audit
       - typescript-check
-    if: always()
     steps:
-      - name: Check all required jobs
+      - name: Enforce all required results
+        env:
+          POLICY_RESULT: ${{ needs.security-policy.result }}
+          SEMGREP_RESULT: ${{ needs.semgrep-sast.result }}
+          CONTAINER_RESULT: ${{ needs.trivy-container.result }}
+          FILESYSTEM_RESULT: ${{ needs.trivy-filesystem.result }}
+          IAC_RESULT: ${{ needs.trivy-iac.result }}
+          GITLEAKS_RESULT: ${{ needs.gitleaks.result }}
+          DEPENDENCY_RESULT: ${{ needs.dependency-audit.result }}
+          TYPESCRIPT_RESULT: ${{ needs.typescript-check.result }}
         run: |
-          FAILED=""
-          # TypeScript and gitleaks are blocking; others are informational
-          if [ "${{ needs.typescript-check.result }}" != "success" ]; then
-            FAILED="$FAILED typescript-check"
-          fi
-          if [ "${{ needs.gitleaks.result }}" == "failure" ]; then
-            FAILED="$FAILED gitleaks"
-          fi
-          if [ "${{ needs.dependency-audit.result }}" == "failure" ]; then
-            FAILED="$FAILED dependency-audit"
-          fi
-
-          if [ -n "$FAILED" ]; then
-            echo "## Security Gate: FAILED ❌" >> $GITHUB_STEP_SUMMARY
-            echo "Blocking checks failed:$FAILED" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          echo "## Security Gate: PASSED ✅" >> $GITHUB_STEP_SUMMARY
-          echo "All security checks passed." >> $GITHUB_STEP_SUMMARY
+          node <<'NODE'
+          const required = {
+            'security-policy': process.env.POLICY_RESULT,
+            'semgrep-sast': process.env.SEMGREP_RESULT,
+            'trivy-container': process.env.CONTAINER_RESULT,
+            'trivy-filesystem': process.env.FILESYSTEM_RESULT,
+            'trivy-iac': process.env.IAC_RESULT,
+            'gitleaks': process.env.GITLEAKS_RESULT,
+            'dependency-audit': process.env.DEPENDENCY_RESULT,
+            'typescript-check': process.env.TYPESCRIPT_RESULT,
+          };
+          const failed = Object.entries(required).filter(([, result]) => result !== 'success');
+          if (failed.length > 0) {
+            console.error('Blocking security checks failed or were skipped:');
+            for (const [name, result] of failed) console.error(`- ${name}: ${result}`);
+            process.exit(1);
+          }
+          console.log('All blocking security checks passed.');
+          NODE
