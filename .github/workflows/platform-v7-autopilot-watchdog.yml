@@ -32,6 +32,7 @@ jobs:
       - name: Checkout exact head
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -42,6 +43,7 @@ jobs:
       - name: Validate inventory and evidence paths
         env:
           INDUSTRIAL_READINESS_REPORT: artifacts/industrial-readiness/inventory-validation.json
+          INDUSTRIAL_READINESS_COMMIT: ${{ github.event.pull_request.head.sha }}
         run: node docs/platform-v7/autopilot/check-industrial-readiness-inventory.mjs
 
       - name: Publish readiness summary
@@ -73,7 +75,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: industrial-readiness-inventory-${{ github.sha }}
+          name: industrial-readiness-inventory-${{ github.event.pull_request.head.sha }}
           path: artifacts/industrial-readiness/inventory-validation.json
           if-no-files-found: error
           retention-days: 30
