@@ -1,20 +1,26 @@
-# API service image — builds @pc/api (NestJS + Prisma) from the pnpm workspace.
-FROM node:20-alpine
-WORKDIR /app
+# syntax=docker/dockerfile:1.7
 
-# Prisma's query engine needs OpenSSL on Alpine (musl).
-RUN apk add --no-cache openssl
+FROM node:24-bookworm-slim AS build
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+WORKDIR /workspace
 
-# Install the pnpm version pinned in package.json (packageManager: pnpm@10.2.1).
-# The previous `corepack prepare pnpm@9.12.0` both disagreed with that pin and
-# tripped Node 20's bundled corepack, which cannot verify pnpm 10.x signatures
-# (keyid error) — that failed the image build, so Trivy had no image to scan.
-RUN npm install -g pnpm@10.2.1
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/* \
+  && npm install --global pnpm@10.34.4
 
 COPY . .
-
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile
 RUN pnpm --filter @pc/api build
+RUN pnpm --filter @pc/api --prod deploy --legacy /prod/api
 
-EXPOSE 4000
-CMD ["pnpm", "--filter", "@pc/api", "start"]
+FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build --chown=nonroot:nonroot /prod/api/ ./
+
+EXPOSE 3001
+USER nonroot
+CMD ["dist/src/main.js"]
