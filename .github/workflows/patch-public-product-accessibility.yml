@@ -1,0 +1,68 @@
+name: Patch Public Product Experience Accessibility
+
+on:
+  push:
+    branches:
+      - agent/public-product-experience-v3
+    paths:
+      - '.github/workflows/patch-public-product-accessibility.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-accessibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/public-product-experience-v3
+          fetch-depth: 0
+      - name: Fix semantic definition list and WCAG contrast
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          explorer_path = Path('apps/web/components/platform-v7/PublicDealExplorer.tsx')
+          explorer = explorer_path.read_text(encoding='utf-8')
+          old = """        <div key={label}>
+          <span className='pc-ppe-causal-index'>{index + 1}</span>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>"""
+          new = """        <div key={label}>
+          <dt>
+            <span className='pc-ppe-causal-index' aria-hidden='true'>{index + 1}</span>
+            <span>{label}</span>
+          </dt>
+          <dd>{value}</dd>
+        </div>"""
+          if explorer.count(old) != 1:
+              raise SystemExit('Expected exactly one causal definition-list snippet')
+          explorer_path.write_text(explorer.replace(old, new, 1), encoding='utf-8')
+
+          css_path = Path('apps/web/styles/platform-v7-public-product-experience-v3.css')
+          css = css_path.read_text(encoding='utf-8')
+          old_css = "  color: #65756d;\n  font-size: 12px;"
+          new_css = "  color: #52635b;\n  font-size: 12px;"
+          if css.count(old_css) != 1:
+              raise SystemExit('Expected exactly one shared dt color token')
+          css_path.write_text(css.replace(old_css, new_css, 1), encoding='utf-8')
+          PY
+      - name: Validate exact patch
+        run: |
+          grep -F "className='pc-ppe-causal-index' aria-hidden='true'" apps/web/components/platform-v7/PublicDealExplorer.tsx
+          grep -F 'color: #52635b;' apps/web/styles/platform-v7-public-product-experience-v3.css
+          if grep -Fq "<span className='pc-ppe-causal-index'>{index + 1}</span>" apps/web/components/platform-v7/PublicDealExplorer.tsx; then
+            echo 'Legacy invalid dl child remains' >&2
+            exit 1
+          fi
+      - name: Remove one-time workflow and commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/patch-public-product-accessibility.yml
+          git add apps/web/components/platform-v7/PublicDealExplorer.tsx apps/web/styles/platform-v7-public-product-experience-v3.css
+          git commit -m 'Fix Public Product Experience accessibility semantics'
+          git push origin HEAD:agent/public-product-experience-v3
