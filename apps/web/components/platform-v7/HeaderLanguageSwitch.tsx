@@ -1,21 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Languages } from 'lucide-react';
 import {
   LANGUAGES,
-  applyTranslationToDom,
-  buildDictionaries,
-  clearLegacyDictionaryCache,
-  fetchRemoteDictionaryState,
   getLanguageMeta,
   isLanguageCode,
-  readCachedDictionaryState,
-  startTranslationObserver,
-  subscribeToLanguageChanges,
   writeStoredLanguage,
-  type DictionaryState,
   type LanguageCode,
 } from '@/lib/platform-v7/i18n/translation-runtime';
 
@@ -69,11 +61,7 @@ function readLanguageFromUrl(): LanguageCode | null {
 
 function readLanguageFromDocument(): LanguageCode {
   if (typeof document === 'undefined') return 'ru';
-  const declared = String(
-    document.documentElement.dataset.p7Language
-    || document.documentElement.lang
-    || '',
-  ).toLowerCase();
+  const declared = String(document.documentElement.lang || '').toLowerCase();
   if (declared === 'en' || declared.startsWith('en-')) return 'en';
   if (declared === 'zh' || declared.startsWith('zh-')) return 'zh';
   return 'ru';
@@ -89,25 +77,6 @@ function nextLanguage(current: LanguageCode): LanguageCode {
   return SUPPORTED_LANGUAGE_CODES[(index + 1) % SUPPORTED_LANGUAGE_CODES.length] ?? 'ru';
 }
 
-function lockBrowserAutoTranslate(language: LanguageCode) {
-  if (typeof document === 'undefined') return;
-  const htmlLang = getLanguageMeta(language).htmlLang;
-  document.documentElement.lang = htmlLang;
-  document.documentElement.dataset.p7Language = language;
-  document.documentElement.setAttribute('translate', 'no');
-  document.documentElement.classList.add('notranslate');
-  document.body?.setAttribute('translate', 'no');
-  document.body?.classList.add('notranslate');
-
-  let meta = document.querySelector<HTMLMetaElement>('meta[name="google"]');
-  if (!meta) {
-    meta = document.createElement('meta');
-    meta.name = 'google';
-    document.head.appendChild(meta);
-  }
-  meta.content = 'notranslate';
-}
-
 function reloadCurrentRouteForLanguage(language: LanguageCode) {
   if (typeof window === 'undefined') return;
   try {
@@ -116,7 +85,7 @@ function reloadCurrentRouteForLanguage(language: LanguageCode) {
 
   const url = new URL(window.location.href);
   url.searchParams.set('lang', language);
-  url.searchParams.set('l10n', String(Date.now()));
+  url.searchParams.delete('l10n');
   window.location.replace(url.toString());
 }
 
@@ -124,28 +93,10 @@ export function HeaderLanguageSwitch() {
   const [mounted, setMounted] = useState(false);
   const [target, setTarget] = useState<Element | null>(null);
   const [language, setLanguage] = useState<LanguageCode>('ru');
-  const [remoteDictionary, setRemoteDictionary] = useState<DictionaryState | null>(null);
-  const dictionaries = useMemo(() => buildDictionaries(remoteDictionary), [remoteDictionary]);
 
   useEffect(() => {
+    setLanguage(readAuthoritativeLanguage());
     setMounted(true);
-    clearLegacyDictionaryCache();
-    const stored = readAuthoritativeLanguage();
-    setLanguage(stored);
-    lockBrowserAutoTranslate(stored);
-    const cached = readCachedDictionaryState();
-    if (cached) setRemoteDictionary(cached);
-    fetchRemoteDictionaryState().then((state) => {
-      if (state) setRemoteDictionary(state);
-    }).catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    return subscribeToLanguageChanges((next) => {
-      const safeNext = normalizeLanguage(next);
-      setLanguage(safeNext);
-      lockBrowserAutoTranslate(safeNext);
-    });
   }, []);
 
   useEffect(() => {
@@ -161,30 +112,17 @@ export function HeaderLanguageSwitch() {
     };
   }, [mounted]);
 
-  useEffect(() => {
-    if (!mounted) return;
-    const current = readAuthoritativeLanguage();
-    if (current !== language) setLanguage(current);
-    lockBrowserAutoTranslate(current);
-    applyTranslationToDom(current, dictionaries);
-    return startTranslationObserver(() => readAuthoritativeLanguage(), () => dictionaries);
-  }, [language, dictionaries, mounted]);
-
   const chooseNextLanguage = useCallback(() => {
-    const current = readAuthoritativeLanguage();
-    const nextCode = nextLanguage(current);
-    lockBrowserAutoTranslate(nextCode);
+    const nextCode = nextLanguage(readAuthoritativeLanguage());
     writeStoredLanguage(nextCode);
-    setLanguage(nextCode);
-    applyTranslationToDom(nextCode, dictionaries);
     reloadCurrentRouteForLanguage(nextCode);
-  }, [dictionaries]);
+  }, []);
 
   if (!mounted || typeof document === 'undefined') return null;
 
   // Never place a fixed fallback above a protected header while its semantic
-  // action rail is mounting. The mutation observer will attach the portal as
-  // soon as the notification control exists.
+  // action rail is mounting. The mutation observer attaches the portal once
+  // the notification control exists.
   if (!target && document.querySelector('.pc-shell-root-v4')) return null;
 
   const meta = getLanguageMeta(language);
