@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { cookies, type UnsafeUnwrappedCookies } from 'next/headers';
+import { cookies } from 'next/headers';
 import type { PlatformV7AccessActor, PlatformV7AccessRole } from '@/lib/platform-v7/access-control';
 import {
   evaluatePlatformV7RouteGuard,
@@ -20,8 +20,8 @@ const ROLE_ACTOR: Partial<Record<PlatformV7AccessRole, PlatformV7AccessActor>> =
   executiveViewer: { userId: 'executive-1', organizationId: 'exec-1', roles: ['executiveViewer'], activeRole: 'executiveViewer' },
 };
 
-function roleFromCookie(surface: PlatformV7GuardedSurface): PlatformV7AccessRole {
-  const cookieRole = ((((cookies() as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies) as unknown as UnsafeUnwrappedCookies).get('pc-role')?.value;
+async function roleFromCookie(surface: PlatformV7GuardedSurface): Promise<PlatformV7AccessRole> {
+  const cookieRole = (await cookies()).get('pc-role')?.value;
   if (!cookieRole) return SURFACE_ROLE[surface];
 
   const canonical = toPlatformV7CanonicalRole(cookieRole);
@@ -52,8 +52,8 @@ function surfaceLabel(surface: PlatformV7GuardedSurface) {
   return 'сводному контуру';
 }
 
-export function RbacGuard({ surface, children }: { surface: PlatformV7GuardedSurface; children: ReactNode }) {
-  const actor = actorForRole(roleFromCookie(surface));
+export async function RbacGuard({ surface, children }: { surface: PlatformV7GuardedSurface; children: ReactNode }) {
+  const actor = actorForRole(await roleFromCookie(surface));
   const result = evaluatePlatformV7RouteGuard(platformV7RouteGuardRequest(surface, actor));
 
   if (!result.allowed) {
