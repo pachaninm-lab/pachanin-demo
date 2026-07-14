@@ -1,263 +1,225 @@
-'use client';
-
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { P7ActionButton, type P7ActionButtonState } from '@/components/platform-v7/P7ActionButton';
-import { P7ActionLog } from '@/components/platform-v7/P7ActionLog';
-import { runPlatformAction } from '@/lib/platform-v7/action-runner';
-import type { PlatformActionLogEntry } from '@/lib/platform-v7/action-log';
-import { PLATFORM_V7_DEALS_ROUTE } from '@/lib/platform-v7/routes';
+import { getLocale } from 'next-intl/server';
+import { InlineNotice, StatusChip } from '@pc/design-system-v8';
+import {
+  OperationalCockpitSection,
+  OperationalDecisionCockpit,
+  OperationalQueue,
+  OperationalQueueLink,
+  operationalCockpitClasses,
+  type OperationalPriority,
+} from '@/components/transaction-ux/OperationalDecisionCockpit';
+import { getAuthProfile } from '@/lib/auth-profile-server';
+import { getDealsCanonical } from '@/lib/deals-server';
 
-type FactoringStatus = 'Проверка' | 'Документы' | 'Одобрено' | 'Аванс отмечен';
+type Locale = 'ru' | 'en' | 'zh';
+type RouteState = 'confirmed' | 'unconfirmed';
 
-type FactoringApplication = {
-  id: string;
-  buyer: string;
-  deal: string;
-  amount: number;
-  status: FactoringStatus;
-  next: string;
-  note: string;
+type Copy = Readonly<{
+  metadataTitle: string;
+  metadataDescription: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  unavailableStatus: string;
+  profileStatus: string;
+  labels: Readonly<{ blocker: string; owner: string; impact: string; result: string; nextAction: string; prioritySection: string; factsSection: string }>;
+  profileTask: Readonly<{ title: string; description: string; blocker: string; impact: string; result: string }>;
+  authorityTask: Readonly<{ title: string; description: string; blocker: string; impact: string; result: string }>;
+  owner: string;
+  actions: Readonly<{ profile: string; bank: string; deals: string; status: string }>;
+  facts: Readonly<{ user: string; userHint: string; organization: string; organizationHint: string; deals: string; dealsHint: string; registry: string; registryHint: string }>;
+  values: Readonly<{ unavailable: string; unconfirmed: string; confirmed: string }>;
+  noticeTitle: string;
+  notice: string;
+  boundaryTitle: string;
+  boundary: string;
+  routes: ReadonlyArray<Readonly<{ href: string; title: string; detail: string; state: RouteState }>>;
+}>;
+
+const COPY: Record<Locale, Copy> = {
+  ru: {
+    metadataTitle: 'Факторинг · Прозрачная Цена',
+    metadataDescription: 'Граница факторингового контура без фиктивных заявок, лимитов и клиентских денежных переходов.',
+    eyebrow: 'Банк · факторинг',
+    title: 'Факторинг включается только после серверного и банковского подтверждения',
+    description: 'Экран не создаёт заявки, не рассчитывает лимит и не отмечает аванс. До появления tenant-scoped реестра, серверных команд и подтверждённого банковского адаптера доступна только граница будущего процесса.',
+    unavailableStatus: 'Факторинговый контур не подтверждён',
+    profileStatus: 'Профиль не подтверждён',
+    labels: { blocker: 'Блокер', owner: 'Ответственный', impact: 'Влияние', result: 'Результат', nextAction: 'Следующее действие', prioritySection: 'Главная задача', factsSection: 'Подтверждённые факты' },
+    profileTask: {
+      title: 'Восстановить подтверждённую серверную сессию',
+      description: 'Пользователь, организация и роль недоступны через `/auth/me`. Интерфейс не назначает банковскую роль локально.',
+      blocker: 'серверный профиль не подтверждён',
+      impact: 'невозможно доказать полномочия на просмотр банковского контура',
+      result: 'валидная сессия с подтверждённой membership',
+    },
+    authorityTask: {
+      title: 'Создать durable факторинговый контур до включения заявок',
+      description: 'Нужны PostgreSQL-реестр, версии условий, серверные команды, банковский договор и адаптер, идемпотентность, аудит, outbox и связь с канонической Сделкой.',
+      blocker: 'нет подтверждённых factoring API, durable registry и банковского адаптера',
+      impact: 'нельзя безопасно принять заявку, лимит или решение банка',
+      result: 'проверяемый tenant/RBAC workflow без браузерного денежного authority',
+    },
+    owner: 'Product / CTO / Bank Partnerships',
+    actions: { profile: 'Открыть профиль доступа', bank: 'Открыть банковский контур', deals: 'Открыть Сделки', status: 'Проверить состояние системы' },
+    facts: { user: 'Пользователь', userHint: 'только из активной серверной сессии', organization: 'Организация', organizationHint: 'orgId и tenant boundary из `/auth/me`', deals: 'Доступных Сделок', dealsHint: 'participant-scoped серверный реестр', registry: 'Факторинговый реестр', registryHint: 'не подтверждён серверным API' },
+    values: { unavailable: 'Недоступно', unconfirmed: 'Не подтверждён', confirmed: 'Подтверждено' },
+    noticeTitle: 'Локальная симуляция факторинга удалена',
+    notice: 'Удалены вымышленные заявки, лимиты, ставка, статусы одобрения, авансы и клиентские псевдодействия. Пустой backend не заменяется данными из браузера.',
+    boundaryTitle: 'Граница факторинга',
+    boundary: 'Браузер не создаёт заявку, не меняет скоринг, не принимает уступку и не отмечает финансирование. Сервер должен проверить tenant, membership, Сделку, версии условий, идемпотентность и optimistic concurrency, затем атомарно записать факты, audit и outbox. Решение банка приходит только через подтверждённый адаптер и reconciliation.',
+    routes: [
+      { href: '/platform-v7/bank', title: 'Банковский контур', detail: 'Каноническая очередь оснований, блокеров и подтверждённых банковских событий.', state: 'confirmed' },
+      { href: '/platform-v7/deals', title: 'Канонические Сделки', detail: 'Проверить Сделки, к которым в будущем может относиться финансирование.', state: 'confirmed' },
+      { href: '/platform-v7/api-docs', title: 'Контракт factoring API', detail: 'Публиковать только после реализации и проверки серверных контроллеров.', state: 'unconfirmed' },
+    ],
+  },
+  en: {
+    metadataTitle: 'Factoring · Transparent Price',
+    metadataDescription: 'A factoring boundary without fictional applications, limits or client-owned money transitions.',
+    eyebrow: 'Bank · factoring',
+    title: 'Enable factoring only after server and bank confirmation',
+    description: 'This screen does not create applications, calculate limits or mark advances. Until a tenant-scoped registry, server commands and a verified bank adapter exist, it exposes only the future process boundary.',
+    unavailableStatus: 'Factoring circuit not confirmed',
+    profileStatus: 'Profile not confirmed',
+    labels: { blocker: 'Blocker', owner: 'Owner', impact: 'Impact', result: 'Result', nextAction: 'Next action', prioritySection: 'Primary task', factsSection: 'Confirmed facts' },
+    profileTask: {
+      title: 'Restore a confirmed server session',
+      description: 'User, organization and role are unavailable from `/auth/me`. The UI does not assign the bank role locally.',
+      blocker: 'server profile not confirmed',
+      impact: 'authority to view the bank circuit cannot be proven',
+      result: 'a valid session with confirmed membership',
+    },
+    authorityTask: {
+      title: 'Build a durable factoring circuit before enabling applications',
+      description: 'The platform needs a PostgreSQL registry, versioned terms, server commands, a bank agreement and adapter, idempotency, audit, outbox and a canonical Deal link.',
+      blocker: 'no confirmed factoring API, durable registry or bank adapter',
+      impact: 'an application, limit or bank decision cannot be accepted safely',
+      result: 'a verifiable tenant/RBAC workflow without browser-owned money authority',
+    },
+    owner: 'Product / CTO / Bank Partnerships',
+    actions: { profile: 'Open access profile', bank: 'Open bank circuit', deals: 'Open Deals', status: 'Check system status' },
+    facts: { user: 'User', userHint: 'from the active server session only', organization: 'Organization', organizationHint: 'orgId and tenant boundary from `/auth/me`', deals: 'Accessible Deals', dealsHint: 'participant-scoped server registry', registry: 'Factoring registry', registryHint: 'not confirmed by a server API' },
+    values: { unavailable: 'Unavailable', unconfirmed: 'Not confirmed', confirmed: 'Confirmed' },
+    noticeTitle: 'The local factoring simulation was removed',
+    notice: 'Fictional applications, limits, rates, approval states, advances and client-side pseudo-actions were removed. An empty backend is not replaced with browser data.',
+    boundaryTitle: 'Factoring boundary',
+    boundary: 'The browser does not create an application, change scoring, accept an assignment or mark financing. The server must verify tenant, membership, Deal, term versions, idempotency and optimistic concurrency, then atomically write facts, audit and outbox. A bank decision arrives only through a verified adapter and reconciliation.',
+    routes: [
+      { href: '/platform-v7/bank', title: 'Bank circuit', detail: 'Canonical queue of bases, blockers and confirmed bank events.', state: 'confirmed' },
+      { href: '/platform-v7/deals', title: 'Canonical Deals', detail: 'Inspect Deals that may later be linked to financing.', state: 'confirmed' },
+      { href: '/platform-v7/api-docs', title: 'Factoring API contract', detail: 'Publish only after server controllers are implemented and verified.', state: 'unconfirmed' },
+    ],
+  },
+  zh: {
+    metadataTitle: '保理 · 透明价格',
+    metadataDescription: '不展示虚构申请、额度或客户端资金状态迁移的保理边界。',
+    eyebrow: '银行 · 保理',
+    title: '仅在服务器和银行确认后启用保理',
+    description: '该页面不会创建申请、计算额度或标记预付款。在 tenant-scoped 登记册、服务器命令和已验证银行适配器建立之前，仅展示未来流程边界。',
+    unavailableStatus: '保理闭环未确认',
+    profileStatus: '档案未确认',
+    labels: { blocker: '阻塞项', owner: '负责人', impact: '影响', result: '结果', nextAction: '下一步', prioritySection: '主要任务', factsSection: '已确认事实' },
+    profileTask: {
+      title: '恢复已确认的服务器会话',
+      description: '无法从 `/auth/me` 获取用户、组织和角色。界面不会在本地分配银行角色。',
+      blocker: '服务器档案未确认',
+      impact: '无法证明查看银行闭环的权限',
+      result: '包含已确认 membership 的有效会话',
+    },
+    authorityTask: {
+      title: '启用申请前建立持久化保理闭环',
+      description: '需要 PostgreSQL 登记册、条款版本、服务器命令、银行协议和适配器、幂等、审计、outbox 以及与规范交易的关联。',
+      blocker: '没有已确认的 factoring API、持久登记册或银行适配器',
+      impact: '无法安全接收申请、额度或银行决定',
+      result: '不依赖浏览器资金权威的可验证 tenant/RBAC 工作流',
+    },
+    owner: 'Product / CTO / 银行合作',
+    actions: { profile: '打开访问档案', bank: '打开银行闭环', deals: '打开交易', status: '检查系统状态' },
+    facts: { user: '用户', userHint: '仅来自活动服务器会话', organization: '组织', organizationHint: '来自 `/auth/me` 的 orgId 和 tenant 边界', deals: '可访问交易', dealsHint: '参与方范围服务器登记册', registry: '保理登记册', registryHint: '未由服务器 API 确认' },
+    values: { unavailable: '不可用', unconfirmed: '未确认', confirmed: '已确认' },
+    noticeTitle: '本地保理模拟已删除',
+    notice: '已删除虚构申请、额度、利率、审批状态、预付款和客户端伪操作。空 backend 不会由浏览器数据替代。',
+    boundaryTitle: '保理边界',
+    boundary: '浏览器不会创建申请、更改评分、接受债权转让或标记融资。服务器必须验证 tenant、membership、交易、条款版本、幂等和乐观并发，然后原子写入事实、audit 和 outbox。银行决定只能通过已验证适配器和 reconciliation 到达。',
+    routes: [
+      { href: '/platform-v7/bank', title: '银行闭环', detail: '规范的依据、阻塞项和已确认银行事件队列。', state: 'confirmed' },
+      { href: '/platform-v7/deals', title: '规范交易', detail: '查看未来可能关联融资的交易。', state: 'confirmed' },
+      { href: '/platform-v7/api-docs', title: '保理 API 合同', detail: '仅在服务器控制器实现并验证后发布。', state: 'unconfirmed' },
+    ],
+  },
 };
 
-const initialApplications: FactoringApplication[] = [
-  {
-    id: 'FAC-201',
-    buyer: 'МаслоПресс ООО',
-    deal: 'DL-9108',
-    amount: 8.6,
-    status: 'Одобрено',
-    next: 'Передать основание банку для проверки аванса',
-    note: 'Предварительный лимит отмечен в предынтеграционном контуре. В боевом контуре нужна банковская проверка, договор и подтверждённая уступка.',
-  },
-  {
-    id: 'FAC-202',
-    buyer: 'Агрохолдинг СК',
-    deal: 'DL-9110',
-    amount: 12.1,
-    status: 'Проверка',
-    next: 'Дождаться финального скоринга',
-    note: 'Банк дочитывает финансовый профиль и проверяет структуру сделки. Это не отдельный экран кредитования покупателя.',
-  },
-  {
-    id: 'FAC-203',
-    buyer: 'Зерно Трейд',
-    deal: 'DL-9114',
-    amount: 5.4,
-    status: 'Документы',
-    next: 'Собрать пакет уступки требований',
-    note: 'Не хватает уступки, акта сверки и финального реестра поставки. Без этого основание не передаётся на банковскую проверку.',
-  },
-];
-
-const formatMillions = (value: number) => `${value.toFixed(1).replace('.', ',')} млн ₽`;
-
-const badgeStyle = (status: FactoringStatus) => {
-  if (status === 'Аванс отмечен') {
-    return { background: 'rgba(10,122,95,0.08)', border: '1px solid rgba(10,122,95,0.18)', color: '#0A7A5F' };
-  }
-  if (status === 'Одобрено') {
-    return { background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#2563EB' };
-  }
-  if (status === 'Документы') {
-    return { background: 'rgba(180,83,9,0.10)', border: '1px solid rgba(180,83,9,0.18)', color: '#B45309' };
-  }
-  return { background: '#F5F7F8', border: '1px solid var(--pc-border, #E4E6EA)', color: 'var(--pc-text-secondary, #475569)' };
-};
-
-function getNextApplication(item: FactoringApplication): FactoringApplication {
-  if (item.status === 'Проверка') {
-    return { ...item, status: 'Документы', next: 'Собрать уступку и акт сверки', note: 'Скоринг пройден в тестовом контуре, остался документный пакет для уступки.' };
-  }
-  if (item.status === 'Документы') {
-    return { ...item, status: 'Одобрено', next: 'Передать основание банку для проверки аванса', note: 'Документы закрыты в тестовом контуре, заявка готова к банковской проверке.' };
-  }
-  if (item.status === 'Одобрено') {
-    return { ...item, status: 'Аванс отмечен', next: 'Контролировать возврат через закрытие поставки', note: 'Аванс отмечен в тестовом контуре и привязан к сделке. Боевой платёж не выполнялся.' };
-  }
-  return item;
+function localeOf(value: string): Locale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
 }
 
-function getActionLabel(status: FactoringStatus): string {
-  if (status === 'Проверка') return 'Завершить скоринг';
-  if (status === 'Документы') return 'Принять пакет';
-  if (status === 'Одобрено') return 'Передать на проверку аванса';
-  return 'Проверить историю';
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = COPY[localeOf(await getLocale())];
+  return { title: copy.metadataTitle, description: copy.metadataDescription, robots: { index: false, follow: false } };
 }
 
-function getSuccessMessage(item: FactoringApplication): string {
-  if (item.status === 'Проверка') return `Заявка ${item.id}: скоринг завершён в тестовом контуре, можно переходить к документам.`;
-  if (item.status === 'Документы') return `Заявка ${item.id}: пакет документов принят, лимит отмечен в тестовом контуре.`;
-  if (item.status === 'Одобрено') return `Заявка ${item.id}: аванс отмечен для сделки ${item.deal}; боевой платёж не выполнялся.`;
-  return `Заявка ${item.id}: дополнительное движение не требуется.`;
-}
-
-export default function BankFactoringPage() {
-  const [applications, setApplications] = useState<FactoringApplication[]>(initialApplications);
-  const [filter, setFilter] = useState<'Все' | FactoringStatus>('Все');
-  const [message, setMessage] = useState('');
-  const [actionStates, setActionStates] = useState<Record<string, P7ActionButtonState>>({});
-  const [actionLog, setActionLog] = useState<PlatformActionLogEntry[]>([]);
-
-  const filteredApplications = useMemo(() => {
-    return filter === 'Все' ? applications : applications.filter((item) => item.status === filter);
-  }, [applications, filter]);
-
-  const metrics = useMemo(() => {
-    const total = applications.length;
-    const approved = applications.filter((item) => item.status === 'Одобрено').length;
-    const pending = applications.filter((item) => item.status === 'Проверка' || item.status === 'Документы').length;
-    const paidAdvance = applications
-      .filter((item) => item.status === 'Аванс отмечен')
-      .reduce((sum, item) => sum + item.amount, 0);
-
-    return [
-      { title: 'Предварительный лимит', value: '48 млн ₽', note: 'Расчётный лимит для демонстрации; не кредитное решение банка' },
-      { title: 'Ставка', value: 'КС + 4.2%', note: 'Допущение контура исполнения, не публичная оферта' },
-      { title: 'Активные заявки', value: String(total), note: `${pending} требуют движения, ${approved} готовы к проверке аванса` },
-      { title: 'Отмеченные авансы', value: formatMillions(paidAdvance || 0), note: 'Имитация профинансированных сделок по текущей выборке' },
-    ];
-  }, [applications]);
-
-  const pushActionLog = (entries: PlatformActionLogEntry[]) => {
-    setActionLog((current) => [...entries, ...current].slice(0, 8));
-  };
-
-  const advanceApplication = async (id: string) => {
-    const item = applications.find((application) => application.id === id);
-    if (!item) return;
-
-    setActionStates((current) => ({ ...current, [id]: 'loading' }));
-
-    const result = await runPlatformAction({
-      scope: 'bank',
-      objectId: item.id,
-      action: 'factoring-advance',
-      actor: 'Банк-офицер',
-      loadingMessage: `Факторинг ${item.id}: начато тестовое действие "${getActionLabel(item.status)}".`,
-      successMessage: () => getSuccessMessage(item),
-      errorMessage: (error) => `Факторинг ${item.id}: действие не выполнено${error instanceof Error ? `: ${error.message}` : ''}.`,
-      run: async () => getNextApplication(item),
-    });
-
-    pushActionLog(result.log);
-
-    if (result.phase === 'success' && result.result) {
-      const nextApplication = result.result;
-      setApplications((current) => current.map((application) => application.id === id ? nextApplication : application));
-      setMessage(getSuccessMessage(item));
-      setActionStates((current) => ({ ...current, [id]: 'success' }));
-      return;
-    }
-
-    setMessage(`Заявка ${item.id}: действие не выполнено.`);
-    setActionStates((current) => ({ ...current, [id]: 'error' }));
+export default async function BankFactoringPage() {
+  const copy = COPY[localeOf(await getLocale())];
+  const [profile, rawDeals] = await Promise.all([getAuthProfile(), getDealsCanonical()]);
+  const dealCount = Array.isArray(rawDeals) ? rawDeals.length : 0;
+  const identity = profile.fullName || profile.email || profile.id || copy.values.unavailable;
+  const task = profile.available ? copy.authorityTask : copy.profileTask;
+  const priority: OperationalPriority = {
+    state: 'critical',
+    title: task.title,
+    description: task.description,
+    blocker: task.blocker,
+    owner: copy.owner,
+    impact: task.impact,
+    result: task.result,
+    primaryAction: profile.available
+      ? <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/bank'>{copy.actions.bank}</Link>
+      : <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/profile'>{copy.actions.profile}</Link>,
+    secondaryAction: profile.available
+      ? <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/deals'>{copy.actions.deals}</Link>
+      : <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/status'>{copy.actions.status}</Link>,
   };
 
   return (
-    <div style={{ display: 'grid', gap: 18 }}>
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Факторинг</div>
-            <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8, maxWidth: 860 }}>
-              Контур исполнения финансирования под сделку: лимиты, скоринг, уступка требований, документная готовность и проверка аванса. Это не кредитование покупателя и не боевой банковский платёж.
-            </div>
-          </div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', borderRadius: 999, background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)', color: '#2563EB', fontSize: 12, fontWeight: 800 }}>
-            Банковый модуль предынтеграционного контура · предынтеграционный контур
-          </div>
-        </div>
-      </section>
-
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-        {metrics.map((card) => (
-          <div key={card.title} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 16, padding: 16 }}>
-            <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{card.title}</div>
-            <div style={{ fontSize: 30, lineHeight: 1.05, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 10 }}>{card.value}</div>
-            <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', marginTop: 8, lineHeight: 1.5 }}>{card.note}</div>
-          </div>
-        ))}
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Заявки на факторинг</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {(['Все', 'Проверка', 'Документы', 'Одобрено', 'Аванс отмечен'] as const).map((item) => {
-              const active = filter === item;
-              return (
-                <button
-                  key={item}
-                  onClick={() => setFilter(item)}
-                  style={{
-                    appearance: 'none',
-                    border: active ? '1px solid rgba(10,122,95,0.20)' : '1px solid var(--pc-border, #E4E6EA)',
-                    background: active ? 'rgba(10,122,95,0.08)' : '#fff',
-                    color: active ? '#0A7A5F' : 'var(--pc-text-secondary, #475569)',
-                    borderRadius: 999,
-                    padding: '8px 12px',
-                    fontSize: 12,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {item}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {message ? (
-          <div style={{ borderRadius: 14, border: '1px solid rgba(10,122,95,0.18)', background: 'rgba(10,122,95,0.06)', color: '#0A7A5F', padding: 14, fontSize: 13, fontWeight: 700 }}>
-            {message}
-          </div>
-        ) : null}
-
-        <div style={{ display: 'grid', gap: 12 }}>
-          {filteredApplications.map((item) => {
-            const actionState = actionStates[item.id] ?? 'idle';
-            return (
-              <div key={item.id} style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 14, padding: 14, display: 'grid', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.id}</div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: 999, fontSize: 11, fontWeight: 800, ...badgeStyle(item.status) }}>{item.status}</div>
-                </div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)' }}>{item.buyer} · {item.deal}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                  <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12 }}>
-                    <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Сумма заявки</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8 }}>{formatMillions(item.amount)}</div>
-                  </div>
-                  <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12 }}>
-                    <div style={{ fontSize: 11, color: 'var(--pc-text-muted, #6B778C)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>Следующий шаг</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--pc-text-primary, #0F1419)', marginTop: 8, lineHeight: 1.45 }}>{item.next}</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>{item.note}</div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <Link href={`${PLATFORM_V7_DEALS_ROUTE}/${item.deal}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, padding: '10px 14px', borderRadius: 12, border: '1px solid #D4D9E2', color: 'var(--pc-text-primary, #0F1419)', textDecoration: 'none', fontWeight: 800, background: '#fff' }}>
-                    Открыть сделку
-                  </Link>
-                  <P7ActionButton
-                    variant='secondary'
-                    state={actionState}
-                    onClick={() => advanceApplication(item.id)}
-                    loadingLabel='Выполняю…'
-                    successLabel='Готово'
-                    errorLabel='Ошибка'
-                  >
-                    {getActionLabel(item.status)}
-                  </P7ActionButton>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <P7ActionLog title='Журнал действий факторинга' entries={actionLog} />
-    </div>
+    <OperationalDecisionCockpit
+      testId='platform-v7-bank-factoring-v8'
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+      description={copy.description}
+      statusLabel={profile.available ? copy.unavailableStatus : copy.profileStatus}
+      statusTone='warning'
+      priority={priority}
+      facts={[
+        { label: copy.facts.user, value: identity, hint: copy.facts.userHint },
+        { label: copy.facts.organization, value: profile.orgId || copy.values.unavailable, hint: copy.facts.organizationHint },
+        { label: copy.facts.deals, value: String(dealCount), hint: copy.facts.dealsHint },
+        { label: copy.facts.registry, value: copy.values.unconfirmed, hint: copy.facts.registryHint },
+      ]}
+      boundary={copy.boundary}
+      labels={copy.labels}
+    >
+      <InlineNotice tone='warning' title={copy.noticeTitle}>{copy.notice}</InlineNotice>
+      <OperationalCockpitSection>
+        <OperationalQueue>
+          {copy.routes.map((route) => (
+            <OperationalQueueLink
+              key={route.href}
+              href={route.href}
+              title={route.title}
+              detail={route.detail}
+              status={<StatusChip tone={route.state === 'confirmed' ? 'success' : 'warning'}>{route.state === 'confirmed' ? copy.values.confirmed : copy.values.unconfirmed}</StatusChip>}
+            />
+          ))}
+        </OperationalQueue>
+      </OperationalCockpitSection>
+      <OperationalCockpitSection>
+        <InlineNotice tone='information' title={copy.boundaryTitle}>{copy.boundary}</InlineNotice>
+      </OperationalCockpitSection>
+    </OperationalDecisionCockpit>
   );
 }
