@@ -15,17 +15,19 @@ describe('Design System v8 foundation', () => {
     expect(tokens.semantic.action.primary.$value).toBe('{core.color.green.700}');
   });
 
-  it('loads the generated token output before legacy platform styles', () => {
-    const runtime = read('apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx');
-    const tokenImport = runtime.indexOf("packages/design-tokens/tokens.css");
-    const legacyImport = runtime.indexOf("@/app/v9.css");
-    expect(tokenImport).toBeGreaterThanOrEqual(0);
-    expect(tokenImport).toBeLessThan(legacyImport);
+  it('loads generated tokens through the governed runtime without the legacy style bundle', () => {
+    const runtime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
+    const layout = read('apps/web/app/platform-v7/layout.tsx');
+    expect(runtime).toContain('packages/design-tokens/tokens.css');
+    expect(runtime).not.toContain("@/app/v9.css");
+    expect(runtime).not.toContain("@/styles/platform-v7-");
+    expect(layout).toContain('PlatformV7DesignSystemV8Runtime');
+    expect(layout).not.toContain('PlatformV7FullStyleRuntime');
   });
 
   it('migrates NextActionCard without local styling', () => {
     const component = read('apps/web/components/platform-v7/NextActionCard.tsx');
-    expect(component).toContain("@pc/design-system-v8");
+    expect(component).toContain('@pc/design-system-v8');
     expect(component).not.toMatch(/style\s*=\s*\{\{/);
     expect(component).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   });
