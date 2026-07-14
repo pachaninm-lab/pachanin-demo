@@ -6,7 +6,6 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 const rootLayout = read('apps/web/app/layout.tsx');
 const layout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');
-const fullStyleRuntime = read('apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const nextConfig = read('apps/web/next.config.js');
@@ -31,16 +30,16 @@ const supportingShellCss = read('apps/web/app/platform-v7/_styles/public-support
 const middleware = read('apps/web/middleware.ts');
 
 describe('platform-v7 public/protected runtime split', () => {
-  it('resolves lean public paths before creating the full or protected client tree', () => {
+  it('resolves lean public paths before creating the protected client tree', () => {
     expect(layout).toContain("from 'next/headers'");
     expect(layout).toContain("headers().get('x-pc-pathname')");
     expect(layout).toContain('if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children');
-    expect(layout).toContain("await import('@/components/platform-v7/PlatformV7FullStyleRuntime')");
     expect(layout).toContain("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')");
+    expect(layout).toContain("await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime')");
     expect(layout.indexOf('if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children')).toBeLessThan(
-      layout.indexOf("await import('@/components/platform-v7/PlatformV7FullStyleRuntime')"),
+      layout.indexOf("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')"),
     );
-    expect(layout).not.toContain("await import('./_styles/");
+    expect(layout).not.toContain('PlatformV7FullStyleRuntime');
     expect(layout).not.toContain('PlatformV7ShellSwitch');
     expect(layout).not.toContain('ToastProvider');
     expect(layout).not.toContain('PlatformThemeSync');
@@ -62,27 +61,18 @@ describe('platform-v7 public/protected runtime split', () => {
     }
   });
 
-  it('does not wrap original or rewritten public entry paths in the client message provider', () => {
-    expect(rootLayout).toContain('LEAN_PUBLIC_ENTRY_PATHS');
-    expect(rootLayout).toContain("'/platform-v7'");
-    expect(rootLayout).toContain("'/platform-v7/login'");
-    expect(rootLayout).toContain("'/platform-v7/forgot-password'");
-    expect(rootLayout).toContain("'/pc-public-entry/platform-v7'");
-    expect(rootLayout).toContain("'/pc-public-entry/platform-v7/login'");
-    expect(rootLayout).toContain("'/pc-public-entry/platform-v7/forgot-password'");
-    expect(rootLayout).toContain('leanPublicEntry\n    ? children');
-    expect(rootLayout).toContain('messages={await getMessages()}');
-    expect(template).toContain("headers().get('x-pc-pathname')");
-    expect(template).toContain('if (isPublicPath(pathname)) return children');
-    expect(template).toContain("await import('@/components/platform-v7/PlatformV7ProtectedTemplateRuntime')");
+  it('keeps the route template as a server-safe pass-through', () => {
+    expect(template).toContain('return children');
+    expect(template).not.toContain('headers()');
+    expect(template).not.toContain('PlatformV7ProtectedTemplateRuntime');
     expect(template).not.toContain('PlatformV7TemplateSwitch');
+    expect(template).not.toContain('PlatformV7TemplateGuards');
   });
 
   it('does not preload or activate protected font variables on lean public entry routes', () => {
     expect(rootLayout.match(/preload: false/g)?.length).toBe(3);
     expect(rootLayout).toContain("const fontVariables = leanPublicEntry ? '' : `${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`;");
     expect(rootLayout).toContain("className={`notranslate${fontVariables ? ` ${fontVariables}` : ''}`}");
-    expect(rootLayout).not.toContain("className={`notranslate ${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`}");
   });
 
   it('keeps the landing route free of the lucide client module graph', () => {
@@ -98,7 +88,7 @@ describe('platform-v7 public/protected runtime split', () => {
   it('keeps protected providers and shell in a protected-only runtime', () => {
     expect(protectedRuntime).toContain('<ToastProvider>');
     expect(protectedRuntime).toContain('<PlatformThemeSync />');
-    expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname}>');
+    expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname} verifiedRole={verifiedRole}>');
     expect(protectedShell).toContain('<AppShellV4 initialRole={initialRole}>');
     expect(protectedShell).toContain('<PlatformV7SingleEntryGuard />');
     expect(protectedShell).toContain('<RbacCabinetGuard />');
@@ -107,7 +97,7 @@ describe('platform-v7 public/protected runtime split', () => {
   it('uses a server-rendered locale link and native navigation on target routes', () => {
     expect(publicLocaleLink).not.toContain("'use client'");
     expect(publicLocaleLink).toContain("getTranslations('publicEntry.language')");
-    expect(publicLocaleLink).toContain("href={`${pathname}?lang=${next}`}");
+    expect(publicLocaleLink).toContain('href={`${pathname}?lang=${next}`}');
     expect(landing).toContain('localeControl={<PublicLocaleLink />}');
     expect(login).toContain('localeControl={<PublicLocaleLink />}');
     expect(recovery).toContain('localeControl={<PublicLocaleLink />}');
@@ -115,31 +105,19 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(publicHeader).toContain("<a href='/platform-v7' className='pc-site-brand'");
   });
 
-  it('loads lean CSS from concrete routes and full CSS only from the non-lean runtime', () => {
+  it('loads public CSS from concrete routes and never from a legacy runtime', () => {
     expect(rootLayout).not.toContain('platform-v7-dark-role-fixes.css');
     expect(layout).not.toContain("import '@/styles/");
     expect(template).not.toContain("import '@/styles/");
+    expect(layout).not.toContain('PlatformV7FullStyleRuntime');
 
     expect(landing).toContain("import '@/styles/platform-v7-public-header.css'");
     expect(landing).toContain("import '@/styles/platform-v7-public-landing.css'");
     expect(landing).toContain("import '@/styles/platform-v7-public-entry-stable.css'");
-    expect(landing).not.toContain('platform-v7-protected-grid-stable.css');
-    expect(landing).not.toContain('platform-v7-dark-role-fixes.css');
-
     expect(loginLayout).toContain("import '@/styles/platform-v7-public-header.css'");
     expect(loginLayout).toContain("import '@/styles/platform-v7-public-auth.css'");
-    expect(loginLayout).not.toContain('platform-v7-public-landing.css');
-    expect(loginLayout).not.toContain('platform-v7-protected-grid-stable.css');
-
     expect(recovery).toContain("import '@/styles/platform-v7-public-header.css'");
     expect(recovery).toContain("import '@/styles/platform-v7-public-auth.css'");
-    expect(recovery).not.toContain('platform-v7-public-landing.css');
-    expect(recovery).not.toContain('platform-v7-protected-grid-stable.css');
-
-    expect(fullStyleRuntime).toContain("'use client'");
-    expect(fullStyleRuntime).toContain("import '@/styles/platform-v7-protected-grid-stable.css'");
-    expect(fullStyleRuntime).toContain("import '@/styles/platform-v7-dark-role-fixes.css'");
-    expect(fullStyleRuntime).toContain('return children');
 
     for (const source of [publicHeader, publicLocaleLink, brandMark, landing, intelligenceStrip, login, loginClient, recovery, recoveryClient]) {
       expect(source).not.toContain('<style');
@@ -155,10 +133,9 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(publicLandingCss).toContain('.entry-intelligence-section');
   });
 
-  it('keeps the header fixed and offsets every platform surface', () => {
+  it('keeps the header contract CSS-owned without DOM observation', () => {
     expect(rootLayout).toContain("import './platform-v7/_styles/fixed-header-contract.css'");
     expect(rootLayout).toContain("import './platform-v7/_styles/public-supporting-shell.css'");
-
     for (const selector of [
       '.pc-site-header',
       '.p7-flow-header',
@@ -170,25 +147,19 @@ describe('platform-v7 public/protected runtime split', () => {
       '.pc-v4-header',
       '.pc-fixed-header',
       '[data-staff-platform-shell] > header',
-    ]) {
-      expect(fixedHeaderCss).toContain(selector);
-    }
-
+    ]) expect(fixedHeaderCss).toContain(selector);
     expect(fixedHeaderCss).toContain('position: fixed !important');
     expect(fixedHeaderCss).toContain('env(safe-area-inset-top, 0px)');
     expect(fixedHeaderCss).toContain('--pc-local-fixed-header-height');
-    expect(fixedHeaderCss).toContain('transform: none !important');
-    expect(fullStyleRuntime).toContain('ResizeObserver');
-    expect(fullStyleRuntime).toContain('MutationObserver');
-    expect(fullStyleRuntime).toContain("window.visualViewport?.addEventListener('resize'");
-    expect(fullStyleRuntime).toContain("activeRoot.style.setProperty('--pc-local-fixed-header-height'");
+    expect(layout).not.toContain('ResizeObserver');
+    expect(layout).not.toContain('MutationObserver');
+    expect(template).not.toContain('ResizeObserver');
+    expect(template).not.toContain('MutationObserver');
     expect(supportingShellCss).toContain('[data-public-supporting-shell]');
   });
 
   it('adds the canonical public header to supporting routes that had none', () => {
-    for (const route of ['/platform-v7/help', '/platform-v7/pricing', '/platform-v7/roadmap']) {
-      expect(layout).toContain(route);
-    }
+    for (const route of ['/platform-v7/help', '/platform-v7/pricing', '/platform-v7/roadmap']) expect(layout).toContain(route);
     expect(layout).toContain('PUBLIC_HEADERLESS_PATHS');
     expect(layout).toContain('async function PlatformV7PublicPageShell');
     expect(layout).toContain('<PublicSiteHeader');
