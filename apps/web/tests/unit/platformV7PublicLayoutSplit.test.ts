@@ -71,7 +71,7 @@ describe('platform-v7 final public/protected runtime split', () => {
     expect(publicLocaleLink).not.toContain("'use client'");
     expect(publicLocaleLink).toContain("getTranslations('publicEntry.language')");
     expect(publicLocaleLink).toContain('href={`${pathname}?lang=${next}`}');
-    expect(layout).toContain('localeControl');
+    expect(layout).toContain('<PublicLocaleLink />');
     expect(layout).not.toContain('localStorage');
   });
 
