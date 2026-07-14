@@ -109,6 +109,7 @@ const exact = new Set([
   'pnpm-workspace.yaml',
   'scripts/check-design-system-v8.mjs',
   'scripts/check-design-system-v8-pr-scope.mjs',
+  'scripts/p7-autopilot-guard.sh',
 ]);
 
 const prefixes = [
