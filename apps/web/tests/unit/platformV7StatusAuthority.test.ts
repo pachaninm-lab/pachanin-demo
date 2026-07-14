@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const root = process.cwd();
-const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
+const repoRoot = path.resolve(process.cwd(), '../..');
+const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
 const statusPage = read('apps/web/app/platform-v7/status/page.tsx');
 const routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
