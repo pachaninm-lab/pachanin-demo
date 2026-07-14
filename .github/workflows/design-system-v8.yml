@@ -102,6 +102,7 @@ jobs:
             tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx \
             tests/unit/platformV7FgisAccessFlow.test.ts \
             tests/unit/platformV7LogisticsSecondaryAuthority.test.ts \
+            tests/unit/platformV7NotificationsAuthority.test.ts \
             tests/unit/platformV7OperatorCompatibilityAliases.test.ts \
             tests/unit/platformV7RealDealsRegistry.test.ts \
             tests/unit/platformV7RoleIntentDashboard.test.ts \

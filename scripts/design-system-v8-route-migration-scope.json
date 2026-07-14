@@ -11,6 +11,7 @@
   "apps/web/app/platform-v7/elevator/terminal/page.tsx",
   "apps/web/app/platform-v7/elevator/terminal/[operationId]/page.tsx",
   "apps/web/app/platform-v7/notifications/page.tsx",
+  "apps/web/app/platform-v7/notifications/notifications.module.css",
   "apps/web/app/platform-v7/pilot-runbook/page.tsx",
   "apps/web/app/platform-v7/readiness/page.tsx",
   "apps/web/app/platform-v7/support/page.tsx",

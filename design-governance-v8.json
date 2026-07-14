@@ -1,5 +1,5 @@
 {
-  "version": 38,
+  "version": 39,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -16,6 +16,7 @@
     "apps/web/app/platform-v7/bank/events/page.tsx",
     "apps/web/app/platform-v7/bank/events/[id]/page.tsx",
     "apps/web/app/platform-v7/bank/grain/page.tsx",
+    "apps/web/app/platform-v7/notifications/notifications.module.css",
     "apps/web/lib/audit-server.ts",
     "apps/web/lib/disputes-server.ts",
     "apps/web/lib/integrations-server.ts",
