@@ -2,72 +2,99 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-describe('platform-v7 root working entry', () => {
-  const page = readFileSync(join(process.cwd(), 'app/platform-v7/page.tsx'), 'utf8');
-  const landingCopy = readFileSync(join(process.cwd(), 'i18n/public-landing-copy.ts'), 'utf8');
-  const landingCss = readFileSync(join(process.cwd(), 'styles/platform-v7-public-landing.css'), 'utf8');
-  const worldClassCss = readFileSync(join(process.cwd(), 'styles/platform-v7-public-world-class.css'), 'utf8');
-  const mobileSafeAreaCss = readFileSync(join(process.cwd(), 'styles/platform-v7-public-mobile-safe-area.css'), 'utf8');
-  const webkitSafeCss = readFileSync(join(process.cwd(), 'styles/platform-v7-public-webkit-safe.css'), 'utf8');
+const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-  it('uses the public execution surface as the root entry', () => {
+describe('platform-v7 public product experience v3', () => {
+  const page = read('app/platform-v7/page.tsx');
+  const explorerPage = read('app/platform-v7/how-it-works/page.tsx');
+  const explorer = read('components/platform-v7/PublicDealExplorer.tsx');
+  const icons = read('components/platform-v7/PublicExperienceIcon.tsx');
+  const copy = read('i18n/public-product-experience-v3.ts');
+  const css = read('styles/platform-v7-public-product-experience-v3.css');
+  const refinementCss = read('styles/platform-v7-public-product-experience-v3-refinement.css');
+
+  it('uses one deal as the root public product model', () => {
     expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
-    expect(page).not.toContain('data-maturity=');
-    expect(page).toContain('entry-hero');
-    expect(page).toContain('entry-role-grid');
-    expect(page).toContain('entry-footer');
+    expect(page).toContain("className='pc-ppe-hero pc-ppe-hero-copy-only'");
+    expect(page).toContain('<PublicDealPreview copy={copy} locale={locale} />');
+    expect(page).toContain("className='pc-ppe-perspective-grid' role='list'");
+    expect(page).toContain("className='pc-ppe-proof-panel'");
+    expect(page).toContain("className='pc-ppe-final-cta'");
+    expect(page).not.toContain('entry-control-grid');
+    expect(page).not.toContain('entry-role-grid');
+    expect(page).not.toContain('PlatformV7IntelligenceStrip');
   });
 
-  it('keeps role discovery non-authoritative and exposes one server-resolved login gate', () => {
-    expect(page).toContain("className='entry-role-grid' role='list'");
-    expect(page).toContain("<article key={key} className='entry-role-tile' role='listitem'>");
-    expect(page).toContain("href='/platform-v7/login' className='entry-role-access-cta'");
+  it('keeps the header simple and role discovery non-authoritative', () => {
+    expect(page).toContain("actions={<a href='/platform-v7/login' className='entry-login'");
+    expect(page).not.toContain('entry-header-register');
     expect(page).not.toContain('/platform-v7/login?role=');
     expect(page).not.toContain("href: '/platform-v7/seller'");
     expect(page).not.toContain("href: '/platform-v7/buyer'");
-    expect(page).not.toContain("href: '/platform-v7/bank'");
-    expect(page).not.toContain("<a key={key} href={href} className='entry-role-tile'");
-    expect(landingCopy).toContain('Войдите один раз');
-    expect(landingCopy).toContain('с доступными вам действиями');
+    expect(page).toContain("role='listitem'");
+    expect(explorer).toContain("selectPerspective(event.target.value as TourPerspective)");
+    expect(explorer).not.toContain('membership');
+    expect(explorer).not.toContain('authorization');
+    expect(explorer).not.toContain('accessToken');
   });
 
-  it('uses native links without hydrating a client router tree', () => {
-    expect(page).toContain("<a href='/platform-v7/login' className='entry-login'");
-    expect(page).toContain("<a href='/platform-v7/register' className='entry-header-register'");
-    expect(page).toContain("<a href='/platform-v7/register' className='entry-primary-cta'");
-    expect(page).not.toContain("from 'next/link'");
-    expect(page).not.toContain('<Link');
+  it('exposes one primary hero action and an explicit illustrative label', () => {
+    const firstHero = page.slice(page.indexOf("className='pc-ppe-hero"), page.indexOf("className='pc-ppe-section'"));
+    expect(firstHero.match(/className='pc-ppe-primary-button'/g)?.length).toBe(1);
+    expect(firstHero).toContain("eventName='home_primary_cta_click'");
+    expect(copy).toContain("eyebrow: 'Пример прохождения сделки'");
+    expect(copy).toContain("exampleBadge: 'Пример прохождения сделки'");
+    expect(page).not.toContain('fake-live');
   });
 
-  it('keeps exactly two primary hero actions and removes fake-live presentation', () => {
-    expect(page).toContain("className='entry-primary-cta'");
-    expect(page).toContain("className='entry-secondary-cta'");
-    expect(page).not.toContain("className='entry-register-cta'");
-    expect(page).not.toContain('MessageCircleQuestion');
-    expect(page).not.toContain('DL-9102');
-    expect(page).not.toContain("<i />{t('visual.note')}");
-    expect(page).toContain("publicLanding('visualBasisText')");
+  it('provides six lenses, twelve perspectives, three scenarios and ten stages', () => {
+    expect(explorerPage).toContain("data-testid='platform-v7-deal-from-inside'");
+    expect(explorer).toContain('TOUR_LENSES.map');
+    expect(explorer).toContain('TOUR_PERSPECTIVES.map');
+    expect(explorer).toContain('TOUR_SCENARIOS.map');
+    expect(explorer).toContain('TOUR_STAGES.map');
+    expect(copy.match(/summary: /g)?.length).toBeGreaterThanOrEqual(18);
+    expect(copy).toContain("standard: { label: 'Штатный'");
+    expect(copy).toContain("partial: { label: 'Частичный'");
+    expect(copy).toContain("dispute: { label: 'Спорный'");
   });
 
-  it('keeps mobile, accessibility and resilient-display gates in active public CSS', () => {
-    expect(landingCss).toContain('--entry-header-height:64px');
-    expect(landingCss).toContain('.entry-process-row{display:flex;gap:10px;overflow-x:auto;padding:0 2px 8px;scroll-snap-type:x proximity}');
-    expect(landingCss).toContain('.entry-process-row::-webkit-scrollbar{display:none}');
-    expect(landingCss).toContain('flex:0 0 172px');
-    expect(worldClassCss).toContain('.pc-site-mobile-menu');
-    expect(worldClassCss).toContain('min-height: 44px');
-    expect(worldClassCss).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(worldClassCss).toContain('@media (forced-colors: active)');
-    expect(worldClassCss).toContain('.entry-role-access');
-    expect(worldClassCss).toContain('.entry-footer');
-    expect(mobileSafeAreaCss).toContain('env(safe-area-inset-top,0px)');
-    expect(mobileSafeAreaCss).toContain('min-height:100dvh');
-    expect(mobileSafeAreaCss).toContain('grid-template-columns:1fr');
-    expect(webkitSafeCss).toContain('@supports');
+  it('uses one SVG system and no legacy glyph cards', () => {
+    expect(icons).toContain("viewBox='0 0 24 24'");
+    expect(icons).toContain("stroke='currentColor'");
+    for (const token of ["glyph: '§'", "glyph: '∴'", "glyph: '∑'", "glyph: '⚖'"]) {
+      expect(page).not.toContain(token);
+      expect(explorer).not.toContain(token);
+    }
   });
 
-  it('keeps maturity language truthful', () => {
-    const forbidden = ['production' + '-ready', 'fully ' + 'live', 'fully ' + 'integrated', 'bank ' + 'connected', 'FGIS ' + 'connected', 'EDO ' + 'connected'];
-    for (const token of forbidden) expect(page.toLowerCase()).not.toContain(token.toLowerCase());
+  it('keeps mobile, accessibility and resilient-display gates active', () => {
+    expect(css).toContain('min-height: 44px');
+    expect(css).toContain('@media (max-width: 360px)');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(css).toContain('@media (forced-colors: active)');
+    expect(css).toContain('scroll-padding-bottom: 88px');
+    expect(refinementCss).toContain('.pc-ppe-hero-contour');
+    expect(refinementCss).toContain('overflow-x: auto');
+    expect(explorer).toContain("aria-current={active ? 'step' : undefined}");
+    expect(explorer).toContain("window.addEventListener('popstate'");
+  });
+
+  it('keeps maturity language truthful and external systems isolated', () => {
+    const combined = `${page}\n${explorerPage}\n${explorer}\n${copy}`.toLowerCase();
+    const forbidden = [
+      'production' + '-ready',
+      'fully ' + 'live',
+      'bank ' + 'connected',
+      'fgis ' + 'connected',
+      'edo ' + 'connected',
+      'math.random',
+      'fetch(',
+      '/api/',
+      'websocket',
+    ];
+    for (const token of forbidden) expect(combined).not.toContain(token);
+    expect(copy).toContain('не читает реальные сделки');
+    expect(copy).toContain('не выполняет денежные операции');
   });
 });
