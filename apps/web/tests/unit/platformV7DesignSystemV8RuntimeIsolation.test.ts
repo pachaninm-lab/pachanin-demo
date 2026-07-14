@@ -9,9 +9,8 @@ const layout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');
 const controlTower = read('apps/web/app/platform-v7/control-tower/page.tsx');
 const routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
+const knownRoutePolicy = read('apps/web/lib/platform-v7/known-route-policy.ts');
 const v8Runtime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
-const legacyRuntime = read('apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx');
-const legacyTemplate = read('apps/web/components/platform-v7/PlatformV7ProtectedTemplateRuntime.tsx');
 const fixedHeaderContract = read('apps/web/app/platform-v7/_styles/fixed-header-contract.css');
 
 const roleRoutes = [
@@ -43,7 +42,7 @@ const criticalRoutes = [
 ];
 
 describe('platform-v7 Design System v8 runtime isolation', () => {
-  it('registers all twelve role roots and the accepted transaction routes in one server-safe policy', () => {
+  it('registers all twelve role roots and accepted transaction routes in one server-safe policy', () => {
     for (const role of roleRoutes) expect(routePolicy).toContain(`'/platform-v7/${role}'`);
     for (const route of criticalRoutes) expect(routePolicy).toContain(`'${route}'`);
     expect(routePolicy).toContain("'/platform-v7/deals/'");
@@ -54,25 +53,29 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
     expect(routePolicy).not.toContain('document.');
   });
 
-  it('selects the minimal v8 style/runtime boundary on the server after verified role enforcement', () => {
-    expect(layout).toContain("from '@/lib/platform-v7/design-system-v8-route-policy'");
-    expect(layout).toContain('if (isDesignSystemV8Route(pathname))');
+  it('fails unknown routes closed before authentication and mounts only the governed protected runtime', () => {
+    expect(layout).toContain("from 'next/navigation'");
+    expect(layout).toContain('notFound');
+    expect(layout).toContain("from '@/lib/platform-v7/known-route-policy'");
+    expect(layout).toContain('if (!isKnownPlatformV7Route(pathname)) notFound()');
+    expect(layout.indexOf('if (!isKnownPlatformV7Route(pathname)) notFound()')).toBeLessThan(
+      layout.indexOf('const role = await verifiedCabinetRole()'),
+    );
+    expect(layout).toContain("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')");
     expect(layout).toContain("await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime')");
     expect(layout).toContain('<PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>');
-    expect(layout.indexOf('if (!role) redirect')).toBeLessThan(layout.indexOf('if (isDesignSystemV8Route(pathname))'));
-    expect(layout.indexOf('if (isDesignSystemV8Route(pathname))')).toBeLessThan(
-      layout.lastIndexOf("await import('@/components/platform-v7/PlatformV7FullStyleRuntime')"),
-    );
+    expect(layout).not.toContain('PlatformV7FullStyleRuntime');
+    expect(knownRoutePolicy).toContain('isKnownPlatformV7Route');
+    expect(knownRoutePolicy).toContain('PLATFORM_V7_DYNAMIC_ROUTES');
   });
 
-  it('does not mount legacy template guards on governed routes', () => {
-    expect(template).toContain("from '@/lib/platform-v7/design-system-v8-route-policy'");
-    expect(template).toContain('isDesignSystemV8Route(pathname)');
+  it('keeps the route template free of historical DOM and style repair runtimes', () => {
     expect(template).toContain('return children');
-    expect(template.indexOf('isDesignSystemV8Route(pathname)')).toBeLessThan(
-      template.indexOf("await import('@/components/platform-v7/PlatformV7ProtectedTemplateRuntime')"),
-    );
-    expect(legacyTemplate).toContain('PlatformV7TemplateGuards');
+    expect(template).not.toContain('headers()');
+    expect(template).not.toContain('PlatformV7ProtectedTemplateRuntime');
+    expect(template).not.toContain('PlatformV7TemplateGuards');
+    expect(template).not.toContain('MutationObserver');
+    expect(template).not.toContain('ResizeObserver');
   });
 
   it('keeps the governed runtime token-only and free of DOM/style repair code', () => {
@@ -86,7 +89,6 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
     expect(v8Runtime).not.toContain('setTimeout');
     expect(v8Runtime).not.toContain('<style');
     expect(v8Runtime).not.toContain('@/styles/');
-    expect(legacyRuntime).toContain('@/styles/platform-v7-final-polish.css');
   });
 
   it('keeps one canonical role-safe operator or executive workspace instead of a duplicate synthetic cockpit', () => {
