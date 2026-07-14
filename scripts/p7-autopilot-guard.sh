@@ -156,6 +156,13 @@ apps/web/tests/unit/platformV7ControlledTestOrganization*.test.ts
 apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts
 scripts/p7-autopilot-guard.sh'
 
+INDUSTRIAL_SECURITY_GATE_SCOPE='.github/workflows/security-quality-gate.yml
+docs/platform-v7/autopilot/check-security-release-gate.mjs
+docs/platform-v7/autopilot/evaluate-pnpm-audit.mjs
+docs/platform-v7/autopilot/security-exceptions.json
+docs/platform-v7/autopilot/security-exceptions.schema.json
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -201,6 +208,12 @@ fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-lcp-css-boundary" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx'; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_LCP_FIX_SCOPE")
+fi
+
+# Industrial readiness security hardening may change only the blocking workflow
+# and its source-controlled exception/validation authority.
+if [ "${GITHUB_HEAD_REF:-}" = "agent/industrial-readiness-v1-security-gates" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$INDUSTRIAL_SECURITY_GATE_SCOPE")
 fi
 
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
