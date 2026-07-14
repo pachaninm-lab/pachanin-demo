@@ -59,6 +59,7 @@
   "apps/web/styles/platform-v7-final-viewport-cleanup.css",
   "apps/web/styles/platform-v7-contextual-wheat-backgrounds.css",
   "apps/web/tests/unit/platformV7StaticShellPolicy.test.ts",
+  "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
   "apps/web/tests/unit/driverFieldShellGuard.test.tsx",
   "apps/web/tests/unit/platformV7AiShellEnhancerNotificationBridge.test.tsx",
   "apps/web/tests/unit/platformV7HideLegacyHeaderBell.test.ts",
