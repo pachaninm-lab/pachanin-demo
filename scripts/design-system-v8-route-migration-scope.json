@@ -75,6 +75,7 @@
   "apps/web/styles/platform-v7-contextual-wheat-backgrounds.css",
   "apps/web/tests/unit/platformV7BrowserAcceptanceRepairs.test.ts",
   "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+  "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
   "apps/web/tests/unit/platformV7StaticShellPolicy.test.ts",
   "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
   "apps/web/tests/unit/platformV7NotificationsAuthority.test.ts",
