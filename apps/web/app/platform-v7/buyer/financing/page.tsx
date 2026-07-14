@@ -1,239 +1,308 @@
-'use client';
-
-import * as React from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getLocale } from 'next-intl/server';
+import { InlineNotice, StatusChip } from '@pc/design-system-v8';
+import {
+  OperationalCockpitSection,
+  OperationalDecisionCockpit,
+  OperationalQueue,
+  OperationalQueueLink,
+  operationalCockpitClasses,
+  type OperationalPriority,
+} from '@/components/transaction-ux/OperationalDecisionCockpit';
+import { getAuthProfile } from '@/lib/auth-profile-server';
+import { getDealsCanonical } from '@/lib/deals-server';
 
-const S = 'var(--pc-bg-card)';
-const SS = 'var(--pc-bg-elevated)';
-const B = 'var(--pc-border)';
-const T = 'var(--pc-text-primary)';
-const M = 'var(--pc-text-secondary)';
-const BRAND = '#0A7A5F';
-const BRAND_BG = 'rgba(10,122,95,0.08)';
-const BRAND_BORDER = 'rgba(10,122,95,0.18)';
-const CREDIT = '#155EEF';
-const CREDIT_BG = 'rgba(21,94,239,0.06)';
-const CREDIT_BORDER = 'rgba(21,94,239,0.18)';
-const WARN_BG = 'rgba(217,119,6,0.08)';
-const WARN_BORDER = 'rgba(217,119,6,0.18)';
-const WARN = '#B45309';
-const ERR = '#B91C1C';
+type Locale = 'ru' | 'en' | 'zh';
+type RouteState = 'confirmed' | 'unconfirmed';
 
-interface CreditApplication {
-  id: string;
-  dealId?: string;
-  grain?: string;
-  volumeTons?: number;
-  amount: number;
-  rate: number;
-  termDays: number;
-  status: 'draft' | 'submitted' | 'under_review' | 'approved' | 'disbursed' | 'rejected';
-  submittedAt?: string;
-}
+type Copy = Readonly<{
+  metadataTitle: string;
+  metadataDescription: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  unavailableStatus: string;
+  profileStatus: string;
+  labels: Readonly<{
+    blocker: string;
+    owner: string;
+    impact: string;
+    result: string;
+    nextAction: string;
+    prioritySection: string;
+    factsSection: string;
+  }>;
+  profileTask: Readonly<{ title: string; description: string; blocker: string; impact: string; result: string }>;
+  authorityTask: Readonly<{ title: string; description: string; blocker: string; impact: string; result: string }>;
+  owner: string;
+  actions: Readonly<{ profile: string; bank: string; deals: string; status: string }>;
+  facts: Readonly<{
+    user: string;
+    userHint: string;
+    organization: string;
+    organizationHint: string;
+    deals: string;
+    dealsHint: string;
+    registry: string;
+    registryHint: string;
+  }>;
+  values: Readonly<{ unavailable: string; unconfirmed: string; confirmed: string }>;
+  noticeTitle: string;
+  notice: string;
+  boundaryTitle: string;
+  boundary: string;
+  routes: ReadonlyArray<Readonly<{ href: string; title: string; detail: string; state: RouteState }>>;
+}>;
 
-const SANDBOX_APPLICATIONS: CreditApplication[] = [
-  { id: 'cr-001', dealId: 'DL-9101', grain: 'Пшеница 4 кл.', volumeTons: 240, amount: 2_976_000, rate: 14.5, termDays: 90, status: 'approved', submittedAt: '2026-04-20' },
-  { id: 'cr-002', dealId: 'DL-9103', grain: 'Кукуруза 1 кл.', volumeTons: 360, amount: 4_680_000, rate: 15.0, termDays: 60, status: 'under_review', submittedAt: '2026-04-25' },
-];
-
-const CREDIT_LIMITS = {
-  total: 20_000_000,
-  used: 7_656_000,
-  available: 12_344_000,
+const COPY: Record<Locale, Copy> = {
+  ru: {
+    metadataTitle: 'Финансирование закупки · Прозрачная Цена',
+    metadataDescription: 'Граница финансирования покупателя без фиктивных заявок, лимитов, ставок и клиентского кредитного решения.',
+    eyebrow: 'Покупатель · финансирование',
+    title: 'Заявка на финансирование — только через серверный и банковский контур',
+    description: 'Экран не создаёт кредитную заявку, не рассчитывает лимит и не показывает решение банка. До появления tenant-scoped реестра, серверных команд и подтверждённого банковского адаптера доступна только граница будущего процесса.',
+    unavailableStatus: 'Контур финансирования не подтверждён',
+    profileStatus: 'Профиль не подтверждён',
+    labels: {
+      blocker: 'Блокер',
+      owner: 'Ответственный',
+      impact: 'Влияние',
+      result: 'Результат',
+      nextAction: 'Следующее действие',
+      prioritySection: 'Главная задача',
+      factsSection: 'Подтверждённые факты',
+    },
+    profileTask: {
+      title: 'Восстановить подтверждённую серверную сессию',
+      description: 'Пользователь, организация и роль недоступны через `/auth/me`. Интерфейс не назначает покупателя или организацию локально.',
+      blocker: 'серверный профиль не подтверждён',
+      impact: 'невозможно доказать полномочия на финансирование закупки',
+      result: 'валидная сессия с buyer membership',
+    },
+    authorityTask: {
+      title: 'Создать durable контур финансирования до включения формы',
+      description: 'Нужны PostgreSQL-реестр заявок, версии условий, серверные команды, банковский договор и адаптер, идемпотентность, аудит, outbox и связь с канонической Сделкой.',
+      blocker: 'нет подтверждённых financing API, durable registry и банковского адаптера',
+      impact: 'нельзя безопасно принять заявку, лимит, ставку или кредитное решение',
+      result: 'проверяемый tenant/RBAC workflow без браузерного денежного authority',
+    },
+    owner: 'Product / CTO / Bank Partnerships',
+    actions: {
+      profile: 'Открыть профиль доступа',
+      bank: 'Открыть банковский контур',
+      deals: 'Открыть Сделки',
+      status: 'Проверить состояние системы',
+    },
+    facts: {
+      user: 'Пользователь',
+      userHint: 'только из активной серверной сессии',
+      organization: 'Организация',
+      organizationHint: 'orgId и tenant boundary из `/auth/me`',
+      deals: 'Доступных Сделок',
+      dealsHint: 'participant-scoped серверный реестр',
+      registry: 'Реестр финансирования',
+      registryHint: 'не подтверждён серверным API',
+    },
+    values: { unavailable: 'Недоступно', unconfirmed: 'Не подтверждён', confirmed: 'Подтверждено' },
+    noticeTitle: 'Локальная кредитная симуляция удалена',
+    notice: 'Удалены вымышленные заявки, кредитный лимит, ставка, статусы одобрения и UI-only подача формы. Пустой backend не заменяется данными браузера.',
+    boundaryTitle: 'Граница финансирования',
+    boundary: 'Браузер не создаёт заявку, не рассчитывает лимит, не назначает ставку и не отмечает одобрение или выдачу. Сервер должен проверить tenant, buyer membership, каноническую Сделку, версии условий, идемпотентность и optimistic concurrency, затем атомарно записать факты, audit и outbox. Решение банка поступает только через подтверждённый адаптер, callback и reconciliation.',
+    routes: [
+      { href: '/platform-v7/bank', title: 'Банковский контур', detail: 'Каноническая очередь оснований, блокеров и подтверждённых банковских событий.', state: 'confirmed' },
+      { href: '/platform-v7/deals', title: 'Канонические Сделки', detail: 'Проверить Сделки, к которым в будущем может относиться финансирование.', state: 'confirmed' },
+      { href: '/platform-v7/api-docs', title: 'Контракт financing API', detail: 'Публиковать только после реализации и проверки серверных контроллеров.', state: 'unconfirmed' },
+    ],
+  },
+  en: {
+    metadataTitle: 'Purchase financing · Transparent Price',
+    metadataDescription: 'A buyer-financing boundary without fictional applications, limits, rates or client-owned credit decisions.',
+    eyebrow: 'Buyer · financing',
+    title: 'Submit financing applications only through server and bank authority',
+    description: 'This screen does not create credit applications, calculate limits or display bank decisions. Until a tenant-scoped registry, server commands and a verified bank adapter exist, it exposes only the future process boundary.',
+    unavailableStatus: 'Financing circuit not confirmed',
+    profileStatus: 'Profile not confirmed',
+    labels: {
+      blocker: 'Blocker',
+      owner: 'Owner',
+      impact: 'Impact',
+      result: 'Result',
+      nextAction: 'Next action',
+      prioritySection: 'Primary task',
+      factsSection: 'Confirmed facts',
+    },
+    profileTask: {
+      title: 'Restore a confirmed server session',
+      description: 'User, organization and role are unavailable from `/auth/me`. The UI does not assign a buyer or organization locally.',
+      blocker: 'server profile not confirmed',
+      impact: 'purchase-financing authority cannot be proven',
+      result: 'a valid session with buyer membership',
+    },
+    authorityTask: {
+      title: 'Build a durable financing circuit before enabling the form',
+      description: 'The platform needs a PostgreSQL application registry, versioned terms, server commands, a bank agreement and adapter, idempotency, audit, outbox and a canonical Deal link.',
+      blocker: 'no confirmed financing API, durable registry or bank adapter',
+      impact: 'an application, limit, rate or credit decision cannot be accepted safely',
+      result: 'a verifiable tenant/RBAC workflow without browser-owned money authority',
+    },
+    owner: 'Product / CTO / Bank Partnerships',
+    actions: {
+      profile: 'Open access profile',
+      bank: 'Open bank circuit',
+      deals: 'Open Deals',
+      status: 'Check system status',
+    },
+    facts: {
+      user: 'User',
+      userHint: 'from the active server session only',
+      organization: 'Organization',
+      organizationHint: 'orgId and tenant boundary from `/auth/me`',
+      deals: 'Accessible Deals',
+      dealsHint: 'participant-scoped server registry',
+      registry: 'Financing registry',
+      registryHint: 'not confirmed by a server API',
+    },
+    values: { unavailable: 'Unavailable', unconfirmed: 'Not confirmed', confirmed: 'Confirmed' },
+    noticeTitle: 'The local credit simulation was removed',
+    notice: 'Fictional applications, credit limits, rates, approval states and the UI-only submission form were removed. An empty backend is not replaced with browser data.',
+    boundaryTitle: 'Financing boundary',
+    boundary: 'The browser does not create an application, calculate a limit, assign a rate or mark approval or disbursement. The server must verify tenant, buyer membership, canonical Deal, term versions, idempotency and optimistic concurrency, then atomically write facts, audit and outbox. A bank decision arrives only through a verified adapter, callback and reconciliation.',
+    routes: [
+      { href: '/platform-v7/bank', title: 'Bank circuit', detail: 'Canonical queue of bases, blockers and confirmed bank events.', state: 'confirmed' },
+      { href: '/platform-v7/deals', title: 'Canonical Deals', detail: 'Inspect Deals that may later be linked to financing.', state: 'confirmed' },
+      { href: '/platform-v7/api-docs', title: 'Financing API contract', detail: 'Publish only after server controllers are implemented and verified.', state: 'unconfirmed' },
+    ],
+  },
+  zh: {
+    metadataTitle: '采购融资 · 透明价格',
+    metadataDescription: '不展示虚构申请、额度、利率或客户端信贷决定的买方融资边界。',
+    eyebrow: '买方 · 融资',
+    title: '仅通过服务器和银行权威提交融资申请',
+    description: '该页面不会创建信贷申请、计算额度或展示银行决定。在 tenant-scoped 登记册、服务器命令和已验证银行适配器建立之前，仅展示未来流程边界。',
+    unavailableStatus: '融资闭环未确认',
+    profileStatus: '档案未确认',
+    labels: {
+      blocker: '阻塞项',
+      owner: '负责人',
+      impact: '影响',
+      result: '结果',
+      nextAction: '下一步',
+      prioritySection: '主要任务',
+      factsSection: '已确认事实',
+    },
+    profileTask: {
+      title: '恢复已确认的服务器会话',
+      description: '无法从 `/auth/me` 获取用户、组织和角色。界面不会在本地分配买方或组织。',
+      blocker: '服务器档案未确认',
+      impact: '无法证明采购融资权限',
+      result: '包含 buyer membership 的有效会话',
+    },
+    authorityTask: {
+      title: '启用表单前建立持久化融资闭环',
+      description: '需要 PostgreSQL 申请登记册、条款版本、服务器命令、银行协议和适配器、幂等、审计、outbox 以及与规范交易的关联。',
+      blocker: '没有已确认的 financing API、持久登记册或银行适配器',
+      impact: '无法安全接收申请、额度、利率或信贷决定',
+      result: '不依赖浏览器资金权威的可验证 tenant/RBAC 工作流',
+    },
+    owner: 'Product / CTO / 银行合作',
+    actions: {
+      profile: '打开访问档案',
+      bank: '打开银行闭环',
+      deals: '打开交易',
+      status: '检查系统状态',
+    },
+    facts: {
+      user: '用户',
+      userHint: '仅来自活动服务器会话',
+      organization: '组织',
+      organizationHint: '来自 `/auth/me` 的 orgId 和 tenant 边界',
+      deals: '可访问交易',
+      dealsHint: '参与方范围服务器登记册',
+      registry: '融资登记册',
+      registryHint: '未由服务器 API 确认',
+    },
+    values: { unavailable: '不可用', unconfirmed: '未确认', confirmed: '已确认' },
+    noticeTitle: '本地信贷模拟已删除',
+    notice: '已删除虚构申请、信贷额度、利率、审批状态和仅由界面处理的提交表单。空 backend 不会由浏览器数据替代。',
+    boundaryTitle: '融资边界',
+    boundary: '浏览器不会创建申请、计算额度、指定利率或标记批准和放款。服务器必须验证 tenant、buyer membership、规范交易、条款版本、幂等和乐观并发，然后原子写入事实、audit 和 outbox。银行决定只能通过已验证适配器、callback 和 reconciliation 到达。',
+    routes: [
+      { href: '/platform-v7/bank', title: '银行闭环', detail: '规范的依据、阻塞项和已确认银行事件队列。', state: 'confirmed' },
+      { href: '/platform-v7/deals', title: '规范交易', detail: '查看未来可能关联融资的交易。', state: 'confirmed' },
+      { href: '/platform-v7/api-docs', title: '融资 API 合同', detail: '仅在服务器控制器实现并验证后发布。', state: 'unconfirmed' },
+    ],
+  },
 };
 
-function fmt(n: number) {
-  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
+function localeOf(value: string): Locale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
 }
 
-function statusTone(status: CreditApplication['status']) {
-  if (status === 'approved' || status === 'disbursed') return { bg: BRAND_BG, border: BRAND_BORDER, color: BRAND, label: status === 'disbursed' ? 'Выдано' : 'Одобрено' };
-  if (status === 'under_review') return { bg: WARN_BG, border: WARN_BORDER, color: WARN, label: 'На проверке' };
-  if (status === 'rejected') return { bg: 'rgba(220,38,38,0.08)', border: 'rgba(220,38,38,0.18)', color: ERR, label: 'Отказ' };
-  if (status === 'submitted') return { bg: CREDIT_BG, border: CREDIT_BORDER, color: CREDIT, label: 'Подано' };
-  return { bg: SS, border: B, color: M, label: 'Черновик' };
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = COPY[localeOf(await getLocale())];
+  return { title: copy.metadataTitle, description: copy.metadataDescription, robots: { index: false, follow: false } };
 }
 
-function btn(kind: 'primary' | 'default' = 'default'): React.CSSProperties {
-  if (kind === 'primary') return { textDecoration: 'none', borderRadius: 12, padding: '10px 16px', background: CREDIT_BG, border: `1px solid ${CREDIT_BORDER}`, color: CREDIT, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'inline-block' };
-  return { textDecoration: 'none', borderRadius: 12, padding: '10px 16px', background: SS, border: `1px solid ${B}`, color: T, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'inline-block' };
-}
-
-export default function BuyerFinancingPage() {
-  const [showForm, setShowForm] = React.useState(false);
-  const [formAmount, setFormAmount] = React.useState('');
-  const [formTerm, setFormTerm] = React.useState('90');
-  const [formDeal, setFormDeal] = React.useState('');
-  const [submitted, setSubmitted] = React.useState(false);
-  const usedPct = Math.round((CREDIT_LIMITS.used / CREDIT_LIMITS.total) * 100);
-
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setSubmitted(true);
-    setShowForm(false);
-  }
-
-  return (
-    <div style={{ display: 'grid', gap: 18, padding: '8px 0' }}>
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: 11, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Покупатель · Финансирование · <span style={{ color: WARN }}>проверочный контур</span>
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: T, marginTop: 8, lineHeight: 1.1 }}>Финансирование закупки</div>
-            <div style={{ marginTop: 8, fontSize: 14, color: M, maxWidth: 740 }}>
-              Экран покупателя для проверки сценария заявки на финансирование закупки. Боевой банковый скоринг, выдача кредита и резерв денег здесь не заявляются.
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type='button' onClick={() => setShowForm((value) => !value)} style={btn('primary')}>
-              {showForm ? 'Отменить' : 'Подать заявку'}
-            </button>
-            <Link href='/platform-v7/buyer' style={btn()}>← Назад</Link>
-          </div>
-        </div>
-      </section>
-
-      <section style={{ background: WARN_BG, border: `1px solid ${WARN_BORDER}`, borderRadius: 14, padding: 14 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: WARN, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Режим: проверочный контур</div>
-        <div style={{ marginTop: 6, fontSize: 13, color: T, lineHeight: 1.5 }}>
-          Внешние банковские запросы не выполняются: нет кредитных решений, списаний или резервирования средств. Подключение происходит по договору и доступам.
-        </div>
-      </section>
-
-      <section style={{ background: CREDIT_BG, border: `1px solid ${CREDIT_BORDER}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: CREDIT, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Предварительный лимит</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 14, marginTop: 14 }}>
-          <MetricCell label='Общий лимит' value={fmt(CREDIT_LIMITS.total)} color={CREDIT} />
-          <MetricCell label='Использовано' value={fmt(CREDIT_LIMITS.used)} color={WARN} />
-          <MetricCell label='Доступно' value={fmt(CREDIT_LIMITS.available)} color={BRAND} />
-        </div>
-        <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 11, color: M, fontWeight: 700, marginBottom: 6 }}>Использовано {usedPct}%</div>
-          <div style={{ background: B, borderRadius: 99, height: 8, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${usedPct}%`, background: CREDIT, borderRadius: 99, transition: 'width 0.4s' }} />
-          </div>
-        </div>
-      </section>
-
-      {showForm ? (
-        <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: T, marginBottom: 14 }}>Новая заявка</div>
-          <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 14 }}>
-            <FormField label='Сделка'>
-              <input value={formDeal} onChange={(event) => setFormDeal(event.target.value)} placeholder='DL-9101' style={inputStyle()} />
-            </FormField>
-            <FormField label='Сумма, ₽'>
-              <input value={formAmount} onChange={(event) => setFormAmount(event.target.value)} placeholder='1000000' type='number' min={100000} max={CREDIT_LIMITS.available} style={inputStyle()} />
-            </FormField>
-            <FormField label='Срок'>
-              <select value={formTerm} onChange={(event) => setFormTerm(event.target.value)} style={inputStyle()}>
-                <option value='30'>30 дней</option>
-                <option value='60'>60 дней</option>
-                <option value='90'>90 дней</option>
-                <option value='120'>120 дней</option>
-                <option value='180'>180 дней</option>
-              </select>
-            </FormField>
-            <div style={{ fontSize: 12, color: M }}>Ставка и лимит предварительные. Решение требует банковского подключения и проверки.</div>
-            <div>
-              <button type='submit' style={btn('primary')}>Подать заявку</button>
-            </div>
-          </form>
-        </section>
-      ) : null}
-
-      {submitted ? (
-        <section style={{ background: BRAND_BG, border: `1px solid ${BRAND_BORDER}`, borderRadius: 14, padding: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: BRAND }}>Заявка создана в проверочном контуре</div>
-          <div style={{ fontSize: 13, color: T, marginTop: 6 }}>Это локальное UI-состояние. Боевой банковый workflow не запускался.</div>
-        </section>
-      ) : null}
-
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: T, marginBottom: 14 }}>Проверочный контур-заявки</div>
-        <div style={{ display: 'grid', gap: 10 }}>
-          {SANDBOX_APPLICATIONS.map((application) => {
-            const tone = statusTone(application.status);
-            return (
-              <div key={application.id} style={{ background: SS, border: `1px solid ${B}`, borderRadius: 14, padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <div>
-                    <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 800, color: CREDIT }}>{application.id}</span>
-                    {application.dealId ? <span style={{ marginLeft: 8, fontSize: 12, color: M }}>→ {application.dealId}</span> : null}
-                  </div>
-                  <span style={{ padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, background: tone.bg, border: `1px solid ${tone.border}`, color: tone.color }}>
-                    {tone.label}
-                  </span>
-                </div>
-                {application.grain ? <div style={{ fontSize: 13, color: T, marginTop: 8, fontWeight: 700 }}>{application.grain} · {application.volumeTons} т</div> : null}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(140px,1fr))', gap: 10, marginTop: 10 }}>
-                  <SmallCell label='Сумма' value={fmt(application.amount)} />
-                  <SmallCell label='Ставка' value={`${application.rate}% год.`} />
-                  <SmallCell label='Срок' value={`${application.termDays} дн.`} />
-                  {application.submittedAt ? <SmallCell label='Подана' value={application.submittedAt} /> : null}
-                </div>
-                {application.dealId ? (
-                  <div style={{ marginTop: 10 }}>
-                    <Link href={`/platform-v7/deals/${application.dealId}`} style={{ fontSize: 12, color: BRAND, textDecoration: 'none', fontWeight: 700 }}>
-                      Открыть сделку {application.dealId} →
-                    </Link>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: T, marginBottom: 8 }}>Факторинг</div>
-        <div style={{ fontSize: 13, color: M, lineHeight: 1.6 }}>
-          Факторинг относится к продавцу и не смешивается с buyer financing. В кабинете покупателя этот блок только объясняет разграничение продуктов.
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function MetricCell({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div style={{ background: S, border: `1px solid ${B}`, borderRadius: 14, padding: 14 }}>
-      <div style={{ fontSize: 11, color: M, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
-      <div style={{ marginTop: 8, fontSize: 24, fontWeight: 900, color, lineHeight: 1.1 }}>{value}</div>
-    </div>
-  );
-}
-
-function SmallCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div style={{ fontSize: 10, color: M, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>{label}</div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: T, marginTop: 4 }}>{value}</div>
-    </div>
-  );
-}
-
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div style={{ fontSize: 11, color: M, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>{label}</div>
-      {children}
-    </div>
-  );
-}
-
-function inputStyle(): React.CSSProperties {
-  return {
-    width: '100%',
-    minWidth: 0,
-    boxSizing: 'border-box',
-    padding: '11px 14px',
-    borderRadius: 10,
-    border: `1px solid ${B}`,
-    fontSize: 14,
-    background: SS,
-    color: T,
+export default async function BuyerFinancingPage() {
+  const copy = COPY[localeOf(await getLocale())];
+  const [profile, rawDeals] = await Promise.all([getAuthProfile(), getDealsCanonical()]);
+  const dealCount = Array.isArray(rawDeals) ? rawDeals.length : 0;
+  const identity = profile.fullName || profile.email || profile.id || copy.values.unavailable;
+  const task = profile.available ? copy.authorityTask : copy.profileTask;
+  const priority: OperationalPriority = {
+    state: 'critical',
+    title: task.title,
+    description: task.description,
+    blocker: task.blocker,
+    owner: copy.owner,
+    impact: task.impact,
+    result: task.result,
+    primaryAction: profile.available
+      ? <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/bank'>{copy.actions.bank}</Link>
+      : <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/profile'>{copy.actions.profile}</Link>,
+    secondaryAction: profile.available
+      ? <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/deals'>{copy.actions.deals}</Link>
+      : <Link className={operationalCockpitClasses.secondaryLink} href='/platform-v7/status'>{copy.actions.status}</Link>,
   };
+
+  return (
+    <OperationalDecisionCockpit
+      testId='platform-v7-buyer-financing-v8'
+      eyebrow={copy.eyebrow}
+      title={copy.title}
+      description={copy.description}
+      statusLabel={profile.available ? copy.unavailableStatus : copy.profileStatus}
+      statusTone='warning'
+      priority={priority}
+      facts={[
+        { label: copy.facts.user, value: identity, hint: copy.facts.userHint },
+        { label: copy.facts.organization, value: profile.orgId || copy.values.unavailable, hint: copy.facts.organizationHint },
+        { label: copy.facts.deals, value: String(dealCount), hint: copy.facts.dealsHint },
+        { label: copy.facts.registry, value: copy.values.unconfirmed, hint: copy.facts.registryHint },
+      ]}
+      boundary={copy.boundary}
+      labels={copy.labels}
+    >
+      <InlineNotice tone='warning' title={copy.noticeTitle}>{copy.notice}</InlineNotice>
+      <OperationalCockpitSection>
+        <OperationalQueue>
+          {copy.routes.map((route) => (
+            <OperationalQueueLink
+              key={route.href}
+              href={route.href}
+              title={route.title}
+              detail={route.detail}
+              status={<StatusChip tone={route.state === 'confirmed' ? 'success' : 'warning'}>{route.state === 'confirmed' ? copy.values.confirmed : copy.values.unconfirmed}</StatusChip>}
+            />
+          ))}
+        </OperationalQueue>
+      </OperationalCockpitSection>
+      <OperationalCockpitSection>
+        <InlineNotice tone='information' title={copy.boundaryTitle}>{copy.boundary}</InlineNotice>
+      </OperationalCockpitSection>
+    </OperationalDecisionCockpit>
+  );
 }
