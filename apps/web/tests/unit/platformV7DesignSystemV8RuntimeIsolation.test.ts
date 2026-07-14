@@ -89,13 +89,19 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
     expect(legacyRuntime).toContain('@/styles/platform-v7-final-polish.css');
   });
 
-  it('keeps one canonical operator workspace instead of a duplicate synthetic cockpit', () => {
+  it('keeps one canonical role-safe operator or executive workspace instead of a duplicate synthetic cockpit', () => {
+    expect(controlTower).toContain('readVerifiedCabinetSessionRole');
+    expect(controlTower).toContain('readVerifiedCabinetRole');
+    expect(controlTower).toContain("role === 'executive'");
+    expect(controlTower).toContain("redirect('/platform-v7/executive')");
     expect(controlTower).toContain("redirect('/platform-v7/operator')");
     expect(controlTower).not.toContain('selectRuntimeDeals');
     expect(controlTower).not.toContain('canonicalDomainDeals');
     expect(controlTower).not.toContain('ControlTowerCharts');
     expect(controlTower).not.toContain('dangerouslySetInnerHTML');
     expect(controlTower).not.toContain('style=');
+    expect(controlTower).not.toContain('useSearchParams');
+    expect(controlTower).not.toContain('localStorage');
   });
 
   it('prevents root compatibility CSS from overriding the governed AppShell module', () => {
