@@ -1,11 +1,9 @@
-import type { Metadata } from 'next';
-import { SupportIndexPage } from '@/components/platform-v7/SupportIndexPage';
+import { SupportParticipantAuthority, getSupportAuthorityMetadata } from '@/components/transaction-ux/SupportParticipantAuthority';
 
-export const metadata: Metadata = {
-  title: 'Центр поддержки исполнения сделки',
-  description: 'Контур обращений, связанных со сделкой, деньгами, документами, рейсом и блокерами.',
-};
+export function generateMetadata() {
+  return getSupportAuthorityMetadata('index');
+}
 
 export default function SupportPage() {
-  return <SupportIndexPage />;
+  return <SupportParticipantAuthority mode='index' />;
 }
