@@ -1,5 +1,5 @@
 {
-  "version": 22,
+  "version": 23,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -42,6 +42,7 @@
     "apps/web/app/platform-v7/api-docs/page.tsx",
     "apps/web/app/platform-v7/profile/page.tsx",
     "apps/web/app/platform-v7/reports/page.tsx",
+    "apps/web/app/platform-v7/onboarding/page.tsx",
     "apps/web/app/platform-v7/deals/page.tsx",
     "apps/web/components/platform-v7/CanonicalDealsList.tsx",
     "apps/web/app/platform-v7/documents/page.tsx",
