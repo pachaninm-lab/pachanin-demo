@@ -58,6 +58,25 @@ function overlaps(left, right) {
   return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
 }
 
+function purlFromPnpmManifest(path) {
+  const normalized = normalizePath(path);
+  const match = normalized.match(/(?:^|\/)\.pnpm\/([^/]+)\/node_modules\/(.+)\/package\.json$/);
+  if (!match) return null;
+
+  const [, pnpmSegment, packageName] = match;
+  const packageToken = packageName.replace('/', '+');
+  const versionPrefix = `${packageToken}@`;
+  if (!pnpmSegment.startsWith(versionPrefix)) return null;
+
+  const version = pnpmSegment.slice(versionPrefix.length).split('_', 1)[0];
+  if (!version) return null;
+
+  const encodedPackageName = packageName.startsWith('@')
+    ? `%40${packageName.slice(1)}`
+    : packageName;
+  return `pkg:npm/${encodedPackageName}@${version}`;
+}
+
 function yamlDocument(entries) {
   const document = { vulnerabilities: [], misconfigurations: [], secrets: [] };
   for (const exception of entries) {
@@ -68,8 +87,20 @@ function yamlDocument(entries) {
       expired_at: String(exception.expiresAt).slice(0, 10),
       statement: `${exception.id} ${exception.ticket}: ${exception.rationale}`,
     };
-    if (Array.isArray(exception.paths) && exception.paths.length > 0) item.paths = exception.paths;
-    if (Array.isArray(exception.purls) && exception.purls.length > 0) item.purls = exception.purls;
+
+    const explicitPurls = Array.isArray(exception.purls) ? exception.purls : [];
+    const manifestPaths = Array.isArray(exception.paths) ? exception.paths : [];
+    const derivedPurls = manifestPaths.map(purlFromPnpmManifest);
+    const canUseDerivedPurls = manifestPaths.length > 0 && derivedPurls.every(Boolean);
+
+    if (explicitPurls.length > 0) {
+      item.purls = explicitPurls;
+    } else if (canUseDerivedPurls) {
+      item.purls = [...new Set(derivedPurls)];
+    } else if (manifestPaths.length > 0) {
+      item.paths = manifestPaths;
+    }
+
     document[key].push(item);
   }
   return `${JSON.stringify(document, null, 2)}\n`;
