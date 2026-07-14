@@ -15,6 +15,11 @@ const EXACT_HEAD = process.env.SECURITY_EXACT_HEAD ?? '';
 const MAX_EXCEPTION_DAYS = 90;
 const ALLOWED_SCANNERS = new Set(['trivy-container', 'trivy-filesystem', 'trivy-iac', 'pnpm-audit']);
 const TRIVY_TYPES = new Set(['vulnerability', 'misconfiguration', 'secret']);
+const TRIVY_TYPE_KEYS = new Map([
+  ['vulnerability', 'vulnerabilities'],
+  ['misconfiguration', 'misconfigurations'],
+  ['secret', 'secrets'],
+]);
 const REQUIRED_SOURCE_ROOTS = ['apps/api/src', 'apps/web/app', 'apps/web/lib', 'workers', 'packages'];
 const REQUIRED_DEFERRED = new Map([
   ['apps/ml', '#2605'],
@@ -56,7 +61,8 @@ function overlaps(left, right) {
 function yamlDocument(entries) {
   const document = { vulnerabilities: [], misconfigurations: [], secrets: [] };
   for (const exception of entries) {
-    const key = `${exception.findingType}s`;
+    const key = TRIVY_TYPE_KEYS.get(exception.findingType);
+    if (!key) throw new Error(`Unsupported Trivy finding type: ${exception.findingType}`);
     const item = {
       id: exception.findingId,
       expired_at: String(exception.expiresAt).slice(0, 10),
