@@ -30,7 +30,7 @@ export function PublicExperiencePageView({ locale, name }: { locale: string; nam
 
 export function PublicExperienceScrollCoordinator() {
   useEffect(() => {
-    let timer: ReturnType<typeof window.setTimeout> | undefined;
+    let timer: number | undefined;
     const root = document.documentElement;
     const clear = () => {
       root.removeAttribute('data-pc-ppe-scrolling');
