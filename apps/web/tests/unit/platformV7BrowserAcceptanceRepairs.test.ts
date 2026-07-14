@@ -9,6 +9,7 @@ const serverLayout = read('apps/web/app/platform-v7/layout.tsx');
 const guard = read('apps/web/components/platform-v7/PlatformV7SingleEntryGuard.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedRuntimeCss = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.module.css');
+const designSystemRuntime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const supportMount = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
 const headerCss = read('apps/web/app/platform-v7/_styles/public-header-accessibility.css');
@@ -41,9 +42,11 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(protectedRuntimeCss).toContain('var(--ds-color-surface');
   });
 
-  it('mounts interactive support only after the initial hydration tree is committed', () => {
+  it('mounts every support widget only after the initial hydration tree is committed', () => {
     expect(publicHeader).toContain('<HydrationSafeChatSupport />');
     expect(publicHeader).not.toContain('<ChatSupportWidget />');
+    expect(designSystemRuntime).toContain('<HydrationSafeChatSupport />');
+    expect(designSystemRuntime).not.toContain('<ChatSupportWidget />');
     expect(supportMount).toContain('const [mounted, setMounted] = React.useState(false)');
     expect(supportMount).toContain('React.useEffect');
     expect(supportMount).toContain('return mounted ? <ChatSupportWidget /> : null');
