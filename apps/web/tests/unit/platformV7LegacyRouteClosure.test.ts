@@ -11,10 +11,12 @@ const disputeDetail = read('apps/web/app/platform-v7/disputes/[id]/page.tsx');
 const disputeHold = read('apps/web/app/platform-v7/disputes/[id]/hold/page.tsx');
 const elevatorTerminal = read('apps/web/app/platform-v7/elevator/terminal/page.tsx');
 const elevatorOperation = read('apps/web/app/platform-v7/elevator/terminal/[operationId]/page.tsx');
+const surveyorAct = read('apps/web/app/platform-v7/surveyor/acts/[id]/page.tsx');
 const auction = read('apps/web/app/platform-v7/auction/page.tsx');
 const dealBasis = read('apps/web/app/platform-v7/auction/deal-basis/page.tsx');
 const disputes = read('apps/web/app/platform-v7/disputes/page.tsx');
 const elevator = read('apps/web/app/platform-v7/elevator/page.tsx');
+const surveyor = read('apps/web/app/platform-v7/surveyor/page.tsx');
 const scope = read('scripts/check-design-system-v8-pr-scope.mjs');
 
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important/i;
@@ -60,6 +62,16 @@ describe('platform-v7 final legacy route closure', () => {
     expect(elevator).toContain('getShipments');
   });
 
+  it('removes browser-owned surveyor act editing and preserves the act identifier', () => {
+    expect(surveyorAct).toContain("redirect(`/platform-v7/surveyor?actId=${encodeURIComponent(params.id)}`)");
+    expect(surveyorAct).not.toContain("'use client'");
+    expect(surveyorAct).not.toContain('DEFAULT_FORM');
+    expect(surveyorAct).not.toContain('signAct');
+    expect(surveyorAct).not.toMatch(forbiddenPresentation);
+    expect(surveyor).toContain("from '@pc/design-system-v8'");
+    expect(surveyor).toContain('FieldTaskTemplate');
+  });
+
   it('keeps the complete remaining route inventory inside an exact closure scope', () => {
     for (const file of [
       'apps/web/app/platform-v7/auctions/[id]/page.tsx',
@@ -68,6 +80,7 @@ describe('platform-v7 final legacy route closure', () => {
       'apps/web/app/platform-v7/disputes/[id]/hold/page.tsx',
       'apps/web/app/platform-v7/elevator/terminal/page.tsx',
       'apps/web/app/platform-v7/elevator/terminal/[operationId]/page.tsx',
+      'apps/web/app/platform-v7/surveyor/acts/[id]/page.tsx',
       'apps/web/tests/unit/platformV7LegacyRouteClosure.test.ts',
     ]) {
       expect(scope).toContain(`'${file}'`);
