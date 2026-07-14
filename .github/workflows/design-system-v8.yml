@@ -10,14 +10,10 @@ on:
       - 'apps/web/app/platform-v7/template.tsx'
       - 'apps/web/app/platform-v7/_styles/fixed-header-contract.css'
       - 'apps/web/app/platform-v7/control-tower/page.tsx'
-      - 'apps/web/app/platform-v7/operator-cockpit/queues/page.tsx'
       - 'apps/web/app/platform-v7/status/page.tsx'
       - 'apps/web/app/platform-v7/connectors/page.tsx'
       - 'apps/web/app/platform-v7/api-docs/page.tsx'
-      - 'apps/web/app/platform-v7/onboarding/page.tsx'
       - 'apps/web/app/platform-v7/profile/page.tsx'
-      - 'apps/web/app/platform-v7/profile/team/page.tsx'
-      - 'apps/web/app/platform-v7/reports/page.tsx'
       - 'apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'
@@ -36,8 +32,6 @@ on:
       - 'apps/web/lib/disputes-server.ts'
       - 'apps/web/lib/integrations-server.ts'
       - 'apps/web/lib/auth-profile-server.ts'
-      - 'apps/web/lib/reporting-server.ts'
-      - 'apps/web/lib/organization-team-server.ts'
       - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
       - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
@@ -82,14 +76,9 @@ on:
       - 'apps/web/tests/unit/designSystemV8SettlementViews.test.ts'
       - 'apps/web/tests/unit/platformV7ApiDocsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7ApiDocsLegacyIsolation.test.ts'
-      - 'apps/web/tests/unit/platformV7OnboardingAuthority.test.ts'
-      - 'apps/web/tests/unit/platformV7ProfileTeamAuthority.test.ts'
-      - 'apps/web/tests/unit/platformV7OrganizationTeamAuthority.test.ts'
-      - 'apps/web/tests/unit/platformV7OperatorQueuesCanonicalRoute.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7ConnectorsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7ProfileAuthority.test.ts'
-      - 'apps/web/tests/unit/platformV7ReportsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7DealExecutionChain.test.ts'
       - 'apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts'
       - 'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx'
@@ -116,14 +105,10 @@ on:
       - 'apps/web/app/platform-v7/template.tsx'
       - 'apps/web/app/platform-v7/_styles/fixed-header-contract.css'
       - 'apps/web/app/platform-v7/control-tower/page.tsx'
-      - 'apps/web/app/platform-v7/operator-cockpit/queues/page.tsx'
       - 'apps/web/app/platform-v7/status/page.tsx'
       - 'apps/web/app/platform-v7/connectors/page.tsx'
       - 'apps/web/app/platform-v7/api-docs/page.tsx'
-      - 'apps/web/app/platform-v7/onboarding/page.tsx'
       - 'apps/web/app/platform-v7/profile/page.tsx'
-      - 'apps/web/app/platform-v7/profile/team/page.tsx'
-      - 'apps/web/app/platform-v7/reports/page.tsx'
       - 'apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx'
       - 'apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx'
@@ -142,8 +127,6 @@ on:
       - 'apps/web/lib/disputes-server.ts'
       - 'apps/web/lib/integrations-server.ts'
       - 'apps/web/lib/auth-profile-server.ts'
-      - 'apps/web/lib/reporting-server.ts'
-      - 'apps/web/lib/organization-team-server.ts'
       - 'apps/web/lib/platform-v7/cabinet-access-policy.ts'
       - 'apps/web/lib/platform-v7/design-system-v8-route-policy.ts'
       - 'apps/web/lib/platform-v7/fgisAuctionEngine.ts'
@@ -188,14 +171,9 @@ on:
       - 'apps/web/tests/unit/designSystemV8SettlementViews.test.ts'
       - 'apps/web/tests/unit/platformV7ApiDocsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7ApiDocsLegacyIsolation.test.ts'
-      - 'apps/web/tests/unit/platformV7OnboardingAuthority.test.ts'
-      - 'apps/web/tests/unit/platformV7ProfileTeamAuthority.test.ts'
-      - 'apps/web/tests/unit/platformV7OrganizationTeamAuthority.test.ts'
-      - 'apps/web/tests/unit/platformV7OperatorQueuesCanonicalRoute.test.ts'
       - 'apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts'
       - 'apps/web/tests/unit/platformV7ConnectorsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7ProfileAuthority.test.ts'
-      - 'apps/web/tests/unit/platformV7ReportsAuthority.test.ts'
       - 'apps/web/tests/unit/platformV7DealExecutionChain.test.ts'
       - 'apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts'
       - 'apps/web/tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx'
@@ -250,14 +228,9 @@ jobs:
             tests/unit/designSystemV8SettlementViews.test.ts \
             tests/unit/platformV7ApiDocsAuthority.test.ts \
             tests/unit/platformV7ApiDocsLegacyIsolation.test.ts \
-            tests/unit/platformV7OnboardingAuthority.test.ts \
-            tests/unit/platformV7ProfileTeamAuthority.test.ts \
-            tests/unit/platformV7OrganizationTeamAuthority.test.ts \
-            tests/unit/platformV7OperatorQueuesCanonicalRoute.test.ts \
             tests/unit/platformV7CanonicalDealWorkspace.test.ts \
             tests/unit/platformV7ConnectorsAuthority.test.ts \
             tests/unit/platformV7ProfileAuthority.test.ts \
-            tests/unit/platformV7ReportsAuthority.test.ts \
             tests/unit/platformV7DealExecutionChain.test.ts \
             tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts \
             tests/unit/platformV7Dl9106ReleaseReviewPageCurrentMain.test.tsx \
