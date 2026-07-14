@@ -4,7 +4,7 @@ import { runtimeApiUrl, runtimeAuthHeaders } from '../../runtime-auth-helpers';
 export async function GET(_: Request, props: { params: Promise<{ roleId: string }> }) {
   const params = await props.params;
   try {
-    const response = await fetch(runtimeApiUrl(`/runtime/roles/${params.roleId}`), { cache: 'no-store', headers: runtimeAuthHeaders() });
+    const response = await fetch(runtimeApiUrl(`/runtime/roles/${params.roleId}`), { cache: 'no-store', headers: await runtimeAuthHeaders() });
     const payload = await response.json().catch(() => ({}));
     return NextResponse.json(payload, { status: response.ok ? 200 : response.status });
   } catch {
