@@ -64,7 +64,7 @@ describe('platform-v7 onboarding authority', () => {
     }
     expect(page).toContain('не выбирает роль');
     expect(page).toContain('does not select a role');
-    expect(page).toContain('不会选择角色');
+    expect(page).toContain('不会在浏览器中选择角色');
   });
 
   it('keeps external systems outside the onboarding authority boundary', () => {
