@@ -1,5 +1,5 @@
 {
-  "version": 34,
+  "version": 35,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
@@ -60,6 +60,12 @@
     "apps/web/app/platform-v7/profile/team/page.tsx",
     "apps/web/app/platform-v7/reports/page.tsx",
     "apps/web/app/platform-v7/onboarding/page.tsx",
+    "apps/web/app/platform-v7/support/page.tsx",
+    "apps/web/app/platform-v7/support/new/page.tsx",
+    "apps/web/app/platform-v7/support/detail/page.tsx",
+    "apps/web/app/platform-v7/support/[caseId]/page.tsx",
+    "apps/web/app/platform-v7/support/grain/page.tsx",
+    "apps/web/app/platform-v7/support/operator/page.tsx",
     "apps/web/app/platform-v7/deals/page.tsx",
     "apps/web/components/platform-v7/CanonicalDealsList.tsx",
     "apps/web/app/platform-v7/documents/page.tsx",
