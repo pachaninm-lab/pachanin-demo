@@ -35,6 +35,9 @@ describe('Design System v8 operational and oversight roles', () => {
     expect(operator).toContain('getShipments');
     expect(operator).toContain('getOutboxStatus');
     expect(operator).toContain('sourceUnavailable');
+    expect(operator).toContain('openDisputes.map');
+    expect(operator).toContain('outbox.manualReview.map');
+    expect(operator).toContain('blockedShipments.map');
     expect(operator).toContain('OperationalQueueLink');
     expect(operator).toContain('InlineNotice');
     expect(operator).toContain('StatusChip');
@@ -43,7 +46,6 @@ describe('Design System v8 operational and oversight roles', () => {
 
     for (const forbidden of [
       'DL-9106',
-      'const blockers = [',
       'OperatorExecutionQueue',
       'OperatorKpiDashboard',
       'OperatorInboxPanel',
