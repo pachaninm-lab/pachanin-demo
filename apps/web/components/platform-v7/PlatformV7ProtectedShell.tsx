@@ -21,6 +21,7 @@ import {
 } from '@/lib/platform-v7/controlled-test-organizations';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
 import styles from './PlatformV7ProtectedShell.module.css';
+import quietStyles from './UxFinalQuietLayer.module.css';
 
 const ROLE_INTENT_ROOT_PATHS = new Set([
   '/platform-v7/control-tower',
@@ -182,7 +183,7 @@ export function PlatformV7ProtectedShell({
   const showPlatformFooter = !isRoleRoot || !ownerPreview;
 
   return (
-    <div className={styles.shellPolicy} data-shell-policy={shellPolicy} data-shell-role={verifiedRole}>
+    <div className={`${styles.shellPolicy} ${quietStyles.quietLayer}`} data-shell-policy={shellPolicy} data-shell-role={verifiedRole}>
       <AppShellV4 initialRole={verifiedRole}>
         <>
           <PlatformV7SingleEntryGuard />
