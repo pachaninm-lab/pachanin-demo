@@ -8,6 +8,8 @@
   "apps/web/components/platform-v7/PlatformFooter.tsx",
   "apps/web/components/platform-v7/PublicSiteHeader.tsx",
   "apps/web/components/platform-v7/PlatformV7SingleEntryGuard.tsx",
+  "apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx",
+  "apps/web/components/platform-v7/PlatformV7ProtectedRuntime.module.css",
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css",
   "apps/web/components/platform-v7/PlatformV7LayoutClient.tsx",
