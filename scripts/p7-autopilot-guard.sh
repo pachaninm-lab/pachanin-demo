@@ -156,14 +156,6 @@ apps/web/tests/unit/platformV7ControlledTestOrganization*.test.ts
 apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts
 scripts/p7-autopilot-guard.sh'
 
-REPORTS_AUTHORITY_SCOPE='apps/web/app/platform-v7/reports/page.tsx
-apps/web/components/platform-v7/RegulatoryReportsPanel.tsx
-apps/web/lib/platform-v7/design-system-v8-route-policy.ts
-apps/web/lib/reporting-server.ts
-apps/web/tests/unit/platformV7ReportsAuthority.test.ts
-design-governance-v8.json
-scripts/p7-autopilot-guard.sh'
-
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -198,13 +190,6 @@ fi
 # language choices and must not be restored from stale browser persistence.
 if [ "${GITHUB_HEAD_REF:-}" = "fix/platform-v7-russian-default-locale" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$RUSSIAN_DEFAULT_LOCALE_SCOPE")
-fi
-
-# The reporting-authority slice is limited to one governed route, its
-# authenticated Deal reader, the deleted synthetic panel and exact regression.
-# The reporting server reader is also a deterministic merge-ref signature.
-if [ "${GITHUB_HEAD_REF:-}" = "agent/design-system-v8-reports-authority" ] || printf '%s\n' "$DIFF_FILES" | grep -qx 'apps/web/lib/reporting-server.ts'; then
-  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$REPORTS_AUTHORITY_SCOPE")
 fi
 
 # Pull-request workflows can check out refs/pull/<n>/merge and expose an empty or
