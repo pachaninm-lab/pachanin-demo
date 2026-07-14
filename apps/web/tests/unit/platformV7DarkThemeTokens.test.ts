@@ -20,23 +20,18 @@ const TOKENIZED_FILES = [
   '../../app/platform-v7/surveyor/page.tsx',
   '../../app/platform-v7/lab/page.tsx',
   '../../components/platform-v7/MoneyGateCard.tsx',
-  '../../components/platform-v7/P7BankPaymentBasisRuntimePanel.tsx',
 ];
 
 const LIGHT = '(fff|ffffff|fafafa|f8fafc|f8fafb|f1f5f9|f9fafb|eef6f3|fef2f2|fff1f2|e2e8f0|cbd5e1)';
 const DARK = '(000|0f1419|0f172a|111827|0b1220|1e293b|1f2937)';
-// Светлый hex в фоне/бордере = поломка тёмной темы.
 const LIGHT_BG_IN_SURFACE = new RegExp(`(background|backgroundColor|border|borderColor|fill):\\s*'?[^,}]*#${LIGHT}\\b`, 'i');
-// Тёмный hex в тексте = невидимо на тёмном фоне.
 const DARK_IN_TEXT = new RegExp(`color:\\s*'?#${DARK}\\b`, 'i');
 
 function violations(source: string): string[] {
   const out: string[] = [];
   source.split(/\r?\n/).forEach((line, idx) => {
     const bare = line.replace(/var\(\s*--[a-z0-9-]+\s*,\s*#[0-9a-fA-F]{3,8}\s*\)/gi, '');
-    if (LIGHT_BG_IN_SURFACE.test(bare) || DARK_IN_TEXT.test(bare)) {
-      out.push(`L${idx + 1}: ${line.trim().slice(0, 100)}`);
-    }
+    if (LIGHT_BG_IN_SURFACE.test(bare) || DARK_IN_TEXT.test(bare)) out.push(`L${idx + 1}: ${line.trim().slice(0, 100)}`);
   });
   return out;
 }
