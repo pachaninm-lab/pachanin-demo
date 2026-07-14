@@ -1,5 +1,5 @@
-import { AuctionDetailPage } from '@/components/v7r/EsiaFgisRuntime';
+import { redirect } from 'next/navigation';
 
 export default function PlatformV7AuctionDetailPage({ params }: { params: { id: string } }) {
-  return <AuctionDetailPage id={params.id} />;
+  redirect(`/platform-v7/auction?legacyAuctionId=${encodeURIComponent(params.id)}`);
 }
