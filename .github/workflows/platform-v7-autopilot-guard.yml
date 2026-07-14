@@ -86,7 +86,6 @@ jobs:
           node <<'NODE'
           const { execFileSync } = require('node:child_process');
           const expected = new Set([
-            '.github/workflows/design-system-v8.yml',
             '.github/workflows/platform-v7-autopilot-guard.yml',
             'apps/web/app/platform-v7/buyer/financing/page.tsx',
             'apps/web/lib/platform-v7/design-system-v8-route-policy.ts',
