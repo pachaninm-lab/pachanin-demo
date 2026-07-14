@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # The review API only works when the dependency graph is enabled in
+      # repository settings. Probe first so a disabled graph surfaces as a
+      # visible warning instead of a permanently red required-looking check.
       - name: Check dependency graph availability
         id: graph
         env:
@@ -27,54 +31,10 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Dependency graph is disabled for this repository (HTTP $code)."
+            echo "::warning::Dependency graph is disabled for this repository (HTTP $code). Enable it in Settings → Advanced Security to activate dependency review."
           fi
+
       - uses: actions/dependency-review-action@v4
         if: steps.graph.outputs.enabled == 'true'
         with:
           fail-on-severity: critical
-
-  governed-lockfile-commit:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/ir-sec-transitive-runtime-remediation' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout governed branch
-        uses: actions/checkout@v4
-        with:
-          ref: agent/ir-sec-transitive-runtime-remediation
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Download retained exact-head lockfile artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api repos/${{ github.repository }}/actions/artifacts/8327291694/zip > /tmp/governed-lockfile.zip
-          mkdir -p /tmp/governed-lockfile
-          unzip -q /tmp/governed-lockfile.zip -d /tmp/governed-lockfile
-          cp /tmp/governed-lockfile/pnpm-lock.yaml pnpm-lock.yaml
-      - name: Verify artifact and patch guard
-        run: |
-          echo '8a13268a71246430aa0c19a92f168347a4b29e71d971cd01bac97d4dc2021e17  /tmp/governed-lockfile.zip' | sha256sum -c -
-          node docs/platform-v7/autopilot/patch-transitive-runtime-guard.mjs
-          node - <<'NODE'
-          const fs = require('fs');
-          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
-          const forbidden = ['multer@2.0.2', 'lodash@4.17.21', 'ws@8.18.3'];
-          const required = ['multer@2.2.0', 'lodash@4.18.1', 'ws@8.21.1'];
-          const errors = [
-            ...forbidden.filter((x) => lock.includes(x)).map((x) => `vulnerable:${x}`),
-            ...required.filter((x) => !lock.includes(x)).map((x) => `missing:${x}`),
-          ];
-          if (errors.length) throw new Error(errors.join(','));
-          NODE
-      - name: Restore workflow surface and commit
-        run: |
-          git checkout origin/main -- .github/workflows/dependency-review.yml
-          git rm -f .github/workflows/ir-sec-lockfile-refresh.yml
-          git rm -f docs/platform-v7/autopilot/patch-transitive-runtime-guard.mjs
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add pnpm-lock.yaml scripts/p7-autopilot-guard.sh .github/workflows/dependency-review.yml
-          git commit -m 'Regenerate patched runtime dependency lockfile [lockfile-refresh]'
-          git push origin HEAD:agent/ir-sec-transitive-runtime-remediation
