@@ -17,13 +17,14 @@ const loginPage = read('apps/web/app/platform-v7/login/page.tsx');
 const loginClient = read('apps/web/app/platform-v7/login/LoginFormClient.tsx');
 
 describe('platform-v7 final shell static gate', () => {
-  it('keeps public routes outside protected client chunks', () => {
+  it('keeps public routes outside protected client chunks and removes template patching', () => {
     expect(appLayout).toContain("headers().get('x-pc-pathname')");
-    expect(appLayout).toContain('if (isPublicPath(pathname)) return children');
+    expect(appLayout).toContain('if (isPublicPath(pathname))');
     expect(appLayout).toContain("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')");
-    expect(template).toContain("headers().get('x-pc-pathname')");
-    expect(template).toContain('if (isPublicPath(pathname)) return children');
-    expect(template).toContain("await import('@/components/platform-v7/PlatformV7ProtectedTemplateRuntime')");
+    expect(appLayout).not.toContain('PlatformV7FullStyleRuntime');
+    expect(template).toContain('return children');
+    expect(template).not.toContain('headers()');
+    expect(template).not.toContain('PlatformV7ProtectedTemplateRuntime');
     expect(template).not.toContain('PlatformV7TemplateSwitch');
   });
 
