@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import '../../../../packages/design-tokens/tokens.css';
-import { ChatSupportWidget } from '@/components/platform-v7/ChatSupportWidget';
+import { HydrationSafeChatSupport } from '@/components/platform-v7/HydrationSafeChatSupport';
 
 /**
  * Minimal runtime for routes accepted into Design System v8.
@@ -16,7 +16,7 @@ export function PlatformV7DesignSystemV8Runtime({ children }: { children: ReactN
   return (
     <>
       {children}
-      <ChatSupportWidget />
+      <HydrationSafeChatSupport />
     </>
   );
 }
