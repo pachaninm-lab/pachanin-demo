@@ -28,6 +28,31 @@ export function PublicExperiencePageView({ locale, name }: { locale: string; nam
   return null;
 }
 
+export function PublicExperienceScrollCoordinator() {
+  useEffect(() => {
+    let timer: ReturnType<typeof window.setTimeout> | undefined;
+    const root = document.documentElement;
+    const clear = () => {
+      root.removeAttribute('data-pc-ppe-scrolling');
+      timer = undefined;
+    };
+    const onScroll = () => {
+      root.setAttribute('data-pc-ppe-scrolling', 'true');
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = window.setTimeout(clear, 180);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (timer !== undefined) window.clearTimeout(timer);
+      clear();
+    };
+  }, []);
+
+  return null;
+}
+
 export function PublicExperienceLink({
   href,
   className,
