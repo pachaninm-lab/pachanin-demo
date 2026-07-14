@@ -1,5 +1,5 @@
-import { GrainExecutionPage } from '@/components/platform-v7/GrainExecutionPage';
+import { redirect } from 'next/navigation';
 
 export default function PlatformV7ElevatorTerminalPage() {
-  return <GrainExecutionPage mode='elevator-terminal' role='elevator' />;
+  redirect('/platform-v7/elevator');
 }
