@@ -1,13 +1,9 @@
-import type { Metadata } from 'next';
-import { Suspense } from 'react';
-import { SupportOperatorQueueClient } from '@/components/platform-v7/SupportOperatorQueueClient';
+import { SupportParticipantAuthority, getSupportAuthorityMetadata } from '@/components/transaction-ux/SupportParticipantAuthority';
 
-export const metadata: Metadata = { title: 'Операторская очередь поддержки', description: 'Очередь обращений поддержки исполнения сделки.' };
+export function generateMetadata() {
+  return getSupportAuthorityMetadata('operator');
+}
 
 export default function SupportOperatorPage() {
-  return (
-    <Suspense fallback={<div style={{ padding: 16 }}>Загрузка очереди поддержки…</div>}>
-      <SupportOperatorQueueClient />
-    </Suspense>
-  );
+  return <SupportParticipantAuthority mode='operator' />;
 }
