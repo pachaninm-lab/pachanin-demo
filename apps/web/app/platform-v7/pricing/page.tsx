@@ -1,151 +1,146 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getLocale } from 'next-intl/server';
+import { InlineNotice, StatusChip } from '@pc/design-system-v8';
+import styles from '../_styles/supporting-v8.module.css';
 
-const PLANS = [
-  {
-    name: 'Free',
-    price: '0 ₽',
-    note: 'До 10 сделок',
-    features: [
-      'Базовый реестр сделок и лотов',
-      '1 рабочая роль на компанию',
-      'Документы сделки и история событий',
-      'Подходит для первого теста контура',
-    ],
-    accent: 'var(--pc-text-secondary, #475569)',
-    border: 'var(--pc-border, #E4E6EA)',
-    bg: '#fff',
-  },
-  {
-    name: 'Growth',
-    price: '0.7% take-rate',
-    note: 'Рабочий контур',
-    features: [
-      'Сделка → логистика → документы → деньги',
-      'Control Tower и operator actions',
-      'Споры, удержания, пакет доказательств',
-      'Подходит для пилота и якорного клиента',
-    ],
-    accent: '#0A7A5F',
-    border: 'rgba(10,122,95,0.18)',
-    bg: 'linear-gradient(180deg, rgba(10,122,95,0.08), rgba(10,122,95,0.02))',
-  },
-  {
-    name: 'Enterprise',
-    price: 'Индивидуально',
-    note: 'Банк / регион / холдинг',
-    features: [
-      'Расширенный внешний контур и доступы',
-      'Интеграции и брендирование',
-      'Отдельная настройка процессов и ролей',
-      'Подходит для крупного внедрения',
-    ],
-    accent: 'var(--pc-text-primary, #0F1419)',
-    border: 'var(--pc-border, #E4E6EA)',
-    bg: '#fff',
-  },
-];
+type Locale = 'ru' | 'en' | 'zh';
 
-const MONETIZATION_MODULES = [
-  {
-    title: 'Факторинг',
-    note: 'Дополнительный денежный слой на стороне покупателя и оборотного финансирования.',
-    href: '/platform-v7/bank/factoring',
-  },
-  {
-    title: 'Эскроу',
-    note: 'Контур безопасной сделки с раскрытием денег по подтверждённым условиям.',
-    href: '/platform-v7/bank/escrow',
-  },
-  {
-    title: 'Онбординг компании',
-    note: 'Точка входа в коммерческий контур: подключение компании, документов и банка.',
-    href: '/platform-v7/onboarding',
-  },
-  {
-    title: 'Профиль и доверие',
-    note: 'Карточки контрагентов, отзывы и доверительный слой после сделки.',
-    href: '/platform-v7/profile',
-  },
-];
+type Copy = Readonly<{
+  metadataTitle: string;
+  metadataDescription: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  status: string;
+  modelsTitle: string;
+  factorsTitle: string;
+  boundaryTitle: string;
+  boundary: string;
+  request: string;
+  openFlow: string;
+  models: ReadonlyArray<Readonly<{ title: string; detail: string; state: string }>>;
+  factors: ReadonlyArray<Readonly<{ term: string; detail: string }>>;
+}>;
 
-export default function PricingPage() {
+const COPY: Record<Locale, Copy> = {
+  ru: {
+    metadataTitle: 'Коммерческие условия · Прозрачная Цена', metadataDescription: 'Граница коммерческой модели без вымышленных тарифов, take rate и неподтверждённых обещаний.',
+    eyebrow: 'Коммерческая модель', title: 'Цена определяется объёмом исполняемого контура, а не декоративным тарифом',
+    description: 'Публичные тарифы и take rate пока не утверждены. Коммерческое предложение формируется только после определения участников, GMV, глубины Сделки, интеграций, SLA и операционной ответственности.',
+    status: 'условия не опубликованы', modelsTitle: 'Допустимые модели для переговоров', factorsTitle: 'Что влияет на цену',
+    boundaryTitle: 'Граница коммерческого предложения',
+    boundary: 'Ни одна сумма, процент или экономический эффект не считаются согласованными без подписанного предложения или договора. Экономика должна быть проверена через GMV, take rate, revenue, contribution margin, CAC, LTV и payback в Base, Conservative и Stress сценариях.',
+    request: 'Запросить коммерческое предложение', openFlow: 'Посмотреть контур Сделки',
+    models: [
+      { title: 'Комиссия от исполненной Сделки', detail: 'Возможна, когда платформа контролирует измеримый контур исполнения и доказательства закрытия.', state: 'Не утверждено' },
+      { title: 'Платформа как сервис', detail: 'Возможна для организаций с фиксированным набором ролей, объёмов и операционных функций.', state: 'Не утверждено' },
+      { title: 'Корпоративное внедрение', detail: 'Отдельно оцениваются интеграции, безопасность, миграция, SLA, поддержка и изменения процессов.', state: 'Индивидуально' },
+    ],
+    factors: [
+      { term: 'GMV и число Сделок', detail: 'Объём денежных и операционных событий, нагрузка и стоимость контроля.' },
+      { term: 'Глубина исполнения', detail: 'Аукцион, логистика, приёмка, лаборатория, документы, деньги, спор и доказательства.' },
+      { term: 'Роли и организации', detail: 'Число участников, tenant scope, разделение полномочий и администрирование.' },
+      { term: 'Интеграции', detail: 'Банк, ФГИС, ЭДО, ЭПД, КЭП, ERP и CRM оцениваются только после подтверждения доступа.' },
+      { term: 'Эксплуатация', detail: 'SLO, мониторинг, поддержка, резервирование, восстановление и требования безопасности.' },
+    ],
+  },
+  en: {
+    metadataTitle: 'Commercial terms · Transparent Price', metadataDescription: 'Commercial-model boundary without fabricated tariffs, take rates or unsupported promises.',
+    eyebrow: 'Commercial model', title: 'Price follows the execution scope, not a decorative plan',
+    description: 'Public tariffs and a take rate are not approved. A commercial proposal is prepared only after participants, GMV, Deal depth, integrations, SLA and operational responsibility are defined.',
+    status: 'terms not published', modelsTitle: 'Models available for negotiation', factorsTitle: 'What drives price',
+    boundaryTitle: 'Commercial-proposal boundary',
+    boundary: 'No amount, percentage or economic effect is agreed without a signed proposal or contract. Economics must be tested through GMV, take rate, revenue, contribution margin, CAC, LTV and payback under Base, Conservative and Stress scenarios.',
+    request: 'Request a commercial proposal', openFlow: 'View the Deal circuit',
+    models: [
+      { title: 'Fee per executed Deal', detail: 'Possible when the platform controls a measurable execution and closure-evidence circuit.', state: 'Not approved' },
+      { title: 'Platform as a service', detail: 'Possible for organizations with a defined set of roles, volumes and operational functions.', state: 'Not approved' },
+      { title: 'Enterprise deployment', detail: 'Integrations, security, migration, SLA, support and process changes are estimated separately.', state: 'Individual' },
+    ],
+    factors: [
+      { term: 'GMV and Deal count', detail: 'Volume of money and operational events, load and control cost.' },
+      { term: 'Execution depth', detail: 'Auction, logistics, acceptance, laboratory, documents, money, dispute and evidence.' },
+      { term: 'Roles and organizations', detail: 'Participant count, tenant scope, separation of authority and administration.' },
+      { term: 'Integrations', detail: 'Bank, grain registry, EDI, e-transport, qualified signature, ERP and CRM are estimated only after access is confirmed.' },
+      { term: 'Operations', detail: 'SLO, monitoring, support, redundancy, recovery and security requirements.' },
+    ],
+  },
+  zh: {
+    metadataTitle: '商业条件 · 透明价格', metadataDescription: '不展示虚构套餐、take rate 或未经证实承诺的商业模型边界。',
+    eyebrow: '商业模型', title: '价格取决于执行闭环范围，而不是装饰性套餐',
+    description: '公开套餐和 take rate 尚未批准。只有在参与方、GMV、交易深度、集成、SLA 和运营责任明确后，才形成商业方案。',
+    status: '条件未公布', modelsTitle: '可谈判的模型', factorsTitle: '价格影响因素',
+    boundaryTitle: '商业方案边界',
+    boundary: '未经签署的方案或合同，任何金额、比例或经济效果都不视为已同意。必须在 Base、Conservative 和 Stress 场景下通过 GMV、take rate、revenue、contribution margin、CAC、LTV 和 payback 验证经济性。',
+    request: '申请商业方案', openFlow: '查看交易闭环',
+    models: [
+      { title: '按已执行交易收费', detail: '当平台控制可衡量的执行和关闭证据闭环时可以讨论。', state: '未批准' },
+      { title: '平台服务费', detail: '适用于角色、业务量和运营功能范围明确的组织。', state: '未批准' },
+      { title: '企业部署', detail: '集成、安全、迁移、SLA、支持和流程变更单独评估。', state: '单独评估' },
+    ],
+    factors: [
+      { term: 'GMV 和交易数量', detail: '资金与运营事件量、负载和控制成本。' },
+      { term: '执行深度', detail: '拍卖、物流、接收、实验室、单证、资金、争议和证据。' },
+      { term: '角色和组织', detail: '参与方数量、tenant scope、权限分离和管理。' },
+      { term: '集成', detail: '银行、粮食登记、电子单证、电子运输、合格签名、ERP 和 CRM 仅在访问确认后评估。' },
+      { term: '运营', detail: 'SLO、监控、支持、冗余、恢复和安全要求。' },
+    ],
+  },
+};
+
+function localeOf(value: string): Locale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const copy = COPY[localeOf(await getLocale())];
+  return { title: copy.metadataTitle, description: copy.metadataDescription, robots: { index: false, follow: false } };
+}
+
+export default async function PricingPage() {
+  const copy = COPY[localeOf(await getLocale())];
   return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 1060, margin: '0 auto' }}>
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
-        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Тарифы</div>
-        <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Честная упаковка модели. Здесь видно, кто платит, за что платит и на каком этапе продукт подходит клиенту.
+    <main className={styles.root} data-testid='platform-v7-pricing-v8'>
+      <header className={styles.hero}>
+        <StatusChip tone='warning'>{copy.status}</StatusChip>
+        <p className={styles.eyebrow}>{copy.eyebrow}</p>
+        <h1 className={styles.title}>{copy.title}</h1>
+        <p className={styles.lead}>{copy.description}</p>
+        <div className={styles.actions}>
+          <Link className={styles.primaryLink} href='/platform-v7/request'>{copy.request}</Link>
+          <Link className={styles.link} href='/platform-v7/deal-flow'>{copy.openFlow}</Link>
         </div>
-      </section>
+      </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-        {PLANS.map((plan) => (
-          <section key={plan.name} style={{ background: plan.bg, border: `1px solid ${plan.border}`, borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: plan.accent }}>{plan.name}</div>
-              <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900, color: plan.accent }}>{plan.price}</div>
-              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 700 }}>{plan.note}</div>
-            </div>
-            <div style={{ display: 'grid', gap: 8 }}>
-              {plan.features.map((feature) => (
-                <div key={feature} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.6 }}>
-                  <span style={{ fontWeight: 900 }}>•</span>
-                  <span>{feature}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 12 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Ориентир по комиссии</div>
-        <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
-          Для модели Growth ориентир — 0.7% от оборота сделки. Это привязывает оплату к фактически проведённой операции, а не к декоративной подписке.
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-          <Cell title='Сделка 4.2 млн ₽' value='29 400 ₽' note='Ориентир по одной средней сделке' />
-          <Cell title='Сделка 10 млн ₽' value='70 000 ₽' note='Ориентир для крупного покупателя' />
-          <Cell title='100 млн ₽ GMV' value='700 000 ₽' note='Ориентир месячной выручки при масштабе' />
-        </div>
-      </section>
-
-      <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Монетизация внутри платформы</div>
-          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
-            Не только тарифы, но и точки, через которые пользователю уже виден денежный и доверительный слой платформы.
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-          {MONETIZATION_MODULES.map((item) => (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</div>
-              <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--pc-text-secondary, #475569)' }}>{item.note}</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
-            </Link>
+      <section className={styles.section} aria-labelledby='pricing-models'>
+        <h2 className={styles.sectionTitle} id='pricing-models'>{copy.modelsTitle}</h2>
+        <div className={styles.gridThree}>
+          {copy.models.map((model) => (
+            <article className={styles.card} key={model.title}>
+              <StatusChip tone='neutral'>{model.state}</StatusChip>
+              <h3 className={styles.cardTitle}>{model.title}</h3>
+              <p className={styles.cardText}>{model.detail}</p>
+            </article>
           ))}
         </div>
       </section>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link href='/platform-v7/investor' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
-          Инвесторский режим
-        </Link>
-        <Link href='/platform-v7/about' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
-          О проекте
-        </Link>
-      </div>
-    </div>
-  );
-}
+      <section className={styles.section} aria-labelledby='pricing-factors'>
+        <h2 className={styles.sectionTitle} id='pricing-factors'>{copy.factorsTitle}</h2>
+        <dl className={styles.meta}>
+          {copy.factors.map((factor) => (
+            <div className={styles.metaItem} key={factor.term}>
+              <dt>{factor.term}</dt>
+              <dd>{factor.detail}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
 
-function Cell({ title, value, note }: { title: string; value: string; note: string }) {
-  return (
-    <div style={{ border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 12, padding: 12, background: '#fff' }}>
-      <div style={{ fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', fontWeight: 700 }}>{title}</div>
-      <div style={{ marginTop: 6, fontSize: 20, fontWeight: 900, color: 'var(--pc-text-primary, #0F1419)' }}>{value}</div>
-      <div style={{ marginTop: 6, fontSize: 12, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.55 }}>{note}</div>
-    </div>
+      <InlineNotice tone='warning' title={copy.boundaryTitle}>{copy.boundary}</InlineNotice>
+    </main>
   );
 }
