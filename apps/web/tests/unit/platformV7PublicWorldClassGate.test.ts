@@ -38,7 +38,8 @@ const css = read('apps/web/styles/platform-v7-public-product-experience-v3.css')
   });
 
   it('keeps role exploration informational and login server-authoritative', () => {
-    expect(landing).toContain("role='listitem'");
+    expect(landing).toContain("className='pc-ppe-perspective-grid' role='group'");
+    expect(landing).not.toContain("role='listitem'");
     expect(landing).not.toContain('/platform-v7/login?role=');
     expect(stateMachine).toContain("export type TourPerspective");
     expect(stateMachine).not.toContain('membership');
