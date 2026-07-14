@@ -19,7 +19,7 @@ concurrency:
 
 env:
   NODE_VERSION: '24'
-  PNPM_VERSION: '10.34.4'
+  PNPM_VERSION: '10.2.1'
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   SECURITY_ARTIFACT_DIR: artifacts/security
 
@@ -285,7 +285,7 @@ jobs:
           ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
-      - name: Setup patched pnpm
+      - name: Setup repository pnpm pin
         uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
@@ -341,7 +341,7 @@ jobs:
           ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
-      - name: Setup patched pnpm
+      - name: Setup repository pnpm pin
         uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
