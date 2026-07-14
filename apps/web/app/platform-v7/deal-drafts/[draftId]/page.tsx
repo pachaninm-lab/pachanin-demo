@@ -1,5 +1,5 @@
-import { DealDraftDetailRuntimeV2 } from '@/components/v7r/DealDraftDetailRuntimeV2';
+import { redirect } from 'next/navigation';
 
 export default function PlatformV7DealDraftDetailPage({ params }: { params: { draftId: string } }) {
-  return <DealDraftDetailRuntimeV2 id={params.draftId} />;
+  redirect(`/platform-v7/auction/deal-basis?legacyDraftId=${encodeURIComponent(params.draftId)}`);
 }
