@@ -4,6 +4,13 @@ on:
   schedule:
     - cron: '*/10 * * * *'
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/platform-v7/autopilot/industrial-readiness-inventory.json'
+      - 'docs/platform-v7/autopilot/industrial-readiness-inventory.schema.json'
+      - 'docs/platform-v7/autopilot/check-industrial-readiness-inventory.mjs'
+      - '.github/workflows/platform-v7-autopilot-watchdog.yml'
 
 permissions:
   contents: read
@@ -12,11 +19,69 @@ permissions:
   actions: write
 
 concurrency:
-  group: platform-v7-autopilot-watchdog
+  group: platform-v7-autopilot-watchdog-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
+  readiness-inventory:
+    name: Validate industrial readiness inventory
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validate inventory and evidence paths
+        env:
+          INDUSTRIAL_READINESS_REPORT: artifacts/industrial-readiness/inventory-validation.json
+          INDUSTRIAL_READINESS_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: node docs/platform-v7/autopilot/check-industrial-readiness-inventory.mjs
+
+      - name: Publish readiness summary
+        if: always()
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'artifacts/industrial-readiness/inventory-validation.json';
+          if (!fs.existsSync(path)) {
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '## Industrial readiness inventory\n\nValidation report was not produced.\n');
+            process.exit(0);
+          }
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const summary = report.summary || {};
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, [
+            '## Industrial readiness inventory',
+            '',
+            `- Valid: ${report.valid ? 'yes' : 'no'}`,
+            `- Verified: ${summary.IMPLEMENTED_AND_VERIFIED ?? 0}/${summary.total ?? 0}`,
+            `- Verified percent: ${summary.verifiedPercent ?? 0}%`,
+            `- Unresolved P0: ${(summary.unresolvedP0 || []).length}`,
+            `- Inventory baseline: ${report.inventoryBaselineCommit}`,
+            `- Validated commit: ${report.validatedCommit}`,
+            ''
+          ].join('\n'));
+          NODE
+
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: industrial-readiness-inventory-${{ github.event.pull_request.head.sha }}
+          path: artifacts/industrial-readiness/inventory-validation.json
+          if-no-files-found: error
+          retention-days: 30
+
   watchdog:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -46,20 +111,19 @@ jobs:
           gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated \
             --json number,title,updatedAt > /tmp/p7-watchdog-open.json
 
-          current_slice=$(CURRENT_STEP="$current" node -e "const m=String(process.env.CURRENT_STEP||'').match(/\d+\$/); process.stdout.write(m?m[0]:'')")
+          current_slice=$(CURRENT_STEP="$current" node -e "const m=String(process.env.CURRENT_STEP||'').match(/\d+$/); process.stdout.write(m?m[0]:'')")
 
           open_current=$(CURRENT_SLICE="$current_slice" node -e "
             const fs=require('fs');
             const prs=JSON.parse(fs.readFileSync('/tmp/p7-watchdog-open.json','utf8'));
             const slice=Number(process.env.CURRENT_SLICE)||0;
             if(!slice){process.stdout.write(String(prs.length));process.exit(0);}
-            const re=new RegExp('slice\\\\s+'+slice+'\\\\b','i');
+            const re=new RegExp('slice\\s+'+slice+'\\b','i');
             process.stdout.write(String(prs.filter(p=>re.test(p.title||'')).length));
           ")
 
           echo "- open generated PRs (current slice ${current_slice:-?}): $open_current" >> "$GITHUB_STEP_SUMMARY"
 
-          # Close stale generated PRs (for slices strictly below current)
           closed_stale=0
           if [ -n "$current_slice" ]; then
             stale_numbers=$(CURRENT_SLICE="$current_slice" node -e "
@@ -81,7 +145,6 @@ jobs:
           fi
           echo "- stale generated PRs closed: $closed_stale" >> "$GITHUB_STEP_SUMMARY"
 
-          # Recovery: currentStatus=ready but no open current-slice PR → dispatch agent runner
           if [ "$current_status" = "ready" ] && [ "$open_current" = "0" ]; then
             echo "Watchdog: SOT ready but no open generated PR for current slice. Dispatching recovery."
             gh workflow run platform-v7-agent-runner.yml --repo "$REPO" -f command=run-current || true
@@ -93,7 +156,7 @@ jobs:
               const fs=require('fs');
               const prs=JSON.parse(fs.readFileSync('/tmp/p7-watchdog-open.json','utf8'));
               const slice=Number('${current_slice:-0}')||0;
-              const re=slice?new RegExp('slice\\\\s+'+slice+'\\\\b','i'):null;
+              const re=slice?new RegExp('slice\\s+'+slice+'\\b','i'):null;
               prs.filter(p=>!re||re.test(p.title||'')).forEach(p=>{
                 process.stdout.write('- #'+p.number+' '+p.title+' updated '+p.updatedAt+'\n');
               });

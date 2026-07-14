@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prozrachnaya-cena.example/schemas/industrial-readiness-inventory.schema.json",
+  "title": "Industrial Readiness Inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "repository", "programIssue", "baselineCommit", "auditedAt", "classificationPolicy", "summary", "capabilities"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "repository": {"type": "string", "minLength": 3},
+    "programIssue": {"type": "integer", "minimum": 1},
+    "baselineCommit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "auditedAt": {"type": "string", "format": "date-time"},
+    "classificationPolicy": {"type": "object", "minProperties": 9, "additionalProperties": {"type": "string", "minLength": 1}},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "IMPLEMENTED_AND_VERIFIED", "IMPLEMENTED_NOT_VERIFIED", "PARTIAL", "FAIL_CLOSED", "MOCK_ONLY", "LEGACY", "DUPLICATE_AUTHORITY", "NOT_IMPLEMENTED", "OUT_OF_RELEASE_SCOPE"],
+      "properties": {
+        "total": {"type": "integer", "minimum": 1},
+        "IMPLEMENTED_AND_VERIFIED": {"type": "integer", "minimum": 0},
+        "IMPLEMENTED_NOT_VERIFIED": {"type": "integer", "minimum": 0},
+        "PARTIAL": {"type": "integer", "minimum": 0},
+        "FAIL_CLOSED": {"type": "integer", "minimum": 0},
+        "MOCK_ONLY": {"type": "integer", "minimum": 0},
+        "LEGACY": {"type": "integer", "minimum": 0},
+        "DUPLICATE_AUTHORITY": {"type": "integer", "minimum": 0},
+        "NOT_IMPLEMENTED": {"type": "integer", "minimum": 0},
+        "OUT_OF_RELEASE_SCOPE": {"type": "integer", "minimum": 0}
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "status", "severity", "authority", "evidence", "finding", "nextGate"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "name": {"type": "string", "minLength": 3},
+          "status": {"enum": ["IMPLEMENTED_AND_VERIFIED", "IMPLEMENTED_NOT_VERIFIED", "PARTIAL", "FAIL_CLOSED", "MOCK_ONLY", "LEGACY", "DUPLICATE_AUTHORITY", "NOT_IMPLEMENTED", "OUT_OF_RELEASE_SCOPE"]},
+          "severity": {"enum": ["P0", "P1", "P2"]},
+          "authority": {"type": "string", "minLength": 1},
+          "evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["implementation", "tests", "workflows"],
+            "properties": {
+              "implementation": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+              "tests": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+              "workflows": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+            }
+          },
+          "finding": {"type": "string", "minLength": 10},
+          "nextGate": {"type": "string", "minLength": 10}
+        }
+      }
+    }
+  }
+}
