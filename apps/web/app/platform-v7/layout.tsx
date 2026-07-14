@@ -4,16 +4,16 @@ import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getLocale } from 'next-intl/server';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
-import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
-import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
 import { platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import {
   readVerifiedCabinetRole,
   readVerifiedCabinetSessionRole,
 } from '@/lib/platform-v7/verified-session';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
+import styles from './_styles/supporting-v8.module.css';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
@@ -52,7 +52,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/request',
   '/platform-v7/docs',
 ]);
-const PUBLIC_HEADERLESS_PATHS = new Set([
+const PUBLIC_SUPPORTING_PATHS = new Set([
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
@@ -63,13 +63,14 @@ type ShellLocale = 'ru' | 'en' | 'zh';
 
 const SUPPORTING_COPY: Record<ShellLocale, {
   header: string;
+  brand: string;
   tagline: string;
   home: string;
   login: string;
 }> = {
-  ru: { header: 'Шапка сайта', tagline: 'Контур исполнения сделки', home: 'На главную', login: 'Войти' },
-  en: { header: 'Site header', tagline: 'Transaction execution circuit', home: 'Home', login: 'Sign in' },
-  zh: { header: '网站页眉', tagline: '交易执行闭环', home: '返回首页', login: '登录' },
+  ru: { header: 'Шапка сайта', brand: 'Прозрачная Цена', tagline: 'Контур исполнения сделки', home: 'На главную', login: 'Войти' },
+  en: { header: 'Site header', brand: 'Transparent Price', tagline: 'Transaction execution circuit', home: 'Home', login: 'Sign in' },
+  zh: { header: '网站页眉', brand: '透明价格', tagline: '交易执行闭环', home: '返回首页', login: '登录' },
 };
 
 function normalizePath(value: string | null) {
@@ -80,8 +81,8 @@ function isPublicPath(pathname: string) {
   return PUBLIC_EXACT_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
 }
 
-function needsPublicHeader(pathname: string) {
-  return PUBLIC_HEADERLESS_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
+function needsSupportingShell(pathname: string) {
+  return PUBLIC_SUPPORTING_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
 }
 
 function isStaffPath(pathname: string) {
@@ -109,26 +110,28 @@ async function PlatformV7PublicPageShell({ children }: { children: ReactNode }) 
   const copy = SUPPORTING_COPY[locale === 'en' || locale === 'zh' ? locale : 'ru'];
 
   return (
-    <div data-public-supporting-shell>
-      <PublicSiteHeader
-        ariaLabel={copy.header}
-        tagline={copy.tagline}
-        showMobileMenu={false}
-        localeControl={<PublicLocaleLink />}
-        actions={(
-          <>
-            <a className='pc-site-action' href='/platform-v7' aria-label={copy.home} title={copy.home}>
-              <span aria-hidden='true'>←</span>
-              <span>{copy.home}</span>
-            </a>
-            <a className='pc-site-action is-primary' href='/platform-v7/login' aria-label={copy.login} title={copy.login}>
-              <span aria-hidden='true'>↪</span>
-              <span>{copy.login}</span>
-            </a>
-          </>
-        )}
-      />
-      <div className='pc-public-supporting-content'>{children}</div>
+    <div className={styles.supportShell} data-public-supporting-shell='v8'>
+      <header className={styles.supportHeader} aria-label={copy.header}>
+        <a className={styles.supportBrand} href='/platform-v7'>
+          <img className={styles.supportBrandMark} src={BRAND_LOGO_DATA_URI} alt='' aria-hidden='true' />
+          <span className={styles.supportBrandText}>
+            <strong>{copy.brand}</strong>
+            <span>{copy.tagline}</span>
+          </span>
+        </a>
+        <nav className={styles.supportActions} aria-label={copy.header}>
+          <span className={styles.locale}><PublicLocaleLink /></span>
+          <a className={styles.supportAction} href='/platform-v7' aria-label={copy.home} title={copy.home}>
+            <span aria-hidden='true'>←</span>
+            <span>{copy.home}</span>
+          </a>
+          <a className={styles.supportActionPrimary} href='/platform-v7/login' aria-label={copy.login} title={copy.login}>
+            <span aria-hidden='true'>↪</span>
+            <span>{copy.login}</span>
+          </a>
+        </nav>
+      </header>
+      <div className={styles.supportContent}>{children}</div>
     </div>
   );
 }
@@ -136,40 +139,31 @@ async function PlatformV7PublicPageShell({ children }: { children: ReactNode }) 
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const pathname = normalizePath(headers().get('x-pc-pathname'));
 
-  // Landing and authentication stay lean and server-rendered.
+  // Landing and authentication remain physically isolated, lean and server-rendered.
   if (pathname === LANDING_PATH || AUTH_PATHS.has(pathname)) return children;
 
-  // Staff remains a separate privileged authority plane and authenticates through
-  // its own server-issued staff session rather than a business cabinet role.
+  // Staff remains a separate privileged authority plane.
   if (isStaffPath(pathname)) return children;
 
   if (isPublicPath(pathname)) {
-    const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
-    const publicContent = needsPublicHeader(pathname)
+    const { PlatformV7PublicRuntime } = await import('@/components/platform-v7/PlatformV7PublicRuntime');
+    const publicContent = needsSupportingShell(pathname)
       ? <PlatformV7PublicPageShell>{children}</PlatformV7PublicPageShell>
       : children;
-
-    return <PlatformV7FullStyleRuntime>{publicContent}</PlatformV7FullStyleRuntime>;
+    return <PlatformV7PublicRuntime>{publicContent}</PlatformV7PublicRuntime>;
   }
 
-  // A protected business cabinet is rendered only after the signed cabinet/access
-  // JWT has been verified. URL, query, pc-role, localStorage and client state never
-  // assign the role. Unauthorized routes are rejected before any role-specific UI
-  // or page code reaches the client.
+  // A protected business cabinet is rendered only after signed server authority
+  // has been verified. URL, query, localStorage and client state never assign role.
   const role = await verifiedCabinetRole();
   if (!role) redirect(loginHref(pathname));
   if (!canRoleAccessCabinet(role, pathname)) redirect(platformV7RoleRoute(role));
 
   const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');
+  const { PlatformV7DesignSystemV8Runtime } = await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime');
   const protectedContent = (
     <PlatformV7ProtectedRuntime pathname={pathname} verifiedRole={role}>{children}</PlatformV7ProtectedRuntime>
   );
 
-  if (isDesignSystemV8Route(pathname)) {
-    const { PlatformV7DesignSystemV8Runtime } = await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime');
-    return <PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>;
-  }
-
-  const { PlatformV7FullStyleRuntime } = await import('@/components/platform-v7/PlatformV7FullStyleRuntime');
-  return <PlatformV7FullStyleRuntime>{protectedContent}</PlatformV7FullStyleRuntime>;
+  return <PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>;
 }
