@@ -12,12 +12,16 @@ import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { MfaVerifyDto } from './dto/mfa-verify.dto';
 import { RevokeUserSessionsDto } from './dto/revoke-user-sessions.dto';
+import { OrganizationTeamService } from './organization-team.service';
 
 @UseGuards(RolesGuard)
 @Roles('ANY_AUTHENTICATED')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly organizationTeamService: OrganizationTeamService,
+  ) {}
 
   @Public()
   @RateLimit({ name: 'auth_login', scope: 'ip', limit: 8, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_LOGIN', windowEnv: 'RATE_LIMIT_WINDOW_SECONDS' })
@@ -65,7 +69,7 @@ export class AuthController {
 
   @Get('organization-team')
   organizationTeam(@CurrentUser() user: RequestUser) {
-    return this.authService.organizationTeam(user);
+    return this.organizationTeamService.readFor(user);
   }
 
   @Public()
