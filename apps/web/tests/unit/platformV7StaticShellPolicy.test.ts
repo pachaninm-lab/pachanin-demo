@@ -7,6 +7,7 @@ const absolute = (relativePath: string) => path.join(root, relativePath);
 const read = (relativePath: string) => fs.readFileSync(absolute(relativePath), 'utf8');
 
 const shell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
+const layoutClient = read('apps/web/components/platform-v7/PlatformV7LayoutClient.tsx');
 const css = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css');
 const zeroGate = read('scripts/check-design-system-v8-zero-reference.mjs');
 
@@ -33,16 +34,18 @@ const removed = [
   'apps/web/components/platform-v7/MobileHeaderActionRail.tsx',
   'apps/web/components/v7r/AiShellEnhancer.tsx',
   'apps/web/components/v7r/PlatformV7NotificationCenter.tsx',
-  'apps/web/lib/platform-v7/shellNotificationCenter.ts',
 ];
 
 describe('platform-v7 static shell policy and final patch deletion', () => {
   it('derives presentation policy from the server-verified role and current protected path', () => {
     expect(shell).toContain("import { getShellPolicy } from '@/lib/platform-v7/shell-role-policy'");
     expect(shell).toContain('const shellPolicy = getShellPolicy(verifiedRole, normalizedPath)');
-    expect(shell).toContain("data-shell-policy={shellPolicy}");
-    expect(shell).toContain("data-shell-role={verifiedRole}");
+    expect(shell).toContain('data-shell-policy={shellPolicy}');
+    expect(shell).toContain('data-shell-role={verifiedRole}');
+    expect(layoutClient).toContain('const shellPolicy = getShellPolicy(initialRole, normalizedPath)');
+    expect(layoutClient).toContain('data-shell-policy={shellPolicy}');
     expect(shell).not.toContain('ScopedShellGuard');
+    expect(layoutClient).not.toContain('ScopedShellGuard');
   });
 
   it('uses static scoped CSS instead of client style injection', () => {
