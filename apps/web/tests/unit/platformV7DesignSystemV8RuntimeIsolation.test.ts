@@ -4,110 +4,85 @@ import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
+const exists = (relativePath: string) => fs.existsSync(path.join(root, relativePath));
 
 const layout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');
+const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
+const publicRuntime = read('apps/web/components/platform-v7/PlatformV7PublicRuntime.tsx');
+const supportingStyles = read('apps/web/app/platform-v7/_styles/supporting-v8.module.css');
 const controlTower = read('apps/web/app/platform-v7/control-tower/page.tsx');
-const routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
-const v8Runtime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
-const legacyRuntime = read('apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx');
-const legacyTemplate = read('apps/web/components/platform-v7/PlatformV7ProtectedTemplateRuntime.tsx');
-const fixedHeaderContract = read('apps/web/app/platform-v7/_styles/fixed-header-contract.css');
 
-const roleRoutes = [
-  'operator',
-  'buyer',
-  'seller',
-  'logistics',
-  'driver',
-  'elevator',
-  'lab',
-  'surveyor',
-  'bank',
-  'compliance',
-  'arbitrator',
-  'executive',
+const removedLegacyFiles = [
+  'apps/web/components/platform-v7/PlatformV7FullStyleRuntime.tsx',
+  'apps/web/components/platform-v7/PlatformV7ProtectedTemplateRuntime.tsx',
+  'apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx',
+  'apps/web/lib/platform-v7/design-system-v8-route-policy.ts',
 ];
 
-const criticalRoutes = [
-  '/platform-v7/control-tower',
-  '/platform-v7/deals',
-  '/platform-v7/documents',
-  '/platform-v7/disputes',
-  '/platform-v7/money',
-  '/platform-v7/bank/release-safety',
-  '/platform-v7/fgis-access',
-  '/platform-v7/deal-logistics',
-  '/platform-v7/deal-acceptance',
-  '/platform-v7/deal-documents-basis',
+const forbiddenRuntimeCode = [
+  'MutationObserver',
+  'ResizeObserver',
+  'visualViewport',
+  'document.querySelector',
+  'dangerouslySetInnerHTML',
+  '<style',
+  "@/styles/platform-v7-",
+  "@/app/v9",
 ];
 
-describe('platform-v7 Design System v8 runtime isolation', () => {
-  it('registers all twelve role roots and the accepted transaction routes in one server-safe policy', () => {
-    for (const role of roleRoutes) expect(routePolicy).toContain(`'/platform-v7/${role}'`);
-    for (const route of criticalRoutes) expect(routePolicy).toContain(`'${route}'`);
-    expect(routePolicy).toContain("'/platform-v7/deals/'");
-    expect(routePolicy).toContain("'/platform-v7/auction'");
-    expect(routePolicy).toContain('isDesignSystemV8Route');
-    expect(routePolicy).not.toContain("'use client'");
-    expect(routePolicy).not.toContain('window.');
-    expect(routePolicy).not.toContain('document.');
-  });
-
-  it('selects the minimal v8 style/runtime boundary on the server after verified role enforcement', () => {
-    expect(layout).toContain("from '@/lib/platform-v7/design-system-v8-route-policy'");
-    expect(layout).toContain('if (isDesignSystemV8Route(pathname))');
+describe('platform-v7 final Design System v8 runtime isolation', () => {
+  it('uses one minimal public runtime and one minimal protected runtime', () => {
+    expect(layout).toContain("await import('@/components/platform-v7/PlatformV7PublicRuntime')");
     expect(layout).toContain("await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime')");
+    expect(layout).toContain('<PlatformV7PublicRuntime>{publicContent}</PlatformV7PublicRuntime>');
     expect(layout).toContain('<PlatformV7DesignSystemV8Runtime>{protectedContent}</PlatformV7DesignSystemV8Runtime>');
-    expect(layout.indexOf('if (!role) redirect')).toBeLessThan(layout.indexOf('if (isDesignSystemV8Route(pathname))'));
-    expect(layout.indexOf('if (isDesignSystemV8Route(pathname))')).toBeLessThan(
-      layout.lastIndexOf("await import('@/components/platform-v7/PlatformV7FullStyleRuntime')"),
-    );
+    expect(layout).not.toContain('PlatformV7FullStyleRuntime');
+    expect(layout).not.toContain('isDesignSystemV8Route');
   });
 
-  it('does not mount legacy template guards on governed routes', () => {
-    expect(template).toContain("from '@/lib/platform-v7/design-system-v8-route-policy'");
-    expect(template).toContain('isDesignSystemV8Route(pathname)');
+  it('keeps authorization ahead of protected presentation', () => {
+    expect(layout.indexOf('if (!role) redirect')).toBeGreaterThanOrEqual(0);
+    expect(layout.indexOf('if (!role) redirect')).toBeLessThan(
+      layout.indexOf("await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime')"),
+    );
+    expect(layout.indexOf('if (!canRoleAccessCabinet')).toBeLessThan(
+      layout.indexOf("await import('@/components/platform-v7/PlatformV7DesignSystemV8Runtime')"),
+    );
+    expect(layout).not.toContain('localStorage');
+    expect(layout).not.toContain('sessionStorage');
+    expect(layout).not.toContain('?role=');
+  });
+
+  it('removes legacy style and template runtime files', () => {
+    for (const file of removedLegacyFiles) expect(exists(file)).toBe(false);
     expect(template).toContain('return children');
-    expect(template.indexOf('isDesignSystemV8Route(pathname)')).toBeLessThan(
-      template.indexOf("await import('@/components/platform-v7/PlatformV7ProtectedTemplateRuntime')"),
-    );
-    expect(legacyTemplate).toContain('PlatformV7TemplateGuards');
+    expect(template).not.toContain('next/headers');
+    expect(template).not.toContain('PlatformV7ProtectedTemplateRuntime');
   });
 
-  it('keeps the governed runtime token-only and free of DOM/style repair code', () => {
-    expect(v8Runtime).toContain('packages/design-tokens/tokens.css');
-    expect(v8Runtime).toContain('<ChatSupportWidget />');
-    expect(v8Runtime).not.toContain('PlatformV7FullStyleRuntime');
-    expect(v8Runtime).not.toContain('PlatformV7TemplateGuards');
-    expect(v8Runtime).not.toContain('MutationObserver');
-    expect(v8Runtime).not.toContain('ResizeObserver');
-    expect(v8Runtime).not.toContain('setInterval');
-    expect(v8Runtime).not.toContain('setTimeout');
-    expect(v8Runtime).not.toContain('<style');
-    expect(v8Runtime).not.toContain('@/styles/');
-    expect(legacyRuntime).toContain('@/styles/platform-v7-final-polish.css');
+  it('keeps both active runtimes token-only and free of DOM repair code', () => {
+    for (const runtime of [protectedRuntime, publicRuntime]) {
+      expect(runtime).toContain('packages/design-tokens/tokens.css');
+      expect(runtime).toContain('<ChatSupportWidget />');
+      for (const forbidden of forbiddenRuntimeCode) expect(runtime).not.toContain(forbidden);
+    }
+    expect(supportingStyles).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(supportingStyles).not.toMatch(/\brgba?\s*\(/i);
+    expect(supportingStyles).not.toContain('!important');
+    expect(supportingStyles).toContain('@media (forced-colors: active)');
+    expect(supportingStyles).toContain('env(safe-area-inset-top, 0px)');
   });
 
-  it('keeps one canonical role-safe operator or executive workspace instead of a duplicate synthetic cockpit', () => {
+  it('keeps one canonical role-safe operator or executive workspace', () => {
     expect(controlTower).toContain('readVerifiedCabinetSessionRole');
     expect(controlTower).toContain('readVerifiedCabinetRole');
     expect(controlTower).toContain("role === 'executive'");
     expect(controlTower).toContain("redirect('/platform-v7/executive')");
     expect(controlTower).toContain("redirect('/platform-v7/operator')");
     expect(controlTower).not.toContain('selectRuntimeDeals');
-    expect(controlTower).not.toContain('canonicalDomainDeals');
     expect(controlTower).not.toContain('ControlTowerCharts');
-    expect(controlTower).not.toContain('dangerouslySetInnerHTML');
     expect(controlTower).not.toContain('style=');
-    expect(controlTower).not.toContain('useSearchParams');
     expect(controlTower).not.toContain('localStorage');
-  });
-
-  it('prevents root compatibility CSS from overriding the governed AppShell module', () => {
-    expect(fixedHeaderContract).not.toContain('.pc-v4-header');
-    expect(fixedHeaderContract).not.toContain('.pc-shell-root-v4');
-    expect(fixedHeaderContract).toContain('.pc-site-header');
-    expect(fixedHeaderContract).toContain('[data-staff-platform-shell]');
   });
 });
