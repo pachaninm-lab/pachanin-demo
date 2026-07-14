@@ -4,6 +4,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://vermillion-kitsune
 
 const STATIC_ROUTES: Array<{ url: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'] }> = [
   { url: '/platform-v7',                    priority: 1.0,  changeFrequency: 'daily' },
+  { url: '/platform-v7/how-it-works',       priority: 0.95, changeFrequency: 'weekly' },
   { url: '/platform-v7/deals',              priority: 0.9,  changeFrequency: 'hourly' },
   { url: '/platform-v7/lots',               priority: 0.9,  changeFrequency: 'hourly' },
   { url: '/platform-v7/control-tower',      priority: 0.85, changeFrequency: 'hourly' },
@@ -16,7 +17,7 @@ const STATIC_ROUTES: Array<{ url: string; priority: number; changeFrequency: Met
   { url: '/platform-v7/buyer',              priority: 0.7,  changeFrequency: 'daily' },
   { url: '/platform-v7/operator',           priority: 0.7,  changeFrequency: 'daily' },
   { url: '/platform-v7/investor',           priority: 0.65, changeFrequency: 'weekly' },
-  { url: '/platform-v7/lab',               priority: 0.6,  changeFrequency: 'daily' },
+  { url: '/platform-v7/lab',                priority: 0.6,  changeFrequency: 'daily' },
   { url: '/platform-v7/audit-log',          priority: 0.6,  changeFrequency: 'daily' },
   { url: '/platform-v7/profile',            priority: 0.5,  changeFrequency: 'monthly' },
   { url: '/platform-v7/connectors',         priority: 0.5,  changeFrequency: 'weekly' },
