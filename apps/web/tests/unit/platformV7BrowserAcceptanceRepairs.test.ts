@@ -61,4 +61,12 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(languageSwitch).toContain('protectedNotification?.parentElement');
     expect(languageSwitch).toContain("if (!target && document.querySelector('.pc-shell-root-v4')) return null");
   });
+
+  it('switches protected locale through a server reload without mutating streamed text nodes', () => {
+    expect(languageSwitch).toContain("url.searchParams.set('lang', language)");
+    expect(languageSwitch).toContain('window.location.replace(url.toString())');
+    expect(languageSwitch).not.toContain('applyTranslationToDom');
+    expect(languageSwitch).not.toContain('startTranslationObserver');
+    expect(languageSwitch).not.toContain('MutationObserver(() => apply');
+  });
 });
