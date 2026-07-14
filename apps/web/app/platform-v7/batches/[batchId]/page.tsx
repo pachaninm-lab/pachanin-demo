@@ -1,5 +1,5 @@
-import { GrainExecutionPage } from '@/components/platform-v7/GrainExecutionPage';
+import { redirect } from 'next/navigation';
 
-export default function PlatformV7BatchByIdPage() {
-  return <GrainExecutionPage mode='batch-detail' role='seller' />;
+export default function PlatformV7BatchByIdAliasPage() {
+  redirect('/platform-v7/fgis-access');
 }

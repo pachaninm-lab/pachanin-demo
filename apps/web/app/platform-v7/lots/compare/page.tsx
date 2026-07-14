@@ -1,5 +1,5 @@
-import { LotsCompareRuntime } from '@/components/v7r/LotsCompareRuntime';
+import { redirect } from 'next/navigation';
 
-export default function PlatformV7LotsComparePage() {
-  return <LotsCompareRuntime />;
+export default function PlatformV7LotsCompareAliasPage() {
+  redirect('/platform-v7/auction');
 }

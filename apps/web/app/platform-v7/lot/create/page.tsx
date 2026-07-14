@@ -1,5 +1,5 @@
-import { SellerLotCreateRuntimeV2 } from '@/components/v7r/SellerLotCreateRuntimeV2';
+import { redirect } from 'next/navigation';
 
 export default function PlatformV7LotCreateAliasPage() {
-  return <SellerLotCreateRuntimeV2 />;
+  redirect('/platform-v7/auction/import');
 }
