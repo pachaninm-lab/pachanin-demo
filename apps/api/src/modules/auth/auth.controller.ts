@@ -63,6 +63,11 @@ export class AuthController {
     return this.authService.me(user);
   }
 
+  @Get('organization-team')
+  organizationTeam(@CurrentUser() user: RequestUser) {
+    return this.authService.organizationTeam(user);
+  }
+
   @Public()
   @Get('sber-business/start')
   sberBusinessStart(@Query() query: { returnPath?: string; orgType?: string; inn?: string; legalName?: string; fullName?: string; email?: string }) {
