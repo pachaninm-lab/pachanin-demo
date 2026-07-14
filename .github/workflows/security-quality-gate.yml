@@ -133,17 +133,35 @@ jobs:
             prozrachnaya-cena-api:security-${EXACT_HEAD} \
             > "$SECURITY_ARTIFACT_DIR/container-image-digest.txt"
 
-      - name: Scan API image for HIGH and CRITICAL vulnerabilities
+      - name: Collect API image vulnerability report
+        id: collect-container
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: prozrachnaya-cena-api:security-${{ env.EXACT_HEAD }}
-          format: sarif
-          output: artifacts/security/trivy-container.sarif
+          format: json
+          output: artifacts/security/trivy-container.json
           severity: CRITICAL,HIGH
           ignore-unfixed: false
-          exit-code: '1'
-          trivyignores: artifacts/security/.trivyignore-trivy-container.yaml
-          limit-severities-for-sarif: true
+          exit-code: '0'
+
+      - name: Convert container report to SARIF
+        if: always() && hashFiles('artifacts/security/trivy-container.json') != ''
+        run: |
+          trivy convert \
+            --format sarif \
+            --severity HIGH,CRITICAL \
+            --output "$SECURITY_ARTIFACT_DIR/trivy-container.sarif" \
+            "$SECURITY_ARTIFACT_DIR/trivy-container.json"
+
+      - name: Evaluate API image findings against formal exceptions
+        if: always()
+        env:
+          SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          TRIVY_SCANNER: trivy-container
+          TRIVY_SCAN_RESULT: ${{ steps.collect-container.outcome }}
+          TRIVY_REPORT_JSON: ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-container.json
+          TRIVY_EVALUATION_REPORT: ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-container-evaluation.json
+        run: node docs/platform-v7/autopilot/evaluate-trivy-report.mjs
 
       - name: Upload container SARIF
         if: always() && hashFiles('artifacts/security/trivy-container.sarif') != ''
@@ -158,7 +176,9 @@ jobs:
         with:
           name: trivy-container-${{ env.EXACT_HEAD }}
           path: |
+            ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-container.json
             ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-container.sarif
+            ${{ env.SECURITY_ARTIFACT_DIR }}/trivy-container-evaluation.json
             ${{ env.SECURITY_ARTIFACT_DIR }}/container-image-digest.txt
           if-no-files-found: error
           retention-days: 90
