@@ -168,9 +168,10 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
     for (const file of removedRuntimeFiles) expect(fs.existsSync(absolute(file))).toBe(false);
   });
 
-  it('keeps the governed runtime token-only and free of DOM/style repair code', () => {
+  it('keeps the governed runtime token-only, hydration-safe and free of DOM/style repair code', () => {
     expect(v8Runtime).toContain('packages/design-tokens/tokens.css');
-    expect(v8Runtime).toContain('<ChatSupportWidget />');
+    expect(v8Runtime).toContain('<HydrationSafeChatSupport />');
+    expect(v8Runtime).not.toContain('<ChatSupportWidget />');
     expect(v8Runtime).not.toContain('PlatformV7FullStyleRuntime');
     expect(v8Runtime).not.toContain('PlatformV7TemplateGuards');
     expect(v8Runtime).not.toContain('MutationObserver');
