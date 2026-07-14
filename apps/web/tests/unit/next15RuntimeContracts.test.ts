@@ -18,6 +18,12 @@ function sourceFiles(root: string): string[] {
   return files;
 }
 
+function hasUnawaitedCall(source: string, helper: string): boolean {
+  const calls = source.match(new RegExp(`\\b${helper}\\s*\\(`, 'g'))?.length ?? 0;
+  const awaited = source.match(new RegExp(`\\bawait\\s+${helper}\\s*\\(`, 'g'))?.length ?? 0;
+  return calls !== awaited;
+}
+
 const webPackage = JSON.parse(read('apps/web/package.json')) as {
   dependencies?: Record<string, string>;
 };
@@ -59,17 +65,15 @@ describe('Next.js 15 runtime contracts', () => {
     expect(unresolved).toEqual([]);
   });
 
-  it('awaits every async authorization-header helper before fetch', () => {
+  it('awaits every async authorization-header helper before use', () => {
     const unresolved: string[] = [];
 
     for (const file of sourceFiles('apps/web/app/api')) {
-      const source = read(file);
-      if (
-        /headers:\s*runtimeAuthHeaders\s*\(/.test(source)
-        || /headers:\s*serverAuthHeaders\s*\(/.test(source)
-      ) {
-        unresolved.push(file);
-      }
+      if (hasUnawaitedCall(read(file), 'runtimeAuthHeaders')) unresolved.push(file);
+    }
+    for (const file of sourceFiles('apps/web/lib')) {
+      if (file.endsWith('/server-api.ts')) continue;
+      if (hasUnawaitedCall(read(file), 'serverAuthHeaders')) unresolved.push(file);
     }
 
     expect(unresolved).toEqual([]);
