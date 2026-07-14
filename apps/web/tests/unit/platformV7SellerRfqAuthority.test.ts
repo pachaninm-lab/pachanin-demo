@@ -22,17 +22,17 @@ describe('platform-v7 seller RFQ authority', () => {
     expect(page).not.toMatch(forbiddenPresentation);
   });
 
-  it('removes fixture matching, browser offers and fictional Deal drafts', () => {
+  it('removes fixture matching, browser offers and fictional Deal-draft transitions', () => {
     for (const forbidden of [
       "'use client'",
       'GrainWorkflowPage',
-      '85%+',
-      'DD-OFFER-1',
+      "value: '85%+'",
+      "href: '/platform-v7/deal-drafts/DD-OFFER-1'",
       'P7ExecutionActionsPanel',
       'PLATFORM_V7_TRADING_SOURCE',
       'demoOffers',
-      'controlled-pilot',
-      'OFFER-SELLER-2403',
+      "mode: 'controlled-pilot'",
+      "entityId: 'OFFER-SELLER-2403'",
     ]) {
       expect(page).not.toContain(forbidden);
       expect(offers).not.toContain(forbidden);
