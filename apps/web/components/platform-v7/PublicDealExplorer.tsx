@@ -312,7 +312,7 @@ export function PublicDealExplorer({
           </div>
         </div>
 
-        <div className='pc-ppe-stage-track' role='list' aria-label={copy.explorer.controls.stage}>
+        <div className='pc-ppe-stage-track' role='group' aria-label={copy.explorer.controls.stage}>
           {TOUR_STAGES.map((key, index) => {
             const active = key === state.stage;
             const complete = index < currentStageIndex;
@@ -320,7 +320,6 @@ export function PublicDealExplorer({
               <button
                 key={key}
                 type='button'
-                role='listitem'
                 aria-current={active ? 'step' : undefined}
                 data-state={active ? 'active' : complete ? 'complete' : 'pending'}
                 onClick={() => selectStage(key)}
@@ -425,12 +424,11 @@ function ParticipantsLens({
   const selected = copy.explorer.perspectives[state.perspective];
   return (
     <div className='pc-ppe-participants-lens'>
-      <div className='pc-ppe-participant-grid' role='list' aria-label={copy.explorer.controls.allParticipants}>
+      <div className='pc-ppe-participant-grid' role='group' aria-label={copy.explorer.controls.allParticipants}>
         {TOUR_PERSPECTIVES.map((key) => (
           <button
             key={key}
             type='button'
-            role='listitem'
             aria-pressed={state.perspective === key}
             data-active={state.perspective === key ? 'true' : 'false'}
             onClick={() => onSelect(key)}
