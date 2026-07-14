@@ -2,6 +2,7 @@ import '@/styles/platform-v7-public-header.css';
 import '@/styles/platform-v7-public-mobile-safe-area.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-product-experience-v3.css';
+import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
@@ -39,15 +40,6 @@ export const metadata: Metadata = {
   },
 };
 
-function SectionHeader({ title, text }: { title: string; text?: string }) {
-  return (
-    <header className='pc-ppe-section-header'>
-      <h2>{title}</h2>
-      {text ? <p>{text}</p> : null}
-    </header>
-  );
-}
-
 function PerspectiveCard({
   perspective,
   locale,
@@ -66,6 +58,7 @@ function PerspectiveCard({
       eventName='perspective_selected'
       locale={locale}
       params={{ perspective, source: 'home' }}
+      role='listitem'
     >
       <span><PublicExperienceIcon name={perspective} size={22} /></span>
       <span>
