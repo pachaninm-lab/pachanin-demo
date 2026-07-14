@@ -1,10 +1,14 @@
 {
-  "version": 14,
+  "version": 15,
   "tokenSource": "packages/design-tokens/tokens.json",
   "tokenCss": "packages/design-tokens/tokens.css",
   "governedRoots": [
     "packages/design-system-v8/src",
     "apps/web/components/transaction-ux",
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/template.tsx",
+    "apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx",
+    "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
     "apps/web/components/v7r/AppShellV4.tsx",
     "apps/web/components/v7r/AppShellV4.module.css",
     "apps/web/components/platform-v7/RoleIntentDashboard.tsx",
@@ -15,6 +19,10 @@
     "apps/web/components/platform-v7/CanonicalDealsList.module.css"
   ],
   "migratedFiles": [
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/template.tsx",
+    "apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx",
+    "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
     "apps/web/components/platform-v7/NextActionCard.tsx",
     "apps/web/app/platform-v7/driver/field/page.tsx",
     "apps/web/app/platform-v7/elevator/page.tsx",
