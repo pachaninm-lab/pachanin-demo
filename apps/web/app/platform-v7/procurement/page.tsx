@@ -1,5 +1,5 @@
-import { BuyerProcurementRuntimeV2 } from '@/components/v7r/BuyerProcurementRuntimeV2';
+import { redirect } from 'next/navigation';
 
 export default function PlatformV7ProcurementPage() {
-  return <BuyerProcurementRuntimeV2 />;
+  redirect('/platform-v7/buyer/rfq');
 }
