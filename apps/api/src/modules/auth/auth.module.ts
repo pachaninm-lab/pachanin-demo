@@ -3,6 +3,7 @@ import { BusinessReputationModule } from '../business-reputation/business-reputa
 import { AuthController } from './auth.controller';
 import { AuthPrismaService } from './auth-prisma.service';
 import { AuthService } from './auth.service';
+import { OrganizationTeamService } from './organization-team.service';
 import { PersistentAuthRepository } from './persistent-auth.repository';
 
 @Module({
@@ -16,7 +17,8 @@ import { PersistentAuthRepository } from './persistent-auth.repository';
       useFactory: (prisma: AuthPrismaService) => new PersistentAuthRepository(prisma),
     },
     AuthService,
+    OrganizationTeamService,
   ],
-  exports: [AuthService, PersistentAuthRepository, AuthPrismaService],
+  exports: [AuthService, OrganizationTeamService, PersistentAuthRepository, AuthPrismaService],
 })
 export class AuthModule {}
