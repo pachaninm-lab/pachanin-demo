@@ -2,9 +2,18 @@ FAILURE_REASON="initial application rollout failed"
 kubectl apply -f "$K8S_DIR/rendered/initial-workloads.yaml" > "$K8S_DIR/initial-workloads-apply.log"
 patch_web_hardening
 kubectl apply -f infra/kind/production-like/platform-hardening.yaml > "$K8S_DIR/platform-hardening-apply.log"
+kubectl patch networkpolicy api-traffic -n "$NAMESPACE" --type=json \
+  --patch-file infra/kind/production-like/api-database-routing-patch.json \
+  > "$K8S_DIR/api-database-routing-patch.log"
+kubectl patch networkpolicy outbox-worker-traffic -n "$NAMESPACE" --type=json \
+  --patch-file infra/kind/production-like/worker-database-routing-patch.json \
+  > "$K8S_DIR/worker-database-routing-patch.log"
+kubectl patch networkpolicy postgresql-ingress -n "$NAMESPACE" --type=json \
+  --patch-file infra/kind/production-like/postgresql-ingress-routing-patch.json \
+  > "$K8S_DIR/postgresql-ingress-routing-patch.log"
 apply_release_marker "$K8S_DIR/initial-release-manifest.json"
 
-for deployment in grainflow-api grainflow-web grainflow-outbox-worker; do
+for deployment in grainflow-api grainflow-web grainflow-outbox-worker pgbouncer; do
   kubectl rollout status -n "$NAMESPACE" "deployment/${deployment}" --timeout=600s
 done
 
@@ -24,6 +33,67 @@ for _ in $(seq 1 60); do
 done
 curl_ingress api.acceptance.grainflow.invalid /health | tee "$K8S_DIR/cluster/api-health-initial.json"
 curl_ingress app.acceptance.grainflow.invalid /api/health | tee "$K8S_DIR/cluster/web-health-initial.json"
+
+FAILURE_REASON="runtime database routing can bypass PgBouncer"
+assert_tcp_blocked() {
+  local deployment="$1"
+  local host="$2"
+  local port="$3"
+  kubectl exec -n "$NAMESPACE" "deployment/${deployment}" -- node -e '
+    const net = require("node:net");
+    const host = process.argv[1];
+    const port = Number(process.argv[2]);
+    let finished = false;
+    const finish = (code) => { if (finished) return; finished = true; socket.destroy(); process.exit(code); };
+    const socket = net.createConnection({ host, port });
+    socket.setTimeout(3000);
+    socket.once("connect", () => finish(1));
+    socket.once("timeout", () => finish(0));
+    socket.once("error", () => finish(0));
+  ' "$host" "$port"
+}
+assert_tcp_allowed() {
+  local deployment="$1"
+  local host="$2"
+  local port="$3"
+  kubectl exec -n "$NAMESPACE" "deployment/${deployment}" -- node -e '
+    const net = require("node:net");
+    const host = process.argv[1];
+    const port = Number(process.argv[2]);
+    let finished = false;
+    const finish = (code) => { if (finished) return; finished = true; socket.destroy(); process.exit(code); };
+    const socket = net.createConnection({ host, port });
+    socket.setTimeout(3000);
+    socket.once("connect", () => finish(0));
+    socket.once("timeout", () => finish(1));
+    socket.once("error", () => finish(1));
+  ' "$host" "$port"
+}
+for deployment in grainflow-api grainflow-outbox-worker; do
+  assert_tcp_blocked "$deployment" postgresql 5432
+  assert_tcp_allowed "$deployment" pgbouncer 5432
+done
+printf 'blocked\n' > "$K8S_DIR/cluster/direct-postgresql-bypass.txt"
+DIRECT_DB_BYPASS_BLOCKED=true
+
+FAILURE_REASON="PgBouncer peer deletion interrupted API readiness"
+pgbouncer_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=pgbouncer -o jsonpath='{.items[0].metadata.name}')"
+(
+  failures=0
+  for _ in $(seq 1 60); do
+    if ! curl_ingress api.acceptance.grainflow.invalid /ready >/dev/null; then failures=$((failures+1)); fi
+    sleep 0.25
+  done
+  printf '%s\n' "$failures" > "$K8S_DIR/cluster/pgbouncer-probe-failures.txt"
+) &
+pgbouncer_probe_pid=$!
+sleep 1
+kubectl delete pod "$pgbouncer_pod" -n "$NAMESPACE" --wait=false
+wait "$pgbouncer_probe_pid"
+PGBOUNCER_PROBE_FAILURES="$(cat "$K8S_DIR/cluster/pgbouncer-probe-failures.txt")"
+test "$PGBOUNCER_PROBE_FAILURES" = "0"
+kubectl rollout status -n "$NAMESPACE" deployment/pgbouncer --timeout=300s
+test "$(kubectl get deployment pgbouncer -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}')" = "2"
 
 verify_digest_set() {
   local document="$1"
@@ -51,9 +121,11 @@ ready_replicas() {
 test "$(ready_replicas grainflow-api)" = "2"
 test "$(ready_replicas grainflow-web)" = "2"
 test "$(ready_replicas grainflow-outbox-worker)" = "2"
+test "$(ready_replicas pgbouncer)" = "2"
 ready_replicas grainflow-api > "$K8S_DIR/cluster/api-ready-replicas.txt"
 ready_replicas grainflow-web > "$K8S_DIR/cluster/web-ready-replicas.txt"
 ready_replicas grainflow-outbox-worker > "$K8S_DIR/cluster/worker-ready-replicas.txt"
+ready_replicas pgbouncer > "$K8S_DIR/cluster/pgbouncer-ready-replicas.txt"
 
 node <<'NODE' > "$K8S_DIR/cluster/pod-placement.json"
 const { execFileSync } = require('node:child_process');
@@ -68,12 +140,13 @@ process.stdout.write(JSON.stringify({
   api:summarize('app.kubernetes.io/name=grainflow-api'),
   web:summarize('app.kubernetes.io/name=grainflow-web'),
   outboxWorker:summarize('app.kubernetes.io/name=grainflow-outbox-worker'),
+  pgbouncer:summarize('app.kubernetes.io/name=pgbouncer'),
 }, null, 2));
 NODE
 node - "$K8S_DIR/cluster/pod-placement.json" <<'NODE'
 const fs=require('node:fs');
 const p=JSON.parse(fs.readFileSync(process.argv[2]));
-for (const name of ['api','web','outboxWorker']) {
+for (const name of ['api','web','outboxWorker','pgbouncer']) {
   if (p[name].replicas !== 2 || p[name].uniqueNodes.length !== 2 || p[name].pods.some(x=>!x.ready)) {
     throw new Error(`${name} placement or readiness invalid`);
   }
@@ -83,7 +156,7 @@ NODE
 
 service_account_violations="$(node <<'NODE'
 const {execFileSync}=require('node:child_process');
-const names=['grainflow-api','grainflow-web','grainflow-outbox-worker'];
+const names=['grainflow-api','grainflow-web','grainflow-outbox-worker','pgbouncer'];
 let violations=0;
 for (const name of names) {
   const d=JSON.parse(execFileSync('kubectl',['get','deployment',name,'-n','grainflow-acceptance','-o','json'],{encoding:'utf8'}));
