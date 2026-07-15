@@ -33,7 +33,7 @@ export async function getOutboxStatus(dealId?: string): Promise<OutboxStatusSumm
     const qs = dealId ? `?dealId=${encodeURIComponent(dealId)}` : '';
     const res = await fetch(serverApiUrl(`/settlement-engine/outbox${qs}`), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!res.ok) throw new Error(`outbox ${res.status}`);
     const data = await res.json();
@@ -53,7 +53,7 @@ export async function getPayments(): Promise<any[]> {
   try {
     const res = await fetch(serverApiUrl('/settlement-engine/payments'), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!res.ok) throw new Error(`payments ${res.status}`);
     const data = await res.json();
@@ -67,7 +67,7 @@ export async function getDealBankWorkspace(dealId: string): Promise<any | null> 
   try {
     const res = await fetch(serverApiUrl(`/settlement-engine/deal/${dealId}/bank-workspace`), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!res.ok) throw new Error(`bank-workspace ${dealId} ${res.status}`);
     return res.json();

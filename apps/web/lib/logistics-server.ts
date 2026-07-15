@@ -65,7 +65,7 @@ export async function getShipments(): Promise<ShipmentServerItem[]> {
   try {
     const response = await fetch(serverApiUrl('/logistics/shipments'), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!response.ok) return [];
     const payload: unknown = await response.json();
@@ -82,7 +82,7 @@ export async function getShipment(idInput: string): Promise<ShipmentServerItem |
   try {
     const response = await fetch(serverApiUrl(`/logistics/shipments/${encodeURIComponent(id)}`), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!response.ok) return null;
     const shipment = parseShipment(await response.json());
@@ -98,7 +98,7 @@ export async function getShipmentWorkspace(idInput: string): Promise<ShipmentWor
   try {
     const response = await fetch(serverApiUrl(`/logistics/shipments/${encodeURIComponent(id)}/workspace`), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!response.ok) return null;
     const payload = record(await response.json(), 'shipment workspace');
