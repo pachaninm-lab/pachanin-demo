@@ -96,11 +96,13 @@ async function waitReady(worker: WorkerProcess): Promise<void> {
   }, 45_000);
 }
 
-async function waitForExit(worker: WorkerProcess, timeoutMs = 30_000): Promise<number | null> {
-  if (worker.process.exitCode !== null) return worker.process.exitCode;
+async function waitForClose(worker: WorkerProcess, timeoutMs = 30_000): Promise<number | null> {
+  if (worker.process.exitCode !== null && worker.process.stdout?.destroyed && worker.process.stderr?.destroyed) {
+    return worker.process.exitCode;
+  }
   return await Promise.race([
-    new Promise<number | null>((resolveExit) => worker.process.once('exit', (code) => resolveExit(code))),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`${worker.id} did not exit`)), timeoutMs)),
+    new Promise<number | null>((resolveClose) => worker.process.once('close', (code) => resolveClose(code))),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`${worker.id} did not close`)), timeoutMs)),
   ]);
 }
 
@@ -198,7 +200,7 @@ describe('independent outbox worker process topology', () => {
     expect(deliveredIds.size).toBeGreaterThanOrEqual(initialIds.length);
 
     workerA.process.kill('SIGKILL');
-    await waitForExit(workerA);
+    await waitForClose(workerA);
     expect(workerA.process.signalCode).toBe('SIGKILL');
 
     const failoverIds = await seedEntries('after-worker-a-loss', 10);
@@ -217,7 +219,7 @@ describe('independent outbox worker process topology', () => {
     expect(ready.checks.runner).toEqual(expect.objectContaining({ started: true, stopped: false }));
 
     workerB.process.kill('SIGTERM');
-    await expect(waitForExit(workerB)).resolves.toBe(0);
+    await expect(waitForClose(workerB)).resolves.toBe(0);
     expect(workerB.stdout.join('')).toContain('Outbox worker stopped signal=SIGTERM');
   });
 });
