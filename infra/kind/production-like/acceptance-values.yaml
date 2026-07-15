@@ -1,0 +1,97 @@
+# Production-like disposable acceptance overlay.
+# Image repositories and digests are generated exclusively from the canonical immutable release manifest.
+vault:
+  agentInjector:
+    enabled: false
+
+api:
+  replicaCount: 2
+  autoscaling:
+    enabled: false
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+      nginx.ingress.kubernetes.io/modsecurity-snippet: ""
+    tls: []
+  env:
+    NODE_ENV: production
+    PORT: "3001"
+    LOG_LEVEL: info
+    TRUST_PROXY_MODE: cidr
+    TRUSTED_PROXY_CIDRS: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    VAULT_ADDR: ""
+    REDIS_URL: redis://redis:6379
+    KAFKA_BROKERS: kafka:9092
+    S3_ENDPOINT: http://minio:9000
+    S3_BUCKET: grainflow-documents
+    OUTBOX_WORKER_ENABLED: "false"
+    PLATFORM_V7_DEAL_REPOSITORY: prisma
+    PLATFORM_V7_DOCUMENT_REPOSITORY: prisma
+    PLATFORM_V7_SHIPMENT_REPOSITORY: prisma
+    PLATFORM_V7_LAB_REPOSITORY: prisma
+    PLATFORM_V7_PAYMENT_REPOSITORY: prisma
+    DB_PRINCIPAL_BOUNDARY_ENFORCED: "true"
+    AUTH_TEST_ACCOUNTS_ENABLED: "false"
+    ALLOW_RUNTIME_MUTATION: "false"
+    FGIS_ZERNO_MODE: disabled
+    FNS_MODE: disabled
+    DIADOK_MODE: disabled
+    CRYPTOPRO_DSS_MODE: disabled
+    BANK_MODE: disabled
+    GPS_MODE: disabled
+    FTS_MODE: disabled
+    RSHN_MODE: disabled
+    AML_ROSFINMONITORING_MODE: disabled
+    RZD_ETRAN_MODE: disabled
+    GIS_EPD_MODE: disabled
+    BKI_NBKI_MODE: disabled
+    TAKSKOM_MODE: disabled
+    MARINE_TRAFFIC_MODE: disabled
+    SMEV_MODE: disabled
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [grainflow-api]
+          topologyKey: kubernetes.io/hostname
+
+web:
+  replicaCount: 2
+  autoscaling:
+    enabled: false
+  ingress:
+    enabled: false
+
+outboxWorker:
+  replicaCount: 2
+  env:
+    NODE_ENV: production
+    RUNTIME_COMPONENT: outbox-worker
+    OUTBOX_WORKER_ENABLED: "true"
+    KAFKA_REQUIRED: "true"
+    KAFKA_BROKERS: kafka:9092
+    OUTBOX_WORKER_HEALTH_PORT: "3002"
+    OUTBOX_WORKER_INTERVAL_MS: "1000"
+    OUTBOX_WORKER_BATCH_SIZE: "25"
+    OUTBOX_WORKER_HEARTBEAT_MS: "5000"
+    OTEL_SERVICE_NAME: grainflow-outbox-worker
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+
+monitoring:
+  serviceMonitor:
+    namespace: grainflow-acceptance
+
+namespace:
+  create: false
+  name: grainflow-acceptance
+  labels:
+    environment: production-like
+    team: grainflow
