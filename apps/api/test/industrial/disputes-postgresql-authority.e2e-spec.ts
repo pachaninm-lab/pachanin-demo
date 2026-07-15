@@ -49,6 +49,14 @@ function errorCode(reason: unknown): string {
   return String(response?.code ?? (reason as { message?: unknown })?.message ?? reason);
 }
 
+function fulfilled<T>(items: PromiseSettledResult<T>[]): PromiseFulfilledResult<T>[] {
+  return items.filter((item): item is PromiseFulfilledResult<T> => item.status === 'fulfilled');
+}
+
+function rejected<T>(items: PromiseSettledResult<T>[]): PromiseRejectedResult[] {
+  return items.filter((item): item is PromiseRejectedResult => item.status === 'rejected');
+}
+
 describePg('Disputes PostgreSQL authority', () => {
   let admin: PrismaClient;
   let app: PrismaService;
@@ -62,21 +70,42 @@ describePg('Disputes PostgreSQL authority', () => {
     const rls = new RlsTransactionService(app);
     disputes = new PostgresqlDisputeRepository(rls);
     settlement = new SettlementPostgresqlRepository(app, rls);
+  }, 90_000);
+
+  beforeEach(async () => {
     await reset(admin);
     await seed(admin);
+    await bootstrapVerifiedReserve(settlement);
   }, 90_000);
 
   afterAll(async () => {
     await Promise.all([admin?.$disconnect(), app?.$disconnect()]);
   });
 
-  it('rolls back case, audit, outbox and hold counter when hold persistence fails', async () => {
+  it('denies table authority, same-tenant outsiders and cross-tenant actors', async () => {
+    await expect(app.$queryRawUnsafe('SELECT count(*) FROM dispute.cases')).rejects.toBeDefined();
+
+    const opened = result(await disputes.open({
+      dealId: DEAL_ID,
+      reason: 'ACCESS',
+      detail: 'Authoritative access-control proof for a contractual party dispute.',
+      currency: 'RUB',
+      idempotencyKey: 'open:access:1',
+    }, buyer));
+
+    await expect(disputes.getOne(String(opened.id), outsider)).rejects.toBeDefined();
+    await expect(disputes.getOne(String(opened.id), foreignBuyer)).rejects.toBeDefined();
+    expect(await disputes.list(outsider)).toEqual([]);
+    expect(await disputes.list(foreignBuyer)).toEqual([]);
+  });
+
+  it('rolls back case, receipt, audit, outbox and hold counter when hold persistence fails', async () => {
     await admin.$executeRawUnsafe(`INSERT INTO settlement.holds (
       id, tenant_id, deal_id, payment_id, amount_minor, status, basis_type,
       basis_id, reason, command_id, idempotency_key, request_fingerprint,
       created_by_user_id, released_by_user_id, released_at
     ) VALUES (
-      'forced-dispute-collision', '${TENANT}', '${DEAL_ID}', 'payment-dispute-pg', 1,
+      'forced-dispute-collision', '${TENANT}', '${DEAL_ID}', 'settlement-payment:${DEAL_ID}', 1,
       'RELEASED', 'OTHER', 'forced', 'forced collision', 'forced-command',
       'dispute-hold:open:rollback', repeat('a',64), '${accounting.id}',
       '${accounting.id}', now()
@@ -93,22 +122,75 @@ describePg('Disputes PostgreSQL authority', () => {
 
     const rows = await admin.$queryRawUnsafe<Array<{
       cases: bigint;
+      receipts: bigint;
       audits: bigint;
       outbox: bigint;
       active: bigint;
     }>>(`SELECT
       (SELECT count(*) FROM dispute.cases WHERE type='ROLLBACK') AS cases,
+      (SELECT count(*) FROM dispute.command_receipts WHERE idempotency_key='open:rollback') AS receipts,
       (SELECT count(*) FROM public."audit_events" WHERE "action"='dispute.opened' AND "objectId" LIKE 'dispute-%') AS audits,
       (SELECT count(*) FROM public."outbox_entries" WHERE type='DISPUTE_OPENED' AND payload->>'type'='ROLLBACK') AS outbox,
       (SELECT active_hold_minor FROM settlement.payments WHERE deal_id='${DEAL_ID}') AS active
     `);
     expect(Number(rows[0].cases)).toBe(0);
+    expect(Number(rows[0].receipts)).toBe(0);
     expect(Number(rows[0].audits)).toBe(0);
     expect(Number(rows[0].outbox)).toBe(0);
     expect(rows[0].active).toBe(0n);
   });
 
-  it('survives replay/races/restart and closes only after verified refund confirmation', async () => {
+  it('serializes two application instances with one idempotency key into one durable case', async () => {
+    const secondApp = new PrismaService();
+    await secondApp.$connect();
+    try {
+      const second = new PostgresqlDisputeRepository(new RlsTransactionService(secondApp));
+      const input = {
+        dealId: DEAL_ID,
+        reason: 'RACE',
+        detail: 'Two application instances submit the exact same dispute command.',
+        claimAmountKopecks: '1000000',
+        currency: 'RUB',
+        idempotencyKey: 'open:race:same-key',
+      };
+
+      const outcomes = (await Promise.all([
+        disputes.open(input, buyer),
+        second.open(input, buyer),
+      ])).map(result);
+
+      expect(new Set(outcomes.map((item) => item.id)).size).toBe(1);
+      expect(outcomes.filter((item) => item.duplicate === false)).toHaveLength(1);
+      expect(outcomes.filter((item) => item.duplicate === true)).toHaveLength(1);
+
+      const disputeId = String(outcomes[0].id);
+      const facts = await admin.$queryRawUnsafe<Array<{
+        cases: bigint;
+        holds: bigint;
+        receipts: bigint;
+        active: bigint;
+      }>>(`SELECT
+        (SELECT count(*) FROM dispute.cases WHERE id='${disputeId}') AS cases,
+        (SELECT count(*) FROM settlement.holds WHERE basis_id='${disputeId}') AS holds,
+        (SELECT count(*) FROM dispute.command_receipts
+          WHERE command_type='OPEN' AND idempotency_key='open:race:same-key') AS receipts,
+        (SELECT active_hold_minor FROM settlement.payments WHERE deal_id='${DEAL_ID}') AS active
+      `);
+      expect(Number(facts[0].cases)).toBe(1);
+      expect(Number(facts[0].holds)).toBe(1);
+      expect(Number(facts[0].receipts)).toBe(1);
+      expect(facts[0].active).toBe(1_000_000n);
+
+      expect(result(await second.open(input, buyer))).toMatchObject({
+        id: disputeId,
+        duplicate: true,
+      });
+    } finally {
+      await secondApp.$disconnect();
+    }
+  }, 90_000);
+
+  it('survives races/restart and closes only after verified refund confirmation', async () => {
     const openInput = {
       dealId: DEAL_ID,
       reason: 'QUALITY',
@@ -144,17 +226,14 @@ describePg('Disputes PostgreSQL authority', () => {
       await restartedApp.$disconnect();
     }
 
-    await expect(disputes.getOne(disputeId, outsider)).rejects.toBeDefined();
-    await expect(disputes.getOne(disputeId, foreignBuyer)).rejects.toBeDefined();
-
     const triageRace = await Promise.allSettled([
       disputes.triage(disputeId, { expectedVersion: '2', idempotencyKey: 'triage:1' }, arbitrator),
       disputes.triage(disputeId, { expectedVersion: '2', idempotencyKey: 'triage:2' }, arbitrator),
     ]);
-    expect(triageRace.filter((item) => item.status === 'fulfilled')).toHaveLength(1);
-    const triageRejected = triageRace.find((item) => item.status === 'rejected') as PromiseRejectedResult;
+    expect(fulfilled(triageRace)).toHaveLength(1);
+    expect(rejected(triageRace)).toHaveLength(1);
     expect(['DISPUTE_STALE_VERSION', 'DISPUTE_TRIAGE_STATE_INVALID']).toContain(
-      errorCode(triageRejected.reason),
+      errorCode(rejected(triageRace)[0].reason),
     );
 
     const firstEvidence = result(await disputes.addEvidence(disputeId, {
@@ -168,6 +247,7 @@ describePg('Disputes PostgreSQL authority', () => {
     expect(firstEvidence.evidence[0]).toMatchObject({ type: 'LAB', trusted: true });
     const firstHash = String(firstEvidence.evidence[0].hash);
     expect(firstHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(firstEvidence.evidence[0].prevHash).toBeNull();
 
     const secondEvidence = result(await disputes.addEvidence(disputeId, {
       type: 'PHOTO',
@@ -178,8 +258,13 @@ describePg('Disputes PostgreSQL authority', () => {
     }, buyer));
     expect(secondEvidence.version).toBe('5');
     expect(secondEvidence.evidence).toHaveLength(2);
-    expect(secondEvidence.evidence[1]).toMatchObject({ type: 'PHOTO', trusted: false, prevHash: firstHash });
+    expect(secondEvidence.evidence[1]).toMatchObject({
+      type: 'PHOTO',
+      trusted: false,
+      prevHash: firstHash,
+    });
     expect(secondEvidence.evidence[1].hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(secondEvidence.evidence[1].hash).not.toBe(firstHash);
 
     const decisionRace = await Promise.allSettled([
       disputes.decide(disputeId, {
@@ -196,17 +281,30 @@ describePg('Disputes PostgreSQL authority', () => {
         idempotencyKey: 'decision:2',
       }, arbitrator),
     ]);
-    expect(decisionRace.filter((item) => item.status === 'fulfilled')).toHaveLength(1);
-    expect(decisionRace.filter((item) => item.status === 'rejected')).toHaveLength(1);
-    const decision = result((decisionRace.find((item) => item.status === 'fulfilled') as PromiseFulfilledResult<unknown>).value);
+    expect(fulfilled(decisionRace)).toHaveLength(1);
+    expect(rejected(decisionRace)).toHaveLength(1);
+    const decision = result(fulfilled(decisionRace)[0].value);
     expect(decision).toMatchObject({ status: 'DECISION', version: '6' });
     expect(decision.moneyInstructions).toHaveLength(1);
 
-    expect(result(await disputes.appeal(disputeId, {
-      reason: 'Buyer requests full review using the signed accredited laboratory protocol.',
-      expectedVersion: '6',
-      idempotencyKey: 'appeal:buyer:1',
-    }, buyer))).toMatchObject({ status: 'APPEALED', version: '7' });
+    const appealRace = await Promise.allSettled([
+      disputes.appeal(disputeId, {
+        reason: 'Buyer requests full review using the signed accredited laboratory protocol.',
+        expectedVersion: '6',
+        idempotencyKey: 'appeal:buyer:1',
+      }, buyer),
+      disputes.appeal(disputeId, {
+        reason: 'Buyer requests full review using the signed accredited laboratory protocol.',
+        expectedVersion: '6',
+        idempotencyKey: 'appeal:buyer:2',
+      }, buyer),
+    ]);
+    expect(fulfilled(appealRace)).toHaveLength(1);
+    expect(rejected(appealRace)).toHaveLength(1);
+    expect(result(fulfilled(appealRace)[0].value)).toMatchObject({
+      status: 'APPEALED',
+      version: '7',
+    });
 
     const resolved = result(await disputes.resolveAppeal(disputeId, {
       resolution: 'MODIFIED',
@@ -235,7 +333,7 @@ describePg('Disputes PostgreSQL authority', () => {
       idempotencyKey: 'settlement:release-dispute-hold',
       holdId: String(resolved.settlementHoldId),
       dealId: DEAL_ID,
-      expectedPaymentVersion: '1',
+      expectedPaymentVersion: '3',
     }, accounting);
 
     const refund = result(await settlement.requestOperation({
@@ -245,7 +343,8 @@ describePg('Disputes PostgreSQL authority', () => {
       operation: 'REFUND',
       amountKopecks: '5000000',
       partnerId: 'bank-dispute-test',
-      expectedPaymentVersion: '2',
+      expectedPaymentVersion: '4',
+      expectedDealVersion: '2',
     }, accounting));
 
     const callback = result(await settlement.registerVerifiedCallback({
@@ -280,17 +379,63 @@ describePg('Disputes PostgreSQL authority', () => {
     const facts = await admin.$queryRawUnsafe<Array<Record<string, bigint>>>(`SELECT
       (SELECT count(*) FROM dispute.cases WHERE id='${disputeId}') AS cases,
       (SELECT count(*) FROM settlement.holds WHERE basis_id='${disputeId}') AS holds,
+      (SELECT count(*) FROM dispute.evidence WHERE dispute_id='${disputeId}') AS evidence,
+      (SELECT count(*) FROM dispute.appeals WHERE dispute_id='${disputeId}') AS appeals,
       (SELECT count(*) FROM dispute.money_instructions WHERE dispute_id='${disputeId}' AND status='EXECUTED') AS executed,
       (SELECT count(*) FROM public."audit_events" WHERE "objectType"='dispute' AND "objectId"='${disputeId}') AS audits,
       (SELECT count(*) FROM public."outbox_entries" WHERE payload->>'disputeId'='${disputeId}') AS outbox
     `);
     expect(Number(facts[0].cases)).toBe(1);
     expect(Number(facts[0].holds)).toBe(1);
+    expect(Number(facts[0].evidence)).toBe(2);
+    expect(Number(facts[0].appeals)).toBe(1);
     expect(Number(facts[0].executed)).toBe(1);
-    expect(Number(facts[0].audits)).toBeGreaterThanOrEqual(8);
+    expect(Number(facts[0].audits)).toBeGreaterThanOrEqual(9);
     expect(Number(facts[0].outbox)).toBeGreaterThanOrEqual(3);
   }, 180_000);
 });
+
+async function bootstrapVerifiedReserve(settlement: SettlementPostgresqlRepository) {
+  await settlement.configureTerms({
+    commandId: 'settlement-command:configure-dispute-terms',
+    idempotencyKey: 'settlement:configure-dispute-terms',
+    dealId: DEAL_ID,
+    reserveAmountKopecks: '10000000',
+    currency: 'RUB',
+    releaseBasis: { contractSigned: true },
+    beneficiaries: [{
+      organizationId: SELLER_ORG,
+      role: 'SELLER',
+      allocationKopecks: '10000000',
+      priority: 1,
+      destinationRef: 'seller-account:dispute-test',
+    }],
+  }, accounting);
+
+  const reserve = result(await settlement.requestOperation({
+    commandId: 'settlement-command:reserve-dispute-funds',
+    idempotencyKey: 'settlement:reserve-dispute-funds',
+    dealId: DEAL_ID,
+    operation: 'RESERVE',
+    amountKopecks: '10000000',
+    partnerId: 'bank-dispute-test',
+    expectedDealVersion: '0',
+  }, accounting));
+
+  const callback = result(await settlement.registerVerifiedCallback({
+    dealId: DEAL_ID,
+    operationId: String(reserve.operationId),
+    eventId: 'bank-event:dispute-reserve:1',
+    operation: 'RESERVE',
+    status: 'SUCCESS',
+    bankRef: 'bank-ref-dispute-reserve-1',
+    partnerId: 'bank-dispute-test',
+    keyId: 'bank-key-dispute-test',
+    payloadFingerprint: 'a'.repeat(64),
+    payload: { confirmed: true },
+  }));
+  expect(callback.status).toBe('SUCCESS');
+}
 
 async function reset(admin: PrismaClient) {
   await admin.$executeRawUnsafe(`TRUNCATE TABLE
@@ -353,7 +498,7 @@ async function seed(admin: PrismaClient) {
     data: {
       id: DEAL_ID,
       dealNumber: 'DISPUTE-PG-001',
-      status: 'RESERVED',
+      status: 'CONTRACT_SIGNED',
       tenantId: TENANT,
       sellerOrgId: SELLER_ORG,
       buyerOrgId: BUYER_ORG,
@@ -377,32 +522,4 @@ async function seed(admin: PrismaClient) {
       },
     });
   }
-
-  await admin.payment.create({
-    data: {
-      id: `payment:${DEAL_ID}`,
-      dealId: DEAL_ID,
-      status: 'RESERVED',
-      amountKopecks: 10_000_000n,
-      callbackState: 'CONFIRMED',
-    },
-  });
-
-  await admin.$executeRawUnsafe(`INSERT INTO settlement.payment_terms (
-    id, tenant_id, deal_id, version, currency, reserve_amount_minor,
-    release_basis, status, command_id, idempotency_key, request_fingerprint,
-    created_by_user_id, created_by_org_id
-  ) VALUES (
-    'terms-dispute-pg', '${TENANT}', '${DEAL_ID}', 1, 'RUB', 10000000,
-    '{}'::jsonb, 'ISSUED', 'seed-terms', 'seed-terms-dispute-pg', repeat('1',64),
-    '${accounting.id}', '${OPS_ORG}'
-  )`);
-
-  await admin.$executeRawUnsafe(`INSERT INTO settlement.payments (
-    id, tenant_id, deal_id, payment_terms_id, status, currency,
-    confirmed_reserved_minor, version
-  ) VALUES (
-    'payment-dispute-pg', '${TENANT}', '${DEAL_ID}', 'terms-dispute-pg',
-    'RESERVED', 'RUB', 10000000, 0
-  )`);
 }
