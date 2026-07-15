@@ -1,0 +1,125 @@
+:root {
+  --pc-ppe-v4-header: 64px;
+}
+
+.pc-ppe-page {
+  scroll-padding-top: calc(var(--pc-ppe-v4-header) + 18px);
+}
+
+.pc-ppe-page > .pc-ppe-shell {
+  padding-top: var(--pc-ppe-v4-header);
+}
+
+.pc-ppe-page .pc-site-header {
+  height: var(--pc-ppe-v4-header);
+  min-height: var(--pc-ppe-v4-header);
+}
+
+/* Preserve the approved brand asset. The refinement changes only its footprint. */
+.pc-ppe-page .pc-site-brand-mark {
+  width: 38px;
+  height: 38px;
+  flex-basis: 38px;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pc-ppe-page .pc-site-brand-mark::before,
+.pc-ppe-page .pc-site-brand-mark::after {
+  content: none;
+}
+
+.pc-ppe-page .pc-site-brand-mark img {
+  display: block !important;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* The support control remains available but is moved above any intersecting CTA. */
+.pc-ppe-page .p7-support-chat-button {
+  right: max(10px, env(safe-area-inset-right, 0px)) !important;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--pc-ppe-support-lift, 18px)) !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 16px !important;
+  opacity: 0.96;
+}
+
+.pc-ppe-page .p7-support-chat-panel {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--pc-ppe-support-lift, 76px) + 58px) !important;
+}
+
+.pc-ppe-page .pc-ppe-hero-progress-mobile > a:focus-visible,
+.pc-ppe-page .pc-ppe-back-link:focus-visible {
+  outline: 3px solid #17649b;
+  outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .pc-ppe-page {
+    --pc-ppe-v4-header: 64px;
+  }
+
+  .pc-ppe-page .pc-site-header {
+    padding-inline: 12px;
+  }
+
+  .pc-ppe-page .pc-site-brand-mark {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  .pc-ppe-page .pc-site-brand-text strong {
+    max-width: 184px;
+  }
+
+  .pc-ppe-page .pc-ppe-hero {
+    padding-top: 28px;
+  }
+
+  .pc-ppe-page .pc-ppe-hero h1,
+  .pc-ppe-page .pc-ppe-explorer-intro h1 {
+    font-size: clamp(36px, 10vw, 42px);
+    line-height: 1.04;
+  }
+
+  .pc-ppe-page .pc-ppe-section,
+  .pc-ppe-page .pc-ppe-final-cta {
+    scroll-margin-top: calc(var(--pc-ppe-v4-header) + 16px);
+  }
+
+  .pc-ppe-page .pc-ppe-preview-card,
+  .pc-ppe-page .pc-ppe-deal-card,
+  .pc-ppe-page .pc-ppe-lens-panel,
+  .pc-ppe-page .pc-ppe-context-panel,
+  .pc-ppe-page .pc-ppe-timeline,
+  .pc-ppe-page .pc-ppe-entry-gate {
+    border-radius: 18px;
+  }
+
+  .pc-ppe-page .pc-ppe-stage-track button > span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .pc-ppe-page .pc-ppe-final-cta,
+  .pc-ppe-page .pc-ppe-footer {
+    padding-bottom: max(88px, calc(env(safe-area-inset-bottom, 0px) + 72px));
+  }
+}
+
+@media (max-width: 374px) {
+  .pc-ppe-page .pc-site-brand-text strong {
+    max-width: 142px;
+    font-size: 15px;
+  }
+
+  .pc-ppe-page .pc-site-locale-switch {
+    min-width: 46px;
+    padding-inline: 7px;
+  }
+}
