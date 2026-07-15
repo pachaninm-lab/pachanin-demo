@@ -29,16 +29,25 @@ function responseCode(error: unknown): string | undefined {
     : undefined;
 }
 
+async function captureRejectionCode(work: Promise<unknown>): Promise<string | undefined> {
+  try {
+    await work;
+  } catch (error) {
+    return responseCode(error);
+  }
+  throw new Error('Expected upload request to be rejected.');
+}
+
 describe('lab evidence upload abuse boundaries', () => {
   it('rejects an oversized file before any database or storage action', async () => {
     const rls = { withTrustedContext: jest.fn() };
     const adapter = { getPresignedUploadUrl: jest.fn() };
     const service = new LabEvidenceUploadService(rls as any, adapter as any);
 
-    await expect(service.requestForProvisioning({
+    await expect(captureRejectionCode(service.requestForProvisioning({
       ...BASE_REQUEST,
       sizeBytes: 50 * 1024 * 1024 + 1,
-    }, ADMIN)).rejects.toSatisfy((error: unknown) => responseCode(error) === 'SIZE_NOT_ALLOWED');
+    }, ADMIN))).resolves.toBe('SIZE_NOT_ALLOWED');
     expect(rls.withTrustedContext).not.toHaveBeenCalled();
     expect(adapter.getPresignedUploadUrl).not.toHaveBeenCalled();
   });
@@ -48,10 +57,10 @@ describe('lab evidence upload abuse boundaries', () => {
     const adapter = { getPresignedUploadUrl: jest.fn() };
     const service = new LabEvidenceUploadService(rls as any, adapter as any);
 
-    await expect(service.requestForProvisioning({
+    await expect(captureRejectionCode(service.requestForProvisioning({
       ...BASE_REQUEST,
       mimeType: 'application/x-msdownload',
-    }, ADMIN)).rejects.toSatisfy((error: unknown) => responseCode(error) === 'MIME_NOT_ALLOWED');
+    }, ADMIN))).resolves.toBe('MIME_NOT_ALLOWED');
     expect(rls.withTrustedContext).not.toHaveBeenCalled();
     expect(adapter.getPresignedUploadUrl).not.toHaveBeenCalled();
   });
@@ -76,7 +85,10 @@ describe('lab evidence upload abuse boundaries', () => {
       dealDocument: { create },
     };
     const rls = {
-      withTrustedContext: jest.fn(async (_user, work) => work(tx, {
+      withTrustedContext: jest.fn(async (
+        _user: RequestUser,
+        work: (client: typeof tx, context: Record<string, string>) => Promise<unknown>,
+      ) => work(tx, {
         userId: ADMIN.id,
         organizationId: ADMIN.orgId,
         tenantId: ADMIN.tenantId,
