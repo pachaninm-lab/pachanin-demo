@@ -131,7 +131,7 @@ export default async function PlatformV7RootPage() {
             </div>
           </div>
 
-          <div className='pc-ppe-hero-contour' aria-label={ui.home.hero.progressAria}>
+          <div className='pc-ppe-hero-contour' role='group' aria-label={ui.home.hero.progressAria}>
             <div className='pc-ppe-hero-contour-desktop' aria-hidden='true'>
               {contourStages.map((stage, index) => (
                 <span key={stage} data-active={stage === 'acceptance' ? 'true' : 'false'}>
