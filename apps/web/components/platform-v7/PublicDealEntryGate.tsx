@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PublicDealExplorer } from '@/components/platform-v7/PublicDealExplorer';
+import { PublicDealExplorerV4 } from '@/components/platform-v7/PublicDealExplorerV4';
 import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
 import type { PublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
@@ -82,7 +82,7 @@ export function PublicDealEntryGate({
   };
 
   if (entry === 'deal') {
-    return <PublicDealExplorer copy={copy} locale={locale} initialState={state} />;
+    return <PublicDealExplorerV4 copy={copy} locale={locale} initialState={state} />;
   }
 
   const roleFirst = entry === 'role';
