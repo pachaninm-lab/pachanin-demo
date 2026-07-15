@@ -5,3 +5,10 @@ spec:
       # named kafka. Confluent KRaft startup rejects that legacy variable.
       # Disable all implicit service env and use the explicit listener config.
       enableServiceLinks: false
+      containers:
+        - name: kafka
+          env:
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: PLAINTEXT
+            - name: KAFKA_LOG_DIRS
+              value: /var/lib/kafka/data
