@@ -118,6 +118,19 @@ forbid('infra/docker/Dockerfile.migrations', [
   [/pnpm\s+--dir\s+\/migration-runtime\s+install/i, 'independent migration dependency resolution'],
 ]);
 
+requireFragments('scripts/release/build-exact-head-images.sh', [
+  'docker buildx build',
+  '--metadata-file',
+  '--provenance=false',
+  "metadata['containerimage.digest']",
+  '${component}-config-id.txt',
+  '${component}-digest.txt',
+]);
+forbid('scripts/release/build-exact-head-images.sh', [
+  [/\.Id\}\}'[^\n]*-digest\.txt/, 'Docker config ID used as release digest'],
+  [/RepoDigests[^\n]*-digest\.txt/, 'registry state used instead of exact build metadata'],
+]);
+
 requireFragments('infra/docker/runtime-inventory.json', [
   '"releaseManifestRequired": true',
   '"component": "migration-job"',
@@ -144,6 +157,15 @@ requireFragments('scripts/release/immutable-release-lib.mjs', [
 requireFragments('scripts/release/build-immutable-rollback.mjs', [
   'current.migrationSetDigest !== target.migrationSetDigest',
   'separately accepted N-1 schema compatibility contour',
+]);
+requireFragments('.github/workflows/immutable-release-authority-acceptance.yml', [
+  'bash scripts/release/build-exact-head-images.sh',
+  'BuildKit containerimage.digest',
+  'crossSchemaRollbacks: 0',
+  'NO_DOWN_MIGRATION_SAME_SCHEMA_ONLY',
+]);
+forbid('.github/workflows/immutable-release-authority-acceptance.yml', [
+  [/docker image inspect --format='\{\{\.Id\}\}'[^\n]*-digest\.txt/, 'local config ID written as canonical image digest'],
 ]);
 for (const path of [
   'scripts/release/build-immutable-release-manifest.mjs',
