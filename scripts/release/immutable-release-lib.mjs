@@ -5,6 +5,7 @@ export const RELEASE_KIND = 'ProzrachnayaCenaImmutableRelease';
 export const ROLLBACK_KIND = 'ProzrachnayaCenaImmutableRollback';
 export const RELEASE_SCHEMA_VERSION = 1;
 export const COMPONENT_NAMES = ['api', 'web', 'outboxWorker', 'migration'];
+export const DATABASE_ROLLBACK_MODE = 'NO_DOWN_MIGRATION_SAME_SCHEMA_ONLY';
 
 const SHA256_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/;
@@ -109,7 +110,10 @@ export function validateRollback(document) {
   assert(SHA256_PATTERN.test(document?.targetManifestId ?? ''), 'targetManifestId must be a sha256 digest', errors);
   assert(document?.currentManifestId !== document?.targetManifestId, 'rollback target must differ from current manifest', errors);
   assert(COMMIT_PATTERN.test(document?.targetSourceCommit ?? ''), 'targetSourceCommit must be a lowercase 40-character Git SHA', errors);
+  assert(SHA256_PATTERN.test(document?.currentMigrationSetDigest ?? ''), 'currentMigrationSetDigest must be a sha256 digest', errors);
   assert(SHA256_PATTERN.test(document?.targetMigrationSetDigest ?? ''), 'targetMigrationSetDigest must be a sha256 digest', errors);
+  assert(document?.currentMigrationSetDigest === document?.targetMigrationSetDigest, 'rollback across migration-set changes is forbidden without separate N-1 schema compatibility evidence', errors);
+  assert(document?.databaseRollbackMode === DATABASE_ROLLBACK_MODE, `databaseRollbackMode must equal ${DATABASE_ROLLBACK_MODE}`, errors);
   assert(typeof document?.maturityBoundary === 'string' && document.maturityBoundary.includes('not executed'), 'maturityBoundary must state that rollback was not executed', errors);
 
   const names = Object.keys(document?.targetComponents ?? {}).sort();
