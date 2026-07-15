@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
 describe('platform-v7 public product experience v3', () => {
+  const layout = read('app/platform-v7/layout.tsx');
   const page = read('app/platform-v7/page.tsx');
   const explorerPage = read('app/platform-v7/how-it-works/page.tsx');
   const explorer = read('components/platform-v7/PublicDealExplorer.tsx');
@@ -96,6 +97,10 @@ describe('platform-v7 public product experience v3', () => {
     expect(css).toContain('grid-template-columns: minmax(186px, 0.4fr) minmax(0, 1fr);');
     expect(css).toContain('grid-template-columns: 36px minmax(0, 1fr);');
     expect(css).toContain('padding-left: 50px;');
+  });
+
+  it('reserves the protected loading viewport instead of shifting the cabinet after hydration', () => {
+    expect(layout).toContain(".pc-shell-root-v4 .p7-route-loading{min-height:calc(100dvh - 136px)!important}");
   });
 
   it('keeps mobile, accessibility and resilient-display gates active', () => {
