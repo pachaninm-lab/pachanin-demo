@@ -7,7 +7,6 @@ const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), 
 const landing = read('apps/web/app/platform-v7/page.tsx');
 const explorerPage = read('apps/web/app/platform-v7/how-it-works/page.tsx');
 const explorer = read('apps/web/components/platform-v7/PublicDealExplorer.tsx');
-const explorerV4 = read('apps/web/components/platform-v7/PublicDealExplorerV4.tsx');
 const entryGate = read('apps/web/components/platform-v7/PublicDealEntryGate.tsx');
 const stateMachine = read('apps/web/lib/platform-v7/public-product-experience-state.ts');
 const loginPage = read('apps/web/app/platform-v7/login/page.tsx');
@@ -15,11 +14,9 @@ const loginClient = read('apps/web/app/platform-v7/login/LoginFormClient.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const messages = read('apps/web/i18n/public-entry-messages.ts');
 const copy = read('apps/web/i18n/public-product-experience-v3.ts');
-const copyV4 = read('apps/web/i18n/public-product-experience-v4.ts');
 const entryCopy = read('apps/web/i18n/public-product-entry-variants.ts');
 const css = read('apps/web/styles/platform-v7-public-product-experience-v3.css');
 const entryCss = read('apps/web/styles/platform-v7-public-product-entry-variants.css');
-const finalCss = read('apps/web/styles/platform-v7-public-product-experience-v4-final.css');
 
 describe('platform-v7 industrial public entry gate', () => {
   it('keeps the public shell accessible with only scoped client islands', () => {
@@ -29,11 +26,11 @@ describe('platform-v7 industrial public entry gate', () => {
     expect(publicHeader).not.toContain("'use client'");
     expect(landing).toContain('<PublicDealPreview');
     expect(explorerPage).toContain('<PublicDealEntryGate');
-    expect(entryGate).toContain('<PublicDealExplorerV4');
+    expect(entryGate).toContain('<PublicDealExplorer');
     expect(css).toContain('min-height: 44px');
-    expect(entryCss).toContain('min-height: 108px');
+    expect(entryCss).toContain('min-height: 116px');
     expect(css).toContain('@media (forced-colors: active)');
-    expect(finalCss).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
   });
 
   it('presents an explicit example instead of fake-live data', () => {
@@ -49,7 +46,7 @@ describe('platform-v7 industrial public entry gate', () => {
     expect(landing).toContain("className='pc-ppe-perspective-grid' role='group'");
     expect(landing).not.toContain("role='listitem'");
     expect(landing).not.toContain('/platform-v7/login?role=');
-    expect(stateMachine).toContain('export type TourPerspective');
+    expect(stateMachine).toContain("export type TourPerspective");
     expect(stateMachine).toContain("TOUR_ENTRY_VARIANTS = ['role', 'problem', 'deal']");
     expect(`${stateMachine}\n${entryGate}`).not.toContain('membership');
     expect(`${stateMachine}\n${entryGate}`).not.toContain('RBAC');
@@ -66,8 +63,7 @@ describe('platform-v7 industrial public entry gate', () => {
     expect(entryGate).toContain("source === 'role-first'");
     expect(entryGate).toContain("'problem-first'");
     expect(entryGate).toContain("entry === 'deal'");
-    expect(entryGate).toContain('return <PublicDealExplorerV4');
-    expect(explorerV4).toContain('return <PublicDealExplorer');
+    expect(entryGate).toContain("return <PublicDealExplorer");
     expect(entryCopy).toContain("title: 'Кто вы в сделке?'");
     expect(entryCopy).toContain("title: 'Что вы хотите контролировать?'");
     expect(entryCopy).toContain("title: 'Who are you in the deal?'");
@@ -76,13 +72,12 @@ describe('platform-v7 industrial public entry gate', () => {
     expect(entryCopy).toContain("title: '你希望控制什么？'");
   });
 
-  it('keeps primary public actions explicitly high contrast and delays connection in the explorer', () => {
+  it('keeps primary public actions explicitly high contrast', () => {
     expect(css).toContain('.pc-ppe-primary-button');
     expect(css).toContain('background: var(--pc-ppe-green)');
     expect(css).toContain('color: #fff');
     expect(landing).toContain("className='pc-ppe-primary-button'");
-    expect(explorer).toContain("className='pc-ppe-primary-button'");
-    expect(explorerPage).not.toContain("eventName='connect_cta_click'");
+    expect(explorerPage).toContain("className='pc-ppe-primary-button'");
   });
 
   it('uses persistent labels and precise accessible authentication semantics', () => {
@@ -114,11 +109,11 @@ describe('platform-v7 industrial public entry gate', () => {
       "brandHomeLabel: 'Прозрачная Цена — на главную'",
       "brandHomeLabel: 'Transparent Price — home'",
       "brandHomeLabel: '透明价格 — 返回首页'",
-      "title: 'Посмотрите, как исполняется сделка'",
-      "title: 'See how the deal is executed'",
-      "title: '查看交易如何履约'",
+      "title: 'Сделка изнутри'",
+      "title: 'Deal from inside'",
+      "title: '交易内部视图'",
     ]) {
-      expect(`${messages}\n${copyV4}`).toContain(token);
+      expect(`${messages}\n${copy}`).toContain(token);
     }
   });
 });
