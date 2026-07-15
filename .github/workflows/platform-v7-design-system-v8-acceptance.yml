@@ -1,80 +1,97 @@
-name: Patch Public Product Experience Security Policy Scope
+name: Platform V7 Design System v8 Acceptance
 
 on:
   pull_request:
+    paths:
+      - 'apps/web/app/platform-v7/**'
+      - 'apps/web/components/platform-v7/**'
+      - 'apps/web/components/v7r/AppShellV4*'
+      - 'apps/web/lib/platform-v7/**'
+      - 'apps/web/styles/platform-v7-public-*.css'
+      - 'apps/web/playwright.acceptance.config.ts'
+      - 'apps/web/tests/e2e/platform-v7-*.spec.ts'
+      - 'apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts'
+      - 'packages/design-system-v8/**'
+      - 'packages/design-tokens/**'
+      - 'docs/platform-v7/qa/DESIGN_SYSTEM_V8_FINAL_ACCEPTANCE.md'
+      - '.github/workflows/platform-v7-design-system-v8-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/app/platform-v7/**'
+      - 'apps/web/components/platform-v7/**'
+      - 'apps/web/components/v7r/AppShellV4*'
+      - 'apps/web/lib/platform-v7/**'
+      - 'apps/web/styles/platform-v7-public-*.css'
+      - 'apps/web/playwright.acceptance.config.ts'
+      - 'apps/web/tests/e2e/platform-v7-*.spec.ts'
+      - 'packages/design-system-v8/**'
+      - 'packages/design-tokens/**'
+      - '.github/workflows/platform-v7-design-system-v8-acceptance.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: patch-public-product-security-policy-scope-${{ github.event.pull_request.number || github.ref }}
+  group: platform-v7-design-system-v8-acceptance-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  patch-exact-scope:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/public-product-experience-v3'
+  browser-accessibility-matrix:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 45
+    env:
+      PC_ACCEPTANCE_JWT_SECRET: pc-design-system-v8-acceptance-secret-2026
+      JWT_SECRET: pc-design-system-v8-acceptance-secret-2026
+      PC_CABINET_SESSION_SECRET: pc-design-system-v8-acceptance-secret-2026
+      NEXT_TELEMETRY_DISABLED: '1'
     steps:
-      - name: Atomically approve the exact security policy validator path
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPOSITORY: ${{ github.repository }}
-          BRANCH: agent/public-product-experience-v3
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium, Firefox and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium firefox webkit
+      - name: Build production web bundle
+        run: pnpm --filter @pc/web build
+      - name: Run Design System v8 browser and accessibility matrix
+        working-directory: apps/web
+        run: pnpm exec playwright test --config=playwright.acceptance.config.ts
+      - name: Publish acceptance summary
+        if: always()
+        working-directory: apps/web
         run: |
-          python3 - <<'PY'
-          import base64
-          import json
-          import os
-          import time
-          import urllib.error
-          import urllib.parse
-          import urllib.request
-
-          repository = os.environ['REPOSITORY']
-          branch = os.environ['BRANCH']
-          token = os.environ['GITHUB_TOKEN']
-          path = 'docs/platform-v7/autopilot/autopilot-state.json'
-          required = 'docs/platform-v7/autopilot/check-security-release-gate.mjs'
-          api = f'https://api.github.com/repos/{repository}/contents/{path}'
-          headers = {
-              'Accept': 'application/vnd.github+json',
-              'Authorization': f'Bearer {token}',
-              'X-GitHub-Api-Version': '2022-11-28',
-              'User-Agent': 'transparent-price-governance-patch',
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'design-system-v8-acceptance-results.json';
+          if (!fs.existsSync(path)) {
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '## Design System v8 acceptance\n\nJSON result was not produced.\n');
+            process.exit(0);
           }
-
-          def request(method, url, payload=None):
-              data = None if payload is None else json.dumps(payload).encode('utf-8')
-              req = urllib.request.Request(url, data=data, method=method, headers=headers)
-              with urllib.request.urlopen(req, timeout=30) as response:
-                  return json.loads(response.read().decode('utf-8'))
-
-          for attempt in range(1, 6):
-              current = request('GET', f'{api}?ref={urllib.parse.quote(branch, safe="")}')
-              state = json.loads(base64.b64decode(current['content']).decode('utf-8'))
-              scope = state.setdefault('approvedConcurrentScopes', {}).setdefault(branch, [])
-              if required in scope:
-                  print('Security policy validator path is already approved.')
-                  break
-              scope.append(required)
-              scope.sort()
-              content = json.dumps(state, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
-              payload = {
-                  'message': 'Approve exact security policy validator scope',
-                  'content': base64.b64encode(content).decode('ascii'),
-                  'sha': current['sha'],
-                  'branch': branch,
-              }
-              try:
-                  result = request('PUT', api, payload)
-                  print(f"Governance state updated at {result['commit']['sha']}")
-                  break
-              except urllib.error.HTTPError as error:
-                  if error.code != 409 or attempt == 5:
-                      raise
-                  time.sleep(attempt)
-          else:
-              raise SystemExit('Governance state update exhausted retries.')
-          PY
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const stats = report.stats || {};
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `## Design System v8 acceptance\n\n- Expected: ${stats.expected ?? 0}\n- Unexpected: ${stats.unexpected ?? 0}\n- Flaky: ${stats.flaky ?? 0}\n- Skipped: ${stats.skipped ?? 0}\n- Duration: ${Math.round((stats.duration || 0) / 1000)} s\n`,
+          );
+          NODE
+      - name: Upload browser acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-design-system-v8-acceptance-${{ github.sha }}
+          path: |
+            apps/web/design-system-v8-acceptance-results.json
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: warn
+          retention-days: 14
