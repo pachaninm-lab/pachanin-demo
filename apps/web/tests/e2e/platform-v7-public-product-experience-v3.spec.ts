@@ -64,9 +64,53 @@ async function expectMinimumTargets(page: Page, locator: string) {
   expect(targets.every((target) => target.width >= 44 && target.height >= 44)).toBe(true);
 }
 
-test.describe('Public Product Experience V3 browser acceptance', () => {
+async function expectNoOverlap(page: Page, floatingSelector: string, targetSelector: string) {
+  const overlap = await page.evaluate(({ floatingSelector, targetSelector }) => {
+    const floating = document.querySelector<HTMLElement>(floatingSelector);
+    const target = document.querySelector<HTMLElement>(targetSelector);
+    if (!floating || !target) return false;
+    const a = floating.getBoundingClientRect();
+    const b = target.getBoundingClientRect();
+    return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+  }, { floatingSelector, targetSelector });
+  expect(overlap).toBe(false);
+}
+
+test.describe('Public Product Experience V4 browser acceptance', () => {
   test.beforeEach(async ({ page }) => {
     await installLayoutShiftObserver(page);
+  });
+
+  test('homepage is compact, localized and keeps support clear of primary actions', async ({ page }) => {
+    const runtimeFailures = collectRuntimeFailures(page);
+    await page.setViewportSize({ width: 320, height: 900 });
+    const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+
+    await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
+    await expect(page.locator('.pc-site-brand img')).toBeVisible();
+    await expect(page.locator('.pc-ppe-hero-progress-mobile')).toBeVisible();
+    await expect(page.locator('.pc-ppe-hero-contour-desktop')).toBeHidden();
+    await expect(page.getByRole('link', { name: /Посмотреть сделку изнутри/ }).first()).toBeVisible();
+    await expect(page.locator('.pc-ppe-section').nth(1).locator(':scope > .pc-ppe-perspective-grid > .pc-ppe-perspective-card')).toHaveCount(5);
+    await expect(page.locator('.pc-ppe-all-participants')).not.toHaveAttribute('open', '');
+
+    const support = page.locator('.p7-support-chat-button');
+    await expect(support).toBeVisible();
+    await page.locator('.pc-ppe-final-cta').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(260);
+    await expectNoOverlap(page, '.p7-support-chat-button', '.pc-ppe-final-cta .pc-ppe-primary-button');
+    await expectNoOverlap(page, '.p7-support-chat-button', '.pc-ppe-final-cta .pc-ppe-secondary-button');
+
+    await page.evaluate(() => document.getElementById('pc-ppe-perspectives-title')?.scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(100);
+    const headingTop = await page.locator('#pc-ppe-perspectives-title').evaluate((element) => element.getBoundingClientRect().top);
+    expect(headingTop).toBeGreaterThanOrEqual(63);
+
+    await expectNoHorizontalOverflow(page);
+    await expectNoSeriousAxeViolations(page);
+    await expectLayoutShiftWithinBudget(page);
+    expect(runtimeFailures).toEqual([]);
   });
 
   test('deal explorer is localized, deterministic and isolated from live APIs', async ({ page }) => {
@@ -145,7 +189,7 @@ test.describe('Public Product Experience V3 browser acceptance', () => {
     await expect(explorer).toHaveAttribute('data-lens', 'risk');
     await expect(page).toHaveURL(/lens=risk/);
 
-    await page.locator('.pc-ppe-segmented button').filter({ hasText: 'Спорный' }).click();
+    await page.locator('.pc-ppe-segmented button').filter({ hasText: 'Спор по качеству' }).click();
     await expect(explorer).toHaveAttribute('data-scenario', 'dispute');
     await expect(page).toHaveURL(/scenario=dispute/);
 
@@ -182,6 +226,13 @@ test.describe('Public Product Experience V3 browser acceptance', () => {
       await expectMinimumTargets(page, '.pc-ppe-lens-list button');
       await expectMinimumTargets(page, '.pc-ppe-segmented button');
       await expectMinimumTargets(page, '.pc-ppe-stage-nav button');
+      const stageLayout = await page.locator('.pc-ppe-stage-track').evaluate((element) => getComputedStyle(element).gridTemplateColumns);
+      expect(stageLayout).not.toBe('none');
+      const stageBounds = await page.locator('.pc-ppe-stage-track button').evaluateAll((elements) => elements.map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right };
+      }));
+      expect(stageBounds.every((box) => box.left >= -1 && box.right <= 321)).toBe(true);
     }
   });
 });
