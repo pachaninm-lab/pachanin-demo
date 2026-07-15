@@ -50,6 +50,7 @@ apps/web/components/platform-v7/PlatformV7ShellSwitch.tsx
 apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx
 apps/web/components/platform-v7/PublicEntryCleanup.tsx
 apps/web/components/platform-v7/PublicLocaleSwitch.tsx
+apps/web/components/platform-v7/ChatSupportWidget.tsx
 apps/web/components/platform-v7/PublicSiteHeader.tsx
 apps/web/components/v7r/ApprovedHeaderLogo.tsx
 apps/web/components/v7r/BrandMark.tsx

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { CheckCircle2, MessageCircle, Send, X } from 'lucide-react';
-import { BRAND_LOGO_DATA_URI } from '@/components/v7r/brand-logo-asset';
+import { BrandMark } from '@/components/v7r/BrandMark';
 
 type SubmitState = 'idle' | 'sending' | 'sent' | 'error';
 type Topic = 'platform' | 'pilot' | 'bank_partner' | 'region' | 'technical' | 'other';
@@ -304,7 +304,7 @@ export function ChatSupportWidget() {
             aria-describedby={descriptionId}
           >
             <header className='p7-support-chat-head'>
-              <img src={BRAND_LOGO_DATA_URI} alt='' draggable={false} />
+              <span className='p7-support-chat-brand' aria-hidden='true'><BrandMark size='100%' shadow={false} /></span>
               <div>
                 <strong id={titleId}>{ui.title}</strong>
                 <p id={descriptionId}>{ui.intro}</p>
@@ -438,7 +438,7 @@ const css = `
   border-bottom: 1px solid #dfe8e2;
   background: #f7faf8;
 }
-.p7-support-chat-head img { width: 40px; height: 40px; object-fit: contain; }
+.p7-support-chat-brand { display: inline-flex; width: 40px; height: 40px; }
 .p7-support-chat-head strong { display: block; font-size: 17px; line-height: 1.2; font-weight: 850; letter-spacing: -.02em; }
 .p7-support-chat-head p { margin: 5px 0 0; color: #52615b; font-size: 12px; line-height: 1.45; font-weight: 600; }
 .p7-support-chat-head button {
@@ -496,7 +496,7 @@ const css = `
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .p7-support-chat-head { position: sticky; top: 0; z-index: 1; grid-template-columns: 36px minmax(0,1fr) 44px; padding: 14px; }
-  .p7-support-chat-head img { width: 36px; height: 36px; }
+  .p7-support-chat-brand { width: 36px; height: 36px; }
   .p7-support-chat-identity { grid-template-columns: minmax(0,1fr); }
   .p7-support-chat-form { padding: 14px; }
 }
