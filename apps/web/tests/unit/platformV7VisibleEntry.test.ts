@@ -14,6 +14,8 @@ const staffShell = () => readFileSync(resolve(__dirname, '../../components/platf
 const loadingHeader = () => readFileSync(resolve(__dirname, '../../app/platform-v7/loading.tsx'), 'utf8');
 const contactHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ContactFixedHeader.tsx'), 'utf8');
 const approvedHeaderLogo = () => readFileSync(resolve(__dirname, '../../components/v7r/ApprovedHeaderLogo.tsx'), 'utf8');
+const approvedLogoChunk = (index: string) =>
+  readFileSync(resolve(__dirname, `../../components/v7r/approved-logo-chunks/chunk-${index}.ts`), 'utf8');
 const brandMark = () => readFileSync(resolve(__dirname, '../../components/v7r/BrandMark.tsx'), 'utf8');
 const support = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ChatSupportWidget.tsx'), 'utf8');
 const css = () => readFileSync(resolve(__dirname, '../../styles/platform-v7-public-product-experience-v5.css'), 'utf8');
@@ -22,10 +24,13 @@ function compact(source: string) {
   return source.replace(/\s+/g, ' ');
 }
 
-function approvedLogoBinary(source: string) {
-  const array = source.match(/data:image\/webp;base64,' \+ \[([\s\S]*?)\]\.join\(''\)/)?.[1] ?? '';
-  const chunks = [...array.matchAll(/'([^']*)'/g)].map((match) => match[1]);
-  return Buffer.from(chunks.join(''), 'base64');
+function extractChunk(source: string) {
+  return source.match(/= '([^']+)';/)?.[1] ?? '';
+}
+
+function approvedLogoBinary() {
+  const encoded = ['01', '02'].map((index) => extractChunk(approvedLogoChunk(index))).join('');
+  return Buffer.from(encoded, 'base64');
 }
 
 describe('platform-v7 visible public entry', () => {
@@ -57,25 +62,27 @@ describe('platform-v7 visible public entry', () => {
     expect(css()).not.toContain('right: -5px');
   });
 
-  it('renders the validated owner-approved raster in every platform header', () => {
+  it('renders the pixel-exact owner login-header raster in every platform header', () => {
     const approved = approvedHeaderLogo();
     const mark = brandMark();
-    const binary = approvedLogoBinary(approved);
+    const binary = approvedLogoBinary();
 
-    expect(approved).toContain("data:image/webp;base64,' + [");
-    expect(approved).toContain('UklGRowJ');
-    expect(approved).toContain("width='48' height='48'");
+    expect(approved).toContain("import { APPROVED_LOGO_CHUNK_01 }");
+    expect(approved).toContain("import { APPROVED_LOGO_CHUNK_02 }");
+    expect(approved).toContain('data:image/webp;base64');
+    expect(approved).toContain("width='120'");
+    expect(approved).toContain("height='120'");
     expect(approved).toContain("className='header-logo-image'");
     expect(approved).not.toContain('UklGRpgq');
     expect(approved).not.toContain('UklGRgQH');
-    expect(binary).toHaveLength(2452);
+    expect(binary).toHaveLength(11674);
     expect(binary.subarray(0, 4).toString('ascii')).toBe('RIFF');
     expect(binary.subarray(8, 12).toString('ascii')).toBe('WEBP');
-    expect(createHash('sha256').update(binary).digest('hex')).toBe('92581dfa6662663b7aefe800a861d63d4c20269f320c86f43f2cd60976044b7b');
+    expect(createHash('sha256').update(binary).digest('hex')).toBe('1e98767891611501f481f739fb379014efe15673b1924a6c0aa8fde208e1acf1');
 
     expect(mark).toContain("import ApprovedHeaderLogo from './ApprovedHeaderLogo'");
     expect(mark).toContain('<ApprovedHeaderLogo />');
-    expect(mark).toContain("data-approved-brand-mark='owner-reference-validated-q90'");
+    expect(mark).toContain("data-approved-brand-mark='owner-login-header-pixel-exact'");
     expect(mark).not.toContain('BRAND_LOGO_DATA_URI');
     expect(mark).not.toContain('brand-logo-asset');
 
