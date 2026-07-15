@@ -23,14 +23,8 @@ function compact(source: string) {
   return source.replace(/\s+/g, ' ');
 }
 
-function extractChunk(source: string, name: string) {
-  return source.match(new RegExp(`const ${name} = '([^']+)';|export const ${name} = '([^']+)';`))?.slice(1).find(Boolean) ?? '';
-}
-
 function approvedLogoBinary() {
-  const encoded =
-    extractChunk(approvedHeaderLogo(), 'APPROVED_LOGO_CHUNK_01') +
-    extractChunk(brandLogoAsset(), 'APPROVED_LOGO_CHUNK_02');
+  const encoded = brandLogoAsset().match(/data:image\/webp;base64,([^']+)'/)?.[1] ?? '';
   return Buffer.from(encoded, 'base64');
 }
 
@@ -63,25 +57,24 @@ describe('platform-v7 visible public entry', () => {
     expect(css()).not.toContain('right: -5px');
   });
 
-  it('renders the pixel-exact owner login-header raster in every platform header', () => {
+  it('renders the exact owner reference logo in every platform header', () => {
     const approved = approvedHeaderLogo();
     const asset = brandLogoAsset();
     const mark = brandMark();
     const binary = approvedLogoBinary();
 
-    expect(approved).toContain("import { APPROVED_LOGO_CHUNK_02 } from './brand-logo-asset'");
-    expect(approved).toContain('const APPROVED_LOGO_CHUNK_01');
-    expect(asset).toContain('export const APPROVED_LOGO_CHUNK_02');
-    expect(approved).toContain('data:image/webp;base64');
-    expect(approved).toContain("width='120'");
-    expect(approved).toContain("height='120'");
+    expect(approved).toContain("import { BRAND_LOGO_DATA_URI } from './brand-logo-asset'");
+    expect(approved).toContain('src={BRAND_LOGO_DATA_URI}');
+    expect(approved).toContain("width='64'");
+    expect(approved).toContain("height='64'");
     expect(approved).toContain("className='header-logo-image'");
-    expect(approved).not.toContain('UklGRpgq');
-    expect(approved).not.toContain('UklGRgQH');
-    expect(binary).toHaveLength(11674);
+    expect(asset).toContain("export const BRAND_LOGO_DATA_URI = 'data:image/webp;base64,UklGRkASAABXRUJQVlA4'");
+    expect(asset).not.toContain('UklGRpgq');
+    expect(asset).not.toContain('UklGRgQH');
+    expect(binary).toHaveLength(4680);
     expect(binary.subarray(0, 4).toString('ascii')).toBe('RIFF');
     expect(binary.subarray(8, 12).toString('ascii')).toBe('WEBP');
-    expect(createHash('sha256').update(binary).digest('hex')).toBe('1e98767891611501f481f739fb379014efe15673b1924a6c0aa8fde208e1acf1');
+    expect(createHash('sha256').update(binary).digest('hex')).toBe('fb1fc5c017bc2c26df5feea416b608014baac14942246b70985e739070b93c74');
 
     expect(mark).toContain("import ApprovedHeaderLogo from './ApprovedHeaderLogo'");
     expect(mark).toContain('<ApprovedHeaderLogo />');
