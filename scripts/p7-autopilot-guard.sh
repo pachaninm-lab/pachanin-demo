@@ -280,6 +280,28 @@ if [ -n "$APPROVED_BRANCH_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$APPROVED_BRANCH_SCOPE")
 fi
 
+SOURCE_CONTROLLED_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
+const fs = require('fs');
+const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
+const manifests = {
+  'ir/k8s-production-like-2659': 'docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json',
+};
+const path = manifests[branch];
+if (!path) process.exit(0);
+const scope = JSON.parse(fs.readFileSync(path, 'utf8'));
+if (scope.branch !== branch) throw new Error(`Scope manifest branch ${scope.branch} != ${branch}`);
+if (scope.status !== 'active') throw new Error(`Scope manifest ${path} is not active`);
+if (!Array.isArray(scope.allowedPaths) || scope.allowedPaths.length === 0) {
+  throw new Error(`Scope manifest ${path} has no allowedPaths`);
+}
+for (const file of scope.allowedPaths) console.log(file);
+JS
+)
+
+if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
+fi
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ]; then
   FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|\.env|.*\.pem$|.*\.key$)'
 else
