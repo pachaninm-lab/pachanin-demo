@@ -242,7 +242,10 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
 
   const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');
   const protectedContent = (
-    <PlatformV7ProtectedRuntime pathname={pathname} verifiedRole={role}>{children}</PlatformV7ProtectedRuntime>
+    <>
+      <style>{'.pc-shell-root-v4 .p7-route-loading{min-height:calc(100dvh - 136px)!important}'}</style>
+      <PlatformV7ProtectedRuntime pathname={pathname} verifiedRole={role}>{children}</PlatformV7ProtectedRuntime>
+    </>
   );
 
   if (!isDesignSystemV8Route(pathname)) return protectedContent;
