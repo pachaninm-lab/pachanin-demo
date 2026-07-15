@@ -43,15 +43,12 @@ requireFragments('infra/helm/grainflow/values.yaml', [
   'release:',
   'sourceCommit: ""',
   'manifestId: ""',
-  'migration:',
-  'api:',
-  'web:',
-  'outboxWorker:',
+  'migration:\n  enabled: false',
+  'api:\n  enabled: false',
+  'outboxWorker:\n  enabled: false',
+  'web:\n  enabled: false',
 ]);
-forbid('infra/helm/grainflow/values.yaml', [
-  [/\btag:\s*/, 'mutable image tag field'],
-  [/enabled:\s*true\s*(?:#.*)?$/m, 'runtime workload enabled by default'],
-]);
+forbid('infra/helm/grainflow/values.yaml', [[/\btag:\s*/, 'mutable image tag field']]);
 
 for (const [path, imageFragment] of [
   ['infra/helm/grainflow/templates/api-deployment.yaml', 'image: "{{ .Values.api.image.repository }}@{{ $digest }}"'],
