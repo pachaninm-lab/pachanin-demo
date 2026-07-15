@@ -12,20 +12,26 @@ for (const width of [320, 360, 375, 390, 430]) {
     await expect(page.getByRole('link', { name: 'Посмотреть сделку' })).toBeVisible();
     await expect(page.locator('.pc-ppe-hero-progress-mobile')).toBeVisible();
     await expect(page.locator('.pc-ppe-hero-contour-desktop')).toBeHidden();
-    await expect(page.locator('.pc-site-brand svg')).toBeVisible();
+    await expect(page.locator('.pc-site-brand-mark')).toBeVisible();
 
     const metrics = await page.evaluate(() => {
       const header = document.querySelector('.pc-site-header')?.getBoundingClientRect();
       const heading = document.querySelector('h1')?.getBoundingClientRect();
+      const brand = document.querySelector('.pc-site-brand-mark');
+      const raster = brand?.querySelector('img');
       return {
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         headerBottom: header?.bottom ?? 0,
         headingTop: heading?.top ?? 0,
+        vectorBrand: brand ? window.getComputedStyle(brand).backgroundImage.includes('data:image/svg+xml') : false,
+        rasterOpacity: raster ? window.getComputedStyle(raster).opacity : '0',
       };
     });
 
     expect(metrics.overflow).toBeLessThanOrEqual(1);
     expect(metrics.headingTop).toBeGreaterThanOrEqual(metrics.headerBottom - 1);
+    expect(metrics.vectorBrand).toBe(true);
+    expect(metrics.rasterOpacity).toBe('0');
     expect(runtimeErrors).toEqual([]);
   });
 }
