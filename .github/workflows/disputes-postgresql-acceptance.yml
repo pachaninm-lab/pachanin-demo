@@ -14,6 +14,7 @@ env:
   TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
   PSQL_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow
   DATABASE_URL: postgresql://app_deal:app_deal@localhost:5432/grainflow?schema=public
+  PSQL_APP_DATABASE_URL: postgresql://app_deal:app_deal@localhost:5432/grainflow
   EVIDENCE_DIR: artifacts/disputes-postgresql
 jobs:
   disputes-postgresql:
@@ -77,7 +78,7 @@ jobs:
             --file infra/sql/postgresql-settlement-authority-policies.sql
       - name: Prove migration-delivered runtime privilege boundary
         run: |
-          proof="$(psql "$DATABASE_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT
+          proof="$(psql "$PSQL_APP_DATABASE_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT
             has_schema_privilege(current_user,'settlement','USAGE')::text || ':' ||
             has_table_privilege(current_user,'settlement.payments','SELECT')::text || ':' ||
             has_table_privilege(current_user,'settlement.payments','UPDATE')::text || ':' ||
