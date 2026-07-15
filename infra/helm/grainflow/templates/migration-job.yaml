@@ -2,6 +2,7 @@
 {{- $digest := include "grainflow.image.digest" (dict "component" "migration" "digest" .Values.migration.image.digest) }}
 {{- $sourceCommit := include "grainflow.release.sourceCommit" . }}
 {{- $manifestId := include "grainflow.release.manifestId" . }}
+{{- $migrationSetDigest := include "grainflow.release.migrationSetDigest" . }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -17,6 +18,7 @@ metadata:
     platform.prozrachnaya-cena/image-digest: {{ $digest | quote }}
     platform.prozrachnaya-cena/source-commit: {{ $sourceCommit | quote }}
     platform.prozrachnaya-cena/release-manifest: {{ $manifestId | quote }}
+    platform.prozrachnaya-cena/migration-set-digest: {{ $migrationSetDigest | quote }}
 spec:
   backoffLimit: {{ .Values.migration.backoffLimit }}
   activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
@@ -31,6 +33,7 @@ spec:
         platform.prozrachnaya-cena/image-digest: {{ $digest | quote }}
         platform.prozrachnaya-cena/source-commit: {{ $sourceCommit | quote }}
         platform.prozrachnaya-cena/release-manifest: {{ $manifestId | quote }}
+        platform.prozrachnaya-cena/migration-set-digest: {{ $migrationSetDigest | quote }}
     spec:
       automountServiceAccountToken: false
       restartPolicy: Never
@@ -51,6 +54,8 @@ spec:
               value: {{ $sourceCommit | quote }}
             - name: RELEASE_MANIFEST_ID
               value: {{ $manifestId | quote }}
+            - name: MIGRATION_SET_DIGEST
+              value: {{ $migrationSetDigest | quote }}
             - name: RUNTIME_COMPONENT
               value: migration-job
           envFrom:
