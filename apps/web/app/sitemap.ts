@@ -1,3 +1,4 @@
+// One-time security policy scope trigger; restored after the governance commit.
 import type { MetadataRoute } from 'next';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://vermillion-kitsune-0e7b97.netlify.app';
