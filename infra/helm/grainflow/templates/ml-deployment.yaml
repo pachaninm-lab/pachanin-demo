@@ -29,10 +29,15 @@ spec:
         prometheus.io/port: {{ .Values.ml.service.port | quote }}
         prometheus.io/path: "/metrics"
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: ml
           image: "{{ .Values.ml.image.repository }}:{{ .Values.ml.image.tag }}"
@@ -54,8 +59,17 @@ spec:
             {{- toYaml .Values.ml.readinessProbe | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
 ---
 apiVersion: v1
 kind: Service
