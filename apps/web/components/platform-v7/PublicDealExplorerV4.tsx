@@ -23,6 +23,8 @@ export function PublicDealExplorerV4({
       controls: {
         ...copy.explorer.controls,
         lens: ui.explorer.lensLabel,
+        perspective: ui.explorer.roleLabel,
+        scenario: ui.explorer.scenarioLabel,
         startGuide: ui.explorer.startGuide,
       },
       scenarios: {
