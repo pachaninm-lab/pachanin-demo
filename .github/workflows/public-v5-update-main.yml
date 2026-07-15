@@ -1,0 +1,31 @@
+name: update public V5 branch from main
+
+on:
+  push:
+    branches:
+      - agent/public-home-v5-institutional-10of10
+    paths:
+      - '.github/workflows/public-v5-update-main.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/public-home-v5-institutional-10of10
+          fetch-depth: 0
+      - name: Merge current main and remove bootstrap workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git merge --no-edit origin/main
+          rm .github/workflows/public-v5-update-main.yml
+          git add .github/workflows/public-v5-update-main.yml
+          git commit -m 'chore(public): remove branch update bootstrap'
+          git push origin HEAD:agent/public-home-v5-institutional-10of10
