@@ -74,6 +74,12 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prove evaluator fail-closed contract
+        env:
+          SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          SECURITY_EVALUATOR_CONTRACT_REPORT: ${{ env.SECURITY_ABUSE_DIR }}/security-evaluator-contract.json
+        run: node docs/platform-v7/autopilot/test-security-evaluator-fail-closed.mjs
+
       - name: Generate ephemeral security secrets
         shell: bash
         run: |
@@ -111,7 +117,7 @@ jobs:
               --workflow security-quality-gate.yml \
               --commit "$EXACT_HEAD" \
               --limit 20 \
-              --json databaseId,status,conclusion,headSha,createdAt 2>/dev/null || true)"
+              --json databaseId,status,conclusion,headSha,createdAt)"
             run_id="$(jq -r --arg sha "$EXACT_HEAD" '[.[] | select(.headSha == $sha)] | sort_by(.createdAt) | last | .databaseId // empty' <<< "$runs")"
             if [[ -n "$run_id" ]]; then
               status="$(jq -r --argjson id "$run_id" '.[] | select(.databaseId == $id) | .status' <<< "$runs")"
@@ -205,7 +211,7 @@ jobs:
         run: node docs/platform-v7/autopilot/build-security-evidence-manifest.mjs
 
       - name: Upload unified security evidence
-        if: always()
+        if: always() && hashFiles('artifacts/security/security-evidence-manifest.json') != ''
         uses: actions/upload-artifact@v4
         with:
           name: security-evidence-manifest-${{ env.EXACT_HEAD }}
