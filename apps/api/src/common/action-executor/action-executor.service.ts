@@ -5,26 +5,18 @@ import { AuditService } from '../../modules/audit/audit.service';
 import { OutboxService } from '../outbox/outbox.service';
 
 export interface StateGates {
-  /** Current deal status */
   dealStatus?: string;
-  /** The statuses from which this action is allowed */
   allowedFromStatuses?: string[];
-  /** Whether required documents are complete — false blocks release actions */
   documentsComplete?: boolean;
-  /** Whether an active dispute exists — blocks money release */
   disputeOpen?: boolean;
-  /** Whether bank reserve has been confirmed */
   reserveConfirmed?: boolean;
 }
 
 export interface ObjectScope {
   objectType: string;
   objectId: string;
-  /** For deal: seller or buyer orgId to check org-scope access */
   ownerOrgId?: string;
-  /** Secondary party's orgId (e.g. buyer in a seller-owned deal) */
   counterpartyOrgId?: string;
-  /** For shipment: the driver userId assigned */
   assignedDriverUserId?: string;
 }
 
@@ -33,8 +25,14 @@ export interface ExecuteParams<T> {
   action: DomainAction;
   scope: ObjectScope;
   gates?: StateGates;
-  /** If set, an outbox entry is created instead of calling the bank directly */
-  bankOutbox?: { type: string; payload: any };
+  /** Durable command envelope; enqueue failure aborts the action pipeline. */
+  bankOutbox?: {
+    type: string;
+    payload: unknown;
+    idempotencyKey: string;
+    correlationId?: string;
+    maxRetries?: number;
+  };
   fn: () => T | Promise<T>;
 }
 
@@ -53,10 +51,6 @@ export class ActionExecutorService {
     private readonly outbox: OutboxService,
   ) {}
 
-  /**
-   * Check that the role is allowed to perform action.
-   * Throws ForbiddenException with audit entry on deny.
-   */
   assertPermission(user: RequestUser, action: DomainAction): void {
     const allowed = ROLE_ALLOWED_ACTIONS[user.role];
     if (!allowed?.has(action)) {
@@ -71,13 +65,9 @@ export class ActionExecutorService {
     }
   }
 
-  /**
-   * Check object-level scope: org isolation, driver isolation, EXECUTIVE read-only.
-   */
   assertObjectScope(user: RequestUser, action: DomainAction, scope: ObjectScope): void {
     if (PRIVILEGED.has(user.role)) return;
 
-    // EXECUTIVE is always read-only regardless of role-allowed-actions
     if (user.role === Role.EXECUTIVE) {
       const readOnly: DomainAction[] = ['deal.view', 'document.view', 'shipment.view', 'lot.view'];
       if (!readOnly.includes(action)) {
@@ -93,7 +83,6 @@ export class ActionExecutorService {
       return;
     }
 
-    // DRIVER: can only access their own assigned shipment
     if (user.role === Role.DRIVER && scope.objectType === 'shipment') {
       if (scope.assignedDriverUserId && scope.assignedDriverUserId !== user.id) {
         this.audit.log({
@@ -108,10 +97,8 @@ export class ActionExecutorService {
       return;
     }
 
-    // Org-scope: FARMER and BUYER can only access deals their org is party to
     if (user.role === Role.FARMER || user.role === Role.BUYER) {
-      const userIsParty =
-        scope.ownerOrgId === user.orgId || scope.counterpartyOrgId === user.orgId;
+      const userIsParty = scope.ownerOrgId === user.orgId || scope.counterpartyOrgId === user.orgId;
       if (scope.ownerOrgId && !userIsParty) {
         this.audit.log({
           action: `DENY.cross-org:${action}`,
@@ -127,18 +114,14 @@ export class ActionExecutorService {
     }
   }
 
-  /**
-   * Check business state gates.
-   * Throws ForbiddenException with a clear reason when a gate blocks the action.
-   */
   assertStateGates(action: DomainAction, gates: StateGates): void {
     if (gates.disputeOpen) {
       throw new ForbiddenException(`Action ${action} is blocked: active dispute must be resolved first`);
     }
     if (
-      gates.allowedFromStatuses &&
-      gates.dealStatus &&
-      !gates.allowedFromStatuses.includes(gates.dealStatus)
+      gates.allowedFromStatuses
+      && gates.dealStatus
+      && !gates.allowedFromStatuses.includes(gates.dealStatus)
     ) {
       throw new ForbiddenException(
         `Action ${action} not allowed from status '${gates.dealStatus}'. Allowed: [${gates.allowedFromStatuses.join(', ')}]`,
@@ -152,9 +135,6 @@ export class ActionExecutorService {
     }
   }
 
-  /**
-   * Full execution pipeline: permission → object scope → state gates → outbox → fn → audit.
-   */
   async execute<T>(params: ExecuteParams<T>): Promise<ExecuteResult<T>> {
     const { user, action, scope, gates, bankOutbox, fn } = params;
 
@@ -164,17 +144,19 @@ export class ActionExecutorService {
 
     let outboxId: string | undefined;
     if (bankOutbox) {
-      const entry = this.outbox.enqueue({
+      const entry = await this.outbox.enqueue({
         type: bankOutbox.type,
         dealId: scope.objectId,
         payload: bankOutbox.payload,
         triggeredByUserId: user.id,
+        idempotencyKey: bankOutbox.idempotencyKey,
+        correlationId: bankOutbox.correlationId,
+        maxRetries: bankOutbox.maxRetries,
       });
       outboxId = entry.id;
     }
 
     const result = await fn();
-
     const auditEntry = this.audit.log({
       action,
       entityType: scope.objectType,
