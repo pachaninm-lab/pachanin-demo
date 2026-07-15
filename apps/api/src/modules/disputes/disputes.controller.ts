@@ -9,7 +9,10 @@ import { DecideDisputeDto } from './dto/decide-dispute.dto';
 import { RequestUser, Role } from '../../common/types/request-user';
 
 @UseGuards(RolesGuard)
-@Roles('SUPPORT_MANAGER', 'BUYER', 'FARMER', 'LAB', 'ACCOUNTING', 'EXECUTIVE', 'ADMIN')
+@Roles(
+  'SUPPORT_MANAGER', 'BUYER', 'FARMER', 'LAB', 'SURVEYOR', 'ACCOUNTING',
+  'EXECUTIVE', 'COMPLIANCE_OFFICER', 'ARBITRATOR', 'ADMIN',
+)
 @Controller('disputes')
 export class DisputesController {
   constructor(private readonly disputes: DisputesService) {}
@@ -33,14 +36,25 @@ export class DisputesController {
   }
 
   @Patch(':id/triage')
-  triage(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    return this.disputes.triage(id, user);
+  triage(
+    @Param('id') id: string,
+    @Body() body: { idempotencyKey?: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.disputes.triage(id, user, body.idempotencyKey);
   }
 
   @Post(':id/evidence')
   addEvidence(
     @Param('id') id: string,
-    @Body() body: { type: string; url?: string; description?: string; source: string },
+    @Body() body: {
+      type: string;
+      fileId?: string;
+      url?: string;
+      description?: string;
+      source: string;
+      idempotencyKey?: string;
+    },
     @CurrentUser() user: RequestUser,
   ) {
     if (user.role === Role.EXECUTIVE) {
@@ -48,7 +62,15 @@ export class DisputesController {
     }
     return this.disputes.addEvidence(
       id,
-      { type: body.type as any, url: body.url, description: body.description, source: body.source, trusted: false },
+      {
+        type: body.type,
+        fileId: body.fileId,
+        url: body.url,
+        description: body.description,
+        source: body.source,
+        trusted: false,
+        idempotencyKey: body.idempotencyKey,
+      },
       user,
     );
   }
@@ -60,5 +82,34 @@ export class DisputesController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.disputes.decision(id, dto, user);
+  }
+
+  @Post(':id/appeals')
+  openAppeal(
+    @Param('id') id: string,
+    @Body() body: {
+      outcome: string;
+      splitBuyerPct?: number;
+      reason: string;
+      idempotencyKey?: string;
+    },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.disputes.openAppeal(id, body, user);
+  }
+
+  @Patch(':id/appeals/decision')
+  resolveAppeal(
+    @Param('id') id: string,
+    @Body() body: {
+      granted: boolean;
+      outcome?: string;
+      splitBuyerPct?: number;
+      note: string;
+      idempotencyKey?: string;
+    },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.disputes.resolveAppeal(id, body, user);
   }
 }
