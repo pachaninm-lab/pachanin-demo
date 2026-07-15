@@ -21,6 +21,8 @@ const thresholds = {
   apiReplicas: 2,
   webReplicas: 2,
   outboxWorkerReplicas: 2,
+  pgbouncerReplicas: 1,
+  pgbouncerRoutedPrincipals: 4,
   migrationExecutions: 1,
   apiAvailabilityProbeFailures: 0,
   webAvailabilityProbeFailures: 0,
@@ -35,6 +37,8 @@ const actual = {
   apiReplicas: Number(read('cluster/api-ready-replicas.txt') ?? 0),
   webReplicas: Number(read('cluster/web-ready-replicas.txt') ?? 0),
   outboxWorkerReplicas: Number(read('cluster/worker-ready-replicas.txt') ?? 0),
+  pgbouncerReplicas: Number(read('cluster/pgbouncer-ready-replicas.txt') ?? 0),
+  pgbouncerRoutedPrincipals: Number(read('cluster/pgbouncer-routed-principals.txt') ?? 0),
   migrationExecutions: Number(process.env.MIGRATION_EXECUTIONS),
   apiAvailabilityProbeFailures: Number(process.env.API_PROBE_FAILURES),
   webAvailabilityProbeFailures: Number(process.env.WEB_PROBE_FAILURES),
@@ -45,13 +49,22 @@ const actual = {
   networkPolicyUnauthorizedConnections: process.env.NETWORK_DENIAL_PROVEN === 'true' ? 0 : 1,
   rollbackDigestMismatches: process.env.ROLLBACK_MATCH === 'true' ? 0 : 1,
 };
+const exactThresholds = new Set(['migrationExecutions']);
+const minimumThresholds = new Set([
+  'apiReplicas',
+  'webReplicas',
+  'outboxWorkerReplicas',
+  'pgbouncerReplicas',
+  'pgbouncerRoutedPrincipals',
+  'minimumReadyWorkersDuringPeerDeletion',
+]);
 const violations = [];
 for (const [name, threshold] of Object.entries(thresholds)) {
   const value = actual[name];
-  if (name.includes('Replicas') || name === 'migrationExecutions' || name === 'minimumReadyWorkersDuringPeerDeletion') {
-    if (name === 'migrationExecutions') {
-      if (value !== threshold) violations.push(`${name}:${value}!=${threshold}`);
-    } else if (value < threshold) violations.push(`${name}:${value}<${threshold}`);
+  if (exactThresholds.has(name)) {
+    if (value !== threshold) violations.push(`${name}:${value}!=${threshold}`);
+  } else if (minimumThresholds.has(name)) {
+    if (value < threshold) violations.push(`${name}:${value}<${threshold}`);
   } else if (value > threshold) {
     violations.push(`${name}:${value}>${threshold}`);
   }
@@ -86,7 +99,7 @@ const report = {
     api: nodes.api ?? null,
     web: nodes.web ?? null,
     outboxWorker: nodes.outboxWorker ?? null,
-    dependencies: ['PostgreSQL 16', 'Kafka', 'Redis', 'MinIO', 'OpenTelemetry Collector', 'Prometheus', 'Alertmanager', 'ingress-nginx', 'Calico'],
+    dependencies: ['PostgreSQL 16', 'PgBouncer 1.22.1', 'Kafka', 'Redis', 'MinIO', 'OpenTelemetry Collector', 'Prometheus', 'Alertmanager', 'ingress-nginx', 'Calico'],
   },
   thresholds,
   actualMeasurements: actual,
@@ -97,19 +110,23 @@ const report = {
     buildOnceDeployMany: true,
     dedicatedMigrationJob: true,
     applicationMigrations: false,
+    runtimeDatabaseAccessThroughPgBouncer: actual.pgbouncerReplicas >= 1 && actual.pgbouncerRoutedPrincipals >= 4,
     immutablePlatformImages: actual.mutablePlatformImageReferences === 0,
     initialDigestSetApplied: process.env.INITIAL_MATCH === 'true',
     rollingUpdateDigestSetApplied: process.env.ROLLOUT_MATCH === 'true',
     sameSchemaRollbackDigestSetRestored: process.env.ROLLBACK_MATCH === 'true',
     unauthorizedNetworkConnectionBlocked: process.env.NETWORK_DENIAL_PROVEN === 'true',
+    secretSafeEvidenceCollection: true,
   },
   logs: [
     'kubernetes/cluster/pods-all.txt',
     'kubernetes/cluster/events.txt',
     'kubernetes/cluster/workload-descriptions.txt',
+    'kubernetes/cluster/pgbouncer-runtime-check.log',
     'kubernetes/logs/grainflow-api.log',
     'kubernetes/logs/grainflow-web.log',
     'kubernetes/logs/grainflow-outbox-worker.log',
+    'kubernetes/logs/pgbouncer.log',
   ],
   artifacts: [
     'kubernetes/initial-release-manifest.json',
@@ -122,7 +139,7 @@ const report = {
     'kubernetes/rendered/rollback-workloads.yaml',
     'kubernetes/cluster/accepted-resources.yaml',
   ],
-  maturityBoundary: 'Reproducible disposable multi-node kind deployment, live rolling update and same-schema rollback. This does not prove provider-level PostgreSQL HA/PITR, target production load, permanent-environment operations, external pentest, live provider integrations or operational soak.',
+  maturityBoundary: 'Reproducible disposable multi-node kind deployment, PostgreSQL runtime routing through PgBouncer, live rolling update and same-schema rollback. This does not prove provider-level PostgreSQL HA/PITR, target production load, permanent-environment operations, external pentest, live provider integrations or operational soak.',
   externalBlockers: [
     '#2600 removal of obsolete Vercel and Deno status publishers',
     'permanent Kubernetes/registry/DNS/TLS provider access',
@@ -136,6 +153,7 @@ const report = {
     kubectl: read('kubectl-client-version.txt'),
     helm: read('helm-version.txt'),
     node: read('node-version.txt'),
+    pgbouncerImage: 'edoburu/pgbouncer:1.22.1-p0',
     calicoManifestSha256: read('external-manifests/calico.sha256'),
     ingressManifestSha256: read('external-manifests/ingress-nginx.sha256'),
   },
