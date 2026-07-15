@@ -67,7 +67,7 @@ spec:
             {{- toYaml .Values.api.startupProbe | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: {{ .Values.api.securityContext.readOnlyRootFilesystem }}
+            readOnlyRootFilesystem: true
             capabilities:
               drop: [ALL]
           volumeMounts:
