@@ -1,4 +1,6 @@
 platform=Прозрачная Цена
 host=Netlify
 runtime=@netlify/plugin-nextjs@5.15.12
+release=public-homepage-v4
+source_commit=22f6945d571ab715e33c37c47b23cf369c4c12d8
 purpose=production deploy identity and runtime verification
