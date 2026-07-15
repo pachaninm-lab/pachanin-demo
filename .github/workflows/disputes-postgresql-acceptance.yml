@@ -52,7 +52,7 @@ jobs:
           DO $role$
           BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
-              CREATE ROLE app_deal LOGIN PASSWORD 'app_deal';
+              CREATE ROLE app_deal LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'app_deal';
             END IF;
           END
           $role$;
@@ -70,6 +70,27 @@ jobs:
           set -o pipefail
           pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
           pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+      - name: Apply settlement RLS overlay and least-privilege grants
+        run: |
+          psql "$TEST_ADMIN_DATABASE_URL" -X --set ON_ERROR_STOP=1 \
+            --file infra/sql/postgresql-settlement-authority-policies.sql
+          psql "$TEST_ADMIN_DATABASE_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
+          GRANT USAGE ON SCHEMA settlement TO app_deal;
+          GRANT SELECT, INSERT ON
+            settlement.payment_terms,
+            settlement.beneficiaries,
+            settlement.bank_callbacks,
+            settlement.ledger_entries,
+            settlement.reconciliation_facts
+          TO app_deal;
+          GRANT SELECT, INSERT, UPDATE ON
+            settlement.payments,
+            settlement.holds,
+            settlement.bank_operations
+          TO app_deal;
+          REVOKE DELETE ON ALL TABLES IN SCHEMA settlement FROM app_deal;
+          GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA settlement TO app_deal;
+          SQL
       - name: Typecheck dispute authority
         env:
           DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
@@ -105,6 +126,8 @@ jobs:
               restrictedPrincipal: true,
               contractualPartyInitiator: true,
               atomicSettlementHold: true,
+              canonicalDealFreeze: true,
+              heldMoneyProjection: true,
               integerMinorUnits: true,
               durableIdempotency: true,
               optimisticConcurrency: true,
