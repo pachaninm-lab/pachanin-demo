@@ -1,4 +1,5 @@
 name: Outbox PostgreSQL Authority Acceptance
+# Exact-head rerun after Prisma migration/index reconciliation.
 
 on:
   pull_request:
