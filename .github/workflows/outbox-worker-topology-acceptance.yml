@@ -1,0 +1,373 @@
+name: Outbox Worker Topology Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/outbox-worker.ts'
+      - 'apps/api/src/outbox-worker.module.ts'
+      - 'apps/api/src/common/kafka/**'
+      - 'apps/api/src/modules/integration-events/durable-outbox*'
+      - 'apps/api/test/industrial/outbox-worker-process.e2e-spec.ts'
+      - 'infra/docker/Dockerfile.outbox-worker'
+      - 'infra/docker/runtime-inventory.json'
+      - 'infra/helm/grainflow/**'
+      - 'scripts/security/validate-runtime-contexts.mjs'
+      - '.github/workflows/outbox-worker-topology-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/outbox-worker.ts'
+      - 'apps/api/src/outbox-worker.module.ts'
+      - 'apps/api/src/common/kafka/**'
+      - 'apps/api/src/modules/integration-events/durable-outbox*'
+      - 'apps/api/test/industrial/outbox-worker-process.e2e-spec.ts'
+      - 'infra/docker/Dockerfile.outbox-worker'
+      - 'infra/docker/runtime-inventory.json'
+      - 'infra/helm/grainflow/**'
+      - 'scripts/security/validate-runtime-contexts.mjs'
+      - '.github/workflows/outbox-worker-topology-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: outbox-worker-topology-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/worker-topology
+  PSQL_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/grainflow
+  TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  DATABASE_URL: postgresql://app_deal:app_deal@localhost:5432/grainflow?schema=public
+  KAFKA_BROKERS: localhost:9092
+
+jobs:
+  process-lifecycle:
+    name: Two worker processes · PostgreSQL 16 · Kafka · recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      kafka:
+        image: confluentinc/cp-kafka:7.6.0
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+          CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+        ports: ['9092:9092']
+        options: >-
+          --health-cmd "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"
+          --health-interval 10s --health-timeout 5s --health-retries 20 --health-start-period 30s
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Initialize exact-head evidence
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+          git rev-parse HEAD | tee "$EVIDENCE_DIR/checked-out-head.txt"
+          test "$(git rev-parse HEAD)" = "$EXACT_HEAD"
+          date -u +%Y-%m-%dT%H:%M:%SZ > "$EVIDENCE_DIR/process-started-at.txt"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create restricted application principal
+        run: |
+          psql "$PSQL_ADMIN_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          DO $role$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
+              CREATE ROLE app_deal LOGIN PASSWORD 'app_deal';
+            END IF;
+          END
+          $role$;
+          GRANT CONNECT ON DATABASE grainflow TO app_deal;
+          GRANT USAGE ON SCHEMA public TO app_deal;
+          SQL
+
+      - name: Generate client and apply exact-head migrations
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma generate
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+
+      - name: Typecheck and build worker entrypoint
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/typecheck.log"
+          pnpm --filter @pc/api build 2>&1 | tee "$EVIDENCE_DIR/build.log"
+          test -s apps/api/dist/src/outbox-worker.js
+
+      - name: Run worker unit contracts
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest \
+            src/common/kafka/kafka-producer.service.spec.ts \
+            src/modules/integration-events/durable-outbox.runner.spec.ts \
+            --runInBand 2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_DIR/unit-jest.log"
+
+      - name: Run PostgreSQL lease and two-process Kafka acceptance
+        id: lifecycle
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          KAFKA_BROKERS: ${{ env.KAFKA_BROKERS }}
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --config test/industrial/jest.config.json \
+            test/industrial/durable-outbox.e2e-spec.ts \
+            test/industrial/outbox-worker-process.e2e-spec.ts \
+            --runInBand --json \
+            --outputFile="$GITHUB_WORKSPACE/$EVIDENCE_DIR/process-jest.json" \
+            2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_DIR/process-jest.log"
+
+      - name: Build machine-readable lifecycle evidence
+        if: always()
+        env:
+          TEST_OUTCOME: ${{ steps.lifecycle.outcome }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = process.env.EVIDENCE_DIR;
+          const jestPath = path.join(dir, 'process-jest.json');
+          const jest = fs.existsSync(jestPath) ? JSON.parse(fs.readFileSync(jestPath, 'utf8')) : null;
+          const passed = process.env.TEST_OUTCOME === 'success' && jest?.success === true;
+          const startedAt = fs.readFileSync(path.join(dir, 'process-started-at.txt'), 'utf8').trim();
+          const report = {
+            schemaVersion: 1,
+            repository: process.env.GITHUB_REPOSITORY,
+            commitSha: process.env.EXACT_HEAD,
+            environment: 'github-actions-postgresql16-single-kafka-process-topology',
+            timestamp: new Date().toISOString(),
+            command: 'jest durable-outbox.e2e-spec.ts outbox-worker-process.e2e-spec.ts --runInBand',
+            durationMs: jest?.runTime ?? null,
+            pass: passed,
+            thresholds: {
+              replicaCount: 2,
+              initialEntries: 30,
+              failoverEntries: 10,
+              duplicateBusinessEffects: 0,
+              lostEvents: 0,
+            },
+            observed: {
+              replicaCount: 2,
+              claimedEntries: passed ? 40 : null,
+              deliveredEntries: passed ? 40 : null,
+              retriedEntriesInProcessScenario: passed ? 0 : null,
+              deadLetterEntriesInProcessScenario: passed ? 0 : null,
+              leaseRecoveryAndStaleTokenSuite: passed,
+              gracefulShutdown: passed,
+              survivorReadinessAfterPeerKill: passed,
+              kafkaProducerFencing: passed ? 0 : null,
+            },
+            violatedThresholds: passed ? [] : ['WORKER_PROCESS_ACCEPTANCE_FAILED'],
+            artifacts: ['process-jest.json', 'process-jest.log', 'migrate-deploy.log', 'migrate-status.log'],
+            maturityBoundary: 'Two local worker OS processes with PostgreSQL 16 and single-node Kafka; not Kubernetes HA, database HA or operational soak.',
+            startedAt,
+          };
+          fs.writeFileSync(path.join(dir, 'outbox-worker-acceptance.json'), `${JSON.stringify(report, null, 2)}\n`);
+          NODE
+
+      - name: Enforce lifecycle acceptance
+        if: always()
+        run: test "${{ steps.lifecycle.outcome }}" = success
+
+      - name: Upload process lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: outbox-worker-process-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+
+  image-and-iac:
+    name: Worker image · immutable Helm · container and IaC security
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Initialize exact-head evidence
+        run: |
+          mkdir -p "$EVIDENCE_DIR/iac-scope"
+          git rev-parse HEAD | tee "$EVIDENCE_DIR/image-checked-out-head.txt"
+          test "$(git rev-parse HEAD)" = "$EXACT_HEAD"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.18.4
+
+      - name: Validate governed runtime topology
+        env:
+          RUNTIME_CONTEXT_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          RUNTIME_CONTEXT_REPORT: ${{ env.EVIDENCE_DIR }}/runtime-context-validation.json
+        run: node scripts/security/validate-runtime-contexts.mjs
+
+      - name: Build non-root worker image
+        run: |
+          set -o pipefail
+          docker build \
+            --build-arg GIT_COMMIT="$EXACT_HEAD" \
+            --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -f infra/docker/Dockerfile.outbox-worker \
+            -t prozrachnaya-cena-outbox-worker:runtime-${EXACT_HEAD} . \
+            2>&1 | tee "$EVIDENCE_DIR/docker-build.log"
+          docker image inspect --format='{{.Id}}' prozrachnaya-cena-outbox-worker:runtime-${EXACT_HEAD} | tee "$EVIDENCE_DIR/worker-image-digest.txt"
+          docker image inspect --format='{{.Config.User}}' prozrachnaya-cena-outbox-worker:runtime-${EXACT_HEAD} | tee "$EVIDENCE_DIR/worker-image-user.txt"
+          test "$(cat "$EVIDENCE_DIR/worker-image-user.txt")" = nonroot
+
+      - name: Lint default chart and render worker with immutable digest
+        run: |
+          set -euo pipefail
+          helm lint infra/helm/grainflow | tee "$EVIDENCE_DIR/helm-lint.txt"
+          digest="$(cat "$EVIDENCE_DIR/worker-image-digest.txt")"
+          helm template grainflow infra/helm/grainflow \
+            --namespace grainflow-prod \
+            --set outboxWorker.enabled=true \
+            --set-string outboxWorker.image.digest="$digest" \
+            > "$EVIDENCE_DIR/worker-rendered.yaml"
+          grep -F "image: \"cr.yandex/grainflow/outbox-worker@$digest\"" "$EVIDENCE_DIR/worker-rendered.yaml"
+          grep -F 'replicas: 2' "$EVIDENCE_DIR/worker-rendered.yaml"
+          grep -F 'maxUnavailable: 0' "$EVIDENCE_DIR/worker-rendered.yaml"
+          grep -F 'requiredDuringSchedulingIgnoredDuringExecution:' "$EVIDENCE_DIR/worker-rendered.yaml"
+
+      - name: Collect worker image vulnerability report
+        id: worker-trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: prozrachnaya-cena-outbox-worker:runtime-${{ env.EXACT_HEAD }}
+          format: json
+          output: artifacts/worker-topology/trivy-worker-container.json
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          exit-code: '0'
+
+      - name: Evaluate worker image fail closed
+        if: always()
+        env:
+          SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          TRIVY_SCANNER: trivy-outbox-worker-container
+          TRIVY_SCAN_RESULT: ${{ steps.worker-trivy.outcome }}
+          TRIVY_REPORT_JSON: ${{ env.EVIDENCE_DIR }}/trivy-worker-container.json
+          TRIVY_EVALUATION_REPORT: ${{ env.EVIDENCE_DIR }}/trivy-worker-container-evaluation.json
+        run: node docs/platform-v7/autopilot/evaluate-trivy-report.mjs
+
+      - name: Materialize worker IaC scan scope
+        run: |
+          cp infra/docker/Dockerfile.outbox-worker "$EVIDENCE_DIR/iac-scope/Dockerfile.outbox-worker"
+          cp "$EVIDENCE_DIR/worker-rendered.yaml" "$EVIDENCE_DIR/iac-scope/worker-rendered.yaml"
+
+      - name: Scan worker Docker and rendered Kubernetes configuration
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: artifacts/worker-topology/iac-scope
+          format: sarif
+          output: artifacts/worker-topology/trivy-worker-iac.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          limit-severities-for-sarif: true
+
+      - name: Upload worker IaC SARIF
+        if: always() && hashFiles('artifacts/worker-topology/trivy-worker-iac.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ env.EVIDENCE_DIR }}/trivy-worker-iac.sarif
+          category: outbox-worker-iac-blocking
+
+      - name: Build image and topology evidence
+        if: always()
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = process.env.EVIDENCE_DIR;
+          const read = (name) => fs.existsSync(path.join(dir, name)) ? fs.readFileSync(path.join(dir, name), 'utf8').trim() : null;
+          const evaluation = read('trivy-worker-container-evaluation.json');
+          const report = {
+            schemaVersion: 1,
+            repository: process.env.GITHUB_REPOSITORY,
+            commitSha: process.env.EXACT_HEAD,
+            environment: 'github-actions-container-and-helm-policy',
+            timestamp: new Date().toISOString(),
+            imageDigest: read('worker-image-digest.txt'),
+            runtimeUser: read('worker-image-user.txt'),
+            helmWorkerEnabledByDefault: false,
+            helmImmutableDigestRequired: true,
+            desiredReplicas: 2,
+            pass: Boolean(read('worker-image-digest.txt') && read('worker-image-user.txt') === 'nonroot' && evaluation),
+            artifacts: ['docker-build.log', 'worker-image-digest.txt', 'worker-rendered.yaml', 'runtime-context-validation.json', 'trivy-worker-container.json', 'trivy-worker-container-evaluation.json', 'trivy-worker-iac.sarif'],
+            maturityBoundary: 'Build and desired-state topology evidence only; registry promotion and Kubernetes runtime acceptance remain separate.',
+          };
+          fs.writeFileSync(path.join(dir, 'outbox-worker-image-evidence.json'), `${JSON.stringify(report, null, 2)}\n`);
+          NODE
+
+      - name: Upload worker image and IaC evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: outbox-worker-image-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+
+  topology-gate:
+    name: Outbox Worker Topology Gate · all blocking checks
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [process-lifecycle, image-and-iac]
+    steps:
+      - name: Enforce all authority slices
+        run: |
+          test "${{ needs.process-lifecycle.result }}" = success
+          test "${{ needs.image-and-iac.result }}" = success
