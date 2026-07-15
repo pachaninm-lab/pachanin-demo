@@ -9,7 +9,12 @@ function read(relativePath: string): string {
 
 const migrationPath =
   'apps/api/prisma/migrations/20260713210000_auction_postgresql_authority/migration.sql';
+const atomicMigrationPath =
+  'apps/api/prisma/migrations/20260715013000_auction_atomic_execution/migration.sql';
+const atomicMoneyMigrationPath =
+  'apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql';
 const servicePath = 'apps/api/src/modules/auctions/auction-authority.service.ts';
+const commandServicePath = 'apps/api/src/modules/auctions/auction-command.service.ts';
 const controllerPath = 'apps/api/src/modules/auctions/auctions.controller.ts';
 const lotsControllerPath = 'apps/api/src/modules/lots/lots.controller.ts';
 
@@ -42,13 +47,13 @@ describe('auction PostgreSQL authority', () => {
   });
 
   it('binds lot, bid, award and server-issued Deal to one tenant and lot', () => {
-    const migration = read(migrationPath);
+    const migration = [read(migrationPath), read(atomicMigrationPath)].join('\n');
 
     expect(migration).toContain('FOREIGN KEY (tenant_id, lot_id)');
     expect(migration).toContain('FOREIGN KEY (tenant_id, lot_id, winning_bid_id)');
-    expect(migration).toContain('server-issued Deal must match auction tenant and lot');
+    expect(migration).toContain('server-issued Deal must match auction tenant');
     expect(migration).toContain('deal_tenant_id IS DISTINCT FROM NEW.tenant_id');
-    expect(migration).toContain('deal_source_lot_id IS DISTINCT FROM NEW.lot_id');
+    expect(migration).toContain('deal_lot_id IS DISTINCT FROM NEW.lot_id');
     expect(migration).toContain("bid_status NOT IN ('ACCEPTED', 'WINNING')");
   });
 
@@ -68,14 +73,39 @@ describe('auction PostgreSQL authority', () => {
     expect(service).toContain('FROM auction.awards a');
   });
 
-  it('exposes only read endpoints and does not create bids, awards or Deals', () => {
+  it('exposes bounded role-specific command endpoints without client-issued authority', () => {
     const controller = read(controllerPath);
+    const commands = read(commandServicePath);
 
     expect(controller).toContain("@Get('origin-modes')");
     expect(controller).toContain("@Get('lots/:lotId/workspace')");
-    expect(controller).not.toMatch(/@(Post|Patch|Put|Delete)\(/);
+    expect(controller).toContain("@Post('lots')");
+    expect(controller).toContain("@Post('lots/:lotId/admissions')");
+    expect(controller).toContain("@Post('lots/:lotId/bids')");
+    expect(controller).toContain("@Post('lots/:lotId/close')");
     expect(controller).not.toContain('createDeal');
     expect(controller).not.toContain('selectWinner');
+    expect(commands).toContain('randomUUID()');
+    expect(commands).toContain('Prisma.TransactionIsolationLevel.Serializable');
+    expect(commands).toContain('auction.place_bid');
+    expect(commands).toContain('auction.close_lot');
+    expect(commands).not.toMatch(/commandId:\s*string;/);
+  });
+
+  it('persists replay-safe command receipts, audit, outbox and one confirmed basis', () => {
+    const migration = [read(atomicMigrationPath), read(atomicMoneyMigrationPath)].join('\n');
+
+    expect(migration).toContain('CREATE TABLE IF NOT EXISTS auction.command_receipts');
+    expect(migration).toContain('AUCTION_IDEMPOTENCY_PAYLOAD_MISMATCH');
+    expect(migration).toContain('pg_advisory_xact_lock');
+    expect(migration).toContain('ORDER BY bid.amount_kopecks_per_ton DESC, bid.placed_at ASC, bid.id ASC');
+    expect(migration).toContain("'DEAL_BASIS_READY'");
+    expect(migration).toContain("'CONFIRMED'");
+    expect(migration).toContain('auction.append_audit');
+    expect(migration).toContain('auction.append_outbox');
+    expect(migration).toContain('auction.save_command');
+    expect(migration).toContain('amount_kopecks_per_ton bigint');
+    expect(migration).toContain('total_kopecks := round');
   });
 
   it('replaces the authenticated lot registry with the PostgreSQL authority envelope', () => {
