@@ -1,10 +1,31 @@
-FROM node:20-alpine
-WORKDIR /app
+# syntax=docker/dockerfile:1.7
+
+FROM node:24-bookworm-slim AS build
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+WORKDIR /workspace
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/* \
+  && npm install --global pnpm@10.2.1
+
 COPY . .
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
-RUN pnpm install --frozen-lockfile || pnpm install
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile
 RUN pnpm --filter @pc/web build
-RUN chown -R node:node /app
-USER node
+RUN pnpm --filter @pc/web --prod deploy --legacy /prod/web
+
+FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+WORKDIR /app
+
+COPY --from=build --chown=nonroot:nonroot /prod/web/ ./
+COPY --from=build --chown=nonroot:nonroot /workspace/apps/web/.next ./.next
+COPY --from=build --chown=nonroot:nonroot /workspace/apps/web/public ./public
+
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@pc/web", "start"]
+USER nonroot
+CMD ["node_modules/next/dist/bin/next", "start", "-p", "3000"]
