@@ -72,6 +72,12 @@ kubectl create secret generic grainflow-outbox-worker-secrets -n "$NAMESPACE" \
 
 FAILURE_REASON="production-like dependencies did not become ready"
 kubectl apply -f infra/kind/production-like/dependencies.yaml > "$K8S_DIR/dependencies-apply.log"
+kubectl patch statefulset postgresql -n "$NAMESPACE" --type=strategic \
+  --patch-file infra/kind/production-like/postgresql-runtime-patch.yaml \
+  > "$K8S_DIR/postgresql-runtime-patch.log"
+kubectl patch deployment kafka -n "$NAMESPACE" --type=strategic \
+  --patch-file infra/kind/production-like/kafka-runtime-patch.yaml \
+  > "$K8S_DIR/kafka-runtime-patch.log"
 for workload in \
   statefulset/postgresql \
   deployment/kafka \
