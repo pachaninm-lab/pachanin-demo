@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PublicDealExplorer } from '@/components/platform-v7/PublicDealExplorer';
 import type { PublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
@@ -28,6 +29,7 @@ export function PublicDealExplorerV4({
   initialState: TourState;
 }) {
   const ui = getPublicProductExperienceV4Copy(locale);
+  const [legacyScenarioTarget, setLegacyScenarioTarget] = useState<Element | null>(null);
   const normalizedState: TourState = publicBusinessAreas.has(initialState.lens)
     ? initialState
     : { ...initialState, lens: 'execution' };
@@ -46,6 +48,10 @@ export function PublicDealExplorerV4({
 
     window.addEventListener('pc:public-product-analytics', bridge);
     return () => window.removeEventListener('pc:public-product-analytics', bridge);
+  }, []);
+
+  useEffect(() => {
+    setLegacyScenarioTarget(document.querySelector('.pc-ppe-segmented button:nth-child(3)'));
   }, []);
 
   const adaptedCopy: PublicProductExperienceCopy = {
@@ -85,14 +91,30 @@ export function PublicDealExplorerV4({
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 8px;
         }
-        .pc-ppe-page .pc-ppe-lens-list > button:nth-child(2),
-        .pc-ppe-page .pc-ppe-lens-list > button:nth-child(6) {
-          display: none;
-        }
         .pc-ppe-page .pc-ppe-lens-list > button {
           min-width: 0;
           min-height: 48px;
           overflow-wrap: anywhere;
+        }
+        .pc-ppe-page .pc-ppe-lens-list > button:nth-child(1) { grid-column: 1; grid-row: 1; }
+        .pc-ppe-page .pc-ppe-lens-list > button:nth-child(3) { grid-column: 2; grid-row: 1; }
+        .pc-ppe-page .pc-ppe-lens-list > button:nth-child(4) { grid-column: 3; grid-row: 1; }
+        .pc-ppe-page .pc-ppe-lens-list > button:nth-child(5) { grid-column: 4; grid-row: 1; }
+        .pc-ppe-page .pc-ppe-lens-list > button:nth-child(2),
+        .pc-ppe-page .pc-ppe-lens-list > button:nth-child(6) {
+          min-height: 44px;
+          border-style: dashed;
+          background: transparent;
+          color: var(--pc-ppe-muted);
+          box-shadow: none;
+        }
+        .pc-ppe-page .pc-ppe-lens-list > button:nth-child(2) {
+          grid-column: 1 / span 2;
+          grid-row: 2;
+        }
+        .pc-ppe-page .pc-ppe-lens-list > button:nth-child(6) {
+          grid-column: 3 / span 2;
+          grid-row: 2;
         }
         .pc-ppe-page .pc-ppe-explorer-toolbar,
         .pc-ppe-page .pc-ppe-guide-controls,
@@ -108,6 +130,18 @@ export function PublicDealExplorerV4({
             min-height: 52px;
             text-align: left;
           }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(1) { grid-column: 1; grid-row: 1; }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(3) { grid-column: 2; grid-row: 1; }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(4) { grid-column: 1; grid-row: 2; }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(5) { grid-column: 2; grid-row: 2; }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(2) {
+            grid-column: 1 / span 2;
+            grid-row: 3;
+          }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(6) {
+            grid-column: 1 / span 2;
+            grid-row: 4;
+          }
           .pc-ppe-page .pc-ppe-segmented {
             display: grid;
             grid-template-columns: minmax(0, 1fr);
@@ -122,6 +156,12 @@ export function PublicDealExplorerV4({
           .pc-ppe-page .pc-ppe-lens-list {
             grid-template-columns: minmax(0, 1fr);
           }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(1) { grid-column: 1; grid-row: 1; }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(3) { grid-column: 1; grid-row: 2; }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(4) { grid-column: 1; grid-row: 3; }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(5) { grid-column: 1; grid-row: 4; }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(2) { grid-column: 1; grid-row: 5; }
+          .pc-ppe-page .pc-ppe-lens-list > button:nth-child(6) { grid-column: 1; grid-row: 6; }
         }
         @media (prefers-reduced-motion: reduce) {
           .pc-ppe-page *,
@@ -135,6 +175,23 @@ export function PublicDealExplorerV4({
         }
       `}</style>
       <PublicDealExplorer copy={adaptedCopy} locale={locale} initialState={normalizedState} />
+      {legacyScenarioTarget ? createPortal(
+        <span
+          aria-hidden='true'
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >Спорный</span>,
+        legacyScenarioTarget,
+      ) : null}
     </>
   );
 }
