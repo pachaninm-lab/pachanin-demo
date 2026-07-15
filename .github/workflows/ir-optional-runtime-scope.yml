@@ -42,3 +42,4 @@ jobs:
           git add docs/platform-v7/autopilot/check-security-release-gate.mjs
           git commit -m 'Align optional runtime policy marker'
           git push origin HEAD:agent/ir-sec-retire-ml-airflow
+# trigger after workflow registration
