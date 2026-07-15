@@ -45,3 +45,4 @@ jobs:
           git rm .github/workflows/patch-auction-e2e-capture.yml
           git commit -m 'Remove auction E2E capture patch workflow'
           git push origin HEAD:main
+# trigger after workflow registration
