@@ -83,7 +83,9 @@ jobs:
         run: |
           set -o pipefail
           pnpm --filter @pc/api exec jest --config test/industrial/jest.config.json \
-            test/industrial/auction-atomic-execution.e2e-spec.ts --runInBand --json \
+            test/industrial/auction-atomic-execution.e2e-spec.ts \
+            test/industrial/auction-idempotency-race.e2e-spec.ts \
+            --runInBand --json \
             --outputFile="$GITHUB_WORKSPACE/$AUCTION_DIR/auction-jest.json" \
             2>&1 | tee "$GITHUB_WORKSPACE/$AUCTION_DIR/auction-jest.log"
       - name: Build exact-head machine evidence
