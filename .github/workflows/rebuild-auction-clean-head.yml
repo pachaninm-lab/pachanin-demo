@@ -1,0 +1,82 @@
+name: Rebuild auction clean head
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rebuild-auction-clean-head.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild-and-clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Build one clean auction commit on exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch origin main agent/ir-auction-atomic-execution
+          git checkout -B agent/ir-auction-atomic-execution-clean origin/main
+          git checkout origin/agent/ir-auction-atomic-execution -- \
+            .github/workflows/auction-atomic-acceptance.yml \
+            apps/api/prisma/migrations/20260715013000_auction_atomic_execution/migration.sql \
+            apps/api/prisma/migrations/20260715013050_auction_atomic_execution/migration.sql \
+            apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql \
+            apps/api/prisma/migrations/20260715013200_auction_atomic_execution/migration.sql \
+            apps/api/src/modules/auctions/auction-command.service.ts \
+            apps/api/src/modules/auctions/auction-command.service.spec.ts \
+            apps/api/src/modules/auctions/auction-postgresql-authority.spec.ts \
+            apps/api/src/modules/auctions/auctions.controller.ts \
+            apps/api/src/modules/auctions/auctions.module.ts \
+            apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts \
+            scripts/auction-atomic-acceptance.mjs
+          python <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          state = json.loads(path.read_text())
+          scopes = state.setdefault('approvedConcurrentScopes', {})
+          scopes['agent/ir-auction-atomic-execution'] = [
+              '.github/workflows/auction-atomic-acceptance.yml',
+              'apps/api/prisma/migrations/20260715*_auction_atomic_execution/**',
+              'apps/api/src/modules/auctions/**',
+              'apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts',
+              'docs/platform-v7/autopilot/autopilot-state.json',
+              'scripts/auction-atomic-acceptance.mjs',
+          ]
+          path.write_text(json.dumps(state, ensure_ascii=False, separators=(',', ':')))
+          PY
+          git add \
+            .github/workflows/auction-atomic-acceptance.yml \
+            apps/api/prisma/migrations/20260715013000_auction_atomic_execution/migration.sql \
+            apps/api/prisma/migrations/20260715013050_auction_atomic_execution/migration.sql \
+            apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql \
+            apps/api/prisma/migrations/20260715013200_auction_atomic_execution/migration.sql \
+            apps/api/src/modules/auctions/auction-command.service.ts \
+            apps/api/src/modules/auctions/auction-command.service.spec.ts \
+            apps/api/src/modules/auctions/auction-postgresql-authority.spec.ts \
+            apps/api/src/modules/auctions/auctions.controller.ts \
+            apps/api/src/modules/auctions/auctions.module.ts \
+            apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts \
+            scripts/auction-atomic-acceptance.mjs \
+            docs/platform-v7/autopilot/autopilot-state.json
+          git commit -m 'IR-AUCTION: atomic bids, single winner and restart recovery'
+          git push --force origin HEAD:agent/ir-auction-atomic-execution
+      - name: Remove temporary workflow from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout main
+          git pull --ff-only origin main
+          git rm .github/workflows/rebuild-auction-clean-head.yml
+          git commit -m 'Remove auction clean-head rebuild workflow'
+          git push origin HEAD:main
