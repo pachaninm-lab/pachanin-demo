@@ -78,6 +78,15 @@ kubectl patch statefulset postgresql -n "$NAMESPACE" --type=strategic \
 kubectl patch deployment kafka -n "$NAMESPACE" --type=strategic \
   --patch-file infra/kind/production-like/kafka-runtime-patch.yaml \
   > "$K8S_DIR/kafka-runtime-patch.log"
+
+# The initial apply can create the pre-patch PostgreSQL pod and Kafka ReplicaSet
+# before the hardened templates are accepted. Force those disposable pods out so
+# rollout status observes only the patched revisions.
+kubectl delete pod postgresql-0 -n "$NAMESPACE" --ignore-not-found=true --wait=true \
+  > "$K8S_DIR/postgresql-prepatch-pod-delete.log"
+kubectl delete pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka --ignore-not-found=true --wait=true \
+  > "$K8S_DIR/kafka-prepatch-pod-delete.log"
+
 for workload in \
   statefulset/postgresql \
   deployment/kafka \
@@ -88,6 +97,15 @@ for workload in \
   deployment/alertmanager; do
   kubectl rollout status -n "$NAMESPACE" "$workload" --timeout=360s
 done
+
+postgres_current_revision="$(kubectl get statefulset postgresql -n "$NAMESPACE" -o jsonpath='{.status.currentRevision}')"
+postgres_update_revision="$(kubectl get statefulset postgresql -n "$NAMESPACE" -o jsonpath='{.status.updateRevision}')"
+printf '%s:%s\n' "$postgres_current_revision" "$postgres_update_revision" \
+  > "$K8S_DIR/cluster/postgresql-revision-proof.txt"
+test -n "$postgres_current_revision"
+test "$postgres_current_revision" = "$postgres_update_revision"
+test "$(kubectl get deployment kafka -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}')" = "1"
+test "$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka --no-headers | wc -l | tr -d ' ')" = "1"
 
 kubectl run minio-init -n "$NAMESPACE" --restart=Never \
   --image=minio/mc:RELEASE.2024-05-09T17-04-24Z \
