@@ -80,7 +80,7 @@ function validateInventory() {
       violations.push(`${path}: invalid deployable runtime entry for ${item.component ?? '<missing>'}.`);
     }
     if (item.component === 'outbox-worker') {
-      if (item.entrypoint !== 'dist/src/outbox-worker.js'
+      if (item.entrypoint !== 'dist-outbox-worker/outbox-worker.js'
         || item.stateAuthority !== 'PostgreSQL outbox_entries'
         || item.independentProcess !== true
         || item.activationContract?.helmEnabledByDefault !== false
@@ -118,8 +118,15 @@ function validateDockerfiles() {
     ]);
   }
   requireFragments('infra/docker/Dockerfile.outbox-worker', [
+    'pnpm --filter @pc/api build:outbox-worker',
+    'rm -rf /prod/outbox-worker/src /prod/outbox-worker/test /prod/outbox-worker/prisma',
     'ENV RUNTIME_COMPONENT=outbox-worker',
-    'CMD ["dist/src/outbox-worker.js"]',
+    'CMD ["dist-outbox-worker/outbox-worker.js"]',
+  ]);
+  requireFragments('apps/api/tsconfig.outbox-worker.json', [
+    '"rootDir": "src"',
+    '"outDir": "dist-outbox-worker"',
+    '"src/outbox-worker.ts"',
   ]);
   for (const retired of ['infra/docker/Dockerfile.worker', 'infra/docker/Dockerfile.ml']) {
     if (existsSync(resolve(ROOT, retired))) {
