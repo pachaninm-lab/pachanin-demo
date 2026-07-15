@@ -38,7 +38,7 @@ const dealDocumentsPage = read('apps/web/app/platform-v7/deals/[id]/documents/pa
 
 describe('Next.js 15 runtime contracts', () => {
   it('pins the patched Next.js line without coupling the change to React 19', () => {
-    expect(webPackage.dependencies?.next).toBe('15.5.16');
+    expect(webPackage.dependencies?.next).toBe('15.5.18');
     expect(webPackage.dependencies?.react).toBe('18.3.1');
     expect(webPackage.dependencies?.['react-dom']).toBe('18.3.1');
     expect(webPackage.dependencies?.['next-intl']).toBe('^3.26.5');
