@@ -17,6 +17,14 @@ RUN pnpm --filter @pc/web build
 RUN pnpm --filter @pc/web --prod deploy --legacy /prod/web
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+ARG APP_VERSION=3.0.0
+LABEL org.opencontainers.image.title="Prozrachnaya Cena web" \
+      org.opencontainers.image.description="Server-rendered transaction workspace and public product experience" \
+      org.opencontainers.image.revision=$GIT_COMMIT \
+      org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.version=$APP_VERSION
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0

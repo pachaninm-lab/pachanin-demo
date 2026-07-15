@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1.7
+
+FROM node:24-bookworm-slim AS build
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+WORKDIR /workspace
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/* \
+  && npm install --global pnpm@10.2.1
+
+COPY . .
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile
+RUN pnpm --filter @pc/api deploy --legacy /prod/migrations
+RUN node - <<'NODE'
+const fs = require('node:fs');
+const path = '/prod/migrations/package.json';
+const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+const prisma = manifest.devDependencies?.prisma;
+if (!prisma) throw new Error('The API package must declare an exact Prisma CLI version');
+manifest.dependencies = { ...(manifest.dependencies ?? {}), prisma };
+delete manifest.devDependencies;
+fs.writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+NODE
+RUN pnpm --dir /prod/migrations prune --prod \
+  && rm -rf /prod/migrations/src /prod/migrations/test /prod/migrations/dist /prod/migrations/dist-outbox-worker \
+  && rm -rf /prod/migrations/prisma \
+  && cp -R /workspace/apps/api/prisma /prod/migrations/prisma
+
+FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+ARG APP_VERSION=3.0.0
+LABEL org.opencontainers.image.title="Prozrachnaya Cena database migrations" \
+      org.opencontainers.image.description="Single-authority forward-only Prisma migration executor" \
+      org.opencontainers.image.revision=$GIT_COMMIT \
+      org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.version=$APP_VERSION
+ENV NODE_ENV=production
+ENV RUNTIME_COMPONENT=migration-job
+WORKDIR /app
+COPY --from=build --chown=nonroot:nonroot /prod/migrations/ ./
+USER nonroot
+CMD ["node_modules/prisma/build/index.js", "migrate", "deploy", "--schema", "prisma/schema.prisma"]

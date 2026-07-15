@@ -17,6 +17,14 @@ RUN pnpm --filter @pc/api build
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/api
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+ARG APP_VERSION=3.0.0
+LABEL org.opencontainers.image.title="Prozrachnaya Cena API" \
+      org.opencontainers.image.description="Canonical transaction API for the autonomous industrial contour" \
+      org.opencontainers.image.revision=$GIT_COMMIT \
+      org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.version=$APP_VERSION
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=nonroot:nonroot /prod/api/ ./

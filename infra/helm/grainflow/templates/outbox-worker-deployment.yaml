@@ -1,5 +1,7 @@
 {{- if .Values.outboxWorker.enabled }}
-{{- $digest := required "outboxWorker.image.digest is required when outboxWorker.enabled=true; mutable tags are forbidden" .Values.outboxWorker.image.digest }}
+{{- $digest := include "grainflow.image.digest" (dict "component" "outboxWorker" "digest" .Values.outboxWorker.image.digest) }}
+{{- $sourceCommit := include "grainflow.release.sourceCommit" . }}
+{{- $manifestId := include "grainflow.release.manifestId" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,6 +32,8 @@ spec:
         app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
       annotations:
         platform.prozrachnaya-cena/image-digest: {{ $digest | quote }}
+        platform.prozrachnaya-cena/source-commit: {{ $sourceCommit | quote }}
+        platform.prozrachnaya-cena/release-manifest: {{ $manifestId | quote }}
         prometheus.io/scrape: "true"
         prometheus.io/port: {{ .Values.outboxWorker.healthPort | quote }}
         prometheus.io/path: "/metrics"
@@ -57,6 +61,10 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+            - name: RELEASE_SOURCE_COMMIT
+              value: {{ $sourceCommit | quote }}
+            - name: RELEASE_MANIFEST_ID
+              value: {{ $manifestId | quote }}
             - name: OUTBOX_WORKER_ID
               valueFrom:
                 fieldRef:

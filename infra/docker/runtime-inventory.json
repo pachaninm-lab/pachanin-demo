@@ -7,14 +7,29 @@
       "dockerfile": "infra/docker/Dockerfile.api",
       "status": "DEPLOYABLE",
       "runtimeUser": "nonroot",
-      "productionDependenciesOnly": true
+      "productionDependenciesOnly": true,
+      "activationContract": {
+        "helmEnabledByDefault": false,
+        "immutableDigestRequired": true,
+        "releaseManifestRequired": true,
+        "sourceCommitLabelRequired": true,
+        "migrationGateRequired": true
+      },
+      "ticket": "#2652"
     },
     {
       "component": "web",
       "dockerfile": "infra/docker/Dockerfile.web",
       "status": "DEPLOYABLE",
       "runtimeUser": "nonroot",
-      "productionDependenciesOnly": true
+      "productionDependenciesOnly": true,
+      "activationContract": {
+        "helmEnabledByDefault": false,
+        "immutableDigestRequired": true,
+        "releaseManifestRequired": true,
+        "sourceCommitLabelRequired": true
+      },
+      "ticket": "#2652"
     },
     {
       "component": "outbox-worker",
@@ -44,6 +59,8 @@
       "activationContract": {
         "helmEnabledByDefault": false,
         "immutableDigestRequired": true,
+        "releaseManifestRequired": true,
+        "sourceCommitLabelRequired": true,
         "requiredEnvironment": [
           "DATABASE_URL using app_outbox",
           "KAFKA_BROKERS",
@@ -53,6 +70,27 @@
         ]
       },
       "ticket": "#2649"
+    }
+  ],
+  "releaseUtilities": [
+    {
+      "component": "migration-job",
+      "dockerfile": "infra/docker/Dockerfile.migrations",
+      "entrypoint": "node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma",
+      "status": "RELEASE_GATE_ONLY",
+      "runtimeUser": "nonroot",
+      "productionDependenciesOnly": false,
+      "databasePrincipal": "dedicated DDL principal from grainflow-migration-secrets",
+      "activationContract": {
+        "helmEnabledByDefault": false,
+        "immutableDigestRequired": true,
+        "releaseManifestRequired": true,
+        "sourceCommitLabelRequired": true,
+        "preInstallPreUpgradeHook": true,
+        "applicationPodsRunMigrations": false,
+        "backoffLimit": 0
+      },
+      "ticket": "#2652"
     }
   ],
   "nonDeployable": [
