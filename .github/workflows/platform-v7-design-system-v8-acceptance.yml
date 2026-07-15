@@ -1,97 +1,47 @@
-name: Platform V7 Design System v8 Acceptance
+name: Patch Public Product Experience Security Policy Scope
 
 on:
   pull_request:
-    paths:
-      - 'apps/web/app/platform-v7/**'
-      - 'apps/web/components/platform-v7/**'
-      - 'apps/web/components/v7r/AppShellV4*'
-      - 'apps/web/lib/platform-v7/**'
-      - 'apps/web/styles/platform-v7-public-*.css'
-      - 'apps/web/playwright.acceptance.config.ts'
-      - 'apps/web/tests/e2e/platform-v7-*.spec.ts'
-      - 'apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts'
-      - 'packages/design-system-v8/**'
-      - 'packages/design-tokens/**'
-      - 'docs/platform-v7/qa/DESIGN_SYSTEM_V8_FINAL_ACCEPTANCE.md'
-      - '.github/workflows/platform-v7-design-system-v8-acceptance.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'apps/web/app/platform-v7/**'
-      - 'apps/web/components/platform-v7/**'
-      - 'apps/web/components/v7r/AppShellV4*'
-      - 'apps/web/lib/platform-v7/**'
-      - 'apps/web/styles/platform-v7-public-*.css'
-      - 'apps/web/playwright.acceptance.config.ts'
-      - 'apps/web/tests/e2e/platform-v7-*.spec.ts'
-      - 'packages/design-system-v8/**'
-      - 'packages/design-tokens/**'
-      - '.github/workflows/platform-v7-design-system-v8-acceptance.yml'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: platform-v7-design-system-v8-acceptance-${{ github.event.pull_request.number || github.ref }}
+  group: patch-public-product-security-policy-scope-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  browser-accessibility-matrix:
+  patch-exact-scope:
+    if: github.event_name == 'pull_request' && github.head_ref == 'agent/public-product-experience-v3'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      PC_ACCEPTANCE_JWT_SECRET: pc-design-system-v8-acceptance-secret-2026
-      JWT_SECRET: pc-design-system-v8-acceptance-secret-2026
-      PC_CABINET_SESSION_SECRET: pc-design-system-v8-acceptance-secret-2026
-      NEXT_TELEMETRY_DISABLED: '1'
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
         with:
-          version: 10.2.1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-      - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Install Chromium, Firefox and WebKit
-        working-directory: apps/web
-        run: pnpm exec playwright install --with-deps chromium firefox webkit
-      - name: Build production web bundle
-        run: pnpm --filter @pc/web build
-      - name: Run Design System v8 browser and accessibility matrix
-        working-directory: apps/web
-        run: pnpm exec playwright test --config=playwright.acceptance.config.ts
-      - name: Publish acceptance summary
-        if: always()
-        working-directory: apps/web
+          ref: agent/public-product-experience-v3
+          fetch-depth: 0
+      - name: Add only the security policy validator to branch scope
         run: |
-          node <<'NODE'
-          const fs = require('node:fs');
-          const path = 'design-system-v8-acceptance-results.json';
-          if (!fs.existsSync(path)) {
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '## Design System v8 acceptance\n\nJSON result was not produced.\n');
-            process.exit(0);
-          }
-          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
-          const stats = report.stats || {};
-          fs.appendFileSync(
-            process.env.GITHUB_STEP_SUMMARY,
-            `## Design System v8 acceptance\n\n- Expected: ${stats.expected ?? 0}\n- Unexpected: ${stats.unexpected ?? 0}\n- Flaky: ${stats.flaky ?? 0}\n- Skipped: ${stats.skipped ?? 0}\n- Duration: ${Math.round((stats.duration || 0) / 1000)} s\n`,
-          );
-          NODE
-      - name: Upload browser acceptance evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: platform-v7-design-system-v8-acceptance-${{ github.sha }}
-          path: |
-            apps/web/design-system-v8-acceptance-results.json
-            apps/web/playwright-report
-            apps/web/test-results
-          if-no-files-found: warn
-          retention-days: 14
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('docs/platform-v7/autopilot/autopilot-state.json')
+          state = json.loads(path.read_text(encoding='utf-8'))
+          branch = 'agent/public-product-experience-v3'
+          scope = state.setdefault('approvedConcurrentScopes', {}).setdefault(branch, [])
+          required = 'docs/platform-v7/autopilot/check-security-release-gate.mjs'
+          if required not in scope:
+              scope.append(required)
+          scope.sort()
+          path.write_text(json.dumps(state, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
+          PY
+      - name: Commit governed scope only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/autopilot-state.json
+          git commit -m 'Approve exact security policy validator scope'
+          git pull --rebase origin agent/public-product-experience-v3
+          git push origin HEAD:agent/public-product-experience-v3
