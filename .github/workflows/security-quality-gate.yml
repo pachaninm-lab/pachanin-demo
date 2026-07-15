@@ -20,7 +20,7 @@ concurrency:
 env:
   NODE_VERSION: '24'
   PNPM_VERSION: '10.2.1'
-  AUDIT_PNPM_VERSION: '11.13.0'
+  AUDIT_PNPM_VERSION: '11.0.0-rc.2'
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   SECURITY_ARTIFACT_DIR: artifacts/security
 
