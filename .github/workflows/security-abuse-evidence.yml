@@ -78,7 +78,7 @@ jobs:
         env:
           SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
           SECURITY_EVALUATOR_CONTRACT_REPORT: ${{ env.SECURITY_ABUSE_DIR }}/security-evaluator-contract.json
-        run: node docs/platform-v7/autopilot/test-security-evaluator-fail-closed.mjs
+        run: node scripts/security/test-evaluator-fail-closed.mjs
 
       - name: Generate ephemeral security secrets
         shell: bash
@@ -94,7 +94,7 @@ jobs:
           SECURITY_ABUSE_REPORT: ${{ env.SECURITY_ABUSE_DIR }}/security-abuse-evidence.json
           SECURITY_ABUSE_JUNIT: ${{ env.SECURITY_ABUSE_DIR }}/security-abuse-junit.xml
           SECURITY_ABUSE_LOG_DIR: ${{ env.SECURITY_ABUSE_DIR }}/logs
-        run: node docs/platform-v7/autopilot/run-security-abuse-gate.mjs
+        run: node scripts/security/run-abuse-gate.mjs
 
       - name: Upload abuse-case evidence
         if: always()
@@ -208,7 +208,7 @@ jobs:
           DEPENDENCY_RESULT: success
           TYPESCRIPT_RESULT: success
           ABUSE_RESULT: success
-        run: node docs/platform-v7/autopilot/build-security-evidence-manifest.mjs
+        run: node scripts/security/build-evidence-manifest.mjs
 
       - name: Upload unified security evidence
         if: always() && hashFiles('artifacts/security/security-evidence-manifest.json') != ''
