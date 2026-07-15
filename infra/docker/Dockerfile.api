@@ -14,17 +14,19 @@ COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
 RUN pnpm --filter @pc/api build
+RUN test -f /workspace/apps/api/dist/src/main.js \
+  || { echo 'API build did not emit dist/src/main.js' >&2; find /workspace/apps/api/dist -maxdepth 4 -type f -print >&2; exit 1; }
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/api
 
 # pnpm deploy creates the production dependency graph but does not guarantee that
 # workspace build output or Prisma's generated client side effects are copied.
-# Materialize both explicitly and prove the final runtime tree before distroless.
+# Materialize both explicitly and prove each final runtime invariant separately.
 RUN rm -rf /prod/api/src /prod/api/test /prod/api/prisma /prod/api/dist \
-  && cp -R /workspace/apps/api/dist /prod/api/dist \
-  && node scripts/release/materialize-prisma-client.mjs /workspace/apps/api /prod/api \
-  && test -f /prod/api/dist/src/main.js \
-  && cd /prod/api \
-  && node -e "const {PrismaClient}=require('@prisma/client'); if(typeof PrismaClient!=='function') process.exit(1)"
+  && cp -R /workspace/apps/api/dist /prod/api/dist
+RUN test -f /prod/api/dist/src/main.js
+RUN node scripts/release/materialize-prisma-client.mjs /workspace/apps/api /prod/api
+RUN cd /prod/api \
+  && node -e "const {PrismaClient}=require('@prisma/client'); if(typeof PrismaClient!=='function') throw new Error('PrismaClient export is unavailable')"
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
