@@ -83,6 +83,6 @@ jobs:
           git rm -f docs/platform-v7/autopilot/await-next15-request-headers.mjs
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A apps/web docs/platform-v7/autopilot/await-next15-request-headers.mjs
+          git add -A apps/web
           git commit -m 'Await Next.js 15 request header APIs [next15-typecheck]'
           git push origin HEAD:agent/ir-sec-next-15-5-16-final
