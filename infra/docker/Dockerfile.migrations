@@ -1,20 +1,35 @@
 # syntax=docker/dockerfile:1.7
 
 FROM node:24-bookworm-slim AS build
-WORKDIR /migration
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+WORKDIR /workspace
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates openssl \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && npm install --global pnpm@10.2.1
 
-# Migration authority deliberately does not inherit the API dependency graph.
-# The exact CLI version matches apps/api/package.json and is locked inside the
-# built image. Prisma migrate deploy does not require the application runtime.
-RUN npm init --yes >/dev/null \
-  && npm install --save-exact --omit=dev --no-audit --no-fund prisma@5.22.0 \
-  && npm cache clean --force
-
-COPY apps/api/prisma ./prisma
+COPY . .
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile
+RUN node - <<'NODE'
+const fs = require('node:fs');
+const path = '/workspace/apps/api/package.json';
+const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+const declared = manifest.devDependencies?.prisma;
+if (declared !== '^5.22.0' && declared !== '5.22.0') {
+  throw new Error(`Expected Prisma CLI 5.22.0 in apps/api/package.json, received ${declared ?? '<missing>'}`);
+}
+fs.writeFileSync(path, `${JSON.stringify({
+  name: manifest.name,
+  private: true,
+  dependencies: { prisma: '5.22.0' },
+}, null, 2)}\n`);
+NODE
+RUN pnpm --filter @pc/api deploy --prod --legacy /migration-runtime \
+  && rm -rf /migration-runtime/prisma \
+  && cp -R /workspace/apps/api/prisma /migration-runtime/prisma
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
@@ -28,6 +43,6 @@ LABEL org.opencontainers.image.title="Prozrachnaya Cena database migrations" \
 ENV NODE_ENV=production
 ENV RUNTIME_COMPONENT=migration-job
 WORKDIR /app
-COPY --from=build --chown=nonroot:nonroot /migration/ ./
+COPY --from=build --chown=nonroot:nonroot /migration-runtime/ ./
 USER nonroot
 CMD ["node_modules/prisma/build/index.js", "migrate", "deploy", "--schema", "prisma/schema.prisma"]
