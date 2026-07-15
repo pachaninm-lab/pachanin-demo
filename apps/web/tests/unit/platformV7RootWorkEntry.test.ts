@@ -50,7 +50,7 @@ describe('platform-v7 public product experience v4', () => {
   it('exposes one primary hero action and an explicit illustrative label', () => {
     const firstHero = page.slice(page.indexOf("className='pc-ppe-hero"), page.indexOf("className='pc-ppe-section'"));
     expect(firstHero.match(/className='pc-ppe-primary-button'/g)?.length).toBe(1);
-    expect(firstHero).toContain("eventName='home_primary_cta_click'");
+    expect(firstHero).toContain("eventName='deal_preview_opened'");
     expect(copy).toContain("eyebrow: 'Пример прохождения сделки'");
     expect(copy).toContain("exampleBadge: 'Пример прохождения сделки'");
     expect(copyV4).toContain("primary: 'Посмотреть сделку'");
@@ -68,21 +68,24 @@ describe('platform-v7 public product experience v4', () => {
     expect(entryGate).toContain("'problem-first'");
     expect(entryGate).toContain('entryCopy.role.options.slice(0, 5)');
     expect(entryGate).toContain('ui.explorer.entryBadge');
-    expect(entryGate).toContain('lens: option.lens');
+    expect(entryGate).toContain("lens: 'execution'");
     expect(entryGate).toContain("name: 'role_selected'");
     expect(entryCopy).toContain("title: 'Кто вы в сделке?'");
     expect(entryCopy).toContain("title: 'Что вы хотите контролировать?'");
     expect(entryGate).toContain('не влияет на права доступа');
-    expect(entryCss).toContain('min-height: 108px');
+    expect(entryCss).toContain('min-height: 116px');
     expect(entryCss).toContain('min-height: 96px');
   });
 
-  it('provides six lenses, twelve perspectives, three scenarios and ten stages', () => {
+  it('keeps six internal lenses but exposes four business areas publicly', () => {
     expect(explorerPage).toContain("data-testid='platform-v7-deal-from-inside'");
     expect(explorer).toContain('TOUR_LENSES.map');
     expect(explorer).toContain('TOUR_PERSPECTIVES.map');
     expect(explorer).toContain('TOUR_SCENARIOS.map');
     expect(explorer).toContain('TOUR_STAGES.map');
+    expect(explorerAdapter).toContain("['execution', 'documents', 'money', 'risk']");
+    expect(explorerAdapter).toContain('.pc-ppe-lens-list > button:nth-child(2)');
+    expect(explorerAdapter).toContain('.pc-ppe-lens-list > button:nth-child(6)');
     expect(explorerAdapter).toContain('ui.explorer.scenarios.standard');
     expect(explorerAdapter).toContain('perspective: ui.explorer.roleLabel');
     expect(copy.match(/summary: /g)?.length).toBeGreaterThanOrEqual(18);
@@ -116,7 +119,7 @@ describe('platform-v7 public product experience v4', () => {
     expect(layout).not.toContain('!important');
   });
 
-  it('keeps mobile, accessibility and resilient-display gates active', () => {
+  it('keeps mobile accessibility and resilient-display gates active', () => {
     expect(css).toContain('min-height: 44px');
     expect(css).toContain('@media (max-width: 360px)');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
@@ -124,14 +127,17 @@ describe('platform-v7 public product experience v4', () => {
     expect(css).toContain('scroll-padding-bottom: 88px');
     expect(cssV4).toContain('@media (max-width: 360px)');
     expect(cssV4).toContain('grid-template-columns: minmax(0, 1fr) !important');
-    expect(entryCss).toContain('--pc-ppe-v4-header: 64px');
+    expect(entryCss).toContain('--pc-ppe-v4-header: 56px');
+    expect(entryCss).toContain('--pc-ppe-v4-header: 54px');
     expect(entryCss).toContain('scroll-padding-top: calc(var(--pc-ppe-v4-header) + 18px)');
     expect(entryCss).toContain('.pc-site-brand-mark img');
+    expect(entryCss).toContain('opacity: 0 !important');
     expect(entryCss).toContain('right: -5px !important');
     expect(refinementCss).toContain('.pc-ppe-hero-contour');
     expect(refinementCss).toContain('overflow-x: auto');
     expect(refinementCss).toContain("html[data-pc-ppe-scrolling='true'] .pc-ppe-page .p7-support-chat-button");
     expect(entryCss).toContain('@media (max-width: 420px)');
+    expect(entryCss).toContain('@media (prefers-reduced-motion: reduce)');
     expect(page).toContain('<PublicExperienceScrollCoordinator />');
     expect(explorerPage).toContain('<PublicExperienceScrollCoordinator />');
     expect(analytics).toContain("root.setAttribute('data-pc-ppe-scrolling', 'true')");
