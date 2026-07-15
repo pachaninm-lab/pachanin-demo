@@ -13,8 +13,10 @@ RUN apt-get update \
 COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
-RUN pnpm --filter @pc/api build
+RUN pnpm --filter @pc/api build:outbox-worker
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/outbox-worker
+RUN rm -rf /prod/outbox-worker/src /prod/outbox-worker/test /prod/outbox-worker/prisma \
+  && cp -R /workspace/apps/api/dist-outbox-worker /prod/outbox-worker/dist-outbox-worker
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
@@ -33,4 +35,4 @@ COPY --from=build --chown=nonroot:nonroot /prod/outbox-worker/ ./
 
 EXPOSE 3002
 USER nonroot
-CMD ["dist/src/outbox-worker.js"]
+CMD ["dist-outbox-worker/outbox-worker.js"]
