@@ -64,7 +64,7 @@ async function expectMinimumTargets(page: Page, locator: string) {
   expect(targets.every((target) => target.width >= 44 && target.height >= 44)).toBe(true);
 }
 
-test.describe('Public Product Experience V4 browser acceptance', () => {
+test.describe('Public Product Experience V3 browser acceptance', () => {
   test.beforeEach(async ({ page }) => {
     await installLayoutShiftObserver(page);
   });
@@ -88,7 +88,7 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
       await expect(page.locator('.pc-ppe-explorer')).toHaveAttribute('data-lens', 'money');
       await expect(page.locator('.pc-ppe-explorer')).toHaveAttribute('data-scenario', 'partial');
       await expect(page.locator('.pc-ppe-deal-card')).toBeVisible();
-      await expect(page.locator('.pc-ppe-lens-list button:visible')).toHaveCount(4);
+      await expect(page.locator('.pc-ppe-lens-list button')).toHaveCount(6);
       await expect(page.locator('.pc-ppe-segmented button')).toHaveCount(3);
       await expect(page.locator('.pc-ppe-select-label option')).toHaveCount(12);
       await expect(page.locator('.pc-ppe-stage-track button')).toHaveCount(10);
@@ -133,7 +133,7 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('business areas, scenarios and browser history remain operable', async ({ page }) => {
+  test('lenses, scenarios, AI layer and browser history remain operable', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     await page.goto(
       '/platform-v7/how-it-works?lang=ru&entry=deal&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0',
@@ -141,11 +141,11 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
     );
 
     const explorer = page.locator('.pc-ppe-explorer');
-    await page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Риски и спор' }).click();
+    await page.locator('.pc-ppe-lens-list button').filter({ hasText: 'Риски и спор' }).click();
     await expect(explorer).toHaveAttribute('data-lens', 'risk');
     await expect(page).toHaveURL(/lens=risk/);
 
-    await page.locator('.pc-ppe-segmented button').filter({ hasText: 'Спор по качеству' }).click();
+    await page.locator('.pc-ppe-segmented button').filter({ hasText: 'Спорный' }).click();
     await expect(explorer).toHaveAttribute('data-scenario', 'dispute');
     await expect(page).toHaveURL(/scenario=dispute/);
 
@@ -153,9 +153,13 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
     await expect(explorer).toHaveAttribute('data-lens', 'risk');
     await expect(explorer).toHaveAttribute('data-scenario', 'partial');
 
-    await page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Документы' }).click();
-    await expect(explorer).toHaveAttribute('data-lens', 'documents');
-    await expect(page).toHaveURL(/lens=documents/);
+    await page.locator('.pc-ppe-lens-list button').filter({ hasText: 'ИИ и аналитика' }).click();
+    const aiToggle = page.locator('.pc-ppe-ai-toggle');
+    await expect(aiToggle).toHaveAttribute('aria-checked', 'false');
+    await aiToggle.click();
+    await expect(aiToggle).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('.pc-ppe-ai-signals article')).toHaveCount(3);
+    await expect(page).toHaveURL(/ai=1/);
 
     await expectNoSeriousAxeViolations(page);
     await expectLayoutShiftWithinBudget(page);
@@ -175,7 +179,7 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
       const response = await page.goto(`/platform-v7/how-it-works?lang=${locale}&entry=deal`, { waitUntil: 'load' });
       expect(response?.ok(), `${locale} explorer 320px response`).toBe(true);
       await expectNoHorizontalOverflow(page);
-      await expectMinimumTargets(page, '.pc-ppe-lens-list button:visible');
+      await expectMinimumTargets(page, '.pc-ppe-lens-list button');
       await expectMinimumTargets(page, '.pc-ppe-segmented button');
       await expectMinimumTargets(page, '.pc-ppe-stage-nav button');
     }
