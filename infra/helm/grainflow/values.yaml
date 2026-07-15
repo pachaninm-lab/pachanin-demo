@@ -1,11 +1,40 @@
-# GrainFlow Helm Values — Production Defaults (ТЗ 4.3, 13.2)
-# Переопределить для staging: --values values-staging.yaml
+# GrainFlow Helm Values — fail-closed release defaults
+# Workloads remain disabled until an accepted immutable OCI digest set is supplied.
+
+release:
+  sourceCommit: ""
+  manifestId: ""
+
+# ── Forward-only migration authority ──────────────────────────────────────────
+# API and worker pods never execute migrations. A release that enables API must
+# also enable this one-shot pre-install/pre-upgrade Job with a separate DDL
+# principal supplied through grainflow-migration-secrets.
+migration:
+  enabled: false
+  image:
+    repository: cr.yandex/grainflow/migrations
+    digest: ""
+    pullPolicy: IfNotPresent
+  activeDeadlineSeconds: 900
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  secretEnvFrom:
+    - secretRef:
+        name: grainflow-migration-secrets
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
 
 # ── API Service ───────────────────────────────────────────────────────────────
 api:
+  enabled: false
   image:
     repository: cr.yandex/grainflow/api
-    tag: "latest"
+    digest: ""
     pullPolicy: IfNotPresent
 
   replicaCount: 2
@@ -110,9 +139,6 @@ api:
     readOnlyRootFilesystem: true
 
 # ── Durable PostgreSQL outbox worker ──────────────────────────────────────────
-# Disabled until an immutable registry digest is supplied. Production-like
-# rendering must set enabled=true and image.digest=sha256:...; tag fallback is
-# intentionally forbidden for this authority process.
 outboxWorker:
   enabled: false
   image:
@@ -195,9 +221,10 @@ outboxWorker:
 
 # ── Web Frontend ──────────────────────────────────────────────────────────────
 web:
+  enabled: false
   image:
     repository: cr.yandex/grainflow/web
-    tag: "latest"
+    digest: ""
     pullPolicy: IfNotPresent
   replicaCount: 2
   autoscaling:
