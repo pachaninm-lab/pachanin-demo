@@ -176,6 +176,7 @@ const forbiddenWorkflowPatterns = [
   [/continue-on-error:\s*true/g, 'blocking workflow must not use continue-on-error: true'],
   [/@master\b/g, 'GitHub Actions must not use mutable @master refs'],
   [/apps\/api\/Dockerfile/g, 'workflow must build the canonical infra/docker/Dockerfile.api'],
+  [/--ignore-registry-errors\b/g, 'dependency audit must fail closed on registry or scanner errors'],
 ];
 for (const [pattern, message] of forbiddenWorkflowPatterns) if (pattern.test(workflow)) errors.push(message);
 
@@ -199,7 +200,8 @@ const requiredWorkflowFragments = [
   'scan-type: config',
   'scan-ref: infra/docker',
   'scanners: secret',
-  'pnpm audit --prod --json',
+  "AUDIT_PNPM_VERSION: '11.13.0'",
+  'pnpm dlx pnpm@${AUDIT_PNPM_VERSION} audit --prod --json',
   'docs/platform-v7/autopilot/semgrep-security.yml',
   'check-security-release-gate.mjs',
   'evaluate-pnpm-audit.mjs',
