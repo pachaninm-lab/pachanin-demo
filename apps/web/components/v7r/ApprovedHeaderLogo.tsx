@@ -7,10 +7,11 @@ export default function HeaderLogo() {
         className='header-logo-image'
         src={BRAND_LOGO_DATA_URI}
         alt=''
-        width='64'
-        height='64'
+        width='128'
+        height='128'
         loading='eager'
-        decoding='sync'
+        decoding='async'
+        fetchPriority='high'
         draggable={false}
       />
     </span>
