@@ -19,7 +19,6 @@ data:
     save 3600 1
     save 300 100
     save 60 10000
-
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -37,10 +36,20 @@ spec:
       labels:
         app: redis-cluster
     spec:
+      automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: redis
           image: redis:7.2-alpine
+          imagePullPolicy: IfNotPresent
           command:
             - redis-server
             - /conf/redis.conf
@@ -71,14 +80,17 @@ spec:
           volumeMounts:
             - name: conf
               mountPath: /conf
+              readOnly: true
             - name: data
               mountPath: /data
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             exec:
               command:
                 - sh
                 - -c
-                - redis-cli -a $REDIS_PASSWORD ping | grep PONG
+                - redis-cli -a "$REDIS_PASSWORD" ping | grep PONG
             initialDelaySeconds: 15
             periodSeconds: 5
           livenessProbe:
@@ -86,9 +98,14 @@ spec:
               command:
                 - sh
                 - -c
-                - redis-cli -a $REDIS_PASSWORD ping | grep PONG
+                - redis-cli -a "$REDIS_PASSWORD" ping | grep PONG
             initialDelaySeconds: 30
             periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
       volumes:
         - name: conf
           configMap:
@@ -96,6 +113,10 @@ spec:
             items:
               - key: redis.conf
                 path: redis.conf
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -105,7 +126,6 @@ spec:
           requests:
             storage: 20Gi
         storageClassName: fast-ssd
-
 ---
 apiVersion: v1
 kind: Service
@@ -124,7 +144,6 @@ spec:
     - port: 16379
       targetPort: 16379
       name: gossip
-
 ---
 apiVersion: v1
 kind: Service
@@ -138,9 +157,7 @@ spec:
   ports:
     - port: 6379
       targetPort: 6379
-
 ---
-# Job для инициализации кластера после деплоя
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -150,17 +167,23 @@ spec:
   template:
     spec:
       restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: redis-cluster-init
           image: redis:7.2-alpine
+          imagePullPolicy: IfNotPresent
           command:
             - sh
             - -c
             - |
-              # Ждём пока все ноды поднимутся
               sleep 30
-              # Создаём кластер: 3 masters + 3 replicas
-              redis-cli -a $REDIS_PASSWORD --cluster create \
+              redis-cli -a "$REDIS_PASSWORD" --cluster create \
                 redis-cluster-0.redis-cluster.grainflow-prod.svc.cluster.local:6379 \
                 redis-cluster-1.redis-cluster.grainflow-prod.svc.cluster.local:6379 \
                 redis-cluster-2.redis-cluster.grainflow-prod.svc.cluster.local:6379 \
@@ -174,3 +197,16 @@ spec:
                 secretKeyRef:
                   name: redis-secret
                   key: password
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Mi
