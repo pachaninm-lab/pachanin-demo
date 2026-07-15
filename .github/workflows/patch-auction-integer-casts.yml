@@ -1,0 +1,55 @@
+name: Patch auction integer casts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-auction-integer-casts.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Patch auction branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch origin agent/ir-auction-atomic-execution
+          git checkout agent/ir-auction-atomic-execution
+          python <<'PY'
+          from pathlib import Path
+          path = Path('apps/api/src/modules/auctions/auction-command.service.ts')
+          source = path.read_text()
+          old = '''          ${autoExtendEnabled},
+          ${autoExtendWindowMinutes},
+          ${autoExtendMinutes},
+          ${commandId},'''
+          new = '''          ${autoExtendEnabled},
+          ${autoExtendWindowMinutes}::integer,
+          ${autoExtendMinutes}::integer,
+          ${commandId},'''
+          if old not in source:
+              raise SystemExit('auction integer cast fragment not found')
+          path.write_text(source.replace(old, new, 1))
+          PY
+          git add apps/api/src/modules/auctions/auction-command.service.ts
+          git commit -m 'Cast auction extension policy to PostgreSQL integer'
+          git push origin HEAD:agent/ir-auction-atomic-execution
+      - name: Remove temporary workflow from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout main
+          git pull --ff-only origin main
+          git rm .github/workflows/patch-auction-integer-casts.yml
+          git commit -m 'Remove auction integer-cast patch workflow'
+          git push origin HEAD:main
