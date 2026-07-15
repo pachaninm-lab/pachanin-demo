@@ -14,8 +14,7 @@ const staffShell = () => readFileSync(resolve(__dirname, '../../components/platf
 const loadingHeader = () => readFileSync(resolve(__dirname, '../../app/platform-v7/loading.tsx'), 'utf8');
 const contactHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ContactFixedHeader.tsx'), 'utf8');
 const approvedHeaderLogo = () => readFileSync(resolve(__dirname, '../../components/v7r/ApprovedHeaderLogo.tsx'), 'utf8');
-const approvedLogoChunk = (index: string) =>
-  readFileSync(resolve(__dirname, `../../components/v7r/approved-logo-chunks/chunk-${index}.ts`), 'utf8');
+const brandLogoAsset = () => readFileSync(resolve(__dirname, '../../components/v7r/brand-logo-asset.ts'), 'utf8');
 const brandMark = () => readFileSync(resolve(__dirname, '../../components/v7r/BrandMark.tsx'), 'utf8');
 const support = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ChatSupportWidget.tsx'), 'utf8');
 const css = () => readFileSync(resolve(__dirname, '../../styles/platform-v7-public-product-experience-v5.css'), 'utf8');
@@ -24,12 +23,14 @@ function compact(source: string) {
   return source.replace(/\s+/g, ' ');
 }
 
-function extractChunk(source: string) {
-  return source.match(/= '([^']+)';/)?.[1] ?? '';
+function extractChunk(source: string, name: string) {
+  return source.match(new RegExp(`const ${name} = '([^']+)';|export const ${name} = '([^']+)';`))?.slice(1).find(Boolean) ?? '';
 }
 
 function approvedLogoBinary() {
-  const encoded = ['01', '02'].map((index) => extractChunk(approvedLogoChunk(index))).join('');
+  const encoded =
+    extractChunk(approvedHeaderLogo(), 'APPROVED_LOGO_CHUNK_01') +
+    extractChunk(brandLogoAsset(), 'APPROVED_LOGO_CHUNK_02');
   return Buffer.from(encoded, 'base64');
 }
 
@@ -64,11 +65,13 @@ describe('platform-v7 visible public entry', () => {
 
   it('renders the pixel-exact owner login-header raster in every platform header', () => {
     const approved = approvedHeaderLogo();
+    const asset = brandLogoAsset();
     const mark = brandMark();
     const binary = approvedLogoBinary();
 
-    expect(approved).toContain("import { APPROVED_LOGO_CHUNK_01 }");
-    expect(approved).toContain("import { APPROVED_LOGO_CHUNK_02 }");
+    expect(approved).toContain("import { APPROVED_LOGO_CHUNK_02 } from './brand-logo-asset'");
+    expect(approved).toContain('const APPROVED_LOGO_CHUNK_01');
+    expect(asset).toContain('export const APPROVED_LOGO_CHUNK_02');
     expect(approved).toContain('data:image/webp;base64');
     expect(approved).toContain("width='120'");
     expect(approved).toContain("height='120'");
