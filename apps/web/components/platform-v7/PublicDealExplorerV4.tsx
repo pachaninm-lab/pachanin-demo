@@ -3,7 +3,9 @@
 import { PublicDealExplorer } from '@/components/platform-v7/PublicDealExplorer';
 import type { PublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
-import type { TourState } from '@/lib/platform-v7/public-product-experience-state';
+import type { TourLens, TourState } from '@/lib/platform-v7/public-product-experience-state';
+
+const publicBusinessAreas = new Set<TourLens>(['execution', 'documents', 'money', 'risk']);
 
 export function PublicDealExplorerV4({
   copy,
@@ -15,6 +17,9 @@ export function PublicDealExplorerV4({
   initialState: TourState;
 }) {
   const ui = getPublicProductExperienceV4Copy(locale);
+  const normalizedState: TourState = publicBusinessAreas.has(initialState.lens)
+    ? initialState
+    : { ...initialState, lens: 'execution' };
   const adaptedCopy: PublicProductExperienceCopy = {
     ...copy,
     explorer: {
@@ -44,5 +49,5 @@ export function PublicDealExplorerV4({
     },
   };
 
-  return <PublicDealExplorer copy={adaptedCopy} locale={locale} initialState={initialState} />;
+  return <PublicDealExplorer copy={adaptedCopy} locale={locale} initialState={normalizedState} />;
 }
