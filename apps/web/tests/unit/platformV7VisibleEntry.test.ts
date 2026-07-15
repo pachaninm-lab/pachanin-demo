@@ -24,7 +24,8 @@ function compact(source: string) {
 }
 
 function approvedLogoBinary() {
-  const encoded = brandLogoAsset().match(/data:image\/webp;base64,([^']+)'/)?.[1] ?? '';
+  const arrayBody = brandLogoAsset().match(/BRAND_LOGO_PNG_BASE64_CHUNKS = \[([\s\S]*?)\]/)?.[1] ?? '';
+  const encoded = Array.from(arrayBody.matchAll(/'([^']+)'/g), (match) => match[1]).join('');
   return Buffer.from(encoded, 'base64');
 }
 
@@ -65,17 +66,20 @@ describe('platform-v7 visible public entry', () => {
 
     expect(approved).toContain("import { BRAND_LOGO_DATA_URI } from './brand-logo-asset'");
     expect(approved).toContain('src={BRAND_LOGO_DATA_URI}');
-    expect(approved).toContain("width='64'");
-    expect(approved).toContain("height='64'");
+    expect(approved).toContain("width='128'");
+    expect(approved).toContain("height='128'");
     expect(approved).toContain("className='header-logo-image'");
-    expect(asset).toContain("export const BRAND_LOGO_DATA_URI = 'data:image/webp;base64,UklGRjwTAABXRUJQVlA4WAoA");
-    expect(asset).not.toContain('UklGRkASAABXRUJQVlA4');
-    expect(asset).not.toContain('UklGRpgq');
-    expect(asset).not.toContain('UklGRgQH');
-    expect(binary).toHaveLength(4932);
-    expect(binary.subarray(0, 4).toString('ascii')).toBe('RIFF');
-    expect(binary.subarray(8, 12).toString('ascii')).toBe('WEBP');
-    expect(createHash('sha256').update(binary).digest('hex')).toBe('3fc88062d53ec1b0a0dd50430bce2caf47b7d725ddd5aa7d6c84f5c998de0625');
+    expect(approved).toContain("fetchPriority='high'");
+
+    expect(asset).toContain("BRAND_LOGO_PNG_SHA256 = '267b9bbbf88f4d61209b7f69f6f4ba2632134d67f19022b761908cffd57dcfa2'");
+    expect(asset).toContain('data:image/png;base64');
+    expect(asset).not.toContain('data:image/webp');
+    expect(asset).not.toContain('UklGR');
+    expect(binary).toHaveLength(4855);
+    expect(binary.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+    expect(binary.readUInt32BE(16)).toBe(128);
+    expect(binary.readUInt32BE(20)).toBe(128);
+    expect(createHash('sha256').update(binary).digest('hex')).toBe('267b9bbbf88f4d61209b7f69f6f4ba2632134d67f19022b761908cffd57dcfa2');
 
     expect(mark).toContain("import ApprovedHeaderLogo from './ApprovedHeaderLogo'");
     expect(mark).toContain('<ApprovedHeaderLogo />');
