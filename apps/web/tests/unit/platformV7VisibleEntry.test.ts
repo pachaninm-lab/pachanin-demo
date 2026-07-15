@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -19,6 +20,12 @@ const css = () => readFileSync(resolve(__dirname, '../../styles/platform-v7-publ
 
 function compact(source: string) {
   return source.replace(/\s+/g, ' ');
+}
+
+function approvedLogoBinary(source: string) {
+  const array = source.match(/data:image\/webp;base64,' \+ \[([\s\S]*?)\]\.join\(''\)/)?.[1] ?? '';
+  const chunks = [...array.matchAll(/'([^']*)'/g)].map((match) => match[1]);
+  return Buffer.from(chunks.join(''), 'base64');
 }
 
 describe('platform-v7 visible public entry', () => {
@@ -50,18 +57,25 @@ describe('platform-v7 visible public entry', () => {
     expect(css()).not.toContain('right: -5px');
   });
 
-  it('renders the exact owner-approved historical raster in every platform header', () => {
+  it('renders the validated owner-approved raster in every platform header', () => {
     const approved = approvedHeaderLogo();
     const mark = brandMark();
+    const binary = approvedLogoBinary(approved);
 
-    expect(approved).toContain("data:image/webp;base64,UklGRpgq");
-    expect(approved).toContain('width="48" height="48"');
-    expect(approved).toContain('className="header-logo-image"');
+    expect(approved).toContain("data:image/webp;base64,' + [");
+    expect(approved).toContain('UklGRowJ');
+    expect(approved).toContain("width='48' height='48'");
+    expect(approved).toContain("className='header-logo-image'");
+    expect(approved).not.toContain('UklGRpgq');
     expect(approved).not.toContain('UklGRgQH');
+    expect(binary).toHaveLength(2452);
+    expect(binary.subarray(0, 4).toString('ascii')).toBe('RIFF');
+    expect(binary.subarray(8, 12).toString('ascii')).toBe('WEBP');
+    expect(createHash('sha256').update(binary).digest('hex')).toBe('92581dfa6662663b7aefe800a861d63d4c20269f320c86f43f2cd60976044b7b');
 
     expect(mark).toContain("import ApprovedHeaderLogo from './ApprovedHeaderLogo'");
     expect(mark).toContain('<ApprovedHeaderLogo />');
-    expect(mark).toContain("data-approved-brand-mark='owner-reference-203159d'");
+    expect(mark).toContain("data-approved-brand-mark='owner-reference-validated-q90'");
     expect(mark).not.toContain('BRAND_LOGO_DATA_URI');
     expect(mark).not.toContain('brand-logo-asset');
 
