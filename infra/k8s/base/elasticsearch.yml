@@ -1,6 +1,6 @@
 # Elasticsearch is deliberately not deployed by this repository.
-# The previous StatefulSet required privileged init containers for sysctl and
-# filesystem ownership changes. Applying this file now records a fail-closed
+# The previous StatefulSet required privileged init containers for node-kernel
+# and filesystem ownership changes. Applying this file now records a fail-closed
 # architecture decision only; it creates no Elasticsearch workload or Service.
 apiVersion: v1
 kind: ConfigMap
@@ -16,10 +16,10 @@ metadata:
 data:
   status: NOT_DEPLOYABLE
   reason: >-
-    Privileged init containers, in-pod sysctl mutation and embedded static
+    Privileged init containers, in-pod kernel mutation and embedded static
     credentials are forbidden. Production must use a managed Elasticsearch
-    service or a separately accepted node-pool architecture with vm.max_map_count
-    configured outside the application namespace.
+    service or a separately accepted node-pool architecture with the required
+    kernel limits configured outside the application namespace.
   requiredAcceptance: >-
     Managed endpoint, TLS verification, secret-manager credentials, backup and
     restore proof, capacity limits, network policy and exact-head IaC evidence.
