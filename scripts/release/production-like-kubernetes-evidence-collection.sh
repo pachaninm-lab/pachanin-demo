@@ -5,15 +5,17 @@ collect_cluster_evidence() {
     kubectl get nodes -o wide > "$K8S_DIR/cluster/nodes.txt" 2>&1
     kubectl get nodes -o json > "$K8S_DIR/cluster/nodes.json" 2>&1
     kubectl get pods -A -o wide > "$K8S_DIR/cluster/pods-all.txt" 2>&1
+    kubectl get pods -n "$NAMESPACE" -o json > "$K8S_DIR/cluster/pods-runtime.json" 2>&1
     kubectl get deployments,statefulsets,daemonsets,jobs,services,pdb,networkpolicy,ingress,configmap \
       -n "$NAMESPACE" -o yaml > "$K8S_DIR/cluster/accepted-resources.yaml" 2>&1
     kubectl get events -A --sort-by=.lastTimestamp > "$K8S_DIR/cluster/events.txt" 2>&1
-    kubectl describe deployment,statefulset,daemonset,job -n "$NAMESPACE" \
+    kubectl describe deployment,statefulset,daemonset,job,pod -n "$NAMESPACE" \
       > "$K8S_DIR/cluster/workload-descriptions.txt" 2>&1
     for selector in \
       'app.kubernetes.io/name=grainflow-api' \
       'app.kubernetes.io/name=grainflow-web' \
       'app.kubernetes.io/name=grainflow-outbox-worker' \
+      'app.kubernetes.io/name=grainflow-migration' \
       'app.kubernetes.io/name=postgresql' \
       'app.kubernetes.io/name=pgbouncer' \
       'app.kubernetes.io/name=kafka' \
