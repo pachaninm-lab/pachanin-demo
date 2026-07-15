@@ -27,17 +27,20 @@ describe('Public Product Experience V4', () => {
   it('uses plain role and scenario language while preserving the deterministic explorer', () => {
     expect(entryGate).toContain('ui.explorer.entryBadge');
     expect(entryGate).toContain('PublicDealExplorerV4');
+    expect(entryGate).toContain('lens: option.lens');
+    expect(entryGate).toContain("name: 'role_selected'");
     expect(adapter).toContain('PublicDealExplorer');
     expect(adapter).toContain('perspective: ui.explorer.roleLabel');
     expect(adapter).toContain('scenario: ui.explorer.scenarioLabel');
     expect(adapter).toContain('ui.explorer.scenarios.standard');
   });
 
-  it('keeps the approved public CTA copy in RU, EN and ZH', () => {
-    expect(copy).toContain("primary: 'Посмотреть сделку изнутри'");
-    expect(copy).toContain("primary: 'Открыть сделку изнутри'");
-    expect(copy).toContain("primary: 'View the deal from inside'");
-    expect(copy).toContain("primary: '从内部查看交易'");
+  it('keeps one canonical CTA vocabulary in RU, EN and ZH', () => {
+    expect(copy).toContain("primary: 'Посмотреть сделку'");
+    expect(copy).toContain("primary: 'Показать весь путь сделки'");
+    expect(copy).toContain("primary: 'View the deal'");
+    expect(copy).toContain("primary: '查看交易'");
+    expect(copy).toContain("signIn: 'Войти'");
     expect(preview).toContain('ui.home.preview.open');
   });
 
