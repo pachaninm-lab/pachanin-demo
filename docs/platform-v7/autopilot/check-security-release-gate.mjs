@@ -310,7 +310,7 @@ requireFragments(errors, optionalRuntimeValidator, [
   'infra/airflow/requirements.txt',
   'infra/docker/Dockerfile.ml',
   'ML_RUNTIME_NOT_DEPLOYABLE:#2605',
-  'Dockerfile.ml reference',
+  'ML Dockerfile reference',
   'NOT_DEPLOYABLE',
 ], 'Optional runtime validator');
 
