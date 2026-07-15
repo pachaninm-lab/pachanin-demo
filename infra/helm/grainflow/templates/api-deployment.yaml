@@ -1,4 +1,5 @@
 {{- if .Values.api.enabled }}
+{{- if not .Values.migration.enabled }}{{ fail "migration.enabled must be true when api.enabled=true; application pods never own migrations" }}{{- end }}
 {{- $digest := include "grainflow.image.digest" (dict "component" "api" "digest" .Values.api.image.digest) }}
 {{- $sourceCommit := include "grainflow.release.sourceCommit" . }}
 {{- $manifestId := include "grainflow.release.manifestId" . }}
