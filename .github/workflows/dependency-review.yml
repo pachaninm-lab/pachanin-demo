@@ -62,6 +62,7 @@ jobs:
 
       - name: Verify exact security patch intent
         run: |
+          mkdir -p artifacts/next1518/security
           node <<'NODE'
           const fs = require('node:fs');
           const packageJson = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
@@ -76,26 +77,25 @@ jobs:
 
       - name: Regenerate and prove frozen lockfile
         run: |
-          pnpm install --lockfile-only --no-frozen-lockfile
-          pnpm install --frozen-lockfile
+          pnpm install --lockfile-only --no-frozen-lockfile 2>&1 | tee artifacts/next1518/lockfile.log
+          pnpm install --frozen-lockfile 2>&1 | tee artifacts/next1518/frozen-install.log
 
       - name: Prove strict web typecheck
-        run: pnpm --filter @pc/web typecheck
+        run: pnpm --filter @pc/web typecheck 2>&1 | tee artifacts/next1518/typecheck.log
 
       - name: Prove Next.js runtime contract
-        run: pnpm --filter @pc/web exec vitest run tests/unit/next15RuntimeContracts.test.ts
+        run: pnpm exec vitest run apps/web/tests/unit/next15RuntimeContracts.test.ts 2>&1 | tee artifacts/next1518/runtime-contract.log
 
       - name: Prove production web build
-        run: pnpm --filter @pc/web build
+        run: pnpm --filter @pc/web build 2>&1 | tee artifacts/next1518/build.log
 
       - name: Prove zero HIGH and CRITICAL production dependencies
         env:
           SECURITY_EXACT_HEAD: ${{ github.event.pull_request.head.sha }}
-          PNPM_AUDIT_JSON: artifacts/security/pnpm-audit.json
-          PNPM_AUDIT_STDERR: artifacts/security/pnpm-audit.stderr.txt
-          PNPM_AUDIT_REPORT: artifacts/security/pnpm-audit-evaluation.json
+          PNPM_AUDIT_JSON: artifacts/next1518/security/pnpm-audit.json
+          PNPM_AUDIT_STDERR: artifacts/next1518/security/pnpm-audit.stderr.txt
+          PNPM_AUDIT_REPORT: artifacts/next1518/security/pnpm-audit-evaluation.json
         run: |
-          mkdir -p artifacts/security
           set +e
           pnpm audit --prod --json --audit-level=high > "$PNPM_AUDIT_JSON" 2> "$PNPM_AUDIT_STDERR"
           audit_exit=$?
@@ -107,7 +107,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: next-15-5-18-${{ github.event.pull_request.head.sha }}
-          path: artifacts/security
+          path: artifacts/next1518
           if-no-files-found: error
           retention-days: 30
 
