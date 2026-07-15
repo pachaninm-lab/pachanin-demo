@@ -37,6 +37,7 @@ BEGIN
       public."organizations",
       public."users",
       public."user_orgs",
+      public."accounts",
       public."deal_events",
       public."audit_events",
       public."outbox_entries",
@@ -72,6 +73,7 @@ BEGIN
     REVOKE DELETE ON TABLE
       public."deals",
       public."deal_participants",
+      public."accounts",
       public."deal_events",
       public."audit_events",
       public."outbox_entries",
