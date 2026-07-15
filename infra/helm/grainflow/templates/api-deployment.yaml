@@ -1,3 +1,7 @@
+{{- if .Values.api.enabled }}
+{{- $digest := include "grainflow.image.digest" (dict "component" "api" "digest" .Values.api.image.digest) }}
+{{- $sourceCommit := include "grainflow.release.sourceCommit" . }}
+{{- $manifestId := include "grainflow.release.manifestId" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,13 +23,19 @@ spec:
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
+  minReadySeconds: 10
+  progressDeadlineSeconds: 600
   template:
     metadata:
       labels:
         app.kubernetes.io/name: grainflow-api
         app.kubernetes.io/instance: {{ .Release.Name }}
-        version: {{ .Values.api.image.tag | quote }}
+        app.kubernetes.io/component: api
+        app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
       annotations:
+        platform.prozrachnaya-cena/image-digest: {{ $digest | quote }}
+        platform.prozrachnaya-cena/source-commit: {{ $sourceCommit | quote }}
+        platform.prozrachnaya-cena/release-manifest: {{ $manifestId | quote }}
         prometheus.io/scrape: "true"
         prometheus.io/port: {{ .Values.api.service.port | quote }}
         prometheus.io/path: "/metrics"
@@ -44,7 +54,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: api
-          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          image: "{{ .Values.api.image.repository }}@{{ $digest }}"
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
           ports:
             - name: http
@@ -55,6 +65,10 @@ spec:
             - name: {{ $key }}
               value: {{ $val | quote }}
             {{- end }}
+            - name: RELEASE_SOURCE_COMMIT
+              value: {{ $sourceCommit | quote }}
+            - name: RELEASE_MANIFEST_ID
+              value: {{ $manifestId | quote }}
           envFrom:
             {{- toYaml .Values.api.secretEnvFrom | nindent 12 }}
           resources:
@@ -175,4 +189,5 @@ spec:
                   number: {{ $.Values.api.service.port }}
           {{- end }}
     {{- end }}
+{{- end }}
 {{- end }}
