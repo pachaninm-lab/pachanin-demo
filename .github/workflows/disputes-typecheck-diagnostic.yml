@@ -1,0 +1,48 @@
+name: Disputes Typecheck Diagnostic
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: disputes-typecheck-diagnostic-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  DIAGNOSTIC_DIR: artifacts/disputes-typecheck
+jobs:
+  typecheck-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Capture API typecheck
+        run: |
+          mkdir -p "$DIAGNOSTIC_DIR"
+          set +e
+          set -o pipefail
+          pnpm --filter @pc/api typecheck 2>&1 | tee "$DIAGNOSTIC_DIR/typecheck.log"
+          code=${PIPESTATUS[0]}
+          printf '%s\n' "$code" > "$DIAGNOSTIC_DIR/exit-code.txt"
+          printf '%s\n' "$EXACT_HEAD" > "$DIAGNOSTIC_DIR/exact-head.txt"
+          exit 0
+      - name: Upload diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: disputes-typecheck-${{ env.EXACT_HEAD }}
+          path: ${{ env.DIAGNOSTIC_DIR }}
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce typecheck
+        run: test "$(cat "$DIAGNOSTIC_DIR/exit-code.txt")" = 0
