@@ -89,23 +89,39 @@ function runBulkAuditFallback() {
     '--json',
     '--audit-level=high',
   ];
-  const result = spawnSync('npm', command, {
-    cwd: process.cwd(),
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    env: process.env,
-  });
-  const exitCode = Number.isInteger(result.status) ? result.status : 1;
+  const manifestPath = resolve('package.json');
+  const originalManifest = readFileSync(manifestPath, 'utf8');
+  let result;
+  try {
+    const manifest = JSON.parse(originalManifest);
+    manifest.packageManager = `pnpm@${FALLBACK_VERSION}`;
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    result = spawnSync('npm', command, {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      env: {
+        ...process.env,
+        COREPACK_ENABLE_PROJECT_SPEC: '0',
+        npm_config_manage_package_manager_versions: 'false',
+      },
+    });
+  } finally {
+    writeFileSync(manifestPath, originalManifest);
+  }
+
+  const exitCode = Number.isInteger(result?.status) ? result.status : 1;
   const stderr = [
     `Legacy pnpm audit endpoint retired; retried with pinned pnpm ${FALLBACK_VERSION} bulk advisory client.`,
-    result.error ? String(result.error) : '',
-    result.stderr ?? '',
+    `The repository packageManager field was temporarily set to pnpm@${FALLBACK_VERSION} for this isolated scanner process and restored immediately afterwards.`,
+    result?.error ? String(result.error) : '',
+    result?.stderr ?? '',
   ].filter(Boolean).join('\n');
   mkdirSync(dirname(STDERR_PATH), { recursive: true });
   appendFileSync(STDERR_PATH, `${stderr}\n`);
 
   try {
-    const payload = JSON.parse(String(result.stdout ?? '').trim());
+    const payload = JSON.parse(String(result?.stdout ?? '').trim());
     writeFileSync(AUDIT_PATH, `${JSON.stringify(payload, null, 2)}\n`);
     return { payload, exitCode, stderr };
   } catch (error) {
