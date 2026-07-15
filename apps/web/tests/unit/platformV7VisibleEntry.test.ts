@@ -16,6 +16,7 @@ const contactHeader = () => readFileSync(resolve(__dirname, '../../components/pl
 const approvedHeaderLogo = () => readFileSync(resolve(__dirname, '../../components/v7r/ApprovedHeaderLogo.tsx'), 'utf8');
 const brandLogoAsset = () => readFileSync(resolve(__dirname, '../../components/v7r/brand-logo-asset.ts'), 'utf8');
 const brandMark = () => readFileSync(resolve(__dirname, '../../components/v7r/BrandMark.tsx'), 'utf8');
+const landingHeader = () => readFileSync(resolve(__dirname, '../../../landing/app/components/HeaderLogo.tsx'), 'utf8');
 const support = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ChatSupportWidget.tsx'), 'utf8');
 const css = () => readFileSync(resolve(__dirname, '../../styles/platform-v7-public-product-experience-v5.css'), 'utf8');
 
@@ -63,6 +64,7 @@ describe('platform-v7 visible public entry', () => {
     const asset = brandLogoAsset();
     const mark = brandMark();
     const binary = approvedLogoBinary();
+    const canonicalHash = 'ffa96592969cae4902c666a87777d4513aadd6831258c9a779c66a61c3c6959c';
 
     expect(approved).toContain("import { BRAND_LOGO_DATA_URI } from './brand-logo-asset'");
     expect(approved).toContain('src={BRAND_LOGO_DATA_URI}');
@@ -71,15 +73,13 @@ describe('platform-v7 visible public entry', () => {
     expect(approved).toContain("className='header-logo-image'");
     expect(approved).toContain("fetchPriority='high'");
 
-    expect(asset).toContain("BRAND_LOGO_PNG_SHA256 = '267b9bbbf88f4d61209b7f69f6f4ba2632134d67f19022b761908cffd57dcfa2'");
-    expect(asset).toContain('data:image/png;base64');
-    expect(asset).not.toContain('data:image/webp');
-    expect(asset).not.toContain('UklGR');
-    expect(binary).toHaveLength(4855);
-    expect(binary.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
-    expect(binary.readUInt32BE(16)).toBe(128);
-    expect(binary.readUInt32BE(20)).toBe(128);
-    expect(createHash('sha256').update(binary).digest('hex')).toBe('267b9bbbf88f4d61209b7f69f6f4ba2632134d67f19022b761908cffd57dcfa2');
+    expect(asset).toContain(`BRAND_LOGO_PNG_SHA256 = '${canonicalHash}'`);
+    expect(asset).toContain('data:image/webp;base64');
+    expect(asset).not.toContain('data:image/png');
+    expect(binary).toHaveLength(6164);
+    expect(binary.subarray(0, 4).toString('ascii')).toBe('RIFF');
+    expect(binary.subarray(8, 12).toString('ascii')).toBe('WEBP');
+    expect(createHash('sha256').update(binary).digest('hex')).toBe(canonicalHash);
 
     expect(mark).toContain("import ApprovedHeaderLogo from './ApprovedHeaderLogo'");
     expect(mark).toContain('<ApprovedHeaderLogo />');
@@ -95,6 +95,9 @@ describe('platform-v7 visible public entry', () => {
     }
 
     expect(contactHeader()).toContain('PublicSiteHeader');
+    expect(landingHeader()).toContain("import { BRAND_LOGO_DATA_URI } from '../../../web/components/v7r/brand-logo-asset'");
+    expect(landingHeader()).toContain('src={BRAND_LOGO_DATA_URI}');
+    expect(landingHeader()).not.toContain('data:image/');
     expect(support()).toContain("import { BrandMark } from '@/components/v7r/BrandMark'");
     expect(support()).toContain("<BrandMark size='100%' shadow={false} />");
     expect(support()).not.toContain('BRAND_LOGO_DATA_URI');
