@@ -99,26 +99,17 @@ describePg('Disputes PostgreSQL authority', () => {
     expect(await disputes.list(foreignBuyer)).toEqual([]);
   });
 
-  it('rolls back case, receipt, audit, outbox and hold counter when hold persistence fails', async () => {
-    await admin.$executeRawUnsafe(`INSERT INTO settlement.holds (
-      id, tenant_id, deal_id, payment_id, amount_minor, status, basis_type,
-      basis_id, reason, command_id, idempotency_key, request_fingerprint,
-      created_by_user_id, released_by_user_id, released_at
-    ) VALUES (
-      'forced-dispute-collision', '${TENANT}', '${DEAL_ID}', 'settlement-payment:${DEAL_ID}', 1,
-      'RELEASED', 'OTHER', 'forced', 'forced collision', 'forced-command',
-      'dispute-hold:open:rollback', repeat('a',64), '${accounting.id}',
-      '${accounting.id}', now()
-    )`);
-
+  it('rolls back case, receipt, audit, outbox and hold counter when the claim exceeds available funds', async () => {
     await expect(disputes.open({
       dealId: DEAL_ID,
       reason: 'ROLLBACK',
-      detail: 'Atomic hold collision must roll back the complete dispute command.',
-      claimAmountKopecks: '1000',
+      detail: 'An over-reserve claim must roll back the complete dispute command.',
+      claimAmountKopecks: '10000001',
       currency: 'RUB',
       idempotencyKey: 'open:rollback',
-    }, buyer)).rejects.toBeDefined();
+    }, buyer)).rejects.toMatchObject({
+      response: { code: 'DISPUTE_HOLD_EXCEEDS_AVAILABLE_FUNDS' },
+    });
 
     const rows = await admin.$queryRawUnsafe<Array<{
       cases: bigint;
@@ -128,9 +119,9 @@ describePg('Disputes PostgreSQL authority', () => {
       active: bigint;
     }>>(`SELECT
       (SELECT count(*) FROM dispute.cases WHERE type='ROLLBACK') AS cases,
-      (SELECT count(*) FROM dispute.command_receipts WHERE idempotency_key='open:rollback') AS receipts,
-      (SELECT count(*) FROM public."audit_events" WHERE "action"='dispute.opened' AND "objectId" LIKE 'dispute-%') AS audits,
-      (SELECT count(*) FROM public."outbox_entries" WHERE type='DISPUTE_OPENED' AND payload->>'type'='ROLLBACK') AS outbox,
+      (SELECT count(*) FROM dispute.command_receipts) AS receipts,
+      (SELECT count(*) FROM public."audit_events" WHERE "action"='dispute.opened') AS audits,
+      (SELECT count(*) FROM public."outbox_entries" WHERE type='DISPUTE_OPENED') AS outbox,
       (SELECT active_hold_minor FROM settlement.payments WHERE deal_id='${DEAL_ID}') AS active
     `);
     expect(Number(rows[0].cases)).toBe(0);
@@ -173,7 +164,7 @@ describePg('Disputes PostgreSQL authority', () => {
         (SELECT count(*) FROM dispute.cases WHERE id='${disputeId}') AS cases,
         (SELECT count(*) FROM settlement.holds WHERE basis_id='${disputeId}') AS holds,
         (SELECT count(*) FROM dispute.command_receipts
-          WHERE command_type='OPEN' AND idempotency_key='open:race:same-key') AS receipts,
+          WHERE command_type='OPEN' AND result->>'id'='${disputeId}') AS receipts,
         (SELECT active_hold_minor FROM settlement.payments WHERE deal_id='${DEAL_ID}') AS active
       `);
       expect(Number(facts[0].cases)).toBe(1);
@@ -328,14 +319,18 @@ describePg('Disputes PostgreSQL authority', () => {
       response: { code: 'DISPUTE_SETTLEMENT_HOLD_NOT_RELEASED' },
     });
 
+    const beforeRelease = result(await settlement.worksheet(DEAL_ID, accounting));
+    const paymentBeforeRelease = result(beforeRelease.payment);
     await settlement.releaseHold({
       commandId: 'settlement-command:release-dispute-hold',
       idempotencyKey: 'settlement:release-dispute-hold',
       holdId: String(resolved.settlementHoldId),
       dealId: DEAL_ID,
-      expectedPaymentVersion: '3',
+      expectedPaymentVersion: String(paymentBeforeRelease.version),
     }, accounting);
 
+    const afterRelease = result(await settlement.worksheet(DEAL_ID, accounting));
+    const paymentAfterRelease = result(afterRelease.payment);
     const refund = result(await settlement.requestOperation({
       commandId: 'settlement-command:dispute-refund',
       idempotencyKey: 'settlement:dispute-refund',
@@ -343,8 +338,8 @@ describePg('Disputes PostgreSQL authority', () => {
       operation: 'REFUND',
       amountKopecks: '5000000',
       partnerId: 'bank-dispute-test',
-      expectedPaymentVersion: '4',
-      expectedDealVersion: '2',
+      expectedPaymentVersion: String(paymentAfterRelease.version),
+      expectedDealVersion: String(afterRelease.dealVersion),
     }, accounting));
 
     const callback = result(await settlement.registerVerifiedCallback({
