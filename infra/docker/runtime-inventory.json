@@ -15,6 +15,44 @@
       "status": "DEPLOYABLE",
       "runtimeUser": "nonroot",
       "productionDependenciesOnly": true
+    },
+    {
+      "component": "outbox-worker",
+      "dockerfile": "infra/docker/Dockerfile.outbox-worker",
+      "entrypoint": "dist-outbox-worker/outbox-worker.js",
+      "status": "DEPLOYABLE",
+      "runtimeUser": "nonroot",
+      "productionDependenciesOnly": true,
+      "stateAuthority": "PostgreSQL outbox_entries",
+      "databasePrincipal": "app_outbox",
+      "databasePrivileges": {
+        "allowed": [
+          "SELECT public.outbox_entries",
+          "UPDATE durable lease retry receipt columns on public.outbox_entries"
+        ],
+        "forbidden": [
+          "INSERT public.outbox_entries",
+          "DELETE public.outbox_entries",
+          "ALL public.deals",
+          "ALL public.outbox_redrive_events",
+          "USAGE auth schema",
+          "role inheritance",
+          "BYPASSRLS"
+        ]
+      },
+      "independentProcess": true,
+      "activationContract": {
+        "helmEnabledByDefault": false,
+        "immutableDigestRequired": true,
+        "requiredEnvironment": [
+          "DATABASE_URL using app_outbox",
+          "KAFKA_BROKERS",
+          "KAFKA_REQUIRED=true",
+          "OUTBOX_WORKER_ENABLED=true",
+          "RUNTIME_COMPONENT=outbox-worker"
+        ]
+      },
+      "ticket": "#2649"
     }
   ],
   "nonDeployable": [
@@ -23,7 +61,7 @@
       "formerDockerfile": "infra/docker/Dockerfile.worker",
       "status": "NOT_DEPLOYABLE",
       "ticket": "#2606",
-      "reason": "The removed image executed a test route simulator through ts-node and was not a durable production worker authority. A production worker image must package a persistent PostgreSQL-backed worker entrypoint and pass its own lifecycle and recovery acceptance before activation."
+      "reason": "The removed image executed a test route simulator through ts-node and was not a durable production worker authority. It remains retired and is not replaced by an alias or compatibility path."
     }
   ]
 }

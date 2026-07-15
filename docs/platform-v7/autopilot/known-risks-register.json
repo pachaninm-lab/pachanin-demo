@@ -4,7 +4,7 @@
   "baselineCommit": "d53a2996023a8039bbb70302b3fc3552cbabf525",
   "generatedAt": "2026-07-15T13:22:54Z",
   "overallStatus": "NO_GO",
-  "maturityBoundary": "Baseline repository audit; risks remain open until immutable operational evidence closes them.",
+  "maturityBoundary": "Baseline repository audit updated with exact-head worker process/image acceptance; risks remain open until immutable operational evidence closes them.",
   "risks": [
     {
       "id": "R-001",
@@ -21,12 +21,12 @@
       "id": "R-002",
       "severity": "P0",
       "category": "process-topology",
-      "status": "NOT_IMPLEMENTED",
+      "status": "IMPLEMENTED_NOT_OPERATIONALLY_PROVEN",
       "owner": "platform engineering",
-      "finding": "No deployable independent outbox or background worker image and Deployment exists.",
-      "impact": "Durable queue code cannot be proven as independently scalable or recoverable.",
-      "mitigation": "Create production-only worker image, entrypoint and Kubernetes topology.",
-      "acceptance": "Two worker replicas pass claim, shutdown, restart, lease and backlog recovery acceptance."
+      "finding": "A dedicated app_outbox process, non-root image and two-replica immutable-digest Helm workload now exist and pass exact-head process/image acceptance, but no production-like Kubernetes runtime evidence exists.",
+      "impact": "Independent scaling, rolling deployment, peer-pod failure and backlog recovery remain unproven in the target orchestration environment.",
+      "mitigation": "Deploy the exact worker image digest into production-like Kubernetes and execute pod kill, rolling deployment, backlog, telemetry and recovery drills.",
+      "acceptance": "Two live worker pods pass claim, graceful shutdown, peer kill, rolling deployment, lease, zero unintended duplicate effect and backlog recovery SLA with retained cluster evidence."
     },
     {
       "id": "R-003",
@@ -45,10 +45,10 @@
       "category": "deployment",
       "status": "PARTIAL",
       "owner": "release engineering",
-      "finding": "Helm values use mutable latest image tags and no accepted digest promotion manifest.",
-      "impact": "Build-once deploy-many and exact rollback cannot be proven.",
-      "mitigation": "Pin OCI digests and produce promotion and rollback manifests.",
-      "acceptance": "The same image digest is promoted through environments and rollback restores the prior digest without invariant failure."
+      "finding": "The worker workload requires an immutable OCI digest, but API and web Helm values still use mutable latest tags and no accepted cross-environment promotion manifest exists.",
+      "impact": "Build-once deploy-many and exact rollback cannot yet be proven for the complete release set.",
+      "mitigation": "Pin API and web OCI digests and produce promotion and rollback manifests for all deployable components.",
+      "acceptance": "The same API, web and worker image digests are promoted through environments and rollback restores the prior release without invariant failure."
     },
     {
       "id": "R-005",

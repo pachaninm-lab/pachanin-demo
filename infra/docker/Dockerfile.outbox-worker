@@ -1,0 +1,38 @@
+# syntax=docker/dockerfile:1.7
+
+FROM node:24-bookworm-slim AS build
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+WORKDIR /workspace
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/* \
+  && npm install --global pnpm@10.2.1
+
+COPY . .
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile
+RUN pnpm --filter @pc/api build:outbox-worker
+RUN pnpm --filter @pc/api --prod deploy --legacy /prod/outbox-worker
+RUN rm -rf /prod/outbox-worker/src /prod/outbox-worker/test /prod/outbox-worker/prisma /prod/outbox-worker/dist-outbox-worker \
+  && cp -R /workspace/apps/api/dist-outbox-worker /prod/outbox-worker/dist-outbox-worker
+
+FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+ARG APP_VERSION=3.0.0
+LABEL org.opencontainers.image.title="Prozrachnaya Cena durable outbox worker" \
+      org.opencontainers.image.description="Independent PostgreSQL outbox delivery authority" \
+      org.opencontainers.image.revision=$GIT_COMMIT \
+      org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.version=$APP_VERSION
+ENV NODE_ENV=production
+ENV RUNTIME_COMPONENT=outbox-worker
+ENV OUTBOX_WORKER_HEALTH_PORT=3002
+WORKDIR /app
+COPY --from=build --chown=nonroot:nonroot /prod/outbox-worker/ ./
+
+EXPOSE 3002
+USER nonroot
+CMD ["dist-outbox-worker/outbox-worker.js"]

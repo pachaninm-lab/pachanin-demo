@@ -17,8 +17,9 @@ function makeWorker() {
   } as unknown as jest.Mocked<DurableOutboxWorker>;
 }
 
-function makeKafka(delivered: boolean) {
+function makeKafka(delivered: boolean, connected = true) {
   return {
+    isConnected: jest.fn().mockReturnValue(connected),
     send: jest.fn().mockResolvedValue(delivered),
   } as unknown as jest.Mocked<KafkaProducerService>;
 }
@@ -55,6 +56,12 @@ describe('DurableOutboxRunner', () => {
 
     expect(worker.registerFallbackHandler).not.toHaveBeenCalled();
     expect(worker.drainOnce).not.toHaveBeenCalled();
+    expect(runner.health()).toEqual(expect.objectContaining({
+      enabled: false,
+      started: false,
+      stopped: false,
+      draining: false,
+    }));
   });
 
   it('registers and runs only when OUTBOX_WORKER_ENABLED=true', async () => {
@@ -68,6 +75,27 @@ describe('DurableOutboxRunner', () => {
 
     expect(worker.registerFallbackHandler).toHaveBeenCalledTimes(1);
     expect(worker.drainOnce).toHaveBeenCalledTimes(1);
+    expect(runner.health()).toEqual(expect.objectContaining({
+      enabled: true,
+      started: true,
+      lastError: null,
+    }));
+    await runner.onModuleDestroy();
+    expect(runner.health().stopped).toBe(true);
+  });
+
+  it('does not claim entries while Kafka is disconnected', async () => {
+    process.env.OUTBOX_WORKER_ENABLED = 'true';
+    process.env.OUTBOX_WORKER_INTERVAL_MS = '60000';
+    const worker = makeWorker();
+    const runner = new DurableOutboxRunner(worker, makeKafka(false, false));
+
+    runner.onModuleInit();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(worker.registerFallbackHandler).toHaveBeenCalledTimes(1);
+    expect(worker.drainOnce).not.toHaveBeenCalled();
+    expect(runner.health().lastError).toBe('Kafka transport is not connected');
     await runner.onModuleDestroy();
   });
 

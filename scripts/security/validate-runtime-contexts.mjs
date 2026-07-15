@@ -69,14 +69,25 @@ function validateInventory() {
   const expected = new Map([
     ['api', 'infra/docker/Dockerfile.api'],
     ['web', 'infra/docker/Dockerfile.web'],
+    ['outbox-worker', 'infra/docker/Dockerfile.outbox-worker'],
   ]);
-  if (active.length !== expected.size) violations.push(`${path}: releaseAuthority must contain exactly API and web.`);
+  if (active.length !== expected.size) violations.push(`${path}: releaseAuthority must contain exactly API, web and outbox-worker.`);
   for (const item of active) {
     if (expected.get(item.component) !== item.dockerfile
       || item.status !== 'DEPLOYABLE'
       || item.runtimeUser !== 'nonroot'
       || item.productionDependenciesOnly !== true) {
       violations.push(`${path}: invalid deployable runtime entry for ${item.component ?? '<missing>'}.`);
+    }
+    if (item.component === 'outbox-worker') {
+      if (item.entrypoint !== 'dist-outbox-worker/outbox-worker.js'
+        || item.stateAuthority !== 'PostgreSQL outbox_entries'
+        || item.independentProcess !== true
+        || item.activationContract?.helmEnabledByDefault !== false
+        || item.activationContract?.immutableDigestRequired !== true
+        || item.ticket !== '#2649') {
+        violations.push(`${path}: outbox-worker authority or activation contract is invalid.`);
+      }
     }
   }
   const retired = Array.isArray(inventory.nonDeployable) ? inventory.nonDeployable : [];
@@ -87,7 +98,11 @@ function validateInventory() {
 }
 
 function validateDockerfiles() {
-  for (const path of ['infra/docker/Dockerfile.api', 'infra/docker/Dockerfile.web']) {
+  for (const path of [
+    'infra/docker/Dockerfile.api',
+    'infra/docker/Dockerfile.web',
+    'infra/docker/Dockerfile.outbox-worker',
+  ]) {
     requireFragments(path, [
       '# syntax=docker/dockerfile:1.7',
       'pnpm install --frozen-lockfile',
@@ -102,6 +117,17 @@ function validateDockerfiles() {
       [/npm\s+install\s+--global[^\n]*\n(?:(?!FROM).)*CMD/s, 'runtime package-manager execution'],
     ]);
   }
+  requireFragments('infra/docker/Dockerfile.outbox-worker', [
+    'pnpm --filter @pc/api build:outbox-worker',
+    'rm -rf /prod/outbox-worker/src /prod/outbox-worker/test /prod/outbox-worker/prisma',
+    'ENV RUNTIME_COMPONENT=outbox-worker',
+    'CMD ["dist-outbox-worker/outbox-worker.js"]',
+  ]);
+  requireFragments('apps/api/tsconfig.outbox-worker.json', [
+    '"rootDir": "src"',
+    '"outDir": "dist-outbox-worker"',
+    '"src/outbox-worker.ts"',
+  ]);
   for (const retired of ['infra/docker/Dockerfile.worker', 'infra/docker/Dockerfile.ml']) {
     if (existsSync(resolve(ROOT, retired))) {
       violations.push(`${retired}: retired image must remain absent from deployable runtime authority.`);
@@ -176,6 +202,24 @@ function validateManifests() {
     'runAsUser: 65532',
     'mountPath: /app/.next/cache',
   ]);
+  validateWorkload('infra/helm/grainflow/templates/outbox-worker-deployment.yaml', [
+    'automountServiceAccountToken: false',
+    'maxUnavailable: 0',
+    'requiredDuringSchedulingIgnoredDuringExecution:',
+    'image: "{{ .Values.outboxWorker.image.repository }}@{{ $digest }}"',
+    'OUTBOX_WORKER_ID',
+    'KAFKA_CLIENT_ID',
+    'terminationGracePeriodSeconds:',
+    'mountPath: /tmp',
+  ]);
+  requireFragments('infra/helm/grainflow/values.yaml', [
+    'outboxWorker:',
+    'enabled: false',
+    'digest: ""',
+    'OUTBOX_WORKER_ENABLED: "true"',
+    'KAFKA_REQUIRED: "true"',
+    'OUTBOX_WORKER_ENABLED: "false"',
+  ]);
   validateFailClosedContour('infra/helm/grainflow/templates/ml-deployment.yaml', '#2605', 'ML');
   validateFailClosedContour('infra/k8s/base/elasticsearch.yml', '#2606', 'Elasticsearch');
 
@@ -201,7 +245,7 @@ function main() {
     repository: 'pachaninm-lab/pachanin-demo',
     commitSha: actualHead,
     generatedAt: new Date().toISOString(),
-    deployableImages: ['api', 'web'],
+    deployableImages: ['api', 'web', 'outbox-worker'],
     retiredImages: ['route-simulator-worker', 'ml-service'],
     checkedFiles: [...checkedFiles].sort().map((path) => ({ path, sha256: sha256(resolve(ROOT, path)) })),
     violations,
