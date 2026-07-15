@@ -96,7 +96,30 @@ jobs:
       - name: Enforce machine-readable evidence
         if: always()
         run: |
-          test -f "$EVIDENCE_DIR/production-like-kubernetes-evidence.json"
+          mkdir -p "$EVIDENCE_DIR"
+          if [[ ! -f "$EVIDENCE_DIR/production-like-kubernetes-evidence.json" ]]; then
+            node <<'NODE'
+            const fs = require('node:fs');
+            const report = {
+              schemaVersion: 1,
+              repository: process.env.GITHUB_REPOSITORY,
+              commitSha: process.env.EXACT_HEAD,
+              branch: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || 'unknown',
+              environment: 'github-actions-multi-node-kind-production-like',
+              timestamp: new Date().toISOString(),
+              command: 'bash scripts/release/production-like-kubernetes-acceptance.sh',
+              result: 'FAIL',
+              pass: false,
+              failureReason: 'acceptance process exited before the in-process evidence finalizer produced its report',
+              violatedThresholds: ['evidenceFinalizerMissing'],
+              maturityBoundary: 'No production maturity claim. This fallback report only records an incomplete disposable acceptance run.',
+            };
+            fs.writeFileSync(
+              'artifacts/industrial-readiness/production-like-kubernetes-evidence.json',
+              `${JSON.stringify(report, null, 2)}\n`,
+            );
+            NODE
+          fi
           node <<'NODE'
           const fs = require('node:fs');
           const report = JSON.parse(fs.readFileSync('artifacts/industrial-readiness/production-like-kubernetes-evidence.json', 'utf8'));
