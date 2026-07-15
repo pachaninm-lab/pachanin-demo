@@ -68,13 +68,14 @@ describe('platform-v7 visible public entry', () => {
     expect(approved).toContain("width='64'");
     expect(approved).toContain("height='64'");
     expect(approved).toContain("className='header-logo-image'");
-    expect(asset).toContain("export const BRAND_LOGO_DATA_URI = 'data:image/webp;base64,UklGRkASAABXRUJQVlA4'");
+    expect(asset).toContain("export const BRAND_LOGO_DATA_URI = 'data:image/webp;base64,UklGRjwTAABXRUJQVlA4WAoA");
+    expect(asset).not.toContain('UklGRkASAABXRUJQVlA4');
     expect(asset).not.toContain('UklGRpgq');
     expect(asset).not.toContain('UklGRgQH');
-    expect(binary).toHaveLength(4680);
+    expect(binary).toHaveLength(4932);
     expect(binary.subarray(0, 4).toString('ascii')).toBe('RIFF');
     expect(binary.subarray(8, 12).toString('ascii')).toBe('WEBP');
-    expect(createHash('sha256').update(binary).digest('hex')).toBe('fb1fc5c017bc2c26df5feea416b608014baac14942246b70985e739070b93c74');
+    expect(createHash('sha256').update(binary).digest('hex')).toBe('3fc88062d53ec1b0a0dd50430bce2caf47b7d725ddd5aa7d6c84f5c998de0625');
 
     expect(mark).toContain("import ApprovedHeaderLogo from './ApprovedHeaderLogo'");
     expect(mark).toContain('<ApprovedHeaderLogo />');
