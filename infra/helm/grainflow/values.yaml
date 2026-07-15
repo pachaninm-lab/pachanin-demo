@@ -1,11 +1,16 @@
-# GrainFlow Helm Values — Production Defaults (ТЗ 4.3, 13.2)
-# Переопределить для staging: --values values-staging.yaml
+# GrainFlow Helm Values — fail-closed release defaults
+# Workloads remain disabled until an accepted immutable OCI digest set is supplied.
+
+release:
+  sourceCommit: ""
+  manifestId: ""
 
 # ── API Service ───────────────────────────────────────────────────────────────
 api:
+  enabled: false
   image:
     repository: cr.yandex/grainflow/api
-    tag: "latest"
+    digest: ""
     pullPolicy: IfNotPresent
 
   replicaCount: 2
@@ -110,9 +115,6 @@ api:
     readOnlyRootFilesystem: true
 
 # ── Durable PostgreSQL outbox worker ──────────────────────────────────────────
-# Disabled until an immutable registry digest is supplied. Production-like
-# rendering must set enabled=true and image.digest=sha256:...; tag fallback is
-# intentionally forbidden for this authority process.
 outboxWorker:
   enabled: false
   image:
@@ -195,9 +197,10 @@ outboxWorker:
 
 # ── Web Frontend ──────────────────────────────────────────────────────────────
 web:
+  enabled: false
   image:
     repository: cr.yandex/grainflow/web
-    tag: "latest"
+    digest: ""
     pullPolicy: IfNotPresent
   replicaCount: 2
   autoscaling:
