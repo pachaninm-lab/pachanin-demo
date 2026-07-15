@@ -1,10 +1,14 @@
 import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { DisputeVersionCommandDto } from './dispute-version-command.dto';
 
-export class DecideDisputeDto extends DisputeVersionCommandDto {
+export class ResolveDisputeAppealDto extends DisputeVersionCommandDto {
+  @IsString()
+  @IsIn(['UPHELD', 'OVERTURNED', 'MODIFIED', 'REJECTED'])
+  resolution!: string;
+
   @IsString()
   @IsIn(['BUYER_WIN', 'SELLER_WIN', 'SPLIT', 'NO_CLAIM'])
-  outcome!: string;
+  finalOutcome!: string;
 
   @IsOptional()
   @IsInt()
