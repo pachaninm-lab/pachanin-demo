@@ -14,7 +14,9 @@
     "infra/kind/production-like/**",
     "scripts/p7-autopilot-guard.sh",
     "scripts/release/build-production-like-kubernetes-evidence.mjs",
-    "scripts/release/production-like-kubernetes-*.sh"
+    "scripts/release/production-like-kubernetes-*.sh",
+    "scripts/release/production-like-kubernetes-fallback-evidence.mjs",
+    "scripts/release/production-like-kubernetes-enforce-evidence.mjs"
   ],
   "forbiddenPaths": [
     "apps/api/**",
