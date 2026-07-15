@@ -71,71 +71,11 @@ jobs:
           set -o pipefail
           pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
           pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
-      - name: Apply governed RLS overlay and least-privilege grants
+      - name: Apply governed settlement RLS overlay
         run: |
           psql "$PSQL_ADMIN_DATABASE_URL" -X --set ON_ERROR_STOP=1 \
             --file infra/sql/postgresql-settlement-authority-policies.sql
-          psql "$PSQL_ADMIN_DATABASE_URL" -X --set ON_ERROR_STOP=1 <<'SQL'
-          GRANT USAGE ON SCHEMA settlement TO app_deal;
-          GRANT SELECT, INSERT ON
-            settlement.payment_terms,
-            settlement.beneficiaries,
-            settlement.bank_callbacks,
-            settlement.ledger_entries,
-            settlement.reconciliation_facts
-          TO app_deal;
-          GRANT SELECT, INSERT, UPDATE ON
-            settlement.payments,
-            settlement.holds,
-            settlement.bank_operations
-          TO app_deal;
-          REVOKE DELETE ON ALL TABLES IN SCHEMA settlement FROM app_deal;
-          GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA settlement TO app_deal;
-
-          GRANT SELECT ON
-            public."deals",
-            public."deal_participants",
-            public."organizations",
-            public."users",
-            public."user_orgs",
-            public."deal_events",
-            public."audit_events",
-            public."outbox_entries",
-            public."payments",
-            public."bank_operations",
-            public."ledger_entries"
-          TO app_deal;
-          GRANT INSERT ON
-            public."deal_events",
-            public."audit_events",
-            public."outbox_entries",
-            public."payments",
-            public."bank_operations",
-            public."ledger_entries"
-          TO app_deal;
-          GRANT UPDATE ("status", "nextAction", "version", "updatedAt")
-            ON public."deals" TO app_deal;
-          GRANT UPDATE (
-            "status", "amountKopecks", "holdAmountKopecks", "refundedKopecks",
-            "callbackState", "bankRef", "reservedAt", "releasedAt", "version", "updatedAt"
-          ) ON public."payments" TO app_deal;
-          GRANT UPDATE (
-            "status", "bankRef", "failureReason", "confirmedAt", "responsePayload", "updatedAt"
-          ) ON public."bank_operations" TO app_deal;
-          GRANT UPDATE ("status", "confirmedAt", "failedAt", "lastError")
-            ON public."outbox_entries" TO app_deal;
-          REVOKE DELETE ON
-            public."deals",
-            public."deal_participants",
-            public."deal_events",
-            public."audit_events",
-            public."outbox_entries",
-            public."payments",
-            public."bank_operations",
-            public."ledger_entries"
-          FROM app_deal;
-          SQL
-      - name: Prove runtime privilege boundary
+      - name: Prove migration-delivered runtime privilege boundary
         run: |
           proof="$(psql "$DATABASE_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT
             has_schema_privilege(current_user,'settlement','USAGE')::text || ':' ||
