@@ -20,8 +20,21 @@ interface WorkerProcess {
   stderr: string[];
 }
 
+type PrivilegeRow = {
+  current_user: string;
+  outbox_select: boolean;
+  outbox_insert: boolean;
+  outbox_delete: boolean;
+  deal_select: boolean;
+  redrive_select: boolean;
+  auth_usage: boolean;
+};
+
 const prisma = new PrismaClient({
   datasources: { db: { url: ADMIN_DATABASE_URL } },
+});
+const outboxPrisma = new PrismaClient({
+  datasources: { db: { url: WORKER_DATABASE_URL } },
 });
 const kafka = new Kafka({ clientId: `${RUN_ID}.acceptance`, brokers: KAFKA_BROKERS.split(',') });
 let consumer: Consumer;
@@ -120,7 +133,7 @@ async function waitSent(ids: string[]): Promise<void> {
 beforeAll(async () => {
   if (!WORKER_DATABASE_URL) throw new Error('OUTBOX_DATABASE_URL is required');
   if (!ADMIN_DATABASE_URL) throw new Error('TEST_ADMIN_DATABASE_URL is required');
-  await prisma.$connect();
+  await Promise.all([prisma.$connect(), outboxPrisma.$connect()]);
 
   const admin = kafka.admin();
   await admin.connect();
@@ -148,10 +161,32 @@ afterAll(async () => {
   }
   await consumer?.disconnect().catch(() => undefined);
   await prisma.outboxEntry.deleteMany({ where: { correlationId: RUN_ID } }).catch(() => undefined);
-  await prisma.$disconnect();
+  await Promise.all([prisma.$disconnect(), outboxPrisma.$disconnect()]);
 });
 
 describe('independent outbox worker process topology', () => {
+  it('proves the live app_outbox privilege boundary', async () => {
+    const rows = await outboxPrisma.$queryRaw<PrivilegeRow[]>`
+      SELECT
+        current_user,
+        has_table_privilege(current_user, 'public.outbox_entries', 'SELECT') AS outbox_select,
+        has_table_privilege(current_user, 'public.outbox_entries', 'INSERT') AS outbox_insert,
+        has_table_privilege(current_user, 'public.outbox_entries', 'DELETE') AS outbox_delete,
+        has_table_privilege(current_user, 'public.deals', 'SELECT') AS deal_select,
+        has_table_privilege(current_user, 'public.outbox_redrive_events', 'SELECT') AS redrive_select,
+        has_schema_privilege(current_user, 'auth', 'USAGE') AS auth_usage
+    `;
+    expect(rows).toEqual([{
+      current_user: 'app_outbox',
+      outbox_select: true,
+      outbox_insert: false,
+      outbox_delete: false,
+      deal_select: false,
+      redrive_select: false,
+      auth_usage: false,
+    }]);
+  });
+
   it('runs two replica-safe workers, survives one process loss and shuts down gracefully', async () => {
     const workerA = startWorker(`${RUN_ID}.worker-a`, 3301);
     const workerB = startWorker(`${RUN_ID}.worker-b`, 3302);
