@@ -28,6 +28,7 @@ const webPackage = JSON.parse(read('apps/web/package.json')) as {
   dependencies?: Record<string, string>;
 };
 const apiStaffRoute = read('apps/web/app/api/staff/[...path]/route.ts');
+const staffWorkspaceRoute = read('apps/web/app/api/staff/workspaces/[...path]/route.ts');
 const staffRoute = read('apps/web/app/staff/[...path]/route.ts');
 
 describe('Next.js 15 runtime contracts', () => {
@@ -39,7 +40,7 @@ describe('Next.js 15 runtime contracts', () => {
   });
 
   it('awaits dynamic staff route params before authorization and path dispatch', () => {
-    for (const source of [apiStaffRoute, staffRoute]) {
+    for (const source of [apiStaffRoute, staffWorkspaceRoute, staffRoute]) {
       expect(source).toContain('params: Promise<{ path?: string[] }>');
       expect(source).toMatch(/await context\.params/);
       expect(source).not.toMatch(/context\.params\.path/);
