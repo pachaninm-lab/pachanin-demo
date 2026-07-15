@@ -89,7 +89,9 @@ spec:
             medium: Memory
             sizeLimit: 64Mi
       affinity:
-        {{- toYaml .Values.outboxWorker.affinity | nindent 8 }}
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            {{- toYaml .Values.outboxWorker.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution | nindent 12 }}
 ---
 {{- if .Values.outboxWorker.podDisruptionBudget.enabled }}
 apiVersion: policy/v1
