@@ -14,7 +14,8 @@ const staffShell = () => readFileSync(resolve(__dirname, '../../components/platf
 const loadingHeader = () => readFileSync(resolve(__dirname, '../../app/platform-v7/loading.tsx'), 'utf8');
 const contactHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ContactFixedHeader.tsx'), 'utf8');
 const approvedHeaderLogo = () => readFileSync(resolve(__dirname, '../../components/v7r/ApprovedHeaderLogo.tsx'), 'utf8');
-const brandLogoAsset = () => readFileSync(resolve(__dirname, '../../components/v7r/brand-logo-asset.ts'), 'utf8');
+const canonicalLogoAsset = () => readFileSync(resolve(__dirname, '../../components/v7r/canonical-logo-png.ts'), 'utf8');
+const canonicalLogoRoute = () => readFileSync(resolve(__dirname, '../../app/icon/brand-primary/route.ts'), 'utf8');
 const brandMark = () => readFileSync(resolve(__dirname, '../../components/v7r/BrandMark.tsx'), 'utf8');
 const support = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ChatSupportWidget.tsx'), 'utf8');
 const css = () => readFileSync(resolve(__dirname, '../../styles/platform-v7-public-product-experience-v5.css'), 'utf8');
@@ -23,8 +24,9 @@ function compact(source: string) {
   return source.replace(/\s+/g, ' ');
 }
 
-function approvedLogoBinary() {
-  const encoded = brandLogoAsset().match(/data:image\/webp;base64,([^']+)'/)?.[1] ?? '';
+function canonicalLogoBinary() {
+  const arrayBody = canonicalLogoAsset().match(/BRAND_LOGO_PNG_BASE64_CHUNKS = \[([\s\S]*?)\]/)?.[1] ?? '';
+  const encoded = Array.from(arrayBody.matchAll(/'([^']+)'/g), (match) => match[1]).join('');
   return Buffer.from(encoded, 'base64');
 }
 
@@ -59,23 +61,31 @@ describe('platform-v7 visible public entry', () => {
 
   it('renders the exact owner reference logo in every platform header', () => {
     const approved = approvedHeaderLogo();
-    const asset = brandLogoAsset();
+    const asset = canonicalLogoAsset();
+    const route = canonicalLogoRoute();
     const mark = brandMark();
-    const binary = approvedLogoBinary();
+    const binary = canonicalLogoBinary();
 
-    expect(approved).toContain("import { BRAND_LOGO_DATA_URI } from './brand-logo-asset'");
-    expect(approved).toContain('src={BRAND_LOGO_DATA_URI}');
-    expect(approved).toContain("width='64'");
-    expect(approved).toContain("height='64'");
+    expect(approved).toContain("const CANONICAL_LOGO_SRC = '/icon/brand-primary?v=267b9bbb'");
+    expect(approved).toContain('src={CANONICAL_LOGO_SRC}');
+    expect(approved).toContain("width='128'");
+    expect(approved).toContain("height='128'");
     expect(approved).toContain("className='header-logo-image'");
-    expect(asset).toContain("export const BRAND_LOGO_DATA_URI = 'data:image/webp;base64,UklGRjwTAABXRUJQVlA4WAoA");
-    expect(asset).not.toContain('UklGRkASAABXRUJQVlA4');
-    expect(asset).not.toContain('UklGRpgq');
-    expect(asset).not.toContain('UklGRgQH');
-    expect(binary).toHaveLength(4932);
-    expect(binary.subarray(0, 4).toString('ascii')).toBe('RIFF');
-    expect(binary.subarray(8, 12).toString('ascii')).toBe('WEBP');
-    expect(createHash('sha256').update(binary).digest('hex')).toBe('3fc88062d53ec1b0a0dd50430bce2caf47b7d725ddd5aa7d6c84f5c998de0625');
+    expect(approved).toContain("fetchPriority='high'");
+    expect(approved).not.toContain('data:image');
+
+    expect(asset).toContain("BRAND_LOGO_PNG_SHA256 = '267b9bbbf88f4d61209b7f69f6f4ba2632134d67f19022b761908cffd57dcfa2'");
+    expect(asset).not.toContain('data:image/webp');
+    expect(binary).toHaveLength(4855);
+    expect(binary.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+    expect(binary.readUInt32BE(16)).toBe(128);
+    expect(binary.readUInt32BE(20)).toBe(128);
+    expect(createHash('sha256').update(binary).digest('hex')).toBe('267b9bbbf88f4d61209b7f69f6f4ba2632134d67f19022b761908cffd57dcfa2');
+
+    expect(route).toContain("from '@/components/v7r/canonical-logo-png'");
+    expect(route).toContain("'Content-Type': 'image/png'");
+    expect(route).toContain("'Cache-Control': 'public, max-age=31536000, immutable'");
+    expect(route).toContain('Canonical brand logo integrity check failed.');
 
     expect(mark).toContain("import ApprovedHeaderLogo from './ApprovedHeaderLogo'");
     expect(mark).toContain('<ApprovedHeaderLogo />');
