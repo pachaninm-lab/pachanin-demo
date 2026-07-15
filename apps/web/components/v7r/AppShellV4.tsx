@@ -227,17 +227,17 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         <button className={styles.backdrop} type='button' onClick={() => setSidebarOpen(false)} aria-label='Закрыть меню' />
       ) : null}
 
-      <aside className={styles.drawer} data-open={sidebarOpen ? 'true' : 'false'} aria-label='Основное меню'>
+      <aside className={`pc-v4-drawer ${styles.drawer}`} data-open={sidebarOpen ? 'true' : 'false'} aria-label='Основное меню'>
         <div className={styles.drawerHeader}>
           <div className={styles.drawerTop}>
-            <Link href={roleHomeHref} className={styles.brand} aria-label='Прозрачная Цена — в мой кабинет' onClick={() => setSidebarOpen(false)}>
+            <Link href={roleHomeHref} className={`pc-v4-brand ${styles.brand}`} aria-label='Прозрачная Цена — в мой кабинет' onClick={() => setSidebarOpen(false)}>
               <BrandMark size={36} />
               <span className={styles.brandCopy}>
-                <span className={styles.title}>Прозрачная Цена</span>
-                <span className={styles.subtitle}>Контур исполнения сделки</span>
+                <span className={`pc-v4-title ${styles.title}`}>Прозрачная Цена</span>
+                <span className={`pc-v4-subtitle ${styles.subtitle}`}>Контур исполнения сделки</span>
               </span>
             </Link>
-            <button className={styles.iconButton} type='button' onClick={() => setSidebarOpen(false)} aria-label='Закрыть меню'>
+            <button className={`pc-v4-iconbtn ${styles.iconButton}`} type='button' onClick={() => setSidebarOpen(false)} aria-label='Закрыть меню'>
               <X size={18} aria-hidden='true' />
             </button>
           </div>
@@ -245,13 +245,13 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
           <div className={styles.roleCard}>
             <div className={styles.roleTop}>
               <span className={styles.roleLabel}><RoleIcon size={17} aria-hidden='true' />{ROLE_LABELS[displayRole]}</span>
-              <span className={styles.stage} data-tone={stage.tone}>{stage.label}</span>
+              <span className={`pc-v4-stage ${styles.stage}`} data-tone={stage.tone}>{stage.label}</span>
             </div>
             <p className={styles.roleNote}>Внешние подключения требуют договоров, доступов и подтверждения на реальных сделках.</p>
           </div>
         </div>
 
-        <nav className={styles.nav}>
+        <nav className={`pc-v4-nav ${styles.nav}`}>
           {items.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = iconForHref(item.href);
@@ -265,30 +265,30 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         </nav>
       </aside>
 
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <div className={styles.top}>
-            <button className={styles.iconButton} type='button' onClick={() => setSidebarOpen(true)} aria-label='Открыть меню'>
+      <header className={`pc-v4-header ${styles.header}`}>
+        <div className={`pc-v4-header-inner ${styles.headerInner}`}>
+          <div className={`pc-v4-top ${styles.top}`}>
+            <button className={`pc-v4-iconbtn ${styles.iconButton}`} type='button' onClick={() => setSidebarOpen(true)} aria-label='Открыть меню'>
               <Menu size={19} aria-hidden='true' />
             </button>
 
-            <Link href={roleHomeHref} className={styles.brand} aria-label='Прозрачная Цена — в мой кабинет'>
+            <Link href={roleHomeHref} className={`pc-v4-brand ${styles.brand}`} aria-label='Прозрачная Цена — в мой кабинет'>
               <BrandMark size={38} />
               <span className={styles.brandCopy}>
-                <span className={styles.title}>Прозрачная Цена</span>
-                <span className={styles.subtitle}>Сделка · логистика · документы · деньги</span>
+                <span className={`pc-v4-title ${styles.title}`}>Прозрачная Цена</span>
+                <span className={`pc-v4-subtitle ${styles.subtitle}`}>Сделка · логистика · документы · деньги</span>
               </span>
             </Link>
 
-            <div className={styles.actions}>
-              <button className={styles.searchButton} type='button' onClick={() => setPaletteOpen(true)} aria-label='Открыть поиск'>
+            <div className={`pc-v4-actions ${styles.actions}`}>
+              <button className={`pc-v4-search ${styles.searchButton}`} type='button' onClick={() => setPaletteOpen(true)} aria-label='Открыть поиск'>
                 <Search size={17} aria-hidden='true' />
                 <strong>Поиск</strong>
                 <span className={styles.searchHint}>⌘K</span>
               </button>
-              <span className={styles.stage} data-tone={stage.tone}>{stage.label}</span>
+              <span className={`pc-v4-stage ${styles.stage}`} data-tone={stage.tone}>{stage.label}</span>
               <button
-                className={`pc-v4-theme-toggle ${styles.iconButton}`}
+                className={`pc-v4-theme-toggle pc-v4-iconbtn ${styles.iconButton}`}
                 type='button'
                 onClick={toggleTheme}
                 aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
@@ -296,14 +296,14 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
               >
                 {theme === 'dark' ? <Sun size={17} aria-hidden='true' /> : <Moon size={17} aria-hidden='true' />}
               </button>
-              <Link className={styles.iconButton} href={NOTIFICATIONS_ROUTE} aria-label='Открыть уведомления' title='Уведомления'>
+              <Link className={`pc-v4-iconbtn ${styles.iconButton}`} href={NOTIFICATIONS_ROUTE} aria-label='Открыть уведомления' title='Уведомления'>
                 <Bell size={17} aria-hidden='true' />
               </Link>
             </div>
           </div>
 
-          <div className={styles.meta}>
-            <nav className={styles.crumbs} aria-label='Путь'>
+          <div className={`pc-v4-meta ${styles.meta}`}>
+            <nav className={`pc-v4-crumbs ${styles.crumbs}`} aria-label='Путь'>
               {showCrumbs ? crumbs.map((crumb, index) => (
                 <React.Fragment key={crumb.href}>
                   {index > 0 ? <span className={styles.crumbSeparator}>/</span> : null}
@@ -319,9 +319,9 @@ export function AppShellV4({ children, initialRole = 'operator' }: { children: R
         </div>
       </header>
 
-      <main className={styles.main} id='main-content'>
+      <main className={`pc-v4-main ${styles.main}`} id='main-content'>
         {showCabinetChrome ? (
-          <p className={styles.pilotNote}>
+          <p className={`pc-v4-pilot-note ${styles.pilotNote}`}>
             Внешние контуры требуют договоров, доступов и подтверждений. Экран показывает основания, документы, статус, удержание и причину остановки.{' '}
             <Link href='/platform-v7/execution-map' className={styles.executionLink}>Карта исполнения</Link>
           </p>
