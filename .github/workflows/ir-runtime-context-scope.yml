@@ -11,6 +11,7 @@ on:
       - 'infra/k8s/**'
       - 'scripts/security/**'
       - 'docs/platform-v7/autopilot/security-release-scope.json'
+      - 'docs/platform-v7/autopilot/security-exceptions.schema.json'
       - 'docs/platform-v7/autopilot/check-security-release-gate.mjs'
       - '.github/workflows/security-quality-gate.yml'
   workflow_dispatch:
@@ -42,6 +43,7 @@ jobs:
             '.github/workflows/security-quality-gate.yml',
             'docs/platform-v7/autopilot/autopilot-state.json',
             'docs/platform-v7/autopilot/check-security-release-gate.mjs',
+            'docs/platform-v7/autopilot/security-exceptions.schema.json',
             'docs/platform-v7/autopilot/security-release-scope.json',
             'infra/docker/**',
             'infra/helm/**',
