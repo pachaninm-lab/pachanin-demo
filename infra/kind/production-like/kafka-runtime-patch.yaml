@@ -9,21 +9,30 @@ spec:
     spec:
       # Kubernetes service-link injection creates KAFKA_PORT for the Service
       # named kafka. Confluent KRaft startup rejects that legacy variable.
-      # Disable all implicit service env and use the explicit listener config.
+      # Disable all implicit service env and use explicit listener authority.
       enableServiceLinks: false
       containers:
         - name: kafka
           env:
+            - name: KAFKA_LISTENERS
+              value: PLAINTEXT://0.0.0.0:9092,PROBE://127.0.0.1:19092,CONTROLLER://0.0.0.0:9093
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: PLAINTEXT://kafka:9092,PROBE://127.0.0.1:19092
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: PLAINTEXT:PLAINTEXT,PROBE:PLAINTEXT,CONTROLLER:PLAINTEXT
             - name: KAFKA_INTER_BROKER_LISTENER_NAME
               value: PLAINTEXT
             - name: KAFKA_LOG_DIRS
               value: /var/lib/kafka/data
+          ports:
+            - name: probe
+              containerPort: 19092
           readinessProbe:
             exec:
               command:
                 - bash
                 - -ec
-                - kafka-topics --bootstrap-server localhost:9092 --list >/dev/null
+                - kafka-topics --bootstrap-server 127.0.0.1:19092 --list >/dev/null
             initialDelaySeconds: 20
             periodSeconds: 5
             timeoutSeconds: 20
