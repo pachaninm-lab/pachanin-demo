@@ -6,25 +6,53 @@ const explorerPage = readFileSync('app/platform-v7/how-it-works/page.tsx', 'utf8
 const entryGate = readFileSync('components/platform-v7/PublicDealEntryGate.tsx', 'utf8');
 const adapter = readFileSync('components/platform-v7/PublicDealExplorerV4.tsx', 'utf8');
 const preview = readFileSync('components/platform-v7/PublicDealPreview.tsx', 'utf8');
-const css = readFileSync('styles/platform-v7-public-product-experience-v4.css', 'utf8');
-const finalCss = readFileSync('styles/platform-v7-public-product-entry-variants.css', 'utf8');
+const support = readFileSync('components/platform-v7/ChatSupportWidget.tsx', 'utf8');
+const header = readFileSync('components/platform-v7/PublicSiteHeader.tsx', 'utf8');
+const css = readFileSync('styles/platform-v7-public-product-experience-v5.css', 'utf8');
 const copy = readFileSync('i18n/public-product-experience-v4.ts', 'utf8');
+const exactHeadAcceptance = readFileSync('../../docs/platform-v7/autopilot/public-home-v5-exact-head.md', 'utf8');
+const autopilotState = JSON.parse(readFileSync('../../docs/platform-v7/autopilot/autopilot-state.json', 'utf8')) as {
+  approvedConcurrentScopes?: Record<string, string[]>;
+};
 
-describe('Public Product Experience V4', () => {
+describe('Public Product Experience V5 institutional hardening', () => {
   it('keeps the home task-first and progressively discloses secondary roles', () => {
     expect(root).toContain('allPrimaryPerspectives.slice(0, 5)');
     expect(root).toContain('pc-ppe-hero-progress-mobile');
     expect(root).toContain('ui.home.perspectives.more');
     expect(root).toContain('ui.home.final.primary');
+    expect(root).toContain("id='deal-example'");
+    expect(root).toContain("id='participants'");
+    expect(root).toContain("id='reliability'");
   });
 
-  it('removes the premature connection CTA from the explorer introduction', () => {
-    expect(explorerPage).toContain('pc-ppe-back-link');
-    expect(explorerPage).not.toContain("source: 'how_it_works_header'");
-    expect(explorerPage).not.toContain("eventName='connect_cta_click'");
+  it('uses service navigation and a verifiable trust layer', () => {
+    expect(root).toContain('nav={nav}');
+    expect(root).toContain('showMobileMenu');
+    expect(root).toContain('ui.header.howItWorks');
+    expect(root).toContain('ui.home.trust.cards.map');
+    expect(root).toContain("href='/platform-v7/status'");
+    expect(root).toContain("href='/platform-v7/privacy'");
+    expect(root).toContain("href='/platform-v7/terms'");
+    expect(root).toContain("href='/platform-v7/contact'");
+    expect(explorerPage).toContain('ui.explorer.demoNotice');
+    expect(header).toContain('PUBLIC_SITE_HEADER_STYLES');
+    expect(header).toContain('pc-site-mobile-nav');
   });
 
-  it('uses participant language and four business areas', () => {
+  it('makes the illustrative boundary explicit and removes fake-live identifiers', () => {
+    expect(copy).toContain("primary: 'Разобрать демонстрационную сделку'");
+    expect(copy).toContain("demoLabel: 'Демонстрационная сделка'");
+    expect(copy).toContain('не содержит реальных сделок');
+    expect(copy).toContain("primary: 'Review the demonstration deal'");
+    expect(copy).toContain("primary: '查看演示交易'");
+    expect(preview).toContain('preview.demoNote');
+    expect(preview).toContain('preview.perspectiveValue');
+    expect(preview).toContain('preview.settlementValue');
+    expect(preview).not.toContain('DEAL-2408');
+  });
+
+  it('uses participant language and four public business areas', () => {
     expect(entryGate).toContain('ui.explorer.entryBadge');
     expect(entryGate).toContain('PublicDealExplorerV4');
     expect(entryGate).toContain('lens: option.lens');
@@ -37,30 +65,52 @@ describe('Public Product Experience V4', () => {
     expect(adapter).toContain('scenario: ui.explorer.scenarioLabel');
   });
 
-  it('uses one canonical CTA vocabulary in RU EN and ZH', () => {
-    expect(copy).toContain("primary: 'Посмотреть сделку'");
-    expect(copy).toContain("primary: 'Показать весь путь сделки'");
-    expect(copy).toContain("primary: 'View the deal'");
-    expect(copy).toContain("primary: '查看交易'");
-    expect(copy).not.toContain('Посмотреть сделку изнутри');
-    expect(copy).not.toContain('Открыть сделку изнутри');
-    expect(preview).toContain('ui.home.preview.open');
+  it('uses concrete event-to-evidence language instead of generic claims', () => {
+    expect(root).toContain('pc-ppe-evidence-chain');
+    expect(root).toContain('ui.home.proof.steps.map');
+    expect(copy).toContain("{ label: 'Событие'");
+    expect(copy).toContain("{ label: 'Основание'");
+    expect(copy).toContain("{ label: 'Ограничение'");
+    expect(root).not.toContain('pc-ppe-proof-list');
   });
 
-  it('enforces mobile reflow fixed-header offsets and a non-obscuring support control', () => {
-    expect(css).toContain('@media (max-width: 360px)');
+  it('implements support as an accessible modal bottom sheet', () => {
+    expect(support).toContain("role='dialog'");
+    expect(support).toContain("aria-modal='true'");
+    expect(support).toContain("event.key === 'Escape'");
+    expect(support).toContain("event.key !== 'Tab'");
+    expect(support).toContain("body.style.position = 'fixed'");
+    expect(support).toContain('triggerRef.current?.focus()');
+    expect(support).toContain("className='p7-support-chat-backdrop'");
+    expect(support).not.toContain('syncSupportViewport');
+    expect(support).not.toContain('Участник платформы');
+    expect(css).toContain('right: max(14px');
+    expect(css).not.toContain('right: -5px');
+  });
+
+  it('enforces mobile reflow, reduced motion and forced-colour resilience', () => {
+    expect(css).toContain('@media (max-width: 380px)');
     expect(css).toContain('grid-template-columns: minmax(0, 1fr) !important');
-    expect(finalCss).toContain('--pc-ppe-v4-header: 56px');
-    expect(finalCss).toContain('--pc-ppe-v4-header: 54px');
-    expect(finalCss).toContain('scroll-padding-top: calc(var(--pc-ppe-v4-header) + 18px)');
-    expect(finalCss).toContain('right: -5px !important');
-    expect(finalCss).toContain('padding-bottom: max(88px');
-    expect(finalCss).toContain('.pc-site-brand-mark img');
-    expect(finalCss).toContain('opacity: 0 !important');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(css).toContain('@media (forced-colors: active)');
+    expect(css).toContain('padding-bottom: max(88px');
+    expect(css).toContain('max-height: calc(100dvh');
   });
 
-  it('supports reduced motion and the canonical conversion funnel', () => {
-    expect(adapter).toContain('@media (prefers-reduced-motion: reduce)');
+  it('registers exact source-controlled scope and acceptance evidence', () => {
+    const scope = autopilotState.approvedConcurrentScopes?.['agent/public-home-v5-institutional-10of10'];
+    expect(scope).toBeDefined();
+    expect(scope).toContain('apps/web/components/platform-v7/ChatSupportWidget.tsx');
+    expect(scope).toContain('apps/web/components/platform-v7/PublicSiteHeader.tsx');
+    expect(scope).toContain('apps/web/styles/platform-v7-public-product-experience-v5.css');
+    expect(scope).toContain('docs/platform-v7/autopilot/autopilot-state.json');
+    expect(scope).toContain('docs/platform-v7/autopilot/public-home-v5-exact-head.md');
+    expect(exactHeadAcceptance).toContain('320, 360, 375, 390 and 430 CSS px');
+    expect(exactHeadAcceptance).toContain('controlled pilot / pre-integration');
+    expect(exactHeadAcceptance).toContain('successful exact-head CI');
+  });
+
+  it('retains the canonical conversion funnel', () => {
     expect(adapter).toContain("return 'deal_preview_opened'");
     expect(adapter).toContain("return 'role_selected'");
     expect(adapter).toContain("return 'scenario_started'");

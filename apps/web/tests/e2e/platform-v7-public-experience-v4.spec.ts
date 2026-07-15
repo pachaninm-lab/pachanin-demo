@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-// Exact-head acceptance covers all supported mobile widths and only visible public controls.
 for (const width of [320, 360, 375, 390, 430]) {
   test(`public product experience reflows at ${width}px`, async ({ page }) => {
     const runtimeErrors: string[] = [];
@@ -10,7 +9,8 @@ for (const width of [320, 360, 375, 390, 430]) {
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
 
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Сделка под контролем');
-    await expect(page.getByRole('link', { name: 'Посмотреть сделку' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Разобрать демонстрационную сделку' })).toBeVisible();
+    await expect(page.getByText('Демонстрационная сделка', { exact: true })).toBeVisible();
     await expect(page.locator('.pc-ppe-hero-progress-mobile')).toBeVisible();
     await expect(page.locator('.pc-ppe-hero-contour-desktop')).toBeHidden();
     await expect(page.locator('.pc-site-brand-mark')).toBeVisible();
@@ -41,7 +41,7 @@ test('homepage shows five primary roles and progressively reveals the remaining 
   await page.setViewportSize({ width: 390, height: 860 });
   await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
 
-  const roleSection = page.locator('.pc-ppe-section').filter({ has: page.getByRole('heading', { name: 'Как сделку видит каждый участник' }) });
+  const roleSection = page.locator('#participants');
   await expect(roleSection.locator(':scope > .pc-ppe-perspective-grid > .pc-ppe-perspective-card')).toHaveCount(5);
 
   const more = roleSection.locator('.pc-ppe-all-participants');
@@ -50,19 +50,70 @@ test('homepage shows five primary roles and progressively reveals the remaining 
   await expect(more.locator('.pc-ppe-perspective-card')).toHaveCount(7);
 });
 
-test('canonical CTA vocabulary does not compete on the homepage', async ({ page }) => {
+test('homepage provides service navigation and institutional trust links', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+
+  const header = page.locator('.pc-site-header');
+  await expect(header.getByRole('link', { name: 'Как работает' })).toBeVisible();
+  await expect(header.getByRole('link', { name: 'Участники' })).toBeVisible();
+  await expect(header.getByRole('link', { name: 'Надёжность' })).toBeVisible();
+  await expect(page.locator('#reliability .pc-ppe-trust-card')).toHaveCount(4);
+  await expect(page.getByRole('link', { name: 'Статус сервисов' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Политика данных' })).toBeVisible();
+});
+
+test('mobile service menu is usable and remains inside the 320px viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 860 });
+  await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+
+  const menu = page.locator('.pc-site-mobile-menu');
+  const summary = menu.locator('summary');
+  await expect(summary).toBeVisible();
+  await expect(summary).toHaveAttribute('aria-label', 'Меню');
+  await summary.click();
+
+  const mobileNav = menu.locator('.pc-site-mobile-nav');
+  await expect(mobileNav).toBeVisible();
+  await expect(mobileNav.getByRole('link', { name: 'Как работает' })).toBeVisible();
+  await expect(mobileNav.getByRole('link', { name: 'Участники' })).toBeVisible();
+  await expect(mobileNav.getByRole('link', { name: 'Надёжность' })).toBeVisible();
+
+  const bounds = await page.evaluate(() => {
+    const viewport = document.documentElement.clientWidth;
+    const headerChildren = Array.from(document.querySelectorAll('.pc-site-header > *, .pc-site-actions > *'))
+      .filter((node) => window.getComputedStyle(node).display !== 'none')
+      .map((node) => node.getBoundingClientRect());
+    const nav = document.querySelector('.pc-site-mobile-nav')?.getBoundingClientRect();
+    return {
+      overflow: document.documentElement.scrollWidth - viewport,
+      headerInside: headerChildren.every((rect) => rect.left >= -1 && rect.right <= viewport + 1),
+      navInside: Boolean(nav && nav.left >= -1 && nav.right <= viewport + 1),
+    };
+  });
+
+  expect(bounds.overflow).toBeLessThanOrEqual(1);
+  expect(bounds.headerInside).toBe(true);
+  expect(bounds.navInside).toBe(true);
+  await summary.click();
+  await expect(mobileNav).toBeHidden();
+});
+
+test('canonical CTA vocabulary remains deliberate and truthful', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 860 });
   await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
 
-  await expect(page.getByRole('link', { name: 'Посмотреть сделку' })).toHaveCount(1);
-  await expect(page.getByRole('link', { name: 'Показать весь путь сделки' })).toHaveCount(2);
-  await expect(page.getByText(/сделку изнутри|полный контур/i)).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Разобрать демонстрационную сделку' })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Открыть полный разбор сделки' })).toHaveCount(2);
+  await expect(page.getByText(/DEAL-2408|реальная сделка №/i)).toHaveCount(0);
+  await expect(page.getByText('Данные вымышлены и используются только для объяснения логики платформы.')).toBeVisible();
 });
 
 test('deal explorer exposes four business areas and all ten stages on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 860 });
   await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance&lens=participants', { waitUntil: 'load' });
 
+  await expect(page.locator('.pc-ppe-demo-banner')).toContainText('демонстрационными');
   const areas = page.locator('.pc-ppe-lens-list > button:visible');
   await expect(areas).toHaveCount(4);
   await expect(areas).toHaveText(['Исполнение', 'Документы', 'Деньги', 'Риски и спор']);
@@ -94,7 +145,7 @@ test('public pages retain information at a 200 percent text scale', async ({ pag
   });
 
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Посмотреть сделку' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Разобрать демонстрационную сделку' })).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });
@@ -111,10 +162,36 @@ test('reduced motion prevents automatic stage advancement', async ({ page }) => 
   await expect(activeStage).toHaveText(before ?? '');
 });
 
-test('public support control does not cover final homepage actions', async ({ page }) => {
+test('support opens as an accessible modal bottom sheet and restores focus', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 860 });
   await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
-  await expect(page.locator('.p7-support-chat-button')).toBeVisible();
+
+  const trigger = page.locator('.p7-support-chat-button');
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+
+  const dialog = page.getByRole('dialog', { name: 'Поддержка Прозрачной Цены' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute('aria-modal', 'true');
+  await expect(page.locator('body')).toHaveCSS('position', 'fixed');
+  await expect(dialog.getByLabel('Тема')).toBeFocused();
+
+  const bounds = await dialog.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return { left: rect.left, right: rect.right, bottom: rect.bottom, width: rect.width, viewport: window.innerWidth };
+  });
+  expect(bounds.left).toBeGreaterThanOrEqual(-1);
+  expect(bounds.right).toBeLessThanOrEqual(bounds.viewport + 1);
+  expect(bounds.width).toBeGreaterThanOrEqual(318);
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+});
+
+test('support control does not cover final homepage actions', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 860 });
+  await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
   await page.locator('.pc-ppe-final-cta').scrollIntoViewIfNeeded();
   await page.waitForTimeout(220);
 
