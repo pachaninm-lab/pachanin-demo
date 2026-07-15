@@ -1,29 +1,20 @@
 # syntax=docker/dockerfile:1.7
 
 FROM node:24-bookworm-slim AS build
-ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
-WORKDIR /workspace
+WORKDIR /migration
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates openssl \
-  && rm -rf /var/lib/apt/lists/* \
-  && npm install --global pnpm@10.2.1
+  && rm -rf /var/lib/apt/lists/*
 
-COPY . .
-RUN mkdir -p /migration-runtime \
-  && printf '%s\n' \
-    '{' \
-    '  "name": "@pc/migration-runtime",' \
-    '  "private": true,' \
-    '  "dependencies": {' \
-    '    "prisma": "5.22.0"' \
-    '  }' \
-    '}' > /migration-runtime/package.json
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-  pnpm install --frozen-lockfile \
-  && pnpm --dir /migration-runtime install --prod --offline --lockfile=false
-RUN cp -R /workspace/apps/api/prisma /migration-runtime/prisma
+# Migration authority deliberately does not inherit the API dependency graph.
+# The exact CLI version matches apps/api/package.json and is locked inside the
+# built image. Prisma migrate deploy does not require the application runtime.
+RUN npm init --yes >/dev/null \
+  && npm install --save-exact --omit=dev --no-audit --no-fund prisma@5.22.0 \
+  && npm cache clean --force
+
+COPY apps/api/prisma ./prisma
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
@@ -37,6 +28,6 @@ LABEL org.opencontainers.image.title="Prozrachnaya Cena database migrations" \
 ENV NODE_ENV=production
 ENV RUNTIME_COMPONENT=migration-job
 WORKDIR /app
-COPY --from=build --chown=nonroot:nonroot /migration-runtime/ ./
+COPY --from=build --chown=nonroot:nonroot /migration/ ./
 USER nonroot
 CMD ["node_modules/prisma/build/index.js", "migrate", "deploy", "--schema", "prisma/schema.prisma"]
