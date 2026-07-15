@@ -55,7 +55,7 @@ export function BrandMarkSvg({ size = '100%' }: BrandMarkSvgProps) {
       <span
         aria-hidden
         className='pc-approved-brand-mark'
-        data-approved-brand-mark='owner-reference-203159d'
+        data-approved-brand-mark='owner-reference-validated-q90'
         style={{
           display: 'inline-flex',
           width: dimension,
