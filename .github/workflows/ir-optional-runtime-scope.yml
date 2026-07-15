@@ -64,14 +64,156 @@ jobs:
           fs.writeFileSync(path, `${JSON.stringify(state)}\n`);
           NODE
 
-      - name: Commit governed scope
+      - name: Patch security release policy for retired contours
         run: |
-          if git diff --quiet -- docs/platform-v7/autopilot/autopilot-state.json; then
-            echo 'Scope already registered.'
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'docs/platform-v7/autopilot/check-security-release-gate.mjs';
+          let source = fs.readFileSync(path, 'utf8');
+
+          function replaceOnce(pattern, replacement, label) {
+            const next = source.replace(pattern, replacement);
+            if (next === source) throw new Error(`Security policy patch did not match: ${label}`);
+            source = next;
+          }
+
+          if (!source.includes('OPTIONAL_RUNTIME_INVENTORY_PATH')) {
+            replaceOnce(
+              "const RUNTIME_VALIDATOR_PATH = resolve('scripts/security/validate-runtime-contexts.mjs');\n",
+              "const RUNTIME_VALIDATOR_PATH = resolve('scripts/security/validate-runtime-contexts.mjs');\nconst OPTIONAL_RUNTIME_INVENTORY_PATH = resolve('docs/platform-v7/autopilot/optional-runtime-inventory.json');\nconst OPTIONAL_RUNTIME_VALIDATOR_PATH = resolve('scripts/security/validate-optional-runtime-retirement.mjs');\nconst OPTIONAL_RUNTIME_WORKFLOW_PATH = resolve('.github/workflows/optional-runtime-retirement-gate.yml');\n",
+              'optional runtime paths',
+            );
+
+            replaceOnce(
+              /const REQUIRED_DEFERRED = new Map\(\[[\s\S]*?\]\);\n/,
+              "const REQUIRED_RETIRED = new Map([\n  ['apps/ml', 'ml-service'],\n  ['infra/airflow', 'airflow-orchestration'],\n]);\n",
+              'retired contour policy',
+            );
+
+            replaceOnce(
+              "const runtimeWorkflow = existsSync(RUNTIME_WORKFLOW_PATH) ? readFileSync(RUNTIME_WORKFLOW_PATH, 'utf8') : '';\nconst combinedWorkflows = `${workflow}\\n${runtimeWorkflow}`;\n",
+              "const runtimeWorkflow = existsSync(RUNTIME_WORKFLOW_PATH) ? readFileSync(RUNTIME_WORKFLOW_PATH, 'utf8') : '';\nconst optionalRuntimeWorkflow = existsSync(OPTIONAL_RUNTIME_WORKFLOW_PATH) ? readFileSync(OPTIONAL_RUNTIME_WORKFLOW_PATH, 'utf8') : '';\nconst combinedWorkflows = `${workflow}\\n${runtimeWorkflow}\\n${optionalRuntimeWorkflow}`;\nconst optionalRuntimeInventory = existsSync(OPTIONAL_RUNTIME_INVENTORY_PATH) ? parseJson(OPTIONAL_RUNTIME_INVENTORY_PATH) : {};\nconst optionalRuntimeValidator = existsSync(OPTIONAL_RUNTIME_VALIDATOR_PATH) ? readFileSync(OPTIONAL_RUNTIME_VALIDATOR_PATH, 'utf8') : '';\n",
+              'optional runtime evidence loading',
+            );
+
+            replaceOnce(
+              "check(errors, normalizePath(scope.releaseAuthority?.runtimeInventory) === 'infra/docker/runtime-inventory.json', 'Runtime inventory must be infra/docker/runtime-inventory.json.');\n",
+              "check(errors, normalizePath(scope.releaseAuthority?.runtimeInventory) === 'infra/docker/runtime-inventory.json', 'Runtime inventory must be infra/docker/runtime-inventory.json.');\ncheck(errors, normalizePath(scope.releaseAuthority?.optionalRuntimeInventory) === 'docs/platform-v7/autopilot/optional-runtime-inventory.json', 'Optional runtime inventory must be governed explicitly.');\n",
+              'optional runtime scope binding',
+            );
+
+            replaceOnce(
+              "  scope.releaseAuthority?.runtimeInventory,\n  ...iacRoots,\n",
+              "  scope.releaseAuthority?.runtimeInventory,\n  scope.releaseAuthority?.optionalRuntimeInventory,\n  ...iacRoots,\n",
+              'optional runtime path existence',
+            );
+
+            replaceOnce(
+              /const deferred = Array\.isArray\(scope\.deferredContours\)[\s\S]*?for \(const \[path\] of REQUIRED_DEFERRED\) check\(errors, deferredPaths\.has\(path\), `Required deferred contour is missing: \$\{path\}`\);\n/,
+              `const deferred = Array.isArray(scope.deferredContours) ? scope.deferredContours : [];
+check(errors, deferred.length === 0, 'Optional runtime contours must not remain temporary deferred exceptions.');
+
+const retired = Array.isArray(scope.retiredContours) ? scope.retiredContours : [];
+const retiredPaths = new Set();
+const inventoryContours = Array.isArray(optionalRuntimeInventory.contours) ? optionalRuntimeInventory.contours : [];
+const inventoryById = new Map(inventoryContours.map((contour) => [contour?.id, contour]));
+check(errors, optionalRuntimeInventory.schemaVersion === 1, 'Optional runtime inventory schemaVersion must equal 1.');
+check(errors, optionalRuntimeInventory.repository === 'pachaninm-lab/pachanin-demo', 'Optional runtime inventory repository identity is invalid.');
+check(errors, optionalRuntimeInventory.decisionIssue === '#2605', 'Optional runtime inventory must remain governed by #2605.');
+for (const contour of retired) {
+  const path = normalizePath(contour?.path);
+  const expectedId = REQUIRED_RETIRED.get(path);
+  check(errors, Boolean(expectedId), \`Unexpected retired contour: \${path || '<missing>'}\`);
+  check(errors, !retiredPaths.has(path), \`Duplicate retired contour: \${path}\`);
+  retiredPaths.add(path);
+  check(errors, contour?.status === 'NOT_DEPLOYABLE', \`\${path}: retired contour must be NOT_DEPLOYABLE.\`);
+  check(errors, contour?.ticket === '#2605', \`\${path}: retired contour must be governed by #2605.\`);
+  check(errors, contour?.inventoryId === expectedId, \`\${path}: inventoryId must be \${expectedId}.\`);
+  check(errors, typeof contour?.reason === 'string' && contour.reason.length >= 60, \`\${path}: retirement reason is too short.\`);
+  for (const activePath of [...sourceRoots, ...iacRoots]) {
+    check(errors, !overlaps(path, activePath), \`\${path}: retired contour overlaps active release scope \${activePath}.\`);
+  }
+  const inventory = inventoryById.get(expectedId);
+  check(errors, inventory?.path === path, \`\${path}: optional runtime inventory path mismatch.\`);
+  check(errors, inventory?.status === 'NOT_DEPLOYABLE', \`\${path}: optional runtime inventory status must be NOT_DEPLOYABLE.\`);
+  check(errors, inventory?.releaseAuthority === false, \`\${path}: optional runtime must not be release authority.\`);
+  check(errors, inventory?.runtimeEntrypoint === null, \`\${path}: runtimeEntrypoint must be null.\`);
+  check(errors, inventory?.dependencyManifest === null, \`\${path}: dependencyManifest must be null.\`);
+  check(errors, inventory?.containerDockerfile === null, \`\${path}: containerDockerfile must be null.\`);
+  check(errors, inventory?.deploymentManifest === null, \`\${path}: deploymentManifest must be null.\`);
+}
+for (const [path] of REQUIRED_RETIRED) check(errors, retiredPaths.has(path), \`Required retired contour is missing: \${path}\`);
+check(errors, inventoryContours.length === REQUIRED_RETIRED.size, 'Optional runtime inventory must contain exactly two retired contours.');
+`,
+              'retired contour validation',
+            );
+
+            replaceOnce(
+              "for (const fragment of requiredRuntimeValidatorFragments) {\n  check(errors, runtimeValidator.includes(fragment), `Runtime context validator is missing required fragment: ${fragment}`);\n}\n",
+              `for (const fragment of requiredRuntimeValidatorFragments) {
+  check(errors, runtimeValidator.includes(fragment), \`Runtime context validator is missing required fragment: \${fragment}\`);
+}
+
+const requiredOptionalRuntimeWorkflowFragments = [
+  'Optional Runtime Retirement Gate',
+  'scripts/security/validate-optional-runtime-retirement.mjs',
+  'optional-runtime-retirement.json',
+  'ML_RUNTIME_NOT_DEPLOYABLE:#2605',
+  'helm template grainflow',
+  'trivy-retired-source.sarif',
+  'Optional Runtime Gate · all blocking checks',
+];
+for (const fragment of requiredOptionalRuntimeWorkflowFragments) {
+  check(errors, optionalRuntimeWorkflow.includes(fragment), \`Optional runtime workflow is missing required fragment: \${fragment}\`);
+}
+
+const requiredOptionalRuntimeValidatorFragments = [
+  'OPTIONAL_RUNTIME_EXACT_HEAD',
+  'optional-runtime-inventory.json',
+  'apps/ml/requirements.txt',
+  'infra/airflow/requirements.txt',
+  'infra/docker/Dockerfile.ml',
+  'ML_RUNTIME_NOT_DEPLOYABLE:#2605',
+  'Dockerfile.ml reference',
+  'NOT_DEPLOYABLE',
+];
+for (const fragment of requiredOptionalRuntimeValidatorFragments) {
+  check(errors, optionalRuntimeValidator.includes(fragment), \`Optional runtime validator is missing required fragment: \${fragment}\`);
+}
+`,
+              'optional runtime workflow policy',
+            );
+
+            replaceOnce(
+              "check(errors, existsSync(RUNTIME_WORKFLOW_PATH), 'Blocking runtime context workflow is missing.');\n",
+              "check(errors, existsSync(RUNTIME_WORKFLOW_PATH), 'Blocking runtime context workflow is missing.');\ncheck(errors, existsSync(OPTIONAL_RUNTIME_INVENTORY_PATH), 'Optional runtime inventory is missing.');\ncheck(errors, existsSync(OPTIONAL_RUNTIME_VALIDATOR_PATH), 'Fail-closed optional runtime validator is missing.');\ncheck(errors, existsSync(OPTIONAL_RUNTIME_WORKFLOW_PATH), 'Blocking optional runtime retirement workflow is missing.');\n",
+              'optional runtime file existence',
+            );
+
+            replaceOnce(
+              "  deferredContours: deferred,\n",
+              "  deferredContours: deferred,\n  retiredContours: retired,\n  optionalRuntimeInventory,\n",
+              'retired contours report',
+            );
+
+            replaceOnce(
+              "console.log(`Deferred non-release contours: ${deferred.length}.`);\n",
+              "console.log(`Deferred non-release contours: ${deferred.length}. Retired optional contours: ${retired.length}.`);\n",
+              'retired contour summary',
+            );
+          }
+
+          fs.writeFileSync(path, source);
+          NODE
+
+      - name: Commit governed scope and policy
+        run: |
+          if git diff --quiet -- docs/platform-v7/autopilot/autopilot-state.json docs/platform-v7/autopilot/check-security-release-gate.mjs; then
+            echo 'Scope and policy already registered.'
             exit 0
           fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add docs/platform-v7/autopilot/autopilot-state.json
-          git commit -m 'Govern optional runtime retirement scope'
+          git add docs/platform-v7/autopilot/autopilot-state.json docs/platform-v7/autopilot/check-security-release-gate.mjs
+          git commit -m 'Govern optional runtime retirement policy'
           git push origin HEAD:agent/ir-sec-retire-ml-airflow
