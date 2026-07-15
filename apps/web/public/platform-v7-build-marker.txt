@@ -1,2 +1,4 @@
 platform-v7 public build marker
-2026-07-01
+2026-07-15
+commit: e0fa109
+logo: canonical PC monogram (brand-logo-asset SHA256 267b9bbb)
