@@ -7,6 +7,7 @@ const entryGate = readFileSync('components/platform-v7/PublicDealEntryGate.tsx',
 const adapter = readFileSync('components/platform-v7/PublicDealExplorerV4.tsx', 'utf8');
 const preview = readFileSync('components/platform-v7/PublicDealPreview.tsx', 'utf8');
 const support = readFileSync('components/platform-v7/ChatSupportWidget.tsx', 'utf8');
+const header = readFileSync('components/platform-v7/PublicSiteHeader.tsx', 'utf8');
 const css = readFileSync('styles/platform-v7-public-product-experience-v5.css', 'utf8');
 const copy = readFileSync('i18n/public-product-experience-v4.ts', 'utf8');
 const exactHeadAcceptance = readFileSync('../../docs/platform-v7/autopilot/public-home-v5-exact-head.md', 'utf8');
@@ -35,6 +36,8 @@ describe('Public Product Experience V5 institutional hardening', () => {
     expect(root).toContain("href='/platform-v7/terms'");
     expect(root).toContain("href='/platform-v7/contact'");
     expect(explorerPage).toContain('ui.explorer.demoNotice');
+    expect(header).toContain('PUBLIC_SITE_HEADER_STYLES');
+    expect(header).toContain('pc-site-mobile-nav');
   });
 
   it('makes the illustrative boundary explicit and removes fake-live identifiers', () => {
@@ -98,8 +101,10 @@ describe('Public Product Experience V5 institutional hardening', () => {
     const scope = autopilotState.approvedConcurrentScopes?.['agent/public-home-v5-institutional-10of10'];
     expect(scope).toBeDefined();
     expect(scope).toContain('apps/web/components/platform-v7/ChatSupportWidget.tsx');
+    expect(scope).toContain('apps/web/components/platform-v7/PublicSiteHeader.tsx');
     expect(scope).toContain('apps/web/styles/platform-v7-public-product-experience-v5.css');
     expect(scope).toContain('docs/platform-v7/autopilot/autopilot-state.json');
+    expect(scope).toContain('docs/platform-v7/autopilot/public-home-v5-exact-head.md');
     expect(exactHeadAcceptance).toContain('320, 360, 375, 390 and 430 CSS px');
     expect(exactHeadAcceptance).toContain('controlled pilot / pre-integration');
     expect(exactHeadAcceptance).toContain('successful exact-head CI');
