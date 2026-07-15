@@ -39,6 +39,7 @@ const outboxPrisma = new PrismaClient({
 const kafka = new Kafka({ clientId: `${RUN_ID}.acceptance`, brokers: KAFKA_BROKERS.split(',') });
 let consumer: Consumer;
 const deliveredIds = new Set<string>();
+const deliveryCounts = new Map<string, number>();
 const workers: WorkerProcess[] = [];
 
 async function waitFor(predicate: () => Promise<boolean> | boolean, timeoutMs = 30_000): Promise<void> {
@@ -132,6 +133,12 @@ async function waitSent(ids: string[]): Promise<void> {
   }, 60_000);
 }
 
+function assertDeliveredExactlyOnce(ids: string[]): void {
+  for (const id of ids) {
+    expect(deliveryCounts.get(id)).toBe(1);
+  }
+}
+
 beforeAll(async () => {
   if (!WORKER_DATABASE_URL) throw new Error('OUTBOX_DATABASE_URL is required');
   if (!ADMIN_DATABASE_URL) throw new Error('TEST_ADMIN_DATABASE_URL is required');
@@ -152,7 +159,10 @@ beforeAll(async () => {
     eachMessage: async ({ message }) => {
       const raw = message.headers?.['x-outbox-id'];
       const id = Buffer.isBuffer(raw) ? raw.toString('utf8') : raw?.toString();
-      if (id) deliveredIds.add(id);
+      if (id) {
+        deliveredIds.add(id);
+        deliveryCounts.set(id, (deliveryCounts.get(id) ?? 0) + 1);
+      }
     },
   });
 });
@@ -197,7 +207,7 @@ describe('independent outbox worker process topology', () => {
     const initialIds = await seedEntries('initial', 30);
     await waitSent(initialIds);
     await waitFor(() => initialIds.every((id) => deliveredIds.has(id)), 60_000);
-    expect(deliveredIds.size).toBeGreaterThanOrEqual(initialIds.length);
+    assertDeliveredExactlyOnce(initialIds);
 
     workerA.process.kill('SIGKILL');
     await waitForClose(workerA);
@@ -206,6 +216,7 @@ describe('independent outbox worker process topology', () => {
     const failoverIds = await seedEntries('after-worker-a-loss', 10);
     await waitSent(failoverIds);
     await waitFor(() => failoverIds.every((id) => deliveredIds.has(id)), 60_000);
+    assertDeliveredExactlyOnce(failoverIds);
 
     const readyResponse = await fetch(`http://127.0.0.1:${workerB.port}/ready`);
     expect(readyResponse.status).toBe(200);
