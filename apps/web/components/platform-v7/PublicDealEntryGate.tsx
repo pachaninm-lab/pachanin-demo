@@ -108,7 +108,7 @@ export function PublicDealEntryGate({
 
   return (
     <section className='pc-ppe-entry-gate' aria-labelledby='pc-ppe-entry-gate-title' data-entry-variant={entry}>
-      <span className='pc-ppe-example-badge'>{entryCopy.experimentBadge}</span>
+      <span className='pc-ppe-example-badge'>{ui.explorer.entryBadge}</span>
       <h2 id='pc-ppe-entry-gate-title'>{roleFirst ? entryCopy.role.title : entryCopy.problem.title}</h2>
       <p>{roleFirst ? entryCopy.role.lead : entryCopy.problem.lead}</p>
 
