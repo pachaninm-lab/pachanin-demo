@@ -1,4 +1,10 @@
 spec:
+  # The disposable acceptance contour has one combined KRaft broker/controller.
+  # Recreate avoids a rolling overlap of two pods with the same node.id and
+  # prevents an invalid pre-patch ReplicaSet from blocking the corrected pod.
+  strategy:
+    type: Recreate
+    rollingUpdate: null
   template:
     spec:
       # Kubernetes service-link injection creates KAFKA_PORT for the Service
@@ -12,3 +18,13 @@ spec:
               value: PLAINTEXT
             - name: KAFKA_LOG_DIRS
               value: /var/lib/kafka/data
+          readinessProbe:
+            exec:
+              command:
+                - bash
+                - -ec
+                - kafka-topics --bootstrap-server localhost:9092 --list >/dev/null
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            timeoutSeconds: 20
+            failureThreshold: 60
