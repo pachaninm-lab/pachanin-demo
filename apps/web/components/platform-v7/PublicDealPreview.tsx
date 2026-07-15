@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { PublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
+import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
 import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
 
 const previewLenses = ['execution', 'documents', 'money', 'risk'] as const;
@@ -17,6 +18,7 @@ function emit(name: string, detail: Record<string, string> = {}) {
 export function PublicDealPreview({ copy, locale }: { copy: PublicProductExperienceCopy; locale: string }) {
   const [lens, setLens] = useState<PreviewLens>('execution');
   const preview = copy.home.preview;
+  const ui = getPublicProductExperienceV4Copy(locale);
 
   return (
     <article className='pc-ppe-preview-card' aria-labelledby='pc-ppe-preview-title'>
@@ -31,6 +33,12 @@ export function PublicDealPreview({ copy, locale }: { copy: PublicProductExperie
           <p>{preview.commodity} · {preview.volume} · {preview.price}</p>
         </div>
         <span className='pc-ppe-route'>{preview.route}</span>
+      </div>
+
+      <div className='pc-ppe-preview-progress' aria-label={ui.home.preview.stageCounter}>
+        <span>{ui.home.preview.stageCounter}</span>
+        <strong>{preview.nowValue}</strong>
+        <small>{ui.home.preview.nextPrefix}: {preview.afterValue}</small>
       </div>
 
       <dl className='pc-ppe-preview-status'>
@@ -71,7 +79,7 @@ export function PublicDealPreview({ copy, locale }: { copy: PublicProductExperie
         href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&lens=${lens}`}
         onClick={() => emit('deal_xray_open', { locale, lens, source: 'home_preview' })}
       >
-        <span>{preview.open}</span>
+        <span>{ui.home.preview.open}</span>
         <PublicExperienceIcon name='arrow' size={19} />
       </a>
     </article>
