@@ -1,0 +1,41 @@
+name: Patch Security Audit Version Switch Contract
+
+on:
+  push:
+    branches:
+      - agent/industrial-readiness-v1-security-gates-v2
+    paths:
+      - '.github/workflows/patch-security-audit-version-switch-contract.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/industrial-readiness-v1-security-gates-v2
+          fetch-depth: 0
+      - name: Require version-switch isolation in audit contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('docs/platform-v7/autopilot/check-security-release-gate.mjs')
+          text = path.read_text(encoding='utf-8')
+          old = "  'pnpm dlx pnpm@${AUDIT_PNPM_VERSION} audit --prod --json',"
+          new = "  'npm_config_manage_package_manager_versions=false pnpm dlx pnpm@${AUDIT_PNPM_VERSION} audit --prod --json',"
+          if old not in text:
+              raise SystemExit('Expected audit command policy fragment not found')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Remove one-time workflow and commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/patch-security-audit-version-switch-contract.yml
+          git add docs/platform-v7/autopilot/check-security-release-gate.mjs
+          git commit -m 'Require audit version-switch isolation'
+          git push origin HEAD:agent/industrial-readiness-v1-security-gates-v2
