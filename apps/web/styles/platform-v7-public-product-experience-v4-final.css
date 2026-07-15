@@ -1,8 +1,14 @@
-.pc-ppe-page .pc-site-brand-mark svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  flex: 0 0 auto;
+.pc-ppe-page .pc-site-brand-mark {
+  background-color: transparent !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='3' y='3' width='34' height='34' rx='10' fill='%230b5d38'/%3E%3Cpath d='M11 28V14.5L20 10l9 4.5V28' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M14 25c3.7-7.4 8.3-10.1 14-10.7-1.2 6.7-5.8 11.2-14 10.7Z' fill='%239ad7aa'/%3E%3Cpath d='M14 25c4.1-3.9 8.2-6.7 12.8-8.4' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'/%3E%3Ccircle cx='12.2' cy='29.2' r='1.6' fill='%23fff'/%3E%3Ccircle cx='27.8' cy='29.2' r='1.6' fill='%23fff'/%3E%3C/svg%3E") !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-size: contain !important;
+}
+
+.pc-ppe-page .pc-site-brand-mark > span,
+.pc-ppe-page .pc-site-brand-mark img {
+  opacity: 0 !important;
 }
 
 /* The role is selected separately. Keep the public deal navigation to the four
