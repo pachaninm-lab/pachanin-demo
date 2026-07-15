@@ -17,7 +17,9 @@ RUN pnpm --filter @pc/api build
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/api
 
 # pnpm deploy omits ignored build output and Prisma's generated sibling package.
-# Materialize both explicitly and prove the immutable runtime can resolve them.
+# Materialize both explicitly. Resolve the single compiled main entrypoint at build
+# time and write a stable launcher so runtime does not depend on TypeScript rootDir
+# inference or a stale package script.
 RUN set -eux; \
   rm -rf /prod/api/dist; \
   cp -a /workspace/apps/api/dist /prod/api/dist; \
@@ -29,7 +31,12 @@ RUN set -eux; \
   install -d "$target_node_modules/.prisma"; \
   rm -rf "$target_node_modules/.prisma/client"; \
   cp -a "$source_client" "$target_node_modules/.prisma/client"; \
-  test -f /prod/api/dist/src/main.js; \
+  entrypoints="$(find /prod/api/dist -type f -name main.js -print)"; \
+  test "$(printf '%s\n' "$entrypoints" | sed '/^$/d' | wc -l)" -eq 1; \
+  entrypoint="$(printf '%s\n' "$entrypoints")"; \
+  relative_entrypoint="${entrypoint#/prod/api/}"; \
+  printf "require('./%s');\n" "$relative_entrypoint" > /prod/api/runtime-main.js; \
+  test -f "$entrypoint"; \
   cd /prod/api; \
   node -e "require('@prisma/client')"
 
@@ -48,4 +55,4 @@ COPY --from=build --chown=nonroot:nonroot /prod/api/ ./
 
 EXPOSE 3001
 USER nonroot
-CMD ["dist/src/main.js"]
+CMD ["runtime-main.js"]
