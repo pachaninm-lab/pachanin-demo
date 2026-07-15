@@ -9,6 +9,7 @@ const preview = readFileSync('components/platform-v7/PublicDealPreview.tsx', 'ut
 const support = readFileSync('components/platform-v7/ChatSupportWidget.tsx', 'utf8');
 const css = readFileSync('styles/platform-v7-public-product-experience-v5.css', 'utf8');
 const copy = readFileSync('i18n/public-product-experience-v4.ts', 'utf8');
+const exactHeadAcceptance = readFileSync('../../docs/platform-v7/autopilot/public-home-v5-exact-head.md', 'utf8');
 const autopilotState = JSON.parse(readFileSync('../../docs/platform-v7/autopilot/autopilot-state.json', 'utf8')) as {
   approvedConcurrentScopes?: Record<string, string[]>;
 };
@@ -93,12 +94,15 @@ describe('Public Product Experience V5 institutional hardening', () => {
     expect(css).toContain('max-height: calc(100dvh');
   });
 
-  it('registers an exact source-controlled autopilot scope', () => {
+  it('registers exact source-controlled scope and acceptance evidence', () => {
     const scope = autopilotState.approvedConcurrentScopes?.['agent/public-home-v5-institutional-10of10'];
     expect(scope).toBeDefined();
     expect(scope).toContain('apps/web/components/platform-v7/ChatSupportWidget.tsx');
     expect(scope).toContain('apps/web/styles/platform-v7-public-product-experience-v5.css');
     expect(scope).toContain('docs/platform-v7/autopilot/autopilot-state.json');
+    expect(exactHeadAcceptance).toContain('320, 360, 375, 390 and 430 CSS px');
+    expect(exactHeadAcceptance).toContain('controlled pilot / pre-integration');
+    expect(exactHeadAcceptance).toContain('successful exact-head CI');
   });
 
   it('retains the canonical conversion funnel', () => {
