@@ -153,6 +153,7 @@ describePostgresql('Dispute contractual-party initiator guard', () => {
       dealId: DEAL,
       reason: 'QUALITY',
       detail: 'The laboratory may submit evidence but cannot originate a party claim.',
+      currency: 'RUB',
       idempotencyKey: 'open:neutral-lab',
     }, lab)).rejects.toMatchObject({
       response: { code: 'DISPUTE_PARTY_INITIATOR_REQUIRED' },
@@ -169,6 +170,7 @@ describePostgresql('Dispute contractual-party initiator guard', () => {
       dealId: DEAL,
       reason: 'QUALITY',
       detail: 'The contractual buyer opens a claim against the contractual seller.',
+      currency: 'RUB',
       idempotencyKey: 'open:buyer-party',
     }, buyer) as Record<string, unknown>;
 
