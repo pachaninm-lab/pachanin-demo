@@ -12,6 +12,7 @@
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json",
     "infra/kind/production-like/**",
+    "scripts/p7-autopilot-guard.sh",
     "scripts/release/build-production-like-kubernetes-evidence.mjs",
     "scripts/release/production-like-kubernetes-*.sh"
   ],
