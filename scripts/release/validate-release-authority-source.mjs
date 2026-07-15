@@ -130,10 +130,23 @@ requireFragments('infra/release/immutable-release-manifest.schema.json', [
   'outboxWorker',
   'additionalProperties',
 ]);
+requireFragments('infra/release/immutable-rollback.schema.json', [
+  'ProzrachnayaCenaImmutableRollback',
+  'currentMigrationSetDigest',
+  'targetMigrationSetDigest',
+  'NO_DOWN_MIGRATION_SAME_SCHEMA_ONLY',
+  'additionalProperties',
+]);
+requireFragments('scripts/release/immutable-release-lib.mjs', [
+  'NO_DOWN_MIGRATION_SAME_SCHEMA_ONLY',
+  'rollback across migration-set changes is forbidden',
+]);
+requireFragments('scripts/release/build-immutable-rollback.mjs', [
+  'current.migrationSetDigest !== target.migrationSetDigest',
+  'separately accepted N-1 schema compatibility contour',
+]);
 for (const path of [
-  'scripts/release/immutable-release-lib.mjs',
   'scripts/release/build-immutable-release-manifest.mjs',
-  'scripts/release/build-immutable-rollback.mjs',
   'scripts/release/render-immutable-release-values.mjs',
   'scripts/release/validate-immutable-release.mjs',
 ]) read(path);
