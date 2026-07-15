@@ -82,7 +82,9 @@ jobs:
         run: |
           set -o pipefail
           pnpm --filter @pc/api exec jest --config test/industrial/jest.config.json \
-            test/industrial/disputes-postgresql-authority.e2e-spec.ts --runInBand --json \
+            test/industrial/disputes-postgresql-authority.e2e-spec.ts \
+            test/industrial/disputes-party-initiator.e2e-spec.ts \
+            --runInBand --json \
             --outputFile="$GITHUB_WORKSPACE/$EVIDENCE_DIR/jest.json" \
             2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_DIR/jest.log"
       - name: Build machine-readable evidence
@@ -101,6 +103,7 @@ jobs:
             acceptance: {
               postgresqlAuthorityOnly: true,
               restrictedPrincipal: true,
+              contractualPartyInitiator: true,
               atomicSettlementHold: true,
               integerMinorUnits: true,
               durableIdempotency: true,
