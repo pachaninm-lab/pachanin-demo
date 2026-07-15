@@ -9,6 +9,7 @@ const EXCEPTIONS_PATH = resolve('docs/platform-v7/autopilot/security-exceptions.
 const REPORT_PATH = resolve(process.env.PNPM_AUDIT_REPORT ?? 'artifacts/security/pnpm-audit-evaluation.json');
 const EXACT_HEAD = process.env.SECURITY_EXACT_HEAD ?? '';
 const FALLBACK_VERSION = process.env.PNPM_AUDIT_FALLBACK_VERSION ?? '11.13.0';
+const VULNERABILITY_SEVERITIES = ['info', 'low', 'moderate', 'high', 'critical'];
 
 function parseJson(path, label) {
   try {
@@ -148,6 +149,9 @@ if (isRetiredLegacyEndpoint(audit)) {
   fallbackUsed = true;
 }
 
+const directBulkTransport = audit?.transport?.type === 'npm-bulk-advisory';
+if (directBulkTransport) scannerVersion = `npm-registry-bulk-v${Number(audit?.transport?.version ?? 1)}`;
+
 const registry = parseJson(EXCEPTIONS_PATH, 'security exception registry');
 const activeExceptions = new Set(
   (Array.isArray(registry.exceptions) ? registry.exceptions : [])
@@ -205,7 +209,10 @@ for (const finding of findings) {
 
 const metadata = audit?.metadata ?? {};
 const reportedTotal = metadata?.vulnerabilities
-  ? Object.values(metadata.vulnerabilities).reduce((sum, value) => sum + (Number(value) || 0), 0)
+  ? VULNERABILITY_SEVERITIES.reduce(
+      (sum, severity) => sum + (Number(metadata.vulnerabilities[severity]) || 0),
+      0,
+    )
   : null;
 const report = {
   schemaVersion: 1,
@@ -216,7 +223,10 @@ const report = {
   scannerVersion,
   scannerExitCode: Number.isFinite(scannerExit) ? scannerExit : null,
   fallbackUsed,
-  endpointContract: fallbackUsed ? 'bulk-advisory' : 'repository-pinned-client',
+  endpointContract: directBulkTransport
+    ? 'npm-bulk-advisory-v1'
+    : (fallbackUsed ? 'pnpm11-bulk-advisory' : 'repository-pinned-client'),
+  transportEndpoint: directBulkTransport ? String(audit?.transport?.endpoint ?? '') : null,
   recognizedAuditShape: hasRecognizedAuditShape,
   reportedTotal,
   highOrCriticalFindings: findings,
