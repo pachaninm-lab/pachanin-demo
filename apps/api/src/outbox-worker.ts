@@ -130,8 +130,10 @@ async function bootstrap(): Promise<void> {
     // runner shutdown hook exactly once: stop claims, then await active drain.
     await closeServer(server).catch(() => undefined);
     await app.close();
+    process.exitCode = exitCode;
     process.stdout.write(`Outbox worker stopped signal=${signal}\n`);
-    process.exit(exitCode);
+    // Do not call process.exit(): it can truncate stdout, logs and telemetry.
+    // Once the server, Prisma and Kafka handles are closed, Node exits naturally.
   };
 
   process.once('SIGTERM', () => void shutdown('SIGTERM'));
@@ -150,5 +152,5 @@ async function bootstrap(): Promise<void> {
 
 bootstrap().catch((error) => {
   process.stderr.write(`Failed to start outbox worker: ${error instanceof Error ? error.stack : String(error)}\n`);
-  process.exit(1);
+  process.exitCode = 1;
 });
