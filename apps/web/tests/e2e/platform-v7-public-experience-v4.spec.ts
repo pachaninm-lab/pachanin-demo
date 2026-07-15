@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-for (const width of [320, 390]) {
+for (const width of [320, 360, 375, 390, 430]) {
   test(`public product experience reflows at ${width}px`, async ({ page }) => {
     const runtimeErrors: string[] = [];
     page.on('pageerror', (error) => runtimeErrors.push(error.message));
@@ -9,22 +9,29 @@ for (const width of [320, 390]) {
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
 
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Сделка под контролем');
+    await expect(page.getByRole('link', { name: 'Посмотреть сделку' })).toBeVisible();
     await expect(page.locator('.pc-ppe-hero-progress-mobile')).toBeVisible();
     await expect(page.locator('.pc-ppe-hero-contour-desktop')).toBeHidden();
-    await expect(page.locator('.pc-site-brand img')).toBeVisible();
+    await expect(page.locator('.pc-site-brand-mark')).toBeVisible();
 
     const metrics = await page.evaluate(() => {
       const header = document.querySelector('.pc-site-header')?.getBoundingClientRect();
       const heading = document.querySelector('h1')?.getBoundingClientRect();
+      const mark = document.querySelector('.pc-site-brand-mark');
+      const raster = mark?.querySelector('img');
       return {
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         headerBottom: header?.bottom ?? 0,
         headingTop: heading?.top ?? 0,
+        markBackground: mark ? window.getComputedStyle(mark).backgroundColor : '',
+        rasterOpacity: raster ? window.getComputedStyle(raster).opacity : '0',
       };
     });
 
     expect(metrics.overflow).toBeLessThanOrEqual(1);
     expect(metrics.headingTop).toBeGreaterThanOrEqual(metrics.headerBottom - 1);
+    expect(metrics.markBackground).toBe('rgb(11, 93, 56)');
+    expect(metrics.rasterOpacity).toBe('0');
     expect(runtimeErrors).toEqual([]);
   });
 }
@@ -42,9 +49,22 @@ test('homepage shows five primary roles and progressively reveals the remaining 
   await expect(more.locator('.pc-ppe-perspective-card')).toHaveCount(7);
 });
 
-test('deal explorer exposes all ten stages as a vertical mobile stepper', async ({ page }) => {
+test('canonical CTA vocabulary does not compete on the homepage', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 860 });
+  await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+
+  await expect(page.getByRole('link', { name: 'Посмотреть сделку' })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Показать весь путь сделки' })).toHaveCount(2);
+  await expect(page.getByText(/сделку изнутри|полный контур/i)).toHaveCount(0);
+});
+
+test('deal explorer exposes four business areas and all ten stages on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 860 });
-  await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance', { waitUntil: 'load' });
+  await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance&lens=participants', { waitUntil: 'load' });
+
+  const areas = page.locator('.pc-ppe-lens-list > button:visible');
+  await expect(areas).toHaveCount(4);
+  await expect(areas).toHaveText(['Исполнение', 'Документы', 'Деньги', 'Риски и спор']);
 
   const stageTrack = page.locator('.pc-ppe-stage-track');
   await expect(stageTrack).toBeVisible();
@@ -63,6 +83,31 @@ test('deal explorer exposes all ten stages as a vertical mobile stepper', async 
   expect(style.columns.split(' ').length).toBe(1);
   expect(style.overflow).toBeLessThanOrEqual(1);
   expect(style.withinViewport).toBe(true);
+});
+
+test('public pages retain information at a 200 percent text scale', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = '200%';
+  });
+
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Посмотреть сделку' })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test('reduced motion prevents automatic stage advancement', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 390, height: 860 });
+  await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance', { waitUntil: 'load' });
+
+  const activeStage = page.locator('.pc-ppe-stage-track button[data-state="active"]');
+  const before = await activeStage.textContent();
+  await page.getByRole('button', { name: 'Запустить показ сделки' }).click();
+  await page.waitForTimeout(3100);
+  await expect(activeStage).toHaveText(before ?? '');
 });
 
 test('public support control does not cover final homepage actions', async ({ page }) => {
