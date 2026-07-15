@@ -2,6 +2,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import {
+  DATABASE_ROLLBACK_MODE,
   ROLLBACK_KIND,
   RELEASE_SCHEMA_VERSION,
   identityOf,
@@ -38,6 +39,9 @@ for (const [label, manifest] of [['current', current], ['target', target]]) {
   if (!result.valid) throw new Error(`${label} release manifest is invalid: ${result.errors.join('; ')}`);
 }
 if (current.manifestId === target.manifestId) throw new Error('Rollback target must differ from the current release manifest');
+if (current.migrationSetDigest !== target.migrationSetDigest) {
+  throw new Error('Rollback across migration-set changes is forbidden; use a forward fix or a separately accepted N-1 schema compatibility contour');
+}
 
 const payload = {
   kind: ROLLBACK_KIND,
@@ -47,9 +51,11 @@ const payload = {
   currentManifestId: current.manifestId,
   targetManifestId: target.manifestId,
   targetSourceCommit: target.sourceCommit,
+  currentMigrationSetDigest: current.migrationSetDigest,
   targetMigrationSetDigest: target.migrationSetDigest,
+  databaseRollbackMode: DATABASE_ROLLBACK_MODE,
   targetComponents: structuredClone(target.components),
-  maturityBoundary: 'Rollback document generated and validated only; rollback is not executed and no runtime recovery is claimed.',
+  maturityBoundary: 'Rollback document generated and validated only; rollback is not executed, database down-migration is forbidden and no runtime recovery is claimed.',
 };
 const document = { ...payload, rollbackId: identityOf(payload) };
 const result = validateRollback(document);
