@@ -51,6 +51,8 @@ apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx
 apps/web/components/platform-v7/PublicEntryCleanup.tsx
 apps/web/components/platform-v7/PublicLocaleSwitch.tsx
 apps/web/components/platform-v7/PublicSiteHeader.tsx
+apps/web/components/v7r/ApprovedHeaderLogo.tsx
+apps/web/components/v7r/BrandMark.tsx
 apps/web/components/v7r/brand-logo-asset.ts
 apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx
 apps/web/i18n/public-entry-messages.ts
@@ -194,7 +196,7 @@ pnpm-lock.yaml
 docs/platform-v7/autopilot/security-exceptions.json
 scripts/p7-autopilot-guard.sh'
 
-if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ]; then
+if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/exact-approved-header-logo" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
 
