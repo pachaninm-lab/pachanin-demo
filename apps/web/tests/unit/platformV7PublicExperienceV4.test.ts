@@ -57,8 +57,10 @@ describe('Public Product Experience V4', () => {
     expect(entryCss).toContain('scroll-padding-top: calc(var(--pc-ppe-v4-header) + 18px)');
     expect(entryCss).toContain('right: -5px !important');
     expect(entryCss).toContain('padding-bottom: max(88px');
-    expect(header).toContain('function PublicBrandMark');
-    expect(header).toContain("viewBox='0 0 40 40'");
+    expect(header).toContain("import { BrandMark }");
+    expect(finalCss).toContain('data:image/svg+xml');
+    expect(finalCss).toContain('.pc-site-brand-mark img');
+    expect(finalCss).toContain('opacity: 0 !important');
   });
 
   it('limits the explorer to four business areas and respects reduced motion', () => {
