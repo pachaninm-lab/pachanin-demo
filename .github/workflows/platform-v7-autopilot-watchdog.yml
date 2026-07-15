@@ -62,8 +62,10 @@ jobs:
             '## Industrial readiness inventory',
             '',
             `- Valid: ${report.valid ? 'yes' : 'no'}`,
-            `- Verified: ${summary.IMPLEMENTED_AND_VERIFIED ?? 0}/${summary.total ?? 0}`,
-            `- Verified percent: ${summary.verifiedPercent ?? 0}%`,
+            `- Overall status: ${report.overallStatus || 'UNKNOWN'}`,
+            `- Implementation verified: ${summary.IMPLEMENTED_AND_VERIFIED ?? 0}/${summary.total ?? 0}`,
+            `- Implementation verified percent: ${summary.implementationVerifiedPercent ?? 0}%`,
+            `- Operationally proven: ${summary.operationallyProven ?? 0}/${summary.total ?? 0}`,
             `- Unresolved P0: ${(summary.unresolvedP0 || []).length}`,
             `- Inventory baseline: ${report.inventoryBaselineCommit}`,
             `- Validated commit: ${report.validatedCommit}`,
@@ -131,8 +133,8 @@ jobs:
               const prs=JSON.parse(fs.readFileSync('/tmp/p7-watchdog-open.json','utf8'));
               const cur=Number(process.env.CURRENT_SLICE)||0;
               prs.forEach(p=>{
-                const m=String(p.title||'').match(/slice\s+(\d+)/i);
-                if(m && Number(m[1])<cur) process.stdout.write(p.number+'\n');
+                const m=String(p.title||'').match(/slice\\s+(\\d+)/i);
+                if(m && Number(m[1])<cur) process.stdout.write(p.number+'\\n');
               });
             " || true)
             while IFS= read -r pr_num; do
@@ -158,7 +160,7 @@ jobs:
               const slice=Number('${current_slice:-0}')||0;
               const re=slice?new RegExp('slice\\s+'+slice+'\\b','i'):null;
               prs.filter(p=>!re||re.test(p.title||'')).forEach(p=>{
-                process.stdout.write('- #'+p.number+' '+p.title+' updated '+p.updatedAt+'\n');
+                process.stdout.write('- #'+p.number+' '+p.title+' updated '+p.updatedAt+'\\n');
               });
             " >> "$GITHUB_STEP_SUMMARY" || true
           fi
