@@ -16,6 +16,16 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 RUN pnpm --filter @pc/api build
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/api
 
+# pnpm deploy creates the production dependency graph but does not guarantee that
+# workspace build output or Prisma's generated client side effects are copied.
+# Materialize both explicitly and prove the final runtime tree before distroless.
+RUN rm -rf /prod/api/src /prod/api/test /prod/api/prisma /prod/api/dist \
+  && cp -R /workspace/apps/api/dist /prod/api/dist \
+  && node scripts/release/materialize-prisma-client.mjs /workspace/apps/api /prod/api \
+  && test -f /prod/api/dist/src/main.js \
+  && cd /prod/api \
+  && node -e "const {PrismaClient}=require('@prisma/client'); if(typeof PrismaClient!=='function') process.exit(1)"
+
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
