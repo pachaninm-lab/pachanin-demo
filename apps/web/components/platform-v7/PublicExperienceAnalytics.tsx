@@ -16,6 +16,17 @@ function emit(name: string, locale: string, params: Record<string, string> = {})
   }));
 }
 
+function canonicalFunnelName(detail: Record<string, unknown>) {
+  const name = typeof detail.name === 'string' ? detail.name : '';
+  if (name === 'deal_xray_open' || name === 'home_primary_cta_click') return 'deal_preview_opened';
+  if (name === 'perspective_selected') return 'role_selected';
+  if (name === 'entry_variant_selected' && detail.entry_variant === 'role') return 'role_selected';
+  if (name === 'scenario_selected' || name === 'guided_tour_started') return 'scenario_started';
+  if (name === 'guided_tour_completed') return 'scenario_completed';
+  if (name === 'connect_cta_click' || name === 'home_connect_click') return 'organization_connect_started';
+  return null;
+}
+
 type PublicExperienceLinkProps = Pick<AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'className' | 'role' | 'aria-label'> & {
   eventName: string;
   locale: string;
@@ -48,6 +59,22 @@ export function PublicExperienceScrollCoordinator() {
       if (timer !== undefined) window.clearTimeout(timer);
       clear();
     };
+  }, []);
+
+  useEffect(() => {
+    const bridge = (event: Event) => {
+      const detail = event instanceof CustomEvent && event.detail && typeof event.detail === 'object'
+        ? event.detail as Record<string, unknown>
+        : {};
+      const canonicalName = canonicalFunnelName(detail);
+      if (!canonicalName) return;
+      window.dispatchEvent(new CustomEvent('pc:public-product-funnel', {
+        detail: { ...detail, name: canonicalName, source_event: detail.name },
+      }));
+    };
+
+    window.addEventListener('pc:public-product-analytics', bridge);
+    return () => window.removeEventListener('pc:public-product-analytics', bridge);
   }, []);
 
   return null;
