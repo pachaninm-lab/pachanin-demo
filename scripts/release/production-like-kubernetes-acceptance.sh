@@ -12,6 +12,8 @@ patch_web_hardening() {
     > "$K8S_DIR/web-runtime-hardening-patch.log" 2>&1
   kubectl apply -f infra/kind/production-like/api-ingress.yaml \
     > "$K8S_DIR/api-ingress-apply.log"
+  kubectl apply -f infra/kind/production-like/web-health-ingress.yaml \
+    > "$K8S_DIR/web-health-ingress-apply.log"
 }
 
 source scripts/release/production-like-kubernetes-pgbouncer.sh
