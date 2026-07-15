@@ -1,0 +1,184 @@
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { resolve } from 'node:path';
+import { Kafka, type Consumer } from 'kafkajs';
+import { PrismaService } from '../../src/common/prisma/prisma.service';
+
+jest.setTimeout(180_000);
+
+const RUN_ID = `worker.process.${Date.now()}.${Math.random().toString(16).slice(2)}`;
+const TOPIC = 'grainflow.domain.events';
+const DATABASE_URL = process.env.DATABASE_URL!;
+const KAFKA_BROKERS = process.env.KAFKA_BROKERS ?? 'localhost:9092';
+const workerEntry = resolve(process.cwd(), 'dist/src/outbox-worker.js');
+
+interface WorkerProcess {
+  id: string;
+  port: number;
+  process: ChildProcessWithoutNullStreams;
+  stdout: string[];
+  stderr: string[];
+}
+
+const prisma = new PrismaService();
+const kafka = new Kafka({ clientId: `${RUN_ID}.acceptance`, brokers: KAFKA_BROKERS.split(',') });
+let consumer: Consumer;
+const deliveredIds = new Set<string>();
+const workers: WorkerProcess[] = [];
+
+async function waitFor(predicate: () => Promise<boolean> | boolean, timeoutMs = 30_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
+  while (Date.now() < deadline) {
+    try {
+      if (await predicate()) return;
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 200));
+  }
+  throw new Error(`Condition not met within ${timeoutMs}ms${lastError ? `: ${String(lastError)}` : ''}`);
+}
+
+function startWorker(id: string, port: number): WorkerProcess {
+  const child = spawn(process.execPath, [workerEntry], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      NODE_ENV: 'production',
+      RUNTIME_COMPONENT: 'outbox-worker',
+      DATABASE_URL,
+      KAFKA_BROKERS,
+      KAFKA_REQUIRED: 'true',
+      KAFKA_CLIENT_ID: id,
+      OUTBOX_WORKER_ENABLED: 'true',
+      OUTBOX_WORKER_ID: id,
+      OUTBOX_WORKER_HEALTH_PORT: String(port),
+      OUTBOX_WORKER_INTERVAL_MS: '100',
+      OUTBOX_WORKER_BATCH_SIZE: '10',
+      OUTBOX_WORKER_HEARTBEAT_MS: '500',
+      OTEL_SDK_DISABLED: 'true',
+      SENTRY_DSN: '',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const worker: WorkerProcess = { id, port, process: child, stdout: [], stderr: [] };
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk: string) => worker.stdout.push(chunk));
+  child.stderr.on('data', (chunk: string) => worker.stderr.push(chunk));
+  workers.push(worker);
+  return worker;
+}
+
+async function waitReady(worker: WorkerProcess): Promise<void> {
+  await waitFor(async () => {
+    if (worker.process.exitCode !== null) {
+      throw new Error(`${worker.id} exited early code=${worker.process.exitCode}: ${worker.stderr.join('')}`);
+    }
+    const response = await fetch(`http://127.0.0.1:${worker.port}/ready`).catch(() => null);
+    return response?.status === 200;
+  }, 45_000);
+}
+
+async function waitForExit(worker: WorkerProcess, timeoutMs = 30_000): Promise<number | null> {
+  if (worker.process.exitCode !== null) return worker.process.exitCode;
+  return await Promise.race([
+    new Promise<number | null>((resolveExit) => worker.process.once('exit', (code) => resolveExit(code))),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`${worker.id} did not exit`)), timeoutMs)),
+  ]);
+}
+
+async function seedEntries(suffix: string, count: number): Promise<string[]> {
+  const ids: string[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const row = await prisma.outboxEntry.create({
+      data: {
+        type: `${RUN_ID}.${suffix}`,
+        status: 'PENDING',
+        payload: { runId: RUN_ID, suffix, index },
+        nextRetryAt: new Date(Date.now() - 1_000),
+        maxRetries: 10,
+        idempotencyKey: `${RUN_ID}.${suffix}.${index}`,
+        correlationId: RUN_ID,
+      },
+    });
+    ids.push(row.id);
+  }
+  return ids;
+}
+
+async function waitSent(ids: string[]): Promise<void> {
+  await waitFor(async () => {
+    const sent = await prisma.outboxEntry.count({ where: { id: { in: ids }, status: 'SENT' } });
+    return sent === ids.length;
+  }, 60_000);
+}
+
+beforeAll(async () => {
+  if (!DATABASE_URL) throw new Error('DATABASE_URL is required');
+  await prisma.$connect();
+
+  const admin = kafka.admin();
+  await admin.connect();
+  await admin.createTopics({
+    waitForLeaders: true,
+    topics: [{ topic: TOPIC, numPartitions: 3, replicationFactor: 1 }],
+  });
+  await admin.disconnect();
+
+  consumer = kafka.consumer({ groupId: `${RUN_ID}.consumer` });
+  await consumer.connect();
+  await consumer.subscribe({ topic: TOPIC, fromBeginning: false });
+  await consumer.run({
+    eachMessage: async ({ message }) => {
+      const raw = message.headers?.['x-outbox-id'];
+      const id = Buffer.isBuffer(raw) ? raw.toString('utf8') : raw?.toString();
+      if (id) deliveredIds.add(id);
+    },
+  });
+});
+
+afterAll(async () => {
+  for (const worker of workers) {
+    if (worker.process.exitCode === null) worker.process.kill('SIGKILL');
+  }
+  await consumer?.disconnect().catch(() => undefined);
+  await prisma.outboxEntry.deleteMany({ where: { correlationId: RUN_ID } }).catch(() => undefined);
+  await prisma.$disconnect();
+});
+
+describe('independent outbox worker process topology', () => {
+  it('runs two replica-safe workers, survives one process loss and shuts down gracefully', async () => {
+    const workerA = startWorker(`${RUN_ID}.worker-a`, 3301);
+    const workerB = startWorker(`${RUN_ID}.worker-b`, 3302);
+    await Promise.all([waitReady(workerA), waitReady(workerB)]);
+
+    const initialIds = await seedEntries('initial', 30);
+    await waitSent(initialIds);
+    await waitFor(() => initialIds.every((id) => deliveredIds.has(id)), 60_000);
+    expect(deliveredIds.size).toBeGreaterThanOrEqual(initialIds.length);
+
+    workerA.process.kill('SIGKILL');
+    await waitForExit(workerA);
+    expect(workerA.process.signalCode).toBe('SIGKILL');
+
+    const failoverIds = await seedEntries('after-worker-a-loss', 10);
+    await waitSent(failoverIds);
+    await waitFor(() => failoverIds.every((id) => deliveredIds.has(id)), 60_000);
+
+    const readyResponse = await fetch(`http://127.0.0.1:${workerB.port}/ready`);
+    expect(readyResponse.status).toBe(200);
+    const ready = await readyResponse.json() as {
+      checks: { kafka: { connected: boolean; clientId: string }; runner: { started: boolean; stopped: boolean } };
+    };
+    expect(ready.checks.kafka).toEqual(expect.objectContaining({
+      connected: true,
+      clientId: `${RUN_ID}.worker-b`,
+    }));
+    expect(ready.checks.runner).toEqual(expect.objectContaining({ started: true, stopped: false }));
+
+    workerB.process.kill('SIGTERM');
+    await expect(waitForExit(workerB)).resolves.toBe(0);
+    expect(workerB.stdout.join('')).toContain('Outbox worker stopped signal=SIGTERM');
+  });
+});
