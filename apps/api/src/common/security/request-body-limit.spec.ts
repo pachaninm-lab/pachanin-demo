@@ -1,7 +1,7 @@
 import { Body, Controller, Module, Post } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import * as request from 'supertest';
+import request from 'supertest';
 import {
   configureRequestBodyLimits,
   DEFAULT_API_BODY_LIMIT_BYTES,
