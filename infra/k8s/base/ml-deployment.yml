@@ -27,13 +27,19 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: grainflow-ml
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: ml
           image: ghcr.io/pachaninm-lab/grainflow-ml:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8001
@@ -52,6 +58,8 @@ spec:
             - name: models
               mountPath: /app/models
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               memory: "512Mi"
@@ -89,6 +97,10 @@ spec:
         - name: models
           persistentVolumeClaim:
             claimName: grainflow-ml-models
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
