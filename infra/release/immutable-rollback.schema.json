@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prozrachnaya-cena.invalid/schemas/immutable-rollback.schema.json",
+  "title": "Prozrachnaya Cena immutable rollback document",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schemaVersion",
+    "repository",
+    "createdAt",
+    "currentManifestId",
+    "targetManifestId",
+    "targetSourceCommit",
+    "currentMigrationSetDigest",
+    "targetMigrationSetDigest",
+    "databaseRollbackMode",
+    "targetComponents",
+    "maturityBoundary",
+    "rollbackId"
+  ],
+  "properties": {
+    "kind": { "const": "ProzrachnayaCenaImmutableRollback" },
+    "schemaVersion": { "const": 1 },
+    "repository": { "const": "pachaninm-lab/pachanin-demo" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "currentManifestId": { "$ref": "#/$defs/digest" },
+    "targetManifestId": { "$ref": "#/$defs/digest" },
+    "targetSourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "currentMigrationSetDigest": { "$ref": "#/$defs/digest" },
+    "targetMigrationSetDigest": { "$ref": "#/$defs/digest" },
+    "databaseRollbackMode": { "const": "NO_DOWN_MIGRATION_SAME_SCHEMA_ONLY" },
+    "targetComponents": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api", "web", "outboxWorker", "migration"],
+      "properties": {
+        "api": { "$ref": "#/$defs/component" },
+        "web": { "$ref": "#/$defs/component" },
+        "outboxWorker": { "$ref": "#/$defs/component" },
+        "migration": { "$ref": "#/$defs/component" }
+      }
+    },
+    "maturityBoundary": { "type": "string", "pattern": "not executed" },
+    "rollbackId": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "digest", "sourceCommit", "runtimeUser"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 3, "pattern": "^[^\\s@]+/[^\\s@/:]+$" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "runtimeUser": { "const": "nonroot" }
+      }
+    }
+  }
+}
