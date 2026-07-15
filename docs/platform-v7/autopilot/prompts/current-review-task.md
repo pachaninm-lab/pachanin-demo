@@ -15,6 +15,16 @@ Do not auto-merge. Review exact diff, exact-head evidence and repository scope.
 - no temporary/self-modifying workflow and no direct push from Actions;
 - state, task prompt and actual diff must agree.
 
+## Approved concurrent infrastructure scope — IR-K8S #2659 / PR #2660
+
+The serialized primary task remains IR-10.4. A separate, isolated infrastructure acceptance slice is authorized for branch `ir/k8s-production-like-2659` under:
+
+`docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json`
+
+Review this branch only against that exact allow-list. It may add the production-like Kubernetes workflow, disposable kind topology, runtime dependencies, hardening manifests, PgBouncer configuration and `scripts/release/production-like-kubernetes-*` acceptance/evidence tooling. It must not change application/domain code, Prisma schema or migrations, web code, packages or lockfiles.
+
+This concurrent scope proves only a disposable multi-node production-like deployment, immutable rollout and same-schema rollback. It does not advance the global maturity status, does not prove provider HA/PITR or production capacity, and does not authorize any live external integration.
+
 ## Automatic hard blockers
 
 Return BLOCKED immediately for any of the following:
@@ -31,6 +41,15 @@ Return BLOCKED immediately for any of the following:
 10. Same-tenant outsider or cross-tenant access passes under restricted principals.
 11. CI is made green by disabling RLS, triggers, constraints or required tests.
 
+For the approved IR-K8S concurrent scope, also return BLOCKED if:
+
+12. The actual diff exceeds the allow-list in the IR-K8S scope manifest.
+13. A chart or acceptance overlay creates additive broad egress that weakens destination-scoped NetworkPolicy.
+14. A probe/helper pod impersonates a monitored workload selector or gains unnecessary network authority.
+15. Images are mutable, mixed-commit, not registry-digest addressed or not bound to the exact head.
+16. API or worker runs schema migrations, or application principals gain DDL authority.
+17. Evidence is not machine-readable, exact-head bound or contains violated thresholds.
+
 ## Review questions
 
 1. Does production bootstrap fail closed for missing, memory and unknown payment repository modes?
@@ -46,6 +65,17 @@ Return BLOCKED immediately for any of the following:
 11. Does reconciliation mismatch fail closed without mutating confirmed authority?
 12. Are same-tenant outsiders and cross-tenant users denied by PostgreSQL RLS?
 13. Do empty/baseline migrations, drift, typecheck, tests, build, one-deal, DR and exact-head security gates pass?
+
+For IR-K8S #2659 additionally verify:
+
+14. Does default Helm rendering remain fail-closed with zero executable workloads?
+15. Are API, web, worker and migration images a complete immutable exact-head digest set?
+16. Does one separate migration Job complete before API/web/worker rollout?
+17. Are two replicas of API, web and outbox worker ready on separate worker nodes?
+18. Do PDB, anti-affinity, non-root, read-only filesystem, dropped capabilities, seccomp and disabled service-account tokens hold at runtime?
+19. Are NetworkPolicies destination-scoped without additive broad chart policies?
+20. Do single-pod deletion, rolling update and same-schema rollback meet all declared thresholds?
+21. Does the evidence artifact identify the exact commit, commands, actuals, thresholds, violations and maturity boundary?
 
 ## Mandatory exact PostgreSQL proof matrix
 
@@ -65,4 +95,4 @@ Return BLOCKED immediately for any of the following:
 
 ## Decision format
 
-Return PASS or BLOCKED. If BLOCKED, state severity, exact file/line or migration object, financial risk and exact fix. Industrial Integration-Ready remains NO-GO regardless of this slice until IR-90 acceptance.
+Return PASS or BLOCKED. If BLOCKED, state severity, exact file/line or migration object, financial or operational risk and exact fix. Industrial Integration-Ready remains NO-GO regardless of this slice until IR-90 acceptance.
