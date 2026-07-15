@@ -10,6 +10,8 @@ patch_web_hardening() {
   kubectl patch deployment grainflow-web -n "$NAMESPACE" --type=strategic \
     --patch-file infra/kind/production-like/web-runtime-hardening-patch.yaml \
     > "$K8S_DIR/web-runtime-hardening-patch.log"
+  kubectl apply -f infra/kind/production-like/api-ingress.yaml \
+    > "$K8S_DIR/api-ingress-apply.log"
 }
 
 source scripts/release/production-like-kubernetes-pgbouncer.sh
