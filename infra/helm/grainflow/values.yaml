@@ -128,46 +128,8 @@ web:
     hosts:
       - host: app.grainflow.ru
 
-# ── ML Service ────────────────────────────────────────────────────────────────
-ml:
-  image:
-    repository: cr.yandex/grainflow/ml
-    tag: "latest"
-    pullPolicy: IfNotPresent
-  replicaCount: 2
-  resources:
-    requests:
-      memory: "512Mi"
-      cpu: "250m"
-    limits:
-      memory: "2Gi"
-      cpu: "2000m"
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 8
-    targetCPUUtilizationPercentage: 75
-  podDisruptionBudget:
-    enabled: true
-    minAvailable: 1
-  env:
-    MODEL_PATH: /app/models
-    PORT: "8001"
-  service:
-    type: ClusterIP
-    port: 8001
-  livenessProbe:
-    httpGet:
-      path: /health
-      port: 8001
-    initialDelaySeconds: 20
-    periodSeconds: 15
-  readinessProbe:
-    httpGet:
-      path: /ready
-      port: 8001
-    initialDelaySeconds: 10
-    periodSeconds: 5
+# ML runtime is intentionally absent. The chart renders only a NOT_DEPLOYABLE
+# status ConfigMap from templates/ml-deployment.yaml under issue #2605.
 
 # ── Vault Agent Injector ──────────────────────────────────────────────────────
 vault:
