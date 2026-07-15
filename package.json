@@ -32,7 +32,11 @@
     "design:v8:guard": "node ./scripts/check-design-system-v8.mjs",
     "verify:repo:contour": "node ./scripts/run-repo-build-test-contour.mjs"
   },
-  "workspaces": ["apps/api", "apps/web", "packages/*"],
+  "workspaces": [
+    "apps/api",
+    "apps/web",
+    "packages/*"
+  ],
   "pnpm": {
     "overrides": {
       "fast-uri": ">=3.1.1",
@@ -44,6 +48,7 @@
     }
   },
   "devDependencies": {
+    "@netlify/plugin-nextjs": "5.15.12",
     "@vitest/browser": "^4.1.9",
     "@vitest/coverage-v8": "^4.1.9",
     "jsdom": "^29.0.1",

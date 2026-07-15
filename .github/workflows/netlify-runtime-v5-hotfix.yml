@@ -1,0 +1,57 @@
+name: Generate Netlify runtime v5 hotfix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/netlify-runtime-v5-hotfix.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-hotfix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install locked workspace
+        run: pnpm install --frozen-lockfile
+      - name: Pin current Netlify OpenNext adapter
+        run: pnpm add -Dw --save-exact @netlify/plugin-nextjs@5.15.12
+      - name: Restore file-based runtime configuration
+        shell: bash
+        run: |
+          if ! grep -q 'package = "@netlify/plugin-nextjs"' netlify.toml; then
+            printf '\n[[plugins]]\n  package = "@netlify/plugin-nextjs"\n' >> netlify.toml
+          fi
+      - name: Remove one-shot workflow and marker
+        run: |
+          rm .github/workflows/netlify-runtime-v5-hotfix.yml
+          rm -f docs/platform-v7/autopilot/netlify-runtime-v5-hotfix-trigger.md
+      - name: Publish generated hotfix branch and PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          branch="generated/netlify-runtime-v5-${GITHUB_RUN_ID}"
+          git checkout -b "$branch"
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add package.json pnpm-lock.yaml netlify.toml .github/workflows/netlify-runtime-v5-hotfix.yml docs/platform-v7/autopilot/netlify-runtime-v5-hotfix-trigger.md
+          git commit -m "Pin Netlify OpenNext runtime v5 for production"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" --title "Restore Netlify SSR with OpenNext runtime v5" --body "Pins @netlify/plugin-nextjs 5.15.12 with a committed pnpm lockfile and restores the file-based adapter configuration. This resolves the production deploy that published zero SSR functions and returned Netlify 404 for all application routes."
