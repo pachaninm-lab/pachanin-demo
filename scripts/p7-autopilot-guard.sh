@@ -196,6 +196,18 @@ pnpm-lock.yaml
 docs/platform-v7/autopilot/security-exceptions.json
 scripts/p7-autopilot-guard.sh'
 
+IMMUTABLE_RELEASE_AUTHORITY_SCOPE='.github/workflows/immutable-release-authority-acceptance.yml
+.github/workflows/outbox-worker-topology-acceptance.yml
+infra/docker/Dockerfile.api
+infra/docker/Dockerfile.migrations
+infra/docker/Dockerfile.web
+infra/docker/runtime-inventory.json
+infra/helm/grainflow/**
+infra/release/**
+scripts/release/**
+scripts/security/build-runtime-security-manifest.mjs
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/exact-approved-header-logo" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
 fi
@@ -246,6 +258,10 @@ fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$NEXT15_REMEDIATION_SCOPE")
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "ir/immutable-release-authority-2652" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$IMMUTABLE_RELEASE_AUTHORITY_SCOPE")
 fi
 
 APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
