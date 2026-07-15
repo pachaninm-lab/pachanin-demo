@@ -1,8 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 
 const ADMIN_URL = process.env.TEST_ADMIN_DATABASE_URL;
-const APP_URL = process.env.DATABASE_URL;
-const describeRace = ADMIN_URL && APP_URL ? describe : describe.skip;
+const describeRace = ADMIN_URL ? describe : describe.skip;
 
 const TENANT = 'tenant-auction-idempotency-race';
 const ACTOR = 'user-auction-idempotency-race';
@@ -52,8 +51,8 @@ describeRace('IR-AUCTION concurrent idempotency receipt', () => {
 
   beforeAll(async () => {
     admin = client(ADMIN_URL!);
-    first = client(APP_URL!);
-    second = client(APP_URL!);
+    first = client(ADMIN_URL!);
+    second = client(ADMIN_URL!);
     await Promise.all([admin.$connect(), first.$connect(), second.$connect()]);
     await admin.$executeRawUnsafe(
       `DELETE FROM auction.command_receipts WHERE tenant_id = $1 AND actor_id = $2 AND idempotency_key = $3`,
