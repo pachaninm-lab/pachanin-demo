@@ -71,7 +71,7 @@ jobs:
           set -o pipefail
           pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
           pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
-      - name: Apply settlement RLS overlay and least-privilege grants
+      - name: Apply governed RLS overlay and least-privilege grants
         run: |
           psql "$PSQL_ADMIN_DATABASE_URL" -X --set ON_ERROR_STOP=1 \
             --file infra/sql/postgresql-settlement-authority-policies.sql
@@ -91,7 +91,61 @@ jobs:
           TO app_deal;
           REVOKE DELETE ON ALL TABLES IN SCHEMA settlement FROM app_deal;
           GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA settlement TO app_deal;
+
+          GRANT SELECT ON
+            public."deals",
+            public."deal_participants",
+            public."organizations",
+            public."users",
+            public."user_orgs",
+            public."deal_events",
+            public."audit_events",
+            public."outbox_entries",
+            public."payments",
+            public."bank_operations",
+            public."ledger_entries"
+          TO app_deal;
+          GRANT INSERT ON
+            public."deal_events",
+            public."audit_events",
+            public."outbox_entries",
+            public."payments",
+            public."bank_operations",
+            public."ledger_entries"
+          TO app_deal;
+          GRANT UPDATE ("status", "nextAction", "version", "updatedAt")
+            ON public."deals" TO app_deal;
+          GRANT UPDATE (
+            "status", "amountKopecks", "holdAmountKopecks", "refundedKopecks",
+            "callbackState", "bankRef", "reservedAt", "releasedAt", "version", "updatedAt"
+          ) ON public."payments" TO app_deal;
+          GRANT UPDATE (
+            "status", "bankRef", "failureReason", "confirmedAt", "responsePayload", "updatedAt"
+          ) ON public."bank_operations" TO app_deal;
+          GRANT UPDATE ("status", "confirmedAt", "failedAt", "lastError")
+            ON public."outbox_entries" TO app_deal;
+          REVOKE DELETE ON
+            public."deals",
+            public."deal_participants",
+            public."deal_events",
+            public."audit_events",
+            public."outbox_entries",
+            public."payments",
+            public."bank_operations",
+            public."ledger_entries"
+          FROM app_deal;
           SQL
+      - name: Prove runtime privilege boundary
+        run: |
+          proof="$(psql "$DATABASE_URL" -X -At --set ON_ERROR_STOP=1 -c "SELECT
+            has_schema_privilege(current_user,'settlement','USAGE')::text || ':' ||
+            has_table_privilege(current_user,'settlement.payments','SELECT')::text || ':' ||
+            has_table_privilege(current_user,'settlement.payments','UPDATE')::text || ':' ||
+            has_table_privilege(current_user,'settlement.ledger_entries','DELETE')::text || ':' ||
+            has_table_privilege(current_user,'public.audit_events','INSERT')::text || ':' ||
+            has_table_privilege(current_user,'public.audit_events','DELETE')::text")"
+          printf '%s\n' "$proof" | tee "$EVIDENCE_DIR/privilege-proof.txt"
+          test "$proof" = "true:true:true:false:true:false" -o "$proof" = "t:t:t:f:t:f"
       - name: Typecheck dispute authority
         env:
           DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
