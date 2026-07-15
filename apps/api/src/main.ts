@@ -3,10 +3,12 @@ import './sentry';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { register, collectDefaultMetrics, Counter, Histogram } from 'prom-client';
 import { MaskedLoggerService } from './common/logger/masked-logger.service';
 import { createTrustedProxyPolicy } from './common/security/trusted-proxy';
+import { configureRequestBodyLimits } from './common/security/request-body-limit';
 import { assertIndustrialProductionStartup, INDUSTRIAL_CORE_MIGRATION } from './common/config/industrial-mode';
 import { PrismaService } from './common/prisma/prisma.service';
 
@@ -46,9 +48,11 @@ async function bootstrap() {
     console.log(`Live integrations enabled: ${integrationModes.live.join(', ')}`);
   }
 
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: new MaskedLoggerService(),
+    bodyParser: false,
   });
+  configureRequestBodyLimits(app);
   app.getHttpAdapter().getInstance().set('trust proxy', trustedProxyPolicy.expressSetting);
 
   app.enableCors({
