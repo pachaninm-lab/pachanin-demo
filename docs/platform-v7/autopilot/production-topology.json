@@ -12,9 +12,11 @@
     "inspect infra/docker/runtime-inventory.json",
     "inspect docker-compose.yml",
     "inspect infra/helm/grainflow/values.yaml",
-    "inspect infra/helm/grainflow/templates/api-deployment.yaml"
+    "inspect infra/helm/grainflow/templates/api-deployment.yaml",
+    "inspect infra/helm/grainflow/templates/outbox-worker-deployment.yaml",
+    "execute exact-head outbox worker process, image and IaC acceptance"
   ],
-  "maturityBoundary": "Desired-state repository topology and exact-main inspection only. No cluster, cloud account or production-like runtime was accepted.",
+  "maturityBoundary": "Desired-state repository topology and exact-head process/image acceptance only. No production-like Kubernetes cluster, cloud account or production runtime was accepted.",
   "environments": {
     "local": {
       "status": "IMPLEMENTED_AND_VERIFIED",
@@ -27,9 +29,10 @@
         ".github/workflows/ci.yml",
         ".github/workflows/auction-atomic-acceptance.yml",
         ".github/workflows/disputes-postgresql-acceptance.yml",
-        ".github/workflows/outbox-postgresql-acceptance.yml"
+        ".github/workflows/outbox-postgresql-acceptance.yml",
+        ".github/workflows/outbox-worker-topology-acceptance.yml"
       ],
-      "finding": "Exact-head PostgreSQL and security workflows exist."
+      "finding": "Exact-head PostgreSQL, worker process/image and security workflows exist."
     },
     "staging": {
       "status": "NOT_IMPLEMENTED",
@@ -72,10 +75,21 @@
     {
       "id": "outbox_worker",
       "desiredReplicas": 2,
-      "authority": "PostgreSQL outbox",
-      "definition": ["apps/api/src/modules/integration-events/durable-outbox.runner.ts", "infra/docker/runtime-inventory.json"],
-      "status": "NOT_IMPLEMENTED",
-      "findings": ["Durable worker code is merged.", "No deployable worker image or independent Deployment exists.", "API must not become an implicit worker authority."]
+      "authority": "PostgreSQL outbox_entries through dedicated app_outbox principal",
+      "definition": [
+        "apps/api/src/outbox-worker.ts",
+        "apps/api/src/outbox-worker.module.ts",
+        "infra/docker/Dockerfile.outbox-worker",
+        "infra/helm/grainflow/templates/outbox-worker-deployment.yaml",
+        "infra/docker/runtime-inventory.json"
+      ],
+      "status": "IMPLEMENTED_NOT_OPERATIONALLY_PROVEN",
+      "findings": [
+        "A dedicated non-HTTP Nest process graph and non-root distroless image exist.",
+        "Two-replica Helm desired state requires immutable digest, anti-affinity, PDB, probes and maxUnavailable zero.",
+        "Exact-head acceptance proved two OS processes, PostgreSQL 16 leases, app_outbox least privilege, Kafka delivery, peer kill failover, zero duplicate deliveries in the clean scenario and graceful shutdown.",
+        "No production-like Kubernetes pod, rolling deployment, backlog SLA or cluster-failure evidence exists."
+      ]
     },
     {
       "id": "background_worker",
@@ -160,8 +174,8 @@
   ],
   "blockingAcceptanceGaps": [
     "Remove five obsolete external commit status publishers.",
-    "Build and accept independent worker images and Deployments.",
-    "Replace mutable image tags with immutable digests and prove build-once promotion.",
+    "Deploy and accept the independent outbox worker in production-like Kubernetes, including peer kill, rolling deployment and backlog recovery SLA.",
+    "Replace mutable API and web image tags with immutable digests and prove build-once promotion.",
     "Deploy PostgreSQL 16 HA, pooler, WAL archive and PITR.",
     "Accept S3-compatible evidence custody and object restore.",
     "Deploy production-like observability with alert verification.",
