@@ -79,7 +79,7 @@ export function PublicExperienceScrollCoordinator() {
       });
     };
 
-    const clear = () => {
+    const clearScrolling = () => {
       root.removeAttribute('data-pc-ppe-scrolling');
       timer = undefined;
       placeSupportControl();
@@ -87,7 +87,7 @@ export function PublicExperienceScrollCoordinator() {
     const onScroll = () => {
       root.setAttribute('data-pc-ppe-scrolling', 'true');
       if (timer !== undefined) window.clearTimeout(timer);
-      timer = window.setTimeout(clear, 180);
+      timer = window.setTimeout(clearScrolling, 180);
       placeSupportControl();
     };
 
@@ -107,8 +107,8 @@ export function PublicExperienceScrollCoordinator() {
       window.visualViewport?.removeEventListener('scroll', placeSupportControl);
       if (timer !== undefined) window.clearTimeout(timer);
       if (frame !== undefined) window.cancelAnimationFrame(frame);
+      root.removeAttribute('data-pc-ppe-scrolling');
       root.style.removeProperty('--pc-ppe-support-lift');
-      clear();
     };
   }, []);
 
