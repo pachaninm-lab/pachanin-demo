@@ -1,0 +1,4 @@
+platform=Прозрачная Цена
+host=Netlify
+runtime=@netlify/plugin-nextjs@5.15.12
+purpose=production deploy identity and runtime verification
