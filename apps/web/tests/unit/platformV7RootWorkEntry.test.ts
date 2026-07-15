@@ -53,8 +53,9 @@ describe('platform-v7 public product experience v4', () => {
     expect(firstHero).toContain("eventName='home_primary_cta_click'");
     expect(copy).toContain("eyebrow: 'Пример прохождения сделки'");
     expect(copy).toContain("exampleBadge: 'Пример прохождения сделки'");
-    expect(copyV4).toContain("primary: 'Посмотреть сделку изнутри'");
-    expect(copyV4).toContain("primary: 'Открыть сделку изнутри'");
+    expect(copyV4).toContain("primary: 'Посмотреть сделку'");
+    expect(copyV4).toContain("primary: 'Показать весь путь сделки'");
+    expect(copyV4).toContain("signIn: 'Войти'");
     expect(page).not.toContain('fake-live');
   });
 
@@ -67,9 +68,11 @@ describe('platform-v7 public product experience v4', () => {
     expect(entryGate).toContain("'problem-first'");
     expect(entryGate).toContain('entryCopy.role.options.slice(0, 5)');
     expect(entryGate).toContain('ui.explorer.entryBadge');
+    expect(entryGate).toContain('lens: option.lens');
+    expect(entryGate).toContain("name: 'role_selected'");
     expect(entryCopy).toContain("title: 'Кто вы в сделке?'");
     expect(entryCopy).toContain("title: 'Что вы хотите контролировать?'");
-    expect(entryCopy).toContain('не влияет на права доступа');
+    expect(entryGate).toContain('не влияет на права доступа');
     expect(entryCss).toContain('min-height: 108px');
     expect(entryCss).toContain('min-height: 96px');
   });
