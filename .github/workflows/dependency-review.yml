@@ -35,7 +35,7 @@ jobs:
           fail-on-severity: critical
 
   governed-next15-header-awaits:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'agent/ir-sec-next-15-5-16-final'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'agent/ir-sec-next-15-5-16-final' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -77,13 +77,12 @@ jobs:
       - name: Prove strict typecheck before commit
         if: steps.migrate.outputs.exit_code == '0'
         run: pnpm --filter @pc/web typecheck
-      - name: Restore workflow surface and commit proven changes
+      - name: Commit proven runtime changes
         if: steps.migrate.outputs.exit_code == '0'
         run: |
-          git checkout origin/main -- .github/workflows/dependency-review.yml
           git rm -f docs/platform-v7/autopilot/await-next15-request-headers.mjs
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A apps/web .github/workflows/dependency-review.yml docs/platform-v7/autopilot/await-next15-request-headers.mjs
+          git add -A apps/web docs/platform-v7/autopilot/await-next15-request-headers.mjs
           git commit -m 'Await Next.js 15 request header APIs [next15-typecheck]'
           git push origin HEAD:agent/ir-sec-next-15-5-16-final
