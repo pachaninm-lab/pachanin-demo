@@ -62,7 +62,7 @@
       "additionalProperties": false,
       "required": ["repository", "digest", "sourceCommit", "runtimeUser"],
       "properties": {
-        "repository": { "type": "string", "minLength": 1, "pattern": "^[^\\s@]+$" },
+        "repository": { "type": "string", "minLength": 3, "pattern": "^[^\\s@]+/[^\\s@/:]+$" },
         "digest": { "$ref": "#/$defs/digest" },
         "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
         "runtimeUser": { "const": "nonroot" }
