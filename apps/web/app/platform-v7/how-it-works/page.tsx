@@ -3,6 +3,7 @@ import '@/styles/platform-v7-public-mobile-safe-area.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-product-experience-v3.css';
 import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
+import '@/styles/platform-v7-public-product-experience-v4.css';
 import '@/styles/platform-v7-public-product-entry-variants.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
@@ -10,12 +11,10 @@ import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicDealEntryGate } from '@/components/platform-v7/PublicDealEntryGate';
 import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
-import {
-  PublicExperienceLink,
-  PublicExperienceScrollCoordinator,
-} from '@/components/platform-v7/PublicExperienceAnalytics';
+import { PublicExperienceScrollCoordinator } from '@/components/platform-v7/PublicExperienceAnalytics';
 import { getPublicProductEntryVariantsCopy } from '@/i18n/public-product-entry-variants';
 import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
+import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
 import {
   normalizeTourEntryVariant,
   normalizeTourState,
@@ -46,6 +45,7 @@ export default async function PublicDealFromInsidePage({
 }) {
   const locale = await getLocale();
   const copy = getPublicProductExperienceCopy(locale);
+  const ui = getPublicProductExperienceV4Copy(locale);
   const entryCopy = getPublicProductEntryVariantsCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
   const initialEntry = normalizeTourEntryVariant(searchParams?.entry);
@@ -68,25 +68,15 @@ export default async function PublicDealFromInsidePage({
       <div className='pc-ppe-shell'>
         <header className='pc-ppe-explorer-intro'>
           <div>
-            <span className='pc-ppe-kicker'>{copy.explorer.kicker}</span>
-            <h1 id='pc-ppe-explorer-title'>{copy.explorer.title}</h1>
-            <p>{copy.explorer.lead}</p>
+            <span className='pc-ppe-kicker'>{ui.explorer.kicker}</span>
+            <h1 id='pc-ppe-explorer-title'>{ui.explorer.title}</h1>
+            <p>{ui.explorer.lead}</p>
           </div>
           <div className='pc-ppe-explorer-intro-actions'>
-            <a href={`/platform-v7?lang=${encodeURIComponent(locale)}`} className='pc-ppe-secondary-button'>
-              <PublicExperienceIcon name='arrow' size={19} style={{ transform: 'rotate(180deg)' }} />
-              <span>{copy.explorer.backHome}</span>
+            <a href={`/platform-v7?lang=${encodeURIComponent(locale)}`} className='pc-ppe-back-link'>
+              <PublicExperienceIcon name='arrow' size={18} style={{ transform: 'rotate(180deg)' }} />
+              <span>{ui.explorer.backHome}</span>
             </a>
-            <PublicExperienceLink
-              href='/platform-v7/register'
-              className='pc-ppe-primary-button'
-              eventName='connect_cta_click'
-              locale={locale}
-              params={{ source: 'how_it_works_header' }}
-            >
-              <span>{copy.explorer.connect}</span>
-              <PublicExperienceIcon name='arrow' size={19} />
-            </PublicExperienceLink>
           </div>
         </header>
 
@@ -97,6 +87,9 @@ export default async function PublicDealFromInsidePage({
           initialEntry={initialEntry}
           initialState={initialState}
         />
+        <noscript>
+          <a href='/platform-v7/register' className='pc-ppe-primary-button'>{ui.explorer.connect}</a>
+        </noscript>
       </div>
     </main>
   );
