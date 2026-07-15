@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -14,19 +13,12 @@ const staffShell = () => readFileSync(resolve(__dirname, '../../components/platf
 const loadingHeader = () => readFileSync(resolve(__dirname, '../../app/platform-v7/loading.tsx'), 'utf8');
 const contactHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ContactFixedHeader.tsx'), 'utf8');
 const approvedHeaderLogo = () => readFileSync(resolve(__dirname, '../../components/v7r/ApprovedHeaderLogo.tsx'), 'utf8');
-const brandLogoAsset = () => readFileSync(resolve(__dirname, '../../components/v7r/brand-logo-asset.ts'), 'utf8');
 const brandMark = () => readFileSync(resolve(__dirname, '../../components/v7r/BrandMark.tsx'), 'utf8');
 const support = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ChatSupportWidget.tsx'), 'utf8');
 const css = () => readFileSync(resolve(__dirname, '../../styles/platform-v7-public-product-experience-v5.css'), 'utf8');
 
 function compact(source: string) {
   return source.replace(/\s+/g, ' ');
-}
-
-function approvedLogoBinary() {
-  const arrayBody = brandLogoAsset().match(/BRAND_LOGO_PNG_BASE64_CHUNKS = \[([\s\S]*?)\]/)?.[1] ?? '';
-  const encoded = Array.from(arrayBody.matchAll(/'([^']+)'/g), (match) => match[1]).join('');
-  return Buffer.from(encoded, 'base64');
 }
 
 describe('platform-v7 visible public entry', () => {
@@ -58,28 +50,16 @@ describe('platform-v7 visible public entry', () => {
     expect(css()).not.toContain('right: -5px');
   });
 
-  it('renders the exact owner reference logo in every platform header', () => {
+  it('renders the exact historical owner-approved logo in every platform header', () => {
     const approved = approvedHeaderLogo();
-    const asset = brandLogoAsset();
     const mark = brandMark();
-    const binary = approvedLogoBinary();
 
-    expect(approved).toContain("import { BRAND_LOGO_DATA_URI } from './brand-logo-asset'");
-    expect(approved).toContain('src={BRAND_LOGO_DATA_URI}');
-    expect(approved).toContain("width='128'");
-    expect(approved).toContain("height='128'");
-    expect(approved).toContain("className='header-logo-image'");
-    expect(approved).toContain("fetchPriority='high'");
-
-    expect(asset).toContain("BRAND_LOGO_PNG_SHA256 = '267b9bbbf88f4d61209b7f69f6f4ba2632134d67f19022b761908cffd57dcfa2'");
-    expect(asset).toContain('data:image/png;base64');
-    expect(asset).not.toContain('data:image/webp');
-    expect(asset).not.toContain('UklGR');
-    expect(binary).toHaveLength(4855);
-    expect(binary.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
-    expect(binary.readUInt32BE(16)).toBe(128);
-    expect(binary.readUInt32BE(20)).toBe(128);
-    expect(createHash('sha256').update(binary).digest('hex')).toBe('267b9bbbf88f4d61209b7f69f6f4ba2632134d67f19022b761908cffd57dcfa2');
+    expect(approved).toContain('data:image/webp;base64,UklGRpgq');
+    expect(approved).toContain('width="48" height="48"');
+    expect(approved).toContain('className="header-logo-image"');
+    expect(approved).not.toContain('UklGRgQH');
+    expect(approved).not.toContain('267b9bbbf88f4d61209b7f69f6f4ba2632134d67f19022b761908cffd57dcfa2');
+    expect(approved).not.toContain('BRAND_LOGO_DATA_URI');
 
     expect(mark).toContain("import ApprovedHeaderLogo from './ApprovedHeaderLogo'");
     expect(mark).toContain('<ApprovedHeaderLogo />');
