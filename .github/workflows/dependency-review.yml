@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: read
 
 jobs:
@@ -38,3 +38,59 @@ jobs:
         if: steps.graph.outputs.enabled == 'true'
         with:
           fail-on-severity: critical
+
+  governed-next15-dynamic-pages:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'agent/ir-sec-next-15-5-16-final' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout frozen branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/ir-sec-next-15-5-16-final
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Normalize dynamic page contracts
+        run: |
+          mkdir -p artifacts/next15
+          NEXT15_DYNAMIC_REPORT=artifacts/next15/dynamic-pages.json \
+            node docs/platform-v7/autopilot/normalize-next15-dynamic-pages.mjs \
+            > artifacts/next15/dynamic-pages.log 2>&1
+          cat artifacts/next15/dynamic-pages.log
+
+      - name: Prove strict web typecheck
+        run: pnpm --filter @pc/web typecheck 2>&1 | tee artifacts/next15/typecheck.log
+
+      - name: Prove production web build
+        run: pnpm --filter @pc/web build 2>&1 | tee artifacts/next15/build.log
+
+      - name: Upload migration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next15-dynamic-pages-${{ github.event.pull_request.head.sha }}
+          path: artifacts/next15
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit only proven runtime changes
+        run: |
+          git rm -f docs/platform-v7/autopilot/normalize-next15-dynamic-pages.mjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A apps/web docs/platform-v7/autopilot
+          git commit -m 'Normalize Next.js 15 dynamic page contracts [next15-build]'
+          git push origin HEAD:agent/ir-sec-next-15-5-16-final
