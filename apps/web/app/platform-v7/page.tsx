@@ -5,6 +5,7 @@ import '@/styles/platform-v7-public-product-experience-v3.css';
 import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
 import '@/styles/platform-v7-public-product-experience-v4.css';
 import '@/styles/platform-v7-public-product-entry-variants.css';
+import '@/styles/platform-v7-public-product-experience-v5.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
@@ -85,6 +86,13 @@ export default async function PlatformV7RootPage() {
     ...(copy.home.perspectives.secondary as readonly TourPerspective[]),
   ];
   const contourStages = ['terms', 'admission', 'deal', 'logistics', 'acceptance', 'documents', 'settlement'] as const;
+  const nav = (
+    <>
+      <a href='#deal-example'>{ui.header.howItWorks}</a>
+      <a href='#participants'>{ui.header.participants}</a>
+      <a href='#reliability'>{ui.header.reliability}</a>
+    </>
+  );
 
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-root-execution-cockpit'>
@@ -96,8 +104,9 @@ export default async function PlatformV7RootPage() {
         ariaLabel={copy.header.aria}
         brandHomeLabel={copy.header.brandHome}
         navLabel={copy.header.aria}
-        menuLabel={copy.header.aria}
-        showMobileMenu={false}
+        menuLabel={ui.header.menu}
+        nav={nav}
+        showMobileMenu
         localeControl={<PublicLocaleLink />}
         actions={<a href='/platform-v7/login' className='entry-login'>{copy.header.signIn}</a>}
       />
@@ -108,6 +117,10 @@ export default async function PlatformV7RootPage() {
             <span className='pc-ppe-kicker'>{ui.home.hero.kicker}</span>
             <h1 id='pc-ppe-hero-title'>{ui.home.hero.title}</h1>
             <p>{ui.home.hero.lead}</p>
+            <div className='pc-ppe-public-status' role='note' aria-label={ui.home.hero.statusLabel}>
+              <strong>{ui.home.hero.statusLabel}</strong>
+              <span>{ui.home.hero.statusText}</span>
+            </div>
             <div className='pc-ppe-hero-actions'>
               <PublicExperienceLink
                 href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}`}
@@ -154,12 +167,13 @@ export default async function PlatformV7RootPage() {
           </div>
         </section>
 
-        <section className='pc-ppe-section' aria-label={copy.home.preview.eyebrow}>
+        <section id='deal-example' className='pc-ppe-section' aria-label={ui.home.preview.demoLabel}>
           <PublicDealPreview copy={copy} locale={locale} />
         </section>
 
-        <section className='pc-ppe-section' aria-labelledby='pc-ppe-perspectives-title'>
+        <section id='participants' className='pc-ppe-section' aria-labelledby='pc-ppe-perspectives-title'>
           <div className='pc-ppe-section-header'>
+            <span className='pc-ppe-section-eyebrow'>{ui.home.perspectives.eyebrow}</span>
             <h2 id='pc-ppe-perspectives-title'>{ui.home.perspectives.title}</h2>
             <p>{ui.home.perspectives.lead}</p>
           </div>
@@ -194,21 +208,51 @@ export default async function PlatformV7RootPage() {
         </section>
 
         <section className='pc-ppe-section' aria-labelledby='pc-ppe-proof-title'>
-          <div className='pc-ppe-proof-panel'>
-            <h2 id='pc-ppe-proof-title'>{copy.home.proof.title}</h2>
-            <ul className='pc-ppe-proof-list'>
-              {copy.home.proof.rows.map((row) => (
-                <li key={row}>
-                  <span><PublicExperienceIcon name='check' size={19} /></span>
-                  <strong>{row}</strong>
+          <div className='pc-ppe-evidence-panel'>
+            <header>
+              <span className='pc-ppe-section-eyebrow'>{ui.home.proof.eyebrow}</span>
+              <h2 id='pc-ppe-proof-title'>{ui.home.proof.title}</h2>
+              <p>{ui.home.proof.lead}</p>
+            </header>
+            <ol className='pc-ppe-evidence-chain'>
+              {ui.home.proof.steps.map((step, index) => (
+                <li key={step.label}>
+                  <span aria-hidden='true'>{index + 1}</span>
+                  <div>
+                    <strong>{step.label}</strong>
+                    <p>{step.value}</p>
+                  </div>
                 </li>
               ))}
-            </ul>
+            </ol>
+            <div className='pc-ppe-evidence-result'>
+              <strong>{ui.home.proof.resultLabel}</strong>
+              <p>{ui.home.proof.resultValue}</p>
+            </div>
+          </div>
+        </section>
+
+        <section id='reliability' className='pc-ppe-section' aria-labelledby='pc-ppe-trust-title'>
+          <div className='pc-ppe-section-header'>
+            <span className='pc-ppe-section-eyebrow'>{ui.home.trust.eyebrow}</span>
+            <h2 id='pc-ppe-trust-title'>{ui.home.trust.title}</h2>
+            <p>{ui.home.trust.lead}</p>
+          </div>
+          <div className='pc-ppe-trust-grid'>
+            {ui.home.trust.cards.map((card) => (
+              <article key={card.title} className='pc-ppe-trust-card'>
+                <span>{card.title}</span>
+                <strong>{card.value}</strong>
+                <p>{card.note}</p>
+                <a href={card.href}>{card.link}<PublicExperienceIcon name='arrow' size={17} /></a>
+              </article>
+            ))}
           </div>
         </section>
 
         <section className='pc-ppe-final-cta' aria-labelledby='pc-ppe-final-title'>
           <h2 id='pc-ppe-final-title'>{ui.home.final.title}</h2>
+          <p>{ui.home.final.lead}</p>
           <div className='pc-ppe-final-actions'>
             <PublicExperienceLink
               href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}`}
@@ -237,7 +281,21 @@ export default async function PlatformV7RootPage() {
       </div>
 
       <footer className='pc-ppe-footer'>
-        <div className='pc-ppe-shell'>© {new Date().getUTCFullYear()} Прозрачная Цена</div>
+        <div className='pc-ppe-shell pc-ppe-footer-grid'>
+          <div className='pc-ppe-footer-brand'>
+            <strong>Прозрачная Цена</strong>
+            <p>{ui.footer.note}</p>
+          </div>
+          <nav aria-label={copy.header.aria}>
+            <a href='/platform-v7/about'>{ui.footer.about}</a>
+            <a href='/platform-v7/status'>{ui.footer.status}</a>
+            <a href='/platform-v7/privacy'>{ui.footer.privacy}</a>
+            <a href='/platform-v7/terms'>{ui.footer.terms}</a>
+            <a href='/platform-v7/contact'>{ui.footer.contact}</a>
+          </nav>
+          <small>{ui.footer.disclaimer}</small>
+          <span>© {new Date().getUTCFullYear()} Прозрачная Цена</span>
+        </div>
       </footer>
     </main>
   );
