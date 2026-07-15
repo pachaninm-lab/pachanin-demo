@@ -38,7 +38,7 @@ const REQUIRED_SCENARIOS = [
 const PHASES = [
   {
     id: 'unit-boundaries',
-    command: 'pnpm --filter @pc/api exec jest --runInBand --runTestsByPath src/common/security/request-body-limit.spec.ts src/modules/labs/lab-evidence-upload.security.spec.ts src/modules/deals/industrial-deal-command.gateway.spec.ts',
+    command: 'pnpm --filter @pc/api exec prisma generate --schema prisma/schema.prisma && pnpm --filter @pc/api exec jest --runInBand --runTestsByPath src/common/security/request-body-limit.spec.ts src/modules/labs/lab-evidence-upload.security.spec.ts src/modules/deals/industrial-deal-command.gateway.spec.ts',
   },
   {
     id: 'one-deal',
@@ -47,7 +47,7 @@ const PHASES = [
   {
     id: 'auth-replay',
     dependsOn: 'one-deal',
-    command: 'DATABASE_URL="$ONE_DEAL_AUTH_URL" AUTH_DATABASE_URL="$ONE_DEAL_AUTH_URL" DB_PRINCIPAL_BOUNDARY_ENFORCED=false pnpm --filter @pc/api exec jest --runInBand --config test/auth/jest.config.json --runTestsByPath test/auth/persistent-auth.e2e-spec.ts',
+    command: 'DATABASE_URL="$ONE_DEAL_AUTH_URL" AUTH_DATABASE_URL="$ONE_DEAL_AUTH_URL" DB_PRINCIPAL_BOUNDARY_ENFORCED=false pnpm --filter @pc/api exec jest --runInBand --config test/auth/jest.config.json --runTestsByPath test/auth/persistent-auth.e2e-spec.ts --testNamePattern "rotates refresh once and revokes the complete family on old-token reuse across instances"',
   },
 ];
 
