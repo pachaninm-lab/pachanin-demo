@@ -87,6 +87,9 @@ export default async function PublicDealFromInsidePage({
           initialEntry={initialEntry}
           initialState={initialState}
         />
+        <noscript>
+          <a href='/platform-v7/register' className='pc-ppe-primary-button'>{ui.explorer.connect}</a>
+        </noscript>
       </div>
     </main>
   );
