@@ -41,7 +41,7 @@ describe('platform-v7 public product experience v4', () => {
     expect(page).not.toContain("href: '/platform-v7/seller'");
     expect(page).not.toContain("href: '/platform-v7/buyer'");
     expect(page).not.toContain("role='listitem'");
-    expect(explorer).toContain("selectPerspective(event.target.value as TourPerspective)");
+    expect(explorer).toContain('selectPerspective(event.target.value as TourPerspective)');
     expect(`${explorer}\n${entryGate}`).not.toContain('membership');
     expect(`${explorer}\n${entryGate}`).not.toContain('authorization');
     expect(`${explorer}\n${entryGate}`).not.toContain('accessToken');
@@ -53,7 +53,8 @@ describe('platform-v7 public product experience v4', () => {
     expect(firstHero).toContain("eventName='home_primary_cta_click'");
     expect(copy).toContain("eyebrow: 'Пример прохождения сделки'");
     expect(copy).toContain("exampleBadge: 'Пример прохождения сделки'");
-    expect(copyV4).toContain("primary: 'Посмотреть сделку'");
+    expect(copyV4).toContain("primary: 'Посмотреть сделку изнутри'");
+    expect(copyV4).toContain("primary: 'Открыть сделку изнутри'");
     expect(page).not.toContain('fake-live');
   });
 
@@ -61,10 +62,11 @@ describe('platform-v7 public product experience v4', () => {
     expect(explorerPage).toContain('<PublicDealEntryGate');
     expect(explorerPage).toContain('normalizeTourEntryVariant(searchParams?.entry)');
     expect(stateMachine).toContain("export const TOUR_ENTRY_VARIANTS = ['role', 'problem', 'deal'] as const");
-    expect(entryGate).toContain("data-entry-variant={entry}");
+    expect(entryGate).toContain('data-entry-variant={entry}');
     expect(entryGate).toContain("'role-first'");
     expect(entryGate).toContain("'problem-first'");
     expect(entryGate).toContain('entryCopy.role.options.slice(0, 5)');
+    expect(entryGate).toContain('ui.explorer.entryBadge');
     expect(entryCopy).toContain("title: 'Кто вы в сделке?'");
     expect(entryCopy).toContain("title: 'Что вы хотите контролировать?'");
     expect(entryCopy).toContain('не влияет на права доступа');
@@ -79,6 +81,7 @@ describe('platform-v7 public product experience v4', () => {
     expect(explorer).toContain('TOUR_SCENARIOS.map');
     expect(explorer).toContain('TOUR_STAGES.map');
     expect(explorerAdapter).toContain('ui.explorer.scenarios.standard');
+    expect(explorerAdapter).toContain('perspective: ui.explorer.roleLabel');
     expect(copy.match(/summary: /g)?.length).toBeGreaterThanOrEqual(18);
     expect(copy).toContain("standard: { label: 'Штатный'");
     expect(copy).toContain("partial: { label: 'Частичный'");
@@ -106,7 +109,7 @@ describe('platform-v7 public product experience v4', () => {
   });
 
   it('reserves the protected loading viewport instead of shifting the cabinet after hydration', () => {
-    expect(layout).toContain(".pc-shell-root-v4 .p7-route-loading{min-height:calc(100dvh - 136px)}");
+    expect(layout).toContain('.pc-shell-root-v4 .p7-route-loading{min-height:calc(100dvh - 136px)}');
     expect(layout).not.toContain('!important');
   });
 
@@ -117,8 +120,11 @@ describe('platform-v7 public product experience v4', () => {
     expect(css).toContain('@media (forced-colors: active)');
     expect(css).toContain('scroll-padding-bottom: 88px');
     expect(cssV4).toContain('@media (max-width: 360px)');
-    expect(cssV4).toContain('scroll-margin-top: calc(var(--pc-ppe-v4-header) + 18px)');
     expect(cssV4).toContain('grid-template-columns: minmax(0, 1fr) !important');
+    expect(entryCss).toContain('--pc-ppe-v4-header: 64px');
+    expect(entryCss).toContain('scroll-padding-top: calc(var(--pc-ppe-v4-header) + 18px)');
+    expect(entryCss).toContain('.pc-site-brand-mark img');
+    expect(entryCss).toContain('right: -5px !important');
     expect(refinementCss).toContain('.pc-ppe-hero-contour');
     expect(refinementCss).toContain('overflow-x: auto');
     expect(refinementCss).toContain("html[data-pc-ppe-scrolling='true'] .pc-ppe-page .p7-support-chat-button");
