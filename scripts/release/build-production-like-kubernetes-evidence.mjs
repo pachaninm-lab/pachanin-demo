@@ -48,13 +48,13 @@ const actual = {
   migrationExecutions: measurement(process.env.MIGRATION_EXECUTIONS),
   apiAvailabilityProbeFailures: measurement(process.env.API_PROBE_FAILURES),
   webAvailabilityProbeFailures: measurement(process.env.WEB_PROBE_FAILURES),
-  pgbouncerAvailabilityProbeFailures: measurement(process.env.PGBOUNCER_PROBE_FAILURES),
+  pgbouncerAvailabilityProbeFailures: measurement(read('cluster/pgbouncer-probe-failures.txt')),
   minimumReadyWorkersDuringPeerDeletion: measurement(process.env.WORKER_MIN_READY, 0),
   mutablePlatformImageReferences: measurement(read('cluster/mutable-platform-images.txt')),
   workloadServiceAccountTokens: measurement(read('cluster/service-account-token-violations.txt')),
   applicationDdlPrivileges: measurement(read('cluster/application-ddl-privileges.txt')),
   networkPolicyUnauthorizedConnections: process.env.NETWORK_DENIAL_PROVEN === 'true' ? 0 : 1,
-  directDatabaseBypassConnections: process.env.DIRECT_DB_BYPASS_BLOCKED === 'true' ? 0 : 1,
+  directDatabaseBypassConnections: read('cluster/direct-postgresql-bypass.txt') === 'blocked' ? 0 : 1,
   rollbackDigestMismatches: process.env.ROLLBACK_MATCH === 'true' ? 0 : 1,
 };
 const exactThresholds = new Set(['migrationExecutions']);
