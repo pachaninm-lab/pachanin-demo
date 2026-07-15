@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/ir-runtime-context-scope.yml'
+      - '.github/workflows/runtime-context-security-gate.yml'
       - 'infra/docker/**'
       - 'infra/helm/**'
       - 'infra/k8s/**'
@@ -37,6 +38,7 @@ jobs:
           state.approvedConcurrentScopes ??= {};
           state.approvedConcurrentScopes['agent/ir-sec-runtime-contexts'] = [
             '.github/workflows/ir-runtime-context-scope.yml',
+            '.github/workflows/runtime-context-security-gate.yml',
             '.github/workflows/security-quality-gate.yml',
             'docs/platform-v7/autopilot/autopilot-state.json',
             'docs/platform-v7/autopilot/check-security-release-gate.mjs',
