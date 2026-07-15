@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "repository": "pachaninm-lab/pachanin-demo",
+  "baselineCommit": "d53a2996023a8039bbb70302b3fc3552cbabf525",
+  "generatedAt": "2026-07-15T13:22:54Z",
+  "overallStatus": "NO_GO",
+  "maturityBoundary": "Baseline repository audit; risks remain open until immutable operational evidence closes them.",
+  "risks": [
+    {
+      "id": "R-001",
+      "severity": "P0",
+      "category": "release-governance",
+      "status": "BLOCKED_BY_EXTERNAL_ADMIN",
+      "owner": "repository administrator",
+      "finding": "Four Vercel and one Deno failed contexts are still published on the exact main head.",
+      "impact": "Required checks and release evidence remain polluted by retired deployment authorities.",
+      "mitigation": "Remove integrations and verify a fresh control PR.",
+      "acceptance": "Combined status contains none of the five obsolete contexts."
+    },
+    {
+      "id": "R-002",
+      "severity": "P0",
+      "category": "process-topology",
+      "status": "NOT_IMPLEMENTED",
+      "owner": "platform engineering",
+      "finding": "No deployable independent outbox or background worker image and Deployment exists.",
+      "impact": "Durable queue code cannot be proven as independently scalable or recoverable.",
+      "mitigation": "Create production-only worker image, entrypoint and Kubernetes topology.",
+      "acceptance": "Two worker replicas pass claim, shutdown, restart, lease and backlog recovery acceptance."
+    },
+    {
+      "id": "R-003",
+      "severity": "P0",
+      "category": "database",
+      "status": "PARTIAL",
+      "owner": "database reliability",
+      "finding": "PostgreSQL is single-node in local and CI evidence; HA, pooler, WAL archive and PITR are unproven.",
+      "impact": "A database failure can violate availability and RTO/RPO targets.",
+      "mitigation": "Deploy HA PostgreSQL 16 with pooler and backup archive.",
+      "acceptance": "Measured RPO is at most 5 minutes and RTO at most 30 minutes with zero lost confirmed operations."
+    },
+    {
+      "id": "R-004",
+      "severity": "P0",
+      "category": "deployment",
+      "status": "PARTIAL",
+      "owner": "release engineering",
+      "finding": "Helm values use mutable latest image tags and no accepted digest promotion manifest.",
+      "impact": "Build-once deploy-many and exact rollback cannot be proven.",
+      "mitigation": "Pin OCI digests and produce promotion and rollback manifests.",
+      "acceptance": "The same image digest is promoted through environments and rollback restores the prior digest without invariant failure."
+    },
+    {
+      "id": "R-005",
+      "severity": "P0",
+      "category": "evidence-custody",
+      "status": "PARTIAL",
+      "owner": "document platform",
+      "finding": "Binary object immutability, quarantine, authorization and restore are not accepted.",
+      "impact": "Deal evidence can be unavailable, mutable or unsafe.",
+      "mitigation": "Enable versioning or object lock, quarantine and audited access.",
+      "acceptance": "Tamper, malware, unauthorized access and restore scenarios pass."
+    },
+    {
+      "id": "R-006",
+      "severity": "P0",
+      "category": "disaster-recovery",
+      "status": "PARTIAL",
+      "owner": "SRE",
+      "finding": "Full database plus object restore into a clean production-like environment is absent.",
+      "impact": "Recovery cannot be defended to a bank, regulator or enterprise buyer.",
+      "mitigation": "Run full backup, PITR and object reconciliation drill.",
+      "acceptance": "Clean restore meets RPO/RTO and all Deal, ledger, audit and evidence invariants."
+    },
+    {
+      "id": "R-007",
+      "severity": "P1",
+      "category": "capacity",
+      "status": "IMPLEMENTED_NOT_OPERATIONALLY_PROVEN",
+      "owner": "performance engineering",
+      "finding": "Target 500 RPS, 5000 sessions, 50000 Deals and 10 million events are not measured.",
+      "impact": "Capacity and recovery backlog SLA are unknown.",
+      "mitigation": "Run Base, Target and Stress profiles.",
+      "acceptance": "All latency, error, invariant and backlog thresholds pass."
+    },
+    {
+      "id": "R-008",
+      "severity": "P1",
+      "category": "resilience",
+      "status": "PARTIAL",
+      "owner": "SRE",
+      "finding": "The infrastructure chaos matrix is incomplete.",
+      "impact": "Hidden corruption or prolonged outage may appear during process, network, storage or database failures.",
+      "mitigation": "Automate the required fault scenarios.",
+      "acceptance": "Zero corruption and measured recovery with verified alerts and runbooks."
+    },
+    {
+      "id": "R-009",
+      "severity": "P0",
+      "category": "security",
+      "status": "IMPLEMENTED_NOT_OPERATIONALLY_PROVEN",
+      "owner": "security engineering",
+      "finding": "Blocking release scans exist, but the full production-like abuse matrix is incomplete.",
+      "impact": "Tenant escape, privilege escalation or unsafe object access may remain undiscovered.",
+      "mitigation": "Execute security acceptance against the deployed topology.",
+      "acceptance": "Critical and High findings are zero or covered by time-bounded formal exception; tenant leakage and privilege escalation are zero."
+    },
+    {
+      "id": "R-010",
+      "severity": "P1",
+      "category": "observability",
+      "status": "PARTIAL",
+      "owner": "SRE",
+      "finding": "Local telemetry exists without accepted alert routing, ownership, escalation and SLO history.",
+      "impact": "Stuck Deals and infrastructure degradation may not be detected or acted on.",
+      "mitigation": "Deploy observability, define SLOs and verify every alert.",
+      "acceptance": "All required alerts fire, route and resolve through tested runbooks."
+    },
+    {
+      "id": "R-011",
+      "severity": "P1",
+      "category": "operations",
+      "status": "PARTIAL",
+      "owner": "operations",
+      "finding": "Required runbooks have not been independently executed as a complete set.",
+      "impact": "Recovery depends on hidden implementation knowledge.",
+      "mitigation": "Write and blind-test runbooks with a separate operator or isolated test agent.",
+      "acceptance": "runbook-validation.json passes every procedure without undocumented steps."
+    },
+    {
+      "id": "R-012",
+      "severity": "P0",
+      "category": "operational-maturity",
+      "status": "NOT_IMPLEMENTED",
+      "owner": "program owner",
+      "finding": "72-hour, 14-day and 30-day soak evidence does not exist.",
+      "impact": "Repeatability and production operational acceptance cannot be claimed.",
+      "mitigation": "Run soak after all prerequisite gates pass.",
+      "acceptance": "100 full-cycle Deals and required disputes, partials and recoveries complete with zero data loss, double settlement or tenant leakage."
+    },
+    {
+      "id": "R-013",
+      "severity": "P2",
+      "category": "repository-governance",
+      "status": "PARTIAL",
+      "owner": "repository administrator",
+      "finding": "Many stale and evidence-only pull requests remain open after their branches were superseded.",
+      "impact": "Authority, review and release state are harder to audit.",
+      "mitigation": "Classify and close stale pull requests without merging obsolete code.",
+      "acceptance": "Only active authority slices and explicitly retained evidence pull requests remain open."
+    }
+  ]
+}

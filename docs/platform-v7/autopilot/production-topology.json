@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "repository": "pachaninm-lab/pachanin-demo",
+  "baselineCommit": "d53a2996023a8039bbb70302b3fc3552cbabf525",
+  "capturedAt": "2026-07-15T13:22:54Z",
+  "environment": "repository-baseline",
+  "overallStatus": "NO_GO",
+  "productionLikeDeploymentProven": false,
+  "sourceCommands": [
+    "inspect exact main commit",
+    "inspect combined commit status",
+    "inspect infra/docker/runtime-inventory.json",
+    "inspect docker-compose.yml",
+    "inspect infra/helm/grainflow/values.yaml",
+    "inspect infra/helm/grainflow/templates/api-deployment.yaml"
+  ],
+  "maturityBoundary": "Desired-state repository topology and exact-main inspection only. No cluster, cloud account or production-like runtime was accepted.",
+  "environments": {
+    "local": {
+      "status": "IMPLEMENTED_AND_VERIFIED",
+      "evidence": ["docker-compose.yml"],
+      "finding": "Single-node development composition with hardcoded local-only credentials."
+    },
+    "ci": {
+      "status": "IMPLEMENTED_AND_VERIFIED",
+      "evidence": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/auction-atomic-acceptance.yml",
+        ".github/workflows/disputes-postgresql-acceptance.yml",
+        ".github/workflows/outbox-postgresql-acceptance.yml"
+      ],
+      "finding": "Exact-head PostgreSQL and security workflows exist."
+    },
+    "staging": {
+      "status": "NOT_IMPLEMENTED",
+      "evidence": [],
+      "finding": "No accepted immutable staging deployment manifest or runtime evidence was found."
+    },
+    "production_like_acceptance": {
+      "status": "NOT_IMPLEMENTED",
+      "evidence": [],
+      "finding": "No deployed acceptance environment, topology snapshot, artifact digest set or rollback evidence was found."
+    },
+    "production": {
+      "status": "NO_GO",
+      "evidence": ["CANONICAL_DEPLOY.md", "docs/ops/active-hosting-contour.md"],
+      "finding": "Repository state cannot support a production operational acceptance claim."
+    }
+  },
+  "components": [
+    {
+      "id": "api",
+      "desiredReplicas": 2,
+      "authority": "PostgreSQL",
+      "definition": ["infra/docker/Dockerfile.api", "infra/helm/grainflow/templates/api-deployment.yaml"],
+      "status": "IMPLEMENTED_NOT_OPERATIONALLY_PROVEN",
+      "findings": [
+        "Non-root image and rolling Deployment exist.",
+        "HPA, probes, PDB and resource boundaries exist.",
+        "Image reference uses a mutable tag rather than an immutable digest.",
+        "No deployed replica-failure evidence exists."
+      ]
+    },
+    {
+      "id": "web",
+      "desiredReplicas": 2,
+      "authority": "Server-rendered application",
+      "definition": ["infra/docker/Dockerfile.web", "infra/helm/grainflow/values.yaml"],
+      "status": "IMPLEMENTED_NOT_OPERATIONALLY_PROVEN",
+      "findings": ["Two replicas and HPA are declared.", "No immutable digest promotion or runtime failover evidence exists."]
+    },
+    {
+      "id": "outbox_worker",
+      "desiredReplicas": 2,
+      "authority": "PostgreSQL outbox",
+      "definition": ["apps/api/src/modules/integration-events/durable-outbox.runner.ts", "infra/docker/runtime-inventory.json"],
+      "status": "NOT_IMPLEMENTED",
+      "findings": ["Durable worker code is merged.", "No deployable worker image or independent Deployment exists.", "API must not become an implicit worker authority."]
+    },
+    {
+      "id": "background_worker",
+      "desiredReplicas": 1,
+      "authority": "Undefined",
+      "definition": [],
+      "status": "NOT_IMPLEMENTED",
+      "findings": ["No accepted general background worker process topology was found."]
+    },
+    {
+      "id": "postgresql",
+      "desiredReplicas": "HA primary plus replicas",
+      "authority": "Single domain database",
+      "definition": ["docker-compose.yml", "infra/helm/grainflow/values.yaml"],
+      "status": "PARTIAL",
+      "findings": ["PostgreSQL 16 authority is established.", "Local and CI are single-node.", "No HA operator or managed-cluster contract, pooler, WAL archive or failover evidence exists."]
+    },
+    {
+      "id": "connection_pooler",
+      "desiredReplicas": 2,
+      "authority": "Non-authoritative connection management",
+      "definition": [],
+      "status": "NOT_IMPLEMENTED",
+      "findings": ["No PgBouncer or equivalent accepted topology was found."]
+    },
+    {
+      "id": "redis",
+      "desiredReplicas": "only if justified",
+      "authority": "Non-authoritative",
+      "definition": ["docker-compose.yml", "infra/helm/grainflow/values.yaml"],
+      "status": "PARTIAL",
+      "findings": ["Local Redis exists.", "Production necessity, HA and failure behavior are not accepted."]
+    },
+    {
+      "id": "object_storage",
+      "desiredReplicas": "S3-compatible service",
+      "authority": "Binary evidence custody",
+      "definition": ["docker-compose.yml"],
+      "status": "PARTIAL",
+      "findings": ["Local MinIO exists.", "Versioning, object lock, quarantine, backup and restore are unproven."]
+    },
+    {
+      "id": "ingress_tls",
+      "desiredReplicas": 2,
+      "authority": "Ingress controller and certificates",
+      "definition": ["infra/helm/grainflow/values.yaml", "infra/helm/grainflow/templates/api-deployment.yaml"],
+      "status": "IMPLEMENTED_NOT_OPERATIONALLY_PROVEN",
+      "findings": ["Ingress and TLS desired state exist.", "Hostnames and certificates are not proven in an acceptance environment."]
+    },
+    {
+      "id": "secret_storage",
+      "desiredReplicas": "HA secret service",
+      "authority": "Vault or equivalent",
+      "definition": ["docker-compose.yml", "infra/helm/grainflow/values.yaml"],
+      "status": "PARTIAL",
+      "findings": ["Vault integration is declared.", "Local compose uses dev mode and hardcoded local credentials.", "No production-like secret rotation evidence exists."]
+    },
+    {
+      "id": "metrics_logs_traces",
+      "desiredReplicas": "HA observability services",
+      "authority": "Prometheus, Loki, Tempo and OpenTelemetry",
+      "definition": ["docker-compose.yml", "infra/prometheus/runtime-alert-rules.yml"],
+      "status": "PARTIAL",
+      "findings": ["Local stack exists.", "Alert routing, ownership, retention and request-to-worker trace proof are missing."]
+    },
+    {
+      "id": "backup_storage",
+      "desiredReplicas": "independent encrypted storage",
+      "authority": "Backup and WAL archive",
+      "definition": [],
+      "status": "NOT_IMPLEMENTED",
+      "findings": ["No accepted backup storage topology or immutable retention evidence was found."]
+    },
+    {
+      "id": "external_adapters",
+      "desiredReplicas": 0,
+      "authority": "Disabled or fail-closed boundaries",
+      "definition": ["apps/api/src/modules/integration-events"],
+      "status": "FAIL_CLOSED",
+      "findings": ["Live bank, state, EDI, EPD and identity providers remain outside this contour.", "Sandbox or internal test authority must never be exposed as live."]
+    }
+  ],
+  "blockingAcceptanceGaps": [
+    "Remove five obsolete external commit status publishers.",
+    "Build and accept independent worker images and Deployments.",
+    "Replace mutable image tags with immutable digests and prove build-once promotion.",
+    "Deploy PostgreSQL 16 HA, pooler, WAL archive and PITR.",
+    "Accept S3-compatible evidence custody and object restore.",
+    "Deploy production-like observability with alert verification.",
+    "Prove rolling deployment and rollback without invariant violations.",
+    "Run target load, chaos, backup/restore, security and operational soak."
+  ]
+}

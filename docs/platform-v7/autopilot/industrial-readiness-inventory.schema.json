@@ -4,29 +4,69 @@
   "title": "Industrial Readiness Inventory",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "repository", "programIssue", "baselineCommit", "auditedAt", "classificationPolicy", "summary", "capabilities"],
+  "required": [
+    "schemaVersion",
+    "repository",
+    "programIssue",
+    "baselineCommit",
+    "auditedAt",
+    "overallStatus",
+    "decision",
+    "classificationPolicy",
+    "summary",
+    "capabilities"
+  ],
   "properties": {
     "schemaVersion": {"const": 1},
     "repository": {"type": "string", "minLength": 3},
     "programIssue": {"type": "integer", "minimum": 1},
     "baselineCommit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "auditedAt": {"type": "string", "format": "date-time"},
-    "classificationPolicy": {"type": "object", "minProperties": 9, "additionalProperties": {"type": "string", "minLength": 1}},
+    "overallStatus": {"enum": ["NO_GO", "PRODUCTION_OPERATIONALLY_ACCEPTED"]},
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["productionOperationallyAccepted", "reasonCodes"],
+      "properties": {
+        "productionOperationallyAccepted": {"type": "boolean"},
+        "reasonCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}
+        }
+      }
+    },
+    "classificationPolicy": {
+      "type": "object",
+      "minProperties": 9,
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
     "summary": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["total", "IMPLEMENTED_AND_VERIFIED", "IMPLEMENTED_NOT_VERIFIED", "PARTIAL", "FAIL_CLOSED", "MOCK_ONLY", "LEGACY", "DUPLICATE_AUTHORITY", "NOT_IMPLEMENTED", "OUT_OF_RELEASE_SCOPE"],
+      "required": [
+        "total",
+        "IMPLEMENTED_AND_VERIFIED",
+        "IMPLEMENTED_NOT_OPERATIONALLY_PROVEN",
+        "PARTIAL",
+        "FAIL_CLOSED",
+        "BLOCKED_BY_EXTERNAL_ADMIN",
+        "NOT_IMPLEMENTED",
+        "DUPLICATE_AUTHORITY",
+        "LEGACY",
+        "NO_GO"
+      ],
       "properties": {
         "total": {"type": "integer", "minimum": 1},
         "IMPLEMENTED_AND_VERIFIED": {"type": "integer", "minimum": 0},
-        "IMPLEMENTED_NOT_VERIFIED": {"type": "integer", "minimum": 0},
+        "IMPLEMENTED_NOT_OPERATIONALLY_PROVEN": {"type": "integer", "minimum": 0},
         "PARTIAL": {"type": "integer", "minimum": 0},
         "FAIL_CLOSED": {"type": "integer", "minimum": 0},
-        "MOCK_ONLY": {"type": "integer", "minimum": 0},
-        "LEGACY": {"type": "integer", "minimum": 0},
-        "DUPLICATE_AUTHORITY": {"type": "integer", "minimum": 0},
+        "BLOCKED_BY_EXTERNAL_ADMIN": {"type": "integer", "minimum": 0},
         "NOT_IMPLEMENTED": {"type": "integer", "minimum": 0},
-        "OUT_OF_RELEASE_SCOPE": {"type": "integer", "minimum": 0}
+        "DUPLICATE_AUTHORITY": {"type": "integer", "minimum": 0},
+        "LEGACY": {"type": "integer", "minimum": 0},
+        "NO_GO": {"type": "integer", "minimum": 0}
       }
     },
     "capabilities": {
@@ -35,11 +75,34 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name", "status", "severity", "authority", "evidence", "finding", "nextGate"],
+        "required": [
+          "id",
+          "name",
+          "status",
+          "severity",
+          "authority",
+          "evidence",
+          "finding",
+          "nextGate",
+          "maturityBoundary",
+          "operationalProof"
+        ],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
           "name": {"type": "string", "minLength": 3},
-          "status": {"enum": ["IMPLEMENTED_AND_VERIFIED", "IMPLEMENTED_NOT_VERIFIED", "PARTIAL", "FAIL_CLOSED", "MOCK_ONLY", "LEGACY", "DUPLICATE_AUTHORITY", "NOT_IMPLEMENTED", "OUT_OF_RELEASE_SCOPE"]},
+          "status": {
+            "enum": [
+              "IMPLEMENTED_AND_VERIFIED",
+              "IMPLEMENTED_NOT_OPERATIONALLY_PROVEN",
+              "PARTIAL",
+              "FAIL_CLOSED",
+              "BLOCKED_BY_EXTERNAL_ADMIN",
+              "NOT_IMPLEMENTED",
+              "DUPLICATE_AUTHORITY",
+              "LEGACY",
+              "NO_GO"
+            ]
+          },
           "severity": {"enum": ["P0", "P1", "P2"]},
           "authority": {"type": "string", "minLength": 1},
           "evidence": {
@@ -53,7 +116,9 @@
             }
           },
           "finding": {"type": "string", "minLength": 10},
-          "nextGate": {"type": "string", "minLength": 10}
+          "nextGate": {"type": "string", "minLength": 10},
+          "maturityBoundary": {"type": "string", "minLength": 10},
+          "operationalProof": {"type": "boolean"}
         }
       }
     }
