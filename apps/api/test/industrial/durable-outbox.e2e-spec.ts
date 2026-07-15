@@ -1,34 +1,27 @@
 import { PrismaService } from '../../src/common/prisma/prisma.service';
-import { DurableOutboxWorker } from '../../src/modules/integration-events/durable-outbox.worker';
-
-/**
- * Durable outbox worker — concurrency and retry semantics on real PostgreSQL.
- *
- * Proves:
- *  - two workers claiming concurrently never receive the same entry
- *    (FOR UPDATE SKIP LOCKED);
- *  - a failed delivery retries with backoff, then parks in DEAD_LETTER;
- *  - a crashed worker's lease expires and the entry is reclaimed;
- *  - receipts (CONFIRMED rows written by command transactions) are never claimed;
- *  - re-drive returns a dead-lettered entry to the queue.
- */
+import { OutboxService } from '../../src/common/outbox/outbox.service';
+import {
+  DurableOutboxWorker,
+  OutboxLeaseLostError,
+} from '../../src/modules/integration-events/durable-outbox.worker';
 
 jest.setTimeout(120_000);
 
-const TYPE = 'industrial.e2e.test';
+const RUN_ID = `industrial.e2e.outbox.${Date.now()}.${Math.random().toString(16).slice(2)}`;
 const FOREIGN_DEFER_UNTIL = new Date('2099-01-01T00:00:00.000Z');
 
 let prismaA: PrismaService;
 let prismaB: PrismaService;
 let workerA: DurableOutboxWorker;
 let workerB: DurableOutboxWorker;
+let outbox: OutboxService;
 
 const deferredForeignRows = new Map<string, Date>();
 
 async function deferForeignDueEntries(): Promise<void> {
   const foreign = await prismaA.outboxEntry.findMany({
     where: {
-      type: { not: { startsWith: 'industrial.e2e' } },
+      type: { not: { startsWith: RUN_ID } },
       status: 'PENDING',
       nextRetryAt: { lte: new Date() },
     },
@@ -55,27 +48,37 @@ async function restoreForeignSchedules(): Promise<void> {
   deferredForeignRows.clear();
 }
 
-async function purge(): Promise<void> {
-  await prismaA.outboxEntry.deleteMany({ where: { type: { startsWith: 'industrial.e2e' } } });
-  await deferForeignDueEntries();
-}
-
-async function seedEntries(count: number, overrides: Record<string, unknown> = {}): Promise<string[]> {
+async function seedEntries(
+  testName: string,
+  count: number,
+  overrides: Record<string, unknown> = {},
+): Promise<string[]> {
   const ids: string[] = [];
-  for (let i = 0; i < count; i += 1) {
+  for (let index = 0; index < count; index += 1) {
     const entry = await prismaA.outboxEntry.create({
       data: {
-        type: TYPE,
+        type: `${RUN_ID}.${testName}`,
         status: 'PENDING',
-        payload: { seq: i },
-        nextRetryAt: new Date(Date.now() - 1000),
+        payload: { testName, index },
+        nextRetryAt: new Date(Date.now() - 1_000),
         maxRetries: 3,
+        idempotencyKey: `${RUN_ID}.${testName}.${index}`,
         ...overrides,
       },
     });
     ids.push(entry.id);
   }
   return ids;
+}
+
+async function deliverClaims(
+  worker: DurableOutboxWorker,
+  workerId: string,
+  claims: Array<{ id: string; leaseToken: string }>,
+): Promise<void> {
+  for (const claim of claims) {
+    await worker.markDelivered(workerId, claim.id, claim.leaseToken);
+  }
 }
 
 beforeAll(async () => {
@@ -85,123 +88,183 @@ beforeAll(async () => {
   await prismaB.$connect();
   workerA = new DurableOutboxWorker(prismaA);
   workerB = new DurableOutboxWorker(prismaB);
-  await purge();
+  outbox = new OutboxService(prismaA);
+  await deferForeignDueEntries();
 });
 
 afterAll(async () => {
-  await prismaA.outboxEntry.deleteMany({ where: { type: { startsWith: 'industrial.e2e' } } });
   await restoreForeignSchedules();
   await prismaA.$disconnect();
   await prismaB.$disconnect();
 });
 
-describe('DurableOutboxWorker on real PostgreSQL', () => {
-  it('two concurrent workers claim disjoint batches (FOR UPDATE SKIP LOCKED)', async () => {
-    await purge();
-    const ids = await seedEntries(20);
+describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
+  it('gives two concurrent workers disjoint tokenized claims', async () => {
+    const ids = await seedEntries('two-workers', 20);
 
     const [batchA, batchB] = await Promise.all([
       workerA.claimBatch('worker-a', 15),
       workerB.claimBatch('worker-b', 15),
     ]);
 
-    const claimedIds = [...batchA, ...batchB].map((entry) => entry.id);
+    const all = [...batchA, ...batchB];
+    const claimedIds = all.map((entry) => entry.id);
     expect(new Set(claimedIds).size).toBe(claimedIds.length);
     expect(new Set(claimedIds)).toEqual(new Set(ids));
+    expect(all.every((entry) => entry.leaseToken.length > 0)).toBe(true);
+    expect(new Set(all.map((entry) => entry.leaseToken)).size).toBe(all.length);
 
-    const processing = await prismaA.outboxEntry.findMany({
-      where: { id: { in: ids } },
-      select: { status: true, leaseOwner: true, leaseExpiresAt: true },
-    });
-    for (const row of processing) {
-      expect(row.status).toBe('PROCESSING');
-      expect(['worker-a', 'worker-b']).toContain(row.leaseOwner);
-      expect(row.leaseExpiresAt!.getTime()).toBeGreaterThan(Date.now());
-    }
+    await Promise.all([
+      deliverClaims(workerA, 'worker-a', batchA),
+      deliverClaims(workerB, 'worker-b', batchB),
+    ]);
   });
 
-  it('never claims receipts written by command transactions', async () => {
-    await purge();
-    await prismaA.outboxEntry.create({
-      data: {
-        type: 'industrial.e2e.receipt',
-        status: 'CONFIRMED',
-        payload: { result: { ok: true } },
-        idempotencyKey: 'receipt-test-one',
-        confirmedAt: new Date(),
-      },
-    });
-    const claimed = await workerA.claimBatch('worker-a', 10);
-    expect(claimed).toHaveLength(0);
+  it('recovers an expired crash lease and rejects the stale token acknowledgement', async () => {
+    const [id] = await seedEntries('crash-recovery', 1);
+    const [first] = await workerA.claimBatch('worker-crashed', 1, 1);
+    expect(first.id).toBe(id);
+
+    expect(await workerB.claimBatch('worker-recovery', 1)).toHaveLength(0);
+    await new Promise((resolve) => setTimeout(resolve, 1_300));
+
+    const [recovered] = await workerB.claimBatch('worker-recovery', 1, 60);
+    expect(recovered.id).toBe(id);
+    expect(recovered.leaseToken).not.toBe(first.leaseToken);
+
+    await expect(
+      workerA.markDelivered('worker-crashed', id, first.leaseToken),
+    ).rejects.toBeInstanceOf(OutboxLeaseLostError);
+
+    await workerB.markDelivered('worker-recovery', id, recovered.leaseToken);
+    const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('SENT');
   });
 
-  it('delivers via a registered handler, retries failures with backoff, then dead-letters and re-drives', async () => {
-    await purge();
-    const [id] = await seedEntries(1);
+  it('renews a live lease with heartbeat and prevents premature reclaim', async () => {
+    const [id] = await seedEntries('heartbeat', 1);
+    const [claim] = await workerA.claimBatch('worker-heartbeat', 1, 1);
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
-    let attempts = 0;
-    workerA.registerHandler(TYPE, async () => {
-      attempts += 1;
-      throw new Error(`provider unavailable (attempt ${attempts})`);
+    expect(await workerA.heartbeat('worker-heartbeat', id, claim.leaseToken, 2)).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    expect(await workerB.claimBatch('worker-other', 1)).toHaveLength(0);
+
+    const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.heartbeatAt).not.toBeNull();
+    expect(row.leaseExpiresAt!.getTime()).toBeGreaterThan(Date.now());
+    await workerA.markDelivered('worker-heartbeat', id, claim.leaseToken);
+  });
+
+  it('retries with deterministic exponential backoff and parks at DEAD_LETTER', async () => {
+    const type = `${RUN_ID}.retry-dead-letter`;
+    const [id] = await seedEntries('retry-dead-letter', 1);
+    workerA.registerHandler(type, async () => {
+      throw new Error('provider unavailable');
     });
 
-    let report = await workerA.drainOnce('worker-a', 10);
+    const beforeFirst = Date.now();
+    let report = await workerA.drainOnce('worker-retry', 1);
     expect(report).toMatchObject({ claimed: 1, delivered: 0, retried: 1, deadLettered: 0 });
     let row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
     expect(row.status).toBe('PENDING');
     expect(row.retryCount).toBe(1);
-    expect(row.lastError).toContain('provider unavailable');
-    expect(row.nextRetryAt.getTime()).toBeGreaterThan(Date.now());
+    expect(row.nextRetryAt.getTime()).toBeGreaterThanOrEqual(beforeFirst + 4_000);
 
-    await prismaA.outboxEntry.update({ where: { id }, data: { nextRetryAt: new Date(Date.now() - 1000) } });
-    report = await workerA.drainOnce('worker-a', 10);
+    await prismaA.outboxEntry.update({ where: { id }, data: { nextRetryAt: new Date(Date.now() - 1_000) } });
+    const beforeSecond = Date.now();
+    report = await workerA.drainOnce('worker-retry', 1);
     expect(report.retried).toBe(1);
+    row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.retryCount).toBe(2);
+    expect(row.nextRetryAt.getTime()).toBeGreaterThanOrEqual(beforeSecond + 9_000);
 
-    await prismaA.outboxEntry.update({ where: { id }, data: { nextRetryAt: new Date(Date.now() - 1000) } });
-    report = await workerA.drainOnce('worker-a', 10);
+    await prismaA.outboxEntry.update({ where: { id }, data: { nextRetryAt: new Date(Date.now() - 1_000) } });
+    report = await workerA.drainOnce('worker-retry', 1);
     expect(report.deadLettered).toBe(1);
     row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
     expect(row.status).toBe('DEAD_LETTER');
     expect(row.deadLetterAt).not.toBeNull();
-
-    expect(await workerA.claimBatch('worker-a', 10)).toHaveLength(0);
-
-    expect(await workerA.redrive(id)).toBe(true);
-    workerA.registerHandler(TYPE, async () => undefined);
-    report = await workerA.drainOnce('worker-a', 10);
-    expect(report.delivered).toBe(1);
-    row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
-    expect(row.status).toBe('SENT');
-    expect(row.sentAt).not.toBeNull();
   });
 
-  it('reclaims its own entry from a crashed worker after lease expiry even with foreign queue facts', async () => {
-    await purge();
-    const [id] = await seedEntries(1);
-
-    const claimed = await workerA.claimBatch('worker-a', 10, 1);
-    expect(claimed.map((entry) => entry.id)).toContain(id);
-
-    const beforeExpiry = await workerB.claimBatch('worker-b', 10);
-    expect(beforeExpiry.map((entry) => entry.id)).not.toContain(id);
-
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    const reclaimed = await workerB.claimBatch('worker-b', 10);
-    expect(reclaimed.map((entry) => entry.id)).toContain(id);
-    await workerB.markDelivered('worker-b', id);
+  it('fails closed when no transport exists instead of marking the entry SENT', async () => {
+    const [id] = await seedEntries('disabled-transport', 1, { maxRetries: 1 });
+    const report = await workerB.drainOnce('worker-no-transport', 1);
+    expect(report).toMatchObject({ claimed: 1, delivered: 0, retried: 0, deadLettered: 1 });
     const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
-    expect(row.status).toBe('SENT');
-
-    await workerA.markDelivered('worker-a', id);
-    const after = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
-    expect(after.status).toBe('SENT');
+    expect(row.status).toBe('DEAD_LETTER');
+    expect(row.sentAt).toBeNull();
+    expect(row.lastError).toContain('no transport handler');
   });
 
-  it('exposes queue depth by status for alerting', async () => {
-    await purge();
-    await seedEntries(3);
-    const stats = await workerA.queueStats();
-    expect(stats.PENDING).toBeGreaterThanOrEqual(3);
+  it('redrives exactly once with an append-only hash-chain audit and never mutates terminal receipts', async () => {
+    const type = `${RUN_ID}.audited-redrive`;
+    const [id] = await seedEntries('audited-redrive', 1, { maxRetries: 1 });
+    workerA.registerHandler(type, async () => {
+      throw new Error('temporary provider failure');
+    });
+    await workerA.drainOnce('worker-redrive-fail', 1);
+
+    const idempotencyKey = `${RUN_ID}.redrive-command`;
+    const first = await outbox.redrive({
+      entryId: id,
+      actorUserId: 'admin-outbox-e2e',
+      reason: 'provider recovered',
+      idempotencyKey,
+    });
+    const replay = await outbox.redrive({
+      entryId: id,
+      actorUserId: 'admin-outbox-e2e',
+      reason: 'provider recovered',
+      idempotencyKey,
+    });
+    expect(first.replayed).toBe(false);
+    expect(replay.replayed).toBe(true);
+    expect(replay.redriveEventId).toBe(first.redriveEventId);
+
+    const events = await prismaA.outboxRedriveEvent.findMany({ where: { outboxEntryId: id } });
+    expect(events).toHaveLength(1);
+    expect(events[0].hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(events[0].previousStatus).toBe('DEAD_LETTER');
+
+    workerA.registerHandler(type, async () => undefined);
+    const delivered = await workerA.drainOnce('worker-redrive-success', 1);
+    expect(delivered.delivered).toBe(1);
+    let row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('SENT');
+
+    await expect(
+      outbox.redrive({
+        entryId: id,
+        actorUserId: 'admin-outbox-e2e',
+        reason: 'illegal terminal mutation',
+        idempotencyKey: `${RUN_ID}.illegal-redrive`,
+      }),
+    ).rejects.toThrow('cannot be redriven from status SENT');
+
+    await outbox.confirm(id);
+    row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('CONFIRMED');
+    await expect(
+      prismaA.outboxEntry.update({ where: { id }, data: { status: 'PENDING' } }),
+    ).rejects.toThrow();
+  });
+
+  it('never claims CONFIRMED command receipts and exposes durable queue statistics', async () => {
+    await prismaA.outboxEntry.create({
+      data: {
+        type: `${RUN_ID}.receipt`,
+        status: 'CONFIRMED',
+        payload: { result: { ok: true } },
+        idempotencyKey: `${RUN_ID}.receipt.one`,
+        confirmedAt: new Date(),
+      },
+    });
+    expect(await workerA.claimBatch('worker-receipt', 10)).toHaveLength(0);
+
+    const stats = await outbox.queueStats();
+    expect(stats.total).toBeGreaterThan(0);
+    expect(stats.confirmed).toBeGreaterThan(0);
+    expect(stats.deadLetter).toBeGreaterThan(0);
   });
 });
