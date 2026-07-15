@@ -1,0 +1,57 @@
+name: Register Public Experience V4 scope
+
+on:
+  push:
+    branches:
+      - agent/public-product-experience-v4-world-class
+    paths:
+      - .github/workflows/public-experience-v4-scope.yml
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/public-product-experience-v4-world-class
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Register exact branch scope
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'docs/platform-v7/autopilot/autopilot-state.json';
+          const state = JSON.parse(fs.readFileSync(path, 'utf8'));
+          state.approvedConcurrentScopes ||= {};
+          state.approvedConcurrentScopes['agent/public-product-experience-v4-world-class'] = [
+            'docs/platform-v7/autopilot/autopilot-state.json',
+            'apps/web/app/platform-v7/how-it-works/page.tsx',
+            'apps/web/app/platform-v7/page.tsx',
+            'apps/web/components/platform-v7/PublicDealEntryGate.tsx',
+            'apps/web/components/platform-v7/PublicDealExplorerV4.tsx',
+            'apps/web/components/platform-v7/PublicDealPreview.tsx',
+            'apps/web/i18n/public-product-experience-v4.ts',
+            'apps/web/styles/platform-v7-public-product-entry-variants.css',
+            'apps/web/styles/platform-v7-public-product-experience-v4.css',
+            'apps/web/tests/e2e/platform-v7-public-experience-v4.spec.ts',
+            'apps/web/tests/unit/platformV7PublicExperienceV4.test.ts',
+            'apps/web/tests/unit/platformV7RootWorkEntry.test.ts'
+          ];
+          fs.writeFileSync(path, `${JSON.stringify(state)}\n`);
+          NODE
+          rm .github/workflows/public-experience-v4-scope.yml
+      - name: Commit scope registration
+        run: |
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/platform-v7/autopilot/autopilot-state.json .github/workflows/public-experience-v4-scope.yml
+          git commit -m "Register Public Experience V4 concurrent scope"
+          git push origin HEAD:agent/public-product-experience-v4-world-class
