@@ -51,13 +51,19 @@ export async function inspectOutboxDatabasePrincipal(
       has_table_privilege(current_user, 'public.outbox_entries', 'INSERT') AS outbox_insert,
       has_table_privilege(current_user, 'public.outbox_entries', 'DELETE') AS outbox_delete,
       (
-        has_table_privilege(current_user, 'public.deals', 'SELECT, INSERT, UPDATE, DELETE')
+        has_table_privilege(current_user, 'public.deals', 'SELECT')
+        OR has_table_privilege(current_user, 'public.deals', 'INSERT')
+        OR has_table_privilege(current_user, 'public.deals', 'UPDATE')
+        OR has_table_privilege(current_user, 'public.deals', 'DELETE')
         OR has_any_column_privilege(current_user, 'public.deals', 'SELECT')
         OR has_any_column_privilege(current_user, 'public.deals', 'INSERT')
         OR has_any_column_privilege(current_user, 'public.deals', 'UPDATE')
       ) AS deal_any_privilege,
       (
-        has_table_privilege(current_user, 'public.outbox_redrive_events', 'SELECT, INSERT, UPDATE, DELETE')
+        has_table_privilege(current_user, 'public.outbox_redrive_events', 'SELECT')
+        OR has_table_privilege(current_user, 'public.outbox_redrive_events', 'INSERT')
+        OR has_table_privilege(current_user, 'public.outbox_redrive_events', 'UPDATE')
+        OR has_table_privilege(current_user, 'public.outbox_redrive_events', 'DELETE')
         OR has_any_column_privilege(current_user, 'public.outbox_redrive_events', 'SELECT')
         OR has_any_column_privilege(current_user, 'public.outbox_redrive_events', 'INSERT')
         OR has_any_column_privilege(current_user, 'public.outbox_redrive_events', 'UPDATE')
