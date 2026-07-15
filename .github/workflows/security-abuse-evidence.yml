@@ -1,0 +1,216 @@
+name: Security Abuse and Evidence Acceptance
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: security-abuse-evidence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  PNPM_VERSION: '10.2.1'
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  SECURITY_ABUSE_DIR: artifacts/security-abuse
+  SECURITY_INPUT_DIR: artifacts/security-evidence-input
+  SECURITY_OUTPUT_DIR: artifacts/security
+
+jobs:
+  security-abuse-evidence:
+    name: Security abuse · exact-head evidence manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: one_deal_admin
+          POSTGRES_PASSWORD: ephemeral_one_deal_admin_only
+          POSTGRES_DB: one_deal_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U one_deal_admin -d one_deal_e2e"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      ONE_DEAL_ADMIN_URL: postgresql://one_deal_admin:ephemeral_one_deal_admin_only@127.0.0.1:5432/one_deal_e2e
+      ONE_DEAL_AUTH_URL: postgresql://one_deal_auth:ephemeral_one_deal_auth_only@127.0.0.1:5432/one_deal_e2e
+      ONE_DEAL_APP_URL: postgresql://one_deal_app:ephemeral_one_deal_app_only@127.0.0.1:5432/one_deal_e2e
+      ONE_DEAL_STORAGE_URL: postgresql://one_deal_storage:ephemeral_one_deal_storage_only@127.0.0.1:5432/one_deal_e2e
+      ONE_DEAL_EVIDENCE_LOG: artifacts/security-abuse/one-deal-e2e.log
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Setup repository pnpm pin
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate ephemeral security secrets
+        shell: bash
+        run: |
+          echo "JWT_SECRET=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
+          echo "AUTH_TOKEN_PEPPER=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
+          echo "MFA_ENCRYPTION_KEY=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
+          echo "BANK_HMAC_SECRET=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
+
+      - name: Run mandatory abuse cases
+        env:
+          SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          SECURITY_ABUSE_REPORT: ${{ env.SECURITY_ABUSE_DIR }}/security-abuse-evidence.json
+          SECURITY_ABUSE_JUNIT: ${{ env.SECURITY_ABUSE_DIR }}/security-abuse-junit.xml
+          SECURITY_ABUSE_LOG_DIR: ${{ env.SECURITY_ABUSE_DIR }}/logs
+        run: node docs/platform-v7/autopilot/run-security-abuse-gate.mjs
+
+      - name: Upload abuse-case evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-abuse-${{ env.EXACT_HEAD }}
+          path: ${{ env.SECURITY_ABUSE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Wait for matching blocking security workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 3000))
+          while (( SECONDS < deadline )); do
+            runs="$(gh run list \
+              --workflow security-quality-gate.yml \
+              --commit "$EXACT_HEAD" \
+              --limit 20 \
+              --json databaseId,status,conclusion,headSha,createdAt 2>/dev/null || true)"
+            run_id="$(jq -r --arg sha "$EXACT_HEAD" '[.[] | select(.headSha == $sha)] | sort_by(.createdAt) | last | .databaseId // empty' <<< "$runs")"
+            if [[ -n "$run_id" ]]; then
+              status="$(jq -r --argjson id "$run_id" '.[] | select(.databaseId == $id) | .status' <<< "$runs")"
+              conclusion="$(jq -r --argjson id "$run_id" '.[] | select(.databaseId == $id) | .conclusion // ""' <<< "$runs")"
+              if [[ "$status" == "completed" ]]; then
+                if [[ "$conclusion" != "success" ]]; then
+                  echo "Blocking Security Quality Gate run $run_id concluded $conclusion" >&2
+                  exit 1
+                fi
+                echo "BASE_SECURITY_RUN_ID=$run_id" >> "$GITHUB_ENV"
+                exit 0
+              fi
+            fi
+            sleep 15
+          done
+          echo "Timed out waiting for Security Quality Gate on exact head $EXACT_HEAD" >&2
+          exit 1
+
+      - name: Download exact-head security artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$SECURITY_INPUT_DIR"
+          gh run download "$BASE_SECURITY_RUN_ID" --dir "$SECURITY_INPUT_DIR"
+          cp -R "$SECURITY_ABUSE_DIR" "$SECURITY_INPUT_DIR/security-abuse-${EXACT_HEAD}"
+          gh run view "$BASE_SECURITY_RUN_ID" --json jobs > "$SECURITY_INPUT_DIR/base-security-jobs.json"
+
+      - name: Derive exact-head job evidence
+        env:
+          SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+        run: |
+          mkdir -p "$SECURITY_INPUT_DIR/derived"
+          TYPESCRIPT_VERSION="$(pnpm --filter @pc/api exec tsc --version | tr -d '\r')"
+          export TYPESCRIPT_VERSION
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const inputDir = process.env.SECURITY_INPUT_DIR;
+          const payload = JSON.parse(fs.readFileSync(path.join(inputDir, 'base-security-jobs.json'), 'utf8'));
+          const jobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+          const exact = process.env.SECURITY_EXACT_HEAD;
+          const required = {
+            gitleaks: 'Secrets · Gitleaks blocking',
+            typescript: 'TypeScript · strict blocking',
+          };
+          function requireSuccess(label) {
+            const job = jobs.find((candidate) => candidate.name === label);
+            if (!job || job.conclusion !== 'success') {
+              throw new Error(`Required base security job ${label} is not successful.`);
+            }
+            return job;
+          }
+          const gitleaks = requireSuccess(required.gitleaks);
+          const typescript = requireSuccess(required.typescript);
+          fs.writeFileSync(path.join(inputDir, 'derived', 'gitleaks-evidence.json'), JSON.stringify({
+            schemaVersion: 1,
+            repository: 'pachaninm-lab/pachanin-demo',
+            commitSha: exact,
+            scannerContract: 'gitleaks/gitleaks-action@v2',
+            baseWorkflowRunId: process.env.BASE_SECURITY_RUN_ID,
+            jobId: String(gitleaks.databaseId),
+            passed: true,
+          }, null, 2) + '\n');
+          fs.writeFileSync(path.join(inputDir, 'derived', 'typescript-evidence.json'), JSON.stringify({
+            schemaVersion: 1,
+            repository: 'pachaninm-lab/pachanin-demo',
+            commitSha: exact,
+            typescriptVersion: process.env.TYPESCRIPT_VERSION,
+            baseWorkflowRunId: process.env.BASE_SECURITY_RUN_ID,
+            jobId: String(typescript.databaseId),
+            passed: true,
+          }, null, 2) + '\n');
+          NODE
+
+      - name: Build unified security evidence manifest
+        env:
+          SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          SECURITY_WORKFLOW_RUN_ID: ${{ github.run_id }}
+          SECURITY_WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          SECURITY_EVIDENCE_INPUT_DIR: ${{ env.SECURITY_INPUT_DIR }}
+          SECURITY_EVIDENCE_MANIFEST: ${{ env.SECURITY_OUTPUT_DIR }}/security-evidence-manifest.json
+          POLICY_RESULT: success
+          SEMGREP_RESULT: success
+          CONTAINER_RESULT: success
+          FILESYSTEM_RESULT: success
+          IAC_RESULT: success
+          GITLEAKS_RESULT: success
+          DEPENDENCY_RESULT: success
+          TYPESCRIPT_RESULT: success
+          ABUSE_RESULT: success
+        run: node docs/platform-v7/autopilot/build-security-evidence-manifest.mjs
+
+      - name: Upload unified security evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-evidence-manifest-${{ env.EXACT_HEAD }}
+          path: |
+            ${{ env.SECURITY_OUTPUT_DIR }}/security-evidence-manifest.json
+            ${{ env.SECURITY_INPUT_DIR }}/base-security-jobs.json
+          if-no-files-found: error
+          retention-days: 90
