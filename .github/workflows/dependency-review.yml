@@ -55,10 +55,30 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
       - name: Apply deterministic header migration
-        run: node docs/platform-v7/autopilot/await-next15-request-headers.mjs
+        id: migrate
+        run: |
+          set +e
+          node docs/platform-v7/autopilot/await-next15-request-headers.mjs > next15-migration.log 2>&1
+          code=$?
+          set -e
+          cat next15-migration.log
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+      - name: Upload migration diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next15-migration-${{ github.event.pull_request.head.sha }}
+          path: next15-migration.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce migration success
+        if: steps.migrate.outputs.exit_code != '0'
+        run: exit 1
       - name: Prove strict typecheck before commit
+        if: steps.migrate.outputs.exit_code == '0'
         run: pnpm --filter @pc/web typecheck
       - name: Restore workflow surface and commit proven changes
+        if: steps.migrate.outputs.exit_code == '0'
         run: |
           git checkout origin/main -- .github/workflows/dependency-review.yml
           git rm -f docs/platform-v7/autopilot/await-next15-request-headers.mjs
