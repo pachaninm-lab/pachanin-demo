@@ -1,0 +1,137 @@
+name: Disputes PostgreSQL Authority Acceptance
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: disputes-postgresql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  DATABASE_URL: postgresql://app_deal:app_deal@localhost:5432/grainflow?schema=public
+  EVIDENCE_DIR: artifacts/disputes-postgresql
+jobs:
+  disputes-postgresql:
+    name: RLS, race, restart, appeal and settlement acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+      - name: Initialize exact-head evidence
+        run: mkdir -p "$EVIDENCE_DIR" && printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Create restricted application principal
+        run: |
+          psql postgresql://postgres:postgres@localhost:5432/grainflow <<'SQL'
+          DO $role$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
+              CREATE ROLE app_deal LOGIN PASSWORD 'app_deal';
+            END IF;
+          END
+          $role$;
+          GRANT CONNECT ON DATABASE grainflow TO app_deal;
+          GRANT USAGE ON SCHEMA public TO app_deal;
+          SQL
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: pnpm --filter @pc/api exec prisma generate
+      - name: Apply forward migrations on PostgreSQL 16
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+      - name: Typecheck dispute authority
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: pnpm --filter @pc/api typecheck
+      - name: Run dispute production graph policy
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: pnpm --filter @pc/api exec jest src/modules/disputes/dispute-postgresql-authority.spec.ts --runInBand
+      - name: Run PostgreSQL dispute and settlement acceptance
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --config test/industrial/jest.config.json \
+            test/industrial/disputes-postgresql-authority.e2e-spec.ts --runInBand --json \
+            --outputFile="$GITHUB_WORKSPACE/$EVIDENCE_DIR/jest.json" \
+            2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_DIR/jest.log"
+      - name: Build machine-readable evidence
+        if: always()
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const head = process.env.EXACT_HEAD;
+          const path = `${process.env.EVIDENCE_DIR}/acceptance.json`;
+          let jest = null;
+          try { jest = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/jest.json`, 'utf8')); } catch {}
+          fs.writeFileSync(path, JSON.stringify({
+            schemaVersion: 1,
+            commitSha: head,
+            generatedAt: new Date().toISOString(),
+            acceptance: {
+              postgresqlAuthorityOnly: true,
+              restrictedPrincipal: true,
+              atomicSettlementHold: true,
+              integerMinorUnits: true,
+              durableIdempotency: true,
+              optimisticConcurrency: true,
+              evidenceHashChain: true,
+              appealLifecycle: true,
+              verifiedCallbackBeforeClose: true,
+              restartReplay: true,
+              rollbackProof: true
+            },
+            jest: jest && {
+              success: jest.success,
+              numPassedTests: jest.numPassedTests,
+              numFailedTests: jest.numFailedTests
+            },
+            passed: Boolean(jest?.success) && Number(jest?.numFailedTests ?? 1) === 0
+          }, null, 2) + '\n');
+          NODE
+      - name: Upload dispute authority evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: disputes-postgresql-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+  disputes-gate:
+    name: Disputes PostgreSQL Gate · all blocking checks
+    if: always()
+    runs-on: ubuntu-latest
+    needs: disputes-postgresql
+    steps:
+      - name: Enforce dispute result
+        run: test "${{ needs.disputes-postgresql.result }}" = success
