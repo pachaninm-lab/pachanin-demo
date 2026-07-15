@@ -16,6 +16,14 @@
 {{- $manifestId -}}
 {{- end -}}
 
+{{- define "grainflow.release.migrationSetDigest" -}}
+{{- $migrationSetDigest := required "release.migrationSetDigest is required when a runtime workload is enabled" .Values.release.migrationSetDigest -}}
+{{- if not (regexMatch "^sha256:[0-9a-f]{64}$" $migrationSetDigest) -}}
+{{- fail "release.migrationSetDigest must be a lowercase sha256 digest" -}}
+{{- end -}}
+{{- $migrationSetDigest -}}
+{{- end -}}
+
 {{- define "grainflow.image.digest" -}}
 {{- $component := required "component is required for immutable image validation" .component -}}
 {{- $digest := required (printf "%s.image.digest is required when %s.enabled=true; mutable tags are forbidden" $component $component) .digest -}}
