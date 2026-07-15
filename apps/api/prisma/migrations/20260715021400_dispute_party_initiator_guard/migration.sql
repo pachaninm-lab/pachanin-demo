@@ -10,6 +10,7 @@ SET search_path = pg_catalog, public, dispute
 AS $function$
 DECLARE
   deal_row public."deals"%ROWTYPE;
+  expected_respondent_org_id text;
 BEGIN
   SELECT * INTO deal_row
   FROM public."deals" deal
@@ -24,10 +25,12 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'DISPUTE_PARTY_INITIATOR_REQUIRED';
   END IF;
 
-  IF NEW.respondent_org_id IS DISTINCT FROM CASE
+  expected_respondent_org_id := CASE
     WHEN NEW.initiator_org_id = deal_row."buyerOrgId" THEN deal_row."sellerOrgId"
     ELSE deal_row."buyerOrgId"
-  END THEN
+  END;
+
+  IF NEW.respondent_org_id IS DISTINCT FROM expected_respondent_org_id THEN
     RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'DISPUTE_RESPONDENT_SCOPE_INVALID';
   END IF;
 
