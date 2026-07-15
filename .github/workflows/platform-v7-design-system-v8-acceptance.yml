@@ -41,11 +41,12 @@ jobs:
           scope.sort()
           path.write_text(json.dumps(state, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
           PY
-      - name: Restore the accepted browser matrix and commit governed scope
+      - name: Restore accepted files and commit governed scope
         run: |
           git show a1fd0a07ee31826705a77bde5542543f6c021868:.github/workflows/platform-v7-design-system-v8-acceptance.yml > .github/workflows/platform-v7-design-system-v8-acceptance.yml
+          git show a1fd0a07ee31826705a77bde5542543f6c021868:apps/web/tests/unit/platformV7RootWorkEntry.test.ts > apps/web/tests/unit/platformV7RootWorkEntry.test.ts
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/platform-v7/autopilot/autopilot-state.json .github/workflows/platform-v7-design-system-v8-acceptance.yml
+          git add docs/platform-v7/autopilot/autopilot-state.json .github/workflows/platform-v7-design-system-v8-acceptance.yml apps/web/tests/unit/platformV7RootWorkEntry.test.ts
           git commit -m 'Approve exact npm bulk audit transport scope'
           git push origin HEAD:agent/public-product-experience-v3
