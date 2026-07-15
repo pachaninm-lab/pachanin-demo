@@ -16,7 +16,11 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 RUN pnpm --filter @pc/api build:outbox-worker
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/outbox-worker
 RUN rm -rf /prod/outbox-worker/src /prod/outbox-worker/test /prod/outbox-worker/prisma /prod/outbox-worker/dist-outbox-worker \
-  && cp -R /workspace/apps/api/dist-outbox-worker /prod/outbox-worker/dist-outbox-worker
+  && cp -R /workspace/apps/api/dist-outbox-worker /prod/outbox-worker/dist-outbox-worker \
+  && node scripts/release/materialize-prisma-client.mjs /workspace/apps/api /prod/outbox-worker \
+  && test -f /prod/outbox-worker/dist-outbox-worker/outbox-worker.js \
+  && cd /prod/outbox-worker \
+  && node -e "const {PrismaClient}=require('@prisma/client'); if(typeof PrismaClient!=='function') process.exit(1)"
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
