@@ -109,7 +109,7 @@ function normalizeAuditResponse(response, submittedPackageCount) {
       }
       const id = advisory.id;
       const severity = String(advisory.severity ?? '').toLowerCase();
-      const requiredStrings = ['name', 'url', 'vulnerable_versions', 'title'];
+      const requiredStrings = ['url', 'vulnerable_versions', 'title'];
       const missing = requiredStrings.filter(
         (field) => typeof advisory[field] !== 'string' || advisory[field].trim() === '',
       );
@@ -129,6 +129,7 @@ function normalizeAuditResponse(response, submittedPackageCount) {
       advisories[findingKey] = {
         ...advisory,
         id,
+        name: packageName,
         module_name: packageName,
         severity,
       };
