@@ -82,5 +82,7 @@ EXCEPTION
 END
 $function$;
 
+-- Internal helpers stay owner-only. Application principals execute only the
+-- public auction command functions granted by the original authority migration.
 REVOKE ALL ON FUNCTION auction.replay_command(text, text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION auction.replay_command(text, text, text) TO app_deal;
+REVOKE ALL ON FUNCTION auction.save_command(text, text, text, text, jsonb) FROM PUBLIC;
