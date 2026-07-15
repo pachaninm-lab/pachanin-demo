@@ -16,7 +16,8 @@
     "scripts/release/build-production-like-kubernetes-evidence.mjs",
     "scripts/release/production-like-kubernetes-*.sh",
     "scripts/release/production-like-kubernetes-fallback-evidence.mjs",
-    "scripts/release/production-like-kubernetes-enforce-evidence.mjs"
+    "scripts/release/production-like-kubernetes-enforce-evidence.mjs",
+    "scripts/release/production-like-kubernetes-migration-runtime.mjs"
   ],
   "forbiddenPaths": [
     "apps/api/**",
