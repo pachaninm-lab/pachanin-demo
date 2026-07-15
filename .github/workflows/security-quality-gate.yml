@@ -319,12 +319,20 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Produce production dependency audit JSON
+      - name: Inventory production dependency tree
         run: |
           mkdir -p "$SECURITY_ARTIFACT_DIR"
+          pnpm -r list --prod --json --depth Infinity \
+            > "$SECURITY_ARTIFACT_DIR/pnpm-production-dependencies.json"
+
+      - name: Collect npm Bulk Advisory audit JSON
+        run: |
           set +e
-          pnpm audit --prod --json --audit-level=high \
-            > "$SECURITY_ARTIFACT_DIR/pnpm-audit.json" \
+          NPM_BULK_AUDIT_INPUT="$SECURITY_ARTIFACT_DIR/pnpm-production-dependencies.json" \
+          PNPM_AUDIT_JSON="$SECURITY_ARTIFACT_DIR/pnpm-audit.json" \
+          NPM_REGISTRY_URL="https://registry.npmjs.org" \
+          node docs/platform-v7/autopilot/collect-npm-bulk-audit.mjs \
+            > "$SECURITY_ARTIFACT_DIR/pnpm-audit.stdout.txt" \
             2> "$SECURITY_ARTIFACT_DIR/pnpm-audit.stderr.txt"
           audit_exit=$?
           set -e
@@ -343,7 +351,9 @@ jobs:
         with:
           name: pnpm-audit-${{ env.EXACT_HEAD }}
           path: |
+            ${{ env.SECURITY_ARTIFACT_DIR }}/pnpm-production-dependencies.json
             ${{ env.SECURITY_ARTIFACT_DIR }}/pnpm-audit.json
+            ${{ env.SECURITY_ARTIFACT_DIR }}/pnpm-audit.stdout.txt
             ${{ env.SECURITY_ARTIFACT_DIR }}/pnpm-audit.stderr.txt
             ${{ env.SECURITY_ARTIFACT_DIR }}/pnpm-audit-evaluation.json
           if-no-files-found: error

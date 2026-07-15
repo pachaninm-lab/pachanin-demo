@@ -1,24 +1,25 @@
 import '@/styles/platform-v7-public-header.css';
-import '@/styles/platform-v7-public-landing.css';
 import '@/styles/platform-v7-public-mobile-safe-area.css';
-import '@/styles/platform-v7-public-entry-stable.css';
-import '@/styles/platform-v7-role-cards-stable.css';
 import '@/styles/platform-v7-i18n-cjk.css';
-import '@/styles/platform-v7-public-webkit-safe.css';
-import '@/styles/platform-v7-public-hero-watermark.css';
-import '@/styles/platform-v7-public-world-class.css';
-import '@/styles/platform-v7-public-typography.css';
-import type { CSSProperties } from 'react';
+import '@/styles/platform-v7-public-product-experience-v3.css';
+import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { PlatformV7IntelligenceStrip } from '@/components/v7r/PlatformV7IntelligenceStrip';
-import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
-import { getPublicLandingCopy } from '@/i18n/public-landing-copy';
+import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
+import { PublicDealPreview } from '@/components/platform-v7/PublicDealPreview';
+import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
+import {
+  PublicExperienceLink,
+  PublicExperiencePageView,
+  PublicExperienceScrollCoordinator,
+} from '@/components/platform-v7/PublicExperienceAnalytics';
+import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
+import type { TourPerspective } from '@/lib/platform-v7/public-product-experience-state';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена — исполнение зерновой сделки',
-  description: 'Платформа для исполнения внебиржевых зерновых сделок: перевозка, приёмка, качество, документы, расчёты и споры.',
+  description: 'Одна история исполнения зерновой сделки: участники, перевозка, приёмка, качество, документы, деньги, риски и спор.',
   alternates: {
     canonical: '/platform-v7',
     languages: {
@@ -40,264 +41,182 @@ export const metadata: Metadata = {
   },
 };
 
-type Card = { key: string; glyph: string };
-type RoleCard = Card;
-type PublicHeroLocale = 'ru' | 'en' | 'zh';
-
-const controlCards: Card[] = [
-  { key: 'money', glyph: '₽' },
-  { key: 'documents', glyph: '§' },
-  { key: 'logistics', glyph: '↗' },
-  { key: 'quality', glyph: '∴' },
-];
-
-const processSteps: Card[] = [
-  { key: 'price', glyph: '₽' },
-  { key: 'deal', glyph: '✓' },
-  { key: 'trip', glyph: '→' },
-  { key: 'acceptance', glyph: '▣' },
-  { key: 'documents', glyph: '§' },
-  { key: 'settlement', glyph: '=' },
-  { key: 'dispute', glyph: '!' },
-];
-
-const roles: RoleCard[] = [
-  { key: 'operator', glyph: '◎' },
-  { key: 'buyer', glyph: '↓' },
-  { key: 'seller', glyph: '↑' },
-  { key: 'logistics', glyph: '↗' },
-  { key: 'driver', glyph: '→' },
-  { key: 'elevator', glyph: '▣' },
-  { key: 'lab', glyph: '∴' },
-  { key: 'surveyor', glyph: '✓' },
-  { key: 'bank', glyph: '₽' },
-  { key: 'compliance', glyph: '§' },
-  { key: 'arbitrator', glyph: '⚖' },
-  { key: 'executive', glyph: '∑' },
-];
-
-const trustItems: Card[] = [
-  { key: 'status', glyph: '✓' },
-  { key: 'trail', glyph: '↻' },
-  { key: 'docsControl', glyph: '§' },
-  { key: 'basis', glyph: '₽' },
-];
-
-const heroSignals: { key: string; tone: 'done' | 'active' | 'wait' | 'pending' }[] = [
-  { key: 'price', tone: 'done' },
-  { key: 'trip', tone: 'active' },
-  { key: 'acceptance', tone: 'wait' },
-  { key: 'documents', tone: 'pending' },
-  { key: 'settlement', tone: 'pending' },
-];
-
-const GLYPH_STYLE: CSSProperties = {
-  display: 'inline-grid',
-  placeItems: 'center',
-  width: 32,
-  height: 32,
-  borderRadius: 11,
-  background: 'rgba(0,122,47,.08)',
-  color: '#087a3b',
-  fontSize: 18,
-  fontWeight: 800,
-  lineHeight: 1,
-};
-
-const ON_GREEN_STYLE: CSSProperties = { color: '#ffffff' };
-
-const PUBLIC_HERO_TITLES: Record<PublicHeroLocale, readonly [string, string]> = {
-  ru: ['Управляйте зерновой сделкой', 'от условий до расчёта.'],
-  en: ['Manage the grain deal', 'from terms to settlement.'],
-  zh: ['管理粮食交易', '从交易条件到结算。'],
-};
-
-const LANDING_REFINEMENT_CSS = `
-.pc-v7-public-entry .p7-support-chat-button{
-  right:max(16px,env(safe-area-inset-right,0px))!important;
-  bottom:calc(env(safe-area-inset-bottom,0px) + 18px)!important;
-}
-.pc-v7-public-entry .p7-support-chat-panel{
-  bottom:calc(env(safe-area-inset-bottom,0px) + 86px)!important;
-  max-height:min(680px,calc(100dvh - 112px))!important;
-}
-@media(max-width:720px){
-  .pc-v7-public-entry .entry-hero{padding-top:24px;padding-bottom:30px}
-  .pc-v7-public-entry .entry-hero-copy{gap:18px}
-  .pc-v7-public-entry .entry-hero-actions{margin-top:2px}
-}
-`;
-
-function EntryGlyph({ value, compact = false }: { value: string; compact?: boolean }) {
+function PerspectiveCard({
+  perspective,
+  locale,
+  label,
+  value,
+}: {
+  perspective: TourPerspective;
+  locale: string;
+  label: string;
+  value: string;
+}) {
   return (
-    <b
-      aria-hidden='true'
-      style={compact ? { ...GLYPH_STYLE, width: 28, height: 28, borderRadius: 9, fontSize: 15 } : GLYPH_STYLE}
+    <PublicExperienceLink
+      href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&lens=participants&perspective=${perspective}`}
+      className='pc-ppe-perspective-card'
+      eventName='perspective_selected'
+      locale={locale}
+      params={{ perspective, source: 'home' }}
     >
-      {value}
-    </b>
+      <span><PublicExperienceIcon name={perspective} size={22} /></span>
+      <span>
+        <strong>{label}</strong>
+        <small>{value}</small>
+      </span>
+      <PublicExperienceIcon name='arrow' size={20} />
+    </PublicExperienceLink>
   );
 }
 
 export default async function PlatformV7RootPage() {
   const locale = await getLocale();
-  const { t, supporting: publicLanding, rolesCatalog: roleCatalog } = getPublicLandingCopy(locale);
+  const copy = getPublicProductExperienceCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
-  const currentYear = new Date().getUTCFullYear();
-  const heroLocale: PublicHeroLocale = locale === 'en' || locale === 'zh' ? locale : 'ru';
-  const heroTitle = PUBLIC_HERO_TITLES[heroLocale];
-
-  const nav = (
-    <>
-      <a href='#process'>{t('nav.process')}</a>
-      <a href='#control'>{t('nav.control')}</a>
-      <a href='#roles'>{t('nav.roles')}</a>
-      <a href='/platform-v7/deal-flow'>{t('nav.dealFlow')}</a>
-      <a href='/platform-v7/docs'>{t('nav.docs')}</a>
-      <a href='/platform-v7/contact'>{t('nav.contact')}</a>
-    </>
-  );
+  const primaryPerspectives = copy.home.perspectives.primary as readonly TourPerspective[];
+  const secondaryPerspectives = copy.home.perspectives.secondary as readonly TourPerspective[];
 
   return (
-    <main
-      id='main-content'
-      data-testid='platform-v7-root-execution-cockpit'
-      className='pc-v7-entry-page pc-v7-public-entry pc-public-world-class'
-    >
-      <a className='pc-skip-link' href='#entry-hero-title'>{chrome('skipToContent')}</a>
+    <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-root-execution-cockpit'>
+      <a className='pc-skip-link' href='#pc-ppe-hero-title'>{chrome('skipToContent')}</a>
+      <PublicExperiencePageView locale={locale} name='home_view' />
+      <PublicExperienceScrollCoordinator />
 
       <PublicSiteHeader
-        ariaLabel={t('publicNav')}
-        tagline={t('brandTagline')}
-        brandHomeLabel={chrome('brandHomeLabel')}
-        navLabel={chrome('navLabel')}
-        menuLabel={chrome('menuLabel')}
+        ariaLabel={copy.header.aria}
+        brandHomeLabel={copy.header.brandHome}
+        navLabel={copy.header.aria}
+        menuLabel={copy.header.aria}
         showMobileMenu={false}
         localeControl={<PublicLocaleLink />}
-        nav={nav}
-        actions={(
-          <>
-            <a href='/platform-v7/login' className='entry-login'>{t('signIn')}</a>
-            <a href='/platform-v7/register' className='entry-header-register'>{t('hero.primaryCta')}</a>
-          </>
-        )}
+        actions={<a href='/platform-v7/login' className='entry-login'>{copy.header.signIn}</a>}
       />
-      <style>{LANDING_REFINEMENT_CSS}</style>
 
-      <section className='entry-hero' aria-labelledby='entry-hero-title'>
-        <div className='entry-hero-copy'>
-          <span className='entry-kicker'>{t('hero.kicker')}</span>
-          <h1 id='entry-hero-title'>
-            {heroTitle.map((line) => <span key={line}>{line}</span>)}
-          </h1>
-          <p>{t('hero.lead')}</p>
-          <div className='entry-hero-actions'>
-            <a href='/platform-v7/register' className='entry-primary-cta' style={ON_GREEN_STYLE}>{t('hero.primaryCta')}<span aria-hidden='true'>→</span></a>
-            <a href='/platform-v7/deal-flow' className='entry-secondary-cta'>{t('hero.secondaryCta')}<span aria-hidden='true'>→</span></a>
-          </div>
-        </div>
-
-        <div className='entry-hero-visual' aria-hidden='true'>
-          <div className='entry-visual-card'>
-            <div className='entry-visual-head'>
-              <span className='entry-visual-label'>{t('visual.label')}</span>
-              <span className='entry-visual-live'>{t('visual.note')}</span>
+      <div className='pc-ppe-shell'>
+        <section className='pc-ppe-hero pc-ppe-hero-copy-only' aria-labelledby='pc-ppe-hero-title'>
+          <div className='pc-ppe-hero-copy'>
+            <span className='pc-ppe-kicker'>{copy.home.hero.kicker}</span>
+            <h1 id='pc-ppe-hero-title'>{copy.home.hero.title}</h1>
+            <p>{copy.home.hero.lead}</p>
+            <div className='pc-ppe-hero-actions'>
+              <PublicExperienceLink
+                href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}`}
+                className='pc-ppe-primary-button'
+                eventName='home_primary_cta_click'
+                locale={locale}
+                params={{ source: 'hero' }}
+              >
+                <span>{copy.home.hero.primary}</span>
+                <PublicExperienceIcon name='arrow' size={20} />
+              </PublicExperienceLink>
+              <PublicExperienceLink
+                href='/platform-v7/register'
+                className='pc-ppe-secondary-button'
+                eventName='home_connect_click'
+                locale={locale}
+                params={{ source: 'hero' }}
+              >
+                {copy.home.hero.secondary}
+              </PublicExperienceLink>
             </div>
-            <strong className='entry-visual-id'>{publicLanding('visualTitle')}</strong>
-            <div className='entry-signal-list'>
-              {heroSignals.map(({ key, tone }) => (
-                <span key={key} className='entry-signal-row' data-tone={tone}>
-                  <i className='entry-signal-dot' />
-                  <b>{t(`visual.signals.${key}.label`)}</b>
-                  <em>{t(`visual.signals.${key}.value`)}</em>
-                </span>
+          </div>
+
+          <div className='pc-ppe-hero-contour' aria-hidden='true'>
+            {(['terms', 'admission', 'deal', 'logistics', 'acceptance', 'documents', 'settlement'] as const).map((stage, index) => (
+              <span key={stage} data-active={stage === 'acceptance' ? 'true' : 'false'}>
+                <i>{index + 1}</i>
+                <b>{copy.explorer.stages[stage].label}</b>
+              </span>
+            ))}
+          </div>
+        </section>
+
+        <section className='pc-ppe-section' aria-label={copy.home.preview.eyebrow}>
+          <PublicDealPreview copy={copy} locale={locale} />
+        </section>
+
+        <section className='pc-ppe-section' aria-labelledby='pc-ppe-perspectives-title'>
+          <div className='pc-ppe-section-header'>
+            <h2 id='pc-ppe-perspectives-title'>{copy.home.perspectives.title}</h2>
+            <p>{copy.home.perspectives.lead}</p>
+          </div>
+          <div className='pc-ppe-perspective-grid' role='group' aria-labelledby='pc-ppe-perspectives-title'>
+            {primaryPerspectives.map((perspective) => (
+              <PerspectiveCard
+                key={perspective}
+                perspective={perspective}
+                locale={locale}
+                label={copy.explorer.perspectives[perspective].label}
+                value={copy.explorer.perspectives[perspective].value}
+              />
+            ))}
+          </div>
+          <details className='pc-ppe-all-participants'>
+            <summary>
+              <span>{copy.home.perspectives.all}</span>
+              <PublicExperienceIcon name='arrow' size={20} />
+            </summary>
+            <div className='pc-ppe-perspective-grid' role='group' aria-label={copy.home.perspectives.all}>
+              {secondaryPerspectives.map((perspective) => (
+                <PerspectiveCard
+                  key={perspective}
+                  perspective={perspective}
+                  locale={locale}
+                  label={copy.explorer.perspectives[perspective].label}
+                  value={copy.explorer.perspectives[perspective].value}
+                />
               ))}
             </div>
-            <div className='entry-visual-basis'>
-              <span>{publicLanding('visualBasisLabel')}</span>
-              <strong>{publicLanding('visualBasisText')}</strong>
-            </div>
+          </details>
+        </section>
+
+        <section className='pc-ppe-section' aria-labelledby='pc-ppe-proof-title'>
+          <div className='pc-ppe-proof-panel'>
+            <h2 id='pc-ppe-proof-title'>{copy.home.proof.title}</h2>
+            <ul className='pc-ppe-proof-list'>
+              {copy.home.proof.rows.map((row) => (
+                <li key={row}>
+                  <span><PublicExperienceIcon name='check' size={19} /></span>
+                  <strong>{row}</strong>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section id='control' className='entry-section' aria-labelledby='control-title'>
-        <SectionHead id='control-title' title={t('control.title')} text={t('control.text')} />
-        <div className='entry-control-grid'>
-          {controlCards.map(({ key, glyph }) => (
-            <article key={key} className='entry-control-tile'>
-              <EntryGlyph value={glyph} />
-              <strong>{t(`control.${key}.title`)}</strong>
-              <span>{t(`control.${key}.text`)}</span>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id='process' className='entry-section entry-process-section' aria-labelledby='process-title'>
-        <SectionHead id='process-title' title={t('process.title')} text={t('process.text')} compact />
-        <div className='entry-process-row' tabIndex={0} role='region' aria-label={t('process.title')}>
-          {processSteps.map(({ key, glyph }, index) => (
-            <article key={key} className='entry-process-tile'>
-              <span className='entry-process-index'>{index + 1}</span>
-              <span className='entry-process-icon'><EntryGlyph value={glyph} compact /></span>
-              <strong>{t(`process.${key}.title`)}</strong>
-              <small>{t(`process.${key}.text`)}</small>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <PlatformV7IntelligenceStrip />
-
-      <section id='roles' className='entry-section' aria-labelledby='roles-title'>
-        <SectionHead id='roles-title' title={roleCatalog('title')} text={roleCatalog('text')} />
-        <div className='entry-role-grid' role='list'>
-          {roles.map(({ key, glyph }) => (
-            <article key={key} className='entry-role-tile' role='listitem'>
-              <EntryGlyph value={glyph} />
-              <strong>{t(`roles.${key}.title`)}</strong>
-              <span>{t(`roles.${key}.text`)}</span>
-              <em>{roleCatalog('cta')}</em>
-            </article>
-          ))}
-        </div>
-        <div className='entry-role-access'>
-          <div>
-            <strong>{publicLanding('rolesAccessTitle')}</strong>
-            <span>{publicLanding('rolesAccessText')}</span>
+        <section className='pc-ppe-final-cta' aria-labelledby='pc-ppe-final-title'>
+          <h2 id='pc-ppe-final-title'>{copy.home.final.title}</h2>
+          <div className='pc-ppe-final-actions'>
+            <PublicExperienceLink
+              href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}`}
+              className='pc-ppe-primary-button'
+              eventName='deal_xray_open'
+              locale={locale}
+              params={{ source: 'final_cta' }}
+            >
+              <span>{copy.home.final.primary}</span>
+              <PublicExperienceIcon name='arrow' size={20} />
+            </PublicExperienceLink>
+            <PublicExperienceLink
+              href='/platform-v7/register'
+              className='pc-ppe-secondary-button'
+              eventName='connect_cta_click'
+              locale={locale}
+              params={{ source: 'final_cta' }}
+            >
+              {copy.home.final.secondary}
+            </PublicExperienceLink>
           </div>
-          <a href='/platform-v7/login' className='entry-role-access-cta' style={ON_GREEN_STYLE}>{publicLanding('rolesAccessCta')}<span aria-hidden='true'>→</span></a>
-        </div>
-      </section>
+          <p className='pc-ppe-final-signin'>
+            {copy.home.final.signInPrefix} <a href='/platform-v7/login'>{copy.home.final.signIn}</a>
+          </p>
+        </section>
+      </div>
 
-      <section className='entry-trust-strip' aria-label={t('trust.aria')}>
-        {trustItems.map(({ key, glyph }) => (
-          <article key={key} className='entry-trust-item'>
-            <EntryGlyph value={glyph} compact />
-            <strong>{t(`trust.${key}.title`)}</strong>
-            <span>{t(`trust.${key}.text`)}</span>
-          </article>
-        ))}
-        <a href='/platform-v7/register' className='entry-trust-cta' style={ON_GREEN_STYLE}>{t('trust.cta')}</a>
-      </section>
-
-      <footer className='entry-footer'>
-        <div className='entry-footer-brand'>
-          <strong>Прозрачная Цена</strong>
-          <span>{publicLanding('footerStatement')}</span>
-        </div>
-        <nav aria-label={chrome('navLabel')}>
-          <a href='/platform-v7/docs'>{publicLanding('footerDocs')}</a>
-          <a href='/platform-v7/contact'>{publicLanding('footerContact')}</a>
-          <a href='/platform-v7/login'>{publicLanding('footerLogin')}</a>
-        </nav>
-        <small>© {currentYear} · {publicLanding('footerRights')}</small>
+      <footer className='pc-ppe-footer'>
+        <div className='pc-ppe-shell'>© {new Date().getUTCFullYear()} Прозрачная Цена</div>
       </footer>
     </main>
   );
-}
-
-function SectionHead({ id, title, text, compact }: { id: string; title: string; text: string; compact?: boolean }) {
-  return <div className={compact ? 'entry-section-head compact' : 'entry-section-head'}><h2 id={id}>{title}</h2><p>{text}</p></div>;
 }
