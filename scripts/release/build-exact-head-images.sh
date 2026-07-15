@@ -18,7 +18,7 @@ runtime_smoke() {
   local image="$2"
   local entrypoint=""
   case "$component" in
-    api) entrypoint=/app/dist/src/main.js ;;
+    api) entrypoint=/app/dist/apps/api/src/main.js ;;
     outbox-worker) entrypoint=/app/dist-outbox-worker/outbox-worker.js ;;
     *) return 0 ;;
   esac
