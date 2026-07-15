@@ -51,6 +51,7 @@ apps/web/components/platform-v7/PlatformV7TemplateGuards.tsx
 apps/web/components/platform-v7/PublicEntryCleanup.tsx
 apps/web/components/platform-v7/PublicLocaleSwitch.tsx
 apps/web/components/platform-v7/PublicSiteHeader.tsx
+apps/web/components/v7r/brand-logo-asset.ts
 apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx
 apps/web/i18n/public-entry-messages.ts
 apps/web/i18n/public-landing-copy.ts
@@ -87,6 +88,7 @@ apps/web/components/platform-v7/PlatformV7TemplateSwitch.tsx
 apps/web/components/platform-v7/PublicLocaleLink.tsx
 apps/web/components/platform-v7/PublicSiteHeader.tsx
 apps/web/components/v7r/BrandMark.tsx
+apps/web/components/v7r/brand-logo-asset.ts
 apps/web/components/v7r/PlatformV7IntelligenceStrip.tsx
 apps/web/i18n/public-entry-messages.ts
 apps/web/lib/server/auth-session-response.ts
