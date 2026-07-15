@@ -37,9 +37,7 @@ function assertWorkerStartup(): void {
 }
 
 async function closeServer(server: Server): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    server.close((error) => (error ? reject(error) : resolve()));
-  });
+  await new Promise<void>((resolve) => server.close(() => resolve()));
 }
 
 async function bootstrap(): Promise<void> {
@@ -48,7 +46,6 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.createApplicationContext(OutboxWorkerModule, {
     logger: new MaskedLoggerService(),
   });
-  app.enableShutdownHooks();
 
   const prisma = app.get(PrismaService);
   const kafka = app.get(KafkaProducerService);
@@ -129,8 +126,8 @@ async function bootstrap(): Promise<void> {
   const shutdown = async (signal: string, exitCode = 0): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
-    // Stop accepting probes before closing the Nest context. The runner's
-    // onModuleDestroy stops new claims and waits for the active drain.
+    // This process owns signal handling. Closing the Nest context invokes the
+    // runner shutdown hook exactly once: stop claims, then await active drain.
     await closeServer(server).catch(() => undefined);
     await app.close();
     process.stdout.write(`Outbox worker stopped signal=${signal}\n`);
