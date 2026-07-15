@@ -57,9 +57,9 @@ function PerspectiveCard({
 }) {
   return (
     <PublicExperienceLink
-      href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&lens=participants&perspective=${perspective}`}
+      href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&lens=execution&perspective=${perspective}`}
       className='pc-ppe-perspective-card'
-      eventName='perspective_selected'
+      eventName='role_selected'
       locale={locale}
       params={{ perspective, source: 'home' }}
     >
@@ -112,7 +112,7 @@ export default async function PlatformV7RootPage() {
               <PublicExperienceLink
                 href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}`}
                 className='pc-ppe-primary-button'
-                eventName='home_primary_cta_click'
+                eventName='deal_preview_opened'
                 locale={locale}
                 params={{ source: 'hero' }}
               >
@@ -122,7 +122,7 @@ export default async function PlatformV7RootPage() {
               <PublicExperienceLink
                 href='/platform-v7/register'
                 className='pc-ppe-secondary-button'
-                eventName='home_connect_click'
+                eventName='organization_connect_started'
                 locale={locale}
                 params={{ source: 'hero' }}
               >
@@ -145,7 +145,7 @@ export default async function PlatformV7RootPage() {
               <strong>{ui.home.hero.currentStage}</strong>
               <small>{ui.home.hero.nextStage}</small>
               <a
-                href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=acceptance`}
+                href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=acceptance&lens=execution`}
                 aria-label={ui.home.hero.showAllStages}
               >
                 <PublicExperienceIcon name='arrow' size={20} />
@@ -213,7 +213,7 @@ export default async function PlatformV7RootPage() {
             <PublicExperienceLink
               href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}`}
               className='pc-ppe-primary-button'
-              eventName='deal_xray_open'
+              eventName='deal_preview_opened'
               locale={locale}
               params={{ source: 'final_cta' }}
             >
@@ -223,7 +223,7 @@ export default async function PlatformV7RootPage() {
             <PublicExperienceLink
               href='/platform-v7/register'
               className='pc-ppe-secondary-button'
-              eventName='connect_cta_click'
+              eventName='organization_connect_started'
               locale={locale}
               params={{ source: 'final_cta' }}
             >
