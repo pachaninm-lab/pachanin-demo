@@ -1,0 +1,30 @@
+spec:
+  template:
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values: [grainflow-web]
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: web
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            periodSeconds: 5
+            failureThreshold: 36
+            timeoutSeconds: 3
