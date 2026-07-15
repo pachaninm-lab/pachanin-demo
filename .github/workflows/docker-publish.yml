@@ -1,4 +1,4 @@
-name: Build & Publish Docker Images
+name: Build & Publish Canonical Docker Images
 
 on:
   push:
@@ -6,12 +6,13 @@ on:
     paths:
       - "apps/api/**"
       - "apps/web/**"
-      - "apps/ml/**"
-      - "infra/docker/Dockerfile.*"
+      - "infra/docker/Dockerfile.api"
+      - "infra/docker/Dockerfile.web"
+      - ".github/workflows/docker-publish.yml"
   workflow_dispatch:
     inputs:
       services:
-        description: "Services to build (comma-separated: api,web,ml or all)"
+        description: "Canonical services to build: api, web or all"
         default: "all"
         required: false
 
@@ -44,7 +45,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (api)
+      - name: Extract metadata
         id: meta-api
         uses: docker/metadata-action@v5
         with:
@@ -54,7 +55,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push API
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: infra/docker/Dockerfile.api
@@ -88,7 +89,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (web)
+      - name: Extract metadata
         id: meta-web
         uses: docker/metadata-action@v5
         with:
@@ -98,7 +99,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Web
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: infra/docker/Dockerfile.web
@@ -111,65 +112,23 @@ jobs:
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_COMMIT=${{ github.sha }}
 
-  build-ml:
-    name: Build ML image
-    runs-on: ubuntu-latest
-    if: >
-      contains(github.event.inputs.services, 'ml') ||
-      github.event.inputs.services == 'all' ||
-      github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (ml)
-        id: meta-ml
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_PREFIX }}-ml
-          tags: |
-            type=sha,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build and push ML
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: infra/docker/Dockerfile.ml
-          push: true
-          tags: ${{ steps.meta-ml.outputs.tags }}
-          labels: ${{ steps.meta-ml.outputs.labels }}
-          cache-from: type=gha,scope=ml
-          cache-to: type=gha,mode=max,scope=ml
-
   helm-validate:
     name: Validate Helm chart
     runs-on: ubuntu-latest
-    needs: []
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
-          version: "3.14.0"
+          version: "3.18.4"
 
-      - name: Lint Helm chart
-        run: helm lint infra/helm/grainflow --values infra/helm/grainflow/values.yaml
-
-      - name: Template Helm chart (production)
+      - name: Lint and render production chart
         run: |
+          set -euo pipefail
+          helm lint infra/helm/grainflow --values infra/helm/grainflow/values.yaml
           helm template grainflow infra/helm/grainflow \
             --values infra/helm/grainflow/values.yaml \
             --values infra/helm/grainflow/values-production.yaml \
-            > /dev/null
-          echo "Helm template: OK"
+            > /tmp/grainflow-rendered.yaml
+          test -s /tmp/grainflow-rendered.yaml

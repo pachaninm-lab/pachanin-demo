@@ -116,7 +116,7 @@ services:
       MINIO_ROOT_PASSWORD: grainflow_minio_secret
     ports:
       - "9000:9000"
-      - "9001:9001"   # MinIO Console
+      - "9001:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -143,8 +143,8 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.3-alpine
     ports:
-      - "8123:8123"   # HTTP
-      - "9100:9000"   # Native (9100 на хосте, т.к. 9000 занят MinIO)
+      - "8123:8123"
+      - "9100:9000"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./infra/clickhouse/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
@@ -246,9 +246,9 @@ services:
     volumes:
       - ./infra/otel/otel-collector.yml:/etc/otelcol-contrib/config.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
-      - "13133:13133" # health_check
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
     depends_on:
       - prometheus
 
@@ -275,8 +275,8 @@ services:
       - ./infra/tempo/tempo-config.yml:/etc/tempo/config.yml:ro
       - tempo_data:/var/tempo
     ports:
-      - "3200:3200"   # Tempo HTTP
-      - "9411:9411"   # Zipkin receiver
+      - "3200:3200"
+      - "9411:9411"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --tries=1 -O- http://localhost:3200/ready || exit 1"]
       interval: 10s
@@ -295,7 +295,7 @@ services:
       loki:
         condition: service_healthy
 
-  # ── Elasticsearch (full-text search) ──────────────────────────────────────
+  # ── Elasticsearch (full-text search, local development only) ─────────────
   elasticsearch:
     image: elasticsearch:8.13.0
     environment:
@@ -312,59 +312,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-
-  # ── Apache Airflow (ETL + ML retraining) ─────────────────────────────────
-  airflow-db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: airflow
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow_secret
-    volumes:
-      - airflow_db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  airflow:
-    image: apache/airflow:2.9.1
-    environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow_secret@airflow-db:5432/airflow
-      AIRFLOW__CORE__FERNET_KEY: 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg='
-      AIRFLOW__WEBSERVER__SECRET_KEY: 'grainflow-airflow-webserver-secret'
-      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
-      DATABASE_URL: postgresql://grainflow_admin:grainflow_local_secret@postgres:5432/grainflow
-      MODEL_PATH: /opt/ml/models
-    volumes:
-      - ./infra/airflow/dags:/opt/airflow/dags:ro
-      - ./infra/airflow/requirements.txt:/opt/airflow/requirements.txt:ro
-      - ./apps/ml:/opt/ml:ro
-      - ml_models:/opt/ml/models
-      - airflow_logs:/opt/airflow/logs
-    ports:
-      - "8080:8080"
-    depends_on:
-      airflow-db:
-        condition: service_healthy
-    command: >
-      bash -c "
-        pip install --no-deps -r /opt/airflow/requirements.txt --quiet 2>/dev/null || true &&
-        airflow db migrate &&
-        airflow users create --username admin --password grainflow --firstname Admin --lastname GrainFlow --role Admin --email admin@grainflow.ru 2>/dev/null || true &&
-        airflow webserver --port 8080 &
-        airflow scheduler
-      "
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
 
   # ── Flagsmith (Feature Flags) ─────────────────────────────────────────────
   flagsmith-db:
@@ -403,26 +350,6 @@ services:
       retries: 5
       start_period: 30s
 
-  # ── ML Service (FastAPI) ──────────────────────────────────────────────────
-  ml-service:
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile.ml
-    environment:
-      DATABASE_URL: postgresql://grainflow_admin:grainflow_local_secret@postgres:5432/grainflow
-      CLICKHOUSE_URL: clickhouse://grainflow:grainflow_ch_secret@clickhouse:8123/grainflow
-      MODEL_PATH: /app/models
-      PORT: "8001"
-    ports:
-      - "8001:8001"
-    volumes:
-      - ml_models:/app/models
-    depends_on:
-      postgres:
-        condition: service_healthy
-      clickhouse:
-        condition: service_healthy
-
 volumes:
   postgres_data:
   redis_data:
@@ -434,9 +361,6 @@ volumes:
   loki_data:
   tempo_data:
   elasticsearch_data:
-  ml_models:
-  airflow_db_data:
-  airflow_logs:
   flagsmith_db_data:
 
 networks:

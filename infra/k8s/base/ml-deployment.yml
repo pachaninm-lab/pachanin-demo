@@ -1,190 +1,24 @@
-apiVersion: apps/v1
-kind: Deployment
+# ML is deliberately not deployed by this repository.
+# This resource records a fail-closed architecture decision and creates no
+# Deployment, Service, ServiceAccount, PVC, HPA or PodDisruptionBudget.
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: grainflow-ml
+  name: ml-runtime-status
   namespace: grainflow-prod
   labels:
-    app: grainflow-ml
-    version: v1
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: grainflow-ml
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-  template:
-    metadata:
-      labels:
-        app: grainflow-ml
-        version: v1
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8001"
-        prometheus.io/path: "/metrics"
-    spec:
-      serviceAccountName: grainflow-ml
-      automountServiceAccountToken: false
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
-        seccompProfile:
-          type: RuntimeDefault
-      containers:
-        - name: ml
-          image: ghcr.io/pachaninm-lab/grainflow-ml:latest
-          imagePullPolicy: IfNotPresent
-          ports:
-            - name: http
-              containerPort: 8001
-              protocol: TCP
-          env:
-            - name: MODEL_PATH
-              value: /app/models
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: http://otel-collector.monitoring.svc.cluster.local:4317
-            - name: PG_DSN
-              valueFrom:
-                secretKeyRef:
-                  name: grainflow-secrets
-                  key: DATABASE_URL
-          volumeMounts:
-            - name: models
-              mountPath: /app/models
-              readOnly: true
-            - name: tmp
-              mountPath: /tmp
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "500m"
-            limits:
-              memory: "2Gi"
-              cpu: "2000m"
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8001
-            initialDelaySeconds: 30
-            periodSeconds: 15
-            failureThreshold: 3
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8001
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            failureThreshold: 3
-          startupProbe:
-            httpGet:
-              path: /health
-              port: 8001
-            initialDelaySeconds: 20
-            periodSeconds: 5
-            failureThreshold: 12
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: [ALL]
-      volumes:
-        - name: models
-          persistentVolumeClaim:
-            claimName: grainflow-ml-models
-        - name: tmp
-          emptyDir:
-            medium: Memory
-            sizeLimit: 256Mi
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: app
-                      operator: In
-                      values: [grainflow-ml]
-                topologyKey: kubernetes.io/hostname
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: grainflow-ml
-  namespace: grainflow-prod
-  labels:
-    app: grainflow-ml
-spec:
-  selector:
-    app: grainflow-ml
-  ports:
-    - name: http
-      port: 8001
-      targetPort: 8001
-  type: ClusterIP
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: grainflow-ml
-  namespace: grainflow-prod
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: grainflow-ml-models
-  namespace: grainflow-prod
-spec:
-  accessModes: [ReadOnlyMany]
-  resources:
-    requests:
-      storage: 10Gi
-  storageClassName: fast-ssd
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: grainflow-ml-hpa
-  namespace: grainflow-prod
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: grainflow-ml
-  minReplicas: 2
-  maxReplicas: 8
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 80
-  behavior:
-    scaleDown:
-      stabilizationWindowSeconds: 300
-    scaleUp:
-      stabilizationWindowSeconds: 60
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: grainflow-ml-pdb
-  namespace: grainflow-prod
-spec:
-  minAvailable: 1
-  selector:
-    matchLabels:
-      app: grainflow-ml
+    app.kubernetes.io/name: grainflow-ml
+    platform.prozrachnaya-cena/deployable: "false"
+  annotations:
+    platform.prozrachnaya-cena/status: NOT_DEPLOYABLE
+    platform.prozrachnaya-cena/ticket: "#2605"
+data:
+  status: NOT_DEPLOYABLE
+  reason: >-
+    The experimental ML service is outside canonical Deal execution authority
+    and has no accepted data lineage, model registry, rollback, drift monitoring,
+    tenant authorization, dependency or operational evidence.
+  reactivationGate: >-
+    Separate product approval, versioned datasets, model lifecycle, zero
+    unexcepted HIGH or CRITICAL dependencies, non-root immutable image, tenant
+    isolation, load, failure and security acceptance.

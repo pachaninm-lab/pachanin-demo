@@ -18,24 +18,4 @@ spec:
     - port: http
       path: {{ .Values.monitoring.serviceMonitor.path }}
       interval: {{ .Values.monitoring.serviceMonitor.interval }}
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: {{ include "grainflow.fullname" . }}-ml
-  namespace: {{ .Values.monitoring.serviceMonitor.namespace }}
-  labels:
-    {{- include "grainflow.labels" . | nindent 4 }}
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: grainflow-ml
-      app.kubernetes.io/instance: {{ .Release.Name }}
-  namespaceSelector:
-    matchNames:
-      - {{ .Values.namespace.name }}
-  endpoints:
-    - port: http
-      path: {{ .Values.monitoring.serviceMonitor.path }}
-      interval: {{ .Values.monitoring.serviceMonitor.interval }}
 {{- end }}

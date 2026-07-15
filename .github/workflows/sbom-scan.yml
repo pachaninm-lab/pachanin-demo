@@ -1,169 +1,67 @@
-name: SBOM & Security Scan
+name: Canonical SBOM Generation
 
 on:
   push:
-    branches: [main, "claude/*"]
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'apps/web/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/sbom-scan.yml'
   schedule:
-    - cron: "0 3 * * 1"   # каждый понедельник 03:00 UTC
+    - cron: '0 3 * * 1'
   workflow_dispatch:
 
 permissions:
   contents: read
-  security-events: write
+
+concurrency:
+  group: canonical-sbom-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  PNPM_VERSION: '10.2.1'
 
 jobs:
-  sbom-web:
-    name: SBOM — apps/web
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.2.1"
-
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: pnpm
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Generate CycloneDX SBOM (web)
-        # cdxgen understands the pnpm workspace lockfile (pnpm-lock.yaml).
-        # @cyclonedx/cyclonedx-npm only supports npm's package-lock.json, which
-        # this pnpm repo does not have — hence the previous "No evidence" failure.
-        run: npx -y @cyclonedx/cdxgen@11 -t pnpm -o apps/web/sbom-web.json apps/web
-
-      - name: Upload SBOM (web)
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-web
-          path: apps/web/sbom-web.json
-          retention-days: 90
-
-  sbom-api:
-    name: SBOM — apps/api
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.2.1"
-
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: pnpm
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Generate CycloneDX SBOM (api)
-        # cdxgen reads the pnpm workspace lockfile; cyclonedx-npm needs npm's
-        # package-lock.json which does not exist in this pnpm repo.
-        run: npx -y @cyclonedx/cdxgen@11 -t pnpm -o apps/api/sbom-api.json apps/api
-
-      - name: Upload SBOM (api)
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-api
-          path: apps/api/sbom-api.json
-          retention-days: 90
-
-  sbom-python:
-    name: SBOM — apps/ml (Python)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install cyclonedx-bom
-        run: pip install cyclonedx-bom
-
-      - name: Generate SBOM (ml)
-        run: |
-          cyclonedx-py requirements requirements.txt \
-            --output-format JSON \
-            --output-file sbom-ml.json
-        working-directory: apps/ml
-
-      - name: Upload SBOM (ml)
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-ml
-          path: apps/ml/sbom-ml.json
-          retention-days: 90
-
-  trivy-scan:
-    name: Trivy Container Scan
+  sbom:
+    name: CycloneDX SBOM · ${{ matrix.service }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        image:
-          - name: api
-            dockerfile: infra/docker/Dockerfile.api
-          - name: web
-            dockerfile: infra/docker/Dockerfile.web
-          - name: ml
-            dockerfile: infra/docker/Dockerfile.ml
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build image (${{ matrix.image.name }})
-        run: |
-          docker build \
-            -f ${{ matrix.image.dockerfile }} \
-            -t grainflow-${{ matrix.image.name }}:ci \
-            . || echo "Build skipped (Dockerfile not found)"
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: grainflow-${{ matrix.image.name }}:ci
-          format: sarif
-          output: trivy-${{ matrix.image.name }}.sarif
-          severity: CRITICAL,HIGH
-          exit-code: "0"
-
-      - name: Upload Trivy SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-${{ matrix.image.name }}.sarif
-          category: trivy-${{ matrix.image.name }}
-
-  dependency-audit:
-    name: npm/pnpm audit
-    runs-on: ubuntu-latest
+        service: [api, web]
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: "10.2.1"
+          version: ${{ env.PNPM_VERSION }}
 
-      - name: Setup Node 20
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
 
-      - name: Audit web
-        run: pnpm audit --audit-level=critical
-        working-directory: apps/web
-        continue-on-error: true
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Audit api
-        run: pnpm audit --audit-level=critical
-        working-directory: apps/api
-        continue-on-error: true
+      - name: Generate CycloneDX SBOM
+        run: |
+          mkdir -p artifacts/sbom
+          npx -y @cyclonedx/cdxgen@11 \
+            -t pnpm \
+            -o "artifacts/sbom/sbom-${{ matrix.service }}.json" \
+            "apps/${{ matrix.service }}"
+          test -s "artifacts/sbom/sbom-${{ matrix.service }}.json"
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.service }}-${{ github.sha }}
+          path: artifacts/sbom/sbom-${{ matrix.service }}.json
+          if-no-files-found: error
+          retention-days: 90
