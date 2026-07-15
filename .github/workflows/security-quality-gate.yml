@@ -324,7 +324,7 @@ jobs:
         run: |
           mkdir -p "$SECURITY_ARTIFACT_DIR"
           set +e
-          pnpm dlx pnpm@${AUDIT_PNPM_VERSION} audit --prod --json --audit-level=high \
+          npm_config_manage_package_manager_versions=false pnpm dlx pnpm@${AUDIT_PNPM_VERSION} audit --prod --json --audit-level=high \
             > "$SECURITY_ARTIFACT_DIR/pnpm-audit.json" \
             2> "$SECURITY_ARTIFACT_DIR/pnpm-audit.stderr.txt"
           audit_exit=$?
