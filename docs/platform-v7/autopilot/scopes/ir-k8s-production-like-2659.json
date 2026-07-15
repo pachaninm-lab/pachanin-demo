@@ -1,0 +1,46 @@
+{
+  "id": "IR-K8S-2659",
+  "parentProgramIssue": 2597,
+  "issue": 2659,
+  "pullRequest": 2660,
+  "branch": "ir/k8s-production-like-2659",
+  "status": "active",
+  "maturityBoundary": "disposable-production-like-kubernetes-acceptance-only",
+  "globalProgramStateUnchanged": "IR-10.4 remains the serialized primary autopilot task; this file authorizes an isolated concurrent infrastructure acceptance slice without changing production maturity.",
+  "allowedPaths": [
+    ".github/workflows/production-like-kubernetes-acceptance.yml",
+    "docs/platform-v7/autopilot/prompts/current-review-task.md",
+    "docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json",
+    "infra/kind/production-like/**",
+    "scripts/release/build-production-like-kubernetes-evidence.mjs",
+    "scripts/release/production-like-kubernetes-*.sh"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/web/**",
+    "apps/landing/**",
+    "packages/**",
+    "package.json",
+    "pnpm-lock.yaml",
+    "package-lock.json",
+    "apps/api/prisma/**"
+  ],
+  "forbiddenClaims": [
+    "production deployment accepted",
+    "provider PostgreSQL HA or PITR accepted",
+    "production capacity proven",
+    "live external integration",
+    "production RTO or RPO established",
+    "Industrial Integration-Ready"
+  ],
+  "requiredEvidence": [
+    "exact-head multi-node kind run",
+    "immutable registry digest set",
+    "one separate migration Job",
+    "two API, two web and two outbox-worker ready replicas",
+    "destination-scoped NetworkPolicy enforcement",
+    "single-pod deletion continuity",
+    "rolling update and same-schema rollback",
+    "machine-readable evidence bound to exact head"
+  ]
+}
