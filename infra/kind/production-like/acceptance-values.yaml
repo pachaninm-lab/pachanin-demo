@@ -89,6 +89,12 @@ monitoring:
   serviceMonitor:
     namespace: grainflow-acceptance
 
+# The chart's worker template contains a broad port-only egress policy. The
+# acceptance contour disables it and applies destination-scoped policies from
+# platform-hardening.yaml so additive NetworkPolicy semantics cannot widen egress.
+networkPolicy:
+  enabled: false
+
 namespace:
   create: false
   name: grainflow-acceptance
