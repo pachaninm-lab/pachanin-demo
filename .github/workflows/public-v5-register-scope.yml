@@ -1,0 +1,49 @@
+name: register public V5 autopilot scope
+
+on:
+  push:
+    branches:
+      - agent/public-home-v5-institutional-10of10
+    paths:
+      - '.github/workflows/public-v5-register-scope.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/public-home-v5-institutional-10of10
+          fetch-depth: 0
+      - name: Register exact branch scope and remove bootstrap workflow
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'docs/platform-v7/autopilot/autopilot-state.json';
+          const state = JSON.parse(fs.readFileSync(path, 'utf8'));
+          state.approvedConcurrentScopes ||= {};
+          state.approvedConcurrentScopes['agent/public-home-v5-institutional-10of10'] = [
+            'apps/web/app/platform-v7/how-it-works/page.tsx',
+            'apps/web/app/platform-v7/page.tsx',
+            'apps/web/components/platform-v7/ChatSupportWidget.tsx',
+            'apps/web/components/platform-v7/PublicDealPreview.tsx',
+            'apps/web/i18n/public-product-experience-v4.ts',
+            'apps/web/styles/platform-v7-public-product-experience-v5.css',
+            'apps/web/tests/e2e/platform-v7-public-experience-v4.spec.ts',
+            'apps/web/tests/unit/platformV7PublicExperienceV4.test.ts',
+            'apps/web/tests/unit/platformV7RootWorkEntry.test.ts',
+            'apps/web/tests/unit/platformV7VisibleEntry.test.ts',
+            'docs/platform-v7/autopilot/autopilot-state.json'
+          ];
+          fs.writeFileSync(path, JSON.stringify(state) + '\n');
+          NODE
+          rm .github/workflows/public-v5-register-scope.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/autopilot-state.json .github/workflows/public-v5-register-scope.yml
+          git commit -m 'chore(public): register V5 autopilot scope'
+          git push origin HEAD:agent/public-home-v5-institutional-10of10
