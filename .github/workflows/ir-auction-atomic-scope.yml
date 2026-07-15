@@ -47,3 +47,4 @@ jobs:
           git add docs/platform-v7/autopilot/autopilot-state.json
           git commit -m 'Govern atomic auction execution scope'
           git push origin HEAD:agent/ir-auction-atomic-execution
+# trigger after PR registration
