@@ -222,6 +222,18 @@ function validateCompose() {
   }
 }
 
+function validateResidualHelmReferences() {
+  for (const path of [
+    'infra/helm/grainflow/templates/networkpolicy.yaml',
+    'infra/helm/grainflow/templates/servicemonitor.yaml',
+  ]) {
+    forbidPatterns(path, [
+      [/grainflow-ml/, 'reference to retired ML workload'],
+      [/app\.kubernetes\.io\/name:\s*grainflow-ml/, 'selector for retired ML workload'],
+    ]);
+  }
+}
+
 function main() {
   const actualHead = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   if (!/^[a-f0-9]{40}$/i.test(EXACT_HEAD)) violations.push('OPTIONAL_RUNTIME_EXACT_HEAD must be a full commit SHA.');
@@ -235,6 +247,7 @@ function main() {
   validateStatusManifest('infra/helm/grainflow/templates/ml-deployment.yaml', 'Helm ML');
   validateDeliveryWorkflows();
   validateCompose();
+  validateResidualHelmReferences();
 
   const report = {
     schemaVersion: 1,
@@ -246,6 +259,7 @@ function main() {
     dependencyManifests: 0,
     containerDockerfiles: 0,
     deploymentWorkloads: 0,
+    residualHelmReferences: 0,
     checkedFiles: [...checkedFiles].sort().map((path) => ({ path, sha256: sha256(path) })),
     violations,
     passed: violations.length === 0,
