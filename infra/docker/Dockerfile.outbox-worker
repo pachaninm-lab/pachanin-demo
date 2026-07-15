@@ -15,8 +15,23 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
 RUN pnpm --filter @pc/api build:outbox-worker
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/outbox-worker
-RUN rm -rf /prod/outbox-worker/src /prod/outbox-worker/test /prod/outbox-worker/prisma /prod/outbox-worker/dist-outbox-worker \
-  && cp -R /workspace/apps/api/dist-outbox-worker /prod/outbox-worker/dist-outbox-worker
+
+# Keep only the compiled worker and explicitly materialize Prisma's generated
+# sibling package, which pnpm deploy does not carry into the virtual store.
+RUN set -eux; \
+  rm -rf /prod/outbox-worker/src /prod/outbox-worker/test /prod/outbox-worker/prisma /prod/outbox-worker/dist-outbox-worker; \
+  cp -a /workspace/apps/api/dist-outbox-worker /prod/outbox-worker/dist-outbox-worker; \
+  source_client="$(find /workspace/node_modules/.pnpm -path '*/node_modules/.prisma/client' -type d -print -quit)"; \
+  target_package="$(find /prod/outbox-worker/node_modules/.pnpm -path '*/node_modules/@prisma/client' -type d -print -quit)"; \
+  test -n "$source_client"; \
+  test -n "$target_package"; \
+  target_node_modules="$(dirname "$(dirname "$target_package")")"; \
+  install -d "$target_node_modules/.prisma"; \
+  rm -rf "$target_node_modules/.prisma/client"; \
+  cp -a "$source_client" "$target_node_modules/.prisma/client"; \
+  test -f /prod/outbox-worker/dist-outbox-worker/outbox-worker.js; \
+  cd /prod/outbox-worker; \
+  node -e "require('@prisma/client')"
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
