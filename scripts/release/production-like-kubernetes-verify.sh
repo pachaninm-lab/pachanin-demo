@@ -191,8 +191,28 @@ kubectl get deployment -n "$NAMESPACE" -o json > "$K8S_DIR/cluster/deployments-a
 FAILURE_REASON="post-rollback probes, metrics or alerts are unhealthy"
 curl_ingress api.acceptance.grainflow.invalid /ready | tee "$K8S_DIR/cluster/api-ready-after-rollback.json"
 curl_ingress app.acceptance.grainflow.invalid /api/health | tee "$K8S_DIR/cluster/web-ready-after-rollback.json"
+kubectl apply -f - > "$K8S_DIR/observability-check-network-policy-apply.log" <<'YAML'
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: observability-check-egress
+  namespace: grainflow-acceptance
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: observability-check
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - protocol: TCP
+          port: 9090
+YAML
 kubectl run observability-check -n "$NAMESPACE" --restart=Never --image=curlimages/curl:8.8.0 \
-  --labels=app.kubernetes.io/name=prometheus \
+  --labels=app.kubernetes.io/name=observability-check \
   --command -- sh -ec \
   'curl -fsS http://prometheus:9090/-/ready; curl -fsS "http://prometheus:9090/api/v1/targets" | grep -q "\"health\":\"up\""; curl -fsS http://prometheus:9090/api/v1/rules | grep -q GrainflowApiUnavailable'
 for _ in $(seq 1 90); do
