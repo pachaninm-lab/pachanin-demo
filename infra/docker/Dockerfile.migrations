@@ -14,7 +14,18 @@ COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
 RUN pnpm --filter @pc/api deploy --legacy /prod/migrations
-RUN rm -rf /prod/migrations/src /prod/migrations/test /prod/migrations/dist /prod/migrations/dist-outbox-worker \
+RUN node - <<'NODE'
+const fs = require('node:fs');
+const path = '/prod/migrations/package.json';
+const manifest = JSON.parse(fs.readFileSync(path, 'utf8'));
+const prisma = manifest.devDependencies?.prisma;
+if (!prisma) throw new Error('The API package must declare an exact Prisma CLI version');
+manifest.dependencies = { ...(manifest.dependencies ?? {}), prisma };
+delete manifest.devDependencies;
+fs.writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+NODE
+RUN pnpm --dir /prod/migrations prune --prod \
+  && rm -rf /prod/migrations/src /prod/migrations/test /prod/migrations/dist /prod/migrations/dist-outbox-worker \
   && rm -rf /prod/migrations/prisma \
   && cp -R /workspace/apps/api/prisma /prod/migrations/prisma
 
