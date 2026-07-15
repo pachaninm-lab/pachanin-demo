@@ -164,7 +164,7 @@ export class ActionExecutorService {
 
     let outboxId: string | undefined;
     if (bankOutbox) {
-      const entry = this.outbox.enqueue({
+      const entry = await this.outbox.enqueue({
         type: bankOutbox.type,
         dealId: scope.objectId,
         payload: bankOutbox.payload,
