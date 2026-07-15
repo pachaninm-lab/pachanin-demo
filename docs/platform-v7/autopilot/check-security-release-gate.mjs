@@ -10,12 +10,20 @@ const SCOPE_PATH = resolve('docs/platform-v7/autopilot/security-release-scope.js
 const SEMGREP_PATH = resolve('docs/platform-v7/autopilot/semgrep-security.yml');
 const TRIVY_EVALUATOR_PATH = resolve('docs/platform-v7/autopilot/evaluate-trivy-report.mjs');
 const BULK_AUDIT_COLLECTOR_PATH = resolve('docs/platform-v7/autopilot/collect-npm-bulk-audit.mjs');
+const RUNTIME_VALIDATOR_PATH = resolve('scripts/security/validate-runtime-contexts.mjs');
 const WORKFLOW_PATH = resolve('.github/workflows/security-quality-gate.yml');
+const RUNTIME_WORKFLOW_PATH = resolve('.github/workflows/runtime-context-security-gate.yml');
 const REPORT_PATH = resolve(process.env.SECURITY_POLICY_REPORT ?? 'artifacts/security/security-policy-validation.json');
 const IGNORE_DIR = resolve(process.env.TRIVY_IGNORE_DIR ?? 'artifacts/security');
 const EXACT_HEAD = process.env.SECURITY_EXACT_HEAD ?? '';
 const MAX_EXCEPTION_DAYS = 90;
-const ALLOWED_SCANNERS = new Set(['trivy-container', 'trivy-filesystem', 'trivy-iac', 'pnpm-audit']);
+const ALLOWED_SCANNERS = new Set([
+  'trivy-container',
+  'trivy-web-container',
+  'trivy-filesystem',
+  'trivy-iac',
+  'pnpm-audit',
+]);
 const TRIVY_TYPES = new Set(['vulnerability', 'misconfiguration', 'secret']);
 const TRIVY_TYPE_KEYS = new Map([
   ['vulnerability', 'vulnerabilities'],
@@ -23,11 +31,11 @@ const TRIVY_TYPE_KEYS = new Map([
   ['secret', 'secrets'],
 ]);
 const REQUIRED_SOURCE_ROOTS = ['apps/api/src', 'apps/web/app', 'apps/web/lib', 'workers', 'packages'];
+const REQUIRED_CONTAINER_DOCKERFILES = ['infra/docker/Dockerfile.api', 'infra/docker/Dockerfile.web'];
+const REQUIRED_IAC_ROOTS = ['infra/docker', 'infra/helm', 'infra/k8s'];
 const REQUIRED_DEFERRED = new Map([
   ['apps/ml', '#2605'],
   ['infra/airflow', '#2605'],
-  ['infra/helm', '#2606'],
-  ['infra/k8s', '#2606'],
 ]);
 
 function parseJson(path) {
@@ -84,14 +92,20 @@ const registry = parseJson(EXCEPTIONS_PATH);
 const schema = parseJson(SCHEMA_PATH);
 const scope = parseJson(SCOPE_PATH);
 const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
+const runtimeWorkflow = existsSync(RUNTIME_WORKFLOW_PATH) ? readFileSync(RUNTIME_WORKFLOW_PATH, 'utf8') : '';
+const combinedWorkflows = `${workflow}\n${runtimeWorkflow}`;
 const bulkAuditCollector = existsSync(BULK_AUDIT_COLLECTOR_PATH)
   ? readFileSync(BULK_AUDIT_COLLECTOR_PATH, 'utf8')
+  : '';
+const runtimeValidator = existsSync(RUNTIME_VALIDATOR_PATH)
+  ? readFileSync(RUNTIME_VALIDATOR_PATH, 'utf8')
   : '';
 const now = new Date();
 
 check(errors, /^[0-9a-f]{40}$/.test(EXACT_HEAD), 'SECURITY_EXACT_HEAD must be a full commit SHA.');
 check(errors, validatedCommit === EXACT_HEAD, `Checked out commit ${validatedCommit} does not match exact head ${EXACT_HEAD}.`);
 check(errors, schema?.properties?.schemaVersion?.const === 1, 'Security exception schema version must remain 1.');
+check(errors, schema?.properties?.exceptions?.items?.properties?.scanner?.enum?.includes('trivy-web-container'), 'Security exception schema must govern the web container scanner.');
 check(errors, registry.schemaVersion === 1, 'Security exception registry schemaVersion must equal 1.');
 check(errors, registry.policy?.criticalExceptionsAllowed === false, 'Critical vulnerability exceptions are forbidden.');
 check(errors, registry.policy?.maximumExceptionDays === MAX_EXCEPTION_DAYS, `maximumExceptionDays must equal ${MAX_EXCEPTION_DAYS}.`);
@@ -99,15 +113,25 @@ check(errors, Array.isArray(registry.exceptions), 'exceptions must be an array.'
 
 check(errors, scope.schemaVersion === 1, 'Security release scope schemaVersion must equal 1.');
 const sourceRoots = (scope.releaseAuthority?.sourceRoots ?? []).map(normalizePath);
+const containerDockerfiles = (scope.releaseAuthority?.containerDockerfiles ?? []).map(normalizePath);
+const iacRoots = (scope.releaseAuthority?.iacRoots ?? []).map(normalizePath);
 check(errors, JSON.stringify(sourceRoots) === JSON.stringify(REQUIRED_SOURCE_ROOTS), 'Release source roots must match the governed canonical list.');
-check(errors, normalizePath(scope.releaseAuthority?.containerDockerfile) === 'infra/docker/Dockerfile.api', 'Canonical container Dockerfile must be infra/docker/Dockerfile.api.');
-check(errors, JSON.stringify(scope.releaseAuthority?.iacRoots ?? []) === JSON.stringify(['infra/docker']), 'Blocking IaC scope must remain explicit until #2606 closes.');
+check(errors, normalizePath(scope.releaseAuthority?.containerDockerfile) === 'infra/docker/Dockerfile.api', 'Primary canonical container Dockerfile must remain infra/docker/Dockerfile.api.');
+check(errors, JSON.stringify(containerDockerfiles) === JSON.stringify(REQUIRED_CONTAINER_DOCKERFILES), 'Canonical container Dockerfiles must be API and web only.');
+check(errors, normalizePath(scope.releaseAuthority?.runtimeInventory) === 'infra/docker/runtime-inventory.json', 'Runtime inventory must be infra/docker/runtime-inventory.json.');
+check(errors, JSON.stringify(iacRoots) === JSON.stringify(REQUIRED_IAC_ROOTS), 'Blocking IaC scope must cover Docker, Helm and Kubernetes roots.');
 check(errors, scope.releaseAuthority?.dependencyPolicy === 'all-workspace-production-dependencies', 'Dependency policy must cover all production dependencies in the workspace.');
 check(errors, scope.releaseAuthority?.secretScanRoot === '.', 'Secret scan must cover the complete repository.');
 
-for (const path of [...sourceRoots, scope.releaseAuthority?.containerDockerfile, ...(scope.releaseAuthority?.iacRoots ?? [])]) {
+for (const path of [
+  ...sourceRoots,
+  ...containerDockerfiles,
+  scope.releaseAuthority?.runtimeInventory,
+  ...iacRoots,
+]) {
   check(errors, existsSync(resolve(ROOT, normalizePath(path))), `Release security scope path does not exist: ${path}`);
 }
+check(errors, !existsSync(resolve(ROOT, 'infra/docker/Dockerfile.worker')), 'Test route-simulator Dockerfile must not remain deployable.');
 
 const deferred = Array.isArray(scope.deferredContours) ? scope.deferredContours : [];
 const deferredPaths = new Set();
@@ -118,11 +142,11 @@ for (const contour of deferred) {
   check(errors, !deferredPaths.has(path), `Duplicate deferred contour: ${path}`);
   deferredPaths.add(path);
   check(errors, existsSync(resolve(ROOT, path)), `Deferred contour path does not exist: ${path}`);
-  check(errors, ['OUT_OF_RELEASE_SCOPE', 'NOT_DEPLOYABLE'].includes(contour?.status), `${path}: invalid deferred status.`);
+  check(errors, contour?.status === 'OUT_OF_RELEASE_SCOPE', `${path}: deferred runtime must be OUT_OF_RELEASE_SCOPE.`);
   check(errors, contour?.ticket === REQUIRED_DEFERRED.get(path), `${path}: must be governed by ${REQUIRED_DEFERRED.get(path)}.`);
   check(errors, typeof contour?.reason === 'string' && contour.reason.length >= 30, `${path}: reason is too short.`);
   check(errors, !Number.isNaN(expiresAt.getTime()) && expiresAt > now, `${path}: deferred contour expiry is missing or expired.`);
-  for (const activePath of [...sourceRoots, ...(scope.releaseAuthority?.iacRoots ?? [])]) {
+  for (const activePath of [...sourceRoots, ...iacRoots]) {
     check(errors, !overlaps(path, activePath), `${path}: deferred contour overlaps active release scope ${activePath}.`);
   }
 }
@@ -133,6 +157,7 @@ const ids = new Set();
 const findingKeys = new Set();
 const trivyExceptions = {
   'trivy-container': [],
+  'trivy-web-container': [],
   'trivy-filesystem': [],
   'trivy-iac': [],
 };
@@ -168,7 +193,7 @@ for (const exception of exceptions) {
     check(errors, TRIVY_TYPES.has(exception?.findingType), `${id}: Trivy exception requires findingType.`);
     for (const path of exception?.paths ?? []) check(errors, typeof path === 'string' && path.length > 0, `${id}: invalid path scope.`);
     for (const purl of exception?.purls ?? []) check(errors, /^pkg:/.test(purl), `${id}: invalid PURL scope.`);
-    trivyExceptions[scanner].push(exception);
+    if (trivyExceptions[scanner]) trivyExceptions[scanner].push(exception);
   } else {
     check(errors, exception?.findingType === undefined, `${id}: pnpm-audit exceptions must not set findingType.`);
     check(errors, exception?.paths === undefined && exception?.purls === undefined, `${id}: pnpm-audit exceptions are keyed by advisory ID, not paths.`);
@@ -176,15 +201,15 @@ for (const exception of exceptions) {
 }
 
 const forbiddenWorkflowPatterns = [
-  [/\|\|\s*true/g, 'blocking workflow must not suppress failures with || true'],
-  [/continue-on-error:\s*true/g, 'blocking workflow must not use continue-on-error: true'],
+  [/\|\|\s*true/g, 'blocking workflows must not suppress failures with || true'],
+  [/continue-on-error:\s*true/g, 'blocking workflows must not use continue-on-error: true'],
   [/@master\b/g, 'GitHub Actions must not use mutable @master refs'],
-  [/apps\/api\/Dockerfile/g, 'workflow must build the canonical infra/docker/Dockerfile.api'],
+  [/apps\/api\/Dockerfile/g, 'workflows must build canonical infra/docker Dockerfiles'],
 ];
-for (const [pattern, message] of forbiddenWorkflowPatterns) if (pattern.test(workflow)) errors.push(message);
+for (const [pattern, message] of forbiddenWorkflowPatterns) if (pattern.test(combinedWorkflows)) errors.push(message);
 
-const zeroExitCodes = workflow.match(/exit-code:\s*['"]?0['"]?/g) ?? [];
-check(errors, zeroExitCodes.length === 1, 'Exactly one Trivy exit-code 0 collector is allowed; all other scanner gates must remain blocking.');
+const zeroExitCodes = combinedWorkflows.match(/exit-code:\s*['"]?0['"]?/g) ?? [];
+check(errors, zeroExitCodes.length === 3, 'Exactly three Trivy exit-code 0 collectors are allowed: base API, runtime API and runtime web; all are evaluated fail closed.');
 
 const requiredWorkflowFragments = [
   'ref: ${{ env.EXACT_HEAD }}',
@@ -214,6 +239,43 @@ const requiredWorkflowFragments = [
 ];
 for (const fragment of requiredWorkflowFragments) check(errors, workflow.includes(fragment), `Security workflow is missing required fragment: ${fragment}`);
 
+const requiredRuntimeWorkflowFragments = [
+  'Runtime Context Security Gate',
+  'scripts/security/validate-runtime-contexts.mjs',
+  'runtime-context-validation.json',
+  'infra/docker/Dockerfile.api',
+  'infra/docker/Dockerfile.web',
+  'id: collect-api',
+  'id: collect-web',
+  'TRIVY_SCANNER: trivy-container',
+  'TRIVY_SCANNER: trivy-web-container',
+  'trivy-api-container-evaluation.json',
+  'trivy-web-container-evaluation.json',
+  'test "$(cat "$RUNTIME_SECURITY_DIR/api-image-user.txt")" = nonroot',
+  'test "$(cat "$RUNTIME_SECURITY_DIR/web-image-user.txt")" = nonroot',
+  'cp -R infra/docker',
+  'cp -R infra/helm',
+  'cp -R infra/k8s',
+  'scan-ref: artifacts/runtime-security/iac-scope',
+  'Runtime Context Gate · all blocking checks',
+];
+for (const fragment of requiredRuntimeWorkflowFragments) {
+  check(errors, runtimeWorkflow.includes(fragment), `Runtime context workflow is missing required fragment: ${fragment}`);
+}
+
+const requiredRuntimeValidatorFragments = [
+  'RUNTIME_CONTEXT_EXACT_HEAD',
+  'runtime-inventory.json',
+  'Dockerfile.worker',
+  'privileged container',
+  'platform.prozrachnaya-cena/status: NOT_DEPLOYABLE',
+  'readOnlyRootFilesystem: true',
+  'seccompProfile:',
+];
+for (const fragment of requiredRuntimeValidatorFragments) {
+  check(errors, runtimeValidator.includes(fragment), `Runtime context validator is missing required fragment: ${fragment}`);
+}
+
 const requiredBulkAuditFragments = [
   '/-/npm/v1/security/advisories/bulk',
   "method: 'POST'",
@@ -230,7 +292,12 @@ for (const fragment of requiredBulkAuditFragments) {
 check(errors, existsSync(SEMGREP_PATH), 'Deterministic local Semgrep policy is missing.');
 check(errors, existsSync(TRIVY_EVALUATOR_PATH), 'Fail-closed Trivy report evaluator is missing.');
 check(errors, existsSync(BULK_AUDIT_COLLECTOR_PATH), 'Fail-closed npm Bulk Advisory collector is missing.');
-check(errors, existsSync(resolve('infra/docker/Dockerfile.api')), 'Canonical API Dockerfile is missing.');
+check(errors, existsSync(RUNTIME_VALIDATOR_PATH), 'Fail-closed runtime context validator is missing.');
+check(errors, existsSync(RUNTIME_WORKFLOW_PATH), 'Blocking runtime context workflow is missing.');
+for (const dockerfile of REQUIRED_CONTAINER_DOCKERFILES) {
+  check(errors, existsSync(resolve(dockerfile)), `Canonical Dockerfile is missing: ${dockerfile}`);
+}
+check(errors, existsSync(resolve('infra/docker/runtime-inventory.json')), 'Runtime inventory is missing.');
 check(errors, existsSync(resolve('docker-compose.yml')), 'Local production-like topology definition is missing.');
 
 mkdirSync(dirname(REPORT_PATH), { recursive: true });
@@ -282,6 +349,7 @@ if (errors.length > 0) {
 }
 
 console.log(`Security release policy is valid at ${validatedCommit}.`);
+console.log(`Canonical runtime images: ${containerDockerfiles.length}. Active IaC roots: ${iacRoots.length}.`);
 console.log(`Active HIGH exceptions: ${exceptions.length}. Critical exceptions: forbidden.`);
 console.log(`Deferred non-release contours: ${deferred.length}.`);
 console.log(`Policy report: ${REPORT_PATH}`);
