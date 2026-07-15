@@ -1,26 +1,36 @@
 #!/usr/bin/env node
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
+
 const root = process.env.EVIDENCE_DIR || 'artifacts/industrial-readiness';
 const k8s = path.join(root, 'kubernetes');
+
 const read = (name) => {
   const file = path.join(k8s, name);
   return fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim() : null;
 };
+
 const json = (name) => {
   const value = read(name);
   if (!value) return null;
-  try { return JSON.parse(value); } catch { return null; }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 };
+
 const measurement = (value, fallback = 999) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
 };
+
 const initial = json('initial-release-manifest.json');
 const update = json('update-release-manifest.json');
 const rollback = json('rollback.json');
 const nodes = json('cluster/pod-placement.json') ?? {};
 const pass = process.env.RESULT === 'passed' && Number(process.env.EXIT_STATUS) === 0;
+
 const thresholds = {
   apiReplicas: 2,
   webReplicas: 2,
@@ -39,6 +49,7 @@ const thresholds = {
   directDatabaseBypassConnections: 0,
   rollbackDigestMismatches: 0,
 };
+
 const actual = {
   apiReplicas: measurement(read('cluster/api-ready-replicas.txt'), 0),
   webReplicas: measurement(read('cluster/web-ready-replicas.txt'), 0),
@@ -57,6 +68,7 @@ const actual = {
   directDatabaseBypassConnections: read('cluster/direct-postgresql-bypass.txt') === 'blocked' ? 0 : 1,
   rollbackDigestMismatches: process.env.ROLLBACK_MATCH === 'true' ? 0 : 1,
 };
+
 const exactThresholds = new Set(['migrationExecutions']);
 const minimumThresholds = new Set([
   'apiReplicas',
@@ -67,6 +79,7 @@ const minimumThresholds = new Set([
   'minimumReadyWorkersDuringPeerDeletion',
 ]);
 const violations = [];
+
 for (const [name, threshold] of Object.entries(thresholds)) {
   const value = actual[name];
   if (exactThresholds.has(name)) {
@@ -77,9 +90,11 @@ for (const [name, threshold] of Object.entries(thresholds)) {
     violations.push(`${name}:${value}>${threshold}`);
   }
 }
+
 if (process.env.INITIAL_MATCH !== 'true') violations.push('initialDigestSetMismatch');
 if (process.env.ROLLOUT_MATCH !== 'true') violations.push('rolloutDigestSetMismatch');
 if (process.env.ROLLBACK_MATCH !== 'true') violations.push('rollbackDigestSetMismatch');
+
 const report = {
   schemaVersion: 1,
   repository: process.env.GITHUB_REPOSITORY || 'pachaninm-lab/pachanin-demo',
@@ -108,18 +123,30 @@ const report = {
     web: nodes.web ?? null,
     outboxWorker: nodes.outboxWorker ?? null,
     pgbouncer: nodes.pgbouncer ?? null,
-    dependencies: ['PostgreSQL 16', 'PgBouncer 1.22.1', 'Kafka', 'Redis', 'MinIO', 'OpenTelemetry Collector', 'Prometheus', 'Alertmanager', 'ingress-nginx', 'Calico'],
+    dependencies: [
+      'PostgreSQL 16',
+      'PgBouncer 1.22.1',
+      'Kafka',
+      'Redis',
+      'MinIO',
+      'OpenTelemetry Collector',
+      'Prometheus',
+      'Alertmanager',
+      'ingress-nginx',
+      'Calico',
+    ],
   },
   thresholds,
   actualMeasurements: actual,
   violatedThresholds: [...new Set(violations)],
   assertions: {
     exactHeadCheckout: true,
-    defaultHelmExecutableWorkloads: 0,
+    defaultHelmExecutableWorkloads: measurement(read('default-executable-workloads.txt'), 999),
     buildOnceDeployMany: true,
     dedicatedMigrationJob: true,
     applicationMigrations: false,
-    runtimeDatabaseAccessThroughPgBouncer: actual.pgbouncerReplicas >= 2 && actual.pgbouncerRoutedPrincipals >= 4,
+    runtimeDatabaseAccessThroughPgBouncer:
+      actual.pgbouncerReplicas >= 2 && actual.pgbouncerRoutedPrincipals >= 4,
     directRuntimeDatabaseBypassBlocked: actual.directDatabaseBypassConnections === 0,
     pgbouncerPeerDeletionAvailability: actual.pgbouncerAvailabilityProbeFailures === 0,
     immutablePlatformImages: actual.mutablePlatformImageReferences === 0,
@@ -133,6 +160,7 @@ const report = {
     'kubernetes/cluster/pods-all.txt',
     'kubernetes/cluster/events.txt',
     'kubernetes/cluster/workload-descriptions.txt',
+    'kubernetes/logs/grainflow-migration.log',
     'kubernetes/cluster/pgbouncer-runtime-check.log',
     'kubernetes/cluster/direct-postgresql-bypass.txt',
     'kubernetes/cluster/pgbouncer-probe-failures.txt',
@@ -152,7 +180,8 @@ const report = {
     'kubernetes/rendered/rollback-workloads.yaml',
     'kubernetes/cluster/accepted-resources.yaml',
   ],
-  maturityBoundary: 'Reproducible disposable multi-node kind deployment, enforced PostgreSQL runtime routing through two PgBouncer replicas, live rolling update and same-schema rollback. This does not prove provider-level PostgreSQL HA/PITR, target production load, permanent-environment operations, external pentest, live provider integrations or operational soak.',
+  maturityBoundary:
+    'Reproducible disposable multi-node kind deployment, enforced PostgreSQL runtime routing through two PgBouncer replicas, live rolling update and same-schema rollback. This does not prove provider-level PostgreSQL HA/PITR, target production load, permanent-environment operations, external pentest, live provider integrations or operational soak.',
   externalBlockers: [
     '#2600 removal of obsolete Vercel and Deno status publishers',
     'permanent Kubernetes/registry/DNS/TLS provider access',
@@ -168,7 +197,13 @@ const report = {
     node: read('node-version.txt'),
     pgbouncerImage: 'edoburu/pgbouncer:1.22.1-p0',
     calicoManifestSha256: read('external-manifests/calico.sha256'),
-    ingressManifestSha256: read('external-manifests/ingress.sha256') ?? read('external-manifests/ingress-nginx.sha256'),
+    ingressManifestSha256:
+      read('external-manifests/ingress.sha256') ?? read('external-manifests/ingress-nginx.sha256'),
   },
 };
-fs.writeFileSync(path.join(root, 'production-like-kubernetes-evidence.json'), `${JSON.stringify(report, null, 2)}\n`);
+
+fs.mkdirSync(root, { recursive: true });
+fs.writeFileSync(
+  path.join(root, 'production-like-kubernetes-evidence.json'),
+  `${JSON.stringify(report, null, 2)}\n`,
+);
