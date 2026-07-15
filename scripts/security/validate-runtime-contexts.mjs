@@ -102,8 +102,10 @@ function validateDockerfiles() {
       [/npm\s+install\s+--global[^\n]*\n(?:(?!FROM).)*CMD/s, 'runtime package-manager execution'],
     ]);
   }
-  if (existsSync(resolve(ROOT, 'infra/docker/Dockerfile.worker'))) {
-    violations.push('infra/docker/Dockerfile.worker: test route simulator image must remain absent from deployable runtime authority.');
+  for (const retired of ['infra/docker/Dockerfile.worker', 'infra/docker/Dockerfile.ml']) {
+    if (existsSync(resolve(ROOT, retired))) {
+      violations.push(`${retired}: retired image must remain absent from deployable runtime authority.`);
+    }
   }
 }
 
@@ -127,6 +129,31 @@ function validateWorkload(path, extra = []) {
   ]);
 }
 
+function validateFailClosedContour(path, ticket, component) {
+  const source = read(path);
+  for (const fragment of [
+    'kind: ConfigMap',
+    'platform.prozrachnaya-cena/deployable: "false"',
+    'platform.prozrachnaya-cena/status: NOT_DEPLOYABLE',
+    `platform.prozrachnaya-cena/ticket: "${ticket}"`,
+    'status: NOT_DEPLOYABLE',
+  ]) {
+    if (!source.includes(fragment)) {
+      violations.push(`${path}: missing ${component} fail-closed fragment ${JSON.stringify(fragment)}.`);
+    }
+  }
+  for (const [pattern, label] of [
+    [/kind:\s*Deployment/, 'Deployment'],
+    [/kind:\s*StatefulSet/, 'StatefulSet'],
+    [/kind:\s*Service\b/, 'Service'],
+    [/kind:\s*Job\b/, 'Job'],
+    [/kind:\s*CronJob\b/, 'CronJob'],
+    [/image:\s*[^\n]+/, 'container image'],
+  ]) {
+    if (pattern.test(source)) violations.push(`${path}: executable ${component} ${label} remains.`);
+  }
+}
+
 function validateManifests() {
   validateWorkload('infra/k8s/base/api-deployment.yml', [
     'automountServiceAccountToken: false',
@@ -134,11 +161,7 @@ function validateManifests() {
     'mountPath: /tmp',
     'medium: Memory',
   ]);
-  validateWorkload('infra/k8s/base/ml-deployment.yml', [
-    'automountServiceAccountToken: false',
-    'runAsUser: 1000',
-    'mountPath: /tmp',
-  ]);
+  validateFailClosedContour('infra/k8s/base/ml-deployment.yml', '#2605', 'ML');
   validateWorkload('infra/k8s/base/redis-cluster.yml', [
     'runAsUser: 999',
     'mountPath: /data',
@@ -153,27 +176,8 @@ function validateManifests() {
     'runAsUser: 65532',
     'mountPath: /app/.next/cache',
   ]);
-  validateWorkload('infra/helm/grainflow/templates/ml-deployment.yaml', [
-    'automountServiceAccountToken: false',
-    'runAsUser: 1000',
-    'mountPath: /tmp',
-  ]);
-
-  const elasticsearch = read('infra/k8s/base/elasticsearch.yml');
-  for (const fragment of [
-    'kind: ConfigMap',
-    'platform.prozrachnaya-cena/deployable: "false"',
-    'platform.prozrachnaya-cena/status: NOT_DEPLOYABLE',
-    'status: NOT_DEPLOYABLE',
-    'Managed endpoint',
-  ]) {
-    if (!elasticsearch.includes(fragment)) {
-      violations.push(`infra/k8s/base/elasticsearch.yml: missing fail-closed fragment ${JSON.stringify(fragment)}.`);
-    }
-  }
-  for (const pattern of [/kind:\s*StatefulSet/, /kind:\s*Deployment/, /kind:\s*Service\b/, /privileged:\s*true/, /sysctl\b/, /Basic\s+[A-Za-z0-9+/=]+/]) {
-    if (pattern.test(elasticsearch)) violations.push(`infra/k8s/base/elasticsearch.yml: executable or unsafe Elasticsearch contour remains (${pattern}).`);
-  }
+  validateFailClosedContour('infra/helm/grainflow/templates/ml-deployment.yaml', '#2605', 'ML');
+  validateFailClosedContour('infra/k8s/base/elasticsearch.yml', '#2606', 'Elasticsearch');
 
   const allIaC = [...walk('infra/k8s'), ...walk('infra/helm')]
     .filter((path) => /\.ya?ml$/i.test(path));
@@ -198,7 +202,7 @@ function main() {
     commitSha: actualHead,
     generatedAt: new Date().toISOString(),
     deployableImages: ['api', 'web'],
-    retiredImages: ['route-simulator-worker'],
+    retiredImages: ['route-simulator-worker', 'ml-service'],
     checkedFiles: [...checkedFiles].sort().map((path) => ({ path, sha256: sha256(resolve(ROOT, path)) })),
     violations,
     passed: violations.length === 0,
