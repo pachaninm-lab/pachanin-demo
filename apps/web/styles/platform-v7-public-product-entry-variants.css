@@ -37,7 +37,7 @@
   align-items: center;
   gap: 15px;
   min-width: 0;
-  min-height: 108px;
+  min-height: 116px;
   padding: 18px;
   border: 1px solid var(--pc-ppe-line);
   border-radius: 18px;
@@ -125,8 +125,9 @@
 
 /* Final public-home safeguards. This file is imported after the V4 layer. */
 .pc-ppe-page {
-  --pc-ppe-v4-header: 64px;
+  --pc-ppe-v4-header: 56px;
   scroll-padding-top: calc(var(--pc-ppe-v4-header) + 18px);
+  overflow-x: clip;
 }
 
 .pc-ppe-page > .pc-ppe-shell {
@@ -139,25 +140,45 @@
 }
 
 .pc-ppe-page .pc-site-brand-mark {
-  width: 38px;
-  height: 38px;
-  flex-basis: 38px;
-  overflow: visible;
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+  overflow: hidden;
   border: 0;
-  background: transparent;
+  border-radius: 10px;
+  background: #0b5d38;
   box-shadow: none;
 }
 
-.pc-ppe-page .pc-site-brand-mark::before,
-.pc-ppe-page .pc-site-brand-mark::after {
-  content: none;
+.pc-ppe-page .pc-site-brand-mark img {
+  opacity: 0 !important;
 }
 
-.pc-ppe-page .pc-site-brand-mark img {
-  display: block !important;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+.pc-ppe-page .pc-site-brand-mark::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  top: 9px;
+  bottom: 8px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: skewY(-19deg);
+  transform-origin: left bottom;
+}
+
+.pc-ppe-page .pc-site-brand-mark::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  width: 15px;
+  height: 11px;
+  border-radius: 100% 0 100% 0;
+  background: #9ad7aa;
+  transform: rotate(-16deg);
+  box-shadow: 5px 12px 0 -4px #fff, -5px 14px 0 -4px #fff;
 }
 
 .pc-ppe-page .p7-support-chat-button {
@@ -180,6 +201,10 @@
 }
 
 @media (max-width: 720px) {
+  .pc-ppe-page {
+    --pc-ppe-v4-header: 54px;
+  }
+
   .pc-ppe-entry-gate {
     min-height: auto;
     padding-top: 28px;
@@ -200,9 +225,9 @@
   }
 
   .pc-ppe-page .pc-site-brand-mark {
-    width: 36px;
-    height: 36px;
-    flex-basis: 36px;
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
   }
 
   .pc-ppe-page .pc-site-brand-text strong {
@@ -284,8 +309,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pc-ppe-entry-option,
-  .pc-ppe-entry-more > summary svg {
-    transition: none;
+  .pc-ppe-page *,
+  .pc-ppe-page *::before,
+  .pc-ppe-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
