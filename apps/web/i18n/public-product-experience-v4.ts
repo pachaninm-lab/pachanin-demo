@@ -51,7 +51,7 @@ const copy = {
       scenarios: {
         standard: 'Без отклонений',
         partial: 'Частичная приёмка',
-        dispute: 'Спор по качеству',
+        dispute: 'Спорный — по качеству',
       },
     },
   },
