@@ -469,6 +469,7 @@ model OutboxEntry {
   dealId                String?
   payload               Json
   status                String   @default("PENDING")
+  triggeredByUserId     String?
   idempotencyKey        String?  @unique
   maxRetries            Int      @default(5)
   retryCount            Int      @default(0)
@@ -479,7 +480,9 @@ model OutboxEntry {
   runtimeSnapshotId     String?
   runtimeIdempotencyKey String?
   leaseOwner            String?
+  leaseToken            String?  @unique(map: "outbox_entries_active_lease_token_key")
   leaseExpiresAt        DateTime?
+  heartbeatAt           DateTime?
   deadLetterAt          DateTime?
   createdAt             DateTime @default(now())
   sentAt                DateTime?
@@ -487,14 +490,34 @@ model OutboxEntry {
   failedAt              DateTime?
 
   runtimeSnapshot       DealWorkspaceRuntimeSnapshot? @relation("RuntimeSnapshotOutbox")
+  redriveEvents         OutboxRedriveEvent[]
 
-  @@index([status, nextRetryAt])
+  @@index([status, nextRetryAt, createdAt, id], map: "outbox_entries_claim_idx")
   @@index([status, leaseExpiresAt], map: "outbox_entries_lease_idx")
   @@index([dealId])
   @@index([runtimeSnapshotId], map: "outbox_entries_runtime_snapshot_idx")
   @@index([correlationId], map: "outbox_entries_runtime_correlation_idx")
   @@index([createdAt], map: "outbox_entries_created_idx")
   @@map("outbox_entries")
+}
+
+model OutboxRedriveEvent {
+  id                 String   @id @default(cuid())
+  outboxEntryId      String
+  idempotencyKey     String   @unique
+  actorUserId        String
+  reason             String
+  previousStatus     String
+  previousRetryCount Int
+  prevHash           String?
+  hash               String
+  createdAt          DateTime @default(now())
+
+  outboxEntry        OutboxEntry @relation(fields: [outboxEntryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([outboxEntryId, createdAt], map: "outbox_redrive_events_entry_created_idx")
+  @@index([createdAt], map: "outbox_redrive_events_created_idx")
+  @@map("outbox_redrive_events")
 }
 
 // ── Disputes ──────────────────────────────────────────────────────────────────
