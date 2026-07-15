@@ -1,4 +1,4 @@
-import './tracing';
+import { shutdownTelemetry } from './tracing';
 import 'reflect-metadata';
 import { createServer, type Server } from 'node:http';
 import { NestFactory } from '@nestjs/core';
@@ -38,6 +38,14 @@ function assertWorkerStartup(): void {
 
 async function closeServer(server: Server): Promise<void> {
   await new Promise<void>((resolve) => server.close(() => resolve()));
+}
+
+async function writeStdout(message: string): Promise<void> {
+  await new Promise<void>((resolve) => process.stdout.write(message, () => resolve()));
+}
+
+async function writeStderr(message: string): Promise<void> {
+  await new Promise<void>((resolve) => process.stderr.write(message, () => resolve()));
 }
 
 async function bootstrap(): Promise<void> {
@@ -123,34 +131,41 @@ async function bootstrap(): Promise<void> {
     });
   });
 
-  const shutdown = async (signal: string, exitCode = 0): Promise<void> => {
+  const shutdown = async (signal: string, requestedExitCode = 0): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
+    let exitCode = requestedExitCode;
+
     // This process owns signal handling. Closing the Nest context invokes the
     // runner shutdown hook exactly once: stop claims, then await active drain.
     await closeServer(server).catch(() => undefined);
     await app.close();
+    await shutdownTelemetry().catch(async (error: unknown) => {
+      exitCode = 1;
+      await writeStderr(`OpenTelemetry shutdown failed: ${error instanceof Error ? error.message : String(error)}\n`);
+    });
+    await writeStdout(`Outbox worker stopped signal=${signal}\n`);
     process.exitCode = exitCode;
-    process.stdout.write(`Outbox worker stopped signal=${signal}\n`);
-    // Do not call process.exit(): it can truncate stdout, logs and telemetry.
-    // Once the server, Prisma and Kafka handles are closed, Node exits naturally.
+    // Once the health server, Nest context, Prisma, Kafka and telemetry are
+    // closed, no process-level authority remains and Node exits naturally.
   };
 
   process.once('SIGTERM', () => void shutdown('SIGTERM'));
   process.once('SIGINT', () => void shutdown('SIGINT'));
   process.once('uncaughtException', (error) => {
-    process.stderr.write(`Outbox worker uncaught exception: ${error instanceof Error ? error.stack : String(error)}\n`);
-    void shutdown('uncaughtException', 1);
+    void writeStderr(`Outbox worker uncaught exception: ${error instanceof Error ? error.stack : String(error)}\n`)
+      .finally(() => shutdown('uncaughtException', 1));
   });
   process.once('unhandledRejection', (error) => {
-    process.stderr.write(`Outbox worker unhandled rejection: ${error instanceof Error ? error.stack : String(error)}\n`);
-    void shutdown('unhandledRejection', 1);
+    void writeStderr(`Outbox worker unhandled rejection: ${error instanceof Error ? error.stack : String(error)}\n`)
+      .finally(() => shutdown('unhandledRejection', 1));
   });
 
-  process.stdout.write(`Outbox worker running healthPort=${port}\n`);
+  await writeStdout(`Outbox worker running healthPort=${port}\n`);
 }
 
-bootstrap().catch((error) => {
-  process.stderr.write(`Failed to start outbox worker: ${error instanceof Error ? error.stack : String(error)}\n`);
+bootstrap().catch(async (error) => {
+  await writeStderr(`Failed to start outbox worker: ${error instanceof Error ? error.stack : String(error)}\n`);
+  await shutdownTelemetry().catch(() => undefined);
   process.exitCode = 1;
 });
