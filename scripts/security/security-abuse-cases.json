@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "repository": "pachaninm-lab/pachanin-demo",
+  "requiredScenarioIds": [
+    "idor",
+    "tenant_escape",
+    "horizontal_privilege_escalation",
+    "vertical_privilege_escalation",
+    "refresh_replay",
+    "callback_signature",
+    "callback_replay",
+    "oversized_payload",
+    "unrestricted_upload",
+    "path_traversal"
+  ],
+  "scenarios": [
+    {
+      "id": "idor",
+      "phaseIds": ["one-deal"],
+      "evidence": [
+        {
+          "path": "apps/api/test/one-deal/postgresql-deal-authority.e2e-spec.ts",
+          "markers": [
+            "denies a non-participant and never exposes the deal cross-object",
+            "DEAL_PARTICIPANT_REQUIRED"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tenant_escape",
+      "phaseIds": ["one-deal"],
+      "evidence": [
+        {
+          "path": "scripts/platform-v7-one-deal-e2e.sh",
+          "markers": [
+            "SQL cross-tenant visible deal rows",
+            "PostgreSQL RLS cross-tenant Deal isolation failed"
+          ]
+        },
+        {
+          "path": "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
+          "markers": [
+            "tenantId: 'tenant-other'",
+            "rejects.toBeInstanceOf(ForbiddenException)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "horizontal_privilege_escalation",
+      "phaseIds": ["one-deal"],
+      "evidence": [
+        {
+          "path": "apps/api/test/one-deal/postgresql-deal-authority.e2e-spec.ts",
+          "markers": [
+            "denies a non-participant",
+            "repository.workspace(dealId, outsider)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vertical_privilege_escalation",
+      "phaseIds": ["unit-boundaries"],
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
+          "markers": [
+            "rejects a human request to confirm reserve or release",
+            "BANK_CALLBACK_REQUIRED"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "refresh_replay",
+      "phaseIds": ["auth-replay"],
+      "evidence": [
+        {
+          "path": "apps/api/test/auth/persistent-auth.e2e-spec.ts",
+          "markers": [
+            "rotates refresh once and revokes the complete family on old-token reuse",
+            "REFRESH_TOKEN_REUSE_DETECTED"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "callback_signature",
+      "phaseIds": ["one-deal"],
+      "evidence": [
+        {
+          "path": "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
+          "markers": [
+            "'hmac-sha256=invalid'",
+            "rejects.toBeInstanceOf(UnauthorizedException)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "callback_replay",
+      "phaseIds": ["unit-boundaries", "one-deal"],
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
+          "markers": [
+            "keeps event identity stable after deal version changes and rejects material replay mismatch",
+            "BANK_EVENT_REPLAY_MISMATCH"
+          ]
+        },
+        {
+          "path": "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
+          "markers": [
+            "duplicate: true",
+            "submitCallback(settlement(restarted), release)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "oversized_payload",
+      "phaseIds": ["unit-boundaries"],
+      "evidence": [
+        {
+          "path": "apps/api/src/common/security/request-body-limit.spec.ts",
+          "markers": [
+            "returns HTTP 413 before an oversized JSON body reaches a controller",
+            ".expect(413)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "unrestricted_upload",
+      "phaseIds": ["unit-boundaries"],
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/labs/lab-evidence-upload.security.spec.ts",
+          "markers": [
+            "rejects executable MIME types before creating a pending upload",
+            "MIME_NOT_ALLOWED"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "path_traversal",
+      "phaseIds": ["unit-boundaries"],
+      "evidence": [
+        {
+          "path": "apps/api/src/modules/labs/lab-evidence-upload.security.spec.ts",
+          "markers": [
+            "strips path traversal from the object key",
+            "filename: '../../nested/evil.pdf'",
+            "not.toContain('..')"
+          ]
+        }
+      ]
+    }
+  ]
+}
