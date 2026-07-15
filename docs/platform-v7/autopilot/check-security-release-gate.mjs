@@ -201,7 +201,7 @@ const requiredWorkflowFragments = [
   'scan-ref: infra/docker',
   'scanners: secret',
   "AUDIT_PNPM_VERSION: '11.0.0-rc.2'",
-  'pnpm dlx pnpm@${AUDIT_PNPM_VERSION} audit --prod --json',
+  'npm_config_manage_package_manager_versions=false pnpm dlx pnpm@${AUDIT_PNPM_VERSION} audit --prod --json',
   'docs/platform-v7/autopilot/semgrep-security.yml',
   'check-security-release-gate.mjs',
   'evaluate-pnpm-audit.mjs',
