@@ -63,6 +63,42 @@ test('homepage provides service navigation and institutional trust links', async
   await expect(page.getByRole('link', { name: 'Политика данных' })).toBeVisible();
 });
 
+test('mobile service menu is usable and remains inside the 320px viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 860 });
+  await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+
+  const menu = page.locator('.pc-site-mobile-menu');
+  const summary = menu.locator('summary');
+  await expect(summary).toBeVisible();
+  await expect(summary).toHaveAttribute('aria-label', 'Меню');
+  await summary.click();
+
+  const mobileNav = menu.locator('.pc-site-mobile-nav');
+  await expect(mobileNav).toBeVisible();
+  await expect(mobileNav.getByRole('link', { name: 'Как работает' })).toBeVisible();
+  await expect(mobileNav.getByRole('link', { name: 'Участники' })).toBeVisible();
+  await expect(mobileNav.getByRole('link', { name: 'Надёжность' })).toBeVisible();
+
+  const bounds = await page.evaluate(() => {
+    const viewport = document.documentElement.clientWidth;
+    const headerChildren = Array.from(document.querySelectorAll('.pc-site-header > *, .pc-site-actions > *'))
+      .filter((node) => window.getComputedStyle(node).display !== 'none')
+      .map((node) => node.getBoundingClientRect());
+    const nav = document.querySelector('.pc-site-mobile-nav')?.getBoundingClientRect();
+    return {
+      overflow: document.documentElement.scrollWidth - viewport,
+      headerInside: headerChildren.every((rect) => rect.left >= -1 && rect.right <= viewport + 1),
+      navInside: Boolean(nav && nav.left >= -1 && nav.right <= viewport + 1),
+    };
+  });
+
+  expect(bounds.overflow).toBeLessThanOrEqual(1);
+  expect(bounds.headerInside).toBe(true);
+  expect(bounds.navInside).toBe(true);
+  await summary.click();
+  await expect(mobileNav).toBeHidden();
+});
+
 test('canonical CTA vocabulary remains deliberate and truthful', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 860 });
   await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
