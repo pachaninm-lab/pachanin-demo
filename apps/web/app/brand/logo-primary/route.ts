@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { BRAND_LOGO_PNG_BASE64, BRAND_LOGO_PNG_SHA256 } from '@/components/v7r/brand-logo-asset';
+import { BRAND_LOGO_PNG_BASE64, BRAND_LOGO_PNG_SHA256 } from '@/components/v7r/canonical-logo-png';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-static';
