@@ -85,6 +85,7 @@ jobs:
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://industrial_admin:ephemeral_industrial_admin_only@127.0.0.1:5432/industrial_e2e
+      TEST_ADMIN_DATABASE_URL: postgresql://industrial_admin:ephemeral_industrial_admin_only@127.0.0.1:5432/industrial_e2e
     steps:
       - name: Checkout
         uses: actions/checkout@v4
