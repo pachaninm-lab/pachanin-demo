@@ -14,16 +14,15 @@ COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
 RUN pnpm --filter @pc/api build
-RUN test -f /workspace/apps/api/dist/src/main.js \
-  || { echo 'API build did not emit dist/src/main.js' >&2; find /workspace/apps/api/dist -maxdepth 4 -type f -print >&2; exit 1; }
+RUN test -f /workspace/apps/api/dist/apps/api/src/main.js
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/api
 
-# pnpm deploy creates the production dependency graph but does not guarantee that
-# workspace build output or Prisma's generated client side effects are copied.
-# Materialize both explicitly and prove each final runtime invariant separately.
+# TypeScript emits the API below the workspace-relative path because the API
+# imports shared workspace packages. pnpm deploy carries dependencies only, so
+# copy that exact output and materialize Prisma's generated side effects.
 RUN rm -rf /prod/api/src /prod/api/test /prod/api/prisma /prod/api/dist \
   && cp -R /workspace/apps/api/dist /prod/api/dist
-RUN test -f /prod/api/dist/src/main.js
+RUN test -f /prod/api/dist/apps/api/src/main.js
 RUN node scripts/release/materialize-prisma-client.mjs /workspace/apps/api /prod/api
 RUN cd /prod/api \
   && node -e "const {PrismaClient}=require('@prisma/client'); if(typeof PrismaClient!=='function') throw new Error('PrismaClient export is unavailable')"
@@ -43,4 +42,4 @@ COPY --from=build --chown=nonroot:nonroot /prod/api/ ./
 
 EXPOSE 3001
 USER nonroot
-CMD ["dist/src/main.js"]
+CMD ["dist/apps/api/src/main.js"]
