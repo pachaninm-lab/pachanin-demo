@@ -97,7 +97,7 @@ describeRace('IR-AUCTION concurrent idempotency receipt', () => {
 
     expect(outcomes.filter((item) => item.duplicate === true)).toHaveLength(1);
     expect(outcomes.filter((item) => item.accepted === true)).toHaveLength(2);
-    expect(new Set(outcomes.map((item) => item.marker))).toHaveLength(1);
+    expect(new Set(outcomes.map((item) => item.marker)).size).toBe(1);
 
     const receipts = await admin.$queryRawUnsafe<Array<{ count: bigint }>>(
       `SELECT count(*)::bigint AS count FROM auction.command_receipts WHERE tenant_id = $1 AND actor_id = $2 AND idempotency_key = $3`,
