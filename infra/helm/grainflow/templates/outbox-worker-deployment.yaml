@@ -1,0 +1,142 @@
+{{- if .Values.outboxWorker.enabled }}
+{{- $digest := required "outboxWorker.image.digest is required when outboxWorker.enabled=true; mutable tags are forbidden" .Values.outboxWorker.image.digest }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "grainflow.fullname" . }}-outbox-worker
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "grainflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: outbox-worker
+spec:
+  replicas: {{ .Values.outboxWorker.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grainflow-outbox-worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  minReadySeconds: 10
+  progressDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: grainflow-outbox-worker
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: outbox-worker
+        app.kubernetes.io/version: {{ $digest | quote }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.outboxWorker.healthPort | quote }}
+        prometheus.io/path: "/metrics"
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ .Values.outboxWorker.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.outboxWorker.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.outboxWorker.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.outboxWorker.securityContext.fsGroup }}
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: outbox-worker
+          image: "{{ .Values.outboxWorker.image.repository }}@{{ $digest }}"
+          imagePullPolicy: {{ .Values.outboxWorker.image.pullPolicy }}
+          ports:
+            - name: health
+              containerPort: {{ .Values.outboxWorker.healthPort }}
+              protocol: TCP
+          env:
+            {{- range $key, $value := .Values.outboxWorker.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            - name: OUTBOX_WORKER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KAFKA_CLIENT_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          envFrom:
+            {{- toYaml .Values.outboxWorker.secretEnvFrom | nindent 12 }}
+          resources:
+            {{- toYaml .Values.outboxWorker.resources | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.outboxWorker.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.outboxWorker.readinessProbe | nindent 12 }}
+          startupProbe:
+            {{- toYaml .Values.outboxWorker.startupProbe | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+      affinity:
+        {{- toYaml .Values.outboxWorker.affinity | nindent 8 }}
+---
+{{- if .Values.outboxWorker.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "grainflow.fullname" . }}-outbox-worker
+  namespace: {{ .Values.namespace.name }}
+spec:
+  minAvailable: {{ .Values.outboxWorker.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grainflow-outbox-worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+---
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "grainflow.fullname" . }}-outbox-worker
+  namespace: {{ .Values.namespace.name }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: grainflow-outbox-worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.monitoring.serviceMonitor.namespace }}
+      ports:
+        - port: {{ .Values.outboxWorker.healthPort }}
+          protocol: TCP
+  egress:
+    - ports:
+        - port: 5432
+          protocol: TCP
+        - port: 9092
+          protocol: TCP
+        - port: 4317
+          protocol: TCP
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+{{- end }}
+{{- end }}
