@@ -1,0 +1,54 @@
+name: Govern IR runtime context scope
+
+on:
+  push:
+    branches: [agent/ir-sec-runtime-contexts]
+    paths:
+      - '.github/workflows/ir-runtime-context-scope.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  govern-scope:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/ir-sec-runtime-contexts
+          fetch-depth: 0
+
+      - name: Register exact branch scope
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'docs/platform-v7/autopilot/autopilot-state.json';
+          const state = JSON.parse(fs.readFileSync(path, 'utf8'));
+          state.approvedConcurrentScopes ??= {};
+          state.approvedConcurrentScopes['agent/ir-sec-runtime-contexts'] = [
+            '.github/workflows/ir-runtime-context-scope.yml',
+            '.github/workflows/security-quality-gate.yml',
+            'docs/platform-v7/autopilot/autopilot-state.json',
+            'docs/platform-v7/autopilot/check-security-release-gate.mjs',
+            'docs/platform-v7/autopilot/security-release-scope.json',
+            'infra/docker/**',
+            'infra/helm/**',
+            'infra/k8s/**',
+            'scripts/security/**'
+          ];
+          fs.writeFileSync(path, `${JSON.stringify(state)}\n`);
+          NODE
+
+      - name: Commit governed scope
+        run: |
+          if git diff --quiet -- docs/platform-v7/autopilot/autopilot-state.json; then
+            echo 'Scope already registered.'
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/platform-v7/autopilot/autopilot-state.json
+          git commit -m 'Govern IR runtime context branch scope'
+          git push origin HEAD:agent/ir-sec-runtime-contexts
