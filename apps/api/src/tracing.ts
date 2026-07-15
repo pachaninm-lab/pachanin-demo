@@ -42,13 +42,25 @@ export const sdk = new NodeSDK({
 
 sdk.start();
 
-process.on('SIGTERM', () => {
-  sdk
-    .shutdown()
-    .catch((error: unknown) => {
-      // Shutdown errors must be observable without leaking request or credential data.
-      console.error('OpenTelemetry shutdown failed', error);
-      process.exitCode = 1;
-    })
-    .finally(() => process.exit());
-});
+let shutdownPromise: Promise<void> | undefined;
+
+export function shutdownTelemetry(): Promise<void> {
+  shutdownPromise ??= sdk.shutdown();
+  return shutdownPromise;
+}
+
+// The standalone outbox worker owns its complete shutdown sequence so it can
+// stop claims, finish the active drain, close Prisma/Kafka, then flush telemetry.
+// Retain the existing API behavior until the API lifecycle is migrated to the
+// same explicit ownership model in its own authority slice.
+if (process.env.RUNTIME_COMPONENT !== 'outbox-worker') {
+  process.on('SIGTERM', () => {
+    shutdownTelemetry()
+      .catch((error: unknown) => {
+        // Shutdown errors must be observable without leaking request or credential data.
+        console.error('OpenTelemetry shutdown failed', error);
+        process.exitCode = 1;
+      })
+      .finally(() => process.exit());
+  });
+}
