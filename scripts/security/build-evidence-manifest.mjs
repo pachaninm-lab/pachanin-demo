@@ -86,13 +86,15 @@ function indexEvidenceFiles() {
 }
 
 function requireExactHead(report, label) {
-  if (String(report?.commitSha ?? '') !== EXACT_HEAD) {
-    throw new Error(`${label} commitSha does not match exact head ${EXACT_HEAD}.`);
+  const reportedCommit = String(report?.commitSha ?? report?.validatedCommit ?? '');
+  if (reportedCommit !== EXACT_HEAD) {
+    throw new Error(`${label} commit identity does not match exact head ${EXACT_HEAD}.`);
   }
 }
 
 function requirePassed(report, label) {
-  if (report?.passed !== true) throw new Error(`${label} is not marked passed.`);
+  const passed = report?.passed ?? report?.valid;
+  if (passed !== true) throw new Error(`${label} is not marked passed or valid.`);
 }
 
 function validateJsonEvidence(byBasename) {
