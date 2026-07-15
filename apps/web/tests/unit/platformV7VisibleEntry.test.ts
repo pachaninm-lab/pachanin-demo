@@ -77,6 +77,10 @@ describe('platform-v7 visible public entry', () => {
     }
 
     expect(contactHeader()).toContain('PublicSiteHeader');
+    expect(support()).toContain("import { BrandMark } from '@/components/v7r/BrandMark'");
+    expect(support()).toContain("<BrandMark size='100%' shadow={false} />");
+    expect(support()).not.toContain('BRAND_LOGO_DATA_URI');
+    expect(support()).not.toContain('brand-logo-asset');
   });
 
   it('uses one visual contract for every public-header control', () => {
