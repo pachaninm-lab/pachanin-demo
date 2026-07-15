@@ -9,6 +9,9 @@ const preview = readFileSync('components/platform-v7/PublicDealPreview.tsx', 'ut
 const support = readFileSync('components/platform-v7/ChatSupportWidget.tsx', 'utf8');
 const css = readFileSync('styles/platform-v7-public-product-experience-v5.css', 'utf8');
 const copy = readFileSync('i18n/public-product-experience-v4.ts', 'utf8');
+const autopilotState = JSON.parse(readFileSync('../../docs/platform-v7/autopilot/autopilot-state.json', 'utf8')) as {
+  approvedConcurrentScopes?: Record<string, string[]>;
+};
 
 describe('Public Product Experience V5 institutional hardening', () => {
   it('keeps the home task-first and progressively discloses secondary roles', () => {
@@ -88,6 +91,14 @@ describe('Public Product Experience V5 institutional hardening', () => {
     expect(css).toContain('@media (forced-colors: active)');
     expect(css).toContain('padding-bottom: max(88px');
     expect(css).toContain('max-height: calc(100dvh');
+  });
+
+  it('registers an exact source-controlled autopilot scope', () => {
+    const scope = autopilotState.approvedConcurrentScopes?.['agent/public-home-v5-institutional-10of10'];
+    expect(scope).toBeDefined();
+    expect(scope).toContain('apps/web/components/platform-v7/ChatSupportWidget.tsx');
+    expect(scope).toContain('apps/web/styles/platform-v7-public-product-experience-v5.css');
+    expect(scope).toContain('docs/platform-v7/autopilot/autopilot-state.json');
   });
 
   it('retains the canonical conversion funnel', () => {
