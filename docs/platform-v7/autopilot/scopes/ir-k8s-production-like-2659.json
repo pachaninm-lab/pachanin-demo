@@ -11,6 +11,8 @@
     ".github/workflows/production-like-kubernetes-acceptance.yml",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json",
+    "infra/docker/Dockerfile.api",
+    "infra/docker/Dockerfile.outbox-worker",
     "infra/docker/Dockerfile.migrations",
     "infra/kind/production-like/**",
     "scripts/p7-autopilot-guard.sh",
