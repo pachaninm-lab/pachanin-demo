@@ -1,19 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
-
-/**
- * Durable transactional-outbox worker over the canonical `outbox_entries` table.
- *
- * Claim protocol: a bounded batch is leased with
- * `SELECT … FOR UPDATE SKIP LOCKED`, so any number of workers on any number of
- * instances can run concurrently without double-delivery. A crashed worker
- * releases its work automatically when its lease expires — no janitor needed.
- *
- * Retry protocol: exponential backoff with jitter up to `maxRetries`, then the
- * entry parks in DEAD_LETTER for operator re-drive. Receipts (rows created with
- * status CONFIRMED inside command transactions) are never claimed.
- */
 
 export interface ClaimedOutboxEntry {
   id: string;
@@ -24,6 +11,7 @@ export interface ClaimedOutboxEntry {
   maxRetries: number;
   correlationId: string | null;
   idempotencyKey: string | null;
+  leaseToken: string;
 }
 
 export type OutboxHandler = (entry: ClaimedOutboxEntry) => Promise<void>;
@@ -34,6 +22,14 @@ export interface OutboxDrainReport {
   delivered: number;
   retried: number;
   deadLettered: number;
+  leaseLost: number;
+}
+
+export class OutboxLeaseLostError extends Error {
+  constructor(entryId: string, workerId: string) {
+    super(`Outbox lease lost: entry=${entryId} worker=${workerId}`);
+    this.name = 'OutboxLeaseLostError';
+  }
 }
 
 const DEFAULT_LEASE_SECONDS = 60;
@@ -42,8 +38,8 @@ const MAX_BACKOFF_SECONDS = 3600;
 
 @Injectable()
 export class DurableOutboxWorker {
-  private readonly logger = new Logger(DurableOutboxWorker.name);
   private readonly handlers = new Map<string, OutboxHandler>();
+  private fallbackHandler?: OutboxHandler;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -51,20 +47,28 @@ export class DurableOutboxWorker {
     this.handlers.set(type, handler);
   }
 
-  /**
-   * Atomically lease a batch of due entries. Entries already leased by a live
-   * worker are skipped; entries whose lease expired are reclaimed.
-   */
+  registerFallbackHandler(handler: OutboxHandler): void {
+    this.fallbackHandler = handler;
+  }
+
   async claimBatch(
     workerId: string,
     limit = 25,
     leaseSeconds = DEFAULT_LEASE_SECONDS,
   ): Promise<ClaimedOutboxEntry[]> {
-    const rows = await this.prisma.$queryRaw<ClaimedOutboxEntry[]>(Prisma.sql`
+    if (!workerId.trim()) throw new Error('workerId is required');
+    if (!Number.isInteger(limit) || limit < 1 || limit > 500) throw new Error('limit must be between 1 and 500');
+    if (!Number.isInteger(leaseSeconds) || leaseSeconds < 1 || leaseSeconds > 3600) {
+      throw new Error('leaseSeconds must be between 1 and 3600');
+    }
+
+    return this.prisma.$queryRaw<ClaimedOutboxEntry[]>(Prisma.sql`
       UPDATE "outbox_entries"
       SET "status" = 'PROCESSING',
           "leaseOwner" = ${workerId},
-          "leaseExpiresAt" = NOW() + make_interval(secs => ${leaseSeconds})
+          "leaseToken" = md5(random()::text || clock_timestamp()::text || "id" || ${workerId}),
+          "leaseExpiresAt" = NOW() + make_interval(secs => ${leaseSeconds}),
+          "heartbeatAt" = NOW()
       WHERE "id" IN (
         SELECT "id"
         FROM "outbox_entries"
@@ -72,27 +76,34 @@ export class DurableOutboxWorker {
             ("status" = 'PENDING' AND "nextRetryAt" <= NOW())
             OR ("status" = 'PROCESSING' AND "leaseExpiresAt" < NOW())
           )
-        ORDER BY "createdAt"
+        ORDER BY "createdAt", "id"
         LIMIT ${limit}
         FOR UPDATE SKIP LOCKED
       )
       RETURNING "id", "type", "dealId", "payload", "retryCount", "maxRetries",
-                "correlationId", "idempotencyKey"
+                "correlationId", "idempotencyKey", "leaseToken"
     `);
-    return rows;
   }
 
-  /** Lease renewal for long-running deliveries. */
-  async heartbeat(workerId: string, entryId: string, leaseSeconds = DEFAULT_LEASE_SECONDS): Promise<boolean> {
-    const result = await this.prisma.$executeRaw(Prisma.sql`
+  async heartbeat(
+    workerId: string,
+    entryId: string,
+    leaseToken: string,
+    leaseSeconds = DEFAULT_LEASE_SECONDS,
+  ): Promise<boolean> {
+    const count = await this.prisma.$executeRaw(Prisma.sql`
       UPDATE "outbox_entries"
-      SET "leaseExpiresAt" = NOW() + make_interval(secs => ${leaseSeconds})
-      WHERE "id" = ${entryId} AND "leaseOwner" = ${workerId} AND "status" = 'PROCESSING'
+      SET "leaseExpiresAt" = NOW() + make_interval(secs => ${leaseSeconds}),
+          "heartbeatAt" = NOW()
+      WHERE "id" = ${entryId}
+        AND "leaseOwner" = ${workerId}
+        AND "leaseToken" = ${leaseToken}
+        AND "status" = 'PROCESSING'
+        AND "leaseExpiresAt" >= NOW()
     `);
-    return result === 1;
+    return count === 1;
   }
 
-  /** Claim due work and dispatch it to registered handlers. */
   async drainOnce(workerId: string, limit = 25): Promise<OutboxDrainReport> {
     const claimed = await this.claimBatch(workerId, limit);
     const report: OutboxDrainReport = {
@@ -101,49 +112,75 @@ export class DurableOutboxWorker {
       delivered: 0,
       retried: 0,
       deadLettered: 0,
+      leaseLost: 0,
     };
 
     for (const entry of claimed) {
-      const handler = this.handlers.get(entry.type);
+      const handler = this.handlers.get(entry.type) ?? this.fallbackHandler;
       if (!handler) {
-        // No configured transport for this type: fail closed with retry, never
-        // pretend delivery happened.
-        const outcome = await this.markFailed(workerId, entry, `no handler registered for type ${entry.type}`);
-        outcome === 'DEAD_LETTER' ? report.deadLettered++ : report.retried++;
+        try {
+          const outcome = await this.markFailed(
+            workerId,
+            entry,
+            `no transport handler registered for type ${entry.type}`,
+          );
+          outcome === 'DEAD_LETTER' ? report.deadLettered++ : report.retried++;
+        } catch (error) {
+          if (error instanceof OutboxLeaseLostError) report.leaseLost++;
+          else throw error;
+        }
         continue;
       }
+
       try {
         await handler(entry);
-        await this.markDelivered(workerId, entry.id);
+        await this.markDelivered(workerId, entry.id, entry.leaseToken);
         report.delivered++;
       } catch (error) {
+        if (error instanceof OutboxLeaseLostError) {
+          report.leaseLost++;
+          continue;
+        }
         const message = error instanceof Error ? error.message : String(error);
-        const outcome = await this.markFailed(workerId, entry, message);
-        outcome === 'DEAD_LETTER' ? report.deadLettered++ : report.retried++;
+        try {
+          const outcome = await this.markFailed(workerId, entry, message);
+          outcome === 'DEAD_LETTER' ? report.deadLettered++ : report.retried++;
+        } catch (markError) {
+          if (markError instanceof OutboxLeaseLostError) report.leaseLost++;
+          else throw markError;
+        }
       }
     }
     return report;
   }
 
-  async markDelivered(workerId: string, entryId: string): Promise<void> {
+  async markDelivered(workerId: string, entryId: string, leaseToken: string): Promise<void> {
     const count = await this.prisma.$executeRaw(Prisma.sql`
       UPDATE "outbox_entries"
-      SET "status" = 'SENT', "sentAt" = NOW(), "leaseOwner" = NULL, "leaseExpiresAt" = NULL, "lastError" = NULL
-      WHERE "id" = ${entryId} AND "leaseOwner" = ${workerId} AND "status" = 'PROCESSING'
+      SET "status" = 'SENT',
+          "sentAt" = NOW(),
+          "leaseOwner" = NULL,
+          "leaseToken" = NULL,
+          "leaseExpiresAt" = NULL,
+          "heartbeatAt" = NULL,
+          "lastError" = NULL
+      WHERE "id" = ${entryId}
+        AND "leaseOwner" = ${workerId}
+        AND "leaseToken" = ${leaseToken}
+        AND "status" = 'PROCESSING'
+        AND "leaseExpiresAt" >= NOW()
     `);
-    if (count !== 1) {
-      this.logger.warn(`Outbox delivery ack lost lease: entry=${entryId} worker=${workerId}`);
-    }
+    if (count !== 1) throw new OutboxLeaseLostError(entryId, workerId);
   }
 
   async markFailed(
     workerId: string,
-    entry: Pick<ClaimedOutboxEntry, 'id' | 'retryCount' | 'maxRetries'>,
+    entry: Pick<ClaimedOutboxEntry, 'id' | 'retryCount' | 'maxRetries' | 'leaseToken'>,
     error: string,
   ): Promise<'RETRY' | 'DEAD_LETTER'> {
     const nextRetryCount = entry.retryCount + 1;
     if (nextRetryCount >= entry.maxRetries) {
-      await this.prisma.$executeRaw(Prisma.sql`
+      const count = await this.prisma.$executeRaw(Prisma.sql`
         UPDATE "outbox_entries"
         SET "status" = 'DEAD_LETTER',
             "retryCount" = ${nextRetryCount},
@@ -151,9 +188,15 @@ export class DurableOutboxWorker {
             "failedAt" = NOW(),
             "deadLetterAt" = NOW(),
             "leaseOwner" = NULL,
-            "leaseExpiresAt" = NULL
-        WHERE "id" = ${entry.id} AND "leaseOwner" = ${workerId}
+            "leaseToken" = NULL,
+            "leaseExpiresAt" = NULL,
+            "heartbeatAt" = NULL
+        WHERE "id" = ${entry.id}
+          AND "leaseOwner" = ${workerId}
+          AND "leaseToken" = ${entry.leaseToken}
+          AND "status" = 'PROCESSING'
       `);
+      if (count !== 1) throw new OutboxLeaseLostError(entry.id, workerId);
       return 'DEAD_LETTER';
     }
 
@@ -161,43 +204,23 @@ export class DurableOutboxWorker {
       MAX_BACKOFF_SECONDS,
       BASE_BACKOFF_SECONDS * 2 ** entry.retryCount,
     );
-    // Full jitter keeps concurrent retries from thundering the provider.
-    const delaySeconds = Math.max(1, Math.round(Math.random() * backoffSeconds));
-    await this.prisma.$executeRaw(Prisma.sql`
+    const count = await this.prisma.$executeRaw(Prisma.sql`
       UPDATE "outbox_entries"
       SET "status" = 'PENDING',
           "retryCount" = ${nextRetryCount},
           "lastError" = ${error},
-          "nextRetryAt" = NOW() + make_interval(secs => ${delaySeconds}),
+          "failedAt" = NOW(),
+          "nextRetryAt" = NOW() + make_interval(secs => ${backoffSeconds}),
           "leaseOwner" = NULL,
-          "leaseExpiresAt" = NULL
-      WHERE "id" = ${entry.id} AND "leaseOwner" = ${workerId}
+          "leaseToken" = NULL,
+          "leaseExpiresAt" = NULL,
+          "heartbeatAt" = NULL
+      WHERE "id" = ${entry.id}
+        AND "leaseOwner" = ${workerId}
+        AND "leaseToken" = ${entry.leaseToken}
+        AND "status" = 'PROCESSING'
     `);
+    if (count !== 1) throw new OutboxLeaseLostError(entry.id, workerId);
     return 'RETRY';
-  }
-
-  /** Operator re-drive of a dead-lettered entry back into the queue. */
-  async redrive(entryId: string): Promise<boolean> {
-    const count = await this.prisma.$executeRaw(Prisma.sql`
-      UPDATE "outbox_entries"
-      SET "status" = 'PENDING',
-          "retryCount" = 0,
-          "nextRetryAt" = NOW(),
-          "deadLetterAt" = NULL,
-          "failedAt" = NULL,
-          "lastError" = NULL
-      WHERE "id" = ${entryId} AND "status" = 'DEAD_LETTER'
-    `);
-    return count === 1;
-  }
-
-  /** Queue depth by status for dashboards and alerts. */
-  async queueStats(): Promise<Record<string, number>> {
-    const rows = await this.prisma.$queryRaw<Array<{ status: string; count: bigint }>>(Prisma.sql`
-      SELECT "status", COUNT(*)::bigint AS count
-      FROM "outbox_entries"
-      GROUP BY "status"
-    `);
-    return Object.fromEntries(rows.map((row) => [row.status, Number(row.count)]));
   }
 }
