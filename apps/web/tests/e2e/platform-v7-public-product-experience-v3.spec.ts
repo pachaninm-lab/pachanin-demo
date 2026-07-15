@@ -56,16 +56,10 @@ async function expectLayoutShiftWithinBudget(page: Page) {
 }
 
 async function expectMinimumTargets(page: Page, locator: string) {
-  const targets = await page.locator(locator).evaluateAll((elements) => elements
-    .filter((element) => {
-      const style = window.getComputedStyle(element);
-      const box = element.getBoundingClientRect();
-      return style.display !== 'none' && style.visibility !== 'hidden' && box.width > 0 && box.height > 0;
-    })
-    .map((element) => {
-      const box = element.getBoundingClientRect();
-      return { width: box.width, height: box.height };
-    }));
+  const targets = await page.locator(locator).evaluateAll((elements) => elements.map((element) => {
+    const box = element.getBoundingClientRect();
+    return { width: box.width, height: box.height };
+  }));
   expect(targets.length).toBeGreaterThan(0);
   expect(targets.every((target) => target.width >= 44 && target.height >= 44)).toBe(true);
 }
@@ -139,7 +133,7 @@ test.describe('Public Product Experience V3 browser acceptance', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('business areas, scenarios and browser history remain operable', async ({ page }) => {
+  test('lenses, scenarios, AI layer and browser history remain operable', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     await page.goto(
       '/platform-v7/how-it-works?lang=ru&entry=deal&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0',
@@ -159,9 +153,13 @@ test.describe('Public Product Experience V3 browser acceptance', () => {
     await expect(explorer).toHaveAttribute('data-lens', 'risk');
     await expect(explorer).toHaveAttribute('data-scenario', 'partial');
 
-    await page.locator('.pc-ppe-lens-list button').filter({ hasText: 'Документы' }).click();
-    await expect(explorer).toHaveAttribute('data-lens', 'documents');
-    await expect(page).toHaveURL(/lens=documents/);
+    await page.locator('.pc-ppe-lens-list button').filter({ hasText: 'ИИ и аналитика' }).click();
+    const aiToggle = page.locator('.pc-ppe-ai-toggle');
+    await expect(aiToggle).toHaveAttribute('aria-checked', 'false');
+    await aiToggle.click();
+    await expect(aiToggle).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('.pc-ppe-ai-signals article')).toHaveCount(3);
+    await expect(page).toHaveURL(/ai=1/);
 
     await expectNoSeriousAxeViolations(page);
     await expectLayoutShiftWithinBudget(page);
