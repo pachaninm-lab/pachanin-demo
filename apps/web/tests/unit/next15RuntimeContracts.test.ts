@@ -24,6 +24,10 @@ function hasUnawaitedCall(source: string, helper: string): boolean {
   return calls !== awaited;
 }
 
+function isDynamicPage(file: string): boolean {
+  return /\/\[[^/]+\]\//.test(file) && /\/page\.(?:ts|tsx)$/.test(file);
+}
+
 const webPackage = JSON.parse(read('apps/web/package.json')) as {
   dependencies?: Record<string, string>;
 };
@@ -53,6 +57,18 @@ describe('Next.js 15 runtime contracts', () => {
     expect(dealDocumentsPage).toContain('useParams<{ id: string }>()');
     expect(dealDocumentsPage).not.toContain('function DealDocumentsPage({ params }');
     expect(dealDocumentsPage).not.toContain('params.id');
+  });
+
+  it('has no synchronous dynamic page params left in the App Router', () => {
+    const unresolved: string[] = [];
+
+    for (const file of sourceFiles('apps/web/app').filter(isDynamicPage)) {
+      const source = read(file);
+      const synchronousDefaultParams = /export\s+default\s+(?:async\s+)?function[\s\S]{0,420}?\bparams\s*:\s*\{/.test(source);
+      if (synchronousDefaultParams) unresolved.push(file);
+    }
+
+    expect(unresolved).toEqual([]);
   });
 
   it('contains no unresolved codemod escape hatches or generated compatibility artifacts', () => {
@@ -92,6 +108,7 @@ describe('Next.js 15 runtime contracts', () => {
     expect(fs.existsSync(path.join(ROOT, 'docs/platform-v7/autopilot/normalize-next15-codemod.mjs'))).toBe(false);
     expect(fs.existsSync(path.join(ROOT, 'docs/platform-v7/autopilot/finalize-next15-clean.mjs'))).toBe(false);
     expect(fs.existsSync(path.join(ROOT, 'docs/platform-v7/autopilot/await-next15-request-headers.mjs'))).toBe(false);
+    expect(fs.existsSync(path.join(ROOT, 'docs/platform-v7/autopilot/normalize-next15-dynamic-pages.mjs'))).toBe(false);
     expect(read('.github/workflows/dependency-review.yml')).not.toContain('governed-next15');
   });
 });
