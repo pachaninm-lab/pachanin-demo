@@ -1,16 +1,17 @@
-import { BRAND_LOGO_DATA_URI } from './brand-logo-asset';
+const CANONICAL_LOGO_SRC = '/brand/logo-primary?v=267b9bbb';
 
 export default function HeaderLogo() {
   return (
     <span className='brand-logo-mark shrink-0' aria-hidden='true'>
       <img
         className='header-logo-image'
-        src={BRAND_LOGO_DATA_URI}
+        src={CANONICAL_LOGO_SRC}
         alt=''
-        width='64'
-        height='64'
+        width='128'
+        height='128'
         loading='eager'
-        decoding='sync'
+        decoding='async'
+        fetchPriority='high'
         draggable={false}
       />
     </span>
