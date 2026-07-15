@@ -125,18 +125,6 @@ apps/web/styles/platform-v7-public-typography.css
 apps/web/tests/unit/platformV7PublicTypography.test.ts
 scripts/p7-autopilot-guard.sh'
 
-PUBLIC_HOME_V5_SCOPE='apps/web/app/platform-v7/how-it-works/page.tsx
-apps/web/app/platform-v7/page.tsx
-apps/web/components/platform-v7/ChatSupportWidget.tsx
-apps/web/components/platform-v7/PublicDealPreview.tsx
-apps/web/i18n/public-product-experience-v4.ts
-apps/web/styles/platform-v7-public-product-experience-v5.css
-apps/web/tests/e2e/platform-v7-public-experience-v4.spec.ts
-apps/web/tests/unit/platformV7PublicExperienceV4.test.ts
-apps/web/tests/unit/platformV7RootWorkEntry.test.ts
-apps/web/tests/unit/platformV7VisibleEntry.test.ts
-scripts/p7-autopilot-guard.sh'
-
 STAFF_CONTROL_CENTER_TEMPLATE_SCOPE='apps/web/app/layout.tsx
 apps/web/app/platform-v7/layout.tsx
 apps/web/app/platform-v7/template.tsx'
@@ -210,10 +198,6 @@ fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/public-home-typography" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_HOME_TYPOGRAPHY_SCOPE")
-fi
-
-if [ "${GITHUB_HEAD_REF:-}" = "agent/public-home-v5-institutional-10of10" ]; then
-  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_HOME_V5_SCOPE")
 fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "feat/platform-v7-staff-control-center" ]; then
