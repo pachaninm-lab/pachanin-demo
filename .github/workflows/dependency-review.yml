@@ -35,7 +35,7 @@ jobs:
           fail-on-severity: critical
 
   governed-next15-header-awaits:
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/ir-sec-next-15-5-16-final' && github.actor != 'github-actions[bot]'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'agent/ir-sec-next-15-5-16-final'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
