@@ -8,8 +8,10 @@ on:
       - 'apps/api/src/outbox-worker.ts'
       - 'apps/api/src/outbox-worker.module.ts'
       - 'apps/api/src/common/kafka/**'
+      - 'apps/api/src/common/prisma/outbox-*'
       - 'apps/api/src/modules/integration-events/durable-outbox*'
       - 'apps/api/test/industrial/outbox-worker-process.e2e-spec.ts'
+      - 'apps/api/prisma/migrations/20260715143000_outbox_worker_principal/**'
       - 'infra/docker/Dockerfile.outbox-worker'
       - 'infra/docker/runtime-inventory.json'
       - 'infra/helm/grainflow/**'
@@ -23,8 +25,10 @@ on:
       - 'apps/api/src/outbox-worker.ts'
       - 'apps/api/src/outbox-worker.module.ts'
       - 'apps/api/src/common/kafka/**'
+      - 'apps/api/src/common/prisma/outbox-*'
       - 'apps/api/src/modules/integration-events/durable-outbox*'
       - 'apps/api/test/industrial/outbox-worker-process.e2e-spec.ts'
+      - 'apps/api/prisma/migrations/20260715143000_outbox_worker_principal/**'
       - 'infra/docker/Dockerfile.outbox-worker'
       - 'infra/docker/runtime-inventory.json'
       - 'infra/helm/grainflow/**'
@@ -45,7 +49,7 @@ env:
   EVIDENCE_DIR: artifacts/worker-topology
   PSQL_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/grainflow
   TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
-  DATABASE_URL: postgresql://app_deal:app_deal@localhost:5432/grainflow?schema=public
+  OUTBOX_DATABASE_URL: postgresql://app_outbox:app_outbox@localhost:5432/grainflow?schema=public
   KAFKA_BROKERS: localhost:9092
 
 jobs:
@@ -110,18 +114,20 @@ jobs:
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Create restricted application principal
+      - name: Create dedicated outbox application principal
         run: |
           psql "$PSQL_ADMIN_URL" -v ON_ERROR_STOP=1 <<'SQL'
           DO $role$
           BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
-              CREATE ROLE app_deal LOGIN PASSWORD 'app_deal';
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_outbox') THEN
+              CREATE ROLE app_outbox
+                LOGIN PASSWORD 'app_outbox'
+                NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION;
             END IF;
           END
           $role$;
-          GRANT CONNECT ON DATABASE grainflow TO app_deal;
-          GRANT USAGE ON SCHEMA public TO app_deal;
+          GRANT CONNECT ON DATABASE grainflow TO app_outbox;
+          GRANT USAGE ON SCHEMA public TO app_outbox;
           SQL
 
       - name: Generate client and apply exact-head migrations
@@ -153,17 +159,23 @@ jobs:
       - name: Run PostgreSQL lease and two-process Kafka acceptance
         id: lifecycle
         continue-on-error: true
-        env:
-          DATABASE_URL: ${{ env.DATABASE_URL }}
-          KAFKA_BROKERS: ${{ env.KAFKA_BROKERS }}
         run: |
           set -o pipefail
-          pnpm --filter @pc/api exec jest --config test/industrial/jest.config.json \
-            test/industrial/durable-outbox.e2e-spec.ts \
-            test/industrial/outbox-worker-process.e2e-spec.ts \
-            --runInBand --json \
-            --outputFile="$GITHUB_WORKSPACE/$EVIDENCE_DIR/process-jest.json" \
-            2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_DIR/process-jest.log"
+          DATABASE_URL="$TEST_ADMIN_DATABASE_URL" \
+            pnpm --filter @pc/api exec jest --config test/industrial/jest.config.json \
+              test/industrial/durable-outbox.e2e-spec.ts \
+              --runInBand --json \
+              --outputFile="$GITHUB_WORKSPACE/$EVIDENCE_DIR/lease-jest.json" \
+              2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_DIR/lease-jest.log"
+
+          OUTBOX_DATABASE_URL="$OUTBOX_DATABASE_URL" \
+          TEST_ADMIN_DATABASE_URL="$TEST_ADMIN_DATABASE_URL" \
+          KAFKA_BROKERS="$KAFKA_BROKERS" \
+            pnpm --filter @pc/api exec jest --config test/industrial/jest.config.json \
+              test/industrial/outbox-worker-process.e2e-spec.ts \
+              --runInBand --json \
+              --outputFile="$GITHUB_WORKSPACE/$EVIDENCE_DIR/process-jest.json" \
+              2>&1 | tee "$GITHUB_WORKSPACE/$EVIDENCE_DIR/process-jest.log"
 
       - name: Build machine-readable lifecycle evidence
         if: always()
@@ -174,9 +186,15 @@ jobs:
           const fs = require('node:fs');
           const path = require('node:path');
           const dir = process.env.EVIDENCE_DIR;
-          const jestPath = path.join(dir, 'process-jest.json');
-          const jest = fs.existsSync(jestPath) ? JSON.parse(fs.readFileSync(jestPath, 'utf8')) : null;
-          const passed = process.env.TEST_OUTCOME === 'success' && jest?.success === true;
+          const readJson = (name) => {
+            const file = path.join(dir, name);
+            return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
+          };
+          const lease = readJson('lease-jest.json');
+          const processResult = readJson('process-jest.json');
+          const passed = process.env.TEST_OUTCOME === 'success'
+            && lease?.success === true
+            && processResult?.success === true;
           const startedAt = fs.readFileSync(path.join(dir, 'process-started-at.txt'), 'utf8').trim();
           const report = {
             schemaVersion: 1,
@@ -184,8 +202,8 @@ jobs:
             commitSha: process.env.EXACT_HEAD,
             environment: 'github-actions-postgresql16-single-kafka-process-topology',
             timestamp: new Date().toISOString(),
-            command: 'jest durable-outbox.e2e-spec.ts outbox-worker-process.e2e-spec.ts --runInBand',
-            durationMs: jest?.runTime ?? null,
+            command: 'jest durable-outbox.e2e-spec.ts then outbox-worker-process.e2e-spec.ts --runInBand',
+            durationMs: (lease?.runTime ?? 0) + (processResult?.runTime ?? 0) || null,
             pass: passed,
             thresholds: {
               replicaCount: 2,
@@ -193,6 +211,9 @@ jobs:
               failoverEntries: 10,
               duplicateBusinessEffects: 0,
               lostEvents: 0,
+              workerDealPrivileges: 0,
+              workerInsertPrivileges: 0,
+              workerDeletePrivileges: 0,
             },
             observed: {
               replicaCount: 2,
@@ -200,14 +221,15 @@ jobs:
               deliveredEntries: passed ? 40 : null,
               retriedEntriesInProcessScenario: passed ? 0 : null,
               deadLetterEntriesInProcessScenario: passed ? 0 : null,
-              leaseRecoveryAndStaleTokenSuite: passed,
-              gracefulShutdown: passed,
-              survivorReadinessAfterPeerKill: passed,
-              kafkaProducerFencing: passed ? 0 : null,
+              leaseRecoveryAndStaleTokenSuite: lease?.success === true,
+              outboxPrincipalBoundary: processResult?.success === true,
+              gracefulShutdown: processResult?.success === true,
+              survivorReadinessAfterPeerKill: processResult?.success === true,
+              kafkaProducerFencing: processResult?.success === true ? 0 : null,
             },
             violatedThresholds: passed ? [] : ['WORKER_PROCESS_ACCEPTANCE_FAILED'],
-            artifacts: ['process-jest.json', 'process-jest.log', 'migrate-deploy.log', 'migrate-status.log'],
-            maturityBoundary: 'Two local worker OS processes with PostgreSQL 16 and single-node Kafka; not Kubernetes HA, database HA or operational soak.',
+            artifacts: ['lease-jest.json', 'lease-jest.log', 'process-jest.json', 'process-jest.log', 'migrate-deploy.log', 'migrate-status.log'],
+            maturityBoundary: 'Two local worker OS processes with dedicated app_outbox, PostgreSQL 16 and single-node Kafka; not Kubernetes HA, database HA or operational soak.',
             startedAt,
           };
           fs.writeFileSync(path.join(dir, 'outbox-worker-acceptance.json'), `${JSON.stringify(report, null, 2)}\n`);
