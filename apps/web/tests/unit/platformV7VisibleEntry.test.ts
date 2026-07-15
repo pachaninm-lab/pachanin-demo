@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -8,11 +9,23 @@ const productCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-pro
 const loginCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-login-copy.ts'), 'utf8');
 const publicHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/PublicSiteHeader.tsx'), 'utf8');
 const localeSwitch = () => readFileSync(resolve(__dirname, '../../components/platform-v7/PublicLocaleSwitch.tsx'), 'utf8');
+const cabinetShell = () => readFileSync(resolve(__dirname, '../../components/v7r/AppShellV4.tsx'), 'utf8');
+const staffShell = () => readFileSync(resolve(__dirname, '../../components/platform-v7/staff/StaffPlatformShell.tsx'), 'utf8');
+const loadingHeader = () => readFileSync(resolve(__dirname, '../../app/platform-v7/loading.tsx'), 'utf8');
+const contactHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ContactFixedHeader.tsx'), 'utf8');
+const webBrandAsset = () => readFileSync(resolve(__dirname, '../../components/v7r/brand-logo-asset.ts'), 'utf8');
+const landingBrandAsset = () => readFileSync(resolve(__dirname, '../../../landing/app/components/HeaderLogo.tsx'), 'utf8');
 const support = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ChatSupportWidget.tsx'), 'utf8');
 const css = () => readFileSync(resolve(__dirname, '../../styles/platform-v7-public-product-experience-v5.css'), 'utf8');
 
 function compact(source: string) {
   return source.replace(/\s+/g, ' ');
+}
+
+function extractWebpDataUri(source: string) {
+  const match = source.match(/data:image\/webp;base64,[A-Za-z0-9+/=]+/);
+  expect(match, 'canonical WebP brand asset must exist').not.toBeNull();
+  return match?.[0] ?? '';
 }
 
 describe('platform-v7 visible public entry', () => {
@@ -44,7 +57,29 @@ describe('platform-v7 visible public entry', () => {
     expect(css()).not.toContain('right: -5px');
   });
 
-  it('uses one canonical brand asset and one visual contract for every public-header control', () => {
+  it('uses the byte-identical approved PC logo in landing, public, cabinet, staff and loading headers', () => {
+    const approvedLandingUri = extractWebpDataUri(landingBrandAsset());
+    const platformUri = extractWebpDataUri(webBrandAsset());
+    const binary = Buffer.from(platformUri.slice(platformUri.indexOf(',') + 1), 'base64');
+
+    expect(platformUri).toBe(approvedLandingUri);
+    expect(binary).toHaveLength(1804);
+    expect(createHash('sha256').update(binary).digest('hex')).toBe('377276d5d6dcf7421c908569f6a58c23c3f0f24f521da9b8cd8c4dda6d899303');
+
+    for (const [name, source] of [
+      ['public', publicHeader()],
+      ['cabinet', cabinetShell()],
+      ['staff', staffShell()],
+      ['loading', loadingHeader()],
+    ] as const) {
+      expect(source, `${name} header must render the shared BrandMark`).toContain('BrandMark');
+    }
+
+    expect(contactHeader()).toContain('PublicSiteHeader');
+    expect(webBrandAsset()).not.toContain('UklGRqgL');
+  });
+
+  it('uses one visual contract for every public-header control', () => {
     const header = compact(publicHeader());
     const language = localeSwitch();
 
