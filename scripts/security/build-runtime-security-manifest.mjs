@@ -56,6 +56,38 @@ function requirePassed(report, label) {
   if (passed !== true) throw new Error(`${label} is not marked passed or valid.`);
 }
 
+function classifyHelmRender(helmRendered) {
+  const deploymentCount = (helmRendered.match(/^kind:\s*Deployment\s*$/gm) ?? []).length;
+  const executableKinds = [...helmRendered.matchAll(/^kind:\s*(Deployment|StatefulSet|DaemonSet|Job|CronJob)\s*$/gm)]
+    .map((match) => match[1]);
+  const imageReferences = (helmRendered.match(/^\s*image:\s*\S+/gm) ?? []).length;
+
+  if (deploymentCount > 0) {
+    if (!helmRendered.includes('readOnlyRootFilesystem: true')
+      || !helmRendered.includes('allowPrivilegeEscalation: false')
+      || !helmRendered.includes('runAsNonRoot: true')) {
+      throw new Error('Rendered Helm Deployments are not hardened.');
+    }
+    return {
+      mode: 'explicit-workload-render',
+      deploymentCount,
+      executableWorkloadCount: executableKinds.length,
+      imageReferenceCount: imageReferences,
+    };
+  }
+
+  if (executableKinds.length !== 0 || imageReferences !== 0) {
+    throw new Error(`Fail-closed default Helm render contains executable authority: kinds=${executableKinds.join(',') || '<none>'}, imageReferences=${imageReferences}.`);
+  }
+
+  return {
+    mode: 'fail-closed-default-no-workloads',
+    deploymentCount: 0,
+    executableWorkloadCount: 0,
+    imageReferenceCount: 0,
+  };
+}
+
 function main() {
   if (!/^[a-f0-9]{40}$/i.test(EXACT_HEAD)) throw new Error('RUNTIME_SECURITY_EXACT_HEAD must be a full commit SHA.');
   if (!/^\d+$/.test(WORKFLOW_RUN_ID) || !/^\d+$/.test(WORKFLOW_RUN_ATTEMPT)) {
@@ -100,9 +132,7 @@ function main() {
   const helmLint = readFileSync(pathFor('helm-lint.txt'), 'utf8');
   const helmRendered = readFileSync(pathFor('helm-rendered.yaml'), 'utf8');
   if (!/1 chart\(s\) linted, 0 chart\(s\) failed/.test(helmLint)) throw new Error('Helm lint evidence is not successful.');
-  if (!helmRendered.includes('kind: Deployment') || !helmRendered.includes('readOnlyRootFilesystem: true')) {
-    throw new Error('Rendered Helm evidence lacks hardened Deployments.');
-  }
+  const helmClassification = classifyHelmRender(helmRendered);
 
   const artifacts = files
     .filter((path) => statSync(path).isFile())
@@ -125,18 +155,23 @@ function main() {
       web: { digest: webDigest, user: 'nonroot', highOrCritical: 0 },
     },
     iacRoots: ['infra/docker', 'infra/helm', 'infra/k8s'],
-    helm: { lintPassed: true, renderedSha256: sha256(pathFor('helm-rendered.yaml')) },
+    helm: {
+      lintPassed: true,
+      renderedSha256: sha256(pathFor('helm-rendered.yaml')),
+      ...helmClassification,
+    },
     runtimePolicy: {
       checkedFiles: Array.isArray(policy.checkedFiles) ? policy.checkedFiles.length : 0,
       violations: 0,
       retiredImages: policy.retiredImages ?? [],
     },
     artifacts,
+    maturityBoundary: 'Default chart is fail-closed with zero executable workloads; active immutable workload rendering is accepted separately by the release-authority gate.',
     passed: true,
   };
   mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
   writeFileSync(OUTPUT_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
-  console.log(`Runtime security manifest accepted ${artifacts.length} exact-head evidence files.`);
+  console.log(`Runtime security manifest accepted ${artifacts.length} exact-head evidence files in ${helmClassification.mode} mode.`);
 }
 
 try {
