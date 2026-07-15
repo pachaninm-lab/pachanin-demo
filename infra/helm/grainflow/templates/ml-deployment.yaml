@@ -1,126 +1,23 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ include "grainflow.fullname" . }}-ml
-  namespace: {{ .Values.namespace.name }}
-  labels:
-    {{- include "grainflow.labels" . | nindent 4 }}
-    app.kubernetes.io/component: ml
-spec:
-  {{- if not .Values.ml.autoscaling.enabled }}
-  replicas: {{ .Values.ml.replicaCount }}
-  {{- end }}
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: grainflow-ml
-      app.kubernetes.io/instance: {{ .Release.Name }}
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: grainflow-ml
-        app.kubernetes.io/instance: {{ .Release.Name }}
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: {{ .Values.ml.service.port | quote }}
-        prometheus.io/path: "/metrics"
-    spec:
-      automountServiceAccountToken: false
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
-        seccompProfile:
-          type: RuntimeDefault
-      containers:
-        - name: ml
-          image: "{{ .Values.ml.image.repository }}:{{ .Values.ml.image.tag }}"
-          imagePullPolicy: {{ .Values.ml.image.pullPolicy }}
-          ports:
-            - name: http
-              containerPort: {{ .Values.ml.service.port }}
-              protocol: TCP
-          env:
-            {{- range $key, $val := .Values.ml.env }}
-            - name: {{ $key }}
-              value: {{ $val | quote }}
-            {{- end }}
-          resources:
-            {{- toYaml .Values.ml.resources | nindent 12 }}
-          livenessProbe:
-            {{- toYaml .Values.ml.livenessProbe | nindent 12 }}
-          readinessProbe:
-            {{- toYaml .Values.ml.readinessProbe | nindent 12 }}
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: [ALL]
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
-      volumes:
-        - name: tmp
-          emptyDir:
-            medium: Memory
-            sizeLimit: 256Mi
----
+# ML is deliberately not deployed by this chart.
 apiVersion: v1
-kind: Service
+kind: ConfigMap
 metadata:
-  name: {{ include "grainflow.fullname" . }}-ml
+  name: {{ include "grainflow.fullname" . }}-ml-runtime-status
   namespace: {{ .Values.namespace.name }}
   labels:
     {{- include "grainflow.labels" . | nindent 4 }}
     app.kubernetes.io/component: ml
-spec:
-  type: {{ .Values.ml.service.type }}
-  selector:
-    app.kubernetes.io/name: grainflow-ml
-    app.kubernetes.io/instance: {{ .Release.Name }}
-  ports:
-    - name: http
-      port: {{ .Values.ml.service.port }}
-      targetPort: http
----
-{{- if .Values.ml.autoscaling.enabled }}
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: {{ include "grainflow.fullname" . }}-ml
-  namespace: {{ .Values.namespace.name }}
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: {{ include "grainflow.fullname" . }}-ml
-  minReplicas: {{ .Values.ml.autoscaling.minReplicas }}
-  maxReplicas: {{ .Values.ml.autoscaling.maxReplicas }}
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: {{ .Values.ml.autoscaling.targetCPUUtilizationPercentage }}
-{{- end }}
----
-{{- if .Values.ml.podDisruptionBudget.enabled }}
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: {{ include "grainflow.fullname" . }}-ml
-  namespace: {{ .Values.namespace.name }}
-spec:
-  minAvailable: {{ .Values.ml.podDisruptionBudget.minAvailable }}
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: grainflow-ml
-      app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
+    platform.prozrachnaya-cena/deployable: "false"
+  annotations:
+    platform.prozrachnaya-cena/status: NOT_DEPLOYABLE
+    platform.prozrachnaya-cena/ticket: "#2605"
+data:
+  status: NOT_DEPLOYABLE
+  reason: >-
+    The experimental ML service is outside canonical Deal execution authority
+    and has no accepted data lineage, model lifecycle, tenant authorization,
+    dependency or operational evidence.
+  reactivationGate: >-
+    Separate product approval, versioned datasets, model registry, rollback and
+    drift monitoring, zero unexcepted HIGH or CRITICAL dependencies, non-root
+    immutable image, tenant isolation, load, failure and security acceptance.
