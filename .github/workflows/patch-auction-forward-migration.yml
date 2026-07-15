@@ -1,0 +1,76 @@
+name: Patch auction forward-only migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-auction-forward-migration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Patch target branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin agent/ir-auction-atomic-execution
+          git checkout agent/ir-auction-atomic-execution
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql')
+          source = path.read_text()
+          old = '''ALTER TABLE auction.lots
+            ALTER COLUMN start_price_kopecks_per_ton SET NOT NULL,
+            ALTER COLUMN step_price_kopecks_per_ton SET NOT NULL,
+            ADD CONSTRAINT auction_lots_start_price_kopecks_check
+              CHECK (start_price_kopecks_per_ton >= 0),
+            ADD CONSTRAINT auction_lots_step_price_kopecks_check
+              CHECK (step_price_kopecks_per_ton > 0);
+
+          ALTER TABLE auction.bids
+            ALTER COLUMN amount_kopecks_per_ton SET NOT NULL,
+            ADD CONSTRAINT auction_bids_amount_kopecks_check
+              CHECK (amount_kopecks_per_ton > 0);'''
+          new = '''ALTER TABLE auction.lots
+            ADD CONSTRAINT auction_lots_start_price_kopecks_check
+              CHECK (start_price_kopecks_per_ton IS NOT NULL AND start_price_kopecks_per_ton >= 0) NOT VALID,
+            ADD CONSTRAINT auction_lots_step_price_kopecks_check
+              CHECK (step_price_kopecks_per_ton IS NOT NULL AND step_price_kopecks_per_ton > 0) NOT VALID;
+
+          ALTER TABLE auction.bids
+            ADD CONSTRAINT auction_bids_amount_kopecks_check
+              CHECK (amount_kopecks_per_ton IS NOT NULL AND amount_kopecks_per_ton > 0) NOT VALID;
+
+          ALTER TABLE auction.lots
+            VALIDATE CONSTRAINT auction_lots_start_price_kopecks_check;
+          ALTER TABLE auction.lots
+            VALIDATE CONSTRAINT auction_lots_step_price_kopecks_check;
+          ALTER TABLE auction.bids
+            VALIDATE CONSTRAINT auction_bids_amount_kopecks_check;'''
+          if old not in source:
+              raise SystemExit('auction forward-only migration fragment not found')
+          path.write_text(source.replace(old, new, 1))
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql
+          git commit -m 'Make auction minor-unit constraints forward-safe'
+          git push origin HEAD:agent/ir-auction-atomic-execution
+      - name: Remove temporary workflow from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout main
+          git pull --ff-only origin main
+          git rm .github/workflows/patch-auction-forward-migration.yml
+          git commit -m 'Remove auction forward migration patch workflow'
+          git push origin HEAD:main
