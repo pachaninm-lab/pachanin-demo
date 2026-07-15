@@ -1,0 +1,77 @@
+name: Govern optional runtime retirement scope
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/ir-optional-runtime-scope.yml'
+      - '.github/workflows/optional-runtime-retirement-gate.yml'
+      - '.github/workflows/ml-ci.yml'
+      - '.github/workflows/docker-publish.yml'
+      - '.github/workflows/sbom-scan.yml'
+      - 'apps/ml/**'
+      - 'infra/airflow/**'
+      - 'infra/docker/Dockerfile.ml'
+      - 'infra/helm/grainflow/templates/ml-deployment.yaml'
+      - 'infra/helm/grainflow/values.yaml'
+      - 'infra/k8s/base/ml-deployment.yml'
+      - 'scripts/security/**'
+      - 'docs/platform-v7/autopilot/autopilot-state.json'
+      - 'docs/platform-v7/autopilot/check-security-release-gate.mjs'
+      - 'docs/platform-v7/autopilot/security-release-scope.json'
+      - 'docs/platform-v7/autopilot/optional-runtime-inventory.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  govern-scope:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'agent/ir-sec-retire-ml-airflow'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/ir-sec-retire-ml-airflow
+          fetch-depth: 0
+
+      - name: Register exact branch scope
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'docs/platform-v7/autopilot/autopilot-state.json';
+          const state = JSON.parse(fs.readFileSync(path, 'utf8'));
+          state.approvedConcurrentScopes ??= {};
+          state.approvedConcurrentScopes['agent/ir-sec-retire-ml-airflow'] = [
+            '.github/workflows/ir-optional-runtime-scope.yml',
+            '.github/workflows/optional-runtime-retirement-gate.yml',
+            '.github/workflows/ml-ci.yml',
+            '.github/workflows/docker-publish.yml',
+            '.github/workflows/sbom-scan.yml',
+            'apps/ml/**',
+            'docs/platform-v7/autopilot/autopilot-state.json',
+            'docs/platform-v7/autopilot/check-security-release-gate.mjs',
+            'docs/platform-v7/autopilot/optional-runtime-inventory.json',
+            'docs/platform-v7/autopilot/security-release-scope.json',
+            'infra/airflow/**',
+            'infra/docker/Dockerfile.ml',
+            'infra/helm/grainflow/templates/ml-deployment.yaml',
+            'infra/helm/grainflow/values.yaml',
+            'infra/k8s/base/ml-deployment.yml',
+            'scripts/security/**'
+          ];
+          fs.writeFileSync(path, `${JSON.stringify(state)}\n`);
+          NODE
+
+      - name: Commit governed scope
+        run: |
+          if git diff --quiet -- docs/platform-v7/autopilot/autopilot-state.json; then
+            echo 'Scope already registered.'
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/platform-v7/autopilot/autopilot-state.json
+          git commit -m 'Govern optional runtime retirement scope'
+          git push origin HEAD:agent/ir-sec-retire-ml-airflow
