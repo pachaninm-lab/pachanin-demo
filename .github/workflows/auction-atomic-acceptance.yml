@@ -17,6 +17,7 @@ env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
   PNPM_VERSION: '10.2.1'
   NODE_VERSION: '24'
+  PSQL_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow
   TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
   DATABASE_URL: postgresql://app_deal:app_deal@localhost:5432/grainflow?schema=public
   AUCTION_DIR: artifacts/auction-atomic
@@ -48,6 +49,13 @@ jobs:
           ref: ${{ env.EXACT_HEAD }}
           fetch-depth: 0
 
+      - name: Initialize exact-head evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$AUCTION_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$AUCTION_DIR/exact-head.txt"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -66,7 +74,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          psql "$TEST_ADMIN_DATABASE_URL" <<'SQL'
+          psql "$PSQL_ADMIN_DATABASE_URL" <<'SQL'
           DO $role$
           BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
@@ -107,7 +115,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$AUCTION_DIR"
           pnpm --filter @pc/api exec jest \
             --config test/jest-e2e.json \
             test/industrial/auction-atomic-execution.e2e-spec.ts \
