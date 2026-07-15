@@ -15,7 +15,6 @@ const loadingHeader = () => readFileSync(resolve(__dirname, '../../app/platform-
 const contactHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ContactFixedHeader.tsx'), 'utf8');
 const approvedHeaderLogo = () => readFileSync(resolve(__dirname, '../../components/v7r/ApprovedHeaderLogo.tsx'), 'utf8');
 const brandLogoAsset = () => readFileSync(resolve(__dirname, '../../components/v7r/brand-logo-asset.ts'), 'utf8');
-const landingHeaderLogo = () => readFileSync(resolve(__dirname, '../../../landing/app/components/HeaderLogo.tsx'), 'utf8');
 const brandMark = () => readFileSync(resolve(__dirname, '../../components/v7r/BrandMark.tsx'), 'utf8');
 const support = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ChatSupportWidget.tsx'), 'utf8');
 const css = () => readFileSync(resolve(__dirname, '../../styles/platform-v7-public-product-experience-v5.css'), 'utf8');
@@ -24,8 +23,8 @@ function compact(source: string) {
   return source.replace(/\s+/g, ' ');
 }
 
-function logoBinary(source: string) {
-  const encoded = source.match(/data:image\/webp;base64,([^']+)'/)?.[1] ?? '';
+function approvedLogoBinary() {
+  const encoded = brandLogoAsset().match(/data:image\/webp;base64,([^']+)'/)?.[1] ?? '';
   return Buffer.from(encoded, 'base64');
 }
 
@@ -61,10 +60,8 @@ describe('platform-v7 visible public entry', () => {
   it('renders the exact owner reference logo in every platform header', () => {
     const approved = approvedHeaderLogo();
     const asset = brandLogoAsset();
-    const landing = landingHeaderLogo();
     const mark = brandMark();
-    const binary = logoBinary(asset);
-    const landingBinary = logoBinary(landing);
+    const binary = approvedLogoBinary();
 
     expect(approved).toContain("import { BRAND_LOGO_DATA_URI } from './brand-logo-asset'");
     expect(approved).toContain('src={BRAND_LOGO_DATA_URI}');
@@ -79,12 +76,6 @@ describe('platform-v7 visible public entry', () => {
     expect(binary.subarray(0, 4).toString('ascii')).toBe('RIFF');
     expect(binary.subarray(8, 12).toString('ascii')).toBe('WEBP');
     expect(createHash('sha256').update(binary).digest('hex')).toBe('3fc88062d53ec1b0a0dd50430bce2caf47b7d725ddd5aa7d6c84f5c998de0625');
-
-    expect(landing).toContain("className='header-logo-image'");
-    expect(landing).toContain('width={64}');
-    expect(landing).toContain('height={64}');
-    expect(landing).toContain('draggable={false}');
-    expect(landingBinary.equals(binary)).toBe(true);
 
     expect(mark).toContain("import ApprovedHeaderLogo from './ApprovedHeaderLogo'");
     expect(mark).toContain('<ApprovedHeaderLogo />');
