@@ -7,8 +7,13 @@ const explorerSource = () => readFileSync(resolve(__dirname, '../../app/platform
 const productCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-product-experience-v4.ts'), 'utf8');
 const loginCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-login-copy.ts'), 'utf8');
 const publicHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/PublicSiteHeader.tsx'), 'utf8');
+const localeSwitch = () => readFileSync(resolve(__dirname, '../../components/platform-v7/PublicLocaleSwitch.tsx'), 'utf8');
 const support = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ChatSupportWidget.tsx'), 'utf8');
 const css = () => readFileSync(resolve(__dirname, '../../styles/platform-v7-public-product-experience-v5.css'), 'utf8');
+
+function compact(source: string) {
+  return source.replace(/\s+/g, ' ');
+}
 
 describe('platform-v7 visible public entry', () => {
   it('front-loads the user task and keeps two deliberate actions', () => {
@@ -37,6 +42,26 @@ describe('platform-v7 visible public entry', () => {
     expect(widget).toContain('triggerRef.current?.focus()');
     expect(css()).toContain('right: max(14px');
     expect(css()).not.toContain('right: -5px');
+  });
+
+  it('uses one canonical brand asset and one visual contract for every public-header control', () => {
+    const header = compact(publicHeader());
+    const language = localeSwitch();
+
+    expect(header).toContain("import { BrandMark } from '@/components/v7r/BrandMark'");
+    expect(header).toContain("data-brand-mark='transparent-price-canonical'");
+    expect(header).toContain('<BrandMark size={40} />');
+    expect(header).not.toMatch(/<img[^>]+(?:logo|brand)/i);
+
+    expect(language).toContain("className='pc-site-locale-switch'");
+    expect(header).toContain('--pc-site-control-height: 44px');
+    expect(header).toContain('--pc-site-control-radius: 11px');
+    expect(header).toContain('.pc-site-mobile-menu > summary, .pc-site-header .pc-site-locale-switch, .pc-site-header .entry-login, .pc-site-header .pc-site-action');
+    expect(header).toContain('height: var(--pc-site-control-height)');
+    expect(header).toContain('border: 1px solid var(--pc-site-control-border)');
+    expect(header).toContain('border-radius: var(--pc-site-control-radius)');
+    expect(header).toContain('background: var(--pc-site-control-background)');
+    expect(header).not.toContain('.pc-site-locale-switch { min-width: 54px; gap: 5px; padding: 0 10px; color: #087a3b;');
   });
 
   it('uses descriptive access labels without client-selected authority', () => {
