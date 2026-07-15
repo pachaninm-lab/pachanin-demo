@@ -100,7 +100,8 @@ describe('platform-v7 public product experience v3', () => {
   });
 
   it('reserves the protected loading viewport instead of shifting the cabinet after hydration', () => {
-    expect(layout).toContain(".pc-shell-root-v4 .p7-route-loading{min-height:calc(100dvh - 136px)!important}");
+    expect(layout).toContain(".pc-shell-root-v4 .p7-route-loading{min-height:calc(100dvh - 136px)}");
+    expect(layout).not.toContain('!important');
   });
 
   it('keeps mobile, accessibility and resilient-display gates active', () => {
