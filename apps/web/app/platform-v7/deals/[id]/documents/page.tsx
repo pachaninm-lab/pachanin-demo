@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { CryptoProSignStub } from '@/components/platform-v7/CryptoProSignStub';
 import { InvoiceGenerator } from '@/components/platform-v7/InvoiceGenerator';
 
@@ -41,19 +42,20 @@ function statusTone(ok: boolean) {
     : { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309', label: 'Ждём' };
 }
 
-export default function DealDocumentsPage({ params }: { params: { id: string } }) {
+export default function DealDocumentsPage() {
+  const { id: dealId } = useParams<{ id: string }>();
   const [docs, setDocs] = React.useState<UploadedDoc[]>([]);
   const [checklist, setChecklist] = React.useState<Record<string, boolean>>({});
   const [toast, setToast] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     try {
-      const rawDocs = window.localStorage.getItem(storageKey(params.id));
-      const rawChecklist = window.localStorage.getItem(checklistKey(params.id));
+      const rawDocs = window.localStorage.getItem(storageKey(dealId));
+      const rawChecklist = window.localStorage.getItem(checklistKey(dealId));
       if (rawDocs) setDocs(JSON.parse(rawDocs));
       if (rawChecklist) setChecklist(JSON.parse(rawChecklist));
     } catch {}
-  }, [params.id]);
+  }, [dealId]);
 
   React.useEffect(() => {
     if (!toast) return;
@@ -85,11 +87,11 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
   }, [docs, checklist]);
 
   function requestBankReview() {
-    setToast(bankReady ? `Основание по ${params.id} подготовлено для банка.` : `Нельзя передать основание: ${blockerDone}/${blockerTotal} blocker-документов готовы.`);
+    setToast(bankReady ? `Основание по ${dealId} подготовлено для банка.` : `Нельзя передать основание: ${blockerDone}/${blockerTotal} blocker-документов готовы.`);
   }
 
   function buildDossier() {
-    setToast(`Досье сделки ${params.id} сформировано.`);
+    setToast(`Досье сделки ${dealId} сформировано.`);
   }
 
   return (
@@ -97,7 +99,7 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 14 }}>{params.id}</div>
+            <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 800, color: '#0A7A5F', fontSize: 14 }}>{dealId}</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)', marginTop: 6 }}>Документы сделки</div>
             <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', marginTop: 6, lineHeight: 1.6 }}>Отдельный документный контур: файлы, checklist, audit trail и готовность основания для банка.</div>
           </div>
@@ -190,19 +192,19 @@ export default function DealDocumentsPage({ params }: { params: { id: string } }
             <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Электронная подпись (КЭП · Крипто-Про)</div>
             <div style={{ fontSize: 12, color: 'var(--pc-text-muted)', marginTop: 4 }}>ГОСТ Р 34.10-2012 · ФНС УЦ</div>
           </div>
-          <CryptoProSignStub documentId={`${params.id}-contract`} documentName="Контракт купли-продажи" />
+          <CryptoProSignStub documentId={`${dealId}-contract`} documentName='Контракт купли-продажи' />
         </section>
         <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Счёт-фактура · УПД</div>
             <div style={{ fontSize: 12, color: 'var(--pc-text-muted)', marginTop: 4 }}>Формат ФНС ММВ-7-15/820@ · СБИС / Диадок</div>
           </div>
-          <InvoiceGenerator dealId={params.id} />
+          <InvoiceGenerator dealId={dealId} />
         </section>
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link href={`/platform-v7/deals/${params.id}`} style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>← Вернуться в сделку</Link>
+        <Link href={`/platform-v7/deals/${dealId}`} style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>← Вернуться в сделку</Link>
         <Link href='/platform-v7/deals' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>Все сделки</Link>
       </div>
     </div>
