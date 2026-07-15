@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prozrachnaya-cena.invalid/schemas/immutable-release-manifest.schema.json",
+  "title": "Prozrachnaya Cena immutable release manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schemaVersion",
+    "repository",
+    "sourceCommit",
+    "createdAt",
+    "migrationSetDigest",
+    "build",
+    "components",
+    "maturityBoundary",
+    "manifestId"
+  ],
+  "properties": {
+    "kind": { "const": "ProzrachnayaCenaImmutableRelease" },
+    "schemaVersion": { "const": 1 },
+    "repository": { "const": "pachaninm-lab/pachanin-demo" },
+    "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "migrationSetDigest": { "$ref": "#/$defs/digest" },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["buildOnce", "deployMany", "commands"],
+      "properties": {
+        "buildOnce": { "const": true },
+        "deployMany": { "const": true },
+        "commands": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["api", "web", "outboxWorker", "migration"],
+      "properties": {
+        "api": { "$ref": "#/$defs/component" },
+        "web": { "$ref": "#/$defs/component" },
+        "outboxWorker": { "$ref": "#/$defs/component" },
+        "migration": { "$ref": "#/$defs/component" }
+      }
+    },
+    "maturityBoundary": { "type": "string", "pattern": "not deployed" },
+    "manifestId": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "digest", "sourceCommit", "runtimeUser"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1, "pattern": "^[^\\s@]+$" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "runtimeUser": { "const": "nonroot" }
+      }
+    }
+  }
+}
