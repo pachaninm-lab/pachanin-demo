@@ -14,7 +14,7 @@ describe('Disputes PostgreSQL authority policy', () => {
   const lifecycleMigration = source('prisma/migrations/20260715021200_dispute_lifecycle_commands/migration.sql');
   const finalizationMigration = source('prisma/migrations/20260715021300_dispute_finalization_commands/migration.sql');
   const partyGuardMigration = source('prisma/migrations/20260715021400_dispute_party_initiator_guard/migration.sql');
-  const freezeMigration = source('prisma/migrations/20260715021450_dispute_deal_freeze_and_payment_projection/migration.sql');
+  const freezeMigration = source('prisma/migrations/20260715021400_dispute_deal_freeze_and_payment_projection/migration.sql');
 
   it('has one PostgreSQL production owner and no runtime selector', () => {
     expect(moduleSource).toContain('PostgresqlDisputeRepository');
