@@ -1,0 +1,7 @@
+spec:
+  template:
+    spec:
+      # Kubernetes service-link injection creates KAFKA_PORT for the Service
+      # named kafka. Confluent KRaft startup rejects that legacy variable.
+      # Disable all implicit service env and use the explicit listener config.
+      enableServiceLinks: false
