@@ -43,7 +43,7 @@ function htmlEscape(value: string): string {
 
 export async function GET(
   request: NextRequest,
-  context: { params: { role: string } },
+  context: { params: Promise<{ role: string }> },
 ) {
   if (!demoLoginAllowed()) {
     return new NextResponse('Демо-вход отключён в production.', {
@@ -51,7 +51,7 @@ export async function GET(
       headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
     });
   }
-  const slug = (context.params.role || 'farmer').toLowerCase();
+  const slug = ((await context.params).role || 'farmer').toLowerCase();
   const target = ROLE_TARGETS[slug] ?? ROLE_TARGETS.farmer;
   const to = sanitizeDestination(request.nextUrl.searchParams.get('to'), target.firstPage);
   const exp = Math.floor(Date.now() / 1000) + 8 * 3600;

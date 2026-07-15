@@ -2,7 +2,7 @@ import { serverApiUrl, serverAuthHeaders } from './server-api';
 
 export async function getRoleHomeCanonical(roleId: string) {
   try {
-    const response = await fetch(serverApiUrl(`/role-homes/${roleId}`), { cache: 'no-store', headers: serverAuthHeaders() });
+    const response = await fetch(serverApiUrl(`/role-homes/${roleId}`), { cache: 'no-store', headers: await serverAuthHeaders() });
     if (!response.ok) throw new Error(`role home ${response.status}`);
     const data = await response.json();
     return { available: true, source: data?.source || `canonical.role-home.${roleId}`, data, error: null as string | null };

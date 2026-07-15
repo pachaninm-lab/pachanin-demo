@@ -14,7 +14,7 @@ async function safeFetch(url: string, headers: Headers) {
 }
 
 export async function GET() {
-  const h = runtimeAuthHeaders({ 'Content-Type': 'application/json' });
+  const h = await runtimeAuthHeaders({ 'Content-Type': 'application/json' });
 
   const [deals, payments, disputes, shipments, outbox, integrations] = await Promise.all([
     safeFetch(runtimeApiUrl('/deals'), h),

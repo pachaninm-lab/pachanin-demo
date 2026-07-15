@@ -28,7 +28,8 @@ function tone(kind: string) {
   return { bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.18)', color: '#B45309' };
 }
 
-export default function TransportSimulationPage({ params }: { params: { id: string } }) {
+export default async function TransportSimulationPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const deal = selectDealById(params.id);
   if (!deal) return notFound();
 

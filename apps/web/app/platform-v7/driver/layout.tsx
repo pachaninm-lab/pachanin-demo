@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function DriverLayout({ children }: { children: ReactNode }) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
   const nowSeconds = Math.floor(Date.now() / 1000);
 

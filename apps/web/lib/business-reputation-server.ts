@@ -4,7 +4,7 @@ export async function getBusinessReputationOrganizations() {
   try {
     const response = await fetch(serverApiUrl('/business-reputation/organizations'), {
       cache: 'no-store',
-      headers: serverAuthHeaders()
+      headers: await serverAuthHeaders()
     });
     if (!response.ok) throw new Error(`business reputation organizations ${response.status}`);
     const data = await response.json();
@@ -18,7 +18,7 @@ export async function getBusinessReputationProfile(orgId: string) {
   try {
     const response = await fetch(serverApiUrl(`/business-reputation/organizations/${orgId}`), {
       cache: 'no-store',
-      headers: serverAuthHeaders()
+      headers: await serverAuthHeaders()
     });
     if (!response.ok) throw new Error(`business reputation profile ${response.status}`);
     return response.json();

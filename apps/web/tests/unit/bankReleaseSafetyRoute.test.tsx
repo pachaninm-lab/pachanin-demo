@@ -26,10 +26,10 @@ describe('BankReleaseSafetyPage', () => {
   it('opens a selected Deal only through the authenticated canonical workspace', () => {
     expect(page).toContain('getCanonicalBankReleaseWorkspace');
     expect(page).toContain('buildBankReleaseProjection');
-    expect(page).toContain('searchParams?: PageSearchParams');
+    expect(page).toContain('searchParams?: Promise<PageSearchParams>');
     expect(page).toContain('if (!dealId) return renderRegistry(locale)');
     expect(authority).toContain("serverApiUrl(`/deals/${encodeURIComponent(dealId)}/workspace`)");
-    expect(authority).toContain('serverAuthHeaders()');
+    expect(authority).toContain('await serverAuthHeaders()');
     expect(authority).toContain("cache: 'no-store'");
     expect(authority).toContain("import { REQUIRED_RELEASE_DOCUMENT_TYPES } from './deal-execution-server'");
   });

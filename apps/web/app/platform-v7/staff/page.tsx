@@ -103,8 +103,8 @@ async function verifyControlledIdentity(accessToken: string): Promise<Verificati
   };
 }
 
-function resolveLocale(): AppLocale {
-  const headerLocale = headers().get('x-pc-locale');
+async function resolveLocale(): Promise<AppLocale> {
+  const headerLocale = (await headers()).get('x-pc-locale');
   return isAppLocale(headerLocale) ? headerLocale : DEFAULT_LOCALE;
 }
 
@@ -133,8 +133,8 @@ async function verifyIdentity(accessToken: string): Promise<Verification> {
 }
 
 export default async function StaffControlCenterPage() {
-  const locale = resolveLocale();
-  const cookieStore = cookies();
+  const locale = await resolveLocale();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get(ACCESS_COOKIE)?.value;
   const csrfToken = cookieStore.get(CSRF_COOKIE)?.value || '';
   if (!accessToken) redirect('/platform-v7/login?next=%2Fplatform-v7%2Fstaff');

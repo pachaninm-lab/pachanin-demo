@@ -20,7 +20,8 @@ function makeDemoChain(dealId: string): DealEvent[] {
   ];
 }
 
-export default function DealAuditPage({ params }: { params: { id: string } }) {
+export default async function DealAuditPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const dealId = params.id;
 
   return (

@@ -21,7 +21,7 @@ export async function getReportingRegistry(): Promise<ReportingRegistry> {
   try {
     const response = await fetch(serverApiUrl('/deals'), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!response.ok) return UNAVAILABLE;
     return parseRegistry(await response.json());

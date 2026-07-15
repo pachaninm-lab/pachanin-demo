@@ -7,8 +7,8 @@ export function serverApiUrl(path: string) {
   return `${API_URL}${path}`;
 }
 
-export function serverAuthHeaders(extra?: HeadersInit) {
-  const token = cookies().get(ACCESS_COOKIE)?.value;
+export async function serverAuthHeaders(extra?: HeadersInit): Promise<Headers> {
+  const token = (await cookies()).get(ACCESS_COOKIE)?.value;
   const headers = new Headers(extra || {});
   if (token) headers.set('Authorization', `Bearer ${token}`);
   return headers;

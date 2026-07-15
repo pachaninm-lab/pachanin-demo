@@ -51,7 +51,7 @@ function fallbackWorksheetFromSnapshot(dealId: string): Worksheet {
 
 export async function getSettlementWorksheet(dealId: string): Promise<Worksheet> {
   try {
-    const response = await fetch(serverApiUrl(`/settlement-runtime/deals/${dealId}`), { cache: 'no-store', headers: serverAuthHeaders() });
+    const response = await fetch(serverApiUrl(`/settlement-runtime/deals/${dealId}`), { cache: 'no-store', headers: await serverAuthHeaders() });
     if (!response.ok) throw new Error(`settlement worksheet ${response.status}`);
     return response.json();
   } catch {
@@ -61,7 +61,7 @@ export async function getSettlementWorksheet(dealId: string): Promise<Worksheet>
 
 export async function getSettlementPortfolio(): Promise<Portfolio> {
   try {
-    const response = await fetch(serverApiUrl('/settlement-runtime/portfolio'), { cache: 'no-store', headers: serverAuthHeaders() });
+    const response = await fetch(serverApiUrl('/settlement-runtime/portfolio'), { cache: 'no-store', headers: await serverAuthHeaders() });
     if (!response.ok) throw new Error(`settlement portfolio ${response.status}`);
     return response.json();
   } catch {

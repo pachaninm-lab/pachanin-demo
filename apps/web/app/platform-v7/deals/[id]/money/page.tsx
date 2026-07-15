@@ -1,7 +1,8 @@
 import { GrainWorkflowPage } from '../../../../../components/platform-v7/GrainWorkflowPage';
 import { WorkflowActionPanel } from '../../../../../components/platform-v7/WorkflowActionPanel';
 
-export default function DealMoneyPage({ params }: { params: { id: string } }) {
+export default async function DealMoneyPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return (
     <>
       <GrainWorkflowPage eyebrow='Сделка · расчёт' title={`Расчёт ${params.id}`} lead='Сводка суммы, резерва, удержаний, статуса и следующего шага по сделке.' primaryHref='/platform-v7/settlement/grain' primaryLabel='Расчёт' items={[

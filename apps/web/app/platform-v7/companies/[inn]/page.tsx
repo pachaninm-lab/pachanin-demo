@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
-export default function CompanyPage({ params }: { params: { inn: string } }) {
+export default async function CompanyPage(props: { params: Promise<{ inn: string }> }) {
+  const params = await props.params;
   redirect(`/platform-v7/compliance?inn=${encodeURIComponent(params.inn)}`);
 }

@@ -29,7 +29,7 @@ export async function getEvidencePack(dealId: string): Promise<EvidencePackResul
   try {
     const res = await fetch(serverApiUrl(`/evidence-pack/deal/${encodeURIComponent(dealId)}`), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!res.ok) throw new Error(`evidence-pack ${res.status}`);
     return res.json();
@@ -42,7 +42,7 @@ export async function verifyEvidenceChain(dealId: string): Promise<{ valid: bool
   try {
     const res = await fetch(serverApiUrl(`/evidence-pack/deal/${encodeURIComponent(dealId)}/verify-chain`), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!res.ok) throw new Error(`evidence-chain ${res.status}`);
     return res.json();

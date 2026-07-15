@@ -159,7 +159,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, reason: 'cabinet_session_unavailable' }, { status: 503 });
   }
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   cookieStore.set(CABINET_SESSION_COOKIE, token, secureCookie(true));
 
   if (accountType === 'owner_test' && testAccessEnabled) {

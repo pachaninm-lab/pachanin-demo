@@ -33,7 +33,7 @@ export async function getDisputes(): Promise<DisputeServerItem[]> {
   try {
     const res = await fetch(serverApiUrl('/disputes'), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!res.ok) return [];
     const data: unknown = await res.json();
@@ -49,7 +49,7 @@ export async function getDispute(id: string): Promise<DisputeServerItem | null> 
   try {
     const res = await fetch(serverApiUrl(`/disputes/${encodeURIComponent(normalizedId)}`), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!res.ok) return null;
     const dispute = parseDispute(await res.json());

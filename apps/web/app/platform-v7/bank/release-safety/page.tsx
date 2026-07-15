@@ -153,7 +153,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: copy.metadataTitle, description: copy.metadataDescription };
 }
 
-export default async function BankReleaseSafetyPage({ searchParams }: { searchParams?: PageSearchParams }) {
+export default async function BankReleaseSafetyPage(props: { searchParams?: Promise<PageSearchParams> }) {
+  const searchParams = await props.searchParams;
   const locale = normalizeLocale(await getLocale());
   const dealId = firstParam(searchParams?.dealId);
   const shipmentId = firstParam(searchParams?.shipmentId);

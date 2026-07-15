@@ -20,7 +20,7 @@ export default async function PlatformV7ControlTowerPage() {
   if (!secret) redirect('/platform-v7/login');
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const role = (
     await readVerifiedCabinetSessionRole(cookieStore.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, nowSeconds)
   ) ?? (

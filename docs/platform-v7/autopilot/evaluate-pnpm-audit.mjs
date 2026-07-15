@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 
 const AUDIT_PATH = resolve(process.env.PNPM_AUDIT_JSON ?? 'artifacts/security/pnpm-audit.json');
+const STDERR_PATH = resolve(process.env.PNPM_AUDIT_STDERR ?? `${dirname(AUDIT_PATH)}/pnpm-audit.stderr.txt`);
 const EXCEPTIONS_PATH = resolve('docs/platform-v7/autopilot/security-exceptions.json');
 const REPORT_PATH = resolve(process.env.PNPM_AUDIT_REPORT ?? 'artifacts/security/pnpm-audit-evaluation.json');
 const EXACT_HEAD = process.env.SECURITY_EXACT_HEAD ?? '';
-const SCANNER_EXIT = Number(process.env.PNPM_AUDIT_EXIT ?? 'NaN');
+const FALLBACK_VERSION = process.env.PNPM_AUDIT_FALLBACK_VERSION ?? '11.13.0';
 
 function parseJson(path, label) {
   try {
@@ -68,7 +70,84 @@ function collectFindings(audit) {
   return [...deduplicated.values()];
 }
 
-const audit = parseJson(AUDIT_PATH, 'pnpm audit report');
+function isRetiredLegacyEndpoint(payload) {
+  const code = String(payload?.error?.code ?? '');
+  const message = String(payload?.error?.message ?? '');
+  return code === 'ERR_PNPM_AUDIT_BAD_RESPONSE'
+    && (message.includes('responded with 410') || message.includes('endpoint is being retired'));
+}
+
+function runBulkAuditFallback() {
+  const command = [
+    'exec',
+    '--yes',
+    `--package=pnpm@${FALLBACK_VERSION}`,
+    '--',
+    'pnpm',
+    'audit',
+    '--prod',
+    '--json',
+    '--audit-level=high',
+  ];
+  const manifestPath = resolve('package.json');
+  const originalManifest = readFileSync(manifestPath, 'utf8');
+  let result;
+  try {
+    const manifest = JSON.parse(originalManifest);
+    manifest.packageManager = `pnpm@${FALLBACK_VERSION}`;
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    result = spawnSync('npm', command, {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      env: {
+        ...process.env,
+        COREPACK_ENABLE_PROJECT_SPEC: '0',
+        npm_config_manage_package_manager_versions: 'false',
+      },
+    });
+  } finally {
+    writeFileSync(manifestPath, originalManifest);
+  }
+
+  const exitCode = Number.isInteger(result?.status) ? result.status : 1;
+  const stderr = [
+    `Legacy pnpm audit endpoint retired; retried with pinned pnpm ${FALLBACK_VERSION} bulk advisory client.`,
+    `The repository packageManager field was temporarily set to pnpm@${FALLBACK_VERSION} for this isolated scanner process and restored immediately afterwards.`,
+    result?.error ? String(result.error) : '',
+    result?.stderr ?? '',
+  ].filter(Boolean).join('\n');
+  mkdirSync(dirname(STDERR_PATH), { recursive: true });
+  appendFileSync(STDERR_PATH, `${stderr}\n`);
+
+  try {
+    const payload = JSON.parse(String(result?.stdout ?? '').trim());
+    writeFileSync(AUDIT_PATH, `${JSON.stringify(payload, null, 2)}\n`);
+    return { payload, exitCode, stderr };
+  } catch (error) {
+    const payload = {
+      error: {
+        code: 'PNPM_BULK_AUDIT_BAD_RESPONSE',
+        message: `Pinned pnpm ${FALLBACK_VERSION} did not return valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      },
+    };
+    writeFileSync(AUDIT_PATH, `${JSON.stringify(payload, null, 2)}\n`);
+    return { payload, exitCode, stderr };
+  }
+}
+
+let scannerExit = Number(process.env.PNPM_AUDIT_EXIT ?? 'NaN');
+let scannerVersion = process.env.PNPM_VERSION ?? 'repository-pinned';
+let fallbackUsed = false;
+let audit = parseJson(AUDIT_PATH, 'pnpm audit report');
+if (isRetiredLegacyEndpoint(audit)) {
+  const fallback = runBulkAuditFallback();
+  audit = fallback.payload;
+  scannerExit = fallback.exitCode;
+  scannerVersion = FALLBACK_VERSION;
+  fallbackUsed = true;
+}
+
 const registry = parseJson(EXCEPTIONS_PATH, 'security exception registry');
 const activeExceptions = new Set(
   (Array.isArray(registry.exceptions) ? registry.exceptions : [])
@@ -85,7 +164,7 @@ const hasRecognizedAuditShape = Boolean(
   || (audit?.metadata && typeof audit.metadata === 'object'),
 );
 
-if (!Number.isInteger(SCANNER_EXIT) || SCANNER_EXIT < 0) {
+if (!Number.isInteger(scannerExit) || scannerExit < 0) {
   blocked.push({
     findingId: 'PNPM_AUDIT_EXECUTION',
     severity: 'CRITICAL',
@@ -103,12 +182,12 @@ if (!Number.isInteger(SCANNER_EXIT) || SCANNER_EXIT < 0) {
     url: '',
     reason: 'Scanner failure or registry failure must fail closed.',
   });
-} else if (SCANNER_EXIT !== 0 && findings.length === 0) {
+} else if (scannerExit !== 0 && findings.length === 0) {
   blocked.push({
     findingId: 'PNPM_AUDIT_UNEXPLAINED_EXIT',
     severity: 'CRITICAL',
     package: 'pnpm',
-    title: `pnpm audit exited ${SCANNER_EXIT} without HIGH or CRITICAL findings`,
+    title: `pnpm audit exited ${scannerExit} without HIGH or CRITICAL findings`,
     url: '',
     reason: 'An unexplained scanner failure cannot be accepted.',
   });
@@ -134,7 +213,10 @@ const report = {
   commitSha: EXACT_HEAD,
   evaluatedAt: new Date().toISOString(),
   scanner: 'pnpm-audit',
-  scannerExitCode: Number.isFinite(SCANNER_EXIT) ? SCANNER_EXIT : null,
+  scannerVersion,
+  scannerExitCode: Number.isFinite(scannerExit) ? scannerExit : null,
+  fallbackUsed,
+  endpointContract: fallbackUsed ? 'bulk-advisory' : 'repository-pinned-client',
   recognizedAuditShape: hasRecognizedAuditShape,
   reportedTotal,
   highOrCriticalFindings: findings,
@@ -153,4 +235,4 @@ if (blocked.length > 0) {
   process.exit(1);
 }
 
-console.log(`pnpm audit accepted: ${findings.length} HIGH/CRITICAL finding(s), ${excepted.length} formally excepted.`);
+console.log(`pnpm audit accepted: ${findings.length} HIGH/CRITICAL finding(s), ${excepted.length} formally excepted, scanner ${scannerVersion}${fallbackUsed ? ' (bulk fallback)' : ''}.`);

@@ -78,7 +78,7 @@ function mapRuntime(item: RuntimeDocument): DocumentCenterItem {
 
 export async function getDocuments(fallbackDocuments: RuntimeDocument[]): Promise<DocumentCenterItem[]> {
   try {
-    const response = await fetch(serverApiUrl('/documents'), { cache: 'no-store', headers: serverAuthHeaders() });
+    const response = await fetch(serverApiUrl('/documents'), { cache: 'no-store', headers: await serverAuthHeaders() });
     if (!response.ok) throw new Error(`documents ${response.status}`);
     const payload = await response.json();
     if (!Array.isArray(payload)) throw new Error('documents shape');

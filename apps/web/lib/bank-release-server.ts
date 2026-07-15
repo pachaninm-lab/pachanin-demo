@@ -202,7 +202,7 @@ export async function getCanonicalBankReleaseWorkspace(
   try {
     const response = await fetch(serverApiUrl(`/deals/${encodeURIComponent(dealId)}/workspace`), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!response.ok) return null;
     const workspace = parseWorkspace(await response.json());

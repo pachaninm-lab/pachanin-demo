@@ -2,7 +2,7 @@ import { serverApiUrl, serverAuthHeaders } from './server-api';
 
 async function fetchSber(path: string) {
   try {
-    const response = await fetch(serverApiUrl(path), { cache: 'no-store', headers: serverAuthHeaders() });
+    const response = await fetch(serverApiUrl(path), { cache: 'no-store', headers: await serverAuthHeaders() });
     if (!response.ok) throw new Error(`sber ${response.status}`);
     const data = await response.json();
     return { available: true, data, error: null as string | null, source: `canonical${path}` };
