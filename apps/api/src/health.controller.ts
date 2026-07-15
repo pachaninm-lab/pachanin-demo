@@ -21,6 +21,8 @@ interface DetailedHealthCheck {
   };
   details: {
     outboxDeadCount: number;
+    outboxPendingCount: number;
+    outboxProcessingCount: number;
     uptime: number;
     memoryMb: number;
   };
@@ -39,9 +41,10 @@ export class HealthController {
 
   @Public()
   @Get('ready')
-  ready(): { status: ReadinessStatus; checks: Record<string, string>; timestamp: string } {
-    const dead = this.outbox.listDead().length;
-    const pending = this.outbox.listPending().length;
+  async ready(): Promise<{ status: ReadinessStatus; checks: Record<string, string>; timestamp: string }> {
+    const stats = await this.outbox.queueStats();
+    const dead = stats.deadLetter;
+    const pending = stats.pending + stats.processing;
     const outboxOk = dead < 50;
     const memMb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
     const memOk = memMb < 900;
@@ -52,10 +55,12 @@ export class HealthController {
       checks: {
         api: 'ok',
         database: 'ok',
-        outbox: outboxOk ? `ok (pending=${pending})` : `degraded (dead=${dead})`,
+        outbox: outboxOk
+          ? `ok (pending=${pending}, dead_letter=${dead})`
+          : `degraded (dead_letter=${dead})`,
         memory: memOk ? `ok (${memMb}MB)` : `degraded (${memMb}MB)`,
-        kafka: 'ok (mock)',
-        redis: 'ok (mock)',
+        kafka: process.env.KAFKA_BROKERS ? 'configured' : 'disabled',
+        redis: process.env.REDIS_URL ? 'configured' : 'disabled',
       },
       timestamp: new Date().toISOString(),
     };
@@ -64,8 +69,9 @@ export class HealthController {
   /** Detailed health per ТЗ 13.4 — for internal monitoring only */
   @Public()
   @Get('health/detailed')
-  healthDetailed(): DetailedHealthCheck {
-    const dead = this.outbox.listDead().length;
+  async healthDetailed(): Promise<DetailedHealthCheck> {
+    const stats = await this.outbox.queueStats();
+    const dead = stats.deadLetter;
     const outboxOk: CheckStatus = dead === 0 ? 'ok' : dead < 50 ? 'degraded' : 'down';
     const memMb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
 
@@ -73,28 +79,33 @@ export class HealthController {
       api: 'ok' as CheckStatus,
       database: 'ok' as CheckStatus,
       outbox: outboxOk,
-      kafka: 'ok' as CheckStatus,
-      redis: 'ok' as CheckStatus,
+      kafka: (process.env.KAFKA_BROKERS ? 'ok' : 'degraded') as CheckStatus,
+      redis: (process.env.REDIS_URL ? 'ok' : 'degraded') as CheckStatus,
       integrations: {
-        fgis: 'ok' as CheckStatus,
-        diadok: 'ok' as CheckStatus,
-        cryptopro: 'ok' as CheckStatus,
-        bank: 'ok' as CheckStatus,
-        gps: 'ok' as CheckStatus,
-        rzd: 'ok' as CheckStatus,
+        fgis: 'degraded' as CheckStatus,
+        diadok: 'degraded' as CheckStatus,
+        cryptopro: 'degraded' as CheckStatus,
+        bank: 'degraded' as CheckStatus,
+        gps: 'degraded' as CheckStatus,
+        rzd: 'degraded' as CheckStatus,
       },
     };
 
     const anyDegraded = Object.values(checks).some(
-      (v) => (typeof v === 'string' ? v : Object.values(v).some((x) => x !== 'ok')) && v !== 'ok',
+      (value) =>
+        typeof value === 'string'
+          ? value !== 'ok'
+          : Object.values(value).some((nested) => nested !== 'ok'),
     );
-    const overall: CheckStatus = anyDegraded ? 'degraded' : 'ok';
+    const overall: CheckStatus = outboxOk === 'down' ? 'down' : anyDegraded ? 'degraded' : 'ok';
 
     return {
       status: overall,
       checks,
       details: {
         outboxDeadCount: dead,
+        outboxPendingCount: stats.pending,
+        outboxProcessingCount: stats.processing,
         uptime: Math.round(process.uptime()),
         memoryMb: memMb,
       },
@@ -104,11 +115,10 @@ export class HealthController {
 
   @Public()
   @Get('metrics')
-  metrics(): string {
+  async metrics(): Promise<string> {
     const mem = process.memoryUsage();
     const uptime = process.uptime();
-    const dead = this.outbox.listDead().length;
-    const pending = this.outbox.listPending().length;
+    const stats = await this.outbox.queueStats();
 
     return [
       '# HELP nodejs_heap_used_bytes Heap used in bytes',
@@ -120,12 +130,15 @@ export class HealthController {
       '# HELP process_uptime_seconds Process uptime in seconds',
       '# TYPE process_uptime_seconds counter',
       `process_uptime_seconds ${uptime.toFixed(2)}`,
-      '# HELP grainflow_outbox_dead_total Dead outbox entries',
-      '# TYPE grainflow_outbox_dead_total gauge',
-      `grainflow_outbox_dead_total ${dead}`,
+      '# HELP grainflow_outbox_dead_letter_total Dead-lettered outbox entries',
+      '# TYPE grainflow_outbox_dead_letter_total gauge',
+      `grainflow_outbox_dead_letter_total ${stats.deadLetter}`,
       '# HELP grainflow_outbox_pending_total Pending outbox entries',
       '# TYPE grainflow_outbox_pending_total gauge',
-      `grainflow_outbox_pending_total ${pending}`,
+      `grainflow_outbox_pending_total ${stats.pending}`,
+      '# HELP grainflow_outbox_processing_total Leased outbox entries',
+      '# TYPE grainflow_outbox_processing_total gauge',
+      `grainflow_outbox_processing_total ${stats.processing}`,
     ].join('\n');
   }
 

@@ -1,0 +1,158 @@
+name: Outbox PostgreSQL Authority Acceptance
+# Exact-head rerun after Prisma migration/index reconciliation.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: outbox-postgresql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  PSQL_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/grainflow
+  TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  DATABASE_URL: postgresql://app_deal:app_deal@localhost:5432/grainflow?schema=public
+  OUTBOX_DIR: artifacts/outbox-postgresql
+
+jobs:
+  outbox-postgresql:
+    name: PostgreSQL leases, recovery and redrive acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Initialize exact-head evidence
+        run: |
+          mkdir -p "$OUTBOX_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$OUTBOX_DIR/exact-head.txt"
+          git rev-parse HEAD | tee "$OUTBOX_DIR/checked-out-head.txt"
+          test "$(git rev-parse HEAD)" = "$EXACT_HEAD"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create restricted application principal
+        run: |
+          psql "$PSQL_ADMIN_URL" <<'SQL'
+          DO $role$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
+              CREATE ROLE app_deal LOGIN PASSWORD 'app_deal';
+            END IF;
+          END
+          $role$;
+          GRANT CONNECT ON DATABASE grainflow TO app_deal;
+          GRANT USAGE ON SCHEMA public TO app_deal;
+          SQL
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: pnpm --filter @pc/api exec prisma generate
+
+      - name: Apply exact-head migrations on PostgreSQL 16
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy 2>&1 | tee "$OUTBOX_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status 2>&1 | tee "$OUTBOX_DIR/migrate-status.log"
+
+      - name: Verify restricted outbox grants and schema
+        run: |
+          set -o pipefail
+          psql "$PSQL_ADMIN_URL" -v ON_ERROR_STOP=1 <<'SQL' | tee "$OUTBOX_DIR/schema-evidence.txt"
+          SELECT column_name
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'outbox_entries'
+            AND column_name IN ('leaseToken', 'heartbeatAt', 'deadLetterAt')
+          ORDER BY column_name;
+
+          SELECT to_regclass('public.outbox_redrive_events') AS redrive_table;
+
+          SELECT grantee, privilege_type
+          FROM information_schema.role_table_grants
+          WHERE table_schema = 'public'
+            AND table_name IN ('outbox_entries', 'outbox_redrive_events')
+            AND grantee = 'app_deal'
+          ORDER BY table_name, privilege_type;
+          SQL
+
+      - name: Typecheck API authority
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: pnpm --filter @pc/api typecheck
+
+      - name: Run outbox unit and production-graph tests
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest \
+            src/common/outbox/outbox.spec.ts \
+            src/common/outbox/outbox-production-graph.spec.ts \
+            src/common/action-executor/action-executor.spec.ts \
+            src/health.controller.spec.ts \
+            src/modules/admin/admin.controller.spec.ts \
+            src/modules/integration-events/durable-outbox.runner.spec.ts \
+            --runInBand 2>&1 | tee "$GITHUB_WORKSPACE/$OUTBOX_DIR/unit-jest.log"
+
+      - name: Run exact-head PostgreSQL concurrency acceptance
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --config test/industrial/jest.config.json \
+            test/industrial/durable-outbox.e2e-spec.ts \
+            --runInBand --json \
+            --outputFile="$GITHUB_WORKSPACE/$OUTBOX_DIR/outbox-jest.json" \
+            2>&1 | tee "$GITHUB_WORKSPACE/$OUTBOX_DIR/outbox-jest.log"
+
+      - name: Upload exact-head outbox evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: outbox-postgresql-${{ env.EXACT_HEAD }}
+          path: ${{ env.OUTBOX_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+
+  outbox-gate:
+    name: Outbox PostgreSQL Gate · all blocking checks
+    if: always()
+    runs-on: ubuntu-latest
+    needs: outbox-postgresql
+    steps:
+      - name: Enforce outbox result
+        run: test "${{ needs.outbox-postgresql.result }}" = success
