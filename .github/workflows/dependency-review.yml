@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # The review API only works when the dependency graph is enabled in
+      # repository settings. Probe first so a disabled graph surfaces as a
+      # visible warning instead of a permanently red required-looking check.
       - name: Check dependency graph availability
         id: graph
         env:
@@ -27,62 +31,10 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Dependency graph is disabled for this repository (HTTP $code)."
+            echo "::warning::Dependency graph is disabled for this repository (HTTP $code). Enable it in Settings → Advanced Security to activate dependency review."
           fi
+
       - uses: actions/dependency-review-action@v4
         if: steps.graph.outputs.enabled == 'true'
         with:
           fail-on-severity: critical
-
-  governed-next15-header-awaits:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'agent/ir-sec-next-15-5-16-final' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout frozen branch
-        uses: actions/checkout@v4
-        with:
-          ref: agent/ir-sec-next-15-5-16-final
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.2.1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
-      - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Apply deterministic header migration
-        id: migrate
-        run: |
-          set +e
-          node docs/platform-v7/autopilot/await-next15-request-headers.mjs > next15-migration.log 2>&1
-          code=$?
-          set -e
-          cat next15-migration.log
-          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
-      - name: Upload migration diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: next15-migration-${{ github.event.pull_request.head.sha }}
-          path: next15-migration.log
-          if-no-files-found: error
-          retention-days: 7
-      - name: Enforce migration success
-        if: steps.migrate.outputs.exit_code != '0'
-        run: exit 1
-      - name: Prove strict typecheck before commit
-        if: steps.migrate.outputs.exit_code == '0'
-        run: pnpm --filter @pc/web typecheck
-      - name: Commit proven runtime changes
-        if: steps.migrate.outputs.exit_code == '0'
-        run: |
-          git rm -f docs/platform-v7/autopilot/await-next15-request-headers.mjs
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A apps/web
-          git commit -m 'Await Next.js 15 request header APIs [next15-typecheck]'
-          git push origin HEAD:agent/ir-sec-next-15-5-16-final
