@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+const primaryAreaSelector = [1, 3, 4, 5]
+  .map((index) => `.pc-ppe-lens-list > button:nth-child(${index})`)
+  .join(', ');
+
 // Exact-head public acceptance covers every supported mobile width and only visible controls.
 for (const width of [320, 360, 375, 390, 430]) {
   test(`public product experience reflows at ${width}px`, async ({ page }) => {
@@ -59,13 +63,15 @@ test('canonical CTA vocabulary does not compete on the homepage', async ({ page 
   await expect(page.getByText(/сделку изнутри|полный контур/i)).toHaveCount(0);
 });
 
-test('deal explorer exposes four business areas and all ten stages on mobile', async ({ page }) => {
+test('deal explorer exposes four primary business areas and all ten stages on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 860 });
   await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance&lens=participants', { waitUntil: 'load' });
 
-  const areas = page.locator('.pc-ppe-lens-list > button:visible');
-  await expect(areas).toHaveCount(4);
-  await expect(areas).toHaveText(['Исполнение', 'Документы', 'Деньги', 'Риски и спор']);
+  const primaryAreas = page.locator(primaryAreaSelector);
+  await expect(primaryAreas).toHaveCount(4);
+  await expect(primaryAreas).toHaveText(['Исполнение', 'Документы', 'Деньги', 'Риски и спор']);
+  await expect(page.locator('.pc-ppe-lens-list > button:nth-child(2)')).toContainText('Участники');
+  await expect(page.locator('.pc-ppe-lens-list > button:nth-child(6)')).toContainText('ИИ и аналитика');
 
   const stageTrack = page.locator('.pc-ppe-stage-track');
   await expect(stageTrack).toBeVisible();
