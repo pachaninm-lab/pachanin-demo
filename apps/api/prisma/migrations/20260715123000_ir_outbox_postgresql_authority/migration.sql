@@ -79,3 +79,23 @@ DROP TRIGGER IF EXISTS outbox_terminal_receipt_guard_trigger ON "outbox_entries"
 CREATE TRIGGER outbox_terminal_receipt_guard_trigger
   BEFORE UPDATE ON "outbox_entries"
   FOR EACH ROW EXECUTE FUNCTION outbox_terminal_receipt_guard();
+
+-- The worker runs as the restricted application principal. Grant only the
+-- queue columns needed for claiming, heartbeat, retry, acknowledgement and
+-- operator redrive. No DELETE, ownership or RLS-bypass privilege is granted.
+DO $outbox_app_role_grants$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
+    GRANT SELECT, INSERT ON TABLE public."outbox_entries" TO app_deal;
+    GRANT UPDATE (
+      "status", "retryCount", "nextRetryAt", "lastError", "sentAt",
+      "confirmedAt", "failedAt", "deadLetterAt", "leaseOwner", "leaseToken",
+      "leaseExpiresAt", "heartbeatAt"
+    ) ON TABLE public."outbox_entries" TO app_deal;
+
+    GRANT SELECT, INSERT ON TABLE public."outbox_redrive_events" TO app_deal;
+    REVOKE UPDATE, DELETE ON TABLE public."outbox_redrive_events" FROM app_deal;
+    REVOKE DELETE ON TABLE public."outbox_entries" FROM app_deal;
+  END IF;
+END
+$outbox_app_role_grants$;
