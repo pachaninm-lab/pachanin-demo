@@ -14,34 +14,51 @@ function client(url: string): PrismaClient {
   return new PrismaClient({ datasources: { db: { url } } });
 }
 
+function isRetryable(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2034') return true;
+    const meta = error.meta as Record<string, unknown> | undefined;
+    return ['code', 'database_error_code', 'dbErrorCode', 'sqlState']
+      .some((key) => meta?.[key] === '40001');
+  }
+  return (error as { code?: unknown })?.code === '40001';
+}
+
 async function executeIdempotentCommand(db: PrismaClient, marker: string): Promise<Record<string, unknown>> {
-  return db.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, TENANT);
-    await tx.$executeRawUnsafe(`SELECT set_config('app.current_user_id', $1, true)`, ACTOR);
-    await tx.$executeRawUnsafe(`SELECT set_config('app.current_org_id', $1, true)`, ORG);
-    await tx.$executeRawUnsafe(`SELECT set_config('app.current_role', 'BUYER', true)`);
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      return await db.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, TENANT);
+        await tx.$executeRawUnsafe(`SELECT set_config('app.current_user_id', $1, true)`, ACTOR);
+        await tx.$executeRawUnsafe(`SELECT set_config('app.current_org_id', $1, true)`, ORG);
+        await tx.$executeRawUnsafe(`SELECT set_config('app.current_role', 'BUYER', true)`);
 
-    const replayRows = await tx.$queryRaw<Array<{ result: Prisma.JsonValue | null }>>`
-      SELECT auction.replay_command(${COMMAND}, ${IDEMPOTENCY_KEY}, ${REQUEST_HASH}) AS result
-    `;
-    const replay = replayRows[0]?.result;
-    if (replay && typeof replay === 'object' && !Array.isArray(replay)) {
-      return replay as Record<string, unknown>;
+        const replayRows = await tx.$queryRaw<Array<{ result: Prisma.JsonValue | null }>>`
+          SELECT auction.replay_command(${COMMAND}, ${IDEMPOTENCY_KEY}, ${REQUEST_HASH}) AS result
+        `;
+        const replay = replayRows[0]?.result;
+        if (replay && typeof replay === 'object' && !Array.isArray(replay)) {
+          return replay as Record<string, unknown>;
+        }
+
+        await tx.$executeRaw`SELECT pg_sleep(0.2)`;
+        const result = { marker, accepted: true };
+        await tx.$executeRaw`
+          SELECT auction.save_command(
+            ${COMMAND},
+            ${`command:${marker}`},
+            ${IDEMPOTENCY_KEY},
+            ${REQUEST_HASH},
+            ${JSON.stringify(result)}::jsonb
+          )
+        `;
+        return result;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10_000 });
+    } catch (error) {
+      if (!isRetryable(error) || attempt === 4) throw error;
     }
-
-    await tx.$executeRaw`SELECT pg_sleep(0.2)`;
-    const result = { marker, accepted: true };
-    await tx.$executeRaw`
-      SELECT auction.save_command(
-        ${COMMAND},
-        ${`command:${marker}`},
-        ${IDEMPOTENCY_KEY},
-        ${REQUEST_HASH},
-        ${JSON.stringify(result)}::jsonb
-      )
-    `;
-    return result;
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10_000 });
+  }
+  throw new Error('Unreachable idempotency retry state');
 }
 
 describeRace('IR-AUCTION concurrent idempotency receipt', () => {
