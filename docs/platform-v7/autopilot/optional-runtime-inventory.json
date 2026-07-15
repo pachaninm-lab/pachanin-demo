@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "repository": "pachaninm-lab/pachanin-demo",
   "decisionIssue": "#2605",
+  "decisionStatus": "RETIRED_UNTIL_REQUALIFIED",
   "contours": [
     {
       "id": "ml-service",
