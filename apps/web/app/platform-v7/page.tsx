@@ -3,6 +3,8 @@ import '@/styles/platform-v7-public-mobile-safe-area.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-product-experience-v3.css';
 import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
+import '@/styles/platform-v7-public-product-experience-v4.css';
+import '@/styles/platform-v7-public-product-entry-variants.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
@@ -15,6 +17,7 @@ import {
   PublicExperienceScrollCoordinator,
 } from '@/components/platform-v7/PublicExperienceAnalytics';
 import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
+import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
 import type { TourPerspective } from '@/lib/platform-v7/public-product-experience-state';
 
 export const metadata: Metadata = {
@@ -73,9 +76,15 @@ function PerspectiveCard({
 export default async function PlatformV7RootPage() {
   const locale = await getLocale();
   const copy = getPublicProductExperienceCopy(locale);
+  const ui = getPublicProductExperienceV4Copy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
-  const primaryPerspectives = copy.home.perspectives.primary as readonly TourPerspective[];
-  const secondaryPerspectives = copy.home.perspectives.secondary as readonly TourPerspective[];
+  const allPrimaryPerspectives = copy.home.perspectives.primary as readonly TourPerspective[];
+  const primaryPerspectives = allPrimaryPerspectives.slice(0, 5);
+  const secondaryPerspectives: readonly TourPerspective[] = [
+    ...allPrimaryPerspectives.slice(5),
+    ...(copy.home.perspectives.secondary as readonly TourPerspective[]),
+  ];
+  const contourStages = ['terms', 'admission', 'deal', 'logistics', 'acceptance', 'documents', 'settlement'] as const;
 
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-root-execution-cockpit'>
@@ -96,9 +105,9 @@ export default async function PlatformV7RootPage() {
       <div className='pc-ppe-shell'>
         <section className='pc-ppe-hero pc-ppe-hero-copy-only' aria-labelledby='pc-ppe-hero-title'>
           <div className='pc-ppe-hero-copy'>
-            <span className='pc-ppe-kicker'>{copy.home.hero.kicker}</span>
-            <h1 id='pc-ppe-hero-title'>{copy.home.hero.title}</h1>
-            <p>{copy.home.hero.lead}</p>
+            <span className='pc-ppe-kicker'>{ui.home.hero.kicker}</span>
+            <h1 id='pc-ppe-hero-title'>{ui.home.hero.title}</h1>
+            <p>{ui.home.hero.lead}</p>
             <div className='pc-ppe-hero-actions'>
               <PublicExperienceLink
                 href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}`}
@@ -107,7 +116,7 @@ export default async function PlatformV7RootPage() {
                 locale={locale}
                 params={{ source: 'hero' }}
               >
-                <span>{copy.home.hero.primary}</span>
+                <span>{ui.home.hero.primary}</span>
                 <PublicExperienceIcon name='arrow' size={20} />
               </PublicExperienceLink>
               <PublicExperienceLink
@@ -117,18 +126,31 @@ export default async function PlatformV7RootPage() {
                 locale={locale}
                 params={{ source: 'hero' }}
               >
-                {copy.home.hero.secondary}
+                {ui.home.hero.secondary}
               </PublicExperienceLink>
             </div>
           </div>
 
-          <div className='pc-ppe-hero-contour' aria-hidden='true'>
-            {(['terms', 'admission', 'deal', 'logistics', 'acceptance', 'documents', 'settlement'] as const).map((stage, index) => (
-              <span key={stage} data-active={stage === 'acceptance' ? 'true' : 'false'}>
-                <i>{index + 1}</i>
-                <b>{copy.explorer.stages[stage].label}</b>
-              </span>
-            ))}
+          <div className='pc-ppe-hero-contour' role='group' aria-label={ui.home.hero.progressAria}>
+            <div className='pc-ppe-hero-contour-desktop' aria-hidden='true'>
+              {contourStages.map((stage, index) => (
+                <span key={stage} data-active={stage === 'acceptance' ? 'true' : 'false'}>
+                  <i>{index + 1}</i>
+                  <b>{copy.explorer.stages[stage].label}</b>
+                </span>
+              ))}
+            </div>
+            <div className='pc-ppe-hero-progress-mobile'>
+              <span>{ui.home.hero.stageCounter}</span>
+              <strong>{ui.home.hero.currentStage}</strong>
+              <small>{ui.home.hero.nextStage}</small>
+              <a
+                href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=acceptance`}
+                aria-label={ui.home.hero.showAllStages}
+              >
+                <PublicExperienceIcon name='arrow' size={20} />
+              </a>
+            </div>
           </div>
         </section>
 
@@ -138,8 +160,8 @@ export default async function PlatformV7RootPage() {
 
         <section className='pc-ppe-section' aria-labelledby='pc-ppe-perspectives-title'>
           <div className='pc-ppe-section-header'>
-            <h2 id='pc-ppe-perspectives-title'>{copy.home.perspectives.title}</h2>
-            <p>{copy.home.perspectives.lead}</p>
+            <h2 id='pc-ppe-perspectives-title'>{ui.home.perspectives.title}</h2>
+            <p>{ui.home.perspectives.lead}</p>
           </div>
           <div className='pc-ppe-perspective-grid' role='group' aria-labelledby='pc-ppe-perspectives-title'>
             {primaryPerspectives.map((perspective) => (
@@ -154,10 +176,10 @@ export default async function PlatformV7RootPage() {
           </div>
           <details className='pc-ppe-all-participants'>
             <summary>
-              <span>{copy.home.perspectives.all}</span>
+              <span>{ui.home.perspectives.more}</span>
               <PublicExperienceIcon name='arrow' size={20} />
             </summary>
-            <div className='pc-ppe-perspective-grid' role='group' aria-label={copy.home.perspectives.all}>
+            <div className='pc-ppe-perspective-grid' role='group' aria-label={ui.home.perspectives.more}>
               {secondaryPerspectives.map((perspective) => (
                 <PerspectiveCard
                   key={perspective}
@@ -186,7 +208,7 @@ export default async function PlatformV7RootPage() {
         </section>
 
         <section className='pc-ppe-final-cta' aria-labelledby='pc-ppe-final-title'>
-          <h2 id='pc-ppe-final-title'>{copy.home.final.title}</h2>
+          <h2 id='pc-ppe-final-title'>{ui.home.final.title}</h2>
           <div className='pc-ppe-final-actions'>
             <PublicExperienceLink
               href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}`}
@@ -195,7 +217,7 @@ export default async function PlatformV7RootPage() {
               locale={locale}
               params={{ source: 'final_cta' }}
             >
-              <span>{copy.home.final.primary}</span>
+              <span>{ui.home.final.primary}</span>
               <PublicExperienceIcon name='arrow' size={20} />
             </PublicExperienceLink>
             <PublicExperienceLink
@@ -205,11 +227,11 @@ export default async function PlatformV7RootPage() {
               locale={locale}
               params={{ source: 'final_cta' }}
             >
-              {copy.home.final.secondary}
+              {ui.home.final.secondary}
             </PublicExperienceLink>
           </div>
           <p className='pc-ppe-final-signin'>
-            {copy.home.final.signInPrefix} <a href='/platform-v7/login'>{copy.home.final.signIn}</a>
+            {ui.home.final.signInPrefix} <a href='/platform-v7/login'>{ui.home.final.signIn}</a>
           </p>
         </section>
       </div>

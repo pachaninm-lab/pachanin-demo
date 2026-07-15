@@ -37,22 +37,22 @@
   align-items: center;
   gap: 15px;
   min-width: 0;
-  min-height: 116px;
+  min-height: 108px;
   padding: 18px;
   border: 1px solid var(--pc-ppe-line);
-  border-radius: 20px;
+  border-radius: 18px;
   background: #fff;
   color: var(--pc-ppe-ink);
   text-align: left;
   cursor: pointer;
-  box-shadow: 0 10px 30px rgba(19, 49, 34, 0.06);
+  box-shadow: 0 8px 24px rgba(19, 49, 34, 0.05);
   transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 
 .pc-ppe-entry-option:hover {
   border-color: #7cad8d;
   transform: translateY(-2px);
-  box-shadow: 0 16px 38px rgba(19, 49, 34, 0.1);
+  box-shadow: 0 14px 32px rgba(19, 49, 34, 0.09);
 }
 
 .pc-ppe-entry-option > span:nth-child(2) {
@@ -80,6 +80,40 @@
   color: var(--pc-ppe-green-dark);
 }
 
+.pc-ppe-entry-more {
+  width: min(920px, 100%);
+  margin-top: 14px;
+  text-align: left;
+}
+
+.pc-ppe-entry-more > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 50px;
+  padding: 12px 16px;
+  border: 1px solid var(--pc-ppe-line);
+  border-radius: 15px;
+  background: #fff;
+  color: var(--pc-ppe-green-dark);
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+
+.pc-ppe-entry-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pc-ppe-entry-more[open] > summary svg {
+  transform: rotate(90deg);
+}
+
+.pc-ppe-entry-more .pc-ppe-entry-options {
+  margin-top: 12px;
+}
+
 .pc-ppe-entry-gate-actions {
   display: flex;
   flex-wrap: wrap;
@@ -89,10 +123,67 @@
   margin-top: 24px;
 }
 
+/* Final public-home safeguards. This file is imported after the V4 layer. */
+.pc-ppe-page {
+  --pc-ppe-v4-header: 64px;
+  scroll-padding-top: calc(var(--pc-ppe-v4-header) + 18px);
+}
+
+.pc-ppe-page > .pc-ppe-shell {
+  padding-top: var(--pc-ppe-v4-header);
+}
+
+.pc-ppe-page .pc-site-header {
+  height: var(--pc-ppe-v4-header);
+  min-height: var(--pc-ppe-v4-header);
+}
+
+.pc-ppe-page .pc-site-brand-mark {
+  width: 38px;
+  height: 38px;
+  flex-basis: 38px;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pc-ppe-page .pc-site-brand-mark::before,
+.pc-ppe-page .pc-site-brand-mark::after {
+  content: none;
+}
+
+.pc-ppe-page .pc-site-brand-mark img {
+  display: block !important;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pc-ppe-page .p7-support-chat-button {
+  right: -5px !important;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px) !important;
+  width: 44px !important;
+  height: 46px !important;
+  border-radius: 16px 0 0 16px !important;
+  opacity: 0.94;
+}
+
+.pc-ppe-page .p7-support-chat-panel {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 74px) !important;
+}
+
+.pc-ppe-page .pc-ppe-hero-progress-mobile > a:focus-visible,
+.pc-ppe-page .pc-ppe-back-link:focus-visible {
+  outline: 3px solid #17649b;
+  outline-offset: 3px;
+}
+
 @media (max-width: 720px) {
   .pc-ppe-entry-gate {
     min-height: auto;
     padding-top: 28px;
+    padding-bottom: 64px;
   }
 
   .pc-ppe-entry-options {
@@ -101,7 +192,50 @@
   }
 
   .pc-ppe-entry-option {
-    min-height: 104px;
+    min-height: 96px;
+  }
+
+  .pc-ppe-page .pc-site-header {
+    padding-inline: 12px;
+  }
+
+  .pc-ppe-page .pc-site-brand-mark {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  .pc-ppe-page .pc-site-brand-text strong {
+    max-width: 184px;
+  }
+
+  .pc-ppe-page .pc-ppe-hero {
+    padding-top: 28px;
+  }
+
+  .pc-ppe-page .pc-ppe-hero h1,
+  .pc-ppe-page .pc-ppe-explorer-intro h1 {
+    font-size: clamp(36px, 10vw, 42px);
+    line-height: 1.04;
+  }
+
+  .pc-ppe-page .pc-ppe-preview-card,
+  .pc-ppe-page .pc-ppe-deal-card,
+  .pc-ppe-page .pc-ppe-lens-panel,
+  .pc-ppe-page .pc-ppe-context-panel,
+  .pc-ppe-page .pc-ppe-timeline,
+  .pc-ppe-page .pc-ppe-entry-gate {
+    border-radius: 18px;
+  }
+
+  .pc-ppe-page .pc-ppe-stage-track button > span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .pc-ppe-page .pc-ppe-final-cta,
+  .pc-ppe-page .pc-ppe-footer {
+    padding-bottom: max(88px, calc(env(safe-area-inset-bottom, 0px) + 72px));
   }
 }
 
@@ -137,8 +271,21 @@
   }
 }
 
+@media (max-width: 374px) {
+  .pc-ppe-page .pc-site-brand-text strong {
+    max-width: 142px;
+    font-size: 15px;
+  }
+
+  .pc-ppe-page .pc-site-locale-switch {
+    min-width: 46px;
+    padding-inline: 7px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .pc-ppe-entry-option {
+  .pc-ppe-entry-option,
+  .pc-ppe-entry-more > summary svg {
     transition: none;
   }
 }
