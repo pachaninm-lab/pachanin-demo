@@ -6,8 +6,23 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO app_runtime;
 GRANT SELECT, INSERT, UPDATE ON public.users, public.user_orgs, public.organizations TO app_auth;
 REVOKE ALL PRIVILEGES ON public.deals FROM app_auth;
 GRANT USAGE ON SCHEMA auth TO app_auth;
-GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA auth TO app_auth;
+GRANT SELECT, INSERT, UPDATE ON
+  auth.login_throttles,
+  auth.credential_states,
+  auth.sessions,
+  auth.refresh_tokens,
+  auth.mfa_challenges,
+  auth.staff_assignments,
+  auth.staff_access_requests,
+  auth.staff_access_approvals,
+  auth.staff_access_grants,
+  auth.staff_access_sessions,
+  auth.staff_critical_action_requests,
+  auth.staff_critical_action_approvals,
+  auth.break_glass_activations
+TO app_auth;
 GRANT SELECT, INSERT ON auth.audit_events, auth.staff_access_events TO app_auth;
+REVOKE UPDATE, DELETE ON auth.audit_events, auth.staff_access_events FROM app_auth;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA auth, public TO app_auth;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO app_auth;
 
