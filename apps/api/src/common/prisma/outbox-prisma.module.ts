@@ -4,9 +4,8 @@ import { OutboxPrismaService } from './outbox-prisma.service';
 
 @Module({
   providers: [
-    OutboxPrismaService,
-    { provide: PrismaService, useExisting: OutboxPrismaService },
+    { provide: PrismaService, useClass: OutboxPrismaService },
   ],
-  exports: [PrismaService, OutboxPrismaService],
+  exports: [PrismaService],
 })
 export class OutboxPrismaModule {}
