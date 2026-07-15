@@ -108,6 +108,16 @@ jobs:
             --outputFile="$GITHUB_WORKSPACE/$DISPUTE_DIR/dispute-jest.json" \
             2>&1 | tee "$GITHUB_WORKSPACE/$DISPUTE_DIR/dispute-jest.log"
 
+      - name: Capture dispute state after acceptance
+        if: always()
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: |
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -P pager=off -c "SELECT id, tenant_id, deal_id, status, outcome, version FROM dispute.cases ORDER BY created_at, id" > "$DISPUTE_DIR/case-state.txt" || true
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -P pager=off -c "SELECT id, tenant_id, case_id, status, requested_outcome, opened_by_user_id FROM dispute.appeals ORDER BY opened_at, id" > "$DISPUTE_DIR/appeal-state.txt" || true
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -P pager=off -c "SELECT command_type, actor_user_id, idempotency_key, result->>'id' AS case_id FROM dispute.command_receipts ORDER BY created_at, id" > "$DISPUTE_DIR/receipt-state.txt" || true
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -P pager=off -c "SELECT posting_kind, case_id, ledger_entry_id FROM dispute.ledger_links ORDER BY created_at, id" > "$DISPUTE_DIR/ledger-link-state.txt" || true
+
       - name: Record migration and authority inventory
         if: always()
         env:
