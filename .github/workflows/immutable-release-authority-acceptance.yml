@@ -72,7 +72,7 @@ jobs:
         with:
           version: v3.18.4
 
-      - name: Initialize evidence
+      - name: Initialize exact-head evidence
         run: |
           mkdir -p "$EVIDENCE_DIR/rendered" "$EVIDENCE_DIR/iac-scope"
           test "$(git rev-parse HEAD)" = "$EXACT_HEAD"
@@ -86,28 +86,8 @@ jobs:
           RELEASE_AUTHORITY_REPORT: ${{ env.EVIDENCE_DIR }}/source-policy.json
         run: node scripts/release/validate-release-authority-source.mjs
 
-      - name: Build four exact-head non-root images once
-        run: |
-          set -euo pipefail
-          build_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          while read -r component dockerfile; do
-            image="prozrachnaya-cena-${component}:release-${EXACT_HEAD}"
-            docker build \
-              --build-arg GIT_COMMIT="$EXACT_HEAD" \
-              --build-arg BUILD_DATE="$build_date" \
-              -f "$dockerfile" -t "$image" . \
-              2>&1 | tee "$EVIDENCE_DIR/docker-${component}.log"
-            docker image inspect --format='{{.Id}}' "$image" > "$EVIDENCE_DIR/${component}-digest.txt"
-            docker image inspect --format='{{.Config.User}}' "$image" > "$EVIDENCE_DIR/${component}-user.txt"
-            docker image inspect --format='{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image" > "$EVIDENCE_DIR/${component}-revision.txt"
-            test "$(cat "$EVIDENCE_DIR/${component}-user.txt")" = nonroot
-            test "$(cat "$EVIDENCE_DIR/${component}-revision.txt")" = "$EXACT_HEAD"
-          done <<'COMPONENTS'
-          api infra/docker/Dockerfile.api
-          web infra/docker/Dockerfile.web
-          outbox-worker infra/docker/Dockerfile.outbox-worker
-          migration infra/docker/Dockerfile.migrations
-          COMPONENTS
+      - name: Build four exact-head images and capture OCI manifest digests
+        run: bash scripts/release/build-exact-head-images.sh "$EXACT_HEAD" "$EVIDENCE_DIR"
 
       - name: Build and validate canonical release manifest
         run: |
@@ -160,11 +140,13 @@ jobs:
             2>&1 | tee "$EVIDENCE_DIR/migration-second-run.log"
           grep -Ei 'No pending migrations|already in sync|Database schema is up to date' "$EVIDENCE_DIR/migration-second-run.log"
 
-      - name: Prove full-set rollback and reject invalid release inputs
+      - name: Prove full-set same-schema rollback and reject invalid inputs
         run: |
           set -euo pipefail
           fixture_digest() { printf 'rollback-contract:%s:%s' "$1" "$EXACT_HEAD" | sha256sum | awk '{print "sha256:" $1}'; }
           migration_set="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1])).migrationSetDigest)' "$EVIDENCE_DIR/release-manifest.json")"
+          different_migration_set="sha256:$(printf 'different-schema:%s' "$EXACT_HEAD" | sha256sum | cut -d' ' -f1)"
+
           node scripts/release/build-immutable-release-manifest.mjs \
             --source-commit "$EXACT_HEAD" \
             --created-at '2026-01-01T00:00:00Z' \
@@ -174,6 +156,7 @@ jobs:
             --worker-digest "$(fixture_digest worker)" \
             --migration-digest "$(fixture_digest migration)" \
             --output "$EVIDENCE_DIR/rollback-target-contract-fixture.json" >/dev/null
+
           node scripts/release/build-immutable-rollback.mjs \
             --current "$EVIDENCE_DIR/release-manifest.json" \
             --target "$EVIDENCE_DIR/rollback-target-contract-fixture.json" \
@@ -188,11 +171,29 @@ jobs:
             --output "$EVIDENCE_DIR/rollback-values.yaml"
           helm template grainflow infra/helm/grainflow -f "$EVIDENCE_DIR/rollback-values.yaml" \
             > "$EVIDENCE_DIR/rendered/rollback.yaml"
+
+          node scripts/release/build-immutable-release-manifest.mjs \
+            --source-commit "$EXACT_HEAD" \
+            --created-at '2026-01-01T00:00:00Z' \
+            --migration-set-digest "$different_migration_set" \
+            --api-digest "$(fixture_digest api-schema-change)" \
+            --web-digest "$(fixture_digest web-schema-change)" \
+            --worker-digest "$(fixture_digest worker-schema-change)" \
+            --migration-digest "$(fixture_digest migration-schema-change)" \
+            --output "$EVIDENCE_DIR/cross-schema-target.json" >/dev/null
+          ! node scripts/release/build-immutable-rollback.mjs \
+            --current "$EVIDENCE_DIR/release-manifest.json" \
+            --target "$EVIDENCE_DIR/cross-schema-target.json" \
+            --created-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --output "$EVIDENCE_DIR/forbidden-cross-schema-rollback.json"
+
           node <<'NODE'
           const fs = require('node:fs');
           const current = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/release-manifest.json`));
           const rollback = JSON.parse(fs.readFileSync(`${process.env.EVIDENCE_DIR}/rollback.json`));
           const rendered = fs.readFileSync(`${process.env.EVIDENCE_DIR}/rendered/rollback.yaml`, 'utf8');
+          if (rollback.databaseRollbackMode !== 'NO_DOWN_MIGRATION_SAME_SCHEMA_ONLY') throw new Error('unsafe database rollback mode');
+          if (rollback.currentMigrationSetDigest !== rollback.targetMigrationSetDigest) throw new Error('rollback changed migration set');
           for (const name of ['api', 'web', 'outboxWorker', 'migration']) {
             if (!rendered.includes(`@${rollback.targetComponents[name].digest}`)) throw new Error(`rollback omitted ${name}`);
             if (rollback.targetComponents[name].digest === current.components[name].digest) throw new Error(`rollback fixture did not replace ${name}`);
@@ -207,11 +208,13 @@ jobs:
           delete partial.targetComponents.web;
           fs.writeFileSync(`${process.env.EVIDENCE_DIR}/invalid-partial-rollback.json`, JSON.stringify(partial));
           NODE
+
           ! node scripts/release/validate-immutable-release.mjs "$EVIDENCE_DIR/invalid-tag.json"
           ! node scripts/release/validate-immutable-release.mjs "$EVIDENCE_DIR/invalid-mixed-commit.json"
           ! node scripts/release/validate-immutable-release.mjs "$EVIDENCE_DIR/invalid-partial-rollback.json"
           ! helm template grainflow infra/helm/grainflow -f "$EVIDENCE_DIR/values-production.yaml" --set-string api.image.digest='' >/dev/null 2>&1
           ! helm template grainflow infra/helm/grainflow -f "$EVIDENCE_DIR/values-production.yaml" --set migration.enabled=false >/dev/null 2>&1
+          touch "$EVIDENCE_DIR/contract-acceptance-complete.txt"
 
       - name: Materialize rendered IaC scan scope
         run: |
@@ -222,6 +225,7 @@ jobs:
           cp "$EVIDENCE_DIR/rendered/production-like.yaml" "$EVIDENCE_DIR/iac-scope/production-like.yaml"
 
       - name: Scan release Dockerfiles and rendered Kubernetes
+        id: release-iac-scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
@@ -241,6 +245,8 @@ jobs:
 
       - name: Write release authority evidence
         if: always()
+        env:
+          IAC_SCAN_OUTCOME: ${{ steps.release-iac-scan.outcome }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
@@ -248,29 +254,53 @@ jobs:
           const dir = process.env.EVIDENCE_DIR;
           const read = (name) => fs.existsSync(path.join(dir, name)) ? fs.readFileSync(path.join(dir, name), 'utf8').trim() : null;
           const started = Number(read('started-epoch.txt'));
+          const contractComplete = fs.existsSync(path.join(dir, 'contract-acceptance-complete.txt'));
           const report = {
             schemaVersion: 1,
             repository: process.env.GITHUB_REPOSITORY,
             commitSha: process.env.EXACT_HEAD,
             environment: 'github-actions-build-render-contract',
             timestamp: new Date().toISOString(),
-            command: 'build four images; create manifest; render three environments; run migrations twice; validate rollback and negative cases',
+            command: 'BuildKit build four images; create manifest; render three environments; execute migrations twice; validate same-schema rollback and negative cases',
             durationSeconds: Number.isFinite(started) ? Math.max(0, Math.floor(Date.now() / 1000) - started) : null,
-            pass: true,
+            pass: contractComplete && process.env.IAC_SCAN_OUTCOME === 'success',
             manifestId: read('release-manifest-id.txt'),
             rollbackId: read('rollback-id.txt'),
+            digestSemantics: 'BuildKit containerimage.digest; OCI manifest digest; artifact not yet published to an external registry',
             imageDigests: {
               api: read('api-digest.txt'),
               web: read('web-digest.txt'),
               outboxWorker: read('outbox-worker-digest.txt'),
               migration: read('migration-digest.txt')
             },
-            thresholds: { mutableTags: 0, mixedCommitComponents: 0, missingRollbackComponents: 0, implicitApplicationMigrations: 0 },
-            violatedThresholds: [],
-            maturityBoundary: 'Repository build, migration-container execution and Helm render evidence only; images were not promoted to an external registry, deployed to Kubernetes or rolled back in a live environment.'
+            imageConfigIds: {
+              api: read('api-config-id.txt'),
+              web: read('web-config-id.txt'),
+              outboxWorker: read('outbox-worker-config-id.txt'),
+              migration: read('migration-config-id.txt')
+            },
+            thresholds: {
+              mutableTags: 0,
+              mixedCommitComponents: 0,
+              missingRollbackComponents: 0,
+              implicitApplicationMigrations: 0,
+              crossSchemaRollbacks: 0
+            },
+            violatedThresholds: contractComplete && process.env.IAC_SCAN_OUTCOME === 'success' ? [] : ['RELEASE_AUTHORITY_ACCEPTANCE_INCOMPLETE'],
+            maturityBoundary: 'Repository build, migration-container execution and Helm render evidence only; OCI artifacts were not promoted to an external registry, deployed to Kubernetes or rolled back in a live environment.'
           };
+          fs.mkdirSync(dir, { recursive: true });
           fs.writeFileSync(path.join(dir, 'immutable-release-evidence.json'), `${JSON.stringify(report, null, 2)}\n`);
           NODE
+
+      - name: Enforce evidence result
+        if: always()
+        env:
+          IAC_SCAN_OUTCOME: ${{ steps.release-iac-scan.outcome }}
+        run: |
+          test -f "$EVIDENCE_DIR/contract-acceptance-complete.txt"
+          test "$IAC_SCAN_OUTCOME" = success
+          node -e 'const r=require("./artifacts/immutable-release/immutable-release-evidence.json"); if(r.pass!==true) process.exit(1)'
 
       - name: Upload build and render evidence
         if: always()
