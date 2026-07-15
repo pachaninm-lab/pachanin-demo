@@ -1,4 +1,4 @@
-const CANONICAL_LOGO_SRC = '/brand/logo-primary?v=267b9bbb';
+const CANONICAL_LOGO_SRC = '/icon/brand-primary?v=267b9bbb';
 
 export default function HeaderLogo() {
   return (
