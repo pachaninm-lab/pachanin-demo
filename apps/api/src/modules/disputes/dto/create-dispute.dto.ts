@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString, Matches } from 'class-validator';
 
 export class CreateDisputeDto {
   @IsString()
@@ -15,7 +15,22 @@ export class CreateDisputeDto {
   @IsString()
   detail?: string;
 
+  /** Compatibility input. New clients should send claimAmountKopecks. */
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
   claimAmountRub?: number;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^(?:0|[1-9]\d{0,18})$/)
+  claimAmountKopecks?: string;
+
+  @IsOptional()
+  @IsIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
+  severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9:_.-]{1,240}$/)
+  idempotencyKey?: string;
 }
