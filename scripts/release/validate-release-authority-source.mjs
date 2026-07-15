@@ -103,11 +103,19 @@ for (const path of [
   forbid(path, [[/FROM\s+node:[^\n]+\s+AS\s+runtime/i, 'full Node runtime stage']]);
 }
 requireFragments('infra/docker/Dockerfile.migrations', [
+  'pnpm install --frozen-lockfile',
+  'pnpm --filter @pc/api deploy --prod --legacy /migration-runtime',
+  "dependencies: { prisma: '5.22.0' }",
   'node_modules/prisma/build/index.js',
   'migrate',
   'deploy',
   '--schema',
   'prisma/schema.prisma',
+]);
+forbid('infra/docker/Dockerfile.migrations', [
+  [/npm\s+install[^\n]*prisma/i, 'network-resolved Prisma installation'],
+  [/pnpm\s+(?:add|install)[^\n]*--offline/i, 'standalone offline resolution without lockfile importer'],
+  [/pnpm\s+--dir\s+\/migration-runtime\s+install/i, 'independent migration dependency resolution'],
 ]);
 
 requireFragments('infra/docker/runtime-inventory.json', [
