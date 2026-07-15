@@ -42,6 +42,21 @@ function fingerprint(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');
 }
 
+function persistedIdempotencyKey(
+  user: RequestUser,
+  action: string,
+  target: string,
+  clientKey: string,
+): string {
+  return `dispute:${fingerprint({
+    tenantId: user.tenantId,
+    actorId: user.id,
+    action,
+    target,
+    clientKey,
+  })}`;
+}
+
 function safeId(value: unknown, field: string): string {
   const normalized = typeof value === 'string' ? value.trim() : '';
   if (!SAFE_ID.test(normalized)) {
@@ -85,14 +100,14 @@ function optionalPositiveBigInt(value: unknown, field: string): bigint | null {
 }
 
 function commandResult(rows: readonly JsonRow[], commandId?: string): JsonObject {
-  const result = rows[0]?.result;
-  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+  const value = rows[0]?.result;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new InternalServerErrorException({
       code: 'DISPUTE_COMMAND_RESULT_MISSING',
       commandId,
     });
   }
-  return result as JsonObject;
+  return value as JsonObject;
 }
 
 function postgresCode(error: unknown): string {
@@ -172,16 +187,19 @@ export class PostgresqlDisputeRepository {
   }
 
   async open(input: CreateDisputeDto, user: RequestUser): Promise<JsonObject> {
+    const dealId = safeId(input.dealId, 'dealId');
+    const clientKey = safeId(input.idempotencyKey, 'idempotencyKey');
     const normalized = {
-      dealId: safeId(input.dealId, 'dealId'),
+      dealId,
       shipmentId: optionalSafeId(input.shipmentId, 'shipmentId'),
       type: requiredText(input.reason, 'reason', 2, 100).toUpperCase(),
       description: requiredText(input.detail, 'detail', 5, 4000),
       claimAmountMinor: optionalPositiveBigInt(input.claimAmountKopecks, 'claimAmountKopecks'),
       currency: requiredText(input.currency ?? 'RUB', 'currency', 3, 3).toUpperCase(),
-      idempotencyKey: safeId(input.idempotencyKey, 'idempotencyKey'),
+      clientIdempotencyKey: clientKey,
+      idempotencyKey: persistedIdempotencyKey(user, 'open', dealId, clientKey),
     };
-    return this.command(user, 'open', normalized.idempotencyKey, normalized, async (tx, commandId, requestHash) => {
+    return this.command(user, 'open', normalized, async (tx, commandId, requestHash) => {
       return tx.$queryRaw<JsonRow[]>(Prisma.sql`
         SELECT dispute.open_case(
           ${normalized.dealId}, ${normalized.shipmentId}, ${normalized.type},
@@ -193,7 +211,7 @@ export class PostgresqlDisputeRepository {
   }
 
   async triage(idInput: string, input: DisputeVersionCommandDto, user: RequestUser) {
-    return this.versionCommand('triage', 'TRIAGE', idInput, input, user,
+    return this.versionCommand('triage', idInput, input, user,
       (tx, id, version, commandId, idempotencyKey, requestHash) => tx.$queryRaw<JsonRow[]>(Prisma.sql`
         SELECT dispute.triage_case(
           ${id}, ${version}, ${commandId}, ${idempotencyKey}, ${requestHash}
@@ -203,6 +221,7 @@ export class PostgresqlDisputeRepository {
 
   async addEvidence(idInput: string, input: AddDisputeEvidenceDto, user: RequestUser) {
     const id = safeId(idInput, 'id');
+    const clientKey = safeId(input.idempotencyKey, 'idempotencyKey');
     const normalized = {
       id,
       type: requiredText(input.type, 'type', 2, 20).toUpperCase(),
@@ -210,9 +229,10 @@ export class PostgresqlDisputeRepository {
       description: requiredText(input.description, 'description', 2, 4000),
       source: requiredText(input.source, 'source', 2, 500),
       expectedVersion: positiveBigInt(input.expectedVersion, 'expectedVersion'),
-      idempotencyKey: safeId(input.idempotencyKey, 'idempotencyKey'),
+      clientIdempotencyKey: clientKey,
+      idempotencyKey: persistedIdempotencyKey(user, 'add-evidence', id, clientKey),
     };
-    return this.command(user, 'add-evidence', normalized.idempotencyKey, normalized,
+    return this.command(user, 'add-evidence', normalized,
       async (tx, commandId, requestHash) => tx.$queryRaw<JsonRow[]>(Prisma.sql`
         SELECT dispute.add_evidence(
           ${normalized.id}, ${normalized.type}, ${normalized.fileId},
@@ -224,15 +244,17 @@ export class PostgresqlDisputeRepository {
 
   async decide(idInput: string, input: DecideDisputeDto, user: RequestUser) {
     const id = safeId(idInput, 'id');
+    const clientKey = safeId(input.idempotencyKey, 'idempotencyKey');
     const normalized = {
       id,
       outcome: requiredText(input.outcome, 'outcome', 2, 30).toUpperCase(),
       sellerSplitPct: input.sellerSplitPct ?? null,
       note: requiredText(input.note, 'note', 5, 4000),
       expectedVersion: positiveBigInt(input.expectedVersion, 'expectedVersion'),
-      idempotencyKey: safeId(input.idempotencyKey, 'idempotencyKey'),
+      clientIdempotencyKey: clientKey,
+      idempotencyKey: persistedIdempotencyKey(user, 'decide', id, clientKey),
     };
-    return this.command(user, 'decide', normalized.idempotencyKey, normalized,
+    return this.command(user, 'decide', normalized,
       async (tx, commandId, requestHash) => tx.$queryRaw<JsonRow[]>(Prisma.sql`
         SELECT dispute.decide_case(
           ${normalized.id}, ${normalized.outcome}, ${normalized.sellerSplitPct},
@@ -244,13 +266,15 @@ export class PostgresqlDisputeRepository {
 
   async appeal(idInput: string, input: AppealDisputeDto, user: RequestUser) {
     const id = safeId(idInput, 'id');
+    const clientKey = safeId(input.idempotencyKey, 'idempotencyKey');
     const normalized = {
       id,
       reason: requiredText(input.reason, 'reason', 10, 4000),
       expectedVersion: positiveBigInt(input.expectedVersion, 'expectedVersion'),
-      idempotencyKey: safeId(input.idempotencyKey, 'idempotencyKey'),
+      clientIdempotencyKey: clientKey,
+      idempotencyKey: persistedIdempotencyKey(user, 'appeal', id, clientKey),
     };
-    return this.command(user, 'appeal', normalized.idempotencyKey, normalized,
+    return this.command(user, 'appeal', normalized,
       async (tx, commandId, requestHash) => tx.$queryRaw<JsonRow[]>(Prisma.sql`
         SELECT dispute.appeal_case(
           ${normalized.id}, ${normalized.reason}, ${normalized.expectedVersion},
@@ -261,6 +285,7 @@ export class PostgresqlDisputeRepository {
 
   async resolveAppeal(idInput: string, input: ResolveDisputeAppealDto, user: RequestUser) {
     const id = safeId(idInput, 'id');
+    const clientKey = safeId(input.idempotencyKey, 'idempotencyKey');
     const normalized = {
       id,
       resolution: requiredText(input.resolution, 'resolution', 2, 30).toUpperCase(),
@@ -268,9 +293,10 @@ export class PostgresqlDisputeRepository {
       sellerSplitPct: input.sellerSplitPct ?? null,
       note: requiredText(input.note, 'note', 5, 4000),
       expectedVersion: positiveBigInt(input.expectedVersion, 'expectedVersion'),
-      idempotencyKey: safeId(input.idempotencyKey, 'idempotencyKey'),
+      clientIdempotencyKey: clientKey,
+      idempotencyKey: persistedIdempotencyKey(user, 'resolve-appeal', id, clientKey),
     };
-    return this.command(user, 'resolve-appeal', normalized.idempotencyKey, normalized,
+    return this.command(user, 'resolve-appeal', normalized,
       async (tx, commandId, requestHash) => tx.$queryRaw<JsonRow[]>(Prisma.sql`
         SELECT dispute.resolve_appeal(
           ${normalized.id}, ${normalized.resolution}, ${normalized.finalOutcome},
@@ -281,7 +307,7 @@ export class PostgresqlDisputeRepository {
   }
 
   async finalize(idInput: string, input: DisputeVersionCommandDto, user: RequestUser) {
-    return this.versionCommand('finalize', 'FINALIZE', idInput, input, user,
+    return this.versionCommand('finalize', idInput, input, user,
       (tx, id, version, commandId, idempotencyKey, requestHash) => tx.$queryRaw<JsonRow[]>(Prisma.sql`
         SELECT dispute.finalize_case(
           ${id}, ${version}, ${commandId}, ${idempotencyKey}, ${requestHash}
@@ -291,15 +317,17 @@ export class PostgresqlDisputeRepository {
 
   async bindOperations(idInput: string, input: BindDisputeOperationsDto, user: RequestUser) {
     const id = safeId(idInput, 'id');
+    const clientKey = safeId(input.idempotencyKey, 'idempotencyKey');
     const normalized = {
       id,
       instructionId: safeId(input.instructionId, 'instructionId'),
       sellerOperationId: optionalSafeId(input.sellerOperationId, 'sellerOperationId'),
       buyerOperationId: optionalSafeId(input.buyerOperationId, 'buyerOperationId'),
       expectedVersion: positiveBigInt(input.expectedVersion, 'expectedVersion'),
-      idempotencyKey: safeId(input.idempotencyKey, 'idempotencyKey'),
+      clientIdempotencyKey: clientKey,
+      idempotencyKey: persistedIdempotencyKey(user, 'bind-operations', id, clientKey),
     };
-    return this.command(user, 'bind-operations', normalized.idempotencyKey, normalized,
+    return this.command(user, 'bind-operations', normalized,
       async (tx, commandId, requestHash) => tx.$queryRaw<JsonRow[]>(Prisma.sql`
         SELECT dispute.bind_instruction_operations(
           ${normalized.id}, ${normalized.instructionId}, ${normalized.sellerOperationId},
@@ -310,7 +338,7 @@ export class PostgresqlDisputeRepository {
   }
 
   async close(idInput: string, input: DisputeVersionCommandDto, user: RequestUser) {
-    return this.versionCommand('close', 'CLOSE', idInput, input, user,
+    return this.versionCommand('close', idInput, input, user,
       (tx, id, version, commandId, idempotencyKey, requestHash) => tx.$queryRaw<JsonRow[]>(Prisma.sql`
         SELECT dispute.close_case(
           ${id}, ${version}, ${commandId}, ${idempotencyKey}, ${requestHash}
@@ -320,7 +348,6 @@ export class PostgresqlDisputeRepository {
 
   private async versionCommand(
     action: string,
-    _commandType: string,
     idInput: string,
     input: DisputeVersionCommandDto,
     user: RequestUser,
@@ -333,12 +360,15 @@ export class PostgresqlDisputeRepository {
       requestHash: string,
     ) => Promise<JsonRow[]>,
   ) {
+    const id = safeId(idInput, 'id');
+    const clientKey = safeId(input.idempotencyKey, 'idempotencyKey');
     const normalized = {
-      id: safeId(idInput, 'id'),
+      id,
       expectedVersion: positiveBigInt(input.expectedVersion, 'expectedVersion'),
-      idempotencyKey: safeId(input.idempotencyKey, 'idempotencyKey'),
+      clientIdempotencyKey: clientKey,
+      idempotencyKey: persistedIdempotencyKey(user, action, id, clientKey),
     };
-    return this.command(user, action, normalized.idempotencyKey, normalized,
+    return this.command(user, action, normalized,
       (tx, commandId, requestHash) => work(
         tx,
         normalized.id,
@@ -352,7 +382,6 @@ export class PostgresqlDisputeRepository {
   private async command(
     user: RequestUser,
     action: string,
-    idempotencyKey: string,
     normalized: JsonObject,
     work: (
       tx: Prisma.TransactionClient,
