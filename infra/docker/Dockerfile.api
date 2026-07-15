@@ -16,6 +16,23 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 RUN pnpm --filter @pc/api build
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/api
 
+# pnpm deploy omits ignored build output and Prisma's generated sibling package.
+# Materialize both explicitly and prove the immutable runtime can resolve them.
+RUN set -eux; \
+  rm -rf /prod/api/dist; \
+  cp -a /workspace/apps/api/dist /prod/api/dist; \
+  source_client="$(find /workspace/node_modules/.pnpm -path '*/node_modules/.prisma/client' -type d -print -quit)"; \
+  target_package="$(find /prod/api/node_modules/.pnpm -path '*/node_modules/@prisma/client' -type d -print -quit)"; \
+  test -n "$source_client"; \
+  test -n "$target_package"; \
+  target_node_modules="$(dirname "$(dirname "$target_package")")"; \
+  install -d "$target_node_modules/.prisma"; \
+  rm -rf "$target_node_modules/.prisma/client"; \
+  cp -a "$source_client" "$target_node_modules/.prisma/client"; \
+  test -f /prod/api/dist/src/main.js; \
+  cd /prod/api; \
+  node -e "require('@prisma/client')"
+
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
