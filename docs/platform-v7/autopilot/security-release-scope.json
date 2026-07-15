@@ -14,6 +14,7 @@
       "infra/docker/Dockerfile.web"
     ],
     "runtimeInventory": "infra/docker/runtime-inventory.json",
+    "optionalRuntimeInventory": "docs/platform-v7/autopilot/optional-runtime-inventory.json",
     "iacRoots": [
       "infra/docker",
       "infra/helm",
@@ -22,20 +23,21 @@
     "dependencyPolicy": "all-workspace-production-dependencies",
     "secretScanRoot": "."
   },
-  "deferredContours": [
+  "deferredContours": [],
+  "retiredContours": [
     {
       "path": "apps/ml",
-      "status": "OUT_OF_RELEASE_SCOPE",
+      "status": "NOT_DEPLOYABLE",
       "ticket": "#2605",
-      "reason": "ML service runtime is not part of the accepted release authority and must pass dependency, model lifecycle and operational acceptance before activation.",
-      "expiresAt": "2026-08-31T23:59:59Z"
+      "inventoryId": "ml-service",
+      "reason": "Reference model code is retained without dependency manifest, runtime entrypoint, image, publisher or deployment authority. Reactivation requires a separate accepted product and model-lifecycle program."
     },
     {
       "path": "infra/airflow",
-      "status": "OUT_OF_RELEASE_SCOPE",
+      "status": "NOT_DEPLOYABLE",
       "ticket": "#2605",
-      "reason": "Airflow runtime is not part of the accepted release authority and must be hardened or retired before activation.",
-      "expiresAt": "2026-08-31T23:59:59Z"
+      "inventoryId": "airflow-orchestration",
+      "reason": "Executable Airflow dependencies and DAGs are removed. Any future orchestration must use durable audited workers or a separately accepted orchestrator."
     }
   ]
 }
