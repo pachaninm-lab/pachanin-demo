@@ -14,6 +14,24 @@ import {
   type TourState,
 } from '@/lib/platform-v7/public-product-experience-state';
 
+const entryLanguage = {
+  ru: {
+    roleLead: 'Выберите ближайшую задачу. Это только публичный обзор и не влияет на права доступа.',
+    problemLead: 'Выберите задачу — откроется нужный раздел одной и той же сделки.',
+    direct: 'Посмотреть сделку без выбора',
+  },
+  en: {
+    roleLead: 'Choose the closest task. This public overview never changes access rights.',
+    problemLead: 'Choose a task to open the relevant area of the same deal.',
+    direct: 'View the deal without choosing',
+  },
+  zh: {
+    roleLead: '请选择最接近的任务。该公共概览不会改变访问权限。',
+    problemLead: '请选择任务，系统将打开同一笔交易的相关内容。',
+    direct: '不选择，直接查看交易',
+  },
+} as const;
+
 function viewportGroup() {
   if (typeof window === 'undefined') return 'server';
   if (window.innerWidth < 720) return 'mobile';
@@ -22,19 +40,23 @@ function viewportGroup() {
 }
 
 function emit(locale: string, variant: Exclude<TourEntryVariant, 'deal'>, option: string, state: TourState) {
-  window.dispatchEvent(new CustomEvent('pc:public-product-analytics', {
-    detail: {
-      name: 'entry_variant_selected',
-      locale,
-      viewport_group: viewportGroup(),
-      entry_variant: variant,
-      option,
-      perspective: state.perspective,
-      lens: state.lens,
-      stage: state.stage,
-      scenario: state.scenario,
-    },
-  }));
+  const detail = {
+    name: 'entry_variant_selected',
+    locale,
+    viewport_group: viewportGroup(),
+    entry_variant: variant,
+    option,
+    perspective: state.perspective,
+    lens: state.lens,
+    stage: state.stage,
+    scenario: state.scenario,
+  };
+  window.dispatchEvent(new CustomEvent('pc:public-product-analytics', { detail }));
+  if (variant === 'role') {
+    window.dispatchEvent(new CustomEvent('pc:public-product-funnel', {
+      detail: { ...detail, name: 'role_selected', source_event: 'entry_variant_selected' },
+    }));
+  }
 }
 
 export function PublicDealEntryGate({
@@ -53,6 +75,7 @@ export function PublicDealEntryGate({
   const [entry, setEntry] = useState<TourEntryVariant>(initialEntry);
   const [state, setState] = useState<TourState>(initialState);
   const ui = getPublicProductExperienceV4Copy(locale);
+  const language = entryLanguage[locale === 'en' || locale === 'zh' ? locale : 'ru'];
 
   useEffect(() => {
     const onPopState = () => {
@@ -97,7 +120,7 @@ export function PublicDealEntryGate({
       onClick={() => openDeal({
         ...state,
         perspective: option.perspective,
-        lens: option.lens,
+        lens: 'execution',
       }, 'role-first', option.id)}
     >
       <span className='pc-ppe-icon-well'><PublicExperienceIcon name={option.perspective} size={23} /></span>
@@ -110,7 +133,7 @@ export function PublicDealEntryGate({
     <section className='pc-ppe-entry-gate' aria-labelledby='pc-ppe-entry-gate-title' data-entry-variant={entry}>
       <span className='pc-ppe-example-badge'>{ui.explorer.entryBadge}</span>
       <h2 id='pc-ppe-entry-gate-title'>{roleFirst ? entryCopy.role.title : entryCopy.problem.title}</h2>
-      <p>{roleFirst ? entryCopy.role.lead : entryCopy.problem.lead}</p>
+      <p>{roleFirst ? language.roleLead : language.problemLead}</p>
 
       <div className='pc-ppe-entry-options' role='group' aria-labelledby='pc-ppe-entry-gate-title'>
         {roleFirst
@@ -147,7 +170,7 @@ export function PublicDealEntryGate({
           className='pc-ppe-secondary-button'
           onClick={() => openDeal(state, 'direct-from-entry')}
         >
-          {entryCopy.direct}
+          {language.direct}
         </button>
       </div>
     </section>
