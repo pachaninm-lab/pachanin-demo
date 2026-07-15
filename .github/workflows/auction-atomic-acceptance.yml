@@ -1,0 +1,145 @@
+name: Auction Atomic Execution Acceptance
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auction-atomic-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  PNPM_VERSION: '10.2.1'
+  NODE_VERSION: '24'
+  TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  DATABASE_URL: postgresql://app_deal:app_deal@localhost:5432/grainflow?schema=public
+  AUCTION_DIR: artifacts/auction-atomic
+
+jobs:
+  auction-atomic:
+    name: PostgreSQL race, restart and rollback acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create restricted application principal
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_ADMIN_DATABASE_URL" <<'SQL'
+          DO $role$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
+              CREATE ROLE app_deal LOGIN PASSWORD 'app_deal';
+            END IF;
+          END
+          $role$;
+          GRANT CONNECT ON DATABASE grainflow TO app_deal;
+          GRANT USAGE ON SCHEMA public TO app_deal;
+          SQL
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: pnpm --filter @pc/api exec prisma generate
+
+      - name: Apply forward migrations on PostgreSQL 16
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: |
+          pnpm --filter @pc/api exec prisma migrate deploy
+          pnpm --filter @pc/api exec prisma migrate status
+
+      - name: Typecheck auction command authority
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: pnpm --filter @pc/api typecheck
+
+      - name: Run auction policy tests
+        env:
+          DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        run: >-
+          pnpm --filter @pc/api exec jest
+          src/modules/auctions/auction-postgresql-authority.spec.ts
+          --runInBand
+
+      - name: Run PostgreSQL race and restart acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$AUCTION_DIR"
+          pnpm --filter @pc/api exec jest \
+            --config test/jest-e2e.json \
+            test/industrial/auction-atomic-execution.e2e-spec.ts \
+            --runInBand \
+            --json \
+            --outputFile="../../$AUCTION_DIR/auction-jest.json" \
+            | tee "$AUCTION_DIR/auction-jest.log"
+
+      - name: Build exact-head machine evidence
+        env:
+          AUCTION_ACCEPTANCE_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          AUCTION_JEST_REPORT: ${{ env.AUCTION_DIR }}/auction-jest.json
+          AUCTION_ACCEPTANCE_REPORT: ${{ env.AUCTION_DIR }}/auction-atomic-acceptance.json
+          AUCTION_ACCEPTANCE_JUNIT: ${{ env.AUCTION_DIR }}/auction-atomic-acceptance.xml
+        run: node scripts/auction-atomic-acceptance.mjs
+
+      - name: Upload atomic auction evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auction-atomic-${{ env.EXACT_HEAD }}
+          path: ${{ env.AUCTION_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+
+  auction-gate:
+    name: Auction Atomic Gate · all blocking checks
+    if: always()
+    runs-on: ubuntu-latest
+    needs: auction-atomic
+    steps:
+      - name: Enforce auction result
+        env:
+          AUCTION_RESULT: ${{ needs.auction-atomic.result }}
+        run: test "$AUCTION_RESULT" = success
