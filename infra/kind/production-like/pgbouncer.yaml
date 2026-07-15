@@ -20,6 +20,7 @@ data:
     reserve_pool_size = 10
     reserve_pool_timeout = 3
     max_db_connections = 100
+    max_prepared_statements = 100
     server_reset_query = DISCARD ALL
     server_reset_query_always = 1
     server_check_query = SELECT 1
@@ -65,7 +66,9 @@ metadata:
     app.kubernetes.io/name: pgbouncer
     app.kubernetes.io/component: database-pooler
 spec:
-  replicas: 1
+  replicas: 2
+  minReadySeconds: 5
+  progressDeadlineSeconds: 300
   selector:
     matchLabels:
       app.kubernetes.io/name: pgbouncer
@@ -81,14 +84,25 @@ spec:
         app.kubernetes.io/component: database-pooler
     spec:
       automountServiceAccountToken: false
+      enableServiceLinks: false
       terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
         runAsUser: 70
         runAsGroup: 70
         fsGroup: 70
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values: [pgbouncer]
+              topologyKey: kubernetes.io/hostname
       initContainers:
         - name: render-userlist
           image: busybox:1.36.1
@@ -178,3 +192,14 @@ spec:
           emptyDir:
             medium: Memory
             sizeLimit: 32Mi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pgbouncer
+  namespace: grainflow-acceptance
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pgbouncer
