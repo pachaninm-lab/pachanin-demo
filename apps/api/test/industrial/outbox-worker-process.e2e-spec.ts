@@ -1,4 +1,4 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 import { Kafka, type Consumer } from 'kafkajs';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
@@ -14,7 +14,7 @@ const workerEntry = resolve(process.cwd(), 'dist/src/outbox-worker.js');
 interface WorkerProcess {
   id: string;
   port: number;
-  process: ChildProcessWithoutNullStreams;
+  process: ChildProcess;
   stdout: string[];
   stderr: string[];
 }
@@ -62,10 +62,10 @@ function startWorker(id: string, port: number): WorkerProcess {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   const worker: WorkerProcess = { id, port, process: child, stdout: [], stderr: [] };
-  child.stdout.setEncoding('utf8');
-  child.stderr.setEncoding('utf8');
-  child.stdout.on('data', (chunk: string) => worker.stdout.push(chunk));
-  child.stderr.on('data', (chunk: string) => worker.stderr.push(chunk));
+  child.stdout!.setEncoding('utf8');
+  child.stderr!.setEncoding('utf8');
+  child.stdout!.on('data', (chunk: string) => worker.stdout.push(chunk));
+  child.stderr!.on('data', (chunk: string) => worker.stderr.push(chunk));
   workers.push(worker);
   return worker;
 }
