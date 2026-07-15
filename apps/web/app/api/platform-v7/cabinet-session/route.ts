@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   const bodyRole = typeof body?.role === 'string' ? body.role : '';
   const nowSeconds = Math.floor(Date.now() / 1000);
   const secret = process.env.JWT_SECRET ?? '';
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const directBodyRoleAllowed = isDirectBodyRoleCabinetSessionAllowed();
 
   const verifiedRole = await readVerifiedCabinetRole(

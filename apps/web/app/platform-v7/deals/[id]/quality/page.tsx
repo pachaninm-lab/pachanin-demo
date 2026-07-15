@@ -1,6 +1,7 @@
 import { GrainWorkflowPage } from '../../../../../components/platform-v7/GrainWorkflowPage';
 
-export default function DealQualityPage({ params }: { params: { id: string } }) {
+export default async function DealQualityPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   return <GrainWorkflowPage eyebrow='Сделка · качество' title={`Качество ${params.id}`} lead='Показатели качества, протокол, отклонения, удержания, повторная проверка и материалы сделки.' primaryHref='/platform-v7/deals/grain-quality' primaryLabel='Качество' items={[
     { title: 'Протокол', value: 'ожидается', href: '/platform-v7/lab/grain', tone: 'warn', note: 'Лаборатория добавляет показатели.' },
     { title: 'Дельта качества', value: 'рассчитывается', href: '/platform-v7/deals/grain-quality', tone: 'warn', note: 'Фактические показатели сравниваются с условиями.' },

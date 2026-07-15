@@ -26,7 +26,7 @@ function withMeta<T extends Record<string, any>>(substituteValue: T, path: strin
 async function safeFetch(path: string, substituteValue: Record<string, any>) {
   const mode = resolveRuntimeGapMode();
   try {
-    const response = await fetch(serverApiUrl(path), { cache: 'no-store', headers: serverAuthHeaders() });
+    const response = await fetch(serverApiUrl(path), { cache: 'no-store', headers: await serverAuthHeaders() });
     if (!response.ok) throw new Error(`${path} ${response.status}`);
     return response.json();
   } catch (error) {

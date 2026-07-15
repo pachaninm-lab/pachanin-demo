@@ -64,9 +64,14 @@ function allowed(method: string, path: string) {
   return rules.some((rule) => rule.test(path));
 }
 
-async function handler(request: NextRequest, context: { params: { path?: string[] } }) {
+type StaffWorkspaceRouteContext = {
+  params: Promise<{ path?: string[] }>;
+};
+
+async function handler(request: NextRequest, context: StaffWorkspaceRouteContext) {
   const method = request.method.toUpperCase();
-  const path = normalizePath(context.params.path || []);
+  const params = await context.params;
+  const path = normalizePath(params.path || []);
   const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
 
   if (!path || !allowed(method, path)) {

@@ -5,7 +5,7 @@ import { SESSION_COOKIE } from '../../../../lib/auth-cookies';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const jar = cookies();
+  const jar = await cookies();
   const raw = jar.get(SESSION_COOKIE)?.value;
   if (!raw) {
     return NextResponse.json({ role: 'GUEST', authenticated: false });

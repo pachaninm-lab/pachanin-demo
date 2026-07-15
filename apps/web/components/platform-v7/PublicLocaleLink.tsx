@@ -28,7 +28,7 @@ export async function PublicLocaleLink() {
   const next = nextLocale(locale);
   const currentLabel = SHORT_LABELS[locale];
   const nextLabel = SHORT_LABELS[next];
-  const pathname = normalizePath(headers().get('x-pc-pathname'));
+  const pathname = normalizePath((await headers()).get('x-pc-pathname'));
 
   return (
     <a

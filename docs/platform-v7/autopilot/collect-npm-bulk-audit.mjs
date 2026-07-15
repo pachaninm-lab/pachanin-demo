@@ -96,7 +96,7 @@ function normalizeAuditResponse(response, submittedPackageCount) {
   }
 
   const advisories = {};
-  const counts = { info: 0, low: 0, moderate: 0, high: 0, critical: 0, total: 0 };
+  const counts = { info: 0, low: 0, moderate: 0, high: 0, critical: 0 };
 
   for (const [packageName, packageAdvisories] of Object.entries(response)) {
     if (!Array.isArray(packageAdvisories)) {
@@ -121,7 +121,7 @@ function normalizeAuditResponse(response, submittedPackageCount) {
           ].join(', ')}`,
         );
       }
-      if (!Object.prototype.hasOwnProperty.call(counts, severity) || severity === 'total') {
+      if (!Object.prototype.hasOwnProperty.call(counts, severity)) {
         throw new Error(`Bulk Advisory item ${id} has unsupported severity: ${severity}`);
       }
 
@@ -134,7 +134,6 @@ function normalizeAuditResponse(response, submittedPackageCount) {
         severity,
       };
       counts[severity] += 1;
-      counts.total += 1;
     }
   }
 
@@ -144,9 +143,13 @@ function normalizeAuditResponse(response, submittedPackageCount) {
     metadata: {
       vulnerabilities: counts,
       dependencies: submittedPackageCount,
+      devDependencies: 0,
+      optionalDependencies: 0,
+      totalDependencies: submittedPackageCount,
     },
     transport: {
       type: 'npm-bulk-advisory',
+      version: 1,
       endpoint: ENDPOINT,
     },
   };
@@ -211,8 +214,9 @@ try {
   const response = await postBulkAdvisories(payload);
   const report = normalizeAuditResponse(response, submittedPackageCount);
   writeJson(report);
+  const advisoryCount = Object.keys(report.advisories).length;
   console.log(
-    `npm Bulk Advisory audit collected ${report.metadata.vulnerabilities.total} advisory item(s) across ${submittedPackageCount} production package(s).`,
+    `npm Bulk Advisory audit collected ${advisoryCount} advisory item(s) across ${submittedPackageCount} production package(s).`,
   );
 } catch (error) {
   fail('npm Bulk Advisory collection failed', {

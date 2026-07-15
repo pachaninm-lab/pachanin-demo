@@ -1,5 +1,6 @@
 'use client';
 
+import { useParams } from 'next/navigation';
 import * as React from 'react';
 import Link from 'next/link';
 
@@ -16,7 +17,8 @@ const questions = [
   'Готовы ли вы работать с этим контрагентом повторно?',
 ] as const;
 
-export default function DealReviewPage({ params }: { params: { id: string } }) {
+export default function DealReviewPage() {
+  const params = useParams<{ id: string }>();
   const [scores, setScores] = React.useState<Record<number, number>>({ 0: 5, 1: 4, 2: 5, 3: 5 });
   const [comment, setComment] = React.useState('Контрагент выполнил сделку в ожидаемом окне. Качество подтверждено без критичной дельты, документы в денежный контур попали без ручного шва. Готовы повторить взаимодействие.');
   const [toast, setToast] = React.useState<string | null>(null);

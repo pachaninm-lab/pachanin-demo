@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { commercialFetch } from '../../../../../../../../lib/commercial-api';
 
-export async function GET(_: Request, { params }: { params: { id: string; stepId: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ id: string; stepId: string }> }) {
+  const params = await props.params;
   try {
     const payload = await commercialFetch(`/finance/applications/${params.id}/waterfall/${params.stepId}`);
     return NextResponse.json(payload);

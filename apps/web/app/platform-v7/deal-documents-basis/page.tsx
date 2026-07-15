@@ -124,11 +124,12 @@ const AUTHORITY_COPY = {
   },
 } as const;
 
-export default async function DealDocumentsBasisPage({
-  searchParams,
-}: {
-  searchParams?: PageSearchParams;
-}) {
+export default async function DealDocumentsBasisPage(
+  props: {
+    searchParams?: Promise<PageSearchParams>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const locale = normalizePhysicalExecutionLocale(await getLocale());
   const dealId = firstParam(searchParams?.dealId);
   const shipmentId = firstParam(searchParams?.shipmentId);

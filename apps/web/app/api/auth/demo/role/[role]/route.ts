@@ -44,7 +44,7 @@ function sanitizeDestination(raw: string | null | undefined, fallback: string): 
 
 export async function GET(
   request: NextRequest,
-  context: { params: { role: string } },
+  context: { params: Promise<{ role: string }> },
 ) {
   if (!demoLoginAllowed()) {
     return NextResponse.json(
@@ -52,7 +52,7 @@ export async function GET(
       { status: 503, headers: { 'Cache-Control': 'no-store' } },
     );
   }
-  const slug = (context.params.role || 'farmer').toLowerCase();
+  const slug = ((await context.params).role || 'farmer').toLowerCase();
   const target = ROLE_TARGETS[slug] ?? ROLE_TARGETS.farmer;
   const to = sanitizeDestination(request.nextUrl.searchParams.get('to'), target.firstPage);
 

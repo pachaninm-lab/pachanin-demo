@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const jar = cookies();
+  const jar = await cookies();
   const raw = jar.get(SESSION_COOKIE)?.value;
   let sellerEmail = 'farmer@demo.ru';
   try {

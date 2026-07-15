@@ -171,8 +171,10 @@ function GovIdentityBlock({ status }: { status: string | null }) {
   );
 }
 
-export default async function RegisterPage({ searchParams }: { searchParams?: Promise<RegisterSearchParams> | RegisterSearchParams }) {
-  const params = await Promise.resolve(searchParams ?? {});
+export default async function RegisterPage(
+  props: { searchParams?: Promise<RegisterSearchParams> }
+) {
+  const params = (await props.searchParams) ?? {};
   const selectedRole = getSelectedRole(params);
   const govIdStatus = getGovIdStatus(params);
 

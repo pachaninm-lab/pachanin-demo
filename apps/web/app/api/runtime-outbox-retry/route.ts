@@ -12,9 +12,9 @@ export async function POST(request: Request) {
   try {
     const response = await fetch(runtimeApiUrl('/runtime/outbox/retry'), {
       method: 'POST',
-      headers: runtimeAuthHeaders({ 'Content-Type': 'application/json' }),
+      headers: await runtimeAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body || {}),
-      cache: 'no-store'
+      cache: 'no-store',
     });
     const payload = await response.json().catch(() => ({}));
     return NextResponse.json(payload, { status: response.ok ? 200 : response.status });

@@ -96,11 +96,12 @@ const AUTHORITY_COPY = {
   },
 } as const;
 
-export default async function DealLogisticsPage({
-  searchParams,
-}: {
-  searchParams?: PageSearchParams;
-}) {
+export default async function DealLogisticsPage(
+  props: {
+    searchParams?: Promise<PageSearchParams>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const locale = normalizePhysicalExecutionLocale(await getLocale());
   const copy = PHYSICAL_EXECUTION_COPY[locale];
   const authorityCopy = AUTHORITY_COPY[locale];

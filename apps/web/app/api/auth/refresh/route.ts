@@ -5,7 +5,7 @@ import { ACCESS_COOKIE, REFRESH_COOKIE, SESSION_COOKIE, cookieSecurity, sessionM
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export async function POST() {
-  const jar = cookies();
+  const jar = await cookies();
   const refreshToken = jar.get(REFRESH_COOKIE)?.value || '';
 
   if (API_URL && refreshToken && !refreshToken.startsWith('demo-refresh.')) {

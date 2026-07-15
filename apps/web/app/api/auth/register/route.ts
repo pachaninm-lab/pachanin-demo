@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
   const role = detectDemoRole(email);
   const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
-  const jar = cookies();
+  const jar = await cookies();
   jar.set(ACCESS_COOKIE, `demo.${Buffer.from(JSON.stringify({ role, exp })).toString('base64')}`, cookieSecurity());
   jar.set(REFRESH_COOKIE, `demo-refresh.${role}`, cookieSecurity());
   jar.set(SESSION_COOKIE, encodeURIComponent(JSON.stringify({ role, exp, email })), sessionMarkerCookie());

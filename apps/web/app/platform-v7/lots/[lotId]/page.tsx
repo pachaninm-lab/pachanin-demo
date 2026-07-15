@@ -8,7 +8,8 @@ const lot2403Bids = [
   { buyer: 'Покупатель 3', region: 'Липецкая область', rating: '96/100', price: '15 850 ₽/т', volume: '500 т', status: 'активна' },
 ] as const;
 
-export default function Page({ params }: { params: { lotId: string } }) {
+export default async function Page(props: { params: Promise<{ lotId: string }> }) {
+  const params = await props.params;
   if (params.lotId === 'new' || params.lotId === 'create') {
     redirect('/platform-v7/lots/create');
   }

@@ -32,7 +32,7 @@ export async function getOrganizationTeam(): Promise<OrganizationTeamSnapshot> {
   try {
     const response = await fetch(serverApiUrl('/auth/organization-team'), {
       cache: 'no-store',
-      headers: serverAuthHeaders(),
+      headers: await serverAuthHeaders(),
     });
     if (!response.ok) return UNAVAILABLE;
     return parseSnapshot(await response.json());

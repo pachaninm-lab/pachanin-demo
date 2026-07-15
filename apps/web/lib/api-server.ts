@@ -9,7 +9,7 @@ export async function apiServer<T = any>(
   options?: { method?: string; body?: any },
 ): Promise<T> {
   const url = serverApiUrl(path);
-  const headers = serverAuthHeaders({ 'Content-Type': 'application/json' });
+  const headers = await serverAuthHeaders({ 'Content-Type': 'application/json' });
 
   const res = await fetch(url, {
     method: options?.method || 'GET',

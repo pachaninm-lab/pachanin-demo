@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch(runtimeApiUrl('/runtime/reset'), { method: 'POST', headers: runtimeAuthHeaders(), cache: 'no-store' });
+    const response = await fetch(runtimeApiUrl('/runtime/reset'), { method: 'POST', headers: await runtimeAuthHeaders(), cache: 'no-store' });
     const payload = await response.json().catch(() => ({}));
     return NextResponse.json({ ok: response.ok, message: 'Runtime reset to seed snapshot', payload }, { status: response.ok ? 200 : response.status });
   } catch {

@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   const correlationId = request.headers.get('x-correlation-id') || randomUUID();
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const code = String(body.code || '').trim();
-  const jar = cookies();
+  const jar = await cookies();
   const ticket = openMfaLoginTicket(jar.get(MFA_PENDING_COOKIE)?.value || '');
 
   if (!ticket || !code || code.length > 128) {
