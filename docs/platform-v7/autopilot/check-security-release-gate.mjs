@@ -9,6 +9,7 @@ const SCHEMA_PATH = resolve('docs/platform-v7/autopilot/security-exceptions.sche
 const SCOPE_PATH = resolve('docs/platform-v7/autopilot/security-release-scope.json');
 const SEMGREP_PATH = resolve('docs/platform-v7/autopilot/semgrep-security.yml');
 const TRIVY_EVALUATOR_PATH = resolve('docs/platform-v7/autopilot/evaluate-trivy-report.mjs');
+const BULK_AUDIT_COLLECTOR_PATH = resolve('docs/platform-v7/autopilot/collect-npm-bulk-audit.mjs');
 const WORKFLOW_PATH = resolve('.github/workflows/security-quality-gate.yml');
 const REPORT_PATH = resolve(process.env.SECURITY_POLICY_REPORT ?? 'artifacts/security/security-policy-validation.json');
 const IGNORE_DIR = resolve(process.env.TRIVY_IGNORE_DIR ?? 'artifacts/security');
@@ -83,6 +84,9 @@ const registry = parseJson(EXCEPTIONS_PATH);
 const schema = parseJson(SCHEMA_PATH);
 const scope = parseJson(SCOPE_PATH);
 const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
+const bulkAuditCollector = existsSync(BULK_AUDIT_COLLECTOR_PATH)
+  ? readFileSync(BULK_AUDIT_COLLECTOR_PATH, 'utf8')
+  : '';
 const now = new Date();
 
 check(errors, /^[0-9a-f]{40}$/.test(EXACT_HEAD), 'SECURITY_EXACT_HEAD must be a full commit SHA.');
@@ -199,7 +203,9 @@ const requiredWorkflowFragments = [
   'scan-type: config',
   'scan-ref: infra/docker',
   'scanners: secret',
-  'pnpm audit --prod --json',
+  'pnpm -r list --prod --json --depth Infinity',
+  'collect-npm-bulk-audit.mjs',
+  'pnpm-production-dependencies.json',
   'docs/platform-v7/autopilot/semgrep-security.yml',
   'check-security-release-gate.mjs',
   'evaluate-pnpm-audit.mjs',
@@ -208,8 +214,22 @@ const requiredWorkflowFragments = [
 ];
 for (const fragment of requiredWorkflowFragments) check(errors, workflow.includes(fragment), `Security workflow is missing required fragment: ${fragment}`);
 
+const requiredBulkAuditFragments = [
+  '/-/npm/v1/security/advisories/bulk',
+  "method: 'POST'",
+  'AbortSignal.timeout(30_000)',
+  'NPM_BULK_AUDIT_FAILURE',
+  'auditReportVersion: 3',
+  'vulnerable_versions',
+  'severity',
+];
+for (const fragment of requiredBulkAuditFragments) {
+  check(errors, bulkAuditCollector.includes(fragment), `npm Bulk Advisory collector is missing required fragment: ${fragment}`);
+}
+
 check(errors, existsSync(SEMGREP_PATH), 'Deterministic local Semgrep policy is missing.');
 check(errors, existsSync(TRIVY_EVALUATOR_PATH), 'Fail-closed Trivy report evaluator is missing.');
+check(errors, existsSync(BULK_AUDIT_COLLECTOR_PATH), 'Fail-closed npm Bulk Advisory collector is missing.');
 check(errors, existsSync(resolve('infra/docker/Dockerfile.api')), 'Canonical API Dockerfile is missing.');
 check(errors, existsSync(resolve('docker-compose.yml')), 'Local production-like topology definition is missing.');
 
