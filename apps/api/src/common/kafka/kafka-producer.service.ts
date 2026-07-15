@@ -117,7 +117,6 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
             ...message.headers,
           },
         }],
-        compression: 2,
       });
       return true;
     } catch (error) {
@@ -140,6 +139,9 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
     }, {});
 
     try {
+      // Use KafkaJS's built-in uncompressed record batches. The previous
+      // numeric compression=2 selected Snappy, whose codec is not bundled by
+      // KafkaJS and caused every durable delivery to fail at runtime.
       await this.producer.sendBatch({
         topicMessages: Object.entries(grouped).map(([topic, topicMessages]) => ({
           topic,
@@ -153,7 +155,6 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
             },
           })),
         })),
-        compression: 2,
       });
       return messages.length;
     } catch (error) {
