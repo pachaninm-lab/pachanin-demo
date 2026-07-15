@@ -65,8 +65,8 @@ BEGIN
   NEW.deal_version_at_open := deal_row."version";
 
   SELECT * INTO freeze_row
-  FROM dispute.deal_freezes freeze
-  WHERE freeze.deal_id = NEW.deal_id
+  FROM dispute.deal_freezes df
+  WHERE df.deal_id = NEW.deal_id
   FOR UPDATE;
 
   IF FOUND THEN
@@ -119,9 +119,9 @@ BEGIN
   END IF;
 
   SELECT * INTO freeze_row
-  FROM dispute.deal_freezes freeze
-  WHERE freeze.deal_id = NEW.deal_id
-    AND freeze.tenant_id = NEW.tenant_id
+  FROM dispute.deal_freezes df
+  WHERE df.deal_id = NEW.deal_id
+    AND df.tenant_id = NEW.tenant_id
   FOR UPDATE;
   IF NOT FOUND OR freeze_row.status <> 'ACTIVE' OR freeze_row.active_case_count <= 0 THEN
     RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'DISPUTE_DEAL_FREEZE_MISSING';
