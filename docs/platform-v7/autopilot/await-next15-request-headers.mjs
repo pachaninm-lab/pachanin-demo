@@ -2,7 +2,7 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const ROOT = 'apps/web';
+const ROOTS = ['apps/web/app', 'apps/web/lib', 'apps/web/components'];
 const SOURCE_EXTENSIONS = /\.(?:ts|tsx)$/;
 const changed = [];
 
@@ -13,6 +13,10 @@ function sourceFiles(directory) {
     if (entry.isDirectory()) return sourceFiles(absolute);
     return SOURCE_EXTENSIONS.test(entry.name) ? [absolute] : [];
   });
+}
+
+function allSourceFiles() {
+  return ROOTS.flatMap(sourceFiles);
 }
 
 function awaitHelperCalls(source, helper) {
@@ -31,7 +35,7 @@ function normalizeGeneratedTypes(source) {
     .replace(/'use client';;/g, "'use client';");
 }
 
-for (const path of sourceFiles(ROOT)) {
+for (const path of allSourceFiles()) {
   let source = readFileSync(path, 'utf8');
   const original = source;
 
@@ -54,7 +58,7 @@ for (const path of sourceFiles(ROOT)) {
 }
 
 const violations = [];
-for (const path of sourceFiles(ROOT)) {
+for (const path of allSourceFiles()) {
   const source = readFileSync(path, 'utf8');
   for (const helper of ['runtimeAuthHeaders', 'serverAuthHeaders']) {
     if (
