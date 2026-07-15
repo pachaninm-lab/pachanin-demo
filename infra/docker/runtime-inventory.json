@@ -19,7 +19,7 @@
     {
       "component": "outbox-worker",
       "dockerfile": "infra/docker/Dockerfile.outbox-worker",
-      "entrypoint": "dist/src/outbox-worker.js",
+      "entrypoint": "dist-outbox-worker/outbox-worker.js",
       "status": "DEPLOYABLE",
       "runtimeUser": "nonroot",
       "productionDependenciesOnly": true,
