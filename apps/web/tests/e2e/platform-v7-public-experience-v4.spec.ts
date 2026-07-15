@@ -1,9 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-function overlap(a: DOMRect, b: DOMRect) {
-  return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
-}
-
 for (const width of [320, 390]) {
   test(`public product experience reflows at ${width}px`, async ({ page }) => {
     const runtimeErrors: string[] = [];
