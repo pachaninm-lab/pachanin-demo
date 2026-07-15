@@ -13,6 +13,7 @@ describe('Disputes PostgreSQL authority policy', () => {
   const commandMigration = source('prisma/migrations/20260715021100_dispute_postgresql_commands/migration.sql');
   const lifecycleMigration = source('prisma/migrations/20260715021200_dispute_lifecycle_commands/migration.sql');
   const finalizationMigration = source('prisma/migrations/20260715021300_dispute_finalization_commands/migration.sql');
+  const partyGuardMigration = source('prisma/migrations/20260715021400_dispute_party_initiator_guard/migration.sql');
 
   it('has one PostgreSQL production owner and no runtime selector', () => {
     expect(moduleSource).toContain('PostgresqlDisputeRepository');
@@ -34,9 +35,17 @@ describe('Disputes PostgreSQL authority policy', () => {
     expect(schemaMigration).toContain('FORCE ROW LEVEL SECURITY');
     expect(schemaMigration).toContain('dispute_evidence_append_only');
     expect(schemaMigration).toContain('claim_amount_minor bigint');
-    expect(commandMigration).toContain("INSERT INTO settlement.holds");
-    expect(commandMigration).toContain("UPDATE settlement.payments");
-    expect(commandMigration).toContain("DISPUTE_HOLD_EXCEEDS_AVAILABLE_FUNDS");
+    expect(commandMigration).toContain('INSERT INTO settlement.holds');
+    expect(commandMigration).toContain('UPDATE settlement.payments');
+    expect(commandMigration).toContain('DISPUTE_HOLD_EXCEEDS_AVAILABLE_FUNDS');
+  });
+
+  it('allows only a contractual Deal party to originate the claim', () => {
+    expect(partyGuardMigration).toContain('dispute_party_initiator_guard');
+    expect(partyGuardMigration).toContain('DISPUTE_PARTY_INITIATOR_REQUIRED');
+    expect(partyGuardMigration).toContain('DISPUTE_RESPONDENT_SCOPE_INVALID');
+    expect(partyGuardMigration).toContain('deal_row."buyerOrgId"');
+    expect(partyGuardMigration).toContain('deal_row."sellerOrgId"');
   });
 
   it('requires evidence, appeal control and confirmed settlement operations before close', () => {
