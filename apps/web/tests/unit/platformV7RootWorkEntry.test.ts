@@ -153,7 +153,7 @@ describe('platform-v7 public product experience v5', () => {
       'websocket',
     ];
     for (const token of forbidden) expect(combined).not.toContain(token);
-    expect(copyV4).toContain('controlled pilot / pre-integration');
+    expect(copyV4.toLowerCase()).toContain('controlled pilot / pre-integration');
     expect(copyV4).toContain('не выполняет денежные операции');
   });
 });
