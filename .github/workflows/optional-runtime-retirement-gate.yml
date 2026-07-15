@@ -1,0 +1,165 @@
+name: Optional Runtime Retirement Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: optional-runtime-retirement-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  RETIREMENT_DIR: artifacts/optional-runtime
+
+jobs:
+  retirement-policy:
+    name: Optional runtime · exact-head retirement policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.4
+
+      - name: Validate retired runtime authority
+        env:
+          OPTIONAL_RUNTIME_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          OPTIONAL_RUNTIME_REPORT: ${{ env.RETIREMENT_DIR }}/optional-runtime-retirement.json
+        run: node scripts/security/validate-optional-runtime-retirement.mjs
+
+      - name: Prove ML reference fails closed without dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RETIREMENT_DIR"
+          python -m py_compile apps/ml/main.py
+          python <<'PY' | tee "$RETIREMENT_DIR/ml-fail-closed.txt"
+          import importlib.util
+          from pathlib import Path
+
+          path = Path('apps/ml/main.py')
+          spec = importlib.util.spec_from_file_location('retired_ml_reference', path)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          assert module.RUNTIME_STATUS['status'] == 'NOT_DEPLOYABLE'
+          assert module.RUNTIME_STATUS['releaseAuthority'] is False
+          try:
+              module.create_app()
+          except RuntimeError as error:
+              assert str(error) == 'ML_RUNTIME_NOT_DEPLOYABLE:#2605'
+          else:
+              raise AssertionError('Retired ML create_app did not fail closed')
+          print('ML reference contour is non-deployable and fails closed.')
+          PY
+
+      - name: Lint and render chart without ML workload
+        shell: bash
+        run: |
+          set -euo pipefail
+          helm lint infra/helm/grainflow | tee "$RETIREMENT_DIR/helm-lint.txt"
+          helm template grainflow infra/helm/grainflow \
+            --namespace grainflow-prod \
+            > "$RETIREMENT_DIR/helm-rendered.yaml"
+          test -s "$RETIREMENT_DIR/helm-rendered.yaml"
+          grep -q 'status: NOT_DEPLOYABLE' "$RETIREMENT_DIR/helm-rendered.yaml"
+          if grep -Eq 'kind: Deployment[[:space:][:print:]]*name: .*ml' "$RETIREMENT_DIR/helm-rendered.yaml"; then
+            echo 'Rendered chart contains an ML Deployment.' >&2
+            exit 1
+          fi
+
+      - name: Upload retirement policy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optional-runtime-policy-${{ env.EXACT_HEAD }}
+          path: ${{ env.RETIREMENT_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+
+  retired-source-scan:
+    name: Retired source · secrets and misconfiguration blocking
+    needs: retirement-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Materialize retained reference scope
+        run: |
+          mkdir -p "$RETIREMENT_DIR/scan-scope/apps" "$RETIREMENT_DIR/scan-scope/infra"
+          cp -R apps/ml "$RETIREMENT_DIR/scan-scope/apps/ml"
+          cp -R infra/k8s/base/ml-deployment.yml "$RETIREMENT_DIR/scan-scope/infra/ml-k8s.yml"
+          cp -R infra/helm/grainflow/templates/ml-deployment.yaml "$RETIREMENT_DIR/scan-scope/infra/ml-helm.yaml"
+          cp docs/platform-v7/autopilot/optional-runtime-inventory.json "$RETIREMENT_DIR/scan-scope/optional-runtime-inventory.json"
+
+      - name: Scan retained reference scope
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: artifacts/optional-runtime/scan-scope
+          scanners: secret,misconfig
+          format: sarif
+          output: artifacts/optional-runtime/trivy-retired-source.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          limit-severities-for-sarif: true
+
+      - name: Upload retired source SARIF
+        if: always() && hashFiles('artifacts/optional-runtime/trivy-retired-source.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ env.RETIREMENT_DIR }}/trivy-retired-source.sarif
+          category: optional-runtime-retirement
+
+      - name: Upload retired source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optional-runtime-scan-${{ env.EXACT_HEAD }}
+          path: ${{ env.RETIREMENT_DIR }}/trivy-retired-source.sarif
+          if-no-files-found: error
+          retention-days: 90
+
+  retirement-gate:
+    name: Optional Runtime Gate · all blocking checks
+    if: always()
+    runs-on: ubuntu-latest
+    needs:
+      - retirement-policy
+      - retired-source-scan
+    steps:
+      - name: Enforce retirement acceptance
+        env:
+          POLICY_RESULT: ${{ needs.retirement-policy.result }}
+          SCAN_RESULT: ${{ needs.retired-source-scan.result }}
+        run: |
+          test "$POLICY_RESULT" = success
+          test "$SCAN_RESULT" = success
