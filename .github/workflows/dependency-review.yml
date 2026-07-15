@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: read
 
 jobs:
@@ -38,83 +38,3 @@ jobs:
         if: steps.graph.outputs.enabled == 'true'
         with:
           fail-on-severity: critical
-
-  governed-next-15-5-18:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'agent/ir-sec-next-15-5-16-final' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    steps:
-      - name: Checkout frozen branch
-        uses: actions/checkout@v4
-        with:
-          ref: agent/ir-sec-next-15-5-16-final
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.2.1
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
-
-      - name: Verify exact security patch intent
-        run: |
-          mkdir -p artifacts/next1518/security
-          node <<'NODE'
-          const fs = require('node:fs');
-          const packageJson = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
-          if (packageJson.dependencies.next !== '15.5.18') {
-            throw new Error(`Expected patched Next.js 15.5.18, got ${packageJson.dependencies.next}`);
-          }
-          const testSource = fs.readFileSync('apps/web/tests/unit/next15RuntimeContracts.test.ts', 'utf8');
-          if (!testSource.includes("toBe('15.5.18')")) {
-            throw new Error('Next.js contract regression is not pinned to 15.5.18.');
-          }
-          NODE
-
-      - name: Regenerate and prove frozen lockfile
-        run: |
-          pnpm install --lockfile-only --no-frozen-lockfile 2>&1 | tee artifacts/next1518/lockfile.log
-          pnpm install --frozen-lockfile 2>&1 | tee artifacts/next1518/frozen-install.log
-
-      - name: Prove strict web typecheck
-        run: pnpm --filter @pc/web typecheck 2>&1 | tee artifacts/next1518/typecheck.log
-
-      - name: Prove Next.js runtime contract
-        run: pnpm exec vitest run apps/web/tests/unit/next15RuntimeContracts.test.ts 2>&1 | tee artifacts/next1518/runtime-contract.log
-
-      - name: Prove production web build
-        run: pnpm --filter @pc/web build 2>&1 | tee artifacts/next1518/build.log
-
-      - name: Prove zero HIGH and CRITICAL production dependencies
-        env:
-          SECURITY_EXACT_HEAD: ${{ github.event.pull_request.head.sha }}
-          PNPM_AUDIT_JSON: artifacts/next1518/security/pnpm-audit.json
-          PNPM_AUDIT_STDERR: artifacts/next1518/security/pnpm-audit.stderr.txt
-          PNPM_AUDIT_REPORT: artifacts/next1518/security/pnpm-audit-evaluation.json
-        run: |
-          set +e
-          pnpm audit --prod --json --audit-level=high > "$PNPM_AUDIT_JSON" 2> "$PNPM_AUDIT_STDERR"
-          audit_exit=$?
-          set -e
-          PNPM_AUDIT_EXIT="$audit_exit" node docs/platform-v7/autopilot/evaluate-pnpm-audit.mjs
-
-      - name: Upload security patch evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: next-15-5-18-${{ github.event.pull_request.head.sha }}
-          path: artifacts/next1518
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Commit only proven package graph
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add apps/web/package.json apps/web/tests/unit/next15RuntimeContracts.test.ts pnpm-lock.yaml
-          git commit -m 'Patch Next.js runtime to 15.5.18 [security-gate]'
-          git push origin HEAD:agent/ir-sec-next-15-5-16-final
