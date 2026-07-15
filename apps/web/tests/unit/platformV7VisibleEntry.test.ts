@@ -3,68 +3,77 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const pageSource = () => readFileSync(resolve(__dirname, '../../app/platform-v7/page.tsx'), 'utf8');
-const landingCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-landing-copy.ts'), 'utf8');
+const explorerSource = () => readFileSync(resolve(__dirname, '../../app/platform-v7/how-it-works/page.tsx'), 'utf8');
+const productCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-product-experience-v4.ts'), 'utf8');
 const loginCopy = () => readFileSync(resolve(__dirname, '../../i18n/public-login-copy.ts'), 'utf8');
 const publicHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/PublicSiteHeader.tsx'), 'utf8');
-const executionOverview = () => readFileSync(resolve(__dirname, '../../components/v7r/PlatformV7IntelligenceStrip.tsx'), 'utf8');
+const support = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ChatSupportWidget.tsx'), 'utf8');
+const css = () => readFileSync(resolve(__dirname, '../../styles/platform-v7-public-product-experience-v5.css'), 'utf8');
 
-describe('platform-v7 visible entry (mobile home)', () => {
+describe('platform-v7 visible public entry', () => {
   it('front-loads the user task and keeps two deliberate actions', () => {
     const page = pageSource();
-    const copy = landingCopy();
+    const copy = productCopy();
 
-    expect(page).toContain("ru: ['Управляйте зерновой сделкой', 'от условий до расчёта.']");
-    expect(copy).toContain('Каждый участник видит статус и своё следующее действие');
-    expect(page).toContain("className='entry-primary-cta'");
-    expect(page).toContain("className='entry-secondary-cta'");
-    expect(page).not.toContain("className='entry-register-cta'");
-    expect(page).not.toContain('▷');
+    expect(copy).toContain("title: 'Сделка под контролем — от условий до расчёта'");
+    expect(copy).toContain('ответственный, следующее действие и причина блокировки');
+    expect(page).toContain("className='pc-ppe-primary-button'");
+    expect(page).toContain("className='pc-ppe-secondary-button'");
+    expect(copy).toContain('Разобрать демонстрационную сделку');
     expect(copy).toContain('Подключить организацию');
   });
 
-  it('removes redundant mobile navigation and restores support', () => {
+  it('uses service navigation and an accessible support dialog', () => {
     const page = pageSource();
     const header = publicHeader();
+    const widget = support();
 
-    expect(page).toContain('showMobileMenu={false}');
+    expect(page).toContain('nav={nav}');
+    expect(page).toContain('showMobileMenu');
     expect(header).toContain('nav && showMobileMenu');
-    expect(header).toContain('<ChatSupportWidget />');
-    expect(page).toContain('.pc-v7-public-entry .p7-support-chat-button');
-    expect(page).toContain("bottom:calc(env(safe-area-inset-bottom,0px) + 18px)!important");
+    expect(widget).toContain("role='dialog'");
+    expect(widget).toContain("aria-modal='true'");
+    expect(widget).toContain("event.key === 'Escape'");
+    expect(widget).toContain('triggerRef.current?.focus()');
+    expect(css()).toContain('right: max(14px');
+    expect(css()).not.toContain('right: -5px');
   });
 
-  it('uses descriptive navigation and access labels', () => {
+  it('uses descriptive access labels without client-selected authority', () => {
     const page = pageSource();
-    const copy = landingCopy();
     const login = loginCopy();
 
-    expect(copy).toContain('Участники сделки');
-    expect(copy).toContain('Войдите один раз');
-    expect(copy).toContain('Задать вопрос');
-    expect(login).toContain('Восстановить доступ');
     expect(page).toContain("href='/platform-v7/login'");
     expect(page).not.toContain('/platform-v7/login?role=');
     expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
+    expect(login).toContain('Восстановить доступ');
   });
 
-  it('keeps landing and login copy free of demo, maturity and machine-written language', () => {
-    const joined = [pageSource(), landingCopy(), loginCopy(), executionOverview()].join('\n');
+  it('states the demonstration and maturity boundary instead of simulating live operation', () => {
+    const joined = [pageSource(), explorerSource(), productCopy()].join('\n').toLowerCase();
 
-    expect(joined).not.toMatch(/production-ready|fully live|fully integrated|bank connected|FGIS connected|EDO connected/i);
-    expect(joined).not.toMatch(/\bpilot\b|\bdemo\b|пилот|демо/i);
+    expect(joined).toContain('демонстрационная сделка');
+    expect(joined).toContain('не содержит реальных сделок');
+    expect(joined).toContain('controlled pilot / pre-integration');
+    expect(joined).toContain('не выполняет денежные операции');
+    expect(joined).not.toContain('deal-2408');
+    expect(joined).not.toMatch(/production-ready|fully live|fully integrated|bank connected|fgis connected|edo connected/i);
+  });
+
+  it('keeps public copy free of synthetic marketing language', () => {
+    const joined = [pageSource(), explorerSource(), productCopy()].join('\n').toLowerCase();
 
     for (const phrase of [
-      'цифровой контур',
-      'единый контур',
-      'проверяемая база',
-      'исполнение под контролем',
-      'главный риск начинается',
       'революционный',
       'инновационный',
       'нового поколения',
+      'уникальная экосистема',
+      'бесшовный опыт',
       'на базе искусственного интеллекта',
+      'каждый шаг под контролем',
+      'всё в одном месте',
     ]) {
-      expect(joined.toLowerCase()).not.toContain(phrase.toLowerCase());
+      expect(joined).not.toContain(phrase);
     }
   });
 });
