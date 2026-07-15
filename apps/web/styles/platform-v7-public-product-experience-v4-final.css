@@ -1,0 +1,71 @@
+.pc-ppe-page .pc-site-brand-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  flex: 0 0 auto;
+}
+
+/* The role is selected separately. Keep the public deal navigation to the four
+   business areas a participant needs to inspect first. */
+.pc-ppe-page .pc-ppe-lens-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pc-ppe-page .pc-ppe-lens-list > button:nth-child(2),
+.pc-ppe-page .pc-ppe-lens-list > button:nth-child(6) {
+  display: none;
+}
+
+.pc-ppe-page .pc-ppe-lens-list > button {
+  min-width: 0;
+  min-height: 48px;
+  overflow-wrap: anywhere;
+}
+
+.pc-ppe-page .pc-ppe-explorer-toolbar,
+.pc-ppe-page .pc-ppe-guide-controls,
+.pc-ppe-page .pc-ppe-segmented {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .pc-ppe-page .pc-ppe-lens-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pc-ppe-page .pc-ppe-lens-list > button {
+    justify-content: flex-start;
+    min-height: 52px;
+    text-align: left;
+  }
+
+  .pc-ppe-page .pc-ppe-segmented {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pc-ppe-page .pc-ppe-segmented > button {
+    width: 100%;
+    min-height: 48px;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 340px) {
+  .pc-ppe-page .pc-ppe-lens-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-ppe-page *,
+  .pc-ppe-page *::before,
+  .pc-ppe-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
