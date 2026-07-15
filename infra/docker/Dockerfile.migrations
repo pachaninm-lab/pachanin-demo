@@ -31,6 +31,23 @@ RUN pnpm --filter @pc/api deploy --prod --legacy /migration-runtime \
   && rm -rf /migration-runtime/prisma \
   && cp -R /workspace/apps/api/prisma /migration-runtime/prisma
 
+# pnpm deploy can retain the Prisma CLI package while omitting its native schema
+# engine. The migration image must therefore embed the exact pinned engine during
+# the build and must not depend on a writable root filesystem or a runtime download.
+RUN set -eux; \
+  source_engine="$(find /workspace -type f -name 'schema-engine-debian-openssl-3.0.x' -print -quit)"; \
+  target_engine_dir="$(find /migration-runtime/node_modules/.pnpm -type d -path '*/node_modules/@prisma/engines' -print -quit)"; \
+  test -n "$source_engine"; \
+  test -n "$target_engine_dir"; \
+  install -m 0555 "$source_engine" "$target_engine_dir/schema-engine-debian-openssl-3.0.x"; \
+  test -x "$target_engine_dir/schema-engine-debian-openssl-3.0.x"
+
+RUN cd /migration-runtime \
+  && HOME=/tmp TMPDIR=/tmp XDG_CACHE_HOME=/tmp/.cache npm_config_cache=/tmp/.npm \
+     PRISMA_HIDE_UPDATE_MESSAGE=true \
+     DATABASE_URL='postgresql://invalid:invalid@127.0.0.1:5432/grainflow?schema=public' \
+     node node_modules/prisma/build/index.js validate --schema prisma/schema.prisma
+
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
