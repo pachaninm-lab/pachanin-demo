@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 
+// Exact-head public acceptance covers every supported mobile width and only visible controls.
 for (const width of [320, 360, 375, 390, 430]) {
   test(`public product experience reflows at ${width}px`, async ({ page }) => {
     const runtimeErrors: string[] = [];
