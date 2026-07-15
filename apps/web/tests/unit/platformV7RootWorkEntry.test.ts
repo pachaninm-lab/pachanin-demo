@@ -68,7 +68,7 @@ describe('platform-v7 public product experience v4', () => {
     expect(entryGate).toContain("'problem-first'");
     expect(entryGate).toContain('entryCopy.role.options.slice(0, 5)');
     expect(entryGate).toContain('ui.explorer.entryBadge');
-    expect(entryGate).toContain("lens: 'execution'");
+    expect(entryGate).toContain('lens: option.lens');
     expect(entryGate).toContain("name: 'role_selected'");
     expect(entryCopy).toContain("title: 'Кто вы в сделке?'");
     expect(entryCopy).toContain("title: 'Что вы хотите контролировать?'");
