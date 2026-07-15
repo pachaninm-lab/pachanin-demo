@@ -1,0 +1,48 @@
+name: Netlify runtime v5 hotfix
+
+on:
+  push:
+    branches:
+      - hotfix/netlify-runtime-v5-lock
+
+permissions:
+  contents: write
+
+jobs:
+  generate-lock:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/netlify-runtime-v5-lock
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install locked workspace
+        run: pnpm install --frozen-lockfile
+      - name: Pin current Netlify OpenNext adapter
+        run: pnpm add -Dw --save-exact @netlify/plugin-nextjs@5.15.12
+      - name: Restore file-based runtime configuration
+        shell: bash
+        run: |
+          if ! grep -q 'package = "@netlify/plugin-nextjs"' netlify.toml; then
+            printf '\n[[plugins]]\n  package = "@netlify/plugin-nextjs"\n' >> netlify.toml
+          fi
+      - name: Remove one-shot generator
+        run: rm .github/workflows/netlify-runtime-v5-hotfix.yml
+      - name: Commit generated lockfile
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add package.json pnpm-lock.yaml netlify.toml .github/workflows/netlify-runtime-v5-hotfix.yml
+          git commit -m "Pin Netlify OpenNext runtime v5 for production"
+          git push origin HEAD:hotfix/netlify-runtime-v5-lock
