@@ -1,0 +1,42 @@
+{
+  "id": "IR-IMAGE-2664",
+  "parentProgramIssue": 2597,
+  "issue": 2664,
+  "branch": "ir/runtime-images-2664",
+  "status": "active",
+  "maturityBoundary": "executable-release-artifacts-only",
+  "globalProgramStateUnchanged": "This isolated release-artifact repair does not change production maturity or the serialized primary autopilot task.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/ir-runtime-images-2664.json",
+    "infra/docker/Dockerfile.api",
+    "infra/docker/Dockerfile.outbox-worker",
+    "infra/helm/grainflow/templates/web-deployment.yaml",
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/release/build-exact-head-images.sh",
+    "scripts/release/materialize-prisma-client.mjs"
+  ],
+  "forbiddenPaths": [
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "package.json",
+    "pnpm-lock.yaml",
+    "package-lock.json"
+  ],
+  "forbiddenClaims": [
+    "production deployment accepted",
+    "production capacity proven",
+    "live external integration",
+    "production RTO or RPO established",
+    "Industrial Integration-Ready"
+  ],
+  "requiredEvidence": [
+    "API final-image entrypoint smoke",
+    "API final-image Prisma Client resolution",
+    "outbox-worker final-image entrypoint smoke",
+    "outbox-worker final-image Prisma Client resolution",
+    "web probes reference built unauthenticated routes",
+    "exact-head immutable release authority",
+    "exact-head security gates"
+  ]
+}

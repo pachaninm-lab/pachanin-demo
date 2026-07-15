@@ -10,6 +10,7 @@ import {
 import { useSessionStore } from '@/stores/useSessionStore';
 import { getNavItems, roleLabels } from '@/lib/v9/roles';
 import { cn } from '@/lib/v9/utils';
+import { BrandMark } from '@/components/v7r/BrandMark';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -34,9 +35,7 @@ export function Sidebar({ aiOpen, onToggleAi }: SidebarProps) {
     >
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-4 border-b border-border">
-        <div aria-hidden style={{ width: 32, height: 32, background: '#0A7A5F', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Layers size={18} color="#fff" />
-        </div>
+        <BrandMark size={32} shadow={false} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 800, fontSize: 14, color: '#0F1419', lineHeight: 1.2 }}>Прозрачная Цена</div>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#6B778C', letterSpacing: '0.06em' }}>v9 · PLATFORM</div>

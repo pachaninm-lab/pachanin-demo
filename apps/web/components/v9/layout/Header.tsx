@@ -7,6 +7,7 @@ import { useSessionStore } from '@/stores/useSessionStore';
 import { RoleSwitcher } from './RoleSwitcher';
 import { SandboxBadge } from '../bank/SandboxBadge';
 import { cn } from '@/lib/v9/utils';
+import { BrandMark } from '@/components/v7r/BrandMark';
 
 function buildBreadcrumbs(pathname: string) {
   const labels: Record<string, string> = {
@@ -49,6 +50,8 @@ export function Header({ onOpenCmd, onToggleAi, aiOpen }: HeaderProps) {
       >
         <Menu size={18} />
       </button>
+
+      <BrandMark size={32} shadow={false} />
 
       {/* Breadcrumbs */}
       <nav aria-label="Хлебные крошки" className="flex items-center gap-1 flex-1 min-w-0">
