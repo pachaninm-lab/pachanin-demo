@@ -86,8 +86,12 @@ jobs:
             > "$RETIREMENT_DIR/helm-rendered.yaml"
           test -s "$RETIREMENT_DIR/helm-rendered.yaml"
           grep -q 'status: NOT_DEPLOYABLE' "$RETIREMENT_DIR/helm-rendered.yaml"
-          if grep -Eq 'kind: Deployment[[:space:][:print:]]*name: .*ml' "$RETIREMENT_DIR/helm-rendered.yaml"; then
-            echo 'Rendered chart contains an ML Deployment.' >&2
+          if grep -q 'app.kubernetes.io/name: grainflow-ml' "$RETIREMENT_DIR/helm-rendered.yaml"; then
+            echo 'Rendered chart contains a selector for the retired ML workload.' >&2
+            exit 1
+          fi
+          if grep -Eq 'image:[[:space:]]+.*grainflow[-/]ml' "$RETIREMENT_DIR/helm-rendered.yaml"; then
+            echo 'Rendered chart contains a retired ML container image.' >&2
             exit 1
           fi
 
