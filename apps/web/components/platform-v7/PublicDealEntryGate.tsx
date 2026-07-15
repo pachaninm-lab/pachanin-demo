@@ -120,7 +120,7 @@ export function PublicDealEntryGate({
       onClick={() => openDeal({
         ...state,
         perspective: option.perspective,
-        lens: 'execution',
+        lens: option.lens,
       }, 'role-first', option.id)}
     >
       <span className='pc-ppe-icon-well'><PublicExperienceIcon name={option.perspective} size={23} /></span>
