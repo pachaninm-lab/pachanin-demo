@@ -27,8 +27,9 @@ spec:
         app.kubernetes.io/name: grainflow-outbox-worker
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: outbox-worker
-        app.kubernetes.io/version: {{ $digest | quote }}
+        app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
       annotations:
+        platform.prozrachnaya-cena/image-digest: {{ $digest | quote }}
         prometheus.io/scrape: "true"
         prometheus.io/port: {{ .Values.outboxWorker.healthPort | quote }}
         prometheus.io/path: "/metrics"
