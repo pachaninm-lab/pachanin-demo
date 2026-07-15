@@ -1,34 +1,26 @@
-import { Module, type Provider } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AccessScopeService } from '../../common/security/access.service';
-import { AuditModule } from '../audit/audit.module';
-import { NotificationsModule } from '../notifications/notifications.module';
+import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { DisputesController } from './disputes.controller';
 import { DisputesService } from './disputes.service';
-import { DISPUTE_REPOSITORY } from './dispute.repository';
-import { RuntimeDisputeRepository } from './runtime-dispute.repository';
-import { selectDisputeRepository } from './dispute-repository.factory';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import { DisputeCommandService } from './dispute-command.service';
+import { DisputeQueryService } from './dispute-query.service';
 
 /**
- * Dispute repository binding.
+ * Canonical dispute bounded context.
  *
- * Default (controlled-pilot / pre-integration): in-memory runtime adapter that
- * owns the dispute store. The DB-backed Prisma adapter is selected ONLY when
- * PLATFORM_V7_DISPUTE_REPOSITORY=prisma is explicitly set. No silent Prisma
- * activation and no silent fallback. Money logic (holds, decision money
- * instructions) stays in DisputesService.
+ * PostgreSQL is the only runtime owner. There is deliberately no environment
+ * switch, process-memory fallback or alternative repository binding.
  */
-const disputeRepositoryProvider: Provider = {
-  provide: DISPUTE_REPOSITORY,
-  useFactory: (runtime: RuntimeDisputeRepository, prisma?: PrismaService) =>
-    selectDisputeRepository(runtime, prisma),
-  inject: [RuntimeDisputeRepository, { token: PrismaService, optional: true }],
-};
-
 @Module({
-  imports: [AuditModule, NotificationsModule],
   controllers: [DisputesController],
-  providers: [DisputesService, AccessScopeService, RuntimeDisputeRepository, disputeRepositoryProvider],
-  exports: [DisputesService]
+  providers: [
+    DisputesService,
+    DisputeCommandService,
+    DisputeQueryService,
+    RlsTransactionService,
+    AccessScopeService,
+  ],
+  exports: [DisputesService, DisputeCommandService, DisputeQueryService],
 })
 export class DisputesModule {}
