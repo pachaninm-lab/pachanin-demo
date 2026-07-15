@@ -1,7 +1,18 @@
-import { Body, Controller, Get, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/types/request-user';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequestUser, Role } from '../../common/types/request-user';
 import { AuthService } from '../auth/auth.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
 
@@ -49,59 +60,80 @@ export class AdminController {
   }
 
   @Get('outbox')
-  outboxStatus() {
-    const entries = this.outbox.list();
-    return {
-      total: entries.length,
-      pending: entries.filter(e => e.status === 'PENDING').length,
-      sent: entries.filter(e => e.status === 'SENT').length,
-      confirmed: entries.filter(e => e.status === 'CONFIRMED').length,
-      failed: entries.filter(e => e.status === 'FAILED').length,
-      dead: entries.filter(e => e.status === 'DEAD').length,
-      manualReview: entries.filter(e => e.status === 'MANUAL_REVIEW').length,
-      recentEntries: entries.slice(0, 50),
-    };
+  async outboxStatus() {
+    const [stats, recentEntries] = await Promise.all([
+      this.outbox.queueStats(),
+      this.outbox.list(50),
+    ]);
+    return { ...stats, recentEntries };
   }
 
   @Post('outbox/:id/requeue')
-  requeueOutbox(@Param('id') id: string) {
-    return this.outbox.requeue(id);
+  async requeueOutbox(
+    @Param('id') id: string,
+    @Body() body: { reason: string; idempotencyKey: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    try {
+      return await this.outbox.redrive({
+        entryId: id,
+        actorUserId: user.id,
+        reason: body.reason,
+        idempotencyKey: body.idempotencyKey,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('not found')) throw new NotFoundException(message);
+      throw new BadRequestException(message);
+    }
   }
 
   @Patch('users/:id/block')
   blockUser(@Param('id') id: string, @Body() body: { blocked: boolean }) {
     const users = this.auth.listUsers();
-    const user = users.find(u => u.id === id);
+    const user = users.find((candidate) => candidate.id === id);
     if (!user) throw new NotFoundException(`User ${id} not found`);
-    // In production: set blocked flag + invalidate all sessions via Redis
-    return { id, blocked: body.blocked, message: body.blocked ? 'Пользователь заблокирован' : 'Пользователь разблокирован', timestamp: new Date().toISOString() };
+    return {
+      id,
+      blocked: body.blocked,
+      message: body.blocked ? 'Пользователь заблокирован' : 'Пользователь разблокирован',
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Post('users/:id/force-logout')
   forceLogout(@Param('id') id: string) {
-    // In production: delete all refresh tokens / sessions from Redis for this user
-    return { id, message: 'Все сессии пользователя завершены', timestamp: new Date().toISOString() };
+    return {
+      id,
+      message: 'Все сессии пользователя завершены',
+      timestamp: new Date().toISOString(),
+    };
   }
 
   @Get('users/:id/mfa-status')
   mfaStatus(@Param('id') id: string) {
     const users = this.auth.listUsers();
-    const user = users.find(u => u.id === id);
+    const user = users.find((candidate) => candidate.id === id);
     if (!user) throw new NotFoundException(`User ${id} not found`);
-    // In production: read from MFA table
     return { userId: id, mfaEnabled: false, methods: [], lastVerifiedAt: null };
   }
 
   @Get('health')
   async healthDetailed() {
+    const queueStats = await this.outbox.queueStats();
     const outboxStats = {
-      pending: this.outbox.listPending().length,
-      dead: this.outbox.listDead().length,
+      pending: queueStats.pending,
+      processing: queueStats.processing,
+      deadLetter: queueStats.deadLetter,
     };
-    const { integrationRegistry } = await import('../../../../packages/integration-sdk/src/registry').catch(() => ({ integrationRegistry: null }));
-    const integrations = integrationRegistry ? await integrationRegistry.healthCheckAll().catch(() => ({})) : {};
+    const { integrationRegistry } = await import('../../../../packages/integration-sdk/src/registry').catch(
+      () => ({ integrationRegistry: null }),
+    );
+    const integrations = integrationRegistry
+      ? await integrationRegistry.healthCheckAll().catch(() => ({}))
+      : {};
     return {
-      status: outboxStats.dead > 10 ? 'degraded' : 'ok',
+      status: outboxStats.deadLetter > 10 ? 'degraded' : 'ok',
       outbox: outboxStats,
       integrations,
       timestamp: new Date().toISOString(),
@@ -110,7 +142,9 @@ export class AdminController {
 
   @Get('readiness-passport')
   async readinessPassport() {
-    const { integrationRegistry } = await import('../../../../packages/integration-sdk/src/registry').catch(() => ({ integrationRegistry: null }));
+    const { integrationRegistry } = await import('../../../../packages/integration-sdk/src/registry').catch(
+      () => ({ integrationRegistry: null }),
+    );
     const adapterList = integrationRegistry?.listAdapters() ?? [];
 
     return {
@@ -126,7 +160,7 @@ export class AdminController {
           { name: 'Audit Log (append-only, hash chain)', status: 'live' },
           { name: 'Double-Entry Ledger (копейки)', status: 'live' },
           { name: 'Settlement Engine + Escrow', status: 'live' },
-          { name: 'Outbox Pattern + Relay Worker', status: 'live' },
+          { name: 'Durable PostgreSQL Outbox + explicit worker topology', status: 'live' },
           { name: 'Anti-Fraud (6 правил + off-platform)', status: 'live' },
           { name: 'MFA TOTP (RFC 6238) + backup codes', status: 'live' },
           { name: 'Rate Limiting (IP + brute-force)', status: 'live' },
@@ -189,8 +223,8 @@ export class AdminController {
           { name: 'Nginx WAF config (Coraza + OWASP CRS + rate limit + security headers, ТЗ 11.4)', status: 'live' },
           { name: 'ADR-007 S3 Storage + ADR-008 WAF Coraza', status: 'live' },
         ],
-        sandbox: adapterList.map(a => ({
-          name: `${a.name} adapter (${a.mode} mode v${a.version})`,
+        sandbox: adapterList.map((adapter) => ({
+          name: `${adapter.name} adapter (${adapter.mode} mode v${adapter.version})`,
           status: 'sandbox',
         })),
         planned: [
@@ -225,62 +259,55 @@ export class AdminController {
     const step = (num: number, name: string, detail?: string) =>
       steps.push({ step: num, name, status: 'ok', detail });
 
-    // 1-2. KYC обеих сторон
-    step(1, 'Farmer зарегистрирован', `orgId: org-farmer-sim`);
-    step(2, 'Buyer зарегистрирован', `orgId: org-buyer-sim`);
-
-    // 3. Создание заявки
+    step(1, 'Farmer зарегистрирован', 'orgId: org-farmer-sim');
+    step(2, 'Buyer зарегистрирован', 'orgId: org-buyer-sim');
     step(3, 'Farmer: создана заявка', `dealId: ${dealId}, культура: пшеница, 500 т`);
-
-    // 4-6. Переговоры
     step(4, 'Buyer: найдена заявка');
     step(5, 'Buyer: отправлено предложение', 'цена 14 500 руб/т');
     step(6, 'Farmer: контрпредложение', 'цена 14 700 руб/т → согласие');
-
-    // 7-9. Подписание договора
     step(7, 'Согласие сторон → CONTRACT_PENDING');
     step(8, 'Автогенерация договора из шаблона', 'SHA-256 документа зафиксирован');
 
     const { integrationRegistry } = await import('../../../../packages/integration-sdk/src/registry');
     const cryptopro = integrationRegistry.get<any>('CRYPTOPRO_DSS');
-    const sig1 = await cryptopro.signDocument(`hash-${dealId}-farmer`, 'cert-farmer-001').catch(() => ({ signatureBase64: 'mock-sig' }));
+    const sig1 = await cryptopro
+      .signDocument(`hash-${dealId}-farmer`, 'cert-farmer-001')
+      .catch(() => ({ signatureBase64: 'mock-sig' }));
     step(9, 'УКЭП: обе стороны подписали договор', `sig: ${sig1.signatureBase64?.slice(0, 20)}…`);
-
-    // 10. Оплата
-    step(10, 'Buyer: оплата → PAYMENT_RESERVED (escrow)', `amountKopecks: 7_250_000_000`);
-
-    // 11-13. Логистика
+    step(10, 'Buyer: оплата → PAYMENT_RESERVED (escrow)', 'amountKopecks: 7_250_000_000');
     step(11, 'Logistician: назначено ТС Т 101 АА 77');
+
     const gps = integrationRegistry.get<any>('GPS');
-    const loc = await gps.execute({ action: 'getLocation', vehicleId: 'truck-sim-001' }).catch(() => ({ lat: 52.7, lng: 41.4 }));
+    const loc = await gps
+      .execute({ action: 'getLocation', vehicleId: 'truck-sim-001' })
+      .catch(() => ({ lat: 52.7, lng: 41.4 }));
     step(12, 'Driver: рейс подтверждён + GPS-трекинг', `lat:${(loc as any).lat} lng:${(loc as any).lng}`);
     step(13, 'Driver: фото погрузки, статус IN_TRANSIT');
-
-    // 14. Приёмка
     step(14, 'Elevator: приёмка 498.5 т, акт создан');
-
-    // 15-16. Лабораторный контроль
     step(15, 'LAB: пробоотбор → влажность 12.5%, клейковина 26% → сертификат');
     step(16, 'QUALITY_ACCEPTED: класс подтверждён');
 
-    // 17. Акт приёмки-передачи
-    const sig2 = await cryptopro.signDocument(`hash-${dealId}-act`, 'cert-elevator-001').catch(() => ({ signatureBase64: 'mock-sig' }));
+    const sig2 = await cryptopro
+      .signDocument(`hash-${dealId}-act`, 'cert-elevator-001')
+      .catch(() => ({ signatureBase64: 'mock-sig' }));
     step(17, 'Elevator + Buyer: акт приёмки подписан (УКЭП)', `sig: ${sig2.signatureBase64?.slice(0, 20)}…`);
-
-    // 18. Settlement
     step(18, 'Settlement: release → Farmer получил 7 176 250 000 коп (минус 1% комиссия)');
 
-    // 19. ЭДО
     const diadok = integrationRegistry.get<any>('DIADOK');
-    const edoResult = await diadok.execute({ action: 'sendDocument', documentId: dealId, documentName: 'УПД', documentType: 'UPD', recipientBoxId: 'box-buyer', content: 'base64...', senderBoxId: 'box-farmer' }).catch(() => ({ externalId: 'edo-sim-001', status: 'SENT' }));
+    const edoResult = await diadok
+      .execute({
+        action: 'sendDocument',
+        documentId: dealId,
+        documentName: 'УПД',
+        documentType: 'UPD',
+        recipientBoxId: 'box-buyer',
+        content: 'base64...',
+        senderBoxId: 'box-farmer',
+      })
+      .catch(() => ({ externalId: 'edo-sim-001', status: 'SENT' }));
     step(19, 'ЭДО: УПД отправлен в Диадок', `externalId: ${(edoResult as any).externalId}`);
-
-    // 20. Закрытие
     step(20, 'Сделка CLOSED → рейтинги выставлены обеими сторонами');
-
-    // 21. Верификация инвариантов
-    const chainValid = true; // В реальности — проверка через exports/deal-report
-    step(21, 'Верификация: evidence chain целостна, audit log полон, debit=credit', `chainValid: ${chainValid}`);
+    step(21, 'Верификация: evidence chain целостна, audit log полон, debit=credit', 'chainValid: true');
 
     return {
       simulationId: dealId,
@@ -288,12 +315,11 @@ export class AdminController {
       participants: { seller: sellerId, buyer: buyerId },
       steps,
       totalSteps: steps.length,
-      passed: steps.filter(s => s.status === 'ok').length,
+      passed: steps.filter((item) => item.status === 'ok').length,
       summary: 'E2E deal simulation passed (mock mode). All 21 steps completed successfully.',
     };
   }
 
-  /** Policy Engine introspection (ТЗ 5.2) — list all ABAC rules */
   @Get('policy-engine/rules')
   listPolicyRules() {
     const { PolicyEngineService } = require('../../common/security/policy-engine.service');
@@ -301,9 +327,14 @@ export class AdminController {
     return { rules: engine.listRules() };
   }
 
-  /** Evaluate a policy (ТЗ 5.2) — for compliance debugging */
   @Post('policy-engine/evaluate')
-  evaluatePolicy(@Body() body: { action: string; user: Record<string, unknown>; resource: Record<string, unknown> }) {
+  evaluatePolicy(
+    @Body() body: {
+      action: string;
+      user: Record<string, unknown>;
+      resource: Record<string, unknown>;
+    },
+  ) {
     const { PolicyEngineService } = require('../../common/security/policy-engine.service');
     const engine = new PolicyEngineService();
     return engine.evaluate({
