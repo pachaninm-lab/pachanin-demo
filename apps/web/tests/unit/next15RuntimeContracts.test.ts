@@ -30,6 +30,7 @@ const webPackage = JSON.parse(read('apps/web/package.json')) as {
 const apiStaffRoute = read('apps/web/app/api/staff/[...path]/route.ts');
 const staffWorkspaceRoute = read('apps/web/app/api/staff/workspaces/[...path]/route.ts');
 const staffRoute = read('apps/web/app/staff/[...path]/route.ts');
+const dealDocumentsPage = read('apps/web/app/platform-v7/deals/[id]/documents/page.tsx');
 
 describe('Next.js 15 runtime contracts', () => {
   it('pins the patched Next.js line without coupling the change to React 19', () => {
@@ -45,6 +46,13 @@ describe('Next.js 15 runtime contracts', () => {
       expect(source).toMatch(/await context\.params/);
       expect(source).not.toMatch(/context\.params\.path/);
     }
+  });
+
+  it('reads client dynamic page parameters through the Next.js navigation API', () => {
+    expect(dealDocumentsPage).toContain("import { useParams } from 'next/navigation'");
+    expect(dealDocumentsPage).toContain('useParams<{ id: string }>()');
+    expect(dealDocumentsPage).not.toContain('function DealDocumentsPage({ params }');
+    expect(dealDocumentsPage).not.toContain('params.id');
   });
 
   it('contains no unresolved codemod escape hatches or generated compatibility artifacts', () => {
