@@ -5,6 +5,7 @@ import '@/styles/platform-v7-public-product-experience-v3.css';
 import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
 import '@/styles/platform-v7-public-product-experience-v4.css';
 import '@/styles/platform-v7-public-product-entry-variants.css';
+import '@/styles/platform-v7-public-product-experience-v4-final.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
