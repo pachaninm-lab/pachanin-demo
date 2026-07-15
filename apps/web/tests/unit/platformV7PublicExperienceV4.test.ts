@@ -27,7 +27,7 @@ describe('Public Product Experience V4', () => {
   it('uses participant language and four business areas', () => {
     expect(entryGate).toContain('ui.explorer.entryBadge');
     expect(entryGate).toContain('PublicDealExplorerV4');
-    expect(entryGate).toContain("lens: 'execution'");
+    expect(entryGate).toContain('lens: option.lens');
     expect(entryGate).toContain("name: 'role_selected'");
     expect(adapter).toContain('publicBusinessAreas');
     expect(adapter).toContain("['execution', 'documents', 'money', 'risk']");
