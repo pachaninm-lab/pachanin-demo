@@ -492,6 +492,7 @@ model OutboxEntry {
   runtimeSnapshot       DealWorkspaceRuntimeSnapshot? @relation("RuntimeSnapshotOutbox")
   redriveEvents         OutboxRedriveEvent[]
 
+  @@index([status, nextRetryAt])
   @@index([status, nextRetryAt, createdAt, id], map: "outbox_entries_claim_idx")
   @@index([status, leaseExpiresAt], map: "outbox_entries_lease_idx")
   @@index([dealId])

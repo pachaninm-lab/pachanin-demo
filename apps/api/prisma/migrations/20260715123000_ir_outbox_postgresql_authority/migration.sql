@@ -20,8 +20,7 @@ CREATE INDEX IF NOT EXISTS "outbox_entries_claim_idx"
   ON "outbox_entries" ("status", "nextRetryAt", "createdAt", "id");
 
 CREATE UNIQUE INDEX IF NOT EXISTS "outbox_entries_active_lease_token_key"
-  ON "outbox_entries" ("leaseToken")
-  WHERE "leaseToken" IS NOT NULL;
+  ON "outbox_entries" ("leaseToken");
 
 CREATE TABLE IF NOT EXISTS "outbox_redrive_events" (
   "id" TEXT NOT NULL,
