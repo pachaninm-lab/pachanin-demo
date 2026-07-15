@@ -5,6 +5,7 @@ import '@/styles/platform-v7-public-product-experience-v3.css';
 import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
 import '@/styles/platform-v7-public-product-experience-v4.css';
 import '@/styles/platform-v7-public-product-entry-variants.css';
+import '@/styles/platform-v7-public-product-experience-v5.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
@@ -50,6 +51,13 @@ export default async function PublicDealFromInsidePage({
   const chrome = await getTranslations('publicEntry.chrome');
   const initialEntry = normalizeTourEntryVariant(searchParams?.entry);
   const initialState = normalizeTourState(searchParams ?? {});
+  const nav = (
+    <>
+      <a href={`/platform-v7?lang=${encodeURIComponent(locale)}#deal-example`}>{ui.header.howItWorks}</a>
+      <a href={`/platform-v7?lang=${encodeURIComponent(locale)}#participants`}>{ui.header.participants}</a>
+      <a href={`/platform-v7?lang=${encodeURIComponent(locale)}#reliability`}>{ui.header.reliability}</a>
+    </>
+  );
 
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-deal-from-inside'>
@@ -59,8 +67,9 @@ export default async function PublicDealFromInsidePage({
         ariaLabel={copy.header.aria}
         brandHomeLabel={copy.header.brandHome}
         navLabel={copy.header.aria}
-        menuLabel={copy.header.aria}
-        showMobileMenu={false}
+        menuLabel={ui.header.menu}
+        nav={nav}
+        showMobileMenu
         localeControl={<PublicLocaleLink />}
         actions={<a href='/platform-v7/login' className='entry-login'>{copy.header.signIn}</a>}
       />
@@ -71,6 +80,7 @@ export default async function PublicDealFromInsidePage({
             <span className='pc-ppe-kicker'>{ui.explorer.kicker}</span>
             <h1 id='pc-ppe-explorer-title'>{ui.explorer.title}</h1>
             <p>{ui.explorer.lead}</p>
+            <div className='pc-ppe-demo-banner' role='note'>{ui.explorer.demoNotice}</div>
           </div>
           <div className='pc-ppe-explorer-intro-actions'>
             <a href={`/platform-v7?lang=${encodeURIComponent(locale)}`} className='pc-ppe-back-link'>
@@ -91,6 +101,24 @@ export default async function PublicDealFromInsidePage({
           <a href='/platform-v7/register' className='pc-ppe-primary-button'>{ui.explorer.connect}</a>
         </noscript>
       </div>
+
+      <footer className='pc-ppe-footer'>
+        <div className='pc-ppe-shell pc-ppe-footer-grid'>
+          <div className='pc-ppe-footer-brand'>
+            <strong>Прозрачная Цена</strong>
+            <p>{ui.footer.note}</p>
+          </div>
+          <nav aria-label={copy.header.aria}>
+            <a href='/platform-v7/about'>{ui.footer.about}</a>
+            <a href='/platform-v7/status'>{ui.footer.status}</a>
+            <a href='/platform-v7/privacy'>{ui.footer.privacy}</a>
+            <a href='/platform-v7/terms'>{ui.footer.terms}</a>
+            <a href='/platform-v7/contact'>{ui.footer.contact}</a>
+          </nav>
+          <small>{ui.footer.disclaimer}</small>
+          <span>© {new Date().getUTCFullYear()} Прозрачная Цена</span>
+        </div>
+      </footer>
     </main>
   );
 }
