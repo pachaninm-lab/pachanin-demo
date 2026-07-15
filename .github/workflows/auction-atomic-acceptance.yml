@@ -94,9 +94,13 @@ jobs:
       - name: Apply forward migrations on PostgreSQL 16
         env:
           DATABASE_URL: ${{ env.TEST_ADMIN_DATABASE_URL }}
+        shell: bash
         run: |
-          pnpm --filter @pc/api exec prisma migrate deploy
-          pnpm --filter @pc/api exec prisma migrate status
+          set -euo pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy \
+            2>&1 | tee "$AUCTION_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status \
+            2>&1 | tee "$AUCTION_DIR/migrate-status.log"
 
       - name: Typecheck auction command authority
         env:
