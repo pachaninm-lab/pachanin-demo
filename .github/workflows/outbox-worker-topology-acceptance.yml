@@ -3,6 +3,8 @@ name: Outbox Worker Topology Acceptance
 on:
   pull_request:
     paths:
+      - 'apps/api/package.json'
+      - 'apps/api/tsconfig.outbox-worker.json'
       - 'apps/api/src/outbox-worker.ts'
       - 'apps/api/src/outbox-worker.module.ts'
       - 'apps/api/src/common/kafka/**'
@@ -16,6 +18,8 @@ on:
   push:
     branches: [main]
     paths:
+      - 'apps/api/package.json'
+      - 'apps/api/tsconfig.outbox-worker.json'
       - 'apps/api/src/outbox-worker.ts'
       - 'apps/api/src/outbox-worker.module.ts'
       - 'apps/api/src/common/kafka/**'
@@ -135,8 +139,8 @@ jobs:
         run: |
           set -o pipefail
           pnpm --filter @pc/api typecheck 2>&1 | tee "$EVIDENCE_DIR/typecheck.log"
-          pnpm --filter @pc/api build 2>&1 | tee "$EVIDENCE_DIR/build.log"
-          test -s apps/api/dist/src/outbox-worker.js
+          pnpm --filter @pc/api build:outbox-worker 2>&1 | tee "$EVIDENCE_DIR/build.log"
+          test -s apps/api/dist-outbox-worker/outbox-worker.js
 
       - name: Run worker unit contracts
         run: |
