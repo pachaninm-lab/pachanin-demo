@@ -12,6 +12,10 @@ const json = (name) => {
   if (!value) return null;
   try { return JSON.parse(value); } catch { return null; }
 };
+const measurement = (value, fallback = 999) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
 const initial = json('initial-release-manifest.json');
 const update = json('update-release-manifest.json');
 const rollback = json('rollback.json');
@@ -21,32 +25,36 @@ const thresholds = {
   apiReplicas: 2,
   webReplicas: 2,
   outboxWorkerReplicas: 2,
-  pgbouncerReplicas: 1,
+  pgbouncerReplicas: 2,
   pgbouncerRoutedPrincipals: 4,
   migrationExecutions: 1,
   apiAvailabilityProbeFailures: 0,
   webAvailabilityProbeFailures: 0,
+  pgbouncerAvailabilityProbeFailures: 0,
   minimumReadyWorkersDuringPeerDeletion: 1,
   mutablePlatformImageReferences: 0,
   workloadServiceAccountTokens: 0,
   applicationDdlPrivileges: 0,
   networkPolicyUnauthorizedConnections: 0,
+  directDatabaseBypassConnections: 0,
   rollbackDigestMismatches: 0,
 };
 const actual = {
-  apiReplicas: Number(read('cluster/api-ready-replicas.txt') ?? 0),
-  webReplicas: Number(read('cluster/web-ready-replicas.txt') ?? 0),
-  outboxWorkerReplicas: Number(read('cluster/worker-ready-replicas.txt') ?? 0),
-  pgbouncerReplicas: Number(read('cluster/pgbouncer-ready-replicas.txt') ?? 0),
-  pgbouncerRoutedPrincipals: Number(read('cluster/pgbouncer-routed-principals.txt') ?? 0),
-  migrationExecutions: Number(process.env.MIGRATION_EXECUTIONS),
-  apiAvailabilityProbeFailures: Number(process.env.API_PROBE_FAILURES),
-  webAvailabilityProbeFailures: Number(process.env.WEB_PROBE_FAILURES),
-  minimumReadyWorkersDuringPeerDeletion: Number(process.env.WORKER_MIN_READY),
-  mutablePlatformImageReferences: Number(read('cluster/mutable-platform-images.txt') ?? 999),
-  workloadServiceAccountTokens: Number(read('cluster/service-account-token-violations.txt') ?? 999),
-  applicationDdlPrivileges: Number(read('cluster/application-ddl-privileges.txt') ?? 999),
+  apiReplicas: measurement(read('cluster/api-ready-replicas.txt'), 0),
+  webReplicas: measurement(read('cluster/web-ready-replicas.txt'), 0),
+  outboxWorkerReplicas: measurement(read('cluster/worker-ready-replicas.txt'), 0),
+  pgbouncerReplicas: measurement(read('cluster/pgbouncer-ready-replicas.txt'), 0),
+  pgbouncerRoutedPrincipals: measurement(read('cluster/pgbouncer-routed-principals.txt'), 0),
+  migrationExecutions: measurement(process.env.MIGRATION_EXECUTIONS),
+  apiAvailabilityProbeFailures: measurement(process.env.API_PROBE_FAILURES),
+  webAvailabilityProbeFailures: measurement(process.env.WEB_PROBE_FAILURES),
+  pgbouncerAvailabilityProbeFailures: measurement(process.env.PGBOUNCER_PROBE_FAILURES),
+  minimumReadyWorkersDuringPeerDeletion: measurement(process.env.WORKER_MIN_READY, 0),
+  mutablePlatformImageReferences: measurement(read('cluster/mutable-platform-images.txt')),
+  workloadServiceAccountTokens: measurement(read('cluster/service-account-token-violations.txt')),
+  applicationDdlPrivileges: measurement(read('cluster/application-ddl-privileges.txt')),
   networkPolicyUnauthorizedConnections: process.env.NETWORK_DENIAL_PROVEN === 'true' ? 0 : 1,
+  directDatabaseBypassConnections: process.env.DIRECT_DB_BYPASS_BLOCKED === 'true' ? 0 : 1,
   rollbackDigestMismatches: process.env.ROLLBACK_MATCH === 'true' ? 0 : 1,
 };
 const exactThresholds = new Set(['migrationExecutions']);
@@ -99,6 +107,7 @@ const report = {
     api: nodes.api ?? null,
     web: nodes.web ?? null,
     outboxWorker: nodes.outboxWorker ?? null,
+    pgbouncer: nodes.pgbouncer ?? null,
     dependencies: ['PostgreSQL 16', 'PgBouncer 1.22.1', 'Kafka', 'Redis', 'MinIO', 'OpenTelemetry Collector', 'Prometheus', 'Alertmanager', 'ingress-nginx', 'Calico'],
   },
   thresholds,
@@ -110,7 +119,9 @@ const report = {
     buildOnceDeployMany: true,
     dedicatedMigrationJob: true,
     applicationMigrations: false,
-    runtimeDatabaseAccessThroughPgBouncer: actual.pgbouncerReplicas >= 1 && actual.pgbouncerRoutedPrincipals >= 4,
+    runtimeDatabaseAccessThroughPgBouncer: actual.pgbouncerReplicas >= 2 && actual.pgbouncerRoutedPrincipals >= 4,
+    directRuntimeDatabaseBypassBlocked: actual.directDatabaseBypassConnections === 0,
+    pgbouncerPeerDeletionAvailability: actual.pgbouncerAvailabilityProbeFailures === 0,
     immutablePlatformImages: actual.mutablePlatformImageReferences === 0,
     initialDigestSetApplied: process.env.INITIAL_MATCH === 'true',
     rollingUpdateDigestSetApplied: process.env.ROLLOUT_MATCH === 'true',
@@ -123,6 +134,8 @@ const report = {
     'kubernetes/cluster/events.txt',
     'kubernetes/cluster/workload-descriptions.txt',
     'kubernetes/cluster/pgbouncer-runtime-check.log',
+    'kubernetes/cluster/direct-postgresql-bypass.txt',
+    'kubernetes/cluster/pgbouncer-probe-failures.txt',
     'kubernetes/logs/grainflow-api.log',
     'kubernetes/logs/grainflow-web.log',
     'kubernetes/logs/grainflow-outbox-worker.log',
@@ -139,7 +152,7 @@ const report = {
     'kubernetes/rendered/rollback-workloads.yaml',
     'kubernetes/cluster/accepted-resources.yaml',
   ],
-  maturityBoundary: 'Reproducible disposable multi-node kind deployment, PostgreSQL runtime routing through PgBouncer, live rolling update and same-schema rollback. This does not prove provider-level PostgreSQL HA/PITR, target production load, permanent-environment operations, external pentest, live provider integrations or operational soak.',
+  maturityBoundary: 'Reproducible disposable multi-node kind deployment, enforced PostgreSQL runtime routing through two PgBouncer replicas, live rolling update and same-schema rollback. This does not prove provider-level PostgreSQL HA/PITR, target production load, permanent-environment operations, external pentest, live provider integrations or operational soak.',
   externalBlockers: [
     '#2600 removal of obsolete Vercel and Deno status publishers',
     'permanent Kubernetes/registry/DNS/TLS provider access',
@@ -155,7 +168,7 @@ const report = {
     node: read('node-version.txt'),
     pgbouncerImage: 'edoburu/pgbouncer:1.22.1-p0',
     calicoManifestSha256: read('external-manifests/calico.sha256'),
-    ingressManifestSha256: read('external-manifests/ingress-nginx.sha256'),
+    ingressManifestSha256: read('external-manifests/ingress.sha256') ?? read('external-manifests/ingress-nginx.sha256'),
   },
 };
 fs.writeFileSync(path.join(root, 'production-like-kubernetes-evidence.json'), `${JSON.stringify(report, null, 2)}\n`);
