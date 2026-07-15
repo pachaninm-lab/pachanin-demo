@@ -15,7 +15,11 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
 RUN pnpm --filter @pc/api build:outbox-worker
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/outbox-worker
-RUN rm -rf /prod/outbox-worker/src /prod/outbox-worker/test /prod/outbox-worker/prisma \
+RUN rm -rf \
+      /prod/outbox-worker/src \
+      /prod/outbox-worker/test \
+      /prod/outbox-worker/prisma \
+      /prod/outbox-worker/dist-outbox-worker \
   && cp -R /workspace/apps/api/dist-outbox-worker /prod/outbox-worker/dist-outbox-worker
 
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
