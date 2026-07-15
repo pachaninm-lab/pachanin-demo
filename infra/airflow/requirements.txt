@@ -1,7 +1,0 @@
-apache-airflow==2.9.0
-apache-airflow-providers-postgres==5.10.2
-apache-airflow-providers-http==4.10.0
-apache-airflow-providers-slack==8.6.1
-clickhouse-driver==0.2.7
-psycopg2-binary==2.9.9
-requests==2.31.0
