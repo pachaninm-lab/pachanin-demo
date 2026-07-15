@@ -1,13 +1,14 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 import { Kafka, type Consumer } from 'kafkajs';
-import { PrismaService } from '../../src/common/prisma/prisma.service';
+import { PrismaClient } from '@prisma/client';
 
 jest.setTimeout(180_000);
 
 const RUN_ID = `worker.process.${Date.now()}.${Math.random().toString(16).slice(2)}`;
 const TOPIC = 'grainflow.domain.events';
-const DATABASE_URL = process.env.DATABASE_URL!;
+const WORKER_DATABASE_URL = process.env.OUTBOX_DATABASE_URL ?? process.env.DATABASE_URL!;
+const ADMIN_DATABASE_URL = process.env.TEST_ADMIN_DATABASE_URL!;
 const KAFKA_BROKERS = process.env.KAFKA_BROKERS ?? 'localhost:9092';
 const workerEntry = resolve(process.cwd(), 'dist-outbox-worker/outbox-worker.js');
 
@@ -19,7 +20,9 @@ interface WorkerProcess {
   stderr: string[];
 }
 
-const prisma = new PrismaService();
+const prisma = new PrismaClient({
+  datasources: { db: { url: ADMIN_DATABASE_URL } },
+});
 const kafka = new Kafka({ clientId: `${RUN_ID}.acceptance`, brokers: KAFKA_BROKERS.split(',') });
 let consumer: Consumer;
 const deliveredIds = new Set<string>();
@@ -46,7 +49,7 @@ function startWorker(id: string, port: number): WorkerProcess {
       ...process.env,
       NODE_ENV: 'production',
       RUNTIME_COMPONENT: 'outbox-worker',
-      DATABASE_URL,
+      DATABASE_URL: WORKER_DATABASE_URL,
       KAFKA_BROKERS,
       KAFKA_REQUIRED: 'true',
       KAFKA_CLIENT_ID: id,
@@ -115,7 +118,8 @@ async function waitSent(ids: string[]): Promise<void> {
 }
 
 beforeAll(async () => {
-  if (!DATABASE_URL) throw new Error('DATABASE_URL is required');
+  if (!WORKER_DATABASE_URL) throw new Error('OUTBOX_DATABASE_URL is required');
+  if (!ADMIN_DATABASE_URL) throw new Error('TEST_ADMIN_DATABASE_URL is required');
   await prisma.$connect();
 
   const admin = kafka.admin();
