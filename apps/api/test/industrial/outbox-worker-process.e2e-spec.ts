@@ -9,7 +9,7 @@ const RUN_ID = `worker.process.${Date.now()}.${Math.random().toString(16).slice(
 const TOPIC = 'grainflow.domain.events';
 const DATABASE_URL = process.env.DATABASE_URL!;
 const KAFKA_BROKERS = process.env.KAFKA_BROKERS ?? 'localhost:9092';
-const workerEntry = resolve(process.cwd(), 'dist/src/outbox-worker.js');
+const workerEntry = resolve(process.cwd(), 'dist-outbox-worker/outbox-worker.js');
 
 interface WorkerProcess {
   id: string;
