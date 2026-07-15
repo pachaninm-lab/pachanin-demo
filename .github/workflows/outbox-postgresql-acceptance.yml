@@ -15,6 +15,7 @@ concurrency:
 
 env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  PSQL_ADMIN_URL: postgresql://postgres:postgres@localhost:5432/grainflow
   TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
   DATABASE_URL: postgresql://app_deal:app_deal@localhost:5432/grainflow?schema=public
   OUTBOX_DIR: artifacts/outbox-postgresql
@@ -63,7 +64,7 @@ jobs:
 
       - name: Create restricted application principal
         run: |
-          psql "$TEST_ADMIN_DATABASE_URL" <<'SQL'
+          psql "$PSQL_ADMIN_URL" <<'SQL'
           DO $role$
           BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
@@ -91,7 +92,7 @@ jobs:
       - name: Verify restricted outbox grants and schema
         run: |
           set -o pipefail
-          psql "$TEST_ADMIN_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL' | tee "$OUTBOX_DIR/schema-evidence.txt"
+          psql "$PSQL_ADMIN_URL" -v ON_ERROR_STOP=1 <<'SQL' | tee "$OUTBOX_DIR/schema-evidence.txt"
           SELECT column_name
           FROM information_schema.columns
           WHERE table_schema = 'public'
