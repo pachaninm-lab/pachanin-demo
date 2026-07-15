@@ -46,3 +46,4 @@ jobs:
           git add docs/platform-v7/autopilot/autopilot-state.json
           git commit -m 'Govern residual optional runtime cleanup scope'
           git push origin HEAD:agent/ir-sec-retire-ml-airflow
+# trigger after registration
