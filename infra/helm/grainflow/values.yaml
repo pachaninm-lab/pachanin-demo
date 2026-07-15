@@ -29,25 +29,20 @@ api:
     enabled: true
     minAvailable: 1
 
-  # Environment variables (секреты — из Vault / K8s Secret)
   env:
     NODE_ENV: production
     PORT: "3001"
     LOG_LEVEL: info
-    # X-Forwarded-For учитывается только от ingress peer внутри разрешённых CIDR.
-    # Для конкретного кластера диапазоны нужно сузить до pod/service CIDR ingress-controller.
     TRUST_PROXY_MODE: cidr
     TRUSTED_PROXY_CIDRS: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
     VAULT_ADDR: "http://vault.grainflow-prod.svc.cluster.local:8200"
     KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
     S3_BUCKET: "grainflow-documents"
 
-  # Secrets (mounted from Kubernetes Secret named grainflow-api-secrets)
   secretEnvFrom:
     - secretRef:
         name: grainflow-api-secrets
 
-  # Probes
   livenessProbe:
     httpGet:
       path: /health
@@ -94,7 +89,6 @@ api:
         hosts:
           - api.grainflow.ru
 
-  # Anti-affinity — распределить по нодам
   affinity:
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
@@ -107,11 +101,11 @@ api:
                   values: [grainflow-api]
             topologyKey: kubernetes.io/hostname
 
-  # Security context
   securityContext:
     runAsNonRoot: true
-    runAsUser: 1001
-    fsGroup: 1001
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
     readOnlyRootFilesystem: true
 
 # ── Web Frontend ──────────────────────────────────────────────────────────────
@@ -119,6 +113,7 @@ web:
   image:
     repository: cr.yandex/grainflow/web
     tag: "latest"
+    pullPolicy: IfNotPresent
   replicaCount: 2
   autoscaling:
     enabled: true
@@ -199,7 +194,6 @@ monitoring:
 # ── Network Policy ────────────────────────────────────────────────────────────
 networkPolicy:
   enabled: true
-  # Zero-trust: deny-all по умолчанию, разрешаем явно
   denyAll: true
   allowIngressFromNamespaces:
     - ingress-nginx
