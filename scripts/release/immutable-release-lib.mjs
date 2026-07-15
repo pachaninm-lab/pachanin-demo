@@ -58,10 +58,16 @@ function validateTimestamp(value, field, errors) {
   assert(typeof value === 'string' && Number.isFinite(parsed), `${field} must be an ISO-8601 timestamp`, errors);
 }
 
+function validRepository(repository) {
+  if (typeof repository !== 'string' || !REPOSITORY_PATTERN.test(repository)) return false;
+  const finalSegment = repository.split('/').at(-1) ?? '';
+  return repository.includes('/') && finalSegment.length > 0 && !finalSegment.includes(':');
+}
+
 function validateComponent(component, name, sourceCommit, errors) {
   assert(component && typeof component === 'object' && !Array.isArray(component), `components.${name} is required`, errors);
   if (!component || typeof component !== 'object') return;
-  assert(typeof component.repository === 'string' && REPOSITORY_PATTERN.test(component.repository), `components.${name}.repository must be an OCI repository without tag or digest`, errors);
+  assert(validRepository(component.repository), `components.${name}.repository must be an OCI repository without tag or digest`, errors);
   assert(SHA256_PATTERN.test(component.digest ?? ''), `components.${name}.digest must be a lowercase sha256 OCI digest`, errors);
   assert(component.sourceCommit === sourceCommit, `components.${name}.sourceCommit must equal release sourceCommit`, errors);
   assert(component.runtimeUser === 'nonroot', `components.${name}.runtimeUser must equal nonroot`, errors);
