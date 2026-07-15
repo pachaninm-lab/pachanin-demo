@@ -38,6 +38,7 @@ api:
     VAULT_ADDR: "http://vault.grainflow-prod.svc.cluster.local:8200"
     KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
     S3_BUCKET: "grainflow-documents"
+    OUTBOX_WORKER_ENABLED: "false"
 
   secretEnvFrom:
     - secretRef:
@@ -100,6 +101,90 @@ api:
                   operator: In
                   values: [grainflow-api]
             topologyKey: kubernetes.io/hostname
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    readOnlyRootFilesystem: true
+
+# ── Durable PostgreSQL outbox worker ──────────────────────────────────────────
+# Disabled until an immutable registry digest is supplied. Production-like
+# rendering must set enabled=true and image.digest=sha256:...; tag fallback is
+# intentionally forbidden for this authority process.
+outboxWorker:
+  enabled: false
+  image:
+    repository: cr.yandex/grainflow/outbox-worker
+    digest: ""
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  healthPort: 3002
+  terminationGracePeriodSeconds: 90
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "768Mi"
+      cpu: "1000m"
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  env:
+    NODE_ENV: production
+    RUNTIME_COMPONENT: outbox-worker
+    OUTBOX_WORKER_ENABLED: "true"
+    KAFKA_REQUIRED: "true"
+    KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+    OUTBOX_WORKER_HEALTH_PORT: "3002"
+    OUTBOX_WORKER_INTERVAL_MS: "1000"
+    OUTBOX_WORKER_BATCH_SIZE: "25"
+    OUTBOX_WORKER_HEARTBEAT_MS: "20000"
+    OTEL_SERVICE_NAME: grainflow-outbox-worker
+
+  secretEnvFrom:
+    - secretRef:
+        name: grainflow-outbox-worker-secrets
+
+  livenessProbe:
+    httpGet:
+      path: /live
+      port: health
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: health
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  startupProbe:
+    httpGet:
+      path: /live
+      port: health
+    periodSeconds: 5
+    failureThreshold: 24
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [grainflow-outbox-worker]
+          topologyKey: kubernetes.io/hostname
 
   securityContext:
     runAsNonRoot: true
