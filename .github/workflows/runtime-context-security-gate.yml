@@ -1,0 +1,288 @@
+name: Runtime Context Security Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: runtime-context-security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  RUNTIME_SECURITY_DIR: artifacts/runtime-security
+  RUNTIME_INPUT_DIR: artifacts/runtime-evidence-input
+
+jobs:
+  runtime-policy:
+    name: Runtime policy · Helm render · exact-head validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.18.4
+
+      - name: Lint and render Helm chart
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNTIME_SECURITY_DIR"
+          helm lint infra/helm/grainflow | tee "$RUNTIME_SECURITY_DIR/helm-lint.txt"
+          helm template grainflow infra/helm/grainflow \
+            --namespace grainflow-prod \
+            > "$RUNTIME_SECURITY_DIR/helm-rendered.yaml"
+          test -s "$RUNTIME_SECURITY_DIR/helm-rendered.yaml"
+
+      - name: Validate runtime images and workload contexts
+        env:
+          RUNTIME_CONTEXT_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          RUNTIME_CONTEXT_REPORT: ${{ env.RUNTIME_SECURITY_DIR }}/runtime-context-validation.json
+        run: node scripts/security/validate-runtime-contexts.mjs
+
+      - name: Upload runtime policy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-context-policy-${{ env.EXACT_HEAD }}
+          path: |
+            ${{ env.RUNTIME_SECURITY_DIR }}/runtime-context-validation.json
+            ${{ env.RUNTIME_SECURITY_DIR }}/helm-lint.txt
+            ${{ env.RUNTIME_SECURITY_DIR }}/helm-rendered.yaml
+          if-no-files-found: error
+          retention-days: 90
+
+  runtime-images:
+    name: API and web images · non-root · HIGH/CRITICAL blocking
+    needs: runtime-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Build canonical API and web images
+        run: |
+          mkdir -p "$RUNTIME_SECURITY_DIR"
+          docker build -f infra/docker/Dockerfile.api -t prozrachnaya-cena-api:runtime-${EXACT_HEAD} .
+          docker build -f infra/docker/Dockerfile.web -t prozrachnaya-cena-web:runtime-${EXACT_HEAD} .
+          docker image inspect --format='{{.Id}}' prozrachnaya-cena-api:runtime-${EXACT_HEAD} > "$RUNTIME_SECURITY_DIR/api-image-digest.txt"
+          docker image inspect --format='{{.Id}}' prozrachnaya-cena-web:runtime-${EXACT_HEAD} > "$RUNTIME_SECURITY_DIR/web-image-digest.txt"
+          docker image inspect --format='{{.Config.User}}' prozrachnaya-cena-api:runtime-${EXACT_HEAD} > "$RUNTIME_SECURITY_DIR/api-image-user.txt"
+          docker image inspect --format='{{.Config.User}}' prozrachnaya-cena-web:runtime-${EXACT_HEAD} > "$RUNTIME_SECURITY_DIR/web-image-user.txt"
+          test "$(cat "$RUNTIME_SECURITY_DIR/api-image-user.txt")" = nonroot
+          test "$(cat "$RUNTIME_SECURITY_DIR/web-image-user.txt")" = nonroot
+
+      - name: Collect API image vulnerability report
+        id: collect-api
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: prozrachnaya-cena-api:runtime-${{ env.EXACT_HEAD }}
+          format: json
+          output: artifacts/runtime-security/trivy-api-container.json
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          exit-code: '0'
+
+      - name: Evaluate API image fail closed
+        if: always()
+        env:
+          SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          TRIVY_SCANNER: trivy-container
+          TRIVY_SCAN_RESULT: ${{ steps.collect-api.outcome }}
+          TRIVY_REPORT_JSON: ${{ env.RUNTIME_SECURITY_DIR }}/trivy-api-container.json
+          TRIVY_EVALUATION_REPORT: ${{ env.RUNTIME_SECURITY_DIR }}/trivy-api-container-evaluation.json
+        run: node docs/platform-v7/autopilot/evaluate-trivy-report.mjs
+
+      - name: Convert API report to SARIF
+        if: always() && hashFiles('artifacts/runtime-security/trivy-api-container.json') != ''
+        run: trivy convert --format sarif --severity HIGH,CRITICAL --output "$RUNTIME_SECURITY_DIR/trivy-api-container.sarif" "$RUNTIME_SECURITY_DIR/trivy-api-container.json"
+
+      - name: Collect web image vulnerability report
+        id: collect-web
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: prozrachnaya-cena-web:runtime-${{ env.EXACT_HEAD }}
+          format: json
+          output: artifacts/runtime-security/trivy-web-container.json
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          exit-code: '0'
+
+      - name: Evaluate web image fail closed
+        if: always()
+        env:
+          SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          TRIVY_SCANNER: trivy-web-container
+          TRIVY_SCAN_RESULT: ${{ steps.collect-web.outcome }}
+          TRIVY_REPORT_JSON: ${{ env.RUNTIME_SECURITY_DIR }}/trivy-web-container.json
+          TRIVY_EVALUATION_REPORT: ${{ env.RUNTIME_SECURITY_DIR }}/trivy-web-container-evaluation.json
+        run: node docs/platform-v7/autopilot/evaluate-trivy-report.mjs
+
+      - name: Convert web report to SARIF
+        if: always() && hashFiles('artifacts/runtime-security/trivy-web-container.json') != ''
+        run: trivy convert --format sarif --severity HIGH,CRITICAL --output "$RUNTIME_SECURITY_DIR/trivy-web-container.sarif" "$RUNTIME_SECURITY_DIR/trivy-web-container.json"
+
+      - name: Upload API runtime SARIF
+        if: always() && hashFiles('artifacts/runtime-security/trivy-api-container.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ env.RUNTIME_SECURITY_DIR }}/trivy-api-container.sarif
+          category: runtime-api-container-blocking
+
+      - name: Upload web runtime SARIF
+        if: always() && hashFiles('artifacts/runtime-security/trivy-web-container.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ env.RUNTIME_SECURITY_DIR }}/trivy-web-container.sarif
+          category: runtime-web-container-blocking
+
+      - name: Upload runtime image evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-images-${{ env.EXACT_HEAD }}
+          path: ${{ env.RUNTIME_SECURITY_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+
+  runtime-iac:
+    name: Docker, Helm and Kubernetes IaC · HIGH/CRITICAL blocking
+    needs: runtime-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Materialize governed IaC roots
+        run: |
+          mkdir -p "$RUNTIME_SECURITY_DIR/iac-scope/infra"
+          cp -R infra/docker "$RUNTIME_SECURITY_DIR/iac-scope/infra/docker"
+          cp -R infra/helm "$RUNTIME_SECURITY_DIR/iac-scope/infra/helm"
+          cp -R infra/k8s "$RUNTIME_SECURITY_DIR/iac-scope/infra/k8s"
+
+      - name: Scan governed IaC roots
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: artifacts/runtime-security/iac-scope
+          format: sarif
+          output: artifacts/runtime-security/trivy-runtime-iac.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          limit-severities-for-sarif: true
+
+      - name: Upload runtime IaC SARIF
+        if: always() && hashFiles('artifacts/runtime-security/trivy-runtime-iac.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ env.RUNTIME_SECURITY_DIR }}/trivy-runtime-iac.sarif
+          category: runtime-iac-blocking
+
+      - name: Upload runtime IaC evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-iac-${{ env.EXACT_HEAD }}
+          path: ${{ env.RUNTIME_SECURITY_DIR }}/trivy-runtime-iac.sarif
+          if-no-files-found: error
+          retention-days: 90
+
+  runtime-evidence-manifest:
+    name: Runtime evidence · exact-head manifest
+    needs:
+      - runtime-policy
+      - runtime-images
+      - runtime-iac
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Download runtime policy evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-context-policy-${{ env.EXACT_HEAD }}
+          path: ${{ env.RUNTIME_INPUT_DIR }}/policy
+
+      - name: Download runtime image evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-images-${{ env.EXACT_HEAD }}
+          path: ${{ env.RUNTIME_INPUT_DIR }}/images
+
+      - name: Download runtime IaC evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-iac-${{ env.EXACT_HEAD }}
+          path: ${{ env.RUNTIME_INPUT_DIR }}/iac
+
+      - name: Build exact-head runtime evidence manifest
+        env:
+          RUNTIME_SECURITY_EXACT_HEAD: ${{ env.EXACT_HEAD }}
+          RUNTIME_SECURITY_WORKFLOW_RUN_ID: ${{ github.run_id }}
+          RUNTIME_SECURITY_WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUNTIME_SECURITY_INPUT_DIR: ${{ env.RUNTIME_INPUT_DIR }}
+          RUNTIME_SECURITY_MANIFEST: ${{ env.RUNTIME_SECURITY_DIR }}/runtime-security-manifest.json
+        run: node scripts/security/build-runtime-security-manifest.mjs
+
+      - name: Upload runtime evidence manifest
+        if: always() && hashFiles('artifacts/runtime-security/runtime-security-manifest.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-security-manifest-${{ env.EXACT_HEAD }}
+          path: ${{ env.RUNTIME_SECURITY_DIR }}/runtime-security-manifest.json
+          if-no-files-found: error
+          retention-days: 90
+
+  runtime-security-gate:
+    name: Runtime Context Gate · all blocking checks
+    if: always()
+    runs-on: ubuntu-latest
+    needs:
+      - runtime-policy
+      - runtime-images
+      - runtime-iac
+      - runtime-evidence-manifest
+    steps:
+      - name: Enforce runtime security results
+        env:
+          POLICY_RESULT: ${{ needs.runtime-policy.result }}
+          IMAGES_RESULT: ${{ needs.runtime-images.result }}
+          IAC_RESULT: ${{ needs.runtime-iac.result }}
+          MANIFEST_RESULT: ${{ needs.runtime-evidence-manifest.result }}
+        run: |
+          test "$POLICY_RESULT" = success
+          test "$IMAGES_RESULT" = success
+          test "$IAC_RESULT" = success
+          test "$MANIFEST_RESULT" = success

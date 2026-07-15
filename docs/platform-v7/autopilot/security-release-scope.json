@@ -9,8 +9,15 @@
       "packages"
     ],
     "containerDockerfile": "infra/docker/Dockerfile.api",
+    "containerDockerfiles": [
+      "infra/docker/Dockerfile.api",
+      "infra/docker/Dockerfile.web"
+    ],
+    "runtimeInventory": "infra/docker/runtime-inventory.json",
     "iacRoots": [
-      "infra/docker"
+      "infra/docker",
+      "infra/helm",
+      "infra/k8s"
     ],
     "dependencyPolicy": "all-workspace-production-dependencies",
     "secretScanRoot": "."
@@ -20,28 +27,14 @@
       "path": "apps/ml",
       "status": "OUT_OF_RELEASE_SCOPE",
       "ticket": "#2605",
-      "reason": "ML service is not part of the currently documented release authority and must be hardened or retired before activation.",
+      "reason": "ML service runtime is not part of the accepted release authority and must pass dependency, model lifecycle and operational acceptance before activation.",
       "expiresAt": "2026-08-31T23:59:59Z"
     },
     {
       "path": "infra/airflow",
       "status": "OUT_OF_RELEASE_SCOPE",
       "ticket": "#2605",
-      "reason": "Airflow is not part of the currently documented release authority and must be hardened or retired before activation.",
-      "expiresAt": "2026-08-31T23:59:59Z"
-    },
-    {
-      "path": "infra/helm",
-      "status": "NOT_DEPLOYABLE",
-      "ticket": "#2606",
-      "reason": "Helm manifests are retained design assets, not accepted deployment authority, until security contexts pass blocking IaC checks.",
-      "expiresAt": "2026-08-31T23:59:59Z"
-    },
-    {
-      "path": "infra/k8s",
-      "status": "NOT_DEPLOYABLE",
-      "ticket": "#2606",
-      "reason": "Kubernetes manifests are retained design assets, not accepted deployment authority, until privileged init behavior is removed.",
+      "reason": "Airflow runtime is not part of the accepted release authority and must be hardened or retired before activation.",
       "expiresAt": "2026-08-31T23:59:59Z"
     }
   ]

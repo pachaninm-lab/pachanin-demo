@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "repository": "pachaninm-lab/pachanin-demo",
+  "releaseAuthority": [
+    {
+      "component": "api",
+      "dockerfile": "infra/docker/Dockerfile.api",
+      "status": "DEPLOYABLE",
+      "runtimeUser": "nonroot",
+      "productionDependenciesOnly": true
+    },
+    {
+      "component": "web",
+      "dockerfile": "infra/docker/Dockerfile.web",
+      "status": "DEPLOYABLE",
+      "runtimeUser": "nonroot",
+      "productionDependenciesOnly": true
+    }
+  ],
+  "nonDeployable": [
+    {
+      "component": "route-simulator-worker",
+      "formerDockerfile": "infra/docker/Dockerfile.worker",
+      "status": "NOT_DEPLOYABLE",
+      "ticket": "#2606",
+      "reason": "The removed image executed a test route simulator through ts-node and was not a durable production worker authority. A production worker image must package a persistent PostgreSQL-backed worker entrypoint and pass its own lifecycle and recovery acceptance before activation."
+    }
+  ]
+}

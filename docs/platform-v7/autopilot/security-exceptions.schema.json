@@ -24,7 +24,7 @@
         "required": ["id", "scanner", "findingId", "severity", "owner", "approvedBy", "ticket", "rationale", "createdAt", "expiresAt"],
         "properties": {
           "id": {"type": "string", "pattern": "^SEC-[0-9]{4}-[0-9]{3,}$"},
-          "scanner": {"enum": ["trivy-container", "trivy-filesystem", "trivy-iac", "pnpm-audit"]},
+          "scanner": {"enum": ["trivy-container", "trivy-web-container", "trivy-filesystem", "trivy-iac", "pnpm-audit"]},
           "findingType": {"enum": ["vulnerability", "misconfiguration", "secret"]},
           "findingId": {"type": "string", "minLength": 3},
           "paths": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},

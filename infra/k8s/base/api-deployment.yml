@@ -28,13 +28,19 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: grainflow-api
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        fsGroup: 1000
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: api
           image: ghcr.io/pachaninm-lab/grainflow-api:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 3001
@@ -46,7 +52,6 @@ spec:
               value: "3001"
             - name: TRUST_PROXY_MODE
               value: cidr
-            # Narrow these ranges to the ingress-controller pod/service CIDRs for each cluster.
             - name: TRUSTED_PROXY_CIDRS
               value: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
             - name: DATABASE_URL
@@ -101,6 +106,14 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 128Mi
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -160,7 +173,6 @@ spec:
     scaleUp:
       stabilizationWindowSeconds: 60
 ---
-# PodDisruptionBudget: не более 1 пода недоступно одновременно
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
