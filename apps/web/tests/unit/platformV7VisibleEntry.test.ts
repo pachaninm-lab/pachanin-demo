@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -13,19 +12,13 @@ const cabinetShell = () => readFileSync(resolve(__dirname, '../../components/v7r
 const staffShell = () => readFileSync(resolve(__dirname, '../../components/platform-v7/staff/StaffPlatformShell.tsx'), 'utf8');
 const loadingHeader = () => readFileSync(resolve(__dirname, '../../app/platform-v7/loading.tsx'), 'utf8');
 const contactHeader = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ContactFixedHeader.tsx'), 'utf8');
-const webBrandAsset = () => readFileSync(resolve(__dirname, '../../components/v7r/brand-logo-asset.ts'), 'utf8');
-const landingBrandAsset = () => readFileSync(resolve(__dirname, '../../../landing/app/components/HeaderLogo.tsx'), 'utf8');
+const approvedHeaderLogo = () => readFileSync(resolve(__dirname, '../../components/v7r/ApprovedHeaderLogo.tsx'), 'utf8');
+const brandMark = () => readFileSync(resolve(__dirname, '../../components/v7r/BrandMark.tsx'), 'utf8');
 const support = () => readFileSync(resolve(__dirname, '../../components/platform-v7/ChatSupportWidget.tsx'), 'utf8');
 const css = () => readFileSync(resolve(__dirname, '../../styles/platform-v7-public-product-experience-v5.css'), 'utf8');
 
 function compact(source: string) {
   return source.replace(/\s+/g, ' ');
-}
-
-function extractWebpDataUri(source: string) {
-  const match = source.match(/data:image\/webp;base64,[A-Za-z0-9+/=]+/);
-  expect(match, 'canonical WebP brand asset must exist').not.toBeNull();
-  return match?.[0] ?? '';
 }
 
 describe('platform-v7 visible public entry', () => {
@@ -57,14 +50,20 @@ describe('platform-v7 visible public entry', () => {
     expect(css()).not.toContain('right: -5px');
   });
 
-  it('uses the byte-identical approved PC logo in landing, public, cabinet, staff and loading headers', () => {
-    const approvedLandingUri = extractWebpDataUri(landingBrandAsset());
-    const platformUri = extractWebpDataUri(webBrandAsset());
-    const binary = Buffer.from(platformUri.slice(platformUri.indexOf(',') + 1), 'base64');
+  it('renders the exact owner-approved historical raster in every platform header', () => {
+    const approved = approvedHeaderLogo();
+    const mark = brandMark();
 
-    expect(platformUri).toBe(approvedLandingUri);
-    expect(binary).toHaveLength(1804);
-    expect(createHash('sha256').update(binary).digest('hex')).toBe('377276d5d6dcf7421c908569f6a58c23c3f0f24f521da9b8cd8c4dda6d899303');
+    expect(approved).toContain("data:image/webp;base64,UklGRpgq");
+    expect(approved).toContain('width="48" height="48"');
+    expect(approved).toContain('className="header-logo-image"');
+    expect(approved).not.toContain('UklGRgQH');
+
+    expect(mark).toContain("import ApprovedHeaderLogo from './ApprovedHeaderLogo'");
+    expect(mark).toContain('<ApprovedHeaderLogo />');
+    expect(mark).toContain("data-approved-brand-mark='owner-reference-203159d'");
+    expect(mark).not.toContain('BRAND_LOGO_DATA_URI');
+    expect(mark).not.toContain('brand-logo-asset');
 
     for (const [name, source] of [
       ['public', publicHeader()],
@@ -76,7 +75,6 @@ describe('platform-v7 visible public entry', () => {
     }
 
     expect(contactHeader()).toContain('PublicSiteHeader');
-    expect(webBrandAsset()).not.toContain('UklGRqgL');
   });
 
   it('uses one visual contract for every public-header control', () => {
