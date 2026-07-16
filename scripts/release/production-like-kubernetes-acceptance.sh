@@ -127,6 +127,33 @@ printf '%s\n' "$CANONICAL_RLS_VIOLATIONS" > "$K8S_DIR/cluster/canonical-rls-auth
 test "$CANONICAL_RLS_VIOLATIONS" = "0"
 export CANONICAL_RLS_VIOLATIONS
 
+# Prove the worker and tenant policy role sets are disjoint, then execute a
+# read/lock query as app_outbox before any application pod starts. This catches
+# accidental evaluation of tenant visibility functions without granting the
+# worker access to Deal or participant tables.
+outbox_policy_role_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+  env PGPASSWORD="$POSTGRES_PASSWORD" psql -U postgres -d grainflow -Atc "
+SELECT
+  (SELECT count(*) FROM pg_policies
+    WHERE schemaname='public' AND tablename='outbox_entries'
+      AND policyname IN ('outbox_entries_worker_select','outbox_entries_worker_update')
+      AND roles @> ARRAY['app_outbox']::name[]) || ':' ||
+  (SELECT count(*) FROM pg_policies
+    WHERE schemaname='public' AND tablename='outbox_entries'
+      AND policyname IN ('outbox_entries_select','outbox_entries_insert')
+      AND roles @> ARRAY['app_runtime']::name[]
+      AND NOT (roles && ARRAY['public','app_outbox']::name[]));
+")"
+printf '%s\n' "$outbox_policy_role_proof" | tee "$K8S_DIR/cluster/outbox-policy-role-proof.txt"
+test "$outbox_policy_role_proof" = "2:2"
+
+kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+  env PGPASSWORD="$OUTBOX_DB_PASSWORD" psql -v ON_ERROR_STOP=1 -U app_outbox -d grainflow \
+  -c "SELECT current_user; SELECT count(*) FROM (SELECT id FROM public.\"outbox_entries\" WHERE status IN ('PENDING','PROCESSING') FOR UPDATE SKIP LOCKED LIMIT 1) candidate;" \
+  > "$K8S_DIR/cluster/outbox-principal-rls-smoke.log" 2>&1
+
+grep -q app_outbox "$K8S_DIR/cluster/outbox-principal-rls-smoke.log"
+
 source scripts/release/production-like-kubernetes-object-storage.sh
 
 patch_web_hardening() {
