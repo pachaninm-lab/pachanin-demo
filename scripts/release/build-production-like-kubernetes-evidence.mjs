@@ -45,6 +45,7 @@ const thresholds = {
   mutablePlatformImageReferences: 0,
   workloadServiceAccountTokens: 0,
   applicationDdlPrivileges: 0,
+  canonicalRlsAuthorityViolations: 0,
   networkPolicyUnauthorizedConnections: 0,
   directDatabaseBypassConnections: 0,
   rollbackDigestMismatches: 0,
@@ -64,6 +65,9 @@ const actual = {
   mutablePlatformImageReferences: measurement(read('cluster/mutable-platform-images.txt')),
   workloadServiceAccountTokens: measurement(read('cluster/service-account-token-violations.txt')),
   applicationDdlPrivileges: measurement(read('cluster/application-ddl-privileges.txt')),
+  canonicalRlsAuthorityViolations: measurement(
+    read('cluster/canonical-rls-authority-violations.txt'),
+  ),
   networkPolicyUnauthorizedConnections: process.env.NETWORK_DENIAL_PROVEN === 'true' ? 0 : 1,
   directDatabaseBypassConnections: read('cluster/direct-postgresql-bypass.txt') === 'blocked' ? 0 : 1,
   rollbackDigestMismatches: process.env.ROLLBACK_MATCH === 'true' ? 0 : 1,
@@ -145,6 +149,7 @@ const report = {
     buildOnceDeployMany: true,
     dedicatedMigrationJob: true,
     applicationMigrations: false,
+    canonicalRlsAuthorityApplied: actual.canonicalRlsAuthorityViolations === 0,
     runtimeDatabaseAccessThroughPgBouncer:
       actual.pgbouncerReplicas >= 2 && actual.pgbouncerRoutedPrincipals >= 4,
     directRuntimeDatabaseBypassBlocked: actual.directDatabaseBypassConnections === 0,
@@ -161,6 +166,10 @@ const report = {
     'kubernetes/cluster/events.txt',
     'kubernetes/cluster/workload-descriptions.txt',
     'kubernetes/logs/grainflow-migration.log',
+    'kubernetes/production-rls-policies-apply.log',
+    'kubernetes/postgresql-deal-authority-policies-apply.log',
+    'kubernetes/post-rls-runtime-grants.log',
+    'kubernetes/cluster/canonical-rls-proof.txt',
     'kubernetes/cluster/pgbouncer-runtime-check.log',
     'kubernetes/cluster/direct-postgresql-bypass.txt',
     'kubernetes/cluster/pgbouncer-probe-failures.txt',
@@ -179,9 +188,10 @@ const report = {
     'kubernetes/rendered/update-workloads.yaml',
     'kubernetes/rendered/rollback-workloads.yaml',
     'kubernetes/cluster/accepted-resources.yaml',
+    'kubernetes/cluster/canonical-rls-authority-violations.txt',
   ],
   maturityBoundary:
-    'Reproducible disposable multi-node kind deployment, enforced PostgreSQL runtime routing through two PgBouncer replicas, live rolling update and same-schema rollback. This does not prove provider-level PostgreSQL HA/PITR, target production load, permanent-environment operations, external pentest, live provider integrations or operational soak.',
+    'Reproducible disposable multi-node kind deployment, enforced PostgreSQL runtime routing through two PgBouncer replicas, canonical forced-RLS authority, live rolling update and same-schema rollback. This does not prove provider-level PostgreSQL HA/PITR, target production load, permanent-environment operations, external pentest, live provider integrations or operational soak.',
   externalBlockers: [
     '#2600 removal of obsolete Vercel and Deno status publishers',
     'permanent Kubernetes/registry/DNS/TLS provider access',
