@@ -2,15 +2,6 @@ FAILURE_REASON="initial application rollout failed"
 kubectl apply -f "$K8S_DIR/rendered/initial-workloads.yaml" > "$K8S_DIR/initial-workloads-apply.log"
 patch_web_hardening
 kubectl apply -f infra/kind/production-like/platform-hardening.yaml > "$K8S_DIR/platform-hardening-apply.log"
-kubectl patch networkpolicy api-traffic -n "$NAMESPACE" --type=json \
-  --patch-file infra/kind/production-like/api-database-routing-patch.json \
-  > "$K8S_DIR/api-database-routing-patch.log"
-kubectl patch networkpolicy outbox-worker-traffic -n "$NAMESPACE" --type=json \
-  --patch-file infra/kind/production-like/worker-database-routing-patch.json \
-  > "$K8S_DIR/worker-database-routing-patch.log"
-kubectl patch networkpolicy postgresql-ingress -n "$NAMESPACE" --type=json \
-  --patch-file infra/kind/production-like/postgresql-ingress-routing-patch.json \
-  > "$K8S_DIR/postgresql-ingress-routing-patch.log"
 apply_release_marker "$K8S_DIR/initial-release-manifest.json"
 
 for deployment in grainflow-api grainflow-web grainflow-outbox-worker pgbouncer; do
@@ -34,7 +25,6 @@ done
 curl_ingress api.acceptance.grainflow.invalid /health | tee "$K8S_DIR/cluster/api-health-initial.json"
 curl_ingress app.acceptance.grainflow.invalid /api/health | tee "$K8S_DIR/cluster/web-health-initial.json"
 
-FAILURE_REASON="runtime database routing can bypass PgBouncer"
 assert_tcp_blocked() {
   local deployment="$1"
   local host="$2"
@@ -70,8 +60,11 @@ assert_tcp_allowed() {
   ' "$host" "$port"
 }
 for deployment in grainflow-api grainflow-outbox-worker; do
+  FAILURE_REASON="direct PostgreSQL network bypass is open for ${deployment}"
   assert_tcp_blocked "$deployment" postgresql 5432
+  FAILURE_REASON="PgBouncer service route is unavailable for ${deployment}"
   assert_tcp_allowed "$deployment" pgbouncer 5432
+  printf 'direct-postgresql=blocked\npgbouncer=reachable\n' > "$K8S_DIR/cluster/${deployment}-database-routing.txt"
 done
 printf 'blocked\n' > "$K8S_DIR/cluster/direct-postgresql-bypass.txt"
 DIRECT_DB_BYPASS_BLOCKED=true
