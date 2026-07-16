@@ -25,48 +25,102 @@ done
 curl_ingress api.acceptance.grainflow.invalid /health | tee "$K8S_DIR/cluster/api-health-initial.json"
 curl_ingress app.acceptance.grainflow.invalid /api/health | tee "$K8S_DIR/cluster/web-health-initial.json"
 
-assert_tcp_blocked() {
-  local deployment="$1"
+probe_tcp_from_pod() {
+  local pod="$1"
   local host="$2"
   local port="$3"
-  kubectl exec -n "$NAMESPACE" "deployment/${deployment}" -- node -e '
-    const net = require("node:net");
-    const host = process.argv[1];
-    const port = Number(process.argv[2]);
-    let finished = false;
-    const finish = (code) => { if (finished) return; finished = true; socket.destroy(); process.exit(code); };
-    const socket = net.createConnection({ host, port });
-    socket.setTimeout(3000);
-    socket.once("connect", () => finish(1));
-    socket.once("timeout", () => finish(0));
-    socket.once("error", () => finish(0));
-  ' "$host" "$port"
+  local expected="$4"
+  local output_file="$5"
+  local status
+
+  set +e
+  kubectl exec -i -n "$NAMESPACE" "pod/${pod}" -- \
+    env PROBE_HOST="$host" PROBE_PORT="$port" PROBE_EXPECTED="$expected" node - \
+    > "$output_file" 2>&1 <<'NODE'
+const dns = require('node:dns');
+const net = require('node:net');
+
+const host = process.env.PROBE_HOST;
+const port = Number(process.env.PROBE_PORT);
+const expected = process.env.PROBE_EXPECTED;
+const startedAt = new Date().toISOString();
+let completed = false;
+let socket;
+
+const finish = (result, code, error) => {
+  if (completed) return;
+  completed = true;
+  const evidence = {
+    startedAt,
+    completedAt: new Date().toISOString(),
+    host,
+    port,
+    expected,
+    result,
+    resolvedAddresses,
+    localAddress: socket?.localAddress ?? null,
+    localPort: socket?.localPort ?? null,
+    remoteAddress: socket?.remoteAddress ?? null,
+    remotePort: socket?.remotePort ?? null,
+    error: error ? { code: error.code ?? null, message: error.message } : null,
+  };
+  process.stdout.write(`${JSON.stringify(evidence, null, 2)}\n`);
+  socket?.destroy();
+  process.exit(code);
+};
+
+let resolvedAddresses = [];
+dns.lookup(host, { all: true }, (lookupError, addresses) => {
+  if (lookupError) {
+    finish('dns-error', 2, lookupError);
+    return;
+  }
+  resolvedAddresses = addresses;
+  socket = net.createConnection({ host, port });
+  socket.setTimeout(3000);
+  socket.once('connect', () => finish('connected', expected === 'allowed' ? 0 : 1));
+  socket.once('timeout', () => finish('timeout', expected === 'blocked' ? 0 : 1));
+  socket.once('error', (error) => finish('error', expected === 'blocked' ? 0 : 1, error));
+});
+NODE
+  status=$?
+  set -e
+  cat "$output_file"
+  return "$status"
 }
-assert_tcp_allowed() {
-  local deployment="$1"
-  local host="$2"
-  local port="$3"
-  kubectl exec -n "$NAMESPACE" "deployment/${deployment}" -- node -e '
-    const net = require("node:net");
-    const host = process.argv[1];
-    const port = Number(process.argv[2]);
-    let finished = false;
-    const finish = (code) => { if (finished) return; finished = true; socket.destroy(); process.exit(code); };
-    const socket = net.createConnection({ host, port });
-    socket.setTimeout(3000);
-    socket.once("connect", () => finish(0));
-    socket.once("timeout", () => finish(1));
-    socket.once("error", () => finish(1));
-  ' "$host" "$port"
-}
-for deployment in grainflow-api grainflow-outbox-worker; do
-  FAILURE_REASON="direct PostgreSQL network bypass is open for ${deployment}"
-  assert_tcp_blocked "$deployment" postgresql 5432
-  FAILURE_REASON="PgBouncer service route is unavailable for ${deployment}"
-  assert_tcp_allowed "$deployment" pgbouncer 6432
-  printf 'direct-postgresql=blocked\npgbouncer=reachable\n' > "$K8S_DIR/cluster/${deployment}-database-routing.txt"
+
+postgresql_pod_ip="$(kubectl get pods -n "$NAMESPACE" \
+  -l app.kubernetes.io/name=postgresql \
+  -o jsonpath='{.items[0].status.podIP}')"
+test -n "$postgresql_pod_ip"
+printf '%s\n' "$postgresql_pod_ip" > "$K8S_DIR/cluster/postgresql-pod-ip.txt"
+
+for workload in grainflow-api grainflow-outbox-worker; do
+  mapfile -t workload_pods < <(kubectl get pods -n "$NAMESPACE" \
+    -l "app.kubernetes.io/name=${workload}" \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | sort)
+  test "${#workload_pods[@]}" = "2"
+
+  for pod in "${workload_pods[@]}"; do
+    safe_pod="${pod//[^a-zA-Z0-9_.-]/_}"
+
+    FAILURE_REASON="direct PostgreSQL service bypass is open for ${pod}"
+    probe_tcp_from_pod "$pod" postgresql 5432 blocked \
+      "$K8S_DIR/cluster/${safe_pod}-postgresql-service-probe.json"
+
+    FAILURE_REASON="direct PostgreSQL pod-IP bypass is open for ${pod}"
+    probe_tcp_from_pod "$pod" "$postgresql_pod_ip" 5432 blocked \
+      "$K8S_DIR/cluster/${safe_pod}-postgresql-pod-ip-probe.json"
+
+    FAILURE_REASON="PgBouncer service route is unavailable for ${pod}"
+    probe_tcp_from_pod "$pod" pgbouncer 6432 allowed \
+      "$K8S_DIR/cluster/${safe_pod}-pgbouncer-service-probe.json"
+  done
+
+  printf 'pods=%s\ndirect-postgresql-service=blocked\ndirect-postgresql-pod-ip=blocked\npgbouncer=reachable\n' \
+    "${#workload_pods[@]}" > "$K8S_DIR/cluster/${workload}-database-routing.txt"
 done
-printf 'blocked\n' > "$K8S_DIR/cluster/direct-postgresql-bypass.txt"
+printf 'blocked-by-service-and-pod-ip\n' > "$K8S_DIR/cluster/direct-postgresql-bypass.txt"
 DIRECT_DB_BYPASS_BLOCKED=true
 
 FAILURE_REASON="PgBouncer peer deletion interrupted API readiness"
