@@ -53,8 +53,8 @@ spec:
   selector:
     app.kubernetes.io/name: pgbouncer
   ports:
-    - name: postgres
-      port: 5432
+    - name: pgbouncer
+      port: 6432
       targetPort: pgbouncer
 ---
 apiVersion: apps/v1
