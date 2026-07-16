@@ -42,11 +42,17 @@ kubectl apply -f infra/kind/production-like/pgbouncer-runtime-service.yaml \
   > "$K8S_DIR/pgbouncer-runtime-service-apply.log"
 kubectl apply -f infra/kind/production-like/pgbouncer-runtime-network-policy.yaml \
   > "$K8S_DIR/pgbouncer-runtime-network-policy-apply.log"
+kubectl apply -f infra/kind/production-like/calico-runtime-database-deny.yaml \
+  > "$K8S_DIR/calico-runtime-database-deny-apply.log"
 
 test "$(kubectl get service pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.ports[].port] | join(":")')" = "6432"
 test "$(kubectl get networkpolicy api-to-pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.egress[].ports[].port] | join(":")')" = "6432"
 test "$(kubectl get networkpolicy worker-to-pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.egress[].ports[].port] | join(":")')" = "6432"
 test "$(kubectl get networkpolicy pgbouncer-ingress-egress -n "$NAMESPACE" -o json | jq -r '[.spec.ingress[].ports[].port] | join(":")')" = "6432"
+test "$(kubectl get tier platform-security -o jsonpath='{.spec.defaultAction}')" = "Pass"
+test "$(kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.tier}')" = "platform-security"
+test "$(kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.egress[0].action}')" = "Deny"
+test "$(kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.egress[0].destination.ports[0]}')" = "5432"
 
 kubectl create configmap grainflow-pgbouncer-config -n "$NAMESPACE" \
   --from-file=pgbouncer.ini=infra/kind/production-like/pgbouncer.ini \
