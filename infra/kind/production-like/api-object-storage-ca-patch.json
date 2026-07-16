@@ -6,6 +6,15 @@
   },
   {
     "op": "add",
+    "path": "/spec/template/spec/containers/0/envFrom/-",
+    "value": {
+      "secretRef": {
+        "name": "grainflow-object-storage-secrets"
+      }
+    }
+  },
+  {
+    "op": "add",
     "path": "/spec/template/spec/containers/0/volumeMounts/-",
     "value": {
       "name": "minio-ca",
