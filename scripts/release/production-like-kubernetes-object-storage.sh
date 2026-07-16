@@ -70,3 +70,9 @@ kubectl delete pod minio-tls-check -n "$NAMESPACE" --wait=true
 
 cleanup_minio_tls_material
 trap - ERR
+
+patch_api_object_storage() {
+  kubectl patch deployment grainflow-api -n "$NAMESPACE" --type=json \
+    --patch-file infra/kind/production-like/api-object-storage-ca-patch.json \
+    > "$K8S_DIR/api-object-storage-ca-patch.log" 2>&1
+}
