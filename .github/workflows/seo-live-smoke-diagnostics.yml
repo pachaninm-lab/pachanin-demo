@@ -1,0 +1,83 @@
+name: SEO Live Smoke Diagnostics
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/seo-live-smoke-diagnostics.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TARGET_JOB_ID: '87738408759'
+      OUT_DIR: artifacts/seo-live-smoke-diagnostics
+      SITE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+    steps:
+      - name: Download complete failed job log
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$OUT_DIR"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const repository = process.env.GITHUB_REPOSITORY;
+          const jobId = process.env.TARGET_JOB_ID;
+          const outDir = process.env.OUT_DIR;
+          const response = await fetch(`https://api.github.com/repos/${repository}/actions/jobs/${jobId}/logs`, {
+            redirect: 'follow',
+            headers: {
+              Accept: 'application/vnd.github+json',
+              Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+              'X-GitHub-Api-Version': '2022-11-28',
+              'User-Agent': 'pachanin-demo-seo-diagnostics',
+            },
+          });
+          if (!response.ok) throw new Error(`${response.status}: ${await response.text()}`);
+          const bytes = Buffer.from(await response.arrayBuffer());
+          fs.writeFileSync(`${outDir}/failed-job.log`, bytes);
+          NODE
+          tail -n 180 "$OUT_DIR/failed-job.log" > "$OUT_DIR/failed-job-tail.log"
+          grep -Ein 'error|failed|exit|x-robots-tag|sitemap|robots.txt|checking public|checking private' "$OUT_DIR/failed-job.log" > "$OUT_DIR/failed-job-signals.log" || true
+
+      - name: Capture current live SEO responses
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$OUT_DIR/live"
+          urls=(
+            "/platform-v7/role-preview/seo-health"
+            "/platform-v7"
+            "/platform-v7/secure-grain-deal"
+            "/platform-v7/fgis-zerno"
+            "/platform-v7/buyer"
+            "/platform-v7/bank"
+            "/sitemap.xml"
+            "/robots.txt"
+          )
+          for path in "${urls[@]}"; do
+            safe="$(printf '%s' "$path" | sed 's#^/##; s#[^A-Za-z0-9._-]#_#g')"
+            curl -sS -D "$OUT_DIR/live/${safe}.headers" -o "$OUT_DIR/live/${safe}.body" "$SITE$path"
+            printf '%s\n' "$?" > "$OUT_DIR/live/${safe}.curl-exit"
+          done
+          {
+            echo '=== header summary ==='
+            grep -HiniE '^(HTTP/|x-robots-tag:|location:|content-type:|x-pc-pathname:)' "$OUT_DIR"/live/*.headers || true
+            echo '=== sitemap secure-grain-deal ==='
+            grep -Hn '/platform-v7/secure-grain-deal' "$OUT_DIR"/live/sitemap.xml.body || true
+            echo '=== robots secure-grain-deal ==='
+            grep -Hn '/platform-v7/secure-grain-deal' "$OUT_DIR"/live/robots.txt.body || true
+          } > "$OUT_DIR/live-summary.txt"
+          cat "$OUT_DIR/live-summary.txt"
+
+      - name: Upload SEO diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-live-smoke-diagnostics-0951cec83c3cdb94c3d2215ecbc773763ad3ed27
+          path: ${{ env.OUT_DIR }}
+          if-no-files-found: error
+          retention-days: 14
