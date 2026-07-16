@@ -28,18 +28,24 @@ jobs:
           const repository = process.env.GITHUB_REPOSITORY;
           const jobId = process.env.TARGET_JOB_ID;
           const outDir = process.env.OUT_DIR;
-          const response = await fetch(`https://api.github.com/repos/${repository}/actions/jobs/${jobId}/logs`, {
-            redirect: 'follow',
-            headers: {
-              Accept: 'application/vnd.github+json',
-              Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-              'X-GitHub-Api-Version': '2022-11-28',
-              'User-Agent': 'pachanin-demo-seo-diagnostics',
-            },
+
+          (async () => {
+            const response = await fetch(`https://api.github.com/repos/${repository}/actions/jobs/${jobId}/logs`, {
+              redirect: 'follow',
+              headers: {
+                Accept: 'application/vnd.github+json',
+                Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+                'X-GitHub-Api-Version': '2022-11-28',
+                'User-Agent': 'pachanin-demo-seo-diagnostics',
+              },
+            });
+            if (!response.ok) throw new Error(`${response.status}: ${await response.text()}`);
+            const bytes = Buffer.from(await response.arrayBuffer());
+            fs.writeFileSync(`${outDir}/failed-job.log`, bytes);
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
           });
-          if (!response.ok) throw new Error(`${response.status}: ${await response.text()}`);
-          const bytes = Buffer.from(await response.arrayBuffer());
-          fs.writeFileSync(`${outDir}/failed-job.log`, bytes);
           NODE
           tail -n 180 "$OUT_DIR/failed-job.log" > "$OUT_DIR/failed-job-tail.log"
           grep -Ein 'error|failed|exit|x-robots-tag|sitemap|robots.txt|checking public|checking private' "$OUT_DIR/failed-job.log" > "$OUT_DIR/failed-job-signals.log" || true
