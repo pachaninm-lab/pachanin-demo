@@ -152,33 +152,11 @@
 }
 
 .pc-ppe-page .pc-site-brand-mark img {
-  opacity: 0 !important;
-}
-
-.pc-ppe-page .pc-site-brand-mark::before {
-  content: '';
-  position: absolute;
-  left: 9px;
-  right: 9px;
-  top: 9px;
-  bottom: 8px;
-  border-left: 2px solid #fff;
-  border-bottom: 2px solid #fff;
-  transform: skewY(-19deg);
-  transform-origin: left bottom;
-}
-
-.pc-ppe-page .pc-site-brand-mark::after {
-  content: '';
-  position: absolute;
-  left: 12px;
-  top: 10px;
-  width: 15px;
-  height: 11px;
-  border-radius: 100% 0 100% 0;
-  background: #9ad7aa;
-  transform: rotate(-16deg);
-  box-shadow: 5px 12px 0 -4px #fff, -5px 14px 0 -4px #fff;
+  opacity: 1 !important;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .pc-ppe-page .p7-support-chat-button {
