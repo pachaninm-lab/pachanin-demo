@@ -106,13 +106,6 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: postgresql
-      ports:
-        - protocol: TCP
-          port: 5432
-    - to:
-        - podSelector:
-            matchLabels:
               app.kubernetes.io/name: redis
       ports:
         - protocol: TCP
@@ -200,13 +193,6 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              app.kubernetes.io/name: postgresql
-      ports:
-        - protocol: TCP
-          port: 5432
-    - to:
-        - podSelector:
-            matchLabels:
               app.kubernetes.io/name: kafka
       ports:
         - protocol: TCP
@@ -224,7 +210,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: postgresql-ingress
+  name: postgresql-migration-ingress
   namespace: grainflow-acceptance
 spec:
   podSelector:
@@ -234,10 +220,8 @@ spec:
   ingress:
     - from:
         - podSelector:
-            matchExpressions:
-              - key: app.kubernetes.io/name
-                operator: In
-                values: [grainflow-api, grainflow-outbox-worker, grainflow-migration]
+            matchLabels:
+              app.kubernetes.io/name: grainflow-migration
       ports:
         - protocol: TCP
           port: 5432
