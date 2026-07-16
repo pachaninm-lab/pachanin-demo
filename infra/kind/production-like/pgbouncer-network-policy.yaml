@@ -15,10 +15,12 @@ spec:
               - key: app.kubernetes.io/name
                 operator: In
                 values: [grainflow-api, grainflow-outbox-worker]
-      # PgBouncer client traffic is deliberately isolated on 6432. PostgreSQL
-      # remains on 5432, so no client-side rule can also authorize a direct
-      # database endpoint under pre- or post-DNAT NetworkPolicy evaluation.
+      # 5432 exists only for the pre-application bootstrap smoke executed by the
+      # acceptance harness. The runtime overlay replaces this policy before API
+      # or worker pods are created and retains only the dedicated 6432 route.
       ports:
+        - protocol: TCP
+          port: 5432
         - protocol: TCP
           port: 6432
   egress:
@@ -60,6 +62,8 @@ spec:
               app.kubernetes.io/name: pgbouncer
       ports:
         - protocol: TCP
+          port: 5432
+        - protocol: TCP
           port: 6432
 ---
 apiVersion: networking.k8s.io/v1
@@ -79,6 +83,8 @@ spec:
             matchLabels:
               app.kubernetes.io/name: pgbouncer
       ports:
+        - protocol: TCP
+          port: 5432
         - protocol: TCP
           port: 6432
 ---
