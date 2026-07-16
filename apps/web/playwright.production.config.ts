@@ -18,6 +18,7 @@ export default defineConfig({
       testMatch: /platform-v7-production-auth-smoke\.spec\.ts/,
       use: {
         ...devices['iPhone 12'],
+        browserName: 'chromium',
         viewport: { width: 375, height: 812 },
       },
     },
