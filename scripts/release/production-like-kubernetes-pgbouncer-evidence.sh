@@ -8,7 +8,7 @@ pgbouncer_routed_principals="$(
       jq -r '.data.DATABASE_URL,.data.AUTH_DATABASE_URL,.data.STORAGE_DATABASE_URL | @base64d'
     kubectl get secret grainflow-outbox-worker-secrets -n "$NAMESPACE" -o json | \
       jq -r '.data.DATABASE_URL | @base64d'
-  } | awk '/@pgbouncer:5432\// { count += 1 } END { print count + 0 }'
+  } | awk '/@pgbouncer:6432\// { count += 1 } END { print count + 0 }'
 )"
 printf '%s\n' "$pgbouncer_routed_principals" > "$K8S_DIR/cluster/pgbouncer-routed-principals.txt"
 test "$pgbouncer_routed_principals" = "4"
