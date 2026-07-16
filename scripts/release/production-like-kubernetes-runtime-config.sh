@@ -78,8 +78,13 @@ run_calicoctl get networkpolicy deny-runtime-direct-postgresql \
 
 test "$(jq -r '.apiVersion' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "projectcalico.org/v3"
 test "$(jq -r '.spec.order' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "10"
-test "$(jq -r '.spec.egress[0].action' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "Deny"
+test "$(jq -r '.spec.selector' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "all()"
+test "$(jq -r '.spec.egress[0].action' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "Allow"
+test "$(jq -r '.spec.egress[0].source.selector' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "app.kubernetes.io/name == 'pgbouncer'"
+test "$(jq -r '.spec.egress[0].destination.selector' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "app.kubernetes.io/name == 'postgresql'"
 test "$(jq -r '.spec.egress[0].destination.ports[0]' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "5432"
+test "$(jq -r '.spec.egress[1].action' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "Deny"
+test "$(jq -r '.spec.egress[1].destination.ports[0]' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "5432"
 
 test "$(kubectl get service pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.ports[].port] | join(":")')" = "6432"
 test "$(kubectl get networkpolicy api-to-pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.egress[].ports[].port] | join(":")')" = "6432"
