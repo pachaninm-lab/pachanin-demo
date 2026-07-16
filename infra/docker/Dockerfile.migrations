@@ -13,6 +13,14 @@ RUN apt-get update \
 COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
+
+# pnpm 10 blocks dependency lifecycle scripts unless explicitly approved. Prisma's
+# pinned engine package therefore has no native schema engine until its official
+# postinstall is executed. Materialize it during the image build so the final
+# runtime never downloads or mutates executable code.
+RUN node /workspace/node_modules/.pnpm/@prisma+engines@5.22.0/node_modules/@prisma/engines/scripts/postinstall.js \
+  && test -x /workspace/node_modules/.pnpm/@prisma+engines@5.22.0/node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x
+
 RUN node - <<'NODE'
 const fs = require('node:fs');
 const path = '/workspace/apps/api/package.json';
@@ -31,6 +39,24 @@ RUN pnpm --filter @pc/api deploy --prod --legacy /migration-runtime \
   && rm -rf /migration-runtime/prisma \
   && cp -R /workspace/apps/api/prisma /migration-runtime/prisma
 
+# pnpm deploy retains the Prisma CLI package but can omit postinstall side
+# effects. Copy the exact pinned engine into the deployed package and prove the
+# CLI resolves that immutable path before creating the final distroless image.
+RUN set -eux; \
+  source_engine=/workspace/node_modules/.pnpm/@prisma+engines@5.22.0/node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x; \
+  target_engine=/migration-runtime/node_modules/.pnpm/@prisma+engines@5.22.0/node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x; \
+  test -x "$source_engine"; \
+  install -D -m 0555 "$source_engine" "$target_engine"; \
+  test -x "$target_engine"; \
+  sha256sum "$target_engine" > /migration-runtime/prisma-schema-engine.sha256
+
+RUN cd /migration-runtime \
+  && HOME=/tmp TMPDIR=/tmp XDG_CACHE_HOME=/tmp/.cache npm_config_cache=/tmp/.npm \
+     PRISMA_HIDE_UPDATE_MESSAGE=true \
+     PRISMA_SCHEMA_ENGINE_BINARY=/migration-runtime/node_modules/.pnpm/@prisma+engines@5.22.0/node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x \
+     DATABASE_URL='postgresql://invalid:invalid@127.0.0.1:5432/grainflow?schema=public' \
+     node node_modules/prisma/build/index.js validate --schema prisma/schema.prisma
+
 FROM gcr.io/distroless/nodejs24-debian13:nonroot AS runtime
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
@@ -42,6 +68,7 @@ LABEL org.opencontainers.image.title="Prozrachnaya Cena database migrations" \
       org.opencontainers.image.version=$APP_VERSION
 ENV NODE_ENV=production
 ENV RUNTIME_COMPONENT=migration-job
+ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/node_modules/.pnpm/@prisma+engines@5.22.0/node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x
 WORKDIR /app
 COPY --from=build --chown=nonroot:nonroot /migration-runtime/ ./
 USER nonroot

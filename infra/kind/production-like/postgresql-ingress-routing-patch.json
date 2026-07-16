@@ -1,0 +1,7 @@
+[
+  {
+    "op": "replace",
+    "path": "/spec/ingress/0/from/0/podSelector/matchExpressions/0/values",
+    "value": ["grainflow-migration"]
+  }
+]
