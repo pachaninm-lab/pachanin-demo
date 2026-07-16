@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 3,
+  "repository": "pachaninm-lab/pachanin-demo",
+  "target": {
+    "branch": "main",
+    "commitSha": "0a45a565f134921cd8bbe3361863e62660b128df"
+  },
+  "auditedAt": "2026-07-16T22:57:11.191Z",
+  "auditExecution": {
+    "event": "pull_request",
+    "runId": "29540724694",
+    "runAttempt": 1,
+    "workflowSha": "36ab1048a867badfcd04a34043e8c665082caaed"
+  },
+  "dispatches": [],
+  "mainRef": {
+    "startSha": "0a45a565f134921cd8bbe3361863e62660b128df",
+    "endSha": null,
+    "authority": "git-ls-remote"
+  },
+  "exactMainRuns": [],
+  "requiredWorkflows": {},
+  "liveSeo": null,
+  "apiRetries": [
+    {
+      "url": "https://api.github.com/repos/pachaninm-lab/pachanin-demo/actions/runs?head_sha=0a45a565f134921cd8bbe3361863e62660b128df&per_page=100&page=1",
+      "attempt": 1,
+      "status": 503,
+      "delayMs": 2000
+    },
+    {
+      "url": "https://api.github.com/repos/pachaninm-lab/pachanin-demo/actions/runs?head_sha=0a45a565f134921cd8bbe3361863e62660b128df&per_page=100&page=1",
+      "attempt": 2,
+      "status": 503,
+      "delayMs": 4000
+    },
+    {
+      "url": "https://api.github.com/repos/pachaninm-lab/pachanin-demo/actions/runs?head_sha=0a45a565f134921cd8bbe3361863e62660b128df&per_page=100&page=1",
+      "attempt": 3,
+      "status": 503,
+      "delayMs": 8000
+    },
+    {
+      "url": "https://api.github.com/repos/pachaninm-lab/pachanin-demo/actions/runs?head_sha=0a45a565f134921cd8bbe3361863e62660b128df&per_page=100&page=1",
+      "attempt": 4,
+      "status": 503,
+      "delayMs": 16000
+    },
+    {
+      "url": "https://api.github.com/repos/pachaninm-lab/pachanin-demo/actions/runs?head_sha=0a45a565f134921cd8bbe3361863e62660b128df&per_page=100&page=1",
+      "attempt": 5,
+      "status": 503,
+      "delayMs": 32000
+    },
+    {
+      "url": "https://api.github.com/repos/pachaninm-lab/pachanin-demo/actions/runs?head_sha=0a45a565f134921cd8bbe3361863e62660b128df&per_page=100&page=1",
+      "attempt": 6,
+      "status": 503,
+      "delayMs": 60000
+    },
+    {
+      "url": "https://api.github.com/repos/pachaninm-lab/pachanin-demo/actions/runs?head_sha=0a45a565f134921cd8bbe3361863e62660b128df&per_page=100&page=1",
+      "attempt": 7,
+      "status": 503,
+      "delayMs": 60000
+    },
+    {
+      "url": "https://api.github.com/repos/pachaninm-lab/pachanin-demo/actions/runs?head_sha=0a45a565f134921cd8bbe3361863e62660b128df&per_page=100&page=1",
+      "attempt": 8,
+      "status": 503,
+      "delayMs": 60000
+    },
+    {
+      "url": "https://api.github.com/repos/pachaninm-lab/pachanin-demo/actions/runs?head_sha=0a45a565f134921cd8bbe3361863e62660b128df&per_page=100&page=1",
+      "attempt": 9,
+      "status": 503,
+      "delayMs": 60000
+    }
+  ],
+  "errors": [
+    "Audit execution failed: Error: GitHub API 503 for https://api.github.com/repos/pachaninm-lab/pachanin-demo/actions/runs?head_sha=0a45a565f134921cd8bbe3361863e62660b128df&per_page=100&page=1: <!DOCTYPE html>\r\n<!--\r\n\r\nHello future GitHubber! I bet you're here to remove those nasty inline styles,\r\nDRY up these templates and make 'em nice and re-usable, right?\r\n\r\nPlease, don't. https://github.com/styleguide/templates/2.0\r\n\r\n-->\r\n<html>\r\n  <head>\r\n    <title>Unicorn! &middot; GitHub</title>\r\n    <style type=\"text/css\" media=\"screen\">\r\n      body {\r\n        background-color: #f1f1f1;\r\n        margin: 0;\r\n        font-family: \"Helvetica Neue\", Helvetica, Arial, sans-serif;\r\n      }\r\n\r\n      .container { margin: 50px auto 40px auto; width: 600px; text-align: center; }\r\n\r\n      a { color: #4183c4; text-decoration: none; }\r\n      a:hover { text-decoration: underline; }\r\n\r\n      h1 { letter-spacing: -1px; line-height: 60px; font-size: 60px; font-weight: 100; margin: 0px; text-shadow: 0 1px 0 #fff; }\r\n      p { color: rgba(0, 0, 0, 0.5); margin: 10px 0 10px; font-size: 18px; font-weight: 200; line-height: 1.6em;}\r\n\r\n      ul { list-style: none; margin: 25px 0; padding: 0; }\r\n      li { display: table-cell; font-weight: bold; width: 1%; }\r\n\r\n      .logo { display: inline-block; margin-top: 35px; }\r\n      .logo-img-2x { display: none; }\r\n      @media\r\n      only screen and (-webkit-min-device-pixel-ratio: 2),\r\n      only screen and (   min--moz-device-pixel-ratio: 2),\r\n      only screen and (     -o-min-device-pixel-ratio: 2/1),\r\n      only screen and (        min-device-pixel-ratio: 2),\r\n      only screen and (                min-resolution: 192dpi),\r\n      only screen and (                min-resolution: 2dppx) {\r\n        .logo-img-1x { display: none; }\r\n        .logo-img-\n    at request (file:///home/runner/work/pachanin-demo/pachanin-demo/scripts/audit-exact-main-0a45.mjs:132:19)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async paginate (file:///home/runner/work/pachanin-demo/pachanin-demo/scripts/audit-exact-main-0a45.mjs:156:21)\n    at async exactMainRuns (file:///home/runner/work/pachanin-demo/pachanin-demo/scripts/audit-exact-main-0a45.mjs:188:16)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/scripts/audit-exact-main-0a45.mjs:426:14"
+  ],
+  "warnings": [],
+  "maturityBoundary": {
+    "productionOperationallyAccepted": "NO_GO",
+    "acceptedSlice": "exact-main disposable multi-node Kubernetes acceptance, immutable release authority and production SEO evidence only",
+    "notProven": [
+      "provider-level PostgreSQL HA/PITR",
+      "target production load and capacity",
+      "permanent-environment operations",
+      "external penetration test",
+      "live provider integrations",
+      "72-hour, 14-day and 30-day operational soak",
+      "deep outbox runtime scenarios tracked by #2649"
+    ]
+  },
+  "pass": false,
+  "verdict": "FAIL"
+}
