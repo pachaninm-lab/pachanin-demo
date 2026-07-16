@@ -1,0 +1,54 @@
+name: Apply canonical SEO authority repair v2
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/apply-seo-authority-fix-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.ref == 'fix/seo-exact-main-2659'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Reuse corrected deterministic patch payload
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          payload = Path('.github/workflows/apply-seo-authority-fix.yml').read_text()
+          script = payload.split("python <<'PY'\n", 1)[1].split("\n          PY", 1)[0]
+          script = textwrap.dedent(script)
+          script = script.replace(
+              "\n              const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath, isEntry && !privateModeEnabled);",
+              "\n    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath, isEntry && !privateModeEnabled);",
+          )
+          script = script.replace(
+              "\n              const indexable = !privateModeEnabled && PLATFORM_V7_INDEXABLE_EXACT.has(p);",
+              "\n    const indexable = !privateModeEnabled && PLATFORM_V7_INDEXABLE_EXACT.has(p);",
+          )
+          script = script.replace(
+              "\n              const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath, indexable);",
+              "\n    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath, indexable);",
+          )
+          exec(compile(script, '<seo-authority-patch>', 'exec'))
+          PY
+
+          rm -f .github/workflows/authorize-seo-exact-main-fix.yml
+          rm -f .github/workflows/apply-seo-authority-fix.yml
+          rm -f .github/workflows/apply-seo-authority-fix-v2.yml
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(seo): align exact deploy and canonical indexing authority'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
