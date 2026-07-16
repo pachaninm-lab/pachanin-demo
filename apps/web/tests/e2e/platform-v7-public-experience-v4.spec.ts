@@ -12,6 +12,8 @@ for (const width of [320, 360, 375, 390, 430]) {
     await expect(page.getByRole('link', { name: 'Разобрать демонстрационную сделку' })).toBeVisible();
     await expect(page.getByText('Демонстрационная сделка', { exact: true })).toBeVisible();
     await expect(page.locator('.pc-ppe-hero-progress-mobile')).toBeVisible();
+    await expect(page.locator('.pc-ppe-hero-progress-mobile')).toContainText('Этап 1 из 10');
+    await expect(page.locator('.pc-ppe-hero-progress-mobile')).toContainText('Условия сделки');
     await expect(page.locator('.pc-ppe-hero-contour-desktop')).toBeHidden();
     await expect(page.locator('.pc-site-brand-mark')).toBeVisible();
 
@@ -58,6 +60,8 @@ test('homepage provides service navigation and institutional trust links', async
   await expect(header.getByRole('link', { name: 'Как работает' })).toBeVisible();
   await expect(header.getByRole('link', { name: 'Участники' })).toBeVisible();
   await expect(header.getByRole('link', { name: 'Надёжность' })).toBeVisible();
+  await expect(page.locator('.pc-ppe-hero-contour-desktop > span')).toHaveCount(10);
+  await expect(page.locator('.pc-ppe-hero-contour-desktop > span[data-active="true"]')).toContainText('Условия');
   await expect(page.locator('#reliability .pc-ppe-trust-card')).toHaveCount(4);
   await expect(page.getByRole('link', { name: 'Статус сервисов' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Политика данных' })).toBeVisible();
@@ -104,9 +108,35 @@ test('canonical CTA vocabulary remains deliberate and truthful', async ({ page }
   await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
 
   await expect(page.getByRole('link', { name: 'Разобрать демонстрационную сделку' })).toHaveCount(1);
-  await expect(page.getByRole('link', { name: 'Открыть полный разбор сделки' })).toHaveCount(2);
+  await expect(page.getByRole('link', { name: 'Посмотреть сделку с начала' })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Открыть этап приёмки' })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Открыть полный разбор сделки' })).toHaveCount(1);
+  await expect(page.getByText('Выбранный ключевой этап: Этап 6 из 10')).toBeVisible();
   await expect(page.getByText(/DEAL-2408|реальная сделка №/i)).toHaveCount(0);
   await expect(page.getByText('Данные вымышлены и используются только для объяснения логики платформы.')).toBeVisible();
+});
+
+test('primary journey starts at terms while the highlighted acceptance stage stays directly accessible', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 860 });
+  await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+
+  await page.getByRole('link', { name: 'Разобрать демонстрационную сделку' }).click();
+  await expect(page).toHaveURL(/stage=terms/);
+  await expect(page).toHaveURL(/perspective=buyer/);
+  await expect(page.locator('.pc-ppe-stage-track button[data-state="active"]')).toContainText('Условия');
+
+  await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+  await page.getByRole('link', { name: 'Открыть этап приёмки' }).click();
+  await expect(page).toHaveURL(/stage=acceptance/);
+  await expect(page.locator('.pc-ppe-stage-track button[data-state="active"]')).toContainText('Приёмка');
+});
+
+test('bare deal explorer starts from the first stage and buyer perspective', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 860 });
+  await page.goto('/platform-v7/how-it-works?lang=ru', { waitUntil: 'load' });
+
+  await expect(page.locator('.pc-ppe-stage-track button[data-state="active"]')).toContainText('Условия');
+  await expect(page.locator('.pc-ppe-context-panel select')).toHaveValue('buyer');
 });
 
 test('deal explorer exposes four business areas and all ten stages on mobile', async ({ page }) => {
