@@ -12,6 +12,5 @@ spec:
     - action: Deny
       protocol: TCP
       destination:
-        selector: "app.kubernetes.io/name == 'postgresql'"
         ports:
           - 5432
