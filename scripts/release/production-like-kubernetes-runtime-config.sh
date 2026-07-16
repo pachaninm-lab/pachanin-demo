@@ -54,6 +54,11 @@ test "$(kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgres
 test "$(kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.egress[0].action}')" = "Deny"
 test "$(kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.egress[0].destination.ports[0]}')" = "5432"
 
+kubectl get tier platform-security -o json \
+  > "$K8S_DIR/cluster/calico-security-tier.json"
+kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o json \
+  > "$K8S_DIR/cluster/calico-runtime-database-deny.json"
+
 kubectl create configmap grainflow-pgbouncer-config -n "$NAMESPACE" \
   --from-file=pgbouncer.ini=infra/kind/production-like/pgbouncer.ini \
   --dry-run=client -o yaml | kubectl apply -f - \
