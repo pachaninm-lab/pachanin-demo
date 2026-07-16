@@ -17,6 +17,7 @@ import { getPublicProductEntryVariantsCopy } from '@/i18n/public-product-entry-v
 import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
 import {
+  DEFAULT_TOUR_STATE,
   normalizeTourEntryVariant,
   normalizeTourState,
 } from '@/lib/platform-v7/public-product-experience-state';
@@ -50,7 +51,11 @@ export default async function PublicDealFromInsidePage({
   const entryCopy = getPublicProductEntryVariantsCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
   const initialEntry = normalizeTourEntryVariant(searchParams?.entry);
-  const initialState = normalizeTourState(searchParams ?? {});
+  const initialState = normalizeTourState(searchParams ?? {}, {
+    ...DEFAULT_TOUR_STATE,
+    stage: 'terms',
+    perspective: 'buyer',
+  });
   const nav = (
     <>
       <a href={`/platform-v7?lang=${encodeURIComponent(locale)}#deal-example`}>{ui.header.howItWorks}</a>
