@@ -1,8 +1,6 @@
 name: platform-v7 agent runner
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
     inputs:
       command:
@@ -27,14 +25,45 @@ concurrency:
 jobs:
   run-agent:
     if: >-
-      github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' && github.event.label.name == 'agent:run') ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '/agent run current'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Inspect source-of-truth execution authority
+        id: authority
+        shell: bash
+        run: |
+          node <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('node:fs');
+          const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+          const current = String(state.current || '');
+          const status = String(state.currentStatus || '');
+          const writable = Array.isArray(state.agentWritableScope) ? state.agentWritableScope : [];
+          const ready = status === 'ready' && writable.length > 0;
+          console.log(`ready=${ready}`);
+          console.log(`current=${current.replace(/[\r\n]/g, ' ')}`);
+          console.log(`current_status=${status.replace(/[\r\n]/g, ' ')}`);
+          console.log(`writable_count=${writable.length}`);
+          NODE
+
+      - name: Skip when current step is not ready
+        if: steps.authority.outputs.ready != 'true'
+        run: |
+          echo "Agent execution skipped by source-of-truth authority."
+          echo "current: ${{ steps.authority.outputs.current }}"
+          echo "currentStatus: ${{ steps.authority.outputs.current_status }}"
+          echo "agentWritableScope count: ${{ steps.authority.outputs.writable_count }}"
+
       - name: Mark start
+        if: steps.authority.outputs.ready == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,27 +75,26 @@ jobs:
             gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "Agent runner started: event=${{ github.event_name }}, run=${{ github.run_id }}. Work remains PR-only." || true
           fi
 
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
       - name: Setup Node
+        if: steps.authority.outputs.ready == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Enable pnpm
+        if: steps.authority.outputs.ready == 'true'
         run: corepack enable
 
       - name: Install dependencies
+        if: steps.authority.outputs.ready == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Generate current task
+        if: steps.authority.outputs.ready == 'true'
         run: node scripts/p7-autopilot-dispatcher.mjs
 
       - name: Run agent
+        if: steps.authority.outputs.ready == 'true'
         shell: bash
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -85,19 +113,7 @@ jobs:
           if [ "$status" -eq 3 ]; then
             echo "P7_AGENT_NOOP=true" >> "$GITHUB_ENV"
             echo "P7_AGENT_NOOP_REASON=agent produced no repository changes" >> "$GITHUB_ENV"
-            has_agent_writable=$(node - <<'JS'
-          const fs = require('fs');
-          const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
-          const writable = Array.isArray(state.agentWritableScope) ? state.agentWritableScope : [];
-          console.log(writable.length > 0 ? 'true' : 'false');
-          JS
-          )
-            if [ "$has_agent_writable" = "true" ]; then
-              echo "Agent NOOP is not allowed while agentWritableScope is present."
-            else
-              echo "Agent NOOP accepted: no active agentWritableScope in source-of-truth."
-              status=0
-            fi
+            echo "Agent NOOP is not allowed for a ready source-of-truth step with an active writable scope."
           fi
 
           {
@@ -127,12 +143,15 @@ jobs:
         run: |
           echo "## runner result" >> "$GITHUB_STEP_SUMMARY"
           echo "- job status: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- authority ready: ${{ steps.authority.outputs.ready || 'unknown' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- current: ${{ steps.authority.outputs.current || 'unknown' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- currentStatus: ${{ steps.authority.outputs.current_status || 'unknown' }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- generated branch env: ${P7_AGENT_BRANCH:-not-set}" >> "$GITHUB_STEP_SUMMARY"
           echo "- noop: ${P7_AGENT_NOOP:-false}" >> "$GITHUB_STEP_SUMMARY"
           echo "- noop reason: ${P7_AGENT_NOOP_REASON:-not-set}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify generated PR labels
-        if: success() && env.P7_AGENT_NOOP != 'true'
+        if: success() && steps.authority.outputs.ready == 'true' && env.P7_AGENT_NOOP != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -165,7 +184,7 @@ jobs:
           echo "Generated PR labels verified: #$pr_number"
 
       - name: Confirm generated PR handling
-        if: success() && env.P7_AGENT_NOOP != 'true'
+        if: success() && steps.authority.outputs.ready == 'true' && env.P7_AGENT_NOOP != 'true'
         shell: bash
         run: |
           set -euo pipefail
