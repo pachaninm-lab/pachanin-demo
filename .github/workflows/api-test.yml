@@ -80,7 +80,6 @@ jobs:
           --health-retries 20
     env:
       NODE_ENV: test
-      RLS_INTEGRATION_ADMIN_URL: postgresql://rls_admin:ephemeral_rls_admin_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/rls_integration
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -94,6 +93,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends postgresql-client
       - name: Run RLS gate
         shell: bash
+        env:
+          RLS_INTEGRATION_ADMIN_URL: "postgresql://rls_admin:ephemeral_rls_admin_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/rls_integration"
         run: |
           set -o pipefail
           if [[ -f scripts/platform-v7-rls-integration.sh ]]; then
