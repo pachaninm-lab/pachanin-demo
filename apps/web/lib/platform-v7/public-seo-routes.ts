@@ -32,7 +32,9 @@ export const PLATFORM_V7_PUBLIC_SEO_ROUTES = [
   { path: '/platform-v7/oferta', priority: 0.4, changeFrequency: 'monthly' },
 ] as const satisfies readonly PlatformV7PublicSeoRoute[];
 
-export const PLATFORM_V7_PUBLIC_SEO_PATHS = PLATFORM_V7_PUBLIC_SEO_ROUTES.map((route) => route.path);
+export const PLATFORM_V7_PUBLIC_SEO_PATHS: readonly string[] = PLATFORM_V7_PUBLIC_SEO_ROUTES.map(
+  (route) => route.path,
+);
 
 /** Protected transaction and role workspaces must never enter robots or sitemap. */
 export const PLATFORM_V7_PRIVATE_ROBOTS_PREFIXES = [
