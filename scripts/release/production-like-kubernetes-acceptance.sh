@@ -25,39 +25,84 @@ kubectl exec -i -n "$NAMESPACE" statefulset/postgresql -- \
   < infra/kind/production-like/postgresql-runtime-grants.sql \
   > "$K8S_DIR/post-rls-runtime-grants.log" 2>&1
 
+# Use the same acceptance contract as platform-v7-rls-apply-rehearsal.sh. The
+# proof covers every protected authority table, final deal-basis policies,
+# SECURITY DEFINER and PUBLIC EXECUTE boundaries, and both Deal triggers.
 canonical_rls_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
   env PGPASSWORD="$POSTGRES_PASSWORD" psql -U postgres -d grainflow -Atc "
 SELECT
-  c.relrowsecurity::int || ':' ||
-  c.relforcerowsecurity::int || ':' ||
+  (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname IN ('deals','organizations','audit_events','ledger_entries','integration_events','outbox_entries','deal_workspace_runtime_snapshots','deal_workspace_runtime_transaction_attempts')
+      AND c.relrowsecurity) || ':' ||
+  (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname IN ('deals','organizations','audit_events','ledger_entries','integration_events','outbox_entries','deal_workspace_runtime_snapshots','deal_workspace_runtime_transaction_attempts')
+      AND c.relforcerowsecurity) || ':' ||
   (SELECT count(*) FROM pg_policies
     WHERE schemaname = 'public'
-      AND policyname IN ('deals_select','deals_insert','integration_events_select','organizations_select','deal_participants_insert')) || ':' ||
-  (SELECT count(*) FROM pg_proc p
-    JOIN pg_namespace pn ON pn.oid = p.pronamespace
-    WHERE pn.nspname = 'public'
+      AND tablename IN ('deals','organizations','audit_events','ledger_entries','integration_events','outbox_entries','deal_workspace_runtime_snapshots','deal_workspace_runtime_transaction_attempts')) || ':' ||
+  (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
       AND p.proname IN ('app_deal_basis_deal_visible','app_deal_basis_participant_allowed','enforce_single_deal_per_basis')
       AND p.prosecdef) || ':' ||
+  (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname = 'forbid_deal_basis_mutation') || ':' ||
   (SELECT count(*) FROM pg_proc p
-    JOIN pg_namespace pn ON pn.oid = p.pronamespace
+    JOIN pg_namespace n ON n.oid = p.pronamespace
     CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
-    WHERE pn.nspname = 'public'
-      AND p.proname IN ('app_deal_basis_deal_visible','app_deal_basis_participant_allowed','enforce_single_deal_per_basis')
+    WHERE n.nspname = 'public'
+      AND p.proname IN ('app_deal_basis_deal_visible','app_deal_basis_participant_allowed','enforce_single_deal_per_basis','forbid_deal_basis_mutation')
       AND acl.grantee = 0
       AND acl.privilege_type = 'EXECUTE') || ':' ||
-  (SELECT count(*) FROM pg_trigger
-    WHERE tgrelid = 'public.deals'::regclass
-      AND tgname = 'deals_single_basis'
-      AND tgenabled <> 'D')
-FROM pg_class c
-JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = 'public' AND c.relname = 'deals';
+  (SELECT count(*) FROM pg_policies
+    WHERE schemaname = 'public'
+      AND (tablename, policyname) IN (
+        ('deals','deals_select'),
+        ('deals','deals_insert'),
+        ('integration_events','integration_events_select'),
+        ('organizations','organizations_select'),
+        ('deal_participants','deal_participants_insert')
+      )) || ':' ||
+  (SELECT count(*) FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'deals'
+      AND policyname = 'deals_insert'
+      AND with_check ILIKE '%app_deal_basis_deal_visible%'
+      AND with_check ILIKE '%FARMER%'
+      AND with_check NOT ILIKE '%app_rls_privileged%') || ':' ||
+  (SELECT count(*) FROM pg_trigger t
+    JOIN pg_class c ON c.oid = t.tgrelid
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'deals'
+      AND t.tgname IN ('deals_single_basis','deals_basis_immutable')
+      AND NOT t.tgisinternal
+      AND t.tgenabled IN ('O','A'));
 ")"
 printf '%s\n' "$canonical_rls_proof" | tee "$K8S_DIR/cluster/canonical-rls-proof.txt"
+IFS=: read -r \
+  rls_enabled_count \
+  rls_forced_count \
+  rls_policy_count \
+  rls_authority_function_count \
+  rls_immutability_function_count \
+  rls_public_execute_count \
+  rls_required_policy_count \
+  rls_basis_only_insert_count \
+  rls_authority_trigger_count \
+  <<< "$canonical_rls_proof"
+
 CANONICAL_RLS_VIOLATIONS=0
-if [[ "$canonical_rls_proof" != "1:1:5:3:0:1" ]]; then
-  CANONICAL_RLS_VIOLATIONS=1
-fi
+[[ "$rls_enabled_count" = "8" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
+[[ "$rls_forced_count" = "8" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
+(( rls_policy_count >= 16 )) || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
+[[ "$rls_authority_function_count" = "3" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
+[[ "$rls_immutability_function_count" = "1" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
+[[ "$rls_public_execute_count" = "0" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
+[[ "$rls_required_policy_count" = "5" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
+[[ "$rls_basis_only_insert_count" = "1" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
+[[ "$rls_authority_trigger_count" = "2" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
 printf '%s\n' "$CANONICAL_RLS_VIOLATIONS" > "$K8S_DIR/cluster/canonical-rls-authority-violations.txt"
 test "$CANONICAL_RLS_VIOLATIONS" = "0"
 export CANONICAL_RLS_VIOLATIONS
