@@ -52,6 +52,11 @@ const thresholds = {
   rollbackDigestMismatches: 0,
 };
 
+const directDatabaseBoundaryProofs = new Set([
+  'blocked',
+  'blocked-by-service-and-pod-ip',
+]);
+
 const actual = {
   apiReplicas: measurement(read('cluster/api-ready-replicas.txt'), 0),
   webReplicas: measurement(read('cluster/web-ready-replicas.txt'), 0),
@@ -71,7 +76,11 @@ const actual = {
     read('cluster/canonical-rls-authority-violations.txt'),
   ),
   networkPolicyUnauthorizedConnections: process.env.NETWORK_DENIAL_PROVEN === 'true' ? 0 : 1,
-  directDatabaseBypassConnections: read('cluster/direct-postgresql-bypass.txt') === 'blocked' ? 0 : 1,
+  directDatabaseBypassConnections: directDatabaseBoundaryProofs.has(
+    read('cluster/direct-postgresql-bypass.txt'),
+  )
+    ? 0
+    : 1,
   rollbackDigestMismatches: process.env.ROLLBACK_MATCH === 'true' ? 0 : 1,
 };
 
