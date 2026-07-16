@@ -46,7 +46,7 @@ for (const directory of ['api', 'downloads', 'evidence']) {
 }
 
 const report = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   repository,
   target: { branch: targetBranch, commitSha: targetSha },
   auditedAt: new Date().toISOString(),
@@ -58,7 +58,7 @@ const report = {
   },
   dispatches: [],
   mainRef: { startSha: null, endSha: null, authority: 'git-ls-remote' },
-  exactMainRuns: [],
+  exactMainChecks: { suites: [], runs: [] },
   requiredWorkflows: {},
   liveSeo: null,
   apiRetries,
@@ -119,7 +119,7 @@ async function request(urlOrPath, options = {}) {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
           'X-GitHub-Api-Version': '2022-11-28',
-          'User-Agent': 'pachanin-demo-exact-main-audit',
+          'User-Agent': 'pachanin-demo-exact-main-checks-audit',
         },
         body: options.body ? JSON.stringify(options.body) : undefined,
       });
@@ -145,6 +145,22 @@ async function request(urlOrPath, options = {}) {
       apiRetries.push({ url, attempt, error: String(error), delayMs });
       await sleep(delayMs);
     }
+  }
+  throw lastError;
+}
+
+async function fetchWithRetry(url, options = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= 8; attempt += 1) {
+    try {
+      const response = await fetch(url, { ...options, redirect: options.redirect || 'manual' });
+      if (response.status < 500 && response.status !== 429) return response;
+      lastError = new Error(`HTTP ${response.status} for ${url}`);
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt === 8) throw lastError;
+    await sleep(Math.min(30_000, 1_500 * 2 ** (attempt - 1)));
   }
   throw lastError;
 }
@@ -184,23 +200,23 @@ async function resolveMainSha() {
   throw lastError;
 }
 
-async function exactMainRuns() {
-  const runs = await paginate(`${apiBase}/actions/runs?head_sha=${targetSha}`, 'workflow_runs');
-  return runs.filter((run) =>
-    run.head_sha === targetSha &&
-    run.head_branch === targetBranch &&
-    ['push', 'workflow_dispatch'].includes(run.event),
-  );
+async function exactMainChecks() {
+  const suites = await paginate(`${apiBase}/commits/${targetSha}/check-suites`, 'check_suites');
+  const runs = await paginate(`${apiBase}/commits/${targetSha}/check-runs?filter=latest`, 'check_runs');
+  return {
+    suites: suites.filter((suite) => suite.app?.slug === 'github-actions' && suite.head_sha === targetSha),
+    runs: runs.filter((run) => run.app?.slug === 'github-actions' && run.head_sha === targetSha),
+  };
 }
 
-function latestByName(runs, name) {
-  return runs
-    .filter((run) => run.name === name)
-    .sort((left, right) => new Date(right.created_at) - new Date(left.created_at))[0] || null;
+function runIdFromCheck(checkRun) {
+  const match = String(checkRun.details_url || '').match(/\/actions\/runs\/(\d+)/);
+  return match ? Number(match[1]) : null;
 }
 
-async function ensureImmutableRun(runs) {
-  if (latestByName(runs, 'Immutable Release Authority Acceptance')) return;
+async function ensureImmutableRun(checks) {
+  const immutableNames = new Set(required['Immutable Release Authority Acceptance'].jobs);
+  if (checks.runs.some((run) => immutableNames.has(run.name))) return;
   await request(`${apiBase}/actions/workflows/${required['Immutable Release Authority Acceptance'].workflowFile}/dispatches`, {
     method: 'POST',
     body: { ref: targetBranch },
@@ -212,25 +228,26 @@ async function ensureImmutableRun(runs) {
   });
 }
 
-async function waitForStableExactMain() {
+async function waitForStableExactMainChecks() {
   const deadline = Date.now() + 75 * 60 * 1000;
   let stableSnapshot = null;
   while (Date.now() < deadline) {
-    const runs = await exactMainRuns();
-    const requiredRuns = Object.keys(required).map((name) => latestByName(runs, name));
-    const active = runs.filter((run) => run.status !== 'completed');
+    const checks = await exactMainChecks();
+    const activeRuns = checks.runs.filter((run) => run.status !== 'completed');
+    const requiredRuns = Object.values(required).flatMap((config) => config.jobs).map((name) => checks.runs.find((run) => run.name === name) || null);
     console.log(JSON.stringify({
       observedAt: new Date().toISOString(),
-      totalExactMainRuns: runs.length,
-      active: active.map((run) => `${run.name}#${run.run_number}:${run.status}`),
-      required: Object.fromEntries(Object.keys(required).map((name, index) => [
+      suiteCount: checks.suites.length,
+      checkRunCount: checks.runs.length,
+      active: activeRuns.map((run) => `${run.name}:${run.status}`),
+      required: Object.fromEntries(Object.values(required).flatMap((config) => config.jobs).map((name, index) => [
         name,
         requiredRuns[index] ? `${requiredRuns[index].status}/${requiredRuns[index].conclusion}` : 'missing',
       ])),
     }));
-    if (requiredRuns.every((run) => run?.status === 'completed') && active.length === 0) {
-      const snapshot = runs.map((run) => `${run.id}:${run.status}:${run.conclusion}`).sort().join('|');
-      if (stableSnapshot === snapshot) return runs;
+    if (requiredRuns.every((run) => run?.status === 'completed') && activeRuns.length === 0) {
+      const snapshot = checks.runs.map((run) => `${run.id}:${run.status}:${run.conclusion}`).sort().join('|');
+      if (stableSnapshot === snapshot) return checks;
       stableSnapshot = snapshot;
       await sleep(30_000);
     } else {
@@ -238,7 +255,7 @@ async function waitForStableExactMain() {
       await sleep(20_000);
     }
   }
-  throw new Error('Timed out waiting for stable exact-main GitHub Actions runs');
+  throw new Error('Timed out waiting for stable exact-main GitHub Checks');
 }
 
 function walk(root) {
@@ -337,23 +354,27 @@ function verifyMigrationSecurity(extractDir) {
   return { evidenceSha256: sha256File(file), evidence };
 }
 
-async function verifyWorkflow(workflowName, config, runs) {
-  const run = latestByName(runs, workflowName);
-  assert(Boolean(run), `Required exact-main workflow missing: ${workflowName}`);
-  if (!run) return;
-  assert(run.status === 'completed' && run.conclusion === 'success', `Required workflow did not succeed: ${workflowName} (${run.status}/${run.conclusion})`);
-  const jobs = await paginate(`${apiBase}/actions/runs/${run.id}/jobs?filter=latest`, 'jobs');
-  writeJson(`run-${run.id}-jobs.json`, { jobs });
-  for (const expectedJob of config.jobs) {
-    const job = jobs.find((candidate) => candidate.name === expectedJob);
-    assert(Boolean(job), `Required job missing: ${workflowName} / ${expectedJob}`);
-    if (job) assert(job.status === 'completed' && job.conclusion === 'success', `Required job did not succeed: ${workflowName} / ${expectedJob}`);
+async function verifyWorkflow(workflowName, config, checks) {
+  const jobChecks = config.jobs.map((jobName) => checks.runs.find((run) => run.name === jobName) || null);
+  for (let index = 0; index < config.jobs.length; index += 1) {
+    const jobCheck = jobChecks[index];
+    assert(Boolean(jobCheck), `Required job missing: ${workflowName} / ${config.jobs[index]}`);
+    if (jobCheck) assert(jobCheck.status === 'completed' && jobCheck.conclusion === 'success', `Required job did not succeed: ${workflowName} / ${config.jobs[index]}`);
   }
-  const artifacts = await paginate(`${apiBase}/actions/runs/${run.id}/artifacts`, 'artifacts');
-  writeJson(`run-${run.id}-artifacts.json`, { artifacts });
+  const runIds = new Set(jobChecks.filter(Boolean).map(runIdFromCheck).filter(Boolean));
+  assert(runIds.size === 1, `Required workflow ${workflowName} must resolve to exactly one run ID; found ${[...runIds].join(',')}`);
+  if (runIds.size !== 1) return;
+  const runId = [...runIds][0];
+  const run = await request(`${apiBase}/actions/runs/${runId}`);
+  assert(run.head_sha === targetSha, `Required workflow head SHA mismatch: ${workflowName}`);
+  assert(run.head_branch === targetBranch, `Required workflow head branch mismatch: ${workflowName}`);
+  assert(['push', 'workflow_dispatch'].includes(run.event), `Required workflow event invalid: ${workflowName} (${run.event})`);
+  assert(run.status === 'completed' && run.conclusion === 'success', `Required workflow did not succeed: ${workflowName} (${run.status}/${run.conclusion})`);
+  const artifacts = await paginate(`${apiBase}/actions/runs/${runId}/artifacts`, 'artifacts');
+  writeJson(`run-${runId}-artifacts.json`, { artifacts });
   const workflowReport = {
-    run: { id: run.id, event: run.event, status: run.status, conclusion: run.conclusion, headSha: run.head_sha, headBranch: run.head_branch },
-    jobs: jobs.map(({ id, name, status, conclusion }) => ({ id, name, status, conclusion })),
+    run: { id: run.id, event: run.event, status: run.status, conclusion: run.conclusion, headSha: run.head_sha, headBranch: run.head_branch, htmlUrl: run.html_url },
+    jobs: jobChecks.filter(Boolean).map(({ id, name, status, conclusion, details_url }) => ({ id, name, status, conclusion, detailsUrl: details_url })),
     artifacts: [],
     evidence: {},
   };
@@ -366,14 +387,7 @@ async function verifyWorkflow(workflowName, config, runs) {
     assert(artifact.expired === false, `Artifact expired: ${artifactName}`);
     assert(artifact.workflow_run?.head_sha === targetSha, `Artifact head SHA mismatch: ${artifactName}`);
     const { extractDir, calculatedDigest } = await downloadAndExtract(artifact);
-    workflowReport.artifacts.push({
-      id: artifact.id,
-      name: artifact.name,
-      sizeInBytes: artifact.size_in_bytes,
-      digest: artifact.digest,
-      calculatedDigest,
-      expired: artifact.expired,
-    });
+    workflowReport.artifacts.push({ id: artifact.id, name: artifact.name, sizeInBytes: artifact.size_in_bytes, digest: artifact.digest, calculatedDigest, expired: artifact.expired });
     if (artifactName.startsWith('production-like-kubernetes-')) workflowReport.evidence.productionLikeKubernetes = verifyKubernetes(extractDir);
     if (artifactName.startsWith('immutable-release-build-')) workflowReport.evidence.immutableRelease = verifyImmutable(extractDir);
     if (artifactName.startsWith('immutable-release-migration-security-')) workflowReport.evidence.migrationSecurity = verifyMigrationSecurity(extractDir);
@@ -386,30 +400,26 @@ async function verifyLiveSeo() {
   const privatePaths = ['/platform-v7/buyer', '/platform-v7/bank', '/platform-v7/deals/DL-9102/clean'];
   const live = { checkedAt: new Date().toISOString(), public: [], private: [], sitemap: {}, robots: {} };
   for (const pathname of publicPaths) {
-    const response = await fetch(`${site}${pathname}`, { method: 'HEAD', redirect: 'manual' });
+    const response = await fetchWithRetry(`${site}${pathname}`, { method: 'HEAD', redirect: 'manual' });
     const robots = response.headers.get('x-robots-tag') || '';
     live.public.push({ pathname, status: response.status, xRobotsTag: robots });
     assert(response.status >= 200 && response.status < 400, `Public SEO route failed: ${pathname} status=${response.status}`);
     assert(robots.toLowerCase().includes('index, follow'), `Public SEO route is not indexable: ${pathname} x-robots-tag=${robots}`);
   }
   for (const pathname of privatePaths) {
-    const response = await fetch(`${site}${pathname}`, { method: 'HEAD', redirect: 'manual' });
+    const response = await fetchWithRetry(`${site}${pathname}`, { method: 'HEAD', redirect: 'manual' });
     const robots = response.headers.get('x-robots-tag') || '';
     live.private.push({ pathname, status: response.status, xRobotsTag: robots });
     assert(response.status >= 200 && response.status < 400, `Private SEO route failed: ${pathname} status=${response.status}`);
     assert(robots.toLowerCase().includes('noindex, nofollow'), `Private SEO route is not noindex: ${pathname} x-robots-tag=${robots}`);
   }
-  const sitemapResponse = await fetch(`${site}/sitemap.xml`);
+  const sitemapResponse = await fetchWithRetry(`${site}/sitemap.xml`, { redirect: 'follow' });
   const sitemap = await sitemapResponse.text();
   live.sitemap = { status: sitemapResponse.status, sha256: `sha256:${crypto.createHash('sha256').update(sitemap).digest('hex')}` };
   assert(sitemapResponse.ok, `sitemap.xml failed: ${sitemapResponse.status}`);
-  for (const requiredPath of ['/platform-v7/secure-grain-deal', '/platform-v7/fgis-zerno', '/platform-v7/deal-flow']) {
-    assert(sitemap.includes(requiredPath), `sitemap.xml missing ${requiredPath}`);
-  }
-  for (const forbiddenPath of ['/platform-v7/buyer', '/platform-v7/bank', '/platform-v7/deals/', '/platform-v7/lots/', '/platform-v7/counterparty/', '/platform-v7/demo']) {
-    assert(!sitemap.includes(forbiddenPath), `sitemap.xml exposes forbidden route ${forbiddenPath}`);
-  }
-  const robotsResponse = await fetch(`${site}/robots.txt`);
+  for (const requiredPath of ['/platform-v7/secure-grain-deal', '/platform-v7/fgis-zerno', '/platform-v7/deal-flow']) assert(sitemap.includes(requiredPath), `sitemap.xml missing ${requiredPath}`);
+  for (const forbiddenPath of ['/platform-v7/buyer', '/platform-v7/bank', '/platform-v7/deals/', '/platform-v7/lots/', '/platform-v7/counterparty/', '/platform-v7/demo']) assert(!sitemap.includes(forbiddenPath), `sitemap.xml exposes forbidden route ${forbiddenPath}`);
+  const robotsResponse = await fetchWithRetry(`${site}/robots.txt`, { redirect: 'follow' });
   const robotsText = await robotsResponse.text();
   live.robots = { status: robotsResponse.status, sha256: `sha256:${crypto.createHash('sha256').update(robotsText).digest('hex')}` };
   assert(robotsResponse.ok, `robots.txt failed: ${robotsResponse.status}`);
@@ -423,31 +433,19 @@ async function verifyLiveSeo() {
 try {
   report.mainRef.startSha = await resolveMainSha();
   assert(report.mainRef.startSha === targetSha, `main mismatch at start: expected ${targetSha}, actual ${report.mainRef.startSha}`);
-  let runs = await exactMainRuns();
-  await ensureImmutableRun(runs);
-  runs = await waitForStableExactMain();
-  report.exactMainRuns = runs.map((run) => ({
-    id: run.id,
-    workflowId: run.workflow_id,
-    name: run.name,
-    event: run.event,
-    status: run.status,
-    conclusion: run.conclusion,
-    runNumber: run.run_number,
-    runAttempt: run.run_attempt,
-    headBranch: run.head_branch,
-    headSha: run.head_sha,
-    htmlUrl: run.html_url,
-  })).sort((left, right) => left.name.localeCompare(right.name));
-  writeJson('exact-main-runs.json', { workflow_runs: runs });
-  assert(runs.length > 0, 'No exact-main GitHub Actions runs found');
-  for (const run of runs) {
-    assert(run.status === 'completed', `Exact-main run not completed: ${run.name}#${run.run_number} (${run.status})`);
-    assert(allowedConclusions.has(run.conclusion), `Exact-main run non-passing: ${run.name}#${run.run_number} (${run.conclusion})`);
+  let checks = await exactMainChecks();
+  await ensureImmutableRun(checks);
+  checks = await waitForStableExactMainChecks();
+  report.exactMainChecks.suites = checks.suites.map(({ id, status, conclusion, head_sha, app, latest_check_runs_count, rerequestable }) => ({ id, status, conclusion, headSha: head_sha, app: app?.slug, latestCheckRunsCount: latest_check_runs_count, rerequestable }));
+  report.exactMainChecks.runs = checks.runs.map(({ id, name, status, conclusion, details_url, started_at, completed_at }) => ({ id, name, status, conclusion, detailsUrl: details_url, startedAt: started_at, completedAt: completed_at }));
+  writeJson('exact-main-check-suites.json', { check_suites: checks.suites });
+  writeJson('exact-main-check-runs.json', { check_runs: checks.runs });
+  assert(checks.runs.length > 0, 'No exact-main GitHub Actions check runs found');
+  for (const checkRun of checks.runs) {
+    assert(checkRun.status === 'completed', `Exact-main check not completed: ${checkRun.name} (${checkRun.status})`);
+    assert(allowedConclusions.has(checkRun.conclusion), `Exact-main check non-passing: ${checkRun.name} (${checkRun.conclusion})`);
   }
-  for (const [workflowName, config] of Object.entries(required)) {
-    await verifyWorkflow(workflowName, config, runs);
-  }
+  for (const [workflowName, config] of Object.entries(required)) await verifyWorkflow(workflowName, config, checks);
   await verifyLiveSeo();
   report.mainRef.endSha = await resolveMainSha();
   assert(report.mainRef.endSha === targetSha, `main mismatch at end: expected ${targetSha}, actual ${report.mainRef.endSha}`);
@@ -463,12 +461,4 @@ report.verdict = report.pass ? 'PASS' : 'FAIL';
 report.auditedAt = new Date().toISOString();
 fs.writeFileSync(path.join(auditDir, 'exact-main-0a45-audit.json'), `${JSON.stringify(report, null, 2)}\n`);
 fs.writeFileSync(path.join(auditDir, 'verdict.txt'), `${report.verdict}\n`);
-console.log(JSON.stringify({
-  verdict: report.verdict,
-  errors,
-  warnings,
-  apiRetries,
-  mainRef: report.mainRef,
-  requiredWorkflows: Object.fromEntries(Object.entries(report.requiredWorkflows).map(([name, value]) => [name, value.run])),
-  liveSeo: report.liveSeo,
-}, null, 2));
+console.log(JSON.stringify({ verdict: report.verdict, errors, warnings, apiRetries, mainRef: report.mainRef, requiredWorkflows: Object.fromEntries(Object.entries(report.requiredWorkflows).map(([name, value]) => [name, value.run])), liveSeo: report.liveSeo }, null, 2));
