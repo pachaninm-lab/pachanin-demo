@@ -63,7 +63,7 @@ describe('platform-v7 visible public entry', () => {
     const asset = brandLogoAsset();
     const mark = brandMark();
     const binary = approvedLogoBinary();
-    const canonicalHash = 'ffa96592969cae4902c666a87777d4513aadd6831258c9a779c66a61c3c6959c';
+    const canonicalHash = 'bf3a6416b43fd263cd8532343526ca5c146bd58026de38cf2dc6d8814156d264';
 
     expect(approved).toContain("import { BRAND_LOGO_DATA_URI } from './brand-logo-asset'");
     expect(approved).toContain('src={BRAND_LOGO_DATA_URI}');
@@ -73,11 +73,12 @@ describe('platform-v7 visible public entry', () => {
     expect(approved).toContain("fetchPriority='high'");
 
     expect(asset).toContain(`BRAND_LOGO_PNG_SHA256 = '${canonicalHash}'`);
-    expect(asset).toContain('data:image/webp;base64');
-    expect(asset).not.toContain('data:image/png');
-    expect(binary).toHaveLength(6164);
-    expect(binary.subarray(0, 4).toString('ascii')).toBe('RIFF');
-    expect(binary.subarray(8, 12).toString('ascii')).toBe('WEBP');
+    expect(asset).toContain('data:image/png;base64');
+    expect(asset).not.toContain('data:image/webp');
+    expect(binary).toHaveLength(8222);
+    expect(binary.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+    expect(binary.readUInt32BE(16)).toBe(64);
+    expect(binary.readUInt32BE(20)).toBe(64);
     expect(createHash('sha256').update(binary).digest('hex')).toBe(canonicalHash);
 
     expect(mark).toContain("import ApprovedHeaderLogo from './ApprovedHeaderLogo'");
