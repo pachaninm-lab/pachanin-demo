@@ -1,7 +1,0 @@
-[
-  {
-    "op": "test",
-    "path": "/spec/egress/0/to/0/podSelector/matchLabels/app.kubernetes.io~1name",
-    "value": "kafka"
-  }
-]
