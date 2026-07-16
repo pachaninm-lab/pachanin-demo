@@ -6,7 +6,6 @@ import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
 import '@/styles/platform-v7-public-product-experience-v4.css';
 import '@/styles/platform-v7-public-product-entry-variants.css';
 import '@/styles/platform-v7-public-product-experience-v5.css';
-import '@/styles/platform-v7-public-onboarding-fix.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
@@ -120,6 +119,20 @@ export default async function PlatformV7RootPage() {
 
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-root-execution-cockpit'>
+      <style>{`
+        @media (min-width: 821px) {
+          .pc-ppe-page .pc-ppe-hero-contour-desktop {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            grid-template-rows: repeat(2, minmax(92px, 1fr));
+            align-items: start;
+            gap: 18px 8px;
+            min-height: 250px;
+          }
+          .pc-ppe-page .pc-ppe-hero-contour-desktop::before { display: none; }
+          .pc-ppe-page .pc-ppe-hero-contour-desktop > span { align-content: start; }
+          .pc-ppe-page .pc-ppe-hero-contour-desktop > span > b { max-width: 100px; }
+        }
+      `}</style>
       <a className='pc-skip-link' href='#pc-ppe-hero-title'>{chrome('skipToContent')}</a>
       <PublicExperiencePageView locale={locale} name='home_view' />
       <PublicExperienceScrollCoordinator />
