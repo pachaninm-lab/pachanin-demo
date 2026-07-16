@@ -43,26 +43,10 @@
 }
 
 .pc-ppe-page .pc-site-brand-mark img {
-  display: none !important;
-}
-
-.pc-ppe-page .pc-site-brand-mark::before,
-.pc-ppe-page .pc-site-brand-mark::after {
-  content: '';
-  position: absolute;
-  inset: 9px;
-  border-left: 2px solid #fff;
-  border-bottom: 2px solid #fff;
-}
-
-.pc-ppe-page .pc-site-brand-mark::after {
-  inset: 10px 8px 8px 10px;
-  border: 0;
-  background:
-    linear-gradient(135deg, transparent 44%, #8fe0ad 45% 54%, transparent 55%) 0 0 / 100% 100% no-repeat,
-    radial-gradient(circle at 22% 72%, #fff 0 2px, transparent 2.5px),
-    radial-gradient(circle at 55% 48%, #fff 0 2px, transparent 2.5px),
-    radial-gradient(circle at 82% 20%, #fff 0 2px, transparent 2.5px);
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .pc-ppe-page .pc-site-brand-text strong {
