@@ -37,6 +37,7 @@ LABEL org.opencontainers.image.title="Prozrachnaya Cena API" \
       org.opencontainers.image.created=$BUILD_DATE \
       org.opencontainers.image.version=$APP_VERSION
 ENV NODE_ENV=production
+ENV PATH=/nodejs/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 WORKDIR /app
 COPY --from=build --chown=nonroot:nonroot /prod/api/ ./
 

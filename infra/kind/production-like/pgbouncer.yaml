@@ -1,0 +1,208 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grainflow-pgbouncer-config
+  namespace: grainflow-acceptance
+data:
+  pgbouncer.ini: |
+    [databases]
+    grainflow = host=postgresql port=5432 dbname=grainflow
+
+    [pgbouncer]
+    listen_addr = 0.0.0.0
+    listen_port = 6432
+    auth_type = plain
+    auth_file = /etc/pgbouncer/users/userlist.txt
+    pool_mode = transaction
+    max_client_conn = 300
+    default_pool_size = 30
+    min_pool_size = 5
+    reserve_pool_size = 10
+    reserve_pool_timeout = 3
+    max_db_connections = 100
+    max_prepared_statements = 100
+    server_reset_query = DISCARD ALL
+    server_reset_query_always = 1
+    server_check_query = SELECT 1
+    server_check_delay = 10
+    server_connect_timeout = 5
+    server_login_retry = 2
+    query_timeout = 30
+    query_wait_timeout = 30
+    client_idle_timeout = 300
+    ignore_startup_parameters = extra_float_digits
+    admin_users = postgres
+    stats_users = postgres
+    log_connections = 0
+    log_disconnections = 0
+    log_pooler_errors = 1
+    client_tls_sslmode = disable
+    server_tls_sslmode = disable
+    unix_socket_dir = /tmp
+    pidfile = /tmp/pgbouncer.pid
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer
+  namespace: grainflow-acceptance
+  labels:
+    app.kubernetes.io/name: pgbouncer
+    app.kubernetes.io/component: database-pooler
+spec:
+  selector:
+    app.kubernetes.io/name: pgbouncer
+  ports:
+    - name: bootstrap
+      port: 5432
+      targetPort: pgbouncer
+    - name: pgbouncer
+      port: 6432
+      targetPort: pgbouncer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: grainflow-acceptance
+  labels:
+    app.kubernetes.io/name: pgbouncer
+    app.kubernetes.io/component: database-pooler
+spec:
+  replicas: 2
+  minReadySeconds: 5
+  progressDeadlineSeconds: 300
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pgbouncer
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pgbouncer
+        app.kubernetes.io/component: database-pooler
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values: [pgbouncer]
+              topologyKey: kubernetes.io/hostname
+      initContainers:
+        - name: render-userlist
+          image: busybox:1.36.1
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: grainflow-pgbouncer-secrets
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              umask 077
+              printf '"postgres" "%s"\n' "$POSTGRES_PASSWORD" > /generated/userlist.txt
+              printf '"app_runtime" "%s"\n' "$APP_DB_PASSWORD" >> /generated/userlist.txt
+              printf '"app_auth" "%s"\n' "$AUTH_DB_PASSWORD" >> /generated/userlist.txt
+              printf '"app_storage" "%s"\n' "$STORAGE_DB_PASSWORD" >> /generated/userlist.txt
+              printf '"app_outbox" "%s"\n' "$OUTBOX_DB_PASSWORD" >> /generated/userlist.txt
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 48Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: users
+              mountPath: /generated
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: pgbouncer
+          image: edoburu/pgbouncer:1.22.1-p0
+          imagePullPolicy: IfNotPresent
+          command: [/usr/bin/pgbouncer]
+          args: [/etc/pgbouncer/pgbouncer.ini]
+          ports:
+            - name: pgbouncer
+              containerPort: 6432
+          readinessProbe:
+            tcpSocket:
+              port: pgbouncer
+            initialDelaySeconds: 3
+            periodSeconds: 3
+            timeoutSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket:
+              port: pgbouncer
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/pgbouncer/pgbouncer.ini
+              subPath: pgbouncer.ini
+              readOnly: true
+            - name: users
+              mountPath: /etc/pgbouncer/users
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: grainflow-pgbouncer-config
+        - name: users
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 32Mi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pgbouncer
+  namespace: grainflow-acceptance
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pgbouncer

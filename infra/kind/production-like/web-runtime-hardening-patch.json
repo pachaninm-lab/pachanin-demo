@@ -1,0 +1,53 @@
+[
+  {
+    "op": "test",
+    "path": "/spec/template/spec/containers/0/name",
+    "value": "web"
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/automountServiceAccountToken",
+    "value": false
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/terminationGracePeriodSeconds",
+    "value": 60
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/affinity",
+    "value": {
+      "podAntiAffinity": {
+        "requiredDuringSchedulingIgnoredDuringExecution": [
+          {
+            "labelSelector": {
+              "matchExpressions": [
+                {
+                  "key": "app.kubernetes.io/name",
+                  "operator": "In",
+                  "values": ["grainflow-web"]
+                }
+              ]
+            },
+            "topologyKey": "kubernetes.io/hostname"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/resources",
+    "value": {
+      "requests": {
+        "cpu": "100m",
+        "memory": "192Mi"
+      },
+      "limits": {
+        "cpu": "1",
+        "memory": "768Mi"
+      }
+    }
+  }
+]

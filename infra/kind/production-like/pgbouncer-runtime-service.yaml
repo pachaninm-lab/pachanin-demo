@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer
+  namespace: grainflow-acceptance
+  labels:
+    app.kubernetes.io/name: pgbouncer
+    app.kubernetes.io/component: database-pooler
+spec:
+  selector:
+    app.kubernetes.io/name: pgbouncer
+  ports:
+    - name: pgbouncer
+      port: 6432
+      targetPort: pgbouncer
