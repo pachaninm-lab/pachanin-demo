@@ -1,0 +1,65 @@
+name: Audit PR 2684 Checks
+
+on:
+  push:
+    branches:
+      - audit/pr-2684-e0ba
+    paths:
+      - '.github/workflows/audit-pr-2684-checks.yml'
+      - 'scripts/audit-pr-2684-checks.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: audit-pr-2684-checks
+  cancel-in-progress: true
+
+env:
+  TARGET_SHA: e0ba05a20a7e8f572ffdfb1138814b3b990dac26
+
+jobs:
+  monitor:
+    name: Capture exact-head PR checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
+    steps:
+      - name: Checkout audit branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Capture initial snapshot
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/audit-pr-2684-checks.mjs
+
+      - name: Publish initial snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C evidence/pr-2684-e0ba
+          git add audit-results/pr-2684/status.json
+          git commit -m "evidence: PR 2684 initial check snapshot"
+          git push --force origin HEAD:refs/heads/evidence/pr-2684-e0ba
+
+      - name: Wait for terminal exact-head checks
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/audit-pr-2684-checks.mjs --wait
+
+      - name: Publish terminal snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add audit-results/pr-2684/status.json
+          git commit -m "evidence: PR 2684 terminal check snapshot"
+          git push --force origin HEAD:refs/heads/evidence/pr-2684-e0ba
