@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "routes": [
+    { "path": "/platform-v7", "priority": 1, "changeFrequency": "daily" },
+    { "path": "/platform-v7/how-it-works", "priority": 0.95, "changeFrequency": "weekly" },
+    { "path": "/platform-v7/secure-grain-deal", "priority": 0.95, "changeFrequency": "weekly" },
+    { "path": "/platform-v7/deal-flow", "priority": 0.9, "changeFrequency": "weekly" },
+    { "path": "/platform-v7/grain-logistics", "priority": 0.85, "changeFrequency": "weekly" },
+    { "path": "/platform-v7/grain-quality", "priority": 0.85, "changeFrequency": "weekly" },
+    { "path": "/platform-v7/grain-documents", "priority": 0.85, "changeFrequency": "weekly" },
+    { "path": "/platform-v7/grain-payment", "priority": 0.85, "changeFrequency": "weekly" },
+    { "path": "/platform-v7/fgis-zerno", "priority": 0.85, "changeFrequency": "weekly" },
+    { "path": "/platform-v7/about", "priority": 0.7, "changeFrequency": "monthly" },
+    { "path": "/platform-v7/docs", "priority": 0.7, "changeFrequency": "weekly" },
+    { "path": "/platform-v7/contact", "priority": 0.6, "changeFrequency": "monthly" },
+    { "path": "/platform-v7/request", "priority": 0.6, "changeFrequency": "monthly" }
+  ]
+}

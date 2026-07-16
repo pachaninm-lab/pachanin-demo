@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import publicSeoRouteRegistry from '@/lib/platform-v7/public-seo-routes.json';
 
 const siteUrl = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 
@@ -9,23 +10,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: '*',
         allow: [
           '/',
-          '/platform-v7',
-          '/platform-v7/secure-grain-deal',
-          '/platform-v7/grain-logistics',
-          '/platform-v7/grain-quality',
-          '/platform-v7/grain-documents',
-          '/platform-v7/grain-payment',
-          '/platform-v7/fgis-zerno',
-          '/platform-v7/about',
-          '/platform-v7/demo',
-          '/platform-v7/docs',
-          '/platform-v7/contact',
-          '/platform-v7/request',
-          '/platform-v7/security',
-          '/platform-v7/status',
-          '/platform-v7/terms',
-          '/platform-v7/privacy',
-          '/platform-v7/oferta',
+          ...publicSeoRouteRegistry.routes.map(({ path }) => path),
           '/robots.txt',
           '/sitemap.xml',
           '/indexnow.txt',
