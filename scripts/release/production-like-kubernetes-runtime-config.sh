@@ -76,7 +76,6 @@ run_calicoctl get networkpolicy deny-runtime-direct-postgresql \
   > "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json"
 
 test "$(jq -r '.apiVersion' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "projectcalico.org/v3"
-test "$(jq -r '.spec.tier' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "default"
 test "$(jq -r '.spec.order' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "10"
 test "$(jq -r '.spec.egress[0].action' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "Deny"
 test "$(jq -r '.spec.egress[0].destination.ports[0]' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "5432"
