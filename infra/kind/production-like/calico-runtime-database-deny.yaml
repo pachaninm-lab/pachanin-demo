@@ -4,7 +4,6 @@ metadata:
   name: deny-runtime-direct-postgresql
   namespace: grainflow-acceptance
 spec:
-  tier: default
   order: 10
   selector: "app.kubernetes.io/name in {'grainflow-api', 'grainflow-outbox-worker'}"
   types:
