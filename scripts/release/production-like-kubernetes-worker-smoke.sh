@@ -11,7 +11,7 @@ FAILURE_REASON="outbox worker runtime smoke failed"
 sleep 5
 kubectl logs -n "$NAMESPACE" \
   -l app.kubernetes.io/name=grainflow-outbox-worker \
-  --all-containers=true --prefix=true --since=45s \
+  --all-containers=true --prefix=true --tail=400 \
   > "$K8S_DIR/cluster/outbox-worker-runtime-smoke.log" 2>&1
 
 outbox_worker_runtime_errors="$({
