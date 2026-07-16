@@ -53,6 +53,7 @@
     --amber: #8a5a00; --amber-soft: #fdf3dd;
     --red: #b42318; --red-soft: #fdefed;
     --blue: #175cd3; --blue-soft: #ecf3fd;
+    --on-accent: #ffffff;
     --shadow: 0 1px 2px rgb(16 24 20 / .05), 0 8px 24px rgb(16 24 20 / .06);
   }
 
@@ -64,73 +65,103 @@
   }
   .money { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 
-  /* ---------- shell ---------- */
+  /* ---------- shell: topbar + left nav ---------- */
   .topbar {
     display: flex; align-items: center; gap: 14px;
-    max-width: 1080px; margin: 0 auto; padding: 18px 24px 10px;
+    max-width: 1180px; margin: 0 auto; padding: 18px 24px 10px;
   }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
   .brand-mark {
     width: 34px; height: 34px; border-radius: 10px; background: var(--green);
     display: grid; place-items: center; color: var(--on-accent); font-size: 17px; flex: none;
   }
-
   .who { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--ink-3); font-size: 14px; }
   .avatar {
     width: 34px; height: 34px; border-radius: 50%; background: var(--surface-soft);
     border: 1px solid var(--line); display: grid; place-items: center; font-weight: 600; color: var(--ink-2); font-size: 14px;
   }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 8px 24px 64px; }
+
+  .frame { max-width: 1180px; margin: 0 auto; padding: 8px 24px 64px; display: grid; grid-template-columns: 208px 1fr; gap: 26px; align-items: start; }
+  @media (max-width: 900px) { .frame { grid-template-columns: 1fr; gap: 10px; } }
+
+  /* left navigation: постоянная, одинаковая на всех экранах */
+  .nav { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 4px; }
+  @media (max-width: 900px) {
+    .nav { position: static; flex-direction: row; overflow-x: auto; padding-bottom: 6px; }
+  }
+  .nav button {
+    display: flex; align-items: center; gap: 11px; width: 100%;
+    background: none; border: 0; border-radius: 11px; cursor: pointer;
+    font: inherit; font-size: 15.5px; color: var(--ink-2);
+    padding: 11px 14px; text-align: left; white-space: nowrap;
+    transition: background .12s ease;
+  }
+  .nav button:hover { background: var(--surface-soft); }
+  .nav button[aria-current="page"] { background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--ink); font-weight: 600; }
+  .nav .ico { width: 21px; text-align: center; flex: none; opacity: .85; }
+  .nav .badge {
+    margin-left: auto; background: var(--red); color: #fff; border-radius: 999px;
+    font-size: 12px; font-weight: 700; min-width: 20px; height: 20px;
+    display: grid; place-items: center; padding: 0 6px;
+  }
+  :root[data-theme="dark"] .nav .badge { color: var(--canvas); }
 
   .screen { display: none; }
   .screen.on { display: block; animation: rise .25s ease; }
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .screen.on { animation: none; } }
 
-  h1 { font-size: 28px; line-height: 1.2; margin: 18px 0 6px; text-wrap: balance; letter-spacing: -0.015em; }
-  .sub { color: var(--ink-2); margin: 0 0 26px; font-size: 16.5px; }
+  h1 { font-size: 26px; line-height: 1.2; margin: 10px 0 6px; text-wrap: balance; letter-spacing: -0.015em; }
+  .sub { color: var(--ink-2); margin: 0 0 24px; font-size: 16px; max-width: 62ch; }
 
-  /* ---------- bento home ---------- */
-  .bento { display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
-  @media (max-width: 840px) { .bento { grid-template-columns: 1fr; } }
+  /* crumbs: всегда показывают, где ты и как вернуться */
+  .crumbs { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-3); flex-wrap: wrap; }
+  .crumbs button { background: none; border: 0; padding: 2px 0; cursor: pointer; font: inherit; font-size: 14px; color: var(--blue); }
+  .crumbs span[aria-hidden] { color: var(--line); }
 
+  /* ---------- cards, buttons ---------- */
   .card {
     background: var(--surface); border: 1px solid var(--line);
     border-radius: var(--radius-lg); box-shadow: var(--shadow);
   }
 
-  .hero { padding: 26px 28px 28px; }
-  .hero .tag {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--red-soft); color: var(--red);
-    border-radius: 999px; padding: 5px 13px; font-size: 13.5px; font-weight: 600;
-  }
-  .hero .tag.waiting { background: var(--amber-soft); color: var(--amber); }
-  .hero h2 { font-size: 23px; margin: 14px 0 8px; line-height: 1.25; text-wrap: balance; }
-  .hero p { margin: 0 0 6px; color: var(--ink-2); max-width: 56ch; }
-  .hero .why { color: var(--ink-3); font-size: 14.5px; }
-  .hero-actions { display: flex; align-items: center; gap: 16px; margin-top: 20px; flex-wrap: wrap; }
-
   .btn {
     appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600;
-    border-radius: 12px; padding: 14px 22px; font-size: 16.5px;
+    border-radius: 12px; padding: 13px 22px; font-size: 16px;
     background: var(--green); color: var(--on-accent); min-height: 48px;
     transition: transform .12s ease, filter .12s ease;
   }
   .btn:hover { filter: brightness(1.08); }
   .btn:active { transform: scale(.98); }
-  .btn:focus-visible, a:focus-visible, .row:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
-  .btn.ghost { background: transparent; color: var(--green); border: 1.5px solid var(--line); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn:focus-visible, a:focus-visible, .row:focus-visible, .option:focus-visible, .nav button:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .btn.second { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); }
+  .btn.second:hover { border-color: var(--ink-3); filter: none; }
   .linkish { background: none; border: 0; cursor: pointer; font: inherit; color: var(--blue); padding: 0; font-size: 15px; }
 
-  /* dots — светофор */
   .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
   .dot.red { background: var(--red); }
   .dot.amber { background: var(--amber); }
   .dot.green { background: var(--green); }
   .dot.grey { background: var(--line); }
 
-  .list-title { font-size: 14px; font-weight: 600; color: var(--ink-3); margin: 26px 4px 10px; }
+  /* ---------- home ---------- */
+  .bento { display: grid; grid-template-columns: 1fr 300px; gap: 18px; align-items: start; }
+  @media (max-width: 1060px) { .bento { grid-template-columns: 1fr; } }
+
+  .hero { padding: 24px 26px 26px; }
+  .hero .tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--red-soft); color: var(--red);
+    border-radius: 999px; padding: 5px 13px; font-size: 13.5px; font-weight: 600;
+  }
+  .hero .tag.waiting { background: var(--amber-soft); color: var(--amber); }
+  .hero h2 { font-size: 22px; margin: 14px 0 8px; line-height: 1.25; text-wrap: balance; }
+  .hero p { margin: 0 0 6px; color: var(--ink-2); max-width: 56ch; }
+  .hero .why { color: var(--ink-3); font-size: 14.5px; }
+  .hero-actions { display: flex; align-items: center; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+
+  .list-title { font-size: 14px; font-weight: 600; color: var(--ink-3); margin: 24px 4px 10px; }
   .rows { display: flex; flex-direction: column; gap: 10px; }
   .row {
     display: flex; align-items: center; gap: 14px; text-align: left; width: 100%;
@@ -142,30 +173,30 @@
   .row b { font-weight: 600; }
   .row small { display: block; color: var(--ink-3); font-size: 14px; margin-top: 1px; }
   .row .go { margin-left: auto; color: var(--ink-3); flex: none; }
+  .row .amount { margin-left: auto; font-weight: 600; flex: none; }
+  .row.plain { cursor: default; }
+  .row.plain:hover { border-color: var(--line); }
   .row.done { opacity: .62; cursor: default; }
   .row.done:hover { border-color: var(--line); }
-  .row.done b { text-decoration: line-through; text-decoration-thickness: 1px; }
 
-  /* money rail */
-  .rail { padding: 20px 22px; display: flex; flex-direction: column; gap: 0; }
+  .rail { padding: 20px 22px; }
   .rail h3 { margin: 0 0 4px; font-size: 16px; }
   .rail .hint { color: var(--ink-3); font-size: 13.5px; margin-bottom: 12px; }
-  .money-row { display: flex; align-items: baseline; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .money-row { display: flex; align-items: baseline; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
   .money-row:first-of-type { border-top: 0; }
   .money-row .lbl { font-size: 14px; color: var(--ink-2); flex: 1 1 auto; }
   .money-row .val { margin-left: auto; font-weight: 600; font-size: 15px; white-space: nowrap; }
   .money-row .note { flex-basis: 100%; font-size: 13.5px; color: var(--ink-3); margin-top: -6px; }
-  .money-row { flex-wrap: wrap; }
   .money-row .note a { color: var(--blue); text-decoration: none; }
+  .rail .linkish { margin-top: 12px; }
 
-  /* deal steps */
   .steps-card { margin-top: 18px; padding: 20px 22px; }
-  .steps-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
+  .steps-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
   .steps-head h3 { margin: 0; font-size: 16px; }
   .steps-head span { color: var(--ink-3); font-size: 14px; }
   .steps-head .linkish { margin-left: auto; }
   .steps { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-  .step { flex: 1; min-width: 86px; text-align: center; position: relative; }
+  .step { flex: 1; min-width: 86px; text-align: center; }
   .step .bubble {
     width: 40px; height: 40px; border-radius: 50%; margin: 0 auto 6px;
     display: grid; place-items: center; font-size: 17px;
@@ -176,22 +207,36 @@
   .step small { font-size: 12.5px; color: var(--ink-3); display: block; line-height: 1.3; }
   .step.done small, .step.now small { color: var(--ink-2); font-weight: 600; }
 
-  /* ---------- decision screen ---------- */
-  .back { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); background: none; border: 0; cursor: pointer; font: inherit; font-size: 15px; padding: 6px 0; }
-  .decision { max-width: 620px; margin: 0 auto; }
-  .decision .card { padding: 28px 30px; }
-  .plan { list-style: none; counter-reset: n; margin: 18px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-  .plan li { counter-increment: n; display: flex; gap: 14px; align-items: flex-start; color: var(--ink-2); }
-  .plan li::before {
-    content: counter(n); flex: none; width: 28px; height: 28px; border-radius: 50%;
-    background: var(--surface-soft); border: 1px solid var(--line); color: var(--ink-2);
-    display: grid; place-items: center; font-size: 13.5px; font-weight: 600;
+  /* ---------- decision with options ---------- */
+  .decision { max-width: 660px; }
+  .decision .card { padding: 26px 28px; }
+  .options { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 4px; }
+  .option {
+    display: flex; gap: 14px; align-items: flex-start; text-align: left; width: 100%;
+    background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius);
+    padding: 16px 18px; cursor: pointer; font: inherit; color: var(--ink);
+    transition: border-color .12s ease, background .12s ease;
   }
-  .facts { display: flex; gap: 10px; flex-wrap: wrap; margin: 20px 0 4px; }
-  .fact { background: var(--surface-soft); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
-  .fact b { display: block; font-size: 15.5px; margin-top: 1px; }
-  .safe { display: flex; gap: 10px; align-items: flex-start; background: var(--blue-soft); color: var(--ink-2); border-radius: 12px; padding: 12px 16px; font-size: 14.5px; margin-top: 18px; }
-  .decision .btn { width: 100%; margin-top: 22px; font-size: 17px; padding: 16px; }
+  .option:hover { border-color: var(--ink-3); }
+  .option[aria-checked="true"] { border-color: var(--green); background: var(--green-soft); }
+  .option .radio {
+    width: 22px; height: 22px; border-radius: 50%; flex: none; margin-top: 2px;
+    border: 2px solid var(--ink-3); display: grid; place-items: center;
+  }
+  .option[aria-checked="true"] .radio { border-color: var(--green); }
+  .option[aria-checked="true"] .radio::after { content: ''; width: 11px; height: 11px; border-radius: 50%; background: var(--green); }
+  .option b { font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .option .rec {
+    background: var(--green); color: var(--on-accent); font-size: 11.5px; font-weight: 700;
+    border-radius: 999px; padding: 2px 9px; letter-spacing: .02em;
+  }
+  .option p { margin: 3px 0 0; color: var(--ink-2); font-size: 14.5px; max-width: 52ch; }
+  .option .consequence { color: var(--ink-3); font-size: 13.5px; margin-top: 3px; }
+
+  .decision-footer { display: flex; gap: 12px; align-items: center; margin-top: 22px; flex-wrap: wrap; }
+  .decision-footer .btn { flex: none; }
+  .decision-footer .note { color: var(--ink-3); font-size: 14px; }
+  .safe { display: flex; gap: 10px; align-items: flex-start; background: var(--blue-soft); color: var(--ink-2); border-radius: 12px; padding: 12px 16px; font-size: 14.5px; margin-top: 16px; }
 
   /* ---------- success ---------- */
   .success { max-width: 520px; margin: 40px auto; text-align: center; }
@@ -200,13 +245,12 @@
     background: var(--green-soft); color: var(--green); display: grid; place-items: center;
   }
   .success h1 { margin-top: 0; }
+  .success .btn.second { margin-left: 10px; }
 
   /* ---------- deal timeline ---------- */
   .timeline { list-style: none; margin: 24px 0; padding: 0; max-width: 640px; }
   .timeline li { position: relative; padding: 0 0 26px 34px; }
-  .timeline li::before {
-    content: ''; position: absolute; left: 8px; top: 22px; bottom: -2px; width: 2px; background: var(--line);
-  }
+  .timeline li::before { content: ''; position: absolute; left: 8px; top: 22px; bottom: -2px; width: 2px; background: var(--line); }
   .timeline li:last-child::before { display: none; }
   .timeline .tdot {
     position: absolute; left: 0; top: 4px; width: 18px; height: 18px; border-radius: 50%;
@@ -216,12 +260,19 @@
   .timeline time { font-size: 13px; color: var(--ink-3); display: block; }
   .timeline b { font-weight: 600; }
   .timeline p { margin: 2px 0 0; color: var(--ink-2); font-size: 15px; max-width: 52ch; }
+  .timeline .linkish { margin-top: 4px; }
   details.pro { max-width: 640px; margin-top: 8px; }
   details.pro summary { cursor: pointer; color: var(--ink-3); font-size: 14.5px; padding: 8px 0; }
   details.pro .card { padding: 16px 20px; font-size: 14px; color: var(--ink-2); }
   details.pro table { border-collapse: collapse; width: 100%; }
   details.pro td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
   details.pro td:last-child { text-align: right; }
+
+  /* ---------- money / docs screens ---------- */
+  .stack { display: flex; flex-direction: column; gap: 10px; max-width: 720px; }
+  .doc-status { margin-left: auto; font-size: 13.5px; font-weight: 600; border-radius: 999px; padding: 4px 12px; flex: none; }
+  .doc-status.ok { background: var(--green-soft); color: var(--green); }
+  .doc-status.wait { background: var(--amber-soft); color: var(--amber); }
 </style>
 
 <header class="topbar">
@@ -229,51 +280,59 @@
   <div class="who"><span>Покупатель · ООО «АгроТрейд»</span><span class="avatar">МП</span></div>
 </header>
 
-<main class="wrap">
+<div class="frame">
+  <!-- Постоянная навигация: человек всегда может уйти куда хочет -->
+  <nav class="nav" aria-label="Разделы кабинета">
+    <button data-nav="s-home" aria-current="page" onclick="go('s-home')"><span class="ico">🏠</span> Главная <span class="badge" id="nav-badge">1</span></button>
+    <button data-nav="s-deals" onclick="go('s-deals')"><span class="ico">🤝</span> Мои сделки</button>
+    <button data-nav="s-money" onclick="go('s-money')"><span class="ico">₽</span> Деньги</button>
+    <button data-nav="s-docs" onclick="go('s-docs')"><span class="ico">📄</span> Документы</button>
+  </nav>
+
+  <main>
 
   <!-- ================= HOME ================= -->
   <section class="screen on" id="s-home" aria-label="Главная">
-    <h1 id="hello">Доброе утро, Михаил!</h1>
-    <p class="sub" id="hello-sub">Сегодня одно важное дело и два обычных. Начнём с важного.</p>
+    <h1>Доброе утро, Михаил!</h1>
+    <p class="sub" id="hello-sub">Одно дело ждёт вашего решения. Остальное идёт своим ходом.</p>
 
     <div class="bento">
       <div>
-        <!-- hero task -->
         <div class="card hero" id="hero-todo">
-          <span class="tag"><span class="dot red" aria-hidden="true"></span> Нужно ваше действие</span>
-          <h2>Попросите банк подтвердить деньги</h2>
-          <p>Вы отложили <b class="money">9 650 000 ₽</b> на покупку пшеницы. Теперь банк должен подтвердить,
-             что деньги готовы.</p>
-          <p class="why">Пока банк не ответит, зерно не поедет к вам.</p>
+          <span class="tag"><span class="dot red" aria-hidden="true"></span> Ждёт вашего решения</span>
+          <h2>Деньги отложены. Как поступим с подтверждением банка?</h2>
+          <p>Вы отложили <b class="money">9 650 000 ₽</b> на покупку пшеницы.
+             Чтобы зерно поехало, банк должен подтвердить, что деньги готовы.</p>
+          <p class="why">Решение за вами: можно попросить банк сейчас, позже или изменить сумму.</p>
           <div class="hero-actions">
-            <button class="btn" onclick="show('s-decision')">Попросить банк</button>
-            <button class="linkish" onclick="show('s-deal')">Посмотреть сделку →</button>
+            <button class="btn" onclick="go('s-decision')">Выбрать, что делать</button>
+            <button class="btn second" onclick="go('s-deal')">Открыть сделку</button>
           </div>
         </div>
 
         <div class="card hero" id="hero-waiting" style="display:none">
           <span class="tag waiting"><span class="dot amber" aria-hidden="true"></span> Ждём банк</span>
-          <h2>Запрос у банка — можно отдохнуть</h2>
+          <h2>Запрос у банка — вам ничего делать не нужно</h2>
           <p>Банк проверяет ваши <b class="money">9 650 000 ₽</b>. Обычно это занимает около двух часов.</p>
-          <p class="why">Когда банк ответит, мы пришлём уведомление — ничего проверять не нужно.</p>
+          <p class="why">Когда банк ответит, мы пришлём уведомление. Передумали? Запрос можно отозвать.</p>
           <div class="hero-actions">
-            <button class="linkish" onclick="show('s-deal')">Посмотреть сделку →</button>
+            <button class="btn second" onclick="go('s-deal')">Открыть сделку</button>
+            <button class="linkish" onclick="alert('В прототипе не реализовано')">Отозвать запрос</button>
           </div>
         </div>
 
-        <!-- queue -->
-        <p class="list-title">Остальные дела</p>
+        <p class="list-title">Остальные дела — когда вам удобно</p>
         <div class="rows">
-          <button class="row" onclick="show('s-deal')">
+          <button class="row" onclick="go('s-deal')">
             <span class="dot amber" aria-hidden="true"></span>
             <span><b>Машина привезла на 1,2 тонны меньше</b>
-              <small>Нужен акт — без него часть денег ждёт. Элеватор уже готовит его.</small></span>
+              <small>Элеватор готовит акт. От вас пока ничего не нужно — можно посмотреть детали.</small></span>
             <span class="go">›</span>
           </button>
-          <button class="row">
+          <button class="row" onclick="alert('В прототипе не реализовано')">
             <span class="dot grey" aria-hidden="true"></span>
             <span><b>Ответить продавцу пшеницы 3 класса</b>
-              <small>Он предложил цену. Ответ нужен до пятницы.</small></span>
+              <small>Он предложил цену. Ответ нужен до пятницы — время ещё есть.</small></span>
             <span class="go">›</span>
           </button>
           <div class="row done">
@@ -284,7 +343,6 @@
         </div>
       </div>
 
-      <!-- money rail -->
       <aside class="card rail" aria-label="Ваши деньги">
         <h3>Ваши деньги</h3>
         <p class="hint">Всё по сделке ДЛ-9106</p>
@@ -297,27 +355,27 @@
           <span class="dot amber" aria-hidden="true"></span>
           <span class="lbl">Отложены на зерно</span>
           <span class="val money">9 650 000 ₽</span>
-          <span class="note">Ждут подтверждения банка. <a href="#" onclick="show('s-decision');return false">Поторопить →</a></span>
+          <span class="note">Ждут подтверждения банка.</span>
         </div>
         <div class="money-row">
           <span class="dot amber" aria-hidden="true"></span>
           <span class="lbl">На паузе из-за веса</span>
           <span class="val money">624 000 ₽</span>
-          <span class="note">Вернутся или спишутся после акта о весе. <a href="#" onclick="show('s-deal');return false">Почему? →</a></span>
+          <span class="note">Вернутся или спишутся после акта о весе.</span>
         </div>
+        <button class="linkish" onclick="go('s-money')">Все деньги подробно →</button>
       </aside>
     </div>
 
-    <!-- deal steps -->
     <div class="card steps-card">
       <div class="steps-head">
         <h3>Где сейчас ваша сделка</h3>
         <span>Пшеница · 600 т · Тамбов → Воронеж</span>
-        <button class="linkish" onclick="show('s-deal')">Подробнее →</button>
+        <button class="linkish" onclick="go('s-deal')">Открыть сделку →</button>
       </div>
       <div class="steps" role="list">
         <div class="step done" role="listitem"><span class="bubble">✓</span><small>Договорились</small></div>
-        <div class="step now" role="listitem" id="step-money"><span class="bubble">₽</span><small>Деньги</small></div>
+        <div class="step now" role="listitem"><span class="bubble">₽</span><small>Деньги</small></div>
         <div class="step" role="listitem"><span class="bubble">🚚</span><small>Перевозка</small></div>
         <div class="step" role="listitem"><span class="bubble">⚖</span><small>Приёмка</small></div>
         <div class="step" role="listitem"><span class="bubble">📄</span><small>Документы</small></div>
@@ -326,29 +384,55 @@
     </div>
   </section>
 
-  <!-- ================= DECISION ================= -->
-  <section class="screen" id="s-decision" aria-label="Подтверждение">
-    <button class="back" onclick="show('s-home')">← Назад</button>
+  <!-- ================= DECISION: человек выбирает сам ================= -->
+  <section class="screen" id="s-decision" aria-label="Решение">
+    <nav class="crumbs" aria-label="Вы находитесь здесь">
+      <button onclick="go('s-home')">Главная</button><span aria-hidden="true">/</span>
+      <button onclick="go('s-deal')">Сделка ДЛ-9106</button><span aria-hidden="true">/</span>
+      <span>Подтверждение денег</span>
+    </nav>
     <div class="decision">
-      <h1>Попросить банк подтвердить деньги</h1>
-      <p class="sub">Одно нажатие — дальше всё сделаем мы и банк.</p>
+      <h1>Как поступим с подтверждением денег?</h1>
+      <p class="sub">Выберите вариант — мы объяснили, что будет после каждого. Решение всегда можно изменить, пока банк не ответил.</p>
+
       <div class="card">
-        <b>Что произойдёт:</b>
-        <ol class="plan">
-          <li>Мы отправим банку запрос по вашей сделке.</li>
-          <li>Банк проверит и ответит — обычно за 2 часа.</li>
-          <li>После ответа зерно можно везти. Мы сообщим.</li>
-        </ol>
-        <div class="facts">
-          <span class="fact">Сумма <b class="money">9 650 000 ₽</b></span>
-          <span class="fact">Сделка <b class="money">ДЛ-9106</b></span>
-          <span class="fact">Ответит <b>ваш банк</b></span>
+        <div class="options" role="radiogroup" aria-label="Варианты решения">
+          <button class="option" role="radio" aria-checked="true" data-opt="ask" onclick="pick(this)">
+            <span class="radio" aria-hidden="true"></span>
+            <span>
+              <b>Попросить банк подтвердить сейчас <span class="rec">советуем</span></b>
+              <p>Отправим банку запрос по сделке ДЛ-9106. Банк обычно отвечает за 2 часа.</p>
+              <span class="consequence">После ответа банка зерно можно везти.</span>
+            </span>
+          </button>
+          <button class="option" role="radio" aria-checked="false" data-opt="wait" onclick="pick(this)">
+            <span class="radio" aria-hidden="true"></span>
+            <span>
+              <b>Подождать — напомнить завтра утром</b>
+              <p>Ничего не отправляем. Завтра в 9:00 напомним об этом решении.</p>
+              <span class="consequence">Перевозка сдвинется минимум на день.</span>
+            </span>
+          </button>
+          <button class="option" role="radio" aria-checked="false" data-opt="change" onclick="pick(this)">
+            <span class="radio" aria-hidden="true"></span>
+            <span>
+              <b>Изменить сумму резерва</b>
+              <p>Откроем сумму для правки — например, если договорились о другом объёме.</p>
+              <span class="consequence">Продавец увидит новую сумму и должен будет согласиться.</span>
+            </span>
+          </button>
         </div>
+
         <div class="safe">
           <span aria-hidden="true">🔒</span>
-          <span>Деньги никуда не спишутся. Банк только подтвердит, что они готовы.</span>
+          <span>Что бы вы ни выбрали, деньги никуда не спишутся. Списание бывает только после приёмки зерна и ваших подписей.</span>
         </div>
-        <button class="btn" onclick="confirmAsk()">Отправить запрос банку</button>
+
+        <div class="decision-footer">
+          <button class="btn" id="confirm-btn" onclick="confirmChoice()">Отправить запрос банку</button>
+          <button class="btn second" onclick="go('s-home')">Вернуться позже</button>
+          <span class="note">Ничего не произойдёт без этой кнопки.</span>
+        </div>
       </div>
     </div>
   </section>
@@ -359,18 +443,51 @@
       <div class="big-check" aria-hidden="true">
         <svg width="44" height="44" viewBox="0 0 24 24" fill="none"><path d="M4 12.5l5 5L20 6.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-      <h1>Запрос отправлен!</h1>
-      <p class="sub">Банк обычно отвечает за 2 часа. Мы пришлём уведомление —
-         можно закрыть страницу и заниматься своими делами.</p>
-      <button class="btn" onclick="show('s-home')">Вернуться на главную</button>
+      <h1 id="success-title">Запрос отправлен банку</h1>
+      <p class="sub" id="success-text">Банк обычно отвечает за 2 часа — пришлём уведомление.
+         Если передумаете, запрос можно отозвать на главной.</p>
+      <button class="btn" onclick="go('s-home')">На главную</button>
+      <button class="btn second" onclick="go('s-deal')">Открыть сделку</button>
+    </div>
+  </section>
+
+  <!-- ================= DEALS LIST ================= -->
+  <section class="screen" id="s-deals" aria-label="Мои сделки">
+    <h1>Мои сделки</h1>
+    <p class="sub">Все сделки вашей организации. Нажмите на любую, чтобы увидеть её историю.</p>
+    <div class="stack">
+      <button class="row" onclick="go('s-deal')">
+        <span class="dot amber" aria-hidden="true"></span>
+        <span><b>ДЛ-9106 · Пшеница 4 класса, 600 т</b>
+          <small>Этап «Деньги» — ждёт вашего решения по банку. Тамбов → Воронеж.</small></span>
+        <span class="amount money">9 650 000 ₽</span>
+        <span class="go">›</span>
+      </button>
+      <button class="row" onclick="alert('В прототипе не реализовано')">
+        <span class="dot grey" aria-hidden="true"></span>
+        <span><b>ЛОТ-2405 · Пшеница 4 класса, 240 т</b>
+          <small>Торги идут — у вас лучшая ставка. Окно закроется сегодня в 17:00.</small></span>
+        <span class="amount money">16 120 ₽/т</span>
+        <span class="go">›</span>
+      </button>
+      <div class="row done">
+        <span class="dot green" aria-hidden="true"></span>
+        <span><b>ДЛ-9058 · Ячмень, 300 т</b>
+          <small>Завершена 2 июля. Все деньги выплачены, документы в архиве.</small></span>
+        <span class="amount money">4 890 000 ₽</span>
+      </div>
     </div>
   </section>
 
   <!-- ================= DEAL ================= -->
   <section class="screen" id="s-deal" aria-label="Сделка">
-    <button class="back" onclick="show('s-home')">← Назад</button>
+    <nav class="crumbs" aria-label="Вы находитесь здесь">
+      <button onclick="go('s-home')">Главная</button><span aria-hidden="true">/</span>
+      <button onclick="go('s-deals')">Мои сделки</button><span aria-hidden="true">/</span>
+      <span>ДЛ-9106</span>
+    </nav>
     <h1>Сделка ДЛ-9106 — пшеница, 600 тонн</h1>
-    <p class="sub">Рассказываем всю историю простыми словами — сверху самое новое.</p>
+    <p class="sub">Вся история простыми словами — сверху самое новое.</p>
 
     <ul class="timeline">
       <li class="pending">
@@ -379,6 +496,7 @@
         <b>Ждём две вещи</b>
         <p>Банк должен подтвердить деньги, а элеватор — подписать акт о том,
            что машина привезла на 1,2 тонны меньше.</p>
+        <button class="linkish" onclick="go('s-decision')">Решить вопрос с банком →</button>
       </li>
       <li>
         <span class="tdot" aria-hidden="true"></span>
@@ -414,19 +532,102 @@
       </div>
     </details>
   </section>
-</main>
+
+  <!-- ================= MONEY ================= -->
+  <section class="screen" id="s-money" aria-label="Деньги">
+    <h1>Деньги</h1>
+    <p class="sub">Каждый рубль имеет статус и причину. Ничего не списывается без ваших подписей.</p>
+    <div class="stack">
+      <div class="row plain">
+        <span class="dot green" aria-hidden="true"></span>
+        <span><b>Свободны</b><small>Можно откладывать на новые сделки.</small></span>
+        <span class="amount money">0 ₽</span>
+      </div>
+      <button class="row" onclick="go('s-decision')">
+        <span class="dot amber" aria-hidden="true"></span>
+        <span><b>Отложены на зерно · ДЛ-9106</b>
+          <small>Ждут подтверждения банка — решение за вами.</small></span>
+        <span class="amount money">9 026 000 ₽</span>
+        <span class="go">›</span>
+      </button>
+      <button class="row" onclick="go('s-deal')">
+        <span class="dot amber" aria-hidden="true"></span>
+        <span><b>На паузе из-за веса · ДЛ-9106</b>
+          <small>Машина привезла меньше. После акта деньги вернутся или спишутся честно по весу.</small></span>
+        <span class="amount money">624 000 ₽</span>
+        <span class="go">›</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ================= DOCS ================= -->
+  <section class="screen" id="s-docs" aria-label="Документы">
+    <h1>Документы</h1>
+    <p class="sub">По сделке ДЛ-9106 готово 5 документов из 8. Недостающие появятся сами по ходу сделки.</p>
+    <div class="stack">
+      <div class="row plain">
+        <span><b>Договор поставки</b><small>Подписан обеими сторонами вчера.</small></span>
+        <span class="doc-status ok">Готов</span>
+      </div>
+      <div class="row plain">
+        <span><b>Транспортная накладная</b><small>Загружена водителем сегодня утром.</small></span>
+        <span class="doc-status ok">Готов</span>
+      </div>
+      <div class="row plain">
+        <span><b>Акт о расхождении веса</b><small>Элеватор готовит — подпишете, когда будет готов.</small></span>
+        <span class="doc-status wait">Готовится</span>
+      </div>
+      <div class="row plain">
+        <span><b>Протокол качества</b><small>Лаборатория проверяет пробу — обычно 1 день.</small></span>
+        <span class="doc-status wait">Готовится</span>
+      </div>
+    </div>
+  </section>
+
+  </main>
+</div>
 
 <script>
-  function show(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+  var labels = {
+    ask: 'Отправить запрос банку',
+    wait: 'Включить напоминание на завтра',
+    change: 'Перейти к изменению суммы'
+  };
+  var successCopy = {
+    ask: ['Запрос отправлен банку', 'Банк обычно отвечает за 2 часа — пришлём уведомление. Если передумаете, запрос можно отозвать на главной.'],
+    wait: ['Напоминание включено', 'Завтра в 9:00 напомним про подтверждение банка. Сделка подождёт — ничего не потеряется.'],
+    change: ['Открыли бы правку суммы', 'В прототипе этот шаг не реализован — в продукте здесь откроется форма с текущей суммой.']
+  };
+  var chosen = 'ask';
+
+  function go(id) {
+    document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('on'); });
     document.getElementById(id).classList.add('on');
+    // подсветка раздела в навигации
+    var navMap = { 's-home': 's-home', 's-deals': 's-deals', 's-deal': 's-deals', 's-decision': 's-home', 's-success': 's-home', 's-money': 's-money', 's-docs': 's-docs' };
+    document.querySelectorAll('.nav button').forEach(function (b) {
+      if (b.dataset.nav === navMap[id]) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
     window.scrollTo({ top: 0 });
   }
-  function confirmAsk() {
-    // домашний экран переключается в состояние «ждём банк»
-    document.getElementById('hero-todo').style.display = 'none';
-    document.getElementById('hero-waiting').style.display = '';
-    document.getElementById('hello-sub').textContent = 'Важное дело сделано. Осталось два обычных — они подождут.';
-    show('s-success');
+
+  function pick(el) {
+    document.querySelectorAll('.option').forEach(function (o) { o.setAttribute('aria-checked', 'false'); });
+    el.setAttribute('aria-checked', 'true');
+    chosen = el.dataset.opt;
+    document.getElementById('confirm-btn').textContent = labels[chosen];
+  }
+
+  function confirmChoice() {
+    document.getElementById('success-title').textContent = successCopy[chosen][0];
+    document.getElementById('success-text').textContent = successCopy[chosen][1];
+    if (chosen === 'ask') {
+      document.getElementById('hero-todo').style.display = 'none';
+      document.getElementById('hero-waiting').style.display = '';
+      document.getElementById('hello-sub').textContent = 'Решение принято — ждём банк. Остальное идёт своим ходом.';
+      document.getElementById('nav-badge').style.display = 'none';
+    }
+    go('s-success');
   }
 </script>
