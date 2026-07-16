@@ -45,5 +45,13 @@ BEGIN
 END
 $schemas$;
 
+-- The generic runtime grants above must not reopen the distributed rate-limit
+-- state tables. Runtime access is deliberately EXECUTE-only through the
+-- SECURITY DEFINER function established by the migration.
+REVOKE ALL PRIVILEGES ON TABLE security.api_rate_limit_state FROM app_runtime;
+REVOKE ALL PRIVILEGES ON TABLE security.api_rate_limit_buckets FROM app_runtime;
+GRANT USAGE ON SCHEMA security TO app_runtime;
+GRANT EXECUTE ON FUNCTION security.consume_api_rate_limit(TEXT, TEXT, INTEGER) TO app_runtime;
+
 REVOKE CREATE ON DATABASE grainflow FROM app_runtime, app_auth, app_storage, app_outbox;
 REVOKE CREATE ON SCHEMA public FROM app_runtime, app_auth, app_storage, app_outbox;
