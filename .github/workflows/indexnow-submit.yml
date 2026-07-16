@@ -10,6 +10,10 @@ on:
       - 'apps/web/middleware.ts'
       - 'apps/web/app/layout.tsx'
       - 'apps/web/app/platform-v7/**'
+      - 'apps/web/lib/platform-v7/public-seo-routes.json'
+      - 'apps/web/public/*.txt'
+      - 'netlify.toml'
+      - 'scripts/write-deploy-evidence.mjs'
       - 'scripts/indexnow-submit.mjs'
       - '.github/workflows/indexnow-submit.yml'
   workflow_dispatch:
@@ -21,13 +25,31 @@ jobs:
   submit:
     name: Submit public URLs to IndexNow
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 25
     steps:
-      - name: Checkout
+      - name: Checkout exact head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
 
-      - name: Submit sitemap URLs
+      - name: Submit exact deployed public URLs
         run: node scripts/indexnow-submit.mjs
         env:
           SITE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
-          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+          EXPECTED_DEPLOY_SHA: ${{ github.sha }}
+          INDEXNOW_EVIDENCE: artifacts/indexnow/indexnow-evidence.json
+
+      - name: Enforce machine-readable IndexNow evidence
+        if: always()
+        run: |
+          test -f artifacts/indexnow/indexnow-evidence.json
+          node -e 'const r=require("./artifacts/indexnow/indexnow-evidence.json"); if(r.commitSha!==process.env.GITHUB_SHA||r.pass!==true||r.result!=="PASS"||r.violatedThresholds.length!==0) { console.error(JSON.stringify(r,null,2)); process.exit(1); }'
+
+      - name: Upload IndexNow evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: indexnow-${{ github.sha }}
+          path: artifacts/indexnow
+          if-no-files-found: error
+          retention-days: 90
