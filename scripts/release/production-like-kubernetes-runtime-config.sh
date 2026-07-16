@@ -56,10 +56,14 @@ test -n "$CALICOCTL_IMAGE_DIGEST"
 printf '%s\n' "$CALICOCTL_IMAGE_DIGEST" > "$K8S_DIR/cluster/calicoctl-image-digest.txt"
 
 KUBECONFIG_PATH="$(readlink -f "${KUBECONFIG:-$HOME/.kube/config}")"
+REPOSITORY_PATH="$(pwd -P)"
 test -f "$KUBECONFIG_PATH"
+test -f "$REPOSITORY_PATH/infra/kind/production-like/calico-runtime-database-deny.yaml"
 run_calicoctl() {
   docker run --rm --network host \
     --volume "${KUBECONFIG_PATH}:/root/.kube/config:ro" \
+    --volume "${REPOSITORY_PATH}:/workspace:ro" \
+    --workdir /workspace \
     --env DATASTORE_TYPE=kubernetes \
     "$CALICOCTL_IMAGE_DIGEST" "$@"
 }
