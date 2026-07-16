@@ -35,14 +35,14 @@ probe_tcp_from_pod() {
 
   set +e
   kubectl exec -i -n "$NAMESPACE" "pod/${pod}" -- \
-    env PROBE_HOST="$host" PROBE_PORT="$port" PROBE_EXPECTED="$expected" node - \
+    node - "$host" "$port" "$expected" \
     > "$output_file" 2>&1 <<'NODE'
 const dns = require('node:dns');
 const net = require('node:net');
 
-const host = process.env.PROBE_HOST;
-const port = Number(process.env.PROBE_PORT);
-const expected = process.env.PROBE_EXPECTED;
+const host = process.argv[2];
+const port = Number(process.argv[3]);
+const expected = process.argv[4];
 const startedAt = new Date().toISOString();
 let completed = false;
 let socket;
