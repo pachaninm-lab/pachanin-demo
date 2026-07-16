@@ -46,6 +46,10 @@ kubectl create secret generic grainflow-minio-tls -n "$NAMESPACE" \
   --dry-run=client -o yaml | kubectl apply -f - \
   > "$K8S_DIR/minio-tls-secret-apply.log"
 
+kubectl get secret grainflow-minio-secrets -n "$NAMESPACE" -o json | \
+  jq '{apiVersion:"v1",kind:"Secret",metadata:{name:"grainflow-object-storage-secrets",namespace:.metadata.namespace},type:"Opaque",data:{OBJECT_STORAGE_ACCESS_KEY_ID:.data.MINIO_ROOT_USER,OBJECT_STORAGE_SECRET_ACCESS_KEY:.data.MINIO_ROOT_PASSWORD}}' | \
+  kubectl apply -f - > "$K8S_DIR/minio-runtime-secret-apply.log"
+
 kubectl patch deployment minio -n "$NAMESPACE" --type=strategic \
   --patch-file infra/kind/production-like/minio-tls-patch.yaml \
   > "$K8S_DIR/minio-tls-patch.log"
