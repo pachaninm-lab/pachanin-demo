@@ -70,6 +70,57 @@ run_calicoctl() {
 }
 
 run_calicoctl version > "$K8S_DIR/calicoctl-version.txt" 2>&1
+
+# Kind selects one iptables implementation for every node at container startup.
+# Pin Felix to that exact implementation instead of relying on an independent
+# Auto decision inside calico-node; mixed legacy/NFT rule planes silently bypass
+# otherwise valid policies.
+CALICO_IPTABLES_BACKEND=""
+: > "$K8S_DIR/cluster/kind-node-iptables-backends.txt"
+while IFS= read -r kind_node; do
+  node_iptables_version="$(docker exec "$kind_node" iptables --version)"
+  printf '%s\t%s\n' "$kind_node" "$node_iptables_version" \
+    | tee -a "$K8S_DIR/cluster/kind-node-iptables-backends.txt"
+  case "$node_iptables_version" in
+    *nf_tables*) detected_backend="NFT" ;;
+    *legacy*) detected_backend="Legacy" ;;
+    *) echo "Unsupported kind iptables backend: $node_iptables_version" >&2; exit 1 ;;
+  esac
+  if [[ -z "$CALICO_IPTABLES_BACKEND" ]]; then
+    CALICO_IPTABLES_BACKEND="$detected_backend"
+  else
+    test "$CALICO_IPTABLES_BACKEND" = "$detected_backend"
+  fi
+done < <(kind get nodes --name "$CLUSTER_NAME")
+test -n "$CALICO_IPTABLES_BACKEND"
+printf '%s\n' "$CALICO_IPTABLES_BACKEND" > "$K8S_DIR/cluster/calico-iptables-backend.txt"
+
+FELIX_CONFIGURATION_FILE="$K8S_DIR/calico-felix-configuration.yaml"
+cat > "$FELIX_CONFIGURATION_FILE" <<EOF
+apiVersion: projectcalico.org/v3
+kind: FelixConfiguration
+metadata:
+  name: default
+spec:
+  iptablesBackend: ${CALICO_IPTABLES_BACKEND}
+EOF
+run_calicoctl apply -f "$FELIX_CONFIGURATION_FILE" \
+  > "$K8S_DIR/calico-felix-configuration-apply.log" 2>&1
+run_calicoctl get felixconfiguration default --output json \
+  > "$K8S_DIR/cluster/calico-felix-configuration.json"
+test "$(jq -r '.spec.iptablesBackend' "$K8S_DIR/cluster/calico-felix-configuration.json")" = "$CALICO_IPTABLES_BACKEND"
+
+kubectl rollout restart daemonset/calico-node -n kube-system \
+  > "$K8S_DIR/calico-node-rollout-restart.log"
+kubectl rollout status daemonset/calico-node -n kube-system --timeout=360s \
+  > "$K8S_DIR/calico-node-rollout-status.log"
+kubectl wait --for=condition=Ready nodes --all --timeout=360s
+kubectl logs -n kube-system -l k8s-app=calico-node -c calico-node \
+  --prefix=true --tail=500 > "$K8S_DIR/logs/calico-node.log" 2>&1
+
+grep -q "IptablesBackend:${CALICO_IPTABLES_BACKEND}" "$K8S_DIR/logs/calico-node.log" \
+  || grep -qi "iptables backend.*${CALICO_IPTABLES_BACKEND}" "$K8S_DIR/logs/calico-node.log"
+
 run_calicoctl apply -f infra/kind/production-like/calico-runtime-database-deny.yaml \
   > "$K8S_DIR/calico-runtime-database-deny-apply.log" 2>&1
 run_calicoctl get networkpolicy deny-runtime-direct-postgresql \
