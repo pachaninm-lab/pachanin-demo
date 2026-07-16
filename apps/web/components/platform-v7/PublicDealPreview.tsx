@@ -8,6 +8,24 @@ import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceI
 const previewLenses = ['execution', 'documents', 'money', 'risk'] as const;
 type PreviewLens = (typeof previewLenses)[number];
 
+const onboardingCopy = {
+  ru: {
+    selectedStage: 'Выбранный ключевой этап',
+    start: 'Посмотреть сделку с начала',
+    current: 'Открыть этап приёмки',
+  },
+  en: {
+    selectedStage: 'Highlighted key stage',
+    start: 'View the deal from the beginning',
+    current: 'Open the acceptance stage',
+  },
+  zh: {
+    selectedStage: '当前重点阶段',
+    start: '从头查看交易',
+    current: '打开收货阶段',
+  },
+} as const;
+
 function emit(name: string, detail: Record<string, string> = {}) {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent('pc:public-product-analytics', {
@@ -23,6 +41,9 @@ export function PublicDealPreview({ copy, locale }: { copy: PublicProductExperie
   const [lens, setLens] = useState<PreviewLens>('execution');
   const ui = getPublicProductExperienceV4Copy(locale);
   const preview = ui.home.preview;
+  const language = onboardingCopy[locale === 'en' || locale === 'zh' ? locale : 'ru'];
+  const startHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
+  const acceptanceHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=acceptance&lens=${lens}&perspective=buyer&risk=weightMismatch`;
 
   return (
     <article
@@ -52,8 +73,8 @@ export function PublicDealPreview({ copy, locale }: { copy: PublicProductExperie
         <a href='#participants'>{preview.changePerspective}</a>
       </div>
 
-      <div className='pc-ppe-preview-progress' aria-label={preview.stageCounter}>
-        <span>{preview.stageCounter}</span>
+      <div className='pc-ppe-preview-progress' aria-label={`${language.selectedStage}: ${preview.stageCounter}`}>
+        <span>{language.selectedStage}: {preview.stageCounter}</span>
         <strong>{preview.nowValue}</strong>
         <small>{preview.nextPrefix}: {preview.afterValue}</small>
       </div>
@@ -96,14 +117,24 @@ export function PublicDealPreview({ copy, locale }: { copy: PublicProductExperie
         </div>
       </div>
 
-      <a
-        className='pc-ppe-inline-link'
-        href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&lens=${lens}&perspective=buyer`}
-        onClick={() => emit('deal_xray_open', { locale, lens, source: 'home_preview' })}
-      >
-        <span>{preview.open}</span>
-        <PublicExperienceIcon name='arrow' size={19} />
-      </a>
+      <div className='pc-ppe-preview-actions'>
+        <a
+          className='pc-ppe-primary-button'
+          href={startHref}
+          onClick={() => emit('deal_xray_open', { locale, lens: 'execution', stage: 'terms', source: 'home_preview_start' })}
+        >
+          <span>{language.start}</span>
+          <PublicExperienceIcon name='arrow' size={19} />
+        </a>
+        <a
+          className='pc-ppe-inline-link'
+          href={acceptanceHref}
+          onClick={() => emit('deal_xray_open', { locale, lens, stage: 'acceptance', source: 'home_preview_stage' })}
+        >
+          <span>{language.current}</span>
+          <PublicExperienceIcon name='arrow' size={19} />
+        </a>
+      </div>
     </article>
   );
 }
