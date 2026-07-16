@@ -32,6 +32,7 @@ LABEL org.opencontainers.image.title="Prozrachnaya Cena durable outbox worker" \
       org.opencontainers.image.created=$BUILD_DATE \
       org.opencontainers.image.version=$APP_VERSION
 ENV NODE_ENV=production
+ENV PATH=/nodejs/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ENV RUNTIME_COMPONENT=outbox-worker
 ENV OUTBOX_WORKER_HEALTH_PORT=3002
 WORKDIR /app
