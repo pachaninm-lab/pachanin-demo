@@ -184,6 +184,41 @@ default_workloads="$(grep -Ec '^kind: (Deployment|StatefulSet|DaemonSet|Job|Cron
 test "$default_workloads" = "0"
 printf '%s\n' "$default_workloads" > "$K8S_DIR/default-executable-workloads.txt"
 
+patch_rendered_api_object_storage() {
+  local rendered_file="$1"
+  local split_dir output_file matched doc
+  split_dir="$(mktemp -d)"
+  output_file="${rendered_file}.patched"
+  matched=0
+
+  awk -v dir="$split_dir" '
+    BEGIN { document = 0 }
+    /^---[[:space:]]*$/ { document += 1; next }
+    { print > sprintf("%s/document-%04d.yaml", dir, document) }
+  ' "$rendered_file"
+
+  : > "$output_file"
+  for doc in "$split_dir"/document-*.yaml; do
+    [[ -s "$doc" ]] || continue
+    if grep -qx 'kind: Deployment' "$doc" && grep -qx '  name: grainflow-api' "$doc"; then
+      kubectl patch --local=true -f "$doc" --type=json \
+        --patch-file infra/kind/production-like/api-object-storage-ca-patch.json \
+        -o yaml >> "$output_file"
+      matched=$((matched + 1))
+    else
+      cat "$doc" >> "$output_file"
+    fi
+    printf '\n---\n' >> "$output_file"
+  done
+
+  rm -rf "$split_dir"
+  test "$matched" = "1"
+  mv "$output_file" "$rendered_file"
+  test "$(grep -c 'name: grainflow-object-storage-secrets' "$rendered_file")" = "1"
+  test "$(grep -c 'mountPath: /var/run/grainflow-ca' "$rendered_file")" = "1"
+  test "$(grep -c 'secretName: grainflow-minio-tls' "$rendered_file")" = "1"
+}
+
 render_release() {
   local document="$1"
   local phase="$2"
@@ -208,6 +243,7 @@ render_release() {
         >> "$K8S_DIR/rendered/${prefix}-workloads.yaml"
       printf '\n---\n' >> "$K8S_DIR/rendered/${prefix}-workloads.yaml"
     done
+    patch_rendered_api_object_storage "$K8S_DIR/rendered/${prefix}-workloads.yaml"
   fi
 }
 
