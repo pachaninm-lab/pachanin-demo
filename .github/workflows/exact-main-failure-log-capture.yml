@@ -1,0 +1,55 @@
+name: Exact Main Failure Log Capture
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/exact-main-failure-log-capture.yml'
+      - 'scripts/capture-exact-main-failure-logs.mjs'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: exact-main-failure-log-capture-0a45
+  cancel-in-progress: true
+
+env:
+  AUDIT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  capture:
+    if: github.actor != 'github-actions[bot]'
+    name: Capture exact-main failed job log tails
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout diagnostic branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.AUDIT_HEAD }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Capture job logs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/capture-exact-main-failure-logs.mjs
+
+      - name: Publish diagnostics through Git transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_head="${AUDIT_HEAD:0:12}"
+          result_branch="evidence/exact-main-failures-${short_head}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$result_branch"
+          git add audit-results/exact-main-0a45/failure-logs
+          git commit -m "evidence: exact-main failure logs ${AUDIT_HEAD}"
+          git push --force origin "HEAD:refs/heads/$result_branch"
