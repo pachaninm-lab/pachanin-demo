@@ -42,19 +42,45 @@ kubectl apply -f infra/kind/production-like/pgbouncer-runtime-service.yaml \
   > "$K8S_DIR/pgbouncer-runtime-service-apply.log"
 kubectl apply -f infra/kind/production-like/pgbouncer-runtime-network-policy.yaml \
   > "$K8S_DIR/pgbouncer-runtime-network-policy-apply.log"
-kubectl apply -f infra/kind/production-like/calico-runtime-database-deny.yaml \
+
+# The manifest-only Calico installation exposes its internal CRDs but not the
+# aggregated projectcalico.org/v3 API. Use the matching official calicoctl image
+# so defaulting, validation and v3-to-datastore conversion are not bypassed.
+CALICOCTL_IMAGE_TAG="calico/ctl:v3.28.2"
+docker pull "$CALICOCTL_IMAGE_TAG" > "$K8S_DIR/calicoctl-image-pull.log" 2>&1
+CALICOCTL_IMAGE_DIGEST="$(
+  docker image inspect "$CALICOCTL_IMAGE_TAG" \
+    --format '{{range .RepoDigests}}{{println .}}{{end}}' | awk '/@sha256:/{print; exit}'
+)"
+test -n "$CALICOCTL_IMAGE_DIGEST"
+printf '%s\n' "$CALICOCTL_IMAGE_DIGEST" > "$K8S_DIR/cluster/calicoctl-image-digest.txt"
+
+KUBECONFIG_PATH="$(readlink -f "${KUBECONFIG:-$HOME/.kube/config}")"
+test -f "$KUBECONFIG_PATH"
+run_calicoctl() {
+  docker run --rm --network host \
+    --volume "${KUBECONFIG_PATH}:/root/.kube/config:ro" \
+    --env DATASTORE_TYPE=kubernetes \
+    "$CALICOCTL_IMAGE_DIGEST" "$@"
+}
+
+run_calicoctl version > "$K8S_DIR/calicoctl-version.txt" 2>&1
+run_calicoctl apply -f infra/kind/production-like/calico-runtime-database-deny.yaml \
   > "$K8S_DIR/calico-runtime-database-deny-apply.log" 2>&1
+run_calicoctl get networkpolicy deny-runtime-direct-postgresql \
+  --namespace "$NAMESPACE" --output json \
+  > "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json"
+
+test "$(jq -r '.apiVersion' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "projectcalico.org/v3"
+test "$(jq -r '.spec.tier' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "default"
+test "$(jq -r '.spec.order' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "10"
+test "$(jq -r '.spec.egress[0].action' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "Deny"
+test "$(jq -r '.spec.egress[0].destination.ports[0]' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "5432"
 
 test "$(kubectl get service pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.ports[].port] | join(":")')" = "6432"
 test "$(kubectl get networkpolicy api-to-pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.egress[].ports[].port] | join(":")')" = "6432"
 test "$(kubectl get networkpolicy worker-to-pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.egress[].ports[].port] | join(":")')" = "6432"
 test "$(kubectl get networkpolicy pgbouncer-ingress-egress -n "$NAMESPACE" -o json | jq -r '[.spec.ingress[].ports[].port] | join(":")')" = "6432"
-test "$(kubectl get networkpolicy.crd.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.order}')" = "10"
-test "$(kubectl get networkpolicy.crd.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.egress[0].action}')" = "Deny"
-test "$(kubectl get networkpolicy.crd.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.egress[0].destination.ports[0]}')" = "5432"
-
-kubectl get networkpolicy.crd.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o json \
-  > "$K8S_DIR/cluster/calico-runtime-database-deny.json"
 
 kubectl create configmap grainflow-pgbouncer-config -n "$NAMESPACE" \
   --from-file=pgbouncer.ini=infra/kind/production-like/pgbouncer.ini \
