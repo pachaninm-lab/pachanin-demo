@@ -1,0 +1,40 @@
+name: Capture PR 2684 Failure Logs
+
+on:
+  push:
+    branches:
+      - audit/pr-2684-e0ba
+    paths:
+      - '.github/workflows/capture-pr-2684-failure-logs.yml'
+      - 'scripts/capture-pr-2684-failure-logs.mjs'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  capture:
+    name: Capture PR 2684 failure logs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Capture logs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/capture-pr-2684-failure-logs.mjs
+      - name: Publish diagnostics
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C evidence/pr-2684-failure-logs
+          git add audit-results/pr-2684/failure-logs
+          git commit -m "evidence: PR 2684 failure logs"
+          git push --force origin HEAD:refs/heads/evidence/pr-2684-failure-logs
