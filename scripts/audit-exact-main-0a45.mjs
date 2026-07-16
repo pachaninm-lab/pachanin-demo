@@ -4,12 +4,20 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 
 const repository = process.env.GITHUB_REPOSITORY;
+const [owner, repositoryName] = repository.split('/');
 const targetSha = process.env.TARGET_SHA;
 const targetBranch = process.env.TARGET_BRANCH || 'main';
 const auditDir = process.env.AUDIT_DIR;
 const token = process.env.GITHUB_TOKEN;
 const apiBase = `https://api.github.com/repos/${repository}`;
 const allowedConclusions = new Set(['success', 'skipped', 'neutral']);
+const legacyExternalContexts = new Set([
+  'deploy/pachaninm-lab/pachanin-demo',
+  'Vercel – pachanin-demo-landing',
+  'Vercel – pachanin-demo-api',
+  'Vercel – pachanin-canonical-web',
+  'Vercel – pachanin-demo-api-ovdc',
+]);
 const errors = [];
 const warnings = [];
 const apiRetries = [];
@@ -46,7 +54,7 @@ for (const directory of ['api', 'downloads', 'evidence']) {
 }
 
 const report = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   repository,
   target: { branch: targetBranch, commitSha: targetSha },
   auditedAt: new Date().toISOString(),
@@ -58,7 +66,7 @@ const report = {
   },
   dispatches: [],
   mainRef: { startSha: null, endSha: null, authority: 'git-ls-remote' },
-  exactMainChecks: { suites: [], runs: [] },
+  exactMainChecks: { rollupState: null, checkRuns: [], statusContexts: [] },
   requiredWorkflows: {},
   liveSeo: null,
   apiRetries,
@@ -67,6 +75,7 @@ const report = {
   maturityBoundary: {
     productionOperationallyAccepted: 'NO_GO',
     acceptedSlice: 'exact-main disposable multi-node Kubernetes acceptance, immutable release authority and production SEO evidence only',
+    externalStatusCleanupIssue: 2600,
     notProven: [
       'provider-level PostgreSQL HA/PITR',
       'target production load and capacity',
@@ -94,6 +103,10 @@ function assert(condition, message) {
   if (!condition) addError(message);
 }
 
+function lower(value) {
+  return typeof value === 'string' ? value.toLowerCase() : null;
+}
+
 function sha256File(file) {
   return `sha256:${crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
 }
@@ -119,7 +132,7 @@ async function request(urlOrPath, options = {}) {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
           'X-GitHub-Api-Version': '2022-11-28',
-          'User-Agent': 'pachanin-demo-exact-main-checks-audit',
+          'User-Agent': 'pachanin-demo-exact-main-graphql-audit',
         },
         body: options.body ? JSON.stringify(options.body) : undefined,
       });
@@ -165,7 +178,7 @@ async function fetchWithRetry(url, options = {}) {
   throw lastError;
 }
 
-async function paginate(urlPath, key) {
+async function paginateRest(urlPath, key) {
   const values = [];
   for (let page = 1; page <= 20; page += 1) {
     const joiner = urlPath.includes('?') ? '&' : '?';
@@ -175,6 +188,17 @@ async function paginate(urlPath, key) {
     if (pageValues.length < 100) break;
   }
   return values;
+}
+
+async function graphql(query, variables) {
+  const payload = await request('https://api.github.com/graphql', {
+    method: 'POST',
+    body: { query, variables },
+  });
+  if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+    throw new Error(`GitHub GraphQL errors: ${JSON.stringify(payload.errors)}`);
+  }
+  return payload.data;
 }
 
 async function resolveMainSha() {
@@ -200,45 +224,143 @@ async function resolveMainSha() {
   throw lastError;
 }
 
-async function exactMainChecks() {
-  const suites = await paginate(`${apiBase}/commits/${targetSha}/check-suites`, 'check_suites');
-  const runs = await paginate(`${apiBase}/commits/${targetSha}/check-runs?filter=latest`, 'check_runs');
-  return {
-    suites: suites.filter((suite) => suite.app?.slug === 'github-actions' && suite.head_sha === targetSha),
-    runs: runs.filter((run) => run.app?.slug === 'github-actions' && run.head_sha === targetSha),
-  };
+const rollupQuery = `
+  query ExactCommitChecks($owner: String!, $name: String!, $oid: GitObjectID!, $after: String) {
+    repository(owner: $owner, name: $name) {
+      object(oid: $oid) {
+        ... on Commit {
+          oid
+          statusCheckRollup {
+            state
+            contexts(first: 100, after: $after) {
+              totalCount
+              checkRunCount
+              statusContextCount
+              pageInfo { hasNextPage endCursor }
+              nodes {
+                __typename
+                ... on CheckRun {
+                  databaseId
+                  name
+                  status
+                  conclusion
+                  detailsUrl
+                  startedAt
+                  completedAt
+                  checkSuite {
+                    databaseId
+                    status
+                    conclusion
+                    branch { name }
+                    app { slug }
+                    workflowRun {
+                      databaseId
+                      event
+                      runAttempt
+                      runNumber
+                      url
+                      workflow { name }
+                      file { path }
+                    }
+                  }
+                }
+                ... on StatusContext {
+                  context
+                  state
+                  description
+                  targetUrl
+                  createdAt
+                  updatedAt
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+async function exactMainRollup() {
+  const nodes = [];
+  let cursor = null;
+  let rollupState = null;
+  let commitOid = null;
+  for (let page = 1; page <= 20; page += 1) {
+    const data = await graphql(rollupQuery, { owner, name: repositoryName, oid: targetSha, after: cursor });
+    const commit = data?.repository?.object;
+    if (!commit) throw new Error(`GraphQL could not resolve commit ${targetSha}`);
+    commitOid = commit.oid;
+    const rollup = commit.statusCheckRollup;
+    if (!rollup) throw new Error(`GraphQL statusCheckRollup is missing for ${targetSha}`);
+    rollupState = rollup.state;
+    nodes.push(...(rollup.contexts?.nodes || []));
+    if (!rollup.contexts?.pageInfo?.hasNextPage) break;
+    cursor = rollup.contexts.pageInfo.endCursor;
+  }
+  if (commitOid !== targetSha) throw new Error(`GraphQL commit mismatch: expected ${targetSha}, actual ${commitOid}`);
+  const checkRuns = nodes
+    .filter((node) => node?.__typename === 'CheckRun' && node.checkSuite?.workflowRun)
+    .map((node) => ({
+      databaseId: node.databaseId,
+      name: node.name,
+      status: lower(node.status),
+      conclusion: lower(node.conclusion),
+      detailsUrl: node.detailsUrl,
+      startedAt: node.startedAt,
+      completedAt: node.completedAt,
+      suite: {
+        databaseId: node.checkSuite.databaseId,
+        status: lower(node.checkSuite.status),
+        conclusion: lower(node.checkSuite.conclusion),
+        branch: node.checkSuite.branch?.name || null,
+        app: node.checkSuite.app?.slug || null,
+      },
+      workflowRun: {
+        databaseId: node.checkSuite.workflowRun.databaseId,
+        event: node.checkSuite.workflowRun.event,
+        runAttempt: node.checkSuite.workflowRun.runAttempt,
+        runNumber: node.checkSuite.workflowRun.runNumber,
+        url: node.checkSuite.workflowRun.url,
+        workflowName: node.checkSuite.workflowRun.workflow?.name || null,
+        workflowFile: node.checkSuite.workflowRun.file?.path || null,
+      },
+    }));
+  const statusContexts = nodes
+    .filter((node) => node?.__typename === 'StatusContext')
+    .map((node) => ({
+      context: node.context,
+      state: lower(node.state),
+      description: node.description,
+      targetUrl: node.targetUrl,
+      createdAt: node.createdAt,
+      updatedAt: node.updatedAt,
+    }));
+  return { rollupState: lower(rollupState), checkRuns, statusContexts };
 }
 
-function runIdFromCheck(checkRun) {
-  const match = String(checkRun.details_url || '').match(/\/actions\/runs\/(\d+)/);
-  return match ? Number(match[1]) : null;
-}
-
-async function ensureImmutableRun(checks) {
+async function ensureImmutableRun(rollup) {
   const immutableNames = new Set(required['Immutable Release Authority Acceptance'].jobs);
-  if (checks.runs.some((run) => immutableNames.has(run.name))) return;
+  if (rollup.checkRuns.some((run) => immutableNames.has(run.name))) return;
   await request(`${apiBase}/actions/workflows/${required['Immutable Release Authority Acceptance'].workflowFile}/dispatches`, {
     method: 'POST',
     body: { ref: targetBranch },
   });
-  report.dispatches.push({
-    workflow: 'Immutable Release Authority Acceptance',
-    ref: targetBranch,
-    dispatchedAt: new Date().toISOString(),
-  });
+  report.dispatches.push({ workflow: 'Immutable Release Authority Acceptance', ref: targetBranch, dispatchedAt: new Date().toISOString() });
 }
 
-async function waitForStableExactMainChecks() {
+async function waitForStableExactMainRollup() {
   const deadline = Date.now() + 75 * 60 * 1000;
   let stableSnapshot = null;
   while (Date.now() < deadline) {
-    const checks = await exactMainChecks();
-    const activeRuns = checks.runs.filter((run) => run.status !== 'completed');
-    const requiredRuns = Object.values(required).flatMap((config) => config.jobs).map((name) => checks.runs.find((run) => run.name === name) || null);
+    const rollup = await exactMainRollup();
+    const activeRuns = rollup.checkRuns.filter((run) => run.status !== 'completed');
+    const requiredRuns = Object.values(required).flatMap((config) => config.jobs).map((name) => rollup.checkRuns.find((run) => run.name === name) || null);
     console.log(JSON.stringify({
       observedAt: new Date().toISOString(),
-      suiteCount: checks.suites.length,
-      checkRunCount: checks.runs.length,
+      rollupState: rollup.rollupState,
+      checkRunCount: rollup.checkRuns.length,
+      statusContextCount: rollup.statusContexts.length,
       active: activeRuns.map((run) => `${run.name}:${run.status}`),
       required: Object.fromEntries(Object.values(required).flatMap((config) => config.jobs).map((name, index) => [
         name,
@@ -246,8 +368,8 @@ async function waitForStableExactMainChecks() {
       ])),
     }));
     if (requiredRuns.every((run) => run?.status === 'completed') && activeRuns.length === 0) {
-      const snapshot = checks.runs.map((run) => `${run.id}:${run.status}:${run.conclusion}`).sort().join('|');
-      if (stableSnapshot === snapshot) return checks;
+      const snapshot = rollup.checkRuns.map((run) => `${run.databaseId}:${run.status}:${run.conclusion}`).sort().join('|');
+      if (stableSnapshot === snapshot) return rollup;
       stableSnapshot = snapshot;
       await sleep(30_000);
     } else {
@@ -255,7 +377,7 @@ async function waitForStableExactMainChecks() {
       await sleep(20_000);
     }
   }
-  throw new Error('Timed out waiting for stable exact-main GitHub Checks');
+  throw new Error('Timed out waiting for stable exact-main GitHub GraphQL rollup');
 }
 
 function walk(root) {
@@ -354,27 +476,39 @@ function verifyMigrationSecurity(extractDir) {
   return { evidenceSha256: sha256File(file), evidence };
 }
 
-async function verifyWorkflow(workflowName, config, checks) {
-  const jobChecks = config.jobs.map((jobName) => checks.runs.find((run) => run.name === jobName) || null);
+async function verifyWorkflow(workflowName, config, rollup) {
+  const jobChecks = config.jobs.map((jobName) => rollup.checkRuns.find((run) => run.name === jobName) || null);
   for (let index = 0; index < config.jobs.length; index += 1) {
     const jobCheck = jobChecks[index];
     assert(Boolean(jobCheck), `Required job missing: ${workflowName} / ${config.jobs[index]}`);
     if (jobCheck) assert(jobCheck.status === 'completed' && jobCheck.conclusion === 'success', `Required job did not succeed: ${workflowName} / ${config.jobs[index]}`);
   }
-  const runIds = new Set(jobChecks.filter(Boolean).map(runIdFromCheck).filter(Boolean));
-  assert(runIds.size === 1, `Required workflow ${workflowName} must resolve to exactly one run ID; found ${[...runIds].join(',')}`);
-  if (runIds.size !== 1) return;
-  const runId = [...runIds][0];
-  const run = await request(`${apiBase}/actions/runs/${runId}`);
-  assert(run.head_sha === targetSha, `Required workflow head SHA mismatch: ${workflowName}`);
-  assert(run.head_branch === targetBranch, `Required workflow head branch mismatch: ${workflowName}`);
-  assert(['push', 'workflow_dispatch'].includes(run.event), `Required workflow event invalid: ${workflowName} (${run.event})`);
-  assert(run.status === 'completed' && run.conclusion === 'success', `Required workflow did not succeed: ${workflowName} (${run.status}/${run.conclusion})`);
-  const artifacts = await paginate(`${apiBase}/actions/runs/${runId}/artifacts`, 'artifacts');
+  const workflowRunIds = new Set(jobChecks.filter(Boolean).map((run) => run.workflowRun.databaseId).filter(Boolean));
+  assert(workflowRunIds.size === 1, `Required workflow ${workflowName} must resolve to one workflow run; found ${[...workflowRunIds].join(',')}`);
+  if (workflowRunIds.size !== 1) return;
+  const runId = [...workflowRunIds][0];
+  const firstCheck = jobChecks.find(Boolean);
+  assert(firstCheck.workflowRun.workflowName === workflowName, `Workflow name mismatch: expected ${workflowName}, actual ${firstCheck.workflowRun.workflowName}`);
+  assert(['push', 'workflow_dispatch'].includes(firstCheck.workflowRun.event), `Workflow event invalid: ${workflowName} (${firstCheck.workflowRun.event})`);
+  if (firstCheck.suite.branch !== null) assert(firstCheck.suite.branch === targetBranch, `Workflow branch mismatch: ${workflowName} (${firstCheck.suite.branch})`);
+  assert(firstCheck.suite.status === 'completed' && firstCheck.suite.conclusion === 'success', `Workflow check suite did not succeed: ${workflowName}`);
+  const artifacts = await paginateRest(`${apiBase}/actions/runs/${runId}/artifacts`, 'artifacts');
   writeJson(`run-${runId}-artifacts.json`, { artifacts });
   const workflowReport = {
-    run: { id: run.id, event: run.event, status: run.status, conclusion: run.conclusion, headSha: run.head_sha, headBranch: run.head_branch, htmlUrl: run.html_url },
-    jobs: jobChecks.filter(Boolean).map(({ id, name, status, conclusion, details_url }) => ({ id, name, status, conclusion, detailsUrl: details_url })),
+    run: {
+      id: runId,
+      event: firstCheck.workflowRun.event,
+      runAttempt: firstCheck.workflowRun.runAttempt,
+      runNumber: firstCheck.workflowRun.runNumber,
+      workflowName: firstCheck.workflowRun.workflowName,
+      workflowFile: firstCheck.workflowRun.workflowFile,
+      url: firstCheck.workflowRun.url,
+      branch: firstCheck.suite.branch,
+      suiteStatus: firstCheck.suite.status,
+      suiteConclusion: firstCheck.suite.conclusion,
+      headSha: targetSha,
+    },
+    jobs: jobChecks.filter(Boolean),
     artifacts: [],
     evidence: {},
   };
@@ -433,19 +567,24 @@ async function verifyLiveSeo() {
 try {
   report.mainRef.startSha = await resolveMainSha();
   assert(report.mainRef.startSha === targetSha, `main mismatch at start: expected ${targetSha}, actual ${report.mainRef.startSha}`);
-  let checks = await exactMainChecks();
-  await ensureImmutableRun(checks);
-  checks = await waitForStableExactMainChecks();
-  report.exactMainChecks.suites = checks.suites.map(({ id, status, conclusion, head_sha, app, latest_check_runs_count, rerequestable }) => ({ id, status, conclusion, headSha: head_sha, app: app?.slug, latestCheckRunsCount: latest_check_runs_count, rerequestable }));
-  report.exactMainChecks.runs = checks.runs.map(({ id, name, status, conclusion, details_url, started_at, completed_at }) => ({ id, name, status, conclusion, detailsUrl: details_url, startedAt: started_at, completedAt: completed_at }));
-  writeJson('exact-main-check-suites.json', { check_suites: checks.suites });
-  writeJson('exact-main-check-runs.json', { check_runs: checks.runs });
-  assert(checks.runs.length > 0, 'No exact-main GitHub Actions check runs found');
-  for (const checkRun of checks.runs) {
+  let rollup = await exactMainRollup();
+  await ensureImmutableRun(rollup);
+  rollup = await waitForStableExactMainRollup();
+  report.exactMainChecks.rollupState = rollup.rollupState;
+  report.exactMainChecks.checkRuns = rollup.checkRuns;
+  report.exactMainChecks.statusContexts = rollup.statusContexts;
+  writeJson('exact-main-graphql-rollup.json', rollup);
+  assert(rollup.checkRuns.length > 0, 'No exact-main GitHub Actions check runs found');
+  for (const checkRun of rollup.checkRuns) {
     assert(checkRun.status === 'completed', `Exact-main check not completed: ${checkRun.name} (${checkRun.status})`);
     assert(allowedConclusions.has(checkRun.conclusion), `Exact-main check non-passing: ${checkRun.name} (${checkRun.conclusion})`);
   }
-  for (const [workflowName, config] of Object.entries(required)) await verifyWorkflow(workflowName, config, checks);
+  for (const status of rollup.statusContexts) {
+    if (status.state === 'failure' && legacyExternalContexts.has(status.context)) {
+      warnings.push(`Legacy external status remains failed under #2600: ${status.context}`);
+    }
+  }
+  for (const [workflowName, config] of Object.entries(required)) await verifyWorkflow(workflowName, config, rollup);
   await verifyLiveSeo();
   report.mainRef.endSha = await resolveMainSha();
   assert(report.mainRef.endSha === targetSha, `main mismatch at end: expected ${targetSha}, actual ${report.mainRef.endSha}`);
