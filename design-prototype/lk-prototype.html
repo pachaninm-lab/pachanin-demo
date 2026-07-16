@@ -1,611 +1,731 @@
-<title>Прототип ЛК — Прозрачная Цена</title>
+<title>ЛК — Прозрачная Цена</title>
 <style>
   :root {
-    --canvas: #f4f7f5;
+    --canvas: #f5f7f6;
     --surface: #ffffff;
-    --surface-soft: #ecf1ee;
-    --ink: #14201a;
-    --ink-2: #40514a;
-    --ink-3: #6b7c74;
-    --line: #dbe4df;
+    --surface-soft: #eef1ef;
+    --ink: #131c17;
+    --ink-2: #44524b;
+    --ink-3: #71807a;
+    --line: #dde3e0;
+    --line-strong: #c6cfca;
     --green: #086534;
-    --green-deep: #054a26;
-    --green-soft: #e7f4ec;
+    --green-soft: #e9f4ee;
     --amber: #8a5a00;
-    --amber-soft: #fdf3dd;
+    --amber-soft: #fbf3df;
     --red: #b42318;
-    --red-soft: #fdefed;
-    --blue: #175cd3;
-    --blue-soft: #ecf3fd;
+    --red-soft: #fceeec;
+    --blue: #1a5cd0;
+    --blue-soft: #edf3fc;
     --on-accent: #ffffff;
-    --radius: 14px;
-    --radius-lg: 20px;
-    --shadow: 0 1px 2px rgb(16 24 20 / .05), 0 8px 24px rgb(16 24 20 / .06);
+    --radius: 10px;
+    --radius-lg: 14px;
+    --shadow: 0 1px 2px rgb(15 22 18 / .05), 0 6px 20px rgb(15 22 18 / .05);
     --font: 'Inter', -apple-system, 'Segoe UI', system-ui, Roboto, sans-serif;
     --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --canvas: #0e1512; --surface: #16211b; --surface-soft: #1d2a23;
-      --ink: #eef4f0; --ink-2: #b9c7c0; --ink-3: #8a9a92; --line: #2c3a33;
-      --green: #6fd39a; --green-deep: #8fe0b0; --green-soft: #14311f;
-      --amber: #e8b45a; --amber-soft: #33270f;
-      --red: #f08c82; --red-soft: #3a1713;
-      --blue: #7fb0f2; --blue-soft: #16283f;
-      --on-accent: #0e1512;
-      --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 24px rgb(0 0 0 / .25);
+      --canvas: #0f1513; --surface: #171f1b; --surface-soft: #1e2823;
+      --ink: #edf3ef; --ink-2: #b6c3bc; --ink-3: #85948d;
+      --line: #2b3630; --line-strong: #3b4841;
+      --green: #66cf94; --green-soft: #15301f;
+      --amber: #e3b45f; --amber-soft: #302510;
+      --red: #ef8d83; --red-soft: #381713;
+      --blue: #82aff0; --blue-soft: #17273c;
+      --on-accent: #0f1513;
+      --shadow: 0 1px 2px rgb(0 0 0 / .35), 0 6px 20px rgb(0 0 0 / .25);
     }
   }
   :root[data-theme="dark"] {
-    --canvas: #0e1512; --surface: #16211b; --surface-soft: #1d2a23;
-    --ink: #eef4f0; --ink-2: #b9c7c0; --ink-3: #8a9a92; --line: #2c3a33;
-    --green: #6fd39a; --green-deep: #8fe0b0; --green-soft: #14311f;
-    --amber: #e8b45a; --amber-soft: #33270f;
-    --red: #f08c82; --red-soft: #3a1713;
-    --blue: #7fb0f2; --blue-soft: #16283f;
-    --on-accent: #0e1512;
-    --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 24px rgb(0 0 0 / .25);
+    --canvas: #0f1513; --surface: #171f1b; --surface-soft: #1e2823;
+    --ink: #edf3ef; --ink-2: #b6c3bc; --ink-3: #85948d;
+    --line: #2b3630; --line-strong: #3b4841;
+    --green: #66cf94; --green-soft: #15301f;
+    --amber: #e3b45f; --amber-soft: #302510;
+    --red: #ef8d83; --red-soft: #381713;
+    --blue: #82aff0; --blue-soft: #17273c;
+    --on-accent: #0f1513;
+    --shadow: 0 1px 2px rgb(0 0 0 / .35), 0 6px 20px rgb(0 0 0 / .25);
   }
   :root[data-theme="light"] {
-    --canvas: #f4f7f5; --surface: #ffffff; --surface-soft: #ecf1ee;
-    --ink: #14201a; --ink-2: #40514a; --ink-3: #6b7c74; --line: #dbe4df;
-    --green: #086534; --green-deep: #054a26; --green-soft: #e7f4ec;
-    --amber: #8a5a00; --amber-soft: #fdf3dd;
-    --red: #b42318; --red-soft: #fdefed;
-    --blue: #175cd3; --blue-soft: #ecf3fd;
+    --canvas: #f5f7f6; --surface: #ffffff; --surface-soft: #eef1ef;
+    --ink: #131c17; --ink-2: #44524b; --ink-3: #71807a;
+    --line: #dde3e0; --line-strong: #c6cfca;
+    --green: #086534; --green-soft: #e9f4ee;
+    --amber: #8a5a00; --amber-soft: #fbf3df;
+    --red: #b42318; --red-soft: #fceeec;
+    --blue: #1a5cd0; --blue-soft: #edf3fc;
     --on-accent: #ffffff;
-    --shadow: 0 1px 2px rgb(16 24 20 / .05), 0 8px 24px rgb(16 24 20 / .06);
+    --shadow: 0 1px 2px rgb(15 22 18 / .05), 0 6px 20px rgb(15 22 18 / .05);
   }
 
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--canvas); color: var(--ink);
-    font-family: var(--font); font-size: 16px; line-height: 1.5;
+    font-family: var(--font); font-size: 14px; line-height: 1.5;
     -webkit-font-smoothing: antialiased;
   }
-  .money { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .money, .id { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: .96em; letter-spacing: -0.01em; }
 
-  /* ---------- shell: topbar + left nav ---------- */
-  .topbar {
-    display: flex; align-items: center; gap: 14px;
-    max-width: 1180px; margin: 0 auto; padding: 18px 24px 10px;
+  /* ================= shell ================= */
+  .app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+  @media (max-width: 960px) { .app { grid-template-columns: 1fr; } }
+
+  .side {
+    background: var(--surface); border-right: 1px solid var(--line);
+    padding: 16px 12px; display: flex; flex-direction: column; gap: 2px;
+    position: sticky; top: 0; height: 100vh;
   }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
+  @media (max-width: 960px) { .side { position: static; height: auto; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); align-items: center; } }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; padding: 4px 10px 14px; }
+  @media (max-width: 960px) { .brand { padding: 4px 10px; } }
   .brand-mark {
-    width: 34px; height: 34px; border-radius: 10px; background: var(--green);
-    display: grid; place-items: center; color: var(--on-accent); font-size: 17px; flex: none;
+    width: 28px; height: 28px; border-radius: 8px; background: var(--green);
+    color: var(--on-accent); display: grid; place-items: center; font-size: 13px; font-weight: 800; flex: none;
   }
-  .who { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--ink-3); font-size: 14px; }
+  .side .group { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 14px 10px 6px; }
+  @media (max-width: 960px) { .side .group { display: none; } }
+  .side button {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    background: none; border: 0; border-radius: 8px; cursor: pointer;
+    font: inherit; font-size: 13.5px; color: var(--ink-2);
+    padding: 8px 10px; text-align: left; white-space: nowrap;
+  }
+  .side button:hover { background: var(--surface-soft); }
+  .side button[aria-current="page"] { background: var(--green-soft); color: var(--ink); font-weight: 600; }
+  .side button[aria-current="page"] svg { color: var(--green); }
+  .side svg { width: 16px; height: 16px; flex: none; color: var(--ink-3); }
+  .side .badge {
+    margin-left: auto; background: var(--red); color: var(--on-accent); border-radius: 999px;
+    font-size: 11px; font-weight: 700; min-width: 18px; height: 18px;
+    display: grid; place-items: center; padding: 0 5px;
+  }
+  .side .foot { margin-top: auto; border-top: 1px solid var(--line); padding-top: 10px; }
+  @media (max-width: 960px) { .side .foot { display: none; } }
+  .side .org { display: flex; align-items: center; gap: 10px; padding: 8px 10px; font-size: 13px; color: var(--ink-2); }
   .avatar {
-    width: 34px; height: 34px; border-radius: 50%; background: var(--surface-soft);
-    border: 1px solid var(--line); display: grid; place-items: center; font-weight: 600; color: var(--ink-2); font-size: 14px;
+    width: 28px; height: 28px; border-radius: 50%; background: var(--surface-soft);
+    border: 1px solid var(--line); display: grid; place-items: center; font-weight: 600; color: var(--ink-2); font-size: 11.5px; flex: none;
   }
 
-  .frame { max-width: 1180px; margin: 0 auto; padding: 8px 24px 64px; display: grid; grid-template-columns: 208px 1fr; gap: 26px; align-items: start; }
-  @media (max-width: 900px) { .frame { grid-template-columns: 1fr; gap: 10px; } }
+  .main { min-width: 0; }
+  .workbar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 28px; border-bottom: 1px solid var(--line); background: var(--surface);
+    position: sticky; top: 0; z-index: 5;
+  }
+  .search {
+    display: flex; align-items: center; gap: 8px; flex: 0 1 340px;
+    background: var(--surface-soft); border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 12px; color: var(--ink-3); font-size: 13px; cursor: text;
+  }
+  .search kbd {
+    margin-left: auto; font-family: var(--mono); font-size: 11px;
+    border: 1px solid var(--line-strong); border-radius: 5px; padding: 1px 6px; color: var(--ink-3); background: var(--surface);
+  }
+  .workbar .right { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--ink-3); font-size: 13px; }
 
-  /* left navigation: постоянная, одинаковая на всех экранах */
-  .nav { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 4px; }
-  @media (max-width: 900px) {
-    .nav { position: static; flex-direction: row; overflow-x: auto; padding-bottom: 6px; }
-  }
-  .nav button {
-    display: flex; align-items: center; gap: 11px; width: 100%;
-    background: none; border: 0; border-radius: 11px; cursor: pointer;
-    font: inherit; font-size: 15.5px; color: var(--ink-2);
-    padding: 11px 14px; text-align: left; white-space: nowrap;
-    transition: background .12s ease;
-  }
-  .nav button:hover { background: var(--surface-soft); }
-  .nav button[aria-current="page"] { background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--ink); font-weight: 600; }
-  .nav .ico { width: 21px; text-align: center; flex: none; opacity: .85; }
-  .nav .badge {
-    margin-left: auto; background: var(--red); color: #fff; border-radius: 999px;
-    font-size: 12px; font-weight: 700; min-width: 20px; height: 20px;
-    display: grid; place-items: center; padding: 0 6px;
-  }
-  :root[data-theme="dark"] .nav .badge { color: var(--canvas); }
+  .page { padding: 24px 28px 56px; max-width: 1160px; }
+  .page-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+  .page-head .meta { color: var(--ink-3); font-size: 13px; }
+  .page-head .actions { margin-left: auto; display: flex; gap: 8px; }
 
   .screen { display: none; }
-  .screen.on { display: block; animation: rise .25s ease; }
-  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .screen.on { display: block; animation: rise .18s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .screen.on { animation: none; } }
 
-  h1 { font-size: 26px; line-height: 1.2; margin: 10px 0 6px; text-wrap: balance; letter-spacing: -0.015em; }
-  .sub { color: var(--ink-2); margin: 0 0 24px; font-size: 16px; max-width: 62ch; }
+  .crumbs { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-3); margin-bottom: 10px; }
+  .crumbs button { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 12.5px; color: var(--blue); }
 
-  /* crumbs: всегда показывают, где ты и как вернуться */
-  .crumbs { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-3); flex-wrap: wrap; }
-  .crumbs button { background: none; border: 0; padding: 2px 0; cursor: pointer; font: inherit; font-size: 14px; color: var(--blue); }
-  .crumbs span[aria-hidden] { color: var(--line); }
-
-  /* ---------- cards, buttons ---------- */
-  .card {
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: var(--radius-lg); box-shadow: var(--shadow);
-  }
+  /* ================= primitives ================= */
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
 
   .btn {
-    appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600;
-    border-radius: 12px; padding: 13px 22px; font-size: 16px;
-    background: var(--green); color: var(--on-accent); min-height: 48px;
-    transition: transform .12s ease, filter .12s ease;
+    appearance: none; cursor: pointer; font: inherit; font-weight: 600; font-size: 13.5px;
+    border-radius: 8px; padding: 8px 14px; min-height: 36px;
+    background: var(--green); color: var(--on-accent); border: 1px solid transparent;
+    transition: filter .12s ease;
   }
   .btn:hover { filter: brightness(1.08); }
-  .btn:active { transform: scale(.98); }
   .btn:disabled { opacity: .45; cursor: not-allowed; }
-  .btn:focus-visible, a:focus-visible, .row:focus-visible, .option:focus-visible, .nav button:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
-  .btn.second { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); }
-  .btn.second:hover { border-color: var(--ink-3); filter: none; }
-  .linkish { background: none; border: 0; cursor: pointer; font: inherit; color: var(--blue); padding: 0; font-size: 15px; }
+  .btn.second { background: var(--surface); color: var(--ink); border-color: var(--line-strong); }
+  .btn.second:hover { filter: none; border-color: var(--ink-3); }
+  .btn.small { min-height: 30px; padding: 4px 10px; font-size: 12.5px; }
+  .btn:focus-visible, button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .linkish { background: none; border: 0; cursor: pointer; font: inherit; color: var(--blue); padding: 0; font-size: 13px; }
 
-  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
-  .dot.red { background: var(--red); }
-  .dot.amber { background: var(--amber); }
-  .dot.green { background: var(--green); }
-  .dot.grey { background: var(--line); }
-
-  /* ---------- home ---------- */
-  .bento { display: grid; grid-template-columns: 1fr 300px; gap: 18px; align-items: start; }
-  @media (max-width: 1060px) { .bento { grid-template-columns: 1fr; } }
-
-  .hero { padding: 24px 26px 26px; }
-  .hero .tag {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--red-soft); color: var(--red);
-    border-radius: 999px; padding: 5px 13px; font-size: 13.5px; font-weight: 600;
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; padding: 3px 10px; white-space: nowrap;
   }
-  .hero .tag.waiting { background: var(--amber-soft); color: var(--amber); }
-  .hero h2 { font-size: 22px; margin: 14px 0 8px; line-height: 1.25; text-wrap: balance; }
-  .hero p { margin: 0 0 6px; color: var(--ink-2); max-width: 56ch; }
-  .hero .why { color: var(--ink-3); font-size: 14.5px; }
-  .hero-actions { display: flex; align-items: center; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+  .chip::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .chip.ok { background: var(--green-soft); color: var(--green); }
+  .chip.wait { background: var(--amber-soft); color: var(--amber); }
+  .chip.act { background: var(--red-soft); color: var(--red); }
+  .chip.info { background: var(--blue-soft); color: var(--blue); }
+  .chip.mute { background: var(--surface-soft); color: var(--ink-3); }
 
-  .list-title { font-size: 14px; font-weight: 600; color: var(--ink-3); margin: 24px 4px 10px; }
-  .rows { display: flex; flex-direction: column; gap: 10px; }
-  .row {
-    display: flex; align-items: center; gap: 14px; text-align: left; width: 100%;
-    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-    padding: 15px 18px; cursor: pointer; font: inherit; color: var(--ink);
-    transition: border-color .12s ease;
+  /* ================= overview ================= */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .kpi { padding: 14px 16px; }
+  .kpi .lbl { font-size: 12.5px; color: var(--ink-3); display: flex; align-items: center; gap: 8px; }
+  .kpi .val { display: block; font-size: 21px; font-weight: 650; margin-top: 2px; letter-spacing: -0.01em; }
+  .kpi .note { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+  .kpi .note.alert { color: var(--red); font-weight: 600; }
+  .kpi .note.warn { color: var(--amber); font-weight: 600; }
+
+  .cols { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
+  @media (max-width: 1060px) { .cols { grid-template-columns: 1fr; } }
+
+  .panel-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .panel-head h2 { font-size: 14.5px; margin: 0; }
+  .panel-head .linkish { margin-left: auto; }
+
+  /* work queue */
+  .queue { display: flex; flex-direction: column; }
+  .q-row { display: flex; align-items: center; gap: 14px; padding: 13px 18px; border-top: 1px solid var(--line); }
+  .q-row:first-of-type { border-top: 0; }
+  .q-row .due { flex: none; width: 74px; font-size: 12px; color: var(--ink-3); }
+  .q-row .due b { display: block; font-size: 12.5px; color: var(--red); font-weight: 650; }
+  .q-row .due b.soft { color: var(--ink-2); }
+  .q-row .what { min-width: 0; }
+  .q-row .what b { font-weight: 600; font-size: 13.5px; display: block; }
+  .q-row .what small { color: var(--ink-3); font-size: 12.5px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .q-row .what .id { color: var(--ink-3); }
+  .q-row .act-btns { margin-left: auto; display: flex; gap: 8px; flex: none; }
+
+  /* activity */
+  .feed { padding: 6px 18px 12px; }
+  .feed-item { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .feed-item:first-of-type { border-top: 0; }
+  .feed-item time { flex: none; width: 46px; color: var(--ink-3); font-size: 12px; font-family: var(--mono); }
+  .feed-item span { color: var(--ink-2); }
+  .feed-item b { font-weight: 600; color: var(--ink); }
+
+  /* ================= tables ================= */
+  .toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filter {
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px;
+    font: inherit; font-size: 12.5px; color: var(--ink-2); padding: 6px 11px; cursor: pointer;
   }
-  .row:hover { border-color: var(--ink-3); }
-  .row b { font-weight: 600; }
-  .row small { display: block; color: var(--ink-3); font-size: 14px; margin-top: 1px; }
-  .row .go { margin-left: auto; color: var(--ink-3); flex: none; }
-  .row .amount { margin-left: auto; font-weight: 600; flex: none; }
-  .row.plain { cursor: default; }
-  .row.plain:hover { border-color: var(--line); }
-  .row.done { opacity: .62; cursor: default; }
-  .row.done:hover { border-color: var(--line); }
-
-  .rail { padding: 20px 22px; }
-  .rail h3 { margin: 0 0 4px; font-size: 16px; }
-  .rail .hint { color: var(--ink-3); font-size: 13.5px; margin-bottom: 12px; }
-  .money-row { display: flex; align-items: baseline; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
-  .money-row:first-of-type { border-top: 0; }
-  .money-row .lbl { font-size: 14px; color: var(--ink-2); flex: 1 1 auto; }
-  .money-row .val { margin-left: auto; font-weight: 600; font-size: 15px; white-space: nowrap; }
-  .money-row .note { flex-basis: 100%; font-size: 13.5px; color: var(--ink-3); margin-top: -6px; }
-  .money-row .note a { color: var(--blue); text-decoration: none; }
-  .rail .linkish { margin-top: 12px; }
-
-  .steps-card { margin-top: 18px; padding: 20px 22px; }
-  .steps-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-  .steps-head h3 { margin: 0; font-size: 16px; }
-  .steps-head span { color: var(--ink-3); font-size: 14px; }
-  .steps-head .linkish { margin-left: auto; }
-  .steps { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-  .step { flex: 1; min-width: 86px; text-align: center; }
-  .step .bubble {
-    width: 40px; height: 40px; border-radius: 50%; margin: 0 auto 6px;
-    display: grid; place-items: center; font-size: 17px;
-    background: var(--surface-soft); border: 1.5px solid var(--line); color: var(--ink-3);
+  .filter.on { background: var(--green-soft); border-color: var(--green); color: var(--ink); font-weight: 600; }
+  .toolbar .spacer { flex: 1; }
+  .table-wrap { overflow-x: auto; }
+  table.data { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.data th {
+    text-align: left; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--ink-3); padding: 10px 14px; border-bottom: 1px solid var(--line-strong); white-space: nowrap;
   }
-  .step.done .bubble { background: var(--green-soft); border-color: var(--green); color: var(--green); }
-  .step.now .bubble { background: var(--amber-soft); border-color: var(--amber); color: var(--amber); }
-  .step small { font-size: 12.5px; color: var(--ink-3); display: block; line-height: 1.3; }
-  .step.done small, .step.now small { color: var(--ink-2); font-weight: 600; }
+  table.data th.num, table.data td.num { text-align: right; }
+  table.data td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+  table.data tr.click { cursor: pointer; }
+  table.data tr.click:hover td { background: var(--surface-soft); }
+  table.data td .sub { display: block; color: var(--ink-3); font-size: 12px; }
+  table.data .next { color: var(--ink-2); font-size: 12.5px; white-space: normal; min-width: 180px; }
 
-  /* ---------- decision with options ---------- */
-  .decision { max-width: 660px; }
-  .decision .card { padding: 26px 28px; }
-  .options { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 4px; }
+  /* ================= deal page ================= */
+  .facts { display: flex; gap: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow); overflow-x: auto; margin-bottom: 16px; }
+  .fact { padding: 13px 18px; border-left: 1px solid var(--line); min-width: 130px; }
+  .fact:first-child { border-left: 0; }
+  .fact .lbl { display: block; font-size: 11.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+  .fact .val { display: block; font-size: 14.5px; font-weight: 600; margin-top: 2px; white-space: nowrap; }
+
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  .tabs button {
+    background: none; border: 0; border-bottom: 2px solid transparent; cursor: pointer;
+    font: inherit; font-size: 13.5px; color: var(--ink-3); padding: 8px 14px; margin-bottom: -1px;
+  }
+  .tabs button[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--green); }
+
+  .deal-cols { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+  @media (max-width: 1060px) { .deal-cols { grid-template-columns: 1fr; } }
+
+  .timeline { list-style: none; margin: 0; padding: 18px; }
+  .timeline li { position: relative; padding: 0 0 18px 30px; }
+  .timeline li::before { content: ''; position: absolute; left: 7px; top: 18px; bottom: -2px; width: 2px; background: var(--line); }
+  .timeline li:last-child { padding-bottom: 2px; }
+  .timeline li:last-child::before { display: none; }
+  .timeline .tdot { position: absolute; left: 0; top: 4px; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--green); background: var(--surface); }
+  .timeline li.pending .tdot { border-color: var(--amber); border-style: dashed; }
+  .timeline time { font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); display: block; }
+  .timeline b { font-weight: 600; font-size: 13.5px; }
+  .timeline p { margin: 1px 0 0; color: var(--ink-2); font-size: 13px; max-width: 56ch; }
+
+  .aside-panel { padding: 16px 18px; }
+  .aside-panel h3 { font-size: 13px; margin: 0 0 10px; }
+  .kv { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .kv:first-of-type { border-top: 0; }
+  .kv .k { color: var(--ink-3); }
+  .kv .v { font-weight: 600; text-align: right; }
+  .aside-panel .btn { width: 100%; margin-top: 12px; }
+  .aside-panel .btn.second { margin-top: 8px; }
+  .aside-panel .fine { font-size: 12px; color: var(--ink-3); margin: 10px 0 0; }
+
+  /* ================= decision ================= */
+  .decision { max-width: 640px; }
+  .decision .card { padding: 22px 24px; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
   .option {
-    display: flex; gap: 14px; align-items: flex-start; text-align: left; width: 100%;
+    display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%;
     background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius);
-    padding: 16px 18px; cursor: pointer; font: inherit; color: var(--ink);
-    transition: border-color .12s ease, background .12s ease;
+    padding: 13px 15px; cursor: pointer; font: inherit; color: var(--ink);
   }
   .option:hover { border-color: var(--ink-3); }
   .option[aria-checked="true"] { border-color: var(--green); background: var(--green-soft); }
-  .option .radio {
-    width: 22px; height: 22px; border-radius: 50%; flex: none; margin-top: 2px;
-    border: 2px solid var(--ink-3); display: grid; place-items: center;
-  }
+  .option .radio { width: 18px; height: 18px; border-radius: 50%; flex: none; margin-top: 2px; border: 2px solid var(--ink-3); display: grid; place-items: center; }
   .option[aria-checked="true"] .radio { border-color: var(--green); }
-  .option[aria-checked="true"] .radio::after { content: ''; width: 11px; height: 11px; border-radius: 50%; background: var(--green); }
-  .option b { font-weight: 600; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .option .rec {
-    background: var(--green); color: var(--on-accent); font-size: 11.5px; font-weight: 700;
-    border-radius: 999px; padding: 2px 9px; letter-spacing: .02em;
+  .option[aria-checked="true"] .radio::after { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--green); }
+  .option b { font-weight: 600; font-size: 13.5px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .option p { margin: 2px 0 0; color: var(--ink-2); font-size: 13px; max-width: 56ch; }
+  .option .consequence { color: var(--ink-3); font-size: 12.5px; margin-top: 2px; display: block; }
+  .rec { background: var(--green); color: var(--on-accent); font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 2px 8px; letter-spacing: .04em; text-transform: uppercase; }
+
+  .decision-footer { display: flex; gap: 10px; align-items: center; margin-top: 18px; flex-wrap: wrap; }
+  .decision-footer .note { color: var(--ink-3); font-size: 12.5px; }
+  .safe { display: flex; gap: 9px; align-items: flex-start; background: var(--blue-soft); color: var(--ink-2); border-radius: 9px; padding: 10px 14px; font-size: 12.5px; margin-top: 14px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(80px);
+    background: var(--ink); color: var(--canvas); font-size: 13.5px; font-weight: 500;
+    border-radius: 10px; padding: 11px 18px; box-shadow: var(--shadow);
+    display: flex; gap: 10px; align-items: center; opacity: 0; transition: transform .25s ease, opacity .25s ease;
+    z-index: 50; max-width: min(92vw, 560px);
   }
-  .option p { margin: 3px 0 0; color: var(--ink-2); font-size: 14.5px; max-width: 52ch; }
-  .option .consequence { color: var(--ink-3); font-size: 13.5px; margin-top: 3px; }
-
-  .decision-footer { display: flex; gap: 12px; align-items: center; margin-top: 22px; flex-wrap: wrap; }
-  .decision-footer .btn { flex: none; }
-  .decision-footer .note { color: var(--ink-3); font-size: 14px; }
-  .safe { display: flex; gap: 10px; align-items: flex-start; background: var(--blue-soft); color: var(--ink-2); border-radius: 12px; padding: 12px 16px; font-size: 14.5px; margin-top: 16px; }
-
-  /* ---------- success ---------- */
-  .success { max-width: 520px; margin: 40px auto; text-align: center; }
-  .big-check {
-    width: 88px; height: 88px; margin: 0 auto 20px; border-radius: 50%;
-    background: var(--green-soft); color: var(--green); display: grid; place-items: center;
-  }
-  .success h1 { margin-top: 0; }
-  .success .btn.second { margin-left: 10px; }
-
-  /* ---------- deal timeline ---------- */
-  .timeline { list-style: none; margin: 24px 0; padding: 0; max-width: 640px; }
-  .timeline li { position: relative; padding: 0 0 26px 34px; }
-  .timeline li::before { content: ''; position: absolute; left: 8px; top: 22px; bottom: -2px; width: 2px; background: var(--line); }
-  .timeline li:last-child::before { display: none; }
-  .timeline .tdot {
-    position: absolute; left: 0; top: 4px; width: 18px; height: 18px; border-radius: 50%;
-    border: 2px solid var(--green); background: var(--surface);
-  }
-  .timeline li.pending .tdot { border-color: var(--amber); border-style: dashed; }
-  .timeline time { font-size: 13px; color: var(--ink-3); display: block; }
-  .timeline b { font-weight: 600; }
-  .timeline p { margin: 2px 0 0; color: var(--ink-2); font-size: 15px; max-width: 52ch; }
-  .timeline .linkish { margin-top: 4px; }
-  details.pro { max-width: 640px; margin-top: 8px; }
-  details.pro summary { cursor: pointer; color: var(--ink-3); font-size: 14.5px; padding: 8px 0; }
-  details.pro .card { padding: 16px 20px; font-size: 14px; color: var(--ink-2); }
-  details.pro table { border-collapse: collapse; width: 100%; }
-  details.pro td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
-  details.pro td:last-child { text-align: right; }
-
-  /* ---------- money / docs screens ---------- */
-  .stack { display: flex; flex-direction: column; gap: 10px; max-width: 720px; }
-  .doc-status { margin-left: auto; font-size: 13.5px; font-weight: 600; border-radius: 999px; padding: 4px 12px; flex: none; }
-  .doc-status.ok { background: var(--green-soft); color: var(--green); }
-  .doc-status.wait { background: var(--amber-soft); color: var(--amber); }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 </style>
 
-<header class="topbar">
-  <div class="brand"><span class="brand-mark">🌾</span> Прозрачная Цена</div>
-  <div class="who"><span>Покупатель · ООО «АгроТрейд»</span><span class="avatar">МП</span></div>
-</header>
+<div class="app">
+  <!-- ============ sidebar ============ -->
+  <nav class="side" aria-label="Разделы">
+    <div class="brand"><span class="brand-mark">ПЦ</span> Прозрачная Цена</div>
 
-<div class="frame">
-  <!-- Постоянная навигация: человек всегда может уйти куда хочет -->
-  <nav class="nav" aria-label="Разделы кабинета">
-    <button data-nav="s-home" aria-current="page" onclick="go('s-home')"><span class="ico">🏠</span> Главная <span class="badge" id="nav-badge">1</span></button>
-    <button data-nav="s-deals" onclick="go('s-deals')"><span class="ico">🤝</span> Мои сделки</button>
-    <button data-nav="s-money" onclick="go('s-money')"><span class="ico">₽</span> Деньги</button>
-    <button data-nav="s-docs" onclick="go('s-docs')"><span class="ico">📄</span> Документы</button>
+    <span class="group">Работа</span>
+    <button data-nav="s-overview" aria-current="page" onclick="go('s-overview')">
+      <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.5" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1.5" stroke="currentColor" stroke-width="1.4"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1.5" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="5.5" height="5.5" rx="1.5" stroke="currentColor" stroke-width="1.4"/></svg>
+      Обзор <span class="badge" id="nav-badge">2</span></button>
+    <button data-nav="s-deals" onclick="go('s-deals')">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M2 5.5h12M2 8.5h12M2 11.5h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      Сделки</button>
+    <button data-nav="s-money" onclick="go('s-money')">
+      <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.2" stroke="currentColor" stroke-width="1.4"/><path d="M6 11V5h2.2a1.9 1.9 0 1 1 0 3.8H6M6 10h3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Деньги</button>
+    <button data-nav="s-docs" onclick="go('s-docs')">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M4 1.8h5.4L12.6 5v9.2H4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.2 2v3.2h3.2" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+      Документы</button>
+
+    <span class="group">Рынок</span>
+    <button onclick="toast('Раздел «Торги» в прототипе не раскрыт')">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M2 13.5h12M4 10.5v-3M8 10.5V4M12 10.5V6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      Торги</button>
+    <button onclick="toast('Раздел «Контрагенты» в прототипе не раскрыт')">
+      <svg viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5.5" r="2.4" stroke="currentColor" stroke-width="1.4"/><circle cx="11" cy="7" r="1.9" stroke="currentColor" stroke-width="1.3"/><path d="M1.8 13.3c.5-2.2 1.9-3.4 3.7-3.4s3.2 1.2 3.7 3.4M9.9 10.6c1.9 0 3.3.9 3.9 2.7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Контрагенты</button>
+    <button onclick="toast('Раздел «Отчёты» в прототипе не раскрыт')">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M2.5 2v11.5H14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M5 10l2.6-3 2.2 1.8L13 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Отчёты</button>
+
+    <div class="foot">
+      <div class="org"><span class="avatar">МП</span> <span>М. Пачанин<br><small style="color:var(--ink-3)">ООО «АгроТрейд» · покупатель</small></span></div>
+    </div>
   </nav>
 
-  <main>
+  <!-- ============ main ============ -->
+  <div class="main">
+    <div class="workbar">
+      <div class="search" role="button" tabindex="0" onclick="toast('Поиск и командная строка — в прототипе не раскрыты')">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.6" stroke="currentColor" stroke-width="1.5"/><path d="M10.6 10.6 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Поиск: сделка, партия, документ, контрагент
+        <kbd>Ctrl K</kbd>
+      </div>
+      <div class="right"><span>16 июля, среда</span></div>
+    </div>
 
-  <!-- ================= HOME ================= -->
-  <section class="screen on" id="s-home" aria-label="Главная">
-    <h1>Доброе утро, Михаил!</h1>
-    <p class="sub" id="hello-sub">Одно дело ждёт вашего решения. Остальное идёт своим ходом.</p>
+    <div class="page">
 
-    <div class="bento">
-      <div>
-        <div class="card hero" id="hero-todo">
-          <span class="tag"><span class="dot red" aria-hidden="true"></span> Ждёт вашего решения</span>
-          <h2>Деньги отложены. Как поступим с подтверждением банка?</h2>
-          <p>Вы отложили <b class="money">9 650 000 ₽</b> на покупку пшеницы.
-             Чтобы зерно поехало, банк должен подтвердить, что деньги готовы.</p>
-          <p class="why">Решение за вами: можно попросить банк сейчас, позже или изменить сумму.</p>
-          <div class="hero-actions">
-            <button class="btn" onclick="go('s-decision')">Выбрать, что делать</button>
-            <button class="btn second" onclick="go('s-deal')">Открыть сделку</button>
-          </div>
-        </div>
-
-        <div class="card hero" id="hero-waiting" style="display:none">
-          <span class="tag waiting"><span class="dot amber" aria-hidden="true"></span> Ждём банк</span>
-          <h2>Запрос у банка — вам ничего делать не нужно</h2>
-          <p>Банк проверяет ваши <b class="money">9 650 000 ₽</b>. Обычно это занимает около двух часов.</p>
-          <p class="why">Когда банк ответит, мы пришлём уведомление. Передумали? Запрос можно отозвать.</p>
-          <div class="hero-actions">
-            <button class="btn second" onclick="go('s-deal')">Открыть сделку</button>
-            <button class="linkish" onclick="alert('В прототипе не реализовано')">Отозвать запрос</button>
-          </div>
-        </div>
-
-        <p class="list-title">Остальные дела — когда вам удобно</p>
-        <div class="rows">
-          <button class="row" onclick="go('s-deal')">
-            <span class="dot amber" aria-hidden="true"></span>
-            <span><b>Машина привезла на 1,2 тонны меньше</b>
-              <small>Элеватор готовит акт. От вас пока ничего не нужно — можно посмотреть детали.</small></span>
-            <span class="go">›</span>
-          </button>
-          <button class="row" onclick="alert('В прототипе не реализовано')">
-            <span class="dot grey" aria-hidden="true"></span>
-            <span><b>Ответить продавцу пшеницы 3 класса</b>
-              <small>Он предложил цену. Ответ нужен до пятницы — время ещё есть.</small></span>
-            <span class="go">›</span>
-          </button>
-          <div class="row done">
-            <span class="dot green" aria-hidden="true"></span>
-            <span><b>Допуск к торгам подтверждён</b>
-              <small>Готово вчера. Больше ничего делать не нужно.</small></span>
-          </div>
+    <!-- ================= OVERVIEW ================= -->
+    <section class="screen on" id="s-overview" aria-label="Обзор">
+      <div class="page-head">
+        <h1>Обзор</h1>
+        <span class="meta">3 активные сделки · 2 вопроса ждут решения</span>
+        <div class="actions">
+          <button class="btn second" onclick="toast('Создание запроса — в прототипе не раскрыто')">Новый закупочный запрос</button>
         </div>
       </div>
 
-      <aside class="card rail" aria-label="Ваши деньги">
-        <h3>Ваши деньги</h3>
-        <p class="hint">Всё по сделке ДЛ-9106</p>
-        <div class="money-row">
-          <span class="dot green" aria-hidden="true"></span>
-          <span class="lbl">Свободны</span>
-          <span class="val money">0 ₽</span>
+      <div class="kpis">
+        <div class="card kpi">
+          <span class="lbl">Требуют решения</span>
+          <span class="val">2</span>
+          <span class="note alert">ближайший срок — сегодня 18:00</span>
         </div>
-        <div class="money-row">
-          <span class="dot amber" aria-hidden="true"></span>
-          <span class="lbl">Отложены на зерно</span>
-          <span class="val money">9 650 000 ₽</span>
-          <span class="note">Ждут подтверждения банка.</span>
+        <div class="card kpi">
+          <span class="lbl">В резерве</span>
+          <span class="val money">9 026 000 ₽</span>
+          <span class="note">ожидает подтверждения банка</span>
         </div>
-        <div class="money-row">
-          <span class="dot amber" aria-hidden="true"></span>
-          <span class="lbl">На паузе из-за веса</span>
+        <div class="card kpi">
+          <span class="lbl">Удержано по спорам</span>
           <span class="val money">624 000 ₽</span>
-          <span class="note">Вернутся или спишутся после акта о весе.</span>
+          <span class="note warn">расхождение веса · ДЛ-9106</span>
         </div>
-        <button class="linkish" onclick="go('s-money')">Все деньги подробно →</button>
-      </aside>
-    </div>
-
-    <div class="card steps-card">
-      <div class="steps-head">
-        <h3>Где сейчас ваша сделка</h3>
-        <span>Пшеница · 600 т · Тамбов → Воронеж</span>
-        <button class="linkish" onclick="go('s-deal')">Открыть сделку →</button>
-      </div>
-      <div class="steps" role="list">
-        <div class="step done" role="listitem"><span class="bubble">✓</span><small>Договорились</small></div>
-        <div class="step now" role="listitem"><span class="bubble">₽</span><small>Деньги</small></div>
-        <div class="step" role="listitem"><span class="bubble">🚚</span><small>Перевозка</small></div>
-        <div class="step" role="listitem"><span class="bubble">⚖</span><small>Приёмка</small></div>
-        <div class="step" role="listitem"><span class="bubble">📄</span><small>Документы</small></div>
-        <div class="step" role="listitem"><span class="bubble">✓</span><small>Расчёт</small></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= DECISION: человек выбирает сам ================= -->
-  <section class="screen" id="s-decision" aria-label="Решение">
-    <nav class="crumbs" aria-label="Вы находитесь здесь">
-      <button onclick="go('s-home')">Главная</button><span aria-hidden="true">/</span>
-      <button onclick="go('s-deal')">Сделка ДЛ-9106</button><span aria-hidden="true">/</span>
-      <span>Подтверждение денег</span>
-    </nav>
-    <div class="decision">
-      <h1>Как поступим с подтверждением денег?</h1>
-      <p class="sub">Выберите вариант — мы объяснили, что будет после каждого. Решение всегда можно изменить, пока банк не ответил.</p>
-
-      <div class="card">
-        <div class="options" role="radiogroup" aria-label="Варианты решения">
-          <button class="option" role="radio" aria-checked="true" data-opt="ask" onclick="pick(this)">
-            <span class="radio" aria-hidden="true"></span>
-            <span>
-              <b>Попросить банк подтвердить сейчас <span class="rec">советуем</span></b>
-              <p>Отправим банку запрос по сделке ДЛ-9106. Банк обычно отвечает за 2 часа.</p>
-              <span class="consequence">После ответа банка зерно можно везти.</span>
-            </span>
-          </button>
-          <button class="option" role="radio" aria-checked="false" data-opt="wait" onclick="pick(this)">
-            <span class="radio" aria-hidden="true"></span>
-            <span>
-              <b>Подождать — напомнить завтра утром</b>
-              <p>Ничего не отправляем. Завтра в 9:00 напомним об этом решении.</p>
-              <span class="consequence">Перевозка сдвинется минимум на день.</span>
-            </span>
-          </button>
-          <button class="option" role="radio" aria-checked="false" data-opt="change" onclick="pick(this)">
-            <span class="radio" aria-hidden="true"></span>
-            <span>
-              <b>Изменить сумму резерва</b>
-              <p>Откроем сумму для правки — например, если договорились о другом объёме.</p>
-              <span class="consequence">Продавец увидит новую сумму и должен будет согласиться.</span>
-            </span>
-          </button>
-        </div>
-
-        <div class="safe">
-          <span aria-hidden="true">🔒</span>
-          <span>Что бы вы ни выбрали, деньги никуда не спишутся. Списание бывает только после приёмки зерна и ваших подписей.</span>
-        </div>
-
-        <div class="decision-footer">
-          <button class="btn" id="confirm-btn" onclick="confirmChoice()">Отправить запрос банку</button>
-          <button class="btn second" onclick="go('s-home')">Вернуться позже</button>
-          <span class="note">Ничего не произойдёт без этой кнопки.</span>
+        <div class="card kpi">
+          <span class="lbl">Активные сделки</span>
+          <span class="val">3 <span style="font-size:13px;font-weight:500;color:var(--ink-3)">на 14,5 млн ₽</span></span>
+          <span class="note">все идут по графику</span>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- ================= SUCCESS ================= -->
-  <section class="screen" id="s-success" aria-label="Готово">
-    <div class="success">
-      <div class="big-check" aria-hidden="true">
-        <svg width="44" height="44" viewBox="0 0 24 24" fill="none"><path d="M4 12.5l5 5L20 6.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="cols">
+        <div class="card">
+          <div class="panel-head">
+            <h2>Требуют вашего решения</h2>
+            <button class="linkish" onclick="go('s-deals')">Все сделки →</button>
+          </div>
+          <div class="queue">
+            <div class="q-row" id="q-bank">
+              <span class="due"><b>Сегодня 18:00</b>срок</span>
+              <span class="what">
+                <b>Подтверждение резерва банком</b>
+                <small><span class="id">ДЛ-9106</span> · пшеница 4 кл., 600 т · без подтверждения перевозка не начнётся</small>
+              </span>
+              <span class="act-btns">
+                <button class="btn small" onclick="go('s-decision')">Рассмотреть</button>
+                <button class="btn small second" onclick="go('s-deal')">Сделка</button>
+              </span>
+            </div>
+            <div class="q-row">
+              <span class="due"><b class="soft">До пятницы</b>срок</span>
+              <span class="what">
+                <b>Ответ на предложение продавца</b>
+                <small><span class="id">LOT-2405</span> · пшеница 3 кл., 240 т · предложена цена 16 120 ₽/т</small>
+              </span>
+              <span class="act-btns">
+                <button class="btn small second" onclick="toast('Экран предложения — в прототипе не раскрыт')">Рассмотреть</button>
+              </span>
+            </div>
+            <div class="q-row">
+              <span class="due">наблюдение</span>
+              <span class="what">
+                <b>Акт о расхождении веса готовится</b>
+                <small><span class="id">ДЛ-9106</span> · −1,2 т на приёмке · действий от вас пока не требуется</small>
+              </span>
+              <span class="act-btns">
+                <button class="btn small second" onclick="go('s-deal')">Детали</button>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-head"><h2>События за сегодня</h2></div>
+          <div class="feed">
+            <div class="feed-item"><time>10:24</time><span><b>Взвешивание завершено</b> — 598,8 т из 600 т, отклонение −1,2 т зафиксировано актом</span></div>
+            <div class="feed-item"><time>09:47</time><span><b>Проба передана в лабораторию</b> — протокол качества ожидается завтра</span></div>
+            <div class="feed-item"><time>08:15</time><span><b>Рейс прибыл на элеватор</b> — ВРЖ-08, Воронеж</span></div>
+            <div class="feed-item"><time>Вчера</time><span><b>Резерв размещён</b> — 9 650 000 ₽ по сделке ДЛ-9106</span></div>
+          </div>
+        </div>
       </div>
-      <h1 id="success-title">Запрос отправлен банку</h1>
-      <p class="sub" id="success-text">Банк обычно отвечает за 2 часа — пришлём уведомление.
-         Если передумаете, запрос можно отозвать на главной.</p>
-      <button class="btn" onclick="go('s-home')">На главную</button>
-      <button class="btn second" onclick="go('s-deal')">Открыть сделку</button>
-    </div>
-  </section>
+    </section>
 
-  <!-- ================= DEALS LIST ================= -->
-  <section class="screen" id="s-deals" aria-label="Мои сделки">
-    <h1>Мои сделки</h1>
-    <p class="sub">Все сделки вашей организации. Нажмите на любую, чтобы увидеть её историю.</p>
-    <div class="stack">
-      <button class="row" onclick="go('s-deal')">
-        <span class="dot amber" aria-hidden="true"></span>
-        <span><b>ДЛ-9106 · Пшеница 4 класса, 600 т</b>
-          <small>Этап «Деньги» — ждёт вашего решения по банку. Тамбов → Воронеж.</small></span>
-        <span class="amount money">9 650 000 ₽</span>
-        <span class="go">›</span>
-      </button>
-      <button class="row" onclick="alert('В прототипе не реализовано')">
-        <span class="dot grey" aria-hidden="true"></span>
-        <span><b>ЛОТ-2405 · Пшеница 4 класса, 240 т</b>
-          <small>Торги идут — у вас лучшая ставка. Окно закроется сегодня в 17:00.</small></span>
-        <span class="amount money">16 120 ₽/т</span>
-        <span class="go">›</span>
-      </button>
-      <div class="row done">
-        <span class="dot green" aria-hidden="true"></span>
-        <span><b>ДЛ-9058 · Ячмень, 300 т</b>
-          <small>Завершена 2 июля. Все деньги выплачены, документы в архиве.</small></span>
-        <span class="amount money">4 890 000 ₽</span>
+    <!-- ================= DEALS ================= -->
+    <section class="screen" id="s-deals" aria-label="Сделки">
+      <div class="page-head">
+        <h1>Сделки</h1>
+        <span class="meta">3 активные · 12 завершённых</span>
+        <div class="actions"><button class="btn second" onclick="toast('Экспорт — в прототипе не раскрыт')">Экспорт</button></div>
       </div>
-    </div>
-  </section>
-
-  <!-- ================= DEAL ================= -->
-  <section class="screen" id="s-deal" aria-label="Сделка">
-    <nav class="crumbs" aria-label="Вы находитесь здесь">
-      <button onclick="go('s-home')">Главная</button><span aria-hidden="true">/</span>
-      <button onclick="go('s-deals')">Мои сделки</button><span aria-hidden="true">/</span>
-      <span>ДЛ-9106</span>
-    </nav>
-    <h1>Сделка ДЛ-9106 — пшеница, 600 тонн</h1>
-    <p class="sub">Вся история простыми словами — сверху самое новое.</p>
-
-    <ul class="timeline">
-      <li class="pending">
-        <span class="tdot" aria-hidden="true"></span>
-        <time>Сейчас</time>
-        <b>Ждём две вещи</b>
-        <p>Банк должен подтвердить деньги, а элеватор — подписать акт о том,
-           что машина привезла на 1,2 тонны меньше.</p>
-        <button class="linkish" onclick="go('s-decision')">Решить вопрос с банком →</button>
-      </li>
-      <li>
-        <span class="tdot" aria-hidden="true"></span>
-        <time>Сегодня, 10:24</time>
-        <b>Машину взвесили</b>
-        <p>Приехало 598,8 т вместо 600 т. Это нормально: за разницу вы не заплатите —
-           624 000 ₽ поставлены на паузу, пока не подпишут акт.</p>
-      </li>
-      <li>
-        <span class="tdot" aria-hidden="true"></span>
-        <time>Вчера, 16:40</time>
-        <b>Вы отложили деньги</b>
-        <p><span class="money">9 650 000 ₽</span> зарезервированы под эту сделку.</p>
-      </li>
-      <li>
-        <span class="tdot" aria-hidden="true"></span>
-        <time>Вчера, 14:05</time>
-        <b>Вы договорились о цене</b>
-        <p>16 080 ₽ за тонну. Продавец — «Золотое Поле», Тамбовская область.</p>
-      </li>
-    </ul>
-
-    <details class="pro">
-      <summary>Подробности для бухгалтера и юриста</summary>
-      <div class="card">
-        <table>
-          <tr><td>Лот</td><td class="money">LOT-2403</td></tr>
-          <tr><td>Базис поставки</td><td>элеватор ВРЖ-08, Воронеж</td></tr>
-          <tr><td>Резерв (ожидает банк)</td><td class="money">9 026 000 ₽</td></tr>
-          <tr><td>Удержание по акту веса</td><td class="money">624 000 ₽</td></tr>
-          <tr><td>Документы готовы</td><td>5 из 8</td></tr>
+      <div class="toolbar">
+        <button class="filter on">Активные</button>
+        <button class="filter" onclick="toast('Фильтр — в прототипе не раскрыт')">Требуют решения</button>
+        <button class="filter" onclick="toast('Фильтр — в прототипе не раскрыт')">Завершённые</button>
+        <span class="spacer"></span>
+        <button class="filter" onclick="toast('Настройка колонок — в прототипе не раскрыта')">Колонки</button>
+      </div>
+      <div class="card table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>Сделка</th><th>Контрагент</th><th class="num">Объём</th><th class="num">Сумма</th>
+              <th>Этап</th><th>Статус</th><th>Следующий шаг</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="click" tabindex="0" onclick="go('s-deal')" onkeydown="if(event.key==='Enter')go('s-deal')">
+              <td><span class="id">ДЛ-9106</span><span class="sub">пшеница 4 класса</span></td>
+              <td>Золотое Поле<span class="sub">Тамбовская обл.</span></td>
+              <td class="num money">600 т</td>
+              <td class="num money">9 650 000 ₽</td>
+              <td>Деньги</td>
+              <td><span class="chip act">решение за вами</span></td>
+              <td class="next">Запросить у банка подтверждение резерва</td>
+            </tr>
+            <tr class="click" tabindex="0" onclick="toast('Карточка LOT-2405 — в прототипе не раскрыта')">
+              <td><span class="id">LOT-2405</span><span class="sub">пшеница 3 класса</span></td>
+              <td>Агро-Дон<span class="sub">Ростовская обл.</span></td>
+              <td class="num money">240 т</td>
+              <td class="num money">3 868 800 ₽</td>
+              <td>Переговоры</td>
+              <td><span class="chip wait">ждёт вашего ответа</span></td>
+              <td class="next">Ответить на предложение до пятницы</td>
+            </tr>
+            <tr class="click" tabindex="0" onclick="toast('Карточка ДЛ-9101 — в прототипе не раскрыта')">
+              <td><span class="id">ДЛ-9101</span><span class="sub">ячмень</span></td>
+              <td>Степь-Агро<span class="sub">Воронежская обл.</span></td>
+              <td class="num money">180 т</td>
+              <td class="num money">2 340 000 ₽</td>
+              <td>Перевозка</td>
+              <td><span class="chip ok">идёт по графику</span></td>
+              <td class="next">Прибытие на элеватор — завтра</td>
+            </tr>
+            <tr class="click" tabindex="0" onclick="toast('Архив — в прототипе не раскрыт')">
+              <td><span class="id">ДЛ-9058</span><span class="sub">ячмень</span></td>
+              <td>Степь-Агро<span class="sub">Воронежская обл.</span></td>
+              <td class="num money">300 т</td>
+              <td class="num money">4 890 000 ₽</td>
+              <td>Завершена</td>
+              <td><span class="chip mute">закрыта 2 июля</span></td>
+              <td class="next">—</td>
+            </tr>
+          </tbody>
         </table>
       </div>
-    </details>
-  </section>
+    </section>
 
-  <!-- ================= MONEY ================= -->
-  <section class="screen" id="s-money" aria-label="Деньги">
-    <h1>Деньги</h1>
-    <p class="sub">Каждый рубль имеет статус и причину. Ничего не списывается без ваших подписей.</p>
-    <div class="stack">
-      <div class="row plain">
-        <span class="dot green" aria-hidden="true"></span>
-        <span><b>Свободны</b><small>Можно откладывать на новые сделки.</small></span>
-        <span class="amount money">0 ₽</span>
+    <!-- ================= DEAL ================= -->
+    <section class="screen" id="s-deal" aria-label="Сделка ДЛ-9106">
+      <nav class="crumbs" aria-label="Путь">
+        <button onclick="go('s-overview')">Обзор</button><span>/</span>
+        <button onclick="go('s-deals')">Сделки</button><span>/</span>
+        <span class="id">ДЛ-9106</span>
+      </nav>
+      <div class="page-head">
+        <h1>ДЛ-9106 · Пшеница 4 класса, 600 т</h1>
+        <span class="chip act">решение за вами</span>
       </div>
-      <button class="row" onclick="go('s-decision')">
-        <span class="dot amber" aria-hidden="true"></span>
-        <span><b>Отложены на зерно · ДЛ-9106</b>
-          <small>Ждут подтверждения банка — решение за вами.</small></span>
-        <span class="amount money">9 026 000 ₽</span>
-        <span class="go">›</span>
-      </button>
-      <button class="row" onclick="go('s-deal')">
-        <span class="dot amber" aria-hidden="true"></span>
-        <span><b>На паузе из-за веса · ДЛ-9106</b>
-          <small>Машина привезла меньше. После акта деньги вернутся или спишутся честно по весу.</small></span>
-        <span class="amount money">624 000 ₽</span>
-        <span class="go">›</span>
-      </button>
+
+      <div class="facts">
+        <div class="fact"><span class="lbl">Сумма</span><span class="val money">9 650 000 ₽</span></div>
+        <div class="fact"><span class="lbl">Цена</span><span class="val money">16 080 ₽/т</span></div>
+        <div class="fact"><span class="lbl">Продавец</span><span class="val">Золотое Поле</span></div>
+        <div class="fact"><span class="lbl">Маршрут</span><span class="val">Тамбов → Воронеж</span></div>
+        <div class="fact"><span class="lbl">Этап</span><span class="val">Деньги · 2 из 6</span></div>
+        <div class="fact"><span class="lbl">Принято</span><span class="val money">598,8 / 600 т</span></div>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true">Хронология</button>
+        <button role="tab" aria-selected="false" onclick="go('s-docs')">Документы</button>
+        <button role="tab" aria-selected="false" onclick="go('s-money')">Деньги</button>
+        <button role="tab" aria-selected="false" onclick="toast('Вкладка «Качество» — в прототипе не раскрыта')">Качество</button>
+      </div>
+
+      <div class="deal-cols">
+        <div class="card">
+          <ul class="timeline">
+            <li class="pending">
+              <span class="tdot"></span>
+              <time>ожидается</time>
+              <b>Подтверждение резерва банком</b>
+              <p>Резерв 9 026 000 ₽ размещён и ожидает подтверждения. Без него перевозка следующей партии не начнётся.</p>
+            </li>
+            <li class="pending">
+              <span class="tdot"></span>
+              <time>ожидается</time>
+              <b>Акт о расхождении веса</b>
+              <p>Элеватор оформляет акт на −1,2 т. До подписания 624 000 ₽ удержаны — спишутся или вернутся строго по акту.</p>
+            </li>
+            <li>
+              <span class="tdot"></span>
+              <time>10:24</time>
+              <b>Взвешивание завершено</b>
+              <p>Принято 598,8 т из 600 т. Отклонение −1,2 т зафиксировано и передано в акт.</p>
+            </li>
+            <li>
+              <span class="tdot"></span>
+              <time>08:15</time>
+              <b>Рейс прибыл на элеватор ВРЖ-08</b>
+              <p>Рейс TRIP-2403-001 связан с партией LOT-2403.</p>
+            </li>
+            <li>
+              <span class="tdot"></span>
+              <time>вчера 16:40</time>
+              <b>Резерв размещён</b>
+              <p>9 650 000 ₽ зарезервированы под сделку.</p>
+            </li>
+            <li>
+              <span class="tdot"></span>
+              <time>вчера 14:05</time>
+              <b>Условия согласованы</b>
+              <p>16 080 ₽/т, базис — элеватор ВРЖ-08. Предложение принято обеими сторонами.</p>
+            </li>
+          </ul>
+        </div>
+
+        <aside>
+          <div class="card aside-panel">
+            <h3>Действия по сделке</h3>
+            <div class="kv"><span class="k">Резерв</span><span class="v money">9 026 000 ₽</span></div>
+            <div class="kv"><span class="k">Удержание</span><span class="v money">624 000 ₽</span></div>
+            <div class="kv"><span class="k">Документы</span><span class="v">5 из 8</span></div>
+            <button class="btn" onclick="go('s-decision')">Решить вопрос с резервом</button>
+            <button class="btn second" onclick="toast('Написать контрагенту — в прототипе не раскрыто')">Написать продавцу</button>
+            <p class="fine">Списание средств возможно только после приёмки и ваших подписей.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= DECISION ================= -->
+    <section class="screen" id="s-decision" aria-label="Решение по резерву">
+      <nav class="crumbs" aria-label="Путь">
+        <button onclick="go('s-overview')">Обзор</button><span>/</span>
+        <button onclick="go('s-deal')">ДЛ-9106</button><span>/</span>
+        <span>Резерв</span>
+      </nav>
+      <div class="decision">
+        <div class="page-head" style="margin-bottom:12px">
+          <h1>Подтверждение резерва · <span class="id">ДЛ-9106</span></h1>
+        </div>
+        <p style="color:var(--ink-2); margin:0 0 16px; max-width:62ch">
+          Резерв <b class="money">9 026 000 ₽</b> размещён и ожидает подтверждения банка.
+          Выберите, как действовать — у каждого варианта указано последствие. Решение можно изменить, пока банк не ответил.</p>
+
+        <div class="card">
+          <div class="options" role="radiogroup" aria-label="Варианты">
+            <button class="option" role="radio" aria-checked="true" data-opt="ask" onclick="pick(this)">
+              <span class="radio"></span>
+              <span>
+                <b>Запросить подтверждение сейчас <span class="rec">Рекомендуем</span></b>
+                <p>Банк получит запрос по сделке ДЛ-9106. Типичное время ответа — до 2 часов.</p>
+                <span class="consequence">После подтверждения перевозка продолжается по графику.</span>
+              </span>
+            </button>
+            <button class="option" role="radio" aria-checked="false" data-opt="wait" onclick="pick(this)">
+              <span class="radio"></span>
+              <span>
+                <b>Отложить до завтра</b>
+                <p>Запрос не отправляется. Завтра в 9:00 задача вернётся в «Требуют решения».</p>
+                <span class="consequence">График перевозки сдвинется минимум на день.</span>
+              </span>
+            </button>
+            <button class="option" role="radio" aria-checked="false" data-opt="change" onclick="pick(this)">
+              <span class="radio"></span>
+              <span>
+                <b>Изменить сумму резерва</b>
+                <p>Откроется форма правки. Новая сумма потребует согласия продавца.</p>
+                <span class="consequence">Подтверждение банка начнётся заново после согласия сторон.</span>
+              </span>
+            </button>
+          </div>
+
+          <div class="safe">
+            <span aria-hidden="true">🔒</span>
+            <span>Ни один вариант не приводит к списанию средств. Списание возможно только после приёмки и подписей сторон.</span>
+          </div>
+
+          <div class="decision-footer">
+            <button class="btn" id="confirm-btn" onclick="confirmChoice()">Запросить подтверждение</button>
+            <button class="btn second" onclick="go('s-deal')">Отмена</button>
+            <span class="note">Действие выполняется только по этой кнопке.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MONEY ================= -->
+    <section class="screen" id="s-money" aria-label="Деньги">
+      <div class="page-head">
+        <h1>Деньги</h1>
+        <span class="meta">позиция на 16 июля, 12:40</span>
+        <div class="actions"><button class="btn second" onclick="toast('Выписка — в прототипе не раскрыта')">Выписка</button></div>
+      </div>
+      <div class="kpis" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="card kpi"><span class="lbl">Свободно</span><span class="val money">0 ₽</span><span class="note">доступно для новых резервов</span></div>
+        <div class="card kpi"><span class="lbl">В резервах</span><span class="val money">9 026 000 ₽</span><span class="note warn">ожидает подтверждения банка</span></div>
+        <div class="card kpi"><span class="lbl">Удержано</span><span class="val money">624 000 ₽</span><span class="note warn">до подписания акта о весе</span></div>
+      </div>
+      <div class="card table-wrap">
+        <table class="data">
+          <thead><tr><th>Назначение</th><th>Сделка</th><th class="num">Сумма</th><th>Статус</th><th>Что дальше</th></tr></thead>
+          <tbody>
+            <tr class="click" tabindex="0" onclick="go('s-decision')">
+              <td>Резерв на закупку<span class="sub">пшеница 4 кл., 600 т</span></td>
+              <td class="id">ДЛ-9106</td>
+              <td class="num money">9 026 000 ₽</td>
+              <td><span class="chip act">решение за вами</span></td>
+              <td class="next">Запросить подтверждение банка</td>
+            </tr>
+            <tr class="click" tabindex="0" onclick="go('s-deal')">
+              <td>Удержание по расхождению<span class="sub">−1,2 т на приёмке</span></td>
+              <td class="id">ДЛ-9106</td>
+              <td class="num money">624 000 ₽</td>
+              <td><span class="chip wait">ждёт акта</span></td>
+              <td class="next">Спишется или вернётся по акту о весе</td>
+            </tr>
+            <tr>
+              <td>Оплата завершённой сделки<span class="sub">ячмень, 300 т</span></td>
+              <td class="id">ДЛ-9058</td>
+              <td class="num money">4 890 000 ₽</td>
+              <td><span class="chip ok">выплачено 2 июля</span></td>
+              <td class="next">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="color:var(--ink-3); font-size:12.5px; margin-top:10px">Средства перемещаются только после приёмки и подписей сторон; платформа не выполняет списаний самостоятельно.</p>
+    </section>
+
+    <!-- ================= DOCS ================= -->
+    <section class="screen" id="s-docs" aria-label="Документы">
+      <div class="page-head">
+        <h1>Документы</h1>
+        <span class="meta">по сделке ДЛ-9106 · готово 5 из 8</span>
+        <div class="actions"><button class="btn second" onclick="toast('Загрузка — в прототипе не раскрыта')">Загрузить документ</button></div>
+      </div>
+      <div class="card table-wrap">
+        <table class="data">
+          <thead><tr><th>Документ</th><th>Сделка</th><th>Ответственный</th><th>Статус</th><th>Обновлён</th></tr></thead>
+          <tbody>
+            <tr><td>Договор поставки</td><td class="id">ДЛ-9106</td><td>обе стороны</td><td><span class="chip ok">подписан</span></td><td>вчера</td></tr>
+            <tr><td>Транспортная накладная</td><td class="id">ДЛ-9106</td><td>перевозчик</td><td><span class="chip ok">загружена</span></td><td>08:15</td></tr>
+            <tr><td>Акт приёмки</td><td class="id">ДЛ-9106</td><td>элеватор</td><td><span class="chip ok">подписан</span></td><td>10:24</td></tr>
+            <tr><td>Акт о расхождении веса</td><td class="id">ДЛ-9106</td><td>элеватор</td><td><span class="chip wait">готовится</span></td><td>—</td></tr>
+            <tr><td>Протокол качества</td><td class="id">ДЛ-9106</td><td>лаборатория</td><td><span class="chip wait">на анализе</span></td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     </div>
-  </section>
-
-  <!-- ================= DOCS ================= -->
-  <section class="screen" id="s-docs" aria-label="Документы">
-    <h1>Документы</h1>
-    <p class="sub">По сделке ДЛ-9106 готово 5 документов из 8. Недостающие появятся сами по ходу сделки.</p>
-    <div class="stack">
-      <div class="row plain">
-        <span><b>Договор поставки</b><small>Подписан обеими сторонами вчера.</small></span>
-        <span class="doc-status ok">Готов</span>
-      </div>
-      <div class="row plain">
-        <span><b>Транспортная накладная</b><small>Загружена водителем сегодня утром.</small></span>
-        <span class="doc-status ok">Готов</span>
-      </div>
-      <div class="row plain">
-        <span><b>Акт о расхождении веса</b><small>Элеватор готовит — подпишете, когда будет готов.</small></span>
-        <span class="doc-status wait">Готовится</span>
-      </div>
-      <div class="row plain">
-        <span><b>Протокол качества</b><small>Лаборатория проверяет пробу — обычно 1 день.</small></span>
-        <span class="doc-status wait">Готовится</span>
-      </div>
-    </div>
-  </section>
-
-  </main>
+  </div>
 </div>
+
+<div class="toast" id="toast" role="status"></div>
 
 <script>
   var labels = {
-    ask: 'Отправить запрос банку',
-    wait: 'Включить напоминание на завтра',
+    ask: 'Запросить подтверждение',
+    wait: 'Отложить до завтра',
     change: 'Перейти к изменению суммы'
   };
-  var successCopy = {
-    ask: ['Запрос отправлен банку', 'Банк обычно отвечает за 2 часа — пришлём уведомление. Если передумаете, запрос можно отозвать на главной.'],
-    wait: ['Напоминание включено', 'Завтра в 9:00 напомним про подтверждение банка. Сделка подождёт — ничего не потеряется.'],
-    change: ['Открыли бы правку суммы', 'В прототипе этот шаг не реализован — в продукте здесь откроется форма с текущей суммой.']
+  var toasts = {
+    ask: 'Запрос отправлен банку. Типичное время ответа — до 2 часов, уведомим о результате.',
+    wait: 'Задача отложена. Завтра в 9:00 она вернётся в «Требуют решения».',
+    change: 'В продукте здесь откроется форма изменения суммы резерва.'
   };
   var chosen = 'ask';
+  var toastTimer;
 
   function go(id) {
     document.querySelectorAll('.screen').forEach(function (s) { s.classList.remove('on'); });
     document.getElementById(id).classList.add('on');
-    // подсветка раздела в навигации
-    var navMap = { 's-home': 's-home', 's-deals': 's-deals', 's-deal': 's-deals', 's-decision': 's-home', 's-success': 's-home', 's-money': 's-money', 's-docs': 's-docs' };
-    document.querySelectorAll('.nav button').forEach(function (b) {
+    var navMap = { 's-overview': 's-overview', 's-deals': 's-deals', 's-deal': 's-deals', 's-decision': 's-deals', 's-money': 's-money', 's-docs': 's-docs' };
+    document.querySelectorAll('.side button[data-nav]').forEach(function (b) {
       if (b.dataset.nav === navMap[id]) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
     });
@@ -619,15 +739,25 @@
     document.getElementById('confirm-btn').textContent = labels[chosen];
   }
 
+  function toast(text) {
+    var t = document.getElementById('toast');
+    t.textContent = text;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 3600);
+  }
+
   function confirmChoice() {
-    document.getElementById('success-title').textContent = successCopy[chosen][0];
-    document.getElementById('success-text').textContent = successCopy[chosen][1];
     if (chosen === 'ask') {
-      document.getElementById('hero-todo').style.display = 'none';
-      document.getElementById('hero-waiting').style.display = '';
-      document.getElementById('hello-sub').textContent = 'Решение принято — ждём банк. Остальное идёт своим ходом.';
-      document.getElementById('nav-badge').style.display = 'none';
+      var q = document.getElementById('q-bank');
+      q.querySelector('.due').innerHTML = 'отправлено';
+      q.querySelector('.what b').textContent = 'Подтверждение резерва — запрос у банка';
+      q.querySelector('.what small').innerHTML = '<span class="id">ДЛ-9106</span> · ответ банка обычно в течение 2 часов · запрос можно отозвать';
+      q.querySelector('.act-btns').innerHTML = '<button class="btn small second" onclick="go(\'s-deal\')">Сделка</button>';
+      document.getElementById('nav-badge').textContent = '1';
+      document.querySelector('#s-overview .meta').textContent = '3 активные сделки · 1 вопрос ждёт решения';
     }
-    go('s-success');
+    go(chosen === 'ask' ? 's-overview' : 's-deal');
+    toast(toasts[chosen]);
   }
 </script>
