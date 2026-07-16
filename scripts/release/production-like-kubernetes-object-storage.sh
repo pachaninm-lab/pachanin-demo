@@ -72,6 +72,22 @@ cleanup_minio_tls_material
 trap - ERR
 
 patch_api_object_storage() {
+  local state
+  state="$(kubectl get deployment grainflow-api -n "$NAMESPACE" -o json | jq -r '[
+    ([.spec.template.spec.containers[] | select(.name == "api") | .envFrom[]? | select(.secretRef.name == "grainflow-object-storage-secrets")] | length),
+    ([.spec.template.spec.containers[] | select(.name == "api") | .volumeMounts[]? | select(.name == "minio-ca")] | length),
+    ([.spec.template.spec.volumes[]? | select(.name == "minio-ca")] | length)
+  ] | @tsv')"
+
+  if [[ "$state" == $'1\t1\t1' ]]; then
+    printf 'already-applied\n' >> "$K8S_DIR/api-object-storage-ca-patch.log"
+    return 0
+  fi
+  if [[ "$state" != $'0\t0\t0' ]]; then
+    printf 'partial-storage-patch-state:%s\n' "$state" > "$K8S_DIR/api-object-storage-ca-patch.log"
+    return 1
+  fi
+
   kubectl patch deployment grainflow-api -n "$NAMESPACE" --type=json \
     --patch-file infra/kind/production-like/api-object-storage-ca-patch.json \
     > "$K8S_DIR/api-object-storage-ca-patch.log" 2>&1
