@@ -1,0 +1,500 @@
+2026-07-16T23:37:38.4788249Z       "route": "/platform-v7/onboarding",
+2026-07-16T23:37:38.4788418Z       "file": "apps/web/app/platform-v7/onboarding/page.tsx",
+2026-07-16T23:37:38.4788530Z       "classification": "design-system-v8",
+2026-07-16T23:37:38.4788622Z       "clientComponent": false,
+2026-07-16T23:37:38.4788713Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4788785Z     },
+2026-07-16T23:37:38.4788853Z     {
+2026-07-16T23:37:38.4788945Z       "route": "/platform-v7/open",
+2026-07-16T23:37:38.4789072Z       "file": "apps/web/app/platform-v7/open/page.tsx",
+2026-07-16T23:37:38.4789165Z       "classification": "public",
+2026-07-16T23:37:38.4789253Z       "clientComponent": true,
+2026-07-16T23:37:38.4789345Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4789412Z     },
+2026-07-16T23:37:38.4789482Z     {
+2026-07-16T23:37:38.4789605Z       "route": "/platform-v7/operator-cockpit/queues",
+2026-07-16T23:37:38.4789797Z       "file": "apps/web/app/platform-v7/operator-cockpit/queues/page.tsx",
+2026-07-16T23:37:38.4789892Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4789981Z       "clientComponent": false,
+2026-07-16T23:37:38.4790076Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4790146Z     },
+2026-07-16T23:37:38.4790213Z     {
+2026-07-16T23:37:38.4790319Z       "route": "/platform-v7/operator/grain",
+2026-07-16T23:37:38.4790470Z       "file": "apps/web/app/platform-v7/operator/grain/page.tsx",
+2026-07-16T23:37:38.4790576Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4790662Z       "clientComponent": false,
+2026-07-16T23:37:38.4790754Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4790821Z     },
+2026-07-16T23:37:38.4790891Z     {
+2026-07-16T23:37:38.4790981Z       "route": "/platform-v7/operator",
+2026-07-16T23:37:38.4791118Z       "file": "apps/web/app/platform-v7/operator/page.tsx",
+2026-07-16T23:37:38.4791216Z       "classification": "design-system-v8",
+2026-07-16T23:37:38.4791441Z       "clientComponent": false,
+2026-07-16T23:37:38.4791535Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4791603Z     },
+2026-07-16T23:37:38.4791673Z     {
+2026-07-16T23:37:38.4791766Z       "route": "/platform-v7",
+2026-07-16T23:37:38.4791883Z       "file": "apps/web/app/platform-v7/page.tsx",
+2026-07-16T23:37:38.4791971Z       "classification": "public",
+2026-07-16T23:37:38.4792058Z       "clientComponent": false,
+2026-07-16T23:37:38.4792149Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4792219Z     },
+2026-07-16T23:37:38.4792286Z     {
+2026-07-16T23:37:38.4792390Z       "route": "/platform-v7/pilot-runbook",
+2026-07-16T23:37:38.4792541Z       "file": "apps/web/app/platform-v7/pilot-runbook/page.tsx",
+2026-07-16T23:37:38.4792638Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4792723Z       "clientComponent": false,
+2026-07-16T23:37:38.4792815Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4792884Z     },
+2026-07-16T23:37:38.4792955Z     {
+2026-07-16T23:37:38.4793052Z       "route": "/platform-v7/pricing",
+2026-07-16T23:37:38.4793188Z       "file": "apps/web/app/platform-v7/pricing/page.tsx",
+2026-07-16T23:37:38.4793277Z       "classification": "public",
+2026-07-16T23:37:38.4793478Z       "clientComponent": false,
+2026-07-16T23:37:38.4793571Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4793644Z     },
+2026-07-16T23:37:38.4793711Z     {
+2026-07-16T23:37:38.4793805Z       "route": "/platform-v7/privacy",
+2026-07-16T23:37:38.4793931Z       "file": "apps/web/app/platform-v7/privacy/page.tsx",
+2026-07-16T23:37:38.4794021Z       "classification": "public",
+2026-07-16T23:37:38.4794107Z       "clientComponent": false,
+2026-07-16T23:37:38.4794199Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4794265Z     },
+2026-07-16T23:37:38.4794335Z     {
+2026-07-16T23:37:38.4794430Z       "route": "/platform-v7/procurement",
+2026-07-16T23:37:38.4794573Z       "file": "apps/web/app/platform-v7/procurement/page.tsx",
+2026-07-16T23:37:38.4794667Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4794761Z       "clientComponent": false,
+2026-07-16T23:37:38.4794855Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4794926Z     },
+2026-07-16T23:37:38.4794998Z     {
+2026-07-16T23:37:38.4795091Z       "route": "/platform-v7/profile",
+2026-07-16T23:37:38.4795217Z       "file": "apps/web/app/platform-v7/profile/page.tsx",
+2026-07-16T23:37:38.4795315Z       "classification": "design-system-v8",
+2026-07-16T23:37:38.4795403Z       "clientComponent": false,
+2026-07-16T23:37:38.4795492Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4795562Z     },
+2026-07-16T23:37:38.4795630Z     {
+2026-07-16T23:37:38.4795726Z       "route": "/platform-v7/profile/team",
+2026-07-16T23:37:38.4795869Z       "file": "apps/web/app/platform-v7/profile/team/page.tsx",
+2026-07-16T23:37:38.4795968Z       "classification": "design-system-v8",
+2026-07-16T23:37:38.4796053Z       "clientComponent": false,
+2026-07-16T23:37:38.4796146Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4796217Z     },
+2026-07-16T23:37:38.4796288Z     {
+2026-07-16T23:37:38.4796382Z       "route": "/platform-v7/proposals",
+2026-07-16T23:37:38.4796528Z       "file": "apps/web/app/platform-v7/proposals/page.tsx",
+2026-07-16T23:37:38.4796623Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4796712Z       "clientComponent": false,
+2026-07-16T23:37:38.4796801Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4796871Z     },
+2026-07-16T23:37:38.4796937Z     {
+2026-07-16T23:37:38.4797044Z       "route": "/platform-v7/readiness/grain",
+2026-07-16T23:37:38.4797193Z       "file": "apps/web/app/platform-v7/readiness/grain/page.tsx",
+2026-07-16T23:37:38.4797289Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4797374Z       "clientComponent": false,
+2026-07-16T23:37:38.4797468Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4797535Z     },
+2026-07-16T23:37:38.4797605Z     {
+2026-07-16T23:37:38.4797697Z       "route": "/platform-v7/readiness",
+2026-07-16T23:37:38.4797924Z       "file": "apps/web/app/platform-v7/readiness/page.tsx",
+2026-07-16T23:37:38.4798158Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4798249Z       "clientComponent": false,
+2026-07-16T23:37:38.4798345Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4798415Z     },
+2026-07-16T23:37:38.4798482Z     {
+2026-07-16T23:37:38.4798578Z       "route": "/platform-v7/register",
+2026-07-16T23:37:38.4798709Z       "file": "apps/web/app/platform-v7/register/page.tsx",
+2026-07-16T23:37:38.4798801Z       "classification": "public",
+2026-07-16T23:37:38.4798890Z       "clientComponent": false,
+2026-07-16T23:37:38.4798978Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4799047Z     },
+2026-07-16T23:37:38.4799114Z     {
+2026-07-16T23:37:38.4799210Z       "route": "/platform-v7/reports/esg",
+2026-07-16T23:37:38.4799346Z       "file": "apps/web/app/platform-v7/reports/esg/page.tsx",
+2026-07-16T23:37:38.4799442Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4799533Z       "clientComponent": false,
+2026-07-16T23:37:38.4799626Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4799693Z     },
+2026-07-16T23:37:38.4799763Z     {
+2026-07-16T23:37:38.4799980Z       "route": "/platform-v7/reports/grain",
+2026-07-16T23:37:38.4800132Z       "file": "apps/web/app/platform-v7/reports/grain/page.tsx",
+2026-07-16T23:37:38.4800226Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4800314Z       "clientComponent": false,
+2026-07-16T23:37:38.4800403Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4800472Z     },
+2026-07-16T23:37:38.4800537Z     {
+2026-07-16T23:37:38.4800629Z       "route": "/platform-v7/reports",
+2026-07-16T23:37:38.4800755Z       "file": "apps/web/app/platform-v7/reports/page.tsx",
+2026-07-16T23:37:38.4800852Z       "classification": "design-system-v8",
+2026-07-16T23:37:38.4800935Z       "clientComponent": false,
+2026-07-16T23:37:38.4801027Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4801094Z     },
+2026-07-16T23:37:38.4801169Z     {
+2026-07-16T23:37:38.4801277Z       "route": "/platform-v7/reports/regulator",
+2026-07-16T23:37:38.4801436Z       "file": "apps/web/app/platform-v7/reports/regulator/page.tsx",
+2026-07-16T23:37:38.4801536Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4801624Z       "clientComponent": false,
+2026-07-16T23:37:38.4801713Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4801785Z     },
+2026-07-16T23:37:38.4801851Z     {
+2026-07-16T23:37:38.4801946Z       "route": "/platform-v7/request",
+2026-07-16T23:37:38.4802074Z       "file": "apps/web/app/platform-v7/request/page.tsx",
+2026-07-16T23:37:38.4802165Z       "classification": "public",
+2026-07-16T23:37:38.4802254Z       "clientComponent": false,
+2026-07-16T23:37:38.4802344Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4802414Z     },
+2026-07-16T23:37:38.4802480Z     {
+2026-07-16T23:37:38.4802573Z       "route": "/platform-v7/roadmap",
+2026-07-16T23:37:38.4802700Z       "file": "apps/web/app/platform-v7/roadmap/page.tsx",
+2026-07-16T23:37:38.4802796Z       "classification": "public",
+2026-07-16T23:37:38.4802880Z       "clientComponent": false,
+2026-07-16T23:37:38.4802972Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4803041Z     },
+2026-07-16T23:37:38.4803114Z     {
+2026-07-16T23:37:38.4803212Z       "route": "/platform-v7/role-preview",
+2026-07-16T23:37:38.4803358Z       "file": "apps/web/app/platform-v7/role-preview/page.tsx",
+2026-07-16T23:37:38.4803447Z       "classification": "public",
+2026-07-16T23:37:38.4803534Z       "clientComponent": false,
+2026-07-16T23:37:38.4803625Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4803695Z     },
+2026-07-16T23:37:38.4803762Z     {
+2026-07-16T23:37:38.4803855Z       "route": "/platform-v7/roles",
+2026-07-16T23:37:38.4803981Z       "file": "apps/web/app/platform-v7/roles/page.tsx",
+2026-07-16T23:37:38.4804070Z       "classification": "public",
+2026-07-16T23:37:38.4804154Z       "clientComponent": false,
+2026-07-16T23:37:38.4804248Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4804433Z     },
+2026-07-16T23:37:38.4804502Z     {
+2026-07-16T23:37:38.4804606Z       "route": "/platform-v7/runtime-status",
+2026-07-16T23:37:38.4804764Z       "file": "apps/web/app/platform-v7/runtime-status/page.tsx",
+2026-07-16T23:37:38.4804860Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4804954Z       "clientComponent": false,
+2026-07-16T23:37:38.4805043Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4805114Z     },
+2026-07-16T23:37:38.4805180Z     {
+2026-07-16T23:37:38.4805292Z       "route": "/platform-v7/secure-grain-deal",
+2026-07-16T23:37:38.4805447Z       "file": "apps/web/app/platform-v7/secure-grain-deal/page.tsx",
+2026-07-16T23:37:38.4805538Z       "classification": "public",
+2026-07-16T23:37:38.4805622Z       "clientComponent": false,
+2026-07-16T23:37:38.4805717Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4805785Z     },
+2026-07-16T23:37:38.4805859Z     {
+2026-07-16T23:37:38.4805962Z       "route": "/platform-v7/security/grain",
+2026-07-16T23:37:38.4806109Z       "file": "apps/web/app/platform-v7/security/grain/page.tsx",
+2026-07-16T23:37:38.4806208Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4806295Z       "clientComponent": false,
+2026-07-16T23:37:38.4806473Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4806545Z     },
+2026-07-16T23:37:38.4806616Z     {
+2026-07-16T23:37:38.4806710Z       "route": "/platform-v7/security",
+2026-07-16T23:37:38.4806846Z       "file": "apps/web/app/platform-v7/security/page.tsx",
+2026-07-16T23:37:38.4806942Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4807033Z       "clientComponent": false,
+2026-07-16T23:37:38.4807125Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4807198Z     },
+2026-07-16T23:37:38.4807265Z     {
+2026-07-16T23:37:38.4807380Z       "route": "/platform-v7/seller/batches/new",
+2026-07-16T23:37:38.4807536Z       "file": "apps/web/app/platform-v7/seller/batches/new/page.tsx",
+2026-07-16T23:37:38.4807632Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4807723Z       "clientComponent": false,
+2026-07-16T23:37:38.4807818Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4807886Z     },
+2026-07-16T23:37:38.4808074Z     {
+2026-07-16T23:37:38.4808184Z       "route": "/platform-v7/seller/batches",
+2026-07-16T23:37:38.4808334Z       "file": "apps/web/app/platform-v7/seller/batches/page.tsx",
+2026-07-16T23:37:38.4808431Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4808521Z       "clientComponent": false,
+2026-07-16T23:37:38.4808611Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4808679Z     },
+2026-07-16T23:37:38.4808748Z     {
+2026-07-16T23:37:38.4808846Z       "route": "/platform-v7/seller/deals",
+2026-07-16T23:37:38.4808987Z       "file": "apps/web/app/platform-v7/seller/deals/page.tsx",
+2026-07-16T23:37:38.4809084Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4809170Z       "clientComponent": false,
+2026-07-16T23:37:38.4809266Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4809338Z     },
+2026-07-16T23:37:38.4809407Z     {
+2026-07-16T23:37:38.4809526Z       "route": "/platform-v7/seller/fgis-parties",
+2026-07-16T23:37:38.4809691Z       "file": "apps/web/app/platform-v7/seller/fgis-parties/page.tsx",
+2026-07-16T23:37:38.4809787Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4809873Z       "clientComponent": false,
+2026-07-16T23:37:38.4809967Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4810035Z     },
+2026-07-16T23:37:38.4810107Z     {
+2026-07-16T23:37:38.4810208Z       "route": "/platform-v7/seller/lots/new",
+2026-07-16T23:37:38.4810358Z       "file": "apps/web/app/platform-v7/seller/lots/new/page.tsx",
+2026-07-16T23:37:38.4810453Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4810546Z       "clientComponent": false,
+2026-07-16T23:37:38.4810640Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4810711Z     },
+2026-07-16T23:37:38.4810777Z     {
+2026-07-16T23:37:38.4810880Z       "route": "/platform-v7/seller/lots",
+2026-07-16T23:37:38.4811155Z       "file": "apps/web/app/platform-v7/seller/lots/page.tsx",
+2026-07-16T23:37:38.4811254Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4811340Z       "clientComponent": false,
+2026-07-16T23:37:38.4811440Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4811509Z     },
+2026-07-16T23:37:38.4811583Z     {
+2026-07-16T23:37:38.4811683Z       "route": "/platform-v7/seller/matches",
+2026-07-16T23:37:38.4811835Z       "file": "apps/web/app/platform-v7/seller/matches/page.tsx",
+2026-07-16T23:37:38.4811930Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4812020Z       "clientComponent": false,
+2026-07-16T23:37:38.4812114Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4812185Z     },
+2026-07-16T23:37:38.4812251Z     {
+2026-07-16T23:37:38.4812353Z       "route": "/platform-v7/seller/offers",
+2026-07-16T23:37:38.4812497Z       "file": "apps/web/app/platform-v7/seller/offers/page.tsx",
+2026-07-16T23:37:38.4812596Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4812687Z       "clientComponent": false,
+2026-07-16T23:37:38.4812781Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4812854Z     },
+2026-07-16T23:37:38.4812922Z     {
+2026-07-16T23:37:38.4813128Z       "route": "/platform-v7/seller",
+2026-07-16T23:37:38.4813260Z       "file": "apps/web/app/platform-v7/seller/page.tsx",
+2026-07-16T23:37:38.4813580Z       "classification": "design-system-v8",
+2026-07-16T23:37:38.4813724Z       "clientComponent": false,
+2026-07-16T23:37:38.4813873Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4813985Z     },
+2026-07-16T23:37:38.4814104Z     {
+2026-07-16T23:37:38.4814296Z       "route": "/platform-v7/seller/quick-sale",
+2026-07-16T23:37:38.4814461Z       "file": "apps/web/app/platform-v7/seller/quick-sale/page.tsx",
+2026-07-16T23:37:38.4814559Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4814650Z       "clientComponent": false,
+2026-07-16T23:37:38.4814739Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4814825Z     },
+2026-07-16T23:37:38.4814892Z     {
+2026-07-16T23:37:38.4815000Z       "route": "/platform-v7/seller/reputation",
+2026-07-16T23:37:38.4815152Z       "file": "apps/web/app/platform-v7/seller/reputation/page.tsx",
+2026-07-16T23:37:38.4815258Z       "classification": "design-system-v8",
+2026-07-16T23:37:38.4815346Z       "clientComponent": false,
+2026-07-16T23:37:38.4815443Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4815511Z     },
+2026-07-16T23:37:38.4815580Z     {
+2026-07-16T23:37:38.4815669Z       "route": "/platform-v7/seller/rfq",
+2026-07-16T23:37:38.4815811Z       "file": "apps/web/app/platform-v7/seller/rfq/page.tsx",
+2026-07-16T23:37:38.4815909Z       "classification": "design-system-v8",
+2026-07-16T23:37:38.4815998Z       "clientComponent": false,
+2026-07-16T23:37:38.4816089Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4816160Z     },
+2026-07-16T23:37:38.4816227Z     {
+2026-07-16T23:37:38.4816338Z       "route": "/platform-v7/settlement/grain",
+2026-07-16T23:37:38.4816494Z       "file": "apps/web/app/platform-v7/settlement/grain/page.tsx",
+2026-07-16T23:37:38.4816593Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4816680Z       "clientComponent": false,
+2026-07-16T23:37:38.4816782Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4816860Z     },
+2026-07-16T23:37:38.4816928Z     {
+2026-07-16T23:37:38.4817026Z       "route": "/platform-v7/simulator",
+2026-07-16T23:37:38.4817164Z       "file": "apps/web/app/platform-v7/simulator/page.tsx",
+2026-07-16T23:37:38.4817263Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4817354Z       "clientComponent": false,
+2026-07-16T23:37:38.4817450Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4817517Z     },
+2026-07-16T23:37:38.4817585Z     {
+2026-07-16T23:37:38.4817704Z       "route": "/platform-v7/staff/cabinet-handoff",
+2026-07-16T23:37:38.4817881Z       "file": "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx",
+2026-07-16T23:37:38.4818110Z       "classification": "staff-plane",
+2026-07-16T23:37:38.4818362Z       "clientComponent": false,
+2026-07-16T23:37:38.4818459Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4818532Z     },
+2026-07-16T23:37:38.4818601Z     {
+2026-07-16T23:37:38.4818704Z       "route": "/platform-v7/staff",
+2026-07-16T23:37:38.4818849Z       "file": "apps/web/app/platform-v7/staff/page.tsx",
+2026-07-16T23:37:38.4818954Z       "classification": "staff-plane",
+2026-07-16T23:37:38.4819043Z       "clientComponent": false,
+2026-07-16T23:37:38.4819140Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4819207Z     },
+2026-07-16T23:37:38.4819278Z     {
+2026-07-16T23:37:38.4819372Z       "route": "/platform-v7/status",
+2026-07-16T23:37:38.4819515Z       "file": "apps/web/app/platform-v7/status/page.tsx",
+2026-07-16T23:37:38.4819620Z       "classification": "design-system-v8",
+2026-07-16T23:37:38.4819712Z       "clientComponent": false,
+2026-07-16T23:37:38.4819802Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4819872Z     },
+2026-07-16T23:37:38.4819944Z     {
+2026-07-16T23:37:38.4820060Z       "route": "/platform-v7/support/[caseId]",
+2026-07-16T23:37:38.4820219Z       "file": "apps/web/app/platform-v7/support/[caseId]/page.tsx",
+2026-07-16T23:37:38.4820436Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4820527Z       "clientComponent": false,
+2026-07-16T23:37:38.4820624Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4820693Z     },
+2026-07-16T23:37:38.4820765Z     {
+2026-07-16T23:37:38.4820868Z       "route": "/platform-v7/support/detail",
+2026-07-16T23:37:38.4821024Z       "file": "apps/web/app/platform-v7/support/detail/page.tsx",
+2026-07-16T23:37:38.4821123Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4821208Z       "clientComponent": false,
+2026-07-16T23:37:38.4821300Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4821368Z     },
+2026-07-16T23:37:38.4821437Z     {
+2026-07-16T23:37:38.4821538Z       "route": "/platform-v7/support/grain",
+2026-07-16T23:37:38.4821686Z       "file": "apps/web/app/platform-v7/support/grain/page.tsx",
+2026-07-16T23:37:38.4821787Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4821875Z       "clientComponent": false,
+2026-07-16T23:37:38.4821972Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4822042Z     },
+2026-07-16T23:37:38.4822109Z     {
+2026-07-16T23:37:38.4822210Z       "route": "/platform-v7/support/new",
+2026-07-16T23:37:38.4822351Z       "file": "apps/web/app/platform-v7/support/new/page.tsx",
+2026-07-16T23:37:38.4822449Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4822537Z       "clientComponent": false,
+2026-07-16T23:37:38.4822637Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4822703Z     },
+2026-07-16T23:37:38.4822773Z     {
+2026-07-16T23:37:38.4822875Z       "route": "/platform-v7/support/operator",
+2026-07-16T23:37:38.4823029Z       "file": "apps/web/app/platform-v7/support/operator/page.tsx",
+2026-07-16T23:37:38.4823124Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4823213Z       "clientComponent": false,
+2026-07-16T23:37:38.4823306Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4823378Z     },
+2026-07-16T23:37:38.4823445Z     {
+2026-07-16T23:37:38.4823541Z       "route": "/platform-v7/support",
+2026-07-16T23:37:38.4823676Z       "file": "apps/web/app/platform-v7/support/page.tsx",
+2026-07-16T23:37:38.4823776Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4823863Z       "clientComponent": false,
+2026-07-16T23:37:38.4823960Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4824031Z     },
+2026-07-16T23:37:38.4824104Z     {
+2026-07-16T23:37:38.4824217Z       "route": "/platform-v7/surveyor/acts/[id]",
+2026-07-16T23:37:38.4824385Z       "file": "apps/web/app/platform-v7/surveyor/acts/[id]/page.tsx",
+2026-07-16T23:37:38.4824485Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4824571Z       "clientComponent": false,
+2026-07-16T23:37:38.4824666Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4824734Z     },
+2026-07-16T23:37:38.4824895Z     {
+2026-07-16T23:37:38.4824996Z       "route": "/platform-v7/surveyor/grain",
+2026-07-16T23:37:38.4825146Z       "file": "apps/web/app/platform-v7/surveyor/grain/page.tsx",
+2026-07-16T23:37:38.4825246Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4825337Z       "clientComponent": false,
+2026-07-16T23:37:38.4825427Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4825499Z     },
+2026-07-16T23:37:38.4825565Z     {
+2026-07-16T23:37:38.4825657Z       "route": "/platform-v7/surveyor",
+2026-07-16T23:37:38.4825790Z       "file": "apps/web/app/platform-v7/surveyor/page.tsx",
+2026-07-16T23:37:38.4825893Z       "classification": "design-system-v8",
+2026-07-16T23:37:38.4825977Z       "clientComponent": false,
+2026-07-16T23:37:38.4826068Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4826134Z     },
+2026-07-16T23:37:38.4826205Z     {
+2026-07-16T23:37:38.4826338Z       "route": "/platform-v7/terms",
+2026-07-16T23:37:38.4826475Z       "file": "apps/web/app/platform-v7/terms/page.tsx",
+2026-07-16T23:37:38.4826572Z       "classification": "public",
+2026-07-16T23:37:38.4826664Z       "clientComponent": false,
+2026-07-16T23:37:38.4826754Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4826826Z     },
+2026-07-16T23:37:38.4826976Z     {
+2026-07-16T23:37:38.4827071Z       "route": "/platform-v7/trading",
+2026-07-16T23:37:38.4827197Z       "file": "apps/web/app/platform-v7/trading/page.tsx",
+2026-07-16T23:37:38.4827291Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4827375Z       "clientComponent": false,
+2026-07-16T23:37:38.4827466Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4827533Z     },
+2026-07-16T23:37:38.4827602Z     {
+2026-07-16T23:37:38.4827690Z       "route": "/platform-v7/trust",
+2026-07-16T23:37:38.4827821Z       "file": "apps/web/app/platform-v7/trust/page.tsx",
+2026-07-16T23:37:38.4827922Z       "classification": "alias-redirect",
+2026-07-16T23:37:38.4828306Z       "clientComponent": false,
+2026-07-16T23:37:38.4828410Z       "importsLegacyRuntime": false
+2026-07-16T23:37:38.4828490Z     }
+2026-07-16T23:37:38.4828568Z   ]
+2026-07-16T23:37:38.4828638Z }
+2026-07-16T23:37:38.4925898Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-16T23:37:38.4929339Z ##[group]Run actions/upload-artifact@v4
+2026-07-16T23:37:38.4929815Z with:
+2026-07-16T23:37:38.4930397Z   name: platform-v7-route-inventory-160d38464ef7fda49ebf656473f52a930b0370d5
+2026-07-16T23:37:38.4931176Z   path: platform-v7-route-inventory.json
+2026-07-16T23:37:38.4931669Z   if-no-files-found: error
+2026-07-16T23:37:38.4932089Z   retention-days: 14
+2026-07-16T23:37:38.4932480Z   compression-level: 6
+2026-07-16T23:37:38.4932876Z   overwrite: false
+2026-07-16T23:37:38.4933271Z   include-hidden-files: false
+2026-07-16T23:37:38.4933701Z ##[endgroup]
+2026-07-16T23:37:38.6481783Z (node:2307) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-07-16T23:37:38.6482551Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-07-16T23:37:38.6539161Z With the provided path, there will be 1 file uploaded
+2026-07-16T23:37:38.6551638Z Artifact name is valid!
+2026-07-16T23:37:38.6552606Z Root directory input is valid!
+2026-07-16T23:37:38.9869686Z Beginning upload of artifact content to blob storage
+2026-07-16T23:37:39.0066788Z (node:2307) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-07-16T23:37:39.3195458Z Uploaded bytes 2551
+2026-07-16T23:37:39.4053815Z Finished uploading artifact content to blob storage!
+2026-07-16T23:37:39.4055169Z SHA256 digest of uploaded artifact zip is beee192f328c3cd98955d79ba92dce70aa7fe55cc49b6741b25e53c24449fffc
+2026-07-16T23:37:39.4057091Z Finalizing artifact upload
+2026-07-16T23:37:39.6239623Z Artifact platform-v7-route-inventory-160d38464ef7fda49ebf656473f52a930b0370d5.zip successfully finalized. Artifact ID 8392810014
+2026-07-16T23:37:39.6243311Z Artifact platform-v7-route-inventory-160d38464ef7fda49ebf656473f52a930b0370d5 has been successfully uploaded! Final size is 2551 bytes. Artifact ID is 8392810014
+2026-07-16T23:37:39.6245884Z Artifact download URL: https://github.com/pachaninm-lab/pachanin-demo/actions/runs/29542582597/artifacts/8392810014
+2026-07-16T23:37:39.6582361Z ##[group]Run bash scripts/p7-autopilot-guard.sh
+2026-07-16T23:37:39.6582754Z [36;1mbash scripts/p7-autopilot-guard.sh[0m
+2026-07-16T23:37:39.6641970Z shell: /usr/bin/bash -e {0}
+2026-07-16T23:37:39.6642225Z ##[endgroup]
+2026-07-16T23:37:39.6795383Z platform-v7 autopilot guard
+2026-07-16T23:37:39.6795850Z Changed files:
+2026-07-16T23:37:39.6796193Z .github/workflows/indexnow-submit.yml
+2026-07-16T23:37:39.6796534Z .github/workflows/security-abuse-evidence.yml
+2026-07-16T23:37:39.6796960Z .github/workflows/seo-live-smoke.yml
+2026-07-16T23:37:39.6797492Z apps/web/public/a7a2b84a1d594be0b7648166c4c4cf26.txt
+2026-07-16T23:37:39.6798338Z apps/web/tests/unit/exactMainLiveEvidenceContract.test.ts
+2026-07-16T23:37:39.6805146Z docs/platform-v7/autopilot/exact-main-live-evidence-2659.md
+2026-07-16T23:37:39.6805516Z netlify.toml
+2026-07-16T23:37:39.6805736Z scripts/indexnow-submit.mjs
+2026-07-16T23:37:39.6806023Z scripts/security/capture-base-security-jobs.mjs
+2026-07-16T23:37:39.6806378Z scripts/write-deploy-evidence.mjs
+2026-07-16T23:37:39.8001499Z Files outside current autopilot scope:
+2026-07-16T23:37:39.8002041Z .github/workflows/indexnow-submit.yml
+2026-07-16T23:37:39.8002556Z .github/workflows/security-abuse-evidence.yml
+2026-07-16T23:37:39.8003051Z .github/workflows/seo-live-smoke.yml
+2026-07-16T23:37:39.8003391Z apps/web/public/a7a2b84a1d594be0b7648166c4c4cf26.txt
+2026-07-16T23:37:39.8003801Z apps/web/tests/unit/exactMainLiveEvidenceContract.test.ts
+2026-07-16T23:37:39.8004152Z netlify.toml
+2026-07-16T23:37:39.8004358Z scripts/indexnow-submit.mjs
+2026-07-16T23:37:39.8004638Z scripts/security/capture-base-security-jobs.mjs
+2026-07-16T23:37:39.8004957Z scripts/write-deploy-evidence.mjs
+2026-07-16T23:37:39.8005502Z Allowed current scope from docs/platform-v7/autopilot/autopilot-state.json plus source-controlled branch scopes:
+2026-07-16T23:37:39.8006671Z docs/platform-v7/autopilot/autopilot-state.json
+2026-07-16T23:37:39.8007221Z docs/platform-v7/autopilot/progress.json
+2026-07-16T23:37:39.8007770Z docs/platform-v7/autopilot/prompts/current-codex-task.md
+2026-07-16T23:37:39.8008692Z docs/platform-v7/autopilot/prompts/current-review-task.md
+2026-07-16T23:37:39.8009057Z docs/platform-v7/execution-queue.md
+2026-07-16T23:37:39.8009354Z apps/api/src/common/config/industrial-mode.ts
+2026-07-16T23:37:39.8009697Z apps/api/src/common/command-execution.context.ts
+2026-07-16T23:37:39.8010046Z apps/api/src/common/prisma/rls-transaction.service.ts
+2026-07-16T23:37:39.8010403Z apps/api/src/modules/deals/deal-command-payload.ts
+2026-07-16T23:37:39.8010741Z apps/api/src/modules/deals/deal-command.service.ts
+2026-07-16T23:37:39.8011052Z apps/api/src/modules/deals/deals.module.ts
+2026-07-16T23:37:39.8011416Z apps/api/src/modules/deals/industrial-deal-command.gateway.ts
+2026-07-16T23:37:39.8011843Z apps/api/src/modules/deals/postgresql-deal-command.service.ts
+2026-07-16T23:37:39.8012297Z apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
+2026-07-16T23:37:39.8012690Z apps/api/src/modules/settlement-engine/**
+2026-07-16T23:37:39.8012978Z apps/api/prisma/schema.prisma
+2026-07-16T23:37:39.8013328Z apps/api/prisma/migrations/20260713*_settlement_postgresql_authority/**
+2026-07-16T23:37:39.8013719Z apps/api/test/industrial/harness.ts
+2026-07-16T23:37:39.8014088Z apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts
+2026-07-16T23:37:39.8014527Z apps/api/test/industrial/industrial-core.e2e-spec.ts
+2026-07-16T23:37:39.8015072Z apps/api/test/industrial/reconciliation.e2e-spec.ts
+2026-07-16T23:37:39.8015420Z apps/api/test/industrial/durable-outbox.e2e-spec.ts
+2026-07-16T23:37:39.8015774Z apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
+2026-07-16T23:37:39.8016137Z apps/api/test/one-deal/restored-database-acceptance.ts
+2026-07-16T23:37:39.8016455Z apps/api/test/one-deal/seed.ts
+2026-07-16T23:37:39.8016760Z infra/sql/postgresql-settlement-authority-policies.sql
+2026-07-16T23:37:39.8017146Z scripts/platform-v7-forward-only-migration-check.mjs
+2026-07-16T23:37:39.8017643Z scripts/platform-v7-one-deal-e2e.sh
+2026-07-16T23:37:39.8017913Z .github/workflows/ci.yml
+2026-07-16T23:37:39.8028837Z ##[error]Process completed with exit code 1.
+2026-07-16T23:37:39.8163017Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-16T23:37:39.8164279Z Post job cleanup.
+2026-07-16T23:37:39.8971112Z [command]/usr/bin/git version
+2026-07-16T23:37:39.9015359Z git version 2.54.0
+2026-07-16T23:37:39.9058419Z Temporarily overriding HOME='/home/runner/work/_temp/326175f8-79a4-480c-9198-466b5396d482' before making global git config changes
+2026-07-16T23:37:39.9059856Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-16T23:37:39.9064760Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/pachanin-demo/pachanin-demo
+2026-07-16T23:37:39.9113414Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-16T23:37:39.9141702Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-16T23:37:39.9391540Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-16T23:37:39.9420830Z http.https://github.com/.extraheader
+2026-07-16T23:37:39.9433600Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-07-16T23:37:39.9466707Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-16T23:37:39.9725138Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-16T23:37:39.9796030Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-16T23:37:40.0186659Z Cleaning up orphan processes
+2026-07-16T23:37:40.0487776Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+

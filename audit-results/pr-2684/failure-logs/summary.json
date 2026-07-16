@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "repository": "pachaninm-lab/pachanin-demo",
+  "capturedAt": "2026-07-16T23:41:22.597Z",
+  "jobs": {
+    "labeler": {
+      "jobId": 87767685176,
+      "lineCount": 271,
+      "errorLineCount": 3
+    },
+    "automerge": {
+      "jobId": 87767685102,
+      "lineCount": 249,
+      "errorLineCount": 1
+    },
+    "autopilotGuard": {
+      "jobId": 87767685147,
+      "lineCount": 4234,
+      "errorLineCount": 4
+    },
+    "gitleaks": {
+      "jobId": 87767705609,
+      "lineCount": 2737,
+      "errorLineCount": 17
+    }
+  }
+}

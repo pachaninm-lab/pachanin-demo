@@ -1,0 +1,500 @@
+2026-07-16T23:37:50.9423515Z  * [new branch]          platform-v7-trip-runtime-readiness-775 -> origin/platform-v7-trip-runtime-readiness-775
+2026-07-16T23:37:50.9423791Z  * [new branch]          platform-v7-wire-idempotency-route-792 -> origin/platform-v7-wire-idempotency-route-792
+2026-07-16T23:37:50.9424073Z  * [new branch]          platform-v7-write-result-proof-776 -> origin/platform-v7-write-result-proof-776
+2026-07-16T23:37:50.9424375Z  * [new branch]          platform-v7/pr-5.1-application-service-layer -> origin/platform-v7/pr-5.1-application-service-layer
+2026-07-16T23:37:50.9424688Z  * [new branch]          platform-v7/pr-5.2-server-action-wrappers -> origin/platform-v7/pr-5.2-server-action-wrappers
+2026-07-16T23:37:50.9425040Z  * [new branch]          platform-v7/pr-5.5-mock-persistence-adapter -> origin/platform-v7/pr-5.5-mock-persistence-adapter
+2026-07-16T23:37:50.9425334Z  * [new branch]          platform-v7/pr-5.6-runtime-integration-tests -> origin/platform-v7/pr-5.6-runtime-integration-tests
+2026-07-16T23:37:50.9425597Z  * [new branch]          platform-v7/pr-5.7-final-stage5-qa -> origin/platform-v7/pr-5.7-final-stage5-qa
+2026-07-16T23:37:50.9425894Z  * [new branch]          platform-v7/pr-6.0-external-adapter-emulators -> origin/platform-v7/pr-6.0-external-adapter-emulators
+2026-07-16T23:37:50.9426198Z  * [new branch]          platform-v7/pr-7.0-ai-integration-gateway -> origin/platform-v7/pr-7.0-ai-integration-gateway
+2026-07-16T23:37:50.9426435Z  * [new branch]          platform-v7/vp-1-visible-entry -> origin/platform-v7/vp-1-visible-entry
+2026-07-16T23:37:50.9426784Z  * [new branch]          platform-v7/vp-3-runtime-entry-cockpit -> origin/platform-v7/vp-3-runtime-entry-cockpit
+2026-07-16T23:37:50.9427094Z  * [new branch]          platform-v7/vp-3-runtime-entry-cockpit-pr -> origin/platform-v7/vp-3-runtime-entry-cockpit-pr
+2026-07-16T23:37:50.9427310Z  * [new branch]          platform-v7/vp-4-product-entry -> origin/platform-v7/vp-4-product-entry
+2026-07-16T23:37:50.9427553Z  * [new branch]          platform-v7/vp-4-state-advance -> origin/platform-v7/vp-4-state-advance
+2026-07-16T23:37:50.9427768Z  * [new branch]          primary-contract-048    -> origin/primary-contract-048
+2026-07-16T23:37:50.9428023Z  * [new branch]          primary-deal-057        -> origin/primary-deal-057
+2026-07-16T23:37:50.9428257Z  * [new branch]          primary-fallback-051    -> origin/primary-fallback-051
+2026-07-16T23:37:50.9428535Z  * [new branch]          primary-href-052        -> origin/primary-href-052
+2026-07-16T23:37:50.9428758Z  * [new branch]          primary-kind-055        -> origin/primary-kind-055
+2026-07-16T23:37:50.9429110Z  * [new branch]          primary-model-047       -> origin/primary-model-047
+2026-07-16T23:37:50.9429370Z  * [new branch]          primary-no-claims-054   -> origin/primary-no-claims-054
+2026-07-16T23:37:50.9429677Z  * [new branch]          primary-notification-046 -> origin/primary-notification-046
+2026-07-16T23:37:50.9429890Z  * [new branch]          primary-read-058        -> origin/primary-read-058
+2026-07-16T23:37:50.9430049Z  * [new branch]          primary-recency-050     -> origin/primary-recency-050
+2026-07-16T23:37:50.9430293Z  * [new branch]          primary-set-060         -> origin/primary-set-060
+2026-07-16T23:37:50.9430469Z  * [new branch]          primary-severity-049    -> origin/primary-severity-049
+2026-07-16T23:37:50.9430702Z  * [new branch]          primary-severity-kind-059 -> origin/primary-severity-kind-059
+2026-07-16T23:37:50.9430865Z  * [new branch]          primary-time-056        -> origin/primary-time-056
+2026-07-16T23:37:50.9431122Z  * [new branch]          primary-title-053       -> origin/primary-title-053
+2026-07-16T23:37:50.9431298Z  * [new branch]          probe-do-not-use        -> origin/probe-do-not-use
+2026-07-16T23:37:50.9431494Z  * [new branch]          pv7-eyebrow             -> origin/pv7-eyebrow
+2026-07-16T23:37:50.9431644Z  * [new branch]          pv7-mob-eg              -> origin/pv7-mob-eg
+2026-07-16T23:37:50.9431818Z  * [new branch]          pv7-rfg                 -> origin/pv7-rfg
+2026-07-16T23:37:50.9432009Z  * [new branch]          pv7-rolecopy            -> origin/pv7-rolecopy
+2026-07-16T23:37:50.9432198Z  * [new branch]          pv7-smoke-workflow      -> origin/pv7-smoke-workflow
+2026-07-16T23:37:50.9432398Z  * [new branch]          pv7-visual-reset        -> origin/pv7-visual-reset
+2026-07-16T23:37:50.9432532Z  * [new branch]          q1                      -> origin/q1
+2026-07-16T23:37:50.9432694Z  * [new branch]          q2                      -> origin/q2
+2026-07-16T23:37:50.9432824Z  * [new branch]          q3                      -> origin/q3
+2026-07-16T23:37:50.9432983Z  * [new branch]          q4                      -> origin/q4
+2026-07-16T23:37:50.9433128Z  * [new branch]          q92                     -> origin/q92
+2026-07-16T23:37:50.9433289Z  * [new branch]          q94                     -> origin/q94
+2026-07-16T23:37:50.9433448Z  * [new branch]          q96                     -> origin/q96
+2026-07-16T23:37:50.9433624Z  * [new branch]          q98                     -> origin/q98
+2026-07-16T23:37:50.9433844Z  * [new branch]          qa-01-live-smoke-plan   -> origin/qa-01-live-smoke-plan
+2026-07-16T23:37:50.9434031Z  * [new branch]          qa-02-finish-roadmap    -> origin/qa-02-finish-roadmap
+2026-07-16T23:37:50.9434302Z  * [new branch]          qa-03-automated-live-route-smoke -> origin/qa-03-automated-live-route-smoke
+2026-07-16T23:37:50.9434518Z  * [new branch]          qa-04-visual-regression-core -> origin/qa-04-visual-regression-core
+2026-07-16T23:37:50.9434822Z  * [new branch]          qa-04-visual-regression-screenshots -> origin/qa-04-visual-regression-screenshots
+2026-07-16T23:37:50.9435138Z  * [new branch]          qa-05-lighthouse-baseline -> origin/qa-05-lighthouse-baseline
+2026-07-16T23:37:50.9435402Z  * [new branch]          qa-06-field-usability-gate -> origin/qa-06-field-usability-gate
+2026-07-16T23:37:50.9435583Z  * [new branch]          qa-07-role-leakage-deep -> origin/qa-07-role-leakage-deep
+2026-07-16T23:37:50.9435824Z  * [new branch]          qa-08-action-click-feedback -> origin/qa-08-action-click-feedback
+2026-07-16T23:37:50.9436078Z  * [new branch]          qa-09-route-hints-beyond-driver -> origin/qa-09-route-hints-beyond-driver
+2026-07-16T23:37:50.9436322Z  * [new branch]          qa-10-moneytree-readonly-usage -> origin/qa-10-moneytree-readonly-usage
+2026-07-16T23:37:50.9436565Z  * [new branch]          qa-11-documents-actions -> origin/qa-11-documents-actions
+2026-07-16T23:37:50.9436789Z  * [new branch]          qa-12-evidence-decision-wiring -> origin/qa-12-evidence-decision-wiring
+2026-07-16T23:37:50.9437018Z  * [new branch]          qa-13-investor-truth-pass -> origin/qa-13-investor-truth-pass
+2026-07-16T23:37:50.9437190Z  * [new branch]          qa-14-final-demo-flow   -> origin/qa-14-final-demo-flow
+2026-07-16T23:37:50.9437480Z  * [new branch]          qa-15-controlled-pilot-finish-report -> origin/qa-15-controlled-pilot-finish-report
+2026-07-16T23:37:50.9437670Z  * [new branch]          qa-deal-identity-001    -> origin/qa-deal-identity-001
+2026-07-16T23:37:50.9437990Z  * [new branch]          qa-platform-v7-final-report -> origin/qa-platform-v7-final-report
+2026-07-16T23:37:50.9438286Z  * [new branch]          qa-platform-v7-mobile-cleanup -> origin/qa-platform-v7-mobile-cleanup
+2026-07-16T23:37:50.9438542Z  * [new branch]          qa-platform-v7-routes-v2 -> origin/qa-platform-v7-routes-v2
+2026-07-16T23:37:50.9438732Z  * [new branch]          qa-route-control-001    -> origin/qa-route-control-001
+2026-07-16T23:37:50.9438975Z  * [new branch]          qa-route-smoke-002      -> origin/qa-route-smoke-002
+2026-07-16T23:37:50.9439284Z  * [new branch]          qa/owner-all-cabinets-display-matrix -> origin/qa/owner-all-cabinets-display-matrix
+2026-07-16T23:37:50.9439426Z  * [new branch]          qa001                   -> origin/qa001
+2026-07-16T23:37:50.9439596Z  * [new branch]          qa008                   -> origin/qa008
+2026-07-16T23:37:50.9439730Z  * [new branch]          qa1                     -> origin/qa1
+2026-07-16T23:37:50.9439960Z  * [new branch]          quickjump-copy-safety-080 -> origin/quickjump-copy-safety-080
+2026-07-16T23:37:50.9440166Z  * [new branch]          quickjump-copy-safety-081 -> origin/quickjump-copy-safety-081
+2026-07-16T23:37:50.9440441Z  * [new branch]          quickjump-deep-link-scope-082 -> origin/quickjump-deep-link-scope-082
+2026-07-16T23:37:50.9440661Z  * [new branch]          quickjump-deep-link-scope-083 -> origin/quickjump-deep-link-scope-083
+2026-07-16T23:37:50.9440899Z  * [new branch]          quickjump-role-actions-078 -> origin/quickjump-role-actions-078
+2026-07-16T23:37:50.9441132Z  * [new branch]          quickjump-role-actions-079 -> origin/quickjump-role-actions-079
+2026-07-16T23:37:50.9441317Z  * [new branch]          quickjump-unique-076    -> origin/quickjump-unique-076
+2026-07-16T23:37:50.9441517Z  * [new branch]          quickjump-unique-077    -> origin/quickjump-unique-077
+2026-07-16T23:37:50.9441648Z  * [new branch]          r1                      -> origin/r1
+2026-07-16T23:37:50.9441808Z  * [new branch]          r2                      -> origin/r2
+2026-07-16T23:37:50.9441931Z  * [new branch]          r3                      -> origin/r3
+2026-07-16T23:37:50.9442167Z  * [new branch]          r4                      -> origin/r4
+2026-07-16T23:37:50.9442457Z  * [new branch]          redesign-platform-v4-control-center -> origin/redesign-platform-v4-control-center
+2026-07-16T23:37:50.9442715Z  * [new branch]          refactor/p7-scoped-shell-guard -> origin/refactor/p7-scoped-shell-guard
+2026-07-16T23:37:50.9442993Z  * [new branch]          release/e0-e1-canonical-domain -> origin/release/e0-e1-canonical-domain
+2026-07-16T23:37:50.9443235Z  * [new branch]          release/e1-e2-design-foundation -> origin/release/e1-e2-design-foundation
+2026-07-16T23:37:50.9443553Z  * [new branch]          release/e1-e2-design-foundation-clean -> origin/release/e1-e2-design-foundation-clean
+2026-07-16T23:37:50.9443806Z  * [new branch]          release/platform-v7-evidence-rollup -> origin/release/platform-v7-evidence-rollup
+2026-07-16T23:37:50.9444095Z  * [new branch]          require-valid-platform-v7-money-key -> origin/require-valid-platform-v7-money-key
+2026-07-16T23:37:50.9444256Z  * [new branch]          resilience-001          -> origin/resilience-001
+2026-07-16T23:37:50.9444428Z  * [new branch]          resilience-002          -> origin/resilience-002
+2026-07-16T23:37:50.9444614Z  * [new branch]          role-boundary-next      -> origin/role-boundary-next
+2026-07-16T23:37:50.9444863Z  * [new branch]          role-boundary-smoke-001 -> origin/role-boundary-smoke-001
+2026-07-16T23:37:50.9445027Z  * [new branch]          role-check-next         -> origin/role-check-next
+2026-07-16T23:37:50.9445240Z  * [new branch]          role-routes-unique-089  -> origin/role-routes-unique-089
+2026-07-16T23:37:50.9445438Z  * [new branch]          role-routes-unique-090  -> origin/role-routes-unique-090
+2026-07-16T23:37:50.9445594Z  * [new branch]          rr2                     -> origin/rr2
+2026-07-16T23:37:50.9445797Z  * [new branch]          runner-gate-001         -> origin/runner-gate-001
+2026-07-16T23:37:50.9445967Z  * [new branch]          runner-hardening-001    -> origin/runner-hardening-001
+2026-07-16T23:37:50.9446161Z  * [new branch]          runner-health-002       -> origin/runner-health-002
+2026-07-16T23:37:50.9446328Z  * [new branch]          runner-hygiene-001      -> origin/runner-hygiene-001
+2026-07-16T23:37:50.9446541Z  * [new branch]          runner-proof-001        -> origin/runner-proof-001
+2026-07-16T23:37:50.9446771Z  * [new branch]          runtime-qa              -> origin/runtime-qa
+2026-07-16T23:37:50.9446947Z  * [new branch]          safe-62                 -> origin/safe-62
+2026-07-16T23:37:50.9447087Z  * [new branch]          safe-63                 -> origin/safe-63
+2026-07-16T23:37:50.9447252Z  * [new branch]          safe-64                 -> origin/safe-64
+2026-07-16T23:37:50.9447416Z  * [new branch]          safe-65                 -> origin/safe-65
+2026-07-16T23:37:50.9447671Z  * [new branch]          security/mfa-backup-code-one-time -> origin/security/mfa-backup-code-one-time
+2026-07-16T23:37:50.9448096Z  * [new branch]          security/staff-access-control-plane-foundation -> origin/security/staff-access-control-plane-foundation
+2026-07-16T23:37:50.9448402Z  * [new branch]          seo-indexing-fix-procent-agro-2026-07-01 -> origin/seo-indexing-fix-procent-agro-2026-07-01
+2026-07-16T23:37:50.9448674Z  * [new branch]          seo-indexnow-workflow-2026-07-01 -> origin/seo-indexnow-workflow-2026-07-01
+2026-07-16T23:37:50.9448940Z  * [new branch]          seo-public-landing-pages-2026-07-01 -> origin/seo-public-landing-pages-2026-07-01
+2026-07-16T23:37:50.9449214Z  * [new branch]          seo/nonvisual-foundation -> origin/seo/nonvisual-foundation
+2026-07-16T23:37:50.9449434Z  * [new branch]          seo/organic-growth-foundation -> origin/seo/organic-growth-foundation
+2026-07-16T23:37:50.9449710Z  * [new branch]          seo/organic-indexation-core -> origin/seo/organic-indexation-core
+2026-07-16T23:37:50.9449884Z  * [new branch]          sg1                     -> origin/sg1
+2026-07-16T23:37:50.9450055Z  * [new branch]          shell-center-model-062  -> origin/shell-center-model-062
+2026-07-16T23:37:50.9450308Z  * [new branch]          shell-nav-copy-safety-088 -> origin/shell-nav-copy-safety-088
+2026-07-16T23:37:50.9450505Z  * [new branch]          shell-nav-unique-hrefs-072 -> origin/shell-nav-unique-hrefs-072
+2026-07-16T23:37:50.9450738Z  * [new branch]          shell-nav-unique-hrefs-073 -> origin/shell-nav-unique-hrefs-073
+2026-07-16T23:37:50.9451026Z  * [new branch]          shell-nav-unique-labels-074 -> origin/shell-nav-unique-labels-074
+2026-07-16T23:37:50.9451248Z  * [new branch]          shell-nav-unique-labels-075 -> origin/shell-nav-unique-labels-075
+2026-07-16T23:37:50.9451477Z  * [new branch]          shell-role-route-surface-086 -> origin/shell-role-route-surface-086
+2026-07-16T23:37:50.9451728Z  * [new branch]          shell-role-route-surface-087 -> origin/shell-role-route-surface-087
+2026-07-16T23:37:50.9451990Z  * [new branch]          shell-routes-forbidden-families-084 -> origin/shell-routes-forbidden-families-084
+2026-07-16T23:37:50.9452278Z  * [new branch]          shell-routes-forbidden-families-085 -> origin/shell-routes-forbidden-families-085
+2026-07-16T23:37:50.9452488Z  * [new branch]          shell/p7-clean-shell-copy -> origin/shell/p7-clean-shell-copy
+2026-07-16T23:37:50.9452706Z  * [new branch]          shell/p7-hide-header-crumbs -> origin/shell/p7-hide-header-crumbs
+2026-07-16T23:37:50.9452975Z  * [new branch]          shell/p7-mobile-header-cleanup -> origin/shell/p7-mobile-header-cleanup
+2026-07-16T23:37:50.9453127Z  * [new branch]          smoke-retry             -> origin/smoke-retry
+2026-07-16T23:37:50.9453372Z  * [new branch]          state-1482              -> origin/state-1482
+2026-07-16T23:37:50.9453518Z  * [new branch]          state-1483              -> origin/state-1483
+2026-07-16T23:37:50.9453741Z  * [new branch]          state-advance-001       -> origin/state-advance-001
+2026-07-16T23:37:50.9453983Z  * [new branch]          state-agent-pr-reliability-001 -> origin/state-agent-pr-reliability-001
+2026-07-16T23:37:50.9454195Z  * [new branch]          state-role-boundary-001 -> origin/state-role-boundary-001
+2026-07-16T23:37:50.9454511Z  * [new branch]          state-role-boundary-after-runner-gate -> origin/state-role-boundary-after-runner-gate
+2026-07-16T23:37:50.9454790Z  * [new branch]          state-role-boundary-return-001 -> origin/state-role-boundary-return-001
+2026-07-16T23:37:50.9455044Z  * [new branch]          state-role-boundary-return-002 -> origin/state-role-boundary-return-002
+2026-07-16T23:37:50.9455271Z  * [new branch]          state-role-boundary-return-003 -> origin/state-role-boundary-return-003
+2026-07-16T23:37:50.9455537Z  * [new branch]          state-role-boundary-return-004 -> origin/state-role-boundary-return-004
+2026-07-16T23:37:50.9455705Z  * [new branch]          state-update-001        -> origin/state-update-001
+2026-07-16T23:37:50.9455938Z  * [new branch]          state/v7-after-2028-20260624 -> origin/state/v7-after-2028-20260624
+2026-07-16T23:37:50.9456163Z  * [new branch]          state/v7-after-2042-elevator-queue -> origin/state/v7-after-2042-elevator-queue
+2026-07-16T23:37:50.9456458Z  * [new branch]          state/v7-after-2051-elevator-scope -> origin/state/v7-after-2051-elevator-scope
+2026-07-16T23:37:50.9456633Z  * [new branch]          state006                -> origin/state006
+2026-07-16T23:37:50.9456779Z  * [new branch]          state008                -> origin/state008
+2026-07-16T23:37:50.9457053Z  * [new branch]          style/p7-bank-money-review-polish -> origin/style/p7-bank-money-review-polish
+2026-07-16T23:37:50.9457225Z  * [new branch]          style/p7-bank-nav-polish -> origin/style/p7-bank-nav-polish
+2026-07-16T23:37:50.9457456Z  * [new branch]          style/p7-buyer-polish   -> origin/style/p7-buyer-polish
+2026-07-16T23:37:50.9457715Z  * [new branch]          style/p7-command-center-entry-polish -> origin/style/p7-command-center-entry-polish
+2026-07-16T23:37:50.9458116Z  * [new branch]          style/p7-control-tower-visual-hierarchy -> origin/style/p7-control-tower-visual-hierarchy
+2026-07-16T23:37:50.9458347Z  * [new branch]          style/p7-decision-page-polish -> origin/style/p7-decision-page-polish
+2026-07-16T23:37:50.9458552Z  * [new branch]          style/p7-disputes-polish -> origin/style/p7-disputes-polish
+2026-07-16T23:37:50.9458991Z  * [new branch]          style/p7-driver-field-shell-polish -> origin/style/p7-driver-field-shell-polish
+2026-07-16T23:37:50.9459310Z  * [new branch]          style/p7-elevator-polish -> origin/style/p7-elevator-polish
+2026-07-16T23:37:50.9459564Z  * [new branch]          style/p7-lab-polish     -> origin/style/p7-lab-polish
+2026-07-16T23:37:50.9459761Z  * [new branch]          style/p7-logistics-polish -> origin/style/p7-logistics-polish
+2026-07-16T23:37:50.9459956Z  * [new branch]          style/p7-seller-polish  -> origin/style/p7-seller-polish
+2026-07-16T23:37:50.9460153Z  * [new branch]          style/p7-surveyor-polish -> origin/style/p7-surveyor-polish
+2026-07-16T23:37:50.9460585Z  * [new branch]          style/p7-ui-primitives-premium-baseline -> origin/style/p7-ui-primitives-premium-baseline
+2026-07-16T23:37:50.9460756Z  * [new branch]          summary-counts-044      -> origin/summary-counts-044
+2026-07-16T23:37:50.9460955Z  * [new branch]          summary-counts-045      -> origin/summary-counts-045
+2026-07-16T23:37:50.9461107Z  * [new branch]          sync-next               -> origin/sync-next
+2026-07-16T23:37:50.9461282Z  * [new branch]          sync001                 -> origin/sync001
+2026-07-16T23:37:50.9461454Z  * [new branch]          t1                      -> origin/t1
+2026-07-16T23:37:50.9461581Z  * [new branch]          t2                      -> origin/t2
+2026-07-16T23:37:50.9461740Z  * [new branch]          t3                      -> origin/t3
+2026-07-16T23:37:50.9461991Z  * [new branch]          test-mobile-overflow-baseline -> origin/test-mobile-overflow-baseline
+2026-07-16T23:37:50.9462227Z  * [new branch]          test/p7-antibypass-guards -> origin/test/p7-antibypass-guards
+2026-07-16T23:37:50.9462439Z  * [new branch]          test/p7-bank-layout-nav -> origin/test/p7-bank-layout-nav
+2026-07-16T23:37:50.9462702Z  * [new branch]          test/p7-bank-release-copy-guard -> origin/test/p7-bank-release-copy-guard
+2026-07-16T23:37:50.9462902Z  * [new branch]          test/p7-bank-release-guards -> origin/test/p7-bank-release-guards
+2026-07-16T23:37:50.9463235Z  * [new branch]          test/p7-command-cockpit-safe-copy -> origin/test/p7-command-cockpit-safe-copy
+2026-07-16T23:37:50.9463549Z  * [new branch]          test/p7-compact-header-stale-role-guard -> origin/test/p7-compact-header-stale-role-guard
+2026-07-16T23:37:50.9463829Z  * [new branch]          test/p7-control-header-stale-role-guard -> origin/test/p7-control-header-stale-role-guard
+2026-07-16T23:37:50.9464171Z  * [new branch]          test/p7-control-mobile-header-boundaries-e2e -> origin/test/p7-control-mobile-header-boundaries-e2e
+2026-07-16T23:37:50.9464394Z  * [new branch]          test/p7-dispute-release-guards -> origin/test/p7-dispute-release-guards
+2026-07-16T23:37:50.9464651Z  * [new branch]          test/p7-document-release-guards -> origin/test/p7-document-release-guards
+2026-07-16T23:37:50.9464864Z  * [new branch]          test/p7-driver-role-shell-guard -> origin/test/p7-driver-role-shell-guard
+2026-07-16T23:37:50.9465114Z  * [new branch]          test/p7-exec-guards     -> origin/test/p7-exec-guards
+2026-07-16T23:37:50.9465380Z  * [new branch]          test/p7-field-header-stale-role-guard -> origin/test/p7-field-header-stale-role-guard
+2026-07-16T23:37:50.9465685Z  * [new branch]          test/p7-field-mobile-header-labels-e2e -> origin/test/p7-field-mobile-header-labels-e2e
+2026-07-16T23:37:50.9466002Z  * [new branch]          test/p7-forbidden-copy-secondary-actions -> origin/test/p7-forbidden-copy-secondary-actions
+2026-07-16T23:37:50.9466256Z  * [new branch]          test/p7-header-notification-dot-guard -> origin/test/p7-header-notification-dot-guard
+2026-07-16T23:37:50.9466599Z  * [new branch]          test/p7-header-selectable-role-boundaries -> origin/test/p7-header-selectable-role-boundaries
+2026-07-16T23:37:50.9466783Z  * [new branch]          test/p7-key-routes-smoke -> origin/test/p7-key-routes-smoke
+2026-07-16T23:37:50.9467062Z  * [new branch]          test/p7-mobile-compact-shell-guard -> origin/test/p7-mobile-compact-shell-guard
+2026-07-16T23:37:50.9467312Z  * [new branch]          test/p7-mobile-drawer-operator-e2e -> origin/test/p7-mobile-drawer-operator-e2e
+2026-07-16T23:37:50.9467633Z  * [new branch]          test/p7-mobile-header-dedupe-e2e -> origin/test/p7-mobile-header-dedupe-e2e
+2026-07-16T23:37:50.9468009Z  * [new branch]          test/p7-mobile-header-role-boundaries-e2e -> origin/test/p7-mobile-header-role-boundaries-e2e
+2026-07-16T23:37:50.9468553Z  * [new branch]          test/p7-mobile-shell-role-control-guard -> origin/test/p7-mobile-shell-role-control-guard
+2026-07-16T23:37:50.9468833Z  * [new branch]          test/p7-money-impact-hold-boundary -> origin/test/p7-money-impact-hold-boundary
+2026-07-16T23:37:50.9469089Z  * [new branch]          test/p7-money-safety-audit-copy-sync -> origin/test/p7-money-safety-audit-copy-sync
+2026-07-16T23:37:50.9469391Z  * [new branch]          test/p7-notification-dot-structural-guard -> origin/test/p7-notification-dot-structural-guard
+2026-07-16T23:37:50.9469658Z  * [new branch]          test/p7-premium-claim-safety-guard -> origin/test/p7-premium-claim-safety-guard
+2026-07-16T23:37:50.9469936Z  * [new branch]          test/p7-premium-style-class-guard -> origin/test/p7-premium-style-class-guard
+2026-07-16T23:37:50.9470196Z  * [new branch]          test/p7-restore-money-hold-safety-net -> origin/test/p7-restore-money-hold-safety-net
+2026-07-16T23:37:50.9470489Z  * [new branch]          test/p7-role-header-source-policy -> origin/test/p7-role-header-source-policy
+2026-07-16T23:37:50.9470669Z  * [new branch]          test/p7-role-regression -> origin/test/p7-role-regression
+2026-07-16T23:37:50.9470949Z  * [new branch]          test/p7-route-alias-role-inference -> origin/test/p7-route-alias-role-inference
+2026-07-16T23:37:50.9471197Z  * [new branch]          test/p7-route-role-sync-guard -> origin/test/p7-route-role-sync-guard
+2026-07-16T23:37:50.9471377Z  * [new branch]          test/p7-safe-money-copy -> origin/test/p7-safe-money-copy
+2026-07-16T23:37:50.9471763Z  * [new branch]          test/p7-shell-role-policy-current-behavior -> origin/test/p7-shell-role-policy-current-behavior
+2026-07-16T23:37:50.9472016Z  * [new branch]          test/p7-unknown-route-role-fallback -> origin/test/p7-unknown-route-role-fallback
+2026-07-16T23:37:50.9472250Z  * [new branch]          test/p7-work-nav-copy-guard -> origin/test/p7-work-nav-copy-guard
+2026-07-16T23:37:50.9472506Z  * [new branch]          test/platform-v7-acceptance-policy -> origin/test/platform-v7-acceptance-policy
+2026-07-16T23:37:50.9472803Z  * [new branch]          test/platform-v7-action-summary-check -> origin/test/platform-v7-action-summary-check
+2026-07-16T23:37:50.9473090Z  * [new branch]          test/platform-v7-bank-action-boundary -> origin/test/platform-v7-bank-action-boundary
+2026-07-16T23:37:50.9473368Z  * [new branch]          test/platform-v7-clean-routes-copy -> origin/test/platform-v7-clean-routes-copy
+2026-07-16T23:37:50.9473769Z  * [new branch]          test/platform-v7-compliance-operator-action-boundary -> origin/test/platform-v7-compliance-operator-action-boundary
+2026-07-16T23:37:50.9474104Z  * [new branch]          test/platform-v7-dispute-decision-role-boundary -> origin/test/platform-v7-dispute-decision-role-boundary
+2026-07-16T23:37:50.9474415Z  * [new branch]          test/platform-v7-execution-service-check -> origin/test/platform-v7-execution-service-check
+2026-07-16T23:37:50.9474666Z  * [new branch]          test/platform-v7-field-access-check -> origin/test/platform-v7-field-access-check
+2026-07-16T23:37:50.9474933Z  * [new branch]          test/platform-v7-home-route-check -> origin/test/platform-v7-home-route-check
+2026-07-16T23:37:50.9475205Z  * [new branch]          test/platform-v7-observer-action-boundary -> origin/test/platform-v7-observer-action-boundary
+2026-07-16T23:37:50.9475483Z  * [new branch]          test/platform-v7-policy-check -> origin/test/platform-v7-policy-check
+2026-07-16T23:37:50.9475747Z  * [new branch]          test/platform-v7-route-check -> origin/test/platform-v7-route-check
+2026-07-16T23:37:50.9476036Z  * [new branch]          test/platform-v7-runtime-contract-safety -> origin/test/platform-v7-runtime-contract-safety
+2026-07-16T23:37:50.9476379Z  * [new branch]          test/platform-v7-service-policy-check -> origin/test/platform-v7-service-policy-check
+2026-07-16T23:37:50.9476635Z  * [new branch]          test/platform-v7-shell-role-route-guard -> origin/test/platform-v7-shell-role-route-guard
+2026-07-16T23:37:50.9477015Z  * [new branch]          test/platform-v7-shell-role-route-guard-v2 -> origin/test/platform-v7-shell-role-route-guard-v2
+2026-07-16T23:37:50.9477236Z  * [new branch]          test/platform-v7-support-check -> origin/test/platform-v7-support-check
+2026-07-16T23:37:50.9477522Z  * [new branch]          test/platform-v7-surface-check -> origin/test/platform-v7-surface-check
+2026-07-16T23:37:50.9477699Z  * [new branch]          test/v7-copy-guard      -> origin/test/v7-copy-guard
+2026-07-16T23:37:50.9478182Z  * [new branch]          test/v7-driver-coverage -> origin/test/v7-driver-coverage
+2026-07-16T23:37:50.9478443Z  * [new branch]          test/v7-mobile-smoke    -> origin/test/v7-mobile-smoke
+2026-07-16T23:37:50.9478660Z  * [new branch]          test/v7-surveyor-coverage -> origin/test/v7-surveyor-coverage
+2026-07-16T23:37:50.9478867Z  * [new branch]          test/v7-visible-routes  -> origin/test/v7-visible-routes
+2026-07-16T23:37:50.9479100Z  * [new branch]          theme/p7-appshell-light-default -> origin/theme/p7-appshell-light-default
+2026-07-16T23:37:50.9479300Z  * [new branch]          theme/p7-light-default  -> origin/theme/p7-light-default
+2026-07-16T23:37:50.9479488Z  * [new branch]          theme/p7-light-guard    -> origin/theme/p7-light-guard
+2026-07-16T23:37:50.9479708Z  * [new branch]          theme/p7-light-surface  -> origin/theme/p7-light-surface
+2026-07-16T23:37:50.9479902Z  * [new branch]          theme/p7-shell-light-state -> origin/theme/p7-shell-light-state
+2026-07-16T23:37:50.9480118Z  * [new branch]          theme/p7-shell-theme-sync -> origin/theme/p7-shell-theme-sync
+2026-07-16T23:37:50.9480357Z  * [new branch]          tmp-do-not-use          -> origin/tmp-do-not-use
+2026-07-16T23:37:50.9480536Z  * [new branch]          tmp-test-update         -> origin/tmp-test-update
+2026-07-16T23:37:50.9480757Z  * [new branch]          tmp-tree-test-2         -> origin/tmp-tree-test-2
+2026-07-16T23:37:50.9480979Z  * [new branch]          tmp/runtime-images-2664-rebase -> origin/tmp/runtime-images-2664-rebase
+2026-07-16T23:37:50.9481276Z  * [new branch]          type-platform-v7-action-service-map -> origin/type-platform-v7-action-service-map
+2026-07-16T23:37:50.9481535Z  * [new branch]          type-platform-v7-api-boundary-roles -> origin/type-platform-v7-api-boundary-roles
+2026-07-16T23:37:50.9481921Z  * [new branch]          type-platform-v7-execution-command-roles -> origin/type-platform-v7-execution-command-roles
+2026-07-16T23:37:50.9482236Z  * [new branch]          type-platform-v7-workflow-role-label -> origin/type-platform-v7-workflow-role-label
+2026-07-16T23:37:50.9482414Z  * [new branch]          u2                      -> origin/u2
+2026-07-16T23:37:50.9482577Z  * [new branch]          u3                      -> origin/u3
+2026-07-16T23:37:50.9482776Z  * [new branch]          ui-canon-green          -> origin/ui-canon-green
+2026-07-16T23:37:50.9483262Z  * [new branch]          ui-language-pass-20260506 -> origin/ui-language-pass-20260506
+2026-07-16T23:37:50.9483442Z  * [new branch]          ui-summary-043          -> origin/ui-summary-043
+2026-07-16T23:37:50.9483658Z  * [new branch]          ui/all-screens-polish   -> origin/ui/all-screens-polish
+2026-07-16T23:37:50.9483838Z  * [new branch]          ui/connect-simulations  -> origin/ui/connect-simulations
+2026-07-16T23:37:50.9484036Z  * [new branch]          ui/mobile-polish        -> origin/ui/mobile-polish
+2026-07-16T23:37:50.9484199Z  * [new branch]          ui/role-cabinets-clean  -> origin/ui/role-cabinets-clean
+2026-07-16T23:37:50.9484522Z  * [new branch]          ui/roles-clean          -> origin/ui/roles-clean
+2026-07-16T23:37:50.9484698Z  * [new branch]          ui/seller-bids-top      -> origin/ui/seller-bids-top
+2026-07-16T23:37:50.9484970Z  * [new branch]          ui/staff-control-center -> origin/ui/staff-control-center
+2026-07-16T23:37:50.9485106Z  * [new branch]          ui1                     -> origin/ui1
+2026-07-16T23:37:50.9485415Z  * [new branch]          ux-platform-v7-buyer-control-summary -> origin/ux-platform-v7-buyer-control-summary
+2026-07-16T23:37:50.9485674Z  * [new branch]          ux-platform-v7-guided-hub -> origin/ux-platform-v7-guided-hub
+2026-07-16T23:37:50.9485950Z  * [new branch]          ux-platform-v7-guided-hub-control-room -> origin/ux-platform-v7-guided-hub-control-room
+2026-07-16T23:37:50.9486248Z  * [new branch]          ux-platform-v7-seller-control-summary -> origin/ux-platform-v7-seller-control-summary
+2026-07-16T23:37:50.9486403Z  * [new branch]          ux-v7-bank              -> origin/ux-v7-bank
+2026-07-16T23:37:50.9486585Z  * [new branch]          ux-v7-connectors        -> origin/ux-v7-connectors
+2026-07-16T23:37:50.9486805Z  * [new branch]          ux-v7-disputes          -> origin/ux-v7-disputes
+2026-07-16T23:37:50.9487125Z  * [new branch]          ux-v7-documents         -> origin/ux-v7-documents
+2026-07-16T23:37:50.9487424Z  * [new branch]          ux-v7-driver            -> origin/ux-v7-driver
+2026-07-16T23:37:50.9487673Z  * [new branch]          ux-v7-elevator          -> origin/ux-v7-elevator
+2026-07-16T23:37:50.9488127Z  * [new branch]          ux-v7-final-sync        -> origin/ux-v7-final-sync
+2026-07-16T23:37:50.9488309Z  * [new branch]          ux-v7-inbox             -> origin/ux-v7-inbox
+2026-07-16T23:37:50.9488481Z  * [new branch]          v1                      -> origin/v1
+2026-07-16T23:37:50.9488637Z  * [new branch]          v7-copy-polish          -> origin/v7-copy-polish
+2026-07-16T23:37:50.9488831Z  * [new branch]          v7-live-copy-fix        -> origin/v7-live-copy-fix
+2026-07-16T23:37:50.9488984Z  * [new branch]          v7-mobile-cron          -> origin/v7-mobile-cron
+2026-07-16T23:37:50.9489232Z  * [new branch]          v7-mobile-smoke         -> origin/v7-mobile-smoke
+2026-07-16T23:37:50.9489399Z  * [new branch]          v7-p1-polish            -> origin/v7-p1-polish
+2026-07-16T23:37:50.9489584Z  * [new branch]          v7-prod-smoke           -> origin/v7-prod-smoke
+2026-07-16T23:37:50.9489782Z  * [new branch]          v7-production-smoke     -> origin/v7-production-smoke
+2026-07-16T23:37:50.9489987Z  * [new branch]          v7-shell-copy-fix       -> origin/v7-shell-copy-fix
+2026-07-16T23:37:50.9490171Z  * [new branch]          v7-smoke-cron           -> origin/v7-smoke-cron
+2026-07-16T23:37:50.9490336Z  * [new branch]          v7-smoke-web            -> origin/v7-smoke-web
+2026-07-16T23:37:50.9490520Z  * [new branch]          v7-visual-smoke         -> origin/v7-visual-smoke
+2026-07-16T23:37:50.9490715Z  * [new branch]          vercel-prod-workflow-fix -> origin/vercel-prod-workflow-fix
+2026-07-16T23:37:50.9490933Z  * [new branch]          vp317-pipeline-binding  -> origin/vp317-pipeline-binding
+2026-07-16T23:37:50.9491107Z  * [new branch]          vp318-outbox-audit-plan -> origin/vp318-outbox-audit-plan
+2026-07-16T23:37:50.9491354Z  * [new branch]          vp319-outbox-audit-scope -> origin/vp319-outbox-audit-scope
+2026-07-16T23:37:50.9491575Z  * [new branch]          vp320-outbox-audit-final-gate -> origin/vp320-outbox-audit-final-gate
+2026-07-16T23:37:50.9491824Z  * [new branch]          vp321-outbox-audit-linkage -> origin/vp321-outbox-audit-linkage
+2026-07-16T23:37:50.9492032Z  * [new branch]          vp322-pipeline-linkage-plan -> origin/vp322-pipeline-linkage-plan
+2026-07-16T23:37:50.9492269Z  * [new branch]          vp323-pipeline-linkage-scope -> origin/vp323-pipeline-linkage-scope
+2026-07-16T23:37:50.9492576Z  * [new branch]          vp324-pipeline-linkage-final-gate -> origin/vp324-pipeline-linkage-final-gate
+2026-07-16T23:37:50.9492801Z  * [new branch]          vp325-pipeline-linkage-binding -> origin/vp325-pipeline-linkage-binding
+2026-07-16T23:37:50.9493081Z  * [new branch]          vp326-transaction-idempotency-plan -> origin/vp326-transaction-idempotency-plan
+2026-07-16T23:37:50.9493391Z  * [new branch]          vp327-transaction-idempotency-scope -> origin/vp327-transaction-idempotency-scope
+2026-07-16T23:37:50.9493700Z  * [new branch]          vp328-transaction-idempotency-final-gate -> origin/vp328-transaction-idempotency-final-gate
+2026-07-16T23:37:50.9494011Z  * [new branch]          vp329-transaction-idempotency-hardening -> origin/vp329-transaction-idempotency-hardening
+2026-07-16T23:37:50.9494323Z  * [new branch]          vp330-prisma-schema-migration-plan -> origin/vp330-prisma-schema-migration-plan
+2026-07-16T23:37:50.9494517Z  * [new branch]          vp331-prisma-schema-scope -> origin/vp331-prisma-schema-scope
+2026-07-16T23:37:50.9494769Z  * [new branch]          vp332-prisma-schema-final-gate -> origin/vp332-prisma-schema-final-gate
+2026-07-16T23:37:50.9495006Z  * [new branch]          vp333-prisma-schema-migration -> origin/vp333-prisma-schema-migration
+2026-07-16T23:37:50.9495201Z  * [new branch]          vp334-postgres-plan-v2  -> origin/vp334-postgres-plan-v2
+2026-07-16T23:37:50.9495517Z  * [new branch]          vp334-postgres-repository-adapter-plan -> origin/vp334-postgres-repository-adapter-plan
+2026-07-16T23:37:50.9495743Z  * [new branch]          vp334-postgres-repository-plan -> origin/vp334-postgres-repository-plan
+2026-07-16T23:37:50.9496057Z  * [new branch]          vp335-postgres-repository-adapter-scope -> origin/vp335-postgres-repository-adapter-scope
+2026-07-16T23:37:50.9496371Z  * [new branch]          vp336-postgres-repository-adapter-final-gate -> origin/vp336-postgres-repository-adapter-final-gate
+2026-07-16T23:37:50.9496652Z  * [new branch]          vp337-postgres-repository-adapter -> origin/vp337-postgres-repository-adapter
+2026-07-16T23:37:50.9496994Z  * [new branch]          vp337-postgres-repository-adapter-final -> origin/vp337-postgres-repository-adapter-final
+2026-07-16T23:37:50.9497307Z  * [new branch]          vp337-postgres-repository-adapter-v2 -> origin/vp337-postgres-repository-adapter-v2
+2026-07-16T23:37:50.9497600Z  * [new branch]          vp337-postgres-repository-adapter-v3 -> origin/vp337-postgres-repository-adapter-v3
+2026-07-16T23:37:50.9497861Z  * [new branch]          vp337-postgres-repository-adapter-v4 -> origin/vp337-postgres-repository-adapter-v4
+2026-07-16T23:37:50.9498201Z  * [new branch]          vp338-internal-service-wiring-plan -> origin/vp338-internal-service-wiring-plan
+2026-07-16T23:37:50.9498511Z  * [new branch]          vp338-runtime-persistence-wiring-plan -> origin/vp338-runtime-persistence-wiring-plan
+2026-07-16T23:37:50.9498799Z  * [new branch]          vp339-internal-service-wiring-scope -> origin/vp339-internal-service-wiring-scope
+2026-07-16T23:37:50.9499076Z  * [new branch]          vp339-runtime-persistence-wiring-scope -> origin/vp339-runtime-persistence-wiring-scope
+2026-07-16T23:37:50.9499328Z  * [new branch]          vp341-internal-service-wiring -> origin/vp341-internal-service-wiring
+2026-07-16T23:37:50.9499678Z  * [new branch]          vp341-runtime-persistence-internal-wiring -> origin/vp341-runtime-persistence-internal-wiring
+2026-07-16T23:37:50.9499943Z  * [new branch]          vp342-authenticated-runtime-command -> origin/vp342-authenticated-runtime-command
+2026-07-16T23:37:50.9500182Z  * [new branch]          vp343-rls-context-hardening -> origin/vp343-rls-context-hardening
+2026-07-16T23:37:50.9500409Z  * [new branch]          vp343-rls-transaction-hardening -> origin/vp343-rls-transaction-hardening
+2026-07-16T23:37:50.9500834Z  * [new branch]          vp343-transaction-local-rls -> origin/vp343-transaction-local-rls
+2026-07-16T23:37:50.9501089Z  * [new branch]          vp344-runtime-persistence-rls-binding -> origin/vp344-runtime-persistence-rls-binding
+2026-07-16T23:37:50.9501400Z  * [new branch]          vp344-runtime-persistence-trusted-tx -> origin/vp344-runtime-persistence-trusted-tx
+2026-07-16T23:37:50.9501599Z  * [new branch]          vp345-physical-rls-policy -> origin/vp345-physical-rls-policy
+2026-07-16T23:37:50.9501932Z  * [new branch]          vp345-physical-rls-policy-alignment -> origin/vp345-physical-rls-policy-alignment
+2026-07-16T23:37:50.9502272Z  * [new branch]          vp346-ephemeral-postgres-rls-integration -> origin/vp346-ephemeral-postgres-rls-integration
+2026-07-16T23:37:50.9502561Z  * [new branch]          vp346-ephemeral-postgres-rls-integration-v2 -> origin/vp346-ephemeral-postgres-rls-integration-v2
+2026-07-16T23:37:50.9502834Z  * [new branch]          vp346-ephemeral-rls-harness-v2 -> origin/vp346-ephemeral-rls-harness-v2
+2026-07-16T23:37:50.9503063Z  * [new branch]          vp346-required-ci-rls-bootstrap -> origin/vp346-required-ci-rls-bootstrap
+2026-07-16T23:37:50.9503302Z  * [new branch]          vp346-rls-workflow-bootstrap -> origin/vp346-rls-workflow-bootstrap
+2026-07-16T23:37:50.9503434Z  * [new branch]          w1                      -> origin/w1
+2026-07-16T23:37:50.9503617Z  * [new branch]          work-20260502-09        -> origin/work-20260502-09
+2026-07-16T23:37:50.9503795Z  * [new branch]          work-20260502-10        -> origin/work-20260502-10
+2026-07-16T23:37:50.9503992Z  * [new branch]          work-20260502-11        -> origin/work-20260502-11
+2026-07-16T23:37:50.9504172Z  * [new branch]          work-20260502-12        -> origin/work-20260502-12
+2026-07-16T23:37:50.9504321Z  * [new branch]          work-20260502-13        -> origin/work-20260502-13
+2026-07-16T23:37:50.9504505Z  * [new branch]          work-20260502-14        -> origin/work-20260502-14
+2026-07-16T23:37:50.9504669Z  * [new branch]          work-20260502-15        -> origin/work-20260502-15
+2026-07-16T23:37:50.9504860Z  * [new branch]          work-20260502-16        -> origin/work-20260502-16
+2026-07-16T23:37:50.9505009Z  * [new branch]          work-20260502-17        -> origin/work-20260502-17
+2026-07-16T23:37:50.9505189Z  * [new branch]          work-20260502-18        -> origin/work-20260502-18
+2026-07-16T23:37:50.9505393Z  * [new branch]          work-20260502-19        -> origin/work-20260502-19
+2026-07-16T23:37:50.9505574Z  * [new branch]          work-20260502-20        -> origin/work-20260502-20
+2026-07-16T23:37:50.9505730Z  * [new branch]          work-20260502-21        -> origin/work-20260502-21
+2026-07-16T23:37:50.9505906Z  * [new branch]          work-20260502-22        -> origin/work-20260502-22
+2026-07-16T23:37:50.9506107Z  * [new branch]          work-20260502-23        -> origin/work-20260502-23
+2026-07-16T23:37:50.9506257Z  * [new branch]          work-20260502-24        -> origin/work-20260502-24
+2026-07-16T23:37:50.9506435Z  * [new branch]          work-20260502-25        -> origin/work-20260502-25
+2026-07-16T23:37:50.9506593Z  * [new branch]          work-850                -> origin/work-850
+2026-07-16T23:37:50.9506764Z  * [new branch]          work-851                -> origin/work-851
+2026-07-16T23:37:50.9506923Z  * [new branch]          work-v7r-cleanup        -> origin/work-v7r-cleanup
+2026-07-16T23:37:50.9507110Z  * [new branch]          work/p7-mobile          -> origin/work/p7-mobile
+2026-07-16T23:37:50.9507257Z  * [new branch]          work/p7-mobile2         -> origin/work/p7-mobile2
+2026-07-16T23:37:50.9507471Z  * [new branch]          work001                 -> origin/work001
+2026-07-16T23:37:50.9507605Z  * [new branch]          x042                    -> origin/x042
+2026-07-16T23:37:50.9507791Z  * [new branch]          x043                    -> origin/x043
+2026-07-16T23:37:50.9507983Z  * [new branch]          x044                    -> origin/x044
+2026-07-16T23:37:50.9508169Z  * [new branch]          x045                    -> origin/x045
+2026-07-16T23:37:50.9508546Z  * [new branch]          x046                    -> origin/x046
+2026-07-16T23:37:50.9508671Z  * [new branch]          x047                    -> origin/x047
+2026-07-16T23:37:50.9508828Z  * [new branch]          x048                    -> origin/x048
+2026-07-16T23:37:50.9508956Z  * [new branch]          x049                    -> origin/x049
+2026-07-16T23:37:50.9509107Z  * [new branch]          x050                    -> origin/x050
+2026-07-16T23:37:50.9509308Z  * [new branch]          x051                    -> origin/x051
+2026-07-16T23:37:50.9509497Z  * [new branch]          x052                    -> origin/x052
+2026-07-16T23:37:50.9509624Z  * [new branch]          x053                    -> origin/x053
+2026-07-16T23:37:50.9509811Z  * [new branch]          x054                    -> origin/x054
+2026-07-16T23:37:50.9509935Z  * [new branch]          x055                    -> origin/x055
+2026-07-16T23:37:50.9510093Z  * [new branch]          x056                    -> origin/x056
+2026-07-16T23:37:50.9510239Z  * [new branch]          x057                    -> origin/x057
+2026-07-16T23:37:50.9510402Z  * [new branch]          x058                    -> origin/x058
+2026-07-16T23:37:50.9510567Z  * [new branch]          x059                    -> origin/x059
+2026-07-16T23:37:50.9510699Z  * [new branch]          x060                    -> origin/x060
+2026-07-16T23:37:50.9510866Z  * [new branch]          x061                    -> origin/x061
+2026-07-16T23:37:50.9511023Z  * [new branch]          x2165                   -> origin/x2165
+2026-07-16T23:37:50.9511215Z  * [new branch]          x2166                   -> origin/x2166
+2026-07-16T23:37:50.9511355Z  * [new branch]          x2167                   -> origin/x2167
+2026-07-16T23:37:50.9511523Z  * [new branch]          x2168                   -> origin/x2168
+2026-07-16T23:37:50.9511643Z  * [new branch]          x2169                   -> origin/x2169
+2026-07-16T23:37:50.9511842Z  * [new branch]          x2170                   -> origin/x2170
+2026-07-16T23:37:50.9511978Z  * [new branch]          x2171                   -> origin/x2171
+2026-07-16T23:37:50.9512147Z  * [new branch]          x2175                   -> origin/x2175
+2026-07-16T23:37:50.9512288Z  * [new branch]          x72                     -> origin/x72
+2026-07-16T23:37:50.9512443Z  * [new branch]          x74                     -> origin/x74
+2026-07-16T23:37:50.9512716Z  * [new branch]          x75                     -> origin/x75
+2026-07-16T23:37:50.9512855Z  * [new branch]          x84                     -> origin/x84
+2026-07-16T23:37:50.9513023Z  * [new branch]          x86                     -> origin/x86
+2026-07-16T23:37:50.9513155Z  * [new branch]          x88                     -> origin/x88
+2026-07-16T23:37:50.9513306Z  * [new branch]          x90                     -> origin/x90
+2026-07-16T23:37:50.9513454Z  * [new branch]          y90                     -> origin/y90
+2026-07-16T23:37:50.9513628Z  * [new branch]          y98                     -> origin/y98
+2026-07-16T23:37:50.9513761Z  * [new branch]          z10                     -> origin/z10
+2026-07-16T23:37:50.9513927Z  * [new branch]          z90                     -> origin/z90
+2026-07-16T23:37:50.9514060Z  * [new branch]          z98                     -> origin/z98
+2026-07-16T23:37:50.9515736Z [command]/usr/bin/git rev-parse --verify --quiet e0ba05a20a7e8f572ffdfb1138814b3b990dac26^{object}
+2026-07-16T23:37:50.9515898Z e0ba05a20a7e8f572ffdfb1138814b3b990dac26
+2026-07-16T23:37:50.9516565Z ##[endgroup]
+2026-07-16T23:37:50.9516890Z ##[group]Determining the checkout info
+2026-07-16T23:37:50.9517170Z ##[endgroup]
+2026-07-16T23:37:50.9517309Z [command]/usr/bin/git sparse-checkout disable
+2026-07-16T23:37:50.9517842Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-07-16T23:37:50.9518711Z ##[group]Checking out the ref
+2026-07-16T23:37:50.9519001Z [command]/usr/bin/git checkout --progress --force e0ba05a20a7e8f572ffdfb1138814b3b990dac26
+2026-07-16T23:37:50.9671613Z Note: switching to 'e0ba05a20a7e8f572ffdfb1138814b3b990dac26'.
+2026-07-16T23:37:50.9671942Z 
+2026-07-16T23:37:50.9672134Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-07-16T23:37:50.9672604Z changes and commit them, and you can discard any commits you make in this
+2026-07-16T23:37:50.9673075Z state without impacting any branches by switching back to a branch.
+2026-07-16T23:37:50.9673343Z 
+2026-07-16T23:37:50.9673714Z If you want to create a new branch to retain commits you create, you may
+2026-07-16T23:37:50.9674151Z do so (now or later) by using -c with the switch command. Example:
+2026-07-16T23:37:50.9674384Z 
+2026-07-16T23:37:50.9674535Z   git switch -c <new-branch-name>
+2026-07-16T23:37:50.9674705Z 
+2026-07-16T23:37:50.9674847Z Or undo this operation with:
+2026-07-16T23:37:50.9674989Z 
+2026-07-16T23:37:50.9675154Z   git switch -
+2026-07-16T23:37:50.9675280Z 
+2026-07-16T23:37:50.9675551Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-07-16T23:37:50.9675812Z 
+2026-07-16T23:37:50.9676031Z HEAD is now at e0ba05a20 docs(acceptance): record exact-main evidence correction
+2026-07-16T23:37:50.9682249Z ##[endgroup]
+2026-07-16T23:37:50.9717814Z [command]/usr/bin/git log -1 --format=%H
+2026-07-16T23:37:50.9739249Z e0ba05a20a7e8f572ffdfb1138814b3b990dac26
+2026-07-16T23:37:50.9894388Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-16T23:37:50.9895816Z ##[group]Run gitleaks/gitleaks-action@v2
+2026-07-16T23:37:50.9896155Z env:
+2026-07-16T23:37:50.9896397Z   NODE_VERSION: 24
+2026-07-16T23:37:50.9896666Z   PNPM_VERSION: 10.2.1
+2026-07-16T23:37:50.9896971Z   EXACT_HEAD: e0ba05a20a7e8f572ffdfb1138814b3b990dac26
+2026-07-16T23:37:50.9897310Z   SECURITY_ARTIFACT_DIR: artifacts/security
+2026-07-16T23:37:50.9899823Z   GITHUB_TOKEN: ***
+2026-07-16T23:37:50.9900084Z ##[endgroup]
+2026-07-16T23:37:51.1328577Z (node:2095) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-07-16T23:37:51.1329424Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-07-16T23:37:51.1426973Z (node:2095) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-07-16T23:37:51.3273531Z [pachaninm-lab] is an individual user. No license key is required.
+2026-07-16T23:37:51.3274204Z gitleaks version: 8.24.3
+2026-07-16T23:37:51.3275414Z Version to install: 8.24.3 (target directory: /tmp/gitleaks-8.24.3)
+2026-07-16T23:37:51.4450013Z Cache hit for: gitleaks-cache-8.24.3-linux-x64
+2026-07-16T23:37:51.9947425Z Received 5717456 of 5717456 (100.0%), 13.3 MBs/sec
+2026-07-16T23:37:51.9948909Z Cache Size: ~5 MB (5717456 B)
+2026-07-16T23:37:51.9973756Z [command]/usr/bin/tar -xf /home/runner/work/_temp/d33cf16a-a84e-4cb2-8870-be80bd8baae0/cache.tzst -P -C /home/runner/work/pachanin-demo/pachanin-demo --use-compress-program unzstd
+2026-07-16T23:37:52.0235483Z Cache restored successfully
+2026-07-16T23:37:52.0241676Z Gitleaks restored from cache
+2026-07-16T23:37:52.0244165Z event type: pull_request
+2026-07-16T23:37:52.2702834Z gitleaks cmd: gitleaks detect --redact -v --exit-code=2 --report-format=sarif --report-path=results.sarif --log-level=debug --log-opts=--no-merges --first-parent 5833e0f8ed4ca62fbd9ffaabc0f86a69c5e8b5a2^..e0ba05a20a7e8f572ffdfb1138814b3b990dac26
+2026-07-16T23:37:52.2715614Z [command]/tmp/gitleaks-8.24.3/gitleaks detect --redact -v --exit-code=2 --report-format=sarif --report-path=results.sarif --log-level=debug --log-opts=--no-merges --first-parent 5833e0f8ed4ca62fbd9ffaabc0f86a69c5e8b5a2^..e0ba05a20a7e8f572ffdfb1138814b3b990dac26
+2026-07-16T23:37:52.5115001Z 
+2026-07-16T23:37:52.5115805Z     ○
+2026-07-16T23:37:52.5117068Z     │╲
+2026-07-16T23:37:52.5117492Z     │ ○
+2026-07-16T23:37:52.5118215Z     ○ ░
+2026-07-16T23:37:52.5118624Z     ░    gitleaks
+2026-07-16T23:37:52.5118888Z 
+2026-07-16T23:37:52.5119336Z [90m11:37PM[0m DBG using github.com/wasilibs/go-re2 regex engine
+2026-07-16T23:37:52.5120168Z [90m11:37PM[0m DBG no gitleaks config found in path .gitleaks.toml, using default gitleaks config
+2026-07-16T23:37:52.6213638Z [90m11:37PM[0m DBG executing: /usr/bin/git -C . log -p -U0 --no-merges --first-parent 5833e0f8ed4ca62fbd9ffaabc0f86a69c5e8b5a2^..e0ba05a20a7e8f572ffdfb1138814b3b990dac26
+2026-07-16T23:37:52.6252543Z [90m11:37PM[0m DBG SCM platform parsed from host [36mhost=[0mgithub.com [36mplatform=[0mgithub
+2026-07-16T23:37:52.6377828Z Finding:     const indexNowKey = '[1;3;mREDACTED[0m'
+2026-07-16T23:37:52.6378989Z Secret:      [1;3;mREDACTED[0m
+2026-07-16T23:37:52.6379614Z RuleID:      generic-api-key
+2026-07-16T23:37:52.6380250Z Entropy:     3.691428
+2026-07-16T23:37:52.6381010Z File:        apps/web/tests/unit/exactMainLiveEvidenceContract.test.ts
+2026-07-16T23:37:52.6381862Z Line:        15
+2026-07-16T23:37:52.6382567Z Commit:      cb301097963bee4d425774345e34e9c9fce0d998
+2026-07-16T23:37:52.6383304Z Author:      pachaninm-lab
+2026-07-16T23:37:52.6384433Z Email:       pachaninm@gmail.com
+2026-07-16T23:37:52.6385157Z Date:        2026-07-16T23:35:45Z
+2026-07-16T23:37:52.6386538Z Fingerprint: cb301097963bee4d425774345e34e9c9fce0d998:apps/web/tests/unit/exactMainLiveEvidenceContract.test.ts:generic-api-key:15
+2026-07-16T23:37:52.6387732Z Link:        https://github.com/pachaninm-lab/pachanin-demo/blob/cb301097963bee4d425774345e34e9c9fce0d998/apps/web/tests/unit/exactMainLiveEvidenceContract.test.ts#L15
+2026-07-16T23:37:52.6388492Z 
+2026-07-16T23:37:52.6388839Z [90m11:37PM[0m [32mINF[0m [1m10 commits scanned.[0m
+2026-07-16T23:37:52.6389461Z [90m11:37PM[0m DBG Note: this number might be smaller than expected due to commits with no additions
+2026-07-16T23:37:52.6390147Z [90m11:37PM[0m [32mINF[0m [1mscanned ~23741 bytes (23.74 KB) in 127ms[0m
+2026-07-16T23:37:52.6390880Z [90m11:37PM[0m [33mWRN[0m [1mleaks found: 1[0m
+2026-07-16T23:37:52.6411997Z Artifact name is valid!
+2026-07-16T23:37:52.6413077Z Root directory input is valid!
+2026-07-16T23:37:52.8395520Z Beginning upload of artifact content to blob storage
+2026-07-16T23:37:52.9944791Z Uploaded bytes 7174
+2026-07-16T23:37:53.0321515Z Finished uploading artifact content to blob storage!
+2026-07-16T23:37:53.0322829Z SHA256 digest of uploaded artifact zip is 1580708a4a173cc8c288c90ffa0798ebb0b40161afac802eeb8bfa3ba971a304
+2026-07-16T23:37:53.0323802Z Finalizing artifact upload
+2026-07-16T23:37:53.2662699Z Artifact gitleaks-results.sarif.zip successfully finalized. Artifact ID 8392812506
+2026-07-16T23:37:53.4762851Z ##[warning]🛑 Leaks detected, see job summary for details
+2026-07-16T23:37:53.5012215Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-16T23:37:53.5013140Z Post job cleanup.
+2026-07-16T23:37:53.5764058Z [command]/usr/bin/git version
+2026-07-16T23:37:53.5803719Z git version 2.54.0
+2026-07-16T23:37:53.5859565Z Temporarily overriding HOME='/home/runner/work/_temp/21dba4c0-c301-48a6-861e-4e54d4f33f31' before making global git config changes
+2026-07-16T23:37:53.5860406Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-16T23:37:53.5861121Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/pachanin-demo/pachanin-demo
+2026-07-16T23:37:53.5882607Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-16T23:37:53.5911439Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-16T23:37:53.6099725Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-16T23:37:53.6140632Z http.https://github.com/.extraheader
+2026-07-16T23:37:53.6142970Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-07-16T23:37:53.6157805Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-16T23:37:53.6398996Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-16T23:37:53.6410011Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-16T23:37:53.6690394Z Cleaning up orphan processes
+2026-07-16T23:37:53.6870141Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, gitleaks/gitleaks-action@v2. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+
