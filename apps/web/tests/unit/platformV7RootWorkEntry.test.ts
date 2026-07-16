@@ -21,6 +21,7 @@ describe('platform-v7 public product experience v5', () => {
   const entryCopy = read('i18n/public-product-entry-variants.ts');
   const css = read('styles/platform-v7-public-product-experience-v3.css');
   const cssV5 = read('styles/platform-v7-public-product-experience-v5.css');
+  const onboardingCss = read('styles/platform-v7-public-onboarding-fix.css');
 
   it('uses one deal as the root public product model', () => {
     expect(page).toContain("data-testid='platform-v7-root-execution-cockpit'");
@@ -34,6 +35,22 @@ describe('platform-v7 public product experience v5', () => {
     expect(page).not.toContain('entry-control-grid');
     expect(page).not.toContain('entry-role-grid');
     expect(page).not.toContain('PlatformV7IntelligenceStrip');
+  });
+
+  it('starts a new visitor at stage one while keeping acceptance as an explicit highlighted fragment', () => {
+    expect(stateMachine).toContain("stage: 'terms'");
+    expect(stateMachine).toContain("perspective: 'buyer'");
+    expect(page).toContain('const contourStages = TOUR_STAGES');
+    expect(page).toContain("data-active={stage === 'terms' ? 'true' : 'false'}");
+    expect(page).toContain("stage=terms&lens=execution&perspective=buyer");
+    expect(page).toContain("stageCounter: 'Этап 1 из 10'");
+    expect(preview).toContain("selectedStage: 'Выбранный ключевой этап'");
+    expect(preview).toContain("stage=terms&lens=execution&perspective=buyer");
+    expect(preview).toContain("stage=acceptance&lens=${lens}&perspective=buyer");
+    expect(preview).toContain("start: 'Посмотреть сделку с начала'");
+    expect(preview).toContain("current: 'Открыть этап приёмки'");
+    expect(onboardingCss).toContain('grid-template-columns: repeat(5, minmax(0, 1fr))');
+    expect(onboardingCss).toContain('.pc-ppe-preview-actions');
   });
 
   it('uses service navigation without client-authoritative role routing', () => {
