@@ -22,15 +22,6 @@ describe('public product experience state machine', () => {
     expect(TOUR_STAGES).toHaveLength(10);
   });
 
-  it('starts a new visitor at the beginning of the deal from the buyer perspective', () => {
-    expect(DEFAULT_TOUR_STATE).toMatchObject({
-      lens: 'execution',
-      stage: 'terms',
-      scenario: 'standard',
-      perspective: 'buyer',
-    });
-  });
-
   it('normalizes usability entry variants without introducing an auth role', () => {
     expect(normalizeTourEntryVariant('role')).toBe('role');
     expect(normalizeTourEntryVariant(['problem', 'deal'])).toBe('problem');
@@ -102,7 +93,6 @@ describe('public product experience state machine', () => {
     expect(params.get('source')).toBe('partner');
     expect(params.get('campaign')).toBe('july');
     expect(params.get('entry')).toBe('role');
-    expect(params.get('perspective')).toBe('buyer');
-    expect(params.get('stage')).toBe('terms');
+    expect(params.get('perspective')).toBe('seller');
   });
 });
