@@ -40,16 +40,16 @@ jobs:
           current=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.current || '')")
           current_status=$(node -e "const fs=require('fs'); const s=JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json','utf8')); console.log(s.currentStatus || '')")
 
-          # Count only open agent PRs matching the current slice; stale slices are excluded
+          # Count only open agent PRs matching the current slice; stale slices are excluded.
           gh pr list --repo "$REPO" --state open --label platform-v7 --label agent-generated \
             --json number,title > /tmp/p7-loop-open-prs.json
           open_prs=$(CURRENT_STEP="$current" node -e "
             const fs=require('fs');
             const prs=JSON.parse(fs.readFileSync('/tmp/p7-loop-open-prs.json','utf8'));
-            const m=String(process.env.CURRENT_STEP||'').match(/\d+\$/);
+            const m=String(process.env.CURRENT_STEP||'').match(/\d+$/);
             const slice=m?Number(m[0]):0;
             if(!slice){process.stdout.write(String(prs.length));process.exit(0);}
-            const re=new RegExp('slice\\\\s+'+slice+'\\\\b','i');
+            const re=new RegExp('slice\\s+'+slice+'\\b','i');
             process.stdout.write(String(prs.filter(p=>re.test(p.title||'')).length));
           ")
 
@@ -82,27 +82,29 @@ jobs:
             echo "Existing trigger issue: #$existing"
             gh issue comment "$existing" --repo "$REPO" --body "/agent run current"
           else
-            gh issue create --repo "$REPO" --title "$title" --label platform-v7 --label agent:run --body "## Command
-
-\`\`\`text
-/agent run current
-\`\`\`
-
-## Current step
-
-\`\`\`text
-$CURRENT_STEP
-\`\`\`
-
-## Source of truth
-
-- docs/platform-v7/autopilot/autopilot-state.json
-- docs/platform-v7/execution-queue.md
-- docs/platform-v7/autopilot/progress.json
-- docs/platform-v7/autopilot/prompts/current-codex-task.md
-- docs/platform-v7/autopilot/prompts/current-review-task.md
-
-Merge remains guarded by CI and scope checks."
+            printf -v body '%s\n' \
+              '## Command' \
+              '' \
+              '```text' \
+              '/agent run current' \
+              '```' \
+              '' \
+              '## Current step' \
+              '' \
+              '```text' \
+              "$CURRENT_STEP" \
+              '```' \
+              '' \
+              '## Source of truth' \
+              '' \
+              '- docs/platform-v7/autopilot/autopilot-state.json' \
+              '- docs/platform-v7/execution-queue.md' \
+              '- docs/platform-v7/autopilot/progress.json' \
+              '- docs/platform-v7/autopilot/prompts/current-codex-task.md' \
+              '- docs/platform-v7/autopilot/prompts/current-review-task.md' \
+              '' \
+              'Merge remains guarded by CI and scope checks.'
+            gh issue create --repo "$REPO" --title "$title" --label platform-v7 --label agent:run --body "$body"
           fi
 
       - name: Skip when agent PR exists
