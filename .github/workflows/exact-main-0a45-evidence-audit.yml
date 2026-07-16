@@ -10,6 +10,7 @@ on:
 permissions:
   actions: write
   contents: read
+  statuses: write
 
 concurrency:
   group: exact-main-0a45-evidence-audit-2659
@@ -19,6 +20,7 @@ env:
   TARGET_SHA: 0a45a565f134921cd8bbe3361863e62660b128df
   TARGET_BRANCH: main
   AUDIT_DIR: artifacts/exact-main-0a45-audit
+  AUDIT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   audit:
@@ -29,7 +31,7 @@ jobs:
       - name: Checkout audit verifier
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ env.AUDIT_HEAD }}
 
       - name: Run actions/setup-node@v4
         uses: actions/setup-node@v4
@@ -49,6 +51,30 @@ jobs:
           path: ${{ env.AUDIT_DIR }}
           if-no-files-found: error
           retention-days: 90
+
+      - name: Publish machine-readable audit status
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state=failure
+          description="Exact-main evidence audit failed"
+          if test -f "$AUDIT_DIR/exact-main-0a45-audit.json" && \
+             node -e 'const r=require("./artifacts/exact-main-0a45-audit.json"); process.exit(r.pass===true&&r.verdict==="PASS"?0:1)'; then
+            state=success
+            description="Exact-main K8s, immutable and live SEO evidence PASS"
+          fi
+          payload="$(node -e 'console.log(JSON.stringify({state:process.argv[1],context:"audit/exact-main-0a45",description:process.argv[2],target_url:process.argv[3]}))' "$state" "$description" "$RUN_URL")"
+          curl --fail-with-body --retry 8 --retry-all-errors --retry-delay 3 \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$AUDIT_HEAD" \
+            -d "$payload"
 
       - name: Enforce exact-main audit verdict
         if: always()
