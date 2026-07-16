@@ -1,0 +1,331 @@
+name: Final exact-main verdict for 2659
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/final-exact-main-verdict.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+
+concurrency:
+  group: final-exact-main-verdict-2659
+  cancel-in-progress: true
+
+env:
+  CURRENT_MAIN_SHA: 0951cec83c3cdb94c3d2215ecbc773763ad3ed27
+  BASELINE_ACCEPTANCE_SHA: cff8b137218a6b4ca0c278473ccb2f9674ad980d
+  OUT_DIR: artifacts/final-exact-main-verdict
+
+jobs:
+  verify:
+    name: Verify current main and retained acceptance evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Wait for and verify exact-main evidence
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { execFileSync } = require('node:child_process');
+
+          const repository = process.env.GITHUB_REPOSITORY;
+          const currentSha = process.env.CURRENT_MAIN_SHA;
+          const baselineSha = process.env.BASELINE_ACCEPTANCE_SHA;
+          const outDir = process.env.OUT_DIR;
+          const token = process.env.GITHUB_TOKEN;
+          const api = `https://api.github.com/repos/${repository}`;
+          const errors = [];
+          const allowedConclusions = new Set(['success', 'skipped', 'neutral']);
+
+          fs.rmSync(outDir, { recursive: true, force: true });
+          fs.mkdirSync(path.join(outDir, 'api'), { recursive: true });
+          fs.mkdirSync(path.join(outDir, 'downloads'), { recursive: true });
+          fs.mkdirSync(path.join(outDir, 'evidence'), { recursive: true });
+
+          const result = {
+            schemaVersion: 1,
+            repository,
+            auditedAt: new Date().toISOString(),
+            currentMainSha: currentSha,
+            baselineAcceptanceSha: baselineSha,
+            mainRef: null,
+            currentExactMainRuns: [],
+            currentRequiredWorkflows: {},
+            baselineRequiredWorkflows: {},
+            issues: {},
+            maturityBoundary: {
+              productionOperationallyAccepted: 'NO_GO',
+              acceptedSlice: 'exact-main disposable multi-node Kubernetes acceptance and immutable release authority only',
+              openRuntimeWork: '#2649 deep outbox runtime scenarios',
+            },
+            errors,
+            pass: false,
+          };
+
+          function fail(message) {
+            errors.push(message);
+            console.error(`AUDIT_ERROR: ${message}`);
+          }
+
+          function assert(condition, message) {
+            if (!condition) fail(message);
+          }
+
+          function writeJson(name, value) {
+            fs.writeFileSync(path.join(outDir, 'api', name), `${JSON.stringify(value, null, 2)}\n`);
+          }
+
+          function sleep(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
+          }
+
+          async function request(url, { binary = false } = {}) {
+            const response = await fetch(url, {
+              redirect: 'follow',
+              headers: {
+                Accept: 'application/vnd.github+json',
+                Authorization: `Bearer ${token}`,
+                'X-GitHub-Api-Version': '2022-11-28',
+                'User-Agent': 'pachanin-demo-final-exact-main-verdict',
+              },
+            });
+            if (!response.ok) throw new Error(`${response.status} ${url}: ${await response.text()}`);
+            return binary ? Buffer.from(await response.arrayBuffer()) : response.json();
+          }
+
+          async function paginate(url, key) {
+            const values = [];
+            for (let page = 1; page <= 20; page += 1) {
+              const joiner = url.includes('?') ? '&' : '?';
+              const payload = await request(`${url}${joiner}per_page=100&page=${page}`);
+              const pageValues = payload[key] || [];
+              values.push(...pageValues);
+              if (pageValues.length < 100) break;
+            }
+            return values;
+          }
+
+          async function runsForSha(sha) {
+            const runs = await paginate(`${api}/actions/runs?head_sha=${sha}`, 'workflow_runs');
+            return runs.filter((run) => run.head_sha === sha && run.event === 'push' && run.head_branch === 'main');
+          }
+
+          async function waitForCurrentRuns() {
+            const requiredNames = new Set([
+              'Production-like Kubernetes Acceptance',
+              'API Tests',
+              'Mobile Smoke',
+            ]);
+            for (let attempt = 1; attempt <= 180; attempt += 1) {
+              const runs = await runsForSha(currentSha);
+              const names = new Set(runs.map((run) => run.name));
+              const complete = runs.length > 0 && runs.every((run) => run.status === 'completed');
+              const requiredPresent = [...requiredNames].every((name) => names.has(name));
+              console.log(JSON.stringify({ attempt, runs: runs.length, complete, requiredPresent, states: runs.map((run) => `${run.name}:${run.status}/${run.conclusion}`) }));
+              if (complete && requiredPresent) return runs;
+              await sleep(30_000);
+            }
+            throw new Error('Timed out waiting for exact-main push runs to complete');
+          }
+
+          function walk(root) {
+            const files = [];
+            for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+              const full = path.join(root, entry.name);
+              if (entry.isDirectory()) files.push(...walk(full));
+              else files.push(full);
+            }
+            return files;
+          }
+
+          function findUnique(root, basename) {
+            const matches = walk(root).filter((file) => path.basename(file) === basename);
+            assert(matches.length === 1, `${basename} expected exactly once in ${root}; found ${matches.length}`);
+            return matches[0] || null;
+          }
+
+          function readJson(file, label) {
+            try {
+              return JSON.parse(fs.readFileSync(file, 'utf8'));
+            } catch (error) {
+              fail(`${label} invalid JSON: ${error.message}`);
+              return null;
+            }
+          }
+
+          async function downloadAndExtract(artifact, label) {
+            const zip = path.join(outDir, 'downloads', `${label}.zip`);
+            const extracted = path.join(outDir, 'downloads', label);
+            fs.writeFileSync(zip, await request(`${api}/actions/artifacts/${artifact.id}/zip`, { binary: true }));
+            fs.mkdirSync(extracted, { recursive: true });
+            execFileSync('unzip', ['-q', zip, '-d', extracted]);
+            return extracted;
+          }
+
+          async function runBundle(sha, workflowName) {
+            const runs = await runsForSha(sha);
+            const matches = runs.filter((run) => run.name === workflowName).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            assert(matches.length > 0, `Missing ${workflowName} push run for ${sha}`);
+            if (!matches.length) return null;
+            const run = matches[0];
+            assert(run.status === 'completed' && run.conclusion === 'success', `${workflowName} is ${run.status}/${run.conclusion} for ${sha}`);
+            const jobs = await paginate(`${api}/actions/runs/${run.id}/jobs?filter=latest`, 'jobs');
+            const artifacts = await paginate(`${api}/actions/runs/${run.id}/artifacts`, 'artifacts');
+            writeJson(`${sha.slice(0, 12)}-${run.id}-jobs.json`, { jobs });
+            writeJson(`${sha.slice(0, 12)}-${run.id}-artifacts.json`, { artifacts });
+            for (const job of jobs) {
+              assert(job.status === 'completed', `${workflowName} job incomplete: ${job.name}`);
+              assert(allowedConclusions.has(job.conclusion), `${workflowName} job non-passing: ${job.name} (${job.conclusion})`);
+            }
+            return { run, jobs, artifacts };
+          }
+
+          function verifyKubernetesEvidence(root, sha, branch) {
+            const file = findUnique(root, 'production-like-kubernetes-evidence.json');
+            if (!file) return null;
+            const evidence = readJson(file, 'Kubernetes evidence');
+            if (!evidence) return null;
+            assert(evidence.schemaVersion === 1, 'Kubernetes schemaVersion mismatch');
+            assert(evidence.repository === repository, 'Kubernetes repository mismatch');
+            assert(evidence.commitSha === sha, `Kubernetes commit mismatch: ${evidence.commitSha}`);
+            assert(evidence.branch === branch, `Kubernetes branch mismatch: ${evidence.branch}`);
+            assert(evidence.pass === true && evidence.result === 'PASS', 'Kubernetes evidence verdict is not PASS');
+            assert(Array.isArray(evidence.violatedThresholds) && evidence.violatedThresholds.length === 0, 'Kubernetes evidence has violated thresholds');
+            const assertions = evidence.assertions || {};
+            for (const key of ['exactHeadCheckout','buildOnceDeployMany','dedicatedMigrationJob','canonicalRlsAuthorityApplied','outboxWorkerRuntimeClean','runtimeDatabaseAccessThroughPgBouncer','directRuntimeDatabaseBypassBlocked','pgbouncerPeerDeletionAvailability','immutablePlatformImages','initialDigestSetApplied','rollingUpdateDigestSetApplied','sameSchemaRollbackDigestSetRestored','unauthorizedNetworkConnectionBlocked','secretSafeEvidenceCollection']) {
+              assert(assertions[key] === true, `Kubernetes assertion false: ${key}`);
+            }
+            assert(assertions.applicationMigrations === false, 'Applications own migrations');
+            assert(assertions.defaultHelmExecutableWorkloads === 0, 'Default Helm render has executable workloads');
+            const actual = evidence.actualMeasurements || {};
+            for (const key of ['apiAvailabilityProbeFailures','webAvailabilityProbeFailures','pgbouncerAvailabilityProbeFailures','outboxWorkerRuntimeErrors','mutablePlatformImageReferences','workloadServiceAccountTokens','applicationDdlPrivileges','canonicalRlsAuthorityViolations','networkPolicyUnauthorizedConnections','directDatabaseBypassConnections','rollbackDigestMismatches']) {
+              assert(actual[key] === 0, `Kubernetes measurement non-zero: ${key}=${actual[key]}`);
+            }
+            for (const reference of [...(evidence.logs || []), ...(evidence.artifacts || [])]) {
+              assert(fs.existsSync(path.join(root, reference)), `Kubernetes retained reference missing: ${reference}`);
+            }
+            const retained = path.join(outDir, 'evidence', `production-like-kubernetes-${sha}.json`);
+            fs.copyFileSync(file, retained);
+            return evidence;
+          }
+
+          function verifyImmutableEvidence(root, sha) {
+            const file = findUnique(root, 'immutable-release-evidence.json');
+            if (!file) return null;
+            const evidence = readJson(file, 'Immutable release evidence');
+            if (!evidence) return null;
+            assert(evidence.schemaVersion === 1, 'Immutable schemaVersion mismatch');
+            assert(evidence.repository === repository, 'Immutable repository mismatch');
+            assert(evidence.commitSha === sha, `Immutable commit mismatch: ${evidence.commitSha}`);
+            assert(evidence.pass === true, 'Immutable release evidence did not pass');
+            assert(Array.isArray(evidence.violatedThresholds) && evidence.violatedThresholds.length === 0, 'Immutable release evidence has violated thresholds');
+            const retained = path.join(outDir, 'evidence', `immutable-release-${sha}.json`);
+            fs.copyFileSync(file, retained);
+            return evidence;
+          }
+
+          function verifyMigrationSecurityEvidence(root, sha) {
+            const file = findUnique(root, 'trivy-migration-container-evaluation.json');
+            if (!file) return null;
+            const evidence = readJson(file, 'Migration security evidence');
+            if (!evidence) return null;
+            assert(evidence.schemaVersion === 1, 'Migration security schemaVersion mismatch');
+            assert(evidence.repository === repository, 'Migration security repository mismatch');
+            assert(evidence.commitSha === sha, `Migration security commit mismatch: ${evidence.commitSha}`);
+            assert(evidence.passed === true && evidence.scannerResult === 'success', 'Migration security evidence did not pass');
+            assert(evidence.summary?.highOrCritical === 0 && evidence.summary?.blocked === 0, 'Migration image has blocked HIGH/CRITICAL findings');
+            const retained = path.join(outDir, 'evidence', `migration-security-${sha}.json`);
+            fs.copyFileSync(file, retained);
+            return evidence;
+          }
+
+          (async () => {
+            try {
+              const ref = await request(`${api}/git/ref/heads/main`);
+              result.mainRef = { ref: ref.ref, sha: ref.object?.sha || null };
+              writeJson('main-ref.json', ref);
+              assert(ref.object?.sha === currentSha, `main moved: expected ${currentSha}, actual ${ref.object?.sha}`);
+
+              const currentRuns = await waitForCurrentRuns();
+              writeJson('current-exact-main-runs.json', { workflow_runs: currentRuns });
+              result.currentExactMainRuns = currentRuns.map((run) => ({ id: run.id, name: run.name, status: run.status, conclusion: run.conclusion, runNumber: run.run_number, runAttempt: run.run_attempt, htmlUrl: run.html_url }));
+              for (const run of currentRuns) {
+                assert(run.status === 'completed', `Current exact-main run incomplete: ${run.name}`);
+                assert(allowedConclusions.has(run.conclusion), `Current exact-main run non-passing: ${run.name} (${run.conclusion})`);
+              }
+
+              for (const name of ['API Tests', 'Mobile Smoke']) {
+                const bundle = await runBundle(currentSha, name);
+                if (bundle) result.currentRequiredWorkflows[name] = { runId: bundle.run.id, conclusion: bundle.run.conclusion, jobs: bundle.jobs.map((job) => ({ name: job.name, conclusion: job.conclusion })) };
+              }
+
+              const currentK8s = await runBundle(currentSha, 'Production-like Kubernetes Acceptance');
+              if (currentK8s) {
+                const artifactName = `production-like-kubernetes-${currentSha}`;
+                const matches = currentK8s.artifacts.filter((artifact) => artifact.name === artifactName);
+                assert(matches.length === 1, `Current Kubernetes artifact ${artifactName} count=${matches.length}`);
+                if (matches.length === 1) {
+                  assert(matches[0].expired === false, 'Current Kubernetes artifact expired');
+                  assert(matches[0].workflow_run?.head_sha === currentSha, 'Current Kubernetes artifact head mismatch');
+                  const root = await downloadAndExtract(matches[0], `current-kubernetes-${currentSha}`);
+                  const evidence = verifyKubernetesEvidence(root, currentSha, 'main');
+                  result.currentRequiredWorkflows['Production-like Kubernetes Acceptance'] = { runId: currentK8s.run.id, conclusion: currentK8s.run.conclusion, artifact: { id: matches[0].id, name: matches[0].name, digest: matches[0].digest, sizeInBytes: matches[0].size_in_bytes }, evidence: evidence ? { result: evidence.result, pass: evidence.pass, violatedThresholds: evidence.violatedThresholds } : null };
+                }
+              }
+
+              const baselineK8s = await runBundle(baselineSha, 'Production-like Kubernetes Acceptance');
+              if (baselineK8s) result.baselineRequiredWorkflows['Production-like Kubernetes Acceptance'] = { runId: baselineK8s.run.id, conclusion: baselineK8s.run.conclusion };
+
+              const baselineImmutable = await runBundle(baselineSha, 'Immutable Release Authority Acceptance');
+              if (baselineImmutable) {
+                const buildName = `immutable-release-build-${baselineSha}`;
+                const securityName = `immutable-release-migration-security-${baselineSha}`;
+                const buildMatches = baselineImmutable.artifacts.filter((artifact) => artifact.name === buildName);
+                const securityMatches = baselineImmutable.artifacts.filter((artifact) => artifact.name === securityName);
+                assert(buildMatches.length === 1, `Baseline immutable build artifact count=${buildMatches.length}`);
+                assert(securityMatches.length === 1, `Baseline migration security artifact count=${securityMatches.length}`);
+                let immutableEvidence = null;
+                let migrationSecurityEvidence = null;
+                if (buildMatches.length === 1) immutableEvidence = verifyImmutableEvidence(await downloadAndExtract(buildMatches[0], `baseline-immutable-${baselineSha}`), baselineSha);
+                if (securityMatches.length === 1) migrationSecurityEvidence = verifyMigrationSecurityEvidence(await downloadAndExtract(securityMatches[0], `baseline-migration-security-${baselineSha}`), baselineSha);
+                result.baselineRequiredWorkflows['Immutable Release Authority Acceptance'] = { runId: baselineImmutable.run.id, conclusion: baselineImmutable.run.conclusion, artifacts: [buildMatches[0], securityMatches[0]].filter(Boolean).map((artifact) => ({ id: artifact.id, name: artifact.name, digest: artifact.digest, sizeInBytes: artifact.size_in_bytes })), immutableEvidence: immutableEvidence ? { pass: immutableEvidence.pass, violatedThresholds: immutableEvidence.violatedThresholds } : null, migrationSecurityEvidence: migrationSecurityEvidence ? { passed: migrationSecurityEvidence.passed, highOrCritical: migrationSecurityEvidence.summary?.highOrCritical, blocked: migrationSecurityEvidence.summary?.blocked } : null };
+              }
+
+              for (const issueNumber of [2649, 2659]) {
+                const issue = await request(`${api}/issues/${issueNumber}`);
+                result.issues[String(issueNumber)] = { state: issue.state, title: issue.title, htmlUrl: issue.html_url };
+              }
+              assert(result.issues['2649']?.state === 'open', '#2649 must remain open');
+              assert(result.issues['2659']?.state === 'open', '#2659 must remain open until this verdict is inspected and closure is explicit');
+            } catch (error) {
+              fail(error.stack || error.message);
+            }
+
+            result.pass = errors.length === 0;
+            result.verdict = result.pass ? 'PASS' : 'FAIL';
+            fs.writeFileSync(path.join(outDir, 'final-exact-main-verdict.json'), `${JSON.stringify(result, null, 2)}\n`);
+            fs.writeFileSync(path.join(outDir, 'verdict.txt'), `${result.verdict}\n`);
+            console.log(JSON.stringify({ verdict: result.verdict, errors, currentRuns: result.currentExactMainRuns, currentRequiredWorkflows: result.currentRequiredWorkflows, baselineRequiredWorkflows: result.baselineRequiredWorkflows, issues: result.issues }, null, 2));
+            if (!result.pass) process.exit(1);
+          })();
+          NODE
+
+      - name: Upload final exact-main verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-exact-main-verdict-0951cec83c3cdb94c3d2215ecbc773763ad3ed27
+          path: ${{ env.OUT_DIR }}
+          if-no-files-found: error
+          retention-days: 90
