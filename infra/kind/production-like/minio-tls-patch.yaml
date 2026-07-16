@@ -33,4 +33,9 @@ spec:
         - name: tls
           secret:
             secretName: grainflow-minio-tls
+            items:
+              - key: public.crt
+                path: public.crt
+              - key: private.key
+                path: private.key
             defaultMode: 288
