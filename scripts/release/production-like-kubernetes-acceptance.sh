@@ -9,7 +9,8 @@ source scripts/release/production-like-kubernetes-cluster.sh
 FAILURE_REASON="canonical PostgreSQL RLS authority failed"
 for policy_file in \
   infra/sql/production-rls-policies.sql \
-  infra/sql/postgresql-deal-authority-policies.sql; do
+  infra/sql/postgresql-deal-authority-policies.sql \
+  infra/sql/postgresql-outbox-worker-policies.sql; do
   policy_name="$(basename "$policy_file" .sql)"
   kubectl exec -i -n "$NAMESPACE" statefulset/postgresql -- \
     env PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U postgres -d grainflow \
@@ -27,7 +28,8 @@ kubectl exec -i -n "$NAMESPACE" statefulset/postgresql -- \
 
 # Use the same acceptance contract as platform-v7-rls-apply-rehearsal.sh. The
 # proof covers every protected authority table, final deal-basis policies,
-# SECURITY DEFINER and PUBLIC EXECUTE boundaries, and both Deal triggers.
+# SECURITY DEFINER and PUBLIC EXECUTE boundaries, both Deal triggers, and the
+# canonical app_outbox worker policy without tenant-table access.
 canonical_rls_proof="$(kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
   env PGPASSWORD="$POSTGRES_PASSWORD" psql -U postgres -d grainflow -Atc "
 SELECT
@@ -78,7 +80,23 @@ SELECT
       AND c.relname = 'deals'
       AND t.tgname IN ('deals_single_basis','deals_basis_immutable')
       AND NOT t.tgisinternal
-      AND t.tgenabled IN ('O','A'));
+      AND t.tgenabled IN ('O','A')) || ':' ||
+  (SELECT count(*) FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'outbox_entries'
+      AND (
+        (policyname = 'outbox_entries_worker_select'
+          AND qual ILIKE '%app_outbox%'
+          AND qual NOT ILIKE '%app_outbox_worker%')
+        OR (policyname = 'outbox_entries_worker_update'
+          AND qual ILIKE '%app_outbox%'
+          AND qual NOT ILIKE '%app_outbox_worker%'
+          AND with_check ILIKE '%app_outbox%'
+          AND with_check NOT ILIKE '%app_outbox_worker%')
+        OR (policyname = 'outbox_entries_worker_insert'
+          AND with_check ILIKE '%app_service%'
+          AND with_check NOT ILIKE '%app_outbox%')
+      ));
 ")"
 printf '%s\n' "$canonical_rls_proof" | tee "$K8S_DIR/cluster/canonical-rls-proof.txt"
 IFS=: read -r \
@@ -91,6 +109,7 @@ IFS=: read -r \
   rls_required_policy_count \
   rls_basis_only_insert_count \
   rls_authority_trigger_count \
+  rls_outbox_principal_policy_count \
   <<< "$canonical_rls_proof"
 
 CANONICAL_RLS_VIOLATIONS=0
@@ -103,6 +122,7 @@ CANONICAL_RLS_VIOLATIONS=0
 [[ "$rls_required_policy_count" = "5" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
 [[ "$rls_basis_only_insert_count" = "1" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
 [[ "$rls_authority_trigger_count" = "2" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
+[[ "$rls_outbox_principal_policy_count" = "3" ]] || CANONICAL_RLS_VIOLATIONS=$((CANONICAL_RLS_VIOLATIONS + 1))
 printf '%s\n' "$CANONICAL_RLS_VIOLATIONS" > "$K8S_DIR/cluster/canonical-rls-authority-violations.txt"
 test "$CANONICAL_RLS_VIOLATIONS" = "0"
 export CANONICAL_RLS_VIOLATIONS
