@@ -63,7 +63,7 @@ for deployment in grainflow-api grainflow-outbox-worker; do
   FAILURE_REASON="direct PostgreSQL network bypass is open for ${deployment}"
   assert_tcp_blocked "$deployment" postgresql 5432
   FAILURE_REASON="PgBouncer service route is unavailable for ${deployment}"
-  assert_tcp_allowed "$deployment" pgbouncer 5432
+  assert_tcp_allowed "$deployment" pgbouncer 6432
   printf 'direct-postgresql=blocked\npgbouncer=reachable\n' > "$K8S_DIR/cluster/${deployment}-database-routing.txt"
 done
 printf 'blocked\n' > "$K8S_DIR/cluster/direct-postgresql-bypass.txt"
