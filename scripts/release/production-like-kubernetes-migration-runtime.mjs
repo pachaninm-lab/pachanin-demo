@@ -1,8 +1,24 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const evidenceDir = process.env.EVIDENCE_DIR || 'artifacts/industrial-readiness';
+const cleanupScript = path.join(
+  'scripts',
+  'release',
+  'production-like-kubernetes-post-build-cleanup.sh',
+);
+
+if (!fs.existsSync(cleanupScript)) {
+  throw new Error(`Missing post-build cleanup script: ${cleanupScript}`);
+}
+
+execFileSync('bash', [cleanupScript], {
+  stdio: 'inherit',
+  env: process.env,
+});
+
 const manifestPath = path.join(evidenceDir, 'kubernetes', 'rendered', 'initial-migration.yaml');
 
 if (!fs.existsSync(manifestPath)) {
