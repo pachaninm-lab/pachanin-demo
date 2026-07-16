@@ -171,7 +171,7 @@ export function PlatformV7ShellUxController({ role }: { role: PlatformRole }) {
         <div className={styles.drawerNavigation}>
           <section className={styles.drawerSection} aria-labelledby='primary-role-navigation'>
             <h2 id='primary-role-navigation'>Основное</h2>
-            <nav className={styles.drawerLinks} aria-label='Основные действия кабинета'>
+            <nav className={styles.drawerLinks} aria-label='Основные действия меню кабинета'>
               {primary.map((item, index) => (
                 <NavigationLink
                   key={`${navKey(item)}:${item.label}`}
