@@ -15,6 +15,7 @@
     "infra/docker/Dockerfile.outbox-worker",
     "infra/docker/Dockerfile.migrations",
     "infra/kind/production-like/**",
+    "infra/sql/postgresql-outbox-worker-policies.sql",
     "scripts/p7-autopilot-guard.sh",
     "scripts/release/build-production-like-kubernetes-evidence.mjs",
     "scripts/release/production-like-kubernetes-*.sh",
@@ -47,6 +48,7 @@
     "two API, two web and two outbox-worker ready replicas",
     "destination-scoped NetworkPolicy enforcement",
     "single-pod deletion continuity",
+    "clean app_outbox runtime smoke",
     "rolling update and same-schema rollback",
     "machine-readable evidence bound to exact head"
   ]
