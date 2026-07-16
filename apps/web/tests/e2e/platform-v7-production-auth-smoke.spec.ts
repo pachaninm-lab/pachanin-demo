@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const publicRoutes = [
   { path: '/platform-v7', text: 'Прозрачная Цена' },
@@ -12,18 +12,18 @@ const protectedRoutes = [
   '/platform-v7/elevator',
   '/platform-v7/lab',
   '/platform-v7/surveyor',
-  '/platform-v7/deals/DL-9102/clean',
+  '/platform-v7/deals',
   '/platform-v7/bank/release-safety',
 ] as const;
 
-async function assertNoHorizontalOverflow(page: any, label: string) {
+async function assertNoHorizontalOverflow(page: Page, label: string) {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow, `${label} should not overflow horizontally`).toBeLessThanOrEqual(8);
 }
 
-async function assertNoBrokenVisibleImages(page: any, label: string) {
+async function assertNoBrokenVisibleImages(page: Page, label: string) {
   const brokenImages = await page.locator('img:visible').evaluateAll((images) =>
     images
       .filter((image) => image instanceof HTMLImageElement)
@@ -51,8 +51,8 @@ test.describe('platform-v7 production public and authentication boundary', () =>
     test(`${protectedPath} rejects client-only role claims`, async ({ page, baseURL }) => {
       if (!baseURL) throw new Error('PLAYWRIGHT_BASE_URL is required for production auth smoke');
 
-      // Seed the forged role cookie before the first protected-route request so
-      // the test proves that server-side authorization ignores client claims.
+      // Seed forged client claims before the first request. The server must still
+      // require a verified session and preserve the requested route for login.
       await page.context().addCookies([
         {
           name: 'pc-role',
