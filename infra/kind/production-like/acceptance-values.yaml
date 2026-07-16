@@ -23,8 +23,12 @@ api:
     VAULT_ADDR: ""
     REDIS_URL: redis://redis:6379
     KAFKA_BROKERS: kafka:9092
-    S3_ENDPOINT: http://minio:9000
-    S3_BUCKET: grainflow-documents
+    OBJECT_STORAGE_DRIVER: s3
+    OBJECT_STORAGE_ENDPOINT: https://minio:9000
+    OBJECT_STORAGE_REGION: us-east-1
+    OBJECT_STORAGE_BUCKET: grainflow-documents
+    OBJECT_STORAGE_FORCE_PATH_STYLE: "true"
+    NODE_EXTRA_CA_CERTS: /var/run/grainflow-ca/minio-ca.crt
     OUTBOX_WORKER_ENABLED: "false"
     PLATFORM_V7_DEAL_REPOSITORY: prisma
     PLATFORM_V7_DOCUMENT_REPOSITORY: prisma
