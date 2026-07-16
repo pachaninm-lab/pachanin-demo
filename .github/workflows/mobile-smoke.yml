@@ -1,6 +1,11 @@
 name: Mobile Smoke
 
 on:
+  pull_request:
+    paths:
+      - 'apps/web/playwright.production.config.ts'
+      - 'apps/web/tests/e2e/platform-v7-production-auth-smoke.spec.ts'
+      - '.github/workflows/mobile-smoke.yml'
   workflow_dispatch:
     inputs:
       web_url:
@@ -9,6 +14,13 @@ on:
         default: 'https://vermillion-kitsune-0e7b97.netlify.app'
   schedule:
     - cron: '45 6,10,14,18 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-smoke-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   mobile-smoke:
@@ -28,19 +40,30 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright Chromium
+      - name: Install Playwright Chromium and WebKit
         working-directory: apps/web
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: Run mobile smoke
+      - name: Run production public and authentication smoke
         working-directory: apps/web
         env:
           PLAYWRIGHT_BASE_URL: ${{ env.WEB_URL }}
         run: pnpm exec playwright test --config=playwright.production.config.ts
+
+      - name: Upload production smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-public-auth-smoke-${{ github.sha }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: ignore
+          retention-days: 14

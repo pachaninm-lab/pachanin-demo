@@ -10,19 +10,21 @@ export default defineConfig({
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://vermillion-kitsune-0e7b97.netlify.app',
     trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
   },
   projects: [
     {
-      name: 'mobile-375',
-      testMatch: /platform-v7-mobile-smoke\.spec\.ts/,
+      name: 'production-mobile-375',
+      testMatch: /platform-v7-production-auth-smoke\.spec\.ts/,
       use: {
         ...devices['iPhone 12'],
+        browserName: 'chromium',
         viewport: { width: 375, height: 812 },
       },
     },
     {
-      name: 'visual-desktop',
-      testMatch: /platform-v7-visual-smoke\.spec\.ts/,
+      name: 'production-desktop',
+      testMatch: /platform-v7-production-auth-smoke\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1440, height: 1000 },

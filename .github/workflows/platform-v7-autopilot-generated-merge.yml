@@ -43,7 +43,23 @@ jobs:
         with:
           node-version: 20
 
+      - name: Inspect legacy product-slice authority
+        id: authority
+        shell: bash
+        run: |
+          node <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('node:fs');
+          const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+          const current = String(state.current || '');
+          const writable = Array.isArray(state.agentWritableScope) ? state.agentWritableScope : [];
+          const active = /Autopilot Product Slice\s+\d+/i.test(current) && writable.length === 1;
+          console.log(`active=${active}`);
+          console.log(`current=${current.replace(/[\r\n]/g, ' ')}`);
+          console.log(`writable_count=${writable.length}`);
+          NODE
+
       - name: Guard and merge generated PR
+        if: steps.authority.outputs.active == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -55,6 +71,12 @@ jobs:
           node scripts/p7-autopilot-generated-inline-checks.mjs
           node scripts/p7-autopilot-generated-merge-and-advance.mjs
           node scripts/p7-autopilot-generated-merge-reconcile.mjs
+
+      - name: Skip outside legacy product-slice authority
+        if: steps.authority.outputs.active != 'true'
+        run: |
+          echo "Generated PR merge is inactive for current authority: ${{ steps.authority.outputs.current }}"
+          echo "agentWritableScope count: ${{ steps.authority.outputs.writable_count }}"
 
   reconcile-generated:
     if: >-
@@ -68,11 +90,36 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - shell: bash
+
+      - name: Inspect legacy product-slice authority
+        id: authority
+        shell: bash
+        run: |
+          node <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('node:fs');
+          const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+          const current = String(state.current || '');
+          const writable = Array.isArray(state.agentWritableScope) ? state.agentWritableScope : [];
+          const active = /Autopilot Product Slice\s+\d+/i.test(current) && writable.length === 1;
+          console.log(`active=${active}`);
+          console.log(`current=${current.replace(/[\r\n]/g, ' ')}`);
+          console.log(`writable_count=${writable.length}`);
+          NODE
+
+      - name: Reconcile generated PRs
+        if: steps.authority.outputs.active == 'true'
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: node scripts/p7-autopilot-generated-merge-reconcile.mjs
+
+      - name: Skip outside legacy product-slice authority
+        if: steps.authority.outputs.active != 'true'
+        run: |
+          echo "Generated PR reconciliation is inactive for current authority: ${{ steps.authority.outputs.current }}"
+          echo "agentWritableScope count: ${{ steps.authority.outputs.writable_count }}"
