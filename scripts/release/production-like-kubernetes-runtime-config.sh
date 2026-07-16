@@ -122,21 +122,43 @@ kubectl wait --for=condition=Ready nodes --all --timeout=360s
 kubectl logs -n kube-system -l k8s-app=calico-node -c calico-node \
   --prefix=true --tail=500 > "$K8S_DIR/logs/calico-node.log" 2>&1 || true
 
+# Enforce the PostgreSQL boundary on both sides. Egress prevents runtime pods
+# from opening TCP/5432; ingress independently permits only PgBouncer to reach
+# the PostgreSQL workload endpoint. Either side must fail closed on its own.
+FAILURE_REASON="Calico runtime PostgreSQL boundary configuration failed"
 run_calicoctl apply -f infra/kind/production-like/calico-runtime-database-deny.yaml \
   > "$K8S_DIR/calico-runtime-database-deny-apply.log" 2>&1
 run_calicoctl get networkpolicy deny-runtime-direct-postgresql \
   --namespace "$NAMESPACE" --output json \
   > "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json"
+run_calicoctl get networkpolicy deny-postgresql-ingress-bypass \
+  --namespace "$NAMESPACE" --output json \
+  > "$K8S_DIR/cluster/calico-postgresql-ingress-deny-v3.json"
 
-test "$(jq -r '.apiVersion' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "projectcalico.org/v3"
-test "$(jq -r '.spec.order' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "10"
-test "$(jq -r '.spec.selector' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "all()"
-test "$(jq -r '.spec.egress[0].action' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "Allow"
-test "$(jq -r '.spec.egress[0].source.selector' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "app.kubernetes.io/name == 'pgbouncer'"
-test "$(jq -r '.spec.egress[0].destination.selector' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "app.kubernetes.io/name == 'postgresql'"
-test "$(jq -r '.spec.egress[0].destination.ports[0]' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "5432"
-test "$(jq -r '.spec.egress[1].action' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "Deny"
-test "$(jq -r '.spec.egress[1].destination.ports[0]' "$K8S_DIR/cluster/calico-runtime-database-deny-v3.json")" = "5432"
+EGRESS_POLICY="$K8S_DIR/cluster/calico-runtime-database-deny-v3.json"
+INGRESS_POLICY="$K8S_DIR/cluster/calico-postgresql-ingress-deny-v3.json"
+
+test "$(jq -r '.apiVersion' "$EGRESS_POLICY")" = "projectcalico.org/v3"
+test "$(jq -r '.spec.order' "$EGRESS_POLICY")" = "10"
+test "$(jq -r '.spec.selector' "$EGRESS_POLICY")" = "all()"
+test "$(jq -r '.spec.egress[0].action' "$EGRESS_POLICY")" = "Allow"
+test "$(jq -r '.spec.egress[0].source.selector' "$EGRESS_POLICY")" = "app.kubernetes.io/name == 'pgbouncer'"
+test "$(jq -r '.spec.egress[0].destination.selector' "$EGRESS_POLICY")" = "app.kubernetes.io/name == 'postgresql'"
+test "$(jq -r '.spec.egress[0].destination.ports[0]' "$EGRESS_POLICY")" = "5432"
+test "$(jq -r '.spec.egress[1].action' "$EGRESS_POLICY")" = "Deny"
+test "$(jq -r '.spec.egress[1].destination.ports[0]' "$EGRESS_POLICY")" = "5432"
+
+test "$(jq -r '.apiVersion' "$INGRESS_POLICY")" = "projectcalico.org/v3"
+test "$(jq -r '.spec.order' "$INGRESS_POLICY")" = "10"
+test "$(jq -r '.spec.selector' "$INGRESS_POLICY")" = "app.kubernetes.io/name == 'postgresql'"
+test "$(jq -r '.spec.ingress[0].action' "$INGRESS_POLICY")" = "Allow"
+test "$(jq -r '.spec.ingress[0].source.selector' "$INGRESS_POLICY")" = "app.kubernetes.io/name == 'pgbouncer'"
+test "$(jq -r '.spec.ingress[0].destination.ports[0]' "$INGRESS_POLICY")" = "5432"
+test "$(jq -r '.spec.ingress[1].action' "$INGRESS_POLICY")" = "Deny"
+test "$(jq -r '.spec.ingress[1].destination.ports[0]' "$INGRESS_POLICY")" = "5432"
+
+run_calicoctl get networkpolicy --namespace "$NAMESPACE" --output yaml \
+  > "$K8S_DIR/cluster/calico-networkpolicies.yaml"
 
 test "$(kubectl get service pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.ports[].port] | join(":")')" = "6432"
 test "$(kubectl get networkpolicy api-to-pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.egress[].ports[].port] | join(":")')" = "6432"
