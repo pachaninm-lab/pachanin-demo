@@ -13,6 +13,7 @@
   "apps/web/components/platform-v7/PlatformV7ProtectedRuntime.module.css",
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx",
   "apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css",
+  "apps/web/components/platform-v7/PlatformV7ShellUxController.tsx",
   "apps/web/components/platform-v7/UxFinalQuietLayer.tsx",
   "apps/web/components/platform-v7/WorkStepGuide.tsx",
   "apps/web/components/platform-v7/WorkStepGuide.module.css",
