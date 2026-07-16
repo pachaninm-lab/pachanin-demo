@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: minio-tls-check
+  namespace: grainflow-acceptance
+  labels:
+    app.kubernetes.io/name: minio-tls-check
+    app.kubernetes.io/component: acceptance-probe
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: mc
+      image: minio/mc:RELEASE.2024-05-09T17-04-24Z
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: grainflow-minio-secrets
+              key: MINIO_ROOT_USER
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: grainflow-minio-secrets
+              key: MINIO_ROOT_PASSWORD
+        - name: SSL_CERT_FILE
+          value: /tls/ca.crt
+        - name: MC_CONFIG_DIR
+          value: /tmp/mc
+      command: [/bin/sh, -ec]
+      args:
+        - |
+          mc alias set acceptance https://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          mc stat acceptance/grainflow-documents
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      volumeMounts:
+        - name: tls
+          mountPath: /tls
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+  volumes:
+    - name: tls
+      secret:
+        secretName: grainflow-minio-tls
+        items:
+          - key: ca.crt
+            path: ca.crt
+        defaultMode: 292
+    - name: tmp
+      emptyDir:
+        medium: Memory
+        sizeLimit: 32Mi
