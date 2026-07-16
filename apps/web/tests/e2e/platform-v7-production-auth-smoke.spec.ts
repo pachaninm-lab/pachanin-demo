@@ -48,10 +48,21 @@ test.describe('platform-v7 production public and authentication boundary', () =>
   }
 
   for (const protectedPath of protectedRoutes) {
-    test(`${protectedPath} rejects client-only role claims`, async ({ page }) => {
+    test(`${protectedPath} rejects client-only role claims`, async ({ page, baseURL }) => {
+      if (!baseURL) throw new Error('PLAYWRIGHT_BASE_URL is required for production auth smoke');
+
+      // Seed the forged role cookie before the first protected-route request so
+      // the test proves that server-side authorization ignores client claims.
+      await page.context().addCookies([
+        {
+          name: 'pc-role',
+          value: 'operator',
+          url: baseURL,
+          sameSite: 'Lax',
+        },
+      ]);
       await page.addInitScript(() => {
         window.sessionStorage.setItem('pc-v7-active-role', 'operator');
-        document.cookie = 'pc-role=operator; Path=/; SameSite=Lax';
       });
 
       await page.goto(protectedPath, { waitUntil: 'domcontentloaded' });
