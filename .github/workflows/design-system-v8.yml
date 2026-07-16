@@ -73,6 +73,8 @@ jobs:
           cache: pnpm
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
+      - name: Enforce style freeze (no new CSS files or color literals)
+        run: node ./scripts/check-style-freeze.mjs
       - name: Enforce Design System v8 boundaries
         run: |
           set -o pipefail

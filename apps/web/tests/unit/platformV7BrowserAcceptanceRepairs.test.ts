@@ -43,7 +43,7 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname} verifiedRole={verifiedRole}>');
     expect(protectedRuntime).not.toContain('data-protected-shell-hydration');
     expect(protectedRuntime).not.toContain('setHydrated');
-    expect(protectedShell).toContain(': <RoleIntentDashboard role={verifiedRole} />');
+    expect(protectedShell).toContain(': <RoleIntentDashboard role={verifiedRole} fallback={children} />');
     expect(protectedShell).not.toContain('cabinetLoading');
     expect(protectedShell).not.toContain('Открываем интерфейс кабинета');
   });

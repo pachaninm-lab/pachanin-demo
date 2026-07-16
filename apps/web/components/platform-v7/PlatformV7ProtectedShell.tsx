@@ -176,7 +176,7 @@ export function PlatformV7ProtectedShell({
           {children}
         </>
       )
-      : <RoleIntentDashboard role={verifiedRole} />
+      : <RoleIntentDashboard role={verifiedRole} fallback={children} />
     : children;
 
   const showPlatformFooter = !isRoleRoot || !ownerPreview;

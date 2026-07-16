@@ -294,6 +294,18 @@
   }
 }
 
+/* The dock is a mobile pattern: on desktop it floats over content
+   (KPI rows, primary buttons), so navigation stays in the header/drawer. */
+@media (min-width: 900px) {
+  .roleDock {
+    display: none;
+  }
+
+  .shellScope :global(.pc-v4-main) {
+    padding-bottom: var(--ds-space-8, 32px) !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .drawerLink,
   .dockLink {

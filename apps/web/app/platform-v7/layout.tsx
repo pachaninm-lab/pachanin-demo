@@ -174,6 +174,7 @@ const ALIAS_DYNAMIC_PATHS = [
   /^\/platform-v7\/counterparty\/[^/]+$/,
   /^\/platform-v7\/deal-drafts\/[^/]+$/,
   /^\/platform-v7\/deals\/[^/]+$/,
+  /^\/platform-v7\/deals\/[^/]+\/(audit|clean|disputes|documents|evidence-pack|execution|logistics|money|quality|review|transport-documents)$/,
   /^\/platform-v7\/dispute\/[^/]+$/,
   /^\/platform-v7\/disputes\/[^/]+\/hold$/,
   /^\/platform-v7\/disputes\/[^/]+$/,

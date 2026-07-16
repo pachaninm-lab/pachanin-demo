@@ -56,7 +56,7 @@ describe('platform-v7 role intent dashboard', () => {
     expect(dashboardStyles).toContain('@media (max-width: 430px)');
     expect(dashboardStyles).toContain('@media (forced-colors: active)');
     expect(shell).toContain('ROLE_INTENT_ROOT_PATHS');
-    expect(shell).toContain(': <RoleIntentDashboard role={verifiedRole} />');
+    expect(shell).toContain(': <RoleIntentDashboard role={verifiedRole} fallback={children} />');
 
     for (const route of [
       '/platform-v7/control-tower', '/platform-v7/buyer', '/platform-v7/seller',

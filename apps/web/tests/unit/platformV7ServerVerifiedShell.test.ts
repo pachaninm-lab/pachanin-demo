@@ -40,7 +40,7 @@ const shell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx
     expect(shell).toContain('verifiedRole: PlatformRole');
     expect(shell).toContain('<AppShellV4 initialRole={verifiedRole}>');
     expect(shell).toContain('<PlatformV7ShellUxController role={verifiedRole} />');
-    expect(shell).toContain('<RoleIntentDashboard role={verifiedRole} />');
+    expect(shell).toContain('<RoleIntentDashboard role={verifiedRole} fallback={children} />');
   });
 
   it('synchronizes the presentation store before paint without deriving role from URL', () => {

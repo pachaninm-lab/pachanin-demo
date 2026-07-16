@@ -259,7 +259,7 @@ function pageUrl(cursor: string | null): string {
   return `/api/proxy/deals/accessible?${params.toString()}`;
 }
 
-export function RoleIntentDashboard({ role }: { role: PlatformRole }) {
+export function RoleIntentDashboard({ role, fallback }: { role: PlatformRole; fallback?: React.ReactNode }) {
   const locale = normalizeLocale(useLocale());
   const copy = COPY[locale];
   const [state, setState] = React.useState<LoadState>({ kind: 'loading' });
@@ -381,6 +381,26 @@ export function RoleIntentDashboard({ role }: { role: PlatformRole }) {
   }
 
   if (state.kind === 'error') {
+    // The cabinet root must never dead-end on a fetch failure: when the server
+    // layout provided a fallback surface, degrade to it and keep retry visible.
+    if (fallback) {
+      return (
+        <>
+          <Surface className={styles.stateCard} role='status' data-deals-error data-transaction-role-cockpit='v8' data-locale={locale}>
+            <div className={styles.stateContent}>
+              <p>
+                <AlertTriangle className={styles.errorIcon} size={16} aria-hidden='true' />{' '}
+                {copy.errorTitle} — {state.message}
+              </p>
+              <Button variant='secondary' onClick={() => void load()}>
+                <RefreshCw size={18} aria-hidden='true' /> {copy.repeat}
+              </Button>
+            </div>
+          </Surface>
+          {fallback}
+        </>
+      );
+    }
     return (
       <Surface className={styles.stateCard} role='alert' data-deals-error data-transaction-role-cockpit='v8' data-locale={locale}>
         <div className={styles.stateContent}>
