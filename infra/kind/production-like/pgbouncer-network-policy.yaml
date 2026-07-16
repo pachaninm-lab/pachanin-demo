@@ -15,13 +15,10 @@ spec:
               - key: app.kubernetes.io/name
                 operator: In
                 values: [grainflow-api, grainflow-outbox-worker]
-      # kube-proxy/CNI hook ordering can expose the PgBouncer Service port before
-      # DNAT (5432) or the container port after DNAT (6432). Both remain scoped
-      # to PgBouncer pods. PostgreSQL is converted to a headless Service before
-      # applications start, so its endpoint is evaluated against its own labels.
+      # PgBouncer client traffic is deliberately isolated on 6432. PostgreSQL
+      # remains on 5432, so no client-side rule can also authorize a direct
+      # database endpoint under pre- or post-DNAT NetworkPolicy evaluation.
       ports:
-        - protocol: TCP
-          port: 5432
         - protocol: TCP
           port: 6432
   egress:
@@ -63,8 +60,6 @@ spec:
               app.kubernetes.io/name: pgbouncer
       ports:
         - protocol: TCP
-          port: 5432
-        - protocol: TCP
           port: 6432
 ---
 apiVersion: networking.k8s.io/v1
@@ -84,8 +79,6 @@ spec:
             matchLabels:
               app.kubernetes.io/name: pgbouncer
       ports:
-        - protocol: TCP
-          port: 5432
         - protocol: TCP
           port: 6432
 ---
