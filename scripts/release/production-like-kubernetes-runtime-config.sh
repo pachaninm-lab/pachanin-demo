@@ -61,10 +61,11 @@ test -f "$KUBECONFIG_PATH"
 test -f "$REPOSITORY_PATH/infra/kind/production-like/calico-runtime-database-deny.yaml"
 run_calicoctl() {
   docker run --rm --network host \
-    --volume "${KUBECONFIG_PATH}:/root/.kube/config:ro" \
+    --volume "${KUBECONFIG_PATH}:/kubeconfig:ro" \
     --volume "${REPOSITORY_PATH}:/workspace:ro" \
     --workdir /workspace \
     --env DATASTORE_TYPE=kubernetes \
+    --env KUBECONFIG=/kubeconfig \
     "$CALICOCTL_IMAGE_DIGEST" "$@"
 }
 
