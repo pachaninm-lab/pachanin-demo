@@ -1,0 +1,36 @@
+spec:
+  template:
+    spec:
+      containers:
+        - name: minio
+          args:
+            - server
+            - /data
+            - --console-address
+            - ":9001"
+            - --certs-dir
+            - /certs
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: s3
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: s3
+              scheme: HTTPS
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          volumeMounts:
+            - name: tls
+              mountPath: /certs
+              readOnly: true
+      volumes:
+        - name: tls
+          secret:
+            secretName: grainflow-minio-tls
+            defaultMode: 288
