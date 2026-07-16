@@ -1,22 +1,26 @@
 apiVersion: projectcalico.org/v3
+kind: Tier
+metadata:
+  name: platform-security
+spec:
+  order: 100
+  defaultAction: Pass
+---
+apiVersion: projectcalico.org/v3
 kind: NetworkPolicy
 metadata:
   name: deny-runtime-direct-postgresql
   namespace: grainflow-acceptance
 spec:
+  tier: platform-security
   order: 10
-  selector: >-
-    app.kubernetes.io/name in {
-      'grainflow-api',
-      'grainflow-outbox-worker'
-    }
+  selector: "app.kubernetes.io/name in {'grainflow-api', 'grainflow-outbox-worker'}"
   types:
     - Egress
   egress:
     - action: Deny
       protocol: TCP
       destination:
-        selector: app.kubernetes.io/name == 'postgresql'
+        selector: "app.kubernetes.io/name == 'postgresql'"
         ports:
           - 5432
-    - action: Pass
