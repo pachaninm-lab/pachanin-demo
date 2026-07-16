@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/exact-main-0a45-evidence-audit.yml'
       - 'scripts/audit-exact-main-0a45.mjs'
+      - 'scripts/audit-exact-main-preflight.mjs'
   workflow_dispatch:
 
 permissions:
@@ -39,6 +40,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+
+      - name: Capture early GraphQL preflight
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/audit-exact-main-preflight.mjs
+
+      - name: Publish preflight through Git transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$AUDIT_DIR/preflight.json"
+          short_head="${AUDIT_HEAD:0:12}"
+          result_branch="evidence/exact-main-0a45-${short_head}"
+          publish_dir="audit-results/exact-main-0a45"
+          rm -rf "$publish_dir"
+          mkdir -p "$publish_dir"
+          cp "$AUDIT_DIR/preflight.json" "$publish_dir/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$result_branch"
+          git add "$publish_dir/preflight.json"
+          git commit -m "evidence: exact-main 0a45 preflight ${AUDIT_HEAD}"
+          git push --force origin "HEAD:refs/heads/$result_branch"
 
       - name: Audit exact-main authority
         env:
@@ -79,7 +103,7 @@ jobs:
             "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$AUDIT_HEAD" \
             -d "$payload"
 
-      - name: Publish evidence to dedicated Git branch
+      - name: Publish final evidence to dedicated Git branch
         if: always()
         shell: bash
         run: |
@@ -88,20 +112,18 @@ jobs:
           short_head="${AUDIT_HEAD:0:12}"
           result_branch="evidence/exact-main-0a45-${short_head}"
           publish_dir="audit-results/exact-main-0a45"
-          rm -rf "$publish_dir"
           mkdir -p "$publish_dir"
           cp "$AUDIT_DIR/exact-main-0a45-audit.json" "$publish_dir/"
           cp "$AUDIT_DIR/verdict.txt" "$publish_dir/"
+          cp "$AUDIT_DIR/preflight.json" "$publish_dir/"
+          rm -rf "$publish_dir/evidence"
           if test -d "$AUDIT_DIR/evidence"; then
             cp -R "$AUDIT_DIR/evidence" "$publish_dir/evidence"
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C "$result_branch"
           git add "$publish_dir"
           git commit -m "evidence: exact-main 0a45 audit ${AUDIT_HEAD}"
           git push --force origin "HEAD:refs/heads/$result_branch"
-          echo "Published audit evidence to $result_branch"
 
       - name: Enforce exact-main audit verdict
         if: always()
