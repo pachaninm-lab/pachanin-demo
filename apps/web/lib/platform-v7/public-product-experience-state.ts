@@ -77,9 +77,9 @@ export type TourEvent =
 
 export const DEFAULT_TOUR_STATE: TourState = {
   lens: 'execution',
-  stage: 'terms',
+  stage: 'acceptance',
   scenario: 'standard',
-  perspective: 'buyer',
+  perspective: 'seller',
   risk: 'weightMismatch',
   aiEnabled: false,
 };
