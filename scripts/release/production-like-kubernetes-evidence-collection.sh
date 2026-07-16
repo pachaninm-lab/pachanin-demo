@@ -28,6 +28,28 @@ collect_cluster_evidence() {
     done
     kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller --all-containers=true --tail=300 \
       > "$K8S_DIR/logs/ingress-nginx.log" 2>&1 || true
+    kubectl logs -n kube-system -l k8s-app=calico-node -c calico-node --prefix=true --tail=2000 \
+      > "$K8S_DIR/logs/calico-node.log" 2>&1 || true
+
+    # Retain the effective Calico attachment and host dataplane, not only source
+    # manifests. These files make a failed policy probe diagnosable after the
+    # disposable kind cluster has been destroyed.
+    if declare -F run_calicoctl >/dev/null 2>&1; then
+      run_calicoctl get networkpolicy --namespace "$NAMESPACE" --output yaml \
+        > "$K8S_DIR/cluster/calico-networkpolicies.yaml" 2>&1 || true
+      run_calicoctl get workloadendpoint --namespace "$NAMESPACE" --output yaml \
+        > "$K8S_DIR/cluster/calico-workloadendpoints.yaml" 2>&1 || true
+    fi
+
+    mkdir -p "$K8S_DIR/cluster/dataplane"
+    while IFS= read -r kind_node; do
+      docker exec "$kind_node" iptables-save \
+        > "$K8S_DIR/cluster/dataplane/${kind_node}-iptables-save.txt" 2>&1 || true
+      docker exec "$kind_node" nft list ruleset \
+        > "$K8S_DIR/cluster/dataplane/${kind_node}-nft-ruleset.txt" 2>&1 || true
+      docker exec "$kind_node" ip route show table all \
+        > "$K8S_DIR/cluster/dataplane/${kind_node}-routes.txt" 2>&1 || true
+    done < <(kind get nodes --name "$CLUSTER_NAME")
   fi
   set -e
 }
