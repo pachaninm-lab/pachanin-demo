@@ -54,7 +54,7 @@ spec:
     app.kubernetes.io/name: pgbouncer
   ports:
     - name: pgbouncer
-      port: 5432
+      port: 6432
       targetPort: pgbouncer
 ---
 apiVersion: apps/v1
