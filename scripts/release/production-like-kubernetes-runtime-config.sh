@@ -1,14 +1,52 @@
 FAILURE_REASON="production-like runtime configuration failed"
 
-# The bootstrap ClusterIP is needed only until migrations and the first PgBouncer
-# connectivity proof finish. Before application workloads start, replace it with
-# a headless Service so NetworkPolicy selectors are evaluated against the actual
-# PostgreSQL pod endpoint rather than implementation-dependent Service DNAT.
+# Bootstrap services exist only until migrations and the first PgBouncer
+# connectivity proof finish. Before application workloads start, PostgreSQL is
+# made headless and PgBouncer loses its compatibility port 5432. Runtime clients
+# then use only 6432, so the PostgreSQL and pooler routes cannot overlap.
 kubectl delete service postgresql -n "$NAMESPACE" --wait=true \
   > "$K8S_DIR/postgresql-clusterip-service-delete.log"
 kubectl apply -f infra/kind/production-like/postgresql-headless-service.yaml \
   > "$K8S_DIR/postgresql-headless-service-apply.log"
 test "$(kubectl get service postgresql -n "$NAMESPACE" -o jsonpath='{.spec.clusterIP}')" = "None"
+
+rewrite_database_urls() {
+  local secret_name="$1"
+  local temporary_file
+  temporary_file="$(mktemp)"
+  kubectl get secret "$secret_name" -n "$NAMESPACE" -o json | \
+    jq '
+      del(
+        .metadata.creationTimestamp,
+        .metadata.managedFields,
+        .metadata.resourceVersion,
+        .metadata.uid
+      )
+      | .data |= with_entries(
+          if (.key | test("DATABASE_URL$")) then
+            .value |= (@base64d | gsub("@pgbouncer:5432/"; "@pgbouncer:6432/") | @base64)
+          else
+            .
+          end
+        )
+    ' > "$temporary_file"
+  kubectl apply -f "$temporary_file" \
+    > "$K8S_DIR/${secret_name}-runtime-port-rewrite.log"
+  rm -f "$temporary_file"
+}
+
+rewrite_database_urls grainflow-api-secrets
+rewrite_database_urls grainflow-outbox-worker-secrets
+
+kubectl apply -f infra/kind/production-like/pgbouncer-runtime-service.yaml \
+  > "$K8S_DIR/pgbouncer-runtime-service-apply.log"
+kubectl apply -f infra/kind/production-like/pgbouncer-runtime-network-policy.yaml \
+  > "$K8S_DIR/pgbouncer-runtime-network-policy-apply.log"
+
+test "$(kubectl get service pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.ports[].port] | join(":")')" = "6432"
+test "$(kubectl get networkpolicy api-to-pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.egress[].ports[].port] | join(":")')" = "6432"
+test "$(kubectl get networkpolicy worker-to-pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.egress[].ports[].port] | join(":")')" = "6432"
+test "$(kubectl get networkpolicy pgbouncer-ingress-egress -n "$NAMESPACE" -o json | jq -r '[.spec.ingress[].ports[].port] | join(":")')" = "6432"
 
 kubectl create configmap grainflow-pgbouncer-config -n "$NAMESPACE" \
   --from-file=pgbouncer.ini=infra/kind/production-like/pgbouncer.ini \
