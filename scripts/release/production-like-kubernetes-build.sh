@@ -256,18 +256,3 @@ for rendered in initial-migration initial-workloads update-workloads rollback-wo
   grep -Eq '@sha256:[0-9a-f]{64}' "$K8S_DIR/rendered/${rendered}.yaml"
   ! grep -E 'image: .*:(latest|main|master|dev|prod)$' "$K8S_DIR/rendered/${rendered}.yaml"
 done
-
-# Both immutable digest sets are now durable in the local registry container.
-# Remove only host-side build cache and unreferenced image material before kind
-# creates node filesystems; otherwise duplicate exact-head builds can exhaust the
-# GitHub runner and surface as containerd "no space left on device" failures.
-FAILURE_REASON="runner disk reclaim after immutable publication failed"
-df -h > "$K8S_DIR/runner-disk-before-reclaim.txt"
-docker system df -v > "$K8S_DIR/docker-system-before-reclaim.txt"
-docker builder prune --all --force > "$K8S_DIR/docker-builder-prune.log"
-docker image prune --all --force > "$K8S_DIR/docker-image-prune.log"
-docker system df -v > "$K8S_DIR/docker-system-after-reclaim.txt"
-df -h > "$K8S_DIR/runner-disk-after-reclaim.txt"
-available_kb="$(df --output=avail -k / | tail -n 1 | tr -d ' ')"
-printf '%s\n' "$available_kb" > "$K8S_DIR/runner-root-available-kb.txt"
-test "$available_kb" -ge 8388608
