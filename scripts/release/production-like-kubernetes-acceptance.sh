@@ -8,6 +8,7 @@ source scripts/release/production-like-kubernetes-cluster.sh
 source scripts/release/production-like-kubernetes-object-storage.sh
 
 patch_web_hardening() {
+  patch_api_object_storage
   kubectl patch deployment grainflow-web -n "$NAMESPACE" --type=json \
     --patch-file infra/kind/production-like/web-runtime-hardening-patch.json \
     > "$K8S_DIR/web-runtime-hardening-patch.log" 2>&1
