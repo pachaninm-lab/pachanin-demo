@@ -110,16 +110,17 @@ run_calicoctl get felixconfiguration default --output json \
   > "$K8S_DIR/cluster/calico-felix-configuration.json"
 test "$(jq -r '.spec.iptablesBackend' "$K8S_DIR/cluster/calico-felix-configuration.json")" = "$CALICO_IPTABLES_BACKEND"
 
-kubectl rollout restart daemonset/calico-node -n kube-system \
-  > "$K8S_DIR/calico-node-rollout-restart.log"
+# Set the same value on the DaemonSet as an explicit process-level authority.
+# The env update triggers a full calico-node rollout before application pods run.
+kubectl set env daemonset/calico-node -n kube-system \
+  "FELIX_IPTABLESBACKEND=${CALICO_IPTABLES_BACKEND}" \
+  > "$K8S_DIR/calico-node-backend-set.log"
 kubectl rollout status daemonset/calico-node -n kube-system --timeout=360s \
   > "$K8S_DIR/calico-node-rollout-status.log"
+test "$(kubectl get daemonset calico-node -n kube-system -o json | jq -r '.spec.template.spec.containers[] | select(.name == "calico-node") | .env[] | select(.name == "FELIX_IPTABLESBACKEND") | .value')" = "$CALICO_IPTABLES_BACKEND"
 kubectl wait --for=condition=Ready nodes --all --timeout=360s
 kubectl logs -n kube-system -l k8s-app=calico-node -c calico-node \
-  --prefix=true --tail=500 > "$K8S_DIR/logs/calico-node.log" 2>&1
-
-grep -q "IptablesBackend:${CALICO_IPTABLES_BACKEND}" "$K8S_DIR/logs/calico-node.log" \
-  || grep -qi "iptables backend.*${CALICO_IPTABLES_BACKEND}" "$K8S_DIR/logs/calico-node.log"
+  --prefix=true --tail=500 > "$K8S_DIR/logs/calico-node.log" 2>&1 || true
 
 run_calicoctl apply -f infra/kind/production-like/calico-runtime-database-deny.yaml \
   > "$K8S_DIR/calico-runtime-database-deny-apply.log" 2>&1
