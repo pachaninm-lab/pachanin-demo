@@ -117,7 +117,10 @@ export function PublicDealPreview({ copy, locale }: { copy: PublicProductExperie
         </div>
       </div>
 
-      <div className='pc-ppe-preview-actions'>
+      <div
+        className='pc-ppe-preview-actions'
+        style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 10, marginTop: 14 }}
+      >
         <a
           className='pc-ppe-primary-button'
           href={startHref}
