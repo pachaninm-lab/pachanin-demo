@@ -9,7 +9,8 @@ mkdir -p "$K8S_DIR"
 # and bound by registry digests before this script runs. Local image tags and
 # BuildKit cache are no longer release authority. Reclaim them before kind
 # duplicates image layers across its node containers.
-docker system df -v > "$K8S_DIR/docker-system-df-before-post-build-prune.txt"
+df -h > "$K8S_DIR/runner-disk-before-reclaim.txt"
+docker system df -v > "$K8S_DIR/docker-system-before-reclaim.txt"
 
 if docker buildx version >/dev/null 2>&1; then
   docker buildx prune --all --force \
@@ -22,5 +23,11 @@ fi
 docker image prune --all --force \
   > "$K8S_DIR/docker-image-prune.log" 2>&1
 
-docker system df -v > "$K8S_DIR/docker-system-df-after-post-build-prune.txt"
-df -h > "$K8S_DIR/host-disk-after-post-build-prune.txt"
+docker system df -v > "$K8S_DIR/docker-system-after-reclaim.txt"
+df -h > "$K8S_DIR/runner-disk-after-reclaim.txt"
+available_kb="$(df --output=avail -k / | tail -n 1 | tr -d ' ')"
+printf '%s\n' "$available_kb" > "$K8S_DIR/runner-root-available-kb.txt"
+
+# Fail before kind creation instead of allowing containerd or etcd to corrupt
+# the acceptance signal with a later ENOSPC cascade.
+test "$available_kb" -ge 8388608
