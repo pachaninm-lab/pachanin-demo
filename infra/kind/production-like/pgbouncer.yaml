@@ -53,6 +53,9 @@ spec:
   selector:
     app.kubernetes.io/name: pgbouncer
   ports:
+    - name: bootstrap
+      port: 5432
+      targetPort: pgbouncer
     - name: pgbouncer
       port: 6432
       targetPort: pgbouncer
