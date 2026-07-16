@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { LOCALE_COOKIE } from '@/i18n/locale';
 import { observeServerCabinetAccess, serverCabinetRbacMode } from '@/lib/platform-v7/server-cabinet-access';
 import { readVerifiedCabinetRole, readVerifiedCabinetSessionRole } from '@/lib/platform-v7/verified-session';
+import { PLATFORM_V7_PUBLIC_SEO_PATHS } from '@/lib/platform-v7/public-seo-routes';
 
 // The verified-JWT role is the ONLY server-trusted identity for cabinet RBAC observation.
 // Prefer the dedicated platform-v7 cabinet session (pc_v7_cabinet, `cab` claim); fall back
@@ -57,17 +58,16 @@ const OWNER_COOKIE = 'pc_owner_access';
 const PLATFORM_V7_ENTRY_COOKIE = 'pc_v7_entry_seen';
 const PRIVATE_REALM = 'Prozrachnaya Cena Private';
 
+const PLATFORM_V7_INDEXABLE_EXACT = new Set(PLATFORM_V7_PUBLIC_SEO_PATHS);
+
 const PLATFORM_V7_PUBLIC_EXACT = new Set([
-  '/platform-v7',
+  ...PLATFORM_V7_PUBLIC_SEO_PATHS,
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/register',
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
-  '/platform-v7/demo',
-  '/platform-v7/contact',
-  '/platform-v7/request',
 ]);
 
 const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
@@ -324,7 +324,8 @@ export async function middleware(req: NextRequest) {
 
   if (p.startsWith('/platform-v7')) {
     const isEntry = p === '/platform-v7';
-    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath, isEntry && !privateModeEnabled);
+    const indexable = !privateModeEnabled && PLATFORM_V7_INDEXABLE_EXACT.has(p);
+    const response = withRoleHeaders(req, resolvedRole, privateModeEnabled && protectedPath, indexable);
     persistRoleCookie(req, response, resolvedRole);
     if (isEntry) markPlatformV7Entry(response);
     try {
