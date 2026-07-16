@@ -1,0 +1,432 @@
+<title>Прототип ЛК — Прозрачная Цена</title>
+<style>
+  :root {
+    --canvas: #f4f7f5;
+    --surface: #ffffff;
+    --surface-soft: #ecf1ee;
+    --ink: #14201a;
+    --ink-2: #40514a;
+    --ink-3: #6b7c74;
+    --line: #dbe4df;
+    --green: #086534;
+    --green-deep: #054a26;
+    --green-soft: #e7f4ec;
+    --amber: #8a5a00;
+    --amber-soft: #fdf3dd;
+    --red: #b42318;
+    --red-soft: #fdefed;
+    --blue: #175cd3;
+    --blue-soft: #ecf3fd;
+    --on-accent: #ffffff;
+    --radius: 14px;
+    --radius-lg: 20px;
+    --shadow: 0 1px 2px rgb(16 24 20 / .05), 0 8px 24px rgb(16 24 20 / .06);
+    --font: 'Inter', -apple-system, 'Segoe UI', system-ui, Roboto, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --canvas: #0e1512; --surface: #16211b; --surface-soft: #1d2a23;
+      --ink: #eef4f0; --ink-2: #b9c7c0; --ink-3: #8a9a92; --line: #2c3a33;
+      --green: #6fd39a; --green-deep: #8fe0b0; --green-soft: #14311f;
+      --amber: #e8b45a; --amber-soft: #33270f;
+      --red: #f08c82; --red-soft: #3a1713;
+      --blue: #7fb0f2; --blue-soft: #16283f;
+      --on-accent: #0e1512;
+      --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 24px rgb(0 0 0 / .25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --canvas: #0e1512; --surface: #16211b; --surface-soft: #1d2a23;
+    --ink: #eef4f0; --ink-2: #b9c7c0; --ink-3: #8a9a92; --line: #2c3a33;
+    --green: #6fd39a; --green-deep: #8fe0b0; --green-soft: #14311f;
+    --amber: #e8b45a; --amber-soft: #33270f;
+    --red: #f08c82; --red-soft: #3a1713;
+    --blue: #7fb0f2; --blue-soft: #16283f;
+    --on-accent: #0e1512;
+    --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 24px rgb(0 0 0 / .25);
+  }
+  :root[data-theme="light"] {
+    --canvas: #f4f7f5; --surface: #ffffff; --surface-soft: #ecf1ee;
+    --ink: #14201a; --ink-2: #40514a; --ink-3: #6b7c74; --line: #dbe4df;
+    --green: #086534; --green-deep: #054a26; --green-soft: #e7f4ec;
+    --amber: #8a5a00; --amber-soft: #fdf3dd;
+    --red: #b42318; --red-soft: #fdefed;
+    --blue: #175cd3; --blue-soft: #ecf3fd;
+    --shadow: 0 1px 2px rgb(16 24 20 / .05), 0 8px 24px rgb(16 24 20 / .06);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--canvas); color: var(--ink);
+    font-family: var(--font); font-size: 16px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .money { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+  /* ---------- shell ---------- */
+  .topbar {
+    display: flex; align-items: center; gap: 14px;
+    max-width: 1080px; margin: 0 auto; padding: 18px 24px 10px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
+  .brand-mark {
+    width: 34px; height: 34px; border-radius: 10px; background: var(--green);
+    display: grid; place-items: center; color: var(--on-accent); font-size: 17px; flex: none;
+  }
+
+  .who { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--ink-3); font-size: 14px; }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--surface-soft);
+    border: 1px solid var(--line); display: grid; place-items: center; font-weight: 600; color: var(--ink-2); font-size: 14px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 8px 24px 64px; }
+
+  .screen { display: none; }
+  .screen.on { display: block; animation: rise .25s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .screen.on { animation: none; } }
+
+  h1 { font-size: 28px; line-height: 1.2; margin: 18px 0 6px; text-wrap: balance; letter-spacing: -0.015em; }
+  .sub { color: var(--ink-2); margin: 0 0 26px; font-size: 16.5px; }
+
+  /* ---------- bento home ---------- */
+  .bento { display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
+  @media (max-width: 840px) { .bento { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow);
+  }
+
+  .hero { padding: 26px 28px 28px; }
+  .hero .tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--red-soft); color: var(--red);
+    border-radius: 999px; padding: 5px 13px; font-size: 13.5px; font-weight: 600;
+  }
+  .hero .tag.waiting { background: var(--amber-soft); color: var(--amber); }
+  .hero h2 { font-size: 23px; margin: 14px 0 8px; line-height: 1.25; text-wrap: balance; }
+  .hero p { margin: 0 0 6px; color: var(--ink-2); max-width: 56ch; }
+  .hero .why { color: var(--ink-3); font-size: 14.5px; }
+  .hero-actions { display: flex; align-items: center; gap: 16px; margin-top: 20px; flex-wrap: wrap; }
+
+  .btn {
+    appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600;
+    border-radius: 12px; padding: 14px 22px; font-size: 16.5px;
+    background: var(--green); color: var(--on-accent); min-height: 48px;
+    transition: transform .12s ease, filter .12s ease;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: scale(.98); }
+  .btn:focus-visible, a:focus-visible, .row:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .btn.ghost { background: transparent; color: var(--green); border: 1.5px solid var(--line); }
+  .linkish { background: none; border: 0; cursor: pointer; font: inherit; color: var(--blue); padding: 0; font-size: 15px; }
+
+  /* dots — светофор */
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .dot.red { background: var(--red); }
+  .dot.amber { background: var(--amber); }
+  .dot.green { background: var(--green); }
+  .dot.grey { background: var(--line); }
+
+  .list-title { font-size: 14px; font-weight: 600; color: var(--ink-3); margin: 26px 4px 10px; }
+  .rows { display: flex; flex-direction: column; gap: 10px; }
+  .row {
+    display: flex; align-items: center; gap: 14px; text-align: left; width: 100%;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 15px 18px; cursor: pointer; font: inherit; color: var(--ink);
+    transition: border-color .12s ease;
+  }
+  .row:hover { border-color: var(--ink-3); }
+  .row b { font-weight: 600; }
+  .row small { display: block; color: var(--ink-3); font-size: 14px; margin-top: 1px; }
+  .row .go { margin-left: auto; color: var(--ink-3); flex: none; }
+  .row.done { opacity: .62; cursor: default; }
+  .row.done:hover { border-color: var(--line); }
+  .row.done b { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+  /* money rail */
+  .rail { padding: 20px 22px; display: flex; flex-direction: column; gap: 0; }
+  .rail h3 { margin: 0 0 4px; font-size: 16px; }
+  .rail .hint { color: var(--ink-3); font-size: 13.5px; margin-bottom: 12px; }
+  .money-row { display: flex; align-items: baseline; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .money-row:first-of-type { border-top: 0; }
+  .money-row .lbl { font-size: 14px; color: var(--ink-2); flex: 1 1 auto; }
+  .money-row .val { margin-left: auto; font-weight: 600; font-size: 15px; white-space: nowrap; }
+  .money-row .note { flex-basis: 100%; font-size: 13.5px; color: var(--ink-3); margin-top: -6px; }
+  .money-row { flex-wrap: wrap; }
+  .money-row .note a { color: var(--blue); text-decoration: none; }
+
+  /* deal steps */
+  .steps-card { margin-top: 18px; padding: 20px 22px; }
+  .steps-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
+  .steps-head h3 { margin: 0; font-size: 16px; }
+  .steps-head span { color: var(--ink-3); font-size: 14px; }
+  .steps-head .linkish { margin-left: auto; }
+  .steps { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+  .step { flex: 1; min-width: 86px; text-align: center; position: relative; }
+  .step .bubble {
+    width: 40px; height: 40px; border-radius: 50%; margin: 0 auto 6px;
+    display: grid; place-items: center; font-size: 17px;
+    background: var(--surface-soft); border: 1.5px solid var(--line); color: var(--ink-3);
+  }
+  .step.done .bubble { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+  .step.now .bubble { background: var(--amber-soft); border-color: var(--amber); color: var(--amber); }
+  .step small { font-size: 12.5px; color: var(--ink-3); display: block; line-height: 1.3; }
+  .step.done small, .step.now small { color: var(--ink-2); font-weight: 600; }
+
+  /* ---------- decision screen ---------- */
+  .back { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-3); background: none; border: 0; cursor: pointer; font: inherit; font-size: 15px; padding: 6px 0; }
+  .decision { max-width: 620px; margin: 0 auto; }
+  .decision .card { padding: 28px 30px; }
+  .plan { list-style: none; counter-reset: n; margin: 18px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  .plan li { counter-increment: n; display: flex; gap: 14px; align-items: flex-start; color: var(--ink-2); }
+  .plan li::before {
+    content: counter(n); flex: none; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--surface-soft); border: 1px solid var(--line); color: var(--ink-2);
+    display: grid; place-items: center; font-size: 13.5px; font-weight: 600;
+  }
+  .facts { display: flex; gap: 10px; flex-wrap: wrap; margin: 20px 0 4px; }
+  .fact { background: var(--surface-soft); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+  .fact b { display: block; font-size: 15.5px; margin-top: 1px; }
+  .safe { display: flex; gap: 10px; align-items: flex-start; background: var(--blue-soft); color: var(--ink-2); border-radius: 12px; padding: 12px 16px; font-size: 14.5px; margin-top: 18px; }
+  .decision .btn { width: 100%; margin-top: 22px; font-size: 17px; padding: 16px; }
+
+  /* ---------- success ---------- */
+  .success { max-width: 520px; margin: 40px auto; text-align: center; }
+  .big-check {
+    width: 88px; height: 88px; margin: 0 auto 20px; border-radius: 50%;
+    background: var(--green-soft); color: var(--green); display: grid; place-items: center;
+  }
+  .success h1 { margin-top: 0; }
+
+  /* ---------- deal timeline ---------- */
+  .timeline { list-style: none; margin: 24px 0; padding: 0; max-width: 640px; }
+  .timeline li { position: relative; padding: 0 0 26px 34px; }
+  .timeline li::before {
+    content: ''; position: absolute; left: 8px; top: 22px; bottom: -2px; width: 2px; background: var(--line);
+  }
+  .timeline li:last-child::before { display: none; }
+  .timeline .tdot {
+    position: absolute; left: 0; top: 4px; width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--green); background: var(--surface);
+  }
+  .timeline li.pending .tdot { border-color: var(--amber); border-style: dashed; }
+  .timeline time { font-size: 13px; color: var(--ink-3); display: block; }
+  .timeline b { font-weight: 600; }
+  .timeline p { margin: 2px 0 0; color: var(--ink-2); font-size: 15px; max-width: 52ch; }
+  details.pro { max-width: 640px; margin-top: 8px; }
+  details.pro summary { cursor: pointer; color: var(--ink-3); font-size: 14.5px; padding: 8px 0; }
+  details.pro .card { padding: 16px 20px; font-size: 14px; color: var(--ink-2); }
+  details.pro table { border-collapse: collapse; width: 100%; }
+  details.pro td { padding: 6px 8px 6px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  details.pro td:last-child { text-align: right; }
+</style>
+
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">🌾</span> Прозрачная Цена</div>
+  <div class="who"><span>Покупатель · ООО «АгроТрейд»</span><span class="avatar">МП</span></div>
+</header>
+
+<main class="wrap">
+
+  <!-- ================= HOME ================= -->
+  <section class="screen on" id="s-home" aria-label="Главная">
+    <h1 id="hello">Доброе утро, Михаил!</h1>
+    <p class="sub" id="hello-sub">Сегодня одно важное дело и два обычных. Начнём с важного.</p>
+
+    <div class="bento">
+      <div>
+        <!-- hero task -->
+        <div class="card hero" id="hero-todo">
+          <span class="tag"><span class="dot red" aria-hidden="true"></span> Нужно ваше действие</span>
+          <h2>Попросите банк подтвердить деньги</h2>
+          <p>Вы отложили <b class="money">9 650 000 ₽</b> на покупку пшеницы. Теперь банк должен подтвердить,
+             что деньги готовы.</p>
+          <p class="why">Пока банк не ответит, зерно не поедет к вам.</p>
+          <div class="hero-actions">
+            <button class="btn" onclick="show('s-decision')">Попросить банк</button>
+            <button class="linkish" onclick="show('s-deal')">Посмотреть сделку →</button>
+          </div>
+        </div>
+
+        <div class="card hero" id="hero-waiting" style="display:none">
+          <span class="tag waiting"><span class="dot amber" aria-hidden="true"></span> Ждём банк</span>
+          <h2>Запрос у банка — можно отдохнуть</h2>
+          <p>Банк проверяет ваши <b class="money">9 650 000 ₽</b>. Обычно это занимает около двух часов.</p>
+          <p class="why">Когда банк ответит, мы пришлём уведомление — ничего проверять не нужно.</p>
+          <div class="hero-actions">
+            <button class="linkish" onclick="show('s-deal')">Посмотреть сделку →</button>
+          </div>
+        </div>
+
+        <!-- queue -->
+        <p class="list-title">Остальные дела</p>
+        <div class="rows">
+          <button class="row" onclick="show('s-deal')">
+            <span class="dot amber" aria-hidden="true"></span>
+            <span><b>Машина привезла на 1,2 тонны меньше</b>
+              <small>Нужен акт — без него часть денег ждёт. Элеватор уже готовит его.</small></span>
+            <span class="go">›</span>
+          </button>
+          <button class="row">
+            <span class="dot grey" aria-hidden="true"></span>
+            <span><b>Ответить продавцу пшеницы 3 класса</b>
+              <small>Он предложил цену. Ответ нужен до пятницы.</small></span>
+            <span class="go">›</span>
+          </button>
+          <div class="row done">
+            <span class="dot green" aria-hidden="true"></span>
+            <span><b>Допуск к торгам подтверждён</b>
+              <small>Готово вчера. Больше ничего делать не нужно.</small></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- money rail -->
+      <aside class="card rail" aria-label="Ваши деньги">
+        <h3>Ваши деньги</h3>
+        <p class="hint">Всё по сделке ДЛ-9106</p>
+        <div class="money-row">
+          <span class="dot green" aria-hidden="true"></span>
+          <span class="lbl">Свободны</span>
+          <span class="val money">0 ₽</span>
+        </div>
+        <div class="money-row">
+          <span class="dot amber" aria-hidden="true"></span>
+          <span class="lbl">Отложены на зерно</span>
+          <span class="val money">9 650 000 ₽</span>
+          <span class="note">Ждут подтверждения банка. <a href="#" onclick="show('s-decision');return false">Поторопить →</a></span>
+        </div>
+        <div class="money-row">
+          <span class="dot amber" aria-hidden="true"></span>
+          <span class="lbl">На паузе из-за веса</span>
+          <span class="val money">624 000 ₽</span>
+          <span class="note">Вернутся или спишутся после акта о весе. <a href="#" onclick="show('s-deal');return false">Почему? →</a></span>
+        </div>
+      </aside>
+    </div>
+
+    <!-- deal steps -->
+    <div class="card steps-card">
+      <div class="steps-head">
+        <h3>Где сейчас ваша сделка</h3>
+        <span>Пшеница · 600 т · Тамбов → Воронеж</span>
+        <button class="linkish" onclick="show('s-deal')">Подробнее →</button>
+      </div>
+      <div class="steps" role="list">
+        <div class="step done" role="listitem"><span class="bubble">✓</span><small>Договорились</small></div>
+        <div class="step now" role="listitem" id="step-money"><span class="bubble">₽</span><small>Деньги</small></div>
+        <div class="step" role="listitem"><span class="bubble">🚚</span><small>Перевозка</small></div>
+        <div class="step" role="listitem"><span class="bubble">⚖</span><small>Приёмка</small></div>
+        <div class="step" role="listitem"><span class="bubble">📄</span><small>Документы</small></div>
+        <div class="step" role="listitem"><span class="bubble">✓</span><small>Расчёт</small></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= DECISION ================= -->
+  <section class="screen" id="s-decision" aria-label="Подтверждение">
+    <button class="back" onclick="show('s-home')">← Назад</button>
+    <div class="decision">
+      <h1>Попросить банк подтвердить деньги</h1>
+      <p class="sub">Одно нажатие — дальше всё сделаем мы и банк.</p>
+      <div class="card">
+        <b>Что произойдёт:</b>
+        <ol class="plan">
+          <li>Мы отправим банку запрос по вашей сделке.</li>
+          <li>Банк проверит и ответит — обычно за 2 часа.</li>
+          <li>После ответа зерно можно везти. Мы сообщим.</li>
+        </ol>
+        <div class="facts">
+          <span class="fact">Сумма <b class="money">9 650 000 ₽</b></span>
+          <span class="fact">Сделка <b class="money">ДЛ-9106</b></span>
+          <span class="fact">Ответит <b>ваш банк</b></span>
+        </div>
+        <div class="safe">
+          <span aria-hidden="true">🔒</span>
+          <span>Деньги никуда не спишутся. Банк только подтвердит, что они готовы.</span>
+        </div>
+        <button class="btn" onclick="confirmAsk()">Отправить запрос банку</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SUCCESS ================= -->
+  <section class="screen" id="s-success" aria-label="Готово">
+    <div class="success">
+      <div class="big-check" aria-hidden="true">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none"><path d="M4 12.5l5 5L20 6.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h1>Запрос отправлен!</h1>
+      <p class="sub">Банк обычно отвечает за 2 часа. Мы пришлём уведомление —
+         можно закрыть страницу и заниматься своими делами.</p>
+      <button class="btn" onclick="show('s-home')">Вернуться на главную</button>
+    </div>
+  </section>
+
+  <!-- ================= DEAL ================= -->
+  <section class="screen" id="s-deal" aria-label="Сделка">
+    <button class="back" onclick="show('s-home')">← Назад</button>
+    <h1>Сделка ДЛ-9106 — пшеница, 600 тонн</h1>
+    <p class="sub">Рассказываем всю историю простыми словами — сверху самое новое.</p>
+
+    <ul class="timeline">
+      <li class="pending">
+        <span class="tdot" aria-hidden="true"></span>
+        <time>Сейчас</time>
+        <b>Ждём две вещи</b>
+        <p>Банк должен подтвердить деньги, а элеватор — подписать акт о том,
+           что машина привезла на 1,2 тонны меньше.</p>
+      </li>
+      <li>
+        <span class="tdot" aria-hidden="true"></span>
+        <time>Сегодня, 10:24</time>
+        <b>Машину взвесили</b>
+        <p>Приехало 598,8 т вместо 600 т. Это нормально: за разницу вы не заплатите —
+           624 000 ₽ поставлены на паузу, пока не подпишут акт.</p>
+      </li>
+      <li>
+        <span class="tdot" aria-hidden="true"></span>
+        <time>Вчера, 16:40</time>
+        <b>Вы отложили деньги</b>
+        <p><span class="money">9 650 000 ₽</span> зарезервированы под эту сделку.</p>
+      </li>
+      <li>
+        <span class="tdot" aria-hidden="true"></span>
+        <time>Вчера, 14:05</time>
+        <b>Вы договорились о цене</b>
+        <p>16 080 ₽ за тонну. Продавец — «Золотое Поле», Тамбовская область.</p>
+      </li>
+    </ul>
+
+    <details class="pro">
+      <summary>Подробности для бухгалтера и юриста</summary>
+      <div class="card">
+        <table>
+          <tr><td>Лот</td><td class="money">LOT-2403</td></tr>
+          <tr><td>Базис поставки</td><td>элеватор ВРЖ-08, Воронеж</td></tr>
+          <tr><td>Резерв (ожидает банк)</td><td class="money">9 026 000 ₽</td></tr>
+          <tr><td>Удержание по акту веса</td><td class="money">624 000 ₽</td></tr>
+          <tr><td>Документы готовы</td><td>5 из 8</td></tr>
+        </table>
+      </div>
+    </details>
+  </section>
+</main>
+
+<script>
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+    document.getElementById(id).classList.add('on');
+    window.scrollTo({ top: 0 });
+  }
+  function confirmAsk() {
+    // домашний экран переключается в состояние «ждём банк»
+    document.getElementById('hero-todo').style.display = 'none';
+    document.getElementById('hero-waiting').style.display = '';
+    document.getElementById('hello-sub').textContent = 'Важное дело сделано. Осталось два обычных — они подождут.';
+    show('s-success');
+  }
+</script>
