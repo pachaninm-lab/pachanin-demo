@@ -40,8 +40,14 @@ async function fetchText(url) {
   throw lastError;
 }
 
+async function sha256(value) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+}
+
 const summary = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   repository,
   auditHead,
   capturedAt: new Date().toISOString(),
@@ -52,22 +58,16 @@ for (const [name, jobId] of Object.entries(jobs)) {
   const text = await fetchText(`https://api.github.com/repos/${repository}/actions/jobs/${jobId}/logs`);
   const normalized = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
   const lines = normalized.split('\n');
-  const tail = lines.slice(-350).join('\n');
-  const errorLines = lines.filter((line) => /##\[error\]|Error:|ERR!|failed|failure|403|404|500|502|503|Required base security job|not successful/i.test(line));
-  fs.writeFileSync(path.join(outputDir, `${name}.tail.log`), `${tail}\n`);
-  fs.writeFileSync(path.join(outputDir, `${name}.errors.log`), `${errorLines.join('\n')}\n`);
+  const tail = lines.slice(-500).join('\n');
+  const errorLines = lines.filter((line) => /##\[error\]|Error:|ERR!|failed|failure|403|404|500|502|503|Required base security job|not successful|Process completed with exit code/i.test(line));
+  fs.writeFileSync(path.join(outputDir, `${name}.tail.txt`), `${tail}\n`);
+  fs.writeFileSync(path.join(outputDir, `${name}.errors.txt`), `${errorLines.join('\n')}\n`);
   summary.jobs[name] = {
     jobId,
     lineCount: lines.length,
     tailSha256: await sha256(tail),
     errorLineCount: errorLines.length,
   };
-}
-
-async function sha256(value) {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
 }
 
 fs.writeFileSync(path.join(outputDir, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`);
