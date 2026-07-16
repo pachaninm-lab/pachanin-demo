@@ -1,11 +1,4 @@
 apiVersion: projectcalico.org/v3
-kind: FelixConfiguration
-metadata:
-  name: default
-spec:
-  iptablesBackend: NFT
----
-apiVersion: projectcalico.org/v3
 kind: NetworkPolicy
 metadata:
   name: deny-runtime-direct-postgresql
