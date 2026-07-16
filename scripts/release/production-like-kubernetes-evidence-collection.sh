@@ -47,8 +47,12 @@ collect_cluster_evidence() {
         > "$K8S_DIR/cluster/dataplane/${kind_node}-iptables-save.txt" 2>&1 || true
       docker exec "$kind_node" nft list ruleset \
         > "$K8S_DIR/cluster/dataplane/${kind_node}-nft-ruleset.txt" 2>&1 || true
+      docker exec "$kind_node" ipset save \
+        > "$K8S_DIR/cluster/dataplane/${kind_node}-ipset-save.txt" 2>&1 || true
       docker exec "$kind_node" ip route show table all \
         > "$K8S_DIR/cluster/dataplane/${kind_node}-routes.txt" 2>&1 || true
+      docker exec "$kind_node" sh -ec 'command -v conntrack >/dev/null && conntrack -L || true' \
+        > "$K8S_DIR/cluster/dataplane/${kind_node}-conntrack.txt" 2>&1 || true
     done < <(kind get nodes --name "$CLUSTER_NAME")
   fi
   set -e
