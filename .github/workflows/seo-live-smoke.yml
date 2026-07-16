@@ -13,56 +13,115 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: seo-live-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   live-smoke:
-    name: Verify production SEO headers
+    name: Verify exact production SEO authority
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    env:
+      SITE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      EVIDENCE_DIR: artifacts/seo-live-smoke
     steps:
-      - name: Wait for production deploy and check SEO headers
+      - name: Wait for exact production deploy and verify SEO authority
         shell: bash
         run: |
-          set -euo pipefail
-
-          SITE="https://xn----8sbjf4befbjgs9b.xn--p1ai"
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          EXPECTED_SHA="$GITHUB_SHA"
           HEALTH="$SITE/platform-v7/role-preview/seo-health"
-          PUBLIC_URLS=(
-            "$SITE/platform-v7"
-            "$SITE/platform-v7/secure-grain-deal"
-            "$SITE/platform-v7/fgis-zerno"
+          PUBLIC_PATHS=(
+            '/platform-v7'
+            '/platform-v7/secure-grain-deal'
+            '/platform-v7/fgis-zerno'
           )
-          PRIVATE_URLS=(
-            "$SITE/platform-v7/buyer"
-            "$SITE/platform-v7/bank"
+          PRIVATE_PATHS=(
+            '/platform-v7/buyer'
+            '/platform-v7/bank'
           )
+          observed_sha=''
 
-          echo "Checking deploy marker: $HEALTH"
-          for attempt in {1..8}; do
-            if curl -fsSL "$HEALTH" | grep -q "seo-live-smoke-2026-07-01"; then
-              echo "Deploy marker found on attempt $attempt"
+          write_evidence() {
+            local result="$1"
+            local pass="$2"
+            local failure_reason="$3"
+            jq -n \
+              --arg repository "$GITHUB_REPOSITORY" \
+              --arg commitSha "$EXPECTED_SHA" \
+              --arg observedCommitSha "$observed_sha" \
+              --arg site "$SITE" \
+              --arg result "$result" \
+              --arg failureReason "$failure_reason" \
+              --argjson pass "$pass" \
+              --argjson publicPaths "$(printf '%s\n' "${PUBLIC_PATHS[@]}" | jq -R . | jq -s .)" \
+              --argjson privatePaths "$(printf '%s\n' "${PRIVATE_PATHS[@]}" | jq -R . | jq -s .)" \
+              '{schemaVersion:1, repository:$repository, commitSha:$commitSha, observedCommitSha:$observedCommitSha, site:$site, result:$result, pass:$pass, failureReason:($failureReason | select(length > 0) // null), publicPaths:$publicPaths, privatePaths:$privatePaths}' \
+              > "$EVIDENCE_DIR/seo-live-smoke-evidence.json"
+          }
+
+          trap 'status=$?; if [ "$status" -ne 0 ]; then write_evidence FAIL false "SEO live smoke failed at shell line $LINENO"; fi' EXIT
+          write_evidence IN_PROGRESS false ''
+
+          echo "Waiting for exact deploy $EXPECTED_SHA at $HEALTH"
+          for attempt in {1..20}; do
+            health_json="$(curl --fail --silent --show-error --location --retry 3 --retry-all-errors "$HEALTH" || true)"
+            observed_sha="$(jq -r '.commitSha // empty' <<<"$health_json" 2>/dev/null || true)"
+            if [ "$observed_sha" = "$EXPECTED_SHA" ]; then
+              echo "Exact deploy found on attempt $attempt"
               break
             fi
-            if [ "$attempt" = "8" ]; then
-              echo "Deploy marker was not found after waiting. Production may not have picked up the latest main commit."
+            if [ "$attempt" = '20' ]; then
+              echo "Exact deploy not observed. expected=$EXPECTED_SHA observed=${observed_sha:-missing}"
               exit 1
             fi
             sleep 45
           done
 
-          for url in "${PUBLIC_URLS[@]}"; do
+          for route in "${PUBLIC_PATHS[@]}"; do
+            url="$SITE$route"
             echo "Checking public indexable header: $url"
-            headers="$(curl -fsSI "$url" | tr -d '\r')"
-            echo "$headers"
-            echo "$headers" | grep -qi "x-robots-tag: index, follow"
+            headers="$(curl --fail --silent --show-error --head --location --retry 3 --retry-all-errors "$url" | tr -d '\r')"
+            robots_header="$(awk -F': *' 'tolower($1)=="x-robots-tag" {print tolower($2)}' <<<"$headers")"
+            echo "x-robots-tag: $robots_header"
+            [[ "$robots_header" == *index* ]]
+            [[ "$robots_header" == *follow* ]]
+            [[ "$robots_header" != *noindex* ]]
           done
 
-          for url in "${PRIVATE_URLS[@]}"; do
+          for route in "${PRIVATE_PATHS[@]}"; do
+            url="$SITE$route"
             echo "Checking private noindex header: $url"
-            headers="$(curl -fsSI "$url" | tr -d '\r')"
-            echo "$headers"
-            echo "$headers" | grep -qi "x-robots-tag: noindex, nofollow"
+            headers="$(curl --fail --silent --show-error --head --location --retry 3 --retry-all-errors "$url" | tr -d '\r')"
+            robots_header="$(awk -F': *' 'tolower($1)=="x-robots-tag" {print tolower($2)}' <<<"$headers")"
+            echo "x-robots-tag: $robots_header"
+            [[ "$robots_header" == *noindex* ]]
+            [[ "$robots_header" == *nofollow* ]]
           done
 
-          echo "Checking sitemap and robots content"
-          curl -fsSL "$SITE/sitemap.xml" | grep -q "/platform-v7/secure-grain-deal"
-          curl -fsSL "$SITE/robots.txt" | grep -q "/platform-v7/secure-grain-deal"
+          sitemap="$(curl --fail --silent --show-error --location --retry 3 --retry-all-errors "$SITE/sitemap.xml")"
+          robots="$(curl --fail --silent --show-error --location --retry 3 --retry-all-errors "$SITE/robots.txt")"
+          for route in "${PUBLIC_PATHS[@]}"; do
+            grep -Fq "$route" <<<"$sitemap"
+            grep -Fq "$route" <<<"$robots"
+          done
+          for route in "${PRIVATE_PATHS[@]}"; do
+            if grep -Fq "$route" <<<"$sitemap"; then
+              echo "Protected route leaked into sitemap: $route"
+              exit 1
+            fi
+            grep -Fq "$route" <<<"$robots"
+          done
+
+          write_evidence PASS true ''
+
+      - name: Upload exact SEO live evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-live-smoke-evidence-${{ github.sha }}
+          path: artifacts/seo-live-smoke
+          if-no-files-found: error
+          retention-days: 30
