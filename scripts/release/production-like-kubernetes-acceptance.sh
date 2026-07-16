@@ -144,3 +144,4 @@ source scripts/release/production-like-kubernetes-pgbouncer.sh
 source scripts/release/production-like-kubernetes-runtime-config.sh
 source scripts/release/production-like-kubernetes-pgbouncer-evidence.sh
 source scripts/release/production-like-kubernetes-verify.sh
+source scripts/release/production-like-kubernetes-worker-smoke.sh
