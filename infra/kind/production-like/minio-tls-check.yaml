@@ -39,6 +39,7 @@ spec:
       args:
         - |
           mc alias set acceptance https://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+          mc mb --ignore-existing acceptance/grainflow-documents
           mc stat acceptance/grainflow-documents
       resources:
         requests:
