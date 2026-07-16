@@ -43,19 +43,16 @@ kubectl apply -f infra/kind/production-like/pgbouncer-runtime-service.yaml \
 kubectl apply -f infra/kind/production-like/pgbouncer-runtime-network-policy.yaml \
   > "$K8S_DIR/pgbouncer-runtime-network-policy-apply.log"
 kubectl apply -f infra/kind/production-like/calico-runtime-database-deny.yaml \
-  > "$K8S_DIR/calico-runtime-database-deny-apply.log"
+  > "$K8S_DIR/calico-runtime-database-deny-apply.log" 2>&1
 
 test "$(kubectl get service pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.ports[].port] | join(":")')" = "6432"
 test "$(kubectl get networkpolicy api-to-pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.egress[].ports[].port] | join(":")')" = "6432"
 test "$(kubectl get networkpolicy worker-to-pgbouncer -n "$NAMESPACE" -o json | jq -r '[.spec.egress[].ports[].port] | join(":")')" = "6432"
 test "$(kubectl get networkpolicy pgbouncer-ingress-egress -n "$NAMESPACE" -o json | jq -r '[.spec.ingress[].ports[].port] | join(":")')" = "6432"
-test "$(kubectl get tier platform-security -o jsonpath='{.spec.defaultAction}')" = "Pass"
-test "$(kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.tier}')" = "platform-security"
+test "$(kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.order}')" = "10"
 test "$(kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.egress[0].action}')" = "Deny"
 test "$(kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o jsonpath='{.spec.egress[0].destination.ports[0]}')" = "5432"
 
-kubectl get tier platform-security -o json \
-  > "$K8S_DIR/cluster/calico-security-tier.json"
 kubectl get networkpolicy.projectcalico.org deny-runtime-direct-postgresql -n "$NAMESPACE" -o json \
   > "$K8S_DIR/cluster/calico-runtime-database-deny.json"
 
