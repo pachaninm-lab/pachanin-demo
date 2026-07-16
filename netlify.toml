@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm install --frozen-lockfile --config.node-linker=hoisted && pnpm --filter @pc/web build"
+  command = "pnpm install --frozen-lockfile --config.node-linker=hoisted && NEXT_PUBLIC_BUILD_COMMIT_REF=${COMMIT_REF:-unknown} pnpm --filter @pc/web build"
   publish = "apps/web/.next"
   ignore = "bash scripts/netlify-ignore.sh"
 
