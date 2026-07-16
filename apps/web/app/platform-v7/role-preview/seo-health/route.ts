@@ -1,37 +1,28 @@
 import { NextResponse } from 'next/server';
+import {
+  PLATFORM_V7_PRIVATE_ROBOTS_PREFIXES,
+  PLATFORM_V7_PUBLIC_SEO_PATHS,
+} from '@/lib/platform-v7/public-seo-routes';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const PUBLIC_INDEXABLE = [
-  '/platform-v7',
-  '/platform-v7/secure-grain-deal',
-  '/platform-v7/grain-logistics',
-  '/platform-v7/grain-quality',
-  '/platform-v7/grain-documents',
-  '/platform-v7/grain-payment',
-  '/platform-v7/fgis-zerno',
-];
-
-const PRIVATE_NOINDEX = [
-  '/platform-v7/buyer',
-  '/platform-v7/seller',
-  '/platform-v7/bank',
-  '/platform-v7/operator',
-];
+const BUILD_COMMIT_SHA = process.env.NEXT_PUBLIC_BUILD_COMMIT_REF?.trim() || 'unknown';
 
 export function GET() {
   return NextResponse.json(
     {
+      schemaVersion: 2,
       ok: true,
-      marker: 'seo-live-smoke-2026-07-01',
-      purpose: 'Verify that the deployed production build contains the SEO indexing fixes without exposing private cabinet data.',
+      marker: 'seo-live-smoke-v2',
+      commitSha: BUILD_COMMIT_SHA,
+      purpose: 'Verify that production serves the exact main commit and the canonical public/private SEO authority.',
       expected: {
-        publicIndexableHeader: 'x-robots-tag: index, follow',
-        privateCabinetHeader: 'x-robots-tag: noindex, nofollow',
+        publicIndexableHeader: 'x-robots-tag contains index and follow without noindex',
+        privateCabinetHeader: 'x-robots-tag contains noindex and nofollow',
       },
-      publicIndexable: PUBLIC_INDEXABLE,
-      privateNoindex: PRIVATE_NOINDEX,
+      publicIndexable: PLATFORM_V7_PUBLIC_SEO_PATHS,
+      privateNoindex: PLATFORM_V7_PRIVATE_ROBOTS_PREFIXES,
       generatedAt: new Date().toISOString(),
     },
     {
