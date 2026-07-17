@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "taskId": "IR-DATA-HA-2693",
+  "branch": "ir/postgresql-ha-pitr-2693",
+  "issue": 2693,
+  "status": "active",
+  "maturityBoundary": "Production-like PostgreSQL HA/failover/PITR evidence only. No real provider, live traffic, external integration or production-history claim.",
+  "allowedPaths": [
+    ".github/workflows/postgresql-ha-acceptance.yml",
+    "infra/kind/postgresql-ha/**",
+    "scripts/release/postgresql-ha-acceptance.sh",
+    "scripts/release/postgresql-ha-acceptance.d/**",
+    "scripts/release/postgresql-ha-fallback-evidence.mjs",
+    "scripts/release/enforce-postgresql-ha-evidence.mjs"
+  ],
+  "forbiddenPaths": [
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "package.json",
+    "pnpm-lock.yaml"
+  ],
+  "requiredEvidence": "artifacts/industrial-readiness/postgresql-ha/postgresql-ha-acceptance.json"
+}
