@@ -80,13 +80,6 @@
     left: max(12px, env(safe-area-inset-left, 0px)) !important;
     bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
   }
-
-  .pc-public-assistant .pc-public-assistant-panel {
-    left: max(10px, env(safe-area-inset-left, 0px)) !important;
-    right: max(10px, env(safe-area-inset-right, 0px)) !important;
-    width: auto !important;
-    max-width: calc(100vw - 20px) !important;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
