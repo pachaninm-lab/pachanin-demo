@@ -72,7 +72,7 @@ jobs:
         run: bash scripts/release/production-like-kubernetes-acceptance.sh
 
       - name: Execute target load and burst acceptance
-        run: bash scripts/release/target-load-acceptance.sh
+        run: bash scripts/release/target-load-acceptance-wrapper.sh
 
       - name: Enforce exact-head machine-readable evidence
         if: always()
