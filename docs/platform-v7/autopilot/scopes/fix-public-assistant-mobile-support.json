@@ -1,7 +1,7 @@
 {
-  "branch": "fix/public-assistant-mobile-support",
+  "branch": "fix/public-assistant-visual-viewport-final",
   "status": "active",
-  "purpose": "Restore independent support access and harden the public assistant mobile viewport without changing authentication, Deal authority or data scope.",
+  "purpose": "Finalize public assistant mobile geometry using visual viewport top and bottom offsets, flex-column containment and always-visible close controls without changing authentication, Deal authority or data scope.",
   "approvedBy": "independent-authority-pr",
   "allowedPaths": [
     "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
