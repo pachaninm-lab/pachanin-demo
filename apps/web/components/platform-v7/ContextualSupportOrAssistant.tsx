@@ -49,5 +49,10 @@ function isPrivateWorkspace(pathname: string): boolean {
 export function ContextualSupportOrAssistant() {
   const pathname = usePathname() || '/platform-v7';
   if (normalize(pathname) === ASSISTANT_WORKSPACE) return null;
-  return isPrivateWorkspace(pathname) ? <AiAssistantPanel variant='floating' /> : <ChatSupportWidget />;
+
+  // One persistent conversational assistant follows the authenticated user
+  // through private workspaces. Public pages keep the human support channel.
+  return isPrivateWorkspace(pathname)
+    ? <AiAssistantPanel variant='floating' />
+    : <ChatSupportWidget />;
 }
