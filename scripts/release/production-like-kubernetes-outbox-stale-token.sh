@@ -122,11 +122,13 @@ on_exit() {
 trap on_exit EXIT
 
 FAILURE_REASON="synthetic stale-token row could not be created"
-entry_id="$(admin_sql "
+entry_id="${RUN_ID}.entry"
+admin_sql "
   INSERT INTO \"outbox_entries\"
-    (\"type\", \"payload\", \"status\", \"idempotencyKey\", \"maxRetries\", \"retryCount\",
+    (\"id\", \"type\", \"payload\", \"status\", \"idempotencyKey\", \"maxRetries\", \"retryCount\",
      \"nextRetryAt\", \"correlationId\")
   VALUES (
+    '${entry_id}',
     '${RUN_ID}.event',
     jsonb_build_object('runId','${RUN_ID}'),
     'PENDING',
@@ -135,10 +137,9 @@ entry_id="$(admin_sql "
     0,
     NOW()-INTERVAL '1 second',
     '${RUN_ID}'
-  )
-  RETURNING \"id\";
-")"
-test -n "$entry_id"
+  );
+" > "$RUNTIME_DIR/stale-token-insert.stdout" 2> "$RUNTIME_DIR/stale-token-insert.stderr"
+test "$(admin_sql "SELECT count(*) FROM \"outbox_entries\" WHERE \"id\"='${entry_id}';")" = "1"
 
 FAILURE_REASON="initial restricted-principal claim failed"
 first_claim="$(outbox_sql "
