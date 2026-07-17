@@ -37,7 +37,7 @@ env:
 
 jobs:
   production-like-kubernetes:
-    name: Multi-node kind · immutable rollout · rollback
+    name: Multi-node kind · immutable rollout · deep outbox runtime
     runs-on: ubuntu-latest
     timeout-minutes: 210
     steps:
@@ -93,18 +93,43 @@ jobs:
       - name: Execute production-like Kubernetes acceptance
         run: bash scripts/release/production-like-kubernetes-acceptance.sh
 
-      - name: Enforce machine-readable evidence
+      - name: Execute deep outbox worker runtime acceptance
+        run: |
+          set -euo pipefail
+          # Isolate the synthetic stale-token CAS row from live worker claims. The
+          # restricted app_outbox principal performs both controlled claims, then
+          # the accepted two-replica topology is restored before runtime scenarios.
+          kubectl scale deployment grainflow-outbox-worker -n grainflow-acceptance --replicas=0
+          kubectl wait --for=delete pod -n grainflow-acceptance \
+            -l app.kubernetes.io/name=grainflow-outbox-worker --timeout=180s
+          bash scripts/release/production-like-kubernetes-outbox-stale-token.sh
+          kubectl scale deployment grainflow-outbox-worker -n grainflow-acceptance --replicas=2
+          kubectl rollout status deployment/grainflow-outbox-worker \
+            -n grainflow-acceptance --timeout=360s
+          bash scripts/release/production-like-kubernetes-outbox-runtime.sh
+
+      - name: Enforce machine-readable Kubernetes evidence
         if: always()
         run: |
           node scripts/release/production-like-kubernetes-fallback-evidence.mjs
           node scripts/release/production-like-kubernetes-enforce-evidence.mjs
+
+      - name: Build canonical outbox runtime evidence
+        if: always()
+        run: node scripts/release/build-production-like-outbox-runtime-evidence.mjs
+
+      - name: Enforce exact-head outbox runtime evidence
+        if: always()
+        run: node scripts/release/enforce-production-like-outbox-runtime-evidence.mjs
 
       - name: Upload production-like Kubernetes evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: production-like-kubernetes-${{ env.EXACT_HEAD }}
-          path: ${{ env.EVIDENCE_DIR }}
+          path: |
+            ${{ env.EVIDENCE_DIR }}
+            artifacts/worker-topology
           if-no-files-found: error
           retention-days: 90
 
