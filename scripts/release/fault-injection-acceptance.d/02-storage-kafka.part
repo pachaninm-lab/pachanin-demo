@@ -3,7 +3,7 @@ export FAILURE_REASON
 object_content="industrial-fault-proof"
 object_hash="$(printf '%s' "$object_content" | sha256sum | awk '{print $1}')"
 upload_request="$(jq -nc --arg deal "$DEAL_ID" --argjson size "${#object_content}" '{filename:"fault-proof.txt",mimeType:"text/plain",sizeBytes:$size,dealId:$deal}')"
-upload="$(curl_api POST /api/storage/request-upload "$ACCESS_TOKEN" "$upload_request")"
+upload="$(curl_api POST /api/api/storage/request-upload "$ACCESS_TOKEN" "$upload_request")"
 printf '%s\n' "$upload" > "$RAW_DIR/object-upload-request.json"
 file_id="$(jq -r '.fileId' <<<"$upload")"
 upload_url="$(jq -r '.uploadUrl' <<<"$upload")"
@@ -22,7 +22,7 @@ printf '%s' "$object_content" | kubectl exec -i -n "$NAMESPACE" pod/fault-object
 kubectl scale deployment/minio -n "$NAMESPACE" --replicas=0
 kubectl wait --for=delete pod -n "$NAMESPACE" -l app.kubernetes.io/name=minio --timeout=180s
 set +e
-object_outage="$(curl_api POST "/api/storage/confirm-upload/${file_id}" "$ACCESS_TOKEN" "{\"sha256\":\"${object_hash}\"}" 2>"$RAW_DIR/object-outage.stderr")"
+object_outage="$(curl_api POST "/api/api/storage/confirm-upload/${file_id}" "$ACCESS_TOKEN" "{\"sha256\":\"${object_hash}\"}" 2>"$RAW_DIR/object-outage.stderr")"
 object_outage_rc=$?
 set -e
 printf '%s\n' "$object_outage" > "$RAW_DIR/object-outage-response.json"
@@ -33,7 +33,7 @@ printf '%s\n' "$false_verified" > "$RAW_DIR/object-outage-false-verified.txt"
 
 kubectl scale deployment/minio -n "$NAMESPACE" --replicas=1
 wait_deployment minio
-object_recovered="$(curl_api POST "/api/storage/confirm-upload/${file_id}" "$ACCESS_TOKEN" "{\"sha256\":\"${object_hash}\"}")"
+object_recovered="$(curl_api POST "/api/api/storage/confirm-upload/${file_id}" "$ACCESS_TOKEN" "{\"sha256\":\"${object_hash}\"}")"
 printf '%s\n' "$object_recovered" > "$RAW_DIR/object-recovery-response.json"
 verified="$(admin_sql "SELECT count(*) FROM public.deal_documents WHERE id='${file_id}' AND status='VERIFIED' AND \"isImmutable\"=true AND hash='${object_hash}';")"
 printf '%s\n' "$verified" > "$RAW_DIR/object-recovery-verified.txt"
