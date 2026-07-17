@@ -83,27 +83,48 @@ migration_sql "
 RUNTIME_SUPERUSER="$(admin_sql "SELECT rolsuper FROM pg_roles WHERE rolname='app_runtime';")"
 RUNTIME_CREATEDB="$(admin_sql "SELECT rolcreatedb FROM pg_roles WHERE rolname='app_runtime';")"
 RUNTIME_DDL="$(admin_sql "SELECT has_schema_privilege('app_runtime','public','CREATE');")"
+printf 'superuser=%s createdb=%s schemaCreate=%s\n' \
+  "$RUNTIME_SUPERUSER" "$RUNTIME_CREATEDB" "$RUNTIME_DDL" > "$RAW_DIR/runtime-principal-proof.txt"
 [[ "$RUNTIME_SUPERUSER" = "f" ]]
 [[ "$RUNTIME_CREATEDB" = "f" ]]
 [[ "$RUNTIME_DDL" = "f" ]]
 runtime_sql "INSERT INTO ha_evidence(marker) VALUES ('INITIAL_COMMIT');" >/dev/null
 
-READY_INSTANCES="$(kubectl get cluster grainflow-postgresql -n "$NAMESPACE" -o jsonpath='{.status.readyInstances}')"
-DISTINCT_DB_NODES="$(
-  kubectl get pods -n "$NAMESPACE" -l cnpg.io/cluster=grainflow-postgresql -o json |
-    jq '[.items[].spec.nodeName] | unique | length'
-)"
-STREAMING_REPLICAS="$(admin_sql "SELECT count(*) FROM pg_stat_replication WHERE state='streaming';")"
-SYNCHRONOUS_STANDBYS="$(admin_sql "SELECT count(*) FROM pg_stat_replication WHERE state='streaming' AND sync_state IN ('sync','quorum');")"
-FAILOVER_QUORUM_STANDBY_NUMBER="$(
-  kubectl get failoverquorum grainflow-postgresql -n "$NAMESPACE" \
-    -o jsonpath='{.status.standbyNumber}' 2>/dev/null || true
-)"
-[[ "$READY_INSTANCES" = "3" ]]
-[[ "$DISTINCT_DB_NODES" = "3" ]]
-(( STREAMING_REPLICAS >= 2 ))
-(( SYNCHRONOUS_STANDBYS >= 1 ))
-[[ "$FAILOVER_QUORUM_STANDBY_NUMBER" = "1" ]]
+FAILURE_REASON="synchronous replication or failover quorum did not converge"
+READY_INSTANCES=0
+DISTINCT_DB_NODES=0
+STREAMING_REPLICAS=0
+SYNCHRONOUS_STANDBYS=0
+FAILOVER_QUORUM_STANDBY_NUMBER=0
+for _ in $(seq 1 180); do
+  READY_INSTANCES="$(kubectl get cluster grainflow-postgresql -n "$NAMESPACE" -o jsonpath='{.status.readyInstances}' 2>/dev/null || echo 0)"
+  DISTINCT_DB_NODES="$(
+    kubectl get pods -n "$NAMESPACE" -l cnpg.io/cluster=grainflow-postgresql -o json 2>/dev/null |
+      jq '[.items[].spec.nodeName] | unique | length' 2>/dev/null || echo 0
+  )"
+  STREAMING_REPLICAS="$(admin_sql "SELECT count(*) FROM pg_stat_replication WHERE state='streaming';" 2>/dev/null || echo 0)"
+  SYNCHRONOUS_STANDBYS="$(admin_sql "SELECT count(*) FROM pg_stat_replication WHERE state='streaming' AND sync_state IN ('sync','quorum');" 2>/dev/null || echo 0)"
+  FAILOVER_QUORUM_STANDBY_NUMBER="$(
+    kubectl get failoverquorum grainflow-postgresql -n "$NAMESPACE" \
+      -o jsonpath='{.status.standbyNumber}' 2>/dev/null || echo 0
+  )"
+  printf 'ready=%s distinctNodes=%s streaming=%s synchronous=%s failoverQuorum=%s\n' \
+    "${READY_INSTANCES:-0}" "${DISTINCT_DB_NODES:-0}" "${STREAMING_REPLICAS:-0}" \
+    "${SYNCHRONOUS_STANDBYS:-0}" "${FAILOVER_QUORUM_STANDBY_NUMBER:-0}" \
+    > "$RAW_DIR/replication-convergence.txt"
+  if [[ "${READY_INSTANCES:-0}" = "3" && "${DISTINCT_DB_NODES:-0}" = "3" ]] && \
+     (( ${STREAMING_REPLICAS:-0} >= 2 )) && \
+     (( ${SYNCHRONOUS_STANDBYS:-0} >= 1 )) && \
+     [[ "${FAILOVER_QUORUM_STANDBY_NUMBER:-0}" = "1" ]]; then
+    break
+  fi
+  sleep 2
+done
+[[ "${READY_INSTANCES:-0}" = "3" ]]
+[[ "${DISTINCT_DB_NODES:-0}" = "3" ]]
+(( ${STREAMING_REPLICAS:-0} >= 2 ))
+(( ${SYNCHRONOUS_STANDBYS:-0} >= 1 ))
+[[ "${FAILOVER_QUORUM_STANDBY_NUMBER:-0}" = "1" ]]
 
 FAILURE_REASON="automatic primary failover or pooler continuity acceptance failed"
 POOLER_ENDPOINT="grainflow-pooler-rw"
