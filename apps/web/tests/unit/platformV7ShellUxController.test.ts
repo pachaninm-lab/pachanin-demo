@@ -16,7 +16,7 @@ const accessPolicy = source('lib/platform-v7/cabinet-access-policy.ts');
 
 describe('PlatformV7ShellUxController', () => {
   it('binds navigation to the role resolved by the protected shell, never session storage', () => {
-    expect(protectedShell).toContain('<PlatformV7ShellUxController role={initialRole} />');
+    expect(protectedShell).toContain('<PlatformV7ShellUxController role={verifiedRole} />');
     expect(controller).toContain('export function PlatformV7ShellUxController({ role }');
     expect(controller).not.toContain('sessionStorage');
     expect(controller).not.toContain('readActiveRole');
@@ -68,7 +68,7 @@ describe('PlatformV7ShellUxController', () => {
     expect(notificationsPage).toContain('/api/proxy/notifications/read-all');
     expect(notificationsPage).not.toContain('INITIAL_ITEMS');
     expect(notificationsPage).not.toContain('DL-9102');
-    expect(notificationsStyles).toContain('min-height: 48px');
+    expect(notificationsStyles).toContain('min-height: var(--ds-control-height)');
     expect(accessPolicy).toContain("'/platform-v7/notifications'");
   });
 });

@@ -2,7 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
+// Тест обязан работать и из корня репозитория, и из apps/web (CI и локально).
+const ROOT = fs.existsSync(path.join(process.cwd(), 'pnpm-workspace.yaml'))
+  ? process.cwd()
+  : path.resolve(process.cwd(), '..', '..');
+const read = (file: string) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 
 const appLayout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');
