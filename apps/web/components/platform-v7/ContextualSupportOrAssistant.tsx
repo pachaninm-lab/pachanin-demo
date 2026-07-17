@@ -5,6 +5,7 @@ import { AiAssistantPanel } from './AiAssistantPanel';
 import { ChatSupportWidget } from './ChatSupportWidget';
 import { PrivateAssistantShortcutLabel } from './PrivateAssistantShortcutLabel';
 import { PublicPlatformAssistant } from './PublicPlatformAssistant';
+import { installPublicAssistantFetchResilience } from '@/lib/platform-v7/install-public-assistant-fetch-resilience';
 import '@/styles/platform-v7-public-assistant.css';
 
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
@@ -51,6 +52,7 @@ function isPrivateWorkspace(pathname: string): boolean {
 }
 
 export function ContextualSupportOrAssistant() {
+  installPublicAssistantFetchResilience();
   const pathname = usePathname() || PUBLIC_HOME;
   const path = normalize(pathname);
   if (path === ASSISTANT_WORKSPACE) return null;
@@ -73,8 +75,5 @@ export function ContextualSupportOrAssistant() {
     );
   }
 
-  // Public pages keep the human support channel. Only the public home exposes
-  // the separate no-account-data knowledge assistant; private workspaces use
-  // the role-scoped Deal assistant and its labelled full-screen shortcut.
   return <ChatSupportWidget />;
 }
