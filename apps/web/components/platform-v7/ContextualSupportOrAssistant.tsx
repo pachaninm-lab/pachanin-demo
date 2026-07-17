@@ -6,10 +6,12 @@ import { AiAssistantPanel } from './AiAssistantPanel';
 import { ChatSupportWidget } from './ChatSupportWidget';
 import { PrivateAssistantShortcutLabel } from './PrivateAssistantShortcutLabel';
 import { PublicPlatformAssistant } from './PublicPlatformAssistant';
+import { UnifiedModalSheetFullscreenController } from './UnifiedModalSheetFullscreenController';
 import { installPublicAssistantFetchResilience } from '@/lib/platform-v7/install-public-assistant-fetch-resilience';
 import '@/styles/platform-v7-public-assistant.css';
 import '@/styles/platform-v7-public-assistant-shortcut.css';
 import '@/styles/platform-v7-public-assistant-mobile-fix.css';
+import '@/styles/platform-v7-unified-modal-fullscreen.css';
 
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
 const PUBLIC_HOME = '/platform-v7';
@@ -105,6 +107,7 @@ export function ContextualSupportOrAssistant() {
   if (path === PUBLIC_HOME) {
     return (
       <>
+        <UnifiedModalSheetFullscreenController />
         <PublicPlatformAssistant />
         <ChatSupportWidget />
       </>
@@ -120,5 +123,10 @@ export function ContextualSupportOrAssistant() {
     );
   }
 
-  return <ChatSupportWidget />;
+  return (
+    <>
+      <UnifiedModalSheetFullscreenController />
+      <ChatSupportWidget />
+    </>
+  );
 }
