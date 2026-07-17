@@ -4,7 +4,11 @@ import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import type { RequestUser } from '../../common/types/request-user';
-import { AiAssistantService, type AssistantChatRequest } from './ai-assistant.service';
+import {
+  AiAssistantService,
+  type AssistantChatRequest,
+  type AssistantChatResponse,
+} from './ai-assistant.service';
 
 @UseGuards(RolesGuard)
 @Roles('ANY_AUTHENTICATED')
@@ -26,7 +30,10 @@ export class AiAssistantController {
     limitEnv: 'RATE_LIMIT_AI_ASSISTANT_CHAT',
     windowEnv: 'RATE_LIMIT_AI_ASSISTANT_CHAT_WINDOW_SECONDS',
   })
-  chat(@Body() request: AssistantChatRequest, @CurrentUser() user: RequestUser) {
+  chat(
+    @Body() request: AssistantChatRequest,
+    @CurrentUser() user: RequestUser,
+  ): Promise<AssistantChatResponse> {
     return this.assistant.chat(request, user);
   }
 }
