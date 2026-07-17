@@ -24,6 +24,21 @@ describe('platform-v7 assistant universal question understanding', () => {
     expect(result.corrected).toContain('сделка');
   });
 
+  it('corrects commercial and implementation questions', () => {
+    const result = understandAssistantQuestion('сколко стоимасть внедренее и окупаемасть');
+    expect(result.corrected).toContain('сколько');
+    expect(result.corrected).toContain('стоимость');
+    expect(result.corrected).toContain('внедрение');
+    expect(result.corrected).toContain('окупаемость');
+  });
+
+  it('normalizes prospect transliteration', () => {
+    const result = understandAssistantQuestion('stoimost vnedrenie i kredit');
+    expect(result.corrected).toContain('стоимость');
+    expect(result.corrected).toContain('внедрение');
+    expect(result.corrected).toContain('кредит');
+  });
+
   it('uses bounded deterministic fuzzy matching rather than arbitrary generation', () => {
     expect(helper).toContain('function distance(');
     expect(helper).toContain('DOMAIN_DICTIONARY');
