@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "issue": 2695,
+  "parentIssue": 2597,
+  "baseline": "production-like-kubernetes-acceptance",
+  "evidenceClass": "FAULT_INJECTION_SAFE_DEGRADATION_RECOVERY",
+  "inheritedAcceptedScenarios": [
+    "api peer deletion",
+    "web peer deletion",
+    "PgBouncer peer deletion",
+    "outbox worker peer deletion",
+    "immutable rolling deployment",
+    "same-schema rollback",
+    "NetworkPolicy rejection"
+  ],
+  "residualScenarios": [
+    "total runtime database route outage with zero false command effect and exact-once recovery",
+    "API outage alert fire and clear",
+    "object-storage outage during evidence finalization with zero false VERIFIED state",
+    "Kafka outage with zero false SENT and bounded backlog recovery",
+    "bounded CPU, memory and ephemeral-storage pressure",
+    "platform workload evacuation from one cordoned node",
+    "failed transactional migration with zero schema residue and unchanged release authority",
+    "final Deal, document and outbox invariant reconciliation"
+  ],
+  "canonicalArtifact": "artifacts/industrial-readiness/fault/fault-injection-acceptance.json",
+  "maturityBoundary": "Reproducible production-like fault acceptance. This does not prove every future provider, live external integration, permanent production history or a completed 72-hour soak."
+}
