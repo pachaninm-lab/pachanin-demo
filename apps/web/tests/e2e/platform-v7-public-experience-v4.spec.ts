@@ -194,12 +194,13 @@ test('public pages retain information at a 200 percent text scale', async ({ pag
 test('explicit guided tour advances with reduced motion while animation stays suppressed', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 390, height: 860 });
-  await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance', { waitUntil: 'load' });
+  await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance&lens=participants', { waitUntil: 'load' });
 
   const activeStage = page.locator('.pc-ppe-stage-track button[data-state="active"]');
   await page.getByRole('button', { name: 'Запустить показ сделки' }).click();
 
   await expect(page).toHaveURL(/stage=terms/);
+  await expect(page).toHaveURL(/lens=execution/);
   await expect(activeStage).toContainText('Условия');
   await expect(page.locator('.pc-ppe-v4-guide-status')).toContainText('1 / 10 · Условия');
 
