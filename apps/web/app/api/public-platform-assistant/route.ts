@@ -12,8 +12,45 @@ export const runtime = 'nodejs';
 const MAX_MESSAGE_LENGTH = 1_200;
 const MAX_BODY_BYTES = 8_192;
 
+const SOURCE_LABELS: Readonly<Record<PublicAssistantLocale, Readonly<Record<string, string>>>> = {
+  ru: {
+    '/platform-v7': 'Главная платформы',
+    '/platform-v7/how-it-works': 'Как работает сделка',
+    '/platform-v7/secure-grain-deal': 'Безопасная зерновая сделка',
+    '/platform-v7/fgis-zerno': 'ФГИС «Зерно»',
+    '/platform-v7/privacy': 'Конфиденциальность',
+    '/platform-v7/contact': 'Связаться с проектом',
+  },
+  en: {
+    '/platform-v7': 'Platform home',
+    '/platform-v7/how-it-works': 'How the Deal works',
+    '/platform-v7/secure-grain-deal': 'Secure grain Deal',
+    '/platform-v7/fgis-zerno': 'FGIS Grain',
+    '/platform-v7/privacy': 'Privacy',
+    '/platform-v7/contact': 'Contact the project',
+  },
+  zh: {
+    '/platform-v7': '平台主页',
+    '/platform-v7/how-it-works': '交易如何运作',
+    '/platform-v7/secure-grain-deal': '安全粮食交易',
+    '/platform-v7/fgis-zerno': '粮食政府信息系统',
+    '/platform-v7/privacy': '隐私',
+    '/platform-v7/contact': '联系项目',
+  },
+};
+
 function localeFrom(value: unknown): PublicAssistantLocale {
   return value === 'en' || value === 'zh' ? value : 'ru';
+}
+
+function localizedSources(
+  sources: readonly Readonly<{ label: string; href: string }>[],
+  locale: PublicAssistantLocale,
+) {
+  return sources.map((source) => ({
+    ...source,
+    label: SOURCE_LABELS[locale][source.href] ?? source.label,
+  }));
 }
 
 function json(body: unknown, status = 200) {
@@ -82,6 +119,7 @@ export async function POST(request: NextRequest) {
     dataMode: 'public_knowledge',
     mode: 'read_only',
     ...answer,
+    sources: localizedSources(answer.sources, locale),
     limitations: [
       locale === 'en'
         ? 'No user, account or Deal data is available in public mode.'
