@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { CheckCircle2, MessageCircle, Send, X } from 'lucide-react';
-import { BrandMark } from '@/components/v7r/BrandMark';
 
 type SubmitState = 'idle' | 'sending' | 'sent' | 'error';
 type Topic = 'platform' | 'pilot' | 'bank_partner' | 'region' | 'technical' | 'other';
@@ -14,8 +13,7 @@ const SUPPORT_PROFILE_KEYS = [SUPPORT_PROFILE_PRIMARY_KEY, 'pc_v7_registration_p
 
 const SUPPORT_COPY = {
   ru: {
-    open: 'Открыть поддержку', close: 'Закрыть поддержку', title: 'Поддержка Прозрачной Цены',
-    intro: 'Опишите вопрос. Не указывайте пароль, платёжные реквизиты или данные реальной сделки.',
+    open: 'Открыть поддержку', close: 'Закрыть поддержку', title: 'Поддержка',
     topic: 'Тема', name: 'Имя', namePlaceholder: 'Как к вам обращаться', contact: 'Телефон или email', contactPlaceholder: 'Контакт для ответа',
     question: 'Вопрос', questionPlaceholder: 'Коротко опишите вопрос по доступу, документам, подключению или работе платформы.',
     profile: 'Данные из личного кабинета', consent: 'Я согласен на обработку персональных данных для ответа на обращение и принимаю условия ',
@@ -26,8 +24,7 @@ const SUPPORT_COPY = {
     topics: { platform: 'Платформа', pilot: 'Подключение организации', bank_partner: 'Банк / партнёр', region: 'Регион', technical: 'Технический вопрос', other: 'Другое' },
   },
   en: {
-    open: 'Open support', close: 'Close support', title: 'Transparent Price support',
-    intro: 'Describe your question. Do not provide passwords, payment credentials or real deal data.',
+    open: 'Open support', close: 'Close support', title: 'Support',
     topic: 'Topic', name: 'Name', namePlaceholder: 'How should we address you?', contact: 'Phone or email', contactPlaceholder: 'Contact for the reply',
     question: 'Question', questionPlaceholder: 'Briefly describe your question about access, documents, connection or platform operation.',
     profile: 'Data from your workspace', consent: 'I agree to personal data processing for the purpose of replying and accept the ',
@@ -38,8 +35,7 @@ const SUPPORT_COPY = {
     topics: { platform: 'Platform', pilot: 'Organisation connection', bank_partner: 'Bank / partner', region: 'Region', technical: 'Technical question', other: 'Other' },
   },
   zh: {
-    open: '打开支持', close: '关闭支持', title: '透明价格支持',
-    intro: '请描述问题。不要提供密码、支付凭据或真实交易数据。',
+    open: '打开支持', close: '关闭支持', title: '支持',
     topic: '主题', name: '姓名', namePlaceholder: '如何称呼你', contact: '电话或邮箱', contactPlaceholder: '用于回复的联系方式',
     question: '问题', questionPlaceholder: '请简要描述有关访问、文件、接入或平台运行的问题。',
     profile: '工作台中的资料', consent: '我同意为回复本次咨询处理个人数据，并接受',
@@ -158,7 +154,6 @@ export function ChatSupportWidget() {
   const panelRef = React.useRef<HTMLElement>(null);
   const firstControlRef = React.useRef<HTMLSelectElement>(null);
   const titleId = React.useId();
-  const descriptionId = React.useId();
   const ui = SUPPORT_COPY[locale];
 
   React.useEffect(() => setLocale(resolveLocale()), []);
@@ -287,7 +282,7 @@ export function ChatSupportWidget() {
         aria-haspopup='dialog'
         aria-expanded={open}
       >
-        <MessageCircle size={24} strokeWidth={2.2} />
+        <MessageCircle size={24} strokeWidth={2.2} aria-hidden='true' />
       </button>
 
       {open ? (
@@ -301,16 +296,12 @@ export function ChatSupportWidget() {
             role='dialog'
             aria-modal='true'
             aria-labelledby={titleId}
-            aria-describedby={descriptionId}
           >
             <header className='p7-support-chat-head'>
-              <span className='p7-support-chat-brand' aria-hidden='true'><BrandMark size='100%' shadow={false} /></span>
-              <div>
-                <strong id={titleId}>{ui.title}</strong>
-                <p id={descriptionId}>{ui.intro}</p>
-              </div>
+              <span className='p7-support-chat-mark' aria-hidden='true'><MessageCircle size={22} strokeWidth={2.2} /></span>
+              <strong id={titleId}>{ui.title}</strong>
               <button type='button' onClick={() => setOpen(false)} aria-label={ui.close}>
-                <X size={20} strokeWidth={2.3} />
+                <X size={22} strokeWidth={2.3} aria-hidden='true' />
               </button>
             </header>
 
@@ -361,7 +352,7 @@ export function ChatSupportWidget() {
                 {error ? <p className='p7-support-chat-error' role='alert'>{error}</p> : null}
                 <button className='p7-support-chat-submit' type='submit' disabled={state === 'sending'}>
                   {state === 'sending' ? ui.sending : ui.send}
-                  <Send size={17} strokeWidth={2.2} />
+                  <Send size={17} strokeWidth={2.2} aria-hidden='true' />
                 </button>
               </form>
             )}
@@ -377,16 +368,16 @@ export function ChatSupportWidget() {
 const css = `
 .p7-support-chat-button {
   position: fixed;
-  right: max(16px, env(safe-area-inset-right, 0px));
-  bottom: max(16px, env(safe-area-inset-bottom, 0px));
-  z-index: 3500;
-  width: 48px;
-  height: 48px;
-  border: 1px solid rgba(255,255,255,.5);
-  border-radius: 14px;
+  right: max(14px, env(safe-area-inset-right, 0px));
+  bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) + 10px));
+  z-index: 2147482990;
+  width: 56px;
+  height: 56px;
+  border: 1px solid rgba(126, 242, 196, .38);
+  border-radius: 18px;
   background: #087a3b;
   color: #fff;
-  box-shadow: 0 10px 26px rgba(7,54,33,.2);
+  box-shadow: 0 14px 34px rgba(3, 28, 18, .28);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -399,57 +390,92 @@ const css = `
 .p7-support-chat-panel select:focus-visible,
 .p7-support-chat-panel textarea:focus-visible,
 .p7-support-chat-panel a:focus-visible {
-  outline: 3px solid #17649b;
+  outline: 3px solid #21a36a;
   outline-offset: 3px;
 }
 .p7-support-chat-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 4000;
+  z-index: 2147483000;
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
-  padding: 24px;
-  background: rgba(4,18,12,.52);
-  backdrop-filter: blur(2px);
+  padding: 16px;
+  background: rgba(3, 12, 9, .58);
+  backdrop-filter: blur(3px);
 }
 .p7-support-chat-panel {
   box-sizing: border-box;
-  width: min(430px, 100%);
-  max-height: min(760px, calc(100dvh - 48px));
+  width: min(460px, calc(100vw - 32px));
+  max-height: min(760px, calc(100dvh - 32px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(7,22,17,.16);
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 24px 80px rgba(7,22,17,.32);
-  color: #071611;
+  border: 1px solid rgba(126, 242, 196, .28);
+  border-radius: 24px;
+  background: #f8fbf9;
+  box-shadow: 0 30px 90px rgba(2, 12, 8, .45);
+  color: #10241d;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 .p7-support-chat-panel,
 .p7-support-chat-panel * { box-sizing: border-box; min-width: 0; }
 .p7-support-chat-head {
+  min-height: 64px;
+  flex: 0 0 64px;
   display: grid;
-  grid-template-columns: 40px minmax(0,1fr) 44px;
-  align-items: start;
+  grid-template-columns: 44px minmax(0, 1fr) 48px;
+  align-items: center;
   gap: 12px;
-  padding: 16px;
-  border-bottom: 1px solid #dfe8e2;
-  background: #f7faf8;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  background: linear-gradient(180deg, #102820 0%, #0c1d18 100%);
+  color: #f5fff9;
 }
-.p7-support-chat-brand { display: inline-flex; width: 40px; height: 40px; }
-.p7-support-chat-head strong { display: block; font-size: 17px; line-height: 1.2; font-weight: 850; letter-spacing: -.02em; }
-.p7-support-chat-head p { margin: 5px 0 0; color: #52615b; font-size: 12px; line-height: 1.45; font-weight: 600; }
+.p7-support-chat-mark {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(126, 242, 196, .34);
+  border-radius: 14px;
+  background: rgba(126, 242, 196, .12);
+  color: #7ef2c4;
+}
+.p7-support-chat-head strong {
+  display: block;
+  overflow: hidden;
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: -.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .p7-support-chat-head button {
-  width: 44px; height: 44px; border: 1px solid #cfdcd4; border-radius: 12px; background: #fff; color: #071611;
-  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; touch-action: manipulation;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .07);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 .p7-support-chat-form {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
+  align-content: start;
   gap: 14px;
   padding: 16px;
+  overflow-x: hidden;
   overflow-y: auto;
+  background: linear-gradient(180deg, #f7faf8 0%, #eff6f2 100%);
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -459,55 +485,99 @@ const css = `
 .p7-support-chat-form input,
 .p7-support-chat-form select,
 .p7-support-chat-form textarea {
-  width: 100%; border: 1px solid #cbd8d0; border-radius: 10px; background: #fff; color: #071611;
-  font: inherit; font-size: 16px; font-weight: 600; outline: none; touch-action: manipulation;
+  width: 100%;
+  border: 1px solid #bfd5c9;
+  border-radius: 14px;
+  background: #fff;
+  color: #10241d;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  outline: none;
+  touch-action: manipulation;
 }
 .p7-support-chat-form input,
 .p7-support-chat-form select { min-height: 48px; padding: 0 12px; }
-.p7-support-chat-form textarea { min-height: 132px; padding: 12px; resize: vertical; line-height: 1.45; }
+.p7-support-chat-form textarea { min-height: 120px; padding: 12px; resize: vertical; line-height: 1.45; }
 .p7-support-chat-form input:focus,
 .p7-support-chat-form select:focus,
-.p7-support-chat-form textarea:focus { border-color: #087a3b; box-shadow: 0 0 0 3px rgba(8,122,59,.1); }
-.p7-support-chat-profile { display: grid; gap: 4px; padding: 12px; border: 1px solid #cfe0d5; border-radius: 10px; background: #f7faf8; }
+.p7-support-chat-form textarea:focus { border-color: #21a36a; box-shadow: 0 0 0 3px rgba(33, 163, 106, .14); }
+.p7-support-chat-profile { display: grid; gap: 4px; padding: 12px; border: 1px solid #cfe0d5; border-radius: 14px; background: #fff; }
 .p7-support-chat-profile span { color: #087a3b; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
 .p7-support-chat-profile strong { font-size: 15px; }
 .p7-support-chat-profile small { color: #52615b; font-size: 13px; }
-.p7-support-chat-consent { grid-template-columns: 24px minmax(0,1fr) !important; align-items: start; gap: 10px !important; padding: 12px; border: 1px solid #d5e2da; border-radius: 10px; background: #f7faf8; }
+.p7-support-chat-consent { grid-template-columns: 24px minmax(0, 1fr) !important; align-items: start; gap: 10px !important; padding: 12px; border: 1px solid #d5e2da; border-radius: 14px; background: #fff; }
 .p7-support-chat-consent input { width: 20px !important; height: 20px !important; min-height: 20px !important; margin: 1px 0 0; accent-color: #087a3b; }
 .p7-support-chat-consent span { color: #405249 !important; font-size: 12px !important; line-height: 1.45; font-weight: 600 !important; }
 .p7-support-chat-consent a { color: #087a3b; font-weight: 760; text-underline-offset: 2px; }
-.p7-support-chat-error { margin: 0; padding: 11px 12px; border-left: 4px solid #b54708; background: #fff5eb; color: #7a2e0e; font-size: 13px; line-height: 1.4; font-weight: 700; }
+.p7-support-chat-error { margin: 0; padding: 11px 12px; border-left: 4px solid #b54708; border-radius: 0 12px 12px 0; background: #fff5eb; color: #7a2e0e; font-size: 13px; line-height: 1.4; font-weight: 700; }
 .p7-support-chat-submit {
-  min-height: 50px; border: 0; border-radius: 10px; background: #087a3b; color: #fff; font-size: 16px; font-weight: 800;
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; touch-action: manipulation;
+  min-height: 50px;
+  border: 0;
+  border-radius: 14px;
+  background: #087a3b;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 850;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 .p7-support-chat-submit:disabled { opacity: .65; cursor: wait; }
-.p7-support-chat-success { display: grid; gap: 12px; padding: 24px; overflow-y: auto; }
+.p7-support-chat-success {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 24px;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #f7faf8 0%, #eff6f2 100%);
+}
 .p7-support-chat-success svg { color: #087a3b; }
 .p7-support-chat-success strong { font-size: 24px; line-height: 1.15; letter-spacing: -.025em; }
 .p7-support-chat-success p { margin: 0; color: #52615b; font-size: 14px; line-height: 1.5; }
-.p7-support-chat-success button { min-height: 48px; border: 1px solid #bcd3c4; border-radius: 10px; background: #f7faf8; color: #075b31; font-weight: 800; cursor: pointer; }
+.p7-support-chat-success button { min-height: 48px; border: 1px solid #bcd3c4; border-radius: 14px; background: #fff; color: #075b31; font-weight: 800; cursor: pointer; }
 @media (max-width: 720px) {
-  .p7-support-chat-button { right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
-  .p7-support-chat-backdrop { align-items: flex-end; padding: 0; }
+  .p7-support-chat-backdrop { padding: 0; }
   .p7-support-chat-panel {
-    width: 100%; max-height: calc(100dvh - max(12px, env(safe-area-inset-top, 0px)));
-    border-radius: 16px 16px 0 0; border-bottom: 0;
+    width: 100%;
+    height: min(68dvh, 560px);
+    max-height: calc(100dvh - max(12px, env(safe-area-inset-top, 0px)));
+    border-radius: 22px 22px 0 0;
+    border-bottom: 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-  .p7-support-chat-head { position: sticky; top: 0; z-index: 1; grid-template-columns: 36px minmax(0,1fr) 44px; padding: 14px; }
-  .p7-support-chat-brand { width: 36px; height: 36px; }
-  .p7-support-chat-identity { grid-template-columns: minmax(0,1fr); }
-  .p7-support-chat-form { padding: 14px; }
+  .p7-support-chat-head { position: relative; z-index: 2; }
+  .p7-support-chat-identity { grid-template-columns: minmax(0, 1fr); }
+  .p7-support-chat-form { padding: 14px 14px max(14px, env(safe-area-inset-bottom, 0px)); }
+  .p7-support-chat-form textarea { min-height: 112px; }
+  .p7-support-chat-submit {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    box-shadow: 0 -12px 24px rgba(239, 246, 242, .94);
+  }
+}
+@media (max-height: 620px) and (max-width: 720px) {
+  .p7-support-chat-panel {
+    height: calc(100dvh - max(8px, env(safe-area-inset-top, 0px)));
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top, 0px)));
+    border-radius: 18px 18px 0 0;
+  }
+  .p7-support-chat-form textarea { min-height: 88px; }
 }
 @media (max-width: 360px) {
-  .p7-support-chat-head { gap: 9px; }
+  .p7-support-chat-head { grid-template-columns: 42px minmax(0, 1fr) 48px; gap: 9px; padding-inline: 10px; }
   .p7-support-chat-head strong { font-size: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .p7-support-chat-backdrop, .p7-support-chat-panel, .p7-support-chat-button { scroll-behavior: auto; transition: none; animation: none; }
 }
 @media (forced-colors: active) {
-  .p7-support-chat-button, .p7-support-chat-submit, .p7-support-chat-head button { border: 2px solid ButtonText; }
+  .p7-support-chat-button, .p7-support-chat-submit, .p7-support-chat-head button, .p7-support-chat-mark { border: 2px solid ButtonText; }
 }
 `;
