@@ -128,7 +128,9 @@ spec:
             capabilities:
               drop: ["ALL"]
             readOnlyRootFilesystem: false
-      volumes: []
+          volumeMounts:
+            - name: data
+              mountPath: /data
   volumeClaimTemplates:
     - metadata:
         name: data
