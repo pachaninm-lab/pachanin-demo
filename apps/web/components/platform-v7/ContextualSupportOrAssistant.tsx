@@ -8,6 +8,7 @@ import { PublicPlatformAssistant } from './PublicPlatformAssistant';
 import { installPublicAssistantFetchResilience } from '@/lib/platform-v7/install-public-assistant-fetch-resilience';
 import '@/styles/platform-v7-public-assistant.css';
 import '@/styles/platform-v7-public-assistant-shortcut.css';
+import '@/styles/platform-v7-public-assistant-viewport.css';
 
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
 const PUBLIC_HOME = '/platform-v7';
@@ -59,12 +60,10 @@ export function ContextualSupportOrAssistant() {
   if (path === ASSISTANT_WORKSPACE) return null;
 
   if (path === PUBLIC_HOME) {
-    return (
-      <>
-        <PublicPlatformAssistant />
-        <ChatSupportWidget />
-      </>
-    );
+    // The public assistant is the only floating control on the public home page.
+    // Rendering the generic support widget here creates an overlapping fixed layer
+    // on mobile and can cover the send/close controls when the keyboard is open.
+    return <PublicPlatformAssistant />;
   }
 
   if (isPrivateWorkspace(path)) {
