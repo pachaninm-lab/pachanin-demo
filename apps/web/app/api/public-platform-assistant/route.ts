@@ -41,6 +41,25 @@ const SOURCE_LABELS: Readonly<Record<PublicAssistantLocale, Readonly<Record<stri
   },
 };
 
+const ROLE_ONLY_WORDS = new Set([
+  'банк', 'покупатель', 'продавец', 'фермер', 'трейдер', 'элеватор', 'логист', 'водитель',
+  'bank', 'buyer', 'seller', 'farmer', 'trader', 'elevator', 'logistics', 'driver',
+  '银行', '买方', '卖方', '农户', '贸易商', '粮库', '物流', '司机',
+]);
+
+const ACTION_OR_TOPIC_WORDS = [
+  'как', 'что', 'почему', 'зачем', 'сколько', 'стоимость', 'цена', 'внедрение', 'сделк', 'аукцион',
+  'логист', 'прием', 'приём', 'документ', 'деньг', 'выплат', 'спор', 'фгис', 'интеграц', 'безопас',
+  'how', 'what', 'why', 'cost', 'price', 'implementation', 'deal', 'auction', 'payment', 'document',
+  'dispute', 'integration', 'security', '如何', '什么', '为什么', '价格', '实施', '交易', '竞价', '付款', '文件', '争议', '集成', '安全',
+] as const;
+
+const FORBIDDEN_COMMAND_PATTERNS = [
+  /(?:покажи|открой|удали|измени|переведи|выплати).{0,40}(?:чуж|все|любые).{0,30}(?:сделк|данн|деньг)/iu,
+  /(?:show|open|delete|change|transfer|pay).{0,40}(?:other|all|any).{0,30}(?:deal|data|money)/iu,
+  /(?:显示|打开|删除|修改|转账).{0,30}(?:他人|全部|任意).{0,20}(?:交易|数据|资金)/u,
+];
+
 function localeFrom(value: unknown): PublicAssistantLocale {
   return value === 'en' || value === 'zh' ? value : 'ru';
 }
@@ -69,6 +88,22 @@ function hashQuestion(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function normalizeIntent(value: string): string {
+  return value.normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/gu, 'е').replace(/[^\p{L}\p{N}\s]+/gu, ' ').replace(/\s+/gu, ' ').trim();
+}
+
+function hasSubstantiveIntent(value: string): boolean {
+  const normalized = normalizeIntent(value);
+  const tokens = normalized.split(' ').filter(Boolean);
+  if (tokens.length === 0) return false;
+  if (tokens.every((token) => ROLE_ONLY_WORDS.has(token))) return false;
+  return ACTION_OR_TOPIC_WORDS.some((word) => normalized.includes(word));
+}
+
+function isForbiddenCommand(value: string): boolean {
+  return FORBIDDEN_COMMAND_PATTERNS.some((pattern) => pattern.test(value));
+}
+
 function fallbackCopy(locale: PublicAssistantLocale) {
   if (locale === 'en') return {
     title: 'I need one clarification',
@@ -87,6 +122,27 @@ function fallbackCopy(locale: PublicAssistantLocale) {
     answer: 'Я не смог с достаточной уверенностью связать вопрос с подтверждённой темой платформы или агробизнеса. Сформулируйте его ещё раз в нескольких словах или выберите направление ниже. Вопрос зарегистрирован как пробел знаний без сохранения полного текста.',
     maturity: 'Если подтверждённого основания нет, помощник не придумывает ответ.',
     suggestions: ['Как работает Сделка?', 'Что получит банк?', 'Сколько стоит внедрение?'],
+  };
+}
+
+function forbiddenCopy(locale: PublicAssistantLocale) {
+  if (locale === 'en') return {
+    title: 'Access denied',
+    answer: 'I cannot show, modify or disclose other users’ Deals or account data. Public mode has no access to private workspaces, and private mode cannot expand the user’s server-authorized role or tenant scope.',
+    maturity: 'Access is enforced by server-side authorization and is not controlled by the browser.',
+    suggestions: ['How is Deal access protected?', 'How do roles work?', 'What can the public assistant see?'],
+  };
+  if (locale === 'zh') return {
+    title: '拒绝访问',
+    answer: '我不能显示、修改或披露其他用户的交易或账户数据。公共模式无法访问私人工作区，私人模式也不能扩大服务器授权的角色或租户范围。',
+    maturity: '访问由服务器端授权强制执行，浏览器不能改变权限。',
+    suggestions: ['交易访问如何保护？', '角色如何工作？', '公共助手能看到什么？'],
+  };
+  return {
+    title: 'Доступ запрещён',
+    answer: 'Я не могу показать, изменить или раскрыть чужие Сделки и данные личных кабинетов. Публичный режим не имеет доступа к приватным рабочим пространствам, а приватный помощник не расширяет серверные полномочия роли и организации.',
+    maturity: 'Доступ определяется серверным RBAC и tenant-изоляцией, а не браузером.',
+    suggestions: ['Как защищён доступ к Сделкам?', 'Как устроены роли?', 'Что видит публичный помощник?'],
   };
 }
 
@@ -134,10 +190,27 @@ export async function POST(request: NextRequest) {
   const understanding = understandAssistantQuestion(message, requestedLocale);
   const locale = understanding.detectedLocale;
   const correctedQuestion = understanding.corrected || message;
-  const prospectAnswer = answerProspectQuestion(correctedQuestion, locale);
+
+  if (isForbiddenCommand(correctedQuestion)) {
+    const denied = forbiddenCopy(locale);
+    return json({
+      requestId, generatedAt, dataMode: 'public_knowledge', mode: 'read_only', resolution: 'refused',
+      knowledgeVersion: publicAssistantCatalog(locale).knowledgeVersion,
+      topic: 'security', title: denied.title, answer: denied.answer, facts: [], maturity: denied.maturity,
+      confidence: 'high', actionAllowed: false,
+      sources: localizedSources([{ label: '', href: '/platform-v7/privacy' }], locale),
+      suggestions: denied.suggestions,
+      understanding: { normalizedQuestion: correctedQuestion, corrections: understanding.corrections, detectedLocale: understanding.detectedLocale },
+      limitations: limitations(locale),
+    });
+  }
+
+  const prospectAnswer = hasSubstantiveIntent(correctedQuestion) ? answerProspectQuestion(correctedQuestion, locale) : null;
   const platformAnswer = answerPublicPlatformQuestion(correctedQuestion, locale);
   const answer = prospectAnswer ?? platformAnswer;
-  const unresolved = understanding.ambiguous || (!prospectAnswer && platformAnswer.confidence === 'medium' && understanding.corrections.length === 0);
+  const unresolved = understanding.ambiguous
+    || !hasSubstantiveIntent(correctedQuestion)
+    || (!prospectAnswer && platformAnswer.confidence === 'medium' && understanding.corrections.length === 0);
 
   if (unresolved) {
     const fallback = fallbackCopy(locale);
