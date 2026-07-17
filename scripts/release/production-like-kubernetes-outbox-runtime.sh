@@ -27,7 +27,6 @@ admin_sql() {
 
 cleanup_acceptance_boundary() {
   rm -f "$GENERATED_SCRIPT"
-  kubectl delete pod kafka-backlog-consumer -n "$NAMESPACE" --ignore-not-found --wait=false >/dev/null 2>&1 || true
   if [[ "$DEFAULT_INSTALLED" = "1" ]]; then
     admin_sql 'ALTER TABLE "outbox_entries" ALTER COLUMN "id" DROP DEFAULT;' >/dev/null || true
   fi
@@ -82,23 +81,13 @@ const consumerBefore = [
 ].join('\n');
 
 const consumerAfter = [
-  '# The namespace is default-deny and Kafka ingress intentionally accepts only API/worker identities.',
-  '# Run the evidence consumer from a hardened, short-lived worker-scoped probe instead of the broker pod.',
-  'kubectl delete pod kafka-backlog-consumer -n "$NAMESPACE" --ignore-not-found --wait=true >/dev/null 2>&1 || true',
-  'kafka_probe_image="$(kubectl get pod -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath=\'{.items[0].status.containerStatuses[0].imageID}\')"',
-  'kafka_probe_image="${kafka_probe_image#docker-pullable://}"',
-  '[[ "$kafka_probe_image" == *@sha256:* ]]',
-  'kubectl run kafka-backlog-consumer -n "$NAMESPACE" --restart=Never \\',
-  '  --image="$kafka_probe_image" --image-pull-policy=IfNotPresent \\',
-  '  --labels="app.kubernetes.io/name=grainflow-outbox-worker,app.kubernetes.io/instance=grainflow,app.kubernetes.io/component=acceptance-probe" \\',
-  '  --overrides=\'{"spec":{"automountServiceAccountToken":false,"securityContext":{"runAsNonRoot":true,"runAsUser":1000,"runAsGroup":1000,"seccompProfile":{"type":"RuntimeDefault"}}}}\' \\',
-  '  --command -- bash -ec \'sleep 300\' \\',
-  '  > "$RUNTIME_DIR/kafka-backlog-consumer-create.log"',
-  'kubectl wait --for=condition=Ready pod/kafka-backlog-consumer -n "$NAMESPACE" --timeout=180s',
+  '# The hardened Kafka deployment exposes a loopback-only PROBE listener for broker-local evidence.',
+  '# Using it avoids widening NetworkPolicy and avoids creating an additional network identity.',
+  'kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath=\'{.items[0].metadata.name}\')"',
   'set +e',
-  'kubectl exec -n "$NAMESPACE" pod/kafka-backlog-consumer -- \\',
+  'kubectl exec -n "$NAMESPACE" "pod/${kafka_pod}" -- \\',
   '  kafka-console-consumer \\',
-  '    --bootstrap-server kafka:9092 \\',
+  '    --bootstrap-server 127.0.0.1:19092 \\',
   '    --topic grainflow.domain.events \\',
   '    --from-beginning \\',
   '    --timeout-ms 30000 \\',
@@ -107,8 +96,6 @@ const consumerAfter = [
   '  > "$RUNTIME_DIR/kafka-backlog-consumer.log" 2> "$RUNTIME_DIR/kafka-backlog-consumer.stderr"',
   'consumer_status=$?',
   'set -e',
-  'kubectl delete pod kafka-backlog-consumer -n "$NAMESPACE" --wait=true \\',
-  '  > "$RUNTIME_DIR/kafka-backlog-consumer-delete.log" 2>&1',
   '# Kafka console consumer exits non-zero on timeout after draining available records.',
   'test "$consumer_status" = "0" || test "$consumer_status" = "1"',
 ].join('\n');
