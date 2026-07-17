@@ -1,0 +1,44 @@
+name: apply private assistant normalizer
+
+on:
+  push:
+    branches:
+      - feat/assistant-universal-understanding
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch private assistant and remove bootstrap workflow
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path('apps/api/src/modules/ai-insights/ai-assistant.service.ts')
+          text = path.read_text()
+          import_anchor = "import { DealsService } from '../deals/deals.service';\n"
+          import_line = import_anchor + "import { normalizeAssistantQuestion } from './assistant-language-normalizer';\n"
+          if "normalizeAssistantQuestion" not in text:
+              if import_anchor not in text:
+                  raise SystemExit('import anchor not found')
+              text = text.replace(import_anchor, import_line, 1)
+          old = "  const message = cleanText(raw?.message, MAX_MESSAGE_LENGTH);\n  if (!message) {\n"
+          new = "  const originalMessage = cleanText(raw?.message, MAX_MESSAGE_LENGTH);\n  const message = normalizeAssistantQuestion(originalMessage);\n  if (!message) {\n"
+          if new not in text:
+              if old not in text:
+                  raise SystemExit('normalizeRequest anchor not found')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          Path('.github/workflows/apply-private-assistant-normalizer.yml').unlink()
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add apps/api/src/modules/ai-insights/ai-assistant.service.ts .github/workflows/apply-private-assistant-normalizer.yml
+          git commit -m "Use typo-tolerant private assistant questions"
+          git push origin HEAD:feat/assistant-universal-understanding
