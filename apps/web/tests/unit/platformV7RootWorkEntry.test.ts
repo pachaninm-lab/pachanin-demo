@@ -52,6 +52,14 @@ describe('platform-v7 public product experience v5', () => {
     expect(preview).toContain("className='pc-ppe-preview-actions'");
   });
 
+  it('preserves the first-stage fallback when browser history returns to a bare explorer URL', () => {
+    expect(explorerAdapter).toContain('normalizeTourStateFromSearchParams');
+    expect(explorerAdapter).toContain('new URLSearchParams(window.location.search)');
+    expect(explorerAdapter).toContain('normalizedState');
+    expect(explorerAdapter).toContain("window.addEventListener('popstate', restorePublicHistoryState)");
+    expect(explorerAdapter).toContain('key={historyRevision}');
+  });
+
   it('uses service navigation without client-authoritative role routing', () => {
     expect(page).toContain('nav={nav}');
     expect(page).toContain('showMobileMenu');
