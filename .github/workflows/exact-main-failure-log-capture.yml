@@ -1,29 +1,29 @@
-name: Exact Main Failure Log Capture
+name: Exact Main Production Marker Diagnostic
 
 on:
   pull_request:
     paths:
       - '.github/workflows/exact-main-failure-log-capture.yml'
-      - 'scripts/capture-exact-main-failure-logs.mjs'
   workflow_dispatch:
 
 permissions:
-  actions: read
   contents: write
 
 concurrency:
-  group: exact-main-failure-log-capture-0a45
+  group: exact-main-production-marker-452d
   cancel-in-progress: true
 
 env:
   AUDIT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  TARGET_SHA: 452da9fdeca729d91a2bef9b9b2b4891bd515c73
+  SITE: https://xn----8sbjf4befbjgs9b.xn--p1ai
 
 jobs:
   capture:
     if: github.actor != 'github-actions[bot]'
-    name: Capture exact-main failed job log tails
+    name: Capture exact-main production marker
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - name: Checkout diagnostic branch
         uses: actions/checkout@v4
@@ -31,25 +31,55 @@ jobs:
           ref: ${{ env.AUDIT_HEAD }}
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Capture job logs
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/capture-exact-main-failure-logs.mjs
+      - name: Capture production marker and route headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="audit-results/exact-main-452d/live-diagnostic"
+          rm -rf "$out"
+          mkdir -p "$out"
+          for attempt in 1 2 3; do
+            curl --silent --show-error --location --dump-header "$out/deploy-$attempt.headers.txt" \
+              "$SITE/.well-known/pc-deploy.json?target=$TARGET_SHA&attempt=$attempt&ts=$(date +%s)" \
+              -o "$out/deploy-$attempt.body.txt" || true
+            sleep 3
+          done
+          for route in platform-v7 platform-v7_secure-grain-deal; do
+            path="/${route//_//}"
+            curl --silent --show-error --head --location \
+              "$SITE$path?target=$TARGET_SHA&ts=$(date +%s)" \
+              > "$out/${route}.headers.txt" || true
+          done
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const out = 'audit-results/exact-main-452d/live-diagnostic';
+          const attempts = [1,2,3].map((attempt) => {
+            const body = fs.readFileSync(path.join(out, `deploy-${attempt}.body.txt`), 'utf8');
+            let json = null;
+            try { json = JSON.parse(body); } catch {}
+            return { attempt, body, json };
+          });
+          const result = {
+            schemaVersion: 1,
+            targetSha: process.env.TARGET_SHA,
+            checkedAt: new Date().toISOString(),
+            attempts,
+            exactMatch: attempts.some((entry) => entry.json?.commitSha === process.env.TARGET_SHA),
+          };
+          fs.writeFileSync(path.join(out, 'diagnostic.json'), JSON.stringify(result, null, 2) + '\n');
+          console.log(JSON.stringify(result, null, 2));
+          NODE
 
       - name: Publish diagnostics through Git transport
         shell: bash
         run: |
           set -euo pipefail
           short_head="${AUDIT_HEAD:0:12}"
-          result_branch="evidence/exact-main-failures-${short_head}"
+          result_branch="evidence/exact-main-marker-${short_head}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C "$result_branch"
-          git add audit-results/exact-main-0a45/failure-logs
-          git commit -m "evidence: exact-main failure logs ${AUDIT_HEAD}"
+          git add audit-results/exact-main-452d/live-diagnostic
+          git commit -m "evidence: exact-main production marker ${AUDIT_HEAD}"
           git push --force origin "HEAD:refs/heads/$result_branch"
