@@ -1,0 +1,39 @@
+HTTP/2 307 
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+date: Fri, 17 Jul 2026 02:07:17 GMT
+location: /platform-v7?target=452da9fdeca729d91a2bef9b9b2b4891bd515c73&attempt=3&ts=1784254037
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()
+referrer-policy: no-referrer
+server: Netlify
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+x-content-type-options: nosniff
+x-frame-options: DENY
+x-nf-request-id: 01KXPX7ZSC94XT6FJJVQG9KXC8
+x-robots-tag: noindex, nofollow, noarchive, nosnippet, noimageindex
+content-length: 0
+
+HTTP/2 200 
+age: 1
+cache-control: private,no-cache,no-store,max-age=0,must-revalidate
+cache-status: "Netlify Durable"; fwd=bypass, "Netlify Edge"; fwd=miss
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+content-type: text/html; charset=utf-8
+date: Fri, 17 Jul 2026 02:07:18 GMT
+link: </>; rel=preconnect; crossorigin=""
+netlify-vary: query=__nextDataReq|_rsc,header=x-nextjs-data|x-next-debug-logging|next-router-prefetch|next-router-segment-prefetch|next-router-state-tree|next-url|rsc|accept-encoding,cookie=__prerender_bypass|__next_preview_data
+permissions-policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()
+referrer-policy: no-referrer
+server: Netlify
+set-cookie: pc-role=operator; Path=/; Expires=Sun, 16 Aug 2026 02:07:17 GMT; Max-Age=2592000; Secure; SameSite=lax
+set-cookie: pc_v7_entry_seen=true; Path=/; Expires=Fri, 17 Jul 2026 06:07:17 GMT; Max-Age=14400; Secure; SameSite=lax
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+vary: rsc,next-router-state-tree,next-router-prefetch,next-router-segment-prefetch,Accept-Encoding
+x-content-type-options: nosniff
+x-dns-prefetch-control: on
+x-frame-options: DENY
+x-nf-request-id: 01KXPX7ZSYGHTPW7Y517T9A64M
+x-pc-pathname: /platform-v7
+x-pc-role: operator
+x-powered-by: Next.js
+x-robots-tag: index, follow, max-image-preview:large
+
