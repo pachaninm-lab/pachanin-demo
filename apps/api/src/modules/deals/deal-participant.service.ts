@@ -26,6 +26,10 @@ const ASSIGNABLE_ROLES: ReadonlySet<string> = new Set<string>([
   Role.ELEVATOR,
   Role.ACCOUNTING,
   Role.COMPLIANCE_OFFICER,
+  // Оператор платформы назначается участником сделки, чтобы исполнять
+  // операторские шаги машины (например close_deal, роли которого —
+  // SUPPORT_MANAGER/ADMIN) в единой модели доступа по участию, а не в обход.
+  Role.SUPPORT_MANAGER,
 ]);
 const ACCESS_LEVELS: ReadonlySet<string> = new Set(['READ', 'WORK', 'APPROVE']);
 const ACTIVE_ORG_STATUSES = new Set(['VERIFIED', 'ACTIVE']);

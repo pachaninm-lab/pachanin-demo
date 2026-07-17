@@ -64,6 +64,9 @@ const SELF_REGISTERABLE_ROLES: ReadonlySet<Role> = new Set<Role>([
   Role.LAB,
   Role.ELEVATOR,
   Role.ACCOUNTING,
+  // Независимый сюрвейер — такой же поставщик услуг сделки, как лаборатория и
+  // элеватор: регистрируется сам, допуск даёт оператор верификацией организации.
+  Role.SURVEYOR,
 ]);
 const KNOWN_ROLES = new Set<string>(Object.values(Role));
 const PRIVILEGED_MFA_ROLES = new Set<string>(ROLES_REQUIRING_MFA);
