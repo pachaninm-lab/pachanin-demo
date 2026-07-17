@@ -209,7 +209,6 @@
   }
 
   .pc-public-assistant-header {
-    min-height: 60px !important;
     border-radius: 20px 20px 0 0;
   }
 
@@ -232,7 +231,6 @@
   }
 
   .pc-public-assistant-header {
-    min-height: 56px !important;
     padding-top: 6px !important;
     padding-bottom: 6px !important;
     border-radius: 18px 18px 0 0;
