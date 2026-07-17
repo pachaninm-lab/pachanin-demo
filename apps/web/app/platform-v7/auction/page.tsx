@@ -2,6 +2,7 @@ import {
   AuctionPostgresAuthorityWorkspace,
   getAuctionAuthorityMetadata,
 } from '@/components/transaction-ux/AuctionPostgresAuthorityWorkspace';
+import { MarketOpenLotsPanel } from '@/components/platform-v7/MarketOpenLotsPanel';
 
 export const generateMetadata = () => getAuctionAuthorityMetadata('overview');
 
@@ -17,10 +18,17 @@ export default async function PlatformV7AuctionPage(
   }
 ) {
   const searchParams = await props.searchParams;
+  const lotId = firstParam(searchParams?.lotId);
   return (
-    <AuctionPostgresAuthorityWorkspace
-      stage='overview'
-      lotId={firstParam(searchParams?.lotId)}
-    />
+    <>
+      {/* Обезличенная витрина всех открытых лотов платформы — показывается на
+          обзоре торгов; при выбранном лоте пользователь работает с его окном. */}
+      {!lotId ? (
+        <div style={{ margin: '0 0 var(--ds-space-4)' }}>
+          <MarketOpenLotsPanel />
+        </div>
+      ) : null}
+      <AuctionPostgresAuthorityWorkspace stage='overview' lotId={lotId} />
+    </>
   );
 }
