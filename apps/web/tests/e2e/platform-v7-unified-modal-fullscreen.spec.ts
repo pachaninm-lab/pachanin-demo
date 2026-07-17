@@ -25,8 +25,8 @@ test.describe('unified public modal sheet fullscreen control', () => {
 
     const expanded = await dialog.boundingBox();
     expect(expanded).not.toBeNull();
-    expect(expanded!.top).toBeGreaterThanOrEqual(-1);
-    expect(expanded!.bottom).toBeLessThanOrEqual(861);
+    expect(expanded!.y).toBeGreaterThanOrEqual(-1);
+    expect(expanded!.y + expanded!.height).toBeLessThanOrEqual(861);
     expect(expanded!.height).toBeGreaterThan(compact!.height + 120);
     expect(expanded!.width).toBeGreaterThanOrEqual(389);
 
@@ -48,8 +48,8 @@ test.describe('unified public modal sheet fullscreen control', () => {
 
     const expanded = await dialog.boundingBox();
     expect(expanded).not.toBeNull();
-    expect(expanded!.top).toBeGreaterThanOrEqual(-1);
-    expect(expanded!.bottom).toBeLessThanOrEqual(861);
+    expect(expanded!.y).toBeGreaterThanOrEqual(-1);
+    expect(expanded!.y + expanded!.height).toBeLessThanOrEqual(861);
     expect(expanded!.width).toBeGreaterThanOrEqual(389);
   });
 });
