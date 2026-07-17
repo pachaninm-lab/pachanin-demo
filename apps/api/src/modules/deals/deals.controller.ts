@@ -5,6 +5,7 @@ import { Body, Controller, Get, GoneException, Param, Patch, Post, Query, UseGua
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DealsService } from './deals.service';
 import { IndustrialDealCommandGateway } from './industrial-deal-command.gateway';
+import { DealParticipantService } from './deal-participant.service';
 import { DealRegistryQueryService } from './deal-registry-query.service';
 import { CreateDealDto } from './dto/create-deal.dto';
 import { DealRegistryQueryDto } from './dto/deal-registry-query.dto';
@@ -19,6 +20,7 @@ export class DealsController {
     private readonly deals: DealsService,
     private readonly registry: DealRegistryQueryService,
     private readonly industrialCommands: IndustrialDealCommandGateway,
+    private readonly participants: DealParticipantService,
   ) {}
 
   @Get()
@@ -99,6 +101,29 @@ export class DealsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.industrialCommands.executeUser(id, actionId, dto, user);
+  }
+
+  @Post(':id/participants')
+  @Roles('SUPPORT_MANAGER', 'ADMIN', 'COMPLIANCE_OFFICER')
+  @RateLimit({
+    name: 'deal_assign_participant',
+    scope: 'user',
+    limit: 30,
+    windowSeconds: 60,
+    includeParams: ['id'],
+  })
+  assignParticipant(
+    @Param('id') id: string,
+    @Body() body: { organizationId: string; userId: string; role: string; accessLevel?: string; reason: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.participants.assign(id, {
+      organizationId: body?.organizationId ?? '',
+      userId: body?.userId ?? '',
+      role: body?.role ?? '',
+      accessLevel: body?.accessLevel,
+      reason: body?.reason ?? '',
+    }, user);
   }
 
   /**

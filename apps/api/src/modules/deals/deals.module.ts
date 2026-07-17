@@ -11,6 +11,7 @@ import { IndustrialDealCommandGateway } from './industrial-deal-command.gateway'
 import { CanonicalTestDealSeedService } from './canonical-test-deal.seed';
 import { DEAL_REPOSITORY } from './deal.repository';
 import { PrismaDealRepository } from './prisma-deal.repository';
+import { DealParticipantService } from './deal-participant.service';
 
 /**
  * Deal routes are PostgreSQL-authoritative by construction. Settlement money
@@ -27,6 +28,7 @@ import { PrismaDealRepository } from './prisma-deal.repository';
     DealRegistryQueryService,
     IndustrialDealCommandGateway,
     PrismaDealRepository,
+    DealParticipantService,
     CanonicalTestDealSeedService,
     AccessScopeService,
     { provide: DEAL_REPOSITORY, useExisting: PrismaDealRepository },
