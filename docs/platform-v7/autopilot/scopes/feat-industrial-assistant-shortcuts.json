@@ -1,0 +1,21 @@
+{
+  "branch": "feat/industrial-assistant-shortcuts",
+  "status": "active",
+  "purpose": "Add separate industrial-compatible public platform knowledge and private role-scoped Deal assistant shortcuts without widening authority.",
+  "allowedPaths": [
+    "apps/web/app/api/public-platform-assistant/route.ts",
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "apps/web/components/platform-v7/PrivateAssistantShortcutLabel.module.css",
+    "apps/web/components/platform-v7/PrivateAssistantShortcutLabel.tsx",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/lib/platform-v7/public-assistant-knowledge.ts",
+    "apps/web/styles/platform-v7-public-assistant.css",
+    "apps/web/tests/unit/platformV7IndustrialAssistantShortcuts.test.ts"
+  ],
+  "securityBoundaries": [
+    "Public assistant is stateless, read-only and has no account, tenant, role, Deal, document or money access.",
+    "Private assistant reuses the existing server-authorized role-scoped read-only API.",
+    "Neither surface executes banking, signing, auction, laboratory or dispute commands.",
+    "Unproven external integrations remain NOT_CONNECTED."
+  ]
+}
