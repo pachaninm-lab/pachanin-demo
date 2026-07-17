@@ -124,9 +124,11 @@ spec:
         app.kubernetes.io/name: grainflow-pooler
         app.kubernetes.io/component: database-pooler
     spec:
-      # CloudNativePG's PgBouncer instance manager reconciles its generated
-      # configuration through the Kubernetes API and therefore requires its
-      # dedicated least-privilege service-account token.
+      # The CloudNativePG PgBouncer instance manager reconciles generated
+      # configuration through the Kubernetes API. Its dedicated service account
+      # is operator-managed and least-privilege, so this workload must receive
+      # that projected token; unrelated application workloads remain tokenless.
+      automountServiceAccountToken: true
       terminationGracePeriodSeconds: 60
       affinity:
         podAntiAffinity:
