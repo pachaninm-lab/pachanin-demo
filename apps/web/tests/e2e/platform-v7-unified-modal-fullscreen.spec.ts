@@ -17,6 +17,8 @@ test.describe('unified public modal sheet fullscreen control', () => {
 
     const compact = await dialog.boundingBox();
     expect(compact).not.toBeNull();
+    expect(compact!.height).toBeGreaterThanOrEqual(360);
+    expect(compact!.height).toBeLessThanOrEqual(480);
 
     await expand.click();
     await expect(dialog).toHaveAttribute('data-pc-fullscreen', 'true');
