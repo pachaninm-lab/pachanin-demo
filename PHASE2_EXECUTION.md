@@ -99,3 +99,35 @@ SURVEYOR, LAB, ACCOUNTING. Оверсайт-роли (COMPLIANCE_OFFICER) тре
 `POST /api/deals/:id/participants`, и конвейер проходится всеми ролями:
 допуск → аукцион → договор → резерв (банк) → логистика → рейс → приёмка → вес →
 осмотр → лаборатория → приёмка → документы → выплата (банк) → закрытие.
+
+## Живой прогон 17.07.2026 (реальный путь, без обхода)
+
+По реальным эндпоинтам проведён комплаенс-офицер из **своего** tenant'а:
+регистрация → верификация организации оператором (`PATCH /api/organizations/
+:id/status` → VERIFIED+KYC APPROVED) → выдача роли (`PATCH /api/admin/users/
+:id/role` COMPLIANCE_OFFICER) → enrollment MFA → назначение участником
+(`POST /api/deals/:id/participants`). Затем исполнение сделки командами:
+
+| Шаг | Актёр | Итог |
+|-----|-------|------|
+| DEAL_PARTICIPANT_ASSIGNED | ADMIN | ASSIGNED (кросс-tenant комплаенс) |
+| approve_admission | COMPLIANCE_OFFICER (чужой tenant) | SUCCESS → ADMISSION_APPROVED |
+| publish_auction | FARMER | SUCCESS → AUCTION_OPEN |
+| place_winning_bid | BUYER | SUCCESS → AUCTION_WON |
+
+Это подтверждает живьём: кросс-tenant участник (решение A) исполняет доменные
+команды денежной сделки с полным аудитом. Сделка доведена до AUCTION_WON.
+
+Дальше вступает промышленная строгость (это не баги, а требования качества):
+- `seller_sign_contract`/`buyer_sign_contract` требуют **реального загруженного
+  договора** (`dealDocument` с content-hash и ключом хранилища) и ссылки на
+  доказательство подписи (`signatureEvidenceRef`) — подпись «из воздуха»
+  невозможна. Нужен живой прогон подсистем documents + evidence-pack.
+- `request_reserve` (денежное действие) требует **свежей MFA-верификации**
+  покупателя (`assertRecentFinancialMfa`) — нужен step-up MFA покупателя.
+- После RESERVE_REQUESTED банковский шов уже проверен (см. выше): callback
+  подтверждает резерв. Хвост (логистика → вес → осмотр → лаборатория →
+  документы → выплата → закрытие) требует состава LOGISTICIAN/DRIVER/SURVEYOR/
+  LAB/ACCOUNTING; из них SURVEYOR не выдаётся текущим `role-grant` (только
+  SUPPORT_MANAGER/COMPLIANCE_OFFICER/EXECUTIVE/ADMIN) — для полного хвоста нужен
+  либо gated-seed сюрвейера, либо расширение пути выдачи ролей исполнения.
