@@ -1,10 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PublicDealExplorer } from '@/components/platform-v7/PublicDealExplorer';
 import type { PublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
-import type { TourLens, TourState } from '@/lib/platform-v7/public-product-experience-state';
+import {
+  normalizeTourStateFromSearchParams,
+  type TourLens,
+  type TourState,
+} from '@/lib/platform-v7/public-product-experience-state';
 
 const publicBusinessAreas = new Set<TourLens>(['execution', 'documents', 'money', 'risk']);
 
@@ -28,9 +32,13 @@ export function PublicDealExplorerV4({
   initialState: TourState;
 }) {
   const ui = getPublicProductExperienceV4Copy(locale);
-  const normalizedState: TourState = publicBusinessAreas.has(initialState.lens)
-    ? initialState
-    : { ...initialState, lens: 'execution' };
+  const normalizedState = useMemo<TourState>(() => (
+    publicBusinessAreas.has(initialState.lens)
+      ? initialState
+      : { ...initialState, lens: 'execution' }
+  ), [initialState]);
+  const [historyState, setHistoryState] = useState<TourState>(normalizedState);
+  const [historyRevision, setHistoryRevision] = useState(0);
 
   useEffect(() => {
     const bridge = (event: Event) => {
@@ -47,6 +55,20 @@ export function PublicDealExplorerV4({
     window.addEventListener('pc:public-product-analytics', bridge);
     return () => window.removeEventListener('pc:public-product-analytics', bridge);
   }, []);
+
+  useEffect(() => {
+    const restorePublicHistoryState = () => {
+      const next = normalizeTourStateFromSearchParams(
+        new URLSearchParams(window.location.search),
+        normalizedState,
+      );
+      setHistoryState(next);
+      setHistoryRevision((revision) => revision + 1);
+    };
+
+    window.addEventListener('popstate', restorePublicHistoryState);
+    return () => window.removeEventListener('popstate', restorePublicHistoryState);
+  }, [normalizedState]);
 
   const adaptedCopy: PublicProductExperienceCopy = {
     ...copy,
@@ -134,7 +156,12 @@ export function PublicDealExplorerV4({
           }
         }
       `}</style>
-      <PublicDealExplorer copy={adaptedCopy} locale={locale} initialState={normalizedState} />
+      <PublicDealExplorer
+        key={historyRevision}
+        copy={adaptedCopy}
+        locale={locale}
+        initialState={historyState}
+      />
     </>
   );
 }
