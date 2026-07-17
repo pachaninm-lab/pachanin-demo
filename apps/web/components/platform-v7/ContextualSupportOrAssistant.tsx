@@ -4,6 +4,8 @@ import { usePathname } from 'next/navigation';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { ChatSupportWidget } from './ChatSupportWidget';
 
+const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
+
 const PUBLIC_EXACT = new Set([
   '/platform-v7',
   '/platform-v7/open',
@@ -46,5 +48,6 @@ function isPrivateWorkspace(pathname: string): boolean {
 
 export function ContextualSupportOrAssistant() {
   const pathname = usePathname() || '/platform-v7';
+  if (normalize(pathname) === ASSISTANT_WORKSPACE) return null;
   return isPrivateWorkspace(pathname) ? <AiAssistantPanel variant='floating' /> : <ChatSupportWidget />;
 }
