@@ -191,16 +191,27 @@ test('public pages retain information at a 200 percent text scale', async ({ pag
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test('reduced motion prevents automatic stage advancement', async ({ page }) => {
+test('explicit guided tour advances with reduced motion while animation stays suppressed', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 390, height: 860 });
-  await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance', { waitUntil: 'load' });
+  await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=acceptance&lens=participants', { waitUntil: 'load' });
 
   const activeStage = page.locator('.pc-ppe-stage-track button[data-state="active"]');
-  const before = await activeStage.textContent();
   await page.getByRole('button', { name: 'Запустить показ сделки' }).click();
-  await page.waitForTimeout(3100);
-  await expect(activeStage).toHaveText(before ?? '');
+
+  await expect(page).toHaveURL(/stage=terms/);
+  await expect(page).toHaveURL(/lens=execution/);
+  await expect(activeStage).toContainText('Условия');
+  await expect(page.locator('.pc-ppe-v4-guide-status')).toContainText('1 / 10 · Условия');
+
+  await expect.poll(() => page.url(), { timeout: 6000 }).toContain('stage=admission');
+  await expect(activeStage).toContainText('Допуск');
+  await expect(page.locator('.pc-ppe-v4-guide-status')).toContainText('2 / 10 · Допуск');
+
+  await page.getByRole('button', { name: 'Пауза' }).click();
+  const pausedUrl = page.url();
+  await page.waitForTimeout(3500);
+  expect(page.url()).toBe(pausedUrl);
 });
 
 test('support opens as an accessible modal bottom sheet and restores focus', async ({ page }) => {
