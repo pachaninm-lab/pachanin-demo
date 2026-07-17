@@ -48,6 +48,13 @@ describe('platform-v7 industrial assistant shortcuts', () => {
     expect(publicRoute).not.toContain('fetch(');
   });
 
+  it('localizes source labels for RU EN ZH without changing canonical source routes', () => {
+    expect(publicRoute).toContain('SOURCE_LABELS');
+    expect(publicRoute).toContain("'/platform-v7/how-it-works': 'How the Deal works'");
+    expect(publicRoute).toContain("'/platform-v7/how-it-works': '交易如何运作'");
+    expect(publicRoute).toContain('sources: localizedSources(answer.sources, locale)');
+  });
+
   it('publishes versioned platform knowledge and fail-safe maturity boundaries', () => {
     expect(knowledge).toContain("PUBLIC_ASSISTANT_KNOWLEDGE_VERSION = 'public-platform-knowledge-2026-07-17.v1'");
     expect(knowledge).toContain('actionAllowed: false');
