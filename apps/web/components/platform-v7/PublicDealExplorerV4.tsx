@@ -18,6 +18,12 @@ const GUIDE_STEP_MS = 3200;
 
 type GuideMode = 'idle' | 'playing' | 'paused';
 
+function normalizePublicBusinessState(state: TourState): TourState {
+  return publicBusinessAreas.has(state.lens)
+    ? state
+    : { ...state, lens: 'execution' };
+}
+
 function canonicalFunnelName(detail: Record<string, unknown>) {
   const name = typeof detail.name === 'string' ? detail.name : '';
   if (name === 'deal_xray_open') return 'deal_preview_opened';
@@ -52,20 +58,20 @@ export function PublicDealExplorerV4({
   initialState: TourState;
 }) {
   const ui = getPublicProductExperienceV4Copy(locale);
-  const normalizedState = useMemo<TourState>(() => (
-    publicBusinessAreas.has(initialState.lens)
-      ? initialState
-      : { ...initialState, lens: 'execution' }
-  ), [initialState]);
+  const normalizedState = useMemo<TourState>(
+    () => normalizePublicBusinessState(initialState),
+    [initialState],
+  );
   const [historyState, setHistoryState] = useState<TourState>(normalizedState);
   const [historyRevision, setHistoryRevision] = useState(0);
   const [guideMode, setGuideMode] = useState<GuideMode>('idle');
 
   const replacePresentedState = useCallback((next: TourState) => {
-    const params = writeTourStateToSearchParams(next, new URLSearchParams(window.location.search));
+    const normalizedNext = normalizePublicBusinessState(next);
+    const params = writeTourStateToSearchParams(normalizedNext, new URLSearchParams(window.location.search));
     const url = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
     window.history.replaceState({}, '', url);
-    setHistoryState(next);
+    setHistoryState(normalizedNext);
     setHistoryRevision((revision) => revision + 1);
   }, []);
 
@@ -87,10 +93,10 @@ export function PublicDealExplorerV4({
 
   useEffect(() => {
     const restorePublicHistoryState = () => {
-      const next = normalizeTourStateFromSearchParams(
+      const next = normalizePublicBusinessState(normalizeTourStateFromSearchParams(
         new URLSearchParams(window.location.search),
         normalizedState,
-      );
+      ));
       setHistoryState(next);
       setHistoryRevision((revision) => revision + 1);
     };
@@ -103,10 +109,10 @@ export function PublicDealExplorerV4({
     if (guideMode !== 'playing') return;
 
     const timer = window.setTimeout(() => {
-      const current = normalizeTourStateFromSearchParams(
+      const current = normalizePublicBusinessState(normalizeTourStateFromSearchParams(
         new URLSearchParams(window.location.search),
         historyState,
-      );
+      ));
       const currentIndex = TOUR_STAGES.indexOf(current.stage);
 
       if (currentIndex >= TOUR_STAGES.length - 1) {
@@ -155,10 +161,10 @@ export function PublicDealExplorerV4({
   const currentStage = adaptedCopy.explorer.stages[historyState.stage];
 
   const startGuide = () => {
-    const current = normalizeTourStateFromSearchParams(
+    const current = normalizePublicBusinessState(normalizeTourStateFromSearchParams(
       new URLSearchParams(window.location.search),
       historyState,
-    );
+    ));
     const first = { ...current, stage: 'terms' as const };
     replacePresentedState(first);
     setGuideMode('playing');
