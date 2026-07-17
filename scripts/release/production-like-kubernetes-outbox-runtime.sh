@@ -27,6 +27,7 @@ admin_sql() {
 
 cleanup_acceptance_boundary() {
   rm -f "$GENERATED_SCRIPT"
+  kubectl delete pod kafka-backlog-consumer -n "$NAMESPACE" --ignore-not-found --wait=false >/dev/null 2>&1 || true
   if [[ "$DEFAULT_INSTALLED" = "1" ]]; then
     admin_sql 'ALTER TABLE "outbox_entries" ALTER COLUMN "id" DROP DEFAULT;' >/dev/null || true
   fi
@@ -41,15 +42,14 @@ admin_sql "SELECT gen_random_uuid()::text;" >/dev/null
 admin_sql 'ALTER TABLE "outbox_entries" ALTER COLUMN "id" SET DEFAULT gen_random_uuid()::text;' >/dev/null
 DEFAULT_INSTALLED=1
 
-# During graceful shutdown, the terminating worker must release its own lease.
-# A second healthy replica is allowed to claim the row immediately; requiring a
-# globally idle PENDING row would reject the intended HA handoff. Patch only the
-# disposable acceptance assertion and leave production worker code unchanged.
+# Patch only disposable acceptance assertions/probes. Production worker code,
+# network policies and database schema remain unchanged.
 BASE_SCRIPT="$BASE_SCRIPT" GENERATED_SCRIPT="$GENERATED_SCRIPT" node <<'NODE'
 const fs = require('node:fs');
 const source = fs.readFileSync(process.env.BASE_SCRIPT, 'utf8');
-const before = '[[ "$graceful_row" == PENDING:::unsent || "$graceful_row" == DEAD_LETTER:::unsent ]]';
-const after = [
+
+const gracefulBefore = '[[ "$graceful_row" == PENDING:::unsent || "$graceful_row" == DEAD_LETTER:::unsent ]]';
+const gracefulAfter = [
   'IFS=\':\' read -r graceful_status graceful_current_owner graceful_current_token graceful_delivery <<< "$graceful_row"',
   'test "$graceful_delivery" = "unsent"',
   'if [[ "$graceful_status" = "PROCESSING" ]]; then',
@@ -62,12 +62,69 @@ const after = [
   '  test -z "$graceful_current_token"',
   'fi',
 ].join('\n');
-if (!source.includes(before)) {
+
+const consumerBefore = [
+  'kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath=\'{.items[0].metadata.name}\')"',
+  'set +e',
+  'kubectl exec -n "$NAMESPACE" "pod/${kafka_pod}" -- \\',
+  '  kafka-console-consumer \\',
+  '    --bootstrap-server localhost:9092 \\',
+  '    --topic grainflow.domain.events \\',
+  '    --from-beginning \\',
+  '    --timeout-ms 30000 \\',
+  '    --property print.headers=true \\',
+  '    --property print.value=false \\',
+  '  > "$RUNTIME_DIR/kafka-backlog-consumer.log" 2> "$RUNTIME_DIR/kafka-backlog-consumer.stderr"',
+  'consumer_status=$?',
+  'set -e',
+  '# Kafka console consumer exits non-zero on timeout after draining available records.',
+  'test "$consumer_status" = "0" || test "$consumer_status" = "1"',
+].join('\n');
+
+const consumerAfter = [
+  '# The namespace is default-deny and Kafka ingress intentionally accepts only API/worker identities.',
+  '# Run the evidence consumer from a hardened, short-lived worker-scoped probe instead of the broker pod.',
+  'kubectl delete pod kafka-backlog-consumer -n "$NAMESPACE" --ignore-not-found --wait=true >/dev/null 2>&1 || true',
+  'kubectl run kafka-backlog-consumer -n "$NAMESPACE" --restart=Never \\',
+  '  --image=confluentinc/cp-kafka:7.6.0 \\',
+  '  --labels="app.kubernetes.io/name=grainflow-outbox-worker,app.kubernetes.io/instance=grainflow,app.kubernetes.io/component=acceptance-probe" \\',
+  '  --overrides=\'{"spec":{"automountServiceAccountToken":false,"securityContext":{"runAsNonRoot":true,"runAsUser":1000,"runAsGroup":1000,"seccompProfile":{"type":"RuntimeDefault"}}}}\' \\',
+  '  --command -- bash -ec \'sleep 300\' \\',
+  '  > "$RUNTIME_DIR/kafka-backlog-consumer-create.log"',
+  'kubectl wait --for=condition=Ready pod/kafka-backlog-consumer -n "$NAMESPACE" --timeout=180s',
+  'set +e',
+  'kubectl exec -n "$NAMESPACE" pod/kafka-backlog-consumer -- \\',
+  '  kafka-console-consumer \\',
+  '    --bootstrap-server kafka:9092 \\',
+  '    --topic grainflow.domain.events \\',
+  '    --from-beginning \\',
+  '    --timeout-ms 30000 \\',
+  '    --property print.headers=true \\',
+  '    --property print.value=false \\',
+  '  > "$RUNTIME_DIR/kafka-backlog-consumer.log" 2> "$RUNTIME_DIR/kafka-backlog-consumer.stderr"',
+  'consumer_status=$?',
+  'set -e',
+  'kubectl delete pod kafka-backlog-consumer -n "$NAMESPACE" --wait=true \\',
+  '  > "$RUNTIME_DIR/kafka-backlog-consumer-delete.log" 2>&1',
+  '# Kafka console consumer exits non-zero on timeout after draining available records.',
+  'test "$consumer_status" = "0" || test "$consumer_status" = "1"',
+].join('\n');
+
+if (!source.includes(gracefulBefore)) {
   throw new Error('graceful shutdown assertion boundary not found');
 }
-const rendered = source.replace(before, after);
-if (rendered === source || rendered.includes(before)) {
-  throw new Error('graceful shutdown assertion boundary was not replaced exactly once');
+if (!source.includes(consumerBefore)) {
+  throw new Error('Kafka delivery probe boundary not found');
+}
+
+let rendered = source.replace(gracefulBefore, gracefulAfter);
+rendered = rendered.replace(consumerBefore, consumerAfter);
+if (
+  rendered === source ||
+  rendered.includes(gracefulBefore) ||
+  rendered.includes(consumerBefore)
+) {
+  throw new Error('acceptance boundaries were not replaced exactly once');
 }
 fs.writeFileSync(process.env.GENERATED_SCRIPT, rendered, { mode: 0o700 });
 NODE
