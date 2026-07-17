@@ -1,0 +1,90 @@
+.pc-public-assistant-shortcut {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left, 0px));
+  right: auto;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 3500;
+  display: inline-flex;
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  height: 48px;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 14px;
+  background: #087a3b;
+  color: #ffffff;
+  box-shadow: 0 10px 26px rgba(7, 54, 33, 0.2);
+  cursor: pointer;
+  touch-action: manipulation;
+  backdrop-filter: none;
+}
+
+.pc-public-assistant-shortcut:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: none;
+}
+
+.pc-public-assistant-shortcut-icon {
+  display: inline-flex;
+  width: auto;
+  height: auto;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: currentColor;
+}
+
+.pc-public-assistant-shortcut-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.2;
+}
+
+.pc-public-assistant-shortcut-copy {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.pc-public-assistant-shortcut:focus-visible {
+  outline: 3px solid #17649b;
+  outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .pc-public-assistant-shortcut {
+    left: max(12px, env(safe-area-inset-left, 0px));
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-public-assistant-shortcut {
+    scroll-behavior: auto;
+    transition: none;
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .pc-public-assistant-shortcut {
+    border: 2px solid ButtonText;
+  }
+}
