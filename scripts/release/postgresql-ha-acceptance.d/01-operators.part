@@ -5,18 +5,18 @@ CNPG_SHA="$(awk '{print $1}' "$EXTERNAL_DIR/cloudnative-pg.sha256")"
 BARMAN_PLUGIN_SHA="$(awk '{print $1}' "$EXTERNAL_DIR/barman-cloud-plugin.sha256")"
 
 FAILURE_REASON="cert-manager did not become ready"
-kubectl apply --server-side -f "$EXTERNAL_DIR/cert-manager.yaml" > "$RAW_DIR/cert-manager-apply.log"
+kubectl apply --server-side -f "$EXTERNAL_DIR/cert-manager.yaml" > "$RAW_DIR/cert-manager-apply.log" 2>&1
 kubectl rollout status deployment/cert-manager -n cert-manager --timeout=420s
 kubectl rollout status deployment/cert-manager-cainjector -n cert-manager --timeout=420s
 kubectl rollout status deployment/cert-manager-webhook -n cert-manager --timeout=420s
 
 FAILURE_REASON="CloudNativePG operator did not become ready"
-kubectl apply --server-side -f "$EXTERNAL_DIR/cloudnative-pg.yaml" > "$RAW_DIR/cnpg-apply.log"
+kubectl apply --server-side -f "$EXTERNAL_DIR/cloudnative-pg.yaml" > "$RAW_DIR/cnpg-apply.log" 2>&1
 kubectl wait --for=condition=Established crd/clusters.postgresql.cnpg.io --timeout=180s
 kubectl rollout status deployment/cnpg-controller-manager -n cnpg-system --timeout=420s
 
 FAILURE_REASON="Barman Cloud CNPG-I plugin did not become ready"
-kubectl apply --server-side -f "$EXTERNAL_DIR/barman-cloud-plugin.yaml" > "$RAW_DIR/barman-plugin-apply.log"
+kubectl apply --server-side -f "$EXTERNAL_DIR/barman-cloud-plugin.yaml" > "$RAW_DIR/barman-plugin-apply.log" 2>&1
 kubectl wait --for=condition=Established crd/objectstores.barmancloud.cnpg.io --timeout=180s
 kubectl rollout status deployment/barman-cloud -n cnpg-system --timeout=420s
 
@@ -52,7 +52,7 @@ kubectl create secret generic grainflow-migration-user -n "$NAMESPACE" \
 FAILURE_REASON="distributed S3-compatible backup store did not become ready"
 sed "s|__MINIO_IMAGE__|${MINIO_IMAGE}|g" \
   infra/kind/postgresql-ha/minio.yaml > "$RAW_DIR/rendered-minio.yaml"
-kubectl apply -f "$RAW_DIR/rendered-minio.yaml" > "$RAW_DIR/minio-apply.log"
+kubectl apply -f "$RAW_DIR/rendered-minio.yaml" > "$RAW_DIR/minio-apply.log" 2>&1
 kubectl rollout status statefulset/minio -n "$NAMESPACE" --timeout=600s
 [[ "$(kubectl get statefulset minio -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}')" = "4" ]]
 MINIO_DISTINCT_NODES="$(
@@ -76,10 +76,14 @@ done
 [[ "$(kubectl get pod minio-init -n "$NAMESPACE" -o jsonpath='{.status.phase}')" = Succeeded ]]
 kubectl logs -n "$NAMESPACE" minio-init > "$RAW_DIR/minio-init.log"
 
-FAILURE_REASON="PostgreSQL HA Cluster or PgBouncer pooler did not become ready"
+FAILURE_REASON="PostgreSQL HA Cluster did not become ready"
 sed "s|__POSTGRES_IMAGE__|${POSTGRES_IMAGE}|g" \
   infra/kind/postgresql-ha/postgresql-ha.yaml > "$RAW_DIR/rendered-postgresql-ha.yaml"
-kubectl apply -f "$RAW_DIR/rendered-postgresql-ha.yaml" > "$RAW_DIR/postgresql-ha-apply.log"
+awk 'BEGIN { document=0 } /^---[[:space:]]*$/ { document++; next } document < 2 { print }' \
+  "$RAW_DIR/rendered-postgresql-ha.yaml" > "$RAW_DIR/rendered-postgresql-source.yaml"
+awk 'BEGIN { document=0 } /^---[[:space:]]*$/ { document++; next } document == 2 { print }' \
+  "$RAW_DIR/rendered-postgresql-ha.yaml" > "$RAW_DIR/rendered-postgresql-pooler.yaml"
+kubectl apply -f "$RAW_DIR/rendered-postgresql-source.yaml" > "$RAW_DIR/postgresql-source-apply.log" 2>&1
 
 wait_cluster_ready() {
   local cluster="$1"
