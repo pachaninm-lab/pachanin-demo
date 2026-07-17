@@ -12,4 +12,7 @@ import { AiInsightsController } from './ai-insights.controller';
   controllers: [AiAssistantController, AiInsightsController],
   exports: [AiAssistantService, AiInsightsService],
 })
-export class AiInsightsModule {}
+export class AiInsightsModule {
+  // The assistant remains a role-scoped façade over Deal Core; it is not an
+  // independent source of truth or an autonomous command authority.
+}

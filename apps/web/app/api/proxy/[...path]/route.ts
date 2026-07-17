@@ -4,7 +4,6 @@ import { ACCESS_COOKIE, SESSION_COOKIE } from '../../../../lib/auth-cookies';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
-type DemoDeal = (typeof demoDeals)[number];
 type DemoLocale = 'ru' | 'en' | 'zh';
 
 const demoLots = [
@@ -18,6 +17,8 @@ const demoDeals = [
   { id: 'DEAL-002', lotId: 'LOT-002', status: 'QUALITY_CHECK', sellerOrgId: 'org-farmer-1', buyerOrgId: 'org-buyer-2', volumeTons: 300, pricePerTon: 12800, totalRub: 3840000, currency: 'RUB', region: 'Ростовская область', culture: 'barley', createdAt: '2026-03-28T10:00:00Z', signedAt: '2026-04-01T09:00:00Z', nextAction: 'Лаборатория должна выдать протокол' },
   { id: 'DEAL-003', lotId: 'LOT-003', status: 'SIGNED', sellerOrgId: 'org-farmer-2', buyerOrgId: 'org-buyer-1', volumeTons: 200, pricePerTon: 13500, totalRub: 2700000, currency: 'RUB', region: 'Ставропольский край', culture: 'corn', createdAt: '2026-04-03T10:00:00Z', nextAction: 'Организовать логистику и начать погрузку' },
 ] as const;
+
+type DemoDeal = (typeof demoDeals)[number];
 
 const demoDisputes = [
   { id: 'DISPUTE-001', dealId: 'DEAL-001', status: 'UNDER_REVIEW', type: 'quality', claimAmountRub: 127500, description: 'Влажность зерна 15.2% вместо заявленных 13%', severity: 'MEDIUM', createdAt: '2026-04-01T14:00:00Z', owner: 'operator@demo.ru', slaMinutes: 180 },
@@ -74,7 +75,11 @@ function cleanText(value: unknown, limit: number): string {
 }
 
 function demoDealsFor(role: string, email: string): readonly DemoDeal[] {
-  if (role === 'FARMER') return email.startsWith('farmer2@') ? demoDeals.filter((deal) => deal.sellerOrgId === 'org-farmer-2') : demoDeals.filter((deal) => deal.sellerOrgId === 'org-farmer-1');
+  if (role === 'FARMER') {
+    return email.startsWith('farmer2@')
+      ? demoDeals.filter((deal) => deal.sellerOrgId === 'org-farmer-2')
+      : demoDeals.filter((deal) => deal.sellerOrgId === 'org-farmer-1');
+  }
   if (role === 'BUYER') return demoDeals.filter((deal) => deal.buyerOrgId === 'org-buyer-1');
   if (['LOGISTICIAN', 'DRIVER', 'LAB', 'ELEVATOR', 'ACCOUNTING', 'EXECUTIVE', 'SUPPORT_MANAGER', 'ADMIN'].includes(role)) return demoDeals;
   return [];
@@ -88,27 +93,50 @@ function demoDealFromPath(path: unknown): string | null {
   const pagePath = cleanText(path, 500);
   const match = pagePath.match(/^\/platform-v7\/deals\/([^/]+)/u);
   if (!match) return null;
-  try { return decodeURIComponent(match[1]); } catch { return null; }
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
 }
 
-function demoAssistantAnswer(message: string, locale: DemoLocale, deals: readonly DemoDeal[], selected: DemoDeal | null, role: string): string {
+function demoAssistantAnswer(
+  message: string,
+  locale: DemoLocale,
+  deals: readonly DemoDeal[],
+  selected: DemoDeal | null,
+  role: string,
+): string {
   const query = message.toLocaleLowerCase(locale === 'ru' ? 'ru-RU' : locale === 'zh' ? 'zh-CN' : 'en-GB');
   const labels = {
     ru: {
-      intro: 'Синтетический демонстрационный контур. Доступные тебе сделки:',
+      checked: 'Проверил синтетический демонстрационный контур.',
+      intro: 'Вот доступные этой роли сделки:',
       noDeals: 'В этой демонстрационной роли нет доступных сделок.',
-      next: 'Следующий шаг', amount: 'Сумма', scope: `Роль ${role}. Я вижу только синтетические сделки, разрешённые этой демонстрационной роли.`,
-      money: 'Денежный статус здесь демонстрационный. Выпуск денег не выполняется и не подтверждается помощником.',
+      next: 'Следующий шаг',
+      amount: 'Сумма',
+      scope: `Роль ${role}. Я вижу только синтетические сделки, разрешённые этой демонстрационной роли.`,
+      money: 'Денежный статус демонстрационный. Я не выполняю и не подтверждаю выпуск денег.',
       fallback: 'Укажи сделку или спроси о статусе, следующем шаге, документах, логистике, деньгах либо споре.',
     },
     en: {
-      intro: 'Synthetic demonstration scope. Deals accessible to you:', noDeals: 'No deals are accessible to this demonstration role.', next: 'Next action', amount: 'Amount',
-      scope: `Role ${role}. I can see only synthetic deals allowed to this demonstration role.`, money: 'The money status is synthetic. The assistant cannot execute or confirm a release.',
+      checked: 'I checked the synthetic demonstration scope.',
+      intro: 'These deals are accessible to this role:',
+      noDeals: 'No deals are accessible to this demonstration role.',
+      next: 'Next action',
+      amount: 'Amount',
+      scope: `Role ${role}. I can see only synthetic deals allowed to this demonstration role.`,
+      money: 'The money status is synthetic. I cannot execute or confirm a release.',
       fallback: 'Provide a deal or ask about status, next action, documents, logistics, money or a dispute.',
     },
     zh: {
-      intro: '合成演示范围。你可以访问的交易：', noDeals: '该演示角色没有可访问交易。', next: '下一步', amount: '金额',
-      scope: `角色 ${role}。我只能看到该演示角色获准访问的合成交易。`, money: '资金状态为合成演示数据。助手不能执行或确认放款。',
+      checked: '我已检查合成演示范围。',
+      intro: '该角色可访问的交易：',
+      noDeals: '该演示角色没有可访问交易。',
+      next: '下一步',
+      amount: '金额',
+      scope: `角色 ${role}。我只能看到该演示角色获准访问的合成交易。`,
+      money: '资金状态为合成演示数据。我不能执行或确认放款。',
       fallback: '请指定交易，或询问状态、下一步、文件、物流、资金或争议。',
     },
   }[locale];
@@ -116,40 +144,138 @@ function demoAssistantAnswer(message: string, locale: DemoLocale, deals: readonl
   if (query.includes('прав') || query.includes('доступ') || query.includes('role') || query.includes('access') || query.includes('权限')) return labels.scope;
   if (!deals.length) return labels.noDeals;
   if (selected) {
-    const amount = new Intl.NumberFormat(locale === 'ru' ? 'ru-RU' : locale === 'zh' ? 'zh-CN' : 'en-GB', { style: 'currency', currency: selected.currency, maximumFractionDigits: 0 }).format(selected.totalRub);
-    const base = `${selected.id}: ${selected.status.replaceAll('_', ' ')}. ${labels.next}: ${selected.nextAction}. ${labels.amount}: ${amount}.`;
+    const amount = new Intl.NumberFormat(
+      locale === 'ru' ? 'ru-RU' : locale === 'zh' ? 'zh-CN' : 'en-GB',
+      { style: 'currency', currency: selected.currency, maximumFractionDigits: 0 },
+    ).format(selected.totalRub);
+    const base = `${labels.checked} ${selected.id}: ${selected.status.replaceAll('_', ' ')}. ${labels.next}: ${selected.nextAction}. ${labels.amount}: ${amount}.`;
     if (query.includes('деньг') || query.includes('выплат') || query.includes('money') || query.includes('payment') || query.includes('资金')) return `${base} ${labels.money}`;
     return base;
   }
   if (query.includes('сдел') || query.includes('внимани') || query.includes('deal') || query.includes('attention') || query.includes('交易')) {
-    return `${labels.intro}\n${deals.map((deal, index) => `${index + 1}. ${deal.id} — ${deal.status.replaceAll('_', ' ')}; ${labels.next}: ${deal.nextAction}`).join('\n')}`;
+    return `${labels.checked} ${labels.intro}\n${deals.map((deal, index) => `${index + 1}. ${deal.id} — ${deal.status.replaceAll('_', ' ')}; ${labels.next}: ${deal.nextAction}`).join('\n')}`;
   }
   return `${labels.fallback} ${labels.scope}`;
 }
 
-function demoAssistantResponse(method: string, path: string, role: string, email: string, body: any): Response | null {
-  if (role === 'GUEST') return Response.json({ ok: false, code: 'AUTH_REQUIRED', message: 'Требуется демонстрационная сессия.' }, { status: 401 });
+function demoFollowUps(locale: DemoLocale, selected: DemoDeal | null): string[] {
+  const copy = {
+    ru: selected
+      ? ['Что может заблокировать следующий шаг?', 'Есть ли деньги под риском?', 'Каких доказательств не хватает?']
+      : ['Что требует моего внимания?', 'Покажи мои доступные сделки', 'Как устроено исполнение сделки?'],
+    en: selected
+      ? ['What may block the next step?', 'Is any money at risk?', 'What evidence is missing?']
+      : ['What needs my attention?', 'Show my accessible deals', 'How does deal execution work?'],
+    zh: selected
+      ? ['什么会阻止下一步？', '是否有资金风险？', '缺少哪些证据？']
+      : ['什么需要我关注？', '显示我可访问的交易', '交易执行如何运作？'],
+  };
+  return copy[locale];
+}
+
+function demoDecision(
+  selected: DemoDeal | null,
+  deals: readonly DemoDeal[],
+  role: string,
+  locale: DemoLocale,
+  generatedAt: string,
+) {
+  if (selected) {
+    return {
+      summary: `${selected.id} — ${selected.status.replaceAll('_', ' ')}`,
+      reason: selected.status === 'QUALITY_CHECK'
+        ? 'Ожидается результат лабораторного контроля'
+        : selected.status === 'IN_TRANSIT'
+          ? 'Исполнение зависит от подтверждённого прибытия на элеватор'
+          : null,
+      nextAction: selected.nextAction,
+      ownerRole: role,
+      deadlineAt: null,
+      moneyAtRiskKopecks: String(selected.totalRub * 100),
+      confidence: 'high',
+      actionAllowed: false,
+      actionKind: 'NONE',
+      intent: 'deal_summary',
+      evidence: [
+        { kind: 'status', label: 'Статус', value: selected.status, source: 'deal_registry' },
+        { kind: 'next_action', label: 'Следующий шаг', value: selected.nextAction, source: 'deal_registry' },
+        { kind: 'money', label: 'Синтетическая сумма', value: String(selected.totalRub * 100), source: 'deal_registry' },
+      ],
+      followUps: demoFollowUps(locale, selected),
+      dataFreshnessAt: generatedAt,
+    };
+  }
+
+  const next = deals.find((deal) => deal.nextAction) ?? null;
+  return {
+    summary: `В синтетическом ролевом контуре ${deals.length} сделок`,
+    reason: null,
+    nextAction: next?.nextAction ?? null,
+    ownerRole: role,
+    deadlineAt: null,
+    moneyAtRiskKopecks: null,
+    confidence: deals.length ? 'medium' : 'low',
+    actionAllowed: false,
+    actionKind: 'NONE',
+    intent: 'attention',
+    evidence: [],
+    followUps: demoFollowUps(locale, null),
+    dataFreshnessAt: generatedAt,
+  };
+}
+
+function demoAssistantResponse(
+  method: string,
+  path: string,
+  role: string,
+  email: string,
+  body: any,
+): Response | null {
+  if (role === 'GUEST') {
+    return Response.json(
+      { ok: false, code: 'AUTH_REQUIRED', message: 'Требуется демонстрационная сессия.' },
+      { status: 401, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
   const deals = demoDealsFor(role, email);
 
   if (method === 'GET' && path === 'ai-assistant/catalog') {
     return Response.json({
       title: 'Помощник сделки',
       mode: 'synthetic_demo',
+      presence: 'online',
+      personality: 'professional_conversational',
+      transparency: 'AI assistant; not a human employee',
       provider: 'local-deterministic',
       dataMode: 'synthetic_demo',
       authority: 'demo_role_scoped',
       modeRestriction: 'read_only',
-      starterPrompts: ['Что требует моего внимания?', 'Покажи мои доступные сделки', 'Объясни статус сделки', 'Почему расчёт может быть заблокирован?'],
+      starterPrompts: [
+        'Что требует моего внимания прямо сейчас?',
+        'Покажи мои доступные сделки',
+        'Объясни статус сделки простыми словами',
+        'Есть ли деньги под риском?',
+      ],
     }, { headers: { 'Cache-Control': 'no-store' } });
   }
 
   if (method === 'POST' && path === 'ai-assistant/chat') {
-    const message = cleanText(body?.message, 4000);
-    if (!message) return Response.json({ ok: false, code: 'AI_ASSISTANT_MESSAGE_REQUIRED', message: 'Введите вопрос.' }, { status: 400 });
+    const message = cleanText(body?.message, 4_000);
+    if (!message) {
+      return Response.json(
+        { ok: false, code: 'AI_ASSISTANT_MESSAGE_REQUIRED', message: 'Введите вопрос.' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
     const locale = localeFrom(body?.locale);
     const requestedId = cleanText(body?.dealId, 120) || demoDealFromPath(body?.pagePath);
     const selected = requestedId ? deals.find((deal) => deal.id === requestedId) ?? null : null;
-    if (requestedId && !selected) return Response.json({ ok: false, code: 'AI_ASSISTANT_DEAL_NOT_AVAILABLE', message: 'Сделка недоступна этой демонстрационной роли.' }, { status: 404 });
+    if (requestedId && !selected) {
+      return Response.json(
+        { ok: false, code: 'AI_ASSISTANT_DEAL_NOT_AVAILABLE', message: 'Сделка недоступна этой демонстрационной роли.' },
+        { status: 404, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
     const generatedAt = new Date().toISOString();
     return Response.json({
       requestId: `demo-ai-${Date.now()}`,
@@ -160,8 +286,14 @@ function demoAssistantResponse(method: string, path: string, role: string, email
       role,
       dealId: selected?.id ?? null,
       generatedAt,
-      citations: selected ? [{ source: 'deal_workspace', label: `Синтетическая сделка ${selected.id}`, href: `/platform-v7/deals/${selected.id}/execution`, asOf: generatedAt }] : [{ source: 'deal_registry', label: 'Синтетический ролевой реестр', href: '/platform-v7/deals', asOf: generatedAt }],
-      limitations: ['Используются только синтетические демонстрационные данные.', 'Помощник не меняет сделку и не выполняет денежные или юридически значимые действия.'],
+      citations: selected
+        ? [{ source: 'deal_workspace', label: `Синтетическая сделка ${selected.id}`, href: `/platform-v7/deals/${selected.id}/execution`, asOf: generatedAt }]
+        : [{ source: 'deal_registry', label: 'Синтетический ролевой реестр', href: '/platform-v7/deals', asOf: generatedAt }],
+      limitations: [
+        'Используются только синтетические демонстрационные данные.',
+        'Помощник не меняет сделку и не выполняет денежные или юридически значимые действия.',
+      ],
+      decision: demoDecision(selected, deals, role, locale, generatedAt),
     }, { headers: { 'Cache-Control': 'no-store' } });
   }
   return null;
@@ -236,12 +368,15 @@ async function proxy(request: Request, params: { path: string[] }) {
         headers,
         body: requestBody,
         cache: 'no-store',
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(8_000),
       });
       const text = await response.text();
       return new NextResponse(text, {
         status: response.status,
-        headers: { 'content-type': response.headers.get('content-type') || 'application/json', 'Cache-Control': 'no-store' },
+        headers: {
+          'content-type': response.headers.get('content-type') || 'application/json',
+          'Cache-Control': 'no-store',
+        },
       });
     } catch {
       if (strictRealPath) return realBackendUnavailable('backend_unreachable');
@@ -260,25 +395,32 @@ async function proxy(request: Request, params: { path: string[] }) {
   const demo = demoResponse(request.method, path, jar, body);
   if (demo) return demo;
 
-  return NextResponse.json({ ok: false, demo: true, path, message: 'Demo endpoint is not implemented.' }, { status: 404 });
+  return NextResponse.json(
+    { ok: false, demo: true, path, message: 'Demo endpoint is not implemented.' },
+    { status: 404, headers: { 'Cache-Control': 'no-store' } },
+  );
 }
 
 export async function GET(request: Request, props: { params: Promise<{ path: string[] }> }) {
   const params = await props.params;
   return proxy(request, params);
 }
+
 export async function POST(request: Request, props: { params: Promise<{ path: string[] }> }) {
   const params = await props.params;
   return proxy(request, params);
 }
+
 export async function PATCH(request: Request, props: { params: Promise<{ path: string[] }> }) {
   const params = await props.params;
   return proxy(request, params);
 }
+
 export async function PUT(request: Request, props: { params: Promise<{ path: string[] }> }) {
   const params = await props.params;
   return proxy(request, params);
 }
+
 export async function DELETE(request: Request, props: { params: Promise<{ path: string[] }> }) {
   const params = await props.params;
   return proxy(request, params);

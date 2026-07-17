@@ -17,12 +17,15 @@ export interface InsightResponse {
   maturity: 'pre-integration' | 'live';
   limitations: string[];
   generatedAt: string;
+  responseContract: 'legacy_insight_v1';
+  canonicalAssistantRoute: '/ai-assistant/chat';
 }
 
 const LIMITATIONS = Object.freeze([
   'Предварительная подсказка — требует проверки человеком',
   'Не переопределяет банковские события, документы, результаты качества или решения по спору',
   'Не выполняет внешние действия и не меняет состояние сделки',
+  'Для диалога, доказательств и структурированного следующего шага используется /ai-assistant/chat',
 ]);
 
 const ROLE_GUIDANCE: Record<string, Record<InsightRequest['scope'], string>> = {
@@ -116,6 +119,8 @@ export class AiInsightsService {
       maturity: 'pre-integration',
       limitations: [...LIMITATIONS],
       generatedAt: new Date().toISOString(),
+      responseContract: 'legacy_insight_v1',
+      canonicalAssistantRoute: '/ai-assistant/chat',
     };
   }
 }

@@ -46,6 +46,8 @@ describe('AiAssistantService', () => {
     registry.listAccessible.mockResolvedValue({ items: [accessibleDeal], hasMore: false, nextCursor: null });
     deals.workspace.mockResolvedValue({
       nextAction: 'Запросить разрешение выплаты',
+      blockerReason: 'Ожидается подтверждённое основание выплаты',
+      responsibleRole: 'seller',
       documentReadiness: { complete: true },
       bankAccountNumber: '40802810000000000000',
       hiddenComplianceSignal: 'DO_NOT_EXPOSE',
@@ -62,9 +64,15 @@ describe('AiAssistantService', () => {
 
     expect(response.provider).toBe('local-deterministic');
     expect(response.mode).toBe('read_only');
+    expect(response.dataMode).toBe('authoritative');
     expect(response.answer).toContain('Сделка 2408');
     expect(response.answer).toContain('Запросить разрешение выплаты');
-    expect(registry.listAccessible).toHaveBeenCalledWith({ limit: 20 }, user);
+    expect(response.decision).toEqual(expect.objectContaining({
+      actionAllowed: false,
+      actionKind: 'NONE',
+      intent: 'attention',
+    }));
+    expect(registry.listAccessible).toHaveBeenCalledWith({ limit: 30 }, user);
     expect(deals.workspace).not.toHaveBeenCalled();
   });
 
@@ -91,11 +99,24 @@ describe('AiAssistantService', () => {
     expect(response.citations).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: 'deal_workspace', href: '/platform-v7/deals/deal-1/execution' }),
     ]));
+    expect(response.decision).toEqual(expect.objectContaining({
+      summary: 'Сделка 2408 — documents complete',
+      reason: 'Ожидается подтверждённое основание выплаты',
+      nextAction: 'Запросить разрешение выплаты',
+      ownerRole: 'seller',
+      moneyAtRiskKopecks: '1500000000',
+      confidence: 'high',
+      actionAllowed: false,
+    }));
+    expect(response.decision.evidence.length).toBeGreaterThan(0);
+    expect(response.decision.followUps.length).toBeGreaterThan(0);
     expect(response.answer).not.toContain('40802810000000000000');
     expect(response.answer).not.toContain('DO_NOT_EXPOSE');
+    expect(JSON.stringify(response.decision)).not.toContain('40802810000000000000');
+    expect(JSON.stringify(response.decision)).not.toContain('DO_NOT_EXPOSE');
   });
 
-  it('audits a prompt hash and never writes the raw prompt to audit metadata', async () => {
+  it('audits a prompt hash and the versioned response contract without writing the raw prompt', async () => {
     const secretPrompt = 'Мой закрытый вопрос 987654321';
     await service.chat({ message: secretPrompt }, user);
 
@@ -109,6 +130,7 @@ describe('AiAssistantService', () => {
       outcome: 'SUCCESS',
     }));
     expect(entry.meta.promptHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(entry.meta.responseContract).toBe('assistant_decision_v2');
     expect(JSON.stringify(entry)).not.toContain(secretPrompt);
   });
 
@@ -119,7 +141,18 @@ describe('AiAssistantService', () => {
     }, user);
 
     expect(response.role).toBe('seller');
-    expect(response.answer).toContain('серверные права');
-    expect(response.answer).toContain('чужие кабинеты');
+    expect(response.answer).toContain('сервер подтвердил доступ');
+    expect(response.answer).toContain('Чужие кабинеты');
+    expect(response.decision.actionAllowed).toBe(false);
+  });
+
+  it('exposes a transparent conversational catalog without claiming to be human', () => {
+    const catalog = service.catalog();
+
+    expect(catalog.presence).toBe('online');
+    expect(catalog.personality).toBe('professional_conversational');
+    expect(catalog.transparency).toContain('not a human');
+    expect(catalog.modeRestriction).toBe('read_only');
+    expect(catalog.dataMode).toBe('authoritative');
   });
 });
