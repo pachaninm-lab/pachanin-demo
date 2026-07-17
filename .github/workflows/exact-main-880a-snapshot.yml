@@ -1,0 +1,121 @@
+name: Exact Main 880a Snapshot
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/exact-main-880a-snapshot.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  snapshot:
+    if: github.actor != 'github-actions[bot]'
+    name: Snapshot exact-main runs · jobs · artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TARGET_SHA: 880afa13c2d806f23f2df4c72f9125ce3e000b4d
+      TARGET_BRANCH: main
+    steps:
+      - name: Capture exact-main authority
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node <<'JS'
+          const fs = require('node:fs');
+          const repository = process.env.GITHUB_REPOSITORY;
+          const targetSha = process.env.TARGET_SHA;
+          const token = process.env.GITHUB_TOKEN;
+          const base = `https://api.github.com/repos/${repository}`;
+          const headers = {
+            Accept: 'application/vnd.github+json',
+            Authorization: `Bearer ${token}`,
+            'X-GitHub-Api-Version': '2022-11-28',
+            'User-Agent': 'pachanin-demo-exact-main-snapshot',
+          };
+          async function get(url) {
+            const response = await fetch(url, { headers });
+            const text = await response.text();
+            if (!response.ok) throw new Error(`${response.status} ${url}: ${text.slice(0, 1200)}`);
+            return JSON.parse(text);
+          }
+          async function paginate(path, key) {
+            const values = [];
+            for (let page = 1; page <= 20; page += 1) {
+              const joiner = path.includes('?') ? '&' : '?';
+              const payload = await get(`${base}${path}${joiner}per_page=100&page=${page}`);
+              const batch = payload[key] || [];
+              values.push(...batch);
+              if (batch.length < 100) break;
+            }
+            return values;
+          }
+          (async () => {
+            const ref = await get(`${base}/git/ref/heads/${process.env.TARGET_BRANCH}`);
+            const runs = await paginate(`/actions/runs?head_sha=${targetSha}`, 'workflow_runs');
+            const enriched = [];
+            for (const run of runs) {
+              const [jobs, artifacts] = await Promise.all([
+                paginate(`/actions/runs/${run.id}/jobs?filter=all`, 'jobs'),
+                paginate(`/actions/runs/${run.id}/artifacts`, 'artifacts'),
+              ]);
+              enriched.push({
+                id: run.id,
+                name: run.name,
+                event: run.event,
+                status: run.status,
+                conclusion: run.conclusion,
+                runNumber: run.run_number,
+                runAttempt: run.run_attempt,
+                headSha: run.head_sha,
+                headBranch: run.head_branch,
+                createdAt: run.created_at,
+                updatedAt: run.updated_at,
+                jobs: jobs.map((job) => ({
+                  id: job.id,
+                  name: job.name,
+                  status: job.status,
+                  conclusion: job.conclusion,
+                  startedAt: job.started_at,
+                  completedAt: job.completed_at,
+                })),
+                artifacts: artifacts.map((artifact) => ({
+                  id: artifact.id,
+                  name: artifact.name,
+                  sizeInBytes: artifact.size_in_bytes,
+                  digest: artifact.digest,
+                  expired: artifact.expired,
+                  createdAt: artifact.created_at,
+                  headSha: artifact.workflow_run?.head_sha || null,
+                })),
+              });
+            }
+            const payload = {
+              schemaVersion: 1,
+              repository,
+              targetSha,
+              capturedAt: new Date().toISOString(),
+              mainRefSha: ref.object?.sha || null,
+              runCount: enriched.length,
+              runs: enriched.sort((a, b) => b.id - a.id),
+            };
+            fs.mkdirSync('artifacts/exact-main-880a-snapshot', { recursive: true });
+            fs.writeFileSync('artifacts/exact-main-880a-snapshot/snapshot.json', `${JSON.stringify(payload, null, 2)}\n`);
+            console.log(JSON.stringify({ mainRefSha: payload.mainRefSha, runCount: payload.runCount, runs: payload.runs.map((run) => ({ id: run.id, name: run.name, event: run.event, status: run.status, conclusion: run.conclusion, jobs: run.jobs.length, artifacts: run.artifacts.map((artifact) => artifact.name) })) }, null, 2));
+          })().catch((error) => { console.error(error); process.exit(1); });
+          JS
+
+      - name: Enforce exact main
+        run: |
+          node -e 'const s=require("./artifacts/exact-main-880a-snapshot/snapshot.json"); if(s.mainRefSha!==s.targetSha) { console.error(s); process.exit(1); }'
+
+      - name: Upload snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-main-880a-snapshot
+          path: artifacts/exact-main-880a-snapshot
+          if-no-files-found: error
+          retention-days: 30
