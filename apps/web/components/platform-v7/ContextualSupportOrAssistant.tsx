@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { ChatSupportWidget } from './ChatSupportWidget';
+import { PrivateAssistantShortcutLabel } from './PrivateAssistantShortcutLabel';
 import { PublicPlatformAssistant } from './PublicPlatformAssistant';
 import '@/styles/platform-v7-public-assistant.css';
 
@@ -63,10 +64,17 @@ export function ContextualSupportOrAssistant() {
     );
   }
 
-  // One persistent role-scoped assistant follows the authenticated user through
-  // private workspaces. Public pages keep human support; only the public home
-  // additionally exposes a separate no-account-data platform knowledge assistant.
-  return isPrivateWorkspace(path)
-    ? <AiAssistantPanel variant='floating' />
-    : <ChatSupportWidget />;
+  if (isPrivateWorkspace(path)) {
+    return (
+      <>
+        <PrivateAssistantShortcutLabel />
+        <AiAssistantPanel variant='floating' />
+      </>
+    );
+  }
+
+  // Public pages keep the human support channel. Only the public home exposes
+  // the separate no-account-data knowledge assistant; private workspaces use
+  // the role-scoped Deal assistant and its labelled full-screen shortcut.
+  return <ChatSupportWidget />;
 }
