@@ -1,11 +1,19 @@
 :root {
   --pc-visual-viewport-height: 100dvh;
+  --pc-visual-viewport-top: 0px;
+  --pc-visual-viewport-bottom: 0px;
 }
 
 /* Keep the two public entry controls distinct: assistant on the left, support on the right. */
 .pc-public-assistant-shortcut {
   left: max(14px, env(safe-area-inset-left));
   right: auto;
+}
+
+.pc-public-assistant-shortcut[aria-expanded='true'] {
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
 }
 
 .p7-support-chat-button {
@@ -15,24 +23,53 @@
   z-index: 129 !important;
 }
 
-/* The dialog must fit the currently visible viewport, not the layout viewport hidden by iOS keyboard chrome. */
+/*
+ * Use a flex column instead of positional grid rows. When optional rows are
+ * hidden on short screens, CSS grid auto-placement previously assigned the
+ * flexible row to the form and created the large empty gap seen on iPhone.
+ */
 .pc-public-assistant-panel {
+  display: flex;
   width: min(420px, calc(100vw - 28px));
-  max-height: min(680px, calc(var(--pc-visual-viewport-height) - max(28px, env(safe-area-inset-top)) - max(20px, env(safe-area-inset-bottom))));
-  grid-template-rows: auto auto minmax(96px, 1fr) auto auto auto;
+  max-height: min(680px, calc(var(--pc-visual-viewport-height) - 24px));
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pc-public-assistant-header,
+.pc-public-assistant-boundary,
+.pc-public-assistant-starters,
+.pc-public-assistant-error,
+.pc-public-assistant-form,
+.pc-public-assistant-version {
+  flex: 0 0 auto;
 }
 
 .pc-public-assistant-header {
-  position: relative;
-  z-index: 2;
+  position: sticky;
+  top: 0;
+  z-index: 4;
 }
 
 .pc-public-assistant-icon-button {
   flex: 0 0 44px;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .pc-public-assistant-messages {
+  flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pc-public-assistant-form {
+  grid-template-rows: auto auto;
+  align-content: start;
+}
+
+.pc-public-assistant-backdrop {
+  touch-action: none;
 }
 
 @media (max-width: 720px) {
@@ -63,16 +100,26 @@
     border: 0;
   }
 
+  .pc-public-assistant-backdrop {
+    top: var(--pc-visual-viewport-top);
+    bottom: var(--pc-visual-viewport-bottom);
+  }
+
   .pc-public-assistant-panel {
-    inset: auto 10px max(10px, env(safe-area-inset-bottom)) 10px;
+    top: auto;
+    right: 8px;
+    bottom: calc(var(--pc-visual-viewport-bottom) + 8px);
+    left: 8px;
     width: auto;
-    height: min(620px, calc(var(--pc-visual-viewport-height) - max(24px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom))));
-    max-height: calc(var(--pc-visual-viewport-height) - max(24px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
-    border-radius: 20px;
+    height: min(560px, calc(var(--pc-visual-viewport-height) - 16px));
+    min-height: 0;
+    max-height: calc(var(--pc-visual-viewport-height) - 16px);
+    border-radius: 18px;
   }
 
   .pc-public-assistant-header {
-    padding: 10px 10px 9px 12px;
+    min-height: 58px;
+    padding: 8px 8px 8px 12px;
   }
 
   .pc-public-assistant-identity span:not(.pc-public-assistant-mark) {
@@ -96,37 +143,47 @@
 
   .pc-public-assistant-form {
     gap: 7px;
-    padding: 9px 10px 10px;
+    padding: 8px 10px 9px;
   }
 
   .pc-public-assistant-form textarea {
-    min-height: 48px;
-    max-height: 84px;
-    padding: 9px 10px;
+    min-height: 46px;
+    max-height: 72px;
+    padding: 8px 10px;
+  }
+
+  .pc-public-assistant-form-actions {
+    align-items: stretch;
   }
 
   .pc-public-assistant-primary,
   .pc-public-assistant-secondary {
     min-height: 44px;
-    padding-inline: 12px;
+    padding-inline: 11px;
   }
 
   .pc-public-assistant-version {
-    padding: 0 10px 8px;
+    padding: 0 10px 7px;
   }
 }
 
 @media (max-height: 620px), (max-width: 720px) and (max-height: 760px) {
   .pc-public-assistant-panel {
-    height: calc(var(--pc-visual-viewport-height) - max(16px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)));
-    max-height: calc(var(--pc-visual-viewport-height) - max(16px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)));
+    height: calc(var(--pc-visual-viewport-height) - 12px);
+    max-height: calc(var(--pc-visual-viewport-height) - 12px);
+    bottom: calc(var(--pc-visual-viewport-bottom) + 6px);
   }
 
-  .pc-public-assistant-boundary {
-    display: none;
-  }
-
+  .pc-public-assistant-boundary,
   .pc-public-assistant-starters {
     display: none;
+  }
+
+  .pc-public-assistant-header {
+    min-height: 52px;
+  }
+
+  .pc-public-assistant-form {
+    padding-top: 7px;
   }
 }
