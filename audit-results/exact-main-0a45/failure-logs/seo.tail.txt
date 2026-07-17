@@ -1,0 +1,129 @@
+2026-07-16T21:54:00.0840036Z Current runner version: '2.335.1'
+2026-07-16T21:54:00.0869112Z ##[group]Runner Image Provisioner
+2026-07-16T21:54:00.0869996Z Hosted Compute Agent
+2026-07-16T21:54:00.0870710Z Version: 20260707.563
+2026-07-16T21:54:00.0871377Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+2026-07-16T21:54:00.0872126Z Build Date: 2026-07-07T19:33:50Z
+2026-07-16T21:54:00.0872942Z Worker ID: {935562a4-1310-4eb9-a51b-d8f927e93041}
+2026-07-16T21:54:00.0873993Z Azure Region: westus
+2026-07-16T21:54:00.0874648Z ##[endgroup]
+2026-07-16T21:54:00.0876318Z ##[group]Operating System
+2026-07-16T21:54:00.0877075Z Ubuntu
+2026-07-16T21:54:00.0877726Z 24.04.4
+2026-07-16T21:54:00.0878321Z LTS
+2026-07-16T21:54:00.0878892Z ##[endgroup]
+2026-07-16T21:54:00.0879810Z ##[group]Runner Image
+2026-07-16T21:54:00.0880441Z Image: ubuntu-24.04
+2026-07-16T21:54:00.0880982Z Version: 20260714.240.1
+2026-07-16T21:54:00.0882293Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260714.240/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-16T21:54:00.0884079Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260714.240
+2026-07-16T21:54:00.0885082Z ##[endgroup]
+2026-07-16T21:54:00.0886195Z ##[group]GITHUB_TOKEN Permissions
+2026-07-16T21:54:00.0888089Z Contents: read
+2026-07-16T21:54:00.0888709Z Metadata: read
+2026-07-16T21:54:00.0889381Z ##[endgroup]
+2026-07-16T21:54:00.0891542Z Secret source: Actions
+2026-07-16T21:54:00.0892291Z Prepare workflow directory
+2026-07-16T21:54:00.1237841Z Prepare all required actions
+2026-07-16T21:54:00.1342938Z Complete job name: Verify production SEO headers
+2026-07-16T21:54:00.2098804Z ##[group]Run set -euo pipefail
+2026-07-16T21:54:00.2099755Z [36;1mset -euo pipefail[0m
+2026-07-16T21:54:00.2100358Z [36;1m[0m
+2026-07-16T21:54:00.2100973Z [36;1mSITE="https://xn----8sbjf4befbjgs9b.xn--p1ai"[0m
+2026-07-16T21:54:00.2101946Z [36;1mHEALTH="$SITE/platform-v7/role-preview/seo-health"[0m
+2026-07-16T21:54:00.2102834Z [36;1mPUBLIC_URLS=([0m
+2026-07-16T21:54:00.2103823Z [36;1m  "$SITE/platform-v7"[0m
+2026-07-16T21:54:00.2104587Z [36;1m  "$SITE/platform-v7/secure-grain-deal"[0m
+2026-07-16T21:54:00.2105303Z [36;1m  "$SITE/platform-v7/fgis-zerno"[0m
+2026-07-16T21:54:00.2106037Z [36;1m)[0m
+2026-07-16T21:54:00.2106547Z [36;1mPRIVATE_URLS=([0m
+2026-07-16T21:54:00.2107116Z [36;1m  "$SITE/platform-v7/buyer"[0m
+2026-07-16T21:54:00.2107845Z [36;1m  "$SITE/platform-v7/bank"[0m
+2026-07-16T21:54:00.2108450Z [36;1m)[0m
+2026-07-16T21:54:00.2108992Z [36;1m[0m
+2026-07-16T21:54:00.2109563Z [36;1mecho "Checking deploy marker: $HEALTH"[0m
+2026-07-16T21:54:00.2110391Z [36;1mfor attempt in {1..8}; do[0m
+2026-07-16T21:54:00.2111189Z [36;1m  if curl -fsSL "$HEALTH" | grep -q "seo-live-smoke-2026-07-01"; then[0m
+2026-07-16T21:54:00.2112101Z [36;1m    echo "Deploy marker found on attempt $attempt"[0m
+2026-07-16T21:54:00.2112903Z [36;1m    break[0m
+2026-07-16T21:54:00.2113595Z [36;1m  fi[0m
+2026-07-16T21:54:00.2114149Z [36;1m  if [ "$attempt" = "8" ]; then[0m
+2026-07-16T21:54:00.2115358Z [36;1m    echo "Deploy marker was not found after waiting. Production may not have picked up the latest main commit."[0m
+2026-07-16T21:54:00.2116461Z [36;1m    exit 1[0m
+2026-07-16T21:54:00.2117041Z [36;1m  fi[0m
+2026-07-16T21:54:00.2117572Z [36;1m  sleep 45[0m
+2026-07-16T21:54:00.2118105Z [36;1mdone[0m
+2026-07-16T21:54:00.2118673Z [36;1m[0m
+2026-07-16T21:54:00.2119213Z [36;1mfor url in "${PUBLIC_URLS[@]}"; do[0m
+2026-07-16T21:54:00.2120044Z [36;1m  echo "Checking public indexable header: $url"[0m
+2026-07-16T21:54:00.2120862Z [36;1m  headers="$(curl -fsSI "$url" | tr -d '\r')"[0m
+2026-07-16T21:54:00.2121574Z [36;1m  echo "$headers"[0m
+2026-07-16T21:54:00.2122332Z [36;1m  echo "$headers" | grep -qi "x-robots-tag: index, follow"[0m
+2026-07-16T21:54:00.2123083Z [36;1mdone[0m
+2026-07-16T21:54:00.2123744Z [36;1m[0m
+2026-07-16T21:54:00.2124367Z [36;1mfor url in "${PRIVATE_URLS[@]}"; do[0m
+2026-07-16T21:54:00.2125122Z [36;1m  echo "Checking private noindex header: $url"[0m
+2026-07-16T21:54:00.2126254Z [36;1m  headers="$(curl -fsSI "$url" | tr -d '\r')"[0m
+2026-07-16T21:54:00.2126984Z [36;1m  echo "$headers"[0m
+2026-07-16T21:54:00.2127903Z [36;1m  echo "$headers" | grep -qi "x-robots-tag: noindex, nofollow"[0m
+2026-07-16T21:54:00.2129418Z [36;1mdone[0m
+2026-07-16T21:54:00.2130159Z [36;1m[0m
+2026-07-16T21:54:00.2130744Z [36;1mecho "Checking sitemap and robots content"[0m
+2026-07-16T21:54:00.2131751Z [36;1mcurl -fsSL "$SITE/sitemap.xml" | grep -q "/platform-v7/secure-grain-deal"[0m
+2026-07-16T21:54:00.2132868Z [36;1mcurl -fsSL "$SITE/robots.txt" | grep -q "/platform-v7/secure-grain-deal"[0m
+2026-07-16T21:54:00.2822469Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-16T21:54:00.2824007Z ##[endgroup]
+2026-07-16T21:54:00.3052123Z Checking deploy marker: https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/role-preview/seo-health
+2026-07-16T21:54:01.3529370Z Deploy marker found on attempt 1
+2026-07-16T21:54:01.3531107Z Checking public indexable header: https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7
+2026-07-16T21:54:02.3465970Z HTTP/2 200 
+2026-07-16T21:54:02.3466645Z age: 1
+2026-07-16T21:54:02.3467401Z cache-control: private,no-cache,no-store,max-age=0,must-revalidate
+2026-07-16T21:54:02.3468328Z cache-status: "Netlify Durable"; fwd=bypass, "Netlify Edge"; fwd=miss
+2026-07-16T21:54:02.3470417Z content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+2026-07-16T21:54:02.3471954Z content-type: text/html; charset=utf-8
+2026-07-16T21:54:02.3472682Z date: Thu, 16 Jul 2026 21:54:02 GMT
+2026-07-16T21:54:02.3473710Z link: </>; rel=preconnect; crossorigin=""
+2026-07-16T21:54:02.3475782Z netlify-vary: query=__nextDataReq|_rsc,header=x-nextjs-data|x-next-debug-logging|next-router-prefetch|next-router-segment-prefetch|next-router-state-tree|next-url|rsc|accept-encoding,cookie=__prerender_bypass|__next_preview_data
+2026-07-16T21:54:02.3478467Z permissions-policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()
+2026-07-16T21:54:02.3479830Z referrer-policy: no-referrer
+2026-07-16T21:54:02.3480365Z server: Netlify
+2026-07-16T21:54:02.3481295Z set-cookie: pc-role=operator; Path=/; Expires=Sat, 15 Aug 2026 21:54:01 GMT; Max-Age=2592000; Secure; SameSite=lax
+2026-07-16T21:54:02.3482745Z set-cookie: pc_v7_entry_seen=true; Path=/; Expires=Fri, 17 Jul 2026 01:54:01 GMT; Max-Age=14400; Secure; SameSite=lax
+2026-07-16T21:54:02.3484207Z strict-transport-security: max-age=31536000; includeSubDomains; preload
+2026-07-16T21:54:02.3485592Z vary: rsc,next-router-state-tree,next-router-prefetch,next-router-segment-prefetch,Accept-Encoding
+2026-07-16T21:54:02.3486766Z x-content-type-options: nosniff
+2026-07-16T21:54:02.3487328Z x-dns-prefetch-control: on
+2026-07-16T21:54:02.3487833Z x-frame-options: DENY
+2026-07-16T21:54:02.3488411Z x-nf-request-id: 01KXPER7YCP378BT85Y4GDJX78
+2026-07-16T21:54:02.3489041Z x-pc-pathname: /platform-v7
+2026-07-16T21:54:02.3489562Z x-pc-role: operator
+2026-07-16T21:54:02.3490017Z x-powered-by: Next.js
+2026-07-16T21:54:02.3490594Z x-robots-tag: index, follow, max-image-preview:large
+2026-07-16T21:54:02.3494776Z Checking public indexable header: https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/secure-grain-deal
+2026-07-16T21:54:03.1022596Z HTTP/2 200 
+2026-07-16T21:54:03.1024512Z age: 2
+2026-07-16T21:54:03.1025278Z cache-control: private,no-cache,no-store,max-age=0,must-revalidate
+2026-07-16T21:54:03.1026144Z cache-status: "Netlify Durable"; fwd=bypass, "Netlify Edge"; fwd=miss
+2026-07-16T21:54:03.1027959Z content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+2026-07-16T21:54:03.1029833Z content-type: text/html; charset=utf-8
+2026-07-16T21:54:03.1030246Z date: Thu, 16 Jul 2026 21:54:03 GMT
+2026-07-16T21:54:03.1030691Z link: </>; rel=preconnect; crossorigin=""
+2026-07-16T21:54:03.1032066Z netlify-vary: query=__nextDataReq|_rsc,header=x-nextjs-data|x-next-debug-logging|next-router-prefetch|next-router-segment-prefetch|next-router-state-tree|next-url|rsc|accept-encoding,cookie=__prerender_bypass|__next_preview_data
+2026-07-16T21:54:03.1034131Z permissions-policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()
+2026-07-16T21:54:03.1034929Z referrer-policy: no-referrer
+2026-07-16T21:54:03.1035295Z server: Netlify
+2026-07-16T21:54:03.1035914Z set-cookie: pc-role=operator; Path=/; Expires=Sat, 15 Aug 2026 21:54:02 GMT; Max-Age=2592000; Secure; SameSite=lax
+2026-07-16T21:54:03.1036772Z strict-transport-security: max-age=31536000; includeSubDomains; preload
+2026-07-16T21:54:03.1037792Z vary: rsc,next-router-state-tree,next-router-prefetch,next-router-segment-prefetch,Accept-Encoding
+2026-07-16T21:54:03.1038692Z x-content-type-options: nosniff
+2026-07-16T21:54:03.1039093Z x-dns-prefetch-control: on
+2026-07-16T21:54:03.1039455Z x-frame-options: DENY
+2026-07-16T21:54:03.1039829Z x-nf-request-id: 01KXPER8Y9KN2Q1GZ4DKREWH13
+2026-07-16T21:54:03.1040304Z x-pc-pathname: /platform-v7/secure-grain-deal
+2026-07-16T21:54:03.1040742Z x-pc-role: operator
+2026-07-16T21:54:03.1041073Z x-powered-by: Next.js
+2026-07-16T21:54:03.1041536Z x-robots-tag: noindex, nofollow, noarchive, nosnippet, noimageindex
+2026-07-16T21:54:03.1069844Z ##[error]Process completed with exit code 1.
+2026-07-16T21:54:03.1208734Z Cleaning up orphan processes
+

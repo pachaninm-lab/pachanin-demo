@@ -1,0 +1,3 @@
+2026-07-16T21:54:00.0882293Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260714.240/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-16T21:54:03.1040304Z x-pc-pathname: /platform-v7/secure-grain-deal
+2026-07-16T21:54:03.1069844Z ##[error]Process completed with exit code 1.
