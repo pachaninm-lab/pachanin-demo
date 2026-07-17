@@ -28,7 +28,12 @@ function requestUrl(input: RequestInfo | URL): URL | null {
   }
 }
 
+function isAbort(reason: unknown, signal?: AbortSignal | null): boolean {
+  return signal?.aborted === true || (reason instanceof DOMException && reason.name === 'AbortError');
+}
+
 async function localResponse(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  if (init?.signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError');
   const url = requestUrl(input);
   if (!url) return json({ code: 'PUBLIC_ASSISTANT_INVALID_REQUEST' }, 400);
   const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
@@ -48,6 +53,7 @@ async function localResponse(input: RequestInfo | URL, init?: RequestInit): Prom
     return json({ code: 'PUBLIC_ASSISTANT_INVALID_JSON' }, 400);
   }
 
+  if (init?.signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError');
   const original = typeof body.message === 'string' ? body.message.trim().slice(0, 1_200) : '';
   const locale = localeOf(body.locale);
   if (!original) return json({ code: 'PUBLIC_ASSISTANT_MESSAGE_REQUIRED' }, 400);
@@ -86,9 +92,11 @@ export function installPublicAssistantFetchResilience(): void {
     try {
       const response = await nativeFetch(input, init);
       if (response.ok) return response;
-    } catch {
-      // Fall through to the bundled read-only public knowledge base.
+    } catch (reason) {
+      if (isAbort(reason, init?.signal)) throw reason;
+      // Network/provider failure only: use the bundled read-only knowledge base.
     }
+    if (init?.signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError');
     return localResponse(input, init);
   };
 }
