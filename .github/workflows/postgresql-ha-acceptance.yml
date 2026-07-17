@@ -7,7 +7,6 @@ on:
       - 'scripts/release/postgresql-ha-**'
       - 'scripts/release/enforce-postgresql-ha-evidence.mjs'
       - '.github/workflows/postgresql-ha-acceptance.yml'
-      - 'docs/platform-v7/autopilot/scopes/ir-postgresql-ha-pitr-2693.json'
   push:
     branches: [main]
     paths:
@@ -15,7 +14,6 @@ on:
       - 'scripts/release/postgresql-ha-**'
       - 'scripts/release/enforce-postgresql-ha-evidence.mjs'
       - '.github/workflows/postgresql-ha-acceptance.yml'
-      - 'docs/platform-v7/autopilot/scopes/ir-postgresql-ha-pitr-2693.json'
   workflow_dispatch:
 
 permissions:
