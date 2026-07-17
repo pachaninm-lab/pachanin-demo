@@ -8,6 +8,7 @@ import { PublicPlatformAssistant } from './PublicPlatformAssistant';
 import { installPublicAssistantFetchResilience } from '@/lib/platform-v7/install-public-assistant-fetch-resilience';
 import '@/styles/platform-v7-public-assistant.css';
 import '@/styles/platform-v7-public-assistant-viewport.css';
+import '@/styles/platform-v7-public-assistant-shortcut.css';
 
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
 const PUBLIC_HOME = '/platform-v7';
