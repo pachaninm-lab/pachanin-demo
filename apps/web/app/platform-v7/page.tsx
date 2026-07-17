@@ -19,7 +19,7 @@ import {
 } from '@/components/platform-v7/PublicExperienceAnalytics';
 import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
-import type { TourPerspective } from '@/lib/platform-v7/public-product-experience-state';
+import { TOUR_STAGES, type TourPerspective } from '@/lib/platform-v7/public-product-experience-state';
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена — исполнение зерновой сделки',
@@ -44,6 +44,27 @@ export const metadata: Metadata = {
     },
   },
 };
+
+const firstStageCopy = {
+  ru: {
+    stageCounter: 'Этап 1 из 10',
+    currentStage: 'Условия сделки',
+    nextStage: 'Далее: проверка допуска',
+    showAllStages: 'Посмотреть весь путь сделки с начала',
+  },
+  en: {
+    stageCounter: 'Stage 1 of 10',
+    currentStage: 'Deal terms',
+    nextStage: 'Next: admission checks',
+    showAllStages: 'View the full deal path from the beginning',
+  },
+  zh: {
+    stageCounter: '第 1 阶段，共 10 阶段',
+    currentStage: '交易条件',
+    nextStage: '下一步：准入检查',
+    showAllStages: '从头查看完整交易路径',
+  },
+} as const;
 
 function PerspectiveCard({
   perspective,
@@ -85,7 +106,9 @@ export default async function PlatformV7RootPage() {
     ...allPrimaryPerspectives.slice(5),
     ...(copy.home.perspectives.secondary as readonly TourPerspective[]),
   ];
-  const contourStages = ['terms', 'admission', 'deal', 'logistics', 'acceptance', 'documents', 'settlement'] as const;
+  const contourStages = TOUR_STAGES;
+  const start = firstStageCopy[locale === 'en' || locale === 'zh' ? locale : 'ru'];
+  const startDealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
   const nav = (
     <>
       <a href='#deal-example'>{ui.header.howItWorks}</a>
@@ -96,6 +119,20 @@ export default async function PlatformV7RootPage() {
 
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-root-execution-cockpit'>
+      <style>{`
+        @media (min-width: 821px) {
+          .pc-ppe-page .pc-ppe-hero-contour-desktop {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            grid-template-rows: repeat(2, minmax(92px, 1fr));
+            align-items: start;
+            gap: 18px 8px;
+            min-height: 250px;
+          }
+          .pc-ppe-page .pc-ppe-hero-contour-desktop::before { display: none; }
+          .pc-ppe-page .pc-ppe-hero-contour-desktop > span { align-content: start; }
+          .pc-ppe-page .pc-ppe-hero-contour-desktop > span > b { max-width: 100px; }
+        }
+      `}</style>
       <a className='pc-skip-link' href='#pc-ppe-hero-title'>{chrome('skipToContent')}</a>
       <PublicExperiencePageView locale={locale} name='home_view' />
       <PublicExperienceScrollCoordinator />
@@ -123,11 +160,11 @@ export default async function PlatformV7RootPage() {
             </div>
             <div className='pc-ppe-hero-actions'>
               <PublicExperienceLink
-                href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}`}
+                href={startDealHref}
                 className='pc-ppe-primary-button'
                 eventName='deal_preview_opened'
                 locale={locale}
-                params={{ source: 'hero' }}
+                params={{ source: 'hero', stage: 'terms' }}
               >
                 <span>{ui.home.hero.primary}</span>
                 <PublicExperienceIcon name='arrow' size={20} />
@@ -147,20 +184,17 @@ export default async function PlatformV7RootPage() {
           <div className='pc-ppe-hero-contour' role='group' aria-label={ui.home.hero.progressAria}>
             <div className='pc-ppe-hero-contour-desktop' aria-hidden='true'>
               {contourStages.map((stage, index) => (
-                <span key={stage} data-active={stage === 'acceptance' ? 'true' : 'false'}>
+                <span key={stage} data-active={stage === 'terms' ? 'true' : 'false'}>
                   <i>{index + 1}</i>
                   <b>{copy.explorer.stages[stage].label}</b>
                 </span>
               ))}
             </div>
             <div className='pc-ppe-hero-progress-mobile'>
-              <span>{ui.home.hero.stageCounter}</span>
-              <strong>{ui.home.hero.currentStage}</strong>
-              <small>{ui.home.hero.nextStage}</small>
-              <a
-                href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=acceptance&lens=execution`}
-                aria-label={ui.home.hero.showAllStages}
-              >
+              <span>{start.stageCounter}</span>
+              <strong>{start.currentStage}</strong>
+              <small>{start.nextStage}</small>
+              <a href={startDealHref} aria-label={start.showAllStages}>
                 <PublicExperienceIcon name='arrow' size={20} />
               </a>
             </div>
@@ -255,11 +289,11 @@ export default async function PlatformV7RootPage() {
           <p>{ui.home.final.lead}</p>
           <div className='pc-ppe-final-actions'>
             <PublicExperienceLink
-              href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}`}
+              href={startDealHref}
               className='pc-ppe-primary-button'
               eventName='deal_preview_opened'
               locale={locale}
-              params={{ source: 'final_cta' }}
+              params={{ source: 'final_cta', stage: 'terms' }}
             >
               <span>{ui.home.final.primary}</span>
               <PublicExperienceIcon name='arrow' size={20} />
