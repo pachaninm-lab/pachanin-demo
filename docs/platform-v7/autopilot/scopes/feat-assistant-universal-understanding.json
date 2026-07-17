@@ -1,13 +1,15 @@
 {
   "branch": "feat/assistant-universal-understanding",
   "status": "active",
-  "purpose": "Broad multilingual assistant understanding with verified prospect knowledge and safe unanswered-question handling.",
+  "purpose": "Broad multilingual assistant understanding with verified prospect knowledge, production transport resilience and safe unanswered-question handling.",
   "allowedPaths": [
     ".github/workflows/platform-v7-autopilot-guard.yml",
     "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
     "apps/api/src/modules/ai-insights/assistant-language-normalizer.ts",
     "apps/web/app/api/public-platform-assistant/route.ts",
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
     "apps/web/lib/platform-v7/assistant-question-understanding.ts",
+    "apps/web/lib/platform-v7/install-public-assistant-fetch-resilience.ts",
     "apps/web/lib/platform-v7/prospect-assistant-knowledge.ts",
     "apps/web/tests/unit/platformV7AssistantQuestionUnderstanding.test.ts",
     "apps/web/tests/unit/platformV7ProspectAssistantKnowledge.test.ts",
