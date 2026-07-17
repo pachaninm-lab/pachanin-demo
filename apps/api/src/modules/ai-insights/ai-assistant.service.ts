@@ -10,6 +10,7 @@ import type { RequestUser } from '../../common/types/request-user';
 import { AuditService } from '../audit/audit.service';
 import { DealRegistryQueryService } from '../deals/deal-registry-query.service';
 import { DealsService } from '../deals/deals.service';
+import { normalizeAssistantQuestion } from './assistant-language-normalizer';
 
 const MAX_MESSAGE_LENGTH = 4_000;
 const MAX_HISTORY_ITEMS = 10;
@@ -356,7 +357,8 @@ export class AiAssistantService {
 }
 
 function normalizeRequest(raw: AssistantChatRequest): NormalizedRequest {
-  const message = cleanText(raw?.message, MAX_MESSAGE_LENGTH);
+  const originalMessage = cleanText(raw?.message, MAX_MESSAGE_LENGTH);
+  const message = normalizeAssistantQuestion(originalMessage);
   if (!message) {
     throw new BadRequestException({ code: 'AI_ASSISTANT_MESSAGE_REQUIRED', message: 'Введите вопрос.' });
   }
