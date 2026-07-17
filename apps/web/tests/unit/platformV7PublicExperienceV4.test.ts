@@ -88,6 +88,20 @@ describe('Public Product Experience V5 institutional hardening', () => {
     expect(css).not.toContain('right: -5px');
   });
 
+  it('keeps support and assistant on one modal-sheet design language', () => {
+    expect(support).toContain("title: 'Поддержка'");
+    expect(support).toContain("title: 'Support'");
+    expect(support).toContain("title: '支持'");
+    expect(support).not.toContain('Поддержка Прозрачной Цены');
+    expect(support).not.toContain('aria-describedby={descriptionId}');
+    expect(support).toContain('height: min(68dvh, 560px)');
+    expect(support).toContain('min-height: 64px');
+    expect(support).toContain('flex: 0 0 64px');
+    expect(support).toContain('width: 48px');
+    expect(support).toContain('linear-gradient(180deg, #102820 0%, #0c1d18 100%)');
+    expect(support).toContain('border-radius: 22px 22px 0 0');
+  });
+
   it('enforces mobile reflow, reduced motion and forced-colour resilience', () => {
     expect(css).toContain('@media (max-width: 380px)');
     expect(css).toContain('grid-template-columns: minmax(0, 1fr) !important');

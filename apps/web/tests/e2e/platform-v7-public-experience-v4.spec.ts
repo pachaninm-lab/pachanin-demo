@@ -222,7 +222,7 @@ test('support opens as an accessible modal bottom sheet and restores focus', asy
   await expect(trigger).toBeVisible();
   await trigger.click();
 
-  const dialog = page.getByRole('dialog', { name: 'Поддержка Прозрачной Цены' });
+  const dialog = page.getByRole('dialog', { name: 'Поддержка' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toHaveAttribute('aria-modal', 'true');
   await expect(page.locator('body')).toHaveCSS('position', 'fixed');
