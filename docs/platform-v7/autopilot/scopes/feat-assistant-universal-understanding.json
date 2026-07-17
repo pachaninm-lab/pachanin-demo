@@ -1,7 +1,7 @@
 {
   "branch": "feat/assistant-universal-understanding",
   "status": "active",
-  "purpose": "Typo-tolerant multilingual question understanding, broad prospect knowledge and fail-safe unanswered-question registration for public and private assistants.",
+  "purpose": "Broad multilingual assistant understanding with verified prospect knowledge and safe unanswered-question handling.",
   "allowedPaths": [
     ".github/workflows/platform-v7-autopilot-guard.yml",
     "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
