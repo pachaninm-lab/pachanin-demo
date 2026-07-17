@@ -81,12 +81,15 @@ FAILURE_REASON="required container images could not be resolved to immutable dig
 docker pull "$POSTGRES_IMAGE_TAG" > "$RAW_DIR/postgres-image-pull.log"
 docker pull "$MINIO_IMAGE_TAG" > "$RAW_DIR/minio-image-pull.log"
 docker pull "$MINIO_MC_IMAGE_TAG" > "$RAW_DIR/minio-mc-image-pull.log"
-POSTGRES_IMAGE="$(docker image inspect "$POSTGRES_IMAGE_TAG" --format '{{index .RepoDigests 0}}')"
-MINIO_IMAGE="$(docker image inspect "$MINIO_IMAGE_TAG" --format '{{index .RepoDigests 0}}')"
-MINIO_MC_IMAGE="$(docker image inspect "$MINIO_MC_IMAGE_TAG" --format '{{index .RepoDigests 0}}')"
-[[ "$POSTGRES_IMAGE" == *@sha256:* ]]
-[[ "$MINIO_IMAGE" == *@sha256:* ]]
-[[ "$MINIO_MC_IMAGE" == *@sha256:* ]]
+POSTGRES_REPO_DIGEST="$(docker image inspect "$POSTGRES_IMAGE_TAG" --format '{{index .RepoDigests 0}}')"
+MINIO_REPO_DIGEST="$(docker image inspect "$MINIO_IMAGE_TAG" --format '{{index .RepoDigests 0}}')"
+MINIO_MC_REPO_DIGEST="$(docker image inspect "$MINIO_MC_IMAGE_TAG" --format '{{index .RepoDigests 0}}')"
+POSTGRES_IMAGE="${POSTGRES_IMAGE_TAG}@${POSTGRES_REPO_DIGEST#*@}"
+MINIO_IMAGE="${MINIO_IMAGE_TAG}@${MINIO_REPO_DIGEST#*@}"
+MINIO_MC_IMAGE="${MINIO_MC_IMAGE_TAG}@${MINIO_MC_REPO_DIGEST#*@}"
+[[ "$POSTGRES_IMAGE" == *:*@sha256:* ]]
+[[ "$MINIO_IMAGE" == *:*@sha256:* ]]
+[[ "$MINIO_MC_IMAGE" == *:*@sha256:* ]]
 printf '%s\n' "$POSTGRES_IMAGE" > "$RAW_DIR/postgres-image.txt"
 printf '%s\n' "$MINIO_IMAGE" > "$RAW_DIR/minio-image.txt"
 printf '%s\n' "$MINIO_MC_IMAGE" > "$RAW_DIR/minio-mc-image.txt"
