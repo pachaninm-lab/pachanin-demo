@@ -55,33 +55,50 @@ function isPrivateWorkspace(pathname: string): boolean {
   return true;
 }
 
-function useVisualViewportHeight() {
+function useVisualViewportMetrics() {
   useEffect(() => {
     const root = document.documentElement;
     const viewport = window.visualViewport;
+    let frame = 0;
 
     const sync = () => {
-      const height = Math.round(viewport?.height ?? window.innerHeight);
+      frame = 0;
+      const height = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
+      const offsetTop = Math.max(0, Math.round(viewport?.offsetTop ?? 0));
+      const hiddenBottom = Math.max(0, Math.round(window.innerHeight - offsetTop - height));
+
       root.style.setProperty('--pc-visual-viewport-height', `${height}px`);
+      root.style.setProperty('--pc-visual-viewport-top', `${offsetTop}px`);
+      root.style.setProperty('--pc-visual-viewport-bottom', `${hiddenBottom}px`);
+    };
+
+    const scheduleSync = () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(sync);
     };
 
     sync();
-    viewport?.addEventListener('resize', sync);
-    viewport?.addEventListener('scroll', sync);
-    window.addEventListener('resize', sync);
+    viewport?.addEventListener('resize', scheduleSync);
+    viewport?.addEventListener('scroll', scheduleSync);
+    window.addEventListener('resize', scheduleSync);
+    window.addEventListener('orientationchange', scheduleSync);
 
     return () => {
-      viewport?.removeEventListener('resize', sync);
-      viewport?.removeEventListener('scroll', sync);
-      window.removeEventListener('resize', sync);
+      if (frame) window.cancelAnimationFrame(frame);
+      viewport?.removeEventListener('resize', scheduleSync);
+      viewport?.removeEventListener('scroll', scheduleSync);
+      window.removeEventListener('resize', scheduleSync);
+      window.removeEventListener('orientationchange', scheduleSync);
       root.style.removeProperty('--pc-visual-viewport-height');
+      root.style.removeProperty('--pc-visual-viewport-top');
+      root.style.removeProperty('--pc-visual-viewport-bottom');
     };
   }, []);
 }
 
 export function ContextualSupportOrAssistant() {
   installPublicAssistantFetchResilience();
-  useVisualViewportHeight();
+  useVisualViewportMetrics();
   const pathname = usePathname() || PUBLIC_HOME;
   const path = normalize(pathname);
   if (path === ASSISTANT_WORKSPACE) return null;
