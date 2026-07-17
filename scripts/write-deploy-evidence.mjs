@@ -15,11 +15,10 @@ if (!/^[A-Za-z0-9-]{8,128}$/.test(indexNowKey)) {
 }
 
 const publicDir = path.resolve('apps/web/public');
-const wellKnownDir = path.join(publicDir, '.well-known');
-const deployEvidenceFile = path.join(wellKnownDir, 'pc-deploy.json');
-const indexNowKeyFile = path.join(publicDir, `${indexNowKey}.txt`);
+const deployEvidenceFile = path.join(publicDir, 'manifest-pc-deploy.json');
+const indexNowKeyFile = path.join(publicDir, `manifest-indexnow-${indexNowKey}.txt`);
 
-fs.mkdirSync(wellKnownDir, { recursive: true });
+fs.mkdirSync(publicDir, { recursive: true });
 fs.writeFileSync(deployEvidenceFile, `${JSON.stringify({
   schemaVersion: 1,
   repository,
@@ -29,5 +28,5 @@ fs.writeFileSync(deployEvidenceFile, `${JSON.stringify({
 }, null, 2)}\n`);
 fs.writeFileSync(indexNowKeyFile, indexNowKey);
 
-console.log(`Deployment evidence written for ${repository}@${commitSha}`);
-console.log(`IndexNow ownership file written to /${indexNowKey}.txt`);
+console.log(`Deployment evidence written for ${repository}@${commitSha} at /manifest-pc-deploy.json`);
+console.log(`IndexNow ownership file written to /manifest-indexnow-${indexNowKey}.txt`);
