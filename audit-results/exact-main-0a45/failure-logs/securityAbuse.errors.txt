@@ -1,0 +1,113 @@
+2026-07-16T21:54:01.9931124Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260714.240/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-16T21:54:01.9939500Z ##[endgroup]
+2026-07-16T21:54:02.8392771Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-07-16T21:54:03.7555132Z cb8057aa23f69e3641550296838d831bfa4b40a61d64475aa11039c41042cb09
+2026-07-16T21:54:04.2305036Z 4096c457dc0d: Waiting
+2026-07-16T21:54:07.5404253Z Digest: sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+2026-07-16T21:54:14.0126502Z   NODE_ENV: test
+2026-07-16T21:54:14.1464043Z hint: call:
+2026-07-16T21:54:16.5875027Z  * [new branch]          agent/acceptance-server-authority-v8-v2 -> origin/agent/acceptance-server-authority-v8-v2
+2026-07-16T21:54:16.5950268Z  * [new branch]          agent/design-system-v8-api-docs-authority -> origin/agent/design-system-v8-api-docs-authority
+2026-07-16T21:54:16.6234037Z  * [new branch]          claude/api-boundary-phase-audit-close -> origin/claude/api-boundary-phase-audit-close
+2026-07-16T21:54:16.6240468Z  * [new branch]          claude/api-payment-repository-boundary -> origin/claude/api-payment-repository-boundary
+2026-07-16T21:54:16.6293404Z  * [new branch]          claude/platform-production-audit-y2cky9 -> origin/claude/platform-production-audit-y2cky9
+2026-07-16T21:54:16.6350051Z  * [new branch]          codex-safe/release-safety-navigation -> origin/codex-safe/release-safety-navigation
+2026-07-16T21:54:16.6403057Z  * [new branch]          codex/platform-v7-autopilot-pr-e -> origin/codex/platform-v7-autopilot-pr-e
+2026-07-16T21:54:16.6403731Z  * [new branch]          codex/platform-v7-autopilot-pr-e-clean -> origin/codex/platform-v7-autopilot-pr-e-clean
+2026-07-16T21:54:16.6404504Z  * [new branch]          codex/platform-v7-autopilot-safe-task-intake -> origin/codex/platform-v7-autopilot-safe-task-intake
+2026-07-16T21:54:16.6447503Z  * [new branch]          consolidate-platform-v7-action-permission-boundary -> origin/consolidate-platform-v7-action-permission-boundary
+2026-07-16T21:54:16.6500316Z  * [new branch]          e01-route8              -> origin/e01-route8
+2026-07-16T21:54:16.6500691Z  * [new branch]          e01-route9              -> origin/e01-route9
+2026-07-16T21:54:16.6502442Z  * [new branch]          e01-selector-coverage   -> origin/e01-selector-coverage
+2026-07-16T21:54:16.6502901Z  * [new branch]          e01-seller-domain       -> origin/e01-seller-domain
+2026-07-16T21:54:16.6503345Z  * [new branch]          e01-seller-selector     -> origin/e01-seller-selector
+2026-07-16T21:54:16.6503829Z  * [new branch]          e01-transport-docs-domain -> origin/e01-transport-docs-domain
+2026-07-16T21:54:16.6550222Z  * [new branch]          e5-command-route-constants-07 -> origin/e5-command-route-constants-07
+2026-07-16T21:54:16.6668502Z  * [new branch]          feat/platform-v7-audit-surfaces-pr5-clean -> origin/feat/platform-v7-audit-surfaces-pr5-clean
+2026-07-16T21:54:16.6695038Z  * [new branch]          feat/platform-v7-deal-clean-redirect -> origin/feat/platform-v7-deal-clean-redirect
+2026-07-16T21:54:16.6784034Z  * [new branch]          fix/p7-compliance-secondary-actions -> origin/fix/p7-compliance-secondary-actions
+2026-07-16T21:54:16.6843404Z  * [new branch]          fix/static-approved-logo -> origin/fix/static-approved-logo
+2026-07-16T21:54:16.6850242Z  * [new branch]          hardening-27-evidence-metadata -> origin/hardening-27-evidence-metadata
+2026-07-16T21:54:16.6865000Z  * [new branch]          limit-builds-main-only  -> origin/limit-builds-main-only
+2026-07-16T21:54:16.6880503Z  * [new branch]          ops/public-entry-preview-smoke-2321 -> origin/ops/public-entry-preview-smoke-2321
+2026-07-16T21:54:16.6894036Z  * [new branch]          p1-roadmap-page         -> origin/p1-roadmap-page
+2026-07-16T21:54:16.6905500Z  * [new branch]          p7-agent/26883400825-role-boundary-smoke -> origin/p7-agent/26883400825-role-boundary-smoke
+2026-07-16T21:54:16.6911669Z  * [new branch]          p7-agent/27075734035-autopilot-product-slice-08 -> origin/p7-agent/27075734035-autopilot-product-slice-08
+2026-07-16T21:54:16.6918208Z  * [new branch]          p7-agent/27105995027-autopilot-product-slice-19 -> origin/p7-agent/27105995027-autopilot-product-slice-19
+2026-07-16T21:54:16.6927503Z  * [new branch]          p7-contact-ui2          -> origin/p7-contact-ui2
+2026-07-16T21:54:16.6935003Z  * [new branch]          p7-journeys             -> origin/p7-journeys
+2026-07-16T21:54:16.6940416Z  * [new branch]          p7-observe-766          -> origin/p7-observe-766
+2026-07-16T21:54:16.6950301Z  * [new branch]          p7-rs-002               -> origin/p7-rs-002
+2026-07-16T21:54:16.6982502Z  * [new branch]          p7n                     -> origin/p7n
+2026-07-16T21:54:16.6984047Z  * [new branch]          p7req                   -> origin/p7req
+2026-07-16T21:54:16.6985039Z  * [new branch]          p7routeaudit2           -> origin/p7routeaudit2
+2026-07-16T21:54:16.7002403Z  * [new branch]          pcv7-role-redirect-smoke -> origin/pcv7-role-redirect-smoke
+2026-07-16T21:54:16.7006500Z  * [new branch]          persistent-identity-session-mfa-v2 -> origin/persistent-identity-session-mfa-v2
+2026-07-16T21:54:16.7029032Z  * [new branch]          platform-v7-route-map-404-smoke-gate -> origin/platform-v7-route-map-404-smoke-gate
+2026-07-16T21:54:16.7040370Z  * [new branch]          primary-title-053       -> origin/primary-title-053
+2026-07-16T21:54:16.7050041Z  * [new branch]          quickjump-role-actions-079 -> origin/quickjump-role-actions-079
+2026-07-16T21:54:16.7050220Z  * [new branch]          quickjump-unique-076    -> origin/quickjump-unique-076
+2026-07-16T21:54:16.7057503Z  * [new branch]          seo-indexnow-workflow-2026-07-01 -> origin/seo-indexnow-workflow-2026-07-01
+2026-07-16T21:54:16.7064404Z  * [new branch]          state-update-001        -> origin/state-update-001
+2026-07-16T21:54:16.7065021Z  * [new branch]          state/v7-after-2042-elevator-queue -> origin/state/v7-after-2042-elevator-queue
+2026-07-16T21:54:16.7085028Z  * [new branch]          test/platform-v7-route-check -> origin/test/platform-v7-route-check
+2026-07-16T21:54:16.7099502Z  * [new branch]          vp321-outbox-audit-linkage -> origin/vp321-outbox-audit-linkage
+2026-07-16T21:54:16.7111896Z  * [new branch]          work-20260502-09        -> origin/work-20260502-09
+2026-07-16T21:54:16.7112061Z  * [new branch]          work-20260502-10        -> origin/work-20260502-10
+2026-07-16T21:54:16.7112210Z  * [new branch]          work-20260502-11        -> origin/work-20260502-11
+2026-07-16T21:54:16.7112364Z  * [new branch]          work-20260502-12        -> origin/work-20260502-12
+2026-07-16T21:54:16.7112514Z  * [new branch]          work-20260502-13        -> origin/work-20260502-13
+2026-07-16T21:54:16.7112670Z  * [new branch]          work-20260502-14        -> origin/work-20260502-14
+2026-07-16T21:54:16.7112822Z  * [new branch]          work-20260502-15        -> origin/work-20260502-15
+2026-07-16T21:54:16.7112977Z  * [new branch]          work-20260502-16        -> origin/work-20260502-16
+2026-07-16T21:54:16.7113127Z  * [new branch]          work-20260502-17        -> origin/work-20260502-17
+2026-07-16T21:54:16.7113279Z  * [new branch]          work-20260502-18        -> origin/work-20260502-18
+2026-07-16T21:54:16.7113543Z  * [new branch]          work-20260502-19        -> origin/work-20260502-19
+2026-07-16T21:54:16.7113697Z  * [new branch]          work-20260502-20        -> origin/work-20260502-20
+2026-07-16T21:54:16.7113850Z  * [new branch]          work-20260502-21        -> origin/work-20260502-21
+2026-07-16T21:54:16.7113998Z  * [new branch]          work-20260502-22        -> origin/work-20260502-22
+2026-07-16T21:54:16.7114151Z  * [new branch]          work-20260502-23        -> origin/work-20260502-23
+2026-07-16T21:54:16.7114301Z  * [new branch]          work-20260502-24        -> origin/work-20260502-24
+2026-07-16T21:54:16.7114456Z  * [new branch]          work-20260502-25        -> origin/work-20260502-25
+2026-07-16T21:54:17.8550241Z +
+2026-07-16T21:54:42.7746969Z Security evaluator rejects HIGH findings and scanner failures without exceptions.
+2026-07-16T21:54:42.8185003Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-07-16T21:55:30.6306403Z   compression-level: 6
+2026-07-16T21:55:31.2124041Z [36;1m    --json databaseId,status,conclusion,headSha,createdAt)"[0m
+2026-07-16T21:56:34.9911156Z [36;1m    throw new Error(`Required base security job ${label} is not successful.`);[0m
+2026-07-16T21:56:35.5493876Z     throw new Error(`Required base security job ${label} is not successful.`);
+2026-07-16T21:56:35.5495687Z Error: Required base security job Secrets · Gitleaks blocking is not successful.
+2026-07-16T21:56:35.5500012Z     at node:internal/main/eval_stdin:51:5
+2026-07-16T21:56:35.5500494Z     at Socket.<anonymous> (node:internal/process/execution:205:5)
+2026-07-16T21:56:35.5500819Z 
+2026-07-16T21:56:35.5500924Z Node.js v24.18.0
+2026-07-16T21:56:35.5549113Z ##[error]Process completed with exit code 1.
+2026-07-16T21:56:36.0440402Z  2026-07-16 21:54:09.727 UTC [44] LOG:  database system was shut down at 2026-07-16 21:54:09 UTC
+2026-07-16T21:56:36.0447610Z  2026-07-16 21:55:05.114 UTC [166] ERROR:  permission denied for table deals
+2026-07-16T21:56:36.0449207Z  2026-07-16 21:55:14.178 UTC [182] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0467303Z  2026-07-16 21:55:14.204 UTC [182] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0473712Z  2026-07-16 21:55:15.790 UTC [182] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0480056Z  2026-07-16 21:55:15.800 UTC [182] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0486705Z  2026-07-16 21:55:16.211 UTC [192] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0492748Z  2026-07-16 21:55:16.220 UTC [192] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0498942Z  2026-07-16 21:55:16.574 UTC [194] ERROR:  new row violates row-level security policy for table "deals"
+2026-07-16T21:56:36.0502814Z  2026-07-16 21:55:16.574 UTC [194] STATEMENT:  INSERT INTO "public"."deals" ("id","lotId","sourceLotId","dealNumber","status","tenantId","sellerOrgId","buyerOrgId","totalKopecks","version","currency","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING "public"."deals"."id", "public"."deals"."lotId", "public"."deals"."sourceLotId", "public"."deals"."dealNumber", "public"."deals"."status", "public"."deals"."tenantId", "public"."deals"."sellerOrgId", "public"."deals"."buyerOrgId", "public"."deals"."volumeTons", "public"."deals"."pricePerTon", "public"."deals"."totalRub", "public"."deals"."totalKopecks", "public"."deals"."pricePerTonDec", "public"."deals"."volumeTonsDec", "public"."deals"."version", "public"."deals"."currency", "public"."deals"."culture", "public"."deals"."cropClass", "public"."deals"."gost", "public"."deals"."region", "public"."deals"."incoterms", "public"."deals"."fundingChoice", "public"."deals"."owner", "public"."deals"."nextAction", "public"."deals"."slaAt", "public"."deals"."signedAt", "public"."deals"."closedAt", "public"."deals"."sagaState", "public"."deals"."sagaStep", "public"."deals"."createdAt", "public"."deals"."updatedAt", "public"."deals"."meta"
+2026-07-16T21:56:36.0507051Z  2026-07-16 21:55:16.596 UTC [194] ERROR:  new row violates row-level security policy for table "deals"
+2026-07-16T21:56:36.0516381Z  2026-07-16 21:55:16.723 UTC [194] ERROR:  confirmed deal commercial and saga basis is immutable
+2026-07-16T21:56:36.0524363Z  2026-07-16 21:55:16.730 UTC [194] ERROR:  confirmed deal commercial and saga basis is immutable
+2026-07-16T21:56:36.0532544Z  2026-07-16 21:55:16.750 UTC [194] ERROR:  confirmed auction basis has already been consumed by another deal
+2026-07-16T21:56:36.0542904Z  2026-07-16 21:55:17.228 UTC [197] ERROR:  evidence files must start as mutable UPLOAD_PENDING metadata
+2026-07-16T21:56:36.0553740Z  2026-07-16 21:55:17.243 UTC [197] ERROR:  new row violates row-level security policy for table "deal_documents"
+2026-07-16T21:56:36.0563671Z  2026-07-16 21:55:17.253 UTC [197] ERROR:  authoritative document versions require a verified evidence source
+2026-07-16T21:56:36.0574484Z  2026-07-16 21:55:17.259 UTC [197] ERROR:  authoritative document source is not verified immutable evidence from the same deal
+2026-07-16T21:56:36.0586190Z  2026-07-16 21:55:17.264 UTC [197] ERROR:  new row violates row-level security policy for table "deal_documents"
+2026-07-16T21:56:36.0596243Z  2026-07-16 21:55:17.276 UTC [196] ERROR:  confirmed document versions are append-only
+2026-07-16T21:56:36.0605791Z  2026-07-16 21:55:17.278 UTC [196] ERROR:  confirmed document versions are append-only
+2026-07-16T21:56:36.0615801Z  2026-07-16 21:55:18.273 UTC [203] ERROR:  could not serialize access due to concurrent update
+2026-07-16T21:56:36.0618943Z  2026-07-16 21:55:19.283 UTC [230] ERROR:  new row violates row-level security policy for table "deals"
+2026-07-16T21:56:36.0627115Z  2026-07-16 21:55:24.578 UTC [238] ERROR:  staff cabinet projection access denied
+2026-07-16T21:56:36.0630213Z  2026-07-16 21:55:24.583 UTC [238] ERROR:  staff cabinet projection access denied
+2026-07-16T21:56:36.0633753Z  2026-07-16 21:55:24.649 UTC [238] ERROR:  new row for relation "break_glass_activations" violates check constraint "auth_break_glass_duration_check"
+2026-07-16T21:56:36.0640070Z  2026-07-16 21:55:24.661 UTC [238] ERROR:  permission denied for table staff_access_events
+2026-07-16T21:56:36.0641882Z  2026-07-16 21:55:24.663 UTC [238] ERROR:  permission denied for table staff_access_events
+2026-07-16T21:56:36.0643515Z  2026-07-16 21:55:24.800 UTC [239] ERROR:  staff audit chain continuity violation for actor user-staff-audit-chain-e2e

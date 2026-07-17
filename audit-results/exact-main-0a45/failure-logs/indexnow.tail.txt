@@ -1,0 +1,138 @@
+2026-07-16T21:53:37.9008822Z Current runner version: '2.335.1'
+2026-07-16T21:53:37.9033502Z ##[group]Runner Image Provisioner
+2026-07-16T21:53:37.9034594Z Hosted Compute Agent
+2026-07-16T21:53:37.9035311Z Version: 20260707.563
+2026-07-16T21:53:37.9035969Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+2026-07-16T21:53:37.9036701Z Build Date: 2026-07-07T19:33:50Z
+2026-07-16T21:53:37.9037477Z Worker ID: {12ca0945-e912-4de7-a703-9aaec70ab818}
+2026-07-16T21:53:37.9038202Z Azure Region: westus2
+2026-07-16T21:53:37.9038817Z ##[endgroup]
+2026-07-16T21:53:37.9040255Z ##[group]Operating System
+2026-07-16T21:53:37.9040891Z Ubuntu
+2026-07-16T21:53:37.9041478Z 24.04.4
+2026-07-16T21:53:37.9042032Z LTS
+2026-07-16T21:53:37.9042608Z ##[endgroup]
+2026-07-16T21:53:37.9043227Z ##[group]Runner Image
+2026-07-16T21:53:37.9043882Z Image: ubuntu-24.04
+2026-07-16T21:53:37.9044628Z Version: 20260714.240.1
+2026-07-16T21:53:37.9045981Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260714.240/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-16T21:53:37.9047625Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260714.240
+2026-07-16T21:53:37.9048604Z ##[endgroup]
+2026-07-16T21:53:37.9050077Z ##[group]GITHUB_TOKEN Permissions
+2026-07-16T21:53:37.9052241Z Contents: read
+2026-07-16T21:53:37.9052906Z Metadata: read
+2026-07-16T21:53:37.9053559Z ##[endgroup]
+2026-07-16T21:53:37.9056080Z Secret source: Actions
+2026-07-16T21:53:37.9056832Z Prepare workflow directory
+2026-07-16T21:53:37.9381771Z Prepare all required actions
+2026-07-16T21:53:37.9419672Z Getting action download info
+2026-07-16T21:53:38.2908025Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+2026-07-16T21:53:38.4792967Z Complete job name: Submit public URLs to IndexNow
+2026-07-16T21:53:38.5594973Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-16T21:53:38.5603775Z ##[group]Run actions/checkout@v4
+2026-07-16T21:53:38.5604630Z with:
+2026-07-16T21:53:38.5605105Z   repository: pachaninm-lab/pachanin-demo
+2026-07-16T21:53:38.5609306Z   token: ***
+2026-07-16T21:53:38.5609741Z   ssh-strict: true
+2026-07-16T21:53:38.5610182Z   ssh-user: git
+2026-07-16T21:53:38.5610623Z   persist-credentials: true
+2026-07-16T21:53:38.5611104Z   clean: true
+2026-07-16T21:53:38.5611631Z   sparse-checkout-cone-mode: true
+2026-07-16T21:53:38.5612139Z   fetch-depth: 1
+2026-07-16T21:53:38.5612564Z   fetch-tags: false
+2026-07-16T21:53:38.5612998Z   show-progress: true
+2026-07-16T21:53:38.5613440Z   lfs: false
+2026-07-16T21:53:38.5613894Z   submodules: false
+2026-07-16T21:53:38.5614576Z   set-safe-directory: true
+2026-07-16T21:53:38.5615481Z ##[endgroup]
+2026-07-16T21:53:38.6619562Z Syncing repository: pachaninm-lab/pachanin-demo
+2026-07-16T21:53:38.6621745Z ##[group]Getting Git version info
+2026-07-16T21:53:38.6622712Z Working directory is '/home/runner/work/pachanin-demo/pachanin-demo'
+2026-07-16T21:53:38.6624607Z [command]/usr/bin/git version
+2026-07-16T21:53:38.6705665Z git version 2.54.0
+2026-07-16T21:53:38.6729497Z ##[endgroup]
+2026-07-16T21:53:38.6747571Z Temporarily overriding HOME='/home/runner/work/_temp/afb76a6b-fa60-4e20-93a3-58d0371f65bb' before making global git config changes
+2026-07-16T21:53:38.6749698Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-16T21:53:38.6753710Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/pachanin-demo/pachanin-demo
+2026-07-16T21:53:38.6810854Z Deleting the contents of '/home/runner/work/pachanin-demo/pachanin-demo'
+2026-07-16T21:53:38.6816193Z ##[group]Initializing the repository
+2026-07-16T21:53:38.6820691Z [command]/usr/bin/git init /home/runner/work/pachanin-demo/pachanin-demo
+2026-07-16T21:53:38.6920979Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-07-16T21:53:38.6923657Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-07-16T21:53:38.6925839Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-07-16T21:53:38.6927358Z hint: call:
+2026-07-16T21:53:38.6929651Z hint:
+2026-07-16T21:53:38.6930702Z hint: 	git config --global init.defaultBranch <name>
+2026-07-16T21:53:38.6931899Z hint:
+2026-07-16T21:53:38.6933020Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-07-16T21:53:38.6934946Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-07-16T21:53:38.6936424Z hint:
+2026-07-16T21:53:38.6938151Z hint: 	git branch -m <name>
+2026-07-16T21:53:38.6939325Z hint:
+2026-07-16T21:53:38.6940477Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-07-16T21:53:38.6942062Z Initialized empty Git repository in /home/runner/work/pachanin-demo/pachanin-demo/.git/
+2026-07-16T21:53:38.6945042Z [command]/usr/bin/git remote add origin https://github.com/pachaninm-lab/pachanin-demo
+2026-07-16T21:53:38.7021660Z ##[endgroup]
+2026-07-16T21:53:38.7022839Z ##[group]Disabling automatic garbage collection
+2026-07-16T21:53:38.7026658Z [command]/usr/bin/git config --local gc.auto 0
+2026-07-16T21:53:38.7062510Z ##[endgroup]
+2026-07-16T21:53:38.7063619Z ##[group]Setting up auth
+2026-07-16T21:53:38.7070597Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-16T21:53:38.7114926Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-16T21:53:38.7491811Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-16T21:53:38.7533026Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-16T21:53:38.7780401Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-16T21:53:38.7820491Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-16T21:53:38.8060755Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-07-16T21:53:38.8101565Z ##[endgroup]
+2026-07-16T21:53:38.8102636Z ##[group]Fetching the repository
+2026-07-16T21:53:38.8111873Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +0a45a565f134921cd8bbe3361863e62660b128df:refs/remotes/origin/main
+2026-07-16T21:53:39.6959808Z From https://github.com/pachaninm-lab/pachanin-demo
+2026-07-16T21:53:39.6963068Z  * [new ref]         0a45a565f134921cd8bbe3361863e62660b128df -> origin/main
+2026-07-16T21:53:39.6997589Z ##[endgroup]
+2026-07-16T21:53:39.6998820Z ##[group]Determining the checkout info
+2026-07-16T21:53:39.7000838Z ##[endgroup]
+2026-07-16T21:53:39.7009307Z [command]/usr/bin/git sparse-checkout disable
+2026-07-16T21:53:39.7064128Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-07-16T21:53:39.7100332Z ##[group]Checking out the ref
+2026-07-16T21:53:39.7105982Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-07-16T21:53:39.9428662Z Switched to a new branch 'main'
+2026-07-16T21:53:39.9430381Z branch 'main' set up to track 'origin/main'.
+2026-07-16T21:53:39.9441517Z ##[endgroup]
+2026-07-16T21:53:39.9492287Z [command]/usr/bin/git log -1 --format=%H
+2026-07-16T21:53:39.9524185Z 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:53:39.9782994Z ##[group]Run node scripts/indexnow-submit.mjs
+2026-07-16T21:53:39.9784918Z [36;1mnode scripts/indexnow-submit.mjs[0m
+2026-07-16T21:53:39.9873611Z shell: /usr/bin/bash -e {0}
+2026-07-16T21:53:39.9875023Z env:
+2026-07-16T21:53:39.9876186Z   SITE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+2026-07-16T21:53:39.9877849Z   INDEXNOW_KEY: 
+2026-07-16T21:53:39.9878825Z ##[endgroup]
+2026-07-16T21:53:40.9878776Z file:///home/runner/work/pachanin-demo/pachanin-demo/scripts/indexnow-submit.mjs:35
+2026-07-16T21:53:40.9880681Z   throw new Error(`IndexNow submit failed: ${response.status} ${responseText}`);
+2026-07-16T21:53:40.9883922Z         ^
+2026-07-16T21:53:40.9884666Z 
+2026-07-16T21:53:40.9885806Z Error: IndexNow submit failed: 403 {"errorCode":"UserForbiddedToAccessSite","message":"User is unauthorized to access the site. Please verify the site using the key and try again","details":null}
+2026-07-16T21:53:40.9887507Z     at file:///home/runner/work/pachanin-demo/pachanin-demo/scripts/indexnow-submit.mjs:35:9
+2026-07-16T21:53:40.9888519Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-07-16T21:53:40.9889091Z 
+2026-07-16T21:53:40.9889295Z Node.js v22.23.1
+2026-07-16T21:53:40.9952573Z ##[error]Process completed with exit code 1.
+2026-07-16T21:53:41.0093652Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-16T21:53:41.0095507Z Post job cleanup.
+2026-07-16T21:53:41.0967729Z [command]/usr/bin/git version
+2026-07-16T21:53:41.1008744Z git version 2.54.0
+2026-07-16T21:53:41.1043952Z Temporarily overriding HOME='/home/runner/work/_temp/06b7a0da-c36e-4344-b1f7-a2b04adfe9a3' before making global git config changes
+2026-07-16T21:53:41.1045690Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-16T21:53:41.1055627Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/pachanin-demo/pachanin-demo
+2026-07-16T21:53:41.1094765Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-16T21:53:41.1130864Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-16T21:53:41.1401208Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-16T21:53:41.1431215Z http.https://github.com/.extraheader
+2026-07-16T21:53:41.1443554Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-07-16T21:53:41.1479893Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-16T21:53:41.1759885Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-16T21:53:41.1796439Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-16T21:53:41.2200167Z Cleaning up orphan processes
+2026-07-16T21:53:41.2569996Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+
