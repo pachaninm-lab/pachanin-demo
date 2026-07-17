@@ -7,6 +7,7 @@ on:
     paths:
       - 'apps/web/**'
       - 'netlify.toml'
+      - 'scripts/write-deploy-evidence.mjs'
       - '.github/workflows/seo-live-smoke.yml'
   workflow_dispatch:
 
@@ -17,52 +18,131 @@ jobs:
   live-smoke:
     name: Verify production SEO headers
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
-      - name: Wait for production deploy and check SEO headers
+      - name: Wait for exact production deploy
         shell: bash
         run: |
           set -euo pipefail
-
           SITE="https://xn----8sbjf4befbjgs9b.xn--p1ai"
-          HEALTH="$SITE/platform-v7/role-preview/seo-health"
-          PUBLIC_URLS=(
-            "$SITE/platform-v7"
-            "$SITE/platform-v7/secure-grain-deal"
-            "$SITE/platform-v7/fgis-zerno"
-          )
-          PRIVATE_URLS=(
-            "$SITE/platform-v7/buyer"
-            "$SITE/platform-v7/bank"
-          )
+          DEPLOY_EVIDENCE="$SITE/.well-known/pc-deploy.json"
+          mkdir -p artifacts/seo-live
 
-          echo "Checking deploy marker: $HEALTH"
-          for attempt in {1..8}; do
-            if curl -fsSL "$HEALTH" | grep -q "seo-live-smoke-2026-07-01"; then
-              echo "Deploy marker found on attempt $attempt"
+          for attempt in {1..60}; do
+            body="$(curl --fail --silent --show-error --location \
+              --retry 3 --retry-all-errors \
+              "$DEPLOY_EVIDENCE?expected=$GITHUB_SHA&attempt=$attempt" 2>/dev/null || true)"
+            live_sha="$(jq -r '.commitSha // empty' <<< "$body" 2>/dev/null || true)"
+            printf '%s\n' "$body" > artifacts/seo-live/deploy-evidence-latest.json
+            echo "Deploy attempt $attempt: expected=$GITHUB_SHA live=${live_sha:-missing}"
+            if [[ "$live_sha" == "$GITHUB_SHA" ]]; then
+              echo "Exact production deploy confirmed."
               break
             fi
-            if [ "$attempt" = "8" ]; then
-              echo "Deploy marker was not found after waiting. Production may not have picked up the latest main commit."
+            if [[ "$attempt" == 60 ]]; then
+              echo "Production did not expose exact commit $GITHUB_SHA within the acceptance window." >&2
               exit 1
             fi
-            sleep 45
+            sleep 20
           done
 
-          for url in "${PUBLIC_URLS[@]}"; do
-            echo "Checking public indexable header: $url"
-            headers="$(curl -fsSI "$url" | tr -d '\r')"
-            echo "$headers"
-            echo "$headers" | grep -qi "x-robots-tag: index, follow"
+      - name: Verify live SEO authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          SITE="https://xn----8sbjf4befbjgs9b.xn--p1ai"
+          EVIDENCE="artifacts/seo-live"
+          PUBLIC_PATHS=(
+            "/platform-v7"
+            "/platform-v7/secure-grain-deal"
+            "/platform-v7/fgis-zerno"
+            "/platform-v7/deal-flow"
+          )
+          PRIVATE_PATHS=(
+            "/platform-v7/buyer"
+            "/platform-v7/bank"
+            "/platform-v7/deals/DL-9102/clean"
+          )
+
+          public_json='[]'
+          private_json='[]'
+
+          for path in "${PUBLIC_PATHS[@]}"; do
+            safe="$(tr '/-' '__' <<< "${path#/}")"
+            headers_file="$EVIDENCE/public-${safe}.headers.txt"
+            curl --fail --silent --show-error --head --location \
+              --retry 5 --retry-all-errors \
+              "$SITE$path?acceptance_sha=$GITHUB_SHA" | tr -d '\r' | tee "$headers_file"
+            status="$(awk 'toupper($1) ~ /^HTTP\// { code=$2 } END { print code }' "$headers_file")"
+            robots="$(awk -F': ' 'tolower($1)=="x-robots-tag" { value=$2 } END { print value }' "$headers_file")"
+            [[ "$status" =~ ^(2|3)[0-9][0-9]$ ]]
+            grep -Eqi '^x-robots-tag: index, follow([,]|$)' "$headers_file"
+            public_json="$(jq --arg path "$path" --arg status "$status" --arg robots "$robots" '. + [{path:$path,status:($status|tonumber),xRobotsTag:$robots}]' <<< "$public_json")"
           done
 
-          for url in "${PRIVATE_URLS[@]}"; do
-            echo "Checking private noindex header: $url"
-            headers="$(curl -fsSI "$url" | tr -d '\r')"
-            echo "$headers"
-            echo "$headers" | grep -qi "x-robots-tag: noindex, nofollow"
+          for path in "${PRIVATE_PATHS[@]}"; do
+            safe="$(tr '/-' '__' <<< "${path#/}")"
+            headers_file="$EVIDENCE/private-${safe}.headers.txt"
+            curl --fail --silent --show-error --head --location \
+              --retry 5 --retry-all-errors \
+              "$SITE$path?acceptance_sha=$GITHUB_SHA" | tr -d '\r' | tee "$headers_file"
+            status="$(awk 'toupper($1) ~ /^HTTP\// { code=$2 } END { print code }' "$headers_file")"
+            robots="$(awk -F': ' 'tolower($1)=="x-robots-tag" { value=$2 } END { print value }' "$headers_file")"
+            [[ "$status" =~ ^(2|3)[0-9][0-9]$ ]]
+            grep -Eqi '^x-robots-tag: noindex, nofollow([,]|$)' "$headers_file"
+            private_json="$(jq --arg path "$path" --arg status "$status" --arg robots "$robots" '. + [{path:$path,status:($status|tonumber),xRobotsTag:$robots}]' <<< "$private_json")"
           done
 
-          echo "Checking sitemap and robots content"
-          curl -fsSL "$SITE/sitemap.xml" | grep -q "/platform-v7/secure-grain-deal"
-          curl -fsSL "$SITE/robots.txt" | grep -q "/platform-v7/secure-grain-deal"
+          curl --fail --silent --show-error --location --retry 5 --retry-all-errors \
+            "$SITE/sitemap.xml?acceptance_sha=$GITHUB_SHA" -o "$EVIDENCE/sitemap.xml"
+          curl --fail --silent --show-error --location --retry 5 --retry-all-errors \
+            "$SITE/robots.txt?acceptance_sha=$GITHUB_SHA" -o "$EVIDENCE/robots.txt"
+
+          for required in \
+            "/platform-v7" \
+            "/platform-v7/secure-grain-deal" \
+            "/platform-v7/fgis-zerno" \
+            "/platform-v7/deal-flow"; do
+            grep -Fq "$required" "$EVIDENCE/sitemap.xml"
+            grep -Fq "$required" "$EVIDENCE/robots.txt"
+          done
+
+          for forbidden in \
+            "/platform-v7/buyer" \
+            "/platform-v7/bank" \
+            "/platform-v7/deals/" \
+            "/platform-v7/lots/" \
+            "/platform-v7/counterparty/" \
+            "/platform-v7/demo"; do
+            ! grep -Fq "$forbidden" "$EVIDENCE/sitemap.xml"
+          done
+
+          grep -Fq '/platform-v7/buyer' "$EVIDENCE/robots.txt"
+          grep -Fq '/platform-v7/bank' "$EVIDENCE/robots.txt"
+
+          sitemap_sha="sha256:$(sha256sum "$EVIDENCE/sitemap.xml" | awk '{print $1}')"
+          robots_sha="sha256:$(sha256sum "$EVIDENCE/robots.txt" | awk '{print $1}')"
+          jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg branch "$GITHUB_REF_NAME" \
+            --arg commitSha "$GITHUB_SHA" \
+            --arg runId "$GITHUB_RUN_ID" \
+            --arg checkedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg sitemapSha256 "$sitemap_sha" \
+            --arg robotsSha256 "$robots_sha" \
+            --argjson public "$public_json" \
+            --argjson private "$private_json" \
+            '{schemaVersion:1,repository:$repository,branch:$branch,commitSha:$commitSha,runId:$runId,checkedAt:$checkedAt,public:$public,private:$private,sitemap:{sha256:$sitemapSha256},robots:{sha256:$robotsSha256},violatedThresholds:[],pass:true,result:"PASS"}' \
+            > "$EVIDENCE/seo-live-evidence.json"
+
+      - name: Enforce machine-readable SEO evidence
+        run: |
+          node -e 'const r=require("./artifacts/seo-live/seo-live-evidence.json"); if(r.commitSha!==process.env.GITHUB_SHA||r.pass!==true||r.result!=="PASS"||r.violatedThresholds.length!==0) process.exit(1)'
+
+      - name: Upload production SEO evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-live-${{ github.sha }}
+          path: artifacts/seo-live
+          if-no-files-found: error
+          retention-days: 90
