@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { searchAvailabilityStatus } from './modules/search/search.service';
 import { Public } from './common/decorators/public.decorator';
 import { OutboxService } from './common/outbox/outbox.service';
 
@@ -81,6 +82,7 @@ export class HealthController {
       outbox: outboxOk,
       kafka: (process.env.KAFKA_BROKERS ? 'ok' : 'degraded') as CheckStatus,
       redis: (process.env.REDIS_URL ? 'ok' : 'degraded') as CheckStatus,
+      search: searchAvailabilityStatus() as CheckStatus,
       integrations: {
         fgis: 'degraded' as CheckStatus,
         diadok: 'degraded' as CheckStatus,

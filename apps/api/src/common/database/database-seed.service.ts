@@ -12,6 +12,15 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap() {
+    // Промышленная планка (CANONICAL_SCENARIO.md §0.1): свежая боевая база не
+    // получает демонстрационных сделок. Демо-сид включается только явным
+    // флагом или в тестовом окружении.
+    const demoSeedEnabled = String(process.env.SEED_DEMO_DATA ?? '').toLowerCase() === 'true'
+      || process.env.NODE_ENV === 'test';
+    if (!demoSeedEnabled) {
+      this.logger.log('Demo seed disabled (set SEED_DEMO_DATA=true to enable on a local/test database).');
+      return;
+    }
     try {
       await this.seedDeals();
       await this.seedShipments();

@@ -145,12 +145,15 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(shell).toContain(': children;');
   });
 
-  it('never fabricates a successful execution response when the real API is unavailable', () => {
-    expect(proxy).toContain('requiresRealBackend');
-    expect(proxy).toContain(String.raw`^deals\/[^/]+\/(execution-workspace|correlation-timeline)$`);
-    expect(proxy).toContain(String.raw`^deals\/[^/]+\/commands\/`);
+  it('never fabricates a successful response when the real API is unavailable', () => {
+    // Каждый путь прокси — строго real-backend-only, без исключений.
     expect(proxy).toContain("code: 'REAL_BACKEND_REQUIRED'");
-    expect(proxy).toContain("if (strictRealPath) return realBackendUnavailable('real_backend_not_used')");
+    expect(proxy).toContain("return realBackendUnavailable('api_url_missing')");
+    expect(proxy).toContain("return realBackendUnavailable('verified_session_missing', 401)");
+    expect(proxy).toContain("return realBackendUnavailable('backend_unreachable')");
+    for (const forbidden of ['demoLots', 'demoDeals', 'demoDisputes', 'demoPayments', 'demoNotifications', 'demoResponse']) {
+      expect(proxy).not.toContain(forbidden);
+    }
   });
 
   it('never exposes a user button or synthetic reference for bank confirmations', () => {

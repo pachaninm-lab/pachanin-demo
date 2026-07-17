@@ -5,6 +5,15 @@ import type { MappingProperty } from '@elastic/elasticsearch/lib/api/types';
 const LOTS_INDEX = 'grainflow_lots';
 const DEALS_INDEX = 'grainflow_deals';
 
+/**
+ * Видимая деградация поиска (CANONICAL_SCENARIO.md §0.3): статус доступности
+ * Elasticsearch публикуется в /api/health/detailed, а не тонет в warn-логах.
+ */
+let searchAvailability: 'ok' | 'degraded' = 'degraded';
+export function searchAvailabilityStatus(): 'ok' | 'degraded' {
+  return searchAvailability;
+}
+
 @Injectable()
 export class SearchService implements OnModuleInit {
   private readonly logger = new Logger(SearchService.name);
@@ -16,6 +25,7 @@ export class SearchService implements OnModuleInit {
   }
 
   private async ensureIndices() {
+    searchAvailability = 'ok';
     await this.createIndexIfNotExists(LOTS_INDEX, {
       id: { type: 'keyword' },
       organizationId: { type: 'keyword' },
@@ -76,6 +86,7 @@ export class SearchService implements OnModuleInit {
         this.logger.log(`Created index: ${index}`);
       }
     } catch (err) {
+      searchAvailability = 'degraded';
       this.logger.warn(`Failed to create index ${index}: ${err}`);
     }
   }
