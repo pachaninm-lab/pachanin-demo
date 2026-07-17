@@ -33,13 +33,13 @@ printf '::add-mask::%s\n' "$outbox_password"
 admin_sql() {
   kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
     env PGPASSWORD="$postgres_password" \
-    psql -v ON_ERROR_STOP=1 -U postgres -d grainflow -Atc "$1"
+    psql -v ON_ERROR_STOP=1 -U postgres -d grainflow -qAtc "$1"
 }
 
 outbox_sql() {
   kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
     env PGPASSWORD="$outbox_password" \
-    psql -v ON_ERROR_STOP=1 -U app_outbox -d grainflow -Atc "$1"
+    psql -v ON_ERROR_STOP=1 -U app_outbox -d grainflow -qAtc "$1"
 }
 
 write_report() {
