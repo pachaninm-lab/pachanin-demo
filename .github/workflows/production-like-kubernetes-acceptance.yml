@@ -95,7 +95,17 @@ jobs:
 
       - name: Execute deep outbox worker runtime acceptance
         run: |
+          set -euo pipefail
+          # Isolate the synthetic stale-token CAS row from live worker claims. The
+          # restricted app_outbox principal performs both controlled claims, then
+          # the accepted two-replica topology is restored before runtime scenarios.
+          kubectl scale deployment grainflow-outbox-worker -n grainflow-acceptance --replicas=0
+          kubectl wait --for=delete pod -n grainflow-acceptance \
+            -l app.kubernetes.io/name=grainflow-outbox-worker --timeout=180s
           bash scripts/release/production-like-kubernetes-outbox-stale-token.sh
+          kubectl scale deployment grainflow-outbox-worker -n grainflow-acceptance --replicas=2
+          kubectl rollout status deployment/grainflow-outbox-worker \
+            -n grainflow-acceptance --timeout=360s
           bash scripts/release/production-like-kubernetes-outbox-runtime.sh
 
       - name: Enforce machine-readable Kubernetes evidence
