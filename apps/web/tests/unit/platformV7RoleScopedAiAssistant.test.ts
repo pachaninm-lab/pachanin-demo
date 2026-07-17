@@ -24,12 +24,16 @@ describe('platform-v7 role-scoped AI assistant', () => {
     expect(contextual).toContain("'/platform-v7/how-it-works'");
   });
 
-  it('uses the authenticated backend and prohibits synthetic assistant responses', () => {
+  it('uses the real backend for real sessions and an explicitly labelled role-scoped synthetic mode only for demo tokens', () => {
     expect(panel).toContain("fetch('/api/proxy/ai-assistant/chat'");
-    expect(proxy).toContain("path === 'ai-assistant/chat'");
-    expect(proxy).toContain("path === 'ai-assistant/catalog'");
-    expect(proxy).toContain("message: 'Сервер не подтвердил ролевой контекст. Демо-ответ запрещён.'");
-    expect(proxy).not.toMatch(/ai-assistant[\s\S]{0,200}demoResponse/);
+    expect(proxy).toContain("function isAssistantPath(path: string)");
+    expect(proxy).toContain("const demoToken = token.startsWith('demo.')");
+    expect(proxy).toContain("const strictRealPath = requiresRealBackend(path) || (isAssistantPath(path) && !demoToken)");
+    expect(proxy).toContain("dataMode: 'synthetic_demo'");
+    expect(proxy).toContain('Используются только синтетические демонстрационные данные.');
+    expect(proxy).toContain('AI_ASSISTANT_DEAL_NOT_AVAILABLE');
+    expect(proxy).toContain('demoDealsFor(role, email)');
+    expect(proxy).not.toContain('Подмена реальных данных демонстрационными разрешена');
   });
 
   it('keeps deal data out of browser persistence and exposes a mobile-safe full workspace', () => {
@@ -43,7 +47,7 @@ describe('platform-v7 role-scoped AI assistant', () => {
     expect(routes).toContain("export const PLATFORM_V7_AI_ROUTE = '/platform-v7/assistant';");
   });
 
-  it('derives role and deal scope on the server for every query', () => {
+  it('derives role and deal scope on the server for every real query', () => {
     expect(apiController).toContain("@Roles('ANY_AUTHENTICATED')");
     expect(apiController).toContain("@Controller('ai-assistant')");
     expect(apiController).toContain("name: 'ai_assistant_chat'");
