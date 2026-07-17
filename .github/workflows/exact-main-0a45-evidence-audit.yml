@@ -1,4 +1,4 @@
-name: Exact Main 0a45 Evidence Audit
+name: Exact Main 452d Evidence Audit
 
 on:
   pull_request:
@@ -14,13 +14,13 @@ permissions:
   statuses: write
 
 concurrency:
-  group: exact-main-0a45-evidence-audit-2659
+  group: exact-main-452d-evidence-audit-2659
   cancel-in-progress: true
 
 env:
-  TARGET_SHA: 0a45a565f134921cd8bbe3361863e62660b128df
+  TARGET_SHA: 452da9fdeca729d91a2bef9b9b2b4891bd515c73
   TARGET_BRANCH: main
-  AUDIT_DIR: artifacts/exact-main-0a45-audit
+  AUDIT_DIR: artifacts/exact-main-452d-audit
   AUDIT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
@@ -52,8 +52,8 @@ jobs:
           set -euo pipefail
           test -f "$AUDIT_DIR/preflight.json"
           short_head="${AUDIT_HEAD:0:12}"
-          result_branch="evidence/exact-main-0a45-${short_head}"
-          publish_dir="audit-results/exact-main-0a45"
+          result_branch="evidence/exact-main-452d-${short_head}"
+          publish_dir="audit-results/exact-main-452d"
           rm -rf "$publish_dir"
           mkdir -p "$publish_dir"
           cp "$AUDIT_DIR/preflight.json" "$publish_dir/"
@@ -61,7 +61,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C "$result_branch"
           git add "$publish_dir/preflight.json"
-          git commit -m "evidence: exact-main 0a45 preflight ${AUDIT_HEAD}"
+          git commit -m "evidence: exact-main 452d preflight ${AUDIT_HEAD}"
           git push --force origin "HEAD:refs/heads/$result_branch"
 
       - name: Audit exact-main authority
@@ -73,7 +73,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: exact-main-evidence-audit-0a45a565f134921cd8bbe3361863e62660b128df
+          name: exact-main-evidence-audit-452da9fdeca729d91a2bef9b9b2b4891bd515c73
           path: ${{ env.AUDIT_DIR }}
           if-no-files-found: error
           retention-days: 90
@@ -90,11 +90,11 @@ jobs:
           state=failure
           description="Exact-main evidence audit failed"
           if test -f "$AUDIT_DIR/exact-main-0a45-audit.json" && \
-             node -e 'const r=require("./artifacts/exact-main-0a45-audit.json"); process.exit(r.pass===true&&r.verdict==="PASS"?0:1)'; then
+             node -e 'const r=require("./artifacts/exact-main-452d-audit/exact-main-0a45-audit.json"); process.exit(r.pass===true&&r.verdict==="PASS"?0:1)'; then
             state=success
             description="Exact-main K8s, immutable and live SEO evidence PASS"
           fi
-          payload="$(node -e 'console.log(JSON.stringify({state:process.argv[1],context:"audit/exact-main-0a45",description:process.argv[2],target_url:process.argv[3]}))' "$state" "$description" "$RUN_URL")"
+          payload="$(node -e 'console.log(JSON.stringify({state:process.argv[1],context:"audit/exact-main-452d",description:process.argv[2],target_url:process.argv[3]}))' "$state" "$description" "$RUN_URL")"
           curl --fail-with-body --retry 8 --retry-all-errors --retry-delay 3 \
             -X POST \
             -H "Accept: application/vnd.github+json" \
@@ -110,8 +110,8 @@ jobs:
           set -euo pipefail
           test -f "$AUDIT_DIR/exact-main-0a45-audit.json"
           short_head="${AUDIT_HEAD:0:12}"
-          result_branch="evidence/exact-main-0a45-${short_head}"
-          publish_dir="audit-results/exact-main-0a45"
+          result_branch="evidence/exact-main-452d-${short_head}"
+          publish_dir="audit-results/exact-main-452d"
           mkdir -p "$publish_dir"
           cp "$AUDIT_DIR/exact-main-0a45-audit.json" "$publish_dir/"
           cp "$AUDIT_DIR/verdict.txt" "$publish_dir/"
@@ -122,11 +122,11 @@ jobs:
           fi
           git switch -C "$result_branch"
           git add "$publish_dir"
-          git commit -m "evidence: exact-main 0a45 audit ${AUDIT_HEAD}"
+          git commit -m "evidence: exact-main 452d audit ${AUDIT_HEAD}"
           git push --force origin "HEAD:refs/heads/$result_branch"
 
       - name: Enforce exact-main audit verdict
         if: always()
         run: |
           test -f "$AUDIT_DIR/exact-main-0a45-audit.json"
-          node -e 'const r=require("./artifacts/exact-main-0a45-audit.json"); if(r.pass!==true||r.verdict!=="PASS") { console.error(JSON.stringify(r.errors,null,2)); process.exit(1); }'
+          node -e 'const r=require("./artifacts/exact-main-452d-audit/exact-main-0a45-audit.json"); if(r.pass!==true||r.verdict!=="PASS") { console.error(JSON.stringify(r.errors,null,2)); process.exit(1); }'
