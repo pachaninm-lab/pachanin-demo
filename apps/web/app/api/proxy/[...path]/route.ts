@@ -48,12 +48,14 @@ function readSessionRole(jar: CookieStore): { role: string; email: string } {
   }
 }
 
-// The industrial execution surface is strictly real-backend-only for EVERY
-// deal (not just the canonical test deal): a silent demo fallback on a command
-// path would fabricate deal state. CANONICAL_DEAL_ID stays as the default
-// workspace target for role dashboards.
+// Canonical execution and the assistant are strictly real-backend-only. The
+// assistant itself has a zero-cost local deterministic provider, but it must
+// still receive identity and deal facts from the authenticated backend. A
+// process-local demo response here would bypass role, tenant and deal scope.
 function requiresRealBackend(path: string): boolean {
   return path === 'deals/accessible'
+    || path === 'ai-assistant/catalog'
+    || path === 'ai-assistant/chat'
     || /^deals\/[^/]+\/(execution-workspace|correlation-timeline)$/.test(path)
     || /^deals\/[^/]+\/commands\//.test(path);
 }
@@ -63,7 +65,7 @@ function realBackendUnavailable(reason: string) {
     {
       ok: false,
       code: 'REAL_BACKEND_REQUIRED',
-      message: 'Единая сделка недоступна: сервер не подтвердил состояние. Демо-ответ запрещён.',
+      message: 'Сервер не подтвердил ролевой контекст. Демо-ответ запрещён.',
       reason,
     },
     { status: 503 },

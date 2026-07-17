@@ -58,7 +58,7 @@ export const PLATFORM_V7_DEAL_FLOW_ROUTE = '/platform-v7/deal-flow';
 export const PLATFORM_V7_DEMO_EXECUTION_FLOW_ROUTE = PLATFORM_V7_DEAL_FLOW_ROUTE;
 export const PLATFORM_V7_REPORTS_ROUTE = '/platform-v7/reports';
 export const PLATFORM_V7_PILOT_RUNBOOK_ROUTE = '/platform-v7/pilot-runbook';
-export const PLATFORM_V7_AI_ROUTE = '/platform-v7/ai';
+export const PLATFORM_V7_AI_ROUTE = '/platform-v7/assistant';
 
 export const PLATFORM_V7R_ROLES_ROUTE = '/platform-v7r/roles';
 export const PLATFORM_V7R_DRIVER_ROUTE = '/platform-v7r/driver';
