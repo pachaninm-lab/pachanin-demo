@@ -1,19 +1,20 @@
 # Exact-main live evidence correction for #2659
 
-Target baseline: `2cf9613f6d89b0d1057b8cdb22df97a816f054e8`.
+Target baseline: `452da9fdeca729d91a2bef9b9b2b4891bd515c73`.
 
 Confirmed exact-main failures:
 
-- SEO Live Smoke tested production before the matching Netlify deployment was published because its marker was not commit-bound.
-- IndexNow submitted before exact deployment/key verification and used a non-canonical key location.
-- Security Abuse completed its abuse cases but failed while deriving job metadata from `gh run view --json jobs`.
+- SEO Live Smoke originally tested production before the matching Netlify deployment was published because its marker was not commit-bound.
+- The first commit-bound marker used `/.well-known/pc-deploy.json`, but the production middleware treated that unregistered path as protected and returned the public entry HTML instead of JSON.
+- The same middleware boundary prevented a root `/{key}.txt` IndexNow ownership file from being served as plain text.
+- Security Abuse previously completed its abuse cases but failed while deriving job metadata from `gh run view --json jobs`.
 
 Correction:
 
-- generate `/.well-known/pc-deploy.json` during the Netlify build with the exact commit SHA;
-- wait for that exact SHA before SEO and IndexNow production checks;
-- retain machine-readable SEO and IndexNow evidence artifacts;
-- generate the IndexNow root key file during the production build rather than storing it in source control;
+- generate `/manifest-pc-deploy.json` during the Netlify build with the exact commit SHA; the existing `/manifest` public prefix makes this endpoint reachable without widening middleware or RBAC;
+- generate `/manifest-indexnow-{key}.txt` during the production build and pass that same-host URL explicitly as `keyLocation`;
+- wait for the exact deployed SHA before SEO and IndexNow production checks;
+- retain exact-SHA machine-readable SEO and IndexNow evidence artifacts;
 - derive Security Quality job authority from exact-head GraphQL check runs, preserving all fail-closed abuse/security gates;
 - constrain the correction to the source-controlled `fix/exact-main-live-evidence-2659` autopilot branch scope.
 

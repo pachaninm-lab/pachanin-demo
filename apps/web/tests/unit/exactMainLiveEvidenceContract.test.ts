@@ -16,17 +16,17 @@ const securityWorkflow = read('.github/workflows/security-abuse-evidence.yml');
 const securityCapture = read('scripts/security/capture-base-security-jobs.mjs');
 
 describe('exact-main live evidence authority', () => {
-  it('binds Netlify production evidence to the immutable build commit', () => {
+  it('binds Netlify production evidence to the immutable build commit on a public middleware-safe path', () => {
     expect(netlifyConfig).toContain('node scripts/write-deploy-evidence.mjs');
     expect(deployEvidence).toContain('process.env.COMMIT_REF');
     expect(deployEvidence).toContain("'apps/web/public'");
-    expect(deployEvidence).toContain("'.well-known'");
-    expect(deployEvidence).toContain("'pc-deploy.json'");
+    expect(deployEvidence).toContain("'manifest-pc-deploy.json'");
     expect(deployEvidence).toContain('commitSha');
+    expect(deployEvidence).not.toContain("'.well-known'");
   });
 
   it('waits for the exact production SHA before asserting SEO headers', () => {
-    expect(seoWorkflow).toContain('/.well-known/pc-deploy.json');
+    expect(seoWorkflow).toContain('/manifest-pc-deploy.json');
     expect(seoWorkflow).toContain('live_sha" == "$GITHUB_SHA');
     expect(seoWorkflow).toContain('/platform-v7/secure-grain-deal');
     expect(seoWorkflow).toContain('/platform-v7/fgis-zerno');
@@ -36,12 +36,12 @@ describe('exact-main live evidence authority', () => {
     expect(seoWorkflow).not.toContain('seo-live-smoke-2026-07-01');
   });
 
-  it('generates the protocol root key file and submits only exact deployed public routes', () => {
+  it('generates a public ownership file and submits only exact deployed public routes', () => {
     expect(deployEvidence).toContain('const indexNowKey = process.env.INDEXNOW_KEY ||');
-    expect(deployEvidence).toContain('`${indexNowKey}.txt`');
+    expect(deployEvidence).toContain('`manifest-indexnow-${indexNowKey}.txt`');
     expect(deployEvidence).toContain('fs.writeFileSync(indexNowKeyFile, indexNowKey)');
-    expect(indexNowScript).toContain('`${origin}/${indexNowKey}.txt`');
-    expect(indexNowScript).toContain('/.well-known/pc-deploy.json');
+    expect(indexNowScript).toContain('`${origin}/manifest-indexnow-${indexNowKey}.txt`');
+    expect(indexNowScript).toContain('/manifest-pc-deploy.json');
     expect(indexNowScript).toContain('publicSeoAuthority.routes.map');
     expect(indexNowScript).toContain('indexnow-evidence.json');
     expect(indexNowWorkflow).toContain('EXPECTED_DEPLOY_SHA: ${{ github.sha }}');

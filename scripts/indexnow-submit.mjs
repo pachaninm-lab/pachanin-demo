@@ -23,7 +23,7 @@ if (!/^[A-Za-z0-9-]{8,128}$/.test(indexNowKey)) {
 }
 
 const origin = new URL(siteUrl).origin;
-const keyLocation = `${origin}/${indexNowKey}.txt`;
+const keyLocation = `${origin}/manifest-indexnow-${indexNowKey}.txt`;
 const payload = {
   host: new URL(origin).host,
   key: indexNowKey,
@@ -85,7 +85,7 @@ async function fetchWithRetry(url, options, attempts, classify) {
 
 try {
   if (expectedDeploySha) {
-    const deployEvidenceUrl = `${origin}/.well-known/pc-deploy.json`;
+    const deployEvidenceUrl = `${origin}/manifest-pc-deploy.json`;
     let matched = false;
     for (let attempt = 1; attempt <= 60; attempt += 1) {
       try {
