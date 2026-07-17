@@ -11,6 +11,7 @@
     "apps/web/lib/platform-v7/assistant-question-understanding.ts",
     "apps/web/lib/platform-v7/install-public-assistant-fetch-resilience.ts",
     "apps/web/lib/platform-v7/prospect-assistant-knowledge.ts",
+    "apps/web/styles/platform-v7-public-assistant-mobile-fix.css",
     "apps/web/styles/platform-v7-public-assistant-shortcut.css",
     "apps/web/styles/platform-v7-public-assistant-viewport.css",
     "apps/web/tests/unit/platformV7AssistantQuestionUnderstanding.test.ts",
