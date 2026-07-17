@@ -168,7 +168,7 @@ async function cleanup(instance: ServiceInstance) {
 
 beforeAll(async () => {
   alpha = await createInstance();
-  repository = new PrismaDealRepository(alpha.rls);
+  repository = new PrismaDealRepository(alpha.rls, alpha.prisma);
   await cleanup(alpha);
   await seedIdentityAndBasis(alpha);
 });
@@ -276,7 +276,7 @@ describe('PostgreSQL-authoritative DealRepository', () => {
 
     const beta = await createInstance();
     try {
-      const restarted = new PrismaDealRepository(beta.rls);
+      const restarted = new PrismaDealRepository(beta.rls, beta.prisma);
       expect(await restarted.getById(dealId, seller)).toEqual(sellerDeal);
       expect(await restarted.workspace(dealId, buyer)).toEqual(workspace);
     } finally {

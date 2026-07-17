@@ -1,6 +1,5 @@
 import {
   ConflictException,
-  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -14,8 +13,8 @@ import { RequestUser, Role } from '../../common/types/request-user';
  * Мост «аукцион → сделка» назначает только продавца и покупателя; исполнение
  * требует явно назначенных организаций на роли логистики, приёмки, качества и
  * расчёта. Назначение — привилегированное решение оператора с обязательным
- * основанием и журналом. Реализация покрывает случай, когда организация
- * участника уже в tenant'е сделки (см. решение A/B в PHASE2_EXECUTION.md).
+ * основанием и журналом. Реализация назначает участников любых
+ * допущенных организаций, в т.ч. из других tenant'ов (решение A).
  */
 const ASSIGNABLE_ROLES: ReadonlySet<string> = new Set<string>([
   Role.FARMER,
@@ -72,13 +71,9 @@ export class DealParticipantService {
       select: { id: true, tenantId: true, status: true, kycStatus: true },
     });
     if (!organization) throw new NotFoundException(`Организация ${input.organizationId} не найдена.`);
-    if (organization.tenantId !== deal.tenantId) {
-      // Кросс-tenant участие включается решением A (см. PHASE2_EXECUTION.md).
-      throw new ForbiddenException({
-        code: 'PARTICIPANT_TENANT_MISMATCH',
-        message: 'Организация участника не в tenant’е сделки; кросс-tenant участие требует включения серверного контура (решение A).',
-      });
-    }
+    // Кросс-tenant участие (решение A): организация участника может быть в
+    // собственном tenant'е. Требуем лишь допуск (VERIFIED + KYC). Строка
+    // участника хранится в tenant'е сделки — это внутренняя целостность.
     if (!ACTIVE_ORG_STATUSES.has(organization.status) || organization.kycStatus !== 'APPROVED') {
       throw new ConflictException('Организация не допущена (нужны VERIFIED и KYC APPROVED).');
     }

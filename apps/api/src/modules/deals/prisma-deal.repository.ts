@@ -10,6 +10,7 @@ import { Prisma } from '@prisma/client';
 import type { DealRepository } from './deal.repository';
 import type { CreateDealDto } from './dto/create-deal.dto';
 import type { RequestUser } from '../../common/types/request-user';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 
 const ACTIVE_ORG_STATUSES = new Set(['VERIFIED', 'ACTIVE']);
@@ -173,7 +174,26 @@ function isUniqueConstraintError(error: unknown): boolean {
 
 @Injectable()
 export class PrismaDealRepository implements DealRepository {
-  constructor(private readonly rls: RlsTransactionService) {}
+  constructor(
+    private readonly rls: RlsTransactionService,
+    private readonly prisma: PrismaService,
+  ) {}
+
+  /**
+   * Кросс-tenant исполнение (PHASE2_EXECUTION.md, решение A): участник может
+   * быть из другого tenant'а, чем сделка. SECURITY DEFINER-функция подтверждает
+   * активное участие и возвращает tenant сделки; чтение выполняется в доверенном
+   * RLS-контексте этого tenant'а. Для не-участника функция вернёт NULL, контекст
+   * останется на tenant токена, и assertParticipant честно откажет.
+   */
+  private async resolveDealScopedUser(dealId: string, user: RequestUser): Promise<RequestUser> {
+    const rows = await this.prisma.$queryRaw<Array<{ tenant: string | null }>>`
+      SELECT dealx.participant_tenant(${dealId}, ${user.id}, ${user.orgId}, ${String(user.role)}) AS tenant
+    `;
+    const dealTenant = rows[0]?.tenant ?? null;
+    if (!dealTenant || dealTenant === user.tenantId) return user;
+    return { ...user, tenantId: dealTenant };
+  }
 
   async list(user: RequestUser): Promise<unknown[]> {
     this.assertIdentity(user);
@@ -204,8 +224,9 @@ export class PrismaDealRepository implements DealRepository {
 
   async getById(id: string, user: RequestUser): Promise<any> {
     this.assertIdentity(user);
-    return this.rls.withTrustedContext(user, async (tx) => {
-      await this.assertParticipant(tx, id, user);
+    const scopedUser = await this.resolveDealScopedUser(id, user);
+    return this.rls.withTrustedContext(scopedUser, async (tx) => {
+      await this.assertParticipant(tx, id, scopedUser);
       const deal = await tx.deal.findUnique({
         where: { id },
         include: {
@@ -219,8 +240,9 @@ export class PrismaDealRepository implements DealRepository {
 
   async workspace(id: string, user: RequestUser): Promise<any> {
     this.assertIdentity(user);
-    return this.rls.withTrustedContext(user, async (tx) => {
-      const participant = await this.assertParticipant(tx, id, user);
+    const scopedUser = await this.resolveDealScopedUser(id, user);
+    return this.rls.withTrustedContext(scopedUser, async (tx) => {
+      const participant = await this.assertParticipant(tx, id, scopedUser);
       const deal = await tx.deal.findUnique({
         where: { id },
         include: {
@@ -267,8 +289,9 @@ export class PrismaDealRepository implements DealRepository {
 
   async passport(id: string, user: RequestUser): Promise<any> {
     this.assertIdentity(user);
-    return this.rls.withTrustedContext(user, async (tx) => {
-      const participant = await this.assertParticipant(tx, id, user);
+    const scopedUser = await this.resolveDealScopedUser(id, user);
+    return this.rls.withTrustedContext(scopedUser, async (tx) => {
+      const participant = await this.assertParticipant(tx, id, scopedUser);
       const deal = await tx.deal.findUnique({
         where: { id },
         include: {
@@ -324,8 +347,9 @@ export class PrismaDealRepository implements DealRepository {
 
   async timeline(id: string, user: RequestUser): Promise<any> {
     this.assertIdentity(user);
-    return this.rls.withTrustedContext(user, async (tx) => {
-      await this.assertParticipant(tx, id, user);
+    const scopedUser = await this.resolveDealScopedUser(id, user);
+    return this.rls.withTrustedContext(scopedUser, async (tx) => {
+      await this.assertParticipant(tx, id, scopedUser);
       const [events, audits, outbox, bankOperations, evidence] = await Promise.all([
         tx.dealEvent.findMany({ where: { dealId: id }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 1000 }),
         tx.auditEvent.findMany({ where: { dealId: id }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 1000 }),
@@ -586,9 +610,12 @@ export class PrismaDealRepository implements DealRepository {
       include: { organization: true, user: true },
     });
     if (!participant) throw new ForbiddenException({ code: 'DEAL_PARTICIPANT_REQUIRED', dealId });
+    // Организация участника может жить в собственном tenant'е, отличном от
+    // tenant'а сделки (кросс-tenant исполнение). Равенство tenant'ов здесь не
+    // требуется — граница доступа это активная строка участника; проверяем лишь
+    // допуск организации и активность пользователя.
     if (
-      participant.organization.tenantId !== user.tenantId
-      || !ACTIVE_ORG_STATUSES.has(participant.organization.status)
+      !ACTIVE_ORG_STATUSES.has(participant.organization.status)
       || participant.organization.kycStatus !== 'APPROVED'
       || participant.user.status !== 'ACTIVE'
       || participant.user.deletedAt

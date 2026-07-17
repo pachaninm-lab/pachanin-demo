@@ -63,10 +63,12 @@ function fixture() {
         },
       ]),
     },
-    // Bank-callback scope resolution: the SECURITY DEFINER binding
-    // (dealId, operationId) → (tenant, buyer org) replaces hardcoded values.
+    // Два SECURITY DEFINER-запроса идут через $queryRaw:
+    //  • dealx.participant_tenant → { tenant } (кросс-tenant исполнение);
+    //  • bank-callback binding (dealId, operationId) → { tenantId, buyerOrgId }.
+    // Один мок покрывает оба, возвращая совокупную форму.
     $queryRaw: jest.fn().mockResolvedValue([
-      { tenantId: DEAL.tenantId, buyerOrgId: DEAL.buyerOrgId },
+      { tenant: DEAL.tenantId, tenantId: DEAL.tenantId, buyerOrgId: DEAL.buyerOrgId },
     ]),
   } as any;
   const rls = {

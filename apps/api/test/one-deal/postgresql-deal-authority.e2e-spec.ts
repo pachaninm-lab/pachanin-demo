@@ -137,7 +137,7 @@ beforeAll(async () => {
   prisma = new PrismaService();
   await prisma.$connect();
   rls = new RlsTransactionService(prisma);
-  repository = new PrismaDealRepository(rls);
+  repository = new PrismaDealRepository(rls, prisma);
 });
 
 afterAll(async () => {
@@ -297,7 +297,7 @@ describe('PostgreSQL deal authority under NOBYPASSRLS application principal', ()
     const freshPrisma = new PrismaService();
     await freshPrisma.$connect();
     try {
-      const freshRepository = new PrismaDealRepository(new RlsTransactionService(freshPrisma));
+      const freshRepository = new PrismaDealRepository(new RlsTransactionService(freshPrisma), freshPrisma);
       const replay = await freshRepository.create(CREATE_COMMAND, seller) as Record<string, unknown>;
       expect(replay).toMatchObject({ id: first.id, duplicate: true });
       expect(await freshRepository.getById(String(first.id), buyer)).toMatchObject({

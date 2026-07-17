@@ -397,18 +397,28 @@ export class IndustrialDealCommandGateway {
     for (const membership of memberships) {
       if (!KNOWN_ROLES.has(membership.role) || membership.role === Role.BANK_CALLBACK) continue;
 
+      // Кросс-tenant исполнение (PHASE2_EXECUTION.md, решение A): участник может
+      // быть из другого tenant'а, чем сделка. SECURITY DEFINER-функция
+      // подтверждает активное участие и возвращает tenant сделки; далее вся
+      // операция идёт в доверенном RLS-контексте tenant'а сделки, а не токена.
+      const rows = await this.prisma.$queryRaw<Array<{ tenant: string | null }>>`
+        SELECT dealx.participant_tenant(${dealId}, ${user.id}, ${membership.organizationId}, ${membership.role}) AS tenant
+      `;
+      const dealTenant = rows[0]?.tenant ?? null;
+      if (!dealTenant) continue;
+
       const scopedUser: RequestUser = {
         ...user,
         role: membership.role as Role,
         orgId: membership.organizationId,
-        tenantId: user.tenantId,
+        tenantId: dealTenant,
       };
 
       const scoped = await this.rls.withTrustedContext(scopedUser, async (tx) => {
         const participant = await tx.dealParticipant.findFirst({
           where: {
             dealId,
-            tenantId: user.tenantId,
+            tenantId: dealTenant,
             organizationId: membership.organizationId,
             userId: user.id,
             role: membership.role,
@@ -422,11 +432,11 @@ export class IndustrialDealCommandGateway {
         });
         if (!participant) return null;
 
+        // Организация участника проверяется по идентификатору и допуску
+        // (VERIFIED). Её собственный tenant может отличаться от tenant'а сделки —
+        // равенство здесь не требуется; связь подтверждена строкой участника.
         const organization = await tx.organization.findFirst({
-          where: {
-            id: membership.organizationId,
-            tenantId: user.tenantId,
-          },
+          where: { id: membership.organizationId },
           select: { id: true, tenantId: true, status: true },
         });
         if (!organization || organization.status !== 'VERIFIED') return null;
@@ -443,7 +453,7 @@ export class IndustrialDealCommandGateway {
             totalKopecks: true,
           },
         });
-        if (!deal || !deal.tenantId || deal.tenantId !== user.tenantId) return null;
+        if (!deal || deal.tenantId !== dealTenant) return null;
 
         return {
           deal: deal as CanonicalDealRecord,

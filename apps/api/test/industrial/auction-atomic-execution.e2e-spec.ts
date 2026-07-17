@@ -74,7 +74,7 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
     await Promise.all([admin.$connect(), app.$connect()]);
     const rls = new RlsTransactionService(app);
     commands = new AuctionCommandService(rls);
-    deals = new PrismaDealRepository(rls);
+    deals = new PrismaDealRepository(rls, app);
     await resetDatabase(admin);
     await seedActors(admin);
   }, 60_000);
