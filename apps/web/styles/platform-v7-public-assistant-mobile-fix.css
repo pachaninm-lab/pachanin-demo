@@ -1,0 +1,124 @@
+:root {
+  --pc-visual-viewport-height: 100dvh;
+}
+
+/* Keep the two public entry controls distinct: assistant on the left, support on the right. */
+.pc-public-assistant-shortcut {
+  left: max(14px, env(safe-area-inset-left));
+  right: auto;
+}
+
+.p7-support-chat-button {
+  left: auto !important;
+  right: max(14px, env(safe-area-inset-right)) !important;
+  bottom: max(14px, calc(env(safe-area-inset-bottom) + 10px)) !important;
+  z-index: 129 !important;
+}
+
+/* The dialog must fit the currently visible viewport, not the layout viewport hidden by iOS keyboard chrome. */
+.pc-public-assistant-panel {
+  width: min(420px, calc(100vw - 28px));
+  max-height: min(680px, calc(var(--pc-visual-viewport-height) - max(28px, env(safe-area-inset-top)) - max(20px, env(safe-area-inset-bottom))));
+  grid-template-rows: auto auto minmax(96px, 1fr) auto auto auto;
+}
+
+.pc-public-assistant-header {
+  position: relative;
+  z-index: 2;
+}
+
+.pc-public-assistant-icon-button {
+  flex: 0 0 44px;
+}
+
+.pc-public-assistant-messages {
+  min-height: 0;
+}
+
+@media (max-width: 720px) {
+  .pc-public-assistant-shortcut {
+    width: 56px;
+    min-width: 56px;
+    max-width: 56px;
+    min-height: 56px;
+    padding: 8px;
+    justify-content: center;
+    border-radius: 18px;
+  }
+
+  .pc-public-assistant-shortcut-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .pc-public-assistant-shortcut-copy {
+    display: none;
+  }
+
+  .pc-public-assistant-panel {
+    inset: auto 10px max(10px, env(safe-area-inset-bottom)) 10px;
+    width: auto;
+    height: min(620px, calc(var(--pc-visual-viewport-height) - max(24px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom))));
+    max-height: calc(var(--pc-visual-viewport-height) - max(24px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+    border-radius: 20px;
+  }
+
+  .pc-public-assistant-header {
+    padding: 10px 10px 9px 12px;
+  }
+
+  .pc-public-assistant-identity span:not(.pc-public-assistant-mark) {
+    display: none;
+  }
+
+  .pc-public-assistant-boundary {
+    padding: 7px 10px;
+    gap: 5px;
+  }
+
+  .pc-public-assistant-boundary span {
+    min-height: 28px;
+    padding: 4px 7px;
+    font-size: 9px;
+  }
+
+  .pc-public-assistant-messages {
+    padding: 10px;
+  }
+
+  .pc-public-assistant-form {
+    gap: 7px;
+    padding: 9px 10px 10px;
+  }
+
+  .pc-public-assistant-form textarea {
+    min-height: 48px;
+    max-height: 84px;
+    padding: 9px 10px;
+  }
+
+  .pc-public-assistant-primary,
+  .pc-public-assistant-secondary {
+    min-height: 44px;
+    padding-inline: 12px;
+  }
+
+  .pc-public-assistant-version {
+    padding: 0 10px 8px;
+  }
+}
+
+@media (max-height: 620px), (max-width: 720px) and (max-height: 760px) {
+  .pc-public-assistant-panel {
+    height: calc(var(--pc-visual-viewport-height) - max(16px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)));
+    max-height: calc(var(--pc-visual-viewport-height) - max(16px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)));
+  }
+
+  .pc-public-assistant-boundary {
+    display: none;
+  }
+
+  .pc-public-assistant-starters {
+    display: none;
+  }
+}
