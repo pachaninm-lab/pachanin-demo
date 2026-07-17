@@ -1,82 +1,83 @@
-.pc-public-assistant-shortcut {
-  position: fixed;
-  left: max(16px, env(safe-area-inset-left, 0px));
-  right: auto;
-  bottom: max(16px, env(safe-area-inset-bottom, 0px));
-  z-index: 3500;
-  display: inline-flex;
-  width: 48px;
-  min-width: 48px;
-  max-width: 48px;
-  height: 48px;
-  min-height: 48px;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 14px;
-  background: #087a3b;
-  color: #ffffff;
-  box-shadow: 0 10px 26px rgba(7, 54, 33, 0.2);
+.pc-public-assistant .pc-public-assistant-shortcut {
+  position: fixed !important;
+  left: max(16px, env(safe-area-inset-left, 0px)) !important;
+  right: auto !important;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px)) !important;
+  z-index: 3500 !important;
+  display: inline-flex !important;
+  width: 48px !important;
+  min-width: 48px !important;
+  max-width: 48px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border-radius: 14px !important;
+  background: #087a3b !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 26px rgba(7, 54, 33, 0.2) !important;
   cursor: pointer;
   touch-action: manipulation;
-  backdrop-filter: none;
+  backdrop-filter: none !important;
+  transform: none !important;
 }
 
-.pc-public-assistant-shortcut:hover {
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: none;
+.pc-public-assistant .pc-public-assistant-shortcut:hover {
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  transform: none !important;
 }
 
-.pc-public-assistant-shortcut-icon {
-  display: inline-flex;
-  width: auto;
-  height: auto;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: currentColor;
+.pc-public-assistant .pc-public-assistant-shortcut-icon {
+  display: inline-flex !important;
+  width: 24px !important;
+  height: 24px !important;
+  flex: 0 0 24px !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: currentColor !important;
 }
 
-.pc-public-assistant-shortcut-icon svg {
-  width: 24px;
-  height: 24px;
+.pc-public-assistant .pc-public-assistant-shortcut-icon svg {
+  width: 24px !important;
+  height: 24px !important;
   stroke-width: 2.2;
 }
 
-.pc-public-assistant-shortcut-copy {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+.pc-public-assistant .pc-public-assistant-shortcut-copy {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
-.pc-public-assistant-shortcut:focus-visible {
+.pc-public-assistant .pc-public-assistant-shortcut:focus-visible {
   outline: 3px solid #17649b;
   outline-offset: 3px;
 }
 
 @media (max-width: 720px) {
-  .pc-public-assistant-shortcut {
-    left: max(12px, env(safe-area-inset-left, 0px));
-    bottom: max(12px, env(safe-area-inset-bottom, 0px));
-    width: 48px;
-    min-width: 48px;
-    max-width: 48px;
+  .pc-public-assistant .pc-public-assistant-shortcut {
+    left: max(12px, env(safe-area-inset-left, 0px)) !important;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pc-public-assistant-shortcut {
+  .pc-public-assistant .pc-public-assistant-shortcut {
     scroll-behavior: auto;
     transition: none;
     animation: none;
@@ -84,7 +85,7 @@
 }
 
 @media (forced-colors: active) {
-  .pc-public-assistant-shortcut {
-    border: 2px solid ButtonText;
+  .pc-public-assistant .pc-public-assistant-shortcut {
+    border: 2px solid ButtonText !important;
   }
 }
