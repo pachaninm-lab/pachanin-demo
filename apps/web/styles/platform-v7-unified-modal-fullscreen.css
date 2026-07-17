@@ -70,6 +70,14 @@
 }
 
 @media (max-width: 720px) {
+  /* Compact sheets use only the space their content needs, up to the shared cap. */
+  .pc-public-assistant-panel:not([data-pc-fullscreen='true']),
+  .p7-support-chat-panel:not([data-pc-fullscreen='true']) {
+    height: auto !important;
+    min-height: min(380px, calc(var(--pc-visual-viewport-height) - 8px)) !important;
+    max-height: min(68dvh, 560px, calc(var(--pc-visual-viewport-height) - 8px)) !important;
+  }
+
   .pc-public-assistant-panel[data-pc-fullscreen='true'],
   .p7-support-chat-panel[data-pc-fullscreen='true'] {
     position: fixed !important;
