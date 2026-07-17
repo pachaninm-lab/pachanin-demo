@@ -81,15 +81,26 @@ jobs:
               const jobs = config.jobs.map((jobName) => latestByAttemptAndId(
                 matching.filter((run) => run.workflowRun.databaseId === runId && run.name === jobName),
               ));
-              if (jobs.every(Boolean)) return { runId, jobs };
+              if (
+                jobs.every(Boolean)
+                && jobs.every((job) => job.status === 'completed' && job.conclusion === 'success')
+              ) return { runId, jobs };
             }
             return null;
           }
 
           function effectiveLatestCheckRuns(rollup) {
+            const effective = [];
+            const requiredWorkflowNames = new Set(Object.keys(required));
+            for (const [workflowName, config] of Object.entries(required)) {
+              const accepted = resolveWorkflowGroup(rollup, workflowName, config);
+              if (accepted) effective.push(...accepted.jobs);
+            }
+
             const latestRunByWorkflow = new Map();
             for (const run of rollup.checkRuns) {
               const workflowKey = run.workflowRun.workflowName || run.workflowRun.workflowFile || `workflow-${run.workflowRun.databaseId}`;
+              if (requiredWorkflowNames.has(workflowKey)) continue;
               const runId = Number(run.workflowRun.databaseId || 0);
               const current = latestRunByWorkflow.get(workflowKey);
               if (!current || runId > current.runId) {
@@ -98,7 +109,6 @@ jobs:
                 current.runs.push(run);
               }
             }
-            const effective = [];
             for (const { runs } of latestRunByWorkflow.values()) {
               for (const jobName of new Set(runs.map((run) => run.name))) {
                 const latest = latestByAttemptAndId(runs.filter((run) => run.name === jobName));
