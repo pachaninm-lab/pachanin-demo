@@ -3,11 +3,14 @@
 import { usePathname } from 'next/navigation';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { ChatSupportWidget } from './ChatSupportWidget';
+import { PublicPlatformAssistant } from './PublicPlatformAssistant';
+import '@/styles/platform-v7-public-assistant.css';
 
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
+const PUBLIC_HOME = '/platform-v7';
 
 const PUBLIC_EXACT = new Set([
-  '/platform-v7',
+  PUBLIC_HOME,
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/register',
@@ -35,7 +38,7 @@ const PUBLIC_PREFIXES = [
 
 function normalize(pathname: string): string {
   const clean = pathname.split('?')[0].replace(/\/+$/u, '');
-  return clean || '/platform-v7';
+  return clean || PUBLIC_HOME;
 }
 
 function isPrivateWorkspace(pathname: string): boolean {
@@ -47,12 +50,23 @@ function isPrivateWorkspace(pathname: string): boolean {
 }
 
 export function ContextualSupportOrAssistant() {
-  const pathname = usePathname() || '/platform-v7';
-  if (normalize(pathname) === ASSISTANT_WORKSPACE) return null;
+  const pathname = usePathname() || PUBLIC_HOME;
+  const path = normalize(pathname);
+  if (path === ASSISTANT_WORKSPACE) return null;
 
-  // One persistent conversational assistant follows the authenticated user
-  // through private workspaces. Public pages keep the human support channel.
-  return isPrivateWorkspace(pathname)
+  if (path === PUBLIC_HOME) {
+    return (
+      <>
+        <PublicPlatformAssistant />
+        <ChatSupportWidget />
+      </>
+    );
+  }
+
+  // One persistent role-scoped assistant follows the authenticated user through
+  // private workspaces. Public pages keep human support; only the public home
+  // additionally exposes a separate no-account-data platform knowledge assistant.
+  return isPrivateWorkspace(path)
     ? <AiAssistantPanel variant='floating' />
     : <ChatSupportWidget />;
 }
