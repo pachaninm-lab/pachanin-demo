@@ -1,4 +1,4 @@
-name: Exact Main 452d Evidence Audit
+name: Exact Main 880a Evidence Audit
 
 on:
   pull_request:
@@ -12,13 +12,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: exact-main-452d-evidence-audit-2659
+  group: exact-main-880a-evidence-audit-2659
   cancel-in-progress: true
 
 env:
-  TARGET_SHA: 452da9fdeca729d91a2bef9b9b2b4891bd515c73
+  TARGET_SHA: 880afa13c2d806f23f2df4c72f9125ce3e000b4d
   TARGET_BRANCH: main
-  AUDIT_DIR: artifacts/exact-main-452d-audit
+  AUDIT_DIR: artifacts/exact-main-880a-audit
   AUDIT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
@@ -39,16 +39,26 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Materialize exact-main 880a verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/audit-exact-main-452d.mjs /tmp/audit-exact-main-880a.mjs
+          sed -i \
+            -e 's#/.well-known/pc-deploy.json#/manifest-pc-deploy.json#g' \
+            -e 's#/transparent-price-indexnow.txt#/manifest-indexnow-transparent-price-indexnow.txt#g' \
+            /tmp/audit-exact-main-880a.mjs
+
       - name: Audit exact-main authority
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: node scripts/audit-exact-main-452d.mjs
+        run: node /tmp/audit-exact-main-880a.mjs
 
       - name: Upload exact-main audit evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: exact-main-evidence-audit-452da9fdeca729d91a2bef9b9b2b4891bd515c73
+          name: exact-main-evidence-audit-880afa13c2d806f23f2df4c72f9125ce3e000b4d
           path: ${{ env.AUDIT_DIR }}
           if-no-files-found: error
           retention-days: 90
@@ -57,4 +67,4 @@ jobs:
         if: always()
         run: |
           test -f "$AUDIT_DIR/exact-main-452d-audit.json"
-          node -e 'const r=require("./artifacts/exact-main-452d-audit.json"); if(r.pass!==true||r.verdict!=="PASS") { console.error(JSON.stringify(r.errors,null,2)); process.exit(1); }'
+          node -e 'const r=require("./artifacts/exact-main-880a-audit/exact-main-452d-audit.json"); if(r.pass!==true||r.verdict!=="PASS") { console.error(JSON.stringify(r.errors,null,2)); process.exit(1); }'
