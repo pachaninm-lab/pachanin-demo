@@ -1,0 +1,137 @@
+/* Cross-device viewport hardening for the public assistant.
+ * Loaded after the base assistant stylesheet so these rules remain the
+ * authoritative mobile viewport contract.
+ */
+
+.pc-public-assistant-panel,
+.pc-public-assistant-backdrop,
+.pc-public-assistant-shortcut {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.pc-public-assistant-messages {
+  min-height: 0;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pc-public-assistant-form {
+  min-width: 0;
+}
+
+.pc-public-assistant-form textarea {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .pc-public-assistant-backdrop {
+    width: 100vw;
+    height: 100dvh;
+    min-height: 100svh;
+  }
+
+  .pc-public-assistant-panel {
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: max(8px, env(safe-area-inset-left));
+    width: auto;
+    height: auto;
+    max-height: none;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+    border-radius: 20px;
+    contain: layout paint;
+  }
+
+  .pc-public-assistant-header {
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+
+  .pc-public-assistant-messages {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .pc-public-assistant-form textarea {
+    /* iOS zooms focused controls below 16px, which breaks fixed positioning. */
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  .pc-public-assistant-form-actions {
+    min-width: 0;
+  }
+
+  .pc-public-assistant-primary,
+  .pc-public-assistant-secondary {
+    max-width: 100%;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 390px) {
+  .pc-public-assistant-panel {
+    top: max(4px, env(safe-area-inset-top));
+    right: max(4px, env(safe-area-inset-right));
+    bottom: max(4px, env(safe-area-inset-bottom));
+    left: max(4px, env(safe-area-inset-left));
+    border-radius: 16px;
+  }
+
+  .pc-public-assistant-header,
+  .pc-public-assistant-boundary,
+  .pc-public-assistant-form {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .pc-public-assistant-starters {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .pc-public-assistant-form-actions {
+    gap: 6px;
+  }
+
+  .pc-public-assistant-primary,
+  .pc-public-assistant-secondary {
+    min-width: 0;
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+}
+
+@media (max-height: 520px) and (max-width: 720px) {
+  .pc-public-assistant-boundary,
+  .pc-public-assistant-starters,
+  .pc-public-assistant-version {
+    display: none;
+  }
+
+  .pc-public-assistant-header {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .pc-public-assistant-form {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .pc-public-assistant-form textarea {
+    min-height: 48px;
+    max-height: 88px;
+  }
+}
+
+@supports not (height: 100dvh) {
+  @media (max-width: 720px) {
+    .pc-public-assistant-panel {
+      height: calc(100vh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    }
+  }
+}
