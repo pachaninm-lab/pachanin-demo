@@ -1,10 +1,11 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   answerPublicPlatformQuestion,
   publicAssistantCatalog,
   type PublicAssistantLocale,
 } from '@/lib/platform-v7/public-assistant-knowledge';
+import { understandAssistantQuestion } from '@/lib/platform-v7/assistant-question-understanding';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -70,6 +71,35 @@ function isCrossSite(request: NextRequest): boolean {
   return fetchSite === 'cross-site';
 }
 
+function hashQuestion(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function fallbackCopy(locale: PublicAssistantLocale) {
+  if (locale === 'en') {
+    return {
+      title: 'I need one clarification',
+      answer: 'I could not map the question to a verified platform topic with sufficient confidence. Rephrase it in a few words or choose one of the suggested areas. The question has been registered as an unanswered knowledge request without storing its full text.',
+      maturity: 'I will not invent an answer when the public knowledge base has no verified basis.',
+      suggestions: ['How does a Deal work?', 'How are payments controlled?', 'Which integrations are connected?'],
+    };
+  }
+  if (locale === 'zh') {
+    return {
+      title: '需要进一步说明',
+      answer: '我无法以足够置信度将该问题映射到已验证的平台主题。请用几个词重新表述，或选择建议主题。系统已将其登记为未回答的知识请求，但不会保存完整问题文本。',
+      maturity: '公共知识库没有可靠依据时，助手不会编造答案。',
+      suggestions: ['交易如何运作？', '资金如何受控？', '哪些集成已连接？'],
+    };
+  }
+  return {
+    title: 'Нужно одно уточнение',
+    answer: 'Я не смог с достаточной уверенностью связать вопрос с подтверждённой темой платформы. Сформулируйте его ещё раз в нескольких словах или выберите одно из направлений ниже. Вопрос зарегистрирован как пробел базы знаний без сохранения полного текста.',
+    maturity: 'Если подтверждённого основания нет, помощник не придумывает ответ.',
+    suggestions: ['Как работает Сделка?', 'Как контролируются деньги?', 'Какие интеграции подключены?'],
+  };
+}
+
 export async function GET(request: NextRequest) {
   const locale = localeFrom(request.nextUrl.searchParams.get('locale'));
   return json(publicAssistantCatalog(locale));
@@ -101,7 +131,7 @@ export async function POST(request: NextRequest) {
     ? payload as Record<string, unknown>
     : null;
   const message = typeof body?.message === 'string' ? body.message.trim() : '';
-  const locale = localeFrom(body?.locale);
+  const requestedLocale = localeFrom(body?.locale);
 
   if (!message) {
     return json({ code: 'PUBLIC_ASSISTANT_MESSAGE_REQUIRED', message: 'Message is required.' }, 400);
@@ -111,15 +141,71 @@ export async function POST(request: NextRequest) {
   }
 
   const generatedAt = new Date().toISOString();
-  const answer = answerPublicPlatformQuestion(message, locale);
+  const requestId = randomUUID();
+  const understanding = understandAssistantQuestion(message, requestedLocale);
+  const locale = understanding.detectedLocale;
+  const answer = answerPublicPlatformQuestion(understanding.corrected || message, locale);
+  const unresolved = understanding.ambiguous || (answer.confidence === 'medium' && understanding.corrections.length === 0);
+
+  if (unresolved) {
+    const fallback = fallbackCopy(locale);
+    const escalationId = `UK-${requestId.slice(0, 8).toUpperCase()}`;
+    console.warn(JSON.stringify({
+      event: 'PUBLIC_ASSISTANT_UNANSWERED',
+      requestId,
+      escalationId,
+      questionHash: hashQuestion(message),
+      messageLength: message.length,
+      locale,
+      detectedLocale: understanding.detectedLocale,
+      correctionCount: understanding.corrections.length,
+      generatedAt,
+    }));
+    return json({
+      requestId,
+      escalationId,
+      generatedAt,
+      dataMode: 'public_knowledge',
+      mode: 'read_only',
+      resolution: 'clarification_required',
+      knowledgeVersion: answer.knowledgeVersion,
+      topic: 'overview',
+      title: fallback.title,
+      answer: fallback.answer,
+      facts: [],
+      maturity: fallback.maturity,
+      confidence: 'medium',
+      actionAllowed: false,
+      sources: localizedSources([{ label: '', href: '/platform-v7/contact' }], locale),
+      suggestions: fallback.suggestions,
+      understanding: {
+        normalizedQuestion: understanding.corrected,
+        corrections: understanding.corrections,
+        detectedLocale: understanding.detectedLocale,
+      },
+      limitations: [
+        locale === 'en'
+          ? 'No user, account or Deal data is available in public mode.'
+          : locale === 'zh'
+            ? '公共模式无法访问用户、账户或交易数据。'
+            : 'В публичном режиме нет доступа к пользователям, кабинетам и Сделкам.',
+      ],
+    });
+  }
 
   return json({
-    requestId: randomUUID(),
+    requestId,
     generatedAt,
     dataMode: 'public_knowledge',
     mode: 'read_only',
+    resolution: 'answered',
     ...answer,
     sources: localizedSources(answer.sources, locale),
+    understanding: {
+      normalizedQuestion: understanding.corrected,
+      corrections: understanding.corrections,
+      detectedLocale: understanding.detectedLocale,
+    },
     limitations: [
       locale === 'en'
         ? 'No user, account or Deal data is available in public mode.'
