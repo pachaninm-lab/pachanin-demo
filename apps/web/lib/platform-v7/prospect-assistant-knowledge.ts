@@ -68,7 +68,7 @@ const T: readonly Topic[] = [
       ru: { title: 'Подключение организации', answer: 'Промышленный onboarding включает проверку организации, назначение ответственных, создание membership, определение ролей, настройку MFA, договорный допуск и проверку интеграционных реквизитов. Пользователь не выбирает роль самостоятельно: её выдаёт сервер по подтверждённому членству.', facts: ['Один вход для всей платформы.','Роли и tenant не доверяются браузеру.','Доступ к реальным Сделкам появляется после подтверждённого допуска.'], maturity: 'Публичная регистрация не равна автоматическому доступу к боевому контуру.', suggestions: ['Какие документы нужны организации?','Как устроены роли?','Нужна ли интеграция с ERP?'] },
       en: { title: 'Organization onboarding', answer: 'Industrial onboarding includes organization verification, responsible-person assignment, membership creation, role allocation, MFA setup, contractual admission and integration credential checks. Users do not self-select roles; the server resolves them from verified membership.', facts: ['One entry point for the platform.','Role and tenant are not trusted from the browser.','Real Deal access follows verified admission.'], maturity: 'Public registration does not automatically grant production access.', suggestions: ['Which organization documents are needed?','How do roles work?','Is ERP integration required?'] },
       zh: { title: '组织入驻', answer: '工业级入驻包括组织核验、责任人指定、成员关系、角色分配、MFA、合同准入和集成凭据检查。用户不能自行选择角色，服务器根据已验证成员关系确定。', facts: ['全平台统一入口。','浏览器中的角色和租户信息不可信。','真实交易访问需通过准入。'], maturity: '公开注册不等于自动获得生产权限。', suggestions: ['组织需要哪些文件？','角色如何工作？','是否必须集成ERP？'] },
-    }, sources: [S.security, S.contact],
+    }, sources: [S.secure, S.contact],
   },
   {
     id: 'implementation',
@@ -158,7 +158,7 @@ const T: readonly Topic[] = [
       ru: { title: 'Безопасность и изоляция', answer: 'Безопасность строится на серверном RBAC, tenant isolation, MFA, минимизации данных, аудите, идемпотентности и запрете прямого доступа модели к базе. Публичный помощник не видит ЛК; приватный получает только разрешённый контекст текущей роли и Сделки.', facts: ['Роль не берётся из URL или localStorage.','Модель не получает универсальные SQL/API-инструменты.','Критические события имеют audit trail.'], maturity: 'Архитектурные механизмы не заменяют подтверждённую эксплуатацию, pentest и историю инцидентов.', suggestions: ['Может ли ИИ увидеть чужую сделку?','Как защищены документы?','Что происходит при сбое?'] },
       en: { title: 'Security and isolation', answer: 'Security relies on server-side RBAC, tenant isolation, MFA, data minimization, audit, idempotency and no direct model-to-database access. The public assistant has no workspace access; the private one receives only authorized role and Deal context.', facts: ['Role is not derived from URL or local storage.','The model has no universal SQL/API tools.','Critical events have an audit trail.'], maturity: 'Architecture does not replace proven operation, penetration testing or incident history.', suggestions: ['Can AI see another Deal?','How are documents protected?','What happens on failure?'] },
       zh: { title: '安全与隔离', answer: '安全依赖服务器RBAC、租户隔离、MFA、数据最小化、审计、幂等和禁止模型直连数据库。公共助手无法访问工作区；私有助手只接收当前角色和交易的授权上下文。', facts: ['角色不来自URL或本地存储。','模型没有通用SQL/API工具。','关键事件有审计轨迹。'], maturity: '架构不能替代真实运行、渗透测试和事故历史。', suggestions: ['AI能看到别人的交易吗？','文件如何保护？','故障时怎么办？'] },
-    }, sources: [S.security, S.privacy],
+    }, sources: [S.secure, S.privacy],
   },
   {
     id: 'integrations',
@@ -185,7 +185,7 @@ const T: readonly Topic[] = [
       ru: { title: 'Надёжность и масштабирование', answer: 'Целевая система проектируется для горизонтального масштабирования, нескольких экземпляров API и worker, PostgreSQL HA, очередей, идемпотентности, наблюдаемости, backup/restore и безопасной деградации. Промышленный статус требует не только кода, но и нагрузочных, fault-injection, restore и soak-доказательств.', facts: ['Повторные команды не должны создавать дубли.','Сбой worker не должен терять события.','Recovery проверяется машинными артефактами.'], maturity: 'Production-like acceptance не равна подтверждённой многолетней эксплуатации.', suggestions: ['Что происходит при сбое?','Как восстанавливаются данные?','Какой масштаб поддерживается?'] },
       en: { title: 'Reliability and scale', answer: 'The target system uses horizontal scaling, multiple API and worker replicas, PostgreSQL HA, queues, idempotency, observability, backup/restore and safe degradation. Industrial status requires load, fault-injection, restore and soak evidence—not code alone.', facts: ['Retries must not create duplicates.','Worker failure must not lose events.','Recovery is verified by machine-readable artifacts.'], maturity: 'Production-like acceptance is not long-term proven operation.', suggestions: ['What happens on failure?','How is data restored?','What scale is supported?'] },
       zh: { title: '可靠性与扩展', answer: '目标系统采用横向扩展、多API和worker副本、PostgreSQL高可用、队列、幂等、可观测性、备份恢复和安全降级。工业状态需要负载、故障注入、恢复和长时间运行证据。', facts: ['重试不能产生重复。','worker故障不能丢事件。','恢复通过机器可读证据验证。'], maturity: '类生产验收不等于长期真实运行。', suggestions: ['故障时怎么办？','数据如何恢复？','支持多大规模？'] },
-    }, sources: [S.security],
+    }, sources: [S.secure],
   },
   {
     id: 'comparison',
