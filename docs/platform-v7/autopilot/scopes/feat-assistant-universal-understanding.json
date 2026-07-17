@@ -13,6 +13,7 @@
     "apps/web/lib/platform-v7/prospect-assistant-knowledge.ts",
     "apps/web/tests/unit/platformV7AssistantQuestionUnderstanding.test.ts",
     "apps/web/tests/unit/platformV7ProspectAssistantKnowledge.test.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts",
     "docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json"
   ],
   "forbiddenCapabilities": [
