@@ -1,0 +1,17 @@
+{
+  "branch": "fix/public-assistant-mobile-support",
+  "status": "active",
+  "purpose": "Restore independent support access and harden the public assistant mobile viewport without changing authentication, Deal authority or data scope.",
+  "approvedBy": "independent-authority-pr",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "apps/web/styles/platform-v7-public-assistant-mobile-fix.css"
+  ],
+  "forbiddenCapabilities": [
+    "account data access from public mode",
+    "cross-role or cross-tenant access",
+    "autonomous commands",
+    "payment or Deal state mutation",
+    "external model calls from public mode"
+  ]
+}
