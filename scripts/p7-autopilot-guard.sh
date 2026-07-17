@@ -311,6 +311,7 @@ const fs = require('fs');
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
 const manifests = {
   'ir/k8s-production-like-2659': 'docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json',
+  'feat/assistant-universal-understanding': 'docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json',
 };
 const path = manifests[branch];
 if (!path) process.exit(0);
