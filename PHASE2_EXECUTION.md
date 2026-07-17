@@ -149,13 +149,20 @@ LOGISTICIAN/DRIVER/SURVEYOR/LAB/ACCOUNTING **из своих tenant'ов** (кр
    маршрутизируются в settlement-engine, а прямой вызов даёт 403
    `VERIFIED_BANK_CALLBACK_REQUIRED`. Дубль удалён — единственный денежный путь
    `settlement-engine/bank-callback`.
-2. **`finalize_lab` несовместим с БД-цепочкой custody (реальный дефект кода).**
-   `deal-command.service` ждёт `lab_sample.status='PENDING'` и ставит `'DONE'`,
-   но триггеры `labs` (`app_labs_sample_state_guard`) объявляют PENDING/DONE
-   запрещёнными и требуют цепочку `CREATED→COLLECTED→IN_TRANSIT→RECEIVED→
-   ANALYSIS_IN_PROGRESS→FINALIZED` с authorized_actors и custody-событиями.
-   `finalize_lab` в текущем виде непроходим — нужно привести команду к custody-
-   модели labs. Это блокирует `accept_delivery` (требует qualityStatus=PASSED).
+2. **`finalize_lab` требует прохождения custody-цепочки labs (это НЕ дефект).**
+   Уточнение прежней записи: исполняет `finalize_lab` не легаси
+   `DealCommandService`, а переопределение в `PostgresqlDealCommandService`
+   (`SettlementAwareDealCommandService extends PostgresqlDealCommandService
+   extends DealCommandService`). Оно требует пробу в статусе
+   `ANALYSIS_IN_PROGRESS`, подписанта `SIGNATORY` (authorized_actors),
+   purpose-bound protocol-evidence, и переводит пробу в `FINALIZED` — полностью
+   согласованно с триггерами labs. Легаси-ветка `finalize_lab` в
+   `deal-command.service` (PENDING→DONE) перехватывается до `super.execute` и
+   никогда не исполняется (мёртвый код, вводящий в заблуждение — кандидат на
+   удаление). Чтобы пройти шаг живьём, нужно провести пробу по реальным
+   эндпоинтам labs: `POST /labs/samples` → `/collect` → `/custody` →
+   `/tests` → (ANALYSIS_IN_PROGRESS), затем доменная команда `finalize_lab`
+   подписантом. Это подсистема, а не баг.
 3. **Логистический нормализованный допуск — глубокий граф.** `assign_logistics`
    требует verified carrier/vehicle/driver/facility **в tenant сделки** с
    immutable-evidence (deal_documents type EVIDENCE_FILE, статус VERIFIED),
