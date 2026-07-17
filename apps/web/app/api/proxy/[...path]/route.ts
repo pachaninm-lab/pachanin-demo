@@ -127,7 +127,10 @@ async function proxy(request: Request, params: { path: string[] }) {
 
   if (!isDemo) {
     try {
-      const target = `${API_URL}/${path}`;
+      // Строка запроса обязана доходить до API: фильтры и пагинация —
+      // часть контракта (?status=, ?limit=, ?cursor=).
+      const search = new URL(request.url).search;
+      const target = `${API_URL}/${path}${search}`;
       const headers = new Headers(request.headers);
       headers.set('Authorization', `Bearer ${token}`);
       headers.delete('host');

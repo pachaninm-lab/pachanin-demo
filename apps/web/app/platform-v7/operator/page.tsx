@@ -15,6 +15,7 @@ import {
   type ShipmentServerItem,
 } from '@/lib/logistics-server';
 import { getOutboxStatus, type OutboxServerEntry } from '@/lib/outbox-server';
+import { OrganizationVerificationPanel } from '@/components/platform-v7/OrganizationVerificationPanel';
 import {
   OperationalCockpitSection,
   OperationalDecisionCockpit,
@@ -358,6 +359,11 @@ export default async function PlatformV7OperatorPage() {
       : 'success';
 
   return (
+    <>
+    {/* Допуск организаций — первый рабочий вопрос оператора (ядро §3). */}
+    <div style={{ margin: '0 0 var(--ds-space-4)' }}>
+      <OrganizationVerificationPanel />
+    </div>
     <OperationalDecisionCockpit
       testId='platform-v7-operator-v8'
       eyebrow={copy.eyebrow}
@@ -417,5 +423,6 @@ export default async function PlatformV7OperatorPage() {
         {shipmentCount} · {queuedExternal}
       </InlineNotice>
     </OperationalDecisionCockpit>
+    </>
   );
 }
