@@ -4,8 +4,10 @@ import dynamic from 'next/dynamic';
 
 /**
  * Public pages keep the contact-support form. Authenticated platform-v7 workspaces
- * receive the role-scoped AI assistant. The entire surface remains browser-only
- * to keep streamed HTML and hydration deterministic.
+ * receive one role-scoped conversational assistant with presence, structured
+ * decision cards and a persistent synthetic/authoritative data-mode label.
+ * The surface remains browser-only so time-aware greetings, focus management and
+ * route context never destabilize streamed HTML or hydration.
  */
 export const HydrationSafeChatSupport = dynamic(
   () => import('@/components/platform-v7/ContextualSupportOrAssistant').then((module) => module.ContextualSupportOrAssistant),
