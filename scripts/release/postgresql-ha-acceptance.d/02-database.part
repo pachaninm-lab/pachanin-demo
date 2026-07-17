@@ -11,6 +11,8 @@
 }
 
 wait_cluster_ready grainflow-postgresql 3 1200
+FAILURE_REASON="PgBouncer pooler did not become ready"
+kubectl apply -f "$RAW_DIR/rendered-postgresql-pooler.yaml" > "$RAW_DIR/postgresql-pooler-apply.log" 2>&1
 kubectl rollout status deployment/grainflow-pooler-rw -n "$NAMESPACE" --timeout=600s
 [[ "$(kubectl get deployment grainflow-pooler-rw -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}')" = "2" ]]
 
