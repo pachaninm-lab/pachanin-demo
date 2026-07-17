@@ -10,9 +10,9 @@ import styles from './PrivateAssistantShortcutLabel.module.css';
 type Locale = 'ru' | 'en' | 'zh';
 
 const LABELS: Record<Locale, { title: string; note: string; aria: string }> = {
-  ru: { title: 'Помощник сделки', note: 'Контекст текущего ЛК', aria: 'Открыть помощника сделки на весь экран' },
-  en: { title: 'Deal assistant', note: 'Current workspace context', aria: 'Open the Deal assistant full screen' },
-  zh: { title: '交易助手', note: '当前工作区上下文', aria: '全屏打开交易助手' },
+  ru: { title: 'Помощник сделки', note: 'Ролевой контекст ЛК', aria: 'Открыть помощника сделки на весь экран' },
+  en: { title: 'Deal assistant', note: 'Role-scoped workspace', aria: 'Open the Deal assistant full screen' },
+  zh: { title: '交易助手', note: '角色范围工作区', aria: '全屏打开交易助手' },
 };
 
 function localeFromDocument(): Locale {
@@ -31,18 +31,14 @@ export function PrivateAssistantShortcutLabel() {
 
   React.useEffect(() => setLocale(localeFromDocument()), []);
   const copy = LABELS[locale];
-  const dealMatch = pathname.match(/^\/platform-v7\/deals\/([^/]+)/u);
-  const href = dealMatch
-    ? `/platform-v7/assistant?deal=${encodeURIComponent(dealMatch[1])}`
-    : '/platform-v7/assistant';
 
   return (
     <>
       <Link
-        href={href}
+        href='/platform-v7/assistant'
         className={styles.shortcut}
         aria-label={copy.aria}
-        onClick={() => trackEvent('private_assistant_shortcut_opened', { source: 'persistent_label', pathname, hasDealContext: Boolean(dealMatch) })}
+        onClick={() => trackEvent('private_assistant_shortcut_opened', { source: 'persistent_label', pathname })}
       >
         <span className={styles.icon} aria-hidden='true'><Sparkles size={18} /></span>
         <span className={styles.copy}>
