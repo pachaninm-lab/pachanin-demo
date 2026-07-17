@@ -79,11 +79,20 @@ kubectl logs -n "$NAMESPACE" minio-init > "$RAW_DIR/minio-init.log"
 FAILURE_REASON="PostgreSQL HA Cluster did not become ready"
 sed "s|__POSTGRES_IMAGE__|${POSTGRES_IMAGE}|g" \
   infra/kind/postgresql-ha/postgresql-ha.yaml > "$RAW_DIR/rendered-postgresql-ha.yaml"
-awk 'BEGIN { document=0 } /^---[[:space:]]*$/ { document++; next } document < 2 { print }' \
-  "$RAW_DIR/rendered-postgresql-ha.yaml" > "$RAW_DIR/rendered-postgresql-source.yaml"
+awk 'BEGIN { document=0 } /^---[[:space:]]*$/ { exit } { print }' \
+  "$RAW_DIR/rendered-postgresql-ha.yaml" > "$RAW_DIR/rendered-postgresql-objectstore.yaml"
+awk 'BEGIN { document=0 } /^---[[:space:]]*$/ { document++; next } document == 1 { print } document > 1 { exit }' \
+  "$RAW_DIR/rendered-postgresql-ha.yaml" > "$RAW_DIR/rendered-postgresql-cluster.yaml"
 awk 'BEGIN { document=0 } /^---[[:space:]]*$/ { document++; next } document == 2 { print }' \
   "$RAW_DIR/rendered-postgresql-ha.yaml" > "$RAW_DIR/rendered-postgresql-pooler.yaml"
-kubectl apply -f "$RAW_DIR/rendered-postgresql-source.yaml" > "$RAW_DIR/postgresql-source-apply.log" 2>&1
+
+grep -q '^kind: ObjectStore$' "$RAW_DIR/rendered-postgresql-objectstore.yaml"
+grep -q '^kind: Cluster$' "$RAW_DIR/rendered-postgresql-cluster.yaml"
+grep -q '^kind: Pooler$' "$RAW_DIR/rendered-postgresql-pooler.yaml"
+
+kubectl apply -f "$RAW_DIR/rendered-postgresql-objectstore.yaml" > "$RAW_DIR/postgresql-objectstore-apply.log" 2>&1
+kubectl get objectstore grainflow-backup -n "$NAMESPACE" -o yaml > "$RAW_DIR/postgresql-objectstore.yaml"
+kubectl apply -f "$RAW_DIR/rendered-postgresql-cluster.yaml" > "$RAW_DIR/postgresql-cluster-apply.log" 2>&1
 
 wait_cluster_ready() {
   local cluster="$1"
