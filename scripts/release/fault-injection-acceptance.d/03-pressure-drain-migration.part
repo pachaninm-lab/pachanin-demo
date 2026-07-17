@@ -28,7 +28,7 @@ spec:
         - >-
           head -c 100663296 /dev/zero > /memory/blob;
           head -c 134217728 /dev/zero > /disk/blob;
-          end=$((SECONDS+45)); while [ $SECONDS -lt $end ]; do :; done
+          end=\$((\$(date +%s)+45)); while [ "\$(date +%s)" -lt "\$end" ]; do :; done
       resources:
         requests:
           cpu: 100m
