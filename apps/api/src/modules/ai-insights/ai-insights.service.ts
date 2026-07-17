@@ -1,19 +1,12 @@
-/**
- * AI Insights Service — role-scoped deal analysis and recommendations.
- * Uses Claude API when ANTHROPIC_API_KEY is set, otherwise heuristic fallback.
- * Per ТЗ §37: non-binding advice, human-reviewed, pre-integration.
- */
-
-import { Injectable, Logger } from '@nestjs/common';
-import { RequestUser } from '../../common/types/request-user';
-
-const INSIGHTS_TIMEOUT_MS = 10_000;
+import { BadRequestException, Injectable } from '@nestjs/common';
+import type { RequestUser } from '../../common/types/request-user';
 
 export interface InsightRequest {
   scope: 'hint' | 'summary' | 'next_action' | 'blocker_explanation' | 'triage';
-  role: string;
+  /** Kept for compatibility only. Runtime role always comes from RequestUser. */
+  role?: string;
   dealId?: string;
-  context: Record<string, unknown>;
+  context?: Record<string, unknown>;
 }
 
 export interface InsightResponse {
@@ -26,133 +19,100 @@ export interface InsightResponse {
   generatedAt: string;
 }
 
-const LIMITATIONS = [
-  'Предварительный совет — требует проверки человеком',
-  'Не может переопределить банковские события, документы или решения по качеству',
-  'Не принимает обязывающих решений и не инициирует внешние действия',
-] as const;
+const LIMITATIONS = Object.freeze([
+  'Предварительная подсказка — требует проверки человеком',
+  'Не переопределяет банковские события, документы, результаты качества или решения по спору',
+  'Не выполняет внешние действия и не меняет состояние сделки',
+]);
 
-const HEURISTIC_HINTS: Record<string, Record<string, string>> = {
+const ROLE_GUIDANCE: Record<string, Record<InsightRequest['scope'], string>> = {
   FARMER: {
-    hint: 'Проверьте статус KYC и наличие активных лотов. Заполните качественные показатели перед подачей в торги.',
-    next_action: 'Убедитесь, что документы к сделке подписаны УКЭП. Следующее безопасное действие — подтвердить отгрузку.',
-    summary: 'Продавец: активные лоты и статус сделок в норме. Ожидает подтверждения оплаты.',
+    hint: 'Проверьте доступные партии, документы и следующий шаг в ролевом реестре сделок.',
+    summary: 'Сводка продавца формируется только из доступных серверу сделок; числовые показатели без подтверждённого источника не создаются.',
+    next_action: 'Откройте сделку с наивысшим приоритетом и выполните серверно подтверждённое следующее действие.',
+    blocker_explanation: 'Проверьте документные, логистические, качественные и денежные основания в рабочем пространстве сделки.',
+    triage: 'Сначала обработайте просроченные действия, затем денежные блокеры и сделки без движения.',
   },
   BUYER: {
-    hint: 'Проверьте резервирование оплаты и статус документов. Убедитесь в соответствии показателей качества требованиям.',
-    next_action: 'После получения акта приёмки подпишите документы УКЭП для завершения расчётов.',
-    summary: 'Покупатель: оплата зарезервирована, ожидает результатов лабораторного анализа.',
-  },
-  BANK: {
-    hint: 'Проверьте соответствие суммы резерва и условий оплаты. Убедитесь в отсутствии активных споров.',
-    next_action: 'Подтвердите выход из эскроу после получения всех подписанных документов и результатов QC.',
-    triage: 'Приоритет: сделки с просроченным резервом > активные споры > ожидающие подписания.',
+    hint: 'Проверьте условия, документную полноту, приёмку и банковское основание доступной сделки.',
+    summary: 'Сводка покупателя строится только по подтверждённому ролевому контуру.',
+    next_action: 'Выполните ближайшее действие, указанное серверной state machine сделки.',
+    blocker_explanation: 'Расчёт может быть заблокирован документами, приёмкой, качеством, спором или отсутствием банковского события.',
+    triage: 'Сначала сделки с денежным влиянием и сроком, затем остальные требующие действия.',
   },
   DRIVER: {
-    hint: 'Проверьте маршрут и геозоны. Убедитесь в наличии ТТН и CMR перед выездом.',
-    next_action: 'Обновите GPS позицию при прибытии на элеватор. Зафиксируйте время прибытия.',
-    summary: 'Водитель: маршрут активен, документы в порядке.',
+    hint: 'Проверьте назначенный рейс, документы, маршрут и доступные полевые действия.',
+    summary: 'Водитель видит только назначенные ему рейсы и разрешённые факты исполнения.',
+    next_action: 'Выполните ближайшее разрешённое полевое действие и приложите требуемое доказательство.',
+    blocker_explanation: 'Проверьте назначение рейса, геособытие, документы и доступность связи.',
+    triage: 'Сначала активный рейс и просроченные полевые действия.',
   },
   LAB: {
-    hint: 'Внесите результаты анализа по всем показателям ГОСТ. Укажите номер аттестата лаборатории.',
-    next_action: 'После ввода результатов подпишите протокол УКЭП. Заключение блокирует оплату до подписания.',
-    summary: 'Лаборатория: анализ завершён, ожидает подписания протокола.',
+    hint: 'Проверьте назначенную пробу, обязательные показатели и статус протокола.',
+    summary: 'Лабораторная сводка не заменяет подписанный протокол и содержит только разрешённые назначения.',
+    next_action: 'Выполните действие, указанное для назначенной пробы или протокола.',
+    blocker_explanation: 'Следующий этап может ожидать полный и подтверждённый лабораторный результат.',
+    triage: 'Сначала пробы с ближайшим сроком и сделки, где качество блокирует исполнение.',
   },
   ELEVATOR: {
-    hint: 'Проверьте весовые данные и расхождения с заявленным объёмом. Зафиксируйте акт приёмки.',
-    next_action: 'Подтвердите вес и качество. Подпишите акт приёмки для разблокировки следующего этапа.',
-    summary: 'Элеватор: взвешивание выполнено, акт приёмки ожидает подписания.',
+    hint: 'Проверьте прибытие, вес, приёмку, документы и расхождения по назначенной сделке.',
+    summary: 'Сводка элеватора строится только по доступным операциям приёмки.',
+    next_action: 'Подтвердите ближайший разрешённый факт приёмки через доменную команду.',
+    blocker_explanation: 'Исполнение может ожидать прибытие, вес, акт, качество или документное основание.',
+    triage: 'Сначала прибывшие рейсы и операции с истекающим сроком.',
+  },
+  BANK_CALLBACK: {
+    hint: 'Банковское подтверждение принимается только через проверенный callback-контур.',
+    summary: 'Модель не формирует и не подтверждает банковские события.',
+    next_action: 'Используйте только проверенную банковскую операцию и доменную идемпотентную команду.',
+    blocker_explanation: 'Проверьте подпись callback, идемпотентность, reconciliation и документное основание.',
+    triage: 'Сначала неподтверждённые reconciliation-события и операции с конфликтом состояния.',
   },
   ARBITRATOR: {
-    triage: 'Приоритет: споры с заморозкой платежа > доказательная база неполная > новые жалобы.',
-    hint: 'Изучите пакет доказательств полностью. Проверьте цепочку хешей аудита.',
-    summary: 'Арбитр: 2 активных спора, 1 требует решения в течение 24 часов.',
+    hint: 'Проверьте доступный evidence pack, сроки и полномочия до любого решения.',
+    summary: 'Сводка спора не заменяет решение арбитра и не создаёт отсутствующие доказательства.',
+    next_action: 'Выполните следующий разрешённый шаг спора после проверки доказательств.',
+    blocker_explanation: 'Решение может ожидать полный evidence pack, позицию сторон или обязательное согласование.',
+    triage: 'Сначала споры с денежной заморозкой и ближайшим SLA.',
   },
   COMPLIANCE_OFFICER: {
-    triage: 'Приоритет: AML-алерты > санкционные хиты > высокий fraud-score > KYC-пробелы.',
-    hint: 'Проверьте AML-статус участников и наличие санкционных совпадений перед одобрением.',
-    summary: 'Compliance: 3 организации ожидают KYC-одобрения.',
+    hint: 'Используйте только подтверждённые compliance-источники и серверные полномочия.',
+    summary: 'Помощник не раскрывает скрытые compliance-сигналы другим ролям.',
+    next_action: 'Откройте назначенную проверку и выполните разрешённое действие с аудитом.',
+    blocker_explanation: 'Доступ или сделка могут ожидать завершённую проверку и подтверждённое основание.',
+    triage: 'Сначала критические и просроченные проверки, затем остальные назначения.',
   },
   EXECUTIVE: {
-    summary: 'Платформа: GMV за 30 дней в норме. Dispute rate 4.2%. Ожидает 5 сделок в стадии QC.',
-    hint: 'Обратите внимание на сделки без движения более 48 часов — возможные блокеры.',
+    hint: 'Запрашивайте показатели только из подтверждённой аналитической проекции.',
+    summary: 'Помощник не выдумывает GMV, dispute rate или другие метрики при отсутствии источника.',
+    next_action: 'Откройте приоритетную сделку или подтверждённый управленческий отчёт.',
+    blocker_explanation: 'Для вывода нужны актуальные серверные данные, определения метрик и период анализа.',
+    triage: 'Сначала денежные, сроковые и системные отклонения с подтверждённым влиянием.',
   },
+};
+
+const GENERIC_GUIDANCE: Record<InsightRequest['scope'], string> = {
+  hint: 'Проверьте текущий статус, доступные факты и ближайшее действие в серверном контуре.',
+  summary: 'Сводка формируется только из данных, разрешённых текущей роли.',
+  next_action: 'Выполните ближайшее действие, подтверждённое серверной state machine.',
+  blocker_explanation: 'Проверьте сроки, документы, физическое исполнение, деньги и открытые споры.',
+  triage: 'Сначала просроченные и денежно значимые действия, затем остальные.',
 };
 
 @Injectable()
 export class AiInsightsService {
-  private readonly logger = new Logger(AiInsightsService.name);
-  private readonly apiKey = process.env.ANTHROPIC_API_KEY;
-
-  async getInsight(req: InsightRequest, user: RequestUser): Promise<InsightResponse> {
-    if (this.apiKey) {
-      try {
-        return await this.callClaude(req, user);
-      } catch (err) {
-        this.logger.warn(`Claude API call failed: ${err} — falling back to heuristics`);
-      }
-    }
-    return this.heuristicInsight(req, user);
-  }
-
-  private async callClaude(req: InsightRequest, user: RequestUser): Promise<InsightResponse> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), INSIGHTS_TIMEOUT_MS);
-
-    const systemPrompt = `Ты AI-советник для участника зерновой торговой платформы GrainFlow.
-Роль пользователя: ${req.role}. Сделка: ${req.dealId ?? 'не указана'}.
-Тип запроса: ${req.scope}.
-Правила: давай краткие (1-3 предложения), не-обязывающие советы.
-Не принимай решений за людей. Всегда добавляй: «Требует проверки человеком».
-Отвечай на русском языке.`;
-
-    const userMessage = `Контекст: ${JSON.stringify(req.context, null, 2)}\n\nДай совет типа "${req.scope}" для роли "${req.role}".`;
-
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': this.apiKey!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 256,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }],
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-
-    if (!resp.ok) {
-      throw new Error(`Claude API returned ${resp.status}`);
+  getInsight(req: InsightRequest, user: RequestUser): InsightResponse {
+    if (!req || !['hint', 'summary', 'next_action', 'blocker_explanation', 'triage'].includes(req.scope)) {
+      throw new BadRequestException({ code: 'INVALID_AI_INSIGHT_SCOPE' });
     }
 
-    const data = await resp.json() as { content: Array<{ text: string }> };
-    const text = data.content?.[0]?.text ?? '';
-
+    const role = user.role;
+    const roleGuidance = ROLE_GUIDANCE[role] || GENERIC_GUIDANCE;
     return {
-      result: text,
-      confidence: 0.75,
+      result: roleGuidance[req.scope] || GENERIC_GUIDANCE[req.scope],
+      confidence: 0.5,
       scope: req.scope,
-      role: req.role,
-      maturity: 'pre-integration',
-      limitations: [...LIMITATIONS],
-      generatedAt: new Date().toISOString(),
-    };
-  }
-
-  private heuristicInsight(req: InsightRequest, user: RequestUser): InsightResponse {
-    const roleHints = HEURISTIC_HINTS[req.role] ?? HEURISTIC_HINTS['FARMER'];
-    const result = roleHints[req.scope] ?? roleHints['hint'] ?? 'Проверьте текущий статус сделки и ближайшие действия.';
-
-    return {
-      result,
-      confidence: 0.42,
-      scope: req.scope,
-      role: req.role,
+      role,
       maturity: 'pre-integration',
       limitations: [...LIMITATIONS],
       generatedAt: new Date().toISOString(),
