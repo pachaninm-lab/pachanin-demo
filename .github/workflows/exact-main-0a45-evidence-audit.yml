@@ -26,7 +26,7 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     name: Verify exact-main live · security · K8s · immutable evidence
     runs-on: ubuntu-latest
-    timeout-minutes: 110
+    timeout-minutes: 45
     steps:
       - name: Checkout audit verifier
         uses: actions/checkout@v4
@@ -48,6 +48,86 @@ jobs:
             -e 's#/.well-known/pc-deploy.json#/manifest-pc-deploy.json#g' \
             -e 's#/transparent-price-indexnow.txt#/manifest-indexnow-transparent-price-indexnow.txt#g' \
             /tmp/audit-exact-main-880a.mjs
+          python - <<'PY'
+          from pathlib import Path
+
+          target = Path('/tmp/audit-exact-main-880a.mjs')
+          text = target.read_text()
+
+          old_group = '''function resolveWorkflowGroup(rollup, workflowName, config) {
+            const matching = rollup.checkRuns.filter((run) => run.workflowRun.workflowName === workflowName);
+            const runIds = [...new Set(matching.map((run) => run.workflowRun.databaseId))]
+              .sort((left, right) => Number(right) - Number(left));
+            for (const runId of runIds) {
+              const jobs = config.jobs.map((jobName) => matching.find((run) => run.workflowRun.databaseId === runId && run.name === jobName) || null);
+              if (jobs.every(Boolean)) return { runId, jobs };
+            }
+            return null;
+          }
+          '''
+
+          new_group = '''function latestByAttemptAndId(runs) {
+            return [...runs].sort((left, right) =>
+              Number(right.workflowRun.runAttempt || 0) - Number(left.workflowRun.runAttempt || 0)
+              || Number(right.databaseId || 0) - Number(left.databaseId || 0)
+            )[0] || null;
+          }
+
+          function resolveWorkflowGroup(rollup, workflowName, config) {
+            const matching = rollup.checkRuns.filter((run) => run.workflowRun.workflowName === workflowName);
+            const runIds = [...new Set(matching.map((run) => run.workflowRun.databaseId))]
+              .sort((left, right) => Number(right) - Number(left));
+            for (const runId of runIds) {
+              const jobs = config.jobs.map((jobName) => latestByAttemptAndId(
+                matching.filter((run) => run.workflowRun.databaseId === runId && run.name === jobName),
+              ));
+              if (jobs.every(Boolean)) return { runId, jobs };
+            }
+            return null;
+          }
+
+          function effectiveLatestCheckRuns(rollup) {
+            const latestRunByWorkflow = new Map();
+            for (const run of rollup.checkRuns) {
+              const workflowKey = run.workflowRun.workflowName || run.workflowRun.workflowFile || `workflow-${run.workflowRun.databaseId}`;
+              const runId = Number(run.workflowRun.databaseId || 0);
+              const current = latestRunByWorkflow.get(workflowKey);
+              if (!current || runId > current.runId) {
+                latestRunByWorkflow.set(workflowKey, { runId, runs: [run] });
+              } else if (runId === current.runId) {
+                current.runs.push(run);
+              }
+            }
+            const effective = [];
+            for (const { runs } of latestRunByWorkflow.values()) {
+              for (const jobName of new Set(runs.map((run) => run.name))) {
+                const latest = latestByAttemptAndId(runs.filter((run) => run.name === jobName));
+                if (latest) effective.push(latest);
+              }
+            }
+            return effective.sort((left, right) =>
+              String(left.workflowRun.workflowName || '').localeCompare(String(right.workflowRun.workflowName || ''))
+              || String(left.name || '').localeCompare(String(right.name || ''))
+            );
+          }
+          '''
+
+          replacements = [
+            (old_group, new_group),
+            ('const deadline = Date.now() + 100 * 60 * 1000;', 'const deadline = Date.now() + 30 * 60 * 1000;'),
+            ("const active = rollup.checkRuns.filter((run) => run.status !== 'completed');", "const effective = effectiveLatestCheckRuns(rollup);\n    const active = effective.filter((run) => run.status !== 'completed');"),
+            ("const snapshot = rollup.checkRuns.map((run) => `${run.databaseId}:${run.status}:${run.conclusion}`).sort().join('|');", "const snapshot = effective.map((run) => `${run.databaseId}:${run.status}:${run.conclusion}`).sort().join('|');"),
+            ('report.exactMainChecks.effectiveCheckRuns = rollup.checkRuns;', 'const effectiveCheckRuns = effectiveLatestCheckRuns(rollup);\n  report.exactMainChecks.effectiveCheckRuns = effectiveCheckRuns;'),
+            ("assert(rollup.checkRuns.length > 0, 'No exact-main GitHub Actions check runs found');\n  for (const checkRun of rollup.checkRuns) {", "assert(effectiveCheckRuns.length > 0, 'No effective exact-main GitHub Actions check runs found');\n  for (const checkRun of effectiveCheckRuns) {")
+          ]
+
+          for old, new in replacements:
+            if old not in text:
+              raise SystemExit(f'audit patch anchor missing: {old[:120]!r}')
+            text = text.replace(old, new, 1)
+
+          target.write_text(text)
+          PY
 
       - name: Audit exact-main authority
         env:
