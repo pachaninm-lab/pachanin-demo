@@ -3,11 +3,11 @@
 import dynamic from 'next/dynamic';
 
 /**
- * Support is a browser-only interaction surface. A no-SSR dynamic boundary keeps
- * its inline style payload out of streamed HTML and the React hydration tree,
- * while preserving the widget immediately after the client bundle is ready.
+ * Public pages keep the contact-support form. Authenticated platform-v7 workspaces
+ * receive the role-scoped AI assistant. The entire surface remains browser-only
+ * to keep streamed HTML and hydration deterministic.
  */
 export const HydrationSafeChatSupport = dynamic(
-  () => import('@/components/platform-v7/ChatSupportWidget').then((module) => module.ChatSupportWidget),
+  () => import('@/components/platform-v7/ContextualSupportOrAssistant').then((module) => module.ContextualSupportOrAssistant),
   { ssr: false, loading: () => null },
 );
