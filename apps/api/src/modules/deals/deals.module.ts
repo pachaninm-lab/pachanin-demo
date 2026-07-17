@@ -4,7 +4,6 @@ import { AuthModule } from '../auth/auth.module';
 import { SettlementEngineModule } from '../settlement-engine/settlement-engine.module';
 import { SettlementAwareDealCommandService } from '../settlement-engine/settlement-aware-deal-command.service';
 import { DealsController } from './deals.controller';
-import { BankCallbackController } from './bank-callback.controller';
 import { DealsService } from './deals.service';
 import { DealCommandService } from './deal-command.service';
 import { DealRegistryQueryService } from './deal-registry-query.service';
@@ -21,7 +20,7 @@ import { DealParticipantService } from './deal-participant.service';
  */
 @Module({
   imports: [AuthModule, SettlementEngineModule],
-  controllers: [DealsController, BankCallbackController],
+  controllers: [DealsController],
   providers: [
     DealsService,
     SettlementAwareDealCommandService,

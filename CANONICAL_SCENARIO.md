@@ -105,20 +105,25 @@
    позиционируем платформу как исполнительный контур сделки, дополняющий их
    витрину, а не конкурирующий с ней.
 
-   **Входящий шов банка (реализован).** `POST /api/webhooks/bank` принимает
-   подтверждение денежной операции банка. Аутентификация как у ЭДО-вебхука:
-   `X-Signature: sha256=<HMAC-SHA256(`${X-Timestamp}.${body}`, BANK_WEBHOOK_SECRET)>`,
-   обязательная метка `X-Timestamp` (окно 300с против повторов),
-   идемпотентность по `eventId` (заголовок `X-Event-Id` или поле тела).
-   Тело: `{ dealId, operation: RESERVE|RELEASE, status: SUCCESS|FAILED,
-   bankRef, operationId?, errorMessage? }`. Fail-closed: неверная подпись — 401,
-   тело вне схемы — 400, а денежный эффект возможен только если платформа сама
-   выпустила эту банковскую операцию для сделки — иначе 409
-   `BANK_OPERATION_NOT_PENDING` (проверка SECURITY DEFINER-связкой
-   `app_bank_callback_scope`, RLS денежной сделки не ослабляется). Callback
-   ведёт шаги `confirm_reserve`/`confirm_release` доменной машины сделки.
-   Песочница РСХБ: `BANK_WEBHOOK_SECRET` — общий секрет; боевое подключение —
-   замена секрета и, при необходимости, адаптер формата под их Open API.
+   **Входящий шов банка (реализован — единственный денежный путь).**
+   `POST /api/settlement-engine/bank-callback` — авторитетный вход подтверждений
+   банка (settlement-engine). Подпись `X-Bank-Signature: hmac-sha256=<hex>` над
+   каноническим payload `POST\n{path}\n{partnerId}\n{keyId}\n{timestamp}\n
+   {eventId}\n{sha256(canonical(body))}`; ключ партнёра (`partnerId`,`keyId`)
+   из реестра ключей `BankKeyRegistryService` с БД-отзывом на каждый вызов;
+   обязательные `X-Bank-Timestamp` (окно), `X-Bank-Event-Id` (== `body.eventId`),
+   `X-Bank-Partner-Id`, `X-Bank-Key-Id`. Тело: `{ dealId, operationId, operation:
+   RESERVE|RELEASE|REFUND, status: SUCCESS|FAILED, bankRef, eventId }`. Fail-
+   closed: неверная подпись/ключ — 401, тело вне схемы — 400; `operationId`
+   должен совпадать с операцией, выпущенной платформой при `request_reserve`/
+   `request_release`. Проверено живьём 17.07.2026: резерв денег подтверждён этим
+   швом (deal → RESERVED, payment RESERVED, bank_op CONFIRMED, ref
+   RSHB-RESERVE-0001). Песочница РСХБ: ключ в `BANK_HMAC_KEYS`/`BANK_HMAC_SECRET`;
+   боевое подключение — регистрация боевого ключа партнёра и, при необходимости,
+   адаптер формата под их Open API. (Денежное подтверждение маршрутизируется
+   через settlement-engine, а не через доменную команду напрямую — попытка
+   вызвать `confirm_reserve`/`confirm_release` в обход даёт 403
+   `VERIFIED_BANK_CALLBACK_REQUIRED`.)
 2. **ФГИС «Зерно» / СДИЗ:** проверка статуса СДИЗ, фиксация погашения. Песочница:
    ручное подтверждение оператором с журналом.
 3. **ЭДО (подписание):** отправка документа на подпись → вебхук подписи. Песочница:

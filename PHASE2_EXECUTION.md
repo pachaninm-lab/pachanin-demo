@@ -116,18 +116,54 @@ SURVEYOR, LAB, ACCOUNTING. Оверсайт-роли (COMPLIANCE_OFFICER) тре
 | place_winning_bid | BUYER | SUCCESS → AUCTION_WON |
 
 Это подтверждает живьём: кросс-tenant участник (решение A) исполняет доменные
-команды денежной сделки с полным аудитом. Сделка доведена до AUCTION_WON.
+команды денежной сделки с полным аудитом.
 
-Дальше вступает промышленная строгость (это не баги, а требования качества):
-- `seller_sign_contract`/`buyer_sign_contract` требуют **реального загруженного
-  договора** (`dealDocument` с content-hash и ключом хранилища) и ссылки на
-  доказательство подписи (`signatureEvidenceRef`) — подпись «из воздуха»
-  невозможна. Нужен живой прогон подсистем documents + evidence-pack.
-- `request_reserve` (денежное действие) требует **свежей MFA-верификации**
-  покупателя (`assertRecentFinancialMfa`) — нужен step-up MFA покупателя.
-- После RESERVE_REQUESTED банковский шов уже проверен (см. выше): callback
-  подтверждает резерв. Хвост (логистика → вес → осмотр → лаборатория →
-  документы → выплата → закрытие) требует состава LOGISTICIAN/DRIVER/SURVEYOR/
-  LAB/ACCOUNTING; из них SURVEYOR не выдаётся текущим `role-grant` (только
-  SUPPORT_MANAGER/COMPLIANCE_OFFICER/EXECUTIVE/ADMIN) — для полного хвоста нужен
-  либо gated-seed сюрвейера, либо расширение пути выдачи ролей исполнения.
+### Доведено живьём до RESERVED (реальный денежный путь)
+
+Поднят полный состав ролей через реальные эндпоинты (регистрация → верификация
+организации → выдача роли где нужно → назначение участником `POST /api/deals/
+:id/participants`): COMPLIANCE_OFFICER, FARMER, BUYER, LOGISTICIAN, DRIVER,
+SURVEYOR, LAB (в tenant сделки), ACCOUNTING, SUPPORT_MANAGER, ELEVATOR — из них
+LOGISTICIAN/DRIVER/SURVEYOR/LAB/ACCOUNTING **из своих tenant'ов** (кросс-tenant).
+Исполнено командами:
+
+| Шаг | Актёр | Итог |
+|-----|-------|------|
+| approve_admission | COMPLIANCE_OFFICER (чужой tenant) | → ADMISSION_APPROVED |
+| publish_auction | FARMER | → AUCTION_OPEN |
+| place_winning_bid | BUYER | → AUCTION_WON |
+| seller_sign_contract | FARMER | → SELLER_SIGNED (реальный договор+evidence) |
+| buyer_sign_contract | BUYER | → CONTRACT_SIGNED (договор SIGNED+immutable) |
+| request_reserve | BUYER (step-up MFA) | → RESERVE_REQUESTED (settlement-операция) |
+| **confirm_reserve** | **БАНК (settlement bank-callback)** | **→ RESERVED, payment RESERVED, bank_op CONFIRMED, ref RSHB-RESERVE-0001** |
+
+Денежный резерв подтверждён **авторитетным** швом
+`POST /api/settlement-engine/bank-callback` (реестр ключей партнёра, канонная
+подпись). Это и есть боевой шов РСХБ.
+
+### Важные находки (для доведения до CLOSED)
+
+1. **Дубль банковского шва устранён.** Ранее в этой фазе был добавлен
+   `POST /api/webhooks/bank` (на легаси `gateway.executeBankCallback`). Он
+   избыточен: для settlement-сделок `confirm_reserve/confirm_release`
+   маршрутизируются в settlement-engine, а прямой вызов даёт 403
+   `VERIFIED_BANK_CALLBACK_REQUIRED`. Дубль удалён — единственный денежный путь
+   `settlement-engine/bank-callback`.
+2. **`finalize_lab` несовместим с БД-цепочкой custody (реальный дефект кода).**
+   `deal-command.service` ждёт `lab_sample.status='PENDING'` и ставит `'DONE'`,
+   но триггеры `labs` (`app_labs_sample_state_guard`) объявляют PENDING/DONE
+   запрещёнными и требуют цепочку `CREATED→COLLECTED→IN_TRANSIT→RECEIVED→
+   ANALYSIS_IN_PROGRESS→FINALIZED` с authorized_actors и custody-событиями.
+   `finalize_lab` в текущем виде непроходим — нужно привести команду к custody-
+   модели labs. Это блокирует `accept_delivery` (требует qualityStatus=PASSED).
+3. **Логистический нормализованный допуск — глубокий граф.** `assign_logistics`
+   требует verified carrier/vehicle/driver/facility **в tenant сделки** с
+   immutable-evidence (deal_documents type EVIDENCE_FILE, статус VERIFIED),
+   связкой `driver_vehicle_links` и допуском `logistics.deal_admissions`. Для
+   живого прогона логистики нужен либо gated-seed этого графа, либо драйвер по
+   реальным эндпоинтам подсистемы logistics.
+
+Итог: денежный контур (резерв) и весь путь до RESERVED доказаны живьём на
+реальных швах. До CLOSED осталось: (2) исправить `finalize_lab` под custody-
+модель labs и (3) поднять граф logistics; после этого — вес/осмотр/лаборатория/
+приёмка/документы/выплата/закрытие проходят теми же командами.
