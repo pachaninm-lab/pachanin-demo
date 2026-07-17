@@ -25,7 +25,7 @@ jobs:
         run: |
           set -euo pipefail
           SITE="https://xn----8sbjf4befbjgs9b.xn--p1ai"
-          DEPLOY_EVIDENCE="$SITE/.well-known/pc-deploy.json"
+          DEPLOY_EVIDENCE="$SITE/manifest-pc-deploy.json"
           mkdir -p artifacts/seo-live
 
           for attempt in {1..60}; do
