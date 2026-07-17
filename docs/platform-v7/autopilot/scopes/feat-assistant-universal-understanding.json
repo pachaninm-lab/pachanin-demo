@@ -1,0 +1,19 @@
+{
+  "branch": "feat/assistant-universal-understanding",
+  "status": "active",
+  "purpose": "Typo-tolerant, multilingual question understanding and fail-safe unanswered-question registration for the public platform assistant.",
+  "allowedPaths": [
+    ".github/workflows/platform-v7-autopilot-guard.yml",
+    "apps/web/app/api/public-platform-assistant/route.ts",
+    "apps/web/lib/platform-v7/assistant-question-understanding.ts",
+    "apps/web/tests/unit/platformV7AssistantQuestionUnderstanding.test.ts",
+    "docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json"
+  ],
+  "forbiddenCapabilities": [
+    "account data access",
+    "Deal data access from public mode",
+    "external model calls",
+    "autonomous commands",
+    "full question text persistence"
+  ]
+}
