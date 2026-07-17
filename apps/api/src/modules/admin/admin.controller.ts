@@ -14,6 +14,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { AuthService } from '../auth/auth.service';
+import { RoleGrantService } from './role-grant.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
 
 @Controller('admin')
@@ -23,6 +24,7 @@ export class AdminController {
   constructor(
     private readonly auth: AuthService,
     private readonly outbox: OutboxService,
+    private readonly roleGrant: RoleGrantService,
   ) {}
 
   @Get('users')
@@ -31,12 +33,14 @@ export class AdminController {
   }
 
   @Patch('users/:id/role')
-  updateRole(@Param('id') id: string, @Body() body: { role: Role }) {
-    try {
-      return this.auth.updateUserRole(id, body.role);
-    } catch {
-      throw new NotFoundException(`User ${id} not found`);
-    }
+  updateRole(
+    @Param('id') id: string,
+    @Body() body: { role: Role; reason: string },
+    @CurrentUser() user: RequestUser,
+  ) {
+    // Реальная выдача роли: membership в PostgreSQL + аудит + отзыв сессий.
+    // Прежний путь менял только synthetic-кэш E2E и не действовал в бою.
+    return this.roleGrant.grantRole(id, String(body?.role ?? ''), body?.reason ?? '', user);
   }
 
   @Patch('users/:id/org')

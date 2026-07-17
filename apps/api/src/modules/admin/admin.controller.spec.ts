@@ -76,11 +76,14 @@ describe('AdminController', () => {
   let ctrl: AdminController;
   let auth: jest.Mocked<AuthService>;
   let outbox: jest.Mocked<OutboxService>;
+  let roleGrant: { grantRole: jest.Mock };
+  const admin = { id: 'admin-1', role: Role.ADMIN } as any;
 
   beforeEach(() => {
     auth = makeAuthService();
     outbox = makeOutboxService();
-    ctrl = new AdminController(auth, outbox);
+    roleGrant = { grantRole: jest.fn().mockResolvedValue({ role: Role.LOGISTICIAN }) };
+    ctrl = new AdminController(auth, outbox, roleGrant as any);
   });
 
   it('returns users without password hashes', () => {
@@ -89,18 +92,16 @@ describe('AdminController', () => {
     for (const user of result) expect((user as any).passwordHash).toBeUndefined();
   });
 
-  it('delegates role and organization updates', () => {
-    ctrl.updateRole('user-farmer-001', { role: Role.LOGISTICIAN });
+  it('delegates role grants to the audited membership path and org updates to auth', () => {
+    ctrl.updateRole('user-farmer-001', { role: Role.SUPPORT_MANAGER, reason: 'Назначение дежурного оператора смены.' }, admin);
     ctrl.updateOrg('user-farmer-001', { orgId: 'org-new' });
-    expect(auth.updateUserRole).toHaveBeenCalledWith('user-farmer-001', Role.LOGISTICIAN);
+    expect(roleGrant.grantRole).toHaveBeenCalledWith(
+      'user-farmer-001',
+      Role.SUPPORT_MANAGER,
+      'Назначение дежурного оператора смены.',
+      admin,
+    );
     expect(auth.updateUserOrg).toHaveBeenCalledWith('user-farmer-001', 'org-new');
-  });
-
-  it('translates missing user updates into NotFoundException', () => {
-    auth.updateUserRole.mockImplementation(() => {
-      throw new Error('not found');
-    });
-    expect(() => ctrl.updateRole('bad-id', { role: Role.ADMIN })).toThrow(NotFoundException);
   });
 
   it('returns durable PostgreSQL queue statistics and recent entries', async () => {

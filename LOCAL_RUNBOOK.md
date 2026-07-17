@@ -83,12 +83,32 @@ curl -X PATCH http://127.0.0.1:4000/api/organizations/<orgId>/status \
 Очередь на проверку: `GET /api/organizations?status=PENDING` (те же роли).
 Каждое решение пишется в `audit_events` (ORGANIZATION_STATUS_DECISION).
 
+**Первый администратор** — бутстрап через env при старте API (действует только
+пока в системе нет ни одного ADMIN; журналируется):
+
+```bash
+export PC_BOOTSTRAP_ADMIN_EMAIL='operator.test@procent-agro.test'
+```
+
+Вход ADMIN требует MFA: логин вернёт `setupSecret` (TOTP) и `challengeToken` —
+код подтверждается через `POST /api/auth/mfa/verify`.
+
+**Выдача операторских ролей** — только ADMIN, с основанием; сессии цели
+отзываются автоматически (роль действует после пере-входа):
+
+```bash
+curl -X PATCH http://127.0.0.1:4000/api/admin/users/<userId>/role \
+  -H 'Authorization: Bearer <admin-token>' -H 'Content-Type: application/json' \
+  -d '{"role":"SUPPORT_MANAGER","reason":"Назначение дежурного оператора смены."}'
+```
+
 После этого форма `/platform-v7/login` пускает в кабинет роли; кабинет читает
 живые данные через `/api/proxy/*` и показывает честное пустое состояние,
 если сделок нет.
 
-## 5. Проверенный маршрут
+## 5. Проверенный маршрут (полностью без SQL)
 
-register → verify org (SQL) → login через браузерную форму → редирект в
-`/platform-v7/buyer` → кабинет с сервера: «Сегодня нет активных сделок»
-(без экрана ошибки, без статичных демо-данных).
+register → оператор допускает организацию (консоль или API) → login через
+браузерную форму → кабинет роли с живыми данными. Операторы и админы
+провизионируются бутстрапом + выдачей ролей из §4. SQL используется только
+для диагностики.
