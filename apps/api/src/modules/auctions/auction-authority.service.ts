@@ -206,8 +206,19 @@ export class AuctionAuthorityService {
           l.version,
           l.updated_at
         FROM auction.lots l
-        WHERE l.tenant_id = ${context.tenantId}
-          AND l.id = ${lotId}
+        WHERE l.id = ${lotId}
+          AND (
+            l.tenant_id = ${context.tenantId}
+            OR EXISTS (
+              SELECT 1
+              FROM auction.admissions adm
+              WHERE adm.lot_id = l.id
+                AND adm.tenant_id = l.tenant_id
+                AND adm.participant_org_id = ${context.orgId}
+                AND adm.status = 'ADMITTED'
+                AND adm.valid_until > now()
+            )
+          )
           AND (${scope})
         LIMIT 1
       `);
@@ -215,6 +226,9 @@ export class AuctionAuthorityService {
       if (!lot) {
         throw new NotFoundException({ code: 'AUCTION_LOT_NOT_ACCESSIBLE' });
       }
+      // Допущенный участник из другого tenant работает в контуре лота: все
+      // дочерние выборки идут по tenant лота, доступ уже проверен допуском.
+      const crossTenantParticipant = lot.tenant_id !== context.tenantId;
 
       const awards = await tx.$queryRaw<AuctionAwardRow[]>(Prisma.sql`
         SELECT
@@ -229,7 +243,7 @@ export class AuctionAuthorityService {
           d.version AS deal_version
         FROM auction.awards a
         LEFT JOIN public.deals d ON d.id = a.deal_id
-        WHERE a.tenant_id = ${context.tenantId}
+        WHERE a.tenant_id = ${lot.tenant_id}
           AND a.lot_id = ${lotId}
           AND a.status <> 'REVOKED'
         LIMIT 1
@@ -248,7 +262,7 @@ export class AuctionAuthorityService {
             WHERE b.status NOT IN ('REJECTED', 'CANCELLED')
           )::bigint AS max_version
         FROM auction.bids b
-        WHERE b.tenant_id = ${context.tenantId}
+        WHERE b.tenant_id = ${lot.tenant_id}
           AND b.lot_id = ${lotId}
       `);
       const summary = summaries[0];
@@ -270,7 +284,7 @@ export class AuctionAuthorityService {
           b.status,
           b.version
         FROM auction.bids b
-        WHERE b.tenant_id = ${context.tenantId}
+        WHERE b.tenant_id = ${lot.tenant_id}
           AND b.lot_id = ${lotId}
           AND b.status NOT IN ('REJECTED', 'CANCELLED')
           ${selectedBidFilter}
@@ -286,13 +300,14 @@ export class AuctionAuthorityService {
         bestBid,
         award,
         context,
+        crossTenantParticipant,
       );
 
       const dealCreated = Boolean(
         award?.deal_id
           && award.award_status === 'DEAL_CREATED'
           && award.deal_exists
-          && award.deal_tenant_id === context.tenantId
+          && award.deal_tenant_id === lot.tenant_id
           && award.deal_source_lot_id === lot.id,
       );
       const observedAt = clock.observed_at;
@@ -518,8 +533,9 @@ function assertPersistedAuctionConsistency(
   bestBid: AuctionBidRow | null,
   award: AuctionAwardRow | null,
   context: TrustedRlsContext,
+  crossTenantParticipant = false,
 ): void {
-  if (lot.tenant_id !== context.tenantId) {
+  if (lot.tenant_id !== context.tenantId && !crossTenantParticipant) {
     throw new InternalServerErrorException({ code: 'AUCTION_TENANT_AUTHORITY_MISMATCH' });
   }
   if ((bidCount === 0) !== (bestBid === null)) {
