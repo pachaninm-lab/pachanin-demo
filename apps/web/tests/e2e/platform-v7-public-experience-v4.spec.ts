@@ -131,12 +131,23 @@ test('primary journey starts at terms while the highlighted acceptance stage sta
   await expect(page.locator('.pc-ppe-stage-track button[data-state="active"]')).toContainText('Приёмка');
 });
 
-test('bare deal explorer starts from the first stage and buyer perspective', async ({ page }) => {
+test('bare deal explorer and browser history preserve the first-stage buyer fallback', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 860 });
   await page.goto('/platform-v7/how-it-works?lang=ru', { waitUntil: 'load' });
 
-  await expect(page.locator('.pc-ppe-stage-track button[data-state="active"]')).toContainText('Условия');
-  await expect(page.locator('.pc-ppe-context-panel select')).toHaveValue('buyer');
+  const activeStage = page.locator('.pc-ppe-stage-track button[data-state="active"]');
+  const perspective = page.locator('.pc-ppe-context-panel select');
+  await expect(activeStage).toContainText('Условия');
+  await expect(perspective).toHaveValue('buyer');
+
+  await page.locator('.pc-ppe-stage-track').getByRole('button', { name: /Приёмка/ }).click();
+  await expect(page).toHaveURL(/stage=acceptance/);
+  await expect(activeStage).toContainText('Приёмка');
+
+  await page.goBack();
+  await expect(page).not.toHaveURL(/stage=/);
+  await expect(activeStage).toContainText('Условия');
+  await expect(perspective).toHaveValue('buyer');
 });
 
 test('deal explorer exposes four business areas and all ten stages on mobile', async ({ page }) => {
