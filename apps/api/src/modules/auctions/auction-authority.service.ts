@@ -365,13 +365,7 @@ export class AuctionAuthorityService {
             autoExtendMinutes: lot.auto_extend_minutes,
           },
           bestBid: bestBid
-            ? {
-                id: bestBid.id,
-                amount: finiteNumber(bestBid.amount_rub_per_ton, 'best bid'),
-                buyerName: bestBid.buyer_name,
-                buyerOrgId: bestBid.buyer_org_id,
-                status: bestBid.status,
-              }
+            ? presentBid(bestBid, award, user, context)
             : null,
           bidCount,
           executionBridge: {
@@ -503,6 +497,51 @@ function requiredMilestones(
   if (bidCount > 0 && !award) milestones.push('issue_server_award');
   if (award && !dealCreated) milestones.push('create_canonical_deal');
   return milestones;
+}
+
+const AUCTION_OVERSIGHT_ROLES: ReadonlySet<Role> = new Set([
+  Role.SUPPORT_MANAGER,
+  Role.ADMIN,
+  Role.COMPLIANCE_OFFICER,
+  Role.EXECUTIVE,
+]);
+
+type PresentedBid = Readonly<{
+  id: string;
+  amount: number;
+  buyerName: string | null;
+  buyerOrgId: string | null;
+  status: string;
+  isOwn: boolean;
+  anonymized: boolean;
+}>;
+
+/**
+ * Обезличивание ставок между конкурентами (решение владельца, 16.07.2026).
+ * До итога торгов участники видят только цену и статус: идентичность чужой
+ * ставки скрыта, чтобы исключить сговор и сделку в обход платформы. Свою
+ * ставку участник видит как свою. Надзорные роли видят всё; победитель
+ * раскрывается после присуждения (award) — сделка всё равно раскрывает стороны.
+ */
+function presentBid(
+  bid: AuctionBidRow,
+  award: AuctionAwardRow | null,
+  user: RequestUser,
+  context: TrustedRlsContext,
+): PresentedBid {
+  const isOwn = bid.buyer_org_id === context.orgId;
+  const oversight = AUCTION_OVERSIGHT_ROLES.has(user.role);
+  const awarded = Boolean(award && award.winning_bid_id === bid.id);
+  const disclosed = oversight || isOwn || awarded;
+  return {
+    id: bid.id,
+    amount: finiteNumber(bid.amount_rub_per_ton, 'best bid'),
+    buyerName: disclosed ? bid.buyer_name : null,
+    buyerOrgId: disclosed ? bid.buyer_org_id : null,
+    status: bid.status,
+    isOwn,
+    anonymized: !disclosed,
+  };
 }
 
 function originNextStep(lot: AuctionLotRow): string | null {
