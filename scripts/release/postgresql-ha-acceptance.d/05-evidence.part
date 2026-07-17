@@ -1,0 +1,129 @@
+  --arg poolerEndpoint "$POOLER_ENDPOINT" \
+  --arg backupPhase "$BACKUP_PHASE" \
+  --arg pitrTargetTime "$PITR_TARGET_TIME" \
+  --arg sourceHash "$SOURCE_HASH" \
+  --arg restoredHash "$RESTORED_HASH" \
+  --argjson readyInstances "$FINAL_READY_INSTANCES" \
+  --argjson distinctDatabaseNodes "$DISTINCT_DB_NODES" \
+  --argjson minioReplicas 4 \
+  --argjson distinctMinioNodes "$MINIO_DISTINCT_NODES" \
+  --argjson streamingReplicas "$FINAL_STREAMING_REPLICAS" \
+  --argjson synchronousStandbys "$FINAL_SYNCHRONOUS_STANDBYS" \
+  --argjson failoverQuorumStandbyNumber "$FAILOVER_QUORUM_STANDBY_NUMBER" \
+  --argjson failoverDurationMs "$FAILOVER_DURATION_MS" \
+  --argjson committedRowsLost "$COMMITTED_ROWS_LOST" \
+  --argjson writerSuccesses "$WRITER_SUCCESSES" \
+  --argjson writerFailures "$WRITER_FAILURES" \
+  --argjson archivedWalDelta "$ARCHIVED_WAL_DELTA" \
+  --argjson backupObjectCount "$OBJECT_COUNT" \
+  --argjson restoreDurationMs "$FULL_RESTORE_DURATION_MS" \
+  --argjson sourceCount "$SOURCE_COUNT" \
+  --argjson restoredCount "$RESTORED_COUNT" \
+  --argjson pitrDurationMs "$PITR_DURATION_MS" \
+  --argjson pitrIncludeCount "$PITR_INCLUDE_COUNT" \
+  --argjson pitrExcludeCount "$PITR_EXCLUDE_COUNT" \
+  '{
+    schemaVersion: 1,
+    evidenceClass: "POSTGRESQL_HA_FAILOVER_PITR",
+    exactCommit: $exactCommit,
+    environment: "disposable-multi-node-kind",
+    generatedAt: $generatedAt,
+    pass: true,
+    decision: "PASS",
+    supplyChain: {
+      certManagerVersion: $certManagerVersion,
+      cloudNativePgVersion: $cloudNativePgVersion,
+      barmanPluginVersion: $barmanPluginVersion,
+      certManagerManifestSha256: $certManagerManifestSha256,
+      cloudNativePgManifestSha256: $cloudNativePgManifestSha256,
+      barmanPluginManifestSha256: $barmanPluginManifestSha256,
+      postgresImage: $postgresImage,
+      minioImage: $minioImage,
+      minioMcImage: $minioMcImage,
+      cnpgOperatorImage: $cnpgOperatorImage,
+      barmanPluginImage: $barmanPluginImage,
+      certManagerImage: $certManagerImage
+    },
+    topology: {
+      postgresInstances: 3,
+      readyInstances: $readyInstances,
+      distinctDatabaseNodes: $distinctDatabaseNodes,
+      poolerReplicas: 2,
+      minioReplicas: $minioReplicas,
+      distinctMinioNodes: $distinctMinioNodes
+    },
+    replication: {
+      streamingReplicas: $streamingReplicas,
+      synchronousStandbys: $synchronousStandbys,
+      dataDurability: "required",
+      failoverQuorum: true,
+      failoverQuorumStandbyNumber: $failoverQuorumStandbyNumber
+    },
+    failover: {
+      oldPrimary: $oldPrimary,
+      newPrimary: $newPrimary,
+      durationMs: $failoverDurationMs,
+      thresholdMs: 120000,
+      committedRowsLost: $committedRowsLost,
+      oldPrimaryPodUidReused: false,
+      poolerEndpoint: $poolerEndpoint,
+      poolerEndpointChanged: false,
+      writerSuccesses: $writerSuccesses,
+      writerFailuresDuringTransition: $writerFailures
+    },
+    backup: {
+      method: "barman-cloud-cnpg-i-plugin",
+      phase: $backupPhase,
+      archivedWalDelta: $archivedWalDelta,
+      objectCount: $backupObjectCount,
+      versioningEnabled: true,
+      retentionPolicy: "7d"
+    },
+    restore: {
+      mode: "isolated-new-cluster",
+      durationMs: $restoreDurationMs,
+      sourceCount: $sourceCount,
+      restoredCount: $restoredCount,
+      sourceHash: $sourceHash,
+      restoredHash: $restoredHash
+    },
+    pitr: {
+      targetTime: $pitrTargetTime,
+      durationMs: $pitrDurationMs,
+      includeMarkerPresent: ($pitrIncludeCount == 1),
+      excludeMarkerPresent: ($pitrExcludeCount == 1)
+    },
+    principals: {
+      migrationPrincipal: "migration_runner",
+      runtimePrincipal: "app_runtime",
+      restoreVerificationPrincipal: "restore_verifier",
+      runtimeSuperuser: false,
+      runtimeCanCreateDatabase: false,
+      runtimeCanCreateSchemaObjects: false
+    },
+    thresholds: {
+      failoverRtoMs: 120000,
+      committedRowsLost: 0,
+      readyInstances: 3,
+      synchronousStandbys: 1,
+      restoreHashMismatch: 0,
+      pitrBoundaryViolations: 0
+    },
+    violations: [],
+    maturity: {
+      acceptedLevel: "PRODUCTION_LIKE_ACCEPTED",
+      permittedClaim: "PostgreSQL HA, automated failover and PITR are accepted on reproducible production-like infrastructure.",
+      prohibitedClaims: [
+        "fully operational production",
+        "real cloud provider operations",
+        "live user traffic",
+        "live external integrations",
+        "permanent production history"
+      ]
+    }
+  }' > "$EVIDENCE_PATH"
+
+node scripts/release/enforce-postgresql-ha-evidence.mjs
+collect_diagnostics
+SUCCESS=1
+printf 'PostgreSQL HA/failover/PITR acceptance PASS for %s\n' "$EXACT_HEAD"

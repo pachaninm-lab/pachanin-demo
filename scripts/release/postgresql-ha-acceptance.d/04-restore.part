@@ -1,0 +1,105 @@
+SOURCE_HASH="$(runtime_sql "SELECT encode(digest(coalesce(string_agg(marker,E'\\n' ORDER BY id),''),'sha256'),'hex') FROM ha_evidence;")"
+[[ -n "$SOURCE_HASH" ]]
+
+write_restore_manifest() {
+  local name="$1"
+  local target_time="${2:-}"
+  cat > "$RAW_DIR/${name}.yaml" <<YAML
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: ${name}
+  namespace: ${NAMESPACE}
+  labels:
+    app.kubernetes.io/name: ${name}
+    app.kubernetes.io/component: disaster-recovery-verification
+spec:
+  instances: 1
+  imageName: ${POSTGRES_IMAGE}
+  imagePullPolicy: IfNotPresent
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: grainflow-superuser
+  bootstrap:
+    recovery:
+      source: origin
+$(if [[ -n "$target_time" ]]; then printf '      recoveryTarget:\n        targetTime: "%s"\n' "$target_time"; fi)
+  externalClusters:
+    - name: origin
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: grainflow-backup
+          serverName: grainflow-postgresql
+  storage:
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 768Mi
+YAML
+}
+
+FAILURE_REASON="full isolated restore and reconciliation failed"
+FULL_RESTORE_STARTED_MS="$(date +%s%3N)"
+write_restore_manifest grainflow-postgresql-restore
+kubectl apply -f "$RAW_DIR/grainflow-postgresql-restore.yaml" > "$RAW_DIR/full-restore-apply.log"
+wait_cluster_ready grainflow-postgresql-restore 1 1200
+FULL_RESTORE_COMPLETED_MS="$(date +%s%3N)"
+FULL_RESTORE_DURATION_MS=$((FULL_RESTORE_COMPLETED_MS - FULL_RESTORE_STARTED_MS))
+RESTORED_COUNT="$(restore_sql grainflow-postgresql-restore "SELECT count(*) FROM ha_evidence;")"
+RESTORED_HASH="$(restore_sql grainflow-postgresql-restore "SELECT encode(digest(coalesce(string_agg(marker,E'\\n' ORDER BY id),''),'sha256'),'hex') FROM ha_evidence;")"
+[[ "$RESTORED_COUNT" = "$SOURCE_COUNT" ]]
+[[ "$RESTORED_HASH" = "$SOURCE_HASH" ]]
+
+FAILURE_REASON="point-in-time recovery include/exclude boundary failed"
+PITR_STARTED_MS="$(date +%s%3N)"
+write_restore_manifest grainflow-postgresql-pitr "$PITR_TARGET_TIME"
+kubectl apply -f "$RAW_DIR/grainflow-postgresql-pitr.yaml" > "$RAW_DIR/pitr-restore-apply.log"
+wait_cluster_ready grainflow-postgresql-pitr 1 1200
+PITR_COMPLETED_MS="$(date +%s%3N)"
+PITR_DURATION_MS=$((PITR_COMPLETED_MS - PITR_STARTED_MS))
+PITR_INCLUDE_COUNT="$(restore_sql grainflow-postgresql-pitr "SELECT count(*) FROM ha_evidence WHERE marker='PITR_INCLUDE';")"
+PITR_EXCLUDE_COUNT="$(restore_sql grainflow-postgresql-pitr "SELECT count(*) FROM ha_evidence WHERE marker='PITR_EXCLUDE';")"
+[[ "$PITR_INCLUDE_COUNT" = "1" ]]
+[[ "$PITR_EXCLUDE_COUNT" = "0" ]]
+
+FAILURE_REASON="backup object inventory or final evidence generation failed"
+OBJECT_COUNT="$(
+  kubectl run minio-proof -n "$NAMESPACE" --restart=Never --rm -i \
+    --image="$MINIO_MC_IMAGE" \
+    --env="MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}" \
+    --env="MINIO_SECRET_KEY=${MINIO_SECRET_KEY}" \
+    --command -- /bin/sh -ec \
+    'mc alias set acceptance http://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" >/dev/null; mc find acceptance/grainflow-postgresql-ha --type f | wc -l' |
+    tr -d '[:space:]'
+)"
+(( OBJECT_COUNT > 0 ))
+
+CNPG_OPERATOR_IMAGE="$(kubectl get deployment cnpg-controller-manager -n cnpg-system -o jsonpath='{.spec.template.spec.containers[0].image}')"
+BARMAN_PLUGIN_IMAGE="$(kubectl get deployment barman-cloud -n cnpg-system -o jsonpath='{.spec.template.spec.containers[0].image}')"
+CERT_MANAGER_IMAGE="$(kubectl get deployment cert-manager -n cert-manager -o jsonpath='{.spec.template.spec.containers[0].image}')"
+FINAL_READY_INSTANCES="$(kubectl get cluster grainflow-postgresql -n "$NAMESPACE" -o jsonpath='{.status.readyInstances}')"
+FINAL_STREAMING_REPLICAS="$(admin_sql "SELECT count(*) FROM pg_stat_replication WHERE state='streaming';")"
+FINAL_SYNCHRONOUS_STANDBYS="$(admin_sql "SELECT count(*) FROM pg_stat_replication WHERE state='streaming' AND sync_state IN ('sync','quorum');")"
+
+jq -n \
+  --arg exactCommit "$EXACT_HEAD" \
+  --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --arg certManagerVersion "$CERT_MANAGER_VERSION" \
+  --arg cloudNativePgVersion "$CNPG_VERSION" \
+  --arg barmanPluginVersion "$BARMAN_PLUGIN_VERSION" \
+  --arg certManagerManifestSha256 "$CERT_MANAGER_SHA" \
+  --arg cloudNativePgManifestSha256 "$CNPG_SHA" \
+  --arg barmanPluginManifestSha256 "$BARMAN_PLUGIN_SHA" \
+  --arg postgresImage "$POSTGRES_IMAGE" \
+  --arg minioImage "$MINIO_IMAGE" \
+  --arg minioMcImage "$MINIO_MC_IMAGE" \
+  --arg cnpgOperatorImage "$CNPG_OPERATOR_IMAGE" \
+  --arg barmanPluginImage "$BARMAN_PLUGIN_IMAGE" \
+  --arg certManagerImage "$CERT_MANAGER_IMAGE" \
+  --arg oldPrimary "$OLD_PRIMARY" \
+  --arg newPrimary "$NEW_PRIMARY" \
