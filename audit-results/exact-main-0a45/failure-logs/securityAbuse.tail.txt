@@ -1,0 +1,500 @@
+2026-07-16T21:54:38.7716493Z   PNPM_VERSION: 10.2.1
+2026-07-16T21:54:38.7716765Z   EXACT_HEAD: 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:54:38.7717127Z   SECURITY_ABUSE_DIR: artifacts/security-abuse
+2026-07-16T21:54:38.7717476Z   SECURITY_INPUT_DIR: artifacts/security-evidence-input
+2026-07-16T21:54:38.7717810Z   SECURITY_OUTPUT_DIR: artifacts/security
+2026-07-16T21:54:38.7718100Z   NODE_ENV: test
+2026-07-16T21:54:38.7718645Z   ONE_DEAL_ADMIN_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:38.7719197Z   ONE_DEAL_AUTH_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:38.7719736Z   ONE_DEAL_APP_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:38.7720315Z   ONE_DEAL_STORAGE_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:38.7720751Z   ONE_DEAL_EVIDENCE_LOG: artifacts/security-abuse/one-deal-e2e.log
+2026-07-16T21:54:38.7721163Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-07-16T21:54:38.7721471Z ##[endgroup]
+2026-07-16T21:54:39.1022874Z Scope: all 5 workspace projects
+2026-07-16T21:54:39.1601059Z Lockfile is up to date, resolution step is skipped
+2026-07-16T21:54:39.2690197Z Progress: resolved 1, reused 0, downloaded 0, added 0
+2026-07-16T21:54:39.4116338Z Packages: +1149
+2026-07-16T21:54:39.4121162Z ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2026-07-16T21:54:40.2692481Z Progress: resolved 1149, reused 1140, downloaded 0, added 38
+2026-07-16T21:54:41.2690016Z Progress: resolved 1149, reused 1140, downloaded 0, added 468
+2026-07-16T21:54:41.9825013Z Progress: resolved 1149, reused 1140, downloaded 0, added 1149, done
+2026-07-16T21:54:42.5615656Z 
+2026-07-16T21:54:42.5616219Z devDependencies:
+2026-07-16T21:54:42.5616724Z + @netlify/plugin-nextjs 5.15.12
+2026-07-16T21:54:42.5617238Z + @vitest/browser 4.1.9
+2026-07-16T21:54:42.5617508Z + @vitest/coverage-v8 4.1.9
+2026-07-16T21:54:42.5617763Z + jsdom 29.0.1
+2026-07-16T21:54:42.5617978Z + vitest 4.1.9
+2026-07-16T21:54:42.5618100Z 
+2026-07-16T21:54:42.5619034Z Ignored build scripts: @nestjs/core, @prisma/client, @prisma/engines, @sentry/profiling-node, msw, prisma, protobufjs, sharp. Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+2026-07-16T21:54:42.5619808Z 
+2026-07-16T21:54:42.5938409Z Done in 3.7s
+2026-07-16T21:54:42.6418974Z ##[group]Run node scripts/security/test-evaluator-fail-closed.mjs
+2026-07-16T21:54:42.6419483Z [36;1mnode scripts/security/test-evaluator-fail-closed.mjs[0m
+2026-07-16T21:54:42.6478200Z shell: /usr/bin/bash -e {0}
+2026-07-16T21:54:42.6478465Z env:
+2026-07-16T21:54:42.6478655Z   NODE_VERSION: 24
+2026-07-16T21:54:42.6478871Z   PNPM_VERSION: 10.2.1
+2026-07-16T21:54:42.6479138Z   EXACT_HEAD: 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:54:42.6479489Z   SECURITY_ABUSE_DIR: artifacts/security-abuse
+2026-07-16T21:54:42.6479842Z   SECURITY_INPUT_DIR: artifacts/security-evidence-input
+2026-07-16T21:54:42.6480178Z   SECURITY_OUTPUT_DIR: artifacts/security
+2026-07-16T21:54:42.6480450Z   NODE_ENV: test
+2026-07-16T21:54:42.6480998Z   ONE_DEAL_ADMIN_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.6481558Z   ONE_DEAL_AUTH_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.6482092Z   ONE_DEAL_APP_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.6482712Z   ONE_DEAL_STORAGE_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.6483100Z   ONE_DEAL_EVIDENCE_LOG: artifacts/security-abuse/one-deal-e2e.log
+2026-07-16T21:54:42.6483512Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-07-16T21:54:42.6483891Z   SECURITY_EXACT_HEAD: 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:54:42.6484431Z   SECURITY_EVALUATOR_CONTRACT_REPORT: artifacts/security-abuse/security-evaluator-contract.json
+2026-07-16T21:54:42.6485065Z ##[endgroup]
+2026-07-16T21:54:42.7746969Z Security evaluator rejects HIGH findings and scanner failures without exceptions.
+2026-07-16T21:54:42.7820772Z ##[group]Run echo "JWT_SECRET=$(openssl rand -hex 48)" >> "$GITHUB_ENV"
+2026-07-16T21:54:42.7821306Z [36;1mecho "JWT_SECRET=$(openssl rand -hex 48)" >> "$GITHUB_ENV"[0m
+2026-07-16T21:54:42.7821765Z [36;1mecho "AUTH_TOKEN_PEPPER=$(openssl rand -hex 48)" >> "$GITHUB_ENV"[0m
+2026-07-16T21:54:42.7822239Z [36;1mecho "MFA_ENCRYPTION_KEY=$(openssl rand -hex 48)" >> "$GITHUB_ENV"[0m
+2026-07-16T21:54:42.7822702Z [36;1mecho "BANK_HMAC_SECRET=$(openssl rand -hex 48)" >> "$GITHUB_ENV"[0m
+2026-07-16T21:54:42.7885099Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-16T21:54:42.7885483Z env:
+2026-07-16T21:54:42.7885678Z   NODE_VERSION: 24
+2026-07-16T21:54:42.7885894Z   PNPM_VERSION: 10.2.1
+2026-07-16T21:54:42.7886178Z   EXACT_HEAD: 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:54:42.7886530Z   SECURITY_ABUSE_DIR: artifacts/security-abuse
+2026-07-16T21:54:42.7886889Z   SECURITY_INPUT_DIR: artifacts/security-evidence-input
+2026-07-16T21:54:42.7887269Z   SECURITY_OUTPUT_DIR: artifacts/security
+2026-07-16T21:54:42.7887543Z   NODE_ENV: test
+2026-07-16T21:54:42.7888108Z   ONE_DEAL_ADMIN_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.7888674Z   ONE_DEAL_AUTH_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.7889218Z   ONE_DEAL_APP_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.7889795Z   ONE_DEAL_STORAGE_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.7890188Z   ONE_DEAL_EVIDENCE_LOG: artifacts/security-abuse/one-deal-e2e.log
+2026-07-16T21:54:42.7890605Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-07-16T21:54:42.7890915Z ##[endgroup]
+2026-07-16T21:54:42.8127156Z ##[group]Run node scripts/security/run-abuse-gate.mjs
+2026-07-16T21:54:42.8127576Z [36;1mnode scripts/security/run-abuse-gate.mjs[0m
+2026-07-16T21:54:42.8179208Z shell: /usr/bin/bash -e {0}
+2026-07-16T21:54:42.8179463Z env:
+2026-07-16T21:54:42.8179648Z   NODE_VERSION: 24
+2026-07-16T21:54:42.8179860Z   PNPM_VERSION: 10.2.1
+2026-07-16T21:54:42.8180135Z   EXACT_HEAD: 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:54:42.8180487Z   SECURITY_ABUSE_DIR: artifacts/security-abuse
+2026-07-16T21:54:42.8180833Z   SECURITY_INPUT_DIR: artifacts/security-evidence-input
+2026-07-16T21:54:42.8181174Z   SECURITY_OUTPUT_DIR: artifacts/security
+2026-07-16T21:54:42.8181434Z   NODE_ENV: test
+2026-07-16T21:54:42.8181981Z   ONE_DEAL_ADMIN_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.8182545Z   ONE_DEAL_AUTH_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.8183094Z   ONE_DEAL_APP_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.8183877Z   ONE_DEAL_STORAGE_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:54:42.8184277Z   ONE_DEAL_EVIDENCE_LOG: artifacts/security-abuse/one-deal-e2e.log
+2026-07-16T21:54:42.8185003Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-07-16T21:54:42.8185574Z   JWT_SECRET: aee5ed46d885c820f0ec6caff24b830a175061f6e25a1e3c31d8e7496db13b0335982924bb15567c8b110196d7a4d02f
+2026-07-16T21:54:42.8186390Z   AUTH_TOKEN_PEPPER: 3e5df5d8853416ac1e6b60aa11d7733bee5170b6b0fbb64ea69d6352a525e645f4fde9f1cb226e7090098eed98da6451
+2026-07-16T21:54:42.8187209Z   MFA_ENCRYPTION_KEY: 14e0576657a2518e6768f1cf7598bd1875554c5b2fed4bec5b0dd6719fb57de25bc3bb3e81a6dc3d6ef7e3a8ba555145
+2026-07-16T21:54:42.8188023Z   BANK_HMAC_SECRET: 3401ac1ea5d4ca00ee392372b1d2853f289f06e6fc53a77b10d4239d19a36c2a1a381e762d383dc2cfa5c28922d60b10
+2026-07-16T21:54:42.8188623Z   SECURITY_EXACT_HEAD: 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:54:42.8189090Z   SECURITY_ABUSE_REPORT: artifacts/security-abuse/security-abuse-evidence.json
+2026-07-16T21:54:42.8189602Z   SECURITY_ABUSE_JUNIT: artifacts/security-abuse/security-abuse-junit.xml
+2026-07-16T21:54:42.8190028Z   SECURITY_ABUSE_LOG_DIR: artifacts/security-abuse/logs
+2026-07-16T21:54:42.8190339Z ##[endgroup]
+2026-07-16T21:55:30.6208215Z Security abuse gate passed 10 mandatory scenarios for 0a45a565f134921cd8bbe3361863e62660b128df.
+2026-07-16T21:55:30.6303007Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-16T21:55:30.6304315Z ##[group]Run actions/upload-artifact@v4
+2026-07-16T21:55:30.6304588Z with:
+2026-07-16T21:55:30.6305285Z   name: security-abuse-0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:55:30.6305667Z   path: artifacts/security-abuse
+2026-07-16T21:55:30.6305931Z   if-no-files-found: error
+2026-07-16T21:55:30.6306186Z   retention-days: 90
+2026-07-16T21:55:30.6306403Z   compression-level: 6
+2026-07-16T21:55:30.6306618Z   overwrite: false
+2026-07-16T21:55:30.6306832Z   include-hidden-files: false
+2026-07-16T21:55:30.6307063Z env:
+2026-07-16T21:55:30.6307236Z   NODE_VERSION: 24
+2026-07-16T21:55:30.6307441Z   PNPM_VERSION: 10.2.1
+2026-07-16T21:55:30.6307727Z   EXACT_HEAD: 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:55:30.6308062Z   SECURITY_ABUSE_DIR: artifacts/security-abuse
+2026-07-16T21:55:30.6308407Z   SECURITY_INPUT_DIR: artifacts/security-evidence-input
+2026-07-16T21:55:30.6308733Z   SECURITY_OUTPUT_DIR: artifacts/security
+2026-07-16T21:55:30.6308997Z   NODE_ENV: test
+2026-07-16T21:55:30.6309541Z   ONE_DEAL_ADMIN_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:55:30.6310092Z   ONE_DEAL_AUTH_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:55:30.6310611Z   ONE_DEAL_APP_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:55:30.6311166Z   ONE_DEAL_STORAGE_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:55:30.6311561Z   ONE_DEAL_EVIDENCE_LOG: artifacts/security-abuse/one-deal-e2e.log
+2026-07-16T21:55:30.6311960Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-07-16T21:55:30.6312518Z   JWT_SECRET: aee5ed46d885c820f0ec6caff24b830a175061f6e25a1e3c31d8e7496db13b0335982924bb15567c8b110196d7a4d02f
+2026-07-16T21:55:30.6313330Z   AUTH_TOKEN_PEPPER: 3e5df5d8853416ac1e6b60aa11d7733bee5170b6b0fbb64ea69d6352a525e645f4fde9f1cb226e7090098eed98da6451
+2026-07-16T21:55:30.6314155Z   MFA_ENCRYPTION_KEY: 14e0576657a2518e6768f1cf7598bd1875554c5b2fed4bec5b0dd6719fb57de25bc3bb3e81a6dc3d6ef7e3a8ba555145
+2026-07-16T21:55:30.6315214Z   BANK_HMAC_SECRET: 3401ac1ea5d4ca00ee392372b1d2853f289f06e6fc53a77b10d4239d19a36c2a1a381e762d383dc2cfa5c28922d60b10
+2026-07-16T21:55:30.6315744Z ##[endgroup]
+2026-07-16T21:55:30.7994917Z (node:4616) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-07-16T21:55:30.7996299Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-07-16T21:55:30.8070017Z With the provided path, there will be 7 files uploaded
+2026-07-16T21:55:30.8077487Z Artifact name is valid!
+2026-07-16T21:55:30.8078274Z Root directory input is valid!
+2026-07-16T21:55:30.9456657Z Beginning upload of artifact content to blob storage
+2026-07-16T21:55:30.9763992Z (node:4616) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-07-16T21:55:31.0294999Z Uploaded bytes 13609
+2026-07-16T21:55:31.0481229Z Finished uploading artifact content to blob storage!
+2026-07-16T21:55:31.0482204Z SHA256 digest of uploaded artifact zip is 88888051e115d37f7b9d395bb8785f290fb7cc4d8f60ddebea460465f971e637
+2026-07-16T21:55:31.0483895Z Finalizing artifact upload
+2026-07-16T21:55:31.1969658Z Artifact security-abuse-0a45a565f134921cd8bbe3361863e62660b128df.zip successfully finalized. Artifact ID 8391202569
+2026-07-16T21:55:31.1972200Z Artifact security-abuse-0a45a565f134921cd8bbe3361863e62660b128df has been successfully uploaded! Final size is 13609 bytes. Artifact ID is 8391202569
+2026-07-16T21:55:31.1978018Z Artifact download URL: https://github.com/pachaninm-lab/pachanin-demo/actions/runs/29537637534/artifacts/8391202569
+2026-07-16T21:55:31.2119678Z ##[group]Run set -euo pipefail
+2026-07-16T21:55:31.2120284Z [36;1mset -euo pipefail[0m
+2026-07-16T21:55:31.2120756Z [36;1mdeadline=$((SECONDS + 3000))[0m
+2026-07-16T21:55:31.2121281Z [36;1mwhile (( SECONDS < deadline )); do[0m
+2026-07-16T21:55:31.2121797Z [36;1m  runs="$(gh run list \[0m
+2026-07-16T21:55:31.2122357Z [36;1m    --workflow security-quality-gate.yml \[0m
+2026-07-16T21:55:31.2122942Z [36;1m    --commit "$EXACT_HEAD" \[0m
+2026-07-16T21:55:31.2123434Z [36;1m    --limit 20 \[0m
+2026-07-16T21:55:31.2124041Z [36;1m    --json databaseId,status,conclusion,headSha,createdAt)"[0m
+2026-07-16T21:55:31.2125586Z [36;1m  run_id="$(jq -r --arg sha "$EXACT_HEAD" '[.[] | select(.headSha == $sha)] | sort_by(.createdAt) | last | .databaseId // empty' <<< "$runs")"[0m
+2026-07-16T21:55:31.2126679Z [36;1m  if [[ -n "$run_id" ]]; then[0m
+2026-07-16T21:55:31.2127556Z [36;1m    status="$(jq -r --argjson id "$run_id" '.[] | select(.databaseId == $id) | .status' <<< "$runs")"[0m
+2026-07-16T21:55:31.2128832Z [36;1m    conclusion="$(jq -r --argjson id "$run_id" '.[] | select(.databaseId == $id) | .conclusion // ""' <<< "$runs")"[0m
+2026-07-16T21:55:31.2129803Z [36;1m    if [[ "$status" == "completed" ]]; then[0m
+2026-07-16T21:55:31.2130400Z [36;1m      if [[ "$conclusion" != "success" ]]; then[0m
+2026-07-16T21:55:31.2131236Z [36;1m        echo "Blocking Security Quality Gate run $run_id concluded $conclusion" >&2[0m
+2026-07-16T21:55:31.2132032Z [36;1m        exit 1[0m
+2026-07-16T21:55:31.2132426Z [36;1m      fi[0m
+2026-07-16T21:55:31.2132921Z [36;1m      echo "BASE_SECURITY_RUN_ID=$run_id" >> "$GITHUB_ENV"[0m
+2026-07-16T21:55:31.2133539Z [36;1m      exit 0[0m
+2026-07-16T21:55:31.2133918Z [36;1m    fi[0m
+2026-07-16T21:55:31.2134272Z [36;1m  fi[0m
+2026-07-16T21:55:31.2134625Z [36;1m  sleep 15[0m
+2026-07-16T21:55:31.2135234Z [36;1mdone[0m
+2026-07-16T21:55:31.2135878Z [36;1mecho "Timed out waiting for Security Quality Gate on exact head $EXACT_HEAD" >&2[0m
+2026-07-16T21:55:31.2136415Z [36;1mexit 1[0m
+2026-07-16T21:55:31.2195658Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-16T21:55:31.2196010Z env:
+2026-07-16T21:55:31.2196202Z   NODE_VERSION: 24
+2026-07-16T21:55:31.2196424Z   PNPM_VERSION: 10.2.1
+2026-07-16T21:55:31.2196701Z   EXACT_HEAD: 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:55:31.2197055Z   SECURITY_ABUSE_DIR: artifacts/security-abuse
+2026-07-16T21:55:31.2197410Z   SECURITY_INPUT_DIR: artifacts/security-evidence-input
+2026-07-16T21:55:31.2197755Z   SECURITY_OUTPUT_DIR: artifacts/security
+2026-07-16T21:55:31.2198026Z   NODE_ENV: test
+2026-07-16T21:55:31.2198586Z   ONE_DEAL_ADMIN_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:55:31.2199347Z   ONE_DEAL_AUTH_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:55:31.2199903Z   ONE_DEAL_APP_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:55:31.2200483Z   ONE_DEAL_STORAGE_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:55:31.2200885Z   ONE_DEAL_EVIDENCE_LOG: artifacts/security-abuse/one-deal-e2e.log
+2026-07-16T21:55:31.2201293Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-07-16T21:55:31.2201877Z   JWT_SECRET: aee5ed46d885c820f0ec6caff24b830a175061f6e25a1e3c31d8e7496db13b0335982924bb15567c8b110196d7a4d02f
+2026-07-16T21:55:31.2202688Z   AUTH_TOKEN_PEPPER: 3e5df5d8853416ac1e6b60aa11d7733bee5170b6b0fbb64ea69d6352a525e645f4fde9f1cb226e7090098eed98da6451
+2026-07-16T21:55:31.2203518Z   MFA_ENCRYPTION_KEY: 14e0576657a2518e6768f1cf7598bd1875554c5b2fed4bec5b0dd6719fb57de25bc3bb3e81a6dc3d6ef7e3a8ba555145
+2026-07-16T21:55:31.2204340Z   BANK_HMAC_SECRET: 3401ac1ea5d4ca00ee392372b1d2853f289f06e6fc53a77b10d4239d19a36c2a1a381e762d383dc2cfa5c28922d60b10
+2026-07-16T21:55:31.2207317Z   GH_TOKEN: ***
+2026-07-16T21:55:31.2207538Z ##[endgroup]
+2026-07-16T21:56:33.1695226Z ##[group]Run mkdir -p "$SECURITY_INPUT_DIR"
+2026-07-16T21:56:33.1695638Z [36;1mmkdir -p "$SECURITY_INPUT_DIR"[0m
+2026-07-16T21:56:33.1696038Z [36;1mgh run download "$BASE_SECURITY_RUN_ID" --dir "$SECURITY_INPUT_DIR"[0m
+2026-07-16T21:56:33.1696587Z [36;1mcp -R "$SECURITY_ABUSE_DIR" "$SECURITY_INPUT_DIR/security-abuse-${EXACT_HEAD}"[0m
+2026-07-16T21:56:33.1697203Z [36;1mgh run view "$BASE_SECURITY_RUN_ID" --json jobs > "$SECURITY_INPUT_DIR/base-security-jobs.json"[0m
+2026-07-16T21:56:33.1757722Z shell: /usr/bin/bash -e {0}
+2026-07-16T21:56:33.1757994Z env:
+2026-07-16T21:56:33.1758200Z   NODE_VERSION: 24
+2026-07-16T21:56:33.1758417Z   PNPM_VERSION: 10.2.1
+2026-07-16T21:56:33.1758696Z   EXACT_HEAD: 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:56:33.1759055Z   SECURITY_ABUSE_DIR: artifacts/security-abuse
+2026-07-16T21:56:33.1759409Z   SECURITY_INPUT_DIR: artifacts/security-evidence-input
+2026-07-16T21:56:33.1759783Z   SECURITY_OUTPUT_DIR: artifacts/security
+2026-07-16T21:56:33.1760106Z   NODE_ENV: test
+2026-07-16T21:56:33.1760918Z   ONE_DEAL_ADMIN_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:56:33.1761488Z   ONE_DEAL_AUTH_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:56:33.1762002Z   ONE_DEAL_APP_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:56:33.1762569Z   ONE_DEAL_STORAGE_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:56:33.1762966Z   ONE_DEAL_EVIDENCE_LOG: artifacts/security-abuse/one-deal-e2e.log
+2026-07-16T21:56:33.1763375Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-07-16T21:56:33.1763936Z   JWT_SECRET: aee5ed46d885c820f0ec6caff24b830a175061f6e25a1e3c31d8e7496db13b0335982924bb15567c8b110196d7a4d02f
+2026-07-16T21:56:33.1765161Z   AUTH_TOKEN_PEPPER: 3e5df5d8853416ac1e6b60aa11d7733bee5170b6b0fbb64ea69d6352a525e645f4fde9f1cb226e7090098eed98da6451
+2026-07-16T21:56:33.1766026Z   MFA_ENCRYPTION_KEY: 14e0576657a2518e6768f1cf7598bd1875554c5b2fed4bec5b0dd6719fb57de25bc3bb3e81a6dc3d6ef7e3a8ba555145
+2026-07-16T21:56:33.1766855Z   BANK_HMAC_SECRET: 3401ac1ea5d4ca00ee392372b1d2853f289f06e6fc53a77b10d4239d19a36c2a1a381e762d383dc2cfa5c28922d60b10
+2026-07-16T21:56:33.1767408Z   BASE_SECURITY_RUN_ID: 29537637488
+2026-07-16T21:56:33.1769970Z   GH_TOKEN: ***
+2026-07-16T21:56:33.1770189Z ##[endgroup]
+2026-07-16T21:56:34.9903707Z ##[group]Run mkdir -p "$SECURITY_INPUT_DIR/derived"
+2026-07-16T21:56:34.9904178Z [36;1mmkdir -p "$SECURITY_INPUT_DIR/derived"[0m
+2026-07-16T21:56:34.9904625Z [36;1mTYPESCRIPT_VERSION="$(pnpm --filter @pc/api exec tsc --version | tr -d '\r')"[0m
+2026-07-16T21:56:34.9905388Z [36;1mexport TYPESCRIPT_VERSION[0m
+2026-07-16T21:56:34.9905658Z [36;1mnode <<'NODE'[0m
+2026-07-16T21:56:34.9905903Z [36;1mconst fs = require('node:fs');[0m
+2026-07-16T21:56:34.9906205Z [36;1mconst path = require('node:path');[0m
+2026-07-16T21:56:34.9906558Z [36;1mconst inputDir = process.env.SECURITY_INPUT_DIR;[0m
+2026-07-16T21:56:34.9907327Z [36;1mconst payload = JSON.parse(fs.readFileSync(path.join(inputDir, 'base-security-jobs.json'), 'utf8'));[0m
+2026-07-16T21:56:34.9907925Z [36;1mconst jobs = Array.isArray(payload.jobs) ? payload.jobs : [];[0m
+2026-07-16T21:56:34.9908344Z [36;1mconst exact = process.env.SECURITY_EXACT_HEAD;[0m
+2026-07-16T21:56:34.9908677Z [36;1mconst required = {[0m
+2026-07-16T21:56:34.9909010Z [36;1m  gitleaks: 'Secrets · Gitleaks blocking',[0m
+2026-07-16T21:56:34.9909373Z [36;1m  typescript: 'TypeScript · strict blocking',[0m
+2026-07-16T21:56:34.9909704Z [36;1m};[0m
+2026-07-16T21:56:34.9909928Z [36;1mfunction requireSuccess(label) {[0m
+2026-07-16T21:56:34.9910307Z [36;1m  const job = jobs.find((candidate) => candidate.name === label);[0m
+2026-07-16T21:56:34.9910716Z [36;1m  if (!job || job.conclusion !== 'success') {[0m
+2026-07-16T21:56:34.9911156Z [36;1m    throw new Error(`Required base security job ${label} is not successful.`);[0m
+2026-07-16T21:56:34.9911560Z [36;1m  }[0m
+2026-07-16T21:56:34.9911768Z [36;1m  return job;[0m
+2026-07-16T21:56:34.9911981Z [36;1m}[0m
+2026-07-16T21:56:34.9912253Z [36;1mconst gitleaks = requireSuccess(required.gitleaks);[0m
+2026-07-16T21:56:34.9912679Z [36;1mconst typescript = requireSuccess(required.typescript);[0m
+2026-07-16T21:56:34.9913234Z [36;1mfs.writeFileSync(path.join(inputDir, 'derived', 'gitleaks-evidence.json'), JSON.stringify({[0m
+2026-07-16T21:56:34.9913720Z [36;1m  schemaVersion: 1,[0m
+2026-07-16T21:56:34.9914012Z [36;1m  repository: 'pachaninm-lab/pachanin-demo',[0m
+2026-07-16T21:56:34.9914367Z [36;1m  commitSha: exact,[0m
+2026-07-16T21:56:34.9915318Z [36;1m  scannerContract: 'gitleaks/gitleaks-action@v2',[0m
+2026-07-16T21:56:34.9915783Z [36;1m  baseWorkflowRunId: process.env.BASE_SECURITY_RUN_ID,[0m
+2026-07-16T21:56:34.9916161Z [36;1m  jobId: String(gitleaks.databaseId),[0m
+2026-07-16T21:56:34.9916464Z [36;1m  passed: true,[0m
+2026-07-16T21:56:34.9916696Z [36;1m}, null, 2) + '\n');[0m
+2026-07-16T21:56:34.9917152Z [36;1mfs.writeFileSync(path.join(inputDir, 'derived', 'typescript-evidence.json'), JSON.stringify({[0m
+2026-07-16T21:56:34.9917651Z [36;1m  schemaVersion: 1,[0m
+2026-07-16T21:56:34.9917938Z [36;1m  repository: 'pachaninm-lab/pachanin-demo',[0m
+2026-07-16T21:56:34.9918245Z [36;1m  commitSha: exact,[0m
+2026-07-16T21:56:34.9918557Z [36;1m  typescriptVersion: process.env.TYPESCRIPT_VERSION,[0m
+2026-07-16T21:56:34.9918977Z [36;1m  baseWorkflowRunId: process.env.BASE_SECURITY_RUN_ID,[0m
+2026-07-16T21:56:34.9919349Z [36;1m  jobId: String(typescript.databaseId),[0m
+2026-07-16T21:56:34.9919646Z [36;1m  passed: true,[0m
+2026-07-16T21:56:34.9919892Z [36;1m}, null, 2) + '\n');[0m
+2026-07-16T21:56:34.9920138Z [36;1mNODE[0m
+2026-07-16T21:56:34.9980210Z shell: /usr/bin/bash -e {0}
+2026-07-16T21:56:34.9980468Z env:
+2026-07-16T21:56:34.9980656Z   NODE_VERSION: 24
+2026-07-16T21:56:34.9980886Z   PNPM_VERSION: 10.2.1
+2026-07-16T21:56:34.9981161Z   EXACT_HEAD: 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:56:34.9981528Z   SECURITY_ABUSE_DIR: artifacts/security-abuse
+2026-07-16T21:56:34.9981890Z   SECURITY_INPUT_DIR: artifacts/security-evidence-input
+2026-07-16T21:56:34.9982240Z   SECURITY_OUTPUT_DIR: artifacts/security
+2026-07-16T21:56:34.9982521Z   NODE_ENV: test
+2026-07-16T21:56:34.9983065Z   ONE_DEAL_ADMIN_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:56:34.9983866Z   ONE_DEAL_AUTH_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:56:34.9984413Z   ONE_DEAL_APP_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:56:34.9985340Z   ONE_DEAL_STORAGE_URL: ***127.0.0.1:5432/one_deal_e2e
+2026-07-16T21:56:34.9985744Z   ONE_DEAL_EVIDENCE_LOG: artifacts/security-abuse/one-deal-e2e.log
+2026-07-16T21:56:34.9986150Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-07-16T21:56:34.9986720Z   JWT_SECRET: aee5ed46d885c820f0ec6caff24b830a175061f6e25a1e3c31d8e7496db13b0335982924bb15567c8b110196d7a4d02f
+2026-07-16T21:56:34.9987530Z   AUTH_TOKEN_PEPPER: 3e5df5d8853416ac1e6b60aa11d7733bee5170b6b0fbb64ea69d6352a525e645f4fde9f1cb226e7090098eed98da6451
+2026-07-16T21:56:34.9988543Z   MFA_ENCRYPTION_KEY: 14e0576657a2518e6768f1cf7598bd1875554c5b2fed4bec5b0dd6719fb57de25bc3bb3e81a6dc3d6ef7e3a8ba555145
+2026-07-16T21:56:34.9989352Z   BANK_HMAC_SECRET: 3401ac1ea5d4ca00ee392372b1d2853f289f06e6fc53a77b10d4239d19a36c2a1a381e762d383dc2cfa5c28922d60b10
+2026-07-16T21:56:34.9989908Z   BASE_SECURITY_RUN_ID: 29537637488
+2026-07-16T21:56:34.9990240Z   SECURITY_EXACT_HEAD: 0a45a565f134921cd8bbe3361863e62660b128df
+2026-07-16T21:56:34.9990582Z ##[endgroup]
+2026-07-16T21:56:35.5493028Z [stdin]:14
+2026-07-16T21:56:35.5493876Z     throw new Error(`Required base security job ${label} is not successful.`);
+2026-07-16T21:56:35.5494547Z     ^
+2026-07-16T21:56:35.5494931Z 
+2026-07-16T21:56:35.5495687Z Error: Required base security job Secrets · Gitleaks blocking is not successful.
+2026-07-16T21:56:35.5496284Z     at requireSuccess ([stdin]:14:11)
+2026-07-16T21:56:35.5496628Z     at [stdin]:18:18
+2026-07-16T21:56:35.5497013Z     at runScriptInThisContext (node:internal/vm:219:10)
+2026-07-16T21:56:35.5497536Z     at node:internal/process/execution:451:12
+2026-07-16T21:56:35.5497930Z     at [stdin]-wrapper:6:24
+2026-07-16T21:56:35.5498386Z     at runScriptInContext (node:internal/process/execution:449:60)
+2026-07-16T21:56:35.5498960Z     at evalFunction (node:internal/process/execution:283:30)
+2026-07-16T21:56:35.5499539Z     at evalTypeScript (node:internal/process/execution:295:3)
+2026-07-16T21:56:35.5500012Z     at node:internal/main/eval_stdin:51:5
+2026-07-16T21:56:35.5500494Z     at Socket.<anonymous> (node:internal/process/execution:205:5)
+2026-07-16T21:56:35.5500819Z 
+2026-07-16T21:56:35.5500924Z Node.js v24.18.0
+2026-07-16T21:56:35.5549113Z ##[error]Process completed with exit code 1.
+2026-07-16T21:56:35.6230540Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-16T21:56:35.6231836Z Post job cleanup.
+2026-07-16T21:56:35.7771464Z Pruning is unnecessary.
+2026-07-16T21:56:35.7993308Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-07-16T21:56:35.7996349Z Post job cleanup.
+2026-07-16T21:56:35.8956342Z [command]/usr/bin/git version
+2026-07-16T21:56:35.9001667Z git version 2.54.0
+2026-07-16T21:56:35.9078696Z Temporarily overriding HOME='/home/runner/work/_temp/4859568e-4fc2-45a3-b90a-eb44d0504d75' before making global git config changes
+2026-07-16T21:56:35.9080574Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-16T21:56:35.9085903Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/pachanin-demo/pachanin-demo
+2026-07-16T21:56:35.9142102Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-16T21:56:35.9186774Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-16T21:56:35.9478931Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-16T21:56:35.9509140Z http.https://github.com/.extraheader
+2026-07-16T21:56:35.9521531Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-07-16T21:56:35.9558515Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-16T21:56:35.9846419Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-16T21:56:35.9894654Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-16T21:56:36.0278550Z Print service container logs: 35e9f933768a440e9d67bc3d93326448_postgres16alpine_406c41
+2026-07-16T21:56:36.0283065Z ##[command]/usr/bin/docker logs --details a87ef2883859b6bae0cdaf300b3aa5741478b447a3d4007c9728c4c8a0213dae
+2026-07-16T21:56:36.0426472Z  The files belonging to this database system will be owned by user "postgres".
+2026-07-16T21:56:36.0430177Z  sh: locale: not found
+2026-07-16T21:56:36.0430617Z  This user must also own the server process.
+2026-07-16T21:56:36.0431095Z  
+2026-07-16T21:56:36.0431446Z  The database cluster will be initialized with locale "en_US.utf8".
+2026-07-16T21:56:36.0431933Z  The default database encoding has accordingly been set to "UTF8".
+2026-07-16T21:56:36.0432383Z  The default text search configuration will be set to "english".
+2026-07-16T21:56:36.0432755Z  
+2026-07-16T21:56:36.0432952Z  Data page checksums are disabled.
+2026-07-16T21:56:36.0433201Z  
+2026-07-16T21:56:36.0433572Z  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+2026-07-16T21:56:36.0434025Z  creating subdirectories ... ok
+2026-07-16T21:56:36.0434446Z  selecting dynamic shared memory implementation ... posix
+2026-07-16T21:56:36.0434975Z  selecting default max_connections ... 100
+2026-07-16T21:56:36.0435454Z  selecting default shared_buffers ... 128MB
+2026-07-16T21:56:36.0435765Z  selecting default time zone ... UTC
+2026-07-16T21:56:36.0436047Z  creating configuration files ... ok
+2026-07-16T21:56:36.0436317Z  running bootstrap script ... ok
+2026-07-16T21:56:36.0436623Z  performing post-bootstrap initialization ... ok
+2026-07-16T21:56:36.0436930Z  syncing data to disk ... ok
+2026-07-16T21:56:36.0437157Z  
+2026-07-16T21:56:36.0437328Z  
+2026-07-16T21:56:36.0437558Z  Success. You can now start the database server using:
+2026-07-16T21:56:36.0437859Z  
+2026-07-16T21:56:36.0438113Z      pg_ctl -D /var/lib/postgresql/data -l logfile start
+2026-07-16T21:56:36.0438415Z  
+2026-07-16T21:56:36.0438993Z  waiting for server to start....2026-07-16 21:54:09.724 UTC [41] LOG:  starting PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+2026-07-16T21:56:36.0439818Z  2026-07-16 21:54:09.724 UTC [41] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-07-16T21:56:36.0440402Z  2026-07-16 21:54:09.727 UTC [44] LOG:  database system was shut down at 2026-07-16 21:54:09 UTC
+2026-07-16T21:56:36.0440917Z  2026-07-16 21:54:09.731 UTC [41] LOG:  database system is ready to accept connections
+2026-07-16T21:56:36.0441294Z   done
+2026-07-16T21:56:36.0441476Z  server started
+2026-07-16T21:56:36.0441675Z  CREATE DATABASE
+2026-07-16T21:56:36.0441870Z  
+2026-07-16T21:56:36.0442182Z  2026-07-16 21:54:09.183 UTC [35] WARNING:  no usable system locales were found
+2026-07-16T21:56:36.0442659Z  initdb: warning: enabling "trust" authentication for local connections
+2026-07-16T21:56:36.0443356Z  initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+2026-07-16T21:56:36.0444217Z  2026-07-16 21:54:09.993 UTC [1] LOG:  starting PostgreSQL 16.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+2026-07-16T21:56:36.0445091Z  2026-07-16 21:54:09.993 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-07-16T21:56:36.0445562Z  2026-07-16 21:54:09.993 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2026-07-16T21:56:36.0446084Z  2026-07-16 21:54:09.994 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-07-16T21:56:36.0446641Z  2026-07-16 21:54:09.997 UTC [57] LOG:  database system was shut down at 2026-07-16 21:54:09 UTC
+2026-07-16T21:56:36.0447150Z  2026-07-16 21:54:10.002 UTC [1] LOG:  database system is ready to accept connections
+2026-07-16T21:56:36.0447610Z  2026-07-16 21:55:05.114 UTC [166] ERROR:  permission denied for table deals
+2026-07-16T21:56:36.0448374Z  2026-07-16 21:55:05.114 UTC [166] STATEMENT:  SELECT id FROM public.deals LIMIT 1
+2026-07-16T21:56:36.0449207Z  2026-07-16 21:55:14.178 UTC [182] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0452237Z  2026-07-16 21:55:14.178 UTC [182] STATEMENT:  INSERT INTO "public"."integration_events" ("id","adapterName","direction","eventType","externalId","requestPayload","responsePayload","status","createdAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING "public"."integration_events"."id", "public"."integration_events"."adapterName", "public"."integration_events"."direction", "public"."integration_events"."eventType", "public"."integration_events"."externalId", "public"."integration_events"."dealId", "public"."integration_events"."requestPayload", "public"."integration_events"."responsePayload", "public"."integration_events"."status", "public"."integration_events"."errorMessage", "public"."integration_events"."httpStatus", "public"."integration_events"."durationMs", "public"."integration_events"."idempotencyKey", "public"."integration_events"."createdAt"
+2026-07-16T21:56:36.0467303Z  2026-07-16 21:55:14.204 UTC [182] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0470640Z  2026-07-16 21:55:14.204 UTC [182] STATEMENT:  INSERT INTO "public"."integration_events" ("id","adapterName","direction","eventType","externalId","requestPayload","responsePayload","status","createdAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING "public"."integration_events"."id", "public"."integration_events"."adapterName", "public"."integration_events"."direction", "public"."integration_events"."eventType", "public"."integration_events"."externalId", "public"."integration_events"."dealId", "public"."integration_events"."requestPayload", "public"."integration_events"."responsePayload", "public"."integration_events"."status", "public"."integration_events"."errorMessage", "public"."integration_events"."httpStatus", "public"."integration_events"."durationMs", "public"."integration_events"."idempotencyKey", "public"."integration_events"."createdAt"
+2026-07-16T21:56:36.0473712Z  2026-07-16 21:55:15.790 UTC [182] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0477026Z  2026-07-16 21:55:15.790 UTC [182] STATEMENT:  INSERT INTO "public"."integration_events" ("id","adapterName","direction","eventType","externalId","requestPayload","responsePayload","status","createdAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING "public"."integration_events"."id", "public"."integration_events"."adapterName", "public"."integration_events"."direction", "public"."integration_events"."eventType", "public"."integration_events"."externalId", "public"."integration_events"."dealId", "public"."integration_events"."requestPayload", "public"."integration_events"."responsePayload", "public"."integration_events"."status", "public"."integration_events"."errorMessage", "public"."integration_events"."httpStatus", "public"."integration_events"."durationMs", "public"."integration_events"."idempotencyKey", "public"."integration_events"."createdAt"
+2026-07-16T21:56:36.0480056Z  2026-07-16 21:55:15.800 UTC [182] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0483066Z  2026-07-16 21:55:15.800 UTC [182] STATEMENT:  INSERT INTO "public"."integration_events" ("id","adapterName","direction","eventType","externalId","requestPayload","responsePayload","status","createdAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING "public"."integration_events"."id", "public"."integration_events"."adapterName", "public"."integration_events"."direction", "public"."integration_events"."eventType", "public"."integration_events"."externalId", "public"."integration_events"."dealId", "public"."integration_events"."requestPayload", "public"."integration_events"."responsePayload", "public"."integration_events"."status", "public"."integration_events"."errorMessage", "public"."integration_events"."httpStatus", "public"."integration_events"."durationMs", "public"."integration_events"."idempotencyKey", "public"."integration_events"."createdAt"
+2026-07-16T21:56:36.0486705Z  2026-07-16 21:55:16.211 UTC [192] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0489747Z  2026-07-16 21:55:16.211 UTC [192] STATEMENT:  INSERT INTO "public"."integration_events" ("id","adapterName","direction","eventType","externalId","requestPayload","responsePayload","status","createdAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING "public"."integration_events"."id", "public"."integration_events"."adapterName", "public"."integration_events"."direction", "public"."integration_events"."eventType", "public"."integration_events"."externalId", "public"."integration_events"."dealId", "public"."integration_events"."requestPayload", "public"."integration_events"."responsePayload", "public"."integration_events"."status", "public"."integration_events"."errorMessage", "public"."integration_events"."httpStatus", "public"."integration_events"."durationMs", "public"."integration_events"."idempotencyKey", "public"."integration_events"."createdAt"
+2026-07-16T21:56:36.0492748Z  2026-07-16 21:55:16.220 UTC [192] ERROR:  new row violates row-level security policy for table "integration_events"
+2026-07-16T21:56:36.0495968Z  2026-07-16 21:55:16.220 UTC [192] STATEMENT:  INSERT INTO "public"."integration_events" ("id","adapterName","direction","eventType","externalId","requestPayload","responsePayload","status","createdAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING "public"."integration_events"."id", "public"."integration_events"."adapterName", "public"."integration_events"."direction", "public"."integration_events"."eventType", "public"."integration_events"."externalId", "public"."integration_events"."dealId", "public"."integration_events"."requestPayload", "public"."integration_events"."responsePayload", "public"."integration_events"."status", "public"."integration_events"."errorMessage", "public"."integration_events"."httpStatus", "public"."integration_events"."durationMs", "public"."integration_events"."idempotencyKey", "public"."integration_events"."createdAt"
+2026-07-16T21:56:36.0498942Z  2026-07-16 21:55:16.574 UTC [194] ERROR:  new row violates row-level security policy for table "deals"
+2026-07-16T21:56:36.0502814Z  2026-07-16 21:55:16.574 UTC [194] STATEMENT:  INSERT INTO "public"."deals" ("id","lotId","sourceLotId","dealNumber","status","tenantId","sellerOrgId","buyerOrgId","totalKopecks","version","currency","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING "public"."deals"."id", "public"."deals"."lotId", "public"."deals"."sourceLotId", "public"."deals"."dealNumber", "public"."deals"."status", "public"."deals"."tenantId", "public"."deals"."sellerOrgId", "public"."deals"."buyerOrgId", "public"."deals"."volumeTons", "public"."deals"."pricePerTon", "public"."deals"."totalRub", "public"."deals"."totalKopecks", "public"."deals"."pricePerTonDec", "public"."deals"."volumeTonsDec", "public"."deals"."version", "public"."deals"."currency", "public"."deals"."culture", "public"."deals"."cropClass", "public"."deals"."gost", "public"."deals"."region", "public"."deals"."incoterms", "public"."deals"."fundingChoice", "public"."deals"."owner", "public"."deals"."nextAction", "public"."deals"."slaAt", "public"."deals"."signedAt", "public"."deals"."closedAt", "public"."deals"."sagaState", "public"."deals"."sagaStep", "public"."deals"."createdAt", "public"."deals"."updatedAt", "public"."deals"."meta"
+2026-07-16T21:56:36.0507051Z  2026-07-16 21:55:16.596 UTC [194] ERROR:  new row violates row-level security policy for table "deals"
+2026-07-16T21:56:36.0511530Z  2026-07-16 21:55:16.596 UTC [194] STATEMENT:  INSERT INTO "public"."deals" ("id","lotId","sourceLotId","dealNumber","status","tenantId","sellerOrgId","buyerOrgId","totalKopecks","pricePerTonDec","volumeTonsDec","version","currency","culture","cropClass","region","incoterms","nextAction","sagaState","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING "public"."deals"."id", "public"."deals"."lotId", "public"."deals"."sourceLotId", "public"."deals"."dealNumber", "public"."deals"."status", "public"."deals"."tenantId", "public"."deals"."sellerOrgId", "public"."deals"."buyerOrgId", "public"."deals"."volumeTons", "public"."deals"."pricePerTon", "public"."deals"."totalRub", "public"."deals"."totalKopecks", "public"."deals"."pricePerTonDec", "public"."deals"."volumeTonsDec", "public"."deals"."version", "public"."deals"."currency", "public"."deals"."culture", "public"."deals"."cropClass", "public"."deals"."gost", "public"."deals"."region", "public"."deals"."incoterms", "public"."deals"."fundingChoice", "public"."deals"."owner", "public"."deals"."nextAction", "public"."deals"."slaAt", "public"."deals"."signedAt", "public"."deals"."closedAt", "public"."deals"."sagaState", "public"."deals"."sagaStep", "public"."deals"."createdAt", "public"."deals"."updatedAt", "public"."deals"."meta"
+2026-07-16T21:56:36.0516381Z  2026-07-16 21:55:16.723 UTC [194] ERROR:  confirmed deal commercial and saga basis is immutable
+2026-07-16T21:56:36.0517007Z  2026-07-16 21:55:16.723 UTC [194] CONTEXT:  PL/pgSQL function forbid_deal_basis_mutation() line 42 at RAISE
+2026-07-16T21:56:36.0520591Z  2026-07-16 21:55:16.723 UTC [194] STATEMENT:  UPDATE "public"."deals" SET "totalKopecks" = $1, "updatedAt" = $2 WHERE ("public"."deals"."id" = $3 AND 1=1) RETURNING "public"."deals"."id", "public"."deals"."lotId", "public"."deals"."sourceLotId", "public"."deals"."dealNumber", "public"."deals"."status", "public"."deals"."tenantId", "public"."deals"."sellerOrgId", "public"."deals"."buyerOrgId", "public"."deals"."volumeTons", "public"."deals"."pricePerTon", "public"."deals"."totalRub", "public"."deals"."totalKopecks", "public"."deals"."pricePerTonDec", "public"."deals"."volumeTonsDec", "public"."deals"."version", "public"."deals"."currency", "public"."deals"."culture", "public"."deals"."cropClass", "public"."deals"."gost", "public"."deals"."region", "public"."deals"."incoterms", "public"."deals"."fundingChoice", "public"."deals"."owner", "public"."deals"."nextAction", "public"."deals"."slaAt", "public"."deals"."signedAt", "public"."deals"."closedAt", "public"."deals"."sagaState", "public"."deals"."sagaStep", "public"."deals"."createdAt", "public"."deals"."updatedAt", "public"."deals"."meta"
+2026-07-16T21:56:36.0524363Z  2026-07-16 21:55:16.730 UTC [194] ERROR:  confirmed deal commercial and saga basis is immutable
+2026-07-16T21:56:36.0525264Z  2026-07-16 21:55:16.730 UTC [194] CONTEXT:  PL/pgSQL function forbid_deal_basis_mutation() line 42 at RAISE
+2026-07-16T21:56:36.0528818Z  2026-07-16 21:55:16.730 UTC [194] STATEMENT:  UPDATE "public"."deals" SET "sagaState" = $1, "updatedAt" = $2 WHERE ("public"."deals"."id" = $3 AND 1=1) RETURNING "public"."deals"."id", "public"."deals"."lotId", "public"."deals"."sourceLotId", "public"."deals"."dealNumber", "public"."deals"."status", "public"."deals"."tenantId", "public"."deals"."sellerOrgId", "public"."deals"."buyerOrgId", "public"."deals"."volumeTons", "public"."deals"."pricePerTon", "public"."deals"."totalRub", "public"."deals"."totalKopecks", "public"."deals"."pricePerTonDec", "public"."deals"."volumeTonsDec", "public"."deals"."version", "public"."deals"."currency", "public"."deals"."culture", "public"."deals"."cropClass", "public"."deals"."gost", "public"."deals"."region", "public"."deals"."incoterms", "public"."deals"."fundingChoice", "public"."deals"."owner", "public"."deals"."nextAction", "public"."deals"."slaAt", "public"."deals"."signedAt", "public"."deals"."closedAt", "public"."deals"."sagaState", "public"."deals"."sagaStep", "public"."deals"."createdAt", "public"."deals"."updatedAt", "public"."deals"."meta"
+2026-07-16T21:56:36.0532544Z  2026-07-16 21:55:16.750 UTC [194] ERROR:  confirmed auction basis has already been consumed by another deal
+2026-07-16T21:56:36.0533198Z  2026-07-16 21:55:16.750 UTC [194] CONTEXT:  PL/pgSQL function enforce_single_deal_per_basis() line 22 at RAISE
+2026-07-16T21:56:36.0538381Z  2026-07-16 21:55:16.750 UTC [194] STATEMENT:  INSERT INTO "public"."deals" ("id","lotId","sourceLotId","dealNumber","status","tenantId","sellerOrgId","buyerOrgId","totalKopecks","pricePerTonDec","volumeTonsDec","version","currency","culture","cropClass","region","incoterms","nextAction","sagaState","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING "public"."deals"."id", "public"."deals"."lotId", "public"."deals"."sourceLotId", "public"."deals"."dealNumber", "public"."deals"."status", "public"."deals"."tenantId", "public"."deals"."sellerOrgId", "public"."deals"."buyerOrgId", "public"."deals"."volumeTons", "public"."deals"."pricePerTon", "public"."deals"."totalRub", "public"."deals"."totalKopecks", "public"."deals"."pricePerTonDec", "public"."deals"."volumeTonsDec", "public"."deals"."version", "public"."deals"."currency", "public"."deals"."culture", "public"."deals"."cropClass", "public"."deals"."gost", "public"."deals"."region", "public"."deals"."incoterms", "public"."deals"."fundingChoice", "public"."deals"."owner", "public"."deals"."nextAction", "public"."deals"."slaAt", "public"."deals"."signedAt", "public"."deals"."closedAt", "public"."deals"."sagaState", "public"."deals"."sagaStep", "public"."deals"."createdAt", "public"."deals"."updatedAt", "public"."deals"."meta"
+2026-07-16T21:56:36.0542904Z  2026-07-16 21:55:17.228 UTC [197] ERROR:  evidence files must start as mutable UPLOAD_PENDING metadata
+2026-07-16T21:56:36.0543562Z  2026-07-16 21:55:17.228 UTC [197] CONTEXT:  PL/pgSQL function app_document_validate_authority() line 22 at RAISE
+2026-07-16T21:56:36.0548676Z  2026-07-16 21:55:17.228 UTC [197] STATEMENT:  INSERT INTO "public"."deal_documents" ("id","dealId","tenantId","type","status","name","mimeType","s3Key","sizeBytes","hash","uploadedAt","uploadedByUserId","bankRequired","releaseRequired","bankAcceptance","version","isImmutable") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING "public"."deal_documents"."id", "public"."deal_documents"."dealId", "public"."deal_documents"."tenantId", "public"."deal_documents"."type", "public"."deal_documents"."status", "public"."deal_documents"."name", "public"."deal_documents"."mimeType", "public"."deal_documents"."s3Key", "public"."deal_documents"."sizeBytes", "public"."deal_documents"."hash", "public"."deal_documents"."uploadedAt", "public"."deal_documents"."uploadedByUserId", "public"."deal_documents"."signedAt", "public"."deal_documents"."signatories", "public"."deal_documents"."bankRequired", "public"."deal_documents"."releaseRequired", "public"."deal_documents"."bankAcceptance", "public"."deal_documents"."edoStatus", "public"."deal_documents"."edoExternalId", "public"."deal_documents"."version", "public"."deal_documents"."isImmutable", "public"."deal_documents"."sourceFileId", "public"."deal_documents"."signatureFileId", "public"."deal_documents"."supersedesId", "public"."deal_documents"."seriesId", "public"."deal_documents"."idempotencyKey", "public"."deal_documents"."correlationId", "public"."deal_documents"."createdByOrgId", "public"."deal_documents"."metadata"
+2026-07-16T21:56:36.0553740Z  2026-07-16 21:55:17.243 UTC [197] ERROR:  new row violates row-level security policy for table "deal_documents"
+2026-07-16T21:56:36.0558736Z  2026-07-16 21:55:17.243 UTC [197] STATEMENT:  UPDATE "public"."deal_documents" SET "status" = $1, "hash" = $2, "sizeBytes" = $3, "mimeType" = $4, "isImmutable" = $5, "version" = ("public"."deal_documents"."version" + $6) WHERE ("public"."deal_documents"."id" = $7 AND 1=1) RETURNING "public"."deal_documents"."id", "public"."deal_documents"."dealId", "public"."deal_documents"."tenantId", "public"."deal_documents"."type", "public"."deal_documents"."status", "public"."deal_documents"."name", "public"."deal_documents"."mimeType", "public"."deal_documents"."s3Key", "public"."deal_documents"."sizeBytes", "public"."deal_documents"."hash", "public"."deal_documents"."uploadedAt", "public"."deal_documents"."uploadedByUserId", "public"."deal_documents"."signedAt", "public"."deal_documents"."signatories", "public"."deal_documents"."bankRequired", "public"."deal_documents"."releaseRequired", "public"."deal_documents"."bankAcceptance", "public"."deal_documents"."edoStatus", "public"."deal_documents"."edoExternalId", "public"."deal_documents"."version", "public"."deal_documents"."isImmutable", "public"."deal_documents"."sourceFileId", "public"."deal_documents"."signatureFileId", "public"."deal_documents"."supersedesId", "public"."deal_documents"."seriesId", "public"."deal_documents"."idempotencyKey", "public"."deal_documents"."correlationId", "public"."deal_documents"."createdByOrgId", "public"."deal_documents"."metadata"
+2026-07-16T21:56:36.0563671Z  2026-07-16 21:55:17.253 UTC [197] ERROR:  authoritative document versions require a verified evidence source
+2026-07-16T21:56:36.0564339Z  2026-07-16 21:55:17.253 UTC [197] CONTEXT:  PL/pgSQL function app_document_validate_authority() line 117 at RAISE
+2026-07-16T21:56:36.0569413Z  2026-07-16 21:55:17.253 UTC [197] STATEMENT:  INSERT INTO "public"."deal_documents" ("id","dealId","tenantId","type","status","name","uploadedAt","uploadedByUserId","bankRequired","releaseRequired","bankAcceptance","version","isImmutable","idempotencyKey","createdByOrgId") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING "public"."deal_documents"."id", "public"."deal_documents"."dealId", "public"."deal_documents"."tenantId", "public"."deal_documents"."type", "public"."deal_documents"."status", "public"."deal_documents"."name", "public"."deal_documents"."mimeType", "public"."deal_documents"."s3Key", "public"."deal_documents"."sizeBytes", "public"."deal_documents"."hash", "public"."deal_documents"."uploadedAt", "public"."deal_documents"."uploadedByUserId", "public"."deal_documents"."signedAt", "public"."deal_documents"."signatories", "public"."deal_documents"."bankRequired", "public"."deal_documents"."releaseRequired", "public"."deal_documents"."bankAcceptance", "public"."deal_documents"."edoStatus", "public"."deal_documents"."edoExternalId", "public"."deal_documents"."version", "public"."deal_documents"."isImmutable", "public"."deal_documents"."sourceFileId", "public"."deal_documents"."signatureFileId", "public"."deal_documents"."supersedesId", "public"."deal_documents"."seriesId", "public"."deal_documents"."idempotencyKey", "public"."deal_documents"."correlationId", "public"."deal_documents"."createdByOrgId", "public"."deal_documents"."metadata"
+2026-07-16T21:56:36.0574484Z  2026-07-16 21:55:17.259 UTC [197] ERROR:  authoritative document source is not verified immutable evidence from the same deal
+2026-07-16T21:56:36.0575426Z  2026-07-16 21:55:17.259 UTC [197] CONTEXT:  PL/pgSQL function app_document_validate_authority() line 135 at RAISE
+2026-07-16T21:56:36.0580592Z  2026-07-16 21:55:17.259 UTC [197] STATEMENT:  INSERT INTO "public"."deal_documents" ("id","dealId","tenantId","type","status","name","mimeType","s3Key","sizeBytes","hash","uploadedAt","uploadedByUserId","bankRequired","releaseRequired","bankAcceptance","version","isImmutable","sourceFileId","idempotencyKey","createdByOrgId") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING "public"."deal_documents"."id", "public"."deal_documents"."dealId", "public"."deal_documents"."tenantId", "public"."deal_documents"."type", "public"."deal_documents"."status", "public"."deal_documents"."name", "public"."deal_documents"."mimeType", "public"."deal_documents"."s3Key", "public"."deal_documents"."sizeBytes", "public"."deal_documents"."hash", "public"."deal_documents"."uploadedAt", "public"."deal_documents"."uploadedByUserId", "public"."deal_documents"."signedAt", "public"."deal_documents"."signatories", "public"."deal_documents"."bankRequired", "public"."deal_documents"."releaseRequired", "public"."deal_documents"."bankAcceptance", "public"."deal_documents"."edoStatus", "public"."deal_documents"."edoExternalId", "public"."deal_documents"."version", "public"."deal_documents"."isImmutable", "public"."deal_documents"."sourceFileId", "public"."deal_documents"."signatureFileId", "public"."deal_documents"."supersedesId", "public"."deal_documents"."seriesId", "public"."deal_documents"."idempotencyKey", "public"."deal_documents"."correlationId", "public"."deal_documents"."createdByOrgId", "public"."deal_documents"."metadata"
+2026-07-16T21:56:36.0586190Z  2026-07-16 21:55:17.264 UTC [197] ERROR:  new row violates row-level security policy for table "deal_documents"
+2026-07-16T21:56:36.0591036Z  2026-07-16 21:55:17.264 UTC [197] STATEMENT:  INSERT INTO "public"."deal_documents" ("id","dealId","tenantId","type","status","name","uploadedAt","uploadedByUserId","bankRequired","releaseRequired","bankAcceptance","version","isImmutable","idempotencyKey","createdByOrgId") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING "public"."deal_documents"."id", "public"."deal_documents"."dealId", "public"."deal_documents"."tenantId", "public"."deal_documents"."type", "public"."deal_documents"."status", "public"."deal_documents"."name", "public"."deal_documents"."mimeType", "public"."deal_documents"."s3Key", "public"."deal_documents"."sizeBytes", "public"."deal_documents"."hash", "public"."deal_documents"."uploadedAt", "public"."deal_documents"."uploadedByUserId", "public"."deal_documents"."signedAt", "public"."deal_documents"."signatories", "public"."deal_documents"."bankRequired", "public"."deal_documents"."releaseRequired", "public"."deal_documents"."bankAcceptance", "public"."deal_documents"."edoStatus", "public"."deal_documents"."edoExternalId", "public"."deal_documents"."version", "public"."deal_documents"."isImmutable", "public"."deal_documents"."sourceFileId", "public"."deal_documents"."signatureFileId", "public"."deal_documents"."supersedesId", "public"."deal_documents"."seriesId", "public"."deal_documents"."idempotencyKey", "public"."deal_documents"."correlationId", "public"."deal_documents"."createdByOrgId", "public"."deal_documents"."metadata"
+2026-07-16T21:56:36.0596243Z  2026-07-16 21:55:17.276 UTC [196] ERROR:  confirmed document versions are append-only
+2026-07-16T21:56:36.0596857Z  2026-07-16 21:55:17.276 UTC [196] CONTEXT:  PL/pgSQL function app_document_immutable_version() line 4 at RAISE
+2026-07-16T21:56:36.0601181Z  2026-07-16 21:55:17.276 UTC [196] STATEMENT:  UPDATE "public"."deal_documents" SET "status" = $1 WHERE ("public"."deal_documents"."id" = $2 AND 1=1) RETURNING "public"."deal_documents"."id", "public"."deal_documents"."dealId", "public"."deal_documents"."tenantId", "public"."deal_documents"."type", "public"."deal_documents"."status", "public"."deal_documents"."name", "public"."deal_documents"."mimeType", "public"."deal_documents"."s3Key", "public"."deal_documents"."sizeBytes", "public"."deal_documents"."hash", "public"."deal_documents"."uploadedAt", "public"."deal_documents"."uploadedByUserId", "public"."deal_documents"."signedAt", "public"."deal_documents"."signatories", "public"."deal_documents"."bankRequired", "public"."deal_documents"."releaseRequired", "public"."deal_documents"."bankAcceptance", "public"."deal_documents"."edoStatus", "public"."deal_documents"."edoExternalId", "public"."deal_documents"."version", "public"."deal_documents"."isImmutable", "public"."deal_documents"."sourceFileId", "public"."deal_documents"."signatureFileId", "public"."deal_documents"."supersedesId", "public"."deal_documents"."seriesId", "public"."deal_documents"."idempotencyKey", "public"."deal_documents"."correlationId", "public"."deal_documents"."createdByOrgId", "public"."deal_documents"."metadata"
+2026-07-16T21:56:36.0605791Z  2026-07-16 21:55:17.278 UTC [196] ERROR:  confirmed document versions are append-only
+2026-07-16T21:56:36.0606369Z  2026-07-16 21:55:17.278 UTC [196] CONTEXT:  PL/pgSQL function app_document_immutable_version() line 4 at RAISE
+2026-07-16T21:56:36.0610779Z  2026-07-16 21:55:17.278 UTC [196] STATEMENT:  UPDATE "public"."deal_documents" SET "hash" = $1 WHERE ("public"."deal_documents"."id" = $2 AND 1=1) RETURNING "public"."deal_documents"."id", "public"."deal_documents"."dealId", "public"."deal_documents"."tenantId", "public"."deal_documents"."type", "public"."deal_documents"."status", "public"."deal_documents"."name", "public"."deal_documents"."mimeType", "public"."deal_documents"."s3Key", "public"."deal_documents"."sizeBytes", "public"."deal_documents"."hash", "public"."deal_documents"."uploadedAt", "public"."deal_documents"."uploadedByUserId", "public"."deal_documents"."signedAt", "public"."deal_documents"."signatories", "public"."deal_documents"."bankRequired", "public"."deal_documents"."releaseRequired", "public"."deal_documents"."bankAcceptance", "public"."deal_documents"."edoStatus", "public"."deal_documents"."edoExternalId", "public"."deal_documents"."version", "public"."deal_documents"."isImmutable", "public"."deal_documents"."sourceFileId", "public"."deal_documents"."signatureFileId", "public"."deal_documents"."supersedesId", "public"."deal_documents"."seriesId", "public"."deal_documents"."idempotencyKey", "public"."deal_documents"."correlationId", "public"."deal_documents"."createdByOrgId", "public"."deal_documents"."metadata"
+2026-07-16T21:56:36.0615801Z  2026-07-16 21:55:18.273 UTC [203] ERROR:  could not serialize access due to concurrent update
+2026-07-16T21:56:36.0617362Z  2026-07-16 21:55:18.273 UTC [203] STATEMENT:  UPDATE "public"."deal_documents" SET "status" = $1, "hash" = $2, "sizeBytes" = $3, "mimeType" = $4, "isImmutable" = $5, "version" = ("public"."deal_documents"."version" + $6) WHERE ("public"."deal_documents"."id" = $7 AND "public"."deal_documents"."type" = $8 AND "public"."deal_documents"."status" = $9 AND "public"."deal_documents"."version" = $10 AND "public"."deal_documents"."isImmutable" = $11)
+2026-07-16T21:56:36.0618943Z  2026-07-16 21:55:19.283 UTC [230] ERROR:  new row violates row-level security policy for table "deals"
+2026-07-16T21:56:36.0622848Z  2026-07-16 21:55:19.283 UTC [230] STATEMENT:  INSERT INTO "public"."deals" ("id","lotId","sourceLotId","dealNumber","status","tenantId","sellerOrgId","buyerOrgId","totalKopecks","version","currency","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING "public"."deals"."id", "public"."deals"."lotId", "public"."deals"."sourceLotId", "public"."deals"."dealNumber", "public"."deals"."status", "public"."deals"."tenantId", "public"."deals"."sellerOrgId", "public"."deals"."buyerOrgId", "public"."deals"."volumeTons", "public"."deals"."pricePerTon", "public"."deals"."totalRub", "public"."deals"."totalKopecks", "public"."deals"."pricePerTonDec", "public"."deals"."volumeTonsDec", "public"."deals"."version", "public"."deals"."currency", "public"."deals"."culture", "public"."deals"."cropClass", "public"."deals"."gost", "public"."deals"."region", "public"."deals"."incoterms", "public"."deals"."fundingChoice", "public"."deals"."owner", "public"."deals"."nextAction", "public"."deals"."slaAt", "public"."deals"."signedAt", "public"."deals"."closedAt", "public"."deals"."sagaState", "public"."deals"."sagaStep", "public"."deals"."createdAt", "public"."deals"."updatedAt", "public"."deals"."meta"
+2026-07-16T21:56:36.0627115Z  2026-07-16 21:55:24.578 UTC [238] ERROR:  staff cabinet projection access denied
+2026-07-16T21:56:36.0627739Z  2026-07-16 21:55:24.578 UTC [238] CONTEXT:  PL/pgSQL function auth.staff_cabinet_deals(text,text,text,text) line 34 at RAISE
+2026-07-16T21:56:36.0628281Z  2026-07-16 21:55:24.578 UTC [238] STATEMENT:  
+2026-07-16T21:56:36.0628566Z  	      SELECT *
+2026-07-16T21:56:36.0628782Z  	      FROM auth.staff_cabinet_deals(
+2026-07-16T21:56:36.0629034Z  	        $1,
+2026-07-16T21:56:36.0629222Z  	        $2,
+2026-07-16T21:56:36.0629397Z  	        $3,
+2026-07-16T21:56:36.0629572Z  	        $4
+2026-07-16T21:56:36.0629757Z  	      )
+2026-07-16T21:56:36.0629931Z  	    
+2026-07-16T21:56:36.0630213Z  2026-07-16 21:55:24.583 UTC [238] ERROR:  staff cabinet projection access denied
+2026-07-16T21:56:36.0630829Z  2026-07-16 21:55:24.583 UTC [238] CONTEXT:  PL/pgSQL function auth.staff_cabinet_deals(text,text,text,text) line 34 at RAISE
+2026-07-16T21:56:36.0631359Z  2026-07-16 21:55:24.583 UTC [238] STATEMENT:  
+2026-07-16T21:56:36.0631778Z  	      SELECT *
+2026-07-16T21:56:36.0632002Z  	      FROM auth.staff_cabinet_deals(
+2026-07-16T21:56:36.0632354Z  	        $1,
+2026-07-16T21:56:36.0632535Z  	        $2,
+2026-07-16T21:56:36.0632714Z  	        $3,
+2026-07-16T21:56:36.0632891Z  	        $4
+2026-07-16T21:56:36.0633069Z  	      )
+2026-07-16T21:56:36.0633244Z  	    
+2026-07-16T21:56:36.0633753Z  2026-07-16 21:55:24.649 UTC [238] ERROR:  new row for relation "break_glass_activations" violates check constraint "auth_break_glass_duration_check"
+2026-07-16T21:56:36.0635565Z  2026-07-16 21:55:24.649 UTC [238] DETAIL:  Failing row contains (bga-invalid-e2e, user-staff-sre-e2e, sta-sre-e2e, This invalid activation exceeds the maximum duration, INC-E2E-BG-BAD, ACTIVE, 2026-07-16 21:55:24.649143+00, 2026-07-16 22:11:24.649143+00, null, null, corr-invalid-break-glass, 2026-07-16 21:55:24.649143+00, 2026-07-16 21:55:24.649143+00).
+2026-07-16T21:56:36.0636828Z  2026-07-16 21:55:24.649 UTC [238] STATEMENT:  
+2026-07-16T21:56:36.0637155Z  	      INSERT INTO auth.break_glass_activations (
+2026-07-16T21:56:36.0637677Z  	        id, actor_user_id, assignment_id, reason, ticket_id, started_at, expires_at, notification_correlation_id
+2026-07-16T21:56:36.0638155Z  	      ) VALUES (
+2026-07-16T21:56:36.0638373Z  	        'bga-invalid-e2e', $1, $2,
+2026-07-16T21:56:36.0638755Z  	        'This invalid activation exceeds the maximum duration', 'INC-E2E-BG-BAD',
+2026-07-16T21:56:36.0639229Z  	        NOW(), NOW() + INTERVAL '16 minutes', 'corr-invalid-break-glass'
+2026-07-16T21:56:36.0639576Z  	      )
+2026-07-16T21:56:36.0639754Z  	    
+2026-07-16T21:56:36.0640070Z  2026-07-16 21:55:24.661 UTC [238] ERROR:  permission denied for table staff_access_events
+2026-07-16T21:56:36.0640507Z  2026-07-16 21:55:24.661 UTC [238] STATEMENT:  
+2026-07-16T21:56:36.0640798Z  	      UPDATE auth.staff_access_events
+2026-07-16T21:56:36.0641071Z  	      SET action = 'tampered'
+2026-07-16T21:56:36.0641326Z  	      WHERE actor_user_id = $1
+2026-07-16T21:56:36.0641568Z  	    
+2026-07-16T21:56:36.0641882Z  2026-07-16 21:55:24.663 UTC [238] ERROR:  permission denied for table staff_access_events
+2026-07-16T21:56:36.0642308Z  2026-07-16 21:55:24.663 UTC [238] STATEMENT:  
+2026-07-16T21:56:36.0642600Z  	      DELETE FROM auth.staff_access_events
+2026-07-16T21:56:36.0642881Z  	      WHERE actor_user_id = $1
+2026-07-16T21:56:36.0643109Z  	    
+2026-07-16T21:56:36.0643515Z  2026-07-16 21:55:24.800 UTC [239] ERROR:  staff audit chain continuity violation for actor user-staff-audit-chain-e2e
+2026-07-16T21:56:36.0644242Z  2026-07-16 21:55:24.800 UTC [239] CONTEXT:  PL/pgSQL function auth.enforce_staff_access_event_chain() line 16 at RAISE
+2026-07-16T21:56:36.0644986Z  2026-07-16 21:55:24.800 UTC [239] STATEMENT:  
+2026-07-16T21:56:36.0645291Z  	      INSERT INTO auth.staff_access_events (
+2026-07-16T21:56:36.0645649Z  	        id, actor_user_id, staff_role, access_session_id, grant_id,
+2026-07-16T21:56:36.0646141Z  	        effective_tenant_id, effective_organization_id, effective_user_id, effective_role,
+2026-07-16T21:56:36.0646694Z  	        access_mode, action, resource_type, resource_id, outcome, reason, ticket_id,
+2026-07-16T21:56:36.0647139Z  	        correlation_id, metadata, prev_hash, hash
+2026-07-16T21:56:36.0647425Z  	      ) VALUES (
+2026-07-16T21:56:36.0647628Z  	        $1, $2, $3, $4,
+2026-07-16T21:56:36.0647843Z  	        $5, $6,
+2026-07-16T21:56:36.0648030Z  	        $7, $8,
+2026-07-16T21:56:36.0648222Z  	        $9, $10, $11,
+2026-07-16T21:56:36.0648430Z  	        $12, $13, $14,
+2026-07-16T21:56:36.0648640Z  	        $15, $16, $17,
+2026-07-16T21:56:36.0648853Z  	        $18::jsonb, $19, $20
+2026-07-16T21:56:36.0649073Z  	      )
+2026-07-16T21:56:36.0649246Z  	    
+2026-07-16T21:56:36.0649433Z  
+2026-07-16T21:56:36.0649753Z  /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+2026-07-16T21:56:36.0650147Z  
+2026-07-16T21:56:36.0650517Z  waiting for server to shut down...2026-07-16 21:54:09.872 UTC [41] LOG:  received fast shutdown request
+2026-07-16T21:56:36.0651202Z  .2026-07-16 21:54:09.872 UTC [41] LOG:  aborting any active transactions
+2026-07-16T21:56:36.0651887Z  2026-07-16 21:54:09.874 UTC [41] LOG:  background worker "logical replication launcher" (PID 47) exited with exit code 1
+2026-07-16T21:56:36.0652432Z  2026-07-16 21:54:09.876 UTC [42] LOG:  shutting down
+2026-07-16T21:56:36.0652820Z  2026-07-16 21:54:09.877 UTC [42] LOG:  checkpoint starting: shutdown immediate
+2026-07-16T21:56:36.0653908Z  2026-07-16 21:54:09.896 UTC [42] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.016 s, sync=0.002 s, total=0.020 s; sync files=301, longest=0.001 s, average=0.001 s; distance=4283 kB, estimate=4283 kB; lsn=0/1925D68, redo lsn=0/1925D68
+2026-07-16T21:56:36.0655210Z  2026-07-16 21:54:09.903 UTC [41] LOG:  database system is shut down
+2026-07-16T21:56:36.0655537Z   done
+2026-07-16T21:56:36.0655725Z  server stopped
+2026-07-16T21:56:36.0655939Z  
+2026-07-16T21:56:36.0656178Z  PostgreSQL init process complete; ready for start up.
+2026-07-16T21:56:36.0656485Z  
+2026-07-16T21:56:36.0663297Z Stop and remove container: 35e9f933768a440e9d67bc3d93326448_postgres16alpine_406c41
+2026-07-16T21:56:36.0668896Z ##[command]/usr/bin/docker rm --force a87ef2883859b6bae0cdaf300b3aa5741478b447a3d4007c9728c4c8a0213dae
+2026-07-16T21:56:36.1912603Z a87ef2883859b6bae0cdaf300b3aa5741478b447a3d4007c9728c4c8a0213dae
+2026-07-16T21:56:36.1941171Z Remove container network: github_network_6266cf09ff9641c094af0a32a7b489a5
+2026-07-16T21:56:36.1946931Z ##[command]/usr/bin/docker network rm github_network_6266cf09ff9641c094af0a32a7b489a5
+2026-07-16T21:56:36.3218271Z github_network_6266cf09ff9641c094af0a32a7b489a5
+2026-07-16T21:56:36.3289410Z Cleaning up orphan processes
+2026-07-16T21:56:36.3632539Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/upload-artifact@v4, pnpm/action-setup@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+

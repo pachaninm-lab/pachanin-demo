@@ -1,0 +1,8 @@
+2026-07-16T21:53:37.9033502Z ##[group]Runner Image Provisioner
+2026-07-16T21:53:37.9045981Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260714.240/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-16T21:53:37.9050077Z ##[group]GITHUB_TOKEN Permissions
+2026-07-16T21:53:38.6940477Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-07-16T21:53:39.9875023Z env:
+2026-07-16T21:53:40.9880681Z   throw new Error(`IndexNow submit failed: ${response.status} ${responseText}`);
+2026-07-16T21:53:40.9885806Z Error: IndexNow submit failed: 403 {"errorCode":"UserForbiddedToAccessSite","message":"User is unauthorized to access the site. Please verify the site using the key and try again","details":null}
+2026-07-16T21:53:40.9952573Z ##[error]Process completed with exit code 1.

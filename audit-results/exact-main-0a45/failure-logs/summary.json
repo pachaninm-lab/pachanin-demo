@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 2,
+  "repository": "pachaninm-lab/pachanin-demo",
+  "auditHead": "c743d2726fdb1fba8feb0bd02b68a8a2afaeb578",
+  "capturedAt": "2026-07-17T01:58:11.187Z",
+  "jobs": {
+    "seo": {
+      "jobId": 87752601689,
+      "lineCount": 129,
+      "tailSha256": "sha256:ad83fbcba006f021beabacb6fdeaa9d6829caa25b6c722ac07067f8c2c789fc0",
+      "errorLineCount": 3
+    },
+    "indexnow": {
+      "jobId": 87752601156,
+      "lineCount": 138,
+      "tailSha256": "sha256:300f8f45f12ad6fbaaf9bf3cde860a5448cc7f5ef9b01a0642da992b4c5abdbf",
+      "errorLineCount": 8
+    },
+    "securityAbuse": {
+      "jobId": 87752601798,
+      "lineCount": 3395,
+      "tailSha256": "sha256:ce1874f294e62a26e67eadceda2b7f3d4a6f10e8bd283d30d564dc670b613995",
+      "errorLineCount": 113
+    }
+  }
+}
