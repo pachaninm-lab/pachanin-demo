@@ -84,6 +84,9 @@ export class OrganizationsService {
   }
 
   async list(user: RequestUser, filters?: { status?: string; kycStatus?: string }) {
+    if (!ORGANIZATION_DECISION_ROLES.has(user.role) && user.role !== Role.EXECUTIVE) {
+      throw new ForbiddenException('Список организаций доступен оператору, комплаенсу, администратору и руководителю.');
+    }
     if (!this.prisma) return [];
     return this.prisma.organization.findMany({
       where: {
@@ -95,14 +98,60 @@ export class OrganizationsService {
     }).catch(() => []);
   }
 
-  async updateStatus(id: string, status: string, user: RequestUser) {
-    if (user.role !== Role.ADMIN && user.role !== Role.COMPLIANCE_OFFICER) {
-      throw new ForbiddenException('Только администратор или офицер комплаенса может обновлять статус организации');
+  async updateStatus(id: string, status: string, reason: string, user: RequestUser) {
+    if (!ORGANIZATION_DECISION_ROLES.has(user.role)) {
+      throw new ForbiddenException('Решение по организации принимает оператор, комплаенс или администратор.');
+    }
+    if (!ORGANIZATION_DECISION_STATUSES.has(status)) {
+      throw new ConflictException(`Недопустимый статус организации: ${status}. Допустимо: ${[...ORGANIZATION_DECISION_STATUSES].join(', ')}.`);
+    }
+    const normalizedReason = String(reason ?? '').trim();
+    if (normalizedReason.length < 10) {
+      throw new ConflictException('Укажите основание решения (не короче 10 символов) — оно попадает в журнал.');
     }
     if (!this.prisma) throw new NotFoundException('Database not available');
-    return this.prisma.organization.update({
+    const before = await this.prisma.organization.findUnique({ where: { id } });
+    if (!before) throw new NotFoundException(`Организация ${id} не найдена`);
+
+    const updated = await this.prisma.organization.update({
       where: { id },
-      data: { status: status as any },
+      data: {
+        status: status as any,
+        ...(status === 'VERIFIED'
+          ? { kycStatus: 'APPROVED' as any, verifiedAt: new Date() }
+          : {}),
+        ...(status === 'REJECTED' ? { kycStatus: 'REJECTED' as any } : {}),
+      },
     });
+
+    await this.prisma.auditEvent.create({
+      data: {
+        action: 'ORGANIZATION_STATUS_DECISION',
+        actorUserId: user.id,
+        actorRole: String(user.role),
+        tenantId: before.tenantId,
+        orgId: id,
+        objectType: 'organization',
+        objectId: id,
+        beforeState: { status: before.status, kycStatus: before.kycStatus },
+        afterState: { status: updated.status, kycStatus: updated.kycStatus },
+        outcome: status,
+        reason: normalizedReason,
+      },
+    }).catch((e) => this.logger.error(`Audit write failed for organization decision ${id}: ${e.message}`));
+
+    return updated;
   }
 }
+
+const ORGANIZATION_DECISION_ROLES: ReadonlySet<Role> = new Set([
+  Role.ADMIN,
+  Role.COMPLIANCE_OFFICER,
+  Role.SUPPORT_MANAGER,
+]);
+const ORGANIZATION_DECISION_STATUSES: ReadonlySet<string> = new Set([
+  'VERIFIED',
+  'REJECTED',
+  'SUSPENDED',
+  'PENDING',
+]);

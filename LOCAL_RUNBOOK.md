@@ -70,13 +70,18 @@ curl -X POST http://127.0.0.1:4000/api/auth/register -H 'Content-Type: applicati
 (маппинг на кабинеты — `apps/web/lib/platform-v7/verified-session.ts`).
 
 Организация создаётся в статусе `PENDING` — логин отвечает 403
-`ORGANIZATION_NOT_VERIFIED`. Локально подтверждаем напрямую в базе
-(в продукте это делает оператор):
+`ORGANIZATION_NOT_VERIFIED`. Подтверждение — штатно, решением оператора
+(SQL больше не нужен):
 
 ```bash
-psql -h 127.0.0.1 -p 5433 -U postgres -d pc_local \
-  -c "update organizations set status='VERIFIED', \"kycStatus\"='APPROVED', \"verifiedAt\"=now() where status='PENDING';"
+# оператором (SUPPORT_MANAGER/ADMIN/COMPLIANCE_OFFICER):
+curl -X PATCH http://127.0.0.1:4000/api/organizations/<orgId>/status \
+  -H 'Authorization: Bearer <operator-token>' -H 'Content-Type: application/json' \
+  -d '{"status":"VERIFIED","reason":"Документы организации проверены оператором."}'
 ```
+
+Очередь на проверку: `GET /api/organizations?status=PENDING` (те же роли).
+Каждое решение пишется в `audit_events` (ORGANIZATION_STATUS_DECISION).
 
 После этого форма `/platform-v7/login` пускает в кабинет роли; кабинет читает
 живые данные через `/api/proxy/*` и показывает честное пустое состояние,
