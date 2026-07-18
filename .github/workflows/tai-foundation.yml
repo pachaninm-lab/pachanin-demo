@@ -7,9 +7,6 @@ on:
       - '.github/workflows/tai-foundation.yml'
   push:
     branches: [main]
-    paths:
-      - 'apps/tai/**'
-      - '.github/workflows/tai-foundation.yml'
 
 permissions:
   contents: read
