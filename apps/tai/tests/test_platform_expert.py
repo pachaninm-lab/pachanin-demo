@@ -4,8 +4,8 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from tai.expert import GroundingError, PlatformQuestion, answer_platform_question
-from tai.knowledge import KnowledgeRecord, KnowledgeScope, KnowledgeStore
+import tai.expert as expert
+import tai.knowledge as knowledge
 from tai.main import app
 
 
@@ -38,9 +38,9 @@ def test_unknown_question_is_not_hallucinated() -> None:
 def test_tenant_record_isolated_from_other_tenant() -> None:
     tenant_a = uuid4()
     tenant_b = uuid4()
-    store = KnowledgeStore(
+    store = knowledge.KnowledgeStore(
         (
-            KnowledgeRecord(
+            knowledge.KnowledgeRecord(
                 record_id="tenant.secret",
                 title="Внутренний регламент",
                 body="Секретный порядок tenant A",
@@ -48,21 +48,21 @@ def test_tenant_record_isolated_from_other_tenant() -> None:
                 source_uri="tenant://a/regulation",
                 effective_at=datetime(2026, 7, 18, tzinfo=UTC),
                 trust_score=1.0,
-                scope=KnowledgeScope.TENANT,
+                scope=knowledge.KnowledgeScope.TENANT,
                 tenant_id=tenant_a,
                 tags=frozenset({"регламент"}),
             ),
         )
     )
 
-    with pytest.raises(GroundingError):
-        answer_platform_question(
-            PlatformQuestion(question="регламент", tenant_id=tenant_b),
+    with pytest.raises(expert.GroundingError):
+        expert.answer_platform_question(
+            expert.PlatformQuestion(question="регламент", tenant_id=tenant_b),
             store=store,
         )
 
-    answer = answer_platform_question(
-        PlatformQuestion(question="регламент", tenant_id=tenant_a),
+    answer = expert.answer_platform_question(
+        expert.PlatformQuestion(question="регламент", tenant_id=tenant_a),
         store=store,
     )
     assert answer.sources[0].source_id == "tenant.secret"
