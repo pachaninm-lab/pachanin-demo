@@ -30,6 +30,7 @@ import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getOutboxStatus } from '@/lib/outbox-server';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';
 import { LedgerPanel } from '@/components/platform-v7/LedgerPanel';
 import { MoneyLifecyclePanel } from '@/components/platform-v7/MoneyLifecyclePanel';
 
@@ -126,8 +127,14 @@ export default async function PlatformV7BankPage() {
 
       <BatonStrip from='оператор и ответственный за документ' mine='проверка основания выплаты' to='оператор — подтверждённый статус банка' toHref='/platform-v7/control-tower' />
 
+      <MoneyCockpitSection id='live-deals'>
+        <CollapsibleSection title='Сделки на контроле' summary='реальные сделки с сервера · открыть исполнение' defaultOpen>
+          <CanonicalDealsList />
+        </CollapsibleSection>
+      </MoneyCockpitSection>
+
       <MoneyCockpitSection id='overview'>
-        <CollapsibleSection title='Обзор банковской роли' summary='очередь · основание · стоп · следующее действие' defaultOpen>
+        <CollapsibleSection title='Обзор банковской роли' summary='очередь · основание · стоп · следующее действие' defaultOpen={false}>
           <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.bank} />
         </CollapsibleSection>
       </MoneyCockpitSection>
