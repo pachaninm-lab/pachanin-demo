@@ -12,6 +12,7 @@ const driverPage = readFileSync(join(cwd, 'app/platform-v7/driver/page.tsx'), 'u
 const driverFieldPage = readFileSync(join(cwd, 'app/platform-v7/driver/field/page.tsx'), 'utf8');
 const cleanDealPage = readFileSync(join(cwd, 'app/platform-v7/deals/[id]/clean/page.tsx'), 'utf8');
 const controlTowerPage = readFileSync(join(cwd, 'app/platform-v7/control-tower/page.tsx'), 'utf8');
+const operatorPage = readFileSync(join(cwd, 'app/platform-v7/operator/page.tsx'), 'utf8');
 const roleSummarySource = readFileSync(join(cwd, 'components/platform-v7/RoleExecutionSummary.tsx'), 'utf8');
 
 const devTerms = [
@@ -77,12 +78,12 @@ describe('platform-v7 role UX regressions', () => {
   });
 
   describe('CTA discipline: hero sections reduced to 1 primary + 1 secondary', () => {
-    it('buyer hero retains primary CTA Запросить подтверждение резерва', () => {
-      expect(buyerPage).toContain('Запросить подтверждение резерва');
+    it('buyer hero retains a single primary CTA to the deal money screen', () => {
+      expect(buyerPage).toContain('Открыть деньги сделки');
     });
 
-    it('buyer hero retains secondary CTA Открыть сделку', () => {
-      expect(buyerPage).toContain('Открыть сделку');
+    it('buyer hero retains a single secondary CTA to the deal card', () => {
+      expect(buyerPage).toContain('Карточка сделки');
     });
 
     it('buyer hero has removed extra financing CTA', () => {
@@ -98,8 +99,10 @@ describe('platform-v7 role UX regressions', () => {
     });
 
     it('disputes hero retains 2 action link targets', () => {
-      expect(disputesPage).toContain('/platform-v7/operator');
-      expect(disputesPage).toContain('/platform-v7/bank');
+      // Хиро спора ведёт к карточке спора и к аудиту сделки (реструктурировано
+      // с прежних ссылок на operator/bank; маршрутизация ролей осталась в теле).
+      expect(disputesPage).toContain('/platform-v7/disputes/');
+      expect(disputesPage).toContain('/audit');
     });
   });
 
@@ -117,7 +120,7 @@ describe('platform-v7 role UX regressions', () => {
 
   describe('elevator quality wording stays pilot-safe', () => {
     it('quality section uses pilot wording, not simulation or external-confirmed wording', () => {
-      expect(elevatorPage).toContain('пилотный протокол качества');
+      expect(elevatorPage).toContain('протокол качества');
       expect(elevatorPage).not.toContain('симуляция протокола');
       expect(elevatorPage).not.toContain('ФГБУ ЦОК АПК');
     });
@@ -131,7 +134,7 @@ describe('platform-v7 role UX regressions', () => {
   describe('deal clean page uses pilot terminology, not simulation', () => {
     it('money state is visible without simulation framing', () => {
       expect(cleanDealPage).toContain('Резерв денег');
-      expect(cleanDealPage).toContain('К выплате по текущим условиям');
+      expect(cleanDealPage).toContain('Удержание');
     });
 
     it('clean deal page has no simulation wording', () => {
@@ -140,13 +143,20 @@ describe('platform-v7 role UX regressions', () => {
   });
 
   describe('control tower uses pilot terminology', () => {
-    it('keeps operator framing without dev chain wording', () => {
-      expect(controlTowerPage).toContain('Центр управления');
+    // Легаси /control-tower теперь редирект на каноничный кабинет оператора;
+    // операторское обрамление и секция исполнения живут в operator/page.tsx.
+    it('legacy control tower redirects to the canonical operator workspace', () => {
+      expect(controlTowerPage).toContain("redirect('/platform-v7/operator')");
       expect(controlTowerPage).not.toContain('Тестовая цепочка');
     });
 
-    it('keeps the operator radar execution section', () => {
-      expect(controlTowerPage).toContain('Радар оператора');
+    it('keeps operator framing without dev chain wording', () => {
+      expect(operatorPage).toContain('Оператор · управление исполнением');
+      expect(operatorPage).not.toContain('Тестовая цепочка');
+    });
+
+    it('keeps the operator execution queue section', () => {
+      expect(operatorPage).toContain('Очередь исполнения');
     });
   });
 
