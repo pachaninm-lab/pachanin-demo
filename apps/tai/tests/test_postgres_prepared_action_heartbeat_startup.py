@@ -68,26 +68,29 @@ def test_claim_is_abandoned_when_heartbeat_thread_cannot_start(
     prepared = cast(StoredPreparedAction, object())
     abandoned: list[UUID] = []
 
-    monkeypatch.setattr(
-        PostgreSQLPreparedActionRepository,
-        "claim",
-        lambda self, confirmation_id: PreparedActionClaim(
+    def claim(
+        self: PostgreSQLPreparedActionRepository,
+        confirmation_id: UUID,
+    ) -> PreparedActionClaim:
+        del self, confirmation_id
+        return PreparedActionClaim(
             PreparedActionClaimStatus.EXECUTE,
             prepared,
-        ),
-    )
-    monkeypatch.setattr(
-        PostgreSQLPreparedActionRepository,
-        "abandon",
-        lambda self, confirmation_id: abandoned.append(confirmation_id),
-    )
-    monkeypatch.setattr(
-        repository,
-        "_start_heartbeat",
-        lambda confirmation_id: (_ for _ in ()).throw(
-            RuntimeError(f"thread unavailable: {confirmation_id}")
-        ),
-    )
+        )
+
+    def abandon(
+        self: PostgreSQLPreparedActionRepository,
+        confirmation_id: UUID,
+    ) -> None:
+        del self
+        abandoned.append(confirmation_id)
+
+    def fail_to_start(confirmation_id: UUID) -> None:
+        raise RuntimeError(f"thread unavailable: {confirmation_id}")
+
+    monkeypatch.setattr(PostgreSQLPreparedActionRepository, "claim", claim)
+    monkeypatch.setattr(PostgreSQLPreparedActionRepository, "abandon", abandon)
+    monkeypatch.setattr(repository, "_start_heartbeat", fail_to_start)
 
     with pytest.raises(RuntimeError, match="thread unavailable"):
         repository.claim(CONFIRMATION_ID)
