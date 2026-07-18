@@ -8,7 +8,6 @@ import tai.expert as expert
 import tai.knowledge as knowledge
 from tai.main import app
 
-
 client = TestClient(app)
 
 
