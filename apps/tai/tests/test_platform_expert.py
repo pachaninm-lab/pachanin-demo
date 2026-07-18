@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -46,7 +46,7 @@ def test_tenant_record_isolated_from_other_tenant() -> None:
                 body="Секретный порядок tenant A",
                 version="1",
                 source_uri="tenant://a/regulation",
-                effective_at=datetime(2026, 7, 18, tzinfo=timezone.utc),
+                effective_at=datetime(2026, 7, 18, tzinfo=UTC),
                 trust_score=1.0,
                 scope=KnowledgeScope.TENANT,
                 tenant_id=tenant_a,
@@ -68,8 +68,11 @@ def test_tenant_record_isolated_from_other_tenant() -> None:
     assert answer.sources[0].source_id == "tenant.secret"
 
 
-def test_health_reports_knowledge_version() -> None:
-    response = client.get("/health/ready")
+def test_health_reports_runtime_and_knowledge_state() -> None:
+    live = client.get("/health/live")
+    ready = client.get("/health/ready")
 
-    assert response.status_code == 200
-    assert response.json()["knowledge"] == "platform-knowledge.2026-07-18.1"
+    assert live.status_code == 200
+    assert live.json() == {"status": "ok"}
+    assert ready.status_code == 200
+    assert ready.json()["knowledge"] == "platform-knowledge.2026-07-18.1"
