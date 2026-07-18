@@ -51,6 +51,8 @@ class LoaderStateRepository(Protocol):
         next_run_at: datetime,
     ) -> LoaderState: ...
 
+    def get(self, source_id: str) -> LoaderState | None: ...
+
     def claim_due(
         self,
         *,
@@ -148,6 +150,9 @@ class InMemoryLoaderStateRepository:
         )
         self._states[source_id] = state
         return state
+
+    def get(self, source_id: str) -> LoaderState | None:
+        return self._states.get(source_id)
 
     def claim_due(
         self,
@@ -267,9 +272,6 @@ class InMemoryLoaderStateRepository:
             version=current.version + 1,
         )
         return True
-
-    def get(self, source_id: str) -> LoaderState | None:
-        return self._states.get(source_id)
 
     @staticmethod
     def _matches_active_lease(
