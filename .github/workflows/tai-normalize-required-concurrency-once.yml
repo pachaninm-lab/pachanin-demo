@@ -1,0 +1,89 @@
+name: TAI Normalize Required Concurrency Once
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-normalize-required-concurrency-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Normalize exact-main concurrency groups
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          files = (
+              '.github/workflows/auction-atomic-acceptance.yml',
+              '.github/workflows/ci.yml',
+              '.github/workflows/disputes-postgresql-acceptance.yml',
+              '.github/workflows/node-ci.yml',
+              '.github/workflows/optional-runtime-retirement-gate.yml',
+              '.github/workflows/outbox-postgresql-acceptance.yml',
+              '.github/workflows/runtime-context-security-gate.yml',
+              '.github/workflows/security-abuse-evidence.yml',
+              '.github/workflows/security-quality-gate.yml',
+              '.github/workflows/security.yml',
+          )
+          target = '$' + '{{ github.event.pull_request.number || github.sha }}'
+          old_pr_or_ref = '$' + '{{ github.event.pull_request.number || github.ref }}'
+          old_ref = '$' + '{{ github.ref }}'
+
+          changed = []
+          for filename in files:
+              path = Path(filename)
+              text = path.read_text()
+              updated = text.replace(old_pr_or_ref, target).replace(old_ref, target)
+              if updated == text:
+                  raise SystemExit(f'expected cancellable ref concurrency not found: {filename}')
+              if updated.count(target) != text.count(target) + 1:
+                  raise SystemExit(f'unexpected concurrency replacement count: {filename}')
+              path.write_text(updated)
+              changed.append(filename)
+
+          for filename in files:
+              text = Path(filename).read_text()
+              if old_pr_or_ref in text or old_ref in text:
+                  raise SystemExit(f'ref-scoped concurrency remains: {filename}')
+              if target not in text:
+                  raise SystemExit(f'exact-sha concurrency missing: {filename}')
+
+          Path('.github/workflows/tai-normalize-required-concurrency-once.yml').unlink()
+          print('\n'.join(changed))
+          PY
+
+      - name: Verify scoped diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          mapfile -t changed < <(git diff --name-only)
+          test "${#changed[@]}" -eq 11
+          printf '%s\n' "${changed[@]}"
+          test "$(printf '%s\n' "${changed[@]}" | grep -c '^\.github/workflows/')" -eq 11
+          test "$(git diff --numstat | awk '{added += $1; deleted += $2} END {print added + deleted}')" -eq 22
+
+      - name: Commit normalized workflow authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows
+          git commit -m 'fix(tai): preserve exact-main workflow evidence by SHA'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
