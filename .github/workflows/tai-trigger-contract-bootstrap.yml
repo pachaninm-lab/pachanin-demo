@@ -1,0 +1,175 @@
+name: TAI Trigger Contract Bootstrap
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-trigger-contract-bootstrap.yml
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  patch-trigger-contract:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Patch exact-main trigger contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def indentation(line: str) -> int:
+              return len(line) - len(line.lstrip(' '))
+
+          def remove_nested_key(lines: list[str], parent_key: str, child_key: str) -> list[str]:
+              parent_index = next(
+                  index for index, line in enumerate(lines)
+                  if line == f'  {parent_key}:'
+              )
+              parent_end = len(lines)
+              for index in range(parent_index + 1, len(lines)):
+                  line = lines[index]
+                  if line.strip() and not line.lstrip().startswith('#') and indentation(line) <= 2:
+                      parent_end = index
+                      break
+              child_index = next(
+                  index for index in range(parent_index + 1, parent_end)
+                  if lines[index] == f'    {child_key}:'
+              )
+              child_end = parent_end
+              for index in range(child_index + 1, parent_end):
+                  line = lines[index]
+                  if line.strip() and not line.lstrip().startswith('#') and indentation(line) <= 4:
+                      child_end = index
+                      break
+              return lines[:child_index] + lines[child_end:]
+
+          def patch_unconditional_push(path: str) -> None:
+              file = Path(path)
+              lines = file.read_text().splitlines()
+              lines = remove_nested_key(lines, 'push', 'paths')
+              file.write_text('\n'.join(lines) + '\n')
+
+          patch_unconditional_push('.github/workflows/ci.yml')
+          patch_unconditional_push('.github/workflows/node-ci.yml')
+          patch_unconditional_push('.github/workflows/tai-foundation.yml')
+
+          node_path = Path('.github/workflows/node-ci.yml')
+          node_lines = node_path.read_text().splitlines()
+          marker = "      - 'tsconfig*.json'"
+          self_path = "      - '.github/workflows/node-ci.yml'"
+          pull_index = node_lines.index('  pull_request:')
+          push_or_dispatch = next(
+              index for index in range(pull_index + 1, len(node_lines))
+              if node_lines[index].strip() and indentation(node_lines[index]) <= 2
+          )
+          if self_path not in node_lines[pull_index:push_or_dispatch]:
+              marker_index = next(
+                  index for index in range(pull_index + 1, push_or_dispatch)
+                  if node_lines[index] == marker
+              )
+              node_lines.insert(marker_index + 1, self_path)
+          node_path.write_text('\n'.join(node_lines) + '\n')
+
+          test = Path('apps/tai/tests/test_release_workflow_triggers.py')
+          test.write_text('''from __future__ import annotations
+
+from pathlib import Path
+
+from tai.release_acceptance import DEFAULT_REQUIRED_WORKFLOWS
+
+
+_WORKFLOW_FILES = {
+    "Auction Atomic Execution Acceptance": "auction-atomic-acceptance.yml",
+    "CI": "ci.yml",
+    "Dependency Review": "dependency-review.yml",
+    "Disputes PostgreSQL Authority Acceptance": "disputes-postgresql-acceptance.yml",
+    "Node CI": "node-ci.yml",
+    "Optional Runtime Retirement Gate": "optional-runtime-retirement-gate.yml",
+    "Outbox PostgreSQL Authority Acceptance": "outbox-postgresql-acceptance.yml",
+    "Runtime Context Security Gate": "runtime-context-security-gate.yml",
+    "Security Abuse and Evidence Acceptance": "security-abuse-evidence.yml",
+    "Security Quality Gate": "security-quality-gate.yml",
+    "Security Scan": "security.yml",
+    "TAI Foundation": "tai-foundation.yml",
+}
+
+
+def _indentation(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def _nested_block(lines: list[str], parent: str, child: str) -> list[str]:
+    parent_index = next(
+        index for index, line in enumerate(lines) if line == f"{parent}:"
+    )
+    parent_end = len(lines)
+    for index in range(parent_index + 1, len(lines)):
+        line = lines[index]
+        if line.strip() and not line.lstrip().startswith("#") and _indentation(line) == 0:
+            parent_end = index
+            break
+    child_index = next(
+        index
+        for index in range(parent_index + 1, parent_end)
+        if lines[index] == f"  {child}:"
+    )
+    child_end = parent_end
+    for index in range(child_index + 1, parent_end):
+        line = lines[index]
+        if line.strip() and not line.lstrip().startswith("#") and _indentation(line) <= 2:
+            child_end = index
+            break
+    return lines[child_index + 1 : child_end]
+
+
+def test_required_workflow_inventory_matches_release_authority() -> None:
+    assert frozenset(_WORKFLOW_FILES) == DEFAULT_REQUIRED_WORKFLOWS
+
+
+def test_required_workflows_run_on_every_main_push() -> None:
+    repository_root = Path(__file__).resolve().parents[3]
+    workflow_root = repository_root / ".github/workflows"
+    for expected_name, filename in _WORKFLOW_FILES.items():
+        lines = (workflow_root / filename).read_text().splitlines()
+        assert lines[0] == f"name: {expected_name}", filename
+        push_block = _nested_block(lines, "on", "push")
+        normalized = [line.strip().strip("'\\\"") for line in push_block]
+        assert any(
+            line == "branches: [main]" or line == "- main"
+            or (line.startswith("branches:") and "main" in line)
+            for line in normalized
+        ), filename
+        assert not any(
+            line.startswith("paths:") or line.startswith("paths-ignore:")
+            for line in normalized
+        ), filename
+''')
+
+          Path('.github/workflows/tai-trigger-contract-bootstrap.yml').unlink()
+          PY
+
+      - name: Commit generated patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/ci.yml \
+            .github/workflows/node-ci.yml \
+            .github/workflows/tai-foundation.yml \
+            apps/tai/tests/test_release_workflow_triggers.py \
+            .github/workflows/tai-trigger-contract-bootstrap.yml
+          git diff --cached --check
+          git commit -m 'fix(tai): enforce required workflows on every main SHA'
+          git push origin "HEAD:${{ github.head_ref }}"
