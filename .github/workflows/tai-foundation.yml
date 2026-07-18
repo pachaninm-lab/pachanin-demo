@@ -87,6 +87,9 @@ jobs:
             apps/tai/pytest-output.txt
             apps/tai/pytest-report.xml
             apps/tai/coverage.xml
+            apps/tai/tai/agent_runtime.py
+            apps/tai/tests/test_agent_runtime.py
+            apps/tai/tests/test_agent_runtime_edges.py
           if-no-files-found: error
           retention-days: 14
 
