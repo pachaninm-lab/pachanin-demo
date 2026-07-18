@@ -105,7 +105,11 @@ class UrllibJSONTransport:
                 "User-Agent": "transparent-agro-intelligence/local-runtime",
             },
         )
-        with urlopen(request, timeout=timeout_seconds) as response:  # noqa: S310
+        response_handle = urlopen(  # noqa: S310
+            request,
+            timeout=timeout_seconds,
+        )
+        with response_handle as response:
             raw = response.read(maximum_response_bytes + 1)
         if len(raw) > maximum_response_bytes:
             raise RuntimeError("local model response exceeded the byte budget")
