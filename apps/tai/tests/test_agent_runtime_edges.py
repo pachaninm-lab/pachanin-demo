@@ -230,12 +230,12 @@ def test_stop_on_failure_false_allows_later_safe_calls() -> None:
     first = _Handler(error=TimeoutError("unavailable"))
     second = _Handler({"value": 2})
     runtime = _runtime(
-        {"getDealSummary": first, "getRiskSnapshot": second},
+        {"getDealSummary": first, "getRoleNextActions": second},
         policy=AgentRuntimePolicy(stop_on_failure=False),
     )
     plan = _plan(
         _call(call_id="call-1", tool_name="getDealSummary"),
-        _call(call_id="call-2", tool_name="getRiskSnapshot"),
+        _call(call_id="call-2", tool_name="getRoleNextActions"),
     )
 
     result = runtime.execute(plan, identity=_identity(), now=NOW)

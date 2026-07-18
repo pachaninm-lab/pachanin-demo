@@ -15,6 +15,7 @@ from tai.agent_runtime import (
     AgentToolRuntime,
     AuthorizedToolInvocation,
     HMACToolConfirmationAuthority,
+    InMemoryConfirmationUseRepository,
     PlannedToolCall,
     ToolConfirmation,
     ToolExecutorRegistry,
@@ -115,6 +116,7 @@ def _runtime(
         confirmation_authority=(
             authority or HMACToolConfirmationAuthority(SECRET)
         ),
+        confirmation_uses=InMemoryConfirmationUseRepository(),
         audit_sink=audit,
         policy=policy,
     )

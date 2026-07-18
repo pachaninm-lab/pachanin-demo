@@ -516,6 +516,18 @@ class AgentToolRuntime:
             )
             if not confirmed:
                 raise PolicyDenied("tool confirmation is invalid or expired")
+        request = ToolRequest(
+            trace_id=plan.trace_id,
+            tool_name=call.tool_name,
+            arguments=dict(call.arguments),
+            requested_mode=call.requested_mode,
+            justification=None,
+            explicit_user_confirmation=confirmed,
+        )
+        definition = authorize_tool(identity, request)
+        if call.requested_mode is ToolMode.CONFIRMED_WRITE:
+            if confirmation is None:
+                raise RuntimeError("confirmed write lost its confirmation binding")
             claimed = self._confirmation_uses.claim(
                 confirmation=confirmation,
                 request_sha256=request_sha256,
@@ -526,15 +538,7 @@ class AgentToolRuntime:
                 raise PolicyDenied(
                     "tool confirmation is already bound to a different invocation"
                 )
-        request = ToolRequest(
-            trace_id=plan.trace_id,
-            tool_name=call.tool_name,
-            arguments=dict(call.arguments),
-            requested_mode=call.requested_mode,
-            justification=None,
-            explicit_user_confirmation=confirmed,
-        )
-        return authorize_tool(identity, request)
+        return definition
 
 
 def tool_request_sha256(trace_id: UUID, call: PlannedToolCall) -> str:
@@ -690,6 +694,8 @@ def _validated_result_sha256(
     *,
     maximum_bytes: int,
 ) -> str:
+    if not isinstance(result, Mapping):
+        raise TypeError("tool result must be an object")
     canonical = _canonical_json(_canonical_json_value(result))
     if len(canonical.encode()) > maximum_bytes:
         raise ValueError("tool result exceeds the byte budget")
@@ -739,7 +745,7 @@ def _confirmation_timestamps_valid(
         return False
     if confirmation.expires_at <= confirmation.issued_at:
         return False
-    if confirmation.issued_at > now or confirmation.expires_at < now:
+    if confirmation.issued_at > now or confirmation.expires_at <= now:
         return False
     return confirmation.expires_at - confirmation.issued_at <= maximum_ttl
 
@@ -791,6 +797,7 @@ def _audit_event(
             "call_id": call.call_id,
             "idempotency_key": result.idempotency_key,
             "mode": call.requested_mode.value,
+            "occurred_at": occurred_at.isoformat(),
             "plan_id": str(plan.plan_id),
             "reason": result.reason,
             "request_sha256": result.request_sha256,
