@@ -1,0 +1,81 @@
+name: TAI Foundation
+
+on:
+  pull_request:
+    paths:
+      - 'apps/tai/**'
+      - '.github/workflows/tai-foundation.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/tai/**'
+      - '.github/workflows/tai-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/tai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/tai/pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e '.[dev]'
+      - name: Ruff
+        id: ruff
+        shell: bash
+        run: |
+          set +e
+          ruff check tai tests --output-format=json > ruff-report.json
+          status=$?
+          cat ruff-report.json
+          exit "$status"
+      - name: Upload Ruff report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ruff-${{ github.sha }}
+          path: apps/tai/ruff-report.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Mypy
+        id: mypy
+        shell: bash
+        run: |
+          set +e
+          mypy tai --show-error-codes --no-color-output > mypy-report.txt 2>&1
+          status=$?
+          cat mypy-report.txt
+          exit "$status"
+      - name: Upload mypy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-mypy-${{ github.sha }}
+          path: apps/tai/mypy-report.txt
+          if-no-files-found: error
+          retention-days: 14
+      - run: pytest --cov=tai --cov-report=term-missing --cov-fail-under=90
+
+  free-access-architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject monetization primitives in TAI
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden='subscription[ _-]?plan|paid[ _-]?tier|premium[ _-]?model|billing[ _-]?credit|token[ _-]?purchase|paid[ _-]?quota|payment[ _-]?required|buy[ _-]?(tokens|requests)|freemium'
+          if grep -RInE --exclude='README.md' --exclude='tai-foundation.yml' "$forbidden" apps/tai; then
+            echo 'Forbidden AI monetization primitive detected.' >&2
+            exit 1
+          fi
+          echo 'TAI free-access architecture gate passed.'
