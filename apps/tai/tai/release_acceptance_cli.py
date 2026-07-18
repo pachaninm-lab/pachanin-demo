@@ -159,14 +159,17 @@ def _source_digest(repository_root: Path) -> str:
                 continue
             relative = path.relative_to(repository_root).as_posix()
             files[relative] = path.read_bytes()
-    for relative in (
-        "apps/tai/pyproject.toml",
-        ".github/workflows/tai-foundation.yml",
-        ".github/workflows/tai-release-acceptance.yml",
-    ):
-        path = repository_root / relative
-        if path.is_file():
-            files[relative] = path.read_bytes()
+
+    pyproject = repository_root / "apps/tai/pyproject.toml"
+    if pyproject.is_file():
+        files[pyproject.relative_to(repository_root).as_posix()] = pyproject.read_bytes()
+
+    workflow_root = repository_root / ".github/workflows"
+    for pattern in ("*.yml", "*.yaml"):
+        for path in sorted(workflow_root.glob(pattern)):
+            if path.is_file():
+                files[path.relative_to(repository_root).as_posix()] = path.read_bytes()
+
     return source_tree_sha256(files)
 
 
