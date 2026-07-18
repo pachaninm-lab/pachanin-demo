@@ -28,18 +28,18 @@ done
 
 const waitAfter = `admin_sql "
 INSERT INTO public.organizations
-  (id,inn,name,type,status,\"tenantId\",\"verifiedAt\",\"kycStatus\",\"amlStatus\",\"sanctionHit\",\"createdAt\",\"updatedAt\")
+  (id,inn,name,type,status,\\"tenantId\\",\\"verifiedAt\\",\\"kycStatus\\",\\"amlStatus\\",\\"sanctionHit\\",\\"createdAt\\",\\"updatedAt\\")
 VALUES
   ('org-canonical-seller','990000000003','Canonical Load Seller','LEGAL','VERIFIED','tenant-canonical-test',now(),'APPROVED','CLEAR',false,now(),now()),
   ('org-canonical-buyer','990000000002','Canonical Load Buyer','LEGAL','VERIFIED','tenant-canonical-test',now(),'APPROVED','CLEAR',false,now(),now())
-ON CONFLICT (id) DO UPDATE SET \"tenantId\"=EXCLUDED.\"tenantId\",status='VERIFIED',\"updatedAt\"=now();
+ON CONFLICT (id) DO UPDATE SET \\"tenantId\\"=EXCLUDED.\\"tenantId\\",status='VERIFIED',\\"updatedAt\\"=now();
 INSERT INTO public.deals
-  (id,status,\"tenantId\",\"sellerOrgId\",\"buyerOrgId\",\"volumeTonsDec\",\"pricePerTonDec\",\"totalKopecks\",version,currency,culture,region,\"nextAction\",\"createdAt\",\"updatedAt\")
+  (id,status,\\"tenantId\\",\\"sellerOrgId\\",\\"buyerOrgId\\",\\"volumeTonsDec\\",\\"pricePerTonDec\\",\\"totalKopecks\\",version,currency,culture,region,\\"nextAction\\",\\"createdAt\\",\\"updatedAt\\")
 VALUES
   ('DEAL-INDUSTRIAL-001','DRAFT','tenant-canonical-test','org-canonical-seller','org-canonical-buyer',150.000000,16000.000000,240000000,0,'RUB','WHEAT','LOAD-REGION','approve_admission',TIMESTAMPTZ '\${DEAL_UPDATED_AT}',TIMESTAMPTZ '\${DEAL_UPDATED_AT}')
-ON CONFLICT (id) DO UPDATE SET status='DRAFT',\"tenantId\"='tenant-canonical-test',version=0,\"updatedAt\"=TIMESTAMPTZ '\${DEAL_UPDATED_AT}';
+ON CONFLICT (id) DO UPDATE SET status='DRAFT',\\"tenantId\\"='tenant-canonical-test',version=0,\\"updatedAt\\"=TIMESTAMPTZ '\${DEAL_UPDATED_AT}';
 " >/dev/null
-[[ "$(admin_sql "SELECT count(*) FROM public.deals WHERE id='DEAL-INDUSTRIAL-001' AND \"tenantId\"='tenant-canonical-test';")" = "1" ]]`;
+[[ "$(admin_sql "SELECT count(*) FROM public.deals WHERE id='DEAL-INDUSTRIAL-001' AND \\"tenantId\\"='tenant-canonical-test';")" = "1" ]]`;
 
 let rendered = source;
 for (const [before, after] of envReplacements) {
