@@ -1,0 +1,82 @@
+name: TAI Exact-Main Discovery eb692745
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-exact-main-discovery-eb692745.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      AUDITED_SHA: eb6927455ed73d119b9f5e6072cbd5fe86df16f2
+    steps:
+      - name: Query exact-main runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "/repos/${REPOSITORY}/actions/runs?head_sha=${AUDITED_SHA}&per_page=100" \
+            > exact-main-runs-raw.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          required = {
+              'Auction Atomic Execution Acceptance', 'CI', 'Dependency Review',
+              'Disputes PostgreSQL Authority Acceptance', 'Node CI',
+              'Optional Runtime Retirement Gate', 'Outbox PostgreSQL Authority Acceptance',
+              'Runtime Context Security Gate', 'Security Abuse and Evidence Acceptance',
+              'Security Quality Gate', 'Security Scan', 'TAI Foundation',
+              'TAI Release Acceptance',
+          }
+          raw = json.loads(Path('exact-main-runs-raw.json').read_text())
+          sha = os.environ['AUDITED_SHA']
+          latest = {}
+          for run in raw.get('workflow_runs', []):
+              name = run.get('name')
+              if name not in required or run.get('head_sha') != sha:
+                  continue
+              key = (run.get('run_attempt', 0), run.get('run_number', 0), run.get('id', 0))
+              if name not in latest or key > latest[name][0]:
+                  latest[name] = (key, run)
+          rows = []
+          for name in sorted(required):
+              run = latest.get(name, (None, {}))[1]
+              rows.append({
+                  'workflow_name': name,
+                  'run_id': run.get('id'),
+                  'event': run.get('event'),
+                  'head_branch': run.get('head_branch'),
+                  'status': run.get('status', 'missing'),
+                  'conclusion': run.get('conclusion'),
+                  'url': run.get('html_url'),
+              })
+          summary = {
+              'audited_sha': sha,
+              'failed': [r['workflow_name'] for r in rows if r['status'] == 'completed' and r['conclusion'] != 'success'],
+              'missing': [r['workflow_name'] for r in rows if r['status'] == 'missing'],
+              'pending': [r['workflow_name'] for r in rows if r['status'] not in ('completed', 'missing')],
+              'success': [r['workflow_name'] for r in rows if r['status'] == 'completed' and r['conclusion'] == 'success'],
+              'runs': rows,
+          }
+          Path('exact-main-discovery.json').write_text(json.dumps(summary, indent=2, sort_keys=True) + '\n')
+          print(json.dumps(summary, sort_keys=True))
+          PY
+      - name: Upload discovery
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-exact-main-discovery-${{ env.AUDITED_SHA }}
+          path: exact-main-discovery.json
+          if-no-files-found: error
+          retention-days: 7
