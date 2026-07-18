@@ -23,6 +23,7 @@ import { DocumentReadinessMiniMatrix } from '@/components/platform-v7/DocumentRe
 import { MoneyImpactSummaryStrip } from '@/components/platform-v7/MoneyImpactSummaryStrip';
 import { MoneyGateRing } from '@/components/v7r/MoneyGateRing';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
+import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';
 import { FactoringPanel } from '@/components/platform-v7/FactoringPanel';
 import { CommissionCalculator } from '@/components/platform-v7/CommissionCalculator';
 import { IncotermsExportWidget } from '@/components/platform-v7/IncotermsExportWidget';
@@ -101,8 +102,14 @@ export default async function PlatformV7SellerPage() {
         Платформа показывает резерв, блокеры и доказательства. Она не подтверждает выплату и не подменяет банковское решение.
       </MoneyBoundary>
 
+      <MoneyCockpitSection id='live-deals'>
+        <CollapsibleSection title='Мои сделки' summary='реальные сделки с сервера · открыть исполнение' defaultOpen>
+          <CanonicalDealsList />
+        </CollapsibleSection>
+      </MoneyCockpitSection>
+
       <MoneyCockpitSection id='overview'>
-        <CollapsibleSection title='Состояние сделки продавца' summary='партия · лот · блокер · следующий шаг' defaultOpen>
+        <CollapsibleSection title='Состояние сделки продавца' summary='партия · лот · блокер · следующий шаг' defaultOpen={false}>
           <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.seller} />
         </CollapsibleSection>
       </MoneyCockpitSection>

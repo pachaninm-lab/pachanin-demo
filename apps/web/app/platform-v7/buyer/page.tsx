@@ -9,6 +9,7 @@ import {
   moneyCockpitClasses,
 } from '@/components/transaction-ux/MoneyObligationCockpit';
 import { BuyerFavoritesPanel } from '@/components/platform-v7/BuyerFavoritesPanel';
+import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
@@ -109,8 +110,14 @@ export default async function PlatformV7BuyerPage() {
         Платформа показывает основание, причину остановки и следующий шаг. Банк подтверждает резерв и дальнейшее движение денег.
       </MoneyBoundary>
 
+      <MoneyCockpitSection id='live-deals'>
+        <CollapsibleSection title='Мои сделки' summary='реальные сделки с сервера · открыть исполнение' defaultOpen>
+          <CanonicalDealsList />
+        </CollapsibleSection>
+      </MoneyCockpitSection>
+
       <MoneyCockpitSection id='overview'>
-        <CollapsibleSection title='Обзор закупки' summary='заявка · партия · статус' defaultOpen>
+        <CollapsibleSection title='Обзор закупки' summary='заявка · партия · статус' defaultOpen={false}>
           <RoleExecutionCockpitContent cockpit={PRIMARY_ROLE_EXECUTION_COCKPITS.buyer} />
         </CollapsibleSection>
       </MoneyCockpitSection>
