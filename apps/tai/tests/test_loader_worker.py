@@ -3,9 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
+from tai.idempotent_materializer import (
+    IdempotentLoaderMaterializer,
+    InMemoryMaterializationClaimRepository,
+)
 from tai.loader_state import InMemoryLoaderStateRepository, LoaderRunStatus
 from tai.loader_worker import (
     LoaderDefinition,
+    LoaderMaterializer,
     LostLoaderLeaseError,
     ManagedLoaderWorker,
 )
@@ -47,6 +52,18 @@ class StubMaterializer:
         self.documents.append(document)
 
 
+@dataclass
+class FlakySink:
+    attempts: int = 0
+    documents: list[SourceDocument] = field(default_factory=list)
+
+    def store(self, document: SourceDocument) -> None:
+        self.attempts += 1
+        if self.attempts == 1:
+            raise TimeoutError("materialization sink unavailable")
+        self.documents.append(document)
+
+
 @dataclass(frozen=True)
 class StubDefinitions:
     definition: LoaderDefinition
@@ -60,7 +77,7 @@ class StubDefinitions:
 def make_worker(
     repository: InMemoryLoaderStateRepository,
     response: FetchResponse,
-    materializer: StubMaterializer,
+    materializer: LoaderMaterializer,
 ) -> ManagedLoaderWorker:
     fetcher = StubFetcher(response)
     loader = ManagedSourceLoader(
@@ -122,6 +139,50 @@ def test_worker_materializes_and_completes_successful_fetch() -> None:
     assert state.etag == '"v1"'
     assert state.consecutive_failures == 0
     assert state.lease_token is None
+
+
+def test_sink_failure_releases_claim_and_retry_materializes_once() -> None:
+    repository = scheduled_repository()
+    sink = FlakySink()
+    materializer = IdempotentLoaderMaterializer(
+        claims=InMemoryMaterializationClaimRepository(),
+        sink=sink,
+    )
+    first_response = FetchResponse(
+        disposition=FetchDisposition.FETCHED,
+        body=" Урожай обновлён ",
+        fetched_at=NOW,
+        etag='"v1"',
+    )
+
+    first = make_worker(repository, first_response, materializer).run_once(now=NOW)
+
+    assert first.disposition is FetchDisposition.RETRYABLE_FAILURE
+    assert first.reasons == ("worker_exception:TimeoutError",)
+    assert sink.attempts == 1
+    assert sink.documents == []
+    failed_state = repository.get(SOURCE_ID)
+    assert failed_state is not None
+    assert failed_state.status is LoaderRunStatus.RETRYABLE_FAILURE
+    retry_at = NOW + timedelta(hours=1)
+    assert failed_state.next_run_at == retry_at
+
+    retry_response = FetchResponse(
+        disposition=FetchDisposition.FETCHED,
+        body=" Урожай обновлён ",
+        fetched_at=retry_at,
+        etag='"v1"',
+    )
+    second = make_worker(repository, retry_response, materializer).run_once(now=retry_at)
+
+    assert second.disposition is FetchDisposition.FETCHED
+    assert second.completed is True
+    assert sink.attempts == 2
+    assert len(sink.documents) == 1
+    completed_state = repository.get(SOURCE_ID)
+    assert completed_state is not None
+    assert completed_state.status is LoaderRunStatus.SUCCEEDED
+    assert completed_state.consecutive_failures == 0
 
 
 def test_retryable_failure_increments_budget_without_materialization() -> None:
