@@ -133,7 +133,9 @@ class ManagedLoaderWorker:
                 else LoaderRunStatus.RETRYABLE_FAILURE
             )
             next_run_at = None if exhausted else now + definition.failure_retry_interval
-            reasons = (f"worker_exception:{type(error).__name__}",)
+            reasons: tuple[str, ...] = (
+                f"worker_exception:{type(error).__name__}",
+            )
             if exhausted:
                 reasons += ("failure_budget_exhausted",)
             self._complete_or_raise(
@@ -155,7 +157,7 @@ class ManagedLoaderWorker:
         status = self._status(result)
         next_run_at = result.next_run_at
         disposition = result.disposition
-        reasons = result.reasons
+        reasons: tuple[str, ...] = result.reasons
         if (
             result.disposition is FetchDisposition.RETRYABLE_FAILURE
             and failures >= definition.maximum_failures
