@@ -299,11 +299,10 @@ class DeterministicModelRouter:
         age = request.now - health.observed_at
         if age > self._policy.health_ttl or age < -self._policy.maximum_clock_skew:
             return False
-        if health.queue_depth > (
-            health.available_slots * self._policy.maximum_queue_per_slot
-        ):
-            return False
-        return True
+        return not (
+            health.queue_depth
+            > health.available_slots * self._policy.maximum_queue_per_slot
+        )
 
     @staticmethod
     def _sort_key(
