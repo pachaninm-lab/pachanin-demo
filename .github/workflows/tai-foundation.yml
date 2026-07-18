@@ -7,12 +7,14 @@ on:
       - '.github/workflows/tai-foundation.yml'
   push:
     branches: [main]
-    paths:
-      - 'apps/tai/**'
-      - '.github/workflows/tai-foundation.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: tai-foundation-${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   test:
