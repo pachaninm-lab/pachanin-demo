@@ -105,10 +105,7 @@ class UrllibJSONTransport:
                 "User-Agent": "transparent-agro-intelligence/local-runtime",
             },
         )
-        response_handle = urlopen(  # noqa: S310
-            request,
-            timeout=timeout_seconds,
-        )
+        response_handle = urlopen(request, timeout=timeout_seconds)  # noqa: S310
         with response_handle as response:
             raw = response.read(maximum_response_bytes + 1)
         if len(raw) > maximum_response_bytes:
