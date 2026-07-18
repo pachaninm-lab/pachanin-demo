@@ -12,14 +12,13 @@ SOURCE="$SOURCE" GENERATED="$GENERATED" node <<'NODE'
 const fs = require('node:fs');
 const source = fs.readFileSync(process.env.SOURCE, 'utf8');
 
-const envBefore = `kubectl set env deployment/grainflow-api -n "$NAMESPACE" \\
-  SEED_CANONICAL_TEST_DEAL=true \\
-  ALLOW_CANONICAL_TEST_DEAL_IN_PRODUCTION=true \\
-  RATE_LIMIT_DEAL_COMMAND=1000000`;
-const envAfter = `kubectl set env deployment/grainflow-api -n "$NAMESPACE" \\
-  SEED_CANONICAL_TEST_DEAL=false \\
-  ALLOW_CANONICAL_TEST_DEAL_IN_PRODUCTION=false \\
-  RATE_LIMIT_DEAL_COMMAND=1000000`;
+const envReplacements = [
+  ['SEED_CANONICAL_TEST_DEAL=true', 'SEED_CANONICAL_TEST_DEAL=false'],
+  [
+    'ALLOW_CANONICAL_TEST_DEAL_IN_PRODUCTION=true',
+    'ALLOW_CANONICAL_TEST_DEAL_IN_PRODUCTION=false',
+  ],
+];
 
 const waitBefore = `for _ in $(seq 1 180); do
   [[ "$(admin_sql "SELECT count(*) FROM public.deals WHERE id='DEAL-INDUSTRIAL-001';")" = "1" ]] && break
@@ -42,11 +41,25 @@ ON CONFLICT (id) DO UPDATE SET status='DRAFT',\"tenantId\"='tenant-canonical-tes
 " >/dev/null
 [[ "$(admin_sql "SELECT count(*) FROM public.deals WHERE id='DEAL-INDUSTRIAL-001' AND \"tenantId\"='tenant-canonical-test';")" = "1" ]]`;
 
-if (!source.includes(envBefore)) throw new Error('target-load API env boundary not found');
-if (!source.includes(waitBefore)) throw new Error('target-load canonical seed boundary not found');
-let rendered = source.replace(envBefore, envAfter).replace(waitBefore, waitAfter);
-if (rendered === source || rendered.includes(envBefore) || rendered.includes(waitBefore)) {
-  throw new Error('target-load wrapper did not replace boundaries exactly once');
+let rendered = source;
+for (const [before, after] of envReplacements) {
+  const count = rendered.split(before).length - 1;
+  if (count !== 1) {
+    throw new Error(`target-load environment boundary "${before}" occurred ${count} times`);
+  }
+  rendered = rendered.replace(before, after);
+}
+const waitCount = rendered.split(waitBefore).length - 1;
+if (waitCount !== 1) {
+  throw new Error(`target-load canonical seed boundary occurred ${waitCount} times`);
+}
+rendered = rendered.replace(waitBefore, waitAfter);
+if (
+  rendered === source
+  || rendered.includes(waitBefore)
+  || envReplacements.some(([before]) => rendered.includes(before))
+) {
+  throw new Error('target-load wrapper did not replace all boundaries exactly once');
 }
 fs.writeFileSync(process.env.GENERATED, rendered, { mode: 0o700 });
 NODE
