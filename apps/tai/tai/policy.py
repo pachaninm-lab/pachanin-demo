@@ -40,22 +40,65 @@ TOOL_REGISTRY: dict[str, ToolDefinition] = {
     "getRoleNextActions": ToolDefinition(
         name="getRoleNextActions",
         mode=ToolMode.READ_ONLY,
-        allowed_roles=frozenset({"buyer", "seller", "logistics", "elevator", "laboratory", "bank", "operator"}),
+        allowed_roles=frozenset(
+            {
+                "buyer",
+                "seller",
+                "logistics",
+                "elevator",
+                "laboratory",
+                "bank",
+                "operator",
+            }
+        ),
     ),
     "prepareCommandDraft": ToolDefinition(
         name="prepareCommandDraft",
         mode=ToolMode.DRAFT,
-        allowed_roles=frozenset({"buyer", "seller", "logistics", "elevator", "laboratory", "bank", "operator"}),
+        allowed_roles=frozenset(
+            {
+                "buyer",
+                "seller",
+                "logistics",
+                "elevator",
+                "laboratory",
+                "bank",
+                "operator",
+            }
+        ),
     ),
     "acknowledgeRisk": ToolDefinition(
         name="acknowledgeRisk",
         mode=ToolMode.CONFIRMED_WRITE,
-        allowed_roles=frozenset({"buyer", "seller", "logistics", "elevator", "laboratory", "bank", "operator", "compliance"}),
+        allowed_roles=frozenset(
+            {
+                "buyer",
+                "seller",
+                "logistics",
+                "elevator",
+                "laboratory",
+                "bank",
+                "operator",
+                "compliance",
+            }
+        ),
     ),
     "createSupportCase": ToolDefinition(
         name="createSupportCase",
         mode=ToolMode.CONFIRMED_WRITE,
-        allowed_roles=frozenset({"buyer", "seller", "logistics", "driver", "elevator", "laboratory", "surveyor", "bank", "operator"}),
+        allowed_roles=frozenset(
+            {
+                "buyer",
+                "seller",
+                "logistics",
+                "driver",
+                "elevator",
+                "laboratory",
+                "surveyor",
+                "bank",
+                "operator",
+            }
+        ),
     ),
 }
 
@@ -100,7 +143,8 @@ def authorize_tool(identity: IdentityContext, request: ToolRequest) -> ToolDefin
     if definition.requires_mfa and not identity.mfa_verified:
         raise PolicyDenied("MFA is required")
 
-    if definition.mode in {ToolMode.CONFIRMED_WRITE, ToolMode.PRIVILEGED_WRITE} and not request.explicit_user_confirmation:
+    write_modes = {ToolMode.CONFIRMED_WRITE, ToolMode.PRIVILEGED_WRITE}
+    if definition.mode in write_modes and not request.explicit_user_confirmation:
         raise PolicyDenied("explicit user confirmation required")
 
     if definition.mode is ToolMode.PRIVILEGED_WRITE and not request.justification:
