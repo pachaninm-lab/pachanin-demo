@@ -3,8 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -155,7 +155,7 @@ DEFAULT_REQUIRED_WORKFLOWS = frozenset(
 @dataclass(frozen=True, slots=True)
 class ApplicationReleasePolicy:
     required_workflows: frozenset[str] = DEFAULT_REQUIRED_WORKFLOWS
-    minimum_migration_version: int = 10
+    minimum_migration_version: int = 11
 
     def __post_init__(self) -> None:
         if not self.required_workflows:
@@ -208,6 +208,19 @@ class ApplicationReleaseAttestation:
 
     def __post_init__(self) -> None:
         _digest(self.release_id, "release_id")
+        if _REPOSITORY.fullmatch(self.repository) is None:
+            raise ValueError("repository must use owner/name form")
+        if self.accepted and self.reasons:
+            raise ValueError("accepted application attestation must not contain reasons")
+        if not self.accepted and not self.reasons:
+            raise ValueError("rejected application attestation requires reasons")
+        if (
+            self.production_operational_status
+            is not ProductionOperationalStatus.NOT_ATTESTED
+        ):
+            raise ValueError(
+                "application attestation cannot claim production operational acceptance"
+            )
         _digest(self.exact_main_sha, "exact_main_sha")
         _digest(self.source_tree_sha256, "source_tree_sha256")
         _digest(self.migration_inventory_sha256, "migration_inventory_sha256")
@@ -346,6 +359,64 @@ class ProductionReleaseAttestation:
     reasons: tuple[str, ...]
     attested_at: datetime
     attestation_sha256: str
+
+    def __post_init__(self) -> None:
+        _digest(self.release_id, "release_id")
+        _digest(self.exact_main_sha, "exact_main_sha")
+        _digest(
+            self.application_attestation_sha256,
+            "application_attestation_sha256",
+        )
+        _digest(self.evaluation_report_sha256, "evaluation_report_sha256")
+        _digest(
+            self.operational_decision_sha256,
+            "operational_decision_sha256",
+        )
+        _aware(self.attested_at, "attested_at")
+        _digest(self.attestation_sha256, "attestation_sha256")
+        if self.status is ProductionOperationalStatus.NOT_ATTESTED:
+            raise ValueError("production attestation must be ACCEPTED or REJECTED")
+        if self.status is ProductionOperationalStatus.ACCEPTED and self.reasons:
+            raise ValueError("accepted production attestation must not contain reasons")
+        if self.status is ProductionOperationalStatus.REJECTED and not self.reasons:
+            raise ValueError("rejected production attestation requires reasons")
+        expected = production_attestation_sha256(
+            release_id=self.release_id,
+            exact_main_sha=self.exact_main_sha,
+            application_attestation_sha256=self.application_attestation_sha256,
+            evaluation_report_sha256=self.evaluation_report_sha256,
+            operational_decision_sha256=self.operational_decision_sha256,
+            status=self.status,
+            reasons=self.reasons,
+            attested_at=self.attested_at,
+        )
+        if self.attestation_sha256 != expected:
+            raise ValueError("production attestation digest does not match fields")
+
+
+def production_attestation_sha256(
+    *,
+    release_id: str,
+    exact_main_sha: str,
+    application_attestation_sha256: str,
+    evaluation_report_sha256: str,
+    operational_decision_sha256: str,
+    status: ProductionOperationalStatus,
+    reasons: tuple[str, ...],
+    attested_at: datetime,
+) -> str:
+    return _sha256_json(
+        {
+            "application_attestation_sha256": application_attestation_sha256,
+            "attested_at": attested_at.isoformat(),
+            "evaluation_report_sha256": evaluation_report_sha256,
+            "exact_main_sha": exact_main_sha,
+            "operational_decision_sha256": operational_decision_sha256,
+            "reasons": list(reasons),
+            "release_id": release_id,
+            "status": status.value,
+        }
+    )
 
 
 class ProductionReleaseAuthority:
