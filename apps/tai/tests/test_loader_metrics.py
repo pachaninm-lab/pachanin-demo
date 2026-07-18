@@ -41,7 +41,11 @@ def test_instrumented_worker_records_run_duration_and_failure_gauge() -> None:
         source_uri="https://mcx.gov.ru/report",
         next_run_at=NOW,
     )
-    lease = repository.claim_due(worker_id="worker-a", now=NOW, lease_duration=NOW - NOW.replace(hour=17))
+    lease = repository.claim_due(
+        worker_id="worker-a",
+        now=NOW,
+        lease_duration=NOW - NOW.replace(hour=17),
+    )
     assert lease is not None
     assert repository.complete(
         lease=lease,
