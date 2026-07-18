@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime
 from typing import Any
 
+from tai.knowledge_chunking import KnowledgeChunk
 from tai.postgres_loader_state import ConnectionFactory
 from tai.retrieval_index import IndexedChunk, RetrievalDocument
-from tai.knowledge_chunking import KnowledgeChunk
 
 
 class PostgreSQLRetrievalIndexRepository:
