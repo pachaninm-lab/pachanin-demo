@@ -34,6 +34,13 @@ class LoaderDefinition:
     trust_score: float
     domain: KnowledgeDomain
     failure_retry_interval: timedelta = timedelta(hours=1)
+    maximum_failures: int = 5
+
+    def __post_init__(self) -> None:
+        if self.failure_retry_interval <= timedelta(0):
+            raise ValueError("failure_retry_interval must be positive")
+        if self.maximum_failures <= 0:
+            raise ValueError("maximum_failures must be positive")
 
 
 class LoaderDefinitionRegistry(Protocol):
@@ -118,35 +125,59 @@ class ManagedLoaderWorker:
         except LostLoaderLeaseError:
             raise
         except Exception as error:
+            failures = state.consecutive_failures + 1
+            exhausted = failures >= definition.maximum_failures
+            status = (
+                LoaderRunStatus.PERMANENT_FAILURE
+                if exhausted
+                else LoaderRunStatus.RETRYABLE_FAILURE
+            )
+            next_run_at = None if exhausted else now + definition.failure_retry_interval
+            reasons = (f"worker_exception:{type(error).__name__}",)
+            if exhausted:
+                reasons += ("failure_budget_exhausted",)
             self._complete_or_raise(
                 lease=lease,
-                status=LoaderRunStatus.RETRYABLE_FAILURE,
-                next_run_at=now + definition.failure_retry_interval,
+                status=status,
+                next_run_at=next_run_at,
                 etag=state.etag,
                 last_modified=state.last_modified,
-                consecutive_failures=state.consecutive_failures + 1,
+                consecutive_failures=failures,
             )
             return WorkerExecution(
                 lease.source_id,
-                FetchDisposition.RETRYABLE_FAILURE,
+                self._disposition(status),
                 True,
-                (f"worker_exception:{type(error).__name__}",),
+                reasons,
             )
 
         failures = self._failure_count(state.consecutive_failures, result.disposition)
+        status = self._status(result)
+        next_run_at = result.next_run_at
+        disposition = result.disposition
+        reasons = result.reasons
+        if (
+            result.disposition is FetchDisposition.RETRYABLE_FAILURE
+            and failures >= definition.maximum_failures
+        ):
+            status = LoaderRunStatus.PERMANENT_FAILURE
+            next_run_at = None
+            disposition = FetchDisposition.PERMANENT_FAILURE
+            reasons += ("failure_budget_exhausted",)
+
         self._complete_or_raise(
             lease=lease,
-            status=self._status(result),
-            next_run_at=result.next_run_at,
+            status=status,
+            next_run_at=next_run_at,
             etag=result.etag,
             last_modified=result.last_modified,
             consecutive_failures=failures,
         )
         return WorkerExecution(
             source_id=lease.source_id,
-            disposition=result.disposition,
+            disposition=disposition,
             completed=True,
-            reasons=result.reasons,
+            reasons=reasons,
         )
 
     def _run_loader(self, definition: LoaderDefinition, state: LoaderState) -> LoaderResult:
@@ -214,3 +245,9 @@ class ManagedLoaderWorker:
             FetchDisposition.PERMANENT_FAILURE: LoaderRunStatus.PERMANENT_FAILURE,
         }
         return mapping[result.disposition]
+
+    @staticmethod
+    def _disposition(status: LoaderRunStatus) -> FetchDisposition:
+        if status is LoaderRunStatus.PERMANENT_FAILURE:
+            return FetchDisposition.PERMANENT_FAILURE
+        return FetchDisposition.RETRYABLE_FAILURE
