@@ -54,7 +54,7 @@ def test_manifest_is_deterministic_and_binds_fixture_inputs() -> None:
             prompt="input",
             input_sha256="0" * 64,
         )
-    with pytest.raises(ValueError, match="fixtures"):
+    with pytest.raises(ValueError, match="digest"):
         ReleaseEvaluationManifest(
             suite=first.suite,
             fixtures=(changed_fixture, *first.fixtures[1:]),
