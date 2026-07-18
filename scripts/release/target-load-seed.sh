@@ -45,48 +45,48 @@ SET statement_timeout = 0;
 SET lock_timeout = '30s';
 
 INSERT INTO public.organizations (
-  id, inn, name, type, status, "tenantId", "kycStatus", "amlStatus", "sanctionHit"
+  id, inn, name, type, status, "tenantId", "kycStatus", "amlStatus", "sanctionHit", "updatedAt"
 ) VALUES
-  ('load-seller-org', '7700000001', 'Load Proof Seller', 'LEGAL', 'VERIFIED', 'load-tenant', 'APPROVED', 'CLEAR', false),
-  ('load-compliance-org', '7700000002', 'Load Proof Compliance', 'LEGAL', 'VERIFIED', 'load-tenant', 'APPROVED', 'CLEAR', false)
+  ('load-seller-org', '7700000001', 'Load Proof Seller', 'LEGAL', 'VERIFIED', 'load-tenant', 'APPROVED', 'CLEAR', false, now()),
+  ('load-compliance-org', '7700000002', 'Load Proof Compliance', 'LEGAL', 'VERIFIED', 'load-tenant', 'APPROVED', 'CLEAR', false, now())
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.organizations (
-  id, inn, name, type, status, "tenantId", "kycStatus", "amlStatus", "sanctionHit"
+  id, inn, name, type, status, "tenantId", "kycStatus", "amlStatus", "sanctionHit", "updatedAt"
 )
 SELECT
   'load-buyer-org-' || lpad(g::text, 5, '0'),
   '78' || lpad(g::text, 8, '0'),
   'Load Proof Buyer ' || g,
-  'LEGAL', 'VERIFIED', 'load-tenant', 'APPROVED', 'CLEAR', false
+  'LEGAL', 'VERIFIED', 'load-tenant', 'APPROVED', 'CLEAR', false, now()
 FROM generate_series(1, :'buyer_count'::integer) AS g
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.users (
-  id, email, "passwordHash", "fullName", status, "mfaEnabled"
+  id, email, "passwordHash", "fullName", status, "mfaEnabled", "updatedAt"
 ) VALUES (
   'load-farmer-user-001', 'load-farmer-001@example.invalid', 'load-proof-no-login',
-  'Load Proof Farmer', 'ACTIVE', false
+  'Load Proof Farmer', 'ACTIVE', false, now()
 )
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.users (id, email, "passwordHash", "fullName", status, "mfaEnabled")
+INSERT INTO public.users (id, email, "passwordHash", "fullName", status, "mfaEnabled", "updatedAt")
 SELECT
   'load-buyer-user-' || lpad(g::text, 5, '0'),
   'load-buyer-' || lpad(g::text, 5, '0') || '@example.invalid',
   'load-proof-no-login',
   'Load Proof Buyer ' || g,
-  'ACTIVE', true
+  'ACTIVE', true, now()
 FROM generate_series(1, :'buyer_count'::integer) AS g
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO public.users (id, email, "passwordHash", "fullName", status, "mfaEnabled")
+INSERT INTO public.users (id, email, "passwordHash", "fullName", status, "mfaEnabled", "updatedAt")
 SELECT
   'load-compliance-user-' || lpad(g::text, 3, '0'),
   'load-compliance-' || lpad(g::text, 3, '0') || '@example.invalid',
   'load-proof-no-login',
   'Load Proof Compliance ' || g,
-  'ACTIVE', true
+  'ACTIVE', true, now()
 FROM generate_series(1, :'compliance_count'::integer) AS g
 ON CONFLICT (id) DO NOTHING;
 
@@ -164,7 +164,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.deals (
   id, "dealNumber", status, "tenantId", "sellerOrgId", "buyerOrgId",
   "totalKopecks", "pricePerTonDec", "volumeTonsDec", currency,
-  culture, "cropClass", region, "nextAction", "sagaState", version
+  culture, "cropClass", region, "nextAction", "sagaState", version, "updatedAt"
 )
 SELECT
   'load-deal-' || lpad(g::text, 6, '0'),
@@ -172,7 +172,7 @@ SELECT
   'DRAFT', 'load-tenant', 'load-seller-org',
   'load-buyer-org-' || lpad((((g - 1) % :'buyer_count'::integer) + 1)::text, 5, '0'),
   100000000::bigint, 1000000::numeric, 100::numeric, 'RUB',
-  'Пшеница', '4', 'Load Region', 'Подтвердить допуск участников', '{}'::jsonb, 0
+  'Пшеница', '4', 'Load Region', 'Подтвердить допуск участников', '{}'::jsonb, 0, now()
 FROM generate_series(1, :'deal_count'::integer) AS g
 ON CONFLICT (id) DO NOTHING;
 
@@ -204,14 +204,14 @@ ON CONFLICT (id) DO NOTHING;
 -- Independent settlement fixtures for duplicate callback storms.
 INSERT INTO public.deals (
   id, "dealNumber", status, "tenantId", "sellerOrgId", "buyerOrgId",
-  "totalKopecks", currency, "nextAction", "sagaState", version
+  "totalKopecks", currency, "nextAction", "sagaState", version, "updatedAt"
 )
 SELECT
   'load-bank-deal-' || lpad(g::text, 5, '0'),
   'LOAD-BANK-' || lpad(g::text, 6, '0'),
   'RESERVE_REQUESTED', 'load-tenant', 'load-seller-org',
   'load-buyer-org-' || lpad((((g - 1) % :'buyer_count'::integer) + 1)::text, 5, '0'),
-  1000000::bigint, 'RUB', 'Ожидается подтверждение резерва банка', '{}'::jsonb, 6
+  1000000::bigint, 'RUB', 'Ожидается подтверждение резерва банка', '{}'::jsonb, 6, now()
 FROM generate_series(1, :'bank_count'::integer) AS g
 ON CONFLICT (id) DO NOTHING;
 
