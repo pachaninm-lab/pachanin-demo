@@ -18,7 +18,10 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-      - name: Apply exact reviewed operational hardening
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply marker-based reviewed authority changes
         shell: bash
         run: |
           set -euo pipefail
@@ -35,8 +38,10 @@ jobs:
 
           operations = Path("apps/tai/tai/operations.py")
           text = operations.read_text()
-          start = text.index("@dataclass(frozen=True, slots=True)\nclass SLOAssessment:")
-          end = text.index("\ndef assess_slo(\n", start)
+          start_marker = "@dataclass(frozen=True, slots=True)\nclass SLOAssessment:"
+          end_marker = "\ndef assess_slo(\n"
+          start = text.index(start_marker)
+          end = text.index(end_marker, start)
           assessment_block = '''@dataclass(frozen=True, slots=True)
           class SLOAssessment:
               slo_id: str
@@ -111,46 +116,23 @@ jobs:
           
           '''
           text = text[:start] + assessment_block + text[end + 1:]
-          operations.write_text(text)
 
-          replace_once(
-              str(operations),
-              '''    payload = {
-                  "assessed_at": assessed_at.isoformat(),
-                  "indicator": definition.indicator.value,
-                  "observation_id": observation_id,
-                  "reason": reason,
-                  "sample_count": sample_count,
-                  "slo_id": definition.slo_id,
-                  "status": status.value,
-                  "target": definition.target,
-                  "value": value,
-              }
-              return SLOAssessment(
-                  slo_id=definition.slo_id,
-                  indicator=definition.indicator,
-                  status=status,
-                  value=value,
-                  target=definition.target,
-                  sample_count=sample_count,
-                  reason=reason,
-                  observation_id=observation_id,
-                  assessed_at=assessed_at,
-                  assessment_sha256=_sha256_json(payload),
-              )
-          ''',
-              '''    assessment_sha256 = slo_assessment_sha256(
-                  slo_id=definition.slo_id,
-                  indicator=definition.indicator,
-                  exact_head_sha=exact_head_sha,
-                  status=status,
-                  value=value,
-                  target=definition.target,
-                  sample_count=sample_count,
-                  reason=reason,
-                  observation_id=observation_id,
-                  assessed_at=assessed_at,
-              )
+          assess_start = text.index("def assess_slo(\n")
+          payload_start = text.index("    payload = {\n", assess_start)
+          threshold_marker = "\n\ndef _threshold_status("
+          payload_end = text.index(threshold_marker, payload_start)
+          replacement = '''    assessment_sha256 = slo_assessment_sha256(
+              slo_id=definition.slo_id,
+              indicator=definition.indicator,
+              exact_head_sha=exact_head_sha,
+              status=status,
+              value=value,
+              target=definition.target,
+              sample_count=sample_count,
+              reason=reason,
+              observation_id=observation_id,
+              assessed_at=assessed_at,
+          )
               return SLOAssessment(
                   slo_id=definition.slo_id,
                   indicator=definition.indicator,
@@ -164,12 +146,15 @@ jobs:
                   assessed_at=assessed_at,
                   assessment_sha256=assessment_sha256,
               )
-          ''',
-          )
-          replace_once(
-              str(operations),
-              '''        status_counts = {
-          ''',
+          '''
+          text = text[:payload_start] + replacement + text[payload_end:]
+
+          readiness_marker = "        status_counts = {\n"
+          count = text.count(readiness_marker)
+          if count != 1:
+              raise SystemExit(f"status-count marker mismatch: {count}")
+          text = text.replace(
+              readiness_marker,
               '''        for item in assessments_by_indicator.values():
                   if item.exact_head_sha != exact_head_sha:
                       reasons.append("SLO_EXACT_HEAD_MISMATCH")
@@ -177,26 +162,26 @@ jobs:
                       reasons.append("SLO_ASSESSMENT_FROM_FUTURE")
               status_counts = {
           ''',
+              1,
           )
-          replace_once(
-              str(operations),
-              '''    assert previous is not None
-              assert status is not None
-          ''',
-              '''    if previous is None or status is None:
-                  raise RuntimeError("incident replay produced incomplete state")
-          ''',
+          text = text.replace(
+              "    assert previous is not None\n    assert status is not None\n",
+              '    if previous is None or status is None:\n'
+              '        raise RuntimeError("incident replay produced incomplete state")\n',
+              1,
           )
+          operations.write_text(text)
 
           test_operations = Path("apps/tai/tests/test_operations.py")
           text = test_operations.read_text()
-          text = text.replace(
-              "    replay_incident,\n",
-              "    replay_incident,\n    slo_assessment_sha256,\n",
-              1,
-          )
-          start = text.index("def _assessment(\n")
-          end = text.index("\ndef _evidence(\n", start)
+          if "    slo_assessment_sha256,\n" not in text:
+              text = text.replace(
+                  "    replay_incident,\n",
+                  "    replay_incident,\n    slo_assessment_sha256,\n",
+                  1,
+              )
+          helper_start = text.index("def _assessment(\n")
+          helper_end = text.index("\ndef _evidence(\n", helper_start)
           helper = '''def _assessment(
               indicator: OperationalIndicator,
               status: SLOAssessmentStatus = SLOAssessmentStatus.PASS,
@@ -236,84 +221,33 @@ jobs:
               )
           
           '''
-          text = text[:start] + helper + text[end + 1:]
-          test_operations.write_text(text)
-
-          replace_once(
-              str(test_operations),
+          text = text[:helper_start] + helper + text[helper_end + 1:]
+          text = text.replace(
               '        artifact_sha256=(kind.value.casefold()[0] * 64),\n',
               '        artifact_sha256="c" * 64,\n',
+              1,
           )
-          replace_once(
-              str(test_operations),
-              '    passed = assess_slo(definition, _observation(definition, value=99.99), exact_head_sha=HEAD, assessed_at=NOW)\n',
-              '    passed = assess_slo(\n'
-              '        definition,\n'
-              '        _observation(definition, value=99.99),\n'
-              '        exact_head_sha=HEAD,\n'
-              '        assessed_at=NOW,\n'
-              '    )\n',
-          )
-          replace_once(
-              str(test_operations),
-              '    at_risk = assess_slo(definition, _observation(definition, value=99.92), exact_head_sha=HEAD, assessed_at=NOW)\n',
-              '    at_risk = assess_slo(\n'
-              '        definition,\n'
-              '        _observation(definition, value=99.92),\n'
-              '        exact_head_sha=HEAD,\n'
-              '        assessed_at=NOW,\n'
-              '    )\n',
-          )
-          replace_once(
-              str(test_operations),
-              '    breached = assess_slo(definition, _observation(definition, value=99.8), exact_head_sha=HEAD, assessed_at=NOW)\n',
-              '    breached = assess_slo(\n'
-              '        definition,\n'
-              '        _observation(definition, value=99.8),\n'
-              '        exact_head_sha=HEAD,\n'
-              '        assessed_at=NOW,\n'
-              '    )\n',
-          )
-          for old, expected in (
-              ('    assert assess_slo(definition, _observation(definition, value=0.1), exact_head_sha=HEAD, assessed_at=NOW).status is SLOAssessmentStatus.PASS\n', 'PASS'),
-              ('    assert assess_slo(definition, _observation(definition, value=0.45), exact_head_sha=HEAD, assessed_at=NOW).status is SLOAssessmentStatus.AT_RISK\n', 'AT_RISK'),
-              ('    assert assess_slo(definition, _observation(definition, value=0.6), exact_head_sha=HEAD, assessed_at=NOW).status is SLOAssessmentStatus.BREACHED\n', 'BREACHED'),
-          ):
-              value = old.split("value=")[1].split(")")[0]
-              new = (
-                  '    result = assess_slo(\n'
-                  '        definition,\n'
-                  f'        _observation(definition, value={value}),\n'
-                  '        exact_head_sha=HEAD,\n'
-                  '        assessed_at=NOW,\n'
-                  '    )\n'
-                  f'    assert result.status is SLOAssessmentStatus.{expected}\n'
-              )
-              replace_once(str(test_operations), old, new)
-
-          postgres_tests = "apps/tai/tests/test_postgres_operations.py"
-          replace_once(
-              postgres_tests,
-              '    assert "INSERT INTO tai_retention_holds" in create_factory.connection.cursor_instance.executions[0][0]\n',
-              '    create_query = create_factory.connection.cursor_instance.executions[0][0]\n'
-              '    assert "INSERT INTO tai_retention_holds" in create_query\n',
-          )
-          replace_once(
-              postgres_tests,
-              '    assert "version = version + 1" in update_factory.connection.cursor_instance.executions[0][0]\n',
-              '    update_query = update_factory.connection.cursor_instance.executions[0][0]\n'
-              '    assert "version = version + 1" in update_query\n',
-          )
+          test_operations.write_text(text)
 
           replace_once(
               "apps/tai/tai/migrations/0010_operational_authority.sql",
               "    value DOUBLE PRECISION NOT NULL CHECK (isfinite(value)),\n",
               "    value DOUBLE PRECISION NOT NULL CHECK (\n"
-              "        value NOT IN ('NaN'::DOUBLE PRECISION, 'Infinity'::DOUBLE PRECISION, '-Infinity'::DOUBLE PRECISION)\n"
+              "        value NOT IN (\n"
+              "            'NaN'::DOUBLE PRECISION,\n"
+              "            'Infinity'::DOUBLE PRECISION,\n"
+              "            '-Infinity'::DOUBLE PRECISION\n"
+              "        )\n"
               "    ),\n",
           )
-          Path('.github/workflows/tai-ap10-exact-patch.yml').unlink()
           PY
+          python -m pip install 'ruff>=0.11,<1'
+          ruff format \
+            apps/tai/tai/operations.py \
+            apps/tai/tai/postgres_operations.py \
+            apps/tai/tests/test_operations.py \
+            apps/tai/tests/test_postgres_operations.py
+          rm .github/workflows/tai-ap10-exact-patch.yml
       - name: Commit exact patch and remove workflow
         shell: bash
         run: |
