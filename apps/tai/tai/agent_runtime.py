@@ -359,6 +359,37 @@ class AgentToolRuntime:
         self._audit_sink = audit_sink or NullAgentAuditSink()
         self._policy = policy or AgentRuntimePolicy()
 
+    def preflight(self, plan: AgentToolPlan, *, identity: IdentityContext) -> None:
+        """Validate a model-produced plan without executing or consuming confirmation."""
+
+        _safe_agent_plan_sha256(plan)
+        if len(plan.calls) > self._policy.maximum_calls:
+            raise ValueError("tool plan exceeds the maximum call count")
+        if not identity.authenticated:
+            raise PolicyDenied("authenticated server session required")
+        for call in plan.calls:
+            arguments = _validated_arguments(
+                call.arguments,
+                maximum_bytes=self._policy.maximum_argument_bytes,
+                maximum_depth=self._policy.maximum_argument_depth,
+            )
+            if call.requested_mode is ToolMode.PRIVILEGED_WRITE:
+                raise PolicyDenied("privileged writes are not executable by the AI agent")
+            definition = authorize_tool(
+                identity,
+                ToolRequest(
+                    trace_id=plan.trace_id,
+                    tool_name=call.tool_name,
+                    arguments=arguments,
+                    requested_mode=call.requested_mode,
+                    explicit_user_confirmation=(
+                        call.requested_mode is ToolMode.CONFIRMED_WRITE
+                    ),
+                ),
+            )
+            if self._handlers.resolve(definition.name) is None:
+                raise PolicyDenied("authorized tool has no registered executor")
+
     def execute(
         self,
         plan: AgentToolPlan,
