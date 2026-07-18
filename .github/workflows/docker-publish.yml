@@ -2,7 +2,7 @@ name: Build & Publish Canonical Docker Images
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/cabinet-design-audit-2jbv6f]
     paths:
       - "apps/api/**"
       - "apps/web/**"
@@ -53,7 +53,7 @@ jobs:
           images: ${{ env.IMAGE_PREFIX }}-api
           tags: |
             type=sha,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/cabinet-design-audit-2jbv6f' }}
 
       - name: Build and push API
         uses: docker/build-push-action@v6
@@ -97,7 +97,7 @@ jobs:
           images: ${{ env.IMAGE_PREFIX }}-web
           tags: |
             type=sha,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/cabinet-design-audit-2jbv6f' }}
 
       - name: Build and push Web
         uses: docker/build-push-action@v6
@@ -140,7 +140,7 @@ jobs:
           images: ${{ env.IMAGE_PREFIX }}-migrations
           tags: |
             type=sha,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/cabinet-design-audit-2jbv6f' }}
 
       - name: Build and push migrations
         uses: docker/build-push-action@v6
