@@ -1,0 +1,172 @@
+name: TAI AP-08 exact reviewed patch
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tai-ap08-exact-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.ref == 'tai/ap-08-safe-agent-tools'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - name: Apply exact reviewed replacements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one exact match, found {count}")
+              file.write_text(text.replace(old, new, 1))
+
+          runtime = "apps/tai/tai/agent_runtime.py"
+          replace_once(
+              runtime,
+              '''            if not confirmed:
+                  raise PolicyDenied("tool confirmation is invalid or expired")
+              claimed = self._confirmation_uses.claim(
+                  confirmation=confirmation,
+                  request_sha256=request_sha256,
+                  idempotency_key=idempotency_key,
+                  used_at=now,
+              )
+              if not claimed:
+                  raise PolicyDenied(
+                      "tool confirmation is already bound to a different invocation"
+                  )
+          request = ToolRequest(
+              trace_id=plan.trace_id,
+              tool_name=call.tool_name,
+              arguments=dict(call.arguments),
+              requested_mode=call.requested_mode,
+              justification=None,
+              explicit_user_confirmation=confirmed,
+          )
+          return authorize_tool(identity, request)
+          ''',
+              '''            if not confirmed:
+                  raise PolicyDenied("tool confirmation is invalid or expired")
+          request = ToolRequest(
+              trace_id=plan.trace_id,
+              tool_name=call.tool_name,
+              arguments=dict(call.arguments),
+              requested_mode=call.requested_mode,
+              justification=None,
+              explicit_user_confirmation=confirmed,
+          )
+          definition = authorize_tool(identity, request)
+          if call.requested_mode is ToolMode.CONFIRMED_WRITE:
+              if confirmation is None:
+                  raise RuntimeError("confirmed write lost its confirmation binding")
+              claimed = self._confirmation_uses.claim(
+                  confirmation=confirmation,
+                  request_sha256=request_sha256,
+                  idempotency_key=idempotency_key,
+                  used_at=now,
+              )
+              if not claimed:
+                  raise PolicyDenied(
+                      "tool confirmation is already bound to a different invocation"
+                  )
+          return definition
+          ''',
+          )
+          replace_once(
+              runtime,
+              '''def _validated_result_sha256(
+              result: Mapping[str, Any],
+              *,
+              maximum_bytes: int,
+          ) -> str:
+              canonical = _canonical_json(_canonical_json_value(result))
+          ''',
+              '''def _validated_result_sha256(
+              result: Mapping[str, Any],
+              *,
+              maximum_bytes: int,
+          ) -> str:
+              if not isinstance(result, Mapping):
+                  raise TypeError("tool result must be an object")
+              canonical = _canonical_json(_canonical_json_value(result))
+          ''',
+          )
+          replace_once(
+              runtime,
+              '    if confirmation.issued_at > now or confirmation.expires_at < now:\n',
+              '    if confirmation.issued_at > now or confirmation.expires_at <= now:\n',
+          )
+          replace_once(
+              runtime,
+              '''            "mode": call.requested_mode.value,
+              "plan_id": str(plan.plan_id),
+          ''',
+              '''            "mode": call.requested_mode.value,
+              "occurred_at": occurred_at.isoformat(),
+              "plan_id": str(plan.plan_id),
+          ''',
+          )
+
+          test_runtime = "apps/tai/tests/test_agent_runtime.py"
+          replace_once(
+              test_runtime,
+              '''    HMACToolConfirmationAuthority,
+              PlannedToolCall,
+          ''',
+              '''    HMACToolConfirmationAuthority,
+              InMemoryConfirmationUseRepository,
+              PlannedToolCall,
+          ''',
+          )
+          replace_once(
+              test_runtime,
+              '''        confirmation_authority=(
+              authority or HMACToolConfirmationAuthority(SECRET)
+          ),
+              audit_sink=audit,
+          ''',
+              '''        confirmation_authority=(
+              authority or HMACToolConfirmationAuthority(SECRET)
+          ),
+              confirmation_uses=InMemoryConfirmationUseRepository(),
+              audit_sink=audit,
+          ''',
+          )
+
+          test_edges = "apps/tai/tests/test_agent_runtime_edges.py"
+          replace_once(
+              test_edges,
+              '{"getDealSummary": first, "getRiskSnapshot": second}',
+              '{"getDealSummary": first, "getRoleNextActions": second}',
+          )
+          replace_once(
+              test_edges,
+              '_call(call_id="call-2", tool_name="getRiskSnapshot")',
+              '_call(call_id="call-2", tool_name="getRoleNextActions")',
+          )
+
+          Path('.github/workflows/tai-ap08-exact-patch.yml').unlink()
+          PY
+      - name: Commit exact patch and remove workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'TAI AP-08: fix confirmation ordering and runtime edge contracts'
+          git push origin HEAD:tai/ap-08-safe-agent-tools
