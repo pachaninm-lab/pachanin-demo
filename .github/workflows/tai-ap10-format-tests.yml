@@ -1,0 +1,42 @@
+name: TAI AP-10 format test evidence
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tai-ap10-format-tests.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.event.pull_request.head.ref == 'tai/ap-10-operational-authority'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Format only AP-10 test files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install 'ruff>=0.11,<1'
+          ruff format \
+            apps/tai/tests/test_operations.py \
+            apps/tai/tests/test_postgres_operations.py
+          rm .github/workflows/tai-ap10-format-tests.yml
+      - name: Commit formatting and cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'TAI AP-10: format operational authority tests'
+          git push origin HEAD:tai/ap-10-operational-authority
