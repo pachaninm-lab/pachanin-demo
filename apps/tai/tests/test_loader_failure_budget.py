@@ -174,7 +174,6 @@ def test_materialization_exception_exhausts_budget() -> None:
 
 
 def test_loader_definition_rejects_invalid_failure_policy() -> None:
-    repository = scheduled_repository()
     response = FetchResponse(FetchDisposition.NOT_MODIFIED, None, NOW)
     loader = ManagedSourceLoader(
         fetcher=StubFetcher(response),
