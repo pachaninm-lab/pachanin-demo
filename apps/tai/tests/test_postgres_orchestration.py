@@ -39,6 +39,8 @@ CONFIRMATION_ID = UUID("33333333-3333-4333-8333-333333333333")
 USER_ID = UUID("44444444-4444-4444-8444-444444444444")
 TENANT_ID = UUID("55555555-5555-4555-8555-555555555555")
 SESSION_ID = UUID("66666666-6666-4666-8666-666666666666")
+EXECUTION_TOKEN = UUID("77777777-7777-4777-8777-777777777777")
+OTHER_EXECUTION_TOKEN = UUID("88888888-8888-4888-8888-888888888888")
 SCOPE_SHA = "a" * 64
 REQUEST_SHA = "b" * 64
 
@@ -186,11 +188,13 @@ def _prepared_row(
     status: str,
     *,
     result: AgentExecutionResult | None = None,
+    execution_token: UUID | None = None,
 ) -> dict[str, Any]:
     return {
         "prepared_payload": _stored_action_payload(_prepared()),
         "result_payload": None if result is None else _execution_payload(result),
         "status": status,
+        "execution_token": execution_token,
     }
 
 
@@ -368,6 +372,19 @@ def test_idempotency_complete_rejects_conflict_and_abandon_deletes_claim() -> No
     assert cursor.parameters[0] == (SCOPE_SHA, REQUEST_SHA)
 
 
+def test_prepared_action_lease_policy_is_bounded() -> None:
+    with pytest.raises(ValueError, match="execution_lease"):
+        PostgreSQLPreparedActionRepository(
+            FakeFactory([]),
+            execution_lease=timedelta(0),
+        )
+    with pytest.raises(ValueError, match="execution_lease"):
+        PostgreSQLPreparedActionRepository(
+            FakeFactory([]),
+            execution_lease=timedelta(hours=2),
+        )
+
+
 def test_prepared_action_save_get_and_identity_conflict() -> None:
     prepared = _prepared()
     save_factory = FakeFactory([{"confirmation_id": CONFIRMATION_ID}])
@@ -389,15 +406,35 @@ def test_prepared_action_save_get_and_identity_conflict() -> None:
         PostgreSQLPreparedActionRepository(FakeFactory([None])).save(prepared)
 
 
-def test_prepared_action_claim_is_single_executor_and_replayable() -> None:
-    execute = PostgreSQLPreparedActionRepository(
-        FakeFactory([_prepared_row("EXECUTING")])
-    ).claim(CONFIRMATION_ID)
+def test_prepared_action_claim_is_leased_fenced_and_replayable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "tai.postgres_orchestration.uuid4",
+        lambda: EXECUTION_TOKEN,
+    )
+    execute_factory = FakeFactory(
+        [_prepared_row("EXECUTING", execution_token=EXECUTION_TOKEN)]
+    )
+    execute = PostgreSQLPreparedActionRepository(execute_factory).claim(
+        CONFIRMATION_ID
+    )
     assert execute.status is PreparedActionClaimStatus.EXECUTE
     assert execute.prepared.executing is True
+    cursor = execute_factory.connection.cursor_instance
+    assert "execution_expires_at <= clock_timestamp()" in cursor.queries[0]
+    assert cursor.parameters[0] == (EXECUTION_TOKEN, 300, CONFIRMATION_ID)
 
     in_progress = PostgreSQLPreparedActionRepository(
-        FakeFactory([None, _prepared_row("EXECUTING")])
+        FakeFactory(
+            [
+                None,
+                _prepared_row(
+                    "EXECUTING",
+                    execution_token=OTHER_EXECUTION_TOKEN,
+                ),
+            ]
+        )
     ).claim(CONFIRMATION_ID)
     assert in_progress.status is PreparedActionClaimStatus.IN_PROGRESS
 
@@ -406,6 +443,27 @@ def test_prepared_action_claim_is_single_executor_and_replayable() -> None:
     ).claim(CONFIRMATION_ID)
     assert replay.status is PreparedActionClaimStatus.REPLAY
     assert replay.prepared.result == _result()
+
+
+def test_prepared_action_claim_rejects_fencing_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "tai.postgres_orchestration.uuid4",
+        lambda: EXECUTION_TOKEN,
+    )
+    repository = PostgreSQLPreparedActionRepository(
+        FakeFactory(
+            [
+                _prepared_row(
+                    "EXECUTING",
+                    execution_token=OTHER_EXECUTION_TOKEN,
+                )
+            ]
+        )
+    )
+    with pytest.raises(RuntimeError, match="fencing token mismatch"):
+        repository.claim(CONFIRMATION_ID)
 
 
 def test_prepared_action_claim_rejects_missing_and_corrupt_rows() -> None:
@@ -423,6 +481,31 @@ def test_prepared_action_claim_rejects_missing_and_corrupt_rows() -> None:
         PostgreSQLPreparedActionRepository(
             FakeFactory([None, _prepared_row("BROKEN")])
         ).claim(CONFIRMATION_ID)
+
+
+def test_claimed_action_completion_is_fenced(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "tai.postgres_orchestration.uuid4",
+        lambda: EXECUTION_TOKEN,
+    )
+    result = _result()
+    factory = FakeFactory(
+        [
+            _prepared_row("EXECUTING", execution_token=EXECUTION_TOKEN),
+            _prepared_row("COMPLETED", result=result),
+        ]
+    )
+    repository = PostgreSQLPreparedActionRepository(factory)
+    claim = repository.claim(CONFIRMATION_ID)
+    assert claim.status is PreparedActionClaimStatus.EXECUTE
+
+    completed = repository.complete(CONFIRMATION_ID, result)
+    assert completed.result == result
+    cursor = factory.connection.cursor_instance
+    assert "execution_expires_at > clock_timestamp()" in cursor.queries[1]
+    assert cursor.parameters[1][3] == EXECUTION_TOKEN
 
 
 def test_prepared_action_complete_and_abandon_are_idempotent() -> None:
@@ -446,12 +529,30 @@ def test_prepared_action_complete_and_abandon_are_idempotent() -> None:
 
     abandon = FakeFactory([])
     PostgreSQLPreparedActionRepository(abandon).abandon(CONFIRMATION_ID)
-    assert "status = 'PREPARED'" in abandon.connection.cursor_instance.queries[0]
-    assert abandon.connection.cursor_instance.parameters[0] == (CONFIRMATION_ID,)
+    cursor = abandon.connection.cursor_instance
+    assert "status = 'PREPARED'" in cursor.queries[0]
+    assert "execution_token IS NOT DISTINCT FROM %s" in cursor.queries[0]
+    assert cursor.parameters[0] == (CONFIRMATION_ID, None)
 
 
-def test_prepared_action_complete_rejects_immutable_result() -> None:
+def test_prepared_action_complete_rejects_stale_or_immutable_result() -> None:
     result = _result()
+    stale = FakeFactory(
+        [
+            None,
+            _prepared_row(
+                "EXECUTING",
+                execution_token=OTHER_EXECUTION_TOKEN,
+            ),
+        ]
+    )
+    with pytest.raises(RuntimeError, match="stale or expired"):
+        PostgreSQLPreparedActionRepository(stale).complete(
+            CONFIRMATION_ID,
+            result,
+        )
+    assert stale.connection.rolled_back is True
+
     conflict = FakeFactory(
         [
             None,
