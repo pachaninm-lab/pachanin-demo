@@ -11,6 +11,7 @@ import {
 import { BuyerFavoritesPanel } from '@/components/platform-v7/BuyerFavoritesPanel';
 import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';
 import { getDealsCanonical } from '@/lib/deals-server';
+import { summarizeDeals, dealsSummaryLine } from '@/lib/platform-v7/deals-summary';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { WorkflowActionPanel } from '@/components/platform-v7/WorkflowActionPanel';
@@ -85,7 +86,7 @@ export default async function PlatformV7BuyerPage() {
           apiOnline={apiOnline}
           openDisputes={disputeCount}
           role='BUYER · КАБИНЕТ ПОКУПАТЕЛЯ'
-          summary={apiOnline ? `${deals.length} сделок · ${disputeCount} споров · ${heldLabel}` : 'Данные статичные — API недоступен'}
+          summary={apiOnline ? `${dealsSummaryLine(summarizeDeals(deals))} · ${disputeCount} споров · ${heldLabel}` : 'Данные статичные — API недоступен'}
         />
       )}
       priority={{

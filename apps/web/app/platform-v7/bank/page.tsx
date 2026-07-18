@@ -28,6 +28,8 @@ import { RoleExecutionCockpitContent } from '@/components/platform-v7/RoleExecut
 import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-execution-cockpit';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getOutboxStatus } from '@/lib/outbox-server';
+import { getDealsCanonical } from '@/lib/deals-server';
+import { summarizeDeals, dealsSummaryLine } from '@/lib/platform-v7/deals-summary';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';
@@ -67,7 +69,7 @@ function gateTone(state: string): 'success' | 'warning' | 'critical' | 'neutral'
 }
 
 export default async function PlatformV7BankPage() {
-  const [outbox, disputes] = await Promise.all([getOutboxStatus(), getDisputes()]);
+  const [outbox, disputes, deals] = await Promise.all([getOutboxStatus(), getDisputes(), getDealsCanonical()]);
   const apiOnline = outbox.isApiAvailable;
   const heldRub = disputeTotalHeldRub(disputes);
   const disputeCount = openDisputeCount(disputes);
@@ -100,7 +102,7 @@ export default async function PlatformV7BankPage() {
           pendingBankOps={outbox.totalPending}
           openDisputes={disputeCount}
           role='BANK · ПРОВЕРКА ВЫПЛАТЫ'
-          summary={apiOnline ? `${outbox.totalPending} операций · ${disputeCount} споров · ${heldLabel}` : 'Данные статичные — API недоступен'}
+          summary={apiOnline ? `${outbox.totalPending} операций · ${dealsSummaryLine(summarizeDeals(deals))} · ${disputeCount} споров · ${heldLabel}` : 'Данные статичные — API недоступен'}
         />
       )}
       priority={{

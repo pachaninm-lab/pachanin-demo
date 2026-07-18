@@ -12,6 +12,7 @@ import { PushNotificationBanner } from '@/components/platform-v7/PushNotificatio
 import { PriceChart } from '@/components/platform-v7/PriceChart';
 import { SellerInlineLotEditor } from '@/components/platform-v7/SellerInlineLotEditor';
 import { getDealsCanonical } from '@/lib/deals-server';
+import { summarizeDeals, dealsSummaryLine } from '@/lib/platform-v7/deals-summary';
 import { getDisputes, openDisputeCount } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { WorkflowActionPanel } from '@/components/platform-v7/WorkflowActionPanel';
@@ -77,7 +78,7 @@ export default async function PlatformV7SellerPage() {
           apiOnline={apiOnline}
           openDisputes={disputeCount}
           role='ПРОДАВЕЦ · КАБИНЕТ СДЕЛКИ'
-          summary={apiOnline ? `${deals.length} сделок · ${disputeCount} открытых споров` : 'Внешние подключения не активны'}
+          summary={apiOnline ? `${dealsSummaryLine(summarizeDeals(deals))} · ${disputeCount} открытых споров` : 'Внешние подключения не активны'}
         />
       )}
       priority={{
