@@ -12,7 +12,6 @@ from tai.model_runtime import (
     LocalModelProfile,
     ModelAttemptStatus,
     ModelCapability,
-    ModelHealthRepository,
     ModelProfileStatus,
     ModelRouteRequest,
     ModelRouteUnavailable,
