@@ -1,0 +1,73 @@
+name: TAI Exact-Main Workflow Discovery
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-exact-main-discovery.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  discover-exact-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      AUDITED_SHA: 775b3c552647cbb6d23f711f7c4f17d147fac1f0
+    steps:
+      - name: Query exact-main workflow runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "/repos/${REPOSITORY}/actions/runs?head_sha=${AUDITED_SHA}&per_page=100" \
+            > workflow-runs-raw.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          audited_sha = os.environ['AUDITED_SHA']
+          raw = json.loads(Path('workflow-runs-raw.json').read_text())
+          runs = []
+          for run in raw.get('workflow_runs', []):
+              if run.get('head_sha') != audited_sha:
+                  continue
+              runs.append({
+                  'conclusion': run.get('conclusion'),
+                  'created_at': run.get('created_at'),
+                  'event': run.get('event'),
+                  'head_branch': run.get('head_branch'),
+                  'head_sha': run.get('head_sha'),
+                  'run_attempt': run.get('run_attempt'),
+                  'run_id': run.get('id'),
+                  'run_number': run.get('run_number'),
+                  'status': run.get('status'),
+                  'updated_at': run.get('updated_at'),
+                  'workflow_name': run.get('name'),
+              })
+          runs.sort(key=lambda item: (item['workflow_name'] or '', item['run_number'] or 0))
+          summary = {
+              'audited_sha': audited_sha,
+              'run_count': len(runs),
+              'runs': runs,
+          }
+          Path('exact-main-discovery.json').write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(summary, sort_keys=True))
+          PY
+
+      - name: Upload exact-main discovery
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-exact-main-discovery-${{ env.AUDITED_SHA }}
+          path: exact-main-discovery.json
+          if-no-files-found: error
+          retention-days: 7
