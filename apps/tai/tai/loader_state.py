@@ -211,7 +211,8 @@ class InMemoryLoaderStateRepository:
         current = self._states.get(lease.source_id)
         if not self._matches_active_lease(current, lease, now):
             return None
-        assert current is not None
+        if current is None:
+            raise RuntimeError("active lease matched without loader state")
         expires_at = now + lease_duration
         updated = LoaderState(
             source_id=current.source_id,
@@ -249,7 +250,8 @@ class InMemoryLoaderStateRepository:
         current = self._states.get(lease.source_id)
         if not self._matches_active_lease(current, lease, None):
             return False
-        assert current is not None
+        if current is None:
+            raise RuntimeError("active lease matched without loader state")
         self._states[current.source_id] = LoaderState(
             source_id=current.source_id,
             source_uri=current.source_uri,
