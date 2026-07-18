@@ -23,6 +23,9 @@ class PostgreSQLGroundedAnswerAuditSink:
                 tenant_id,
                 status,
                 model_id,
+                model_revision,
+                model_route_id,
+                model_attempts,
                 model_invoked,
                 generation,
                 query_sha256,
@@ -35,7 +38,10 @@ class PostgreSQLGroundedAnswerAuditSink:
                 completed_at,
                 trace_sha256
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
             ON CONFLICT (request_id) DO UPDATE
             SET request_id = EXCLUDED.request_id
             WHERE tai_rag_traces.trace_sha256 = EXCLUDED.trace_sha256
@@ -48,6 +54,9 @@ class PostgreSQLGroundedAnswerAuditSink:
                 trace.tenant_id,
                 trace.status.value,
                 trace.model_id,
+                trace.model_revision,
+                trace.model_route_id,
+                _attempts_payload(trace),
                 trace.model_invoked,
                 trace.generation,
                 trace.query_sha256,
@@ -83,6 +92,18 @@ class PostgreSQLGroundedAnswerAuditSink:
                 raise
 
 
+def _attempts_payload(trace: GroundedAnswerTrace) -> list[dict[str, str | None]]:
+    return [
+        {
+            "model_id": attempt.model_id,
+            "reason": attempt.reason,
+            "revision": attempt.revision,
+            "status": attempt.status.value,
+        }
+        for attempt in trace.model_attempts
+    ]
+
+
 def _trace_sha256(trace: GroundedAnswerTrace) -> str:
     payload = {
         "answer_sha256": trace.answer_sha256,
@@ -91,8 +112,11 @@ def _trace_sha256(trace: GroundedAnswerTrace) -> str:
         "completed_at": trace.completed_at.isoformat(),
         "context_sha256": trace.context_sha256,
         "generation": trace.generation,
+        "model_attempts": _attempts_payload(trace),
         "model_id": trace.model_id,
         "model_invoked": trace.model_invoked,
+        "model_revision": trace.model_revision,
+        "model_route_id": trace.model_route_id,
         "query_sha256": trace.query_sha256,
         "reason": trace.reason,
         "request_id": trace.request_id,
