@@ -80,6 +80,10 @@ class IngestionLedger:
             self._by_manifest[manifest_id] = manifest
             return IngestionResult(manifest=manifest, record=None)
 
+        effective_at = document.effective_at
+        if effective_at is None:
+            raise ValueError("accepted_document_missing_effective_date")
+
         prior_id = self._active_by_source.get(document.source_id)
         manifest = IngestionManifest(
             manifest_id=manifest_id,
@@ -113,7 +117,7 @@ class IngestionLedger:
             body=document.body,
             version=version,
             source_uri=document.source_uri,
-            effective_at=document.effective_at or document.published_at,
+            effective_at=effective_at,
             trust_score=document.trust_score,
             scope=KnowledgeScope.PUBLIC,
             tags=frozenset({document.domain.value.casefold(), document.source_id}),
