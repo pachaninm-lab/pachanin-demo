@@ -138,6 +138,74 @@ api:
     fsGroup: 65532
     readOnlyRootFilesystem: true
 
+# ── PgBouncer — transaction-pooling gateway to the PostgreSQL primary ──────────
+# Required before api.autoscaling scales out: N replicas × per-pod Prisma pools
+# otherwise exhaust the primary's max_connections. PgBouncer multiplexes them
+# onto a few server backends. RLS uses SET LOCAL, which is safe under
+# pool_mode=transaction (verified: no GUC leak across pooled clients).
+#
+# IMPORTANT — the API DATABASE_URL (in grainflow-api-secrets) must point at the
+# `<release>-pgbouncer` Service and include:
+#   ?pgbouncer=true&connection_limit=10&pool_timeout=10
+# `pgbouncer=true` disables Prisma prepared statements (unsafe under transaction
+# pooling); a small connection_limit keeps total client connections bounded.
+pgbouncer:
+  enabled: false
+  image:
+    repository: docker.io/edoburu/pgbouncer
+    digest: ""
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  # Pooling
+  poolMode: transaction
+  authType: scram-sha-256
+  maxClientConn: 1000
+  defaultPoolSize: 25
+  minPoolSize: 5
+  reservePoolSize: 5
+  serverTlsSslmode: require
+  # Upstream managed PostgreSQL primary. Credentials (DB_USER, DB_PASSWORD) come
+  # from the secret referenced below — never inline them here.
+  upstream:
+    host: ""
+    port: 5432
+    database: grainflow
+  secretEnvFrom:
+    - secretRef:
+        name: grainflow-pgbouncer-secrets
+  service:
+    port: 6432
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "1000m"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  securityContext:
+    runAsUser: 70
+    runAsGroup: 70
+    fsGroup: 70
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values: [grainflow-pgbouncer]
+            topologyKey: kubernetes.io/hostname
+
 # ── Durable PostgreSQL outbox worker ──────────────────────────────────────────
 outboxWorker:
   enabled: false

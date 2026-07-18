@@ -6,16 +6,44 @@ api:
   autoscaling:
     minReplicas: 5
     maxReplicas: 20
+  # CPU request calibrated to measured per-pod load: under saturation a pod draws
+  # ~1.7–2 cores, so a 1-core request keeps the HPA's 70%-of-request target
+  # meaningful (scale out well before a pod saturates) instead of tripping
+  # instantly against an undersized 500m request. Memory request covers the
+  # measured ~400Mi steady-state RSS with headroom.
   resources:
     requests:
       memory: "512Mi"
-      cpu: "500m"
+      cpu: "1000m"
     limits:
       memory: "2Gi"
       cpu: "4000m"
   env:
     LOG_LEVEL: warn
     NODE_ENV: production
+    # Trace 10% of root spans in production (see telemetry-config). Full traces
+    # already sampled upstream are preserved by the ParentBasedSampler.
+    OTEL_TRACES_SAMPLER_ARG: "0.1"
+  # NOTE: grainflow-api-secrets DATABASE_URL must target the pgbouncer Service:
+  #   postgresql://<user>:<pass>@grainflow-pgbouncer:6432/grainflow?pgbouncer=true&connection_limit=10&pool_timeout=10
+  # With maxReplicas=20 and connection_limit=10 the API tier caps at 200 client
+  # connections, which PgBouncer multiplexes onto ~40 server backends.
+
+# PgBouncer sits between the API tier and the managed PostgreSQL primary so the
+# HPA can scale the API to 20 replicas without exhausting server connections.
+pgbouncer:
+  enabled: true
+  replicaCount: 3
+  defaultPoolSize: 40
+  maxClientConn: 5000
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 6
+  upstream:
+    host: "postgresql-primary.grainflow-prod.svc.cluster.local"
+    port: 5432
+    database: grainflow
 
 web:
   replicaCount: 3

@@ -1,0 +1,181 @@
+{{- if .Values.pgbouncer.enabled }}
+{{- /*
+  PgBouncer — transaction-pooling gateway in front of the PostgreSQL primary.
+
+  Why it is required for horizontal scale: every API replica opens its own Prisma
+  connection pool. With api.autoscaling.maxReplicas=20 and even a modest per-pod
+  pool, direct connections quickly exceed the primary's max_connections and the
+  cluster fails on connection exhaustion long before it runs out of CPU. PgBouncer
+  multiplexes hundreds of client connections onto a small set of server backends.
+
+  Correctness: the application's RLS context is applied with `set_config(..., true)`
+  (SET LOCAL), which is transaction-scoped. Verified experimentally that under
+  `pool_mode = transaction` no tenant/org/user GUC leaks across clients that share
+  a pooled backend, so transaction pooling is safe for this codebase.
+
+  Prisma requirement (documented in values): the API DATABASE_URL must point at
+  this Service and carry `?pgbouncer=true` (disables prepared statements, which
+  are unsafe under transaction pooling) plus a small `connection_limit`.
+*/}}
+{{- $digest := include "grainflow.image.digest" (dict "component" "pgbouncer" "digest" .Values.pgbouncer.image.digest) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "grainflow.fullname" . }}-pgbouncer
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "grainflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+spec:
+  {{- if not .Values.pgbouncer.autoscaling.enabled }}
+  replicas: {{ .Values.pgbouncer.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grainflow-pgbouncer
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  minReadySeconds: 10
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: grainflow-pgbouncer
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: pgbouncer
+        app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+      annotations:
+        platform.prozrachnaya-cena/image-digest: {{ $digest | quote }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.pgbouncer.securityContext.runAsUser }}
+        runAsGroup: {{ .Values.pgbouncer.securityContext.runAsGroup }}
+        fsGroup: {{ .Values.pgbouncer.securityContext.fsGroup }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: pgbouncer
+          image: "{{ .Values.pgbouncer.image.repository }}@{{ $digest }}"
+          imagePullPolicy: {{ .Values.pgbouncer.image.pullPolicy }}
+          ports:
+            - name: pgbouncer
+              containerPort: {{ .Values.pgbouncer.service.port }}
+              protocol: TCP
+          env:
+            - name: DB_HOST
+              value: {{ .Values.pgbouncer.upstream.host | quote }}
+            - name: DB_PORT
+              value: {{ .Values.pgbouncer.upstream.port | quote }}
+            - name: DB_NAME
+              value: {{ .Values.pgbouncer.upstream.database | quote }}
+            - name: POOL_MODE
+              value: {{ .Values.pgbouncer.poolMode | quote }}
+            - name: AUTH_TYPE
+              value: {{ .Values.pgbouncer.authType | quote }}
+            - name: MAX_CLIENT_CONN
+              value: {{ .Values.pgbouncer.maxClientConn | quote }}
+            - name: DEFAULT_POOL_SIZE
+              value: {{ .Values.pgbouncer.defaultPoolSize | quote }}
+            - name: MIN_POOL_SIZE
+              value: {{ .Values.pgbouncer.minPoolSize | quote }}
+            - name: RESERVE_POOL_SIZE
+              value: {{ .Values.pgbouncer.reservePoolSize | quote }}
+            - name: SERVER_TLS_SSLMODE
+              value: {{ .Values.pgbouncer.serverTlsSslmode | quote }}
+            - name: LISTEN_PORT
+              value: {{ .Values.pgbouncer.service.port | quote }}
+          envFrom:
+            {{- toYaml .Values.pgbouncer.secretEnvFrom | nindent 12 }}
+          resources:
+            {{- toYaml .Values.pgbouncer.resources | nindent 12 }}
+          livenessProbe:
+            tcpSocket:
+              port: pgbouncer
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: pgbouncer
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: pgbouncer-run
+              mountPath: /etc/pgbouncer
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: pgbouncer-run
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+      affinity:
+        {{- toYaml .Values.pgbouncer.affinity | nindent 8 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "grainflow.fullname" . }}-pgbouncer
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "grainflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: pgbouncer
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: grainflow-pgbouncer
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: pgbouncer
+      port: {{ .Values.pgbouncer.service.port }}
+      targetPort: pgbouncer
+---
+{{- if .Values.pgbouncer.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "grainflow.fullname" . }}-pgbouncer
+  namespace: {{ .Values.namespace.name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "grainflow.fullname" . }}-pgbouncer
+  minReplicas: {{ .Values.pgbouncer.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.pgbouncer.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.pgbouncer.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+---
+{{- if .Values.pgbouncer.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "grainflow.fullname" . }}-pgbouncer
+  namespace: {{ .Values.namespace.name }}
+spec:
+  minAvailable: {{ .Values.pgbouncer.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grainflow-pgbouncer
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+{{- end }}
