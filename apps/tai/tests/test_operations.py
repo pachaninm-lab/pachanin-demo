@@ -28,6 +28,7 @@ from tai.operations import (
     eligible_for_purge,
     incident_event_sha256,
     replay_incident,
+    slo_assessment_sha256,
 )
 
 NOW = datetime(2026, 7, 18, 20, 0, tzinfo=UTC)
@@ -82,30 +83,46 @@ def _assessment(
     indicator: OperationalIndicator,
     status: SLOAssessmentStatus = SLOAssessmentStatus.PASS,
 ) -> SLOAssessment:
-    return SLOAssessment(
-        slo_id=f"tai.{indicator.value.casefold()}",
+    slo_id = f"tai.{indicator.value.casefold()}"
+    value = 1.0 if status is not SLOAssessmentStatus.UNKNOWN else None
+    reason = None if status is not SLOAssessmentStatus.UNKNOWN else "MISSING_OBSERVATION"
+    observation_id = (
+        f"obs.{indicator.value.casefold()}"
+        if status is not SLOAssessmentStatus.UNKNOWN
+        else None
+    )
+    digest = slo_assessment_sha256(
+        slo_id=slo_id,
         indicator=indicator,
+        exact_head_sha=HEAD,
         status=status,
-        value=1.0 if status is not SLOAssessmentStatus.UNKNOWN else None,
+        value=value,
         target=1.0,
         sample_count=1000,
-        reason=None if status is not SLOAssessmentStatus.UNKNOWN else "MISSING_OBSERVATION",
-        observation_id=(
-            f"obs.{indicator.value.casefold()}"
-            if status is not SLOAssessmentStatus.UNKNOWN
-            else None
-        ),
+        reason=reason,
+        observation_id=observation_id,
         assessed_at=NOW,
-        assessment_sha256=(indicator.value.casefold()[0] * 64),
     )
-
+    return SLOAssessment(
+        slo_id=slo_id,
+        indicator=indicator,
+        exact_head_sha=HEAD,
+        status=status,
+        value=value,
+        target=1.0,
+        sample_count=1000,
+        reason=reason,
+        observation_id=observation_id,
+        assessed_at=NOW,
+        assessment_sha256=digest,
+    )
 
 def _evidence(kind: EvidenceKind, *, accepted: bool = True) -> OperationalEvidence:
     return OperationalEvidence(
         evidence_id=f"evidence.{kind.value.casefold()}",
         kind=kind,
         exact_head_sha=HEAD,
-        artifact_sha256=(kind.value.casefold()[0] * 64),
+        artifact_sha256="c" * 64,
         accepted=accepted,
         observed_at=NOW - timedelta(minutes=5),
         valid_until=NOW + timedelta(hours=1),

@@ -14,7 +14,13 @@ CREATE TABLE IF NOT EXISTS tai_slo_observations (
             'AUDIT_DURABILITY'
         )
     ),
-    value DOUBLE PRECISION NOT NULL CHECK (isfinite(value)),
+    value DOUBLE PRECISION NOT NULL CHECK (
+        value NOT IN (
+            'NaN'::DOUBLE PRECISION,
+            'Infinity'::DOUBLE PRECISION,
+            '-Infinity'::DOUBLE PRECISION
+        )
+    ),
     sample_count BIGINT NOT NULL CHECK (sample_count >= 0),
     window_started_at TIMESTAMPTZ NOT NULL,
     window_ended_at TIMESTAMPTZ NOT NULL CHECK (window_ended_at >= window_started_at),

@@ -97,6 +97,7 @@ class SLOObservation:
 class SLOAssessment:
     slo_id: str
     indicator: OperationalIndicator
+    exact_head_sha: str
     status: SLOAssessmentStatus
     value: float | None
     target: float
@@ -106,6 +107,63 @@ class SLOAssessment:
     assessed_at: datetime
     assessment_sha256: str
 
+    def __post_init__(self) -> None:
+        _portable(self.slo_id, "slo_id")
+        _digest(self.exact_head_sha, "exact_head_sha")
+        if self.value is not None:
+            _finite(self.value, "assessment value")
+        _finite(self.target, "assessment target")
+        if self.sample_count < 0:
+            raise ValueError("assessment sample_count must not be negative")
+        if self.reason is not None and not self.reason.strip():
+            raise ValueError("assessment reason must be null or non-blank")
+        if self.observation_id is not None:
+            _portable(self.observation_id, "observation_id")
+        _aware(self.assessed_at, "assessed_at")
+        _digest(self.assessment_sha256, "assessment_sha256")
+        expected = slo_assessment_sha256(
+            slo_id=self.slo_id,
+            indicator=self.indicator,
+            exact_head_sha=self.exact_head_sha,
+            status=self.status,
+            value=self.value,
+            target=self.target,
+            sample_count=self.sample_count,
+            reason=self.reason,
+            observation_id=self.observation_id,
+            assessed_at=self.assessed_at,
+        )
+        if self.assessment_sha256 != expected:
+            raise ValueError("SLO assessment digest does not match assessment fields")
+
+
+def slo_assessment_sha256(
+    *,
+    slo_id: str,
+    indicator: OperationalIndicator,
+    exact_head_sha: str,
+    status: SLOAssessmentStatus,
+    value: float | None,
+    target: float,
+    sample_count: int,
+    reason: str | None,
+    observation_id: str | None,
+    assessed_at: datetime,
+) -> str:
+    return _sha256_json(
+        {
+            "assessed_at": assessed_at.isoformat(),
+            "exact_head_sha": exact_head_sha,
+            "indicator": indicator.value,
+            "observation_id": observation_id,
+            "reason": reason,
+            "sample_count": sample_count,
+            "slo_id": slo_id,
+            "status": status.value,
+            "target": target,
+            "value": value,
+        }
+    )
 
 def assess_slo(
     definition: SLODefinition,
@@ -141,20 +199,10 @@ def assess_slo(
             reason = "INSUFFICIENT_SAMPLES"
         else:
             status = _threshold_status(definition, observation.value)
-    payload = {
-        "assessed_at": assessed_at.isoformat(),
-        "indicator": definition.indicator.value,
-        "observation_id": observation_id,
-        "reason": reason,
-        "sample_count": sample_count,
-        "slo_id": definition.slo_id,
-        "status": status.value,
-        "target": definition.target,
-        "value": value,
-    }
-    return SLOAssessment(
+    assessment_sha256 = slo_assessment_sha256(
         slo_id=definition.slo_id,
         indicator=definition.indicator,
+        exact_head_sha=exact_head_sha,
         status=status,
         value=value,
         target=definition.target,
@@ -162,7 +210,19 @@ def assess_slo(
         reason=reason,
         observation_id=observation_id,
         assessed_at=assessed_at,
-        assessment_sha256=_sha256_json(payload),
+    )
+    return SLOAssessment(
+        slo_id=definition.slo_id,
+        indicator=definition.indicator,
+        exact_head_sha=exact_head_sha,
+        status=status,
+        value=value,
+        target=definition.target,
+        sample_count=sample_count,
+        reason=reason,
+        observation_id=observation_id,
+        assessed_at=assessed_at,
+        assessment_sha256=assessment_sha256,
     )
 
 
@@ -282,6 +342,11 @@ class OperationalReadinessAuthority:
                 reasons.append("EVIDENCE_EXPIRED")
             if not item.accepted:
                 reasons.append("EVIDENCE_REJECTED")
+        for item in assessments_by_indicator.values():
+            if item.exact_head_sha != exact_head_sha:
+                reasons.append("SLO_EXACT_HEAD_MISMATCH")
+            if item.assessed_at > decided_at:
+                reasons.append("SLO_ASSESSMENT_FROM_FUTURE")
         status_counts = {
             status: sum(item.status is status for item in assessments_by_indicator.values())
             for status in SLOAssessmentStatus
@@ -457,8 +522,8 @@ def replay_incident(events: Sequence[IncidentEvent]) -> IncidentState:
             postmortem_attached=postmortem_attached,
         )
         previous = event
-    assert previous is not None
-    assert status is not None
+    if previous is None or status is None:
+        raise RuntimeError("incident replay produced incomplete state")
     return IncidentState(
         incident_id=incident_id,
         severity=severity,
