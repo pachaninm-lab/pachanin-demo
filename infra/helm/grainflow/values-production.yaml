@@ -36,8 +36,10 @@ api:
 
 # PgBouncer sits between the API tier and the managed PostgreSQL primary so the
 # HPA can scale the API to 20 replicas without exhausting server connections.
+# Like the api/web workloads, it stays disabled here and is enabled together with
+# its immutable image digest by the release overlay (mutable tags are forbidden).
 pgbouncer:
-  enabled: true
+  enabled: false
   replicaCount: 3
   defaultPoolSize: 40
   maxClientConn: 5000

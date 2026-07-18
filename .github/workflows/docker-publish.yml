@@ -9,6 +9,7 @@ on:
       - "infra/docker/Dockerfile.api"
       - "infra/docker/Dockerfile.web"
       - "infra/docker/Dockerfile.migrations"
+      - "infra/helm/**"
       - ".github/workflows/docker-publish.yml"
   workflow_dispatch:
     inputs:
