@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import http.client
 import ipaddress
 import json
+import ssl
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
-from urllib.request import Request, urlopen
 
 from tai.model_runtime import LocalModelInvoker, LocalModelProfile
 
@@ -68,6 +69,38 @@ class JSONTransport(Protocol):
     ) -> Mapping[str, Any]: ...
 
 
+class HTTPResponseLike(Protocol):
+    status: int
+    reason: str
+
+    def read(self, amount: int | None = None) -> bytes: ...
+
+
+class HTTPConnectionLike(Protocol):
+    def request(
+        self,
+        method: str,
+        url: str,
+        body: bytes | None = None,
+        headers: Mapping[str, str] = {},
+    ) -> None: ...
+
+    def getresponse(self) -> HTTPResponseLike: ...
+
+    def close(self) -> None: ...
+
+
+class HTTPConnectionFactory(Protocol):
+    def __call__(
+        self,
+        *,
+        scheme: str,
+        host: str,
+        port: int,
+        timeout_seconds: float,
+    ) -> HTTPConnectionLike: ...
+
+
 class StaticModelEndpointResolver:
     def __init__(self, endpoints: Mapping[tuple[str, str], str]) -> None:
         self._endpoints = dict(endpoints)
@@ -79,8 +112,39 @@ class StaticModelEndpointResolver:
         return endpoint
 
 
-class UrllibJSONTransport:
-    """Small dependency-free JSON transport used only after endpoint policy validation."""
+class StdlibHTTPConnectionFactory:
+    def __call__(
+        self,
+        *,
+        scheme: str,
+        host: str,
+        port: int,
+        timeout_seconds: float,
+    ) -> HTTPConnectionLike:
+        if scheme == "http":
+            return http.client.HTTPConnection(
+                host,
+                port,
+                timeout=timeout_seconds,
+            )
+        if scheme == "https":
+            return http.client.HTTPSConnection(
+                host,
+                port,
+                timeout=timeout_seconds,
+                context=ssl.create_default_context(),
+            )
+        raise ValueError("local model endpoint must use HTTP or HTTPS")
+
+
+class HTTPClientJSONTransport:
+    """Dependency-free bounded JSON transport for already validated local endpoints."""
+
+    def __init__(
+        self,
+        connection_factory: HTTPConnectionFactory | None = None,
+    ) -> None:
+        self._connection_factory = connection_factory or StdlibHTTPConnectionFactory()
 
     def post_json(
         self,
@@ -90,27 +154,58 @@ class UrllibJSONTransport:
         timeout_seconds: float,
         maximum_response_bytes: int,
     ) -> Mapping[str, Any]:
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
+        if maximum_response_bytes < 1:
+            raise ValueError("maximum_response_bytes must be positive")
+        parsed = urlsplit(endpoint)
+        if parsed.scheme not in {"http", "https"}:
+            raise ValueError("local model endpoint must use HTTP or HTTPS")
+        if parsed.username is not None or parsed.password is not None:
+            raise ValueError("credentials are not allowed in model endpoint URLs")
+        if parsed.query or parsed.fragment:
+            raise ValueError("query and fragment are not allowed in model endpoint URLs")
+        hostname = parsed.hostname
+        if hostname is None:
+            raise ValueError("local model endpoint must contain a host")
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        path = parsed.path or "/"
         body = json.dumps(
             payload,
             ensure_ascii=False,
             separators=(",", ":"),
         ).encode()
-        request = Request(
-            endpoint,
-            data=body,
-            method="POST",
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json; charset=utf-8",
-                "User-Agent": "transparent-agro-intelligence/local-runtime",
-            },
+        connection = self._connection_factory(
+            scheme=parsed.scheme,
+            host=hostname,
+            port=port,
+            timeout_seconds=timeout_seconds,
         )
-        response_handle = urlopen(request, timeout=timeout_seconds)  # noqa: S310
-        with response_handle as response:
+        try:
+            connection.request(
+                "POST",
+                path,
+                body=body,
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json; charset=utf-8",
+                    "User-Agent": "transparent-agro-intelligence/local-runtime",
+                },
+            )
+            response = connection.getresponse()
+            if response.status < 200 or response.status >= 300:
+                raise RuntimeError(
+                    f"local model runtime returned HTTP {response.status} {response.reason}"
+                )
             raw = response.read(maximum_response_bytes + 1)
+        finally:
+            connection.close()
         if len(raw) > maximum_response_bytes:
             raise RuntimeError("local model response exceeded the byte budget")
-        decoded = json.loads(raw)
+        try:
+            decoded = json.loads(raw)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise RuntimeError("local model response is not valid JSON") from error
         if not isinstance(decoded, dict):
             raise RuntimeError("local model response must be a JSON object")
         return decoded
@@ -128,7 +223,7 @@ class OpenAICompatibleLocalInvoker(LocalModelInvoker):
     ) -> None:
         self._endpoint_resolver = endpoint_resolver
         self._endpoint_policy = endpoint_policy or LocalEndpointPolicy()
-        self._transport = transport or UrllibJSONTransport()
+        self._transport = transport or HTTPClientJSONTransport()
 
     def invoke(
         self,
