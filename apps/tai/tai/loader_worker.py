@@ -133,11 +133,11 @@ class ManagedLoaderWorker:
                 else LoaderRunStatus.RETRYABLE_FAILURE
             )
             next_run_at = None if exhausted else now + definition.failure_retry_interval
-            reasons: tuple[str, ...] = (
+            exception_reasons: tuple[str, ...] = (
                 f"worker_exception:{type(error).__name__}",
             )
             if exhausted:
-                reasons += ("failure_budget_exhausted",)
+                exception_reasons += ("failure_budget_exhausted",)
             self._complete_or_raise(
                 lease=lease,
                 status=status,
@@ -150,7 +150,7 @@ class ManagedLoaderWorker:
                 lease.source_id,
                 self._disposition(status),
                 True,
-                reasons,
+                exception_reasons,
             )
 
         failures = self._failure_count(state.consecutive_failures, result.disposition)
