@@ -223,7 +223,7 @@ INSERT INTO settlement.payment_terms (
 SELECT
   'load-bank-terms-' || lpad(g::text, 5, '0'), 'load-tenant',
   'load-bank-deal-' || lpad(g::text, 5, '0'), 1, 'RUB', 1000000,
-  '{}'::jsonb, 'ACTIVE', 'load-bank-terms-command-' || g,
+  '{}'::jsonb, 'ISSUED', 'load-bank-terms-command-' || g,
   'load-bank-terms-idem-' || g, repeat('a', 64),
   'load-buyer-user-' || lpad((((g - 1) % :'buyer_count'::integer) + 1)::text, 5, '0'),
   'load-buyer-org-' || lpad((((g - 1) % :'buyer_count'::integer) + 1)::text, 5, '0')
