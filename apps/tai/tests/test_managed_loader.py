@@ -12,7 +12,10 @@ from tai.managed_loader import (
     ManagedSourceLoader,
     NormalizationInput,
 )
-from tai.source_governance import DEFAULT_AGRO_SOURCE_REGISTRY, KnowledgeDomain
+from tai.source_governance import (
+    DEFAULT_AGRO_SOURCE_REGISTRY,
+    KnowledgeDomain,
+)
 
 
 NOW = datetime(2026, 7, 18, 12, tzinfo=UTC)
