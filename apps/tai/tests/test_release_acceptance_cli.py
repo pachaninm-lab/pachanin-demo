@@ -118,3 +118,14 @@ def test_cli_rejects_ungoverned_migration_filename(tmp_path: Path, monkeypatch) 
 
     with pytest.raises(ValueError, match="not governed"):
         main()
+
+
+def test_cli_requires_workflow_evidence_array(tmp_path: Path, monkeypatch) -> None:
+    _repository(tmp_path)
+    evidence = tmp_path / "workflow-evidence.json"
+    output = tmp_path / "release-attestation.json"
+    evidence.write_text(json.dumps({"invalid": True}))
+    monkeypatch.setattr(sys, "argv", _argv(tmp_path, evidence, output))
+
+    with pytest.raises(ValueError, match="JSON array"):
+        main()
