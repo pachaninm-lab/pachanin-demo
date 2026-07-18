@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
@@ -65,7 +65,7 @@ class AIResponse(BaseModel):
     direct_answer: str
     grounds: list[str] = Field(default_factory=list)
     sources: list[SourceRef] = Field(default_factory=list)
-    freshness_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    freshness_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     confidence: float = Field(ge=0, le=1)
     unknowns: list[str] = Field(default_factory=list)
     risk_level: RiskLevel = RiskLevel.LOW
