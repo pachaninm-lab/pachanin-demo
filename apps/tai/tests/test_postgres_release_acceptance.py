@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -106,7 +106,12 @@ def _application() -> ApplicationReleaseAttestation:
     )
 
 
-def _production() -> ProductionReleaseAttestation:
+def _production(
+    *,
+    status: ProductionOperationalStatus = ProductionOperationalStatus.ACCEPTED,
+    reasons: tuple[str, ...] = (),
+    attested_at: datetime = NOW,
+) -> ProductionReleaseAttestation:
     application = _application()
     digest = production_attestation_sha256(
         release_id=application.release_id,
@@ -114,9 +119,9 @@ def _production() -> ProductionReleaseAttestation:
         application_attestation_sha256=application.attestation_sha256,
         evaluation_report_sha256="1" * 64,
         operational_decision_sha256="2" * 64,
-        status=ProductionOperationalStatus.ACCEPTED,
-        reasons=(),
-        attested_at=NOW,
+        status=status,
+        reasons=reasons,
+        attested_at=attested_at,
     )
     return ProductionReleaseAttestation(
         release_id=application.release_id,
@@ -124,9 +129,9 @@ def _production() -> ProductionReleaseAttestation:
         application_attestation_sha256=application.attestation_sha256,
         evaluation_report_sha256="1" * 64,
         operational_decision_sha256="2" * 64,
-        status=ProductionOperationalStatus.ACCEPTED,
-        reasons=(),
-        attested_at=NOW,
+        status=status,
+        reasons=reasons,
+        attested_at=attested_at,
         attestation_sha256=digest,
     )
 
@@ -145,11 +150,12 @@ def test_application_attestation_is_persisted_idempotently() -> None:
     PostgreSQLReleaseAttestationRepository(factory).record_application(attestation)
 
     query, parameters = factory.connection.cursor_instance.executions[0]
-    assert "ON CONFLICT (release_id) DO UPDATE" in query
-    assert "attestation_sha256" in query
-    assert parameters[0] == attestation.release_id
-    assert parameters[2] == HEAD
-    assert parameters[10] == "NOT_ATTESTED"
+    assert "ON CONFLICT (attestation_sha256) DO UPDATE" in query
+    assert "previous_attestation_sha256" in query
+    assert parameters[0] == attestation.attestation_sha256
+    assert parameters[1] == attestation.release_id
+    assert parameters[3] == HEAD
+    assert parameters[11] == "NOT_ATTESTED"
     assert factory.connection.committed is True
     assert factory.connection.rolled_back is False
 
@@ -169,17 +175,52 @@ def test_production_attestation_is_persisted_idempotently() -> None:
 
     query, parameters = factory.connection.cursor_instance.executions[0]
     assert "tai_production_release_attestations" in query
-    assert parameters[0] == attestation.release_id
-    assert parameters[5] == "ACCEPTED"
+    assert "ON CONFLICT (attestation_sha256) DO UPDATE" in query
+    assert parameters[0] == attestation.attestation_sha256
+    assert parameters[1] == attestation.release_id
+    assert parameters[6] == "ACCEPTED"
     assert factory.connection.committed is True
 
 
+def test_rejected_then_accepted_production_history_uses_distinct_digests() -> None:
+    rejected = _production(
+        status=ProductionOperationalStatus.REJECTED,
+        reasons=("operational evidence incomplete",),
+    )
+    accepted = _production(attested_at=NOW + timedelta(minutes=30))
+    assert rejected.release_id == accepted.release_id
+    assert rejected.attestation_sha256 != accepted.attestation_sha256
+
+    factory = _Factory(
+        [
+            {
+                "release_id": rejected.release_id,
+                "attestation_sha256": rejected.attestation_sha256,
+            },
+            {
+                "release_id": accepted.release_id,
+                "attestation_sha256": accepted.attestation_sha256,
+            },
+        ]
+    )
+    repository = PostgreSQLReleaseAttestationRepository(factory)
+    repository.record_production(rejected)
+    repository.record_production(accepted)
+
+    first_query, first_parameters = factory.connection.cursor_instance.executions[0]
+    second_query, second_parameters = factory.connection.cursor_instance.executions[1]
+    assert "ON CONFLICT (attestation_sha256)" in first_query
+    assert "ON CONFLICT (attestation_sha256)" in second_query
+    assert first_parameters[1] == second_parameters[1]
+    assert first_parameters[0] != second_parameters[0]
+
+
 @pytest.mark.parametrize("method", ["record_application", "record_production"])
-def test_conflicting_release_id_fails_closed(method: str) -> None:
+def test_conflicting_attestation_digest_fails_closed(method: str) -> None:
     repository = PostgreSQLReleaseAttestationRepository(_Factory([None]))
     argument = _application() if method == "record_application" else _production()
 
-    with pytest.raises(RuntimeError, match="already bound"):
+    with pytest.raises(RuntimeError, match="digest is bound to different evidence"):
         getattr(repository, method)(argument)
 
 
