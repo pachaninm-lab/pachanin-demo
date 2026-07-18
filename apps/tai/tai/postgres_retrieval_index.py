@@ -189,9 +189,14 @@ class PostgreSQLRetrievalIndexRepository:
             try:
                 with connection.cursor() as cursor:
                     cursor.execute(query, parameters)
-                    rows = tuple(cursor.fetchall())
+                    rows: list[Mapping[str, Any]] = []
+                    while True:
+                        row = cursor.fetchone()
+                        if row is None:
+                            break
+                        rows.append(row)
                 connection.commit()
-                return rows
+                return tuple(rows)
             except Exception:
                 connection.rollback()
                 raise
