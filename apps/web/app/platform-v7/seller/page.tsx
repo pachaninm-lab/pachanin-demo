@@ -12,7 +12,7 @@ import { PushNotificationBanner } from '@/components/platform-v7/PushNotificatio
 import { PriceChart } from '@/components/platform-v7/PriceChart';
 import { SellerInlineLotEditor } from '@/components/platform-v7/SellerInlineLotEditor';
 import { getDealsCanonical } from '@/lib/deals-server';
-import { summarizeDeals, dealsSummaryLine } from '@/lib/platform-v7/deals-summary';
+import { summarizeDeals, dealsSummaryLine, focusDeal, formatRubFromKopecks } from '@/lib/platform-v7/deals-summary';
 import { getDisputes, openDisputeCount } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { WorkflowActionPanel } from '@/components/platform-v7/WorkflowActionPanel';
@@ -92,12 +92,23 @@ export default async function PlatformV7SellerPage() {
         primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>Открыть сделку</Link>,
         secondaryAction: <a className={moneyCockpitClasses.secondaryLink} href='#documents'>Документы</a>,
       }}
-      facts={[
-        { label: 'Сделка', value: 'LOT-2403 → DL-9106', hint: 'покупатель заявил резерв' },
-        { label: 'К проверке банком', value: '0 ₽', hint: 'основание ещё не сформировано' },
-        { label: 'Открытые споры', value: String(disputeCount), hint: 'учитываются до передачи основания' },
-        { label: 'Следующий результат', value: 'закрытый пакет', hint: 'СДИЗ · ЭТрН · акт · качество' },
-      ]}
+      facts={(() => {
+        const focus = apiOnline ? focusDeal(deals) : null;
+        if (focus) {
+          return [
+            { label: 'Сделка', value: focus.id, hint: focus.culture ?? 'сделка на сервере' },
+            { label: 'Сумма', value: formatRubFromKopecks(focus.totalKopecks), hint: `этап: ${focus.stage}` },
+            { label: 'Открытые споры', value: String(disputeCount), hint: 'учитываются до передачи основания' },
+            { label: 'Следующий шаг', value: focus.stage, hint: focus.next },
+          ];
+        }
+        return [
+          { label: 'Сделка', value: 'LOT-2403 → DL-9106', hint: 'покупатель заявил резерв' },
+          { label: 'К проверке банком', value: '0 ₽', hint: 'основание ещё не сформировано' },
+          { label: 'Открытые споры', value: String(disputeCount), hint: 'учитываются до передачи основания' },
+          { label: 'Следующий результат', value: 'закрытый пакет', hint: 'СДИЗ · ЭТрН · акт · качество' },
+        ];
+      })()}
     >
       <MoneyBoundary>
         Платформа показывает резерв, блокеры и доказательства. Она не подтверждает выплату и не подменяет банковское решение.

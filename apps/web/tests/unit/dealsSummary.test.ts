@@ -3,6 +3,8 @@ import {
   summarizeDeals,
   formatRubFromKopecks,
   dealsSummaryLine,
+  focusDeal,
+  dealStatusStage,
 } from '@/lib/platform-v7/deals-summary';
 
 describe('deals-summary live aggregates', () => {
@@ -41,6 +43,27 @@ describe('deals-summary live aggregates', () => {
     expect(formatRubFromKopecks(964_800_000)).toBe('9.65 млн ₽');
     expect(formatRubFromKopecks(62_400_000)).toBe('624 тыс. ₽');
     expect(formatRubFromKopecks(0)).toBe('0 ₽');
+  });
+
+  it('focusDeal берёт свежую незакрытую сделку и её этап', () => {
+    expect(focusDeal([])).toBeNull();
+    expect(focusDeal(undefined)).toBeNull();
+    const f = focusDeal([
+      { id: 'd1', status: 'RESERVED', culture: 'WHEAT', totalKopecks: '964800000', payments: [{ status: 'RESERVED', amountKopecks: '964800000' }] },
+      { id: 'd0', status: 'CLOSED', totalKopecks: '1', payments: [] },
+    ]);
+    expect(f?.id).toBe('d1');
+    expect(f?.stage).toBe('Логистика');
+    expect(f?.reservedKopecks).toBe(964_800_000);
+    // все закрыты → берём первую
+    expect(focusDeal([{ id: 'x', status: 'CLOSED', totalKopecks: '5' }])?.id).toBe('x');
+  });
+
+  it('dealStatusStage покрывает весь конвейер', () => {
+    expect(dealStatusStage('DRAFT').stage).toBe('Допуск');
+    expect(dealStatusStage('RESERVE_REQUESTED').next).toContain('банк');
+    expect(dealStatusStage('CLOSED').stage).toBe('Закрыто');
+    expect(dealStatusStage('UNKNOWN_X').stage).toBe('—');
   });
 
   it('строка сводки собирается из живых чисел', () => {

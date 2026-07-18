@@ -11,7 +11,7 @@ import {
 import { BuyerFavoritesPanel } from '@/components/platform-v7/BuyerFavoritesPanel';
 import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';
 import { getDealsCanonical } from '@/lib/deals-server';
-import { summarizeDeals, dealsSummaryLine } from '@/lib/platform-v7/deals-summary';
+import { summarizeDeals, dealsSummaryLine, focusDeal, formatRubFromKopecks } from '@/lib/platform-v7/deals-summary';
 import { getDisputes, openDisputeCount, disputeTotalHeldRub } from '@/lib/disputes-server';
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { WorkflowActionPanel } from '@/components/platform-v7/WorkflowActionPanel';
@@ -100,12 +100,23 @@ export default async function PlatformV7BuyerPage() {
         primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals/DL-9106/money'>Открыть деньги сделки</Link>,
         secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/deals'>Карточка сделки</Link>,
       }}
-      facts={[
-        { label: 'Сделка', value: 'LOT-2403 → DL-9106', hint: 'ставка принята' },
-        { label: 'Резерв', value: '9,65 млн ₽', hint: 'ожидает банковского подтверждения' },
-        { label: 'Удержание', value: '624 тыс. ₽', hint: 'расхождение по весу' },
-        { label: 'Следующий контур', value: 'логистика', hint: 'только после статуса банка' },
-      ]}
+      facts={(() => {
+        const focus = apiOnline ? focusDeal(deals) : null;
+        if (focus) {
+          return [
+            { label: 'Сделка', value: focus.id, hint: focus.culture ?? 'сделка на сервере' },
+            { label: 'Сумма', value: formatRubFromKopecks(focus.totalKopecks), hint: `этап: ${focus.stage}` },
+            { label: 'Резерв', value: focus.reservedKopecks > 0 ? formatRubFromKopecks(focus.reservedKopecks) : '—', hint: focus.status },
+            { label: 'Следующий шаг', value: focus.stage, hint: focus.next },
+          ];
+        }
+        return [
+          { label: 'Сделка', value: 'LOT-2403 → DL-9106', hint: 'ставка принята' },
+          { label: 'Резерв', value: '9,65 млн ₽', hint: 'ожидает банковского подтверждения' },
+          { label: 'Удержание', value: '624 тыс. ₽', hint: 'расхождение по весу' },
+          { label: 'Следующий контур', value: 'логистика', hint: 'только после статуса банка' },
+        ];
+      })()}
     >
       <MoneyBoundary>
         Платформа показывает основание, причину остановки и следующий шаг. Банк подтверждает резерв и дальнейшее движение денег.

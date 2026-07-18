@@ -29,7 +29,7 @@ import { PRIMARY_ROLE_EXECUTION_COCKPITS } from '@/lib/platform-v7/role-executio
 import { LiveApiStatusBar } from '@/components/platform-v7/LiveApiStatusBar';
 import { getOutboxStatus } from '@/lib/outbox-server';
 import { getDealsCanonical } from '@/lib/deals-server';
-import { summarizeDeals, dealsSummaryLine } from '@/lib/platform-v7/deals-summary';
+import { summarizeDeals, dealsSummaryLine, formatRubFromKopecks } from '@/lib/platform-v7/deals-summary';
 import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { CanonicalDealsList } from '@/components/platform-v7/CanonicalDealsList';
@@ -116,12 +116,23 @@ export default async function PlatformV7BankPage() {
         primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/bank/release-safety'>Проверить основание</Link>,
         secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href={'/platform-v7/deals'}>Карточка сделки</Link>,
       }}
-      facts={[
-        { label: 'В резерве', value: '15,89 млн ₽', hint: 'по денежной очереди' },
-        { label: 'К передаче банку', value: '0 ₽', hint: 'условия не закрыты' },
-        { label: 'Под удержанием', value: '624 тыс. ₽', hint: 'активный спор' },
-        { label: 'Требуют решения', value: `${bankQueue.length} сделки`, hint: 'с основанием и причиной' },
-      ]}
+      facts={(() => {
+        const s = apiOnline ? summarizeDeals(deals) : null;
+        if (s) {
+          return [
+            { label: 'В резерве', value: formatRubFromKopecks(s.reservedKopecks), hint: 'подтверждённые резервы' },
+            { label: 'Выплачено', value: formatRubFromKopecks(s.releasedKopecks), hint: 'закрытые выплаты' },
+            { label: 'Под удержанием', value: heldLabel, hint: 'активные споры' },
+            { label: 'Требуют решения', value: `${bankQueue.length} сделки`, hint: 'с основанием и причиной' },
+          ];
+        }
+        return [
+          { label: 'В резерве', value: '15,89 млн ₽', hint: 'по денежной очереди' },
+          { label: 'К передаче банку', value: '0 ₽', hint: 'условия не закрыты' },
+          { label: 'Под удержанием', value: '624 тыс. ₽', hint: 'активный спор' },
+          { label: 'Требуют решения', value: `${bankQueue.length} сделки`, hint: 'с основанием и причиной' },
+        ];
+      })()}
     >
       <MoneyBoundary>
         Платформа формирует и показывает основание. Только банк подтверждает резерв, проверку и движение денег через защищённый банковский контур.

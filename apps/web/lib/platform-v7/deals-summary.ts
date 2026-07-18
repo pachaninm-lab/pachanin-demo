@@ -69,6 +69,80 @@ export function formatRubFromKopecks(value: number): string {
   return `${rub.toFixed(0)} ₽`;
 }
 
+type FocusDealLike = DealLike & {
+  id?: string | null;
+  culture?: string | null;
+  lotId?: string | null;
+};
+
+export interface FocusDeal {
+  id: string;
+  status: string;
+  culture: string | null;
+  totalKopecks: number;
+  reservedKopecks: number;
+  releasedKopecks: number;
+  stage: string;
+  next: string;
+}
+
+/**
+ * Человекочитаемый этап и следующий шаг по статусу сделки — та же машина, что
+ * в deal-command.policy на сервере, но для лёгкой отрисовки в кабинете.
+ */
+export function dealStatusStage(status: string): { stage: string; next: string } {
+  const map: Record<string, { stage: string; next: string }> = {
+    DRAFT: { stage: 'Допуск', next: 'подтвердить допуск участников' },
+    ADMISSION_APPROVED: { stage: 'Аукцион', next: 'открыть аукцион' },
+    AUCTION_OPEN: { stage: 'Аукцион', next: 'подтвердить выигрышную ставку' },
+    AUCTION_WON: { stage: 'Договор', next: 'подписать договор продавцом' },
+    SELLER_SIGNED: { stage: 'Договор', next: 'подписать договор покупателем' },
+    CONTRACT_SIGNED: { stage: 'Деньги', next: 'запросить резерв оплаты' },
+    RESERVE_REQUESTED: { stage: 'Деньги', next: 'ожидается подтверждение резерва банком' },
+    RESERVED: { stage: 'Логистика', next: 'назначить перевозку' },
+    LOGISTICS_ASSIGNED: { stage: 'Логистика', next: 'подтвердить погрузку' },
+    LOADED: { stage: 'Логистика', next: 'начать рейс' },
+    IN_TRANSIT: { stage: 'Приёмка', next: 'подтвердить прибытие' },
+    ARRIVED: { stage: 'Приёмка', next: 'зафиксировать вес' },
+    WEIGHED: { stage: 'Доказательства', next: 'подтвердить независимый осмотр' },
+    INSPECTION_CONFIRMED: { stage: 'Лаборатория', next: 'подписать лабораторный протокол' },
+    QUALITY_ACCEPTED: { stage: 'Приёмка', next: 'принять поставку' },
+    DELIVERY_ACCEPTED: { stage: 'Документы', next: 'закрыть комплект документов' },
+    DOCUMENTS_COMPLETE: { stage: 'Расчёт', next: 'запросить выплату' },
+    RELEASE_REQUESTED: { stage: 'Расчёт', next: 'ожидается подтверждение выплаты банком' },
+    RELEASED: { stage: 'Закрытие', next: 'закрыть сделку' },
+    CLOSED: { stage: 'Закрыто', next: 'сделка завершена' },
+  };
+  return map[status] ?? { stage: '—', next: 'нет данных' };
+}
+
+/**
+ * «Фокусная» сделка для hero-кокпита: самая свежая незакрытая сделка (список
+ * приходит отсортированным по updatedAt desc); если все закрыты — первая.
+ */
+export function focusDeal(input: unknown): FocusDeal | null {
+  const deals = Array.isArray(input) ? (input as FocusDealLike[]) : [];
+  if (deals.length === 0) return null;
+  const pick = deals.find((d) => d?.status && d.status !== 'CLOSED') ?? deals[0];
+  const status = String(pick?.status ?? '');
+  const kop = (v: unknown) => {
+    const n = typeof v === 'string' ? Number(v) : typeof v === 'number' ? v : 0;
+    return Number.isFinite(n) ? n : 0;
+  };
+  const payment = Array.isArray(pick?.payments) ? pick?.payments?.[0] : undefined;
+  const { stage, next } = dealStatusStage(status);
+  return {
+    id: String(pick?.id ?? ''),
+    status,
+    culture: pick?.culture ?? null,
+    totalKopecks: kop(pick?.totalKopecks),
+    reservedKopecks: payment?.status === 'RESERVED' ? kop(payment.amountKopecks) : 0,
+    releasedKopecks: payment?.status === 'RELEASED' ? kop(payment.amountKopecks) : 0,
+    stage,
+    next,
+  };
+}
+
 /** Строка живой сводки для LiveApiStatusBar/кокпита. */
 export function dealsSummaryLine(summary: DealsSummary): string {
   return [
