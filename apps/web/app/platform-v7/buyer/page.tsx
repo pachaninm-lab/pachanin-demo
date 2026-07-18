@@ -37,7 +37,7 @@ const buyerHandoff: HandoffItem[] = [
   { direction: 'sends', role: 'покупатель → продавец', requirement: 'предложение с условиями: цена, объём, базис и документы', entity: 'LOT-2403', href: '/platform-v7/lots/LOT-2403', documentImpact: true },
   { direction: 'awaits', role: 'от банка', requirement: 'резерв ожидает банковского подтверждения — до этого сделка не переходит к логистике', moneyImpact: true },
   { direction: 'awaits', role: 'от элеватора', requirement: 'акт приёмки и протокол качества влияют на итоговый расчёт и удержание', documentImpact: true, moneyImpact: true },
-  { direction: 'next', requirement: 'запросить банковское подтверждение резерва и перейти к логистике после статуса банка', entity: 'DL-9106', href: '/platform-v7/deals/DL-9106/clean', moneyImpact: true },
+  { direction: 'next', requirement: 'запросить банковское подтверждение резерва и перейти к логистике после статуса банка', entity: 'DL-9106', href: '/platform-v7/deals', moneyImpact: true },
 ];
 
 const buyerLots = [
@@ -96,7 +96,7 @@ export default async function PlatformV7BuyerPage() {
         owner: 'покупатель запрашивает · банк подтверждает',
         result: 'сделка допускается к логистике',
         primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals/DL-9106/money'>Открыть деньги сделки</Link>,
-        secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/deals/DL-9106/clean'>Карточка сделки</Link>,
+        secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/deals'>Карточка сделки</Link>,
       }}
       facts={[
         { label: 'Сделка', value: 'LOT-2403 → DL-9106', hint: 'ставка принята' },

@@ -43,7 +43,7 @@ const sellerHandoff: HandoffItem[] = [
   { direction: 'awaits', role: 'от покупателя и банка', requirement: 'резерв ожидает банковского подтверждения', moneyImpact: true },
   { direction: 'awaits', role: 'от ФГИС «Зерно»', requirement: 'СДИЗ ожидает закрытия', moneyImpact: true, documentImpact: true },
   { direction: 'blockedBy', requirement: 'ЭТрН, акт приёмки и протокол качества ещё не закрыты', documentImpact: true, moneyImpact: true },
-  { direction: 'next', requirement: 'закрыть СДИЗ и ЭТрН для передачи основания банку на проверку', entity: 'DL-9106', href: '/platform-v7/deals/DL-9106/clean', moneyImpact: true },
+  { direction: 'next', requirement: 'закрыть СДИЗ и ЭТрН для передачи основания банку на проверку', entity: 'DL-9106', href: '/platform-v7/deals', moneyImpact: true },
 ];
 
 const sellerLots = [
@@ -55,7 +55,7 @@ const sellerPaths = [
   { title: 'Создать партию', href: '/platform-v7/seller/batches/new', note: 'культура, объём, качество, документы, ФГИС' },
   { title: 'Опубликовать лот', href: '/platform-v7/seller/lots', note: 'управляемая публикация через рабочую поверхность лотов' },
   { title: 'Проверить запросы', href: '/platform-v7/seller/matches', note: 'спрос, netback и риск покупателя' },
-  { title: 'Открыть сделку', href: '/platform-v7/deals/DL-9106/clean', note: 'документы, рейс, пакет для банка и статус проверки' },
+  { title: 'Открыть сделку', href: '/platform-v7/deals', note: 'документы, рейс, пакет для банка и статус проверки' },
 ] as const;
 
 export default async function PlatformV7SellerPage() {
@@ -87,7 +87,7 @@ export default async function PlatformV7SellerPage() {
         blocker: 'СДИЗ, ЭТрН, акт приёмки и протокол качества',
         owner: 'продавец и ответственные за документы',
         result: 'пакет готов к банковской проверке',
-        primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals/DL-9106/clean'>Открыть сделку</Link>,
+        primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/deals'>Открыть сделку</Link>,
         secondaryAction: <a className={moneyCockpitClasses.secondaryLink} href='#documents'>Документы</a>,
       }}
       facts={[

@@ -183,7 +183,7 @@ function renderSelected(projection: BankReleaseProjection, locale: Locale) {
   const copy = SELECTED_COPY[locale];
   const stateCopy = copy.states[projection.state];
   const context = `dealId=${encodeURIComponent(projection.dealId)}&shipmentId=${encodeURIComponent(projection.shipmentId)}`;
-  const dealHref = `/platform-v7/deals/${encodeURIComponent(projection.dealId)}/clean`;
+  const dealHref = `/platform-v7/deals/${encodeURIComponent(projection.dealId)}/execution`;
   const documentsHref = `/platform-v7/deal-documents-basis?${context}`;
   const blockers = projection.blockers.join(' · ');
   const warningText = projection.warnings.join(' · ');

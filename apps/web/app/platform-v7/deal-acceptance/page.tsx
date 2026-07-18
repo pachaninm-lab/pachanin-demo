@@ -145,7 +145,7 @@ function renderAcceptance(projection: AcceptanceProjection, locale: PhysicalExec
   const authorityCopy = AUTHORITY_COPY[locale];
   const context = `dealId=${encodeURIComponent(projection.dealId)}&shipmentId=${encodeURIComponent(projection.shipment.id)}`;
   const documentsHref = `/platform-v7/deal-documents-basis?${context}`;
-  const dealHref = `/platform-v7/deals/${encodeURIComponent(projection.dealId)}/clean`;
+  const dealHref = `/platform-v7/deals/${encodeURIComponent(projection.dealId)}/execution`;
   const phases = contextualPhases(buildPhysicalExecutionPhases(locale, 'acceptance', {
     logistics: 'complete',
     acceptance: 'current',

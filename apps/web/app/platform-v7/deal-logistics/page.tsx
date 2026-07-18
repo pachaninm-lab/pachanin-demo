@@ -140,7 +140,7 @@ function renderWorkspace(workspace: ShipmentWorkspaceServer, locale: PhysicalExe
     bank: 'blocked',
   });
   const acceptanceHref = `/platform-v7/deal-acceptance?dealId=${encodeURIComponent(state.dealId)}&shipmentId=${encodeURIComponent(state.id)}`;
-  const dealHref = `/platform-v7/deals/${encodeURIComponent(state.dealId)}/clean`;
+  const dealHref = `/platform-v7/deals/${encodeURIComponent(state.dealId)}/execution`;
 
   return (
     <PhysicalExecutionCockpit

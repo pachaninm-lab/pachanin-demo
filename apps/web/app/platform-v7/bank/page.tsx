@@ -38,15 +38,15 @@ const bankHandoff: HandoffItem[] = [
   { direction: 'awaits', role: 'банк ← продавец', requirement: 'СДИЗ и ЭТрН ожидают закрытия — без этого основание не передаётся на банковскую проверку', documentImpact: true, moneyImpact: true },
   { direction: 'sends', role: 'банк → оператор', requirement: 'банк направляет статус проверки; оператор сверяет причину остановки и основание в сделке', moneyImpact: true },
   { direction: 'blockedBy', requirement: 'СДИЗ, ЭТрН, акт приёмки и протокол качества ещё не закрыты', documentImpact: true, moneyImpact: true },
-  { direction: 'next', requirement: 'ждать закрытия всех условий для банковской проверки выплаты по DL-9106', entity: 'DL-9106', href: '/platform-v7/deals/DL-9106/clean', moneyImpact: true },
+  { direction: 'next', requirement: 'ждать закрытия всех условий для банковской проверки выплаты по DL-9106', entity: 'DL-9106', href: '/platform-v7/deals', moneyImpact: true },
 ];
 
 const mainDeal = getDeal360Scenario('DL-9106');
 const disputeDeal = getDeal360Scenario('DL-9102');
 
 const bankQueue = [
-  { id: mainDeal.dealId, lot: mainDeal.lotId, buyer: 'Покупатель 1', amount: '9,65 млн ₽', reserve: 'ожидает банковского подтверждения', releaseNow: '0 ₽', hold: '0 ₽', decision: 'основание не передавать', next: mainDeal.nextAction, href: `/platform-v7/deals/${mainDeal.dealId}/clean`, tone: 'critical' as const },
-  { id: disputeDeal.dealId, lot: disputeDeal.lotId, buyer: 'Покупатель 2', amount: '6,24 млн ₽', reserve: 'резерв отмечен', releaseNow: '5,616 млн ₽', hold: '624 тыс. ₽', decision: 'частичная проверка после решения', next: disputeDeal.nextAction, href: `/platform-v7/deals/${disputeDeal.dealId}/clean`, tone: 'warning' as const },
+  { id: mainDeal.dealId, lot: mainDeal.lotId, buyer: 'Покупатель 1', amount: '9,65 млн ₽', reserve: 'ожидает банковского подтверждения', releaseNow: '0 ₽', hold: '0 ₽', decision: 'основание не передавать', next: mainDeal.nextAction, href: '/platform-v7/deals', tone: 'critical' as const },
+  { id: disputeDeal.dealId, lot: disputeDeal.lotId, buyer: 'Покупатель 2', amount: '6,24 млн ₽', reserve: 'резерв отмечен', releaseNow: '5,616 млн ₽', hold: '624 тыс. ₽', decision: 'частичная проверка после решения', next: disputeDeal.nextAction, href: '/platform-v7/deals', tone: 'warning' as const },
 ] as const;
 
 const gates = mainDeal.providerGates
@@ -111,7 +111,7 @@ export default async function PlatformV7BankPage() {
         owner: 'оператор и ответственные за документы',
         result: 'основание допускается к банковской проверке',
         primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/bank/release-safety'>Проверить основание</Link>,
-        secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href={`/platform-v7/deals/${mainDeal.dealId}/clean`}>Карточка сделки</Link>,
+        secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href={'/platform-v7/deals'}>Карточка сделки</Link>,
       }}
       facts={[
         { label: 'В резерве', value: '15,89 млн ₽', hint: 'по денежной очереди' },

@@ -150,7 +150,7 @@ function renderDocumentBasis(
   const authorityCopy = AUTHORITY_COPY[locale];
   const documentNames = DOCUMENT_TYPE_COPY[locale];
   const context = `dealId=${encodeURIComponent(projection.dealId)}&shipmentId=${encodeURIComponent(projection.shipmentId)}`;
-  const dealHref = `/platform-v7/deals/${encodeURIComponent(projection.dealId)}/clean`;
+  const dealHref = `/platform-v7/deals/${encodeURIComponent(projection.dealId)}/execution`;
   const acceptanceHref = `/platform-v7/deal-acceptance?${context}`;
   const bankHref = `/platform-v7/bank/release-safety?dealId=${encodeURIComponent(projection.dealId)}`;
   const phases = contextualPhases(buildPhysicalExecutionPhases(locale, 'documents', {

@@ -22,7 +22,7 @@ export default async function Page(props: { params: Promise<{ lotId: string }> }
           <h1 style={h1}>LOT-2403 · Пшеница 4 класса</h1>
           <p style={lead}>Ставка принята. Создана сделка DL-9106, заявка LOG-REQ-2403 передана логистике, рейс TRIP-2403-001 назначен водителю.</p>
           <div style={actions}>
-            <Link href='/platform-v7/deals/DL-9106/clean' style={primaryBtn}>Открыть сделку</Link>
+            <Link href='/platform-v7/deals' style={primaryBtn}>Открыть сделку</Link>
             <Link href='/platform-v7/logistics/inbox' style={ghostBtn}>Заявка в логистике</Link>
             <Link href='/platform-v7/driver' style={ghostBtn}>Рейс водителя</Link>
           </div>
