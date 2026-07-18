@@ -32,17 +32,39 @@ CREATE TABLE IF NOT EXISTS tai_prepared_actions (
     result_payload JSONB CHECK (
         result_payload IS NULL OR jsonb_typeof(result_payload) = 'object'
     ),
+    execution_token UUID,
     execution_started_at TIMESTAMPTZ,
+    execution_expires_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
     version BIGINT NOT NULL DEFAULT 1 CHECK (version > 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     CHECK (
-        (status = 'PREPARED' AND result_payload IS NULL AND completed_at IS NULL)
+        (
+            status = 'PREPARED'
+            AND result_payload IS NULL
+            AND execution_token IS NULL
+            AND execution_started_at IS NULL
+            AND execution_expires_at IS NULL
+            AND completed_at IS NULL
+        )
         OR
-        (status = 'EXECUTING' AND result_payload IS NULL AND execution_started_at IS NOT NULL)
+        (
+            status = 'EXECUTING'
+            AND result_payload IS NULL
+            AND execution_token IS NOT NULL
+            AND execution_started_at IS NOT NULL
+            AND execution_expires_at > execution_started_at
+            AND completed_at IS NULL
+        )
         OR
-        (status = 'COMPLETED' AND result_payload IS NOT NULL AND completed_at IS NOT NULL)
+        (
+            status = 'COMPLETED'
+            AND result_payload IS NOT NULL
+            AND execution_token IS NULL
+            AND execution_expires_at IS NULL
+            AND completed_at IS NOT NULL
+        )
     )
 );
 
@@ -50,7 +72,7 @@ CREATE INDEX IF NOT EXISTS tai_prepared_actions_identity_idx
     ON tai_prepared_actions (tenant_id, user_id, session_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS tai_prepared_actions_status_idx
-    ON tai_prepared_actions (status, expires_at, updated_at);
+    ON tai_prepared_actions (status, execution_expires_at, expires_at, updated_at);
 
 CREATE UNIQUE INDEX IF NOT EXISTS tai_prepared_actions_request_idx
     ON tai_prepared_actions (request_sha256, confirmation_id);
