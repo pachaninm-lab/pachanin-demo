@@ -6,6 +6,7 @@ from tai.idempotent_materializer import (
     DocumentSink,
     IdempotentLoaderMaterializer,
     InMemoryMaterializationClaimRepository,
+    MaterializationClaimRepository,
 )
 from tai.postgres_loader_state import ConnectionFactory
 from tai.postgres_materialization_claims import PostgreSQLMaterializationClaimRepository
@@ -23,6 +24,7 @@ def build_loader_materializer(
     sink: DocumentSink,
     connection_factory: ConnectionFactory | None = None,
 ) -> IdempotentLoaderMaterializer:
+    claims: MaterializationClaimRepository
     if mode is LoaderRuntimeMode.PRODUCTION:
         if connection_factory is None:
             raise RuntimeError("production loader materialization requires PostgreSQL authority")
