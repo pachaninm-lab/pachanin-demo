@@ -1,41 +1,59 @@
 #!/usr/bin/env bash
-# One-time bring-up of the full platform on a single paid server.
+# One-command bring-up of the full platform on a fresh/upgraded Ubuntu server.
+# Generates all secrets itself, pulls CI-built images, runs migrations, starts
+# everything behind Caddy. Re-runnable (keeps an existing .env).
 #
-# Prereqs: a fresh Ubuntu host, and a GitHub read-only token (classic PAT with
-# read:packages) so the host can pull the private images.
-#
-# Usage (run on the server, as root):
-#   export GHCR_USER=<github-username>
-#   export GHCR_TOKEN=<github-PAT-with-read:packages>
-#   curl -fsSL https://raw.githubusercontent.com/pachaninm-lab/pachanin-demo/main/infra/single-server/bootstrap.sh | bash
-# (or copy this repo folder to /opt/grainflow and run it there)
+# Usage on the server (as root):
+#   export SITE_ADDRESS=195.19.12.120        # or your domain
+#   # optional, only if the GHCR images are private:
+#   #   export GHCR_USER=<github-username> GHCR_TOKEN=<PAT read:packages>
+#   curl -fsSL https://raw.githubusercontent.com/pachaninm-lab/pachanin-demo/refs/heads/claude/cabinet-design-audit-2jbv6f/infra/single-server/bootstrap.sh | bash
 set -euo pipefail
 
-APP_DIR=/opt/grainflow
+BRANCH=claude/cabinet-design-audit-2jbv6f
+SRC=/opt/pachanin
+APP="$SRC/infra/single-server"
 
-echo "==> Installing Docker (if missing)"
-if ! command -v docker >/dev/null 2>&1; then
-  curl -fsSL https://get.docker.com | sh
+echo "==> Docker"
+command -v docker >/dev/null 2>&1 || curl -fsSL https://get.docker.com | sh
+
+echo "==> Source (public repo, branch $BRANCH)"
+if [ -d "$SRC/.git" ]; then git -C "$SRC" fetch --depth 1 origin "$BRANCH" && git -C "$SRC" reset --hard FETCH_HEAD
+else git clone --depth 1 -b "$BRANCH" https://github.com/pachaninm-lab/pachanin-demo "$SRC"; fi
+cd "$APP"
+chmod +x init-roles.sh
+
+echo "==> Secrets (.env) — generated once, kept on re-run"
+if [ ! -f .env ]; then
+  gen() { openssl rand -base64 30 | tr -dc 'A-Za-z0-9' | head -c 32; }
+  cat > .env <<EOF
+SITE_ADDRESS=${SITE_ADDRESS:?export SITE_ADDRESS=<server-ip-or-domain>}
+IMAGE_PREFIX=ghcr.io/pachaninm-lab/grainflow
+DDL_PASSWORD=$(gen)
+APP_PASSWORD=$(gen)
+STORAGE_PASSWORD=$(gen)
+REDIS_PASSWORD=$(gen)
+PG_SHARED_BUFFERS=1GB
+JWT_SECRET=$(openssl rand -hex 32)
+RATE_LIMIT_KEY_PEPPER=$(openssl rand -hex 24)
+BANK_HMAC_SECRET=$(openssl rand -hex 24)
+BANK_PARTNER_ID=safe-deals
+BANK_HMAC_KEY_ID=primary
+AUTH_TEST_ACCOUNTS_ENABLED=0
+ALLOW_RUNTIME_MUTATION=0
+EOF
+  echo "   .env created (secrets saved in $APP/.env)"
 fi
 
-echo "==> Fetching deployment files"
-install -d "$APP_DIR"
-cd "$APP_DIR"
-for f in docker-compose.yml Caddyfile init-roles.sh .env.example; do
-  curl -fsSL "https://raw.githubusercontent.com/pachaninm-lab/pachanin-demo/main/infra/single-server/$f" -o "$f"
-done
-chmod +x init-roles.sh
-[ -f .env ] || cp .env.example .env
+if [ -n "${GHCR_TOKEN:-}" ]; then
+  echo "==> GHCR login"
+  echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:?}" --password-stdin
+fi
 
-echo "==> Logging in to GitHub Container Registry"
-: "${GHCR_USER:?export GHCR_USER=<github-username>}"
-: "${GHCR_TOKEN:?export GHCR_TOKEN=<github PAT with read:packages>}"
-echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-
+echo "==> Pull + start"
+docker compose pull
+docker compose up -d
+sleep 5
+docker compose ps
 echo
-echo "==> EDIT $APP_DIR/.env NOW (set SITE_ADDRESS and all passwords), then run:"
-echo "      cd $APP_DIR && docker compose pull && docker compose up -d"
-echo
-echo "    Check status:   docker compose ps"
-echo "    App health:     curl -s http://localhost/health"
-echo "    Watchtower then auto-updates images as CI publishes them."
+echo "==> Done. Health in ~30-60s:  curl -s http://localhost/health"
