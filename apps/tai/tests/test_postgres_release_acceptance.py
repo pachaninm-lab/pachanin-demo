@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -13,6 +14,7 @@ from tai.release_acceptance import (
     ProductionOperationalStatus,
     ProductionReleaseAttestation,
     application_attestation_sha256,
+    production_attestation_sha256,
 )
 
 NOW = datetime(2026, 7, 18, 23, 30, tzinfo=UTC)
@@ -106,6 +108,16 @@ def _application() -> ApplicationReleaseAttestation:
 
 def _production() -> ProductionReleaseAttestation:
     application = _application()
+    digest = production_attestation_sha256(
+        release_id=application.release_id,
+        exact_main_sha=HEAD,
+        application_attestation_sha256=application.attestation_sha256,
+        evaluation_report_sha256="1" * 64,
+        operational_decision_sha256="2" * 64,
+        status=ProductionOperationalStatus.ACCEPTED,
+        reasons=(),
+        attested_at=NOW,
+    )
     return ProductionReleaseAttestation(
         release_id=application.release_id,
         exact_main_sha=HEAD,
@@ -115,7 +127,7 @@ def _production() -> ProductionReleaseAttestation:
         status=ProductionOperationalStatus.ACCEPTED,
         reasons=(),
         attested_at=NOW,
-        attestation_sha256="3" * 64,
+        attestation_sha256=digest,
     )
 
 
@@ -179,6 +191,16 @@ def test_persisted_digest_mismatch_fails_closed() -> None:
 
     with pytest.raises(RuntimeError, match="digest does not match"):
         PostgreSQLReleaseAttestationRepository(factory).record_application(attestation)
+
+
+def test_attestation_objects_reject_manual_production_claim_and_tampering() -> None:
+    with pytest.raises(ValueError, match="cannot claim production"):
+        replace(
+            _application(),
+            production_operational_status=ProductionOperationalStatus.ACCEPTED,
+        )
+    with pytest.raises(ValueError, match="digest does not match"):
+        replace(_production(), exact_main_sha="4" * 64)
 
 
 def test_database_error_rolls_back() -> None:
