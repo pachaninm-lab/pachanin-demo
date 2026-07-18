@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import threading
 from collections.abc import Mapping, Sequence
+from contextvars import ContextVar
 from datetime import timedelta
 from typing import Any, cast
 from uuid import UUID, uuid4
@@ -179,8 +179,10 @@ class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
         if not 1 <= lease_seconds <= 3_600:
             raise ValueError("execution_lease must be between 1 second and 1 hour")
         self._execution_lease_seconds = lease_seconds
-        self._execution_tokens: dict[UUID, UUID] = {}
-        self._execution_tokens_lock = threading.Lock()
+        self._execution_tokens: ContextVar[dict[UUID, UUID]] = ContextVar(
+            f"tai_prepared_action_tokens_{id(self)}",
+            default={},
+        )
 
     def save(self, prepared: StoredPreparedAction) -> None:
         confirmation = prepared.action.confirmation
@@ -408,16 +410,17 @@ class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
         confirmation_id: UUID,
         execution_token: UUID,
     ) -> None:
-        with self._execution_tokens_lock:
-            self._execution_tokens[confirmation_id] = execution_token
+        tokens = dict(self._execution_tokens.get())
+        tokens[confirmation_id] = execution_token
+        self._execution_tokens.set(tokens)
 
     def _execution_token(self, confirmation_id: UUID) -> UUID | None:
-        with self._execution_tokens_lock:
-            return self._execution_tokens.get(confirmation_id)
+        return self._execution_tokens.get().get(confirmation_id)
 
     def _forget_execution_token(self, confirmation_id: UUID) -> None:
-        with self._execution_tokens_lock:
-            self._execution_tokens.pop(confirmation_id, None)
+        tokens = dict(self._execution_tokens.get())
+        tokens.pop(confirmation_id, None)
+        self._execution_tokens.set(tokens)
 
 
 def _response_payload(response: OrchestrationResponse) -> dict[str, Any]:
