@@ -26,6 +26,10 @@ def test_release_manifest_meets_default_release_policy_shape() -> None:
     assert len(manifest.fixtures) == len(manifest.suite.cases)
     assert len(manifest.manifest_sha256) == 64
     assert all(len(fixture.input_sha256) == 64 for fixture in manifest.fixtures)
+    empty_fixture = next(
+        fixture for fixture in manifest.fixtures if fixture.case_id == "adversarial.empty"
+    )
+    assert empty_fixture.prompt == "<EMPTY_INPUT>"
 
 
 def test_manifest_is_deterministic_and_binds_fixture_inputs() -> None:
