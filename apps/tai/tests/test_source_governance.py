@@ -2,8 +2,8 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from tai.source_governance import (
-    AdmissionStatus,
     DEFAULT_AGRO_SOURCE_REGISTRY,
+    AdmissionStatus,
     KnowledgeDomain,
     SourceDocument,
 )
