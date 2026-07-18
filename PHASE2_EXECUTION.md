@@ -141,6 +141,45 @@ LOGISTICIAN/DRIVER/SURVEYOR/LAB/ACCOUNTING **из своих tenant'ов** (кр
 `POST /api/settlement-engine/bank-callback` (реестр ключей партнёра, канонная
 подпись). Это и есть боевой шов РСХБ.
 
+### Доведено живьём до INSPECTION_CONFIRMED (13 переходов)
+
+После RESERVED пройден весь транспортно-приёмочный контур по реальным командам
+с кросс-tenant участниками (логистический граф засеян по образцу
+`test/one-deal/seed.ts` — carrier/vehicle/driver/facility в tenant сделки,
+`driver_vehicle_links`, verified immutable evidence):
+
+| Шаг | Актёр | Итог |
+|-----|-------|------|
+| assign_logistics | LOGISTICIAN (чужой tenant) | → LOGISTICS_ASSIGNED |
+| confirm_loading | DRIVER | → LOADED |
+| start_transit | DRIVER | → IN_TRANSIT |
+| confirm_arrival | ELEVATOR | → ARRIVED |
+| confirm_weight | ELEVATOR | → WEIGHED |
+| confirm_inspection | SURVEYOR (чужой tenant) | → INSPECTION_CONFIRMED |
+
+Итог живого прогона: **DRAFT → INSPECTION_CONFIRMED, 13 переходов**, включая
+денежный резерв через авторитетный банковский шов. Остаётся хвост из 6 команд
+(finalize_lab → accept_delivery → complete_documents → request_release →
+confirm_release(банк) → close_deal).
+
+### Единственный оставшийся блокер: онбординг лабораторного контура нет в API
+
+`finalize_lab` (custody-aware) требует пробу `ANALYSIS_IN_PROGRESS`, полученную
+через цепочку labs (create→collect→custody×4→tests). Эндпоинты **пробы**
+(`POST /labs/samples`, `/collect`, `/custody`, `/tests`, `/finalize`) в API
+есть. Но **онбординг авторитета лаборатории** — регистрация лаборатории,
+authorized_actors (SAMPLER/COURIER/RECEIVER/ANALYST/SIGNATORY), методов,
+оборудования и выдача sample-admission — доступен только внутрисервисно
+(`LabAuthorityService.provision`/`issueSampleAdmission`, см.
+`test/industrial/harness.ts:prepareLaboratoryLifecycle`); **HTTP-пути нет**.
+То же и в логистике: онбординг carrier/vehicle/driver/facility/admission —
+только сид. Для промышленной платформы «готова к внешним подключениям» это
+реальный productization-пробел: перевозчики и лаборатории не могут завести свои
+операционные записи через API. Полный путь до CLOSED уже доказан committed-e2e
+`test/one-deal/industrial-one-deal.e2e-spec.ts` (asserts CLOSED, sample
+FINALIZED, settlement CONFIRMED, hash-chained audit) — там авторитет заводится
+теми же внутренними сервисами.
+
 ### Важные находки (для доведения до CLOSED)
 
 1. **Дубль банковского шва устранён.** Ранее в этой фазе был добавлен
