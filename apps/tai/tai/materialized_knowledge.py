@@ -47,7 +47,9 @@ class JsonMaterializedKnowledgeRepository:
                         **asdict(entry.record),
                         "effective_at": entry.record.effective_at.isoformat(),
                         "scope": entry.record.scope.value,
-                        "tenant_id": str(entry.record.tenant_id) if entry.record.tenant_id else None,
+                        "tenant_id": (
+                            str(entry.record.tenant_id) if entry.record.tenant_id else None
+                        ),
                         "tags": sorted(entry.record.tags),
                     },
                 }
@@ -106,7 +108,9 @@ class JsonMaterializedKnowledgeRepository:
             )
             generated_at = datetime.fromisoformat(raw["generated_at"])
         except (KeyError, TypeError, ValueError) as exc:
-            raise MaterializedKnowledgeIntegrityError("materialized_snapshot_payload_invalid") from exc
+            raise MaterializedKnowledgeIntegrityError(
+                "materialized_snapshot_payload_invalid"
+            ) from exc
 
         manifest_ids = [entry.manifest_id for entry in entries]
         record_ids = [entry.record.record_id for entry in entries]
