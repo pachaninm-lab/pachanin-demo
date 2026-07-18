@@ -7,6 +7,7 @@ from enum import StrEnum
 from typing import Protocol
 
 from tai.context_assembly import CitationValidator, ContextAssembler, GroundedContext
+from tai.model_runtime import ModelGenerationResult, ModelInvocationAttempt
 from tai.retrieval_service import RetrievalResponse, RetrievalService
 
 
@@ -51,6 +52,9 @@ class GroundedAnswerTrace:
     tenant_id: str | None
     status: GroundedAnswerStatus
     model_id: str
+    model_revision: str | None
+    model_route_id: str | None
+    model_attempts: tuple[ModelInvocationAttempt, ...]
     model_invoked: bool
     generation: int | None
     query_sha256: str
@@ -73,10 +77,14 @@ class GroundedAnswerResponse:
 
 
 class LocalModelGateway(Protocol):
-    @property
-    def model_id(self) -> str: ...
-
-    def generate(self, prompt: str, *, maximum_output_chars: int) -> str: ...
+    def generate(
+        self,
+        prompt: str,
+        *,
+        request_id: str,
+        now: datetime,
+        maximum_output_chars: int,
+    ) -> ModelGenerationResult: ...
 
 
 class GroundedAnswerAuditSink(Protocol):
@@ -127,16 +135,19 @@ class GroundedRAGPipeline:
                 status=GroundedAnswerStatus.ABSTAINED,
                 answer=None,
                 model_invoked=False,
+                model_generation=None,
                 citations=(),
                 reason="no eligible evidence was retrieved",
             )
 
         prompt = _build_prompt(request.question, context)
         try:
-            generated = self._model_gateway.generate(
+            model_generation = self._model_gateway.generate(
                 prompt,
+                request_id=request.request_id,
+                now=request.requested_at,
                 maximum_output_chars=self._policy.maximum_output_chars,
-            ).strip()
+            )
         except Exception:
             return self._finalize(
                 request=request,
@@ -145,10 +156,12 @@ class GroundedRAGPipeline:
                 status=GroundedAnswerStatus.ABSTAINED,
                 answer=None,
                 model_invoked=True,
+                model_generation=None,
                 citations=(),
                 reason="local model runtime was unavailable",
             )
 
+        generated = model_generation.text.strip()
         if not generated:
             return self._finalize(
                 request=request,
@@ -157,6 +170,7 @@ class GroundedRAGPipeline:
                 status=GroundedAnswerStatus.ABSTAINED,
                 answer=None,
                 model_invoked=True,
+                model_generation=model_generation,
                 citations=(),
                 reason="local model returned an empty answer",
             )
@@ -168,6 +182,7 @@ class GroundedRAGPipeline:
                 status=GroundedAnswerStatus.REJECTED,
                 answer=None,
                 model_invoked=True,
+                model_generation=model_generation,
                 citations=(),
                 reason="local model exceeded the output budget",
             )
@@ -185,6 +200,7 @@ class GroundedRAGPipeline:
                 status=GroundedAnswerStatus.REJECTED,
                 answer=None,
                 model_invoked=True,
+                model_generation=model_generation,
                 citations=validation.cited_ids,
                 reason=validation.reason,
             )
@@ -195,6 +211,7 @@ class GroundedRAGPipeline:
             status=GroundedAnswerStatus.ANSWERED,
             answer=generated,
             model_invoked=True,
+            model_generation=model_generation,
             citations=validation.cited_ids,
             reason=None,
         )
@@ -208,14 +225,29 @@ class GroundedRAGPipeline:
         status: GroundedAnswerStatus,
         answer: str | None,
         model_invoked: bool,
+        model_generation: ModelGenerationResult | None,
         citations: tuple[str, ...],
         reason: str | None,
     ) -> GroundedAnswerResponse:
+        model_id = (
+            model_generation.model_id
+            if model_generation is not None
+            else ("unrouted" if model_invoked else "not-invoked")
+        )
         trace = GroundedAnswerTrace(
             request_id=request.request_id.strip(),
             tenant_id=None if request.tenant_id is None else request.tenant_id.strip(),
             status=status,
-            model_id=self._model_gateway.model_id,
+            model_id=model_id,
+            model_revision=(
+                None if model_generation is None else model_generation.revision
+            ),
+            model_route_id=(
+                None if model_generation is None else model_generation.route_id
+            ),
+            model_attempts=(
+                () if model_generation is None else model_generation.attempts
+            ),
             model_invoked=model_invoked,
             generation=retrieval.evidence.generation,
             query_sha256=retrieval.evidence.query_sha256,
