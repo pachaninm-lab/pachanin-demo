@@ -1,9 +1,22 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { RedisCacheService } from '../../common/cache/redis-cache.service';
 
 const MAX_LIMIT = 50;
 const DEFAULT_LIMIT = 25;
+
+// The anonymized showcase is identical for every viewer, so it is a safe, high-
+// value cache target. A short TTL bounds staleness while absorbing read spikes.
+const CACHE_KEY_PREFIX = 'market:open-lots:v1';
+const DEFAULT_CACHE_TTL_SECONDS = 5;
+
+function cacheTtlSeconds(): number {
+  const raw = Number(process.env.MARKET_SHOWCASE_CACHE_TTL_SECONDS);
+  return Number.isInteger(raw) && raw >= 1 && raw <= 60 ? raw : DEFAULT_CACHE_TTL_SECONDS;
+}
+
+type CachedPage = Readonly<{ items: readonly MarketOpenLot[]; nextCursor: string | null }>;
 
 type OpenLotRow = Readonly<{
   lot_id: string;
@@ -50,26 +63,39 @@ export type MarketOpenLotsPage = Readonly<{
  * не попадают, чтобы исключить сделку в обход платформы. Деанонимизация —
  * только после создания сделки и на исполнении.
  */
+const DISCLOSURE =
+  'Продавец, адрес и контакты раскрываются только после создания сделки из итога торгов.';
+
 @Injectable()
 export class MarketShowcaseService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache?: RedisCacheService,
+  ) {}
 
   async listOpenLots(limitInput?: string, cursorInput?: string): Promise<MarketOpenLotsPage> {
     const limit = normalizeLimit(limitInput);
     const cursor = normalizeCursor(cursorInput);
+    const cacheKey = `${CACHE_KEY_PREFIX}:l=${limit}:c=${cursor ? cursor.toISOString() : '-'}`;
+
+    // serverTime is always regenerated so it stays accurate even on a cache hit;
+    // only the DB-derived page (items + nextCursor) is cached.
+    const cached = await this.cache?.get<CachedPage>(cacheKey);
+    if (cached) {
+      return { ...cached, serverTime: new Date().toISOString(), disclosure: DISCLOSURE };
+    }
 
     const rows = await this.prisma.$queryRaw<OpenLotRow[]>(Prisma.sql`
       SELECT * FROM market.list_open_lots(${limit}::int, ${cursor}::timestamptz)
     `);
 
-    const items = rows.map(mapRow);
-    return {
-      items,
+    const page: CachedPage = {
+      items: rows.map(mapRow),
       nextCursor: rows.length === limit ? rows[rows.length - 1].created_at.toISOString() : null,
-      serverTime: new Date().toISOString(),
-      disclosure:
-        'Продавец, адрес и контакты раскрываются только после создания сделки из итога торгов.',
     };
+    await this.cache?.set(cacheKey, page, cacheTtlSeconds());
+
+    return { ...page, serverTime: new Date().toISOString(), disclosure: DISCLOSURE };
   }
 }
 

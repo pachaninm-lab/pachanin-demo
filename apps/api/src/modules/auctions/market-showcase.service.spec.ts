@@ -68,4 +68,41 @@ describe('MarketShowcaseService', () => {
     await expect(service.listOpenLots('10', 'не-дата')).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
+
+  describe('Redis cache', () => {
+    function makeCachedService(cache: { get: jest.Mock; set: jest.Mock }, rows: unknown[] = [row]) {
+      const prisma = { $queryRaw: jest.fn().mockResolvedValue(rows) };
+      return { service: new MarketShowcaseService(prisma as never, cache as never), prisma };
+    }
+
+    it('serves from cache without hitting the database and keeps serverTime fresh', async () => {
+      const cachedPage = { items: [{ lotId: 'cached-1' }], nextCursor: null };
+      const cache = { get: jest.fn().mockResolvedValue(cachedPage), set: jest.fn() };
+      const { service, prisma } = makeCachedService(cache);
+
+      const page = await service.listOpenLots('10');
+
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+      expect(page.items).toEqual(cachedPage.items);
+      expect(cache.get).toHaveBeenCalledWith('market:open-lots:v1:l=10:c=-');
+      expect(new Date(page.serverTime).getTime()).toBeGreaterThan(0);
+      expect(page.disclosure).toContain('раскрываются только после создания сделки');
+    });
+
+    it('queries the database on a miss and populates the cache with the DB-derived page', async () => {
+      const cache = { get: jest.fn().mockResolvedValue(undefined), set: jest.fn().mockResolvedValue(undefined) };
+      const { service, prisma } = makeCachedService(cache);
+
+      const page = await service.listOpenLots('10');
+
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(page.items).toHaveLength(1);
+      expect(cache.set).toHaveBeenCalledTimes(1);
+      const [key, value] = cache.set.mock.calls[0];
+      expect(key).toBe('market:open-lots:v1:l=10:c=-');
+      // Only the DB-derived page is cached — never serverTime.
+      expect(value).toEqual({ items: page.items, nextCursor: page.nextCursor });
+      expect(value).not.toHaveProperty('serverTime');
+    });
+  });
 });

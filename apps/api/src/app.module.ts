@@ -54,11 +54,13 @@ import { AiInsightsModule } from './modules/ai-insights/ai-insights.module';
 import { RuntimeSnapshotModule } from './modules/runtime-snapshot/runtime-snapshot.module';
 import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-persistence.module';
 import { StaffAccessModule } from './modules/staff-access/staff-access.module';
+import { RedisCacheModule } from './common/cache/redis-cache.module';
 
 @Module({
   imports: [
     PrismaModule,
     RateLimitModule,
+    RedisCacheModule,
     DatabaseModule,
     StaffAccessModule,
     AdminModule,

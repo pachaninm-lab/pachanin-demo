@@ -28,6 +28,11 @@ api:
   #   postgresql://<user>:<pass>@grainflow-pgbouncer:6432/grainflow?pgbouncer=true&connection_limit=10&pool_timeout=10
   # With maxReplicas=20 and connection_limit=10 the API tier caps at 200 client
   # connections, which PgBouncer multiplexes onto ~40 server backends.
+  #
+  # REDIS_URL (also in grainflow-api-secrets, since it carries a password) enables
+  # the read-through cache for the anonymized market showcase:
+  #   redis://:<password>@redis-cluster:6379
+  # Absent REDIS_URL, the cache is a transparent no-op and reads go to the DB.
 
 # PgBouncer sits between the API tier and the managed PostgreSQL primary so the
 # HPA can scale the API to 20 replicas without exhausting server connections.
