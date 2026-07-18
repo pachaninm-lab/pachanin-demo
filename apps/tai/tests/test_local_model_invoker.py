@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from contextlib import AbstractContextManager
 from typing import Any
-from urllib.request import Request
 
 import pytest
 
 from tai.local_model_invoker import (
+    HTTPClientJSONTransport,
+    HTTPConnectionLike,
+    HTTPResponseLike,
     LocalEndpointPolicy,
     OpenAICompatibleLocalInvoker,
     StaticModelEndpointResolver,
-    UrllibJSONTransport,
+    StdlibHTTPConnectionFactory,
 )
 from tai.model_runtime import (
     LocalModelProfile,
@@ -41,9 +42,15 @@ def _profile() -> LocalModelProfile:
     ("endpoint", "expected"),
     [
         ("http://localhost:8080", "http://localhost:8080/v1/chat/completions"),
-        ("http://127.0.0.1:8080/v1/chat/completions", "http://127.0.0.1:8080/v1/chat/completions"),
+        (
+            "http://127.0.0.1:8080/v1/chat/completions",
+            "http://127.0.0.1:8080/v1/chat/completions",
+        ),
         ("http://10.20.0.5:8080/infer", "http://10.20.0.5:8080/infer"),
-        ("https://model.tai.svc.cluster.local/infer", "https://model.tai.svc.cluster.local/infer"),
+        (
+            "https://model.tai.svc.cluster.local/infer",
+            "https://model.tai.svc.cluster.local/infer",
+        ),
     ],
 )
 def test_endpoint_policy_allows_only_internal_destinations(
@@ -184,32 +191,71 @@ def test_invoker_rejects_missing_endpoint_and_output_over_budget() -> None:
         )
 
 
-class _Response(AbstractContextManager["_Response"]):
-    def __init__(self, payload: bytes) -> None:
+class _Response:
+    def __init__(
+        self,
+        payload: bytes,
+        *,
+        status: int = 200,
+        reason: str = "OK",
+    ) -> None:
         self.payload = payload
-        self.read_limits: list[int] = []
+        self.status = status
+        self.reason = reason
+        self.read_limits: list[int | None] = []
 
-    def __enter__(self) -> _Response:
-        return self
-
-    def __exit__(self, *args: object) -> None:
-        return None
-
-    def read(self, limit: int) -> bytes:
-        self.read_limits.append(limit)
+    def read(self, amount: int | None = None) -> bytes:
+        self.read_limits.append(amount)
         return self.payload
 
 
-def test_urllib_transport_enforces_response_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+class _Connection:
+    def __init__(self, response: HTTPResponseLike) -> None:
+        self.response = response
+        self.requests: list[
+            tuple[str, str, bytes | None, Mapping[str, str]]
+        ] = []
+        self.closed = False
+
+    def request(
+        self,
+        method: str,
+        url: str,
+        body: bytes | None = None,
+        headers: Mapping[str, str] = {},
+    ) -> None:
+        self.requests.append((method, url, body, headers))
+
+    def getresponse(self) -> HTTPResponseLike:
+        return self.response
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _ConnectionFactory:
+    def __init__(self, connection: HTTPConnectionLike) -> None:
+        self.connection = connection
+        self.calls: list[tuple[str, str, int, float]] = []
+
+    def __call__(
+        self,
+        *,
+        scheme: str,
+        host: str,
+        port: int,
+        timeout_seconds: float,
+    ) -> HTTPConnectionLike:
+        self.calls.append((scheme, host, port, timeout_seconds))
+        return self.connection
+
+
+def test_http_client_transport_enforces_request_and_response_budgets() -> None:
     response = _Response(b'{"choices":[]}')
-    captured: list[tuple[Request, float]] = []
+    connection = _Connection(response)
+    factory = _ConnectionFactory(connection)
 
-    def fake_urlopen(request: Request, timeout: float) -> _Response:
-        captured.append((request, timeout))
-        return response
-
-    monkeypatch.setattr("tai.local_model_invoker.urlopen", fake_urlopen)
-    result = UrllibJSONTransport().post_json(
+    result = HTTPClientJSONTransport(factory).post_json(
         "http://localhost:8080/infer",
         {"model": "local"},
         timeout_seconds=5.0,
@@ -217,22 +263,187 @@ def test_urllib_transport_enforces_response_budget(monkeypatch: pytest.MonkeyPat
     )
 
     assert result == {"choices": []}
+    assert factory.calls == [("http", "localhost", 8080, 5.0)]
     assert response.read_limits == [1_025]
-    assert captured[0][0].get_method() == "POST"
-    assert captured[0][1] == 5.0
+    assert connection.closed is True
+    method, path, body, headers = connection.requests[0]
+    assert method == "POST"
+    assert path == "/infer"
+    assert body == b'{"model":"local"}'
+    assert headers["Content-Type"] == "application/json; charset=utf-8"
 
-    too_large = _Response(b"x" * 1_025)
-    monkeypatch.setattr(
-        "tai.local_model_invoker.urlopen",
-        lambda request, timeout: too_large,
+
+def test_http_client_transport_defaults_ports_and_path() -> None:
+    http_factory = _ConnectionFactory(_Connection(_Response(b"{}")))
+    https_factory = _ConnectionFactory(_Connection(_Response(b"{}")))
+
+    HTTPClientJSONTransport(http_factory).post_json(
+        "http://localhost",
+        {},
+        timeout_seconds=1.0,
+        maximum_response_bytes=1_024,
     )
+    HTTPClientJSONTransport(https_factory).post_json(
+        "https://model.tai.svc",
+        {},
+        timeout_seconds=2.0,
+        maximum_response_bytes=1_024,
+    )
+
+    assert http_factory.calls == [("http", "localhost", 80, 1.0)]
+    assert https_factory.calls == [("https", "model.tai.svc", 443, 2.0)]
+    assert http_factory.connection.requests[0][1] == "/"
+
+
+def test_http_client_transport_fails_closed_and_always_closes() -> None:
+    too_large_connection = _Connection(_Response(b"x" * 1_025))
+    bad_status_connection = _Connection(
+        _Response(b"{}", status=503, reason="Unavailable")
+    )
+    bad_json_connection = _Connection(_Response(b"not-json"))
+    list_json_connection = _Connection(_Response(b"[]"))
+
     with pytest.raises(RuntimeError, match="byte budget"):
-        UrllibJSONTransport().post_json(
-            "http://localhost:8080/infer",
+        HTTPClientJSONTransport(
+            _ConnectionFactory(too_large_connection)
+        ).post_json(
+            "http://localhost/infer",
             {},
             timeout_seconds=5.0,
             maximum_response_bytes=1_024,
         )
+    with pytest.raises(RuntimeError, match="HTTP 503"):
+        HTTPClientJSONTransport(
+            _ConnectionFactory(bad_status_connection)
+        ).post_json(
+            "http://localhost/infer",
+            {},
+            timeout_seconds=5.0,
+            maximum_response_bytes=1_024,
+        )
+    with pytest.raises(RuntimeError, match="valid JSON"):
+        HTTPClientJSONTransport(
+            _ConnectionFactory(bad_json_connection)
+        ).post_json(
+            "http://localhost/infer",
+            {},
+            timeout_seconds=5.0,
+            maximum_response_bytes=1_024,
+        )
+    with pytest.raises(RuntimeError, match="JSON object"):
+        HTTPClientJSONTransport(
+            _ConnectionFactory(list_json_connection)
+        ).post_json(
+            "http://localhost/infer",
+            {},
+            timeout_seconds=5.0,
+            maximum_response_bytes=1_024,
+        )
+
+    assert too_large_connection.closed is True
+    assert bad_status_connection.closed is True
+    assert bad_json_connection.closed is True
+    assert list_json_connection.closed is True
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "message"),
+    [
+        ("ftp://localhost/infer", "HTTP"),
+        ("http://user:secret@localhost/infer", "credentials"),
+        ("http://localhost/infer?token=x", "query"),
+        ("http:///infer", "host"),
+    ],
+)
+def test_transport_revalidates_endpoint_shape(
+    endpoint: str,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        HTTPClientJSONTransport(
+            _ConnectionFactory(_Connection(_Response(b"{}")))
+        ).post_json(
+            endpoint,
+            {},
+            timeout_seconds=5.0,
+            maximum_response_bytes=1_024,
+        )
+
+
+def test_transport_validates_runtime_budgets() -> None:
+    transport = HTTPClientJSONTransport(
+        _ConnectionFactory(_Connection(_Response(b"{}")))
+    )
+
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        transport.post_json(
+            "http://localhost/infer",
+            {},
+            timeout_seconds=0,
+            maximum_response_bytes=1_024,
+        )
+    with pytest.raises(ValueError, match="maximum_response_bytes"):
+        transport.post_json(
+            "http://localhost/infer",
+            {},
+            timeout_seconds=1.0,
+            maximum_response_bytes=0,
+        )
+
+
+def test_stdlib_connection_factory_selects_http_and_https(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, str, int, float, object | None]] = []
+    connection = _Connection(_Response(b"{}"))
+
+    def fake_http(host: str, port: int, *, timeout: float) -> HTTPConnectionLike:
+        calls.append(("http", host, port, timeout, None))
+        return connection
+
+    def fake_https(
+        host: str,
+        port: int,
+        *,
+        timeout: float,
+        context: object,
+    ) -> HTTPConnectionLike:
+        calls.append(("https", host, port, timeout, context))
+        return connection
+
+    tls_context = object()
+    monkeypatch.setattr("tai.local_model_invoker.http.client.HTTPConnection", fake_http)
+    monkeypatch.setattr("tai.local_model_invoker.http.client.HTTPSConnection", fake_https)
+    monkeypatch.setattr(
+        "tai.local_model_invoker.ssl.create_default_context",
+        lambda: tls_context,
+    )
+
+    factory = StdlibHTTPConnectionFactory()
+    assert factory(
+        scheme="http",
+        host="localhost",
+        port=8080,
+        timeout_seconds=3.0,
+    ) is connection
+    assert factory(
+        scheme="https",
+        host="model.tai.svc",
+        port=443,
+        timeout_seconds=4.0,
+    ) is connection
+    with pytest.raises(ValueError, match="HTTP"):
+        factory(
+            scheme="ftp",
+            host="localhost",
+            port=21,
+            timeout_seconds=1.0,
+        )
+
+    assert calls == [
+        ("http", "localhost", 8080, 3.0, None),
+        ("https", "model.tai.svc", 443, 4.0, tls_context),
+    ]
 
 
 def test_endpoint_policy_and_invoker_validation() -> None:
