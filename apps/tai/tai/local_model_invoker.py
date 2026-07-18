@@ -81,8 +81,8 @@ class HTTPConnectionLike(Protocol):
         self,
         method: str,
         url: str,
-        body: bytes | None = None,
-        headers: Mapping[str, str] = {},
+        body: bytes | None,
+        headers: Mapping[str, str],
     ) -> None: ...
 
     def getresponse(self) -> HTTPResponseLike: ...
