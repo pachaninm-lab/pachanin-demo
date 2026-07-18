@@ -58,6 +58,15 @@ class PostgreSQLLoaderStateRepository:
             raise ValueError("source_id is already bound to another URI")
         return self._state_from_row(row)
 
+    def get(self, source_id: str) -> LoaderState | None:
+        query = """
+            SELECT *
+            FROM tai_loader_state
+            WHERE source_id = %s
+        """
+        row = self._execute_returning(query, (source_id,))
+        return None if row is None else self._state_from_row(row)
+
     def claim_due(
         self,
         *,
