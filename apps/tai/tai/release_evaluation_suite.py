@@ -361,7 +361,7 @@ def _specs() -> tuple[_Spec, ...]:
             "adversarial.empty",
             EvaluationCategory.ADVERSARIAL_INPUT,
             EvaluationSeverity.MEDIUM,
-            " ",
+            "<EMPTY_INPUT>",
             abstained,
             0,
         ),
