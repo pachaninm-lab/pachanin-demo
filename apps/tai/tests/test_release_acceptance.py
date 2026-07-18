@@ -38,24 +38,30 @@ def _migration_inventory(last: int = 11) -> MigrationInventory:
     )
 
 
-def _workflow(name: str, *, conclusion: WorkflowConclusion = WorkflowConclusion.SUCCESS):
+def _workflow(
+    name: str,
+    *,
+    conclusion: WorkflowConclusion = WorkflowConclusion.SUCCESS,
+    exact_head_sha: str = HEAD,
+    completed_at: datetime | None = None,
+) -> WorkflowRunEvidence:
     run_id = 1000 + sorted(DEFAULT_REQUIRED_WORKFLOWS).index(name)
-    completed_at = NOW - timedelta(minutes=1)
+    completed = completed_at or NOW - timedelta(minutes=1)
     run_url = f"https://github.com/pachaninm-lab/pachanin-demo/actions/runs/{run_id}"
     digest = workflow_evidence_sha256(
         workflow_name=name,
         run_id=run_id,
-        exact_head_sha=HEAD,
+        exact_head_sha=exact_head_sha,
         conclusion=conclusion,
-        completed_at=completed_at,
+        completed_at=completed,
         run_url=run_url,
     )
     return WorkflowRunEvidence(
         workflow_name=name,
         run_id=run_id,
-        exact_head_sha=HEAD,
+        exact_head_sha=exact_head_sha,
         conclusion=conclusion,
-        completed_at=completed_at,
+        completed_at=completed,
         run_url=run_url,
         evidence_sha256=digest,
     )
@@ -101,45 +107,18 @@ def test_application_release_is_deterministic_and_does_not_claim_production() ->
 def test_application_release_rejects_missing_failed_wrong_head_and_future_workflows() -> None:
     workflows = list(_workflows())
     workflows.pop()
-    failed = replace(workflows[0], conclusion=WorkflowConclusion.FAILURE)
-    failed = replace(
-        failed,
-        evidence_sha256=workflow_evidence_sha256(
-            workflow_name=failed.workflow_name,
-            run_id=failed.run_id,
-            exact_head_sha=failed.exact_head_sha,
-            conclusion=failed.conclusion,
-            completed_at=failed.completed_at,
-            run_url=failed.run_url,
-        ),
+    workflows[0] = _workflow(
+        workflows[0].workflow_name,
+        conclusion=WorkflowConclusion.FAILURE,
     )
-    workflows[0] = failed
-    wrong_head = replace(workflows[1], exact_head_sha="c" * 64)
-    wrong_head = replace(
-        wrong_head,
-        evidence_sha256=workflow_evidence_sha256(
-            workflow_name=wrong_head.workflow_name,
-            run_id=wrong_head.run_id,
-            exact_head_sha=wrong_head.exact_head_sha,
-            conclusion=wrong_head.conclusion,
-            completed_at=wrong_head.completed_at,
-            run_url=wrong_head.run_url,
-        ),
+    workflows[1] = _workflow(
+        workflows[1].workflow_name,
+        exact_head_sha="c" * 64,
     )
-    workflows[1] = wrong_head
-    future = replace(workflows[2], completed_at=NOW + timedelta(seconds=1))
-    future = replace(
-        future,
-        evidence_sha256=workflow_evidence_sha256(
-            workflow_name=future.workflow_name,
-            run_id=future.run_id,
-            exact_head_sha=future.exact_head_sha,
-            conclusion=future.conclusion,
-            completed_at=future.completed_at,
-            run_url=future.run_url,
-        ),
+    workflows[2] = _workflow(
+        workflows[2].workflow_name,
+        completed_at=NOW + timedelta(seconds=1),
     )
-    workflows[2] = future
 
     attestation = ApplicationReleaseAuthority().attest(
         _candidate(
