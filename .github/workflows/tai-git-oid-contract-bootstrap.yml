@@ -1,0 +1,111 @@
+name: TAI Git OID Contract Bootstrap
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-git-oid-contract-bootstrap.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply Git OID contract across AP-09 to AP-11
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path('.')
+          import_line = 'from tai.git_oid import validate_git_oid\n'
+
+          def patch_module(path: str, anchor: str) -> None:
+              file = root / path
+              text = file.read_text(encoding='utf-8')
+              if import_line not in text:
+                  if anchor not in text:
+                      raise SystemExit(f'import anchor missing in {path}: {anchor!r}')
+                  text = text.replace(anchor, anchor + import_line, 1)
+
+              changed = 0
+              lines: list[str] = []
+              for line in text.splitlines(keepends=True):
+                  if '_digest(' in line and (
+                      'exact_head_sha' in line or 'exact_main_sha' in line
+                  ):
+                      line = line.replace('_digest(', 'validate_git_oid(', 1)
+                      changed += 1
+                  lines.append(line)
+              text = ''.join(lines)
+              leftovers = [
+                  line.strip()
+                  for line in text.splitlines()
+                  if '_digest(' in line
+                  and ('exact_head_sha' in line or 'exact_main_sha' in line)
+              ]
+              if leftovers:
+                  raise SystemExit(f'unpatched Git OID validators in {path}: {leftovers}')
+              if changed == 0:
+                  raise SystemExit(f'no Git OID validator calls changed in {path}')
+              file.write_text(text, encoding='utf-8')
+
+          git_oid = root / 'apps/tai/tai/git_oid.py'
+          git_oid.write_text(
+              '''from __future__ import annotations\n\nimport re\n\n_GIT_OBJECT_ID = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")\n\n\ndef validate_git_oid(value: str, name: str) -> None:\n    """Validate a full lowercase Git object ID for SHA-1 or SHA-256 repositories."""\n    if _GIT_OBJECT_ID.fullmatch(value) is None:\n        raise ValueError(\n            f"{name} must be a full lowercase Git object ID (40-char SHA-1 or 64-char SHA-256)"\n        )\n''',
+              encoding='utf-8',
+          )
+
+          patch_module(
+              'apps/tai/tai/evaluation.py',
+              'from typing import Any\n',
+          )
+          patch_module(
+              'apps/tai/tai/operations.py',
+              'from uuid import UUID\n',
+          )
+          patch_module(
+              'apps/tai/tai/release_acceptance.py',
+              'from typing import Any\n',
+          )
+
+          release = root / 'apps/tai/tai/release_acceptance.py'
+          release_text = release.read_text(encoding='utf-8')
+          old = 'minimum_migration_version: int = 11'
+          new = 'minimum_migration_version: int = 12'
+          if old not in release_text:
+              raise SystemExit('release minimum migration version anchor missing')
+          release.write_text(release_text.replace(old, new, 1), encoding='utf-8')
+
+          migration = root / 'apps/tai/tai/migrations/0012_git_object_id_contract.sql'
+          migration.write_text(
+              '''BEGIN;\n\n-- GitHub repositories currently expose 40-character SHA-1 object IDs, while\n-- Git also supports 64-character SHA-256 object IDs. Exact-head columns are\n-- Git object identifiers, not content SHA-256 digests.\n\nALTER TABLE tai_evaluation_runs\n    DROP CONSTRAINT IF EXISTS tai_evaluation_runs_exact_head_sha_check;\nALTER TABLE tai_evaluation_runs\n    DROP CONSTRAINT IF EXISTS tai_evaluation_runs_exact_head_sha_git_oid_check;\nALTER TABLE tai_evaluation_runs\n    ADD CONSTRAINT tai_evaluation_runs_exact_head_sha_git_oid_check\n    CHECK (exact_head_sha ~ '^([0-9a-f]{40}|[0-9a-f]{64})$') NOT VALID;\nALTER TABLE tai_evaluation_runs\n    VALIDATE CONSTRAINT tai_evaluation_runs_exact_head_sha_git_oid_check;\n\nALTER TABLE tai_slo_observations\n    DROP CONSTRAINT IF EXISTS tai_slo_observations_exact_head_sha_check;\nALTER TABLE tai_slo_observations\n    DROP CONSTRAINT IF EXISTS tai_slo_observations_exact_head_sha_git_oid_check;\nALTER TABLE tai_slo_observations\n    ADD CONSTRAINT tai_slo_observations_exact_head_sha_git_oid_check\n    CHECK (exact_head_sha ~ '^([0-9a-f]{40}|[0-9a-f]{64})$') NOT VALID;\nALTER TABLE tai_slo_observations\n    VALIDATE CONSTRAINT tai_slo_observations_exact_head_sha_git_oid_check;\n\nALTER TABLE tai_operational_evidence\n    DROP CONSTRAINT IF EXISTS tai_operational_evidence_exact_head_sha_check;\nALTER TABLE tai_operational_evidence\n    DROP CONSTRAINT IF EXISTS tai_operational_evidence_exact_head_sha_git_oid_check;\nALTER TABLE tai_operational_evidence\n    ADD CONSTRAINT tai_operational_evidence_exact_head_sha_git_oid_check\n    CHECK (exact_head_sha ~ '^([0-9a-f]{40}|[0-9a-f]{64})$') NOT VALID;\nALTER TABLE tai_operational_evidence\n    VALIDATE CONSTRAINT tai_operational_evidence_exact_head_sha_git_oid_check;\n\nALTER TABLE tai_operational_readiness_decisions\n    DROP CONSTRAINT IF EXISTS tai_operational_readiness_decisions_exact_head_sha_check;\nALTER TABLE tai_operational_readiness_decisions\n    DROP CONSTRAINT IF EXISTS tai_operational_readiness_decisions_exact_head_sha_git_oid_check;\nALTER TABLE tai_operational_readiness_decisions\n    ADD CONSTRAINT tai_operational_readiness_decisions_exact_head_sha_git_oid_check\n    CHECK (exact_head_sha ~ '^([0-9a-f]{40}|[0-9a-f]{64})$') NOT VALID;\nALTER TABLE tai_operational_readiness_decisions\n    VALIDATE CONSTRAINT tai_operational_readiness_decisions_exact_head_sha_git_oid_check;\n\nALTER TABLE tai_application_release_attestations\n    DROP CONSTRAINT IF EXISTS tai_application_release_attestations_exact_main_sha_check;\nALTER TABLE tai_application_release_attestations\n    DROP CONSTRAINT IF EXISTS tai_application_release_attestations_exact_main_sha_git_oid_check;\nALTER TABLE tai_application_release_attestations\n    ADD CONSTRAINT tai_application_release_attestations_exact_main_sha_git_oid_check\n    CHECK (exact_main_sha ~ '^([0-9a-f]{40}|[0-9a-f]{64})$') NOT VALID;\nALTER TABLE tai_application_release_attestations\n    VALIDATE CONSTRAINT tai_application_release_attestations_exact_main_sha_git_oid_check;\n\nALTER TABLE tai_production_release_attestations\n    DROP CONSTRAINT IF EXISTS tai_production_release_attestations_exact_main_sha_check;\nALTER TABLE tai_production_release_attestations\n    DROP CONSTRAINT IF EXISTS tai_production_release_attestations_exact_main_sha_git_oid_check;\nALTER TABLE tai_production_release_attestations\n    ADD CONSTRAINT tai_production_release_attestations_exact_main_sha_git_oid_check\n    CHECK (exact_main_sha ~ '^([0-9a-f]{40}|[0-9a-f]{64})$') NOT VALID;\nALTER TABLE tai_production_release_attestations\n    VALIDATE CONSTRAINT tai_production_release_attestations_exact_main_sha_git_oid_check;\n\nCOMMIT;\n''',
+              encoding='utf-8',
+          )
+
+          tests = root / 'apps/tai/tests/test_git_oid_contract.py'
+          tests.write_text(
+              '''from __future__ import annotations\n\nfrom datetime import UTC, datetime\n\nimport pytest\n\nfrom tai.evaluation import (\n    EvaluationAuthority,\n    EvaluationCase,\n    EvaluationCategory,\n    EvaluationObservation,\n    EvaluationSeverity,\n    EvaluationSuite,\n)\nfrom tai.git_oid import validate_git_oid\nfrom tai.operations import OperationalIndicator, SLOObservation\nfrom tai.release_acceptance import (\n    WorkflowConclusion,\n    WorkflowRunEvidence,\n    workflow_evidence_sha256,\n)\n\n_SHA1 = "a" * 40\n_SHA256 = "b" * 64\n_CONTENT_SHA256 = "c" * 64\n_NOW = datetime(2026, 7, 19, tzinfo=UTC)\n\n\n@pytest.mark.parametrize("value", [_SHA1, _SHA256])\ndef test_git_oid_accepts_full_sha1_and_sha256(value: str) -> None:\n    validate_git_oid(value, "exact_head_sha")\n\n\n@pytest.mark.parametrize(\n    "value",\n    [\n        "a" * 39,\n        "a" * 41,\n        "b" * 63,\n        "b" * 65,\n        "A" * 40,\n        "g" * 40,\n        "",\n    ],\n)\ndef test_git_oid_rejects_invalid_or_abbreviated_values(value: str) -> None:\n    with pytest.raises(ValueError, match="full lowercase Git object ID"):\n        validate_git_oid(value, "exact_head_sha")\n\n\ndef test_release_workflow_evidence_accepts_github_sha1_exact_head() -> None:\n    digest = workflow_evidence_sha256(\n        workflow_name="CI",\n        run_id=1,\n        exact_head_sha=_SHA1,\n        conclusion=WorkflowConclusion.SUCCESS,\n        completed_at=_NOW,\n        run_url="https://github.com/pachaninm-lab/pachanin-demo/actions/runs/1",\n    )\n    evidence = WorkflowRunEvidence(\n        workflow_name="CI",\n        run_id=1,\n        exact_head_sha=_SHA1,\n        conclusion=WorkflowConclusion.SUCCESS,\n        completed_at=_NOW,\n        run_url="https://github.com/pachaninm-lab/pachanin-demo/actions/runs/1",\n        evidence_sha256=digest,\n    )\n    assert evidence.exact_head_sha == _SHA1\n\n\ndef test_evaluation_authority_accepts_github_sha1_exact_head() -> None:\n    case = EvaluationCase(\n        case_id="case-1",\n        category=EvaluationCategory.GROUNDED_QA,\n        severity=EvaluationSeverity.LOW,\n        allowed_statuses=frozenset({"ANSWERED"}),\n    )\n    suite = EvaluationSuite(\n        suite_id="suite-1",\n        version="1",\n        cases=(case,),\n        created_at=_NOW,\n    )\n    observation = EvaluationObservation(\n        case_id="case-1",\n        request_id="request-1",\n        status="ANSWERED",\n        answer="ok",\n        citations=(),\n        allowed_citations=(),\n        tenant_id=None,\n        source_tenant_ids=(),\n        model_invoked=False,\n        tools=(),\n        reason=None,\n        observed_at=_NOW,\n        trace_sha256=_CONTENT_SHA256,\n    )\n    report = EvaluationAuthority().evaluate(\n        suite=suite,\n        observations=(observation,),\n        exact_head_sha=_SHA1,\n        model_route="local-model",\n        knowledge_version="1",\n        policy_version="1",\n        started_at=_NOW,\n        completed_at=_NOW,\n    )\n    assert report.exact_head_sha == _SHA1\n\n\ndef test_operations_accept_github_sha1_exact_head_but_keep_content_sha256() -> None:\n    observation = SLOObservation(\n        observation_id="observation-1",\n        slo_id="availability",\n        indicator=OperationalIndicator.AVAILABILITY,\n        value=1.0,\n        sample_count=1,\n        window_started_at=_NOW,\n        window_ended_at=_NOW,\n        observed_at=_NOW,\n        source_sha256=_CONTENT_SHA256,\n        exact_head_sha=_SHA1,\n    )\n    assert observation.exact_head_sha == _SHA1\n    with pytest.raises(ValueError, match="SHA-256 digest"):\n        SLOObservation(\n            observation_id="observation-2",\n            slo_id="availability",\n            indicator=OperationalIndicator.AVAILABILITY,\n            value=1.0,\n            sample_count=1,\n            window_started_at=_NOW,\n            window_ended_at=_NOW,\n            observed_at=_NOW,\n            source_sha256=_SHA1,\n            exact_head_sha=_SHA1,\n        )\n\n\ndef test_forward_migration_updates_all_persisted_git_oid_constraints() -> None:\n    sql = (\n        __import__("pathlib").Path(__file__).parents[1]\n        / "tai/migrations/0012_git_object_id_contract.sql"\n    ).read_text(encoding="utf-8")\n    for table in (\n        "tai_evaluation_runs",\n        "tai_slo_observations",\n        "tai_operational_evidence",\n        "tai_operational_readiness_decisions",\n        "tai_application_release_attestations",\n        "tai_production_release_attestations",\n    ):\n        assert table in sql\n    assert "[0-9a-f]{40}" in sql\n    assert "[0-9a-f]{64}" in sql\n''',
+              encoding='utf-8',
+          )
+
+          workflow = root / '.github/workflows/tai-git-oid-contract-bootstrap.yml'
+          workflow.unlink()
+          PY
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix(tai): distinguish Git object IDs from SHA-256 digests'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
