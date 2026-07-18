@@ -1,0 +1,59 @@
+name: TAI AP-11 fix workflow evidence fixture
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tai-ap11-fix-workflow-fixture.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.ref == 'tai/ap-11-release-acceptance'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - name: Recompute digest for failed workflow fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/tai/tests/test_release_acceptance.py')
+          text = path.read_text()
+          old = '    workflows[0] = replace(workflows[0], conclusion=WorkflowConclusion.FAILURE)\n'
+          new = '''    failed = replace(workflows[0], conclusion=WorkflowConclusion.FAILURE)
+              failed = replace(
+                  failed,
+                  evidence_sha256=workflow_evidence_sha256(
+                      workflow_name=failed.workflow_name,
+                      run_id=failed.run_id,
+                      exact_head_sha=failed.exact_head_sha,
+                      conclusion=failed.conclusion,
+                      completed_at=failed.completed_at,
+                      run_url=failed.run_url,
+                  ),
+              )
+              workflows[0] = failed
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f'failed-workflow fixture marker count={text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          Path('.github/workflows/tai-ap11-fix-workflow-fixture.yml').unlink()
+          PY
+      - name: Commit fixture correction and cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'TAI AP-11: recompute failed workflow evidence digest'
+          git push origin HEAD:tai/ap-11-release-acceptance
