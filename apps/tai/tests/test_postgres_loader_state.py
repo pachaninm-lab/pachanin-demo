@@ -8,7 +8,6 @@ from uuid import UUID
 from tai.loader_state import LoaderLease, LoaderRunStatus
 from tai.postgres_loader_state import PostgreSQLLoaderStateRepository
 
-
 NOW = datetime(2026, 7, 18, 14, tzinfo=UTC)
 LEASE = timedelta(minutes=5)
 
