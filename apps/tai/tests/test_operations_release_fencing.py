@@ -113,3 +113,5 @@ def test_slo_assessment_digest_detects_field_tampering() -> None:
 
     with pytest.raises(ValueError, match="digest does not match"):
         replace(assessment, exact_head_sha=OTHER_HEAD)
+    with pytest.raises(ValueError, match="digest does not match"):
+        replace(assessment, status=SLOAssessmentStatus.BREACHED)
