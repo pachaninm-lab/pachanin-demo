@@ -26,6 +26,26 @@ const httpDurationHistogram = new Histogram({
   buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
 });
 
+// Collapse identifier-bearing path segments to a placeholder so the metric
+// `route` label stays bounded. Using the raw request path would mint a new time
+// series per deal/user/document id and grow prom-client memory without limit.
+const UUID_SEGMENT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function normalizeMetricRoute(path: string): string {
+  const clean = (path || '/').split('?', 1)[0];
+  const normalized = clean
+    .split('/')
+    .map((segment) => {
+      if (!segment) return segment;
+      if (UUID_SEGMENT.test(segment)) return ':id';
+      if (/^\d+$/.test(segment)) return ':id';
+      // Prefixed opaque ids such as `deal-…`, `user_…`, `evt-…`.
+      if (/^[a-z]+[-_][0-9a-f-]{6,}$/i.test(segment)) return ':id';
+      return segment;
+    })
+    .join('/');
+  return normalized.slice(0, 200);
+}
+
 async function bootstrap() {
   // Proxy trust must be explicit before Express derives req.ip. In production an
   // omitted/invalid mode terminates startup instead of trusting arbitrary XFF.
@@ -62,9 +82,10 @@ async function bootstrap() {
 
   // HTTP metrics instrumentation
   app.use((req: any, res: any, next: () => void) => {
-    const end = httpDurationHistogram.startTimer({ method: req.method, route: req.path });
+    const route = normalizeMetricRoute(req.path);
+    const end = httpDurationHistogram.startTimer({ method: req.method, route });
     res.on('finish', () => {
-      httpRequestsTotal.inc({ method: req.method, route: req.path, status_code: res.statusCode });
+      httpRequestsTotal.inc({ method: req.method, route, status_code: res.statusCode });
       end();
     });
     next();
@@ -154,6 +175,16 @@ async function bootstrap() {
   });
 
   app.enableShutdownHooks();
+
+  // Keep-alive tuning for life behind a load balancer (nginx/ALB). The server's
+  // keep-alive timeout must exceed the balancer's idle timeout, and headers
+  // timeout must exceed keep-alive, otherwise a connection the balancer still
+  // considers open can be closed mid-request and surface as an intermittent 502.
+  const httpServer = app.getHttpServer();
+  const keepAliveTimeout = Number(process.env.HTTP_KEEP_ALIVE_TIMEOUT_MS) || 65_000;
+  const headersTimeout = Number(process.env.HTTP_HEADERS_TIMEOUT_MS) || keepAliveTimeout + 1_000;
+  httpServer.keepAliveTimeout = keepAliveTimeout;
+  httpServer.headersTimeout = headersTimeout;
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen(port);

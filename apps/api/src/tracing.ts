@@ -6,7 +6,11 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-grpc';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-node';
+import {
+  BatchSpanProcessor,
+  ParentBasedSampler,
+  TraceIdRatioBasedSampler,
+} from '@opentelemetry/sdk-trace-node';
 import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
@@ -14,6 +18,7 @@ import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
 import {
   createTelemetryResource,
   resolveOtelEndpoint,
+  resolveTraceSampleRatio,
   shouldIgnoreIncomingTelemetryRequest,
 } from './telemetry-config';
 
@@ -21,8 +26,16 @@ const otelEndpoint = resolveOtelEndpoint();
 const traceExporter = new OTLPTraceExporter({ url: otelEndpoint });
 const metricExporter = new OTLPMetricExporter({ url: otelEndpoint });
 
+// Sample root spans by ratio (parent-sampled traces are always kept) instead of
+// the SDK default of tracing every request, which is a measurable per-request
+// CPU cost on this CPU-bound API path.
+const traceSampler = new ParentBasedSampler({
+  root: new TraceIdRatioBasedSampler(resolveTraceSampleRatio()),
+});
+
 export const sdk = new NodeSDK({
   resource: createTelemetryResource(),
+  sampler: traceSampler,
   spanProcessors: [new BatchSpanProcessor(traceExporter)],
   metricReaders: [
     new PeriodicExportingMetricReader({
