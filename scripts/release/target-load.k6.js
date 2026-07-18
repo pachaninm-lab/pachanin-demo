@@ -119,6 +119,7 @@ export const options = {
       : {}),
     tenant_leakage: ['count==0'],
   },
+  summaryTrendStats: ['min', 'med', 'avg', 'p(90)', 'p(95)', 'p(99)', 'max'],
   noConnectionReuse: false,
   userAgent: `grainflow-industrial-load/${profile}`,
 };
