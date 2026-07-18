@@ -3,23 +3,19 @@ name: Node CI
 on:
   push:
     branches: [main]
-    paths:
-      - 'apps/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'tsconfig*.json'
   pull_request:
     branches: [main]
     paths:
       - 'apps/**'
+      - '.github/workflows/node-ci.yml'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'tsconfig*.json'
   workflow_dispatch:
 
 concurrency:
-  group: node-ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: node-ci-${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   ci:
