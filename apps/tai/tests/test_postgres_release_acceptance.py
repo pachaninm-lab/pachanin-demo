@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -242,6 +243,22 @@ def test_attestation_objects_reject_manual_production_claim_and_tampering() -> N
         )
     with pytest.raises(ValueError, match="digest does not match"):
         replace(_production(), exact_main_sha="4" * 64)
+
+
+def test_release_migration_is_append_only_and_chains_evidence() -> None:
+    migration = (
+        Path(__file__).parents[1]
+        / "tai/migrations/0011_release_attestation.sql"
+    ).read_text()
+
+    assert migration.count("attestation_sha256 TEXT PRIMARY KEY") == 2
+    assert "release_id TEXT PRIMARY KEY" not in migration
+    assert "previous_attestation_sha256 TEXT REFERENCES" in migration
+    assert (
+        "application_attestation_sha256 TEXT NOT NULL REFERENCES"
+        in migration
+    )
+    assert "status TEXT NOT NULL CHECK (status IN ('ACCEPTED', 'REJECTED'))" in migration
 
 
 def test_database_error_rolls_back() -> None:
