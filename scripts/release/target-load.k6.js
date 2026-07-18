@@ -155,6 +155,7 @@ export function isolationProbe() {
   const response = http.get(`${baseUrl}/api/deals/DEAL-INDUSTRIAL-001/workspace`, {
     headers: headers(token),
     tags: { operation: 'tenant_isolation' },
+    responseCallback: http.expectedStatuses(403, 404),
   });
   if (response.status === 200) tenantLeakage.add(1);
   recordExpected(response, [403, 404]);
@@ -219,6 +220,7 @@ export function placeHotLotBid() {
   }), {
     headers: headers(token),
     tags: { operation: 'auction_hot_lot_bid' },
+    responseCallback: http.expectedStatuses(200, 201, 409),
   });
 
   auctionDuration.add(response.timings.duration);
