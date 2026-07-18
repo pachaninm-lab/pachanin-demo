@@ -68,7 +68,11 @@ class HeartbeatingPostgreSQLPreparedActionRepository(
     def claim(self, confirmation_id: UUID) -> PreparedActionClaim:
         claim = super().claim(confirmation_id)
         if claim.status is PreparedActionClaimStatus.EXECUTE:
-            self._start_heartbeat(confirmation_id)
+            try:
+                self._start_heartbeat(confirmation_id)
+            except Exception:
+                super().abandon(confirmation_id)
+                raise
         return claim
 
     def complete(
