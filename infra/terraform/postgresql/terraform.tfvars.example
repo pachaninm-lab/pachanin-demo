@@ -1,0 +1,27 @@
+# Copy to terraform.tfvars and fill in. NEVER commit the filled file or secrets.
+# Passwords go through environment variables instead:
+#   export TF_VAR_ddl_password='...'
+#   export TF_VAR_app_password='...'
+
+yc_cloud_id  = "b1g00000000000000000"
+yc_folder_id = "b1g11111111111111111"
+
+network_id = "enp00000000000000000"
+
+# One host per zone → synchronous HA with automatic failover.
+hosts = [
+  { zone = "ru-central1-a", subnet_id = "e9b00000000000000000" },
+  { zone = "ru-central1-b", subnet_id = "e2l00000000000000000" },
+  { zone = "ru-central1-d", subnet_id = "fl800000000000000000" },
+]
+
+# Only the k8s node/pod subnets that run PgBouncer.
+allowed_cidrs = ["10.112.0.0/16"]
+
+# Size from load tests. s3-c8-m32 = 8 vCPU / 32 GB per host.
+pg_resource_preset_id = "s3-c8-m32"
+pg_disk_size_gb       = 256
+pg_max_connections    = 400
+
+backup_retain_period_days = 14
+deletion_protection       = true

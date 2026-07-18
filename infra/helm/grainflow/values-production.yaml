@@ -46,7 +46,10 @@ pgbouncer:
     minReplicas: 3
     maxReplicas: 6
   upstream:
-    host: "postgresql-primary.grainflow-prod.svc.cluster.local"
+    # Managed PostgreSQL master FQDN — `terraform output master_fqdn`
+    # (infra/terraform/postgresql). The `.rw.` FQDN always tracks the current
+    # master, so PgBouncer follows failover automatically.
+    host: "c-REPLACE_WITH_CLUSTER_ID.rw.mdb.yandexcloud.net"
     port: 5432
     database: grainflow
 
