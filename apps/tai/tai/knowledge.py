@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID
 
@@ -80,7 +80,7 @@ DEFAULT_PLATFORM_KNOWLEDGE = KnowledgeStore(
             ),
             version="platform-knowledge.2026-07-18.1",
             source_uri="repo://docs/platform-v7/deal-authority",
-            effective_at=datetime(2026, 7, 18, tzinfo=timezone.utc),
+            effective_at=datetime(2026, 7, 18, tzinfo=UTC),
             trust_score=1.0,
             tags=frozenset({"сделка", "authority", "деньги", "аукцион"}),
         ),
@@ -93,7 +93,7 @@ DEFAULT_PLATFORM_KNOWLEDGE = KnowledgeStore(
             ),
             version="platform-knowledge.2026-07-18.1",
             source_uri="repo://apps/api/auth/memberships",
-            effective_at=datetime(2026, 7, 18, tzinfo=timezone.utc),
+            effective_at=datetime(2026, 7, 18, tzinfo=UTC),
             trust_score=1.0,
             tags=frozenset({"роль", "tenant", "доступ", "membership"}),
         ),
@@ -107,7 +107,7 @@ DEFAULT_PLATFORM_KNOWLEDGE = KnowledgeStore(
             ),
             version="platform-knowledge.2026-07-18.1",
             source_uri="repo://docs/platform-v7/canonical-deal-flow",
-            effective_at=datetime(2026, 7, 18, tzinfo=timezone.utc),
+            effective_at=datetime(2026, 7, 18, tzinfo=UTC),
             trust_score=1.0,
             tags=frozenset({"этапы", "сделка", "логистика", "лаборатория"}),
         ),
