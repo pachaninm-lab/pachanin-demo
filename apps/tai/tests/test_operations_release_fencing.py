@@ -1,5 +1,5 @@
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -45,15 +45,17 @@ def _assessment(*, head: str = HEAD, assessed_at: datetime = NOW) -> SLOAssessme
     )
 
 
-def test_readiness_rejects_slo_assessment_from_other_exact_head() -> None:
-    authority = OperationalReadinessAuthority(
+def _authority() -> OperationalReadinessAuthority:
+    return OperationalReadinessAuthority(
         OperationalReadinessPolicy(
             required_evidence=frozenset(),
             required_indicators=frozenset({OperationalIndicator.AVAILABILITY}),
         )
     )
 
-    decision = authority.decide(
+
+def test_readiness_rejects_slo_assessment_from_other_exact_head() -> None:
+    decision = _authority().decide(
         release_id="tai.release.head-fencing",
         exact_head_sha=HEAD,
         evidence=(),
@@ -63,6 +65,19 @@ def test_readiness_rejects_slo_assessment_from_other_exact_head() -> None:
 
     assert decision.accepted is False
     assert decision.reasons == ("SLO_EXACT_HEAD_MISMATCH",)
+
+
+def test_readiness_rejects_slo_assessment_from_future() -> None:
+    decision = _authority().decide(
+        release_id="tai.release.future-assessment",
+        exact_head_sha=HEAD,
+        evidence=(),
+        assessments=(_assessment(assessed_at=NOW + timedelta(seconds=1)),),
+        decided_at=NOW,
+    )
+
+    assert decision.accepted is False
+    assert decision.reasons == ("SLO_ASSESSMENT_FROM_FUTURE",)
 
 
 def test_slo_assessment_digest_detects_field_tampering() -> None:
