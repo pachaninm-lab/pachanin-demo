@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "tai.exact-main-evidence.v1",
+  "stage": "AP-09",
+  "repository": "pachaninm-lab/pachanin-demo",
+  "pullRequest": 2735,
+  "exactHeadSha": "5bc97b73ad4d99a269eac0101e6b550d13303df7",
+  "mergeCommitSha": "297149187c552ba8a19057bb80f8bdbd002d9e7b",
+  "mergedAt": "2026-07-18T11:42:09Z",
+  "reviewThreads": {
+    "total": 0,
+    "unresolved": 0
+  },
+  "taiFoundation": {
+    "runId": 29643017090,
+    "event": "push",
+    "conclusion": "success",
+    "python": "3.12.13",
+    "ruff": "success",
+    "mypy": "success",
+    "tests": {
+      "passed": 245,
+      "failed": 0
+    },
+    "coveragePercent": 93.23,
+    "artifacts": [
+      {
+        "id": 8429188466,
+        "name": "tai-ruff-297149187c552ba8a19057bb80f8bdbd002d9e7b",
+        "zipSha256": "a6a760f1df7a1ea9da4a21a57c925b7e5babc7ede344556d392d935e68d7417b"
+      },
+      {
+        "id": 8429189191,
+        "name": "tai-mypy-297149187c552ba8a19057bb80f8bdbd002d9e7b",
+        "zipSha256": "8aad8389be64a843b9f3c604ab545e3aa88cceba31c4977cae5e572c8305db9c"
+      },
+      {
+        "id": 8429189925,
+        "name": "tai-pytest-297149187c552ba8a19057bb80f8bdbd002d9e7b",
+        "zipSha256": "de16d6fbea472fff5b0e4a481a47a9216566d3d6f0c122b1dcec0e4534911ada"
+      }
+    ]
+  },
+  "requiredExactMainWorkflows": [
+    {"name": "TAI Foundation", "runId": 29643017090, "conclusion": "success"},
+    {"name": "CI", "runId": 29643017076, "conclusion": "success"},
+    {"name": "Node CI", "runId": 29643017139, "conclusion": "success"},
+    {"name": "Security Quality Gate", "runId": 29643017138, "conclusion": "success"},
+    {"name": "Security Abuse and Evidence Acceptance", "runId": 29643017079, "conclusion": "success"},
+    {"name": "Runtime Context Security Gate", "runId": 29643017101, "conclusion": "success"},
+    {"name": "Security Scan", "runId": 29643017077, "conclusion": "success"},
+    {"name": "Auction Atomic Execution Acceptance", "runId": 29643017142, "conclusion": "success"},
+    {"name": "Outbox PostgreSQL Authority Acceptance", "runId": 29643017131, "conclusion": "success"},
+    {"name": "Disputes PostgreSQL Authority Acceptance", "runId": 29643017100, "conclusion": "success"},
+    {"name": "Optional Runtime Retirement Gate", "runId": 29643017083, "conclusion": "success"}
+  ],
+  "accepted": true,
+  "maturity": "ARCHITECTURAL_CORE_ONLY",
+  "remainingAcceptance": [
+    "real-model-and-data-integration",
+    "unified-orchestration-runtime",
+    "security-and-legal-acceptance",
+    "load-fault-restore-soak",
+    "end-to-end-release-acceptance"
+  ]
+}
