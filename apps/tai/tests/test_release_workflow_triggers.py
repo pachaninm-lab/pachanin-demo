@@ -4,7 +4,6 @@ from pathlib import Path
 
 from tai.release_acceptance import DEFAULT_REQUIRED_WORKFLOWS
 
-
 _WORKFLOW_FILES = {
     "Auction Atomic Execution Acceptance": "auction-atomic-acceptance.yml",
     "CI": "ci.yml",
