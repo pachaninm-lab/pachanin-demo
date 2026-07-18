@@ -492,6 +492,26 @@ def test_argument_and_plan_budgets_fail_closed() -> None:
     )
 
 
+def test_preflight_rejects_authority_fields_policy_and_missing_handlers() -> None:
+    handler = _Handler()
+    runtime = _runtime({"getDealSummary": handler})
+
+    with pytest.raises(PolicyDenied, match="reserved authority field"):
+        runtime.preflight(
+            _plan(_call(arguments={"deal": {"tenantId": str(OTHER_ID)}})),
+            identity=_identity(),
+        )
+    with pytest.raises(PolicyDenied, match="role is not authorized"):
+        runtime.preflight(
+            _plan(_call(tool_name="getRoleNextActions")),
+            identity=_identity(roles=frozenset({"driver"})),
+        )
+    with pytest.raises(PolicyDenied, match="no registered executor"):
+        _runtime({}).preflight(_plan(), identity=_identity())
+
+    assert handler.calls == []
+
+
 def test_identifiers_plan_registry_and_policy_validation() -> None:
     with pytest.raises(ValueError, match="call_id"):
         _call(call_id="bad id")

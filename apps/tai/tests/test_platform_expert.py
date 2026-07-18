@@ -12,26 +12,23 @@ client = TestClient(app)
 
 
 def test_platform_expert_returns_grounded_answer() -> None:
-    response = client.post(
-        "/v1/platform/answer",
-        json={"question": "Как определяется роль пользователя?"},
+    answer = expert.answer_platform_question(
+        expert.PlatformQuestion(
+            question="Как определяется роль пользователя?",
+            tenant_id=None,
+        )
     )
 
-    assert response.status_code == 200
-    body = response.json()
-    assert body["metadata"]["grounded"] is True
-    assert body["sources"][0]["source_id"] == "platform.roles.server-authoritative"
-    assert body["model_route"] == "deterministic-retrieval-v1"
+    assert answer.metadata["grounded"] is True
+    assert answer.sources[0].source_id == "platform.roles.server-authoritative"
+    assert answer.model_route == "deterministic-retrieval-v1"
 
 
 def test_unknown_question_is_not_hallucinated() -> None:
-    response = client.post(
-        "/v1/platform/answer",
-        json={"question": "квантовая телепортация"},
-    )
-
-    assert response.status_code == 422
-    assert response.json()["detail"] == "no verified platform knowledge found"
+    with pytest.raises(expert.GroundingError, match="no verified platform knowledge"):
+        expert.answer_platform_question(
+            expert.PlatformQuestion(question="квантовая телепортация", tenant_id=None)
+        )
 
 
 def test_tenant_record_isolated_from_other_tenant() -> None:
@@ -73,5 +70,22 @@ def test_health_reports_runtime_and_knowledge_state() -> None:
 
     assert live.status_code == 200
     assert live.json() == {"status": "ok"}
-    assert ready.status_code == 200
-    assert ready.json()["knowledge"] == "platform-knowledge.2026-07-18.1"
+    assert ready.status_code == 503
+    assert ready.json()["status"] == "not_ready"
+    assert ready.json()["orchestration"] == "unconfigured"
+
+
+def test_default_entrypoint_fails_closed_without_runtime_or_identity_authority() -> None:
+    response = client.post(
+        "/v1/platform/answer",
+        json={
+            "request_id": "request-unconfigured",
+            "question": "Как определяется роль пользователя?",
+            "locale": "ru",
+            "deadline_ms": 60_000,
+        },
+        headers={"Idempotency-Key": "idempotency-unconfigured"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "RUNTIME_NOT_CONFIGURED"
