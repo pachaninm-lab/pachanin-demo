@@ -15,15 +15,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'scripts/platform-v7-*'
-      - 'docs/platform-v7/production-database-deployment-runbook.md'
-      - '.github/workflows/ci.yml'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'tsconfig*.json'
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
