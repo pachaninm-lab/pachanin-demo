@@ -80,6 +80,34 @@ def test_readiness_rejects_slo_assessment_from_future() -> None:
     assert decision.reasons == ("SLO_ASSESSMENT_FROM_FUTURE",)
 
 
+def test_combined_slo_fencing_reasons_are_stable() -> None:
+    assessment = _assessment(
+        head=OTHER_HEAD,
+        assessed_at=NOW + timedelta(seconds=1),
+    )
+
+    first = _authority().decide(
+        release_id="tai.release.combined-fencing",
+        exact_head_sha=HEAD,
+        evidence=(),
+        assessments=(assessment,),
+        decided_at=NOW,
+    )
+    second = _authority().decide(
+        release_id="tai.release.combined-fencing",
+        exact_head_sha=HEAD,
+        evidence=(),
+        assessments=(assessment,),
+        decided_at=NOW,
+    )
+
+    assert first == second
+    assert first.reasons == (
+        "SLO_EXACT_HEAD_MISMATCH",
+        "SLO_ASSESSMENT_FROM_FUTURE",
+    )
+
+
 def test_slo_assessment_digest_detects_field_tampering() -> None:
     assessment = _assessment()
 
