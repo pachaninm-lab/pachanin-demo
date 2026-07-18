@@ -46,7 +46,23 @@ jobs:
           path: apps/tai/ruff-report.json
           if-no-files-found: error
           retention-days: 14
-      - run: mypy tai
+      - name: Mypy
+        id: mypy
+        shell: bash
+        run: |
+          set +e
+          mypy tai --show-error-codes --no-color-output > mypy-report.txt 2>&1
+          status=$?
+          cat mypy-report.txt
+          exit "$status"
+      - name: Upload mypy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-mypy-${{ github.sha }}
+          path: apps/tai/mypy-report.txt
+          if-no-files-found: error
+          retention-days: 14
       - run: pytest --cov=tai --cov-report=term-missing --cov-fail-under=90
 
   free-access-architecture:
