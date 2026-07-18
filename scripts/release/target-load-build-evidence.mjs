@@ -37,49 +37,78 @@ function deployment(name) {
 const observed = {
   sessions: {
     iterations: count('sessions'),
+    achievedRps: rate('sessions', 'iterations'),
+    maxVUs: Number(metric('sessions', 'vus_max', 'max', 0)),
+    httpErrorRate: rate('sessions', 'http_req_failed'),
     unexpectedErrorRate: rate('sessions', 'unexpected_errors'),
   },
   isolation: {
     iterations: count('isolation'),
+    achievedRps: rate('isolation', 'iterations'),
+    maxVUs: Number(metric('isolation', 'vus_max', 'max', 0)),
     leakageCount: count('isolation', 'tenant_leakage'),
+    httpErrorRate: rate('isolation', 'http_req_failed'),
     unexpectedErrorRate: rate('isolation', 'unexpected_errors'),
   },
   sustained: {
     iterations: count('sustained'),
+    achievedRps: rate('sustained', 'iterations'),
+    maxVUs: Number(metric('sustained', 'vus_max', 'max', 0)),
     droppedIterations: count('sustained', 'dropped_iterations'),
+    p50ReadMs: Number(metric('sustained', 'authoritative_read_duration', 'med', Number.POSITIVE_INFINITY)),
     p95ReadMs: p95('sustained', 'authoritative_read_duration'),
     p99ReadMs: Number(metric('sustained', 'authoritative_read_duration', 'p(99)', Number.POSITIVE_INFINITY)),
+    httpErrorRate: rate('sustained', 'http_req_failed'),
     unexpectedErrorRate: rate('sustained', 'unexpected_errors'),
     durationMs: Number(summaries.sustained.state?.testRunDurationMs ?? 0),
   },
   burst: {
     iterations: count('burst'),
+    achievedRps: rate('burst', 'iterations'),
+    maxVUs: Number(metric('burst', 'vus_max', 'max', 0)),
     droppedIterations: count('burst', 'dropped_iterations'),
+    p50ReadMs: Number(metric('burst', 'authoritative_read_duration', 'med', Number.POSITIVE_INFINITY)),
     p95ReadMs: p95('burst', 'authoritative_read_duration'),
     p99ReadMs: Number(metric('burst', 'authoritative_read_duration', 'p(99)', Number.POSITIVE_INFINITY)),
+    httpErrorRate: rate('burst', 'http_req_failed'),
     unexpectedErrorRate: rate('burst', 'unexpected_errors'),
     durationMs: Number(summaries.burst.state?.testRunDurationMs ?? 0),
   },
   commands: {
     iterations: count('commands'),
+    achievedRps: rate('commands', 'iterations'),
+    maxVUs: Number(metric('commands', 'vus_max', 'max', 0)),
     accepted: count('commands', 'command_accepted'),
     droppedIterations: count('commands', 'dropped_iterations'),
+    p50Ms: Number(metric('commands', 'authoritative_command_duration', 'med', Number.POSITIVE_INFINITY)),
     p95Ms: p95('commands', 'authoritative_command_duration'),
+    p99Ms: Number(metric('commands', 'authoritative_command_duration', 'p(99)', Number.POSITIVE_INFINITY)),
+    httpErrorRate: rate('commands', 'http_req_failed'),
     unexpectedErrorRate: rate('commands', 'unexpected_errors'),
   },
   auction: {
     iterations: count('auction'),
+    achievedRps: rate('auction', 'iterations'),
+    maxVUs: Number(metric('auction', 'vus_max', 'max', 0)),
     accepted: count('auction', 'auction_accepted'),
     expectedConflicts: count('auction', 'auction_expected_conflicts'),
     droppedIterations: count('auction', 'dropped_iterations'),
+    p50Ms: Number(metric('auction', 'auction_command_duration', 'med', Number.POSITIVE_INFINITY)),
     p95Ms: p95('auction', 'auction_command_duration'),
+    p99Ms: Number(metric('auction', 'auction_command_duration', 'p(99)', Number.POSITIVE_INFINITY)),
+    httpErrorRate: rate('auction', 'http_req_failed'),
     unexpectedErrorRate: rate('auction', 'unexpected_errors'),
   },
   callbacks: {
     iterations: count('callbacks'),
+    achievedRps: rate('callbacks', 'iterations'),
+    maxVUs: Number(metric('callbacks', 'vus_max', 'max', 0)),
     accepted: count('callbacks', 'callback_accepted'),
     droppedIterations: count('callbacks', 'dropped_iterations'),
+    p50Ms: Number(metric('callbacks', 'bank_callback_duration', 'med', Number.POSITIVE_INFINITY)),
     p95Ms: p95('callbacks', 'bank_callback_duration'),
+    p99Ms: Number(metric('callbacks', 'bank_callback_duration', 'p(99)', Number.POSITIVE_INFINITY)),
+    httpErrorRate: rate('callbacks', 'http_req_failed'),
     unexpectedErrorRate: rate('callbacks', 'unexpected_errors'),
   },
 };
@@ -110,28 +139,47 @@ const require = (condition, code, details) => { if (!condition) violations.push(
 const atLeast = (actual, expected) => actual >= Math.floor(expected * 0.99);
 
 require(observed.sessions.iterations >= thresholds.activeSessions, 'SESSION_CONCURRENCY_NOT_PROVEN', observed.sessions);
+require(observed.sessions.maxVUs >= thresholds.activeSessions, 'SESSION_VU_CONCURRENCY_NOT_PROVEN', observed.sessions);
+require(observed.sessions.httpErrorRate < thresholds.unexpectedErrorRate, 'SESSION_HTTP_ERROR_RATE_EXCEEDED', observed.sessions);
 require(observed.sessions.unexpectedErrorRate < thresholds.unexpectedErrorRate, 'SESSION_ERROR_RATE_EXCEEDED', observed.sessions);
 require(observed.isolation.iterations >= 1000, 'TENANT_ISOLATION_SAMPLE_INCOMPLETE', observed.isolation);
 require(observed.isolation.leakageCount === 0, 'TENANT_LEAKAGE_DETECTED', observed.isolation);
+require(observed.isolation.httpErrorRate < thresholds.unexpectedErrorRate, 'ISOLATION_HTTP_ERROR_RATE_EXCEEDED', observed.isolation);
+require(observed.isolation.unexpectedErrorRate < thresholds.unexpectedErrorRate, 'ISOLATION_ERROR_RATE_EXCEEDED', observed.isolation);
 require(atLeast(observed.sustained.iterations, thresholds.sustainedRps * thresholds.sustainedSeconds), 'SUSTAINED_RATE_NOT_ACHIEVED', observed.sustained);
 require(observed.sustained.droppedIterations === 0, 'SUSTAINED_DROPPED_ITERATIONS', observed.sustained);
 require(observed.sustained.p95ReadMs <= thresholds.readP95Ms, 'SUSTAINED_READ_P95_EXCEEDED', observed.sustained);
+require(observed.sustained.achievedRps >= thresholds.sustainedRps * 0.99, 'SUSTAINED_RPS_NOT_ACHIEVED', observed.sustained);
+require(Number.isFinite(observed.sustained.p50ReadMs) && Number.isFinite(observed.sustained.p95ReadMs) && Number.isFinite(observed.sustained.p99ReadMs), 'SUSTAINED_LATENCY_DISTRIBUTION_MISSING', observed.sustained);
+require(observed.sustained.httpErrorRate < thresholds.unexpectedErrorRate, 'SUSTAINED_HTTP_ERROR_RATE_EXCEEDED', observed.sustained);
 require(observed.sustained.unexpectedErrorRate < thresholds.unexpectedErrorRate, 'SUSTAINED_ERROR_RATE_EXCEEDED', observed.sustained);
 require(atLeast(observed.burst.iterations, thresholds.burstRps * thresholds.burstSeconds), 'BURST_RATE_NOT_ACHIEVED', observed.burst);
 require(observed.burst.droppedIterations === 0, 'BURST_DROPPED_ITERATIONS', observed.burst);
 require(observed.burst.p95ReadMs <= thresholds.readP95Ms, 'BURST_READ_P95_EXCEEDED', observed.burst);
+require(observed.burst.achievedRps >= thresholds.burstRps * 0.99, 'BURST_RPS_NOT_ACHIEVED', observed.burst);
+require(Number.isFinite(observed.burst.p50ReadMs) && Number.isFinite(observed.burst.p95ReadMs) && Number.isFinite(observed.burst.p99ReadMs), 'BURST_LATENCY_DISTRIBUTION_MISSING', observed.burst);
+require(observed.burst.httpErrorRate < thresholds.unexpectedErrorRate, 'BURST_HTTP_ERROR_RATE_EXCEEDED', observed.burst);
 require(observed.burst.unexpectedErrorRate < thresholds.unexpectedErrorRate, 'BURST_ERROR_RATE_EXCEEDED', observed.burst);
 require(atLeast(observed.commands.iterations, 150 * 240), 'COMMAND_RATE_NOT_ACHIEVED', observed.commands);
 require(observed.commands.accepted === observed.commands.iterations, 'COMMAND_ACCEPTANCE_GAP', observed.commands);
 require(observed.commands.p95Ms <= thresholds.commandP95Ms, 'COMMAND_P95_EXCEEDED', observed.commands);
+require(observed.commands.achievedRps >= 150 * 0.99, 'COMMAND_RPS_NOT_ACHIEVED', observed.commands);
+require(Number.isFinite(observed.commands.p50Ms) && Number.isFinite(observed.commands.p95Ms) && Number.isFinite(observed.commands.p99Ms), 'COMMAND_LATENCY_DISTRIBUTION_MISSING', observed.commands);
+require(observed.commands.httpErrorRate < thresholds.unexpectedErrorRate, 'COMMAND_HTTP_ERROR_RATE_EXCEEDED', observed.commands);
 require(observed.commands.unexpectedErrorRate < thresholds.unexpectedErrorRate, 'COMMAND_ERROR_RATE_EXCEEDED', observed.commands);
 require(atLeast(observed.auction.iterations, thresholds.auctionAttemptsPerSecond * thresholds.auctionSeconds), 'AUCTION_ATTEMPT_RATE_NOT_ACHIEVED', observed.auction);
 require(observed.auction.accepted + observed.auction.expectedConflicts === observed.auction.iterations, 'AUCTION_UNCLASSIFIED_RESULTS', observed.auction);
 require(observed.auction.p95Ms <= thresholds.commandP95Ms, 'AUCTION_P95_EXCEEDED', observed.auction);
+require(observed.auction.achievedRps >= thresholds.auctionAttemptsPerSecond * 0.99, 'AUCTION_RPS_NOT_ACHIEVED', observed.auction);
+require(Number.isFinite(observed.auction.p50Ms) && Number.isFinite(observed.auction.p95Ms) && Number.isFinite(observed.auction.p99Ms), 'AUCTION_LATENCY_DISTRIBUTION_MISSING', observed.auction);
+require(observed.auction.httpErrorRate < thresholds.unexpectedErrorRate, 'AUCTION_HTTP_ERROR_RATE_EXCEEDED', observed.auction);
 require(observed.auction.unexpectedErrorRate < thresholds.unexpectedErrorRate, 'AUCTION_ERROR_RATE_EXCEEDED', observed.auction);
 require(atLeast(observed.callbacks.iterations, thresholds.callbackAttemptsPerSecond * thresholds.callbackSeconds), 'CALLBACK_RATE_NOT_ACHIEVED', observed.callbacks);
 require(observed.callbacks.accepted === observed.callbacks.iterations, 'CALLBACK_ACCEPTANCE_GAP', observed.callbacks);
 require(observed.callbacks.p95Ms <= thresholds.commandP95Ms, 'CALLBACK_P95_EXCEEDED', observed.callbacks);
+require(observed.callbacks.achievedRps >= thresholds.callbackAttemptsPerSecond * 0.99, 'CALLBACK_RPS_NOT_ACHIEVED', observed.callbacks);
+require(Number.isFinite(observed.callbacks.p50Ms) && Number.isFinite(observed.callbacks.p95Ms) && Number.isFinite(observed.callbacks.p99Ms), 'CALLBACK_LATENCY_DISTRIBUTION_MISSING', observed.callbacks);
+require(observed.callbacks.httpErrorRate < thresholds.unexpectedErrorRate, 'CALLBACK_HTTP_ERROR_RATE_EXCEEDED', observed.callbacks);
 require(observed.callbacks.unexpectedErrorRate < thresholds.unexpectedErrorRate, 'CALLBACK_ERROR_RATE_EXCEEDED', observed.callbacks);
 
 require(Number(db.activeSessions) === thresholds.activeSessions, 'ACTIVE_SESSION_COUNT_MISMATCH', db.activeSessions);
@@ -195,4 +243,32 @@ const evidence = {
 };
 
 fs.writeFileSync(outputPath, `${JSON.stringify(evidence, null, 2)}\n`);
-console.log(JSON.stringify({ outputPath, decision: evidence.decision, violationCount: violations.length }, null, 2));
+
+const junitPath = path.join(evidenceDir, 'target-load-acceptance.junit.xml');
+const xmlEscape = (value) => String(value)
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&apos;');
+const cases = violations.length === 0
+  ? ['  <testcase classname="industrial-readiness.load" name="target-load-and-burst-acceptance"/>']
+  : violations.map((violation) => [
+      `  <testcase classname="industrial-readiness.load" name="${xmlEscape(violation.code)}">`,
+      `    <failure message="${xmlEscape(violation.code)}">${xmlEscape(JSON.stringify(violation.details))}</failure>`,
+      '  </testcase>',
+    ].join('\n'));
+fs.writeFileSync(junitPath, [
+  '<?xml version="1.0" encoding="UTF-8"?>',
+  `<testsuite name="target-load-and-burst-acceptance" tests="${cases.length}" failures="${violations.length}" time="0">`,
+  ...cases,
+  '</testsuite>',
+  '',
+].join('\n'));
+
+console.log(JSON.stringify({
+  outputPath,
+  junitPath,
+  decision: evidence.decision,
+  violationCount: violations.length,
+}, null, 2));
