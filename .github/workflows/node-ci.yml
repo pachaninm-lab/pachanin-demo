@@ -3,11 +3,6 @@ name: Node CI
 on:
   push:
     branches: [main]
-    paths:
-      - 'apps/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'tsconfig*.json'
   pull_request:
     branches: [main]
     paths:
@@ -15,6 +10,7 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'tsconfig*.json'
+      - '.github/workflows/node-ci.yml'
   workflow_dispatch:
 
 concurrency:
