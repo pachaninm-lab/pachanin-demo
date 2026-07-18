@@ -18,6 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify dependency audit policy parser
+        run: node --test scripts/validate-pnpm-audit.test.mjs
+
       # The review API only works when the dependency graph is enabled in
       # repository settings. Probe first so a disabled graph surfaces as a
       # visible warning instead of a permanently red required-looking check.
@@ -63,12 +66,24 @@ jobs:
           set -euo pipefail
           corepack enable
           pnpm install --frozen-lockfile
+          : > pnpm-audit.json
           set +e
-          pnpm audit --prod --audit-level critical --json > pnpm-audit.json
-          status=$?
+          pnpm audit --prod --json > pnpm-audit.json
+          audit_status=$?
           set -e
+          printf '%s\n' "$audit_status" > pnpm-audit-exit-status.txt
+
+          : > pnpm-audit-policy.json
+          set +e
+          node scripts/validate-pnpm-audit.mjs \
+            pnpm-audit.json \
+            "$audit_status" \
+            > pnpm-audit-policy.json
+          policy_status=$?
+          set -e
+          printf '%s\n' "$policy_status" > pnpm-audit-policy-status.txt
           cat pnpm-audit.json
-          exit "$status"
+          cat pnpm-audit-policy.json
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -98,15 +113,72 @@ jobs:
           PY
           python -m pip install --upgrade pip
           python -m pip install 'pip-audit>=2.9,<3'
+          : > python-audit.json
           set +e
           pip-audit \
             --requirement tai-runtime-requirements.txt \
             --format json \
             --output python-audit.json
-          status=$?
+          audit_status=$?
           set -e
+          printf '%s\n' "$audit_status" > python-audit-exit-status.txt
           cat python-audit.json
-          exit "$status"
+
+      - name: Enforce exact-main dependency policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test scripts/validate-pnpm-audit.test.mjs
+          node_policy_status="$(tr -d '\n' < pnpm-audit-policy-status.txt)"
+          python_audit_status="$(tr -d '\n' < python-audit-exit-status.txt)"
+          python - "$node_policy_status" "$python_audit_status" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          node_policy_status = int(sys.argv[1])
+          python_audit_status = int(sys.argv[2])
+          if node_policy_status != 0:
+              raise SystemExit(
+                  f'Node dependency policy rejected or report was invalid: {node_policy_status}'
+              )
+
+          node_policy = json.loads(Path('pnpm-audit-policy.json').read_text())
+          if node_policy.get('accepted') is not True:
+              raise SystemExit('Node dependency policy result is not accepted')
+          if node_policy.get('policy') != 'critical-only':
+              raise SystemExit('Node dependency policy identifier mismatch')
+          if node_policy.get('vulnerabilities', {}).get('critical') != 0:
+              raise SystemExit('Critical Node vulnerability count is not zero')
+
+          if python_audit_status != 0:
+              raise SystemExit(
+                  f'Python dependency audit rejected or failed operationally: {python_audit_status}'
+              )
+          python_report = json.loads(Path('python-audit.json').read_text())
+          dependencies = python_report.get('dependencies')
+          if not isinstance(dependencies, list) or not dependencies:
+              raise SystemExit('Python dependency audit inventory is empty or invalid')
+          vulnerable = [
+              dependency
+              for dependency in dependencies
+              if dependency.get('vulns')
+          ]
+          if vulnerable:
+              raise SystemExit('Python dependency audit contains vulnerabilities')
+
+          summary = {
+              'accepted': True,
+              'node_policy': node_policy,
+              'python_dependency_count': len(dependencies),
+              'python_vulnerable_dependency_count': 0,
+              'schema_version': 'tai.dependency.audit.v1',
+          }
+          Path('dependency-policy-summary.json').write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + '\n'
+          )
+          print(json.dumps(summary, sort_keys=True))
+          PY
 
       - name: Upload exact-main dependency evidence
         if: always()
@@ -114,8 +186,13 @@ jobs:
         with:
           name: dependency-audit-${{ github.sha }}
           path: |
+            dependency-policy-summary.json
+            pnpm-audit-exit-status.txt
+            pnpm-audit-policy-status.txt
+            pnpm-audit-policy.json
             pnpm-audit.json
+            python-audit-exit-status.txt
             python-audit.json
             tai-runtime-requirements.txt
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 90
