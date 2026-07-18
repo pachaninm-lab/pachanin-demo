@@ -129,11 +129,7 @@ def _incident_event(
     severity: IncidentSeverity = IncidentSeverity.SEV1,
     occurred_at: datetime = NOW,
 ) -> IncidentEvent:
-    kind = (
-        IncidentEventKind.OPENED
-        if sequence == 1
-        else IncidentEventKind.ACKNOWLEDGED
-    )
+    kind = IncidentEventKind.OPENED if sequence == 1 else IncidentEventKind.ACKNOWLEDGED
     digest = incident_event_sha256(
         incident_id=INCIDENT_ID,
         sequence=sequence,
@@ -160,9 +156,7 @@ def _incident_event(
 def test_observation_evidence_and_decision_are_idempotent() -> None:
     observation_factory = _Factory([{"observation_id": "obs.availability"}])
     evidence_factory = _Factory([{"evidence_id": "evidence.security"}])
-    decision_factory = _Factory(
-        [{"release_id": "tai.release.10", "decision_sha256": "e" * 64}]
-    )
+    decision_factory = _Factory([{"release_id": "tai.release.10", "decision_sha256": "e" * 64}])
 
     PostgreSQLOperationsRepository(observation_factory).record_observation(_observation())
     PostgreSQLOperationsRepository(evidence_factory).record_evidence(_evidence())
@@ -294,7 +288,10 @@ def test_legal_hold_create_update_and_validation() -> None:
 
     assert created == 1
     assert updated == 2
-    assert "INSERT INTO tai_retention_holds" in create_factory.connection.cursor_instance.executions[0][0]
+    assert (
+        "INSERT INTO tai_retention_holds"
+        in create_factory.connection.cursor_instance.executions[0][0]
+    )
     assert "version = version + 1" in update_factory.connection.cursor_instance.executions[0][0]
     with pytest.raises(ValueError, match="requires a reason"):
         PostgreSQLOperationsRepository(_Factory([])).set_legal_hold(

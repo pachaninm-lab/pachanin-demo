@@ -87,9 +87,7 @@ def _assessment(
     value = 1.0 if status is not SLOAssessmentStatus.UNKNOWN else None
     reason = None if status is not SLOAssessmentStatus.UNKNOWN else "MISSING_OBSERVATION"
     observation_id = (
-        f"obs.{indicator.value.casefold()}"
-        if status is not SLOAssessmentStatus.UNKNOWN
-        else None
+        f"obs.{indicator.value.casefold()}" if status is not SLOAssessmentStatus.UNKNOWN else None
     )
     digest = slo_assessment_sha256(
         slo_id=slo_id,
@@ -117,6 +115,7 @@ def _assessment(
         assessment_sha256=digest,
     )
 
+
 def _evidence(kind: EvidenceKind, *, accepted: bool = True) -> OperationalEvidence:
     return OperationalEvidence(
         evidence_id=f"evidence.{kind.value.casefold()}",
@@ -134,9 +133,15 @@ def _evidence(kind: EvidenceKind, *, accepted: bool = True) -> OperationalEviden
 def test_slo_assessment_pass_at_risk_and_breach() -> None:
     definition = _definition()
 
-    passed = assess_slo(definition, _observation(definition, value=99.99), exact_head_sha=HEAD, assessed_at=NOW)
-    at_risk = assess_slo(definition, _observation(definition, value=99.92), exact_head_sha=HEAD, assessed_at=NOW)
-    breached = assess_slo(definition, _observation(definition, value=99.8), exact_head_sha=HEAD, assessed_at=NOW)
+    passed = assess_slo(
+        definition, _observation(definition, value=99.99), exact_head_sha=HEAD, assessed_at=NOW
+    )
+    at_risk = assess_slo(
+        definition, _observation(definition, value=99.92), exact_head_sha=HEAD, assessed_at=NOW
+    )
+    breached = assess_slo(
+        definition, _observation(definition, value=99.8), exact_head_sha=HEAD, assessed_at=NOW
+    )
 
     assert passed.status is SLOAssessmentStatus.PASS
     assert at_risk.status is SLOAssessmentStatus.AT_RISK
@@ -152,9 +157,24 @@ def test_maximum_threshold_direction() -> None:
         warning_margin=0.1,
     )
 
-    assert assess_slo(definition, _observation(definition, value=0.1), exact_head_sha=HEAD, assessed_at=NOW).status is SLOAssessmentStatus.PASS
-    assert assess_slo(definition, _observation(definition, value=0.45), exact_head_sha=HEAD, assessed_at=NOW).status is SLOAssessmentStatus.AT_RISK
-    assert assess_slo(definition, _observation(definition, value=0.6), exact_head_sha=HEAD, assessed_at=NOW).status is SLOAssessmentStatus.BREACHED
+    assert (
+        assess_slo(
+            definition, _observation(definition, value=0.1), exact_head_sha=HEAD, assessed_at=NOW
+        ).status
+        is SLOAssessmentStatus.PASS
+    )
+    assert (
+        assess_slo(
+            definition, _observation(definition, value=0.45), exact_head_sha=HEAD, assessed_at=NOW
+        ).status
+        is SLOAssessmentStatus.AT_RISK
+    )
+    assert (
+        assess_slo(
+            definition, _observation(definition, value=0.6), exact_head_sha=HEAD, assessed_at=NOW
+        ).status
+        is SLOAssessmentStatus.BREACHED
+    )
 
 
 @pytest.mark.parametrize(
@@ -319,9 +339,7 @@ def test_incident_hash_chain_reaches_closed_only_after_verified_mitigation_and_p
     postmortem = _event(6, IncidentEventKind.POSTMORTEM_ATTACHED, previous=resolved)
     closed = _event(7, IncidentEventKind.CLOSED, previous=postmortem)
 
-    state = replay_incident(
-        (opened, acknowledged, started, verified, resolved, postmortem, closed)
-    )
+    state = replay_incident((opened, acknowledged, started, verified, resolved, postmortem, closed))
 
     assert state.status is IncidentStatus.CLOSED
     assert state.mitigation_verified is True
