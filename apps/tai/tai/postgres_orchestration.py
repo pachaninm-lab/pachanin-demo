@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import threading
 from collections.abc import Mapping, Sequence
+from datetime import timedelta
 from typing import Any, cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import TypeAdapter
 
@@ -164,7 +166,21 @@ class PostgreSQLOrchestrationIdempotencyRepository(_PostgreSQLRepository):
 
 
 class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
-    """Distributed single-executor authority for confirmed prepared actions."""
+    """Leased and fenced single-executor authority for confirmed actions."""
+
+    def __init__(
+        self,
+        connection_factory: ConnectionFactory,
+        *,
+        execution_lease: timedelta = timedelta(minutes=5),
+    ) -> None:
+        super().__init__(connection_factory)
+        lease_seconds = int(execution_lease.total_seconds())
+        if not 1 <= lease_seconds <= 3_600:
+            raise ValueError("execution_lease must be between 1 second and 1 hour")
+        self._execution_lease_seconds = lease_seconds
+        self._execution_tokens: dict[UUID, UUID] = {}
+        self._execution_tokens_lock = threading.Lock()
 
     def save(self, prepared: StoredPreparedAction) -> None:
         confirmation = prepared.action.confirmation
@@ -217,6 +233,7 @@ class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
         return None if row is None else _stored_action_from_row(row)
 
     def claim(self, confirmation_id: UUID) -> PreparedActionClaim:
+        execution_token = uuid4()
         with self._connection_factory() as connection:
             try:
                 with connection.cursor() as cursor:
@@ -224,21 +241,42 @@ class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
                         """
                             UPDATE tai_prepared_actions
                             SET status = 'EXECUTING',
+                                execution_token = %s,
                                 execution_started_at = clock_timestamp(),
+                                execution_expires_at = clock_timestamp()
+                                    + (%s * INTERVAL '1 second'),
                                 version = version + 1,
                                 updated_at = clock_timestamp()
                             WHERE confirmation_id = %s
-                              AND status = 'PREPARED'
-                            RETURNING prepared_payload, result_payload, status
+                              AND (
+                                  status = 'PREPARED'
+                                  OR (
+                                      status = 'EXECUTING'
+                                      AND execution_expires_at <= clock_timestamp()
+                                  )
+                              )
+                            RETURNING
+                                prepared_payload,
+                                result_payload,
+                                status,
+                                execution_token
                         """,
-                        (confirmation_id,),
+                        (
+                            execution_token,
+                            self._execution_lease_seconds,
+                            confirmation_id,
+                        ),
                     )
                     row = cursor.fetchone()
                     claimed = row is not None
                     if row is None:
                         cursor.execute(
                             """
-                                SELECT prepared_payload, result_payload, status
+                                SELECT
+                                    prepared_payload,
+                                    result_payload,
+                                    status,
+                                    execution_token
                                 FROM tai_prepared_actions
                                 WHERE confirmation_id = %s
                             """,
@@ -249,6 +287,8 @@ class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
                     raise RuntimeError("prepared action does not exist")
                 prepared = _stored_action_from_row(row)
                 if claimed:
+                    if UUID(str(row["execution_token"])) != execution_token:
+                        raise RuntimeError("prepared action fencing token mismatch")
                     result = PreparedActionClaim(
                         PreparedActionClaimStatus.EXECUTE,
                         prepared,
@@ -272,6 +312,11 @@ class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
                     else:
                         raise RuntimeError("unknown prepared action status")
                 connection.commit()
+                if claimed:
+                    self._remember_execution_token(
+                        confirmation_id,
+                        execution_token,
+                    )
                 return result
             except Exception:
                 connection.rollback()
@@ -283,6 +328,7 @@ class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
         result: AgentExecutionResult,
     ) -> StoredPreparedAction:
         result_payload = _execution_payload(result)
+        execution_token = self._execution_token(confirmation_id)
         with self._connection_factory() as connection:
             try:
                 with connection.cursor() as cursor:
@@ -291,14 +337,23 @@ class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
                             UPDATE tai_prepared_actions
                             SET status = 'COMPLETED',
                                 result_payload = %s,
+                                execution_token = NULL,
+                                execution_expires_at = NULL,
                                 completed_at = %s,
                                 version = version + 1,
                                 updated_at = clock_timestamp()
                             WHERE confirmation_id = %s
                               AND status = 'EXECUTING'
+                              AND execution_token IS NOT DISTINCT FROM %s
+                              AND execution_expires_at > clock_timestamp()
                             RETURNING prepared_payload, result_payload, status
                         """,
-                        (result_payload, result.completed_at, confirmation_id),
+                        (
+                            result_payload,
+                            result.completed_at,
+                            confirmation_id,
+                            execution_token,
+                        ),
                     )
                     row = cursor.fetchone()
                     if row is None:
@@ -315,32 +370,54 @@ class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
                     raise RuntimeError("prepared action does not exist")
                 if str(row["status"]) != "COMPLETED":
                     raise RuntimeError(
-                        "prepared action completion requires an execution claim"
+                        "prepared action execution claim is stale or expired"
                     )
                 persisted = row["result_payload"]
                 if persisted is None or _json_object(persisted) != result_payload:
                     raise RuntimeError("prepared action result is immutable")
                 prepared = _stored_action_from_row(row)
                 connection.commit()
+                self._forget_execution_token(confirmation_id)
                 return prepared
             except Exception:
                 connection.rollback()
                 raise
 
     def abandon(self, confirmation_id: UUID) -> None:
+        execution_token = self._execution_token(confirmation_id)
         self._execute(
             """
                 UPDATE tai_prepared_actions
                 SET status = 'PREPARED',
+                    execution_token = NULL,
                     execution_started_at = NULL,
+                    execution_expires_at = NULL,
                     version = version + 1,
                     updated_at = clock_timestamp()
                 WHERE confirmation_id = %s
                   AND status = 'EXECUTING'
+                  AND execution_token IS NOT DISTINCT FROM %s
                   AND result_payload IS NULL
             """,
-            (confirmation_id,),
+            (confirmation_id, execution_token),
         )
+        self._forget_execution_token(confirmation_id)
+
+    def _remember_execution_token(
+        self,
+        confirmation_id: UUID,
+        execution_token: UUID,
+    ) -> None:
+        with self._execution_tokens_lock:
+            self._execution_tokens[confirmation_id] = execution_token
+
+    def _execution_token(self, confirmation_id: UUID) -> UUID | None:
+        with self._execution_tokens_lock:
+            return self._execution_tokens.get(confirmation_id)
+
+    def _forget_execution_token(self, confirmation_id: UUID) -> None:
+        with self._execution_tokens_lock:
+            self._execution_tokens.pop(confirmation_id, None)
 
 
 def _response_payload(response: OrchestrationResponse) -> dict[str, Any]:
