@@ -221,8 +221,8 @@ class _Connection:
         self,
         method: str,
         url: str,
-        body: bytes | None = None,
-        headers: Mapping[str, str] = {},
+        body: bytes | None,
+        headers: Mapping[str, str],
     ) -> None:
         self.requests.append((method, url, body, headers))
 
