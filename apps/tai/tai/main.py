@@ -1,3 +1,4 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import FastAPI, Header, HTTPException
@@ -33,7 +34,7 @@ def readiness() -> dict[str, str]:
 @app.post("/v1/platform/answer", response_model=AIResponse)
 def platform_answer(
     payload: PlatformAnswerRequest,
-    x_tenant_id: UUID | None = Header(default=None),
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
 ) -> AIResponse:
     try:
         return answer_platform_question(
