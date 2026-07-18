@@ -63,7 +63,32 @@ jobs:
           path: apps/tai/mypy-report.txt
           if-no-files-found: error
           retention-days: 14
-      - run: pytest --cov=tai --cov-report=term-missing --cov-fail-under=90
+      - name: Pytest and coverage
+        id: pytest
+        shell: bash
+        run: |
+          set +e
+          pytest \
+            --cov=tai \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --junitxml=pytest-report.xml \
+            --cov-fail-under=90 \
+            > pytest-output.txt 2>&1
+          status=$?
+          cat pytest-output.txt
+          exit "$status"
+      - name: Upload pytest and coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-pytest-${{ github.sha }}
+          path: |
+            apps/tai/pytest-output.txt
+            apps/tai/pytest-report.xml
+            apps/tai/coverage.xml
+          if-no-files-found: error
+          retention-days: 14
 
   free-access-architecture:
     runs-on: ubuntu-latest
