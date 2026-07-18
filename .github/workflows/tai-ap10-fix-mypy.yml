@@ -18,7 +18,7 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-      - name: Rename typed loop variables exactly
+      - name: Rename typed loop variables by line boundaries
         shell: bash
         run: |
           set -euo pipefail
@@ -26,48 +26,21 @@ jobs:
           from pathlib import Path
 
           path = Path('apps/tai/tai/operations.py')
-          text = path.read_text()
-          old_evidence = '''        for item in evidence_by_kind.values():
-              if item.exact_head_sha != exact_head_sha:
-                  reasons.append("EVIDENCE_EXACT_HEAD_MISMATCH")
-              if item.observed_at > decided_at:
-                  reasons.append("EVIDENCE_FROM_FUTURE")
-              if item.valid_until <= decided_at:
-                  reasons.append("EVIDENCE_EXPIRED")
-              if not item.accepted:
-                  reasons.append("EVIDENCE_REJECTED")
-          '''
-          new_evidence = '''        for evidence_item in evidence_by_kind.values():
-              if evidence_item.exact_head_sha != exact_head_sha:
-                  reasons.append("EVIDENCE_EXACT_HEAD_MISMATCH")
-              if evidence_item.observed_at > decided_at:
-                  reasons.append("EVIDENCE_FROM_FUTURE")
-              if evidence_item.valid_until <= decided_at:
-                  reasons.append("EVIDENCE_EXPIRED")
-              if not evidence_item.accepted:
-                  reasons.append("EVIDENCE_REJECTED")
-          '''
-          old_assessment = '''        for item in assessments_by_indicator.values():
-              if item.exact_head_sha != exact_head_sha:
-                  reasons.append("SLO_EXACT_HEAD_MISMATCH")
-              if item.assessed_at > decided_at:
-                  reasons.append("SLO_ASSESSMENT_FROM_FUTURE")
-          '''
-          new_assessment = '''        for assessment in assessments_by_indicator.values():
-              if assessment.exact_head_sha != exact_head_sha:
-                  reasons.append("SLO_EXACT_HEAD_MISMATCH")
-              if assessment.assessed_at > decided_at:
-                  reasons.append("SLO_ASSESSMENT_FROM_FUTURE")
-          '''
-          for old, new, name in (
-              (old_evidence, new_evidence, 'evidence loop'),
-              (old_assessment, new_assessment, 'assessment loop'),
-          ):
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{name}: expected one exact match, found {count}')
-              text = text.replace(old, new, 1)
-          path.write_text(text)
+          lines = path.read_text().splitlines()
+
+          evidence_start = lines.index('        for item in evidence_by_kind.values():')
+          assessment_start = lines.index('        for item in assessments_by_indicator.values():')
+          status_start = lines.index('        status_counts = {')
+
+          lines[evidence_start] = '        for evidence_item in evidence_by_kind.values():'
+          for index in range(evidence_start + 1, assessment_start):
+              lines[index] = lines[index].replace('item.', 'evidence_item.')
+
+          lines[assessment_start] = '        for assessment in assessments_by_indicator.values():'
+          for index in range(assessment_start + 1, status_start):
+              lines[index] = lines[index].replace('item.', 'assessment.')
+
+          path.write_text('\n'.join(lines) + '\n')
           Path('.github/workflows/tai-ap10-fix-mypy.yml').unlink()
           PY
       - name: Commit typing fix and cleanup
