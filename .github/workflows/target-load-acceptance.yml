@@ -1,0 +1,105 @@
+name: Target Load Acceptance
+
+on:
+  push:
+    branches:
+      - ir-load/target-load-acceptance-2694
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: target qualifies capacity; smoke validates only the harness
+        required: true
+        type: choice
+        default: target
+        options:
+          - target
+          - smoke
+
+permissions:
+  contents: read
+
+concurrency:
+  group: target-load-${{ github.ref }}-${{ inputs.profile || 'target' }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.sha }}
+  EVIDENCE_DIR: artifacts/industrial-readiness
+  TARGET_LOAD_PROFILE: ${{ inputs.profile || 'target' }}
+  PRODUCTION_LIKE_POSTGRES_TARGET_LOAD: 'true'
+
+jobs:
+  target-load:
+    name: Exact-head Kubernetes · ${{ inputs.profile || 'target' }} load
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Reclaim runner disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          docker system prune --all --force || true
+          df -h
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.18.4
+
+      - name: Install pinned kind and kubectl
+        run: |
+          set -euo pipefail
+          KIND_VERSION=v0.23.0
+          curl --fail --location --retry 5 \
+            "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64" \
+            -o /tmp/kind-linux-amd64
+          curl --fail --location --retry 5 \
+            "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-amd64.sha256sum" \
+            -o /tmp/kind-linux-amd64.sha256sum
+          (cd /tmp && sha256sum --check kind-linux-amd64.sha256sum)
+          sudo install -m 0755 /tmp/kind-linux-amd64 /usr/local/bin/kind
+
+          KUBECTL_VERSION=v1.30.4
+          curl --fail --location --retry 5 \
+            "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" \
+            -o /tmp/kubectl
+          curl --fail --location --retry 5 \
+            "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256" \
+            -o /tmp/kubectl.sha256
+          echo "$(cat /tmp/kubectl.sha256)  /tmp/kubectl" | sha256sum --check
+          sudo install -m 0755 /tmp/kubectl /usr/local/bin/kubectl
+
+      - name: Install pinned k6
+        uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: '0.52.0'
+
+      - name: Build exact-head production-like Kubernetes environment
+        run: bash scripts/release/production-like-kubernetes-acceptance.sh
+
+      - name: Execute target acceptance and reconcile PostgreSQL authority
+        run: bash scripts/release/target-load-acceptance.sh
+
+      - name: Upload exact-head load evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: target-load-${{ inputs.profile || 'target' }}-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Cleanup disposable acceptance environment
+        if: always()
+        run: |
+          kind delete cluster --name grainflow-acceptance || true
+          docker rm -f kind-registry || true
+          docker system df || true

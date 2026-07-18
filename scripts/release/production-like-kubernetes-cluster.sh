@@ -75,6 +75,11 @@ kubectl apply -f infra/kind/production-like/dependencies.yaml > "$K8S_DIR/depend
 kubectl patch statefulset postgresql -n "$NAMESPACE" --type=strategic \
   --patch-file infra/kind/production-like/postgresql-runtime-patch.yaml \
   > "$K8S_DIR/postgresql-runtime-patch.log"
+if [[ "${PRODUCTION_LIKE_POSTGRES_TARGET_LOAD:-false}" = "true" ]]; then
+  kubectl patch statefulset postgresql -n "$NAMESPACE" --type=strategic \
+    --patch-file infra/kind/production-like/postgresql-target-load-patch.yaml \
+    > "$K8S_DIR/postgresql-target-load-patch.log"
+fi
 kubectl patch deployment kafka -n "$NAMESPACE" --type=strategic \
   --patch-file infra/kind/production-like/kafka-runtime-patch.yaml \
   > "$K8S_DIR/kafka-runtime-patch.log"
