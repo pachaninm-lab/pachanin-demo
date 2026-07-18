@@ -360,9 +360,8 @@ def test_incident_rejects_resolution_without_verified_mitigation() -> None:
 def test_incident_rejects_broken_hash_sequence_time_and_severity() -> None:
     opened = _event(1, IncidentEventKind.OPENED)
     acknowledged = _event(2, IncidentEventKind.ACKNOWLEDGED, previous=opened)
-    broken_hash = replace(acknowledged, previous_event_sha256="f" * 64)
     with pytest.raises(ValueError, match="digest does not match"):
-        replace(broken_hash, event_sha256=acknowledged.event_sha256)
+        replace(acknowledged, previous_event_sha256="f" * 64)
 
     skipped = _event(3, IncidentEventKind.ACKNOWLEDGED, previous=opened)
     with pytest.raises(ValueError, match="contiguous"):
