@@ -18,148 +18,213 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-      - name: Apply exact reviewed replacements
+      - name: Apply exact reviewed unified diff
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-
-          def replace_once(path: str, old: str, new: str) -> None:
-              file = Path(path)
-              text = file.read_text()
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"{path}: expected one exact match, found {count}")
-              file.write_text(text.replace(old, new, 1))
-
-          runtime = "apps/tai/tai/agent_runtime.py"
-          replace_once(
-              runtime,
-              '''            if not confirmed:
-                  raise PolicyDenied("tool confirmation is invalid or expired")
-              claimed = self._confirmation_uses.claim(
-                  confirmation=confirmation,
-                  request_sha256=request_sha256,
-                  idempotency_key=idempotency_key,
-                  used_at=now,
-              )
-              if not claimed:
-                  raise PolicyDenied(
-                      "tool confirmation is already bound to a different invocation"
-                  )
-          request = ToolRequest(
-              trace_id=plan.trace_id,
-              tool_name=call.tool_name,
-              arguments=dict(call.arguments),
-              requested_mode=call.requested_mode,
-              justification=None,
-              explicit_user_confirmation=confirmed,
-          )
-          return authorize_tool(identity, request)
-          ''',
-              '''            if not confirmed:
-                  raise PolicyDenied("tool confirmation is invalid or expired")
-          request = ToolRequest(
-              trace_id=plan.trace_id,
-              tool_name=call.tool_name,
-              arguments=dict(call.arguments),
-              requested_mode=call.requested_mode,
-              justification=None,
-              explicit_user_confirmation=confirmed,
-          )
-          definition = authorize_tool(identity, request)
-          if call.requested_mode is ToolMode.CONFIRMED_WRITE:
-              if confirmation is None:
-                  raise RuntimeError("confirmed write lost its confirmation binding")
-              claimed = self._confirmation_uses.claim(
-                  confirmation=confirmation,
-                  request_sha256=request_sha256,
-                  idempotency_key=idempotency_key,
-                  used_at=now,
-              )
-              if not claimed:
-                  raise PolicyDenied(
-                      "tool confirmation is already bound to a different invocation"
-                  )
-          return definition
-          ''',
-          )
-          replace_once(
-              runtime,
-              '''def _validated_result_sha256(
-              result: Mapping[str, Any],
-              *,
-              maximum_bytes: int,
-          ) -> str:
-              canonical = _canonical_json(_canonical_json_value(result))
-          ''',
-              '''def _validated_result_sha256(
-              result: Mapping[str, Any],
-              *,
-              maximum_bytes: int,
-          ) -> str:
-              if not isinstance(result, Mapping):
-                  raise TypeError("tool result must be an object")
-              canonical = _canonical_json(_canonical_json_value(result))
-          ''',
-          )
-          replace_once(
-              runtime,
-              '    if confirmation.issued_at > now or confirmation.expires_at < now:\n',
-              '    if confirmation.issued_at > now or confirmation.expires_at <= now:\n',
-          )
-          replace_once(
-              runtime,
-              '''            "mode": call.requested_mode.value,
-              "plan_id": str(plan.plan_id),
-          ''',
-              '''            "mode": call.requested_mode.value,
-              "occurred_at": occurred_at.isoformat(),
-              "plan_id": str(plan.plan_id),
-          ''',
-          )
-
-          test_runtime = "apps/tai/tests/test_agent_runtime.py"
-          replace_once(
-              test_runtime,
-              '''    HMACToolConfirmationAuthority,
-              PlannedToolCall,
-          ''',
-              '''    HMACToolConfirmationAuthority,
-              InMemoryConfirmationUseRepository,
-              PlannedToolCall,
-          ''',
-          )
-          replace_once(
-              test_runtime,
-              '''        confirmation_authority=(
-              authority or HMACToolConfirmationAuthority(SECRET)
-          ),
-              audit_sink=audit,
-          ''',
-              '''        confirmation_authority=(
-              authority or HMACToolConfirmationAuthority(SECRET)
-          ),
-              confirmation_uses=InMemoryConfirmationUseRepository(),
-              audit_sink=audit,
-          ''',
-          )
-
-          test_edges = "apps/tai/tests/test_agent_runtime_edges.py"
-          replace_once(
-              test_edges,
-              '{"getDealSummary": first, "getRiskSnapshot": second}',
-              '{"getDealSummary": first, "getRoleNextActions": second}',
-          )
-          replace_once(
-              test_edges,
-              '_call(call_id="call-2", tool_name="getRiskSnapshot")',
-              '_call(call_id="call-2", tool_name="getRoleNextActions")',
-          )
-
-          Path('.github/workflows/tai-ap08-exact-patch.yml').unlink()
-          PY
+          git apply --check <<'PATCH'
+          --- a/apps/tai/tai/agent_runtime.py
+          +++ b/apps/tai/tai/agent_runtime.py
+          @@ -516,6 +516,18 @@
+                       )
+                       if not confirmed:
+                           raise PolicyDenied("tool confirmation is invalid or expired")
+          +        request = ToolRequest(
+          +            trace_id=plan.trace_id,
+          +            tool_name=call.tool_name,
+          +            arguments=dict(call.arguments),
+          +            requested_mode=call.requested_mode,
+          +            justification=None,
+          +            explicit_user_confirmation=confirmed,
+          +        )
+          +        definition = authorize_tool(identity, request)
+          +        if call.requested_mode is ToolMode.CONFIRMED_WRITE:
+          +            if confirmation is None:
+          +                raise RuntimeError("confirmed write lost its confirmation binding")
+                       claimed = self._confirmation_uses.claim(
+                           confirmation=confirmation,
+                           request_sha256=request_sha256,
+          @@ -526,15 +538,7 @@
+                           raise PolicyDenied(
+                               "tool confirmation is already bound to a different invocation"
+                           )
+          -        request = ToolRequest(
+          -            trace_id=plan.trace_id,
+          -            tool_name=call.tool_name,
+          -            arguments=dict(call.arguments),
+          -            requested_mode=call.requested_mode,
+          -            justification=None,
+          -            explicit_user_confirmation=confirmed,
+          -        )
+          -        return authorize_tool(identity, request)
+          +        return definition
+           
+           
+           def tool_request_sha256(trace_id: UUID, call: PlannedToolCall) -> str:
+          @@ -690,6 +694,8 @@
+               *,
+               maximum_bytes: int,
+           ) -> str:
+          +    if not isinstance(result, Mapping):
+          +        raise TypeError("tool result must be an object")
+               canonical = _canonical_json(_canonical_json_value(result))
+               if len(canonical.encode()) > maximum_bytes:
+                   raise ValueError("tool result exceeds the byte budget")
+          @@ -739,7 +745,7 @@
+                   return False
+               if confirmation.expires_at <= confirmation.issued_at:
+                   return False
+          -    if confirmation.issued_at > now or confirmation.expires_at < now:
+          +    if confirmation.issued_at > now or confirmation.expires_at <= now:
+                   return False
+               return confirmation.expires_at - confirmation.issued_at <= maximum_ttl
+           
+          @@ -791,6 +797,7 @@
+                       "call_id": call.call_id,
+                       "idempotency_key": result.idempotency_key,
+                       "mode": call.requested_mode.value,
+          +            "occurred_at": occurred_at.isoformat(),
+                       "plan_id": str(plan.plan_id),
+                       "reason": result.reason,
+                       "request_sha256": result.request_sha256,
+          --- a/apps/tai/tests/test_agent_runtime.py
+          +++ b/apps/tai/tests/test_agent_runtime.py
+          @@ -15,6 +15,7 @@
+               AgentToolRuntime,
+               AuthorizedToolInvocation,
+               HMACToolConfirmationAuthority,
+          +    InMemoryConfirmationUseRepository,
+               PlannedToolCall,
+               ToolConfirmation,
+               ToolExecutorRegistry,
+          @@ -115,6 +116,7 @@
+                   confirmation_authority=(
+                       authority or HMACToolConfirmationAuthority(SECRET)
+                   ),
+          +        confirmation_uses=InMemoryConfirmationUseRepository(),
+                   audit_sink=audit,
+                   policy=policy,
+               )
+          --- a/apps/tai/tests/test_agent_runtime_edges.py
+          +++ b/apps/tai/tests/test_agent_runtime_edges.py
+          @@ -230,12 +230,12 @@
+               first = _Handler(error=TimeoutError("unavailable"))
+               second = _Handler({"value": 2})
+               runtime = _runtime(
+          -        {"getDealSummary": first, "getRiskSnapshot": second},
+          +        {"getDealSummary": first, "getRoleNextActions": second},
+                   policy=AgentRuntimePolicy(stop_on_failure=False),
+               )
+               plan = _plan(
+                   _call(call_id="call-1", tool_name="getDealSummary"),
+          -        _call(call_id="call-2", tool_name="getRiskSnapshot"),
+          +        _call(call_id="call-2", tool_name="getRoleNextActions"),
+               )
+           
+               result = runtime.execute(plan, identity=_identity(), now=NOW)
+          PATCH
+          git apply <<'PATCH'
+          --- a/apps/tai/tai/agent_runtime.py
+          +++ b/apps/tai/tai/agent_runtime.py
+          @@ -516,6 +516,18 @@
+                       )
+                       if not confirmed:
+                           raise PolicyDenied("tool confirmation is invalid or expired")
+          +        request = ToolRequest(
+          +            trace_id=plan.trace_id,
+          +            tool_name=call.tool_name,
+          +            arguments=dict(call.arguments),
+          +            requested_mode=call.requested_mode,
+          +            justification=None,
+          +            explicit_user_confirmation=confirmed,
+          +        )
+          +        definition = authorize_tool(identity, request)
+          +        if call.requested_mode is ToolMode.CONFIRMED_WRITE:
+          +            if confirmation is None:
+          +                raise RuntimeError("confirmed write lost its confirmation binding")
+                       claimed = self._confirmation_uses.claim(
+                           confirmation=confirmation,
+                           request_sha256=request_sha256,
+          @@ -526,15 +538,7 @@
+                           raise PolicyDenied(
+                               "tool confirmation is already bound to a different invocation"
+                           )
+          -        request = ToolRequest(
+          -            trace_id=plan.trace_id,
+          -            tool_name=call.tool_name,
+          -            arguments=dict(call.arguments),
+          -            requested_mode=call.requested_mode,
+          -            justification=None,
+          -            explicit_user_confirmation=confirmed,
+          -        )
+          -        return authorize_tool(identity, request)
+          +        return definition
+           
+           
+           def tool_request_sha256(trace_id: UUID, call: PlannedToolCall) -> str:
+          @@ -690,6 +694,8 @@
+               *,
+               maximum_bytes: int,
+           ) -> str:
+          +    if not isinstance(result, Mapping):
+          +        raise TypeError("tool result must be an object")
+               canonical = _canonical_json(_canonical_json_value(result))
+               if len(canonical.encode()) > maximum_bytes:
+                   raise ValueError("tool result exceeds the byte budget")
+          @@ -739,7 +745,7 @@
+                   return False
+               if confirmation.expires_at <= confirmation.issued_at:
+                   return False
+          -    if confirmation.issued_at > now or confirmation.expires_at < now:
+          +    if confirmation.issued_at > now or confirmation.expires_at <= now:
+                   return False
+               return confirmation.expires_at - confirmation.issued_at <= maximum_ttl
+           
+          @@ -791,6 +797,7 @@
+                       "call_id": call.call_id,
+                       "idempotency_key": result.idempotency_key,
+                       "mode": call.requested_mode.value,
+          +            "occurred_at": occurred_at.isoformat(),
+                       "plan_id": str(plan.plan_id),
+                       "reason": result.reason,
+                       "request_sha256": result.request_sha256,
+          --- a/apps/tai/tests/test_agent_runtime.py
+          +++ b/apps/tai/tests/test_agent_runtime.py
+          @@ -15,6 +15,7 @@
+               AgentToolRuntime,
+               AuthorizedToolInvocation,
+               HMACToolConfirmationAuthority,
+          +    InMemoryConfirmationUseRepository,
+               PlannedToolCall,
+               ToolConfirmation,
+               ToolExecutorRegistry,
+          @@ -115,6 +116,7 @@
+                   confirmation_authority=(
+                       authority or HMACToolConfirmationAuthority(SECRET)
+                   ),
+          +        confirmation_uses=InMemoryConfirmationUseRepository(),
+                   audit_sink=audit,
+                   policy=policy,
+               )
+          --- a/apps/tai/tests/test_agent_runtime_edges.py
+          +++ b/apps/tai/tests/test_agent_runtime_edges.py
+          @@ -230,12 +230,12 @@
+               first = _Handler(error=TimeoutError("unavailable"))
+               second = _Handler({"value": 2})
+               runtime = _runtime(
+          -        {"getDealSummary": first, "getRiskSnapshot": second},
+          +        {"getDealSummary": first, "getRoleNextActions": second},
+                   policy=AgentRuntimePolicy(stop_on_failure=False),
+               )
+               plan = _plan(
+                   _call(call_id="call-1", tool_name="getDealSummary"),
+          -        _call(call_id="call-2", tool_name="getRiskSnapshot"),
+          +        _call(call_id="call-2", tool_name="getRoleNextActions"),
+               )
+           
+               result = runtime.execute(plan, identity=_identity(), now=NOW)
+          PATCH
+          rm .github/workflows/tai-ap08-exact-patch.yml
       - name: Commit exact patch and remove workflow
         shell: bash
         run: |
