@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from tai.release_acceptance import DEFAULT_REQUIRED_WORKFLOWS
-from tai.release_acceptance_cli import main
+from tai.release_acceptance_cli import _source_digest, main
 
 NOW = datetime(2026, 7, 19, 0, 0, tzinfo=UTC)
 HEAD = "a" * 64
@@ -23,7 +23,9 @@ def _repository(root: Path) -> None:
         )
     (root / "apps/tai/tai/module.py").write_text("VALUE = 1\n")
     (root / "apps/tai/tests").mkdir(parents=True)
-    (root / "apps/tai/tests/test_module.py").write_text("def test_value():\n    assert 1 == 1\n")
+    (root / "apps/tai/tests/test_module.py").write_text(
+        "def test_value():\n    assert 1 == 1\n"
+    )
     (root / "apps/tai/pyproject.toml").write_text("[project]\nname='tai-test'\n")
     workflow_root = root / ".github/workflows"
     workflow_root.mkdir(parents=True)
@@ -31,6 +33,7 @@ def _repository(root: Path) -> None:
     (workflow_root / "tai-release-acceptance.yml").write_text(
         "name: TAI Release Acceptance\n"
     )
+    (workflow_root / "security-scan.yaml").write_text("name: Security Scan\n")
 
 
 def _evidence(path: Path, *, missing: str | None = None) -> None:
@@ -91,6 +94,22 @@ def test_cli_builds_accepted_application_attestation(tmp_path: Path, monkeypatch
     assert len(attestation["migration_inventory"]) == 11
     assert len(attestation["attestation_sha256"]) == 64
     assert len(attestation["source_tree_sha256"]) == 64
+
+
+def test_source_digest_binds_yml_and_yaml_workflow_definitions(tmp_path: Path) -> None:
+    _repository(tmp_path)
+    initial = _source_digest(tmp_path)
+
+    yml_workflow = tmp_path / ".github/workflows/tai-foundation.yml"
+    yml_workflow.write_text("name: TAI Foundation\njobs: {}\n")
+    after_yml_change = _source_digest(tmp_path)
+
+    yaml_workflow = tmp_path / ".github/workflows/security-scan.yaml"
+    yaml_workflow.write_text("name: Security Scan\njobs: {}\n")
+    after_yaml_change = _source_digest(tmp_path)
+
+    assert initial != after_yml_change
+    assert after_yml_change != after_yaml_change
 
 
 def test_cli_rejects_missing_required_workflow(tmp_path: Path, monkeypatch) -> None:
