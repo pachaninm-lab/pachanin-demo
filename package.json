@@ -40,7 +40,6 @@
   ],
   "pnpm": {
     "overrides": {
-      "@opentelemetry/core": ">=2.8.0",
       "ajv": ">=8.18.0",
       "fast-uri": ">=3.1.1",
       "file-type": ">=21.3.2",
