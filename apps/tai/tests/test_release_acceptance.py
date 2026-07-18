@@ -101,7 +101,19 @@ def test_application_release_is_deterministic_and_does_not_claim_production() ->
 def test_application_release_rejects_missing_failed_wrong_head_and_future_workflows() -> None:
     workflows = list(_workflows())
     workflows.pop()
-    workflows[0] = replace(workflows[0], conclusion=WorkflowConclusion.FAILURE)
+    failed = replace(workflows[0], conclusion=WorkflowConclusion.FAILURE)
+    failed = replace(
+        failed,
+        evidence_sha256=workflow_evidence_sha256(
+            workflow_name=failed.workflow_name,
+            run_id=failed.run_id,
+            exact_head_sha=failed.exact_head_sha,
+            conclusion=failed.conclusion,
+            completed_at=failed.completed_at,
+            run_url=failed.run_url,
+        ),
+    )
+    workflows[0] = failed
     wrong_head = replace(workflows[1], exact_head_sha="c" * 64)
     wrong_head = replace(
         wrong_head,
