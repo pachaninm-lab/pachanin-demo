@@ -29,7 +29,23 @@ jobs:
           cache-dependency-path: apps/tai/pyproject.toml
       - run: python -m pip install --upgrade pip
       - run: pip install -e '.[dev]'
-      - run: ruff check tai tests
+      - name: Ruff
+        id: ruff
+        shell: bash
+        run: |
+          set +e
+          ruff check tai tests --output-format=json > ruff-report.json
+          status=$?
+          cat ruff-report.json
+          exit "$status"
+      - name: Upload Ruff report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ruff-${{ github.sha }}
+          path: apps/tai/ruff-report.json
+          if-no-files-found: error
+          retention-days: 14
       - run: mypy tai
       - run: pytest --cov=tai --cov-report=term-missing --cov-fail-under=90
 
