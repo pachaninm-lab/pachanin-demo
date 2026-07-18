@@ -17,7 +17,6 @@ from tai.source_governance import (
     KnowledgeDomain,
 )
 
-
 NOW = datetime(2026, 7, 18, 12, tzinfo=UTC)
 
 
