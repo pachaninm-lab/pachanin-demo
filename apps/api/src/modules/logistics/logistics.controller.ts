@@ -11,6 +11,10 @@ import {
 } from './dto/shipment-fact-command.dto';
 import { TransitionShipmentDto } from './dto/transition-shipment.dto';
 import { LogisticsService } from './logistics.service';
+import {
+  LogisticsAuthorityService,
+  type ProvisionDealAdmissionInput,
+} from './logistics-authority.service';
 
 /**
  * PostgreSQL-authoritative logistics boundary.
@@ -24,7 +28,25 @@ import { LogisticsService } from './logistics.service';
 @Roles('LOGISTICIAN', 'DRIVER', 'ELEVATOR', 'SUPPORT_MANAGER', 'ADMIN')
 @Controller('logistics')
 export class LogisticsController {
-  constructor(private readonly logistics: LogisticsService) {}
+  constructor(
+    private readonly logistics: LogisticsService,
+    private readonly authority: LogisticsAuthorityService,
+  ) {}
+
+  /**
+   * Онбординг логистического допуска сделки: заводит carrier/vehicle/driver/
+   * link/facility + deal_admission в одной привилегированной идемпотентной
+   * операции. Прежде эти операционные записи заводились только сидом — теперь
+   * штатный HTTP-путь для перевозчика/оператора.
+   */
+  @Roles('LOGISTICIAN', 'SUPPORT_MANAGER', 'ADMIN', 'COMPLIANCE_OFFICER')
+  @Post('deal-admissions')
+  provisionDealAdmission(
+    @Body() dto: ProvisionDealAdmissionInput,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.authority.provisionDealAdmission(dto, user);
+  }
 
   @Get('summary')
   summary(@CurrentUser() user: RequestUser) {

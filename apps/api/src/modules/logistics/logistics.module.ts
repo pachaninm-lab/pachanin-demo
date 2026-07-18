@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { LogisticsController } from './logistics.controller';
 import { LogisticsService } from './logistics.service';
+import { LogisticsAuthorityService } from './logistics-authority.service';
 import { PrismaShipmentRepository } from './prisma-shipment.repository';
 import { SHIPMENT_REPOSITORY } from './shipment.repository';
 
@@ -13,6 +14,7 @@ import { SHIPMENT_REPOSITORY } from './shipment.repository';
   controllers: [LogisticsController],
   providers: [
     LogisticsService,
+    LogisticsAuthorityService,
     PrismaShipmentRepository,
     { provide: SHIPMENT_REPOSITORY, useExisting: PrismaShipmentRepository },
   ],
