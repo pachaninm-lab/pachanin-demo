@@ -110,7 +110,8 @@ class ManagedLoaderWorker:
         lease = self._renew_or_raise(lease, now)
         try:
             result = self._run_loader(definition, state)
-            lease = self._renew_or_raise(lease, result.document.fetched_at if result.document else now)
+            heartbeat_at = result.document.fetched_at if result.document else now
+            lease = self._renew_or_raise(lease, heartbeat_at)
             if result.document is not None:
                 self._materializer.store(result.document)
             lease = self._renew_or_raise(lease, now)
