@@ -1,0 +1,19 @@
+# Edge reverse proxy with automatic HTTPS.
+# SITE_ADDRESS is a domain (→ automatic Let's Encrypt certificate) or the bare
+# server IP (→ plain HTTP, fine for the first bring-up before a domain exists).
+{$SITE_ADDRESS} {
+	# API and operational probes go to the NestJS service.
+	handle /api/* {
+		reverse_proxy api:3001
+	}
+	handle /health {
+		reverse_proxy api:3001
+	}
+	handle /ready {
+		reverse_proxy api:3001
+	}
+	# Everything else is the Next.js cabinet.
+	handle {
+		reverse_proxy web:3000
+	}
+}
