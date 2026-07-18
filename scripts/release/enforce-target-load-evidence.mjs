@@ -4,9 +4,11 @@ import path from 'node:path';
 const exactHead = process.env.EXACT_HEAD || process.env.GITHUB_SHA;
 const evidenceDir = process.env.EVIDENCE_DIR || 'artifacts/industrial-readiness/load';
 const evidencePath = path.join(evidenceDir, 'target-load-acceptance.json');
+const junitPath = path.join(evidenceDir, 'target-load-acceptance.junit.xml');
 
 if (!exactHead) throw new Error('EXACT_HEAD or GITHUB_SHA is required');
 if (!fs.existsSync(evidencePath)) throw new Error(`Missing canonical evidence: ${evidencePath}`);
+if (!fs.existsSync(junitPath)) throw new Error(`Missing JUnit evidence: ${junitPath}`);
 
 const evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
 const errors = [];
@@ -29,7 +31,26 @@ if ((observed.burst?.p95ReadMs ?? Infinity) > 500) errors.push('burst read p95 >
 if ((observed.commands?.p95Ms ?? Infinity) > 1000) errors.push('command p95 > 1000ms');
 if ((observed.auction?.p95Ms ?? Infinity) > 1000) errors.push('auction p95 > 1000ms');
 if ((observed.callbacks?.p95Ms ?? Infinity) > 1000) errors.push('callback p95 > 1000ms');
-for (const profile of ['sessions', 'sustained', 'burst', 'commands', 'auction', 'callbacks']) {
+const latencyFields = {
+  sustained: ['p50ReadMs', 'p95ReadMs', 'p99ReadMs'],
+  burst: ['p50ReadMs', 'p95ReadMs', 'p99ReadMs'],
+  commands: ['p50Ms', 'p95Ms', 'p99Ms'],
+  auction: ['p50Ms', 'p95Ms', 'p99Ms'],
+  callbacks: ['p50Ms', 'p95Ms', 'p99Ms'],
+};
+for (const [profile, fields] of Object.entries(latencyFields)) {
+  for (const field of fields) {
+    if (!Number.isFinite(observed[profile]?.[field])) errors.push(`${profile} ${field} missing`);
+  }
+}
+if ((observed.sessions?.maxVUs ?? 0) < 5000) errors.push('5,000 simultaneous k6 VUs not proven');
+if ((observed.sustained?.achievedRps ?? 0) < 495) errors.push('sustained achieved RPS < 495');
+if ((observed.burst?.achievedRps ?? 0) < 990) errors.push('burst achieved RPS < 990');
+if ((observed.commands?.achievedRps ?? 0) < 148.5) errors.push('command achieved RPS < 148.5');
+if ((observed.auction?.achievedRps ?? 0) < 198) errors.push('auction achieved attempts/s < 198');
+if ((observed.callbacks?.achievedRps ?? 0) < 198) errors.push('callback achieved attempts/s < 198');
+for (const profile of ['sessions', 'isolation', 'sustained', 'burst', 'commands', 'auction', 'callbacks']) {
+  if ((observed[profile]?.httpErrorRate ?? 1) >= 0.005) errors.push(`${profile} HTTP error rate >= 0.5%`);
   if ((observed[profile]?.unexpectedErrorRate ?? 1) >= 0.005) errors.push(`${profile} unexpected error rate >= 0.5%`);
 }
 if (observed.isolation?.leakageCount !== 0) errors.push('tenant leakage detected');
