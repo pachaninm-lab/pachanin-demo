@@ -179,9 +179,9 @@ class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
         if not 1 <= lease_seconds <= 3_600:
             raise ValueError("execution_lease must be between 1 second and 1 hour")
         self._execution_lease_seconds = lease_seconds
-        self._execution_tokens: ContextVar[dict[UUID, UUID]] = ContextVar(
+        self._execution_tokens: ContextVar[dict[UUID, UUID] | None] = ContextVar(
             f"tai_prepared_action_tokens_{id(self)}",
-            default={},
+            default=None,
         )
 
     def save(self, prepared: StoredPreparedAction) -> None:
@@ -410,15 +410,18 @@ class PostgreSQLPreparedActionRepository(_PostgreSQLRepository):
         confirmation_id: UUID,
         execution_token: UUID,
     ) -> None:
-        tokens = dict(self._execution_tokens.get())
+        current = self._execution_tokens.get()
+        tokens = {} if current is None else dict(current)
         tokens[confirmation_id] = execution_token
         self._execution_tokens.set(tokens)
 
     def _execution_token(self, confirmation_id: UUID) -> UUID | None:
-        return self._execution_tokens.get().get(confirmation_id)
+        tokens = self._execution_tokens.get()
+        return None if tokens is None else tokens.get(confirmation_id)
 
     def _forget_execution_token(self, confirmation_id: UUID) -> None:
-        tokens = dict(self._execution_tokens.get())
+        current = self._execution_tokens.get()
+        tokens = {} if current is None else dict(current)
         tokens.pop(confirmation_id, None)
         self._execution_tokens.set(tokens)
 
