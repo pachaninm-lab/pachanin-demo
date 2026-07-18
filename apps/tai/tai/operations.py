@@ -333,19 +333,19 @@ class OperationalReadinessAuthority:
         missing_indicators = self._policy.required_indicators - set(assessments_by_indicator)
         if missing_indicators:
             reasons.append("REQUIRED_SLO_MISSING")
-        for item in evidence_by_kind.values():
-            if item.exact_head_sha != exact_head_sha:
+        for evidence_item in evidence_by_kind.values():
+            if evidence_item.exact_head_sha != exact_head_sha:
                 reasons.append("EVIDENCE_EXACT_HEAD_MISMATCH")
-            if item.observed_at > decided_at:
+            if evidence_item.observed_at > decided_at:
                 reasons.append("EVIDENCE_FROM_FUTURE")
-            if item.valid_until <= decided_at:
+            if evidence_item.valid_until <= decided_at:
                 reasons.append("EVIDENCE_EXPIRED")
-            if not item.accepted:
+            if not evidence_item.accepted:
                 reasons.append("EVIDENCE_REJECTED")
-        for item in assessments_by_indicator.values():
-            if item.exact_head_sha != exact_head_sha:
+        for assessment in assessments_by_indicator.values():
+            if assessment.exact_head_sha != exact_head_sha:
                 reasons.append("SLO_EXACT_HEAD_MISMATCH")
-            if item.assessed_at > decided_at:
+            if assessment.assessed_at > decided_at:
                 reasons.append("SLO_ASSESSMENT_FROM_FUTURE")
         status_counts = {
             status: sum(item.status is status for item in assessments_by_indicator.values())
