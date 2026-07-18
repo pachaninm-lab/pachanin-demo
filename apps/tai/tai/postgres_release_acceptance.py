@@ -37,6 +37,7 @@ class PostgreSQLReleaseAttestationRepository:
     def record_application(self, attestation: ApplicationReleaseAttestation) -> None:
         query = """
             INSERT INTO tai_application_release_attestations (
+                attestation_sha256,
                 release_id,
                 repository,
                 exact_main_sha,
@@ -47,19 +48,34 @@ class PostgreSQLReleaseAttestationRepository:
                 workflow_evidence_sha256s,
                 previous_attestation_sha256,
                 created_at,
-                production_operational_status,
-                attestation_sha256
+                production_operational_status
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (release_id) DO UPDATE
-            SET release_id = EXCLUDED.release_id
-            WHERE tai_application_release_attestations.attestation_sha256 =
-                  EXCLUDED.attestation_sha256
+            ON CONFLICT (attestation_sha256) DO UPDATE
+            SET attestation_sha256 = EXCLUDED.attestation_sha256
+            WHERE tai_application_release_attestations.release_id = EXCLUDED.release_id
+              AND tai_application_release_attestations.repository = EXCLUDED.repository
+              AND tai_application_release_attestations.exact_main_sha =
+                  EXCLUDED.exact_main_sha
+              AND tai_application_release_attestations.accepted = EXCLUDED.accepted
+              AND tai_application_release_attestations.reasons = EXCLUDED.reasons
+              AND tai_application_release_attestations.source_tree_sha256 =
+                  EXCLUDED.source_tree_sha256
+              AND tai_application_release_attestations.migration_inventory_sha256 =
+                  EXCLUDED.migration_inventory_sha256
+              AND tai_application_release_attestations.workflow_evidence_sha256s =
+                  EXCLUDED.workflow_evidence_sha256s
+              AND tai_application_release_attestations.previous_attestation_sha256
+                  IS NOT DISTINCT FROM EXCLUDED.previous_attestation_sha256
+              AND tai_application_release_attestations.created_at = EXCLUDED.created_at
+              AND tai_application_release_attestations.production_operational_status =
+                  EXCLUDED.production_operational_status
             RETURNING release_id, attestation_sha256
         """
         row = self._execute_returning(
             query,
             (
+                attestation.attestation_sha256,
                 attestation.release_id,
                 attestation.repository,
                 attestation.exact_main_sha,
@@ -71,17 +87,19 @@ class PostgreSQLReleaseAttestationRepository:
                 attestation.previous_attestation_sha256,
                 attestation.created_at,
                 attestation.production_operational_status.value,
-                attestation.attestation_sha256,
             ),
         )
         if row is None:
-            raise RuntimeError("release_id is already bound to another application attestation")
+            raise RuntimeError(
+                "application attestation digest is bound to different evidence"
+            )
         if str(row["attestation_sha256"]) != attestation.attestation_sha256:
             raise RuntimeError("persisted application attestation digest does not match")
 
     def record_production(self, attestation: ProductionReleaseAttestation) -> None:
         query = """
             INSERT INTO tai_production_release_attestations (
+                attestation_sha256,
                 release_id,
                 exact_main_sha,
                 application_attestation_sha256,
@@ -89,19 +107,29 @@ class PostgreSQLReleaseAttestationRepository:
                 operational_decision_sha256,
                 status,
                 reasons,
-                attested_at,
-                attestation_sha256
+                attested_at
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (release_id) DO UPDATE
-            SET release_id = EXCLUDED.release_id
-            WHERE tai_production_release_attestations.attestation_sha256 =
-                  EXCLUDED.attestation_sha256
+            ON CONFLICT (attestation_sha256) DO UPDATE
+            SET attestation_sha256 = EXCLUDED.attestation_sha256
+            WHERE tai_production_release_attestations.release_id = EXCLUDED.release_id
+              AND tai_production_release_attestations.exact_main_sha =
+                  EXCLUDED.exact_main_sha
+              AND tai_production_release_attestations.application_attestation_sha256 =
+                  EXCLUDED.application_attestation_sha256
+              AND tai_production_release_attestations.evaluation_report_sha256 =
+                  EXCLUDED.evaluation_report_sha256
+              AND tai_production_release_attestations.operational_decision_sha256 =
+                  EXCLUDED.operational_decision_sha256
+              AND tai_production_release_attestations.status = EXCLUDED.status
+              AND tai_production_release_attestations.reasons = EXCLUDED.reasons
+              AND tai_production_release_attestations.attested_at = EXCLUDED.attested_at
             RETURNING release_id, attestation_sha256
         """
         row = self._execute_returning(
             query,
             (
+                attestation.attestation_sha256,
                 attestation.release_id,
                 attestation.exact_main_sha,
                 attestation.application_attestation_sha256,
@@ -110,11 +138,12 @@ class PostgreSQLReleaseAttestationRepository:
                 attestation.status.value,
                 list(attestation.reasons),
                 attestation.attested_at,
-                attestation.attestation_sha256,
             ),
         )
         if row is None:
-            raise RuntimeError("release_id is already bound to another production attestation")
+            raise RuntimeError(
+                "production attestation digest is bound to different evidence"
+            )
         if str(row["attestation_sha256"]) != attestation.attestation_sha256:
             raise RuntimeError("persisted production attestation digest does not match")
 
