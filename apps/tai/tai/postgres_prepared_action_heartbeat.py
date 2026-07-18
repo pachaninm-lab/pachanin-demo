@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Mapping, Sequence
 from contextvars import Context, ContextVar, copy_context
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any
 from uuid import UUID
 
 from tai.agent_runtime import AgentExecutionResult
@@ -25,7 +23,7 @@ class PreparedActionHeartbeatError(RuntimeError):
 @dataclass(slots=True)
 class _HeartbeatHandle:
     stop_event: threading.Event
-    thread: threading.Thread
+    thread: threading.Thread | None = None
     failure: BaseException | None = None
 
 
@@ -90,15 +88,12 @@ class HeartbeatingPostgreSQLPreparedActionRepository(
         if confirmation_id in handles:
             raise RuntimeError("prepared action heartbeat is already active")
         execution_context = copy_context()
-        stop_event = threading.Event()
-        handle = _HeartbeatHandle(
-            stop_event=stop_event,
-            thread=threading.Thread(
-                target=self._heartbeat_loop,
-                args=(confirmation_id, execution_context, stop_event),
-                name=f"tai-action-heartbeat-{confirmation_id}",
-                daemon=True,
-            ),
+        handle = _HeartbeatHandle(stop_event=threading.Event())
+        handle.thread = threading.Thread(
+            target=self._heartbeat_loop,
+            args=(confirmation_id, execution_context, handle),
+            name=f"tai-action-heartbeat-{confirmation_id}",
+            daemon=True,
         )
         updated = dict(handles)
         updated[confirmation_id] = handle
@@ -121,7 +116,8 @@ class HeartbeatingPostgreSQLPreparedActionRepository(
         if handle is None:
             return
         handle.stop_event.set()
-        handle.thread.join()
+        if handle.thread is not None:
+            handle.thread.join()
         updated = dict(handles)
         updated.pop(confirmation_id, None)
         self._heartbeat_handles.set(updated)
@@ -134,10 +130,9 @@ class HeartbeatingPostgreSQLPreparedActionRepository(
         self,
         confirmation_id: UUID,
         execution_context: Context,
-        stop_event: threading.Event,
+        handle: _HeartbeatHandle,
     ) -> None:
-        handle = self._handles_for_owner_context(confirmation_id)
-        while not stop_event.wait(self._heartbeat_interval_seconds):
+        while not handle.stop_event.wait(self._heartbeat_interval_seconds):
             try:
                 renewed = execution_context.run(
                     self._renew_execution_lease,
@@ -145,13 +140,13 @@ class HeartbeatingPostgreSQLPreparedActionRepository(
                 )
             except BaseException as error:
                 handle.failure = error
-                stop_event.set()
+                handle.stop_event.set()
                 return
             if not renewed:
                 handle.failure = PreparedActionHeartbeatError(
                     "prepared action execution lease is stale, expired, or fenced"
                 )
-                stop_event.set()
+                handle.stop_event.set()
                 return
 
     def _renew_execution_lease(self, confirmation_id: UUID) -> bool:
@@ -181,22 +176,3 @@ class HeartbeatingPostgreSQLPreparedActionRepository(
     def _handles(self) -> dict[UUID, _HeartbeatHandle]:
         current = self._heartbeat_handles.get()
         return {} if current is None else current
-
-    def _handles_for_owner_context(self, confirmation_id: UUID) -> _HeartbeatHandle:
-        # The heartbeat thread receives the handle through this temporary owner
-        # lookup before entering the copied execution context for database renewal.
-        handles = self._handles()
-        handle = handles.get(confirmation_id)
-        if handle is None:
-            raise RuntimeError("prepared action heartbeat handle is missing")
-        return handle
-
-
-def _mapping_value(
-    row: Mapping[str, Any] | None,
-    parameters: Sequence[Any],
-) -> bool:
-    """Tiny typed helper retained for test doubles and strict static checking."""
-
-    del parameters
-    return row is not None
