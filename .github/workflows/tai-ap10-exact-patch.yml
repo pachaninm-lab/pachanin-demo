@@ -21,28 +21,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Apply marker-based reviewed authority changes
+
+      - name: Bind SLO assessment domain to exact head
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
-          def replace_once(path: str, old: str, new: str) -> None:
-              file = Path(path)
-              text = file.read_text()
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"{path}: expected one match, found {count}: {old[:80]!r}")
-              file.write_text(text.replace(old, new, 1))
-
-          operations = Path("apps/tai/tai/operations.py")
-          text = operations.read_text()
-          start_marker = "@dataclass(frozen=True, slots=True)\nclass SLOAssessment:"
-          end_marker = "\ndef assess_slo(\n"
+          path = Path('apps/tai/tai/operations.py')
+          text = path.read_text()
+          start_marker = '@dataclass(frozen=True, slots=True)\nclass SLOAssessment:'
+          end_marker = '\ndef assess_slo(\n'
           start = text.index(start_marker)
           end = text.index(end_marker, start)
-          assessment_block = '''@dataclass(frozen=True, slots=True)
+          block = '''@dataclass(frozen=True, slots=True)
           class SLOAssessment:
               slo_id: str
               indicator: OperationalIndicator
@@ -115,12 +108,21 @@ jobs:
               )
           
           '''
-          text = text[:start] + assessment_block + text[end + 1:]
+          path.write_text(text[:start] + block + text[end + 1:])
+          PY
 
-          assess_start = text.index("def assess_slo(\n")
-          payload_start = text.index("    payload = {\n", assess_start)
-          threshold_marker = "\n\ndef _threshold_status("
-          payload_end = text.index(threshold_marker, payload_start)
+      - name: Bind SLO assessment calculation and readiness checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/tai/tai/operations.py')
+          text = path.read_text()
+          assess_start = text.index('def assess_slo(\n')
+          payload_start = text.index('    payload = {\n', assess_start)
+          payload_end = text.index('\n\ndef _threshold_status(', payload_start)
           replacement = '''    assessment_sha256 = slo_assessment_sha256(
               slo_id=definition.slo_id,
               indicator=definition.indicator,
@@ -148,13 +150,11 @@ jobs:
               )
           '''
           text = text[:payload_start] + replacement + text[payload_end:]
-
-          readiness_marker = "        status_counts = {\n"
-          count = text.count(readiness_marker)
-          if count != 1:
-              raise SystemExit(f"status-count marker mismatch: {count}")
+          marker = '        status_counts = {\n'
+          if text.count(marker) != 1:
+              raise SystemExit(f'status_counts marker count={text.count(marker)}')
           text = text.replace(
-              readiness_marker,
+              marker,
               '''        for item in assessments_by_indicator.values():
                   if item.exact_head_sha != exact_head_sha:
                       reasons.append("SLO_EXACT_HEAD_MISMATCH")
@@ -164,24 +164,34 @@ jobs:
           ''',
               1,
           )
+          assert_block = '    assert previous is not None\n    assert status is not None\n'
+          if text.count(assert_block) != 1:
+              raise SystemExit(f'assert block count={text.count(assert_block)}')
           text = text.replace(
-              "    assert previous is not None\n    assert status is not None\n",
+              assert_block,
               '    if previous is None or status is None:\n'
               '        raise RuntimeError("incident replay produced incomplete state")\n',
               1,
           )
-          operations.write_text(text)
+          path.write_text(text)
+          PY
 
-          test_operations = Path("apps/tai/tests/test_operations.py")
-          text = test_operations.read_text()
-          if "    slo_assessment_sha256,\n" not in text:
-              text = text.replace(
-                  "    replay_incident,\n",
-                  "    replay_incident,\n    slo_assessment_sha256,\n",
-                  1,
-              )
-          helper_start = text.index("def _assessment(\n")
-          helper_end = text.index("\ndef _evidence(\n", helper_start)
+      - name: Update AP-10 domain tests for exact-head assessment digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/tai/tests/test_operations.py')
+          text = path.read_text()
+          if '    slo_assessment_sha256,\n' not in text:
+              marker = '    replay_incident,\n'
+              if text.count(marker) != 1:
+                  raise SystemExit(f'import marker count={text.count(marker)}')
+              text = text.replace(marker, marker + '    slo_assessment_sha256,\n', 1)
+          start = text.index('def _assessment(\n')
+          end = text.index('\ndef _evidence(\n', start)
           helper = '''def _assessment(
               indicator: OperationalIndicator,
               status: SLOAssessmentStatus = SLOAssessmentStatus.PASS,
@@ -221,37 +231,53 @@ jobs:
               )
           
           '''
-          text = text[:helper_start] + helper + text[helper_end + 1:]
-          text = text.replace(
-              '        artifact_sha256=(kind.value.casefold()[0] * 64),\n',
-              '        artifact_sha256="c" * 64,\n',
-              1,
-          )
-          test_operations.write_text(text)
-
-          replace_once(
-              "apps/tai/tai/migrations/0010_operational_authority.sql",
-              "    value DOUBLE PRECISION NOT NULL CHECK (isfinite(value)),\n",
-              "    value DOUBLE PRECISION NOT NULL CHECK (\n"
-              "        value NOT IN (\n"
-              "            'NaN'::DOUBLE PRECISION,\n"
-              "            'Infinity'::DOUBLE PRECISION,\n"
-              "            '-Infinity'::DOUBLE PRECISION\n"
-              "        )\n"
-              "    ),\n",
-          )
+          text = text[:start] + helper + text[end + 1:]
+          old = '        artifact_sha256=(kind.value.casefold()[0] * 64),\n'
+          if text.count(old) != 1:
+              raise SystemExit(f'artifact digest marker count={text.count(old)}')
+          text = text.replace(old, '        artifact_sha256="c" * 64,\n', 1)
+          path.write_text(text)
           PY
+
+      - name: Correct PostgreSQL finite-value constraint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/tai/tai/migrations/0010_operational_authority.sql')
+          text = path.read_text()
+          old = '    value DOUBLE PRECISION NOT NULL CHECK (isfinite(value)),\n'
+          new = '''    value DOUBLE PRECISION NOT NULL CHECK (
+              value NOT IN (
+                  'NaN'::DOUBLE PRECISION,
+                  'Infinity'::DOUBLE PRECISION,
+                  '-Infinity'::DOUBLE PRECISION
+              )
+          ),
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f'finite constraint marker count={text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Format only AP-10 Python files
+        shell: bash
+        run: |
+          set -euo pipefail
           python -m pip install 'ruff>=0.11,<1'
           ruff format \
             apps/tai/tai/operations.py \
             apps/tai/tai/postgres_operations.py \
             apps/tai/tests/test_operations.py \
             apps/tai/tests/test_postgres_operations.py
-          rm .github/workflows/tai-ap10-exact-patch.yml
-      - name: Commit exact patch and remove workflow
+
+      - name: Commit exact changes and remove workflow
         shell: bash
         run: |
           set -euo pipefail
+          rm .github/workflows/tai-ap10-exact-patch.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
