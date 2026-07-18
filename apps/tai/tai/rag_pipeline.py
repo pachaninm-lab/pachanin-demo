@@ -48,12 +48,16 @@ class GroundedAnswerRequest:
 @dataclass(frozen=True, slots=True)
 class GroundedAnswerTrace:
     request_id: str
+    tenant_id: str | None
     status: GroundedAnswerStatus
     model_id: str
     model_invoked: bool
+    generation: int | None
     query_sha256: str
     context_sha256: str
     answer_sha256: str | None
+    chunk_ids: tuple[str, ...]
+    source_ids: tuple[str, ...]
     citations: tuple[str, ...]
     reason: str | None
     completed_at: datetime
@@ -209,14 +213,18 @@ class GroundedRAGPipeline:
     ) -> GroundedAnswerResponse:
         trace = GroundedAnswerTrace(
             request_id=request.request_id.strip(),
+            tenant_id=None if request.tenant_id is None else request.tenant_id.strip(),
             status=status,
             model_id=self._model_gateway.model_id,
             model_invoked=model_invoked,
+            generation=retrieval.evidence.generation,
             query_sha256=retrieval.evidence.query_sha256,
             context_sha256=context.evidence.context_sha256,
             answer_sha256=(
                 None if answer is None else hashlib.sha256(answer.encode()).hexdigest()
             ),
+            chunk_ids=context.evidence.chunk_ids,
+            source_ids=context.evidence.source_ids,
             citations=citations,
             reason=reason,
             completed_at=request.requested_at,
