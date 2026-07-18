@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from tai.model_runtime import ModelAttemptStatus, ModelInvocationAttempt
 from tai.postgres_rag_audit import PostgreSQLGroundedAnswerAuditSink, _trace_sha256
 from tai.rag_pipeline import GroundedAnswerStatus, GroundedAnswerTrace
 
@@ -72,6 +73,16 @@ def _trace() -> GroundedAnswerTrace:
         tenant_id="tenant-a",
         status=GroundedAnswerStatus.ANSWERED,
         model_id="local-model-v1",
+        model_revision="r7",
+        model_route_id="d" * 64,
+        model_attempts=(
+            ModelInvocationAttempt(
+                model_id="local-model-v1",
+                revision="r7",
+                status=ModelAttemptStatus.SUCCEEDED,
+                reason=None,
+            ),
+        ),
         model_invoked=True,
         generation=7,
         query_sha256="a" * 64,
@@ -97,11 +108,21 @@ def test_trace_insert_is_immutable_idempotent_and_complete() -> None:
     assert "tai_rag_traces.trace_sha256 = EXCLUDED.trace_sha256" in cursor.query
     assert cursor.parameters[0] == "request-1"
     assert cursor.parameters[1] == "tenant-a"
-    assert cursor.parameters[5] == 7
-    assert cursor.parameters[9] == ["chunk-1", "chunk-2"]
-    assert cursor.parameters[10] == ["source-1", "source-2"]
-    assert cursor.parameters[11] == ["S1"]
-    assert cursor.parameters[14] == digest
+    assert cursor.parameters[4] == "r7"
+    assert cursor.parameters[5] == "d" * 64
+    assert cursor.parameters[6] == [
+        {
+            "model_id": "local-model-v1",
+            "reason": None,
+            "revision": "r7",
+            "status": "SUCCEEDED",
+        }
+    ]
+    assert cursor.parameters[8] == 7
+    assert cursor.parameters[12] == ["chunk-1", "chunk-2"]
+    assert cursor.parameters[13] == ["source-1", "source-2"]
+    assert cursor.parameters[14] == ["S1"]
+    assert cursor.parameters[17] == digest
     assert factory.connection.committed is True
     assert factory.connection.rolled_back is False
 

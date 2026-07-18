@@ -4,6 +4,11 @@ from datetime import UTC, datetime
 
 from tai.context_assembly import ContextAssembler
 from tai.knowledge_chunking import KnowledgeChunk
+from tai.model_runtime import (
+    ModelAttemptStatus,
+    ModelGenerationResult,
+    ModelInvocationAttempt,
+)
 from tai.rag_pipeline import (
     GroundedAnswerRequest,
     GroundedAnswerStatus,
@@ -24,21 +29,48 @@ class _Model:
     def __init__(self, answer: str = "Evidence-backed answer [S1].") -> None:
         self._answer = answer
         self.calls: list[str] = []
+        self.request_ids: list[str] = []
         self.maximum_output_chars: list[int] = []
 
-    @property
-    def model_id(self) -> str:
-        return "local-test-model"
-
-    def generate(self, prompt: str, *, maximum_output_chars: int) -> str:
+    def generate(
+        self,
+        prompt: str,
+        *,
+        request_id: str,
+        now: datetime,
+        maximum_output_chars: int,
+    ) -> ModelGenerationResult:
+        assert now == NOW
         self.calls.append(prompt)
+        self.request_ids.append(request_id)
         self.maximum_output_chars.append(maximum_output_chars)
-        return self._answer
+        return ModelGenerationResult(
+            text=self._answer,
+            model_id="local-test-model",
+            revision="r7",
+            route_id="d" * 64,
+            attempts=(
+                ModelInvocationAttempt(
+                    model_id="local-test-model",
+                    revision="r7",
+                    status=ModelAttemptStatus.SUCCEEDED,
+                    reason=None,
+                ),
+            ),
+        )
 
 
 class _FailingModel(_Model):
-    def generate(self, prompt: str, *, maximum_output_chars: int) -> str:
+    def generate(
+        self,
+        prompt: str,
+        *,
+        request_id: str,
+        now: datetime,
+        maximum_output_chars: int,
+    ) -> ModelGenerationResult:
         self.calls.append(prompt)
+        self.request_ids.append(request_id)
         self.maximum_output_chars.append(maximum_output_chars)
         raise RuntimeError("runtime unavailable")
 
@@ -105,7 +137,12 @@ def test_pipeline_returns_answer_only_after_citation_validation() -> None:
     assert response.answer == "Качество подтверждают лабораторными данными [S1]."
     assert response.trace.citations == ("S1",)
     assert response.trace.answer_sha256 is not None
+    assert response.trace.model_id == "local-test-model"
+    assert response.trace.model_revision == "r7"
+    assert response.trace.model_route_id == "d" * 64
+    assert response.trace.model_attempts[0].status is ModelAttemptStatus.SUCCEEDED
     assert sink.records == [response.trace]
+    assert model.request_ids == ["rag-request-1"]
     assert "official-source" in model.calls[0]
     assert "Cite every material claim" in model.calls[0]
 
@@ -119,6 +156,7 @@ def test_pipeline_abstains_without_evidence_and_does_not_call_model() -> None:
     assert response.status is GroundedAnswerStatus.ABSTAINED
     assert response.answer is None
     assert response.trace.model_invoked is False
+    assert response.trace.model_id == "not-invoked"
     assert response.trace.reason == "no eligible evidence was retrieved"
     assert model.calls == []
     assert sink.records == [response.trace]
@@ -150,8 +188,22 @@ def test_pipeline_gracefully_degrades_when_local_runtime_is_unavailable() -> Non
     assert response.status is GroundedAnswerStatus.ABSTAINED
     assert response.answer is None
     assert response.trace.model_invoked is True
+    assert response.trace.model_id == "unrouted"
     assert response.trace.reason == "local model runtime was unavailable"
     assert sink.records == [response.trace]
+
+
+def test_pipeline_rejects_empty_and_over_budget_model_outputs() -> None:
+    empty, _ = _pipeline(_Model(" "))
+    oversized, _ = _pipeline(_Model("x" * 8_001))
+
+    empty_response = empty.answer(_request())
+    oversized_response = oversized.answer(_request())
+
+    assert empty_response.status is GroundedAnswerStatus.ABSTAINED
+    assert empty_response.trace.reason == "local model returned an empty answer"
+    assert oversized_response.status is GroundedAnswerStatus.REJECTED
+    assert oversized_response.trace.reason == "local model exceeded the output budget"
 
 
 def test_question_is_contained_as_untrusted_input() -> None:
