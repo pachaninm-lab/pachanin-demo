@@ -7,7 +7,11 @@ from time import monotonic
 from typing import Protocol
 
 from tai.loader_state import LoaderStateRepository
-from tai.loader_worker import ManagedLoaderWorker, WorkerExecution
+from tai.loader_worker import WorkerExecution
+
+
+class LoaderWorkerRunner(Protocol):
+    def run_once(self, *, now: datetime) -> WorkerExecution: ...
 
 
 class LoaderMetricsSink(Protocol):
@@ -49,7 +53,7 @@ class InstrumentedLoaderWorker:
     def __init__(
         self,
         *,
-        worker: ManagedLoaderWorker,
+        worker: LoaderWorkerRunner,
         repository: LoaderStateRepository,
         metrics: LoaderMetricsSink,
         clock: Callable[[], float] = monotonic,
