@@ -4,6 +4,11 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import type { RequestUser } from '../../common/types/request-user';
 import { LabsService } from './labs.service';
+import {
+  LabAuthorityService,
+  type ProvisionLabAuthorityCommand,
+  type IssueLabSampleAdmissionCommand,
+} from './lab-authority.service';
 import { LabEvidenceUploadService } from './lab-evidence-upload.service';
 import { CreateSampleDto } from './dto/create-sample.dto';
 import { CollectSampleDto } from './dto/collect-sample.dto';
@@ -20,8 +25,34 @@ import {
 export class LabsController {
   constructor(
     private readonly labs: LabsService,
+    private readonly authority: LabAuthorityService,
     private readonly evidenceUploads: LabEvidenceUploadService,
   ) {}
+
+  /**
+   * Онбординг лаборатории как поставщика услуг сделки: регистрация авторитета
+   * (аккредитация, уполномоченные акторы, методы, оборудование). Привилегированное
+   * решение оператора с идемпотентностью и purpose-bound доказательствами —
+   * прежде доступно только внутрисервисно, теперь штатный HTTP-путь.
+   */
+  @Roles('SUPPORT_MANAGER', 'ADMIN', 'COMPLIANCE_OFFICER')
+  @Post('authority')
+  provisionAuthority(
+    @Body() dto: ProvisionLabAuthorityCommand,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.authority.provision(dto, user);
+  }
+
+  /** Выдача допуска пробы конкретной лаборатории под перевозку/приёмку сделки. */
+  @Roles('SUPPORT_MANAGER', 'ADMIN', 'COMPLIANCE_OFFICER')
+  @Post('sample-admissions')
+  issueSampleAdmission(
+    @Body() dto: IssueLabSampleAdmissionCommand,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.authority.issueSampleAdmission(dto, user);
+  }
 
   @Get('samples')
   list(@CurrentUser() user: RequestUser) {

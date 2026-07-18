@@ -162,7 +162,33 @@ LOGISTICIAN/DRIVER/SURVEYOR/LAB/ACCOUNTING **из своих tenant'ов** (кр
 (finalize_lab → accept_delivery → complete_documents → request_release →
 confirm_release(банк) → close_deal).
 
-### Единственный оставшийся блокер: онбординг лабораторного контура нет в API
+### ✅ CLOSED достигнут живьём (весь конвейер, 18.07.2026)
+
+Пробел онбординга лаборатории закрыт: `LabAuthorityService.provision` /
+`issueSampleAdmission` выставлены HTTP-эндпоинтами
+`POST /labs/authority` и `POST /labs/sample-admissions` (роли
+SUPPORT_MANAGER/ADMIN/COMPLIANCE_OFFICER, штатная идемпотентность и purpose-bound
+evidence). После этого пройден весь хвост по реальным эндпоинтам:
+
+| Шаг | Актёр | Итог |
+|-----|-------|------|
+| POST /labs/authority + /labs/sample-admissions | оператор | лаборатория + акторы + методы + допуск пробы |
+| create→collect→custody×4→tests×2 | LAB (SAMPLER/COURIER/RECEIVER/ANALYST) | проба ANALYSIS_IN_PROGRESS |
+| finalize_lab | LAB (SIGNATORY, чужой tenant) | → QUALITY_ACCEPTED, sample FINALIZED |
+| accept_delivery | BUYER | → DELIVERY_ACCEPTED |
+| complete_documents | SUPPORT_MANAGER | → DOCUMENTS_COMPLETE |
+| request_release | ACCOUNTING (step-up MFA) | → RELEASE_REQUESTED |
+| **confirm_release** | **БАНК (settlement bank-callback)** | **→ RELEASED, ref RSHB-RELEASE-0001** |
+| close_deal | SUPPORT_MANAGER | → **CLOSED** |
+
+**Итог: DRAFT → CLOSED пройден живьём полностью**, все 19 состояний, кросс-tenant
+участники (compliance, logistician, driver, elevator, surveyor, lab — из чужих
+tenant'ов), обе денежные операции подтверждены авторитетным банковским швом
+РСХБ; sample FINALIZED, payment RELEASED, ledger RESERVE+RELEASE. Промышленная
+строгость (документы, evidence, custody, MFA, RLS, аудит) на каждом шаге
+соблюдена — без обходов.
+
+### Историческая справка: пробел онбординга (теперь закрыт для labs)
 
 `finalize_lab` (custody-aware) требует пробу `ANALYSIS_IN_PROGRESS`, полученную
 через цепочку labs (create→collect→custody×4→tests). Эндпоинты **пробы**
