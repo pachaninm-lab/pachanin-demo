@@ -59,6 +59,10 @@
     {
       "path": "0014_governed_tool_planner.sql",
       "version": 15
+    },
+    {
+      "path": "0015_model_admission_authority.sql",
+      "version": 16
     }
   ],
   "schema_version": "tai.migration.manifest.v1"
