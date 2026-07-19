@@ -63,6 +63,10 @@
     {
       "path": "0015_model_admission_authority.sql",
       "version": 16
+    },
+    {
+      "path": "0016_official_source_coverage.sql",
+      "version": 17
     }
   ],
   "schema_version": "tai.migration.manifest.v1"
