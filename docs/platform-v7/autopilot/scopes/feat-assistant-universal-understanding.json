@@ -1,13 +1,14 @@
 {
   "branch": "feat/assistant-universal-understanding",
   "status": "active",
-  "purpose": "Broad multilingual assistant understanding with verified prospect knowledge, production transport resilience, mobile viewport hardening, safe unanswered-question handling and a shared fullscreen modal-sheet control for the public assistant and support.",
+  "purpose": "Broad multilingual assistant understanding with verified prospect knowledge, production transport resilience, mobile viewport hardening, safe unanswered-question handling, a shared fullscreen modal-sheet control and a unified public contact dock for the public assistant, support and an explicit user-initiated phone call.",
   "approvedBy": "independent-authority-pr",
   "allowedPaths": [
     "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
     "apps/api/src/modules/ai-insights/assistant-language-normalizer.ts",
     "apps/web/app/api/public-platform-assistant/route.ts",
     "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "apps/web/components/platform-v7/PublicContactDock.tsx",
     "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
     "apps/web/lib/platform-v7/assistant-question-understanding.ts",
     "apps/web/lib/platform-v7/install-public-assistant-fetch-resilience.ts",
@@ -20,6 +21,7 @@
     "apps/web/tests/unit/platformV7AssistantQuestionUnderstanding.test.ts",
     "apps/web/tests/unit/platformV7ProspectAssistantKnowledge.test.ts",
     "apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts",
+    "apps/web/tests/unit/platformV7UnifiedPublicContactDock.test.ts",
     "docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json"
   ],
   "forbiddenCapabilities": [
@@ -28,6 +30,7 @@
     "external model calls from public mode",
     "autonomous commands",
     "full public question text persistence",
+    "automatic or background phone calls without an explicit user action",
     "invented prices, legal conclusions or integration status"
   ]
 }
