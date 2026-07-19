@@ -1,0 +1,34 @@
+{
+  "branch": "agent/restore-global-contact-dock",
+  "status": "active",
+  "purpose": "Narrowly restore one unified AI, human support and explicit user-initiated call dock across public and protected platform-v7 surfaces, including the assistant workspace, without changing account, role, data, command or model authority.",
+  "approvedBy": "independent-authority-pr",
+  "implementationPullRequest": 2810,
+  "authorityBaseExactMain": "3ff82ac89ca166fcfc0139204d551d9489731e46",
+  "allowedPaths": [
+    "apps/web/app/pc-public-entry/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/components/platform-v7/AiAssistantPanel.tsx",
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx",
+    "apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx",
+    "apps/web/components/platform-v7/PublicContactDock.tsx",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+    "apps/web/tests/unit/platformV7BrowserAcceptanceRepairs.test.ts",
+    "apps/web/tests/unit/platformV7DesignSystemV8RuntimeIsolation.test.ts",
+    "apps/web/tests/unit/platformV7IndustrialAssistantShortcuts.test.ts",
+    "apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts",
+    "apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts",
+    "apps/web/tests/unit/platformV7UnifiedPublicContactDock.test.ts",
+    "apps/web/tests/unit/publicContactDockRuntime.test.tsx"
+  ],
+  "forbiddenCapabilities": [
+    "account data access from public mode",
+    "cross-role or cross-tenant access",
+    "autonomous commands",
+    "automatic or background phone calls without an explicit user action",
+    "external public model calls",
+    "full public question text persistence"
+  ]
+}
