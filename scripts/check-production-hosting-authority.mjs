@@ -6,7 +6,7 @@ const files = {
   cutover: 'PRODUCTION_CUTOVER.md',
   contour: 'docs/ops/active-hosting-contour.md',
   runbook: 'docs/ops/virtual-server-production-runbook.md',
-  checklist: 'docs/platform-v7/vps-post-deploy-checklist.md',
+  checklist: 'docs/ops/vps-post-deploy-checklist.md',
   pilot: 'scripts/pilot-up.sh',
 };
 
