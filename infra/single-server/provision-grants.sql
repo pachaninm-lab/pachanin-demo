@@ -56,12 +56,16 @@ REVOKE DELETE ON ALL TABLES IN SCHEMA settlement FROM app_deal_api;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_deal_api;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public     TO app_deal_api;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA settlement TO app_deal_api;
+-- Distributed rate-limit consume() lives in the security schema; the runtime
+-- rate-limit boundary requires EXECUTE on it before the port opens.
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA security   TO app_deal_api;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA public    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_deal_api;
 ALTER DEFAULT PRIVILEGES IN SCHEMA security  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_deal_api;
 ALTER DEFAULT PRIVILEGES IN SCHEMA logistics GRANT SELECT ON TABLES TO app_deal_api;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public    GRANT USAGE, SELECT ON SEQUENCES TO app_deal_api;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public    GRANT EXECUTE ON FUNCTIONS TO app_deal_api;
+ALTER DEFAULT PRIVILEGES IN SCHEMA security  GRANT EXECUTE ON FUNCTIONS TO app_deal_api;
 
 -- =========================================================================
 -- Storage runtime (app_storage): evidence finalization only.
