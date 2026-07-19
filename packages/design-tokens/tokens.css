@@ -46,6 +46,79 @@
 
   --ds-shadow-surface: 0 1px 2px rgb(16 24 20 / 0.06), 0 10px 28px rgb(16 24 20 / 0.05);
   --ds-shadow-overlay: 0 18px 48px rgb(16 24 20 / 0.18);
+
+  /* ── Semantic domain colours (light) ───────────────────────────
+     Colour encodes the *domain of a deal event*, never decoration.
+     money=payment · document=paperwork · evidence=proof ·
+     logistics=transport · quality=lab/survey · dispute=conflict ·
+     admission=access checks. Every pair passes WCAG AA on its -bg. */
+  --ds-color-money: #175cd3;            --ds-color-money-bg: #eef4ff;
+  --ds-color-document: #0e7490;         --ds-color-document-bg: #e7f6fb;
+  --ds-color-evidence: #6d47c9;         --ds-color-evidence-bg: #f1ecfd;
+  --ds-color-logistics: #7a5af0;        --ds-color-logistics-bg: #efeafe;
+  --ds-color-quality: #0f766e;          --ds-color-quality-bg: #e4f5f2;
+  --ds-color-dispute: #b42318;          --ds-color-dispute-bg: #fff1f0;
+  --ds-color-admission: #9b6100;        --ds-color-admission-bg: #fff8e6;
+
+  /* ── Type scale ────────────────────────────────────────────────
+     One sans stack, one mono stack. Numbers are always tabular so
+     money and quantities align by digit — mandatory for a trading
+     and settlement platform. */
+  --ds-font-family: 'Inter', 'SF Pro Text', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --ds-font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --ds-numeric: 'tnum' 1, 'lnum' 1;
+
+  --ds-font-micro: 11px;
+  --ds-font-small: 13px;
+  --ds-font-label: 14px;
+  /* --ds-font-caption 12 · --ds-font-body 15 (declared above) */
+  --ds-font-lead: 18px;
+  --ds-font-h3: 20px;
+  /* --ds-font-title 24 (declared above) */
+  --ds-font-h2: 28px;
+  /* --ds-font-display 36 (declared above) */
+  --ds-font-hero: 44px;
+
+  --ds-leading-tight: 1.2;
+  --ds-leading-heading: 1.25;
+  --ds-leading-body: 1.55;
+
+  /* ── Spacing (4-point scale) ───────────────────────────────────*/
+  --ds-space-12: 48px;
+  --ds-space-16: 64px;
+
+  /* ── Radius ────────────────────────────────────────────────────*/
+  --ds-radius-pill: 999px;
+
+  /* ── Interaction & sizing ──────────────────────────────────────
+     Field roles (driver, surveyor, elevator) work one-handed, on
+     cheap phones, in sunlight: bigger targets, bigger minimum type. */
+  --ds-control-height-field: 56px;
+  --ds-tap-min: 48px;
+  --ds-focus-ring: 3px;
+  --ds-field-min-font: 16px;
+
+  /* ── Elevation / z-index scale (named, 8 levels) ───────────────
+     No raw z-index outside this scale is permitted. */
+  --ds-z-base: 0;
+  --ds-z-raised: 10;
+  --ds-z-sticky: 100;
+  --ds-z-header: 200;
+  --ds-z-dropdown: 300;
+  --ds-z-overlay: 400;
+  --ds-z-modal: 500;
+  --ds-z-toast: 600;
+  --ds-z-assistant: 650;
+
+  /* ── Motion ────────────────────────────────────────────────────*/
+  --ds-motion-scene: 320ms;
+  --ds-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ── Breakpoints (documentary — reference the same four everywhere)*/
+  --ds-bp-phone: 480px;
+  --ds-bp-tablet: 768px;
+  --ds-bp-desktop: 1080px;
+  --ds-bp-wide: 1440px;
 }
 
 [data-theme='dark'] {
@@ -69,8 +142,54 @@
   --ds-color-critical-bg: #3c1c1a;
   --ds-color-information: #9ec5ff;
   --ds-color-information-bg: #162a45;
+
+  /* Semantic domain colours (dark cabinets) */
+  --ds-color-money: #9ec5ff;            --ds-color-money-bg: #152742;
+  --ds-color-document: #7fd4e8;         --ds-color-document-bg: #0f2c34;
+  --ds-color-evidence: #c3adf6;         --ds-color-evidence-bg: #241a3c;
+  --ds-color-logistics: #b9a5f7;        --ds-color-logistics-bg: #1f193a;
+  --ds-color-quality: #6fd3c6;          --ds-color-quality-bg: #0e2f2b;
+  --ds-color-dispute: #ffaaa5;          --ds-color-dispute-bg: #3c1c1a;
+  --ds-color-admission: #f5c451;        --ds-color-admission-bg: #3a2d0d;
+
   --ds-shadow-surface: 0 1px 2px rgb(0 0 0 / 0.2), 0 14px 36px rgb(0 0 0 / 0.22);
   --ds-shadow-overlay: 0 22px 64px rgb(0 0 0 / 0.42);
+}
+
+/* ── Field / high-contrast theme ─────────────────────────────────
+   A first-class mode for outdoor field work, not an afterthought:
+   pure black on white, one amber action colour, oversized targets.
+   Applied via data-theme='high-contrast'. */
+[data-theme='high-contrast'] {
+  --ds-color-canvas: #ffffff;
+  --ds-color-surface: #ffffff;
+  --ds-color-surface-subtle: #f2f2f2;
+  --ds-color-text-primary: #000000;
+  --ds-color-text-secondary: #1a1a1a;
+  --ds-color-text-muted: #333333;
+  --ds-color-border: #000000;
+  --ds-color-focus: #0033cc;
+  --ds-color-action-primary: #9a4b00;
+  --ds-color-action-primary-hover: #7a3b00;
+  --ds-color-action-primary-subtle: #fff3e6;
+  --ds-color-on-action: #ffffff;
+  --ds-color-success: #0b6b2f;         --ds-color-success-bg: #e9f7ee;
+  --ds-color-warning: #7a3b00;         --ds-color-warning-bg: #fff3e6;
+  --ds-color-critical: #a10e00;        --ds-color-critical-bg: #ffeceb;
+  --ds-color-information: #0033cc;     --ds-color-information-bg: #e9eefc;
+  --ds-color-money: #0033cc;           --ds-color-money-bg: #e9eefc;
+  --ds-color-document: #005b70;        --ds-color-document-bg: #e6f4f8;
+  --ds-color-evidence: #4b2fa1;        --ds-color-evidence-bg: #ece7fb;
+  --ds-color-logistics: #4b2fa1;       --ds-color-logistics-bg: #ece7fb;
+  --ds-color-quality: #0b5d55;         --ds-color-quality-bg: #e4f4f1;
+  --ds-color-dispute: #a10e00;         --ds-color-dispute-bg: #ffeceb;
+  --ds-color-admission: #7a3b00;       --ds-color-admission-bg: #fff3e6;
+  --ds-control-height: 56px;
+  --ds-control-height-compact: 48px;
+  --ds-font-body: 16px;
+  --ds-focus-ring: 4px;
+  --ds-shadow-surface: none;
+  --ds-shadow-overlay: 0 0 0 2px #000000;
 }
 
 @media (forced-colors: active) {

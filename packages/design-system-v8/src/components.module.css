@@ -116,11 +116,181 @@
   .button:active:not(:disabled) { transform: none; }
 }
 
+/* ── Domain tags ─────────────────────────────────────────────────*/
+.domainTag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  border-radius: var(--ds-radius-pill);
+  padding: 2px var(--ds-space-2);
+  font-size: var(--ds-font-micro);
+  font-weight: 850;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+.domainMoney { color: var(--ds-color-money); background: var(--ds-color-money-bg); }
+.domainDocument { color: var(--ds-color-document); background: var(--ds-color-document-bg); }
+.domainEvidence { color: var(--ds-color-evidence); background: var(--ds-color-evidence-bg); }
+.domainLogistics { color: var(--ds-color-logistics); background: var(--ds-color-logistics-bg); }
+.domainQuality { color: var(--ds-color-quality); background: var(--ds-color-quality-bg); }
+.domainDispute { color: var(--ds-color-dispute); background: var(--ds-color-dispute-bg); }
+.domainAdmission { color: var(--ds-color-admission); background: var(--ds-color-admission-bg); }
+
+/* ── RecordHeader ────────────────────────────────────────────────*/
+.record {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-4);
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: var(--ds-space-4);
+  border-bottom: 1px solid var(--ds-color-border);
+}
+.recordMain { min-width: 0; display: grid; gap: var(--ds-space-2); }
+.recordIdRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+.recordIdLabel { color: var(--ds-color-text-muted); font-size: var(--ds-font-caption); font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+.recordId {
+  font-family: var(--ds-font-mono);
+  font-feature-settings: var(--ds-numeric);
+  font-size: var(--ds-font-label);
+  font-weight: 700;
+  color: var(--ds-color-text-primary);
+  background: var(--ds-color-surface-subtle);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-sm);
+  padding: 2px var(--ds-space-2);
+  user-select: all;
+}
+.recordStatus { display: inline-flex; }
+.recordTitle { margin: 0; font-size: clamp(var(--ds-font-h3), 3vw, var(--ds-font-title)); line-height: var(--ds-leading-heading); color: var(--ds-color-text-primary); overflow-wrap: anywhere; }
+.recordMeta { margin: 0; color: var(--ds-color-text-secondary); font-size: var(--ds-font-small); font-feature-settings: var(--ds-numeric); }
+.recordActions { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); align-items: center; }
+
+/* ── EvidenceSeal ────────────────────────────────────────────────*/
+.seal {
+  min-width: 0;
+  border: 1px solid var(--ds-color-border);
+  border-left: 4px solid currentColor;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  display: grid;
+  gap: var(--ds-space-3);
+}
+.sealTop { display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-2); }
+.sealKind { font-weight: 850; font-size: var(--ds-font-label); color: var(--ds-color-text-primary); }
+.sealVerified { display: inline-flex; align-items: center; gap: var(--ds-space-1); font-size: var(--ds-font-caption); font-weight: 850; color: var(--ds-color-success); }
+.sealBody { margin: 0; display: grid; gap: var(--ds-space-2); }
+.sealBody div { display: grid; grid-template-columns: minmax(120px, auto) minmax(0, 1fr); gap: var(--ds-space-3); align-items: baseline; }
+.sealBody dt { color: var(--ds-color-text-muted); font-size: var(--ds-font-caption); }
+.sealBody dd { margin: 0; color: var(--ds-color-text-primary); font-size: var(--ds-font-small); font-feature-settings: var(--ds-numeric); overflow-wrap: anywhere; }
+.sealHash { font-family: var(--ds-font-mono); user-select: all; overflow-wrap: anywhere; }
+
+/* ── Callout ─────────────────────────────────────────────────────*/
+.callout {
+  min-width: 0;
+  border: 1px solid currentColor;
+  border-left-width: 4px;
+  border-radius: var(--ds-radius-md);
+  padding: var(--ds-space-4);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--ds-space-3);
+  align-items: start;
+}
+.callout:not(:has(.calloutIcon)) { grid-template-columns: minmax(0, 1fr); }
+.calloutIcon { display: inline-flex; }
+.calloutCopy { min-width: 0; display: grid; gap: var(--ds-space-2); }
+.calloutTitle { color: var(--ds-color-text-primary); font-size: var(--ds-font-body); }
+.calloutReason { margin: 0; color: var(--ds-color-text-secondary); font-size: var(--ds-font-body); line-height: var(--ds-leading-body); }
+.calloutNext { margin: 0; color: var(--ds-color-text-primary); font-size: var(--ds-font-body); line-height: var(--ds-leading-body); }
+.calloutNextLabel { font-weight: 850; }
+.calloutAction { display: flex; flex-wrap: wrap; gap: var(--ds-space-2); margin-top: var(--ds-space-1); }
+.calloutNeutral { color: var(--ds-color-text-secondary); background: var(--ds-color-surface-subtle); }
+.calloutSuccess { color: var(--ds-color-success); background: var(--ds-color-success-bg); }
+.calloutWarning { color: var(--ds-color-warning); background: var(--ds-color-warning-bg); }
+.calloutCritical { color: var(--ds-color-critical); background: var(--ds-color-critical-bg); }
+.calloutInformation { color: var(--ds-color-information); background: var(--ds-color-information-bg); }
+.callout .calloutReason, .callout .calloutNext { color: var(--ds-color-text-secondary); }
+.callout .calloutTitle { color: currentColor; }
+
+/* ── ConfirmSummary ──────────────────────────────────────────────*/
+.confirm {
+  min-width: 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  box-shadow: var(--ds-shadow-surface);
+  padding: var(--ds-space-5);
+  display: grid;
+  gap: var(--ds-space-4);
+}
+.confirmTitle { margin: 0; font-size: var(--ds-font-h3); line-height: var(--ds-leading-heading); color: var(--ds-color-text-primary); }
+.confirmLines { margin: 0; display: grid; gap: var(--ds-space-2); }
+.confirmLine { display: grid; grid-template-columns: minmax(120px, 40%) minmax(0, 1fr); gap: var(--ds-space-3); padding: var(--ds-space-2) 0; border-bottom: 1px solid var(--ds-color-border); }
+.confirmLine dt { color: var(--ds-color-text-secondary); font-size: var(--ds-font-body); }
+.confirmLine dd { margin: 0; color: var(--ds-color-text-primary); font-weight: 800; font-feature-settings: var(--ds-numeric); overflow-wrap: anywhere; }
+.confirmValueDomain { display: inline-flex; align-items: center; border-radius: var(--ds-radius-sm); padding: 0 var(--ds-space-2); }
+.confirmConsequence {
+  margin: 0;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-warning-bg);
+  color: var(--ds-color-warning);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  font-size: var(--ds-font-body);
+  font-weight: 700;
+  line-height: var(--ds-leading-body);
+}
+.confirmActions { display: flex; flex-wrap: wrap; gap: var(--ds-space-3); }
+
+/* ── Field ───────────────────────────────────────────────────────*/
+.field { min-width: 0; display: grid; gap: var(--ds-space-1); }
+.fieldLabel { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--ds-space-2); font-size: var(--ds-font-label); font-weight: 800; color: var(--ds-color-text-primary); }
+.fieldOptional { color: var(--ds-color-text-muted); font-size: var(--ds-font-caption); font-weight: 600; }
+.fieldHint { margin: 0; color: var(--ds-color-text-secondary); font-size: var(--ds-font-small); line-height: var(--ds-leading-body); }
+.fieldControl { display: grid; }
+.fieldControl :where(input, select, textarea) {
+  min-height: var(--ds-control-height);
+  width: 100%;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text-primary);
+  padding: 0 var(--ds-space-3);
+  font: inherit;
+  font-size: max(var(--ds-field-min-font), var(--ds-font-body));
+}
+.fieldControl textarea { padding: var(--ds-space-3); min-height: calc(var(--ds-control-height) * 2); line-height: var(--ds-leading-body); }
+.fieldControl :where(input, select, textarea):focus-visible { outline: var(--ds-focus-ring) solid var(--ds-color-focus); outline-offset: 2px; border-color: var(--ds-color-focus); }
+.fieldInvalid .fieldControl :where(input, select, textarea) { border-color: var(--ds-color-critical); }
+.fieldError { margin: 0; color: var(--ds-color-critical); font-size: var(--ds-font-small); font-weight: 700; }
+
+@media (max-width: 640px) {
+  .record { flex-direction: column; }
+  .recordActions > * { width: 100%; }
+  .sealBody div { grid-template-columns: minmax(0, 1fr); gap: var(--ds-space-1); }
+  .confirmLine { grid-template-columns: minmax(0, 1fr); gap: var(--ds-space-1); }
+  .confirmActions > * { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .callout, .confirm, .seal { scroll-behavior: auto; }
+}
+
 @media (forced-colors: active) {
   .surface,
   .button,
   .chip,
   .notice,
   .nextAction,
-  .nextActionMetaItem { border-color: CanvasText; }
+  .nextActionMetaItem,
+  .domainTag,
+  .seal,
+  .callout,
+  .confirm,
+  .confirmLine,
+  .record,
+  .fieldControl :where(input, select, textarea) { border-color: CanvasText; }
 }
