@@ -14,12 +14,27 @@ This directory contains small governed catalogs and evidence schemas. It does no
 
 The agronomy-recommendation topic intentionally has no registered source yet. The coverage authority must report this as `GAP` even when every other source is healthy.
 
-## Two different gates
+## Three different gates
 
 1. **Catalog validation** proves only that owners, HTTPS entrypoints, hosts, formats, update intervals and topic requirements are structurally governed.
-2. **Coverage assessment** requires actual source observations with a successful timestamp, latest publication timestamp, document count, observed topics and content digest.
+2. **Observation execution** uses the existing PostgreSQL loader lease authority, the pinned fail-closed HTTPS fetcher and source-specific metadata adapters. Loader completion, observation and run evidence are committed atomically under the lease token and version.
+3. **Coverage assessment** requires actual source observations with a successful timestamp, latest publication timestamp, document count, observed topics and content digest.
 
 A URL in the catalog is not knowledge. A source counts toward coverage only when its observation is current, successful, topic-matched and non-duplicated.
+
+## Observation execution semantics
+
+- one due source is claimed through `tai_loader_state` with a fenced lease;
+- every fetch is read-only and constrained by the source host policy;
+- adapters extract metadata only: publication timestamp, document count and catalog-bounded topics;
+- source HTML remains untrusted and never changes prompts, policies or tool permissions;
+- a `304 Not Modified` response is accepted only when a durable baseline observation already exists;
+- retryable or permanent failure never changes `last_success_at` to the failure time;
+- when a baseline exists, a failure observation carries the unchanged last-success and a non-zero `consecutive_failures`, so coverage fails closed;
+- a stale lease token cannot commit loader state, observation or run evidence;
+- every accepted run has an immutable SHA-256 evidence record bound to its source, worker and lease token.
+
+The adapters currently cover the metadata shapes for Bank of Russia, Rosstat, EEC, Ministry of Transport and Ministry of Agriculture/Open Data. CI uses deterministic fixtures and does not depend on live government endpoints.
 
 ## CLI
 
@@ -72,4 +87,4 @@ Exit codes:
 
 ## Maturity boundary
 
-This catalog does not prove complete Russian agricultural knowledge, semantic-search quality, expert validation or production acceptance. Those require scheduled loaders, durable observations, domain gold sets and exact-main operational evidence. TAI remains `NOT_ATTESTED`.
+This control plane does not prove complete Russian agricultural knowledge, live-source availability, semantic-search quality, expert validation or production acceptance. Those require controlled live observations, scheduled operational evidence, domain gold sets and exact-main acceptance. TAI remains `NOT_ATTESTED`.
