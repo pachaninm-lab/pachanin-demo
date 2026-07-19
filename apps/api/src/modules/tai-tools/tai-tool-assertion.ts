@@ -56,6 +56,8 @@ const EXPECTED_KEYS = new Set([
 const PORTABLE = /^[A-Za-z0-9._:-]{1,160}$/;
 const IDEMPOTENCY = /^[A-Za-z0-9._:-]{16,160}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
+const STANDARD_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const BASE64URL = /^[A-Za-z0-9_-]+$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_ASSERTION_BYTES = 16_384;
 const MAX_TTL_MS = 30_000;
@@ -64,14 +66,14 @@ const MAX_CLOCK_SKEW_MS = 5_000;
 function stable(value: unknown): unknown {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) throw new TypeError('non-finite JSON number');
+    if (!Number.isSafeInteger(value)) throw new TypeError('non-integer JSON number');
     return value;
   }
   if (Array.isArray(value)) return value.map(stable);
   if (value && typeof value === 'object') {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
         .map(([key, item]) => [key, stable(item)]),
     );
   }
@@ -112,32 +114,68 @@ function parseDate(value: string, name: string): Date {
   return parsed;
 }
 
-function decodeAssertion(encoded: string): { readonly canonical: Buffer; readonly payload: TaiToolAssertionPayload } {
-  if (!encoded || encoded.length > MAX_ASSERTION_BYTES * 2) throw new Error('assertion is invalid');
+function isToolName(value: unknown): value is TaiPlatformToolName {
+  return (
+    typeof value === 'string' &&
+    Object.prototype.hasOwnProperty.call(TAI_PLATFORM_TOOL_MODES, value)
+  );
+}
+
+function decodeAssertion(encoded: string): {
+  readonly canonical: Buffer;
+  readonly payload: TaiToolAssertionPayload;
+} {
+  if (
+    !encoded ||
+    encoded.length > MAX_ASSERTION_BYTES * 2 ||
+    !BASE64URL.test(encoded)
+  ) {
+    throw new Error('assertion is invalid');
+  }
   const canonical = Buffer.from(encoded, 'base64url');
-  if (canonical.length === 0 || canonical.length > MAX_ASSERTION_BYTES) throw new Error('assertion is invalid');
+  if (
+    canonical.length === 0 ||
+    canonical.length > MAX_ASSERTION_BYTES ||
+    canonical.toString('base64url') !== encoded
+  ) {
+    throw new Error('assertion is invalid');
+  }
   const decoded = JSON.parse(canonical.toString('utf8')) as unknown;
-  if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) throw new Error('assertion shape is invalid');
+  if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) {
+    throw new Error('assertion shape is invalid');
+  }
   const record = decoded as Record<string, unknown>;
-  if (Object.keys(record).length !== EXPECTED_KEYS.size || Object.keys(record).some((key) => !EXPECTED_KEYS.has(key))) {
+  const keys = Object.keys(record);
+  if (keys.length !== EXPECTED_KEYS.size || keys.some((key) => !EXPECTED_KEYS.has(key))) {
     throw new Error('assertion keys are invalid');
   }
-  if (canonical.toString('utf8') !== canonicalTaiToolJson(record)) throw new Error('assertion is not canonical');
-  return { canonical, payload: record as TaiToolAssertionPayload };
+  if (canonical.toString('utf8') !== canonicalTaiToolJson(record)) {
+    throw new Error('assertion is not canonical');
+  }
+  return {
+    canonical,
+    payload: record as unknown as TaiToolAssertionPayload,
+  };
 }
 
 function verifySignature(canonical: Buffer, signature: string, secret: Buffer): void {
   if (!SHA256.test(signature)) throw new Error('signature is invalid');
   const expected = createHmac('sha256', secret).update(canonical).digest();
   const provided = Buffer.from(signature, 'hex');
-  if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) throw new Error('signature is invalid');
+  if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
+    throw new Error('signature is invalid');
+  }
 }
 
 function secretFromEnvironment(): Buffer {
   const encoded = String(process.env.TAI_PLATFORM_TOOL_HMAC_SECRET_B64 ?? '').trim();
-  if (!encoded) throw new Error('TAI platform tool authority is not configured');
+  if (!encoded || !STANDARD_BASE64.test(encoded)) {
+    throw new Error('TAI platform tool authority is not configured');
+  }
   const secret = Buffer.from(encoded, 'base64');
-  if (secret.length < 32) throw new Error('TAI platform tool authority secret is too short');
+  if (secret.toString('base64') !== encoded || secret.length < 32) {
+    throw new Error('TAI platform tool authority secret is invalid');
+  }
   return secret;
 }
 
@@ -158,18 +196,30 @@ export class TaiToolAssertionVerifier {
       const { canonical, payload } = decodeAssertion(input.assertion);
       verifySignature(canonical, input.signature, secret);
 
-      if (payload.schema_version !== 'tai.platform-tool.v1' || payload.audience !== 'platform-api') {
+      if (
+        payload.schema_version !== 'tai.platform-tool.v1' ||
+        payload.audience !== 'platform-api'
+      ) {
         throw new Error('assertion authority is invalid');
       }
-      if (!(payload.tool_name in TAI_PLATFORM_TOOL_MODES) || payload.tool_name !== input.toolName) {
+      if (!isToolName(payload.tool_name) || payload.tool_name !== input.toolName) {
         throw new Error('tool binding failed');
       }
-      const expectedMode = TAI_PLATFORM_TOOL_MODES[payload.tool_name as TaiPlatformToolName];
+      const expectedMode = TAI_PLATFORM_TOOL_MODES[payload.tool_name];
       if (payload.mode !== expectedMode) throw new Error('tool mode binding failed');
-      if (!PORTABLE.test(payload.call_id) || !UUID.test(payload.trace_id)) throw new Error('trace binding is invalid');
-      if (!UUID.test(payload.user_id) || !UUID.test(payload.session_id)) throw new Error('identity binding is invalid');
-      if (payload.tenant_id !== null && !UUID.test(payload.tenant_id)) throw new Error('tenant binding is invalid');
-      if (!IDEMPOTENCY.test(payload.idempotency_key) || payload.idempotency_key !== input.idempotencyKey) {
+      if (!PORTABLE.test(payload.call_id) || !UUID.test(payload.trace_id)) {
+        throw new Error('trace binding is invalid');
+      }
+      if (!UUID.test(payload.user_id) || !UUID.test(payload.session_id)) {
+        throw new Error('identity binding is invalid');
+      }
+      if (payload.tenant_id !== null && !UUID.test(payload.tenant_id)) {
+        throw new Error('tenant binding is invalid');
+      }
+      if (
+        !IDEMPOTENCY.test(payload.idempotency_key) ||
+        payload.idempotency_key !== input.idempotencyKey
+      ) {
         throw new Error('idempotency binding failed');
       }
       if (!SHA256.test(payload.request_sha256)) throw new Error('request digest is invalid');
@@ -182,12 +232,17 @@ export class TaiToolAssertionVerifier {
       if (payload.request_sha256 !== expectedRequest) throw new Error('request binding failed');
 
       const now = input.now ?? new Date();
-      const issuedAt = parseDate(requiredString(payload as unknown as Record<string, unknown>, 'issued_at'), 'issued_at');
-      const expiresAt = parseDate(requiredString(payload as unknown as Record<string, unknown>, 'expires_at'), 'expires_at');
+      const record = payload as unknown as Record<string, unknown>;
+      const issuedAt = parseDate(requiredString(record, 'issued_at'), 'issued_at');
+      const expiresAt = parseDate(requiredString(record, 'expires_at'), 'expires_at');
       const ttl = expiresAt.getTime() - issuedAt.getTime();
       if (ttl <= 0 || ttl > MAX_TTL_MS) throw new Error('assertion TTL is invalid');
-      if (issuedAt.getTime() > now.getTime() + MAX_CLOCK_SKEW_MS) throw new Error('assertion issued in future');
-      if (expiresAt.getTime() <= now.getTime() - MAX_CLOCK_SKEW_MS) throw new Error('assertion expired');
+      if (issuedAt.getTime() > now.getTime() + MAX_CLOCK_SKEW_MS) {
+        throw new Error('assertion issued in future');
+      }
+      if (expiresAt.getTime() <= now.getTime() - MAX_CLOCK_SKEW_MS) {
+        throw new Error('assertion expired');
+      }
 
       return {
         userId: payload.user_id,
