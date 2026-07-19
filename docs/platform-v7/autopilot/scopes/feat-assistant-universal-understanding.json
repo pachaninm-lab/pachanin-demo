@@ -1,7 +1,7 @@
 {
   "branch": "feat/assistant-universal-understanding",
   "status": "active",
-  "purpose": "Broad multilingual assistant understanding with verified prospect knowledge, production transport resilience, mobile viewport hardening, safe unanswered-question handling, a shared fullscreen modal-sheet control, a unified public contact dock and a compact intent-first mobile UX for the public assistant and support form.",
+  "purpose": "Broad multilingual assistant understanding with verified prospect knowledge, production transport resilience, mobile viewport hardening, safe unanswered-question handling, a shared fullscreen modal-sheet control, a unified public contact dock and a materially visible intent-first public AI assistant UX.",
   "approvedBy": "independent-authority-pr",
   "allowedPaths": [
     "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
@@ -9,6 +9,7 @@
     "apps/web/app/api/public-platform-assistant/route.ts",
     "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
     "apps/web/components/platform-v7/PublicContactDock.tsx",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
     "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
     "apps/web/lib/platform-v7/assistant-question-understanding.ts",
     "apps/web/lib/platform-v7/install-public-assistant-fetch-resilience.ts",
