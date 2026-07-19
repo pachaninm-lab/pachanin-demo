@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import http.client
 import ipaddress
 import socket
@@ -312,10 +313,10 @@ class OfficialSourceHTTPFetcher:
                     FetchDisposition.PERMANENT_FAILURE,
                     error.error_code,
                 )
-            except (OSError, http.client.HTTPException):
+            except (OSError, http.client.HTTPException) as error:
                 return _failure(
                     FetchDisposition.RETRYABLE_FAILURE,
-                    "source_transport_failure",
+                    _transport_error_code(error),
                 )
         return _failure(
             FetchDisposition.PERMANENT_FAILURE,
@@ -479,6 +480,44 @@ def _failure(disposition: FetchDisposition, error_code: str) -> FetchResponse:
         fetched_at=datetime.now(UTC),
         error_code=error_code,
     )
+
+
+def _transport_error_code(error: OSError | http.client.HTTPException) -> str:
+    if isinstance(error, ssl.SSLCertVerificationError):
+        return "source_tls_certificate_invalid"
+    if isinstance(error, ssl.SSLError):
+        return "source_tls_failure"
+    if isinstance(error, http.client.RemoteDisconnected):
+        return "source_http_connection_closed"
+    if isinstance(error, http.client.BadStatusLine):
+        return "source_http_protocol_invalid"
+    if isinstance(error, http.client.IncompleteRead):
+        return "source_http_response_incomplete"
+    if isinstance(error, http.client.HTTPException):
+        return "source_http_protocol_failure"
+    if isinstance(error, TimeoutError):
+        return "source_transport_timeout"
+    if isinstance(error, ConnectionRefusedError):
+        return "source_connection_refused"
+    if isinstance(error, ConnectionResetError):
+        return "source_connection_reset"
+    if isinstance(error, ConnectionAbortedError):
+        return "source_connection_aborted"
+    if isinstance(error, BrokenPipeError):
+        return "source_connection_broken"
+    if isinstance(error, socket.gaierror):
+        return "source_dns_resolution_failed"
+    if error.errno == errno.ETIMEDOUT:
+        return "source_transport_timeout"
+    if error.errno == errno.ECONNREFUSED:
+        return "source_connection_refused"
+    if error.errno == errno.ECONNRESET:
+        return "source_connection_reset"
+    if error.errno == errno.ECONNABORTED:
+        return "source_connection_aborted"
+    if error.errno in {errno.ENETUNREACH, errno.EHOSTUNREACH}:
+        return "source_network_unreachable"
+    return "source_transport_failure"
 
 
 def _content_type(raw_value: str | None) -> tuple[str, str]:
