@@ -5,6 +5,7 @@ import os
 from fastapi import FastAPI
 
 from tai.main import create_app
+from tai.model_admission import ModelAdmissionAwareReadinessProbe
 from tai.postgres_connection import PsycopgConnectionFactory
 from tai.postgres_tool_planner import (
     PlannerAwareReadinessProbe,
@@ -44,10 +45,14 @@ def create_production_app(environment: dict[str, str] | None = None) -> FastAPI:
             tool_handlers=tool_handlers,
             tool_planner=tool_planner,
         )
-        readiness_probe = PlannerAwareReadinessProbe(
+        planner_readiness = PlannerAwareReadinessProbe(
             delegate=bundle.readiness_probe,
             connection_factory=database,
             planner_required=bool(tool_handlers),
+        )
+        readiness_probe = ModelAdmissionAwareReadinessProbe(
+            delegate=planner_readiness,
+            connection_factory=database,
         )
     except ProductionConfigurationError:
         return create_app(configuration_error="TAI_PRODUCTION_CONFIGURATION_INVALID")
