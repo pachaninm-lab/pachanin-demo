@@ -25,6 +25,7 @@ def _repository(root: Path) -> None:
         "0012_git_object_id_contract.sql",
         "0013_production_composition.sql",
         "0014_governed_tool_planner.sql",
+        "0015_confirmed_logistics_authority.sql",
     ]
     for version, name in enumerate(migration_names, start=1):
         (migration_root / name).write_text(f"-- migration {version}\nSELECT {version};\n")
@@ -157,18 +158,18 @@ def test_cli_builds_accepted_application_attestation(tmp_path: Path, monkeypatch
     assert attestation["exact_main_sha"] == HEAD
     assert attestation["production_operational_status"] == "NOT_ATTESTED"
     assert attestation["reasons"] == []
-    assert len(attestation["migration_inventory"]) == 15
+    assert len(attestation["migration_inventory"]) == 16
     assert len(attestation["attestation_sha256"]) == 64
     assert len(attestation["source_tree_sha256"]) == 64
 
 
-def test_cli_rejects_release_below_planner_migration_authority(
+def test_cli_rejects_release_below_confirmed_action_migration_authority(
     tmp_path: Path, monkeypatch
 ) -> None:
     _repository(tmp_path)
     migration_root = tmp_path / "apps/tai/tai/migrations"
-    planner_migration = migration_root / "0014_governed_tool_planner.sql"
-    planner_migration.unlink()
+    confirmed_migration = migration_root / "0015_confirmed_logistics_authority.sql"
+    confirmed_migration.unlink()
     manifest_path = migration_root / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
     manifest["migrations"] = manifest["migrations"][:-1]
