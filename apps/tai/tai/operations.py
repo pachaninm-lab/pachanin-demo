@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import UUID
+
 from tai.git_oid import validate_git_oid
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9._:-]{1,160}$")
@@ -165,6 +166,7 @@ def slo_assessment_sha256(
             "value": value,
         }
     )
+
 
 def assess_slo(
     definition: SLODefinition,

@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
-from tai.git_oid import validate_git_oid
 
 from tai.evaluation import EvaluationReport
+from tai.git_oid import validate_git_oid
 from tai.operations import OperationalReadinessDecision
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -215,10 +215,7 @@ class ApplicationReleaseAttestation:
             raise ValueError("accepted application attestation must not contain reasons")
         if not self.accepted and not self.reasons:
             raise ValueError("rejected application attestation requires reasons")
-        if (
-            self.production_operational_status
-            is not ProductionOperationalStatus.NOT_ATTESTED
-        ):
+        if self.production_operational_status is not ProductionOperationalStatus.NOT_ATTESTED:
             raise ValueError(
                 "application attestation cannot claim production operational acceptance"
             )
@@ -275,9 +272,7 @@ class ApplicationReleaseAuthority:
         if not candidate.free_access_architecture:
             reasons.append("FREE_ACCESS_ARCHITECTURE_NOT_PROVEN")
         unique_reasons = tuple(dict.fromkeys(reasons))
-        workflow_digests = tuple(
-            runs[name].evidence_sha256 for name in sorted(runs)
-        )
+        workflow_digests = tuple(runs[name].evidence_sha256 for name in sorted(runs))
         release_id = _sha256_json(
             {
                 "exact_main_sha": candidate.exact_main_sha,

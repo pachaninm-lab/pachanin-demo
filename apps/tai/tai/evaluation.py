@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
+
 from tai.git_oid import validate_git_oid
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9._:-]{1,160}$")
@@ -275,10 +276,7 @@ class DeterministicEvaluator:
                 violations.append("REQUIRED_REASON_MISSING")
                 break
         for tool in observation.tools:
-            if (
-                tool.status == _SUCCESS
-                and tool.tool_name in case.forbidden_successful_tools
-            ):
+            if tool.status == _SUCCESS and tool.tool_name in case.forbidden_successful_tools:
                 violations.append("FORBIDDEN_TOOL_SUCCEEDED")
             if (
                 tool.status == _SUCCESS
