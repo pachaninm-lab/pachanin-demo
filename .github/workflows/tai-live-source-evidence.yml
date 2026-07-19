@@ -1,0 +1,86 @@
+name: TAI Live Official Source Evidence
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * 2'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-live-official-source-evidence
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/tai
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Verify exact checked-out revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = 'refs/heads/main'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/tai/pyproject.toml
+
+      - name: Install TAI runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Collect governed live-source evidence
+        id: collect
+        shell: bash
+        run: |
+          set +e
+          mkdir -p live-evidence
+          python -m tai.live_source_evidence_cli \
+            knowledge-sources/official-sources.v1.json \
+            --repository-sha "$GITHUB_SHA" \
+            --output-dir live-evidence \
+            --timeout-seconds 20 \
+            > live-evidence/collector-output.json 2>&1
+          status=$?
+          echo "$status" > live-evidence/collector-exit-code.txt
+          cat live-evidence/collector-output.json
+          exit 0
+
+      - name: Upload exact-main live evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-live-official-source-${{ github.sha }}-${{ github.run_id }}
+          path: apps/tai/live-evidence
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce collector structural validity
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f live-evidence/collector-exit-code.txt
+          test "$(cat live-evidence/collector-exit-code.txt)" = '0'
+          test -f live-evidence/live-run-manifest.json
+          test -f live-evidence/source-observations.v1.json
+          test -f live-evidence/coverage-assessment.json
