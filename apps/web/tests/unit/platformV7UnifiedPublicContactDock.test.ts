@@ -22,12 +22,23 @@ describe('platform-v7 unified public contact dock', () => {
     expect(dock).toContain("const SUPPORT_PHONE_DISPLAY = '8 916 277-89-89'");
   });
 
-  it('canonicalizes the Next.js public-entry rewrite before selecting the home surface', () => {
+  it('uses the browser-visible path and canonicalizes every public home alias', () => {
     expect(contextual).toContain("const PUBLIC_ENTRY_REWRITE_PREFIX = '/pc-public-entry'");
+    expect(contextual).toContain("if (!clean || clean === '/') return PUBLIC_HOME");
     expect(contextual).toContain('const rewrittenHome = `${PUBLIC_ENTRY_REWRITE_PREFIX}${PUBLIC_HOME}`');
     expect(contextual).toContain('if (clean === rewrittenHome || clean.startsWith(`${rewrittenHome}/`))');
     expect(contextual).toContain('return clean.slice(PUBLIC_ENTRY_REWRITE_PREFIX.length) || PUBLIC_HOME');
-    expect(contextual).toContain('if (path === PUBLIC_HOME)');
+    expect(contextual).toContain("const browserPathname = typeof window === 'undefined' ? routerPathname : window.location.pathname");
+    expect(contextual).toContain('const path = normalize(browserPathname || routerPathname)');
+  });
+
+  it('never falls back to a standalone support button on a public surface', () => {
+    const publicReturn = contextual.slice(contextual.lastIndexOf('return ('));
+    expect(publicReturn).toContain('<UnifiedModalSheetFullscreenController />');
+    expect(publicReturn).toContain('<PublicPlatformAssistant />');
+    expect(publicReturn).toContain('<ChatSupportWidget />');
+    expect(publicReturn).toContain('<PublicContactDock />');
+    expect(publicReturn).toContain('Every public platform surface uses one visible entry point');
   });
 
   it('keeps the call action but does not render the phone number in the dock', () => {
