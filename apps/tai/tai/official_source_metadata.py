@@ -146,12 +146,17 @@ class HTMLMetadataAdapter:
             raise MetadataExtractionError("source_html_parse_failed") from error
 
         text = "\n".join(parser.text_chunks)
-        dates = (
-            _extract_contextual_dates(
+        contextual_ranges = (
+            _contextual_date_ranges(
                 text,
                 fetched_at,
                 self.publication_marker_groups,
             )
+            if self.publication_marker_groups
+            else ()
+        )
+        dates = (
+            tuple(sorted({value for _, _, value in contextual_ranges}))
             if self.publication_marker_groups
             else _extract_dates(text, fetched_at)
         )
@@ -167,8 +172,12 @@ class HTMLMetadataAdapter:
             document_count = len(
                 {
                     url
-                    for href in parser.links
-                    if (url := _trusted_document_url(source, href)) is not None
+                    for href, position in parser.links
+                    if (
+                        not contextual_ranges
+                        or _position_in_ranges(position, contextual_ranges)
+                    )
+                    and (url := _trusted_document_url(source, href)) is not None
                     and _matches_document_locator(
                         url,
                         suffixes=self.document_suffixes,
@@ -189,12 +198,14 @@ class _HTMLSnapshotParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.text_chunks: list[str] = []
-        self.links: list[str] = []
+        self.links: list[tuple[str, int]] = []
+        self._text_length = 0
 
     def handle_data(self, data: str) -> None:
         compact = " ".join(data.split())
         if compact:
             self.text_chunks.append(compact)
+            self._text_length += len(compact) + 1
 
     def handle_starttag(
         self,
@@ -212,7 +223,7 @@ class _HTMLSnapshotParser(HTMLParser):
             None,
         )
         if href:
-            self.links.append(href)
+            self.links.append((href, self._text_length))
 
 
 def default_html_metadata_adapters() -> tuple[HTMLMetadataAdapter, ...]:
@@ -287,19 +298,26 @@ def _extract_dates(text: str, reference: datetime) -> tuple[datetime, ...]:
     )
 
 
-def _extract_contextual_dates(
+def _contextual_date_ranges(
     text: str,
     reference: datetime,
     marker_groups: tuple[tuple[str, ...], ...],
-) -> tuple[datetime, ...]:
+) -> tuple[tuple[int, int, datetime], ...]:
     occurrences = _date_occurrences(text, reference)
-    values: set[datetime] = set()
+    ranges: list[tuple[int, int, datetime]] = []
     for index, (position, value) in enumerate(occurrences):
         end = occurrences[index + 1][0] if index + 1 < len(occurrences) else len(text)
         segment = unicodedata.normalize("NFKC", text[position:end]).casefold()
         if _marker_groups_match(segment, marker_groups):
-            values.add(value)
-    return tuple(sorted(values))
+            ranges.append((position, end, value))
+    return tuple(ranges)
+
+
+def _position_in_ranges(
+    position: int,
+    ranges: tuple[tuple[int, int, datetime], ...],
+) -> bool:
+    return any(start <= position < end for start, end, _ in ranges)
 
 
 def _date_occurrences(
