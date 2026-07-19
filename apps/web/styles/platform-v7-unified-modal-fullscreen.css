@@ -55,7 +55,7 @@
   grid-template-columns: 44px minmax(0, 1fr) 48px 48px !important;
 }
 
-/* Shared modal polish: one hierarchy, one focus treatment, no clipped service copy. */
+/* Shared hierarchy and focus treatment. */
 .pc-public-assistant-identity > div {
   min-width: 0;
 }
@@ -68,7 +68,7 @@
 .pc-public-assistant-identity span:not(.pc-public-assistant-mark) {
   display: -webkit-box !important;
   overflow: hidden !important;
-  max-width: min(44vw, 300px) !important;
+  max-width: min(48vw, 320px) !important;
   white-space: normal !important;
   text-overflow: clip !important;
   -webkit-box-orient: vertical;
@@ -97,7 +97,116 @@
   filter: brightness(1.035);
 }
 
-/* Support is a compact operational form, not a full-page questionnaire. */
+/* Material initial state: intent first, not an empty chat. */
+.pc-public-assistant-welcome {
+  display: grid;
+  gap: 7px;
+  padding: 16px 14px 12px;
+  border-bottom: 1px solid #d9e7df;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(33, 163, 106, 0.13), transparent 42%),
+    linear-gradient(180deg, #ffffff 0%, #f7fbf8 100%);
+}
+
+.pc-public-assistant-welcome-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #087a3b;
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 850;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.pc-public-assistant-welcome > strong {
+  color: #10241d;
+  font-size: 20px;
+  line-height: 1.16;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+}
+
+.pc-public-assistant-welcome > p {
+  margin: 0;
+  color: #405249;
+  font-size: 13.5px;
+  line-height: 1.5;
+  font-weight: 560;
+}
+
+.pc-public-assistant-starter-block {
+  display: grid;
+  gap: 8px;
+  padding: 11px 12px 12px;
+  background: #eff6f2;
+}
+
+.pc-public-assistant-starter-block > strong {
+  color: #405249;
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 850;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.pc-public-assistant-starters {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.pc-public-assistant-starters button {
+  position: relative;
+  min-height: 54px !important;
+  justify-content: flex-start !important;
+  padding: 10px 30px 10px 11px !important;
+  border: 1px solid #c5dbcf !important;
+  border-radius: 13px !important;
+  background: #ffffff !important;
+  color: #155f3c !important;
+  font-size: 11.5px !important;
+  line-height: 1.3 !important;
+  font-weight: 760 !important;
+  text-align: left !important;
+  box-shadow: 0 4px 14px rgba(16, 46, 35, 0.05);
+}
+
+.pc-public-assistant-starters button::after {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  color: #15945d;
+  content: '→';
+  font-size: 16px;
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.pc-public-assistant-starters button:hover {
+  border-color: #86bda2 !important;
+  background: #fbfefc !important;
+  transform: translateY(-1px);
+}
+
+.pc-public-assistant-form[data-single-action='true'] .pc-public-assistant-form-actions {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.pc-public-assistant-form[data-single-action='true'] .pc-public-assistant-primary {
+  width: 100%;
+}
+
+.pc-public-assistant-panel[data-conversation='false'] .pc-public-assistant-version {
+  border-top-color: #d9e7df !important;
+  background: #f7fbf8 !important;
+}
+
+/* Support remains a compact operational form. */
 .p7-support-chat-form {
   gap: 10px !important;
   padding: 12px 14px max(12px, env(safe-area-inset-bottom, 0px)) !important;
@@ -135,9 +244,12 @@
 }
 
 .p7-support-chat-submit {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   min-height: 48px !important;
   border-radius: 13px !important;
-  box-shadow: 0 -8px 18px rgba(239, 246, 242, 0.84) !important;
+  box-shadow: 0 -8px 18px rgba(239, 246, 242, 0.9) !important;
 }
 
 @media (min-width: 721px) {
@@ -155,74 +267,19 @@
 }
 
 @media (max-width: 720px) {
-  /* Compact sheets use only the space their content needs, up to the shared cap. */
   .pc-public-assistant-panel:not([data-pc-fullscreen='true']),
   .p7-support-chat-panel:not([data-pc-fullscreen='true']) {
     height: auto !important;
-    min-height: min(380px, calc(var(--pc-visual-viewport-height) - 8px)) !important;
-    max-height: min(68dvh, 560px, calc(var(--pc-visual-viewport-height) - 8px)) !important;
-  }
-
-  /* Initial assistant state is content-sized and intent-first, without a dead zone. */
-  .pc-public-assistant-panel:not([data-pc-fullscreen='true']):not(:has(.pc-public-assistant-answer)) {
     min-height: 0 !important;
+    max-height: min(76dvh, 620px, calc(var(--pc-visual-viewport-height) - 8px)) !important;
   }
 
-  .pc-public-assistant-panel:not([data-pc-fullscreen='true']):not(:has(.pc-public-assistant-answer)) .pc-public-assistant-messages {
-    flex: 0 1 auto !important;
-    min-height: 0 !important;
-    max-height: 190px !important;
-    padding-bottom: 8px !important;
+  .pc-public-assistant-panel[data-conversation='false']:not([data-pc-fullscreen='true']) {
+    max-height: min(78dvh, 650px, calc(var(--pc-visual-viewport-height) - 8px)) !important;
   }
 
-  .pc-public-assistant-panel:not(:has(.pc-public-assistant-answer)) .pc-public-assistant-message {
-    margin-bottom: 0 !important;
-  }
-
-  .pc-public-assistant-panel:not(:has(.pc-public-assistant-answer)) .pc-public-assistant-bubble {
-    max-width: 100% !important;
-    padding: 10px 12px !important;
-    border-radius: 15px !important;
-    box-shadow: 0 4px 14px rgba(16, 46, 35, 0.045) !important;
-  }
-
-  .pc-public-assistant-panel:not(:has(.pc-public-assistant-answer)) .pc-public-assistant-bubble p {
-    font-size: 12.5px !important;
-    line-height: 1.48 !important;
-  }
-
-  .pc-public-assistant-starters {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px !important;
-    padding: 4px 12px 12px !important;
-    background: #eff6f2 !important;
-  }
-
-  .pc-public-assistant-starters button {
-    position: relative;
-    min-height: 50px !important;
-    justify-content: flex-start !important;
-    padding: 9px 28px 9px 11px !important;
-    border-color: #c5dbcf !important;
-    border-radius: 13px !important;
-    background: #ffffff !important;
-    color: #155f3c !important;
-    font-size: 11.5px !important;
-    line-height: 1.28 !important;
-    text-align: left !important;
-    box-shadow: 0 4px 12px rgba(16, 46, 35, 0.045);
-  }
-
-  .pc-public-assistant-starters button::after {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    color: #15945d;
-    content: '→';
-    font-size: 16px;
-    line-height: 1;
-    transform: translateY(-50%);
+  .pc-public-assistant-panel[data-conversation='true']:not([data-pc-fullscreen='true']) {
+    min-height: min(420px, calc(var(--pc-visual-viewport-height) - 8px)) !important;
   }
 
   .pc-public-assistant-form {
@@ -310,14 +367,26 @@
   }
 
   .pc-public-assistant-identity strong {
-    font-size: 14px !important;
+    font-size: 15px !important;
   }
 
   .pc-public-assistant-identity span:not(.pc-public-assistant-mark) {
     display: -webkit-box !important;
-    max-width: 44vw !important;
+    max-width: 46vw !important;
     font-size: 9.5px !important;
     line-height: 1.2 !important;
+  }
+
+  .pc-public-assistant-welcome {
+    padding: 14px 12px 10px;
+  }
+
+  .pc-public-assistant-welcome > strong {
+    font-size: 18px;
+  }
+
+  .pc-public-assistant-starter-block {
+    padding: 10px 10px 11px;
   }
 
   .pc-public-assistant-starters {
@@ -325,8 +394,8 @@
   }
 
   .pc-public-assistant-starters button {
-    min-height: 48px !important;
-    padding: 8px 24px 8px 9px !important;
+    min-height: 50px !important;
+    padding: 8px 25px 8px 9px !important;
     font-size: 10.5px !important;
   }
 }
@@ -346,8 +415,19 @@
     border: 2px solid ButtonText;
   }
 
+  .pc-public-assistant-welcome,
+  .pc-public-assistant-starter-block,
   .pc-public-assistant-starters button {
     border: 1px solid ButtonText !important;
+    background: Canvas !important;
+    color: CanvasText !important;
     box-shadow: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-public-assistant-starters button {
+    transform: none !important;
+    transition: none !important;
   }
 }
