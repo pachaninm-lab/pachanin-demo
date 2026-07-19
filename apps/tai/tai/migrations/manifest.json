@@ -51,6 +51,10 @@
     {
       "path": "0012_git_object_id_contract.sql",
       "version": 13
+    },
+    {
+      "path": "0013_production_composition.sql",
+      "version": 14
     }
   ],
   "schema_version": "tai.migration.manifest.v1"

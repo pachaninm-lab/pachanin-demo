@@ -23,6 +23,7 @@ def _repository(root: Path) -> None:
         "0010_orchestration_runtime.sql",
         "0011_release_attestation.sql",
         "0012_git_object_id_contract.sql",
+        "0013_production_composition.sql",
     ]
     for version, name in enumerate(migration_names, start=1):
         (migration_root / name).write_text(f"-- migration {version}\nSELECT {version};\n")
@@ -107,7 +108,7 @@ def test_cli_builds_accepted_application_attestation(tmp_path: Path, monkeypatch
     assert attestation["exact_main_sha"] == HEAD
     assert attestation["production_operational_status"] == "NOT_ATTESTED"
     assert attestation["reasons"] == []
-    assert len(attestation["migration_inventory"]) == 13
+    assert len(attestation["migration_inventory"]) == 14
     assert len(attestation["attestation_sha256"]) == 64
     assert len(attestation["source_tree_sha256"]) == 64
 
