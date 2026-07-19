@@ -1,0 +1,46 @@
+name: TAI Exact-Main Discovery 5b99f65b
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-exact-main-discovery-5b99f65b.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      TARGET_SHA: 5b99f65b1cdedd3b21fe7517431f2b0ee8027258
+    steps:
+      - name: Snapshot exact-main workflow state
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "/repos/${REPOSITORY}/actions/runs?head_sha=${TARGET_SHA}&per_page=100" > raw.json
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          names={"Auction Atomic Execution Acceptance","CI","Dependency Review","Disputes PostgreSQL Authority Acceptance","Node CI","Optional Runtime Retirement Gate","Outbox PostgreSQL Authority Acceptance","Runtime Context Security Gate","Security Abuse and Evidence Acceptance","Security Quality Gate","Security Scan","TAI Foundation","TAI Release Acceptance"}
+          target=os.environ['TARGET_SHA']; latest={}
+          for run in json.loads(Path('raw.json').read_text()).get('workflow_runs',[]):
+              name=run.get('name')
+              if name not in names or run.get('head_sha')!=target or run.get('event')!='push' or run.get('head_branch')!='main': continue
+              key=(run.get('run_number',0),run.get('run_attempt',0),run.get('id',0))
+              if name not in latest or key>latest[name][0]: latest[name]=(key,run)
+          report={'target_sha':target,'missing':sorted(names-set(latest)),'runs':{name:{'id':run.get('id'),'status':run.get('status'),'conclusion':run.get('conclusion')} for name,(_,run) in sorted(latest.items())}}
+          Path('discovery.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(report,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tai-exact-main-discovery-5b99f65b
+          path: discovery.json
+          if-no-files-found: error
+          retention-days: 7
