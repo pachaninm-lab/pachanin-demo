@@ -12,7 +12,9 @@ from tai.live_source_evidence import (
     observations_payload,
     run_manifest_payload,
 )
-from tai.official_source_diagnostics import diagnostic_live_definitions
+from tai.official_source_diagnostics import (
+    diagnostic_live_definitions as live_definitions,
+)
 from tai.source_coverage import load_official_source_catalog
 
 
@@ -33,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
         if not 1.0 <= arguments.timeout_seconds <= 60.0:
             raise ValueError("--timeout-seconds must be between 1 and 60")
         catalog = load_official_source_catalog(arguments.catalog)
-        definitions = diagnostic_live_definitions(
+        definitions = live_definitions(
             catalog=catalog,
             timeout_seconds=arguments.timeout_seconds,
         )
