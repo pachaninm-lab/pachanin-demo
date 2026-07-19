@@ -80,7 +80,7 @@ def _fetch(error: OSError | http.client.HTTPException) -> tuple[FetchDisposition
             http.client.HTTPException("secret protocol detail"),
             "source_http_protocol_failure",
         ),
-        (socket.timeout("secret timeout detail"), "source_transport_timeout"),
+        (TimeoutError("secret timeout detail"), "source_transport_timeout"),
         (
             ConnectionRefusedError(errno.ECONNREFUSED, "secret refused detail"),
             "source_connection_refused",
