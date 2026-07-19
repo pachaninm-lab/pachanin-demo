@@ -129,8 +129,9 @@ def _fixtures() -> dict[str, _AdapterFixture]:
                 hosts=frozenset({"mintrans.gov.ru"}),
             ),
             body=(
+                "<time>15.07.2026</time>"
                 "<h1>Тариф на железнодорожные перевозки</h1>"
-                "<time>15.07.2026</time><a href='/docs/tariff.pdf'>PDF</a>"
+                "<a href='/docs/tariff.pdf'>PDF</a>"
             ),
             expected_date=datetime(2026, 7, 15, tzinfo=UTC),
             expected_count=1,
