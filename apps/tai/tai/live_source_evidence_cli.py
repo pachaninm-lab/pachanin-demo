@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--run-attempt", type=int, default=1)
     parser.add_argument(
         "--trigger",
-        choices=("schedule", "workflow_dispatch"),
+        choices=("issue_comment", "schedule", "workflow_dispatch"),
         default="workflow_dispatch",
     )
     parser.add_argument("--previous-history", type=Path)

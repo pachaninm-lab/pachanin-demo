@@ -12,6 +12,8 @@ def test_live_evidence_workflow_is_read_only_exact_main_and_non_merge_blocking()
     ).read_text(encoding="utf-8")
 
     assert "workflow_dispatch:" in workflow
+    assert "issue_comment:" in workflow
+    assert "types: [created]" in workflow
     assert "schedule:" in workflow
     assert "pull_request:" not in workflow
     assert "push:" not in workflow
@@ -22,6 +24,16 @@ def test_live_evidence_workflow_is_read_only_exact_main_and_non_merge_blocking()
     assert "id-token: write" not in workflow
     assert "secrets." not in workflow
     assert "github.ref == 'refs/heads/main'" in workflow
+    assert "github.event.comment.body == '/tai run exact-main'" in workflow
+    assert "github.event.action == 'created'" in workflow
+    assert "github.event_name == 'schedule'" in workflow
+    assert "github.event_name == 'workflow_dispatch'" in workflow
+    assert "github.event.comment.author_association == 'OWNER'" in workflow
+    assert "github.event.issue.pull_request == null" in workflow
+    assert "github.event.comment.user.login == github.repository_owner" in workflow
+    assert "github.actor == github.repository_owner" in workflow
+    assert "github.triggering_actor == github.repository_owner" in workflow
+    assert workflow.index("    concurrency:") > workflow.index("  collect:")
     assert 'test "$(git rev-parse HEAD)" = "$GITHUB_SHA"' in workflow
     assert 'test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"' in workflow
     assert "select(.workflow_run.head_branch == \"main\")" in workflow
@@ -42,5 +54,6 @@ def test_live_evidence_workflow_is_read_only_exact_main_and_non_merge_blocking()
     assert "knowledge-acceptance.v1.json" in workflow
     assert "evidence-bundle-index.v1.json" in workflow
     assert "--require-complete-coverage" in workflow
+    assert "[ \"$GITHUB_EVENT_NAME\" = 'issue_comment' ]" in workflow
     assert "github.token" in workflow
     assert "continue-on-error" not in workflow

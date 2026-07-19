@@ -6,7 +6,7 @@
   "status": "active",
   "maturityBoundary": "official-source-health-and-exact-main-knowledge-evidence-only",
   "globalProgramStateUnchanged": "This isolated TAI scope does not advance platform-v7 Industrial Integration-Ready or TAI operational attestation.",
-  "branchBaseExactMain": "7279b5d850994bfab92cc8afb0573ea279b63447",
+  "branchBaseExactMain": "27a45cc95c730aeedfbdc6ad23e8cbc89b6cf527",
   "taiKnowledgeBaselineExactMain": "d19dfdd9556ee9c771b121c66849f459bc267625",
   "remediatesReviewThreads": [
     "PR #2803 discussion_r3610703119",
@@ -43,6 +43,7 @@
     "immutable bounded refresh-history chain with rerun deduplication",
     "machine-readable stale, expiry and consecutive-failure alerts",
     "exact-SHA read-only workflow with artifact upload before enforcement",
+    "owner-only exact issue command for connector-driven acceptance",
     "controlled exact-main 6/6 sources and 8/8 critical topics",
     "Ruff, strict mypy, pytest coverage and exact-head security gates",
     "zero unresolved review threads before merge"
