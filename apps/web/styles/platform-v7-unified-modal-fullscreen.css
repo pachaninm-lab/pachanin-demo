@@ -55,6 +55,91 @@
   grid-template-columns: 44px minmax(0, 1fr) 48px 48px !important;
 }
 
+/* Shared modal polish: one hierarchy, one focus treatment, no clipped service copy. */
+.pc-public-assistant-identity > div {
+  min-width: 0;
+}
+
+.pc-public-assistant-identity strong,
+.p7-support-chat-head strong {
+  text-wrap: balance;
+}
+
+.pc-public-assistant-identity span:not(.pc-public-assistant-mark) {
+  display: -webkit-box !important;
+  overflow: hidden !important;
+  max-width: min(44vw, 300px) !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.pc-public-assistant textarea:focus-visible,
+.p7-support-chat-panel input:focus-visible,
+.p7-support-chat-panel select:focus-visible,
+.p7-support-chat-panel textarea:focus-visible {
+  border-color: #15945d !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(21, 148, 93, 0.22) !important;
+}
+
+.pc-public-assistant-primary:disabled {
+  border-color: #d4e1da !important;
+  background: #dfe9e4 !important;
+  color: #6f8178 !important;
+  cursor: not-allowed !important;
+  opacity: 1 !important;
+}
+
+.pc-public-assistant-primary:not(:disabled):hover,
+.p7-support-chat-submit:not(:disabled):hover {
+  filter: brightness(1.035);
+}
+
+/* Support is a compact operational form, not a full-page questionnaire. */
+.p7-support-chat-form {
+  gap: 10px !important;
+  padding: 12px 14px max(12px, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+.p7-support-chat-form label {
+  gap: 5px !important;
+}
+
+.p7-support-chat-form label > span {
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  font-weight: 760 !important;
+}
+
+.p7-support-chat-form input,
+.p7-support-chat-form select {
+  min-height: 46px !important;
+  padding-inline: 12px !important;
+  border-radius: 13px !important;
+}
+
+.p7-support-chat-form textarea {
+  min-height: 96px !important;
+  max-height: 180px !important;
+  padding: 10px 12px !important;
+  border-radius: 13px !important;
+  resize: vertical !important;
+}
+
+.p7-support-chat-consent {
+  gap: 9px !important;
+  padding: 10px 11px !important;
+  border-radius: 13px !important;
+}
+
+.p7-support-chat-submit {
+  min-height: 48px !important;
+  border-radius: 13px !important;
+  box-shadow: 0 -8px 18px rgba(239, 246, 242, 0.84) !important;
+}
+
 @media (min-width: 721px) {
   .pc-public-assistant-panel[data-pc-fullscreen='true'],
   .p7-support-chat-panel[data-pc-fullscreen='true'] {
@@ -76,6 +161,92 @@
     height: auto !important;
     min-height: min(380px, calc(var(--pc-visual-viewport-height) - 8px)) !important;
     max-height: min(68dvh, 560px, calc(var(--pc-visual-viewport-height) - 8px)) !important;
+  }
+
+  /* Initial assistant state is content-sized and intent-first, without a dead zone. */
+  .pc-public-assistant-panel:not([data-pc-fullscreen='true']):not(:has(.pc-public-assistant-answer)) {
+    min-height: 0 !important;
+  }
+
+  .pc-public-assistant-panel:not([data-pc-fullscreen='true']):not(:has(.pc-public-assistant-answer)) .pc-public-assistant-messages {
+    flex: 0 1 auto !important;
+    min-height: 0 !important;
+    max-height: 190px !important;
+    padding-bottom: 8px !important;
+  }
+
+  .pc-public-assistant-panel:not(:has(.pc-public-assistant-answer)) .pc-public-assistant-message {
+    margin-bottom: 0 !important;
+  }
+
+  .pc-public-assistant-panel:not(:has(.pc-public-assistant-answer)) .pc-public-assistant-bubble {
+    max-width: 100% !important;
+    padding: 10px 12px !important;
+    border-radius: 15px !important;
+    box-shadow: 0 4px 14px rgba(16, 46, 35, 0.045) !important;
+  }
+
+  .pc-public-assistant-panel:not(:has(.pc-public-assistant-answer)) .pc-public-assistant-bubble p {
+    font-size: 12.5px !important;
+    line-height: 1.48 !important;
+  }
+
+  .pc-public-assistant-starters {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 4px 12px 12px !important;
+    background: #eff6f2 !important;
+  }
+
+  .pc-public-assistant-starters button {
+    position: relative;
+    min-height: 50px !important;
+    justify-content: flex-start !important;
+    padding: 9px 28px 9px 11px !important;
+    border-color: #c5dbcf !important;
+    border-radius: 13px !important;
+    background: #ffffff !important;
+    color: #155f3c !important;
+    font-size: 11.5px !important;
+    line-height: 1.28 !important;
+    text-align: left !important;
+    box-shadow: 0 4px 12px rgba(16, 46, 35, 0.045);
+  }
+
+  .pc-public-assistant-starters button::after {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    color: #15945d;
+    content: '→';
+    font-size: 16px;
+    line-height: 1;
+    transform: translateY(-50%);
+  }
+
+  .pc-public-assistant-form {
+    position: sticky !important;
+    bottom: 0 !important;
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom)) !important;
+    box-shadow: 0 -8px 22px rgba(239, 246, 242, 0.92);
+  }
+
+  .pc-public-assistant-form textarea {
+    min-height: 50px !important;
+    max-height: 84px !important;
+    border-radius: 13px !important;
+  }
+
+  .pc-public-assistant-form-actions {
+    gap: 7px !important;
+  }
+
+  .pc-public-assistant-primary,
+  .pc-public-assistant-secondary {
+    min-height: 44px !important;
+    border-radius: 12px !important;
+    font-size: 13px !important;
   }
 
   .pc-public-assistant-panel[data-pc-fullscreen='true'],
@@ -137,10 +308,46 @@
     min-height: 46px !important;
     flex-basis: 46px !important;
   }
+
+  .pc-public-assistant-identity strong {
+    font-size: 14px !important;
+  }
+
+  .pc-public-assistant-identity span:not(.pc-public-assistant-mark) {
+    display: -webkit-box !important;
+    max-width: 44vw !important;
+    font-size: 9.5px !important;
+    line-height: 1.2 !important;
+  }
+
+  .pc-public-assistant-starters {
+    gap: 6px !important;
+  }
+
+  .pc-public-assistant-starters button {
+    min-height: 48px !important;
+    padding: 8px 24px 8px 9px !important;
+    font-size: 10.5px !important;
+  }
+}
+
+@media (max-width: 350px) {
+  .pc-public-assistant-starters {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .pc-public-assistant-identity span:not(.pc-public-assistant-mark) {
+    display: none !important;
+  }
 }
 
 @media (forced-colors: active) {
   .pc-modal-sheet-fullscreen-button {
     border: 2px solid ButtonText;
+  }
+
+  .pc-public-assistant-starters button {
+    border: 1px solid ButtonText !important;
+    box-shadow: none !important;
   }
 }
