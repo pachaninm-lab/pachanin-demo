@@ -4,7 +4,7 @@ import argparse
 import json
 import re
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from tai.release_acceptance import (
@@ -19,6 +19,36 @@ from tai.release_acceptance import (
 )
 
 _MIGRATION = re.compile(r"^(\d{4})_[A-Za-z0-9_-]+\.sql$")
+_SOURCE_MANIFEST_SCHEMA = "tai.release.source-manifest.v1"
+_SOURCE_MANIFEST_PATH = "apps/tai/release-source-manifest.json"
+_REQUIRED_SOURCE_ROOTS = frozenset(
+    {
+        ".github/workflows",
+        "apps/api",
+        "apps/tai/tai",
+        "apps/tai/tests",
+        "packages",
+        "scripts",
+    }
+)
+_REQUIRED_SOURCE_FILES = frozenset(
+    {
+        "apps/tai/pyproject.toml",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json",
+    }
+)
+_IGNORED_SOURCE_PARTS = frozenset(
+    {
+        "__pycache__",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+    }
+)
+_IGNORED_SOURCE_SUFFIXES = frozenset({".pyc", ".pyo"})
 
 
 def main() -> int:
@@ -181,31 +211,95 @@ def _migration_inventory(repository_root: Path) -> MigrationInventory:
 
 
 def _source_digest(repository_root: Path) -> str:
-    roots = (
-        repository_root / "apps/tai/tai",
-        repository_root / "apps/tai/tests",
-    )
-    files: dict[str, bytes] = {}
-    for root in roots:
+    manifest_path = repository_root / _SOURCE_MANIFEST_PATH
+    if not manifest_path.is_file() or manifest_path.is_symlink():
+        raise ValueError("release source manifest is required as a regular file")
+    raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("release source manifest must be a JSON object")
+    if set(raw) != {"files", "roots", "schema_version"}:
+        raise ValueError("release source manifest keys are invalid")
+    if raw.get("schema_version") != _SOURCE_MANIFEST_SCHEMA:
+        raise ValueError("release source manifest schema version is unsupported")
+    roots = _manifest_paths(raw.get("roots"), "roots")
+    declared_files = _manifest_paths(raw.get("files"), "files")
+    missing_roots = sorted(_REQUIRED_SOURCE_ROOTS - set(roots))
+    missing_files = sorted(_REQUIRED_SOURCE_FILES - set(declared_files))
+    if missing_roots or missing_files:
+        raise ValueError(
+            "release source manifest is below required integrated scope: "
+            f"missing_roots={missing_roots}, missing_files={missing_files}"
+        )
+
+    files: dict[str, bytes] = {
+        _SOURCE_MANIFEST_PATH: manifest_path.read_bytes(),
+    }
+    for raw_root in roots:
+        root = _resolve_governed_path(repository_root, raw_root)
+        if not root.is_dir() or root.is_symlink():
+            raise ValueError(f"release source root is not a regular directory: {raw_root}")
+        found = False
         for path in sorted(root.rglob("*")):
-            if not path.is_file():
-                continue
-            if "__pycache__" in path.parts or path.suffix in {".pyc", ".pyo"}:
+            if path.is_symlink():
+                raise ValueError(
+                    f"release source authority does not allow symlinks: "
+                    f"{path.relative_to(repository_root).as_posix()}"
+                )
+            if not path.is_file() or _ignored_source_path(path):
                 continue
             relative = path.relative_to(repository_root).as_posix()
             files[relative] = path.read_bytes()
+            found = True
+        if not found:
+            raise ValueError(f"release source root contains no governed files: {raw_root}")
 
-    pyproject = repository_root / "apps/tai/pyproject.toml"
-    if pyproject.is_file():
-        files[pyproject.relative_to(repository_root).as_posix()] = pyproject.read_bytes()
-
-    workflow_root = repository_root / ".github/workflows"
-    for pattern in ("*.yml", "*.yaml"):
-        for path in sorted(workflow_root.glob(pattern)):
-            if path.is_file():
-                files[path.relative_to(repository_root).as_posix()] = path.read_bytes()
+    for raw_file in declared_files:
+        path = _resolve_governed_path(repository_root, raw_file)
+        if not path.is_file() or path.is_symlink():
+            raise ValueError(f"release source file is not a regular file: {raw_file}")
+        files[raw_file] = path.read_bytes()
 
     return source_tree_sha256(files)
+
+
+def _manifest_paths(value: object, name: str) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise ValueError(f"release source manifest {name} must be an array")
+    result: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError(f"release source manifest {name} must contain strings")
+        normalized = _relative_posix_path(item)
+        result.append(normalized)
+    if len(result) != len(set(result)):
+        raise ValueError(f"release source manifest {name} must be unique")
+    return tuple(result)
+
+
+def _relative_posix_path(value: str) -> str:
+    if not value or "\\" in value:
+        raise ValueError("release source paths must use non-empty POSIX form")
+    path = PurePosixPath(value)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError("release source paths must be repository-relative and normalized")
+    normalized = path.as_posix()
+    if normalized != value:
+        raise ValueError("release source paths must be normalized")
+    return normalized
+
+
+def _resolve_governed_path(repository_root: Path, relative: str) -> Path:
+    candidate = repository_root.joinpath(*PurePosixPath(relative).parts)
+    resolved = candidate.resolve()
+    if not resolved.is_relative_to(repository_root):
+        raise ValueError("release source path escapes repository root")
+    return resolved
+
+
+def _ignored_source_path(path: Path) -> bool:
+    return bool(_IGNORED_SOURCE_PARTS.intersection(path.parts)) or (
+        path.suffix in _IGNORED_SOURCE_SUFFIXES
+    )
 
 
 def _free_access_proven(runs: tuple[WorkflowRunEvidence, ...]) -> bool:
