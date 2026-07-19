@@ -63,5 +63,5 @@ The SSH username, private key, server working directory, production Compose file
 ## Runbooks
 
 - Deployment and rollback: `docs/ops/virtual-server-production-runbook.md`
-- Post-deploy acceptance: `docs/platform-v7/vps-post-deploy-checklist.md`
+- Post-deploy acceptance: `docs/ops/vps-post-deploy-checklist.md`
 - Current hosting contour: `docs/ops/active-hosting-contour.md`
