@@ -4,6 +4,24 @@
 # certificate, so the http:// scheme keeps Caddy from redirecting to a TLS
 # listener it cannot provision).
 {$SITE_ADDRESS} {
+	# Harden every response (HSTS is meaningful once served over HTTPS).
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# Drop common vulnerability-scanner and secret-file probes at the edge
+	# (e.g. .env, .git, .vscode, wp-admin) before they reach the app. This is
+	# what neutralises noise like GET /api/.env and /.vscode/sftp.json — the
+	# connection is aborted, nothing is proxied and nothing is leaked.
+	@probes path *.env /.git* /.svn* /.hg* /.aws* /.ssh* /.vscode* /.idea* *.sql *.bak *.old *.swp /sftp.json /wp-login.php /wp-admin* /wp-content* /xmlrpc.php /phpmyadmin* /pma* /vendor/* /actuator* /cgi-bin/*
+	handle @probes {
+		abort
+	}
+
 	# API and operational probes go to the NestJS service.
 	handle /api/* {
 		reverse_proxy api:3001
@@ -14,6 +32,7 @@
 	handle /ready {
 		reverse_proxy api:3001
 	}
+
 	# Everything else is the Next.js cabinet.
 	handle {
 		reverse_proxy web:3000
