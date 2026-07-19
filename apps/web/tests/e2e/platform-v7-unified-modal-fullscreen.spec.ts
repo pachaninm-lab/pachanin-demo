@@ -6,6 +6,15 @@ test.describe('unified public modal sheet fullscreen control', () => {
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
   });
 
+  test('every public home alias renders the unified dock instead of standalone support', async ({ page }) => {
+    for (const entry of ['/?lang=ru', '/pc-public-entry/platform-v7?lang=ru']) {
+      await page.goto(entry, { waitUntil: 'load' });
+      const dock = page.getByRole('navigation', { name: 'Связь и помощь' });
+      await expect(dock).toBeVisible();
+      await expect(page.locator('.p7-support-chat-button')).toBeHidden();
+    }
+  });
+
   test('rewritten public home keeps the unified AI, support and call dock visible', async ({ page }) => {
     const dock = page.getByRole('navigation', { name: 'Связь и помощь' });
 
