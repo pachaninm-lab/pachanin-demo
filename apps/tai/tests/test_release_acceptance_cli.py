@@ -17,7 +17,7 @@ HEAD = "a" * 64
 def _repository(root: Path) -> None:
     migration_root = root / "apps/tai/tai/migrations"
     migration_root.mkdir(parents=True)
-    for version in range(1, 12):
+    for version in range(1, 13):
         (migration_root / f"{version:04d}_migration.sql").write_text(
             f"-- migration {version}\nSELECT {version};\n"
         )
@@ -91,7 +91,7 @@ def test_cli_builds_accepted_application_attestation(tmp_path: Path, monkeypatch
     assert attestation["exact_main_sha"] == HEAD
     assert attestation["production_operational_status"] == "NOT_ATTESTED"
     assert attestation["reasons"] == []
-    assert len(attestation["migration_inventory"]) == 11
+    assert len(attestation["migration_inventory"]) == 12
     assert len(attestation["attestation_sha256"]) == 64
     assert len(attestation["source_tree_sha256"]) == 64
 
