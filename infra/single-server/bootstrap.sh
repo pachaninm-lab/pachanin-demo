@@ -24,10 +24,18 @@ cd "$APP"
 chmod +x init-roles.sh
 
 echo "==> Secrets (.env) — generated once, kept on re-run"
+# A bare IP cannot get a public TLS certificate, so serve plain HTTP on it
+# (Caddy otherwise redirects to an HTTPS listener it cannot provision). A domain
+# keeps automatic HTTPS. Explicit http://—/https:// prefixes are left untouched.
+SITE_ADDRESS="${SITE_ADDRESS:?export SITE_ADDRESS=<server-ip-or-domain>}"
+case "$SITE_ADDRESS" in
+  http://*|https://*) : ;;
+  *) printf '%s' "$SITE_ADDRESS" | grep -qE '^[0-9]+(\.[0-9]+){3}(:[0-9]+)?$' && SITE_ADDRESS="http://$SITE_ADDRESS" ;;
+esac
 if [ ! -f .env ]; then
   gen() { openssl rand -base64 30 | tr -dc 'A-Za-z0-9' | head -c 32; }
   cat > .env <<EOF
-SITE_ADDRESS=${SITE_ADDRESS:?export SITE_ADDRESS=<server-ip-or-domain>}
+SITE_ADDRESS=${SITE_ADDRESS}
 IMAGE_PREFIX=ghcr.io/pachaninm-lab/grainflow
 DDL_PASSWORD=$(gen)
 APP_PASSWORD=$(gen)

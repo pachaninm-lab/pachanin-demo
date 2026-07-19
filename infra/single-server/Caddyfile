@@ -1,6 +1,8 @@
 # Edge reverse proxy with automatic HTTPS.
-# SITE_ADDRESS is a domain (→ automatic Let's Encrypt certificate) or the bare
-# server IP (→ plain HTTP, fine for the first bring-up before a domain exists).
+# SITE_ADDRESS is a domain (→ automatic Let's Encrypt certificate) or, before a
+# domain exists, an http://<ip> address (→ plain HTTP; an IP cannot be issued a
+# certificate, so the http:// scheme keeps Caddy from redirecting to a TLS
+# listener it cannot provision).
 {$SITE_ADDRESS} {
 	# API and operational probes go to the NestJS service.
 	handle /api/* {
