@@ -246,7 +246,7 @@ class PlatformSafeToolHandler:
         encoded = canonical_platform_tool_json(body).encode()
         if len(encoded) > _MAX_ARGUMENT_BYTES:
             raise ValueError("platform tool arguments exceeded the byte budget")
-        path = f"/internal/tai/tools/{invocation.tool_name}"
+        path = f"/api/internal/tai/tools/{invocation.tool_name}"
         signed = self._assertion_authority.issue(
             invocation,
             path=path,
