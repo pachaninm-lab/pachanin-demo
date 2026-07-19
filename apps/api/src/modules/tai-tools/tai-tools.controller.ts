@@ -1,6 +1,19 @@
-import { Body, Controller, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  Param,
+  Post,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { Public } from '../../common/decorators/public.decorator';
-import { TaiDelegatedIdentity, TAI_PLATFORM_TOOL_MODES, TaiPlatformToolName } from './tai-tool-assertion';
+import {
+  TaiDelegatedIdentity,
+  TAI_PLATFORM_TOOL_MODES,
+  TaiPlatformToolName,
+} from './tai-tool-assertion';
 import { TaiToolAssertionGuard } from './tai-tool-assertion.guard';
 import { TaiToolsService } from './tai-tools.service';
 
@@ -25,8 +38,11 @@ export class TaiToolsController {
     @Body() body: TaiToolBody,
     @Req() request: TaiAuthenticatedRequest,
   ) {
-    if (!(rawToolName in TAI_PLATFORM_TOOL_MODES) || !request.taiToolIdentity) {
-      throw new Error('TAI tool guard did not establish an authorized tool identity');
+    if (
+      !Object.prototype.hasOwnProperty.call(TAI_PLATFORM_TOOL_MODES, rawToolName) ||
+      !request.taiToolIdentity
+    ) {
+      throw new UnauthorizedException({ code: 'TAI_TOOL_IDENTITY_MISSING' });
     }
     return this.tools.execute(
       rawToolName as TaiPlatformToolName,
