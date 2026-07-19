@@ -3,10 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Callable
 
 from tai.managed_loader import FetchDisposition, FetchRequest, SourceFetcher
 from tai.official_source_fetcher import OfficialFetchPolicy, OfficialSourceHTTPFetcher
