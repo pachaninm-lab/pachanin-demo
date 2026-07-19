@@ -54,6 +54,7 @@ import { AiInsightsModule } from './modules/ai-insights/ai-insights.module';
 import { RuntimeSnapshotModule } from './modules/runtime-snapshot/runtime-snapshot.module';
 import { RuntimePersistenceModule } from './modules/runtime-persistence/runtime-persistence.module';
 import { StaffAccessModule } from './modules/staff-access/staff-access.module';
+import { TaiToolsModule } from './modules/tai-tools/tai-tools.module';
 
 @Module({
   imports: [
@@ -106,6 +107,7 @@ import { StaffAccessModule } from './modules/staff-access/staff-access.module';
     AiInsightsModule,
     RuntimeSnapshotModule,
     RuntimePersistenceModule,
+    TaiToolsModule,
   ],
   controllers: [HealthController],
   providers: [
