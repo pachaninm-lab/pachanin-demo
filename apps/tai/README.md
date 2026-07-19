@@ -13,7 +13,9 @@
 
 ## Текущее состояние
 
-AP-00–AP-09 объединены в `main`. Реализованы:
+AP-00–AP-09 и AP-11 объединены в `main`. AP-10 выполняется отдельными промышленными срезами.
+
+Реализованы:
 
 - FastAPI foundation и versioned contracts;
 - server-authoritative identity contract и deny-by-default policy;
@@ -22,25 +24,38 @@ AP-00–AP-09 объединены в `main`. Реализованы:
 - grounded RAG с обязательными citations и abstention;
 - локальный model registry/router и защищённый private-network transport;
 - bounded agent/tool runtime с durable confirmation authority;
-- deterministic evaluation/red-team authority без LLM-as-judge.
+- deterministic evaluation/red-team authority без LLM-as-judge;
+- cross-process orchestration idempotency и crash-recoverable prepared actions;
+- fenced heartbeat для длительных подтверждённых действий;
+- exact-main application release attestation;
+- production composition root на PostgreSQL и локальных model endpoints.
 
-AP-09 exact-main: `297149187c552ba8a19057bb80f8bdbd002d9e7b`.
-Machine-readable evidence: `evidence/ap-09-exact-main.json`.
+Application release authority не равен эксплуатационной приёмке. До отдельного AP-10 evidence статус обязан оставаться `NOT_ATTESTED`.
 
-## Следующий этап
+## Production ASGI entrypoint
 
-Первый обязательный срез AP-10 — единый orchestration runtime:
+Запускать только явный production entrypoint:
 
-1. серверно подтверждённая identity;
-2. retrieval → context → local model → citation validation;
-3. безопасное планирование и исполнение tools;
-4. confirmation для write;
-5. единая трасса audit/evaluation;
-6. deadlines, idempotency, limits, concurrency и backpressure;
-7. новый API contract вместо старого словарного `answer_platform_question`.
+```bash
+uvicorn tai.production_entrypoint:app --host 0.0.0.0 --port 8080
+```
+
+Обязательная конфигурация:
+
+- `TAI_RUNTIME_MODE=production`;
+- `TAI_DATABASE_URL`;
+- `TAI_IDENTITY_HMAC_SECRET_B64`;
+- `TAI_CONFIRMATION_HMAC_SECRET_B64`;
+- `TAI_MODEL_ENDPOINTS_JSON` в форме `{ "model_id@revision": "http://model.svc/v1/chat/completions" }`.
+
+Секреты должны быть разными и декодироваться минимум в 32 байта. Model endpoints принимаются только для локальных, private-network или явно разрешённых адресов. При неполной конфигурации, недоступной PostgreSQL-схеме, отсутствии активной knowledge generation либо routable local model сервис остаётся `not_ready` и не принимает рабочие запросы.
+
+## Оставшийся AP-10
+
+1. Реальные platform Safe Tool adapters вместо отключённого planning по умолчанию.
+2. Распределённые admission, rate limits, очереди и model draining.
+3. Нагрузка, fault injection, restore, backlog recovery и soak.
+4. Machine-readable operational evidence на одном exact-main.
+5. Отдельная production operational attestation без завышения зрелости.
 
 Полный порядок работ и границы зрелости зафиксированы в `ROADMAP.md`.
-
-TAI не является завершённой промышленной AI-платформой до подключения фактических
-локальных model artifacts и знаний, UI-интеграции, а также прохождения evaluation,
-load, fault, restore, soak, security и legal acceptance.
