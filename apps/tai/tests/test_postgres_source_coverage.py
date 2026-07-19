@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from collections import deque
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from tai.postgres_source_coverage import PostgreSQLOfficialSourceCoverageRepository
 from tai.source_coverage import (
+    CoverageAssessment,
     CoverageRequirement,
     CoverageTopic,
     OfficialSourceCatalog,
@@ -33,7 +34,7 @@ def _observation() -> SourceObservation:
     )
 
 
-def _assessment() -> object:
+def _assessment() -> CoverageAssessment:
     catalog = OfficialSourceCatalog(
         sources=(
             OfficialSourceDefinition(
@@ -111,6 +112,11 @@ class _Factory:
         return self.connection
 
 
+def _parameters(value: object) -> tuple[Any, ...]:
+    assert isinstance(value, tuple)
+    return cast(tuple[Any, ...], value)
+
+
 def test_repository_records_observation_immutably() -> None:
     observation = _observation()
     connection = _Connection(
@@ -122,15 +128,18 @@ def test_repository_records_observation_immutably() -> None:
 
     assert connection.commits == 1
     assert connection.rollbacks == 0
-    query, parameters = connection.cursor_value.calls[0]
+    query, raw_parameters = connection.cursor_value.calls[0]
+    parameters = _parameters(raw_parameters)
     assert "INSERT INTO tai_official_source_observations" in query
     assert observation.observation_sha256 in parameters
-    assert '"GRAIN_MARKET_PRICES"' in parameters
+    assert any(
+        isinstance(item, str) and '"GRAIN_MARKET_PRICES"' in item
+        for item in parameters
+    )
 
 
 def test_repository_records_assessment_immutably() -> None:
     assessment = _assessment()
-    assert hasattr(assessment, "assessment_sha256")
     connection = _Connection(
         [{"assessment_sha256": assessment.assessment_sha256}]
     )
@@ -139,20 +148,33 @@ def test_repository_records_assessment_immutably() -> None:
     repository.record_assessment(assessment)
 
     assert connection.commits == 1
-    query, parameters = connection.cursor_value.calls[0]
+    query, raw_parameters = connection.cursor_value.calls[0]
+    parameters = _parameters(raw_parameters)
     assert "tai_official_source_coverage_assessments" in query
     assert assessment.assessment_sha256 in parameters
-    assert '"status":"COVERED"' in parameters
+    assert any(
+        isinstance(item, str) and '"status":"COVERED"' in item
+        for item in parameters
+    )
 
 
-@pytest.mark.parametrize("method_name", ["record_observation", "record_assessment"])
-def test_repository_rolls_back_on_digest_conflict(method_name: str) -> None:
+def test_repository_rolls_back_on_observation_digest_conflict() -> None:
     connection = _Connection([None])
     repository = PostgreSQLOfficialSourceCoverageRepository(_Factory(connection))
-    value = _observation() if method_name == "record_observation" else _assessment()
 
     with pytest.raises(RuntimeError, match="different evidence"):
-        getattr(repository, method_name)(value)
+        repository.record_observation(_observation())
+
+    assert connection.commits == 0
+    assert connection.rollbacks == 1
+
+
+def test_repository_rolls_back_on_assessment_digest_conflict() -> None:
+    connection = _Connection([None])
+    repository = PostgreSQLOfficialSourceCoverageRepository(_Factory(connection))
+
+    with pytest.raises(RuntimeError, match="different evidence"):
+        repository.record_assessment(_assessment())
 
     assert connection.commits == 0
     assert connection.rollbacks == 1
