@@ -1,0 +1,121 @@
+name: TAI Live Evidence Reporter
+
+on:
+  workflow_run:
+    workflows:
+      - TAI Live Official Source Evidence
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-live-evidence-reporter-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  report:
+    if: github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download exact-main live evidence
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          pattern: tai-live-official-source-*
+          merge-multiple: true
+          path: live-evidence
+
+      - name: Report AP-14D.1 diagnostics to issue 2789
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SOURCE_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const runId = process.env.SOURCE_RUN_ID;
+            const runSha = process.env.SOURCE_RUN_SHA;
+            const runUrl = process.env.SOURCE_RUN_URL;
+            const conclusion = process.env.SOURCE_RUN_CONCLUSION;
+            const downloadOutcome = process.env.DOWNLOAD_OUTCOME;
+            const manifestPath = path.join('live-evidence', 'live-run-manifest.json');
+            const observationsPath = path.join(
+              'live-evidence',
+              'source-observations.v1.json',
+            );
+            const coveragePath = path.join(
+              'live-evidence',
+              'coverage-assessment.json',
+            );
+            let body = [
+              '## AP-14D.1 exact-main diagnostic live evidence',
+              '',
+              `- source workflow run: ${runId}`,
+              `- source workflow SHA: \`${runSha}\``,
+              `- source workflow conclusion: \`${conclusion}\``,
+              `- artifact download outcome: \`${downloadOutcome}\``,
+              `- run URL: ${runUrl}`,
+            ];
+            if (
+              fs.existsSync(manifestPath)
+              && fs.existsSync(observationsPath)
+              && fs.existsSync(coveragePath)
+            ) {
+              const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+              const observations = JSON.parse(
+                fs.readFileSync(observationsPath, 'utf8'),
+              );
+              const coverage = JSON.parse(fs.readFileSync(coveragePath, 'utf8'));
+              body.push(
+                '',
+                `- collection status: \`${manifest.status}\``,
+                `- evidence bundle SHA-256: \`${manifest.evidence_bundle_sha256}\``,
+                `- catalog SHA-256: \`${manifest.catalog_sha256}\``,
+                `- observed sources: ${manifest.observed_source_count}/${manifest.source_count}`,
+                `- coverage: ${manifest.coverage_basis_points}/10000`,
+                `- critical coverage: ${manifest.critical_coverage_basis_points}/10000`,
+                `- all critical covered: \`${manifest.all_critical_covered}\``,
+                '',
+                '### Per-source diagnostic result',
+              );
+              for (const result of manifest.source_results || []) {
+                body.push(
+                  `- \`${result.source_id}\`: \`${result.status}\` — \`${result.reason}\``,
+                );
+              }
+              body.push(
+                '',
+                `Observation records: ${Array.isArray(observations.observations) ? observations.observations.length : 0}.`,
+                `Coverage topics: ${Array.isArray(coverage.topics) ? coverage.topics.length : 0}.`,
+              );
+            } else {
+              body.push(
+                '',
+                'Artifact files were unavailable or structurally incomplete. The source run must not be accepted as diagnostic evidence.',
+              );
+            }
+            body.push(
+              '',
+              'Temporary reporter, sentinel and scoped push trigger must be removed after this evidence is reviewed.',
+            );
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 2789,
+              body: body.join('\n'),
+            });
