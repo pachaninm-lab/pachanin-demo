@@ -64,11 +64,22 @@ function workspaceRecord(value: unknown): JsonRecord {
   return record(value, 'workspace');
 }
 
+function unreachable(value: never): never {
+  throw new BadRequestException({
+    code: 'TAI_TOOL_NOT_REGISTERED',
+    toolName: String(value),
+  });
+}
+
 @Injectable()
 export class TaiToolsService {
   constructor(private readonly deals: IndustrialDealCommandGateway) {}
 
-  async execute(toolName: TaiPlatformToolName, body: ToolBody, identity: TaiDelegatedIdentity) {
+  async execute(
+    toolName: TaiPlatformToolName,
+    body: ToolBody,
+    identity: TaiDelegatedIdentity,
+  ): Promise<JsonRecord> {
     const args = boundedRecord(body.arguments ?? {}, 'arguments');
     const user = delegatedUser(identity);
     switch (toolName) {
@@ -78,10 +89,12 @@ export class TaiToolsService {
         return this.getRoleNextActions(args, user);
       case 'prepareCommandDraft':
         return this.prepareCommandDraft(args, user, identity);
+      default:
+        return unreachable(toolName);
     }
   }
 
-  private async getDealSummary(args: JsonRecord, user: RequestUser) {
+  private async getDealSummary(args: JsonRecord, user: RequestUser): Promise<JsonRecord> {
     exactKeys(args, ['dealId']);
     const dealId = requiredPortable(args, 'dealId');
     const workspace = workspaceRecord(await this.deals.workspace(dealId, user));
@@ -96,7 +109,10 @@ export class TaiToolsService {
     };
   }
 
-  private async getRoleNextActions(args: JsonRecord, user: RequestUser) {
+  private async getRoleNextActions(
+    args: JsonRecord,
+    user: RequestUser,
+  ): Promise<JsonRecord> {
     exactKeys(args, ['dealId']);
     const dealId = requiredPortable(args, 'dealId');
     const workspace = workspaceRecord(await this.deals.workspace(dealId, user));
@@ -114,11 +130,12 @@ export class TaiToolsService {
     args: JsonRecord,
     user: RequestUser,
     identity: TaiDelegatedIdentity,
-  ) {
+  ): Promise<JsonRecord> {
     exactKeys(args, ['dealId', 'actionId', 'payload']);
     const dealId = requiredPortable(args, 'dealId');
     const requestedAction = optionalPortable(args, 'actionId');
-    const payload = args.payload === undefined ? {} : boundedRecord(args.payload, 'payload');
+    const payload =
+      args.payload === undefined ? {} : boundedRecord(args.payload, 'payload');
     const workspace = workspaceRecord(await this.deals.workspace(dealId, user));
     const roleProjection = record(workspace.roleProjection, 'roleProjection');
     const primaryAction = record(roleProjection.primaryAction, 'primaryAction');
@@ -135,7 +152,7 @@ export class TaiToolsService {
     if (typeof updatedAt !== 'string' || !updatedAt.trim()) {
       throw new BadRequestException({ code: 'TAI_TOOL_DEAL_VERSION_MISSING' });
     }
-    if (!['string', 'number'].includes(typeof version)) {
+    if (typeof version !== 'string' && typeof version !== 'number') {
       throw new BadRequestException({ code: 'TAI_TOOL_DEAL_VERSION_MISSING' });
     }
     return {
