@@ -251,8 +251,30 @@ def default_html_metadata_adapters() -> tuple[HTMLMetadataAdapter, ...]:
             topics=frozenset(
                 {CoverageTopic.GRAIN_REGULATION, CoverageTopic.GRAIN_QUALITY}
             ),
-            required_marker_groups=(("зерн",), ("техническ", "безопасност")),
-            document_suffixes=frozenset({".pdf", ".doc", ".docx"}),
+            required_marker_groups=(("зерн",), ("техническ",), ("стандарт",)),
+            document_suffixes=frozenset(),
+            count_dates_as_documents=True,
+            publication_marker_groups=(
+                ("зерн",),
+                ("техническ",),
+                ("стандарт",),
+            ),
+        ),
+        HTMLMetadataAdapter(
+            source_id="official.rosselhoscenter.agronomy",
+            topics=frozenset({CoverageTopic.AGRONOMY_RECOMMENDATIONS}),
+            required_marker_groups=(
+                ("фитосанитарн",),
+                ("сельскохозяйствен",),
+                ("прогноз",),
+            ),
+            document_suffixes=frozenset(),
+            count_dates_as_documents=True,
+            publication_marker_groups=(
+                ("фитосанитарн",),
+                ("сельскохозяйствен",),
+                ("прогноз",),
+            ),
         ),
         HTMLMetadataAdapter(
             source_id="official.mintrans.rail-tariffs",

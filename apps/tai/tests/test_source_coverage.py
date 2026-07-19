@@ -82,6 +82,10 @@ def _healthy_repository_observations() -> tuple[SourceObservation, ...]:
             ),
         ),
         _observation(
+            "official.rosselhoscenter.agronomy",
+            frozenset({CoverageTopic.AGRONOMY_RECOMMENDATIONS}),
+        ),
+        _observation(
             "official.mintrans.rail-tariffs",
             frozenset({CoverageTopic.LOGISTICS_TARIFFS}),
         ),
@@ -92,15 +96,16 @@ def _healthy_repository_observations() -> tuple[SourceObservation, ...]:
     )
 
 
-def test_repository_catalog_is_governed_but_exposes_agronomy_gap() -> None:
+def test_repository_catalog_governs_all_eight_topics() -> None:
     catalog = load_official_source_catalog(_repository_catalog_path())
 
-    assert len(catalog.sources) == 5
+    assert len(catalog.sources) == 6
     assert len(catalog.requirements) == 8
     assert all(source.entrypoint_uri.startswith("https://") for source in catalog.sources)
     assert catalog.source_for("official.rosstat.agriculture") is not None
+    assert catalog.source_for("official.rosselhoscenter.agronomy") is not None
     assert catalog.source_for("missing") is None
-    assert not any(
+    assert any(
         CoverageTopic.AGRONOMY_RECOMMENDATIONS in source.topics
         for source in catalog.sources
     )
@@ -120,14 +125,17 @@ def test_no_observations_are_unobserved_and_not_knowledge() -> None:
 
     statuses = {topic.topic: topic.status for topic in assessment.topics}
     assert statuses[CoverageTopic.GRAIN_MARKET_PRICES] is TopicCoverageStatus.UNOBSERVED
-    assert statuses[CoverageTopic.AGRONOMY_RECOMMENDATIONS] is TopicCoverageStatus.GAP
+    assert (
+        statuses[CoverageTopic.AGRONOMY_RECOMMENDATIONS]
+        is TopicCoverageStatus.UNOBSERVED
+    )
     assert assessment.coverage_basis_points == 0
     assert assessment.critical_coverage_basis_points == 0
     assert assessment.all_critical_covered is False
     assert len(assessment.assessment_sha256) == 64
 
 
-def test_seven_observed_topics_produce_8750_and_keep_agronomy_gap() -> None:
+def test_eight_observed_topics_produce_complete_coverage() -> None:
     catalog = load_official_source_catalog(_repository_catalog_path())
 
     assessment = OfficialSourceCoverageAuthority().assess(
@@ -137,13 +145,13 @@ def test_seven_observed_topics_produce_8750_and_keep_agronomy_gap() -> None:
     )
 
     by_topic = {topic.topic: topic for topic in assessment.topics}
-    assert assessment.coverage_basis_points == 8_750
-    assert assessment.critical_coverage_basis_points == 8_750
-    assert assessment.all_critical_covered is False
+    assert assessment.coverage_basis_points == 10_000
+    assert assessment.critical_coverage_basis_points == 10_000
+    assert assessment.all_critical_covered is True
     assert by_topic[CoverageTopic.GRAIN_MARKET_PRICES].status is TopicCoverageStatus.COVERED
     agronomy = by_topic[CoverageTopic.AGRONOMY_RECOMMENDATIONS]
-    assert agronomy.status is TopicCoverageStatus.GAP
-    assert agronomy.reasons == ("NO_REGISTERED_OFFICIAL_SOURCE",)
+    assert agronomy.status is TopicCoverageStatus.COVERED
+    assert agronomy.healthy_source_ids == ("official.rosselhoscenter.agronomy",)
     payload = assessment_payload(assessment)
     assert payload["assessment_sha256"] == assessment.assessment_sha256
     assert len(payload["topics"]) == 8  # type: ignore[arg-type]
@@ -348,7 +356,7 @@ def test_cli_validates_catalog_without_claiming_coverage(tmp_path: Path) -> None
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert result == 0
     assert payload["status"] == "VALID"
-    assert payload["source_count"] == 5
+    assert payload["source_count"] == 6
     assert payload["requirement_count"] == 8
     assert len(payload["catalog_sha256"]) == 64
 

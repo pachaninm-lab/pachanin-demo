@@ -1,0 +1,41 @@
+{
+  "schema_version": "tai.ap14d-source-authority.v1",
+  "verified_at": "2026-07-19T14:10:00+00:00",
+  "decisions": [
+    {
+      "source_id": "official.eec.grain-regulation",
+      "authority_kind": "NORMATIVE_STANDARDS_EFFECTIVE_NOTICE",
+      "official_uri": "https://eec.eaeunion.org/news/vstupaet-v-silu-obnovlennyy-perechen-standartov-k-tekhreglamentu-na-zerno/",
+      "publication_at": "2025-05-26T00:00:00+00:00",
+      "expected_update_interval_seconds": 31536000,
+      "maximum_publication_age_seconds": 63072000,
+      "observed_topics": ["GRAIN_QUALITY", "GRAIN_REGULATION"],
+      "acceptance_basis": [
+        "The official EEC notice states that the updated testing-method standards list for the grain safety technical regulation comes into force on 2025-05-28.",
+        "The notice binds the effective list to the EEC Board revision adopted on 2024-11-26.",
+        "A two-year maximum publication age is bounded and requires annual authority review; it is not an unlimited freshness exception."
+      ]
+    },
+    {
+      "source_id": "official.rosselhoscenter.agronomy",
+      "authority_kind": "ANNUAL_NATIONAL_PHYTOSANITARY_FORECAST_NOTICE",
+      "official_uri": "https://rosselhoscenter.ru/ob-uchrezhdenii/filialy/tsentralnyy-okrug/moskva/podgotovlen-fitosanitarnyy-prognoz-razvitiya-vrednykh-obektov-v-rf-na-2026-god/",
+      "publication_at": "2026-01-30T00:00:00+00:00",
+      "expected_update_interval_seconds": 31536000,
+      "maximum_publication_age_seconds": 34560000,
+      "observed_topics": ["AGRONOMY_RECOMMENDATIONS"],
+      "acceptance_basis": [
+        "The official federal institution notice identifies a national review of crop phytosanitary conditions and a forecast of harmful organisms for 2026.",
+        "The publication is intended for crop-protection and agronomy decisions and links to the institution's national reviews and forecasts.",
+        "The institution is founded by the Ministry of Agriculture of the Russian Federation; the catalog still admits only the exact HTTPS host."
+      ]
+    }
+  ],
+  "controls": {
+    "exact_host_allowlist_required": true,
+    "publication_date_must_be_contextual": true,
+    "unrelated_newer_dates_must_not_refresh_authority": true,
+    "silent_freshness_extension_forbidden": true,
+    "live_observation_required_for_coverage": true
+  }
+}
