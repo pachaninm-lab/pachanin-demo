@@ -1,21 +1,22 @@
 {
   "branch": "feat/assistant-universal-understanding",
   "status": "active",
-  "purpose": "First-screen marketing context for the target AI experience: future-state value in the homepage hero, explicit human confirmation and an anonymised public scenario boundary.",
+  "purpose": "First-screen and reusable marketing context for the active role-scoped AI experience: present-tense value, explicit human confirmation and an anonymised public scenario boundary.",
   "approvedBy": "independent-authority-pr",
   "allowedPaths": [
     "apps/web/app/platform-v7/page.tsx",
+    "apps/web/components/platform-v7/PublicAiMarketingBlock.tsx",
     "apps/web/tests/unit/platformV7PublicAiMarketingBlock.test.ts",
     "docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json"
   ],
   "forbiddenCapabilities": [
-    "claims that the target AI experience is already available",
-    "account data access from public mode",
+    "claims that AI performs autonomous consequential commands",
+    "claims that public mode accesses account or real-deal data",
     "cross-role or cross-tenant access",
     "external model calls from public mode",
-    "autonomous consequential commands",
     "full public question text persistence",
     "automatic or background phone calls without an explicit user action",
-    "invented prices, legal conclusions or integration status"
+    "invented prices, legal conclusions or integration status",
+    "guaranteed risk prevention or guaranteed business outcomes"
   ]
 }
