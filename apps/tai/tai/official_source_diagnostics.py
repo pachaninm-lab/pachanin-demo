@@ -4,6 +4,7 @@ import errno
 import http.client
 import socket
 import ssl
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from urllib.parse import urljoin
 
@@ -78,7 +79,7 @@ class DiagnosticOfficialSourceHTTPFetcher(OfficialSourceHTTPFetcher):
                 return self._non_redirect_response(raw, response_headers)
             except FetchSecurityError as error:
                 return _security_failure(error)
-            except BaseException as error:
+            except Exception as error:
                 diagnostic = _transport_diagnostic(error)
                 if diagnostic is None:
                     raise
@@ -117,7 +118,7 @@ def _security_failure(error: FetchSecurityError) -> FetchResponse:
 
 
 def _transport_diagnostic(
-    error: BaseException,
+    error: Exception,
 ) -> tuple[FetchDisposition, str] | None:
     if isinstance(error, ssl.SSLCertVerificationError):
         return (
@@ -155,13 +156,9 @@ def _failure(disposition: FetchDisposition, error_code: str) -> FetchResponse:
     )
 
 
-def _normalize_headers(headers: object) -> dict[str, str]:
-    if not hasattr(headers, "items"):
-        raise FetchSecurityError("source_response_header_invalid")
+def _normalize_headers(headers: Mapping[str, str]) -> dict[str, str]:
     normalized: dict[str, str] = {}
-    for raw_name, raw_value in headers.items():  # type: ignore[union-attr]
-        if not isinstance(raw_name, str) or not isinstance(raw_value, str):
-            raise FetchSecurityError("source_response_header_invalid")
+    for raw_name, raw_value in headers.items():
         name = raw_name.casefold().strip()
         if not name or "\r" in raw_value or "\n" in raw_value:
             raise FetchSecurityError("source_response_header_invalid")
