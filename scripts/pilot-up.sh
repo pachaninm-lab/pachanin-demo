@@ -27,6 +27,6 @@ echo "  This script does not open SSH sessions and does not modify production."
 echo "  Merge/build success is not deployment proof."
 echo "  Follow docs/ops/virtual-server-production-runbook.md."
 echo "  Require the running container OCI revision to equal ${TARGET_SHA}."
-echo "  Then run docs/platform-v7/vps-post-deploy-checklist.md against the live domain."
+echo "  Then run docs/ops/vps-post-deploy-checklist.md against the live domain."
 
 echo "✓ preflight complete; virtual-server deployment remains pending until verified"
