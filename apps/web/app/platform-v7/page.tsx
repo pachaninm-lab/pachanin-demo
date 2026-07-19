@@ -8,7 +8,6 @@ import '@/styles/platform-v7-public-product-entry-variants.css';
 import '@/styles/platform-v7-public-product-experience-v5.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { PublicAiMarketingBlock } from '@/components/platform-v7/PublicAiMarketingBlock';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicDealPreview } from '@/components/platform-v7/PublicDealPreview';
@@ -67,6 +66,21 @@ const firstStageCopy = {
   },
 } as const;
 
+const firstScreenAiCopy = {
+  ru: {
+    label: 'После запуска полноценного ИИ',
+    text: 'Платформа будет раньше находить риск сделки, объяснять причину и готовить следующий шаг. Критические действия останутся под подтверждением человека; ниже показан обезличенный демонстрационный сценарий.',
+  },
+  en: {
+    label: 'Once the full AI layer is launched',
+    text: 'The platform will surface deal risk earlier, explain the cause and prepare the next step. Consequential actions will remain subject to human confirmation; the scenario below is anonymised and demonstrative.',
+  },
+  zh: {
+    label: '完整 AI 上线后',
+    text: '平台将更早发现交易风险、解释原因并准备下一步。重要操作仍需人工确认；以下为匿名演示场景。',
+  },
+} as const;
+
 function PerspectiveCard({
   perspective,
   locale,
@@ -108,9 +122,10 @@ export default async function PlatformV7RootPage() {
     ...(copy.home.perspectives.secondary as readonly TourPerspective[]),
   ];
   const contourStages = TOUR_STAGES;
-  const start = firstStageCopy[locale === 'en' || locale === 'zh' ? locale : 'ru'];
+  const localeKey = locale === 'en' || locale === 'zh' ? locale : 'ru';
+  const start = firstStageCopy[localeKey];
+  const aiHero = firstScreenAiCopy[localeKey];
   const startDealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
-  const roleEntryHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=role`;
   const aiNavLabel = locale === 'ru' ? 'ИИ' : 'AI';
   const nav = (
     <>
@@ -158,9 +173,15 @@ export default async function PlatformV7RootPage() {
             <span className='pc-ppe-kicker'>{ui.home.hero.kicker}</span>
             <h1 id='pc-ppe-hero-title'>{ui.home.hero.title}</h1>
             <p>{ui.home.hero.lead}</p>
-            <div className='pc-ppe-public-status' role='note' aria-label={ui.home.hero.statusLabel}>
-              <strong>{ui.home.hero.statusLabel}</strong>
-              <span>{ui.home.hero.statusText}</span>
+            <div
+              id='ai-copilot'
+              className='pc-ppe-public-status'
+              role='note'
+              aria-label={aiHero.label}
+              data-testid='platform-v7-ai-future-value'
+            >
+              <strong>{aiHero.label}</strong>
+              <span>{aiHero.text}</span>
             </div>
             <div className='pc-ppe-hero-actions'>
               <PublicExperienceLink
@@ -208,8 +229,6 @@ export default async function PlatformV7RootPage() {
         <section id='deal-example' className='pc-ppe-section' aria-label={ui.home.preview.demoLabel}>
           <PublicDealPreview copy={copy} locale={locale} />
         </section>
-
-        <PublicAiMarketingBlock locale={locale} roleEntryHref={roleEntryHref} />
 
         <section id='participants' className='pc-ppe-section' aria-labelledby='pc-ppe-perspectives-title'>
           <div className='pc-ppe-section-header'>
