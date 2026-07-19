@@ -1,0 +1,22 @@
+{
+  "branch": "fix/public-assistant-visible-ux",
+  "status": "active",
+  "purpose": "Correct the public assistant UX at the component level so production visibly presents an intent-first AI assistant, deterministic quick paths, truthful public-mode boundaries, compact mobile composition and an unchanged read-only security model.",
+  "approvedBy": "independent-authority-pr",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/styles/platform-v7-unified-modal-fullscreen.css",
+    "apps/web/tests/e2e/platform-v7-unified-modal-fullscreen.spec.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantSupportUx.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-assistant-visible-ux.json"
+  ],
+  "forbiddenCapabilities": [
+    "account data access from public mode",
+    "cross-role or cross-tenant access",
+    "external model calls from public mode",
+    "autonomous commands",
+    "full public question text persistence",
+    "automatic or background phone calls without an explicit user action",
+    "invented prices, legal conclusions or integration status"
+  ]
+}
