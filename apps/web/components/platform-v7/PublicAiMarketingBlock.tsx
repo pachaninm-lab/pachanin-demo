@@ -34,51 +34,51 @@ type MarketingCopy = {
 
 const COPY: Record<Locale, MarketingCopy> = {
   ru: {
-    eyebrow: 'ИИ в целевой версии платформы',
-    title: 'Раньше увидеть риск. Понять причину. Быстрее перейти к действию.',
-    lead: 'После запуска полноценного ИИ «Прозрачная Цена» будет анализировать ход сделки, документы, логистику, качество и денежные основания. Система заранее покажет блокер, объяснит его влияние и подготовит следующий шаг для ответственного участника.',
+    eyebrow: 'ИИ работает в платформе',
+    title: 'Увидеть риск. Понять причину. Быстрее перейти к действию.',
+    lead: 'В рабочих кабинетах ИИ «Прозрачной Цены» анализирует доступный ход сделки, документы, логистику, качество и денежные основания. Система выявляет блокеры, объясняет их влияние и формирует следующий шаг для ответственного участника.',
     capabilities: [
       {
         icon: 'risk',
-        title: 'Увидит риск до срыва',
-        body: 'Отметит, когда срок, документ, качество, маршрут или основание расчёта начинают отклоняться от сценария.',
+        title: 'Выявляет риск',
+        body: 'Отмечает, когда срок, документ, качество, маршрут или основание расчёта отклоняются от сценария.',
       },
       {
         icon: 'documents',
-        title: 'Объяснит на фактах',
-        body: 'Свяжет сигнал с событием, документом, источником, ответственным, дедлайном и суммой влияния.',
+        title: 'Объясняет на фактах',
+        body: 'Связывает сигнал с событием, документом, источником, ответственным, дедлайном и суммой влияния.',
       },
       {
         icon: 'intelligence',
-        title: 'Подготовит следующий шаг',
-        body: 'Соберёт запрос, чек-лист, уведомление, пакет оснований или сценарий эскалации — по роли и контексту сделки.',
+        title: 'Формирует следующий шаг',
+        body: 'Предлагает запрос, чек-лист, уведомление или сценарий эскалации с учётом роли и контекста сделки.',
       },
     ],
-    maturity: 'Целевой контур будет вводиться поэтапно. ИИ не заменит полномочия участников: критические действия останутся под подтверждением человека.',
-    cta: 'Посмотреть ценность для своей роли',
+    maturity: 'ИИ работает только в доступном ролевом контуре и не заменяет полномочия участников: критические действия остаются за человеком и требуют подтверждения.',
+    cta: 'Посмотреть, как ИИ помогает моей роли',
     scenario: {
-      aria: 'Пример будущего сигнала ИИ по демонстрационной сделке',
-      badge: 'Пример будущего сигнала',
+      aria: 'Пример сигнала ИИ по демонстрационной сделке',
+      badge: 'Пример сигнала ИИ',
       context: 'Покупатель · Пшеница 3 класса · 500 т',
-      title: 'Расчёт может задержаться',
+      title: 'Расчёт под риском задержки',
       reasonLabel: 'Причина',
       reason: 'Не подтверждён лабораторный протокол. До контрольного срока — 6 часов.',
       impactLabel: 'Влияние',
       impact: '6,9 млн ₽ остаются под риском задержки; следующая отгрузка может не попасть в окно.',
       actionLabel: 'Следующий шаг',
-      action: 'ИИ подготовит запрос протокола и пакет оснований для проверки.',
-      control: 'Отправка и любые критические действия — только после подтверждения пользователя.',
+      action: 'ИИ формирует рекомендацию запросить протокол и показывает основания для проверки.',
+      control: 'Отправку и любые критические действия подтверждает пользователь.',
     },
   },
   en: {
-    eyebrow: 'AI in the target platform experience',
-    title: 'See risk earlier. Understand the cause. Move to action faster.',
-    lead: 'Once the full AI layer is launched, Transparent Price will analyse deal progress, documents, logistics, quality and payment grounds. It will surface blockers early, explain their impact and prepare the next step for the responsible participant.',
+    eyebrow: 'AI is active in the platform',
+    title: 'See the risk. Understand the cause. Move to action faster.',
+    lead: 'In authenticated workspaces, Transparent Price AI analyses accessible deal progress, documents, logistics, quality and payment grounds. It identifies blockers, explains their impact and prepares the next step for the responsible participant.',
     capabilities: [
       {
         icon: 'risk',
-        title: 'Sees risk before disruption',
-        body: 'Flags when a deadline, document, quality result, route or settlement ground starts to diverge from the agreed flow.',
+        title: 'Identifies risk',
+        body: 'Flags when a deadline, document, quality result, route or settlement ground diverges from the agreed flow.',
       },
       {
         icon: 'documents',
@@ -88,34 +88,34 @@ const COPY: Record<Locale, MarketingCopy> = {
       {
         icon: 'intelligence',
         title: 'Prepares the next step',
-        body: 'Builds a request, checklist, notice, evidence pack or escalation path for the role and deal context.',
+        body: 'Proposes a request, checklist, notice or escalation path for the role and deal context.',
       },
     ],
-    maturity: 'The target experience will be introduced in stages. AI will not replace participant authority: consequential actions will remain subject to human confirmation.',
-    cta: 'See the value for your role',
+    maturity: 'AI operates only within the accessible role scope and does not replace participant authority: consequential actions remain with people and require confirmation.',
+    cta: 'See how AI supports my role',
     scenario: {
-      aria: 'Example of a future AI signal for the demonstration deal',
-      badge: 'Example future signal',
+      aria: 'Example AI signal for the demonstration deal',
+      badge: 'Example AI signal',
       context: 'Buyer · Class 3 wheat · 500 t',
-      title: 'Settlement may be delayed',
+      title: 'Settlement is at risk of delay',
       reasonLabel: 'Reason',
       reason: 'The laboratory protocol has not been confirmed. Six hours remain before the control deadline.',
       impactLabel: 'Impact',
       impact: 'RUB 6.9m remains exposed to delay, and the next shipment may miss its window.',
       actionLabel: 'Next step',
-      action: 'AI will prepare a protocol request and an evidence pack for review.',
-      control: 'Sending and any consequential action will require user confirmation.',
+      action: 'AI recommends requesting the protocol and shows the evidence grounds for review.',
+      control: 'The user confirms sending and every consequential action.',
     },
   },
   zh: {
-    eyebrow: '平台目标版本中的 AI',
-    title: '更早发现风险，理解原因，更快进入下一步。',
-    lead: '完整 AI 上线后，“透明价格”将分析交易进度、文件、物流、质量和付款依据，提前提示阻塞点，解释其影响，并为责任方准备下一步。',
+    eyebrow: 'AI 已在平台中运行',
+    title: '发现风险，理解原因，更快进入下一步。',
+    lead: '在已授权工作区内，“透明价格”AI 分析可访问的交易进度、文件、物流、质量和付款依据，识别阻塞点、解释其影响，并为责任方准备下一步。',
     capabilities: [
       {
         icon: 'risk',
-        title: '在中断前发现风险',
-        body: '当期限、文件、质量结果、路线或结算依据开始偏离约定流程时，系统会提前提示。',
+        title: '识别风险',
+        body: '当期限、文件、质量结果、路线或结算依据偏离约定流程时，系统会提示。',
       },
       {
         icon: 'documents',
@@ -124,24 +124,24 @@ const COPY: Record<Locale, MarketingCopy> = {
       },
       {
         icon: 'intelligence',
-        title: '准备下一步行动',
-        body: '根据角色和交易上下文，生成请求、检查清单、通知、依据包或升级路径。',
+        title: '准备下一步',
+        body: '根据角色和交易上下文提出请求、检查清单、通知或升级路径。',
       },
     ],
-    maturity: '目标形态将分阶段上线。AI 不会取代交易参与方的权限；重要操作仍需人工确认。',
-    cta: '查看对您角色的价值',
+    maturity: 'AI 仅在可访问的角色范围内工作，不取代交易参与方的权限；重要操作仍由人工执行并确认。',
+    cta: '查看 AI 如何支持我的角色',
     scenario: {
-      aria: '演示交易中的未来 AI 信号示例',
-      badge: '未来信号示例',
+      aria: '演示交易中的 AI 信号示例',
+      badge: 'AI 信号示例',
       context: '买方 · 三等小麦 · 500 吨',
-      title: '结算可能延迟',
+      title: '结算存在延迟风险',
       reasonLabel: '原因',
       reason: '实验室报告尚未确认，距离控制期限还有 6 小时。',
       impactLabel: '影响',
       impact: '690 万卢布仍面临延迟风险，下一批发运可能错过时间窗口。',
       actionLabel: '下一步',
-      action: 'AI 将准备报告请求和供审核的依据包。',
-      control: '发送和任何重要操作都必须经过用户确认。',
+      action: 'AI 建议请求报告，并显示供审核的依据。',
+      control: '发送和任何重要操作都由用户确认。',
     },
   },
 };
@@ -165,7 +165,7 @@ export function PublicAiMarketingBlock({
       id='ai-copilot'
       className={`pc-ppe-section ${styles.section}`}
       aria-labelledby='pc-ppe-ai-title'
-      data-testid='platform-v7-ai-future-value'
+      data-testid='platform-v7-ai-current-value'
     >
       <div className={styles.panel}>
         <div className={styles.copy}>
@@ -195,9 +195,9 @@ export function PublicAiMarketingBlock({
           <PublicExperienceLink
             href={roleEntryHref}
             className={styles.cta}
-            eventName='ai_future_value_role_cta'
+            eventName='ai_current_value_role_cta'
             locale={locale}
-            params={{ source: 'home_ai_future_value' }}
+            params={{ source: 'home_ai_current_value' }}
           >
             <span>{ui.cta}</span>
             <PublicExperienceIcon name='arrow' size={20} />
