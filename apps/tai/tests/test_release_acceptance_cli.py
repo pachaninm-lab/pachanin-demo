@@ -24,6 +24,7 @@ def _repository(root: Path) -> None:
         "0011_release_attestation.sql",
         "0012_git_object_id_contract.sql",
         "0013_production_composition.sql",
+        "0014_governed_tool_planner.sql",
     ]
     for version, name in enumerate(migration_names, start=1):
         (migration_root / name).write_text(f"-- migration {version}\nSELECT {version};\n")
@@ -156,9 +157,33 @@ def test_cli_builds_accepted_application_attestation(tmp_path: Path, monkeypatch
     assert attestation["exact_main_sha"] == HEAD
     assert attestation["production_operational_status"] == "NOT_ATTESTED"
     assert attestation["reasons"] == []
-    assert len(attestation["migration_inventory"]) == 14
+    assert len(attestation["migration_inventory"]) == 15
     assert len(attestation["attestation_sha256"]) == 64
     assert len(attestation["source_tree_sha256"]) == 64
+
+
+def test_cli_rejects_release_below_planner_migration_authority(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _repository(tmp_path)
+    migration_root = tmp_path / "apps/tai/tai/migrations"
+    planner_migration = migration_root / "0014_governed_tool_planner.sql"
+    planner_migration.unlink()
+    manifest_path = migration_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["migrations"] = manifest["migrations"][:-1]
+    manifest_path.write_text(json.dumps(manifest))
+    evidence = tmp_path / "workflow-evidence.json"
+    output = tmp_path / "release-attestation.json"
+    _evidence(evidence)
+    monkeypatch.setattr(sys, "argv", _argv(tmp_path, evidence, output))
+
+    result = main()
+    attestation = json.loads(output.read_text())
+
+    assert result == 1
+    assert attestation["accepted"] is False
+    assert attestation["reasons"] == ["MIGRATION_INVENTORY_BELOW_REQUIRED_VERSION"]
 
 
 def test_source_digest_binds_workflows_and_integrated_platform_api(tmp_path: Path) -> None:

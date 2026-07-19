@@ -1,0 +1,2 @@
+# False positive: a removed deterministic test idempotency fixture, not a credential.
+b11c310787b81cfcfddd0be67f515f8f4a32cebd:apps/tai/tests/test_tool_planner.py:generic-api-key:42

@@ -55,6 +55,10 @@
     {
       "path": "0013_production_composition.sql",
       "version": 14
+    },
+    {
+      "path": "0014_governed_tool_planner.sql",
+      "version": 15
     }
   ],
   "schema_version": "tai.migration.manifest.v1"

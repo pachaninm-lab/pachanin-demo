@@ -10,6 +10,7 @@ from typing import Any
 from tai.release_acceptance import (
     ApplicationReleaseAuthority,
     ApplicationReleaseCandidate,
+    ApplicationReleasePolicy,
     MigrationArtifact,
     MigrationInventory,
     WorkflowConclusion,
@@ -49,6 +50,7 @@ _IGNORED_SOURCE_PARTS = frozenset(
     }
 )
 _IGNORED_SOURCE_SUFFIXES = frozenset({".pyc", ".pyo"})
+_MINIMUM_RELEASE_MIGRATION_VERSION = 15
 
 
 def main() -> int:
@@ -77,7 +79,12 @@ def main() -> int:
         free_access_architecture=_free_access_proven(workflow_runs),
         previous_attestation_sha256=args.previous_attestation_sha256,
     )
-    attestation = ApplicationReleaseAuthority().attest(candidate)
+    authority = ApplicationReleaseAuthority(
+        ApplicationReleasePolicy(
+            minimum_migration_version=_MINIMUM_RELEASE_MIGRATION_VERSION
+        )
+    )
+    attestation = authority.attest(candidate)
     output = {
         "accepted": attestation.accepted,
         "attestation_sha256": attestation.attestation_sha256,
