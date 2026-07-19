@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, cast
 
 from tai.model_runtime import ModelRuntimeClass
 
@@ -46,14 +46,14 @@ class QuantizationRecipe:
     def __post_init__(self) -> None:
         if self.format != "GGUF":
             raise ValueError("only GGUF artifacts are permitted in AP-13B")
-        _validate_identity(self.quantization, "quantization")
-        _validate_identity(self.toolchain_name, "toolchain_name")
-        _validate_https(self.toolchain_uri, "toolchain_uri")
+        _identity(self.quantization, "quantization")
+        _identity(self.toolchain_name, "toolchain_name")
+        _https(self.toolchain_uri, "toolchain_uri")
         if _RELEASE_TAG.fullmatch(self.toolchain_release) is None:
             raise ValueError("toolchain_release must be a portable immutable tag")
         if self.toolchain_commit is not None:
-            _validate_revision(self.toolchain_commit, "toolchain_commit")
-        _validate_relative_path(self.output_path, "output_path")
+            _revision(self.toolchain_commit, "toolchain_commit")
+        _relative_path(self.output_path, "output_path")
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,29 +71,32 @@ class ModelSourceCandidate:
     recipes: tuple[QuantizationRecipe, ...]
 
     def __post_init__(self) -> None:
-        _validate_identity(self.model_id, "model_id")
-        _validate_revision(self.revision, "revision")
-        _validate_https(self.source_uri, "source_uri")
-        _validate_https(self.model_card_uri, "model_card_uri")
+        _identity(self.model_id, "model_id")
+        _revision(self.revision, "revision")
+        _https(self.source_uri, "source_uri")
+        _https(self.model_card_uri, "model_card_uri")
         if self.revision not in self.source_uri:
             raise ValueError("source_uri must contain the exact source revision")
         if self.revision not in self.model_card_uri:
             raise ValueError("model_card_uri must contain the exact source revision")
-        _validate_identity(self.license_spdx, "license_spdx")
-        if self.license_review_status is LicenseReviewStatus.APPROVED:
-            if self.license_text_path is None:
-                raise ValueError("approved license requires license_text_path")
+        _identity(self.license_spdx, "license_spdx")
+        if (
+            self.license_review_status is LicenseReviewStatus.APPROVED
+            and self.license_text_path is None
+        ):
+            raise ValueError("approved license requires license_text_path")
         if self.license_text_path is not None:
-            _validate_relative_path(self.license_text_path, "license_text_path")
-        _validate_unique_paths(self.tokenizer_files, "tokenizer_files")
-        _validate_unique_paths(self.weight_files, "weight_files")
+            _relative_path(self.license_text_path, "license_text_path")
+        _unique_paths(self.tokenizer_files, "tokenizer_files")
+        _unique_paths(self.weight_files, "weight_files")
         if not self.recipes:
             raise ValueError("at least one quantization recipe is required")
-        recipe_paths = tuple(item.output_path for item in self.recipes)
-        if len(set(recipe_paths)) != len(recipe_paths):
+        outputs = tuple(recipe.output_path for recipe in self.recipes)
+        if len(outputs) != len(set(outputs)):
             raise ValueError("quantization recipe output paths must be unique")
         if not any(
-            item.runtime_class is ModelRuntimeClass.CPU for item in self.recipes
+            recipe.runtime_class is ModelRuntimeClass.CPU
+            for recipe in self.recipes
         ):
             raise ValueError("every model candidate requires a CPU recipe")
 
@@ -108,7 +111,7 @@ class ModelCandidateRegistry:
         identities = {(item.model_id, item.revision) for item in self.candidates}
         if len(identities) != len(self.candidates):
             raise ValueError("model candidate identities must be unique")
-        roles = [item.role for item in self.candidates]
+        roles = tuple(item.role for item in self.candidates)
         if roles.count(CandidateRole.PRIMARY) != 1:
             raise ValueError("candidate registry requires exactly one primary model")
         if CandidateRole.FALLBACK not in roles:
@@ -122,8 +125,8 @@ class DeclaredFile:
     size_bytes: int
 
     def __post_init__(self) -> None:
-        _validate_relative_path(self.path, "declared file path")
-        _validate_sha256(self.sha256, "declared file sha256")
+        _relative_path(self.path, "declared file path")
+        _sha256(self.sha256, "declared file sha256")
         if self.size_bytes < 1:
             raise ValueError("declared file size must be positive")
 
@@ -138,12 +141,12 @@ class DeclaredArtifact:
     toolchain_commit: str
 
     def __post_init__(self) -> None:
-        _validate_relative_path(self.path, "artifact path")
-        _validate_sha256(self.sha256, "artifact sha256")
+        _relative_path(self.path, "artifact path")
+        _sha256(self.sha256, "artifact sha256")
         if self.size_bytes < 1:
             raise ValueError("artifact size must be positive")
-        _validate_identity(self.quantization, "artifact quantization")
-        _validate_revision(self.toolchain_commit, "artifact toolchain_commit")
+        _identity(self.quantization, "artifact quantization")
+        _revision(self.toolchain_commit, "artifact toolchain_commit")
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,18 +158,16 @@ class LocalModelArtifactBundle:
     artifacts: tuple[DeclaredArtifact, ...]
 
     def __post_init__(self) -> None:
-        _validate_identity(self.model_id, "bundle model_id")
-        _validate_revision(self.revision, "bundle revision")
-        if not self.tokenizers:
-            raise ValueError("bundle tokenizers must not be empty")
-        if not self.artifacts:
-            raise ValueError("bundle artifacts must not be empty")
+        _identity(self.model_id, "bundle model_id")
+        _revision(self.revision, "bundle revision")
+        if not self.tokenizers or not self.artifacts:
+            raise ValueError("bundle tokenizers and artifacts must not be empty")
         paths = (
             self.license_text.path,
             *(item.path for item in self.tokenizers),
             *(item.path for item in self.artifacts),
         )
-        if len(set(paths)) != len(paths):
+        if len(paths) != len(set(paths)):
             raise ValueError("bundle file paths must be unique")
 
 
@@ -185,31 +186,28 @@ class BundleVerificationReport:
 
 
 def load_candidate_registry(path: Path) -> ModelCandidateRegistry:
-    payload = _load_json_object(path)
+    payload = _load(path)
     if payload.get("schema_version") != "tai.model-candidate-registry.v1":
         raise ValueError("unsupported model candidate registry schema")
-    raw_candidates = payload.get("candidates")
-    if not isinstance(raw_candidates, list):
-        raise ValueError("candidate registry candidates must be an array")
-    candidates = tuple(_parse_candidate(item) for item in raw_candidates)
+    candidates = tuple(
+        _candidate(item) for item in _array(payload, "candidates")
+    )
     return ModelCandidateRegistry(candidates)
 
 
 def load_artifact_bundle(path: Path) -> LocalModelArtifactBundle:
-    payload = _load_json_object(path)
+    payload = _load(path)
     if payload.get("schema_version") != "tai.local-model-artifact-bundle.v1":
         raise ValueError("unsupported local artifact bundle schema")
     return LocalModelArtifactBundle(
-        model_id=_required_string(payload, "model_id"),
-        revision=_required_string(payload, "revision"),
-        license_text=_parse_declared_file(payload.get("license_text")),
+        model_id=_string(payload, "model_id"),
+        revision=_string(payload, "revision"),
+        license_text=_declared_file(payload.get("license_text")),
         tokenizers=tuple(
-            _parse_declared_file(item)
-            for item in _required_array(payload, "tokenizers")
+            _declared_file(item) for item in _array(payload, "tokenizers")
         ),
         artifacts=tuple(
-            _parse_declared_artifact(item)
-            for item in _required_array(payload, "artifacts")
+            _declared_artifact(item) for item in _array(payload, "artifacts")
         ),
     )
 
@@ -229,59 +227,22 @@ def verify_artifact_bundle(
         None,
     )
     reasons: list[str] = []
-    verified_files: list[str] = []
+    verified: list[str] = []
     if candidate is None:
         reasons.append("CANDIDATE_NOT_REGISTERED")
     else:
-        if candidate.license_review_status is not LicenseReviewStatus.APPROVED:
-            reasons.append("LICENSE_REVIEW_NOT_APPROVED")
-        if candidate.license_text_path != bundle.license_text.path:
-            reasons.append("LICENSE_TEXT_PATH_MISMATCH")
-        expected_tokenizers = set(candidate.tokenizer_files)
-        declared_tokenizers = {item.path for item in bundle.tokenizers}
-        if expected_tokenizers != declared_tokenizers:
-            reasons.append("TOKENIZER_SET_MISMATCH")
-        expected_recipes = {
-            (
-                item.output_path,
-                item.runtime_class,
-                item.quantization,
-                item.toolchain_commit,
-            )
-            for item in candidate.recipes
-        }
-        declared_artifacts = {
-            (
-                item.path,
-                item.runtime_class,
-                item.quantization,
-                item.toolchain_commit,
-            )
-            for item in bundle.artifacts
-        }
-        if expected_recipes != declared_artifacts:
-            reasons.append("ARTIFACT_RECIPE_SET_MISMATCH")
-        if any(item.toolchain_commit is None for item in candidate.recipes):
-            reasons.append("TOOLCHAIN_FULL_COMMIT_MISSING")
+        _verify_candidate_contract(candidate, bundle, reasons)
 
-    for declared in (
-        bundle.license_text,
-        *bundle.tokenizers,
-        *bundle.artifacts,
-    ):
-        file_path = _bounded_file(bundle_root, declared.path)
-        if not file_path.is_file():
+    for declared in (bundle.license_text, *bundle.tokenizers, *bundle.artifacts):
+        path = _bounded_file(bundle_root, declared.path)
+        if not path.is_file():
             reasons.append(f"FILE_MISSING:{declared.path}")
-            continue
-        actual_size = file_path.stat().st_size
-        if actual_size != declared.size_bytes:
+        elif path.stat().st_size != declared.size_bytes:
             reasons.append(f"FILE_SIZE_MISMATCH:{declared.path}")
-            continue
-        actual_sha256 = _file_sha256(file_path)
-        if actual_sha256 != declared.sha256:
+        elif _file_sha256(path) != declared.sha256:
             reasons.append(f"FILE_SHA256_MISMATCH:{declared.path}")
-            continue
-        verified_files.append(declared.path)
+        else:
+            verified.append(declared.path)
 
     unique_reasons = tuple(sorted(set(reasons)))
     status = (
@@ -289,129 +250,166 @@ def verify_artifact_bundle(
         if not unique_reasons
         else BundleVerificationStatus.REJECTED
     )
-    report_sha256 = _report_sha256(
-        bundle=bundle,
-        status=status,
-        reasons=unique_reasons,
-        verified_files=tuple(sorted(verified_files)),
-    )
+    verified_files = tuple(sorted(verified))
     return BundleVerificationReport(
         model_id=bundle.model_id,
         revision=bundle.revision,
         status=status,
         reasons=unique_reasons,
-        verified_files=tuple(sorted(verified_files)),
-        report_sha256=report_sha256,
+        verified_files=verified_files,
+        report_sha256=_report_sha256(
+            bundle.model_id,
+            bundle.revision,
+            status,
+            unique_reasons,
+            verified_files,
+        ),
     )
 
 
 def registry_to_canonical_json(registry: ModelCandidateRegistry) -> str:
     payload = {
-        "candidates": [
-            {
-                "license_review_status": item.license_review_status.value,
-                "license_spdx": item.license_spdx,
-                "license_text_path": item.license_text_path,
-                "model_card_uri": item.model_card_uri,
-                "model_id": item.model_id,
-                "quantization_recipes": [
-                    {
-                        "format": recipe.format,
-                        "output_path": recipe.output_path,
-                        "quantization": recipe.quantization,
-                        "runtime_class": recipe.runtime_class.value,
-                        "toolchain_commit": recipe.toolchain_commit,
-                        "toolchain_name": recipe.toolchain_name,
-                        "toolchain_release": recipe.toolchain_release,
-                        "toolchain_uri": recipe.toolchain_uri,
-                    }
-                    for recipe in item.recipes
-                ],
-                "revision": item.revision,
-                "role": item.role.value,
-                "source_uri": item.source_uri,
-                "tokenizer_files": list(item.tokenizer_files),
-                "weight_files": list(item.weight_files),
-            }
-            for item in registry.candidates
-        ],
+        "candidates": [_candidate_payload(item) for item in registry.candidates],
         "schema_version": "tai.model-candidate-registry.v1",
     }
-    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return _canonical_json(payload)
 
 
-def _parse_candidate(value: object) -> ModelSourceCandidate:
-    payload = _require_object(value, "candidate")
-    raw_recipes = _required_array(payload, "quantization_recipes")
+def _verify_candidate_contract(
+    candidate: ModelSourceCandidate,
+    bundle: LocalModelArtifactBundle,
+    reasons: list[str],
+) -> None:
+    if candidate.license_review_status is not LicenseReviewStatus.APPROVED:
+        reasons.append("LICENSE_REVIEW_NOT_APPROVED")
+    if candidate.license_text_path != bundle.license_text.path:
+        reasons.append("LICENSE_TEXT_PATH_MISMATCH")
+    if set(candidate.tokenizer_files) != {item.path for item in bundle.tokenizers}:
+        reasons.append("TOKENIZER_SET_MISMATCH")
+    expected = {
+        (
+            item.output_path,
+            item.runtime_class,
+            item.quantization,
+            item.toolchain_commit,
+        )
+        for item in candidate.recipes
+    }
+    declared = {
+        (
+            item.path,
+            item.runtime_class,
+            item.quantization,
+            item.toolchain_commit,
+        )
+        for item in bundle.artifacts
+    }
+    if expected != declared:
+        reasons.append("ARTIFACT_RECIPE_SET_MISMATCH")
+    if any(item.toolchain_commit is None for item in candidate.recipes):
+        reasons.append("TOOLCHAIN_FULL_COMMIT_MISSING")
+
+
+def _candidate_payload(candidate: ModelSourceCandidate) -> dict[str, object]:
+    return {
+        "license_review_status": candidate.license_review_status.value,
+        "license_spdx": candidate.license_spdx,
+        "license_text_path": candidate.license_text_path,
+        "model_card_uri": candidate.model_card_uri,
+        "model_id": candidate.model_id,
+        "quantization_recipes": [
+            {
+                "format": recipe.format,
+                "output_path": recipe.output_path,
+                "quantization": recipe.quantization,
+                "runtime_class": recipe.runtime_class.value,
+                "toolchain_commit": recipe.toolchain_commit,
+                "toolchain_name": recipe.toolchain_name,
+                "toolchain_release": recipe.toolchain_release,
+                "toolchain_uri": recipe.toolchain_uri,
+            }
+            for recipe in candidate.recipes
+        ],
+        "revision": candidate.revision,
+        "role": candidate.role.value,
+        "source_uri": candidate.source_uri,
+        "tokenizer_files": list(candidate.tokenizer_files),
+        "weight_files": list(candidate.weight_files),
+    }
+
+
+def _candidate(value: object) -> ModelSourceCandidate:
+    payload = _object(value, "candidate")
     return ModelSourceCandidate(
-        role=CandidateRole(_required_string(payload, "role")),
-        model_id=_required_string(payload, "model_id"),
-        revision=_required_string(payload, "revision"),
-        source_uri=_required_string(payload, "source_uri"),
-        model_card_uri=_required_string(payload, "model_card_uri"),
-        license_spdx=_required_string(payload, "license_spdx"),
+        role=CandidateRole(_string(payload, "role")),
+        model_id=_string(payload, "model_id"),
+        revision=_string(payload, "revision"),
+        source_uri=_string(payload, "source_uri"),
+        model_card_uri=_string(payload, "model_card_uri"),
+        license_spdx=_string(payload, "license_spdx"),
         license_review_status=LicenseReviewStatus(
-            _required_string(payload, "license_review_status")
+            _string(payload, "license_review_status")
         ),
         license_text_path=_optional_string(payload, "license_text_path"),
-        tokenizer_files=tuple(_string_array(payload, "tokenizer_files")),
-        weight_files=tuple(_string_array(payload, "weight_files")),
-        recipes=tuple(_parse_recipe(item) for item in raw_recipes),
+        tokenizer_files=tuple(_strings(payload, "tokenizer_files")),
+        weight_files=tuple(_strings(payload, "weight_files")),
+        recipes=tuple(
+            _recipe(item) for item in _array(payload, "quantization_recipes")
+        ),
     )
 
 
-def _parse_recipe(value: object) -> QuantizationRecipe:
-    payload = _require_object(value, "quantization recipe")
+def _recipe(value: object) -> QuantizationRecipe:
+    payload = _object(value, "quantization recipe")
     return QuantizationRecipe(
-        runtime_class=ModelRuntimeClass(_required_string(payload, "runtime_class")),
-        format=_required_string(payload, "format"),
-        quantization=_required_string(payload, "quantization"),
-        toolchain_name=_required_string(payload, "toolchain_name"),
-        toolchain_uri=_required_string(payload, "toolchain_uri"),
-        toolchain_release=_required_string(payload, "toolchain_release"),
+        runtime_class=ModelRuntimeClass(_string(payload, "runtime_class")),
+        format=_string(payload, "format"),
+        quantization=_string(payload, "quantization"),
+        toolchain_name=_string(payload, "toolchain_name"),
+        toolchain_uri=_string(payload, "toolchain_uri"),
+        toolchain_release=_string(payload, "toolchain_release"),
         toolchain_commit=_optional_string(payload, "toolchain_commit"),
-        output_path=_required_string(payload, "output_path"),
+        output_path=_string(payload, "output_path"),
     )
 
 
-def _parse_declared_file(value: object) -> DeclaredFile:
-    payload = _require_object(value, "declared file")
+def _declared_file(value: object) -> DeclaredFile:
+    payload = _object(value, "declared file")
     return DeclaredFile(
-        path=_required_string(payload, "path"),
-        sha256=_required_string(payload, "sha256"),
-        size_bytes=_required_integer(payload, "size_bytes"),
+        path=_string(payload, "path"),
+        sha256=_string(payload, "sha256"),
+        size_bytes=_integer(payload, "size_bytes"),
     )
 
 
-def _parse_declared_artifact(value: object) -> DeclaredArtifact:
-    payload = _require_object(value, "declared artifact")
+def _declared_artifact(value: object) -> DeclaredArtifact:
+    payload = _object(value, "declared artifact")
     return DeclaredArtifact(
-        path=_required_string(payload, "path"),
-        sha256=_required_string(payload, "sha256"),
-        size_bytes=_required_integer(payload, "size_bytes"),
-        runtime_class=ModelRuntimeClass(_required_string(payload, "runtime_class")),
-        quantization=_required_string(payload, "quantization"),
-        toolchain_commit=_required_string(payload, "toolchain_commit"),
+        path=_string(payload, "path"),
+        sha256=_string(payload, "sha256"),
+        size_bytes=_integer(payload, "size_bytes"),
+        runtime_class=ModelRuntimeClass(_string(payload, "runtime_class")),
+        quantization=_string(payload, "quantization"),
+        toolchain_commit=_string(payload, "toolchain_commit"),
     )
 
 
 def _report_sha256(
-    *,
-    bundle: LocalModelArtifactBundle,
+    model_id: str,
+    revision: str,
     status: BundleVerificationStatus,
     reasons: tuple[str, ...],
     verified_files: tuple[str, ...],
 ) -> str:
     payload = {
-        "model_id": bundle.model_id,
+        "model_id": model_id,
         "reasons": list(reasons),
-        "revision": bundle.revision,
+        "revision": revision,
         "schema_version": "tai.model-artifact-verification-report.v1",
         "status": status.value,
         "verified_files": list(verified_files),
     }
-    canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return hashlib.sha256(_canonical_json(payload).encode()).hexdigest()
 
 
 def _file_sha256(path: Path) -> str:
@@ -430,35 +428,36 @@ def _bounded_file(root: Path, relative_path: str) -> Path:
     return candidate
 
 
-def _load_json_object(path: Path) -> dict[str, Any]:
+def _load(path: Path) -> dict[str, Any]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        return _object(json.loads(path.read_text(encoding="utf-8")), "root payload")
     except (OSError, json.JSONDecodeError) as error:
         raise ValueError(f"cannot load JSON from {path}") from error
-    return _require_object(value, "root payload")
 
 
-def _require_object(value: object, name: str) -> dict[str, Any]:
-    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
+def _object(value: object, name: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
         raise ValueError(f"{name} must be a JSON object")
-    return value
+    if any(not isinstance(key, str) for key in value):
+        raise ValueError(f"{name} keys must be strings")
+    return cast(dict[str, Any], value)
 
 
-def _required_array(payload: dict[str, Any], key: str) -> list[object]:
+def _array(payload: dict[str, Any], key: str) -> list[object]:
     value = payload.get(key)
     if not isinstance(value, list):
         raise ValueError(f"{key} must be an array")
-    return value
+    return cast(list[object], value)
 
 
-def _string_array(payload: dict[str, Any], key: str) -> list[str]:
-    values = _required_array(payload, key)
+def _strings(payload: dict[str, Any], key: str) -> list[str]:
+    values = _array(payload, key)
     if not values or any(not isinstance(item, str) for item in values):
         raise ValueError(f"{key} must be a non-empty string array")
-    return values
+    return cast(list[str], values)
 
 
-def _required_string(payload: dict[str, Any], key: str) -> str:
+def _string(payload: dict[str, Any], key: str) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{key} must be a non-empty string")
@@ -474,34 +473,43 @@ def _optional_string(payload: dict[str, Any], key: str) -> str | None:
     return value
 
 
-def _required_integer(payload: dict[str, Any], key: str) -> int:
+def _integer(payload: dict[str, Any], key: str) -> int:
     value = payload.get(key)
     if not isinstance(value, int) or isinstance(value, bool):
         raise ValueError(f"{key} must be an integer")
     return value
 
 
-def _validate_identity(value: str, name: str) -> None:
+def _canonical_json(payload: object) -> str:
+    return json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _identity(value: str, name: str) -> None:
     if _IDENTITY.fullmatch(value) is None:
         raise ValueError(f"{name} must be a portable bounded identity")
 
 
-def _validate_revision(value: str, name: str) -> None:
+def _revision(value: str, name: str) -> None:
     if _REVISION.fullmatch(value) is None:
         raise ValueError(f"{name} must be a pinned lowercase commit digest")
 
 
-def _validate_sha256(value: str, name: str) -> None:
+def _sha256(value: str, name: str) -> None:
     if _SHA256.fullmatch(value) is None:
         raise ValueError(f"{name} must be a lowercase SHA-256 digest")
 
 
-def _validate_https(value: str, name: str) -> None:
+def _https(value: str, name: str) -> None:
     if not value.startswith("https://"):
         raise ValueError(f"{name} must use HTTPS")
 
 
-def _validate_relative_path(value: str, name: str) -> None:
+def _relative_path(value: str, name: str) -> None:
     path = PurePosixPath(value)
     if path.is_absolute() or ".." in path.parts or value.startswith("./"):
         raise ValueError(f"{name} must be a bounded relative path")
@@ -509,10 +517,10 @@ def _validate_relative_path(value: str, name: str) -> None:
         raise ValueError(f"{name} must be a bounded relative path")
 
 
-def _validate_unique_paths(values: tuple[str, ...], name: str) -> None:
+def _unique_paths(values: tuple[str, ...], name: str) -> None:
     if not values:
         raise ValueError(f"{name} must not be empty")
     for value in values:
-        _validate_relative_path(value, name)
-    if len(set(values)) != len(values):
+        _relative_path(value, name)
+    if len(values) != len(set(values)):
         raise ValueError(f"{name} must contain unique paths")
