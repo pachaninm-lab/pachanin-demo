@@ -1,0 +1,40 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-15a-hybrid-retrieval-authority",
+  "status": "active",
+  "parent_issue": 2726,
+  "issue": 2823,
+  "maturity_boundary": "semantic-hybrid-retrieval-structural-authority-only",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-15a-2823.json",
+    "apps/tai/tai/retrieval_index.py",
+    "apps/tai/tai/semantic_retrieval.py",
+    "apps/tai/tai/hybrid_retrieval.py",
+    "apps/tai/tai/retrieval_benchmark.py",
+    "apps/tai/tests/test_ap15a_scope.py",
+    "apps/tai/tests/test_semantic_retrieval.py",
+    "apps/tai/tests/test_hybrid_retrieval.py",
+    "apps/tai/tests/test_retrieval_benchmark.py"
+  ],
+  "forbidden_capabilities": [
+    "production default switch from lexical to hybrid retrieval",
+    "unadmitted embedding or reranker component",
+    "external mandatory AI API",
+    "pgvector or ANN production storage claim",
+    "synthetic benchmark promoted to operational evidence",
+    "cross-tenant, revoked, expired or low-trust candidate scoring",
+    "autonomous privileged write",
+    "production acceptance claim"
+  ],
+  "acceptance": [
+    "authority filtering is shared and executes before lexical or semantic scoring",
+    "embedding identity, dimension and finite vector contracts fail closed",
+    "HYBRID_REQUIRED rejects unavailable or unadmitted semantic authority",
+    "reciprocal-rank fusion and tie-breaking are deterministic",
+    "reranker cannot add, remove or cross-bind candidates",
+    "retrieval evidence is component-, mode-, candidate- and digest-bound",
+    "benchmark authority reports Recall@K, MRR, nDCG and prohibited hits",
+    "STRUCTURAL_ONLY evidence cannot produce operational acceptance",
+    "Ruff, strict mypy and focused pytest checks pass"
+  ]
+}

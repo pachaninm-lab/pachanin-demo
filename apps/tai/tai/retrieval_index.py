@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import math
 import re
 from collections import Counter
@@ -11,6 +12,9 @@ from typing import Protocol
 from tai.knowledge_chunking import KnowledgeChunk
 
 _TOKEN = re.compile(r"[0-9A-Za-zА-Яа-яЁё]+", re.UNICODE)
+_LEXICAL_IDENTITY_SHA256 = hashlib.sha256(
+    b"tai.lexical.bm25.v1|k1=1.2|b=0.75|numerator=2.2|trust=0.5+0.5x"
+).hexdigest()
 
 
 class IndexGenerationStatus(StrEnum):
@@ -135,15 +139,15 @@ class LexicalRetriever:
     def __init__(self, repository: RetrievalIndexRepository) -> None:
         self._repository = repository
 
+    @property
+    def identity_sha256(self) -> str:
+        return _LEXICAL_IDENTITY_SHA256
+
     def search(self, query: RetrievalQuery) -> tuple[RetrievalHit, ...]:
         query_terms = _tokens(query.text)
         if not query_terms:
             return ()
-        eligible = tuple(
-            item
-            for item in self._repository.active_documents()
-            if _eligible(item.document, query)
-        )
+        eligible = active_eligible_documents(self._repository, query)
         if not eligible:
             return ()
 
@@ -190,11 +194,20 @@ class LexicalRetriever:
         return tuple(hits[: query.limit])
 
 
-def _tokens(text: str) -> tuple[str, ...]:
-    return tuple(match.group(0).casefold() for match in _TOKEN.finditer(text))
+def active_eligible_documents(
+    repository: RetrievalIndexRepository,
+    query: RetrievalQuery,
+) -> tuple[IndexedChunk, ...]:
+    """Return one active generation after applying authority filters before scoring."""
+
+    active = repository.active_documents()
+    generations = {item.generation for item in active}
+    if len(generations) > 1:
+        raise RuntimeError("active retrieval documents span multiple generations")
+    return tuple(item for item in active if is_document_eligible(item.document, query))
 
 
-def _eligible(document: RetrievalDocument, query: RetrievalQuery) -> bool:
+def is_document_eligible(document: RetrievalDocument, query: RetrievalQuery) -> bool:
     if document.revoked or document.trust_score < query.minimum_trust_score:
         return False
     if document.valid_until is not None and document.valid_until <= query.now:
@@ -202,3 +215,7 @@ def _eligible(document: RetrievalDocument, query: RetrievalQuery) -> bool:
     if document.tenant_id is None:
         return True
     return query.tenant_id is not None and document.tenant_id == query.tenant_id
+
+
+def _tokens(text: str) -> tuple[str, ...]:
+    return tuple(match.group(0).casefold() for match in _TOKEN.finditer(text))
