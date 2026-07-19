@@ -1,4 +1,0 @@
-schema_version=tai.live-source-trigger.v1
-purpose=exact_main_live_evidence_with_temporary_reporter
-sequence=2
-remove_after_verified_run=true
