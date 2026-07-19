@@ -1,0 +1,8 @@
+/*
+ * Public entry renders one contact dock in initial HTML. The deferred
+ * assistant/support runtime still creates its historical dock node after this
+ * boundary; keep that later duplicate out of layout and accessibility trees.
+ */
+[data-public-entry-contact-dock-end='true'] ~ .pc-public-contact-dock {
+  display: none !important;
+}
