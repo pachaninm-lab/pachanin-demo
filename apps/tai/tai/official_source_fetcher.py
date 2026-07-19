@@ -10,14 +10,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Protocol
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import SplitResult, urljoin, urlsplit
 
-from tai.managed_loader import (
-    FetchDisposition,
-    FetchRequest,
-    FetchResponse,
-    SourceFetcher,
-)
+from tai.managed_loader import FetchDisposition, FetchRequest, FetchResponse
 
 _REDIRECT_STATUS = frozenset({301, 302, 303, 307, 308})
 _RETRYABLE_STATUS = frozenset({408, 425, 429})
@@ -96,7 +91,11 @@ class OfficialFetchPolicy:
             raise ValueError("maximum_wire_bytes must be positive")
         if self.maximum_decoded_bytes < self.maximum_wire_bytes:
             raise ValueError("maximum_decoded_bytes must cover maximum_wire_bytes")
-        if not self.user_agent.strip() or "\r" in self.user_agent or "\n" in self.user_agent:
+        if (
+            not self.user_agent.strip()
+            or "\r" in self.user_agent
+            or "\n" in self.user_agent
+        ):
             raise ValueError("user_agent must be a safe non-empty value")
 
 
@@ -207,7 +206,7 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
                 raw_socket,
                 server_hostname=self.host,
             )
-        except BaseException:
+        except Exception:
             raw_socket.close()
             raise
 
@@ -227,7 +226,11 @@ class StdlibPinnedHTTPSFetchTransport:
             context=self._context,
         )
         try:
-            connection.request("GET", request.path_and_query, headers=dict(request.headers))
+            connection.request(
+                "GET",
+                request.path_and_query,
+                headers=dict(request.headers),
+            )
             response = connection.getresponse()
             body = response.read(request.maximum_wire_bytes + 1)
             if len(body) > request.maximum_wire_bytes:
@@ -261,7 +264,7 @@ class UntrustedContentGuard:
 
 
 @dataclass(slots=True)
-class OfficialSourceHTTPFetcher(SourceFetcher):
+class OfficialSourceHTTPFetcher:
     policy: OfficialFetchPolicy
     resolver: HostResolver = field(default_factory=SystemHostResolver)
     transport: HTTPSFetchTransport = field(
@@ -271,7 +274,11 @@ class OfficialSourceHTTPFetcher(SourceFetcher):
 
     def fetch(self, request: FetchRequest) -> FetchResponse:
         current_url = request.source_uri
-        headers = self._request_headers(request)
+        try:
+            request_headers = self._request_headers(request)
+        except FetchSecurityError as error:
+            return _failure(FetchDisposition.PERMANENT_FAILURE, error.error_code)
+
         for redirect_count in range(self.policy.maximum_redirects + 1):
             try:
                 target = self._target(current_url)
@@ -282,18 +289,22 @@ class OfficialSourceHTTPFetcher(SourceFetcher):
                         port=target.port,
                         target_ip=target.ip_address,
                         path_and_query=target.path_and_query,
-                        headers=headers,
+                        headers=request_headers,
                         timeout_seconds=self.policy.timeout_seconds,
                         maximum_wire_bytes=self.policy.maximum_wire_bytes,
                     )
                 )
-                return self._handle_response(
-                    request=request,
-                    current_url=current_url,
-                    raw=raw,
-                    redirect_count=redirect_count,
-                    headers=headers,
-                )
+                response_headers = _normalize_headers(raw.headers)
+                if raw.status_code in _REDIRECT_STATUS:
+                    location = response_headers.get("location")
+                    if not location:
+                        raise FetchSecurityError("source_redirect_location_missing")
+                    if redirect_count >= self.policy.maximum_redirects:
+                        raise FetchSecurityError("source_redirect_limit_exceeded")
+                    current_url = urljoin(current_url, location)
+                    self._validate_url(current_url)
+                    continue
+                return self._non_redirect_response(raw, response_headers)
             except FetchSecurityError as error:
                 return _failure(
                     FetchDisposition.PERMANENT_FAILURE,
@@ -309,33 +320,11 @@ class OfficialSourceHTTPFetcher(SourceFetcher):
             "source_redirect_limit_exceeded",
         )
 
-    def _handle_response(
+    def _non_redirect_response(
         self,
-        *,
-        request: FetchRequest,
-        current_url: str,
         raw: TransportResponse,
-        redirect_count: int,
-        headers: Mapping[str, str],
+        response_headers: Mapping[str, str],
     ) -> FetchResponse:
-        del headers
-        response_headers = _normalize_headers(raw.headers)
-        if raw.status_code in _REDIRECT_STATUS:
-            location = response_headers.get("location")
-            if not location:
-                raise FetchSecurityError("source_redirect_location_missing")
-            if redirect_count >= self.policy.maximum_redirects:
-                raise FetchSecurityError("source_redirect_limit_exceeded")
-            redirect_url = urljoin(current_url, location)
-            self._validate_url(redirect_url)
-            return self.fetch(
-                FetchRequest(
-                    source_id=request.source_id,
-                    source_uri=redirect_url,
-                    etag=request.etag,
-                    last_modified=request.last_modified,
-                )
-            )
         if raw.status_code == 304:
             return FetchResponse(
                 disposition=FetchDisposition.NOT_MODIFIED,
@@ -397,7 +386,7 @@ class OfficialSourceHTTPFetcher(SourceFetcher):
             path_and_query=path,
         )
 
-    def _validate_url(self, url: str) -> object:
+    def _validate_url(self, url: str) -> SplitResult:
         try:
             parsed = urlsplit(url)
             port = parsed.port
@@ -438,10 +427,10 @@ class OfficialSourceHTTPFetcher(SourceFetcher):
         media_type, charset = _content_type(headers.get("content-type"))
         if media_type not in self.policy.allowed_media_types:
             raise FetchSecurityError("source_content_type_not_allowed")
-        content_encoding = headers.get("content-encoding", "identity").casefold().strip()
-        if content_encoding in {"", "identity"}:
+        encoding = headers.get("content-encoding", "identity").casefold().strip()
+        if encoding in {"", "identity"}:
             decoded_bytes = wire_body
-        elif content_encoding == "gzip":
+        elif encoding == "gzip":
             decoded_bytes = _bounded_gzip_decode(
                 wire_body,
                 maximum_bytes=self.policy.maximum_decoded_bytes,
@@ -514,8 +503,8 @@ def _bounded_gzip_decode(payload: bytes, *, maximum_bytes: int) -> bytes:
         raise FetchSecurityError("source_gzip_invalid") from error
     if len(decoded) > maximum_bytes:
         raise FetchSecurityError("source_response_decoded_limit_exceeded")
-    if not decoder.eof:
-        raise FetchSecurityError("source_gzip_incomplete")
+    if not decoder.eof or decoder.unused_data:
+        raise FetchSecurityError("source_gzip_incomplete_or_trailing_data")
     return decoded
 
 
@@ -536,6 +525,10 @@ def _safe_header_value(value: str, name: str) -> None:
 
 def _valid_hostname(host: str) -> bool:
     if not host or host != host.casefold() or len(host) > 253:
+        return False
+    try:
+        host.encode("ascii")
+    except UnicodeEncodeError:
         return False
     labels = host.split(".")
     return all(
