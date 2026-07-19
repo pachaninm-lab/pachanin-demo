@@ -1,0 +1,158 @@
+name: Capture AI block screenshot
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/capture-ai-block-screenshot.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        working-directory: apps/web
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Capture published homepage
+        working-directory: apps/web
+        env:
+          TARGET_URL: https://main--vermillion-kitsune-0e7b97.netlify.app/platform-v7/#ai-copilot
+        run: |
+          mkdir -p screenshot-artifacts
+          cat > capture-ai-block.mjs <<'NODE'
+          import { chromium } from '@playwright/test';
+          import { writeFile } from 'node:fs/promises';
+
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({
+            viewport: { width: 1440, height: 1400 },
+            deviceScaleFactor: 1,
+          });
+          const page = await context.newPage();
+          await page.goto(process.env.TARGET_URL, {
+            waitUntil: 'networkidle',
+            timeout: 90_000,
+          });
+
+          const section = page.locator('#ai-copilot');
+          await section.waitFor({ state: 'visible', timeout: 30_000 });
+          await section.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(1_200);
+
+          const metrics = await section.evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+            return {
+              x: rect.left + window.scrollX,
+              y: rect.top + window.scrollY,
+              width: rect.width,
+              height: rect.height,
+              viewportWidth: window.innerWidth,
+              viewportHeight: window.innerHeight,
+              documentHeight: document.documentElement.scrollHeight,
+              scrollY: window.scrollY,
+              url: window.location.href,
+            };
+          });
+
+          await page.screenshot({
+            path: 'screenshot-artifacts/home-full-desktop.png',
+            fullPage: true,
+          });
+          await section.screenshot({
+            path: 'screenshot-artifacts/ai-block-desktop.png',
+          });
+
+          await page.evaluate(() => {
+            const target = document.querySelector('#ai-copilot');
+            if (!target) return;
+            const rect = target.getBoundingClientRect();
+            const overlay = document.createElement('div');
+            overlay.setAttribute('data-ai-screenshot-overlay', 'true');
+            Object.assign(overlay.style, {
+              position: 'fixed',
+              left: `${Math.max(4, rect.left - 8)}px`,
+              top: `${Math.max(4, rect.top - 8)}px`,
+              width: `${Math.min(window.innerWidth - 8, rect.width + 16)}px`,
+              height: `${Math.min(window.innerHeight - 8, rect.height + 16)}px`,
+              border: '6px solid #d40000',
+              boxSizing: 'border-box',
+              zIndex: '2147483646',
+              pointerEvents: 'none',
+            });
+            const label = document.createElement('div');
+            label.textContent = 'ВОТ ЗДЕСЬ — БЛОК ИИ';
+            Object.assign(label.style, {
+              position: 'fixed',
+              left: `${Math.max(12, rect.left + 14)}px`,
+              top: `${Math.max(12, rect.top + 10)}px`,
+              padding: '10px 14px',
+              borderRadius: '8px',
+              background: '#d40000',
+              color: '#ffffff',
+              font: '800 18px/1.2 Arial, sans-serif',
+              letterSpacing: '.02em',
+              zIndex: '2147483647',
+              pointerEvents: 'none',
+            });
+            document.body.append(overlay, label);
+          });
+
+          await page.screenshot({
+            path: 'screenshot-artifacts/ai-block-location-desktop.png',
+            fullPage: false,
+          });
+          await writeFile(
+            'screenshot-artifacts/position.json',
+            JSON.stringify(metrics, null, 2),
+            'utf8',
+          );
+
+          const mobile = await browser.newPage({
+            viewport: { width: 390, height: 844 },
+            deviceScaleFactor: 1,
+          });
+          await mobile.goto(process.env.TARGET_URL, {
+            waitUntil: 'networkidle',
+            timeout: 90_000,
+          });
+          const mobileSection = mobile.locator('#ai-copilot');
+          await mobileSection.waitFor({ state: 'visible', timeout: 30_000 });
+          await mobileSection.screenshot({
+            path: 'screenshot-artifacts/ai-block-mobile.png',
+          });
+
+          await browser.close();
+          NODE
+          node capture-ai-block.mjs
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-ai-block-screenshots
+          path: apps/web/screenshot-artifacts
+          if-no-files-found: error
+          retention-days: 2
