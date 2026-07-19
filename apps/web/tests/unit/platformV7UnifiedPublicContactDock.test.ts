@@ -22,6 +22,14 @@ describe('platform-v7 unified public contact dock', () => {
     expect(dock).toContain("const SUPPORT_PHONE_DISPLAY = '8 916 277-89-89'");
   });
 
+  it('canonicalizes the Next.js public-entry rewrite before selecting the home surface', () => {
+    expect(contextual).toContain("const PUBLIC_ENTRY_REWRITE_PREFIX = '/pc-public-entry'");
+    expect(contextual).toContain('const rewrittenHome = `${PUBLIC_ENTRY_REWRITE_PREFIX}${PUBLIC_HOME}`');
+    expect(contextual).toContain('if (clean === rewrittenHome || clean.startsWith(`${rewrittenHome}/`))');
+    expect(contextual).toContain('return clean.slice(PUBLIC_ENTRY_REWRITE_PREFIX.length) || PUBLIC_HOME');
+    expect(contextual).toContain('if (path === PUBLIC_HOME)');
+  });
+
   it('keeps the call action but does not render the phone number in the dock', () => {
     expect(dock).toContain('<strong>{ui.call}</strong>');
     expect(dock).not.toContain('<small>{SUPPORT_PHONE_DISPLAY}</small>');
