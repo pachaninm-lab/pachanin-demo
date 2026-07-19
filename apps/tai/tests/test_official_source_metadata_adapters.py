@@ -163,19 +163,22 @@ def _fixtures() -> dict[str, _AdapterFixture]:
             expected_date=datetime(2026, 7, 15, tzinfo=UTC),
             expected_count=1,
         ),
-        "official.mcx.opendata": _AdapterFixture(
+        "official.specagro.fgis-grain": _AdapterFixture(
             source=_source(
-                source_id="official.mcx.opendata",
+                source_id="official.specagro.fgis-grain",
                 topics=frozenset({CoverageTopic.GRAIN_TRACEABILITY}),
-                uri="https://opendata.mcx.ru/",
-                hosts=frozenset({"opendata.mcx.ru"}),
+                uri="https://specagro.ru/fgis/ok",
+                hosts=frozenset({"specagro.ru"}),
             ),
             body=(
-                "<h1>Открытые данные по зерну</h1><time>14 июля 2026</time>"
-                "<a href='/datasets/grain.csv'>CSV</a>"
-                "<a href='https://evil.example/grain.csv'>untrusted</a>"
+                "<title>Изменения 130/2026 ОКПД2 с датой введения "
+                "01.03.2026 | ФГИС Зерно</title>"
+                "<h1>Изменения 130/2026 ОКПД2 для зерновых продуктов "
+                "с датой введения 01.03.2026</h1>"
+                "<p>Действующие коды ОКПД2 изменены с 01.03.2026.</p>"
+                "<time>18.07.2026</time><p>Дата другого события.</p>"
             ),
-            expected_date=datetime(2026, 7, 14, tzinfo=UTC),
+            expected_date=datetime(2026, 3, 1, tzinfo=UTC),
             expected_count=1,
         ),
     }
@@ -205,6 +208,7 @@ def test_current_authority_adapters_ignore_unrelated_newer_dates() -> None:
     for source_id in (
         "official.eec.grain-regulation",
         "official.rosselhoscenter.agronomy",
+        "official.specagro.fgis-grain",
     ):
         fixture = _fixtures()[source_id]
         metadata = adapters[source_id].parse(
@@ -214,6 +218,50 @@ def test_current_authority_adapters_ignore_unrelated_newer_dates() -> None:
         )
         assert metadata.latest_publication_at == fixture.expected_date
         assert metadata.latest_publication_at < datetime(2026, 7, 18, tzinfo=UTC)
+
+
+def test_eec_live_typo_is_contextual_but_does_not_weaken_source_identity() -> None:
+    adapter = next(
+        item
+        for item in default_html_metadata_adapters()
+        if item.source_id == "official.eec.grain-regulation"
+    )
+    source = _fixtures()[adapter.source_id].source
+    live_shaped = (
+        "<h1>Обновленный перечень стандартов к техрегламенту на зерно</h1>"
+        "<time>26.05.2025</time>"
+        "<p>Перечень стадартов к техническому регламенту о безопасности "
+        "зерна вступает в силу.</p>"
+        "<time>26 ноября 2024</time><p>Решение Коллегии.</p>"
+    )
+
+    metadata = adapter.parse(source=source, body=live_shaped, fetched_at=NOW)
+
+    assert metadata.latest_publication_at == datetime(2025, 5, 26, tzinfo=UTC)
+    assert metadata.document_count == 1
+    with pytest.raises(MetadataExtractionError, match="marker_missing"):
+        adapter.parse(
+            source=source,
+            body="26.05.2025 Перечень стадартов к техническому регламенту о зерне",
+            fetched_at=NOW,
+        )
+
+
+def test_specagro_contextual_future_authority_date_fails_closed() -> None:
+    adapter = next(
+        item
+        for item in default_html_metadata_adapters()
+        if item.source_id == "official.specagro.fgis-grain"
+    )
+    source = _fixtures()[adapter.source_id].source
+    future = (
+        "<h1>ФГИС Зерно: изменения ОКПД2</h1>"
+        "<time>20.07.2026</time>"
+        "<p>Действующие коды ОКПД2 изменены для зерновых продуктов.</p>"
+    )
+
+    with pytest.raises(MetadataExtractionError, match="date_future"):
+        adapter.parse(source=source, body=future, fetched_at=NOW)
 
 
 def test_adapter_rejects_future_date_untrusted_only_links_and_wrong_identity() -> None:

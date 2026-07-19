@@ -278,16 +278,16 @@ def test_http_response_is_not_hidden_by_address_failover() -> None:
     assert [request.target_ip for request in transport.requests] == ["8.8.4.4"]
 
 
-def test_mcx_live_definition_uses_bounded_slow_source_timeout() -> None:
+def test_specagro_live_definition_uses_requested_bounded_timeout() -> None:
     source = OfficialSourceDefinition(
-        source_id="official.mcx.opendata",
-        owner="Министерство сельского хозяйства Российской Федерации",
-        entrypoint_uri="https://opendata.mcx.ru/",
-        allowed_hosts=frozenset({"opendata.mcx.ru"}),
+        source_id="official.specagro.fgis-grain",
+        owner="ФГБУ «Центр Агроаналитики» — оператор ФГИС «Зерно»",
+        entrypoint_uri="https://specagro.ru/fgis/ok",
+        allowed_hosts=frozenset({"specagro.ru"}),
         topics=frozenset({CoverageTopic.GRAIN_TRACEABILITY}),
         formats=frozenset({SourceFormat.HTML}),
-        expected_update_interval=timedelta(days=7),
-        maximum_publication_age=timedelta(days=31),
+        expected_update_interval=timedelta(days=31),
+        maximum_publication_age=timedelta(days=365),
         verified_at=NOW,
     )
     catalog = OfficialSourceCatalog(
@@ -296,7 +296,7 @@ def test_mcx_live_definition_uses_bounded_slow_source_timeout() -> None:
             CoverageRequirement(
                 topic=CoverageTopic.GRAIN_TRACEABILITY,
                 minimum_official_sources=1,
-                maximum_publication_age=timedelta(days=31),
+                maximum_publication_age=timedelta(days=365),
             ),
         ),
     )
@@ -308,4 +308,4 @@ def test_mcx_live_definition_uses_bounded_slow_source_timeout() -> None:
 
     fetcher = definitions[0].fetcher
     assert isinstance(fetcher, DiagnosticOfficialSourceHTTPFetcher)
-    assert fetcher.policy.timeout_seconds == 45
+    assert fetcher.policy.timeout_seconds == 20

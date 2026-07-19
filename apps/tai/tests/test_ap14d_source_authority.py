@@ -22,6 +22,7 @@ def test_ap14d_source_authority_is_bounded_and_catalog_aligned() -> None:
     assert set(decisions) == {
         "official.eec.grain-regulation",
         "official.rosselhoscenter.agronomy",
+        "official.specagro.fgis-grain",
     }
 
     for source_id, decision in decisions.items():
@@ -41,11 +42,16 @@ def test_ap14d_source_authority_is_bounded_and_catalog_aligned() -> None:
 
     eec = catalog.source_for("official.eec.grain-regulation")
     agronomy = catalog.source_for("official.rosselhoscenter.agronomy")
+    grain_traceability = catalog.source_for("official.specagro.fgis-grain")
     assert eec is not None
     assert agronomy is not None
+    assert grain_traceability is not None
     assert eec.maximum_publication_age.total_seconds() == 63_072_000
     assert agronomy.maximum_publication_age.total_seconds() == 34_560_000
     assert agronomy.topics == frozenset({CoverageTopic.AGRONOMY_RECOMMENDATIONS})
+    assert grain_traceability.allowed_hosts == frozenset({"specagro.ru"})
+    assert grain_traceability.maximum_publication_age.total_seconds() == 31_536_000
+    assert grain_traceability.topics == frozenset({CoverageTopic.GRAIN_TRACEABILITY})
 
     controls = evidence["controls"]
     assert controls == {

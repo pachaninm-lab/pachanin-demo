@@ -57,6 +57,8 @@ def _source(
     topic: CoverageTopic,
     uri: str,
     host: str,
+    *,
+    maximum_publication_age: timedelta = timedelta(days=31),
 ) -> OfficialSourceDefinition:
     return OfficialSourceDefinition(
         source_id=source_id,
@@ -66,7 +68,7 @@ def _source(
         topics=frozenset({topic}),
         formats=frozenset({SourceFormat.HTML}),
         expected_update_interval=timedelta(days=7),
-        maximum_publication_age=timedelta(days=31),
+        maximum_publication_age=maximum_publication_age,
         verified_at=NOW - timedelta(days=1),
     )
 
@@ -81,10 +83,11 @@ def _catalog() -> OfficialSourceCatalog:
                 "www.cbr.ru",
             ),
             _source(
-                "official.mcx.opendata",
+                "official.specagro.fgis-grain",
                 CoverageTopic.GRAIN_TRACEABILITY,
-                "https://opendata.mcx.ru/",
-                "opendata.mcx.ru",
+                "https://specagro.ru/fgis/ok",
+                "specagro.ru",
+                maximum_publication_age=timedelta(days=365),
             ),
         ),
         requirements=(
@@ -96,7 +99,7 @@ def _catalog() -> OfficialSourceCatalog:
             CoverageRequirement(
                 topic=CoverageTopic.GRAIN_TRACEABILITY,
                 minimum_official_sources=1,
-                maximum_publication_age=timedelta(days=31),
+                maximum_publication_age=timedelta(days=365),
             ),
         ),
     )
@@ -127,8 +130,9 @@ def _success(source_id: str) -> FetchResponse:
         "<h1>Ключевая ставка</h1><time>18.07.2026</time>"
         if source_id == "official.cbr.key-rate"
         else (
-            "<h1>Открытые данные по зерну</h1><time>18.07.2026</time>"
-            "<a href='/grain.csv'>CSV</a>"
+            "<title>ФГИС Зерно: Изменения ОКПД2 01.03.2026</title>"
+            "<h1>Изменения ОКПД2 для зерновых продуктов 01.03.2026</h1>"
+            "<p>Действующие коды ОКПД2 изменены с 01.03.2026.</p>"
         )
     )
     return FetchResponse(
@@ -167,7 +171,7 @@ def test_complete_collection_produces_observations_assessment_and_digest() -> No
     collector, fetchers = _collector(
         (
             _success("official.cbr.key-rate"),
-            _success("official.mcx.opendata"),
+            _success("official.specagro.fgis-grain"),
         )
     )
 
@@ -181,7 +185,7 @@ def test_complete_collection_produces_observations_assessment_and_digest() -> No
         "official.cbr.key-rate"
     ]
     assert [request.source_id for request in fetchers[1].requests] == [
-        "official.mcx.opendata"
+        "official.specagro.fgis-grain"
     ]
     manifest = run_manifest_payload(bundle)
     observations = observations_payload(bundle)
@@ -251,7 +255,9 @@ def test_metadata_failure_is_recorded_per_source_not_raised_as_success() -> None
         body="<html>no governed marker 18.07.2026</html>",
         fetched_at=NOW,
     )
-    collector, _ = _collector((malformed, _success("official.mcx.opendata")))
+    collector, _ = _collector(
+        (malformed, _success("official.specagro.fgis-grain"))
+    )
 
     bundle = collector.collect()
 
@@ -285,7 +291,7 @@ def test_bundle_and_result_invariants_reject_inconsistent_evidence() -> None:
     collector, _ = _collector(
         (
             _success("official.cbr.key-rate"),
-            _success("official.mcx.opendata"),
+            _success("official.specagro.fgis-grain"),
         )
     )
     valid = collector.collect()

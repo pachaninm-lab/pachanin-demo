@@ -257,7 +257,7 @@ def default_html_metadata_adapters() -> tuple[HTMLMetadataAdapter, ...]:
             publication_marker_groups=(
                 ("зерн",),
                 ("техническ",),
-                ("стандарт",),
+                ("стандарт", "стадарт"),
             ),
         ),
         HTMLMetadataAdapter(
@@ -285,10 +285,20 @@ def default_html_metadata_adapters() -> tuple[HTMLMetadataAdapter, ...]:
             publication_marker_groups=(("тариф",), ("железнодорож", "перевоз")),
         ),
         HTMLMetadataAdapter(
-            source_id="official.mcx.opendata",
+            source_id="official.specagro.fgis-grain",
             topics=frozenset({CoverageTopic.GRAIN_TRACEABILITY}),
-            required_marker_groups=(("открыт", "зерн"),),
-            document_suffixes=frozenset({".csv", ".json", ".xls", ".xlsx", ".zip"}),
+            required_marker_groups=(
+                ("фгис",),
+                ("изменения",),
+                ("окпд2",),
+                ("зерн",),
+            ),
+            document_suffixes=frozenset(),
+            count_dates_as_documents=True,
+            publication_marker_groups=(
+                ("окпд2",),
+                ("действующ", "изменен"),
+            ),
         ),
     )
 

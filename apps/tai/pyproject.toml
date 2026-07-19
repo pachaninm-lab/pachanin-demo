@@ -22,6 +22,9 @@ dev = [
 [tool.setuptools]
 packages = ["tai"]
 
+[tool.setuptools.package-data]
+tai = ["trust/*.pem"]
+
 [tool.pytest.ini_options]
 addopts = "-q --strict-markers --disable-warnings"
 testpaths = ["tests"]

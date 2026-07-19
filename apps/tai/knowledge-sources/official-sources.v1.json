@@ -2,15 +2,15 @@
   "schema_version": "tai.official-source-catalog.v1",
   "sources": [
     {
-      "source_id": "official.mcx.opendata",
-      "owner": "Министерство сельского хозяйства Российской Федерации",
-      "entrypoint_uri": "https://opendata.mcx.ru/",
-      "allowed_hosts": ["opendata.mcx.ru"],
+      "source_id": "official.specagro.fgis-grain",
+      "owner": "ФГБУ «Центр Агроаналитики» — оператор ФГИС «Зерно»",
+      "entrypoint_uri": "https://specagro.ru/fgis/ok",
+      "allowed_hosts": ["specagro.ru"],
       "topics": ["GRAIN_TRACEABILITY"],
-      "formats": ["HTML", "CSV", "JSON"],
-      "expected_update_interval_seconds": 604800,
-      "maximum_publication_age_seconds": 2678400,
-      "verified_at": "2026-07-19T04:15:00+00:00"
+      "formats": ["HTML"],
+      "expected_update_interval_seconds": 2678400,
+      "maximum_publication_age_seconds": 31536000,
+      "verified_at": "2026-07-19T18:20:00+00:00"
     },
     {
       "source_id": "official.rosstat.agriculture",
@@ -96,7 +96,7 @@
     {
       "topic": "GRAIN_TRACEABILITY",
       "minimum_official_sources": 1,
-      "maximum_publication_age_seconds": 2678400,
+      "maximum_publication_age_seconds": 31536000,
       "critical": true
     },
     {

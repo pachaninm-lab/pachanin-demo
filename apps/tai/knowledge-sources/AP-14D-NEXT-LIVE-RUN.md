@@ -12,6 +12,9 @@ Acceptance for the diagnostic rerun:
 6. no source is marked covered without a fresh successful observation;
 7. controlled `workflow_dispatch` acceptance requires `6/6` observed sources, `8/8` covered topics, `10000/10000` critical coverage, no history gap and `HEALTHY` dashboard status;
 8. scheduled refresh fails after artifact upload on critical, stale, expired or history-gap alerts.
+9. the first v3 run is a governed `BOOTSTRAP` after the source-catalog identity
+   change; final acceptance requires a following exact-main run that restores
+   the v3 artifact and reports `CONTIGUOUS` history.
 
 The repository owner can invoke the same complete exact-main acceptance through the exact issue command `/tai run exact-main`; all other issue comments are skipped and the workflow retains read-only permissions.
 

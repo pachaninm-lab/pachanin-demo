@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import errno
+import hashlib
 import http.client
+import importlib.resources
 import socket
 import ssl
 import time
@@ -32,9 +34,20 @@ from tai.source_coverage import OfficialSourceCatalog
 
 _REDIRECT_STATUS = frozenset({301, 302, 303, 307, 308})
 _MAXIMUM_ADDRESS_ATTEMPTS = 4
-_SOURCE_MINIMUM_TIMEOUT_SECONDS = {
-    "official.mcx.opendata": 45.0,
-}
+_ROSSTAT_SOURCE_ID = "official.rosstat.agriculture"
+_ROSSTAT_ALLOWED_HOSTS = frozenset({"rosstat.gov.ru"})
+# Audited from the official https://www.gosuslugi.ru/crt distribution. Runtime
+# trust is local and fingerprint-bound; no AIA or certificate network fetch occurs.
+_ROSSTAT_TRUST_RESOURCES = (
+    (
+        "russian_trusted_root_ca.pem",
+        "d26d2d0231b7c39f92cc738512ba54103519e4405d68b5bd703e9788ca8ecf31",
+    ),
+    (
+        "russian_trusted_sub_ca_2024.pem",
+        "2155785036c900dbb5f1bb2a1569c80c55595bd6bf94867a29bbddbc7d88a3f2",
+    ),
+)
 _RETRYABLE_SECURITY_CODES = frozenset(
     {
         "source_dns_resolution_empty",
@@ -186,21 +199,73 @@ def diagnostic_live_definitions(
 ) -> tuple[OfficialObservationDefinition, ...]:
     fetchers: dict[str, SourceFetcher] = {}
     for source in catalog.sources:
-        effective_timeout = max(
-            timeout_seconds,
-            _SOURCE_MINIMUM_TIMEOUT_SECONDS.get(
-                source.source_id,
-                timeout_seconds,
-            ),
-        )
+        transport = StdlibPinnedHTTPSFetchTransport()
+        if source.source_id == _ROSSTAT_SOURCE_ID:
+            if source.allowed_hosts != _ROSSTAT_ALLOWED_HOSTS:
+                raise ValueError("Rosstat TLS trust requires the exact governed host")
+            transport = StdlibPinnedHTTPSFetchTransport(_rosstat_tls_context())
         fetchers[source.source_id] = DiagnosticOfficialSourceHTTPFetcher(
             policy=OfficialFetchPolicy(
                 allowed_hosts=source.allowed_hosts,
-                timeout_seconds=effective_timeout,
+                timeout_seconds=timeout_seconds,
             ),
-            transport=StdlibPinnedHTTPSFetchTransport(),
+            transport=transport,
         )
     return definitions_from_catalog(catalog=catalog, fetchers=fetchers)
+
+
+def _rosstat_tls_context() -> ssl.SSLContext:
+    trust_root = importlib.resources.files("tai").joinpath("trust")
+    certificate_pems: list[str] = []
+    expected_fingerprints: set[str] = set()
+    for resource_name, expected_fingerprint in _ROSSTAT_TRUST_RESOURCES:
+        try:
+            certificate_pems.append(
+                trust_root.joinpath(resource_name).read_text(encoding="ascii")
+            )
+        except (OSError, UnicodeError) as error:
+            raise ValueError("Rosstat TLS trust resource is unavailable") from error
+        expected_fingerprints.add(expected_fingerprint)
+    return _verified_ca_context(
+        certificate_pems=tuple(certificate_pems),
+        expected_fingerprints=frozenset(expected_fingerprints),
+    )
+
+
+def _verified_ca_context(
+    *,
+    certificate_pems: tuple[str, ...],
+    expected_fingerprints: frozenset[str],
+) -> ssl.SSLContext:
+    if not certificate_pems or len(certificate_pems) != len(expected_fingerprints):
+        raise ValueError("TLS trust bundle cardinality is invalid")
+    try:
+        resource_fingerprints = frozenset(
+            hashlib.sha256(
+                ssl.PEM_cert_to_DER_cert(certificate_pem)
+            ).hexdigest()
+            for certificate_pem in certificate_pems
+        )
+    except (ValueError, ssl.SSLError) as error:
+        raise ValueError("TLS trust bundle contains an invalid certificate") from error
+    if resource_fingerprints != expected_fingerprints:
+        raise ValueError("TLS trust bundle fingerprint mismatch")
+
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.verify_mode = ssl.CERT_REQUIRED
+    context.check_hostname = True
+    try:
+        context.load_verify_locations(cadata="\n".join(certificate_pems))
+    except ssl.SSLError as error:
+        raise ValueError("TLS trust bundle cannot be loaded") from error
+    loaded_fingerprints = frozenset(
+        hashlib.sha256(certificate).hexdigest()
+        for certificate in context.get_ca_certs(binary_form=True)
+    )
+    if loaded_fingerprints != expected_fingerprints:
+        raise ValueError("TLS trust context does not match audited certificates")
+    return context
 
 
 def _aggregate_diagnostics(

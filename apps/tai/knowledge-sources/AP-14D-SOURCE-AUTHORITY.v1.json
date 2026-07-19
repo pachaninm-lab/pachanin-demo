@@ -1,6 +1,6 @@
 {
   "schema_version": "tai.ap14d-source-authority.v1",
-  "verified_at": "2026-07-19T14:10:00+00:00",
+  "verified_at": "2026-07-19T18:20:00+00:00",
   "decisions": [
     {
       "source_id": "official.eec.grain-regulation",
@@ -28,6 +28,20 @@
         "The official federal institution notice identifies a national review of crop phytosanitary conditions and a forecast of harmful organisms for 2026.",
         "The publication is intended for crop-protection and agronomy decisions and links to the institution's national reviews and forecasts.",
         "The institution is founded by the Ministry of Agriculture of the Russian Federation; the catalog still admits only the exact HTTPS host."
+      ]
+    },
+    {
+      "source_id": "official.specagro.fgis-grain",
+      "authority_kind": "OFFICIAL_FGIS_GRAIN_OPERATOR_CLASSIFICATION_NOTICE",
+      "official_uri": "https://specagro.ru/fgis/ok",
+      "publication_at": "2026-03-01T00:00:00+00:00",
+      "expected_update_interval_seconds": 2678400,
+      "maximum_publication_age_seconds": 31536000,
+      "observed_topics": ["GRAIN_TRACEABILITY"],
+      "acceptance_basis": [
+        "The governed HTTPS page belongs to the official operator of the federal grain traceability system and is restricted to the exact specagro.ru host.",
+        "The page records effective 2026 classification changes for grain-product codes and provides a contextual 2026-03-01 authority date.",
+        "The former Ministry open-data endpoint is not downgraded to HTTP after its only HTTPS address became unreachable; the replacement retains fail-closed TLS and a bounded annual publication age."
       ]
     }
   ],
