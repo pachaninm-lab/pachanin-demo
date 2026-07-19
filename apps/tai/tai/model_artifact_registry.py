@@ -233,7 +233,12 @@ def verify_artifact_bundle(
     else:
         _verify_candidate_contract(candidate, bundle, reasons)
 
-    for declared in (bundle.license_text, *bundle.tokenizers, *bundle.artifacts):
+    declared_files: tuple[DeclaredFile | DeclaredArtifact, ...] = (
+        bundle.license_text,
+        *bundle.tokenizers,
+        *bundle.artifacts,
+    )
+    for declared in declared_files:
         path = _bounded_file(bundle_root, declared.path)
         if not path.is_file():
             reasons.append(f"FILE_MISSING:{declared.path}")
