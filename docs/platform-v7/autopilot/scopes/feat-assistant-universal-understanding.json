@@ -1,12 +1,10 @@
 {
   "branch": "feat/assistant-universal-understanding",
   "status": "active",
-  "purpose": "Public-homepage marketing context for the target AI experience: contextual value framing, multilingual copy, an evidence-led future signal and an explicit human-confirmation boundary.",
+  "purpose": "First-screen marketing context for the target AI experience: future-state value in the homepage hero, explicit human confirmation and an anonymised public scenario boundary.",
   "approvedBy": "independent-authority-pr",
   "allowedPaths": [
     "apps/web/app/platform-v7/page.tsx",
-    "apps/web/components/platform-v7/PublicAiMarketingBlock.module.css",
-    "apps/web/components/platform-v7/PublicAiMarketingBlock.tsx",
     "apps/web/tests/unit/platformV7PublicAiMarketingBlock.test.ts",
     "docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json"
   ],
