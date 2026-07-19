@@ -138,7 +138,9 @@ export function PublicContactDock() {
         aria-controls='pc-public-assistant-panel'
         onClick={() => openSurface('assistant')}
       >
-        <Sparkles size={21} strokeWidth={2.2} aria-hidden='true' />
+        <span className='pc-public-contact-dock-icon' aria-hidden='true'>
+          <Sparkles size={18} strokeWidth={2.1} />
+        </span>
         <strong>{ui.assistant}</strong>
       </button>
 
@@ -150,7 +152,9 @@ export function PublicContactDock() {
         aria-haspopup='dialog'
         onClick={() => openSurface('support')}
       >
-        <MessageCircle size={21} strokeWidth={2.2} aria-hidden='true' />
+        <span className='pc-public-contact-dock-icon' aria-hidden='true'>
+          <MessageCircle size={18} strokeWidth={2.1} />
+        </span>
         <strong>{ui.support}</strong>
       </button>
 
@@ -160,7 +164,9 @@ export function PublicContactDock() {
         aria-label={ui.callAria}
         onClick={() => trackEvent('public_support_phone_clicked', { source: 'unified_contact_dock' })}
       >
-        <Phone size={21} strokeWidth={2.2} aria-hidden='true' />
+        <span className='pc-public-contact-dock-icon' aria-hidden='true'>
+          <Phone size={18} strokeWidth={2.1} />
+        </span>
         <strong>{ui.call}</strong>
       </a>
 
@@ -191,19 +197,27 @@ const css = `
 }
 .pc-public-contact-dock {
   position: fixed;
-  right: max(10px, env(safe-area-inset-right, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
   bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) + 4px));
   z-index: 2147482995;
-  width: min(430px, calc(100vw - 20px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+  width: min(390px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
   display: grid;
-  grid-template-columns: .78fr 1.05fr 1.42fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  padding: 3px;
   overflow: hidden;
-  border: 2px solid var(--pc-ppe-v5-green, #087a3b);
-  border-radius: var(--pc-ppe-v5-radius, 14px);
+  border: 1px solid rgba(8, 122, 59, .42);
+  border-radius: 20px;
   background: var(--pc-ppe-v5-surface, #ffffff);
-  box-shadow: 0 10px 28px rgba(9, 33, 24, .14);
+  background: color-mix(in srgb, var(--pc-ppe-v5-surface, #ffffff) 94%, transparent);
+  box-shadow:
+    0 18px 42px rgba(9, 33, 24, .16),
+    0 4px 12px rgba(8, 122, 59, .08),
+    inset 0 1px 0 rgba(255, 255, 255, .92);
   color: var(--pc-ppe-v5-ink, #092118);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  backdrop-filter: blur(18px) saturate(135%);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
 }
 .pc-public-contact-dock[data-dialog-open='true'] {
   visibility: hidden;
@@ -213,44 +227,74 @@ const css = `
 .pc-public-contact-dock,
 .pc-public-contact-dock * { box-sizing: border-box; min-width: 0; }
 .pc-public-contact-dock-action {
-  min-height: 62px;
+  min-height: 54px;
   border: 0;
-  border-radius: 0;
+  border-radius: 15px;
   background: transparent;
   color: inherit;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 7px;
+  padding: 6px 10px;
   font: inherit;
   text-decoration: none;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color .18s ease,
+    color .18s ease,
+    transform .18s ease,
+    box-shadow .18s ease;
 }
-.pc-public-contact-dock-action + .pc-public-contact-dock-action {
-  border-left: 1px solid rgba(8, 122, 59, .34);
+.pc-public-contact-dock-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--pc-ppe-v5-green, #087a3b);
+  background: linear-gradient(145deg, rgba(8, 122, 59, .13), rgba(8, 122, 59, .055));
+  box-shadow: inset 0 0 0 1px rgba(8, 122, 59, .12);
+  transition:
+    background-color .18s ease,
+    color .18s ease,
+    transform .18s ease,
+    box-shadow .18s ease;
 }
-.pc-public-contact-dock-action:hover { background: #eef5f0; }
-.pc-public-contact-dock-action:active { background: #e1efe6; }
+.pc-public-contact-dock-icon svg { display: block; }
+.pc-public-contact-dock-action strong {
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.1;
+  font-weight: 720;
+  letter-spacing: -.005em;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  .pc-public-contact-dock-action:hover {
+    background: rgba(8, 122, 59, .07);
+    transform: translateY(-1px);
+  }
+  .pc-public-contact-dock-action:hover .pc-public-contact-dock-icon {
+    color: #ffffff;
+    background: var(--pc-ppe-v5-green, #087a3b);
+    box-shadow: 0 5px 12px rgba(8, 122, 59, .20);
+    transform: scale(1.035);
+  }
+}
+.pc-public-contact-dock-action:active {
+  background: rgba(8, 122, 59, .11);
+  transform: translateY(0) scale(.985);
+}
 .pc-public-contact-dock-action:focus-visible {
   position: relative;
   z-index: 1;
-  outline: 3px solid var(--pc-ppe-v5-green, #087a3b);
-  outline-offset: -4px;
-}
-.pc-public-contact-dock-action svg {
-  flex: 0 0 auto;
-  color: var(--pc-ppe-v5-green, #087a3b);
-}
-.pc-public-contact-dock-action strong {
-  display: block;
-  font-size: 13px;
-  line-height: 1.15;
-  font-weight: 850;
-  letter-spacing: -.01em;
-  white-space: nowrap;
+  outline: 2px solid var(--pc-ppe-v5-green, #087a3b);
+  outline-offset: -2px;
+  box-shadow: 0 0 0 3px rgba(8, 122, 59, .14);
 }
 @media (max-width: 520px) {
   .pc-public-contact-dock {
@@ -258,27 +302,48 @@ const css = `
     left: max(8px, env(safe-area-inset-left, 0px));
     bottom: max(2px, calc(env(safe-area-inset-bottom, 0px) + 2px));
     width: auto;
-    grid-template-columns: .72fr 1fr 1.38fr;
-    border-radius: var(--pc-ppe-v5-radius, 14px);
+    border-radius: 18px;
   }
   .pc-public-contact-dock-action {
-    min-height: 58px;
+    min-height: 52px;
     gap: 6px;
-    padding-inline: 7px;
+    padding-inline: 6px;
+    border-radius: 13px;
   }
-  .pc-public-contact-dock-action strong { font-size: 12px; }
+  .pc-public-contact-dock-icon {
+    width: 28px;
+    height: 28px;
+    flex-basis: 28px;
+    border-radius: 9px;
+  }
+  .pc-public-contact-dock-action strong { font-size: 11.5px; }
 }
 @media (max-width: 350px) {
-  .pc-public-contact-dock-action { gap: 4px; padding-inline: 5px; }
-  .pc-public-contact-dock-action svg { width: 19px; height: 19px; }
-  .pc-public-contact-dock-action strong { font-size: 11px; }
+  .pc-public-contact-dock-action { gap: 4px; padding-inline: 4px; }
+  .pc-public-contact-dock-icon {
+    width: 26px;
+    height: 26px;
+    flex-basis: 26px;
+    border-radius: 8px;
+  }
+  .pc-public-contact-dock-icon svg { width: 17px; height: 17px; }
+  .pc-public-contact-dock-action strong { font-size: 10.5px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pc-public-contact-dock-action { transition: none; animation: none; }
+  .pc-public-contact-dock-action,
+  .pc-public-contact-dock-icon { transition: none; animation: none; }
 }
 @media (forced-colors: active) {
-  .pc-public-contact-dock { border: 2px solid ButtonText; }
-  .pc-public-contact-dock-action + .pc-public-contact-dock-action { border-left: 2px solid ButtonText; }
-  .pc-public-contact-dock-action svg { color: ButtonText; }
+  .pc-public-contact-dock {
+    border: 2px solid ButtonText;
+    background: Canvas;
+    box-shadow: none;
+  }
+  .pc-public-contact-dock-action { color: ButtonText; }
+  .pc-public-contact-dock-icon {
+    color: ButtonText;
+    background: Canvas;
+    box-shadow: inset 0 0 0 1px ButtonText;
+  }
 }
 `;
