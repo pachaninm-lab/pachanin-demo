@@ -1,0 +1,43 @@
+name: Production Hosting Authority
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'AGENTS.md'
+      - 'CANONICAL_DEPLOY.md'
+      - 'PRODUCTION_CUTOVER.md'
+      - 'docs/ops/**'
+      - 'scripts/pilot-up.sh'
+      - 'scripts/check-production-hosting-authority.mjs'
+      - '.github/workflows/production-hosting-authority.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'AGENTS.md'
+      - 'CANONICAL_DEPLOY.md'
+      - 'PRODUCTION_CUTOVER.md'
+      - 'docs/ops/**'
+      - 'scripts/pilot-up.sh'
+      - 'scripts/check-production-hosting-authority.mjs'
+      - '.github/workflows/production-hosting-authority.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-hosting-authority-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Enforce REG.RU virtual-server production authority
+        run: node scripts/check-production-hosting-authority.mjs

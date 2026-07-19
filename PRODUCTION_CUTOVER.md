@@ -1,56 +1,53 @@
-# Production cutover — security release (PR #2189)
+# Production cutover — REG.RU virtual server
 
-Этот релиз делает секреты **fail-closed**: в проде (`NODE_ENV=production`) API
-**не стартует**, пока не заданы обязательные секреты (это правильное поведение
-безопасности — раньше подставлялся зашитый дефолт). Поэтому секреты нужно
-задать в окружении **до** мёржа/деплоя.
+## Hosting boundary
 
-> **Хостинг: Netlify.** Vercel больше не используется. Все переменные и деплой — только через Netlify.
+The only production contour for `процент-агро.рф` is the project Ubuntu virtual server at REG.RU. The current recorded public IPv4 is `195.19.12.120`. Caddy terminates HTTPS and routes requests to Docker Compose services.
 
-## 1. Обязательные секреты (иначе бэкенд не поднимется)
+Netlify and Vercel are retired. Do not set production variables there, wait for their deploys, use their previews, or treat their statuses as release evidence.
 
-Задать в Netlify → Site settings → Environment variables, scope **Production**:
+## Fail-closed secrets
 
-| Переменная | Назначение | Требование |
+In `NODE_ENV=production`, the API must not start without required production secrets. These values belong in the protected server environment or approved secret store, never in the repository.
+
+Required security values include:
+
+| Variable | Purpose | Requirement |
 |---|---|---|
-| `JWT_SECRET` | подпись/проверка access-токенов | ≥ 32 символов |
-| `BANK_HMAC_SECRET` | проверка bank-callback (Safe-Deals) | ≥ 32 символов |
-| `FGIS_WEBHOOK_SECRET` | проверка webhook ФГИС Зерно | ≥ 32 символов |
-| `EDO_WEBHOOK_SECRET` | проверка webhook ЭДО (Диадок/СБИС/СберКорус) | ≥ 32 символов |
+| `JWT_SECRET` | Access-token signing and verification | at least 32 random characters |
+| `BANK_HMAC_SECRET` | Bank callback verification | at least 32 random characters |
+| `FGIS_WEBHOOK_SECRET` | FGIS webhook verification | at least 32 random characters |
+| `EDO_WEBHOOK_SECRET` | EDO webhook verification | at least 32 random characters |
+| `PC_CABINET_LOCK_USER` | Cabinet login | protected operational value |
+| `PC_CABINET_LOCK_PASSWORD` | Cabinet password | strong, at least 16 characters |
+| `PC_CABINET_SESSION_SECRET` | Cabinet-session signing | explicit secret or approved JWT-secret fallback |
 
-Сгенерировать значения: `openssl rand -hex 32` (по одному на переменную).
+Do not enable demo-user seeding in production.
 
-## 2. Кабинет platform-v7 (иначе кабинет заблокирован)
+## Cutover sequence
 
-| Переменная | Назначение |
-|---|---|
-| `PC_CABINET_LOCK_USER` | логин кабинета (email) |
-| `PC_CABINET_LOCK_PASSWORD` | пароль кабинета (сильный, ≥ 16 символов) |
-| `PC_CABINET_SESSION_SECRET` | опц.: секрет подписи cabinet-сессии (иначе берётся `JWT_SECRET`) |
+1. Identify the exact target Git SHA in `main`.
+2. Confirm required CI/security checks succeeded.
+3. Confirm the canonical GHCR image exists for that SHA.
+4. Confirm DNS for `процент-агро.рф` resolves to the expected virtual-server endpoint.
+5. Access the server using credentials from protected operations storage.
+6. For application code, pull and recreate only the affected Compose service. For infrastructure/configuration, update the protected server checkout and reconcile the affected Compose contour.
+7. Confirm migrations/provisioning jobs completed when the release requires them.
+8. Inspect the running container OCI revision and require an exact match with the target Git SHA.
+9. Confirm Caddy and the affected services are healthy.
+10. Run the checks in `docs/ops/vps-post-deploy-checklist.md` against the real domain.
+11. Record target SHA, image reference/digest, deployment time, smoke result and rollback reference.
 
-Бэкдор-PIN и hardcoded owner-логин удалены — без этих переменных вход в кабинет
-невозможен (fail-closed).
+Watchtower may automatically refresh `:latest` application images. It is not a substitute for steps 8–11.
 
-## 3. Демо-аккаунты
+## Rollback
 
-`SEED_DEMO_USERS` **не** ставить в `true` в проде. Демо-пользователи
-(`*@demo.ru` / `demo1234`) больше не сидятся по умолчанию.
+1. Select the previously accepted immutable image tag or digest.
+2. Recreate only the affected service unless the incident requires a wider rollback.
+3. Do not roll back a database migration destructively. Use the documented forward-recovery procedure for schema changes.
+4. Verify container revision, Caddy routing and live routes after rollback.
+5. Record the incident and the active rollback revision.
 
-## 4. Порядок выката
+## Completion rule
 
-1. Задать переменные из §1–§2 в Netlify **Production**.
-2. Смёржить PR #2189 в `main`.
-3. Дождаться прод-деплоя Netlify.
-4. Прогнать smoke: `GET /api/platform-status` (200) и логин в кабинет под
-   `PC_CABINET_LOCK_USER`/`PC_CABINET_LOCK_PASSWORD`.
-5. Проверить, что API отвечает (не упал на отсутствии секрета).
-
-## 5. Откат
-
-Секреты обратно-совместимы с текущими флоу; при проблемах — revert PR #2189 в
-`main` (git-обратимо) и передеплой.
-
-> Напоминание: этот релиз закрывает security-находки (авторизация/аутентификация).
-> Полноценная эксплуатация с реальными контрагентами дополнительно требует P0 из
-> `AUDIT_platform-v7_full.md` (БД-персистентность, Redis для общего состояния,
-> реальные интеграции с доставкой/сверкой, УКЭП, staging E2E + нагрузка + пентест).
+Until the virtual server and live domain are verified, report the release as **merged / artifact built / VPS deployment pending**. Do not report it as deployed or live.
