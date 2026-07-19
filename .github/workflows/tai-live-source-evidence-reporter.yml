@@ -18,7 +18,9 @@ concurrency:
 
 jobs:
   report:
-    if: github.event.workflow_run.head_branch == 'main'
+    if: >-
+      github.event.workflow_run.head_branch == 'main'
+      && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -34,7 +36,7 @@ jobs:
           merge-multiple: true
           path: live-evidence
 
-      - name: Report AP-14D.1 diagnostics to issue 2789
+      - name: Report AP-14D.3 evidence to issue 2789
         if: always()
         uses: actions/github-script@v7
         env:
@@ -63,7 +65,7 @@ jobs:
               'coverage-assessment.json',
             );
             let body = [
-              '## AP-14D.1 exact-main diagnostic live evidence',
+              '## AP-14D.3 exact-main post-Mintrans live evidence',
               '',
               `- source workflow run: ${runId}`,
               `- source workflow SHA: \`${runSha}\``,
@@ -81,6 +83,8 @@ jobs:
                 fs.readFileSync(observationsPath, 'utf8'),
               );
               const coverage = JSON.parse(fs.readFileSync(coveragePath, 'utf8'));
+              const baselineCoverage = 1250;
+              const delta = Number(manifest.coverage_basis_points || 0) - baselineCoverage;
               body.push(
                 '',
                 `- collection status: \`${manifest.status}\``,
@@ -88,10 +92,11 @@ jobs:
                 `- catalog SHA-256: \`${manifest.catalog_sha256}\``,
                 `- observed sources: ${manifest.observed_source_count}/${manifest.source_count}`,
                 `- coverage: ${manifest.coverage_basis_points}/10000`,
+                `- coverage delta vs AP-14B baseline: ${delta >= 0 ? '+' : ''}${delta}`,
                 `- critical coverage: ${manifest.critical_coverage_basis_points}/10000`,
                 `- all critical covered: \`${manifest.all_critical_covered}\``,
                 '',
-                '### Per-source diagnostic result',
+                '### Per-source result',
               );
               for (const result of manifest.source_results || []) {
                 body.push(
@@ -106,7 +111,7 @@ jobs:
             } else {
               body.push(
                 '',
-                'Artifact files were unavailable or structurally incomplete. The source run must not be accepted as diagnostic evidence.',
+                'Artifact files were unavailable or structurally incomplete. The source run must not be accepted as evidence.',
               );
             }
             body.push(
