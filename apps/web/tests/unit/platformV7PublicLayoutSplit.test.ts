@@ -10,6 +10,7 @@ const template = read('apps/web/app/platform-v7/template.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
 const protectedShell = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.tsx');
 const nextConfig = read('apps/web/next.config.js');
+const isolatedLayout = read('apps/web/app/pc-public-entry/platform-v7/layout.tsx');
 const isolatedLanding = read('apps/web/app/pc-public-entry/platform-v7/page.tsx');
 const isolatedLogin = read('apps/web/app/pc-public-entry/platform-v7/login/page.tsx');
 const isolatedRecovery = read('apps/web/app/pc-public-entry/platform-v7/forgot-password/page.tsx');
@@ -31,16 +32,17 @@ const removedRuntimes = [
   'apps/web/components/platform-v7/PlatformV7PublicRuntime.tsx',
 ];
 
-const removedPublicShellCss = 'apps/web/app/platform-v7/_styles/public-supporting-shell.css';
+const publicSupportingShellCss = 'apps/web/app/platform-v7/_styles/public-supporting-shell.css';
 
 describe('platform-v7 public/protected runtime split', () => {
   it('returns public route content without creating a universal client or supporting shell', () => {
     expect(layout).toContain("from 'next/headers'");
-    expect(layout).toContain("headers().get('x-pc-pathname')");
-    expect(layout).toContain('if (isPublicPath(pathname)) return children');
+    expect(layout).toContain("(await headers()).get('x-pc-pathname')");
+    expect(layout).toContain('if (isPublicPath(pathname)) {');
+    expect(layout).toContain('<HydrationSafeChatSupport />');
     expect(layout).toContain("await import('@/components/platform-v7/PlatformV7ProtectedRuntime')");
     expect(layout).not.toContain('PlatformV7PublicPageShell');
-    expect(layout).not.toContain('PublicSiteHeader');
+    expect(layout).not.toContain("from '@/components/platform-v7/PublicSiteHeader'");
     expect(layout).not.toContain('PlatformV7FullStyleRuntime');
     expect(layout).not.toContain('PlatformV7ShellSwitch');
   });
@@ -63,6 +65,7 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(isolatedLanding).toContain("from '@/app/platform-v7/page'");
     expect(isolatedLogin).toContain("from '@/app/platform-v7/login/page'");
     expect(isolatedRecovery).toContain("from '@/app/platform-v7/forgot-password/page'");
+    expect(isolatedLayout).toContain('<HydrationSafeChatSupport />');
   });
 
   it('keeps the route template server-only and free of historical patching', () => {
@@ -82,7 +85,7 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(protectedRuntime).toContain('<ToastProvider>');
     expect(protectedRuntime).toContain('<PlatformThemeSync />');
     expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname} verifiedRole={verifiedRole}>');
-    expect(protectedShell).toContain('<AppShellV4 initialRole={initialRole}>');
+    expect(protectedShell).toContain('<AppShellV4 initialRole={verifiedRole}>');
     expect(protectedShell).toContain('<PlatformV7SingleEntryGuard />');
     expect(protectedShell).toContain('<RbacCabinetGuard />');
   });
@@ -97,19 +100,19 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(publicHeader).toContain("<a href='/platform-v7' className='pc-site-brand'");
   });
 
-  it('loads public CSS from concrete routes and removes the obsolete supporting shell stylesheet', () => {
+  it('loads entry CSS from concrete routes and keeps the shared supporting-page contract explicit', () => {
     expect(rootLayout).not.toContain('platform-v7-dark-role-fixes.css');
-    expect(rootLayout).not.toContain('public-supporting-shell.css');
+    expect(rootLayout).toContain("import './platform-v7/_styles/public-supporting-shell.css'");
     expect(layout).not.toContain("import '@/styles/");
     expect(template).not.toContain("import '@/styles/");
     expect(landing).toContain("import '@/styles/platform-v7-public-header.css'");
-    expect(landing).toContain("import '@/styles/platform-v7-public-landing.css'");
+    expect(landing).toContain("import '@/styles/platform-v7-public-product-experience-v5.css'");
     expect(loginLayout).toContain("import '@/styles/platform-v7-public-auth.css'");
     expect(recovery).toContain("import '@/styles/platform-v7-public-auth.css'");
     expect(publicHeaderCss).toContain('.pc-site-header');
     expect(publicAuthCss).toContain('.pc-auth-page');
     expect(publicLandingCss).toContain('.pc-v7-public-entry');
-    expect(fs.existsSync(absolute(removedPublicShellCss))).toBe(false);
+    expect(fs.existsSync(absolute(publicSupportingShellCss))).toBe(true);
     for (const runtime of removedRuntimes) expect(fs.existsSync(absolute(runtime))).toBe(false);
   });
 

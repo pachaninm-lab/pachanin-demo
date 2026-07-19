@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { BrandMark } from '@/components/v7r/BrandMark';
-import { HydrationSafeChatSupport } from '@/components/platform-v7/HydrationSafeChatSupport';
 import { PublicLocaleSwitch } from '@/components/platform-v7/PublicLocaleSwitch';
 
 export const PUBLIC_SITE_HEADER_HEIGHT = 64;
@@ -339,7 +338,6 @@ export function PublicSiteHeader({
           {actions}
         </div>
       </header>
-      <HydrationSafeChatSupport />
     </>
   );
 }

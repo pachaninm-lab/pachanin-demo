@@ -7,33 +7,33 @@ const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'u
 
 const contextual = read('apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx');
 const publicAssistant = read('apps/web/components/platform-v7/PublicPlatformAssistant.tsx');
-const privateShortcut = read('apps/web/components/platform-v7/PrivateAssistantShortcutLabel.tsx');
+const privateAssistant = read('apps/web/components/platform-v7/AiAssistantPanel.tsx');
+const dock = read('apps/web/components/platform-v7/PublicContactDock.tsx');
 const publicRoute = read('apps/web/app/api/public-platform-assistant/route.ts');
 const knowledge = read('apps/web/lib/platform-v7/public-assistant-knowledge.ts');
 const publicStyles = read('apps/web/styles/platform-v7-public-assistant.css');
-const privateStyles = read('apps/web/components/platform-v7/PrivateAssistantShortcutLabel.module.css');
 
 describe('platform-v7 industrial assistant shortcuts', () => {
-  it('keeps public knowledge and private Deal assistance as separate surfaces', () => {
-    expect(contextual).toContain("if (path === PUBLIC_HOME)");
+  it('keeps public knowledge and private Deal assistance separate behind one shared dock', () => {
+    expect(contextual).toContain('if (isPrivateWorkspace(path))');
     expect(contextual).toContain('<PublicPlatformAssistant />');
     expect(contextual).toContain('<ChatSupportWidget />');
-    expect(contextual).toContain('<PrivateAssistantShortcutLabel />');
+    expect(contextual).not.toContain('<PrivateAssistantShortcutLabel />');
     expect(contextual).toContain("<AiAssistantPanel variant='floating' />");
-    expect(contextual).toContain('separate no-account-data knowledge assistant');
+    expect(contextual).toContain("<PublicContactDock assistantContext='private' />");
     expect(publicAssistant).not.toContain('/api/proxy/ai-assistant');
-    expect(privateShortcut).toContain("href='/platform-v7/assistant'");
+    expect(privateAssistant).toContain("href='/platform-v7/assistant'");
   });
 
-  it('exposes a visible RU EN ZH private shortcut without claiming unverified Deal context', () => {
-    expect(privateShortcut).toContain('Помощник сделки');
-    expect(privateShortcut).toContain('Deal assistant');
-    expect(privateShortcut).toContain('交易助手');
-    expect(privateShortcut).toContain('Ролевой контекст ЛК');
-    expect(privateShortcut).not.toContain('?deal=');
-    expect(privateStyles).toContain('min-height: 54px');
-    expect(privateStyles).toContain('env(safe-area-inset-bottom)');
-    expect(privateStyles).toContain('@media (forced-colors: active)');
+  it('exposes localized private AI, human support and phone actions without showing the number', () => {
+    expect(dock).toContain("assistant: 'ИИ'");
+    expect(dock).toContain("assistant: 'AI'");
+    expect(dock).toContain("assistant: 'AI 助手'");
+    expect(dock).toContain("support: 'Поддержка'");
+    expect(dock).toContain("call: 'Позвонить'");
+    expect(contextual).toContain("<PublicContactDock assistantContext='private' />");
+    expect(dock).not.toContain('<small>{SUPPORT_PHONE_DISPLAY}</small>');
+    expect(privateAssistant).not.toContain('?deal=');
   });
 
   it('uses a stateless public knowledge API with bounded input and no external model call', () => {

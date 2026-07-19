@@ -603,6 +603,8 @@ export function AiAssistantPanel({ variant = 'floating' }: { variant?: Variant }
   const panel = (
     <section
       ref={panelRef}
+      id={variant === 'floating' ? 'p7-private-ai-assistant-panel' : 'p7-private-ai-assistant-workspace'}
+      tabIndex={variant === 'workspace' ? -1 : undefined}
       className={`p7-ai-panel ${variant === 'workspace' ? 'p7-ai-panel-workspace' : ''}`}
       role={variant === 'floating' ? 'dialog' : 'region'}
       aria-modal={variant === 'floating' ? 'true' : undefined}
