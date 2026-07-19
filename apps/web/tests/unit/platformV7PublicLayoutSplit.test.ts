@@ -72,6 +72,16 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(isolatedLayout.indexOf('{children}')).toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport />'));
   });
 
+  it('forces fresh HTML for the root and public homepage after contact dock releases', () => {
+    expect(nextConfig).toContain('const publicEntryFreshHeaders = [');
+    expect(nextConfig).toContain("{ key: 'Cache-Control', value: 'no-store, no-cache, max-age=0, must-revalidate' }");
+    expect(nextConfig).toContain("{ key: 'CDN-Cache-Control', value: 'no-store' }");
+    expect(nextConfig).toContain("{ key: 'Netlify-CDN-Cache-Control', value: 'no-store' }");
+    expect(nextConfig).toContain("source: '/'");
+    expect(nextConfig).toContain("source: '/platform-v7'");
+    expect(nextConfig).toContain("source: '/pc-public-entry/platform-v7'");
+  });
+
   it('restores only the last approved contact dock visual on the public homepage', () => {
     expect(approvedHomeDock).toContain("[data-contact-dock-visual='approved'] ~ .pc-public-contact-dock");
     expect(approvedHomeDock).not.toContain("[data-contact-dock-visual='approved'] .pc-public-contact-dock {");
