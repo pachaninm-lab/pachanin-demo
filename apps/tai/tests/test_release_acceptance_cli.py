@@ -17,10 +17,26 @@ HEAD = "a" * 64
 def _repository(root: Path) -> None:
     migration_root = root / "apps/tai/tai/migrations"
     migration_root.mkdir(parents=True)
-    for version in range(1, 13):
-        (migration_root / f"{version:04d}_migration.sql").write_text(
-            f"-- migration {version}\nSELECT {version};\n"
+    migration_names = [
+        *(f"{version:04d}_migration.sql" for version in range(1, 10)),
+        "0010_operational_authority.sql",
+        "0010_orchestration_runtime.sql",
+        "0011_release_attestation.sql",
+        "0012_git_object_id_contract.sql",
+    ]
+    for version, name in enumerate(migration_names, start=1):
+        (migration_root / name).write_text(f"-- migration {version}\nSELECT {version};\n")
+    (migration_root / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "tai.migration.manifest.v1",
+                "migrations": [
+                    {"path": name, "version": version}
+                    for version, name in enumerate(migration_names, start=1)
+                ],
+            }
         )
+    )
     (root / "apps/tai/tai/module.py").write_text("VALUE = 1\n")
     (root / "apps/tai/tests").mkdir(parents=True)
     (root / "apps/tai/tests/test_module.py").write_text(
@@ -91,7 +107,7 @@ def test_cli_builds_accepted_application_attestation(tmp_path: Path, monkeypatch
     assert attestation["exact_main_sha"] == HEAD
     assert attestation["production_operational_status"] == "NOT_ATTESTED"
     assert attestation["reasons"] == []
-    assert len(attestation["migration_inventory"]) == 12
+    assert len(attestation["migration_inventory"]) == 13
     assert len(attestation["attestation_sha256"]) == 64
     assert len(attestation["source_tree_sha256"]) == 64
 
@@ -135,7 +151,7 @@ def test_cli_rejects_ungoverned_migration_filename(tmp_path: Path, monkeypatch) 
     _evidence(evidence)
     monkeypatch.setattr(sys, "argv", _argv(tmp_path, evidence, output))
 
-    with pytest.raises(ValueError, match="not governed"):
+    with pytest.raises(ValueError, match="manifest coverage mismatch"):
         main()
 
 

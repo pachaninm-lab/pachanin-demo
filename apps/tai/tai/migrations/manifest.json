@@ -1,0 +1,57 @@
+{
+  "migrations": [
+    {
+      "path": "0001_loader_state.sql",
+      "version": 1
+    },
+    {
+      "path": "0002_materialization_claims.sql",
+      "version": 2
+    },
+    {
+      "path": "0003_loader_recovery.sql",
+      "version": 3
+    },
+    {
+      "path": "0004_loader_checkpoints.sql",
+      "version": 4
+    },
+    {
+      "path": "0005_retrieval_index.sql",
+      "version": 5
+    },
+    {
+      "path": "0006_rag_trace.sql",
+      "version": 6
+    },
+    {
+      "path": "0007_local_model_runtime.sql",
+      "version": 7
+    },
+    {
+      "path": "0008_agent_tool_runtime.sql",
+      "version": 8
+    },
+    {
+      "path": "0009_evaluation_authority.sql",
+      "version": 9
+    },
+    {
+      "path": "0010_operational_authority.sql",
+      "version": 10
+    },
+    {
+      "path": "0010_orchestration_runtime.sql",
+      "version": 11
+    },
+    {
+      "path": "0011_release_attestation.sql",
+      "version": 12
+    },
+    {
+      "path": "0012_git_object_id_contract.sql",
+      "version": 13
+    }
+  ],
+  "schema_version": "tai.migration.manifest.v1"
+}

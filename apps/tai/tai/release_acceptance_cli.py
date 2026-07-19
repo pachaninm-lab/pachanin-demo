@@ -129,18 +129,53 @@ def _load_workflow_evidence(path: Path) -> tuple[WorkflowRunEvidence, ...]:
 
 def _migration_inventory(repository_root: Path) -> MigrationInventory:
     root = repository_root / "apps/tai/tai/migrations"
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file():
+        raise ValueError("migration manifest is required")
+    raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("migration manifest must be a JSON object")
+    if raw.get("schema_version") != "tai.migration.manifest.v1":
+        raise ValueError("migration manifest schema version is unsupported")
+    items = raw.get("migrations")
+    if not isinstance(items, list) or not items:
+        raise ValueError("migration manifest must contain a non-empty migrations array")
+
+    declared_paths: list[str] = []
     migrations: list[MigrationArtifact] = []
-    for path in sorted(root.glob("*.sql")):
-        match = _MIGRATION.fullmatch(path.name)
-        if match is None:
-            raise ValueError(f"migration filename is not governed: {path.name}")
-        relative = path.relative_to(repository_root).as_posix()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("migration manifest entries must be objects")
+        version = item.get("version")
+        name = item.get("path")
+        if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+            raise ValueError("migration manifest version must be a positive integer")
+        if (
+            not isinstance(name, str)
+            or Path(name).name != name
+            or _MIGRATION.fullmatch(name) is None
+        ):
+            raise ValueError("migration manifest path must be a bounded governed SQL filename")
+        declared_paths.append(name)
+        path = root / name
         migrations.append(
             MigrationArtifact(
-                version=int(match.group(1)),
-                path=relative,
-                sha256=_file_sha256(path),
+                version=version,
+                path=path.relative_to(repository_root).as_posix(),
+                sha256=_file_sha256(path) if path.is_file() else "0" * 64,
             )
+        )
+
+    if len(declared_paths) != len(set(declared_paths)):
+        raise ValueError("migration manifest paths must be unique")
+    available = {path.name for path in root.glob("*.sql")}
+    declared = set(declared_paths)
+    if declared != available:
+        missing_from_manifest = sorted(available - declared)
+        missing_on_disk = sorted(declared - available)
+        raise ValueError(
+            "migration manifest coverage mismatch: "
+            f"missing_from_manifest={missing_from_manifest}, missing_on_disk={missing_on_disk}"
         )
     return MigrationInventory(tuple(migrations))
 
