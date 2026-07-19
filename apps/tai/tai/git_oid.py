@@ -1,6 +1,10 @@
+"""Validation contract for full Git object identifiers."""
+
 from __future__ import annotations
 
 import re
+
+__all__ = ["validate_git_oid"]
 
 _GIT_OBJECT_ID = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 
