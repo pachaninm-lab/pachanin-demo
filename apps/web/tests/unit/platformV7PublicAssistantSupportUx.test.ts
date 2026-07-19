@@ -18,46 +18,45 @@ describe('platform-v7 public assistant and support UX', () => {
     expect(support).toContain("consent: consent ? 'yes' : 'no'");
   });
 
-  it('shows starter intents on mobile instead of leaving an empty chat region', () => {
-    expect(assistant).toContain("className='pc-public-assistant-starters'");
-    expect(modalCss).toContain('.pc-public-assistant-starters {');
-    expect(modalCss).toContain('display: grid !important');
-    expect(modalCss).toContain('grid-template-columns: repeat(2, minmax(0, 1fr)) !important');
-    expect(modalCss).toContain(":not(:has(.pc-public-assistant-answer)) .pc-public-assistant-messages");
-    expect(modalCss).toContain('max-height: 190px !important');
+  it('uses the same public-home tokens for both modal surfaces', () => {
+    expect(modalCss).toContain('.pc-public-assistant-panel,\n.p7-support-chat-panel');
+    expect(modalCss).toContain('--pc-modal-green: var(--pc-ppe-v5-green, #087a3b)');
+    expect(modalCss).toContain('--pc-modal-radius: var(--pc-ppe-v5-radius, 14px)');
+    expect(modalCss).toContain('border-radius: var(--pc-modal-radius) !important');
+    expect(modalCss).toContain('box-shadow: 0 18px 52px rgba(9, 33, 24, 0.16) !important');
   });
 
-  it('keeps the composer fixed, compact and explicit in disabled state', () => {
-    expect(modalCss).toContain('.pc-public-assistant-form {');
-    expect(modalCss).toContain('position: sticky !important');
-    expect(modalCss).toContain('min-height: 50px !important');
-    expect(modalCss).toContain('.pc-public-assistant-primary:disabled');
+  it('gives AI and support one white institutional header system', () => {
+    expect(modalCss).toContain('.pc-public-assistant-header,\n.p7-support-chat-head');
+    expect(modalCss).toContain('background: #ffffff !important');
+    expect(modalCss).toContain('.pc-public-assistant-mark,\n.p7-support-chat-mark');
+    expect(modalCss).toContain('border-radius: var(--pc-modal-radius-small) !important');
+    expect(modalCss).toContain('font-weight: 820 !important');
+  });
+
+  it('uses one field, focus and action hierarchy', () => {
+    expect(modalCss).toContain('.pc-public-assistant-form textarea,\n.p7-support-chat-form input');
+    expect(modalCss).toContain('min-height: 48px !important');
+    expect(modalCss).toContain('box-shadow: 0 0 0 2px rgba(8, 122, 59, 0.18) !important');
+    expect(modalCss).toContain('.pc-public-assistant-primary,\n.p7-support-chat-submit');
+    expect(modalCss).toContain('background: var(--pc-modal-green) !important');
     expect(modalCss).toContain('opacity: 1 !important');
   });
 
-  it('uses a single focus ring instead of a doubled outline and glow', () => {
-    expect(modalCss).toContain('.p7-support-chat-panel select:focus-visible');
-    expect(modalCss).toContain('outline: none !important');
-    expect(modalCss).toContain('box-shadow: 0 0 0 2px rgba(21, 148, 93, 0.22) !important');
-  });
-
-  it('keeps the support form compact while retaining accessible controls', () => {
+  it('keeps the support form compact and the assistant composer anchored', () => {
     expect(modalCss).toContain('.p7-support-chat-form {');
-    expect(modalCss).toContain('gap: 10px !important');
-    expect(modalCss).toContain('min-height: 46px !important');
-    expect(modalCss).toContain('min-height: 96px !important');
-    expect(modalCss).toContain('.p7-support-chat-submit {');
-    expect(modalCss).toContain('min-height: 48px !important');
+    expect(modalCss).toContain('gap: 11px !important');
+    expect(modalCss).toContain('min-height: 112px !important');
+    expect(modalCss).toContain('.pc-public-assistant-form {');
+    expect(modalCss).toContain('position: sticky !important');
+    expect(modalCss).toContain('min-height: 56px !important');
   });
 
-  it('keeps subtitles readable instead of clipping them with an ellipsis', () => {
-    expect(modalCss).toContain('.pc-public-assistant-identity span:not(.pc-public-assistant-mark)');
-    expect(modalCss).toContain('white-space: normal !important');
-    expect(modalCss).toContain('-webkit-line-clamp: 2');
-  });
-
-  it('preserves forced-colors and small-screen fallbacks', () => {
+  it('preserves mobile bottom-sheet, short-viewport and accessibility fallbacks', () => {
+    expect(modalCss).toContain('border-radius: 18px 18px 0 0 !important');
+    expect(modalCss).toContain('@media (max-height: 600px) and (max-width: 720px)');
     expect(modalCss).toContain('@media (max-width: 350px)');
+    expect(modalCss).toContain('@media (prefers-reduced-motion: reduce)');
     expect(modalCss).toContain('@media (forced-colors: active)');
     expect(modalCss).toContain('border: 1px solid ButtonText !important');
   });
