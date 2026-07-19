@@ -9,9 +9,11 @@ from tai.live_source_evidence import (
     LiveSourceEvidenceCollector,
     coverage_payload,
     evidence_bundle_sha256,
-    live_definitions,
     observations_payload,
     run_manifest_payload,
+)
+from tai.official_source_diagnostics import (
+    diagnostic_live_definitions as live_definitions,
 )
 from tai.source_coverage import load_official_source_catalog
 
