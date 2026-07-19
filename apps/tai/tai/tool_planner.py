@@ -88,7 +88,11 @@ _INTENTS = (
         mode=ToolMode.CONFIRMED_WRITE,
         patterns=(
             re.compile(r"\bназнач\w*\s+(?:логистик\w*|перевоз\w*|водител\w*)", re.I),
-            re.compile(r"\b(?:assign|appoint)\s+(?:the\s+)?(?:logistics|carrier|driver|transport)", re.I),
+            re.compile(
+                r"\b(?:assign|appoint)\s+(?:the\s+)?"
+                r"(?:logistics|carrier|driver|transport)",
+                re.I,
+            ),
             re.compile(r"(?:分配|指派)(?:物流|承运商|司机)"),
         ),
     ),
