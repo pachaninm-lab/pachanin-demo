@@ -8,7 +8,12 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from urllib.parse import urljoin
 
-from tai.managed_loader import FetchDisposition, FetchRequest, FetchResponse
+from tai.managed_loader import (
+    FetchDisposition,
+    FetchRequest,
+    FetchResponse,
+    SourceFetcher,
+)
 from tai.official_source_fetcher import (
     FetchSecurityError,
     OfficialFetchPolicy,
@@ -96,7 +101,7 @@ def diagnostic_live_definitions(
     catalog: OfficialSourceCatalog,
     timeout_seconds: float,
 ) -> tuple[OfficialObservationDefinition, ...]:
-    fetchers: dict[str, DiagnosticOfficialSourceHTTPFetcher] = {}
+    fetchers: dict[str, SourceFetcher] = {}
     for source in catalog.sources:
         fetchers[source.source_id] = DiagnosticOfficialSourceHTTPFetcher(
             policy=OfficialFetchPolicy(
@@ -140,10 +145,13 @@ def _transport_diagnostic(
     if isinstance(error, (socket.timeout, TimeoutError)):
         return FetchDisposition.RETRYABLE_FAILURE, "source_transport_timeout"
     if isinstance(error, OSError):
-        return (
-            FetchDisposition.RETRYABLE_FAILURE,
-            _OS_ERROR_CODES.get(error.errno, "source_transport_unknown"),
+        errno_value = error.errno
+        error_code = (
+            _OS_ERROR_CODES.get(errno_value, "source_transport_unknown")
+            if errno_value is not None
+            else "source_transport_unknown"
         )
+        return FetchDisposition.RETRYABLE_FAILURE, error_code
     return None
 
 
