@@ -40,7 +40,7 @@ def _adapter() -> HTMLMetadataAdapter:
     )
 
 
-def test_mintrans_counts_opaque_file_routes_and_uses_latest_tariff_date() -> None:
+def test_mintrans_counts_opaque_routes_and_uses_latest_tariff_date() -> None:
     body = """
     <html><body>
       <section>
@@ -72,21 +72,20 @@ def test_mintrans_counts_opaque_file_routes_and_uses_latest_tariff_date() -> Non
     assert metadata.observed_topics == frozenset({CoverageTopic.LOGISTICS_TARIFFS})
 
 
-def test_mintrans_does_not_borrow_unrelated_newer_document_date() -> None:
+def test_mintrans_does_not_borrow_later_unrelated_document_date() -> None:
     body = """
+    <h2>Тарифная политика железных дорог и перевозки грузов</h2>
+    <a href="/file/552015">Тарифный документ без даты</a>
     <time>20 Мая 2026</time>
     <h2>Протокол Совета по железнодорожному транспорту</h2>
     <a href="/file/600001">Протокол</a>
-    <p>Тарифная политика железных дорог и перевозки грузов обсуждаются ниже,
-    но у соответствующего документа отсутствует дата.</p>
-    <a href="/file/552015">Тарифный документ</a>
     """
 
     with pytest.raises(MetadataExtractionError, match="publication_date_missing"):
         _adapter().parse(source=_source(), body=body, fetched_at=NOW)
 
 
-def test_mintrans_rejects_future_tariff_date_even_with_valid_file_route() -> None:
+def test_mintrans_rejects_future_tariff_date_with_valid_file_route() -> None:
     body = """
     <time>20 Июля 2026</time>
     <h2>Тарифная политика железных дорог</h2>
@@ -98,7 +97,7 @@ def test_mintrans_rejects_future_tariff_date_even_with_valid_file_route() -> Non
         _adapter().parse(source=_source(), body=body, fetched_at=NOW)
 
 
-def test_document_path_patterns_are_validated_and_required_when_no_suffixes() -> None:
+def test_document_path_patterns_are_validated_and_required() -> None:
     with pytest.raises(ValueError, match="valid regex"):
         HTMLMetadataAdapter(
             source_id="official.mintrans.rail-tariffs",
