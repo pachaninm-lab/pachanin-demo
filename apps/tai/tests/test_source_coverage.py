@@ -60,7 +60,7 @@ def _observation(
 def _healthy_repository_observations() -> tuple[SourceObservation, ...]:
     return (
         _observation(
-            "official.mcx.opendata",
+            "official.specagro.fgis-grain",
             frozenset({CoverageTopic.GRAIN_TRACEABILITY}),
         ),
         _observation(
@@ -104,6 +104,14 @@ def test_repository_catalog_governs_all_eight_topics() -> None:
     assert all(source.entrypoint_uri.startswith("https://") for source in catalog.sources)
     assert catalog.source_for("official.rosstat.agriculture") is not None
     assert catalog.source_for("official.rosselhoscenter.agronomy") is not None
+    assert catalog.source_for("official.mcx.opendata") is None
+    grain_traceability = catalog.source_for("official.specagro.fgis-grain")
+    assert grain_traceability is not None
+    assert grain_traceability.entrypoint_uri == "https://specagro.ru/fgis/ok"
+    assert grain_traceability.allowed_hosts == frozenset({"specagro.ru"})
+    assert grain_traceability.formats == frozenset({SourceFormat.HTML})
+    assert grain_traceability.expected_update_interval == timedelta(days=31)
+    assert grain_traceability.maximum_publication_age == timedelta(days=365)
     assert catalog.source_for("missing") is None
     assert any(
         CoverageTopic.AGRONOMY_RECOMMENDATIONS in source.topics

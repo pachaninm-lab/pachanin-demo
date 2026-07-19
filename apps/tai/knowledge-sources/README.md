@@ -6,7 +6,9 @@ This directory contains small governed catalogs and evidence schemas. It does no
 
 `official-sources.v1.json` registers verified entrypoints for:
 
-- Ministry of Agriculture open data and grain traceability;
+- the official FGIS Grain operator's dated classification authority for grain
+  traceability (the unavailable Ministry HTTPS open-data endpoint is not
+  downgraded to HTTP);
 - Rosstat agricultural production and producer-price publications;
 - Eurasian Economic Commission grain regulation and quality requirements;
 - Russian Agricultural Center national phytosanitary and agronomy forecast;
@@ -36,9 +38,20 @@ A URL in the catalog is not knowledge. A source counts toward coverage only when
 - a stale lease token cannot commit loader state, observation or run evidence;
 - every accepted run has an immutable SHA-256 evidence record bound to its source, worker and lease token.
 
-The adapters cover the metadata shapes for Bank of Russia, Rosstat, EEC, Ministry of Transport, Ministry of Agriculture/Open Data and the Russian Agricultural Center. CI uses deterministic fixtures and does not depend on live government endpoints.
+The adapters cover the metadata shapes for Bank of Russia, Rosstat, EEC,
+Ministry of Transport, the official FGIS Grain operator and the Russian
+Agricultural Center. CI uses deterministic fixtures and does not depend on
+live government endpoints.
 
 The permanent exact-main workflow restores only versioned prior health artifacts, validates their digest chain, uploads current evidence before enforcing health, and has read-only repository/Actions permissions. A manual acceptance requires `6/6` observed sources and `8/8` covered topics; scheduled runs fail on critical source-health alerts while preserving the artifact.
+
+Rosstat's governed endpoint uses its current Russian Trusted CA chain from the
+official Gosuslugi certificate distribution. The two CA certificates are
+fingerprint-audited at startup and loaded only into the Rosstat transport;
+normal hostname verification, the exact host allowlist and public-IP pinning
+remain mandatory. The v3 history namespace is a deliberate catalog-generation
+bootstrap after replacing the unreachable Ministry endpoint. The following
+exact-main run must restore that v3 artifact as `CONTIGUOUS`.
 
 ## CLI
 

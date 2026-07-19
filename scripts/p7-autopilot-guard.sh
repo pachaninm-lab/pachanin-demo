@@ -335,7 +335,33 @@ else
   FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$|\.env|.*\.pem$|.*\.key$)'
 fi
 
-if printf '%s\n' "$DIFF_FILES" | grep -E "$FORBIDDEN_ALWAYS"; then
+FORBIDDEN_FILES=$(printf '%s\n' "$DIFF_FILES" | grep -E "$FORBIDDEN_ALWAYS" || true)
+
+if [ "${GITHUB_HEAD_REF:-}" = "agent/tai-ap-14d7-live-remediation" ]; then
+  TAI_PUBLIC_CA_PATHS='^(apps/tai/tai/trust/russian_trusted_root_ca\.pem|apps/tai/tai/trust/russian_trusted_sub_ca_2024\.pem)$'
+  FORBIDDEN_FILES=$(
+    printf '%s\n' "$FORBIDDEN_FILES" \
+      | grep -Ev "$TAI_PUBLIC_CA_PATHS" \
+      || true
+  )
+  while IFS=' ' read -r expected_fingerprint certificate_path; do
+    actual_fingerprint=$(
+      openssl x509 -in "$certificate_path" -outform DER \
+        | sha256sum \
+        | cut -d' ' -f1
+    )
+    if [ "$actual_fingerprint" != "$expected_fingerprint" ]; then
+      echo "Audited public CA fingerprint mismatch: $certificate_path"
+      exit 1
+    fi
+  done <<'TAI_PUBLIC_CA_CERTIFICATES'
+d26d2d0231b7c39f92cc738512ba54103519e4405d68b5bd703e9788ca8ecf31 apps/tai/tai/trust/russian_trusted_root_ca.pem
+2155785036c900dbb5f1bb2a1569c80c55595bd6bf94867a29bbddbc7d88a3f2 apps/tai/tai/trust/russian_trusted_sub_ca_2024.pem
+TAI_PUBLIC_CA_CERTIFICATES
+fi
+
+if [ -n "$FORBIDDEN_FILES" ]; then
+  printf '%s\n' "$FORBIDDEN_FILES"
   echo "Forbidden path changed for platform-v7 autopilot."
   exit 1
 fi

@@ -37,13 +37,32 @@ def test_live_evidence_workflow_is_read_only_exact_main_and_non_merge_blocking()
     assert 'test "$(git rev-parse HEAD)" = "$GITHUB_SHA"' in workflow
     assert 'test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"' in workflow
     assert "select(.workflow_run.head_branch == \"main\")" in workflow
-    assert "gh api --paginate --slurp" in workflow
+    history_restore = workflow[
+        workflow.index(
+            "      - name: Restore previous immutable source-health history"
+        ) : workflow.index("      - name: Collect governed live-source evidence")
+    ]
+    assert "gh api --paginate --slurp" not in history_restore
+    assert "gh api --paginate" in history_restore
+    assert "select(.expired == false)" in history_restore
+    assert 'select(.workflow_run.head_branch == "main")' in history_restore
+    assert 'startswith("tai-live-official-source-v3-")' in history_restore
+    assert "| [.created_at, .id]" in history_restore
+    assert "| @tsv" in history_restore
+    assert "-k1,1r" in history_restore
+    assert "-k2,2nr" in history_restore
+    assert '< "$sorted_path"' in history_restore
+    assert "| head" not in history_restore
+    assert "| tail" not in history_restore
+    assert "NR <= 20" in history_restore
+    assert "substr($0, 1, 500)" in history_restore
     assert "ref: ${{ github.sha }}" in workflow
     assert "ref: main" not in workflow
     assert "mkdir -p live-evidence" in workflow
     assert '--repository-sha "$GITHUB_SHA"' in workflow
     assert "actions/upload-artifact@v4" in workflow
-    assert "tai-live-official-source-v2-${{ github.sha }}" in workflow
+    assert "tai-live-official-source-v2-" not in workflow
+    assert "tai-live-official-source-v3-${{ github.sha }}" in workflow
     assert workflow.index("Upload exact-main live evidence") < workflow.index(
         "Enforce collector structural validity"
     )

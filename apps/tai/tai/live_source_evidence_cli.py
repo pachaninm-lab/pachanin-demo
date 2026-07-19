@@ -41,10 +41,10 @@ _REQUIRED_SOURCE_IDS = frozenset(
     {
         "official.cbr.key-rate",
         "official.eec.grain-regulation",
-        "official.mcx.opendata",
         "official.mintrans.rail-tariffs",
         "official.rosselhoscenter.agronomy",
         "official.rosstat.agriculture",
+        "official.specagro.fgis-grain",
     }
 )
 _REQUIRED_CRITICAL_TOPICS = frozenset(CoverageTopic)
@@ -234,6 +234,8 @@ def _knowledge_acceptance(
         reasons.append("SOURCE_HEALTH_NOT_HEALTHY")
     if history_status is SourceHistoryStatus.GAP:
         reasons.append("SOURCE_HISTORY_GAP")
+    elif require_complete and history_status is not SourceHistoryStatus.CONTIGUOUS:
+        reasons.append("SOURCE_HISTORY_NOT_CONTIGUOUS")
     accepted = not reasons
     payload: dict[str, object] = {
         "accepted": accepted,

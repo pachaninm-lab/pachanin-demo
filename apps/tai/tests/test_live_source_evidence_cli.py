@@ -226,7 +226,30 @@ def test_acceptance_rejects_catalog_reduced_to_relative_100_percent() -> None:
     assert acceptance["reasons"] == [
         "OFFICIAL_SOURCE_SET_NOT_GOVERNED",
         "CRITICAL_TOPIC_SET_NOT_GOVERNED",
+        "SOURCE_HISTORY_NOT_CONTIGUOUS",
     ]
+
+
+def test_controlled_acceptance_requires_contiguous_history_after_bootstrap() -> None:
+    controlled = live_source_evidence_cli._knowledge_acceptance(
+        catalog=_catalog(),
+        bundle=_complete_bundle(),
+        dashboard_status=SourceHealthStatus.HEALTHY,
+        dashboard_sha256="e" * 64,
+        history_status=SourceHistoryStatus.BOOTSTRAP,
+        require_complete=True,
+    )
+    scheduled = live_source_evidence_cli._knowledge_acceptance(
+        catalog=_catalog(),
+        bundle=_complete_bundle(),
+        dashboard_status=SourceHealthStatus.HEALTHY,
+        dashboard_sha256="e" * 64,
+        history_status=SourceHistoryStatus.BOOTSTRAP,
+        require_complete=False,
+    )
+
+    assert "SOURCE_HISTORY_NOT_CONTIGUOUS" in controlled["reasons"]
+    assert "SOURCE_HISTORY_NOT_CONTIGUOUS" not in scheduled["reasons"]
 
 
 def test_invalid_previous_history_becomes_machine_readable_gap(

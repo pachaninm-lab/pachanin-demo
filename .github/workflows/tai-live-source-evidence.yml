@@ -76,16 +76,86 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p prior-health
+
+          bounded_diagnostics() {
+            label=$1
+            diagnostic_path=$2
+            printf '[history-restore] %s\n' "$label" >&2
+            if [ ! -s "$diagnostic_path" ]; then
+              printf '[history-restore] (no diagnostic output)\n' >&2
+              return 0
+            fi
+            LC_ALL=C awk '
+              NR <= 20 {
+                line = substr($0, 1, 500)
+                suffix = length($0) > 500 ? "..." : ""
+                print "[history-restore] " line suffix
+              }
+              NR == 21 {
+                print "[history-restore] ... diagnostics truncated ..."
+                exit
+              }
+            ' "$diagnostic_path" >&2
+          }
+
+          candidate_path=prior-health/artifact-candidates.tsv
+          sorted_path=prior-health/artifact-candidates.sorted.tsv
           set +e
-          artifact_id="$(
-            gh api --paginate --slurp \
-              "repos/$REPOSITORY/actions/artifacts?per_page=100" \
-              --jq '[.[] | .artifacts[] | select(.expired == false) | select(.workflow_run.head_branch == "main") | select(.name | startswith("tai-live-official-source-v2-"))] | sort_by(.created_at) | last | .id // empty' \
-              2>prior-health/list-error.log
-          )"
+          gh api --paginate \
+            "repos/$REPOSITORY/actions/artifacts?per_page=100" \
+            --jq '.artifacts[]
+              | select(.expired == false)
+              | select(.workflow_run.head_branch == "main")
+              | select(.name | startswith("tai-live-official-source-v3-"))
+              | select((.created_at | type) == "string")
+              | select((.id | type) == "number")
+              | [.created_at, .id]
+              | @tsv' \
+            > "$candidate_path" \
+            2> prior-health/list-error.log
           list_status=$?
           set -e
+
+          artifact_id=''
+          selector_status=0
+          if [ "$list_status" -eq 0 ]; then
+            tab=$'\t'
+            set +e
+            LC_ALL=C sort \
+              -t "$tab" \
+              -k1,1r \
+              -k2,2nr \
+              "$candidate_path" \
+              > "$sorted_path" \
+              2> prior-health/select-error.log
+            selector_status=$?
+            set -e
+
+            if [ "$selector_status" -eq 0 ] && [ -s "$sorted_path" ]; then
+              artifact_created_at=''
+              extra=''
+              if ! IFS="$tab" read -r artifact_created_at artifact_id extra \
+                < "$sorted_path"; then
+                selector_status=2
+              elif [ -z "$artifact_created_at" ] || [ -n "$extra" ]; then
+                selector_status=2
+              else
+                case "$artifact_id" in
+                  ''|*[!0-9]*) selector_status=2 ;;
+                esac
+              fi
+            fi
+          fi
+
           if [ "$list_status" -ne 0 ]; then
+            bounded_diagnostics \
+              "artifact listing failed with status $list_status" \
+              prior-health/list-error.log
+            echo 'GAP' > prior-health/history-status.txt
+          elif [ "$selector_status" -ne 0 ]; then
+            bounded_diagnostics \
+              "artifact selection failed with status $selector_status" \
+              prior-health/select-error.log
             echo 'GAP' > prior-health/history-status.txt
           elif [ -z "$artifact_id" ]; then
             echo 'BOOTSTRAP' > prior-health/history-status.txt
@@ -93,21 +163,68 @@ jobs:
             mkdir -p prior-health/unpacked
             set +e
             gh api "repos/$REPOSITORY/actions/artifacts/$artifact_id/zip" \
-              > prior-health/previous.zip
+              > prior-health/previous.zip \
+              2> prior-health/download-error.log
             download_status=$?
-            unzip -q prior-health/previous.zip -d prior-health/unpacked
-            unzip_status=$?
+            unzip_status=1
+            if [ "$download_status" -eq 0 ]; then
+              unzip -q prior-health/previous.zip \
+                -d prior-health/unpacked \
+                > prior-health/unzip-output.log 2>&1
+              unzip_status=$?
+            fi
             set -e
-            history_path="$(
-              find prior-health/unpacked -name source-health-history.v1.json \
-                -type f -print -quit
-            )"
+
+            history_path=''
+            history_count=0
+            if [ "$download_status" -eq 0 ] \
+              && [ "$unzip_status" -eq 0 ]; then
+              set +e
+              find prior-health/unpacked \
+                -name source-health-history.v1.json \
+                -type f -print \
+                > prior-health/history-paths.txt \
+                2> prior-health/find-error.log
+              find_status=$?
+              set -e
+              if [ "$find_status" -eq 0 ]; then
+                while IFS= read -r candidate_history; do
+                  history_count=$((history_count + 1))
+                  history_path=$candidate_history
+                done < prior-health/history-paths.txt
+              fi
+            else
+              find_status=1
+            fi
+
             if [ "$download_status" -eq 0 ] \
               && [ "$unzip_status" -eq 0 ] \
+              && [ "$find_status" -eq 0 ] \
+              && [ "$history_count" -eq 1 ] \
               && [ -n "$history_path" ]; then
               cp "$history_path" prior-health/previous-history.json
               echo 'CONTIGUOUS' > prior-health/history-status.txt
             else
+              if [ "$download_status" -ne 0 ]; then
+                bounded_diagnostics \
+                  "artifact download failed with status $download_status" \
+                  prior-health/download-error.log
+              elif [ "$unzip_status" -ne 0 ]; then
+                bounded_diagnostics \
+                  "artifact unzip failed with status $unzip_status" \
+                  prior-health/unzip-output.log
+              elif [ "$find_status" -ne 0 ]; then
+                bounded_diagnostics \
+                  "history search failed with status $find_status" \
+                  prior-health/find-error.log
+              else
+                printf '%s\n' \
+                  "expected exactly one history file, found $history_count" \
+                  > prior-health/find-error.log
+                bounded_diagnostics \
+                  'history file cardinality is invalid' \
+                  prior-health/find-error.log
+              fi
               echo 'GAP' > prior-health/history-status.txt
             fi
           fi
@@ -154,7 +271,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tai-live-official-source-v2-${{ github.sha }}-${{ github.run_id }}
+          name: tai-live-official-source-v3-${{ github.sha }}-${{ github.run_id }}
           path: apps/tai/live-evidence
           if-no-files-found: error
           retention-days: 30
