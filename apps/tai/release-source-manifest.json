@@ -9,6 +9,7 @@
     "scripts"
   ],
   "files": [
+    ".gitleaksignore",
     "apps/tai/pyproject.toml",
     "package.json",
     "pnpm-lock.yaml",
