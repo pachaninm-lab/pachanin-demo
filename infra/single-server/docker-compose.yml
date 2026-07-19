@@ -189,6 +189,9 @@ services:
       # PC_CABINET_ROLE_PASSWORD.
       JWT_SECRET: ${JWT_SECRET:?set in .env}
       PC_CABINET_TEST_ACCESS: "true"
+      # Controlled access must carry an explicit expiry; default keeps the pilot
+      # window open. Override PC_CABINET_TEST_ACCESS_EXPIRES_AT in .env to change.
+      PC_CABINET_TEST_ACCESS_EXPIRES_AT: ${PC_CABINET_TEST_ACCESS_EXPIRES_AT:-2027-12-31T23:59:59Z}
       PC_CABINET_ROLE_PASSWORD: ${PC_CABINET_ROLE_PASSWORD:?set in .env}
       PC_CABINET_LOCK_USER: ${PC_CABINET_LOCK_USER:-}
       PC_CABINET_LOCK_PASSWORD: ${PC_CABINET_LOCK_PASSWORD:-}
