@@ -194,15 +194,17 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
     ) -> None:
         super().__init__(host=host, port=port, timeout=timeout, context=context)
         self._target_ip = target_ip
+        self._tls_context = context
+        self._source_address: tuple[str, int] | None = None
 
     def connect(self) -> None:
         raw_socket = socket.create_connection(
             (self._target_ip, self.port),
             timeout=self.timeout,
-            source_address=self.source_address,
+            source_address=self._source_address,
         )
         try:
-            self.sock = self._context.wrap_socket(
+            self.sock = self._tls_context.wrap_socket(
                 raw_socket,
                 server_hostname=self.host,
             )
@@ -310,7 +312,7 @@ class OfficialSourceHTTPFetcher:
                     FetchDisposition.PERMANENT_FAILURE,
                     error.error_code,
                 )
-            except (OSError, TimeoutError, ssl.SSLError, http.client.HTTPException):
+            except (OSError, http.client.HTTPException):
                 return _failure(
                     FetchDisposition.RETRYABLE_FAILURE,
                     "source_transport_failure",
