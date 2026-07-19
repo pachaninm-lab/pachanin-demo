@@ -72,6 +72,70 @@ describe('TaiToolAssertionVerifier', () => {
     });
   });
 
+  it('accepts only the registered confirmed mode for assignLogistics', () => {
+    const verifier = new TaiToolAssertionVerifier();
+    const path = '/api/internal/tai/tools/assignLogistics';
+    const body = {
+      arguments: {
+        dealId: 'deal-2408',
+        carrierOrgId: 'carrier-1',
+        driverUserId: 'driver-1',
+        vehicleId: 'vehicle-1',
+        routeFromFacilityId: 'facility-1',
+        routeToFacilityId: 'facility-2',
+        expectedUpdatedAt: '2026-07-19T01:59:00.000Z',
+        expectedVersion: '7',
+      },
+    };
+    const signed = signedAssertion({
+      tool_name: 'assignLogistics',
+      mode: 'CONFIRMED_WRITE',
+      request_sha256: canonicalTaiToolRequestSha256({
+        method: 'POST',
+        path,
+        payload: body,
+        idempotencyKey: IDEMPOTENCY,
+      }),
+    });
+
+    expect(
+      verifier.verify({
+        ...signed,
+        toolName: 'assignLogistics',
+        method: 'POST',
+        path,
+        body,
+        idempotencyKey: IDEMPOTENCY,
+        now: NOW,
+      }),
+    ).toMatchObject({
+      toolName: 'assignLogistics',
+      mode: 'CONFIRMED_WRITE',
+    });
+
+    const rebound = signedAssertion({
+      tool_name: 'assignLogistics',
+      mode: 'DRAFT',
+      request_sha256: canonicalTaiToolRequestSha256({
+        method: 'POST',
+        path,
+        payload: body,
+        idempotencyKey: IDEMPOTENCY,
+      }),
+    });
+    expect(() =>
+      verifier.verify({
+        ...rebound,
+        toolName: 'assignLogistics',
+        method: 'POST',
+        path,
+        body,
+        idempotencyKey: IDEMPOTENCY,
+        now: NOW,
+      }),
+    ).toThrow(UnauthorizedException);
+  });
+
   it('rejects body rebinding and expired assertions', () => {
     const verifier = new TaiToolAssertionVerifier();
     const signed = signedAssertion();

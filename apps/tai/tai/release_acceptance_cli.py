@@ -50,7 +50,7 @@ _IGNORED_SOURCE_PARTS = frozenset(
     }
 )
 _IGNORED_SOURCE_SUFFIXES = frozenset({".pyc", ".pyo"})
-_MINIMUM_RELEASE_MIGRATION_VERSION = 15
+_MINIMUM_RELEASE_MIGRATION_VERSION = 16
 
 
 def main() -> int:

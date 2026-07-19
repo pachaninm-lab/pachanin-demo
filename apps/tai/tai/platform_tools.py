@@ -20,6 +20,7 @@ _PLATFORM_TOOL_MODES: dict[str, ToolMode] = {
     "getDealSummary": ToolMode.READ_ONLY,
     "getRoleNextActions": ToolMode.READ_ONLY,
     "prepareCommandDraft": ToolMode.DRAFT,
+    "assignLogistics": ToolMode.CONFIRMED_WRITE,
 }
 _MAX_ARGUMENT_BYTES = 32_768
 _MAX_RESPONSE_BYTES = 262_144

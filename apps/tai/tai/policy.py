@@ -67,6 +67,18 @@ TOOL_REGISTRY: dict[str, ToolDefinition] = {
             }
         ),
     ),
+    "assignLogistics": ToolDefinition(
+        name="assignLogistics",
+        mode=ToolMode.CONFIRMED_WRITE,
+        allowed_roles=frozenset(
+            {
+                "logistics",
+                "operator",
+                "administrator",
+            }
+        ),
+        requires_mfa=True,
+    ),
     "acknowledgeRisk": ToolDefinition(
         name="acknowledgeRisk",
         mode=ToolMode.CONFIRMED_WRITE,

@@ -45,7 +45,7 @@ def test_platform_tools_are_disabled_when_bridge_is_not_configured() -> None:
     assert production_platform_tool_handlers(environment, config) == {}
 
 
-def test_platform_tools_register_only_read_and_draft_handlers() -> None:
+def test_platform_tools_register_safe_tools_and_one_confirmed_handler() -> None:
     environment = _environment()
     environment.update(
         {
@@ -65,6 +65,7 @@ def test_platform_tools_register_only_read_and_draft_handlers() -> None:
         "getDealSummary",
         "getRoleNextActions",
         "prepareCommandDraft",
+        "assignLogistics",
     }
     assert "acknowledgeRisk" not in handlers
     assert "createSupportCase" not in handlers

@@ -16,11 +16,12 @@ def _repo_root() -> Path:
 
 def test_repository_manifest_preserves_historical_paths_with_unique_authority_order() -> None:
     inventory = _migration_inventory(_repo_root())
-    assert [item.version for item in inventory.migrations] == list(range(1, 16))
+    assert [item.version for item in inventory.migrations] == list(range(1, 17))
     paths = [item.path for item in inventory.migrations]
     assert paths[9].endswith("0010_operational_authority.sql")
     assert paths[10].endswith("0010_orchestration_runtime.sql")
-    assert paths[-1].endswith("0014_governed_tool_planner.sql")
+    assert paths[-2].endswith("0014_governed_tool_planner.sql")
+    assert paths[-1].endswith("0015_confirmed_logistics_authority.sql")
 
 
 def _fixture(root: Path) -> Path:

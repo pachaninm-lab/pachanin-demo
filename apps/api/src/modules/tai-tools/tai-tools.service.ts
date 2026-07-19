@@ -45,6 +45,27 @@ function optionalPortable(value: JsonRecord, name: string): string | undefined {
   return requiredPortable(value, name);
 }
 
+function requiredIso(value: JsonRecord, name: string): string {
+  const raw = value[name];
+  if (
+    typeof raw !== 'string' ||
+    raw.length > 64 ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(raw) ||
+    !Number.isFinite(new Date(raw).getTime())
+  ) {
+    throw new BadRequestException({ code: 'TAI_TOOL_ARGUMENT_INVALID', field: name });
+  }
+  return raw;
+}
+
+function requiredVersion(value: JsonRecord, name: string): string {
+  const raw = value[name];
+  if (typeof raw !== 'string' || !/^(?:0|[1-9][0-9]{0,19})$/.test(raw)) {
+    throw new BadRequestException({ code: 'TAI_TOOL_ARGUMENT_INVALID', field: name });
+  }
+  return raw;
+}
+
 function delegatedUser(identity: TaiDelegatedIdentity): RequestUser {
   if (!identity.tenantId) {
     throw new ForbiddenException({ code: 'TENANT_CONTEXT_REQUIRED' });
@@ -89,6 +110,8 @@ export class TaiToolsService {
         return this.getRoleNextActions(args, user);
       case 'prepareCommandDraft':
         return this.prepareCommandDraft(args, user, identity);
+      case 'assignLogistics':
+        return this.assignLogistics(args, user, identity);
       default:
         return unreachable(toolName);
     }
@@ -169,6 +192,57 @@ export class TaiToolsService {
       requiresExplicitUserConfirmation: true,
       generatedFromStatus: deal.status ?? null,
       role: roleProjection.role ?? null,
+    };
+  }
+
+  private async assignLogistics(
+    args: JsonRecord,
+    user: RequestUser,
+    identity: TaiDelegatedIdentity,
+  ): Promise<JsonRecord> {
+    if (identity.mode !== 'CONFIRMED_WRITE' || identity.toolName !== 'assignLogistics') {
+      throw new ForbiddenException({ code: 'TAI_CONFIRMED_WRITE_AUTHORITY_REQUIRED' });
+    }
+    exactKeys(args, [
+      'dealId',
+      'carrierOrgId',
+      'driverUserId',
+      'vehicleId',
+      'routeFromFacilityId',
+      'routeToFacilityId',
+      'expectedUpdatedAt',
+      'expectedVersion',
+    ]);
+    const dealId = requiredPortable(args, 'dealId');
+    const carrierOrgId = requiredPortable(args, 'carrierOrgId');
+    const driverUserId = requiredPortable(args, 'driverUserId');
+    const vehicleId = requiredPortable(args, 'vehicleId');
+    const routeFromFacilityId = requiredPortable(args, 'routeFromFacilityId');
+    const routeToFacilityId = requiredPortable(args, 'routeToFacilityId');
+    const expectedUpdatedAt = requiredIso(args, 'expectedUpdatedAt');
+    const expectedVersion = requiredVersion(args, 'expectedVersion');
+    const result = await this.deals.executeUser(
+      dealId,
+      'assign_logistics',
+      {
+        commandId: `tai:${identity.traceId}:${identity.callId}`,
+        idempotencyKey: identity.idempotencyKey,
+        expectedUpdatedAt,
+        expectedVersion,
+        payload: {
+          carrierOrgId,
+          driverUserId,
+          vehicleId,
+          routeFromFacilityId,
+          routeToFacilityId,
+        },
+      },
+      user,
+    );
+    return {
+      schemaVersion: 'platform.assign-logistics-result.v1',
+      authority: 'TAI_CONFIRMED_WRITE',
+      ...record(result, 'result'),
     };
   }
 }

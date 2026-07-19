@@ -19,9 +19,19 @@ if TYPE_CHECKING:
     from tai.orchestration import OrchestrationRequest
     from tai.rag_pipeline import GroundedAnswerResponse
 
-_CATALOG_VERSION = "tai.tool-catalog.safe.v1"
+_CATALOG_VERSION = "tai.tool-catalog.governed.v2"
 _PORTABLE = re.compile(r"^[A-Za-z0-9._:-]{1,160}$")
+_VERSION = re.compile(r"^(?:0|[1-9][0-9]{0,19})$")
 _WHITESPACE = re.compile(r"\s+")
+_ASSIGN_LOGISTICS_FIELDS = (
+    "carrierOrgId",
+    "driverUserId",
+    "vehicleId",
+    "routeFromFacilityId",
+    "routeToFacilityId",
+    "expectedUpdatedAt",
+    "expectedVersion",
+)
 
 
 class PlannerDecisionStatus(StrEnum):
@@ -73,6 +83,19 @@ class _IntentContract:
 
 
 _INTENTS = (
+    _IntentContract(
+        tool_name="assignLogistics",
+        mode=ToolMode.CONFIRMED_WRITE,
+        patterns=(
+            re.compile(r"\bназнач\w*\s+(?:логистик\w*|перевоз\w*|водител\w*)", re.I),
+            re.compile(
+                r"\b(?:assign|appoint)\s+(?:the\s+)?"
+                r"(?:logistics|carrier|driver|transport)",
+                re.I,
+            ),
+            re.compile(r"(?:分配|指派)(?:物流|承运商|司机)"),
+        ),
+    ),
     _IntentContract(
         tool_name="prepareCommandDraft",
         mode=ToolMode.DRAFT,
@@ -131,7 +154,7 @@ _INJECTION_SIGNALS: tuple[tuple[str, re.Pattern[str]], ...] = (
         re.compile(
             r"(?:tool_call|function_call|<tool|<system|\{\s*\"tool_name\")|"
             r"(?:вызови|запусти|invoke|call)\s+"
-            r"(?:getDealSummary|getRoleNextActions|prepareCommandDraft)",
+            r"(?:getDealSummary|getRoleNextActions|prepareCommandDraft|assignLogistics)",
             re.I,
         ),
     ),
@@ -165,7 +188,7 @@ _ACTION_PATTERNS = (
 
 
 class GovernedToolPlanner:
-    """Select at most one registered safe tool from explicit user intent."""
+    """Select at most one explicitly governed platform tool."""
 
     def __init__(
         self,
@@ -173,14 +196,15 @@ class GovernedToolPlanner:
         available_tools: frozenset[str],
         decision_sink: PlannerDecisionSink | None = None,
     ) -> None:
-        catalog_names = {contract.tool_name for contract in _INTENTS}
-        unsupported = available_tools - catalog_names
+        contracts = {contract.tool_name: contract for contract in _INTENTS}
+        unsupported = available_tools - set(contracts)
         if unsupported:
             raise ValueError(f"planner received unsupported tools: {sorted(unsupported)}")
         for name in available_tools:
             definition = TOOL_REGISTRY.get(name)
-            if definition is None or definition.mode not in {ToolMode.READ_ONLY, ToolMode.DRAFT}:
-                raise ValueError("planner catalog may contain only registered read or draft tools")
+            contract = contracts[name]
+            if definition is None or definition.mode is not contract.mode:
+                raise ValueError("planner catalog mode does not match registered authority")
         self._available_tools = available_tools
         self._decision_sink = decision_sink or NullPlannerDecisionSink()
 
@@ -278,6 +302,8 @@ class GovernedToolPlanner:
         definition = TOOL_REGISTRY[contract.tool_name]
         if not request.identity.roles.intersection(definition.allowed_roles):
             return (), PlannerDecisionStatus.REJECTED, ("ROLE_NOT_AUTHORIZED",)
+        if definition.requires_mfa and not request.identity.mfa_verified:
+            return (), PlannerDecisionStatus.REJECTED, ("MFA_REQUIRED",)
         deal_ids = _extract_unique(_DEAL_PATTERNS, normalized)
         if len(deal_ids) != 1:
             reason = "DEAL_ID_AMBIGUOUS" if deal_ids else "DEAL_ID_REQUIRED"
@@ -289,6 +315,16 @@ class GovernedToolPlanner:
                 return (), PlannerDecisionStatus.NO_MATCH, ("ACTION_ID_AMBIGUOUS",)
             if action_ids:
                 arguments["actionId"] = action_ids[0]
+        elif contract.tool_name == "assignLogistics":
+            extracted = {
+                field: _extract_named_value(normalized, field)
+                for field in _ASSIGN_LOGISTICS_FIELDS
+            }
+            if any(value is None for value in extracted.values()):
+                return (), PlannerDecisionStatus.NO_MATCH, (
+                    "ASSIGN_LOGISTICS_FIELDS_REQUIRED",
+                )
+            arguments.update({key: value for key, value in extracted.items() if value})
         _validate_arguments(contract.tool_name, arguments)
         call_sha256 = _sha256({"arguments": arguments, "tool_name": contract.tool_name})
         call = PlannedToolCall(
@@ -324,17 +360,44 @@ def _extract_unique(patterns: tuple[re.Pattern[str], ...], value: str) -> tuple[
     return tuple(found)
 
 
+def _extract_named_value(value: str, name: str) -> str | None:
+    pattern = re.compile(rf"\b{re.escape(name)}\s*[:=]\s*([^\s,;]+)", re.I)
+    matches = {match.group(1) for match in pattern.finditer(value)}
+    if len(matches) != 1:
+        return None
+    return next(iter(matches))
+
+
 def _validate_arguments(tool_name: str, arguments: Mapping[str, Any]) -> None:
     allowed = {
         "getDealSummary": frozenset({"dealId"}),
         "getRoleNextActions": frozenset({"dealId"}),
         "prepareCommandDraft": frozenset({"dealId", "actionId"}),
+        "assignLogistics": frozenset({"dealId", *_ASSIGN_LOGISTICS_FIELDS}),
     }[tool_name]
-    if not set(arguments).issubset(allowed) or "dealId" not in arguments:
+    if set(arguments) - allowed or "dealId" not in arguments:
         raise ValueError("planner generated an invalid argument schema")
+    if tool_name == "assignLogistics" and set(arguments) != allowed:
+        raise ValueError("planner generated an incomplete logistics argument schema")
     for key, value in arguments.items():
-        if not isinstance(value, str) or _PORTABLE.fullmatch(value) is None:
+        if not isinstance(value, str):
+            raise ValueError(f"planner argument {key} must be a string")
+        if key == "expectedUpdatedAt":
+            _validate_iso(value)
+        elif key == "expectedVersion":
+            if _VERSION.fullmatch(value) is None:
+                raise ValueError("planner expectedVersion is invalid")
+        elif _PORTABLE.fullmatch(value) is None:
             raise ValueError(f"planner argument {key} is not portable")
+
+
+def _validate_iso(value: str) -> None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise ValueError("planner expectedUpdatedAt is invalid") from error
+    if parsed.utcoffset() is None:
+        raise ValueError("planner expectedUpdatedAt must be timezone-aware")
 
 
 def _input_sha256(identity: IdentityContext, request_id: str, question: str) -> str:
