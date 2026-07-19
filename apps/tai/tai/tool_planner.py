@@ -214,12 +214,10 @@ class GovernedToolPlanner:
                 status = PlannerDecisionStatus.REJECTED
                 reasons = ("AMBIGUOUS_TOOL_INTENT",)
             elif matches:
-                contract = matches[0]
                 calls, status, reasons = self._build_call(
-                    contract=contract,
+                    contract=matches[0],
                     request=request,
                     normalized=normalized,
-                    trace_id=trace_id,
                 )
 
         plan = AgentToolPlan(
@@ -237,6 +235,7 @@ class GovernedToolPlanner:
             )
             for call in calls
         )
+        decision_at = request.requested_at
         payload = _decision_payload(
             trace_id=trace_id,
             plan_id=plan_id,
@@ -246,7 +245,7 @@ class GovernedToolPlanner:
             selected_calls=selected,
             reason_codes=reasons,
             rejection_signals=signals,
-            generated_at=now,
+            generated_at=decision_at,
         )
         decision = PlannerDecision(
             trace_id=trace_id,
@@ -261,7 +260,7 @@ class GovernedToolPlanner:
             selected_calls=selected,
             reason_codes=reasons,
             rejection_signals=signals,
-            generated_at=now,
+            generated_at=decision_at,
             decision_sha256=_sha256(payload),
         )
         self._decision_sink.record(decision)
@@ -273,7 +272,6 @@ class GovernedToolPlanner:
         contract: _IntentContract,
         request: OrchestrationRequest,
         normalized: str,
-        trace_id: UUID,
     ) -> tuple[tuple[PlannedToolCall, ...], PlannerDecisionStatus, tuple[str, ...]]:
         if contract.tool_name not in self._available_tools:
             return (), PlannerDecisionStatus.NO_MATCH, ("TOOL_NOT_CONFIGURED",)
@@ -292,15 +290,13 @@ class GovernedToolPlanner:
             if action_ids:
                 arguments["actionId"] = action_ids[0]
         _validate_arguments(contract.tool_name, arguments)
-        arguments_sha256 = _sha256(arguments)
-        call_id = f"planner-{arguments_sha256[:24]}"
+        call_sha256 = _sha256({"arguments": arguments, "tool_name": contract.tool_name})
         call = PlannedToolCall(
-            call_id=call_id,
+            call_id=f"planner-{call_sha256[:24]}",
             tool_name=contract.tool_name,
             arguments=arguments,
             requested_mode=contract.mode,
         )
-        del trace_id
         return (call,), PlannerDecisionStatus.SELECTED, ("EXPLICIT_USER_INTENT",)
 
 
