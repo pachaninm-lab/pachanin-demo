@@ -69,10 +69,12 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(isolatedLogin).toContain("from '@/app/platform-v7/login/page'");
     expect(isolatedRecovery).toContain("from '@/app/platform-v7/forgot-password/page'");
     expect(isolatedLayout).toContain('<HydrationSafeChatSupport />');
+    expect(isolatedLayout.indexOf('{children}')).toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport />'));
   });
 
   it('restores only the last approved contact dock visual on the public homepage', () => {
-    expect(approvedHomeDock).toContain("[data-contact-dock-visual='approved']");
+    expect(approvedHomeDock).toContain("[data-contact-dock-visual='approved'] ~ .pc-public-contact-dock");
+    expect(approvedHomeDock).not.toContain("[data-contact-dock-visual='approved'] .pc-public-contact-dock {");
     expect(approvedHomeDock).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
     expect(approvedHomeDock).toContain('width: min(390px');
     expect(approvedHomeDock).toContain('border: 1px solid rgba(8, 122, 59, .42)');
