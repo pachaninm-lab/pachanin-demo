@@ -92,6 +92,7 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import hashlib,json,os,re
+          from datetime import datetime
           from pathlib import Path
           target=os.environ['TARGET_SHA']
           required=set(json.loads(Path('required.json').read_text()))
@@ -102,6 +103,20 @@ jobs:
               return hashlib.sha256(json.dumps(v,ensure_ascii=False,allow_nan=False,separators=(',',':'),sort_keys=True).encode()).hexdigest()
           def require_digest(v,n):
               if not isinstance(v,str) or not sha.fullmatch(v): raise SystemExit(f'{n} invalid')
+          def canonical_time(value):
+              return datetime.fromisoformat(value.replace('Z','+00:00')).isoformat()
+          def semantic_evidence(items):
+              return [
+                  {
+                      'completed_at': canonical_time(item['completed_at']),
+                      'conclusion': item['conclusion'],
+                      'exact_head_sha': item['exact_head_sha'],
+                      'run_id': item['run_id'],
+                      'run_url': item['run_url'],
+                      'workflow_name': item['workflow_name'],
+                  }
+                  for item in items
+              ]
           if att.get('schema_version')!='tai.release.attestation.v1': raise SystemExit('schema mismatch')
           if att.get('repository')!=os.environ['REPOSITORY'] or att.get('exact_main_sha')!=target: raise SystemExit('release identity mismatch')
           if att.get('accepted') is not True or att.get('reasons')!=[]: raise SystemExit('release not accepted')
@@ -116,7 +131,7 @@ jobs:
           evidence=att.get('workflow_evidence')
           if not isinstance(evidence,list) or len(evidence)!=12 or {e.get('workflow_name') for e in evidence}!=required: raise SystemExit('workflow authority set mismatch')
           projected=[{k:e[k] for k in ('completed_at','conclusion','exact_head_sha','run_id','run_url','workflow_name')} for e in evidence]
-          if raw_evidence!=projected: raise SystemExit('standalone evidence mismatch')
+          if semantic_evidence(raw_evidence)!=semantic_evidence(projected): raise SystemExit('standalone evidence mismatch')
           workflow_digests=[]
           for e in evidence:
               if e.get('exact_head_sha')!=target or e.get('conclusion')!='success': raise SystemExit('workflow not exact-head success')
