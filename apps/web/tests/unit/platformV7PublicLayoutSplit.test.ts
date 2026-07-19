@@ -13,6 +13,8 @@ const nextConfig = read('apps/web/next.config.js');
 const isolatedLayout = read('apps/web/app/pc-public-entry/platform-v7/layout.tsx');
 const isolatedLanding = read('apps/web/app/pc-public-entry/platform-v7/page.tsx');
 const approvedHomeDock = read('apps/web/app/pc-public-entry/platform-v7/home-approved-contact-dock.css');
+const entryDockMountCss = read('apps/web/app/pc-public-entry/platform-v7/public-entry-contact-dock-mount.css');
+const serviceWorkerRecovery = read('apps/web/app/pc-public-entry/sw-recovery/route.ts');
 const isolatedLogin = read('apps/web/app/pc-public-entry/platform-v7/login/page.tsx');
 const isolatedRecovery = read('apps/web/app/pc-public-entry/platform-v7/forgot-password/page.tsx');
 const landing = read('apps/web/app/platform-v7/page.tsx');
@@ -72,7 +74,19 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(isolatedLayout.indexOf('{children}')).toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport />'));
   });
 
-  it('forces fresh HTML for the root and public homepage after contact dock releases', () => {
+  it('renders one contact dock in initial entry HTML and suppresses the deferred duplicate', () => {
+    expect(isolatedLayout).toContain("import './public-entry-contact-dock-mount.css'");
+    expect(isolatedLayout).toContain("import { PublicContactDock } from '@/components/platform-v7/PublicContactDock'");
+    expect(isolatedLayout).toContain("data-public-entry-contact-dock-mounted='true'");
+    expect(isolatedLayout).toContain("data-public-entry-contact-dock-end='true'");
+    expect(isolatedLayout).toContain('<PublicContactDock />');
+    expect(isolatedLayout.indexOf('<PublicContactDock />'))
+      .toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport />'));
+    expect(entryDockMountCss).toContain("[data-public-entry-contact-dock-end='true'] ~ .pc-public-contact-dock");
+    expect(entryDockMountCss).toContain('display: none !important');
+  });
+
+  it('forces fresh HTML and actively recovers clients controlled by the legacy service worker', () => {
     expect(nextConfig).toContain('const publicEntryFreshHeaders = [');
     expect(nextConfig).toContain("{ key: 'Cache-Control', value: 'no-store, no-cache, max-age=0, must-revalidate' }");
     expect(nextConfig).toContain("{ key: 'CDN-Cache-Control', value: 'no-store' }");
@@ -80,6 +94,19 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(nextConfig).toContain("source: '/'");
     expect(nextConfig).toContain("source: '/platform-v7'");
     expect(nextConfig).toContain("source: '/pc-public-entry/platform-v7'");
+    expect(nextConfig).toContain("source: '/sw.js'");
+    expect(nextConfig).toContain("{ source: '/sw.js', destination: '/pc-public-entry/sw-recovery' }");
+    expect(nextConfig).toContain("{ key: 'Service-Worker-Allowed', value: '/' }");
+    expect(rootLayout).toContain('const serviceWorkerRecoveryScript =');
+    expect(rootLayout).toContain('navigator.serviceWorker.getRegistrations()');
+    expect(rootLayout).toContain('navigator.serviceWorker.controller');
+    expect(rootLayout).toContain('window.location.replace(url.toString())');
+    expect(serviceWorkerRecovery).toContain("const RECOVERY_VERSION = '2026-07-19-contact-dock-v3'");
+    expect(serviceWorkerRecovery).toContain('self.clients.claim()');
+    expect(serviceWorkerRecovery).toContain("self.clients.matchAll({ type: 'window', includeUncontrolled: true })");
+    expect(serviceWorkerRecovery).toContain('client.navigate(url.toString())');
+    expect(serviceWorkerRecovery).toContain('self.registration.unregister()');
+    expect(serviceWorkerRecovery).not.toContain('event.respondWith');
   });
 
   it('restores only the last approved contact dock visual on the public homepage', () => {
