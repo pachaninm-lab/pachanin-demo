@@ -6,6 +6,7 @@ from uuid import UUID
 
 import pytest
 
+from tai.agent_runtime import AgentToolPlan
 from tai.contracts import IdentityContext, ToolMode
 from tai.orchestration import OrchestrationRequest
 from tai.tool_planner import (
@@ -51,7 +52,7 @@ def _plan(
     planner: GovernedToolPlanner,
     question: str,
     *roles: str,
-):
+) -> AgentToolPlan:
     return planner.plan(
         request=_request(question, *roles),
         grounded=cast(Any, object()),
