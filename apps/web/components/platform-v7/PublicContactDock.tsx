@@ -117,9 +117,6 @@ export function PublicContactDock() {
     if (!trigger) return;
     returnFocusRef.current = surface;
     trigger.click();
-    trackEvent(surface === 'assistant' ? 'public_platform_assistant_opened' : 'public_support_opened', {
-      source: 'unified_contact_dock',
-    });
   };
 
   return (
