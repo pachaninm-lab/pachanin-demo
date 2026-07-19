@@ -1,0 +1,41 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b2a-llama-toolchain-authority",
+  "status": "active",
+  "parent_issue": 2726,
+  "issue": 2828,
+  "maturity_boundary": "exact-llama-cpp-source-build-authority-and-pending-baseline-only",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b2a-2828.json",
+    "apps/tai/model-artifacts/README.md",
+    "apps/tai/model-artifacts/candidates.v1.json",
+    "apps/tai/model-artifacts/llama-cpp-build-baseline.v1.json",
+    "apps/tai/model-artifacts/llama-cpp-build-evidence.schema.v1.json",
+    "apps/tai/model-artifacts/llama-cpp-source-build-runbook.md",
+    "apps/tai/model-artifacts/llama-cpp-toolchain-authority.v1.json",
+    "apps/tai/tai/llama_toolchain.py",
+    "apps/tai/tai/model_artifact_registry_cli.py",
+    "apps/tai/tests/test_ap13b2a_scope.py",
+    "apps/tai/tests/test_llama_toolchain.py"
+  ],
+  "forbidden_capabilities": [
+    "mutable branch, release-only reference or short commit as build authority",
+    "fabricated source archive, compiler, log, binary size or binary digest evidence",
+    "execution of configure, build or other argv read from a manifest by the verifier",
+    "committed source archive, checkout, build log or compiled binary",
+    "model weight download, conversion, quantization, benchmark or admission claim",
+    "license approval or model bundle verification claim",
+    "production readiness or operational attestation claim"
+  ],
+  "acceptance": [
+    "official llama.cpp release b9637 is bound to full commit aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
+    "authority fixes exact source archive URI, Linux x86_64 build profile, argv, evidence paths and four required targets",
+    "external build evidence schema distinguishes PENDING_BUILD from BUILT",
+    "committed baseline contains no fabricated build observations and cannot verify",
+    "collector hashes bounded existing evidence without executing manifest commands",
+    "verifier rejects traversal, symlinks, non-regular files, duplicate paths and targets, inode aliasing, dirty source, drift and hash mismatch",
+    "all quantization recipes bind to the exact full toolchain commit",
+    "controlled source-build runbook preserves source, environment, commands, logs and binary identities",
+    "Ruff, strict mypy, full pytest with coverage and repository security/runtime gates pass"
+  ]
+}
