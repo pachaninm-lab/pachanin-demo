@@ -105,6 +105,8 @@ services:
       OBJECT_STORAGE_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       OBJECT_STORAGE_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       OBJECT_STORAGE_FORCE_PATH_STYLE: "true"
+      # MinIO is on the private container network only — HTTP is safe here.
+      OBJECT_STORAGE_ALLOW_INSECURE_ENDPOINT: "true"
     depends_on:
       migrations:
         condition: service_completed_successfully

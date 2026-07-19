@@ -344,8 +344,15 @@ export function createObjectStorageAdapterFromEnv(env: NodeJS.ProcessEnv = proce
   const endpoint = String(env.OBJECT_STORAGE_ENDPOINT ?? '').trim();
   if (!endpoint) throw new Error('OBJECT_STORAGE_ENDPOINT is required for the s3 driver.');
   const endpointUrl = new URL(endpoint);
-  if (production && endpointUrl.protocol !== 'https:') {
-    throw new Error('Production object storage requires HTTPS.');
+  // HTTPS is mandatory for any endpoint reachable over an untrusted network.
+  // A private, in-network endpoint (e.g. an in-cluster MinIO on the container
+  // network, never exposed publicly) may opt out explicitly.
+  const allowInsecureEndpoint =
+    String(env.OBJECT_STORAGE_ALLOW_INSECURE_ENDPOINT ?? '').toLowerCase() === 'true';
+  if (production && endpointUrl.protocol !== 'https:' && !allowInsecureEndpoint) {
+    throw new Error(
+      'Production object storage requires HTTPS. Set OBJECT_STORAGE_ALLOW_INSECURE_ENDPOINT=true only for a trusted private-network endpoint.',
+    );
   }
   return new S3CompatibleStorageAdapter({
     endpoint,
