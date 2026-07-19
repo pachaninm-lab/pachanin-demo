@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { ChatSupportWidget } from './ChatSupportWidget';
 import { PrivateAssistantShortcutLabel } from './PrivateAssistantShortcutLabel';
+import { PublicContactDock } from './PublicContactDock';
 import { PublicPlatformAssistant } from './PublicPlatformAssistant';
 import { UnifiedModalSheetFullscreenController } from './UnifiedModalSheetFullscreenController';
 import { installPublicAssistantFetchResilience } from '@/lib/platform-v7/install-public-assistant-fetch-resilience';
@@ -108,8 +109,10 @@ export function ContextualSupportOrAssistant() {
     return (
       <>
         <UnifiedModalSheetFullscreenController />
+        {/* Keep the separate no-account-data knowledge assistant and support workflows; unify only their public entry point. */}
         <PublicPlatformAssistant />
         <ChatSupportWidget />
+        <PublicContactDock />
       </>
     );
   }
