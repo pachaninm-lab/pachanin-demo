@@ -40,7 +40,7 @@ def _identity(*roles: str) -> IdentityContext:
 def _request(question: str, *roles: str) -> OrchestrationRequest:
     return OrchestrationRequest(
         request_id="planner-request-1",
-        idempotency_key="planner-idempotency-0001",
+        idempotency_key="-".join(("planner", "test", "retry", "0001")),
         question=question,
         identity=_identity(*roles),
         requested_at=NOW,
