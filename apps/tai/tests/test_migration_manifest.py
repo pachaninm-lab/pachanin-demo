@@ -1,3 +1,5 @@
+"""Regression coverage for immutable migration ordering and path integrity."""
+
 from __future__ import annotations
 
 import json
@@ -23,7 +25,7 @@ def test_repository_manifest_preserves_historical_paths_with_unique_authority_or
 
 def _fixture(root: Path) -> Path:
     migration_root = root / "apps/tai/tai/migrations"
-    migration_root.mkdir(parents=True)
+    migration_root.mkdir(parents=True, exist_ok=True)
     names = ["0010_first.sql", "0010_second.sql"]
     for name in names:
         (migration_root / name).write_text("SELECT 1;\n", encoding="utf-8")
