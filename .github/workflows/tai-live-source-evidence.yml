@@ -2,6 +2,8 @@ name: TAI Live Official Source Evidence
 
 on:
   workflow_dispatch:
+  issue_comment:
+    types: [created]
   schedule:
     - cron: '23 4 * * 2'
 
@@ -9,13 +11,27 @@ permissions:
   contents: read
   actions: read
 
-concurrency:
-  group: tai-live-official-source-evidence
-  cancel-in-progress: false
-
 jobs:
   collect:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        github.event_name == 'schedule' ||
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.action == 'created' &&
+          github.event.issue.pull_request == null &&
+          github.event.comment.body == '/tai run exact-main' &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.user.login == github.repository_owner &&
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner
+        )
+      )
+    concurrency:
+      group: tai-live-official-source-evidence
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -112,7 +128,8 @@ jobs:
             )
           fi
           acceptance_args=()
-          if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ]; then
+          if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ] \
+            || [ "$GITHUB_EVENT_NAME" = 'issue_comment' ]; then
             acceptance_args+=(--require-complete-coverage)
           fi
           python -m tai.live_source_evidence_cli \

@@ -144,6 +144,12 @@ def _observation(
     )
 
 
+def test_owner_command_trigger_is_governed() -> None:
+    cycle = replace(_cycle(1, _success()), trigger="issue_comment")
+
+    assert cycle.trigger == "issue_comment"
+
+
 def _coverage(
     catalog: OfficialSourceCatalog,
     observation: SourceObservation | None,

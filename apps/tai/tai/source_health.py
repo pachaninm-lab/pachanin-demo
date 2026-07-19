@@ -149,7 +149,7 @@ class SourceRefreshCycle:
         _git_oid(self.repository_sha)
         if self.run_id < 1 or self.run_attempt < 1:
             raise ValueError("refresh cycle run identity must be positive")
-        if self.trigger not in {"schedule", "workflow_dispatch"}:
+        if self.trigger not in {"issue_comment", "schedule", "workflow_dispatch"}:
             raise ValueError("refresh cycle trigger is not governed")
         _aware(self.started_at, "started_at")
         _aware(self.completed_at, "completed_at")
