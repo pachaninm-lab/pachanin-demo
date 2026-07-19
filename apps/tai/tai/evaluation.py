@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
+from tai.git_oid import validate_git_oid
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9._:-]{1,160}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -335,7 +336,7 @@ class EvaluationAuthority:
         completed_at: datetime,
         baseline: EvaluationReport | None = None,
     ) -> EvaluationReport:
-        _digest(exact_head_sha, "exact_head_sha")
+        validate_git_oid(exact_head_sha, "exact_head_sha")
         _portable(model_route, "model_route")
         _portable(knowledge_version, "knowledge_version")
         _portable(policy_version, "policy_version")

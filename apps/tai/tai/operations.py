@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import UUID
+from tai.git_oid import validate_git_oid
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9._:-]{1,160}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -90,7 +91,7 @@ class SLOObservation:
         if self.observed_at < self.window_ended_at:
             raise ValueError("observed_at must not be before window_ended_at")
         _digest(self.source_sha256, "source_sha256")
-        _digest(self.exact_head_sha, "exact_head_sha")
+        validate_git_oid(self.exact_head_sha, "exact_head_sha")
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,7 +110,7 @@ class SLOAssessment:
 
     def __post_init__(self) -> None:
         _portable(self.slo_id, "slo_id")
-        _digest(self.exact_head_sha, "exact_head_sha")
+        validate_git_oid(self.exact_head_sha, "exact_head_sha")
         if self.value is not None:
             _finite(self.value, "assessment value")
         _finite(self.target, "assessment target")
@@ -172,7 +173,7 @@ def assess_slo(
     exact_head_sha: str,
     assessed_at: datetime,
 ) -> SLOAssessment:
-    _digest(exact_head_sha, "exact_head_sha")
+    validate_git_oid(exact_head_sha, "exact_head_sha")
     _aware(assessed_at, "assessed_at")
     status = SLOAssessmentStatus.UNKNOWN
     reason: str | None = None
@@ -264,7 +265,7 @@ class OperationalEvidence:
 
     def __post_init__(self) -> None:
         _portable(self.evidence_id, "evidence_id")
-        _digest(self.exact_head_sha, "exact_head_sha")
+        validate_git_oid(self.exact_head_sha, "exact_head_sha")
         _digest(self.artifact_sha256, "artifact_sha256")
         _aware(self.observed_at, "observed_at")
         _aware(self.valid_until, "valid_until")
@@ -322,7 +323,7 @@ class OperationalReadinessAuthority:
         decided_at: datetime,
     ) -> OperationalReadinessDecision:
         _portable(release_id, "release_id")
-        _digest(exact_head_sha, "exact_head_sha")
+        validate_git_oid(exact_head_sha, "exact_head_sha")
         _aware(decided_at, "decided_at")
         evidence_by_kind = _unique_evidence(evidence)
         assessments_by_indicator = _unique_assessments(assessments)

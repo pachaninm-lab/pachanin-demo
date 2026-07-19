@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
+from tai.git_oid import validate_git_oid
 
 from tai.evaluation import EvaluationReport
 from tai.operations import OperationalReadinessDecision
@@ -96,7 +97,7 @@ class WorkflowRunEvidence:
             raise ValueError("workflow_name must be bounded and portable")
         if self.run_id < 1:
             raise ValueError("workflow run_id must be positive")
-        _digest(self.exact_head_sha, "workflow exact_head_sha")
+        validate_git_oid(self.exact_head_sha, "workflow exact_head_sha")
         _aware(self.completed_at, "workflow completed_at")
         if not self.run_url.startswith("https://github.com/"):
             raise ValueError("workflow run_url must be a GitHub HTTPS URL")
@@ -155,7 +156,7 @@ DEFAULT_REQUIRED_WORKFLOWS = frozenset(
 @dataclass(frozen=True, slots=True)
 class ApplicationReleasePolicy:
     required_workflows: frozenset[str] = DEFAULT_REQUIRED_WORKFLOWS
-    minimum_migration_version: int = 11
+    minimum_migration_version: int = 12
 
     def __post_init__(self) -> None:
         if not self.required_workflows:
@@ -181,7 +182,7 @@ class ApplicationReleaseCandidate:
     def __post_init__(self) -> None:
         if _REPOSITORY.fullmatch(self.repository) is None:
             raise ValueError("repository must use owner/name form")
-        _digest(self.exact_main_sha, "exact_main_sha")
+        validate_git_oid(self.exact_main_sha, "exact_main_sha")
         _digest(self.source_tree_sha256, "source_tree_sha256")
         _aware(self.created_at, "created_at")
         if self.previous_attestation_sha256 is not None:
@@ -221,7 +222,7 @@ class ApplicationReleaseAttestation:
             raise ValueError(
                 "application attestation cannot claim production operational acceptance"
             )
-        _digest(self.exact_main_sha, "exact_main_sha")
+        validate_git_oid(self.exact_main_sha, "exact_main_sha")
         _digest(self.source_tree_sha256, "source_tree_sha256")
         _digest(self.migration_inventory_sha256, "migration_inventory_sha256")
         for digest in self.workflow_evidence_sha256s:
@@ -362,7 +363,7 @@ class ProductionReleaseAttestation:
 
     def __post_init__(self) -> None:
         _digest(self.release_id, "release_id")
-        _digest(self.exact_main_sha, "exact_main_sha")
+        validate_git_oid(self.exact_main_sha, "exact_main_sha")
         _digest(
             self.application_attestation_sha256,
             "application_attestation_sha256",
