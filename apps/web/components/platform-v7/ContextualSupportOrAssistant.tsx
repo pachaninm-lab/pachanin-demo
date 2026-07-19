@@ -3,11 +3,13 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { AiAssistantPanel } from './AiAssistantPanel';
+import { CabinetContactDock } from './CabinetContactDock';
 import { ChatSupportWidget } from './ChatSupportWidget';
 import { PublicContactDock } from './PublicContactDock';
 import { PublicPlatformAssistant } from './PublicPlatformAssistant';
 import { UnifiedModalSheetFullscreenController } from './UnifiedModalSheetFullscreenController';
 import { installPublicAssistantFetchResilience } from '@/lib/platform-v7/install-public-assistant-fetch-resilience';
+import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/styles/platform-v7-public-assistant.css';
 import '@/styles/platform-v7-public-assistant-shortcut.css';
 import '@/styles/platform-v7-public-assistant-mobile-fix.css';
@@ -111,7 +113,13 @@ function useVisualViewportMetrics() {
   }, []);
 }
 
-export function ContextualSupportOrAssistant() {
+export function ContextualSupportOrAssistant({
+  verifiedRole,
+  renderDock = true,
+}: {
+  verifiedRole?: PlatformRole;
+  renderDock?: boolean;
+}) {
   installPublicAssistantFetchResilience();
   useVisualViewportMetrics();
   const routerPathname = usePathname() || PUBLIC_HOME;
@@ -126,7 +134,9 @@ export function ContextualSupportOrAssistant() {
       <>
         <UnifiedModalSheetFullscreenController />
         <ChatSupportWidget />
-        <PublicContactDock assistantContext='workspace' />
+        {renderDock && verifiedRole
+          ? <CabinetContactDock role={verifiedRole} assistantContext='workspace' />
+          : null}
       </>
     );
   }
@@ -137,7 +147,9 @@ export function ContextualSupportOrAssistant() {
         <UnifiedModalSheetFullscreenController />
         <AiAssistantPanel variant='floating' />
         <ChatSupportWidget />
-        <PublicContactDock assistantContext='private' />
+        {renderDock && verifiedRole
+          ? <CabinetContactDock role={verifiedRole} assistantContext='private' />
+          : null}
       </>
     );
   }
@@ -149,7 +161,7 @@ export function ContextualSupportOrAssistant() {
       <UnifiedModalSheetFullscreenController />
       <PublicPlatformAssistant />
       <ChatSupportWidget />
-      <PublicContactDock />
+      {renderDock ? <PublicContactDock /> : null}
     </>
   );
 }
