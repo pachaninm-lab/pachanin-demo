@@ -3,6 +3,11 @@
 # domain exists, an http://<ip> address (→ plain HTTP; an IP cannot be issued a
 # certificate, so the http:// scheme keeps Caddy from redirecting to a TLS
 # listener it cannot provision).
+#
+# Routing model: the Next.js web app is the single browser origin. It owns most
+# /api/* routes (auth/session, sim, staff, platform-v7, runtime-*, and the
+# /api/proxy/* bridge) and reaches the NestJS backend internally. Only the
+# operational probes and the few backend-direct namespaces go straight to the API.
 {$SITE_ADDRESS} {
 	# Harden every response (HSTS is meaningful once served over HTTPS).
 	header {
@@ -14,18 +19,13 @@
 	}
 
 	# Drop common vulnerability-scanner and secret-file probes at the edge
-	# (e.g. .env, .git, .vscode, wp-admin) before they reach the app. This is
-	# what neutralises noise like GET /api/.env and /.vscode/sftp.json — the
-	# connection is aborted, nothing is proxied and nothing is leaked.
+	# (e.g. .env, .git, .vscode, wp-admin) before they reach the app.
 	@probes path *.env /.git* /.svn* /.hg* /.aws* /.ssh* /.vscode* /.idea* *.sql *.bak *.old *.swp /sftp.json /wp-login.php /wp-admin* /wp-content* /xmlrpc.php /phpmyadmin* /pma* /vendor/* /actuator* /cgi-bin/*
 	handle @probes {
 		abort
 	}
 
-	# API and operational probes go to the NestJS service.
-	handle /api/* {
-		reverse_proxy api:3001
-	}
+	# Operational probes → NestJS backend.
 	handle /health {
 		reverse_proxy api:3001
 	}
@@ -33,7 +33,16 @@
 		reverse_proxy api:3001
 	}
 
-	# Everything else is the Next.js cabinet.
+	# Backend-direct API namespaces (no web-native handler).
+	handle /api/deals* {
+		reverse_proxy api:3001
+	}
+	handle /api/fgis* {
+		reverse_proxy api:3001
+	}
+
+	# Everything else — pages and web-owned /api/* routes — goes to Next.js,
+	# which proxies to the backend internally where needed.
 	handle {
 		reverse_proxy web:3000
 	}

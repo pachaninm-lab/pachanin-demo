@@ -181,6 +181,8 @@ services:
       PORT: "3000"
       API_BASE_URL: "http://api:3001"
       API_URL: "http://api:3001"
+      # The web /api/proxy bridge reads NEXT_PUBLIC_API_URL for the backend base.
+      NEXT_PUBLIC_API_URL: "http://api:3001"
       # Controlled-pilot cabinet access: signed sessions for demonstrating the
       # cabinets to partners without opening public self-registration. The web
       # signs sessions with the same JWT_SECRET the API verifies. Owner logs in
