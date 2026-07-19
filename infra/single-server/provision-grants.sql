@@ -14,7 +14,12 @@
 GRANT USAGE ON SCHEMA public, security, logistics, labs, settlement TO app_deal_api;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public   TO app_deal_api;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA security TO app_deal_api;
+
+-- The security schema is EXECUTE-only: rate-limit tables are reachable solely
+-- through the SECURITY DEFINER consume() function. The runtime rate-limit
+-- boundary REQUIRES the deal principal to hold no direct table privilege here,
+-- so revoke any (e.g. from an earlier broad grant) and never grant table access.
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA security FROM app_deal_api;
 
 GRANT SELECT ON ALL TABLES IN SCHEMA logistics TO app_deal_api;
 GRANT SELECT ON
@@ -61,7 +66,6 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA settlement TO app_deal_api;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA security   TO app_deal_api;
 
 ALTER DEFAULT PRIVILEGES IN SCHEMA public    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_deal_api;
-ALTER DEFAULT PRIVILEGES IN SCHEMA security  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_deal_api;
 ALTER DEFAULT PRIVILEGES IN SCHEMA logistics GRANT SELECT ON TABLES TO app_deal_api;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public    GRANT USAGE, SELECT ON SEQUENCES TO app_deal_api;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public    GRANT EXECUTE ON FUNCTIONS TO app_deal_api;
