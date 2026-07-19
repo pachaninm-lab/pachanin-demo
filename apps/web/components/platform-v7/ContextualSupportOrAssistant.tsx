@@ -49,7 +49,7 @@ function normalize(pathname: string): string {
   const clean = pathname.split('?')[0].replace(/\/+$/u, '');
   const rewrittenHome = `${PUBLIC_ENTRY_REWRITE_PREFIX}${PUBLIC_HOME}`;
 
-  if (!clean) return PUBLIC_HOME;
+  if (!clean || clean === '/') return PUBLIC_HOME;
   if (clean === rewrittenHome || clean.startsWith(`${rewrittenHome}/`)) {
     return clean.slice(PUBLIC_ENTRY_REWRITE_PREFIX.length) || PUBLIC_HOME;
   }
@@ -108,21 +108,10 @@ function useVisualViewportMetrics() {
 export function ContextualSupportOrAssistant() {
   installPublicAssistantFetchResilience();
   useVisualViewportMetrics();
-  const pathname = usePathname() || PUBLIC_HOME;
-  const path = normalize(pathname);
+  const routerPathname = usePathname() || PUBLIC_HOME;
+  const browserPathname = typeof window === 'undefined' ? routerPathname : window.location.pathname;
+  const path = normalize(browserPathname || routerPathname);
   if (path === ASSISTANT_WORKSPACE) return null;
-
-  if (path === PUBLIC_HOME) {
-    return (
-      <>
-        <UnifiedModalSheetFullscreenController />
-        {/* Keep the separate no-account-data knowledge assistant and support workflows; unify only their public entry point. */}
-        <PublicPlatformAssistant />
-        <ChatSupportWidget />
-        <PublicContactDock />
-      </>
-    );
-  }
 
   if (isPrivateWorkspace(path)) {
     return (
@@ -133,10 +122,14 @@ export function ContextualSupportOrAssistant() {
     );
   }
 
+  // Every public platform surface uses one visible entry point. The standalone
+  // assistant and support launchers remain internal triggers for the shared dock.
   return (
     <>
       <UnifiedModalSheetFullscreenController />
+      <PublicPlatformAssistant />
       <ChatSupportWidget />
+      <PublicContactDock />
     </>
   );
 }
