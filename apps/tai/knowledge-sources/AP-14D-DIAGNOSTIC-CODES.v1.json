@@ -1,0 +1,24 @@
+{
+  "codes": [
+    {"code": "source_connection_aborted", "retryable": true},
+    {"code": "source_connection_broken", "retryable": true},
+    {"code": "source_connection_refused", "retryable": true},
+    {"code": "source_connection_reset", "retryable": true},
+    {"code": "source_dns_resolution_empty", "retryable": true},
+    {"code": "source_dns_resolution_failed", "retryable": true},
+    {"code": "source_dns_transport_failure", "retryable": true},
+    {"code": "source_host_unreachable", "retryable": true},
+    {"code": "source_http_bad_status_line", "retryable": true},
+    {"code": "source_http_incomplete_read", "retryable": true},
+    {"code": "source_http_protocol_failure", "retryable": true},
+    {"code": "source_http_remote_disconnected", "retryable": true},
+    {"code": "source_network_down", "retryable": true},
+    {"code": "source_network_unreachable", "retryable": true},
+    {"code": "source_tls_certificate_verification_failed", "retryable": false},
+    {"code": "source_tls_handshake_failed", "retryable": true},
+    {"code": "source_transport_timeout", "retryable": true},
+    {"code": "source_transport_unknown", "retryable": true}
+  ],
+  "privacy_contract": "No exception message, IP address, certificate material, response body or secret is emitted.",
+  "schema_version": "tai.official-source-diagnostic-codes.v1"
+}
