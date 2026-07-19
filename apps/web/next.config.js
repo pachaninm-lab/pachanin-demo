@@ -36,6 +36,11 @@ const publicEntryFreshHeaders = [
   { key: 'Expires', value: '0' },
 ];
 
+const serviceWorkerRecoveryHeaders = [
+  ...publicEntryFreshHeaders,
+  { key: 'Service-Worker-Allowed', value: '/' },
+];
+
 const nextConfig = {
   reactStrictMode: true,
   eslint: {
@@ -59,6 +64,10 @@ const nextConfig = {
         headers: publicEntryFreshHeaders,
       },
       {
+        source: '/sw.js',
+        headers: serviceWorkerRecoveryHeaders,
+      },
+      {
         source: '/(.*)',
         headers: securityHeaders,
       },
@@ -67,6 +76,7 @@ const nextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
+        { source: '/sw.js', destination: '/pc-public-entry/sw-recovery' },
         { source: '/platform-v7', destination: '/pc-public-entry/platform-v7' },
         { source: '/platform-v7/login', destination: '/pc-public-entry/platform-v7/login' },
         { source: '/platform-v7/forgot-password', destination: '/pc-public-entry/platform-v7/forgot-password' },
