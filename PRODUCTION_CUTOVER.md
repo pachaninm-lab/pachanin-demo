@@ -35,7 +35,7 @@ Do not enable demo-user seeding in production.
 7. Confirm migrations/provisioning jobs completed when the release requires them.
 8. Inspect the running container OCI revision and require an exact match with the target Git SHA.
 9. Confirm Caddy and the affected services are healthy.
-10. Run the checks in `docs/platform-v7/vps-post-deploy-checklist.md` against the real domain.
+10. Run the checks in `docs/ops/vps-post-deploy-checklist.md` against the real domain.
 11. Record target SHA, image reference/digest, deployment time, smoke result and rollback reference.
 
 Watchtower may automatically refresh `:latest` application images. It is not a substitute for steps 8–11.
