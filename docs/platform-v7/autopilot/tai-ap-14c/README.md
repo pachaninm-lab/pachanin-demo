@@ -6,7 +6,10 @@ claiming model quality or inventing expert approvals.
 
 ## Governed corpus
 
-`gold-set-authority.mjs` deterministically materializes:
+`gold-set-source.v1.json` contains the exact-blob source catalog, multilingual
+case definitions, expected dispositions, prohibited claims, freshness rules and
+review policy. `gold-set-authority.mjs` validates that source and deterministically
+materializes:
 
 - 42 platform cases:
   - all 12 current TAI roles from `apps/tai/tai/policy.py`;
