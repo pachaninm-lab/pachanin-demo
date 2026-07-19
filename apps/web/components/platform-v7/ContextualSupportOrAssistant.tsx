@@ -16,6 +16,7 @@ import '@/styles/platform-v7-unified-modal-fullscreen.css';
 
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
 const PUBLIC_HOME = '/platform-v7';
+const PUBLIC_ENTRY_REWRITE_PREFIX = '/pc-public-entry';
 
 const PUBLIC_EXACT = new Set([
   PUBLIC_HOME,
@@ -46,7 +47,13 @@ const PUBLIC_PREFIXES = [
 
 function normalize(pathname: string): string {
   const clean = pathname.split('?')[0].replace(/\/+$/u, '');
-  return clean || PUBLIC_HOME;
+  const rewrittenHome = `${PUBLIC_ENTRY_REWRITE_PREFIX}${PUBLIC_HOME}`;
+
+  if (!clean) return PUBLIC_HOME;
+  if (clean === rewrittenHome || clean.startsWith(`${rewrittenHome}/`)) {
+    return clean.slice(PUBLIC_ENTRY_REWRITE_PREFIX.length) || PUBLIC_HOME;
+  }
+  return clean;
 }
 
 function isPrivateWorkspace(pathname: string): boolean {
