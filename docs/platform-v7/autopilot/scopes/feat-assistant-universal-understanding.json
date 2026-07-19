@@ -1,7 +1,7 @@
 {
   "branch": "feat/assistant-universal-understanding",
   "status": "active",
-  "purpose": "Broad multilingual assistant understanding with verified prospect knowledge, production transport resilience, mobile viewport hardening, safe unanswered-question handling, a shared fullscreen modal-sheet control and a unified public contact dock for the public assistant, support and an explicit user-initiated phone call.",
+  "purpose": "Broad multilingual assistant understanding with verified prospect knowledge, production transport resilience, mobile viewport hardening, safe unanswered-question handling, a shared fullscreen modal-sheet control, a unified public contact dock and a compact intent-first mobile UX for the public assistant and support form.",
   "approvedBy": "independent-authority-pr",
   "allowedPaths": [
     "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
@@ -20,6 +20,7 @@
     "apps/web/tests/e2e/platform-v7-unified-modal-fullscreen.spec.ts",
     "apps/web/tests/unit/platformV7AssistantQuestionUnderstanding.test.ts",
     "apps/web/tests/unit/platformV7ProspectAssistantKnowledge.test.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantSupportUx.test.ts",
     "apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts",
     "apps/web/tests/unit/platformV7UnifiedPublicContactDock.test.ts",
     "docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json"
