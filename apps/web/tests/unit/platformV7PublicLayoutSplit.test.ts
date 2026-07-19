@@ -12,6 +12,7 @@ const protectedShell = read('apps/web/components/platform-v7/PlatformV7Protected
 const nextConfig = read('apps/web/next.config.js');
 const isolatedLayout = read('apps/web/app/pc-public-entry/platform-v7/layout.tsx');
 const isolatedLanding = read('apps/web/app/pc-public-entry/platform-v7/page.tsx');
+const approvedHomeDock = read('apps/web/app/pc-public-entry/platform-v7/home-approved-contact-dock.css');
 const isolatedLogin = read('apps/web/app/pc-public-entry/platform-v7/login/page.tsx');
 const isolatedRecovery = read('apps/web/app/pc-public-entry/platform-v7/forgot-password/page.tsx');
 const landing = read('apps/web/app/platform-v7/page.tsx');
@@ -62,10 +63,29 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(nextConfig).toContain("{ source: '/platform-v7', destination: '/pc-public-entry/platform-v7' }");
     expect(nextConfig).toContain("{ source: '/platform-v7/login', destination: '/pc-public-entry/platform-v7/login' }");
     expect(nextConfig).toContain("{ source: '/platform-v7/forgot-password', destination: '/pc-public-entry/platform-v7/forgot-password' }");
+    expect(isolatedLanding).toContain("import './home-approved-contact-dock.css'");
     expect(isolatedLanding).toContain("from '@/app/platform-v7/page'");
+    expect(isolatedLanding).toContain("data-contact-dock-visual='approved'");
     expect(isolatedLogin).toContain("from '@/app/platform-v7/login/page'");
     expect(isolatedRecovery).toContain("from '@/app/platform-v7/forgot-password/page'");
     expect(isolatedLayout).toContain('<HydrationSafeChatSupport />');
+  });
+
+  it('restores only the last approved contact dock visual on the public homepage', () => {
+    expect(approvedHomeDock).toContain("[data-contact-dock-visual='approved']");
+    expect(approvedHomeDock).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
+    expect(approvedHomeDock).toContain('width: min(390px');
+    expect(approvedHomeDock).toContain('border: 1px solid rgba(8, 122, 59, .42)');
+    expect(approvedHomeDock).toContain('border-radius: 20px');
+    expect(approvedHomeDock).toContain('min-height: 54px');
+    expect(approvedHomeDock).toContain('min-height: 52px');
+    expect(approvedHomeDock).toContain('width: 30px');
+    expect(approvedHomeDock).toContain('width: 28px');
+    expect(approvedHomeDock).toContain('font-size: 12.5px');
+    expect(approvedHomeDock).toContain('font-size: 11.5px');
+    expect(approvedHomeDock).toContain('bottom: max(2px, calc(env(safe-area-inset-bottom, 0px) + 2px))');
+    expect(approvedHomeDock).toContain('.pc-public-contact-dock-assistant strong');
+    expect(approvedHomeDock).toContain('color: inherit');
   });
 
   it('keeps the route template server-only and free of historical patching', () => {
