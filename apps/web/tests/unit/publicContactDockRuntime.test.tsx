@@ -2,6 +2,7 @@ import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { PublicContactDock } from '../../components/platform-v7/PublicContactDock';
+import { PublicPlatformAssistant } from '../../components/platform-v7/PublicPlatformAssistant';
 
 vi.mock('@/lib/analytics/track', () => ({ trackEvent: vi.fn() }));
 
@@ -25,7 +26,38 @@ describe('PublicContactDock runtime', () => {
   afterEach(() => {
     cleanup();
     document.body.replaceChildren();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it('keeps public pages API-isolated until the assistant is explicitly opened', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        knowledgeVersion: 'test-v1',
+        dataMode: 'public_knowledge',
+        actionAllowed: false,
+        title: 'Test catalog',
+        description: 'Test catalog',
+        starterPrompts: [],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<PublicPlatformAssistant />);
+    const launcher = screen.getByRole('button', {
+      name: 'Спросить о платформе Нет доступа к данным ЛК',
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(launcher);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/public-platform-assistant?locale=ru',
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+    expect(screen.getByRole('dialog', { name: 'Помощник по платформе' })).toBeVisible();
   });
 
   it('delegates the public AI and support actions to their internal workflows', () => {

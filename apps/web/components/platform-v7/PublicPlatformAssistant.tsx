@@ -185,9 +185,12 @@ export function PublicPlatformAssistant() {
       role: 'assistant',
       text: COPY[nextLocale].greeting,
     }]);
+  }, []);
 
+  React.useEffect(() => {
+    if (!open || catalog) return;
     const controller = new AbortController();
-    void fetch(`/api/public-platform-assistant?locale=${encodeURIComponent(nextLocale)}`, {
+    void fetch(`/api/public-platform-assistant?locale=${encodeURIComponent(locale)}`, {
       cache: 'no-store',
       headers: { Accept: 'application/json' },
       signal: controller.signal,
@@ -197,7 +200,7 @@ export function PublicPlatformAssistant() {
       if (payload.dataMode === 'public_knowledge') setCatalog(payload);
     }).catch(() => undefined);
     return () => controller.abort();
-  }, []);
+  }, [catalog, locale, open]);
 
   React.useEffect(() => {
     messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: 'smooth' });
