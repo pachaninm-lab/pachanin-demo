@@ -33,6 +33,15 @@ describe('platform-v7 unified public contact dock', () => {
     expect(dock).toContain('supportButtonRef.current?.focus()');
   });
 
+  it('does not overlay or intercept either open dialog', () => {
+    expect(dock).toContain('setDialogOpen(assistantOpen || supportOpen)');
+    expect(dock).toContain("data-dialog-open={dialogOpen ? 'true' : 'false'}");
+    expect(dock).toContain('aria-hidden={dialogOpen}');
+    expect(dock).toContain(".pc-public-contact-dock[data-dialog-open='true']");
+    expect(dock).toContain('visibility: hidden');
+    expect(dock).toContain('pointer-events: none');
+  });
+
   it('is localized, mobile-safe and keyboard accessible', () => {
     expect(dock).toContain("assistant: 'AI'");
     expect(dock).toContain("support: 'Support'");
