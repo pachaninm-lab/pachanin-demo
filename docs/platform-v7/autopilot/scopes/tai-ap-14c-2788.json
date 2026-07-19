@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7-concurrent-scope.v1",
+  "branch": "agent/tai-ap-14c-gold-set-authority",
+  "status": "active",
+  "parentIssue": 2726,
+  "issue": 2788,
+  "purpose": "Establish a fail-closed multilingual platform/agro gold-set, question-coverage and expert-review authority without fabricated approvals or model-quality claims.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/tai-ap-14c-2788.json",
+    "docs/platform-v7/autopilot/tai-ap-14c/README.md",
+    "docs/platform-v7/autopilot/tai-ap-14c/gold-set-source.v1.json",
+    "docs/platform-v7/autopilot/tai-ap-14c/gold-set-authority.mjs",
+    "docs/platform-v7/autopilot/tai-ap-14c/gold-set-authority.test.mjs",
+    "docs/platform-v7/autopilot/tai-ap-14c/expert-reviews.v1.json",
+    "docs/platform-v7/autopilot/tai-ap-14c/baseline-assessment.v1.json"
+  ],
+  "forbiddenCapabilities": [
+    "fabricated human or domain review",
+    "model-quality PASS without observations",
+    "live-source or production acceptance claim",
+    "autonomous privileged write",
+    "runtime model, retrieval, tool or database change",
+    "direct push to main",
+    "automatic merge"
+  ],
+  "acceptance": [
+    "all 12 current TAI roles have RU/EN/ZH cases",
+    "all 23 current canonical deal states have RU/EN/ZH cases",
+    "all eight governed agro topics have RU/EN/ZH cases",
+    "typo, transliteration, ambiguity and adversarial variants are present",
+    "every case is covered exactly once by authority, freshness and abstention policy",
+    "case and corpus digests fail closed on mutation",
+    "empty review evidence yields PENDING_REVIEW rather than PASS",
+    "real critical acceptance requires two independent reviewers",
+    "validator and adversarial self-tests pass"
+  ]
+}
