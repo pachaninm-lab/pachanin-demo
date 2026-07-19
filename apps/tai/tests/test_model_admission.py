@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -83,7 +84,11 @@ def _benchmark(
         "revision": "r1",
         "artifact_sha256": ARTIFACT_SHA,
         "runtime_class": runtime_class,
-        "hardware_profile": "4 vCPU / 16 GiB" if runtime_class is ModelRuntimeClass.CPU else "A10 24 GiB",
+        "hardware_profile": (
+            "4 vCPU / 16 GiB"
+            if runtime_class is ModelRuntimeClass.CPU
+            else "A10 24 GiB"
+        ),
         "quantization": "Q4_K_M",
         "sample_count": 1_000,
         "platform_accuracy_basis_points": 9_700,
@@ -95,7 +100,10 @@ def _benchmark(
         "estimated_cost_rub_per_million_tokens_milli": 500_000,
         "measured_at": NOW - timedelta(hours=12),
         "evidence_locator": f"file:///evidence/benchmarks/{benchmark_id}.json",
-        "evidence_sha256": ("f" if runtime_class is ModelRuntimeClass.CPU else "1") * 64,
+        "evidence_sha256": (
+            "f" if runtime_class is ModelRuntimeClass.CPU else "1"
+        )
+        * 64,
     }
     values.update(changes)
     return ModelBenchmarkEvidence(**values)  # type: ignore[arg-type]
@@ -144,9 +152,7 @@ def test_authority_accepts_pinned_licensed_measured_model_with_fallback() -> Non
             "LICENSE_REVIEW_ARTIFACT_MISMATCH",
         ),
         (
-            _candidate(
-                benchmarks=(_benchmark("cpu-run", ModelRuntimeClass.CPU),)
-            ),
+            _candidate(benchmarks=(_benchmark("cpu-run", ModelRuntimeClass.CPU),)),
             "GPU_PROFILE_MISSING",
         ),
         (
@@ -209,10 +215,7 @@ def test_authority_rejects_stale_mismatched_and_undersampled_benchmarks() -> Non
     assert "GPU_PROFILE_MISSING" in decision.reasons
 
 
-def _profile(
-    model_id: str,
-    artifact_sha256: str,
-) -> LocalModelProfile:
+def _profile(model_id: str, artifact_sha256: str) -> LocalModelProfile:
     return LocalModelProfile(
         model_id=model_id,
         revision="r1",
@@ -251,9 +254,7 @@ def test_governed_repository_exposes_only_exact_accepted_artifacts() -> None:
     rejected = _profile("rejected", "c" * 64)
     unreviewed = _profile("unreviewed", "d" * 64)
     repository = GovernedModelProfileRepository(
-        InMemoryModelProfileRepository(
-            (accepted, wrong_digest, rejected, unreviewed)
-        ),
+        InMemoryModelProfileRepository((accepted, wrong_digest, rejected, unreviewed)),
         InMemoryModelAdmissionRepository(
             (
                 _admission("accepted", "a" * 64),
@@ -387,21 +388,27 @@ def test_readiness_preserves_delegate_failure() -> None:
             lambda: _license(evidence_locator="https://mutable.example/review"),
             "evidence_locator",
         ),
-        (lambda: _benchmark("cpu", ModelRuntimeClass.CPU, sample_count=0), "sample_count"),
+        (
+            lambda: _benchmark("cpu", ModelRuntimeClass.CPU, sample_count=0),
+            "sample_count",
+        ),
         (
             lambda: ModelAdmissionPolicy(maximum_benchmark_age=timedelta(0)),
             "maximum_benchmark_age",
         ),
     ],
 )
-def test_evidence_and_policy_validation(factory: object, message: str) -> None:
-    callable_factory = factory
-    assert callable(callable_factory)
+def test_evidence_and_policy_validation(
+    factory: Callable[[], object],
+    message: str,
+) -> None:
     with pytest.raises(ValueError, match=message):
-        callable_factory()
+        factory()
 
 
 def test_admission_repository_rejects_duplicate_current_identity() -> None:
     record = _admission("model", "a" * 64)
     with pytest.raises(ValueError, match="identity"):
-        InMemoryModelAdmissionRepository((record, replace(record, decision_sha256="8" * 64)))
+        InMemoryModelAdmissionRepository(
+            (record, replace(record, decision_sha256="8" * 64))
+        )
