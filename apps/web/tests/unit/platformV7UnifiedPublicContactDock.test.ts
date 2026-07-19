@@ -48,33 +48,42 @@ describe('platform-v7 unified public contact dock', () => {
     expect(dock).toContain('pointer-events: none');
   });
 
-  it('uses an elegant balanced three-column composition', () => {
+  it('uses a compact balanced three-column composition', () => {
     expect(dock).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
-    expect(dock).toContain('width: min(390px');
-    expect(dock).toContain('gap: 2px');
-    expect(dock).toContain('padding: 3px');
-    expect(dock).toContain('border: 1px solid rgba(8, 122, 59, .42)');
-    expect(dock).toContain('border-radius: 20px');
+    expect(dock).toContain('width: min(380px');
+    expect(dock).toContain('gap: 1px');
+    expect(dock).toContain('padding: 2px');
+    expect(dock).toContain('border: 1px solid rgba(8, 122, 59, .56)');
+    expect(dock).toContain('border-radius: 17px');
+    expect(dock).toContain('border-radius: 16px');
     expect(dock).not.toContain('border-left: 1px solid');
   });
 
-  it('uses compact premium icon treatments and restrained typography', () => {
+  it('keeps touch targets accessible while reducing visual weight', () => {
     expect(dock).toContain("className='pc-public-contact-dock-icon'");
-    expect(dock).toContain('width: 30px');
-    expect(dock).toContain('background: linear-gradient(145deg, rgba(8, 122, 59, .13), rgba(8, 122, 59, .055))');
-    expect(dock).toContain('font-size: 12.5px');
-    expect(dock).toContain('font-weight: 720');
-    expect(dock).toContain('min-height: 54px');
-    expect(dock).toContain('min-height: 52px');
+    expect(dock).toContain('width: 27px');
+    expect(dock).toContain('width: 25px');
+    expect(dock).toContain('font-size: 12px');
+    expect(dock).toContain('font-size: 11px');
+    expect(dock).toContain('font-weight: 700');
+    expect(dock).toContain('min-height: 48px');
+    expect(dock).toContain('min-height: 46px');
   });
 
-  it('keeps the public palette, glass surface and mobile safe area', () => {
+  it('gives the assistant a restrained primary hierarchy', () => {
+    expect(dock).toContain("className='pc-public-contact-dock-action pc-public-contact-dock-assistant'");
+    expect(dock).toContain('.pc-public-contact-dock-assistant .pc-public-contact-dock-icon');
+    expect(dock).toContain('.pc-public-contact-dock-assistant strong');
+    expect(dock).toContain('font-weight: 780');
+  });
+
+  it('keeps the public palette, lighter glass surface and mobile safe area', () => {
     expect(dock).toContain('background: var(--pc-ppe-v5-surface, #ffffff)');
     expect(dock).toContain('color: var(--pc-ppe-v5-ink, #092118)');
     expect(dock).toContain('color: var(--pc-ppe-v5-green, #087a3b)');
-    expect(dock).toContain('backdrop-filter: blur(18px) saturate(135%)');
-    expect(dock).toContain('bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) + 4px))');
-    expect(dock).toContain('bottom: max(2px, calc(env(safe-area-inset-bottom, 0px) + 2px))');
+    expect(dock).toContain('backdrop-filter: blur(14px) saturate(125%)');
+    expect(dock).toContain('bottom: max(10px, calc(env(safe-area-inset-bottom, 0px) + 8px))');
+    expect(dock).toContain('bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) + 6px))');
   });
 
   it('is localized, mobile-safe and keyboard accessible', () => {
