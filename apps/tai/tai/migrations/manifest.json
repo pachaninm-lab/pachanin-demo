@@ -67,6 +67,10 @@
     {
       "path": "0016_official_source_coverage.sql",
       "version": 17
+    },
+    {
+      "path": "0017_official_source_run_evidence.sql",
+      "version": 18
     }
   ],
   "schema_version": "tai.migration.manifest.v1"
