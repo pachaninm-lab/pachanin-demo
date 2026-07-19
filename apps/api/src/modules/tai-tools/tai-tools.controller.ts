@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Public } from '../../common/decorators/public.decorator';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import {
   TaiDelegatedIdentity,
   TAI_PLATFORM_TOOL_MODES,
@@ -33,6 +34,14 @@ export class TaiToolsController {
 
   @Post(':toolName')
   @HttpCode(200)
+  @RateLimit({
+    name: 'tai-platform-safe-tools',
+    scope: 'ip',
+    limit: 600,
+    windowSeconds: 60,
+    limitEnv: 'TAI_PLATFORM_TOOL_RATE_LIMIT_PER_MINUTE',
+    includeParams: ['toolName'],
+  })
   execute(
     @Param('toolName') rawToolName: string,
     @Body() body: TaiToolBody,
