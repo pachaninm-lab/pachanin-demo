@@ -44,6 +44,25 @@ def _repository(root: Path) -> None:
         "def test_value():\n    assert 1 == 1\n"
     )
     (root / "apps/tai/pyproject.toml").write_text("[project]\nname='tai-test'\n")
+
+    api_root = root / "apps/api"
+    (api_root / "src/modules/tai-tools").mkdir(parents=True)
+    (api_root / "src/modules/tai-tools/tool.ts").write_text(
+        "export const TOOL = 'getDealSummary';\n"
+    )
+    (api_root / "test").mkdir()
+    (api_root / "test/tai-tools.spec.ts").write_text("describe('tools', () => {});\n")
+    (api_root / "prisma").mkdir()
+    (api_root / "prisma/schema.prisma").write_text("datasource db { provider = \"postgresql\" }\n")
+    (api_root / "package.json").write_text('{"name":"api"}\n')
+
+    package_root = root / "packages/domain-core/src"
+    package_root.mkdir(parents=True)
+    (package_root / "index.ts").write_text("export const DOMAIN = true;\n")
+    script_root = root / "scripts"
+    script_root.mkdir()
+    (script_root / "acceptance.sh").write_text("#!/bin/sh\nexit 0\n")
+
     workflow_root = root / ".github/workflows"
     workflow_root.mkdir(parents=True)
     (workflow_root / "tai-foundation.yml").write_text("name: TAI Foundation\n")
@@ -51,6 +70,33 @@ def _repository(root: Path) -> None:
         "name: TAI Release Acceptance\n"
     )
     (workflow_root / "security-scan.yaml").write_text("name: Security Scan\n")
+
+    (root / "package.json").write_text('{"private":true}\n')
+    (root / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n")
+    (root / "pnpm-workspace.yaml").write_text("packages:\n  - apps/api\n")
+    (root / "tsconfig.base.json").write_text('{"compilerOptions":{}}\n')
+    (root / "apps/tai/release-source-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "tai.release.source-manifest.v1",
+                "roots": [
+                    ".github/workflows",
+                    "apps/api",
+                    "apps/tai/tai",
+                    "apps/tai/tests",
+                    "packages",
+                    "scripts",
+                ],
+                "files": [
+                    "apps/tai/pyproject.toml",
+                    "package.json",
+                    "pnpm-lock.yaml",
+                    "pnpm-workspace.yaml",
+                    "tsconfig.base.json",
+                ],
+            }
+        )
+    )
 
 
 def _evidence(path: Path, *, missing: str | None = None) -> None:
@@ -113,20 +159,51 @@ def test_cli_builds_accepted_application_attestation(tmp_path: Path, monkeypatch
     assert len(attestation["source_tree_sha256"]) == 64
 
 
-def test_source_digest_binds_yml_and_yaml_workflow_definitions(tmp_path: Path) -> None:
+def test_source_digest_binds_workflows_and_integrated_platform_api(tmp_path: Path) -> None:
     _repository(tmp_path)
     initial = _source_digest(tmp_path)
 
     yml_workflow = tmp_path / ".github/workflows/tai-foundation.yml"
     yml_workflow.write_text("name: TAI Foundation\njobs: {}\n")
-    after_yml_change = _source_digest(tmp_path)
+    after_workflow_change = _source_digest(tmp_path)
 
-    yaml_workflow = tmp_path / ".github/workflows/security-scan.yaml"
-    yaml_workflow.write_text("name: Security Scan\njobs: {}\n")
-    after_yaml_change = _source_digest(tmp_path)
+    api_tool = tmp_path / "apps/api/src/modules/tai-tools/tool.ts"
+    api_tool.write_text("export const TOOL = 'getRoleNextActions';\n")
+    after_api_change = _source_digest(tmp_path)
 
-    assert initial != after_yml_change
-    assert after_yml_change != after_yaml_change
+    prisma_schema = tmp_path / "apps/api/prisma/schema.prisma"
+    prisma_schema.write_text("datasource db { provider = \"sqlite\" }\n")
+    after_schema_change = _source_digest(tmp_path)
+
+    assert initial != after_workflow_change
+    assert after_workflow_change != after_api_change
+    assert after_api_change != after_schema_change
+
+
+def test_source_digest_rejects_narrowed_integrated_scope(tmp_path: Path) -> None:
+    _repository(tmp_path)
+    manifest_path = tmp_path / "apps/tai/release-source-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["roots"].remove("apps/api")
+    manifest_path.write_text(json.dumps(manifest))
+
+    with pytest.raises(ValueError, match="below required integrated scope"):
+        _source_digest(tmp_path)
+
+
+def test_source_digest_rejects_missing_or_traversing_paths(tmp_path: Path) -> None:
+    _repository(tmp_path)
+    (tmp_path / "pnpm-lock.yaml").unlink()
+    with pytest.raises(ValueError, match="not a regular file"):
+        _source_digest(tmp_path)
+
+    _repository(tmp_path)
+    manifest_path = tmp_path / "apps/tai/release-source-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["roots"].append("../outside")
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="repository-relative"):
+        _source_digest(tmp_path)
 
 
 def test_cli_rejects_missing_required_workflow(tmp_path: Path, monkeypatch) -> None:
