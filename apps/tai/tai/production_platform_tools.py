@@ -7,11 +7,7 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 
 from tai.agent_runtime import ToolHandler
-from tai.platform_tools import (
-    PlatformToolConfigurationError,
-    PlatformToolTransport,
-    platform_safe_tool_handlers,
-)
+from tai.platform_tools import PlatformToolTransport, platform_safe_tool_handlers
 from tai.production_runtime import ProductionConfigurationError, ProductionRuntimeConfig
 
 
@@ -44,17 +40,18 @@ def production_platform_tool_handlers(
         10.0,
     )
     try:
-        return dict(
-            platform_safe_tool_handlers(
-                base_url=raw_base_url,
-                secret=secret,
-                allowed_hosts=frozenset(allowed_hosts),
-                timeout_seconds=timeout_seconds,
-                transport=transport,
-                clock=clock,
-            )
+        configured = platform_safe_tool_handlers(
+            base_url=raw_base_url,
+            secret=secret,
+            allowed_hosts=frozenset(allowed_hosts),
+            timeout_seconds=timeout_seconds,
+            transport=transport,
+            clock=clock,
         )
-    except (TypeError, ValueError, PlatformToolConfigurationError) as error:
+        handlers: dict[str, ToolHandler] = {}
+        handlers.update(configured)
+        return handlers
+    except (TypeError, ValueError) as error:
         raise ProductionConfigurationError(
             "TAI platform tool configuration is invalid"
         ) from error
