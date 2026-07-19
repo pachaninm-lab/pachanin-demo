@@ -53,7 +53,9 @@ def _repository(root: Path) -> None:
     (api_root / "test").mkdir()
     (api_root / "test/tai-tools.spec.ts").write_text("describe('tools', () => {});\n")
     (api_root / "prisma").mkdir()
-    (api_root / "prisma/schema.prisma").write_text("datasource db { provider = \"postgresql\" }\n")
+    (api_root / "prisma/schema.prisma").write_text(
+        'datasource db { provider = "postgresql" }\n'
+    )
     (api_root / "package.json").write_text('{"name":"api"}\n')
 
     package_root = root / "packages/domain-core/src"
@@ -172,7 +174,7 @@ def test_source_digest_binds_workflows_and_integrated_platform_api(tmp_path: Pat
     after_api_change = _source_digest(tmp_path)
 
     prisma_schema = tmp_path / "apps/api/prisma/schema.prisma"
-    prisma_schema.write_text("datasource db { provider = \"sqlite\" }\n")
+    prisma_schema.write_text('datasource db { provider = "sqlite" }\n')
     after_schema_change = _source_digest(tmp_path)
 
     assert initial != after_workflow_change
@@ -192,18 +194,20 @@ def test_source_digest_rejects_narrowed_integrated_scope(tmp_path: Path) -> None
 
 
 def test_source_digest_rejects_missing_or_traversing_paths(tmp_path: Path) -> None:
-    _repository(tmp_path)
-    (tmp_path / "pnpm-lock.yaml").unlink()
+    missing_root = tmp_path / "missing"
+    _repository(missing_root)
+    (missing_root / "pnpm-lock.yaml").unlink()
     with pytest.raises(ValueError, match="not a regular file"):
-        _source_digest(tmp_path)
+        _source_digest(missing_root)
 
-    _repository(tmp_path)
-    manifest_path = tmp_path / "apps/tai/release-source-manifest.json"
+    traversal_root = tmp_path / "traversal"
+    _repository(traversal_root)
+    manifest_path = traversal_root / "apps/tai/release-source-manifest.json"
     manifest = json.loads(manifest_path.read_text())
     manifest["roots"].append("../outside")
     manifest_path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match="repository-relative"):
-        _source_digest(tmp_path)
+        _source_digest(traversal_root)
 
 
 def test_cli_rejects_missing_required_workflow(tmp_path: Path, monkeypatch) -> None:
