@@ -1,0 +1,34 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b2b-controlled-build-workflow",
+  "status": "active",
+  "parent_issue": 2726,
+  "issue": 2832,
+  "maturity_boundary": "exact-main-owner-triggered-controlled-build-workflow-without-committed-build-evidence",
+  "allowed_paths": [
+    ".github/workflows/tai-llama-toolchain-build.yml",
+    "apps/tai/governance/scopes/ap-13b2b-2832.json",
+    "apps/tai/tests/test_llama_toolchain_build_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "pull-request, push, schedule or non-owner-triggered source build",
+    "build from mutable branch, release-only reference, short commit or prebuilt binary",
+    "persisted checkout credentials, repository write permission, secret or OIDC access",
+    "source patching or native-host optimization",
+    "execution of configure or build argv by the verifier",
+    "committed source archive, checkout, build log or compiled binary",
+    "model download, conversion, quantization, benchmark or admission claim",
+    "production readiness or operational attestation claim"
+  ],
+  "acceptance": [
+    "workflow is exact-main, repository-owner-only and issue 2832 command-bound",
+    "official llama.cpp commit aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3 is checked out without persisted credentials",
+    "workflow executes the exact AP-13B.2a configure and four-target build argv",
+    "collector and verifier run against the accepted authority without executing manifest commands",
+    "source archive, checkout, environment, commands, logs and all four binaries enter one deterministic external package",
+    "uploaded package is restored and independently verified before a locator artifact is emitted",
+    "artifacts are uniquely named, immutable, SHA-256-bound and retained for 90 days",
+    "this slice introduces no committed build observation and does not close issue 2832",
+    "Ruff, strict mypy, full pytest/coverage, workflow security and exact-head CI pass"
+  ]
+}
