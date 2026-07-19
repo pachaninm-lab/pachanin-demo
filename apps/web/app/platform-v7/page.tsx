@@ -8,6 +8,7 @@ import '@/styles/platform-v7-public-product-entry-variants.css';
 import '@/styles/platform-v7-public-product-experience-v5.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { PublicAiMarketingBlock } from '@/components/platform-v7/PublicAiMarketingBlock';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicDealPreview } from '@/components/platform-v7/PublicDealPreview';
@@ -109,9 +110,12 @@ export default async function PlatformV7RootPage() {
   const contourStages = TOUR_STAGES;
   const start = firstStageCopy[locale === 'en' || locale === 'zh' ? locale : 'ru'];
   const startDealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
+  const roleEntryHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=role`;
+  const aiNavLabel = locale === 'ru' ? 'ИИ' : 'AI';
   const nav = (
     <>
       <a href='#deal-example'>{ui.header.howItWorks}</a>
+      <a href='#ai-copilot'>{aiNavLabel}</a>
       <a href='#participants'>{ui.header.participants}</a>
       <a href='#reliability'>{ui.header.reliability}</a>
     </>
@@ -204,6 +208,8 @@ export default async function PlatformV7RootPage() {
         <section id='deal-example' className='pc-ppe-section' aria-label={ui.home.preview.demoLabel}>
           <PublicDealPreview copy={copy} locale={locale} />
         </section>
+
+        <PublicAiMarketingBlock locale={locale} roleEntryHref={roleEntryHref} />
 
         <section id='participants' className='pc-ppe-section' aria-labelledby='pc-ppe-perspectives-title'>
           <div className='pc-ppe-section-header'>
