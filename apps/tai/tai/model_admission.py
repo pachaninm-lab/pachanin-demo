@@ -380,7 +380,7 @@ class ModelAdmissionAwareReadinessProbe:
         self._connection_factory = connection_factory
 
     def check(self) -> ReadinessStatus:
-        base = self._delegate.check()  # type: ignore[attr-defined]
+        base = self._delegate.check()
         components = dict(base.components)
         reasons = list(base.reasons)
         try:
