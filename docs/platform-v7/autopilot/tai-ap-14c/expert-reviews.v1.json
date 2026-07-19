@@ -1,0 +1,24 @@
+{
+  "schema_version": "tai.expert-reviews.v1",
+  "version": "2026.07.19.1",
+  "policy": {
+    "minimum_approvals_per_case": 1,
+    "minimum_independent_approvals_for_critical": 2,
+    "allowed_reviewer_roles": [
+      "PLATFORM_OWNER",
+      "DOMAIN_EXPERT",
+      "LEGAL_OR_METHOD_REVIEWER",
+      "SECURITY_REVIEWER"
+    ],
+    "required_primary_role_by_domain": {
+      "PLATFORM": "PLATFORM_OWNER",
+      "AGRO": "DOMAIN_EXPERT"
+    },
+    "critical_secondary_roles": [
+      "LEGAL_OR_METHOD_REVIEWER",
+      "SECURITY_REVIEWER"
+    ],
+    "reject_on_any_open_rejection": true
+  },
+  "reviews": []
+}
