@@ -8,6 +8,7 @@
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/tai-ap-14c-2788.json",
     "docs/platform-v7/autopilot/tai-ap-14c/README.md",
+    "docs/platform-v7/autopilot/tai-ap-14c/gold-set-source.v1.json",
     "docs/platform-v7/autopilot/tai-ap-14c/gold-set-authority.mjs",
     "docs/platform-v7/autopilot/tai-ap-14c/gold-set-authority.test.mjs",
     "docs/platform-v7/autopilot/tai-ap-14c/expert-reviews.v1.json",
