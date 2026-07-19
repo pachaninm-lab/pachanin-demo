@@ -117,6 +117,8 @@ export function ContextualSupportOrAssistant() {
   const routerPathname = usePathname() || PUBLIC_HOME;
   const browserPathname = typeof window === 'undefined' ? routerPathname : window.location.pathname;
   const path = normalize(browserPathname || routerPathname);
+  const externalPublicDock = typeof document !== 'undefined'
+    && Boolean(document.querySelector('[data-public-entry-contact-dock-mounted="true"]'));
 
   // The full-page assistant already renders its own workspace panel. Keep the
   // shared dock for human support and phone access, while the AI action focuses
@@ -142,14 +144,15 @@ export function ContextualSupportOrAssistant() {
     );
   }
 
-  // Every public platform surface uses one visible entry point. The standalone
-  // assistant and support launchers remain internal triggers for the shared dock.
+  // Every public platform surface uses one visible entry point. The physically
+  // isolated entry tree renders that dock in initial HTML; other public routes
+  // retain the hydration-safe internal mount.
   return (
     <>
       <UnifiedModalSheetFullscreenController />
       <PublicPlatformAssistant />
       <ChatSupportWidget />
-      <PublicContactDock />
+      {externalPublicDock ? null : <PublicContactDock />}
     </>
   );
 }
