@@ -1,12 +1,13 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { createHash, createHmac, timingSafeEqual } from 'crypto';
 
-export type TaiToolMode = 'READ_ONLY' | 'DRAFT';
+export type TaiToolMode = 'READ_ONLY' | 'DRAFT' | 'CONFIRMED_WRITE';
 
 export const TAI_PLATFORM_TOOL_MODES = {
   getDealSummary: 'READ_ONLY',
   getRoleNextActions: 'READ_ONLY',
   prepareCommandDraft: 'DRAFT',
+  assignLogistics: 'CONFIRMED_WRITE',
 } as const satisfies Record<string, TaiToolMode>;
 
 export type TaiPlatformToolName = keyof typeof TAI_PLATFORM_TOOL_MODES;
