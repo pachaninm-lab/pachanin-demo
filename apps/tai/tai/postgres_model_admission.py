@@ -96,19 +96,28 @@ class PostgreSQLModelAdmissionRepository:
                 artifact_size_bytes,
                 artifact_created_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (
+                %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s
+            )
             ON CONFLICT (model_id, revision, artifact_sha256) DO UPDATE
             SET model_id = EXCLUDED.model_id
-            WHERE tai_model_artifact_evidence.artifact_locator = EXCLUDED.artifact_locator
+            WHERE tai_model_artifact_evidence.artifact_locator
+                = EXCLUDED.artifact_locator
               AND tai_model_artifact_evidence.source_uri = EXCLUDED.source_uri
-              AND tai_model_artifact_evidence.source_revision = EXCLUDED.source_revision
+              AND tai_model_artifact_evidence.source_revision
+                = EXCLUDED.source_revision
               AND tai_model_artifact_evidence.license_spdx = EXCLUDED.license_spdx
-              AND tai_model_artifact_evidence.license_text_sha256 = EXCLUDED.license_text_sha256
-              AND tai_model_artifact_evidence.tokenizer_sha256 = EXCLUDED.tokenizer_sha256
+              AND tai_model_artifact_evidence.license_text_sha256
+                = EXCLUDED.license_text_sha256
+              AND tai_model_artifact_evidence.tokenizer_sha256
+                = EXCLUDED.tokenizer_sha256
               AND tai_model_artifact_evidence.quantization = EXCLUDED.quantization
               AND tai_model_artifact_evidence.runtime_class = EXCLUDED.runtime_class
-              AND tai_model_artifact_evidence.artifact_size_bytes = EXCLUDED.artifact_size_bytes
-              AND tai_model_artifact_evidence.artifact_created_at = EXCLUDED.artifact_created_at
+              AND tai_model_artifact_evidence.artifact_size_bytes
+                = EXCLUDED.artifact_size_bytes
+              AND tai_model_artifact_evidence.artifact_created_at
+                = EXCLUDED.artifact_created_at
             RETURNING artifact_sha256
         """
         cursor.execute(
@@ -154,19 +163,26 @@ class PostgreSQLModelAdmissionRepository:
                 evidence_sha256,
                 restrictions
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s
+            )
             ON CONFLICT (review_sha256) DO UPDATE
             SET review_sha256 = EXCLUDED.review_sha256
             WHERE tai_model_license_reviews.model_id = EXCLUDED.model_id
               AND tai_model_license_reviews.revision = EXCLUDED.revision
-              AND tai_model_license_reviews.artifact_sha256 = EXCLUDED.artifact_sha256
+              AND tai_model_license_reviews.artifact_sha256
+                = EXCLUDED.artifact_sha256
               AND tai_model_license_reviews.license_spdx = EXCLUDED.license_spdx
-              AND tai_model_license_reviews.license_text_sha256 = EXCLUDED.license_text_sha256
+              AND tai_model_license_reviews.license_text_sha256
+                = EXCLUDED.license_text_sha256
               AND tai_model_license_reviews.decision = EXCLUDED.decision
               AND tai_model_license_reviews.reviewed_by = EXCLUDED.reviewed_by
               AND tai_model_license_reviews.reviewed_at = EXCLUDED.reviewed_at
-              AND tai_model_license_reviews.evidence_locator = EXCLUDED.evidence_locator
-              AND tai_model_license_reviews.evidence_sha256 = EXCLUDED.evidence_sha256
+              AND tai_model_license_reviews.evidence_locator
+                = EXCLUDED.evidence_locator
+              AND tai_model_license_reviews.evidence_sha256
+                = EXCLUDED.evidence_sha256
               AND tai_model_license_reviews.restrictions = EXCLUDED.restrictions
             RETURNING review_sha256
         """
@@ -213,26 +229,44 @@ class PostgreSQLModelAdmissionRepository:
                 evidence_locator,
                 evidence_sha256
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s
+            )
             ON CONFLICT (benchmark_id) DO UPDATE
             SET benchmark_id = EXCLUDED.benchmark_id
             WHERE tai_model_benchmark_evidence.model_id = EXCLUDED.model_id
               AND tai_model_benchmark_evidence.revision = EXCLUDED.revision
-              AND tai_model_benchmark_evidence.artifact_sha256 = EXCLUDED.artifact_sha256
-              AND tai_model_benchmark_evidence.runtime_class = EXCLUDED.runtime_class
-              AND tai_model_benchmark_evidence.hardware_profile = EXCLUDED.hardware_profile
-              AND tai_model_benchmark_evidence.quantization = EXCLUDED.quantization
-              AND tai_model_benchmark_evidence.sample_count = EXCLUDED.sample_count
-              AND tai_model_benchmark_evidence.platform_accuracy_basis_points = EXCLUDED.platform_accuracy_basis_points
-              AND tai_model_benchmark_evidence.agro_accuracy_basis_points = EXCLUDED.agro_accuracy_basis_points
-              AND tai_model_benchmark_evidence.prompt_tokens_per_second_milli = EXCLUDED.prompt_tokens_per_second_milli
-              AND tai_model_benchmark_evidence.generation_tokens_per_second_milli = EXCLUDED.generation_tokens_per_second_milli
-              AND tai_model_benchmark_evidence.p95_latency_ms = EXCLUDED.p95_latency_ms
-              AND tai_model_benchmark_evidence.peak_memory_mb = EXCLUDED.peak_memory_mb
-              AND tai_model_benchmark_evidence.estimated_cost_rub_per_million_tokens_milli = EXCLUDED.estimated_cost_rub_per_million_tokens_milli
+              AND tai_model_benchmark_evidence.artifact_sha256
+                = EXCLUDED.artifact_sha256
+              AND tai_model_benchmark_evidence.runtime_class
+                = EXCLUDED.runtime_class
+              AND tai_model_benchmark_evidence.hardware_profile
+                = EXCLUDED.hardware_profile
+              AND tai_model_benchmark_evidence.quantization
+                = EXCLUDED.quantization
+              AND tai_model_benchmark_evidence.sample_count
+                = EXCLUDED.sample_count
+              AND tai_model_benchmark_evidence.platform_accuracy_basis_points
+                = EXCLUDED.platform_accuracy_basis_points
+              AND tai_model_benchmark_evidence.agro_accuracy_basis_points
+                = EXCLUDED.agro_accuracy_basis_points
+              AND tai_model_benchmark_evidence.prompt_tokens_per_second_milli
+                = EXCLUDED.prompt_tokens_per_second_milli
+              AND tai_model_benchmark_evidence.generation_tokens_per_second_milli
+                = EXCLUDED.generation_tokens_per_second_milli
+              AND tai_model_benchmark_evidence.p95_latency_ms
+                = EXCLUDED.p95_latency_ms
+              AND tai_model_benchmark_evidence.peak_memory_mb
+                = EXCLUDED.peak_memory_mb
+              AND tai_model_benchmark_evidence.estimated_cost_rub_per_million_tokens_milli
+                = EXCLUDED.estimated_cost_rub_per_million_tokens_milli
               AND tai_model_benchmark_evidence.measured_at = EXCLUDED.measured_at
-              AND tai_model_benchmark_evidence.evidence_locator = EXCLUDED.evidence_locator
-              AND tai_model_benchmark_evidence.evidence_sha256 = EXCLUDED.evidence_sha256
+              AND tai_model_benchmark_evidence.evidence_locator
+                = EXCLUDED.evidence_locator
+              AND tai_model_benchmark_evidence.evidence_sha256
+                = EXCLUDED.evidence_sha256
             RETURNING benchmark_id
         """
         for benchmark in candidate.benchmarks:
@@ -289,12 +323,16 @@ class PostgreSQLModelAdmissionRepository:
             SET decision_sha256 = EXCLUDED.decision_sha256
             WHERE tai_model_admission_decisions.model_id = EXCLUDED.model_id
               AND tai_model_admission_decisions.revision = EXCLUDED.revision
-              AND tai_model_admission_decisions.artifact_sha256 = EXCLUDED.artifact_sha256
+              AND tai_model_admission_decisions.artifact_sha256
+                = EXCLUDED.artifact_sha256
               AND tai_model_admission_decisions.status = EXCLUDED.status
               AND tai_model_admission_decisions.reasons = EXCLUDED.reasons
-              AND tai_model_admission_decisions.fallback_identities = EXCLUDED.fallback_identities
-              AND tai_model_admission_decisions.license_review_sha256 = EXCLUDED.license_review_sha256
-              AND tai_model_admission_decisions.benchmark_evidence_sha256s = EXCLUDED.benchmark_evidence_sha256s
+              AND tai_model_admission_decisions.fallback_identities
+                = EXCLUDED.fallback_identities
+              AND tai_model_admission_decisions.license_review_sha256
+                = EXCLUDED.license_review_sha256
+              AND tai_model_admission_decisions.benchmark_evidence_sha256s
+                = EXCLUDED.benchmark_evidence_sha256s
               AND tai_model_admission_decisions.decided_at = EXCLUDED.decided_at
             RETURNING decision_sha256
         """
@@ -353,5 +391,10 @@ def _license_review_sha256(review: LicenseReviewEvidence) -> str:
         "restrictions": list(review.restrictions),
         "schema_version": "tai.model-license-review.v1",
     }
-    canonical = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
