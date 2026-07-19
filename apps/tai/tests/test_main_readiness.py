@@ -70,3 +70,27 @@ def test_configuration_error_is_sanitized_and_not_ready() -> None:
     ).get("/health/ready")
     assert response.status_code == 503
     assert response.json()["reasons"] == ["TAI_PRODUCTION_CONFIGURATION_INVALID"]
+
+
+def test_requests_fail_closed_when_live_dependencies_are_not_ready() -> None:
+    client = _client(
+        _Probe(
+            ReadinessStatus(
+                False,
+                {"postgresql": "unavailable"},
+                ("POSTGRESQL_UNAVAILABLE",),
+            )
+        )
+    )
+    response = client.post(
+        "/v1/platform/answer",
+        json={
+            "request_id": "request-not-ready",
+            "question": "Что со сделкой?",
+            "locale": "ru",
+            "deadline_ms": 60_000,
+        },
+        headers={"Idempotency-Key": "idempotency-not-ready"},
+    )
+    assert response.status_code == 503
+    assert response.json()["code"] == "RUNTIME_NOT_READY"

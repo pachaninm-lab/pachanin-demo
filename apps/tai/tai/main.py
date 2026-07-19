@@ -181,6 +181,15 @@ def create_app(
                 retryable=True,
                 status_code=503,
             )
+        state = readiness_state()
+        if not state.ready:
+            return _error(
+                request_id=payload.request_id,
+                code="RUNTIME_NOT_READY",
+                message="TAI runtime dependencies are not ready",
+                retryable=True,
+                status_code=503,
+            )
         if idempotency_key is None:
             return _error(
                 request_id=payload.request_id,
@@ -259,6 +268,15 @@ def create_app(
                 request_id=payload.request_id,
                 code="RUNTIME_NOT_CONFIGURED",
                 message="TAI orchestration runtime is not configured",
+                retryable=True,
+                status_code=503,
+            )
+        state = readiness_state()
+        if not state.ready:
+            return _error(
+                request_id=payload.request_id,
+                code="RUNTIME_NOT_READY",
+                message="TAI runtime dependencies are not ready",
                 retryable=True,
                 status_code=503,
             )
