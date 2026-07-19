@@ -21,6 +21,25 @@ from tai.release_acceptance import (
 _MIGRATION = re.compile(r"^(\d{4})_[A-Za-z0-9_-]+\.sql$")
 _SOURCE_MANIFEST_SCHEMA = "tai.release.source-manifest.v1"
 _SOURCE_MANIFEST_PATH = "apps/tai/release-source-manifest.json"
+_REQUIRED_SOURCE_ROOTS = frozenset(
+    {
+        ".github/workflows",
+        "apps/api",
+        "apps/tai/tai",
+        "apps/tai/tests",
+        "packages",
+        "scripts",
+    }
+)
+_REQUIRED_SOURCE_FILES = frozenset(
+    {
+        "apps/tai/pyproject.toml",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json",
+    }
+)
 _IGNORED_SOURCE_PARTS = frozenset(
     {
         "__pycache__",
@@ -204,8 +223,13 @@ def _source_digest(repository_root: Path) -> str:
         raise ValueError("release source manifest schema version is unsupported")
     roots = _manifest_paths(raw.get("roots"), "roots")
     declared_files = _manifest_paths(raw.get("files"), "files")
-    if not roots:
-        raise ValueError("release source manifest roots must not be empty")
+    missing_roots = sorted(_REQUIRED_SOURCE_ROOTS - set(roots))
+    missing_files = sorted(_REQUIRED_SOURCE_FILES - set(declared_files))
+    if missing_roots or missing_files:
+        raise ValueError(
+            "release source manifest is below required integrated scope: "
+            f"missing_roots={missing_roots}, missing_files={missing_files}"
+        )
 
     files: dict[str, bytes] = {
         _SOURCE_MANIFEST_PATH: manifest_path.read_bytes(),
