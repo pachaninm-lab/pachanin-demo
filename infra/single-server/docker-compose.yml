@@ -97,12 +97,53 @@ services:
       TRUST_PROXY_MODE: cidr
       TRUSTED_PROXY_CIDRS: "172.16.0.0/12,10.0.0.0/8"
       OTEL_TRACES_SAMPLER_ARG: "0.1"
+      # Object storage for documents/evidence — S3-compatible MinIO in this stack.
+      OBJECT_STORAGE_DRIVER: s3
+      OBJECT_STORAGE_ENDPOINT: "http://minio:9000"
+      OBJECT_STORAGE_REGION: us-east-1
+      OBJECT_STORAGE_BUCKET: grainflow-documents
+      OBJECT_STORAGE_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      OBJECT_STORAGE_FORCE_PATH_STYLE: "true"
     depends_on:
       migrations:
         condition: service_completed_successfully
       pgbouncer:
         condition: service_started
       redis:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+    networks: [edge]
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set in .env}
+    volumes:
+      - miniodata:/data
+    networks: [edge]
+
+  # One-shot: wait for MinIO, create the documents bucket, then exit.
+  minio-init:
+    image: minio/mc:latest
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do echo "waiting for minio..."; sleep 2; done;
+        mc mb -p local/grainflow-documents || true;
+        mc anonymous set none local/grainflow-documents || true;
+        echo "minio bucket ready";
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set in .env}
+    depends_on:
+      minio:
         condition: service_started
     networks: [edge]
 
@@ -150,6 +191,7 @@ services:
 volumes:
   pgdata:
   redisdata:
+  miniodata:
   caddydata:
   caddyconfig:
 
