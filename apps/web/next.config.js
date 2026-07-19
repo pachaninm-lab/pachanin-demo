@@ -36,6 +36,11 @@ const publicEntryFreshHeaders = [
   { key: 'Expires', value: '0' },
 ];
 
+const serviceWorkerRecoveryHeaders = [
+  ...publicEntryFreshHeaders,
+  { key: 'Service-Worker-Allowed', value: '/' },
+];
+
 const nextConfig = {
   reactStrictMode: true,
   eslint: {
@@ -57,6 +62,10 @@ const nextConfig = {
       {
         source: '/pc-public-entry/platform-v7',
         headers: publicEntryFreshHeaders,
+      },
+      {
+        source: '/sw.js',
+        headers: serviceWorkerRecoveryHeaders,
       },
       {
         source: '/(.*)',
