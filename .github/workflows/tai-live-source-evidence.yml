@@ -53,6 +53,7 @@ jobs:
         shell: bash
         run: |
           set +e
+          mkdir -p live-evidence
           python -m tai.live_source_evidence_cli \
             knowledge-sources/official-sources.v1.json \
             --repository-sha "$GITHUB_SHA" \
