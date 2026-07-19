@@ -6,7 +6,7 @@ test.describe('unified public modal sheet fullscreen control', () => {
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
   });
 
-  test('platform assistant expands to the visual viewport and restores compact mode', async ({ page }) => {
+  test('platform assistant opens as a compact intent-first sheet and preserves fullscreen', async ({ page }) => {
     await page.locator('.pc-public-assistant-shortcut').click();
 
     const dialog = page.getByRole('dialog', { name: 'Помощник по платформе' });
@@ -15,10 +15,25 @@ test.describe('unified public modal sheet fullscreen control', () => {
     await expect(expand).toBeVisible();
     await expect(dialog).toHaveAttribute('data-pc-fullscreen', 'false');
 
+    const starters = dialog.locator('.pc-public-assistant-starters button');
+    await expect(starters.first()).toBeVisible();
+    expect(await starters.count()).toBeGreaterThanOrEqual(3);
+
+    const subtitle = dialog.locator('.pc-public-assistant-identity span:not(.pc-public-assistant-mark)');
+    await expect(subtitle).toBeVisible();
+    await expect(subtitle).toHaveCSS('white-space', 'normal');
+
     const compact = await dialog.boundingBox();
     expect(compact).not.toBeNull();
-    expect(compact!.height).toBeGreaterThanOrEqual(360);
-    expect(compact!.height).toBeLessThanOrEqual(480);
+    expect(compact!.height).toBeGreaterThanOrEqual(300);
+    expect(compact!.height).toBeLessThanOrEqual(570);
+
+    const composer = dialog.locator('.pc-public-assistant-form');
+    const input = composer.locator('textarea');
+    const send = composer.locator('.pc-public-assistant-primary');
+    await expect(input).toBeVisible();
+    await expect(send).toBeDisabled();
+    await expect(send).toHaveCSS('cursor', 'not-allowed');
 
     await expand.click();
     await expect(dialog).toHaveAttribute('data-pc-fullscreen', 'true');
@@ -36,13 +51,29 @@ test.describe('unified public modal sheet fullscreen control', () => {
     await expect(dialog).toHaveAttribute('data-pc-fullscreen', 'false');
   });
 
-  test('support uses the same fullscreen control without changing its short title', async ({ page }) => {
+  test('support is compact, has one focus ring and uses the same fullscreen control', async ({ page }) => {
     await page.locator('.p7-support-chat-button').click();
 
     const dialog = page.getByRole('dialog', { name: 'Поддержка' });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText('Поддержка', { exact: true })).toBeVisible();
     await expect(dialog.getByText('Поддержка Прозрачной Цены', { exact: true })).toHaveCount(0);
+
+    const topic = dialog.locator('select');
+    const name = dialog.locator('input[autocomplete="name"]');
+    const question = dialog.locator('textarea');
+    await topic.focus();
+    await expect(topic).toHaveCSS('outline-style', 'none');
+    await expect(topic).toHaveCSS('border-color', 'rgb(21, 148, 93)');
+
+    const nameBox = await name.boundingBox();
+    const questionBox = await question.boundingBox();
+    expect(nameBox).not.toBeNull();
+    expect(questionBox).not.toBeNull();
+    expect(nameBox!.height).toBeGreaterThanOrEqual(44);
+    expect(nameBox!.height).toBeLessThanOrEqual(54);
+    expect(questionBox!.height).toBeGreaterThanOrEqual(88);
+    expect(questionBox!.height).toBeLessThanOrEqual(130);
 
     await dialog.getByRole('button', { name: 'На весь экран' }).click();
     await expect(dialog).toHaveAttribute('data-pc-fullscreen', 'true');
