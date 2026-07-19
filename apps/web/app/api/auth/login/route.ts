@@ -89,10 +89,16 @@ function signControlledToken(account: ControlledAccount, signingSecret: string, 
   const now = Math.floor(Date.now() / 1000);
   const ttl = tokenType === 'access' ? CONTROLLED_TTL_SECONDS : CONTROLLED_TTL_SECONDS + 60 * 60;
   const header = base64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  // The backend identifies the actor by the `id` claim. The owner maps to the
+  // bootstrapped PLATFORM_OWNER user so the staff control centre resolves the
+  // real assignment; role accounts get a stable synthetic id.
+  const subjectId = account.owner ? 'usr-platform-owner' : `test:${account.surfaceRole}`;
   const payload = base64Url(JSON.stringify({
-    sub: account.owner ? 'owner-controlled-test' : `test:${account.surfaceRole}`,
+    sub: subjectId,
+    id: subjectId,
     email: account.email,
     role: account.role,
+    orgId: account.organizationId,
     surfaceRole: account.surfaceRole,
     cab: account.cabinetRole,
     owner: account.owner,

@@ -44,4 +44,13 @@ done
 echo "==> [provision] applying least-privilege runtime grants"
 run -f /provision-grants.sql
 
+echo "==> [provision] bootstrapping platform owner (non-fatal)"
+run -v org_id=org-canonical-platform \
+    -v tenant_id=tenant-canonical-test \
+    -v user_id=usr-platform-owner \
+    -v owner_email="${PC_CABINET_LOCK_USER:-pachaninm@gmail.com}" \
+    -v full_name="Максим — владелец платформы" \
+    -f /provision-owner.sql \
+  || echo "==> [provision] owner bootstrap skipped (non-fatal)"
+
 echo "==> [provision] complete: deal=app_deal_api auth=app_service storage=app_storage"

@@ -90,10 +90,12 @@ services:
       APP_PASSWORD: ${APP_PASSWORD:?set in .env}
       AUTH_PASSWORD: ${AUTH_PASSWORD:?set in .env}
       STORAGE_PASSWORD: ${STORAGE_PASSWORD:?set in .env}
+      PC_CABINET_LOCK_USER: ${PC_CABINET_LOCK_USER:-pachaninm@gmail.com}
     volumes:
       - ./provision.sh:/provision.sh:ro
       - ./provision-roles.sql:/provision-roles.sql:ro
       - ./provision-grants.sql:/provision-grants.sql:ro
+      - ./provision-owner.sql:/provision-owner.sql:ro
       - ../sql:/sql:ro
     depends_on:
       migrations:
