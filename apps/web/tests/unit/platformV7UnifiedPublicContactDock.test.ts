@@ -48,12 +48,31 @@ describe('platform-v7 unified public contact dock', () => {
     expect(dock).toContain('pointer-events: none');
   });
 
-  it('uses the public-page palette, green outline and mobile safe area', () => {
+  it('uses an elegant balanced three-column composition', () => {
+    expect(dock).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
+    expect(dock).toContain('width: min(390px');
+    expect(dock).toContain('gap: 2px');
+    expect(dock).toContain('padding: 3px');
+    expect(dock).toContain('border: 1px solid rgba(8, 122, 59, .42)');
+    expect(dock).toContain('border-radius: 20px');
+    expect(dock).not.toContain('border-left: 1px solid');
+  });
+
+  it('uses compact premium icon treatments and restrained typography', () => {
+    expect(dock).toContain("className='pc-public-contact-dock-icon'");
+    expect(dock).toContain('width: 30px');
+    expect(dock).toContain('background: linear-gradient(145deg, rgba(8, 122, 59, .13), rgba(8, 122, 59, .055))');
+    expect(dock).toContain('font-size: 12.5px');
+    expect(dock).toContain('font-weight: 720');
+    expect(dock).toContain('min-height: 54px');
+    expect(dock).toContain('min-height: 52px');
+  });
+
+  it('keeps the public palette, glass surface and mobile safe area', () => {
     expect(dock).toContain('background: var(--pc-ppe-v5-surface, #ffffff)');
     expect(dock).toContain('color: var(--pc-ppe-v5-ink, #092118)');
     expect(dock).toContain('color: var(--pc-ppe-v5-green, #087a3b)');
-    expect(dock).toContain('border: 2px solid var(--pc-ppe-v5-green, #087a3b)');
-    expect(dock).toContain('border-left: 1px solid rgba(8, 122, 59, .34)');
+    expect(dock).toContain('backdrop-filter: blur(18px) saturate(135%)');
     expect(dock).toContain('bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) + 4px))');
     expect(dock).toContain('bottom: max(2px, calc(env(safe-area-inset-bottom, 0px) + 2px))');
   });
@@ -66,7 +85,6 @@ describe('platform-v7 unified public contact dock', () => {
     expect(dock).toContain('aria-label={ui.group}');
     expect(dock).toContain("aria-haspopup='dialog'");
     expect(dock).toContain('env(safe-area-inset-bottom');
-    expect(dock).toContain('min-height: 58px');
     expect(dock).toContain('@media (prefers-reduced-motion: reduce)');
     expect(dock).toContain('@media (forced-colors: active)');
   });
