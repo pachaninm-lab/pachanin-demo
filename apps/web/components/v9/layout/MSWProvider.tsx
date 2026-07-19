@@ -21,10 +21,24 @@ export function MSWProvider({ children }: { children: React.ReactNode }) {
       process.env.NEXT_PUBLIC_DEMO_MODE === 'true' ||
       localStorage.getItem('pc-session-v10')?.includes('"demoMode":true') ||
       localStorage.getItem('pc-session-v9r')?.includes('"demoMode":true') ||
-      localStorage.getItem('pc-session-v9')?.includes('"demoMode":true') ||
-      true;
+      localStorage.getItem('pc-session-v9')?.includes('"demoMode":true');
 
-    if (!demoMode) return;
+    if (!demoMode) {
+      // Production: never intercept real API calls with the mock worker. Also
+      // remove any mock service worker a previous demo build registered in this
+      // browser, so real /api/* requests (login, cabinet data) reach the server.
+      if (typeof navigator !== 'undefined' && navigator.serviceWorker?.getRegistrations) {
+        navigator.serviceWorker
+          .getRegistrations()
+          .then((regs) =>
+            regs.forEach((r) => {
+              if (r.active?.scriptURL?.includes('mockServiceWorker')) r.unregister();
+            }),
+          )
+          .catch(() => undefined);
+      }
+      return;
+    }
 
     setBannerVisible(true);
     startMSW()
