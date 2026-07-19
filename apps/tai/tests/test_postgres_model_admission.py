@@ -11,6 +11,7 @@ from tai.model_admission import (
     LicenseReviewEvidence,
     ModelAdmissionAuthority,
     ModelAdmissionCandidate,
+    ModelAdmissionDecision,
     ModelAdmissionRecord,
     ModelArtifactEvidence,
     ModelBenchmarkEvidence,
@@ -156,11 +157,17 @@ def test_repository_records_artifact_review_benchmarks_and_decision_atomically()
     assert connection.commits == 1
     assert connection.rollbacks == 0
     assert len(connection.cursor_value.calls) == 5
-    queries = "\n".join(query for query, _ in connection.cursor_value.calls)
-    assert "tai_model_artifact_evidence" in queries
-    assert "tai_model_license_reviews" in queries
-    assert queries.count("tai_model_benchmark_evidence") == 2
-    assert "tai_model_admission_decisions" in queries
+    queries = [query for query, _ in connection.cursor_value.calls]
+    assert any("INSERT INTO tai_model_artifact_evidence" in query for query in queries)
+    assert any("INSERT INTO tai_model_license_reviews" in query for query in queries)
+    assert (
+        sum(
+            "INSERT INTO tai_model_benchmark_evidence" in query
+            for query in queries
+        )
+        == 2
+    )
+    assert any("INSERT INTO tai_model_admission_decisions" in query for query in queries)
 
 
 def test_repository_rolls_back_when_existing_evidence_conflicts() -> None:
@@ -179,7 +186,7 @@ def test_repository_rolls_back_when_existing_evidence_conflicts() -> None:
 def test_repository_rejects_decision_not_bound_to_candidate() -> None:
     candidate = _candidate()
     decision = ModelAdmissionAuthority().assess(candidate)
-    wrong = type(decision)(
+    wrong = ModelAdmissionDecision(
         model_id="other-model",
         revision=decision.revision,
         artifact_sha256=decision.artifact_sha256,
