@@ -1,4 +1,4 @@
 schema_version=tai.live-source-trigger.v1
-purpose=ap14d1_bounded_source_diagnostics
-sequence=4
+purpose=ap14d2_post_mintrans_exact_main_evidence
+sequence=5
 remove_after_verified_run=true
