@@ -91,18 +91,35 @@ class HTMLMetadataAdapter:
     required_marker_groups: tuple[tuple[str, ...], ...]
     document_suffixes: frozenset[str]
     count_dates_as_documents: bool = False
+    document_path_patterns: tuple[str, ...] = ()
+    publication_marker_groups: tuple[tuple[str, ...], ...] = ()
 
     def __post_init__(self) -> None:
         if not self.source_id.strip():
             raise ValueError("adapter source_id must not be blank")
         if not self.topics:
             raise ValueError("adapter topics must not be empty")
-        if not self.required_marker_groups or any(
-            not group or any(not marker.strip() for marker in group)
-            for group in self.required_marker_groups
+        _validate_marker_groups(
+            self.required_marker_groups,
+            "adapter marker groups must not be empty",
+        )
+        if self.publication_marker_groups:
+            _validate_marker_groups(
+                self.publication_marker_groups,
+                "publication marker groups must not be empty",
+            )
+        for pattern in self.document_path_patterns:
+            if not pattern.strip():
+                raise ValueError("document path pattern must not be blank")
+            try:
+                re.compile(pattern)
+            except re.error as error:
+                raise ValueError("document path pattern must be valid regex") from error
+        if (
+            not self.count_dates_as_documents
+            and not self.document_suffixes
+            and not self.document_path_patterns
         ):
-            raise ValueError("adapter marker groups must not be empty")
-        if not self.count_dates_as_documents and not self.document_suffixes:
             raise ValueError("adapter must define a document counting strategy")
 
     def parse(
@@ -118,9 +135,8 @@ class HTMLMetadataAdapter:
         if not self.topics.issubset(source.topics):
             raise MetadataExtractionError("adapter_topic_scope_exceeds_catalog")
         normalized = unicodedata.normalize("NFKC", body).casefold()
-        for group in self.required_marker_groups:
-            if not any(marker.casefold() in normalized for marker in group):
-                raise MetadataExtractionError("source_required_marker_missing")
+        if not _marker_groups_match(normalized, self.required_marker_groups):
+            raise MetadataExtractionError("source_required_marker_missing")
 
         parser = _HTMLSnapshotParser()
         try:
@@ -129,7 +145,16 @@ class HTMLMetadataAdapter:
         except Exception as error:
             raise MetadataExtractionError("source_html_parse_failed") from error
 
-        dates = _extract_dates("\n".join(parser.text_chunks), fetched_at)
+        text = "\n".join(parser.text_chunks)
+        dates = (
+            _extract_contextual_dates(
+                text,
+                fetched_at,
+                self.publication_marker_groups,
+            )
+            if self.publication_marker_groups
+            else _extract_dates(text, fetched_at)
+        )
         if not dates:
             raise MetadataExtractionError("source_publication_date_missing")
         latest_publication_at = max(dates)
@@ -144,7 +169,11 @@ class HTMLMetadataAdapter:
                     url
                     for href in parser.links
                     if (url := _trusted_document_url(source, href)) is not None
-                    and _matches_suffix(url, self.document_suffixes)
+                    and _matches_document_locator(
+                        url,
+                        suffixes=self.document_suffixes,
+                        path_patterns=self.document_path_patterns,
+                    )
                 }
             )
         if document_count < 1:
@@ -219,6 +248,8 @@ def default_html_metadata_adapters() -> tuple[HTMLMetadataAdapter, ...]:
             topics=frozenset({CoverageTopic.LOGISTICS_TARIFFS}),
             required_marker_groups=(("тариф",), ("железнодорож", "перевоз")),
             document_suffixes=frozenset({".pdf", ".doc", ".docx", ".xls", ".xlsx"}),
+            document_path_patterns=(r"/file/[0-9]+",),
+            publication_marker_groups=(("тариф",), ("железнодорож", "перевоз")),
         ),
         HTMLMetadataAdapter(
             source_id="official.mcx.opendata",
@@ -229,31 +260,92 @@ def default_html_metadata_adapters() -> tuple[HTMLMetadataAdapter, ...]:
     )
 
 
+def _validate_marker_groups(
+    groups: tuple[tuple[str, ...], ...],
+    error_message: str,
+) -> None:
+    if not groups or any(
+        not group or any(not marker.strip() for marker in group)
+        for group in groups
+    ):
+        raise ValueError(error_message)
+
+
+def _marker_groups_match(
+    normalized_text: str,
+    groups: tuple[tuple[str, ...], ...],
+) -> bool:
+    return all(
+        any(marker.casefold() in normalized_text for marker in group)
+        for group in groups
+    )
+
+
 def _extract_dates(text: str, reference: datetime) -> tuple[datetime, ...]:
-    _aware(reference, "reference")
+    return tuple(
+        sorted({value for _, value in _date_occurrences(text, reference)})
+    )
+
+
+def _extract_contextual_dates(
+    text: str,
+    reference: datetime,
+    marker_groups: tuple[tuple[str, ...], ...],
+) -> tuple[datetime, ...]:
+    occurrences = _date_occurrences(text, reference)
     values: set[datetime] = set()
-    for match in _ISO_DATE.finditer(text):
-        _add_date(values, int(match[1]), int(match[2]), int(match[3]), reference)
-    for match in _DMY_DATE.finditer(text):
-        _add_date(values, int(match[3]), int(match[2]), int(match[1]), reference)
-    for match in _RU_DATE.finditer(text):
-        month = _RU_MONTHS.get(match[2].casefold())
-        if month is not None:
-            _add_date(values, int(match[3]), month, int(match[1]), reference)
+    for index, (position, value) in enumerate(occurrences):
+        end = occurrences[index + 1][0] if index + 1 < len(occurrences) else len(text)
+        segment = unicodedata.normalize("NFKC", text[position:end]).casefold()
+        if _marker_groups_match(segment, marker_groups):
+            values.add(value)
     return tuple(sorted(values))
 
 
-def _add_date(
-    values: set[datetime],
+def _date_occurrences(
+    text: str,
+    reference: datetime,
+) -> tuple[tuple[int, datetime], ...]:
+    _aware(reference, "reference")
+    values: set[tuple[int, datetime]] = set()
+    for match in _ISO_DATE.finditer(text):
+        value = _date_value(
+            int(match[1]),
+            int(match[2]),
+            int(match[3]),
+            reference,
+        )
+        if value is not None:
+            values.add((match.start(), value))
+    for match in _DMY_DATE.finditer(text):
+        value = _date_value(
+            int(match[3]),
+            int(match[2]),
+            int(match[1]),
+            reference,
+        )
+        if value is not None:
+            values.add((match.start(), value))
+    for match in _RU_DATE.finditer(text):
+        month = _RU_MONTHS.get(match[2].casefold())
+        if month is None:
+            continue
+        value = _date_value(int(match[3]), month, int(match[1]), reference)
+        if value is not None:
+            values.add((match.start(), value))
+    return tuple(sorted(values, key=lambda item: (item[0], item[1])))
+
+
+def _date_value(
     year: int,
     month: int,
     day: int,
     reference: datetime,
-) -> None:
+) -> datetime | None:
     try:
-        values.add(datetime(year, month, day, tzinfo=reference.tzinfo))
+        return datetime(year, month, day, tzinfo=reference.tzinfo)
     except ValueError:
-        return
+        return None
 
 
 def _trusted_document_url(
@@ -269,9 +361,16 @@ def _trusted_document_url(
     return absolute
 
 
-def _matches_suffix(url: str, suffixes: frozenset[str]) -> bool:
+def _matches_document_locator(
+    url: str,
+    *,
+    suffixes: frozenset[str],
+    path_patterns: tuple[str, ...],
+) -> bool:
     path = urlparse(url).path.casefold()
-    return any(path.endswith(suffix) for suffix in suffixes)
+    if any(path.endswith(suffix) for suffix in suffixes):
+        return True
+    return any(re.fullmatch(pattern, path) is not None for pattern in path_patterns)
 
 
 def _aware(value: datetime, name: str) -> None:
