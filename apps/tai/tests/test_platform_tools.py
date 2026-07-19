@@ -95,7 +95,7 @@ def test_safe_tool_handler_binds_identity_request_and_idempotency() -> None:
     assert len(transport.calls) == 1
     call = transport.calls[0]
     assert call["base_url"] == "http://platform-api.svc"
-    assert call["path"] == "/internal/tai/tools/getDealSummary"
+    assert call["path"] == "/api/internal/tai/tools/getDealSummary"
     assert call["payload"] == {"arguments": {"dealId": "deal-1"}}
     assert call["headers"]["X-Idempotency-Key"] == "tai.tool.request.0001"
 
