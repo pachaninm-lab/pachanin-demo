@@ -57,6 +57,7 @@ function restoreAttribute(node: HTMLElement, name: string, value: string | null)
 
 export function PublicContactDock() {
   const [locale, setLocale] = React.useState<Locale>('ru');
+  const [dialogOpen, setDialogOpen] = React.useState(false);
   const assistantButtonRef = React.useRef<HTMLButtonElement>(null);
   const supportButtonRef = React.useRef<HTMLButtonElement>(null);
   const returnFocusRef = React.useRef<Surface | null>(null);
@@ -85,6 +86,8 @@ export function PublicContactDock() {
       const supportOpen = Boolean(document.querySelector('.p7-support-chat-panel'));
       const previousOpen = openStateRef.current;
       const focusTarget = returnFocusRef.current;
+
+      setDialogOpen(assistantOpen || supportOpen);
 
       if (previousOpen.assistant && !assistantOpen && focusTarget === 'assistant') {
         returnFocusRef.current = null;
@@ -120,7 +123,12 @@ export function PublicContactDock() {
   };
 
   return (
-    <nav className='pc-public-contact-dock' aria-label={ui.group}>
+    <nav
+      className='pc-public-contact-dock'
+      aria-label={ui.group}
+      aria-hidden={dialogOpen}
+      data-dialog-open={dialogOpen ? 'true' : 'false'}
+    >
       <button
         ref={assistantButtonRef}
         type='button'
@@ -199,6 +207,11 @@ const css = `
   box-shadow: 0 16px 40px rgba(3, 28, 18, .3);
   color: #fff;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.pc-public-contact-dock[data-dialog-open='true'] {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 .pc-public-contact-dock,
 .pc-public-contact-dock * { box-sizing: border-box; min-width: 0; }
