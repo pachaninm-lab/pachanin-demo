@@ -5,6 +5,7 @@ import os
 from fastapi import FastAPI
 
 from tai.main import create_app
+from tai.production_platform_tools import production_platform_tool_handlers
 from tai.production_runtime import (
     ProductionConfigurationError,
     ProductionRuntimeConfig,
@@ -18,7 +19,8 @@ def create_production_app(environment: dict[str, str] | None = None) -> FastAPI:
         return create_app(configuration_error="TAI_RUNTIME_MODE_PRODUCTION_REQUIRED")
     try:
         config = ProductionRuntimeConfig.from_environment(source)
-        bundle = build_production_runtime(config)
+        tool_handlers = production_platform_tool_handlers(source, config)
+        bundle = build_production_runtime(config, tool_handlers=tool_handlers)
     except ProductionConfigurationError:
         return create_app(configuration_error="TAI_PRODUCTION_CONFIGURATION_INVALID")
     except Exception:
