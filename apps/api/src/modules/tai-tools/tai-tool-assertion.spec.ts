@@ -8,7 +8,7 @@ import {
 
 const SECRET = Buffer.alloc(32, 7);
 const NOW = new Date('2026-07-19T02:00:00.000Z');
-const PATH = '/internal/tai/tools/getDealSummary';
+const PATH = '/api/internal/tai/tools/getDealSummary';
 const BODY = { arguments: { dealId: 'deal-2408' } };
 const IDEMPOTENCY = 'tai.tool.request.0001';
 
