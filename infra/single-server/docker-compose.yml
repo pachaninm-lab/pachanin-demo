@@ -77,6 +77,29 @@ services:
         condition: service_healthy
     networks: [edge]
 
+  # One-shot: after migrations, create the three canonical runtime principals
+  # (deal/auth/storage), apply the canonical RLS overlays (ENABLE + FORCE RLS)
+  # and the least-privilege grants the platform's startup boundary requires.
+  # Idempotent — safe to re-run on every deploy.
+  provision:
+    image: postgres:16
+    restart: "no"
+    entrypoint: ["/bin/sh", "/provision.sh"]
+    environment:
+      DDL_PASSWORD: ${DDL_PASSWORD:?set in .env}
+      APP_PASSWORD: ${APP_PASSWORD:?set in .env}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:?set in .env}
+      STORAGE_PASSWORD: ${STORAGE_PASSWORD:?set in .env}
+    volumes:
+      - ./provision.sh:/provision.sh:ro
+      - ./provision-roles.sql:/provision-roles.sql:ro
+      - ./provision-grants.sql:/provision-grants.sql:ro
+      - ../sql:/sql:ro
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    networks: [edge]
+
   api:
     image: "${IMAGE_PREFIX:-ghcr.io/pachaninm-lab/grainflow}-api:latest"
     restart: unless-stopped
@@ -84,10 +107,13 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3001"
-      # Runtime → PgBouncer (transaction pooling). Auth + storage principals.
-      DATABASE_URL: "postgresql://grainflow_app:${APP_PASSWORD}@pgbouncer:6432/grainflow?pgbouncer=true&connection_limit=10&pool_timeout=10"
-      AUTH_DATABASE_URL: "postgresql://grainflow_app:${APP_PASSWORD}@pgbouncer:6432/grainflow?pgbouncer=true&connection_limit=5"
-      STORAGE_DATABASE_URL: "postgresql://grainflow_storage:${STORAGE_PASSWORD}@pgbouncer:6432/grainflow?pgbouncer=true&connection_limit=5"
+      # Runtime connects DIRECTLY to PostgreSQL as three distinct least-privilege
+      # principals. A single shared PgBouncer login would collapse them into one
+      # role and break the deal/auth/storage boundary the platform enforces at
+      # startup, so pooling is intentionally not used on this path.
+      DATABASE_URL: "postgresql://app_deal_api:${APP_PASSWORD}@postgres:5432/grainflow?connection_limit=15"
+      AUTH_DATABASE_URL: "postgresql://app_service:${AUTH_PASSWORD}@postgres:5432/grainflow?connection_limit=5"
+      STORAGE_DATABASE_URL: "postgresql://app_storage:${STORAGE_PASSWORD}@postgres:5432/grainflow?connection_limit=5"
       REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379"
       PLATFORM_V7_DEAL_REPOSITORY: prisma
       PLATFORM_V7_DOCUMENT_REPOSITORY: prisma
@@ -108,10 +134,8 @@ services:
       # MinIO is on the private container network only — HTTP is safe here.
       OBJECT_STORAGE_ALLOW_INSECURE_ENDPOINT: "true"
     depends_on:
-      migrations:
+      provision:
         condition: service_completed_successfully
-      pgbouncer:
-        condition: service_started
       redis:
         condition: service_started
       minio-init:

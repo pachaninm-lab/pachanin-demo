@@ -31,6 +31,7 @@ SITE_ADDRESS=${SITE_ADDRESS:?export SITE_ADDRESS=<server-ip-or-domain>}
 IMAGE_PREFIX=ghcr.io/pachaninm-lab/grainflow
 DDL_PASSWORD=$(gen)
 APP_PASSWORD=$(gen)
+AUTH_PASSWORD=$(gen)
 STORAGE_PASSWORD=$(gen)
 REDIS_PASSWORD=$(gen)
 PG_SHARED_BUFFERS=1GB
