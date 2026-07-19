@@ -42,6 +42,15 @@ describe('platform-v7 unified public contact dock', () => {
     expect(dock).toContain('pointer-events: none');
   });
 
+  it('uses the public-page palette and stays close to the mobile safe area', () => {
+    expect(dock).toContain('background: var(--pc-ppe-v5-surface, #ffffff)');
+    expect(dock).toContain('color: var(--pc-ppe-v5-ink, #092118)');
+    expect(dock).toContain('color: var(--pc-ppe-v5-green, #087a3b)');
+    expect(dock).toContain('border: 1px solid var(--pc-ppe-v5-line, #cfdcd4)');
+    expect(dock).toContain('bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) + 4px))');
+    expect(dock).toContain('bottom: max(2px, calc(env(safe-area-inset-bottom, 0px) + 2px))');
+  });
+
   it('is localized, mobile-safe and keyboard accessible', () => {
     expect(dock).toContain("assistant: 'AI'");
     expect(dock).toContain("support: 'Support'");

@@ -194,18 +194,18 @@ const css = `
 }
 .pc-public-contact-dock {
   position: fixed;
-  right: max(14px, env(safe-area-inset-right, 0px));
-  bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) + 10px));
+  right: max(10px, env(safe-area-inset-right, 0px));
+  bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) + 4px));
   z-index: 2147482995;
-  width: min(430px, calc(100vw - 28px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+  width: min(430px, calc(100vw - 20px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
   display: grid;
   grid-template-columns: .78fr 1.05fr 1.42fr;
   overflow: hidden;
-  border: 1px solid rgba(126, 242, 196, .34);
-  border-radius: 20px;
-  background: linear-gradient(180deg, #123126 0%, #0b2119 100%);
-  box-shadow: 0 16px 40px rgba(3, 28, 18, .3);
-  color: #fff;
+  border: 1px solid var(--pc-ppe-v5-line, #cfdcd4);
+  border-radius: var(--pc-ppe-v5-radius, 14px);
+  background: var(--pc-ppe-v5-surface, #ffffff);
+  box-shadow: 0 10px 28px rgba(9, 33, 24, .14);
+  color: var(--pc-ppe-v5-ink, #092118);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 .pc-public-contact-dock[data-dialog-open='true'] {
@@ -233,19 +233,19 @@ const css = `
   -webkit-tap-highlight-color: transparent;
 }
 .pc-public-contact-dock-action + .pc-public-contact-dock-action {
-  border-left: 1px solid rgba(255, 255, 255, .14);
+  border-left: 1px solid var(--pc-ppe-v5-line, #cfdcd4);
 }
-.pc-public-contact-dock-action:hover { background: rgba(126, 242, 196, .09); }
-.pc-public-contact-dock-action:active { background: rgba(126, 242, 196, .15); }
+.pc-public-contact-dock-action:hover { background: #eef5f0; }
+.pc-public-contact-dock-action:active { background: #e1efe6; }
 .pc-public-contact-dock-action:focus-visible {
   position: relative;
   z-index: 1;
-  outline: 3px solid #7ef2c4;
+  outline: 3px solid var(--pc-ppe-v5-green, #087a3b);
   outline-offset: -4px;
 }
 .pc-public-contact-dock-action svg {
   flex: 0 0 auto;
-  color: #7ef2c4;
+  color: var(--pc-ppe-v5-green, #087a3b);
 }
 .pc-public-contact-dock-action strong {
   display: block;
@@ -258,7 +258,7 @@ const css = `
 .pc-public-contact-dock-call > span { display: grid; gap: 2px; text-align: left; }
 .pc-public-contact-dock-call small {
   display: block;
-  color: rgba(255, 255, 255, .76);
+  color: var(--pc-ppe-v5-muted, #52635b);
   font-size: 10px;
   line-height: 1.1;
   font-weight: 680;
@@ -267,12 +267,12 @@ const css = `
 }
 @media (max-width: 520px) {
   .pc-public-contact-dock {
-    right: max(10px, env(safe-area-inset-right, 0px));
-    left: max(10px, env(safe-area-inset-left, 0px));
-    bottom: max(10px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+    right: max(8px, env(safe-area-inset-right, 0px));
+    left: max(8px, env(safe-area-inset-left, 0px));
+    bottom: max(2px, calc(env(safe-area-inset-bottom, 0px) + 2px));
     width: auto;
     grid-template-columns: .72fr 1fr 1.38fr;
-    border-radius: 18px;
+    border-radius: var(--pc-ppe-v5-radius, 14px);
   }
   .pc-public-contact-dock-action {
     min-height: 58px;
