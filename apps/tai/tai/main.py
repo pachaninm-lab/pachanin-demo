@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Protocol
 from uuid import uuid4
 
 from fastapi import FastAPI, Header, Request
@@ -40,14 +41,72 @@ from tai.orchestration import (
 _NowProvider = Callable[[], datetime]
 
 
+@dataclass(frozen=True, slots=True)
+class ReadinessStatus:
+    ready: bool
+    components: Mapping[str, str]
+    reasons: tuple[str, ...] = ()
+
+
+class ReadinessProbe(Protocol):
+    def check(self) -> ReadinessStatus: ...
+
+
 def create_app(
     *,
     runtime: TAIOrchestrationRuntime | None = None,
     identity_authority: HMACPlatformIdentityAuthority | None = None,
     now_provider: _NowProvider | None = None,
+    readiness_probe: ReadinessProbe | None = None,
+    configuration_error: str | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Transparent Agro Intelligence", version="0.3.0")
     now = now_provider or (lambda: datetime.now(UTC))
+
+    def readiness_state() -> ReadinessStatus:
+        if configuration_error is not None:
+            return ReadinessStatus(
+                False,
+                {
+                    "billing": "disabled-by-architecture",
+                    "orchestration": "unconfigured",
+                },
+                (configuration_error,),
+            )
+        configured = runtime is not None and identity_authority is not None
+        if not configured:
+            return ReadinessStatus(
+                False,
+                {
+                    "billing": "disabled-by-architecture",
+                    "orchestration": "unconfigured",
+                },
+                ("RUNTIME_NOT_CONFIGURED",),
+            )
+        if readiness_probe is None:
+            return ReadinessStatus(
+                True,
+                {
+                    "billing": "disabled-by-architecture",
+                    "orchestration": "configured",
+                },
+            )
+        try:
+            probed = readiness_probe.check()
+        except Exception:
+            return ReadinessStatus(
+                False,
+                {
+                    "billing": "disabled-by-architecture",
+                    "orchestration": "configured",
+                    "dependencies": "probe_failed",
+                },
+                ("READINESS_PROBE_FAILED",),
+            )
+        components = dict(probed.components)
+        components.setdefault("billing", "disabled-by-architecture")
+        components.setdefault("orchestration", "configured")
+        return ReadinessStatus(probed.ready, components, probed.reasons)
 
     @app.exception_handler(RequestValidationError)
     async def request_validation_error(
@@ -69,14 +128,23 @@ def create_app(
 
     @app.get("/health/ready")
     def readiness() -> JSONResponse:
-        configured = runtime is not None and identity_authority is not None
+        state = readiness_state()
+        components = dict(state.components)
         return JSONResponse(
-            status_code=200 if configured else 503,
+            status_code=200 if state.ready else 503,
             content={
-                "status": "ready" if configured else "not_ready",
+                "status": "ready" if state.ready else "not_ready",
                 "policy": "deny-by-default",
-                "billing": "disabled-by-architecture",
-                "orchestration": "configured" if configured else "unconfigured",
+                "billing": components.pop(
+                    "billing",
+                    "disabled-by-architecture",
+                ),
+                "orchestration": components.pop(
+                    "orchestration",
+                    "configured" if runtime is not None else "unconfigured",
+                ),
+                "components": components,
+                "reasons": list(state.reasons),
             },
         )
 

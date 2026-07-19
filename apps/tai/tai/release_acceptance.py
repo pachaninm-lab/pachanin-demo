@@ -156,7 +156,7 @@ DEFAULT_REQUIRED_WORKFLOWS = frozenset(
 @dataclass(frozen=True, slots=True)
 class ApplicationReleasePolicy:
     required_workflows: frozenset[str] = DEFAULT_REQUIRED_WORKFLOWS
-    minimum_migration_version: int = 13
+    minimum_migration_version: int = 14
 
     def __post_init__(self) -> None:
         if not self.required_workflows:

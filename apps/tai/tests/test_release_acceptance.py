@@ -25,7 +25,7 @@ NOW = datetime(2026, 7, 18, 23, 0, tzinfo=UTC)
 HEAD = "a" * 64
 
 
-def _migration_inventory(last: int = 13) -> MigrationInventory:
+def _migration_inventory(last: int = 14) -> MigrationInventory:
     return MigrationInventory(
         tuple(
             MigrationArtifact(

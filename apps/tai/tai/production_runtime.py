@@ -30,7 +30,6 @@ from tai.model_runtime import (
     ModelCapability,
     ModelProfileStatus,
     ModelRouteRequest,
-    PostgreSQLModelRuntimeRepository as _MissingImportGuard,
     RoutedLocalModelGateway,
 )
 from tai.orchestration import (
