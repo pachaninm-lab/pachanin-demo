@@ -6,14 +6,29 @@ test.describe('unified public modal sheet fullscreen control', () => {
     await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
   });
 
+  test('rewritten public home keeps the unified AI, support and call dock visible', async ({ page }) => {
+    const dock = page.getByRole('navigation', { name: 'Связь и помощь' });
+
+    await expect(dock).toBeVisible();
+    await expect(dock.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' })).toBeVisible();
+    await expect(dock.getByRole('button', { name: 'Открыть поддержку' })).toBeVisible();
+    await expect(dock.getByRole('link', { name: 'Позвонить по номеру 8 916 277-89-89' }))
+      .toHaveAttribute('href', 'tel:+79162778989');
+
+    await expect(page.locator('.pc-public-assistant-shortcut')).toBeHidden();
+    await expect(page.locator('.p7-support-chat-button')).toBeHidden();
+  });
+
   test('platform assistant opens as a compact intent-first sheet and preserves fullscreen', async ({ page }) => {
-    await page.locator('.pc-public-assistant-shortcut').click();
+    const dock = page.getByRole('navigation', { name: 'Связь и помощь' });
+    await dock.getByRole('button', { name: 'Открыть ИИ-помощника по платформе' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Помощник по платформе' });
     const expand = dialog.getByRole('button', { name: 'На весь экран' });
     await expect(dialog).toBeVisible();
     await expect(expand).toBeVisible();
     await expect(dialog).toHaveAttribute('data-pc-fullscreen', 'false');
+    await expect(dock).toBeHidden();
 
     const starters = dialog.locator('.pc-public-assistant-starters button');
     await expect(starters.first()).toBeVisible();
@@ -52,10 +67,12 @@ test.describe('unified public modal sheet fullscreen control', () => {
   });
 
   test('support is compact, has one focus ring and uses the same fullscreen control', async ({ page }) => {
-    await page.locator('.p7-support-chat-button').click();
+    const dock = page.getByRole('navigation', { name: 'Связь и помощь' });
+    await dock.getByRole('button', { name: 'Открыть поддержку' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Поддержка' });
     await expect(dialog).toBeVisible();
+    await expect(dock).toBeHidden();
     await expect(dialog.getByText('Поддержка', { exact: true })).toBeVisible();
     await expect(dialog.getByText('Поддержка Прозрачной Цены', { exact: true })).toHaveCount(0);
 
