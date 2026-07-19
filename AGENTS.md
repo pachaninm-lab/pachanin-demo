@@ -38,6 +38,16 @@ Do not introduce these claims in UI, docs, PR body, tests or code comments:
 - ФГИС подключён
 - ЭДО подключён
 
+## Product owner design requirements (binding)
+
+Recorded 2026-07-19 from the product owner. Any UI work allowed by the current step must comply:
+
+- The platform must be understandable to any user without training: one task per screen, one primary action, plain sixth-grade Russian, help in place. Follow `DESIGN_STANDARD_platform_2026-07-19.md`.
+- The platform must look like a mature industrial federal-scale system: document numbers, timestamps with timezone, audit notice, visual quiet. No marketing gloss, no emoji in work surfaces, no version names (v7/v9) visible to users.
+- Zero function loss: simplification means re-ranking (progressive disclosure), never removal. Every existing function stays reachable within 2 clicks.
+- Zero demo feel for working roles: demo/simulation/flag tooling moves to staff-only surfaces; environment banners collapse into a quiet service line. This does not override the maturity-wording rules above — honest stage wording stays, phrased in user language.
+- Design/visual diagnosis and migration plan: `AUDIT_design-visual_2026-07-19.md`. Acceptance criteria for any UI wave: `DESIGN_STANDARD_platform_2026-07-19.md` §7.
+
 ## Engineering rules
 
 - Use explicit boundaries.
