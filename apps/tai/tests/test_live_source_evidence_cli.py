@@ -5,6 +5,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from tai import live_source_evidence_cli
 from tai.live_source_evidence import (
     LiveCollectionStatus,
@@ -13,10 +15,12 @@ from tai.live_source_evidence import (
     LiveSourceResultStatus,
 )
 from tai.source_coverage import (
-    CoverageAssessment,
+    CoverageRequirement,
     CoverageTopic,
-    TopicCoverage,
-    TopicCoverageStatus,
+    OfficialSourceCatalog,
+    OfficialSourceCoverageAuthority,
+    OfficialSourceDefinition,
+    SourceFormat,
 )
 
 NOW = datetime(2026, 7, 19, 12, 0, tzinfo=UTC)
@@ -33,22 +37,37 @@ class _Collector:
         return self.bundle
 
 
-def _bundle() -> LiveEvidenceBundle:
-    assessment = CoverageAssessment(
-        generated_at=NOW,
-        coverage_basis_points=0,
-        critical_coverage_basis_points=0,
-        all_critical_covered=False,
-        topics=(
-            TopicCoverage(
-                topic=CoverageTopic.FINANCE_RATES,
-                status=TopicCoverageStatus.UNOBSERVED,
-                required_sources=1,
-                healthy_source_ids=(),
-                stale_source_ids=(),
-                reasons=("no_successful_observation",),
+def _catalog() -> OfficialSourceCatalog:
+    return OfficialSourceCatalog(
+        sources=(
+            OfficialSourceDefinition(
+                source_id="official.cbr.key-rate",
+                owner="Банк России",
+                entrypoint_uri="https://www.cbr.ru/hd_base/KeyRate/",
+                allowed_hosts=frozenset({"www.cbr.ru"}),
+                topics=frozenset({CoverageTopic.FINANCE_RATES}),
+                formats=frozenset({SourceFormat.HTML}),
+                expected_update_interval=timedelta(days=7),
+                maximum_publication_age=timedelta(days=31),
+                verified_at=NOW - timedelta(days=1),
             ),
         ),
+        requirements=(
+            CoverageRequirement(
+                topic=CoverageTopic.FINANCE_RATES,
+                minimum_official_sources=1,
+                maximum_publication_age=timedelta(days=31),
+            ),
+        ),
+    )
+
+
+def _bundle() -> LiveEvidenceBundle:
+    catalog = _catalog()
+    assessment = OfficialSourceCoverageAuthority().assess(
+        catalog=catalog,
+        observations=(),
+        now=NOW,
     )
     return LiveEvidenceBundle(
         repository_sha=REPOSITORY_SHA,
@@ -76,23 +95,23 @@ def _read(path: Path) -> dict[str, Any]:
     return payload
 
 
-def test_cli_writes_failed_or_partial_live_result_as_valid_artifact(
+def test_cli_writes_failed_live_result_as_valid_artifact(
     tmp_path: Path,
-    monkeypatch: object,
-    capsys: object,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.setattr(  # type: ignore[attr-defined]
+    monkeypatch.setattr(
         live_source_evidence_cli,
         "load_official_source_catalog",
-        lambda path: object(),
+        lambda path: _catalog(),
     )
-    monkeypatch.setattr(  # type: ignore[attr-defined]
+    monkeypatch.setattr(
         live_source_evidence_cli,
         "live_definitions",
         lambda **kwargs: (object(),),
     )
     _Collector.bundle = _bundle()
-    monkeypatch.setattr(  # type: ignore[attr-defined]
+    monkeypatch.setattr(
         live_source_evidence_cli,
         "LiveSourceEvidenceCollector",
         _Collector,
@@ -117,8 +136,7 @@ def test_cli_writes_failed_or_partial_live_result_as_valid_artifact(
     assert len(str(manifest["evidence_bundle_sha256"])) == 64
     assert observations["observations"] == []
     assert coverage["all_critical_covered"] is False
-    captured = capsys.readouterr()  # type: ignore[attr-defined]
-    assert '"status": "FAILED"' in captured.out
+    assert '"status": "FAILED"' in capsys.readouterr().out
 
 
 def test_cli_structural_error_is_nonzero_and_still_uploadable(tmp_path: Path) -> None:
