@@ -62,6 +62,29 @@ class _AddressAwareTransport:
         return outcome
 
 
+class _Monotonic:
+    def __init__(self, values: list[float]) -> None:
+        self._values = values
+
+    def __call__(self) -> float:
+        if len(self._values) > 1:
+            return self._values.pop(0)
+        return self._values[0]
+
+
+class _SequenceTransport:
+    def __init__(self, outcomes: list[Exception | TransportResponse]) -> None:
+        self._outcomes = outcomes
+        self.requests: list[TransportRequest] = []
+
+    def exchange(self, request: TransportRequest) -> TransportResponse:
+        self.requests.append(request)
+        outcome = self._outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
 def _response(status_code: int = 200) -> TransportResponse:
     body = b"<html><body>official data 19.07.2026</body></html>"
     return TransportResponse(
@@ -166,6 +189,58 @@ def test_address_attempts_are_bounded_to_four_verified_addresses() -> None:
     assert "93.184.216.34" not in {
         request.target_ip for request in transport.requests
     }
+
+
+def test_addresses_share_one_monotonic_timeout_budget() -> None:
+    fetcher, transport = _fetcher(
+        ("1.1.1.1", "8.8.8.8", "9.9.9.9"),
+        {
+            "1.1.1.1": TimeoutError("slow edge one"),
+            "8.8.8.8": TimeoutError("slow edge two"),
+            "9.9.9.9": _response(),
+        },
+    )
+    fetcher.policy = OfficialFetchPolicy(
+        allowed_hosts=frozenset({HOST}),
+        timeout_seconds=45,
+    )
+    fetcher.monotonic = _Monotonic([0.0, 0.0, 20.0, 44.95])
+
+    result = fetcher.fetch(
+        FetchRequest(source_id="official.example", source_uri=f"https://{HOST}/")
+    )
+
+    assert result.disposition is FetchDisposition.RETRYABLE_FAILURE
+    assert result.error_code == "source_transport_timeout"
+    assert [request.timeout_seconds for request in transport.requests] == [45.0, 25.0]
+    assert len(transport.requests) == 2
+
+
+def test_redirect_does_not_restart_monotonic_timeout_budget() -> None:
+    redirect = TransportResponse(
+        status_code=302,
+        headers={"location": "/next"},
+        body=b"",
+        received_at=NOW,
+    )
+    transport = _SequenceTransport([redirect, TimeoutError("redirect edge slow")])
+    fetcher = DiagnosticOfficialSourceHTTPFetcher(
+        policy=OfficialFetchPolicy(
+            allowed_hosts=frozenset({HOST}),
+            timeout_seconds=45,
+        ),
+        resolver=_Resolver(("8.8.8.8",)),
+        transport=transport,
+        monotonic=_Monotonic([0.0, 0.0, 44.0]),
+    )
+
+    result = fetcher.fetch(
+        FetchRequest(source_id="official.example", source_uri=f"https://{HOST}/")
+    )
+
+    assert result.disposition is FetchDisposition.RETRYABLE_FAILURE
+    assert result.error_code == "source_transport_timeout"
+    assert [request.timeout_seconds for request in transport.requests] == [45.0, 1.0]
 
 
 def test_resolver_binding_mismatch_fails_closed_before_transport() -> None:

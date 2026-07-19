@@ -9,16 +9,18 @@ This directory contains small governed catalogs and evidence schemas. It does no
 - Ministry of Agriculture open data and grain traceability;
 - Rosstat agricultural production and producer-price publications;
 - Eurasian Economic Commission grain regulation and quality requirements;
+- Russian Agricultural Center national phytosanitary and agronomy forecast;
 - Ministry of Transport railway-tariff documents;
 - Bank of Russia key-rate history.
 
-The agronomy-recommendation topic intentionally has no registered source yet. The coverage authority must report this as `GAP` even when every other source is healthy.
+The catalog contains six official sources and governed authority for all eight critical topics. Registration still does not count as coverage: the agronomy source, like every other source, must be successfully observed and pass freshness policy.
 
 ## Three different gates
 
 1. **Catalog validation** proves only that owners, HTTPS entrypoints, hosts, formats, update intervals and topic requirements are structurally governed.
 2. **Observation execution** uses the existing PostgreSQL loader lease authority, the pinned fail-closed HTTPS fetcher and source-specific metadata adapters. Loader completion, observation and run evidence are committed atomically under the lease token and version.
 3. **Coverage assessment** requires actual source observations with a successful timestamp, latest publication timestamp, document count, observed topics and content digest.
+4. **Source-health assessment** chains bounded refresh cycles, retains the latest rerun per run ID, calculates consecutive failures, refresh staleness, publication expiry and authority-review due dates, and emits deterministic dashboard and alert digests.
 
 A URL in the catalog is not knowledge. A source counts toward coverage only when its observation is current, successful, topic-matched and non-duplicated.
 
@@ -34,7 +36,9 @@ A URL in the catalog is not knowledge. A source counts toward coverage only when
 - a stale lease token cannot commit loader state, observation or run evidence;
 - every accepted run has an immutable SHA-256 evidence record bound to its source, worker and lease token.
 
-The adapters currently cover the metadata shapes for Bank of Russia, Rosstat, EEC, Ministry of Transport and Ministry of Agriculture/Open Data. CI uses deterministic fixtures and does not depend on live government endpoints.
+The adapters cover the metadata shapes for Bank of Russia, Rosstat, EEC, Ministry of Transport, Ministry of Agriculture/Open Data and the Russian Agricultural Center. CI uses deterministic fixtures and does not depend on live government endpoints.
+
+The permanent exact-main workflow restores only versioned prior health artifacts, validates their digest chain, uploads current evidence before enforcing health, and has read-only repository/Actions permissions. A manual acceptance requires `6/6` observed sources and `8/8` covered topics; scheduled runs fail on critical source-health alerts while preserving the artifact.
 
 ## CLI
 

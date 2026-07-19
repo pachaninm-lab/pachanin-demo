@@ -8,7 +8,9 @@ Acceptance for the diagnostic rerun:
 2. each failed source must emit one registered bounded diagnostic code or an existing policy/parser code;
 3. the workflow keeps `contents: read` only;
 4. collection and topic coverage remain independent statuses;
-5. a lower or equal coverage result is accepted as evidence when source health is unchanged or worse;
-6. no source is marked covered without a fresh successful observation.
+5. the artifact contains immutable refresh history, the deterministic health dashboard, active alerts, remediation trace, knowledge decision and a complete file index;
+6. no source is marked covered without a fresh successful observation;
+7. controlled `workflow_dispatch` acceptance requires `6/6` observed sources, `8/8` covered topics, `10000/10000` critical coverage, no history gap and `HEALTHY` dashboard status;
+8. scheduled refresh fails after artifact upload on critical, stale, expired or history-gap alerts.
 
 This rerun identifies the next source-specific repair. It is not production attestation.

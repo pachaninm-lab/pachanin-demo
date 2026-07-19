@@ -28,6 +28,7 @@ from tai.source_coverage import (
     OfficialSourceDefinition,
     SourceFormat,
 )
+from tai.source_health import SourceRefreshOutcome
 
 NOW = datetime(2026, 7, 19, 12, 0, tzinfo=UTC)
 REPOSITORY_SHA = "a" * 40
@@ -306,5 +307,6 @@ def test_bundle_and_result_invariants_reject_inconsistent_evidence() -> None:
             started_at=NOW,
             completed_at=NOW,
             reason="invalid",
+            refresh_outcome=SourceRefreshOutcome.SUCCEEDED,
             observation=None,
         )
