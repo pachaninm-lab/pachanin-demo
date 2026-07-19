@@ -1,0 +1,347 @@
+name: TAI Exact-Main Audit 886d4563
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-exact-main-audit-886d4563.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  audit-exact-main-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      TARGET_SHA: 886d4563481c4b6e5f476784af4d7a4f7b5dcded
+      RELEASE_WORKFLOW: TAI Release Acceptance
+    steps:
+      - name: Wait for exact-main release authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > required-workflows.json <<'JSON'
+          [
+            "Auction Atomic Execution Acceptance",
+            "CI",
+            "Dependency Review",
+            "Disputes PostgreSQL Authority Acceptance",
+            "Node CI",
+            "Optional Runtime Retirement Gate",
+            "Outbox PostgreSQL Authority Acceptance",
+            "Runtime Context Security Gate",
+            "Security Abuse and Evidence Acceptance",
+            "Security Quality Gate",
+            "Security Scan",
+            "TAI Foundation"
+          ]
+          JSON
+
+          for attempt in $(seq 1 120); do
+            gh api \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "/repos/${REPOSITORY}/actions/runs?head_sha=${TARGET_SHA}&per_page=100" \
+              > all-runs.json
+
+            set +e
+            python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          target = os.environ["TARGET_SHA"]
+          release_name = os.environ["RELEASE_WORKFLOW"]
+          required = set(json.loads(Path("required-workflows.json").read_text()))
+          runs = json.loads(Path("all-runs.json").read_text()).get("workflow_runs", [])
+
+          latest = {}
+          for run in runs:
+              name = run.get("name")
+              if name not in required | {release_name}:
+                  continue
+              if run.get("head_sha") != target:
+                  continue
+              if run.get("event") != "push" or run.get("head_branch") != "main":
+                  continue
+              key = (run.get("run_number", 0), run.get("run_attempt", 0), run.get("id", 0))
+              current = latest.get(name)
+              if current is None or key > current[0]:
+                  latest[name] = (key, run)
+
+          required_latest = {name: latest[name][1] for name in required if name in latest}
+          missing = sorted(required - set(required_latest))
+          pending = sorted(
+              name for name, run in required_latest.items()
+              if run.get("status") != "completed"
+          )
+          failed = sorted(
+              name for name, run in required_latest.items()
+              if run.get("status") == "completed" and run.get("conclusion") != "success"
+          )
+          release = latest.get(release_name, (None, None))[1]
+          release_state = "missing"
+          if release is not None:
+              release_state = (
+                  release.get("conclusion")
+                  if release.get("status") == "completed"
+                  else release.get("status", "unknown")
+              )
+
+          state = {
+              "failed": failed,
+              "missing": missing,
+              "pending": pending,
+              "release_state": release_state,
+              "successful_required": sorted(
+                  name for name, run in required_latest.items()
+                  if run.get("status") == "completed" and run.get("conclusion") == "success"
+              ),
+              "target_sha": target,
+          }
+          Path("audit-wait-state.json").write_text(
+              json.dumps(state, indent=2, sort_keys=True) + "\n"
+          )
+
+          if failed:
+              raise SystemExit(2)
+          if missing or pending:
+              raise SystemExit(3)
+          if release is None or release.get("status") != "completed":
+              raise SystemExit(3)
+          if release.get("conclusion") != "success":
+              raise SystemExit(4)
+
+          Path("release-run.json").write_text(
+              json.dumps(release, indent=2, sort_keys=True) + "\n"
+          )
+          PY
+            status=$?
+            set -e
+
+            if [ "$status" -eq 0 ]; then
+              echo "All exact-main authorities are successful."
+              break
+            fi
+            if [ "$status" -eq 2 ]; then
+              echo "A required exact-main workflow failed." >&2
+              cat audit-wait-state.json >&2
+              exit 1
+            fi
+            if [ "$status" -eq 4 ]; then
+              echo "TAI Release Acceptance failed." >&2
+              cat audit-wait-state.json >&2
+              exit 1
+            fi
+            if [ "$attempt" -eq 120 ]; then
+              echo "Timed out waiting for exact-main release authority." >&2
+              cat audit-wait-state.json >&2
+              exit 1
+            fi
+            sleep 20
+          done
+
+      - name: Download exact-main release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_run_id="$(python -c 'import json; print(json.load(open("release-run.json"))["id"])')"
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "/repos/${REPOSITORY}/actions/runs/${release_run_id}/artifacts?per_page=100" \
+            > release-artifacts.json
+
+          artifact_id="$(python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          expected = f"tai-release-attestation-{os.environ['TARGET_SHA']}"
+          artifacts = json.loads(Path("release-artifacts.json").read_text()).get("artifacts", [])
+          matches = [
+              item for item in artifacts
+              if item.get("name") == expected and item.get("expired") is False
+          ]
+          if len(matches) != 1:
+              raise SystemExit(
+                  f"expected exactly one live release artifact {expected!r}, got {len(matches)}"
+              )
+          print(matches[0]["id"])
+          PY
+          )"
+          mkdir -p release-artifact
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "/repos/${REPOSITORY}/actions/artifacts/${artifact_id}/zip" \
+            > release-artifact.zip
+          unzip -q release-artifact.zip -d release-artifact
+
+      - name: Validate exact-main release attestation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          SHA256 = re.compile(r"^[0-9a-f]{64}$")
+          target = os.environ["TARGET_SHA"]
+          required = set(json.loads(Path("required-workflows.json").read_text()))
+          attestation_path = Path("release-artifact/tai-release-attestation.json")
+          workflow_path = Path("release-artifact/workflow-evidence.json")
+          if not attestation_path.is_file() or not workflow_path.is_file():
+              raise SystemExit("release artifact is missing attestation or workflow evidence")
+
+          att = json.loads(attestation_path.read_text())
+          workflow_file = json.loads(workflow_path.read_text())
+
+          def canonical_sha256(value):
+              payload = json.dumps(
+                  value,
+                  ensure_ascii=False,
+                  allow_nan=False,
+                  separators=(",", ":"),
+                  sort_keys=True,
+              )
+              return hashlib.sha256(payload.encode()).hexdigest()
+
+          def require_sha256(value, name):
+              if not isinstance(value, str) or SHA256.fullmatch(value) is None:
+                  raise SystemExit(f"{name} is not a lowercase SHA-256 digest")
+
+          if att.get("schema_version") != "tai.release.attestation.v1":
+              raise SystemExit("unexpected attestation schema version")
+          if att.get("repository") != os.environ["REPOSITORY"]:
+              raise SystemExit("attestation repository mismatch")
+          if att.get("exact_main_sha") != target:
+              raise SystemExit("attestation exact_main_sha mismatch")
+          if att.get("accepted") is not True or att.get("reasons") != []:
+              raise SystemExit("application release is not accepted without reasons")
+          if att.get("production_operational_status") != "NOT_ATTESTED":
+              raise SystemExit("application CI fabricated production operational acceptance")
+
+          migrations = att.get("migration_inventory")
+          if not isinstance(migrations, list):
+              raise SystemExit("migration inventory is not a list")
+          versions = [item.get("version") for item in migrations]
+          if versions != list(range(1, 13)):
+              raise SystemExit(f"migration inventory is not contiguous 1..12: {versions}")
+          for index, item in enumerate(migrations, start=1):
+              require_sha256(item.get("sha256"), f"migration {index} sha256")
+
+          evidence = att.get("workflow_evidence")
+          if not isinstance(evidence, list) or len(evidence) != 12:
+              raise SystemExit("attestation must contain exactly 12 workflow evidence items")
+          names = [item.get("workflow_name") for item in evidence]
+          if len(names) != len(set(names)) or set(names) != required:
+              raise SystemExit("workflow evidence names do not match required authority set")
+          if workflow_file != [
+              {key: item[key] for key in (
+                  "completed_at", "conclusion", "exact_head_sha", "run_id", "run_url", "workflow_name"
+              )}
+              for item in evidence
+          ]:
+              raise SystemExit("standalone workflow evidence does not match attestation evidence")
+
+          calculated_workflow_digests = []
+          for item in evidence:
+              if item.get("exact_head_sha") != target or item.get("conclusion") != "success":
+                  raise SystemExit("workflow evidence is not exact-head success")
+              digest = canonical_sha256({
+                  "completed_at": item["completed_at"],
+                  "conclusion": item["conclusion"],
+                  "exact_head_sha": item["exact_head_sha"],
+                  "run_id": item["run_id"],
+                  "run_url": item["run_url"],
+                  "workflow_name": item["workflow_name"],
+              })
+              if item.get("evidence_sha256") != digest:
+                  raise SystemExit(f"workflow evidence digest mismatch: {item.get('workflow_name')}")
+              calculated_workflow_digests.append(digest)
+
+          stored_workflow_digests = att.get("workflow_evidence_sha256s")
+          if stored_workflow_digests != calculated_workflow_digests:
+              raise SystemExit("workflow evidence digest list mismatch")
+
+          migration_digest = canonical_sha256(migrations)
+          if att.get("migration_inventory_sha256") != migration_digest:
+              raise SystemExit("migration inventory digest mismatch")
+
+          for field in (
+              "attestation_sha256",
+              "migration_inventory_sha256",
+              "release_id",
+              "source_tree_sha256",
+          ):
+              require_sha256(att.get(field), field)
+          previous = att.get("previous_attestation_sha256")
+          if previous is not None:
+              require_sha256(previous, "previous_attestation_sha256")
+
+          release_id = canonical_sha256({
+              "exact_main_sha": target,
+              "migration_inventory_sha256": migration_digest,
+              "repository": att["repository"],
+              "source_tree_sha256": att["source_tree_sha256"],
+              "workflow_evidence_sha256s": calculated_workflow_digests,
+          })
+          if att.get("release_id") != release_id:
+              raise SystemExit("release_id digest mismatch")
+
+          attestation_digest = canonical_sha256({
+              "accepted": True,
+              "created_at": att["created_at"],
+              "exact_main_sha": target,
+              "migration_inventory_sha256": migration_digest,
+              "previous_attestation_sha256": previous,
+              "production_operational_status": "NOT_ATTESTED",
+              "reasons": [],
+              "release_id": release_id,
+              "repository": att["repository"],
+              "source_tree_sha256": att["source_tree_sha256"],
+              "workflow_evidence_sha256s": calculated_workflow_digests,
+          })
+          if att.get("attestation_sha256") != attestation_digest:
+              raise SystemExit("application attestation digest mismatch")
+
+          summary = {
+              "accepted": True,
+              "attestation_sha256": attestation_digest,
+              "migration_versions": versions,
+              "production_operational_status": "NOT_ATTESTED",
+              "release_id": release_id,
+              "required_workflows": sorted(required),
+              "target_sha": target,
+              "workflow_count": len(evidence),
+          }
+          Path("final-audit-summary.json").write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + "\n"
+          )
+          print(json.dumps(summary, sort_keys=True))
+          PY
+
+      - name: Upload final audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-final-exact-main-audit-886d4563
+          path: |
+            audit-wait-state.json
+            all-runs.json
+            release-run.json
+            release-artifacts.json
+            release-artifact/tai-release-attestation.json
+            release-artifact/workflow-evidence.json
+            release-artifact/workflow-wait-state.json
+            final-audit-summary.json
+          if-no-files-found: warn
+          retention-days: 14
