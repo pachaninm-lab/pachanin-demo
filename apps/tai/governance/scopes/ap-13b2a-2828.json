@@ -14,9 +14,14 @@
     "apps/tai/model-artifacts/llama-cpp-source-build-runbook.md",
     "apps/tai/model-artifacts/llama-cpp-toolchain-authority.v1.json",
     "apps/tai/tai/llama_toolchain.py",
+    "apps/tai/tai/llama_toolchain_collect.py",
+    "apps/tai/tai/llama_toolchain_contract.py",
+    "apps/tai/tai/llama_toolchain_types.py",
+    "apps/tai/tai/llama_toolchain_verify.py",
     "apps/tai/tai/model_artifact_registry_cli.py",
     "apps/tai/tests/test_ap13b2a_scope.py",
-    "apps/tai/tests/test_llama_toolchain.py"
+    "apps/tai/tests/test_llama_toolchain.py",
+    "apps/tai/tests/test_llama_toolchain_contracts.py"
   ],
   "forbidden_capabilities": [
     "mutable branch, release-only reference or short commit as build authority",
