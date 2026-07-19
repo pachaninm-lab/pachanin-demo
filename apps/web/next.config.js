@@ -28,6 +28,14 @@ const securityHeaders = [
   },
 ];
 
+const publicEntryFreshHeaders = [
+  { key: 'Cache-Control', value: 'no-store, no-cache, max-age=0, must-revalidate' },
+  { key: 'CDN-Cache-Control', value: 'no-store' },
+  { key: 'Netlify-CDN-Cache-Control', value: 'no-store' },
+  { key: 'Pragma', value: 'no-cache' },
+  { key: 'Expires', value: '0' },
+];
+
 const nextConfig = {
   reactStrictMode: true,
   eslint: {
@@ -38,6 +46,18 @@ const nextConfig = {
   },
   async headers() {
     return [
+      {
+        source: '/',
+        headers: publicEntryFreshHeaders,
+      },
+      {
+        source: '/platform-v7',
+        headers: publicEntryFreshHeaders,
+      },
+      {
+        source: '/pc-public-entry/platform-v7',
+        headers: publicEntryFreshHeaders,
+      },
       {
         source: '/(.*)',
         headers: securityHeaders,
