@@ -109,7 +109,7 @@ export function ContextualSupportOrAssistant() {
     return (
       <>
         <UnifiedModalSheetFullscreenController />
-        {/* Keep the no-account-data assistant and support workflows separate; unify only their public entry point. */}
+        {/* Keep the separate no-account-data knowledge assistant and support workflows; unify only their public entry point. */}
         <PublicPlatformAssistant />
         <ChatSupportWidget />
         <PublicContactDock />
