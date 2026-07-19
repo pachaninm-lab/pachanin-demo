@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import socket
-
 from tai.managed_loader import FetchDisposition, FetchRequest
 from tai.official_source_diagnostics import DiagnosticOfficialSourceHTTPFetcher
 from tai.official_source_fetcher import (
@@ -21,10 +19,10 @@ class _Resolver:
 
 class _TimeoutTransport:
     def exchange(self, request: TransportRequest) -> TransportResponse:
-        raise socket.timeout("timed out")
+        raise TimeoutError("timed out")
 
 
-def test_socket_timeout_is_a_bounded_retryable_timeout() -> None:
+def test_timeout_is_a_bounded_retryable_transport_failure() -> None:
     fetcher = DiagnosticOfficialSourceHTTPFetcher(
         policy=OfficialFetchPolicy(allowed_hosts=frozenset({HOST})),
         resolver=_Resolver(),
