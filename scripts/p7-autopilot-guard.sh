@@ -310,6 +310,7 @@ SOURCE_CONTROLLED_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node - <<'JS'
 const fs = require('fs');
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
 const manifests = {
+  'agent/restore-global-contact-dock': 'docs/platform-v7/autopilot/scopes/restore-global-contact-dock-2810.json',
   'ir/k8s-production-like-2659': 'docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json',
   'feat/assistant-universal-understanding': 'docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json',
 };
