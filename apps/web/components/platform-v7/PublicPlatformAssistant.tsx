@@ -53,7 +53,11 @@ type Copy = {
   subtitle: string;
   publicMode: string;
   noAccountData: string;
+  introEyebrow: string;
+  introTitle: string;
   greeting: string;
+  starterTitle: string;
+  starterPrompts: string[];
   placeholder: string;
   send: string;
   stop: string;
@@ -70,17 +74,26 @@ type Copy = {
 
 const COPY: Record<Locale, Copy> = {
   ru: {
-    open: 'Спросить о платформе',
-    close: 'Закрыть помощника по платформе',
-    title: 'Помощник по платформе',
-    subtitle: 'Публичные знания без доступа к личным кабинетам',
-    publicMode: 'Публичный режим',
-    noAccountData: 'Нет доступа к данным ЛК',
-    greeting: 'Расскажу, как устроены Сделка, роли, аукцион, логистика, документы, деньги, споры, безопасность и внешние подключения. В публичном режиме я не вижу пользователей и реальные сделки.',
-    placeholder: 'Спроси, как работает платформа…',
-    send: 'Отправить',
+    open: 'Спросить ИИ',
+    close: 'Закрыть ИИ-помощника',
+    title: 'ИИ-помощник',
+    subtitle: 'Публичный режим · без доступа к данным сделок',
+    publicMode: 'Публичные знания',
+    noAccountData: 'Без данных сделок',
+    introEyebrow: 'Операционный помощник платформы',
+    introTitle: 'Что нужно узнать?',
+    greeting: 'Объясню, как устроены аукцион, Сделка, логистика, документы, безопасная оплата и спор. Отвечаю только по подтверждённым публичным материалам.',
+    starterTitle: 'Быстрые сценарии',
+    starterPrompts: [
+      'Как проходит сделка от аукциона до оплаты?',
+      'Как работает безопасная оплата?',
+      'Какие документы нужны для сделки?',
+      'Как подключить организацию?',
+    ],
+    placeholder: 'Задай вопрос о платформе',
+    send: 'Спросить',
     stop: 'Остановить',
-    newChat: 'Новый диалог',
+    newChat: 'Начать заново',
     error: 'Не удалось получить подтверждённый ответ из публичной базы знаний.',
     facts: 'Ключевые факты',
     maturity: 'Статус зрелости',
@@ -91,17 +104,26 @@ const COPY: Record<Locale, Copy> = {
     knowledge: 'Версия знаний',
   },
   en: {
-    open: 'Ask about the platform',
-    close: 'Close platform assistant',
-    title: 'Platform assistant',
-    subtitle: 'Public knowledge with no workspace access',
-    publicMode: 'Public mode',
-    noAccountData: 'No account data access',
-    greeting: 'I can explain the Deal, roles, auction, logistics, documents, money, disputes, security and external connections. Public mode has no access to users or real deals.',
-    placeholder: 'Ask how the platform works…',
-    send: 'Send',
+    open: 'Ask AI',
+    close: 'Close AI assistant',
+    title: 'AI assistant',
+    subtitle: 'Public mode · no access to deal data',
+    publicMode: 'Public knowledge',
+    noAccountData: 'No deal data',
+    introEyebrow: 'Platform operations assistant',
+    introTitle: 'What do you need to know?',
+    greeting: 'I can explain the auction, Deal, logistics, documents, secure payment and disputes. Answers use confirmed public platform materials only.',
+    starterTitle: 'Quick paths',
+    starterPrompts: [
+      'How does a deal run from auction to payment?',
+      'How does secure payment work?',
+      'Which documents are required for a deal?',
+      'How can an organisation connect?',
+    ],
+    placeholder: 'Ask a question about the platform',
+    send: 'Ask',
     stop: 'Stop',
-    newChat: 'New chat',
+    newChat: 'Start over',
     error: 'A confirmed answer from the public knowledge base was not available.',
     facts: 'Key facts',
     maturity: 'Maturity status',
@@ -112,17 +134,26 @@ const COPY: Record<Locale, Copy> = {
     knowledge: 'Knowledge version',
   },
   zh: {
-    open: '询问平台',
-    close: '关闭平台助手',
-    title: '平台助手',
-    subtitle: '公共知识，不访问工作区数据',
-    publicMode: '公共模式',
-    noAccountData: '无法访问账户数据',
-    greeting: '我可以解释交易、角色、竞价、物流、文件、资金、争议、安全和外部连接。公共模式无法访问用户或真实交易。',
-    placeholder: '询问平台如何运作…',
-    send: '发送',
+    open: '询问 AI',
+    close: '关闭 AI 助手',
+    title: 'AI 助手',
+    subtitle: '公共模式 · 无权访问交易数据',
+    publicMode: '公共知识',
+    noAccountData: '无交易数据',
+    introEyebrow: '平台运营助手',
+    introTitle: '你想了解什么？',
+    greeting: '我可以解释竞价、交易、物流、文件、安全付款和争议流程。回答仅基于已确认的公开平台资料。',
+    starterTitle: '快捷场景',
+    starterPrompts: [
+      '交易如何从竞价推进到付款？',
+      '安全付款如何运作？',
+      '交易需要哪些文件？',
+      '机构如何接入平台？',
+    ],
+    placeholder: '询问平台相关问题',
+    send: '询问',
     stop: '停止',
-    newChat: '新对话',
+    newChat: '重新开始',
     error: '无法从公共知识库获得已确认回答。',
     facts: '关键事实',
     maturity: '成熟度状态',
@@ -162,6 +193,10 @@ function formatTime(value: string, locale: Locale) {
   }).format(date);
 }
 
+function shouldAutofocusComposer() {
+  return typeof window !== 'undefined' && window.matchMedia('(min-width: 721px)').matches;
+}
+
 export function PublicPlatformAssistant() {
   const [locale, setLocale] = React.useState<Locale>('ru');
   const [open, setOpen] = React.useState(false);
@@ -176,15 +211,12 @@ export function PublicPlatformAssistant() {
   const messagesRef = React.useRef<HTMLDivElement>(null);
   const abortRef = React.useRef<AbortController | null>(null);
   const ui = COPY[locale];
+  const hasConversation = messages.length > 0 || sending;
+  const starterPrompts = catalog?.starterPrompts?.length ? catalog.starterPrompts : ui.starterPrompts;
 
   React.useEffect(() => {
     const nextLocale = resolveLocale();
     setLocale(nextLocale);
-    setMessages([{
-      id: messageId('assistant'),
-      role: 'assistant',
-      text: COPY[nextLocale].greeting,
-    }]);
 
     const controller = new AbortController();
     void fetch(`/api/public-platform-assistant?locale=${encodeURIComponent(nextLocale)}`, {
@@ -225,7 +257,9 @@ export function PublicPlatformAssistant() {
       }
     };
     document.addEventListener('keydown', onKeyDown);
-    const timer = window.setTimeout(() => textareaRef.current?.focus(), 60);
+    const timer = window.setTimeout(() => {
+      if (shouldAutofocusComposer()) textareaRef.current?.focus();
+    }, 60);
     return () => {
       window.clearTimeout(timer);
       document.removeEventListener('keydown', onKeyDown);
@@ -235,11 +269,11 @@ export function PublicPlatformAssistant() {
 
   const reset = () => {
     abortRef.current?.abort();
-    setMessages([{ id: messageId('assistant'), role: 'assistant', text: ui.greeting }]);
+    setMessages([]);
     setInput('');
     setError('');
     setSending(false);
-    window.setTimeout(() => textareaRef.current?.focus(), 0);
+    if (shouldAutofocusComposer()) window.setTimeout(() => textareaRef.current?.focus(), 0);
     trackEvent('public_platform_assistant_reset');
   };
 
@@ -285,7 +319,6 @@ export function PublicPlatformAssistant() {
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
       setSending(false);
-      window.setTimeout(() => textareaRef.current?.focus(), 0);
     }
   };
 
@@ -306,7 +339,7 @@ export function PublicPlatformAssistant() {
         <span className='pc-public-assistant-shortcut-icon' aria-hidden='true'><Sparkles size={20} /></span>
         <span className='pc-public-assistant-shortcut-copy'>
           <strong>{ui.open}</strong>
-          <small>{ui.noAccountData}</small>
+          <small>{ui.publicMode}</small>
         </span>
       </button>
 
@@ -320,6 +353,7 @@ export function PublicPlatformAssistant() {
             aria-modal='true'
             aria-labelledby='pc-public-assistant-title'
             className='pc-public-assistant-panel'
+            data-conversation={hasConversation ? 'true' : 'false'}
             data-knowledge-version={catalog?.knowledgeVersion || 'loading'}
           >
             <header className='pc-public-assistant-header'>
@@ -340,69 +374,79 @@ export function PublicPlatformAssistant() {
               <span><ShieldCheck size={16} aria-hidden='true' />{ui.noAccountData}</span>
             </div>
 
-            <div ref={messagesRef} className='pc-public-assistant-messages' aria-live='polite'>
-              {messages.map((message) => (
-                <article key={message.id} className='pc-public-assistant-message' data-role={message.role}>
-                  <div className='pc-public-assistant-bubble'>
-                    {message.answer ? <strong className='pc-public-assistant-answer-title'>{message.answer.title}</strong> : null}
-                    <p>{message.text}</p>
+            {!hasConversation ? (
+              <>
+                <section className='pc-public-assistant-welcome'>
+                  <span className='pc-public-assistant-welcome-eyebrow'><Sparkles size={15} aria-hidden='true' />{ui.introEyebrow}</span>
+                  <strong>{ui.introTitle}</strong>
+                  <p>{ui.greeting}</p>
+                </section>
+                <section className='pc-public-assistant-starter-block' aria-labelledby='pc-public-assistant-starter-title'>
+                  <strong id='pc-public-assistant-starter-title'>{ui.starterTitle}</strong>
+                  <div className='pc-public-assistant-starters'>
+                    {starterPrompts.slice(0, 4).map((prompt) => (
+                      <button key={prompt} type='button' onClick={() => void submit(prompt)}>{prompt}</button>
+                    ))}
                   </div>
-                  {message.answer ? (
-                    <div className='pc-public-assistant-answer'>
-                      <section>
-                        <h3>{ui.facts}</h3>
-                        <ul>{message.answer.facts.map((fact) => <li key={fact}>{fact}</li>)}</ul>
-                      </section>
-                      <section className='pc-public-assistant-maturity'>
-                        <h3>{ui.maturity}</h3>
-                        <p>{message.answer.maturity}</p>
-                      </section>
-                      <footer>
-                        <span>{ui.confidence}: <strong>{message.answer.confidence === 'high' ? ui.high : ui.medium}</strong></span>
-                        <span>{formatTime(message.answer.generatedAt, locale)}</span>
-                      </footer>
-                      {message.answer.sources.length ? (
-                        <nav aria-label={ui.sources}>
-                          <strong>{ui.sources}</strong>
-                          <div>
-                            {message.answer.sources.map((source) => (
-                              <a key={`${source.href}-${source.label}`} href={source.href} onClick={() => trackEvent('public_platform_assistant_source_opened', { topic: message.answer?.topic, href: source.href })}>
-                                {source.label}<ExternalLink size={14} aria-hidden='true' />
-                              </a>
+                </section>
+              </>
+            ) : (
+              <div ref={messagesRef} className='pc-public-assistant-messages' aria-live='polite'>
+                {messages.map((message) => (
+                  <article key={message.id} className='pc-public-assistant-message' data-role={message.role}>
+                    <div className='pc-public-assistant-bubble'>
+                      {message.answer ? <strong className='pc-public-assistant-answer-title'>{message.answer.title}</strong> : null}
+                      <p>{message.text}</p>
+                    </div>
+                    {message.answer ? (
+                      <div className='pc-public-assistant-answer'>
+                        <section>
+                          <h3>{ui.facts}</h3>
+                          <ul>{message.answer.facts.map((fact) => <li key={fact}>{fact}</li>)}</ul>
+                        </section>
+                        <section className='pc-public-assistant-maturity'>
+                          <h3>{ui.maturity}</h3>
+                          <p>{message.answer.maturity}</p>
+                        </section>
+                        <footer>
+                          <span>{ui.confidence}: <strong>{message.answer.confidence === 'high' ? ui.high : ui.medium}</strong></span>
+                          <span>{formatTime(message.answer.generatedAt, locale)}</span>
+                        </footer>
+                        {message.answer.sources.length ? (
+                          <nav aria-label={ui.sources}>
+                            <strong>{ui.sources}</strong>
+                            <div>
+                              {message.answer.sources.map((source) => (
+                                <a key={`${source.href}-${source.label}`} href={source.href} onClick={() => trackEvent('public_platform_assistant_source_opened', { topic: message.answer?.topic, href: source.href })}>
+                                  {source.label}<ExternalLink size={14} aria-hidden='true' />
+                                </a>
+                              ))}
+                            </div>
+                          </nav>
+                        ) : null}
+                        {message.answer.suggestions.length ? (
+                          <div className='pc-public-assistant-suggestions'>
+                            {message.answer.suggestions.map((suggestion) => (
+                              <button key={suggestion} type='button' onClick={() => void submit(suggestion)}>{suggestion}</button>
                             ))}
                           </div>
-                        </nav>
-                      ) : null}
-                      {message.answer.suggestions.length ? (
-                        <div className='pc-public-assistant-suggestions'>
-                          {message.answer.suggestions.map((suggestion) => (
-                            <button key={suggestion} type='button' onClick={() => void submit(suggestion)}>{suggestion}</button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </article>
-              ))}
-              {sending ? (
-                <div className='pc-public-assistant-processing' role='status'>
-                  <Loader2 size={17} aria-hidden='true' />
-                  <span>{locale === 'en' ? 'Checking the public knowledge base…' : locale === 'zh' ? '正在检查公共知识库…' : 'Сверяю публичную базу знаний…'}</span>
-                </div>
-              ) : null}
-            </div>
-
-            {!messages.some((message) => message.answer) && catalog?.starterPrompts?.length ? (
-              <div className='pc-public-assistant-starters'>
-                {catalog.starterPrompts.map((prompt) => (
-                  <button key={prompt} type='button' onClick={() => void submit(prompt)}>{prompt}</button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </article>
                 ))}
+                {sending ? (
+                  <div className='pc-public-assistant-processing' role='status'>
+                    <Loader2 size={17} aria-hidden='true' />
+                    <span>{locale === 'en' ? 'Checking the public knowledge base…' : locale === 'zh' ? '正在检查公共知识库…' : 'Сверяю публичную базу знаний…'}</span>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+            )}
 
             {error ? <div className='pc-public-assistant-error' role='alert'>{error}</div> : null}
 
-            <form className='pc-public-assistant-form' onSubmit={(event) => { event.preventDefault(); void submit(input); }}>
+            <form className='pc-public-assistant-form' data-single-action={!hasConversation ? 'true' : 'false'} onSubmit={(event) => { event.preventDefault(); void submit(input); }}>
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -419,7 +463,7 @@ export function PublicPlatformAssistant() {
                 aria-label={ui.placeholder}
               />
               <div className='pc-public-assistant-form-actions'>
-                <button type='button' className='pc-public-assistant-secondary' onClick={reset}>{ui.newChat}</button>
+                {hasConversation ? <button type='button' className='pc-public-assistant-secondary' onClick={reset}>{ui.newChat}</button> : null}
                 {sending ? (
                   <button type='button' className='pc-public-assistant-primary' onClick={stop}>{ui.stop}</button>
                 ) : (
