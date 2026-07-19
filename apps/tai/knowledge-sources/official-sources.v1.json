@@ -26,13 +26,24 @@
     {
       "source_id": "official.eec.grain-regulation",
       "owner": "Евразийская экономическая комиссия",
-      "entrypoint_uri": "https://eec.eaeunion.org/comission/department/deptexreg/tr/bezpoZerna.php",
+      "entrypoint_uri": "https://eec.eaeunion.org/news/vstupaet-v-silu-obnovlennyy-perechen-standartov-k-tekhreglamentu-na-zerno/",
       "allowed_hosts": ["eec.eaeunion.org"],
       "topics": ["GRAIN_REGULATION", "GRAIN_QUALITY"],
-      "formats": ["HTML", "PDF"],
-      "expected_update_interval_seconds": 15552000,
+      "formats": ["HTML"],
+      "expected_update_interval_seconds": 31536000,
+      "maximum_publication_age_seconds": 63072000,
+      "verified_at": "2026-07-19T14:10:00+00:00"
+    },
+    {
+      "source_id": "official.rosselhoscenter.agronomy",
+      "owner": "Федеральное государственное бюджетное учреждение «Российский сельскохозяйственный центр»",
+      "entrypoint_uri": "https://rosselhoscenter.ru/ob-uchrezhdenii/filialy/tsentralnyy-okrug/moskva/podgotovlen-fitosanitarnyy-prognoz-razvitiya-vrednykh-obektov-v-rf-na-2026-god/",
+      "allowed_hosts": ["rosselhoscenter.ru"],
+      "topics": ["AGRONOMY_RECOMMENDATIONS"],
+      "formats": ["HTML"],
+      "expected_update_interval_seconds": 31536000,
       "maximum_publication_age_seconds": 34560000,
-      "verified_at": "2026-07-19T04:15:00+00:00"
+      "verified_at": "2026-07-19T14:10:00+00:00"
     },
     {
       "source_id": "official.mintrans.rail-tariffs",
@@ -73,13 +84,13 @@
     {
       "topic": "GRAIN_REGULATION",
       "minimum_official_sources": 1,
-      "maximum_publication_age_seconds": 34560000,
+      "maximum_publication_age_seconds": 63072000,
       "critical": true
     },
     {
       "topic": "GRAIN_QUALITY",
       "minimum_official_sources": 1,
-      "maximum_publication_age_seconds": 34560000,
+      "maximum_publication_age_seconds": 63072000,
       "critical": true
     },
     {
@@ -103,7 +114,7 @@
     {
       "topic": "AGRONOMY_RECOMMENDATIONS",
       "minimum_official_sources": 1,
-      "maximum_publication_age_seconds": 15552000,
+      "maximum_publication_age_seconds": 34560000,
       "critical": true
     }
   ]
