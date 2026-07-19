@@ -180,6 +180,18 @@ services:
       NODE_ENV: production
       PORT: "3000"
       API_BASE_URL: "http://api:3001"
+      API_URL: "http://api:3001"
+      # Controlled-pilot cabinet access: signed sessions for demonstrating the
+      # cabinets to partners without opening public self-registration. The web
+      # signs sessions with the same JWT_SECRET the API verifies. Owner logs in
+      # with PC_CABINET_LOCK_USER/PASSWORD; per-role demo accounts
+      # (operator.test@procent-agro.test, buyer.test@…, seller.test@…, …) use
+      # PC_CABINET_ROLE_PASSWORD.
+      JWT_SECRET: ${JWT_SECRET:?set in .env}
+      PC_CABINET_TEST_ACCESS: "true"
+      PC_CABINET_ROLE_PASSWORD: ${PC_CABINET_ROLE_PASSWORD:?set in .env}
+      PC_CABINET_LOCK_USER: ${PC_CABINET_LOCK_USER:-}
+      PC_CABINET_LOCK_PASSWORD: ${PC_CABINET_LOCK_PASSWORD:-}
     depends_on:
       api:
         condition: service_started

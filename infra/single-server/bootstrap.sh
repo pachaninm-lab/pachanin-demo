@@ -54,6 +54,9 @@ BANK_PARTNER_ID=safe-deals
 BANK_HMAC_KEY_ID=primary
 AUTH_TEST_ACCOUNTS_ENABLED=0
 ALLOW_RUNTIME_MUTATION=0
+PC_CABINET_LOCK_USER=${PC_CABINET_LOCK_USER:-pachaninm@gmail.com}
+PC_CABINET_LOCK_PASSWORD=$(gen)
+PC_CABINET_ROLE_PASSWORD=$(gen)
 EOF
   echo "   .env created (secrets saved in $APP/.env)"
 fi
