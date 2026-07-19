@@ -301,7 +301,7 @@ class GovernedToolPlanner:
 
 
 def _normalize(value: str) -> str:
-    normalized = unicodedata.normalize("NFKC", value)
+    normalized = unicodedata.normalize("NFKC", value.replace("№", " #"))
     safe = "".join(
         character
         for character in normalized
