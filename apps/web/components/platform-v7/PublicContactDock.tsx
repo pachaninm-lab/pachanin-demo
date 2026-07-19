@@ -161,10 +161,7 @@ export function PublicContactDock() {
         onClick={() => trackEvent('public_support_phone_clicked', { source: 'unified_contact_dock' })}
       >
         <Phone size={21} strokeWidth={2.2} aria-hidden='true' />
-        <span>
-          <strong>{ui.call}</strong>
-          <small>{SUPPORT_PHONE_DISPLAY}</small>
-        </span>
+        <strong>{ui.call}</strong>
       </a>
 
       <style>{css}</style>
@@ -201,7 +198,7 @@ const css = `
   display: grid;
   grid-template-columns: .78fr 1.05fr 1.42fr;
   overflow: hidden;
-  border: 1px solid var(--pc-ppe-v5-line, #cfdcd4);
+  border: 2px solid var(--pc-ppe-v5-green, #087a3b);
   border-radius: var(--pc-ppe-v5-radius, 14px);
   background: var(--pc-ppe-v5-surface, #ffffff);
   box-shadow: 0 10px 28px rgba(9, 33, 24, .14);
@@ -233,7 +230,7 @@ const css = `
   -webkit-tap-highlight-color: transparent;
 }
 .pc-public-contact-dock-action + .pc-public-contact-dock-action {
-  border-left: 1px solid var(--pc-ppe-v5-line, #cfdcd4);
+  border-left: 1px solid rgba(8, 122, 59, .34);
 }
 .pc-public-contact-dock-action:hover { background: #eef5f0; }
 .pc-public-contact-dock-action:active { background: #e1efe6; }
@@ -255,16 +252,6 @@ const css = `
   letter-spacing: -.01em;
   white-space: nowrap;
 }
-.pc-public-contact-dock-call > span { display: grid; gap: 2px; text-align: left; }
-.pc-public-contact-dock-call small {
-  display: block;
-  color: var(--pc-ppe-v5-muted, #52635b);
-  font-size: 10px;
-  line-height: 1.1;
-  font-weight: 680;
-  letter-spacing: .01em;
-  white-space: nowrap;
-}
 @media (max-width: 520px) {
   .pc-public-contact-dock {
     right: max(8px, env(safe-area-inset-right, 0px));
@@ -280,13 +267,11 @@ const css = `
     padding-inline: 7px;
   }
   .pc-public-contact-dock-action strong { font-size: 12px; }
-  .pc-public-contact-dock-call small { font-size: 9px; }
 }
 @media (max-width: 350px) {
   .pc-public-contact-dock-action { gap: 4px; padding-inline: 5px; }
   .pc-public-contact-dock-action svg { width: 19px; height: 19px; }
   .pc-public-contact-dock-action strong { font-size: 11px; }
-  .pc-public-contact-dock-call small { font-size: 8px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pc-public-contact-dock-action { transition: none; animation: none; }
@@ -294,6 +279,6 @@ const css = `
 @media (forced-colors: active) {
   .pc-public-contact-dock { border: 2px solid ButtonText; }
   .pc-public-contact-dock-action + .pc-public-contact-dock-action { border-left: 2px solid ButtonText; }
-  .pc-public-contact-dock-action svg, .pc-public-contact-dock-call small { color: ButtonText; }
+  .pc-public-contact-dock-action svg { color: ButtonText; }
 }
 `;
