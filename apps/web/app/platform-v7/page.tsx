@@ -68,16 +68,16 @@ const firstStageCopy = {
 
 const firstScreenAiCopy = {
   ru: {
-    label: 'После запуска полноценного ИИ',
-    text: 'Платформа будет раньше находить риск сделки, объяснять причину и готовить следующий шаг. Критические действия останутся под подтверждением человека; ниже показан обезличенный демонстрационный сценарий.',
+    label: 'ИИ работает в платформе',
+    text: 'В рабочих кабинетах ИИ анализирует доступные данные сделки, выявляет риски, объясняет причины и готовит следующий шаг. Критические действия остаются за участником и требуют подтверждения; ниже показан обезличенный демонстрационный сценарий.',
   },
   en: {
-    label: 'Once the full AI layer is launched',
-    text: 'The platform will surface deal risk earlier, explain the cause and prepare the next step. Consequential actions will remain subject to human confirmation; the scenario below is anonymised and demonstrative.',
+    label: 'AI is active in the platform',
+    text: 'In authenticated workspaces, AI analyses accessible deal data, identifies risks, explains causes and prepares the next step. Consequential actions remain with the authorised participant and require confirmation; the scenario below is anonymised and demonstrative.',
   },
   zh: {
-    label: '完整 AI 上线后',
-    text: '平台将更早发现交易风险、解释原因并准备下一步。重要操作仍需人工确认；以下为匿名演示场景。',
+    label: 'AI 已在平台中运行',
+    text: '在已授权工作区内，AI 分析可访问的交易数据、识别风险、解释原因并准备下一步。重要操作仍由获授权的参与方执行并确认；以下为匿名演示场景。',
   },
 } as const;
 
@@ -178,7 +178,7 @@ export default async function PlatformV7RootPage() {
               className='pc-ppe-public-status'
               role='note'
               aria-label={aiHero.label}
-              data-testid='platform-v7-ai-future-value'
+              data-testid='platform-v7-ai-current-value'
             >
               <strong>{aiHero.label}</strong>
               <span>{aiHero.text}</span>
