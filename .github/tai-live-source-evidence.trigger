@@ -1,4 +1,0 @@
-schema_version=tai.live-source-trigger.v1
-purpose=ap14d1_bounded_source_diagnostics
-sequence=4
-remove_after_verified_run=true
