@@ -109,16 +109,43 @@ def _fixtures() -> dict[str, _AdapterFixture]:
                     {CoverageTopic.GRAIN_REGULATION, CoverageTopic.GRAIN_QUALITY}
                 ),
                 uri=(
-                    "https://eec.eaeunion.org/comission/department/deptexreg/tr/"
-                    "bezpoZerna.php"
+                    "https://eec.eaeunion.org/news/"
+                    "vstupaet-v-silu-obnovlennyy-perechen-standartov-k-"
+                    "tekhreglamentu-na-zerno/"
                 ),
                 hosts=frozenset({"eec.eaeunion.org"}),
             ),
             body=(
-                "<h1>Технический регламент безопасности зерна</h1>"
-                "<time>2026-07-16</time><a href='rules.pdf'>PDF</a>"
+                "<time>26.05.2025</time>"
+                "<h1>Обновленный перечень стандартов к техническому "
+                "регламенту на зерно</h1>"
+                "<p>Технический регламент о безопасности зерна содержит "
+                "актуализированные стандарты.</p>"
+                "<time>18.07.2026</time><p>Дата другого события.</p>"
             ),
-            expected_date=datetime(2026, 7, 16, tzinfo=UTC),
+            expected_date=datetime(2025, 5, 26, tzinfo=UTC),
+            expected_count=1,
+        ),
+        "official.rosselhoscenter.agronomy": _AdapterFixture(
+            source=_source(
+                source_id="official.rosselhoscenter.agronomy",
+                topics=frozenset({CoverageTopic.AGRONOMY_RECOMMENDATIONS}),
+                uri=(
+                    "https://rosselhoscenter.ru/ob-uchrezhdenii/filialy/"
+                    "tsentralnyy-okrug/moskva/podgotovlen-fitosanitarnyy-"
+                    "prognoz-razvitiya-vrednykh-obektov-v-rf-na-2026-god/"
+                ),
+                hosts=frozenset({"rosselhoscenter.ru"}),
+            ),
+            body=(
+                "<time>30 января 2026</time>"
+                "<h1>Подготовлен фитосанитарный прогноз развития вредных "
+                "объектов</h1>"
+                "<p>Обзор фитосанитарного состояния посевов "
+                "сельскохозяйственных культур и прогноз на 2026 год.</p>"
+                "<time>18.07.2026</time><p>Дата контактов.</p>"
+            ),
+            expected_date=datetime(2026, 1, 30, tzinfo=UTC),
             expected_count=1,
         ),
         "official.mintrans.rail-tariffs": _AdapterFixture(
@@ -169,6 +196,24 @@ def test_each_adapter_extracts_only_trusted_deterministic_metadata(
     assert metadata.latest_publication_at == fixture.expected_date
     assert metadata.document_count == fixture.expected_count
     assert metadata.observed_topics == adapter.topics
+
+
+def test_current_authority_adapters_ignore_unrelated_newer_dates() -> None:
+    adapters = {
+        adapter.source_id: adapter for adapter in default_html_metadata_adapters()
+    }
+    for source_id in (
+        "official.eec.grain-regulation",
+        "official.rosselhoscenter.agronomy",
+    ):
+        fixture = _fixtures()[source_id]
+        metadata = adapters[source_id].parse(
+            source=fixture.source,
+            body=fixture.body,
+            fetched_at=NOW,
+        )
+        assert metadata.latest_publication_at == fixture.expected_date
+        assert metadata.latest_publication_at < datetime(2026, 7, 18, tzinfo=UTC)
 
 
 def test_adapter_rejects_future_date_untrusted_only_links_and_wrong_identity() -> None:
