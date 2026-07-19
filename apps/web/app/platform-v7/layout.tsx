@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { HydrationSafeChatSupport } from '@/components/platform-v7/HydrationSafeChatSupport';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
@@ -223,7 +224,16 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   const pathname = normalizePath((await headers()).get('x-pc-pathname'));
 
   // Every public route owns its static route-level shell, locale copy and CSS.
-  if (isPublicPath(pathname)) return children;
+  // The contact dock is mounted at the route boundary so supporting pages that
+  // do not render PublicSiteHeader still expose the same AI/support/call entry.
+  if (isPublicPath(pathname)) {
+    return (
+      <>
+        {children}
+        <HydrationSafeChatSupport />
+      </>
+    );
+  }
 
   // Staff remains a separate privileged authority plane and authenticates through
   // its own server-issued staff session rather than a business cabinet role.

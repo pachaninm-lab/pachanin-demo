@@ -6,6 +6,7 @@ import { trackEvent } from '@/lib/analytics/track';
 
 type Locale = 'ru' | 'en' | 'zh';
 type Surface = 'assistant' | 'support';
+type AssistantContext = 'public' | 'private' | 'workspace';
 
 const SUPPORT_PHONE_DISPLAY = '8 916 277-89-89';
 const SUPPORT_PHONE_HREF = 'tel:+79162778989';
@@ -55,7 +56,7 @@ function restoreAttribute(node: HTMLElement, name: string, value: string | null)
   else node.setAttribute(name, value);
 }
 
-export function PublicContactDock() {
+export function PublicContactDock({ assistantContext = 'public' }: { assistantContext?: AssistantContext }) {
   const [locale, setLocale] = React.useState<Locale>('ru');
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const assistantButtonRef = React.useRef<HTMLButtonElement>(null);
@@ -63,11 +64,23 @@ export function PublicContactDock() {
   const returnFocusRef = React.useRef<Surface | null>(null);
   const openStateRef = React.useRef({ assistant: false, support: false });
   const ui = COPY[locale];
+  const assistantTriggerSelector = assistantContext === 'workspace'
+    ? null
+    : assistantContext === 'private'
+      ? '.p7-ai-trigger'
+      : '.pc-public-assistant-shortcut';
+  const assistantPanelSelector = assistantContext === 'workspace'
+    ? '#p7-private-ai-assistant-workspace'
+    : assistantContext === 'private'
+      ? '#p7-private-ai-assistant-panel'
+      : '#pc-public-assistant-panel';
 
   React.useEffect(() => setLocale(resolveLocale()), []);
 
   React.useEffect(() => {
-    const assistantTrigger = document.querySelector<HTMLButtonElement>('.pc-public-assistant-shortcut');
+    const assistantTrigger = assistantTriggerSelector
+      ? document.querySelector<HTMLButtonElement>(assistantTriggerSelector)
+      : null;
     const supportTrigger = document.querySelector<HTMLButtonElement>('.p7-support-chat-button');
     const triggers = [assistantTrigger, supportTrigger].filter((node): node is HTMLButtonElement => Boolean(node));
     const previous = triggers.map((node) => ({
@@ -82,12 +95,13 @@ export function PublicContactDock() {
     }
 
     const syncOpenState = () => {
-      const assistantOpen = Boolean(document.querySelector('#pc-public-assistant-panel'));
+      const assistantOpen = assistantContext !== 'workspace' && Boolean(document.querySelector(assistantPanelSelector));
       const supportOpen = Boolean(document.querySelector('.p7-support-chat-panel'));
+      const blockingModalOpen = Boolean(document.querySelector('[role="dialog"][aria-modal="true"]'));
       const previousOpen = openStateRef.current;
       const focusTarget = returnFocusRef.current;
 
-      setDialogOpen(assistantOpen || supportOpen);
+      setDialogOpen(assistantOpen || supportOpen || blockingModalOpen);
 
       if (previousOpen.assistant && !assistantOpen && focusTarget === 'assistant') {
         returnFocusRef.current = null;
@@ -112,10 +126,18 @@ export function PublicContactDock() {
         restoreAttribute(entry.node, 'aria-hidden', entry.ariaHidden);
       }
     };
-  }, []);
+  }, [assistantContext, assistantPanelSelector, assistantTriggerSelector]);
 
   const openSurface = (surface: Surface) => {
-    const selector = surface === 'assistant' ? '.pc-public-assistant-shortcut' : '.p7-support-chat-button';
+    if (surface === 'assistant' && assistantContext === 'workspace') {
+      const workspace = document.querySelector<HTMLElement>(assistantPanelSelector);
+      if (!workspace) return;
+      workspace.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      window.requestAnimationFrame(() => workspace.focus({ preventScroll: true }));
+      return;
+    }
+    const selector = surface === 'assistant' ? assistantTriggerSelector : '.p7-support-chat-button';
+    if (!selector) return;
     const trigger = document.querySelector<HTMLButtonElement>(selector);
     if (!trigger) return;
     returnFocusRef.current = surface;
@@ -128,14 +150,15 @@ export function PublicContactDock() {
       aria-label={ui.group}
       aria-hidden={dialogOpen}
       data-dialog-open={dialogOpen ? 'true' : 'false'}
+      data-assistant-context={assistantContext}
     >
       <button
         ref={assistantButtonRef}
         type='button'
         className='pc-public-contact-dock-action pc-public-contact-dock-assistant'
         aria-label={ui.assistantAria}
-        aria-haspopup='dialog'
-        aria-controls='pc-public-assistant-panel'
+        aria-haspopup={assistantContext === 'workspace' ? undefined : 'dialog'}
+        aria-controls={assistantPanelSelector.slice(1)}
         onClick={() => openSurface('assistant')}
       >
         <span className='pc-public-contact-dock-icon' aria-hidden='true'>
@@ -162,7 +185,10 @@ export function PublicContactDock() {
         className='pc-public-contact-dock-action pc-public-contact-dock-call'
         href={SUPPORT_PHONE_HREF}
         aria-label={ui.callAria}
-        onClick={() => trackEvent('public_support_phone_clicked', { source: 'unified_contact_dock' })}
+        onClick={() => trackEvent('public_support_phone_clicked', {
+          source: 'unified_contact_dock',
+          assistantContext,
+        })}
       >
         <span className='pc-public-contact-dock-icon' aria-hidden='true'>
           <Phone size={17} strokeWidth={2.1} />
@@ -177,6 +203,7 @@ export function PublicContactDock() {
 
 const css = `
 .pc-public-assistant-shortcut,
+.p7-ai-trigger,
 .p7-support-chat-button {
   position: fixed !important;
   width: 1px !important;
@@ -223,6 +250,14 @@ const css = `
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
+}
+.pc-public-contact-dock[data-assistant-context='private'],
+.pc-public-contact-dock[data-assistant-context='workspace'] {
+  bottom: max(92px, calc(env(safe-area-inset-bottom, 0px) + 88px));
+  z-index: 97;
+}
+.pc-shell-root-v4 .pc-v4-main {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 156px);
 }
 .pc-public-contact-dock,
 .pc-public-contact-dock * { box-sizing: border-box; min-width: 0; }

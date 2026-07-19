@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { AiAssistantPanel } from './AiAssistantPanel';
 import { ChatSupportWidget } from './ChatSupportWidget';
-import { PrivateAssistantShortcutLabel } from './PrivateAssistantShortcutLabel';
 import { PublicContactDock } from './PublicContactDock';
 import { PublicPlatformAssistant } from './PublicPlatformAssistant';
 import { UnifiedModalSheetFullscreenController } from './UnifiedModalSheetFullscreenController';
@@ -34,15 +33,22 @@ const PUBLIC_EXACT = new Set([
   '/platform-v7/contacts',
   '/platform-v7/request',
   '/platform-v7/docs',
+  '/platform-v7/about',
+  '/platform-v7/oferta',
+  '/platform-v7/roles',
   '/platform-v7/secure-grain-deal',
+  '/platform-v7/grain-logistics',
+  '/platform-v7/grain-quality',
+  '/platform-v7/grain-documents',
+  '/platform-v7/grain-payment',
   '/platform-v7/fgis-zerno',
   '/platform-v7/privacy',
   '/platform-v7/terms',
 ]);
 
 const PUBLIC_PREFIXES = [
-  '/platform-v7/demo/',
-  '/platform-v7/role-preview/',
+  '/platform-v7/demo',
+  '/platform-v7/role-preview',
 ] as const;
 
 function normalize(pathname: string): string {
@@ -60,7 +66,7 @@ function isPrivateWorkspace(pathname: string): boolean {
   const path = normalize(pathname);
   if (!path.startsWith('/platform-v7')) return false;
   if (PUBLIC_EXACT.has(path)) return false;
-  if (PUBLIC_PREFIXES.some((prefix) => path.startsWith(prefix))) return false;
+  if (PUBLIC_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) return false;
   return true;
 }
 
@@ -111,13 +117,27 @@ export function ContextualSupportOrAssistant() {
   const routerPathname = usePathname() || PUBLIC_HOME;
   const browserPathname = typeof window === 'undefined' ? routerPathname : window.location.pathname;
   const path = normalize(browserPathname || routerPathname);
-  if (path === ASSISTANT_WORKSPACE) return null;
+
+  // The full-page assistant already renders its own workspace panel. Keep the
+  // shared dock for human support and phone access, while the AI action focuses
+  // that existing panel instead of creating a duplicate floating assistant.
+  if (path === ASSISTANT_WORKSPACE) {
+    return (
+      <>
+        <UnifiedModalSheetFullscreenController />
+        <ChatSupportWidget />
+        <PublicContactDock assistantContext='workspace' />
+      </>
+    );
+  }
 
   if (isPrivateWorkspace(path)) {
     return (
       <>
-        <PrivateAssistantShortcutLabel />
+        <UnifiedModalSheetFullscreenController />
         <AiAssistantPanel variant='floating' />
+        <ChatSupportWidget />
+        <PublicContactDock assistantContext='private' />
       </>
     );
   }

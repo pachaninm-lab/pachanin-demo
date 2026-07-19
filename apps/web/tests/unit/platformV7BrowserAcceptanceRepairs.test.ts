@@ -12,6 +12,7 @@ const protectedShell = read('apps/web/components/platform-v7/PlatformV7Protected
 const protectedShellCss = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css');
 const designSystemRuntime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
+const publicEntryLayout = read('apps/web/app/pc-public-entry/platform-v7/layout.tsx');
 const supportMount = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
 const quietLayer = read('apps/web/components/platform-v7/UxFinalQuietLayer.tsx');
 const workStepGuide = read('apps/web/components/platform-v7/WorkStepGuide.tsx');
@@ -48,13 +49,16 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(protectedShell).not.toContain('Открываем интерфейс кабинета');
   });
 
-  it('keeps support entirely outside the server and initial hydration tree', () => {
-    expect(publicHeader).toContain('<HydrationSafeChatSupport />');
+  it('keeps support outside server rendering and mounts it once per public or protected tree', () => {
+    expect(serverLayout).toContain('<HydrationSafeChatSupport />');
+    expect(publicEntryLayout).toContain('<HydrationSafeChatSupport />');
+    expect(publicHeader).not.toContain('<HydrationSafeChatSupport />');
     expect(publicHeader).not.toContain('<ChatSupportWidget />');
-    expect(designSystemRuntime).toContain('<HydrationSafeChatSupport />');
+    expect(protectedRuntime).toContain('<HydrationSafeChatSupport />');
+    expect(designSystemRuntime).not.toContain('<HydrationSafeChatSupport />');
     expect(designSystemRuntime).not.toContain('<ChatSupportWidget />');
     expect(supportMount).toContain("import dynamic from 'next/dynamic'");
-    expect(supportMount).toContain("import('@/components/platform-v7/ChatSupportWidget')");
+    expect(supportMount).toContain("import('@/components/platform-v7/ContextualSupportOrAssistant')");
     expect(supportMount).toContain('ssr: false');
     expect(supportMount).toContain('loading: () => null');
     expect(supportMount).not.toContain('setMounted');

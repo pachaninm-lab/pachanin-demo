@@ -16,14 +16,16 @@ const apiController = read('apps/api/src/modules/ai-insights/ai-assistant.contro
 const legacyInsights = read('apps/api/src/modules/ai-insights/ai-insights.service.ts');
 
 describe('platform-v7 role-scoped AI assistant', () => {
-  it('mounts one persistent assistant only in private workspaces and preserves public human support', () => {
+  it('mounts one role-scoped assistant inside the shared contact dock in private workspaces', () => {
     expect(hydration).toContain('ContextualSupportOrAssistant');
-    expect(hydration).toContain('structured decision cards');
+    expect(hydration).toContain('structured');
+    expect(hydration).toContain('decision cards');
     expect(contextual).toContain("<AiAssistantPanel variant='floating' />");
     expect(contextual).toContain('<ChatSupportWidget />');
     expect(contextual).toContain("'/platform-v7/login'");
     expect(contextual).toContain("'/platform-v7/how-it-works'");
-    expect(contextual).toContain('One persistent conversational assistant');
+    expect(contextual).toContain("<PublicContactDock assistantContext='private' />");
+    expect(contextual).toContain("<PublicContactDock assistantContext='workspace' />");
   });
 
   it('uses the real backend for real sessions and an explicitly labelled role-scoped synthetic mode only for demo tokens', () => {

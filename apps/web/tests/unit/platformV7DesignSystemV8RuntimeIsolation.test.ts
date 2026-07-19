@@ -170,7 +170,7 @@ describe('platform-v7 Design System v8 runtime isolation', () => {
 
   it('keeps the governed runtime token-only, hydration-safe and free of DOM/style repair code', () => {
     expect(v8Runtime).toContain('packages/design-tokens/tokens.css');
-    expect(v8Runtime).toContain('<HydrationSafeChatSupport />');
+    expect(v8Runtime).not.toContain('<HydrationSafeChatSupport />');
     expect(v8Runtime).not.toContain('<ChatSupportWidget />');
     expect(v8Runtime).not.toContain('PlatformV7FullStyleRuntime');
     expect(v8Runtime).not.toContain('PlatformV7TemplateGuards');
