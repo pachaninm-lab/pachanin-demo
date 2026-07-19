@@ -1,0 +1,57 @@
+{
+  "id": "TAI-AP-14D-2789",
+  "parentProgramIssue": 2726,
+  "issue": 2789,
+  "branch": "agent/tai-ap-14d5-source-health",
+  "status": "active",
+  "maturityBoundary": "official-source-health-and-exact-main-knowledge-evidence-only",
+  "globalProgramStateUnchanged": "This isolated TAI scope does not advance platform-v7 Industrial Integration-Ready or TAI operational attestation.",
+  "branchBaseExactMain": "7279b5d850994bfab92cc8afb0573ea279b63447",
+  "taiKnowledgeBaselineExactMain": "d19dfdd9556ee9c771b121c66849f459bc267625",
+  "remediatesReviewThreads": [
+    "PR #2803 discussion_r3610703119",
+    "PR #2803 discussion_r3610703121"
+  ],
+  "allowedPaths": [
+    ".github/workflows/tai-live-source-evidence.yml",
+    "apps/tai/knowledge-sources/AP-14D-NEXT-LIVE-RUN.md",
+    "apps/tai/knowledge-sources/README.md",
+    "apps/tai/tai/live_source_evidence.py",
+    "apps/tai/tai/live_source_evidence_cli.py",
+    "apps/tai/tai/official_source_diagnostics.py",
+    "apps/tai/tai/source_health.py",
+    "apps/tai/tests/test_live_source_evidence.py",
+    "apps/tai/tests/test_live_source_evidence_cli.py",
+    "apps/tai/tests/test_live_source_evidence_workflow.py",
+    "apps/tai/tests/test_official_source_address_failover.py",
+    "apps/tai/tests/test_source_health.py",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/scopes/tai-ap-14d-2789.json"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/web/**",
+    "apps/landing/**",
+    "packages/**",
+    "package.json",
+    "pnpm-lock.yaml",
+    "package-lock.json",
+    "production credentials"
+  ],
+  "requiredEvidence": [
+    "one aggregate monotonic timeout budget across addresses and redirects",
+    "immutable bounded refresh-history chain with rerun deduplication",
+    "machine-readable stale, expiry and consecutive-failure alerts",
+    "exact-SHA read-only workflow with artifact upload before enforcement",
+    "controlled exact-main 6/6 sources and 8/8 critical topics",
+    "Ruff, strict mypy, pytest coverage and exact-head security gates",
+    "zero unresolved review threads before merge"
+  ],
+  "forbiddenClaims": [
+    "TAI operationally attested",
+    "complete Russian agricultural knowledge",
+    "production source availability guaranteed",
+    "Industrial Integration-Ready",
+    "PRODUCTION_OPERATIONALLY_ACCEPTED"
+  ]
+}

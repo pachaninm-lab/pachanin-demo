@@ -4,7 +4,8 @@ import errno
 import http.client
 import socket
 import ssl
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from urllib.parse import urljoin
@@ -60,10 +61,14 @@ class _AddressTarget:
     path_and_query: str
 
 
+@dataclass(slots=True)
 class DiagnosticOfficialSourceHTTPFetcher(OfficialSourceHTTPFetcher):
     """Official fetcher with bounded diagnostics and public-IP failover."""
 
+    monotonic: Callable[[], float] = time.monotonic
+
     def fetch(self, request: FetchRequest) -> FetchResponse:
+        deadline = self.monotonic() + self.policy.timeout_seconds
         current_url = request.source_uri
         try:
             request_headers = self._request_headers(request)
@@ -79,6 +84,15 @@ class DiagnosticOfficialSourceHTTPFetcher(OfficialSourceHTTPFetcher):
             diagnostics: list[tuple[FetchDisposition, str]] = []
             redirected = False
             for target in targets:
+                remaining_seconds = deadline - self.monotonic()
+                if remaining_seconds < 0.1:
+                    diagnostics.append(
+                        (
+                            FetchDisposition.RETRYABLE_FAILURE,
+                            "source_transport_timeout",
+                        )
+                    )
+                    break
                 try:
                     raw = self.transport.exchange(
                         TransportRequest(
@@ -88,7 +102,7 @@ class DiagnosticOfficialSourceHTTPFetcher(OfficialSourceHTTPFetcher):
                             target_ip=target.ip_address,
                             path_and_query=target.path_and_query,
                             headers=request_headers,
-                            timeout_seconds=self.policy.timeout_seconds,
+                            timeout_seconds=remaining_seconds,
                             maximum_wire_bytes=self.policy.maximum_wire_bytes,
                         )
                     )

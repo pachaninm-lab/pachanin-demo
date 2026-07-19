@@ -22,6 +22,7 @@ from tai.source_coverage import (
     assessment_payload,
     catalog_canonical_json,
 )
+from tai.source_health import SourceRefreshEvent, SourceRefreshOutcome
 
 _GIT_OBJECT_ID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 
@@ -44,6 +45,7 @@ class LiveSourceResult:
     started_at: datetime
     completed_at: datetime
     reason: str
+    refresh_outcome: SourceRefreshOutcome
     observation: SourceObservation | None
 
     def __post_init__(self) -> None:
@@ -61,6 +63,16 @@ class LiveSourceResult:
             raise ValueError("failed live source result cannot carry an observation")
         if self.observation is not None and self.observation.source_id != self.source_id:
             raise ValueError("live result observation source_id mismatch")
+        if (
+            self.status is LiveSourceResultStatus.OBSERVED
+            and not self.refresh_outcome.successful
+        ):
+            raise ValueError("observed live result requires successful refresh outcome")
+        if (
+            self.status is LiveSourceResultStatus.FAILED
+            and self.refresh_outcome.successful
+        ):
+            raise ValueError("failed live result cannot have successful refresh outcome")
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,6 +205,11 @@ class LiveSourceEvidenceCollector:
                 started_at=started_at,
                 completed_at=completed_at,
                 reason=reason,
+                refresh_outcome=(
+                    SourceRefreshOutcome.RETRYABLE_FAILURE
+                    if response.disposition is FetchDisposition.RETRYABLE_FAILURE
+                    else SourceRefreshOutcome.PERMANENT_FAILURE
+                ),
                 observation=None,
             )
         if response.body is None:
@@ -202,6 +219,7 @@ class LiveSourceEvidenceCollector:
                 started_at=started_at,
                 completed_at=completed_at,
                 reason="live_source_fetched_body_missing",
+                refresh_outcome=SourceRefreshOutcome.PERMANENT_FAILURE,
                 observation=None,
             )
         try:
@@ -217,6 +235,7 @@ class LiveSourceEvidenceCollector:
                 started_at=started_at,
                 completed_at=completed_at,
                 reason=str(error) or "live_source_metadata_invalid",
+                refresh_outcome=SourceRefreshOutcome.PERMANENT_FAILURE,
                 observation=None,
             )
         observation = SourceObservation(
@@ -235,6 +254,7 @@ class LiveSourceEvidenceCollector:
             started_at=started_at,
             completed_at=completed_at,
             reason="official_source_observed",
+            refresh_outcome=SourceRefreshOutcome.SUCCEEDED,
             observation=observation,
         )
 
@@ -266,6 +286,7 @@ def run_manifest_payload(bundle: LiveEvidenceBundle) -> dict[str, object]:
         result_payload: dict[str, object] = {
             "completed_at": result.completed_at.isoformat(),
             "reason": result.reason,
+            "refresh_outcome": result.refresh_outcome.value,
             "source_id": result.source_id,
             "started_at": result.started_at.isoformat(),
             "status": result.status.value,
@@ -292,6 +313,50 @@ def run_manifest_payload(bundle: LiveEvidenceBundle) -> dict[str, object]:
         "started_at": bundle.started_at.isoformat(),
         "status": bundle.status.value,
     }
+
+
+def refresh_events(bundle: LiveEvidenceBundle) -> tuple[SourceRefreshEvent, ...]:
+    events: list[SourceRefreshEvent] = []
+    for result in bundle.source_results:
+        observation = result.observation
+        events.append(
+            SourceRefreshEvent(
+                source_id=result.source_id,
+                started_at=result.started_at,
+                completed_at=result.completed_at,
+                outcome=result.refresh_outcome,
+                reason=result.reason,
+                observation_sha256=(
+                    observation.observation_sha256
+                    if observation is not None
+                    else None
+                ),
+                content_sha256=(
+                    observation.content_sha256 if observation is not None else None
+                ),
+                latest_publication_at=(
+                    observation.latest_publication_at
+                    if observation is not None
+                    else None
+                ),
+                last_success_at=(
+                    observation.last_success_at if observation is not None else None
+                ),
+                document_count=(
+                    observation.document_count if observation is not None else None
+                ),
+                observed_topics=(
+                    tuple(
+                        sorted(
+                            topic.value for topic in observation.observed_topics
+                        )
+                    )
+                    if observation is not None
+                    else ()
+                ),
+            )
+        )
+    return tuple(events)
 
 
 def observations_payload(bundle: LiveEvidenceBundle) -> dict[str, object]:

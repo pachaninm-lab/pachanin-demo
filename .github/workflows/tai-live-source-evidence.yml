@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: tai-live-official-source-evidence
@@ -24,7 +25,7 @@ jobs:
       - name: Checkout exact main
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 1
 
       - name: Verify exact checked-out revision
@@ -33,6 +34,8 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$GITHUB_REF" = 'refs/heads/main'
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -48,17 +51,82 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
 
+      - name: Restore previous immutable source-health history
+        id: history
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p prior-health
+          set +e
+          artifact_id="$(
+            gh api --paginate --slurp \
+              "repos/$REPOSITORY/actions/artifacts?per_page=100" \
+              --jq '[.[] | .artifacts[] | select(.expired == false) | select(.workflow_run.head_branch == "main") | select(.name | startswith("tai-live-official-source-v2-"))] | sort_by(.created_at) | last | .id // empty' \
+              2>prior-health/list-error.log
+          )"
+          list_status=$?
+          set -e
+          if [ "$list_status" -ne 0 ]; then
+            echo 'GAP' > prior-health/history-status.txt
+          elif [ -z "$artifact_id" ]; then
+            echo 'BOOTSTRAP' > prior-health/history-status.txt
+          else
+            mkdir -p prior-health/unpacked
+            set +e
+            gh api "repos/$REPOSITORY/actions/artifacts/$artifact_id/zip" \
+              > prior-health/previous.zip
+            download_status=$?
+            unzip -q prior-health/previous.zip -d prior-health/unpacked
+            unzip_status=$?
+            set -e
+            history_path="$(
+              find prior-health/unpacked -name source-health-history.v1.json \
+                -type f -print -quit
+            )"
+            if [ "$download_status" -eq 0 ] \
+              && [ "$unzip_status" -eq 0 ] \
+              && [ -n "$history_path" ]; then
+              cp "$history_path" prior-health/previous-history.json
+              echo 'CONTIGUOUS' > prior-health/history-status.txt
+            else
+              echo 'GAP' > prior-health/history-status.txt
+            fi
+          fi
+          cat prior-health/history-status.txt
+
       - name: Collect governed live-source evidence
         id: collect
         shell: bash
         run: |
           set +e
           mkdir -p live-evidence
+          history_args=(
+            --history-status "$(cat prior-health/history-status.txt)"
+          )
+          if [ -f prior-health/previous-history.json ]; then
+            history_args+=(
+              --previous-history prior-health/previous-history.json
+            )
+          fi
+          acceptance_args=()
+          if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ]; then
+            acceptance_args+=(--require-complete-coverage)
+          fi
           python -m tai.live_source_evidence_cli \
             knowledge-sources/official-sources.v1.json \
             --repository-sha "$GITHUB_SHA" \
             --output-dir live-evidence \
             --timeout-seconds 20 \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --trigger "$GITHUB_EVENT_NAME" \
+            --remediation-baseline \
+              knowledge-sources/AP-14D-REMEDIATION-BASELINE.json \
+            "${history_args[@]}" \
+            "${acceptance_args[@]}" \
             > live-evidence/collector-output.json 2>&1
           status=$?
           echo "$status" > live-evidence/collector-exit-code.txt
@@ -69,10 +137,35 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tai-live-official-source-${{ github.sha }}-${{ github.run_id }}
+          name: tai-live-official-source-v2-${{ github.sha }}-${{ github.run_id }}
           path: apps/tai/live-evidence
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish machine-readable source-health summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f live-evidence/source-health-dashboard.v1.json ]; then
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          dashboard = json.loads(
+              Path("live-evidence/source-health-dashboard.v1.json").read_text()
+          )
+          acceptance = json.loads(
+              Path("live-evidence/knowledge-acceptance.v1.json").read_text()
+          )
+          print("## TAI official-source health")
+          print(f"- status: `{dashboard['status']}`")
+          print(f"- history: `{dashboard['history_status']}`")
+          print(f"- coverage: `{dashboard['coverage_basis_points']}/10000`")
+          print(f"- accepted: `{acceptance['accepted']}`")
+          print(f"- active alerts: `{len(dashboard['alerts'])}`")
+          PY
+          fi
 
       - name: Enforce collector structural validity
         if: always()
@@ -84,3 +177,9 @@ jobs:
           test -f live-evidence/live-run-manifest.json
           test -f live-evidence/source-observations.v1.json
           test -f live-evidence/coverage-assessment.json
+          test -f live-evidence/source-health-history.v1.json
+          test -f live-evidence/source-health-dashboard.v1.json
+          test -f live-evidence/active-alerts.v1.json
+          test -f live-evidence/remediation-trace.v1.json
+          test -f live-evidence/knowledge-acceptance.v1.json
+          test -f live-evidence/evidence-bundle-index.v1.json
