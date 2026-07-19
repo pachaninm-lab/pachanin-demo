@@ -70,18 +70,18 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(isolatedLanding).toContain("data-contact-dock-visual='approved'");
     expect(isolatedLogin).toContain("from '@/app/platform-v7/login/page'");
     expect(isolatedRecovery).toContain("from '@/app/platform-v7/forgot-password/page'");
-    expect(isolatedLayout).toContain('<HydrationSafeChatSupport />');
-    expect(isolatedLayout.indexOf('{children}')).toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport />'));
+    expect(isolatedLayout).toContain('<HydrationSafeChatSupport renderDock={false} />');
+    expect(isolatedLayout.indexOf('{children}')).toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport renderDock={false} />'));
   });
 
-  it('renders one contact dock in initial entry HTML and suppresses the deferred duplicate', () => {
+  it('renders one contact dock in initial entry HTML and forbids a deferred duplicate', () => {
     expect(isolatedLayout).toContain("import './public-entry-contact-dock-mount.css'");
     expect(isolatedLayout).toContain("import { PublicContactDock } from '@/components/platform-v7/PublicContactDock'");
     expect(isolatedLayout).toContain("data-public-entry-contact-dock-mounted='true'");
     expect(isolatedLayout).toContain("data-public-entry-contact-dock-end='true'");
     expect(isolatedLayout).toContain('<PublicContactDock />');
     expect(isolatedLayout.indexOf('<PublicContactDock />'))
-      .toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport />'));
+      .toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport renderDock={false} />'));
     expect(entryDockMountCss).toContain("[data-public-entry-contact-dock-end='true'] ~ .pc-public-contact-dock");
     expect(entryDockMountCss).toContain('display: none !important');
   });
@@ -144,6 +144,8 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(protectedRuntime).toContain('<ToastProvider>');
     expect(protectedRuntime).toContain('<PlatformThemeSync />');
     expect(protectedRuntime).toContain('<PlatformV7ProtectedShell pathname={pathname} verifiedRole={verifiedRole}>');
+    expect(protectedRuntime).toContain('<CabinetContactDock role={verifiedRole} assistantContext={assistantContext} />');
+    expect(protectedRuntime).toContain('<HydrationSafeChatSupport verifiedRole={verifiedRole} renderDock={false} />');
     expect(protectedShell).toContain('<AppShellV4 initialRole={verifiedRole}>');
     expect(protectedShell).toContain('<PlatformV7SingleEntryGuard />');
     expect(protectedShell).toContain('<RbacCabinetGuard />');
