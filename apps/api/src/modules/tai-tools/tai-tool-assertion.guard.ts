@@ -25,7 +25,7 @@ export class TaiToolAssertionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<TaiToolRequest>();
     const toolName = String(request.params?.toolName ?? '');
     if (!toolName) throw new UnauthorizedException({ code: 'TAI_TOOL_NAME_REQUIRED' });
-    const path = `/internal/tai/tools/${toolName}`;
+    const path = `/api/internal/tai/tools/${toolName}`;
     request.taiToolIdentity = this.verifier.verify({
       assertion: singleHeader(request, 'x-tai-tool-assertion'),
       signature: singleHeader(request, 'x-tai-tool-signature'),
