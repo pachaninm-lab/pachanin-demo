@@ -9,11 +9,7 @@ from typing import Any
 
 import pytest
 
-from tai.managed_loader import (
-    FetchDisposition,
-    FetchRequest,
-    SourceFetcher,
-)
+from tai.managed_loader import FetchDisposition, FetchRequest, SourceFetcher
 from tai.official_source_fetcher import (
     FetchSecurityError,
     OfficialFetchPolicy,
@@ -183,6 +179,21 @@ def test_redirect_escape_is_rejected_before_second_request() -> None:
 
     assert result.disposition is FetchDisposition.PERMANENT_FAILURE
     assert result.error_code == "source_url_host_not_allowed"
+    assert len(transport.requests) == 1
+
+
+def test_redirect_https_downgrade_is_rejected_before_second_request() -> None:
+    fetcher, transport = _fetcher(
+        _response(
+            status=302,
+            headers={"location": "http://data.example.gov/insecure"},
+        )
+    )
+
+    result = fetcher.fetch(_request())
+
+    assert result.disposition is FetchDisposition.PERMANENT_FAILURE
+    assert result.error_code == "source_url_https_required"
     assert len(transport.requests) == 1
 
 
@@ -357,7 +368,6 @@ def test_injection_and_bidi_content_are_quarantined(
 @pytest.mark.parametrize(
     ("uri", "error_code"),
     [
-        ("http://data.example.gov/path", "source_url_https_required"),
         ("https://evil.example/path", "source_url_host_not_allowed"),
         (
             "https://user:secret@data.example.gov/path",
