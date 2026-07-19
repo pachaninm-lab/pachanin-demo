@@ -138,7 +138,7 @@ Migration and provisioning service names must be taken from the active productio
 
 ## 8. Live verification
 
-Run the VPS checklist in `docs/platform-v7/vps-post-deploy-checklist.md`.
+Run the VPS checklist in `docs/ops/vps-post-deploy-checklist.md`.
 
 Minimum command-line checks:
 
