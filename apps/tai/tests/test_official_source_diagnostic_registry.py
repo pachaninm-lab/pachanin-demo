@@ -19,5 +19,10 @@ def test_official_source_diagnostic_registry_is_bounded_and_private() -> None:
     assert code_names == sorted(code_names)
     assert len(code_names) == len(set(code_names))
     assert "source_transport_failure" not in code_names
-    assert "exception" not in payload["privacy_contract"].casefold()
+    privacy_contract = payload["privacy_contract"]
+    assert "No exception message" in privacy_contract
+    assert "IP address" in privacy_contract
+    assert "certificate material" in privacy_contract
+    assert "response body" in privacy_contract
+    assert "secret" in privacy_contract
     assert all(isinstance(entry["retryable"], bool) for entry in codes)
