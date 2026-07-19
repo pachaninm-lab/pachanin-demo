@@ -22,6 +22,12 @@ describe('platform-v7 unified public contact dock', () => {
     expect(dock).toContain("const SUPPORT_PHONE_DISPLAY = '8 916 277-89-89'");
   });
 
+  it('keeps the call action but does not render the phone number in the dock', () => {
+    expect(dock).toContain('<strong>{ui.call}</strong>');
+    expect(dock).not.toContain('<small>{SUPPORT_PHONE_DISPLAY}</small>');
+    expect(dock).toContain('aria-label={ui.callAria}');
+  });
+
   it('preserves the existing assistant and support workflows without duplicate visible launchers', () => {
     expect(dock).toContain("'.pc-public-assistant-shortcut'");
     expect(dock).toContain("'.p7-support-chat-button'");
@@ -42,11 +48,12 @@ describe('platform-v7 unified public contact dock', () => {
     expect(dock).toContain('pointer-events: none');
   });
 
-  it('uses the public-page palette and stays close to the mobile safe area', () => {
+  it('uses the public-page palette, green outline and mobile safe area', () => {
     expect(dock).toContain('background: var(--pc-ppe-v5-surface, #ffffff)');
     expect(dock).toContain('color: var(--pc-ppe-v5-ink, #092118)');
     expect(dock).toContain('color: var(--pc-ppe-v5-green, #087a3b)');
-    expect(dock).toContain('border: 1px solid var(--pc-ppe-v5-line, #cfdcd4)');
+    expect(dock).toContain('border: 2px solid var(--pc-ppe-v5-green, #087a3b)');
+    expect(dock).toContain('border-left: 1px solid rgba(8, 122, 59, .34)');
     expect(dock).toContain('bottom: max(6px, calc(env(safe-area-inset-bottom, 0px) + 4px))');
     expect(dock).toContain('bottom: max(2px, calc(env(safe-area-inset-bottom, 0px) + 2px))');
   });
