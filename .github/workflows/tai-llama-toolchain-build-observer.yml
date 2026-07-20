@@ -15,12 +15,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Exact handoff diagnostics
+      - name: Extract handoff failure
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          EXACT_BUILD_SHA: 637d36f7e9bb152ee3c7b22545a9a83eca3e4388
+          HANDOFF_JOB_ID: '88303764538'
         run: |
           set -euo pipefail
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-llama-toolchain-acceptance-handoff.yml/runs?branch=main&per_page=20" --jq '.workflow_runs[] | select(.head_sha == env.EXACT_BUILD_SHA) | [.id,.status,.conclusion,.event,.head_branch,.head_sha,.run_number,.run_attempt,.created_at,.updated_at,.html_url] | @tsv'
+          gh api "/repos/$REPOSITORY/actions/jobs/$HANDOFF_JOB_ID/logs" > handoff.log
+          grep -aE '(_MISMATCH|_INVALID|_NOT_|_CARDINALITY_|Error:|##\[error\])' handoff.log | tail -20 || true
