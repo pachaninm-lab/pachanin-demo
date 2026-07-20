@@ -1,0 +1,420 @@
+allback_artifact_sha256": _sha256(
+            item["fallback_artifact_sha256"], f"{name}.fallback_artifact_sha256"
+        ),
+        "trigger_count": _integer(
+            item["trigger_count"], f"{name}.trigger_count", minimum=1
+        ),
+        "successful_transitions": _integer(
+            item["successful_transitions"], f"{name}.successful_transitions", minimum=0
+        ),
+        "failed_transitions": _integer(
+            item["failed_transitions"], f"{name}.failed_transitions", minimum=0
+        ),
+        "p95_takeover_ms": _integer(
+            item["p95_takeover_ms"], f"{name}.p95_takeover_ms", minimum=1
+        ),
+        "continuity_violations": _integer(
+            item["continuity_violations"], f"{name}.continuity_violations", minimum=0
+        ),
+        "critical_unsupported_facts": _integer(
+            item["critical_unsupported_facts"],
+            f"{name}.critical_unsupported_facts",
+            minimum=0,
+        ),
+        "raw_metrics_path": _relative_path(
+            item["raw_metrics_path"], f"{name}.raw_metrics_path"
+        ),
+        "protocol_path": _relative_path(item["protocol_path"], f"{name}.protocol_path"),
+    }
+
+
+def _parse_soak(value: Any, name: str) -> dict[str, Any]:
+    item = _dict(value, name)
+    _require_keys(
+        item,
+        {
+            "profile_id",
+            "duration_seconds",
+            "request_count",
+            "failed_requests",
+            "critical_failures",
+            "memory_start_mb",
+            "memory_end_mb",
+            "memory_peak_mb",
+            "memory_drift_mb",
+            "p95_latency_ms",
+            "raw_metrics_path",
+            "environment_path",
+        },
+        name,
+    )
+    parsed: dict[str, Any] = {
+        "profile_id": _identity(item["profile_id"], f"{name}.profile_id"),
+        "duration_seconds": _integer(
+            item["duration_seconds"], f"{name}.duration_seconds", minimum=1
+        ),
+        "request_count": _integer(
+            item["request_count"], f"{name}.request_count", minimum=1
+        ),
+        "failed_requests": _integer(
+            item["failed_requests"], f"{name}.failed_requests", minimum=0
+        ),
+        "critical_failures": _integer(
+            item["critical_failures"], f"{name}.critical_failures", minimum=0
+        ),
+        "memory_start_mb": _integer(
+            item["memory_start_mb"], f"{name}.memory_start_mb", minimum=1
+        ),
+        "memory_end_mb": _integer(
+            item["memory_end_mb"], f"{name}.memory_end_mb", minimum=1
+        ),
+        "memory_peak_mb": _integer(
+            item["memory_peak_mb"], f"{name}.memory_peak_mb", minimum=1
+        ),
+        "memory_drift_mb": _integer(
+            item["memory_drift_mb"], f"{name}.memory_drift_mb", minimum=0
+        ),
+        "p95_latency_ms": _integer(
+            item["p95_latency_ms"], f"{name}.p95_latency_ms", minimum=1
+        ),
+        "raw_metrics_path": _relative_path(
+            item["raw_metrics_path"], f"{name}.raw_metrics_path"
+        ),
+        "environment_path": _relative_path(
+            item["environment_path"], f"{name}.environment_path"
+        ),
+    }
+    if parsed["memory_peak_mb"] < max(
+        parsed["memory_start_mb"], parsed["memory_end_mb"]
+    ):
+        raise ContractError(f"{name}.memory_peak_mb is inconsistent")
+    if parsed["memory_drift_mb"] != abs(
+        parsed["memory_end_mb"] - parsed["memory_start_mb"]
+    ):
+        raise ContractError(f"{name}.memory_drift_mb is inconsistent")
+    return parsed
+
+
+def _parse_storage(value: Any, name: str) -> dict[str, Any]:
+    item = _dict(value, name)
+    _require_keys(
+        item,
+        {
+            "immutable_locator",
+            "archive_sha256",
+            "archive_size_bytes",
+            "uploaded_at",
+            "retention_days",
+            "retention_expires_at",
+            "restored_at",
+        },
+        name,
+    )
+    uploaded = _timestamp(item["uploaded_at"], f"{name}.uploaded_at")
+    retention_days = _integer(
+        item["retention_days"], f"{name}.retention_days", minimum=1
+    )
+    expires = _timestamp(item["retention_expires_at"], f"{name}.retention_expires_at")
+    restored = _timestamp(item["restored_at"], f"{name}.restored_at")
+    if expires != uploaded + timedelta(days=retention_days):
+        raise ContractError(
+            "storage retention expiry must equal upload + retention days"
+        )
+    if restored < uploaded or restored > expires:
+        raise ContractError(
+            "storage restore timestamp must be within retention interval"
+        )
+    return {
+        "immutable_locator": _immutable_locator(
+            item["immutable_locator"], f"{name}.immutable_locator"
+        ),
+        "archive_sha256": _sha256(item["archive_sha256"], f"{name}.archive_sha256"),
+        "archive_size_bytes": _integer(
+            item["archive_size_bytes"], f"{name}.archive_size_bytes", minimum=1
+        ),
+        "uploaded_at": uploaded.isoformat(),
+        "retention_days": retention_days,
+        "retention_expires_at": expires.isoformat(),
+        "restored_at": restored.isoformat(),
+    }
+
+
+def _parse_complete_manifest(
+    raw: dict[str, Any],
+    authority: dict[str, Any],
+    bundle_authority: dict[str, Any],
+    bundle_authority_sha256: str,
+) -> dict[str, Any]:
+    _require_keys(
+        raw,
+        {
+            "schema_version",
+            "lifecycle",
+            "pending_reason",
+            "model",
+            "bundle",
+            "evaluation_suite",
+            "quality",
+            "runtime_profiles",
+            "fallback_exercise",
+            "soak",
+            "evidence_files",
+            "storage",
+            "measured_at",
+        },
+        "benchmark manifest",
+    )
+    if raw["schema_version"] != "tai.model-benchmark-evidence.v2":
+        raise ContractError("unsupported benchmark manifest schema_version")
+    if raw["lifecycle"] != "COMPLETE" or raw["pending_reason"] is not None:
+        raise ContractError(
+            "complete benchmark must have lifecycle COMPLETE and null reason"
+        )
+
+    model = _dict(raw["model"], "benchmark.model")
+    _require_keys(model, {"role", "model_id", "revision"}, "benchmark.model")
+    role = _string(model["role"], "benchmark.model.role")
+    if role not in _ALLOWED_ROLES:
+        raise ContractError("benchmark model role unsupported")
+    model_id = _identity(model["model_id"], "benchmark.model.model_id")
+    revision = _revision(model["revision"], "benchmark.model.revision")
+    plan = _bundle_plan(bundle_authority, model_id, revision)
+    if plan.get("role") != role:
+        raise ContractError("benchmark role differs from bundle authority")
+    bundle = _parse_bundle_binding(
+        raw["bundle"],
+        "benchmark.bundle",
+        expected_authority_sha256=bundle_authority_sha256,
+        bundle_plan=plan,
+    )
+    suite = _parse_suite(raw["evaluation_suite"], authority["suite_policy"])
+    quality = _parse_quality(raw["quality"])
+
+    profiles = [
+        _parse_runtime_profile(item, f"benchmark.runtime_profiles[{index}]")
+        for index, item in enumerate(
+            _list(raw["runtime_profiles"], "benchmark.runtime_profiles")
+        )
+    ]
+    profile_ids = [item["profile_id"] for item in profiles]
+    if len(profile_ids) != len(set(profile_ids)):
+        raise ContractError("benchmark runtime profile ids must be unique")
+    fallback = None
+    if raw["fallback_exercise"] is not None:
+        fallback = _parse_fallback(
+            raw["fallback_exercise"], "benchmark.fallback_exercise"
+        )
+    soak = _parse_soak(raw["soak"], "benchmark.soak")
+    files = [
+        _parse_file(item, f"benchmark.evidence_files[{index}]")
+        for index, item in enumerate(
+            _list(raw["evidence_files"], "benchmark.evidence_files")
+        )
+    ]
+    paths = [item["path"] for item in files]
+    if len(paths) != len(set(paths)):
+        raise ContractError("benchmark evidence file paths must be unique")
+    storage = _parse_storage(raw["storage"], "benchmark.storage")
+    measured_at = _timestamp(raw["measured_at"], "benchmark.measured_at")
+    uploaded_at = _timestamp(storage["uploaded_at"], "benchmark.storage.uploaded_at")
+    if measured_at > uploaded_at:
+        raise ContractError(
+            "benchmark measurement must not occur after evidence upload"
+        )
+
+    return {
+        "schema_version": raw["schema_version"],
+        "lifecycle": "COMPLETE",
+        "pending_reason": None,
+        "model": {"role": role, "model_id": model_id, "revision": revision},
+        "bundle": bundle,
+        "evaluation_suite": suite,
+        "quality": quality,
+        "runtime_profiles": profiles,
+        "fallback_exercise": fallback,
+        "soak": soak,
+        "evidence_files": files,
+        "storage": storage,
+        "measured_at": measured_at.isoformat(),
+    }
+
+
+def _parse_pending_manifest(raw: dict[str, Any]) -> dict[str, Any]:
+    _require_keys(
+        raw,
+        {
+            "schema_version",
+            "lifecycle",
+            "pending_reason",
+            "model",
+            "bundle",
+            "evaluation_suite",
+            "quality",
+            "runtime_profiles",
+            "fallback_exercise",
+            "soak",
+            "evidence_files",
+            "storage",
+            "measured_at",
+        },
+        "pending benchmark manifest",
+    )
+    if raw["schema_version"] != "tai.model-benchmark-evidence.v2":
+        raise ContractError("unsupported benchmark manifest schema_version")
+    if raw["lifecycle"] != "PENDING_BENCHMARK":
+        raise ContractError("pending benchmark lifecycle mismatch")
+    reason = _string(raw["pending_reason"], "pending benchmark reason")
+    model = _dict(raw["model"], "pending benchmark model")
+    _require_keys(model, {"role", "model_id", "revision"}, "pending benchmark model")
+    role = _string(model["role"], "pending benchmark model.role")
+    if role not in _ALLOWED_ROLES:
+        raise ContractError("pending benchmark model role unsupported")
+    parsed_model = {
+        "role": role,
+        "model_id": _identity(model["model_id"], "pending benchmark model.model_id"),
+        "revision": _revision(model["revision"], "pending benchmark model.revision"),
+    }
+    if raw["bundle"] is not None:
+        raise ContractError("pending benchmark bundle must be null")
+    if raw["evaluation_suite"] is not None or raw["quality"] is not None:
+        raise ContractError("pending benchmark cannot contain evaluation results")
+    if raw["runtime_profiles"] != [] or raw["evidence_files"] != []:
+        raise ContractError(
+            "pending benchmark cannot contain profiles or evidence files"
+        )
+    if raw["fallback_exercise"] is not None or raw["soak"] is not None:
+        raise ContractError(
+            "pending benchmark cannot contain fallback or soak evidence"
+        )
+    if raw["storage"] is not None or raw["measured_at"] is not None:
+        raise ContractError(
+            "pending benchmark cannot contain storage or measurement time"
+        )
+    return {
+        "schema_version": raw["schema_version"],
+        "lifecycle": "PENDING_BENCHMARK",
+        "pending_reason": reason,
+        "model": parsed_model,
+    }
+
+
+def _hash_file(path: Path, maximum: int) -> tuple[str, int]:
+    stat_result = path.lstat()
+    if path.is_symlink() or not path.is_file():
+        raise ContractError(f"evidence path must be a non-symlink regular file: {path}")
+    size = stat_result.st_size
+    if size < 1 or size > maximum:
+        raise ContractError(f"evidence file size outside authority limit: {path}")
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest(), size
+
+
+def _verify_evidence_files(
+    files: list[dict[str, Any]],
+    original_root: Path,
+    restored_root: Path,
+    limits: dict[str, int],
+) -> list[str]:
+    if len(files) > limits["maximum_file_count"]:
+        raise ContractError("evidence file count exceeds authority limit")
+    total = sum(item["size_bytes"] for item in files)
+    if total > limits["maximum_total_size_bytes"]:
+        raise ContractError("evidence total size exceeds authority limit")
+    reasons: list[str] = []
+    original_inodes: set[tuple[int, int]] = set()
+    restored_inodes: set[tuple[int, int]] = set()
+    try:
+        if original_root.resolve() == restored_root.resolve():
+            reasons.append("RESTORE_ROOT_NOT_INDEPENDENT")
+    except OSError:
+        reasons.append("EVIDENCE_ROOT_INVALID")
+    for item in files:
+        relative = Path(item["path"])
+        original = original_root / relative
+        restored = restored_root / relative
+        try:
+            original_digest, original_size = _hash_file(
+                original, limits["maximum_file_size_bytes"]
+            )
+        except (OSError, ContractError):
+            reasons.append(f"ORIGINAL_EVIDENCE_INVALID:{item['path']}")
+            continue
+        try:
+            restored_digest, restored_size = _hash_file(
+                restored, limits["maximum_file_size_bytes"]
+            )
+        except (OSError, ContractError):
+            reasons.append(f"RESTORED_EVIDENCE_INVALID:{item['path']}")
+            continue
+        original_stat = original.stat()
+        restored_stat = restored.stat()
+        original_inode = (original_stat.st_dev, original_stat.st_ino)
+        restored_inode = (restored_stat.st_dev, restored_stat.st_ino)
+        if original_inode in original_inodes:
+            reasons.append(f"ORIGINAL_HARDLINK_ALIAS:{item['path']}")
+        if restored_inode in restored_inodes:
+            reasons.append(f"RESTORED_HARDLINK_ALIAS:{item['path']}")
+        original_inodes.add(original_inode)
+        restored_inodes.add(restored_inode)
+        if original_inode == restored_inode:
+            reasons.append(f"RESTORE_NOT_INDEPENDENT:{item['path']}")
+        if original_size != item["size_bytes"] or original_digest != item["sha256"]:
+            reasons.append(f"ORIGINAL_EVIDENCE_MISMATCH:{item['path']}")
+        if restored_size != item["size_bytes"] or restored_digest != item["sha256"]:
+            reasons.append(f"RESTORED_EVIDENCE_MISMATCH:{item['path']}")
+        if original_digest != restored_digest or original_size != restored_size:
+            reasons.append(f"RESTORE_DRIFT:{item['path']}")
+    return reasons
+
+
+def _referenced_paths(manifest: dict[str, Any]) -> set[str]:
+    suite = manifest["evaluation_suite"]
+    paths = {
+        suite["manifest_path"],
+        suite["cases_path"],
+        suite["protocol_path"],
+        manifest["quality"]["results_path"],
+    }
+    for profile in manifest["runtime_profiles"]:
+        paths.update(
+            {
+                profile["hardware_path"],
+                profile["environment_path"],
+                profile["raw_metrics_path"],
+                profile["cost_calculation_path"],
+            }
+        )
+    fallback = manifest["fallback_exercise"]
+    if fallback is not None:
+        paths.update({fallback["raw_metrics_path"], fallback["protocol_path"]})
+    soak = manifest["soak"]
+    paths.update({soak["raw_metrics_path"], soak["environment_path"]})
+    return paths
+
+
+def _semantic_object(path: Path, name: str) -> dict[str, Any]:
+    try:
+        return load_json_strict(path)
+    except ContractError as exc:
+        raise ContractError(f"{name} semantic JSON invalid: {exc}") from exc
+
+
+def _file_map(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {item["path"]: item for item in manifest["evidence_files"]}
+
+
+def _verify_semantic_evidence(
+    manifest: dict[str, Any], original_root: Path
+) -> list[str]:
+    reasons: list[str] = []
+    files = _file_map(manifest)
+    suite = manifest["evaluation_suite"]
+    model = manifest["model"]
+    quality = manifest["quality"]
+
+    try:
+        suite_manifest = _semantic_object(
+            original_root / suite["manifest_path"], "evaluation suite manifest"
