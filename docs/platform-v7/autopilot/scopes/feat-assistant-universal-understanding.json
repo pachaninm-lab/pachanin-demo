@@ -1,22 +1,26 @@
 {
   "branch": "feat/assistant-universal-understanding",
   "status": "active",
-  "purpose": "First-screen and reusable marketing context for the active role-scoped AI experience: present-tense value, explicit human confirmation and an anonymised public scenario boundary.",
+  "purpose": "Public interactive AI-in-action experience: a localized animated walkthrough of role-scoped facts, risk detection, evidence-led explanation, a prepared next step, granular feedback and explicit human confirmation, linked from the homepage AI status block.",
   "approvedBy": "independent-authority-pr",
   "allowedPaths": [
     "apps/web/app/platform-v7/page.tsx",
-    "apps/web/components/platform-v7/PublicAiMarketingBlock.tsx",
-    "apps/web/tests/unit/platformV7PublicAiMarketingBlock.test.ts",
+    "apps/web/app/platform-v7/demo/ai/page.tsx",
+    "apps/web/components/platform-v7/PublicAiInActionExperience.tsx",
+    "apps/web/components/platform-v7/PublicAiInActionExperience.module.css",
+    "apps/web/lib/platform-v7/public-seo-routes.json",
+    "apps/web/tests/unit/platformV7PublicAiInAction.test.ts",
     "docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json"
   ],
   "forbiddenCapabilities": [
-    "claims that AI performs autonomous consequential commands",
+    "autonomous consequential commands",
     "claims that public mode accesses account or real-deal data",
     "cross-role or cross-tenant access",
-    "external model calls from public mode",
+    "external model calls from the public demonstration",
     "full public question text persistence",
-    "automatic or background phone calls without an explicit user action",
-    "invented prices, legal conclusions or integration status",
-    "guaranteed risk prevention or guaranteed business outcomes"
+    "automatic or background phone calls without explicit user action",
+    "invented legal conclusions or integration status",
+    "guaranteed risk prevention or guaranteed business outcomes",
+    "presenting demonstrative confirmation as a real transaction mutation"
   ]
 }
