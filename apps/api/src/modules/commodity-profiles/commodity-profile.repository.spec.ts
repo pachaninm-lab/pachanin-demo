@@ -41,7 +41,7 @@ function row(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function repository(handler: QueryHandler) {
+function makeRepository(handler: QueryHandler) {
   const rls = {
     withTrustedContext: jest.fn(async (_user: RequestUser, work: TrustedContextWork) => work({
       $queryRaw: jest.fn(async (query: unknown) => handler(query)),
@@ -52,7 +52,7 @@ function repository(handler: QueryHandler) {
 
 describe('CommodityProfileRepository', () => {
   it('returns deterministic read model and server-derived actions', async () => {
-    const { repository } = repository(() => [row()]);
+    const { repository } = makeRepository(() => [row()]);
 
     const result = await repository.list(user(), { limit: 20 });
 
@@ -70,7 +70,7 @@ describe('CommodityProfileRepository', () => {
   });
 
   it('filters classified rows for ordinary commercial role', async () => {
-    const { repository } = repository(() => [
+    const { repository } = makeRepository(() => [
       row(),
       row({ id: 'profile-secret', classification: 'COMMERCIAL_SECRET' }),
     ]);
@@ -81,7 +81,7 @@ describe('CommodityProfileRepository', () => {
   });
 
   it('allows classified rows only through server staff authority', async () => {
-    const { repository } = repository(() => [
+    const { repository } = makeRepository(() => [
       row({ id: 'profile-secret', classification: 'COMMERCIAL_SECRET' }),
     ]);
 
@@ -95,14 +95,14 @@ describe('CommodityProfileRepository', () => {
   });
 
   it('rejects incomplete trusted identity before querying PostgreSQL', async () => {
-    const { repository, rls } = repository(() => [row()]);
+    const { repository, rls } = makeRepository(() => [row()]);
 
     await expect(repository.list(user({ sessionId: undefined }))).rejects.toBeInstanceOf(ForbiddenException);
     expect(rls.withTrustedContext).not.toHaveBeenCalled();
   });
 
   it('rejects malformed cursor and invalid limits fail closed', async () => {
-    const { repository, rls } = repository(() => [row()]);
+    const { repository, rls } = makeRepository(() => [row()]);
 
     await expect(repository.list(user(), { cursor: 'not-json' })).rejects.toBeInstanceOf(RangeError);
     await expect(repository.list(user(), { limit: 101 })).rejects.toBeInstanceOf(RangeError);
@@ -110,14 +110,14 @@ describe('CommodityProfileRepository', () => {
   });
 
   it('returns not found when exact version is absent', async () => {
-    const { repository } = repository(() => [row({ profileVersionId: null })]);
+    const { repository } = makeRepository(() => [row({ profileVersionId: null })]);
 
     await expect(repository.getById(user(), 'profile-1', { versionId: 'missing-version' }))
       .rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('denies direct classified read to ordinary role', async () => {
-    const { repository } = repository(() => [row({ classification: 'CONFIDENTIAL' })]);
+    const { repository } = makeRepository(() => [row({ classification: 'CONFIDENTIAL' })]);
 
     await expect(repository.getById(user(), 'profile-1')).rejects.toBeInstanceOf(ForbiddenException);
   });
