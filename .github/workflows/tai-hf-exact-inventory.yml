@@ -1,0 +1,702 @@
+name: TAI Hugging Face Exact Inventory Evidence
+
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-hf-exact-inventory-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.action == 'created' &&
+          github.event.issue.pull_request == null &&
+          github.event.issue.number == 2835 &&
+          github.event.comment.body == '/tai collect model-inventory exact-main' &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.user.login == github.repository_owner
+        )
+      )
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - key: qwen3-8b
+            model_id: Qwen/Qwen3-8B
+            source_prefix: sources/qwen3-8b/
+          - key: mistral-7b-instruct-v0.3
+            model_id: mistralai/Mistral-7B-Instruct-v0.3
+            source_prefix: sources/mistral-7b-instruct-v0.3/
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      AUTHORITY_PATH: apps/tai/model-artifacts/model-bundle-authority.v2.json
+      BUILD_ACCEPTANCE_PATH: apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json
+      KEY: ${{ matrix.key }}
+      MODEL_ID: ${{ matrix.model_id }}
+      SOURCE_PREFIX: ${{ matrix.source_prefix }}
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact checked-out main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = 'refs/heads/main'
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+
+      - name: Validate accepted toolchain dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          authority = json.loads(Path(os.environ["AUTHORITY_PATH"]).read_text(encoding="utf-8"))
+          build = json.loads(Path(os.environ["BUILD_ACCEPTANCE_PATH"]).read_text(encoding="utf-8"))
+
+          assert authority["schema_version"] == "tai.model-bundle-authority.v2"
+          assert build["schema_version"] == "tai.llama-cpp-build-acceptance.v1"
+          assert build["status"] == "VERIFIED_RESTORED"
+          assert build["evidence"]["verification_report"]["status"] == "VERIFIED"
+          assert build["evidence"]["verification_report"]["reasons"] == []
+          assert build["restore"]["independent_reverification"] is True
+          assert build["maturity_boundary"]["production_operational_status"] == "NOT_ATTESTED"
+
+          model_id = os.environ["MODEL_ID"]
+          plan = next(item for item in authority["models"] if item["model_id"] == model_id)
+          revision = plan["revision"]
+          assert isinstance(revision, str) and len(revision) == 40
+          assert all(character in "0123456789abcdef" for character in revision)
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as env_file:
+              env_file.write(f"REVISION={revision}\n")
+          PY
+
+      - name: Fetch exact revision metadata only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "inventory-evidence/$KEY"
+          curl --fail --silent --show-error --location \
+            --proto '=https' --tlsv1.2 \
+            --retry 4 --retry-all-errors --max-time 60 \
+            "https://huggingface.co/api/models/$MODEL_ID/revision/$REVISION?blobs=true" \
+            --output "inventory-evidence/$KEY/api-model-info.json"
+          test -s "inventory-evidence/$KEY/api-model-info.json"
+
+      - name: Reconcile exact authority inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from urllib.parse import quote
+
+          key = os.environ["KEY"]
+          model_id = os.environ["MODEL_ID"]
+          revision = os.environ["REVISION"]
+          prefix = os.environ["SOURCE_PREFIX"]
+          root = Path("inventory-evidence") / key
+          api_path = root / "api-model-info.json"
+          api = json.loads(api_path.read_text(encoding="utf-8"))
+          authority = json.loads(
+              Path(os.environ["AUTHORITY_PATH"]).read_text(encoding="utf-8")
+          )
+          build = json.loads(
+              Path(os.environ["BUILD_ACCEPTANCE_PATH"]).read_text(encoding="utf-8")
+          )
+          plan = next(
+              item
+              for item in authority["models"]
+              if item["model_id"] == model_id and item["revision"] == revision
+          )
+
+          observed_sha = api.get("sha")
+          if observed_sha != revision:
+              raise SystemExit(f"EXACT_REVISION_MISMATCH:{observed_sha!r}")
+
+          siblings = api.get("siblings")
+          if not isinstance(siblings, list):
+              raise SystemExit("UPSTREAM_SIBLINGS_MISSING")
+
+          upstream: dict[str, dict[str, object]] = {}
+          for raw in siblings:
+              if not isinstance(raw, dict):
+                  raise SystemExit("UPSTREAM_SIBLING_INVALID")
+              remote_path = raw.get("rfilename")
+              if not isinstance(remote_path, str) or not remote_path:
+                  raise SystemExit("UPSTREAM_PATH_INVALID")
+              if remote_path in upstream:
+                  raise SystemExit(f"UPSTREAM_PATH_DUPLICATE:{remote_path}")
+              upstream[remote_path] = raw
+
+          observed_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+          expected_remote_paths: set[str] = set()
+          remote_entries: list[dict[str, object]] = []
+          observation_entries: list[dict[str, object]] = []
+          selected_uris: list[str] = []
+          selected_total = 0
+          selected_weight_total = 0
+          selected_max = 0
+          selected_weight_max = 0
+
+          for entry in plan["source_inventory"]:
+              full_path = entry["path"]
+              if not isinstance(full_path, str) or not full_path.startswith(prefix):
+                  raise SystemExit(f"AUTHORITY_PREFIX_MISMATCH:{full_path!r}")
+              remote_path = full_path.removeprefix(prefix)
+              expected_remote_paths.add(remote_path)
+              sibling = upstream.get(remote_path)
+              if sibling is None:
+                  raise SystemExit(f"AUTHORITY_PATH_ABSENT_UPSTREAM:{remote_path}")
+
+              raw_lfs = sibling.get("lfs")
+              lfs = raw_lfs if isinstance(raw_lfs, dict) else {}
+              size = sibling.get("size")
+              if not isinstance(size, int):
+                  size = lfs.get("size")
+              if not isinstance(size, int) or size < 1:
+                  raise SystemExit(f"UPSTREAM_SIZE_INVALID:{remote_path}")
+
+              identity_payload = {
+                  "blob_id": sibling.get("blobId"),
+                  "lfs_oid": lfs.get("oid"),
+                  "lfs_pointer_size": lfs.get("pointerSize"),
+              }
+              identity_payload = {
+                  name: value
+                  for name, value in identity_payload.items()
+                  if value is not None
+              }
+              if not identity_payload:
+                  raise SystemExit(f"REMOTE_IDENTITY_ABSENT:{remote_path}")
+              remote_identity = json.dumps(
+                  identity_payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+              )
+              if len(remote_identity) > 300:
+                  raise SystemExit(f"REMOTE_IDENTITY_TOO_LONG:{remote_path}")
+
+              download_uri = (
+                  "https://huggingface.co/"
+                  + model_id
+                  + "/resolve/"
+                  + revision
+                  + "/"
+                  + quote(remote_path, safe="/")
+              )
+              remote_entries.append(
+                  {
+                      "path": full_path,
+                      "remote_identity": remote_identity,
+                      "size_bytes": size,
+                  }
+              )
+              observation_entries.append(
+                  {
+                      "path": full_path,
+                      "remote_path": remote_path,
+                      "role": entry["role"],
+                      "disposition": entry["disposition"],
+                      "exclusion_reason": entry["exclusion_reason"],
+                      "remote_identity": remote_identity,
+                      "size_bytes": size,
+                      "download_uri": download_uri,
+                  }
+              )
+
+              if entry["disposition"] == "SELECTED":
+                  selected_uris.append(download_uri)
+                  selected_total += size
+                  selected_max = max(selected_max, size)
+                  if entry["role"] == "WEIGHT_SHARD":
+                      selected_weight_total += size
+                      selected_weight_max = max(selected_weight_max, size)
+
+          upstream_paths = set(upstream)
+          missing = sorted(expected_remote_paths - upstream_paths)
+          ungoverned = sorted(upstream_paths - expected_remote_paths)
+          if missing:
+              raise SystemExit("AUTHORITY_PATHS_MISSING:" + ",".join(missing))
+          if ungoverned:
+              raise SystemExit("UNGOVERNED_UPSTREAM_PATHS:" + ",".join(ungoverned))
+
+          remote_evidence = {
+              "schema_version": "tai.remote-model-inventory-evidence.v1",
+              "model_id": model_id,
+              "revision": revision,
+              "source_uri": plan["source_uri"],
+              "observed_at": observed_at,
+              "entries": remote_entries,
+          }
+          observation = {
+              "schema_version": "tai.hf-exact-inventory-observation.v1",
+              "status": "METADATA_RECONCILED",
+              "model_id": model_id,
+              "role": plan["role"],
+              "revision": revision,
+              "source_uri": plan["source_uri"],
+              "model_card_uri": plan["model_card_uri"],
+              "license_spdx_metadata": plan["license_spdx"],
+              "observed_at": observed_at,
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "api_sha": observed_sha,
+              "api_response_sha256": hashlib.sha256(api_path.read_bytes()).hexdigest(),
+              "upstream_file_count": len(upstream_paths),
+              "authority_entry_count": len(observation_entries),
+              "missing_authority_paths": missing,
+              "ungoverned_upstream_paths": ungoverned,
+              "selected_total_bytes": selected_total,
+              "selected_max_file_bytes": selected_max,
+              "selected_weight_total_bytes": selected_weight_total,
+              "selected_weight_max_file_bytes": selected_weight_max,
+              "entries": observation_entries,
+              "accepted_toolchain": {
+                  "authority_sha256": build["authority"]["authority_sha256"],
+                  "build_repository_sha": build["build_run"]["repository_sha"],
+                  "package_payload_sha256": build["external_artifacts"]["package_artifact"][
+                      "payload_sha256"
+                  ],
+                  "status": build["status"],
+              },
+              "maturity_boundary": {
+                  "model_acquisition": "NOT_RUN",
+                  "local_source_hashes": "ABSENT",
+                  "legal_review": "NOT_DONE",
+                  "conversion": "NOT_DONE",
+                  "quantization": "NOT_DONE",
+                  "benchmarks": "NOT_DONE",
+                  "model_admission": "NOT_DONE",
+                  "production_operational_status": "NOT_ATTESTED",
+              },
+          }
+
+          (root / "remote-inventory.v1.json").write_text(
+              json.dumps(remote_evidence, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          (root / "inventory-observation.v1.json").write_text(
+              json.dumps(observation, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          (root / "selected-uris.txt").write_text(
+              "".join(f"{uri}\n" for uri in selected_uris),
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Probe selected exact file endpoints with HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > "inventory-evidence/$KEY/head-results.tsv"
+          while IFS= read -r uri; do
+            test -n "$uri"
+            status="$(
+              curl --silent --show-error --location --head \
+                --proto '=https' --tlsv1.2 \
+                --retry 3 --retry-all-errors \
+                --connect-timeout 20 --max-time 90 \
+                --output /dev/null --write-out '%{http_code}' "$uri" || true
+            )"
+            printf '%s\t%s\n' "$status" "$uri" \
+              >> "inventory-evidence/$KEY/head-results.tsv"
+            test "$status" = '200'
+          done < "inventory-evidence/$KEY/selected-uris.txt"
+
+      - name: Finalize bounded inventory evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          key = os.environ["KEY"]
+          root = Path("inventory-evidence") / key
+          observation_path = root / "inventory-observation.v1.json"
+          observation = json.loads(observation_path.read_text(encoding="utf-8"))
+          remote = json.loads((root / "remote-inventory.v1.json").read_text(encoding="utf-8"))
+
+          expected_selected = sum(
+              entry["disposition"] == "SELECTED" for entry in observation["entries"]
+          )
+          head_rows: list[dict[str, object]] = []
+          for raw in (root / "head-results.tsv").read_text(encoding="utf-8").splitlines():
+              status_text, uri = raw.split("\t", 1)
+              status = int(status_text)
+              head_rows.append({"http_status": status, "uri": uri})
+              if status != 200:
+                  raise SystemExit(f"SELECTED_ENDPOINT_UNREACHABLE:{uri}:{status}")
+          if len(head_rows) != expected_selected:
+              raise SystemExit("SELECTED_ENDPOINT_CARDINALITY_MISMATCH")
+
+          if remote["schema_version"] != "tai.remote-model-inventory-evidence.v1":
+              raise SystemExit("REMOTE_INVENTORY_SCHEMA_MISMATCH")
+          if remote["model_id"] != observation["model_id"]:
+              raise SystemExit("REMOTE_INVENTORY_MODEL_MISMATCH")
+          if remote["revision"] != observation["revision"]:
+              raise SystemExit("REMOTE_INVENTORY_REVISION_MISMATCH")
+          if remote["source_uri"] != observation["source_uri"]:
+              raise SystemExit("REMOTE_INVENTORY_SOURCE_URI_MISMATCH")
+          if remote["observed_at"] != observation["observed_at"]:
+              raise SystemExit("REMOTE_INVENTORY_TIMESTAMP_MISMATCH")
+
+          observation["status"] = "RECONCILED"
+          observation["selected_endpoint_results"] = head_rows
+          observation_path.write_text(
+              json.dumps(observation, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+
+          declared: list[dict[str, object]] = []
+          for name in (
+              "api-model-info.json",
+              "remote-inventory.v1.json",
+              "inventory-observation.v1.json",
+              "selected-uris.txt",
+              "head-results.tsv",
+          ):
+              path = root / name
+              payload = path.read_bytes()
+              declared.append(
+                  {
+                      "path": name,
+                      "sha256": hashlib.sha256(payload).hexdigest(),
+                      "size_bytes": len(payload),
+                  }
+              )
+          index = {
+              "schema_version": "tai.hf-exact-inventory-artifact-index.v1",
+              "status": "RECONCILED",
+              "model_id": observation["model_id"],
+              "revision": observation["revision"],
+              "repository_sha": observation["repository_sha"],
+              "workflow_run_id": observation["workflow_run_id"],
+              "workflow_run_attempt": observation["workflow_run_attempt"],
+              "files": declared,
+              "maturity_boundary": observation["maturity_boundary"],
+          }
+          (root / "artifact-index.v1.json").write_text(
+              json.dumps(index, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(index, ensure_ascii=False, sort_keys=True))
+          PY
+
+      - name: Upload exact inventory evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-hf-exact-inventory-${{ matrix.key }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: inventory-evidence/${{ matrix.key }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+
+  aggregate:
+    name: Independently aggregate exact inventory evidence
+    needs: collect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      AUTHORITY_PATH: apps/tai/model-artifacts/model-bundle-authority.v2.json
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download exact run artifacts by API identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p aggregate/downloads aggregate/extracted
+          for attempt in $(seq 1 30); do
+            gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+              > aggregate/artifacts.json
+            count="$(
+              jq --arg prefix "tai-hf-exact-inventory-" \
+                '[.artifacts[] | select(.name | startswith($prefix))] | length' \
+                aggregate/artifacts.json
+            )"
+            [[ "$count" == '2' ]] && break
+            sleep 2
+          done
+          test "$count" = '2'
+
+          jq -e '
+            [.artifacts[] | select(.name | startswith("tai-hf-exact-inventory-"))]
+            | all(.expired == false and (.digest | startswith("sha256:")))
+          ' aggregate/artifacts.json >/dev/null
+
+          jq -r '
+            .artifacts[]
+            | select(.name | startswith("tai-hf-exact-inventory-"))
+            | [.id, .name]
+            | @tsv
+          ' aggregate/artifacts.json |
+          while IFS=$'\t' read -r artifact_id artifact_name; do
+            gh api -H 'Accept: application/vnd.github+json' \
+              "/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" \
+              > "aggregate/downloads/$artifact_name.zip"
+            mkdir -p "aggregate/extracted/$artifact_name"
+            unzip -q "aggregate/downloads/$artifact_name.zip" \
+              -d "aggregate/extracted/$artifact_name"
+          done
+
+      - name: Verify and build inventory handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          authority = json.loads(Path(os.environ["AUTHORITY_PATH"]).read_text(encoding="utf-8"))
+          artifacts_api = json.loads(Path("aggregate/artifacts.json").read_text(encoding="utf-8"))
+          api_by_name = {
+              item["name"]: item
+              for item in artifacts_api["artifacts"]
+              if item["name"].startswith("tai-hf-exact-inventory-")
+          }
+          expected = {
+              (item["model_id"], item["revision"]): item
+              for item in authority["models"]
+          }
+          observed_models: list[dict[str, object]] = []
+
+          for artifact_name, api_item in sorted(api_by_name.items()):
+              root = Path("aggregate/extracted") / artifact_name
+              index_path = root / "artifact-index.v1.json"
+              observation_path = root / "inventory-observation.v1.json"
+              remote_path = root / "remote-inventory.v1.json"
+              if not index_path.is_file() or not observation_path.is_file() or not remote_path.is_file():
+                  raise SystemExit(f"ARTIFACT_REQUIRED_FILE_MISSING:{artifact_name}")
+
+              index = json.loads(index_path.read_text(encoding="utf-8"))
+              observation = json.loads(observation_path.read_text(encoding="utf-8"))
+              remote = json.loads(remote_path.read_text(encoding="utf-8"))
+              identity = (observation["model_id"], observation["revision"])
+              plan = expected.get(identity)
+              if plan is None:
+                  raise SystemExit(f"UNAUTHORIZED_MODEL:{identity}")
+              if observation["status"] != "RECONCILED" or index["status"] != "RECONCILED":
+                  raise SystemExit(f"INVENTORY_NOT_RECONCILED:{identity}")
+              if observation["repository_sha"] != os.environ["GITHUB_SHA"]:
+                  raise SystemExit(f"REPOSITORY_SHA_MISMATCH:{identity}")
+              if observation["workflow_run_id"] != int(os.environ["GITHUB_RUN_ID"]):
+                  raise SystemExit(f"WORKFLOW_RUN_MISMATCH:{identity}")
+              if observation["source_uri"] != plan["source_uri"]:
+                  raise SystemExit(f"SOURCE_URI_MISMATCH:{identity}")
+              if remote["schema_version"] != "tai.remote-model-inventory-evidence.v1":
+                  raise SystemExit(f"REMOTE_SCHEMA_MISMATCH:{identity}")
+              if (remote["model_id"], remote["revision"], remote["source_uri"]) != (
+                  plan["model_id"],
+                  plan["revision"],
+                  plan["source_uri"],
+              ):
+                  raise SystemExit(f"REMOTE_AUTHORITY_MISMATCH:{identity}")
+
+              expected_paths = [item["path"] for item in plan["source_inventory"]]
+              remote_paths = [item["path"] for item in remote["entries"]]
+              if remote_paths != expected_paths:
+                  raise SystemExit(f"REMOTE_INVENTORY_ORDER_OR_SET_MISMATCH:{identity}")
+              if observation["missing_authority_paths"] or observation["ungoverned_upstream_paths"]:
+                  raise SystemExit(f"INVENTORY_DRIFT:{identity}")
+
+              for declared in index["files"]:
+                  path = root / declared["path"]
+                  if not path.is_file():
+                      raise SystemExit(f"DECLARED_FILE_MISSING:{artifact_name}:{declared['path']}")
+                  payload = path.read_bytes()
+                  if len(payload) != declared["size_bytes"]:
+                      raise SystemExit(f"DECLARED_SIZE_MISMATCH:{artifact_name}:{declared['path']}")
+                  if hashlib.sha256(payload).hexdigest() != declared["sha256"]:
+                      raise SystemExit(f"DECLARED_SHA256_MISMATCH:{artifact_name}:{declared['path']}")
+
+              maturity = observation["maturity_boundary"]
+              if maturity != {
+                  "benchmarks": "NOT_DONE",
+                  "conversion": "NOT_DONE",
+                  "legal_review": "NOT_DONE",
+                  "local_source_hashes": "ABSENT",
+                  "model_acquisition": "NOT_RUN",
+                  "model_admission": "NOT_DONE",
+                  "production_operational_status": "NOT_ATTESTED",
+                  "quantization": "NOT_DONE",
+              }:
+                  raise SystemExit(f"MATURITY_BOUNDARY_MISMATCH:{identity}")
+
+              observed_models.append(
+                  {
+                      "model_id": observation["model_id"],
+                      "role": observation["role"],
+                      "revision": observation["revision"],
+                      "source_uri": observation["source_uri"],
+                      "observed_at": observation["observed_at"],
+                      "upstream_file_count": observation["upstream_file_count"],
+                      "authority_entry_count": observation["authority_entry_count"],
+                      "selected_total_bytes": observation["selected_total_bytes"],
+                      "selected_weight_total_bytes": observation["selected_weight_total_bytes"],
+                      "selected_endpoint_count": len(
+                          observation["selected_endpoint_results"]
+                      ),
+                      "artifact": {
+                          "id": api_item["id"],
+                          "name": api_item["name"],
+                          "api_digest": api_item["digest"],
+                          "size_in_bytes": api_item["size_in_bytes"],
+                          "created_at": api_item["created_at"],
+                          "expires_at": api_item["expires_at"],
+                      },
+                  }
+              )
+
+          if set((item["model_id"], item["revision"]) for item in observed_models) != set(expected):
+              raise SystemExit("MODEL_CARDINALITY_OR_IDENTITY_MISMATCH")
+
+          handoff = {
+              "schema_version": "tai.hf-exact-inventory-handoff.v1",
+              "status": "EXACT_REMOTE_INVENTORIES_RECONCILED",
+              "issue": 2835,
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "models": sorted(observed_models, key=lambda item: item["model_id"]),
+              "maturity_boundary": {
+                  "model_acquisition": "NOT_RUN",
+                  "local_source_hashes": "ABSENT",
+                  "legal_review": "NOT_DONE",
+                  "conversion": "NOT_DONE",
+                  "quantization": "NOT_DONE",
+                  "benchmarks": "NOT_DONE",
+                  "model_admission": "NOT_DONE",
+                  "production_operational_status": "NOT_ATTESTED",
+              },
+          }
+          Path("aggregate/handoff.v1.json").write_text(
+              json.dumps(handoff, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(handoff, ensure_ascii=False, sort_keys=True))
+          PY
+
+      - name: Upload exact inventory handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-hf-exact-inventory-handoff-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: aggregate/handoff.v1.json
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+
+      - name: Publish bounded issue handoff
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            gh api "/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+              > aggregate/final-artifacts.json
+            count="$(
+              jq '[.artifacts[] | select(.name | startswith("tai-hf-exact-inventory-"))] | length' \
+                aggregate/final-artifacts.json
+            )"
+            [[ "$count" == '3' ]] && break
+            sleep 2
+          done
+          test "$count" = '3'
+
+          python - <<'PY' > aggregate/comment.md
+          import json
+          from pathlib import Path
+
+          handoff = json.loads(Path("aggregate/handoff.v1.json").read_text(encoding="utf-8"))
+          artifacts = json.loads(
+              Path("aggregate/final-artifacts.json").read_text(encoding="utf-8")
+          )["artifacts"]
+          api_by_name = {item["name"]: item for item in artifacts}
+
+          print("## AP-13B.3 exact remote inventory handoff")
+          print()
+          print(f"- status: `{handoff['status']}`;")
+          print(f"- exact-main: `{handoff['repository_sha']}`;")
+          print(
+              f"- workflow run: `{handoff['workflow_run_id']}` "
+              f"attempt `{handoff['workflow_run_attempt']}`;"
+          )
+          for model in handoff["models"]:
+              artifact = api_by_name[model["artifact"]["name"]]
+              print(
+                  f"- `{model['model_id']}@{model['revision']}`: "
+                  f"`{model['selected_total_bytes']}` selected bytes, "
+                  f"`{model['selected_weight_total_bytes']}` weight bytes, "
+                  f"`{model['selected_endpoint_count']}` exact endpoints HTTP 200, "
+                  f"artifact `{artifact['id']}`, digest `{artifact['digest']}`, "
+                  f"expires `{artifact['expires_at']}`;"
+              )
+          handoff_artifact = next(
+              item
+              for item in artifacts
+              if item["name"].startswith("tai-hf-exact-inventory-handoff-")
+          )
+          print(
+              f"- handoff artifact: `{handoff_artifact['id']}`, "
+              f"digest `{handoff_artifact['digest']}`, "
+              f"expires `{handoff_artifact['expires_at']}`."
+          )
+          print()
+          print(
+              "This proves exact remote inventory reconciliation and endpoint "
+              "reachability only. No model bytes were downloaded; local SHA-256 "
+              "values, legal approval, conversion, quantization, benchmarks and "
+              "model admission remain absent. "
+              "`production_operational_status` remains `NOT_ATTESTED`."
+          )
+          PY
+
+          gh api "/repos/$GITHUB_REPOSITORY/issues/2835/comments" \
+            --method POST \
+            --raw-field body="$(cat aggregate/comment.md)" \
+            >/dev/null
