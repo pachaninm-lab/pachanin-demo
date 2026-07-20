@@ -43,4 +43,6 @@ jobs:
       - name: Verify immutable registry image
         run: |
           docker pull "${IMAGE}:${IMMUTABLE_TAG}"
-          test "$(docker image inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "${IMAGE}:${IMMUTABLE_TAG}")" = "${TARGET_SHA}"
+          ACTUAL_SHA="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "${IMAGE}:${IMMUTABLE_TAG}")"
+          printf 'expected=%s\nactual=%s\n' "${TARGET_SHA}" "${ACTUAL_SHA}"
+          test "${ACTUAL_SHA}" = "${TARGET_SHA}"
