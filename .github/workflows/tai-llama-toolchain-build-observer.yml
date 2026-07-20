@@ -15,14 +15,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Run pinned actionlint only
+      - name: Validate repair branch with pinned actionlint
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
+          REPAIR_REF: agent/tai-ap-13b3-source-acquisition-workflow-fix
         run: |
           set -u -o pipefail
-          gh api "/repos/$REPOSITORY/contents/.github/workflows/tai-model-source-acquisition.yml?ref=main" \
+          gh api "/repos/$REPOSITORY/contents/.github/workflows/tai-model-source-acquisition.yml?ref=$REPAIR_REF" \
             --jq '.content' | tr -d '\n' | base64 --decode \
             > tai-model-source-acquisition.yml
           export GOBIN="$RUNNER_TEMP/bin"
