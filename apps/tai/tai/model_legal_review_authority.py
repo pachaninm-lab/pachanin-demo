@@ -132,9 +132,14 @@ class ModelLegalReviewAuthority:
             raise ValueError("legal reviewer type must be HUMAN")
         if not self.reviewer_identity_prefixes:
             raise ValueError("legal reviewer identity prefixes must not be empty")
-        if len(self.reviewer_identity_prefixes) != len(set(self.reviewer_identity_prefixes)):
+        if len(self.reviewer_identity_prefixes) != len(
+            set(self.reviewer_identity_prefixes)
+        ):
             raise ValueError("legal reviewer identity prefixes must be unique")
-        if any(not item.endswith(":") or len(item) > 40 for item in self.reviewer_identity_prefixes):
+        if any(
+            not item.endswith(":") or len(item) > 40
+            for item in self.reviewer_identity_prefixes
+        ):
             raise ValueError("legal reviewer identity prefix is invalid")
         if self.attributed_record_issue != self.issue:
             raise ValueError("attributed record issue must equal legal review issue")
