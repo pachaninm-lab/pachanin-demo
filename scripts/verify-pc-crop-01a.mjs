@@ -8,21 +8,27 @@ const ROOT = resolve(import.meta.dirname, '..');
 const SCOPE_PATH = 'docs/crop-platform/scopes/pc-crop-01a-commodity-registry-foundation-2875.json';
 const DOMAIN_PATH = 'packages/domain-core/src/commodity-profile.ts';
 const DOMAIN_TEST_PATH = 'packages/domain-core/src/commodity-profile.test.ts';
+const DOMAIN_TSCONFIG_PATH = 'packages/domain-core/tsconfig.pc-crop.json';
 const INDEX_PATH = 'packages/domain-core/src/index.ts';
 const PACKAGE_PATH = 'packages/domain-core/package.json';
+const WEB_TSCONFIG_PATH = 'apps/web/tsconfig.pc-crop.json';
 const COMPONENT_PATH = 'apps/web/components/crop-platform/CommodityProfileRegistryView.tsx';
 const CSS_PATH = 'apps/web/components/crop-platform/CommodityProfileRegistryView.module.css';
+const CSS_TYPES_PATH = 'apps/web/components/crop-platform/css-modules.d.ts';
 const DOC_PATH = 'docs/crop-platform/PC-CROP-01A-DOMAIN-AND-UX.md';
 const WORKFLOW_PATH = '.github/workflows/pc-crop-01a.yml';
 const VERIFIER_PATH = 'scripts/verify-pc-crop-01a.mjs';
 
 const EXPECTED_PATHS = new Set([
   PACKAGE_PATH,
+  DOMAIN_TSCONFIG_PATH,
   INDEX_PATH,
   DOMAIN_PATH,
   DOMAIN_TEST_PATH,
+  WEB_TSCONFIG_PATH,
   COMPONENT_PATH,
   CSS_PATH,
+  CSS_TYPES_PATH,
   DOC_PATH,
   SCOPE_PATH,
   VERIFIER_PATH,
@@ -68,8 +74,11 @@ function exactHead() {
 const scope = JSON.parse(read(SCOPE_PATH));
 const domain = read(DOMAIN_PATH);
 const domainTest = read(DOMAIN_TEST_PATH);
+const domainTsconfig = JSON.parse(read(DOMAIN_TSCONFIG_PATH));
 const component = read(COMPONENT_PATH);
 const css = read(CSS_PATH);
+const cssTypes = read(CSS_TYPES_PATH);
+const webTsconfig = JSON.parse(read(WEB_TSCONFIG_PATH));
 const doc = read(DOC_PATH);
 const index = read(INDEX_PATH);
 const packageJson = JSON.parse(read(PACKAGE_PATH));
@@ -103,9 +112,12 @@ for (const archetype of [
 
 for (const token of [
   'JavaScript numbers are never authority',
+  'CommodityProfileContentHasher',
+  "contentHashAlgorithm: 'SHA-256'",
   'canonicalCommodityProfileJson',
   'hashCommodityProfileContent',
   'deepFreeze',
+  'PC_PROFILE_HASH_INVALID',
   'PC_PROFILE_BASE_UNIT_INVALID',
   'PC_PROFILE_RANGE_INVALID',
   'PC_PROFILE_BLOCKER_REFERENCE_UNKNOWN',
@@ -114,9 +126,33 @@ for (const token of [
   'PC_PROFILE_APPROVAL_EVIDENCE_REQUIRED',
 ]) requireToken(domain, token, 'domain invariant');
 
-for (const token of ['Float', 'numberToBase: number', 'denominatorToBase: number']) {
-  forbidToken(domain, token, 'domain fixed precision boundary');
+for (const token of [
+  'Float',
+  'numberToBase: number',
+  'denominatorToBase: number',
+  "from 'node:crypto'",
+  'createHash(',
+]) {
+  forbidToken(domain, token, 'domain fixed precision and crypto boundary');
 }
+
+requireToken(domainTest, 'TEST_SHA256', 'test crypto adapter');
+requireToken(domainTest, 'PC_PROFILE_HASH_INVALID', 'test crypto adapter validation');
+
+if (domainTsconfig.extends !== undefined) fail('isolated domain tsconfig must not inherit removed compiler options');
+if (domainTsconfig.compilerOptions?.moduleResolution !== 'Bundler') fail('domain moduleResolution must be Bundler');
+if (domainTsconfig.compilerOptions?.strict !== true) fail('domain strict typecheck must remain enabled');
+if (domainTsconfig.compilerOptions?.noEmit !== true) fail('domain typecheck must not emit');
+if (!domainTsconfig.include?.includes('src/commodity-profile.ts')) fail('domain isolated config must include commodity profile');
+
+if (webTsconfig.extends !== undefined) fail('isolated web tsconfig must not inherit removed compiler options');
+if (webTsconfig.compilerOptions?.moduleResolution !== 'Bundler') fail('web moduleResolution must be Bundler');
+if (webTsconfig.compilerOptions?.strict !== true) fail('web strict typecheck must remain enabled');
+if (webTsconfig.compilerOptions?.noEmit !== true) fail('web typecheck must not emit');
+if (!webTsconfig.include?.includes('components/crop-platform/CommodityProfileRegistryView.tsx')) {
+  fail('web isolated config must include registry component');
+}
+requireToken(cssTypes, "declare module '*.module.css'", 'CSS module type boundary');
 
 if (packageJson.version !== '0.3.0') fail('domain package version must be 0.3.0');
 requireToken(index, "DOMAIN_CORE_VERSION = '0.3.0'", 'domain index version');
@@ -159,9 +195,11 @@ for (const token of [
 
 for (const token of [
   'node scripts/verify-pc-crop-01a.mjs',
-  'pnpm typecheck:domain',
-  'pnpm --filter @pc/web typecheck',
+  'packages/domain-core/tsconfig.pc-crop.json',
+  'apps/web/tsconfig.pc-crop.json',
   'commodity-profile.test.ts',
+  'pc-crop-01a-domain-typecheck.log',
+  'pc-crop-01a-web-typecheck.log',
   'retention-days: 90',
 ]) requireToken(workflow, token, 'workflow acceptance');
 
@@ -183,6 +221,8 @@ const report = {
   boundaries: {
     postgresRuntimeAuthority: 'NOT_IN_THIS_SLICE',
     externalIntegrations: 'NOT_CONNECTED_OR_ATTESTED',
+    hashAuthority: 'SERVER_CRYPTO_ADAPTER_SHA256',
+    repositoryCompilerModernization: 'SEPARATE_TRACKED_DEBT',
     clientSelectedRoleOrTenant: false,
     directTaiWrite: false,
   },
