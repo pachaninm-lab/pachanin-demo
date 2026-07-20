@@ -1,0 +1,354 @@
+name: TAI Model Host Read-Only Capacity Probe
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  probe:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2835 &&
+      github.event.comment.body == '/tai probe model-host exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: tai-model-host-capacity-probe
+      cancel-in-progress: false
+    env:
+      DEFAULT_HOST: 195.19.12.120
+      QWEN_REVISION: 895c8d171bc03c30e113cd7a28c02494b5e068b7
+      MISTRAL_REVISION: c170c708c41dac9275d15a8fff4eca08d52bab71
+      REPORT_PATH: model-host-probe/model-host-capacity-probe.v1.json
+      RAW_PATH: model-host-probe/remote-output.txt
+      STDERR_PATH: model-host-probe/remote-stderr.txt
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact-main trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+
+      - name: Prepare runner evidence directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p model-host-probe
+          chmod 700 model-host-probe
+          printf '%s\n' "$GITHUB_SHA" > model-host-probe/repository-sha.txt
+          printf '%s\n' "$GITHUB_RUN_ID" > model-host-probe/workflow-run-id.txt
+          printf '%s\n' "$GITHUB_RUN_ATTEMPT" > model-host-probe/workflow-run-attempt.txt
+
+      - name: Resolve protected SSH transport
+        id: ssh
+        shell: bash
+        env:
+          SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+          SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+          SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+          SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+          SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+          SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+          SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
+          SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
+        run: |
+          set -euo pipefail
+          host="${SSH_HOST_SECRET:-$DEFAULT_HOST}"
+          user="${SSH_USER_SECRET:-root}"
+          port="${SSH_PORT_SECRET:-22}"
+          key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
+          password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+
+          if [[ -z "$key" && -z "$password" ]]; then
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo 'mode=none' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          if [[ -n "$key" ]]; then
+            printf '%s\n' "$key" > "$HOME/.ssh/id_model_probe"
+            chmod 600 "$HOME/.ssh/id_model_probe"
+            mode=key
+          else
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq sshpass
+            mode=password
+          fi
+
+          echo 'available=true' >> "$GITHUB_OUTPUT"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Probe VPS without mutation
+        if: steps.ssh.outputs.available == 'true'
+        id: remote
+        shell: bash
+        env:
+          SSH_MODE: ${{ steps.ssh.outputs.mode }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
+          SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
+        run: |
+          set -euo pipefail
+          remote_script="$(cat <<'REMOTE'
+          set -euo pipefail
+
+          echo 'SCHEMA=tai.model-host-capacity-probe.v1'
+          echo 'MUTATION_MODE=READ_ONLY'
+          printf 'OS_KERNEL=%s\n' "$(uname -srmo | tr '\n' ' ')"
+          printf 'ARCH=%s\n' "$(uname -m)"
+          printf 'CPU_COUNT=%s\n' "$(nproc)"
+          printf 'CPU_MODEL=%s\n' "$(awk -F: '/model name/{gsub(/^[[:space:]]+/,"",$2); print $2; exit}' /proc/cpuinfo 2>/dev/null || true)"
+          printf 'MEM_TOTAL_BYTES=%s\n' "$(awk '/MemTotal:/{print $2 * 1024}' /proc/meminfo)"
+          printf 'MEM_AVAILABLE_BYTES=%s\n' "$(awk '/MemAvailable:/{print $2 * 1024}' /proc/meminfo)"
+          printf 'SWAP_TOTAL_BYTES=%s\n' "$(awk '/SwapTotal:/{print $2 * 1024}' /proc/meminfo)"
+
+          for path in / /srv /opt /var/lib/docker /root; do
+            if [[ -e "$path" ]]; then
+              read -r filesystem total used available percent mountpoint < <(df -P -B1 "$path" | awk 'NR==2{print $1,$2,$3,$4,$5,$6}')
+              safe_name="$(printf '%s' "$path" | sed 's#^/$#ROOT#; s#^/##; s#[^A-Za-z0-9]#_#g' | tr '[:lower:]' '[:upper:]')"
+              printf 'FS_%s_FILESYSTEM=%s\n' "$safe_name" "$filesystem"
+              printf 'FS_%s_TOTAL_BYTES=%s\n' "$safe_name" "$total"
+              printf 'FS_%s_AVAILABLE_BYTES=%s\n' "$safe_name" "$available"
+              printf 'FS_%s_USED_PERCENT=%s\n' "$safe_name" "$percent"
+              printf 'FS_%s_MOUNT=%s\n' "$safe_name" "$mountpoint"
+            fi
+          done
+
+          for command_name in curl git python3 sha256sum tar gzip zstd cmake ninja cc c++ docker jq; do
+            key="$(printf '%s' "$command_name" | tr '[:lower:]' '[:upper:]' | tr '+' 'X')"
+            if command -v "$command_name" >/dev/null 2>&1; then
+              printf 'TOOL_%s=AVAILABLE:%s\n' "$key" "$(command -v "$command_name")"
+            else
+              printf 'TOOL_%s=MISSING\n' "$key"
+            fi
+          done
+
+          if command -v docker >/dev/null 2>&1; then
+            docker info --format 'DOCKER_VERSION={{.ServerVersion}}
+          DOCKER_STORAGE_DRIVER={{.Driver}}
+          DOCKER_ROOT_DIR={{.DockerRootDir}}
+          DOCKER_CPUS={{.NCPU}}
+          DOCKER_MEMORY_BYTES={{.MemTotal}}' 2>/dev/null || echo 'DOCKER_INFO=UNAVAILABLE'
+          fi
+
+          probe_endpoint() {
+            label="$1"
+            url="$2"
+            status="$(curl -sSIL --max-time 30 -o /dev/null -w '%{http_code}' "$url" || true)"
+            printf 'ENDPOINT_%s_HTTP=%s\n' "$label" "${status:-000}"
+          }
+
+          probe_endpoint QWEN_CONFIG 'https://huggingface.co/Qwen/Qwen3-8B/resolve/895c8d171bc03c30e113cd7a28c02494b5e068b7/config.json'
+          probe_endpoint QWEN_WEIGHT 'https://huggingface.co/Qwen/Qwen3-8B/resolve/895c8d171bc03c30e113cd7a28c02494b5e068b7/model-00001-of-00005.safetensors'
+          probe_endpoint MISTRAL_CONFIG 'https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/resolve/c170c708c41dac9275d15a8fff4eca08d52bab71/config.json'
+          probe_endpoint MISTRAL_WEIGHT 'https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/resolve/c170c708c41dac9275d15a8fff4eca08d52bab71/model-00001-of-00003.safetensors'
+
+          echo 'PROBE_COMPLETE=true'
+          REMOTE
+          )"
+
+          set +e
+          if [[ "$SSH_MODE" == key ]]; then
+            ssh -i "$HOME/.ssh/id_model_probe" -p "$SSH_PORT" \
+              -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              "$SSH_USER@$SSH_HOST" 'bash -s' \
+              > "$RAW_PATH" 2> "$STDERR_PATH" <<< "$remote_script"
+          else
+            password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+            SSHPASS="$password" sshpass -e ssh -p "$SSH_PORT" \
+              -o StrictHostKeyChecking=yes \
+              "$SSH_USER@$SSH_HOST" 'bash -s' \
+              > "$RAW_PATH" 2> "$STDERR_PATH" <<< "$remote_script"
+          fi
+          status=$?
+          set -e
+          printf '%s\n' "$status" > model-host-probe/remote-exit-code.txt
+          exit 0
+
+      - name: Record unavailable transport
+        if: steps.ssh.outputs.available != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > "$RAW_PATH"
+          printf '%s\n' 'No supported protected SSH credential is configured; VPS was not contacted.' > "$STDERR_PATH"
+          printf '%s\n' '2' > model-host-probe/remote-exit-code.txt
+
+      - name: Build machine-readable probe report
+        if: always()
+        shell: bash
+        env:
+          SSH_AVAILABLE: ${{ steps.ssh.outputs.available }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('model-host-probe')
+          raw_path = root / 'remote-output.txt'
+          stderr_path = root / 'remote-stderr.txt'
+          exit_path = root / 'remote-exit-code.txt'
+          observed: dict[str, object] = {}
+          if raw_path.exists():
+              for line in raw_path.read_text(encoding='utf-8', errors='replace').splitlines():
+                  if '=' not in line:
+                      continue
+                  key, value = line.split('=', 1)
+                  if key.endswith('_BYTES') or key in {'CPU_COUNT', 'DOCKER_CPUS'}:
+                      try:
+                          observed[key] = int(float(value))
+                          continue
+                      except ValueError:
+                          pass
+                  if value in {'true', 'false'}:
+                      observed[key] = value == 'true'
+                  else:
+                      observed[key] = value
+
+          exit_code = int(exit_path.read_text().strip()) if exit_path.exists() else 255
+          transport_available = os.environ.get('SSH_AVAILABLE') == 'true'
+          completed = (
+              transport_available
+              and exit_code == 0
+              and observed.get('MUTATION_MODE') == 'READ_ONLY'
+              and observed.get('PROBE_COMPLETE') is True
+          )
+          payload = {
+              'schema_version': 'tai.model-host-capacity-probe.v1',
+              'status': 'COMPLETE' if completed else 'FAILED_CLOSED',
+              'repository_sha': Path(root / 'repository-sha.txt').read_text().strip(),
+              'workflow_run_id': Path(root / 'workflow-run-id.txt').read_text().strip(),
+              'workflow_run_attempt': Path(root / 'workflow-run-attempt.txt').read_text().strip(),
+              'issue': 2835,
+              'command': '/tai probe model-host exact-main',
+              'transport_available': transport_available,
+              'remote_exit_code': exit_code,
+              'mutation_mode': observed.get('MUTATION_MODE'),
+              'observed': observed,
+              'stderr': stderr_path.read_text(encoding='utf-8', errors='replace')[:4000] if stderr_path.exists() else '',
+              'maturity_boundary': {
+                  'model_acquisition': 'PENDING_ACQUISITION',
+                  'legal_review': 'NOT_DONE',
+                  'conversion': 'NOT_DONE',
+                  'quantization': 'NOT_DONE',
+                  'production_operational_status': 'NOT_ATTESTED',
+              },
+          }
+          Path(os.environ['REPORT_PATH']).write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Upload read-only capacity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-model-host-capacity-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: model-host-probe
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded issue summary
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path('model-host-probe/model-host-capacity-probe.v1.json').read_text())
+          observed = report.get('observed', {})
+          missing_tools = sorted(
+              key.removeprefix('TOOL_')
+              for key, value in observed.items()
+              if key.startswith('TOOL_') and value == 'MISSING'
+          )
+          endpoints = {
+              key.removeprefix('ENDPOINT_').removesuffix('_HTTP'): value
+              for key, value in observed.items()
+              if key.startswith('ENDPOINT_') and key.endswith('_HTTP')
+          }
+          body = [
+              '## TAI model-host read-only capacity probe',
+              '',
+              f"- status: `{report['status']}`;",
+              f"- exact-main: `{report['repository_sha']}`;",
+              f"- workflow run: `{report['workflow_run_id']}` attempt `{report['workflow_run_attempt']}`;",
+              f"- mutation mode: `{report.get('mutation_mode')}`;",
+              f"- CPU count: `{observed.get('CPU_COUNT', 'unknown')}`;",
+              f"- total RAM bytes: `{observed.get('MEM_TOTAL_BYTES', 'unknown')}`;",
+              f"- available RAM bytes: `{observed.get('MEM_AVAILABLE_BYTES', 'unknown')}`;",
+              f"- root available bytes: `{observed.get('FS_ROOT_AVAILABLE_BYTES', 'unknown')}`;",
+              f"- Docker root available bytes: `{observed.get('FS_VAR_LIB_DOCKER_AVAILABLE_BYTES', 'unknown')}`;",
+              f"- missing required tools: `{', '.join(missing_tools) if missing_tools else 'none'}`;",
+              f"- exact-revision endpoint status: `{json.dumps(endpoints, sort_keys=True)}`;",
+              '',
+              'No directory, package, model, container or production service was changed. '
+              'Qwen and Mistral remain `PENDING_ACQUISITION`; legal review remains `NOT_DONE`; '
+              '`production_operational_status` remains `NOT_ATTESTED`.',
+          ]
+          Path('model-host-probe/issue-comment.md').write_text('\n'.join(body) + '\n')
+          PY
+          gh api "/repos/$REPOSITORY/issues/2835/comments" \
+            --method POST \
+            --raw-field body="$(cat model-host-probe/issue-comment.md)"
+
+      - name: Enforce completed read-only probe
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path('model-host-probe/model-host-capacity-probe.v1.json').read_text())
+          assert report['status'] == 'COMPLETE'
+          assert report['mutation_mode'] == 'READ_ONLY'
+          assert report['remote_exit_code'] == 0
+          assert report['observed']['PROBE_COMPLETE'] is True
+          assert report['maturity_boundary']['model_acquisition'] == 'PENDING_ACQUISITION'
+          assert report['maturity_boundary']['legal_review'] == 'NOT_DONE'
+          assert report['maturity_boundary']['production_operational_status'] == 'NOT_ATTESTED'
+          PY
