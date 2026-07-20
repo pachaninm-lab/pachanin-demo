@@ -1,0 +1,165 @@
+{
+  "gap_map_version": "1.0.0",
+  "observed_at": "2026-07-20",
+  "exact_main_baseline": "6f074942b46e226982e646c6f688886504b712ce",
+  "classification": [
+    "PRESENT",
+    "PARTIAL",
+    "ABSENT",
+    "BLOCKED_EXTERNAL",
+    "TARGET_ONLY"
+  ],
+  "findings": [
+    {
+      "area": "Canonical Deal authority",
+      "status": "PRESENT",
+      "risk": "LOW",
+      "observed_paths": [
+        "apps/api/prisma/schema.prisma",
+        "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+      ],
+      "finding": "Deal and PostgreSQL-backed command path exist; new crop work must extend this authority."
+    },
+    {
+      "area": "Fixed precision values",
+      "status": "PARTIAL",
+      "risk": "CRITICAL",
+      "observed_paths": [
+        "packages/domain-core/src/measures.ts",
+        "apps/api/prisma/schema.prisma"
+      ],
+      "finding": "Domain value objects use bigint/fixed precision, but legacy Deal, Shipment, Lab and Dispute fields still include Float. New crop models must not add Float and need a migration plan."
+    },
+    {
+      "area": "Commodity Profile Registry",
+      "status": "ABSENT",
+      "risk": "CRITICAL",
+      "observed_paths": [
+        "apps/api/prisma/schema.prisma"
+      ],
+      "finding": "Culture/class/GOST are flat Deal fields; no versioned profile lifecycle, indicator schema or pinned profile hash was found."
+    },
+    {
+      "area": "Production passport and genealogy",
+      "status": "ABSENT",
+      "risk": "HIGH",
+      "observed_paths": [
+        "apps/api/prisma/schema.prisma"
+      ],
+      "finding": "No Field, CropSeason, HarvestBatch or split/merge/blend mass genealogy authority found."
+    },
+    {
+      "area": "Deal state dimensions",
+      "status": "PARTIAL",
+      "risk": "HIGH",
+      "observed_paths": [
+        "apps/api/prisma/schema.prisma",
+        "packages/domain-core/src/execution-simulation/state-machine.ts",
+        "apps/web/lib/platform-v7/execution-state-machine.ts"
+      ],
+      "finding": "State-machine logic exists in several layers, while persisted Deal still exposes a primary flat status. A single server projection and migration contract are required."
+    },
+    {
+      "area": "Documents and signatures",
+      "status": "PARTIAL",
+      "risk": "HIGH",
+      "observed_paths": [
+        "apps/api/prisma/schema.prisma",
+        "packages/domain-core/src/deal-signing-service.ts"
+      ],
+      "finding": "Versioning and signature references exist; full MChD validity matrix, legal message workflow and regulated document requirements remain slice-specific."
+    },
+    {
+      "area": "Logistics and offline field work",
+      "status": "PARTIAL",
+      "risk": "HIGH",
+      "observed_paths": [
+        "apps/api/prisma/schema.prisma",
+        "apps/web/components/v7r/PlatformRolesHub.tsx"
+      ],
+      "finding": "Shipment/checkpoint/GPS and an offline-oriented driver UX are present, but canonical encrypted device queue, slot capacity, weighing provenance and conflict-safe sync require completion."
+    },
+    {
+      "area": "Quality and evidence",
+      "status": "PARTIAL",
+      "risk": "HIGH",
+      "observed_paths": [
+        "apps/api/prisma/schema.prisma"
+      ],
+      "finding": "LabSample, LabTest and evidence tables exist; custody transfers, accreditation snapshot, methods/qualifiers, raw instrument provenance and manifest authority are incomplete."
+    },
+    {
+      "area": "Settlement and ledger",
+      "status": "PARTIAL",
+      "risk": "CRITICAL",
+      "observed_paths": [
+        "apps/api/prisma/schema.prisma",
+        "packages/domain-core/src/double-entry-ledger"
+      ],
+      "finding": "Payment and ledger foundations exist; bank-neutral adapter SPI, signed callbacks, obligations/reserve/release separation and real reconciliation evidence remain required."
+    },
+    {
+      "area": "Dispute and legal hold",
+      "status": "PARTIAL",
+      "risk": "HIGH",
+      "observed_paths": [
+        "apps/api/prisma/schema.prisma"
+      ],
+      "finding": "Dispute, hold and evidence foundations exist; expertise conflict checks, structured decision schema, appeal and export manifest need implementation."
+    },
+    {
+      "area": "Regulatory Integration Gateway",
+      "status": "PARTIAL",
+      "risk": "CRITICAL",
+      "observed_paths": [
+        "packages/domain-core/src/integration-contracts.ts",
+        "apps/api/prisma/schema.prisma"
+      ],
+      "finding": "Generic integration/outbox foundations exist; capability/version registry, protocol-specific durable ACK, schema drift quarantine and machine-readable live status are not complete."
+    },
+    {
+      "area": "FGIS Grain 1.0.23",
+      "status": "BLOCKED_EXTERNAL",
+      "risk": "CRITICAL",
+      "observed_paths": [],
+      "finding": "TЗ identifies protocol materials, but exact source bundle hash/access, crypto boundary and provider credentials must be reverified before regulated activation."
+    },
+    {
+      "area": "Intent-first UX",
+      "status": "PARTIAL",
+      "risk": "MEDIUM",
+      "observed_paths": [
+        "apps/web/app/platform-v7/page.tsx",
+        "apps/web/components/v7r/PlatformRolesHub.tsx"
+      ],
+      "finding": "The product already communicates what happens, money, cargo, documents and blockers; authenticated role homes still need one consistent priority-queue and Deal workspace contract for all crop archetypes."
+    },
+    {
+      "area": "TAI safe tool boundary",
+      "status": "PRESENT",
+      "risk": "MEDIUM",
+      "observed_paths": [
+        "apps/tai",
+        "packages/domain-core/src/integration-contracts.ts"
+      ],
+      "finding": "A separate governed AI contour exists; PC-CROP must expose only safe read/prepared actions and must not couple crop authority to model availability."
+    },
+    {
+      "area": "Federal production evidence",
+      "status": "TARGET_ONLY",
+      "risk": "CRITICAL",
+      "observed_paths": [
+        "docs/platform-v7/autopilot",
+        "apps/tai/evidence"
+      ],
+      "finding": "Evidence-governance patterns exist, but crop expansion has no exact-release load/DR/legal/external-provider evidence yet. Operational status remains NOT_ATTESTED."
+    }
+  ],
+  "critical_next_actions": [
+    "Accept ADR-001",
+    "Implement PC-CROP-01 without Float or crop-specific Deal authority",
+    "Create server projection truth table for Deal dimensions",
+    "Reverify FGIS Grain source bundle and legal activation dependencies",
+    "Keep UI work inside the UX contract and existing design system"
+  ]
+}

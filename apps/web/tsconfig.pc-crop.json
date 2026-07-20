@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "paths": {
+      "react": ["./node_modules/@types/react/index.d.ts"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "@pc/design-system-v8": ["../../packages/design-system-v8/src/index.ts"]
+    }
+  },
+  "include": [
+    "components/crop-platform/CommodityProfileRegistryView.tsx",
+    "components/crop-platform/css-modules.d.ts",
+    "../../packages/domain-core/src/commodity-profile.ts",
+    "../../packages/design-system-v8/src/**/*.ts",
+    "../../packages/design-system-v8/src/**/*.tsx"
+  ]
+}

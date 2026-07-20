@@ -1,12 +1,14 @@
 {
   "branch": "fix/public-ai-layout-authority",
   "status": "active",
-  "purpose": "Restore the canonical public AI-in-action route through the platform-v7 layout authority, link the homepage directly to it, and prevent a client-side notFound after hydration.",
-  "approvedBy": "independent-authority-pr",
+  "purpose": "Rebuild the public AI-in-action page into a concise value-first, single-stage interactive explanation with an unobstructed mobile composition.",
+  "approvedBy": "user-directed-editorial-rebuild",
   "allowedPaths": [
-    "apps/web/app/platform-v7/layout.tsx",
-    "apps/web/app/platform-v7/page.tsx",
-    "apps/web/tests/unit/platformV7PublicAiRouteAuthority.test.ts",
+    "apps/web/app/platform-v7/ai-in-action/page.tsx",
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "apps/web/components/platform-v7/PublicAiInActionExperience.module.css",
+    "apps/web/components/platform-v7/PublicAiInActionExperience.tsx",
+    "apps/web/tests/unit/platformV7PublicAiInAction.test.ts",
     "docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json",
     "scripts/p7-autopilot-guard.sh"
   ],

@@ -1,0 +1,98 @@
+name: PC-CROP-01A Commodity Foundation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/domain-core/package.json'
+      - 'packages/domain-core/tsconfig.pc-crop.json'
+      - 'packages/domain-core/vitest.pc-crop.config.ts'
+      - 'packages/domain-core/src/index.ts'
+      - 'packages/domain-core/src/commodity-profile.ts'
+      - 'packages/domain-core/src/commodity-profile.test.ts'
+      - 'apps/web/tsconfig.pc-crop.json'
+      - 'apps/web/components/crop-platform/**'
+      - 'docs/crop-platform/**'
+      - 'scripts/verify-pc-crop-01a.mjs'
+      - '.github/workflows/pc-crop-01a.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/domain-core/package.json'
+      - 'packages/domain-core/tsconfig.pc-crop.json'
+      - 'packages/domain-core/vitest.pc-crop.config.ts'
+      - 'packages/domain-core/src/index.ts'
+      - 'packages/domain-core/src/commodity-profile.ts'
+      - 'packages/domain-core/src/commodity-profile.test.ts'
+      - 'apps/web/tsconfig.pc-crop.json'
+      - 'apps/web/components/crop-platform/**'
+      - 'docs/crop-platform/**'
+      - 'scripts/verify-pc-crop-01a.mjs'
+      - '.github/workflows/pc-crop-01a.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-01a-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-foundation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install exact dependency graph
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify bounded source and interface authority
+        run: node scripts/verify-pc-crop-01a.mjs --output pc-crop-01a-acceptance.json
+
+      - name: Run commodity profile domain tests
+        run: |
+          set -o pipefail
+          pnpm exec vitest run --config packages/domain-core/vitest.pc-crop.config.ts \
+            2>&1 | tee pc-crop-01a-domain-tests.log
+
+      - name: Typecheck domain authority
+        run: |
+          set -o pipefail
+          pnpm exec tsc -p packages/domain-core/tsconfig.pc-crop.json --pretty false \
+            2>&1 | tee pc-crop-01a-domain-typecheck.log
+
+      - name: Typecheck industrial interface contract
+        run: |
+          set -o pipefail
+          pnpm exec tsc -p apps/web/tsconfig.pc-crop.json --pretty false \
+            2>&1 | tee pc-crop-01a-web-typecheck.log
+
+      - name: Upload exact-head acceptance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-01a-acceptance-${{ github.sha }}
+          path: |
+            pc-crop-01a-acceptance.json
+            pc-crop-01a-domain-tests.log
+            pc-crop-01a-domain-typecheck.log
+            pc-crop-01a-web-typecheck.log
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0
+          overwrite: false

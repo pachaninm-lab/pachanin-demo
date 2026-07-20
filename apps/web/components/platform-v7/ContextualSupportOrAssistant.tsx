@@ -16,6 +16,7 @@ import '@/styles/platform-v7-public-assistant-mobile-fix.css';
 import '@/styles/platform-v7-unified-modal-fullscreen.css';
 
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
+const AI_IN_ACTION = '/platform-v7/ai-in-action';
 const PUBLIC_HOME = '/platform-v7';
 const PUBLIC_ENTRY_REWRITE_PREFIX = '/pc-public-entry';
 
@@ -26,6 +27,7 @@ const PUBLIC_EXACT = new Set([
   '/platform-v7/register',
   '/platform-v7/forgot-password',
   '/platform-v7/how-it-works',
+  AI_IN_ACTION,
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
@@ -125,6 +127,10 @@ export function ContextualSupportOrAssistant({
   const routerPathname = usePathname() || PUBLIC_HOME;
   const browserPathname = typeof window === 'undefined' ? routerPathname : window.location.pathname;
   const path = normalize(browserPathname || routerPathname);
+
+  // The explainer is itself the active AI surface. Suppress every floating AI,
+  // support and call launcher here so the animation and result remain unobstructed.
+  if (path === AI_IN_ACTION) return null;
 
   // The full-page assistant already renders its own workspace panel. Keep the
   // shared dock for human support and phone access, while the AI action focuses
