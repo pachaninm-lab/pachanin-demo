@@ -1,0 +1,35 @@
+{
+  "acceptance": [
+    "exact-main 4a7b04731aa204b741691a334d7adfe7785d6463 passed TAI Release Acceptance",
+    "owner-triggered acquisition run 29736320896 completed successfully for both exact revisions",
+    "Qwen selected 13 files and 16397448266 bytes with local SHA-256 evidence",
+    "Mistral selected 13 files and 14499391334 bytes with local SHA-256 evidence",
+    "both clean independent redownloads were verified with no rejection reasons",
+    "only locator and bounded machine-readable metadata are committed",
+    "source weights were not copied to Git or GitHub Actions artifacts",
+    "both legal review records remain PENDING_HUMAN_DECISION",
+    "conversion, quantization, benchmarks and model admission remain incomplete",
+    "production_operational_status remains NOT_ATTESTED",
+    "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass"
+  ],
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3-source-acquisition-acceptance-2835.json",
+    "apps/tai/model-artifacts/mistral-7b-instruct-v0.3-source-acquisition-locator.accepted.v1.json",
+    "apps/tai/model-artifacts/model-source-acquisition-acceptance.v1.json",
+    "apps/tai/model-artifacts/qwen3-8b-source-acquisition-locator.accepted.v1.json",
+    "apps/tai/tests/test_model_source_acquisition_acceptance.py"
+  ],
+  "branch": "agent/tai-ap-13b3-source-evidence-acceptance",
+  "forbidden_capabilities": [
+    "model source weight, GGUF, archive, binary or log commit to Git",
+    "automated APPROVED or REJECTED legal decision",
+    "conversion or quantization completion claim",
+    "benchmark or model admission claim",
+    "production readiness or operational attestation claim"
+  ],
+  "issue": 2835,
+  "maturity_boundary": "verified-source-acquisition-only-with-human-legal-decision-pending",
+  "parent_issue": 2726,
+  "schema_version": "tai.concurrent-scope.v1",
+  "status": "active"
+}
