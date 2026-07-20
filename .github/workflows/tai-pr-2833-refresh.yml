@@ -1,9 +1,8 @@
 name: TAI PR 2833 Refresh
 
 on:
-  push:
-    branches:
-      - agent/tai-ap-13b2b-controlled-build-workflow
+  pull_request:
+    branches: [main]
     paths:
       - .github/workflows/tai-pr-2833-refresh.yml
 
@@ -17,25 +16,29 @@ concurrency:
 
 jobs:
   refresh:
+    if: >-
+      github.event.pull_request.number == 2833 &&
+      github.event.pull_request.head.ref == 'agent/tai-ap-13b2b-controlled-build-workflow'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       AP13B2A_EXACT_MAIN: 3bf85bbf510c6c95601c80dd08e95a55d4bbea23
+      EXACT_PR_HEAD: ${{ github.event.pull_request.head.sha }}
       EXPECTED_AUTHORITY_SHA256: 3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b
       EXPECTED_LLAMA_COMMIT: aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: agent/tai-ap-13b2b-controlled-build-workflow
+          ref: ${{ env.EXACT_PR_HEAD }}
           fetch-depth: 0
 
       - name: Enforce exact branch head
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$GITHUB_REF" = "refs/heads/agent/tai-ap-13b2b-controlled-build-workflow"
+          test "$(git rev-parse HEAD)" = "$EXACT_PR_HEAD"
+          test "$GITHUB_HEAD_REF" = "agent/tai-ap-13b2b-controlled-build-workflow"
 
       - name: Verify AP-13B.2a exact-main release attestation
         shell: bash
