@@ -1,0 +1,62 @@
+name: Diagnose live AI route resolution d6fe86
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-ai-live-route-d6fe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Probe public routes without mutating production
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://xn----8sbjf4befbjgs9b.xn--p1ai'
+          for route in \
+            '/platform-v7/ai-in-action?lang=ru' \
+            '/platform-v7/demo/ai?lang=ru' \
+            '/platform-v7?lang=ru'
+          do
+            key="$(printf '%s' "$route" | tr '/?=&' '_____')"
+            headers="/tmp/${key}.headers"
+            body="/tmp/${key}.html"
+            echo "===== ROUTE $route ====="
+            curl -sS -L --compressed --max-time 40 \
+              -H 'Accept-Language: ru-RU,ru;q=0.9' \
+              -D "$headers" \
+              -o "$body" \
+              -w 'HTTP=%{http_code}\nEFFECTIVE_URL=%{url_effective}\nREDIRECTS=%{num_redirects}\nREMOTE_IP=%{remote_ip}\n' \
+              "${base}${route}&probe=$(date +%s%N)"
+            echo '-- headers --'
+            grep -iE '^(HTTP/|location:|server:|x-pc-pathname:|x-nextjs-|cache-control:|content-type:)' "$headers" || true
+            echo '-- identity --'
+            printf 'BYTES='; wc -c < "$body"
+            printf 'SHA256='; sha256sum "$body" | awk '{print $1}'
+            printf 'TITLE='; grep -o '<title>[^<]*' "$body" | head -1 || true
+            for marker in \
+              'interactive-animated-ai-explainer' \
+              'platform-v7-ai-in-action-authority' \
+              'От события сделки — к понятному действию' \
+              'Как платформа контролирует исполнение зерновой сделки' \
+              'Оплата зависит от подтверждённых событий' \
+              '/platform-v7/ai-in-action' \
+              '/platform-v7/demo/ai'
+            do
+              if grep -Fq "$marker" "$body"; then
+                echo "MARKER=yes :: $marker"
+              else
+                echo "MARKER=no  :: $marker"
+              fi
+            done
+            echo '-- first visible headings --'
+            grep -oE '<h[1-3][^>]*>[^<]+' "$body" | sed -E 's/<[^>]+>//g' | head -12 || true
+            echo
+          done
