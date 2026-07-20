@@ -3,6 +3,7 @@
   "routes": [
     { "path": "/platform-v7", "priority": 1, "changeFrequency": "daily" },
     { "path": "/platform-v7/how-it-works", "priority": 0.95, "changeFrequency": "weekly" },
+    { "path": "/platform-v7/demo/ai", "priority": 0.95, "changeFrequency": "weekly" },
     { "path": "/platform-v7/secure-grain-deal", "priority": 0.95, "changeFrequency": "weekly" },
     { "path": "/platform-v7/deal-flow", "priority": 0.9, "changeFrequency": "weekly" },
     { "path": "/platform-v7/grain-logistics", "priority": 0.85, "changeFrequency": "weekly" },
