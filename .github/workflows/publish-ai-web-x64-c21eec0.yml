@@ -1,4 +1,4 @@
-name: Publish AI web release c21eec0 x64
+name: Publish AI web release c549d344 x64
 
 on:
   pull_request:
@@ -12,7 +12,7 @@ permissions:
   packages: write
 
 env:
-  TARGET_SHA: c21eec0ce9b399675e5ae94bb836972ad0086083
+  TARGET_SHA: c549d34414b28dcf6eaef68a42a3c254c48c009c
   IMAGE: ghcr.io/pachaninm-lab/grainflow-web
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
 
@@ -81,15 +81,13 @@ jobs:
             cache_bust="${TARGET_SHA:0:12}-${attempt}-$(date +%s)"
             evidence="$(curl -fsSL --compressed --max-time 30 "${LIVE_BASE}/manifest-pc-deploy.json?release=${cache_bust}" || true)"
             live_sha="$(jq -r '.commitSha // empty' <<<"$evidence" 2>/dev/null || true)"
-            ai_html="$(curl -fsSL --compressed --max-time 30 -H 'Accept-Language: ru-RU,ru;q=0.9' "${LIVE_BASE}/platform-v7/demo/ai?lang=ru&release=${cache_bust}" || true)"
-            home_html="$(curl -fsSL --compressed --max-time 30 -H 'Accept-Language: ru-RU,ru;q=0.9' "${LIVE_BASE}/platform-v7?lang=ru&release=${cache_bust}" || true)"
+            ai_html="$(curl -fsSL --compressed --max-time 30 -H 'Accept-Language: ru-RU,ru;q=0.9' "${LIVE_BASE}/platform-v7/ai-in-action?lang=ru&release=${cache_bust}" || true)"
 
             echo "Attempt $attempt/120: expected=${TARGET_SHA} live=${live_sha:-missing}"
 
             if [[ "$live_sha" == "$TARGET_SHA" ]] \
-              && grep -Fq 'От события сделки' <<<"$ai_html" \
-              && grep -Fq '/platform-v7/demo/ai' <<<"$home_html" \
-              && grep -Fq 'ИИ работает в платформе' <<<"$home_html"; then
+              && grep -Fq 'ИИ видит блокер сделки' <<<"$ai_html" \
+              && grep -Fq 'data-testid="platform-v7-ai-in-action-authority"' <<<"$ai_html"; then
               echo 'Exact production release verified.'
               exit 0
             fi
