@@ -1,0 +1,76 @@
+name: production public entry watch v2 20260721
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  ARTIFACT_NAME: public-entry-watch-v2-20260721
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Resolve and probe production routes
+        shell: bash
+        run: |
+          set -u
+          mkdir -p artifacts/watch-v2
+          python3 - <<'PY' > artifacts/watch-v2/network.json
+          import json, socket, subprocess
+          host='xn----8sbjf4befbjgs9b.xn--p1ai'
+          result={'dns':[], 'routes':[], 'failures':[]}
+          try:
+            result['dns']=sorted({row[4][0] for row in socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)})
+          except Exception as exc:
+            result['failures'].append({'scope':'dns','message':str(exc)})
+          for route in ['/platform-v7','/platform-v7/login','/platform-v7/forgot-password']:
+            cmd=['curl','-sS','-L','--max-redirs','10','--connect-timeout','15','--max-time','45','-o','/dev/null','-w','%{http_code}|%{url_effective}|%{num_redirects}|%{remote_ip}',f'https://{host}{route}']
+            try:
+              value=subprocess.check_output(cmd,text=True).strip().split('|')
+              row={'route':route,'status':int(value[0] or 0),'final':value[1],'redirects':int(value[2] or 0),'remote':value[3]}
+              result['routes'].append(row)
+              if row['status'] != 200: result['failures'].append({'scope':route,'message':f"HTTP {row['status']}"})
+              if row['redirects'] > 3: result['failures'].append({'scope':route,'message':f"redirects {row['redirects']}"})
+            except Exception as exc:
+              result['failures'].append({'scope':route,'message':str(exc)})
+          print(json.dumps(result,ensure_ascii=False,indent=2))
+          PY
+      - name: Run browser and fail-closed matrix
+        working-directory: apps/web
+        run: node scripts/public-entry-watch-diagnostic-20260721.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: artifacts/watch-v2
+          if-no-files-found: error
+          retention-days: 7
+
+  report:
+    needs: check
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: result
+      - name: Print concise result
+        shell: bash
+        run: |
+          cat result/report.json
+          jq -e '.allGreen == true' result/report.json >/dev/null
