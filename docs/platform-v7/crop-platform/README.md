@@ -24,9 +24,14 @@ Production claim: `NOT_ATTESTED`
 
 | Файл | Назначение |
 |---|---|
-| `governance.v1.json` | Единый source/requirement/gap/plan/UX/acceptance registry |
+| `source-registry.v1.json` | Источники, hashes, владельцы проверки и статус актуальности |
+| `requirements.v1.json` | Нормализованный реестр обязательных требований |
+| `gap-map.v1.json` | Состояние текущего кода: present / partial / absent / blocked-external |
+| `implementation-plan.v1.json` | Зависимости PC-CROP-00…23, gates и rollout |
+| `ux-screen-map.v1.json` | Машиночитаемая карта интерфейса и состояний |
 | `UX-CONTRACT.md` | Обязательный intent-first UX, mobile/offline, accessibility и AI boundary |
 | `ADR-001-commodity-profile-and-deal-state.md` | Решения по CommodityProfile и многомерному Deal state |
+| `pc-crop-acceptance.schema.json` | Schema будущего exact-head/exact-main evidence report |
 
 ## Очерёдность после принятия baseline
 
