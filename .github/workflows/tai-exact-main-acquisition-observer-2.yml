@@ -1,0 +1,56 @@
+name: TAI Exact Main Acquisition Observer 2
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-exact-main-acquisition-observer-2.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  observe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Observe exact-main release acceptance and acquisition runs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          EXPECTED_MAIN: 4a7b04731aa204b741691a334d7adfe7785d6463
+        run: |
+          set -euo pipefail
+          actual_main="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
+          printf 'EXPECTED_MAIN=%s\nACTUAL_MAIN=%s\n' "$EXPECTED_MAIN" "$actual_main"
+          test "$actual_main" = "$EXPECTED_MAIN"
+
+          observe() {
+            workflow="$1"
+            label="$2"
+            gh api "/repos/$REPOSITORY/actions/workflows/$workflow/runs?per_page=100" > "$label-runs.json"
+            jq -r --arg sha "$EXPECTED_MAIN" --arg label "$label" \
+              '.workflow_runs[] | select(.head_sha == $sha) | [$label,.id,.event,.status,.conclusion,.run_number,.run_attempt,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' \
+              "$label-runs.json"
+            run_id="$(jq -r --arg sha "$EXPECTED_MAIN" '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.created_at) | reverse | .[0].id // empty' "$label-runs.json")"
+            if [[ -z "$run_id" ]]; then
+              printf '%s_RUN=ABSENT\n' "$label"
+              return
+            fi
+            gh api "/repos/$REPOSITORY/actions/runs/$run_id/jobs?per_page=100" > "$label-jobs.json"
+            jq -r --arg label "$label" \
+              '.jobs[] | [$label+"_JOB",.id,.name,.status,.conclusion,.started_at,.completed_at] | @tsv' \
+              "$label-jobs.json"
+            jq -r --arg label "$label" \
+              '.jobs[] | .name as $job | .steps[]? | [$label+"_STEP",$job,.number,.name,.status,.conclusion] | @tsv' \
+              "$label-jobs.json"
+            gh api "/repos/$REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" > "$label-artifacts.json"
+            jq -r --arg label "$label" \
+              '.artifacts[] | [$label+"_ARTIFACT",.id,.name,.size_in_bytes,.expired,.digest,.created_at,.expires_at] | @tsv' \
+              "$label-artifacts.json"
+          }
+
+          observe tai-release-acceptance.yml RELEASE
+          observe tai-model-source-acquisition.yml ACQUISITION
