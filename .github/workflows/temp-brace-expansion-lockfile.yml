@@ -1,9 +1,9 @@
 name: Temporary brace-expansion lockfile update
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/brace-expansion-security
+      - main
 
 permissions:
   contents: write
