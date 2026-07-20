@@ -9,6 +9,7 @@ import '@/styles/platform-v7-public-product-experience-v5.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicAiInActionExperience } from '@/components/platform-v7/PublicAiInActionExperience';
+import experienceStyles from '@/components/platform-v7/PublicAiInActionExperience.module.css';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import {
@@ -90,43 +91,45 @@ export default async function PublicAiInActionPage() {
 
   return (
     <main id='main-content' className='pc-ppe-page pc-ai-in-action-page' data-testid='platform-v7-ai-in-action-authority'>
-      <span data-ai-experience-route='/platform-v7/ai-in-action' hidden>
-        interactive-animated-ai-explainer
-      </span>
-      <a className='pc-skip-link' href='#pc-ai-demo-title'>{chrome('skipToContent')}</a>
-      <PublicExperiencePageView locale={locale} name='home_view' />
-      <PublicExperienceScrollCoordinator />
+      <div className={experienceStyles.routePage}>
+        <span data-ai-experience-route='/platform-v7/ai-in-action' hidden>
+          interactive-animated-ai-explainer
+        </span>
+        <a className='pc-skip-link' href='#pc-ai-demo-title'>{chrome('skipToContent')}</a>
+        <PublicExperiencePageView locale={locale} name='home_view' />
+        <PublicExperienceScrollCoordinator />
 
-      <PublicSiteHeader
-        ariaLabel={copy.header.aria}
-        brandHomeLabel={copy.header.brandHome}
-        navLabel={copy.header.aria}
-        menuLabel={ui.header.menu}
-        nav={nav}
-        showMobileMenu
-        localeControl={<PublicLocaleLink />}
-        actions={<a href='/platform-v7/login' className='entry-login'>{copy.header.signIn}</a>}
-      />
+        <PublicSiteHeader
+          ariaLabel={copy.header.aria}
+          brandHomeLabel={copy.header.brandHome}
+          navLabel={copy.header.aria}
+          menuLabel={ui.header.menu}
+          nav={nav}
+          showMobileMenu
+          localeControl={<PublicLocaleLink />}
+          actions={<a href='/platform-v7/login' className='entry-login'>{copy.header.signIn}</a>}
+        />
 
-      <PublicAiInActionExperience locale={locale} />
+        <PublicAiInActionExperience locale={locale} />
 
-      <footer className='pc-ppe-footer'>
-        <div className='pc-ppe-shell pc-ppe-footer-grid'>
-          <div className='pc-ppe-footer-brand'>
-            <strong>Прозрачная Цена</strong>
-            <p>{ui.footer.note}</p>
+        <footer className='pc-ppe-footer'>
+          <div className='pc-ppe-shell pc-ppe-footer-grid'>
+            <div className='pc-ppe-footer-brand'>
+              <strong>Прозрачная Цена</strong>
+              <p>{ui.footer.note}</p>
+            </div>
+            <nav aria-label={copy.header.aria}>
+              <a href='/platform-v7/about'>{ui.footer.about}</a>
+              <a href='/platform-v7/status'>{ui.footer.status}</a>
+              <a href='/platform-v7/privacy'>{ui.footer.privacy}</a>
+              <a href='/platform-v7/terms'>{ui.footer.terms}</a>
+              <a href='/platform-v7/contact'>{ui.footer.contact}</a>
+            </nav>
+            <small>{ui.footer.disclaimer}</small>
+            <span>© {new Date().getUTCFullYear()} Прозрачная Цена</span>
           </div>
-          <nav aria-label={copy.header.aria}>
-            <a href='/platform-v7/about'>{ui.footer.about}</a>
-            <a href='/platform-v7/status'>{ui.footer.status}</a>
-            <a href='/platform-v7/privacy'>{ui.footer.privacy}</a>
-            <a href='/platform-v7/terms'>{ui.footer.terms}</a>
-            <a href='/platform-v7/contact'>{ui.footer.contact}</a>
-          </nav>
-          <small>{ui.footer.disclaimer}</small>
-          <span>© {new Date().getUTCFullYear()} Прозрачная Цена</span>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </main>
   );
 }
