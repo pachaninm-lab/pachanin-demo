@@ -1,4 +1,4 @@
-name: TAI Source Acquisition Blob Builder
+name: TAI Source Acquisition Fix Validator
 
 on:
   pull_request:
@@ -7,21 +7,17 @@ on:
       - .github/workflows/tai-source-acquisition-observer.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build-blob:
-    if: >-
-      github.actor == github.repository_owner &&
-      github.head_ref == 'agent/tai-source-acquisition-observer'
+  validate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     env:
       TARGET_BRANCH: agent/tai-ap-13b3-source-acquisition-trigger-fix
       SOURCE_PATH: .github/workflows/tai-model-source-acquisition.yml
-      OUTPUT_PATH: tmp/tai-model-source-acquisition.patched.yml
     steps:
-      - name: Build exact patched workflow as regular repository blob
+      - name: Validate exact fix branch workflow with pinned actionlint
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -29,50 +25,11 @@ jobs:
         run: |
           set -euo pipefail
           gh api "/repos/$REPOSITORY/contents/$SOURCE_PATH?ref=$TARGET_BRANCH" \
-            > source.json
-          python - <<'PY'
-          import base64
-          import json
-          import os
-          from pathlib import Path
-
-          source = json.loads(Path('source.json').read_text())
-          text = base64.b64decode(source['content']).decode('utf-8')
-          expression = '$' + '{{ matrix.key }}'
-          invalid = (
-              '      ORIGINAL_ROOT: $' + '{{ runner.temp }}/tai-' + expression + '-original\n'
-              '      RESTORE_ROOT: $' + '{{ runner.temp }}/tai-' + expression + '-restore\n'
-          )
-          binding = (
-              "      - name: Bind ephemeral acquisition roots\n"
-              "        shell: bash\n"
-              "        run: |\n"
-              "          set -euo pipefail\n"
-              "          printf 'ORIGINAL_ROOT=%s\\n' \\\n"
-              "            \"$RUNNER_TEMP/tai-" + expression + "-original\" \\\n"
-              "            >> \"$GITHUB_ENV\"\n"
-              "          printf 'RESTORE_ROOT=%s\\n' \\\n"
-              "            \"$RUNNER_TEMP/tai-" + expression + "-restore\" \\\n"
-              "            >> \"$GITHUB_ENV\"\n\n"
-          )
-          anchor = (
-              "      - name: Setup Python\n"
-              "        uses: actions/setup-python@v5\n"
-              "        with:\n"
-              "          python-version: '3.12'\n\n"
-          )
-          if text.count(invalid) != 1 or text.count(anchor) != 1:
-              raise SystemExit('workflow patch anchors are not unique')
-          patched = text.replace(invalid, '', 1).replace(anchor, anchor + binding, 1)
-          if '$' + '{{ runner.temp }}' in patched:
-              raise SystemExit('invalid runner context remains')
-          payload = {
-              'message': 'chore(tai): stage validated acquisition workflow blob',
-              'content': base64.b64encode(patched.encode()).decode(),
-              'branch': os.environ['TARGET_BRANCH'],
-          }
-          Path('payload.json').write_text(json.dumps(payload))
-          PY
-          gh api "/repos/$REPOSITORY/contents/$OUTPUT_PATH" \
-            --method PUT \
-            --input payload.json
+            --jq '.content' \
+            | tr -d '\n' \
+            | base64 -d \
+            > acquisition.yml
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 \
+            acquisition.yml
+          grep -Fq 'Bind ephemeral acquisition roots' acquisition.yml
+          ! grep -Fq '${{ runner.temp }}' acquisition.yml
