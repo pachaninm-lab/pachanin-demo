@@ -88,6 +88,11 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: '/platform-v7/demo/ai',
+        destination: '/platform-v7/ai-in-action',
+        permanent: false,
+      },
+      {
         source: '/platform-v7/deals/:id',
         destination: '/platform-v7/deals/:id/clean',
         permanent: false,
