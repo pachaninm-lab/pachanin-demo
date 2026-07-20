@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.example/schemas/tai/model-legal-review-record.v1.json",
+  "title": "TAI human model legal review record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "decision",
+    "reviewer_type",
+    "reviewer_id",
+    "reviewer_name",
+    "reviewed_at",
+    "license_spdx",
+    "decision_basis",
+    "conditions",
+    "record_type",
+    "attestation_reference",
+    "license_text_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "tai.model-legal-review-record.v1"
+    },
+    "decision": {
+      "enum": [
+        "APPROVED",
+        "REJECTED"
+      ]
+    },
+    "reviewer_type": {
+      "const": "HUMAN"
+    },
+    "reviewer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/+@-]{0,199}$"
+    },
+    "reviewer_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "license_spdx": {
+      "const": "Apache-2.0"
+    },
+    "decision_basis": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "conditions": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "record_type": {
+      "enum": [
+        "ATTRIBUTED_RECORD",
+        "SIGNED_RECORD"
+      ]
+    },
+    "attestation_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "pattern": "(@sha256:|#sha256=|versionId=)"
+    },
+    "license_text_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
