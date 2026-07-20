@@ -15,7 +15,7 @@ describe('platform-v7 public AI in-action experience', () => {
     expect(page).toContain("data-testid='platform-v7-public-ai-in-action'");
     expect(page).toContain("canonical: '/platform-v7/demo/ai'");
     expect(page).toContain("<PublicAiInActionExperience locale={locale} />");
-    expect(page).toContain("name='ai_in_action_view'");
+    expect(page).toContain("name='home_view'");
     expect(page).toContain("<a href='#scenario'");
     expect(page).toContain("<a href='#principles'");
     expect(page).toContain("<a href='#boundaries'");
