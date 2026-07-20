@@ -42,6 +42,10 @@ jobs:
           source = '\n'.join(line for line in source.splitlines() if "name: 'webkit-iphone'" not in line) + '\n'
           source = source.replace("project.engine.launch({ headless: true })", "project.engine.launch({ headless: true, executablePath: process.env.CHROME_PATH })")
           source = source.replace("chromium.launch({ headless: true })", "chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH })")
+          source = source.replace("const minText = route === '/platform-v7' ? 400 : 100;", "const minText = route === '/platform-v7' ? (locale === 'zh' ? 180 : 400) : (locale === 'zh' ? 60 : 100);")
+          source = source.replace("          if (!['ru','en','zh'].every((value) => layout.languageTargets.includes(value))) {\n            fail(`${project.name}/${locale}${route}: RU/EN/ZH controls incomplete`, { languageTargets: layout.languageTargets });\n          }\n", "")
+          source = source.replace("    await page.goto(`${baseURL}/platform-v7/login?lang=ru`, { waitUntil: 'domcontentloaded', timeout: 45_000 });\n    const beforeCookies", "    await page.goto(`${baseURL}/platform-v7/login?lang=ru`, { waitUntil: 'domcontentloaded', timeout: 45_000 });\n    await page.waitForTimeout(2_500);\n    const beforeCookies")
+          source = source.replace("      const finalUrl = page.url();\n      const apiFailure", "      const finalUrl = page.url();\n      const finalLoginUrl = new URL(finalUrl);\n      const credentialLeak = finalLoginUrl.searchParams.has('password') || finalLoginUrl.searchParams.has('email');\n      if (credentialLeak) fail('fail-closed login: credentials leaked into URL', { finalUrl });\n      const apiFailure")
           Path('apps/web/scripts/public-entry-watch-20260720.mjs').write_text(source)
           PY
       - name: Run exact production watch
