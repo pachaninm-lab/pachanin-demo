@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - '.github/release-triggers/ai-web-c21eec0.md'
+      - '.github/release-triggers/ai-in-action-c549d344.md'
   workflow_dispatch:
 
 permissions:
