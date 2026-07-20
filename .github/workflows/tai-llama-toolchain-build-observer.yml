@@ -15,8 +15,15 @@ permissions:
 jobs:
   observe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Extract invalid workflow diagnostics
         shell: bash
         env:
@@ -26,25 +33,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          gh api "/repos/$REPOSITORY/actions/runs/$FAILED_RUN_ID" > run.json
-          jq -r '["RUN",.id,.name,.display_title,.path,.event,.status,.conclusion,.head_branch,.head_sha,.check_suite_id,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' run.json
+          printf '%s\n' '=== gh run view ==='
+          gh run view "$FAILED_RUN_ID" --repo "$REPOSITORY" || true
+          printf '%s\n' '=== gh run view log-failed ==='
+          gh run view "$FAILED_RUN_ID" --repo "$REPOSITORY" --log-failed || true
 
-          suite_id="$(jq -r '.check_suite_id // empty' run.json)"
-          head_sha="$(jq -r '.head_sha' run.json)"
-          test -n "$suite_id"
-          test -n "$head_sha"
+          printf '%s\n' '=== exact workflow identity ==='
+          sha256sum .github/workflows/tai-model-source-acquisition.yml
+          sed -n '1,520p' .github/workflows/tai-model-source-acquisition.yml
 
-          gh api "/repos/$REPOSITORY/check-suites/$suite_id/check-runs?per_page=100" > suite-checks.json
-          jq -r '.check_runs[] | ["SUITE_CHECK",.id,.name,.status,.conclusion,.details_url,.output.title,.output.summary,.output.text] | @tsv' suite-checks.json
-
-          gh api -H 'Accept: application/vnd.github+json' "/repos/$REPOSITORY/commits/$head_sha/check-runs?filter=all&per_page=100" > commit-checks.json
-          jq -r '.check_runs[] | select(.name == "TAI Exact Model Source Acquisition" or (.details_url | contains("/actions/runs/29734867969"))) | ["COMMIT_CHECK",.id,.name,.status,.conclusion,.details_url,.output.title,.output.summary,.output.text] | @tsv' commit-checks.json
-
-          jq -r '.check_runs[].id' suite-checks.json | while IFS= read -r check_id; do
-            test -n "$check_id"
-            gh api "/repos/$REPOSITORY/check-runs/$check_id/annotations?per_page=100" > "annotations-$check_id.json"
-            jq -r --arg id "$check_id" '.[] | ["ANNOTATION",$id,.path,.start_line,.end_line,.annotation_level,.title,.message,.raw_details] | @tsv' "annotations-$check_id.json"
-          done
-
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml" > workflow.json
-          jq -r '["WORKFLOW",.id,.name,.path,.state,.created_at,.updated_at,.html_url] | @tsv' workflow.json
+          printf '%s\n' '=== actionlint v1.7.7 ==='
+          export GOBIN="$RUNNER_TEMP/bin"
+          mkdir -p "$GOBIN"
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$GOBIN/actionlint" -oneline -verbose .github/workflows/tai-model-source-acquisition.yml
