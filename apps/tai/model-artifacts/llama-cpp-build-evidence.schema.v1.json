@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tai:llama-cpp-build-evidence:v1",
+  "title": "TAI llama.cpp exact source-build evidence",
+  "description": "External immutable evidence for one controlled build. PENDING_BUILD is valid input but can never verify or admit artifacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "authority",
+    "pending_reason",
+    "source",
+    "environment",
+    "commands",
+    "logs",
+    "binaries"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "tai.llama-cpp-build-evidence.v1"
+    },
+    "status": {
+      "enum": ["PENDING_BUILD", "BUILT"]
+    },
+    "authority": {
+      "$ref": "#/$defs/authorityReference"
+    },
+    "pending_reason": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "source": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/sourceEvidence"}
+      ]
+    },
+    "environment": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/environmentEvidence"}
+      ]
+    },
+    "commands": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/commandsEvidence"}
+      ]
+    },
+    "logs": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/logsEvidence"}
+      ]
+    },
+    "binaries": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/binaryEvidence"}
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "status": {"const": "PENDING_BUILD"},
+        "pending_reason": {"type": "string", "minLength": 1},
+        "source": {"type": "null"},
+        "environment": {"type": "null"},
+        "commands": {"type": "null"},
+        "logs": {"type": "null"},
+        "binaries": {"maxItems": 0}
+      }
+    },
+    {
+      "properties": {
+        "status": {"const": "BUILT"},
+        "pending_reason": {"type": "null"},
+        "source": {"$ref": "#/$defs/sourceEvidence"},
+        "environment": {"$ref": "#/$defs/environmentEvidence"},
+        "commands": {"$ref": "#/$defs/commandsEvidence"},
+        "logs": {"$ref": "#/$defs/logsEvidence"},
+        "binaries": {
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "identity": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:/+\\-]{1,180}$"
+    },
+    "boundedText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "pattern": "^(?!/)(?!\\./)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "command": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/boundedText"}
+    },
+    "evidenceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "authorityReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "toolchain_name",
+        "repository_uri",
+        "release",
+        "commit",
+        "profile_id",
+        "authority_sha256"
+      ],
+      "properties": {
+        "toolchain_name": {"$ref": "#/$defs/identity"},
+        "repository_uri": {"type": "string", "format": "uri", "pattern": "^https://"},
+        "release": {"type": "string", "pattern": "^b[0-9]{1,10}$"},
+        "commit": {"$ref": "#/$defs/commit"},
+        "profile_id": {"$ref": "#/$defs/identity"},
+        "authority_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "sourceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkout_path",
+        "checkout_tree_sha256",
+        "git_head_output",
+        "git_status_output",
+        "source_archive"
+      ],
+      "properties": {
+        "checkout_path": {"$ref": "#/$defs/relativePath"},
+        "checkout_tree_sha256": {"$ref": "#/$defs/sha256"},
+        "git_head_output": {"$ref": "#/$defs/evidenceFile"},
+        "git_status_output": {"$ref": "#/$defs/evidenceFile"},
+        "source_archive": {"$ref": "#/$defs/evidenceFile"}
+      }
+    },
+    "identityEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executable", "version", "output"],
+      "properties": {
+        "executable": {"$ref": "#/$defs/boundedText"},
+        "version": {"$ref": "#/$defs/boundedText"},
+        "output": {"$ref": "#/$defs/evidenceFile"}
+      }
+    },
+    "environmentEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operating_system",
+        "architecture",
+        "generator",
+        "cmake",
+        "c_compiler",
+        "cxx_compiler"
+      ],
+      "properties": {
+        "operating_system": {"$ref": "#/$defs/identity"},
+        "architecture": {"$ref": "#/$defs/identity"},
+        "generator": {"$ref": "#/$defs/boundedText"},
+        "cmake": {"$ref": "#/$defs/identityEvidence"},
+        "c_compiler": {"$ref": "#/$defs/identityEvidence"},
+        "cxx_compiler": {"$ref": "#/$defs/identityEvidence"}
+      }
+    },
+    "commandsEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["configure", "build"],
+      "properties": {
+        "configure": {"$ref": "#/$defs/command"},
+        "build": {"$ref": "#/$defs/command"}
+      }
+    },
+    "logsEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["configure_log", "build_log", "cmake_cache"],
+      "properties": {
+        "configure_log": {"$ref": "#/$defs/evidenceFile"},
+        "build_log": {"$ref": "#/$defs/evidenceFile"},
+        "cmake_cache": {"$ref": "#/$defs/evidenceFile"}
+      }
+    },
+    "binaryEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "path", "sha256", "size_bytes"],
+      "properties": {
+        "target": {
+          "type": "string",
+          "pattern": "^llama-[a-z0-9-]{1,64}$"
+        },
+        "path": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}
