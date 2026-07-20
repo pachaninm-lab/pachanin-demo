@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -121,7 +121,7 @@ def _timestamp(value: Any, name: str) -> datetime:
         raise ContractError(f"{name} must be an ISO-8601 timestamp") from exc
     if parsed.utcoffset() is None:
         raise ContractError(f"{name} must be timezone-aware")
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 def _immutable_locator(value: Any, name: str) -> str:
