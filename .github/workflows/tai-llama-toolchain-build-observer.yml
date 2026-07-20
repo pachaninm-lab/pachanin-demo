@@ -1,5 +1,6 @@
 name: TAI Exact-Main Release Observer
 
+# Observation target advances with repository main; this workflow is never merged.
 on:
   pull_request:
     branches: [main]
