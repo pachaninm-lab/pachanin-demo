@@ -1,6 +1,6 @@
-name: TAI Exact-Main Release Observer
+name: TAI Model Host Preflight Observer
 
-# Read-only diagnostic; this workflow is never merged.
+# Temporary read-only diagnostic. This workflow is never merged.
 on:
   pull_request:
     branches: [main]
@@ -16,27 +16,61 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Report exact-main failed run and release state
+      - name: Report latest exact-main model-host preflight
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          FAILED_JOB_ID: '88309192487'
         run: |
           set -euo pipefail
           exact_main="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
           printf 'EXACT_MAIN=%s\n' "$exact_main"
 
-          run_id="$(gh api "/repos/$REPOSITORY/actions/jobs/$FAILED_JOB_ID" --jq '.run_id')"
-          gh api "/repos/$REPOSITORY/actions/jobs/$FAILED_JOB_ID" \
-            --jq '["FAILED_JOB",.id,.run_id,.name,.status,.conclusion,.head_sha,.started_at,.completed_at] | @tsv'
-          gh api "/repos/$REPOSITORY/actions/runs/$run_id" \
-            --jq '["FAILED_RUN",.id,.name,.event,.status,.conclusion,.head_branch,.head_sha,.run_number,.run_attempt,.created_at,.updated_at] | @tsv'
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-host-preflight.yml/runs?event=issue_comment&branch=main&per_page=30" > runs.json
+          run_id="$(jq -r --arg sha "$exact_main" '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.created_at) | reverse | .[0].id // empty' runs.json)"
+          test -n "$run_id"
 
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?branch=main&per_page=30" \
-            --jq ".workflow_runs[] | select(.head_sha == \"$exact_main\") | [\"RELEASE\",.id,.status,.conclusion,.event,.head_sha,.run_number,.run_attempt,.created_at,.updated_at] | @tsv" \
-            | head -1 || true
+          gh api "/repos/$REPOSITORY/actions/runs/$run_id" > run.json
+          jq -r '["PREFLIGHT_RUN",.id,.name,.event,.status,.conclusion,.head_branch,.head_sha,.run_number,.run_attempt,.created_at,.updated_at] | @tsv' run.json
 
-          gh api "/repos/$REPOSITORY/actions/runs?head_sha=$exact_main&per_page=100" \
-            --jq '.workflow_runs[] | select(.name == "TAI Foundation" or .name == "CI" or .name == "Node CI" or .name == "Security Scan" or .name == "Security Quality Gate" or .name == "Security Abuse and Evidence Acceptance" or .name == "Runtime Context Security Gate" or .name == "Auction Atomic Execution Acceptance" or .name == "Outbox PostgreSQL Authority Acceptance" or .name == "Disputes PostgreSQL Authority Acceptance" or .name == "Optional Runtime Retirement Gate" or .name == "Dependency Review") | ["GATE",.name,.id,.status,.conclusion,.head_sha] | @tsv' \
-            | sort -u
+          gh api "/repos/$REPOSITORY/actions/runs/$run_id/jobs?per_page=100" > jobs.json
+          jq -r '.jobs[] | ["JOB",.id,.name,.status,.conclusion,.head_sha,.started_at,.completed_at] | @tsv' jobs.json
+          jq -r '.jobs[].steps[] | ["STEP",.number,.name,.status,.conclusion] | @tsv' jobs.json
+
+          gh api "/repos/$REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" > artifacts.json
+          jq -r '.artifacts[] | ["ARTIFACT",.id,.name,.size_in_bytes,.expired,.digest,.created_at,.expires_at] | @tsv' artifacts.json
+
+          artifact_id="$(jq -r '[.artifacts[] | select(.name | startswith("tai-model-host-preflight-"))] | sort_by(.created_at) | reverse | .[0].id // empty' artifacts.json)"
+          if [[ -z "$artifact_id" ]]; then
+            echo 'PREFLIGHT_RESULT_ARTIFACT=ABSENT'
+            exit 0
+          fi
+
+          gh api -H 'Accept: application/vnd.github+json' "/repos/$REPOSITORY/actions/artifacts/$artifact_id/zip" > preflight.zip
+          result_path="$(unzip -Z1 preflight.zip | grep -E '(^|/)result\.v1\.json$' | head -1)"
+          test -n "$result_path"
+          unzip -p preflight.zip "$result_path" > result.v1.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path('result.v1.json').read_text())
+          compact = {
+              'schema_version': result.get('schema_version'),
+              'status': result.get('status'),
+              'reasons': result.get('reasons'),
+              'repository_sha': result.get('repository_sha'),
+              'workflow_run_id': result.get('workflow_run_id'),
+              'workflow_run_attempt': result.get('workflow_run_attempt'),
+              'host_class': result.get('host_class'),
+              'hardware': result.get('hardware'),
+              'workspace': result.get('workspace'),
+              'shared_workload_observation': result.get('shared_workload_observation'),
+              'tools': result.get('tools'),
+              'exact_source_endpoints': result.get('exact_source_endpoints'),
+              'accepted_toolchain': result.get('accepted_toolchain'),
+              'maturity_boundary': result.get('maturity_boundary'),
+          }
+          print('PREFLIGHT_RESULT=' + json.dumps(compact, ensure_ascii=False, sort_keys=True))
+          PY
