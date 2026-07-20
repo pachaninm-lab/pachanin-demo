@@ -1,0 +1,35 @@
+{
+  "acceptance": [
+    "workflow_run is bound to the accepted TAI llama.cpp Exact Source Build workflow",
+    "source run must be completed success, issue_comment-triggered, owner-operated, main-bound and current exact main",
+    "source workflow path, repository, head repository, SHA and run attempt are checked fail-closed",
+    "exactly one unexpired package artifact and one unexpired locator artifact are required",
+    "only the small locator artifact is downloaded; the build package is never downloaded",
+    "locator, package index and restored report hashes and embedded content are independently checked",
+    "authority digest, release, commit, profile, four targets and VERIFIED empty-reasons state are exact",
+    "handoff comment carries the exact locator and machine-readable acceptance metadata under 60000 bytes",
+    "handoff explicitly requires a separate exact-head and exact-main acceptance PR before issue closure",
+    "production_operational_status remains NOT_ATTESTED",
+    "Ruff, strict mypy, full pytest/coverage, workflow security and exact-head CI pass"
+  ],
+  "allowed_paths": [
+    ".github/workflows/tai-llama-toolchain-acceptance-handoff.yml",
+    "apps/tai/governance/scopes/ap-13b2b-acceptance-handoff-2832.json",
+    "apps/tai/tests/test_llama_toolchain_acceptance_handoff_workflow.py"
+  ],
+  "branch": "agent/tai-ap-13b2b-build-acceptance-handoff",
+  "forbidden_capabilities": [
+    "download, commit or expose the build package, source checkout, logs or compiled binaries",
+    "accept or close issue 2832 without a separate reviewed exact-head and exact-main pull request",
+    "run from pull_request, push, schedule, workflow_dispatch or an untrusted workflow",
+    "accept a source run that is not owner-triggered issue_comment success on current exact main",
+    "repository contents write, pull-request write, secret, package or OIDC access",
+    "model download, legal approval, conversion, quantization, benchmark or admission claim",
+    "production readiness or operational attestation claim"
+  ],
+  "issue": 2832,
+  "maturity_boundary": "verified-build-metadata-handoff-without-build-acceptance-or-operational-attestation",
+  "parent_issue": 2726,
+  "schema_version": "tai.concurrent-scope.v1",
+  "status": "active"
+}
