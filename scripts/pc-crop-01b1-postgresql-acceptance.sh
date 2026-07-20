@@ -8,13 +8,18 @@ BASE_SQL="$ROOT_DIR/apps/api/test/industrial/commodity-profile-registry-invarian
 EVIDENCE_DIR="${PC_CROP_EVIDENCE_DIR:-$ROOT_DIR/pc-crop-01b1-evidence}"
 mkdir -p "$EVIDENCE_DIR"
 
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$BASE_SQL" \
+# Prisma accepts the schema query parameter, while libpq/psql does not. Keep the
+# canonical DATABASE_URL for Prisma and derive a libpq-compatible connection
+# string for direct PostgreSQL acceptance commands.
+PSQL_DATABASE_URL="${DATABASE_URL%%\?schema=*}"
+
+psql "$PSQL_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$BASE_SQL" \
   >"$EVIDENCE_DIR/base-invariants.log" 2>&1
 
 # Close the first accepted window through a real lifecycle transition so the
 # concurrent test isolates two future candidates rather than colliding with
 # the already accepted reference version.
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+psql "$PSQL_DATABASE_URL" -v ON_ERROR_STOP=1 \
   >"$EVIDENCE_DIR/window-close.log" 2>&1 <<'SQL'
 BEGIN;
 UPDATE public."commodity_profile_versions"
@@ -90,13 +95,13 @@ INSERT INTO public."commodity_profile_transitions" (
 COMMIT;
 SQL
 
-psql "$DATABASE_URL" -f "$EVIDENCE_DIR/race-a.sql" \
+psql "$PSQL_DATABASE_URL" -f "$EVIDENCE_DIR/race-a.sql" \
   >"$EVIDENCE_DIR/race-a.log" 2>&1 &
 race_a_pid=$!
 sleep 0.4
 
 set +e
-psql "$DATABASE_URL" -f "$EVIDENCE_DIR/race-b.sql" \
+psql "$PSQL_DATABASE_URL" -f "$EVIDENCE_DIR/race-b.sql" \
   >"$EVIDENCE_DIR/race-b.log" 2>&1
 race_b_status=$?
 set -e
@@ -116,7 +121,7 @@ if ! grep -q 'PC_PROFILE_EFFECTIVE_OVERLAP' "$EVIDENCE_DIR/race-b.log"; then
 fi
 
 effective_count="$({
-  psql "$DATABASE_URL" -Atqc \
+  psql "$PSQL_DATABASE_URL" -Atqc \
     "SELECT count(*) FROM public.\"commodity_profile_versions\" WHERE \"profileId\" = 'profile-dry-bulk' AND \"status\" = 'EFFECTIVE' AND \"effectiveFrom\" = '2031-01-01T00:00:00Z'::timestamptz;"
 } | tr -d '[:space:]')"
 
@@ -126,7 +131,7 @@ if [[ "$effective_count" != "1" ]]; then
 fi
 
 transition_count="$({
-  psql "$DATABASE_URL" -Atqc \
+  psql "$PSQL_DATABASE_URL" -Atqc \
     "SELECT count(*) FROM public.\"commodity_profile_transitions\" WHERE \"toStatus\" = 'EFFECTIVE' AND \"profileVersionId\" IN ('version-race-a', 'version-race-b');"
 } | tr -d '[:space:]')"
 
