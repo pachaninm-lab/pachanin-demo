@@ -7,6 +7,7 @@ from typing import Any, cast
 
 import pytest
 
+import tai.model_artifact_registry_cli as artifact_cli
 from tai.llama_toolchain import (
     ToolchainVerificationStatus,
     load_llama_toolchain_authority,
@@ -14,7 +15,6 @@ from tai.llama_toolchain import (
     source_tree_sha256,
     verify_llama_toolchain,
 )
-import tai.model_artifact_registry_cli as artifact_cli
 from tai.model_artifact_registry_cli import main
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -205,9 +205,7 @@ def test_mutable_or_short_authority_and_unknown_keys_are_invalid(tmp_path: Path)
         load_llama_toolchain_authority(path)
 
     payload = _authority_payload()
-    payload["source_archive_uri"] = (
-        "https://github.com/ggml-org/llama.cpp/archive/b9637.tar.gz"
-    )
+    payload["source_archive_uri"] = "https://github.com/ggml-org/llama.cpp/archive/b9637.tar.gz"
     _write_json(path, payload)
     with pytest.raises(ValueError, match="exact full commit"):
         load_llama_toolchain_authority(path)
@@ -408,9 +406,7 @@ def test_evidence_loader_rejects_malformed_built_contracts(tmp_path: Path) -> No
 
     payload = fresh()
     environment = cast(dict[str, Any], payload["environment"])
-    cast(dict[str, Any], cast(dict[str, Any], environment["cmake"])["output"])[
-        "size_bytes"
-    ] = 0
+    cast(dict[str, Any], cast(dict[str, Any], environment["cmake"])["output"])["size_bytes"] = 0
     reject(payload, "identity output evidence must be non-empty")
 
     payload = fresh()
@@ -426,9 +422,9 @@ def test_evidence_loader_rejects_malformed_built_contracts(tmp_path: Path) -> No
 
     payload = fresh()
     logs = cast(dict[str, Any], payload["logs"])
-    cast(dict[str, Any], logs["build_log"])["path"] = cast(
-        dict[str, Any], logs["configure_log"]
-    )["path"]
+    cast(dict[str, Any], logs["build_log"])["path"] = cast(dict[str, Any], logs["configure_log"])[
+        "path"
+    ]
     reject(payload, "build log evidence paths must be unique")
 
     payload = fresh()
@@ -496,12 +492,12 @@ def test_evidence_paths_are_authority_bound(tmp_path: Path) -> None:
         cast(dict[str, Any], cast(dict[str, Any], environment["cmake"])["output"])[
             "path"
         ]: "alternate/cmake.txt",
-        cast(
-            dict[str, Any], cast(dict[str, Any], environment["c_compiler"])["output"]
-        )["path"]: "alternate/cc.txt",
-        cast(
-            dict[str, Any], cast(dict[str, Any], environment["cxx_compiler"])["output"]
-        )["path"]: "alternate/cxx.txt",
+        cast(dict[str, Any], cast(dict[str, Any], environment["c_compiler"])["output"])[
+            "path"
+        ]: "alternate/cc.txt",
+        cast(dict[str, Any], cast(dict[str, Any], environment["cxx_compiler"])["output"])[
+            "path"
+        ]: "alternate/cxx.txt",
         cast(dict[str, Any], logs["configure_log"])["path"]: "alternate/configure.log",
         cast(dict[str, Any], logs["build_log"])["path"]: "alternate/build.log",
         cast(dict[str, Any], logs["cmake_cache"])["path"]: "alternate/CMakeCache.txt",
@@ -514,15 +510,15 @@ def test_evidence_paths_are_authority_bound(tmp_path: Path) -> None:
     cast(dict[str, Any], source["source_archive"])["path"] = "alternate/archive.tar.gz"
     cast(dict[str, Any], source["git_head_output"])["path"] = "alternate/head.txt"
     cast(dict[str, Any], source["git_status_output"])["path"] = "alternate/status.txt"
-    cast(dict[str, Any], cast(dict[str, Any], environment["cmake"])["output"])[
-        "path"
-    ] = "alternate/cmake.txt"
-    cast(dict[str, Any], cast(dict[str, Any], environment["c_compiler"])["output"])[
-        "path"
-    ] = "alternate/cc.txt"
-    cast(dict[str, Any], cast(dict[str, Any], environment["cxx_compiler"])["output"])[
-        "path"
-    ] = "alternate/cxx.txt"
+    cast(dict[str, Any], cast(dict[str, Any], environment["cmake"])["output"])["path"] = (
+        "alternate/cmake.txt"
+    )
+    cast(dict[str, Any], cast(dict[str, Any], environment["c_compiler"])["output"])["path"] = (
+        "alternate/cc.txt"
+    )
+    cast(dict[str, Any], cast(dict[str, Any], environment["cxx_compiler"])["output"])["path"] = (
+        "alternate/cxx.txt"
+    )
     cast(dict[str, Any], logs["configure_log"])["path"] = "alternate/configure.log"
     cast(dict[str, Any], logs["build_log"])["path"] = "alternate/build.log"
     cast(dict[str, Any], logs["cmake_cache"])["path"] = "alternate/CMakeCache.txt"

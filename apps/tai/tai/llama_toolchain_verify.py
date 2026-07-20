@@ -12,6 +12,7 @@ from tai.llama_toolchain_collect import (
     source_tree_sha256,
 )
 from tai.llama_toolchain_types import (
+    _EMPTY_SHA256,
     AuthorityReference,
     BuildCommandsEvidence,
     BuildEnvironmentEvidence,
@@ -24,10 +25,9 @@ from tai.llama_toolchain_types import (
     SourceEvidence,
     ToolchainVerificationReport,
     ToolchainVerificationStatus,
-    _EMPTY_SHA256,
-    _VerifiedFile,
     _canonical_json,
     _file_sha256,
+    _VerifiedFile,
 )
 
 
@@ -80,10 +80,26 @@ def verify_llama_toolchain(
     path_comparisons = (
         (source.source_archive.path, layout.source_archive_path, "SOURCE_ARCHIVE_PATH_MISMATCH"),
         (source.git_head_output.path, layout.git_head_output_path, "SOURCE_HEAD_PATH_MISMATCH"),
-        (source.git_status_output.path, layout.git_status_output_path, "SOURCE_STATUS_PATH_MISMATCH"),
-        (environment.cmake.output.path, layout.cmake_identity_output_path, "CMAKE_IDENTITY_PATH_MISMATCH"),
-        (environment.c_compiler.output.path, layout.c_compiler_identity_output_path, "C_COMPILER_IDENTITY_PATH_MISMATCH"),
-        (environment.cxx_compiler.output.path, layout.cxx_compiler_identity_output_path, "CXX_COMPILER_IDENTITY_PATH_MISMATCH"),
+        (
+            source.git_status_output.path,
+            layout.git_status_output_path,
+            "SOURCE_STATUS_PATH_MISMATCH",
+        ),
+        (
+            environment.cmake.output.path,
+            layout.cmake_identity_output_path,
+            "CMAKE_IDENTITY_PATH_MISMATCH",
+        ),
+        (
+            environment.c_compiler.output.path,
+            layout.c_compiler_identity_output_path,
+            "C_COMPILER_IDENTITY_PATH_MISMATCH",
+        ),
+        (
+            environment.cxx_compiler.output.path,
+            layout.cxx_compiler_identity_output_path,
+            "CXX_COMPILER_IDENTITY_PATH_MISMATCH",
+        ),
         (logs.configure_log.path, layout.configure_log_path, "CONFIGURE_LOG_PATH_MISMATCH"),
         (logs.build_log.path, layout.build_log_path, "BUILD_LOG_PATH_MISMATCH"),
         (logs.cmake_cache.path, layout.cmake_cache_path, "CMAKE_CACHE_PATH_MISMATCH"),
@@ -333,4 +349,3 @@ def _report(
         verified_targets=normalized_targets,
         report_sha256=hashlib.sha256(_canonical_json(payload).encode()).hexdigest(),
     )
-

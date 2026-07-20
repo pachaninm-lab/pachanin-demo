@@ -72,8 +72,7 @@ def load_llama_toolchain_authority(path: Path) -> LlamaToolchainAuthority:
             configure_command=tuple(_strings(profile_payload, "configure_command")),
             build_command=tuple(_strings(profile_payload, "build_command")),
             required_targets=tuple(
-                _authority_target(item)
-                for item in _array(profile_payload, "required_targets")
+                _authority_target(item) for item in _array(profile_payload, "required_targets")
             ),
         ),
     )
@@ -137,11 +136,15 @@ def _authority_payload(authority: LlamaToolchainAuthority) -> dict[str, object]:
         "commit": authority.commit,
         "evidence_layout": {
             "build_log_path": authority.evidence_layout.build_log_path,
-            "c_compiler_identity_output_path": authority.evidence_layout.c_compiler_identity_output_path,
+            "c_compiler_identity_output_path": (
+                authority.evidence_layout.c_compiler_identity_output_path
+            ),
             "cmake_cache_path": authority.evidence_layout.cmake_cache_path,
-            "cmake_identity_output_path": authority.evidence_layout.cmake_identity_output_path,
+            "cmake_identity_output_path": (authority.evidence_layout.cmake_identity_output_path),
             "configure_log_path": authority.evidence_layout.configure_log_path,
-            "cxx_compiler_identity_output_path": authority.evidence_layout.cxx_compiler_identity_output_path,
+            "cxx_compiler_identity_output_path": (
+                authority.evidence_layout.cxx_compiler_identity_output_path
+            ),
             "git_head_output_path": authority.evidence_layout.git_head_output_path,
             "git_status_output_path": authority.evidence_layout.git_status_output_path,
             "source_archive_path": authority.evidence_layout.source_archive_path,
@@ -459,4 +462,3 @@ def _exact_keys(payload: dict[str, Any], expected: set[str], name: str) -> None:
         missing = sorted(expected - actual)
         extra = sorted(actual - expected)
         raise ValueError(f"{name} keys mismatch; missing={missing}; extra={extra}")
-
