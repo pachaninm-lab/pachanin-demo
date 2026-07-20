@@ -1,0 +1,105 @@
+name: Patch public AI layout authority
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-public-ai-layout-authority.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Apply exact public-route correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          layout_path = Path('apps/web/app/platform-v7/layout.tsx')
+          layout = layout_path.read_text(encoding='utf-8')
+          route_line = "  '/platform-v7/ai-in-action',\n"
+          if route_line not in layout:
+              needle = "  '/platform-v7/how-it-works',\n"
+              if needle not in layout:
+                  raise SystemExit('layout public-route insertion anchor is missing')
+              layout = layout.replace(needle, needle + route_line, 1)
+              layout_path.write_text(layout, encoding='utf-8')
+
+          home_path = Path('apps/web/app/platform-v7/page.tsx')
+          home = home_path.read_text(encoding='utf-8')
+          legacy_href = "const aiExperienceHref = `/platform-v7/demo/ai?lang=${encodeURIComponent(locale)}`;"
+          canonical_href = "const aiExperienceHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;"
+          if canonical_href not in home:
+              if legacy_href not in home:
+                  raise SystemExit('homepage AI href replacement anchor is missing')
+              home = home.replace(legacy_href, canonical_href, 1)
+              home_path.write_text(home, encoding='utf-8')
+
+          test_path = Path('apps/web/tests/unit/platformV7PublicAiRouteAuthority.test.ts')
+          test = test_path.read_text(encoding='utf-8')
+          if "const layout = read('app/platform-v7/layout.tsx');" not in test:
+              anchor = "  const page = read('app/platform-v7/ai-in-action/page.tsx');\n"
+              replacement = (
+                  anchor
+                  + "  const layout = read('app/platform-v7/layout.tsx');\n"
+                  + "  const home = read('app/platform-v7/page.tsx');\n"
+              )
+              if anchor not in test:
+                  raise SystemExit('test declaration insertion anchor is missing')
+              test = test.replace(anchor, replacement, 1)
+
+          layout_expect = "    expect(layout).toContain(\"'/platform-v7/ai-in-action',\");\n"
+          home_expect = "    expect(home).toContain(\"const aiExperienceHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;\");\n"
+          if layout_expect not in test:
+              anchor = "    expect(page).toContain('interactive-animated-ai-explainer');\n"
+              if anchor not in test:
+                  raise SystemExit('test assertion insertion anchor is missing')
+              test = test.replace(anchor, anchor + layout_expect + home_expect, 1)
+          test_path.write_text(test, encoding='utf-8')
+
+          scope_path = Path('docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json')
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          allowed = scope['allowedPaths']
+          layout_entry = 'apps/web/app/platform-v7/layout.tsx'
+          if layout_entry not in allowed:
+              page_entry = 'apps/web/app/platform-v7/page.tsx'
+              index = allowed.index(page_entry) + 1 if page_entry in allowed else 0
+              allowed.insert(index, layout_entry)
+          scope_path.write_text(json.dumps(scope, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+
+          git diff --check
+          grep -F "'/platform-v7/ai-in-action'," apps/web/app/platform-v7/layout.tsx
+          grep -F 'const aiExperienceHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;' apps/web/app/platform-v7/page.tsx
+
+      - name: Commit correction to the pull request branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'No patch was required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            apps/web/app/platform-v7/layout.tsx \
+            apps/web/app/platform-v7/page.tsx \
+            apps/web/tests/unit/platformV7PublicAiRouteAuthority.test.ts \
+            docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json
+          git commit -m 'Fix public AI layout authority'
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
