@@ -1,0 +1,73 @@
+name: TAI handoff clean-check fix applier
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-handoff-clean-check-fix-applier.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'agent/tai-ap-13b2b-handoff-clean-check-fix'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout fix branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13b2b-handoff-clean-check-fix
+          fetch-depth: 1
+
+      - name: Move checkout clean validation before evidence writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/tai-llama-toolchain-acceptance-handoff.yml')
+          text = path.read_text(encoding='utf-8')
+          old_start = '''          set -euo pipefail
+          mkdir -p handoff-work
+'''
+          new_start = '''          set -euo pipefail
+          if [ -n "$(git status --porcelain=v1 --untracked-files=all)" ]; then
+            echo "CHECKOUT_NOT_CLEAN" >&2
+            exit 1
+          fi
+          mkdir -p handoff-work
+'''
+          old_python = '''          require(os.popen("git status --porcelain=v1 --untracked-files=all").read() == "", "CHECKOUT_NOT_CLEAN")
+'''
+          if text.count(old_start) != 1:
+              raise SystemExit('VALIDATION_STEP_START_CARDINALITY_INVALID')
+          if text.count(old_python) != 1:
+              raise SystemExit('LATE_CLEAN_CHECK_CARDINALITY_INVALID')
+          text = text.replace(old_start, new_start, 1).replace(old_python, '', 1)
+          if text.count('CHECKOUT_NOT_CLEAN') != 1:
+              raise SystemExit('CLEAN_CHECK_RESULT_CARDINALITY_INVALID')
+          if text.index('CHECKOUT_NOT_CLEAN') > text.index('mkdir -p handoff-work'):
+              raise SystemExit('CLEAN_CHECK_NOT_BEFORE_WORKDIR')
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          git diff --check
+          grep -n -B3 -A5 'CHECKOUT_NOT_CLEAN' .github/workflows/tai-llama-toolchain-acceptance-handoff.yml
+
+      - name: Remove one-time applier and push exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/tai-handoff-clean-check-fix-applier.yml
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
+          git add .github/workflows/tai-llama-toolchain-acceptance-handoff.yml
+          test "$(git diff --cached --name-only | wc -l)" -eq 1
+          test "$(git diff --cached --name-only)" = '.github/workflows/tai-llama-toolchain-acceptance-handoff.yml'
+          git commit -m 'fix(tai): validate clean checkout before handoff evidence writes'
+          git push origin HEAD:agent/tai-ap-13b2b-handoff-clean-check-fix
