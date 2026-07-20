@@ -7,33 +7,26 @@ on:
       - .github/workflows/tai-source-acquisition-observer.yml
 
 permissions:
-  actions: read
-  checks: read
   contents: read
 
 jobs:
   observe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Print acquisition workflow validation evidence
+      - name: Checkout exact main workflow
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate acquisition workflow with pinned actionlint
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          main_sha="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
-          printf 'MAIN=%s\n' "$main_sha"
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml" \
-            --jq '["WORKFLOW",.id,.state,.path,.updated_at] | @tsv'
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml/runs?per_page=20" \
-            --jq '.workflow_runs[] | ["RUN",.id,.event,.status,.conclusion,.head_branch,.head_sha,.created_at] | @tsv'
-          gh api -H 'Accept: application/vnd.github+json' \
-            "/repos/$REPOSITORY/commits/$main_sha/check-runs?per_page=100" > checks.json
-          jq -r '.check_runs[] | select(.conclusion == "failure") | ["FAILED_CHECK",.id,.name,.details_url,.output.title,.output.summary,.output.text] | @tsv' checks.json
-          while IFS= read -r id; do
-            gh api -H 'Accept: application/vnd.github+json' \
-              "/repos/$REPOSITORY/check-runs/$id/annotations?per_page=100" \
-              | jq -r --arg id "$id" '.[] | ["ANNOTATION",$id,.path,.start_line,.end_line,.annotation_level,.title,.message,.raw_details] | @tsv'
-          done < <(jq -r '.check_runs[] | select(.conclusion == "failure") | .id' checks.json)
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 \
+            -format '{{json .}}' \
+            .github/workflows/tai-model-source-acquisition.yml \
+            | tee actionlint.jsonl
+          test ! -s actionlint.jsonl
