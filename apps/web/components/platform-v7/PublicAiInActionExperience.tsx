@@ -30,13 +30,25 @@ type Scenario = {
 };
 
 type Copy = {
-  hero: { eyebrow: string; title: string; lead: string; primary: string; secondary: string; badges: string[] };
+  hero: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    signal: string;
+    primary: string;
+    secondary: string;
+  };
+  demo: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+  };
   labels: {
     scenario: string;
     role: string;
+    phase: string;
     facts: string;
     evidence: string;
-    analysis: string;
     result: string;
     reason: string;
     impact: string;
@@ -52,53 +64,60 @@ type Copy = {
     confirm: string;
     confirmed: string;
     control: string;
-    useful: string;
-    adjust: string;
-    usefulDone: string;
-    adjustDone: string;
     running: string;
     paused: string;
     reduced: string;
   };
-  phases: Array<{ short: string; label: string; description: string; result: string; icon: PublicExperienceIconName }>;
+  phases: Array<{
+    short: string;
+    label: string;
+    description: string;
+    result: string;
+    icon: PublicExperienceIconName;
+  }>;
   roles: Record<RoleKey, { label: string; focus: string; icon: PublicExperienceIconName }>;
   scenarios: Record<ScenarioKey, Scenario>;
-  principles: {
-    eyebrow: string;
-    title: string;
-    lead: string;
-    items: Array<{ title: string; body: string; icon: PublicExperienceIconName }>;
-  };
   boundary: {
     eyebrow: string;
     title: string;
     lead: string;
-    cards: Array<{ label: string; value: string; note: string; icon: PublicExperienceIconName }>;
+    cards: Array<{ title: string; body: string; icon: PublicExperienceIconName }>;
   };
-  final: { eyebrow: string; title: string; lead: string; primary: string; secondary: string };
+  final: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    primary: string;
+    secondary: string;
+  };
 };
 
 const COPY: Record<Locale, Copy> = {
   ru: {
     hero: {
-      eyebrow: 'ИИ работает в платформе',
-      title: 'От события сделки — к понятному действию',
-      lead: 'Интерактивный показ объясняет, как ИИ собирает разрешённые факты, связывает их с документами и сроками, выявляет риск, раскрывает причину и готовит следующий шаг для конкретной роли.',
-      primary: 'Запустить сценарий',
+      eyebrow: 'ИИ в контуре исполнения',
+      title: 'ИИ видит блокер сделки до того, как он задержит расчёт',
+      lead: 'Он связывает разрешённые факты, документы, сроки и деньги — затем объясняет риск и готовит следующий шаг для конкретной роли.',
+      signal: 'Протокол отсутствует · срок 6 часов · под риском 6,9 млн ₽',
+      primary: 'Запустить разбор',
       secondary: 'Посмотреть границы',
-      badges: ['Ролевой доступ', 'Серверные факты', 'Только чтение', 'Подтверждение человеком'],
+    },
+    demo: {
+      eyebrow: 'Интерактивный разбор',
+      title: 'Один сценарий. Пять понятных этапов.',
+      lead: 'Выберите ситуацию и роль. На экране остаётся только текущий этап, его основание и итог для участника.',
     },
     labels: {
       scenario: 'Сценарий',
-      role: 'Показать со стороны',
-      facts: 'Поток фактов',
+      role: 'Роль',
+      phase: 'Этап',
+      facts: 'Разрешённые факты',
       evidence: 'Открытое основание',
-      analysis: 'Контур анализа',
-      result: 'Результат для участника',
+      result: 'Итог для участника',
       reason: 'Причина',
       impact: 'Влияние',
-      deadline: 'Контрольный срок',
-      money: 'Деньги под риском',
+      deadline: 'Срок',
+      money: 'Под риском',
       owner: 'Ответственный',
       next: 'Следующий шаг',
       previous: 'Назад',
@@ -106,23 +125,49 @@ const COPY: Record<Locale, Copy> = {
       play: 'Запустить',
       pause: 'Пауза',
       reset: 'Сначала',
-      confirm: 'Подтвердить демонстрационный шаг',
+      confirm: 'Подтвердить подготовленный шаг',
       confirmed: 'Шаг подтверждён в демонстрации',
-      control: 'ИИ готовит решение, но не отправляет запросы и не меняет состояние сделки без действия пользователя.',
-      useful: 'Полезно',
-      adjust: 'Нужна корректировка',
-      usefulDone: 'Объяснение отмечено как полезное.',
-      adjustDone: 'Отмечено: объяснение нужно уточнить.',
-      running: 'Сценарий выполняется',
-      paused: 'Обезличенная демонстрация',
+      control: 'ИИ не отправляет запрос и не меняет сделку самостоятельно.',
+      running: 'Авторазбор',
+      paused: 'Ручной режим',
       reduced: 'Автовоспроизведение отключено настройкой уменьшения движения.',
     },
     phases: [
-      { short: 'Факты', label: 'Собирает разрешённый контекст', description: 'Сервер передаёт только события и документы, доступные выбранной роли.', result: 'Контекст собран без выхода за ролевую границу.', icon: 'documents' },
-      { short: 'Связи', label: 'Связывает события и основания', description: 'Срок, документ, рейс и денежное основание складываются в одну причинную цепочку.', result: 'Виден источник каждого вывода.', icon: 'execution' },
-      { short: 'Риск', label: 'Выявляет отклонение', description: 'ИИ сравнивает текущий ход сделки с согласованным сценарием исполнения.', result: 'Риск обнаружен до критического срока.', icon: 'risk' },
-      { short: 'Почему', label: 'Объясняет причину и влияние', description: 'Результат раскрывает, какой факт вызвал сигнал и что он меняет для сделки.', result: 'Участник видит причину, срок и деньги под риском.', icon: 'intelligence' },
-      { short: 'Действие', label: 'Готовит следующий шаг', description: 'ИИ формирует ролевую рекомендацию и оставляет критическое действие за человеком.', result: 'Следующий шаг готов к подтверждению.', icon: 'check' },
+      {
+        short: 'Факты',
+        label: 'Получает разрешённый контекст',
+        description: 'Сервер передаёт только события и документы, доступные выбранной роли.',
+        result: 'Контекст собран без выхода за ролевую границу.',
+        icon: 'documents',
+      },
+      {
+        short: 'Связи',
+        label: 'Связывает события и основания',
+        description: 'Срок, документ, рейс и денежное основание складываются в одну причинную цепочку.',
+        result: 'Источник каждого вывода остаётся видимым.',
+        icon: 'execution',
+      },
+      {
+        short: 'Риск',
+        label: 'Обнаруживает отклонение',
+        description: 'ИИ сравнивает ход сделки с согласованным сценарием исполнения.',
+        result: 'Риск найден до критического срока.',
+        icon: 'risk',
+      },
+      {
+        short: 'Почему',
+        label: 'Объясняет причину и влияние',
+        description: 'Участник видит, какой факт вызвал сигнал и что именно он меняет.',
+        result: 'Причина, срок и деньги под риском собраны в одном выводе.',
+        icon: 'intelligence',
+      },
+      {
+        short: 'Действие',
+        label: 'Готовит следующий шаг',
+        description: 'ИИ формирует ролевую рекомендацию, но значимое действие оставляет человеку.',
+        result: 'Следующий шаг готов к подтверждению.',
+        icon: 'check',
+      },
     ],
     roles: {
       buyer: { label: 'Покупатель', focus: 'Поставка и расчёт', icon: 'buyer' },
@@ -132,22 +177,60 @@ const COPY: Record<Locale, Copy> = {
     scenarios: {
       documents: {
         label: 'Документы',
-        short: 'Протокол не подтверждён',
+        short: 'Протокол отсутствует',
         title: 'Расчёт под риском задержки',
         reason: 'Лабораторный протокол отсутствует, а до контрольного срока остаётся 6 часов.',
         impact: 'Расчёт не получает подтверждённого основания; следующая отгрузка может выйти из окна.',
         deadline: '6 часов',
         money: '6,9 млн ₽',
         facts: [
-          { label: 'Сделка', value: 'Пшеница 3 класса · 500 т', source: 'Карточка сделки', detail: 'Цена, объём и базис зафиксированы в доступном ролевом контуре.', icon: 'execution' },
-          { label: 'Приёмка', value: 'Вес подтверждён', source: 'Акт приёмки v3', detail: 'Элеватор подтвердил фактический вес и время приёмки.', icon: 'elevator' },
-          { label: 'Лаборатория', value: 'Протокол отсутствует', source: 'Реестр документов', detail: 'Ожидаемый лабораторный протокол не связан со сделкой.', icon: 'lab', attention: true },
-          { label: 'Расчёт', value: 'Основание неполное', source: 'Денежный контур', detail: 'Выпуск расчёта требует подтверждённого качества и полного комплекта документов.', icon: 'money', attention: true },
+          {
+            label: 'Сделка',
+            value: 'Пшеница 3 класса · 500 т',
+            source: 'Карточка сделки',
+            detail: 'Цена, объём и базис зафиксированы в доступном ролевом контуре.',
+            icon: 'execution',
+          },
+          {
+            label: 'Приёмка',
+            value: 'Вес подтверждён',
+            source: 'Акт приёмки v3',
+            detail: 'Элеватор подтвердил фактический вес и время приёмки.',
+            icon: 'elevator',
+          },
+          {
+            label: 'Лаборатория',
+            value: 'Протокол отсутствует',
+            source: 'Реестр документов',
+            detail: 'Ожидаемый лабораторный протокол не связан со сделкой.',
+            icon: 'lab',
+            attention: true,
+          },
+          {
+            label: 'Расчёт',
+            value: 'Основание неполное',
+            source: 'Денежный контур',
+            detail: 'Выпуск расчёта требует подтверждённого качества и полного комплекта документов.',
+            icon: 'money',
+            attention: true,
+          },
         ],
         actions: {
-          buyer: { owner: 'Покупатель → лаборатория', action: 'Запросить протокол и открыть основания проверки', outcome: 'Проверить качество до выпуска расчёта' },
-          seller: { owner: 'Продавец → лаборатория', action: 'Приложить протокол к сделке и уведомить покупателя', outcome: 'Восстановить комплектность документов' },
-          operator: { owner: 'Оператор', action: 'Создать эскалацию по SLA лаборатории', outcome: 'Снять блокер до контрольного срока' },
+          buyer: {
+            owner: 'Покупатель → лаборатория',
+            action: 'Запросить протокол и открыть основания проверки',
+            outcome: 'Проверить качество до выпуска расчёта',
+          },
+          seller: {
+            owner: 'Продавец → лаборатория',
+            action: 'Приложить протокол к сделке и уведомить покупателя',
+            outcome: 'Восстановить комплектность документов',
+          },
+          operator: {
+            owner: 'Оператор',
+            action: 'Создать эскалацию по SLA лаборатории',
+            outcome: 'Снять блокер до контрольного срока',
+          },
         },
       },
       quality: {
@@ -159,15 +242,53 @@ const COPY: Record<Locale, Copy> = {
         deadline: 'до 14:30',
         money: '1,8 млн ₽',
         facts: [
-          { label: 'Условия', value: 'Белок ≥ 12,0%', source: 'Спецификация сделки', detail: 'Допуск качества зафиксирован до отгрузки.', icon: 'documents' },
-          { label: 'Проба', value: 'Связана с партией', source: 'Акт отбора пробы', detail: 'Проба имеет связь с рейсом, партией и временем отбора.', icon: 'surveyor' },
-          { label: 'Результат', value: 'Белок 11,2%', source: 'Лабораторный протокол', detail: 'Показатель отклоняется от согласованного минимума на 0,8 п.п.', icon: 'lab', attention: true },
-          { label: 'Расчёт', value: 'Ожидает решения', source: 'Денежный контур', detail: 'До подтверждения сценария урегулирования выпуск денег недоступен.', icon: 'money', attention: true },
+          {
+            label: 'Условия',
+            value: 'Белок ≥ 12,0%',
+            source: 'Спецификация сделки',
+            detail: 'Допуск качества зафиксирован до отгрузки.',
+            icon: 'documents',
+          },
+          {
+            label: 'Проба',
+            value: 'Связана с партией',
+            source: 'Акт отбора пробы',
+            detail: 'Проба имеет связь с рейсом, партией и временем отбора.',
+            icon: 'surveyor',
+          },
+          {
+            label: 'Результат',
+            value: 'Белок 11,2%',
+            source: 'Лабораторный протокол',
+            detail: 'Показатель отклоняется от согласованного минимума на 0,8 п.п.',
+            icon: 'lab',
+            attention: true,
+          },
+          {
+            label: 'Расчёт',
+            value: 'Ожидает решения',
+            source: 'Денежный контур',
+            detail: 'До подтверждения сценария урегулирования выпуск денег недоступен.',
+            icon: 'money',
+            attention: true,
+          },
         ],
         actions: {
-          buyer: { owner: 'Покупатель', action: 'Открыть сверку качества и предложить сценарий приёмки', outcome: 'Принять решение на подтверждённых показателях' },
-          seller: { owner: 'Продавец', action: 'Проверить протокол и запросить повторную пробу при необходимости', outcome: 'Защитить позицию доказательствами' },
-          operator: { owner: 'Оператор', action: 'Собрать пакет расхождения и запустить регламент урегулирования', outcome: 'Не допустить неуправляемого спора' },
+          buyer: {
+            owner: 'Покупатель',
+            action: 'Открыть сверку качества и предложить сценарий приёмки',
+            outcome: 'Принять решение на подтверждённых показателях',
+          },
+          seller: {
+            owner: 'Продавец',
+            action: 'Проверить протокол и запросить повторную пробу при необходимости',
+            outcome: 'Защитить позицию доказательствами',
+          },
+          operator: {
+            owner: 'Оператор',
+            action: 'Собрать пакет расхождения и запустить регламент урегулирования',
+            outcome: 'Не допустить неуправляемого спора',
+          },
         },
       },
       logistics: {
@@ -179,66 +300,131 @@ const COPY: Record<Locale, Copy> = {
         deadline: 'до 17:00',
         money: '82 тыс. ₽',
         facts: [
-          { label: 'Рейс', value: 'TR-2048', source: 'Карточка рейса', detail: 'Рейс связан с текущей партией и ответственными участниками.', icon: 'logistics' },
-          { label: 'Маршрут', value: 'Тамбов → Воронеж', source: 'Маршрут исполнения', detail: 'Контрольные точки и плановое время прибытия зафиксированы.', icon: 'driver' },
-          { label: 'ETA', value: '+4 часа', source: 'Событие движения', detail: 'Текущее расчётное прибытие выходит за окно приёмки.', icon: 'risk', attention: true },
-          { label: 'Простой', value: 'Тариф после 17:00', source: 'Транспортные условия', detail: 'После контрольного времени начинает действовать тариф ожидания.', icon: 'money', attention: true },
+          {
+            label: 'Рейс',
+            value: 'TR-2048',
+            source: 'Карточка рейса',
+            detail: 'Рейс связан с текущей партией и ответственными участниками.',
+            icon: 'logistics',
+          },
+          {
+            label: 'Маршрут',
+            value: 'Тамбов → Воронеж',
+            source: 'Маршрут исполнения',
+            detail: 'Контрольные точки и плановое время прибытия зафиксированы.',
+            icon: 'driver',
+          },
+          {
+            label: 'ETA',
+            value: '+4 часа',
+            source: 'Событие движения',
+            detail: 'Текущее расчётное прибытие выходит за окно приёмки.',
+            icon: 'risk',
+            attention: true,
+          },
+          {
+            label: 'Простой',
+            value: 'Тариф после 17:00',
+            source: 'Транспортные условия',
+            detail: 'После контрольного времени начинает действовать тариф ожидания.',
+            icon: 'money',
+            attention: true,
+          },
         ],
         actions: {
-          buyer: { owner: 'Покупатель → элеватор', action: 'Согласовать новое окно и подтвердить изменение', outcome: 'Избежать неопределённого ожидания машины' },
-          seller: { owner: 'Продавец → логистика', action: 'Подтвердить новый ETA и влияние на срок поставки', outcome: 'Сохранить проверяемый след исполнения' },
-          operator: { owner: 'Оператор', action: 'Запустить согласование между водителем, логистикой и элеватором', outcome: 'Снять межролевой блокер до простоя' },
+          buyer: {
+            owner: 'Покупатель → элеватор',
+            action: 'Согласовать новое окно и подтвердить изменение',
+            outcome: 'Избежать неопределённого ожидания машины',
+          },
+          seller: {
+            owner: 'Продавец → логистика',
+            action: 'Подтвердить новый ETA и влияние на срок поставки',
+            outcome: 'Сохранить проверяемый след исполнения',
+          },
+          operator: {
+            owner: 'Оператор',
+            action: 'Запустить согласование между водителем, логистикой и элеватором',
+            outcome: 'Снять межролевой блокер до простоя',
+          },
         },
       },
     },
-    principles: {
-      eyebrow: 'Что происходит внутри',
-      title: 'Не чат ради чата, а объяснимый слой исполнения',
-      lead: 'Рабочий контур сочетает ограниченный доступ, фактические основания, понятное объяснение и контроль человека.',
-      items: [
-        { title: 'Видит разрешённый контекст', body: 'Роль и доступ проверяются сервером. Чужие сделки и документы не попадают в анализ.', icon: 'participants' },
-        { title: 'Опирается на основания', body: 'Каждый вывод связан со сроком, документом, рейсом, качеством или денежным событием.', icon: 'documents' },
-        { title: 'Объясняет вывод', body: 'Пользователь видит не только сигнал, но и причину, влияние, ответственного и срок.', icon: 'intelligence' },
-        { title: 'Оставляет решение человеку', body: 'ИИ готовит следующий шаг; отправка и критические действия требуют подтверждения.', icon: 'compliance' },
-      ],
-    },
     boundary: {
-      eyebrow: 'Проверяемые границы',
-      title: 'Что ИИ делает — и чего не делает',
-      lead: 'Публичная страница показывает обезличенный сценарий. Рабочий помощник действует внутри подтверждённой роли и не подменяет полномочия участников.',
+      eyebrow: 'Три проверяемые границы',
+      title: 'Полезный ИИ без скрытых полномочий',
+      lead: 'Один раз фиксируем правила — не повторяем их по всей странице.',
       cards: [
-        { label: 'Данные', value: 'Только доступная роль', note: 'Сервер ограничивает факты текущей организацией и полномочиями.', icon: 'participants' },
-        { label: 'Режим', value: 'Только чтение', note: 'ИИ объясняет и рекомендует, но сам не меняет состояние сделки.', icon: 'documents' },
-        { label: 'Действие', value: 'Подтверждает человек', note: 'Запрос, эскалация и любое значимое действие остаются за пользователем.', icon: 'check' },
-        { label: 'Объяснение', value: 'Основания видимы', note: 'Причина и влияние связаны с конкретными фактами, документами и сроками.', icon: 'intelligence' },
+        {
+          title: 'Только разрешённые данные',
+          body: 'Роль и организация проверяются сервером. Чужие сделки и документы не попадают в анализ.',
+          icon: 'participants',
+        },
+        {
+          title: 'Не изменяет сделку сам',
+          body: 'ИИ объясняет и готовит действие. Отправка, эскалация и изменение состояния требуют человека.',
+          icon: 'compliance',
+        },
+        {
+          title: 'Показывает основания',
+          body: 'Причина, срок и влияние связаны с конкретным документом, событием или условием сделки.',
+          icon: 'documents',
+        },
       ],
     },
     final: {
       eyebrow: 'Следующий шаг',
       title: 'Посмотрите ИИ внутри своего ролевого контура',
-      lead: 'Подключённая организация получает помощника, который объясняет доступные сделки, блокеры, основания и следующий шаг.',
-      primary: 'Войти в платформу',
-      secondary: 'Разобрать демонстрационную сделку',
+      lead: 'Разберите сценарий ещё раз или войдите в платформу, чтобы увидеть помощника в доступных вам сделках.',
+      primary: 'Разобрать демонстрационную сделку',
+      secondary: 'Войти в платформу',
     },
   },
   en: {
     hero: {
-      eyebrow: 'AI is active in the platform',
-      title: 'From a deal event to an understandable action',
-      lead: 'The interactive walkthrough shows how AI collects permitted facts, connects them to documents and deadlines, identifies risk, explains the cause and prepares the next step for a specific role.',
-      primary: 'Run the scenario',
-      secondary: 'See the boundaries',
-      badges: ['Role-scoped access', 'Server facts', 'Read-only', 'Human confirmation'],
+      eyebrow: 'AI in the execution loop',
+      title: 'AI sees the deal blocker before it delays settlement',
+      lead: 'It connects permitted facts, documents, deadlines and money, explains the risk and prepares the next step for a specific role.',
+      signal: 'Protocol missing · 6 hours left · RUB 6.9m at risk',
+      primary: 'Run analysis',
+      secondary: 'See boundaries',
+    },
+    demo: {
+      eyebrow: 'Interactive analysis',
+      title: 'One scenario. Five clear stages.',
+      lead: 'Choose a situation and role. The screen keeps only the current stage, its evidence and the participant result.',
     },
     labels: {
-      scenario: 'Scenario', role: 'View as', facts: 'Fact stream', evidence: 'Open evidence', analysis: 'Analysis layer', result: 'Participant result', reason: 'Reason', impact: 'Impact', deadline: 'Control deadline', money: 'Money at risk', owner: 'Owner', next: 'Next step', previous: 'Back', nextStep: 'Next', play: 'Play', pause: 'Pause', reset: 'Restart', confirm: 'Confirm demonstrative step', confirmed: 'Step confirmed in the demonstration', control: 'AI prepares the decision but does not send requests or change deal state without user action.', useful: 'Useful', adjust: 'Needs adjustment', usefulDone: 'The explanation was marked useful.', adjustDone: 'Noted: the explanation needs refinement.', running: 'Scenario is running', paused: 'Anonymised demonstration', reduced: 'Autoplay is disabled by the reduced-motion preference.',
+      scenario: 'Scenario',
+      role: 'Role',
+      phase: 'Stage',
+      facts: 'Permitted facts',
+      evidence: 'Open evidence',
+      result: 'Participant result',
+      reason: 'Reason',
+      impact: 'Impact',
+      deadline: 'Deadline',
+      money: 'At risk',
+      owner: 'Owner',
+      next: 'Next step',
+      previous: 'Back',
+      nextStep: 'Next',
+      play: 'Play',
+      pause: 'Pause',
+      reset: 'Restart',
+      confirm: 'Confirm prepared step',
+      confirmed: 'Step confirmed in the demonstration',
+      control: 'AI does not send requests or change the deal on its own.',
+      running: 'Autoplay',
+      paused: 'Manual mode',
+      reduced: 'Autoplay is disabled by the reduced-motion preference.',
     },
     phases: [
-      { short: 'Facts', label: 'Collects permitted context', description: 'The server supplies only events and documents available to the selected role.', result: 'Context is collected without crossing the role boundary.', icon: 'documents' },
-      { short: 'Links', label: 'Connects events and grounds', description: 'Deadlines, documents, trips and payment grounds form one causal chain.', result: 'The source of every conclusion is visible.', icon: 'execution' },
-      { short: 'Risk', label: 'Identifies deviation', description: 'AI compares the current deal flow with the agreed execution scenario.', result: 'Risk is surfaced before the control deadline.', icon: 'risk' },
-      { short: 'Why', label: 'Explains cause and impact', description: 'The result shows which fact triggered the signal and what it changes.', result: 'The participant sees the cause, deadline and money at risk.', icon: 'intelligence' },
-      { short: 'Action', label: 'Prepares the next step', description: 'AI prepares a role-specific recommendation and leaves the consequential action to the person.', result: 'The next step is ready for confirmation.', icon: 'check' },
+      { short: 'Facts', label: 'Receives permitted context', description: 'The server supplies only events and documents available to the selected role.', result: 'Context is collected without crossing the role boundary.', icon: 'documents' },
+      { short: 'Links', label: 'Connects events and grounds', description: 'Deadlines, documents, trips and payment grounds form one causal chain.', result: 'The source of every conclusion remains visible.', icon: 'execution' },
+      { short: 'Risk', label: 'Detects deviation', description: 'AI compares the deal flow with the agreed execution scenario.', result: 'Risk is found before the control deadline.', icon: 'risk' },
+      { short: 'Why', label: 'Explains cause and impact', description: 'The participant sees which fact triggered the signal and what it changes.', result: 'Cause, deadline and money at risk are combined in one conclusion.', icon: 'intelligence' },
+      { short: 'Action', label: 'Prepares the next step', description: 'AI prepares a role-specific recommendation while leaving consequential action to the person.', result: 'The next step is ready for confirmation.', icon: 'check' },
     ],
     roles: {
       buyer: { label: 'Buyer', focus: 'Delivery and settlement', icon: 'buyer' },
@@ -247,7 +433,7 @@ const COPY: Record<Locale, Copy> = {
     },
     scenarios: {
       documents: {
-        label: 'Documents', short: 'Protocol not confirmed', title: 'Settlement is at risk of delay', reason: 'The laboratory protocol is missing, with six hours left before the control deadline.', impact: 'Settlement has no confirmed ground, and the next shipment may miss its window.', deadline: '6 hours', money: 'RUB 6.9m',
+        label: 'Documents', short: 'Protocol missing', title: 'Settlement is at risk of delay', reason: 'The laboratory protocol is missing, with six hours left before the control deadline.', impact: 'Settlement has no confirmed ground, and the next shipment may miss its window.', deadline: '6 hours', money: 'RUB 6.9m',
         facts: [
           { label: 'Deal', value: 'Class 3 wheat · 500 t', source: 'Deal record', detail: 'Price, volume and basis are fixed inside the permitted role scope.', icon: 'execution' },
           { label: 'Acceptance', value: 'Weight confirmed', source: 'Acceptance act v3', detail: 'The elevator confirmed actual weight and acceptance time.', icon: 'elevator' },
@@ -289,44 +475,46 @@ const COPY: Record<Locale, Copy> = {
         },
       },
     },
-    principles: {
-      eyebrow: 'What happens inside',
-      title: 'Not chat for its own sake, but an explainable execution layer',
-      lead: 'The working layer combines restricted access, factual grounds, understandable explanation and human control.',
-      items: [
-        { title: 'Sees permitted context', body: 'Role and access are verified by the server. Other deals and documents never enter the analysis.', icon: 'participants' },
-        { title: 'Uses evidence', body: 'Every conclusion is tied to a deadline, document, trip, quality result or money event.', icon: 'documents' },
-        { title: 'Explains the result', body: 'The user sees the signal, cause, impact, owner and deadline.', icon: 'intelligence' },
-        { title: 'Leaves action to people', body: 'AI prepares the next step; sending and consequential actions require confirmation.', icon: 'compliance' },
-      ],
-    },
     boundary: {
-      eyebrow: 'Verifiable boundaries',
-      title: 'What AI does — and does not do',
-      lead: 'The public page uses an anonymised scenario. The working assistant operates inside a verified role and does not replace participant authority.',
+      eyebrow: 'Three verifiable boundaries',
+      title: 'Useful AI without hidden authority',
+      lead: 'The operating rules are stated once instead of repeated throughout the page.',
       cards: [
-        { label: 'Data', value: 'Accessible role only', note: 'The server limits facts to the current organisation and permissions.', icon: 'participants' },
-        { label: 'Mode', value: 'Read-only', note: 'AI explains and recommends but does not change deal state.', icon: 'documents' },
-        { label: 'Action', value: 'Confirmed by a person', note: 'Requests, escalations and consequential actions remain with the user.', icon: 'check' },
-        { label: 'Explanation', value: 'Evidence is visible', note: 'Cause and impact are tied to specific facts, documents and deadlines.', icon: 'intelligence' },
+        { title: 'Permitted data only', body: 'Role and organisation are checked by the server. Other deals and documents never enter the analysis.', icon: 'participants' },
+        { title: 'No autonomous deal changes', body: 'AI explains and prepares an action. Sending, escalation and state changes require a person.', icon: 'compliance' },
+        { title: 'Evidence stays visible', body: 'Cause, deadline and impact are tied to a specific document, event or deal condition.', icon: 'documents' },
       ],
     },
     final: {
-      eyebrow: 'Next step', title: 'See AI inside your role scope', lead: 'A connected organisation gets an assistant that explains accessible deals, blockers, grounds and next steps.', primary: 'Sign in', secondary: 'Review the demonstration deal',
+      eyebrow: 'Next step',
+      title: 'See AI inside your role scope',
+      lead: 'Review the scenario again or sign in to see the assistant in the deals available to you.',
+      primary: 'Review the demonstration deal',
+      secondary: 'Sign in',
     },
   },
   zh: {
     hero: {
-      eyebrow: 'AI 已在平台中运行', title: '从交易事件到清晰行动', lead: '交互式演示展示 AI 如何收集获授权事实、关联文件与期限、识别风险、解释原因，并为特定角色准备下一步。', primary: '启动场景', secondary: '查看边界', badges: ['角色权限', '服务器事实', '只读模式', '人工确认'],
+      eyebrow: '交易执行中的 AI',
+      title: 'AI 在结算延误前发现交易阻塞',
+      lead: '它关联获授权事实、文件、期限与资金，解释风险，并为特定角色准备下一步。',
+      signal: '报告缺失 · 剩余 6 小时 · 690 万卢布处于风险中',
+      primary: '启动分析',
+      secondary: '查看边界',
+    },
+    demo: {
+      eyebrow: '交互式分析',
+      title: '一个场景，五个清晰阶段。',
+      lead: '选择场景与角色。屏幕只保留当前阶段、依据和参与方结果。',
     },
     labels: {
-      scenario: '场景', role: '角色视角', facts: '事实流', evidence: '当前依据', analysis: '分析层', result: '参与方结果', reason: '原因', impact: '影响', deadline: '控制期限', money: '风险金额', owner: '负责人', next: '下一步', previous: '上一步', nextStep: '下一步', play: '播放', pause: '暂停', reset: '重新开始', confirm: '确认演示步骤', confirmed: '演示步骤已确认', control: 'AI 准备决策，但未经用户操作不会发送请求或改变交易状态。', useful: '有帮助', adjust: '需要调整', usefulDone: '该解释已标记为有帮助。', adjustDone: '已记录：解释需要调整。', running: '场景正在运行', paused: '匿名演示', reduced: '系统根据减少动态效果的设置关闭了自动播放。',
+      scenario: '场景', role: '角色', phase: '阶段', facts: '授权事实', evidence: '公开依据', result: '参与方结果', reason: '原因', impact: '影响', deadline: '期限', money: '风险金额', owner: '负责人', next: '下一步', previous: '上一步', nextStep: '下一步', play: '播放', pause: '暂停', reset: '重新开始', confirm: '确认准备好的步骤', confirmed: '演示步骤已确认', control: 'AI 不会自行发送请求或更改交易。', running: '自动播放', paused: '手动模式', reduced: '系统根据减少动态效果的设置关闭了自动播放。',
     },
     phases: [
-      { short: '事实', label: '收集获授权上下文', description: '服务器只提供当前角色可访问的事件和文件。', result: '在不跨越角色边界的情况下完成上下文收集。', icon: 'documents' },
-      { short: '关联', label: '关联事件与依据', description: '期限、文件、运输和付款依据形成一条因果链。', result: '每个结论的来源都清晰可见。', icon: 'execution' },
-      { short: '风险', label: '识别偏差', description: 'AI 将当前交易进度与约定的履约场景进行比较。', result: '在控制期限前发现风险。', icon: 'risk' },
-      { short: '原因', label: '解释原因与影响', description: '结果说明触发信号的事实以及它对交易的影响。', result: '参与方看到原因、期限和风险金额。', icon: 'intelligence' },
+      { short: '事实', label: '接收授权上下文', description: '服务器只提供当前角色可访问的事件和文件。', result: '在不跨越角色边界的情况下完成上下文收集。', icon: 'documents' },
+      { short: '关联', label: '关联事件与依据', description: '期限、文件、运输和付款依据形成一条因果链。', result: '每个结论的来源保持可见。', icon: 'execution' },
+      { short: '风险', label: '发现偏差', description: 'AI 将当前交易进度与约定的履约场景进行比较。', result: '在控制期限前发现风险。', icon: 'risk' },
+      { short: '原因', label: '解释原因与影响', description: '参与方看到触发信号的事实以及它对交易的影响。', result: '原因、期限和风险金额汇总在一个结论中。', icon: 'intelligence' },
       { short: '行动', label: '准备下一步', description: 'AI 形成角色化建议，重要操作仍由人工执行。', result: '下一步已准备好等待确认。', icon: 'check' },
     ],
     roles: {
@@ -336,7 +524,7 @@ const COPY: Record<Locale, Copy> = {
     },
     scenarios: {
       documents: {
-        label: '文件', short: '报告未确认', title: '结算存在延迟风险', reason: '实验室报告缺失，距离控制期限还有 6 小时。', impact: '结算缺少已确认依据，下一批发运可能错过窗口。', deadline: '6 小时', money: '690 万卢布',
+        label: '文件', short: '报告缺失', title: '结算存在延迟风险', reason: '实验室报告缺失，距离控制期限还有 6 小时。', impact: '结算缺少已确认依据，下一批发运可能错过窗口。', deadline: '6 小时', money: '690 万卢布',
         facts: [
           { label: '交易', value: '三等小麦 · 500 吨', source: '交易记录', detail: '价格、数量和基准在授权角色范围内已固定。', icon: 'execution' },
           { label: '收货', value: '重量已确认', source: '收货单 v3', detail: '粮库确认了实际重量和收货时间。', icon: 'elevator' },
@@ -378,26 +566,22 @@ const COPY: Record<Locale, Copy> = {
         },
       },
     },
-    principles: {
-      eyebrow: '内部如何工作', title: '不是为了聊天，而是可解释的履约层', lead: '工作层结合受限访问、事实依据、清晰解释和人工控制。',
-      items: [
-        { title: '只查看授权上下文', body: '服务器验证角色与权限，其他交易和文件不会进入分析。', icon: 'participants' },
-        { title: '使用事实依据', body: '每个结论都关联期限、文件、运输、质量结果或资金事件。', icon: 'documents' },
-        { title: '解释输出', body: '用户看到信号、原因、影响、负责人和期限。', icon: 'intelligence' },
-        { title: '由人工执行操作', body: 'AI 准备下一步；发送和重要操作需要人工确认。', icon: 'compliance' },
-      ],
-    },
     boundary: {
-      eyebrow: '可验证边界', title: 'AI 做什么，以及不做什么', lead: '公开页面使用匿名场景。工作助手只在已验证角色范围内运行，不替代参与方权限。',
+      eyebrow: '三个可验证边界',
+      title: '有用的 AI，不拥有隐藏权限',
+      lead: '规则只说明一次，不在整页重复。',
       cards: [
-        { label: '数据', value: '仅当前角色可访问', note: '服务器将事实限制在当前组织和权限范围内。', icon: 'participants' },
-        { label: '模式', value: '只读', note: 'AI 解释并提出建议，但不会改变交易状态。', icon: 'documents' },
-        { label: '操作', value: '由人工确认', note: '请求、升级和重要操作仍由用户执行。', icon: 'check' },
-        { label: '解释', value: '依据清晰可见', note: '原因和影响与具体事实、文件和期限相关联。', icon: 'intelligence' },
+        { title: '只使用授权数据', body: '服务器验证角色与组织，其他交易和文件不会进入分析。', icon: 'participants' },
+        { title: '不会自行修改交易', body: 'AI 解释并准备操作；发送、升级和状态变更需要人工执行。', icon: 'compliance' },
+        { title: '依据始终可见', body: '原因、期限和影响与具体文件、事件或交易条件相关联。', icon: 'documents' },
       ],
     },
     final: {
-      eyebrow: '下一步', title: '在你的角色范围内体验 AI', lead: '接入组织后，助手会解释可访问的交易、阻塞、依据和下一步。', primary: '登录平台', secondary: '查看演示交易',
+      eyebrow: '下一步',
+      title: '在你的角色范围内体验 AI',
+      lead: '再次查看场景，或登录平台查看当前角色可访问交易中的助手。',
+      primary: '查看演示交易',
+      secondary: '登录平台',
     },
   },
 };
@@ -419,16 +603,14 @@ export function PublicAiInActionExperience({ locale }: { locale: string }) {
   const [playing, setPlaying] = React.useState(true);
   const [selectedFact, setSelectedFact] = React.useState(0);
   const [confirmed, setConfirmed] = React.useState(false);
-  const [feedback, setFeedback] = React.useState<'useful' | 'adjust' | null>(null);
   const [reducedMotion, setReducedMotion] = React.useState(false);
 
   const scenario = ui.scenarios[scenarioKey];
   const role = ui.roles[roleKey];
   const roleAction = scenario.actions[roleKey];
   const phase = ui.phases[phaseIndex] ?? ui.phases[0]!;
-  const visibleFactCount = Math.min(scenario.facts.length, Math.max(1, phaseIndex + 1));
-  const factIndex = Math.min(selectedFact, visibleFactCount - 1);
-  const activeFact = scenario.facts[factIndex] ?? scenario.facts[0]!;
+  const activeFact = scenario.facts[selectedFact] ?? scenario.facts[0]!;
+  const ready = phaseIndex === ui.phases.length - 1;
 
   React.useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -445,15 +627,18 @@ export function PublicAiInActionExperience({ locale }: { locale: string }) {
     if (!playing || reducedMotion) return;
     const timer = window.setInterval(() => {
       setPhaseIndex((current) => (current + 1) % ui.phases.length);
-    }, 3200);
+    }, 3000);
     return () => window.clearInterval(timer);
   }, [playing, reducedMotion, ui.phases.length]);
+
+  React.useEffect(() => {
+    setSelectedFact(Math.min(phaseIndex, scenario.facts.length - 1));
+  }, [phaseIndex, scenario.facts.length]);
 
   const reset = React.useCallback(() => {
     setPhaseIndex(0);
     setSelectedFact(0);
     setConfirmed(false);
-    setFeedback(null);
   }, []);
 
   const changeScenario = (next: ScenarioKey) => {
@@ -466,22 +651,6 @@ export function PublicAiInActionExperience({ locale }: { locale: string }) {
     reset();
   };
 
-  const sectionTitle = localeKey === 'ru'
-    ? 'Посмотрите работу ИИ по шагам'
-    : localeKey === 'en'
-      ? 'See the AI flow step by step'
-      : '逐步查看 AI 的工作过程';
-  const sectionLead = localeKey === 'ru'
-    ? 'Переключайте сценарий и роль, запускайте анимацию, открывайте основания и подтверждайте демонстрационный следующий шаг.'
-    : localeKey === 'en'
-      ? 'Switch scenario and role, play the animation, open evidence and confirm a demonstrative next step.'
-      : '切换场景与角色，播放动画，查看依据并确认演示中的下一步。';
-  const factBoundary = localeKey === 'ru'
-    ? 'ИИ получает только факты, доступные выбранной роли.'
-    : localeKey === 'en'
-      ? 'AI receives only facts available to the selected role.'
-      : 'AI 只接收当前角色可访问的事实。';
-
   return (
     <div className={styles.experience} data-phase={phaseIndex} data-playing={playing ? 'true' : 'false'}>
       <section className={styles.hero} aria-labelledby='pc-ai-demo-title'>
@@ -491,33 +660,35 @@ export function PublicAiInActionExperience({ locale }: { locale: string }) {
               <span className='pc-ppe-kicker'>{ui.hero.eyebrow}</span>
               <h1 id='pc-ai-demo-title'>{ui.hero.title}</h1>
               <p>{ui.hero.lead}</p>
+              <div className={styles.heroSignalCard}>
+                <PublicExperienceIcon name='risk' size={20} />
+                <strong>{ui.hero.signal}</strong>
+              </div>
               <div className={styles.heroActions}>
-                <a href='#scenario' className={styles.primaryLink}><span>{ui.hero.primary}</span><PublicExperienceIcon name='arrow' size={20} /></a>
+                <a href='#scenario' className={styles.primaryLink}>
+                  <span>{ui.hero.primary}</span>
+                  <PublicExperienceIcon name='arrow' size={20} />
+                </a>
                 <a href='#boundaries' className={styles.secondaryLink}>{ui.hero.secondary}</a>
               </div>
-              <ul className={styles.heroBadges} aria-label={ui.hero.eyebrow}>
-                {ui.hero.badges.map((badge, index) => (
-                  <li key={badge}>
-                    <PublicExperienceIcon name={index === 0 ? 'participants' : index === 1 ? 'documents' : index === 2 ? 'compliance' : 'check'} size={17} />
-                    <span>{badge}</span>
-                  </li>
-                ))}
-              </ul>
             </div>
-            <div className={styles.heroVisual} aria-hidden='true'>
-              <div className={styles.heroGridLines} />
-              <span className={styles.heroSignal} data-position='one'><i /></span>
-              <span className={styles.heroSignal} data-position='two'><i /></span>
-              <span className={styles.heroSignal} data-position='three'><i /></span>
-              <div className={styles.heroCore}>
-                <span className={styles.heroCoreIcon}><PublicExperienceIcon name='intelligence' size={40} /></span>
+
+            <div className={styles.heroVisual} aria-label={scenario.title}>
+              <div className={styles.heroGridLines} aria-hidden='true' />
+              <span className={styles.heroPulse} data-position='one' aria-hidden='true' />
+              <span className={styles.heroPulse} data-position='two' aria-hidden='true' />
+              <div className={styles.heroCore} aria-hidden='true'>
+                <PublicExperienceIcon name='intelligence' size={38} />
                 <strong>AI</strong>
                 <small>{phase.short}</small>
               </div>
-              <div className={styles.heroOutput}>
-                <span>{scenario.short}</span>
+              <div className={styles.heroResult}>
+                <span>{ui.labels.result}</span>
                 <strong>{scenario.title}</strong>
-                <small>{roleAction.action}</small>
+                <dl>
+                  <div><dt>{ui.labels.deadline}</dt><dd>{scenario.deadline}</dd></div>
+                  <div><dt>{ui.labels.money}</dt><dd>{scenario.money}</dd></div>
+                </dl>
               </div>
             </div>
           </div>
@@ -527,9 +698,9 @@ export function PublicAiInActionExperience({ locale }: { locale: string }) {
       <section id='scenario' className={styles.scenarioSection} aria-labelledby='pc-ai-scenario-title'>
         <div className={styles.shell}>
           <header className={styles.sectionHeader}>
-            <span className='pc-ppe-section-eyebrow'>{ui.hero.eyebrow}</span>
-            <h2 id='pc-ai-scenario-title'>{sectionTitle}</h2>
-            <p>{sectionLead}</p>
+            <span className='pc-ppe-section-eyebrow'>{ui.demo.eyebrow}</span>
+            <h2 id='pc-ai-scenario-title'>{ui.demo.title}</h2>
+            <p>{ui.demo.lead}</p>
           </header>
 
           <div className={styles.selectorGrid}>
@@ -537,16 +708,19 @@ export function PublicAiInActionExperience({ locale }: { locale: string }) {
               <legend>{ui.labels.scenario}</legend>
               <div className={styles.segmented}>
                 {SCENARIO_KEYS.map((key) => (
-                  <button key={key} type='button' aria-pressed={scenarioKey === key} data-active={scenarioKey === key ? 'true' : 'false'} onClick={() => changeScenario(key)}>{ui.scenarios[key].label}</button>
+                  <button key={key} type='button' aria-pressed={scenarioKey === key} data-active={scenarioKey === key ? 'true' : 'false'} onClick={() => changeScenario(key)}>
+                    {ui.scenarios[key].label}
+                  </button>
                 ))}
               </div>
             </fieldset>
+
             <fieldset className={styles.selector}>
               <legend>{ui.labels.role}</legend>
               <div className={styles.segmented}>
                 {ROLE_KEYS.map((key) => (
                   <button key={key} type='button' aria-pressed={roleKey === key} data-active={roleKey === key ? 'true' : 'false'} onClick={() => changeRole(key)}>
-                    <PublicExperienceIcon name={ui.roles[key].icon} size={17} />
+                    <PublicExperienceIcon name={ui.roles[key].icon} size={16} />
                     {ui.roles[key].label}
                   </button>
                 ))}
@@ -554,56 +728,36 @@ export function PublicAiInActionExperience({ locale }: { locale: string }) {
             </fieldset>
           </div>
 
-          <div className={styles.runStatus} role='status' aria-live='polite'>
-            <span data-live={playing && !reducedMotion ? 'true' : 'false'} />
-            <strong>{playing && !reducedMotion ? ui.labels.running : ui.labels.paused}</strong>
-            <span>{phase.label}: {phase.result}</span>
+          <div className={styles.phaseHeader}>
+            <div className={styles.runStatus} role='status' aria-live='polite'>
+              <span data-live={playing && !reducedMotion ? 'true' : 'false'} />
+              <strong>{playing && !reducedMotion ? ui.labels.running : ui.labels.paused}</strong>
+              <small>{ui.labels.phase} {phaseIndex + 1}/{ui.phases.length}</small>
+            </div>
+
+            <ol className={styles.phaseTrack} aria-label={ui.labels.phase}>
+              {ui.phases.map((item, index) => (
+                <li key={item.label} data-state={index < phaseIndex ? 'complete' : index === phaseIndex ? 'active' : 'pending'}>
+                  <button type='button' aria-current={index === phaseIndex ? 'step' : undefined} onClick={() => setPhaseIndex(index)} title={item.label}>
+                    <span>{index + 1}</span>
+                    <strong>{item.short}</strong>
+                  </button>
+                </li>
+              ))}
+            </ol>
           </div>
 
-          <ol className={styles.phaseTrack} aria-label={ui.labels.analysis}>
-            {ui.phases.map((item, index) => (
-              <li key={item.label} data-state={index < phaseIndex ? 'complete' : index === phaseIndex ? 'active' : 'pending'}>
-                <button type='button' aria-current={index === phaseIndex ? 'step' : undefined} onClick={() => setPhaseIndex(index)}>
-                  <span className={styles.phaseIndex}>{index + 1}</span>
-                  <span className={styles.phaseIcon}><PublicExperienceIcon name={item.icon} size={19} /></span>
-                  <span><strong>{item.short}</strong><small>{item.label}</small></span>
-                </button>
-              </li>
-            ))}
-          </ol>
-
-          <div className={styles.cockpit}>
-            <article className={styles.factPanel}>
+          <div className={styles.workspace}>
+            <article className={styles.stagePanel} aria-labelledby='pc-ai-core-title'>
               <header>
-                <div><span>{ui.labels.facts}</span><h3>{scenario.short}</h3></div>
-                <small>{visibleFactCount}/{scenario.facts.length}</small>
+                <div>
+                  <span>{ui.labels.phase} {phaseIndex + 1}</span>
+                  <small>{phase.result}</small>
+                </div>
+                <i>read_only</i>
               </header>
-              <p>{factBoundary}</p>
-              <ul className={styles.factList}>
-                {scenario.facts.map((fact, index) => {
-                  const visible = index < visibleFactCount;
-                  const selected = visible && index === factIndex;
-                  return (
-                    <li key={`${scenarioKey}-${fact.label}`} data-visible={visible ? 'true' : 'false'}>
-                      <button type='button' disabled={!visible} aria-pressed={selected} data-selected={selected ? 'true' : 'false'} data-tone={fact.attention ? 'attention' : 'confirmed'} onClick={() => setSelectedFact(index)}>
-                        <span className={styles.factIcon}><PublicExperienceIcon name={fact.icon} size={19} /></span>
-                        <span><small>{fact.label}</small><strong>{visible ? fact.value : '••••••••'}</strong></span>
-                        <i aria-hidden='true' />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className={styles.evidenceDetail} aria-live='polite'>
-                <span>{ui.labels.evidence}</span>
-                <strong>{activeFact.source}</strong>
-                <p>{activeFact.detail}</p>
-              </div>
-            </article>
 
-            <article className={styles.aiPanel} aria-labelledby='pc-ai-core-title'>
-              <header><span>{ui.labels.analysis}</span><small>read_only</small></header>
-              <div className={styles.aiStage}>
+              <div className={styles.stageBody}>
                 <div className={styles.orbit} aria-hidden='true'>
                   <span className={styles.orbitRing} data-ring='one' />
                   <span className={styles.orbitRing} data-ring='two' />
@@ -612,87 +766,93 @@ export function PublicAiInActionExperience({ locale }: { locale: string }) {
                   <span className={styles.orbitNode} data-node='one' />
                   <span className={styles.orbitNode} data-node='two' />
                   <span className={styles.orbitNode} data-node='three' />
-                  <div className={styles.aiOrb}><PublicExperienceIcon name={phase.icon} size={34} /></div>
+                  <div className={styles.aiOrb}><PublicExperienceIcon name={phase.icon} size={32} /></div>
                 </div>
-                <div className={styles.aiNarrative} role='status' aria-live='polite'>
+
+                <div className={styles.stageNarrative} role='status' aria-live='polite'>
                   <span>{phase.short}</span>
                   <h3 id='pc-ai-core-title'>{phase.label}</h3>
                   <p>{phase.description}</p>
                   <strong>{phase.result}</strong>
                 </div>
               </div>
-              <dl className={styles.aiContracts}>
-                <div><dt>scope</dt><dd>{role.label}</dd></div>
-                <div><dt>facts</dt><dd>{visibleFactCount} verified</dd></div>
-                <div><dt>action</dt><dd>confirmation_required</dd></div>
-              </dl>
+
+              <div className={styles.factArea}>
+                <span className={styles.factAreaLabel}>{ui.labels.facts}</span>
+                <div className={styles.factRail}>
+                  {scenario.facts.map((fact, index) => (
+                    <button key={`${scenarioKey}-${fact.label}`} type='button' aria-pressed={selectedFact === index} data-selected={selectedFact === index ? 'true' : 'false'} data-tone={fact.attention ? 'attention' : 'confirmed'} onClick={() => setSelectedFact(index)}>
+                      <span><PublicExperienceIcon name={fact.icon} size={17} /></span>
+                      <small>{fact.label}</small>
+                      <strong>{fact.value}</strong>
+                    </button>
+                  ))}
+                </div>
+
+                <div className={styles.evidenceDetail} aria-live='polite'>
+                  <span>{ui.labels.evidence}</span>
+                  <strong>{activeFact.source}</strong>
+                  <p>{activeFact.detail}</p>
+                </div>
+              </div>
             </article>
 
-            <article className={styles.decisionPanel} data-ready={phaseIndex >= 3 ? 'true' : 'false'}>
+            <article id='result' className={styles.resultPanel} data-ready={ready ? 'true' : 'false'}>
               <header>
-                <div><span>{ui.labels.result}</span><small>{role.label} · {role.focus}</small></div>
-                <span className={styles.riskBadge}><PublicExperienceIcon name='risk' size={17} />{scenario.short}</span>
+                <div>
+                  <span>{ui.labels.result}</span>
+                  <small>{role.label} · {role.focus}</small>
+                </div>
+                <span className={styles.riskBadge}>
+                  <PublicExperienceIcon name='risk' size={16} />
+                  {scenario.short}
+                </span>
               </header>
-              <h3>{phaseIndex >= 2 ? scenario.title : '—'}</h3>
-              <div className={styles.decisionReason} data-visible={phaseIndex >= 3 ? 'true' : 'false'}>
-                <span>{ui.labels.reason}</span><p>{scenario.reason}</p>
+
+              <h3>{scenario.title}</h3>
+
+              <div className={styles.reasonCard}>
+                <span>{ui.labels.reason}</span>
+                <p>{scenario.reason}</p>
               </div>
+
               <dl className={styles.metrics}>
-                <div><dt>{ui.labels.impact}</dt><dd>{phaseIndex >= 3 ? scenario.impact : '—'}</dd></div>
-                <div><dt>{ui.labels.deadline}</dt><dd>{phaseIndex >= 2 ? scenario.deadline : '—'}</dd></div>
-                <div><dt>{ui.labels.money}</dt><dd>{phaseIndex >= 2 ? scenario.money : '—'}</dd></div>
-                <div><dt>{ui.labels.owner}</dt><dd>{phaseIndex >= 4 ? roleAction.owner : '—'}</dd></div>
+                <div><dt>{ui.labels.deadline}</dt><dd>{scenario.deadline}</dd></div>
+                <div><dt>{ui.labels.money}</dt><dd>{scenario.money}</dd></div>
+                <div className={styles.metricWide}><dt>{ui.labels.impact}</dt><dd>{scenario.impact}</dd></div>
+                <div className={styles.metricWide}><dt>{ui.labels.owner}</dt><dd>{roleAction.owner}</dd></div>
               </dl>
-              <div className={styles.nextAction} data-visible={phaseIndex >= 4 ? 'true' : 'false'}>
-                <span>{ui.labels.next}</span><strong>{roleAction.action}</strong><p>{roleAction.outcome}</p>
+
+              <div className={styles.nextAction}>
+                <span>{ui.labels.next}</span>
+                <strong>{roleAction.action}</strong>
+                <p>{roleAction.outcome}</p>
               </div>
-              <button type='button' className={styles.confirmButton} disabled={phaseIndex < 4 || confirmed} data-confirmed={confirmed ? 'true' : 'false'} onClick={() => setConfirmed(true)}>
-                <PublicExperienceIcon name='check' size={19} />
+
+              <button type='button' className={styles.confirmButton} disabled={!ready || confirmed} data-confirmed={confirmed ? 'true' : 'false'} onClick={() => setConfirmed(true)}>
+                <PublicExperienceIcon name='check' size={18} />
                 <span>{confirmed ? ui.labels.confirmed : ui.labels.confirm}</span>
               </button>
               <p className={styles.controlNote}>{ui.labels.control}</p>
-              <div className={styles.feedback}>
-                <span>{feedback === 'useful' ? ui.labels.usefulDone : feedback === 'adjust' ? ui.labels.adjustDone : ''}</span>
-                <div>
-                  <button type='button' aria-pressed={feedback === 'useful'} onClick={() => setFeedback('useful')}>{ui.labels.useful}</button>
-                  <button type='button' aria-pressed={feedback === 'adjust'} onClick={() => setFeedback('adjust')}>{ui.labels.adjust}</button>
-                </div>
-              </div>
             </article>
           </div>
 
           <div className={styles.transportControls}>
             <button type='button' onClick={() => setPhaseIndex((current) => (current - 1 + ui.phases.length) % ui.phases.length)}>
-              <span className={styles.reverseArrow}><PublicExperienceIcon name='arrow' size={19} /></span>{ui.labels.previous}
+              <span className={styles.reverseArrow}><PublicExperienceIcon name='arrow' size={18} /></span>
+              {ui.labels.previous}
             </button>
             <button type='button' className={styles.playButton} onClick={() => setPlaying((current) => !current)} aria-pressed={playing}>
-              <PublicExperienceIcon name={playing ? 'pause' : 'play'} size={19} />{playing ? ui.labels.pause : ui.labels.play}
+              <PublicExperienceIcon name={playing ? 'pause' : 'play'} size={18} />
+              {playing ? ui.labels.pause : ui.labels.play}
             </button>
             <button type='button' onClick={() => setPhaseIndex((current) => (current + 1) % ui.phases.length)}>
-              {ui.labels.nextStep}<PublicExperienceIcon name='arrow' size={19} />
+              {ui.labels.nextStep}
+              <PublicExperienceIcon name='arrow' size={18} />
             </button>
-            <button type='button' onClick={reset}>{ui.labels.reset}</button>
+            <button type='button' className={styles.resetButton} onClick={reset}>{ui.labels.reset}</button>
           </div>
           {reducedMotion ? <p className={styles.reducedMotionNote}>{ui.labels.reduced}</p> : null}
-        </div>
-      </section>
-
-      <section id='principles' className={styles.principlesSection} aria-labelledby='pc-ai-principles-title'>
-        <div className={styles.shell}>
-          <header className={styles.sectionHeader}>
-            <span className='pc-ppe-section-eyebrow'>{ui.principles.eyebrow}</span>
-            <h2 id='pc-ai-principles-title'>{ui.principles.title}</h2>
-            <p>{ui.principles.lead}</p>
-          </header>
-          <div className={styles.principleGrid}>
-            {ui.principles.items.map((item, index) => (
-              <article key={item.title}>
-                <span className={styles.principleNumber}>{String(index + 1).padStart(2, '0')}</span>
-                <span className={styles.principleIcon}><PublicExperienceIcon name={item.icon} size={24} /></span>
-                <h3>{item.title}</h3><p>{item.body}</p>
-              </article>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -703,11 +863,13 @@ export function PublicAiInActionExperience({ locale }: { locale: string }) {
             <h2 id='pc-ai-boundary-title'>{ui.boundary.title}</h2>
             <p>{ui.boundary.lead}</p>
           </header>
+
           <div className={styles.boundaryGrid}>
             {ui.boundary.cards.map((card) => (
-              <article key={card.label}>
-                <span className={styles.boundaryIcon}><PublicExperienceIcon name={card.icon} size={23} /></span>
-                <small>{card.label}</small><strong>{card.value}</strong><p>{card.note}</p>
+              <article key={card.title}>
+                <span className={styles.boundaryIcon}><PublicExperienceIcon name={card.icon} size={22} /></span>
+                <h3>{card.title}</h3>
+                <p>{card.body}</p>
               </article>
             ))}
           </div>
@@ -721,8 +883,11 @@ export function PublicAiInActionExperience({ locale }: { locale: string }) {
             <h2 id='pc-ai-final-title'>{ui.final.title}</h2>
             <p>{ui.final.lead}</p>
             <div className={styles.finalActions}>
-              <a href='/platform-v7/login' className={styles.primaryLink}><span>{ui.final.primary}</span><PublicExperienceIcon name='arrow' size={20} /></a>
-              <a href={`/platform-v7/how-it-works?lang=${localeKey}&entry=deal`} className={styles.secondaryLink}>{ui.final.secondary}</a>
+              <a href='#scenario' className={styles.primaryLink}>
+                <span>{ui.final.primary}</span>
+                <PublicExperienceIcon name='arrow' size={20} />
+              </a>
+              <a href='/platform-v7/login' className={styles.secondaryLink}>{ui.final.secondary}</a>
             </div>
           </div>
         </div>

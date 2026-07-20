@@ -20,7 +20,7 @@ import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experien
 
 export const metadata: Metadata = {
   title: 'Как ИИ работает в платформе — Прозрачная Цена',
-  description: 'Интерактивный анимированный показ: как ИИ собирает разрешённые факты сделки, выявляет риск, объясняет причину и готовит следующий шаг под подтверждением участника.',
+  description: 'Интерактивный разбор: как ИИ видит блокер сделки, связывает разрешённые факты с документами и сроками, объясняет риск и готовит следующий шаг под подтверждением человека.',
   alternates: {
     canonical: '/platform-v7/ai-in-action',
     languages: {
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Как ИИ работает в платформе — Прозрачная Цена',
-    description: 'Интерактивный ролевой AI-показ: факты, анализ, риск, объяснение, следующий шаг и подтверждение человека.',
+    description: 'Конкретный ролевой AI-разбор: блокер, основания, срок, деньги под риском и следующий шаг.',
     url: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/ai-in-action',
     siteName: 'Прозрачная Цена',
     locale: 'ru_RU',
@@ -52,20 +52,20 @@ export const metadata: Metadata = {
 
 const PAGE_COPY = {
   ru: {
-    scenario: 'Анимация ИИ',
-    principles: 'Как работает',
+    scenario: 'Разбор',
+    result: 'Результат',
     boundaries: 'Границы',
     home: 'На главную',
   },
   en: {
-    scenario: 'AI animation',
-    principles: 'How it works',
+    scenario: 'Analysis',
+    result: 'Result',
     boundaries: 'Boundaries',
     home: 'Home',
   },
   zh: {
-    scenario: 'AI 动画',
-    principles: '运作方式',
+    scenario: '分析',
+    result: '结果',
     boundaries: '边界',
     home: '首页',
   },
@@ -82,14 +82,14 @@ export default async function PublicAiInActionPage() {
   const nav = (
     <>
       <a href='#scenario'>{pageCopy.scenario}</a>
-      <a href='#principles'>{pageCopy.principles}</a>
+      <a href='#result'>{pageCopy.result}</a>
       <a href='#boundaries'>{pageCopy.boundaries}</a>
       <a href='/platform-v7'>{pageCopy.home}</a>
     </>
   );
 
   return (
-    <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-ai-in-action-authority'>
+    <main id='main-content' className='pc-ppe-page pc-ai-in-action-page' data-testid='platform-v7-ai-in-action-authority'>
       <span data-ai-experience-route='/platform-v7/ai-in-action' hidden>
         interactive-animated-ai-explainer
       </span>
