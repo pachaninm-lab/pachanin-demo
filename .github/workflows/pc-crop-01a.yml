@@ -6,6 +6,7 @@ on:
     paths:
       - 'packages/domain-core/package.json'
       - 'packages/domain-core/tsconfig.pc-crop.json'
+      - 'packages/domain-core/vitest.pc-crop.config.ts'
       - 'packages/domain-core/src/index.ts'
       - 'packages/domain-core/src/commodity-profile.ts'
       - 'packages/domain-core/src/commodity-profile.test.ts'
@@ -19,6 +20,7 @@ on:
     paths:
       - 'packages/domain-core/package.json'
       - 'packages/domain-core/tsconfig.pc-crop.json'
+      - 'packages/domain-core/vitest.pc-crop.config.ts'
       - 'packages/domain-core/src/index.ts'
       - 'packages/domain-core/src/commodity-profile.ts'
       - 'packages/domain-core/src/commodity-profile.test.ts'
@@ -65,7 +67,7 @@ jobs:
       - name: Run commodity profile domain tests
         run: |
           set -o pipefail
-          pnpm exec vitest run packages/domain-core/src/commodity-profile.test.ts \
+          pnpm exec vitest run --config packages/domain-core/vitest.pc-crop.config.ts \
             2>&1 | tee pc-crop-01a-domain-tests.log
 
       - name: Typecheck domain authority
