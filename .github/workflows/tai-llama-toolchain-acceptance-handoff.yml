@@ -52,6 +52,10 @@ jobs:
           EVENT_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
+          if [ -n "$(git status --porcelain=v1 --untracked-files=all)" ]; then
+            echo "CHECKOUT_NOT_CLEAN" >&2
+            exit 1
+          fi
           mkdir -p handoff-work
 
           gh api "repos/$REPOSITORY/actions/runs/$RUN_ID" \
@@ -67,11 +71,11 @@ jobs:
           REPOSITORY="$REPOSITORY" \
           RUN_ID="$RUN_ID" \
           EVENT_HEAD_SHA="$EVENT_HEAD_SHA" \
-          AUTHORITY_SHA256="$AUTHORITY_SHA256" \
           python - <<'PY'
           import json
           import os
           import re
+          import subprocess
           from pathlib import Path
 
           root = Path("handoff-work")
@@ -108,19 +112,25 @@ jobs:
           require(run.get("triggering_actor", {}).get("login") == owner, "SOURCE_TRIGGERING_ACTOR_NOT_OWNER")
           require(run.get("run_attempt", 0) >= 1, "SOURCE_RUN_ATTEMPT_INVALID")
           require(main_ref.get("object", {}).get("sha") == expected_head_sha, "SOURCE_RUN_NOT_CURRENT_EXACT_MAIN")
-          require(os.popen("git rev-parse HEAD").read().strip() == expected_head_sha, "CHECKOUT_SHA_MISMATCH")
-          require(os.popen("git status --porcelain=v1 --untracked-files=all").read() == "", "CHECKOUT_NOT_CLEAN")
+          checkout_sha = subprocess.check_output(
+              ["git", "rev-parse", "HEAD"], text=True
+          ).strip()
+          require(checkout_sha == expected_head_sha, "CHECKOUT_SHA_MISMATCH")
 
           run_attempt = int(run["run_attempt"])
           locator_name = f"tai-llama-toolchain-locator-{expected_head_sha}-{expected_run_id}-{run_attempt}"
           package_name = f"tai-llama-toolchain-build-{expected_head_sha}-{expected_run_id}-{run_attempt}"
           matching_locator = [
-              artifact for artifact in artifacts
-              if artifact.get("name") == locator_name and artifact.get("expired") is False
+              artifact
+              for artifact in artifacts
+              if artifact.get("name") == locator_name
+              and artifact.get("expired") is False
           ]
           matching_package = [
-              artifact for artifact in artifacts
-              if artifact.get("name") == package_name and artifact.get("expired") is False
+              artifact
+              for artifact in artifacts
+              if artifact.get("name") == package_name
+              and artifact.get("expired") is False
           ]
           require(len(matching_locator) == 1, "LOCATOR_ARTIFACT_CARDINALITY_INVALID")
           require(len(matching_package) == 1, "PACKAGE_ARTIFACT_CARDINALITY_INVALID")
@@ -146,16 +156,15 @@ jobs:
                   f"{label}_ARTIFACT_HEAD_SHA_MISMATCH",
               )
 
-          source = {
+          trusted = {
               "run": run,
               "locator_artifact": locator,
               "package_artifact": package,
           }
           (root / "trusted-source.json").write_text(
-              json.dumps(source, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+              json.dumps(trusted, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
           )
-          output = Path(os.environ["GITHUB_OUTPUT"])
-          with output.open("a", encoding="utf-8") as stream:
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:
               stream.write(f"locator_id={locator['id']}\n")
               stream.write(f"locator_name={locator_name}\n")
               stream.write(f"package_id={package['id']}\n")
@@ -225,6 +234,14 @@ jobs:
               if not condition:
                   raise SystemExit(reason)
 
+          def api_digest(value: object, reason: str) -> str:
+              require(
+                  isinstance(value, str)
+                  and re.fullmatch(r"sha256:[0-9a-f]{64}", value) is not None,
+                  reason,
+              )
+              return value.split(":", 1)[1]
+
           head_sha = os.environ["SOURCE_HEAD_SHA"]
           run_id = int(os.environ["SOURCE_RUN_ID"])
           run_attempt = int(os.environ["SOURCE_RUN_ATTEMPT"])
@@ -244,12 +261,17 @@ jobs:
           require(str(locator.get("artifact", {}).get("id")) == os.environ["PACKAGE_ARTIFACT_ID"], "LOCATOR_PACKAGE_ID_MISMATCH")
           require(locator.get("artifact", {}).get("name") == os.environ["PACKAGE_ARTIFACT_NAME"], "LOCATOR_PACKAGE_NAME_MISMATCH")
           require(locator.get("artifact", {}).get("retention_days") == 90, "LOCATOR_RETENTION_INVALID")
+          locator_package_digest = locator.get("artifact", {}).get("digest", "")
           require(
-              re.fullmatch(r"sha256:[0-9a-f]{64}", locator.get("artifact", {}).get("digest", "")) is not None,
+              re.fullmatch(r"[0-9a-f]{64}", locator_package_digest) is not None,
               "LOCATOR_PACKAGE_DIGEST_INVALID",
           )
+          package_api_digest = api_digest(
+              trusted["package_artifact"].get("digest"),
+              "PACKAGE_ARTIFACT_DIGEST_INVALID",
+          )
           require(
-              locator["artifact"]["digest"] == trusted["package_artifact"]["digest"],
+              locator_package_digest == package_api_digest,
               "LOCATOR_PACKAGE_API_DIGEST_MISMATCH",
           )
           require(locator.get("package_index", {}).get("sha256") == digest(package_index_path), "PACKAGE_INDEX_HASH_MISMATCH")
@@ -266,20 +288,31 @@ jobs:
           require(package_index.get("retention_days") == 90, "PACKAGE_INDEX_RETENTION_INVALID")
           for field in ("package", "build_evidence", "verification_report"):
               record = package_index.get(field, {})
-              require(re.fullmatch(r"[0-9a-f]{64}", record.get("sha256", "")) is not None, f"{field.upper()}_HASH_INVALID")
-              require(isinstance(record.get("size_bytes"), int) and record["size_bytes"] > 0, f"{field.upper()}_SIZE_INVALID")
+              require(
+                  re.fullmatch(r"[0-9a-f]{64}", record.get("sha256", "")) is not None,
+                  f"{field.upper()}_HASH_INVALID",
+              )
+              require(
+                  isinstance(record.get("size_bytes"), int)
+                  and record["size_bytes"] > 0,
+                  f"{field.upper()}_SIZE_INVALID",
+              )
+          require(package_index["package"]["sha256"] == locator_package_digest, "PACKAGE_ARCHIVE_HASH_MISMATCH")
 
+          require(restored.get("schema_version") == "tai.llama-cpp-toolchain-verification-report.v1", "RESTORED_SCHEMA_INVALID")
           require(restored.get("status") == "VERIFIED", "RESTORED_STATUS_INVALID")
           require(restored.get("reasons") == [], "RESTORED_REASONS_NOT_EMPTY")
+          require(restored.get("authority_sha256") == authority_sha, "RESTORED_AUTHORITY_MISMATCH")
           require(restored.get("verified_targets") == expected_targets, "RESTORED_TARGETS_INVALID")
 
-          source_run = trusted["run"]
           locator_artifact = trusted["locator_artifact"]
           package_artifact = trusted["package_artifact"]
+          source_run = trusted["run"]
           require(str(locator_artifact["id"]) == os.environ["LOCATOR_ARTIFACT_ID"], "LOCATOR_API_ID_MISMATCH")
           require(locator_artifact["name"] == os.environ["LOCATOR_ARTIFACT_NAME"], "LOCATOR_API_NAME_MISMATCH")
           require(str(package_artifact["id"]) == os.environ["PACKAGE_ARTIFACT_ID"], "PACKAGE_API_ID_MISMATCH")
           require(package_artifact["name"] == os.environ["PACKAGE_ARTIFACT_NAME"], "PACKAGE_API_NAME_MISMATCH")
+          locator_api_digest = api_digest(locator_artifact.get("digest"), "LOCATOR_API_DIGEST_INVALID")
 
           acceptance = {
               "schema_version": "tai.llama-cpp-build-acceptance-handoff.v1",
@@ -312,7 +345,7 @@ jobs:
               "locator_artifact": {
                   "id": locator_artifact["id"],
                   "name": locator_artifact["name"],
-                  "digest": locator_artifact["digest"],
+                  "sha256": locator_api_digest,
                   "size_bytes": locator_artifact["size_in_bytes"],
                   "created_at": locator_artifact["created_at"],
                   "expires_at": locator_artifact["expires_at"],
@@ -320,7 +353,7 @@ jobs:
               "package_artifact": {
                   "id": package_artifact["id"],
                   "name": package_artifact["name"],
-                  "digest": package_artifact["digest"],
+                  "sha256": package_api_digest,
                   "size_bytes": package_artifact["size_in_bytes"],
                   "created_at": package_artifact["created_at"],
                   "expires_at": package_artifact["expires_at"],
@@ -354,17 +387,18 @@ jobs:
               json.dumps(acceptance, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
           )
 
-          locator_text = locator_path.read_text()
+          marker = f"tai-llama-cpp-build-acceptance-handoff:v1 run={run_id}"
           handoff_text = handoff_path.read_text()
+          locator_text = locator_path.read_text()
           body = (
-              "<!-- tai-llama-cpp-build-acceptance-handoff:v1 -->\n"
+              f"<!-- {marker} -->\n"
               f"## AP-13B.2b verified build handoff — run `{run_id}`\n\n"
               f"- exact main: `{head_sha}`\n"
               f"- restored status: `{restored['status']}`\n"
               f"- package SHA-256: `{package_index['package']['sha256']}`\n"
               f"- package bytes: `{package_index['package']['size_bytes']}`\n"
-              f"- operational status: `NOT_ATTESTED`\n"
-              f"- next authority step: separate exact-head/exact-main acceptance PR; do not close #2832 before merge.\n\n"
+              "- operational status: `NOT_ATTESTED`\n"
+              "- next authority step: separate exact-head/exact-main acceptance PR; do not close #2832 before merge.\n\n"
               "<details><summary>Machine-readable acceptance handoff</summary>\n\n"
               "```json\n" + handoff_text + "```\n"
               "</details>\n\n"
@@ -373,10 +407,9 @@ jobs:
               "</details>\n"
           )
           require(len(body.encode("utf-8")) < 60000, "ISSUE_COMMENT_TOO_LARGE")
-          (root / "issue-comment.md").write_text(body)
-          request = {"body": body}
+          (root / "comment-marker.txt").write_text(marker)
           (root / "issue-comment-request.json").write_text(
-              json.dumps(request, ensure_ascii=False)
+              json.dumps({"body": body}, ensure_ascii=False)
           )
           PY
 
@@ -385,13 +418,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           set -euo pipefail
-          marker="tai-llama-cpp-build-acceptance-handoff:v1"
+          marker="$(cat handoff-work/comment-marker.txt)"
           duplicate_count="$(
-            gh api --paginate "repos/$REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100" \
-              --jq "[.[] | select(.body | contains(\"$marker\")) | select(.body | contains(\"run \`$RUN_ID\`\"))] | length" \
+            gh api --paginate \
+              "repos/$REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100" \
+              --jq "[.[] | select(.body | contains(\"$marker\"))] | length" \
               | awk '{sum += $1} END {print sum + 0}'
           )"
           test "$duplicate_count" = '0'

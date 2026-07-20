@@ -108,6 +108,19 @@ def test_source_run_and_artifact_identity_are_checked_fail_closed() -> None:
     assert "actions/runs/$RUN_ID/artifacts?per_page=100" in workflow
 
 
+def test_checkout_is_validated_before_workflow_creates_untracked_evidence() -> None:
+    workflow = workflow_text()
+    validation_step = workflow[
+        workflow.index("      - name: Validate trusted source run and exact-main binding") :
+        workflow.index("      - name: Download only the locator artifact")
+    ]
+
+    assert validation_step.index("CHECKOUT_NOT_CLEAN") < validation_step.index(
+        "mkdir -p handoff-work"
+    )
+    assert 'os.popen("git status --porcelain=v1 --untracked-files=all")' not in workflow
+
+
 def test_handoff_downloads_only_the_small_locator_artifact() -> None:
     workflow = workflow_text()
     download_step = workflow[
@@ -146,6 +159,15 @@ def test_locator_restore_and_exact_authority_are_independently_verified() -> Non
     assert "PACKAGE_INDEX_HASH_MISMATCH" in workflow
     assert "RESTORED_REPORT_HASH_MISMATCH" in workflow
     assert "LOCATOR_PACKAGE_API_DIGEST_MISMATCH" in workflow
+
+
+def test_api_digest_is_normalized_before_comparison_with_locator_digest() -> None:
+    workflow = workflow_text()
+
+    assert 're.fullmatch(r"sha256:[0-9a-f]{64}", value)' in workflow
+    assert 'return value.split(":", 1)[1]' in workflow
+    assert 're.fullmatch(r"[0-9a-f]{64}", locator_package_digest)' in workflow
+    assert "locator_package_digest == package_api_digest" in workflow
 
 
 def test_handoff_is_machine_readable_duplicate_safe_and_not_an_acceptance_claim() -> None:
