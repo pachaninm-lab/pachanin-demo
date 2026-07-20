@@ -1,0 +1,27 @@
+name: public entry watch report 2026-07-20
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read exact watch artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github+json' \
+            /repos/${{ github.repository }}/actions/artifacts/8474607988/zip > /tmp/watch.zip
+          mkdir -p /tmp/watch
+          unzip -q /tmp/watch.zip -d /tmp/watch
+          cat /tmp/watch/summary.txt
+          jq '{ok,checkedAt,http,loginFailClosed,issues}' /tmp/watch/public-entry-watch.json
