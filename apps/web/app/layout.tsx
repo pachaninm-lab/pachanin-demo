@@ -1,4 +1,5 @@
 import './globals.css';
+import '../styles/platform-v7-spacing-system.css';
 import './platform-v7/_styles/fixed-header-contract.css';
 import './platform-v7/_styles/public-supporting-shell.css';
 import './platform-v7/_styles/public-header-accessibility.css';
