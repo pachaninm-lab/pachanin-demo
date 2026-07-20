@@ -1,0 +1,43 @@
+name: TAI Model Preflight Observer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-model-preflight-observer.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  observe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Report exact-main release and model preflight runs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          exact_main="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
+          printf 'EXACT_MAIN=%s\n' "$exact_main"
+
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?branch=main&per_page=30" \
+            --jq ".workflow_runs[] | select(.head_sha == \"$exact_main\") | [\"RELEASE\",.id,.status,.conclusion,.event,.head_sha,.run_number,.run_attempt,.created_at,.updated_at] | @tsv" \
+            | head -1 || true
+
+          gh api "/repos/$REPOSITORY/actions/runs?head_sha=$exact_main&per_page=100" \
+            --jq '.workflow_runs[] | select(.name == "TAI Foundation" or .name == "CI" or .name == "Node CI" or .name == "Security Scan" or .name == "Security Quality Gate" or .name == "Security Abuse and Evidence Acceptance" or .name == "Runtime Context Security Gate" or .name == "Auction Atomic Execution Acceptance" or .name == "Outbox PostgreSQL Authority Acceptance" or .name == "Disputes PostgreSQL Authority Acceptance" or .name == "Optional Runtime Retirement Gate" or .name == "Dependency Review") | ["GATE",.name,.id,.status,.conclusion,.head_sha] | @tsv' \
+            | sort -u
+
+          for workflow in \
+            tai-model-host-capacity-probe.yml \
+            tai-model-host-preflight.yml
+          do
+            gh api "/repos/$REPOSITORY/actions/workflows/$workflow/runs?branch=main&per_page=20" \
+              --jq '.workflow_runs[] | ["MODEL_RUN",.name,.id,.status,.conclusion,.event,.head_sha,.run_number,.run_attempt,.created_at,.updated_at] | @tsv' \
+              | head -3 || true
+          done
