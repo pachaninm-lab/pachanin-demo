@@ -1,0 +1,27 @@
+name: TAI AP-13C-D Assembly Observer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-ap13cd-assembly-observer.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  observe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Extract assembly diagnostic
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          ASSEMBLY_JOB_ID: '88328913550'
+        run: |
+          set -euo pipefail
+          gh api "/repos/$REPOSITORY/actions/jobs/$ASSEMBLY_JOB_ID/logs" > assembly.log
+          grep -aE 'ASSEMBLED_|ASSEMBLY_|SyntaxError|IndentationError|##\[error\]|Process completed' assembly.log | tail -30 || true
