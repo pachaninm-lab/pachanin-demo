@@ -1,4 +1,4 @@
-name: TAI Source Acquisition Observer
+name: TAI Source Acquisition Trigger Patcher
 
 on:
   pull_request:
@@ -7,32 +7,92 @@ on:
       - .github/workflows/tai-source-acquisition-observer.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  observe:
+  patch:
+    if: >-
+      github.actor == github.repository_owner &&
+      github.head_ref == 'agent/tai-source-acquisition-observer'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      TARGET_BRANCH: agent/tai-ap-13b3-source-acquisition-trigger-fix
+      TARGET_PATH: .github/workflows/tai-model-source-acquisition.yml
     steps:
-      - name: Validate exact-main acquisition workflow with pinned actionlint
+      - name: Patch target workflow without rewriting unrelated content
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: |
-          set -uo pipefail
-          gh api "/repos/$REPOSITORY/contents/.github/workflows/tai-model-source-acquisition.yml?ref=main" \
-            --jq '.content' \
-            | tr -d '\n' \
-            | base64 -d \
-            > acquisition.yml
-          set +e
+          set -euo pipefail
+          gh api "/repos/$REPOSITORY/contents/$TARGET_PATH?ref=$TARGET_BRANCH" \
+            > source.json
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+
+          source = json.loads(Path('source.json').read_text())
+          text = base64.b64decode(source['content']).decode('utf-8')
+          expression = '$' + '{{ matrix.key }}'
+          invalid = (
+              '      ORIGINAL_ROOT: $' + '{{ runner.temp }}/tai-' + expression + '-original\n'
+              '      RESTORE_ROOT: $' + '{{ runner.temp }}/tai-' + expression + '-restore\n'
+          )
+          binding = (
+              "      - name: Bind ephemeral acquisition roots\n"
+              "        shell: bash\n"
+              "        run: |\n"
+              "          set -euo pipefail\n"
+              "          printf 'ORIGINAL_ROOT=%s\\n' \\\n"
+              "            \"$RUNNER_TEMP/tai-" + expression + "-original\" \\\n"
+              "            >> \"$GITHUB_ENV\"\n"
+              "          printf 'RESTORE_ROOT=%s\\n' \\\n"
+              "            \"$RUNNER_TEMP/tai-" + expression + "-restore\" \\\n"
+              "            >> \"$GITHUB_ENV\"\n\n"
+          )
+          anchor = (
+              "      - name: Setup Python\n"
+              "        uses: actions/setup-python@v5\n"
+              "        with:\n"
+              "          python-version: '3.12'\n\n"
+          )
+
+          if invalid not in text:
+              if binding in text:
+                  Path('patched.yml').write_text(text)
+                  Path('content-sha.txt').write_text(source['sha'])
+                  raise SystemExit(0)
+              raise SystemExit('expected invalid runner.temp block is absent')
+          if text.count(invalid) != 1 or text.count(anchor) != 1:
+              raise SystemExit('workflow patch anchors are not unique')
+          patched = text.replace(invalid, '', 1).replace(anchor, anchor + binding, 1)
+          Path('patched.yml').write_text(patched)
+          Path('content-sha.txt').write_text(source['sha'])
+          PY
+
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 \
-            -format '{{json .}}' \
-            acquisition.yml \
-            > actionlint.jsonl 2>&1
-          status=$?
-          set -e
-          printf 'ACTIONLINT_EXIT=%s\n' "$status"
-          cat actionlint.jsonl
-          exit "$status"
+            .github/workflows/tai-source-acquisition-observer.yml >/dev/null
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 \
+            patched.yml
+
+          python - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+
+          payload = {
+              'message': 'fix(tai): bind acquisition roots at runtime',
+              'content': base64.b64encode(Path('patched.yml').read_bytes()).decode(),
+              'sha': Path('content-sha.txt').read_text().strip(),
+              'branch': os.environ['TARGET_BRANCH'],
+          }
+          Path('payload.json').write_text(json.dumps(payload))
+          PY
+          gh api "/repos/$REPOSITORY/contents/$TARGET_PATH" \
+            --method PUT \
+            --input payload.json
