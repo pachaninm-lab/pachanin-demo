@@ -113,10 +113,10 @@ const COPY: Record<Locale, RegistryCopy> = {
     loadingBody: 'Список формирует сервер с учётом участия и полномочий.',
     unavailableTitle: 'Реестр временно недоступен',
     retry: 'Повторить',
-    accessDenied: 'Доступ к сделкам не подтверждён. Войди заново.',
-    loadFailed: 'Не удалось загрузить реестр сделок.',
-    invalidPayload: 'Сервер вернул некорректный реестр сделок.',
-    timeout: 'Сервер не ответил вовремя. Повтори загрузку.',
+    accessDenied: 'Доступ к реестру сделок не подтверждён. Войдите под рабочей учётной записью и повторите.',
+    loadFailed: 'Не удалось загрузить реестр сделок. Проверьте соединение и повторите.',
+    invalidPayload: 'Сервер вернул некорректный реестр сделок. Повторите позже.',
+    timeout: 'Сервер не ответил вовремя. Повторите загрузку.',
     offline: 'Нет связи с сервером. Реестр не был заменён локальными данными.',
     emptyTitle: 'Активных сделок пока нет',
     emptyBody: 'Сделка появится здесь только после подтверждения вашего участия сервером.',
@@ -129,7 +129,7 @@ const COPY: Record<Locale, RegistryCopy> = {
     exportLoading: 'Формируем Excel…',
     exportButton: 'Скачать показанные сделки',
     refreshLabel: 'Обновить реестр сделок',
-    exportError: 'Не удалось сформировать Excel. Повтори действие.',
+    exportError: 'Не удалось сформировать Excel. Повторите действие.',
     grain: 'Зерно',
     cropClass: 'класс',
     regionMissing: 'Регион не указан',
@@ -517,10 +517,9 @@ export function CanonicalDealsList() {
       if (requestId !== requestRef.current) return;
 
       if (!response.ok) {
-        const fallback = response.status === 401 || response.status === 403 ? copy.accessDenied : copy.loadFailed;
-        const message = payload && typeof payload === 'object' && typeof (payload as { message?: unknown }).message === 'string'
-          ? String((payload as { message: string }).message)
-          : fallback;
+        // Never surface raw backend codes (e.g. "unauthenticated") to people —
+        // map the status to a plain-language, actionable message instead.
+        const message = response.status === 401 || response.status === 403 ? copy.accessDenied : copy.loadFailed;
         if (mode === 'more') setLoadMoreError(message);
         else setState({ kind: 'error', message });
         return;
