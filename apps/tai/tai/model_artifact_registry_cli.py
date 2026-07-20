@@ -4,7 +4,17 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import cast
 
+from tai.llama_toolchain import (
+    ToolchainVerificationReport,
+    build_evidence_to_canonical_json,
+    collect_llama_toolchain_build_evidence,
+    load_llama_toolchain_authority,
+    load_llama_toolchain_build_evidence,
+    source_tree_sha256,
+    verify_llama_toolchain,
+)
 from tai.model_artifact_registry import (
     BundleVerificationReport,
     load_artifact_bundle,
@@ -31,40 +41,106 @@ def main(argv: list[str] | None = None) -> int:
     verify_parser.add_argument("bundle_root", type=Path)
     verify_parser.add_argument("--output", type=Path)
 
+    toolchain_parser = subparsers.add_parser("verify-toolchain")
+    toolchain_parser.add_argument("authority", type=Path)
+    toolchain_parser.add_argument("evidence", type=Path)
+    toolchain_parser.add_argument("evidence_root", type=Path)
+    toolchain_parser.add_argument("--output", type=Path)
+
+    tree_parser = subparsers.add_parser("hash-source-tree")
+    tree_parser.add_argument("checkout", type=Path)
+    tree_parser.add_argument("--output", type=Path)
+
+    collect_parser = subparsers.add_parser("collect-toolchain-evidence")
+    collect_parser.add_argument("authority", type=Path)
+    collect_parser.add_argument("evidence_root", type=Path)
+    collect_parser.add_argument("--cmake-executable", required=True)
+    collect_parser.add_argument("--c-compiler-executable", required=True)
+    collect_parser.add_argument("--cxx-compiler-executable", required=True)
+    collect_parser.add_argument("--output", type=Path, required=True)
+    collect_parser.add_argument("--verification-output", type=Path)
+
     arguments = parser.parse_args(argv)
     try:
         if arguments.command == "validate-registry":
             registry = load_candidate_registry(arguments.registry)
             canonical = registry_to_canonical_json(registry)
-            payload = {
+            validation_payload: dict[str, object] = {
                 "candidate_count": len(registry.candidates),
                 "registry_sha256": _sha256_text(canonical),
                 "schema_version": "tai.model-candidate-registry-validation.v1",
                 "status": "VALID",
             }
-            _write_json(payload, arguments.output)
+            _write_json(validation_payload, arguments.output)
             return 0
 
-        registry = load_candidate_registry(arguments.registry)
-        bundle = load_artifact_bundle(arguments.bundle)
-        report = verify_artifact_bundle(
-            registry=registry,
-            bundle=bundle,
-            bundle_root=arguments.bundle_root,
+        if arguments.command == "hash-source-tree":
+            tree_payload: dict[str, object] = {
+                "checkout": str(arguments.checkout),
+                "schema_version": "tai.source-tree-digest.v1",
+                "sha256": source_tree_sha256(arguments.checkout),
+                "status": "HASHED",
+            }
+            _write_json(tree_payload, arguments.output)
+            return 0
+
+        if arguments.command == "collect-toolchain-evidence":
+            authority = load_llama_toolchain_authority(arguments.authority)
+            collected = collect_llama_toolchain_build_evidence(
+                authority=authority,
+                evidence_root=arguments.evidence_root,
+                cmake_executable=arguments.cmake_executable,
+                c_compiler_executable=arguments.c_compiler_executable,
+                cxx_compiler_executable=arguments.cxx_compiler_executable,
+            )
+            collected_payload = cast(
+                dict[str, object],
+                json.loads(build_evidence_to_canonical_json(collected)),
+            )
+            _write_json(collected_payload, arguments.output)
+            collected_report = verify_llama_toolchain(
+                authority=authority,
+                evidence=collected,
+                evidence_root=arguments.evidence_root,
+            )
+            if arguments.verification_output is not None:
+                _write_json(
+                    _toolchain_report_payload(collected_report),
+                    arguments.verification_output,
+                )
+            return 0 if collected_report.verified else 2
+
+        if arguments.command == "verify-bundle":
+            registry = load_candidate_registry(arguments.registry)
+            bundle = load_artifact_bundle(arguments.bundle)
+            report = verify_artifact_bundle(
+                registry=registry,
+                bundle=bundle,
+                bundle_root=arguments.bundle_root,
+            )
+            _write_json(_bundle_report_payload(report), arguments.output)
+            return 0 if report.verified else 2
+
+        authority = load_llama_toolchain_authority(arguments.authority)
+        evidence = load_llama_toolchain_build_evidence(arguments.evidence)
+        toolchain_report = verify_llama_toolchain(
+            authority=authority,
+            evidence=evidence,
+            evidence_root=arguments.evidence_root,
         )
-        _write_json(_report_payload(report), arguments.output)
-        return 0 if report.verified else 2
+        _write_json(_toolchain_report_payload(toolchain_report), arguments.output)
+        return 0 if toolchain_report.verified else 2
     except ValueError as error:
-        payload = {
+        error_payload: dict[str, object] = {
             "error": str(error),
             "schema_version": "tai.model-artifact-cli-error.v1",
             "status": "INVALID",
         }
-        _write_json(payload, getattr(arguments, "output", None))
+        _write_json(error_payload, getattr(arguments, "output", None))
         return 2
 
 
-def _report_payload(report: BundleVerificationReport) -> dict[str, object]:
+def _bundle_report_payload(report: BundleVerificationReport) -> dict[str, object]:
     return {
         "model_id": report.model_id,
         "reasons": list(report.reasons),
@@ -73,6 +149,21 @@ def _report_payload(report: BundleVerificationReport) -> dict[str, object]:
         "schema_version": "tai.model-artifact-verification-report.v1",
         "status": report.status.value,
         "verified_files": list(report.verified_files),
+    }
+
+
+def _toolchain_report_payload(
+    report: ToolchainVerificationReport,
+) -> dict[str, object]:
+    return {
+        "authority_sha256": report.authority_sha256,
+        "evidence_sha256": report.evidence_sha256,
+        "reasons": list(report.reasons),
+        "report_sha256": report.report_sha256,
+        "schema_version": "tai.llama-cpp-toolchain-verification-report.v1",
+        "status": report.status.value,
+        "verified_files": list(report.verified_files),
+        "verified_targets": list(report.verified_targets),
     }
 
 

@@ -1,0 +1,176 @@
+name: Publish AI web release c21eec0
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-ai-web-c21eec0.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/release-triggers/ai-web-c21eec0.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  issues: write
+
+env:
+  TARGET_SHA: c21eec0ce9b399675e5ae94bb836972ad0086083
+  IMAGE: ghcr.io/pachaninm-lab/grainflow-web
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+
+jobs:
+  publish-and-verify:
+    name: Publish exact web image and verify production
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - name: Record autonomous release start
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          body="$(cat <<EOF
+          ### ⏳ Autonomous AI-in-action publication started
+
+          - Target revision: \`${TARGET_SHA}\`
+          - Image: \`${IMAGE}:latest\`
+          - Trigger commit: \`${GITHUB_SHA}\`
+          - Runner pool: \`ubuntu-24.04-arm\`
+
+          The job is building a server-compatible linux/amd64 image, publishing it to GHCR, waiting for Watchtower, and checking the live homepage and interactive route.
+          EOF
+          )"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/2834/comments" -f body="$body"
+
+      - name: Checkout exact application source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+
+      - name: Set up QEMU for amd64 image output
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: amd64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve immutable build metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${TARGET_SHA:0:12}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and publish exact web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.web
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:sha-${{ steps.meta.outputs.short_sha }}
+          build-args: |
+            BUILD_DATE=${{ steps.meta.outputs.build_date }}
+            GIT_COMMIT=${{ env.TARGET_SHA }}
+          cache-from: type=gha,scope=web-amd64
+          cache-to: type=gha,mode=max,scope=web-amd64
+
+      - name: Verify registry revision and platform
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx imagetools inspect "${IMAGE}:latest"
+          docker pull --platform linux/amd64 "${IMAGE}:latest"
+          actual="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "${IMAGE}:latest")"
+          architecture="$(docker image inspect --format '{{ .Architecture }}' "${IMAGE}:latest")"
+          echo "Registry revision: $actual"
+          echo "Registry architecture: $architecture"
+          test "$actual" = "$TARGET_SHA"
+          test "$architecture" = "amd64"
+
+      - name: Wait for Watchtower and verify the live AI experience
+        id: live
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            cache_bust="${TARGET_SHA:0:12}-${attempt}-$(date +%s)"
+            evidence="$(curl -fsSL --compressed --max-time 30 "${LIVE_BASE}/manifest-pc-deploy.json?release=${cache_bust}" || true)"
+            live_sha="$(jq -r '.commitSha // empty' <<<"$evidence" 2>/dev/null || true)"
+            ai_html="$(curl -fsSL --compressed --max-time 30 -H 'Accept-Language: ru-RU,ru;q=0.9' "${LIVE_BASE}/platform-v7/demo/ai?lang=ru&release=${cache_bust}" || true)"
+            home_html="$(curl -fsSL --compressed --max-time 30 -H 'Accept-Language: ru-RU,ru;q=0.9' "${LIVE_BASE}/platform-v7?lang=ru&release=${cache_bust}" || true)"
+
+            echo "Attempt $attempt/120: expected=${TARGET_SHA} live=${live_sha:-missing}"
+
+            if [[ "$live_sha" == "$TARGET_SHA" ]] \
+              && grep -Fq 'От события сделки' <<<"$ai_html" \
+              && grep -Fq '/platform-v7/demo/ai' <<<"$home_html" \
+              && grep -Fq 'ИИ работает в платформе' <<<"$home_html"; then
+              echo "Live verification passed on attempt $attempt."
+              echo "verified_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            sleep 20
+          done
+
+          echo 'Production did not expose the exact AI release within the verification window.' >&2
+          exit 1
+
+      - name: Record successful production publication
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFIED_AT: ${{ steps.live.outputs.verified_at }}
+        shell: bash
+        run: |
+          body="$(cat <<EOF
+          ### ✅ AI-in-action production publication verified
+
+          - Source revision: \`${TARGET_SHA}\`
+          - Image: \`${IMAGE}:latest\`
+          - Platform: \`linux/amd64\`
+          - Live route: https://процент-агро.рф/platform-v7/demo/ai?lang=ru
+          - Homepage link: verified
+          - Exact live manifest revision: verified
+          - Verified at: \`${VERIFIED_AT}\`
+
+          The exact image was published, Watchtower advanced the public web service, and both the interactive page and the homepage entry were confirmed from the live domain.
+          EOF
+          )"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/2834/comments" -f body="$body"
+
+      - name: Record publication failure
+        if: failure()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          body="$(cat <<EOF
+          ### ❌ AI-in-action production publication did not complete
+
+          - Target revision: \`${TARGET_SHA}\`
+          - Image: \`${IMAGE}:latest\`
+          - Runner pool: \`ubuntu-24.04-arm\`
+
+          The autonomous release job failed during image publication, registry verification, or the exact live Watchtower verification window. The previous production container remains the accepted fallback until a successful live check is recorded.
+          EOF
+          )"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/2834/comments" -f body="$body"
