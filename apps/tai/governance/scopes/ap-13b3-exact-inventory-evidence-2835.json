@@ -1,0 +1,32 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3-exact-inventory-evidence",
+  "status": "active",
+  "parent_issue": 2726,
+  "issue": 2835,
+  "maturity_boundary": "owner-only-exact-main-remote-inventory-evidence-without-model-byte-acquisition-or-legal-decision",
+  "allowed_paths": [
+    ".github/workflows/tai-hf-exact-inventory.yml",
+    "apps/tai/governance/scopes/ap-13b3-exact-inventory-evidence-2835.json",
+    "apps/tai/tests/test_hf_exact_inventory_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "pull-request, push, schedule or non-owner-triggered evidence collection",
+    "model weight, tokenizer, configuration, model-card or GGUF byte download",
+    "local source SHA-256, acquisition, conversion or quantization claim",
+    "automatic legal approval or legal decision inference",
+    "model benchmark, admission or activation claim",
+    "production readiness or operational attestation claim"
+  ],
+  "acceptance": [
+    "workflow is exact-main, repository-owner-only and issue 2835 command-bound",
+    "both exact 40-character model revisions are reconciled against every authority entry including exclusions",
+    "official metadata binds remote identity and byte size without substituting remote identity for local SHA-256",
+    "every selected exact-revision endpoint is probed with HEAD and returns HTTP 200",
+    "remote inventory evidence uses tai.remote-model-inventory-evidence.v1 and exact authority order",
+    "two model artifacts and one independently aggregated handoff are retained for 90 days with API IDs and digests",
+    "bounded issue handoff states that model bytes, local hashes, legal approval, conversion, quantization, benchmarks and admission remain absent",
+    "production_operational_status remains NOT_ATTESTED",
+    "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass"
+  ]
+}
