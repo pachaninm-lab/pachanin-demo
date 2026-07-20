@@ -1,0 +1,42 @@
+{
+  "acquisition_report": {
+    "content_sha256": "ad33518aac6d42d2f0deab0a6ea67a013d25851242e041106e42dbb02b3f9b5e",
+    "report_sha256": "4ddbadd5d96f13e6788d5609f4bb56a134728aceccc41be1e479cc4964702da8",
+    "status": "VERIFIED_SOURCE_RESTORED_LEGAL_PENDING"
+  },
+  "evidence_artifact": {
+    "digest": "3aa3c6edcd3abd972a53ef9eb078e3d16ac56bf9239ae823c794ac9a64e642e1",
+    "id": "8458597272",
+    "retention_days": 90,
+    "url": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/29736320896/artifacts/8458597272"
+  },
+  "legal_review_status": "PENDING_HUMAN_DECISION",
+  "locator_artifact": {
+    "digest": "5f033bb16ad7a3f0795cc0a10900221fe2dede27fac4e3ecbf2d4605fad5371c",
+    "id": "8458597677",
+    "retention_days": 90
+  },
+  "maturity_boundary": {
+    "conversion": "NOT_RUN",
+    "model_admission": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED",
+    "quantization": "NOT_RUN"
+  },
+  "model_id": "Qwen/Qwen3-8B",
+  "reasons": [],
+  "repository_sha": "4a7b04731aa204b741691a334d7adfe7785d6463",
+  "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+  "role": "PRIMARY",
+  "schema_version": "tai.model-source-acquisition-accepted-locator.v1",
+  "source_bytes_storage": {
+    "clean_redownload_reverified": true,
+    "copied_to_git_or_actions_artifact": false,
+    "locally_hashed": true,
+    "type": "UPSTREAM_EXACT_REVISION_RESTORABLE"
+  },
+  "source_files_sha256": "d3ef5d7334761a40cf857c247d2e2e2af383cd7c3c1e7c180414d07a15f9f2d4",
+  "source_manifest_sha256": "7c61e18eb68fc1d4f48e3f1c6ac59093e06e9d1484414dda776daea3374a5644",
+  "status": "VERIFIED_SOURCE_RESTORED_LEGAL_PENDING",
+  "workflow_run_attempt": "1",
+  "workflow_run_id": "29736320896"
+}
