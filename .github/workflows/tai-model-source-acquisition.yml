@@ -91,7 +91,10 @@ jobs:
 
           validation = json.loads(Path('authority-validation.json').read_text())
           build = json.loads(
-              Path('repository/apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json').read_text()
+              Path(
+                  'repository/apps/tai/model-artifacts/'
+                  'llama-cpp-build-acceptance.v1.json'
+              ).read_text()
           )
           assert validation['status'] == 'VALID'
           assert validation['authority_sha256'] == (
@@ -100,7 +103,10 @@ jobs:
           assert build['status'] == 'VERIFIED_RESTORED'
           assert build['evidence']['verification_report']['status'] == 'VERIFIED'
           assert build['evidence']['verification_report']['reasons'] == []
-          assert build['maturity_boundary']['production_operational_status'] == 'NOT_ATTESTED'
+          assert (
+              build['maturity_boundary']['production_operational_status']
+              == 'NOT_ATTESTED'
+          )
           PY
 
       - name: Reconcile exact Hugging Face revision inventory
@@ -110,7 +116,11 @@ jobs:
           REVISION: ${{ matrix.revision }}
         run: |
           set -euo pipefail
-          mkdir -p "$EVIDENCE_ROOT" "$EVIDENCE_ROOT/legal" "$ORIGINAL_ROOT" "$RESTORE_ROOT"
+          mkdir -p \
+            "$EVIDENCE_ROOT" \
+            "$EVIDENCE_ROOT/legal" \
+            "$ORIGINAL_ROOT" \
+            "$RESTORE_ROOT"
           chmod 700 "$ORIGINAL_ROOT" "$RESTORE_ROOT"
           observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           curl --fail --silent --show-error --location \
@@ -133,9 +143,9 @@ jobs:
         run: |
           set -euo pipefail
           selected_bytes="$(python -c 'import json; print(json.load(open("model-source-evidence/${{ matrix.key }}/download-plan.json"))["selected_total_bytes"])')"
-          available_bytes="$(df -P -B1 --output=avail "$RUNNER_TEMP" | tail -1 | tr -d ' ')"
+          available_bytes="$(df -B1 --output=avail "$RUNNER_TEMP" | tail -1 | tr -d ' ')"
           memory_total_bytes="$(awk '/MemTotal:/{printf "%.0f", $2 * 1024}' /proc/meminfo)"
-          required_bytes=$((selected_bytes + SELECTED_MARGIN_BYTES))
+          required_bytes=$((selected_bytes * 2 + SELECTED_MARGIN_BYTES))
           printf '%s\n' \
             "selected_bytes=$selected_bytes" \
             "available_bytes=$available_bytes" \
@@ -153,7 +163,11 @@ jobs:
           import json
           from pathlib import Path
 
-          plan = json.loads(Path('model-source-evidence/${{ matrix.key }}/download-plan.json').read_text())
+          plan = json.loads(
+              Path(
+                  'model-source-evidence/${{ matrix.key }}/download-plan.json'
+              ).read_text()
+          )
           for item in plan['entries']:
               values = (item['path'], item['download_uri'], str(item['size_bytes']))
               if any('\t' in value or '\n' in value for value in values):
@@ -220,11 +234,17 @@ jobs:
           from pathlib import Path
 
           packet = json.loads(
-              Path('model-source-evidence/${{ matrix.key }}/legal-review-packet.json').read_text()
+              Path(
+                  'model-source-evidence/${{ matrix.key }}/'
+                  'legal-review-packet.json'
+              ).read_text()
           )
           assert packet['status'] == 'PENDING_HUMAN_DECISION'
           assert packet['required_human_record']['decision'] is None
-          assert packet['automation_boundary'] == 'AUTOMATION_MUST_NOT_APPROVE_OR_REJECT'
+          assert (
+              packet['automation_boundary']
+              == 'AUTOMATION_MUST_NOT_APPROVE_OR_REJECT'
+          )
           PY
 
       - name: Independently re-download exact sources into clean restore root
@@ -283,7 +303,8 @@ jobs:
           rm -rf "$ORIGINAL_ROOT" "$RESTORE_ROOT"
           test ! -e "$ORIGINAL_ROOT"
           test ! -e "$RESTORE_ROOT"
-          if find "$EVIDENCE_ROOT" -type f -size +50000000c -print -quit | grep -q .; then
+          if find "$EVIDENCE_ROOT" -type f -size +50000000c -print -quit \
+            | grep -q .; then
             echo 'Large source bytes entered the metadata evidence directory.' >&2
             exit 1
           fi
@@ -346,8 +367,11 @@ jobs:
                   'copied_to_git_or_actions_artifact': False,
               },
           }
-          Path('model-source-locator/${{ matrix.key }}/locator.json').write_text(
-              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+          Path(
+              'model-source-locator/${{ matrix.key }}/locator.json'
+          ).write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+              + '\n'
           )
           PY
 
@@ -379,15 +403,10 @@ jobs:
           import os
           from pathlib import Path
 
-          report = json.loads(
-              Path('model-source-evidence/${{ matrix.key }}/acquisition-report.json').read_text()
-          )
-          manifest = json.loads(
-              Path('model-source-evidence/${{ matrix.key }}/source-manifest.json').read_text()
-          )
-          inventory = json.loads(
-              Path('model-source-evidence/${{ matrix.key }}/remote-inventory.json').read_text()
-          )
+          root = Path('model-source-evidence/${{ matrix.key }}')
+          report = json.loads((root / 'acquisition-report.json').read_text())
+          manifest = json.loads((root / 'source-manifest.json').read_text())
+          inventory = json.loads((root / 'remote-inventory.json').read_text())
           lines = [
               f"## TAI exact source acquisition — {report['model_id']}",
               '',
@@ -397,9 +416,17 @@ jobs:
               f"- selected source bytes: `{inventory['selected_total_bytes']}`;",
               f"- selected source files: `{len(manifest['files'])}`;",
               f"- source-files SHA-256: `{report['source_files_sha256']}`;",
-              f"- clean re-download/rehash: `VERIFIED_SOURCE_RESTORED`;",
-              f"- evidence artifact: `{os.environ['EVIDENCE_ARTIFACT_ID']}` / `{os.environ['EVIDENCE_ARTIFACT_DIGEST']}`;",
-              f"- locator artifact: `{os.environ['LOCATOR_ARTIFACT_ID']}` / `{os.environ['LOCATOR_ARTIFACT_DIGEST']}`;",
+              '- clean re-download/rehash: `VERIFIED_SOURCE_RESTORED`;',
+              (
+                  '- evidence artifact: '
+                  f"`{os.environ['EVIDENCE_ARTIFACT_ID']}` / "
+                  f"`{os.environ['EVIDENCE_ARTIFACT_DIGEST']}`;"
+              ),
+              (
+                  '- locator artifact: '
+                  f"`{os.environ['LOCATOR_ARTIFACT_ID']}` / "
+                  f"`{os.environ['LOCATOR_ARTIFACT_DIGEST']}`;"
+              ),
               '- source weights copied to Git or Actions artifact: `false`;',
               '- legal review: `PENDING_HUMAN_DECISION`;',
               '- conversion: `NOT_RUN`;',
@@ -422,7 +449,9 @@ jobs:
           from pathlib import Path
 
           report = json.loads(
-              Path('model-source-evidence/${{ matrix.key }}/acquisition-report.json').read_text()
+              Path(
+                  'model-source-evidence/${{ matrix.key }}/acquisition-report.json'
+              ).read_text()
           )
           assert report['status'] == 'VERIFIED_SOURCE_RESTORED_LEGAL_PENDING'
           assert report['reasons'] == []
