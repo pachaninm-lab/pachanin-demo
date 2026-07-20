@@ -134,6 +134,9 @@ def _remote_payload(value: RemoteInventoryEvidence | None) -> object:
     if value is None:
         return None
     return {
+        "model_id": value.model_id,
+        "revision": value.revision,
+        "source_uri": value.source_uri,
         "entries": [
             {
                 "path": item.path,
@@ -152,9 +155,12 @@ def _legal_payload(value: LegalReviewEvidence | None) -> object:
         return None
     return {
         "decision": value.decision.value,
+        "attestation_reference": value.attestation_reference,
+        "conditions": list(value.conditions),
         "decision_basis": value.decision_basis,
         "license_spdx": value.license_spdx,
         "license_text": _file_payload(value.license_text),
+        "record_type": value.record_type.value,
         "review_record": _file_payload(value.review_record),
         "reviewed_at": value.reviewed_at,
         "reviewer_id": value.reviewer_id,
@@ -169,8 +175,7 @@ def _toolchain_payload(value: ToolchainPackageEvidence | None) -> object:
     return {
         "authority_sha256": value.authority_sha256,
         "binaries": [
-            {"file": _file_payload(item.file), "name": item.name}
-            for item in value.binaries
+            {"file": _file_payload(item.file), "name": item.name} for item in value.binaries
         ],
         "build_manifest": _file_payload(value.build_manifest),
         "commit": value.commit,
@@ -206,6 +211,10 @@ def _storage_payload(value: StorageEvidence | None) -> object:
         "bundle_archive": _file_payload(value.bundle_archive),
         "immutable_locator": value.immutable_locator,
         "payload_index": _file_payload(value.payload_index),
+        "restored_at": value.restored_at,
         "restore_record": _file_payload(value.restore_record),
+        "retention_days": value.retention_days,
+        "retention_expires_at": value.retention_expires_at,
+        "uploaded_at": value.uploaded_at,
         "upload_record": _file_payload(value.upload_record),
     }

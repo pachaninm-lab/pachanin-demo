@@ -80,16 +80,46 @@ def _manifest_payload(
         remote_entries[position - 1]["size_bytes"] = declared["size_bytes"]
         source_files.append({**declared, "role": entry.role.value})
 
+    observed_at = "2026-07-20T01:00:00Z"
+    remote_evidence_payload = {
+        "schema_version": "tai.remote-model-inventory-evidence.v1",
+        "model_id": plan.model_id,
+        "revision": plan.revision,
+        "source_uri": plan.source_uri,
+        "observed_at": observed_at,
+        "entries": remote_entries,
+    }
     remote_evidence = _write(
         root,
         "evidence/remote-inventory.json",
-        json.dumps(remote_entries, sort_keys=True).encode(),
+        json.dumps(remote_evidence_payload, sort_keys=True).encode(),
     )
     license_text = _write(root, "legal/LICENSE.txt", b"Apache License 2.0\n")
+    reviewed_at = "2026-07-20T01:15:00Z"
+    legal_conditions = [
+        "Use is limited to the governed TAI model bundle and approved deployment scope."
+    ]
+    attestation_reference = "evidence://legal/qwen-review@sha256:" + cast(
+        str, license_text["sha256"]
+    )
+    review_record_payload = {
+        "schema_version": "tai.model-legal-review-record.v1",
+        "decision": "APPROVED",
+        "reviewer_type": "HUMAN",
+        "reviewer_id": "legal-reviewer-001",
+        "reviewer_name": "Independent Legal Reviewer",
+        "reviewed_at": reviewed_at,
+        "license_spdx": plan.license_spdx,
+        "decision_basis": "Human review of the exact license text and intended use.",
+        "conditions": legal_conditions,
+        "record_type": "ATTRIBUTED_RECORD",
+        "attestation_reference": attestation_reference,
+        "license_text_sha256": license_text["sha256"],
+    }
     review_record = _write(
         root,
         "legal/review.json",
-        b'{"decision":"APPROVED","reviewer_type":"HUMAN"}\n',
+        json.dumps(review_record_payload, sort_keys=True).encode(),
     )
 
     package = _write(root, "toolchain/package.tar.zst", b"controlled-toolchain-package")
@@ -181,8 +211,39 @@ def _manifest_payload(
 
     bundle_archive = _write(root, "storage/bundle.tar.zst", b"immutable-model-bundle")
     payload_index = _write(root, "storage/payload-index.json", b'{"files":"indexed"}\n')
-    upload_record = _write(root, "storage/upload-record.json", b'{"status":"UPLOADED"}\n')
-    restore_record = _write(root, "storage/restore-record.json", b'{"status":"RESTORED"}\n')
+    storage_locator = f"oci://registry.example/tai/model-bundle@sha256:{bundle_archive['sha256']}"
+    uploaded_at = "2026-07-20T02:00:00Z"
+    retention_days = 90
+    retention_expires_at = "2026-10-18T02:00:00Z"
+    restored_at = "2026-07-20T02:30:00Z"
+    upload_record = _write(
+        root,
+        "storage/upload-record.json",
+        json.dumps(
+            {
+                "schema_version": "tai.model-bundle-upload-record.v1",
+                "archive_sha256": bundle_archive["sha256"],
+                "immutable_locator": storage_locator,
+                "uploaded_at": uploaded_at,
+                "retention_days": retention_days,
+                "retention_expires_at": retention_expires_at,
+            },
+            sort_keys=True,
+        ).encode(),
+    )
+    restore_record = _write(
+        root,
+        "storage/restore-record.json",
+        json.dumps(
+            {
+                "schema_version": "tai.model-bundle-restore-record.v1",
+                "archive_sha256": bundle_archive["sha256"],
+                "immutable_locator": storage_locator,
+                "restored_at": restored_at,
+            },
+            sort_keys=True,
+        ).encode(),
+    )
 
     payload: dict[str, Any] = {
         "schema_version": "tai.local-model-artifact-bundle.v2",
@@ -192,7 +253,10 @@ def _manifest_payload(
         "revision": plan.revision,
         "authority_sha256": authority_sha256_v2(authority),
         "remote_inventory": {
-            "observed_at": "2026-07-20T01:00:00Z",
+            "model_id": plan.model_id,
+            "revision": plan.revision,
+            "source_uri": plan.source_uri,
+            "observed_at": observed_at,
             "evidence_file": remote_evidence,
             "entries": remote_entries,
         },
@@ -202,9 +266,12 @@ def _manifest_payload(
             "reviewer_type": "HUMAN",
             "reviewer_id": "legal-reviewer-001",
             "reviewer_name": "Independent Legal Reviewer",
-            "reviewed_at": "2026-07-20T01:15:00Z",
+            "reviewed_at": reviewed_at,
             "license_spdx": plan.license_spdx,
             "decision_basis": "Human review of the exact license text and intended use.",
+            "conditions": legal_conditions,
+            "record_type": "ATTRIBUTED_RECORD",
+            "attestation_reference": attestation_reference,
             "license_text": license_text,
             "review_record": review_record,
         },
@@ -238,9 +305,11 @@ def _manifest_payload(
         "storage": {
             "bundle_archive": bundle_archive,
             "payload_index": payload_index,
-            "immutable_locator": (
-                f"oci://registry.example/tai/model-bundle@sha256:{bundle_archive['sha256']}"
-            ),
+            "immutable_locator": storage_locator,
+            "uploaded_at": uploaded_at,
+            "retention_days": retention_days,
+            "retention_expires_at": retention_expires_at,
+            "restored_at": restored_at,
             "upload_record": upload_record,
             "restore_record": restore_record,
         },

@@ -24,6 +24,7 @@ from tai.model_bundle_v2_types import (
     InventoryDisposition,
     LegalReviewDecision,
     LegalReviewEvidence,
+    LegalReviewRecordType,
     LocalModelBundleV2,
     ModelBundleAuthority,
     ModelBundlePlan,
@@ -82,16 +83,10 @@ def load_local_model_bundle_v2(path: Path) -> LocalModelBundleV2:
         model_id=_string(payload, "model_id"),
         revision=_string(payload, "revision"),
         authority_sha256=_string(payload, "authority_sha256"),
-        remote_inventory=_optional_object(
-            payload, "remote_inventory", _remote_inventory
-        ),
-        source_files=tuple(
-            _source_file(item) for item in _array(payload, "source_files")
-        ),
+        remote_inventory=_optional_object(payload, "remote_inventory", _remote_inventory),
+        source_files=tuple(_source_file(item) for item in _array(payload, "source_files")),
         legal_review=_optional_object(payload, "legal_review", _legal_review),
-        toolchain_package=_optional_object(
-            payload, "toolchain_package", _toolchain_package
-        ),
+        toolchain_package=_optional_object(payload, "toolchain_package", _toolchain_package),
         conversion=_optional_object(payload, "conversion", _conversion),
         quantizations=tuple(
             _quantization_evidence(item) for item in _array(payload, "quantizations")
@@ -153,13 +148,10 @@ def _model_plan(value: object) -> ModelBundlePlan:
         model_card_uri=_string(payload, "model_card_uri"),
         license_spdx=_string(payload, "license_spdx"),
         inventory=tuple(
-            _authority_inventory_entry(item)
-            for item in _array(payload, "source_inventory")
+            _authority_inventory_entry(item) for item in _array(payload, "source_inventory")
         ),
         conversion=_conversion_plan(payload.get("conversion")),
-        quantizations=tuple(
-            _quantization_plan(item) for item in _array(payload, "quantizations")
-        ),
+        quantizations=tuple(_quantization_plan(item) for item in _array(payload, "quantizations")),
     )
 
 
@@ -215,11 +207,21 @@ def _remote_inventory(value: object) -> RemoteInventoryEvidence:
     payload = _object(value, "remote inventory")
     _expect_keys(
         payload,
-        {"observed_at", "evidence_file", "entries"},
+        {
+            "model_id",
+            "revision",
+            "source_uri",
+            "observed_at",
+            "evidence_file",
+            "entries",
+        },
         set(),
         "remote inventory",
     )
     return RemoteInventoryEvidence(
+        model_id=_string(payload, "model_id"),
+        revision=_string(payload, "revision"),
+        source_uri=_string(payload, "source_uri"),
         observed_at=_string(payload, "observed_at"),
         evidence_file=_declared_file(payload.get("evidence_file")),
         entries=tuple(_observed_remote_file(item) for item in _array(payload, "entries")),
@@ -269,6 +271,9 @@ def _legal_review(value: object) -> LegalReviewEvidence:
             "reviewed_at",
             "license_spdx",
             "decision_basis",
+            "conditions",
+            "record_type",
+            "attestation_reference",
             "license_text",
             "review_record",
         },
@@ -283,6 +288,9 @@ def _legal_review(value: object) -> LegalReviewEvidence:
         reviewed_at=_string(payload, "reviewed_at"),
         license_spdx=_string(payload, "license_spdx"),
         decision_basis=_string(payload, "decision_basis"),
+        conditions=tuple(_string_array(payload, "conditions")),
+        record_type=LegalReviewRecordType(_string(payload, "record_type")),
+        attestation_reference=_string(payload, "attestation_reference"),
         license_text=_declared_file(payload.get("license_text")),
         review_record=_declared_file(payload.get("review_record")),
     )
@@ -319,9 +327,7 @@ def _toolchain_package(value: object) -> ToolchainPackageEvidence:
         verification_report=_declared_file(payload.get("verification_report")),
         verification_status=_string(payload, "verification_status"),
         immutable_locator=_string(payload, "immutable_locator"),
-        binaries=tuple(
-            _toolchain_binary(item) for item in _array(payload, "binaries")
-        ),
+        binaries=tuple(_toolchain_binary(item) for item in _array(payload, "binaries")),
     )
 
 
@@ -398,6 +404,10 @@ def _storage(value: object) -> StorageEvidence:
             "bundle_archive",
             "payload_index",
             "immutable_locator",
+            "uploaded_at",
+            "retention_days",
+            "retention_expires_at",
+            "restored_at",
             "upload_record",
             "restore_record",
         },
@@ -408,9 +418,22 @@ def _storage(value: object) -> StorageEvidence:
         bundle_archive=_declared_file(payload.get("bundle_archive")),
         payload_index=_declared_file(payload.get("payload_index")),
         immutable_locator=_string(payload, "immutable_locator"),
+        uploaded_at=_string(payload, "uploaded_at"),
+        retention_days=_integer(payload, "retention_days"),
+        retention_expires_at=_string(payload, "retention_expires_at"),
+        restored_at=_string(payload, "restored_at"),
         upload_record=_declared_file(payload.get("upload_record")),
         restore_record=_declared_file(payload.get("restore_record")),
     )
+
+
+def _string_array(payload: dict[str, object], key: str) -> list[str]:
+    value = payload.get(key)
+    if not isinstance(value, list):
+        raise ValueError(f"{key} must be an array")
+    if any(not isinstance(item, str) or not item.strip() for item in value):
+        raise ValueError(f"{key} must contain only non-empty strings")
+    return value
 
 
 def _declared_file(value: object) -> DeclaredFile:

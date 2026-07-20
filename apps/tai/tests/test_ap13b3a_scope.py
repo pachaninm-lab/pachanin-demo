@@ -47,4 +47,10 @@ def test_ap13b3a_scope_is_exact_and_fail_closed() -> None:
         for item in scope["forbidden_capabilities"]
     )
     assert any("independent restore" in item for item in scope["acceptance"])
+    assert any(
+        "exact model_id, revision, source_uri" in item
+        for item in scope["acceptance"]
+    )
+    assert any("ATTRIBUTED_RECORD" in item for item in scope["acceptance"])
+    assert any("retention_expires_at" in item for item in scope["acceptance"])
     assert any("PENDING_ACQUISITION" in item for item in scope["acceptance"])

@@ -12,9 +12,8 @@ _SHA256: Final = re.compile(r"^[0-9a-f]{64}$")
 _REVISION: Final = re.compile(r"^[0-9a-f]{40,64}$")
 _IDENTITY: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/+@-]{0,199}$")
 _RELEASE: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,79}$")
-_BINARY_NAMES: Final = frozenset(
-    {"llama-cli", "llama-server", "llama-quantize", "llama-bench"}
-)
+_BINARY_NAMES: Final = frozenset({"llama-cli", "llama-server", "llama-quantize", "llama-bench"})
+
 
 def _load_json_strict(path: Path) -> dict[str, Any]:
     try:
@@ -97,9 +96,7 @@ def _integer(payload: dict[str, Any], key: str) -> int:
     return value
 
 
-def _optional_object[ResultT](
-    payload: dict[str, Any], key: str, parser: Any
-) -> ResultT | None:
+def _optional_object[ResultT](payload: dict[str, Any], key: str, parser: Any) -> ResultT | None:
     value = payload.get(key)
     if value is None:
         return None
@@ -190,13 +187,18 @@ def _bounded_text(value: str, name: str, *, maximum: int) -> None:
         raise ValueError(f"{name} must be non-empty and bounded")
 
 
-def _timestamp(value: str, name: str) -> None:
+def _parse_timestamp(value: str, name: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as error:
         raise ValueError(f"{name} must be RFC3339") from error
     if parsed.utcoffset() is None:
         raise ValueError(f"{name} must be timezone-aware")
+    return parsed
+
+
+def _timestamp(value: str, name: str) -> None:
+    _parse_timestamp(value, name)
 
 
 def _argv(value: tuple[str, ...], name: str) -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path, PurePosixPath
 from typing import cast
 
@@ -9,6 +10,7 @@ from tai.model_bundle_v2_common import (
     _canonical_json,
     _file_sha256,
     _load_json_strict,
+    _parse_timestamp,
     _sha256_text,
 )
 from tai.model_bundle_v2_serialize import (
@@ -70,6 +72,9 @@ def verify_local_model_bundle_v2(
     _verify_complete_sections(bundle, state)
     if plan is not None:
         _verify_authority_contract(authority, plan, bundle, state)
+        _verify_remote_inventory_record(plan, bundle, bundle_root, state)
+        _verify_legal_review_record(plan, bundle, bundle_root, state)
+    _verify_locator_and_retention(bundle, bundle_root, state)
     _verify_original_and_restore(bundle, bundle_root, restored_root, state)
     if plan is not None and bundle_root.exists():
         _verify_shard_index(plan, bundle, bundle_root, state)
@@ -92,9 +97,7 @@ def verify_local_model_bundle_v2(
     )
 
 
-def _verify_complete_sections(
-    bundle: LocalModelBundleV2, state: _VerificationState
-) -> None:
+def _verify_complete_sections(bundle: LocalModelBundleV2, state: _VerificationState) -> None:
     sections = {
         "REMOTE_INVENTORY": bundle.remote_inventory,
         "SOURCE_FILES": bundle.source_files or None,
@@ -117,6 +120,12 @@ def _verify_authority_contract(
 ) -> None:
     remote = bundle.remote_inventory
     if remote is not None:
+        if (remote.model_id, remote.revision, remote.source_uri) != (
+            plan.model_id,
+            plan.revision,
+            plan.source_uri,
+        ):
+            state.reasons.append("REMOTE_INVENTORY_AUTHORITY_MISMATCH")
         expected_remote = {item.path for item in plan.inventory}
         declared_remote = {item.path for item in remote.entries}
         if declared_remote != expected_remote:
@@ -162,9 +171,7 @@ def _verify_authority_contract(
             expected_toolchain.authority_sha256,
         ):
             state.reasons.append("TOOLCHAIN_PACKAGE_AUTHORITY_MISMATCH")
-        if {item.name for item in toolchain.binaries} != set(
-            expected_toolchain.required_binaries
-        ):
+        if {item.name for item in toolchain.binaries} != set(expected_toolchain.required_binaries):
             state.reasons.append("TOOLCHAIN_BINARY_SET_MISMATCH")
 
     conversion = bundle.conversion
@@ -197,9 +204,7 @@ def _verify_authority_contract(
         if expected_quantization is None:
             continue
         if declared.argv != expected_quantization.argv:
-            state.reasons.append(
-                f"QUANTIZATION_ARGV_MISMATCH:{identity[0].value}:{identity[1]}"
-            )
+            state.reasons.append(f"QUANTIZATION_ARGV_MISMATCH:{identity[0].value}:{identity[1]}")
         if declared.output.path != expected_quantization.output_path:
             state.reasons.append(
                 f"QUANTIZATION_OUTPUT_PATH_MISMATCH:{identity[0].value}:{identity[1]}"
@@ -212,6 +217,149 @@ def _verify_authority_contract(
             state.reasons.append(
                 f"QUANTIZATION_BINARY_BINDING_MISMATCH:{identity[0].value}:{identity[1]}"
             )
+
+
+def _verify_remote_inventory_record(
+    plan: ModelBundlePlan,
+    bundle: LocalModelBundleV2,
+    bundle_root: Path,
+    state: _VerificationState,
+) -> None:
+    remote = bundle.remote_inventory
+    if remote is None:
+        return
+    try:
+        path = _bounded_regular_file(bundle_root, remote.evidence_file.path)
+        payload = _load_json_strict(path)
+    except ValueError as error:
+        state.reasons.append(f"REMOTE_INVENTORY_EVIDENCE_INVALID:{error}")
+        return
+    expected: dict[str, object] = {
+        "schema_version": "tai.remote-model-inventory-evidence.v1",
+        "model_id": plan.model_id,
+        "revision": plan.revision,
+        "source_uri": plan.source_uri,
+        "observed_at": remote.observed_at,
+        "entries": [
+            {
+                "path": item.path,
+                "remote_identity": item.remote_identity,
+                "size_bytes": item.size_bytes,
+            }
+            for item in remote.entries
+        ],
+    }
+    if payload != expected:
+        state.reasons.append("REMOTE_INVENTORY_EVIDENCE_MISMATCH")
+
+
+def _verify_legal_review_record(
+    plan: ModelBundlePlan,
+    bundle: LocalModelBundleV2,
+    bundle_root: Path,
+    state: _VerificationState,
+) -> None:
+    legal = bundle.legal_review
+    if legal is None:
+        return
+    try:
+        path = _bounded_regular_file(bundle_root, legal.review_record.path)
+        payload = _load_json_strict(path)
+    except ValueError as error:
+        state.reasons.append(f"LEGAL_REVIEW_RECORD_INVALID:{error}")
+        return
+    expected: dict[str, object] = {
+        "schema_version": "tai.model-legal-review-record.v1",
+        "decision": legal.decision.value,
+        "reviewer_type": legal.reviewer_type.value,
+        "reviewer_id": legal.reviewer_id,
+        "reviewer_name": legal.reviewer_name,
+        "reviewed_at": legal.reviewed_at,
+        "license_spdx": plan.license_spdx,
+        "decision_basis": legal.decision_basis,
+        "conditions": list(legal.conditions),
+        "record_type": legal.record_type.value,
+        "attestation_reference": legal.attestation_reference,
+        "license_text_sha256": legal.license_text.sha256,
+    }
+    if payload != expected:
+        state.reasons.append("LEGAL_REVIEW_RECORD_MISMATCH")
+
+
+def _verify_locator_and_retention(
+    bundle: LocalModelBundleV2,
+    bundle_root: Path,
+    state: _VerificationState,
+) -> None:
+    toolchain = bundle.toolchain_package
+    if toolchain is not None and not _locator_binds_sha256(
+        toolchain.immutable_locator, toolchain.package.sha256
+    ):
+        state.reasons.append("TOOLCHAIN_PACKAGE_LOCATOR_SHA256_MISMATCH")
+
+    storage = bundle.storage
+    if storage is None:
+        return
+    if not _locator_binds_sha256(storage.immutable_locator, storage.bundle_archive.sha256):
+        state.reasons.append("STORAGE_LOCATOR_ARCHIVE_SHA256_MISMATCH")
+    uploaded = _parse_timestamp(storage.uploaded_at, "storage uploaded_at")
+    expires = _parse_timestamp(storage.retention_expires_at, "storage retention_expires_at")
+    restored = _parse_timestamp(storage.restored_at, "storage restored_at")
+    if uploaded + timedelta(days=storage.retention_days) != expires:
+        state.reasons.append("STORAGE_RETENTION_INTERVAL_MISMATCH")
+    if restored > expires:
+        state.reasons.append("STORAGE_RESTORE_OUTSIDE_RETENTION")
+
+    _verify_storage_record(
+        bundle_root=bundle_root,
+        declared=storage.upload_record,
+        expected={
+            "schema_version": "tai.model-bundle-upload-record.v1",
+            "archive_sha256": storage.bundle_archive.sha256,
+            "immutable_locator": storage.immutable_locator,
+            "uploaded_at": storage.uploaded_at,
+            "retention_days": storage.retention_days,
+            "retention_expires_at": storage.retention_expires_at,
+        },
+        reason="STORAGE_UPLOAD_RECORD_MISMATCH",
+        state=state,
+    )
+    _verify_storage_record(
+        bundle_root=bundle_root,
+        declared=storage.restore_record,
+        expected={
+            "schema_version": "tai.model-bundle-restore-record.v1",
+            "archive_sha256": storage.bundle_archive.sha256,
+            "immutable_locator": storage.immutable_locator,
+            "restored_at": storage.restored_at,
+        },
+        reason="STORAGE_RESTORE_RECORD_MISMATCH",
+        state=state,
+    )
+
+
+def _verify_storage_record(
+    *,
+    bundle_root: Path,
+    declared: DeclaredFile,
+    expected: dict[str, object],
+    reason: str,
+    state: _VerificationState,
+) -> None:
+    try:
+        path = _bounded_regular_file(bundle_root, declared.path)
+        payload = _load_json_strict(path)
+    except ValueError as error:
+        state.reasons.append(f"{reason}:{error}")
+        return
+    if payload != expected:
+        state.reasons.append(reason)
+
+
+def _locator_binds_sha256(locator: str, digest: str) -> bool:
+    return any(
+        token in locator for token in (f"@sha256:{digest}", f"#sha256={digest}", f"sha256:{digest}")
+    )
 
 
 def _verify_original_and_restore(
@@ -302,8 +450,7 @@ def _verify_shard_index(
         state.reasons.append("SHARD_INDEX_WEIGHT_MAP_INVALID")
         return
     if any(
-        not isinstance(key, str) or not isinstance(value, str)
-        for key, value in weight_map.items()
+        not isinstance(key, str) or not isinstance(value, str) for key, value in weight_map.items()
     ):
         state.reasons.append("SHARD_INDEX_WEIGHT_MAP_INVALID")
         return
@@ -346,9 +493,7 @@ def _all_declared_files(bundle: LocalModelBundleV2) -> tuple[DeclaredFile, ...]:
     if bundle.remote_inventory is not None:
         files.append(bundle.remote_inventory.evidence_file)
     if bundle.legal_review is not None:
-        files.extend(
-            [bundle.legal_review.license_text, bundle.legal_review.review_record]
-        )
+        files.extend([bundle.legal_review.license_text, bundle.legal_review.review_record])
     if bundle.toolchain_package is not None:
         package = bundle.toolchain_package
         files.extend([package.package, package.build_manifest, package.verification_report])

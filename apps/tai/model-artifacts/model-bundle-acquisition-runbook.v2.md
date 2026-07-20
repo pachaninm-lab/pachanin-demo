@@ -42,9 +42,9 @@ Acquire only the full revision recorded in the authority:
 - Qwen: `Qwen/Qwen3-8B@895c8d171bc03c30e113cd7a28c02494b5e068b7`;
 - Mistral: `mistralai/Mistral-7B-Instruct-v0.3@c170c708c41dac9275d15a8fff4eca08d52bab71`.
 
-Capture a machine-readable remote inventory before download. It must contain every upstream path, byte size and an immutable remote identity. Preserve the raw API/CLI response as `evidence/remote-inventory.json`.
+Capture a machine-readable remote inventory before download. The evidence record must use schema `tai.remote-model-inventory-evidence.v1` and bind the exact `model_id`, full `revision`, immutable revision-qualified `source_uri`, timezone-aware `observed_at` and every authority entry with disposition, role, path, size, remote identity and exclusion reason. Preserve it as `evidence/remote-inventory.json`.
 
-The observed inventory must include excluded files as well as selected files. Exclusion does not mean omission from provenance.
+The observed inventory must exactly match the authority and include excluded files as well as selected files. Exclusion does not mean omission from provenance. A model identity, revision, source URI, entry or content mismatch blocks verification.
 
 ## 3. Enforce the selected source sets
 
@@ -78,13 +78,17 @@ Store the exact license text as an immutable evidence file. A human reviewer mus
 - stable reviewer identifier and display name;
 - timezone-aware review timestamp;
 - SPDX identity;
-- decision basis and scope.
+- decision basis and scope;
+- explicit approval conditions, including an empty list when no conditions apply;
+- record type `ATTRIBUTED_RECORD` or `SIGNED_RECORD`;
+- immutable `attestation_reference`;
+- SHA-256 of the exact reviewed license text.
 
-Metadata from the upstream model card is not human legal approval. A pending, absent or automated decision cannot verify. A `REJECTED` decision terminates acquisition for that model.
+The review record must use schema `tai.model-legal-review-record.v1`, and its semantic fields must exactly match the manifest. Metadata from the upstream model card is not human legal approval. A pending, absent or automated decision cannot verify. A `REJECTED` decision terminates acquisition for that model.
 
 ## 5. Restore and reverify the llama.cpp package
 
-Download the AP-13B.2b package from its immutable locator into the model bundle. Verify the package archive, build manifest, verification report and all four binaries before conversion. The embedded verification report must have status `VERIFIED`, the accepted toolchain authority digest and the complete target set.
+Download the AP-13B.2b package from its immutable locator into the model bundle. The locator must bind the exact package archive SHA-256. Verify the package archive, build manifest, verification report and all four binaries before conversion. The embedded verification report must have status `VERIFIED`, the accepted toolchain authority digest and the complete target set.
 
 Preserve the exact converter script from the same source commit at `toolchain/source/convert_hf_to_gguf.py`. Record its SHA-256 and byte size.
 
@@ -159,9 +163,9 @@ Create `bundle.v2.json` outside the archive construction process so no self-refe
 
 ## 10. Upload immutably and restore independently
 
-Upload the bundle archive to content-addressed or versioned external storage. Record an immutable locator containing a digest or storage version. Preserve the upload receipt.
+Upload the bundle archive to content-addressed or versioned external storage. Record an immutable locator that binds the exact archive SHA-256. Preserve a semantic `tai.model-bundle-upload-record.v1` containing the locator, archive SHA-256, timezone-aware `uploaded_at`, positive `retention_days` and exact `retention_expires_at = uploaded_at + retention_days`.
 
-Download from that locator into a clean restore root, extract it, and preserve the restore record. Do not copy the original directory to manufacture restore evidence. The restore root must originate from the immutable external object.
+Download from that locator into a clean restore root, extract it, and preserve a semantic `tai.model-bundle-restore-record.v1` containing the same locator and archive SHA-256 plus timezone-aware `restored_at`. The restore must occur no later than `retention_expires_at`. Do not copy the original directory to manufacture restore evidence. The restore root must originate from the immutable external object.
 
 ## 11. Run fail-closed verification
 

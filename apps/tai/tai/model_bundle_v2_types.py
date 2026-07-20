@@ -12,6 +12,7 @@ from tai.model_bundle_v2_common import (
     _https,
     _identity,
     _immutable_locator,
+    _parse_timestamp,
     _relative_path,
     _revision,
     _sha256,
@@ -58,6 +59,11 @@ class LegalReviewDecision(StrEnum):
 
 class ReviewerType(StrEnum):
     HUMAN = "HUMAN"
+
+
+class LegalReviewRecordType(StrEnum):
+    ATTRIBUTED_RECORD = "ATTRIBUTED_RECORD"
+    SIGNED_RECORD = "SIGNED_RECORD"
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,14 +200,10 @@ class ModelBundlePlan:
         outputs = tuple(item.output_path for item in self.quantizations)
         if not outputs or len(outputs) != len(set(outputs)):
             raise ValueError("quantization outputs must be non-empty and unique")
-        identities = tuple(
-            (item.runtime_class, item.quantization) for item in self.quantizations
-        )
+        identities = tuple((item.runtime_class, item.quantization) for item in self.quantizations)
         if len(identities) != len(set(identities)):
             raise ValueError("quantization plan identities must be unique")
-        if not any(
-            item.runtime_class is ModelRuntimeClass.CPU for item in self.quantizations
-        ):
+        if not any(item.runtime_class is ModelRuntimeClass.CPU for item in self.quantizations):
             raise ValueError("every model plan requires a CPU quantization")
 
     @property
@@ -244,11 +246,19 @@ class ObservedRemoteFile:
 
 @dataclass(frozen=True, slots=True)
 class RemoteInventoryEvidence:
+    model_id: str
+    revision: str
+    source_uri: str
     observed_at: str
     evidence_file: DeclaredFile
     entries: tuple[ObservedRemoteFile, ...]
 
     def __post_init__(self) -> None:
+        _identity(self.model_id, "remote inventory model_id")
+        _revision(self.revision, "remote inventory revision")
+        _https(self.source_uri, "remote inventory source_uri")
+        if self.revision not in self.source_uri:
+            raise ValueError("remote inventory source_uri must contain exact revision")
         _timestamp(self.observed_at, "remote inventory observed_at")
         if not self.entries:
             raise ValueError("remote inventory entries must not be empty")
@@ -284,6 +294,9 @@ class LegalReviewEvidence:
     reviewed_at: str
     license_spdx: str
     decision_basis: str
+    conditions: tuple[str, ...]
+    record_type: LegalReviewRecordType
+    attestation_reference: str
     license_text: DeclaredFile
     review_record: DeclaredFile
 
@@ -293,6 +306,11 @@ class LegalReviewEvidence:
         _timestamp(self.reviewed_at, "legal reviewed_at")
         _identity(self.license_spdx, "legal license_spdx")
         _bounded_text(self.decision_basis, "legal decision_basis", maximum=2_000)
+        if len(self.conditions) > 32 or len(self.conditions) != len(set(self.conditions)):
+            raise ValueError("legal review conditions must be bounded and unique")
+        for condition in self.conditions:
+            _bounded_text(condition, "legal review condition", maximum=1_000)
+        _immutable_locator(self.attestation_reference)
 
 
 @dataclass(frozen=True, slots=True)
@@ -376,11 +394,24 @@ class StorageEvidence:
     bundle_archive: DeclaredFile
     payload_index: DeclaredFile
     immutable_locator: str
+    uploaded_at: str
+    retention_days: int
+    retention_expires_at: str
+    restored_at: str
     upload_record: DeclaredFile
     restore_record: DeclaredFile
 
     def __post_init__(self) -> None:
         _immutable_locator(self.immutable_locator)
+        uploaded = _parse_timestamp(self.uploaded_at, "storage uploaded_at")
+        expires = _parse_timestamp(self.retention_expires_at, "storage retention_expires_at")
+        restored = _parse_timestamp(self.restored_at, "storage restored_at")
+        if self.retention_days < 1 or self.retention_days > 3_650:
+            raise ValueError("storage retention_days must be between 1 and 3650")
+        if expires <= uploaded:
+            raise ValueError("storage retention_expires_at must follow uploaded_at")
+        if restored < uploaded:
+            raise ValueError("storage restored_at must not precede uploaded_at")
 
 
 @dataclass(frozen=True, slots=True)
@@ -421,9 +452,7 @@ class LocalModelBundleV2:
                 self.storage is not None,
             )
         ):
-            raise ValueError(
-                "PENDING_ACQUISITION baseline must not contain fabricated evidence"
-            )
+            raise ValueError("PENDING_ACQUISITION baseline must not contain fabricated evidence")
 
 
 @dataclass(frozen=True, slots=True)

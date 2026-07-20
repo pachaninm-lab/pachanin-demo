@@ -335,3 +335,94 @@ def test_non_regular_root_and_declared_directory_are_rejected(tmp_path: Path) ->
         restored_root=restored,
     )
     assert any("path is not a regular file" in reason for reason in directory_report.reasons)
+
+
+def test_remote_inventory_identity_and_evidence_content_are_bound(
+    tmp_path: Path,
+) -> None:
+    _, payload, manifest, root, restored = _verify(tmp_path / "identity")
+    remote = cast(dict[str, Any], payload["remote_inventory"])
+    remote["model_id"] = "other/model"
+    _write_json(manifest, payload)
+    report = verify_local_model_bundle_v2(
+        authority=load_model_bundle_authority_v2(AUTHORITY_PATH),
+        bundle=load_local_model_bundle_v2(manifest),
+        bundle_root=root,
+        restored_root=restored,
+    )
+    assert "REMOTE_INVENTORY_AUTHORITY_MISMATCH" in report.reasons
+
+    _, payload, manifest, root, restored = _verify(tmp_path / "record")
+    remote = cast(dict[str, Any], payload["remote_inventory"])
+    entries = cast(list[dict[str, Any]], remote["entries"])
+    entries[0]["remote_identity"] = "drifted-remote-object"
+    _write_json(manifest, payload)
+    report = verify_local_model_bundle_v2(
+        authority=load_model_bundle_authority_v2(AUTHORITY_PATH),
+        bundle=load_local_model_bundle_v2(manifest),
+        bundle_root=root,
+        restored_root=restored,
+    )
+    assert "REMOTE_INVENTORY_EVIDENCE_MISMATCH" in report.reasons
+
+
+def test_legal_review_record_supports_signed_evidence_and_rejects_drift(
+    tmp_path: Path,
+) -> None:
+    _, payload, manifest, root, restored = _verify(tmp_path)
+    legal = cast(dict[str, Any], payload["legal_review"])
+    legal["record_type"] = "SIGNED_RECORD"
+    legal["attestation_reference"] = "evidence://legal/signed@sha256:" + "7" * 64
+    review = cast(dict[str, Any], legal["review_record"])
+    record_path = root / cast(str, review["path"])
+    record_payload = json.loads(record_path.read_text(encoding="utf-8"))
+    record_payload["record_type"] = legal["record_type"]
+    record_payload["attestation_reference"] = legal["attestation_reference"]
+    record_content = json.dumps(record_payload, sort_keys=True).encode()
+    record_path.write_bytes(record_content)
+    review["sha256"] = _sha256(record_content)
+    review["size_bytes"] = len(record_content)
+    shutil.copy2(record_path, restored / cast(str, review["path"]))
+    _write_json(manifest, payload)
+    report = verify_local_model_bundle_v2(
+        authority=load_model_bundle_authority_v2(AUTHORITY_PATH),
+        bundle=load_local_model_bundle_v2(manifest),
+        bundle_root=root,
+        restored_root=restored,
+    )
+    assert report.status is BundleVerificationStatus.VERIFIED
+
+    legal["conditions"] = ["Condition changed after the human attestation."]
+    _write_json(manifest, payload)
+    drifted = verify_local_model_bundle_v2(
+        authority=load_model_bundle_authority_v2(AUTHORITY_PATH),
+        bundle=load_local_model_bundle_v2(manifest),
+        bundle_root=root,
+        restored_root=restored,
+    )
+    assert "LEGAL_REVIEW_RECORD_MISMATCH" in drifted.reasons
+
+
+def test_locator_digest_and_retention_interval_drift_fail_closed(
+    tmp_path: Path,
+) -> None:
+    _, payload, manifest, root, restored = _verify(tmp_path)
+    toolchain = cast(dict[str, Any], payload["toolchain_package"])
+    toolchain["immutable_locator"] = (
+        "gh-actions://pachaninm-lab/pachanin-demo/actions/runs/1/artifacts/2@sha256:" + "8" * 64
+    )
+    storage = cast(dict[str, Any], payload["storage"])
+    storage["immutable_locator"] = "oci://registry.example/tai/model-bundle@sha256:" + "9" * 64
+    storage["retention_expires_at"] = "2026-10-17T02:00:00Z"
+    storage["restored_at"] = "2026-10-19T02:00:00Z"
+    _write_json(manifest, payload)
+    report = verify_local_model_bundle_v2(
+        authority=load_model_bundle_authority_v2(AUTHORITY_PATH),
+        bundle=load_local_model_bundle_v2(manifest),
+        bundle_root=root,
+        restored_root=restored,
+    )
+    assert "TOOLCHAIN_PACKAGE_LOCATOR_SHA256_MISMATCH" in report.reasons
+    assert "STORAGE_LOCATOR_ARCHIVE_SHA256_MISMATCH" in report.reasons
+    assert "STORAGE_RETENTION_INTERVAL_MISMATCH" in report.reasons
+    assert "STORAGE_RESTORE_OUTSIDE_RETENTION" in report.reasons
