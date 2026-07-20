@@ -1,0 +1,117 @@
+shape_are_validated(tmp_path: Path) -> None:
+    from tai import model_benchmark_admission_v2 as v2
+
+    profile = _profile(
+        profile_id="x",
+        runtime_class="CPU",
+        quantization="Q4_K_M",
+        artifact_sha256="a" * 64,
+        concurrency_levels=[1],
+    )
+    profile["concurrency"][0].update(failed_requests=1, error_rate_basis_points=0)
+    with pytest.raises(ContractError):
+        v2._parse_runtime_profile(profile, "profile")
+
+    profile = _profile(
+        profile_id="x",
+        runtime_class="CPU",
+        quantization="Q4_K_M",
+        artifact_sha256="a" * 64,
+        concurrency_levels=[1],
+    )
+    profile["p99_latency_ms"] = 1
+    with pytest.raises(ContractError):
+        v2._parse_runtime_profile(profile, "profile")
+
+    profile = _profile(
+        profile_id="x",
+        runtime_class="CPU",
+        quantization="Q4_K_M",
+        artifact_sha256="a" * 64,
+        concurrency_levels=[1],
+    )
+    profile["peak_vram_mb"] = 1
+    with pytest.raises(ContractError):
+        v2._parse_runtime_profile(profile, "profile")
+
+
+def test_soak_and_storage_semantics_are_validated() -> None:
+    from tai import model_benchmark_admission_v2 as v2
+
+    soak = {
+        "profile_id": "x",
+        "duration_seconds": 1,
+        "request_count": 1,
+        "failed_requests": 0,
+        "critical_failures": 0,
+        "memory_start_mb": 10,
+        "memory_end_mb": 20,
+        "memory_peak_mb": 15,
+        "memory_drift_mb": 10,
+        "p95_latency_ms": 1,
+        "raw_metrics_path": "metrics.json",
+        "environment_path": "environment.json",
+    }
+    with pytest.raises(ContractError):
+        v2._parse_soak(soak, "soak")
+    soak["memory_peak_mb"] = 20
+    soak["memory_drift_mb"] = 9
+    with pytest.raises(ContractError):
+        v2._parse_soak(soak, "soak")
+
+    storage = {
+        "immutable_locator": f"oci://tai/x@sha256:{'a' * 64}",
+        "archive_sha256": "a" * 64,
+        "archive_size_bytes": 1,
+        "uploaded_at": "2026-07-20T10:00:00+00:00",
+        "retention_days": 1,
+        "retention_expires_at": "2026-07-21T11:00:00+00:00",
+        "restored_at": "2026-07-20T12:00:00+00:00",
+    }
+    with pytest.raises(ContractError):
+        v2._parse_storage(storage, "storage")
+    storage["retention_expires_at"] = "2026-07-21T10:00:00+00:00"
+    storage["restored_at"] = "2026-07-22T10:00:00+00:00"
+    with pytest.raises(ContractError):
+        v2._parse_storage(storage, "storage")
+
+
+def test_missing_original_and_hardlink_aliases_are_rejected(tmp_path: Path) -> None:
+    manifest_path, original, restored = _create_manifest(tmp_path, primary=False)
+    (original / "suite/protocol.txt").unlink()
+    report = verify_benchmark(
+        AUTHORITY, BUNDLE_AUTHORITY, manifest_path, original, restored
+    )
+    assert "ORIGINAL_EVIDENCE_INVALID:suite/protocol.txt" in report["reasons"]
+
+    manifest_path, original, restored = _create_manifest(
+        tmp_path / "links", primary=False
+    )
+    first = original / "suite/protocol.txt"
+    second = original / "suite/manifest.json"
+    second.unlink()
+    os.link(first, second)
+    manifest = load_json_strict(manifest_path)
+    for item in manifest["evidence_files"]:
+        if item["path"] == "suite/manifest.json":
+            item["sha256"] = _sha(second)
+            item["size_bytes"] = second.stat().st_size
+    shutil.copyfile(second, restored / "suite/manifest.json")
+    _write_json(manifest_path, manifest)
+    report = verify_benchmark(
+        AUTHORITY, BUNDLE_AUTHORITY, manifest_path, original, restored
+    )
+    assert any(
+        reason.startswith("ORIGINAL_HARDLINK_ALIAS:") for reason in report["reasons"]
+    )
+
+
+def test_semantic_suite_hardware_cost_fallback_and_soak_are_validated(
+    tmp_path: Path,
+) -> None:
+    checks: list[tuple[str, Callable[[dict[str, Any]], object], str]] = [
+        (
+            "suite/manifest.json",
+            lambda value: value.update(total_cases=57),
+            "EVALUATION_SUITE_MANIFEST_MISMATCH",
+        ),
