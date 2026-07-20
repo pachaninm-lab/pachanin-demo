@@ -6,6 +6,8 @@ const read = (relativePath: string) => readFileSync(join(process.cwd(), relative
 
 describe('platform-v7 canonical public AI route authority', () => {
   const page = read('app/platform-v7/ai-in-action/page.tsx');
+  const layout = read('app/platform-v7/layout.tsx');
+  const home = read('app/platform-v7/page.tsx');
   const legacyPage = read('app/platform-v7/demo/ai/page.tsx');
   const nextConfig = read('next.config.js');
   const experience = read('components/platform-v7/PublicAiInActionExperience.tsx');
@@ -17,6 +19,8 @@ describe('platform-v7 canonical public AI route authority', () => {
     expect(page).toContain("data-testid='platform-v7-ai-in-action-authority'");
     expect(page).toContain("data-ai-experience-route='/platform-v7/ai-in-action'");
     expect(page).toContain('interactive-animated-ai-explainer');
+    expect(layout).toContain("'/platform-v7/ai-in-action',");
+    expect(home).toContain("const aiExperienceHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;");
     expect(page).toContain('<PublicAiInActionExperience locale={locale} />');
     expect(page).not.toContain('PublicDealExplorer');
     expect(page).not.toContain('PublicDealPreview');

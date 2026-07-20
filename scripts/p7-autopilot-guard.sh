@@ -313,6 +313,7 @@ const manifests = {
   'agent/restore-global-contact-dock': 'docs/platform-v7/autopilot/scopes/restore-global-contact-dock-2810.json',
   'ir/k8s-production-like-2659': 'docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json',
   'feat/assistant-universal-understanding': 'docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json',
+  'fix/public-ai-layout-authority': 'docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json',
 };
 const path = manifests[branch];
 if (!path) process.exit(0);
