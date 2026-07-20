@@ -30,9 +30,9 @@ jobs:
             workflow="$1"
             event="$2"
             label="$3"
-            gh api "/repos/$REPOSITORY/actions/workflows/$workflow/runs?event=$event&branch=main&per_page=50" > "$label-runs.json"
+            gh api "/repos/$REPOSITORY/actions/workflows/$workflow/runs?event=$event&per_page=100" > "$label-runs.json"
             jq -r --arg sha "$exact_main" --arg label "$label" \
-              '.workflow_runs[] | select(.head_sha == $sha) | [$label,.id,.status,.conclusion,.run_number,.run_attempt,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' \
+              '.workflow_runs[] | select(.head_sha == $sha) | [$label,.id,.status,.conclusion,.head_branch,.run_number,.run_attempt,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' \
               "$label-runs.json"
             run_id="$(jq -r --arg sha "$exact_main" --arg owner "$owner" '[.workflow_runs[] | select(.head_sha == $sha and .actor.login == $owner)] | sort_by(.created_at) | reverse | .[0].id // empty' "$label-runs.json")"
             if [[ -z "$run_id" ]]; then
