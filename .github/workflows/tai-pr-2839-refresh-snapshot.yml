@@ -87,7 +87,7 @@ jobs:
           git add .github/workflows/tai-pr-2839-refresh-snapshot.yml
           git diff --cached --check
           git commit --amend --no-edit
-          test "$(git rev-list --count HEAD^@)" -eq 2
+          test "$(git show -s --format=%P HEAD | wc -w)" -eq 2
           git push origin HEAD:agent/tai-ap-13b3a-model-bundle-authority
 
       - name: Stage exact clean snapshot
