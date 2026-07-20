@@ -3,3 +3,6 @@ b11c310787b81cfcfddd0be67f515f8f4a32cebd:apps/tai/tests/test_tool_planner.py:gen
 
 # False positive: public immutable Hugging Face model revision, not an API key.
 c5077eebcc9bbc47e3d650795e11b55f265428e8:.github/workflows/tai-model-source-acquisition.yml:generic-api-key:43
+
+# False positive: deterministic commodity-profile idempotency test fixture, not a credential.
+ec4b80ce1ee4fa7cf18361f1ff536c34b5030948:apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.spec.ts:generic-api-key:11
