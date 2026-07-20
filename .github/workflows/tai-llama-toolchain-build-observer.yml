@@ -1,4 +1,4 @@
-name: TAI Source Acquisition Observer
+name: TAI Source Acquisition Validation Observer
 
 # Temporary read-only diagnostic. This workflow is never merged.
 on:
@@ -9,6 +9,7 @@ on:
 
 permissions:
   actions: read
+  checks: read
   contents: read
 
 jobs:
@@ -16,27 +17,34 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Report all recent source acquisition events
+      - name: Extract invalid workflow diagnostics
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
+          FAILED_RUN_ID: '29734867969'
         run: |
           set -euo pipefail
-          exact_main="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
-          printf 'EXACT_MAIN=%s\n' "$exact_main"
 
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml/runs?per_page=50" > runs.json
-          jq -r '.workflow_runs[] | ["CANDIDATE",.id,.event,.status,.conclusion,.head_branch,.head_sha,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' runs.json
-          run_id="$(jq -r '[.workflow_runs[] | select(.event == "issue_comment")] | sort_by(.created_at) | reverse | .[0].id // empty' runs.json)"
-          if [[ -z "$run_id" ]]; then
-            echo 'ISSUE_COMMENT_RUN=ABSENT'
-            exit 0
-          fi
+          gh api "/repos/$REPOSITORY/actions/runs/$FAILED_RUN_ID" > run.json
+          jq -r '["RUN",.id,.name,.display_title,.path,.event,.status,.conclusion,.head_branch,.head_sha,.check_suite_id,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' run.json
 
-          gh api "/repos/$REPOSITORY/actions/runs/$run_id/jobs?per_page=100" > jobs.json
-          jq -r '.jobs[] | ["JOB",.id,.name,.status,.conclusion,.head_sha,.started_at,.completed_at] | @tsv' jobs.json
-          jq -r '.jobs[] | .name as $job | .steps[]? | ["STEP",$job,.number,.name,.status,.conclusion] | @tsv' jobs.json
+          suite_id="$(jq -r '.check_suite_id // empty' run.json)"
+          head_sha="$(jq -r '.head_sha' run.json)"
+          test -n "$suite_id"
+          test -n "$head_sha"
 
-          gh api "/repos/$REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" > artifacts.json
-          jq -r '.artifacts[] | ["ARTIFACT",.id,.name,.size_in_bytes,.expired,.digest,.created_at,.expires_at] | @tsv' artifacts.json
+          gh api "/repos/$REPOSITORY/check-suites/$suite_id/check-runs?per_page=100" > suite-checks.json
+          jq -r '.check_runs[] | ["SUITE_CHECK",.id,.name,.status,.conclusion,.details_url,.output.title,.output.summary,.output.text] | @tsv' suite-checks.json
+
+          gh api -H 'Accept: application/vnd.github+json' "/repos/$REPOSITORY/commits/$head_sha/check-runs?filter=all&per_page=100" > commit-checks.json
+          jq -r '.check_runs[] | select(.name == "TAI Exact Model Source Acquisition" or (.details_url | contains("/actions/runs/29734867969"))) | ["COMMIT_CHECK",.id,.name,.status,.conclusion,.details_url,.output.title,.output.summary,.output.text] | @tsv' commit-checks.json
+
+          jq -r '.check_runs[].id' suite-checks.json | while IFS= read -r check_id; do
+            test -n "$check_id"
+            gh api "/repos/$REPOSITORY/check-runs/$check_id/annotations?per_page=100" > "annotations-$check_id.json"
+            jq -r --arg id "$check_id" '.[] | ["ANNOTATION",$id,.path,.start_line,.end_line,.annotation_level,.title,.message,.raw_details] | @tsv' "annotations-$check_id.json"
+          done
+
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml" > workflow.json
+          jq -r '["WORKFLOW",.id,.name,.path,.state,.created_at,.updated_at,.html_url] | @tsv' workflow.json
