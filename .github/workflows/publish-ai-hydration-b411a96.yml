@@ -1,4 +1,4 @@
-name: Publish AI hydration fix b411a96
+name: Verify AI hydration fix b411a96
 
 on:
   pull_request:
@@ -9,25 +9,17 @@ on:
 
 permissions:
   contents: read
-  packages: write
+  packages: read
 
 env:
   TARGET_SHA: b411a960cc259919e701704bfa652bd06d33c7d8
   IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-b411a96
 
 jobs:
-  publish-and-browser-verify:
+  browser-verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 20
     steps:
-      - name: Checkout exact accepted main source
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.TARGET_SHA }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -35,21 +27,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and publish exact linux/amd64 image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: infra/docker/Dockerfile.web
-          platforms: linux/amd64
-          push: true
-          tags: ${{ env.IMAGE }}
-          build-args: |
-            BUILD_DATE=${{ github.event.pull_request.updated_at || github.event.repository.updated_at }}
-            GIT_COMMIT=${{ env.TARGET_SHA }}
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
-
-      - name: Verify immutable image metadata
+      - name: Pull and verify immutable image
         shell: bash
         run: |
           set -euo pipefail
@@ -61,7 +39,7 @@ jobs:
           test "$revision" = "$TARGET_SHA"
           test "$architecture" = amd64
 
-      - name: Start the exact image locally
+      - name: Start exact image
         shell: bash
         run: |
           set -euo pipefail
@@ -70,7 +48,6 @@ jobs:
             -e NODE_ENV=production \
             -e PORT=3000 \
             "$IMAGE"
-
           for attempt in $(seq 1 60); do
             if curl -fsS --max-time 5 'http://127.0.0.1:3000/platform-v7/ai-in-action?lang=ru' >/tmp/ai-route-ssr.html; then
               echo "Next.js ready on attempt $attempt."
@@ -83,20 +60,15 @@ jobs:
           docker logs --tail=200 ai-hydration-verification || true
           exit 1
 
-      - name: Verify SSR and hydrated mobile Chromium DOM
+      - name: Capture hydrated mobile browser evidence
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/ai-hydration-evidence
           cp /tmp/ai-route-ssr.html /tmp/ai-hydration-evidence/ssr.html
-
-          grep -Fq 'interactive-animated-ai-explainer' /tmp/ai-route-ssr.html
-          grep -Fq 'platform-v7-ai-in-action-authority' /tmp/ai-route-ssr.html
-
           browser="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
           test -n "$browser"
           "$browser" --version
-
           url='http://127.0.0.1:3000/platform-v7/ai-in-action?lang=ru&exact=b411a96'
           "$browser" \
             --headless=new \
@@ -105,10 +77,9 @@ jobs:
             --disable-dev-shm-usage \
             --hide-scrollbars \
             --window-size=390,844 \
-            --virtual-time-budget=12000 \
+            --virtual-time-budget=15000 \
             --dump-dom \
             "$url" > /tmp/ai-hydration-evidence/hydrated.html
-
           "$browser" \
             --headless=new \
             --no-sandbox \
@@ -116,34 +87,99 @@ jobs:
             --disable-dev-shm-usage \
             --hide-scrollbars \
             --window-size=390,844 \
-            --virtual-time-budget=12000 \
+            --virtual-time-budget=15000 \
             --screenshot=/tmp/ai-hydration-evidence/mobile.png \
             "$url"
 
-          hydrated=/tmp/ai-hydration-evidence/hydrated.html
-          grep -Fq 'interactive-animated-ai-explainer' "$hydrated"
-          grep -Fq 'От события сделки' "$hydrated"
-          grep -Fq 'Собирает разрешённый контекст' "$hydrated"
-          grep -Fq 'Контур анализа' "$hydrated"
-          if grep -Fq 'This page could not be found' "$hydrated"; then
-            echo 'Client-side Next.js 404 detected after hydration.' >&2
-            exit 20
-          fi
-          if grep -Fq '<title>404:' "$hydrated"; then
-            echo 'Hydrated document title became 404.' >&2
-            exit 21
-          fi
+          python3 - <<'PY'
+          import json
+          from html.parser import HTMLParser
+          from pathlib import Path
 
-          echo 'Exact image passed SSR and hydrated mobile Chromium verification.'
+          class Parser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.stack = []
+                  self.title_parts = []
+                  self.headings = []
+                  self.current = None
+                  self.all_text = []
+
+              def handle_starttag(self, tag, attrs):
+                  self.stack.append(tag)
+                  if tag in {'h1', 'h2', 'h3'}:
+                      self.current = [tag, []]
+
+              def handle_endtag(self, tag):
+                  if self.current and self.current[0] == tag:
+                      text = ' '.join(''.join(self.current[1]).split())
+                      if text:
+                          self.headings.append({'tag': tag, 'text': text})
+                      self.current = None
+                  if self.stack:
+                      self.stack.pop()
+
+              def handle_data(self, data):
+                  self.all_text.append(data)
+                  if self.stack and self.stack[-1] == 'title':
+                      self.title_parts.append(data)
+                  if self.current:
+                      self.current[1].append(data)
+
+          hydrated_path = Path('/tmp/ai-hydration-evidence/hydrated.html')
+          ssr_path = Path('/tmp/ai-hydration-evidence/ssr.html')
+          hydrated = hydrated_path.read_text(encoding='utf-8')
+          ssr = ssr_path.read_text(encoding='utf-8')
+          parser = Parser()
+          parser.feed(hydrated)
+          title = ' '.join(''.join(parser.title_parts).split())
+          visible_text = ' '.join(''.join(parser.all_text).split())
+
+          report = {
+              'targetSha': 'b411a960cc259919e701704bfa652bd06d33c7d8',
+              'title': title,
+              'headings': parser.headings[:30],
+              'ssrMarker': 'interactive-animated-ai-explainer' in ssr,
+              'hydratedMarker': 'interactive-animated-ai-explainer' in hydrated,
+              'routeAuthority': 'platform-v7-ai-in-action-authority' in hydrated,
+              'heroText': 'От события сделки' in visible_text,
+              'factsPhase': 'Собирает разрешённый контекст' in visible_text,
+              'analysisLayer': 'Контур анализа' in visible_text,
+              'notFoundText': 'This page could not be found' in visible_text,
+              'notFoundTitle': title.startswith('404'),
+          }
+          Path('/tmp/ai-hydration-evidence/report.json').write_text(
+              json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
+          )
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+
+          file /tmp/ai-hydration-evidence/mobile.png
           sha256sum /tmp/ai-hydration-evidence/mobile.png
 
       - name: Upload browser evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ai-hydration-b411a96
+          name: ai-hydration-b411a96-diagnostic
           path: /tmp/ai-hydration-evidence
           if-no-files-found: error
           retention-days: 14
+
+      - name: Enforce hydrated AI route
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('/tmp/ai-hydration-evidence/report.json').read_text(encoding='utf-8'))
+          required = ['ssrMarker', 'hydratedMarker', 'routeAuthority', 'heroText', 'factsPhase', 'analysisLayer']
+          missing = [key for key in required if not report.get(key)]
+          if report.get('notFoundText') or report.get('notFoundTitle') or missing:
+              raise SystemExit(f'AI hydration verification failed: missing={missing}, report={report}')
+          print('PASS: exact image renders the animated AI page after hydration.')
+          PY
 
       - name: Print container logs
         if: always()
