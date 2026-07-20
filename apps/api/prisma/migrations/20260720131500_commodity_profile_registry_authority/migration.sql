@@ -70,6 +70,8 @@ CREATE TABLE public."commodity_profile_versions" (
     UNIQUE ("profileId", "sequence"),
   CONSTRAINT "commodity_profile_versions_profile_hash_key"
     UNIQUE ("profileId", "contentHash"),
+  CONSTRAINT "commodity_profile_versions_id_profile_key"
+    UNIQUE ("id", "profileId"),
   CONSTRAINT "commodity_profile_versions_sequence_check" CHECK ("sequence" > 0),
   CONSTRAINT "commodity_profile_versions_status_check" CHECK (
     "status" IN ('DRAFT', 'REVIEW', 'APPROVED', 'EFFECTIVE', 'DEPRECATED', 'REVOKED')
@@ -130,8 +132,9 @@ CREATE TABLE public."commodity_profile_transitions" (
   CONSTRAINT "commodity_profile_transitions_profile_id_fkey"
     FOREIGN KEY ("profileId") REFERENCES public."commodity_profiles"("id")
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT "commodity_profile_transitions_version_id_fkey"
-    FOREIGN KEY ("profileVersionId") REFERENCES public."commodity_profile_versions"("id")
+  CONSTRAINT "commodity_profile_transitions_version_profile_fkey"
+    FOREIGN KEY ("profileVersionId", "profileId")
+    REFERENCES public."commodity_profile_versions"("id", "profileId")
     ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT "commodity_profile_transitions_idempotency_key_key" UNIQUE ("idempotencyKey"),
   CONSTRAINT "commodity_profile_transitions_command_id_key" UNIQUE ("commandId"),
@@ -211,23 +214,27 @@ BEGIN
     RETURN OLD;
   END IF;
 
-  IF TG_OP = 'UPDATE' THEN
-    IF NEW."id" IS DISTINCT FROM OLD."id"
-      OR NEW."canonicalCode" IS DISTINCT FROM OLD."canonicalCode"
-      OR NEW."archetype" IS DISTINCT FROM OLD."archetype"
-      OR NEW."createdAt" IS DISTINCT FROM OLD."createdAt"
-      OR NEW."createdByUserId" IS DISTINCT FROM OLD."createdByUserId"
-    THEN
-      RAISE EXCEPTION USING
-        ERRCODE = '23000',
-        MESSAGE = 'PC_PROFILE_IDENTITY_IMMUTABLE: create a new profile identity';
-    END IF;
+  IF NEW."id" IS DISTINCT FROM OLD."id"
+    OR NEW."canonicalCode" IS DISTINCT FROM OLD."canonicalCode"
+    OR NEW."archetype" IS DISTINCT FROM OLD."archetype"
+    OR NEW."createdAt" IS DISTINCT FROM OLD."createdAt"
+    OR NEW."createdByUserId" IS DISTINCT FROM OLD."createdByUserId"
+  THEN
+    RAISE EXCEPTION USING
+      ERRCODE = '23000',
+      MESSAGE = 'PC_PROFILE_IDENTITY_IMMUTABLE: create a new profile identity';
+  END IF;
 
-    IF NEW."version" <> OLD."version" + 1 THEN
-      RAISE EXCEPTION USING
-        ERRCODE = '40001',
-        MESSAGE = 'PC_PROFILE_VERSION_CONFLICT: expected optimistic version increment';
-    END IF;
+  IF NEW."version" <> OLD."version" + 1 THEN
+    RAISE EXCEPTION USING
+      ERRCODE = '40001',
+      MESSAGE = 'PC_PROFILE_VERSION_CONFLICT: expected optimistic version increment';
+  END IF;
+
+  IF NEW."updatedAt" <= OLD."updatedAt" THEN
+    RAISE EXCEPTION USING
+      ERRCODE = '23000',
+      MESSAGE = 'PC_PROFILE_UPDATED_AT_INVALID: updatedAt must advance';
   END IF;
 
   RETURN NEW;
@@ -252,6 +259,12 @@ BEGIN
   END IF;
 
   PERFORM pg_advisory_xact_lock(hashtextextended(NEW."profileId", 0));
+
+  IF TG_OP = 'INSERT' AND NEW."status" <> 'DRAFT' THEN
+    RAISE EXCEPTION USING
+      ERRCODE = '23000',
+      MESSAGE = 'PC_PROFILE_INITIAL_STATE_INVALID: version must start as DRAFT';
+  END IF;
 
   IF TG_OP = 'UPDATE' THEN
     IF NEW."id" IS DISTINCT FROM OLD."id"
@@ -295,6 +308,12 @@ BEGIN
         ERRCODE = '40001',
         MESSAGE = 'PC_PROFILE_VERSION_CONFLICT: expected optimistic version increment';
     END IF;
+
+    IF NEW."updatedAt" <= OLD."updatedAt" THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23000',
+        MESSAGE = 'PC_PROFILE_UPDATED_AT_INVALID: updatedAt must advance';
+    END IF;
   END IF;
 
   IF NEW."status" IN ('APPROVED', 'EFFECTIVE', 'DEPRECATED', 'REVOKED') AND (
@@ -326,6 +345,7 @@ BEGIN
     WHERE existing."profileId" = NEW."profileId"
       AND existing."id" <> NEW."id"
       AND existing."status" IN ('APPROVED', 'EFFECTIVE')
+      AND existing."effectiveFrom" IS NOT NULL
       AND tstzrange(
         existing."effectiveFrom",
         COALESCE(existing."effectiveTo", 'infinity'::timestamptz),
@@ -341,6 +361,73 @@ BEGIN
       RAISE EXCEPTION USING
         ERRCODE = '23P01',
         MESSAGE = format('PC_PROFILE_EFFECTIVE_OVERLAP: conflicts with %s', v_overlap_id);
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END
+$function$;
+
+CREATE OR REPLACE FUNCTION public.app_commodity_profile_guard_transition()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $function$
+DECLARE
+  v_current_status text;
+  v_current_content_hash text;
+  v_latest_to_status text;
+  v_latest_hash text;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended(NEW."profileId", 0));
+
+  SELECT v."status", v."contentHash"
+    INTO v_current_status, v_current_content_hash
+  FROM public."commodity_profile_versions" v
+  WHERE v."id" = NEW."profileVersionId"
+    AND v."profileId" = NEW."profileId";
+
+  IF v_current_status IS NULL THEN
+    RAISE EXCEPTION USING
+      ERRCODE = '23503',
+      MESSAGE = 'PC_PROFILE_TRANSITION_VERSION_NOT_FOUND';
+  END IF;
+
+  IF NEW."toStatus" <> v_current_status THEN
+    RAISE EXCEPTION USING
+      ERRCODE = '23000',
+      MESSAGE = 'PC_PROFILE_TRANSITION_STATE_MISMATCH';
+  END IF;
+
+  IF NEW."contentHash" <> v_current_content_hash THEN
+    RAISE EXCEPTION USING
+      ERRCODE = '23000',
+      MESSAGE = 'PC_PROFILE_TRANSITION_CONTENT_HASH_MISMATCH';
+  END IF;
+
+  SELECT t."toStatus", t."hash"
+    INTO v_latest_to_status, v_latest_hash
+  FROM public."commodity_profile_transitions" t
+  WHERE t."profileVersionId" = NEW."profileVersionId"
+  ORDER BY t."createdAt" DESC, t."id" DESC
+  LIMIT 1;
+
+  IF v_latest_hash IS NULL THEN
+    IF NEW."fromStatus" IS NOT NULL OR NEW."toStatus" <> 'DRAFT' OR NEW."prevHash" IS NOT NULL THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23000',
+        MESSAGE = 'PC_PROFILE_TRANSITION_GENESIS_INVALID';
+    END IF;
+  ELSE
+    IF NEW."fromStatus" IS DISTINCT FROM v_latest_to_status THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23000',
+        MESSAGE = 'PC_PROFILE_TRANSITION_PREDECESSOR_MISMATCH';
+    END IF;
+    IF NEW."prevHash" IS DISTINCT FROM v_latest_hash THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23000',
+        MESSAGE = 'PC_PROFILE_TRANSITION_CHAIN_MISMATCH';
     END IF;
   END IF;
 
@@ -367,6 +454,10 @@ FOR EACH ROW EXECUTE FUNCTION public.app_commodity_profile_guard_profile();
 CREATE TRIGGER commodity_profile_versions_guard
 BEFORE INSERT OR UPDATE OR DELETE ON public."commodity_profile_versions"
 FOR EACH ROW EXECUTE FUNCTION public.app_commodity_profile_guard_version();
+
+CREATE TRIGGER commodity_profile_transitions_guard
+BEFORE INSERT ON public."commodity_profile_transitions"
+FOR EACH ROW EXECUTE FUNCTION public.app_commodity_profile_guard_transition();
 
 CREATE TRIGGER commodity_profile_transitions_append_only
 BEFORE UPDATE OR DELETE ON public."commodity_profile_transitions"
@@ -435,4 +526,5 @@ FOR INSERT WITH CHECK (
 REVOKE ALL ON FUNCTION public.app_commodity_profile_valid_transition(text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_commodity_profile_guard_profile() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_commodity_profile_guard_version() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.app_commodity_profile_guard_transition() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_commodity_profile_transition_append_only() FROM PUBLIC;
