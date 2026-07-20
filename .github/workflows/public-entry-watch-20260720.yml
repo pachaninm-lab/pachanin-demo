@@ -14,7 +14,7 @@ permissions:
 jobs:
   public-entry-watch:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -24,8 +24,23 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Install Chromium and WebKit
-        run: pnpm exec playwright install chromium webkit
+      - name: Prepare preinstalled Chrome runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
+          test -x "$CHROME_PATH"
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/scripts/public-entry-watch-20260720.mjs')
+          source = path.read_text()
+          source = source.replace("import { chromium, webkit } from '@playwright/test';", "import { chromium } from '@playwright/test';")
+          source = '\n'.join(line for line in source.splitlines() if "name: 'webkit-iphone'" not in line) + '\n'
+          source = source.replace("project.engine.launch({ headless: true })", "project.engine.launch({ headless: true, executablePath: process.env.CHROME_PATH })")
+          source = source.replace("chromium.launch({ headless: true })", "chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH })")
+          path.write_text(source)
+          PY
       - name: Run exact production watch
         run: node .github/scripts/public-entry-watch-20260720.mjs
       - name: Upload production watch evidence
