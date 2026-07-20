@@ -1,27 +1,29 @@
 name: TAI PR 2831 Ruff Fix
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/tai-ap-13b2a-llama-toolchain-authority
+      - main
     paths:
       - .github/workflows/tai-pr-2831-ruff-fix.yml
+      - apps/tai/tai/llama_toolchain_collect.py
+      - apps/tai/tai/llama_toolchain_contract.py
+      - apps/tai/tai/llama_toolchain_verify.py
+      - apps/tai/tests/test_ap13b2a_scope.py
+      - apps/tai/tests/test_llama_toolchain_contracts.py
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: tai-pr-2831-ruff-fix
-  cancel-in-progress: false
+  group: tai-pr-2831-ruff-fix-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
-  format:
+  format-artifact:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: agent/tai-ap-13b2a-llama-toolchain-authority
-          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -52,19 +54,19 @@ jobs:
             tai/llama_toolchain_verify.py \
             tests/test_ap13b2a_scope.py \
             tests/test_llama_toolchain_contracts.py
-      - name: Commit formatting-only correction
+      - name: Stage formatted files
         run: |
-          if git diff --quiet; then
-            echo 'No formatting changes required.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            apps/tai/tai/llama_toolchain_collect.py \
-            apps/tai/tai/llama_toolchain_contract.py \
-            apps/tai/tai/llama_toolchain_verify.py \
-            apps/tai/tests/test_ap13b2a_scope.py \
-            apps/tai/tests/test_llama_toolchain_contracts.py
-          git commit -m 'fix(tai): satisfy exact-head Ruff gate'
-          git push origin HEAD:agent/tai-ap-13b2a-llama-toolchain-authority
+          mkdir -p /tmp/tai-pr-2831/apps/tai/tai
+          mkdir -p /tmp/tai-pr-2831/apps/tai/tests
+          cp apps/tai/tai/llama_toolchain_collect.py /tmp/tai-pr-2831/apps/tai/tai/
+          cp apps/tai/tai/llama_toolchain_contract.py /tmp/tai-pr-2831/apps/tai/tai/
+          cp apps/tai/tai/llama_toolchain_verify.py /tmp/tai-pr-2831/apps/tai/tai/
+          cp apps/tai/tests/test_ap13b2a_scope.py /tmp/tai-pr-2831/apps/tai/tests/
+          cp apps/tai/tests/test_llama_toolchain_contracts.py /tmp/tai-pr-2831/apps/tai/tests/
+          git diff --check
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tai-pr-2831-ruff-fixed-${{ github.event.pull_request.head.sha }}
+          path: /tmp/tai-pr-2831
+          if-no-files-found: error
+          retention-days: 1
