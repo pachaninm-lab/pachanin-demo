@@ -4,6 +4,7 @@
   "purpose": "Rebuild the public AI-in-action page into a concise value-first, single-stage interactive explanation with an unobstructed mobile composition.",
   "approvedBy": "user-directed-editorial-rebuild",
   "allowedPaths": [
+    ".github/workflows/ai-css-patch.yml",
     "apps/web/app/platform-v7/ai-in-action/page.tsx",
     "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
     "apps/web/components/platform-v7/PublicAiInActionExperience.module.css",
