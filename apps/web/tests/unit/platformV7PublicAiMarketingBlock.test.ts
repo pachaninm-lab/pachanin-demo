@@ -8,22 +8,29 @@ describe('platform-v7 public AI marketing context', () => {
   const page = read('app/platform-v7/page.tsx');
   const block = read('components/platform-v7/PublicAiMarketingBlock.tsx');
 
-  it('places the active AI value inside the first-screen hero', () => {
+  it('places the active AI value inside the first-screen hero and links to the interactive explanation', () => {
     expect(page).toContain("const firstScreenAiCopy = {");
     expect(page).toContain("id='ai-copilot'");
     expect(page).toContain("data-testid='platform-v7-ai-current-value'");
     expect(page).toContain("<a href='#ai-copilot'>{aiNavLabel}</a>");
+    expect(page).toContain("const aiExperienceHref = `/platform-v7/demo/ai?lang=${encodeURIComponent(locale)}`;");
+    expect(page).toContain("href={aiExperienceHref}");
+    expect(page).toContain("className='pc-ppe-ai-status-link'");
+    expect(page).toContain("eventName='ai_in_action_opened'");
+    expect(page).toContain("params={{ source: 'home_ai_status' }}");
     expect(page).not.toContain("import { PublicAiMarketingBlock }");
     expect(page).not.toContain('<PublicAiMarketingBlock');
 
     const heroTitleIndex = page.indexOf("id='pc-ppe-hero-title'");
     const aiIndex = page.indexOf("id='ai-copilot'");
+    const aiLinkIndex = page.indexOf("href={aiExperienceHref}");
     const actionsIndex = page.indexOf("className='pc-ppe-hero-actions'");
     const dealIndex = page.indexOf("id='deal-example'");
 
     expect(heroTitleIndex).toBeGreaterThan(-1);
     expect(aiIndex).toBeGreaterThan(heroTitleIndex);
-    expect(actionsIndex).toBeGreaterThan(aiIndex);
+    expect(aiLinkIndex).toBeGreaterThan(aiIndex);
+    expect(actionsIndex).toBeGreaterThan(aiLinkIndex);
     expect(dealIndex).toBeGreaterThan(actionsIndex);
   });
 
