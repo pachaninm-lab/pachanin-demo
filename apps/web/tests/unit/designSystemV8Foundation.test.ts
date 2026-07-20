@@ -47,15 +47,19 @@ describe('Design System v8 foundation', () => {
 
   it('uses governed text rhythm in shared cockpit layouts', () => {
     const hero = read('apps/web/components/platform-v7/premium/CockpitHero.tsx');
+    const heroCss = read('apps/web/components/platform-v7/premium/CockpitHero.module.css');
     const roleCockpit = read('apps/web/components/platform-v7/RoleExecutionCockpit.tsx');
     const moneyCockpit = read('apps/web/components/transaction-ux/MoneyObligationCockpit.tsx');
+    const moneyCss = read('apps/web/components/transaction-ux/MoneyObligationCockpit.module.css');
     const executionCss = read('apps/web/components/platform-v7/ExecutionDesignSystem.module.css');
 
-    expect(hero).toContain("TextStack");
-    expect(roleCockpit).toContain("TextStack");
-    expect(moneyCockpit).toContain("TextStack");
+    expect(hero).toContain('TextStack');
+    expect(roleCockpit).toContain('TextStack');
+    expect(moneyCockpit).toContain('TextStack');
     expect(hero).not.toMatch(/style\s*=\s*\{\{/);
     expect(roleCockpit).not.toMatch(/style\s*=\s*\{\{/);
+    expect(heroCss).toContain('--ds-text-gap-title: var(--ds-space-2, 8px)');
+    expect(moneyCss).toContain('var(--ds-text-gap-action)');
     expect(executionCss).toContain('var(--ds-text-gap-title, 8px)');
     expect(executionCss).toContain('var(--ds-text-gap-paragraph, 12px)');
   });
