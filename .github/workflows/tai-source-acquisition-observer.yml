@@ -1,4 +1,4 @@
-name: TAI Source Acquisition Trigger Patcher
+name: TAI Source Acquisition Blob Builder
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  patch:
+  build-blob:
     if: >-
       github.actor == github.repository_owner &&
       github.head_ref == 'agent/tai-source-acquisition-observer'
@@ -18,16 +18,17 @@ jobs:
     timeout-minutes: 5
     env:
       TARGET_BRANCH: agent/tai-ap-13b3-source-acquisition-trigger-fix
-      TARGET_PATH: .github/workflows/tai-model-source-acquisition.yml
+      SOURCE_PATH: .github/workflows/tai-model-source-acquisition.yml
+      OUTPUT_PATH: tmp/tai-model-source-acquisition.patched.yml
     steps:
-      - name: Apply exact runtime-context patch
+      - name: Build exact patched workflow as regular repository blob
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh api "/repos/$REPOSITORY/contents/$TARGET_PATH?ref=$TARGET_BRANCH" \
+          gh api "/repos/$REPOSITORY/contents/$SOURCE_PATH?ref=$TARGET_BRANCH" \
             > source.json
           python - <<'PY'
           import base64
@@ -60,20 +61,18 @@ jobs:
               "        with:\n"
               "          python-version: '3.12'\n\n"
           )
-          if invalid in text:
-              if text.count(invalid) != 1 or text.count(anchor) != 1:
-                  raise SystemExit('workflow patch anchors are not unique')
-              text = text.replace(invalid, '', 1).replace(anchor, anchor + binding, 1)
-          elif binding not in text:
-              raise SystemExit('neither invalid block nor applied binding exists')
+          if text.count(invalid) != 1 or text.count(anchor) != 1:
+              raise SystemExit('workflow patch anchors are not unique')
+          patched = text.replace(invalid, '', 1).replace(anchor, anchor + binding, 1)
+          if '$' + '{{ runner.temp }}' in patched:
+              raise SystemExit('invalid runner context remains')
           payload = {
-              'message': 'fix(tai): bind acquisition roots at runtime',
-              'content': base64.b64encode(text.encode()).decode(),
-              'sha': source['sha'],
+              'message': 'chore(tai): stage validated acquisition workflow blob',
+              'content': base64.b64encode(patched.encode()).decode(),
               'branch': os.environ['TARGET_BRANCH'],
           }
           Path('payload.json').write_text(json.dumps(payload))
           PY
-          gh api "/repos/$REPOSITORY/contents/$TARGET_PATH" \
+          gh api "/repos/$REPOSITORY/contents/$OUTPUT_PATH" \
             --method PUT \
             --input payload.json
