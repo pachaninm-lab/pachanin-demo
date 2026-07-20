@@ -1,0 +1,132 @@
+name: TAI Model Host Capacity Probe
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-model-host-capacity-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
+  SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
+
+jobs:
+  probe:
+    name: Read-only VPS capacity and exact-source reachability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Resolve protected SSH transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          host="${SSH_HOST_SECRET:-$DEFAULT_HOST}"
+          user="${SSH_USER_SECRET:-root}"
+          port="${SSH_PORT_SECRET:-22}"
+          key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
+          password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+
+          if [[ -z "$key" && -z "$password" ]]; then
+            echo 'No supported protected SSH credential is configured; server was not contacted.' >&2
+            exit 2
+          fi
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          if [[ -n "$key" ]]; then
+            printf '%s\n' "$key" > "$HOME/.ssh/id_probe"
+            chmod 600 "$HOME/.ssh/id_probe"
+            echo 'mode=key' >> "$GITHUB_OUTPUT"
+          else
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq sshpass
+            echo 'mode=password' >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Probe hardware, storage, tools and pinned model endpoints
+        env:
+          SSH_MODE: ${{ steps.ssh.outputs.mode }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          remote_script="$(cat <<'REMOTE'
+          set -euo pipefail
+
+          echo 'SCHEMA=tai.model-host-capacity-probe.v1'
+          echo 'MUTATION_MODE=READ_ONLY'
+          printf 'OS_KERNEL=%s\n' "$(uname -srmo | tr '\n' ' ')"
+          printf 'ARCH=%s\n' "$(uname -m)"
+          printf 'CPU_COUNT=%s\n' "$(nproc)"
+          printf 'CPU_MODEL=%s\n' "$(awk -F: '/model name/{gsub(/^[[:space:]]+/,"",$2); print $2; exit}' /proc/cpuinfo 2>/dev/null || true)"
+          printf 'MEM_TOTAL_BYTES=%s\n' "$(awk '/MemTotal:/{print $2 * 1024}' /proc/meminfo)"
+          printf 'MEM_AVAILABLE_BYTES=%s\n' "$(awk '/MemAvailable:/{print $2 * 1024}' /proc/meminfo)"
+          printf 'SWAP_TOTAL_BYTES=%s\n' "$(awk '/SwapTotal:/{print $2 * 1024}' /proc/meminfo)"
+
+          for path in / /srv /opt /var/lib/docker /root; do
+            if [[ -e "$path" ]]; then
+              read -r filesystem total used available percent mountpoint < <(df -P -B1 "$path" | awk 'NR==2{print $1,$2,$3,$4,$5,$6}')
+              safe_name="$(printf '%s' "$path" | sed 's#^/$#ROOT#; s#^/##; s#[^A-Za-z0-9]#_#g' | tr '[:lower:]' '[:upper:]')"
+              printf 'FS_%s_TOTAL_BYTES=%s\n' "$safe_name" "$total"
+              printf 'FS_%s_AVAILABLE_BYTES=%s\n' "$safe_name" "$available"
+              printf 'FS_%s_USED_PERCENT=%s\n' "$safe_name" "$percent"
+              printf 'FS_%s_MOUNT=%s\n' "$safe_name" "$mountpoint"
+            fi
+          done
+
+          for command_name in curl git python3 sha256sum tar gzip zstd cmake ninja cc c++ docker jq; do
+            if command -v "$command_name" >/dev/null 2>&1; then
+              printf 'TOOL_%s=AVAILABLE:%s\n' "$(printf '%s' "$command_name" | tr '[:lower:]' '[:upper:]')" "$(command -v "$command_name")"
+            else
+              printf 'TOOL_%s=MISSING\n' "$(printf '%s' "$command_name" | tr '[:lower:]' '[:upper:]')"
+            fi
+          done
+
+          if command -v docker >/dev/null 2>&1; then
+            docker info --format 'DOCKER_VERSION={{.ServerVersion}}\nDOCKER_STORAGE_DRIVER={{.Driver}}\nDOCKER_ROOT_DIR={{.DockerRootDir}}\nDOCKER_CPUS={{.NCPU}}\nDOCKER_MEMORY_BYTES={{.MemTotal}}' 2>/dev/null || echo 'DOCKER_INFO=UNAVAILABLE'
+          fi
+
+          probe_endpoint() {
+            label="$1"
+            url="$2"
+            status="$(curl -sSIL --max-time 30 -o /dev/null -w '%{http_code}' "$url" || true)"
+            printf 'ENDPOINT_%s_HTTP=%s\n' "$label" "${status:-000}"
+          }
+
+          probe_endpoint QWEN_CONFIG 'https://huggingface.co/Qwen/Qwen3-8B/resolve/895c8d171bc03c30e113cd7a28c02494b5e068b7/config.json'
+          probe_endpoint QWEN_WEIGHT 'https://huggingface.co/Qwen/Qwen3-8B/resolve/895c8d171bc03c30e113cd7a28c02494b5e068b7/model-00001-of-00005.safetensors'
+          probe_endpoint MISTRAL_CONFIG 'https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/resolve/c170c708c41dac9275d15a8fff4eca08d52bab71/config.json'
+          probe_endpoint MISTRAL_WEIGHT 'https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/resolve/c170c708c41dac9275d15a8fff4eca08d52bab71/model-00001-of-00003.safetensors'
+
+          echo 'PROBE_COMPLETE=true'
+          REMOTE
+          )"
+
+          if [[ "$SSH_MODE" == key ]]; then
+            ssh -i "$HOME/.ssh/id_probe" -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "bash -s" <<< "$remote_script"
+          else
+            password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+            SSHPASS="$password" sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "bash -s" <<< "$remote_script"
+          fi
