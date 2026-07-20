@@ -55,6 +55,7 @@ jobs:
           tags: |
             type=sha,format=short
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/cabinet-design-audit-2jbv6f' }}
+            type=raw,value=single-server,enable=${{ github.ref == 'refs/heads/claude/cabinet-design-audit-2jbv6f' }}
 
       - name: Build and push API
         uses: docker/build-push-action@v6
@@ -99,6 +100,7 @@ jobs:
           tags: |
             type=sha,format=short
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/cabinet-design-audit-2jbv6f' }}
+            type=raw,value=single-server,enable=${{ github.ref == 'refs/heads/claude/cabinet-design-audit-2jbv6f' }}
 
       - name: Build and push Web
         uses: docker/build-push-action@v6
@@ -142,6 +144,7 @@ jobs:
           tags: |
             type=sha,format=short
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/cabinet-design-audit-2jbv6f' }}
+            type=raw,value=single-server,enable=${{ github.ref == 'refs/heads/claude/cabinet-design-audit-2jbv6f' }}
 
       - name: Build and push migrations
         uses: docker/build-push-action@v6

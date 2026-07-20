@@ -67,7 +67,7 @@ services:
     networks: [edge]
 
   migrations:
-    image: "${IMAGE_PREFIX:-ghcr.io/pachaninm-lab/grainflow}-migrations:latest"
+    image: "${IMAGE_PREFIX:-ghcr.io/pachaninm-lab/grainflow}-migrations:${IMAGE_TAG:-single-server}"
     restart: "no"
     environment:
       # Migrations run as the DDL owner, directly (not through the pooler).
@@ -103,7 +103,7 @@ services:
     networks: [edge]
 
   api:
-    image: "${IMAGE_PREFIX:-ghcr.io/pachaninm-lab/grainflow}-api:latest"
+    image: "${IMAGE_PREFIX:-ghcr.io/pachaninm-lab/grainflow}-api:${IMAGE_TAG:-single-server}"
     restart: unless-stopped
     env_file: [.env]
     environment:
@@ -176,7 +176,7 @@ services:
     networks: [edge]
 
   web:
-    image: "${IMAGE_PREFIX:-ghcr.io/pachaninm-lab/grainflow}-web:latest"
+    image: "${IMAGE_PREFIX:-ghcr.io/pachaninm-lab/grainflow}-web:${IMAGE_TAG:-single-server}"
     restart: unless-stopped
     environment:
       NODE_ENV: production
