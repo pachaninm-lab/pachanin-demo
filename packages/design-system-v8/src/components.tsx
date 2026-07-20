@@ -4,6 +4,8 @@ import styles from './components.module.css';
 type Tone = 'neutral' | 'success' | 'warning' | 'critical' | 'information';
 type ButtonVariant = 'primary' | 'secondary' | 'danger';
 type SurfaceVariant = 'default' | 'plain' | 'subtle';
+type TextStackSpacing = 'label' | 'title' | 'paragraph' | 'action';
+type TextStackAlign = 'start' | 'center' | 'stretch';
 
 function cx(...values: Array<string | false | null | undefined>): string {
   return values.filter(Boolean).join(' ');
@@ -27,6 +29,40 @@ export function Surface({ variant = 'default', padded = true, className, ...prop
       )}
     />
   );
+}
+
+const textStackSpacingClasses: Record<TextStackSpacing, string> = {
+  label: styles.textStackLabel,
+  title: styles.textStackTitle,
+  paragraph: styles.textStackParagraph,
+  action: styles.textStackAction,
+};
+
+const textStackAlignClasses: Record<TextStackAlign, string> = {
+  start: styles.textStackStart,
+  center: styles.textStackCenter,
+  stretch: styles.textStackStretch,
+};
+
+export type TextStackProps = React.HTMLAttributes<HTMLDivElement> & {
+  spacing?: TextStackSpacing;
+  align?: TextStackAlign;
+};
+
+export function TextStack({ spacing = 'title', align = 'stretch', className, ...props }: TextStackProps) {
+  return (
+    <div
+      {...props}
+      data-text-stack={spacing}
+      className={cx(styles.textStack, textStackSpacingClasses[spacing], textStackAlignClasses[align], className)}
+    />
+  );
+}
+
+export type ProseProps = React.HTMLAttributes<HTMLDivElement>;
+
+export function Prose({ className, ...props }: ProseProps) {
+  return <div {...props} data-prose='true' className={cx(styles.prose, className)} />;
 }
 
 export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
