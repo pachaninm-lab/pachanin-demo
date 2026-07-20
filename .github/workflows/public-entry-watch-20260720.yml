@@ -10,6 +10,8 @@ on:
 
 permissions:
   contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   public-entry-watch:
@@ -47,6 +49,22 @@ jobs:
           set -o pipefail
           mkdir -p artifacts/public-entry-watch-20260720
           node .github/scripts/public-entry-watch-20260720.mjs 2>&1 | tee artifacts/public-entry-watch-20260720/run.log
+      - name: Publish exact diagnostics
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '### Exact production public-entry watch'
+            echo
+            echo '```text'
+            tail -c 60000 artifacts/public-entry-watch-20260720/run.log 2>/dev/null || echo 'run.log was not created'
+            echo '```'
+          } > /tmp/public-entry-watch-comment.md
+          gh pr comment "$PR_NUMBER" --body-file /tmp/public-entry-watch-comment.md
       - name: Upload production watch evidence
         if: always()
         uses: actions/upload-artifact@v4
