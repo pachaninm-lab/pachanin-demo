@@ -3,6 +3,7 @@ import { Role, type RequestUser } from '../../common/types/request-user';
 import { CommodityProfileRepository } from './commodity-profile.repository';
 
 type QueryHandler = (query: unknown) => unknown[];
+type TrustedContextWork = (tx: { $queryRaw: (query: unknown) => Promise<unknown[]> }) => Promise<unknown>;
 
 function user(overrides: Partial<RequestUser> = {}): RequestUser {
   return {
@@ -42,14 +43,8 @@ function row(overrides: Record<string, unknown> = {}) {
 
 function repository(handler: QueryHandler) {
   const rls = {
-    withTrustedContext: jest.fn(async (_user, work) => work({
-      $queryRaw: jest.fn(async (query) => handler(query)),
-    }, {
-      userId: 'user-1',
-      orgId: 'org-1',
-      tenantId: 'tenant-1',
-      role: 'BUYER',
-      sessionId: 'session-1',
+    withTrustedContext: jest.fn(async (_user: RequestUser, work: TrustedContextWork) => work({
+      $queryRaw: jest.fn(async (query: unknown) => handler(query)),
     })),
   };
   return { repository: new CommodityProfileRepository(rls as never), rls };
@@ -71,7 +66,7 @@ describe('CommodityProfileRepository', () => {
         contentHash: 'a'.repeat(64),
       },
     });
-    expect(result.items[0].actions.some((action) => action.id === 'DEPRECATE')).toBe(true);
+    expect(result.items[0]!.actions.some((action) => action.id === 'DEPRECATE')).toBe(true);
   });
 
   it('filters classified rows for ordinary commercial role', async () => {
