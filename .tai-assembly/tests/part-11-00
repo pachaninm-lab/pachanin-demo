@@ -1,0 +1,58 @@
+         "FALLBACK_EXERCISE_REVISION_MISMATCH",
+        ),
+    ],
+)
+def test_joint_admission_reasons_are_fail_closed(
+    tmp_path: Path,
+    mutation: Callable[[dict[str, Any], dict[str, Any]], object],
+    expected: str,
+) -> None:
+    primary_path, primary_original, primary_restored = _create_manifest(
+        tmp_path, primary=True
+    )
+    fallback_path, fallback_original, fallback_restored = _create_manifest(
+        tmp_path, primary=False
+    )
+    primary = verify_benchmark(
+        AUTHORITY, BUNDLE_AUTHORITY, primary_path, primary_original, primary_restored
+    )
+    fallback = verify_benchmark(
+        AUTHORITY, BUNDLE_AUTHORITY, fallback_path, fallback_original, fallback_restored
+    )
+    mutation(primary, fallback)
+    _resign_report(primary)
+    _resign_report(fallback)
+    primary_report = tmp_path / "primary-report.json"
+    fallback_report = tmp_path / "fallback-report.json"
+    write_json(primary_report, primary)
+    write_json(fallback_report, fallback)
+    decision = admit_models(
+        AUTHORITY,
+        primary_report,
+        fallback_report,
+        evaluated_at="2026-07-21T10:00:00+00:00",
+    )
+    assert decision["status"] == "REJECTED"
+    assert expected in decision["reasons"], decision
+
+
+def test_invalid_report_hash_is_rejected(tmp_path: Path) -> None:
+    primary = verify_benchmark(
+        AUTHORITY, BUNDLE_AUTHORITY, QWEN_PENDING, Path("/x"), Path("/y")
+    )
+    fallback = verify_benchmark(
+        AUTHORITY, BUNDLE_AUTHORITY, MISTRAL_PENDING, Path("/x"), Path("/y")
+    )
+    primary["report_sha256"] = "f" * 64
+    primary_path = tmp_path / "primary.json"
+    fallback_path = tmp_path / "fallback.json"
+    write_json(primary_path, primary)
+    write_json(fallback_path, fallback)
+    decision = admit_models(
+        AUTHORITY,
+        primary_path,
+        fallback_path,
+        evaluated_at="2026-07-21T10:00:00+00:00",
+    )
+    assert decision["status"] == "REJECTED"
+    assert decision["reasons"][0].startswith("CONTRACT_INVAL
