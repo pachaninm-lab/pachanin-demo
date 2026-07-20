@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "registry_version": "1.0.0",
+  "generated_at": "2026-07-20T10:44:19Z",
+  "exact_main_baseline": "6f074942b46e226982e646c6f688886504b712ce",
+  "production_operational_status": "NOT_ATTESTED",
+  "sources": [
+    {
+      "source_id": "S-TZ-001",
+      "title": "ТЗ усиление Прозрачной Цены — растениеводство v1.0",
+      "class": "PROJECT_TRUTH_SOURCE",
+      "version": "1.0",
+      "effective_date": "2026-07-20",
+      "sha256": "78f9725ab46d9e2fc5adecb51f8204fa62d73b58b26b3b111140a1af64abfdd0",
+      "size_bytes": 95446,
+      "status": "PINNED",
+      "owner": "PRODUCT_ARCHITECTURE",
+      "usage": [
+        "requirements",
+        "architecture",
+        "ux",
+        "acceptance",
+        "roadmap"
+      ]
+    },
+    {
+      "source_id": "S-CODE-001",
+      "title": "pachaninm-lab/pachanin-demo exact main",
+      "class": "CURRENT_CODE_AUTHORITY",
+      "revision": "6f074942b46e226982e646c6f688886504b712ce",
+      "status": "PINNED",
+      "owner": "ENGINEERING",
+      "observed_paths": [
+        "apps/api/prisma/schema.prisma",
+        "packages/domain-core/src/index.ts",
+        "packages/domain-core/src/measures.ts",
+        "apps/web/app/platform-v7/page.tsx",
+        "apps/web/components/v7r/PlatformRolesHub.tsx"
+      ]
+    },
+    {
+      "source_id": "S-LEGAL-RF",
+      "title": "Applicable Russian legal and regulatory sources listed in TЗ v1.0",
+      "class": "REGULATORY_SOURCE_SET",
+      "status": "REVERIFY_BEFORE_REGULATED_RELEASE",
+      "owner": "LEGAL_COMPLIANCE",
+      "required_deliverable": "SIGNED_LEGAL_OPINION_OR_ACTIVATION_MEMO",
+      "activation_blocking": true,
+      "notes": "This registry records engineering dependencies only; it is not a legal opinion."
+    },
+    {
+      "source_id": "S-FGIS-GRAIN-1.0.23",
+      "title": "FGIS Grain API 1.0.23 source bundle",
+      "class": "EXTERNAL_PROTOCOL_SOURCE",
+      "status": "SOURCE_ASSERTED_IN_TZ_REVERIFY_ACCESS_AND_HASH",
+      "owner": "REGULATORY_INTEGRATIONS",
+      "activation_blocking": true,
+      "required_evidence": [
+        "source_bundle_hash",
+        "contract_tests",
+        "credential_access",
+        "live_or_test_status"
+      ]
+    },
+    {
+      "source_id": "S-BANK-PARTNER",
+      "title": "Bank safe-deal / nominal-account product materials",
+      "class": "PARTNER_PRODUCT_SOURCE",
+      "status": "PRODUCT_SCENARIO_ONLY_NO_LIVE_CONTRACT",
+      "owner": "SETTLEMENT_PARTNERSHIPS",
+      "activation_blocking": true,
+      "required_evidence": [
+        "signed_contract",
+        "api_access",
+        "callback_signing",
+        "reconciliation_acceptance"
+      ]
+    }
+  ],
+  "source_priority": [
+    "CURRENT_CODE_AND_CANONICAL_ADR",
+    "PROJECT_TRUTH_SOURCE",
+    "OFFICIAL_REGULATORY_SOURCE",
+    "CONFIRMED_API_OR_CONTRACT",
+    "EXTERNAL_INDUSTRY_DATA",
+    "HYPOTHESIS"
+  ]
+}
