@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Extract exact-main industrial gate failure
+      - name: Print exact load-proof failure section
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -27,5 +27,8 @@ jobs:
           exact_main="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
           printf 'EXACT_MAIN=%s\n' "$exact_main"
           gh api "/repos/$REPOSITORY/actions/jobs/$FAILED_JOB_ID/logs" > failed.log
-          grep -aE '(^|[^A-Za-z])(FAIL|FAILED|Error:|error:|AssertionError|expected|received|timeout|timed out|ECONN|duplicate|deadlock|P95|p95|threshold|##\[error\])' failed.log \
-            | tail -80 || true
+          awk '
+            /FAIL test\/industrial\/load-proof\.e2e-spec\.ts/ { printing=1 }
+            printing { print; lines += 1 }
+            printing && (/Test Suites:/ || lines >= 160) { exit }
+          ' failed.log
