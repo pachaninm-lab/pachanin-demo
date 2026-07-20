@@ -1,4 +1,4 @@
-name: TAI llama.cpp Build Observer
+name: TAI Exact-Main Release Observer
 
 on:
   pull_request:
@@ -15,13 +15,114 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Extract handoff failure
+      - name: Report exact-main release acceptance
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          HANDOFF_JOB_ID: '88303764538'
         run: |
           set -euo pipefail
-          gh api "/repos/$REPOSITORY/actions/jobs/$HANDOFF_JOB_ID/logs" > handoff.log
-          grep -aE '(_MISMATCH|_INVALID|_NOT_|_CARDINALITY_|Error:|##\[error\])' handoff.log | tail -20 || true
+          exact_main="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
+          printf '%s\n' "$exact_main" > exact-main.txt
+
+          gh api \
+            "/repos/$REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?branch=main&per_page=30" \
+            > release-runs.json
+          gh api \
+            "/repos/$REPOSITORY/actions/runs?head_sha=$exact_main&per_page=100" \
+            > exact-main-runs.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          exact_main = Path("exact-main.txt").read_text().strip()
+          releases = json.loads(Path("release-runs.json").read_text()).get(
+              "workflow_runs", []
+          )
+          exact_runs = json.loads(Path("exact-main-runs.json").read_text()).get(
+              "workflow_runs", []
+          )
+          release_matches = [
+              run for run in releases if run.get("head_sha") == exact_main
+          ]
+          release_matches.sort(
+              key=lambda run: (run.get("run_number", 0), run.get("id", 0)),
+              reverse=True,
+          )
+          latest = release_matches[0] if release_matches else None
+          required_names = {
+              "Auction Atomic Execution Acceptance",
+              "CI",
+              "Dependency Review",
+              "Disputes PostgreSQL Authority Acceptance",
+              "Node CI",
+              "Optional Runtime Retirement Gate",
+              "Outbox PostgreSQL Authority Acceptance",
+              "Runtime Context Security Gate",
+              "Security Abuse and Evidence Acceptance",
+              "Security Quality Gate",
+              "Security Scan",
+              "TAI Foundation",
+          }
+          latest_required = {}
+          for run in exact_runs:
+              name = run.get("name")
+              if name not in required_names or run.get("head_sha") != exact_main:
+                  continue
+              current = latest_required.get(name)
+              key = (run.get("run_number", 0), run.get("id", 0))
+              if current is None or key > current[0]:
+                  latest_required[name] = (key, run)
+
+          print(f"EXACT_MAIN={exact_main}")
+          print("RELEASE=" + json.dumps({
+              "id": latest.get("id") if latest else None,
+              "status": latest.get("status") if latest else "MISSING",
+              "conclusion": latest.get("conclusion") if latest else None,
+              "head_sha": latest.get("head_sha") if latest else None,
+              "event": latest.get("event") if latest else None,
+              "run_number": latest.get("run_number") if latest else None,
+              "run_attempt": latest.get("run_attempt") if latest else None,
+              "created_at": latest.get("created_at") if latest else None,
+              "updated_at": latest.get("updated_at") if latest else None,
+              "html_url": latest.get("html_url") if latest else None,
+          }, sort_keys=True))
+          print("REQUIRED=" + json.dumps({
+              name: {
+                  "id": latest_required[name][1].get("id"),
+                  "status": latest_required[name][1].get("status"),
+                  "conclusion": latest_required[name][1].get("conclusion"),
+              }
+              for name in sorted(latest_required)
+          }, sort_keys=True))
+          missing = sorted(required_names - set(latest_required))
+          print("MISSING_REQUIRED=" + json.dumps(missing))
+          if latest is not None:
+              Path("release-run-id.txt").write_text(str(latest["id"]) + "\n")
+          PY
+
+          if [ -s release-run-id.txt ]; then
+            release_run_id="$(cat release-run-id.txt)"
+            gh api "/repos/$REPOSITORY/actions/runs/$release_run_id/artifacts?per_page=100" \
+              > release-artifacts.json
+            python - <<'PY'
+          import json
+          from pathlib import Path
+
+          raw = json.loads(Path("release-artifacts.json").read_text())
+          artifacts = [
+              {
+                  "id": artifact.get("id"),
+                  "name": artifact.get("name"),
+                  "digest": artifact.get("digest"),
+                  "expired": artifact.get("expired"),
+                  "size_in_bytes": artifact.get("size_in_bytes"),
+                  "created_at": artifact.get("created_at"),
+                  "expires_at": artifact.get("expires_at"),
+              }
+              for artifact in raw.get("artifacts", [])
+          ]
+          print("RELEASE_ARTIFACTS=" + json.dumps(artifacts, sort_keys=True))
+          PY
+          fi
