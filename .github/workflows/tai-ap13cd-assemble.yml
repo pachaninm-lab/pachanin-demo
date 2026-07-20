@@ -32,12 +32,21 @@ jobs:
           mkdir -p apps/tai/tai apps/tai/tests
           cat .tai-assembly/module/part-* > apps/tai/tai/model_benchmark_admission_v2.py
           cat .tai-assembly/tests/part-* > apps/tai/tests/test_model_benchmark_admission_v2.py
-          test "$(wc -c < apps/tai/tai/model_benchmark_admission_v2.py)" = '77721'
-          test "$(wc -c < apps/tai/tests/test_model_benchmark_admission_v2.py)" = '49541'
+
+          module_bytes="$(wc -c < apps/tai/tai/model_benchmark_admission_v2.py)"
+          test_bytes="$(wc -c < apps/tai/tests/test_model_benchmark_admission_v2.py)"
+          printf 'ASSEMBLED_MODULE_BYTES=%s\n' "$module_bytes"
+          printf 'ASSEMBLED_TEST_BYTES=%s\n' "$test_bytes"
+          test "$module_bytes" = '77721'
+          test "$test_bytes" = '49541'
+
+          echo 'ASSEMBLY_SIZE_CHECK=PASS'
           python -m py_compile \
             apps/tai/tai/model_benchmark_admission_v2.py \
             apps/tai/tai/model_benchmark_admission_v2_cli.py \
             apps/tai/tests/test_model_benchmark_admission_v2.py
+          echo 'ASSEMBLY_PY_COMPILE=PASS'
+
           rm -rf .tai-assembly
           rm .github/workflows/tai-ap13cd-assemble.yml
 
