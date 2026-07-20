@@ -15,15 +15,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Compact diagnostics
+      - name: Exact handoff diagnostics
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          EXACT_MAIN: 637d36f7e9bb152ee3c7b22545a9a83eca3e4388
+          EXACT_BUILD_SHA: 637d36f7e9bb152ee3c7b22545a9a83eca3e4388
         run: |
           set -euo pipefail
-          echo 'HANDOFF'
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-llama-toolchain-acceptance-handoff.yml/runs?branch=main&per_page=5" --jq '.workflow_runs[] | [.id,.status,.conclusion,.event,.head_branch,.head_sha,.run_number,.run_attempt,.created_at,.updated_at,.html_url] | @tsv'
-          echo 'RELEASE'
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?branch=main&head_sha=$EXACT_MAIN&per_page=5" --jq '.workflow_runs[] | [.id,.status,.conclusion,.event,.head_branch,.head_sha,.run_number,.run_attempt,.created_at,.updated_at,.html_url] | @tsv'
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-llama-toolchain-acceptance-handoff.yml/runs?branch=main&per_page=20" --jq '.workflow_runs[] | select(.head_sha == env.EXACT_BUILD_SHA) | [.id,.status,.conclusion,.event,.head_branch,.head_sha,.run_number,.run_attempt,.created_at,.updated_at,.html_url] | @tsv'
