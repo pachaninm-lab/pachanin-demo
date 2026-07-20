@@ -1,0 +1,61 @@
+name: TAI llama.cpp Build Observer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-llama-toolchain-build-observer.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  observe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Report controlled build and handoff runs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api \
+            "/repos/$REPOSITORY/actions/workflows/tai-llama-toolchain-build.yml/runs?branch=main&per_page=20" \
+            > build-runs.json
+          gh api \
+            "/repos/$REPOSITORY/actions/workflows/tai-llama-toolchain-acceptance-handoff.yml/runs?branch=main&per_page=20" \
+            > handoff-runs.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          def report(label: str, path: str) -> None:
+              raw = json.loads(Path(path).read_text())
+              runs = raw.get("workflow_runs", [])
+              print(f"## {label}: {len(runs)} run(s)")
+              for run in runs:
+                  print(json.dumps({
+                      "id": run.get("id"),
+                      "name": run.get("name"),
+                      "event": run.get("event"),
+                      "status": run.get("status"),
+                      "conclusion": run.get("conclusion"),
+                      "head_branch": run.get("head_branch"),
+                      "head_sha": run.get("head_sha"),
+                      "run_number": run.get("run_number"),
+                      "run_attempt": run.get("run_attempt"),
+                      "actor": (run.get("actor") or {}).get("login"),
+                      "triggering_actor": (run.get("triggering_actor") or {}).get("login"),
+                      "created_at": run.get("created_at"),
+                      "run_started_at": run.get("run_started_at"),
+                      "updated_at": run.get("updated_at"),
+                      "html_url": run.get("html_url"),
+                  }, sort_keys=True))
+
+          report("controlled build", "build-runs.json")
+          report("acceptance handoff", "handoff-runs.json")
+          PY
