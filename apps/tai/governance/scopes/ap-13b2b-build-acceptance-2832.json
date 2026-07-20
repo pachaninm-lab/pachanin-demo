@@ -1,0 +1,32 @@
+{
+  "acceptance": [
+    "owner-triggered build run 29727061145 completed successfully on exact-main 637d36f7e9bb152ee3c7b22545a9a83eca3e4388",
+    "all four governed build, package, restore and independent verification steps passed",
+    "package artifact 8454821423 and locator artifact 8454825634 are immutable, SHA-256-bound, unexpired and retained for 90 days",
+    "committed locator has status VERIFIED_RESTORED and restored report has status VERIFIED with no reasons",
+    "all four binary target sizes and SHA-256 values are recorded as metadata without committing binaries",
+    "changes after the build through acceptance base b411a960cc259919e701704bfa652bd06d33c7d8 do not touch TAI or llama.cpp authority paths",
+    "Qwen and Mistral remain PENDING_ACQUISITION; legal review and benchmarks remain NOT_DONE",
+    "production_operational_status remains NOT_ATTESTED",
+    "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head/exact-main gates pass"
+  ],
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b2b-build-acceptance-2832.json",
+    "apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json",
+    "apps/tai/model-artifacts/llama-cpp-build-artifact-locator.accepted.v1.json",
+    "apps/tai/tests/test_llama_toolchain_build_acceptance.py"
+  ],
+  "branch": "agent/tai-ap-13b2b-build-acceptance",
+  "forbidden_capabilities": [
+    "committed source archive, build package, log or compiled binary",
+    "model download, conversion, quantization or GGUF claim",
+    "automated legal approval",
+    "benchmark or model admission claim",
+    "production readiness or operational attestation claim"
+  ],
+  "issue": 2832,
+  "maturity_boundary": "verified-restored-llama-toolchain-build-without-model-or-operational-admission",
+  "parent_issue": 2726,
+  "schema_version": "tai.concurrent-scope.v1",
+  "status": "active"
+}
