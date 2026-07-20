@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import tai.model_legal_review_source as legal_review_source
 from tai.model_bundle_v2_common import (
     _bounded_regular_file,
     _file_sha256,
@@ -25,7 +26,6 @@ from tai.model_legal_review_evidence_parse import (
     load_human_legal_review_attestation,
     load_human_legal_review_record,
 )
-from tai.model_legal_review_source import validate_source_acceptance
 
 
 _AUTOMATED_REVIEWER_IDS = {
@@ -45,7 +45,7 @@ def evaluate_model_review(
     model_id: str,
     revision: str,
 ) -> ModelLegalReviewReport:
-    validate_source_acceptance(authority, acceptance_path)
+    legal_review_source.validate_source_acceptance(authority, acceptance_path)
     plan = _find_plan(authority, model_id, revision)
     authority_digest = authority_sha256(authority)
     use_digest = intended_use_sha256(authority)
