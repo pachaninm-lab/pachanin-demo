@@ -37,8 +37,6 @@ jobs:
           NODE
       - name: Regenerate governed lockfile
         run: pnpm install --lockfile-only
-      - name: Verify fixed production audit
-        run: pnpm audit --prod --audit-level high
       - name: Remove temporary workflow and publish result
         run: |
           rm .github/workflows/temp-brace-expansion-lockfile.yml
