@@ -29,6 +29,13 @@
     "production_readiness_claim": false
   },
   "reviewer_type": "HUMAN",
+  "reviewer_identity_prefixes": [
+    "github:",
+    "employee:",
+    "contractor:",
+    "legal:"
+  ],
+  "attributed_record_issue": 2877,
   "accepted_decisions": [
     "APPROVED",
     "REJECTED"
