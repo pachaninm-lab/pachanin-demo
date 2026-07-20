@@ -207,20 +207,6 @@
   background: #066832;
 }
 
-.pc-ppe-page .pc-ppe-ai-status-link::before {
-  content: 'Открыть страницу «ИИ в работе»';
-  font-weight: 850;
-}
-
-.pc-ppe-page .pc-ppe-ai-status-link strong {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
 @media (max-width: 1080px) {
   .pc-site-nav {
     display: none;
