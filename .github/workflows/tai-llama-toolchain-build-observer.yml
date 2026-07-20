@@ -1,4 +1,4 @@
-name: TAI Model Host Preflight Observer
+name: TAI Source Acquisition Observer
 
 # Temporary read-only diagnostic. This workflow is never merged.
 on:
@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Report latest owner exact-main model-host preflight
+      - name: Report latest owner exact-main source acquisition
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -27,52 +27,17 @@ jobs:
           owner="$(gh api "/repos/$REPOSITORY" --jq '.owner.login')"
           printf 'EXACT_MAIN=%s\nOWNER=%s\n' "$exact_main" "$owner"
 
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-host-preflight.yml/runs?event=issue_comment&branch=main&per_page=50" > runs.json
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml/runs?event=issue_comment&branch=main&per_page=50" > runs.json
           jq -r --arg sha "$exact_main" '.workflow_runs[] | select(.head_sha == $sha) | ["CANDIDATE",.id,.status,.conclusion,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' runs.json
           run_id="$(jq -r --arg sha "$exact_main" --arg owner "$owner" '[.workflow_runs[] | select(.head_sha == $sha and .actor.login == $owner)] | sort_by(.created_at) | reverse | .[0].id // empty' runs.json)"
           test -n "$run_id"
 
           gh api "/repos/$REPOSITORY/actions/runs/$run_id" > run.json
-          jq -r '["PREFLIGHT_RUN",.id,.name,.event,.status,.conclusion,.head_branch,.head_sha,.run_number,.run_attempt,.actor.login,.triggering_actor.login,.path,.created_at,.run_started_at,.updated_at] | @tsv' run.json
+          jq -r '["ACQUISITION_RUN",.id,.name,.event,.status,.conclusion,.head_branch,.head_sha,.run_number,.run_attempt,.actor.login,.triggering_actor.login,.created_at,.run_started_at,.updated_at] | @tsv' run.json
 
           gh api "/repos/$REPOSITORY/actions/runs/$run_id/jobs?per_page=100" > jobs.json
           jq -r '.jobs[] | ["JOB",.id,.name,.status,.conclusion,.head_sha,.started_at,.completed_at] | @tsv' jobs.json
-          jq -r '.jobs[].steps[]? | ["STEP",.number,.name,.status,.conclusion] | @tsv' jobs.json
+          jq -r '.jobs[] | .name as $job | .steps[]? | ["STEP",$job,.number,.name,.status,.conclusion] | @tsv' jobs.json
 
           gh api "/repos/$REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" > artifacts.json
           jq -r '.artifacts[] | ["ARTIFACT",.id,.name,.size_in_bytes,.expired,.digest,.created_at,.expires_at] | @tsv' artifacts.json
-
-          artifact_id="$(jq -r '[.artifacts[] | select(.name | startswith("tai-model-host-preflight-"))] | sort_by(.created_at) | reverse | .[0].id // empty' artifacts.json)"
-          if [[ -z "$artifact_id" ]]; then
-            echo 'PREFLIGHT_RESULT_ARTIFACT=ABSENT'
-            exit 0
-          fi
-
-          gh api -H 'Accept: application/vnd.github+json' "/repos/$REPOSITORY/actions/artifacts/$artifact_id/zip" > preflight.zip
-          result_path="$(unzip -Z1 preflight.zip | grep -E '(^|/)result\.v1\.json$' | head -1)"
-          test -n "$result_path"
-          unzip -p preflight.zip "$result_path" > result.v1.json
-
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          result = json.loads(Path('result.v1.json').read_text())
-          compact = {
-              'schema_version': result.get('schema_version'),
-              'status': result.get('status'),
-              'reasons': result.get('reasons'),
-              'repository_sha': result.get('repository_sha'),
-              'workflow_run_id': result.get('workflow_run_id'),
-              'workflow_run_attempt': result.get('workflow_run_attempt'),
-              'host_class': result.get('host_class'),
-              'hardware': result.get('hardware'),
-              'workspace': result.get('workspace'),
-              'shared_workload_observation': result.get('shared_workload_observation'),
-              'tools': result.get('tools'),
-              'exact_source_endpoints': result.get('exact_source_endpoints'),
-              'accepted_toolchain': result.get('accepted_toolchain'),
-              'maturity_boundary': result.get('maturity_boundary'),
-          }
-          print('PREFLIGHT_RESULT=' + json.dumps(compact, ensure_ascii=False, sort_keys=True))
-          PY
