@@ -1,0 +1,48 @@
+name: Check AI web release c21eec0 live now
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/release-triggers/ai-live-check-c21eec0.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TARGET_SHA: c21eec0ce9b399675e5ae94bb836972ad0086083
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Probe exact live revision and routes
+        shell: bash
+        run: |
+          set -uo pipefail
+          cache_bust="${TARGET_SHA:0:12}-$(date +%s)"
+          evidence="$(curl -sSL --compressed --max-time 30 -w '\nHTTP_STATUS:%{http_code}\n' "${LIVE_BASE}/manifest-pc-deploy.json?release=${cache_bust}" || true)"
+          ai_html="$(curl -sSL --compressed --max-time 30 -w '\nHTTP_STATUS:%{http_code}\n' -H 'Accept-Language: ru-RU,ru;q=0.9' "${LIVE_BASE}/platform-v7/demo/ai?lang=ru&release=${cache_bust}" || true)"
+          home_html="$(curl -sSL --compressed --max-time 30 -w '\nHTTP_STATUS:%{http_code}\n' -H 'Accept-Language: ru-RU,ru;q=0.9' "${LIVE_BASE}/platform-v7?lang=ru&release=${cache_bust}" || true)"
+
+          live_sha="$(jq -r '.commitSha // empty' <<<"${evidence%HTTP_STATUS:*}" 2>/dev/null || true)"
+          manifest_status="$(grep -o 'HTTP_STATUS:[0-9]*' <<<"$evidence" | tail -1 | cut -d: -f2)"
+          ai_status="$(grep -o 'HTTP_STATUS:[0-9]*' <<<"$ai_html" | tail -1 | cut -d: -f2)"
+          home_status="$(grep -o 'HTTP_STATUS:[0-9]*' <<<"$home_html" | tail -1 | cut -d: -f2)"
+
+          echo "TARGET_SHA=$TARGET_SHA"
+          echo "LIVE_SHA=${live_sha:-missing}"
+          echo "MANIFEST_HTTP=${manifest_status:-missing}"
+          echo "AI_PAGE_HTTP=${ai_status:-missing}"
+          echo "HOME_HTTP=${home_status:-missing}"
+          echo "AI_TITLE_PRESENT=$(grep -Fq 'От события сделки' <<<"$ai_html" && echo yes || echo no)"
+          echo "HOME_LINK_PRESENT=$(grep -Fq '/platform-v7/demo/ai' <<<"$home_html" && echo yes || echo no)"
+          echo "HOME_AI_STATUS_PRESENT=$(grep -Fq 'ИИ работает в платформе' <<<"$home_html" && echo yes || echo no)"
+
+          [[ "$live_sha" == "$TARGET_SHA" ]] \
+            && grep -Fq 'От события сделки' <<<"$ai_html" \
+            && grep -Fq '/platform-v7/demo/ai' <<<"$home_html" \
+            && grep -Fq 'ИИ работает в платформе' <<<"$home_html"

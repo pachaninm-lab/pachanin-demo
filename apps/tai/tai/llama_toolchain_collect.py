@@ -118,9 +118,7 @@ def source_tree_sha256(checkout: Path) -> str:
             current = Path(current_root)
             relative_root = current.relative_to(checkout)
             if relative_root == Path("."):
-                directory_names[:] = sorted(
-                    name for name in directory_names if name != ".git"
-                )
+                directory_names[:] = sorted(name for name in directory_names if name != ".git")
             else:
                 directory_names.sort()
             file_names.sort()
@@ -190,7 +188,9 @@ def _collect_file(root: Path, relative_path: str) -> EvidenceFile:
         try:
             current_status = current.lstat()
         except OSError as error:
-            raise ValueError(f"cannot collect missing or unreadable file {relative_path}") from error
+            raise ValueError(
+                f"cannot collect missing or unreadable file {relative_path}"
+            ) from error
         if stat.S_ISLNK(current_status.st_mode):
             raise ValueError(f"cannot collect symlink file {relative_path}")
         if index < len(parts) - 1 and not stat.S_ISDIR(current_status.st_mode):
@@ -282,4 +282,3 @@ def _regular_or_directory_without_symlink(
         return "SYMLINK"
     expected = stat.S_ISDIR(status.st_mode) if require_directory else stat.S_ISREG(status.st_mode)
     return "OK" if expected else "WRONG_TYPE"
-
