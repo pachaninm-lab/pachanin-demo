@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Report handoff and release runs
+      - name: Compact diagnostics
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -23,86 +23,7 @@ jobs:
           EXACT_MAIN: 637d36f7e9bb152ee3c7b22545a9a83eca3e4388
         run: |
           set -euo pipefail
-          gh api \
-            "/repos/$REPOSITORY/actions/workflows/tai-llama-toolchain-acceptance-handoff.yml/runs?branch=main&per_page=10" \
-            > handoff-runs.json
-          gh api \
-            "/repos/$REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?branch=main&per_page=10" \
-            > release-runs.json
-
-          python - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          exact_main = os.environ["EXACT_MAIN"]
-
-          def select(path: str, *, source_run: int | None = None):
-              raw = json.loads(Path(path).read_text())
-              runs = raw.get("workflow_runs", [])
-              selected = []
-              for run in runs:
-                  if source_run is not None:
-                      event = run.get("event")
-                      if event != "workflow_run":
-                          continue
-                      prs = run.get("pull_requests") or []
-                      selected.append(run)
-                  elif run.get("head_sha") == exact_main:
-                      selected.append(run)
-              return selected
-
-          handoff = select("handoff-runs.json", source_run=29727061145)
-          release = select("release-runs.json")
-          print("HANDOFF_RUNS=" + json.dumps([
-              {
-                  "id": run.get("id"),
-                  "status": run.get("status"),
-                  "conclusion": run.get("conclusion"),
-                  "event": run.get("event"),
-                  "head_branch": run.get("head_branch"),
-                  "head_sha": run.get("head_sha"),
-                  "run_number": run.get("run_number"),
-                  "run_attempt": run.get("run_attempt"),
-                  "created_at": run.get("created_at"),
-                  "updated_at": run.get("updated_at"),
-                  "html_url": run.get("html_url"),
-              }
-              for run in handoff[:5]
-          ], sort_keys=True))
-          print("RELEASE_RUNS=" + json.dumps([
-              {
-                  "id": run.get("id"),
-                  "status": run.get("status"),
-                  "conclusion": run.get("conclusion"),
-                  "event": run.get("event"),
-                  "head_branch": run.get("head_branch"),
-                  "head_sha": run.get("head_sha"),
-                  "run_number": run.get("run_number"),
-                  "run_attempt": run.get("run_attempt"),
-                  "created_at": run.get("created_at"),
-                  "updated_at": run.get("updated_at"),
-                  "html_url": run.get("html_url"),
-              }
-              for run in release[:5]
-          ], sort_keys=True))
-
-          latest_handoff = handoff[0] if handoff else None
-          latest_release = release[0] if release else None
-          Path("selected.json").write_text(json.dumps({
-              "handoff": latest_handoff,
-              "release": latest_release,
-          }))
-          PY
-
-          handoff_id="$(python -c 'import json; print((json.load(open("selected.json")).get("handoff") or {}).get("id", ""))')"
-          release_id="$(python -c 'import json; print((json.load(open("selected.json")).get("release") or {}).get("id", ""))')"
-
-          if [ -n "$handoff_id" ]; then
-            gh api "/repos/$REPOSITORY/actions/runs/$handoff_id/jobs?per_page=100" \
-              --jq '{run_id: .jobs[0].run_id, jobs: [.jobs[] | {id, name, status, conclusion, steps: [.steps[] | {name, status, conclusion}]}]}'
-          fi
-          if [ -n "$release_id" ]; then
-            gh api "/repos/$REPOSITORY/actions/runs/$release_id/jobs?per_page=100" \
-              --jq '{run_id: .jobs[0].run_id, jobs: [.jobs[] | {id, name, status, conclusion, steps: [.steps[] | {name, status, conclusion}]}]}'
-          fi
+          echo 'HANDOFF'
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-llama-toolchain-acceptance-handoff.yml/runs?branch=main&per_page=5" --jq '.workflow_runs[] | [.id,.status,.conclusion,.event,.head_branch,.head_sha,.run_number,.run_attempt,.created_at,.updated_at,.html_url] | @tsv'
+          echo 'RELEASE'
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?branch=main&head_sha=$EXACT_MAIN&per_page=5" --jq '.workflow_runs[] | [.id,.status,.conclusion,.event,.head_branch,.head_sha,.run_number,.run_attempt,.created_at,.updated_at,.html_url] | @tsv'
