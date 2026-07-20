@@ -1,0 +1,397 @@
+name: TAI Model Host Exact-Main Preflight
+
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.action == 'created' &&
+          github.event.issue.pull_request == null &&
+          github.event.issue.number == 2835 &&
+          github.event.comment.body == '/tai probe model-host exact-main' &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.user.login == github.repository_owner
+        )
+      )
+    concurrency:
+      group: tai-model-host-exact-main-preflight
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      REQUIREMENTS_PATH: apps/tai/model-artifacts/model-host-preflight-requirements.v1.json
+      BUILD_ACCEPTANCE_PATH: apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json
+      MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+      MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+      MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+      MODEL_PASSWORD_SECRET: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
+      PROD_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      PROD_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      PROD_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      PROD_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PROD_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      PROD_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      PROD_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
+      PROD_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
+      DEFAULT_PROD_HOST: 195.19.12.120
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact checked-out main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = 'refs/heads/main'
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+
+      - name: Validate accepted toolchain dependency and preflight authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          requirements = json.loads(Path("apps/tai/model-artifacts/model-host-preflight-requirements.v1.json").read_text())
+          build = json.loads(Path("apps/tai/model-artifacts/llama-cpp-build-acceptance.v1.json").read_text())
+
+          assert requirements["schema_version"] == "tai.model-host-preflight-requirements.v1"
+          assert requirements["issue"] == 2835
+          assert requirements["target"]["host_role"] == "DEDICATED_MODEL_HOST"
+          assert requirements["target"]["production_workloads_allowed"] is False
+          assert requirements["workspace"]["dedicated_mount_required"] is True
+          assert requirements["minimums"]["storage_available_bytes"] >= 180_000_000_000
+          assert build["status"] == "VERIFIED_RESTORED"
+          assert build["evidence"]["verification_report"]["status"] == "VERIFIED"
+          assert build["evidence"]["verification_report"]["reasons"] == []
+          assert build["maturity_boundary"]["production_operational_status"] == "NOT_ATTESTED"
+          PY
+
+      - name: Resolve protected SSH transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -n "$MODEL_HOST_SECRET" ]]; then
+            host_class='DEDICATED_MODEL_HOST'
+            host="$MODEL_HOST_SECRET"
+            user="${MODEL_USER_SECRET:-${PROD_USER_SECRET:-root}}"
+            port="${MODEL_PORT_SECRET:-${PROD_PORT_SECRET:-22}}"
+            key="${MODEL_KEY_SECRET:-${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}}"
+            password="${MODEL_PASSWORD_SECRET:-${PROD_PASSWORD_PRIMARY:-${PROD_PASSWORD_FALLBACK:-}}}"
+          else
+            host_class='PRODUCTION_FALLBACK'
+            host="${PROD_HOST_SECRET:-$DEFAULT_PROD_HOST}"
+            user="${PROD_USER_SECRET:-root}"
+            port="${PROD_PORT_SECRET:-22}"
+            key="${PROD_KEY_PRIMARY:-${PROD_KEY_SECONDARY:-${PROD_KEY_FALLBACK:-}}}"
+            password="${PROD_PASSWORD_PRIMARY:-${PROD_PASSWORD_FALLBACK:-}}"
+          fi
+
+          if [[ -z "$key" && -z "$password" ]]; then
+            echo 'MODEL_HOST_SSH_CREDENTIALS_ABSENT' >&2
+            exit 2
+          fi
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          if [[ -n "$key" ]]; then
+            printf '%s\n' "$key" > "$HOME/.ssh/id_model_probe"
+            chmod 600 "$HOME/.ssh/id_model_probe"
+            echo 'mode=key' >> "$GITHUB_OUTPUT"
+          else
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq sshpass
+            echo 'mode=password' >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "host_class=$host_class" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+
+      - name: Execute read-only remote probe
+        env:
+          SSH_MODE: ${{ steps.ssh.outputs.mode }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_HOST_CLASS: ${{ steps.ssh.outputs.host_class }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p model-host-preflight
+          printf 'HOST_CLASS=%s\n' "$SSH_HOST_CLASS" > model-host-preflight/raw.env
+
+          remote_script="$(cat <<'REMOTE'
+          set -euo pipefail
+
+          echo 'PROBE_SCHEMA=tai.model-host-remote-observation.v1'
+          echo 'MUTATION_MODE=READ_ONLY'
+          echo 'OS_NAME=linux'
+          printf 'ARCH=%s\n' "$(uname -m)"
+          printf 'CPU_COUNT=%s\n' "$(nproc)"
+          printf 'CPU_MODEL=%s\n' "$(awk -F: '/model name/{gsub(/^[[:space:]]+/,"",$2); print $2; exit}' /proc/cpuinfo 2>/dev/null || true)"
+          printf 'MEM_TOTAL_BYTES=%s\n' "$(awk '/MemTotal:/{printf "%.0f", $2 * 1024}' /proc/meminfo)"
+          printf 'MEM_AVAILABLE_BYTES=%s\n' "$(awk '/MemAvailable:/{printf "%.0f", $2 * 1024}' /proc/meminfo)"
+          printf 'SWAP_TOTAL_BYTES=%s\n' "$(awk '/SwapTotal:/{printf "%.0f", $2 * 1024}' /proc/meminfo)"
+
+          root_source="$(findmnt -n -o SOURCE -T / 2>/dev/null || true)"
+          workspace_exists='false'
+          workspace_dedicated='false'
+          workspace_available='0'
+          workspace_total='0'
+          for candidate in /srv/tai-models /opt/tai-models /var/lib/tai-models; do
+            if [[ -d "$candidate" ]]; then
+              workspace_exists='true'
+              workspace_source="$(findmnt -n -o SOURCE -T "$candidate" 2>/dev/null || true)"
+              if [[ -n "$workspace_source" && "$workspace_source" != "$root_source" ]]; then
+                workspace_dedicated='true'
+              fi
+              workspace_total="$(df -P -B1 "$candidate" | awk 'NR==2{print $2}')"
+              workspace_available="$(df -P -B1 "$candidate" | awk 'NR==2{print $4}')"
+              break
+            fi
+          done
+          printf 'WORKSPACE_EXISTS=%s\n' "$workspace_exists"
+          printf 'WORKSPACE_DEDICATED_MOUNT=%s\n' "$workspace_dedicated"
+          printf 'WORKSPACE_TOTAL_BYTES=%s\n' "$workspace_total"
+          printf 'WORKSPACE_AVAILABLE_BYTES=%s\n' "$workspace_available"
+          printf 'ROOT_TOTAL_BYTES=%s\n' "$(df -P -B1 / | awk 'NR==2{print $2}')"
+          printf 'ROOT_AVAILABLE_BYTES=%s\n' "$(df -P -B1 / | awk 'NR==2{print $4}')"
+
+          for command_name in curl docker git gzip sha256sum tar; do
+            key="$(printf '%s' "$command_name" | tr '[:lower:]' '[:upper:]')"
+            if command -v "$command_name" >/dev/null 2>&1; then
+              printf 'TOOL_%s=true\n' "$key"
+            else
+              printf 'TOOL_%s=false\n' "$key"
+            fi
+          done
+
+          if command -v docker >/dev/null 2>&1; then
+            printf 'RUNNING_CONTAINERS=%s\n' "$(docker ps -q 2>/dev/null | awk 'END{print NR+0}')"
+            printf 'COMPOSE_PROJECTS=%s\n' "$(docker ps --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null | awk 'NF && !seen[$0]++{count++} END{print count+0}')"
+            docker info --format 'DOCKER_CPUS={{.NCPU}}\nDOCKER_MEMORY_BYTES={{.MemTotal}}' 2>/dev/null || printf 'DOCKER_CPUS=0\nDOCKER_MEMORY_BYTES=0\n'
+          else
+            echo 'RUNNING_CONTAINERS=0'
+            echo 'COMPOSE_PROJECTS=0'
+            echo 'DOCKER_CPUS=0'
+            echo 'DOCKER_MEMORY_BYTES=0'
+          fi
+
+          probe_endpoint() {
+            label="$1"
+            url="$2"
+            status="$(curl -sSIL --max-time 30 -o /dev/null -w '%{http_code}' "$url" || true)"
+            printf 'ENDPOINT_%s_HTTP=%s\n' "$label" "${status:-000}"
+          }
+
+          probe_endpoint QWEN_CONFIG 'https://huggingface.co/Qwen/Qwen3-8B/resolve/895c8d171bc03c30e113cd7a28c02494b5e068b7/config.json'
+          probe_endpoint QWEN_WEIGHT 'https://huggingface.co/Qwen/Qwen3-8B/resolve/895c8d171bc03c30e113cd7a28c02494b5e068b7/model-00001-of-00005.safetensors'
+          probe_endpoint MISTRAL_CONFIG 'https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/resolve/c170c708c41dac9275d15a8fff4eca08d52bab71/config.json'
+          probe_endpoint MISTRAL_WEIGHT 'https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/resolve/c170c708c41dac9275d15a8fff4eca08d52bab71/model-00001-of-00003.safetensors'
+          echo 'PROBE_COMPLETE=true'
+          REMOTE
+          )"
+
+          if [[ "$SSH_MODE" == key ]]; then
+            ssh -i "$HOME/.ssh/id_model_probe" -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "bash -s" <<< "$remote_script" >> model-host-preflight/raw.env
+          else
+            password="${MODEL_PASSWORD_SECRET:-${PROD_PASSWORD_PRIMARY:-${PROD_PASSWORD_FALLBACK:-}}}"
+            SSHPASS="$password" sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "bash -s" <<< "$remote_script" >> model-host-preflight/raw.env
+          fi
+
+          test "$(grep -c '^PROBE_COMPLETE=true$' model-host-preflight/raw.env)" = '1'
+
+      - name: Build fail-closed machine-readable preflight result
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          requirements = json.loads(Path(os.environ["REQUIREMENTS_PATH"]).read_text())
+          build = json.loads(Path(os.environ["BUILD_ACCEPTANCE_PATH"]).read_text())
+          values: dict[str, str] = {}
+          for raw_line in Path("model-host-preflight/raw.env").read_text().splitlines():
+              if not raw_line or "=" not in raw_line:
+                  continue
+              key, value = raw_line.split("=", 1)
+              values[key] = value
+
+          def integer(key: str) -> int:
+              try:
+                  return int(values.get(key, "0"))
+              except ValueError:
+                  return 0
+
+          def boolean(key: str) -> bool:
+              return values.get(key) == "true"
+
+          reasons: list[str] = []
+          target = requirements["target"]
+          minimums = requirements["minimums"]
+
+          if values.get("HOST_CLASS") != target["host_role"]:
+              reasons.append("DEDICATED_MODEL_HOST_NOT_CONFIGURED")
+          if values.get("OS_NAME") != target["operating_system"]:
+              reasons.append("OPERATING_SYSTEM_MISMATCH")
+          if values.get("ARCH") != target["architecture"]:
+              reasons.append("ARCHITECTURE_MISMATCH")
+          if integer("CPU_COUNT") < minimums["cpu_count"]:
+              reasons.append("CPU_CAPACITY_BELOW_MINIMUM")
+          if integer("MEM_TOTAL_BYTES") < minimums["memory_total_bytes"]:
+              reasons.append("TOTAL_MEMORY_BELOW_MINIMUM")
+          if integer("MEM_AVAILABLE_BYTES") < minimums["memory_available_bytes"]:
+              reasons.append("AVAILABLE_MEMORY_BELOW_MINIMUM")
+          if not boolean("WORKSPACE_EXISTS"):
+              reasons.append("DEDICATED_WORKSPACE_ABSENT")
+          if not boolean("WORKSPACE_DEDICATED_MOUNT"):
+              reasons.append("DEDICATED_WORKSPACE_MOUNT_ABSENT")
+          if integer("WORKSPACE_AVAILABLE_BYTES") < minimums["storage_available_bytes"]:
+              reasons.append("WORKSPACE_STORAGE_BELOW_MINIMUM")
+          if values.get("HOST_CLASS") == "PRODUCTION_FALLBACK" and (
+              integer("RUNNING_CONTAINERS") > 0 or integer("COMPOSE_PROJECTS") > 0
+          ):
+              reasons.append("SHARED_PRODUCTION_WORKLOAD_PRESENT")
+
+          tools = {
+              name: boolean(f"TOOL_{name.upper()}")
+              for name in requirements["required_tools"]
+          }
+          for name, available in tools.items():
+              if not available:
+                  reasons.append(f"REQUIRED_TOOL_MISSING:{name}")
+
+          accepted_http = set(requirements["accepted_http_statuses"])
+          endpoints = {}
+          for endpoint in requirements["exact_source_endpoints"]:
+              label = endpoint["label"]
+              status = integer(f"ENDPOINT_{label}_HTTP")
+              endpoints[label] = {
+                  "http_status": status,
+                  "reachable": status in accepted_http,
+                  "uri": endpoint["uri"],
+              }
+              if status not in accepted_http:
+                  reasons.append(f"EXACT_SOURCE_ENDPOINT_UNREACHABLE:{label}")
+
+          payload = {
+              "schema_version": "tai.model-host-preflight-result.v1",
+              "status": "READY_FOR_CONTROLLED_ACQUISITION" if not reasons else "NOT_READY",
+              "reasons": sorted(set(reasons)),
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "observed_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+              "host_class": values.get("HOST_CLASS", "UNKNOWN"),
+              "hardware": {
+                  "architecture": values.get("ARCH", ""),
+                  "cpu_count": integer("CPU_COUNT"),
+                  "cpu_model": values.get("CPU_MODEL", ""),
+                  "memory_available_bytes": integer("MEM_AVAILABLE_BYTES"),
+                  "memory_total_bytes": integer("MEM_TOTAL_BYTES"),
+                  "swap_total_bytes": integer("SWAP_TOTAL_BYTES"),
+              },
+              "workspace": {
+                  "available_bytes": integer("WORKSPACE_AVAILABLE_BYTES"),
+                  "dedicated_mount": boolean("WORKSPACE_DEDICATED_MOUNT"),
+                  "exists": boolean("WORKSPACE_EXISTS"),
+                  "total_bytes": integer("WORKSPACE_TOTAL_BYTES"),
+              },
+              "shared_workload_observation": {
+                  "compose_projects": integer("COMPOSE_PROJECTS"),
+                  "running_containers": integer("RUNNING_CONTAINERS"),
+              },
+              "tools": tools,
+              "exact_source_endpoints": endpoints,
+              "requirements": requirements,
+              "accepted_toolchain": {
+                  "authority_sha256": build["authority"]["authority_sha256"],
+                  "build_repository_sha": build["build_run"]["repository_sha"],
+                  "package_payload_sha256": build["external_artifacts"]["package_artifact"]["payload_sha256"],
+                  "status": build["status"],
+              },
+              "maturity_boundary": requirements["maturity_boundary"],
+          }
+          Path("model-host-preflight/result.v1.json").write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+          )
+          print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+          PY
+
+      - name: Upload exact-main preflight evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-model-host-preflight-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: model-host-preflight
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          overwrite: false
+
+      - name: Publish preflight summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path("model-host-preflight/result.v1.json").read_text())
+          print("## TAI model-host exact-main preflight")
+          print(f"- repository SHA: `{result['repository_sha']}`")
+          print(f"- status: `{result['status']}`")
+          print(f"- host class: `{result['host_class']}`")
+          print(f"- reasons: `{', '.join(result['reasons']) if result['reasons'] else 'none'}`")
+          print(f"- workspace available bytes: `{result['workspace']['available_bytes']}`")
+          print(f"- operational status: `{result['maturity_boundary']['production_operational_status']}`")
+          PY
+
+      - name: Enforce structural validity without manufacturing readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path("model-host-preflight/result.v1.json").read_text())
+          assert result["schema_version"] == "tai.model-host-preflight-result.v1"
+          assert result["status"] in {"READY_FOR_CONTROLLED_ACQUISITION", "NOT_READY"}
+          assert result["maturity_boundary"]["model_acquisition"] == "PENDING_ACQUISITION"
+          assert result["maturity_boundary"]["legal_review"] == "NOT_DONE"
+          assert result["maturity_boundary"]["benchmarks"] == "NOT_DONE"
+          assert result["maturity_boundary"]["model_admission"] == "NOT_DONE"
+          assert result["maturity_boundary"]["production_operational_status"] == "NOT_ATTESTED"
+          PY
