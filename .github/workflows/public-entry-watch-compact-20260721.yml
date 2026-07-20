@@ -1,0 +1,26 @@
+name: production public entry watch compact 20260721
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  compact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: public-entry-watch-v2-20260721
+          path: result
+          repository: pachaninm-lab/pachanin-demo
+          run-id: 29780280711
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Print compact failures
+        shell: bash
+        run: |
+          jq -c '{generatedAt,allGreen,failureCount:(.failures|length),groups:(.failures|sort_by(.message)|group_by(.message)|map({message:.[0].message,count:length})),remaining:(.failures|map(select(.message!="RU/EN/ZH links incomplete")))}' result/report.json
