@@ -1,0 +1,115 @@
+col_sha256": _sha(original / protocol_path),
+        },
+    )
+
+    quality = {
+        "sample_count": 58,
+        "platform_accuracy_basis_points": 9600,
+        "agro_accuracy_basis_points": 9100,
+        "critical_unsupported_facts": 0,
+        "critical_safety_failures": 0,
+        "critical_abstention_misses": 0,
+        "unsupported_facts_total": 0,
+        "results_path": quality_path,
+    }
+    model_id = QWEN_ID if primary else MISTRAL_ID
+    revision = QWEN_REVISION if primary else MISTRAL_REVISION
+    role = "PRIMARY" if primary else "FALLBACK"
+    _write_json(
+        original / quality_path,
+        {
+            "schema_version": "tai.model-quality-results.v1",
+            "model_id": model_id,
+            "revision": revision,
+            "suite_id": "tai-platform-agro-58-v1",
+            **{key: value for key, value in quality.items() if key != "results_path"},
+        },
+    )
+
+    profiles: list[dict[str, Any]]
+    artifacts: list[dict[str, Any]]
+    if primary:
+        profiles = [
+            _profile(
+                profile_id="qwen3-8b-cpu-q4-k-m",
+                runtime_class="CPU",
+                quantization="Q4_K_M",
+                artifact_sha256=QWEN_CPU_SHA,
+                concurrency_levels=[1, 2, 4],
+            ),
+            _profile(
+                profile_id="qwen3-8b-gpu-shared-q8-0",
+                runtime_class="GPU_SHARED",
+                quantization="Q8_0",
+                artifact_sha256=QWEN_GPU_SHA,
+                concurrency_levels=[1, 2, 4, 8],
+            ),
+        ]
+        artifacts = [
+            {
+                "runtime_class": "CPU",
+                "quantization": "Q4_K_M",
+                "path": "artifacts/qwen3-8b-q4-k-m.gguf",
+                "sha256": QWEN_CPU_SHA,
+                "size_bytes": 5_000_000_000,
+            },
+            {
+                "runtime_class": "GPU_SHARED",
+                "quantization": "Q8_0",
+                "path": "artifacts/qwen3-8b-q8-0.gguf",
+                "sha256": QWEN_GPU_SHA,
+                "size_bytes": 8_000_000_000,
+            },
+        ]
+    else:
+        profiles = [
+            _profile(
+                profile_id="mistral-7b-fallback-cpu-q4-k-m",
+                runtime_class="CPU",
+                quantization="Q4_K_M",
+                artifact_sha256=MISTRAL_CPU_SHA,
+                concurrency_levels=[1, 2, 4],
+            )
+        ]
+        artifacts = [
+            {
+                "runtime_class": "CPU",
+                "quantization": "Q4_K_M",
+                "path": "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
+                "sha256": MISTRAL_CPU_SHA,
+                "size_bytes": 4_500_000_000,
+            }
+        ]
+    for profile in profiles:
+        _semantic_profile_files(original, profile)
+
+    fallback: dict[str, Any] | None = None
+    if primary:
+        fallback = {
+            "primary_model_id": QWEN_ID,
+            "primary_revision": QWEN_REVISION,
+            "fallback_model_id": MISTRAL_ID,
+            "fallback_revision": MISTRAL_REVISION,
+            "fallback_artifact_sha256": MISTRAL_CPU_SHA,
+            "trigger_count": 100,
+            "successful_transitions": 100,
+            "failed_transitions": 0,
+            "p95_takeover_ms": 4000,
+            "continuity_violations": 0,
+            "critical_unsupported_facts": 0,
+            "raw_metrics_path": "fallback/metrics.json",
+            "protocol_path": "fallback/protocol.txt",
+        }
+        _write_json(
+            original / fallback["raw_metrics_path"],
+            {
+                "schema_version": "tai.fallback-exercise-metrics.v1",
+                **{
+                    key: value
+                    for key, value in fallback.items()
+                    if key not in {"raw_metrics_path", "protocol_path"}
+                },
+            },
+        )
+        (original / fallback["protocol_path"]).parent.mkdir(parents=True, exist_ok=True)
+        (original / fallback["protocol_path"]).write_text("forced p
