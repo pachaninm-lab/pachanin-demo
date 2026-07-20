@@ -59,21 +59,34 @@ jobs:
         run: node scripts/verify-pc-crop-01a.mjs --output pc-crop-01a-acceptance.json
 
       - name: Run commodity profile domain tests
-        run: pnpm exec vitest run packages/domain-core/src/commodity-profile.test.ts
+        run: |
+          set -o pipefail
+          pnpm exec vitest run packages/domain-core/src/commodity-profile.test.ts \
+            2>&1 | tee pc-crop-01a-domain-tests.log
 
       - name: Typecheck domain authority
-        run: pnpm typecheck:domain
+        run: |
+          set -o pipefail
+          pnpm typecheck:domain --pretty false \
+            2>&1 | tee pc-crop-01a-domain-typecheck.log
 
       - name: Typecheck industrial interface contract
-        run: pnpm --filter @pc/web typecheck
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/web typecheck --pretty false \
+            2>&1 | tee pc-crop-01a-web-typecheck.log
 
       - name: Upload exact-head acceptance
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pc-crop-01a-acceptance-${{ github.sha }}
-          path: pc-crop-01a-acceptance.json
-          if-no-files-found: error
+          path: |
+            pc-crop-01a-acceptance.json
+            pc-crop-01a-domain-tests.log
+            pc-crop-01a-domain-typecheck.log
+            pc-crop-01a-web-typecheck.log
+          if-no-files-found: warn
           retention-days: 90
           compression-level: 0
           overwrite: false
