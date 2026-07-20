@@ -113,6 +113,20 @@ def test_workflow_reconciles_downloads_hashes_and_cleanly_restores() -> None:
     assert "VERIFIED_SOURCE_RESTORED" in workflow
 
 
+def test_workflow_binds_runner_temp_only_inside_runtime_step() -> None:
+    workflow = _workflow()
+    before_steps = workflow.split("    steps:\n", maxsplit=1)[0]
+
+    assert "${{ runner.temp }}" not in before_steps
+    assert "- name: Bind ephemeral acquisition roots" in workflow
+    assert '$RUNNER_TEMP/tai-${{ matrix.key }}-original' in workflow
+    assert '$RUNNER_TEMP/tai-${{ matrix.key }}-restore' in workflow
+    assert workflow.count('>> "$GITHUB_ENV"') == 2
+    assert workflow.index("Bind ephemeral acquisition roots") < workflow.index(
+        "Reconcile exact Hugging Face revision inventory"
+    )
+
+
 def test_workflow_never_uploads_source_bytes_and_keeps_legal_pending() -> None:
     workflow = _workflow()
 

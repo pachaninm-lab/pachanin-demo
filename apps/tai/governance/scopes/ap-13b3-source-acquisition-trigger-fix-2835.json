@@ -1,0 +1,29 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3-source-acquisition-trigger-fix",
+  "status": "active",
+  "parent_issue": 2726,
+  "issue": 2835,
+  "maturity_boundary": "source-acquisition-trigger-context-fix-only",
+  "allowed_paths": [
+    ".github/workflows/tai-model-source-acquisition.yml",
+    "apps/tai/governance/scopes/ap-13b3-source-acquisition-trigger-fix-2835.json",
+    "apps/tai/tests/test_model_source_acquisition_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "model download during pull-request validation",
+    "model conversion or quantization",
+    "automated legal approval or rejection",
+    "model admission or benchmark claim",
+    "production deployment or operational attestation claim"
+  ],
+  "acceptance": [
+    "job-level env does not reference the unavailable runner context",
+    "ephemeral source roots are bound from RUNNER_TEMP inside a runtime step",
+    "the runtime step exports both roots through GITHUB_ENV before first use",
+    "all source acquisition, restore, legal and maturity boundaries remain unchanged",
+    "actionlint reports no workflow expression or YAML error",
+    "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass",
+    "production_operational_status remains NOT_ATTESTED"
+  ]
+}
