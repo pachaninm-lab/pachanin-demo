@@ -1,0 +1,148 @@
+name: TAI AP-13B.3b Exact-Main Audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-ap13b3b-exact-main-audit.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify:
+    if: >-
+      github.event.pull_request.head.ref ==
+      'audit/tai-ap13b3b-exact-main-25be580e'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXACT_MAIN: 25be580eac63ebe357c97526b730a222d324444c
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Enforce disposable audit scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_HEAD_REF" = 'audit/tai-ap13b3b-exact-main-25be580e'
+          test "$(git diff --name-only "$EXACT_MAIN"...HEAD)" = \
+            '.github/workflows/tai-ap13b3b-exact-main-audit.yml'
+
+      - name: Verify exact-main release attestation
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=/tmp/tai-ap13b3b-exact-main
+          mkdir -p "$root"
+          run_id=''
+          for attempt in $(seq 1 80); do
+            gh api \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${EXACT_MAIN}&per_page=100" \
+              > "$root/runs.json"
+            set +e
+            run_id="$(python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          exact = os.environ['EXACT_MAIN']
+          runs = json.loads(
+              Path('/tmp/tai-ap13b3b-exact-main/runs.json').read_text()
+          ).get('workflow_runs', [])
+          matching = [
+              run
+              for run in runs
+              if run.get('name') == 'TAI Release Acceptance'
+              and run.get('head_sha') == exact
+          ]
+          if not matching:
+              raise SystemExit(3)
+          run = max(
+              matching,
+              key=lambda item: (item.get('run_number', 0), item.get('id', 0)),
+          )
+          if run.get('status') != 'completed':
+              raise SystemExit(3)
+          if run.get('conclusion') != 'success':
+              print(json.dumps(run, sort_keys=True))
+              raise SystemExit(2)
+          print(run['id'])
+          PY
+            )"
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ]; then
+              break
+            fi
+            if [ "$status" -eq 2 ]; then
+              echo 'Exact-main release acceptance failed.' >&2
+              exit 1
+            fi
+            if [ "$attempt" -eq 80 ]; then
+              echo 'Exact-main release acceptance did not complete.' >&2
+              exit 1
+            fi
+            sleep 15
+          done
+          test -n "$run_id"
+          printf '%s\n' "$run_id" > "$root/release-run-id.txt"
+          gh run download "$run_id" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "tai-release-attestation-${EXACT_MAIN}" \
+            --dir "$root/evidence"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('/tmp/tai-ap13b3b-exact-main')
+          evidence = root / 'evidence'
+          exact = os.environ['EXACT_MAIN']
+          attestation = json.loads(
+              (evidence / 'tai-release-attestation.json').read_text()
+          )
+          if attestation.get('exact_main_sha') != exact:
+              raise SystemExit('exact-main attestation SHA mismatch')
+          if attestation.get('accepted') is not True:
+              raise SystemExit('exact-main attestation is not accepted')
+          if attestation.get('production_operational_status') != 'NOT_ATTESTED':
+              raise SystemExit('operational maturity boundary changed')
+          workflow_evidence = json.loads(
+              (evidence / 'workflow-evidence.json').read_text()
+          )
+          if not workflow_evidence:
+              raise SystemExit('workflow evidence is empty')
+          if any(item.get('exact_head_sha') != exact for item in workflow_evidence):
+              raise SystemExit('workflow evidence contains another SHA')
+          if any(item.get('conclusion') != 'success' for item in workflow_evidence):
+              raise SystemExit('workflow evidence contains a non-success result')
+          summary = {
+              'schema_version': 'tai.exact-main-audit.v1',
+              'exact_main_sha': exact,
+              'accepted': True,
+              'production_operational_status': 'NOT_ATTESTED',
+              'release_run_id': int(
+                  (root / 'release-run-id.txt').read_text().strip()
+              ),
+              'workflow_evidence_count': len(workflow_evidence),
+          }
+          (root / 'audit-summary.json').write_text(
+              json.dumps(summary, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tai-ap13b3b-exact-main-audit-${{ env.EXACT_MAIN }}
+          path: /tmp/tai-ap13b3b-exact-main
+          if-no-files-found: error
+          retention-days: 7
