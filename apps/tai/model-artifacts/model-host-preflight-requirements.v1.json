@@ -1,0 +1,62 @@
+{
+  "schema_version": "tai.model-host-preflight-requirements.v1",
+  "issue": 2835,
+  "purpose": "Fail-closed capacity and isolation preflight before exact Qwen/Mistral acquisition, conversion and quantization.",
+  "target": {
+    "architecture": "x86_64",
+    "host_role": "DEDICATED_MODEL_HOST",
+    "operating_system": "linux",
+    "production_workloads_allowed": false
+  },
+  "minimums": {
+    "cpu_count": 4,
+    "memory_available_bytes": 8589934592,
+    "memory_total_bytes": 16106127360,
+    "storage_available_bytes": 180000000000
+  },
+  "workspace": {
+    "candidate_paths": [
+      "/srv/tai-models",
+      "/opt/tai-models",
+      "/var/lib/tai-models"
+    ],
+    "dedicated_mount_required": true,
+    "existing_directory_required": true
+  },
+  "required_tools": [
+    "curl",
+    "docker",
+    "git",
+    "gzip",
+    "sha256sum",
+    "tar"
+  ],
+  "exact_source_endpoints": [
+    {
+      "label": "QWEN_CONFIG",
+      "uri": "https://huggingface.co/Qwen/Qwen3-8B/resolve/895c8d171bc03c30e113cd7a28c02494b5e068b7/config.json"
+    },
+    {
+      "label": "QWEN_WEIGHT",
+      "uri": "https://huggingface.co/Qwen/Qwen3-8B/resolve/895c8d171bc03c30e113cd7a28c02494b5e068b7/model-00001-of-00005.safetensors"
+    },
+    {
+      "label": "MISTRAL_CONFIG",
+      "uri": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/resolve/c170c708c41dac9275d15a8fff4eca08d52bab71/config.json"
+    },
+    {
+      "label": "MISTRAL_WEIGHT",
+      "uri": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/resolve/c170c708c41dac9275d15a8fff4eca08d52bab71/model-00001-of-00003.safetensors"
+    }
+  ],
+  "accepted_http_statuses": [
+    200
+  ],
+  "maturity_boundary": {
+    "model_acquisition": "PENDING_ACQUISITION",
+    "legal_review": "NOT_DONE",
+    "benchmarks": "NOT_DONE",
+    "model_admission": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}
