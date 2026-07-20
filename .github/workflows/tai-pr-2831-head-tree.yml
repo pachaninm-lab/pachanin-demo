@@ -1,0 +1,31 @@
+name: TAI PR 2831 Head Tree
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/tai-pr-2831-head-tree.yml
+
+permissions:
+  contents: read
+
+jobs:
+  record:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - name: Record exact head tree
+        run: |
+          mkdir -p /tmp/tai-pr-2831-meta
+          git rev-parse 'HEAD^{tree}' > /tmp/tai-pr-2831-meta/head-tree.txt
+          cat /tmp/tai-pr-2831-meta/head-tree.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tai-pr-2831-head-tree-${{ github.event.pull_request.head.sha }}
+          path: /tmp/tai-pr-2831-meta/head-tree.txt
+          if-no-files-found: error
+          retention-days: 1
