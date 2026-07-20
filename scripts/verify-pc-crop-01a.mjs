@@ -9,6 +9,7 @@ const SCOPE_PATH = 'docs/crop-platform/scopes/pc-crop-01a-commodity-registry-fou
 const DOMAIN_PATH = 'packages/domain-core/src/commodity-profile.ts';
 const DOMAIN_TEST_PATH = 'packages/domain-core/src/commodity-profile.test.ts';
 const DOMAIN_TSCONFIG_PATH = 'packages/domain-core/tsconfig.pc-crop.json';
+const DOMAIN_VITEST_PATH = 'packages/domain-core/vitest.pc-crop.config.ts';
 const INDEX_PATH = 'packages/domain-core/src/index.ts';
 const PACKAGE_PATH = 'packages/domain-core/package.json';
 const WEB_TSCONFIG_PATH = 'apps/web/tsconfig.pc-crop.json';
@@ -22,6 +23,7 @@ const VERIFIER_PATH = 'scripts/verify-pc-crop-01a.mjs';
 const EXPECTED_PATHS = new Set([
   PACKAGE_PATH,
   DOMAIN_TSCONFIG_PATH,
+  DOMAIN_VITEST_PATH,
   INDEX_PATH,
   DOMAIN_PATH,
   DOMAIN_TEST_PATH,
@@ -75,6 +77,7 @@ const scope = JSON.parse(read(SCOPE_PATH));
 const domain = read(DOMAIN_PATH);
 const domainTest = read(DOMAIN_TEST_PATH);
 const domainTsconfig = JSON.parse(read(DOMAIN_TSCONFIG_PATH));
+const domainVitest = read(DOMAIN_VITEST_PATH);
 const component = read(COMPONENT_PATH);
 const css = read(CSS_PATH);
 const cssTypes = read(CSS_TYPES_PATH);
@@ -145,6 +148,16 @@ if (domainTsconfig.compilerOptions?.strict !== true) fail('domain strict typeche
 if (domainTsconfig.compilerOptions?.noEmit !== true) fail('domain typecheck must not emit');
 if (!domainTsconfig.include?.includes('src/commodity-profile.ts')) fail('domain isolated config must include commodity profile');
 
+for (const token of [
+  "import { defineConfig } from 'vitest/config'",
+  "environment: 'node'",
+  "include: ['packages/domain-core/src/commodity-profile.test.ts']",
+  'passWithNoTests: false',
+]) requireToken(domainVitest, token, 'domain test runner');
+for (const token of ['@vitejs/plugin-react', 'jsdom', 'browser']) {
+  forbidToken(domainVitest, token, 'domain test runner isolation');
+}
+
 if (webTsconfig.extends !== undefined) fail('isolated web tsconfig must not inherit removed compiler options');
 if (webTsconfig.compilerOptions?.moduleResolution !== 'Bundler') fail('web moduleResolution must be Bundler');
 if (webTsconfig.compilerOptions?.strict !== true) fail('web strict typecheck must remain enabled');
@@ -196,6 +209,7 @@ for (const token of [
 for (const token of [
   'node scripts/verify-pc-crop-01a.mjs',
   'packages/domain-core/tsconfig.pc-crop.json',
+  'packages/domain-core/vitest.pc-crop.config.ts',
   'apps/web/tsconfig.pc-crop.json',
   'commodity-profile.test.ts',
   'pc-crop-01a-domain-typecheck.log',
@@ -217,12 +231,14 @@ const report = {
     lifecycleStates: 6,
     locales: 3,
     interfaceStates: 6,
+    domainTests: 11,
   },
   boundaries: {
     postgresRuntimeAuthority: 'NOT_IN_THIS_SLICE',
     externalIntegrations: 'NOT_CONNECTED_OR_ATTESTED',
     hashAuthority: 'SERVER_CRYPTO_ADAPTER_SHA256',
     repositoryCompilerModernization: 'SEPARATE_TRACKED_DEBT',
+    domainTestEnvironment: 'ISOLATED_NODE_NO_WEB_PLUGIN',
     clientSelectedRoleOrTenant: false,
     directTaiWrite: false,
   },
