@@ -165,7 +165,7 @@ jobs:
           git add .github/workflows/tai-pr-2833-refresh.yml
           git diff --cached --check
           git commit --amend --no-edit
-          test "$(git rev-list --count HEAD^@)" -eq 2
+          test "$(git show -s --format=%P HEAD | wc -w)" -eq 2
           git push origin HEAD:agent/tai-ap-13b2b-controlled-build-workflow
 
       - uses: actions/upload-artifact@v4
