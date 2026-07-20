@@ -8,8 +8,10 @@
     "apps/web/app/platform-v7/demo/ai/page.tsx",
     "apps/web/components/platform-v7/PublicAiInActionExperience.tsx",
     "apps/web/components/platform-v7/PublicAiInActionExperience.module.css",
+    "apps/web/components/platform-v7/PublicAiInActionExperience.types.ts",
     "apps/web/lib/platform-v7/public-seo-routes.json",
     "apps/web/tests/unit/platformV7PublicAiInAction.test.ts",
+    "apps/web/tests/unit/platformV7PublicAiMarketingBlock.test.ts",
     "docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json"
   ],
   "forbiddenCapabilities": [
