@@ -1,0 +1,53 @@
+name: TAI AP-13C-D One-Time Source Assembler
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-ap13cd-assemble.yml
+      - .tai-assembly/**
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    if: >-
+      github.actor == github.repository_owner &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'agent/tai-ap-13cd-benchmark-admission-v2'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact pull-request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Assemble exact sources and remove temporary inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apps/tai/tai apps/tai/tests
+          cat .tai-assembly/module/part-* > apps/tai/tai/model_benchmark_admission_v2.py
+          cat .tai-assembly/tests/part-* > apps/tai/tests/test_model_benchmark_admission_v2.py
+          test "$(wc -c < apps/tai/tai/model_benchmark_admission_v2.py)" = '77721'
+          test "$(wc -c < apps/tai/tests/test_model_benchmark_admission_v2.py)" = '49541'
+          python -m py_compile \
+            apps/tai/tai/model_benchmark_admission_v2.py \
+            apps/tai/tai/model_benchmark_admission_v2_cli.py \
+            apps/tai/tests/test_model_benchmark_admission_v2.py
+          rm -rf .tai-assembly
+          rm .github/workflows/tai-ap13cd-assemble.yml
+
+      - name: Commit assembled governed sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'build(tai): assemble AP-13C/D v2 sources'
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
