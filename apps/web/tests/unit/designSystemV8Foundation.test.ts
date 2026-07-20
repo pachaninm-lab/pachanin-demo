@@ -14,6 +14,11 @@ describe('Design System v8 foundation', () => {
     expect(tokens.component).toBeTruthy();
     expect(tokens.context).toBeTruthy();
     expect(tokens.semantic.action.primary.$value).toBe('{core.color.green.700}');
+    expect(tokens.semantic.spacing.text.label.$value).toBe('{core.space.1}');
+    expect(tokens.semantic.spacing.text.title.$value).toBe('{core.space.2}');
+    expect(tokens.semantic.spacing.text.paragraph.$value).toBe('{core.space.3}');
+    expect(tokens.semantic.spacing.text.action.$value).toBe('{core.space.4}');
+    expect(tokens.semantic.spacing.layout.section.$value).toBe('{core.space.6}');
   });
 
   it('loads generated tokens through the governed v8 runtime without a legacy style bundle', () => {
@@ -36,11 +41,30 @@ describe('Design System v8 foundation', () => {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(css).not.toMatch(/\brgba?\s*\(/i);
     expect(css).not.toContain('!important');
+    expect(css).toContain('var(--ds-text-gap-paragraph)');
+    expect(css).toContain('var(--ds-layout-gap-section)');
+  });
+
+  it('uses governed text rhythm in shared cockpit layouts', () => {
+    const hero = read('apps/web/components/platform-v7/premium/CockpitHero.tsx');
+    const roleCockpit = read('apps/web/components/platform-v7/RoleExecutionCockpit.tsx');
+    const moneyCockpit = read('apps/web/components/transaction-ux/MoneyObligationCockpit.tsx');
+    const executionCss = read('apps/web/components/platform-v7/ExecutionDesignSystem.module.css');
+
+    expect(hero).toContain("TextStack");
+    expect(roleCockpit).toContain("TextStack");
+    expect(moneyCockpit).toContain("TextStack");
+    expect(hero).not.toMatch(/style\s*=\s*\{\{/);
+    expect(roleCockpit).not.toMatch(/style\s*=\s*\{\{/);
+    expect(executionCss).toContain('var(--ds-text-gap-title, 8px)');
+    expect(executionCss).toContain('var(--ds-text-gap-paragraph, 12px)');
   });
 
   it('registers automatic governance', () => {
     const governance = JSON.parse(read('design-governance-v8.json'));
     expect(governance.migratedFiles).toContain('apps/web/components/platform-v7/NextActionCard.tsx');
+    expect(governance.migratedFiles).toContain('apps/web/components/platform-v7/RoleExecutionCockpit.tsx');
+    expect(governance.migratedFiles).toContain('apps/web/components/platform-v7/premium/CockpitHero.tsx');
     expect(read('package.json')).toContain('design:v8:guard');
     expect(read('.github/workflows/design-system-v8.yml')).toContain('check-design-system-v8.mjs');
   });
