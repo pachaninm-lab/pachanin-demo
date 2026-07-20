@@ -35,6 +35,12 @@ jobs:
       - name: Apply deterministic Ruff fixes
         working-directory: apps/tai
         run: |
+          ruff format \
+            tai/llama_toolchain_collect.py \
+            tai/llama_toolchain_contract.py \
+            tai/llama_toolchain_verify.py \
+            tests/test_ap13b2a_scope.py \
+            tests/test_llama_toolchain_contracts.py
           ruff check \
             tai/llama_toolchain_collect.py \
             tai/llama_toolchain_contract.py \
