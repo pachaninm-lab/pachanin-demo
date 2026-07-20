@@ -5,9 +5,11 @@ on:
     branches: [main]
     paths:
       - 'packages/domain-core/package.json'
+      - 'packages/domain-core/tsconfig.pc-crop.json'
       - 'packages/domain-core/src/index.ts'
       - 'packages/domain-core/src/commodity-profile.ts'
       - 'packages/domain-core/src/commodity-profile.test.ts'
+      - 'apps/web/tsconfig.pc-crop.json'
       - 'apps/web/components/crop-platform/**'
       - 'docs/crop-platform/**'
       - 'scripts/verify-pc-crop-01a.mjs'
@@ -16,9 +18,11 @@ on:
     branches: [main]
     paths:
       - 'packages/domain-core/package.json'
+      - 'packages/domain-core/tsconfig.pc-crop.json'
       - 'packages/domain-core/src/index.ts'
       - 'packages/domain-core/src/commodity-profile.ts'
       - 'packages/domain-core/src/commodity-profile.test.ts'
+      - 'apps/web/tsconfig.pc-crop.json'
       - 'apps/web/components/crop-platform/**'
       - 'docs/crop-platform/**'
       - 'scripts/verify-pc-crop-01a.mjs'
@@ -67,13 +71,13 @@ jobs:
       - name: Typecheck domain authority
         run: |
           set -o pipefail
-          pnpm typecheck:domain --pretty false \
+          pnpm exec tsc -p packages/domain-core/tsconfig.pc-crop.json --pretty false \
             2>&1 | tee pc-crop-01a-domain-typecheck.log
 
       - name: Typecheck industrial interface contract
         run: |
           set -o pipefail
-          pnpm --filter @pc/web typecheck --pretty false \
+          pnpm exec tsc -p apps/web/tsconfig.pc-crop.json --pretty false \
             2>&1 | tee pc-crop-01a-web-typecheck.log
 
       - name: Upload exact-head acceptance
