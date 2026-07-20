@@ -42,7 +42,6 @@ export type CommodityUnitDimension =
   | 'OTHER';
 
 export type MissingValueRule = 'BLOCK' | 'ALLOW_WITH_REASON' | 'NOT_APPLICABLE';
-
 export type RequirementSeverity = 'INFO' | 'WARNING' | 'BLOCKING';
 
 export type LocalizedDisplay = {
@@ -64,9 +63,9 @@ export type CommodityUnitRule = {
   symbol: string;
   isBase: boolean;
   precision: number;
-  /** Exact decimal string. JavaScript numbers are not accepted as authority. */
+  /** Exact decimal string. JavaScript numbers are never authority. */
   numeratorToBase: string;
-  /** Exact decimal string. JavaScript numbers are not accepted as authority. */
+  /** Exact decimal string. JavaScript numbers are never authority. */
   denominatorToBase: string;
   sourceRef: string;
 };
@@ -182,6 +181,7 @@ const EXACT_DECIMAL = /^-?(0|[1-9]\d*)(\.\d{1,6})?$/;
 const CANONICAL_CODE = /^[A-Z0-9][A-Z0-9._-]{2,63}$/;
 const RULE_CODE = /^[A-Z0-9][A-Z0-9._:-]{1,95}$/;
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
+const MICRO = 1_000_000n;
 
 const ALLOWED_TRANSITIONS: Readonly<Record<CommodityProfileState, readonly CommodityProfileState[]>> = {
   DRAFT: ['REVIEW'],
@@ -201,22 +201,49 @@ function requireText(value: string, path: string): void {
 function requireCode(value: string, path: string, canonical = false): void {
   const pattern = canonical ? CANONICAL_CODE : RULE_CODE;
   if (!pattern.test(value)) {
-    throw new CommodityProfileError('PC_PROFILE_CODE_INVALID', `${path} has an invalid canonical code`, path);
+    throw new CommodityProfileError('PC_PROFILE_CODE_INVALID', `${path} has an invalid code`, path);
   }
 }
 
 function requireDecimal(value: string | undefined, path: string): void {
   if (value === undefined) return;
   if (!EXACT_DECIMAL.test(value)) {
-    throw new CommodityProfileError('PC_PROFILE_DECIMAL_INVALID', `${path} must be an exact decimal string with at most six fractional digits`, path);
+    throw new CommodityProfileError(
+      'PC_PROFILE_DECIMAL_INVALID',
+      `${path} must be an exact decimal string with at most six fractional digits`,
+      path,
+    );
   }
 }
 
-function requirePositiveDecimal(value: string, path: string): void {
+function decimalToMicro(value: string, path: string): bigint {
   requireDecimal(value, path);
-  const normalized = value.replace('-', '');
-  if (value.startsWith('-') || /^0(?:\.0{1,6})?$/.test(normalized)) {
+  const negative = value.startsWith('-');
+  const normalized = negative ? value.slice(1) : value;
+  const [whole, fraction = ''] = normalized.split('.');
+  const result = BigInt(whole) * MICRO + BigInt(fraction.padEnd(6, '0'));
+  return negative ? -result : result;
+}
+
+function requirePositiveDecimal(value: string, path: string): void {
+  if (decimalToMicro(value, path) <= 0n) {
     throw new CommodityProfileError('PC_PROFILE_DECIMAL_NON_POSITIVE', `${path} must be greater than zero`, path);
+  }
+}
+
+function requireOrderedRange(
+  minimum: string | undefined,
+  maximum: string | undefined,
+  path: string,
+): void {
+  requireDecimal(minimum, `${path}Min`);
+  requireDecimal(maximum, `${path}Max`);
+  if (minimum !== undefined && maximum !== undefined && decimalToMicro(minimum, `${path}Min`) > decimalToMicro(maximum, `${path}Max`)) {
+    throw new CommodityProfileError(
+      'PC_PROFILE_RANGE_INVALID',
+      `${path} minimum must not exceed maximum`,
+      `${path}Min`,
+    );
   }
 }
 
@@ -236,6 +263,27 @@ function requireLocalizedDisplay(display: LocalizedDisplay, path: string): void 
   if (display.zh !== undefined) requireText(display.zh, `${path}.zh`);
 }
 
+function sortBy<T>(values: readonly T[], key: (value: T) => string): T[] {
+  return [...values].sort((left, right) => key(left).localeCompare(key(right)));
+}
+
+function normalizedContent(content: CommodityProfileContent): CommodityProfileContent {
+  const copy = structuredClone(content);
+  copy.productCodes = sortBy(copy.productCodes, (item) => `${item.system}:${item.code}`);
+  copy.units = sortBy(copy.units, (item) => `${item.dimension}:${item.code}`);
+  copy.qualityIndicators = sortBy(copy.qualityIndicators, (item) => item.code).map((item) => ({
+    ...item,
+    methodIds: [...item.methodIds].sort(),
+  }));
+  copy.samplingRules = sortBy(copy.samplingRules, (item) => item.code);
+  copy.documentRequirements = sortBy(copy.documentRequirements, (item) => item.code);
+  copy.storage.packagingKinds = [...copy.storage.packagingKinds].sort();
+  copy.acceptance.releaseBlockers = [...copy.acceptance.releaseBlockers].sort();
+  copy.sourceRefs = [...copy.sourceRefs].sort();
+  copy.legalRuleIds = [...copy.legalRuleIds].sort();
+  return copy;
+}
+
 function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object') {
@@ -249,8 +297,16 @@ function canonicalize(value: unknown): unknown {
   return value;
 }
 
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const nested of Object.values(value as Record<string, unknown>)) deepFreeze(nested);
+  }
+  return value;
+}
+
 export function canonicalCommodityProfileJson(content: CommodityProfileContent): string {
-  return JSON.stringify(canonicalize(content));
+  return JSON.stringify(canonicalize(normalizedContent(content)));
 }
 
 export function hashCommodityProfileContent(content: CommodityProfileContent): string {
@@ -279,6 +335,7 @@ export function validateCommodityProfileContent(content: CommodityProfileContent
     throw new CommodityProfileError('PC_PROFILE_UNIT_REQUIRED', 'At least one unit is required', 'units');
   }
   requireUnique(content.units.map((item) => item.code), 'units');
+  const dimensions = new Set<CommodityUnitDimension>();
   const baseByDimension = new Map<CommodityUnitDimension, number>();
   for (const [index, unit] of content.units.entries()) {
     requireCode(unit.code, `units.${index}.code`);
@@ -287,13 +344,22 @@ export function validateCommodityProfileContent(content: CommodityProfileContent
     requirePositiveDecimal(unit.denominatorToBase, `units.${index}.denominatorToBase`);
     requireText(unit.sourceRef, `units.${index}.sourceRef`);
     if (!Number.isInteger(unit.precision) || unit.precision < 0 || unit.precision > 6) {
-      throw new CommodityProfileError('PC_PROFILE_PRECISION_INVALID', `units.${index}.precision must be an integer from 0 to 6`, `units.${index}.precision`);
+      throw new CommodityProfileError(
+        'PC_PROFILE_PRECISION_INVALID',
+        `units.${index}.precision must be an integer from 0 to 6`,
+        `units.${index}.precision`,
+      );
     }
+    dimensions.add(unit.dimension);
     if (unit.isBase) baseByDimension.set(unit.dimension, (baseByDimension.get(unit.dimension) ?? 0) + 1);
   }
-  for (const [dimension, count] of baseByDimension.entries()) {
-    if (count !== 1) {
-      throw new CommodityProfileError('PC_PROFILE_BASE_UNIT_INVALID', `Dimension ${dimension} must have exactly one base unit`, 'units');
+  for (const dimension of dimensions) {
+    if ((baseByDimension.get(dimension) ?? 0) !== 1) {
+      throw new CommodityProfileError(
+        'PC_PROFILE_BASE_UNIT_INVALID',
+        `Dimension ${dimension} must have exactly one base unit`,
+        'units',
+      );
     }
   }
 
@@ -303,18 +369,31 @@ export function validateCommodityProfileContent(content: CommodityProfileContent
     requireCode(indicator.code, `qualityIndicators.${index}.code`);
     requireLocalizedDisplay(indicator.display, `qualityIndicators.${index}.display`);
     if (!unitCodes.has(indicator.unitCode)) {
-      throw new CommodityProfileError('PC_PROFILE_UNIT_UNKNOWN', `Unknown unit ${indicator.unitCode}`, `qualityIndicators.${index}.unitCode`);
+      throw new CommodityProfileError(
+        'PC_PROFILE_UNIT_UNKNOWN',
+        `Unknown unit ${indicator.unitCode}`,
+        `qualityIndicators.${index}.unitCode`,
+      );
     }
     if (!Number.isInteger(indicator.precision) || indicator.precision < 0 || indicator.precision > 6) {
-      throw new CommodityProfileError('PC_PROFILE_PRECISION_INVALID', `qualityIndicators.${index}.precision must be an integer from 0 to 6`, `qualityIndicators.${index}.precision`);
+      throw new CommodityProfileError(
+        'PC_PROFILE_PRECISION_INVALID',
+        `qualityIndicators.${index}.precision must be an integer from 0 to 6`,
+        `qualityIndicators.${index}.precision`,
+      );
     }
     if (indicator.methodIds.length === 0) {
-      throw new CommodityProfileError('PC_PROFILE_METHOD_REQUIRED', `qualityIndicators.${index} requires at least one method`, `qualityIndicators.${index}.methodIds`);
+      throw new CommodityProfileError(
+        'PC_PROFILE_METHOD_REQUIRED',
+        `qualityIndicators.${index} requires at least one method`,
+        `qualityIndicators.${index}.methodIds`,
+      );
     }
     requireUnique(indicator.methodIds, `qualityIndicators.${index}.methodIds`);
-    indicator.methodIds.forEach((method, methodIndex) => requireCode(method, `qualityIndicators.${index}.methodIds.${methodIndex}`));
-    requireDecimal(indicator.lowerBound, `qualityIndicators.${index}.lowerBound`);
-    requireDecimal(indicator.upperBound, `qualityIndicators.${index}.upperBound`);
+    indicator.methodIds.forEach((method, methodIndex) =>
+      requireCode(method, `qualityIndicators.${index}.methodIds.${methodIndex}`),
+    );
+    requireOrderedRange(indicator.lowerBound, indicator.upperBound, `qualityIndicators.${index}.bound`);
     requireText(indicator.sourceRef, `qualityIndicators.${index}.sourceRef`);
   }
 
@@ -322,39 +401,71 @@ export function validateCommodityProfileContent(content: CommodityProfileContent
   for (const [index, rule] of content.samplingRules.entries()) {
     requireCode(rule.code, `samplingRules.${index}.code`);
     if (rule.retentionDays !== undefined && (!Number.isSafeInteger(rule.retentionDays) || rule.retentionDays <= 0)) {
-      throw new CommodityProfileError('PC_PROFILE_RETENTION_INVALID', `samplingRules.${index}.retentionDays must be a positive integer`, `samplingRules.${index}.retentionDays`);
+      throw new CommodityProfileError(
+        'PC_PROFILE_RETENTION_INVALID',
+        `samplingRules.${index}.retentionDays must be a positive integer`,
+        `samplingRules.${index}.retentionDays`,
+      );
     }
     requireText(rule.sourceRef, `samplingRules.${index}.sourceRef`);
   }
 
   requireUnique(content.documentRequirements.map((item) => item.code), 'documentRequirements');
+  const documentCodes = new Set<string>();
   for (const [index, requirement] of content.documentRequirements.entries()) {
     requireCode(requirement.code, `documentRequirements.${index}.code`);
     requireLocalizedDisplay(requirement.display, `documentRequirements.${index}.display`);
     if (requirement.validForDays !== undefined && (!Number.isSafeInteger(requirement.validForDays) || requirement.validForDays <= 0)) {
-      throw new CommodityProfileError('PC_PROFILE_VALIDITY_INVALID', `documentRequirements.${index}.validForDays must be a positive integer`, `documentRequirements.${index}.validForDays`);
+      throw new CommodityProfileError(
+        'PC_PROFILE_VALIDITY_INVALID',
+        `documentRequirements.${index}.validForDays must be a positive integer`,
+        `documentRequirements.${index}.validForDays`,
+      );
     }
     if (requirement.releaseBlocking && requirement.severity !== 'BLOCKING') {
-      throw new CommodityProfileError('PC_PROFILE_RELEASE_BLOCKER_INVALID', `Release-blocking document ${requirement.code} must have BLOCKING severity`, `documentRequirements.${index}.severity`);
+      throw new CommodityProfileError(
+        'PC_PROFILE_RELEASE_BLOCKER_INVALID',
+        `Release-blocking document ${requirement.code} must have BLOCKING severity`,
+        `documentRequirements.${index}.severity`,
+      );
     }
     requireText(requirement.sourceRef, `documentRequirements.${index}.sourceRef`);
+    documentCodes.add(requirement.code);
   }
 
-  requireDecimal(content.storage.temperatureMin, 'storage.temperatureMin');
-  requireDecimal(content.storage.temperatureMax, 'storage.temperatureMax');
-  requireDecimal(content.storage.humidityMin, 'storage.humidityMin');
-  requireDecimal(content.storage.humidityMax, 'storage.humidityMax');
+  requireOrderedRange(content.storage.temperatureMin, content.storage.temperatureMax, 'storage.temperature');
+  requireOrderedRange(content.storage.humidityMin, content.storage.humidityMax, 'storage.humidity');
   requireUnique(content.storage.packagingKinds, 'storage.packagingKinds');
   content.storage.packagingKinds.forEach((kind, index) => requireCode(kind, `storage.packagingKinds.${index}`));
   if (content.storage.shelfLifeHours !== undefined && (!Number.isSafeInteger(content.storage.shelfLifeHours) || content.storage.shelfLifeHours <= 0)) {
-    throw new CommodityProfileError('PC_PROFILE_SHELF_LIFE_INVALID', 'storage.shelfLifeHours must be a positive integer', 'storage.shelfLifeHours');
+    throw new CommodityProfileError(
+      'PC_PROFILE_SHELF_LIFE_INVALID',
+      'storage.shelfLifeHours must be a positive integer',
+      'storage.shelfLifeHours',
+    );
   }
   requireText(content.storage.sourceRef, 'storage.sourceRef');
 
   requireUnique(content.acceptance.releaseBlockers, 'acceptance.releaseBlockers');
-  content.acceptance.releaseBlockers.forEach((blocker, index) => requireCode(blocker, `acceptance.releaseBlockers.${index}`));
+  content.acceptance.releaseBlockers.forEach((blocker, index) => {
+    requireCode(blocker, `acceptance.releaseBlockers.${index}`);
+    if (!documentCodes.has(blocker)) {
+      throw new CommodityProfileError(
+        'PC_PROFILE_BLOCKER_REFERENCE_UNKNOWN',
+        `Release blocker ${blocker} does not reference a document requirement`,
+        `acceptance.releaseBlockers.${index}`,
+      );
+    }
+  });
+  if (content.acceptance.priceDeltaPolicyRef !== undefined) {
+    requireCode(content.acceptance.priceDeltaPolicyRef, 'acceptance.priceDeltaPolicyRef');
+  }
   if (content.acceptance.rapidDisputeHours !== undefined && (!Number.isSafeInteger(content.acceptance.rapidDisputeHours) || content.acceptance.rapidDisputeHours <= 0)) {
-    throw new CommodityProfileError('PC_PROFILE_DISPUTE_WINDOW_INVALID', 'acceptance.rapidDisputeHours must be a positive integer', 'acceptance.rapidDisputeHours');
+    throw new CommodityProfileError(
+      'PC_PROFILE_DISPUTE_WINDOW_INVALID',
+      'acceptance.rapidDisputeHours must be a positive integer',
+      'acceptance.rapidDisputeHours',
+    );
   }
   requireText(content.acceptance.sourceRef, 'acceptance.sourceRef');
 
@@ -367,10 +478,7 @@ export function validateCommodityProfileContent(content: CommodityProfileContent
   content.legalRuleIds.forEach((rule, index) => requireCode(rule, `legalRuleIds.${index}`));
 }
 
-export function assertCommodityProfileTransition(
-  from: CommodityProfileState,
-  to: CommodityProfileState,
-): void {
+export function assertCommodityProfileTransition(from: CommodityProfileState, to: CommodityProfileState): void {
   if (!ALLOWED_TRANSITIONS[from].includes(to)) {
     throw new CommodityProfileError(
       'PC_PROFILE_TRANSITION_DENIED',
@@ -390,11 +498,16 @@ export function assertCommodityProfileContentMutable(state: CommodityProfileStat
   }
 }
 
-export function buildCommodityProfileVersion(input: Omit<CommodityProfileVersion, 'contentHash'>): CommodityProfileVersion {
+export function buildCommodityProfileVersion(
+  input: Omit<CommodityProfileVersion, 'contentHash'>,
+): CommodityProfileVersion {
   validateCommodityProfileContent(input.content);
   if (!Number.isSafeInteger(input.sequence) || input.sequence <= 0) {
     throw new CommodityProfileError('PC_PROFILE_SEQUENCE_INVALID', 'sequence must be a positive safe integer', 'sequence');
   }
+  requireText(input.profileId, 'profileId');
+  requireText(input.versionId, 'versionId');
+  requireText(input.createdBy, 'createdBy');
   if (!ISO_INSTANT.test(input.createdAt)) {
     throw new CommodityProfileError('PC_PROFILE_TIME_INVALID', 'createdAt must be an ISO UTC instant', 'createdAt');
   }
@@ -405,12 +518,34 @@ export function buildCommodityProfileVersion(input: Omit<CommodityProfileVersion
     throw new CommodityProfileError('PC_PROFILE_TIME_INVALID', 'effectiveTo must be an ISO UTC instant', 'effectiveTo');
   }
   if (input.effectiveFrom && input.effectiveTo && input.effectiveFrom >= input.effectiveTo) {
-    throw new CommodityProfileError('PC_PROFILE_EFFECTIVE_RANGE_INVALID', 'effectiveFrom must be before effectiveTo', 'effectiveFrom');
+    throw new CommodityProfileError(
+      'PC_PROFILE_EFFECTIVE_RANGE_INVALID',
+      'effectiveFrom must be before effectiveTo',
+      'effectiveFrom',
+    );
   }
-  return Object.freeze({
+  if (input.state === 'EFFECTIVE' && !input.effectiveFrom) {
+    throw new CommodityProfileError(
+      'PC_PROFILE_EFFECTIVE_FROM_REQUIRED',
+      'An EFFECTIVE version requires effectiveFrom',
+      'effectiveFrom',
+    );
+  }
+  if (['APPROVED', 'EFFECTIVE', 'DEPRECATED', 'REVOKED'].includes(input.state)) {
+    if (!input.approvedAt || !input.approvedBy || !ISO_INSTANT.test(input.approvedAt)) {
+      throw new CommodityProfileError(
+        'PC_PROFILE_APPROVAL_EVIDENCE_REQUIRED',
+        `${input.state} requires approvedAt and approvedBy`,
+        'approvedAt',
+      );
+    }
+  }
+
+  const immutableContent = deepFreeze(structuredClone(input.content));
+  return deepFreeze({
     ...input,
-    contentHash: hashCommodityProfileContent(input.content),
-    content: Object.freeze(structuredClone(input.content)),
+    contentHash: hashCommodityProfileContent(immutableContent),
+    content: immutableContent,
   });
 }
 
@@ -421,7 +556,13 @@ export function assertNoCommodityProfileEffectiveOverlap(
   if (!candidate.effectiveFrom) return;
   const candidateEnd = candidate.effectiveTo ?? '9999-12-31T23:59:59Z';
   for (const version of existing) {
-    if (version.versionId === candidate.versionId || !['APPROVED', 'EFFECTIVE'].includes(version.state) || !version.effectiveFrom) continue;
+    if (
+      version.versionId === candidate.versionId ||
+      !['APPROVED', 'EFFECTIVE'].includes(version.state) ||
+      !version.effectiveFrom
+    ) {
+      continue;
+    }
     const existingEnd = version.effectiveTo ?? '9999-12-31T23:59:59Z';
     if (candidate.effectiveFrom < existingEnd && version.effectiveFrom < candidateEnd) {
       throw new CommodityProfileError(
