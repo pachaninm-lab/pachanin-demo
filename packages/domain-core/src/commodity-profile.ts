@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 export const COMMODITY_ARCHETYPES = [
   'DRY_BULK',
   'SEED_PLANTING',
@@ -153,6 +151,7 @@ export type CommodityProfileVersion = {
   createdBy: string;
   approvedAt?: string;
   approvedBy?: string;
+  contentHashAlgorithm: 'SHA-256';
   contentHash: string;
   content: CommodityProfileContent;
 };
@@ -165,6 +164,12 @@ export type CommodityProfileIdentity = {
   createdAt: string;
   createdBy: string;
 };
+
+/**
+ * Supplied by the server application/crypto boundary. Domain-core stays browser-safe
+ * and verifies that the returned digest is a canonical lowercase SHA-256 hex value.
+ */
+export type CommodityProfileContentHasher = (canonicalJson: string) => string;
 
 export class CommodityProfileError extends Error {
   constructor(
@@ -181,6 +186,7 @@ const EXACT_DECIMAL = /^-?(0|[1-9]\d*)(\.\d{1,6})?$/;
 const CANONICAL_CODE = /^[A-Z0-9][A-Z0-9._-]{2,63}$/;
 const RULE_CODE = /^[A-Z0-9][A-Z0-9._:-]{1,95}$/;
 const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
+const SHA256_HEX = /^[a-f0-9]{64}$/;
 const MICRO = 1_000_000n;
 
 const ALLOWED_TRANSITIONS: Readonly<Record<CommodityProfileState, readonly CommodityProfileState[]>> = {
@@ -238,7 +244,11 @@ function requireOrderedRange(
 ): void {
   requireDecimal(minimum, `${path}Min`);
   requireDecimal(maximum, `${path}Max`);
-  if (minimum !== undefined && maximum !== undefined && decimalToMicro(minimum, `${path}Min`) > decimalToMicro(maximum, `${path}Max`)) {
+  if (
+    minimum !== undefined &&
+    maximum !== undefined &&
+    decimalToMicro(minimum, `${path}Min`) > decimalToMicro(maximum, `${path}Max`)
+  ) {
     throw new CommodityProfileError(
       'PC_PROFILE_RANGE_INVALID',
       `${path} minimum must not exceed maximum`,
@@ -300,7 +310,7 @@ function canonicalize(value: unknown): unknown {
 function deepFreeze<T>(value: T): T {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
     Object.freeze(value);
-    for (const nested of Object.values(value as Record<string, unknown>)) deepFreeze(nested);
+    for (const nested of Object.values(value as unknown as Record<string, unknown>)) deepFreeze(nested);
   }
   return value;
 }
@@ -309,8 +319,19 @@ export function canonicalCommodityProfileJson(content: CommodityProfileContent):
   return JSON.stringify(canonicalize(normalizedContent(content)));
 }
 
-export function hashCommodityProfileContent(content: CommodityProfileContent): string {
-  return createHash('sha256').update(canonicalCommodityProfileJson(content)).digest('hex');
+export function hashCommodityProfileContent(
+  content: CommodityProfileContent,
+  hasher: CommodityProfileContentHasher,
+): string {
+  const digest = hasher(canonicalCommodityProfileJson(content));
+  if (!SHA256_HEX.test(digest)) {
+    throw new CommodityProfileError(
+      'PC_PROFILE_HASH_INVALID',
+      'Commodity profile hasher must return lowercase SHA-256 hexadecimal',
+      'contentHash',
+    );
+  }
+  return digest;
 }
 
 export function validateCommodityProfileContent(content: CommodityProfileContent): void {
@@ -437,7 +458,10 @@ export function validateCommodityProfileContent(content: CommodityProfileContent
   requireOrderedRange(content.storage.humidityMin, content.storage.humidityMax, 'storage.humidity');
   requireUnique(content.storage.packagingKinds, 'storage.packagingKinds');
   content.storage.packagingKinds.forEach((kind, index) => requireCode(kind, `storage.packagingKinds.${index}`));
-  if (content.storage.shelfLifeHours !== undefined && (!Number.isSafeInteger(content.storage.shelfLifeHours) || content.storage.shelfLifeHours <= 0)) {
+  if (
+    content.storage.shelfLifeHours !== undefined &&
+    (!Number.isSafeInteger(content.storage.shelfLifeHours) || content.storage.shelfLifeHours <= 0)
+  ) {
     throw new CommodityProfileError(
       'PC_PROFILE_SHELF_LIFE_INVALID',
       'storage.shelfLifeHours must be a positive integer',
@@ -460,7 +484,10 @@ export function validateCommodityProfileContent(content: CommodityProfileContent
   if (content.acceptance.priceDeltaPolicyRef !== undefined) {
     requireCode(content.acceptance.priceDeltaPolicyRef, 'acceptance.priceDeltaPolicyRef');
   }
-  if (content.acceptance.rapidDisputeHours !== undefined && (!Number.isSafeInteger(content.acceptance.rapidDisputeHours) || content.acceptance.rapidDisputeHours <= 0)) {
+  if (
+    content.acceptance.rapidDisputeHours !== undefined &&
+    (!Number.isSafeInteger(content.acceptance.rapidDisputeHours) || content.acceptance.rapidDisputeHours <= 0)
+  ) {
     throw new CommodityProfileError(
       'PC_PROFILE_DISPUTE_WINDOW_INVALID',
       'acceptance.rapidDisputeHours must be a positive integer',
@@ -479,7 +506,8 @@ export function validateCommodityProfileContent(content: CommodityProfileContent
 }
 
 export function assertCommodityProfileTransition(from: CommodityProfileState, to: CommodityProfileState): void {
-  if (!ALLOWED_TRANSITIONS[from].includes(to)) {
+  const allowed = ALLOWED_TRANSITIONS[from] as readonly CommodityProfileState[];
+  if (!allowed.includes(to)) {
     throw new CommodityProfileError(
       'PC_PROFILE_TRANSITION_DENIED',
       `Commodity profile transition ${from} -> ${to} is not allowed`,
@@ -499,7 +527,8 @@ export function assertCommodityProfileContentMutable(state: CommodityProfileStat
 }
 
 export function buildCommodityProfileVersion(
-  input: Omit<CommodityProfileVersion, 'contentHash'>,
+  input: Omit<CommodityProfileVersion, 'contentHashAlgorithm' | 'contentHash'>,
+  hasher: CommodityProfileContentHasher,
 ): CommodityProfileVersion {
   validateCommodityProfileContent(input.content);
   if (!Number.isSafeInteger(input.sequence) || input.sequence <= 0) {
@@ -544,7 +573,8 @@ export function buildCommodityProfileVersion(
   const immutableContent = deepFreeze(structuredClone(input.content));
   return deepFreeze({
     ...input,
-    contentHash: hashCommodityProfileContent(immutableContent),
+    contentHashAlgorithm: 'SHA-256' as const,
+    contentHash: hashCommodityProfileContent(immutableContent, hasher),
     content: immutableContent,
   });
 }
