@@ -11,6 +11,7 @@
     "apps/tai/governance/scopes/ap-13b3-source-acquisition-2835.json",
     "apps/tai/tai/model_source_acquisition.py",
     "apps/tai/tai/model_source_acquisition_cli.py",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
     "apps/tai/tests/test_model_source_acquisition.py",
     "apps/tai/tests/test_model_source_acquisition_workflow.py"
   ],
@@ -35,6 +36,7 @@
     "only bounded metadata, review material and locators enter Actions artifacts",
     "source weights are not copied to Git or Actions artifacts",
     "the only secret-scan suppression is fingerprint-bound to one public immutable model revision false positive",
+    "the release-authority test attests the complete exact gitleaks exception set",
     "Qwen and Mistral remain legally pending and no conversion or admission is claimed",
     "production_operational_status remains NOT_ATTESTED",
     "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass"
