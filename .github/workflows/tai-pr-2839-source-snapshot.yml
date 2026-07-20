@@ -1,0 +1,45 @@
+name: TAI PR 2839 Source Snapshot
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-pr-2839-source-snapshot.yml
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    if: >-
+      github.event.pull_request.number == 2839 &&
+      github.event.pull_request.head.ref == 'agent/tai-ap-13b3a-model-bundle-authority'
+    runs-on: ubuntu-24.04
+    env:
+      EXACT_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_PR_HEAD }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify and stage exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXACT_PR_HEAD"
+          test "$GITHUB_HEAD_REF" = 'agent/tai-ap-13b3a-model-bundle-authority'
+          mkdir -p /tmp/tai-pr-2839-source/repository
+          cp -a apps/tai /tmp/tai-pr-2839-source/repository/apps/
+          cp pnpm-workspace.yaml /tmp/tai-pr-2839-source/repository/
+          git rev-parse HEAD > /tmp/tai-pr-2839-source/head-sha.txt
+          find /tmp/tai-pr-2839-source/repository/apps/tai -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > /tmp/tai-pr-2839-source/files.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tai-pr-2839-source-${{ env.EXACT_PR_HEAD }}
+          path: /tmp/tai-pr-2839-source
+          if-no-files-found: error
+          retention-days: 1
