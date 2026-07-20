@@ -31,11 +31,11 @@ jobs:
           test -n "$run_id"
 
           gh api "/repos/$REPOSITORY/actions/runs/$run_id" > run.json
-          jq -r '["PREFLIGHT_RUN",.id,.name,.event,.status,.conclusion,.head_branch,.head_sha,.run_number,.run_attempt,.created_at,.updated_at] | @tsv' run.json
+          jq -r '["PREFLIGHT_RUN",.id,.name,.event,.status,.conclusion,.head_branch,.head_sha,.run_number,.run_attempt,.actor.login,.triggering_actor.login,.path,.created_at,.run_started_at,.updated_at] | @tsv' run.json
 
           gh api "/repos/$REPOSITORY/actions/runs/$run_id/jobs?per_page=100" > jobs.json
           jq -r '.jobs[] | ["JOB",.id,.name,.status,.conclusion,.head_sha,.started_at,.completed_at] | @tsv' jobs.json
-          jq -r '.jobs[].steps[] | ["STEP",.number,.name,.status,.conclusion] | @tsv' jobs.json
+          jq -r '.jobs[].steps[]? | ["STEP",.number,.name,.status,.conclusion] | @tsv' jobs.json
 
           gh api "/repos/$REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" > artifacts.json
           jq -r '.artifacts[] | ["ARTIFACT",.id,.name,.size_in_bytes,.expired,.digest,.created_at,.expires_at] | @tsv' artifacts.json
