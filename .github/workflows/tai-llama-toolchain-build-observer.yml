@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Print exact load-proof failure section
+      - name: Report exact-main failed run and release state
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -26,9 +26,17 @@ jobs:
           set -euo pipefail
           exact_main="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
           printf 'EXACT_MAIN=%s\n' "$exact_main"
-          gh api "/repos/$REPOSITORY/actions/jobs/$FAILED_JOB_ID/logs" > failed.log
-          awk '
-            /FAIL test\/industrial\/load-proof\.e2e-spec\.ts/ { printing=1 }
-            printing { print; lines += 1 }
-            printing && (/Test Suites:/ || lines >= 160) { exit }
-          ' failed.log
+
+          run_id="$(gh api "/repos/$REPOSITORY/actions/jobs/$FAILED_JOB_ID" --jq '.run_id')"
+          gh api "/repos/$REPOSITORY/actions/jobs/$FAILED_JOB_ID" \
+            --jq '["FAILED_JOB",.id,.run_id,.name,.status,.conclusion,.head_sha,.started_at,.completed_at] | @tsv'
+          gh api "/repos/$REPOSITORY/actions/runs/$run_id" \
+            --jq '["FAILED_RUN",.id,.name,.event,.status,.conclusion,.head_branch,.head_sha,.run_number,.run_attempt,.created_at,.updated_at] | @tsv'
+
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?branch=main&per_page=30" \
+            --jq ".workflow_runs[] | select(.head_sha == \"$exact_main\") | [\"RELEASE\",.id,.status,.conclusion,.event,.head_sha,.run_number,.run_attempt,.created_at,.updated_at] | @tsv" \
+            | head -1 || true
+
+          gh api "/repos/$REPOSITORY/actions/runs?head_sha=$exact_main&per_page=100" \
+            --jq '.workflow_runs[] | select(.name == "TAI Foundation" or .name == "CI" or .name == "Node CI" or .name == "Security Scan" or .name == "Security Quality Gate" or .name == "Security Abuse and Evidence Acceptance" or .name == "Runtime Context Security Gate" or .name == "Auction Atomic Execution Acceptance" or .name == "Outbox PostgreSQL Authority Acceptance" or .name == "Disputes PostgreSQL Authority Acceptance" or .name == "Optional Runtime Retirement Gate" or .name == "Dependency Review") | ["GATE",.name,.id,.status,.conclusion,.head_sha] | @tsv' \
+            | sort -u
