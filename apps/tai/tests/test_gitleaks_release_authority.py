@@ -31,5 +31,8 @@ def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
         "apps/tai/tests/test_tool_planner.py:generic-api-key:42",
         "c5077eebcc9bbc47e3d650795e11b55f265428e8:"
         ".github/workflows/tai-model-source-acquisition.yml:generic-api-key:43",
+        "ec4b80ce1ee4fa7cf18361f1ff536c34b5030948:"
+        "apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.spec.ts:"
+        "generic-api-key:11",
     ]
     assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)
