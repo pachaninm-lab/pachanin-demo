@@ -109,7 +109,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     ? children
     : <NextIntlClientProvider locale={locale} messages={await getMessages()}>{children}</NextIntlClientProvider>;
   const showDevPanel = !leanPublicEntry && process.env.NEXT_PUBLIC_DEV_MODE === 'true';
-  const fontVariables = leanPublicEntry ? '' : `${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`;
+  // Fonts are attached on every route — including the lean public entry — so
+  // Inter and the mono face actually render instead of falling back to the OS
+  // system font. This is presentation only and independent of the lean
+  // provider/dev-panel trimming above.
+  const fontVariables = `${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`;
 
   return (
     <html

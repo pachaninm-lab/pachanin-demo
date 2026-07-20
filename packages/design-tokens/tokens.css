@@ -64,8 +64,8 @@
      One sans stack, one mono stack. Numbers are always tabular so
      money and quantities align by digit — mandatory for a trading
      and settlement platform. */
-  --ds-font-family: 'Inter', 'SF Pro Text', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
-  --ds-font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --ds-font-family: var(--font-inter), 'Inter', 'SF Pro Text', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --ds-font-mono: var(--font-mono), 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
   --ds-numeric: 'tnum' 1, 'lnum' 1;
 
   --ds-font-micro: 11px;
