@@ -1,9 +1,8 @@
 name: TAI PR 2839 Refresh Snapshot
 
 on:
-  push:
-    branches:
-      - agent/tai-ap-13b3a-model-bundle-authority
+  pull_request:
+    branches: [main]
     paths:
       - .github/workflows/tai-pr-2839-refresh-snapshot.yml
 
@@ -16,20 +15,25 @@ concurrency:
 
 jobs:
   refresh:
+    if: >-
+      github.event.pull_request.number == 2839 &&
+      github.event.pull_request.head.ref == 'agent/tai-ap-13b3a-model-bundle-authority'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      EXACT_PR_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: agent/tai-ap-13b3a-model-bundle-authority
+          ref: ${{ env.EXACT_PR_HEAD }}
           fetch-depth: 0
 
       - name: Enforce exact branch head
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$GITHUB_REF" = "refs/heads/agent/tai-ap-13b3a-model-bundle-authority"
+          test "$(git rev-parse HEAD)" = "$EXACT_PR_HEAD"
+          test "$GITHUB_HEAD_REF" = "agent/tai-ap-13b3a-model-bundle-authority"
 
       - name: Merge accepted main
         shell: bash
