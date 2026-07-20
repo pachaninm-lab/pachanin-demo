@@ -1,0 +1,27 @@
+name: production public entry watch failures 20260721
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  failures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: public-entry-watch-v2-20260721
+          path: result
+          repository: pachaninm-lab/pachanin-demo
+          run-id: 29780280711
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Print only failures
+        shell: bash
+        run: |
+          jq '{generatedAt, counts, network, allGreen, failures}' result/report.json
+          jq -e '.allGreen == true' result/report.json >/dev/null
