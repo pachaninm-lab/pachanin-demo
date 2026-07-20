@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Report latest exact-main model-host preflight
+      - name: Report latest owner exact-main model-host preflight
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -24,10 +24,12 @@ jobs:
         run: |
           set -euo pipefail
           exact_main="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
-          printf 'EXACT_MAIN=%s\n' "$exact_main"
+          owner="$(gh api "/repos/$REPOSITORY" --jq '.owner.login')"
+          printf 'EXACT_MAIN=%s\nOWNER=%s\n' "$exact_main" "$owner"
 
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-host-preflight.yml/runs?event=issue_comment&branch=main&per_page=30" > runs.json
-          run_id="$(jq -r --arg sha "$exact_main" '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.created_at) | reverse | .[0].id // empty' runs.json)"
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-host-preflight.yml/runs?event=issue_comment&branch=main&per_page=50" > runs.json
+          jq -r --arg sha "$exact_main" '.workflow_runs[] | select(.head_sha == $sha) | ["CANDIDATE",.id,.status,.conclusion,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' runs.json
+          run_id="$(jq -r --arg sha "$exact_main" --arg owner "$owner" '[.workflow_runs[] | select(.head_sha == $sha and .actor.login == $owner)] | sort_by(.created_at) | reverse | .[0].id // empty' runs.json)"
           test -n "$run_id"
 
           gh api "/repos/$REPOSITORY/actions/runs/$run_id" > run.json
