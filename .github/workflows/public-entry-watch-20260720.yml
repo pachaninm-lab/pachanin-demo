@@ -33,6 +33,7 @@ jobs:
           CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
           test -x "$CHROME_PATH"
           echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+          mkdir -p apps/web/scripts
           python - <<'PY'
           from pathlib import Path
           source_path = Path('.github/scripts/public-entry-watch-20260720.mjs')
@@ -41,8 +42,7 @@ jobs:
           source = '\n'.join(line for line in source.splitlines() if "name: 'webkit-iphone'" not in line) + '\n'
           source = source.replace("project.engine.launch({ headless: true })", "project.engine.launch({ headless: true, executablePath: process.env.CHROME_PATH })")
           source = source.replace("chromium.launch({ headless: true })", "chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH })")
-          target = Path('apps/web/scripts/public-entry-watch-20260720.mjs')
-          target.write_text(source)
+          Path('apps/web/scripts/public-entry-watch-20260720.mjs').write_text(source)
           PY
       - name: Run exact production watch
         shell: bash
