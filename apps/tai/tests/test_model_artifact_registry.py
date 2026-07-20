@@ -51,7 +51,11 @@ def _recipe(
     }
 
 
-def _registry_payload(*, approved: bool = True) -> dict[str, Any]:
+def _registry_payload(
+    *,
+    approved: bool = True,
+    primary_weight_files: list[str] | None = None,
+) -> dict[str, Any]:
     return {
         "schema_version": "tai.model-candidate-registry.v1",
         "candidates": [
@@ -59,21 +63,19 @@ def _registry_payload(*, approved: bool = True) -> dict[str, Any]:
                 "role": "PRIMARY",
                 "model_id": "owner/model-a",
                 "revision": REVISION,
-                "source_uri": (
-                    "https://models.example/owner/model-a/tree/" + REVISION
-                ),
+                "source_uri": ("https://models.example/owner/model-a/tree/" + REVISION),
                 "model_card_uri": (
-                    "https://models.example/owner/model-a/blob/"
-                    + REVISION
-                    + "/README.md"
+                    "https://models.example/owner/model-a/blob/" + REVISION + "/README.md"
                 ),
                 "license_spdx": "Apache-2.0",
                 "license_review_status": "APPROVED" if approved else "PENDING",
-                "license_text_path": (
-                    "licenses/model-a/LICENSE" if approved else None
-                ),
+                "license_text_path": ("licenses/model-a/LICENSE" if approved else None),
                 "tokenizer_files": ["sources/model-a/tokenizer.json"],
-                "weight_files": ["sources/model-a/model.safetensors"],
+                "weight_files": (
+                    primary_weight_files
+                    if primary_weight_files is not None
+                    else ["sources/model-a/model.safetensors"]
+                ),
                 "quantization_recipes": [
                     _recipe("CPU", "Q4_K_M", "artifacts/model-a-q4-k-m.gguf"),
                     _recipe(
@@ -87,23 +89,16 @@ def _registry_payload(*, approved: bool = True) -> dict[str, Any]:
                 "role": "FALLBACK",
                 "model_id": "owner/model-b",
                 "revision": FALLBACK_REVISION,
-                "source_uri": (
-                    "https://models.example/owner/model-b/tree/"
-                    + FALLBACK_REVISION
-                ),
+                "source_uri": ("https://models.example/owner/model-b/tree/" + FALLBACK_REVISION),
                 "model_card_uri": (
-                    "https://models.example/owner/model-b/blob/"
-                    + FALLBACK_REVISION
-                    + "/README.md"
+                    "https://models.example/owner/model-b/blob/" + FALLBACK_REVISION + "/README.md"
                 ),
                 "license_spdx": "Apache-2.0",
                 "license_review_status": "PENDING",
                 "license_text_path": None,
                 "tokenizer_files": ["sources/model-b/tokenizer.json"],
                 "weight_files": ["sources/model-b/model.safetensors"],
-                "quantization_recipes": [
-                    _recipe("CPU", "Q4_K_M", "artifacts/model-b-q4-k-m.gguf")
-                ],
+                "quantization_recipes": [_recipe("CPU", "Q4_K_M", "artifacts/model-b-q4-k-m.gguf")],
             },
         ],
     }
@@ -116,7 +111,10 @@ def _primary(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _prepare_bundle(tmp_path: Path) -> tuple[Path, Path, Path]:
     registry_path = tmp_path / "registry.json"
-    _write_json(registry_path, _registry_payload())
+    _write_json(
+        registry_path,
+        _registry_payload(primary_weight_files=[]),
+    )
     files = {
         "licenses/model-a/LICENSE": b"Apache License evidence\n",
         "sources/model-a/tokenizer.json": b'{"tokenizer":"pinned"}\n',
@@ -165,11 +163,7 @@ def _prepare_bundle(tmp_path: Path) -> tuple[Path, Path, Path]:
 
 
 def test_repository_registry_is_pinned_and_intentionally_pending() -> None:
-    registry_path = (
-        Path(__file__).resolve().parents[1]
-        / "model-artifacts"
-        / "candidates.v1.json"
-    )
+    registry_path = Path(__file__).resolve().parents[1] / "model-artifacts" / "candidates.v1.json"
     registry = load_candidate_registry(registry_path)
 
     assert [item.role for item in registry.candidates] == [
@@ -177,10 +171,10 @@ def test_repository_registry_is_pinned_and_intentionally_pending() -> None:
         CandidateRole.FALLBACK,
     ]
     assert all(
-        item.license_review_status is LicenseReviewStatus.PENDING
-        for item in registry.candidates
+        item.license_review_status is LicenseReviewStatus.PENDING for item in registry.candidates
     )
     assert all(item.revision in item.source_uri for item in registry.candidates)
+    assert all(item.weight_files for item in registry.candidates)
     assert len(registry_to_canonical_json(registry)) > 100
 
 
@@ -196,6 +190,43 @@ def test_verified_bundle_requires_exact_files_and_recipes(tmp_path: Path) -> Non
     assert report.reasons == ()
     assert len(report.verified_files) == 4
     assert len(report.report_sha256) == 64
+
+
+def test_v1_bundle_rejects_candidate_with_source_weights(
+    tmp_path: Path,
+) -> None:
+    registry_path, bundle_path, bundle_root = _prepare_bundle(tmp_path)
+    _write_json(registry_path, _registry_payload())
+    report = verify_artifact_bundle(
+        registry=load_candidate_registry(registry_path),
+        bundle=load_artifact_bundle(bundle_path),
+        bundle_root=bundle_root,
+    )
+    assert report.status is BundleVerificationStatus.REJECTED
+    assert report.reasons == ("SOURCE_WEIGHT_EVIDENCE_UNSUPPORTED_BY_V1",)
+    assert len(report.verified_files) == 4
+
+
+def test_cli_returns_two_for_v1_candidate_with_source_weights(
+    tmp_path: Path,
+) -> None:
+    registry_path, bundle_path, bundle_root = _prepare_bundle(tmp_path)
+    _write_json(registry_path, _registry_payload())
+    output = tmp_path / "report.json"
+    result = main(
+        [
+            "verify-bundle",
+            str(registry_path),
+            str(bundle_path),
+            str(bundle_root),
+            "--output",
+            str(output),
+        ]
+    )
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert result == 2
+    assert payload["status"] == "REJECTED"
+    assert payload["reasons"] == ["SOURCE_WEIGHT_EVIDENCE_UNSUPPORTED_BY_V1"]
 
 
 def test_bundle_verification_fails_closed_on_digest_mismatch(tmp_path: Path) -> None:
@@ -253,11 +284,7 @@ def test_cli_returns_zero_only_for_verified_bundle(tmp_path: Path) -> None:
 
 
 def test_cli_validates_registry_without_claiming_artifacts(tmp_path: Path) -> None:
-    registry_path = (
-        Path(__file__).resolve().parents[1]
-        / "model-artifacts"
-        / "candidates.v1.json"
-    )
+    registry_path = Path(__file__).resolve().parents[1] / "model-artifacts" / "candidates.v1.json"
     output = tmp_path / "registry-report.json"
     result = main(
         [

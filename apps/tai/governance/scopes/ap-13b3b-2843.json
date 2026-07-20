@@ -1,0 +1,36 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3b-v1-source-weight-fail-closed",
+  "status": "active",
+  "parent_issue": 2835,
+  "issue": 2843,
+  "maturity_boundary": "legacy-v1-verifier-correctness-without-model-acquisition-or-artifact-evidence",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3b-2843.json",
+    "apps/tai/model-artifacts/README.md",
+    "apps/tai/tai/model_artifact_registry.py",
+    "apps/tai/tests/test_model_artifact_registry.py"
+  ],
+  "forbidden_capabilities": [
+    "change to tai.local-model-artifact-bundle.v1 JSON shape",
+    "implicit source-weight field added to legacy v1 manifests",
+    "model download, legal approval, conversion, quantization or benchmark evidence",
+    "llama.cpp build execution or build-verification claim",
+    "model admission, production composition or operational attestation claim",
+    "privileged write or production deployment"
+  ],
+  "acceptance": [
+    "AP-13B.3a exact-main merge c2a5474befbff5583e654ada015d1e5319f4d6ea has an accepted release attestation while production_operational_status remains NOT_ATTESTED",
+    "a matched v1 candidate with non-empty weight_files returns REJECTED with SOURCE_WEIGHT_EVIDENCE_UNSUPPORTED_BY_V1",
+    "the legacy verify-bundle CLI returns exit code 2 for that fail-closed condition",
+    "the unchanged v1 JSON shape permits an explicitly empty weight_files array for compatibility-only candidates",
+    "non-empty weight_files remain subject to relative-path and uniqueness validation before the v1 verifier rejects unsupported source-weight evidence",
+    "a matched legacy candidate with explicitly empty weight_files preserves the previous v1 verification behavior",
+    "registry validation remains independent and does not claim artifact completeness",
+    "repository Qwen and Mistral candidates cannot receive v1 VERIFIED because both declare source weights",
+    "the guarded finalization run passed targeted Ruff, strict mypy and focused pytest before publishing the clean four-file head",
+    "Ruff, strict mypy, full pytest/coverage and repository security/runtime gates pass on exact head",
+    "exact-main release acceptance passes after merge",
+    "production operational status remains NOT_ATTESTED"
+  ]
+}

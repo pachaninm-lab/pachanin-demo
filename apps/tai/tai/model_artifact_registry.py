@@ -88,16 +88,14 @@ class ModelSourceCandidate:
         if self.license_text_path is not None:
             _relative_path(self.license_text_path, "license_text_path")
         _unique_paths(self.tokenizer_files, "tokenizer_files")
-        _unique_paths(self.weight_files, "weight_files")
+        if self.weight_files:
+            _unique_paths(self.weight_files, "weight_files")
         if not self.recipes:
             raise ValueError("at least one quantization recipe is required")
         outputs = tuple(recipe.output_path for recipe in self.recipes)
         if len(outputs) != len(set(outputs)):
             raise ValueError("quantization recipe output paths must be unique")
-        if not any(
-            recipe.runtime_class is ModelRuntimeClass.CPU
-            for recipe in self.recipes
-        ):
+        if not any(recipe.runtime_class is ModelRuntimeClass.CPU for recipe in self.recipes):
             raise ValueError("every model candidate requires a CPU recipe")
 
 
@@ -189,9 +187,7 @@ def load_candidate_registry(path: Path) -> ModelCandidateRegistry:
     payload = _load(path)
     if payload.get("schema_version") != "tai.model-candidate-registry.v1":
         raise ValueError("unsupported model candidate registry schema")
-    candidates = tuple(
-        _candidate(item) for item in _array(payload, "candidates")
-    )
+    candidates = tuple(_candidate(item) for item in _array(payload, "candidates"))
     return ModelCandidateRegistry(candidates)
 
 
@@ -203,12 +199,8 @@ def load_artifact_bundle(path: Path) -> LocalModelArtifactBundle:
         model_id=_string(payload, "model_id"),
         revision=_string(payload, "revision"),
         license_text=_declared_file(payload.get("license_text")),
-        tokenizers=tuple(
-            _declared_file(item) for item in _array(payload, "tokenizers")
-        ),
-        artifacts=tuple(
-            _declared_artifact(item) for item in _array(payload, "artifacts")
-        ),
+        tokenizers=tuple(_declared_file(item) for item in _array(payload, "tokenizers")),
+        artifacts=tuple(_declared_artifact(item) for item in _array(payload, "artifacts")),
     )
 
 
@@ -285,6 +277,8 @@ def _verify_candidate_contract(
     bundle: LocalModelArtifactBundle,
     reasons: list[str],
 ) -> None:
+    if candidate.weight_files:
+        reasons.append("SOURCE_WEIGHT_EVIDENCE_UNSUPPORTED_BY_V1")
     if candidate.license_review_status is not LicenseReviewStatus.APPROVED:
         reasons.append("LICENSE_REVIEW_NOT_APPROVED")
     if candidate.license_text_path != bundle.license_text.path:
@@ -352,15 +346,11 @@ def _candidate(value: object) -> ModelSourceCandidate:
         source_uri=_string(payload, "source_uri"),
         model_card_uri=_string(payload, "model_card_uri"),
         license_spdx=_string(payload, "license_spdx"),
-        license_review_status=LicenseReviewStatus(
-            _string(payload, "license_review_status")
-        ),
+        license_review_status=LicenseReviewStatus(_string(payload, "license_review_status")),
         license_text_path=_optional_string(payload, "license_text_path"),
         tokenizer_files=tuple(_strings(payload, "tokenizer_files")),
-        weight_files=tuple(_strings(payload, "weight_files")),
-        recipes=tuple(
-            _recipe(item) for item in _array(payload, "quantization_recipes")
-        ),
+        weight_files=tuple(_strings_allow_empty(payload, "weight_files")),
+        recipes=tuple(_recipe(item) for item in _array(payload, "quantization_recipes")),
     )
 
 
@@ -453,6 +443,16 @@ def _array(payload: dict[str, Any], key: str) -> list[object]:
     if not isinstance(value, list):
         raise ValueError(f"{key} must be an array")
     return cast(list[object], value)
+
+
+def _strings_allow_empty(
+    payload: dict[str, Any],
+    key: str,
+) -> list[str]:
+    values = _array(payload, key)
+    if any(not isinstance(item, str) for item in values):
+        raise ValueError(f"{key} must be a string array")
+    return cast(list[str], values)
 
 
 def _strings(payload: dict[str, Any], key: str) -> list[str]:
