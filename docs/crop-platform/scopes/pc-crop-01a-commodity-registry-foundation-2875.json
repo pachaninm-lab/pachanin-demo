@@ -1,22 +1,22 @@
 {
-  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "schemaVersion": "pc-crop.concurrent-scope.v1",
   "branch": "agent/pc-crop-01-commodity-registry-foundation",
   "status": "active",
   "parentIssue": 2875,
+  "baseExactMain": "05b1b5a62911d273a25e04e28951bf9772af705d",
+  "operationalStatus": "NOT_ATTESTED",
   "maturityBoundary": "commodity-profile-domain-and-interface-foundation-without-postgresql-runtime-authority",
   "allowedPaths": [
     "packages/domain-core/package.json",
     "packages/domain-core/src/index.ts",
     "packages/domain-core/src/commodity-profile.ts",
     "packages/domain-core/src/commodity-profile.test.ts",
-    "apps/web/components/platform-v7/CommodityProfileRegistryView.tsx",
-    "apps/web/components/platform-v7/CommodityProfileRegistryView.module.css",
-    "apps/web/tests/unit/platformV7CommodityProfileRegistryView.test.ts",
-    "docs/platform-v7/crop-platform/PC-CROP-01A-DOMAIN-AND-UX.md",
-    "docs/platform-v7/autopilot/scopes/pc-crop-01a-commodity-registry-foundation-2875.json",
+    "apps/web/components/crop-platform/CommodityProfileRegistryView.tsx",
+    "apps/web/components/crop-platform/CommodityProfileRegistryView.module.css",
+    "docs/crop-platform/PC-CROP-01A-DOMAIN-AND-UX.md",
+    "docs/crop-platform/scopes/pc-crop-01a-commodity-registry-foundation-2875.json",
     "scripts/verify-pc-crop-01a.mjs",
-    ".github/workflows/pc-crop-01a.yml",
-    "scripts/p7-autopilot-guard.sh"
+    ".github/workflows/pc-crop-01a.yml"
   ],
   "forbiddenCapabilities": [
     "parallel Deal, Lot or Organization authority",
