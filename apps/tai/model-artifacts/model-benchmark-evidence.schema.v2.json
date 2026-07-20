@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.invalid/schemas/tai.model-benchmark-evidence.v2.json",
+  "title": "TAI model benchmark evidence v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lifecycle",
+    "pending_reason",
+    "model",
+    "bundle",
+    "evaluation_suite",
+    "quality",
+    "runtime_profiles",
+    "fallback_exercise",
+    "soak",
+    "evidence_files",
+    "storage",
+    "measured_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "tai.model-benchmark-evidence.v2"},
+    "lifecycle": {"enum": ["PENDING_BENCHMARK", "COMPLETE"]},
+    "pending_reason": {"type": ["string", "null"]},
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "model_id", "revision"],
+      "properties": {
+        "role": {"enum": ["PRIMARY", "FALLBACK"]},
+        "model_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
+    "bundle": {"type": ["object", "null"]},
+    "evaluation_suite": {"type": ["object", "null"]},
+    "quality": {"type": ["object", "null"]},
+    "runtime_profiles": {"type": "array"},
+    "fallback_exercise": {"type": ["object", "null"]},
+    "soak": {"type": ["object", "null"]},
+    "evidence_files": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/file"},
+      "maxItems": 128
+    },
+    "storage": {"type": ["object", "null"]},
+    "measured_at": {"type": ["string", "null"], "format": "date-time"}
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1, "maxLength": 300},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

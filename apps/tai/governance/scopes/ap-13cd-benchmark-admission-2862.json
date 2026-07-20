@@ -1,0 +1,41 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13cd-benchmark-admission-v2",
+  "status": "active",
+  "parent_issue": 2726,
+  "issue": 2862,
+  "maturity_boundary": "versioned-benchmark-and-admission-authority-with-pending-baselines-and-no-real-measurement",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13cd-benchmark-admission-2862.json",
+    "apps/tai/model-artifacts/model-admission-decision.schema.v2.json",
+    "apps/tai/model-artifacts/model-benchmark-admission-authority.v2.json",
+    "apps/tai/model-artifacts/model-benchmark-admission-runbook.v2.md",
+    "apps/tai/model-artifacts/model-benchmark-evidence.schema.v2.json",
+    "apps/tai/model-artifacts/mistral-7b-instruct-v0.3.benchmark.v2.pending.json",
+    "apps/tai/model-artifacts/qwen3-8b.benchmark.v2.pending.json",
+    "apps/tai/tai/model_benchmark_admission_v2.py",
+    "apps/tai/tai/model_benchmark_admission_v2_cli.py",
+    "apps/tai/tests/test_model_benchmark_admission_v2.py"
+  ],
+  "forbidden_capabilities": [
+    "fabricated model bundle, quality, latency, throughput, memory, cost, concurrency, fallback or soak evidence",
+    "model source download, conversion, quantization or GGUF creation",
+    "automatic legal approval or license decision inference",
+    "model activation, routing change or production composition write",
+    "ADMITTED decision from pending or unverified primary/fallback evidence",
+    "production readiness or operational attestation claim"
+  ],
+  "acceptance": [
+    "v1 model admission remains unchanged and available",
+    "v2 authority binds exact Qwen and Mistral revisions and registered bundle quantizations",
+    "v2 requires 58 evaluation cases including 23 critical cases and zero critical unsupported facts",
+    "v2 requires primary CPU, primary GPU/shared and fallback CPU runtime profiles with exact concurrency matrices",
+    "v2 requires separate RAM/VRAM, cold start, warmup, operating cost, fallback exercise and one-hour soak evidence",
+    "all evidence files verify from original and independently restored roots with strict path, type, size, digest and inode checks",
+    "joint admission requires independently VERIFIED primary and fallback reports and current benchmark timestamps",
+    "committed baselines remain PENDING_BENCHMARK and produce PENDING_ADMISSION with non-zero CLI exit",
+    "no model bytes, benchmark logs or measured values are committed",
+    "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass",
+    "production_operational_status remains NOT_ATTESTED"
+  ]
+}
