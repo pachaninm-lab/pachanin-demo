@@ -122,15 +122,15 @@ The authority records every file visible at the pinned upstream revisions. Qwen 
 The v2 verifier requires all of the following before status `VERIFIED`:
 
 1. the authority canonical SHA-256 matches;
-2. the observed remote inventory exactly matches the authority, including exclusions;
+2. the observed remote inventory semantically binds the exact model identity, revision, immutable source URI, observation time and authority entries, including exclusions;
 3. every selected source file has an exact local size and SHA-256;
 4. the shard index references every declared weight shard and no undeclared shard;
-5. a human-attributed legal decision is `APPROVED` and binds the exact license text;
+5. a human-attributed or signed legal decision is `APPROVED` and binds conditions, an immutable attestation reference and the exact license-text SHA-256;
 6. the verified AP-13B.2b llama.cpp package, build manifest, verification report and all four binaries match the accepted authority;
 7. Python/dependency, converter, exact argv, log and intermediate GGUF evidence are complete;
 8. every registered quantization binds the intermediate GGUF and exact `llama-quantize` binary;
-9. immutable upload evidence exists; and
-10. every declared file re-verifies from a separate restored root.
+9. immutable toolchain and bundle locators bind the exact package/archive SHA-256, and upload/restore records enforce an exact retention interval; and
+10. every declared file re-verifies from a separate restored root before retention expiry.
 
 The parser rejects duplicate and unknown JSON keys. File verification rejects traversal, symlinks, non-regular files and hard-link aliasing. The verifier never executes argv from either the authority or manifest.
 
