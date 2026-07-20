@@ -1,5 +1,5 @@
 // Package version — bump this on every breaking or notable change
-export const DOMAIN_CORE_VERSION = '0.2.0';
+export const DOMAIN_CORE_VERSION = '0.3.0';
 
 export { Money, MoneyError } from './money';
 export type { CurrencyCode as MoneyCurrencyCode } from './money';
@@ -15,6 +15,7 @@ export * from './status-policy-engine';
 export * from './action-decision-engine';
 export * from './execution-scores-v2';
 export * from './feature-policy-registry';
+export * from './commodity-profile';
 
 export * from './service-provider-registry';
 
