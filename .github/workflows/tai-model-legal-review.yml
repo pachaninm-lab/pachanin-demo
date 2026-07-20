@@ -1,0 +1,176 @@
+name: TAI Human Model Legal Review
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-model-legal-review.yml'
+      - 'apps/tai/model-artifacts/model-legal-review-authority.v1.json'
+      - 'apps/tai/model-artifacts/model-legal-review-record.schema.v1.json'
+      - 'apps/tai/model-artifacts/model-legal-review-attestation.schema.v1.json'
+      - 'apps/tai/model-artifacts/model-legal-review-runbook.v1.md'
+      - 'apps/tai/model-artifacts/legal-reviews/**'
+      - 'apps/tai/tai/model_legal_review*.py'
+      - 'apps/tai/tests/test_model_legal_review*.py'
+      - 'apps/tai/governance/scopes/ap-13b3c-human-legal-intake-2877.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-human-model-legal-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  legal-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      AUTHORITY_PATH: apps/tai/model-artifacts/model-legal-review-authority.v1.json
+      ACCEPTANCE_PATH: apps/tai/model-artifacts/model-source-acquisition-acceptance.v1.json
+      EVIDENCE_ROOT: apps/tai
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact pull-request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact checked-out head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git cat-file -e "$BASE_SHA^{commit}"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install TAI legal review authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e 'apps/tai[dev]'
+
+      - name: Validate authority and human decision pairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p legal-review-evidence
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > legal-review-evidence/changed-files.txt
+          PYTHONPATH=apps/tai python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from tai.model_legal_review import (
+              HumanLegalReviewStatus,
+              authority_sha256,
+              evaluate_all_model_reviews,
+              evaluate_model_review,
+              intended_use_sha256,
+              load_model_legal_review_authority,
+              report_payload,
+              validate_source_acceptance,
+          )
+
+          authority_path = Path(os.environ['AUTHORITY_PATH'])
+          acceptance_path = Path(os.environ['ACCEPTANCE_PATH'])
+          evidence_root = Path(os.environ['EVIDENCE_ROOT'])
+          authority = load_model_legal_review_authority(authority_path)
+          validate_source_acceptance(authority, acceptance_path)
+
+          changed = {
+              line.strip()
+              for line in Path('legal-review-evidence/changed-files.txt').read_text().splitlines()
+              if line.strip()
+          }
+          authorized_review_paths = {
+              f"apps/tai/{plan.review_record_path}"
+              for plan in authority.models
+          } | {
+              f"apps/tai/{plan.attestation_path}"
+              for plan in authority.models
+          }
+          changed_review_paths = {
+              path
+              for path in changed
+              if path.startswith('apps/tai/model-artifacts/legal-reviews/')
+          }
+          unknown = sorted(changed_review_paths - authorized_review_paths)
+          if unknown:
+              raise SystemExit(f'unauthorized legal-review paths: {unknown}')
+
+          reports = []
+          completed_pairs = 0
+          for plan in authority.models:
+              record = evidence_root / plan.review_record_path
+              attestation = evidence_root / plan.attestation_path
+              record_exists = record.exists() or record.is_symlink()
+              attestation_exists = attestation.exists() or attestation.is_symlink()
+              if record_exists != attestation_exists:
+                  raise SystemExit(f'incomplete legal-review pair: {plan.model_id}')
+              report = evaluate_model_review(
+                  authority=authority,
+                  acceptance_path=acceptance_path,
+                  evidence_root=evidence_root,
+                  model_id=plan.model_id,
+                  revision=plan.revision,
+              )
+              reports.append(report_payload(report))
+              if record_exists:
+                  completed_pairs += 1
+                  if report.status not in {
+                      HumanLegalReviewStatus.APPROVED_FOR_CONVERSION,
+                      HumanLegalReviewStatus.REJECTED,
+                  }:
+                      raise SystemExit(
+                          f'invalid completed legal-review pair: {plan.model_id}'
+                      )
+
+          if changed_review_paths and completed_pairs == 0:
+              raise SystemExit('legal-review paths changed without a completed pair')
+
+          evaluation = evaluate_all_model_reviews(
+              authority=authority,
+              acceptance_path=acceptance_path,
+              evidence_root=evidence_root,
+          )
+          if evaluation['status'] == 'INVALID':
+              raise SystemExit('aggregate legal-review evaluation is invalid')
+          payload = {
+              'schema_version': 'tai.model-legal-review-pr-evidence.v1',
+              'base_sha': os.environ['BASE_SHA'],
+              'head_sha': os.environ['HEAD_SHA'],
+              'authority_sha256': authority_sha256(authority),
+              'intended_use_sha256': intended_use_sha256(authority),
+              'changed_review_paths': sorted(changed_review_paths),
+              'completed_pairs': completed_pairs,
+              'models': reports,
+              'aggregate': evaluation,
+              'automation_boundary': 'DECISION_READ_ONLY_HUMAN_AUTHORED',
+              'production_operational_status': 'NOT_ATTESTED',
+          }
+          Path('legal-review-evidence/pr-evaluation.json').write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+              + '\n'
+          )
+          print(json.dumps(payload, sort_keys=True))
+          PY
+
+      - name: Upload bounded legal review evaluation
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-human-model-legal-review-${{ github.event.pull_request.head.sha }}
+          path: legal-review-evidence
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
