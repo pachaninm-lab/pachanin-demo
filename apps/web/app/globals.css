@@ -10,6 +10,16 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+:root {
+  /* Canonical vertical rhythm for platform UI text. */
+  --pc-text-gap-xs: 0.25rem;  /* 4px */
+  --pc-text-gap-sm: 0.5rem;   /* 8px */
+  --pc-text-gap-md: 0.75rem;  /* 12px */
+  --pc-text-gap-lg: 1rem;     /* 16px */
+  --pc-group-gap: 1.25rem;    /* 20px mobile */
+  --pc-section-gap: 1.5rem;   /* 24px mobile */
+}
+
 html {
   -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
@@ -57,6 +67,71 @@ button {
 img, svg, video, canvas {
   max-width: 100%;
   height: auto;
+}
+
+/* ============================================================
+   Canonical vertical rhythm primitives
+   Parent containers own spacing. Text nodes do not.
+   ============================================================ */
+
+.pc-text-stack,
+.pc-field-stack,
+.pc-metric-stack,
+.pc-section-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.pc-text-stack { gap: var(--pc-text-gap-md); }
+.pc-text-stack--compact { gap: var(--pc-text-gap-sm); }
+.pc-text-stack--relaxed { gap: var(--pc-text-gap-lg); }
+.pc-field-stack { gap: var(--pc-group-gap); }
+.pc-metric-stack { gap: var(--pc-text-gap-xs); }
+.pc-section-stack { gap: var(--pc-section-gap); }
+
+/* Long-form content is opt-in so rich text keeps deliberate rhythm
+   without reintroducing browser-default margins into operational UI. */
+.pc-prose {
+  display: flow-root;
+  line-height: 1.5;
+}
+
+.pc-prose > * { margin-block: 0; }
+.pc-prose > p + p { margin-block-start: var(--pc-text-gap-md); }
+.pc-prose > :is(h2, h3, h4) + :is(p, ul, ol) {
+  margin-block-start: var(--pc-text-gap-sm);
+}
+.pc-prose > :is(p, ul, ol) + :is(h2, h3, h4) {
+  margin-block-start: var(--pc-section-gap);
+}
+.pc-prose > :is(p, ul, ol) + :is(ul, ol) {
+  margin-block-start: var(--pc-text-gap-lg);
+}
+.pc-prose li + li { margin-block-start: var(--pc-text-gap-sm); }
+
+/* Card body stays top-aligned; only the footer may consume remaining space. */
+.pc-card-flow {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.pc-card-flow__body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--pc-text-gap-md);
+}
+.pc-card-flow__footer {
+  margin-top: auto;
+  padding-top: var(--pc-text-gap-lg);
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --pc-group-gap: 1.5rem;   /* 24px desktop */
+    --pc-section-gap: 2rem;   /* 32px desktop */
+  }
 }
 
 /* ============================================================
