@@ -1,0 +1,50 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3a-model-bundle-authority",
+  "status": "active",
+  "parent_issue": 2835,
+  "issue": 2836,
+  "maturity_boundary": "source-conversion-license-bundle-authority-and-pending-acquisition-baselines-only",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3a-2836.json",
+    "apps/tai/model-artifacts/README.md",
+    "apps/tai/model-artifacts/local-model-artifact-bundle.schema.v2.json",
+    "apps/tai/model-artifacts/mistral-7b-instruct-v0.3.bundle.v2.pending.json",
+    "apps/tai/model-artifacts/model-bundle-acquisition-runbook.v2.md",
+    "apps/tai/model-artifacts/model-bundle-authority.v2.json",
+    "apps/tai/model-artifacts/qwen3-8b.bundle.v2.pending.json",
+    "apps/tai/tai/model_artifact_registry_cli.py",
+    "apps/tai/tai/model_bundle_v2.py",
+    "apps/tai/tai/model_bundle_v2_common.py",
+    "apps/tai/tai/model_bundle_v2_parse.py",
+    "apps/tai/tai/model_bundle_v2_serialize.py",
+    "apps/tai/tai/model_bundle_v2_types.py",
+    "apps/tai/tai/model_bundle_v2_verify.py",
+    "apps/tai/tests/test_ap13b3a_scope.py",
+    "apps/tai/tests/model_bundle_v2_support.py",
+    "apps/tai/tests/test_model_bundle_v2_contract.py",
+    "apps/tai/tests/test_model_bundle_v2_adversarial.py"
+  ],
+  "forbidden_capabilities": [
+    "fabricated source weight, tokenizer, model-card, license, conversion, quantization, upload or restore evidence",
+    "automated or unattributed legal approval",
+    "execution of conversion or quantization argv read from an authority or manifest by the verifier",
+    "acceptance of a model bundle without every registered source weight shard and shard index",
+    "mixing Mistral consolidated.safetensors with the governed Hugging Face shard/index layout",
+    "committed model weights, GGUF files, compiled binaries, source archives or external evidence payloads",
+    "benchmark, model admission, production readiness or operational attestation claim"
+  ],
+  "acceptance": [
+    "v1 remains available and unchanged while the independent v2 contract is fail-closed",
+    "strict JSON parsing rejects duplicate and unknown keys at every governed object",
+    "Qwen authority contains every weight shard, shard index, tokenizer/config file and model card",
+    "Mistral authority requires tokenizer.model and explicitly excludes consolidated.safetensors with rationale",
+    "a complete bundle cannot verify without exact remote inventory and all selected source files",
+    "human legal review, verified AP-13B.2b package and four binary identities are mandatory",
+    "conversion and every quantization bind exact source, toolchain, argv, logs and GGUF digests",
+    "immutable upload and independent restore re-verification are mandatory",
+    "canonical authority, manifest and verification-report digests are emitted",
+    "both committed model baselines remain PENDING_ACQUISITION and return exit code 2",
+    "Ruff, strict mypy, full pytest with coverage and repository security/runtime gates pass"
+  ]
+}

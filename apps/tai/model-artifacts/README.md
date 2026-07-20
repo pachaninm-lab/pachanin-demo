@@ -106,6 +106,67 @@ Exit codes:
 - `0` — every required file, size, hash, recipe, approved license review and full toolchain commit matches;
 - `2` — pending state, invalid schema, missing evidence, mismatch or rejected license.
 
+## AP-13B.3 source/conversion/license bundle authority
+
+The v1 registry and verifier remain available for compatibility. They are not sufficient for AP-13B.3 acceptance because a v1 bundle does not declare or verify the source weight shards. AP-13B.3 uses the independent, stricter v2 contract:
+
+- `model-bundle-authority.v2.json` fixes the full remote inventory, selected converter inputs, explicit exclusions, exact conversion argv and every required quantization;
+- `local-model-artifact-bundle.schema.v2.json` is the versioned external evidence schema;
+- `qwen3-8b.bundle.v2.pending.json` and `mistral-7b-instruct-v0.3.bundle.v2.pending.json` are honest `PENDING_ACQUISITION` baselines;
+- `model-bundle-acquisition-runbook.v2.md` defines acquisition, legal review, conversion, immutable storage and restore verification.
+
+The authority records every file visible at the pinned upstream revisions. Qwen selects all five source shards, the shard index, the complete tokenizer set, both configuration files and the model card. Mistral selects all three source shards, the shard index, `tokenizer.model`, `tokenizer.model.v3`, the remaining tokenizer/configuration files and the model card. `consolidated.safetensors` is inventoried but explicitly excluded because the governed llama.cpp conversion uses the Hugging Face shard/index layout and must not mix duplicate weight serializations.
+
+The v2 verifier requires all of the following before status `VERIFIED`:
+
+1. the authority canonical SHA-256 matches;
+2. the observed remote inventory exactly matches the authority, including exclusions;
+3. every selected source file has an exact local size and SHA-256;
+4. the shard index references every declared weight shard and no undeclared shard;
+5. a human-attributed legal decision is `APPROVED` and binds the exact license text;
+6. the verified AP-13B.2b llama.cpp package, build manifest, verification report and all four binaries match the accepted authority;
+7. Python/dependency, converter, exact argv, log and intermediate GGUF evidence are complete;
+8. every registered quantization binds the intermediate GGUF and exact `llama-quantize` binary;
+9. immutable upload evidence exists; and
+10. every declared file re-verifies from a separate restored root.
+
+The parser rejects duplicate and unknown JSON keys. File verification rejects traversal, symlinks, non-regular files and hard-link aliasing. The verifier never executes argv from either the authority or manifest.
+
+### Validate the v2 authority
+
+```bash
+cd apps/tai
+python -m tai.model_artifact_registry_cli validate-bundle-authority-v2 \
+  model-artifacts/model-bundle-authority.v2.json
+```
+
+### Verify a pending baseline
+
+A pending baseline is intentionally non-zero and contains no invented hashes, build observations or legal decision:
+
+```bash
+python -m tai.model_artifact_registry_cli verify-bundle-v2 \
+  model-artifacts/model-bundle-authority.v2.json \
+  model-artifacts/qwen3-8b.bundle.v2.pending.json \
+  /nonexistent/pending-root \
+  /nonexistent/restored-root
+```
+
+Expected result: status `PENDING_ACQUISITION`, reason `ACQUISITION_PENDING`, exit code `2`.
+
+### Verify completed and restored evidence
+
+```bash
+python -m tai.model_artifact_registry_cli verify-bundle-v2 \
+  model-artifacts/model-bundle-authority.v2.json \
+  /secure/evidence/qwen3-8b/bundle.v2.json \
+  /secure/evidence/qwen3-8b/original \
+  /secure/evidence/qwen3-8b/restored \
+  --output /secure/evidence/qwen3-8b/verification-report.v2.json
+```
+
+Exit code `0` is reserved for a complete `VERIFIED` report. `PENDING_ACQUISITION`, invalid input, legal rejection, missing evidence, drift or restore mismatch returns exit code `2`.
+
 ## Quantization sequence
 
 1. complete and verify the exact llama.cpp source build;

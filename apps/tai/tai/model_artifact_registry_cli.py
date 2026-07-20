@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -22,6 +23,13 @@ from tai.model_artifact_registry import (
     registry_to_canonical_json,
     verify_artifact_bundle,
 )
+from tai.model_bundle_v2 import (
+    authority_sha256_v2,
+    load_local_model_bundle_v2,
+    load_model_bundle_authority_v2,
+    report_payload_v2,
+    verify_local_model_bundle_v2,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -40,6 +48,17 @@ def main(argv: list[str] | None = None) -> int:
     verify_parser.add_argument("bundle", type=Path)
     verify_parser.add_argument("bundle_root", type=Path)
     verify_parser.add_argument("--output", type=Path)
+
+    authority_v2_parser = subparsers.add_parser("validate-bundle-authority-v2")
+    authority_v2_parser.add_argument("authority", type=Path)
+    authority_v2_parser.add_argument("--output", type=Path)
+
+    verify_v2_parser = subparsers.add_parser("verify-bundle-v2")
+    verify_v2_parser.add_argument("authority", type=Path)
+    verify_v2_parser.add_argument("bundle", type=Path)
+    verify_v2_parser.add_argument("bundle_root", type=Path)
+    verify_v2_parser.add_argument("restored_root", type=Path)
+    verify_v2_parser.add_argument("--output", type=Path)
 
     toolchain_parser = subparsers.add_parser("verify-toolchain")
     toolchain_parser.add_argument("authority", type=Path)
@@ -73,6 +92,29 @@ def main(argv: list[str] | None = None) -> int:
             }
             _write_json(validation_payload, arguments.output)
             return 0
+
+        if arguments.command == "validate-bundle-authority-v2":
+            authority_v2 = load_model_bundle_authority_v2(arguments.authority)
+            validation_payload_v2: dict[str, object] = {
+                "authority_sha256": authority_sha256_v2(authority_v2),
+                "model_count": len(authority_v2.models),
+                "schema_version": "tai.model-bundle-authority-validation.v2",
+                "status": "VALID",
+            }
+            _write_json(validation_payload_v2, arguments.output)
+            return 0
+
+        if arguments.command == "verify-bundle-v2":
+            authority_v2 = load_model_bundle_authority_v2(arguments.authority)
+            bundle_v2 = load_local_model_bundle_v2(arguments.bundle)
+            report_v2 = verify_local_model_bundle_v2(
+                authority=authority_v2,
+                bundle=bundle_v2,
+                bundle_root=arguments.bundle_root,
+                restored_root=arguments.restored_root,
+            )
+            _write_json(report_payload_v2(report_v2), arguments.output)
+            return 0 if report_v2.verified else 2
 
         if arguments.command == "hash-source-tree":
             tree_payload: dict[str, object] = {
@@ -177,8 +219,6 @@ def _write_json(payload: dict[str, object], output: Path | None) -> None:
 
 
 def _sha256_text(value: str) -> str:
-    import hashlib
-
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
