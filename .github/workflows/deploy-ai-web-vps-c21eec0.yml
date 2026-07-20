@@ -1,0 +1,213 @@
+name: Deploy AI web release c21eec0 to VPS
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/release-triggers/ai-web-c21eec0.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  TARGET_SHA: c21eec0ce9b399675e5ae94bb836972ad0086083
+  IMAGE: ghcr.io/pachaninm-lab/grainflow-web:latest
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
+  SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
+
+jobs:
+  deploy-web:
+    name: Targeted VPS web deployment and exact live verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Wait until exact image is published
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin >/dev/null
+          for attempt in $(seq 1 90); do
+            docker pull "$IMAGE" >/dev/null 2>&1 || true
+            actual="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE" 2>/dev/null || true)"
+            echo "Registry attempt $attempt/90: expected=$TARGET_SHA actual=${actual:-missing}"
+            if [[ "$actual" == "$TARGET_SHA" ]]; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'Exact web image was not available in GHCR.' >&2
+          exit 1
+
+      - name: Resolve protected SSH transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          host="${SSH_HOST_SECRET:-$DEFAULT_HOST}"
+          user="${SSH_USER_SECRET:-root}"
+          port="${SSH_PORT_SECRET:-22}"
+          key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
+          password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+
+          if [[ -z "$key" && -z "$password" ]]; then
+            echo 'No supported protected SSH credential is configured; server was not changed.' >&2
+            exit 2
+          fi
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          if [[ -n "$key" ]]; then
+            printf '%s\n' "$key" > "$HOME/.ssh/id_deploy"
+            chmod 600 "$HOME/.ssh/id_deploy"
+            echo 'mode=key' >> "$GITHUB_OUTPUT"
+          else
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq sshpass
+            echo 'mode=password' >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy only the production web service
+        env:
+          SSH_MODE: ${{ steps.ssh.outputs.mode }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SSH_PASSWORD: ${{ env.SSH_PASSWORD_PRIMARY || env.SSH_PASSWORD_FALLBACK }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          remote_script="$(cat <<'REMOTE'
+          set -Eeuo pipefail
+          TARGET_SHA='c21eec0ce9b399675e5ae94bb836972ad0086083'
+
+          mapfile -t WEB_IDS < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          if (( ${#WEB_IDS[@]} != 1 )); then
+            echo "Expected exactly one running Compose web container; found ${#WEB_IDS[@]}." >&2
+            exit 10
+          fi
+
+          WEB_ID="${WEB_IDS[0]}"
+          PROJECT="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$WEB_ID")"
+          WORKDIR="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$WEB_ID")"
+          CONFIG_FILES="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$WEB_ID")"
+          IMAGE_REF="$(docker inspect --format '{{ .Config.Image }}' "$WEB_ID")"
+          OLD_REV="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$WEB_ID" 2>/dev/null || true)"
+          OLD_IMAGE_ID="$(docker inspect --format '{{ .Image }}' "$WEB_ID")"
+          OLD_DIGEST="$(docker image inspect --format '{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}' "$OLD_IMAGE_ID" 2>/dev/null || true)"
+
+          for value in PROJECT WORKDIR CONFIG_FILES IMAGE_REF; do
+            if [[ -z "${!value}" || "${!value}" == '<no value>' ]]; then
+              echo "Missing Compose metadata: $value" >&2
+              exit 11
+            fi
+          done
+
+          IFS=',' read -r -a RAW_CONFIGS <<< "$CONFIG_FILES"
+          DC=(docker compose --project-name "$PROJECT")
+          for cfg in "${RAW_CONFIGS[@]}"; do
+            cfg="${cfg#"${cfg%%[![:space:]]*}"}"
+            cfg="${cfg%"${cfg##*[![:space:]]}"}"
+            [[ "$cfg" = /* ]] || cfg="$WORKDIR/$cfg"
+            [[ -f "$cfg" ]] || { echo "Compose file not found: $cfg" >&2; exit 12; }
+            DC+=(-f "$cfg")
+          done
+
+          cd "$WORKDIR"
+          "${DC[@]}" config --services | grep -qx web
+
+          echo "Current revision: ${OLD_REV:-missing}"
+          echo "Rollback reference: ${OLD_DIGEST:-$OLD_IMAGE_ID}"
+          echo "Image reference: $IMAGE_REF"
+
+          export DOCKER_CONFIG="$(mktemp -d)"
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+
+          "${DC[@]}" pull web
+          PULLED_REV="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE_REF" 2>/dev/null || true)"
+          if [[ "$PULLED_REV" != "$TARGET_SHA" ]]; then
+            echo "Pulled revision mismatch: expected=$TARGET_SHA actual=${PULLED_REV:-missing}" >&2
+            exit 13
+          fi
+
+          "${DC[@]}" up -d --no-deps web
+
+          NEW_ID=''
+          STATE='missing'
+          for attempt in $(seq 1 45); do
+            NEW_ID="$("${DC[@]}" ps -q web)"
+            if [[ -n "$NEW_ID" ]]; then
+              STATE="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$NEW_ID")"
+              echo "Health attempt $attempt/45: $STATE"
+              if [[ "$STATE" == healthy || "$STATE" == running ]]; then
+                break
+              fi
+            fi
+            sleep 2
+          done
+
+          [[ -n "$NEW_ID" ]] || { echo 'New web container not found.' >&2; exit 14; }
+          [[ "$STATE" == healthy || "$STATE" == running ]] || { "${DC[@]}" logs --tail=150 web; exit 15; }
+
+          NEW_REV="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$NEW_ID" 2>/dev/null || true)"
+          if [[ "$NEW_REV" != "$TARGET_SHA" ]]; then
+            echo "Running revision mismatch: expected=$TARGET_SHA actual=${NEW_REV:-missing}" >&2
+            exit 16
+          fi
+
+          echo "DEPLOYED_REVISION=$NEW_REV"
+          echo "ROLLBACK_REFERENCE=${OLD_DIGEST:-$OLD_IMAGE_ID}"
+          REMOTE
+          )"
+
+          if [[ "$SSH_MODE" == key ]]; then
+            ssh -i "$HOME/.ssh/id_deploy" -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "bash -s" <<< "$remote_script"
+          else
+            password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+            SSHPASS="$password" sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "bash -s" <<< "$remote_script"
+          fi
+
+      - name: Verify exact live revision, route and homepage link
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            cache_bust="${TARGET_SHA:0:12}-${attempt}-$(date +%s)"
+            evidence="$(curl -fsSL --compressed --max-time 30 "${LIVE_BASE}/manifest-pc-deploy.json?release=${cache_bust}" || true)"
+            live_sha="$(jq -r '.commitSha // empty' <<<"$evidence" 2>/dev/null || true)"
+            ai_html="$(curl -fsSL --compressed --max-time 30 -H 'Accept-Language: ru-RU,ru;q=0.9' "${LIVE_BASE}/platform-v7/demo/ai?lang=ru&release=${cache_bust}" || true)"
+            home_html="$(curl -fsSL --compressed --max-time 30 -H 'Accept-Language: ru-RU,ru;q=0.9' "${LIVE_BASE}/platform-v7?lang=ru&release=${cache_bust}" || true)"
+
+            if [[ "$live_sha" == "$TARGET_SHA" ]] \
+              && grep -Fq 'От события сделки' <<<"$ai_html" \
+              && grep -Fq '/platform-v7/demo/ai' <<<"$home_html" \
+              && grep -Fq 'ИИ работает в платформе' <<<"$home_html"; then
+              echo 'Exact VPS deployment and live AI experience verified.'
+              exit 0
+            fi
+
+            echo "Live attempt $attempt/30: expected=$TARGET_SHA actual=${live_sha:-missing}"
+            sleep 10
+          done
+
+          echo 'VPS command completed, but exact public acceptance did not pass.' >&2
+          exit 20
