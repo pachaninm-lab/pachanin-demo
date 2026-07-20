@@ -14,6 +14,7 @@ SCOPE_PATH = (
 )
 
 EXPECTED_PATHS = {
+    ".gitleaksignore",
     ".github/workflows/tai-model-source-acquisition.yml",
     "apps/tai/governance/scopes/ap-13b3-source-acquisition-2835.json",
     "apps/tai/tai/model_source_acquisition.py",
