@@ -1,0 +1,30 @@
+name: production public entry watch read report 20260721
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: public-entry-watch-diagnostic-20260721
+          path: result
+          repository: pachaninm-lab/pachanin-demo
+          run-id: 29780048821
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Print report
+        shell: bash
+        run: |
+          find result -maxdepth 4 -type f -print
+          report_file="$(find result -type f -name report.json -print -quit)"
+          test -n "$report_file"
+          cat "$report_file"
+          jq -e '.allGreen == true' "$report_file" >/dev/null
