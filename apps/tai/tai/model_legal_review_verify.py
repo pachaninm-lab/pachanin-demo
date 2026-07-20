@@ -27,7 +27,6 @@ from tai.model_legal_review_evidence_parse import (
     load_human_legal_review_record,
 )
 
-
 _AUTOMATED_REVIEWER_IDS = {
     "chatgpt",
     "codex",
