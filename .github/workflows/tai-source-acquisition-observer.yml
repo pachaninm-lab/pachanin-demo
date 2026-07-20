@@ -14,68 +14,26 @@ permissions:
 jobs:
   observe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
-      - name: Observe exact-main release and acquisition
+      - name: Print acquisition workflow validation evidence
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          exact_main="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
-          owner="$(gh api "/repos/$REPOSITORY" --jq '.owner.login')"
-          printf 'EXACT_MAIN=%s\nOWNER=%s\n' "$exact_main" "$owner"
-
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml" > acquisition-workflow.json
-          jq -r '["ACQUISITION_WORKFLOW",.id,.name,.path,.state,.created_at,.updated_at,.html_url] | @tsv' acquisition-workflow.json
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml/runs?per_page=100" > acquisition-all-runs.json
-          jq -r '.workflow_runs[] | ["ACQUISITION_ANY",.id,.event,.status,.conclusion,.head_branch,.head_sha,.run_number,.run_attempt,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' acquisition-all-runs.json
-
-          for sha in "$exact_main" "${GITHUB_HEAD_SHA:-$GITHUB_SHA}"; do
+          main_sha="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
+          printf 'MAIN=%s\n' "$main_sha"
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml" \
+            --jq '["WORKFLOW",.id,.state,.path,.updated_at] | @tsv'
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml/runs?per_page=20" \
+            --jq '.workflow_runs[] | ["RUN",.id,.event,.status,.conclusion,.head_branch,.head_sha,.created_at] | @tsv'
+          gh api -H 'Accept: application/vnd.github+json' \
+            "/repos/$REPOSITORY/commits/$main_sha/check-runs?per_page=100" > checks.json
+          jq -r '.check_runs[] | select(.conclusion == "failure") | ["FAILED_CHECK",.id,.name,.details_url,.output.title,.output.summary,.output.text] | @tsv' checks.json
+          while IFS= read -r id; do
             gh api -H 'Accept: application/vnd.github+json' \
-              "/repos/$REPOSITORY/commits/$sha/check-runs?per_page=100" > "checks-$sha.json"
-            jq -r --arg sha "$sha" \
-              '.check_runs[] | select((.name | ascii_downcase | contains("model source")) or (.details_url | contains("actions/runs/2973"))) | ["CHECK",$sha,.id,.name,.status,.conclusion,.details_url,.output.title,.output.summary,.output.text] | @tsv' \
-              "checks-$sha.json"
-            while IFS= read -r check_id; do
-              [[ -n "$check_id" ]] || continue
-              gh api -H 'Accept: application/vnd.github+json' \
-                "/repos/$REPOSITORY/check-runs/$check_id/annotations?per_page=100" \
-                | jq -r --arg sha "$sha" --arg id "$check_id" \
-                  '.[] | ["ANNOTATION",$sha,$id,.path,.start_line,.end_line,.annotation_level,.title,.message,.raw_details] | @tsv'
-            done < <(jq -r '.check_runs[] | select(.conclusion == "failure") | .id' "checks-$sha.json")
-          done
-
-          observe_workflow() {
-            workflow="$1"
-            event="$2"
-            label="$3"
-            gh api "/repos/$REPOSITORY/actions/workflows/$workflow/runs?event=$event&per_page=100" > "$label-runs.json"
-            jq -r --arg sha "$exact_main" --arg label "$label" \
-              '.workflow_runs[] | select(.head_sha == $sha) | [$label,.id,.status,.conclusion,.head_branch,.run_number,.run_attempt,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' \
-              "$label-runs.json"
-            run_id="$(jq -r --arg sha "$exact_main" --arg owner "$owner" '[.workflow_runs[] | select(.head_sha == $sha and .actor.login == $owner)] | sort_by(.created_at) | reverse | .[0].id // empty' "$label-runs.json")"
-            if [[ -z "$run_id" ]]; then
-              printf '%s_RUN=ABSENT\n' "$label"
-              return
-            fi
-            gh api "/repos/$REPOSITORY/actions/runs/$run_id" > "$label-run.json"
-            jq -r --arg label "$label" \
-              '[$label+"_RUN",.id,.name,.event,.status,.conclusion,.head_branch,.head_sha,.run_number,.run_attempt,.actor.login,.triggering_actor.login,.path,.created_at,.run_started_at,.updated_at] | @tsv' \
-              "$label-run.json"
-            gh api "/repos/$REPOSITORY/actions/runs/$run_id/jobs?per_page=100" > "$label-jobs.json"
-            jq -r --arg label "$label" \
-              '.jobs[] | [$label+"_JOB",.id,.name,.status,.conclusion,.head_sha,.started_at,.completed_at] | @tsv' \
-              "$label-jobs.json"
-            jq -r --arg label "$label" \
-              '.jobs[] | .name as $job | .steps[]? | [$label+"_STEP",$job,.number,.name,.status,.conclusion] | @tsv' \
-              "$label-jobs.json"
-            gh api "/repos/$REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" > "$label-artifacts.json"
-            jq -r --arg label "$label" \
-              '.artifacts[] | [$label+"_ARTIFACT",.id,.name,.size_in_bytes,.expired,.digest,.created_at,.expires_at] | @tsv' \
-              "$label-artifacts.json"
-          }
-
-          observe_workflow 'tai-release-acceptance.yml' 'push' 'RELEASE'
-          observe_workflow 'tai-model-source-acquisition.yml' 'issue_comment' 'ACQUISITION'
+              "/repos/$REPOSITORY/check-runs/$id/annotations?per_page=100" \
+              | jq -r --arg id "$id" '.[] | ["ANNOTATION",$id,.path,.start_line,.end_line,.annotation_level,.title,.message,.raw_details] | @tsv'
+          done < <(jq -r '.check_runs[] | select(.conclusion == "failure") | .id' checks.json)
