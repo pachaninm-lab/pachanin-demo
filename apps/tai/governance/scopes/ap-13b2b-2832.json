@@ -21,6 +21,8 @@
     "production readiness or operational attestation claim"
   ],
   "acceptance": [
+    "AP-13B.2a exact-main merge 3bf85bbf510c6c95601c80dd08e95a55d4bbea23 has an accepted release attestation while production_operational_status remains NOT_ATTESTED",
+    "accepted llama.cpp authority digest is 3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b",
     "workflow is exact-main, repository-owner-only and issue 2832 command-bound",
     "official llama.cpp commit aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3 is checked out without persisted credentials",
     "workflow executes the exact AP-13B.2a configure and four-target build argv",
