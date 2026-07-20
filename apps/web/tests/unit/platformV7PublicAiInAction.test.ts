@@ -5,21 +5,22 @@ import { describe, expect, it } from 'vitest';
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
 describe('platform-v7 public AI in-action experience', () => {
-  const page = read('app/platform-v7/demo/ai/page.tsx');
+  const page = read('app/platform-v7/ai-in-action/page.tsx');
   const home = read('app/platform-v7/page.tsx');
   const experience = read('components/platform-v7/PublicAiInActionExperience.tsx');
   const styles = read('components/platform-v7/PublicAiInActionExperience.module.css');
   const seo = read('lib/platform-v7/public-seo-routes.json');
 
   it('publishes one indexable public page and links the homepage AI status to it', () => {
-    expect(page).toContain("data-testid='platform-v7-public-ai-in-action'");
-    expect(page).toContain("canonical: '/platform-v7/demo/ai'");
-    expect(page).toContain("<PublicAiInActionExperience locale={locale} />");
+    expect(page).toContain("data-testid='platform-v7-ai-in-action-authority'");
+    expect(page).toContain("canonical: '/platform-v7/ai-in-action'");
+    expect(page).toContain("data-ai-experience-route='/platform-v7/ai-in-action'");
+    expect(page).toContain('<PublicAiInActionExperience locale={locale} />');
     expect(page).toContain("name='home_view'");
     expect(page).toContain("<a href='#scenario'");
     expect(page).toContain("<a href='#principles'");
     expect(page).toContain("<a href='#boundaries'");
-    expect(seo).toContain('"path": "/platform-v7/demo/ai"');
+    expect(seo).toContain('"path": "/platform-v7/ai-in-action"');
     expect(home).toContain("const aiExperienceHref = `/platform-v7/demo/ai?lang=${encodeURIComponent(locale)}`;");
     expect(home).toContain("eventName='ai_in_action_opened'");
     expect(home).toContain("params={{ source: 'home_ai_status' }}");
