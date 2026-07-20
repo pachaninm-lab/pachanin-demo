@@ -35,20 +35,21 @@ jobs:
           echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
           python - <<'PY'
           from pathlib import Path
-          path = Path('.github/scripts/public-entry-watch-20260720.mjs')
-          source = path.read_text()
+          source_path = Path('.github/scripts/public-entry-watch-20260720.mjs')
+          source = source_path.read_text()
           source = source.replace("import { chromium, webkit } from '@playwright/test';", "import { chromium } from '@playwright/test';")
           source = '\n'.join(line for line in source.splitlines() if "name: 'webkit-iphone'" not in line) + '\n'
           source = source.replace("project.engine.launch({ headless: true })", "project.engine.launch({ headless: true, executablePath: process.env.CHROME_PATH })")
           source = source.replace("chromium.launch({ headless: true })", "chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH })")
-          path.write_text(source)
+          target = Path('apps/web/scripts/public-entry-watch-20260720.mjs')
+          target.write_text(source)
           PY
       - name: Run exact production watch
         shell: bash
         run: |
           set -o pipefail
           mkdir -p artifacts/public-entry-watch-20260720
-          node .github/scripts/public-entry-watch-20260720.mjs 2>&1 | tee artifacts/public-entry-watch-20260720/run.log
+          node apps/web/scripts/public-entry-watch-20260720.mjs 2>&1 | tee artifacts/public-entry-watch-20260720/run.log
       - name: Publish exact diagnostics
         if: always() && github.event_name == 'pull_request'
         env:
