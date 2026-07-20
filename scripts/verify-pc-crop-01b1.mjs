@@ -85,7 +85,7 @@ for (const token of [
   "\"contentHashAlgorithm\" = 'SHA-256'",
   'commodity_profile_versions_profile_sequence_key',
   'commodity_profile_versions_profile_hash_key',
-  'commodity_profile_versions_version_profile_fkey',
+  'commodity_profile_transitions_version_profile_fkey',
   'pg_advisory_xact_lock(hashtextextended(NEW.\"profileId\", 0))',
   'PC_PROFILE_INITIAL_STATE_INVALID',
   'PC_PROFILE_VERSION_IMMUTABLE',
