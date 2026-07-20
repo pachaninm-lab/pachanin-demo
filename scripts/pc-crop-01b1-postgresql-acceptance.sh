@@ -11,6 +11,34 @@ mkdir -p "$EVIDENCE_DIR"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$BASE_SQL" \
   >"$EVIDENCE_DIR/base-invariants.log" 2>&1
 
+# Close the first accepted window through a real lifecycle transition so the
+# concurrent test isolates two future candidates rather than colliding with
+# the already accepted reference version.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
+  >"$EVIDENCE_DIR/window-close.log" 2>&1 <<'SQL'
+BEGIN;
+UPDATE public."commodity_profile_versions"
+SET
+  "status" = 'DEPRECATED',
+  "effectiveTo" = '2030-12-31T00:00:00Z',
+  "version" = 5,
+  "updatedByUserId" = 'user-compliance',
+  "updatedAt" = clock_timestamp()
+WHERE "id" = 'version-dry-bulk-1';
+INSERT INTO public."commodity_profile_transitions" (
+  "id", "profileId", "profileVersionId", "fromStatus", "toStatus",
+  "actorUserId", "actorRole", "purpose", "reason", "commandId",
+  "idempotencyKey", "correlationId", "contentHash", "prevHash", "hash"
+) VALUES (
+  'transition-dry-bulk-deprecated', 'profile-dry-bulk', 'version-dry-bulk-1',
+  'EFFECTIVE', 'DEPRECATED', 'user-compliance', 'COMPLIANCE',
+  'DEPRECATE_PROFILE', 'Закрыто тестовое окно до конкурентной активации',
+  'command-deprecate-dry-bulk', 'idempotency-deprecate-dry-bulk',
+  'correlation-dry-bulk', repeat('c', 64), repeat('f', 64), repeat('a', 64)
+);
+COMMIT;
+SQL
+
 cat >"$EVIDENCE_DIR/race-a.sql" <<'SQL'
 \set ON_ERROR_STOP on
 BEGIN;
@@ -120,6 +148,7 @@ cat >"$EVIDENCE_DIR/acceptance.json" <<JSON
     "publishedDeleteDenied": true,
     "transitionHistoryAppendOnly": true,
     "initialStateDraftOnly": true,
+    "lifecycleWindowClosedWithTransition": true,
     "effectiveOverlapConcurrentWinnerCount": 1,
     "effectiveTransitionReceiptCount": 1,
     "advisoryLockPerProfile": true
@@ -136,6 +165,7 @@ JSON
 sha256sum \
   "$EVIDENCE_DIR/acceptance.json" \
   "$EVIDENCE_DIR/base-invariants.log" \
+  "$EVIDENCE_DIR/window-close.log" \
   "$EVIDENCE_DIR/race-a.log" \
   "$EVIDENCE_DIR/race-b.log" \
   >"$EVIDENCE_DIR/evidence-sha256.txt"
