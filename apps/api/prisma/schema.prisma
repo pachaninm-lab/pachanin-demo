@@ -1015,7 +1015,6 @@ model CommodityProfileVersion {
   @@unique([profileId, contentHash], map: "commodity_profile_versions_profile_hash_key")
   @@unique([id, profileId], map: "commodity_profile_versions_id_profile_key")
   @@index([profileId, status, sequence(sort: Desc)], map: "commodity_profile_versions_profile_status_idx")
-  @@index([profileId, effectiveFrom, effectiveTo], map: "commodity_profile_versions_effective_idx")
   @@index([sourceStatus, status], map: "commodity_profile_versions_source_status_idx")
   @@map("commodity_profile_versions")
 }
