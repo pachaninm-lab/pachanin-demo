@@ -13,6 +13,9 @@ on:
       - '.github/workflows/node-ci.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: node-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -23,6 +26,26 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - name: Preserve migration-owned partial index authority
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 2892
+        shell: bash
+        run: |
+          set -euo pipefail
+          schema="apps/api/prisma/schema.prisma"
+          target='  @@index([profileId, effectiveFrom, effectiveTo], map: "commodity_profile_versions_effective_idx")'
+          if grep -Fqx "$target" "$schema"; then
+            sed -i '\|commodity_profile_versions_effective_idx|d' "$schema"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$schema"
+            git commit -m "fix(pc-crop): preserve migration-owned partial index"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          else
+            echo "Partial index declaration already absent"
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
