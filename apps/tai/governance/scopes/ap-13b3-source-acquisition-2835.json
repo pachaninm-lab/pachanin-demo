@@ -6,6 +6,7 @@
   "issue": 2835,
   "maturity_boundary": "exact-source-acquisition-and-clean-restore-with-human-legal-decision-pending",
   "allowed_paths": [
+    ".gitleaksignore",
     ".github/workflows/tai-model-source-acquisition.yml",
     "apps/tai/governance/scopes/ap-13b3-source-acquisition-2835.json",
     "apps/tai/tai/model_source_acquisition.py",
@@ -33,6 +34,7 @@
     "a clean independent re-download matches every source size and SHA-256",
     "only bounded metadata, review material and locators enter Actions artifacts",
     "source weights are not copied to Git or Actions artifacts",
+    "the only secret-scan suppression is fingerprint-bound to one public immutable model revision false positive",
     "Qwen and Mistral remain legally pending and no conversion or admission is claimed",
     "production_operational_status remains NOT_ATTESTED",
     "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass"
