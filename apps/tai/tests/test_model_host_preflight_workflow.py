@@ -48,21 +48,26 @@ def test_scope_is_exact_and_preserves_the_maturity_boundary() -> None:
     assert scope["issue"] == 2835
     assert set(scope["allowed_paths"]) == EXPECTED_PATHS
     assert len(scope["allowed_paths"]) == len(EXPECTED_PATHS)
-    assert "model source download, source archive creation, conversion or quantization" in scope[
-        "forbidden_capabilities"
-    ]
-    assert "automatic legal approval or legal decision inference" in scope[
-        "forbidden_capabilities"
-    ]
-    assert "production readiness or operational attestation claim" in scope[
-        "forbidden_capabilities"
-    ]
+    assert (
+        "model source download, source archive creation, conversion or quantization"
+        in scope["forbidden_capabilities"]
+    )
+    assert (
+        "automatic legal approval or legal decision inference"
+        in scope["forbidden_capabilities"]
+    )
+    assert (
+        "production readiness or operational attestation claim"
+        in scope["forbidden_capabilities"]
+    )
 
 
 def test_requirements_demand_a_dedicated_isolated_host() -> None:
     requirements = _load(REQUIREMENTS_PATH)
 
-    assert requirements["schema_version"] == "tai.model-host-preflight-requirements.v1"
+    assert requirements["schema_version"] == (
+        "tai.model-host-preflight-requirements.v1"
+    )
     assert requirements["issue"] == 2835
     assert requirements["target"] == {
         "architecture": "x86_64",
@@ -119,7 +124,10 @@ def test_accepted_llama_toolchain_dependency_is_real_and_restored() -> None:
     assert build["evidence"]["verification_report"]["status"] == "VERIFIED"
     assert build["evidence"]["verification_report"]["reasons"] == []
     assert build["restore"]["independent_reverification"] is True
-    assert build["maturity_boundary"]["production_operational_status"] == "NOT_ATTESTED"
+    assert (
+        build["maturity_boundary"]["production_operational_status"]
+        == "NOT_ATTESTED"
+    )
 
 
 def test_workflow_is_owner_only_exact_main_and_command_bound() -> None:
@@ -262,7 +270,11 @@ def test_result_classification_is_fail_closed_and_machine_readable() -> None:
         assert reason in workflow
 
     assert '"schema_version": "tai.model-host-preflight-result.v1"' in workflow
-    assert '"status": "READY_FOR_CONTROLLED_ACQUISITION" if not reasons else "NOT_READY"' in workflow
+    status_expression = (
+        '"status": "READY_FOR_CONTROLLED_ACQUISITION" '
+        'if not reasons else "NOT_READY"'
+    )
+    assert status_expression in workflow
     assert '"reasons": sorted(set(reasons))' in workflow
     assert '"repository_sha": os.environ["GITHUB_SHA"]' in workflow
     assert '"workflow_run_id": int(os.environ["GITHUB_RUN_ID"])' in workflow
@@ -299,13 +311,16 @@ def test_workflow_never_manufactures_legal_or_operational_acceptance() -> None:
         "model_admission": "NOT_DONE",
         "production_operational_status": "NOT_ATTESTED",
     }
-    assert 'result["maturity_boundary"]["model_acquisition"] == "PENDING_ACQUISITION"' in workflow
-    assert 'result["maturity_boundary"]["legal_review"] == "NOT_DONE"' in workflow
-    assert 'result["maturity_boundary"]["benchmarks"] == "NOT_DONE"' in workflow
-    assert 'result["maturity_boundary"]["model_admission"] == "NOT_DONE"' in workflow
-    assert (
-        'result["maturity_boundary"]["production_operational_status"] == "NOT_ATTESTED"'
-        in workflow
+    maturity_checks = (
+        'result["maturity_boundary"]["model_acquisition"] '
+        '== "PENDING_ACQUISITION"',
+        'result["maturity_boundary"]["legal_review"] == "NOT_DONE"',
+        'result["maturity_boundary"]["benchmarks"] == "NOT_DONE"',
+        'result["maturity_boundary"]["model_admission"] == "NOT_DONE"',
+        'result["maturity_boundary"]["production_operational_status"] '
+        '== "NOT_ATTESTED"',
     )
+    for check in maturity_checks:
+        assert check in workflow
     assert "APPROVED" not in workflow
     assert "ADMITTED" not in workflow
