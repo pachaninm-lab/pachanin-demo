@@ -182,9 +182,16 @@ services:
       NODE_ENV: production
       PORT: "3000"
       API_BASE_URL: "http://api:3001"
-      API_URL: "http://api:3001"
-      # The web /api/proxy bridge reads NEXT_PUBLIC_API_URL for the backend base.
+      # API_URL callers append backend routes WITHOUT the /api prefix
+      # (/auth/login, /staff/...), and the backend serves under the global 'api'
+      # prefix — so API_URL must include /api.
+      API_URL: "http://api:3001/api"
+      # The web /api/proxy bridge reads NEXT_PUBLIC_API_URL and callers pass the
+      # full backend path after /proxy, so this one stays prefix-free.
       NEXT_PUBLIC_API_URL: "http://api:3001"
+      # The backend is reached over the private container network (plain HTTP);
+      # allow the staff control-plane proxy to use it without requiring HTTPS.
+      PC_INTERNAL_API_ALLOW_HTTP: "true"
       # Controlled-pilot cabinet access: signed sessions for demonstrating the
       # cabinets to partners without opening public self-registration. The web
       # signs sessions with the same JWT_SECRET the API verifies. Owner logs in

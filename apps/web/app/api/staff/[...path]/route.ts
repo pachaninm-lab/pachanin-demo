@@ -293,7 +293,11 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
   let apiOrigin: string;
   try {
     const url = new URL(API_URL);
-    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
+    if (
+      process.env.NODE_ENV === 'production'
+      && url.protocol !== 'https:'
+      && process.env.PC_INTERNAL_API_ALLOW_HTTP !== 'true'
+    ) {
       return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
     }
     apiOrigin = url.toString().replace(/\/$/, '');

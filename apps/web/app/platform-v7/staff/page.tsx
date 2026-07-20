@@ -41,7 +41,11 @@ function resolveApiOrigin(): string {
   if (!configured) return '';
   try {
     const url = new URL(configured);
-    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') return '';
+    if (
+      process.env.NODE_ENV === 'production'
+      && url.protocol !== 'https:'
+      && process.env.PC_INTERNAL_API_ALLOW_HTTP !== 'true'
+    ) return '';
     return url.toString().replace(/\/$/, '');
   } catch {
     return '';
