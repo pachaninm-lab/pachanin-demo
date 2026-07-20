@@ -32,10 +32,10 @@ jobs:
 
           module_path='apps/tai/tai/model_benchmark_admission_v2.py'
           test_path='apps/tai/tests/test_model_benchmark_admission_v2.py'
-          expected_module_bytes='77721'
-          expected_test_bytes='49541'
-          expected_module_sha='874e1507530259b036cf6c81770393a6dd22ab5dbf41467ae73837b6f5d227ec'
-          expected_test_sha='a1744bfe5f96cb4cb6c802dcf2701e7283b9a850717ea935c351061e20646b98'
+          expected_module_bytes='77720'
+          expected_test_bytes='49538'
+          expected_module_sha='7d12d8d2466b9489444bef0d3e22f4f70d7a4a54f32c8d6ff1c4faccc8dedd99'
+          expected_test_sha='ae541bc8cbd73232419c3eebc9e02f62b4c59aa8f6f8d251c57d9c78e98a4eda'
 
           mkdir -p "$(dirname "$module_path")" "$(dirname "$test_path")"
           cat .tai-assembly/module/part-* > "$module_path"
