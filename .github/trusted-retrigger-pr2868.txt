@@ -1,1 +1,0 @@
-trusted retrigger for PR 2868 exact-head acceptance
