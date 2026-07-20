@@ -237,7 +237,9 @@ def build_legal_review_packet(
         for item in _object_array(source_manifest, "files")
         if item.get("role") == SourceFileRole.MODEL_CARD.value
     )
-    model_card_path = _bounded_regular_file(source_root.resolve(strict=True), _string(model_card, "path"))
+    model_card_path = _bounded_regular_file(
+        source_root.resolve(strict=True), _string(model_card, "path")
+    )
     if _sha256_file(model_card_path) != _string(model_card, "sha256"):
         raise ValueError("model card digest changed after source collection")
     if not license_text_path.is_file() or license_text_path.is_symlink():
@@ -433,13 +435,15 @@ def _bounded_regular_file(root: Path, relative_path: str) -> Path:
     if pure.is_absolute() or ".." in pure.parts or not pure.parts:
         raise ValueError("file path must be bounded and relative")
     path = root.joinpath(*pure.parts)
+    if path.is_symlink():
+        raise ValueError("evidence file must be a regular non-symlink file")
     try:
         resolved = path.resolve(strict=True)
     except FileNotFoundError as error:
         raise ValueError(f"required file is missing: {relative_path}") from error
     if not resolved.is_relative_to(root):
         raise ValueError("file path escapes evidence root")
-    if path.is_symlink() or not resolved.is_file():
+    if not resolved.is_file():
         raise ValueError("evidence file must be a regular non-symlink file")
     return resolved
 
