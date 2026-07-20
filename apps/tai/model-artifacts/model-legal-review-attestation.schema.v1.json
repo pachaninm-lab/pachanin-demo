@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.example/schemas/tai/model-legal-review-attestation.v1.json",
+  "title": "TAI model legal review attestation envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority_sha256",
+    "model_id",
+    "revision",
+    "role",
+    "source_acceptance_exact_main_sha",
+    "source_acceptance_git_blob_sha",
+    "model_card_sha256",
+    "license_text_sha256",
+    "legal_packet_sha256",
+    "source_manifest_sha256",
+    "source_files_sha256",
+    "intended_use_sha256",
+    "review_record",
+    "decision",
+    "reviewer_id",
+    "reviewed_at",
+    "attestation_reference"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "tai.model-legal-review-attestation.v1"
+    },
+    "authority_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "role": {
+      "enum": [
+        "PRIMARY",
+        "FALLBACK"
+      ]
+    },
+    "source_acceptance_exact_main_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "source_acceptance_git_blob_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "model_card_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "license_text_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "legal_packet_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_manifest_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_files_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "intended_use_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "review_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "not": {
+            "anyOf": [
+              {
+                "pattern": "^/"
+              },
+              {
+                "pattern": "^\\./"
+              },
+              {
+                "pattern": "(^|/)\\.\\.(/|$)"
+              }
+            ]
+          }
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "decision": {
+      "enum": [
+        "APPROVED",
+        "REJECTED"
+      ]
+    },
+    "reviewer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "attestation_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "pattern": "(@sha256:|#sha256=|versionId=)"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
