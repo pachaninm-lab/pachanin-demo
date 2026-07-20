@@ -19,6 +19,8 @@ The quantization recipes now bind to the accepted llama.cpp source authority:
 
 This pin does **not** claim that the binaries have been built. `llama-cpp-build-baseline.v1.json` intentionally remains `PENDING_BUILD` and must return exit code `2` from the verifier.
 
+Repository acceptance is separate from build verification: only exact-head and exact-main repository evidence can accept this authority slice.
+
 ## Toolchain authority and evidence
 
 - `llama-cpp-toolchain-authority.v1.json` fixes the repository, release, full commit, exact source archive URI, Linux x86_64 CPU build profile, configure/build argv, evidence paths and four required outputs.
