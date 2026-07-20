@@ -126,6 +126,7 @@ export default async function PlatformV7RootPage() {
   const start = firstStageCopy[localeKey];
   const aiHero = firstScreenAiCopy[localeKey];
   const startDealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
+  const aiExperienceHref = `/platform-v7/demo/ai?lang=${encodeURIComponent(locale)}`;
   const aiNavLabel = locale === 'ru' ? 'ИИ' : 'AI';
   const nav = (
     <>
@@ -139,6 +140,30 @@ export default async function PlatformV7RootPage() {
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-root-execution-cockpit'>
       <style>{`
+        .pc-ppe-ai-status-link {
+          width: fit-content;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: inherit;
+          text-decoration: none;
+          border-radius: 5px;
+        }
+        .pc-ppe-ai-status-link svg { transition: transform 160ms ease; }
+        .pc-ppe-ai-status-link:hover strong,
+        .pc-ppe-ai-status-link:focus-visible strong {
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+        .pc-ppe-ai-status-link:hover svg,
+        .pc-ppe-ai-status-link:focus-visible svg { transform: translateX(3px); }
+        .pc-ppe-ai-status-link:focus-visible {
+          outline: 3px solid rgba(8, 122, 59, .2);
+          outline-offset: 4px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .pc-ppe-ai-status-link svg { transition: none; }
+        }
         @media (min-width: 821px) {
           .pc-ppe-page .pc-ppe-hero-contour-desktop {
             grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -180,7 +205,16 @@ export default async function PlatformV7RootPage() {
               aria-label={aiHero.label}
               data-testid='platform-v7-ai-current-value'
             >
-              <strong>{aiHero.label}</strong>
+              <PublicExperienceLink
+                href={aiExperienceHref}
+                className='pc-ppe-ai-status-link'
+                eventName='ai_in_action_opened'
+                locale={locale}
+                params={{ source: 'home_ai_status' }}
+              >
+                <strong>{aiHero.label}</strong>
+                <PublicExperienceIcon name='arrow' size={18} />
+              </PublicExperienceLink>
               <span>{aiHero.text}</span>
             </div>
             <div className='pc-ppe-hero-actions'>
