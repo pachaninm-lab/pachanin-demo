@@ -9,6 +9,7 @@
   "allowedPaths": [
     "packages/domain-core/package.json",
     "packages/domain-core/tsconfig.pc-crop.json",
+    "packages/domain-core/vitest.pc-crop.config.ts",
     "packages/domain-core/src/index.ts",
     "packages/domain-core/src/commodity-profile.ts",
     "packages/domain-core/src/commodity-profile.test.ts",
@@ -44,6 +45,7 @@
     "interface uses compact registry plus progressive detail rather than a card wall",
     "RU, EN and ZH, WCAG 2.2 AA patterns, 320-430 px, forced colors and reduced motion are present",
     "isolated TypeScript 5.9-compatible configs validate the new domain and interface files without hiding the separate repository compiler migration debt",
+    "isolated node test config avoids unresolved web-plugin warnings in domain acceptance",
     "no mock, demo, pilot, localStorage, sessionStorage or direct fetch authority is introduced",
     "exact-head CI passes while operational status remains NOT_ATTESTED"
   ]
