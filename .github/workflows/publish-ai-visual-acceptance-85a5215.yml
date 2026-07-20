@@ -1,18 +1,19 @@
-name: Publish AI visual acceptance 85a5215
+name: Publish AI entry release 1a0bf1b
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - '.github/release-triggers/ai-visual-acceptance-85a5215.md'
+      - '.github/release-triggers/ai-entry-1a0bf1b.md'
 
 permissions:
   contents: read
   packages: write
 
 env:
-  TARGET_SHA: 85a52156f4dbd17fa6100fec8380332f9b66b6e9
+  TARGET_SHA: 1a0bf1bcd89f492ecce6645fcbe5c28b2266e115
   IMAGE: ghcr.io/pachaninm-lab/grainflow-web
+  IMMUTABLE_TAG: sha-1a0bf1bcd89f
 
 jobs:
   publish:
@@ -21,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 85a52156f4dbd17fa6100fec8380332f9b66b6e9
+          ref: 1a0bf1bcd89f492ecce6645fcbe5c28b2266e115
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -36,10 +37,10 @@ jobs:
           push: true
           tags: |
             ghcr.io/pachaninm-lab/grainflow-web:latest
-            ghcr.io/pachaninm-lab/grainflow-web:sha-85a52156f4db
+            ghcr.io/pachaninm-lab/grainflow-web:sha-1a0bf1bcd89f
           build-args: |
-            GIT_COMMIT=85a52156f4dbd17fa6100fec8380332f9b66b6e9
-      - name: Verify registry image
+            GIT_COMMIT=1a0bf1bcd89f492ecce6645fcbe5c28b2266e115
+      - name: Verify immutable registry image
         run: |
-          docker pull ghcr.io/pachaninm-lab/grainflow-web:latest
-          test "$(docker image inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' ghcr.io/pachaninm-lab/grainflow-web:latest)" = "85a52156f4dbd17fa6100fec8380332f9b66b6e9"
+          docker pull "${IMAGE}:${IMMUTABLE_TAG}"
+          test "$(docker image inspect --format '{{ index .Config.Labels \"org.opencontainers.image.revision\" }}' "${IMAGE}:${IMMUTABLE_TAG}")" = "${TARGET_SHA}"
