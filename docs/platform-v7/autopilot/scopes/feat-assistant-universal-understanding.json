@@ -1,15 +1,18 @@
 {
   "branch": "feat/assistant-universal-understanding",
   "status": "active",
-  "purpose": "Public interactive AI-in-action experience: a localized animated walkthrough of role-scoped facts, risk detection, evidence-led explanation, a prepared next step, granular feedback and explicit human confirmation, linked from the homepage AI status block.",
+  "purpose": "Canonical public interactive AI-in-action experience: route authority, localized animated walkthrough, evidence-led explanation, prepared next step, human confirmation and an unambiguous homepage entry that cannot resolve to the deal walkthrough.",
   "approvedBy": "independent-authority-pr",
   "allowedPaths": [
     "apps/web/app/platform-v7/page.tsx",
     "apps/web/app/platform-v7/demo/ai/page.tsx",
+    "apps/web/app/platform-v7/ai-in-action/page.tsx",
     "apps/web/components/platform-v7/PublicAiInActionExperience.tsx",
     "apps/web/components/platform-v7/PublicAiInActionExperience.module.css",
     "apps/web/lib/platform-v7/public-seo-routes.json",
+    "apps/web/next.config.js",
     "apps/web/tests/unit/platformV7PublicAiInAction.test.ts",
+    "apps/web/tests/unit/platformV7PublicAiRouteAuthority.test.ts",
     "apps/web/tests/unit/platformV7PublicAiMarketingBlock.test.ts",
     "docs/platform-v7/autopilot/scopes/feat-assistant-universal-understanding.json"
   ],
