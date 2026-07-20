@@ -1,0 +1,42 @@
+{
+  "acquisition_report": {
+    "content_sha256": "297bd2e1045576d23fd30a3b152f045d29e64d30569a4edbb89b815249361091",
+    "report_sha256": "b2d9da8c777ed8d536a5a7d7b133f7c2544706bafdd0f493a7ff3daaf4f61522",
+    "status": "VERIFIED_SOURCE_RESTORED_LEGAL_PENDING"
+  },
+  "evidence_artifact": {
+    "digest": "5242ea40bb07234744096095712588431a684cb898bd6e6b10a3c948fad872ea",
+    "id": "8458566162",
+    "retention_days": 90,
+    "url": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/29736320896/artifacts/8458566162"
+  },
+  "legal_review_status": "PENDING_HUMAN_DECISION",
+  "locator_artifact": {
+    "digest": "93a19fbc619a8238ef9ee556ea569179d96389ecad57cad660b40a4ec39b8cae",
+    "id": "8458566536",
+    "retention_days": 90
+  },
+  "maturity_boundary": {
+    "conversion": "NOT_RUN",
+    "model_admission": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED",
+    "quantization": "NOT_RUN"
+  },
+  "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+  "reasons": [],
+  "repository_sha": "4a7b04731aa204b741691a334d7adfe7785d6463",
+  "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+  "role": "FALLBACK",
+  "schema_version": "tai.model-source-acquisition-accepted-locator.v1",
+  "source_bytes_storage": {
+    "clean_redownload_reverified": true,
+    "copied_to_git_or_actions_artifact": false,
+    "locally_hashed": true,
+    "type": "UPSTREAM_EXACT_REVISION_RESTORABLE"
+  },
+  "source_files_sha256": "377ffe04a6583e425ca78709afd065989bc6055dd12fcdc904837edffba3cc9e",
+  "source_manifest_sha256": "504b55481b74f7975119a12d88bb5fb00380bdf50f9a219f1d26813bb7e6ef84",
+  "status": "VERIFIED_SOURCE_RESTORED_LEGAL_PENDING",
+  "workflow_run_attempt": "1",
+  "workflow_run_id": "29736320896"
+}
