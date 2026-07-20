@@ -50,8 +50,6 @@ jobs:
       AUTHORITY_PATH: repository/apps/tai/model-artifacts/model-bundle-authority.v2.json
       EVIDENCE_ROOT: model-source-evidence/${{ matrix.key }}
       LICENSE_URI: https://www.apache.org/licenses/LICENSE-2.0.txt
-      ORIGINAL_ROOT: ${{ runner.temp }}/tai-${{ matrix.key }}-original
-      RESTORE_ROOT: ${{ runner.temp }}/tai-${{ matrix.key }}-restore
       SELECTED_MARGIN_BYTES: 25000000000
 
     steps:
@@ -71,6 +69,15 @@ jobs:
           test "$(git -C repository rev-parse HEAD)" = "$GITHUB_SHA"
           git -C repository fetch --no-tags --depth=1 origin main
           test "$(git -C repository rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+
+      - name: Prepare ephemeral source roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf 'ORIGINAL_ROOT=%s\n' "$RUNNER_TEMP/tai-${{ matrix.key }}-original"
+            printf 'RESTORE_ROOT=%s\n' "$RUNNER_TEMP/tai-${{ matrix.key }}-restore"
+          } >> "$GITHUB_ENV"
 
       - name: Setup Python
         uses: actions/setup-python@v5
