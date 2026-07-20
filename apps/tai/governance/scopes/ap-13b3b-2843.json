@@ -23,10 +23,12 @@
     "AP-13B.3a exact-main merge c2a5474befbff5583e654ada015d1e5319f4d6ea has an accepted release attestation while production_operational_status remains NOT_ATTESTED",
     "a matched v1 candidate with non-empty weight_files returns REJECTED with SOURCE_WEIGHT_EVIDENCE_UNSUPPORTED_BY_V1",
     "the legacy verify-bundle CLI returns exit code 2 for that fail-closed condition",
+    "the unchanged v1 JSON shape permits an explicitly empty weight_files array for compatibility-only candidates",
+    "non-empty weight_files remain subject to relative-path and uniqueness validation before the v1 verifier rejects unsupported source-weight evidence",
     "a matched legacy candidate with explicitly empty weight_files preserves the previous v1 verification behavior",
     "registry validation remains independent and does not claim artifact completeness",
     "repository Qwen and Mistral candidates cannot receive v1 VERIFIED because both declare source weights",
-    "the v1 parser and JSON manifest shape remain unchanged",
+    "the guarded finalization run passed targeted Ruff, strict mypy and focused pytest before publishing the clean four-file head",
     "Ruff, strict mypy, full pytest/coverage and repository security/runtime gates pass on exact head",
     "exact-main release acceptance passes after merge",
     "production operational status remains NOT_ATTESTED"
