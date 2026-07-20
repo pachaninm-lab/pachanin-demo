@@ -32,7 +32,6 @@ jobs:
           python - <<'PY'
           import base64
           import json
-          import os
           from pathlib import Path
 
           source = json.loads(Path('source.json').read_text())
@@ -74,8 +73,6 @@ jobs:
           Path('content-sha.txt').write_text(source['sha'])
           PY
 
-          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 \
-            .github/workflows/tai-source-acquisition-observer.yml >/dev/null
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 \
             patched.yml
 
