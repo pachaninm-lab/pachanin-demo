@@ -8,6 +8,7 @@ on:
 
 permissions:
   actions: read
+  checks: read
   contents: read
 
 jobs:
@@ -30,6 +31,21 @@ jobs:
           jq -r '["ACQUISITION_WORKFLOW",.id,.name,.path,.state,.created_at,.updated_at,.html_url] | @tsv' acquisition-workflow.json
           gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml/runs?per_page=100" > acquisition-all-runs.json
           jq -r '.workflow_runs[] | ["ACQUISITION_ANY",.id,.event,.status,.conclusion,.head_branch,.head_sha,.run_number,.run_attempt,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' acquisition-all-runs.json
+
+          for sha in "$exact_main" "${GITHUB_HEAD_SHA:-$GITHUB_SHA}"; do
+            gh api -H 'Accept: application/vnd.github+json' \
+              "/repos/$REPOSITORY/commits/$sha/check-runs?per_page=100" > "checks-$sha.json"
+            jq -r --arg sha "$sha" \
+              '.check_runs[] | select((.name | ascii_downcase | contains("model source")) or (.details_url | contains("actions/runs/2973"))) | ["CHECK",$sha,.id,.name,.status,.conclusion,.details_url,.output.title,.output.summary,.output.text] | @tsv' \
+              "checks-$sha.json"
+            while IFS= read -r check_id; do
+              [[ -n "$check_id" ]] || continue
+              gh api -H 'Accept: application/vnd.github+json' \
+                "/repos/$REPOSITORY/check-runs/$check_id/annotations?per_page=100" \
+                | jq -r --arg sha "$sha" --arg id "$check_id" \
+                  '.[] | ["ANNOTATION",$sha,$id,.path,.start_line,.end_line,.annotation_level,.title,.message,.raw_details] | @tsv'
+            done < <(jq -r '.check_runs[] | select(.conclusion == "failure") | .id' "checks-$sha.json")
+          done
 
           observe_workflow() {
             workflow="$1"
