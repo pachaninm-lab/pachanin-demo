@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import './PublicMobileExperiencePolish.module.css';
+import './PublicMobileExperiencePolish.css';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 export type HydrationSafeChatSupportProps = {
