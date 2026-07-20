@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).parents[1]
 ACCEPTANCE_PATH = ROOT / "model-artifacts" / "llama-cpp-build-acceptance.v1.json"
@@ -42,7 +43,7 @@ EXPECTED_PATHS = {
 }
 
 
-def _load(path: Path) -> dict[str, object]:
+def _load(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
