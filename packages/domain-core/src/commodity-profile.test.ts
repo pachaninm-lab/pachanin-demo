@@ -9,7 +9,17 @@ import {
   hashCommodityProfileContent,
   type CommodityArchetype,
   type CommodityProfileContent,
+  type CommodityProfileContentHasher,
 } from './commodity-profile';
+
+const TEST_SHA256: CommodityProfileContentHasher = (canonicalJson) => {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < canonicalJson.length; index += 1) {
+    hash ^= canonicalJson.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0').repeat(8);
+};
 
 function profileContent(archetype: CommodityArchetype): CommodityProfileContent {
   const fresh = archetype === 'FRESH_PACKED' || archetype === 'GREENHOUSE_RECURRING';
@@ -65,7 +75,7 @@ function profileContent(archetype: CommodityArchetype): CommodityProfileContent 
         required: true,
         methodIds: ['METHOD.CONTRACT'],
         missingValueRule: 'BLOCK',
-        lowerBound: fresh ? '0' : '0',
+        lowerBound: '0',
         upperBound: fresh ? '8' : '100',
         sourceRef: 'S-TZ-001',
       },
@@ -114,6 +124,18 @@ function profileContent(archetype: CommodityArchetype): CommodityProfileContent 
   };
 }
 
+function versionInput(archetype: CommodityArchetype = 'DRY_BULK') {
+  return {
+    profileId: 'profile-1',
+    versionId: 'version-1',
+    sequence: 1,
+    state: 'DRAFT' as const,
+    createdAt: '2026-07-20T12:00:00Z',
+    createdBy: 'owner-1',
+    content: profileContent(archetype),
+  };
+}
+
 function captureProfileError(action: () => unknown): CommodityProfileError {
   try {
     action();
@@ -128,18 +150,15 @@ describe('CommodityProfile domain contract', () => {
   it('validates all six federal crop execution archetypes without crop-specific state branches', () => {
     const versions = COMMODITY_ARCHETYPES.map((archetype, index) =>
       buildCommodityProfileVersion({
+        ...versionInput(archetype),
         profileId: `profile-${index + 1}`,
         versionId: `version-${index + 1}`,
-        sequence: 1,
-        state: 'DRAFT',
-        createdAt: '2026-07-20T12:00:00Z',
-        createdBy: 'owner-1',
-        content: profileContent(archetype),
-      }),
+      }, TEST_SHA256),
     );
 
     expect(versions).toHaveLength(6);
     expect(new Set(versions.map((version) => version.content.archetype))).toEqual(new Set(COMMODITY_ARCHETYPES));
+    expect(versions.every((version) => version.contentHashAlgorithm === 'SHA-256')).toBe(true);
     expect(versions.every((version) => /^[a-f0-9]{64}$/.test(version.contentHash))).toBe(true);
   });
 
@@ -149,19 +168,22 @@ describe('CommodityProfile domain contract', () => {
     reordered.display = { en: first.display.en, zh: first.display.zh, ru: first.display.ru };
     reordered.units.reverse();
     reordered.sourceRefs.reverse();
-    expect(hashCommodityProfileContent(first)).toBe(hashCommodityProfileContent(reordered));
+    expect(hashCommodityProfileContent(first, TEST_SHA256)).toBe(
+      hashCommodityProfileContent(reordered, TEST_SHA256),
+    );
+  });
+
+  it('rejects a crypto adapter that does not return canonical SHA-256 hex', () => {
+    const error = captureProfileError(() => buildCommodityProfileVersion(
+      versionInput(),
+      () => 'not-a-sha256-digest',
+    ));
+    expect(error.code).toBe('PC_PROFILE_HASH_INVALID');
+    expect(error.path).toBe('contentHash');
   });
 
   it('deep-freezes the accepted version so nested published facts cannot drift in memory', () => {
-    const version = buildCommodityProfileVersion({
-      profileId: 'profile-1',
-      versionId: 'version-1',
-      sequence: 1,
-      state: 'DRAFT',
-      createdAt: '2026-07-20T12:00:00Z',
-      createdBy: 'owner-1',
-      content: profileContent('DRY_BULK'),
-    });
+    const version = buildCommodityProfileVersion(versionInput(), TEST_SHA256);
     expect(Object.isFrozen(version)).toBe(true);
     expect(Object.isFrozen(version.content)).toBe(true);
     expect(Object.isFrozen(version.content.units)).toBe(true);
@@ -172,37 +194,37 @@ describe('CommodityProfile domain contract', () => {
     const unknownUnit = profileContent('SEED_PLANTING');
     unknownUnit.qualityIndicators[0].unitCode = 'UNKNOWN';
     expect(captureProfileError(() => buildCommodityProfileVersion({
-      profileId: 'p', versionId: 'v', sequence: 1, state: 'DRAFT', createdAt: '2026-07-20T12:00:00Z', createdBy: 'u', content: unknownUnit,
-    })).code).toBe('PC_PROFILE_UNIT_UNKNOWN');
+      ...versionInput('SEED_PLANTING'), content: unknownUnit,
+    }, TEST_SHA256)).code).toBe('PC_PROFILE_UNIT_UNKNOWN');
 
     const invalidDecimal = profileContent('ROOT_INDUSTRIAL');
     invalidDecimal.units[0].numeratorToBase = '0.30000000000000004';
     expect(captureProfileError(() => buildCommodityProfileVersion({
-      profileId: 'p', versionId: 'v', sequence: 1, state: 'DRAFT', createdAt: '2026-07-20T12:00:00Z', createdBy: 'u', content: invalidDecimal,
-    })).code).toBe('PC_PROFILE_DECIMAL_INVALID');
+      ...versionInput('ROOT_INDUSTRIAL'), content: invalidDecimal,
+    }, TEST_SHA256)).code).toBe('PC_PROFILE_DECIMAL_INVALID');
   });
 
   it('requires one base unit per represented dimension and ordered bounds', () => {
     const missingBase = profileContent('DRY_BULK');
     missingBase.units[1].isBase = false;
     expect(captureProfileError(() => buildCommodityProfileVersion({
-      profileId: 'p', versionId: 'v', sequence: 1, state: 'DRAFT', createdAt: '2026-07-20T12:00:00Z', createdBy: 'u', content: missingBase,
-    })).code).toBe('PC_PROFILE_BASE_UNIT_INVALID');
+      ...versionInput(), content: missingBase,
+    }, TEST_SHA256)).code).toBe('PC_PROFILE_BASE_UNIT_INVALID');
 
     const invalidRange = profileContent('FRESH_PACKED');
     invalidRange.storage.temperatureMin = '9';
     invalidRange.storage.temperatureMax = '8';
     expect(captureProfileError(() => buildCommodityProfileVersion({
-      profileId: 'p', versionId: 'v', sequence: 1, state: 'DRAFT', createdAt: '2026-07-20T12:00:00Z', createdBy: 'u', content: invalidRange,
-    })).code).toBe('PC_PROFILE_RANGE_INVALID');
+      ...versionInput('FRESH_PACKED'), content: invalidRange,
+    }, TEST_SHA256)).code).toBe('PC_PROFILE_RANGE_INVALID');
   });
 
   it('requires release blockers to reference declared document requirements', () => {
     const content = profileContent('ORGANIC_EXPORT_QUARANTINE');
     content.acceptance.releaseBlockers = ['DOC.UNKNOWN'];
     const error = captureProfileError(() => buildCommodityProfileVersion({
-      profileId: 'p', versionId: 'v', sequence: 1, state: 'DRAFT', createdAt: '2026-07-20T12:00:00Z', createdBy: 'u', content,
-    }));
+      ...versionInput('ORGANIC_EXPORT_QUARANTINE'), content,
+    }, TEST_SHA256));
     expect(error.code).toBe('PC_PROFILE_BLOCKER_REFERENCE_UNKNOWN');
     expect(error.path).toBe('acceptance.releaseBlockers.0');
   });
@@ -220,15 +242,10 @@ describe('CommodityProfile domain contract', () => {
 
   it('requires approval evidence before a version can become effective', () => {
     const error = captureProfileError(() => buildCommodityProfileVersion({
-      profileId: 'p',
-      versionId: 'v',
-      sequence: 1,
+      ...versionInput(),
       state: 'EFFECTIVE',
-      createdAt: '2026-07-20T12:00:00Z',
-      createdBy: 'u',
       effectiveFrom: '2026-09-01T00:00:00Z',
-      content: profileContent('DRY_BULK'),
-    }));
+    }, TEST_SHA256));
     expect(error.code).toBe('PC_PROFILE_APPROVAL_EVIDENCE_REQUIRED');
   });
 
@@ -249,8 +266,8 @@ describe('CommodityProfile domain contract', () => {
     const content = profileContent('DRY_BULK');
     content.documentRequirements[0].severity = 'WARNING';
     const error = captureProfileError(() => buildCommodityProfileVersion({
-      profileId: 'p', versionId: 'v', sequence: 1, state: 'DRAFT', createdAt: '2026-07-20T12:00:00Z', createdBy: 'u', content,
-    }));
+      ...versionInput(), content,
+    }, TEST_SHA256));
     expect(error.code).toBe('PC_PROFILE_RELEASE_BLOCKER_INVALID');
     expect(error.path).toBe('documentRequirements.0.severity');
   });
