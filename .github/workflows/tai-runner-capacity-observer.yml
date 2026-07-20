@@ -1,0 +1,175 @@
+name: TAI Standard Runner Capacity Observer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-runner-capacity-observer.yml
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Capture host capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p observation
+          uname -a > observation/uname.txt
+          lscpu > observation/lscpu.txt
+          free -b > observation/free-before.txt
+          df -P -B1 / /mnt /home /var/lib/docker 2>&1 > observation/df-before.txt || true
+          docker info > observation/docker-info.txt 2>&1 || true
+          docker system df > observation/docker-system-df.txt 2>&1 || true
+          ulimit -a > observation/ulimit.txt
+
+      - name: Test ephemeral swap capability
+        shell: bash
+        run: |
+          set -euo pipefail
+          swap_path="$RUNNER_TEMP/tai-capacity-observer.swap"
+          status=0
+          set +e
+          fallocate -l 1073741824 "$swap_path" > observation/swap-fallocate.log 2>&1
+          status_fallocate=$?
+          if [ "$status_fallocate" -eq 0 ]; then
+            chmod 600 "$swap_path"
+            mkswap "$swap_path" > observation/swap-mkswap.log 2>&1
+            status_mkswap=$?
+          else
+            status_mkswap=99
+          fi
+          if [ "$status_mkswap" -eq 0 ]; then
+            sudo swapon "$swap_path" > observation/swap-swapon.log 2>&1
+            status_swapon=$?
+          else
+            status_swapon=99
+          fi
+          free -b > observation/free-with-swap.txt
+          if [ "$status_swapon" -eq 0 ]; then
+            sudo swapoff "$swap_path" > observation/swap-swapoff.log 2>&1
+            status_swapoff=$?
+          else
+            status_swapoff=99
+          fi
+          rm -f "$swap_path"
+          set -e
+          printf '%s\n' "$status_fallocate" > observation/swap-fallocate-exit.txt
+          printf '%s\n' "$status_mkswap" > observation/swap-mkswap-exit.txt
+          printf '%s\n' "$status_swapon" > observation/swap-swapon-exit.txt
+          printf '%s\n' "$status_swapoff" > observation/swap-swapoff-exit.txt
+          exit "$status"
+
+      - name: Test ephemeral contiguous allocation headroom
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe="$RUNNER_TEMP/tai-capacity-observer.bin"
+          set +e
+          fallocate -l 8589934592 "$probe" > observation/fallocate-8g.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            stat --format='%s' "$probe" > observation/fallocate-8g-size.txt
+          fi
+          rm -f "$probe"
+          printf '%s\n' "$status" > observation/fallocate-8g-exit.txt
+          df -P -B1 / /mnt /home /var/lib/docker 2>&1 > observation/df-after.txt || true
+
+      - name: Build machine-readable observation
+        shell: bash
+        env:
+          OUTPUT: observation/runner-capacity.v1.json
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import platform
+          import shutil
+          from pathlib import Path
+
+          root = Path('observation')
+
+          def read_int(name: str, default: int = -1) -> int:
+              path = root / name
+              try:
+                  return int(path.read_text().strip())
+              except (FileNotFoundError, ValueError):
+                  return default
+
+          def usage(path: str) -> dict[str, int]:
+              value = shutil.disk_usage(path)
+              return {
+                  'total_bytes': value.total,
+                  'used_bytes': value.used,
+                  'free_bytes': value.free,
+              }
+
+          meminfo = {}
+          for line in Path('/proc/meminfo').read_text().splitlines():
+              if ':' not in line:
+                  continue
+              key, raw = line.split(':', 1)
+              parts = raw.split()
+              if parts and parts[0].isdigit():
+                  meminfo[key] = int(parts[0]) * 1024
+
+          payload = {
+              'schema_version': 'tai.github-standard-runner-capacity.v1',
+              'repository_sha': os.environ['GITHUB_SHA'],
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'runner_name': os.environ.get('RUNNER_NAME'),
+              'runner_os': os.environ.get('RUNNER_OS'),
+              'runner_arch': os.environ.get('RUNNER_ARCH'),
+              'platform': platform.platform(),
+              'cpu_count': os.cpu_count(),
+              'memory': {
+                  'total_bytes': meminfo.get('MemTotal'),
+                  'available_bytes': meminfo.get('MemAvailable'),
+                  'swap_total_bytes': meminfo.get('SwapTotal'),
+              },
+              'filesystems': {
+                  path: usage(path)
+                  for path in ('/', '/mnt', '/home', '/var/lib/docker')
+                  if Path(path).exists()
+              },
+              'ephemeral_swap_test': {
+                  'bytes': 1073741824,
+                  'fallocate_exit': read_int('swap-fallocate-exit.txt'),
+                  'mkswap_exit': read_int('swap-mkswap-exit.txt'),
+                  'swapon_exit': read_int('swap-swapon-exit.txt'),
+                  'swapoff_exit': read_int('swap-swapoff-exit.txt'),
+              },
+              'contiguous_allocation_test': {
+                  'bytes': 8589934592,
+                  'exit': read_int('fallocate-8g-exit.txt'),
+                  'observed_size_bytes': read_int('fallocate-8g-size.txt'),
+              },
+              'maturity_boundary': {
+                  'model_acquisition': 'NOT_RUN',
+                  'model_conversion': 'NOT_RUN',
+                  'production_operational_status': 'NOT_ATTESTED',
+              },
+          }
+          Path(os.environ['OUTPUT']).write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(payload, sort_keys=True))
+          PY
+
+      - name: Upload observation
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-standard-runner-capacity-${{ github.run_id }}
+          path: observation
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
