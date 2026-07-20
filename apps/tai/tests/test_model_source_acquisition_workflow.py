@@ -68,7 +68,11 @@ def test_workflow_is_owner_only_exact_main_and_issue_bound() -> None:
     assert "github.event.comment.author_association == 'OWNER'" in workflow
     assert "github.event.comment.user.login == github.repository_owner" in workflow
     assert "cancel-in-progress: false" in workflow
-    assert "test \"$(git -C repository rev-parse refs/remotes/origin/main)\" = \"$GITHUB_SHA\"" in workflow
+    exact_main_guard = (
+        'test "$(git -C repository rev-parse refs/remotes/origin/main)" = '
+        '"$GITHUB_SHA"'
+    )
+    assert exact_main_guard in workflow
 
 
 def test_workflow_has_bounded_permissions_and_exact_model_matrix() -> None:
@@ -97,17 +101,20 @@ def test_workflow_reconciles_downloads_hashes_and_cleanly_restores() -> None:
     assert "assemble-report" in workflow
     assert workflow.count("--continue-at - --output") == 2
     assert workflow.count("--proto '=https' --tlsv1.2") >= 4
-    assert "selected_bytes + SELECTED_MARGIN_BYTES" in workflow
-    assert "test \"$available_bytes\" -ge \"$required_bytes\"" in workflow
-    assert "test \"$memory_total_bytes\" -ge 12000000000" in workflow
-    assert "test -z \"$(find \"$RESTORE_ROOT\" -mindepth 1 -print -quit)\"" in workflow
+    assert "selected_bytes * 2 + SELECTED_MARGIN_BYTES" in workflow
+    assert 'test "$available_bytes" -ge "$required_bytes"' in workflow
+    assert 'test "$memory_total_bytes" -ge 12000000000' in workflow
+    assert (
+        'test -z "$(find "$RESTORE_ROOT" -mindepth 1 -print -quit)"'
+        in workflow
+    )
     assert "VERIFIED_SOURCE_RESTORED" in workflow
 
 
 def test_workflow_never_uploads_source_bytes_and_keeps_legal_pending() -> None:
     workflow = _workflow()
 
-    assert "rm -rf \"$ORIGINAL_ROOT\" \"$RESTORE_ROOT\"" in workflow
+    assert 'rm -rf "$ORIGINAL_ROOT" "$RESTORE_ROOT"' in workflow
     assert "Large source bytes entered the metadata evidence directory." in workflow
     assert "actions/upload-artifact@v4" in workflow
     assert workflow.count("retention-days: 90") == 2
