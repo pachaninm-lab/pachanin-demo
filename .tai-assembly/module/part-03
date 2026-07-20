@@ -1,0 +1,380 @@
+       )
+        _require_keys(
+            suite_manifest,
+            {
+                "schema_version",
+                "suite_id",
+                "total_cases",
+                "critical_cases",
+                "cases_sha256",
+                "protocol_sha256",
+            },
+            "evaluation suite manifest",
+        )
+        if suite_manifest != {
+            "schema_version": "tai.evaluation-suite-manifest.v1",
+            "suite_id": suite["suite_id"],
+            "total_cases": suite["total_cases"],
+            "critical_cases": suite["critical_cases"],
+            "cases_sha256": files[suite["cases_path"]]["sha256"],
+            "protocol_sha256": files[suite["protocol_path"]]["sha256"],
+        }:
+            reasons.append("EVALUATION_SUITE_MANIFEST_MISMATCH")
+    except (ContractError, KeyError):
+        reasons.append("EVALUATION_SUITE_MANIFEST_INVALID")
+
+    try:
+        case_record = _semantic_object(
+            original_root / suite["cases_path"], "evaluation suite cases"
+        )
+        _require_keys(
+            case_record,
+            {"schema_version", "suite_id", "cases"},
+            "evaluation suite cases",
+        )
+        if case_record["schema_version"] != "tai.evaluation-suite-cases.v1":
+            raise ContractError("evaluation cases schema mismatch")
+        if case_record["suite_id"] != suite["suite_id"]:
+            raise ContractError("evaluation cases suite id mismatch")
+        cases = _list(case_record["cases"], "evaluation suite cases.cases")
+        case_ids: set[str] = set()
+        critical_count = 0
+        for index, raw_case in enumerate(cases):
+            case_name = f"evaluation suite case[{index}]"
+            case = _dict(raw_case, case_name)
+            _require_keys(case, {"case_id", "critical", "category"}, case_name)
+            case_id = _identity(case["case_id"], f"{case_name}.case_id")
+            if case_id in case_ids:
+                raise ContractError("evaluation case ids must be unique")
+            case_ids.add(case_id)
+            if _boolean(case["critical"], f"{case_name}.critical"):
+                critical_count += 1
+            _identity(case["category"], f"{case_name}.category")
+        if len(cases) != suite["total_cases"]:
+            reasons.append("EVALUATION_CASE_COUNT_MISMATCH")
+        if critical_count != suite["critical_cases"]:
+            reasons.append("EVALUATION_CRITICAL_CASE_COUNT_MISMATCH")
+    except ContractError:
+        reasons.append("EVALUATION_CASES_INVALID")
+
+    try:
+        quality_record = _semantic_object(
+            original_root / quality["results_path"], "quality results"
+        )
+        expected_quality = {
+            "schema_version": "tai.model-quality-results.v1",
+            "model_id": model["model_id"],
+            "revision": model["revision"],
+            "suite_id": suite["suite_id"],
+            **{key: value for key, value in quality.items() if key != "results_path"},
+        }
+        _require_keys(quality_record, set(expected_quality), "quality results")
+        if quality_record != expected_quality:
+            reasons.append("QUALITY_RESULTS_MISMATCH")
+    except ContractError:
+        reasons.append("QUALITY_RESULTS_INVALID")
+
+    for profile in manifest["runtime_profiles"]:
+        try:
+            raw_metrics = _semantic_object(
+                original_root / profile["raw_metrics_path"],
+                f"runtime metrics {profile['profile_id']}",
+            )
+            expected_metrics = {
+                "schema_version": "tai.runtime-profile-metrics.v1",
+                **{
+                    key: value
+                    for key, value in profile.items()
+                    if key
+                    not in {
+                        "hardware_path",
+                        "environment_path",
+                        "raw_metrics_path",
+                        "cost_calculation_path",
+                        "hardware_profile_id",
+                    }
+                },
+            }
+            _require_keys(
+                raw_metrics,
+                set(expected_metrics),
+                f"runtime metrics {profile['profile_id']}",
+            )
+            if raw_metrics != expected_metrics:
+                reasons.append(f"RUNTIME_METRICS_MISMATCH:{profile['profile_id']}")
+        except ContractError:
+            reasons.append(f"RUNTIME_METRICS_INVALID:{profile['profile_id']}")
+
+        try:
+            hardware = _semantic_object(
+                original_root / profile["hardware_path"],
+                f"hardware observation {profile['profile_id']}",
+            )
+            _require_keys(
+                hardware,
+                {
+                    "schema_version",
+                    "hardware_profile_id",
+                    "runtime_class",
+                    "captured_at",
+                    "details",
+                },
+                f"hardware observation {profile['profile_id']}",
+            )
+            if hardware["schema_version"] != "tai.hardware-observation.v1":
+                raise ContractError("hardware observation schema mismatch")
+            if hardware["hardware_profile_id"] != profile["hardware_profile_id"]:
+                raise ContractError("hardware profile id mismatch")
+            if hardware["runtime_class"] != profile["runtime_class"]:
+                raise ContractError("hardware runtime class mismatch")
+            _timestamp(hardware["captured_at"], "hardware captured_at")
+            if not isinstance(hardware["details"], dict) or not hardware["details"]:
+                raise ContractError("hardware details must be a non-empty object")
+        except ContractError:
+            reasons.append(f"HARDWARE_OBSERVATION_INVALID:{profile['profile_id']}")
+
+        try:
+            environment = _semantic_object(
+                original_root / profile["environment_path"],
+                f"runtime environment {profile['profile_id']}",
+            )
+            _require_keys(
+                environment,
+                {
+                    "schema_version",
+                    "profile_id",
+                    "artifact_sha256",
+                    "runtime_class",
+                    "quantization",
+                    "captured_at",
+                    "details",
+                },
+                f"runtime environment {profile['profile_id']}",
+            )
+            if (
+                environment["schema_version"]
+                != "tai.runtime-environment-observation.v1"
+            ):
+                raise ContractError("runtime environment schema mismatch")
+            if environment["profile_id"] != profile["profile_id"]:
+                raise ContractError("runtime environment profile mismatch")
+            if environment["artifact_sha256"] != profile["artifact_sha256"]:
+                raise ContractError("runtime environment artifact mismatch")
+            if environment["runtime_class"] != profile["runtime_class"]:
+                raise ContractError("runtime environment class mismatch")
+            if environment["quantization"] != profile["quantization"]:
+                raise ContractError("runtime environment quantization mismatch")
+            _timestamp(environment["captured_at"], "runtime environment captured_at")
+            if (
+                not isinstance(environment["details"], dict)
+                or not environment["details"]
+            ):
+                raise ContractError("runtime environment details must be non-empty")
+        except ContractError:
+            reasons.append(f"RUNTIME_ENVIRONMENT_INVALID:{profile['profile_id']}")
+
+        try:
+            cost = _semantic_object(
+                original_root / profile["cost_calculation_path"],
+                f"cost calculation {profile['profile_id']}",
+            )
+            expected_cost = {
+                "schema_version": "tai.operating-cost-calculation.v1",
+                "profile_id": profile["profile_id"],
+                "currency": "RUB",
+                "token_basis": 1_000_000,
+                "estimated_cost_rub_per_million_tokens_milli": profile[
+                    "estimated_cost_rub_per_million_tokens_milli"
+                ],
+                "assumptions": cost.get("assumptions"),
+            }
+            _require_keys(
+                cost, set(expected_cost), f"cost calculation {profile['profile_id']}"
+            )
+            if not isinstance(cost.get("assumptions"), list) or not cost["assumptions"]:
+                raise ContractError("cost assumptions must be a non-empty list")
+            if cost != expected_cost:
+                reasons.append(f"COST_CALCULATION_MISMATCH:{profile['profile_id']}")
+        except ContractError:
+            reasons.append(f"COST_CALCULATION_INVALID:{profile['profile_id']}")
+
+    fallback = manifest["fallback_exercise"]
+    if fallback is not None:
+        try:
+            raw_fallback = _semantic_object(
+                original_root / fallback["raw_metrics_path"], "fallback metrics"
+            )
+            expected_fallback = {
+                "schema_version": "tai.fallback-exercise-metrics.v1",
+                **{
+                    key: value
+                    for key, value in fallback.items()
+                    if key not in {"raw_metrics_path", "protocol_path"}
+                },
+            }
+            _require_keys(raw_fallback, set(expected_fallback), "fallback metrics")
+            if raw_fallback != expected_fallback:
+                reasons.append("FALLBACK_METRICS_MISMATCH")
+        except ContractError:
+            reasons.append("FALLBACK_METRICS_INVALID")
+
+    soak = manifest["soak"]
+    try:
+        raw_soak = _semantic_object(
+            original_root / soak["raw_metrics_path"], "soak metrics"
+        )
+        expected_soak = {
+            "schema_version": "tai.soak-metrics.v1",
+            **{
+                key: value
+                for key, value in soak.items()
+                if key not in {"raw_metrics_path", "environment_path"}
+            },
+        }
+        _require_keys(raw_soak, set(expected_soak), "soak metrics")
+        if raw_soak != expected_soak:
+            reasons.append("SOAK_METRICS_MISMATCH")
+    except ContractError:
+        reasons.append("SOAK_METRICS_INVALID")
+    return reasons
+
+
+def _profile_policy(
+    authority: dict[str, Any], model_id: str, revision: str, profile_id: str
+) -> dict[str, Any] | None:
+    matches = [
+        item
+        for item in authority["runtime_profiles"]
+        if item["model_id"] == model_id
+        and item["revision"] == revision
+        and item["profile_id"] == profile_id
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _evaluate_complete(
+    manifest: dict[str, Any], authority: dict[str, Any]
+) -> list[str]:
+    reasons: list[str] = []
+    suite_policy = authority["suite_policy"]
+    quality = manifest["quality"]
+    if quality["sample_count"] != suite_policy["required_total_cases"]:
+        reasons.append("QUALITY_SAMPLE_COUNT_MISMATCH")
+    if (
+        quality["platform_accuracy_basis_points"]
+        < suite_policy["minimum_platform_accuracy_basis_points"]
+    ):
+        reasons.append("PLATFORM_QUALITY_BELOW_POLICY")
+    if (
+        quality["agro_accuracy_basis_points"]
+        < suite_policy["minimum_agro_accuracy_basis_points"]
+    ):
+        reasons.append("AGRO_QUALITY_BELOW_POLICY")
+    if (
+        quality["critical_unsupported_facts"]
+        > suite_policy["maximum_critical_unsupported_facts"]
+    ):
+        reasons.append("CRITICAL_UNSUPPORTED_FACTS_PRESENT")
+    if (
+        quality["critical_safety_failures"]
+        > suite_policy["maximum_critical_safety_failures"]
+    ):
+        reasons.append("CRITICAL_SAFETY_FAILURES_PRESENT")
+    if (
+        quality["critical_abstention_misses"]
+        > suite_policy["maximum_critical_abstention_misses"]
+    ):
+        reasons.append("CRITICAL_ABSTENTION_MISSES_PRESENT")
+
+    model = manifest["model"]
+    bundle_artifacts = {
+        (item["runtime_class"], item["quantization"]): item
+        for item in manifest["bundle"]["artifacts"]
+    }
+    observed_profile_ids: set[str] = set()
+    for profile in manifest["runtime_profiles"]:
+        policy = _profile_policy(
+            authority, model["model_id"], model["revision"], profile["profile_id"]
+        )
+        if policy is None:
+            reasons.append(f"UNAUTHORIZED_RUNTIME_PROFILE:{profile['profile_id']}")
+            continue
+        observed_profile_ids.add(profile["profile_id"])
+        if profile["runtime_class"] != policy["runtime_class"]:
+            reasons.append(f"RUNTIME_CLASS_MISMATCH:{profile['profile_id']}")
+        if profile["quantization"] != policy["quantization"]:
+            reasons.append(f"QUANTIZATION_MISMATCH:{profile['profile_id']}")
+        artifact = bundle_artifacts.get(
+            (profile["runtime_class"], profile["quantization"])
+        )
+        if artifact is None or artifact["sha256"] != profile["artifact_sha256"]:
+            reasons.append(f"PROFILE_ARTIFACT_MISMATCH:{profile['profile_id']}")
+        thresholds = policy["thresholds"]
+        comparisons = (
+            (
+                profile["sample_count"] < thresholds["minimum_sample_count"],
+                "SAMPLE_COUNT_BELOW_POLICY",
+            ),
+            (
+                profile["prompt_tokens_per_second_milli"]
+                < thresholds["minimum_prompt_tokens_per_second_milli"],
+                "PROMPT_SPEED_BELOW_POLICY",
+            ),
+            (
+                profile["generation_tokens_per_second_milli"]
+                < thresholds["minimum_generation_tokens_per_second_milli"],
+                "GENERATION_SPEED_BELOW_POLICY",
+            ),
+            (
+                profile["p95_latency_ms"] > thresholds["maximum_p95_latency_ms"],
+                "P95_LATENCY_ABOVE_POLICY",
+            ),
+            (
+                profile["p99_latency_ms"] > thresholds["maximum_p99_latency_ms"],
+                "P99_LATENCY_ABOVE_POLICY",
+            ),
+            (
+                profile["peak_ram_mb"] > thresholds["maximum_peak_ram_mb"],
+                "RAM_ABOVE_POLICY",
+            ),
+            (
+                profile["peak_vram_mb"] > thresholds["maximum_peak_vram_mb"],
+                "VRAM_ABOVE_POLICY",
+            ),
+            (
+                profile["cold_start_ms"] > thresholds["maximum_cold_start_ms"],
+                "COLD_START_ABOVE_POLICY",
+            ),
+            (
+                profile["warmup_ms"] > thresholds["maximum_warmup_ms"],
+                "WARMUP_ABOVE_POLICY",
+            ),
+        )
+        for failed, reason in comparisons:
+            if failed:
+                reasons.append(f"{reason}:{profile['profile_id']}")
+        concurrency = {item["level"]: item for item in profile["concurrency"]}
+        if set(concurrency) != set(policy["required_concurrency_levels"]):
+            reasons.append(f"CONCURRENCY_MATRIX_MISMATCH:{profile['profile_id']}")
+        for level, observation in concurrency.items():
+            if observation["request_count"] < thresholds["minimum_sample_count"]:
+                reasons.append(
+                    f"CONCURRENCY_SAMPLE_COUNT_BELOW_POLICY:{profile['profile_id']}:{level}"
+                )
+            if (
+                observation["error_rate_basis_points"]
+                > thresholds["maximum_error_rate_basis_points"]
+            ):
+                reasons.append(
+                    f"CONCURRENCY_ERROR_RATE_ABOVE_POLICY:{profile['profile_id']}:{level}"
+                )
+            if observation["p95_latency_ms"] > thresholds["maximum_p95_latency_ms"]:
+                reasons.append(
+                    f"CONCURRENCY_P95_ABOVE_POLICY:{profile['profile_id']}:{level}"
+                )
+            if (
+                observation["generation_tokens_per_second_milli"]
+                < thresholds["minimum_generation_tokens_per_second_milli"]
+            ):
+                reasons.append(
+                    f"CONCURRENCY_SPEED_BELOW_POL
