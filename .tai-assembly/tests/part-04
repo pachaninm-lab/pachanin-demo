@@ -1,0 +1,107 @@
+["suite_policy"]["maximum_critical_unsupported_facts"] == 0
+    assert {item["profile_id"] for item in authority["runtime_profiles"]} == {
+        "qwen3-8b-cpu-q4-k-m",
+        "qwen3-8b-gpu-shared-q8-0",
+        "mistral-7b-fallback-cpu-q4-k-m",
+    }
+    assert authority["fallback_policy"]["maximum_failed_transitions"] == 0
+    assert authority["soak_policy"]["minimum_duration_seconds"] == 3600
+    assert authority["maturity_boundary"]["production_operational_status"] == (
+        "NOT_ATTESTED"
+    )
+
+
+@pytest.mark.parametrize("path", [QWEN_PENDING, MISTRAL_PENDING])
+def test_pending_baselines_fail_closed(path: Path) -> None:
+    report = verify_benchmark(
+        AUTHORITY, BUNDLE_AUTHORITY, path, Path("/not-used"), Path("/not-used")
+    )
+
+    assert report["status"] == "PENDING_BENCHMARK"
+    assert report["reasons"] == ["BENCHMARK_PENDING"]
+    assert report["report_sha256"]
+
+
+def test_complete_primary_and_fallback_verify_and_jointly_admit(tmp_path: Path) -> None:
+    primary_path, primary_original, primary_restored = _create_manifest(
+        tmp_path, primary=True
+    )
+    fallback_path, fallback_original, fallback_restored = _create_manifest(
+        tmp_path, primary=False
+    )
+
+    primary = verify_benchmark(
+        AUTHORITY,
+        BUNDLE_AUTHORITY,
+        primary_path,
+        primary_original,
+        primary_restored,
+    )
+    fallback = verify_benchmark(
+        AUTHORITY,
+        BUNDLE_AUTHORITY,
+        fallback_path,
+        fallback_original,
+        fallback_restored,
+    )
+    assert primary["status"] == "VERIFIED", primary
+    assert fallback["status"] == "VERIFIED", fallback
+
+    primary_report = tmp_path / "primary-report.json"
+    fallback_report = tmp_path / "fallback-report.json"
+    write_json(primary_report, primary)
+    write_json(fallback_report, fallback)
+    decision = admit_models(
+        AUTHORITY,
+        primary_report,
+        fallback_report,
+        evaluated_at="2026-07-21T10:00:00+00:00",
+    )
+    assert decision["status"] == "ADMITTED", decision
+    assert decision["reasons"] == []
+    assert decision["production_operational_status"] == "NOT_ATTESTED"
+    assert decision["decision_sha256"]
+
+
+def test_critical_unsupported_fact_rejects_benchmark(tmp_path: Path) -> None:
+    manifest_path, original, restored = _create_manifest(tmp_path, primary=True)
+    manifest = load_json_strict(manifest_path)
+    manifest["quality"]["critical_unsupported_facts"] = 1
+    _write_json(manifest_path, manifest)
+
+    report = verify_benchmark(
+        AUTHORITY, BUNDLE_AUTHORITY, manifest_path, original, restored
+    )
+    assert report["status"] == "REJECTED"
+    assert "CRITICAL_UNSUPPORTED_FACTS_PRESENT" in report["reasons"]
+    assert "QUALITY_RESULTS_MISMATCH" in report["reasons"]
+
+
+def test_concurrency_matrix_is_exact_and_fail_closed(tmp_path: Path) -> None:
+    manifest_path, original, restored = _create_manifest(tmp_path, primary=False)
+    manifest = load_json_strict(manifest_path)
+    manifest["runtime_profiles"][0]["concurrency"].pop()
+    _write_json(manifest_path, manifest)
+
+    report = verify_benchmark(
+        AUTHORITY, BUNDLE_AUTHORITY, manifest_path, original, restored
+    )
+    assert report["status"] == "REJECTED"
+    assert any("CONCURRENCY_MATRIX_MISMATCH" in item for item in report["reasons"])
+
+
+def test_restore_drift_is_rejected(tmp_path: Path) -> None:
+    manifest_path, original, restored = _create_manifest(tmp_path, primary=False)
+    (restored / "suite/protocol.txt").write_text("tampered\n")
+
+    report = verify_benchmark(
+        AUTHORITY, BUNDLE_AUTHORITY, manifest_path, original, restored
+    )
+    assert report["status"] == "REJECTED"
+    assert "RESTORED_EVIDENCE_MISMATCH:suite/protocol.txt" in report["reasons"]
+    assert "RESTORE_DRIFT:suite/protocol.txt" in report["reasons"]
+
+
+def test_symlink_and_same_root_restore_are_rejected(tmp_path: Path) -> None:
+    manifest_path, original, restored = _create_manifest(tmp_path, primary=False)
+    target = restored /
