@@ -429,13 +429,15 @@
    stays vertically settled, trust signals sit right beneath it, and a
    service bar anchors the bottom. Scoped to .pc-auth-page so the
    recovery pages keep their own layout. */
-.pc-auth-page {
+.pc-auth-page,
+.pc-recovery-page {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
 }
 
-.pc-auth-page .pc-auth-shell {
+.pc-auth-page .pc-auth-shell,
+.pc-recovery-page .pc-recovery-shell {
   min-height: 0;
   flex: 1 0 auto;
   padding-block: clamp(28px, 5vh, 56px) 20px;
@@ -523,7 +525,8 @@
     gap: 20px;
   }
 
-  .pc-auth-page .pc-auth-shell {
+  .pc-auth-page .pc-auth-shell,
+  .pc-recovery-page .pc-recovery-shell {
     padding-block: 28px 12px;
   }
 
