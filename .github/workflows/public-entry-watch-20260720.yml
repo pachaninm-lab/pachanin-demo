@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Chromium and WebKit
-        run: pnpm exec playwright install --with-deps chromium webkit
+        run: pnpm exec playwright install chromium webkit
       - name: Run exact production watch
         run: node .github/scripts/public-entry-watch-20260720.mjs
       - name: Upload production watch evidence
