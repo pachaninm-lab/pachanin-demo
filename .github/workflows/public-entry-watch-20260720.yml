@@ -1,0 +1,256 @@
+name: public entry watch 2026-07-20
+
+on:
+  push:
+    branches:
+      - ops/public-entry-watch-20260720-2315
+
+permissions:
+  contents: read
+
+jobs:
+  production-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install isolated browser runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/public-entry-watch
+          cd /tmp/public-entry-watch
+          npm init -y >/dev/null 2>&1
+          npm install --no-audit --no-fund playwright@1.54.1 >/dev/null
+          npx playwright install --with-deps chromium
+      - name: Run production HTTP and browser checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/public-entry-watch
+          mkdir -p artifacts
+          cat > check.mjs <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { chromium } from 'playwright';
+
+          const base = 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
+          const routes = ['/platform-v7', '/platform-v7/login', '/platform-v7/forgot-password'];
+          const locales = ['ru', 'en', 'zh'];
+          const report = {
+            checkedAt: new Date().toISOString(),
+            base,
+            http: [],
+            browser: [],
+            loginFailClosed: null,
+            issues: [],
+          };
+
+          const issue = (code, details = {}) => report.issues.push({ code, ...details });
+          const cleanPath = (value) => value.replace(/\/$/, '') || '/';
+
+          async function fetchChain(url, maxRedirects = 10) {
+            let current = url;
+            let redirects = 0;
+            while (true) {
+              const response = await fetch(current, {
+                redirect: 'manual',
+                headers: { 'user-agent': 'Transparent-Price-Public-Entry-Watch/1.0' },
+                signal: AbortSignal.timeout(15_000),
+              });
+              if ([301, 302, 303, 307, 308].includes(response.status)) {
+                const location = response.headers.get('location');
+                if (!location) return { response, current, redirects, body: await response.text() };
+                redirects += 1;
+                if (redirects > maxRedirects) throw new Error(`redirect_limit:${url}`);
+                current = new URL(location, current).toString();
+                continue;
+              }
+              return { response, current, redirects, body: await response.text() };
+            }
+          }
+
+          for (const route of routes) {
+            try {
+              const result = await fetchChain(`${base}${route}`);
+              const final = new URL(result.current);
+              const row = {
+                route,
+                status: result.response.status,
+                redirects: result.redirects,
+                finalUrl: result.current,
+                bytes: Buffer.byteLength(result.body),
+                contentType: result.response.headers.get('content-type'),
+              };
+              report.http.push(row);
+              if (row.status !== 200) issue('HTTP_NOT_200', row);
+              if (row.redirects > 5) issue('EXCESSIVE_REDIRECTS', row);
+              if (cleanPath(final.pathname) !== cleanPath(route)) issue('UNEXPECTED_FINAL_PATH', row);
+              if (final.searchParams.has('role') || final.searchParams.has('as')) issue('ROLE_IN_URL', row);
+              if (row.bytes < 500) issue('SUSPICIOUSLY_SMALL_HTML', row);
+            } catch (error) {
+              issue('HTTP_CHECK_FAILED', { route, error: String(error) });
+            }
+          }
+
+          const browser = await chromium.launch({ headless: true });
+          const origin = new URL(base).origin;
+          for (const locale of locales) {
+            for (const route of routes) {
+              const context = await browser.newContext({
+                viewport: { width: route === '/platform-v7' ? 1440 : 390, height: route === '/platform-v7' ? 1000 : 844 },
+                locale: locale === 'ru' ? 'ru-RU' : locale === 'zh' ? 'zh-CN' : 'en-US',
+                serviceWorkers: 'block',
+              });
+              const page = await context.newPage();
+              const consoleErrors = [];
+              const pageErrors = [];
+              const failedRequests = [];
+              const badResponses = [];
+              page.on('console', (message) => {
+                if (message.type() === 'error') consoleErrors.push(message.text());
+              });
+              page.on('pageerror', (error) => pageErrors.push(String(error?.stack || error)));
+              page.on('requestfailed', (request) => {
+                try {
+                  if (new URL(request.url()).origin !== origin) return;
+                } catch { return; }
+                const failure = request.failure()?.errorText || 'unknown';
+                if (!failure.includes('ERR_ABORTED')) failedRequests.push({ url: request.url(), failure });
+              });
+              page.on('response', (response) => {
+                try {
+                  if (new URL(response.url()).origin !== origin) return;
+                } catch { return; }
+                if (response.status() >= 500) badResponses.push({ url: response.url(), status: response.status() });
+              });
+
+              const target = `${base}${route}?lang=${locale}`;
+              let response = null;
+              let row;
+              try {
+                response = await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+                await page.waitForTimeout(1_500);
+                const state = await page.evaluate(() => ({
+                  lang: document.documentElement.lang,
+                  title: document.title,
+                  textLength: document.body?.innerText?.trim().length || 0,
+                  scrollWidth: document.documentElement.scrollWidth,
+                  clientWidth: document.documentElement.clientWidth,
+                  bodyHeight: document.body?.getBoundingClientRect().height || 0,
+                  bodyText: document.body?.innerText?.slice(0, 20_000) || '',
+                  roleSelector: Boolean(document.querySelector('select[name*="role" i],input[name="role"],[data-role-selector]')),
+                }));
+                const final = new URL(page.url());
+                const forbiddenText = /hydration failed|error while hydrating|minified react error|application error|__next_error__|next-intl.*missing|white screen/i.test(state.bodyText);
+                row = {
+                  route,
+                  locale,
+                  status: response?.status() ?? null,
+                  finalUrl: page.url(),
+                  lang: state.lang,
+                  title: state.title,
+                  textLength: state.textLength,
+                  bodyHeight: state.bodyHeight,
+                  overflow: state.scrollWidth > state.clientWidth + 1,
+                  roleSelector: route === '/platform-v7/login' ? state.roleSelector : false,
+                  consoleErrors,
+                  pageErrors,
+                  failedRequests,
+                  badResponses,
+                };
+                report.browser.push(row);
+                if (row.status !== 200) issue('BROWSER_HTTP_NOT_200', row);
+                if (cleanPath(final.pathname) !== cleanPath(route)) issue('BROWSER_UNEXPECTED_FINAL_PATH', row);
+                if (final.searchParams.has('role') || final.searchParams.has('as')) issue('BROWSER_ROLE_IN_URL', row);
+                if (!String(state.lang || '').toLowerCase().startsWith(locale)) issue('LOCALE_NOT_APPLIED', row);
+                if (state.textLength < 200 || state.bodyHeight < 200) issue('PROBABLE_WHITE_SCREEN', row);
+                if (row.overflow) issue('HORIZONTAL_OVERFLOW', row);
+                if (forbiddenText) issue('RUNTIME_ERROR_TEXT', row);
+                if (consoleErrors.length) issue('CONSOLE_ERRORS', row);
+                if (pageErrors.length) issue('PAGE_ERRORS', row);
+                if (failedRequests.length) issue('FAILED_SAME_ORIGIN_REQUESTS', row);
+                if (badResponses.length) issue('SAME_ORIGIN_5XX', row);
+                if (row.roleSelector) issue('LOGIN_ROLE_SELECTOR_PRESENT', row);
+                if (locale === 'ru') {
+                  await page.screenshot({ path: path.join('artifacts', `${route.replaceAll('/', '_') || 'root'}-ru.png`), fullPage: true });
+                }
+              } catch (error) {
+                row = { route, locale, target, error: String(error), consoleErrors, pageErrors, failedRequests, badResponses };
+                report.browser.push(row);
+                issue('BROWSER_CHECK_FAILED', row);
+              } finally {
+                await context.close();
+              }
+            }
+          }
+
+          const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+          const page = await context.newPage();
+          const authResponses = [];
+          page.on('response', (response) => {
+            const url = response.url();
+            if (/\/api\/auth\/login|\/auth\/login/i.test(url)) authResponses.push({ url, status: response.status() });
+          });
+          try {
+            const response = await page.goto(`${base}/platform-v7/login?lang=ru`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+            await page.waitForTimeout(1_000);
+            const email = page.locator('input[type="email"],input[name*="email" i],input[name*="login" i],input[name*="username" i]').first();
+            const password = page.locator('input[type="password"]').first();
+            const submit = page.locator('button[type="submit"],input[type="submit"]').first();
+            if (!(await email.count()) || !(await password.count()) || !(await submit.count())) {
+              throw new Error('login_form_not_found');
+            }
+            await email.fill(`watch-${Date.now()}@invalid.example`);
+            await password.fill('Invalid-Password-For-Fail-Closed-Check-2026!');
+            await submit.click();
+            await page.waitForTimeout(3_000);
+            const final = new URL(page.url());
+            const cookies = await context.cookies();
+            const forbiddenCookieNames = [
+              'pc_access_token', 'pc_refresh_token', 'pc_v7_cabinet', 'pc_session_present',
+              'access_token', 'refresh_token', 'pc_mfa_pending', 'pc_session', 'session',
+            ];
+            const sessionCookies = cookies.filter((cookie) => forbiddenCookieNames.includes(cookie.name.toLowerCase()));
+            const bodyText = await page.locator('body').innerText().catch(() => '');
+            const result = {
+              initialStatus: response?.status() ?? null,
+              finalUrl: page.url(),
+              authResponses,
+              sessionCookies: sessionCookies.map(({ name, domain, path }) => ({ name, domain, path })),
+              demoText: /demo session|demo login|демо[- ]?(сесс|вход)|тестовый вход/i.test(bodyText),
+            };
+            report.loginFailClosed = result;
+            if (cleanPath(final.pathname) !== '/platform-v7/login') issue('INVALID_LOGIN_ESCAPED_LOGIN_ROUTE', result);
+            if (final.searchParams.has('role') || final.searchParams.has('as')) issue('LOGIN_ROLE_IN_URL_AFTER_SUBMIT', result);
+            if (sessionCookies.length) issue('INVALID_LOGIN_CREATED_SESSION', result);
+            if (result.demoText) issue('DEMO_SESSION_TEXT_PRESENT', result);
+            if (authResponses.some((item) => item.status >= 200 && item.status < 300)) issue('INVALID_LOGIN_AUTH_SUCCEEDED', result);
+            await page.screenshot({ path: path.join('artifacts', 'login-fail-closed.png'), fullPage: true });
+          } catch (error) {
+            report.loginFailClosed = { error: String(error), authResponses };
+            issue('FAIL_CLOSED_LOGIN_CHECK_FAILED', report.loginFailClosed);
+          } finally {
+            await context.close();
+            await browser.close();
+          }
+
+          report.ok = report.issues.length === 0;
+          fs.writeFileSync(path.join('artifacts', 'public-entry-watch.json'), JSON.stringify(report, null, 2));
+          fs.writeFileSync(path.join('artifacts', 'summary.txt'), report.ok
+            ? `OK ${report.checkedAt}\nHTTP routes: ${report.http.length}\nBrowser cases: ${report.browser.length}\n`
+            : `FAIL ${report.checkedAt}\nIssues: ${report.issues.length}\n${report.issues.map((item) => `${item.code} ${item.route || ''} ${item.locale || ''}`).join('\n')}\n`);
+          console.log(JSON.stringify({ ok: report.ok, issues: report.issues }, null, 2));
+          if (!report.ok) process.exit(1);
+          NODE
+          node check.mjs
+      - name: Upload watch evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-20260720
+          path: /tmp/public-entry-watch/artifacts
+          if-no-files-found: error
+          retention-days: 7
