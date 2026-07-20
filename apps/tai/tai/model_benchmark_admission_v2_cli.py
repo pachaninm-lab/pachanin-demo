@@ -4,13 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from tai.model_benchmark_admission_v2 import (
-    ContractError,
-    admit_models,
-    load_authority,
-    verify_benchmark,
-    write_json,
-)
+from tai import model_benchmark_admission_v2 as benchmark_v2
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -42,7 +36,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def _emit(value: dict[str, object], output: Path | None) -> None:
     if output is not None:
-        write_json(output, value)
+        benchmark_v2.write_json(output, value)
     print(json.dumps(value, ensure_ascii=False, sort_keys=True))
 
 
@@ -50,7 +44,7 @@ def main() -> int:
     args = _parser().parse_args()
     try:
         if args.command == "validate-authority":
-            authority = load_authority(args.authority)
+            authority = benchmark_v2.load_authority(args.authority)
             result: dict[str, object] = {
                 "schema_version": "tai.model-benchmark-authority-validation.v2",
                 "status": "VALID",
@@ -62,7 +56,7 @@ def main() -> int:
             _emit(result, args.output)
             return 0
         if args.command == "verify-benchmark":
-            report = verify_benchmark(
+            report = benchmark_v2.verify_benchmark(
                 args.authority,
                 args.bundle_authority,
                 args.manifest,
@@ -71,7 +65,7 @@ def main() -> int:
             )
             _emit(report, args.output)
             return 0 if report["status"] == "VERIFIED" else 2
-        decision = admit_models(
+        decision = benchmark_v2.admit_models(
             args.authority,
             args.primary_report,
             args.fallback_report,
@@ -79,7 +73,7 @@ def main() -> int:
         )
         _emit(decision, args.output)
         return 0 if decision["status"] == "ADMITTED" else 2
-    except ContractError as exc:
+    except benchmark_v2.ContractError as exc:
         result = {
             "schema_version": "tai.model-benchmark-cli-error.v1",
             "status": "REJECTED",
