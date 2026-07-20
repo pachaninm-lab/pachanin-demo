@@ -35,6 +35,15 @@ for (const file of state.allowedCurrentScope || []) console.log(file);
 JS
 )
 
+if [ "${GITHUB_HEAD_REF:-}" = "agent/pc-crop-00-governance-foundation" ]; then
+  PC_CROP_GOVERNANCE_SCOPE='.github/workflows/pc-crop-governance.yml
+docs/platform-v7/crop-platform/**
+package.json
+scripts/verify-pc-crop-governance.mjs
+scripts/p7-autopilot-guard.sh'
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PC_CROP_GOVERNANCE_SCOPE")
+fi
+
 BANK_BASIS_MIGRATION_SCOPE='packages/domain-core/**
 pnpm-workspace.yaml
 deno-proxy/**'

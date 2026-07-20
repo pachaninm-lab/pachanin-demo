@@ -1,0 +1,255 @@
+{
+  "registry_version": "1.0.0",
+  "exact_main_baseline": "6f074942b46e226982e646c6f688886504b712ce",
+  "maturity_boundary": "TARGET_ARCHITECTURE_NOT_PRODUCTION_EVIDENCE",
+  "requirements": [
+    {
+      "id": "PC-FR-01",
+      "title": "Identity, membership and admission",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Identity & Admission",
+      "acceptance": [
+        "zero_client_selected_role_or_tenant",
+        "explainable_admission_decision",
+        "mchd_and_certificate_valid_at_action_time"
+      ]
+    },
+    {
+      "id": "PC-FR-02",
+      "title": "Versioned Commodity Profile Registry",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Commodity & Production",
+      "acceptance": [
+        "six_archetypes_without_core_state_branching",
+        "published_version_immutable",
+        "lot_and_deal_pin_exact_version"
+      ]
+    },
+    {
+      "id": "PC-FR-03",
+      "title": "Production passport and lot genealogy",
+      "priority": "P1",
+      "source": "S-TZ-001",
+      "owner_context": "Commodity & Production",
+      "acceptance": [
+        "non_negative_mass_balance",
+        "split_merge_blend_provenance",
+        "tenant_safe_minimal_disclosure"
+      ]
+    },
+    {
+      "id": "PC-FR-04",
+      "title": "Auction and award hardening",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Market & Auction",
+      "acceptance": [
+        "single_reproducible_winner",
+        "immutable_bid_history",
+        "lot_oversell_prevented"
+      ]
+    },
+    {
+      "id": "PC-FR-05",
+      "title": "Durable multi-dimensional Deal workflow",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Deal Execution",
+      "acceptance": [
+        "restart_without_double_effect",
+        "server_derived_next_action",
+        "no_transition_bypasses_policy"
+      ]
+    },
+    {
+      "id": "PC-FR-06",
+      "title": "Regulatory Control Tower",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Regulatory Gateway",
+      "acceptance": [
+        "adapter_capability_registry",
+        "persist_before_ack",
+        "reconciliation_detects_gaps",
+        "truthful_integration_status"
+      ]
+    },
+    {
+      "id": "PC-FR-07",
+      "title": "Quality and evidence chain",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Quality & Evidence",
+      "acceptance": [
+        "lab_result_requires_sample",
+        "superseding_correction_only",
+        "price_delta_reproducible",
+        "verifiable_evidence_package"
+      ]
+    },
+    {
+      "id": "PC-FR-08",
+      "title": "Logistics, slots, weighing and offline acceptance",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Logistics & Acceptance",
+      "acceptance": [
+        "idempotent_offline_sync",
+        "mass_balance_consistent",
+        "device_provenance_and_spoof_risk"
+      ]
+    },
+    {
+      "id": "PC-FR-09",
+      "title": "Bank-neutral settlement orchestration",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Settlement",
+      "acceptance": [
+        "zero_double_payment",
+        "obligation_to_statement_trace",
+        "reconciliation_mismatch_blocks_closure",
+        "no_platform_custody_claim"
+      ]
+    },
+    {
+      "id": "PC-FR-10",
+      "title": "Dispute, expertise and evidence package",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Disputes",
+      "acceptance": [
+        "legal_hold_and_freeze",
+        "structured_decision",
+        "money_command_separate_from_decision"
+      ]
+    },
+    {
+      "id": "PC-FR-11",
+      "title": "Finance and insurance partner packages",
+      "priority": "P1",
+      "source": "S-TZ-001",
+      "owner_context": "Finance & Insurance",
+      "acceptance": [
+        "minimal_scope_and_lawful_basis",
+        "partner_reason_codes_only",
+        "no_fake_credit_approval"
+      ]
+    },
+    {
+      "id": "PC-FR-12",
+      "title": "Factual reputation and anti-fraud",
+      "priority": "P1",
+      "source": "S-TZ-001",
+      "owner_context": "Risk & Reputation",
+      "acceptance": [
+        "no_opaque_automatic_denial",
+        "appeal_and_correction",
+        "versioned_rule_or_model_with_rollback"
+      ]
+    },
+    {
+      "id": "PC-FR-13",
+      "title": "Execution analytics and market data",
+      "priority": "P1",
+      "source": "S-TZ-001",
+      "owner_context": "Analytics",
+      "acceptance": [
+        "formal_metric_definitions",
+        "tenant_isolation",
+        "anonymisation_threshold",
+        "freshness_and_completeness"
+      ]
+    },
+    {
+      "id": "PC-FR-14",
+      "title": "Safe TAI tool interface",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "AI Tool Gateway",
+      "acceptance": [
+        "zero_tenant_leakage",
+        "zero_autonomous_privileged_write",
+        "confirmation_binding",
+        "abstention_for_unverified_fact"
+      ]
+    },
+    {
+      "id": "PC-FR-15",
+      "title": "Operations and administration",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Operations",
+      "acceptance": [
+        "immutable_admin_audit",
+        "no_shared_admin_accounts",
+        "connector_rollback_without_event_loss",
+        "no_domain_bypass"
+      ]
+    },
+    {
+      "id": "PC-UX-01",
+      "title": "Intent-first home and Deal workspace",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Web UX",
+      "acceptance": [
+        "priority_queue_first",
+        "single_primary_next_action",
+        "blocked_reason_and_remediation",
+        "mobile_320_430"
+      ]
+    },
+    {
+      "id": "PC-UX-02",
+      "title": "Offline state honesty",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Mobile UX",
+      "acceptance": [
+        "local_vs_server_vs_canonical_distinguished",
+        "conflict_visible",
+        "revoked_device_blocks_privileged_actions"
+      ]
+    },
+    {
+      "id": "PC-NFR-01",
+      "title": "Durability and idempotency",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Platform Reliability",
+      "acceptance": [
+        "zero_lost_committed_business_events",
+        "at_least_once_delivery",
+        "idempotent_effects"
+      ]
+    },
+    {
+      "id": "PC-NFR-02",
+      "title": "Tenant isolation and security",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Security",
+      "acceptance": [
+        "negative_tenant_tests",
+        "no_cross_tenant_cache_keys",
+        "mfa_jit_for_privileged_operations"
+      ]
+    },
+    {
+      "id": "PC-NFR-03",
+      "title": "Exact release evidence",
+      "priority": "P0",
+      "source": "S-TZ-001",
+      "owner_context": "Release Governance",
+      "acceptance": [
+        "exact_head_report",
+        "exact_main_report",
+        "immutable_locator_and_hash",
+        "no_fake_live_claim"
+      ]
+    }
+  ]
+}
