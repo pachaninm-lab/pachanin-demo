@@ -1,0 +1,133 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import shutil
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from tai.model_benchmark_admission_v2 import (
+    ContractError,
+    admit_models,
+    canonical_sha256,
+    load_authority,
+    load_json_strict,
+    verify_benchmark,
+    write_json,
+)
+
+ROOT = Path(__file__).parents[1]
+ARTIFACTS = ROOT / "model-artifacts"
+AUTHORITY = ARTIFACTS / "model-benchmark-admission-authority.v2.json"
+BUNDLE_AUTHORITY = ROOT / "model-bundle-authority.v2.json"
+QWEN_PENDING = ARTIFACTS / "qwen3-8b.benchmark.v2.pending.json"
+MISTRAL_PENDING = ARTIFACTS / "mistral-7b-instruct-v0.3.benchmark.v2.pending.json"
+SCOPE = ROOT / "governance" / "scopes" / "ap-13cd-benchmark-admission-2862.json"
+
+QWEN_ID = "Qwen/Qwen3-8B"
+QWEN_REVISION = "895c8d171bc03c30e113cd7a28c02494b5e068b7"
+MISTRAL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
+MISTRAL_REVISION = "c170c708c41dac9275d15a8fff4eca08d52bab71"
+QWEN_CPU_SHA = "a" * 64
+QWEN_GPU_SHA = "c" * 64
+MISTRAL_CPU_SHA = "b" * 64
+
+
+def _sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _write_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _bundle_authority() -> dict[str, Any]:
+    return {
+        "schema_version": "tai.model-bundle-authority.v2",
+        "models": [
+            {
+                "role": "PRIMARY",
+                "model_id": QWEN_ID,
+                "revision": QWEN_REVISION,
+                "quantizations": [
+                    {
+                        "runtime_class": "CPU",
+                        "quantization": "Q4_K_M",
+                        "output_path": "artifacts/qwen3-8b-q4-k-m.gguf",
+                    },
+                    {
+                        "runtime_class": "GPU_SHARED",
+                        "quantization": "Q8_0",
+                        "output_path": "artifacts/qwen3-8b-q8-0.gguf",
+                    },
+                ],
+            },
+            {
+                "role": "FALLBACK",
+                "model_id": MISTRAL_ID,
+                "revision": MISTRAL_REVISION,
+                "quantizations": [
+                    {
+                        "runtime_class": "CPU",
+                        "quantization": "Q4_K_M",
+                        "output_path": (
+                            "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf"
+                        ),
+                    }
+                ],
+            },
+        ],
+    }
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _write_bundle_authority() -> None:
+    _write_json(BUNDLE_AUTHORITY, _bundle_authority())
+
+
+def _profile(
+    *,
+    profile_id: str,
+    runtime_class: str,
+    quantization: str,
+    artifact_sha256: str,
+    concurrency_levels: list[int],
+) -> dict[str, Any]:
+    if runtime_class == "GPU_SHARED":
+        prompt_speed = 25_000
+        generation_speed = 15_000
+        p95 = 8_000
+        p99 = 12_000
+        ram = 7_000
+        vram = 20_000
+    elif profile_id.startswith("qwen"):
+        prompt_speed = 6_000
+        generation_speed = 5_000
+        p95 = 18_000
+        p99 = 25_000
+        ram = 12_000
+        vram = 0
+    else:
+        prompt_speed = 5_000
+        generation_speed = 4_000
+        p95 = 22_000
+        p99 = 30_000
+        ram = 11_000
+        vram = 0
+    return {
+        "profile_id": profile_id,
+        "runtime_class": runtime_class,
+        "quantization": quantization,
+        "artifact_sha256": artifact_sha256,
+        "hardware_profile_id": f"hw-{profile_id}",
+        "hardware_path": f"profiles/{profile_id}/hardware.json",
+        "environment_path": f"profiles/{profile_id}/environment.json",
+        "raw_metrics_path": f"profiles/{profile_id}/metrics.json",
+        "cost_calculation_path": f"profiles/{profile_id}/cost.json",
+        "sample_count": 100,
+        "prompt_to
