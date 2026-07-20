@@ -1,4 +1,4 @@
-name: TAI AP-13B.3b Diagnose Corrected Patch
+name: TAI AP-13B.3b Final Corrected Commit
 
 on:
   pull_request:
@@ -7,14 +7,19 @@ on:
       - .github/workflows/tai-pr-ap13b3b-diagnose2.yml
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: tai-ap13b3b-final-corrected-commit
+  cancel-in-progress: false
 
 jobs:
-  diagnose:
+  finalize:
     if: >-
       github.event.pull_request.head.ref ==
       'agent/tai-ap-13b3b-v1-source-weight-fail-closed'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     env:
       EXACT_PR_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
@@ -22,20 +27,24 @@ jobs:
         with:
           ref: ${{ env.EXACT_PR_HEAD }}
           fetch-depth: 1
-          persist-credentials: false
+      - name: Enforce exact branch head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXACT_PR_HEAD"
+          test "$GITHUB_HEAD_REF" = \
+            'agent/tai-ap-13b3b-v1-source-weight-fail-closed'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: apps/tai/pyproject.toml
       - run: python -m pip install -q -e 'apps/tai[dev]'
-      - name: Run corrected diagnostics
+      - name: Apply final compatible v1 fix
         shell: bash
         run: |
-          set +e
-          log=/tmp/ap13b3b-corrected.log
-          : > "$log"
-          python - <<'PY' >> "$log" 2>&1
+          set -euo pipefail
+          python - <<'PY'
           from pathlib import Path
 
           registry_path = Path('apps/tai/tai/model_artifact_registry.py')
@@ -56,6 +65,10 @@ jobs:
                   reasons.append("SOURCE_WEIGHT_EVIDENCE_UNSUPPORTED_BY_V1")
               if candidate.license_review_status is not LicenseReviewStatus.APPROVED:
           ''',
+              '        _unique_paths(self.weight_files, "weight_files")': (
+                  '        if self.weight_files:\n'
+                  '            _unique_paths(self.weight_files, "weight_files")'
+              ),
               '        weight_files=tuple(_strings(payload, "weight_files")),': (
                   '        weight_files=tuple(\n'
                   '            _strings_allow_empty(payload, "weight_files")\n'
@@ -84,7 +97,6 @@ jobs:
           ''',
           }
           for old, new in replacements.items():
-              print('registry_match', repr(old[:80]), registry.count(old))
               if registry.count(old) != 1:
                   raise SystemExit(f'registry replacement drifted: {old!r}')
               registry = registry.replace(old, new)
@@ -120,7 +132,6 @@ jobs:
               ),
           }
           for old, new in test_replacements.items():
-              print('test_match', repr(old), tests.count(old))
               if tests.count(old) != 1:
                   raise SystemExit(f'test replacement drifted: {old!r}')
               tests = tests.replace(old, new)
@@ -169,29 +180,90 @@ jobs:
 
           def test_bundle_verification_fails_closed_on_digest_mismatch(tmp_path: Path) -> None:
           '''
-          print('marker_match', tests.count(marker))
           if tests.count(marker) != 1:
               raise SystemExit('test insertion marker drifted')
           tests_path.write_text(tests.replace(marker, inserted), encoding='utf-8')
-          print('PATCH_PASS')
+
+          readme_path = Path('apps/tai/model-artifacts/README.md')
+          readme = readme_path.read_text(encoding='utf-8')
+          old_readme = (
+              'The v1 registry and verifier remain available for compatibility. '
+              'They are not sufficient for AP-13B.3 acceptance because a v1 bundle '
+              'does not declare or verify the source weight shards. AP-13B.3 uses '
+              'the independent, stricter v2 contract:'
+          )
+          new_readme = (
+              'The v1 registry and parser remain available for compatibility. '
+              'The v1 verifier now fails closed with '
+              '`SOURCE_WEIGHT_EVIDENCE_UNSUPPORTED_BY_V1` whenever the matched '
+              'candidate declares `weight_files`; only legacy candidates with an '
+              'explicitly empty `weight_files` set can retain v1 verification '
+              'behavior. AP-13B.3 uses the independent, stricter v2 contract:'
+          )
+          if readme.count(old_readme) != 1:
+              raise SystemExit('README replacement drifted')
+          readme_path.write_text(
+              readme.replace(old_readme, new_readme),
+              encoding='utf-8',
+          )
           PY
-          patch_status=$?
-          echo "PATCH_STATUS=$patch_status" >> "$log"
-          if [ "$patch_status" -eq 0 ]; then
-            ruff format apps/tai/tai/model_artifact_registry.py apps/tai/tests/test_model_artifact_registry.py >> "$log" 2>&1
-            echo "RUFF_FORMAT_STATUS=$?" >> "$log"
-            ruff check apps/tai/tai/model_artifact_registry.py apps/tai/tests/test_model_artifact_registry.py >> "$log" 2>&1
-            echo "RUFF_CHECK_STATUS=$?" >> "$log"
-            mypy --strict apps/tai/tai/model_artifact_registry.py apps/tai/tests/test_model_artifact_registry.py >> "$log" 2>&1
-            echo "MYPY_STATUS=$?" >> "$log"
-            pytest -q apps/tai/tests/test_model_artifact_registry.py >> "$log" 2>&1
-            echo "PYTEST_STATUS=$?" >> "$log"
-          fi
-          cat "$log"
-          exit 0
-      - uses: actions/upload-artifact@v4
-        with:
-          name: tai-ap13b3b-corrected-${{ env.EXACT_PR_HEAD }}
-          path: /tmp/ap13b3b-corrected.log
-          if-no-files-found: error
-          retention-days: 1
+          ruff format \
+            apps/tai/tai/model_artifact_registry.py \
+            apps/tai/tests/test_model_artifact_registry.py
+          ruff check \
+            apps/tai/tai/model_artifact_registry.py \
+            apps/tai/tests/test_model_artifact_registry.py
+          mypy --strict \
+            apps/tai/tai/model_artifact_registry.py \
+            apps/tai/tests/test_model_artifact_registry.py
+          pytest -q apps/tai/tests/test_model_artifact_registry.py
+          git diff --check
+      - name: Remove helper material and commit atomically
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f \
+            .github/workflows/tai-pr-ap13b3b-diagnose.yml \
+            .github/workflows/tai-pr-ap13b3b-diagnose2.yml \
+            .github/workflows/tai-pr-ap13b3b-finalize.yml \
+            .coverage \
+            .coverage.*
+          rm -rf \
+            .mypy_cache \
+            .pytest_cache \
+            .ruff_cache \
+            apps/tai/.coverage \
+            apps/tai/.mypy_cache \
+            apps/tai/.pytest_cache \
+            apps/tai/.ruff_cache \
+            apps/tai/transparent_agro_intelligence.egg-info
+          find apps/tai -type d -name __pycache__ -prune -exec rm -rf {} +
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          python - <<'PY'
+          import subprocess
+
+          expected = {
+              '.github/workflows/tai-pr-ap13b3b-diagnose.yml',
+              '.github/workflows/tai-pr-ap13b3b-diagnose2.yml',
+              '.github/workflows/tai-pr-ap13b3b-finalize.yml',
+              'apps/tai/model-artifacts/README.md',
+              'apps/tai/tai/model_artifact_registry.py',
+              'apps/tai/tests/test_model_artifact_registry.py',
+          }
+          staged = set(
+              subprocess.check_output(
+                  ['git', 'diff', '--cached', '--name-only'],
+                  text=True,
+              ).splitlines()
+          )
+          if staged != expected:
+              raise SystemExit(
+                  f'unexpected staged paths: missing={sorted(expected - staged)}, '
+                  f'extra={sorted(staged - expected)}'
+              )
+          PY
+          git commit -m 'fix(tai): fail closed legacy bundles with source weights'
+          git push origin HEAD:agent/tai-ap-13b3b-v1-source-weight-fail-closed
