@@ -1,0 +1,20 @@
+{
+  "branch": "fix/public-ai-layout-authority",
+  "status": "active",
+  "purpose": "Restore the canonical public AI-in-action route through the platform-v7 layout authority, link the homepage directly to it, and prevent a client-side notFound after hydration.",
+  "approvedBy": "independent-authority-pr",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/page.tsx",
+    "apps/web/tests/unit/platformV7PublicAiRouteAuthority.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "forbiddenCapabilities": [
+    "autonomous consequential commands",
+    "cross-role or cross-tenant access",
+    "external model calls from the public demonstration",
+    "production infrastructure mutation",
+    "claims that public mode accesses account or real-deal data"
+  ]
+}
