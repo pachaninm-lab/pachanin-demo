@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
-      - name: Observe exact-main release acceptance
+      - name: Observe exact-main push workflows and release acceptance
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -26,12 +26,13 @@ jobs:
           actual_main="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
           printf 'EXPECTED_MAIN=%s\nACTUAL_MAIN=%s\n' "$EXPECTED_MAIN" "$actual_main"
           test "$actual_main" = "$EXPECTED_MAIN"
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?event=push&per_page=100" > runs.json
-          run_id="$(jq -r --arg sha "$EXPECTED_MAIN" '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.created_at) | reverse | .[0].id // empty' runs.json)"
+          gh api "/repos/$REPOSITORY/actions/runs?event=push&head_sha=$EXPECTED_MAIN&per_page=100" > all-runs.json
+          jq -r '.workflow_runs[] | ["PUSH",.id,.name,.status,.conclusion,.run_number,.run_attempt,.created_at,.updated_at] | @tsv' all-runs.json
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?event=push&per_page=100" > release-runs.json
+          run_id="$(jq -r --arg sha "$EXPECTED_MAIN" '[.workflow_runs[] | select(.head_sha == $sha)] | sort_by(.created_at) | reverse | .[0].id // empty' release-runs.json)"
           test -n "$run_id"
-          jq -r --arg sha "$EXPECTED_MAIN" '.workflow_runs[] | select(.head_sha == $sha) | ["RUN",.id,.status,.conclusion,.run_number,.run_attempt,.created_at,.updated_at] | @tsv' runs.json
           gh api "/repos/$REPOSITORY/actions/runs/$run_id/jobs?per_page=100" > jobs.json
-          jq -r '.jobs[] | ["JOB",.id,.name,.status,.conclusion,.started_at,.completed_at] | @tsv' jobs.json
-          jq -r '.jobs[] | .name as $job | .steps[]? | ["STEP",$job,.number,.name,.status,.conclusion] | @tsv' jobs.json
+          jq -r '.jobs[] | ["RELEASE_JOB",.id,.name,.status,.conclusion,.started_at,.completed_at] | @tsv' jobs.json
+          jq -r '.jobs[] | .name as $job | .steps[]? | ["RELEASE_STEP",$job,.number,.name,.status,.conclusion] | @tsv' jobs.json
           gh api "/repos/$REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" > artifacts.json
           jq -r '.artifacts[] | ["ARTIFACT",.id,.name,.size_in_bytes,.expired,.digest,.created_at,.expires_at] | @tsv' artifacts.json
