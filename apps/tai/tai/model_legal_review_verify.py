@@ -102,9 +102,12 @@ def evaluate_model_review(
         authority.review_not_before, "legal review not-before timestamp"
     ):
         reasons.append("LEGAL_REVIEW_PREDATES_ACCEPTED_SOURCE_EVIDENCE")
-    if record.record_type is HumanLegalRecordType.ATTRIBUTED_RECORD:
-        if f"issues/{authority.attributed_record_issue}" not in record.attestation_reference:
-            reasons.append("ATTRIBUTED_RECORD_ISSUE_REFERENCE_MISMATCH")
+    if (
+        record.record_type is HumanLegalRecordType.ATTRIBUTED_RECORD
+        and f"issues/{authority.attributed_record_issue}"
+        not in record.attestation_reference
+    ):
+        reasons.append("ATTRIBUTED_RECORD_ISSUE_REFERENCE_MISMATCH")
 
     expected = {
         "authority_sha256": authority_digest,
