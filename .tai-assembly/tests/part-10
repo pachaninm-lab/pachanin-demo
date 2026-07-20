@@ -1,0 +1,115 @@
+
+        (
+            "suite/cases.json",
+            lambda value: value["cases"].pop(),
+            "EVALUATION_CASE_COUNT_MISMATCH",
+        ),
+        (
+            "profiles/qwen3-8b-cpu-q4-k-m/hardware.json",
+            lambda value: value.update(hardware_profile_id="wrong"),
+            "HARDWARE_OBSERVATION_INVALID",
+        ),
+        (
+            "profiles/qwen3-8b-cpu-q4-k-m/environment.json",
+            lambda value: value.update(artifact_sha256="f" * 64),
+            "RUNTIME_ENVIRONMENT_INVALID",
+        ),
+        (
+            "profiles/qwen3-8b-cpu-q4-k-m/cost.json",
+            lambda value: value.update(token_basis=1),
+            "COST_CALCULATION_MISMATCH",
+        ),
+        (
+            "fallback/metrics.json",
+            lambda value: value.update(trigger_count=99),
+            "FALLBACK_METRICS_MISMATCH",
+        ),
+        (
+            "soak/metrics.json",
+            lambda value: value.update(request_count=999),
+            "SOAK_METRICS_MISMATCH",
+        ),
+    ]
+    for index, (relative, mutation, expected) in enumerate(checks):
+        case_root = tmp_path / str(index)
+        manifest_path, original, restored = _create_manifest(case_root, primary=True)
+        target = original / relative
+        value = load_json_strict(target)
+        mutation(value)
+        _write_json(target, value)
+        shutil.copyfile(target, restored / relative)
+        manifest = load_json_strict(manifest_path)
+        for item in manifest["evidence_files"]:
+            if item["path"] == relative:
+                item["sha256"] = _sha(target)
+                item["size_bytes"] = target.stat().st_size
+        _write_json(manifest_path, manifest)
+        report = verify_benchmark(
+            AUTHORITY, BUNDLE_AUTHORITY, manifest_path, original, restored
+        )
+        assert any(expected in reason for reason in report["reasons"]), report
+
+
+def _resign_report(report: dict[str, Any]) -> None:
+    unsigned = dict(report)
+    unsigned.pop("report_sha256")
+    report["report_sha256"] = canonical_sha256(unsigned)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected"),
+    [
+        (
+            lambda primary, fallback: primary.update(status="REJECTED"),
+            "PRIMARY_BENCHMARK_NOT_VERIFIED",
+        ),
+        (
+            lambda primary, fallback: fallback.update(status="REJECTED"),
+            "FALLBACK_BENCHMARK_NOT_VERIFIED",
+        ),
+        (
+            lambda primary, fallback: primary.update(authority_sha256="f" * 64),
+            "PRIMARY_AUTHORITY_MISMATCH",
+        ),
+        (
+            lambda primary, fallback: fallback.update(authority_sha256="f" * 64),
+            "FALLBACK_AUTHORITY_MISMATCH",
+        ),
+        (
+            lambda primary, fallback: primary["model"].update(role="FALLBACK"),
+            "PRIMARY_ROLE_MISMATCH",
+        ),
+        (
+            lambda primary, fallback: fallback["model"].update(role="PRIMARY"),
+            "FALLBACK_ROLE_MISMATCH",
+        ),
+        (
+            lambda primary, fallback: primary.update(verified_profiles=[]),
+            "PRIMARY_PROFILE_SET_MISMATCH",
+        ),
+        (
+            lambda primary, fallback: fallback.update(verified_profiles=[]),
+            "FALLBACK_PROFILE_SET_MISMATCH",
+        ),
+        (
+            lambda primary, fallback: primary.update(
+                measured_at="2025-01-01T00:00:00+00:00"
+            ),
+            "PRIMARY_BENCHMARK_STALE_OR_FUTURE",
+        ),
+        (
+            lambda primary, fallback: fallback["bundle"].update(
+                verification_status="REJECTED"
+            ),
+            "FALLBACK_BUNDLE_NOT_VERIFIED",
+        ),
+        (
+            lambda primary, fallback: primary["fallback_exercise"].update(
+                fallback_model_id="wrong/model"
+            ),
+            "FALLBACK_EXERCISE_MODEL_MISMATCH",
+        ),
+        (
+            lambda primary, fallback: primary["fallback_exercise"].update(
+                fallback_revision="f" * 40
+            ),
