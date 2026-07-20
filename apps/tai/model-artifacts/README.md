@@ -110,7 +110,7 @@ Exit codes:
 
 ## AP-13B.3 source/conversion/license bundle authority
 
-The v1 registry and verifier remain available for compatibility. They are not sufficient for AP-13B.3 acceptance because a v1 bundle does not declare or verify the source weight shards. AP-13B.3 uses the independent, stricter v2 contract:
+The v1 registry and parser remain available for compatibility. The v1 verifier now fails closed with `SOURCE_WEIGHT_EVIDENCE_UNSUPPORTED_BY_V1` whenever the matched candidate declares `weight_files`; only legacy candidates with an explicitly empty `weight_files` set can retain v1 verification behavior. AP-13B.3 uses the independent, stricter v2 contract:
 
 - `model-bundle-authority.v2.json` fixes the full remote inventory, selected converter inputs, explicit exclusions, exact conversion argv and every required quantization;
 - `local-model-artifact-bundle.schema.v2.json` is the versioned external evidence schema;
