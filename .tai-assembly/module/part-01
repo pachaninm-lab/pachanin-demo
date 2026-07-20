@@ -1,0 +1,430 @@
+failures"],
+            "soak_policy.maximum_critical_failures",
+            minimum=0,
+        ),
+        "maximum_memory_drift_mb": _integer(
+            soak["maximum_memory_drift_mb"],
+            "soak_policy.maximum_memory_drift_mb",
+            minimum=0,
+        ),
+    }
+
+    limits = _dict(raw["evidence_limits"], "benchmark authority.evidence_limits")
+    _require_keys(
+        limits,
+        {"maximum_file_count", "maximum_file_size_bytes", "maximum_total_size_bytes"},
+        "benchmark authority.evidence_limits",
+    )
+    evidence_limits = {
+        "maximum_file_count": _integer(
+            limits["maximum_file_count"],
+            "evidence_limits.maximum_file_count",
+            minimum=1,
+        ),
+        "maximum_file_size_bytes": _integer(
+            limits["maximum_file_size_bytes"],
+            "evidence_limits.maximum_file_size_bytes",
+            minimum=1,
+        ),
+        "maximum_total_size_bytes": _integer(
+            limits["maximum_total_size_bytes"],
+            "evidence_limits.maximum_total_size_bytes",
+            minimum=1,
+        ),
+    }
+
+    maturity = _dict(raw["maturity_boundary"], "benchmark authority.maturity_boundary")
+    _require_keys(
+        maturity,
+        {
+            "model_bundles",
+            "benchmarks",
+            "model_admission",
+            "production_operational_status",
+        },
+        "benchmark authority.maturity_boundary",
+    )
+    expected_maturity = {
+        "model_bundles": "PENDING_VERIFIED_BUNDLES",
+        "benchmarks": "PENDING_BENCHMARK",
+        "model_admission": "PENDING_ADMISSION",
+        "production_operational_status": "NOT_ATTESTED",
+    }
+    if maturity != expected_maturity:
+        raise ContractError("benchmark authority maturity boundary is invalid")
+
+    authority_value: dict[str, Any] = {
+        "schema_version": raw["schema_version"],
+        "issue": issue,
+        "bundle_authority_schema": raw["bundle_authority_schema"],
+        "benchmark_maximum_age_days": maximum_age_days,
+        "suite_policy": suite_policy,
+        "runtime_profiles": profiles,
+        "fallback_policy": fallback_policy,
+        "soak_policy": soak_policy,
+        "evidence_limits": evidence_limits,
+        "maturity_boundary": maturity,
+    }
+    authority_value["authority_sha256"] = canonical_sha256(authority_value)
+    return authority_value
+
+
+def _load_bundle_authority(path: Path) -> tuple[dict[str, Any], str]:
+    value = load_json_strict(path)
+    if value.get("schema_version") != "tai.model-bundle-authority.v2":
+        raise ContractError("unsupported model bundle authority")
+    models = _list(value.get("models"), "model bundle authority.models")
+    if not models:
+        raise ContractError("model bundle authority must contain models")
+    return value, canonical_sha256(value)
+
+
+def _bundle_plan(
+    bundle_authority: dict[str, Any], model_id: str, revision: str
+) -> dict[str, Any]:
+    matches = [
+        item
+        for item in _list(bundle_authority["models"], "model bundle authority.models")
+        if isinstance(item, dict)
+        and item.get("model_id") == model_id
+        and item.get("revision") == revision
+    ]
+    if len(matches) != 1:
+        raise ContractError("benchmark model is not uniquely bound to bundle authority")
+    return matches[0]
+
+
+def _parse_bundle_binding(
+    value: Any,
+    name: str,
+    *,
+    expected_authority_sha256: str,
+    bundle_plan: dict[str, Any],
+) -> dict[str, Any]:
+    item = _dict(value, name)
+    _require_keys(
+        item,
+        {
+            "authority_sha256",
+            "manifest_sha256",
+            "verification_report_sha256",
+            "verification_status",
+            "archive_sha256",
+            "immutable_locator",
+            "artifacts",
+        },
+        name,
+    )
+    if (
+        _sha256(item["authority_sha256"], f"{name}.authority_sha256")
+        != expected_authority_sha256
+    ):
+        raise ContractError("bundle authority digest mismatch")
+    if item["verification_status"] != "VERIFIED":
+        raise ContractError("model bundle verification_status must be VERIFIED")
+    artifacts: list[dict[str, Any]] = []
+    observed: set[tuple[str, str]] = set()
+    allowed = {
+        (entry["runtime_class"], entry["quantization"]): entry["output_path"]
+        for entry in _list(
+            bundle_plan.get("quantizations"), "bundle plan.quantizations"
+        )
+        if isinstance(entry, dict)
+    }
+    for index, raw_artifact in enumerate(_list(item["artifacts"], f"{name}.artifacts")):
+        artifact_name = f"{name}.artifacts[{index}]"
+        artifact = _dict(raw_artifact, artifact_name)
+        _require_keys(
+            artifact,
+            {"runtime_class", "quantization", "path", "sha256", "size_bytes"},
+            artifact_name,
+        )
+        runtime_class = _string(
+            artifact["runtime_class"], f"{artifact_name}.runtime_class"
+        )
+        quantization = _identity(
+            artifact["quantization"], f"{artifact_name}.quantization"
+        )
+        identity = (runtime_class, quantization)
+        if identity not in allowed:
+            raise ContractError("bundle artifact is not registered by bundle authority")
+        path = _relative_path(artifact["path"], f"{artifact_name}.path")
+        if path != allowed[identity]:
+            raise ContractError("bundle artifact path differs from bundle authority")
+        if identity in observed:
+            raise ContractError("bundle artifacts must be unique")
+        observed.add(identity)
+        artifacts.append(
+            {
+                "runtime_class": runtime_class,
+                "quantization": quantization,
+                "path": path,
+                "sha256": _sha256(artifact["sha256"], f"{artifact_name}.sha256"),
+                "size_bytes": _integer(
+                    artifact["size_bytes"], f"{artifact_name}.size_bytes", minimum=1
+                ),
+            }
+        )
+    if set(allowed) != observed:
+        raise ContractError(
+            "bundle binding must declare every registered quantized artifact"
+        )
+    return {
+        "authority_sha256": expected_authority_sha256,
+        "manifest_sha256": _sha256(item["manifest_sha256"], f"{name}.manifest_sha256"),
+        "verification_report_sha256": _sha256(
+            item["verification_report_sha256"], f"{name}.verification_report_sha256"
+        ),
+        "verification_status": "VERIFIED",
+        "archive_sha256": _sha256(item["archive_sha256"], f"{name}.archive_sha256"),
+        "immutable_locator": _immutable_locator(
+            item["immutable_locator"], f"{name}.immutable_locator"
+        ),
+        "artifacts": artifacts,
+    }
+
+
+def _parse_suite(value: Any, policy: dict[str, Any]) -> dict[str, Any]:
+    item = _dict(value, "benchmark.evaluation_suite")
+    _require_keys(
+        item,
+        {
+            "suite_id",
+            "total_cases",
+            "critical_cases",
+            "manifest_path",
+            "cases_path",
+            "protocol_path",
+        },
+        "benchmark.evaluation_suite",
+    )
+    suite_id = _identity(item["suite_id"], "evaluation_suite.suite_id")
+    if suite_id != policy["suite_id"]:
+        raise ContractError("evaluation suite id mismatch")
+    total = _integer(item["total_cases"], "evaluation_suite.total_cases", minimum=1)
+    critical = _integer(
+        item["critical_cases"], "evaluation_suite.critical_cases", minimum=1
+    )
+    if total != policy["required_total_cases"]:
+        raise ContractError("evaluation suite total case count mismatch")
+    if critical != policy["required_critical_cases"]:
+        raise ContractError("evaluation suite critical case count mismatch")
+    return {
+        "suite_id": suite_id,
+        "total_cases": total,
+        "critical_cases": critical,
+        "manifest_path": _relative_path(
+            item["manifest_path"], "evaluation_suite.manifest_path"
+        ),
+        "cases_path": _relative_path(item["cases_path"], "evaluation_suite.cases_path"),
+        "protocol_path": _relative_path(
+            item["protocol_path"], "evaluation_suite.protocol_path"
+        ),
+    }
+
+
+def _parse_quality(value: Any) -> dict[str, int]:
+    item = _dict(value, "benchmark.quality")
+    expected = {
+        "sample_count",
+        "platform_accuracy_basis_points",
+        "agro_accuracy_basis_points",
+        "critical_unsupported_facts",
+        "critical_safety_failures",
+        "critical_abstention_misses",
+        "unsupported_facts_total",
+        "results_path",
+    }
+    _require_keys(item, expected, "benchmark.quality")
+    result: dict[str, Any] = {}
+    for key in expected - {"results_path"}:
+        result[key] = _integer(
+            item[key],
+            f"benchmark.quality.{key}",
+            minimum=0,
+            maximum=10_000 if key.endswith("basis_points") else None,
+        )
+    result["results_path"] = _relative_path(
+        item["results_path"], "benchmark.quality.results_path"
+    )
+    if result["sample_count"] < 1:
+        raise ContractError("quality sample_count must be positive")
+    return result
+
+
+def _parse_concurrency(value: Any, name: str) -> list[dict[str, int]]:
+    output: list[dict[str, int]] = []
+    levels: set[int] = set()
+    for index, raw in enumerate(_list(value, name)):
+        item_name = f"{name}[{index}]"
+        item = _dict(raw, item_name)
+        _require_keys(
+            item,
+            {
+                "level",
+                "request_count",
+                "failed_requests",
+                "error_rate_basis_points",
+                "p95_latency_ms",
+                "generation_tokens_per_second_milli",
+            },
+            item_name,
+        )
+        parsed = {
+            "level": _integer(item["level"], f"{item_name}.level", minimum=1),
+            "request_count": _integer(
+                item["request_count"], f"{item_name}.request_count", minimum=1
+            ),
+            "failed_requests": _integer(
+                item["failed_requests"], f"{item_name}.failed_requests", minimum=0
+            ),
+            "error_rate_basis_points": _integer(
+                item["error_rate_basis_points"],
+                f"{item_name}.error_rate_basis_points",
+                minimum=0,
+                maximum=10_000,
+            ),
+            "p95_latency_ms": _integer(
+                item["p95_latency_ms"], f"{item_name}.p95_latency_ms", minimum=1
+            ),
+            "generation_tokens_per_second_milli": _integer(
+                item["generation_tokens_per_second_milli"],
+                f"{item_name}.generation_tokens_per_second_milli",
+                minimum=1,
+            ),
+        }
+        if parsed["failed_requests"] > parsed["request_count"]:
+            raise ContractError("failed requests cannot exceed request count")
+        expected_rate = (parsed["failed_requests"] * 10_000) // parsed["request_count"]
+        if parsed["error_rate_basis_points"] != expected_rate:
+            raise ContractError("concurrency error rate does not match request counts")
+        if parsed["level"] in levels:
+            raise ContractError("concurrency levels must be unique")
+        levels.add(parsed["level"])
+        output.append(parsed)
+    output.sort(key=lambda item: item["level"])
+    return output
+
+
+def _parse_runtime_profile(value: Any, name: str) -> dict[str, Any]:
+    item = _dict(value, name)
+    expected = {
+        "profile_id",
+        "runtime_class",
+        "quantization",
+        "artifact_sha256",
+        "hardware_profile_id",
+        "hardware_path",
+        "environment_path",
+        "raw_metrics_path",
+        "cost_calculation_path",
+        "sample_count",
+        "prompt_tokens_per_second_milli",
+        "generation_tokens_per_second_milli",
+        "p95_latency_ms",
+        "p99_latency_ms",
+        "peak_ram_mb",
+        "peak_vram_mb",
+        "cold_start_ms",
+        "warmup_ms",
+        "estimated_cost_rub_per_million_tokens_milli",
+        "concurrency",
+    }
+    _require_keys(item, expected, name)
+    runtime_class = _string(item["runtime_class"], f"{name}.runtime_class")
+    if runtime_class not in _ALLOWED_RUNTIME_CLASSES:
+        raise ContractError(f"{name}.runtime_class is unsupported")
+    parsed: dict[str, Any] = {
+        "profile_id": _identity(item["profile_id"], f"{name}.profile_id"),
+        "runtime_class": runtime_class,
+        "quantization": _identity(item["quantization"], f"{name}.quantization"),
+        "artifact_sha256": _sha256(item["artifact_sha256"], f"{name}.artifact_sha256"),
+        "hardware_profile_id": _identity(
+            item["hardware_profile_id"], f"{name}.hardware_profile_id"
+        ),
+        "hardware_path": _relative_path(item["hardware_path"], f"{name}.hardware_path"),
+        "environment_path": _relative_path(
+            item["environment_path"], f"{name}.environment_path"
+        ),
+        "raw_metrics_path": _relative_path(
+            item["raw_metrics_path"], f"{name}.raw_metrics_path"
+        ),
+        "cost_calculation_path": _relative_path(
+            item["cost_calculation_path"], f"{name}.cost_calculation_path"
+        ),
+        "sample_count": _integer(
+            item["sample_count"], f"{name}.sample_count", minimum=1
+        ),
+        "prompt_tokens_per_second_milli": _integer(
+            item["prompt_tokens_per_second_milli"],
+            f"{name}.prompt_tokens_per_second_milli",
+            minimum=1,
+        ),
+        "generation_tokens_per_second_milli": _integer(
+            item["generation_tokens_per_second_milli"],
+            f"{name}.generation_tokens_per_second_milli",
+            minimum=1,
+        ),
+        "p95_latency_ms": _integer(
+            item["p95_latency_ms"], f"{name}.p95_latency_ms", minimum=1
+        ),
+        "p99_latency_ms": _integer(
+            item["p99_latency_ms"], f"{name}.p99_latency_ms", minimum=1
+        ),
+        "peak_ram_mb": _integer(item["peak_ram_mb"], f"{name}.peak_ram_mb", minimum=1),
+        "peak_vram_mb": _integer(
+            item["peak_vram_mb"], f"{name}.peak_vram_mb", minimum=0
+        ),
+        "cold_start_ms": _integer(
+            item["cold_start_ms"], f"{name}.cold_start_ms", minimum=1
+        ),
+        "warmup_ms": _integer(item["warmup_ms"], f"{name}.warmup_ms", minimum=1),
+        "estimated_cost_rub_per_million_tokens_milli": _integer(
+            item["estimated_cost_rub_per_million_tokens_milli"],
+            f"{name}.estimated_cost_rub_per_million_tokens_milli",
+            minimum=0,
+        ),
+        "concurrency": _parse_concurrency(item["concurrency"], f"{name}.concurrency"),
+    }
+    if parsed["p99_latency_ms"] < parsed["p95_latency_ms"]:
+        raise ContractError(f"{name}.p99_latency_ms must be >= p95")
+    if parsed["runtime_class"] == "CPU" and parsed["peak_vram_mb"] != 0:
+        raise ContractError(f"{name}.peak_vram_mb must be zero for CPU")
+    return parsed
+
+
+def _parse_fallback(value: Any, name: str) -> dict[str, Any]:
+    item = _dict(value, name)
+    _require_keys(
+        item,
+        {
+            "primary_model_id",
+            "primary_revision",
+            "fallback_model_id",
+            "fallback_revision",
+            "fallback_artifact_sha256",
+            "trigger_count",
+            "successful_transitions",
+            "failed_transitions",
+            "p95_takeover_ms",
+            "continuity_violations",
+            "critical_unsupported_facts",
+            "raw_metrics_path",
+            "protocol_path",
+        },
+        name,
+    )
+    return {
+        "primary_model_id": _identity(
+            item["primary_model_id"], f"{name}.primary_model_id"
+        ),
+        "primary_revision": _revision(
+            item["primary_revision"], f"{name}.primary_revision"
+        ),
+        "fallback_model_id": _identity(
+            item["fallback_model_id"], f"{name}.fallback_model_id"
+        ),
+        "fallback_revision": _revision(
+            item["fallback_revision"], f"{name}.fallback_revision"
+        ),
+        "f
