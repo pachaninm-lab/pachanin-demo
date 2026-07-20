@@ -80,7 +80,10 @@ interface Props {
 
 export function DriverOfflineQueue({ tripId = 'TRIP-001' }: Props) {
   const [events, setEvents] = useState<OfflineEvent[]>([]);
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  // Start from a deterministic value so server and client render the same HTML;
+  // the real connectivity is read on the client in the effect below. Reading
+  // navigator.onLine during useState init causes a hydration mismatch.
+  const [isOnline, setIsOnline] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [idbAvailable, setIdbAvailable] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -89,6 +92,7 @@ export function DriverOfflineQueue({ tripId = 'TRIP-001' }: Props) {
 
   useEffect(() => {
     setIdbAvailable(typeof indexedDB !== 'undefined');
+    if (typeof navigator !== 'undefined') setIsOnline(navigator.onLine);
 
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);

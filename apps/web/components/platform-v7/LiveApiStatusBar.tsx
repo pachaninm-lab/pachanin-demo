@@ -161,8 +161,8 @@ export function LiveApiStatusBar({
       {/* Stops list */}
       {stops.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, maxWidth: '100%' }}>
-          {stops.map((blocker) => (
-            <div key={blocker.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 0, minWidth: 0, maxWidth: '100%' }}>
+          {stops.map((blocker, index) => (
+            <div key={`${blocker.id}-${index}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 0, minWidth: 0, maxWidth: '100%' }}>
               <SeverityDot severity={blocker.severity} />
               <div style={{ minWidth: 0, maxWidth: '100%' }}>
                 <span style={{ fontWeight: 700, color: '#1E293B', fontSize: 11, overflowWrap: 'anywhere' }}>{blocker.label}</span>
