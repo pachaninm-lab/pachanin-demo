@@ -1,0 +1,27 @@
+name: design-antipattern-ratchet
+
+# Phase 0 of the design consolidation: freeze the anti-pattern counts so the
+# platform can only get cleaner. Fails only when a change increases the number
+# of !important rules, hard-coded hex colours in TSX, or raw z-index values.
+# It never fails on the current state — the baseline is pinned to it.
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'scripts/check-antipattern-ratchet.mjs'
+      - 'design-antipattern-baseline.json'
+  push:
+    branches: [main]
+
+jobs:
+  ratchet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+      - name: Check anti-pattern ratchet
+        run: node ./scripts/check-antipattern-ratchet.mjs

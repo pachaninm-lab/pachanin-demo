@@ -79,9 +79,19 @@
   /* --ds-font-display 36 (declared above) */
   --ds-font-hero: 44px;
 
-  --ds-leading-tight: 1.2;
+  --ds-leading-tight: 1.15;
   --ds-leading-heading: 1.25;
   --ds-leading-body: 1.55;
+
+  /* Letter-spacing tuned for Inter: tighten as size grows, open up on
+     small uppercase labels. Numbers and body stay near-neutral. */
+  --ds-tracking-hero: -0.022em;
+  --ds-tracking-display: -0.02em;
+  --ds-tracking-title: -0.015em;
+  --ds-tracking-heading: -0.011em;
+  --ds-tracking-body: -0.006em;
+  --ds-tracking-label: 0.01em;
+  --ds-tracking-caps: 0.06em;
 
   /* ── Spacing (4-point scale) ───────────────────────────────────*/
   --ds-space-12: 48px;

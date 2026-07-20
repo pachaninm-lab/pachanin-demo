@@ -1,0 +1,8 @@
+{
+  "note": "Ratchet baseline. Counts may only DECREASE. Re-pin with --update after a reduction.",
+  "metrics": {
+    "importantRules": 2513,
+    "hexInTsx": 6985,
+    "rawZIndex": 90
+  }
+}
