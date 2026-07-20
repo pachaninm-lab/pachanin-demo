@@ -42,7 +42,11 @@ jobs:
           path.write_text(source)
           PY
       - name: Run exact production watch
-        run: node .github/scripts/public-entry-watch-20260720.mjs
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/public-entry-watch-20260720
+          node .github/scripts/public-entry-watch-20260720.mjs 2>&1 | tee artifacts/public-entry-watch-20260720/run.log
       - name: Upload production watch evidence
         if: always()
         uses: actions/upload-artifact@v4
