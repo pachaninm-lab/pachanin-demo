@@ -126,7 +126,7 @@ export default async function PlatformV7RootPage() {
   const start = firstStageCopy[localeKey];
   const aiHero = firstScreenAiCopy[localeKey];
   const startDealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
-  const aiExperienceHref = `/platform-v7/demo/ai?lang=${encodeURIComponent(locale)}`;
+  const aiExperienceHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;
   const aiNavLabel = locale === 'ru' ? 'ИИ' : 'AI';
   const nav = (
     <>

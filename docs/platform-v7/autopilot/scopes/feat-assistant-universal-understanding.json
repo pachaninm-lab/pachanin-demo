@@ -5,6 +5,7 @@
   "approvedBy": "independent-authority-pr",
   "allowedPaths": [
     "apps/web/app/platform-v7/page.tsx",
+    "apps/web/app/platform-v7/layout.tsx",
     "apps/web/app/platform-v7/demo/ai/page.tsx",
     "apps/web/app/platform-v7/ai-in-action/page.tsx",
     "apps/web/components/platform-v7/PublicAiInActionExperience.tsx",
