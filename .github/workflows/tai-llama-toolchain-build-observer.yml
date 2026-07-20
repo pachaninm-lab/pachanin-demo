@@ -8,8 +8,6 @@ on:
       - .github/workflows/tai-llama-toolchain-build-observer.yml
 
 permissions:
-  actions: read
-  checks: read
   contents: read
 
 jobs:
@@ -24,26 +22,17 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Extract invalid workflow diagnostics
+      - name: Run pinned actionlint
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          FAILED_RUN_ID: '29734867969'
         run: |
-          set -euo pipefail
-
-          printf '%s\n' '=== gh run view ==='
-          gh run view "$FAILED_RUN_ID" --repo "$REPOSITORY" || true
-          printf '%s\n' '=== gh run view log-failed ==='
-          gh run view "$FAILED_RUN_ID" --repo "$REPOSITORY" --log-failed || true
-
-          printf '%s\n' '=== exact workflow identity ==='
-          sha256sum .github/workflows/tai-model-source-acquisition.yml
-          sed -n '1,520p' .github/workflows/tai-model-source-acquisition.yml
-
-          printf '%s\n' '=== actionlint v1.7.7 ==='
+          set -u -o pipefail
           export GOBIN="$RUNNER_TEMP/bin"
           mkdir -p "$GOBIN"
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
-          "$GOBIN/actionlint" -oneline -verbose .github/workflows/tai-model-source-acquisition.yml
+          set +e
+          "$GOBIN/actionlint" -oneline .github/workflows/tai-model-source-acquisition.yml > actionlint.out 2>&1
+          status=$?
+          set -e
+          printf 'ACTIONLINT_EXIT=%s\n' "$status"
+          cat actionlint.out
+          exit "$status"
