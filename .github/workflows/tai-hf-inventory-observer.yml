@@ -1,0 +1,222 @@
+name: TAI Hugging Face Exact Inventory Observer
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/tai-hf-inventory-observer.yml
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - key: qwen3-8b
+            model_id: Qwen/Qwen3-8B
+            revision: 895c8d171bc03c30e113cd7a28c02494b5e068b7
+            source_prefix: sources/qwen3-8b/
+          - key: mistral-7b-instruct-v0.3
+            model_id: mistralai/Mistral-7B-Instruct-v0.3
+            revision: c170c708c41dac9275d15a8fff4eca08d52bab71
+            source_prefix: sources/mistral-7b-instruct-v0.3/
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Fetch exact revision inventory metadata
+        shell: bash
+        env:
+          MODEL_ID: ${{ matrix.model_id }}
+          REVISION: ${{ matrix.revision }}
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          mkdir -p "observation/$KEY"
+          curl --fail --silent --show-error --location \
+            --proto '=https' --tlsv1.2 \
+            --retry 4 --retry-all-errors --max-time 60 \
+            "https://huggingface.co/api/models/$MODEL_ID/revision/$REVISION?blobs=true" \
+            --output "observation/$KEY/api-model-info.json"
+          test -s "observation/$KEY/api-model-info.json"
+
+      - name: Reconcile official API inventory with authority
+        shell: bash
+        env:
+          MODEL_ID: ${{ matrix.model_id }}
+          REVISION: ${{ matrix.revision }}
+          SOURCE_PREFIX: ${{ matrix.source_prefix }}
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          from urllib.parse import quote
+
+          key = os.environ['KEY']
+          model_id = os.environ['MODEL_ID']
+          revision = os.environ['REVISION']
+          prefix = os.environ['SOURCE_PREFIX']
+          root = Path('observation') / key
+          api_path = root / 'api-model-info.json'
+          api = json.loads(api_path.read_text(encoding='utf-8'))
+          authority = json.loads(
+              Path('apps/tai/model-artifacts/model-bundle-authority.v2.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          plan = next(
+              item for item in authority['models']
+              if item['model_id'] == model_id and item['revision'] == revision
+          )
+          observed_sha = api.get('sha')
+          if observed_sha != revision:
+              raise SystemExit(f'exact revision mismatch: {observed_sha!r}')
+
+          siblings = api.get('siblings')
+          if not isinstance(siblings, list):
+              raise SystemExit('siblings missing from API response')
+          api_by_path = {}
+          for sibling in siblings:
+              path = sibling.get('rfilename')
+              if not isinstance(path, str) or path in api_by_path:
+                  raise SystemExit(f'invalid or duplicate sibling path: {path!r}')
+              api_by_path[path] = sibling
+
+          authority_entries = []
+          selected_total = 0
+          selected_max = 0
+          selected_weight_total = 0
+          selected_weight_max = 0
+          for entry in plan['source_inventory']:
+              full_path = entry['path']
+              if not full_path.startswith(prefix):
+                  raise SystemExit(f'authority prefix mismatch: {full_path}')
+              remote_path = full_path.removeprefix(prefix)
+              sibling = api_by_path.get(remote_path)
+              if sibling is None:
+                  raise SystemExit(f'authority path absent upstream: {remote_path}')
+              lfs = sibling.get('lfs') or {}
+              size = sibling.get('size')
+              if not isinstance(size, int):
+                  size = lfs.get('size')
+              if not isinstance(size, int) or size < 0:
+                  raise SystemExit(f'missing size for {remote_path}: {sibling!r}')
+              remote_identity = {
+                  'blob_id': sibling.get('blobId'),
+                  'lfs_oid': lfs.get('oid'),
+                  'lfs_pointer_size': lfs.get('pointerSize'),
+              }
+              record = {
+                  'authority_path': full_path,
+                  'remote_path': remote_path,
+                  'role': entry['role'],
+                  'disposition': entry['disposition'],
+                  'exclusion_reason': entry['exclusion_reason'],
+                  'size_bytes': size,
+                  'remote_identity': remote_identity,
+                  'download_uri': (
+                      'https://huggingface.co/'
+                      + model_id
+                      + '/resolve/'
+                      + revision
+                      + '/'
+                      + quote(remote_path, safe='/')
+                  ),
+              }
+              authority_entries.append(record)
+              if entry['disposition'] == 'SELECTED':
+                  selected_total += size
+                  selected_max = max(selected_max, size)
+                  if entry['role'] == 'WEIGHT_SHARD':
+                      selected_weight_total += size
+                      selected_weight_max = max(selected_weight_max, size)
+
+          authority_remote_paths = {
+              entry['remote_path'] for entry in authority_entries
+          }
+          upstream_paths = set(api_by_path)
+          ungoverned = sorted(upstream_paths - authority_remote_paths)
+          missing = sorted(authority_remote_paths - upstream_paths)
+          payload = {
+              'schema_version': 'tai.hf-exact-inventory-observation.v1',
+              'status': 'RECONCILED' if not missing and not ungoverned else 'DRIFT',
+              'model_id': model_id,
+              'revision': revision,
+              'api_sha': observed_sha,
+              'api_response_sha256': hashlib.sha256(api_path.read_bytes()).hexdigest(),
+              'api_top_level_keys': sorted(api),
+              'upstream_file_count': len(upstream_paths),
+              'authority_entry_count': len(authority_entries),
+              'missing_authority_paths': missing,
+              'ungoverned_upstream_paths': ungoverned,
+              'selected_total_bytes': selected_total,
+              'selected_max_file_bytes': selected_max,
+              'selected_weight_total_bytes': selected_weight_total,
+              'selected_weight_max_file_bytes': selected_weight_max,
+              'entries': authority_entries,
+              'maturity_boundary': {
+                  'model_acquisition': 'NOT_RUN',
+                  'legal_review': 'NOT_DONE',
+                  'conversion': 'NOT_DONE',
+                  'production_operational_status': 'NOT_ATTESTED',
+              },
+          }
+          (root / 'inventory-observation.v1.json').write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(payload, sort_keys=True))
+          if payload['status'] != 'RECONCILED':
+              raise SystemExit(2)
+          PY
+
+      - name: Probe exact selected file endpoints with HEAD
+        shell: bash
+        env:
+          KEY: ${{ matrix.key }}
+        run: |
+          set -euo pipefail
+          python - <<'PY' > "observation/${KEY}/selected-uris.txt"
+          import json
+          import os
+          from pathlib import Path
+          value = json.loads(
+              (Path('observation') / os.environ['KEY'] / 'inventory-observation.v1.json').read_text()
+          )
+          for entry in value['entries']:
+              if entry['disposition'] == 'SELECTED':
+                  print(entry['download_uri'])
+          PY
+          : > "observation/${KEY}/head-results.tsv"
+          while IFS= read -r uri; do
+            status="$(curl --silent --show-error --location --head \
+              --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors \
+              --connect-timeout 20 --max-time 90 \
+              --output /dev/null --write-out '%{http_code}' "$uri" || true)"
+            printf '%s\t%s\n' "$status" "$uri" >> "observation/${KEY}/head-results.tsv"
+            case "$status" in
+              200|206|302|303|307|308) ;;
+              *) echo "unexpected endpoint status $status for $uri" >&2; exit 2 ;;
+            esac
+          done < "observation/${KEY}/selected-uris.txt"
+
+      - name: Upload exact inventory observation
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-hf-inventory-${{ matrix.key }}-${{ github.run_id }}
+          path: observation/${{ matrix.key }}
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
