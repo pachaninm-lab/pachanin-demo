@@ -1,6 +1,6 @@
 name: TAI Exact-Main Release Observer
 
-# Observation target advances with repository main; this workflow is never merged.
+# Read-only diagnostic; this workflow is never merged.
 on:
   pull_request:
     branches: [main]
@@ -16,20 +16,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Compact exact-main release evidence
+      - name: Extract exact-main industrial gate failure
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
+          FAILED_JOB_ID: '88309192487'
         run: |
           set -euo pipefail
           exact_main="$(gh api "/repos/$REPOSITORY/commits/main" --jq '.sha')"
           printf 'EXACT_MAIN=%s\n' "$exact_main"
-
-          gh api "/repos/$REPOSITORY/actions/workflows/tai-release-acceptance.yml/runs?branch=main&per_page=30" \
-            --jq ".workflow_runs[] | select(.head_sha == \"$exact_main\") | [\"RELEASE\",.id,.status,.conclusion,.event,.head_sha,.run_number,.run_attempt,.created_at,.updated_at,.html_url] | @tsv" \
-            | head -1
-
-          gh api "/repos/$REPOSITORY/actions/runs?head_sha=$exact_main&per_page=100" \
-            --jq '.workflow_runs[] | select(.name == "TAI Foundation" or .name == "CI" or .name == "Node CI" or .name == "Security Scan" or .name == "Security Quality Gate" or .name == "Security Abuse and Evidence Acceptance" or .name == "Runtime Context Security Gate" or .name == "Auction Atomic Execution Acceptance" or .name == "Outbox PostgreSQL Authority Acceptance" or .name == "Disputes PostgreSQL Authority Acceptance" or .name == "Optional Runtime Retirement Gate" or .name == "Dependency Review") | ["GATE",.name,.id,.status,.conclusion,.head_sha] | @tsv' \
-            | sort -u
+          gh api "/repos/$REPOSITORY/actions/jobs/$FAILED_JOB_ID/logs" > failed.log
+          grep -aE '(^|[^A-Za-z])(FAIL|FAILED|Error:|error:|AssertionError|expected|received|timeout|timed out|ECONN|duplicate|deadlock|P95|p95|threshold|##\[error\])' failed.log \
+            | tail -80 || true
