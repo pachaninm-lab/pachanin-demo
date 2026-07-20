@@ -1,0 +1,434 @@
+name: TAI llama.cpp Build Acceptance Handoff
+
+on:
+  workflow_run:
+    workflows:
+      - TAI llama.cpp Exact Source Build
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  handoff:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.status == 'completed' &&
+      github.event.workflow_run.event == 'issue_comment' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.repository.full_name == github.repository
+    concurrency:
+      group: tai-llama-cpp-build-acceptance-handoff
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SOURCE_WORKFLOW_NAME: TAI llama.cpp Exact Source Build
+      SOURCE_WORKFLOW_PATH: .github/workflows/tai-llama-toolchain-build.yml
+      ISSUE_NUMBER: '2832'
+      AUTHORITY_SHA256: 3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b
+      LLAMA_RELEASE: b9637
+      LLAMA_COMMIT: aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3
+      BUILD_PROFILE: linux-x86_64-cpu-release-static-v1
+
+    steps:
+      - name: Checkout exact triggering main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate trusted source run and exact-main binding
+        id: source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          EVENT_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p handoff-work
+
+          gh api "repos/$REPOSITORY/actions/runs/$RUN_ID" \
+            > handoff-work/source-run.json
+          gh api "repos/$REPOSITORY/git/ref/heads/main" \
+            > handoff-work/main-ref.json
+          gh api --paginate --slurp \
+            "repos/$REPOSITORY/actions/runs/$RUN_ID/artifacts?per_page=100" \
+            > handoff-work/artifacts-pages.json
+
+          SOURCE_WORKFLOW_NAME="$SOURCE_WORKFLOW_NAME" \
+          SOURCE_WORKFLOW_PATH="$SOURCE_WORKFLOW_PATH" \
+          REPOSITORY="$REPOSITORY" \
+          RUN_ID="$RUN_ID" \
+          EVENT_HEAD_SHA="$EVENT_HEAD_SHA" \
+          AUTHORITY_SHA256="$AUTHORITY_SHA256" \
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          root = Path("handoff-work")
+          run = json.loads((root / "source-run.json").read_text())
+          main_ref = json.loads((root / "main-ref.json").read_text())
+          pages = json.loads((root / "artifacts-pages.json").read_text())
+          artifacts = [
+              artifact
+              for page in pages
+              for artifact in page.get("artifacts", [])
+          ]
+
+          expected_repo = os.environ["REPOSITORY"]
+          expected_run_id = int(os.environ["RUN_ID"])
+          expected_head_sha = os.environ["EVENT_HEAD_SHA"]
+          owner = expected_repo.split("/", 1)[0]
+
+          def require(condition: bool, reason: str) -> None:
+              if not condition:
+                  raise SystemExit(reason)
+
+          require(run.get("id") == expected_run_id, "SOURCE_RUN_ID_MISMATCH")
+          require(run.get("name") == os.environ["SOURCE_WORKFLOW_NAME"], "SOURCE_WORKFLOW_NAME_MISMATCH")
+          require(run.get("path") == os.environ["SOURCE_WORKFLOW_PATH"], "SOURCE_WORKFLOW_PATH_MISMATCH")
+          require(run.get("status") == "completed", "SOURCE_RUN_NOT_COMPLETED")
+          require(run.get("conclusion") == "success", "SOURCE_RUN_NOT_SUCCESSFUL")
+          require(run.get("event") == "issue_comment", "SOURCE_EVENT_NOT_ISSUE_COMMENT")
+          require(run.get("head_branch") == "main", "SOURCE_BRANCH_NOT_MAIN")
+          require(run.get("head_sha") == expected_head_sha, "SOURCE_HEAD_SHA_EVENT_MISMATCH")
+          require(re.fullmatch(r"[0-9a-f]{40}", expected_head_sha) is not None, "SOURCE_HEAD_SHA_INVALID")
+          require(run.get("repository", {}).get("full_name") == expected_repo, "SOURCE_REPOSITORY_MISMATCH")
+          require(run.get("head_repository", {}).get("full_name") == expected_repo, "SOURCE_HEAD_REPOSITORY_MISMATCH")
+          require(run.get("actor", {}).get("login") == owner, "SOURCE_ACTOR_NOT_OWNER")
+          require(run.get("triggering_actor", {}).get("login") == owner, "SOURCE_TRIGGERING_ACTOR_NOT_OWNER")
+          require(run.get("run_attempt", 0) >= 1, "SOURCE_RUN_ATTEMPT_INVALID")
+          require(main_ref.get("object", {}).get("sha") == expected_head_sha, "SOURCE_RUN_NOT_CURRENT_EXACT_MAIN")
+          require(os.popen("git rev-parse HEAD").read().strip() == expected_head_sha, "CHECKOUT_SHA_MISMATCH")
+          require(os.popen("git status --porcelain=v1 --untracked-files=all").read() == "", "CHECKOUT_NOT_CLEAN")
+
+          run_attempt = int(run["run_attempt"])
+          locator_name = f"tai-llama-toolchain-locator-{expected_head_sha}-{expected_run_id}-{run_attempt}"
+          package_name = f"tai-llama-toolchain-build-{expected_head_sha}-{expected_run_id}-{run_attempt}"
+          matching_locator = [
+              artifact for artifact in artifacts
+              if artifact.get("name") == locator_name and artifact.get("expired") is False
+          ]
+          matching_package = [
+              artifact for artifact in artifacts
+              if artifact.get("name") == package_name and artifact.get("expired") is False
+          ]
+          require(len(matching_locator) == 1, "LOCATOR_ARTIFACT_CARDINALITY_INVALID")
+          require(len(matching_package) == 1, "PACKAGE_ARTIFACT_CARDINALITY_INVALID")
+
+          locator = matching_locator[0]
+          package = matching_package[0]
+          for label, artifact in (("LOCATOR", locator), ("PACKAGE", package)):
+              require(isinstance(artifact.get("id"), int), f"{label}_ARTIFACT_ID_INVALID")
+              require(
+                  re.fullmatch(r"sha256:[0-9a-f]{64}", artifact.get("digest", "")) is not None,
+                  f"{label}_ARTIFACT_DIGEST_INVALID",
+              )
+              require(
+                  artifact.get("workflow_run", {}).get("id") == expected_run_id,
+                  f"{label}_ARTIFACT_RUN_ID_MISMATCH",
+              )
+              require(
+                  artifact.get("workflow_run", {}).get("head_branch") == "main",
+                  f"{label}_ARTIFACT_BRANCH_MISMATCH",
+              )
+              require(
+                  artifact.get("workflow_run", {}).get("head_sha") == expected_head_sha,
+                  f"{label}_ARTIFACT_HEAD_SHA_MISMATCH",
+              )
+
+          source = {
+              "run": run,
+              "locator_artifact": locator,
+              "package_artifact": package,
+          }
+          (root / "trusted-source.json").write_text(
+              json.dumps(source, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+          )
+          output = Path(os.environ["GITHUB_OUTPUT"])
+          with output.open("a", encoding="utf-8") as stream:
+              stream.write(f"locator_id={locator['id']}\n")
+              stream.write(f"locator_name={locator_name}\n")
+              stream.write(f"package_id={package['id']}\n")
+              stream.write(f"package_name={package_name}\n")
+              stream.write(f"head_sha={expected_head_sha}\n")
+              stream.write(f"run_attempt={run_attempt}\n")
+          PY
+
+      - name: Download only the locator artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          LOCATOR_ID: ${{ steps.source.outputs.locator_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p handoff-work/locator
+          gh api "repos/$REPOSITORY/actions/artifacts/$LOCATOR_ID/zip" \
+            > handoff-work/locator.zip
+          test -s handoff-work/locator.zip
+          unzip -q handoff-work/locator.zip -d handoff-work/locator
+
+          find handoff-work/locator -type f -printf '%P\n' \
+            | LC_ALL=C sort > handoff-work/locator-files.txt
+          cat > handoff-work/expected-locator-files.txt <<'EOF'
+          llama-cpp-build-artifact-locator.v1.json
+          package-index.v1.json
+          restored-verification.v1.json
+          EOF
+          diff -u handoff-work/expected-locator-files.txt handoff-work/locator-files.txt
+
+      - name: Verify restored locator and create acceptance handoff
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SOURCE_RUN_ATTEMPT: ${{ steps.source.outputs.run_attempt }}
+          LOCATOR_ARTIFACT_ID: ${{ steps.source.outputs.locator_id }}
+          LOCATOR_ARTIFACT_NAME: ${{ steps.source.outputs.locator_name }}
+          PACKAGE_ARTIFACT_ID: ${{ steps.source.outputs.package_id }}
+          PACKAGE_ARTIFACT_NAME: ${{ steps.source.outputs.package_name }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          root = Path("handoff-work")
+          locator_dir = root / "locator"
+          locator_path = locator_dir / "llama-cpp-build-artifact-locator.v1.json"
+          package_index_path = locator_dir / "package-index.v1.json"
+          restored_path = locator_dir / "restored-verification.v1.json"
+          trusted = json.loads((root / "trusted-source.json").read_text())
+          locator = json.loads(locator_path.read_text())
+          package_index = json.loads(package_index_path.read_text())
+          restored = json.loads(restored_path.read_text())
+
+          def digest(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          def require(condition: bool, reason: str) -> None:
+              if not condition:
+                  raise SystemExit(reason)
+
+          head_sha = os.environ["SOURCE_HEAD_SHA"]
+          run_id = int(os.environ["SOURCE_RUN_ID"])
+          run_attempt = int(os.environ["SOURCE_RUN_ATTEMPT"])
+          authority_sha = os.environ["AUTHORITY_SHA256"]
+          expected_targets = [
+              "llama-bench",
+              "llama-cli",
+              "llama-quantize",
+              "llama-server",
+          ]
+
+          require(locator.get("schema_version") == "tai.llama-cpp-build-artifact-locator.v1", "LOCATOR_SCHEMA_INVALID")
+          require(locator.get("status") == "VERIFIED_RESTORED", "LOCATOR_STATUS_INVALID")
+          require(locator.get("repository_sha") == head_sha, "LOCATOR_REPOSITORY_SHA_MISMATCH")
+          require(int(locator.get("workflow_run_id", -1)) == run_id, "LOCATOR_RUN_ID_MISMATCH")
+          require(int(locator.get("workflow_run_attempt", -1)) == run_attempt, "LOCATOR_RUN_ATTEMPT_MISMATCH")
+          require(str(locator.get("artifact", {}).get("id")) == os.environ["PACKAGE_ARTIFACT_ID"], "LOCATOR_PACKAGE_ID_MISMATCH")
+          require(locator.get("artifact", {}).get("name") == os.environ["PACKAGE_ARTIFACT_NAME"], "LOCATOR_PACKAGE_NAME_MISMATCH")
+          require(locator.get("artifact", {}).get("retention_days") == 90, "LOCATOR_RETENTION_INVALID")
+          require(
+              re.fullmatch(r"sha256:[0-9a-f]{64}", locator.get("artifact", {}).get("digest", "")) is not None,
+              "LOCATOR_PACKAGE_DIGEST_INVALID",
+          )
+          require(
+              locator["artifact"]["digest"] == trusted["package_artifact"]["digest"],
+              "LOCATOR_PACKAGE_API_DIGEST_MISMATCH",
+          )
+          require(locator.get("package_index", {}).get("sha256") == digest(package_index_path), "PACKAGE_INDEX_HASH_MISMATCH")
+          require(locator.get("package_index", {}).get("content") == package_index, "PACKAGE_INDEX_CONTENT_MISMATCH")
+          require(locator.get("restored_verification", {}).get("sha256") == digest(restored_path), "RESTORED_REPORT_HASH_MISMATCH")
+          require(locator.get("restored_verification", {}).get("content") == restored, "RESTORED_REPORT_CONTENT_MISMATCH")
+
+          require(package_index.get("schema_version") == "tai.llama-cpp-build-package-index.v1", "PACKAGE_INDEX_SCHEMA_INVALID")
+          require(package_index.get("status") == "PACKAGED", "PACKAGE_INDEX_STATUS_INVALID")
+          require(package_index.get("repository_sha") == head_sha, "PACKAGE_INDEX_REPOSITORY_SHA_MISMATCH")
+          require(int(package_index.get("workflow_run_id", -1)) == run_id, "PACKAGE_INDEX_RUN_ID_MISMATCH")
+          require(int(package_index.get("workflow_run_attempt", -1)) == run_attempt, "PACKAGE_INDEX_RUN_ATTEMPT_MISMATCH")
+          require(package_index.get("authority_sha256") == authority_sha, "PACKAGE_INDEX_AUTHORITY_MISMATCH")
+          require(package_index.get("retention_days") == 90, "PACKAGE_INDEX_RETENTION_INVALID")
+          for field in ("package", "build_evidence", "verification_report"):
+              record = package_index.get(field, {})
+              require(re.fullmatch(r"[0-9a-f]{64}", record.get("sha256", "")) is not None, f"{field.upper()}_HASH_INVALID")
+              require(isinstance(record.get("size_bytes"), int) and record["size_bytes"] > 0, f"{field.upper()}_SIZE_INVALID")
+
+          require(restored.get("status") == "VERIFIED", "RESTORED_STATUS_INVALID")
+          require(restored.get("reasons") == [], "RESTORED_REASONS_NOT_EMPTY")
+          require(restored.get("verified_targets") == expected_targets, "RESTORED_TARGETS_INVALID")
+
+          source_run = trusted["run"]
+          locator_artifact = trusted["locator_artifact"]
+          package_artifact = trusted["package_artifact"]
+          require(str(locator_artifact["id"]) == os.environ["LOCATOR_ARTIFACT_ID"], "LOCATOR_API_ID_MISMATCH")
+          require(locator_artifact["name"] == os.environ["LOCATOR_ARTIFACT_NAME"], "LOCATOR_API_NAME_MISMATCH")
+          require(str(package_artifact["id"]) == os.environ["PACKAGE_ARTIFACT_ID"], "PACKAGE_API_ID_MISMATCH")
+          require(package_artifact["name"] == os.environ["PACKAGE_ARTIFACT_NAME"], "PACKAGE_API_NAME_MISMATCH")
+
+          acceptance = {
+              "schema_version": "tai.llama-cpp-build-acceptance-handoff.v1",
+              "status": "VERIFIED_BUILD_READY_FOR_ACCEPTANCE_PR",
+              "issue": 2832,
+              "parent_issue": 2726,
+              "repository": os.environ["REPOSITORY"],
+              "repository_sha": head_sha,
+              "source_workflow": {
+                  "id": run_id,
+                  "run_number": source_run["run_number"],
+                  "run_attempt": run_attempt,
+                  "name": source_run["name"],
+                  "path": source_run["path"],
+                  "event": source_run["event"],
+                  "status": source_run["status"],
+                  "conclusion": source_run["conclusion"],
+                  "url": os.environ["SOURCE_RUN_URL"],
+                  "created_at": source_run["created_at"],
+                  "run_started_at": source_run["run_started_at"],
+                  "updated_at": source_run["updated_at"],
+              },
+              "authority": {
+                  "toolchain_name": "ggml-org/llama.cpp",
+                  "release": os.environ["LLAMA_RELEASE"],
+                  "commit": os.environ["LLAMA_COMMIT"],
+                  "profile_id": os.environ["BUILD_PROFILE"],
+                  "authority_sha256": authority_sha,
+              },
+              "locator_artifact": {
+                  "id": locator_artifact["id"],
+                  "name": locator_artifact["name"],
+                  "digest": locator_artifact["digest"],
+                  "size_bytes": locator_artifact["size_in_bytes"],
+                  "created_at": locator_artifact["created_at"],
+                  "expires_at": locator_artifact["expires_at"],
+              },
+              "package_artifact": {
+                  "id": package_artifact["id"],
+                  "name": package_artifact["name"],
+                  "digest": package_artifact["digest"],
+                  "size_bytes": package_artifact["size_in_bytes"],
+                  "created_at": package_artifact["created_at"],
+                  "expires_at": package_artifact["expires_at"],
+                  "retention_days": locator["artifact"]["retention_days"],
+              },
+              "locator": {
+                  "sha256": digest(locator_path),
+                  "content": locator,
+              },
+              "package": package_index["package"],
+              "build_evidence": package_index["build_evidence"],
+              "verification_report": package_index["verification_report"],
+              "restored_verification": {
+                  "sha256": digest(restored_path),
+                  "status": restored["status"],
+                  "reasons": restored["reasons"],
+                  "verified_targets": restored["verified_targets"],
+              },
+              "acceptance_requirements": {
+                  "separate_pull_request_required": True,
+                  "exact_head_and_exact_main_gates_required": True,
+                  "commit_only_locator_and_machine_readable_metadata": True,
+                  "close_issue_only_after_merge": True,
+              },
+              "model_acquisition_status": "PENDING_ACQUISITION",
+              "model_admission_status": "NOT_DONE",
+              "production_operational_status": "NOT_ATTESTED",
+          }
+          handoff_path = root / "llama-cpp-build-acceptance-handoff.v1.json"
+          handoff_path.write_text(
+              json.dumps(acceptance, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+          )
+
+          locator_text = locator_path.read_text()
+          handoff_text = handoff_path.read_text()
+          body = (
+              "<!-- tai-llama-cpp-build-acceptance-handoff:v1 -->\n"
+              f"## AP-13B.2b verified build handoff — run `{run_id}`\n\n"
+              f"- exact main: `{head_sha}`\n"
+              f"- restored status: `{restored['status']}`\n"
+              f"- package SHA-256: `{package_index['package']['sha256']}`\n"
+              f"- package bytes: `{package_index['package']['size_bytes']}`\n"
+              f"- operational status: `NOT_ATTESTED`\n"
+              f"- next authority step: separate exact-head/exact-main acceptance PR; do not close #2832 before merge.\n\n"
+              "<details><summary>Machine-readable acceptance handoff</summary>\n\n"
+              "```json\n" + handoff_text + "```\n"
+              "</details>\n\n"
+              "<details><summary>Exact restored locator</summary>\n\n"
+              "```json\n" + locator_text + "```\n"
+              "</details>\n"
+          )
+          require(len(body.encode("utf-8")) < 60000, "ISSUE_COMMENT_TOO_LARGE")
+          (root / "issue-comment.md").write_text(body)
+          request = {"body": body}
+          (root / "issue-comment-request.json").write_text(
+              json.dumps(request, ensure_ascii=False)
+          )
+          PY
+
+      - name: Publish immutable-metadata handoff to issue 2832
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          marker="tai-llama-cpp-build-acceptance-handoff:v1"
+          duplicate_count="$(
+            gh api --paginate "repos/$REPOSITORY/issues/$ISSUE_NUMBER/comments?per_page=100" \
+              --jq "[.[] | select(.body | contains(\"$marker\")) | select(.body | contains(\"run \`$RUN_ID\`\"))] | length" \
+              | awk '{sum += $1} END {print sum + 0}'
+          )"
+          test "$duplicate_count" = '0'
+          gh api \
+            --method POST \
+            "repos/$REPOSITORY/issues/$ISSUE_NUMBER/comments" \
+            --input handoff-work/issue-comment-request.json \
+            > handoff-work/published-comment.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          published = json.loads(Path("handoff-work/published-comment.json").read_text())
+          body = published.get("body", "")
+          assert published.get("id")
+          assert "tai-llama-cpp-build-acceptance-handoff:v1" in body
+          assert "VERIFIED_BUILD_READY_FOR_ACCEPTANCE_PR" in body
+          assert "NOT_ATTESTED" in body
+          PY
+
+      - name: Publish handoff summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          handoff = json.loads(
+              Path("handoff-work/llama-cpp-build-acceptance-handoff.v1.json").read_text()
+          )
+          print("## TAI llama.cpp build acceptance handoff")
+          print(f"- repository SHA: `{handoff['repository_sha']}`")
+          print(f"- source run: `{handoff['source_workflow']['id']}`")
+          print(f"- status: `{handoff['status']}`")
+          print(f"- package SHA-256: `{handoff['package']['sha256']}`")
+          print(f"- locator artifact: `{handoff['locator_artifact']['id']}`")
+          print(f"- operational status: `{handoff['production_operational_status']}`")
+          PY
