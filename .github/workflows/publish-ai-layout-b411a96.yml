@@ -14,36 +14,18 @@ permissions:
 env:
   TARGET_SHA: b411a960cc259919e701704bfa652bd06d33c7d8
   IMAGE: ghcr.io/pachaninm-lab/grainflow-web
+  IMAGE_REF: ghcr.io/pachaninm-lab/grainflow-web:sha-b411a96
 
 jobs:
   publish:
-    name: Build, publish and browser-verify hydrated AI page
+    name: Reuse or build, then browser-verify hydrated AI page
     runs-on: ubuntu-24.04
-    timeout-minutes: 70
+    timeout-minutes: 45
     steps:
       - name: Checkout exact accepted source
         uses: actions/checkout@v4
         with:
           ref: ${{ env.TARGET_SHA }}
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
-
-      - name: Install locked dependencies and Chromium
-        shell: bash
-        run: |
-          set -euo pipefail
-          pnpm install --frozen-lockfile
-          pnpm --dir apps/web exec playwright install chromium --with-deps
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -52,38 +34,53 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve immutable metadata
-        id: meta
+      - name: Reuse already-published exact image when available
+        id: existing
         shell: bash
         run: |
           set -euo pipefail
-          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-          echo "tag=sha-${TARGET_SHA:0:7}" >> "$GITHUB_OUTPUT"
+          if docker pull --platform linux/amd64 "$IMAGE_REF"; then
+            revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE_REF")"
+            if [ "$revision" = "$TARGET_SHA" ]; then
+              echo 'found=true' >> "$GITHUB_OUTPUT"
+              echo "Reusing $IMAGE_REF"
+              exit 0
+            fi
+          fi
+          echo 'found=false' >> "$GITHUB_OUTPUT"
 
-      - name: Build and publish exact linux/amd64 image
+      - name: Set up Docker Buildx
+        if: steps.existing.outputs.found != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Resolve build date
+        if: steps.existing.outputs.found != 'true'
+        id: meta
+        shell: bash
+        run: echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and publish exact image without cache export
+        if: steps.existing.outputs.found != 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: infra/docker/Dockerfile.web
           platforms: linux/amd64
           push: true
-          tags: |
-            ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+          tags: ${{ env.IMAGE_REF }}
           build-args: |
             BUILD_DATE=${{ steps.meta.outputs.build_date }}
             GIT_COMMIT=${{ env.TARGET_SHA }}
           cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
 
       - name: Verify exact revision, architecture and route authority
         shell: bash
         run: |
           set -euo pipefail
-          ref="${IMAGE}:${{ steps.meta.outputs.tag }}"
-          docker pull --platform linux/amd64 "$ref"
-          revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$ref")"
-          architecture="$(docker image inspect --format '{{ .Architecture }}' "$ref")"
-          echo "IMAGE_REF=$ref"
+          docker pull --platform linux/amd64 "$IMAGE_REF"
+          revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE_REF")"
+          architecture="$(docker image inspect --format '{{ .Architecture }}' "$IMAGE_REF")"
+          echo "IMAGE_REF=$IMAGE_REF"
           echo "REVISION=$revision"
           echo "ARCHITECTURE=$architecture"
           test "$revision" = "$TARGET_SHA"
@@ -96,32 +93,44 @@ jobs:
           grep -Fq 'window.setInterval' apps/web/components/platform-v7/PublicAiInActionExperience.tsx
 
       - name: Start exact image
-        id: container
         shell: bash
         run: |
           set -euo pipefail
-          ref="${IMAGE}:${{ steps.meta.outputs.tag }}"
-          docker run -d --name ai-layout-check -p 3000:3000 "$ref"
+          docker run -d --name ai-layout-check -p 3000:3000 "$IMAGE_REF"
           for attempt in $(seq 1 60); do
-            if curl -fsS --max-time 10 'http://127.0.0.1:3000/platform-v7/ai-in-action?lang=ru' > /tmp/ai-ssr.html; then
-              if grep -Fq 'interactive-animated-ai-explainer' /tmp/ai-ssr.html; then
-                echo "Container ready on attempt $attempt"
-                exit 0
-              fi
+            if curl -fsS --max-time 10 'http://127.0.0.1:3000/platform-v7/ai-in-action?lang=ru' > /tmp/ai-ssr.html \
+              && grep -Fq 'interactive-animated-ai-explainer' /tmp/ai-ssr.html; then
+              echo "Container ready on attempt $attempt"
+              exit 0
             fi
             sleep 2
           done
           docker logs ai-layout-check || true
           exit 1
 
-      - name: Verify mobile hydration, visible AI explanation and motion
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install browser verification dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm --dir apps/web exec playwright install chromium --with-deps
+
+      - name: Verify mobile hydration, visible explanation and motion
         shell: bash
         run: |
           set -euo pipefail
           cd apps/web
           node <<'NODE'
           const { chromium } = require('@playwright/test');
-
           (async () => {
             const browser = await chromium.launch({ headless: true });
             const page = await browser.newPage({
@@ -130,18 +139,14 @@ jobs:
               locale: 'ru-RU',
               reducedMotion: 'no-preference',
             });
-
             await page.goto('http://127.0.0.1:3000/platform-v7/ai-in-action?lang=ru', {
               waitUntil: 'networkidle',
               timeout: 60_000,
             });
-
             await page.waitForSelector('[data-testid="platform-v7-ai-in-action-authority"]', {
               state: 'attached',
               timeout: 20_000,
             });
-            await page.waitForSelector('h1', { state: 'visible', timeout: 20_000 });
-
             const title = await page.title();
             const h1 = (await page.locator('h1').first().innerText()).trim();
             const body = await page.locator('body').innerText();
@@ -151,19 +156,12 @@ jobs:
                 .map((element) => getComputedStyle(element).animationName)
                 .filter((name) => name && name !== 'none')
             );
-
             await page.waitForTimeout(4_200);
             const phaseAfter = (await page.locator('button[aria-current="step"]').innerText()).trim();
-
             console.log(JSON.stringify({
-              url: page.url(),
-              title,
-              h1,
-              phaseBefore,
-              phaseAfter,
+              url: page.url(), title, h1, phaseBefore, phaseAfter,
               animationNames: [...new Set(animationNames)],
             }, null, 2));
-
             if (!title.includes('Как ИИ работает в платформе')) throw new Error('Wrong page title');
             if (!h1.includes('От события сделки')) throw new Error(`Wrong H1: ${h1}`);
             if (!body.includes('Интерактивный показ объясняет, как ИИ собирает разрешённые факты')) {
@@ -174,7 +172,6 @@ jobs:
             }
             if (animationNames.length === 0) throw new Error('No active CSS animation detected');
             if (phaseBefore === phaseAfter) throw new Error('Autoplay phase did not advance');
-
             await page.screenshot({ path: '/tmp/ai-layout-b411-mobile.png', fullPage: true });
             await browser.close();
           })().catch((error) => {
