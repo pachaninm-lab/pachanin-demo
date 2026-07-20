@@ -26,6 +26,11 @@ jobs:
           owner="$(gh api "/repos/$REPOSITORY" --jq '.owner.login')"
           printf 'EXACT_MAIN=%s\nOWNER=%s\n' "$exact_main" "$owner"
 
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml" > acquisition-workflow.json
+          jq -r '["ACQUISITION_WORKFLOW",.id,.name,.path,.state,.created_at,.updated_at,.html_url] | @tsv' acquisition-workflow.json
+          gh api "/repos/$REPOSITORY/actions/workflows/tai-model-source-acquisition.yml/runs?per_page=100" > acquisition-all-runs.json
+          jq -r '.workflow_runs[] | ["ACQUISITION_ANY",.id,.event,.status,.conclusion,.head_branch,.head_sha,.run_number,.run_attempt,.actor.login,.triggering_actor.login,.created_at,.updated_at] | @tsv' acquisition-all-runs.json
+
           observe_workflow() {
             workflow="$1"
             event="$2"
