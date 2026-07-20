@@ -24,6 +24,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - name: Record exact head tree
+        run: echo "HEAD_TREE=$(git rev-parse 'HEAD^{tree}')"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
