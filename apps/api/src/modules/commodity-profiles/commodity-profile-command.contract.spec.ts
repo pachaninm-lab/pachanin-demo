@@ -8,7 +8,7 @@ import {
 function command(overrides: Partial<CommodityProfileCommand> = {}): CommodityProfileCommand {
   return {
     commandId: 'command-001',
-    idempotencyKey: 'idempotency-001',
+    idempotencyKey: 'replay-key-001',
     correlationId: 'correlation-001',
     profileId: 'profile-wheat',
     profileVersionId: 'profile-wheat-v1',
