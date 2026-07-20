@@ -14,19 +14,25 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Checkout exact main workflow
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Validate acquisition workflow with pinned actionlint
+      - name: Validate exact-main acquisition workflow with pinned actionlint
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          gh api "/repos/$REPOSITORY/contents/.github/workflows/tai-model-source-acquisition.yml?ref=main" \
+            --jq '.content' \
+            | tr -d '\n' \
+            | base64 -d \
+            > acquisition.yml
+          set +e
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 \
             -format '{{json .}}' \
-            .github/workflows/tai-model-source-acquisition.yml \
-            | tee actionlint.jsonl
-          test ! -s actionlint.jsonl
+            acquisition.yml \
+            > actionlint.jsonl 2>&1
+          status=$?
+          set -e
+          printf 'ACTIONLINT_EXIT=%s\n' "$status"
+          cat actionlint.jsonl
+          exit "$status"
