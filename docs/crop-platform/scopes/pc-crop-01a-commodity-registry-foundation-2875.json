@@ -8,11 +8,14 @@
   "maturityBoundary": "commodity-profile-domain-and-interface-foundation-without-postgresql-runtime-authority",
   "allowedPaths": [
     "packages/domain-core/package.json",
+    "packages/domain-core/tsconfig.pc-crop.json",
     "packages/domain-core/src/index.ts",
     "packages/domain-core/src/commodity-profile.ts",
     "packages/domain-core/src/commodity-profile.test.ts",
+    "apps/web/tsconfig.pc-crop.json",
     "apps/web/components/crop-platform/CommodityProfileRegistryView.tsx",
     "apps/web/components/crop-platform/CommodityProfileRegistryView.module.css",
+    "apps/web/components/crop-platform/css-modules.d.ts",
     "docs/crop-platform/PC-CROP-01A-DOMAIN-AND-UX.md",
     "docs/crop-platform/scopes/pc-crop-01a-commodity-registry-foundation-2875.json",
     "scripts/verify-pc-crop-01a.mjs",
@@ -26,7 +29,8 @@
     "automatic profile approval, activation or revocation",
     "external FGIS, EDO, bank or registry availability claim",
     "production operational attestation",
-    "direct privileged write by TAI"
+    "direct privileged write by TAI",
+    "silently weakening repository-wide compiler checks"
   ],
   "acceptance": [
     "six archetypes share one canonical domain contract",
@@ -39,6 +43,7 @@
     "interface covers loading, empty, error, forbidden, conflict and ready states",
     "interface uses compact registry plus progressive detail rather than a card wall",
     "RU, EN and ZH, WCAG 2.2 AA patterns, 320-430 px, forced colors and reduced motion are present",
+    "isolated TypeScript 5.9-compatible configs validate the new domain and interface files without hiding the separate repository compiler migration debt",
     "no mock, demo, pilot, localStorage, sessionStorage or direct fetch authority is introduced",
     "exact-head CI passes while operational status remains NOT_ATTESTED"
   ]
