@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: publish-ai-web-c21eec0
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   TARGET_SHA: c21eec0ce9b399675e5ae94bb836972ad0086083
@@ -27,6 +27,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Record autonomous release start
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          body="$(cat <<EOF
+          ### ⏳ Autonomous AI-in-action publication started
+
+          - Target revision: \`${TARGET_SHA}\`
+          - Image: \`${IMAGE}:latest\`
+          - Trigger commit: \`${GITHUB_SHA}\`
+
+          The job is building the exact web image, publishing it to GHCR, waiting for Watchtower, and checking the live homepage and interactive route.
+          EOF
+          )"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/2834/comments" -f body="$body"
+
       - name: Checkout exact application source
         uses: actions/checkout@v4
         with:
