@@ -1,0 +1,383 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.example/schemas/tai/local-model-artifact-bundle.v2.json",
+  "title": "TAI local model artifact bundle v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lifecycle",
+    "role",
+    "model_id",
+    "revision",
+    "authority_sha256",
+    "remote_inventory",
+    "source_files",
+    "legal_review",
+    "toolchain_package",
+    "conversion",
+    "quantizations",
+    "storage"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "tai.local-model-artifact-bundle.v2"
+    },
+    "lifecycle": {
+      "enum": ["PENDING_ACQUISITION", "COMPLETE"]
+    },
+    "role": {
+      "enum": ["PRIMARY", "FALLBACK"]
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "revision": {
+      "$ref": "#/$defs/revision"
+    },
+    "authority_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "remote_inventory": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/remoteInventory"}
+      ]
+    },
+    "source_files": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/sourceFile"},
+      "uniqueItems": true
+    },
+    "legal_review": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/legalReview"}
+      ]
+    },
+    "toolchain_package": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/toolchainPackage"}
+      ]
+    },
+    "conversion": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/conversion"}
+      ]
+    },
+    "quantizations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/quantization"},
+      "uniqueItems": true
+    },
+    "storage": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/storage"}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "lifecycle": {"const": "PENDING_ACQUISITION"}
+        }
+      },
+      "then": {
+        "properties": {
+          "remote_inventory": {"type": "null"},
+          "source_files": {"maxItems": 0},
+          "legal_review": {"type": "null"},
+          "toolchain_package": {"type": "null"},
+          "conversion": {"type": "null"},
+          "quantizations": {"maxItems": 0},
+          "storage": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "lifecycle": {"const": "COMPLETE"}
+        }
+      },
+      "then": {
+        "properties": {
+          "remote_inventory": {"$ref": "#/$defs/remoteInventory"},
+          "source_files": {"minItems": 1},
+          "legal_review": {"$ref": "#/$defs/legalReview"},
+          "toolchain_package": {"$ref": "#/$defs/toolchainPackage"},
+          "conversion": {"$ref": "#/$defs/conversion"},
+          "quantizations": {"minItems": 1},
+          "storage": {"$ref": "#/$defs/storage"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40,64}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "not": {
+        "anyOf": [
+          {"pattern": "^/"},
+          {"pattern": "^\\./"},
+          {"pattern": "(^|/)\\.\\.(/|$)"}
+        ]
+      }
+    },
+    "declaredFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "sourceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "role", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/relativePath"},
+        "role": {
+          "enum": [
+            "WEIGHT_SHARD",
+            "SHARD_INDEX",
+            "TOKENIZER",
+            "CONFIG",
+            "MODEL_CARD",
+            "AUXILIARY"
+          ]
+        },
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "remoteInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_id",
+        "revision",
+        "source_uri",
+        "observed_at",
+        "evidence_file",
+        "entries"
+      ],
+      "properties": {
+        "model_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "revision": {"$ref": "#/$defs/revision"},
+        "source_uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "^https://"
+        },
+        "observed_at": {"type": "string", "format": "date-time"},
+        "evidence_file": {"$ref": "#/$defs/declaredFile"},
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "size_bytes", "remote_identity"],
+            "properties": {
+              "path": {"$ref": "#/$defs/relativePath"},
+              "size_bytes": {"type": "integer", "minimum": 1},
+              "remote_identity": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              }
+            }
+          }
+        }
+      }
+    },
+    "legalReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "reviewer_type",
+        "reviewer_id",
+        "reviewer_name",
+        "reviewed_at",
+        "license_spdx",
+        "decision_basis",
+        "conditions",
+        "record_type",
+        "attestation_reference",
+        "license_text",
+        "review_record"
+      ],
+      "properties": {
+        "decision": {"enum": ["PENDING", "APPROVED", "REJECTED"]},
+        "reviewer_type": {"const": "HUMAN"},
+        "reviewer_id": {"type": "string", "minLength": 1, "maxLength": 200},
+        "reviewer_name": {"type": "string", "minLength": 1, "maxLength": 200},
+        "reviewed_at": {"type": "string", "format": "date-time"},
+        "license_spdx": {"type": "string", "minLength": 1, "maxLength": 200},
+        "decision_basis": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "conditions": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 1000}
+        },
+        "record_type": {"enum": ["ATTRIBUTED_RECORD", "SIGNED_RECORD"]},
+        "attestation_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "(@sha256:|#sha256=|versionId=)"
+        },
+        "license_text": {"$ref": "#/$defs/declaredFile"},
+        "review_record": {"$ref": "#/$defs/declaredFile"}
+      }
+    },
+    "toolchainPackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "release",
+        "commit",
+        "profile",
+        "authority_sha256",
+        "package",
+        "build_manifest",
+        "verification_report",
+        "verification_status",
+        "immutable_locator",
+        "binaries"
+      ],
+      "properties": {
+        "name": {"const": "ggml-org/llama.cpp"},
+        "release": {"type": "string", "minLength": 1, "maxLength": 80},
+        "commit": {"$ref": "#/$defs/revision"},
+        "profile": {"type": "string", "minLength": 1, "maxLength": 200},
+        "authority_sha256": {"$ref": "#/$defs/sha256"},
+        "package": {"$ref": "#/$defs/declaredFile"},
+        "build_manifest": {"$ref": "#/$defs/declaredFile"},
+        "verification_report": {"$ref": "#/$defs/declaredFile"},
+        "verification_status": {"const": "VERIFIED"},
+        "immutable_locator": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "binaries": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "file"],
+            "properties": {
+              "name": {
+                "enum": ["llama-cli", "llama-server", "llama-quantize", "llama-bench"]
+              },
+              "file": {"$ref": "#/$defs/declaredFile"}
+            }
+          }
+        }
+      }
+    },
+    "argv": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "conversion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "python_identity",
+        "python_dependencies",
+        "converter",
+        "argv",
+        "log",
+        "intermediate",
+        "source_files_sha256",
+        "toolchain_package_sha256"
+      ],
+      "properties": {
+        "python_identity": {"type": "string", "minLength": 1, "maxLength": 500},
+        "python_dependencies": {"$ref": "#/$defs/declaredFile"},
+        "converter": {"$ref": "#/$defs/declaredFile"},
+        "argv": {"$ref": "#/$defs/argv"},
+        "log": {"$ref": "#/$defs/declaredFile"},
+        "intermediate": {"$ref": "#/$defs/declaredFile"},
+        "source_files_sha256": {"$ref": "#/$defs/sha256"},
+        "toolchain_package_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "quantization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime_class",
+        "quantization",
+        "argv",
+        "log",
+        "output",
+        "input_sha256",
+        "quantize_binary_sha256"
+      ],
+      "properties": {
+        "runtime_class": {"enum": ["CPU", "GPU_SHARED", "GPU_DEDICATED"]},
+        "quantization": {"type": "string", "minLength": 1, "maxLength": 200},
+        "argv": {"$ref": "#/$defs/argv"},
+        "log": {"$ref": "#/$defs/declaredFile"},
+        "output": {"$ref": "#/$defs/declaredFile"},
+        "input_sha256": {"$ref": "#/$defs/sha256"},
+        "quantize_binary_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundle_archive",
+        "payload_index",
+        "immutable_locator",
+        "uploaded_at",
+        "retention_days",
+        "retention_expires_at",
+        "restored_at",
+        "upload_record",
+        "restore_record"
+      ],
+      "properties": {
+        "bundle_archive": {"$ref": "#/$defs/declaredFile"},
+        "payload_index": {"$ref": "#/$defs/declaredFile"},
+        "immutable_locator": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "uploaded_at": {"type": "string", "format": "date-time"},
+        "retention_days": {"type": "integer", "minimum": 1, "maximum": 3650},
+        "retention_expires_at": {"type": "string", "format": "date-time"},
+        "restored_at": {"type": "string", "format": "date-time"},
+        "upload_record": {"$ref": "#/$defs/declaredFile"},
+        "restore_record": {"$ref": "#/$defs/declaredFile"}
+      }
+    }
+  }
+}
