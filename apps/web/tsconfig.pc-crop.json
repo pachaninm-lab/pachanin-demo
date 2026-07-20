@@ -14,6 +14,8 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "paths": {
+      "react": ["./node_modules/@types/react/index.d.ts"],
+      "react/*": ["./node_modules/@types/react/*"],
       "@pc/design-system-v8": ["../../packages/design-system-v8/src/index.ts"]
     }
   },
