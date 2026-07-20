@@ -1,0 +1,152 @@
+name: production public entry watch diagnostic 20260721
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  ARTIFACT_NAME: public-entry-watch-diagnostic-20260721
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Check production
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -u
+          mkdir -p ../../artifacts/watch-diagnostic
+          python3 - <<'PY' > ../../artifacts/watch-diagnostic/network.json
+          import json, socket, subprocess
+          host='xn----8sbjf4befbjgs9b.xn--p1ai'
+          result={'dns':[], 'routes':[], 'failures':[]}
+          try:
+            result['dns']=sorted({row[4][0] for row in socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)})
+          except Exception as exc:
+            result['failures'].append({'scope':'dns','message':str(exc)})
+          for route in ['/platform-v7','/platform-v7/login','/platform-v7/forgot-password']:
+            cmd=['curl','-sS','-L','--max-redirs','10','--connect-timeout','15','--max-time','45','-o','/dev/null','-w','%{http_code}|%{url_effective}|%{num_redirects}|%{remote_ip}',f'https://{host}{route}']
+            try:
+              value=subprocess.check_output(cmd,text=True).strip().split('|')
+              row={'route':route,'status':int(value[0] or 0),'final':value[1],'redirects':int(value[2] or 0),'remote':value[3]}
+              result['routes'].append(row)
+              if row['status'] != 200: result['failures'].append({'scope':route,'message':f"HTTP {row['status']}"})
+              if row['redirects'] > 3: result['failures'].append({'scope':route,'message':f"redirects {row['redirects']}"})
+            except Exception as exc:
+              result['failures'].append({'scope':route,'message':str(exc)})
+          print(json.dumps(result,ensure_ascii=False,indent=2))
+          PY
+          cat > /tmp/diagnostic.mjs <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { chromium, webkit } from '@playwright/test';
+          const base='https://xn----8sbjf4befbjgs9b.xn--p1ai';
+          const routes=[['/platform-v7','landing',500],['/platform-v7/login','login',120],['/platform-v7/forgot-password','recovery',120]];
+          const locales=['ru','en','zh'];
+          const projects=[['chromium-desktop',chromium,{viewport:{width:1440,height:1000}}],['chromium-mobile',chromium,{viewport:{width:390,height:844},isMobile:true,hasTouch:true}],['webkit-iphone',webkit,{viewport:{width:390,height:844},isMobile:true,hasTouch:true}]];
+          const localeMap={ru:'ru-RU',en:'en-US',zh:'zh-CN'};
+          const failures=[];
+          const counts={routeCases:0,failClosedCases:0};
+          const fail=(scope,message,details=null)=>failures.push({scope,message,details});
+          const redirectCount=(response)=>{let n=0;let r=response?.request();while(r?.redirectedFrom()){n++;r=r.redirectedFrom();}return n;};
+          for(const [projectName,type,opts] of projects){
+            const browser=await type.launch({headless:true});
+            for(const [route,kind,minText] of routes){for(const locale of locales){
+              const scope=`${projectName}:${kind}:${locale}`;counts.routeCases++;
+              const context=await browser.newContext({...opts,locale:localeMap[locale]});const page=await context.newPage();
+              const consoleErrors=[],runtimeErrors=[],failedRequests=[],badResponses=[];
+              page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text())});
+              page.on('pageerror',e=>runtimeErrors.push(String(e?.stack||e)));
+              page.on('requestfailed',r=>{const t=r.failure()?.errorText||'unknown';if(!t.includes('ERR_ABORTED'))failedRequests.push({url:r.url(),error:t})});
+              page.on('response',r=>{if(r.url().startsWith(base)&&r.status()>=400&&!r.url().includes('/favicon'))badResponses.push({url:r.url(),status:r.status()})});
+              try{
+                const response=await page.goto(`${base}${route}?lang=${locale}`,{waitUntil:'networkidle',timeout:60000});
+                const final=new URL(page.url());
+                const m=await page.evaluate(()=>({text:(document.body?.innerText||'').trim().length,sw:document.documentElement.scrollWidth,cw:document.documentElement.clientWidth,lang:document.documentElement.lang,keys:[...Object.keys(localStorage),...Object.keys(sessionStorage)],hrefs:Array.from(document.querySelectorAll('a[href]')).map(a=>a.getAttribute('href')||'')}));
+                const localeLinks=Object.fromEntries(locales.map(code=>[code,m.hrefs.some(h=>new RegExp(`(?:\\?|&)lang=${code}(?:&|$)`).test(h))]));
+                const roleSelectors=await page.locator('select[name*="role" i],input[name*="role" i],[data-role-selector],[data-testid*="role-selector" i]').count();
+                const h1=await page.locator('h1').first().isVisible().catch(()=>false);
+                const password=kind!=='login'||await page.locator('input[type="password"]').first().isVisible().catch(()=>false);
+                const email=kind!=='recovery'||await page.locator('input[type="email"],input[name*="email" i]').first().isVisible().catch(()=>false);
+                const loginLinks=kind==='landing'?await page.locator('a[href*="/platform-v7/login"]').count():1;
+                if((response?.status()||0)!==200)fail(scope,`HTTP ${response?.status()||0}`);
+                if(redirectCount(response)>3)fail(scope,`redirects ${redirectCount(response)}`);
+                if(final.pathname!==route)fail(scope,`final path ${final.pathname}`);
+                if(final.searchParams.has('role')||final.searchParams.has('as'))fail(scope,`role in URL ${final}`);
+                if(m.text<minText)fail(scope,`white/incomplete screen ${m.text}`);
+                if(!h1||!password||!email||loginLinks<1)fail(scope,'required public UI missing');
+                if(m.sw>m.cw+2)fail(scope,`overflow ${m.sw}/${m.cw}`);
+                if(!m.lang.toLowerCase().startsWith(locale))fail(scope,`html lang ${m.lang}`);
+                if(!localeLinks.ru||!localeLinks.en||!localeLinks.zh)fail(scope,'RU/EN/ZH links incomplete',localeLinks);
+                if(roleSelectors)fail(scope,`role selector ${roleSelectors}`);
+                if(consoleErrors.length)fail(scope,'console errors',consoleErrors);
+                if(runtimeErrors.length)fail(scope,'runtime/hydration errors',runtimeErrors);
+                if(failedRequests.length)fail(scope,'failed requests',failedRequests);
+                if(badResponses.length)fail(scope,'bad responses',badResponses);
+                if(m.keys.some(k=>/demo|auth|session|token/i.test(k)))fail(scope,'auth/demo browser storage',m.keys);
+              }catch(error){fail(scope,'navigation/redirect failure',String(error));}
+              await context.close();
+            }}
+            await browser.close();
+          }
+          for(const [projectName,type,opts] of projects){
+            const scope=`${projectName}:fail-closed-login`;counts.failClosedCases++;
+            const browser=await type.launch({headless:true});const context=await browser.newContext({...opts,locale:'ru-RU'});const page=await context.newPage();const runtimeErrors=[];
+            page.on('pageerror',e=>runtimeErrors.push(String(e?.stack||e)));
+            await page.route('**/api/auth/**',r=>r.request().method()==='POST'?r.abort('failed'):r.continue());
+            try{
+              await page.goto(`${base}/platform-v7/login?lang=ru`,{waitUntil:'networkidle',timeout:60000});
+              await page.locator('input[type="email"],input[name*="email" i]').first().fill('watch-invalid@example.test');
+              await page.locator('input[type="password"]').first().fill('Invalid-Watch-Password-2026!');
+              await page.locator('button[type="submit"]').first().click();await page.waitForTimeout(2500);
+              const final=new URL(page.url());const cookies=await context.cookies();const forbidden=cookies.filter(c=>/(?:access|refresh|session|mfa|cabinet|demo)/i.test(c.name)).map(c=>c.name);const keys=await page.evaluate(()=>[...Object.keys(localStorage),...Object.keys(sessionStorage)]);const body=await page.locator('body').innerText();
+              if(final.pathname!=='/platform-v7/login')fail(scope,`left login ${final}`);
+              if(final.searchParams.has('role')||final.searchParams.has('as'))fail(scope,`role in URL ${final}`);
+              if(forbidden.length)fail(scope,'auth/session/demo cookies',forbidden);
+              if(keys.some(k=>/demo|auth|session|token/i.test(k)))fail(scope,'auth/demo storage',keys);
+              if(!/недоступ|ошиб|повтор|unable|error|try again|不可用|错误|重试/i.test(body))fail(scope,'no visible fail-closed feedback');
+              if(runtimeErrors.length)fail(scope,'runtime errors',runtimeErrors);
+            }catch(error){fail(scope,'fail-closed scenario failed',String(error));}
+            await context.close();await browser.close();
+          }
+          const network=JSON.parse(fs.readFileSync(path.resolve(process.cwd(),'../../artifacts/watch-diagnostic/network.json'),'utf8'));
+          const report={generatedAt:new Date().toISOString(),base,counts,network,failures:[...network.failures,...failures]};report.allGreen=report.failures.length===0;
+          fs.writeFileSync(path.resolve(process.cwd(),'../../artifacts/watch-diagnostic/report.json'),JSON.stringify(report,null,2));
+          NODE
+          node /tmp/diagnostic.mjs || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: artifacts/watch-diagnostic
+          if-no-files-found: error
+          retention-days: 7
+
+  report:
+    needs: check
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: result
+      - name: Print concise result
+        shell: bash
+        run: |
+          cat result/report.json
+          jq -e '.allGreen == true' result/report.json >/dev/null
