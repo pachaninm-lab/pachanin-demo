@@ -1,0 +1,76 @@
+{
+  "schema_version": "tai.model-legal-review-authority.v1",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2877,
+  "source_acceptance": {
+    "path": "model-artifacts/model-source-acquisition-acceptance.v1.json",
+    "git_blob_sha": "9d5390d2592c707a1ce995ce15cccf8df58c6a70",
+    "accepted_main_sha": "7439ed17c94b173da1bb0c37e0d74ffdfb848d49",
+    "source_exact_main_sha": "4a7b04731aa204b741691a334d7adfe7785d6463",
+    "model_bundle_authority_sha256": "3391ea2ba4ddd855b45c5f389f12ffe3ddffb7cc4f46a4048d7357ffcdda6022",
+    "status": "VERIFIED_SOURCE_RESTORED_LEGAL_PENDING"
+  },
+  "review_not_before": "2026-07-20T11:18:55Z",
+  "intended_use": {
+    "product": "Transparent Agro Intelligence",
+    "platform": "Прозрачная Цена",
+    "use_class": "LOCAL_COMMERCIAL_INFERENCE",
+    "operation_scope": "CONTROLLED_INFRASTRUCTURE",
+    "conversion_toolchain": {
+      "name": "ggml-org/llama.cpp",
+      "release": "b9637",
+      "commit": "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
+      "authority_sha256": "3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b"
+    },
+    "source_weight_redistribution": false,
+    "community_prebuilt_artifacts": false,
+    "benchmark_or_admission_claim": false,
+    "production_readiness_claim": false
+  },
+  "reviewer_type": "HUMAN",
+  "accepted_decisions": [
+    "APPROVED",
+    "REJECTED"
+  ],
+  "accepted_record_types": [
+    "ATTRIBUTED_RECORD",
+    "SIGNED_RECORD"
+  ],
+  "models": [
+    {
+      "role": "PRIMARY",
+      "model_id": "Qwen/Qwen3-8B",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "license_spdx": "Apache-2.0",
+      "model_card_sha256": "2d321409d3083a11c13cf00baa2d7adf0eac68ddaf484fcd46e6f5b313c5f95c",
+      "license_text_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "legal_packet_sha256": "aace040831e8f304729d90c8cf51a5f90d92c414f7cfbf4a5e23e7087df06bb2",
+      "source_manifest_sha256": "7c61e18eb68fc1d4f48e3f1c6ac59093e06e9d1484414dda776daea3374a5644",
+      "source_files_sha256": "d3ef5d7334761a40cf857c247d2e2e2af383cd7c3c1e7c180414d07a15f9f2d4",
+      "review_record_path": "model-artifacts/legal-reviews/qwen3-8b.review-record.v1.json",
+      "attestation_path": "model-artifacts/legal-reviews/qwen3-8b.review-attestation.v1.json"
+    },
+    {
+      "role": "FALLBACK",
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "license_spdx": "Apache-2.0",
+      "model_card_sha256": "3166974023134d972368b585d730fa5f70100873684f90a10a773b20e80b30ba",
+      "license_text_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "legal_packet_sha256": "a4a1eeca2db59a7e22f26a664016abd7892736ccb83ce0e78669e4e2acc38280",
+      "source_manifest_sha256": "504b55481b74f7975119a12d88bb5fb00380bdf50f9a219f1d26813bb7e6ef84",
+      "source_files_sha256": "377ffe04a6583e425ca78709afd065989bc6055dd12fcdc904837edffba3cc9e",
+      "review_record_path": "model-artifacts/legal-reviews/mistral-7b-instruct-v0.3.review-record.v1.json",
+      "attestation_path": "model-artifacts/legal-reviews/mistral-7b-instruct-v0.3.review-attestation.v1.json"
+    }
+  ],
+  "maturity_boundary": {
+    "legal_decision": "PENDING_HUMAN_DECISION",
+    "conversion": "NOT_RUN",
+    "quantization": "NOT_RUN",
+    "benchmarks": "NOT_RUN",
+    "model_admission": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}
