@@ -1,0 +1,93 @@
+imary)
+    write_json(fallback_report, fallback)
+    decision = admit_models(
+        AUTHORITY,
+        primary_report,
+        fallback_report,
+        evaluated_at="2026-07-21T10:00:00+00:00",
+    )
+    assert decision["status"] == "PENDING_ADMISSION"
+    assert decision["reasons"] == ["BENCHMARK_PENDING"]
+    assert decision["production_operational_status"] == "NOT_ATTESTED"
+
+
+def test_primitive_contract_validators_fail_closed(tmp_path: Path) -> None:
+    from tai import model_benchmark_admission_v2 as v2
+
+    invalid_calls: list[Callable[[], object]] = [
+        lambda: v2._string(1, "value"),
+        lambda: v2._string(" ", "value"),
+        lambda: v2._integer("1", "value"),
+        lambda: v2._integer(-1, "value"),
+        lambda: v2._integer(2, "value", maximum=1),
+        lambda: v2._boolean(1, "value"),
+        lambda: v2._sha256("x", "value"),
+        lambda: v2._revision("x", "value"),
+        lambda: v2._identity("bad identity", "value"),
+        lambda: v2._timestamp("not-a-time", "value"),
+        lambda: v2._timestamp("2026-07-20T10:00:00", "value"),
+        lambda: v2._immutable_locator("https://mutable.invalid/object", "value"),
+        lambda: v2._relative_path("../escape", "value"),
+        lambda: v2._relative_path("bad\\path", "value"),
+        lambda: v2._list({}, "value"),
+        lambda: v2._dict([], "value"),
+        lambda: v2._parse_file({}, "file"),
+    ]
+    for call in invalid_calls:
+        with pytest.raises(ContractError):
+            call()
+
+    scalar = tmp_path / "scalar.json"
+    scalar.write_text("[]")
+    with pytest.raises(ContractError):
+        load_json_strict(scalar)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda value: value.update(schema_version="bad"),
+        lambda value: value.update(bundle_authority_schema="bad"),
+        lambda value: value.update(issue=0),
+        lambda value: value.update(benchmark_maximum_age_days=0),
+        lambda value: value["suite_policy"].update(required_total_cases=0),
+        lambda value: value["suite_policy"].update(required_critical_cases=59),
+        lambda value: value["suite_policy"].update(
+            minimum_platform_accuracy_basis_points=10_001
+        ),
+        lambda value: value.update(runtime_profiles=[]),
+        lambda value: value["runtime_profiles"][0].update(role="UNKNOWN"),
+        lambda value: value["runtime_profiles"][0].update(runtime_class="TPU"),
+        lambda value: value["runtime_profiles"][0].update(
+            required_concurrency_levels=[2, 1]
+        ),
+        lambda value: value["runtime_profiles"][1].update(
+            profile_id=value["runtime_profiles"][0]["profile_id"]
+        ),
+        lambda value: value["runtime_profiles"][1].update(role="FALLBACK"),
+        lambda value: value["runtime_profiles"][2].update(role="PRIMARY"),
+        lambda value: value["runtime_profiles"][0]["thresholds"].update(
+            minimum_sample_count=0
+        ),
+        lambda value: value["runtime_profiles"][0]["thresholds"].update(
+            maximum_p99_latency_ms=1
+        ),
+        lambda value: value["runtime_profiles"][0]["thresholds"].update(
+            minimum_prompt_tokens_per_second_milli=0
+        ),
+        lambda value: value["runtime_profiles"][0]["thresholds"].update(
+            minimum_generation_tokens_per_second_milli=0
+        ),
+        lambda value: value["runtime_profiles"][0]["thresholds"].update(
+            maximum_p95_latency_ms=0
+        ),
+        lambda value: value["runtime_profiles"][0]["thresholds"].update(
+            maximum_error_rate_basis_points=10_001
+        ),
+        lambda value: value["fallback_policy"].update(minimum_trigger_count=0),
+        lambda value: value["soak_policy"].update(minimum_duration_seconds=0),
+        lambda value: value["evidence_limits"].update(maximum_file_count=0),
+        lambda value: value["maturity_boundary"].update(
+            production_operational_status="ATTESTED"
+        ),
+        lambda value: value.update(unknown=True),
