@@ -32,22 +32,94 @@ jobs:
       - name: Install TAI development dependencies
         working-directory: apps/tai
         run: python -m pip install -e '.[dev]'
-      - name: Apply deterministic Ruff fixes
+      - name: Apply exact Ruff corrections
         working-directory: apps/tai
         run: |
-          ruff format \
-            tai/llama_toolchain_collect.py \
-            tai/llama_toolchain_contract.py \
-            tai/llama_toolchain_verify.py \
-            tests/test_ap13b2a_scope.py \
-            tests/test_llama_toolchain_contracts.py
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path('tai/llama_toolchain_collect.py'): {
+                  '            raise ValueError(f"cannot collect missing or unreadable file {relative_path}") from error': (
+                      '            raise ValueError(\n'
+                      '                f"cannot collect missing or unreadable file {relative_path}"\n'
+                      '            ) from error'
+                  ),
+              },
+              Path('tai/llama_toolchain_contract.py'): {
+                  '            "c_compiler_identity_output_path": authority.evidence_layout.c_compiler_identity_output_path,': (
+                      '            "c_compiler_identity_output_path": (\n'
+                      '                authority.evidence_layout.c_compiler_identity_output_path\n'
+                      '            ),'
+                  ),
+                  '            "cmake_identity_output_path": authority.evidence_layout.cmake_identity_output_path,': (
+                      '            "cmake_identity_output_path": (\n'
+                      '                authority.evidence_layout.cmake_identity_output_path\n'
+                      '            ),'
+                  ),
+                  '            "cxx_compiler_identity_output_path": authority.evidence_layout.cxx_compiler_identity_output_path,': (
+                      '            "cxx_compiler_identity_output_path": (\n'
+                      '                authority.evidence_layout.cxx_compiler_identity_output_path\n'
+                      '            ),'
+                  ),
+              },
+              Path('tai/llama_toolchain_verify.py'): {
+                  '        (source.git_status_output.path, layout.git_status_output_path, "SOURCE_STATUS_PATH_MISMATCH"),': (
+                      '        (\n'
+                      '            source.git_status_output.path,\n'
+                      '            layout.git_status_output_path,\n'
+                      '            "SOURCE_STATUS_PATH_MISMATCH",\n'
+                      '        ),'
+                  ),
+                  '        (environment.cmake.output.path, layout.cmake_identity_output_path, "CMAKE_IDENTITY_PATH_MISMATCH"),': (
+                      '        (\n'
+                      '            environment.cmake.output.path,\n'
+                      '            layout.cmake_identity_output_path,\n'
+                      '            "CMAKE_IDENTITY_PATH_MISMATCH",\n'
+                      '        ),'
+                  ),
+                  '        (environment.c_compiler.output.path, layout.c_compiler_identity_output_path, "C_COMPILER_IDENTITY_PATH_MISMATCH"),': (
+                      '        (\n'
+                      '            environment.c_compiler.output.path,\n'
+                      '            layout.c_compiler_identity_output_path,\n'
+                      '            "C_COMPILER_IDENTITY_PATH_MISMATCH",\n'
+                      '        ),'
+                  ),
+                  '        (environment.cxx_compiler.output.path, layout.cxx_compiler_identity_output_path, "CXX_COMPILER_IDENTITY_PATH_MISMATCH"),': (
+                      '        (\n'
+                      '            environment.cxx_compiler.output.path,\n'
+                      '            layout.cxx_compiler_identity_output_path,\n'
+                      '            "CXX_COMPILER_IDENTITY_PATH_MISMATCH",\n'
+                      '        ),'
+                  ),
+              },
+              Path('tests/test_ap13b2a_scope.py'): {
+                  '    assert "execution of configure, build or other argv read from a manifest by the verifier" in scope[\n'
+                  '        "forbidden_capabilities"\n'
+                  '    ]': (
+                      '    assert (\n'
+                      '        "execution of configure, build or other argv read from a manifest by the verifier"\n'
+                      '        in scope["forbidden_capabilities"]\n'
+                      '    )'
+                  ),
+              },
+          }
+
+          for path, path_replacements in replacements.items():
+              text = path.read_text(encoding='utf-8')
+              for old, new in path_replacements.items():
+                  if text.count(old) != 1:
+                      raise SystemExit(f'expected exactly one match in {path}: {old!r}')
+                  text = text.replace(old, new)
+              path.write_text(text, encoding='utf-8')
+          PY
           ruff check \
             tai/llama_toolchain_collect.py \
             tai/llama_toolchain_contract.py \
             tai/llama_toolchain_verify.py \
             tests/test_ap13b2a_scope.py \
             tests/test_llama_toolchain_contracts.py \
-            --fix
+            --fix --exit-zero
           ruff format \
             tai/llama_toolchain_collect.py \
             tai/llama_toolchain_contract.py \
@@ -60,7 +132,7 @@ jobs:
             tai/llama_toolchain_verify.py \
             tests/test_ap13b2a_scope.py \
             tests/test_llama_toolchain_contracts.py
-      - name: Stage formatted files
+      - name: Stage corrected files
         run: |
           mkdir -p /tmp/tai-pr-2831/apps/tai/tai
           mkdir -p /tmp/tai-pr-2831/apps/tai/tests
