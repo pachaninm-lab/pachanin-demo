@@ -6,6 +6,7 @@ import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
 import '@/styles/platform-v7-public-product-experience-v4.css';
 import '@/styles/platform-v7-public-product-entry-variants.css';
 import '@/styles/platform-v7-public-product-experience-v5.css';
+import '@/styles/platform-v7-ai-in-action-density.css';
 import type { Metadata } from 'next';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicAiInActionExperience } from '@/components/platform-v7/PublicAiInActionExperience';
