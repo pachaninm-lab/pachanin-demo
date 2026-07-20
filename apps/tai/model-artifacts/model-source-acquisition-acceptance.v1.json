@@ -1,0 +1,100 @@
+{
+  "accepted_scope": "SOURCE_ACQUISITION_ONLY",
+  "authority_sha256": "3391ea2ba4ddd855b45c5f389f12ffe3ddffb7cc4f46a4048d7357ffcdda6022",
+  "exact_main_release_acceptance": {
+    "accepted": true,
+    "artifact_digest": "a70e38fe04a4d4a9d6514c71fc6286043c64e6b5091440799a6f6df94cacb89c",
+    "artifact_id": "8458569949",
+    "production_operational_status": "NOT_ATTESTED",
+    "run_id": "29736286811"
+  },
+  "maturity_boundary": {
+    "benchmarks": "NOT_DONE",
+    "f16_bf16_conversion": "NOT_RUN",
+    "human_legal_decisions": "PENDING_HUMAN_DECISION",
+    "model_admission": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED",
+    "q4_k_m_quantization": "NOT_RUN",
+    "q8_0_quantization": "NOT_RUN"
+  },
+  "models": [
+    {
+      "conversion_status": "NOT_RUN",
+      "legal_packet_sha256": "aace040831e8f304729d90c8cf51a5f90d92c414f7cfbf4a5e23e7087df06bb2",
+      "legal_review_status": "PENDING_HUMAN_DECISION",
+      "locator_artifact": {
+        "digest": "5f033bb16ad7a3f0795cc0a10900221fe2dede27fac4e3ecbf2d4605fad5371c",
+        "id": "8458597677",
+        "retention_days": 90
+      },
+      "metadata_artifact": {
+        "digest": "3aa3c6edcd3abd972a53ef9eb078e3d16ac56bf9239ae823c794ac9a64e642e1",
+        "id": "8458597272",
+        "retention_days": 90
+      },
+      "model_admission_status": "NOT_DONE",
+      "model_id": "Qwen/Qwen3-8B",
+      "quantization_status": "NOT_RUN",
+      "reasons": [],
+      "remote_inventory_sha256": "07fbe8f9adf3eb7e3d68cb5d0a1aa277b610055f36357031dc5af58ea9a5ded4",
+      "restore_report_sha256": "4df6f4fca415db60c52b26d5aaa44ef951e04aee835b4a1823401cd858e7076b",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "role": "PRIMARY",
+      "selected_source_bytes": 16397448266,
+      "selected_source_files": 13,
+      "source_bytes_storage": {
+        "clean_redownload_reverified": true,
+        "copied_to_git_or_actions_artifact": false,
+        "locally_hashed": true,
+        "type": "UPSTREAM_EXACT_REVISION_RESTORABLE"
+      },
+      "source_files_sha256": "d3ef5d7334761a40cf857c247d2e2e2af383cd7c3c1e7c180414d07a15f9f2d4",
+      "source_manifest_sha256": "7c61e18eb68fc1d4f48e3f1c6ac59093e06e9d1484414dda776daea3374a5644",
+      "status": "VERIFIED_SOURCE_RESTORED_LEGAL_PENDING"
+    },
+    {
+      "conversion_status": "NOT_RUN",
+      "legal_packet_sha256": "a4a1eeca2db59a7e22f26a664016abd7892736ccb83ce0e78669e4e2acc38280",
+      "legal_review_status": "PENDING_HUMAN_DECISION",
+      "locator_artifact": {
+        "digest": "93a19fbc619a8238ef9ee556ea569179d96389ecad57cad660b40a4ec39b8cae",
+        "id": "8458566536",
+        "retention_days": 90
+      },
+      "metadata_artifact": {
+        "digest": "5242ea40bb07234744096095712588431a684cb898bd6e6b10a3c948fad872ea",
+        "id": "8458566162",
+        "retention_days": 90
+      },
+      "model_admission_status": "NOT_DONE",
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "quantization_status": "NOT_RUN",
+      "reasons": [],
+      "remote_inventory_sha256": "3eb35614b51c6ab06cf3e2b3819db1975d4b817b4c8740cc5a879fbaf959c122",
+      "restore_report_sha256": "6727e15e56ee1580afe899dd4a3111c4ea512a100b43bb58add1d927df56982d",
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "role": "FALLBACK",
+      "selected_source_bytes": 14499391334,
+      "selected_source_files": 13,
+      "source_bytes_storage": {
+        "clean_redownload_reverified": true,
+        "copied_to_git_or_actions_artifact": false,
+        "locally_hashed": true,
+        "type": "UPSTREAM_EXACT_REVISION_RESTORABLE"
+      },
+      "source_files_sha256": "377ffe04a6583e425ca78709afd065989bc6055dd12fcdc904837edffba3cc9e",
+      "source_manifest_sha256": "504b55481b74f7975119a12d88bb5fb00380bdf50f9a219f1d26813bb7e6ef84",
+      "status": "VERIFIED_SOURCE_RESTORED_LEGAL_PENDING"
+    }
+  ],
+  "reasons": [],
+  "repository_sha": "4a7b04731aa204b741691a334d7adfe7785d6463",
+  "schema_version": "tai.model-source-acquisition-acceptance.v1",
+  "status": "VERIFIED_SOURCE_RESTORED_LEGAL_PENDING",
+  "workflow": {
+    "conclusion": "success",
+    "name": "TAI Exact Model Source Acquisition",
+    "run_attempt": "1",
+    "run_id": "29736320896"
+  }
+}
