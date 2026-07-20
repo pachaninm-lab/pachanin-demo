@@ -1,0 +1,40 @@
+name: PC-CROP-01B.2 Sync Main
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/pc-crop-01b2-sync-main.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: >-
+      github.actor == github.repository_owner &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'agent/pc-crop-01b2-service-command-authority'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout writable pull-request branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Merge current main and remove synchronizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git merge --no-edit origin/main
+          rm -f .github/workflows/pc-crop-01b2-sync-main.yml
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'PC-CROP-01B.2: remove one-time main synchronizer'
+          fi
+          git push origin "HEAD:${{ github.head_ref }}"
