@@ -91,7 +91,7 @@ export default async function PublicAiInActionPage() {
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-public-ai-in-action'>
       <a className='pc-skip-link' href='#pc-ai-demo-title'>{chrome('skipToContent')}</a>
-      <PublicExperiencePageView locale={locale} name='ai_in_action_view' />
+      <PublicExperiencePageView locale={locale} name='home_view' />
       <PublicExperienceScrollCoordinator />
 
       <PublicSiteHeader
