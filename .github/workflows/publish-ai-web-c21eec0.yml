@@ -28,6 +28,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Record autonomous release start
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -133,6 +134,7 @@ jobs:
 
       - name: Record successful production publication
         if: success()
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           VERIFIED_AT: ${{ steps.live.outputs.verified_at }}
@@ -156,6 +158,7 @@ jobs:
 
       - name: Record publication failure
         if: failure()
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
