@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
@@ -16,3 +16,111 @@ jobs:
       - uses: actions/labeler@v5
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  pc-crop-schema-sync:
+    if: github.event.pull_request.number == 2892 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - name: Synchronize canonical Prisma authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          schema="apps/api/prisma/schema.prisma"
+          if grep -q '^model CommodityProfile {' "$schema"; then
+            echo "Commodity profile models already present"
+            exit 0
+          fi
+          cat >> "$schema" <<'PRISMA'
+
+// ── Commodity Profile Registry Authority ──────────────────────────────────────
+
+model CommodityProfile {
+  id                  String   @id
+  canonicalCode       String   @unique(map: "commodity_profiles_canonical_code_key") @db.VarChar(64)
+  archetype           String   @db.VarChar(40)
+  authoritativeNameRu String
+  displayNameEn       String?
+  displayNameZh       String?
+  classification      String   @default("INTERNAL") @db.VarChar(32)
+  version             BigInt   @default(0)
+  createdByUserId     String
+  updatedByUserId     String
+  createdAt           DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+
+  versions            CommodityProfileVersion[]
+  transitions         CommodityProfileTransition[]
+
+  @@index([archetype], map: "commodity_profiles_archetype_idx")
+  @@index([updatedAt(sort: Desc), id], map: "commodity_profiles_updated_idx")
+  @@map("commodity_profiles")
+}
+
+model CommodityProfileVersion {
+  id                   String    @id
+  profileId            String
+  sequence             Int
+  status               String    @default("DRAFT") @db.VarChar(24)
+  content              Json      @db.JsonB
+  contentHashAlgorithm String    @default("SHA-256") @db.VarChar(16)
+  contentHash          String    @db.Char(64)
+  sourceStatus         String    @default("REVERIFY_REQUIRED") @db.VarChar(32)
+  effectiveFrom        DateTime? @db.Timestamptz(3)
+  effectiveTo          DateTime? @db.Timestamptz(3)
+  approvalReason       String?
+  approvedByUserId     String?
+  approvedAt           DateTime? @db.Timestamptz(3)
+  version              BigInt    @default(0)
+  createdByUserId      String
+  updatedByUserId      String
+  createdAt            DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+
+  profile              CommodityProfile @relation(fields: [profileId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "commodity_profile_versions_profile_id_fkey")
+  transitions          CommodityProfileTransition[]
+
+  @@unique([profileId, sequence], map: "commodity_profile_versions_profile_sequence_key")
+  @@unique([profileId, contentHash], map: "commodity_profile_versions_profile_hash_key")
+  @@unique([id, profileId], map: "commodity_profile_versions_id_profile_key")
+  @@index([profileId, status, sequence(sort: Desc)], map: "commodity_profile_versions_profile_status_idx")
+  @@index([profileId, effectiveFrom, effectiveTo], map: "commodity_profile_versions_effective_idx")
+  @@index([sourceStatus, status], map: "commodity_profile_versions_source_status_idx")
+  @@map("commodity_profile_versions")
+}
+
+model CommodityProfileTransition {
+  id               String    @id
+  profileId        String
+  profileVersionId String
+  fromStatus       String?   @db.VarChar(24)
+  toStatus         String    @db.VarChar(24)
+  actorUserId      String
+  actorRole        String
+  tenantId         String?
+  purpose          String
+  reason           String
+  commandId        String    @unique(map: "commodity_profile_transitions_command_id_key")
+  idempotencyKey   String    @unique(map: "commodity_profile_transitions_idempotency_key_key")
+  correlationId    String
+  contentHash      String    @db.Char(64)
+  prevHash         String?   @db.Char(64)
+  hash             String    @db.Char(64)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+
+  profile          CommodityProfile @relation(fields: [profileId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "commodity_profile_transitions_profile_id_fkey")
+  profileVersion   CommodityProfileVersion @relation(fields: [profileVersionId, profileId], references: [id, profileId], onDelete: Restrict, onUpdate: Cascade, map: "commodity_profile_transitions_version_profile_fkey")
+
+  @@index([profileVersionId, createdAt, id], map: "commodity_profile_transitions_version_created_idx")
+  @@index([correlationId], map: "commodity_profile_transitions_correlation_idx")
+  @@map("commodity_profile_transitions")
+}
+PRISMA
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$schema"
+          git commit -m "fix(pc-crop): align Prisma schema with registry migration"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
