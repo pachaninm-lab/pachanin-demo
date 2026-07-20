@@ -28,6 +28,8 @@ def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
     assert ".gitleaksignore" in manifest["files"]
     assert entries == [
         "b11c310787b81cfcfddd0be67f515f8f4a32cebd:"
-        "apps/tai/tests/test_tool_planner.py:generic-api-key:42"
+        "apps/tai/tests/test_tool_planner.py:generic-api-key:42",
+        "c5077eebcc9bbc47e3d650795e11b55f265428e8:"
+        ".github/workflows/tai-model-source-acquisition.yml:generic-api-key:43",
     ]
     assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)

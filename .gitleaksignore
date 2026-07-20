@@ -1,2 +1,5 @@
 # False positive: a removed deterministic test idempotency fixture, not a credential.
 b11c310787b81cfcfddd0be67f515f8f4a32cebd:apps/tai/tests/test_tool_planner.py:generic-api-key:42
+
+# False positive: public immutable Hugging Face model revision, not an API key.
+c5077eebcc9bbc47e3d650795e11b55f265428e8:.github/workflows/tai-model-source-acquisition.yml:generic-api-key:43
