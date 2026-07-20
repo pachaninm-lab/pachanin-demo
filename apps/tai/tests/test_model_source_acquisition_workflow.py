@@ -19,6 +19,7 @@ EXPECTED_PATHS = {
     "apps/tai/governance/scopes/ap-13b3-source-acquisition-2835.json",
     "apps/tai/tai/model_source_acquisition.py",
     "apps/tai/tai/model_source_acquisition_cli.py",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
     "apps/tai/tests/test_model_source_acquisition.py",
     "apps/tai/tests/test_model_source_acquisition_workflow.py",
 }
