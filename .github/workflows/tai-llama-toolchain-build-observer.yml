@@ -15,22 +15,23 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Checkout exact current main
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Run pinned actionlint
+      - name: Run pinned actionlint only
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -u -o pipefail
+          gh api "/repos/$REPOSITORY/contents/.github/workflows/tai-model-source-acquisition.yml?ref=main" \
+            --jq '.content' | tr -d '\n' | base64 --decode \
+            > tai-model-source-acquisition.yml
           export GOBIN="$RUNNER_TEMP/bin"
           mkdir -p "$GOBIN"
-          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 \
+            >/dev/null 2>&1
           set +e
-          "$GOBIN/actionlint" -oneline .github/workflows/tai-model-source-acquisition.yml > actionlint.out 2>&1
+          "$GOBIN/actionlint" -oneline tai-model-source-acquisition.yml \
+            > actionlint.out 2>&1
           status=$?
           set -e
           printf 'ACTIONLINT_EXIT=%s\n' "$status"
