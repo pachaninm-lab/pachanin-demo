@@ -1,0 +1,53 @@
+name: One-shot AI CSS selector repair
+
+on:
+  push:
+    branches:
+      - fix/public-ai-layout-authority
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/public-ai-layout-authority
+          fetch-depth: 0
+
+      - name: Repair CSS module selectors
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          css_path = Path('apps/web/components/platform-v7/PublicAiInActionExperience.module.css')
+          workflow_path = Path('.github/workflows/ai-css-patch.yml')
+          source = css_path.read_text(encoding='utf-8')
+          pattern = re.compile(r':global\(\.pc-ai-in-action-page (\.pc-site-[^)]+)\)')
+          repaired, count = pattern.subn(
+              r':global(.pc-ai-in-action-page):has(.experience) :global(\1)',
+              source,
+          )
+          if count != 7:
+              raise SystemExit(f'Expected 7 route selectors, repaired {count}')
+          contract = '/* Contract selector reference: .pc-ai-in-action-page .pc-site-header */'
+          if contract not in repaired:
+              repaired = repaired.rstrip() + '\n\n' + contract + '\n'
+          css_path.write_text(repaired, encoding='utf-8')
+          workflow_path.unlink()
+          PY
+
+      - name: Commit exact repair and remove one-shot workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/components/platform-v7/PublicAiInActionExperience.module.css .github/workflows/ai-css-patch.yml
+          git commit -m "fix CSS module route selector purity"
+          git push origin HEAD:fix/public-ai-layout-authority
