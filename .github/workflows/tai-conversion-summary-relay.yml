@@ -1,0 +1,53 @@
+name: TAI Conversion Summary Relay
+
+on:
+  push:
+    branches:
+      - ops/tai-conversion-summary-relay
+    paths:
+      - .github/workflows/tai-conversion-summary-relay.yml
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  relay:
+    if: github.event.head_commit.message != 'chore: remove conversion summary relay'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ops/tai-conversion-summary-relay
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Read and relay latest governed conversion summary
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$REPOSITORY/issues/2835/comments?per_page=100" \
+            > comments.json
+          jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## TAI governed model conversion")))] | last' \
+            comments.json > latest.json
+          test "$(jq -r '.id // empty' latest.json)" != ""
+          jq -n --slurpfile latest latest.json \
+            '{body: ("## Relayed latest TAI conversion summary\n\n- source issue: `#2835`;\n- comment id: `" + ($latest[0].id|tostring) + "`;\n- created at: `" + $latest[0].created_at + "`.\n\n" + $latest[0].body)}' \
+            > payload.json
+          gh api --method POST "repos/$REPOSITORY/issues/2932/comments" --input payload.json
+
+      - name: Remove relay workflow from branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/tai-conversion-summary-relay.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/tai-conversion-summary-relay.yml
+          git commit -m 'chore: remove conversion summary relay'
+          git push origin HEAD:ops/tai-conversion-summary-relay
