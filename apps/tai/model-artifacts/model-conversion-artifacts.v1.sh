@@ -54,8 +54,7 @@ index = json.loads((root / 'package-index.v1.json').read_text())
 expected = authority['toolchain_acceptance']
 value = hashlib.sha256()
 with package.open('rb') as stream:
-    while chunk := stream.read(1024 * 1024):
-        value.update(chunk)
+    while chunk := stream.read(1024 * 1024): value.update(chunk)
 assert package.stat().st_size == expected['package_size_bytes']
 assert value.hexdigest() == expected['package_sha256']
 assert index['status'] == 'PACKAGED'
@@ -90,12 +89,7 @@ payload['execution'] = {
 }
 path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n')
 PY
-(
-  cd control-package
-  find . -type f ! -name control-manifest.sha256 -print0 \
-    | LC_ALL=C sort -z \
-    | xargs -0 sha256sum > control-manifest.sha256
-)
-tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
-  -C control-package -cf - . | gzip -n -9 > control-package.tar.gz
+(cd control-package && find . -type f ! -name control-manifest.sha256 -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > control-manifest.sha256)
+tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -C control-package -cf - . | gzip -n -9 > control-package.tar.gz
 sha256sum control-package.tar.gz > control-package.tar.gz.sha256
+
