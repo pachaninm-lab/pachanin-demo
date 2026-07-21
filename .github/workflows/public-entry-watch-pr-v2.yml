@@ -1,0 +1,41 @@
+name: public entry watch PR v2
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  production-watch-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      ARTIFACT_DIR: artifacts/public-entry-watch-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run production watch
+        working-directory: apps/web
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p "../../$ARTIFACT_DIR"
+          echo "started=$(date -u +%FT%TZ)" > "../../$ARTIFACT_DIR/runner.log"
+          node scripts/public-entry-watch-production.mjs 2>&1 | tee -a "../../$ARTIFACT_DIR/runner.log"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-v2-20260721-0719
+          path: artifacts/public-entry-watch-v2
+          if-no-files-found: error
+          retention-days: 7
