@@ -1,4 +1,9 @@
-import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { Role, type RequestUser } from '../../common/types/request-user';
 import { StaffAccessMode, StaffRole } from '../staff-access/staff-access.types';
@@ -6,6 +11,7 @@ import { CommodityProfileAction } from './commodity-profile.policy';
 import { CommodityProfilesController, parseCommodityProfileIfMatch } from './commodity-profiles.controller';
 import type { CommodityProfileRepository } from './commodity-profile.repository';
 import type { CommodityProfileTransactionCommandService } from './commodity-profile-transaction-command.service';
+import type { CommodityProfileVersionHistoryRepository } from './commodity-profile-version-history.repository';
 
 const user: RequestUser = {
   id: 'user-admin-1',
@@ -61,6 +67,15 @@ function makeController() {
     list: jest.fn(async () => ({ items: [readModel], nextCursor: null })),
     getById: jest.fn(async () => readModel),
   } as unknown as jest.Mocked<CommodityProfileRepository>;
+  const historyResult = {
+    profileId: readModel.id,
+    aggregateVersion: readModel.version,
+    items: [],
+    nextCursor: null,
+  };
+  const history = {
+    list: jest.fn(async () => historyResult),
+  } as unknown as jest.Mocked<CommodityProfileVersionHistoryRepository>;
   const receipt = {
     commandId: 'command-approve-1',
     idempotencyKey: ['idem', 'approve', 'one'].join('-'),
@@ -78,10 +93,12 @@ function makeController() {
     execute: jest.fn(async () => receipt),
   } as unknown as jest.Mocked<CommodityProfileTransactionCommandService>;
   return {
-    controller: new CommodityProfilesController(repository, commands),
+    controller: new CommodityProfilesController(repository, history, commands),
     repository,
+    history,
     commands,
     readModel,
+    historyResult,
     receipt,
   };
 }
@@ -130,6 +147,26 @@ describe('CommodityProfilesController', () => {
       hasJitAuthority: true,
     }));
     expect(response.setHeader).toHaveBeenCalledWith('Cache-Control', 'private, no-store');
+  });
+
+  it('returns deterministic version history with aggregate ETag', async () => {
+    const { controller, history, historyResult } = makeController();
+    const response = responseHarness();
+
+    await expect(controller.versions(
+      historyResult.profileId,
+      { limit: 20 },
+      user,
+      { staffAccess },
+      response,
+    )).resolves.toEqual(historyResult);
+
+    expect(history.list).toHaveBeenCalledWith(user, historyResult.profileId, {
+      limit: 20,
+      cursor: undefined,
+      hasJitAuthority: true,
+    });
+    expect(response.setHeader).toHaveBeenCalledWith('ETag', '"7"');
   });
 
   it('returns an authoritative ETag for detail', async () => {
@@ -184,6 +221,40 @@ describe('CommodityProfilesController', () => {
       { hasJitAuthority: true },
     );
     expect(response.setHeader).toHaveBeenCalledWith('ETag', '"8"');
+  });
+
+  it('returns the canonical server snapshot on stale If-Match', async () => {
+    const { controller, commands, repository, readModel } = makeController();
+    const response = responseHarness();
+    const current = { ...readModel, version: '9' };
+    commands.execute.mockRejectedValueOnce(new ConflictException({
+      code: 'COMMODITY_PROFILE_STALE_VERSION',
+      currentVersion: '9',
+      refreshRequired: true,
+    }));
+    repository.getById.mockResolvedValueOnce(current);
+
+    await expect(controller.executeCommand(
+      readModel.id,
+      CommodityProfileAction.UPDATE_DRAFT,
+      '"7"',
+      {
+        commandId: 'command-update-stale-1',
+        idempotencyKey: ['idem', 'stale', 'one'].join('-'),
+        correlationId: 'correlation-update-stale-1',
+        reason: 'Update draft after quality review',
+      },
+      user,
+      {},
+      response,
+    )).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'COMMODITY_PROFILE_STALE_VERSION',
+        current,
+        currentEtag: '"9"',
+        retryable: true,
+      }),
+    });
   });
 
   it('fails before command authority on missing If-Match or unknown action', async () => {
