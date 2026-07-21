@@ -39,5 +39,10 @@ def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
         "387c77b28f89b467080371c3e55cbf376acdd28e:"
         "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json:"
         "generic-api-key:75",
+        "d84b7faadf1b430e549850ccc5cce82a03d52d99:"
+        "apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json:"
+        "generic-api-key:67",
+        "ecdc1130ca1bc424f3ccecb072115e304722c971:"
+        "apps/tai/tai/cpu_benchmark_execution.py:generic-api-key:413",
     ]
     assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)
