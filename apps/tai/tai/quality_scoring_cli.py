@@ -21,9 +21,13 @@ def _parser() -> argparse.ArgumentParser:
     manifest.add_argument("--output", type=Path)
     verify = commands.add_parser("verify")
     verify.add_argument("authority", type=Path)
+    verify.add_argument("runtime_authority", type=Path)
     verify.add_argument("runtime_report", type=Path)
+    verify.add_argument("runtime_manifest", type=Path)
+    verify.add_argument("runtime_original_root", type=Path)
+    verify.add_argument("runtime_restored_root", type=Path)
+    verify.add_argument("accepted_assessment", type=Path)
     verify.add_argument("case_manifest", type=Path)
-    verify.add_argument("observation_index", type=Path)
     verify.add_argument("scoring_manifest", type=Path)
     verify.add_argument("--evaluated-at", required=True)
     verify.add_argument("--output", type=Path)
@@ -47,6 +51,8 @@ def main() -> int:
                 "authority_sha256": authority["authority_sha256"],
                 "required_profiles": list(contract.PROFILES),
                 "required_observations": 348,
+                "runtime_reverification_required": True,
+                "accepted_assessment_required": True,
                 "quality_scoring_status": "PENDING_QUALITY_SCORING",
                 **contract.EXPECTED_MATURITY,
             }
@@ -65,9 +71,13 @@ def main() -> int:
             return 0 if manifest["lifecycle"] == "COMPLETE" else 2
         report = scoring.verify_quality_scoring(
             args.authority,
+            args.runtime_authority,
             args.runtime_report,
+            args.runtime_manifest,
+            args.runtime_original_root,
+            args.runtime_restored_root,
+            args.accepted_assessment,
             args.case_manifest,
-            args.observation_index,
             args.scoring_manifest,
             evaluated_at=args.evaluated_at,
         )
