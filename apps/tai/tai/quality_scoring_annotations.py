@@ -17,6 +17,7 @@ from tai.quality_scoring_contract import (
     require_keys,
     self_digest,
 )
+from tai.quality_scoring_identity import bind_annotation_identity
 
 ANNOTATION_KEYS = {
     "schema_version",
@@ -30,8 +31,12 @@ ANNOTATION_KEYS = {
     "trace_sha256",
     "scorer_id",
     "scorer_role",
+    "identity_assertion_id",
     "scored_at",
     "evidence_sha256",
+    "evidence_size_bytes",
+    "evidence_object_key",
+    "evidence_object_version_id",
     "decision",
     "disposition_valid",
     "required_concepts_met",
@@ -60,6 +65,9 @@ def _annotation(item: object, number: int) -> dict[str, Any]:
         "locale",
         "scorer_id",
         "scorer_role",
+        "identity_assertion_id",
+        "evidence_object_key",
+        "evidence_object_version_id",
     ):
         as_identity(annotation[field], f"annotation.{field}")
     for field in (
@@ -70,6 +78,7 @@ def _annotation(item: object, number: int) -> dict[str, Any]:
         "evidence_sha256",
     ):
         as_sha256(annotation[field], f"annotation.{field}")
+    as_int(annotation["evidence_size_bytes"], "annotation.evidence_size_bytes", minimum=1)
     as_timestamp(annotation["scored_at"], "annotation.scored_at")
     if annotation["scorer_role"] not in ALLOWED_SCORER_ROLES:
         raise QualityScoringError("annotation scorer role is not allowed")
@@ -96,18 +105,24 @@ def _annotation(item: object, number: int) -> dict[str, Any]:
 def score_observations(
     observations: dict[tuple[str, str, str], dict[str, Any]],
     annotations_value: object,
+    identity_assertions: dict[str, dict[str, Any]],
+    identity_policy: object,
 ) -> tuple[dict[tuple[str, str, str], bool], dict[str, int]]:
     rows = [
         _annotation(item, index)
         for index, item in enumerate(as_array(annotations_value, "annotations"))
     ]
     ids: set[str] = set()
+    used_assertions: set[str] = set()
     by_observation: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         annotation_id = str(row["annotation_id"])
         if annotation_id in ids:
             raise QualityScoringError("duplicate annotation_id")
         ids.add(annotation_id)
+        used_assertions.add(
+            bind_annotation_identity(row, identity_assertions, identity_policy)
+        )
         key = (str(row["profile_id"]), str(row["case_id"]), str(row["locale"]))
         observation = observations.get(key)
         if observation is None:
@@ -116,6 +131,8 @@ def score_observations(
             if row[field] != observation[field]:
                 raise QualityScoringError(f"annotation stale {field}")
         by_observation[key].append(row)
+    if used_assertions != set(identity_assertions):
+        raise QualityScoringError("reviewer identity assertion coverage is not exact")
     if set(by_observation) != set(observations):
         raise QualityScoringError("annotation coverage is incomplete")
 
