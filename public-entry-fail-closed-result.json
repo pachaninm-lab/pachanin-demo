@@ -1,6 +1,23 @@
 {
-  "checkedAt": "2026-07-21T04:49:03.269Z",
+  "checkedAt": "2026-07-21T04:50:51.698Z",
   "baseURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai",
-  "ok": false,
-  "fatal": "Error: no rejection or visible error; responses=[] failed=[]\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-fail-closed-production.mjs:11:64)\n    at file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-fail-closed-production.mjs:72:5"
+  "ok": true,
+  "fatal": null,
+  "documentHttp": 200,
+  "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru",
+  "authResponses": [
+    {
+      "url": "https://xn----8sbjf4befbjgs9b.xn--p1ai/api/auth/login",
+      "status": 503
+    }
+  ],
+  "failedRequests": [],
+  "errorText": "Не удалось войти. Проверьте данные и повторите попытку.",
+  "cookies": [
+    "pc-v7-locale",
+    "pc-role"
+  ],
+  "forbiddenCookies": [],
+  "demoStorage": false,
+  "runtimeErrors": 0
 }
