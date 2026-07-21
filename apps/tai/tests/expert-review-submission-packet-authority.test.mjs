@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   mkdtempSync,
   readFileSync,
@@ -51,7 +52,9 @@ try {
     reviewer_role: 'PLATFORM_OWNER',
     decision: 'APPROVED',
     reviewed_at: '2026-07-21T10:10:00Z',
-    evidence_sha256: 'e'.repeat(64),
+    evidence_sha256: createHash('sha256')
+      .update('external-evidence:forged-cross-domain-review-01')
+      .digest('hex'),
     disagreement_with_review_id: null,
     review_sha256: '',
   };
@@ -83,6 +86,7 @@ try {
         'docs/platform-v7/autopilot/tai-ap-14c/expert-reviews.v1.json',
       ),
       exactMainSha: exactMain,
+      expectedPacketSha256: forged.packet_sha256,
       evaluatedAt: '2026-07-21T10:20:00Z',
       outputReviewsPath: resolve(root, 'candidate-reviews.json'),
       outputAssessmentPath: resolve(root, 'candidate-assessment.json'),
