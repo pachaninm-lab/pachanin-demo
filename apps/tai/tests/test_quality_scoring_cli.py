@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from quality_scoring_fixtures import NOW, _fixture, _signed
+from quality_scoring_fixtures import _fixture, _signed
 
 from tai import quality_scoring as scoring
 from tai import quality_scoring_cli as cli
