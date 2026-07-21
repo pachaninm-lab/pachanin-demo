@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from quality_scoring_fixtures import _fixture, _signed
+from quality_scoring_fixtures import _fixture
 
 from tai import quality_scoring as scoring
 from tai import quality_scoring_cli as cli
@@ -129,7 +129,7 @@ def test_runtime_report_fail_closed_matrix(monkeypatch, tmp_path: Path) -> None:
     def check(mutator, message: str, *, authority_digest: str | None = None) -> None:
         report = copy.deepcopy(base)
         mutator(report)
-        report = _signed(report, "report_sha256")
+        report = _resign(report, "report_sha256")
         write_json(runtime_path, report)
         monkeypatch.setattr(inputs, "verify_runtime_evidence", lambda *args: report)
         digest = authority_digest or str(report["authority_sha256"])
@@ -161,7 +161,10 @@ def test_runtime_report_fail_closed_matrix(monkeypatch, tmp_path: Path) -> None:
     )
     check(lambda row: None, "authority digest", authority_digest="f" * 64)
     check(
-        lambda row: (row.__setitem__("status", "REJECTED"), row.__setitem__("reasons", ["x"])),
+        lambda row: (
+            row.__setitem__("status", "REJECTED"),
+            row.__setitem__("reasons", ["x"]),
+        ),
         "not verified",
     )
 
@@ -386,8 +389,9 @@ def test_observation_index_fail_closed_matrix(monkeypatch, tmp_path: Path) -> No
             "response digest mismatch",
         ),
         (
-            lambda manifest, payload: manifest["entries"][0].__setitem__(
-                "status", "ERROR"
+            lambda manifest, payload: (
+                manifest["entries"][0].__setitem__("status", "ERROR"),
+                payload["entries"][0].__setitem__("status", "ERROR"),
             ),
             "not scoreable",
         ),
