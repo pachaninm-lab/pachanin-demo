@@ -22,7 +22,7 @@ const describePostgresql = process.env.PC_CROP_01B3_POSTGRESQL === '1'
   : describe.skip;
 
 function sha256(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
 function deterministicId(prefix: string, commandId: string): string {
