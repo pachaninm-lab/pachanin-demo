@@ -1,0 +1,232 @@
+{
+  "checkedAt": "2026-07-21T04:43:53.541Z",
+  "baseURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai",
+  "cases": [
+    {
+      "profile": "desktop-1440",
+      "locale": "ru",
+      "route": "/platform-v7",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru",
+      "htmlLang": "ru",
+      "textLength": 4011,
+      "localeCycle": "ru->en"
+    },
+    {
+      "profile": "desktop-1440",
+      "locale": "ru",
+      "route": "/platform-v7/login",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru",
+      "htmlLang": "ru",
+      "textLength": 226,
+      "localeCycle": "ru->en"
+    },
+    {
+      "profile": "desktop-1440",
+      "locale": "ru",
+      "route": "/platform-v7/forgot-password",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru",
+      "htmlLang": "ru",
+      "textLength": 303,
+      "localeCycle": "ru->en"
+    },
+    {
+      "profile": "desktop-1440",
+      "locale": "en",
+      "route": "/platform-v7",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en",
+      "htmlLang": "en",
+      "textLength": 3878,
+      "localeCycle": "en->zh"
+    },
+    {
+      "profile": "desktop-1440",
+      "locale": "en",
+      "route": "/platform-v7/login",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en",
+      "htmlLang": "en",
+      "textLength": 218,
+      "localeCycle": "en->zh"
+    },
+    {
+      "profile": "desktop-1440",
+      "locale": "en",
+      "route": "/platform-v7/forgot-password",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en",
+      "htmlLang": "en",
+      "textLength": 264,
+      "localeCycle": "en->zh"
+    },
+    {
+      "profile": "desktop-1440",
+      "locale": "zh",
+      "route": "/platform-v7",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh",
+      "htmlLang": "zh-cn",
+      "textLength": 1281,
+      "localeCycle": "zh->ru"
+    },
+    {
+      "profile": "desktop-1440",
+      "locale": "zh",
+      "route": "/platform-v7/login",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh",
+      "htmlLang": "zh-cn",
+      "textLength": 89,
+      "localeCycle": "zh->ru"
+    },
+    {
+      "profile": "desktop-1440",
+      "locale": "zh",
+      "route": "/platform-v7/forgot-password",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh",
+      "htmlLang": "zh-cn",
+      "textLength": 104,
+      "localeCycle": "zh->ru"
+    },
+    {
+      "profile": "mobile-390",
+      "locale": "ru",
+      "route": "/platform-v7",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru",
+      "htmlLang": "ru",
+      "textLength": 3968,
+      "localeCycle": "ru->en"
+    },
+    {
+      "profile": "mobile-390",
+      "locale": "ru",
+      "route": "/platform-v7/login",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru",
+      "htmlLang": "ru",
+      "textLength": 207,
+      "localeCycle": "ru->en"
+    },
+    {
+      "profile": "mobile-390",
+      "locale": "ru",
+      "route": "/platform-v7/forgot-password",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru",
+      "htmlLang": "ru",
+      "textLength": 280,
+      "localeCycle": "ru->en"
+    },
+    {
+      "profile": "mobile-390",
+      "locale": "en",
+      "route": "/platform-v7",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en",
+      "htmlLang": "en",
+      "textLength": 3827,
+      "localeCycle": "en->zh"
+    },
+    {
+      "profile": "mobile-390",
+      "locale": "en",
+      "route": "/platform-v7/login",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en",
+      "htmlLang": "en",
+      "textLength": 202,
+      "localeCycle": "en->zh"
+    },
+    {
+      "profile": "mobile-390",
+      "locale": "en",
+      "route": "/platform-v7/forgot-password",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en",
+      "htmlLang": "en",
+      "textLength": 248,
+      "localeCycle": "en->zh"
+    },
+    {
+      "profile": "mobile-390",
+      "locale": "zh",
+      "route": "/platform-v7",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh",
+      "htmlLang": "zh-cn",
+      "textLength": 1265,
+      "localeCycle": "zh->ru"
+    },
+    {
+      "profile": "mobile-390",
+      "locale": "zh",
+      "route": "/platform-v7/login",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh",
+      "htmlLang": "zh-cn",
+      "textLength": 84,
+      "localeCycle": "zh->ru"
+    },
+    {
+      "profile": "mobile-390",
+      "locale": "zh",
+      "route": "/platform-v7/forgot-password",
+      "ok": true,
+      "http": 200,
+      "redirects": 0,
+      "finalURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh",
+      "htmlLang": "zh-cn",
+      "textLength": 97,
+      "localeCycle": "zh->ru"
+    }
+  ],
+  "failClosed": {
+    "ok": false,
+    "error": "Error: fail-closed: no explicit rejection observed; responses=[]\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-production.mjs:19:25)\n    at file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-production.mjs:165:5",
+    "authResponses": []
+  },
+  "failures": [
+    "Error: fail-closed: no explicit rejection observed; responses=[]\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-production.mjs:19:25)\n    at file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-production.mjs:165:5"
+  ],
+  "fatal": null,
+  "ok": false
+}
