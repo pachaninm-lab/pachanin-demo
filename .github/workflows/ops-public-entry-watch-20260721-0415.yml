@@ -26,10 +26,13 @@ jobs:
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
       - name: Check production public entry
-        id: watch
         continue-on-error: true
         working-directory: apps/web
         run: node scripts/public-entry-watch-automation.mjs
+      - name: Validate cyclic RU EN ZH control
+        if: always()
+        working-directory: apps/web
+        run: node scripts/public-entry-watch-language-cycle.mjs
       - name: Upload watch evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -51,6 +54,7 @@ jobs:
               generatedAt: payload.generatedAt,
               http: payload.http,
               browserCases: Array.isArray(payload.browser) ? payload.browser.length : 0,
+              languageCycle: payload.languageCycle,
               loginFailClosed: payload.loginFailClosed,
               issues: payload.issues,
             };
@@ -68,5 +72,12 @@ jobs:
               await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
             }
       - name: Enforce watch result
-        if: steps.watch.outcome != 'success'
-        run: exit 1
+        if: always()
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const file = 'artifacts/public-entry-watch/report.json';
+          if (!fs.existsSync(file)) process.exit(1);
+          const report = JSON.parse(fs.readFileSync(file, 'utf8'));
+          if (!Array.isArray(report.issues) || report.issues.length > 0) process.exit(1);
+          NODE
