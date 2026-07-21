@@ -1,0 +1,30 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "parent_issue": 2973,
+  "issue": 2986,
+  "branch": "agent/tai-ap-14c3-review-submission-intake",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-14c3-review-submission-intake-2986.json",
+    "apps/tai/model-artifacts/expert-review-submission-intake.mjs",
+    "apps/tai/model-artifacts/expert-review-submission-intake-runbook.v1.md",
+    "apps/tai/tests/expert-review-submission-intake.test.mjs"
+  ],
+  "acceptance": [
+    "submission intake is offline and writes only caller-selected candidate files",
+    "every submission binds the exact review packet, corpus, exact-main and reviewer track",
+    "stale cases, wrong roles, future timestamps, invalid digests, unknown fields and duplicate or conflicting reviews are rejected",
+    "existing review records are never silently replaced",
+    "candidate reviews and assessment are deterministic and require human pull-request review",
+    "automation creates no expert decision and cannot close the human checkpoint",
+    "expert review remains PENDING_REVIEW until real external records satisfy policy",
+    "benchmark remains PENDING_BENCHMARK, model admission remains PENDING_ADMISSION and production_operational_status remains NOT_ATTESTED"
+  ],
+  "forbidden_capabilities": [
+    "automated APPROVED, REJECTED or NEEDS_CHANGES decisions",
+    "fabricated reviewer identity, evidence digest, timestamp, disagreement or review digest",
+    "direct update of GitHub issues, branches, pull requests or authority files",
+    "silent overwrite of an existing review ID or reviewer/case pair",
+    "model execution, benchmark, admission, activation, deployment or production attestation"
+  ]
+}
