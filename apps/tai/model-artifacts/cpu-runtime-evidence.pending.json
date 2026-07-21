@@ -1,0 +1,20 @@
+{
+  "schema_version": "tai.cpu-runtime-evidence.v1",
+  "lifecycle": "PENDING_RUNTIME_EXECUTION",
+  "pending_reason": "Immutable model bundles, external evidence storage and the accepted AP-14C review assessment are not yet available for real runtime execution.",
+  "exact_main": null,
+  "readiness": null,
+  "bundle_finalization": null,
+  "corpus": null,
+  "runtime_profiles": [],
+  "fallback_exercise": null,
+  "soak": null,
+  "raw_observations": null,
+  "evidence_files": [],
+  "storage": null,
+  "measured_at": null,
+  "quality_scoring_status": "PENDING_QUALITY_SCORING",
+  "benchmark_status": "PENDING_BENCHMARK",
+  "model_admission_status": "PENDING_ADMISSION",
+  "production_operational_status": "NOT_ATTESTED"
+}

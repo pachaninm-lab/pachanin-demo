@@ -18,3 +18,15 @@ d84b7faadf1b430e549850ccc5cce82a03d52d99:apps/tai/model-artifacts/cpu-benchmark-
 
 # False positive: public immutable Mistral model revision asserted by the fail-closed authority validator.
 ecdc1130ca1bc424f3ccecb072115e304722c971:apps/tai/tai/cpu_benchmark_execution.py:generic-api-key:413
+
+# False positive: public immutable Mistral revision in the raw CPU runtime authority.
+14f03a7cc036251ed9bafcf52d0b3f9107d3eedb:apps/tai/model-artifacts/cpu-runtime-evidence-authority.v1.json:generic-api-key:85
+
+# False positive: public immutable Mistral revision in the raw CPU runtime contract test fixture.
+14a80f93f2719a6fbf4edcf689ddfdf787430ec4:apps/tai/tests/test_cpu_runtime_evidence.py:generic-api-key:407
+
+# False positive: public immutable Mistral revision in the initial raw runtime validator commit.
+58d22ac80dc1daf7ed62b38daccce77a3aabbcf4:apps/tai/tai/cpu_runtime_evidence.py:generic-api-key:52
+
+# False positive: public immutable Mistral revision in the typed raw runtime contract.
+20109ee68ff5f1c69eb858d089460ba5d569456d:apps/tai/tai/cpu_runtime_contract.py:generic-api-key:51
