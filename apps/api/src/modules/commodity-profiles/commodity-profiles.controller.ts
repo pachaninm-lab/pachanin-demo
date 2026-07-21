@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Get,
   Headers,
@@ -30,9 +31,11 @@ import {
 } from './commodity-profile.policy';
 import { CommodityProfileRepository } from './commodity-profile.repository';
 import { CommodityProfileTransactionCommandService } from './commodity-profile-transaction-command.service';
+import { CommodityProfileVersionHistoryRepository } from './commodity-profile-version-history.repository';
 import {
   CommodityProfileDetailQueryDto,
   CommodityProfileListQueryDto,
+  CommodityProfileVersionHistoryQueryDto,
   ExecuteCommodityProfileCommandDto,
 } from './dto/commodity-profile-api.dto';
 
@@ -72,7 +75,8 @@ export function parseCommodityProfileIfMatch(value: string | undefined): string 
     );
   }
   const normalized = value.trim();
-  const match = /^(?:W\/)?"(0|[1-9][0-9]{0,18})"$/.exec(normalized)
+  const match = /^(?:W\/)?”(0|[1-9][0-9]{0,18})”$/.exec(normalized)
+    ?? /^(?:W\/)?"(0|[1-9][0-9]{0,18})"$/.exec(normalized)
     ?? /^(0|[1-9][0-9]{0,18})$/.exec(normalized);
   if (!match) {
     throw new BadRequestException({
@@ -91,12 +95,20 @@ function hasJitAuthority(request: AuthenticatedRequest): boolean {
   return request.staffAccess?.accessMode === StaffAccessMode.JIT_PRIVILEGED;
 }
 
+function conflictPayload(error: ConflictException): Record<string, unknown> | null {
+  const payload = error.getResponse();
+  return payload && typeof payload === 'object' && !Array.isArray(payload)
+    ? payload as Record<string, unknown>
+    : null;
+}
+
 @UseGuards(RolesGuard)
 @Roles('ANY_AUTHENTICATED')
 @Controller('platform-v7/commodity-profiles')
 export class CommodityProfilesController {
   constructor(
     private readonly repository: CommodityProfileRepository,
+    private readonly historyRepository: CommodityProfileVersionHistoryRepository,
     private readonly commands: CommodityProfileTransactionCommandService,
   ) {}
 
@@ -124,6 +136,31 @@ export class CommodityProfilesController {
       effectiveAt: query.effectiveAt,
       hasJitAuthority: hasJitAuthority(request),
     });
+  }
+
+  @Get(':profileId/versions')
+  @RateLimit({
+    name: 'commodity_profile_version_history',
+    scope: 'user',
+    limit: 120,
+    windowSeconds: 60,
+    includeParams: ['profileId'],
+  })
+  async versions(
+    @Param('profileId') profileId: string,
+    @Query() query: CommodityProfileVersionHistoryQueryDto,
+    @CurrentUser() user: RequestUser,
+    @Req() request: AuthenticatedRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.historyRepository.list(user, profileId, {
+      limit: query.limit,
+      cursor: query.cursor,
+      hasJitAuthority: hasJitAuthority(request),
+    });
+    response.setHeader('ETag', etag(result.aggregateVersion));
+    response.setHeader('Cache-Control', 'private, no-store');
+    return result;
   }
 
   @Get(':profileId')
@@ -169,23 +206,42 @@ export class CommodityProfilesController {
     @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const receipt = await this.commands.execute(
-      user,
-      {
-        commandId: dto.commandId,
-        idempotencyKey: dto.idempotencyKey,
-        correlationId: dto.correlationId,
-        profileId,
-        profileVersionId: dto.profileVersionId,
-        action: writeAction(actionId),
-        expectedVersion: parseCommodityProfileIfMatch(ifMatch),
-        reason: dto.reason,
-        payload: dto.payload,
-      },
-      { hasJitAuthority: hasJitAuthority(request) },
-    );
-    response.setHeader('ETag', etag(receipt.version));
-    response.setHeader('Cache-Control', 'private, no-store');
-    return receipt;
+    const jit = hasJitAuthority(request);
+    try {
+      const receipt = await this.commands.execute(
+        user,
+        {
+          commandId: dto.commandId,
+          idempotencyKey: dto.idempotencyKey,
+          correlationId: dto.correlationId,
+          profileId,
+          profileVersionId: dto.profileVersionId,
+          action: writeAction(actionId),
+          expectedVersion: parseCommodityProfileIfMatch(ifMatch),
+          reason: dto.reason,
+          payload: dto.payload,
+        },
+        { hasJitAuthority: jit },
+      );
+      response.setHeader('ETag', etag(receipt.version));
+      response.setHeader('Cache-Control', 'private, no-store');
+      return receipt;
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        const payload = conflictPayload(error);
+        if (payload?.code === 'COMMODITY_PROFILE_STALE_VERSION') {
+          const current = await this.repository.getById(user, profileId, {
+            hasJitAuthority: jit,
+          });
+          throw new ConflictException({
+            ...payload,
+            current,
+            currentEtag: etag(current.version),
+            retryable: true,
+          });
+        }
+      }
+      throw error;
+    }
   }
 }
