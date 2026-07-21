@@ -30,6 +30,7 @@ jobs:
           set -euo pipefail
           cat .github/tai-ap13c1d-v2.part-* | base64 --decode > /tmp/tai-ap13c1d-v2.tar.gz
           tar -xzf /tmp/tai-ap13c1d-v2.tar.gz -C .
+          sed -i 's/[[:blank:]]\+$//' apps/tai/model-artifacts/quality-scoring-runbook.v2.md
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -50,6 +51,7 @@ jobs:
           rm -f /tmp/tai-ap13c1d-v2.tar.gz
           rm -f .github/tai-ap13c1d-v2.part-*
           rm -f .github/workflows/tai-ap13c1d-v2-materialize.yml
+          rm -f .github/workflows/tai-ap13c1d-governed-patch.yml
 
       - name: Commit exact bounded replacement
         shell: bash
