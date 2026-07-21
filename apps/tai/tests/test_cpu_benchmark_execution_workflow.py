@@ -47,6 +47,11 @@ def test_scope_is_exact_and_preserves_maturity_boundary() -> None:
         2977,
     )
     assert set(scope["allowed_paths"]) == EXPECTED_PATHS
+    assert ".gitleaksignore" in scope["allowed_paths"]
+    assert "apps/tai/tests/test_gitleaks_release_authority.py" in scope["allowed_paths"]
+    assert "broad secret-scanner suppression" in " ".join(
+        scope["forbidden_capabilities"]
+    )
     assert "model weights" in " ".join(scope["forbidden_capabilities"])
     assert "production_operational_status remains NOT_ATTESTED" in scope["acceptance"][-1]
 
