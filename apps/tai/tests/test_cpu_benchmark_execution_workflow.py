@@ -17,6 +17,7 @@ SCOPE = (
 )
 COMMAND = "/tai benchmark cpu-fallback exact-main"
 EXPECTED_PATHS = {
+    ".gitleaksignore",
     ".github/workflows/tai-cpu-benchmark-execution-authority.yml",
     "apps/tai/governance/scopes/ap-13c1a-cpu-benchmark-authority-2977.json",
     "apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json",
@@ -26,6 +27,7 @@ EXPECTED_PATHS = {
     "apps/tai/tests/test_cpu_benchmark_execution.py",
     "apps/tai/tests/test_cpu_benchmark_execution_cli.py",
     "apps/tai/tests/test_cpu_benchmark_execution_workflow.py",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
 }
 
 
