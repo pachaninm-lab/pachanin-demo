@@ -45,6 +45,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --check apps/tai/model-artifacts/expert-review-packet.mjs
           node --check apps/tai/model-artifacts/expert-review-submission-intake.mjs
           node --check apps/tai/tests/expert-review-submission-intake.test.mjs
           node --check apps/tai/tests/expert-review-submission-packet-authority.test.mjs
@@ -67,6 +68,7 @@ jobs:
           mkdir -p tai-review-intake-evidence
           printf '%s\n' "$GITHUB_SHA" > tai-review-intake-evidence/exact-head.txt
           sha256sum \
+            apps/tai/model-artifacts/expert-review-packet.mjs \
             apps/tai/model-artifacts/expert-review-submission-intake.mjs \
             apps/tai/tests/expert-review-submission-intake.test.mjs \
             apps/tai/tests/expert-review-submission-packet-authority.test.mjs \
