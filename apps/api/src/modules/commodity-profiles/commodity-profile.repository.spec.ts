@@ -29,6 +29,7 @@ function row(overrides: Record<string, unknown> = {}) {
     classification: 'INTERNAL',
     version: 4n,
     updatedAt: new Date('2026-07-20T00:00:00.000Z'),
+    updatedByUserId: 'profile-updater-1',
     profileVersionId: 'profile-version-1',
     sequence: 2,
     lifecycle: 'EFFECTIVE',
@@ -37,6 +38,7 @@ function row(overrides: Record<string, unknown> = {}) {
     effectiveTo: null,
     contentHash: 'a'.repeat(64),
     content: { quality: [] },
+    versionUpdatedByUserId: 'version-updater-1',
     ...overrides,
   };
 }
@@ -60,10 +62,12 @@ describe('CommodityProfileRepository', () => {
     expect(result.items[0]).toMatchObject({
       id: 'profile-1',
       version: '4',
+      updatedByUserId: 'profile-updater-1',
       selectedVersion: {
         id: 'profile-version-1',
         lifecycle: 'EFFECTIVE',
         contentHash: 'a'.repeat(64),
+        updatedByUserId: 'version-updater-1',
       },
     });
     expect(result.items[0]!.actions.some((action) => action.id === 'DEPRECATE')).toBe(true);
