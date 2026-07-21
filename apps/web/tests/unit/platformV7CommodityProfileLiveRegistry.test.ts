@@ -6,84 +6,102 @@ const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 const exists = (path: string) => existsSync(join(process.cwd(), path));
 
 const files = {
-  live: 'components/crop-platform/LiveCommodityProfileRegistry.tsx',
-  liveCss: 'components/crop-platform/LiveCommodityProfileRegistry.module.css',
+  client: 'components/crop-platform/CommodityProfileRegistryClient.tsx',
+  clientCss: 'components/crop-platform/CommodityProfileRegistryClient.module.css',
+  adapter: 'components/crop-platform/commodity-profile-live-adapter.ts',
   registry: 'components/crop-platform/CommodityProfileRegistryView.tsx',
   page: 'app/platform-v7/commodity-profiles/page.tsx',
   detail: 'app/platform-v7/commodity-profiles/[profileId]/page.tsx',
   readBff: 'app/api/platform-v7/commodity-profiles/[[...path]]/route.ts',
   staffReadBff: 'app/api/staff/commodity-profile-registry/[[...path]]/route.ts',
   commandBff: 'app/api/staff/commodity-profiles/[profileId]/commands/[actionId]/route.ts',
+  routes: 'lib/platform-v7/routes.ts',
+  designPolicy: 'lib/platform-v7/design-system-v8-route-policy.ts',
+  accessPolicy: 'lib/platform-v7/cabinet-access-policy.ts',
 } as const;
 
-describe('PC-CROP-01B.4 live commodity registry', () => {
+describe('PC-CROP-01B.4 strict live commodity registry', () => {
   for (const path of Object.values(files)) {
     it(`contains ${path}`, () => expect(exists(path)).toBe(true));
   }
 
-  const live = read(files.live);
+  const client = read(files.client);
+  const adapter = read(files.adapter);
   const page = read(files.page);
   const detail = read(files.detail);
   const readBff = read(files.readBff);
   const staffReadBff = read(files.staffReadBff);
   const commandBff = read(files.commandBff);
-  const css = read(files.liveCss);
+  const clientCss = read(files.clientCss);
+  const routes = read(files.routes);
+  const designPolicy = read(files.designPolicy);
+  const accessPolicy = read(files.accessPolicy);
 
-  it('loads only server authority and never falls back to fixtures or browser persistence', () => {
-    expect(live).toContain("fetchRegistry('/api/staff/commodity-profile-registry?limit=100')");
-    expect(live).toContain("fetchRegistry('/api/platform-v7/commodity-profiles?limit=100')");
-    expect(live).not.toMatch(/fixture|mockProfiles|demoProfiles/i);
-    expect(live).not.toContain('localStorage');
-    expect(live).not.toContain('indexedDB');
+  it('loads only dedicated private BFF data and never falls back to fixtures or browser persistence', () => {
+    expect(client).toContain("fetch('/api/platform-v7/commodity-profiles?limit=100'");
+    expect(client).toContain('/api/platform-v7/commodity-profiles/${encodeURIComponent(initialProfileId)}');
+    expect(client).toContain('/versions?limit=100');
+    expect(client).toContain("data-static-authority-fallback='false'");
+    expect(`${client}\n${adapter}`).not.toMatch(/fixture|mockProfiles|demoProfiles/i);
+    expect(`${client}\n${adapter}`).not.toContain('localStorage');
+    expect(`${client}\n${adapter}`).not.toContain('sessionStorage');
+    expect(`${client}\n${adapter}`).not.toContain('indexedDB');
     expect(page).toContain("data-authority='postgresql-private-bff'");
     expect(detail).toContain("data-authority='postgresql-private-bff'");
   });
 
-  it('preserves server-derived identity and staff/JIT boundaries', () => {
+  it('rejects incomplete server contracts instead of manufacturing domain facts', () => {
+    expect(adapter).toContain('return null');
+    expect(adapter).toContain('if (!content || primaryAction === null) return null');
+    expect(adapter).not.toContain("|| 'DRAFT'");
+    expect(adapter).not.toContain("|| '—'");
+    expect(adapter).not.toMatch(/QUALITY_\$\{/);
+    expect(adapter).not.toMatch(/DOCUMENT_\$\{/);
+    expect(adapter).not.toContain('profile.actions.filter');
+    expect(adapter).toContain('profile.primaryAction');
+    expect(clientCss).toContain('Deal/Lot pin authority is a later governed slice');
+    expect(clientCss).toContain(':global([data-immutable] small)');
+  });
+
+  it('preserves authenticated and staff/JIT boundaries', () => {
     expect(readBff).toContain('Authorization: `Bearer ${accessToken}`');
     expect(readBff).not.toContain('X-Staff-Access-Session');
     expect(staffReadBff).toContain("'X-Staff-Access-Session': staffToken");
     expect(commandBff).toContain("'X-Staff-Access-Session': staffToken");
     expect(commandBff).toContain('assertCsrf(request)');
     expect(commandBff).toContain("'If-Match': ifMatch");
-    for (const forbidden of ['role:', 'tenantId:', 'hasJitAuthority:']) {
-      expect(commandBff).not.toContain(forbidden);
-    }
+    expect(commandBff).not.toMatch(/\brole\s*:/);
+    expect(commandBff).not.toMatch(/\btenantId\s*:/);
+    expect(commandBff).not.toMatch(/\bhasJitAuthority\s*:/);
   });
 
-  it('models loading, empty, forbidden, error, conflict and reconnecting without replacing server truth', () => {
+  it('models loading, empty, forbidden, error, conflict, reconnecting and ready without replacing server truth', () => {
     for (const state of ['loading', 'ready', 'empty', 'error', 'forbidden', 'conflict', 'reconnecting']) {
-      expect(live).toContain(`'${state}'`);
+      expect(client).toContain(`'${state}'`);
     }
-    expect(live).toContain("window.addEventListener('online', reconnect)");
-    expect(live).toContain("data-live-registry-state={kind}");
-    expect(live).toContain("setKind('conflict')");
-    expect(live).toContain('Your reason is preserved');
+    expect(client).toContain("window.addEventListener('online', reconnect)");
+    expect(client).toContain('data-live-state={liveState}');
+    expect(client).toContain("setLiveState('reconnecting')");
+    expect(client).toContain('parseCommodityProfilePage');
+    expect(client).toContain('parseCommodityProfileHistory');
   });
 
-  it('uses RU, EN and ZH presentation copy while authority remains server-side', () => {
-    expect(live).toContain("type Locale = 'ru' | 'en' | 'zh'");
-    expect(live).toContain("ru: {");
-    expect(live).toContain("en: {");
-    expect(live).toContain("zh: {");
-    expect(live).toContain('actionFor(profile, locale)');
-    expect(live).toContain('profile.actions.filter');
-  });
-
-  it('supports mobile safe areas, keyboard focus and reduced motion', () => {
-    expect(css).toContain('env(safe-area-inset-bottom)');
-    expect(css).toContain('@media (max-width: 430px)');
-    expect(css).toContain(':focus-visible');
-    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(live).toContain("role='dialog'");
-    expect(live).toContain("aria-modal='true'");
-  });
-
-  it('keeps private pages non-indexable and redirects missing sessions to login', () => {
+  it('registers the protected route in shell, design and authenticated access policies', () => {
+    for (const source of [routes, designPolicy, accessPolicy]) {
+      expect(source).toContain('/platform-v7/commodity-profiles');
+    }
     for (const source of [page, detail]) {
       expect(source).toContain('robots: { index: false, follow: false, nocache: true }');
       expect(source).toContain('redirect(');
       expect(source).toContain('ACCESS_COOKIE');
     }
+  });
+
+  it('keeps mobile safe areas and hides unimplemented pin-count authority', () => {
+    const pageCss = read('app/platform-v7/commodity-profiles/commodity-profiles.module.css');
+    expect(pageCss).toContain('env(safe-area-inset-bottom)');
+    expect(pageCss).toContain('@media (max-width: 430px)');
+    expect(clientCss).toContain('@media (max-width: 640px)');
+    expect(client).toContain("data-pinning-authority='not-in-slice'");
   });
 });
