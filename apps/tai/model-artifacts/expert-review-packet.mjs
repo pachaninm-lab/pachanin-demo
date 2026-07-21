@@ -229,6 +229,19 @@ function trackPacket(packet, track) {
   };
 }
 
+function intakeSubmissionTemplate(packet, track) {
+  return {
+    schema_version: 'tai.expert-review-submission.v1',
+    exact_main_sha: packet.exact_main_sha,
+    corpus_sha256: packet.corpus_sha256,
+    packet_sha256: packet.packet_sha256,
+    track_id: track.track_id,
+    submitter_id: null,
+    submitted_at: null,
+    reviews: [],
+  };
+}
+
 export function materializeExpertReviewPacket(packet, outputDirectory) {
   invariant(
     packet?.schema_version === 'tai.expert-review-packet.v1',
@@ -263,6 +276,17 @@ export function materializeExpertReviewPacket(packet, outputDirectory) {
       name: fileName,
       sha256: written.sha256,
       size_bytes: written.size_bytes,
+    });
+
+    const intakeName = `intake-submission-${track.track_id}.v1.json`;
+    const intake = writeJson(
+      resolve(outputDirectory, intakeName),
+      intakeSubmissionTemplate(packet, track),
+    );
+    files.push({
+      name: intakeName,
+      sha256: intake.sha256,
+      size_bytes: intake.size_bytes,
     });
   }
   const submissionTemplate = {
