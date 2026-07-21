@@ -43,7 +43,7 @@ test.describe('P0 public TAI intelligence layer browser acceptance', () => {
     const forbiddenRequests: string[] = [];
     page.on('request', (request) => {
       const url = request.url();
-      if (/fgis|esia|gosuslugi|bank-callback|/api/proxy/ai-assistant/i.test(url)) forbiddenRequests.push(url);
+      if (/fgis|esia|gosuslugi|bank-callback|\/api\/proxy\/ai-assistant/i.test(url)) forbiddenRequests.push(url);
     });
 
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
