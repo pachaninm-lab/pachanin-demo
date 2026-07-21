@@ -1,0 +1,37 @@
+name: TAI AP-13B.3e Generated Artifact Cleanup
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13b3e-immutable-storage-contract
+    paths:
+      - .github/workflows/tai-ap13b3e-clean-generated.yml
+
+permissions:
+  contents: write
+
+jobs:
+  clean:
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13b3e-immutable-storage-contract
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Remove non-source artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -r --ignore-unmatch \
+            apps/tai/tai/__pycache__ \
+            apps/tai/tests/__pycache__ \
+            apps/tai/transparent_agro_intelligence.egg-info
+          rm .github/workflows/tai-ap13b3e-clean-generated.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/tai-ap13b3e-clean-generated.yml
+          git commit -m 'chore(tai): remove generated Python artifacts'
+          git push origin HEAD:agent/tai-ap-13b3e-immutable-storage-contract
