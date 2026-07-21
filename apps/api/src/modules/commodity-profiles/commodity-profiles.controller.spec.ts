@@ -44,9 +44,7 @@ const staffAccess = {
 };
 
 function responseHarness() {
-  return {
-    setHeader: jest.fn(),
-  } as unknown as Response;
+  return { setHeader: jest.fn() } as unknown as Response;
 }
 
 function makeController() {
@@ -60,8 +58,10 @@ function makeController() {
     classification: 'INTERNAL' as const,
     version: '7',
     updatedAt: '2026-07-21T08:00:00.000Z',
+    updatedByUserId: 'user-admin-1',
     selectedVersion: null,
     actions: [],
+    primaryAction: null,
   };
   const repository = {
     list: jest.fn(async () => ({ items: [readModel], nextCursor: null })),
