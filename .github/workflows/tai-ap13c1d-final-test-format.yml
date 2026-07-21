@@ -1,0 +1,62 @@
+name: TAI AP-13C.1d final test format
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-ap13c1d-final-test-format
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: github.event.pull_request.head.ref == 'agent/tai-ap-13c1d-quality-scoring'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13c1d-quality-scoring
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Repair and format exact test file
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/tai/tests/test_quality_scoring_negative_matrix.py')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              '@param.parametrize(': '@pytest.mark.parametrize(',
+              '_, trusons = _aggregate(': '_, reasons = _aggregate(',
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected one occurrence, got {count}: {old}')
+              text = text.replace(old, new)
+          path.write_text(text, encoding='utf-8')
+          PY
+          python -m pip install 'ruff>=0.11,<1'
+          ruff check --fix apps/tai/tests/test_quality_scoring_negative_matrix.py
+          ruff format apps/tai/tests/test_quality_scoring_negative_matrix.py
+          ruff check apps/tai/tests/test_quality_scoring_negative_matrix.py
+          rm -f .github/workflows/tai-ap13c1d-final-test-format.yml
+      - name: Commit bounded repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'pachaninm-lab'
+          git config user.email 'pachaninm-lab@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'test(tai): finalize AP-13C.1d negative matrix'
+          git push origin HEAD:agent/tai-ap-13c1d-quality-scoring
