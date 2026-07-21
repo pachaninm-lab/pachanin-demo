@@ -54,9 +54,9 @@ jobs:
               assert(new URL(localeState.href || '', page.url()).searchParams.get('lang') === expectedNext, `${project.name}/${locale}${route}: locale href ${localeState.href}`);"""
           if old not in source:
               raise SystemExit('Expected locale assertion was not found')
-          Path('/tmp/public-entry-watch-current.mjs').write_text(source.replace(old, new, 1))
+          source_path.write_text(source.replace(old, new, 1))
           PY
-          node /tmp/public-entry-watch-current.mjs
+          node scripts/public-entry-watch-current-v2.mjs
       - name: Persist exact machine-readable result
         if: always()
         shell: bash
@@ -64,6 +64,7 @@ jobs:
           set -euo pipefail
           mkdir -p ops/public-entry-watch
           cp artifacts/public-entry-watch/public-entry-watch.json ops/public-entry-watch/result.json
+          git checkout -- apps/web/scripts/public-entry-watch-current-v2.mjs
           git config user.name 'public-entry-watch'
           git config user.email 'public-entry-watch@users.noreply.github.com'
           git add ops/public-entry-watch/result.json
