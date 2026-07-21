@@ -1,11 +1,13 @@
 {
   "branch": "fix/public-ai-layout-authority",
   "status": "active",
-  "purpose": "Deploy the already accepted TAI public intelligence P0 web image from exact main commit 24277e008d25f66f52b56284ff83ca3eead39fb2 to the canonical REG.RU VPS through the existing audited key-only deployment authority, mutate only the production web service, and capture exact OCI and live-domain evidence.",
-  "approvedBy": "user-directed-continue-to-production-2026-07-21",
+  "purpose": "Deploy the already accepted TAI public intelligence P0 web image from exact main commit 24277e008d25f66f52b56284ff83ca3eead39fb2 to the canonical REG.RU VPS through a hardened key-only deployment authority with bounded DNS, SSH authentication, exact OCI, live-marker evidence and automatic web-only rollback.",
+  "approvedBy": "user-directed-autonomous-finish-2026-07-22",
   "allowedPaths": [
     ".github/release-triggers/tai-p0-web-24277e0.md",
+    ".github/release-triggers/tai-p0-web-24277e0-v2.md",
     ".github/workflows/deploy-ai-web-vps-c21eec0.yml",
+    ".github/workflows/deploy-tai-p0-web-24277e0-v2.yml",
     "docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json"
   ],
   "forbiddenCapabilities": [
