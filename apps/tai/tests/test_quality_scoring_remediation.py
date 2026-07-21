@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from quality_scoring_fixtures import (
     NOW,
+    _annotation_signature,
     _fixture,
     _provider_receipt,
     _rewrite_manifest,
@@ -17,7 +18,12 @@ from quality_scoring_fixtures import (
     _verify,
 )
 
-from tai.quality_scoring_contract import QualityScoringError, load_json, write_json
+from tai.quality_scoring_contract import (
+    QualityScoringError,
+    canonical_sha256,
+    load_json,
+    write_json,
+)
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -56,6 +62,12 @@ def _resign_annotation(fixture: dict[str, object], index: int = 0) -> None:
     row = copy.deepcopy(annotations[index])
     assert isinstance(row, dict)
     row.pop("annotation_sha256", None)
+    row.pop("annotation_signature", None)
+    secret_path = fixture["identity_secret_path"]
+    assert isinstance(secret_path, Path)
+    row["annotation_signature"] = _annotation_signature(
+        secret_path.read_bytes(), row
+    )
     annotations[index] = _signed(row, "annotation_sha256")
     _rewrite_manifest(fixture)
 
@@ -83,6 +95,17 @@ def test_fabricated_reviewer_signature_is_rejected(tmp_path: Path) -> None:
     fixture["manifest"]["identity_assertions"][0]["signature"] = "f" * 64
     _rewrite_manifest(fixture)
     with pytest.raises(QualityScoringError, match="signature is invalid"):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+
+def test_annotation_content_requires_reviewer_signature(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    row = fixture["manifest"]["annotations"][0]
+    row["decision"] = "FAIL"
+    row.pop("annotation_sha256")
+    row["annotation_sha256"] = canonical_sha256(row)
+    _rewrite_manifest(fixture)
+    with pytest.raises(QualityScoringError, match="annotation reviewer signature is invalid"):
         _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
 
 

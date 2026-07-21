@@ -12,7 +12,6 @@
     "authority_sha256",
     "runtime_report_sha256",
     "observation_index_sha256",
-    "identity_assertions",
     "annotations",
     "storage",
     "scored_at",
@@ -23,40 +22,107 @@
     "manifest_sha256"
   ],
   "properties": {
-    "schema_version": {"const": "tai.quality-scoring-evidence.v1"},
-    "lifecycle": {"enum": ["PENDING_HUMAN_SCORING", "COMPLETE"]},
-    "pending_reason": {"type": ["string", "null"]},
-    "exact_main": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
-    "authority_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
-    "runtime_report_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
-    "observation_index_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "schema_version": {
+      "const": "tai.quality-scoring-evidence.v1"
+    },
+    "lifecycle": {
+      "enum": [
+        "PENDING_HUMAN_SCORING",
+        "COMPLETE"
+      ]
+    },
+    "pending_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "exact_main": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "authority_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "runtime_report_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "observation_index_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "identity_assertions": {
       "type": "array",
       "maxItems": 5,
-      "items": {"$ref": "#/$defs/identity_assertion"}
+      "items": {
+        "$ref": "#/$defs/identity_assertion"
+      }
     },
     "annotations": {
       "type": "array",
       "maxItems": 486,
-      "items": {"$ref": "#/$defs/annotation"}
+      "items": {
+        "$ref": "#/$defs/annotation"
+      }
     },
     "storage": {
       "oneOf": [
-        {"type": "null"},
-        {"$ref": "#/$defs/storage"}
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/storage"
+        }
       ]
     },
-    "scored_at": {"type": ["string", "null"], "format": "date-time"},
+    "scored_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
     "quality_scoring_status": {
       "enum": [
         "PENDING_QUALITY_SCORING",
         "QUALITY_SCORING_VERIFIED_PENDING_BENCHMARK_FINALIZATION"
       ]
     },
-    "benchmark_status": {"const": "PENDING_BENCHMARK"},
-    "model_admission_status": {"const": "PENDING_ADMISSION"},
-    "production_operational_status": {"const": "NOT_ATTESTED"},
-    "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    "benchmark_status": {
+      "const": "PENDING_BENCHMARK"
+    },
+    "model_admission_status": {
+      "const": "PENDING_ADMISSION"
+    },
+    "production_operational_status": {
+      "const": "NOT_ATTESTED"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "scoring_run_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 240
+    }
   },
   "$defs": {
     "identity_assertion": {
@@ -79,11 +145,25 @@
         "signature"
       ],
       "properties": {
-        "schema_version": {"const": "tai.reviewer-identity-assertion.v1"},
-        "assertion_id": {"type": "string", "minLength": 1, "maxLength": 240},
-        "issuer": {"const": "TAI_SERVER_IDENTITY"},
-        "audience": {"const": "TAI_QUALITY_SCORING"},
-        "subject": {"type": "string", "minLength": 1, "maxLength": 240},
+        "schema_version": {
+          "const": "tai.reviewer-identity-assertion.v1"
+        },
+        "assertion_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "issuer": {
+          "const": "TAI_SERVER_IDENTITY"
+        },
+        "audience": {
+          "const": "TAI_QUALITY_SCORING"
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
         "role": {
           "enum": [
             "PLATFORM_OWNER",
@@ -93,14 +173,40 @@
             "METHOD_REVIEWER"
           ]
         },
-        "mfa_verified": {"const": true},
-        "mfa_method": {"enum": ["TOTP", "WEBAUTHN", "HARDWARE_KEY"]},
-        "mfa_verified_at": {"type": "string", "format": "date-time"},
-        "issued_at": {"type": "string", "format": "date-time"},
-        "expires_at": {"type": "string", "format": "date-time"},
-        "key_id": {"const": "tai-reviewer-identity-hmac-v1"},
-        "nonce": {"type": "string", "minLength": 1, "maxLength": 240},
-        "signature": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        "mfa_verified": {
+          "const": true
+        },
+        "mfa_method": {
+          "enum": [
+            "TOTP",
+            "WEBAUTHN",
+            "HARDWARE_KEY"
+          ]
+        },
+        "mfa_verified_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "key_id": {
+          "const": "tai-reviewer-identity-hmac-v1"
+        },
+        "nonce": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       }
     },
     "annotation": {
@@ -135,24 +241,57 @@
         "unsupported_fact_count",
         "safety_failure_count",
         "disagreement_with_annotation_id",
+        "annotation_signature",
         "annotation_sha256"
       ],
       "properties": {
-        "schema_version": {"const": "tai.quality-annotation.v1"},
-        "annotation_id": {"type": "string", "minLength": 1, "maxLength": 240},
+        "schema_version": {
+          "const": "tai.quality-annotation.v1"
+        },
+        "annotation_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
         "profile_id": {
           "enum": [
             "qwen3-8b-cpu-q4-k-m",
             "mistral-7b-fallback-cpu-q4-k-m"
           ]
         },
-        "case_id": {"type": "string", "minLength": 1, "maxLength": 240},
-        "case_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "locale": {"enum": ["ru", "en", "zh"]},
-        "prompt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "response_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "trace_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "scorer_id": {"type": "string", "minLength": 1, "maxLength": 240},
+        "case_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "case_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "locale": {
+          "enum": [
+            "ru",
+            "en",
+            "zh"
+          ]
+        },
+        "prompt_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "response_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "trace_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "scorer_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
         "scorer_role": {
           "enum": [
             "PLATFORM_OWNER",
@@ -162,24 +301,82 @@
             "METHOD_REVIEWER"
           ]
         },
-        "identity_assertion_id": {"type": "string", "minLength": 1, "maxLength": 240},
-        "scored_at": {"type": "string", "format": "date-time"},
-        "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "evidence_size_bytes": {"type": "integer", "minimum": 1},
-        "evidence_object_key": {"type": "string", "minLength": 1, "maxLength": 240},
-        "evidence_object_version_id": {"type": "string", "minLength": 1, "maxLength": 240},
-        "decision": {"enum": ["PASS", "FAIL"]},
-        "disposition_valid": {"type": "boolean"},
-        "required_concepts_met": {"type": "boolean"},
-        "forbidden_claims_absent": {"type": "boolean"},
-        "citation_authority_valid": {"type": "boolean"},
-        "citation_support_valid": {"type": "boolean"},
-        "citation_freshness_valid": {"type": "boolean"},
-        "abstention_valid": {"type": "boolean"},
-        "unsupported_fact_count": {"type": "integer", "minimum": 0},
-        "safety_failure_count": {"type": "integer", "minimum": 0},
-        "disagreement_with_annotation_id": {"type": ["string", "null"]},
-        "annotation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        "identity_assertion_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "scored_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "evidence_object_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "evidence_object_version_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "decision": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "disposition_valid": {
+          "type": "boolean"
+        },
+        "required_concepts_met": {
+          "type": "boolean"
+        },
+        "forbidden_claims_absent": {
+          "type": "boolean"
+        },
+        "citation_authority_valid": {
+          "type": "boolean"
+        },
+        "citation_support_valid": {
+          "type": "boolean"
+        },
+        "citation_freshness_valid": {
+          "type": "boolean"
+        },
+        "abstention_valid": {
+          "type": "boolean"
+        },
+        "unsupported_fact_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "safety_failure_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "disagreement_with_annotation_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "annotation_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "annotation_signature": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       }
     },
     "storage": {
@@ -203,22 +400,96 @@
         "evidence_manifest_sha256"
       ],
       "properties": {
-        "provider": {"const": "SELECTEL_S3"},
-        "bucket": {"type": "string", "minLength": 1, "maxLength": 240},
-        "retention_days": {"type": "integer", "minimum": 90},
-        "retention_until": {"type": "string", "format": "date-time"},
-        "immutability_status": {"const": "IMMUTABLE_VERSIONED"},
-        "original_root_id": {"type": "string", "minLength": 1, "maxLength": 240},
-        "restored_root_id": {"type": "string", "minLength": 1, "maxLength": 240},
-        "annotations_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "identity_assertions_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "evidence_manifest_relative_path": {"type": "string", "minLength": 1, "maxLength": 240},
-        "evidence_manifest_object_key": {"type": "string", "minLength": 1, "maxLength": 240},
-        "evidence_manifest_object_version_id": {"type": "string", "minLength": 1, "maxLength": 240},
-        "evidence_manifest_size_bytes": {"type": "integer", "minimum": 2},
-        "evidence_manifest_file_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "evidence_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        "provider": {
+          "const": "SELECTEL_S3"
+        },
+        "bucket": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 90
+        },
+        "retention_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "immutability_status": {
+          "const": "IMMUTABLE_VERSIONED"
+        },
+        "original_root_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "restored_root_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "annotations_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "identity_assertions_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_manifest_relative_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "evidence_manifest_object_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "evidence_manifest_object_version_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "evidence_manifest_size_bytes": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "evidence_manifest_file_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "lifecycle": {
+            "const": "COMPLETE"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "identity_assertions",
+          "scoring_run_id"
+        ],
+        "properties": {
+          "identity_assertions": {
+            "minItems": 1
+          },
+          "scoring_run_id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
 }

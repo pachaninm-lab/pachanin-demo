@@ -30,6 +30,7 @@ from tai.quality_scoring_inputs import (
 
 NOW = datetime(2026, 7, 21, 18, 0, tzinfo=UTC)
 RETENTION_UNTIL = NOW + timedelta(days=100)
+SCORING_RUN_ID = "quality-run-2026-07-21-fixture"
 
 
 def _signed(value: dict[str, Any], field: str) -> dict[str, Any]:
@@ -309,12 +310,30 @@ def _evidence_payload(annotation_id: str) -> bytes:
     ).encode("utf-8")
 
 
+def _annotation_signature(
+    secret: bytes,
+    annotation: dict[str, Any],
+) -> str:
+    payload = {
+        "schema_version": "tai.quality-annotation-signature.v1",
+        "context": "TAI_QUALITY_SCORING_ANNOTATION",
+        "identity_assertion_id": annotation["identity_assertion_id"],
+        "scoring_run_id": SCORING_RUN_ID,
+        "exact_main": EXACT_MAIN,
+        "annotation_payload_sha256": hashlib.sha256(
+            _canonical_bytes(annotation)
+        ).hexdigest(),
+    }
+    return hmac.new(secret, _canonical_bytes(payload), hashlib.sha256).hexdigest()
+
+
 def _annotation(
     observation: dict[str, Any],
     *,
     scorer_id: str,
     scorer_role: str,
     suffix: str,
+    identity_secret: bytes,
     decision: str = "PASS",
 ) -> dict[str, Any]:
     annotation_id = (
@@ -323,42 +342,42 @@ def _annotation(
     )
     evidence = _evidence_payload(annotation_id)
     object_suffix = hashlib.sha256(annotation_id.encode()).hexdigest()[:24]
-    return _signed(
-        {
-            "schema_version": "tai.quality-annotation.v1",
-            "annotation_id": annotation_id,
-            "profile_id": observation["profile_id"],
-            "case_id": observation["case_id"],
-            "case_sha256": observation["case_sha256"],
-            "locale": observation["locale"],
-            "prompt_sha256": observation["prompt_sha256"],
-            "response_sha256": observation["response_sha256"],
-            "trace_sha256": observation["trace_sha256"],
-            "scorer_id": scorer_id,
-            "scorer_role": scorer_role,
-            "identity_assertion_id": _assertion_id(scorer_id),
-            "scored_at": NOW.isoformat(),
-            "evidence_sha256": hashlib.sha256(evidence).hexdigest(),
-            "evidence_size_bytes": len(evidence),
-            "evidence_object_key": f"quality-review/{object_suffix}.json",
-            "evidence_object_version_id": f"version-{object_suffix}",
-            "decision": decision,
-            "disposition_valid": decision == "PASS",
-            "required_concepts_met": decision == "PASS",
-            "forbidden_claims_absent": decision == "PASS",
-            "citation_authority_valid": decision == "PASS",
-            "citation_support_valid": decision == "PASS",
-            "citation_freshness_valid": decision == "PASS",
-            "abstention_valid": decision == "PASS",
-            "unsupported_fact_count": 0,
-            "safety_failure_count": 0,
-            "disagreement_with_annotation_id": None,
-        },
-        "annotation_sha256",
-    )
+    value: dict[str, Any] = {
+        "schema_version": "tai.quality-annotation.v1",
+        "annotation_id": annotation_id,
+        "profile_id": observation["profile_id"],
+        "case_id": observation["case_id"],
+        "case_sha256": observation["case_sha256"],
+        "locale": observation["locale"],
+        "prompt_sha256": observation["prompt_sha256"],
+        "response_sha256": observation["response_sha256"],
+        "trace_sha256": observation["trace_sha256"],
+        "scorer_id": scorer_id,
+        "scorer_role": scorer_role,
+        "identity_assertion_id": _assertion_id(scorer_id),
+        "scored_at": NOW.isoformat(),
+        "evidence_sha256": hashlib.sha256(evidence).hexdigest(),
+        "evidence_size_bytes": len(evidence),
+        "evidence_object_key": f"quality-review/{object_suffix}.json",
+        "evidence_object_version_id": f"version-{object_suffix}",
+        "decision": decision,
+        "disposition_valid": decision == "PASS",
+        "required_concepts_met": decision == "PASS",
+        "forbidden_claims_absent": decision == "PASS",
+        "citation_authority_valid": decision == "PASS",
+        "citation_support_valid": decision == "PASS",
+        "citation_freshness_valid": decision == "PASS",
+        "abstention_valid": decision == "PASS",
+        "unsupported_fact_count": 0,
+        "safety_failure_count": 0,
+        "disagreement_with_annotation_id": None,
+    }
+    value["annotation_signature"] = _annotation_signature(identity_secret, value)
+    return _signed(value, "annotation_sha256")
 
-
-def _annotations(index: dict[str, Any]) -> list[dict[str, Any]]:
+def _annotations(
+    index: dict[str, Any], identity_secret: bytes
+) -> list[dict[str, Any]]:
     result = []
     for observation in index["observations"]:
         primary_role = (
@@ -377,6 +396,7 @@ def _annotations(index: dict[str, Any]) -> list[dict[str, Any]]:
                 scorer_id=primary_id,
                 scorer_role=primary_role,
                 suffix="primary",
+                identity_secret=identity_secret,
             )
         )
         if observation["criticality"] == "CRITICAL":
@@ -386,6 +406,7 @@ def _annotations(index: dict[str, Any]) -> list[dict[str, Any]]:
                     scorer_id="security.reviewer",
                     scorer_role="SECURITY_REVIEWER",
                     suffix="secondary",
+                    identity_secret=identity_secret,
                 )
             )
     return result
@@ -475,6 +496,7 @@ def _complete_manifest(
             "authority_sha256": authority["authority_sha256"],
             "runtime_report_sha256": runtime["report_sha256"],
             "observation_index_sha256": index["index_sha256"],
+            "scoring_run_id": SCORING_RUN_ID,
             "identity_assertions": identity_assertions,
             "annotations": annotations,
             "storage": storage,
@@ -525,7 +547,7 @@ def _fixture(tmp_path: Path) -> dict[str, Any]:
     )
     secret, trusted_secret_sha256 = _identity_secret(identity_secret_path)
     identity_assertions = _identity_assertions(secret)
-    annotations = _annotations(index)
+    annotations = _annotations(index, secret)
     storage = _reviewer_evidence(
         reviewer_manifest_path,
         reviewer_original_root,

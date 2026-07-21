@@ -11,6 +11,7 @@ from tai.quality_scoring_contract import (
     QualityScoringError,
     as_array,
     as_bool,
+    as_commit,
     as_identity,
     as_int,
     as_object,
@@ -47,7 +48,7 @@ def _canonical_bytes(value: object) -> bytes:
     ).encode("utf-8")
 
 
-def _trusted_secret(path: Path, expected_sha256: str) -> bytes:
+def trusted_identity_secret(path: Path, expected_sha256: str) -> bytes:
     expected = as_sha256(expected_sha256, "trusted reviewer identity secret digest")
     if path.is_symlink() or not path.is_file():
         raise QualityScoringError(
@@ -152,6 +153,8 @@ def verify_identity_assertions(
             "allowed_mfa_methods",
             "maximum_lifetime_seconds",
             "maximum_mfa_age_seconds",
+            "annotation_signature_schema",
+            "annotation_signature_context",
             "trusted_secret_digest_source",
         },
         "scorer identity policy",
@@ -172,7 +175,7 @@ def verify_identity_assertions(
     for method in allowed_methods:
         as_identity(method, "identity policy MFA method")
 
-    secret = _trusted_secret(secret_path, trusted_secret_sha256)
+    secret = trusted_identity_secret(secret_path, trusted_secret_sha256)
     assertions: dict[str, dict[str, Any]] = {}
     subjects: set[tuple[str, str]] = set()
     for number, item in enumerate(
@@ -227,3 +230,39 @@ def bind_annotation_identity(
     if int((scored_at - mfa_at).total_seconds()) > maximum_mfa_age:
         raise QualityScoringError("annotation MFA verification is stale")
     return assertion_id
+
+
+def verify_annotation_signature(
+    annotation: dict[str, Any],
+    assertion: dict[str, Any],
+    policy_value: object,
+    secret: bytes,
+    *,
+    exact_main: str,
+    scoring_run_id: str,
+) -> None:
+    policy = as_object(policy_value, "scorer identity policy")
+    as_commit(exact_main, "annotation signature exact_main")
+    as_identity(scoring_run_id, "annotation signature scoring_run_id")
+    signature = as_sha256(
+        annotation["annotation_signature"],
+        "annotation.annotation_signature",
+    )
+    annotation_payload = {
+        key: value
+        for key, value in annotation.items()
+        if key not in {"annotation_signature", "annotation_sha256"}
+    }
+    payload = {
+        "schema_version": policy["annotation_signature_schema"],
+        "context": policy["annotation_signature_context"],
+        "identity_assertion_id": assertion["assertion_id"],
+        "scoring_run_id": scoring_run_id,
+        "exact_main": exact_main,
+        "annotation_payload_sha256": hashlib.sha256(
+            _canonical_bytes(annotation_payload)
+        ).hexdigest(),
+    }
+    expected = hmac.new(secret, _canonical_bytes(payload), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        raise QualityScoringError("annotation reviewer signature is invalid")

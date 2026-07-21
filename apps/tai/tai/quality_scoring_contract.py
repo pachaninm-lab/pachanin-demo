@@ -202,6 +202,8 @@ def expected_authority() -> dict[str, Any]:
                 "allowed_mfa_methods": ["TOTP", "WEBAUTHN", "HARDWARE_KEY"],
                 "maximum_lifetime_seconds": 86_400,
                 "maximum_mfa_age_seconds": 43_200,
+                "annotation_signature_schema": "tai.quality-annotation-signature.v1",
+                "annotation_signature_context": "TAI_QUALITY_SCORING_ANNOTATION",
                 "trusted_secret_digest_source": "OPERATOR_TRUSTED_CONFIG",
             },
         },
@@ -257,6 +259,7 @@ MANIFEST_KEYS = {
     "authority_sha256",
     "runtime_report_sha256",
     "observation_index_sha256",
+    "scoring_run_id",
     "identity_assertions",
     "annotations",
     "storage",
@@ -274,8 +277,13 @@ def load_scoring_manifest(path: Path) -> dict[str, Any]:
     if value.get("schema_version") != "tai.quality-scoring-evidence.v1":
         raise QualityScoringError("unsupported quality scoring manifest schema")
     self_digest(value, "manifest_sha256", "quality scoring manifest")
+    defaults: dict[str, object] = {}
     if "identity_assertions" not in value:
-        value = {**value, "identity_assertions": []}
+        defaults["identity_assertions"] = []
+    if "scoring_run_id" not in value:
+        defaults["scoring_run_id"] = None
+    if defaults:
+        value = {**value, **defaults}
     require_keys(value, MANIFEST_KEYS, "quality scoring manifest")
     lifecycle = as_text(value["lifecycle"], "manifest.lifecycle")
     if lifecycle == "PENDING_HUMAN_SCORING":
@@ -285,6 +293,7 @@ def load_scoring_manifest(path: Path) -> dict[str, Any]:
             "authority_sha256": None,
             "runtime_report_sha256": None,
             "observation_index_sha256": None,
+            "scoring_run_id": None,
             "identity_assertions": [],
             "annotations": [],
             "storage": None,
@@ -298,6 +307,7 @@ def load_scoring_manifest(path: Path) -> dict[str, Any]:
     elif lifecycle == "COMPLETE":
         if value["pending_reason"] is not None:
             raise QualityScoringError("complete scoring manifest cannot have pending_reason")
+        as_identity(value["scoring_run_id"], "manifest.scoring_run_id")
         if not as_array(value["identity_assertions"], "manifest.identity_assertions"):
             raise QualityScoringError("complete scoring manifest has no identity assertions")
         if not as_array(value["annotations"], "manifest.annotations"):

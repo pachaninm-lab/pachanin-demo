@@ -84,6 +84,8 @@
         "LEGAL_REVIEWER",
         "METHOD_REVIEWER"
       ],
+      "annotation_signature_context": "TAI_QUALITY_SCORING_ANNOTATION",
+      "annotation_signature_schema": "tai.quality-annotation-signature.v1",
       "audience": "TAI_QUALITY_SCORING",
       "issuer": "TAI_SERVER_IDENTITY",
       "key_id": "tai-reviewer-identity-hmac-v1",

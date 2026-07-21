@@ -17,7 +17,10 @@ from tai.quality_scoring_contract import (
     require_keys,
     self_digest,
 )
-from tai.quality_scoring_identity import bind_annotation_identity
+from tai.quality_scoring_identity import (
+    bind_annotation_identity,
+    verify_annotation_signature,
+)
 
 ANNOTATION_KEYS = {
     "schema_version",
@@ -48,6 +51,7 @@ ANNOTATION_KEYS = {
     "unsupported_fact_count",
     "safety_failure_count",
     "disagreement_with_annotation_id",
+    "annotation_signature",
     "annotation_sha256",
 }
 
@@ -76,6 +80,7 @@ def _annotation(item: object, number: int) -> dict[str, Any]:
         "response_sha256",
         "trace_sha256",
         "evidence_sha256",
+        "annotation_signature",
     ):
         as_sha256(annotation[field], f"annotation.{field}")
     as_int(annotation["evidence_size_bytes"], "annotation.evidence_size_bytes", minimum=1)
@@ -107,6 +112,10 @@ def score_observations(
     annotations_value: object,
     identity_assertions: dict[str, dict[str, Any]],
     identity_policy: object,
+    identity_secret: bytes,
+    *,
+    exact_main: str,
+    scoring_run_id: str,
 ) -> tuple[dict[tuple[str, str, str], bool], dict[str, int]]:
     rows = [
         _annotation(item, index)
@@ -163,8 +172,17 @@ def score_observations(
             raise QualityScoringError("annotation decisions disagree")
         observation_pass = decisions == {"PASS"}
         for row in group:
-            used_assertions.add(
-                bind_annotation_identity(row, identity_assertions, identity_policy)
+            assertion_id = bind_annotation_identity(
+                row, identity_assertions, identity_policy
+            )
+            used_assertions.add(assertion_id)
+            verify_annotation_signature(
+                row,
+                identity_assertions[assertion_id],
+                identity_policy,
+                identity_secret,
+                exact_main=exact_main,
+                scoring_run_id=scoring_run_id,
             )
             citation_ok = all(
                 bool(row[field])

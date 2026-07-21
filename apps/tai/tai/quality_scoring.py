@@ -11,6 +11,7 @@ from tai.quality_scoring_contract import (
     VERIFIED_QUALITY_STATUS,
     QualityScoringError,
     as_commit,
+    as_identity,
     as_int,
     as_object,
     as_timestamp,
@@ -19,7 +20,10 @@ from tai.quality_scoring_contract import (
     load_scoring_manifest,
 )
 from tai.quality_scoring_external_evidence import verify_external_reviewer_evidence
-from tai.quality_scoring_identity import verify_identity_assertions
+from tai.quality_scoring_identity import (
+    trusted_identity_secret,
+    verify_identity_assertions,
+)
 from tai.quality_scoring_inputs import (
     accepted_assessment,
     case_manifest,
@@ -239,6 +243,12 @@ def verify_quality_scoring(
         raise QualityScoringError("scoring manifest maturity boundary is invalid")
 
     identity_policy = authority["scorer_policy"]["identity_assertions"]
+    scoring_run_id = as_identity(
+        manifest["scoring_run_id"], "manifest.scoring_run_id"
+    )
+    identity_secret_bytes = trusted_identity_secret(
+        identity_secret, trusted_identity_secret_sha256
+    )
     identity_assertions = verify_identity_assertions(
         manifest["identity_assertions"],
         identity_policy,
@@ -251,6 +261,9 @@ def verify_quality_scoring(
         manifest["annotations"],
         identity_assertions,
         identity_policy,
+        identity_secret_bytes,
+        exact_main=runtime["exact_main"],
+        scoring_run_id=scoring_run_id,
     )
     external_evidence = verify_external_reviewer_evidence(
         evidence_manifest_path,
@@ -283,6 +296,7 @@ def verify_quality_scoring(
         "assessment_sha256": assessment["assessment_sha256"],
         "corpus_sha256": assessment["corpus_sha256"],
         "manifest_sha256": manifest["manifest_sha256"],
+        "scoring_run_id": scoring_run_id,
         "identity_assertions_sha256": canonical_sha256(manifest["identity_assertions"]),
         "reviewer_evidence_manifest_sha256": external_evidence["manifest_sha256"],
         "reviewer_evidence_manifest_file_sha256": external_evidence[
