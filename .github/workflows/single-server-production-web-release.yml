@@ -1,0 +1,273 @@
+name: Single-server production web release
+
+on:
+  push:
+    branches:
+      - claude/cabinet-design-audit-2jbv6f
+    paths:
+      - 'apps/web/**'
+      - 'infra/docker/Dockerfile.web'
+      - '.github/workflows/single-server-production-web-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_BASE: ghcr.io/pachaninm-lab/grainflow-web
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
+  SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
+
+jobs:
+  build-publish-deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Resolve immutable release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "short_sha=${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and publish compatible single-server web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.web
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE_BASE }}:single-server
+            ${{ env.IMAGE_BASE }}:sha-${{ steps.meta.outputs.short_sha }}
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ steps.meta.outputs.build_date }}
+            APP_VERSION=single-server
+          cache-from: type=gha,scope=single-server-web
+          cache-to: type=gha,mode=max,scope=single-server-web
+
+      - name: Verify immutable registry image
+        shell: bash
+        run: |
+          set -euo pipefail
+          exact="${IMAGE_BASE}:sha-${{ steps.meta.outputs.short_sha }}"
+          docker pull "$exact"
+          revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$exact")"
+          architecture="$(docker image inspect --format '{{ .Architecture }}' "$exact")"
+          printf 'expected=%s\nactual=%s\narchitecture=%s\n' "$GITHUB_SHA" "$revision" "$architecture"
+          test "$revision" = "$GITHUB_SHA"
+          test "$architecture" = 'amd64'
+
+      - name: Resolve protected SSH transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          host="${SSH_HOST_SECRET:-$DEFAULT_HOST}"
+          user="${SSH_USER_SECRET:-root}"
+          port="${SSH_PORT_SECRET:-22}"
+          key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
+          password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+
+          if [[ -z "$key" && -z "$password" ]]; then
+            echo 'No protected production SSH credential is configured; production was not changed.' >&2
+            exit 2
+          fi
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          if [[ -n "$key" ]]; then
+            printf '%s\n' "$key" > "$HOME/.ssh/id_deploy"
+            chmod 600 "$HOME/.ssh/id_deploy"
+            echo 'mode=key' >> "$GITHUB_OUTPUT"
+          else
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq sshpass
+            echo 'mode=password' >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy only web with automatic rollback
+        env:
+          SSH_MODE: ${{ steps.ssh.outputs.mode }}
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+          SSH_PASSWORD: ${{ env.SSH_PASSWORD_PRIMARY || env.SSH_PASSWORD_FALLBACK }}
+          TARGET_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          remote_script="$(cat <<'REMOTE'
+          set -Eeuo pipefail
+          TARGET_SHA='__TARGET_SHA__'
+          IMAGE_BASE='ghcr.io/pachaninm-lab/grainflow-web'
+          TARGET_IMAGE="${IMAGE_BASE}:sha-${TARGET_SHA:0:12}"
+
+          mapfile -t WEB_IDS < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          if (( ${#WEB_IDS[@]} != 1 )); then
+            echo "Expected exactly one running Compose web container; found ${#WEB_IDS[@]}." >&2
+            exit 10
+          fi
+
+          WEB_ID="${WEB_IDS[0]}"
+          PROJECT="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$WEB_ID")"
+          WORKDIR="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$WEB_ID")"
+          CONFIG_FILES="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project.config_files" }}' "$WEB_ID")"
+          IMAGE_REF="$(docker inspect --format '{{ .Config.Image }}' "$WEB_ID")"
+          OLD_IMAGE_ID="$(docker inspect --format '{{ .Image }}' "$WEB_ID")"
+          OLD_REV="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$WEB_ID" 2>/dev/null || true)"
+          ROLLBACK_TAG="${IMAGE_BASE}:rollback-${OLD_REV:-unknown}-$(date -u +%Y%m%dT%H%M%SZ)"
+
+          for value in PROJECT WORKDIR CONFIG_FILES IMAGE_REF OLD_IMAGE_ID; do
+            if [[ -z "${!value}" || "${!value}" == '<no value>' ]]; then
+              echo "Missing Compose metadata: $value" >&2
+              exit 11
+            fi
+          done
+
+          IFS=',' read -r -a RAW_CONFIGS <<< "$CONFIG_FILES"
+          DC=(docker compose --project-name "$PROJECT")
+          for cfg in "${RAW_CONFIGS[@]}"; do
+            cfg="${cfg#"${cfg%%[![:space:]]*}"}"
+            cfg="${cfg%"${cfg##*[![:space:]]}"}"
+            [[ "$cfg" = /* ]] || cfg="$WORKDIR/$cfg"
+            [[ -f "$cfg" ]] || { echo "Compose file not found: $cfg" >&2; exit 12; }
+            DC+=(-f "$cfg")
+          done
+
+          cd "$WORKDIR"
+          "${DC[@]}" config --services | grep -qx web
+          docker image tag "$OLD_IMAGE_ID" "$ROLLBACK_TAG"
+
+          rollback() {
+            echo '=== AUTOMATIC WEB ROLLBACK ==='
+            docker image tag "$ROLLBACK_TAG" "$IMAGE_REF" || true
+            "${DC[@]}" up -d --no-deps --force-recreate --no-build --pull never web || true
+            NEW_WEB_ID="$("${DC[@]}" ps -q web 2>/dev/null || true)"
+            if [[ -n "$NEW_WEB_ID" ]] && docker network inspect grainflow-dev >/dev/null 2>&1; then
+              docker network connect grainflow-dev "$NEW_WEB_ID" >/dev/null 2>&1 || true
+            fi
+            CADDY_ID="$(docker ps -q --filter name=grainflow-caddy-1 | head -n1)"
+            if [[ -n "$CADDY_ID" ]]; then
+              docker network connect grainflow-dev "$CADDY_ID" >/dev/null 2>&1 || true
+              docker restart "$CADDY_ID" >/dev/null 2>&1 || true
+            fi
+          }
+          trap rollback ERR
+
+          docker pull "$TARGET_IMAGE"
+          TARGET_REV="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$TARGET_IMAGE")"
+          test "$TARGET_REV" = "$TARGET_SHA"
+
+          docker pull "${IMAGE_BASE}:single-server"
+          SINGLE_SERVER_REV="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "${IMAGE_BASE}:single-server")"
+          test "$SINGLE_SERVER_REV" = "$TARGET_SHA"
+
+          "${DC[@]}" pull web
+          PULLED_REV="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE_REF")"
+          test "$PULLED_REV" = "$TARGET_SHA"
+          "${DC[@]}" up -d --no-deps --force-recreate web
+
+          NEW_WEB_ID="$("${DC[@]}" ps -q web)"
+          [[ -n "$NEW_WEB_ID" ]]
+          if docker network inspect grainflow-dev >/dev/null 2>&1; then
+            docker network connect grainflow-dev "$NEW_WEB_ID" >/dev/null 2>&1 || true
+          fi
+
+          CADDY_ID="$(docker ps -q --filter name=grainflow-caddy-1 | head -n1)"
+          if [[ -n "$CADDY_ID" ]]; then
+            docker network connect grainflow-dev "$CADDY_ID" >/dev/null 2>&1 || true
+            docker restart "$CADDY_ID" >/dev/null
+          fi
+
+          STATE='missing'
+          NEW_REV=''
+          for attempt in $(seq 1 45); do
+            STATE="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$NEW_WEB_ID" 2>/dev/null || true)"
+            NEW_REV="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$NEW_WEB_ID" 2>/dev/null || true)"
+            echo "Container attempt $attempt/45: state=${STATE:-missing} revision=${NEW_REV:-missing}"
+            if [[ "$NEW_REV" == "$TARGET_SHA" && ( "$STATE" == 'running' || "$STATE" == 'healthy' ) ]]; then
+              break
+            fi
+            sleep 2
+          done
+          test "$NEW_REV" = "$TARGET_SHA"
+          [[ "$STATE" == 'running' || "$STATE" == 'healthy' ]]
+
+          LIVE_BASE='https://xn----8sbjf4befbjgs9b.xn--p1ai'
+          LIVE_OK=0
+          for attempt in $(seq 1 36); do
+            cache="${TARGET_SHA:0:12}-${attempt}-$(date +%s)"
+            code="$(curl -ksS -o /tmp/pc-home.html -w '%{http_code}' --max-time 25 "${LIVE_BASE}/platform-v7?release=${cache}" || true)"
+            marker="$(curl -ksS --max-time 25 "${LIVE_BASE}/single-server-ui-release.json?release=${cache}" || true)"
+            echo "Live attempt $attempt/36: HTTP=$code marker=${marker:0:80}"
+            if [[ "$code" == '200' ]] \
+              && grep -Fq 'Сделка под' /tmp/pc-home.html \
+              && grep -Fq 'single-server-unified-dock-v1' <<< "$marker" \
+              && grep -Fq 'Позвонить' <<< "$marker"; then
+              LIVE_OK=1
+              break
+            fi
+            sleep 5
+          done
+          test "$LIVE_OK" = '1'
+
+          trap - ERR
+          echo "DEPLOYED_REVISION=$NEW_REV"
+          echo "PREVIOUS_REVISION=${OLD_REV:-missing}"
+          echo "ROLLBACK_TAG=$ROLLBACK_TAG"
+          REMOTE
+          )"
+          remote_script="${remote_script/__TARGET_SHA__/$TARGET_SHA}"
+
+          if [[ "$SSH_MODE" == 'key' ]]; then
+            ssh -i "$HOME/.ssh/id_deploy" -p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "bash -s" <<< "$remote_script"
+          else
+            SSHPASS="$SSH_PASSWORD" sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=yes "$SSH_USER@$SSH_HOST" "bash -s" <<< "$remote_script"
+          fi
+
+      - name: Independent external verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in /platform-v7 /platform-v7/login /platform-v7/forgot-password; do
+            code="$(curl -ksS -o /dev/null -w '%{http_code}' --max-time 30 "${LIVE_BASE}${path}?release=${GITHUB_SHA:0:12}-$(date +%s)")"
+            echo "$path -> HTTP $code"
+            test "$code" = '200'
+          done
+          marker="$(curl -ksS --max-time 30 "${LIVE_BASE}/single-server-ui-release.json?release=${GITHUB_SHA:0:12}-$(date +%s)")"
+          grep -Fq 'single-server-unified-dock-v1' <<< "$marker"
+          grep -Fq 'ИИ' <<< "$marker"
+          grep -Fq 'Поддержка' <<< "$marker"
+          grep -Fq 'Позвонить' <<< "$marker"
