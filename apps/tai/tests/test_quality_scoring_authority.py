@@ -145,6 +145,7 @@ def test_contract_and_provenance_failures_are_rejected(
             and row["locale"] == "ru"
         ]
         critical_group[1]["scorer_id"] = critical_group[0]["scorer_id"]
+        critical_group[1]["scorer_role"] = critical_group[0]["scorer_role"]
         critical_group[1]["identity_assertion_id"] = critical_group[0][
             "identity_assertion_id"
         ]
