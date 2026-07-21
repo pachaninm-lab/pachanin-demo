@@ -39,15 +39,18 @@ def _remote_script(workflow: str) -> str:
 def test_progress_scope_is_narrow_and_preserves_maturity() -> None:
     scope = _scope()
     assert scope["schema_version"] == "tai.concurrent-scope.v1"
-    assert scope["branch"] == "fix/tai-conversion-progress-diagnostics-v2"
+    assert scope["branch"] == "fix/tai-conversion-progress-feed-2950"
     assert (scope["program_issue"], scope["parent_issue"], scope["issue"]) == (
         2726,
-        2835,
         2932,
+        2950,
     )
     assert set(scope["allowed_paths"]) == EXPECTED_PATHS
     assert "model-host mutation, process signalling or conversion execution" in scope[
         "forbidden_capabilities"
+    ]
+    assert "command and bounded result are isolated in dedicated issue 2950" in scope[
+        "acceptance"
     ]
     assert "production_operational_status remains NOT_ATTESTED" in scope[
         "acceptance"
@@ -64,13 +67,15 @@ def test_progress_is_owner_only_exact_main_and_non_automatic() -> None:
     assert "github.ref == 'refs/heads/main'" in workflow
     assert "github.actor == github.repository_owner" in workflow
     assert "github.triggering_actor == github.repository_owner" in workflow
-    assert "github.event.issue.number == 2932" in workflow
+    assert "github.event.issue.number == 2950" in workflow
     assert f"github.event.comment.body == '{COMMAND}'" in workflow
     assert "github.event.comment.author_association == 'OWNER'" in workflow
     assert "cancel-in-progress: false" in workflow
     assert "contents: read\n  issues: write" in workflow
     assert "contents: write" not in workflow
     assert "actions: write" not in workflow
+    assert '"repos/$REPOSITORY/issues/2950/comments"' in workflow
+    assert '"repos/$REPOSITORY/issues/2932/comments"' not in workflow
 
 
 def test_transport_is_key_only_and_has_no_production_fallback() -> None:
