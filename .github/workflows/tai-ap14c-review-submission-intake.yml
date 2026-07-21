@@ -57,7 +57,7 @@ jobs:
           {
             node apps/tai/tests/expert-review-submission-intake.test.mjs
             node apps/tai/tests/expert-review-submission-packet-authority.test.mjs
-          } | tee tai-review-intake-evidence/test-output.txt
+          } 2>&1 | tee tai-review-intake-evidence/test-output.txt
 
       - name: Record exact-head evidence
         if: always()
