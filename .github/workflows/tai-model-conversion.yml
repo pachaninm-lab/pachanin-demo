@@ -9,10 +9,6 @@ permissions:
   contents: read
   issues: write
 
-concurrency:
-  group: tai-governed-model-conversion
-  cancel-in-progress: false
-
 jobs:
   convert:
     if: >-
@@ -25,6 +21,9 @@ jobs:
       github.event.comment.body == '/tai convert model-bundles exact-main' &&
       github.event.comment.author_association == 'OWNER' &&
       github.event.comment.user.login == github.repository_owner
+    concurrency:
+      group: tai-governed-model-conversion
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
@@ -123,12 +122,43 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       REPOSITORY: ${{ github.repository }}
       EXACT_MAIN: ${{ github.sha }}
+      CURRENT_RUN_ID: ${{ github.run_id }}
 
     steps:
-      - name: Relay latest bounded conversion summary
+      - name: Inspect active conversion and relay bounded status
         shell: bash
         run: |
           set -euo pipefail
+          gh api -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$REPOSITORY/actions/workflows/tai-model-conversion.yml/runs?event=issue_comment&per_page=20" \
+            > workflow-runs.json
+          mapfile -t candidate_runs < <(
+            jq -r --arg current "$CURRENT_RUN_ID" \
+              '.workflow_runs[] | select((.id | tostring) != $current) | .id' \
+              workflow-runs.json
+          )
+          selected_run=''
+          for run_id in "${candidate_runs[@]}"; do
+            gh api -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "repos/$REPOSITORY/actions/runs/$run_id/jobs?per_page=100" \
+              > "jobs-$run_id.json"
+            if jq -e '.jobs[] | select(.name == "convert" and .conclusion != "skipped")' \
+              "jobs-$run_id.json" >/dev/null; then
+              selected_run="$run_id"
+              jq --argjson id "$run_id" \
+                '.workflow_runs[] | select(.id == $id)' workflow-runs.json \
+                > selected-run.json
+              jq '[.jobs[] | select(.name == "convert")] | first' \
+                "jobs-$run_id.json" > selected-job.json
+              break
+            fi
+          done
+          test -n "$selected_run"
+          test "$(jq -r '.id // empty' selected-run.json)" != ""
+          test "$(jq -r '.name // empty' selected-job.json)" = "convert"
+
           gh api -H 'Accept: application/vnd.github+json' \
             -H 'X-GitHub-Api-Version: 2022-11-28' \
             "repos/$REPOSITORY/issues/2835/comments?per_page=100" \
@@ -136,6 +166,18 @@ jobs:
           jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## TAI governed model conversion")))] | last' \
             comments.json > latest.json
           test "$(jq -r '.id // empty' latest.json)" != ""
-          jq -n --arg exact_main "$EXACT_MAIN" --slurpfile latest latest.json \
-            '{body: ("## Latest governed conversion status\n\n- status request exact-main: `" + $exact_main + "`;\n- source issue: `#2835`;\n- source comment id: `" + ($latest[0].id | tostring) + "`;\n- source created at: `" + $latest[0].created_at + "`.\n\n" + $latest[0].body)}' \
+
+          jq -n \
+            --arg exact_main "$EXACT_MAIN" \
+            --slurpfile run selected-run.json \
+            --slurpfile job selected-job.json \
+            --slurpfile latest latest.json \
+            '{body: ("## Live governed conversion status\n\n" +
+              "- status request exact-main: `" + $exact_main + "`;\n" +
+              "- conversion run: `" + ($run[0].id | tostring) + "` / attempt `" + ($run[0].run_attempt | tostring) + "`;\n" +
+              "- conversion exact-main: `" + $run[0].head_sha + "`;\n" +
+              "- workflow state: `" + $run[0].status + "` / `" + ($run[0].conclusion // "PENDING") + "`;\n" +
+              "- convert job: `" + $job[0].status + "` / `" + ($job[0].conclusion // "PENDING") + "`;\n" +
+              "- latest terminal summary comment: `" + ($latest[0].id | tostring) + "` at `" + $latest[0].created_at + "`.\n\n" +
+              $latest[0].body)}' \
             | gh api --method POST "repos/$REPOSITORY/issues/2932/comments" --input -
