@@ -11,6 +11,8 @@ from tai.quality_scoring_contract import (
     VERIFIED_QUALITY_STATUS,
     QualityScoringError,
     as_commit,
+    as_int,
+    as_object,
     as_timestamp,
     canonical_sha256,
     load_authority,
@@ -92,6 +94,31 @@ def _required_path(value: Path | None, name: str) -> Path:
     if value is None:
         raise QualityScoringError(f"{name} is required for complete scoring evidence")
     return value
+
+
+def _storage(
+    value: object,
+    authority: dict[str, Any],
+    annotations: list[Any],
+) -> dict[str, Any]:
+    """Validate the bounded declaration before full external reproduction."""
+    storage = as_object(value, "storage")
+    policy = as_object(authority["evidence"], "evidence policy")
+    if storage.get("provider") != policy["provider"]:
+        raise QualityScoringError("quality evidence storage provider mismatch")
+    if storage.get("immutability_status") != "IMMUTABLE_VERSIONED":
+        raise QualityScoringError("quality evidence is not immutable")
+    if as_int(storage.get("retention_days"), "storage.retention_days") < as_int(
+        policy["minimum_retention_days"],
+        "evidence policy minimum retention",
+        minimum=1,
+    ):
+        raise QualityScoringError("quality evidence retention is insufficient")
+    if storage.get("original_root_id") == storage.get("restored_root_id"):
+        raise QualityScoringError("quality evidence restore roots are not independent")
+    if storage.get("annotations_sha256") != canonical_sha256(annotations):
+        raise QualityScoringError("annotation payload digest mismatch")
+    return dict(storage)
 
 
 def _require_independent_roots(original: Path, restored: Path) -> None:
