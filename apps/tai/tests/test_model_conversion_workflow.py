@@ -139,10 +139,10 @@ def test_workflow_is_owner_only_exact_main_and_dedicated_host_only() -> None:
         "TAI_MODEL_SSH_USER",
         "TAI_MODEL_SSH_PORT",
         "TAI_MODEL_SSH_KEY",
-        "TAI_MODEL_SSH_PASSWORD",
     ):
         assert secret in workflow
     for forbidden in (
+        "TAI_MODEL_SSH_PASSWORD",
         "PC_PROD_HOST",
         "PC_PROD_SSH_USER",
         "PC_PROD_SSH_KEY",
