@@ -4,7 +4,7 @@ import hashlib
 import ipaddress
 import json
 import re
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 from typing import Any
 from urllib.parse import urlsplit
 
