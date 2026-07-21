@@ -58,15 +58,15 @@ def test_fabricated_reviewer_signature_is_rejected(tmp_path: Path) -> None:
         _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
 
 
-def test_submitter_declared_reviewer_role_is_not_authority(tmp_path: Path) -> None:
+def test_submitter_declared_reviewer_identity_is_not_authority(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
-    fixture["manifest"]["annotations"][0]["scorer_role"] = "LEGAL_REVIEWER"
+    fixture["manifest"]["annotations"][0]["scorer_id"] = "forged.reviewer"
     _resign_annotation(fixture)
-    with pytest.raises(QualityScoringError, match="role is not server authenticated"):
+    with pytest.raises(QualityScoringError, match="id is not server authenticated"):
         _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
 
 
-def test_mfa_absence_and_staleness_are_rejected(tmp_path: Path) -> None:
+def test_mfa_absence_staleness_and_expiry_are_rejected(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path / "absent")
     fixture["manifest"]["identity_assertions"][0]["mfa_verified"] = False
     _resign_assertion(fixture)
@@ -80,6 +80,15 @@ def test_mfa_absence_and_staleness_are_rejected(tmp_path: Path) -> None:
     assertion["expires_at"] = (NOW + timedelta(hours=1)).isoformat()
     _resign_assertion(fixture)
     with pytest.raises(QualityScoringError, match="MFA verification is stale"):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+    fixture = _fixture(tmp_path / "expired")
+    assertion = fixture["manifest"]["identity_assertions"][0]
+    assertion["issued_at"] = (NOW - timedelta(hours=2)).isoformat()
+    assertion["mfa_verified_at"] = (NOW - timedelta(hours=1, minutes=30)).isoformat()
+    assertion["expires_at"] = (NOW - timedelta(minutes=1)).isoformat()
+    _resign_assertion(fixture)
+    with pytest.raises(QualityScoringError, match="assertion is expired"):
         _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
 
 
@@ -119,7 +128,9 @@ def test_external_manifest_and_original_restore_tamper_are_rejected(
         _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
 
 
-def test_external_object_identity_and_retention_are_rejected(tmp_path: Path) -> None:
+def test_external_object_identity_retention_and_roots_are_rejected(
+    tmp_path: Path,
+) -> None:
     fixture = _fixture(tmp_path / "version")
     fixture["manifest"]["annotations"][0]["evidence_object_version_id"] = (
         "forged-version"
@@ -136,6 +147,11 @@ def test_external_object_identity_and_retention_are_rejected(tmp_path: Path) -> 
     with pytest.raises(QualityScoringError, match="retention deadline is insufficient"):
         _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
 
+    fixture = _fixture(tmp_path / "same-root")
+    fixture["reviewer_restored_root"] = fixture["reviewer_original_root"]
+    with pytest.raises(QualityScoringError, match="restore roots are not independent"):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
 
 def test_external_manifest_record_digest_cannot_be_declared_only(tmp_path: Path) -> None:
     fixture = _fixture(tmp_path)
@@ -143,6 +159,8 @@ def test_external_manifest_record_digest_cannot_be_declared_only(tmp_path: Path)
     assert isinstance(path, Path)
     value = load_json(path)
     value["files"][0]["sha256"] = "f" * 64
+    fixture["manifest"]["annotations"][0]["evidence_sha256"] = "f" * 64
+    _resign_annotation(fixture)
     value.pop("manifest_sha256")
     value = _signed(value, "manifest_sha256")
     write_json(path, value)
