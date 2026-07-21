@@ -165,7 +165,10 @@ def test_runtime_payload_tamper_is_rejected_before_scoring(tmp_path: Path) -> No
     payload = load_json(payload_path)
     payload["entries"][0]["response"] = "substituted response"
     write_json(payload_path, payload)
-    with pytest.raises(QualityScoringError, match="re-verification failed"):
+    with pytest.raises(
+        QualityScoringError,
+        match="runtime report is not reproduced from immutable evidence",
+    ):
         _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
 
 
