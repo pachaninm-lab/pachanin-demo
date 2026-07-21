@@ -105,3 +105,37 @@ jobs:
           fi
           jq -n --rawfile body conversion-summary.md '{body: $body}' \
             | gh api --method POST "repos/$REPOSITORY/issues/2835/comments" --input -
+
+  status:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2932 &&
+      github.event.comment.body == '/tai conversion status exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      EXACT_MAIN: ${{ github.sha }}
+
+    steps:
+      - name: Relay latest bounded conversion summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$REPOSITORY/issues/2835/comments?per_page=100" \
+            > comments.json
+          jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## TAI governed model conversion")))] | last' \
+            comments.json > latest.json
+          test "$(jq -r '.id // empty' latest.json)" != ""
+          jq -n --arg exact_main "$EXACT_MAIN" --slurpfile latest latest.json \
+            '{body: ("## Latest governed conversion status\n\n- status request exact-main: `" + $exact_main + "`;\n- source issue: `#2835`;\n- source comment id: `" + ($latest[0].id | tostring) + "`;\n- source created at: `" + $latest[0].created_at + "`.\n\n" + $latest[0].body)}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/2932/comments" --input -
