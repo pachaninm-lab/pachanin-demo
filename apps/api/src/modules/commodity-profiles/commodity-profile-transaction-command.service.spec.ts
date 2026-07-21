@@ -61,12 +61,22 @@ class FakePort implements CommodityProfileTransactionPort {
     version: '7',
   };
   committed: CommodityProfileAtomicWrite[] = [];
+  replayCalls: Array<{ actor: RequestUser; command: CommodityProfileCommand }> = [];
+  snapshotCalls: Array<{ actor: RequestUser; command: CommodityProfileCommand }> = [];
 
-  async findReplay(): Promise<CommodityProfileCommandReceipt | null> {
+  async findReplay(
+    actor: RequestUser,
+    candidate: CommodityProfileCommand,
+  ): Promise<CommodityProfileCommandReceipt | null> {
+    this.replayCalls.push({ actor, command: candidate });
     return this.replay;
   }
 
-  async loadSnapshot(): Promise<CommodityProfileCommandSnapshot> {
+  async loadSnapshot(
+    actor: RequestUser,
+    candidate: CommodityProfileCommand,
+  ): Promise<CommodityProfileCommandSnapshot> {
+    this.snapshotCalls.push({ actor, command: candidate });
     return this.snapshot;
   }
 
@@ -84,20 +94,24 @@ describe('CommodityProfileTransactionCommandService', () => {
     const result = await service.execute(user, command, { hasJitAuthority: true });
 
     expect(result.lifecycle).toBe('APPROVED');
+    expect(port.replayCalls[0]).toEqual({ actor: user, command });
+    expect(port.snapshotCalls[0]).toEqual({ actor: user, command });
     expect(port.committed).toHaveLength(1);
     expect(port.committed[0]).toMatchObject({ fromLifecycle: 'REVIEW', toLifecycle: 'APPROVED' });
   });
 
-  it('returns the original receipt on exact replay without a second commit', async () => {
+  it('returns the original receipt on exact replay without a second authority read or commit', async () => {
     const port = new FakePort();
     const service = new CommodityProfileTransactionCommandService(port);
     const first = await service.execute(user, command, { hasJitAuthority: true });
     port.replay = first;
     port.committed = [];
+    port.snapshotCalls = [];
 
     const replayed = await service.execute(user, command, { hasJitAuthority: true });
 
     expect(replayed.replayed).toBe(true);
+    expect(port.snapshotCalls).toHaveLength(0);
     expect(port.committed).toHaveLength(0);
   });
 
