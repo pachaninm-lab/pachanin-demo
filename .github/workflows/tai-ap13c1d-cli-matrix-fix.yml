@@ -1,0 +1,66 @@
+name: TAI AP-13C.1d CLI Matrix Fix
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13c1d-quality-scoring-authority
+    paths:
+      - '.github/workflows/tai-ap13c1d-cli-matrix-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13c1d-quality-scoring-authority
+          fetch-depth: 0
+      - name: Correct quality matrix fixtures and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/tai/tests/test_quality_scoring_cli.py')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = {
+              'from quality_scoring_fixtures import _fixture, _signed':
+                  'from quality_scoring_fixtures import _fixture',
+              'report = _signed(report, "report_sha256")':
+                  'report = _resign(report, "report_sha256")',
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f'expected exactly one occurrence: {old}')
+              text = text.replace(old, new)
+
+          old_block = '''        (
+              lambda manifest, payload: manifest["entries"][0].__setitem__(
+                  "status", "ERROR"
+              ),
+              "not scoreable",
+          ),
+          '''
+          new_block = '''        (
+              lambda manifest, payload: (
+                  manifest["entries"][0].__setitem__("status", "ERROR"),
+                  payload["entries"][0].__setitem__("status", "ERROR"),
+              ),
+              "not scoreable",
+          ),
+          '''
+          if text.count(old_block) != 1:
+              raise SystemExit('expected status mutation block exactly once')
+          path.write_text(text.replace(old_block, new_block), encoding='utf-8')
+          PY
+          rm .github/workflows/tai-ap13c1d-cli-matrix-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/tai/tests/test_quality_scoring_cli.py .github/workflows/tai-ap13c1d-cli-matrix-fix.yml
+          git commit -m 'test(tai): correct quality provenance matrix fixtures'
+          git push origin HEAD:agent/tai-ap-13c1d-quality-scoring-authority
