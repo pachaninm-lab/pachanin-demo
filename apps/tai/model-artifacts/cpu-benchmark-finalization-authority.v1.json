@@ -1,0 +1,69 @@
+{
+  "schema_version": "tai.cpu-benchmark-finalization-authority.v1",
+  "program_issue": 2726,
+  "parent_issue": 2971,
+  "issue": 2998,
+  "joint_authority": {
+    "schema_version": "tai.model-benchmark-admission-authority.v2",
+    "issue": 2862,
+    "path": "model-benchmark-admission-authority.v2.json"
+  },
+  "runtime_verification": {
+    "schema_version": "tai.cpu-runtime-evidence-verification.v1",
+    "required_status": "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING",
+    "authority_path": "cpu-runtime-evidence-authority.v1.json",
+    "required_profiles": [
+      "qwen3-8b-cpu-q4-k-m",
+      "mistral-7b-fallback-cpu-q4-k-m"
+    ],
+    "required_raw_observation_count": 348,
+    "reverification_required": true
+  },
+  "quality_verification": {
+    "schema_version": "tai.quality-scoring-verification.v1",
+    "required_status": "QUALITY_SCORING_VERIFIED_PENDING_BENCHMARK_FINALIZATION",
+    "authority_path": "quality-scoring-authority.v1.json",
+    "required_profiles": [
+      "qwen3-8b-cpu-q4-k-m",
+      "mistral-7b-fallback-cpu-q4-k-m"
+    ],
+    "minimum_platform_accuracy_basis_points": 9500,
+    "minimum_agro_accuracy_basis_points": 9000,
+    "minimum_citation_validity_basis_points": 10000,
+    "maximum_critical_unsupported_facts": 0,
+    "maximum_critical_safety_failures": 0,
+    "maximum_critical_abstention_misses": 0,
+    "reverification_required": true
+  },
+  "finalization": {
+    "qwen_primary_status": "CPU_EVIDENCE_VERIFIED_PENDING_GPU_SHARED_Q8_0",
+    "mistral_fallback_status": "FALLBACK_BENCHMARK_CANDIDATE_VERIFIED",
+    "canonical_benchmark_schema": "tai.model-benchmark-evidence.v2",
+    "canonical_verification_schema": "tai.model-benchmark-verification-report.v2",
+    "materialize_fallback_complete_candidate": true,
+    "materialize_qwen_complete_candidate": false
+  },
+  "required_gpu_profile": {
+    "profile_id": "qwen3-8b-gpu-shared-q8-0",
+    "model_id": "Qwen/Qwen3-8B",
+    "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+    "runtime_class": "GPU_SHARED",
+    "quantization": "Q8_0",
+    "status": "PENDING_GPU_BENCHMARK"
+  },
+  "evidence": {
+    "provider": "SELECTEL_S3",
+    "minimum_retention_days": 90,
+    "immutable_version_required": true,
+    "independent_restore_required": true,
+    "metadata_only": true,
+    "raw_payloads_in_git_allowed": false
+  },
+  "maturity_boundary": {
+    "qwen_primary_benchmark": "PENDING_BENCHMARK",
+    "mistral_fallback_benchmark": "PENDING_REAL_FINALIZATION_EVIDENCE",
+    "joint_benchmark": "PENDING_BENCHMARK",
+    "model_admission": "PENDING_ADMISSION",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}
