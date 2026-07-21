@@ -154,18 +154,19 @@ original/
   quantization/*.log
   artifacts/*.gguf
   storage/payload-index.json
+control/
   storage/upload-record.json
   storage/restore-record.json
-  storage/bundle.tar.zst
+bundle.v2.json
 ```
 
-Create `bundle.v2.json` outside the archive construction process so no self-referential digest is required. Every declared file path must be unique and bounded beneath the root. Symlinks, non-regular files and hard-link aliases are forbidden.
+Create `storage/payload-index.json` before sealing. It must canonically list every archived payload file by path, byte size and SHA-256 while excluding the index itself. Add the completed index to the archive. Record the resulting archive only as external SHA-256, byte size and media type in `bundle.v2.json`; the archive has no payload path and cannot contain itself. Keep `bundle.v2.json`, the upload record and the restore record outside the archive. Every payload and sidecar path must be unique and bounded. Symlinks, non-regular files and hard-link aliases are forbidden.
 
 ## 10. Upload immutably and restore independently
 
-Upload the bundle archive to content-addressed or versioned external storage. Record an immutable locator that binds the exact archive SHA-256. Preserve a semantic `tai.model-bundle-upload-record.v1` containing the locator, archive SHA-256, timezone-aware `uploaded_at`, positive `retention_days` and exact `retention_expires_at = uploaded_at + retention_days`.
+Upload the sealed archive to versioned external storage. Record an immutable locator that binds both the exact object version and archive SHA-256. Preserve the upload record as a control sidecar outside the archive with schema `tai.model-bundle-upload-record.v1`, the locator, archive SHA-256, timezone-aware `uploaded_at`, positive `retention_days` and exact `retention_expires_at = uploaded_at + retention_days`.
 
-Download from that locator into a clean restore root, extract it, and preserve a semantic `tai.model-bundle-restore-record.v1` containing the same locator and archive SHA-256 plus timezone-aware `restored_at`. The restore must occur no later than `retention_expires_at`. Do not copy the original directory to manufacture restore evidence. The restore root must originate from the immutable external object.
+Restore only from that immutable locator into a clean root. Hash the compressed bytes while downloading, require the exact archive SHA-256 and byte size, then extract the payload. Preserve `tai.model-bundle-restore-record.v1` as a control sidecar outside the restored payload. The restore must occur no later than `retention_expires_at`. Do not copy the original directory or its control sidecars to manufacture restore evidence.
 
 ## 11. Run fail-closed verification
 

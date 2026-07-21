@@ -383,6 +383,28 @@ def test_legal_review_record_supports_signed_evidence_and_rejects_drift(
     review["sha256"] = _sha256(record_content)
     review["size_bytes"] = len(record_content)
     shutil.copy2(record_path, restored / cast(str, review["path"]))
+
+    storage = cast(dict[str, Any], payload["storage"])
+    payload_index = cast(dict[str, Any], storage["payload_index"])
+    payload_index_path = root / cast(str, payload_index["path"])
+    payload_index_payload = json.loads(
+        payload_index_path.read_text(encoding="utf-8")
+    )
+    indexed_files = cast(list[dict[str, Any]], payload_index_payload["files"])
+    indexed_review = next(
+        item for item in indexed_files if item["path"] == review["path"]
+    )
+    indexed_review["sha256"] = review["sha256"]
+    indexed_review["size_bytes"] = review["size_bytes"]
+    payload_index_content = json.dumps(
+        payload_index_payload, sort_keys=True
+    ).encode()
+    payload_index_path.write_bytes(payload_index_content)
+    (restored / cast(str, payload_index["path"])).write_bytes(
+        payload_index_content
+    )
+    payload_index["sha256"] = _sha256(payload_index_content)
+    payload_index["size_bytes"] = len(payload_index_content)
     _write_json(manifest, payload)
     report = verify_local_model_bundle_v2(
         authority=load_model_bundle_authority_v2(AUTHORITY_PATH),

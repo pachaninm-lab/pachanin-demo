@@ -1,0 +1,26 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2945,
+  "branch": "agent/tai-ap-13b3e-immutable-storage-contract",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3e-immutable-storage-2945.json",
+    "apps/tai/model-artifacts/model-bundle-acquisition-runbook.v2.md",
+    "apps/tai/tai/model_bundle_v2.py",
+    "apps/tai/tai/model_bundle_v2_parse.py",
+    "apps/tai/tai/model_bundle_v2_serialize.py",
+    "apps/tai/tai/model_bundle_v2_types.py",
+    "apps/tai/tai/model_bundle_v2_verify.py",
+    "apps/tai/tests/model_bundle_v2_support.py",
+    "apps/tai/tests/test_model_bundle_v2_adversarial.py",
+    "apps/tai/tests/test_model_bundle_v2_contract.py"
+  ],
+  "forbidden_capabilities": [
+    "model or GGUF bytes in Git",
+    "benchmark or model-admission claim",
+    "production readiness or operational attestation",
+    "mutable external locator"
+  ],
+  "acceptance": "Archive metadata is non-self-referential; payload and control sidecars are separated; original and independent restore verification remains fail-closed; the correction is downstream of conversion run 29810648430 and report SHA-256 056c0203f382f6e3e1e57ebf145448cfddbff4718456fac7a2a84c6420185241; production_operational_status remains NOT_ATTESTED."
+}

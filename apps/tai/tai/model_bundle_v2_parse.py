@@ -21,6 +21,7 @@ from tai.model_bundle_v2_types import (
     ConversionPlan,
     DeclaredFile,
     DeclaredSourceFile,
+    ExternalArchiveEvidence,
     InventoryDisposition,
     LegalReviewDecision,
     LegalReviewEvidence,
@@ -415,7 +416,7 @@ def _storage(value: object) -> StorageEvidence:
         "storage evidence",
     )
     return StorageEvidence(
-        bundle_archive=_declared_file(payload.get("bundle_archive")),
+        bundle_archive=_external_archive(payload.get("bundle_archive")),
         payload_index=_declared_file(payload.get("payload_index")),
         immutable_locator=_string(payload, "immutable_locator"),
         uploaded_at=_string(payload, "uploaded_at"),
@@ -434,6 +435,21 @@ def _string_array(payload: dict[str, object], key: str) -> list[str]:
     if any(not isinstance(item, str) or not item.strip() for item in value):
         raise ValueError(f"{key} must contain only non-empty strings")
     return value
+
+
+def _external_archive(value: object) -> ExternalArchiveEvidence:
+    payload = _object(value, "external archive")
+    _expect_keys(
+        payload,
+        {"sha256", "size_bytes", "media_type"},
+        set(),
+        "external archive",
+    )
+    return ExternalArchiveEvidence(
+        sha256=_string(payload, "sha256"),
+        size_bytes=_integer(payload, "size_bytes"),
+        media_type=_string(payload, "media_type"),
+    )
 
 
 def _declared_file(value: object) -> DeclaredFile:
