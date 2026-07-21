@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = ROOT / ".github/workflows/tai-cpu-benchmark-run-plan-authority.yml"
 AUTHORITY = ROOT / "apps/tai/model-artifacts/cpu-benchmark-run-plan-authority.v1.json"
