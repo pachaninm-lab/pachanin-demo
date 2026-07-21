@@ -1,0 +1,6 @@
+{
+  "checkedAt": "2026-07-21T04:49:03.269Z",
+  "baseURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai",
+  "ok": false,
+  "fatal": "Error: no rejection or visible error; responses=[] failed=[]\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-fail-closed-production.mjs:11:64)\n    at file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-fail-closed-production.mjs:72:5"
+}
