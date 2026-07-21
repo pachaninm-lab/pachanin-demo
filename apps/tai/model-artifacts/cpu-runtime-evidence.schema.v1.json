@@ -9,6 +9,8 @@
     "lifecycle",
     "pending_reason",
     "exact_main",
+    "authority_sha256",
+    "execution_authority_sha256",
     "readiness",
     "bundle_finalization",
     "corpus",
@@ -19,44 +21,156 @@
     "evidence_files",
     "storage",
     "measured_at",
+    "runtime_verification_status",
     "quality_scoring_status",
     "benchmark_status",
     "model_admission_status",
-    "production_operational_status"
+    "production_operational_status",
+    "manifest_sha256"
   ],
   "properties": {
-    "schema_version": {"const": "tai.cpu-runtime-evidence.v1"},
-    "lifecycle": {"enum": ["PENDING_RUNTIME_EXECUTION", "COMPLETE"]},
-    "pending_reason": {"type": ["string", "null"]},
-    "exact_main": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
-    "readiness": {"type": ["object", "null"]},
-    "bundle_finalization": {"type": ["object", "null"]},
-    "corpus": {"type": ["object", "null"]},
-    "runtime_profiles": {"type": "array", "maxItems": 2},
-    "fallback_exercise": {"type": ["object", "null"]},
-    "soak": {"type": ["object", "null"]},
-    "raw_observations": {"type": ["object", "null"]},
+    "schema_version": {
+      "const": "tai.cpu-runtime-evidence.v1"
+    },
+    "lifecycle": {
+      "enum": [
+        "PENDING_RUNTIME_EXECUTION",
+        "COMPLETE"
+      ]
+    },
+    "pending_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "exact_main": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "authority_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "execution_authority_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "readiness": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "bundle_finalization": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "corpus": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "runtime_profiles": {
+      "type": "array",
+      "maxItems": 2
+    },
+    "fallback_exercise": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "soak": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "raw_observations": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
     "evidence_files": {
       "type": "array",
       "maxItems": 256,
-      "items": {"$ref": "#/$defs/file"}
+      "items": {
+        "$ref": "#/$defs/file"
+      }
     },
-    "storage": {"type": ["object", "null"]},
-    "measured_at": {"type": ["string", "null"], "format": "date-time"},
-    "quality_scoring_status": {"const": "PENDING_QUALITY_SCORING"},
-    "benchmark_status": {"const": "PENDING_BENCHMARK"},
-    "model_admission_status": {"const": "PENDING_ADMISSION"},
-    "production_operational_status": {"const": "NOT_ATTESTED"}
+    "storage": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "measured_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "runtime_verification_status": {
+      "enum": [
+        "PENDING_RUNTIME_EXECUTION",
+        "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING"
+      ]
+    },
+    "quality_scoring_status": {
+      "const": "PENDING_QUALITY_SCORING"
+    },
+    "benchmark_status": {
+      "const": "PENDING_BENCHMARK"
+    },
+    "model_admission_status": {
+      "const": "PENDING_ADMISSION"
+    },
+    "production_operational_status": {
+      "const": "NOT_ATTESTED"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
   },
   "$defs": {
     "file": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "sha256", "size_bytes"],
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
       "properties": {
-        "path": {"type": "string", "minLength": 1, "maxLength": 400},
-        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "size_bytes": {"type": "integer", "minimum": 1}
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     }
   }
