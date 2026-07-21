@@ -1,0 +1,316 @@
+name: TAI Bundle S3 Read-Only Preflight
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-bundle-s3-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2954 &&
+      github.event.comment.body == '/tai probe bundle-storage exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      REPORT_ROOT: bundle-s3-preflight
+      REQUIREMENTS: apps/tai/model-artifacts/model-bundle-s3-preflight-requirements.v1.json
+      S3_ENDPOINT: ${{ secrets.TAI_BUNDLE_S3_ENDPOINT }}
+      S3_REGION: ${{ secrets.TAI_BUNDLE_S3_REGION }}
+      S3_BUCKET: ${{ secrets.TAI_BUNDLE_S3_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.TAI_BUNDLE_S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.TAI_BUNDLE_S3_SECRET_ACCESS_KEY }}
+      S3_PREFIX: ${{ secrets.TAI_BUNDLE_S3_PREFIX }}
+      S3_CAPACITY_BYTES: ${{ secrets.TAI_BUNDLE_S3_CAPACITY_BYTES }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_RETRY_MODE: standard
+      AWS_MAX_ATTEMPTS: '3'
+      AWS_PAGER: ''
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact-main owner trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          mkdir -p "$REPORT_ROOT/raw"
+          chmod 700 "$REPORT_ROOT" "$REPORT_ROOT/raw"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact TAI authority package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e apps/tai
+
+      - name: Validate protected S3 inputs
+        id: inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in \
+            S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY_ID \
+            S3_SECRET_ACCESS_KEY S3_PREFIX S3_CAPACITY_BYTES; do
+            if [[ -z "${!name:-}" ]]; then
+              missing=1
+            fi
+          done
+          if [[ "$missing" -eq 0 ]] && command -v aws >/dev/null 2>&1; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read S3 bucket controls without mutation
+        if: steps.inputs.outputs.available == 'true'
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TAI_BUNDLE_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TAI_BUNDLE_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.TAI_BUNDLE_S3_REGION }}
+        run: |
+          set -euo pipefail
+          endpoint=(--endpoint-url "$S3_ENDPOINT" --region "$S3_REGION")
+          common=(--cli-connect-timeout 20 --cli-read-timeout 60)
+          run_status() {
+            local name="$1"
+            shift
+            set +e
+            "$@" > "$REPORT_ROOT/raw/${name}.json" 2> "$REPORT_ROOT/raw/${name}.stderr"
+            local status=$?
+            set -e
+            printf '%s\n' "$status" > "$REPORT_ROOT/raw/${name}.exit"
+          }
+
+          run_status head_bucket \
+            aws "${endpoint[@]}" "${common[@]}" s3api head-bucket --bucket "$S3_BUCKET"
+          run_status get_bucket_versioning \
+            aws "${endpoint[@]}" "${common[@]}" s3api get-bucket-versioning --bucket "$S3_BUCKET"
+          run_status get_public_access_block \
+            aws "${endpoint[@]}" "${common[@]}" s3api get-public-access-block --bucket "$S3_BUCKET"
+          run_status get_bucket_encryption \
+            aws "${endpoint[@]}" "${common[@]}" s3api get-bucket-encryption --bucket "$S3_BUCKET"
+          run_status get_bucket_policy \
+            aws "${endpoint[@]}" "${common[@]}" s3api get-bucket-policy --bucket "$S3_BUCKET"
+          run_status list_objects_v2 \
+            aws "${endpoint[@]}" "${common[@]}" s3api list-objects-v2 \
+              --bucket "$S3_BUCKET" --prefix "$S3_PREFIX/" --max-keys 1
+          run_status list_object_versions \
+            aws "${endpoint[@]}" "${common[@]}" s3api list-object-versions \
+              --bucket "$S3_BUCKET" --prefix "$S3_PREFIX/" --max-keys 1
+          aws --version > "$REPORT_ROOT/raw/aws-version.txt" 2>&1 || true
+
+      - name: Record unavailable protected inputs
+        if: steps.inputs.outputs.available != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in head_bucket get_bucket_versioning get_public_access_block \
+            get_bucket_encryption get_bucket_policy list_objects_v2 list_object_versions; do
+            : > "$REPORT_ROOT/raw/${name}.json"
+            printf '%s\n' 'PROTECTED_INPUT_OR_AWS_CLI_UNAVAILABLE' \
+              > "$REPORT_ROOT/raw/${name}.stderr"
+            printf '%s\n' '2' > "$REPORT_ROOT/raw/${name}.exit"
+          done
+          : > "$REPORT_ROOT/raw/aws-version.txt"
+
+      - name: Build bounded observed evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['REPORT_ROOT']) / 'raw'
+          command_names = [
+              'head_bucket',
+              'get_bucket_versioning',
+              'get_public_access_block',
+              'get_bucket_encryption',
+              'get_bucket_policy',
+              'list_objects_v2',
+              'list_object_versions',
+          ]
+
+          def exit_ok(name: str) -> bool:
+              path = root / f'{name}.exit'
+              return path.exists() and path.read_text().strip() == '0'
+
+          def object_json(name: str) -> dict[str, object]:
+              path = root / f'{name}.json'
+              if not path.exists() or not path.read_text().strip():
+                  return {}
+              try:
+                  value = json.loads(path.read_text())
+              except json.JSONDecodeError:
+                  return {}
+              return value if isinstance(value, dict) else {}
+
+          public_wrapper = object_json('get_public_access_block')
+          public_access = public_wrapper.get('PublicAccessBlockConfiguration', {})
+          if not isinstance(public_access, dict):
+              public_access = {}
+
+          policy_wrapper = object_json('get_bucket_policy')
+          raw_policy = policy_wrapper.get('Policy')
+          if isinstance(raw_policy, str):
+              try:
+                  policy = json.loads(raw_policy)
+              except json.JSONDecodeError:
+                  policy = {}
+          elif isinstance(raw_policy, dict):
+              policy = raw_policy
+          else:
+              policy = {}
+          if not isinstance(policy, dict):
+              policy = {}
+
+          capacity = os.environ.get('S3_CAPACITY_BYTES', '')
+          payload = {
+              'schema_version': 'tai.model-bundle-s3-preflight-observed.v1',
+              'endpoint': os.environ.get('S3_ENDPOINT', ''),
+              'region': os.environ.get('S3_REGION', ''),
+              'bucket': os.environ.get('S3_BUCKET', ''),
+              'prefix': os.environ.get('S3_PREFIX', ''),
+              'operator_confirmed_capacity_bytes': capacity,
+              'commands': {name: exit_ok(name) for name in command_names},
+              'versioning': object_json('get_bucket_versioning'),
+              'public_access_block': public_access,
+              'encryption': object_json('get_bucket_encryption'),
+              'policy': policy,
+              'aws_cli_identity': (root / 'aws-version.txt').read_text(errors='replace')[:500],
+              'mutation_mode': 'READ_ONLY',
+          }
+          observed = Path(os.environ['REPORT_ROOT']) / 'observed.json'
+          observed.write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+      - name: Evaluate fail-closed S3 authority
+        id: evaluate
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          python -m tai.model_bundle_s3_preflight_cli \
+            "$REQUIREMENTS" \
+            "$REPORT_ROOT/observed.json" \
+            --exact-main "$GITHUB_SHA" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --output "$REPORT_ROOT/report.json"
+          status=$?
+          set -e
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Upload bounded S3 preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-bundle-s3-preflight-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            bundle-s3-preflight/observed.json
+            bundle-s3-preflight/report.json
+            apps/tai/model-artifacts/model-bundle-s3-preflight-requirements.v1.json
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded preflight summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > "$REPORT_ROOT/summary.md"
+          import json
+          import os
+          from pathlib import Path
+
+          report_path = Path(os.environ['REPORT_ROOT']) / 'report.json'
+          if report_path.exists():
+              report = json.loads(report_path.read_text())
+          else:
+              report = {
+                  'status': 'NOT_READY',
+                  'reasons': ['REPORT_ABSENT'],
+                  'exact_main_sha': os.environ['GITHUB_SHA'],
+                  'observed': {},
+                  'report_sha256': None,
+              }
+          observed = report.get('observed', {})
+          lines = [
+              '## TAI bundle S3 read-only preflight',
+              '',
+              f"- exact-main: `{report.get('exact_main_sha')}`;",
+              f"- status: `{report.get('status')}`;",
+              f"- reasons: `{report.get('reasons')}`;",
+              f"- endpoint host: `{observed.get('endpoint_host')}`;",
+              f"- region: `{observed.get('region')}`;",
+              f"- bucket: `{observed.get('bucket')}`;",
+              f"- prefix: `{observed.get('prefix')}`;",
+              f"- versioning: `{observed.get('versioning_status')}`;",
+              f"- encryption: `{observed.get('default_encryption_algorithms')}`;",
+              f"- delete deny: `{observed.get('globally_denied_actions')}`;",
+              f"- confirmed capacity bytes: `{observed.get('operator_confirmed_capacity_bytes')}`;",
+              f"- report SHA-256: `{report.get('report_sha256')}`;",
+              '- mutation mode: `READ_ONLY`;',
+              '- bundle upload: `NOT_RUN`;',
+              '- clean restore: `NOT_RUN`;',
+              '- benchmark: `NOT_RUN`;',
+              '- model admission: `NOT_DONE`;',
+              '- production operational status: `NOT_ATTESTED`.',
+          ]
+          print('\n'.join(lines))
+          PY
+          jq -n --rawfile body "$REPORT_ROOT/summary.md" '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/2954/comments" --input -
+
+      - name: Enforce ready status
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$REPORT_ROOT/report.json"
+          test "$(jq -r '.status' "$REPORT_ROOT/report.json")" = 'READY_FOR_BUNDLE_UPLOAD'
+          test "$(jq -r '.reasons | length' "$REPORT_ROOT/report.json")" = '0'
+          test "$(jq -r '.production_operational_status' "$REPORT_ROOT/report.json")" = 'NOT_ATTESTED'
