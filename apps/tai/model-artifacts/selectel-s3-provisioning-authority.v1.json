@@ -1,1 +1,77 @@
-{}
+{
+  "bucket": {
+    "create_if_absent": true,
+    "default_retention": {
+      "days": 90,
+      "mode": "COMPLIANCE"
+    },
+    "minimum_capacity_bytes": 120000000000,
+    "object_lock_status": "Enabled",
+    "private_by_default": true,
+    "unsupported_s3_apis": [
+      "Bucket Encryption",
+      "Public Access Block"
+    ],
+    "versioning_status": "Enabled"
+  },
+  "command": "/tai provision selectel-bundle-storage exact-main",
+  "issue": 2958,
+  "parent_issue": 2954,
+  "policy": {
+    "allow_bucket_actions": [
+      "s3:GetBucketLocation",
+      "s3:GetBucketObjectLockConfiguration",
+      "s3:GetBucketPolicy",
+      "s3:GetBucketVersioning",
+      "s3:ListBucket",
+      "s3:ListBucketMultipartUploads",
+      "s3:ListBucketVersions",
+      "s3:PutBucketObjectLockConfiguration",
+      "s3:PutBucketPolicy",
+      "s3:PutBucketVersioning"
+    ],
+    "allow_object_actions": [
+      "s3:AbortMultipartUpload",
+      "s3:GetObject",
+      "s3:GetObjectRetention",
+      "s3:GetObjectVersion",
+      "s3:ListMultipartUploadParts",
+      "s3:PutObject"
+    ],
+    "deny_actions": [
+      "s3:DeleteObject",
+      "s3:DeleteObjectVersion"
+    ],
+    "principal_id_secret": "TAI_BUNDLE_S3_PRINCIPAL_ID",
+    "require_secure_transport": true
+  },
+  "program_issue": 2726,
+  "provider_profile": "SELECTEL_S3_2026",
+  "required_secret_names": [
+    "TAI_BUNDLE_S3_ENDPOINT",
+    "TAI_BUNDLE_S3_REGION",
+    "TAI_BUNDLE_S3_BUCKET",
+    "TAI_BUNDLE_S3_ACCESS_KEY_ID",
+    "TAI_BUNDLE_S3_\u0053ECRET_ACCESS_KEY",
+    "TAI_BUNDLE_S3_PREFIX",
+    "TAI_BUNDLE_S3_CAPACITY_BYTES",
+    "TAI_BUNDLE_S3_PRINCIPAL_ID"
+  ],
+  "result": {
+    "benchmark_status": "NOT_RUN",
+    "bundle_restore_status": "NOT_RUN",
+    "bundle_upload_status": "NOT_RUN",
+    "failed_status": "FAILED_CLOSED",
+    "model_admission_status": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED",
+    "ready_status": "READY_FOR_BUNDLE_UPLOAD"
+  },
+  "schema_version": "tai.selectel-s3-provisioning-authority.v1",
+  "smoke": {
+    "delete_after_verification": false,
+    "object_suffix": "preflight/selectel-object-lock-smoke.bin",
+    "payload_size_bytes": 4096,
+    "retention_days": 90,
+    "retention_mode": "COMPLIANCE"
+  }
+}
