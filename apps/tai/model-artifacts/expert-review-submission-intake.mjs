@@ -19,6 +19,7 @@ import {
   validateCorpus,
   validateReviews,
 } from '../../../docs/platform-v7/autopilot/tai-ap-14c/gold-set-authority.mjs';
+import { REVIEWER_TRACKS } from './expert-review-packet.mjs';
 
 const SHA1 = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -135,52 +136,112 @@ function atomicJson(path, value) {
   }
 }
 
-function validatePacket(packet, currentAssessment, caseMap, expectedExactMain) {
+function caseContract(caseValue, policy) {
+  const critical = caseValue.criticality === 'CRITICAL';
+  return {
+    case_id: caseValue.case_id,
+    case_sha256: caseValue.case_sha256,
+    prompt_sha256: caseValue.prompt_sha256,
+    domain: caseValue.domain,
+    criticality: caseValue.criticality,
+    variant_kind: caseValue.variant_kind,
+    prompts: caseValue.prompts,
+    expected_statuses: caseValue.expected_statuses,
+    required_concepts: caseValue.required_concepts,
+    forbidden_claims: caseValue.forbidden_claims,
+    expected_citations: caseValue.expected_citations,
+    abstention_reason_codes: caseValue.abstention_reason_codes,
+    required_review: {
+      minimum_independent_approvals: critical
+        ? policy.minimum_independent_approvals_for_critical
+        : policy.minimum_approvals_per_case,
+      primary_role: policy.required_primary_role_by_domain[caseValue.domain],
+      secondary_roles: critical ? policy.critical_secondary_roles : [],
+    },
+  };
+}
+
+function expectedPacketPayload(packet, corpus, existingReviews, currentAssessment) {
+  const cases = [...corpus.platform.cases, ...corpus.agro.cases];
+  const tracks = REVIEWER_TRACKS.map((track) => {
+    const selected = cases.filter(
+      (caseValue) => track.domains.includes(caseValue.domain)
+        && (!track.critical_only || caseValue.criticality === 'CRITICAL'),
+    );
+    return {
+      ...track,
+      case_count: selected.length,
+      critical_case_count: selected.filter(
+        (caseValue) => caseValue.criticality === 'CRITICAL',
+      ).length,
+      case_ids: selected.map((caseValue) => caseValue.case_id),
+    };
+  });
+  return {
+    schema_version: 'tai.expert-review-packet.v1',
+    exact_main_sha: packet.exact_main_sha,
+    generated_at: packet.generated_at,
+    corpus_version: corpus.platform.version,
+    corpus_sha256: currentAssessment.corpus_sha256,
+    baseline_assessment_sha256: currentAssessment.assessment_sha256,
+    required_locales: corpus.platform.required_locales,
+    counts: {
+      total_cases: cases.length,
+      platform_cases: corpus.platform.cases.length,
+      agro_cases: corpus.agro.cases.length,
+      critical_cases: cases.filter(
+        (caseValue) => caseValue.criticality === 'CRITICAL',
+      ).length,
+      existing_reviews: existingReviews.reviews.length,
+    },
+    review_policy: existingReviews.policy,
+    reviewer_tracks: tracks,
+    cases: cases.map((caseValue) => caseContract(caseValue, existingReviews.policy)),
+    record_contract: {
+      schema_version: 'tai.expert-reviews.v1',
+      allowed_decisions: ['APPROVED', 'REJECTED', 'NEEDS_CHANGES'],
+      human_identity_required: true,
+      external_evidence_sha256_required: true,
+      timezone_aware_reviewed_at_required: true,
+      review_sha256_rule: 'SHA256_CANONICAL_JSON_EXCLUDING_REVIEW_SHA256',
+      automation_may_create_decision: false,
+    },
+    automation_boundary: 'AUTOMATION_MUST_NOT_CREATE_REVIEW_DECISIONS',
+    maturity_boundary: {
+      expert_review_status: currentAssessment.status,
+      benchmark_status: 'PENDING_BENCHMARK',
+      model_admission_status: 'PENDING_ADMISSION',
+      production_operational_status: 'NOT_ATTESTED',
+    },
+  };
+}
+
+function validatePacket(
+  packet,
+  corpus,
+  existingReviews,
+  currentAssessment,
+  expectedExactMain,
+) {
   invariant(packet.schema_version === 'tai.expert-review-packet.v1', 'packet schema mismatch');
   invariant(SHA1.test(packet.exact_main_sha), 'packet exact_main_sha is invalid');
   invariant(packet.exact_main_sha === expectedExactMain, 'packet exact-main mismatch');
+  timestamp(packet.generated_at, 'packet.generated_at');
   invariant(SHA256.test(packet.packet_sha256), 'packet SHA-256 is invalid');
   const payload = { ...packet };
   delete payload.packet_sha256;
-  invariant(packet.packet_sha256 === sha256(payload), 'packet digest mismatch');
-  invariant(packet.corpus_sha256 === currentAssessment.corpus_sha256, 'packet corpus is stale');
-  invariant(
-    packet.baseline_assessment_sha256 === currentAssessment.assessment_sha256,
-    'packet baseline assessment is stale',
+  const expected = expectedPacketPayload(
+    packet,
+    corpus,
+    existingReviews,
+    currentAssessment,
   );
-  invariant(packet.counts?.total_cases === 58, 'packet total case count mismatch');
-  invariant(packet.counts?.critical_cases === 23, 'packet critical case count mismatch');
-  invariant(Array.isArray(packet.cases) && packet.cases.length === caseMap.size, 'packet case coverage mismatch');
-  const packetCaseIds = new Set();
-  for (const packetCase of packet.cases) {
-    object(packetCase, 'packet case');
-    const caseValue = caseMap.get(packetCase.case_id);
-    invariant(caseValue, `packet contains unknown case ${packetCase.case_id}`);
-    invariant(!packetCaseIds.has(packetCase.case_id), `packet duplicates case ${packetCase.case_id}`);
-    packetCaseIds.add(packetCase.case_id);
-    invariant(packetCase.case_sha256 === caseValue.case_sha256, `${packetCase.case_id}: packet case digest mismatch`);
-    invariant(packetCase.prompt_sha256 === caseValue.prompt_sha256, `${packetCase.case_id}: packet prompt digest mismatch`);
-    invariant(packetCase.domain === caseValue.domain, `${packetCase.case_id}: packet domain mismatch`);
-    invariant(packetCase.criticality === caseValue.criticality, `${packetCase.case_id}: packet criticality mismatch`);
-  }
-  invariant(packetCaseIds.size === caseMap.size, 'packet does not exactly cover current corpus');
-  invariant(Array.isArray(packet.reviewer_tracks), 'packet reviewer_tracks must be an array');
-  const trackIds = new Set();
-  for (const track of packet.reviewer_tracks) {
-    object(track, 'reviewer track');
-    portableId(track.track_id, 'track_id');
-    invariant(!trackIds.has(track.track_id), `duplicate packet track ${track.track_id}`);
-    trackIds.add(track.track_id);
-    invariant(typeof track.reviewer_role === 'string', `${track.track_id}: reviewer role missing`);
-    invariant(Array.isArray(track.case_ids) && track.case_ids.length > 0, `${track.track_id}: case_ids missing`);
-    const trackCaseIds = new Set();
-    for (const caseId of track.case_ids) {
-      invariant(caseMap.has(caseId), `${track.track_id}: unknown case ${caseId}`);
-      invariant(!trackCaseIds.has(caseId), `${track.track_id}: duplicate case ${caseId}`);
-      trackCaseIds.add(caseId);
-    }
-    invariant(track.case_count === track.case_ids.length, `${track.track_id}: case_count mismatch`);
-  }
+  const expectedDigest = sha256(expected);
+  invariant(packet.packet_sha256 === sha256(payload), 'packet digest mismatch');
+  invariant(
+    packet.packet_sha256 === expectedDigest && sha256(payload) === expectedDigest,
+    'packet does not match current governed packet authority',
+  );
   return timestamp(packet.generated_at, 'packet.generated_at');
 }
 
@@ -239,8 +300,9 @@ export function ingestExpertReviewSubmission({
   const currentAssessment = computeAssessment(corpus, existingReviews);
   const packetGeneratedAt = validatePacket(
     packet,
+    corpus,
+    existingReviews,
     currentAssessment,
-    caseMap,
     exactMainSha,
   );
 
