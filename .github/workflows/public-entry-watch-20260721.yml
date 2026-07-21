@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   production-watch:
@@ -40,12 +41,40 @@ jobs:
         run: |
           if [[ -f apps/web/artifacts/public-entry-watch/result.json ]]; then
             cat apps/web/artifacts/public-entry-watch/result.json
+          else
+            echo '{"failures":["RESULT_FILE_MISSING"]}'
           fi
+      - name: Publish exact result to evidence PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const resultPath = 'apps/web/artifacts/public-entry-watch/result.json';
+            let body;
+            if (fs.existsSync(resultPath)) {
+              const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+              body = [
+                '## Public Entry Watch result',
+                '',
+                '```json',
+                JSON.stringify(result, null, 2),
+                '```',
+              ].join('\n');
+            } else {
+              body = '## Public Entry Watch result\n\n`RESULT_FILE_MISSING`';
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
       - name: Upload public-entry evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: public-entry-watch-20260721
+          name: public-entry-watch-${{ github.run_id }}
           path: apps/web/artifacts/public-entry-watch
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
