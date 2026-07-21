@@ -303,7 +303,7 @@ PY
   set +e
   (
     cd "$RUN_ROOT"
-    PATH="$VENV/bin:$PATH" timeout --signal=TERM --kill-after=120 21600 "$@"
+    PYTHONPATH="$LLAMA_ROOT/source/llama.cpp:$LLAMA_ROOT/source/llama.cpp/gguf-py" PATH="$VENV/bin:$PATH" timeout --signal=TERM --kill-after=120 21600 "$@"
   ) >"$log_path" 2>&1
   exit_code=$?
   set -e
