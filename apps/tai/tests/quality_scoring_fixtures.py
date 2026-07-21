@@ -6,18 +6,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from test_cpu_runtime_evidence import (
-    AUTHORITY as RUNTIME_AUTHORITY_PATH,
-    EXACT_MAIN,
-    _complete_evidence,
-    _rewrite_evidence,
-)
+from test_cpu_runtime_evidence import AUTHORITY as RUNTIME_AUTHORITY_PATH
+from test_cpu_runtime_evidence import EXACT_MAIN, _complete_evidence, _rewrite_evidence
+
 from tai.cpu_runtime_evidence import verify_runtime_evidence
 from tai.quality_scoring import verify_quality_scoring
 from tai.quality_scoring_contract import (
     EXPECTED_MATURITY,
-    LOCALES,
-    PROFILES,
     VERIFIED_QUALITY_STATUS,
     canonical_sha256,
     expected_authority,
