@@ -30,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "../../$ARTIFACT_DIR"
-          cat > /tmp/watch.mjs <<'NODE'
+          cat > scripts/public-entry-watch-temp.mjs <<'NODE'
           import fs from 'node:fs';
           import path from 'node:path';
           import { chromium } from '@playwright/test';
@@ -119,7 +119,7 @@ jobs:
           } finally { await browser.close(); }
           report.ok=report.failures.length===0; fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(report,null,2)); console.log(JSON.stringify({ok:report.ok,cases:report.cases.length,failClosed:report.failClosed,failures:report.failures},null,2)); if(!report.ok)process.exit(1);
           NODE
-          node /tmp/watch.mjs
+          node scripts/public-entry-watch-temp.mjs
       - if: always()
         uses: actions/upload-artifact@v4
         with:
