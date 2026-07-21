@@ -21,6 +21,7 @@
   ],
   "acceptance": [
     "owner-only exact-main issue command triggers read-only S3 preflight",
+    "read-only controls complement the accepted Object Lock smoke round-trip authority from PR #2955",
     "all required TAI_BUNDLE_S3_ protected inputs fail closed when absent",
     "private access controls, versioning, encryption and global delete deny are verified",
     "operator-confirmed provider capacity is at least 120000000000 bytes",
