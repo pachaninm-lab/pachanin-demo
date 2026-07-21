@@ -10,115 +10,39 @@ permissions:
   actions: read
   contents: read
 
-concurrency:
-  group: tai-rollout-observer-3270b89
-  cancel-in-progress: false
-
 jobs:
   observe:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     env:
       GH_TOKEN: ${{ github.token }}
       REPOSITORY: ${{ github.repository }}
-      RUN_ID: '29877651153'
       ARTIFACT_ID: '8513580647'
-      OBSERVER_DIR: artifacts/tai-rollout-observer-3270b89
     steps:
-      - name: Download exact failed rollout evidence
+      - name: Print exact sanitized rollout evidence
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$OBSERVER_DIR/release-evidence"
-          gh api \
-            -H 'Accept: application/vnd.github+json' \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "repos/$REPOSITORY/actions/runs/$RUN_ID" \
-            > "$OBSERVER_DIR/run.json"
-          gh api \
-            -H 'Accept: application/vnd.github+json' \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "repos/$REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
-            > "$OBSERVER_DIR/jobs.json"
-          curl --fail --silent --show-error --location \
+          mkdir -p evidence
+          curl -fsSL \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H 'Accept: application/vnd.github+json' \
             -H 'X-GitHub-Api-Version: 2022-11-28' \
             "https://api.github.com/repos/$REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
-            --output "$OBSERVER_DIR/release-evidence.zip"
-          unzip -q "$OBSERVER_DIR/release-evidence.zip" -d "$OBSERVER_DIR/release-evidence"
-
-      - name: Build sanitized failure report
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import json
-          import os
-          import re
-          from pathlib import Path
-
-          root = Path(os.environ['OBSERVER_DIR'])
-          evidence = root / 'release-evidence'
-          run = json.loads((root / 'run.json').read_text(encoding='utf-8'))
-          jobs_payload = json.loads((root / 'jobs.json').read_text(encoding='utf-8'))
-          jobs = jobs_payload.get('jobs', [])
-
-          private_key = re.compile(
-              r'-----BEGIN OPENSSH PRIVATE KEY-----.*?-----END OPENSSH PRIVATE KEY-----',
-              re.S,
-          )
-          user_host = re.compile(r'(?<![A-Za-z0-9._-])[A-Za-z0-9._-]+@[A-Za-z0-9._:-]+')
-
-          text_files = []
-          for path in sorted(p for p in evidence.rglob('*') if p.is_file()):
-              if path.suffix.lower() not in {'.txt', '.md', '.log', '.json'}:
-                  continue
-              text = path.read_text(encoding='utf-8', errors='replace')
-              text = private_key.sub('[REDACTED_PRIVATE_KEY]', text)
-              text = user_host.sub('[REDACTED_SSH_IDENTITY]', text)
-              if len(text) > 20000:
-                  text = text[:20000] + '\n[TRUNCATED]\n'
-              text_files.append({
-                  'path': str(path.relative_to(evidence)),
-                  'content': text,
-              })
-
-          deploy_job = next(
-              (job for job in jobs if job.get('name') == 'Hardened key-only VPS web deployment and exact live verification'),
-              None,
-          )
-          report = {
-              'schema_version': 'tai.rollout-failure-diagnostics.3270b89.v1',
-              'workflow_run_id': int(os.environ['RUN_ID']),
-              'event': run.get('event'),
-              'head_sha': run.get('head_sha'),
-              'run_status': run.get('status'),
-              'run_conclusion': run.get('conclusion'),
-              'deployment_job_conclusion': None if deploy_job is None else deploy_job.get('conclusion'),
-              'deployment_steps': [] if deploy_job is None else [
-                  {
-                      'name': step.get('name'),
-                      'status': step.get('status'),
-                      'conclusion': step.get('conclusion'),
-                  }
-                  for step in deploy_job.get('steps', [])
-              ],
-              'sanitized_evidence': text_files,
-              'production_mutation_reached': False,
-              'tai_operational_status': 'NOT_ATTESTED',
-          }
-          out = root / 'failure-report.json'
-          out.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + '\n', encoding='utf-8')
-          print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
-          PY
-
-      - name: Upload sanitized observer evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: tai-rollout-failure-diagnostics-3270b89-${{ github.run_id }}
-          path: ${{ env.OBSERVER_DIR }}/failure-report.json
-          if-no-files-found: error
-          retention-days: 30
-          compression-level: 0
+            -o evidence.zip
+          unzip -q evidence.zip -d evidence
+          echo '=== EVIDENCE FILES ==='
+          find evidence -type f -printf '%P\n' | sort
+          echo '=== SANITIZED TEXT EVIDENCE ==='
+          while IFS= read -r file; do
+            case "$file" in
+              *.txt|*.md|*.log|*.json)
+                echo "--- ${file#evidence/} ---"
+                sed -E \
+                  -e '/BEGIN OPENSSH PRIVATE KEY/,/END OPENSSH PRIVATE KEY/c\[REDACTED_PRIVATE_KEY]' \
+                  -e 's/[A-Za-z0-9._-]+@[A-Za-z0-9._:-]+/[REDACTED_SSH_IDENTITY]/g' \
+                  "$file" | head -200
+                ;;
+            esac
+          done < <(find evidence -type f | sort)
