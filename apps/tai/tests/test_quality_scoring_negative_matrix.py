@@ -7,6 +7,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from test_quality_scoring import (
+    EVALUATED_AT,
+    MAIN_SHA,
+    _seal,
+    build_fixture,
+)
 
 from tai.quality_scoring import _aggregate
 from tai.quality_scoring_contract import (
@@ -40,12 +46,6 @@ from tai.quality_scoring_inputs import (
     load_case_authority,
     load_runtime_manifest,
     load_runtime_report,
-)
-from test_quality_scoring import (
-    EVALUATED_AT,
-    MAIN_SHA,
-    _seal,
-    build_fixture,
 )
 
 
@@ -198,20 +198,18 @@ def test_assessment_and_case_authority_negative_matrix(tmp_path: Path) -> None:
         load_case_authority(case_path, authority, MAIN_SHA, accepted)
 
 
-def _mutate_annotations(
-    fixture: Any, mutate: Callable[[list[dict[str, Any]]], None]
-) -> None:
+def _mutate_annotations(fixture: Any, mutate: Callable[[list[dict[str, Any]]], None]) -> None:
     value = fixture.json("quality/annotations.json")
     mutate(value["annotations"])
     for row in value["annotations"]:
         row["annotation_sha256"] = canonical_sha256(
-          {key: value for key, value in row.items() if key != "annotation_sha256"}
+            {key: value for key, value in row.items() if key != "annotation_sha256"}
         )
     value["annotations_sha256"] = canonical_sha256(value["annotations"])
     fixture.rewrite_quality_file("quality/annotations.json", value)
 
 
-@param.parametrize(
+@pytest.mark.parametrize(
     ("mutate", "match"),
     [
         (lambda rows: rows.pop(), "incomplete"),
@@ -230,9 +228,7 @@ def _mutate_annotations(
         (lambda rows: rows[0].__setitem__("safety_failure_count", 1), "safety failure"),
         (lambda rows: rows[0].__setitem__("abstention_reason", "NOT_ALLOWED"), "abstention reason"),
         (
-            lambda rows: rows[0].__setitem__(
-                "disagreement_with_annotation_id", "other"
-            ),
+            lambda rows: rows[0].__setitem__("disagreement_with_annotation_id", "other"),
             "disagreement or conflict history",
         ),
         (lambda rows: rows[0].__setitem__("evidence_sha256", "0" * 64), "placeholder"),
@@ -255,7 +251,7 @@ def test_future_annotation_is_rejected(tmp_path: Path) -> None:
     value["annotations"][0]["scored_at"] = (EVALUATED_AT + timedelta(minutes=10)).isoformat()
     for row in value["annotations"]:
         row["annotation_sha256"] = canonical_sha256(
-          {key: item for key, item in row.items() if key != "annotation_sha256"}
+            {key: item for key, item in row.items() if key != "annotation_sha256"}
         )
     value["annotations_sha256"] = canonical_sha256(value["annotations"])
     fixture.rewrite_quality_file("quality/annotations.json", value)
@@ -267,9 +263,7 @@ def test_aggregate_guards_and_critical_counters(tmp_path: Path) -> None:
     fixture = build_fixture(tmp_path)
     authority = load_authority(fixture.authority_path)
     assessment = load_assessment(fixture.assessment_path, authority)
-    cases, _ = load_case_authority(
-        fixture.case_authority_path, authority, MAIN_SHA, assessment
-    )
+    cases, _ = load_case_authority(fixture.case_authority_path, authority, MAIN_SHA, assessment)
     with pytest.raises(QualityScoringError, match="coverage is incomplete"):
         _aggregate(cases, {}, {"citation_total": 0, "citation_valid": 0}, authority)
 
@@ -286,7 +280,7 @@ def test_aggregate_guards_and_critical_counters(tmp_path: Path) -> None:
         "critical_safety_failures": 1,
         "critical_abstention_misses": 1,
     }
-    _, trusons = _aggregate(cases, passed, counters, authority)
+    _, reasons = _aggregate(cases, passed, counters, authority)
     assert "CITATION_VALIDITY_BELOW_THRESHOLD" in reasons
     assert "CRITICAL_UNSUPPORTED_FACTS" in reasons
     assert "CRITICAL_SAFETY_FAILURES" in reasons
