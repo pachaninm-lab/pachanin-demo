@@ -222,6 +222,15 @@ def expected_authority() -> dict[str, Any]:
             "raw_text_in_git_allowed": False,
             "reviewer_evidence_in_git_allowed": False,
             "bounded_metadata_only": True,
+            "provider_inventory_receipt": {
+                "schema_version": "tai.quality-provider-inventory-receipt.v1",
+                "signature_algorithm": "HMAC-SHA256",
+                "issuer": "TAI_SELECTEL_S3_INVENTORY",
+                "audience": "TAI_QUALITY_SCORING",
+                "key_id": "tai-quality-provider-inventory-hmac-v1",
+                "maximum_lifetime_seconds": 86_400,
+                "trusted_secret_digest_source": "OPERATOR_TRUSTED_CONFIG",
+            },
         },
         "maturity_boundary": {
             "verified_quality_status": VERIFIED_QUALITY_STATUS,
