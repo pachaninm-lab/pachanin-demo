@@ -79,9 +79,10 @@ Every annotation records only bounded metadata and verdicts:
 - abstention validity;
 - unsupported-fact and safety-failure counts;
 - disagreement reference;
-- annotation self-digest.
+- annotation self-digest;
+- a domain-separated HMAC approval over the annotation payload digest, identity assertion, exact-main and scoring run ID.
 
-No free-form answer, reviewer note or evidence payload is accepted inside the scoring manifest.
+No free-form answer, reviewer note or evidence payload is accepted inside the scoring manifest. Recomputing an annotation self-digest is insufficient: changing any verdict or evidence binding without the trusted approval key fails closed.
 
 ## Aggregation
 
