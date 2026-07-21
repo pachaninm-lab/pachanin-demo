@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
           mkdir -p "../../$ARTIFACT_DIR"
           echo "started=$(date -u +%FT%TZ)" > "../../$ARTIFACT_DIR/runner.log"
           node scripts/public-entry-watch-production.mjs 2>&1 | tee -a "../../$ARTIFACT_DIR/runner.log"
-      - name: Publish machine-readable result to PR
+      - name: Persist machine-readable result
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
@@ -42,17 +42,29 @@ jobs:
           set -euo pipefail
           result="$ARTIFACT_DIR/result.json"
           if [ ! -f "$result" ]; then
-            printf '### Public Entry Watch v2\n\n`result.json` was not produced.\n' > /tmp/watch-comment.md
-          else
-            {
-              echo '### Public Entry Watch v2'
-              echo
-              echo '<!-- public-entry-watch-v2-result -->'
-              echo '```json'
-              cat "$result"
-              echo '```'
-            } > /tmp/watch-comment.md
+            printf '{"ok":false,"fatal":"result.json was not produced"}\n' > "$result"
           fi
+          content="$(base64 -w0 "$result")"
+          current_sha="$(gh api "repos/$GITHUB_REPOSITORY/contents/public-entry-watch-result.json?ref=ops/public-entry-watch-results" --jq .sha 2>/dev/null || true)"
+          args=(--method PUT "repos/$GITHUB_REPOSITORY/contents/public-entry-watch-result.json" -f message="Update production public-entry watch result" -f content="$content" -f branch="ops/public-entry-watch-results")
+          if [ -n "$current_sha" ]; then args+=(-f sha="$current_sha"); fi
+          gh api "${args[@]}" >/dev/null
+      - name: Publish result to PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$ARTIFACT_DIR/result.json"
+          {
+            echo '### Public Entry Watch v2'
+            echo
+            echo '<!-- public-entry-watch-v2-result -->'
+            echo '```json'
+            cat "$result"
+            echo '```'
+          } > /tmp/watch-comment.md
           gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/watch-comment.md
       - if: always()
         uses: actions/upload-artifact@v4
