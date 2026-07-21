@@ -6,6 +6,7 @@ import {
   COMMODITY_PROFILE_TRANSACTION_PORT,
   CommodityProfileTransactionCommandService,
 } from './commodity-profile-transaction-command.service';
+import { CommodityProfileVersionHistoryRepository } from './commodity-profile-version-history.repository';
 import { PostgresqlCommodityProfileTransactionPort } from './postgresql-commodity-profile-transaction.port';
 
 @Module({
@@ -13,6 +14,7 @@ import { PostgresqlCommodityProfileTransactionPort } from './postgresql-commodit
   controllers: [CommodityProfilesController],
   providers: [
     CommodityProfileRepository,
+    CommodityProfileVersionHistoryRepository,
     PostgresqlCommodityProfileTransactionPort,
     {
       provide: COMMODITY_PROFILE_TRANSACTION_PORT,
