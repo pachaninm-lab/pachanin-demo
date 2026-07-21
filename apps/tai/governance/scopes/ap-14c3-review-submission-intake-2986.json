@@ -10,6 +10,7 @@
     "apps/tai/model-artifacts/expert-review-packet.mjs",
     "apps/tai/model-artifacts/expert-review-submission-intake.mjs",
     "apps/tai/model-artifacts/expert-review-submission-intake-runbook.v1.md",
+    "apps/tai/tests/expert-review-packet.test.mjs",
     "apps/tai/tests/expert-review-submission-intake.test.mjs",
     "apps/tai/tests/expert-review-submission-packet-authority.test.mjs"
   ],
@@ -18,10 +19,11 @@
     "every submission binds the exact review packet, corpus, exact-main and reviewer track",
     "the packet must exactly match current governed case contracts, track assignments and review policy, not only its self-declared digest",
     "the packet generator can bind an explicit exact review-authority path for deterministic regression fixtures while production CLI remains bound to the repository authority",
+    "packet materialization emits one track-bound intake envelope per reviewer track with all authority fields fixed and all human-only fields blank",
     "stale cases, wrong roles, future timestamps, invalid digests, unknown fields and duplicate or conflicting reviews are rejected",
     "existing review records are never silently replaced",
     "candidate reviews and assessment are deterministic and require human pull-request review",
-    "the dedicated exact-head Node gate runs syntax, fail-closed and forged-packet regression tests",
+    "the dedicated exact-head Node gate runs packet compatibility, syntax, fail-closed and forged-packet regression tests",
     "automation creates no expert decision and cannot close the human checkpoint",
     "expert review remains PENDING_REVIEW until real external records satisfy policy",
     "benchmark remains PENDING_BENCHMARK, model admission remains PENDING_ADMISSION and production_operational_status remains NOT_ATTESTED"
