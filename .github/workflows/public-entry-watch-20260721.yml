@@ -1,0 +1,184 @@
+name: public entry watch 20260721
+
+on:
+  push:
+    branches:
+      - ops/public-entry-watch-20260721a
+
+permissions:
+  contents: read
+
+jobs:
+  production-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      BASE_URL: https://xn----8sbjf4befbjgs9b.xn--p1ai
+      REPORT_DIR: /tmp/public-entry-watch
+    steps:
+      - uses: actions/checkout@v4
+      - name: Network checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$REPORT_DIR"
+          : > "$REPORT_DIR/network.txt"
+          for route in /platform-v7 /platform-v7/login /platform-v7/forgot-password; do
+            echo "=== $route ===" | tee -a "$REPORT_DIR/network.txt"
+            result=$(curl --silent --show-error --location --max-redirs 5 \
+              --output "$REPORT_DIR/body-$(echo "$route" | tr '/' '_').html" \
+              --dump-header "$REPORT_DIR/headers-$(echo "$route" | tr '/' '_').txt" \
+              --write-out 'status=%{http_code} redirects=%{num_redirects} effective=%{url_effective} bytes=%{size_download} time=%{time_total}' \
+              "$BASE_URL$route")
+            echo "$result" | tee -a "$REPORT_DIR/network.txt"
+            status=$(printf '%s' "$result" | sed -n 's/.*status=\([0-9][0-9][0-9]\).*/\1/p')
+            redirects=$(printf '%s' "$result" | sed -n 's/.*redirects=\([0-9][0-9]*\).*/\1/p')
+            effective=$(printf '%s' "$result" | sed -n 's/.*effective=\([^ ]*\).*/\1/p')
+            bytes=$(printf '%s' "$result" | sed -n 's/.*bytes=\([0-9][0-9]*\).*/\1/p')
+            test "$status" = "200"
+            test "$redirects" -le 5
+            test "$bytes" -gt 500
+            case "$effective" in *role=*|*%3Frole=*|*%3frole=*) exit 31;; esac
+          done
+      - name: Install browser runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/watch-runtime
+          cd /tmp/watch-runtime
+          npm init -y >/dev/null 2>&1
+          npm install --no-audit --no-fund playwright@1.52.0
+          npx playwright install --with-deps chromium webkit
+      - name: Browser, locale, runtime and fail-closed checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/watch-runtime/check.mjs <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { chromium, webkit } from 'playwright';
+
+          const baseURL = process.env.BASE_URL;
+          const reportDir = process.env.REPORT_DIR;
+          const routes = ['/platform-v7', '/platform-v7/login', '/platform-v7/forgot-password'];
+          const locales = ['ru', 'en', 'zh'];
+          const projects = [
+            { name: 'chromium-desktop', browserType: chromium, viewport: { width: 1440, height: 1000 } },
+            { name: 'chromium-mobile', browserType: chromium, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+            { name: 'webkit-iphone', browserType: webkit, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+          ];
+          const report = { generatedAt: new Date().toISOString(), baseURL, cases: [], login: null };
+          const assert = (condition, message) => { if (!condition) throw new Error(message); };
+          const productError = (text) => /hydration|hydrating|react.*error|next-intl|missing message|uncaught|runtime error|chunkloaderror/i.test(text);
+
+          for (const project of projects) {
+            const browser = await project.browserType.launch({ headless: true });
+            try {
+              for (const locale of locales) {
+                for (const route of routes) {
+                  const context = await browser.newContext({
+                    viewport: project.viewport,
+                    isMobile: project.isMobile,
+                    hasTouch: project.hasTouch,
+                    locale: locale === 'ru' ? 'ru-RU' : locale === 'zh' ? 'zh-CN' : 'en-US',
+                  });
+                  const page = await context.newPage();
+                  const consoleErrors = [];
+                  const pageErrors = [];
+                  const failedRequests = [];
+                  const badResponses = [];
+                  let navigationCount = 0;
+                  page.on('framenavigated', frame => { if (frame === page.mainFrame()) navigationCount += 1; });
+                  page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+                  page.on('pageerror', err => pageErrors.push(String(err?.stack || err)));
+                  page.on('requestfailed', req => {
+                    const errorText = req.failure()?.errorText || 'unknown';
+                    if (!errorText.includes('ERR_ABORTED')) failedRequests.push({ url: req.url(), errorText });
+                  });
+                  page.on('response', res => {
+                    if (res.url().startsWith(baseURL) && res.status() >= 400 && !res.url().includes('/favicon')) {
+                      badResponses.push({ url: res.url(), status: res.status() });
+                    }
+                  });
+                  const url = `${baseURL}${route}?lang=${locale}`;
+                  const response = await page.goto(url, { waitUntil: 'networkidle', timeout: 60_000 });
+                  assert(response, `${project.name}/${locale}${route}: no document response`);
+                  assert(response.status() === 200, `${project.name}/${locale}${route}: HTTP ${response.status()}`);
+                  assert(navigationCount <= 5, `${project.name}/${locale}${route}: redirect/navigation loop ${navigationCount}`);
+                  assert(!/[?&](role|as)=/i.test(page.url()), `${project.name}/${locale}${route}: role authority in URL ${page.url()}`);
+                  assert(new URL(page.url()).pathname === route, `${project.name}/${locale}${route}: unexpected final path ${page.url()}`);
+                  const state = await page.evaluate(() => ({
+                    lang: document.documentElement.lang,
+                    textLength: document.body.innerText.trim().length,
+                    scrollWidth: document.documentElement.scrollWidth,
+                    clientWidth: document.documentElement.clientWidth,
+                    bodyHeight: document.body.getBoundingClientRect().height,
+                  }));
+                  assert(state.lang?.toLowerCase().startsWith(locale), `${project.name}/${locale}${route}: html lang ${state.lang}`);
+                  assert(state.textLength > 80, `${project.name}/${locale}${route}: probable white screen, text=${state.textLength}`);
+                  assert(state.bodyHeight > 150, `${project.name}/${locale}${route}: probable collapsed screen, height=${state.bodyHeight}`);
+                  assert(state.scrollWidth <= state.clientWidth + 2, `${project.name}/${locale}${route}: horizontal overflow ${state.scrollWidth}/${state.clientWidth}`);
+                  const criticalConsole = consoleErrors.filter(productError);
+                  assert(criticalConsole.length === 0, `${project.name}/${locale}${route}: product console errors ${JSON.stringify(criticalConsole)}`);
+                  assert(pageErrors.length === 0, `${project.name}/${locale}${route}: page errors ${JSON.stringify(pageErrors)}`);
+                  assert(failedRequests.length === 0, `${project.name}/${locale}${route}: failed requests ${JSON.stringify(failedRequests)}`);
+                  assert(badResponses.length === 0, `${project.name}/${locale}${route}: bad responses ${JSON.stringify(badResponses)}`);
+                  report.cases.push({ project: project.name, locale, route, status: response.status(), finalUrl: page.url(), navigationCount, textLength: state.textLength, consoleErrors: criticalConsole.length, pageErrors: 0, failedRequests: 0, badResponses: 0 });
+                  await context.close();
+                }
+              }
+            } finally {
+              await browser.close();
+            }
+          }
+
+          const browser = await chromium.launch({ headless: true });
+          try {
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ru-RU' });
+            const page = await context.newPage();
+            const authResponses = [];
+            page.on('response', response => {
+              if (/\/api\/auth\/|\/auth\//.test(response.url())) authResponses.push({ url: response.url(), status: response.status() });
+            });
+            await page.goto(`${baseURL}/platform-v7/login?lang=ru`, { waitUntil: 'networkidle', timeout: 60_000 });
+            const email = page.locator('input[type="email"], input[name="email"]').first();
+            const password = page.locator('input[type="password"], input[name="password"]').first();
+            const submit = page.locator('button[type="submit"]').first();
+            assert(await email.count(), 'fail-closed: email input missing');
+            assert(await password.count(), 'fail-closed: password input missing');
+            assert(await submit.count(), 'fail-closed: submit button missing');
+            await email.fill(`watch-${Date.now()}@invalid.example`);
+            await password.fill('Invalid-Password-For-Watch-2026!');
+            await submit.click();
+            await page.waitForTimeout(3500);
+            assert(new URL(page.url()).pathname === '/platform-v7/login', `fail-closed: escaped login to ${page.url()}`);
+            assert(!/[?&](role|as)=/i.test(page.url()), `fail-closed: role in URL ${page.url()}`);
+            const cookies = await context.cookies();
+            const forbiddenCookies = cookies.filter(cookie => /(access|refresh|session|mfa|cabinet|auth)/i.test(cookie.name));
+            assert(forbiddenCookies.length === 0, `fail-closed: session cookies created ${JSON.stringify(forbiddenCookies.map(c => c.name))}`);
+            const clientState = await page.evaluate(() => ({
+              localKeys: Object.keys(localStorage),
+              sessionKeys: Object.keys(sessionStorage),
+            }));
+            const demoKeys = [...clientState.localKeys, ...clientState.sessionKeys].filter(key => /demo.*session|session.*demo|mock.*auth|auth.*mock/i.test(key));
+            assert(demoKeys.length === 0, `fail-closed: demo client session ${JSON.stringify(demoKeys)}`);
+            report.login = { finalUrl: page.url(), authResponses, cookies: cookies.map(c => c.name), forbiddenSessionCookies: [], demoClientKeys: [] };
+            await context.close();
+          } finally {
+            await browser.close();
+          }
+
+          fs.mkdirSync(reportDir, { recursive: true });
+          fs.writeFileSync(path.join(reportDir, 'report.json'), JSON.stringify(report, null, 2));
+          console.log(JSON.stringify({ allGreen: true, cases: report.cases.length, login: report.login }, null, 2));
+          NODE
+          cd /tmp/watch-runtime
+          node check.mjs | tee "$REPORT_DIR/browser.txt"
+      - name: Upload watch evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-20260721
+          path: /tmp/public-entry-watch
+          if-no-files-found: error
+          retention-days: 3
