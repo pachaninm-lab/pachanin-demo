@@ -11,9 +11,12 @@
     "apps/tai/model-artifacts/quality-scoring.pending.json",
     "apps/tai/model-artifacts/quality-scoring-runbook.v1.md",
     "apps/tai/tai/quality_scoring_contract.py",
+    "apps/tai/tai/quality_scoring_inputs.py",
+    "apps/tai/tai/quality_scoring_annotations.py",
     "apps/tai/tai/quality_scoring.py",
     "apps/tai/tai/quality_scoring_cli.py",
-    "apps/tai/tests/test_quality_scoring.py",
+    "apps/tai/tests/quality_scoring_fixtures.py",
+    "apps/tai/tests/test_quality_scoring_authority.py",
     "apps/tai/tests/test_quality_scoring_cli.py"
   ],
   "acceptance": [
