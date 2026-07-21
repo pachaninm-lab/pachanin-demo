@@ -15,6 +15,12 @@ SCOPE = (
     / "scopes"
     / "ap-13c1a-cpu-benchmark-authority-2977.json"
 )
+RUNTIME_FIX_SCOPE = (
+    TAI_ROOT
+    / "governance"
+    / "scopes"
+    / "ap-13c1b-exact-main-workflow-fix-2981.json"
+)
 COMMAND = "/tai benchmark cpu-fallback exact-main"
 EXPECTED_PATHS = {
     ".gitleaksignore",
@@ -28,6 +34,11 @@ EXPECTED_PATHS = {
     "apps/tai/tests/test_cpu_benchmark_execution_cli.py",
     "apps/tai/tests/test_cpu_benchmark_execution_workflow.py",
     "apps/tai/tests/test_gitleaks_release_authority.py",
+}
+RUNTIME_FIX_PATHS = {
+    ".github/workflows/tai-cpu-benchmark-execution-authority.yml",
+    "apps/tai/governance/scopes/ap-13c1b-exact-main-workflow-fix-2981.json",
+    "apps/tai/tests/test_cpu_benchmark_execution_workflow.py",
 }
 
 
@@ -56,6 +67,22 @@ def test_scope_is_exact_and_preserves_maturity_boundary() -> None:
     assert "production_operational_status remains NOT_ATTESTED" in scope["acceptance"][-1]
 
 
+def test_runtime_fix_scope_is_bounded_and_preserves_maturity() -> None:
+    scope = _json(RUNTIME_FIX_SCOPE)
+    assert scope["schema_version"] == "tai.concurrent-scope.v1"
+    assert scope["branch"] == "agent/tai-ap-13c1b-exact-main-workflow-fix"
+    assert (scope["program_issue"], scope["parent_issue"], scope["issue"]) == (
+        2726,
+        2977,
+        2981,
+    )
+    assert set(scope["allowed_paths"]) == RUNTIME_FIX_PATHS
+    assert "weakening or removing exact-main SHA" in " ".join(
+        scope["forbidden_capabilities"]
+    )
+    assert "production_operational_status remains NOT_ATTESTED" in scope["acceptance"][-1]
+
+
 def test_workflow_is_owner_only_exact_main_and_issue_bound() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     assert "issue_comment:" in workflow
@@ -73,6 +100,21 @@ def test_workflow_is_owner_only_exact_main_and_issue_bound() -> None:
     assert "actions: read\n  contents: read\n  issues: write" in workflow
     assert "contents: write" not in workflow
     assert "timeout-minutes: 30" in workflow
+
+
+def test_exact_main_is_asserted_before_any_editable_install_mutation() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    checkout = workflow.index("- name: Checkout exact main authority")
+    exact_main = workflow.index("- name: Assert exact-main immutable checkout")
+    setup = workflow.index("- name: Setup Python")
+    install = workflow.index("- name: Install exact TAI authority package")
+    validate = workflow.index("- name: Validate CPU benchmark execution authority")
+    assert checkout < exact_main < setup < install < validate
+    exact_block = workflow[exact_main:setup]
+    assert 'test "$(git rev-parse HEAD)" = "$GITHUB_SHA"' in exact_block
+    assert 'test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"' in exact_block
+    assert 'test -z "$(git status --porcelain=v1 --untracked-files=all)"' in exact_block
+    assert "pip install" not in exact_block
 
 
 def test_workflow_validates_only_readiness_and_never_touches_model_host() -> None:
