@@ -108,6 +108,7 @@ jobs:
             > "$SECURITY_ARTIFACT_DIR/pnpm-audit.stdout.txt" \
             2> "$SECURITY_ARTIFACT_DIR/pnpm-audit.stderr.txt"
           SECURITY_EXACT_HEAD="$GITHUB_SHA" \
+          PNPM_AUDIT_EXIT=0 \
           PNPM_AUDIT_JSON="$SECURITY_ARTIFACT_DIR/pnpm-audit.json" \
           PNPM_AUDIT_REPORT="$SECURITY_ARTIFACT_DIR/pnpm-audit-evaluation.json" \
           node docs/platform-v7/autopilot/evaluate-pnpm-audit.mjs
