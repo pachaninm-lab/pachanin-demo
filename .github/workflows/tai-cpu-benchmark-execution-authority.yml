@@ -38,6 +38,16 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Assert exact-main immutable checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -49,16 +59,6 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -e apps/tai
-
-      - name: Assert exact-main immutable checkout
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REF" = 'refs/heads/main'
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          git fetch --no-tags --depth=1 origin main
-          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
-          test -z "$(git status --porcelain=v1 --untracked-files=all)"
 
       - name: Validate CPU benchmark execution authority
         shell: bash
