@@ -40,13 +40,9 @@ jobs:
 
       - name: Assert exact-main immutable checkout
         shell: bash
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REF" = 'refs/heads/main'
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          git fetch --no-tags --depth=1 origin main
-          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
-          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+        env:
+          EXACT_MAIN_PROBE_REPORT: cpu-benchmark-authority-evidence/exact-main-probe.json
+        run: bash apps/tai/model-artifacts/exact-main-probe.v1.sh
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -108,6 +104,7 @@ jobs:
         with:
           name: tai-cpu-benchmark-authority-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
+            cpu-benchmark-authority-evidence/exact-main-probe.json
             cpu-benchmark-authority-evidence/authority-validation.json
             cpu-benchmark-authority-evidence/gold-authority-validation.json
             cpu-benchmark-authority-evidence/prerequisite-report.json
@@ -131,8 +128,13 @@ jobs:
           import os
           from pathlib import Path
 
+          probe_path = Path('cpu-benchmark-authority-evidence/exact-main-probe.json')
           readiness_path = Path('cpu-benchmark-authority-evidence/readiness.json')
           gold_path = Path('cpu-benchmark-authority-evidence/gold-authority-validation.json')
+          if probe_path.exists():
+              probe = json.loads(probe_path.read_text(encoding='utf-8'))
+          else:
+              probe = {'status': 'REJECTED', 'report_sha256': None}
           if readiness_path.exists():
               value = json.loads(readiness_path.read_text(encoding='utf-8'))
           else:
@@ -153,6 +155,8 @@ jobs:
           print()
           print(f"- exact-main: `{os.environ['GITHUB_SHA']}`;")
           print(f"- workflow run: `{os.environ['GITHUB_RUN_ID']}` / attempt `{os.environ['GITHUB_RUN_ATTEMPT']}`;")
+          print(f"- exact-main probe: `{probe.get('status')}`;")
+          print(f"- exact-main report SHA-256: `{probe.get('report_sha256')}`;")
           print(f"- AP-14C authority: `{gold.get('status')}` / accepted `{gold.get('accepted')}`;")
           print(f"- AP-14C assessment SHA-256: `{gold.get('assessment_sha256')}`;")
           print(f"- readiness: `{value.get('status')}`;")
@@ -172,10 +176,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          probe='cpu-benchmark-authority-evidence/exact-main-probe.json'
           gold='cpu-benchmark-authority-evidence/gold-authority-validation.json'
           report='cpu-benchmark-authority-evidence/readiness.json'
+          test -s "$probe"
           test -s "$gold"
           test -s "$report"
+          test "$(jq -r '.status' "$probe")" = 'EXACT_MAIN_CONFIRMED'
+          test "$(jq -r '.event_sha' "$probe")" = "$GITHUB_SHA"
+          test "$(jq -r '.remote_main_sha' "$probe")" = "$GITHUB_SHA"
           test "$(jq -r '.accepted' "$gold")" = 'true'
           test "$(jq -r '.status' "$gold")" = 'ACCEPTED'
           test "$(jq -r '.counts.reviewed_cases' "$gold")" = '58'
