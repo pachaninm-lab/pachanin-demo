@@ -324,7 +324,7 @@ def test_workflow_is_owner_only_read_only_and_dedicated_s3_only() -> None:
         "get-bucket-policy",
         "list-objects-v2",
         "list-object-versions",
-        "bundle_upload_status",
+        "bundle upload: `NOT_RUN`",
         "NOT_ATTESTED",
     ):
         assert required in workflow
