@@ -1,0 +1,14 @@
+.page {
+  width: min(1440px, 100%);
+  margin: 0 auto;
+  padding: clamp(16px, 2.6vw, 36px);
+  padding-bottom: max(96px, calc(72px + env(safe-area-inset-bottom)));
+  min-width: 0;
+}
+
+@media (max-width: 430px) {
+  .page {
+    padding-inline: 10px;
+    padding-top: 12px;
+  }
+}
