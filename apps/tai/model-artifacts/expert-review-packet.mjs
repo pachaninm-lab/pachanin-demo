@@ -137,7 +137,11 @@ function trackCases(cases, track) {
   );
 }
 
-export function buildExpertReviewPacket({ exactMainSha, generatedAt }) {
+export function buildExpertReviewPacket({
+  exactMainSha,
+  generatedAt,
+  reviewsPath = REVIEWS_PATH,
+}) {
   invariant(
     typeof exactMainSha === 'string' && SHA1.test(exactMainSha),
     'exact_main_sha must be a full Git SHA',
@@ -146,7 +150,7 @@ export function buildExpertReviewPacket({ exactMainSha, generatedAt }) {
 
   const corpus = buildCorpus();
   const caseMap = validateCorpus(corpus);
-  const reviews = parseJson(REVIEWS_PATH);
+  const reviews = parseJson(reviewsPath);
   validateReviews(reviews, caseMap);
   const assessment = computeAssessment(corpus, reviews);
   const cases = [...corpus.platform.cases, ...corpus.agro.cases];
