@@ -1,0 +1,107 @@
+name: TAI Governed Model Conversion
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-governed-model-conversion
+  cancel-in-progress: false
+
+jobs:
+  convert:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2835 &&
+      github.event.comment.body == '/tai convert model-bundles exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MODEL_HOST: ${{ secrets.TAI_MODEL_HOST }}
+      MODEL_SSH_USER: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_SSH_PORT: ${{ secrets.TAI_MODEL_SSH_PORT }}
+      MODEL_SSH_KEY: ${{ secrets.TAI_MODEL_SSH_KEY }}
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact checked-out main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact TAI authority package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e apps/tai
+
+      - name: Execute governed dedicated-host conversion
+        shell: bash
+        run: bash apps/tai/model-artifacts/model-conversion-orchestrator-master.v1.sh
+
+      - name: Upload bounded conversion evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-model-conversion-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            prerequisite-evidence
+            control-package/model-conversion-authority.v1.json
+            control-package/control-manifest.sha256
+            remote-evidence
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded conversion summary
+        if: always()
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ ! -s conversion-summary.md ]]; then
+            printf '%s\n' \
+              '## TAI governed model conversion' \
+              '' \
+              "- exact-main: \`$GITHUB_SHA\`;" \
+              "- workflow run: \`$GITHUB_RUN_ID\` / attempt \`$GITHUB_RUN_ATTEMPT\`;" \
+              '- remote state: `FAILED_CLOSED`;' \
+              '- benchmark: `NOT_RUN`;' \
+              '- model admission: `NOT_DONE`;' \
+              '- production operational status: `NOT_ATTESTED`.' \
+              > conversion-summary.md
+          fi
+          jq -n --rawfile body conversion-summary.md '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/2835/comments" --input -

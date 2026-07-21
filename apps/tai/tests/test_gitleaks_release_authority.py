@@ -34,5 +34,7 @@ def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
         "ec4b80ce1ee4fa7cf18361f1ff536c34b5030948:"
         "apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.spec.ts:"
         "generic-api-key:11",
+        "d4f147c04c64b7565f11288b3b545c97340d7899:"
+        "apps/tai/model-artifacts/model-conversion-authority.v1.json:generic-api-key:91",
     ]
     assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)
