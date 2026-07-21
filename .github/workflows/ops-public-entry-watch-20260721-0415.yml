@@ -51,10 +51,11 @@ jobs:
                 };
               }
             }
-            const body = `<!-- public-entry-watch-summary -->\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\``;
-            const existing = comments.find((comment) => comment.body?.includes('<!-- public-entry-watch-summary -->'));
-            if (existing) {
-              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
-            } else {
-              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
-            }
+            const marker = '<!-- public-entry-watch-summary -->';
+            const body = `Одноразовая автоматизированная проверка production-домена. Не предназначена для merge.\n\n${marker}\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\``;
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              body,
+            });
