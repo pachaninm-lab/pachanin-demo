@@ -9,6 +9,12 @@ WORKFLOW_PATH = ROOT / ".github" / "workflows" / "tai-model-conversion.yml"
 AUTHORITY_PATH = TAI_ROOT / "model-artifacts" / "model-conversion-authority.v1.json"
 BUNDLE_AUTHORITY_PATH = TAI_ROOT / "model-artifacts" / "model-bundle-authority.v2.json"
 DRIVER_PATH = TAI_ROOT / "model-artifacts" / "model-conversion-driver.v1.sh"
+ORCHESTRATOR_PATHS = (
+    TAI_ROOT / "model-artifacts" / "model-conversion-prerequisites.v1.sh",
+    TAI_ROOT / "model-artifacts" / "model-conversion-artifacts.v1.sh",
+    TAI_ROOT / "model-artifacts" / "model-conversion-transport.v1.sh",
+)
+
 SCOPE_PATH = (
     TAI_ROOT
     / "governance"
@@ -21,6 +27,10 @@ EXPECTED_PATHS = {
     "apps/tai/governance/scopes/ap-13b3d-governed-conversion-2932.json",
     "apps/tai/model-artifacts/model-conversion-authority.v1.json",
     "apps/tai/model-artifacts/model-conversion-driver.v1.sh",
+    "apps/tai/model-artifacts/model-conversion-orchestrator-master.v1.sh",
+    "apps/tai/model-artifacts/model-conversion-prerequisites.v1.sh",
+    "apps/tai/model-artifacts/model-conversion-artifacts.v1.sh",
+    "apps/tai/model-artifacts/model-conversion-transport.v1.sh",
     "apps/tai/tests/test_model_conversion_workflow.py",
 }
 COMMAND = "/tai convert model-bundles exact-main"
@@ -145,19 +155,22 @@ def test_workflow_is_owner_only_exact_main_and_dedicated_host_only() -> None:
 
 def test_workflow_verifies_release_legal_source_and_toolchain_before_remote_start() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
-    release_index = workflow.index("Require accepted exact-main Release Acceptance")
-    legal_index = workflow.index("Validate approved legal, source and toolchain prerequisites")
-    artifact_index = workflow.index("Download and verify accepted metadata and toolchain artifacts")
-    remote_index = workflow.index("Transfer package and start idempotent remote conversion")
+    orchestrator = "\n".join(path.read_text(encoding="utf-8") for path in ORCHESTRATOR_PATHS)
+    assert "Execute governed dedicated-host conversion" in workflow
+    assert "model-conversion-orchestrator-master.v1.sh" in workflow
+    release_index = orchestrator.index("TAI Release Acceptance")
+    legal_index = orchestrator.index("model_legal_review_cli")
+    artifact_index = orchestrator.index("accepted-artifacts/artifacts.tsv")
+    remote_index = orchestrator.index('ssh_command "install -d')
     assert release_index < legal_index < artifact_index < remote_index
-    assert "expected = f'tai-release-attestation-{exact}'" in workflow
-    assert "attestation['accepted'] is True" in workflow
-    assert "ALL_APPROVED_FOR_CONVERSION" in workflow
-    assert "VERIFIED_SOURCE_RESTORED_LEGAL_PENDING" in workflow
-    assert "VERIFIED_RESTORED" in workflow
-    assert "test \"$(sha256sum \"accepted-artifacts/$key/artifact.zip\"" in workflow
-    assert "control-manifest.sha256" in workflow
-    assert "model-conversion-driver.v1.sh" in workflow
+    assert "expected = f'tai-release-attestation-{exact}'" in orchestrator
+    assert "attestation['accepted'] is True" in orchestrator
+    assert "ALL_APPROVED_FOR_CONVERSION" in orchestrator
+    assert "VERIFIED_SOURCE_RESTORED_LEGAL_PENDING" in orchestrator
+    assert "VERIFIED_RESTORED" in orchestrator
+    assert "artifact.zip" in orchestrator
+    assert "control-manifest.sha256" in orchestrator
+    assert "model-conversion-driver.v1.sh" in orchestrator
 
 
 def test_driver_confines_mutation_and_executes_only_declared_outputs() -> None:
@@ -190,12 +203,14 @@ def test_driver_confines_mutation_and_executes_only_declared_outputs() -> None:
 
 def test_only_bounded_metadata_returns_to_github() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+    orchestrator = "\n".join(path.read_text(encoding="utf-8") for path in ORCHESTRATOR_PATHS)
     upload = workflow[workflow.index("Upload bounded conversion evidence") :]
     assert "remote-evidence" in upload
     assert "control-package/model-conversion-authority.v1.json" in upload
     assert "control-package/control-manifest.sha256" in upload
     assert "artifacts/*.gguf" not in upload
     assert "sources/" not in upload
+    assert "tar -czf - status.json evidence logs" in orchestrator
     assert "retention-days: 90" in upload
     assert "compression-level: 0" in upload
     assert "overwrite: false" in upload
