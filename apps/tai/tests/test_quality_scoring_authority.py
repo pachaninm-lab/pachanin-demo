@@ -347,3 +347,35 @@ def test_manifest_root_schema_and_pending_contamination_reject(tmp_path: Path) -
         QualityScoringError, match="unsupported quality scoring manifest schema"
     ):
         load_scoring_manifest(path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    [
+        ("exact_main", "b" * 40, "exact-main mismatch"),
+        ("authority_sha256", "f" * 64, "authority digest mismatch"),
+        ("runtime_report_sha256", "f" * 64, "runtime digest mismatch"),
+        ("observation_index_sha256", "f" * 64, "observation index mismatch"),
+        (
+            "scored_at",
+            (NOW + timedelta(minutes=10)).isoformat(),
+            "from the future",
+        ),
+        (
+            "quality_scoring_status",
+            "PENDING_QUALITY_SCORING",
+            "status mismatch",
+        ),
+    ],
+)
+def test_complete_manifest_bindings_fail_closed(
+    tmp_path: Path, field: str, value: object, match: str
+) -> None:
+    fixture = _fixture(tmp_path)
+    fixture["manifest"][field] = value
+    _rewrite_manifest(fixture)
+    with pytest.raises(QualityScoringError, match=match):
+        _verify(
+            fixture,
+            evaluated_at=(NOW + timedelta(minutes=5)).isoformat(),
+        )
