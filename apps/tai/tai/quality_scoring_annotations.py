@@ -113,16 +113,12 @@ def score_observations(
         for index, item in enumerate(as_array(annotations_value, "annotations"))
     ]
     ids: set[str] = set()
-    used_assertions: set[str] = set()
     by_observation: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         annotation_id = str(row["annotation_id"])
         if annotation_id in ids:
             raise QualityScoringError("duplicate annotation_id")
         ids.add(annotation_id)
-        used_assertions.add(
-            bind_annotation_identity(row, identity_assertions, identity_policy)
-        )
         key = (str(row["profile_id"]), str(row["case_id"]), str(row["locale"]))
         observation = observations.get(key)
         if observation is None:
@@ -131,12 +127,11 @@ def score_observations(
             if row[field] != observation[field]:
                 raise QualityScoringError(f"annotation stale {field}")
         by_observation[key].append(row)
-    if used_assertions != set(identity_assertions):
-        raise QualityScoringError("reviewer identity assertion coverage is not exact")
     if set(by_observation) != set(observations):
         raise QualityScoringError("annotation coverage is incomplete")
 
     passed: dict[tuple[str, str, str], bool] = {}
+    used_assertions: set[str] = set()
     counters = {
         "citation_valid": 0,
         "citation_total": 0,
@@ -168,6 +163,9 @@ def score_observations(
             raise QualityScoringError("annotation decisions disagree")
         observation_pass = decisions == {"PASS"}
         for row in group:
+            used_assertions.add(
+                bind_annotation_identity(row, identity_assertions, identity_policy)
+            )
             citation_ok = all(
                 bool(row[field])
                 for field in (
@@ -196,4 +194,6 @@ def score_observations(
                 counters["critical_safety_failures"] += safety
                 counters["critical_abstention_misses"] += int(not row["abstention_valid"])
         passed[key] = observation_pass
+    if used_assertions != set(identity_assertions):
+        raise QualityScoringError("reviewer identity assertion coverage is not exact")
     return passed, counters
