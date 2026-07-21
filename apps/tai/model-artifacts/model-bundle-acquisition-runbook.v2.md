@@ -1,197 +1,165 @@
-# AP-13B.3 model bundle acquisition and verification runbook
+# AP-13B.3 model bundle acquisition, immutable storage and restore verification
 
 ## Purpose
 
-This runbook creates external, reproducible evidence for the model bundles governed by `model-bundle-authority.v2.json`. It does not admit a model, publish benchmark results or change production readiness. The verifier is read-only and never executes manifest argv.
+This runbook creates external, reproducible model-bundle evidence governed by `model-bundle-authority.v2.json`. It does not admit a model, publish benchmark results or change production readiness. Model weights, source files, GGUF files, binaries and archives remain outside Git.
 
 ## Preconditions
 
-Before acquiring either model:
+1. The exact model revision has verified source acquisition evidence.
+2. A human legal review is `APPROVED_FOR_CONVERSION` for that exact revision and intended use.
+3. The accepted llama.cpp package is `VERIFIED_RESTORED` for release `b9637`, commit `aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3`.
+4. Conversion and every registered quantization completed with exit code `0`, exact argv, logs, sizes and SHA-256.
+5. The controlled workspace has sufficient capacity for the original payload, one content-addressed archive and one clean restore root.
+6. The storage destination is outside the conversion run root and exposes an immutable version or content-addressed locator.
 
-1. AP-13B.2a is merged and issue #2828 is closed by that merge.
-2. The controlled-build workflow is merged after AP-13B.2a.
-3. AP-13B.2b has produced a `VERIFIED` exact-main llama.cpp package for release `b9637`, commit `aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3` and profile `linux-x86_64-cpu-release-static-v1`.
-4. The package has an immutable locator, archive SHA-256/size, build manifest, verification report, and SHA-256/size for `llama-cli`, `llama-server`, `llama-quantize` and `llama-bench`.
-5. The operator has a non-shared controlled Linux workspace, sufficient disk capacity and an external immutable storage destination.
+No branch, mutable tag, community GGUF, copied web hash or inferred legal approval may be substituted.
 
-Do not substitute a release tag, branch, short commit, community GGUF or prebuilt binary.
+## Non-self-referential storage contract
 
-## 1. Establish the controlled workspace
+A model bundle consists of two layers:
 
-Use a dedicated non-symlink directory with restrictive permissions. Record OS, architecture, filesystem and available capacity. Keep acquisition, conversion and restore roots separate.
+### Payload layer
 
-```bash
-umask 077
-export TAI_WORK=/secure/tai-model-bundles
-mkdir -p "$TAI_WORK"/{acquisition,original,restore,reports}
-```
-
-Validate the committed authority and retain its canonical digest:
-
-```bash
-cd apps/tai
-python -m tai.model_artifact_registry_cli validate-bundle-authority-v2 \
-  model-artifacts/model-bundle-authority.v2.json \
-  --output "$TAI_WORK/reports/authority-validation.v2.json"
-```
-
-## 2. Acquire the exact upstream revision
-
-Acquire only the full revision recorded in the authority:
-
-- Qwen: `Qwen/Qwen3-8B@895c8d171bc03c30e113cd7a28c02494b5e068b7`;
-- Mistral: `mistralai/Mistral-7B-Instruct-v0.3@c170c708c41dac9275d15a8fff4eca08d52bab71`.
-
-Capture a machine-readable remote inventory before download. The evidence record must use schema `tai.remote-model-inventory-evidence.v1` and bind the exact `model_id`, full `revision`, immutable revision-qualified `source_uri`, timezone-aware `observed_at` and every authority entry with disposition, role, path, size, remote identity and exclusion reason. Preserve it as `evidence/remote-inventory.json`.
-
-The observed inventory must exactly match the authority and include excluded files as well as selected files. Exclusion does not mean omission from provenance. A model identity, revision, source URI, entry or content mismatch blocks verification.
-
-## 3. Enforce the selected source sets
-
-For Qwen, acquire and hash:
-
-- all five `model-0000*-of-00005.safetensors` shards;
-- `model.safetensors.index.json`;
-- `tokenizer.json`, `tokenizer_config.json`, `merges.txt`, `vocab.json`;
-- `config.json`, `generation_config.json`;
-- `README.md`.
-
-For Mistral, acquire and hash:
-
-- all three `model-0000*-of-00003.safetensors` shards;
-- `model.safetensors.index.json`;
-- `tokenizer.model` and `tokenizer.model.v3`;
-- `tokenizer.json`, `tokenizer_config.json`, `special_tokens_map.json`;
-- `config.json`, `generation_config.json`, `params.json`;
-- `README.md`.
-
-`consolidated.safetensors` remains in the remote inventory with disposition `EXCLUDED`. Do not download it into the governed conversion input set and do not mix it with the three-shard Hugging Face layout.
-
-For every selected source file, record the exact relative path, SHA-256 and byte size. Parse `model.safetensors.index.json` and confirm that its `weight_map` references every selected shard and no other shard.
-
-## 4. Capture human legal review
-
-Store the exact license text as an immutable evidence file. A human reviewer must inspect the exact model revision, license text and intended use, then create a signed or otherwise attributable review record containing:
-
-- decision `APPROVED` or `REJECTED`;
-- reviewer type `HUMAN`;
-- stable reviewer identifier and display name;
-- timezone-aware review timestamp;
-- SPDX identity;
-- decision basis and scope;
-- explicit approval conditions, including an empty list when no conditions apply;
-- record type `ATTRIBUTED_RECORD` or `SIGNED_RECORD`;
-- immutable `attestation_reference`;
-- SHA-256 of the exact reviewed license text.
-
-The review record must use schema `tai.model-legal-review-record.v1`, and its semantic fields must exactly match the manifest. Metadata from the upstream model card is not human legal approval. A pending, absent or automated decision cannot verify. A `REJECTED` decision terminates acquisition for that model.
-
-## 5. Restore and reverify the llama.cpp package
-
-Download the AP-13B.2b package from its immutable locator into the model bundle. The locator must bind the exact package archive SHA-256. Verify the package archive, build manifest, verification report and all four binaries before conversion. The embedded verification report must have status `VERIFIED`, the accepted toolchain authority digest and the complete target set.
-
-Preserve the exact converter script from the same source commit at `toolchain/source/convert_hf_to_gguf.py`. Record its SHA-256 and byte size.
-
-## 6. Freeze the Python conversion environment
-
-Use a dedicated environment. Record the full Python identity and a deterministic dependency record such as a hashed lockfile or complete `pip freeze` output. Do not use an unrecorded global environment.
-
-The evidence manifest binds:
-
-- Python identity;
-- dependency record;
-- converter script;
-- canonical digest of all selected source files;
-- exact toolchain package SHA-256;
-- exact argv and log;
-- intermediate GGUF SHA-256 and byte size.
-
-## 7. Execute the governed conversion
-
-Read the exact argv from `model-bundle-authority.v2.json`, review it, and execute it manually in the controlled environment. The verifier does not execute it.
-
-Qwen produces `artifacts/qwen3-8b-bf16.gguf`. Mistral produces `artifacts/mistral-7b-instruct-v0.3-f16.gguf`. Capture stdout, stderr, exit status and timestamps in the conversion log. Hash the completed intermediate GGUF.
-
-Any argv drift, missing input, failed command or unrecorded dependency invalidates the evidence.
-
-## 8. Execute every registered quantization
-
-Use only the verified `toolchain/bin/llama-quantize` binary and the exact authority argv.
-
-Required outputs:
-
-- Qwen CPU: `Q4_K_M`;
-- Qwen GPU/shared: `Q8_0`;
-- Mistral CPU: `Q4_K_M`.
-
-For each quantization, preserve the exact argv and log, and bind:
-
-- intermediate GGUF SHA-256;
-- `llama-quantize` SHA-256;
-- output GGUF SHA-256 and byte size;
-- runtime class and quantization identity.
-
-## 9. Assemble the external bundle
-
-The external original root contains at least:
+The payload archive contains only files that define and reproduce the model bundle:
 
 ```text
-original/
-  sources/<model>/...
-  legal/LICENSE.txt
-  legal/review.json
-  evidence/remote-inventory.json
-  toolchain/package.tar.zst
-  toolchain/build-manifest.json
-  toolchain/verification-report.json
-  toolchain/bin/llama-cli
-  toolchain/bin/llama-server
-  toolchain/bin/llama-quantize
-  toolchain/bin/llama-bench
-  toolchain/source/convert_hf_to_gguf.py
-  conversion/python-dependencies.txt
-  conversion/convert.log
-  quantization/*.log
-  artifacts/*.gguf
-  storage/payload-index.json
-  storage/upload-record.json
-  storage/restore-record.json
-  storage/bundle.tar.zst
+sources/<model>/...
+evidence/remote-inventory.json
+legal/LICENSE.txt
+legal/review.json
+toolchain/package.tar.zst
+toolchain/build-manifest.json
+toolchain/verification-report.json
+toolchain/bin/llama-cli
+toolchain/bin/llama-server
+toolchain/bin/llama-quantize
+toolchain/bin/llama-bench
+toolchain/source/convert_hf_to_gguf.py
+conversion/python-dependencies.txt
+conversion/convert.log
+artifacts/<intermediate>.gguf
+quantization/*.log
+artifacts/<quantized>.gguf
 ```
 
-Create `bundle.v2.json` outside the archive construction process so no self-referential digest is required. Every declared file path must be unique and bounded beneath the root. Symlinks, non-regular files and hard-link aliases are forbidden.
+### Storage sidecar layer
 
-## 10. Upload immutably and restore independently
+The following files are outside the payload archive:
 
-Upload the bundle archive to content-addressed or versioned external storage. Record an immutable locator that binds the exact archive SHA-256. Preserve a semantic `tai.model-bundle-upload-record.v1` containing the locator, archive SHA-256, timezone-aware `uploaded_at`, positive `retention_days` and exact `retention_expires_at = uploaded_at + retention_days`.
+```text
+storage/bundle.tar
+storage/payload-index.json
+storage/upload-record.json
+storage/restore-record.json
+```
 
-Download from that locator into a clean restore root, extract it, and preserve a semantic `tai.model-bundle-restore-record.v1` containing the same locator and archive SHA-256 plus timezone-aware `restored_at`. The restore must occur no later than `retention_expires_at`. Do not copy the original directory to manufacture restore evidence. The restore root must originate from the immutable external object.
+This separation is mandatory. The archive cannot contain itself, and upload/restore records containing the archive digest cannot participate in that archive digest.
 
-## 11. Run fail-closed verification
+## 1. Build the exact payload index
+
+Create `storage/payload-index.json` with schema `tai.model-bundle-payload-index.v1`:
+
+```json
+{
+  "schema_version": "tai.model-bundle-payload-index.v1",
+  "model_id": "<exact model id>",
+  "revision": "<exact 40-character revision>",
+  "entries": [
+    {"path": "...", "sha256": "...", "size_bytes": 1}
+  ]
+}
+```
+
+Requirements:
+
+- entries are sorted by path;
+- the set equals every non-storage `DeclaredFile` in `bundle.v2.json`;
+- no storage sidecar path is present;
+- paths are bounded relative paths;
+- symlinks, hard-link aliases and non-regular files are forbidden;
+- SHA-256 and byte size are calculated from local bytes.
+
+## 2. Create the payload archive
+
+Create a regular tar archive containing exactly the payload-index entries. Do not add directory entries, symlinks, hard links, devices, FIFOs, absolute paths, `..` paths, duplicate paths or undeclared files.
+
+For large safetensor and GGUF payloads, an uncompressed deterministic tar is permitted because these formats are generally not materially compressible. The archive name may be `storage/bundle.tar`.
+
+Hash the completed archive locally and record its exact byte size. Do not modify it after its digest is recorded.
+
+## 3. Upload to immutable storage
+
+Upload the archive to content-addressed or versioned storage outside the conversion run root. The immutable locator must bind the exact archive SHA-256 using `@sha256:`, `#sha256=` or a version identifier.
+
+Create `storage/upload-record.json` with schema `tai.model-bundle-upload-record.v1`, exact archive SHA-256, locator, timezone-aware `uploaded_at`, positive `retention_days`, and `retention_expires_at = uploaded_at + retention_days`.
+
+The archive and upload record are sidecars; neither is an archive member.
+
+## 4. Restore independently
+
+1. Create a new empty restore root.
+2. Download the archive from the immutable locator; do not read it from the original bundle directory.
+3. Verify the downloaded archive SHA-256 before extraction.
+4. Inspect all archive entries fail-closed before extraction.
+5. Extract only regular bounded payload files into the clean restore root.
+6. Do not copy the original root and do not add storage sidecars to the restore root.
+7. Create `storage/restore-record.json` outside the restored payload with schema `tai.model-bundle-restore-record.v1`, exact archive SHA-256, immutable locator and timezone-aware `restored_at` within retention.
+
+A copied original directory contains storage sidecars and must fail exact restored-file-set validation.
+
+## 5. Run both verification layers
+
+The storage verifier validates:
+
+- exact original file set: payload plus four storage sidecars;
+- exact payload-index semantics;
+- original payload hashes and sizes;
+- exact safe archive member set and member hashes;
+- exact clean restored payload set and hashes;
+- absence of storage sidecars in the restored payload;
+- existing v2 authority, source, legal, toolchain, conversion and quantization semantics through the legacy verifier.
 
 ```bash
 cd apps/tai
-python -m tai.model_artifact_registry_cli verify-bundle-v2 \
+python -m tai.model_bundle_storage_cli \
   model-artifacts/model-bundle-authority.v2.json \
-  "$TAI_WORK/<model>/bundle.v2.json" \
-  "$TAI_WORK/<model>/original" \
-  "$TAI_WORK/<model>/restore" \
-  --output "$TAI_WORK/<model>/verification-report.v2.json"
+  /secure/<model>/bundle.v2.json \
+  /secure/<model>/original \
+  /secure/<model>/restore \
+  --output /secure/<model>/storage-verification-report.v1.json
 ```
 
-Exit code `0` and status `VERIFIED` are required. Exit code `2`, `PENDING_ACQUISITION`, `REJECTED`, parser failure, missing evidence or any original/restore mismatch blocks acceptance.
+Exit code `0` and status `VERIFIED` are required. Exit code `2`, `REJECTED`, parser failure, missing evidence, archive mismatch, unsafe archive member, copied restore, extra file or original/restore mismatch blocks acceptance.
 
-## 12. Publish the acceptance PR
+The existing command remains available for semantic diagnosis, but it must not be used alone as proof that a clean root originated from a non-self-referential immutable archive:
+
+```bash
+python -m tai.model_artifact_registry_cli verify-bundle-v2 \
+  model-artifacts/model-bundle-authority.v2.json \
+  /secure/<model>/bundle.v2.json \
+  /secure/<model>/original \
+  /secure/<model>/compatibility-restore \
+  --output /secure/<model>/legacy-verification-report.v2.json
+```
+
+## 6. Publish acceptance metadata
 
 The acceptance PR commits only small records:
 
+- model id, role and exact revision;
 - immutable locator;
 - archive SHA-256 and size;
-- authority, manifest and verification-report SHA-256;
-- exact-main commit and workflow run identity;
-- final `VERIFIED` status;
+- payload-index SHA-256;
+- manifest SHA-256;
+- legacy v2 report SHA-256;
+- storage-verification report SHA-256;
+- exact-main and workflow run identity;
+- final bundle status `VERIFIED`;
 - issue linkage.
 
-Do not commit model weights, GGUF files, binaries, source archives, license evidence containing restricted material, logs with secrets or storage credentials.
+Never commit source/model/GGUF bytes, binaries, large archives, restricted license material, credentials or secret-bearing logs.
 
-The acceptance PR does not assert AP-13C benchmark performance, AP-13D admission or production readiness. TAI remains `NOT_ATTESTED` until all later gates are complete.
+## Maturity boundary
+
+Successful bundle storage and restore verification does not constitute AP-13C benchmark acceptance, AP-13D model admission or production operational attestation. `production_operational_status` remains `NOT_ATTESTED`.
