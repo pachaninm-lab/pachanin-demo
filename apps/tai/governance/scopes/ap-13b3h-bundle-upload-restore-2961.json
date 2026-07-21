@@ -9,6 +9,7 @@
     "apps/tai/governance/scopes/ap-13b3h-bundle-upload-restore-2961.json",
     "apps/tai/model-artifacts/model-bundle-upload-restore-authority.v1.json",
     "apps/tai/model-artifacts/model-bundle-upload-restore-runbook.v1.md",
+    "apps/tai/scripts/model-bundle-s3-multipart.py",
     "apps/tai/scripts/model-bundle-upload-restore-driver.v1.sh",
     "apps/tai/tai/model_bundle_finalize.py",
     "apps/tai/tai/model_bundle_finalize_cli.py",
