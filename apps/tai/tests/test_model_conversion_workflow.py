@@ -32,6 +32,7 @@ EXPECTED_PATHS = {
     "apps/tai/model-artifacts/model-conversion-prerequisites.v1.sh",
     "apps/tai/model-artifacts/model-conversion-artifacts.v1.sh",
     "apps/tai/model-artifacts/model-conversion-transport.v1.sh",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
     "apps/tai/tests/test_model_conversion_workflow.py",
 }
 COMMAND = "/tai convert model-bundles exact-main"
