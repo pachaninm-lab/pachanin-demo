@@ -20,7 +20,7 @@ jobs:
       github.triggering_actor == github.repository_owner &&
       github.event.action == 'created' &&
       github.event.issue.pull_request == null &&
-      github.event.issue.number == 2932 &&
+      github.event.issue.number == 2950 &&
       github.event.comment.body == '/tai diagnose model-progress exact-main' &&
       github.event.comment.author_association == 'OWNER' &&
       github.event.comment.user.login == github.repository_owner
@@ -267,7 +267,7 @@ jobs:
               'exact_main_sha': os.environ['GITHUB_SHA'],
               'workflow_run_id': int(os.environ['GITHUB_RUN_ID']),
               'workflow_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
-              'issue': 2932,
+              'issue': 2950,
               'command': '/tai diagnose model-progress exact-main',
               'transport': 'AVAILABLE' if os.environ.get('SSH_AVAILABLE') == 'true' else 'UNAVAILABLE',
               'remote_exit_code': exit_code,
@@ -338,4 +338,4 @@ jobs:
               > "$REPORT_ROOT/summary.md"
           fi
           jq -n --rawfile body "$REPORT_ROOT/summary.md" '{body: $body}' \
-            | gh api --method POST "repos/$REPOSITORY/issues/2932/comments" --input -
+            | gh api --method POST "repos/$REPOSITORY/issues/2950/comments" --input -
