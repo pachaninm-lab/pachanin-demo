@@ -29,7 +29,9 @@ async function expectNoSeriousAxeViolations(page: Page) {
 }
 
 async function expectMinimumTargets(page: Page, locator: string) {
-  const targets = await page.locator(locator).evaluateAll((elements) => elements.map((element) => {
+  const elements = page.locator(locator);
+  await expect(elements.first()).toBeVisible();
+  const targets = await elements.evaluateAll((nodes) => nodes.map((element) => {
     const box = element.getBoundingClientRect();
     return { width: box.width, height: box.height };
   }));
