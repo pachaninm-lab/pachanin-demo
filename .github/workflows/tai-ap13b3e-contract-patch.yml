@@ -1,0 +1,186 @@
+name: TAI AP-13B.3e Contract Patch
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13b3e-immutable-storage-contract
+    paths:
+      - .github/workflows/tai-ap13b3e-contract-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13b3e-immutable-storage-contract
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Correct non-self-referential bundle contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding="utf-8")
+              if text.count(old) != 1:
+                  raise SystemExit(f"replacement cardinality invalid for {path}: {old[:80]!r}")
+              target.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+          types_path = "apps/tai/tai/model_bundle_v2_types.py"
+          replace_once(
+              types_path,
+              """@dataclass(frozen=True, slots=True)\nclass AuthorityInventoryEntry:\n""",
+              """@dataclass(frozen=True, slots=True)\nclass ExternalArchiveEvidence:\n    sha256: str\n    size_bytes: int\n    media_type: str\n\n    def __post_init__(self) -> None:\n        _sha256(self.sha256, \"external archive sha256\")\n        if self.size_bytes < 1:\n            raise ValueError(\"external archive size must be positive\")\n        if self.media_type != \"application/vnd.tai.model-bundle.tar+zstd\":\n            raise ValueError(\"external archive media_type is unsupported\")\n\n\n@dataclass(frozen=True, slots=True)\nclass AuthorityInventoryEntry:\n""",
+          )
+          replace_once(
+              types_path,
+              "    bundle_archive: DeclaredFile\n",
+              "    bundle_archive: ExternalArchiveEvidence\n",
+          )
+
+          parse_path = "apps/tai/tai/model_bundle_v2_parse.py"
+          replace_once(
+              parse_path,
+              "    DeclaredFile,\n    DeclaredSourceFile,\n",
+              "    DeclaredFile,\n    DeclaredSourceFile,\n    ExternalArchiveEvidence,\n",
+          )
+          replace_once(
+              parse_path,
+              "        bundle_archive=_declared_file(payload.get(\"bundle_archive\")),\n",
+              "        bundle_archive=_external_archive(payload.get(\"bundle_archive\")),\n",
+          )
+          replace_once(
+              parse_path,
+              """def _declared_file(value: object) -> DeclaredFile:\n""",
+              """def _external_archive(value: object) -> ExternalArchiveEvidence:\n    payload = _object(value, \"external archive\")\n    _expect_keys(\n        payload,\n        {\"sha256\", \"size_bytes\", \"media_type\"},\n        set(),\n        \"external archive\",\n    )\n    return ExternalArchiveEvidence(\n        sha256=_string(payload, \"sha256\"),\n        size_bytes=_integer(payload, \"size_bytes\"),\n        media_type=_string(payload, \"media_type\"),\n    )\n\n\ndef _declared_file(value: object) -> DeclaredFile:\n""",
+          )
+
+          serialize_path = "apps/tai/tai/model_bundle_v2_serialize.py"
+          replace_once(
+              serialize_path,
+              "    DeclaredFile,\n    DeclaredSourceFile,\n",
+              "    DeclaredFile,\n    DeclaredSourceFile,\n    ExternalArchiveEvidence,\n",
+          )
+          replace_once(
+              serialize_path,
+              """def _remote_payload(value: RemoteInventoryEvidence | None) -> object:\n""",
+              """def _archive_payload(value: ExternalArchiveEvidence) -> dict[str, object]:\n    return {\n        \"media_type\": value.media_type,\n        \"sha256\": value.sha256,\n        \"size_bytes\": value.size_bytes,\n    }\n\n\ndef _remote_payload(value: RemoteInventoryEvidence | None) -> object:\n""",
+          )
+          replace_once(
+              serialize_path,
+              "        \"bundle_archive\": _file_payload(value.bundle_archive),\n",
+              "        \"bundle_archive\": _archive_payload(value.bundle_archive),\n",
+          )
+
+          export_path = "apps/tai/tai/model_bundle_v2.py"
+          replace_once(
+              export_path,
+              "    DeclaredFile,\n    DeclaredSourceFile,\n",
+              "    DeclaredFile,\n    DeclaredSourceFile,\n    ExternalArchiveEvidence,\n",
+          )
+          replace_once(
+              export_path,
+              "    \"DeclaredSourceFile\",\n",
+              "    \"DeclaredSourceFile\",\n    \"ExternalArchiveEvidence\",\n",
+          )
+
+          verify_path = "apps/tai/tai/model_bundle_v2_verify.py"
+          replace_once(
+              verify_path,
+              """    _verify_locator_and_retention(bundle, bundle_root, state)\n    _verify_original_and_restore(bundle, bundle_root, restored_root, state)\n""",
+              """    _verify_locator_and_retention(bundle, bundle_root, state)\n    _verify_original_and_restore(bundle, bundle_root, restored_root, state)\n    _verify_payload_index(bundle, bundle_root, state)\n""",
+          )
+          replace_once(
+              verify_path,
+              """def _verify_original_and_restore(\n    bundle: LocalModelBundleV2,\n    bundle_root: Path,\n    restored_root: Path | None,\n    state: _VerificationState,\n) -> None:\n    declared = _all_declared_files(bundle)\n    paths = tuple(item.path for item in declared)\n    if len(paths) != len(set(paths)):\n        state.reasons.append(\"DECLARED_FILE_PATH_DUPLICATE\")\n    _verify_declared_files(\n        root=bundle_root,\n        declared=declared,\n        prefix=\"\",\n        reasons=state.reasons,\n        verified=state.verified,\n        seen_inodes=state.original_inodes,\n    )\n    if restored_root is None:\n        state.reasons.append(\"RESTORED_ROOT_REQUIRED\")\n        return\n    _verify_declared_files(\n        root=restored_root,\n        declared=declared,\n        prefix=\"RESTORED_\",\n        reasons=state.reasons,\n        verified=state.restored,\n        seen_inodes=state.restored_inodes,\n    )\n""",
+              """def _verify_payload_index(\n    bundle: LocalModelBundleV2,\n    bundle_root: Path,\n    state: _VerificationState,\n) -> None:\n    storage = bundle.storage\n    if storage is None:\n        return\n    try:\n        path = _bounded_regular_file(bundle_root, storage.payload_index.path)\n        payload = _load_json_strict(path)\n    except ValueError as error:\n        state.reasons.append(f\"PAYLOAD_INDEX_INVALID:{error}\")\n        return\n    declared = tuple(\n        item\n        for item in _payload_declared_files(bundle)\n        if item.path != storage.payload_index.path\n    )\n    expected: dict[str, object] = {\n        \"schema_version\": \"tai.model-bundle-payload-index.v1\",\n        \"files\": [\n            {\n                \"path\": item.path,\n                \"sha256\": item.sha256,\n                \"size_bytes\": item.size_bytes,\n            }\n            for item in sorted(declared, key=lambda value: value.path)\n        ],\n    }\n    if payload != expected:\n        state.reasons.append(\"PAYLOAD_INDEX_MISMATCH\")\n\n\ndef _verify_original_and_restore(\n    bundle: LocalModelBundleV2,\n    bundle_root: Path,\n    restored_root: Path | None,\n    state: _VerificationState,\n) -> None:\n    payload_files = _payload_declared_files(bundle)\n    control_files = _control_declared_files(bundle)\n    paths = tuple(item.path for item in (*payload_files, *control_files))\n    if len(paths) != len(set(paths)):\n        state.reasons.append(\"DECLARED_FILE_PATH_DUPLICATE\")\n    _verify_declared_files(\n        root=bundle_root,\n        declared=payload_files,\n        prefix=\"\",\n        reasons=state.reasons,\n        verified=state.verified,\n        seen_inodes=state.original_inodes,\n    )\n    _verify_declared_files(\n        root=bundle_root,\n        declared=control_files,\n        prefix=\"CONTROL_\",\n        reasons=state.reasons,\n        verified=state.verified,\n        seen_inodes=state.original_inodes,\n    )\n    if restored_root is None:\n        state.reasons.append(\"RESTORED_ROOT_REQUIRED\")\n        return\n    _verify_declared_files(\n        root=restored_root,\n        declared=payload_files,\n        prefix=\"RESTORED_\",\n        reasons=state.reasons,\n        verified=state.restored,\n        seen_inodes=state.restored_inodes,\n    )\n""",
+          )
+          replace_once(
+              verify_path,
+              """def _all_declared_files(bundle: LocalModelBundleV2) -> tuple[DeclaredFile, ...]:\n""",
+              """def _payload_declared_files(bundle: LocalModelBundleV2) -> tuple[DeclaredFile, ...]:\n""",
+          )
+          replace_once(
+              verify_path,
+              """    if bundle.storage is not None:\n        storage = bundle.storage\n        files.extend(\n            [\n                storage.bundle_archive,\n                storage.payload_index,\n                storage.upload_record,\n                storage.restore_record,\n            ]\n        )\n    return tuple(files)\n\n\ndef _find_plan(\n""",
+              """    if bundle.storage is not None:\n        files.append(bundle.storage.payload_index)\n    return tuple(files)\n\n\ndef _control_declared_files(bundle: LocalModelBundleV2) -> tuple[DeclaredFile, ...]:\n    if bundle.storage is None:\n        return ()\n    return (bundle.storage.upload_record, bundle.storage.restore_record)\n\n\ndef _find_plan(\n""",
+          )
+
+          support_path = "apps/tai/tests/model_bundle_v2_support.py"
+          replace_once(
+              support_path,
+              """    bundle_archive = _write(root, \"storage/bundle.tar.zst\", b\"immutable-model-bundle\")\n    payload_index = _write(root, \"storage/payload-index.json\", b'{\"files\":\"indexed\"}\\n')\n    storage_locator = f\"oci://registry.example/tai/model-bundle@sha256:{bundle_archive['sha256']}\"\n""",
+              """    archive_content = b\"immutable-model-bundle\"\n    bundle_archive: dict[str, object] = {\n        \"sha256\": _sha256(archive_content),\n        \"size_bytes\": len(archive_content),\n        \"media_type\": \"application/vnd.tai.model-bundle.tar+zstd\",\n    }\n    payload_files: list[dict[str, object]] = [\n        *source_files,\n        remote_evidence,\n        license_text,\n        review_record,\n        package,\n        build_manifest,\n        verification_report,\n        *[cast(dict[str, object], item[\"file\"]) for item in binaries],\n        converter,\n        python_dependencies,\n        conversion_log,\n        intermediate,\n    ]\n    for item in quantizations:\n        payload_files.append(cast(dict[str, object], item[\"log\"]))\n        payload_files.append(cast(dict[str, object], item[\"output\"]))\n    payload_index_payload = {\n        \"schema_version\": \"tai.model-bundle-payload-index.v1\",\n        \"files\": sorted(\n            [\n                {\n                    \"path\": item[\"path\"],\n                    \"sha256\": item[\"sha256\"],\n                    \"size_bytes\": item[\"size_bytes\"],\n                }\n                for item in payload_files\n            ],\n            key=lambda item: cast(str, item[\"path\"]),\n        ),\n    }\n    payload_index = _write(\n        root,\n        \"storage/payload-index.json\",\n        json.dumps(payload_index_payload, sort_keys=True).encode(),\n    )\n    storage_locator = (\n        \"s3://registry.example/tai/model-bundle?versionId=fixture\"\n        f\"#sha256={bundle_archive['sha256']}\"\n    )\n""",
+          )
+          replace_once(
+              support_path,
+              """    restored = tmp_path / \"restored\"\n    shutil.copytree(root, restored)\n    return manifest, root, restored, payload\n""",
+              """    restored = tmp_path / \"restored\"\n    shutil.copytree(root, restored)\n    (restored / cast(str, upload_record[\"path\"])).unlink()\n    (restored / cast(str, restore_record[\"path\"])).unlink()\n    return manifest, root, restored, payload\n""",
+          )
+
+          test_path = "apps/tai/tests/test_model_bundle_v2_contract.py"
+          replace_once(
+              test_path,
+              """    assert len(report.verified_files) == len(report.restored_files)\n    assert len(report.report_sha256) == 64\n""",
+              """    assert set(report.verified_files) - set(report.restored_files) == {\n        \"storage/upload-record.json\",\n        \"storage/restore-record.json\",\n    }\n    assert \"storage/payload-index.json\" in report.restored_files\n    assert len(report.report_sha256) == 64\n""",
+          )
+          replace_once(
+              test_path,
+              """def test_duplicate_and_unknown_json_keys_are_rejected(tmp_path: Path) -> None:\n""",
+              """def test_archive_is_external_metadata_and_payload_index_is_exact(tmp_path: Path) -> None:\n    _, payload, manifest, root, restored = _verify(tmp_path)\n    storage = cast(dict[str, Any], payload[\"storage\"])\n    archive = cast(dict[str, Any], storage[\"bundle_archive\"])\n    assert set(archive) == {\"media_type\", \"sha256\", \"size_bytes\"}\n    assert \"path\" not in archive\n\n    payload_index = cast(dict[str, Any], storage[\"payload_index\"])\n    index_path = root / cast(str, payload_index[\"path\"] )\n    index_payload = json.loads(index_path.read_text(encoding=\"utf-8\"))\n    cast(list[dict[str, Any]], index_payload[\"files\"]).pop()\n    content = json.dumps(index_payload, sort_keys=True).encode()\n    index_path.write_bytes(content)\n    (restored / cast(str, payload_index[\"path\"])).write_bytes(content)\n    payload_index[\"sha256\"] = _sha256(content)\n    payload_index[\"size_bytes\"] = len(content)\n    _write_json(manifest, payload)\n\n    report = verify_local_model_bundle_v2(\n        authority=load_model_bundle_authority_v2(AUTHORITY_PATH),\n        bundle=load_local_model_bundle_v2(manifest),\n        bundle_root=root,\n        restored_root=restored,\n    )\n    assert report.status is BundleVerificationStatus.REJECTED\n    assert \"PAYLOAD_INDEX_MISMATCH\" in report.reasons\n\n\ndef test_archive_payload_path_is_rejected(tmp_path: Path) -> None:\n    _, payload, manifest, _, _ = _verify(tmp_path)\n    storage = cast(dict[str, Any], payload[\"storage\"])\n    archive = cast(dict[str, Any], storage[\"bundle_archive\"])\n    archive[\"path\"] = \"storage/bundle.tar.zst\"\n    _write_json(manifest, payload)\n    with pytest.raises(ValueError, match=\"unknown keys\"):\n        load_local_model_bundle_v2(manifest)\n\n\ndef test_duplicate_and_unknown_json_keys_are_rejected(tmp_path: Path) -> None:\n""",
+          )
+          replace_once(
+              test_path,
+              """    storage = cast(dict[str, Any], payload[\"storage\"])\n    restore_record = cast(dict[str, Any], storage[\"restore_record\"])\n    restored_target = restored / cast(str, restore_record[\"path\"])\n    restored_target.write_bytes(b\"tampered restore record\")\n""",
+              """    restored_target = restored / cast(str, source_files[1][\"path\"])\n    restored_target.write_bytes(b\"tampered restored payload\")\n""",
+          )
+          replace_once(
+              test_path,
+              '    index_path = root / cast(str, payload_index["path"] )\n',
+              '    index_path = root / cast(str, payload_index["path"])\n',
+          )
+
+          runbook_path = "apps/tai/model-artifacts/model-bundle-acquisition-runbook.v2.md"
+          replace_once(
+              runbook_path,
+              """  storage/payload-index.json\n  storage/upload-record.json\n  storage/restore-record.json\n  storage/bundle.tar.zst\n```\n\nCreate `bundle.v2.json` outside the archive construction process so no self-referential digest is required. Every declared file path must be unique and bounded beneath the root. Symlinks, non-regular files and hard-link aliases are forbidden.\n""",
+              """  storage/payload-index.json\ncontrol/\n  storage/upload-record.json\n  storage/restore-record.json\nbundle.v2.json\n```\n\nCreate `storage/payload-index.json` before sealing. It must canonically list every archived payload file by path, byte size and SHA-256 while excluding the index itself. Add the completed index to the archive. Record the resulting archive only as external SHA-256, byte size and media type in `bundle.v2.json`; the archive has no payload path and cannot contain itself. Keep `bundle.v2.json`, the upload record and the restore record outside the archive. Every payload and sidecar path must be unique and bounded. Symlinks, non-regular files and hard-link aliases are forbidden.\n""",
+          )
+          replace_once(
+              runbook_path,
+              """Upload the bundle archive to content-addressed or versioned external storage. Record an immutable locator that binds the exact archive SHA-256. Preserve a semantic `tai.model-bundle-upload-record.v1` containing the locator, archive SHA-256, timezone-aware `uploaded_at`, positive `retention_days` and exact `retention_expires_at = uploaded_at + retention_days`.\n\nDownload from that locator into a clean restore root, extract it, and preserve a semantic `tai.model-bundle-restore-record.v1` containing the same locator and archive SHA-256 plus timezone-aware `restored_at`. The restore must occur no later than `retention_expires_at`. Do not copy the original directory to manufacture restore evidence. The restore root must originate from the immutable external object.\n""",
+              """Upload the sealed archive to versioned external storage. Record an immutable locator that binds both the exact object version and archive SHA-256. Preserve the upload record as a control sidecar outside the archive with schema `tai.model-bundle-upload-record.v1`, the locator, archive SHA-256, timezone-aware `uploaded_at`, positive `retention_days` and exact `retention_expires_at = uploaded_at + retention_days`.\n\nRestore only from that immutable locator into a clean root. Hash the compressed bytes while downloading, require the exact archive SHA-256 and byte size, then extract the payload. Preserve `tai.model-bundle-restore-record.v1` as a control sidecar outside the restored payload. The restore must occur no later than `retention_expires_at`. Do not copy the original directory or its control sidecars to manufacture restore evidence.\n""",
+          )
+
+          scope_path = Path(
+              "apps/tai/governance/scopes/ap-13b3e-immutable-storage-2945.json"
+          )
+          scope_path.write_text(
+              """{\n  \"schema_version\": \"tai.concurrent-scope.v1\",\n  \"program_issue\": 2726,\n  \"parent_issue\": 2835,\n  \"issue\": 2945,\n  \"branch\": \"agent/tai-ap-13b3e-immutable-storage-contract\",\n  \"allowed_paths\": [\n    \"apps/tai/governance/scopes/ap-13b3e-immutable-storage-2945.json\",\n    \"apps/tai/model-artifacts/model-bundle-acquisition-runbook.v2.md\",\n    \"apps/tai/tai/model_bundle_v2.py\",\n    \"apps/tai/tai/model_bundle_v2_parse.py\",\n    \"apps/tai/tai/model_bundle_v2_serialize.py\",\n    \"apps/tai/tai/model_bundle_v2_types.py\",\n    \"apps/tai/tai/model_bundle_v2_verify.py\",\n    \"apps/tai/tests/model_bundle_v2_support.py\",\n    \"apps/tai/tests/test_model_bundle_v2_contract.py\"\n  ],\n  \"forbidden_capabilities\": [\n    \"model or GGUF bytes in Git\",\n    \"benchmark or model-admission claim\",\n    \"production readiness or operational attestation\",\n    \"mutable external locator\"\n  ],\n  \"acceptance\": \"Archive metadata is non-self-referential; payload and control sidecars are separated; original and independent restore verification remains fail-closed; production_operational_status remains NOT_ATTESTED.\"\n}\n""",
+              encoding="utf-8",
+          )
+          PY
+
+          rm .github/workflows/tai-ap13b3e-contract-patch.yml
+          python -m compileall -q apps/tai/tai
+          python -m pip install --upgrade pip
+          python -m pip install -e apps/tai
+          python -m pytest apps/tai/tests/test_model_bundle_v2_contract.py -q
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/tai .github/workflows/tai-ap13b3e-contract-patch.yml
+          git commit -m 'fix(tai): remove immutable bundle archive self-reference'
+          git push origin HEAD:agent/tai-ap-13b3e-immutable-storage-contract
