@@ -5,6 +5,7 @@
   "issue": 2986,
   "branch": "agent/tai-ap-14c3-review-submission-intake",
   "allowed_paths": [
+    ".github/workflows/tai-ap14c-review-submission-intake.yml",
     "apps/tai/governance/scopes/ap-14c3-review-submission-intake-2986.json",
     "apps/tai/model-artifacts/expert-review-submission-intake.mjs",
     "apps/tai/model-artifacts/expert-review-submission-intake-runbook.v1.md",
@@ -16,6 +17,7 @@
     "stale cases, wrong roles, future timestamps, invalid digests, unknown fields and duplicate or conflicting reviews are rejected",
     "existing review records are never silently replaced",
     "candidate reviews and assessment are deterministic and require human pull-request review",
+    "the dedicated exact-head Node gate runs syntax and fail-closed regression tests",
     "automation creates no expert decision and cannot close the human checkpoint",
     "expert review remains PENDING_REVIEW until real external records satisfy policy",
     "benchmark remains PENDING_BENCHMARK, model admission remains PENDING_ADMISSION and production_operational_status remains NOT_ATTESTED"
