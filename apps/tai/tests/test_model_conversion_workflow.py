@@ -137,6 +137,10 @@ def test_workflow_is_owner_only_exact_main_and_dedicated_host_only() -> None:
     assert "actions: read\n  contents: read\n  issues: write" in workflow
     assert "contents: write" not in workflow
     assert "actions: write" not in workflow
+    convert = workflow[workflow.index("  convert:") : workflow.index("  status:")]
+    assert "    concurrency:" in convert
+    assert "group: tai-governed-model-conversion" in convert
+    assert "\nconcurrency:\n" not in workflow[: workflow.index("jobs:")]
     for secret in (
         "TAI_MODEL_HOST",
         "TAI_MODEL_SSH_USER",
@@ -159,17 +163,25 @@ def test_workflow_is_owner_only_exact_main_and_dedicated_host_only() -> None:
 
 def test_workflow_exposes_owner_only_bounded_status_relay() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
-    assert "  status:" in workflow
-    assert "github.event.issue.number == 2932" in workflow
-    assert f"github.event.comment.body == '{STATUS_COMMAND}'" in workflow
-    assert '"repos/$REPOSITORY/issues/2835/comments?per_page=100"' in workflow
-    assert '.user.login == "github-actions[bot]"' in workflow
-    assert 'startswith("## TAI governed model conversion")' in workflow
-    assert '"repos/$REPOSITORY/issues/2932/comments"' in workflow
-    assert "TAI_MODEL_HOST" not in workflow[workflow.index("  status:") :]
-    assert "production operational status" not in workflow[
-        workflow.index("  status:") :
-    ]
+    status = workflow[workflow.index("  status:") :]
+    assert "github.event.issue.number == 2932" in status
+    assert f"github.event.comment.body == '{STATUS_COMMAND}'" in status
+    assert "CURRENT_RUN_ID" in status
+    assert (
+        '"repos/$REPOSITORY/actions/workflows/'
+        'tai-model-conversion.yml/runs?event=issue_comment&per_page=20"'
+        in status
+    )
+    assert '"repos/$REPOSITORY/actions/runs/$run_id/jobs?per_page=100"' in status
+    assert '.name == "convert" and .conclusion != "skipped"' in status
+    assert '"repos/$REPOSITORY/issues/2835/comments?per_page=100"' in status
+    assert '.user.login == "github-actions[bot]"' in status
+    assert 'startswith("## TAI governed model conversion")' in status
+    assert "Live governed conversion status" in status
+    assert '"repos/$REPOSITORY/issues/2932/comments"' in status
+    assert "concurrency:" not in status
+    assert "TAI_MODEL_HOST" not in status
+    assert "production operational status" not in status
 
 
 def test_workflow_verifies_release_legal_source_and_toolchain_before_remote_start() -> None:
