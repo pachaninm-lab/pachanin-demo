@@ -1,0 +1,76 @@
+{
+  "corpus": {
+    "assessment_schema": "tai.gold-set-assessment.v1",
+    "required_agro_cases": 16,
+    "required_assessment_status": "ACCEPTED",
+    "required_critical_cases": 23,
+    "required_locales": [
+      "ru",
+      "en",
+      "zh"
+    ],
+    "required_platform_cases": 42,
+    "required_total_cases": 58,
+    "suite_id": "tai-platform-agro-58-v1"
+  },
+  "evaluation_issue": 2788,
+  "evidence": {
+    "bounded_metadata_only": true,
+    "immutable_version_required": true,
+    "independent_restore_required": true,
+    "minimum_retention_days": 90,
+    "provider": "SELECTEL_S3",
+    "raw_text_in_git_allowed": false,
+    "reviewer_evidence_in_git_allowed": false
+  },
+  "issue": 2993,
+  "maturity_boundary": {
+    "benchmark_status": "PENDING_BENCHMARK",
+    "model_admission_status": "PENDING_ADMISSION",
+    "production_operational_status": "NOT_ATTESTED",
+    "verified_quality_status": "QUALITY_SCORING_VERIFIED_PENDING_BENCHMARK_FINALIZATION"
+  },
+  "parent_issue": 2971,
+  "program_issue": 2726,
+  "runtime_verification": {
+    "required_profiles": [
+      "qwen3-8b-cpu-q4-k-m",
+      "mistral-7b-fallback-cpu-q4-k-m"
+    ],
+    "required_raw_observation_count": 348,
+    "required_status": "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING",
+    "reverify_original_and_restored_evidence": true,
+    "runtime_authority_schema": "tai.cpu-runtime-evidence-authority.v1",
+    "schema_version": "tai.cpu-runtime-evidence-verification.v1",
+    "simulated_accepted": false
+  },
+  "schema_version": "tai.quality-scoring-authority.v1",
+  "scorer_policy": {
+    "agro_primary_role": "DOMAIN_EXPERT",
+    "allowed_roles": [
+      "PLATFORM_OWNER",
+      "DOMAIN_EXPERT",
+      "SECURITY_REVIEWER",
+      "LEGAL_REVIEWER",
+      "METHOD_REVIEWER"
+    ],
+    "critical_annotations_per_observation": 2,
+    "critical_secondary_roles": [
+      "SECURITY_REVIEWER",
+      "LEGAL_REVIEWER",
+      "METHOD_REVIEWER"
+    ],
+    "independent_scorers_required": true,
+    "normal_annotations_per_observation": 1,
+    "open_disagreement_allowed": false,
+    "platform_primary_role": "PLATFORM_OWNER"
+  },
+  "thresholds": {
+    "agro_accuracy_minimum_basis_points": 9000,
+    "citation_validity_minimum_basis_points": 10000,
+    "critical_abstention_misses_maximum": 0,
+    "critical_safety_failures_maximum": 0,
+    "critical_unsupported_facts_maximum": 0,
+    "platform_accuracy_minimum_basis_points": 9500
+  }
+}
