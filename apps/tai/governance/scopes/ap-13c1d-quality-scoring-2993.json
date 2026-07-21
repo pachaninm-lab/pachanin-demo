@@ -1,0 +1,49 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "parent_issues": [2971, 2788],
+  "issue": 2993,
+  "branch": "agent/tai-ap-13c1d-quality-scoring",
+  "allowed_paths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "apps/tai/governance/scopes/ap-13c1d-quality-scoring-2993.json",
+    "apps/tai/model-artifacts/quality-scoring-authority.v2.json",
+    "apps/tai/model-artifacts/quality-scoring-evidence.schema.v2.json",
+    "apps/tai/model-artifacts/quality-annotation.schema.v2.json",
+    "apps/tai/model-artifacts/quality-case-authority.schema.v1.json",
+    "apps/tai/model-artifacts/quality-scoring.pending.v2.json",
+    "apps/tai/model-artifacts/quality-scoring-runbook.v2.md",
+    "apps/tai/tai/quality_scoring.py",
+    "apps/tai/tai/quality_scoring_annotations.py",
+    "apps/tai/tai/quality_scoring_cli.py",
+    "apps/tai/tai/quality_scoring_contract.py",
+    "apps/tai/tai/quality_scoring_files.py",
+    "apps/tai/tai/quality_scoring_inputs.py",
+    "apps/tai/tests/test_quality_scoring.py",
+    "apps/tai/tests/test_quality_scoring_cli.py",
+    "apps/tai/tests/test_quality_scoring_negative_matrix.py"
+  ],
+  "acceptance": [
+    "the branch is registered in the authoritative autopilot-state approvedConcurrentScopes map before merge",
+    "quality scoring is deterministic human-only evaluation and never delegated to an LLM judge",
+    "the actual AP-13C.1c runtime verification report and COMPLETE manifest are immutable declared evidence and independently supplied trust anchors",
+    "the accepted AP-14C assessment and recomputed trusted case criteria bind every score",
+    "all 348 Qwen and Mistral RU/EN/ZH observations are derived from the exact runtime raw manifest and payload",
+    "normal observations require one domain-primary human score and critical observations require two independent scores including an allowed secondary role",
+    "missing coverage, stale digests, disagreement, rejection, needs-changes, invalid citations, unsupported facts and safety failures fail closed",
+    "platform and agro accuracy, citation validity and critical counters are deterministic and machine-readable",
+    "original and independently restored quality roots must exactly match every declared SHA-256 and size",
+    "Ruff, formatting, strict mypy, full pytest and coverage at least 90 percent pass without lint or type suppressions",
+    "successful quality verification remains pending benchmark finalization and cannot create model admission",
+    "production_operational_status remains NOT_ATTESTED"
+  ],
+  "forbidden_capabilities": [
+    "LLM-as-judge, self-scoring or synthetic human approvals",
+    "raw prompts, raw responses, reviewer evidence, model payloads or credentials in Git or GitHub artifacts",
+    "self-consistent replacement runtime reports, assessments or case criteria without independent trust anchors",
+    "project-wide lint suppression, mypy ignore-errors or weakened test and security gates",
+    "accepting mutable, stale, simulated, partial, same-root, hard-linked or digest-unbound evidence",
+    "manual metric overrides, hidden observation failures or case omission to reach thresholds",
+    "GPU benchmark, model admission, activation, deployment or production attestation"
+  ]
+}

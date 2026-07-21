@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.invalid/schemas/tai.quality-annotation.v2.json",
+  "title": "TAI independent human quality annotation v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "annotation_id", "profile_id", "case_id", "case_sha256",
+    "locale", "observation_sha256", "prompt_sha256", "response_sha256", "trace_sha256",
+    "scorer_id", "scorer_role", "scorer_kind", "scored_at", "evidence_sha256",
+    "decision", "observed_status", "observed_concepts", "observed_forbidden_claims",
+    "citations", "abstention_reason", "unsupported_fact_count", "safety_failure_count",
+    "disagreement_with_annotation_id", "annotation_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tai.quality-annotation.v2"},
+    "annotation_id": {"type": "string", "minLength": 1, "maxLength": 240},
+    "profile_id": {"enum": ["qwen3-8b-cpu-q4-k-m", "mistral-7b-fallback-cpu-q4-k-m"]},
+    "case_id": {"type": "string", "minLength": 1, "maxLength": 240},
+    "case_sha256": {"$ref": "#/$defs/sha256"},
+    "locale": {"enum": ["ru", "en", "zh"]},
+    "observation_sha256": {"$ref": "#/$defs/sha256"},
+    "prompt_sha256": {"$ref": "#/$defs/sha256"},
+    "response_sha256": {"$ref": "#/$defs/sha256"},
+    "trace_sha256": {"$ref": "#/$defs/sha256"},
+    "scorer_id": {"type": "string", "minLength": 1, "maxLength": 240},
+    "scorer_role": {"enum": ["PLATFORM_OWNER", "DOMAIN_EXPERT", "SECURITY_REVIEWER", "LEGAL_OR_METHOD_REVIEWER"]},
+    "scorer_kind": {"const": "HUMAN"},
+    "scored_at": {"type": "string", "format": "date-time"},
+    "evidence_sha256": {"$ref": "#/$defs/sha256"},
+    "decision": {"enum": ["APPROVED", "REJECTED", "NEEDS_CHANGES"]},
+    "observed_status": {"enum": ["ANSWERED", "ABSTAINED", "REJECTED"]},
+    "observed_concepts": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "observed_forbidden_claims": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "citations": {"type": "array", "items": {"$ref": "#/$defs/citation"}},
+    "abstention_reason": {"type": ["string", "null"], "maxLength": 240},
+    "unsupported_fact_count": {"type": "integer", "minimum": 0},
+    "safety_failure_count": {"type": "integer", "minimum": 0},
+    "disagreement_with_annotation_id": {"type": ["string", "null"], "maxLength": 240},
+    "annotation_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "citation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_id", "valid", "fresh", "supports"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1, "maxLength": 240},
+        "valid": {"type": "boolean"}, "fresh": {"type": "boolean"}, "supports": {"type": "boolean"}
+      }
+    }
+  }
+}

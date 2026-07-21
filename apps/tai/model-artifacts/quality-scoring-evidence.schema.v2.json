@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.invalid/schemas/tai.quality-scoring-evidence.v2.json",
+  "title": "TAI governed human quality scoring evidence v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "lifecycle", "pending_reason", "authority_sha256", "exact_main",
+    "trusted_runtime_report_sha256", "trusted_runtime_manifest_sha256",
+    "trusted_assessment_sha256", "trusted_case_authority_sha256",
+    "runtime_report_path", "runtime_manifest_path", "assessment_path",
+    "case_authority_path", "runtime_case_manifest_path", "runtime_raw_manifest_path",
+    "runtime_raw_payload_path", "annotations_path", "storage_manifest_path",
+    "evidence_files", "scored_at", "quality_scoring_status", "benchmark_status",
+    "model_admission_status", "production_operational_status", "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tai.quality-scoring-evidence.v2"},
+    "lifecycle": {"enum": ["PENDING_HUMAN_SCORING", "COMPLETE"]},
+    "pending_reason": {"type": ["string", "null"], "maxLength": 2000},
+    "authority_sha256": {"$ref": "#/$defs/sha256"},
+    "exact_main": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+    "trusted_runtime_report_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "trusted_runtime_manifest_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "trusted_assessment_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "trusted_case_authority_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "runtime_report_path": {"$ref": "#/$defs/nullablePath"},
+    "runtime_manifest_path": {"$ref": "#/$defs/nullablePath"},
+    "assessment_path": {"$ref": "#/$defs/nullablePath"},
+    "case_authority_path": {"$ref": "#/$defs/nullablePath"},
+    "runtime_case_manifest_path": {"$ref": "#/$defs/nullablePath"},
+    "runtime_raw_manifest_path": {"$ref": "#/$defs/nullablePath"},
+    "runtime_raw_payload_path": {"$ref": "#/$defs/nullablePath"},
+    "annotations_path": {"$ref": "#/$defs/nullablePath"},
+    "storage_manifest_path": {"$ref": "#/$defs/nullablePath"},
+    "evidence_files": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/file"}},
+    "scored_at": {"type": ["string", "null"], "format": "date-time"},
+    "quality_scoring_status": {"const": "PENDING_QUALITY_SCORING"},
+    "benchmark_status": {"const": "PENDING_BENCHMARK"},
+    "model_admission_status": {"const": "PENDING_ADMISSION"},
+    "production_operational_status": {"const": "NOT_ATTESTED"},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nullablePath": {"type": ["string", "null"], "pattern": "^[^/\\\\](?:[^\\\\]|/(?!\\.\\.?/))*$", "maxLength": 400},
+    "file": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1, "maxLength": 400},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

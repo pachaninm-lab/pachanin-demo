@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.invalid/schemas/tai.quality-case-authority.v1.json",
+  "title": "TAI trusted quality case authority v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "exact_main", "suite_id", "assessment_sha256", "corpus_sha256", "counts", "locales", "cases", "authority_sha256"],
+  "properties": {
+    "schema_version": {"const": "tai.quality-case-authority.v1"},
+    "exact_main": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "suite_id": {"const": "tai-platform-agro-58-v1"},
+    "assessment_sha256": {"$ref": "#/$defs/sha256"},
+    "corpus_sha256": {"$ref": "#/$defs/sha256"},
+    "counts": {"const": {"total": 58, "platform": 42, "agro": 16, "critical": 23}},
+    "locales": {"const": ["ru", "en", "zh"]},
+    "cases": {"type": "array", "minItems": 58, "maxItems": 58, "items": {"$ref": "#/$defs/case"}},
+    "authority_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "case": {
+      "type": "object", "additionalProperties": false,
+      "required": ["case_id", "domain", "criticality", "variant_kind", "prompt_sha256_by_locale", "expected_statuses", "required_concepts", "forbidden_claims", "expected_citations", "abstention_reason_codes", "coverage_family_id", "case_sha256"],
+      "properties": {
+        "case_id": {"type": "string", "minLength": 1, "maxLength": 240},
+        "domain": {"enum": ["PLATFORM", "AGRO"]},
+        "criticality": {"enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]},
+        "variant_kind": {"type": "string", "minLength": 1, "maxLength": 240},
+        "prompt_sha256_by_locale": {"type": "object", "additionalProperties": false, "required": ["ru", "en", "zh"], "properties": {"ru": {"$ref": "#/$defs/sha256"}, "en": {"$ref": "#/$defs/sha256"}, "zh": {"$ref": "#/$defs/sha256"}}},
+        "expected_statuses": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["ANSWERED", "ABSTAINED", "REJECTED"]}},
+        "required_concepts": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "forbidden_claims": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "expected_citations": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "abstention_reason_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "coverage_family_id": {"type": "string", "minLength": 1, "maxLength": 240},
+        "case_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}
