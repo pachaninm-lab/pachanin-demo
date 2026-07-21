@@ -69,6 +69,19 @@ jobs:
             apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json \
             --output cpu-benchmark-authority-evidence/authority-validation.json
 
+      - name: Validate exact AP-14C corpus and review assessment
+        shell: bash
+        run: |
+          set -euo pipefail
+          node docs/platform-v7/autopilot/tai-ap-14c/gold-set-authority.mjs \
+            > cpu-benchmark-authority-evidence/gold-authority-validation.json
+          report='cpu-benchmark-authority-evidence/gold-authority-validation.json'
+          test "$(jq -r '.schema_version' "$report")" = 'tai.gold-set-assessment.v1'
+          test "$(jq -r '.counts.total_cases' "$report")" = '58'
+          test "$(jq -r '.counts.critical_cases' "$report")" = '23'
+          [[ "$(jq -r '.assessment_sha256' "$report")" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$(jq -r '.corpus_sha256' "$report")" =~ ^[0-9a-f]{64}$ ]]
+
       - name: Evaluate exact-main benchmark prerequisites
         id: readiness
         continue-on-error: true
@@ -96,6 +109,7 @@ jobs:
           name: tai-cpu-benchmark-authority-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             cpu-benchmark-authority-evidence/authority-validation.json
+            cpu-benchmark-authority-evidence/gold-authority-validation.json
             cpu-benchmark-authority-evidence/prerequisite-report.json
             cpu-benchmark-authority-evidence/readiness.json
             apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json
@@ -118,6 +132,7 @@ jobs:
           from pathlib import Path
 
           readiness_path = Path('cpu-benchmark-authority-evidence/readiness.json')
+          gold_path = Path('cpu-benchmark-authority-evidence/gold-authority-validation.json')
           if readiness_path.exists():
               value = json.loads(readiness_path.read_text(encoding='utf-8'))
           else:
@@ -129,11 +144,17 @@ jobs:
                   'model_admission_status': 'PENDING_ADMISSION',
                   'production_operational_status': 'NOT_ATTESTED',
               }
+          if gold_path.exists():
+              gold = json.loads(gold_path.read_text(encoding='utf-8'))
+          else:
+              gold = {'status': 'INVALID', 'accepted': False, 'assessment_sha256': None}
 
           print('## TAI CPU/fallback benchmark execution authority')
           print()
           print(f"- exact-main: `{os.environ['GITHUB_SHA']}`;")
           print(f"- workflow run: `{os.environ['GITHUB_RUN_ID']}` / attempt `{os.environ['GITHUB_RUN_ATTEMPT']}`;")
+          print(f"- AP-14C authority: `{gold.get('status')}` / accepted `{gold.get('accepted')}`;")
+          print(f"- AP-14C assessment SHA-256: `{gold.get('assessment_sha256')}`;")
           print(f"- readiness: `{value.get('status')}`;")
           print(f"- ready: `{value.get('ready')}`;")
           print(f"- blockers: `{value.get('reasons', [])}`;")
@@ -151,8 +172,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          gold='cpu-benchmark-authority-evidence/gold-authority-validation.json'
           report='cpu-benchmark-authority-evidence/readiness.json'
+          test -s "$gold"
           test -s "$report"
+          test "$(jq -r '.accepted' "$gold")" = 'true'
+          test "$(jq -r '.status' "$gold")" = 'ACCEPTED'
+          test "$(jq -r '.counts.reviewed_cases' "$gold")" = '58'
+          test "$(jq -r '.counts.unreviewed_cases' "$gold")" = '0'
           test "$(jq -r '.status' "$report")" = 'READY_FOR_EXTERNAL_EXECUTION'
           test "$(jq -r '.ready' "$report")" = 'true'
           test "$(jq -r '.reasons | length' "$report")" = '0'
