@@ -1,0 +1,727 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-07-21T03:24:43.743Z",
+  "baseURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai",
+  "cases": [
+    {
+      "project": "chromium-desktop",
+      "locale": "ru",
+      "route": "/platform-v7",
+      "message": "Error: chromium-desktop/ru/platform-v7: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604284489"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "ru",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-desktop/ru/platform-v7/login: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604287069"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "ru",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-desktop/ru/platform-v7/forgot-password: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604289145"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "en",
+      "route": "/platform-v7",
+      "message": "Error: chromium-desktop/en/platform-v7: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604291219"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "en",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-desktop/en/platform-v7/login: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604293584"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "en",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-desktop/en/platform-v7/forgot-password: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604295645"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "zh",
+      "route": "/platform-v7",
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784604297787",
+      "documentRequests": 1,
+      "bodyTextLength": 1272,
+      "htmlLang": "zh-CN",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "serviceWorkers": 0,
+      "cacheKeys": 0,
+      "pass": true
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "zh",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-desktop/zh/platform-v7/login: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604299825"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "zh",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-desktop/zh/platform-v7/forgot-password: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604301898"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "ru",
+      "route": "/platform-v7",
+      "message": "Error: chromium-mobile-390/ru/platform-v7: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604303977"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "ru",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-mobile-390/ru/platform-v7/login: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604306182"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "ru",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-mobile-390/ru/platform-v7/forgot-password: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604308726"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "en",
+      "route": "/platform-v7",
+      "message": "Error: chromium-mobile-390/en/platform-v7: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604310952"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "en",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-mobile-390/en/platform-v7/login: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604313006"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "en",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-mobile-390/en/platform-v7/forgot-password: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604315051"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "zh",
+      "route": "/platform-v7",
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784604316969",
+      "documentRequests": 1,
+      "bodyTextLength": 1256,
+      "htmlLang": "zh-CN",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "serviceWorkers": 0,
+      "cacheKeys": 0,
+      "pass": true
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "zh",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-mobile-390/zh/platform-v7/login: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604318982"
+      ],
+      "pass": false
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "zh",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-mobile-390/zh/platform-v7/forgot-password: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604321015"
+      ],
+      "pass": false
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "ru",
+      "route": "/platform-v7",
+      "message": "Error: webkit-iphone/ru/platform-v7: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604323890"
+      ],
+      "pass": false
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "ru",
+      "route": "/platform-v7/login",
+      "message": "Error: webkit-iphone/ru/platform-v7/login: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604326700"
+      ],
+      "pass": false
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "ru",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: webkit-iphone/ru/platform-v7/forgot-password: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604329408"
+      ],
+      "pass": false
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "en",
+      "route": "/platform-v7",
+      "message": "Error: webkit-iphone/en/platform-v7: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604331778"
+      ],
+      "pass": false
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "en",
+      "route": "/platform-v7/login",
+      "message": "Error: webkit-iphone/en/platform-v7/login: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604334209"
+      ],
+      "pass": false
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "en",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: webkit-iphone/en/platform-v7/forgot-password: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604336491"
+      ],
+      "pass": false
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "zh",
+      "route": "/platform-v7",
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784604338779",
+      "documentRequests": 1,
+      "bodyTextLength": 1224,
+      "htmlLang": "zh-CN",
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "serviceWorkers": 0,
+      "cacheKeys": 0,
+      "pass": true
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "zh",
+      "route": "/platform-v7/login",
+      "message": "Error: webkit-iphone/zh/platform-v7/login: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604341158"
+      ],
+      "pass": false
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "zh",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: webkit-iphone/zh/platform-v7/forgot-password: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604343428"
+      ],
+      "pass": false
+    }
+  ],
+  "failClosedLogin": {
+    "pass": false,
+    "message": "Error: fail-closed: console errors [\"Failed to load resource: the server responded with a status of 503 ()\"]\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at checkFailClosedLogin (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:196:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:223:1",
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 503 ()"
+    ],
+    "pageErrors": []
+  },
+  "failures": [
+    {
+      "project": "chromium-desktop",
+      "locale": "ru",
+      "route": "/platform-v7",
+      "message": "Error: chromium-desktop/ru/platform-v7: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604284489"
+      ]
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "ru",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-desktop/ru/platform-v7/login: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604287069"
+      ]
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "ru",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-desktop/ru/platform-v7/forgot-password: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604289145"
+      ]
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "en",
+      "route": "/platform-v7",
+      "message": "Error: chromium-desktop/en/platform-v7: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604291219"
+      ]
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "en",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-desktop/en/platform-v7/login: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604293584"
+      ]
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "en",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-desktop/en/platform-v7/forgot-password: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604295645"
+      ]
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "zh",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-desktop/zh/platform-v7/login: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604299825"
+      ]
+    },
+    {
+      "project": "chromium-desktop",
+      "locale": "zh",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-desktop/zh/platform-v7/forgot-password: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604301898"
+      ]
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "ru",
+      "route": "/platform-v7",
+      "message": "Error: chromium-mobile-390/ru/platform-v7: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604303977"
+      ]
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "ru",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-mobile-390/ru/platform-v7/login: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604306182"
+      ]
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "ru",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-mobile-390/ru/platform-v7/forgot-password: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604308726"
+      ]
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "en",
+      "route": "/platform-v7",
+      "message": "Error: chromium-mobile-390/en/platform-v7: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604310952"
+      ]
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "en",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-mobile-390/en/platform-v7/login: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604313006"
+      ]
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "en",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-mobile-390/en/platform-v7/forgot-password: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604315051"
+      ]
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "zh",
+      "route": "/platform-v7/login",
+      "message": "Error: chromium-mobile-390/zh/platform-v7/login: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604318982"
+      ]
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "zh",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: chromium-mobile-390/zh/platform-v7/forgot-password: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604321015"
+      ]
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "ru",
+      "route": "/platform-v7",
+      "message": "Error: webkit-iphone/ru/platform-v7: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604323890"
+      ]
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "ru",
+      "route": "/platform-v7/login",
+      "message": "Error: webkit-iphone/ru/platform-v7/login: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604326700"
+      ]
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "ru",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: webkit-iphone/ru/platform-v7/forgot-password: language switch missing ZH\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604329408"
+      ]
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "en",
+      "route": "/platform-v7",
+      "message": "Error: webkit-iphone/en/platform-v7: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604331778"
+      ]
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "en",
+      "route": "/platform-v7/login",
+      "message": "Error: webkit-iphone/en/platform-v7/login: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604334209"
+      ]
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "en",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: webkit-iphone/en/platform-v7/forgot-password: language switch missing RU\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:114:44)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604336491"
+      ]
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "zh",
+      "route": "/platform-v7/login",
+      "message": "Error: webkit-iphone/zh/platform-v7/login: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604341158"
+      ]
+    },
+    {
+      "project": "webkit-iphone",
+      "locale": "zh",
+      "route": "/platform-v7/forgot-password",
+      "message": "Error: webkit-iphone/zh/platform-v7/forgot-password: probable white screen\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:112:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:220:33",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [],
+      "badResponses": [],
+      "documentRequests": [
+        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604343428"
+      ]
+    },
+    {
+      "project": "chromium-mobile-390",
+      "locale": "ru",
+      "route": "/platform-v7/login#fail-closed",
+      "message": "Error: fail-closed: console errors [\"Failed to load resource: the server responded with a status of 503 ()\"]\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:32:25)\n    at checkFailClosedLogin (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:196:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current.mjs:223:1",
+      "consoleErrors": [
+        "Failed to load resource: the server responded with a status of 503 ()"
+      ],
+      "pageErrors": []
+    }
+  ],
+  "pass": false
+}
