@@ -78,12 +78,16 @@ def test_workflow_is_owner_only_exact_main_and_issue_bound() -> None:
 def test_workflow_validates_only_readiness_and_never_touches_model_host() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     assert "validate-authority" in workflow
+    assert "gold-set-authority.mjs" in workflow
+    assert "gold-authority-validation.json" in workflow
     assert "benchmark_prerequisite_matrix_cli" in workflow
     assert "evaluate-readiness" in workflow
     assert "READY_FOR_EXTERNAL_EXECUTION" in workflow
     assert "PENDING_BENCHMARK" in workflow
     assert "PENDING_ADMISSION" in workflow
     assert "NOT_ATTESTED" in workflow
+    assert "test \"$(jq -r '.accepted' \"$gold\")\" = 'true'" in workflow
+    assert "test \"$(jq -r '.counts.reviewed_cases' \"$gold\")\" = '58'" in workflow
     for forbidden in (
         "TAI_MODEL_HOST",
         "TAI_MODEL_SSH_KEY",
@@ -105,6 +109,7 @@ def test_only_bounded_metadata_can_enter_github_artifacts() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     upload = workflow[workflow.index("Upload bounded readiness evidence") :]
     assert "authority-validation.json" in upload
+    assert "gold-authority-validation.json" in upload
     assert "prerequisite-report.json" in upload
     assert "readiness.json" in upload
     assert "cpu-benchmark-execution-authority.v1.json" in upload
