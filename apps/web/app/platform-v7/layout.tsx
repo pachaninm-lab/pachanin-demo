@@ -45,6 +45,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/roadmap',
   '/platform-v7/deal-flow',
   '/platform-v7/how-it-works',
+  '/platform-v7/ai-in-action',
   '/platform-v7/demo',
   '/platform-v7/contact',
   '/platform-v7/request',
