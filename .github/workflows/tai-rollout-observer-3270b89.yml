@@ -18,7 +18,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       REPOSITORY: ${{ github.repository }}
-      FAILED_JOB_ID: '88793865854'
+      FAILED_JOB_ID: '88794290776'
     steps:
       - name: Print terminal sanitized principal-fix failure
         shell: bash
@@ -36,4 +36,4 @@ jobs:
             -e 's/[A-Za-z0-9._-]+@[A-Za-z0-9._:-]+/[REDACTED_SSH_IDENTITY]/g' \
             job.log > sanitized.log
           echo '=== TERMINAL PRINCIPAL-FIX LOG ==='
-          tail -100 sanitized.log
+          tail -45 sanitized.log
