@@ -1,0 +1,78 @@
+name: ops public entry watch zh visual
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  zh-mobile-login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Verify Chinese mobile login rendering
+        working-directory: apps/web
+        run: node scripts/public-entry-watch-zh-login-visual.mjs
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-zh-login
+          path: artifacts/public-entry-watch-zh-login
+          if-no-files-found: error
+          retention-days: 3
+      - name: Publish targeted result to PR body
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const file = 'artifacts/public-entry-watch-zh-login/report.json';
+            const report = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { allPass: false, error: 'report missing' };
+            const pr = await github.rest.pulls.get({ owner: context.repo.owner, repo: context.repo.repo, pull_number: context.issue.number });
+            const marker = '<!-- zh-mobile-login-visual -->';
+            const compact = {
+              generatedAt: report.generatedAt,
+              allPass: report.allPass,
+              results: Array.isArray(report.results) ? report.results.map((item) => ({
+                project: item.project,
+                pass: item.pass,
+                status: item.status,
+                finalUrl: item.finalUrl,
+                htmlLang: item.htmlLang,
+                h1Text: item.h1Text,
+                submitText: item.submitText,
+                currentLocale: item.currentLocale,
+                nextLocale: item.nextLocale,
+                bodyTextLength: item.visual?.bodyTextLength,
+                scrollWidth: item.visual?.scrollWidth,
+                clientWidth: item.visual?.clientWidth,
+                formOpacity: item.visual?.formOpacity,
+                formVisibility: item.visual?.formVisibility,
+                formDisplay: item.visual?.formDisplay,
+                boxesPresent: item.boxes ? Object.values(item.boxes).every(Boolean) : false,
+                consoleErrors: item.consoleErrors,
+                pageErrors: item.pageErrors,
+                failedRequests: item.failedRequests,
+                error: item.error,
+              })) : [],
+            };
+            const section = `${marker}\n\`\`\`json\n${JSON.stringify(compact, null, 2)}\n\`\`\``;
+            let body = pr.data.body || '';
+            const pattern = /<!-- zh-mobile-login-visual -->[\s\S]*$/;
+            body = pattern.test(body) ? body.replace(pattern, section) : `${body}\n\n${section}`;
+            await github.rest.pulls.update({ owner: context.repo.owner, repo: context.repo.repo, pull_number: context.issue.number, body });
