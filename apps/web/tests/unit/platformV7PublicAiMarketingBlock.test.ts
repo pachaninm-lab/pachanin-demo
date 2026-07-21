@@ -4,67 +4,63 @@ import { describe, expect, it } from 'vitest';
 
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-describe('platform-v7 public AI marketing context', () => {
+describe('platform-v7 integrated public intelligence context', () => {
   const page = read('app/platform-v7/page.tsx');
-  const block = read('components/platform-v7/PublicAiMarketingBlock.tsx');
+  const hero = read('components/platform-v7/PublicHeroIntelligenceStatus.tsx');
+  const preview = read('components/platform-v7/PublicDealPreview.tsx');
+  const panel = read('components/platform-v7/PublicDealIntelligencePanel.tsx');
+  const roles = read('components/platform-v7/PublicRoleIntelligenceSummary.tsx');
+  const evidence = read('components/platform-v7/PublicEvidenceIntelligencePanel.tsx');
+  const government = read('components/platform-v7/PublicGovernmentDataContour.tsx');
 
-  it('places the active AI value inside the first-screen hero and links to the interactive explanation', () => {
-    expect(page).toContain("const firstScreenAiCopy = {");
+  it('keeps the platform as the first screen and embeds TAI without a second hero', () => {
+    expect(page).toContain("id='pc-ppe-hero-title'");
     expect(page).toContain("id='ai-copilot'");
-    expect(page).toContain("data-testid='platform-v7-ai-current-value'");
-    expect(page).toContain("<a href='#ai-copilot'>{aiNavLabel}</a>");
-    expect(page).toContain("const aiExperienceHref = `/platform-v7/demo/ai?lang=${encodeURIComponent(locale)}`;");
-    expect(page).toContain("href={aiExperienceHref}");
-    expect(page).toContain("className='pc-ppe-ai-status-link'");
+    expect(page).toContain('<PublicHeroIntelligenceStatus locale={locale} mode=\'metrics\' />');
+    expect(page).toContain('<PublicHeroIntelligenceStatus locale={locale} mode=\'status\' />');
+    expect(page).toContain("const aiExperienceHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;");
     expect(page).toContain("eventName='ai_in_action_opened'");
-    expect(page).toContain("params={{ source: 'home_ai_status' }}");
-    expect(page).not.toContain("import { PublicAiMarketingBlock }");
-    expect(page).not.toContain('<PublicAiMarketingBlock');
+    expect(page).not.toContain("label: 'ИИ работает в платформе'");
+    expect(page).not.toContain('PublicAiMarketingBlock');
 
-    const heroTitleIndex = page.indexOf("id='pc-ppe-hero-title'");
-    const aiIndex = page.indexOf("id='ai-copilot'");
-    const aiLinkIndex = page.indexOf("href={aiExperienceHref}");
+    const titleIndex = page.indexOf("id='pc-ppe-hero-title'");
+    const intelligenceIndex = page.indexOf("id='ai-copilot'");
     const actionsIndex = page.indexOf("className='pc-ppe-hero-actions'");
     const dealIndex = page.indexOf("id='deal-example'");
-
-    expect(heroTitleIndex).toBeGreaterThan(-1);
-    expect(aiIndex).toBeGreaterThan(heroTitleIndex);
-    expect(aiLinkIndex).toBeGreaterThan(aiIndex);
-    expect(actionsIndex).toBeGreaterThan(aiLinkIndex);
+    expect(titleIndex).toBeGreaterThan(-1);
+    expect(intelligenceIndex).toBeGreaterThan(titleIndex);
+    expect(actionsIndex).toBeGreaterThan(intelligenceIndex);
     expect(dealIndex).toBeGreaterThan(actionsIndex);
   });
 
-  it('describes the implemented role-scoped capability in present tense', () => {
-    expect(page).toContain("label: 'ИИ работает в платформе'");
-    expect(page).toContain('ИИ анализирует доступные данные сделки');
-    expect(page).toContain('выявляет риски, объясняет причины и готовит следующий шаг');
-    expect(page).toContain('Критические действия остаются за участником и требуют подтверждения');
-    expect(page).not.toContain('После запуска полноценного ИИ');
-    expect(page).not.toContain('Платформа будет раньше находить риск сделки');
-    expect(page).not.toContain('самостоятельно выполняет');
+  it('uses result-oriented public copy in RU EN ZH', () => {
+    expect(page).toContain("kicker: 'Исполнение внебиржевой сделки в АПК'");
+    expect(page).toContain("title: 'Сделка под контролем — от условий до расчёта'");
+    expect(page).toContain('TAI анализирует доступный контекст сделки');
+    expect(page).toContain('TAI analyses the available deal context');
+    expect(page).toContain('TAI 分析可用的交易上下文');
+    expect(hero).toContain("demo: 'Публичный пример'");
+    expect(hero).toContain('3 основания сценария подтверждены');
   });
 
-  it('keeps the public boundary and all supported locales', () => {
-    expect(page).toContain('обезличенный демонстрационный сценарий');
-    expect(page).toContain("label: 'AI is active in the platform'");
-    expect(page).toContain('AI analyses accessible deal data');
-    expect(page).toContain('Consequential actions remain with the authorised participant and require confirmation');
-    expect(page).toContain("label: 'AI 已在平台中运行'");
-    expect(page).toContain('重要操作仍由获授权的参与方执行并确认');
+  it('connects deal lenses to a role-aware evidence panel', () => {
+    expect(preview).toContain('<PublicDealIntelligencePanel locale={locale} lens={lens} />');
+    expect(preview).toContain("const previewLenses: readonly PublicDealLens[] = ['execution', 'documents', 'money', 'risk'];");
+    expect(preview).toContain("emit('deal_intelligence_lens_changed'");
+    expect(panel).toContain("title: 'TAI · Сводка для покупателя'");
+    expect(panel).toContain('Государственное основание');
+    expect(panel).toContain('Не проверено: подключение организации не подтверждено');
+    expect(panel).toContain('Ничего не отправлено и не изменено без подтверждения пользователя');
   });
 
-  it('keeps the reusable marketing block aligned with the current capability', () => {
-    expect(block).toContain("eyebrow: 'ИИ работает в платформе'");
-    expect(block).toContain("title: 'Выявляет риск'");
-    expect(block).toContain("title: 'Объясняет на фактах'");
-    expect(block).toContain("title: 'Формирует следующий шаг'");
-    expect(block).toContain('ИИ работает только в доступном ролевом контуре');
-    expect(block).toContain("badge: 'Пример сигнала ИИ'");
-    expect(block).toContain('Отправку и любые критические действия подтверждает пользователь');
-    expect(block).toContain("data-testid='platform-v7-ai-current-value'");
-    expect(block).toContain("eventName='ai_current_value_role_cta'");
-    expect(block).not.toContain('ИИ в целевой версии платформы');
-    expect(block).not.toContain('Пример будущего сигнала');
-    expect(block).not.toContain('будет вводиться поэтапно');
+  it('adds role value, evidence causality and a safe government contour', () => {
+    expect(page).toContain('<PublicRoleIntelligenceSummary perspective={perspective} locale={locale} />');
+    expect(roles).toContain('Показывает блокеры приёмки, качества и расчёта');
+    expect(page).toContain('<PublicEvidenceIntelligencePanel');
+    expect(evidence).toContain('TAI не придумывает состояние сделки');
+    expect(page).toContain('<PublicGovernmentDataContour locale={locale} />');
+    expect(government).toContain("status: 'PUBLIC_REGISTRY'");
+    expect(government).toContain("status: 'OFFICIAL_ACCESS_REQUIRED'");
+    expect(government).not.toContain("status: 'CONNECTED'");
   });
 });

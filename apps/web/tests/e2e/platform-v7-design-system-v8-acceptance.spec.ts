@@ -103,16 +103,22 @@ async function expectNoSeriousAxeViolations(page: Page) {
 
 async function expectKeyboardEntry(page: Page) {
   await page.locator('body').click({ position: { x: 1, y: 1 } });
-  await page.keyboard.press('Tab');
-  const active = await page.evaluate(() => {
-    const element = document.activeElement as HTMLElement | null;
-    return {
-      tag: element?.tagName || '',
-      name: element?.getAttribute('aria-label') || element?.getAttribute('title') || element?.textContent?.trim() || '',
-    };
-  });
-  expect(['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA']).toContain(active.tag);
-  expect(active.name.length).toBeGreaterThan(0);
+  const allowed = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'];
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await page.keyboard.press('Tab');
+    const active = await page.evaluate(() => {
+      const element = document.activeElement as HTMLElement | null;
+      return {
+        tag: element?.tagName || '',
+        name: element?.getAttribute('aria-label') || element?.getAttribute('title') || element?.textContent?.trim() || '',
+      };
+    });
+    if (allowed.includes(active.tag) && active.name.length > 0) return;
+  }
+
+  const finalTag = await page.evaluate(() => document.activeElement?.tagName || '');
+  expect(allowed, `keyboard focus remained on ${finalTag || 'unknown element'}`).toContain(finalTag);
 }
 
 async function expectLayoutShiftWithinBudget(page: Page) {

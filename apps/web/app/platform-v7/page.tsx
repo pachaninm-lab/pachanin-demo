@@ -6,12 +6,21 @@ import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
 import '@/styles/platform-v7-public-product-experience-v4.css';
 import '@/styles/platform-v7-public-product-entry-variants.css';
 import '@/styles/platform-v7-public-product-experience-v5.css';
+import '@/styles/platform-v7-public-intelligence-layer.css';
 import type { Metadata } from 'next';
+import { Sparkles } from 'lucide-react';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicDealPreview } from '@/components/platform-v7/PublicDealPreview';
 import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
+import { PublicHeroIntelligenceStatus } from '@/components/platform-v7/PublicHeroIntelligenceStatus';
+import { PublicStageIntelligenceCoverage } from '@/components/platform-v7/PublicStageIntelligenceCoverage';
+import { PublicRoleIntelligenceSummary } from '@/components/platform-v7/PublicRoleIntelligenceSummary';
+import { PublicEvidenceIntelligencePanel } from '@/components/platform-v7/PublicEvidenceIntelligencePanel';
+import { PublicGovernmentDataContour } from '@/components/platform-v7/PublicGovernmentDataContour';
+import { PublicAiGovernanceStrip } from '@/components/platform-v7/PublicAiGovernanceStrip';
+import { PublicContextualAssistantPrompts } from '@/components/platform-v7/PublicContextualAssistantPrompts';
 import {
   PublicExperienceLink,
   PublicExperiencePageView,
@@ -23,7 +32,7 @@ import { TOUR_STAGES, type TourPerspective } from '@/lib/platform-v7/public-prod
 
 export const metadata: Metadata = {
   title: 'Прозрачная Цена — исполнение зерновой сделки',
-  description: 'Одна история исполнения зерновой сделки: участники, перевозка, приёмка, качество, документы, деньги, риски и спор.',
+  description: 'Одна история исполнения сделки в АПК: участники, перевозка, приёмка, качество, документы, государственные основания, деньги, риски и спор.',
   alternates: {
     canonical: '/platform-v7',
     languages: {
@@ -46,38 +55,38 @@ export const metadata: Metadata = {
 };
 
 const firstStageCopy = {
-  ru: {
-    stageCounter: 'Этап 1 из 10',
-    currentStage: 'Условия сделки',
-    nextStage: 'Далее: проверка допуска',
-    showAllStages: 'Посмотреть весь путь сделки с начала',
-  },
-  en: {
-    stageCounter: 'Stage 1 of 10',
-    currentStage: 'Deal terms',
-    nextStage: 'Next: admission checks',
-    showAllStages: 'View the full deal path from the beginning',
-  },
-  zh: {
-    stageCounter: '第 1 阶段，共 10 阶段',
-    currentStage: '交易条件',
-    nextStage: '下一步：准入检查',
-    showAllStages: '从头查看完整交易路径',
-  },
+  ru: { stageCounter: 'Этап 1 из 10', currentStage: 'Условия сделки', nextStage: 'Далее: проверка допуска', showAllStages: 'Посмотреть весь путь сделки с начала' },
+  en: { stageCounter: 'Stage 1 of 10', currentStage: 'Deal terms', nextStage: 'Next: admission checks', showAllStages: 'View the full deal path from the beginning' },
+  zh: { stageCounter: '第 1 阶段，共 10 阶段', currentStage: '交易条件', nextStage: '下一步：准入检查', showAllStages: '从头查看完整交易路径' },
 } as const;
 
-const firstScreenAiCopy = {
+const HOME_COPY = {
   ru: {
-    label: 'ИИ работает в платформе',
-    text: 'В рабочих кабинетах ИИ анализирует доступные данные сделки, выявляет риски, объясняет причины и готовит следующий шаг. Критические действия остаются за участником и требуют подтверждения; ниже показан обезличенный демонстрационный сценарий.',
+    nav: { how: 'Как работает', participants: 'Участники', intelligence: 'ИИ-контур', government: 'Госданные', reliability: 'Надёжность' },
+    kicker: 'Исполнение внебиржевой сделки в АПК',
+    title: 'Сделка под контролем — от условий до расчёта',
+    lead: 'Одна карточка связывает участников, перевозку, приёмку, качество, документы, государственные основания, деньги и спор. На каждом этапе видны ответственный, следующее действие и причина блокировки.',
+    aiLine: 'TAI анализирует доступный контекст сделки, выявляет расхождения и показывает подтверждённое следующее действие.',
+    aiLink: 'Изучить TAI',
+    finalAi: 'Изучить TAI',
   },
   en: {
-    label: 'AI is active in the platform',
-    text: 'In authenticated workspaces, AI analyses accessible deal data, identifies risks, explains causes and prepares the next step. Consequential actions remain with the authorised participant and require confirmation; the scenario below is anonymised and demonstrative.',
+    nav: { how: 'How it works', participants: 'Participants', intelligence: 'AI contour', government: 'Government data', reliability: 'Reliability' },
+    kicker: 'Execution of off-exchange agricultural deals',
+    title: 'The deal under control — from terms to settlement',
+    lead: 'One card connects participants, transport, acceptance, quality, documents, government grounds, money, and disputes. Every stage shows the owner, next action, and reason for a blocker.',
+    aiLine: 'TAI analyses the available deal context, detects discrepancies, and shows a confirmed next action.',
+    aiLink: 'Explore TAI',
+    finalAi: 'Explore TAI',
   },
   zh: {
-    label: 'AI 已在平台中运行',
-    text: '在已授权工作区内，AI 分析可访问的交易数据、识别风险、解释原因并准备下一步。重要操作仍由获授权的参与方执行并确认；以下为匿名演示场景。',
+    nav: { how: '工作方式', participants: '参与方', intelligence: 'AI 链路', government: '政府数据', reliability: '可靠性' },
+    kicker: '农业场外交易执行',
+    title: '从交易条件到结算，全程受控',
+    lead: '一张交易卡连接参与方、运输、验收、质量、文件、政府依据、资金和争议。每个阶段都显示负责人、下一步操作和阻塞原因。',
+    aiLine: 'TAI 分析可用的交易上下文，发现差异，并显示已确认的下一步操作。',
+    aiLink: '了解 TAI',
+    finalAi: '了解 TAI',
   },
 } as const;
 
@@ -101,9 +110,10 @@ function PerspectiveCard({
       params={{ perspective, source: 'home' }}
     >
       <span><PublicExperienceIcon name={perspective} size={22} /></span>
-      <span>
+      <span className='pc-ppe-perspective-copy'>
         <strong>{label}</strong>
         <small>{value}</small>
+        <PublicRoleIntelligenceSummary perspective={perspective} locale={locale} />
       </span>
       <PublicExperienceIcon name='arrow' size={20} />
     </PublicExperienceLink>
@@ -124,62 +134,26 @@ export default async function PlatformV7RootPage() {
   const contourStages = TOUR_STAGES;
   const localeKey = locale === 'en' || locale === 'zh' ? locale : 'ru';
   const start = firstStageCopy[localeKey];
-  const aiHero = firstScreenAiCopy[localeKey];
+  const home = HOME_COPY[localeKey];
   const startDealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
   const aiExperienceHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(locale)}`;
-  const aiNavLabel = locale === 'ru' ? 'ИИ' : 'AI';
+  const stageCoverage = contourStages.map((stage) => ({ id: stage, label: copy.explorer.stages[stage].label }));
   const nav = (
     <>
-      <a href='#deal-example'>{ui.header.howItWorks}</a>
-      <a href='#ai-copilot'>{aiNavLabel}</a>
-      <a href='#participants'>{ui.header.participants}</a>
-      <a href='#reliability'>{ui.header.reliability}</a>
+      <a href='#deal-example'>{home.nav.how}</a>
+      <a href='#participants'>{home.nav.participants}</a>
+      <a href='#ai-copilot'>{home.nav.intelligence}</a>
+      <a href='#government-data'>{home.nav.government}</a>
+      <a href='#reliability'>{home.nav.reliability}</a>
     </>
   );
 
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-root-execution-cockpit'>
-      <style>{`
-        .pc-ppe-ai-status-link {
-          width: fit-content;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          color: inherit;
-          text-decoration: none;
-          border-radius: 5px;
-        }
-        .pc-ppe-ai-status-link svg { transition: transform 160ms ease; }
-        .pc-ppe-ai-status-link:hover strong,
-        .pc-ppe-ai-status-link:focus-visible strong {
-          text-decoration: underline;
-          text-underline-offset: 3px;
-        }
-        .pc-ppe-ai-status-link:hover svg,
-        .pc-ppe-ai-status-link:focus-visible svg { transform: translateX(3px); }
-        .pc-ppe-ai-status-link:focus-visible {
-          outline: 3px solid rgba(8, 122, 59, .2);
-          outline-offset: 4px;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .pc-ppe-ai-status-link svg { transition: none; }
-        }
-        @media (min-width: 821px) {
-          .pc-ppe-page .pc-ppe-hero-contour-desktop {
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            grid-template-rows: repeat(2, minmax(92px, 1fr));
-            align-items: start;
-            gap: 18px 8px;
-            min-height: 250px;
-          }
-          .pc-ppe-page .pc-ppe-hero-contour-desktop::before { display: none; }
-          .pc-ppe-page .pc-ppe-hero-contour-desktop > span { align-content: start; }
-          .pc-ppe-page .pc-ppe-hero-contour-desktop > span > b { max-width: 100px; }
-        }
-      `}</style>
       <a className='pc-skip-link' href='#pc-ppe-hero-title'>{chrome('skipToContent')}</a>
       <PublicExperiencePageView locale={locale} name='home_view' />
       <PublicExperienceScrollCoordinator />
+      <PublicContextualAssistantPrompts locale={locale} />
 
       <PublicSiteHeader
         ariaLabel={copy.header.aria}
@@ -193,29 +167,23 @@ export default async function PlatformV7RootPage() {
       />
 
       <div className='pc-ppe-shell'>
-        <section className='pc-ppe-hero pc-ppe-hero-copy-only' aria-labelledby='pc-ppe-hero-title'>
+        <section className='pc-ppe-hero pc-ppe-hero-copy-only pc-public-intelligence-hero' aria-labelledby='pc-ppe-hero-title'>
           <div className='pc-ppe-hero-copy'>
-            <span className='pc-ppe-kicker'>{ui.home.hero.kicker}</span>
-            <h1 id='pc-ppe-hero-title'>{ui.home.hero.title}</h1>
-            <p>{ui.home.hero.lead}</p>
-            <div
-              id='ai-copilot'
-              className='pc-ppe-public-status'
-              role='note'
-              aria-label={aiHero.label}
-              data-testid='platform-v7-ai-current-value'
-            >
+            <span className='pc-ppe-kicker'>{home.kicker}</span>
+            <h1 id='pc-ppe-hero-title'>{home.title}</h1>
+            <p>{home.lead}</p>
+            <PublicHeroIntelligenceStatus locale={locale} mode='metrics' />
+            <div id='ai-copilot' className='pc-public-hero-ai-line' role='note'>
+              <Sparkles size={17} aria-hidden='true' />
+              <span>{home.aiLine}</span>
               <PublicExperienceLink
                 href={aiExperienceHref}
-                className='pc-ppe-ai-status-link'
                 eventName='ai_in_action_opened'
                 locale={locale}
-                params={{ source: 'home_ai_status' }}
+                params={{ source: 'home_ai_line' }}
               >
-                <strong>{aiHero.label}</strong>
-                <PublicExperienceIcon name='arrow' size={18} />
+                {home.aiLink}<PublicExperienceIcon name='arrow' size={17} />
               </PublicExperienceLink>
-              <span>{aiHero.text}</span>
             </div>
             <div className='pc-ppe-hero-actions'>
               <PublicExperienceLink
@@ -241,6 +209,7 @@ export default async function PlatformV7RootPage() {
           </div>
 
           <div className='pc-ppe-hero-contour' role='group' aria-label={ui.home.hero.progressAria}>
+            <PublicHeroIntelligenceStatus locale={locale} mode='status' />
             <div className='pc-ppe-hero-contour-desktop' aria-hidden='true'>
               {contourStages.map((stage, index) => (
                 <span key={stage} data-active={stage === 'terms' ? 'true' : 'false'}>
@@ -253,10 +222,9 @@ export default async function PlatformV7RootPage() {
               <span>{start.stageCounter}</span>
               <strong>{start.currentStage}</strong>
               <small>{start.nextStage}</small>
-              <a href={startDealHref} aria-label={start.showAllStages}>
-                <PublicExperienceIcon name='arrow' size={20} />
-              </a>
+              <a href={startDealHref} aria-label={start.showAllStages}><PublicExperienceIcon name='arrow' size={20} /></a>
             </div>
+            <PublicStageIntelligenceCoverage locale={locale} stages={stageCoverage} />
           </div>
         </section>
 
@@ -272,58 +240,34 @@ export default async function PlatformV7RootPage() {
           </div>
           <div className='pc-ppe-perspective-grid' role='group' aria-labelledby='pc-ppe-perspectives-title'>
             {primaryPerspectives.map((perspective) => (
-              <PerspectiveCard
-                key={perspective}
-                perspective={perspective}
-                locale={locale}
-                label={copy.explorer.perspectives[perspective].label}
-                value={copy.explorer.perspectives[perspective].value}
-              />
+              <PerspectiveCard key={perspective} perspective={perspective} locale={locale} label={copy.explorer.perspectives[perspective].label} value={copy.explorer.perspectives[perspective].value} />
             ))}
           </div>
           <details className='pc-ppe-all-participants'>
-            <summary>
-              <span>{ui.home.perspectives.more}</span>
-              <PublicExperienceIcon name='arrow' size={20} />
-            </summary>
+            <summary><span>{ui.home.perspectives.more}</span><PublicExperienceIcon name='arrow' size={20} /></summary>
             <div className='pc-ppe-perspective-grid' role='group' aria-label={ui.home.perspectives.more}>
               {secondaryPerspectives.map((perspective) => (
-                <PerspectiveCard
-                  key={perspective}
-                  perspective={perspective}
-                  locale={locale}
-                  label={copy.explorer.perspectives[perspective].label}
-                  value={copy.explorer.perspectives[perspective].value}
-                />
+                <PerspectiveCard key={perspective} perspective={perspective} locale={locale} label={copy.explorer.perspectives[perspective].label} value={copy.explorer.perspectives[perspective].value} />
               ))}
             </div>
           </details>
         </section>
 
-        <section className='pc-ppe-section' aria-labelledby='pc-ppe-proof-title'>
-          <div className='pc-ppe-evidence-panel'>
-            <header>
-              <span className='pc-ppe-section-eyebrow'>{ui.home.proof.eyebrow}</span>
-              <h2 id='pc-ppe-proof-title'>{ui.home.proof.title}</h2>
-              <p>{ui.home.proof.lead}</p>
-            </header>
-            <ol className='pc-ppe-evidence-chain'>
-              {ui.home.proof.steps.map((step, index) => (
-                <li key={step.label}>
-                  <span aria-hidden='true'>{index + 1}</span>
-                  <div>
-                    <strong>{step.label}</strong>
-                    <p>{step.value}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <div className='pc-ppe-evidence-result'>
-              <strong>{ui.home.proof.resultLabel}</strong>
-              <p>{ui.home.proof.resultValue}</p>
-            </div>
+        <section id='evidence-contour' className='pc-ppe-section' aria-labelledby='pc-ppe-proof-title'>
+          <div className='pc-ppe-section-header'>
+            <span className='pc-ppe-section-eyebrow'>{ui.home.proof.eyebrow}</span>
+            <h2 id='pc-ppe-proof-title'>{ui.home.proof.title}</h2>
+            <p>{ui.home.proof.lead}</p>
           </div>
+          <PublicEvidenceIntelligencePanel
+            locale={locale}
+            steps={ui.home.proof.steps}
+            resultLabel={ui.home.proof.resultLabel}
+            resultValue={ui.home.proof.resultValue}
+          />
         </section>
+
+        <PublicGovernmentDataContour locale={locale} />
 
         <section id='reliability' className='pc-ppe-section' aria-labelledby='pc-ppe-trust-title'>
           <div className='pc-ppe-section-header'>
@@ -341,44 +285,30 @@ export default async function PlatformV7RootPage() {
               </article>
             ))}
           </div>
+          <PublicAiGovernanceStrip locale={locale} />
         </section>
 
         <section className='pc-ppe-final-cta' aria-labelledby='pc-ppe-final-title'>
           <h2 id='pc-ppe-final-title'>{ui.home.final.title}</h2>
           <p>{ui.home.final.lead}</p>
-          <div className='pc-ppe-final-actions'>
-            <PublicExperienceLink
-              href={startDealHref}
-              className='pc-ppe-primary-button'
-              eventName='deal_preview_opened'
-              locale={locale}
-              params={{ source: 'final_cta', stage: 'terms' }}
-            >
-              <span>{ui.home.final.primary}</span>
-              <PublicExperienceIcon name='arrow' size={20} />
+          <div className='pc-ppe-final-actions pc-public-final-actions'>
+            <PublicExperienceLink href={startDealHref} className='pc-ppe-primary-button' eventName='deal_preview_opened' locale={locale} params={{ source: 'final_cta', stage: 'terms' }}>
+              <span>{ui.home.final.primary}</span><PublicExperienceIcon name='arrow' size={20} />
             </PublicExperienceLink>
-            <PublicExperienceLink
-              href='/platform-v7/register'
-              className='pc-ppe-secondary-button'
-              eventName='organization_connect_started'
-              locale={locale}
-              params={{ source: 'final_cta' }}
-            >
+            <PublicExperienceLink href='/platform-v7/register' className='pc-ppe-secondary-button' eventName='organization_connect_started' locale={locale} params={{ source: 'final_cta' }}>
               {ui.home.final.secondary}
             </PublicExperienceLink>
+            <PublicExperienceLink href={aiExperienceHref} className='pc-ppe-secondary-button' eventName='ai_in_action_opened' locale={locale} params={{ source: 'final_cta' }}>
+              {home.finalAi}
+            </PublicExperienceLink>
           </div>
-          <p className='pc-ppe-final-signin'>
-            {ui.home.final.signInPrefix} <a href='/platform-v7/login'>{ui.home.final.signIn}</a>
-          </p>
+          <p className='pc-ppe-final-signin'>{ui.home.final.signInPrefix} <a href='/platform-v7/login'>{ui.home.final.signIn}</a></p>
         </section>
       </div>
 
       <footer className='pc-ppe-footer'>
         <div className='pc-ppe-shell pc-ppe-footer-grid'>
-          <div className='pc-ppe-footer-brand'>
-            <strong>Прозрачная Цена</strong>
-            <p>{ui.footer.note}</p>
-          </div>
+          <div className='pc-ppe-footer-brand'><strong>Прозрачная Цена</strong><p>{ui.footer.note}</p></div>
           <nav aria-label={copy.header.aria}>
             <a href='/platform-v7/about'>{ui.footer.about}</a>
             <a href='/platform-v7/status'>{ui.footer.status}</a>

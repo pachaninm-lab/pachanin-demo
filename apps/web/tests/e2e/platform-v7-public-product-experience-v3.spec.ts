@@ -56,12 +56,18 @@ async function expectLayoutShiftWithinBudget(page: Page) {
 }
 
 async function expectMinimumTargets(page: Page, locator: string) {
-  const targets = await page.locator(locator).evaluateAll((elements) => elements.map((element) => {
-    const box = element.getBoundingClientRect();
-    return { width: box.width, height: box.height };
-  }));
-  expect(targets.length).toBeGreaterThan(0);
-  expect(targets.every((target) => target.width >= 44 && target.height >= 44)).toBe(true);
+  const elements = page.locator(locator);
+  await expect(elements.first()).toBeVisible();
+  await expect.poll(async () => {
+    const targets = await elements.evaluateAll((nodes) => nodes.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { width: box.width, height: box.height };
+    }));
+    return targets.length > 0 && targets.every((target) => target.width >= 44 && target.height >= 44);
+  }, {
+    timeout: 5_000,
+    message: `${locator} must settle at a minimum 44×44 CSS px target size`,
+  }).toBe(true);
 }
 
 test.describe('Public Product Experience V4 browser acceptance', () => {

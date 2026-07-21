@@ -23,7 +23,9 @@ type PublicExperienceLinkProps = Pick<AnchorHTMLAttributes<HTMLAnchorElement>, '
   children: ReactNode;
 };
 
-export function PublicExperiencePageView({ locale, name }: { locale: string; name: 'home_view' | 'deal_xray_open' }) {
+type PublicExperiencePageViewName = 'home_view' | 'deal_xray_open' | 'ai_in_action_opened';
+
+export function PublicExperiencePageView({ locale, name }: { locale: string; name: PublicExperiencePageViewName }) {
   useEffect(() => emit(name, locale), [locale, name]);
   return null;
 }
