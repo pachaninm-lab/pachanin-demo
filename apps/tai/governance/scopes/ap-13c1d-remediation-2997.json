@@ -26,18 +26,21 @@
   "acceptance": [
     "every scorer is bound to a server-authoritative signed identity assertion",
     "MFA is required and exact reviewer role is verified",
-    "fabricated scorer identity, role, key id, signature or expired assertion fails closed",
+    "every annotation payload is separately reviewer-authenticated for the exact main and scoring run",
+    "fabricated scorer identity, role, key id, signature, annotation approval or expired assertion fails closed",
     "every annotation evidence file is reproduced from immutable original and independently restored roots",
-    "evidence manifest digest, file digest, size, object identity, VersionId and retention are verified",
-    "raw reviewer notes and evidence remain outside Git and GitHub artifacts",
+    "Selectel S3 object identity, VersionId, size, digest, Object Lock retention and immutability are authenticated by a separately trusted provider inventory receipt",
+    "manifest scored_at equals the latest authenticated annotation timestamp and retention is measured from that completion",
+    "raw reviewer notes, evidence and signing keys remain outside Git and GitHub artifacts",
     "benchmark and admission remain pending and production remains not attested",
     "exact-head and exact-main gates pass before acceptance"
   ],
   "forbidden_capabilities": [
     "LLM-as-judge or fabricated human review",
-    "raw reviewer notes or evidence in Git",
+    "raw reviewer notes, evidence or signing keys in Git",
     "model admission, routing activation, deployment or production attestation",
-    "trust in submitter-declared scorer identity or role",
+    "trust in submitter-declared scorer identity, role, annotation verdict or self-digest",
+    "trust in submitter-declared S3 VersionId, retention or immutability",
     "trust in unreproduced external evidence digests"
   ]
 }
