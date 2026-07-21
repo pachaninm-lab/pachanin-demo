@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
           python -m pip install 'ruff>=0.11,<1'
 
-      - name: Apply deterministic Ruff fixes and formatting
+      - name: Apply deterministic Ruff formatting and fixes
         working-directory: apps/tai
         shell: bash
         run: |
@@ -51,7 +51,8 @@ jobs:
             tests/test_model_bundle_finalize.py
             tests/test_model_bundle_storage_contract.py
           )
-          ruff check --fix "${targets[@]}"
+          ruff format "${targets[@]}"
+          ruff check --fix --unsafe-fixes "${targets[@]}"
           ruff format "${targets[@]}"
           ruff check "${targets[@]}"
           ruff format --check "${targets[@]}"
