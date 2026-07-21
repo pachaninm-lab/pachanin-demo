@@ -5,6 +5,7 @@
   "parent_issue": 2954,
   "issue": 2961,
   "allowed_paths": [
+    ".gitleaksignore",
     ".github/workflows/tai-model-bundle-upload-restore.yml",
     "apps/tai/governance/scopes/ap-13b3h-bundle-upload-restore-2961.json",
     "apps/tai/model-artifacts/model-bundle-upload-restore-authority.v1.json",
