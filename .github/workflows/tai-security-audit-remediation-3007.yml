@@ -35,15 +35,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p audit
-          gh api \
+          mkdir -p audit/extracted
+          curl --fail --silent --show-error --location \
+            -H "Authorization: Bearer $GH_TOKEN" \
             -H 'Accept: application/vnd.github+json' \
             -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "repos/$REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
-            > audit/artifact.zip
+            "https://api.github.com/repos/$REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
+            --output audit/artifact.zip
           unzip -q audit/artifact.zip -d audit/extracted
-          test -s audit/extracted/artifacts/security/pnpm-audit-evaluation.json
-          test -s audit/extracted/artifacts/security/pnpm-audit.json
+          evaluation_path="$(find audit/extracted -type f -name pnpm-audit-evaluation.json -print -quit)"
+          raw_path="$(find audit/extracted -type f -name pnpm-audit.json -print -quit)"
+          test -n "$evaluation_path" && test -s "$evaluation_path"
+          test -n "$raw_path" && test -s "$raw_path"
+          printf '%s\n' "$evaluation_path" > audit/evaluation-path.txt
+          printf '%s\n' "$raw_path" > audit/raw-path.txt
 
       - name: Build bounded blocker report
         shell: bash
@@ -53,9 +58,10 @@ jobs:
           import json
           from pathlib import Path
 
-          root = Path('audit/extracted/artifacts/security')
-          evaluation = json.loads((root / 'pnpm-audit-evaluation.json').read_text(encoding='utf-8'))
-          raw = json.loads((root / 'pnpm-audit.json').read_text(encoding='utf-8'))
+          evaluation_path = Path('audit/evaluation-path.txt').read_text(encoding='utf-8').strip()
+          raw_path = Path('audit/raw-path.txt').read_text(encoding='utf-8').strip()
+          evaluation = json.loads(Path(evaluation_path).read_text(encoding='utf-8'))
+          raw = json.loads(Path(raw_path).read_text(encoding='utf-8'))
 
           blocked = evaluation.get('blocked')
           if blocked is None:
