@@ -11,6 +11,7 @@
     "benchmark remains NOT_RUN, model admission remains NOT_DONE and production_operational_status remains NOT_ATTESTED"
   ],
   "allowed_paths": [
+    ".gitleaksignore",
     ".github/workflows/tai-model-bundle-finalization.yml",
     "apps/tai/governance/scopes/ap-13b3h-bundle-finalization-2961.json",
     "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json",
