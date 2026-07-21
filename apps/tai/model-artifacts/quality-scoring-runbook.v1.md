@@ -109,7 +109,7 @@ The external manifest binds every annotation to one evidence file with:
 - retention deadline;
 - exact annotation ID.
 
-The verifier checks the supplied manifest byte-for-byte against copies restored under two distinct root identities. It then reads each evidence file from both roots and requires identical payload, digest and size. Symlinks, path traversal, missing files, duplicate object identities, shortened retention, declared-only digests and original/restore drift fail closed.
+The verifier checks the supplied manifest byte-for-byte against copies restored under two distinct root identities. The original and restored roots must also resolve to different physical directories. It then reads each evidence file from both roots and requires identical payload, digest and size. Symlinks, path traversal, missing files, duplicate object identities, shortened retention, declared-only digests and original/restore drift fail closed.
 
 The AP-13C.1c runtime roots are separate mandatory inputs and are independently reverified before quality scoring.
 
