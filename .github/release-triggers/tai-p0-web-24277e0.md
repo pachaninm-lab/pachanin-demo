@@ -9,5 +9,6 @@
 - Required acceptance: running OCI revision, live manifest, public home, TAI passport, dock, interactions, WCAG and 320–1440 px browser checks
 - Rollback: previous immutable web image restored automatically if post-deploy acceptance fails
 - TAI operational status after release: `NOT_ATTESTED`
+- Release attempt: `2` — protected `push/main`, independent of merge actor identity
 
 This file is a one-release trigger. It authorizes no API, database, Caddy, Compose, environment, volume, network or non-web service mutation.
