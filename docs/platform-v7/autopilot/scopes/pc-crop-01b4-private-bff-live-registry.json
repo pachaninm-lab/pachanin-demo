@@ -23,7 +23,8 @@
     "apps/web/tests/unit/platformV7CommodityProfileLiveRegistry.test.ts",
     "apps/web/tsconfig.pc-crop.json",
     "docs/platform-v7/autopilot/scopes/pc-crop-01b4-private-bff-live-registry.json",
-    "scripts/p7-autopilot-guard.sh"
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/verify-pc-crop-01a.mjs"
   ],
   "boundaries": {
     "clientSelectedRoleTenantJitAuthority": false,
