@@ -207,7 +207,7 @@ def test_submitter_object_identity_cannot_override_trusted_inventory(
     storage["evidence_manifest_file_sha256"] = hashlib.sha256(raw).hexdigest()
     storage["evidence_manifest_sha256"] = value["manifest_sha256"]
     _rewrite_manifest(fixture)
-    with pytest.raises(QualityScoringError, match="provider inventory object_version_id"):
+    with pytest.raises(QualityScoringError, match="provider inventory manifest sha256 mismatch"):
         _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
 
 
