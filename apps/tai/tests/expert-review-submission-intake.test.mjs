@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,6 +44,10 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
 
+function digest(label) {
+  return createHash('sha256').update(`external-evidence:${label}`).digest('hex');
+}
+
 function resign(review) {
   const payload = { ...review };
   delete payload.review_sha256;
@@ -52,7 +64,7 @@ function record(caseValue, role, reviewer, suffix = '01') {
     reviewer_role: role,
     decision: 'APPROVED',
     reviewed_at: '2026-07-21T10:10:00Z',
-    evidence_sha256: 'e'.repeat(64),
+    evidence_sha256: digest(`${caseValue.case_id}:${role}:${reviewer}:${suffix}`),
     disagreement_with_review_id: null,
     review_sha256: '',
   });
@@ -71,14 +83,14 @@ function envelope(packet, trackId, reviews) {
   };
 }
 
-function fixture(existing = null) {
+function fixture(existing = null, generatedAt = GENERATED_AT) {
   const root = mkdtempSync(resolve(tmpdir(), 'tai-review-intake-'));
   const existingReviewsPath = resolve(root, 'existing-reviews.json');
   writeJson(existingReviewsPath, existing ?? json(REPO_REVIEWS));
   const packetDirectory = resolve(root, 'packet');
   const packet = buildExpertReviewPacket({
     exactMainSha: EXACT_MAIN,
-    generatedAt: GENERATED_AT,
+    generatedAt,
     reviewsPath: existingReviewsPath,
   });
   materializeExpertReviewPacket(packet, packetDirectory);
@@ -94,16 +106,18 @@ function fixture(existing = null) {
   };
 }
 
-function run(input) {
+function run(input, overrides = {}) {
   return ingestExpertReviewSubmission({
     ...input,
     exactMainSha: EXACT_MAIN,
+    expectedPacketSha256: input.packet.packet_sha256,
     evaluatedAt: EVALUATED_AT,
+    ...overrides,
   });
 }
 
-function useFixture(existing, callback) {
-  const input = fixture(existing);
+function useFixture(existing, callback, generatedAt = GENERATED_AT) {
+  const input = fixture(existing, generatedAt);
   try {
     callback(input);
   } finally {
@@ -127,6 +141,7 @@ useFixture(null, (input) => {
   assert.equal(report.reviews_added, 1);
   assert.equal(report.automation_created_decisions, false);
   assert.equal(report.candidate_assessment_status, 'PENDING_REVIEW');
+  assert.match(report.packet_file_sha256, /^[0-9a-f]{64}$/);
   assert.equal(json(input.outputReviewsPath).reviews.length, 1);
   assert.equal(json(input.outputAssessmentPath).counts.reviewed_cases, 1);
 });
@@ -165,9 +180,9 @@ const mutations = [
     },
   ],
   [
-    /evidence SHA-256 is invalid/,
+    /non-placeholder SHA-256/,
     (review) => {
-      review.evidence_sha256 = 'invalid';
+      review.evidence_sha256 = 'e'.repeat(64);
       resign(review);
     },
   ],
@@ -230,6 +245,80 @@ useFixture(null, (input) => {
   value.packet_sha256 = '0'.repeat(64);
   writeJson(input.submissionPath, value);
   assert.throws(() => run(input), /submission packet mismatch/);
+});
+
+useFixture(null, (input) => {
+  const review = record(normalPlatform(input.packet), 'PLATFORM_OWNER', 'platform-owner-01');
+  writeJson(input.submissionPath, envelope(input.packet, 'platform-primary', [review]));
+  assert.throws(
+    () => run(input, { expectedPacketSha256: '0'.repeat(64) }),
+    /trusted digest/,
+  );
+});
+
+useFixture(null, (input) => {
+  const review = record(normalPlatform(input.packet), 'PLATFORM_OWNER', 'platform-owner-01');
+  const value = envelope(input.packet, 'platform-primary', [review]);
+  const compact = JSON.stringify(value);
+  const duplicate = compact.replace(
+    '"track_id":"platform-primary"',
+    '"track_id":"platform-primary","track_id":"agro-primary"',
+  );
+  writeFileSync(input.submissionPath, duplicate, 'utf8');
+  assert.throws(() => run(input), /duplicate JSON key "track_id"/);
+});
+
+useFixture(null, (input) => {
+  const review = record(normalPlatform(input.packet), 'PLATFORM_OWNER', 'platform-owner-01');
+  review.reviewed_at = '2026-02-30T10:10:00Z';
+  resign(review);
+  writeJson(input.submissionPath, envelope(input.packet, 'platform-primary', [review]));
+  assert.throws(() => run(input), /day is invalid/);
+});
+
+useFixture(
+  null,
+  (input) => {
+    const review = record(normalPlatform(input.packet), 'PLATFORM_OWNER', 'platform-owner-01');
+    const value = envelope(input.packet, 'platform-primary', [review]);
+    value.submitted_at = '2026-07-21T10:22:00Z';
+    writeJson(input.submissionPath, value);
+    assert.throws(() => run(input), /packet generation timestamp is in the future/);
+  },
+  '2026-07-21T10:21:00Z',
+);
+
+useFixture(null, (input) => {
+  const review = record(normalPlatform(input.packet), 'PLATFORM_OWNER', 'platform-owner-01');
+  writeJson(input.submissionPath, envelope(input.packet, 'platform-primary', [review]));
+  assert.throws(
+    () => run(input, { outputReviewsPath: input.existingReviewsPath }),
+    /output path must not overlap an input/,
+  );
+  assert.equal(existsSync(input.outputAssessmentPath), false);
+  assert.equal(existsSync(input.outputReportPath), false);
+});
+
+useFixture(null, (input) => {
+  const review = record(normalPlatform(input.packet), 'PLATFORM_OWNER', 'platform-owner-01');
+  writeJson(input.submissionPath, envelope(input.packet, 'platform-primary', [review]));
+  assert.throws(
+    () => run(input, { outputAssessmentPath: input.outputReviewsPath }),
+    /canonically distinct/,
+  );
+  assert.equal(existsSync(input.outputReviewsPath), false);
+  assert.equal(existsSync(input.outputReportPath), false);
+});
+
+useFixture(null, (input) => {
+  const review = record(normalPlatform(input.packet), 'PLATFORM_OWNER', 'platform-owner-01');
+  writeJson(input.submissionPath, envelope(input.packet, 'platform-primary', [review]));
+  const symlinkTarget = resolve(input.root, 'symlink-target.json');
+  writeFileSync(symlinkTarget, '{}\n', 'utf8');
+  symlinkSync(symlinkTarget, input.outputAssessmentPath);
+  assert.throws(() => run(input), /must not be a symbolic link/);
+  assert.equal(existsSync(input.outputReviewsPath), false);
+  assert.equal(existsSync(input.outputReportPath), false);
 });
 
 process.stdout.write('expert review submission intake tests: PASS\n');
