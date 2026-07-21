@@ -1,0 +1,39 @@
+.shell {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.connectionStatus,
+.pinningBoundary {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--pc-border, #d9e2dc);
+  border-radius: 10px;
+  background: var(--pc-bg-card, #fff);
+  color: var(--pc-text-secondary, #526159);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+
+.connectionStatus[hidden] {
+  display: none;
+}
+
+.shell[data-live-state='reconnecting'] .connectionStatus {
+  border-color: color-mix(in srgb, var(--pc-accent-strong, #087a3b) 30%, var(--pc-border, #d9e2dc));
+  color: var(--pc-text-primary, #15231c);
+}
+
+/* Deal/Lot pin authority is a later governed slice. Do not render a synthetic zero. */
+.shell :global([data-immutable] small) {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .connectionStatus,
+  .pinningBoundary {
+    padding: 9px 11px;
+    font-size: .78rem;
+  }
+}
