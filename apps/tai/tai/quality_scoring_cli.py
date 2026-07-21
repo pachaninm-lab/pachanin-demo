@@ -34,8 +34,14 @@ def _parser() -> argparse.ArgumentParser:
     verify.add_argument("reviewer_evidence_manifest", type=Path, nargs="?", default=missing)
     verify.add_argument("reviewer_original_root", type=Path, nargs="?", default=missing)
     verify.add_argument("reviewer_restored_root", type=Path, nargs="?", default=missing)
+    verify.add_argument("provider_inventory_receipt", type=Path, nargs="?", default=missing)
+    verify.add_argument("provider_inventory_secret", type=Path, nargs="?", default=missing)
     verify.add_argument(
         "--trusted-identity-secret-sha256",
+        default="0" * 64,
+    )
+    verify.add_argument(
+        "--trusted-provider-inventory-secret-sha256",
         default="0" * 64,
     )
     verify.add_argument("--evaluated-at", required=True)
@@ -64,6 +70,7 @@ def main() -> int:
                 "accepted_assessment_required": True,
                 "authenticated_reviewers_required": True,
                 "external_evidence_reproduction_required": True,
+                "trusted_provider_inventory_required": True,
                 "quality_scoring_status": "PENDING_QUALITY_SCORING",
                 **contract.EXPECTED_MATURITY,
             }
@@ -95,6 +102,9 @@ def main() -> int:
             args.reviewer_evidence_manifest,
             args.reviewer_original_root,
             args.reviewer_restored_root,
+            args.provider_inventory_receipt,
+            args.provider_inventory_secret,
+            args.trusted_provider_inventory_secret_sha256,
             evaluated_at=args.evaluated_at,
         )
         _emit(report, args.output)
