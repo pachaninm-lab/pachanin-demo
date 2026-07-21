@@ -21,5 +21,5 @@
     "production readiness or operational attestation",
     "mutable external locator"
   ],
-  "acceptance": "Archive metadata is non-self-referential; payload and control sidecars are separated; original and independent restore verification remains fail-closed; production_operational_status remains NOT_ATTESTED."
+  "acceptance": "Archive metadata is non-self-referential; payload and control sidecars are separated; original and independent restore verification remains fail-closed; the correction is downstream of conversion run 29810648430 and report SHA-256 056c0203f382f6e3e1e57ebf145448cfddbff4718456fac7a2a84c6420185241; production_operational_status remains NOT_ATTESTED."
 }
