@@ -7,6 +7,7 @@
   "allowed_paths": [
     ".github/workflows/tai-ap14c-review-submission-intake.yml",
     "apps/tai/governance/scopes/ap-14c3-review-submission-intake-2986.json",
+    "apps/tai/model-artifacts/expert-review-packet.mjs",
     "apps/tai/model-artifacts/expert-review-submission-intake.mjs",
     "apps/tai/model-artifacts/expert-review-submission-intake-runbook.v1.md",
     "apps/tai/tests/expert-review-submission-intake.test.mjs",
@@ -16,6 +17,7 @@
     "submission intake is offline and writes only caller-selected candidate files",
     "every submission binds the exact review packet, corpus, exact-main and reviewer track",
     "the packet must exactly match current governed case contracts, track assignments and review policy, not only its self-declared digest",
+    "the packet generator can bind an explicit exact review-authority path for deterministic regression fixtures while production CLI remains bound to the repository authority",
     "stale cases, wrong roles, future timestamps, invalid digests, unknown fields and duplicate or conflicting reviews are rejected",
     "existing review records are never silently replaced",
     "candidate reviews and assessment are deterministic and require human pull-request review",
@@ -28,6 +30,7 @@
     "automated APPROVED, REJECTED or NEEDS_CHANGES decisions",
     "fabricated reviewer identity, evidence digest, timestamp, disagreement or review digest",
     "self-signed packet authority that can redefine reviewer tracks or case contracts",
+    "production CLI selection of an arbitrary review authority path",
     "direct update of GitHub issues, branches, pull requests or authority files",
     "silent overwrite of an existing review ID or reviewer/case pair",
     "model execution, benchmark, admission, activation, deployment or production attestation"
