@@ -1,1 +1,660 @@
 name: TAI Selectel S3 Provisioning
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-selectel-s3-provisioning
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2958 &&
+      github.event.comment.body == '/tai provision selectel-bundle-storage exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      REPORT_ROOT: selectel-s3-provisioning
+      AUTHORITY: apps/tai/model-artifacts/selectel-s3-provisioning-authority.v1.json
+      PREFLIGHT_REQUIREMENTS: apps/tai/model-artifacts/model-bundle-s3-preflight-requirements.v1.json
+      S3_ENDPOINT: ${{ secrets.TAI_BUNDLE_S3_ENDPOINT }}
+      S3_REGION: ${{ secrets.TAI_BUNDLE_S3_REGION }}
+      S3_BUCKET: ${{ secrets.TAI_BUNDLE_S3_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.TAI_BUNDLE_S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.TAI_BUNDLE_S3_SECRET_ACCESS_KEY }}
+      S3_PREFIX: ${{ secrets.TAI_BUNDLE_S3_PREFIX }}
+      S3_CAPACITY_BYTES: ${{ secrets.TAI_BUNDLE_S3_CAPACITY_BYTES }}
+      S3_PRINCIPAL_ID: ${{ secrets.TAI_BUNDLE_S3_PRINCIPAL_ID }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_RETRY_MODE: standard
+      AWS_MAX_ATTEMPTS: '5'
+      AWS_PAGER: ''
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact-main owner trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          mkdir -p "$REPORT_ROOT/release" "$REPORT_ROOT/raw" "$REPORT_ROOT/restore"
+          chmod 700 "$REPORT_ROOT" "$REPORT_ROOT/release" "$REPORT_ROOT/raw" "$REPORT_ROOT/restore"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact TAI authority package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e apps/tai
+
+      - name: Validate committed provisioning authority and protected inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in \
+            S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY_ID \
+            S3_SECRET_ACCESS_KEY S3_PREFIX S3_CAPACITY_BYTES S3_PRINCIPAL_ID; do
+            test -n "${!name:-}"
+          done
+          command -v aws >/dev/null
+          command -v curl >/dev/null
+          command -v jq >/dev/null
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path, PurePosixPath
+          from urllib.parse import urlsplit
+
+          authority = json.loads(Path(os.environ['AUTHORITY']).read_text())
+          assert authority['schema_version'] == 'tai.selectel-s3-provisioning-authority.v1'
+          assert (authority['program_issue'], authority['parent_issue'], authority['issue']) == (
+              2726,
+              2954,
+              2958,
+          )
+          assert authority['command'] == '/tai provision selectel-bundle-storage exact-main'
+          assert authority['provider_profile'] == 'SELECTEL_S3_2026'
+          assert authority['bucket']['versioning_status'] == 'Enabled'
+          assert authority['bucket']['object_lock_status'] == 'Enabled'
+          assert authority['bucket']['default_retention'] == {
+              'mode': 'COMPLIANCE',
+              'days': 90,
+          }
+          assert authority['result']['production_operational_status'] == 'NOT_ATTESTED'
+
+          endpoint = urlsplit(os.environ['S3_ENDPOINT'])
+          assert endpoint.scheme == 'https' and endpoint.hostname
+          assert endpoint.username is None and endpoint.password is None
+          assert not endpoint.query and not endpoint.fragment
+          assert endpoint.path in {'', '/'}
+          assert re.fullmatch(r'[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]', os.environ['S3_BUCKET'])
+          prefix = os.environ['S3_PREFIX']
+          path = PurePosixPath(prefix)
+          assert prefix and not prefix.startswith('/') and not prefix.endswith('/')
+          assert path.as_posix() == prefix and '..' not in path.parts
+          assert os.environ['S3_CAPACITY_BYTES'].isdigit()
+          assert int(os.environ['S3_CAPACITY_BYTES']) >= authority['bucket']['minimum_capacity_bytes']
+          assert re.fullmatch(r'[A-Za-z0-9_-]{8,128}', os.environ['S3_PRINCIPAL_ID'])
+          PY
+
+      - name: Require accepted exact-main release
+        shell: bash
+        run: |
+          set -euo pipefail
+          selected=
+          for attempt in $(seq 1 180); do
+            gh api -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "repos/$REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" \
+              > "$REPORT_ROOT/release/runs.json"
+            set +e
+            python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          exact = os.environ['GITHUB_SHA']
+          runs = json.loads(
+              Path(os.environ['REPORT_ROOT'] + '/release/runs.json').read_text()
+          ).get('workflow_runs', [])
+          candidates = [
+              run for run in runs
+              if run.get('name') == 'TAI Release Acceptance'
+              and run.get('path') == '.github/workflows/tai-release-acceptance.yml'
+              and run.get('head_sha') == exact
+              and run.get('head_branch') == 'main'
+              and run.get('event') in {'push', 'workflow_dispatch'}
+          ]
+          if not candidates:
+              raise SystemExit(3)
+          run = max(candidates, key=lambda item: (item.get('run_number', 0), item.get('id', 0)))
+          if run.get('status') != 'completed':
+              raise SystemExit(3)
+          if run.get('conclusion') != 'success':
+              raise SystemExit(2)
+          Path(os.environ['REPORT_ROOT'] + '/release/selected-run.json').write_text(
+              json.dumps(run, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+            status=$?
+            set -e
+            if [[ "$status" -eq 0 ]]; then selected=yes; break; fi
+            if [[ "$status" -eq 2 ]]; then
+              echo 'Exact-main TAI Release Acceptance failed.' >&2
+              exit 1
+            fi
+            if [[ "$attempt" -eq 180 ]]; then
+              echo 'Exact-main TAI Release Acceptance is pending or absent.' >&2
+              exit 1
+            fi
+            sleep 20
+          done
+          test "$selected" = yes
+
+      - name: Provision and harden Selectel S3 bucket
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TAI_BUNDLE_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TAI_BUNDLE_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.TAI_BUNDLE_S3_REGION }}
+        run: |
+          set -euo pipefail
+          umask 077
+          endpoint=(--endpoint-url "$S3_ENDPOINT" --region "$S3_REGION")
+          common=(--cli-connect-timeout 30 --cli-read-timeout 180)
+          aws_call() {
+            aws "${endpoint[@]}" "${common[@]}" "$@"
+          }
+
+          aws_call s3api list-buckets > "$REPORT_ROOT/raw/list-buckets.before.json"
+          if jq -e --arg bucket "$S3_BUCKET" \
+            '.Buckets // [] | any(.Name == $bucket)' \
+            "$REPORT_ROOT/raw/list-buckets.before.json" >/dev/null; then
+            printf '%s\n' 'false' > "$REPORT_ROOT/raw/bucket-created.txt"
+          else
+            aws_call s3api create-bucket \
+              --bucket "$S3_BUCKET" \
+              --create-bucket-configuration "LocationConstraint=$S3_REGION" \
+              > "$REPORT_ROOT/raw/create-bucket.json"
+            printf '%s\n' 'true' > "$REPORT_ROOT/raw/bucket-created.txt"
+          fi
+          aws_call s3api head-bucket --bucket "$S3_BUCKET"
+
+          aws_call s3api put-bucket-versioning \
+            --bucket "$S3_BUCKET" \
+            --versioning-configuration Status=Enabled
+
+          cat > "$REPORT_ROOT/raw/object-lock.json" <<'JSON'
+          {
+            "ObjectLockEnabled": "Enabled",
+            "Rule": {
+              "DefaultRetention": {
+                "Mode": "COMPLIANCE",
+                "Days": 90
+              }
+            }
+          }
+          JSON
+          aws_call s3api put-object-lock-configuration \
+            --bucket "$S3_BUCKET" \
+            --object-lock-configuration "file://$REPORT_ROOT/raw/object-lock.json"
+
+          PRINCIPAL_ID="$S3_PRINCIPAL_ID" BUCKET="$S3_BUCKET" PREFIX="$S3_PREFIX" \
+            python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          principal = os.environ['PRINCIPAL_ID']
+          bucket = os.environ['BUCKET']
+          prefix = os.environ['PREFIX']
+          bucket_arn = f'arn:aws:s3:::{bucket}'
+          object_arn = f'{bucket_arn}/{prefix}/*'
+          policy = {
+              'Version': '2012-10-17',
+              'Statement': [
+                  {
+                      'Sid': 'AllowDedicatedBundlePrincipalBucketActions',
+                      'Effect': 'Allow',
+                      'Principal': {'AWS': [principal]},
+                      'Action': [
+                          's3:GetBucketLocation',
+                          's3:GetBucketObjectLockConfiguration',
+                          's3:GetBucketPolicy',
+                          's3:GetBucketVersioning',
+                          's3:ListBucket',
+                          's3:ListBucketMultipartUploads',
+                          's3:ListBucketVersions',
+                          's3:PutBucketObjectLockConfiguration',
+                          's3:PutBucketPolicy',
+                          's3:PutBucketVersioning',
+                      ],
+                      'Resource': bucket_arn,
+                  },
+                  {
+                      'Sid': 'AllowDedicatedBundlePrincipalObjectActions',
+                      'Effect': 'Allow',
+                      'Principal': {'AWS': [principal]},
+                      'Action': [
+                          's3:AbortMultipartUpload',
+                          's3:GetObject',
+                          's3:GetObjectRetention',
+                          's3:GetObjectVersion',
+                          's3:ListMultipartUploadParts',
+                          's3:PutObject',
+                      ],
+                      'Resource': object_arn,
+                  },
+                  {
+                      'Sid': 'DenyBundleDeletionForAllPrincipals',
+                      'Effect': 'Deny',
+                      'Principal': '*',
+                      'Action': [
+                          's3:DeleteObject',
+                          's3:DeleteObjectVersion',
+                      ],
+                      'Resource': object_arn,
+                  },
+                  {
+                      'Sid': 'DenyInsecureTransport',
+                      'Effect': 'Deny',
+                      'Principal': '*',
+                      'Action': '*',
+                      'Resource': [bucket_arn, object_arn],
+                      'Condition': {
+                          'Bool': {
+                              'aws:SecureTransport': 'false',
+                          }
+                      },
+                  },
+              ],
+          }
+          Path(os.environ['REPORT_ROOT'] + '/raw/bucket-policy.json').write_text(
+              json.dumps(policy, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+          aws_call s3api put-bucket-policy \
+            --bucket "$S3_BUCKET" \
+            --policy "file://$REPORT_ROOT/raw/bucket-policy.json"
+
+          aws_call s3api get-bucket-versioning \
+            --bucket "$S3_BUCKET" > "$REPORT_ROOT/raw/get_bucket_versioning.json"
+          aws_call s3api get-object-lock-configuration \
+            --bucket "$S3_BUCKET" > "$REPORT_ROOT/raw/get_object_lock_configuration.json"
+          aws_call s3api get-bucket-policy \
+            --bucket "$S3_BUCKET" > "$REPORT_ROOT/raw/get_bucket_policy.json"
+          aws_call s3api list-objects-v2 \
+            --bucket "$S3_BUCKET" --prefix "$S3_PREFIX/" --max-keys 1 \
+            > "$REPORT_ROOT/raw/list_objects_v2.json"
+          aws_call s3api list-object-versions \
+            --bucket "$S3_BUCKET" --prefix "$S3_PREFIX/" --max-keys 1 \
+            > "$REPORT_ROOT/raw/list_object_versions.json"
+
+          anonymous_url="${S3_ENDPOINT%/}/$S3_BUCKET?list-type=2&max-keys=1"
+          set +e
+          anonymous_status="$(
+            curl --silent --show-error --output "$REPORT_ROOT/raw/anonymous-list.body" \
+              --write-out '%{http_code}' --connect-timeout 20 --max-time 60 \
+              "$anonymous_url"
+          )"
+          anonymous_exit=$?
+          set -e
+          test "$anonymous_exit" -eq 0
+          case "$anonymous_status" in 401|403) ;; *) exit 1;; esac
+          printf '%s\n' "$anonymous_status" > "$REPORT_ROOT/raw/anonymous_list_http_status.txt"
+
+      - name: Prove immutable smoke object and exact-version clean restore
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TAI_BUNDLE_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TAI_BUNDLE_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.TAI_BUNDLE_S3_REGION }}
+        run: |
+          set -euo pipefail
+          endpoint=(--endpoint-url "$S3_ENDPOINT" --region "$S3_REGION")
+          common=(--cli-connect-timeout 30 --cli-read-timeout 180)
+          aws_call() {
+            aws "${endpoint[@]}" "${common[@]}" "$@"
+          }
+
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          seed = json.dumps(
+              {
+                  'schema_version': 'tai.selectel-s3-smoke.v1',
+                  'exact_main_sha': os.environ['GITHUB_SHA'],
+                  'workflow_run_id': int(os.environ['GITHUB_RUN_ID']),
+                  'workflow_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              },
+              separators=(',', ':'),
+              sort_keys=True,
+          ).encode()
+          payload = (seed * ((4096 // len(seed)) + 1))[:4096]
+          path = Path(os.environ['REPORT_ROOT']) / 'raw' / 'smoke.bin'
+          path.write_bytes(payload)
+          (Path(os.environ['REPORT_ROOT']) / 'raw' / 'smoke.sha256').write_text(
+              hashlib.sha256(payload).hexdigest() + '\n'
+          )
+          PY
+
+          smoke_key="$S3_PREFIX/preflight/selectel-object-lock-smoke-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.bin"
+          printf '%s\n' "$smoke_key" > "$REPORT_ROOT/raw/smoke-key.txt"
+          aws_call s3api put-object \
+            --bucket "$S3_BUCKET" \
+            --key "$smoke_key" \
+            --body "$REPORT_ROOT/raw/smoke.bin" \
+            > "$REPORT_ROOT/raw/put-object.json"
+
+          version_id="$(jq -r '.VersionId // empty' "$REPORT_ROOT/raw/put-object.json")"
+          test -n "$version_id"
+          test "$version_id" != null
+          printf '%s\n' "$version_id" > "$REPORT_ROOT/raw/version-id.txt"
+
+          restore_path="$REPORT_ROOT/restore/smoke.bin"
+          test -z "$(find "$REPORT_ROOT/restore" -mindepth 1 -print -quit)"
+          aws_call s3api get-object \
+            --bucket "$S3_BUCKET" \
+            --key "$smoke_key" \
+            --version-id "$version_id" \
+            "$restore_path" \
+            > "$REPORT_ROOT/raw/get-object.json"
+          test "$(sha256sum "$restore_path" | awk '{print $1}')" = \
+            "$(cat "$REPORT_ROOT/raw/smoke.sha256")"
+
+          aws_call s3api get-object-retention \
+            --bucket "$S3_BUCKET" \
+            --key "$smoke_key" \
+            --version-id "$version_id" \
+            > "$REPORT_ROOT/raw/get-object-retention.json"
+
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          retention = json.loads(
+              (Path(os.environ['REPORT_ROOT']) / 'raw' / 'get-object-retention.json').read_text()
+          ).get('Retention', {})
+          assert retention.get('Mode') == 'COMPLIANCE'
+          until = datetime.fromisoformat(str(retention['RetainUntilDate']).replace('Z', '+00:00'))
+          assert until > datetime.now(timezone.utc)
+          PY
+
+      - name: Evaluate accepted Selectel preflight contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['REPORT_ROOT']) / 'raw'
+          policy_wrapper = json.loads((root / 'get_bucket_policy.json').read_text())
+          raw_policy = policy_wrapper.get('Policy')
+          policy = json.loads(raw_policy) if isinstance(raw_policy, str) else raw_policy
+          observed = {
+              'schema_version': 'tai.model-bundle-s3-preflight-observed.v1',
+              'provider_profile': 'SELECTEL_S3_2026',
+              'endpoint': os.environ['S3_ENDPOINT'],
+              'region': os.environ['S3_REGION'],
+              'bucket': os.environ['S3_BUCKET'],
+              'prefix': os.environ['S3_PREFIX'],
+              'operator_confirmed_capacity_bytes': os.environ['S3_CAPACITY_BYTES'],
+              'commands': {
+                  'head_bucket': True,
+                  'get_bucket_versioning': True,
+                  'get_object_lock_configuration': True,
+                  'get_bucket_policy': True,
+                  'list_objects_v2': True,
+                  'list_object_versions': True,
+                  'anonymous_list_probe': True,
+              },
+              'versioning': json.loads((root / 'get_bucket_versioning.json').read_text()),
+              'object_lock': json.loads(
+                  (root / 'get_object_lock_configuration.json').read_text()
+              ),
+              'anonymous_list_http_status': (
+                  root / 'anonymous_list_http_status.txt'
+              ).read_text().strip(),
+              'policy': policy,
+              'mutation_mode': 'READ_ONLY',
+          }
+          (Path(os.environ['REPORT_ROOT']) / 'observed.json').write_text(
+              json.dumps(observed, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+          python -m tai.model_bundle_s3_preflight_cli \
+            "$PREFLIGHT_REQUIREMENTS" \
+            "$REPORT_ROOT/observed.json" \
+            --exact-main "$GITHUB_SHA" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --output "$REPORT_ROOT/preflight-report.json"
+          test "$(jq -r '.status' "$REPORT_ROOT/preflight-report.json")" = \
+            'READY_FOR_BUNDLE_UPLOAD'
+
+      - name: Build bounded provisioning report
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['REPORT_ROOT'])
+          preflight_path = root / 'preflight-report.json'
+          preflight = (
+              json.loads(preflight_path.read_text())
+              if preflight_path.exists()
+              else {'status': 'FAILED_CLOSED', 'reasons': ['PREFLIGHT_REPORT_ABSENT']}
+          )
+          raw = root / 'raw'
+          smoke_sha = (
+              (raw / 'smoke.sha256').read_text().strip()
+              if (raw / 'smoke.sha256').exists()
+              else None
+          )
+          version_id = (
+              (raw / 'version-id.txt').read_text().strip()
+              if (raw / 'version-id.txt').exists()
+              else None
+          )
+          etag = None
+          put_path = raw / 'put-object.json'
+          if put_path.exists():
+              etag = json.loads(put_path.read_text()).get('ETag')
+          report = {
+              'schema_version': 'tai.selectel-s3-provisioning-report.v1',
+              'status': (
+                  'READY_FOR_BUNDLE_UPLOAD'
+                  if preflight.get('status') == 'READY_FOR_BUNDLE_UPLOAD'
+                  else 'FAILED_CLOSED'
+              ),
+              'reasons': preflight.get('reasons', []),
+              'exact_main_sha': os.environ['GITHUB_SHA'],
+              'workflow_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'workflow_run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+              'provider_profile': 'SELECTEL_S3_2026',
+              'endpoint_host': preflight.get('observed', {}).get('endpoint_host'),
+              'region': os.environ.get('S3_REGION'),
+              'bucket': os.environ.get('S3_BUCKET'),
+              'prefix': os.environ.get('S3_PREFIX'),
+              'bucket_created': (
+                  (raw / 'bucket-created.txt').read_text().strip() == 'true'
+                  if (raw / 'bucket-created.txt').exists()
+                  else None
+              ),
+              'versioning_status': preflight.get('observed', {}).get('versioning_status'),
+              'object_lock_status': preflight.get('observed', {}).get('object_lock_status'),
+              'default_retention_mode': preflight.get('observed', {}).get(
+                  'default_retention_mode'
+              ),
+              'default_retention_days': preflight.get('observed', {}).get(
+                  'default_retention_days'
+              ),
+              'anonymous_list_http_status': preflight.get('observed', {}).get(
+                  'anonymous_list_http_status'
+              ),
+              'smoke': {
+                  'size_bytes': 4096 if smoke_sha else None,
+                  'sha256': smoke_sha,
+                  'version_id': version_id,
+                  'etag': etag,
+                  'deleted': False,
+              },
+              'bundle_upload_status': 'NOT_RUN',
+              'bundle_restore_status': 'NOT_RUN',
+              'benchmark_status': 'NOT_RUN',
+              'model_admission_status': 'NOT_DONE',
+              'production_operational_status': 'NOT_ATTESTED',
+          }
+          rendered = json.dumps(
+              report, ensure_ascii=False, separators=(',', ':'), sort_keys=True
+          )
+          report['report_sha256'] = hashlib.sha256(rendered.encode()).hexdigest()
+          (root / 'report.json').write_text(
+              json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+      - name: Remove smoke payload bytes before evidence upload
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f "$REPORT_ROOT/raw/smoke.bin" "$REPORT_ROOT/restore/smoke.bin"
+          test ! -e "$REPORT_ROOT/raw/smoke.bin"
+          test ! -e "$REPORT_ROOT/restore/smoke.bin"
+          if find "$REPORT_ROOT" -type f -size +50000000c -print -quit | grep -q .; then
+            echo 'Oversized data entered provisioning evidence.' >&2
+            exit 1
+          fi
+
+      - name: Upload bounded provisioning evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-selectel-s3-provisioning-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            selectel-s3-provisioning/report.json
+            selectel-s3-provisioning/preflight-report.json
+            selectel-s3-provisioning/observed.json
+            selectel-s3-provisioning/raw/get_bucket_versioning.json
+            selectel-s3-provisioning/raw/get_object_lock_configuration.json
+            selectel-s3-provisioning/raw/get_bucket_policy.json
+            selectel-s3-provisioning/raw/get-object-retention.json
+            selectel-s3-provisioning/raw/put-object.json
+            selectel-s3-provisioning/raw/smoke.sha256
+            selectel-s3-provisioning/raw/version-id.txt
+            apps/tai/model-artifacts/selectel-s3-provisioning-authority.v1.json
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded provisioning summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > "$REPORT_ROOT/summary.md"
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['REPORT_ROOT']) / 'report.json'
+          report = (
+              json.loads(path.read_text())
+              if path.exists()
+              else {
+                  'status': 'FAILED_CLOSED',
+                  'reasons': ['REPORT_ABSENT'],
+                  'exact_main_sha': os.environ['GITHUB_SHA'],
+                  'smoke': {},
+              }
+          )
+          smoke = report.get('smoke', {})
+          lines = [
+              '## TAI Selectel S3 provisioning',
+              '',
+              f"- exact-main: `{report.get('exact_main_sha')}`;",
+              f"- status: `{report.get('status')}`;",
+              f"- reasons: `{report.get('reasons')}`;",
+              f"- endpoint host: `{report.get('endpoint_host')}`;",
+              f"- region: `{report.get('region')}`;",
+              f"- bucket: `{report.get('bucket')}`;",
+              f"- prefix: `{report.get('prefix')}`;",
+              f"- bucket created by this run: `{report.get('bucket_created')}`;",
+              f"- versioning: `{report.get('versioning_status')}`;",
+              f"- Object Lock: `{report.get('object_lock_status')}`;",
+              f"- retention: `{report.get('default_retention_mode')}` / "
+              f"`{report.get('default_retention_days')}` days;",
+              f"- smoke version id present: `{bool(smoke.get('version_id'))}`;",
+              f"- smoke SHA-256: `{smoke.get('sha256')}`;",
+              f"- report SHA-256: `{report.get('report_sha256')}`;",
+              '- smoke deletion: `false`;',
+              '- model bundle upload: `NOT_RUN`;',
+              '- clean model restore: `NOT_RUN`;',
+              '- benchmark: `NOT_RUN`;',
+              '- model admission: `NOT_DONE`;',
+              '- production operational status: `NOT_ATTESTED`.',
+          ]
+          print('\n'.join(lines))
+          PY
+          jq -n --rawfile body "$REPORT_ROOT/summary.md" '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/2958/comments" --input -
+
+      - name: Enforce ready status
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$REPORT_ROOT/report.json"
+          test "$(jq -r '.status' "$REPORT_ROOT/report.json")" = 'READY_FOR_BUNDLE_UPLOAD'
+          test "$(jq -r '.reasons | length' "$REPORT_ROOT/report.json")" = '0'
+          test "$(jq -r '.production_operational_status' "$REPORT_ROOT/report.json")" = \
+            'NOT_ATTESTED'
