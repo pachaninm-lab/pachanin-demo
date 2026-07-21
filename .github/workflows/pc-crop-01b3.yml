@@ -14,6 +14,7 @@ on:
       - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.spec.ts'
       - 'apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.integration.spec.ts'
       - '.github/workflows/pc-crop-01b3.yml'
+      - '.github/workflows/pc-crop-01b3-audit-hardening.yml'
   push:
     branches: [main]
     paths:
@@ -29,7 +30,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: pc-crop-01b3-${{ github.event.pull_request.number || github.ref }}
@@ -41,8 +42,102 @@ env:
   EVIDENCE_DIR: artifacts/pc-crop-01b3
 
 jobs:
+  audit-timestamp-hardening:
+    name: One-shot exact audit timestamp hardening
+    runs-on: ubuntu-24.04
+    outputs:
+      patched: ${{ steps.patch.outputs.patched }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - id: patch
+        name: Patch and push a governed successor head when required
+        shell: bash
+        run: |
+          set -euo pipefail
+          port='apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts'
+          if ! grep -q 'const aggregateVersion = await this.bumpProfileVersion' "$port"; then
+            echo 'patched=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 <<'PY'
+          from pathlib import Path
+
+          port = Path('apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts')
+          text = port.read_text()
+
+          old = 'const aggregateVersion = await this.bumpProfileVersion('
+          if text.count(old) != 2:
+              raise SystemExit(f'aggregate declaration count={text.count(old)}')
+          text = text.replace(old, 'const aggregateState = await this.bumpProfileVersion(')
+
+          old = '      aggregateVersion,\n'
+          if text.count(old) != 2:
+              raise SystemExit(f'aggregate receipt argument count={text.count(old)}')
+          text = text.replace(old, '      aggregateState.version,\n')
+
+          old = '      { ...profile, version: aggregateVersion, updatedAt: committedAt },\n'
+          new = '''      {
+        ...profile,
+        version: aggregateState.version,
+        updatedAt: aggregateState.updatedAt,
+      },
+'''
+          if text.count(old) != 1:
+              raise SystemExit(f'regular after-state count={text.count(old)}')
+          text = text.replace(old, new)
+
+          old = '      this.state({ ...profile, version: aggregateVersion }, version),\n'
+          new = '''      this.state({
+        ...profile,
+        version: aggregateState.version,
+        updatedAt: aggregateState.updatedAt,
+      }, version),
+'''
+          if text.count(old) != 1:
+              raise SystemExit(f'draft after-state count={text.count(old)}')
+          text = text.replace(old, new)
+
+          changes = [
+              (
+                  '  ): Promise<bigint> {\n    const expected = BigInt(expectedVersion);\n    const rows = await tx.$queryRaw<Array<{ version: bigint }>>(Prisma.sql`',
+                  '  ): Promise<{ version: bigint; updatedAt: Date }> {\n    const expected = BigInt(expectedVersion);\n    const rows = await tx.$queryRaw<Array<{ version: bigint; updatedAt: Date }>>(Prisma.sql`',
+              ),
+              ('      RETURNING "version"\n', '      RETURNING "version", "updatedAt"\n'),
+              ('    return rows[0]!.version;\n', '    return rows[0]!;\n'),
+          ]
+          for before, after in changes:
+              if text.count(before) != 1:
+                  raise SystemExit(f'expected one occurrence of {before!r}, found {text.count(before)}')
+              text = text.replace(before, after)
+          port.write_text(text)
+
+          spec = Path('apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.spec.ts')
+          spec_text = spec.read_text()
+          before = '    [{ version: 8n }],\n'
+          after = '    [{ version: 8n, updatedAt: now }],\n'
+          if spec_text.count(before) != 1:
+              raise SystemExit(f'aggregate fixture count={spec_text.count(before)}')
+          spec.write_text(spec_text.replace(before, after))
+          PY
+
+          if [[ -f .github/workflows/pc-crop-01b3-audit-hardening.yml ]]; then
+            git rm .github/workflows/pc-crop-01b3-audit-hardening.yml
+          fi
+          git config user.name 'pc-crop-governed-bot'
+          git config user.email 'pc-crop-governed-bot@users.noreply.github.com'
+          git add "$port" apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.spec.ts
+          git commit -m 'PC-CROP-01B.3: bind audit state to PostgreSQL timestamp'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          echo 'patched=true' >> "$GITHUB_OUTPUT"
+
   postgresql-command-authority:
     name: PostgreSQL 16 lifecycle race, audit and outbox rollback
+    needs: audit-timestamp-hardening
+    if: needs.audit-timestamp-hardening.outputs.patched != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     services:
