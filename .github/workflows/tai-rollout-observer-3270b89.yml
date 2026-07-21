@@ -1,0 +1,202 @@
+name: TAI Rollout Observer 3270b89
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-rollout-observer-3270b89.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: tai-rollout-observer-3270b89
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      RELEASE_AUTHORITY_SHA: 3270b89774f386d3a50935a967fc875d9e43486f
+      EXPECTED_TARGET_SHA: 24277e008d25f66f52b56284ff83ca3eead39fb2
+      EXPECTED_IMAGE: ghcr.io/pachaninm-lab/grainflow-web:sha-24277e0
+      OBSERVER_DIR: artifacts/tai-rollout-observer-3270b89
+    steps:
+      - name: Wait for trusted push rollout
+        id: locate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$OBSERVER_DIR"
+          run_id=''
+          for attempt in $(seq 1 90); do
+            run_id="$(gh api \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "repos/$REPOSITORY/actions/workflows/deploy-ai-web-vps-c21eec0.yml/runs?event=push&branch=main&per_page=30" \
+              --jq ".workflow_runs[] | select(.head_sha == \"$RELEASE_AUTHORITY_SHA\") | .id" \
+              | head -1 || true)"
+            if [[ -n "$run_id" ]]; then
+              echo "Found trusted push rollout run $run_id"
+              break
+            fi
+            echo "Run discovery attempt $attempt/90"
+            sleep 10
+          done
+          [[ -n "$run_id" ]] || { echo 'Trusted push rollout run was not created.' >&2; exit 2; }
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$run_id" > "$OBSERVER_DIR/run-id.txt"
+
+      - name: Wait for rollout completion
+        id: wait
+        env:
+          RUN_ID: ${{ steps.locate.outputs.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          conclusion=''
+          for attempt in $(seq 1 150); do
+            gh api \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "repos/$REPOSITORY/actions/runs/$RUN_ID" \
+              > "$OBSERVER_DIR/run.json"
+            status="$(jq -r '.status' "$OBSERVER_DIR/run.json")"
+            conclusion="$(jq -r '.conclusion // empty' "$OBSERVER_DIR/run.json")"
+            echo "Rollout attempt $attempt/150: status=$status conclusion=${conclusion:-pending}"
+            if [[ "$status" == completed ]]; then
+              break
+            fi
+            sleep 10
+          done
+          [[ -n "$conclusion" ]] || { echo 'Rollout did not complete within observer window.' >&2; exit 3; }
+          echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
+
+      - name: Collect jobs and release artifact
+        env:
+          RUN_ID: ${{ steps.locate.outputs.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --paginate \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" \
+            > "$OBSERVER_DIR/jobs.json"
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$REPOSITORY/actions/runs/$RUN_ID/artifacts?per_page=100" \
+            > "$OBSERVER_DIR/artifacts.json"
+
+          artifact_id="$(jq -r '.artifacts[] | select(.name | startswith("vps-tai-p0-web-24277e0-")) | .id' "$OBSERVER_DIR/artifacts.json" | head -1)"
+          [[ -n "$artifact_id" && "$artifact_id" != null ]] || { echo 'Authoritative VPS release artifact is absent.' >&2; exit 4; }
+          curl --fail --silent --show-error --location \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$REPOSITORY/actions/artifacts/$artifact_id/zip" \
+            --output "$OBSERVER_DIR/release-evidence.zip"
+          mkdir -p "$OBSERVER_DIR/release-evidence"
+          unzip -q "$OBSERVER_DIR/release-evidence.zip" -d "$OBSERVER_DIR/release-evidence"
+
+      - name: Verify exact rollout evidence
+        env:
+          RUN_ID: ${{ steps.locate.outputs.run_id }}
+          RUN_CONCLUSION: ${{ steps.wait.outputs.conclusion }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['OBSERVER_DIR'])
+          evidence = root / 'release-evidence'
+          run = json.loads((root / 'run.json').read_text(encoding='utf-8'))
+          jobs_payload = json.loads((root / 'jobs.json').read_text(encoding='utf-8'))
+          jobs = jobs_payload.get('jobs', []) if isinstance(jobs_payload, dict) else []
+
+          def one(name: str) -> Path:
+              matches = list(evidence.rglob(name))
+              if len(matches) != 1:
+                  raise SystemExit(f'expected one {name}, found {len(matches)}')
+              return matches[0]
+
+          target = one('target-sha.txt').read_text(encoding='utf-8').strip()
+          image = one('exact-image.txt').read_text(encoding='utf-8').strip()
+          event = one('release-event.txt').read_text(encoding='utf-8').strip()
+          summary = one('summary.md').read_text(encoding='utf-8')
+          remote = one('deploy-remote.log').read_text(encoding='utf-8', errors='replace')
+          manifest = json.loads(one('live-manifest.json').read_text(encoding='utf-8'))
+
+          expected_target = os.environ['EXPECTED_TARGET_SHA']
+          expected_image = os.environ['EXPECTED_IMAGE']
+          if run.get('event') != 'push' or run.get('head_sha') != os.environ['RELEASE_AUTHORITY_SHA']:
+              raise SystemExit('run authority mismatch')
+          if os.environ['RUN_CONCLUSION'] != 'success':
+              raise SystemExit(f'rollout conclusion is {os.environ["RUN_CONCLUSION"]}')
+          if target != expected_target or image != expected_image or event != 'push':
+              raise SystemExit('release evidence target/image/event mismatch')
+          if manifest.get('commitSha') != expected_target:
+              raise SystemExit(f'live manifest mismatch: {manifest.get("commitSha")}')
+          if f'DEPLOYED_REVISION={expected_target}' not in remote:
+              raise SystemExit('exact deployed revision is absent from remote evidence')
+          if 'WEB_STATE=healthy' not in remote and 'WEB_STATE=running' not in remote:
+              raise SystemExit('web healthy/running state is absent')
+          if 'A non-web container changed.' in remote:
+              raise SystemExit('non-web container invariance failed')
+          if 'ROLLBACK_COMPLETED=' in remote:
+              raise SystemExit('unexpected rollback evidence in successful rollout')
+
+          deploy_jobs = [j for j in jobs if j.get('name') == 'Hardened key-only VPS web deployment and exact live verification']
+          if len(deploy_jobs) != 1 or deploy_jobs[0].get('conclusion') != 'success':
+              raise SystemExit('deployment job did not conclude success')
+
+          files = []
+          for path in sorted(p for p in evidence.rglob('*') if p.is_file()):
+              files.append({
+                  'path': str(path.relative_to(evidence)),
+                  'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                  'bytes': path.stat().st_size,
+              })
+          report = {
+              'schema_version': 'tai.rollout-observer.3270b89.v1',
+              'workflow_run_id': int(os.environ['RUN_ID']),
+              'release_authority_sha': os.environ['RELEASE_AUTHORITY_SHA'],
+              'target_sha': target,
+              'exact_image': image,
+              'event': event,
+              'run_conclusion': os.environ['RUN_CONCLUSION'],
+              'deployment_job_conclusion': deploy_jobs[0].get('conclusion'),
+              'live_commit_sha': manifest.get('commitSha'),
+              'web_state_verified': True,
+              'non_web_invariance_verified': True,
+              'rollback_observed': False,
+              'tai_operational_status': 'NOT_ATTESTED',
+              'evidence_files': files,
+          }
+          (root / 'observer-report.json').write_text(
+              json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          (root / 'summary-extract.md').write_text(summary, encoding='utf-8')
+          print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload observer evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-rollout-observer-3270b89-${{ github.run_id }}
+          path: ${{ env.OBSERVER_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
