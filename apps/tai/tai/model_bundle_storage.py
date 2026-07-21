@@ -7,7 +7,7 @@ import shutil
 import tarfile
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
-from typing import BinaryIO
+from typing import IO
 
 from tai.model_bundle_v2 import (
     BundleVerificationStatus,
@@ -385,7 +385,7 @@ def _file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _stream_sha256(handle: BinaryIO) -> tuple[str, int]:
+def _stream_sha256(handle: IO[bytes]) -> tuple[str, int]:
     digest = hashlib.sha256()
     size = 0
     for chunk in iter(lambda: handle.read(_CHUNK_SIZE), b""):
