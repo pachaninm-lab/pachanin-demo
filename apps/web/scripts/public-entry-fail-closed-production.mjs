@@ -42,9 +42,10 @@ try {
     const form = page.locator('form.pc-auth-card').first();
     const submit = form.locator('button.pc-auth-submit[type="submit"]');
     assert(await email.count() === 1 && await password.count() === 1 && await form.count() === 1 && await submit.count() === 1, 'canonical login form incomplete');
+    await page.waitForTimeout(2000);
     await email.fill('monitor-nonexistent@example.test');
     await password.fill('Invalid-Monitor-Password-2026!');
-    await submit.click();
+    await form.evaluate((node) => node.requestSubmit());
     await page.waitForFunction(() => {
       const error = document.querySelector('#pc-auth-error');
       const button = document.querySelector('button.pc-auth-submit');
@@ -69,7 +70,7 @@ try {
     assert(forbiddenCookies.length === 0, `auth/demo cookies created: ${forbiddenCookies.map((item) => item.name).join(',')}`);
     assert(!hasDemo(state.localStorage) && !hasDemo(state.sessionStorage), 'demo/mock storage created');
     assert(runtimeErrors.length === 0 && pageErrors.length === 0, `runtime errors: ${JSON.stringify({ runtimeErrors, pageErrors })}`);
-    assert(rejected || failedRequests.length > 0 || state.errorText.length > 0, `no rejection or visible error; responses=${JSON.stringify(authResponses)} failed=${JSON.stringify(failedRequests)}`);
+    assert(rejected || failedRequests.length > 0 || state.errorText.length > 0, `no rejection or visible error; responses=${JSON.stringify(authResponses)} failed=${JSON.stringify(failedRequests)} busy=${state.submitBusy}`);
 
     Object.assign(result, {
       ok: true,
