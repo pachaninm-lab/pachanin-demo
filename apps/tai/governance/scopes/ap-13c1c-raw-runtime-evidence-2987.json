@@ -1,0 +1,34 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "parent_issue": 2971,
+  "issue": 2987,
+  "branch": "agent/tai-ap-13c1c-raw-runtime-evidence",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13c1c-raw-runtime-evidence-2987.json",
+    "apps/tai/model-artifacts/cpu-runtime-evidence-authority.v1.json",
+    "apps/tai/model-artifacts/cpu-runtime-evidence.schema.v1.json",
+    "apps/tai/model-artifacts/cpu-runtime-evidence.pending.json",
+    "apps/tai/model-artifacts/cpu-runtime-evidence-runbook.v1.md",
+    "apps/tai/tai/cpu_runtime_evidence.py",
+    "apps/tai/tai/cpu_runtime_evidence_cli.py",
+    "apps/tai/tests/test_cpu_runtime_evidence.py",
+    "apps/tai/tests/test_cpu_runtime_evidence_cli.py"
+  ],
+  "acceptance": [
+    "raw CPU runtime evidence is contractually separated from semantic quality scoring",
+    "the exact Qwen and Mistral CPU profiles, accepted AP-14C identity and immutable bundle provenance are pinned",
+    "concurrency, throughput, latency, error, RAM, startup, fallback and soak evidence is fail-closed",
+    "all 58 cases across RU, EN and ZH require exact raw observation coverage without placing prompts or responses in GitHub evidence",
+    "original and independently restored external evidence roots must match every declared digest",
+    "verified runtime evidence remains pending governed quality scoring and cannot create model admission",
+    "production_operational_status remains NOT_ATTESTED"
+  ],
+  "forbidden_capabilities": [
+    "model weights, GGUF files, raw prompts, raw responses, logs, archives or credentials in Git",
+    "LLM-as-judge or fabricated platform/agro accuracy",
+    "accepting pending, stale, simulated, incomplete or same-root evidence",
+    "GPU benchmark, joint model admission, activation, deployment or production attestation",
+    "execution on the production web, API or PostgreSQL host"
+  ]
+}
