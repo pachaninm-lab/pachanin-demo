@@ -1,4 +1,9 @@
-import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import type { RequestUser } from '../../common/types/request-user';
 import {
   assertIdempotentReplay,
@@ -13,6 +18,10 @@ import {
   type CommodityProfileClassification,
   type CommodityProfileLifecycle,
 } from './commodity-profile.policy';
+
+export const COMMODITY_PROFILE_TRANSACTION_PORT = Symbol(
+  'COMMODITY_PROFILE_TRANSACTION_PORT',
+);
 
 export type CommodityProfileCommandSnapshot = {
   profileId: string;
@@ -54,7 +63,10 @@ const TARGET_LIFECYCLE: Partial<Record<CommodityProfileCommand['action'], Commod
 
 @Injectable()
 export class CommodityProfileTransactionCommandService {
-  constructor(private readonly port: CommodityProfileTransactionPort) {}
+  constructor(
+    @Inject(COMMODITY_PROFILE_TRANSACTION_PORT)
+    private readonly port: CommodityProfileTransactionPort,
+  ) {}
 
   async execute(
     user: RequestUser,
