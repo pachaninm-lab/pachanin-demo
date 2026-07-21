@@ -86,13 +86,30 @@ def test_workflow_permissions_and_credentials_are_bounded() -> None:
     assert "actions: write" not in workflow
     assert "id-token: write" not in workflow
     assert "packages: write" not in workflow
-    assert "PC_PROD_SSH_KEY" in workflow
-    assert "PC_PROD_SSH_PRIVATE_KEY" in workflow
-    assert "VPS_SSH_KEY" in workflow
-    assert "PC_PROD_SSH_PASSWORD" in workflow
-    assert "VPS_SSH_PASSWORD" in workflow
+    for secret_name in (
+        "TAI_MODEL_HOST",
+        "TAI_MODEL_SSH_USER",
+        "TAI_MODEL_SSH_PORT",
+        "TAI_MODEL_SSH_KEY",
+        "TAI_MODEL_SSH_PASSWORD",
+    ):
+        assert secret_name in workflow
+    for forbidden_secret in (
+        "PC_PROD_HOST",
+        "PC_PROD_SSH_USER",
+        "PC_PROD_SSH_PORT",
+        "PC_PROD_SSH_KEY",
+        "PC_PROD_SSH_PRIVATE_KEY",
+        "PC_PROD_SSH_PASSWORD",
+        "VPS_SSH_KEY",
+        "VPS_SSH_PASSWORD",
+    ):
+        assert forbidden_secret not in workflow
     assert "persist-credentials: false" in workflow
-    assert "No supported protected SSH credential is configured" in workflow
+    assert (
+        "No supported protected TAI model-host SSH credential is configured"
+        in workflow
+    )
 
 
 def test_remote_script_is_read_only_and_probes_exact_revision_endpoints() -> None:
