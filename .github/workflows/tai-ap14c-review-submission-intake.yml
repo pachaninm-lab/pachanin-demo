@@ -1,0 +1,79 @@
+name: TAI AP-14C Review Submission Intake
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tai-ap14c-review-submission-intake.yml'
+      - 'apps/tai/governance/scopes/ap-14c3-review-submission-intake-2986.json'
+      - 'apps/tai/model-artifacts/expert-review-packet.mjs'
+      - 'apps/tai/model-artifacts/expert-review-submission-intake.mjs'
+      - 'apps/tai/model-artifacts/expert-review-submission-intake-runbook.v1.md'
+      - 'apps/tai/tests/expert-review-submission-intake.test.mjs'
+      - 'docs/platform-v7/autopilot/tai-ap-14c/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-ap14c-review-submission-intake.yml'
+      - 'apps/tai/governance/scopes/ap-14c3-review-submission-intake-2986.json'
+      - 'apps/tai/model-artifacts/expert-review-packet.mjs'
+      - 'apps/tai/model-artifacts/expert-review-submission-intake.mjs'
+      - 'apps/tai/model-artifacts/expert-review-submission-intake-runbook.v1.md'
+      - 'apps/tai/tests/expert-review-submission-intake.test.mjs'
+      - 'docs/platform-v7/autopilot/tai-ap-14c/**'
+
+permissions:
+  contents: read
+
+jobs:
+  intake-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate intake module syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check apps/tai/model-artifacts/expert-review-submission-intake.mjs
+          node --check apps/tai/tests/expert-review-submission-intake.test.mjs
+
+      - name: Run fail-closed intake regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tai-review-intake-evidence
+          node apps/tai/tests/expert-review-submission-intake.test.mjs \
+            | tee tai-review-intake-evidence/test-output.txt
+
+      - name: Record exact-head evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tai-review-intake-evidence
+          printf '%s\n' "$GITHUB_SHA" > tai-review-intake-evidence/exact-head.txt
+          sha256sum \
+            apps/tai/model-artifacts/expert-review-submission-intake.mjs \
+            apps/tai/tests/expert-review-submission-intake.test.mjs \
+            > tai-review-intake-evidence/files.sha256
+
+      - name: Upload bounded intake evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ap14c-review-intake-${{ github.sha }}
+          path: tai-review-intake-evidence
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
