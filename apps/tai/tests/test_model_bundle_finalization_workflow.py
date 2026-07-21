@@ -17,6 +17,7 @@ COMMAND = "/tai finalize model-bundles exact-main"
 CONVERSION_SHA = "8bd494dc4954baaf699cffa243951392ff451ebb"
 CONVERSION_RUN = 29810648430
 EXPECTED_PATHS = {
+    ".gitleaksignore",
     ".github/workflows/tai-model-bundle-finalization.yml",
     "apps/tai/governance/scopes/ap-13b3h-bundle-finalization-2961.json",
     "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json",
