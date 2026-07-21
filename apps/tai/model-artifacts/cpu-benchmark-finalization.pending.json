@@ -1,0 +1,18 @@
+{
+  "schema_version": "tai.cpu-benchmark-finalization.v1",
+  "lifecycle": "PENDING_EXTERNAL_EVIDENCE",
+  "pending_reason": "Real AP-13C.1c runtime evidence, accepted AP-13C.1d human scoring evidence and immutable finalization storage are not yet available.",
+  "exact_main": null,
+  "authority_sha256": null,
+  "runtime_report_sha256": null,
+  "quality_report_sha256": null,
+  "qwen_primary": null,
+  "mistral_fallback": null,
+  "storage": null,
+  "finalized_at": null,
+  "qwen_primary_benchmark_status": "PENDING_BENCHMARK",
+  "mistral_fallback_benchmark_status": "PENDING_REAL_FINALIZATION_EVIDENCE",
+  "joint_benchmark_status": "PENDING_BENCHMARK",
+  "model_admission_status": "PENDING_ADMISSION",
+  "production_operational_status": "NOT_ATTESTED"
+}
