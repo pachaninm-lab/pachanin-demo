@@ -1,0 +1,46 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3d-governed-conversion",
+  "status": "active",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2932,
+  "maturity_boundary": "governed-conversion-and-quantization-only",
+  "allowed_paths": [
+    ".gitleaksignore",
+    ".github/workflows/tai-model-conversion.yml",
+    "apps/tai/governance/scopes/ap-13b3d-governed-conversion-2932.json",
+    "apps/tai/model-artifacts/model-conversion-authority.v1.json",
+    "apps/tai/model-artifacts/model-conversion-driver.v1.sh",
+    "apps/tai/model-artifacts/model-conversion-orchestrator-master.v1.sh",
+    "apps/tai/model-artifacts/model-conversion-prerequisites.v1.sh",
+    "apps/tai/model-artifacts/model-conversion-artifacts.v1.sh",
+    "apps/tai/model-artifacts/model-conversion-transport.v1.sh",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
+    "apps/tai/tests/test_model_conversion_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "production-server fallback or production workload mutation",
+    "mutable model revision, community GGUF or prebuilt model substitution",
+    "automated legal approval or rejection",
+    "model weights, GGUF, binaries or large archives committed to Git",
+    "benchmark, model admission or production-readiness claim",
+    "mutation outside the dedicated per-run model-host root",
+    "deletion or overwrite of accepted external evidence"
+  ],
+  "acceptance": [
+    "owner-only issue command is exact-main and non-automatic",
+    "dedicated TAI_MODEL transport has no production credential fallback",
+    "successful exact-main Release Acceptance is required and verified",
+    "accepted human legal, source and llama.cpp evidence is verified before remote execution",
+    "only authority-declared conversion and quantization argv is executed",
+    "remote mutations remain beneath the immutable per-run root",
+    "safe retry reuses verified files and quarantines incomplete outputs",
+    "every source and output is bound by size and SHA-256",
+    "only bounded metadata and logs return to GitHub Actions",
+    "large source and GGUF bytes remain outside Git",
+    "Ruff, strict mypy, full pytest/coverage, CI and security/runtime gates pass",
+    "benchmark and admission remain NOT_RUN/NOT_DONE",
+    "production_operational_status remains NOT_ATTESTED"
+  ]
+}
