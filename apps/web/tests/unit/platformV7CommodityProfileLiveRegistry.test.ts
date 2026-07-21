@@ -37,9 +37,9 @@ describe('PC-CROP-01B.4 strict live commodity registry', () => {
   const designPolicy = read(files.designPolicy);
   const accessPolicy = read(files.accessPolicy);
 
-  it('loads only dedicated private BFF data and never falls back to fixtures or browser persistence', () => {
-    expect(client).toContain("'/api/platform-v7/commodity-profiles?limit=100'");
-    expect(client).toContain('/api/platform-v7/commodity-profiles/${encodeURIComponent(initialProfileId)}');
+  it('loads only private BFF authority and never falls back to fixtures or browser persistence', () => {
+    expect(client).toContain('/api/staff/commodity-profile-registry');
+    expect(client).toContain('/api/platform-v7/commodity-profiles');
     expect(client).toContain('/versions?limit=100');
     expect(client).toContain("data-static-authority-fallback='false'");
     expect(`${client}\n${adapter}`).not.toMatch(/fixture|mockProfiles|demoProfiles/i);
@@ -50,7 +50,7 @@ describe('PC-CROP-01B.4 strict live commodity registry', () => {
     expect(detail).toContain("data-authority='postgresql-private-bff'");
   });
 
-  it('rejects incomplete server contracts instead of manufacturing domain facts', () => {
+  it('rejects incomplete server contracts and consumes only server primaryAction', () => {
     expect(adapter).toContain('return null');
     expect(adapter).toContain('if (!content || primaryAction === null) return null');
     expect(adapter).not.toContain("|| 'DRAFT'");
@@ -75,6 +75,18 @@ describe('PC-CROP-01B.4 strict live commodity registry', () => {
     expect(commandBff).not.toMatch(/\bhasJitAuthority\s*:/);
   });
 
+  it('executes only confirmed server actions with CSRF, If-Match and immutable command identifiers', () => {
+    expect(client).toContain('/api/staff/commodity-profiles/');
+    expect(client).toContain("'X-CSRF-Token': csrfToken");
+    expect(client).toContain("'If-Match': pending.etag");
+    expect(client).toContain('commandToken(');
+    expect(client).toContain("response.status === 409");
+    expect(client).toContain('setReceipt(copy.receipt)');
+    expect(client).toContain("role='dialog'");
+    expect(page).toContain('CSRF_COOKIE');
+    expect(detail).toContain('CSRF_COOKIE');
+  });
+
   it('models loading, empty, forbidden, error, conflict, reconnecting and ready without replacing server truth', () => {
     for (const state of ['loading', 'ready', 'empty', 'error', 'forbidden', 'conflict', 'reconnecting']) {
       expect(client).toContain(`'${state}'`);
@@ -97,11 +109,12 @@ describe('PC-CROP-01B.4 strict live commodity registry', () => {
     }
   });
 
-  it('keeps mobile safe areas and hides unimplemented pin-count authority', () => {
+  it('keeps mobile safe areas, focus visibility and hides unimplemented pin-count authority', () => {
     const pageCss = read('app/platform-v7/commodity-profiles/commodity-profiles.module.css');
     expect(pageCss).toContain('env(safe-area-inset-bottom)');
     expect(pageCss).toContain('@media (max-width: 430px)');
     expect(clientCss).toContain('@media (max-width: 640px)');
+    expect(clientCss).toContain(':focus-visible');
     expect(client).toContain("data-pinning-authority='not-in-slice'");
   });
 });
