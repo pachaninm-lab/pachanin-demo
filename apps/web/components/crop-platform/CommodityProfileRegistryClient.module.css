@@ -30,10 +30,89 @@
   display: none;
 }
 
+.confirmation {
+  position: fixed;
+  z-index: 90;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(720px, calc(100dvh - 32px));
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  overflow: auto;
+  box-shadow: 0 24px 80px rgb(3 18 12 / 24%);
+}
+
+.confirmation header,
+.confirmation label {
+  display: grid;
+  gap: 8px;
+}
+
+.confirmation h2 {
+  margin: 0;
+  font-size: clamp(1.25rem, 3vw, 1.7rem);
+  line-height: 1.2;
+}
+
+.confirmation label {
+  font-weight: 700;
+}
+
+.confirmation textarea,
+.confirmation input {
+  width: 100%;
+  border: 1px solid var(--pc-border, #c9d8d0);
+  border-radius: 12px;
+  background: var(--pc-surface, #fff);
+  color: inherit;
+  font: inherit;
+  padding: 12px 14px;
+}
+
+.confirmation textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.confirmation textarea:focus-visible,
+.confirmation input:focus-visible {
+  outline: 3px solid color-mix(in srgb, currentColor 26%, transparent);
+  outline-offset: 2px;
+}
+
+.confirmationActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 640px) {
   .connectionStatus,
   .pinningBoundary {
     padding: 9px 11px;
     font-size: .78rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .confirmation {
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    padding: 16px;
+  }
+
+  .confirmationActions > * {
+    flex: 1 1 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirmation {
+    scroll-behavior: auto;
   }
 }
