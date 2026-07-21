@@ -177,6 +177,61 @@ def _canonical_bytes(value: object) -> bytes:
     ).encode("utf-8")
 
 
+def _provider_secret(path: Path) -> tuple[bytes, str]:
+    seed = hashlib.sha256(b"tai-quality-provider-inventory-fixture").digest()
+    secret = seed + hashlib.sha256(seed).digest()
+    path.write_bytes(secret)
+    return secret, hashlib.sha256(secret).hexdigest()
+
+
+def _provider_receipt(
+    path: Path,
+    secret: bytes,
+    storage: dict[str, Any],
+    evidence_manifest: dict[str, Any],
+) -> dict[str, Any]:
+    objects = [
+        {
+            "annotation_id": record["annotation_id"],
+            "object_key": record["object_key"],
+            "object_version_id": record["object_version_id"],
+            "sha256": record["sha256"],
+            "size_bytes": record["size_bytes"],
+            "retention_until": record["retention_until"],
+            "immutability_status": "IMMUTABLE_VERSIONED",
+        }
+        for record in evidence_manifest["files"]
+    ]
+    receipt: dict[str, Any] = {
+        "schema_version": "tai.quality-provider-inventory-receipt.v1",
+        "issuer": "TAI_SELECTEL_S3_INVENTORY",
+        "audience": "TAI_QUALITY_SCORING",
+        "provider": storage["provider"],
+        "bucket": storage["bucket"],
+        "issued_at": (NOW + timedelta(minutes=1)).isoformat(),
+        "expires_at": (NOW + timedelta(hours=1)).isoformat(),
+        "key_id": "tai-quality-provider-inventory-hmac-v1",
+        "original_root_id": storage["original_root_id"],
+        "restored_root_id": storage["restored_root_id"],
+        "manifest": {
+            "object_key": storage["evidence_manifest_object_key"],
+            "object_version_id": storage["evidence_manifest_object_version_id"],
+            "sha256": storage["evidence_manifest_file_sha256"],
+            "size_bytes": storage["evidence_manifest_size_bytes"],
+            "retention_until": storage["retention_until"],
+            "immutability_status": storage["immutability_status"],
+        },
+        "objects": objects,
+    }
+    receipt["signature"] = hmac.new(
+        secret,
+        _canonical_bytes(receipt),
+        hashlib.sha256,
+    ).hexdigest()
+    write_json(path, receipt)
+    return receipt
+
+
 def _identity_assertion(
     secret: bytes,
     *,
@@ -440,6 +495,8 @@ def _fixture(tmp_path: Path) -> dict[str, Any]:
     cases_path = tmp_path / "cases.json"
     scoring_path = tmp_path / "scoring.json"
     identity_secret_path = tmp_path / "reviewer-identity-key.bin"
+    provider_secret_path = tmp_path / "provider-inventory-key.bin"
+    provider_receipt_path = tmp_path / "provider-inventory-receipt.json"
     reviewer_manifest_path = tmp_path / "reviewer-evidence-manifest.json"
     reviewer_original_root = tmp_path / "reviewer-original"
     reviewer_restored_root = tmp_path / "reviewer-restored"
@@ -476,6 +533,15 @@ def _fixture(tmp_path: Path) -> dict[str, Any]:
         annotations,
         identity_assertions,
     )
+    provider_secret, trusted_provider_secret_sha256 = _provider_secret(
+        provider_secret_path
+    )
+    provider_receipt = _provider_receipt(
+        provider_receipt_path,
+        provider_secret,
+        storage,
+        load_json(reviewer_manifest_path),
+    )
     manifest = _complete_manifest(
         scoring_path,
         authority,
@@ -497,6 +563,10 @@ def _fixture(tmp_path: Path) -> dict[str, Any]:
         "scoring_path": scoring_path,
         "identity_secret_path": identity_secret_path,
         "trusted_secret_sha256": trusted_secret_sha256,
+        "provider_secret_path": provider_secret_path,
+        "trusted_provider_secret_sha256": trusted_provider_secret_sha256,
+        "provider_receipt_path": provider_receipt_path,
+        "provider_receipt": provider_receipt,
         "reviewer_manifest_path": reviewer_manifest_path,
         "reviewer_original_root": reviewer_original_root,
         "reviewer_restored_root": reviewer_restored_root,
@@ -532,6 +602,9 @@ def _verify(
         fixture["reviewer_manifest_path"],
         fixture["reviewer_original_root"],
         fixture["reviewer_restored_root"],
+        fixture["provider_receipt_path"],
+        fixture["provider_secret_path"],
+        fixture["trusted_provider_secret_sha256"],
         evaluated_at=evaluated_at,
     )
 
@@ -545,6 +618,14 @@ def _rebuild_reviewer_evidence(fixture: dict[str, Any]) -> None:
         fixture["manifest"]["identity_assertions"],
     )
     fixture["manifest"]["storage"] = storage
+    secret_path = fixture["provider_secret_path"]
+    assert isinstance(secret_path, Path)
+    fixture["provider_receipt"] = _provider_receipt(
+        fixture["provider_receipt_path"],
+        secret_path.read_bytes(),
+        storage,
+        load_json(fixture["reviewer_manifest_path"]),
+    )
 
 
 def _rewrite_manifest(fixture: dict[str, Any]) -> None:
