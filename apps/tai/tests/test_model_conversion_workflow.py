@@ -23,7 +23,7 @@ SCOPE_PATH = (
 )
 
 EXPECTED_PATHS = {
-    ".gitleaks.toml",
+    ".gitleaksignore",
     ".github/workflows/tai-model-conversion.yml",
     "apps/tai/governance/scopes/ap-13b3d-governed-conversion-2932.json",
     "apps/tai/model-artifacts/model-conversion-authority.v1.json",
@@ -32,6 +32,7 @@ EXPECTED_PATHS = {
     "apps/tai/model-artifacts/model-conversion-prerequisites.v1.sh",
     "apps/tai/model-artifacts/model-conversion-artifacts.v1.sh",
     "apps/tai/model-artifacts/model-conversion-transport.v1.sh",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
     "apps/tai/tests/test_model_conversion_workflow.py",
 }
 COMMAND = "/tai convert model-bundles exact-main"
