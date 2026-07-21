@@ -9,6 +9,7 @@ TAI_ROOT = Path(__file__).parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "tai-cpu-benchmark-execution-authority.yml"
 AUTHORITY = TAI_ROOT / "model-artifacts" / "cpu-benchmark-execution-authority.v1.json"
 RUNBOOK = TAI_ROOT / "model-artifacts" / "cpu-benchmark-execution-runbook.v1.md"
+PROBE = TAI_ROOT / "model-artifacts" / "exact-main-probe.v1.sh"
 SCOPE = (
     TAI_ROOT
     / "governance"
@@ -20,6 +21,12 @@ RUNTIME_FIX_SCOPE = (
     / "governance"
     / "scopes"
     / "ap-13c1b-exact-main-workflow-fix-2981.json"
+)
+PROBE_SCOPE = (
+    TAI_ROOT
+    / "governance"
+    / "scopes"
+    / "ap-13c1a1-exact-main-probe-2982.json"
 )
 COMMAND = "/tai benchmark cpu-fallback exact-main"
 EXPECTED_PATHS = {
@@ -38,6 +45,13 @@ EXPECTED_PATHS = {
 RUNTIME_FIX_PATHS = {
     ".github/workflows/tai-cpu-benchmark-execution-authority.yml",
     "apps/tai/governance/scopes/ap-13c1b-exact-main-workflow-fix-2981.json",
+    "apps/tai/tests/test_cpu_benchmark_execution_workflow.py",
+}
+PROBE_EXPECTED_PATHS = {
+    ".github/workflows/tai-cpu-benchmark-execution-authority.yml",
+    "apps/tai/governance/scopes/ap-13c1a1-exact-main-probe-2982.json",
+    "apps/tai/model-artifacts/exact-main-probe.v1.sh",
+    "apps/tai/tests/test_cpu_benchmark_exact_main_probe.py",
     "apps/tai/tests/test_cpu_benchmark_execution_workflow.py",
 }
 
@@ -83,6 +97,25 @@ def test_runtime_fix_scope_is_bounded_and_preserves_maturity() -> None:
     assert "production_operational_status remains NOT_ATTESTED" in scope["acceptance"][-1]
 
 
+def test_exact_main_probe_hardening_scope_is_exact() -> None:
+    scope = _json(PROBE_SCOPE)
+    assert scope["schema_version"] == "tai.concurrent-scope.v1"
+    assert scope["branch"] == "agent/tai-ap-13c1a1-exact-main-probe"
+    assert (scope["program_issue"], scope["parent_issue"], scope["issue"]) == (
+        2726,
+        2977,
+        2982,
+    )
+    assert set(scope["allowed_paths"]) == PROBE_EXPECTED_PATHS
+    assert "missing, ambiguous, malformed or moved main" in " ".join(
+        scope["acceptance"]
+    )
+    assert "unverified remote-tracking refs" in " ".join(
+        scope["forbidden_capabilities"]
+    )
+    assert "production_operational_status remains NOT_ATTESTED" in scope["acceptance"][-1]
+
+
 def test_workflow_is_owner_only_exact_main_and_issue_bound() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     assert "issue_comment:" in workflow
@@ -111,10 +144,24 @@ def test_exact_main_is_asserted_before_any_editable_install_mutation() -> None:
     validate = workflow.index("- name: Validate CPU benchmark execution authority")
     assert checkout < exact_main < setup < install < validate
     exact_block = workflow[exact_main:setup]
-    assert 'test "$(git rev-parse HEAD)" = "$GITHUB_SHA"' in exact_block
-    assert 'test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"' in exact_block
-    assert 'test -z "$(git status --porcelain=v1 --untracked-files=all)"' in exact_block
+    assert (
+        "EXACT_MAIN_PROBE_REPORT: "
+        "cpu-benchmark-authority-evidence/exact-main-probe.json"
+    ) in exact_block
+    assert "run: bash apps/tai/model-artifacts/exact-main-probe.v1.sh" in exact_block
+    assert "refs/remotes/origin/main" not in exact_block
+    assert "git fetch --no-tags --depth=1 origin main" not in exact_block
     assert "pip install" not in exact_block
+
+
+def test_workflow_executes_governed_live_main_probe() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    assert "exact-main-probe.json" in workflow
+    assert "EXACT_MAIN_CONFIRMED" in workflow
+    assert "test \"$(jq -r '.event_sha' \"$probe\")\" = \"$GITHUB_SHA\"" in workflow
+    assert "test \"$(jq -r '.remote_main_sha' \"$probe\")\" = \"$GITHUB_SHA\"" in workflow
+    assert "refs/remotes/origin/main" not in workflow
+    assert "git fetch --no-tags --depth=1 origin main" not in workflow
 
 
 def test_workflow_validates_only_readiness_and_never_touches_model_host() -> None:
@@ -150,6 +197,7 @@ def test_workflow_validates_only_readiness_and_never_touches_model_host() -> Non
 def test_only_bounded_metadata_can_enter_github_artifacts() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     upload = workflow[workflow.index("Upload bounded readiness evidence") :]
+    assert "exact-main-probe.json" in upload
     assert "authority-validation.json" in upload
     assert "gold-authority-validation.json" in upload
     assert "prerequisite-report.json" in upload
@@ -161,6 +209,20 @@ def test_only_bounded_metadata_can_enter_github_artifacts() -> None:
     assert "include-hidden-files: false" in upload
     for forbidden in ("*.gguf", ".safetensors", ".tar", "sources/", "payload/"):
         assert forbidden not in upload
+
+
+def test_exact_main_probe_is_read_only_and_fail_closed() -> None:
+    source = PROBE.read_text(encoding="utf-8")
+    assert "set -Eeuo pipefail" in source
+    assert "git ls-remote --exit-code --heads origin refs/heads/main" in source
+    assert "LIVE_MAIN_CARDINALITY_INVALID" in source
+    assert "LIVE_MAIN_MOVED" in source
+    assert "WORKTREE_DIRTY" in source
+    assert "tai.exact-main-probe-report.v1" in source
+    assert "EXACT_MAIN_CONFIRMED" in source
+    assert "refs/remotes/origin/main" not in source
+    for forbidden in ("git push", "git fetch", "git reset", "git update-ref"):
+        assert forbidden not in source
 
 
 def test_runbook_documents_blockers_and_no_maturity_inflation() -> None:
