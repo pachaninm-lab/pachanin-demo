@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'apps/web/scripts/public-entry-watch-current.mjs'
+      - 'apps/web/scripts/public-entry-watch-current-v2.mjs'
       - '.github/workflows/public-entry-watch-current.yml'
 
 permissions:
@@ -33,7 +33,7 @@ jobs:
         id: watch
         continue-on-error: true
         working-directory: apps/web
-        run: node scripts/public-entry-watch-current.mjs
+        run: node scripts/public-entry-watch-current-v2.mjs
       - name: Persist exact machine-readable result
         if: always()
         shell: bash
@@ -45,7 +45,7 @@ jobs:
           git config user.email 'public-entry-watch@users.noreply.github.com'
           git add ops/public-entry-watch/result.json
           if ! git diff --cached --quiet; then
-            git commit -m 'Ops: record current public-entry watch result'
+            git commit -m 'Ops: record refined public-entry watch result'
             git push origin HEAD:${{ github.event.pull_request.head.ref }}
           fi
       - name: Upload watch evidence
