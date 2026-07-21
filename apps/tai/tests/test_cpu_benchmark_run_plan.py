@@ -326,7 +326,9 @@ def test_low_level_path_and_locator_contracts(tmp_path: Path) -> None:
     with pytest.raises(run_plan.RunPlanError, match="bounded relative"):
         run_plan._relative("/absolute", "path")
     with pytest.raises(run_plan.RunPlanError, match="outside"):
-        run_plan._planned_root("/tmp/root", "root", "/srv/tai-models/benchmark-runs")
+        run_plan._planned_root(
+            str(tmp_path / "root"), "root", "/srv/tai-models/benchmark-runs"
+        )
     record = {
         "endpoint_host": "host",
         "bucket": "bucket",
