@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { SingleServerHomeAiEntry } from '@/components/platform-v7/SingleServerHomeAiEntry';
 import { SingleServerPublicSpacing } from '@/components/platform-v7/SingleServerPublicSpacing';
 
 const ChatSupportWidget = dynamic(
@@ -23,6 +24,7 @@ export function HydrationSafeChatSupport() {
     <>
       <ChatSupportWidget />
       <SingleServerPublicDock />
+      <SingleServerHomeAiEntry />
       <SingleServerPublicSpacing />
     </>
   );

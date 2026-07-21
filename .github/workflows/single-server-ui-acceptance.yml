@@ -7,6 +7,7 @@ on:
     paths:
       - 'apps/web/components/platform-v7/SingleServerPublicDock.tsx'
       - 'apps/web/components/platform-v7/SingleServerPublicSpacing.tsx'
+      - 'apps/web/components/platform-v7/SingleServerHomeAiEntry.tsx'
       - 'apps/web/components/platform-v7/HydrationSafeChatSupport.tsx'
       - '.github/workflows/single-server-ui-acceptance.yml'
 
@@ -27,16 +28,21 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Verify unified dock contract
+      - name: Verify unified dock and AI entry contracts
         shell: bash
         run: |
           set -euo pipefail
-          file='apps/web/components/platform-v7/SingleServerPublicDock.tsx'
-          grep -Fq "ai: 'ИИ'" "$file"
-          grep -Fq "support: 'Поддержка'" "$file"
-          grep -Fq "call: 'Позвонить'" "$file"
-          grep -Fq "tel:+79162778989" "$file"
-          grep -Fq '.p7-support-chat-button' "$file"
-          grep -Fq 'SingleServerPublicSpacing' apps/web/components/platform-v7/HydrationSafeChatSupport.tsx
+          dock='apps/web/components/platform-v7/SingleServerPublicDock.tsx'
+          ai_entry='apps/web/components/platform-v7/SingleServerHomeAiEntry.tsx'
+          mount='apps/web/components/platform-v7/HydrationSafeChatSupport.tsx'
+          grep -Fq "ai: 'ИИ'" "$dock"
+          grep -Fq "support: 'Поддержка'" "$dock"
+          grep -Fq "call: 'Позвонить'" "$dock"
+          grep -Fq "tel:+79162778989" "$dock"
+          grep -Fq '.p7-support-chat-button' "$dock"
+          grep -Fq "ИИ работает в платформе" "$ai_entry"
+          grep -Fq "/platform-v7/ai-in-action?lang=" "$ai_entry"
+          grep -Fq "SingleServerHomeAiEntry" "$mount"
+          grep -Fq 'SingleServerPublicSpacing' "$mount"
       - name: Build production web
         run: pnpm --filter @pc/web build
