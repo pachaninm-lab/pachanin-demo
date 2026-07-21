@@ -3,44 +3,22 @@ MODEL_SSH_PORT="${MODEL_SSH_PORT:-22}"
 test "$MODEL_SSH_USER" = 'tai-model'
 [[ "$MODEL_SSH_PORT" =~ ^[0-9]{1,5}$ ]]
 [[ "$MODEL_HOST" =~ ^[A-Za-z0-9._:-]+$ ]]
-if [[ -z "${MODEL_SSH_KEY:-}" && -z "${MODEL_SSH_PASSWORD:-}" ]]; then
-  echo 'TAI_MODEL_SSH_CREDENTIALS_ABSENT' >&2
-  exit 1
-fi
-mkdir -p "$HOME/.ssh"
-chmod 700 "$HOME/.ssh"
+test -n "${MODEL_SSH_KEY:-}"
+mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
 ssh-keyscan -p "$MODEL_SSH_PORT" -H "$MODEL_HOST" > "$HOME/.ssh/known_hosts"
 chmod 600 "$HOME/.ssh/known_hosts"
-SSH_MODE=password
-if [[ -n "${MODEL_SSH_KEY:-}" ]]; then
-  printf '%s\n' "$MODEL_SSH_KEY" > "$HOME/.ssh/id_tai_model"
-  chmod 600 "$HOME/.ssh/id_tai_model"
-  SSH_MODE=key
-else
-  sudo apt-get update -qq
-  sudo apt-get install -y -qq sshpass
-fi
+printf '%s\n' "$MODEL_SSH_KEY" > "$HOME/.ssh/id_tai_model"
+chmod 600 "$HOME/.ssh/id_tai_model"
 
 ssh_command() {
-  if [[ "$SSH_MODE" == key ]]; then
-    ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
-      -o BatchMode=yes -o StrictHostKeyChecking=yes \
-      "$MODEL_SSH_USER@$MODEL_HOST" "$@"
-  else
-    SSHPASS="$MODEL_SSH_PASSWORD" sshpass -e ssh -p "$MODEL_SSH_PORT" \
-      -o StrictHostKeyChecking=yes "$MODEL_SSH_USER@$MODEL_HOST" "$@"
-  fi
+  ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
+    -o BatchMode=yes -o StrictHostKeyChecking=yes \
+    "$MODEL_SSH_USER@$MODEL_HOST" "$@"
 }
-
 scp_file() {
-  if [[ "$SSH_MODE" == key ]]; then
-    scp -i "$HOME/.ssh/id_tai_model" -P "$MODEL_SSH_PORT" \
-      -o BatchMode=yes -o StrictHostKeyChecking=yes \
-      "$1" "$MODEL_SSH_USER@$MODEL_HOST:$2"
-  else
-    SSHPASS="$MODEL_SSH_PASSWORD" sshpass -e scp -P "$MODEL_SSH_PORT" \
-      -o StrictHostKeyChecking=yes "$1" "$MODEL_SSH_USER@$MODEL_HOST:$2"
-  fi
+  scp -i "$HOME/.ssh/id_tai_model" -P "$MODEL_SSH_PORT" \
+    -o BatchMode=yes -o StrictHostKeyChecking=yes \
+    "$1" "$MODEL_SSH_USER@$MODEL_HOST:$2"
 }
 
 ssh_command "install -d -m 700 '$REMOTE_ROOT/incoming' '$REMOTE_ROOT/control'"
@@ -71,27 +49,16 @@ for attempt in $(seq 1 330); do
   command="python3 -c 'import json; from pathlib import Path; p=Path(\"$REMOTE_ROOT/status.json\"); print(json.loads(p.read_text()).get(\"state\", \"PENDING\")) if p.exists() else print(\"PENDING\")'"
   state="$(ssh_command "$command" 2>/dev/null || echo UNREACHABLE)"
   printf 'poll=%s state=%s\n' "$attempt" "$state"
-  case "$state" in
-    COMPLETE|FAILED_CLOSED)
-      MONITOR_STATE="$state"
-      break
-      ;;
-  esac
+  case "$state" in COMPLETE|FAILED_CLOSED) MONITOR_STATE="$state"; break;; esac
   sleep 60
 done
 
 remote_archive="set -euo pipefail; cd '$REMOTE_ROOT'; test -f status.json; tar -czf - status.json evidence logs bootstrap.log driver.log 2>/dev/null"
 ssh_command "$remote_archive" > remote-evidence.tar.gz
 test -s remote-evidence.tar.gz
-if tar -tzf remote-evidence.tar.gz | grep -E '(^/|(^|/)\.\.(/|$))'; then
-  echo 'Unsafe remote evidence path.' >&2
-  exit 1
-fi
+if tar -tzf remote-evidence.tar.gz | grep -E '(^/|(^|/)\.\.(/|$))'; then echo 'Unsafe remote evidence path.' >&2; exit 1; fi
 tar -xzf remote-evidence.tar.gz -C remote-evidence
-if find remote-evidence -type f -size +50000000c -print -quit | grep -q .; then
-  echo 'Oversized metadata evidence.' >&2
-  exit 1
-fi
+if find remote-evidence -type f -size +50000000c -print -quit | grep -q .; then echo 'Oversized metadata evidence.' >&2; exit 1; fi
 
 test "$MONITOR_STATE" = COMPLETE
 python - <<'PY'
@@ -119,13 +86,10 @@ assert report['benchmark_status'] == 'NOT_RUN'
 assert report['model_admission_status'] == 'NOT_DONE'
 assert report['production_operational_status'] == 'NOT_ATTESTED'
 assert report['reasons'] == []
-expected_outputs = {m['intermediate']['path'] for m in authority['models']} | {
-    q['path'] for m in authority['models'] for q in m['quantizations']
-}
+expected_outputs = {m['intermediate']['path'] for m in authority['models']} | {q['path'] for m in authority['models'] for q in m['quantizations']}
 assert {item['path'] for item in report['outputs']} == expected_outputs
 for item in report['outputs']:
-    assert re.fullmatch(r'[0-9a-f]{64}', item['sha256'])
-    assert item['size_bytes'] > 1_000_000
+    assert re.fullmatch(r'[0-9a-f]{64}', item['sha256']) and item['size_bytes'] > 1_000_000
 expected_steps = {}
 for model in authority['models']:
     expected_steps[f"{model['key']}-convert"] = model['conversion_argv']
@@ -135,8 +99,7 @@ for model in authority['models']:
 observed = {item['step_key']: item for item in report['steps']}
 assert set(observed) == set(expected_steps)
 for key, argv in expected_steps.items():
-    assert observed[key]['status'] == 'COMPLETE'
-    assert observed[key]['exit_code'] == 0
+    assert observed[key]['status'] == 'COMPLETE' and observed[key]['exit_code'] == 0
     assert observed[key]['argv'] == argv
 models = {item['model_id']: item for item in report['source_verification']['models']}
 for model in authority['models']:
