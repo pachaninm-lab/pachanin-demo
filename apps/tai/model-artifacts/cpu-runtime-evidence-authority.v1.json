@@ -49,7 +49,8 @@
       "en",
       "zh"
     ],
-    "required_raw_observations": 174,
+    "required_raw_observations_per_profile": 174,
+    "required_raw_observations_total": 348,
     "maximum_unreviewed_cases": 0
   },
   "runtime_profiles": [
