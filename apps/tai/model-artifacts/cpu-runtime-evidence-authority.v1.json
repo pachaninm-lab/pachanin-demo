@@ -139,6 +139,7 @@
     "required_semantic_files": [
       "suite/case-manifest.json",
       "raw-observations/manifest.json",
+      "raw-observations/payload.json",
       "fallback/metrics.json",
       "soak/metrics.json"
     ]
