@@ -5,6 +5,9 @@ on:
     branches:
       - claude/cabinet-design-audit-2jbv6f
     paths:
+      - 'apps/web/app/platform-v7/ai-in-action/page.tsx'
+      - 'apps/web/app/platform-v7/layout.tsx'
+      - 'apps/web/components/platform-v7/SingleServerAiInActionExperience.tsx'
       - 'apps/web/components/platform-v7/SingleServerPublicDock.tsx'
       - 'apps/web/components/platform-v7/SingleServerPublicSpacing.tsx'
       - 'apps/web/components/platform-v7/SingleServerHomeAiEntry.tsx'
@@ -28,12 +31,15 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Verify unified dock and AI entry contracts
+      - name: Verify unified dock and AI route contracts
         shell: bash
         run: |
           set -euo pipefail
           dock='apps/web/components/platform-v7/SingleServerPublicDock.tsx'
           ai_entry='apps/web/components/platform-v7/SingleServerHomeAiEntry.tsx'
+          ai_experience='apps/web/components/platform-v7/SingleServerAiInActionExperience.tsx'
+          ai_route='apps/web/app/platform-v7/ai-in-action/page.tsx'
+          route_layout='apps/web/app/platform-v7/layout.tsx'
           mount='apps/web/components/platform-v7/HydrationSafeChatSupport.tsx'
           grep -Fq "ai: 'ИИ'" "$dock"
           grep -Fq "support: 'Поддержка'" "$dock"
@@ -42,6 +48,9 @@ jobs:
           grep -Fq '.p7-support-chat-button' "$dock"
           grep -Fq "ИИ работает в платформе" "$ai_entry"
           grep -Fq "/platform-v7/ai-in-action?lang=" "$ai_entry"
+          grep -Fq "data-testid='single-server-ai-in-action-route'" "$ai_route"
+          grep -Fq "data-single-server-ai-route='true'" "$ai_experience"
+          grep -Fq "'/platform-v7/ai-in-action'" "$route_layout"
           grep -Fq "SingleServerHomeAiEntry" "$mount"
           grep -Fq 'SingleServerPublicSpacing' "$mount"
       - name: Build production web
