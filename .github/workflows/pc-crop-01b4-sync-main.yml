@@ -1,0 +1,32 @@
+name: PC-CROP-01B.4 one-shot main synchronization
+
+on:
+  push:
+    branches: [agent/pc-crop-01b4-private-bff-live-registry]
+    paths: ['.github/workflows/pc-crop-01b4-sync-main.yml']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pc-crop-01b4-main-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/pc-crop-01b4-private-bff-live-registry
+          fetch-depth: 0
+      - name: Merge current main and retire one-shot workflow
+        run: |
+          set -euo pipefail
+          git config user.name 'pc-crop-governed-bot'
+          git config user.email 'pc-crop-governed-bot@users.noreply.github.com'
+          git fetch --no-tags origin main
+          git merge --no-edit origin/main
+          git rm .github/workflows/pc-crop-01b4-sync-main.yml
+          git commit -m 'chore(pc-crop): retire B4 main synchronization workflow'
+          git push origin HEAD:agent/pc-crop-01b4-private-bff-live-registry
