@@ -1,0 +1,517 @@
+name: TAI Model Bundle Storage Preflight
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-model-bundle-storage-preflight
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2953 &&
+      github.event.comment.body == '/tai probe model-bundle-storage exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      S3_ENDPOINT: ${{ secrets.TAI_BUNDLE_S3_ENDPOINT }}
+      S3_REGION: ${{ secrets.TAI_BUNDLE_S3_REGION }}
+      S3_BUCKET: ${{ secrets.TAI_BUNDLE_S3_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.TAI_BUNDLE_S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.TAI_BUNDLE_S3_SECRET_ACCESS_KEY }}
+      S3_PREFIX: ${{ secrets.TAI_BUNDLE_S3_PREFIX }}
+      AWS_EC2_METADATA_DISABLED: 'true'
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact checked-out main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Validate storage authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p storage-evidence/release storage-evidence/restore
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          path = Path("apps/tai/model-artifacts/model-bundle-storage-authority.v1.json")
+          authority = json.loads(path.read_text(encoding="utf-8"))
+          assert authority["schema_version"] == "tai.model-bundle-storage-authority.v1"
+          assert (authority["program_issue"], authority["parent_issue"], authority["issue"]) == (
+              2726,
+              2835,
+              2953,
+          )
+          assert authority["command"] == "/tai probe model-bundle-storage exact-main"
+          assert authority["storage_class"] == "EXTERNAL_S3_COMPATIBLE"
+          assert authority["credential_boundary"] == "GITHUB_ACTIONS_ONLY"
+          assert authority["endpoint_policy"] == {
+              "required_scheme": "https",
+              "production_server_fallback_allowed": False,
+          }
+          policy = authority["bucket_policy"]
+          assert policy["required_versioning_status"] == "Enabled"
+          assert policy["required_object_lock_status"] == "Enabled"
+          assert policy["required_default_retention_mode"] == "COMPLIANCE"
+          assert policy["minimum_retention_days"] == 90
+          assert authority["smoke_policy"]["delete_after_verification"] is False
+          digest = hashlib.sha256(
+              json.dumps(
+                  authority,
+                  ensure_ascii=False,
+                  separators=(",", ":"),
+                  sort_keys=True,
+              ).encode("utf-8")
+          ).hexdigest()
+          Path("storage-evidence/authority-sha256.txt").write_text(
+              digest + "\n", encoding="utf-8"
+          )
+          PY
+
+      - name: Require accepted exact-main release
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          selected=
+          for attempt in $(seq 1 60); do
+            gh api -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "repos/$REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" \
+              > storage-evidence/release/runs.json
+            set +e
+            python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          exact = os.environ["GITHUB_SHA"]
+          runs = json.loads(
+              Path("storage-evidence/release/runs.json").read_text(encoding="utf-8")
+          ).get("workflow_runs", [])
+          candidates = [
+              run
+              for run in runs
+              if run.get("name") == "TAI Release Acceptance"
+              and run.get("path") == ".github/workflows/tai-release-acceptance.yml"
+              and run.get("head_sha") == exact
+              and run.get("head_branch") == "main"
+              and run.get("event") in {"push", "workflow_dispatch"}
+          ]
+          if not candidates:
+              raise SystemExit(3)
+          run = max(candidates, key=lambda item: (item.get("run_number", 0), item.get("id", 0)))
+          if run.get("status") != "completed":
+              raise SystemExit(3)
+          if run.get("conclusion") != "success":
+              raise SystemExit(2)
+          Path("storage-evidence/release/selected-run.json").write_text(
+              json.dumps(run, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+            status=$?
+            set -e
+            if [[ "$status" -eq 0 ]]; then selected=yes; break; fi
+            if [[ "$status" -eq 2 ]]; then
+              echo 'Exact-main TAI Release Acceptance failed.' >&2
+              exit 1
+            fi
+            sleep 15
+          done
+          test "$selected" = yes
+          RELEASE_RUN_ID="$(python -c 'import json; print(json.load(open("storage-evidence/release/selected-run.json"))["id"])')"
+          export RELEASE_RUN_ID
+          gh api -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$REPOSITORY/actions/runs/$RELEASE_RUN_ID/artifacts?per_page=100" \
+            > storage-evidence/release/artifacts.json
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          exact = os.environ["GITHUB_SHA"]
+          run_id = int(os.environ["RELEASE_RUN_ID"])
+          artifacts = json.loads(
+              Path("storage-evidence/release/artifacts.json").read_text(encoding="utf-8")
+          ).get("artifacts", [])
+          expected = f"tai-release-attestation-{exact}"
+          matches = [
+              item
+              for item in artifacts
+              if item.get("name") == expected
+              and item.get("expired") is False
+              and item.get("workflow_run", {}).get("id") == run_id
+              and item.get("workflow_run", {}).get("head_sha") == exact
+          ]
+          if len(matches) != 1:
+              raise SystemExit("RELEASE_ARTIFACT_CARDINALITY_INVALID")
+          Path("storage-evidence/release/selected-artifact.json").write_text(
+              json.dumps(matches[0], ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          RELEASE_ARTIFACT_ID="$(python -c 'import json; print(json.load(open("storage-evidence/release/selected-artifact.json"))["id"])')"
+          gh api "repos/$REPOSITORY/actions/artifacts/$RELEASE_ARTIFACT_ID/zip" \
+            > storage-evidence/release/artifact.zip
+          unzip -q storage-evidence/release/artifact.zip \
+            -d storage-evidence/release/artifact
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          attestation = json.loads(
+              Path(
+                  "storage-evidence/release/artifact/tai-release-attestation.json"
+              ).read_text(encoding="utf-8")
+          )
+          assert attestation["exact_main_sha"] == os.environ["GITHUB_SHA"]
+          assert attestation["accepted"] is True
+          assert attestation["reasons"] == []
+          assert attestation["production_operational_status"] == "NOT_ATTESTED"
+          PY
+
+      - name: Probe external immutable object storage
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TAI_BUNDLE_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TAI_BUNDLE_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.TAI_BUNDLE_S3_REGION }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${S3_ENDPOINT:?TAI_BUNDLE_S3_ENDPOINT is required}"
+          : "${S3_REGION:?TAI_BUNDLE_S3_REGION is required}"
+          : "${S3_BUCKET:?TAI_BUNDLE_S3_BUCKET is required}"
+          : "${S3_ACCESS_KEY_ID:?TAI_BUNDLE_S3_ACCESS_KEY_ID is required}"
+          : "${S3_SECRET_ACCESS_KEY:?TAI_BUNDLE_S3_SECRET_ACCESS_KEY is required}"
+          command -v aws >/dev/null
+          command -v jq >/dev/null
+          aws --version > storage-evidence/aws-version.txt 2>&1
+          export S3_PREFIX="${S3_PREFIX:-tai/model-bundles/preflight}"
+
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import PurePosixPath
+          from urllib.parse import urlsplit
+
+          endpoint = urlsplit(os.environ["S3_ENDPOINT"])
+          assert endpoint.scheme == "https"
+          assert endpoint.hostname
+          assert endpoint.username is None and endpoint.password is None
+          assert not endpoint.query and not endpoint.fragment
+          assert endpoint.path in {"", "/"}
+          assert re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{1,61}[A-Za-z0-9]", os.environ["S3_BUCKET"])
+          prefix = os.environ["S3_PREFIX"].strip("/")
+          path = PurePosixPath(prefix)
+          assert prefix and not path.is_absolute() and ".." not in path.parts
+          assert all(part not in {"", "."} for part in path.parts)
+          assert len(prefix) <= 200
+          PY
+
+          aws_call() {
+            aws --no-cli-pager --endpoint-url "$S3_ENDPOINT" --region "$S3_REGION" "$@"
+          }
+
+          aws_call s3api get-bucket-versioning --bucket "$S3_BUCKET" \
+            > storage-evidence/bucket-versioning.json
+          aws_call s3api get-object-lock-configuration --bucket "$S3_BUCKET" \
+            > storage-evidence/object-lock-configuration.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          authority = json.loads(
+              Path(
+                  "apps/tai/model-artifacts/model-bundle-storage-authority.v1.json"
+              ).read_text(encoding="utf-8")
+          )
+          versioning = json.loads(
+              Path("storage-evidence/bucket-versioning.json").read_text(encoding="utf-8")
+          )
+          locking = json.loads(
+              Path(
+                  "storage-evidence/object-lock-configuration.json"
+              ).read_text(encoding="utf-8")
+          )
+          policy = authority["bucket_policy"]
+          assert versioning.get("Status") == policy["required_versioning_status"]
+          configuration = locking.get("ObjectLockConfiguration", locking)
+          assert configuration.get("ObjectLockEnabled") == policy["required_object_lock_status"]
+          retention = configuration.get("Rule", {}).get("DefaultRetention", {})
+          assert retention.get("Mode") == policy["required_default_retention_mode"]
+          if "Days" in retention:
+              observed_days = int(retention["Days"])
+          elif "Years" in retention:
+              observed_days = int(retention["Years"]) * 365
+          else:
+              raise AssertionError("Object Lock default retention is missing")
+          assert policy["minimum_retention_days"] <= observed_days <= policy["maximum_retention_days"]
+          Path("storage-evidence/default-retention-days.txt").write_text(
+              f"{observed_days}\n", encoding="utf-8"
+          )
+          PY
+
+          AUTHORITY_SHA256="$(cat storage-evidence/authority-sha256.txt)"
+          export AUTHORITY_SHA256
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import datetime, timedelta, timezone
+          from pathlib import Path
+
+          authority = json.loads(
+              Path(
+                  "apps/tai/model-artifacts/model-bundle-storage-authority.v1.json"
+              ).read_text(encoding="utf-8")
+          )
+          size = authority["smoke_policy"]["payload_size_bytes"]
+          payload = {
+              "authority_sha256": os.environ["AUTHORITY_SHA256"],
+              "exact_main_sha": os.environ["GITHUB_SHA"],
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "schema_version": "tai.model-bundle-storage-smoke.v1",
+              "workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+          }
+          rendered = (
+              json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+              + "\n"
+          ).encode("utf-8")
+          if len(rendered) > size:
+              raise SystemExit("SMOKE_PAYLOAD_LIMIT_EXCEEDED")
+          content = rendered + (b" " * (size - len(rendered)))
+          path = Path("storage-evidence/smoke-object.json")
+          path.write_bytes(content)
+          digest = hashlib.sha256(content).hexdigest()
+          Path("storage-evidence/smoke-sha256.txt").write_text(
+              digest + "\n", encoding="utf-8"
+          )
+          retention_days = authority["bucket_policy"]["minimum_retention_days"]
+          now = datetime.now(timezone.utc).replace(microsecond=0)
+          retain_until = now + timedelta(days=retention_days)
+          Path("storage-evidence/requested-retain-until.txt").write_text(
+              retain_until.isoformat().replace("+00:00", "Z") + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          SMOKE_SHA256="$(cat storage-evidence/smoke-sha256.txt)"
+          SMOKE_SHA256_B64="$(python - <<'PY'
+          import base64
+          import hashlib
+          from pathlib import Path
+
+          print(base64.b64encode(hashlib.sha256(
+              Path("storage-evidence/smoke-object.json").read_bytes()
+          ).digest()).decode("ascii"))
+          PY
+          )"
+          RETAIN_UNTIL="$(cat storage-evidence/requested-retain-until.txt)"
+          OBJECT_KEY="${S3_PREFIX%/}/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/$SMOKE_SHA256.json"
+          export SMOKE_SHA256 RETAIN_UNTIL OBJECT_KEY
+
+          aws_call s3api put-object \
+            --bucket "$S3_BUCKET" \
+            --key "$OBJECT_KEY" \
+            --body storage-evidence/smoke-object.json \
+            --content-type application/json \
+            --checksum-algorithm SHA256 \
+            --checksum-sha256 "$SMOKE_SHA256_B64" \
+            --object-lock-mode COMPLIANCE \
+            --object-lock-retain-until-date "$RETAIN_UNTIL" \
+            > storage-evidence/put-object.json
+
+          VERSION_ID="$(jq -r '.VersionId // empty' storage-evidence/put-object.json)"
+          test -n "$VERSION_ID"
+          test "$VERSION_ID" != null
+          export VERSION_ID
+
+          aws_call s3api head-object \
+            --bucket "$S3_BUCKET" \
+            --key "$OBJECT_KEY" \
+            --version-id "$VERSION_ID" \
+            > storage-evidence/head-object.json
+          aws_call s3api get-object \
+            --bucket "$S3_BUCKET" \
+            --key "$OBJECT_KEY" \
+            --version-id "$VERSION_ID" \
+            storage-evidence/restore/smoke-object.json \
+            > storage-evidence/get-object.json
+
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from datetime import datetime
+          from pathlib import Path
+
+          original = Path("storage-evidence/smoke-object.json")
+          restored = Path("storage-evidence/restore/smoke-object.json")
+          head = json.loads(
+              Path("storage-evidence/head-object.json").read_text(encoding="utf-8")
+          )
+          put = json.loads(
+              Path("storage-evidence/put-object.json").read_text(encoding="utf-8")
+          )
+          assert head["ContentLength"] == original.stat().st_size == restored.stat().st_size
+          assert head.get("VersionId") == os.environ["VERSION_ID"]
+          assert head.get("ObjectLockMode") == "COMPLIANCE"
+          requested = datetime.fromisoformat(
+              os.environ["RETAIN_UNTIL"].replace("Z", "+00:00")
+          )
+          observed = datetime.fromisoformat(
+              head["ObjectLockRetainUntilDate"].replace("Z", "+00:00")
+          )
+          assert observed >= requested
+          original_sha = hashlib.sha256(original.read_bytes()).hexdigest()
+          restored_sha = hashlib.sha256(restored.read_bytes()).hexdigest()
+          assert original_sha == restored_sha == os.environ["SMOKE_SHA256"]
+          evidence = {
+              "authority_sha256": os.environ["AUTHORITY_SHA256"],
+              "bucket_fingerprint_sha256": hashlib.sha256(
+                  os.environ["S3_BUCKET"].encode("utf-8")
+              ).hexdigest(),
+              "endpoint_fingerprint_sha256": hashlib.sha256(
+                  os.environ["S3_ENDPOINT"].encode("utf-8")
+              ).hexdigest(),
+              "exact_main_sha": os.environ["GITHUB_SHA"],
+              "object_key": os.environ["OBJECT_KEY"],
+              "object_lock_mode": head["ObjectLockMode"],
+              "object_lock_retain_until": head["ObjectLockRetainUntilDate"],
+              "object_version_id": os.environ["VERSION_ID"],
+              "put_etag": put.get("ETag"),
+              "restored_sha256": restored_sha,
+              "schema_version": "tai.model-bundle-storage-preflight-report.v1",
+              "smoke_object_sha256": original_sha,
+              "smoke_object_size_bytes": original.stat().st_size,
+              "status": "VERIFIED_EXTERNAL_IMMUTABLE_STORAGE",
+              "versioning_status": "Enabled",
+              "workflow_run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "workflow_run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "benchmark_status": "NOT_RUN",
+              "model_admission_status": "NOT_DONE",
+              "production_operational_status": "NOT_ATTESTED",
+          }
+          Path("storage-evidence/preflight-report.json").write_text(
+              json.dumps(evidence, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          test "$(stat -c %s storage-evidence/preflight-report.json)" -le 1048576
+
+      - name: Upload bounded immutable-storage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-model-bundle-storage-preflight-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            storage-evidence/authority-sha256.txt
+            storage-evidence/aws-version.txt
+            storage-evidence/bucket-versioning.json
+            storage-evidence/default-retention-days.txt
+            storage-evidence/get-object.json
+            storage-evidence/head-object.json
+            storage-evidence/object-lock-configuration.json
+            storage-evidence/preflight-report.json
+            storage-evidence/put-object.json
+            storage-evidence/release/artifact/tai-release-attestation.json
+            storage-evidence/release/selected-artifact.json
+            storage-evidence/release/selected-run.json
+            storage-evidence/requested-retain-until.txt
+            storage-evidence/smoke-sha256.txt
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 9
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded immutable-storage summary
+        if: always()
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python - <<'PY' > storage-summary.md
+          import json
+          import os
+          from pathlib import Path
+
+          report_path = Path("storage-evidence/preflight-report.json")
+          lines = ["## TAI immutable model-bundle storage preflight", ""]
+          if report_path.exists():
+              report = json.loads(report_path.read_text(encoding="utf-8"))
+              lines.extend(
+                  [
+                      f"- exact-main: `{report['exact_main_sha']}`;",
+                      f"- workflow run: `{report['workflow_run_id']}` / attempt `{report['workflow_run_attempt']}`;",
+                      f"- status: `{report['status']}`;",
+                      f"- versioning: `{report['versioning_status']}`;",
+                      f"- Object Lock: `{report['object_lock_mode']}`;",
+                      f"- retained until: `{report['object_lock_retain_until']}`;",
+                      f"- object version: `{report['object_version_id']}`;",
+                      f"- smoke SHA-256: `{report['smoke_object_sha256']}`;",
+                      f"- restored SHA-256: `{report['restored_sha256']}`;",
+                  ]
+              )
+          else:
+              lines.extend(
+                  [
+                      f"- exact-main: `{os.environ['GITHUB_SHA']}`;",
+                      f"- workflow run: `{os.environ['GITHUB_RUN_ID']}` / attempt `{os.environ['GITHUB_RUN_ATTEMPT']}`;",
+                      "- status: `FAILED_CLOSED`;",
+                  ]
+              )
+          lines.extend(
+              [
+                  "- object deletion: `NOT_PERFORMED`;",
+                  "- benchmark: `NOT_RUN`;",
+                  "- model admission: `NOT_DONE`;",
+                  "- production operational status: `NOT_ATTESTED`.",
+              ]
+          )
+          print("\n".join(lines))
+          PY
+          jq -n --rawfile body storage-summary.md '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/2953/comments" --input -
