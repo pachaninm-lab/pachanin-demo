@@ -1,0 +1,231 @@
+name: TAI quality scoring edge-test corrections
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13c1d-remediation-2997
+    paths:
+      - .github/workflows/tai-quality-edge-tests.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13c1d-remediation-2997
+      - name: Correct signed fixtures and add negative coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: replacement anchor count={count}')
+              target.write_text(text.replace(old, new), encoding='utf-8')
+
+          authority = 'apps/tai/tests/test_quality_scoring_authority.py'
+          replace_once(
+              authority,
+              '    _authority,\n    _fixture,',
+              '    _annotation_signature,\n    _authority,\n    _fixture,',
+          )
+          replace_once(
+              authority,
+              '    failed_cases = {"case-01", "case-02", "case-03"}\n    for annotation in fixture["manifest"]["annotations"]:',
+              '    failed_cases = {"case-01", "case-02", "case-03"}\n    identity_secret = fixture["identity_secret_path"].read_bytes()\n    for annotation in fixture["manifest"]["annotations"]:',
+          )
+          replace_once(
+              authority,
+              '            annotation.pop("annotation_sha256")\n            annotation.update(_signed(annotation, "annotation_sha256"))',
+              '            annotation.pop("annotation_sha256")\n            annotation.pop("annotation_signature")\n            annotation["annotation_signature"] = _annotation_signature(\n                identity_secret, annotation\n            )\n            annotation.update(_signed(annotation, "annotation_sha256"))',
+          )
+
+          remediation = 'apps/tai/tests/test_quality_scoring_remediation.py'
+          replace_once(
+              remediation,
+              'from tai.quality_scoring_contract import (\n    QualityScoringError,',
+              'from tai.quality_scoring_contract import (\n    QualityScoringError,\n    expected_authority,',
+          )
+          replace_once(
+              remediation,
+              'from tai.quality_scoring_contract import (\n',
+              'from tai.quality_scoring_external_evidence import (\n    _safe_file,\n    _trusted_secret as trusted_provider_secret,\n)\nfrom tai.quality_scoring_identity import trusted_identity_secret\n\nfrom tai.quality_scoring_contract import (\n',
+          )
+          replace_once(
+              remediation,
+              '    row = fixture["manifest"]["annotations"][0]\n    row["decision"] = "FAIL"',
+              '    row = next(\n        item\n        for item in fixture["manifest"]["annotations"]\n        if item["profile_id"] == "qwen3-8b-cpu-q4-k-m"\n        and item["case_id"] == "case-24"\n        and item["locale"] == "ru"\n    )\n    row["decision"] = "FAIL"',
+          )
+
+          target = Path(remediation)
+          text = target.read_text(encoding='utf-8')
+          addition = r'''
+
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    [
+        ("schema_version", "wrong-schema", "assertion schema mismatch"),
+        ("issuer", "OTHER_ISSUER", "issuer mismatch"),
+        ("audience", "OTHER_AUDIENCE", "audience mismatch"),
+        ("key_id", "other-key", "key id mismatch"),
+        ("role", "UNTRUSTED_ROLE", "role is not allowed"),
+        ("mfa_method", "SMS", "MFA method is not allowed"),
+    ],
+)
+def test_identity_assertion_metadata_fails_closed(
+    tmp_path: Path, field: str, value: str, match: str
+) -> None:
+    fixture = _fixture(tmp_path)
+    fixture["manifest"]["identity_assertions"][0][field] = value
+    _resign_assertion(fixture)
+    with pytest.raises(QualityScoringError, match=match):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+
+def test_identity_assertion_time_duplicates_and_absence_fail_closed(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path / "future")
+    assertion = fixture["manifest"]["identity_assertions"][0]
+    assertion["issued_at"] = (NOW + timedelta(minutes=1)).isoformat()
+    assertion["mfa_verified_at"] = (NOW + timedelta(minutes=1)).isoformat()
+    _resign_assertion(fixture)
+    with pytest.raises(QualityScoringError, match="from the future"):
+        _verify(fixture, evaluated_at=NOW.isoformat())
+
+    fixture = _fixture(tmp_path / "lifetime")
+    assertion = fixture["manifest"]["identity_assertions"][0]
+    assertion["expires_at"] = (NOW + timedelta(days=2)).isoformat()
+    _resign_assertion(fixture)
+    with pytest.raises(QualityScoringError, match="lifetime is invalid"):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+    fixture = _fixture(tmp_path / "duplicate-id")
+    duplicate = copy.deepcopy(fixture["manifest"]["identity_assertions"][0])
+    fixture["manifest"]["identity_assertions"].append(duplicate)
+    _rewrite_manifest(fixture)
+    with pytest.raises(QualityScoringError, match="duplicate reviewer identity assertion id"):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+    fixture = _fixture(tmp_path / "duplicate-subject")
+    duplicate = copy.deepcopy(fixture["manifest"]["identity_assertions"][0])
+    duplicate["assertion_id"] = "assertion.duplicate-subject"
+    fixture["manifest"]["identity_assertions"].append(duplicate)
+    _resign_assertion(fixture, len(fixture["manifest"]["identity_assertions"]) - 1)
+    with pytest.raises(QualityScoringError, match="duplicate reviewer identity subject and role"):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+
+def test_external_secret_and_path_guards_fail_closed(tmp_path: Path) -> None:
+    missing = tmp_path / "missing"
+    with pytest.raises(QualityScoringError, match="external regular file"):
+        trusted_identity_secret(missing, "0" * 64)
+    small = tmp_path / "small-secret"
+    small.write_bytes(b"short")
+    with pytest.raises(QualityScoringError, match="size is invalid"):
+        trusted_identity_secret(small, hashlib.sha256(b"short").hexdigest())
+    with pytest.raises(QualityScoringError, match="size is invalid"):
+        trusted_provider_secret(small, hashlib.sha256(b"short").hexdigest())
+
+    root = tmp_path / "root"
+    root.mkdir()
+    with pytest.raises(QualityScoringError, match="safe relative path"):
+        _safe_file(root, "../escape", "edge")
+    target = root / "target"
+    target.write_text("evidence", encoding="utf-8")
+    link = root / "link"
+    link.symlink_to(target)
+    with pytest.raises(QualityScoringError, match="contains a symlink"):
+        _safe_file(root, "link", "edge")
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        ("schema", "receipt schema mismatch"),
+        ("issuer", "receipt issuer mismatch"),
+        ("audience", "receipt audience mismatch"),
+        ("key", "receipt key id mismatch"),
+        ("provider", "receipt provider mismatch"),
+        ("future", "receipt is from the future"),
+        ("predates", "receipt predates scoring completion"),
+        ("lifetime", "receipt lifetime is invalid"),
+        ("manifest-immutable", "provider inventory manifest is not immutable"),
+        ("duplicate-object", "duplicate provider inventory annotation id"),
+        ("incomplete-objects", "provider inventory object coverage is incomplete"),
+        ("object-immutable", "provider inventory object is not immutable"),
+    ],
+)
+def test_provider_inventory_receipt_edges_fail_closed(
+    tmp_path: Path, mutation: str, match: str
+) -> None:
+    fixture = _fixture(tmp_path)
+    receipt = fixture["provider_receipt"]
+    if mutation == "schema":
+        receipt["schema_version"] = "wrong-schema"
+    elif mutation == "issuer":
+        receipt["issuer"] = "OTHER_ISSUER"
+    elif mutation == "audience":
+        receipt["audience"] = "OTHER_AUDIENCE"
+    elif mutation == "key":
+        receipt["key_id"] = "other-key"
+    elif mutation == "provider":
+        receipt["provider"] = "OTHER_PROVIDER"
+    elif mutation == "future":
+        receipt["issued_at"] = (NOW + timedelta(minutes=10)).isoformat()
+        receipt["expires_at"] = (NOW + timedelta(minutes=20)).isoformat()
+    elif mutation == "predates":
+        receipt["issued_at"] = (NOW - timedelta(minutes=2)).isoformat()
+    elif mutation == "lifetime":
+        receipt["expires_at"] = (NOW + timedelta(days=2)).isoformat()
+    elif mutation == "manifest-immutable":
+        receipt["manifest"]["immutability_status"] = "MUTABLE"
+    elif mutation == "duplicate-object":
+        receipt["objects"].append(copy.deepcopy(receipt["objects"][0]))
+    elif mutation == "incomplete-objects":
+        receipt["objects"].pop()
+    else:
+        receipt["objects"][0]["immutability_status"] = "MUTABLE"
+    _resign_provider_receipt(fixture)
+    with pytest.raises(QualityScoringError, match=match):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+
+def test_annotation_signature_is_bound_to_exact_run(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    fixture["manifest"]["scoring_run_id"] = "different-run"
+    _rewrite_manifest(fixture)
+    with pytest.raises(QualityScoringError, match="annotation reviewer signature is invalid"):
+        _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+
+def test_governed_security_policies_cannot_be_self_weakened(tmp_path: Path) -> None:
+    authority = expected_authority()
+    authority["scorer_policy"]["identity_assertions"]["signature_algorithm"] = "NONE"
+    path = tmp_path / "weakened.json"
+    write_json(path, authority)
+    with pytest.raises(QualityScoringError, match="differs from governed"):
+        from tai.quality_scoring_contract import load_authority
+
+        load_authority(path)
+'''
+          if addition.strip() in text:
+              raise SystemExit('coverage addition already present')
+          target.write_text(text.rstrip() + addition + '\n', encoding='utf-8')
+          PY
+          rm -f .github/workflows/tai-quality-edge-tests.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test(tai): cover signed scoring security edges"
+          git push origin HEAD:agent/tai-ap-13c1d-remediation-2997
