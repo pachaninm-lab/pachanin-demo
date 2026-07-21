@@ -5,6 +5,7 @@ from tai.model_bundle_v2_types import (
     ConversionEvidence,
     DeclaredFile,
     DeclaredSourceFile,
+    ExternalArchiveEvidence,
     LegalReviewEvidence,
     LocalModelBundleV2,
     ModelBundleAuthority,
@@ -130,6 +131,14 @@ def _file_payload(value: DeclaredFile) -> dict[str, object]:
     return {"path": value.path, "sha256": value.sha256, "size_bytes": value.size_bytes}
 
 
+def _archive_payload(value: ExternalArchiveEvidence) -> dict[str, object]:
+    return {
+        "media_type": value.media_type,
+        "sha256": value.sha256,
+        "size_bytes": value.size_bytes,
+    }
+
+
 def _remote_payload(value: RemoteInventoryEvidence | None) -> object:
     if value is None:
         return None
@@ -208,7 +217,7 @@ def _storage_payload(value: StorageEvidence | None) -> object:
     if value is None:
         return None
     return {
-        "bundle_archive": _file_payload(value.bundle_archive),
+        "bundle_archive": _archive_payload(value.bundle_archive),
         "immutable_locator": value.immutable_locator,
         "payload_index": _file_payload(value.payload_index),
         "restored_at": value.restored_at,

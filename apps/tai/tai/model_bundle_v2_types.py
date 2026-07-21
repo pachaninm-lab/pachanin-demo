@@ -80,6 +80,20 @@ class DeclaredFile:
 
 
 @dataclass(frozen=True, slots=True)
+class ExternalArchiveEvidence:
+    sha256: str
+    size_bytes: int
+    media_type: str
+
+    def __post_init__(self) -> None:
+        _sha256(self.sha256, "external archive sha256")
+        if self.size_bytes < 1:
+            raise ValueError("external archive size must be positive")
+        if self.media_type != "application/vnd.tai.model-bundle.tar+zstd":
+            raise ValueError("external archive media_type is unsupported")
+
+
+@dataclass(frozen=True, slots=True)
 class AuthorityInventoryEntry:
     path: str
     role: SourceFileRole
@@ -391,7 +405,7 @@ class QuantizationEvidence:
 
 @dataclass(frozen=True, slots=True)
 class StorageEvidence:
-    bundle_archive: DeclaredFile
+    bundle_archive: ExternalArchiveEvidence
     payload_index: DeclaredFile
     immutable_locator: str
     uploaded_at: str

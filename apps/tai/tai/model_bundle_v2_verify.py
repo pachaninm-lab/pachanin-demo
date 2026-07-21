@@ -76,6 +76,7 @@ def verify_local_model_bundle_v2(
         _verify_legal_review_record(plan, bundle, bundle_root, state)
     _verify_locator_and_retention(bundle, bundle_root, state)
     _verify_original_and_restore(bundle, bundle_root, restored_root, state)
+    _verify_payload_index(bundle, bundle_root, state)
     if plan is not None and bundle_root.exists():
         _verify_shard_index(plan, bundle, bundle_root, state)
     _verify_embedded_toolchain_report(bundle, bundle_root, authority, state)
@@ -362,20 +363,63 @@ def _locator_binds_sha256(locator: str, digest: str) -> bool:
     )
 
 
+def _verify_payload_index(
+    bundle: LocalModelBundleV2,
+    bundle_root: Path,
+    state: _VerificationState,
+) -> None:
+    storage = bundle.storage
+    if storage is None:
+        return
+    try:
+        path = _bounded_regular_file(bundle_root, storage.payload_index.path)
+        payload = _load_json_strict(path)
+    except ValueError as error:
+        state.reasons.append(f"PAYLOAD_INDEX_INVALID:{error}")
+        return
+    declared = tuple(
+        item
+        for item in _payload_declared_files(bundle)
+        if item.path != storage.payload_index.path
+    )
+    expected: dict[str, object] = {
+        "schema_version": "tai.model-bundle-payload-index.v1",
+        "files": [
+            {
+                "path": item.path,
+                "sha256": item.sha256,
+                "size_bytes": item.size_bytes,
+            }
+            for item in sorted(declared, key=lambda value: value.path)
+        ],
+    }
+    if payload != expected:
+        state.reasons.append("PAYLOAD_INDEX_MISMATCH")
+
+
 def _verify_original_and_restore(
     bundle: LocalModelBundleV2,
     bundle_root: Path,
     restored_root: Path | None,
     state: _VerificationState,
 ) -> None:
-    declared = _all_declared_files(bundle)
-    paths = tuple(item.path for item in declared)
+    payload_files = _payload_declared_files(bundle)
+    control_files = _control_declared_files(bundle)
+    paths = tuple(item.path for item in (*payload_files, *control_files))
     if len(paths) != len(set(paths)):
         state.reasons.append("DECLARED_FILE_PATH_DUPLICATE")
     _verify_declared_files(
         root=bundle_root,
-        declared=declared,
+        declared=payload_files,
         prefix="",
+        reasons=state.reasons,
+        verified=state.verified,
+        seen_inodes=state.original_inodes,
+    )
+    _verify_declared_files(
+        root=bundle_root,
+        declared=control_files,
+        prefix="CONTROL_",
         reasons=state.reasons,
         verified=state.verified,
         seen_inodes=state.original_inodes,
@@ -385,7 +429,7 @@ def _verify_original_and_restore(
         return
     _verify_declared_files(
         root=restored_root,
-        declared=declared,
+        declared=payload_files,
         prefix="RESTORED_",
         reasons=state.reasons,
         verified=state.restored,
@@ -488,7 +532,7 @@ def _verify_embedded_toolchain_report(
         state.reasons.append("TOOLCHAIN_VERIFICATION_REPORT_TARGET_SET_MISMATCH")
 
 
-def _all_declared_files(bundle: LocalModelBundleV2) -> tuple[DeclaredFile, ...]:
+def _payload_declared_files(bundle: LocalModelBundleV2) -> tuple[DeclaredFile, ...]:
     files: list[DeclaredFile] = [item.file for item in bundle.source_files]
     if bundle.remote_inventory is not None:
         files.append(bundle.remote_inventory.evidence_file)
@@ -511,16 +555,14 @@ def _all_declared_files(bundle: LocalModelBundleV2) -> tuple[DeclaredFile, ...]:
     for quantization in bundle.quantizations:
         files.extend([quantization.log, quantization.output])
     if bundle.storage is not None:
-        storage = bundle.storage
-        files.extend(
-            [
-                storage.bundle_archive,
-                storage.payload_index,
-                storage.upload_record,
-                storage.restore_record,
-            ]
-        )
+        files.append(bundle.storage.payload_index)
     return tuple(files)
+
+
+def _control_declared_files(bundle: LocalModelBundleV2) -> tuple[DeclaredFile, ...]:
+    if bundle.storage is None:
+        return ()
+    return (bundle.storage.upload_record, bundle.storage.restore_record)
 
 
 def _find_plan(

@@ -209,9 +209,52 @@ def _manifest_payload(
             }
         )
 
-    bundle_archive = _write(root, "storage/bundle.tar.zst", b"immutable-model-bundle")
-    payload_index = _write(root, "storage/payload-index.json", b'{"files":"indexed"}\n')
-    storage_locator = f"oci://registry.example/tai/model-bundle@sha256:{bundle_archive['sha256']}"
+    archive_content = b"immutable-model-bundle"
+    bundle_archive: dict[str, object] = {
+        "sha256": _sha256(archive_content),
+        "size_bytes": len(archive_content),
+        "media_type": "application/vnd.tai.model-bundle.tar+zstd",
+    }
+    payload_files: list[dict[str, object]] = [
+        *source_files,
+        remote_evidence,
+        license_text,
+        review_record,
+        package,
+        build_manifest,
+        verification_report,
+        *[cast(dict[str, object], item["file"]) for item in binaries],
+        converter,
+        python_dependencies,
+        conversion_log,
+        intermediate,
+    ]
+    for item in quantizations:
+        payload_files.append(cast(dict[str, object], item["log"]))
+        payload_files.append(cast(dict[str, object], item["output"]))
+    payload_index_payload = {
+        "schema_version": "tai.model-bundle-payload-index.v1",
+        "files": sorted(
+            [
+                {
+                    "path": item["path"],
+                    "sha256": item["sha256"],
+                    "size_bytes": item["size_bytes"],
+                }
+                for item in payload_files
+            ],
+            key=lambda item: cast(str, item["path"]),
+        ),
+    }
+    payload_index = _write(
+        root,
+        "storage/payload-index.json",
+        json.dumps(payload_index_payload, sort_keys=True).encode(),
+    )
+    storage_locator = (
+        "s3://registry.example/tai/model-bundle?versionId=fixture"
+        f"#sha256={bundle_archive['sha256']}"
+    )
     uploaded_at = "2026-07-20T02:00:00Z"
     retention_days = 90
     retention_expires_at = "2026-10-18T02:00:00Z"
@@ -318,6 +361,8 @@ def _manifest_payload(
     _write_json(manifest, payload)
     restored = tmp_path / "restored"
     shutil.copytree(root, restored)
+    (restored / cast(str, upload_record["path"])).unlink()
+    (restored / cast(str, restore_record["path"])).unlink()
     return manifest, root, restored, payload
 
 

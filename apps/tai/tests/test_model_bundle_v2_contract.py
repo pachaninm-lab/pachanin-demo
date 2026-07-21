@@ -83,11 +83,53 @@ def test_complete_bundle_verifies_only_with_original_and_restore(tmp_path: Path)
         ).encode()
     )
     assert report.authority_sha256 == bundle.authority_sha256
-    assert len(report.verified_files) == len(report.restored_files)
+    assert set(report.verified_files) - set(report.restored_files) == {
+        "storage/upload-record.json",
+        "storage/restore-record.json",
+    }
+    assert "storage/payload-index.json" in report.restored_files
     assert len(report.report_sha256) == 64
     assert (
         source_files_sha256_v2(bundle.source_files) == payload["conversion"]["source_files_sha256"]
     )
+
+
+def test_archive_is_external_metadata_and_payload_index_is_exact(tmp_path: Path) -> None:
+    _, payload, manifest, root, restored = _verify(tmp_path)
+    storage = cast(dict[str, Any], payload["storage"])
+    archive = cast(dict[str, Any], storage["bundle_archive"])
+    assert set(archive) == {"media_type", "sha256", "size_bytes"}
+    assert "path" not in archive
+
+    payload_index = cast(dict[str, Any], storage["payload_index"])
+    index_path = root / cast(str, payload_index["path"])
+    index_payload = json.loads(index_path.read_text(encoding="utf-8"))
+    cast(list[dict[str, Any]], index_payload["files"]).pop()
+    content = json.dumps(index_payload, sort_keys=True).encode()
+    index_path.write_bytes(content)
+    (restored / cast(str, payload_index["path"])).write_bytes(content)
+    payload_index["sha256"] = _sha256(content)
+    payload_index["size_bytes"] = len(content)
+    _write_json(manifest, payload)
+
+    report = verify_local_model_bundle_v2(
+        authority=load_model_bundle_authority_v2(AUTHORITY_PATH),
+        bundle=load_local_model_bundle_v2(manifest),
+        bundle_root=root,
+        restored_root=restored,
+    )
+    assert report.status is BundleVerificationStatus.REJECTED
+    assert "PAYLOAD_INDEX_MISMATCH" in report.reasons
+
+
+def test_archive_payload_path_is_rejected(tmp_path: Path) -> None:
+    _, payload, manifest, _, _ = _verify(tmp_path)
+    storage = cast(dict[str, Any], payload["storage"])
+    archive = cast(dict[str, Any], storage["bundle_archive"])
+    archive["path"] = "storage/bundle.tar.zst"
+    _write_json(manifest, payload)
+    with pytest.raises(ValueError, match="unknown keys"):
+        load_local_model_bundle_v2(manifest)
 
 
 def test_duplicate_and_unknown_json_keys_are_rejected(tmp_path: Path) -> None:
@@ -252,10 +294,8 @@ def test_shard_index_symlink_inode_and_restore_tampering_are_rejected(
     source_path.unlink()
     source_path.symlink_to(index_path)
 
-    storage = cast(dict[str, Any], payload["storage"])
-    restore_record = cast(dict[str, Any], storage["restore_record"])
-    restored_target = restored / cast(str, restore_record["path"])
-    restored_target.write_bytes(b"tampered restore record")
+    restored_target = restored / cast(str, source_files[1]["path"])
+    restored_target.write_bytes(b"tampered restored payload")
     _write_json(manifest, payload)
     report = verify_local_model_bundle_v2(
         authority=load_model_bundle_authority_v2(AUTHORITY_PATH),
