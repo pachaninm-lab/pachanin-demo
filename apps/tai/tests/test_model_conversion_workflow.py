@@ -185,6 +185,8 @@ def test_driver_confines_mutation_and_executes_only_declared_outputs() -> None:
     assert "artifacts/quarantine" in driver
     assert "conversion_argv" in driver
     assert "quantizations" in driver
+    assert "$LLAMA_ROOT/source/llama.cpp" in driver
+    assert "$LLAMA_ROOT/source/llama.cpp/gguf-py" in driver
     assert "qwen3-8b-bf16.gguf" in driver
     assert "qwen3-8b-q4-k-m.gguf" in driver
     assert "qwen3-8b-q8-0.gguf" in driver
