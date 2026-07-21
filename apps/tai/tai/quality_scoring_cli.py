@@ -29,11 +29,15 @@ def _parser() -> argparse.ArgumentParser:
     verify.add_argument("accepted_assessment", type=Path)
     verify.add_argument("case_manifest", type=Path)
     verify.add_argument("scoring_manifest", type=Path)
-    verify.add_argument("reviewer_identity_secret", type=Path)
-    verify.add_argument("reviewer_evidence_manifest", type=Path)
-    verify.add_argument("reviewer_original_root", type=Path)
-    verify.add_argument("reviewer_restored_root", type=Path)
-    verify.add_argument("--trusted-identity-secret-sha256", required=True)
+    missing = Path("__missing_reviewer_evidence__")
+    verify.add_argument("reviewer_identity_secret", type=Path, nargs="?", default=missing)
+    verify.add_argument("reviewer_evidence_manifest", type=Path, nargs="?", default=missing)
+    verify.add_argument("reviewer_original_root", type=Path, nargs="?", default=missing)
+    verify.add_argument("reviewer_restored_root", type=Path, nargs="?", default=missing)
+    verify.add_argument(
+        "--trusted-identity-secret-sha256",
+        default="0" * 64,
+    )
     verify.add_argument("--evaluated-at", required=True)
     verify.add_argument("--output", type=Path)
     return parser
