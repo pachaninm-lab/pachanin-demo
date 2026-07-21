@@ -8,7 +8,6 @@ import pytest
 from quality_scoring_fixtures import (
     EXACT_MAIN,
     NOW,
-    PROFILES,
     _authority,
     _fixture,
     _rewrite_manifest,
@@ -19,6 +18,7 @@ from quality_scoring_fixtures import (
 from tai.quality_scoring import verify_quality_scoring
 from tai.quality_scoring_contract import (
     EXPECTED_MATURITY,
+    PROFILES,
     VERIFIED_QUALITY_STATUS,
     QualityScoringError,
     canonical_sha256,
