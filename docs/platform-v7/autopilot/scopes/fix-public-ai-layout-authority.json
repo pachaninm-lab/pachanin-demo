@@ -1,22 +1,43 @@
 {
   "branch": "fix/public-ai-layout-authority",
   "status": "active",
-  "purpose": "Rebuild the public AI-in-action page into a concise value-first, single-stage interactive explanation with an unobstructed mobile composition.",
-  "approvedBy": "user-directed-editorial-rebuild",
+  "purpose": "Implement P0 of the final TAI public intelligence specification: embed role-scoped, evidence-backed intelligence into the public platform home and convert the AI route into a light institutional contour passport without changing Deal authority or claiming live government integrations.",
+  "approvedBy": "user-directed-final-tz-2026-07-21",
   "allowedPaths": [
     "apps/web/app/platform-v7/ai-in-action/page.tsx",
+    "apps/web/app/platform-v7/page.tsx",
     "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
-    "apps/web/components/platform-v7/PublicAiInActionExperience.module.css",
-    "apps/web/components/platform-v7/PublicAiInActionExperience.tsx",
+    "apps/web/components/platform-v7/PublicAiGovernanceStrip.tsx",
+    "apps/web/components/platform-v7/PublicAiInActionSimpleExperience.module.css",
+    "apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx",
+    "apps/web/components/platform-v7/PublicContextualAssistantPrompts.tsx",
+    "apps/web/components/platform-v7/PublicDealIntelligencePanel.tsx",
+    "apps/web/components/platform-v7/PublicDealPreview.tsx",
+    "apps/web/components/platform-v7/PublicEvidenceIntelligencePanel.tsx",
+    "apps/web/components/platform-v7/PublicExperienceAnalytics.tsx",
+    "apps/web/components/platform-v7/PublicGovernmentDataContour.tsx",
+    "apps/web/components/platform-v7/PublicGovernmentSourceResult.tsx",
+    "apps/web/components/platform-v7/PublicHeroIntelligenceStatus.tsx",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/components/platform-v7/PublicRoleIntelligenceSummary.tsx",
+    "apps/web/components/platform-v7/PublicStageIntelligenceCoverage.tsx",
+    "apps/web/styles/platform-v7-public-intelligence-layer.css",
     "apps/web/tests/unit/platformV7PublicAiInAction.test.ts",
-    "docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json",
-    "scripts/p7-autopilot-guard.sh"
+    "apps/web/tests/unit/platformV7PublicAiMarketingBlock.test.ts",
+    "apps/web/tests/unit/platformV7PublicAiRouteAuthority.test.ts",
+    "apps/web/tests/unit/platformV7PublicIntelligenceLayer.test.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json"
   ],
   "forbiddenCapabilities": [
     "autonomous consequential commands",
     "cross-role or cross-tenant access",
     "external model calls from the public demonstration",
     "production infrastructure mutation",
-    "claims that public mode accesses account or real-deal data"
+    "claims that public mode accesses account or real-deal data",
+    "claims that a government connector is connected without registry evidence",
+    "direct storage of ESIA passwords, access tokens or private signature keys",
+    "screen scraping of government workspaces",
+    "submission or signature without explicit user confirmation"
   ]
 }
