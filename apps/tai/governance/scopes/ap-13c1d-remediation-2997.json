@@ -4,7 +4,7 @@
   "parent_issue": 2993,
   "issue": 2997,
   "branch": "agent/tai-ap-13c1d-remediation-2997",
-  "exact_base": "4ab310012ab23496b06611f402bfaff9768f1d7d",
+  "exact_base": "039ba684d083ed7a08982b69c909552216906db2",
   "allowed_paths": [
     "docs/platform-v7/autopilot/autopilot-state.json",
     "apps/tai/governance/scopes/ap-13c1d-remediation-2997.json",
