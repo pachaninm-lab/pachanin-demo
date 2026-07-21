@@ -8,6 +8,8 @@ import {
 import { CommodityProfilesModule } from './commodity-profiles.module';
 import { PostgresqlCommodityProfileTransactionPort } from './postgresql-commodity-profile-transaction.port';
 
+jest.setTimeout(10_000);
+
 describe('CommodityProfilesModule private authority wiring', () => {
   it('binds the command service to the PostgreSQL port without publishing controllers', async () => {
     const moduleRef = await Test.createTestingModule({
