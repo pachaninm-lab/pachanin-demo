@@ -1,0 +1,76 @@
+name: TAI Rollout Principal Fix
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-rollout-principal-fix.yml'
+  push:
+    branches:
+      - fix/public-ai-layout-authority
+    paths:
+      - '.github/workflows/tai-rollout-principal-fix.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-rollout-principal-fix
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/fix/public-ai-layout-authority') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/public-ai-layout-authority
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Bind canonical production principal and retrigger rollout
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
+          test "$(git rev-parse HEAD^)" = '3270b89774f386d3a50935a967fc875d9e43486f'
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/deploy-ai-web-vps-c21eec0.yml')
+          trigger = Path('.github/release-triggers/tai-p0-web-24277e0.md')
+
+          text = workflow.read_text(encoding='utf-8')
+          secret_line = '  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}\n'
+          user_line = '          user="$(trim "${SSH_USER_SECRET:-root}")"\n'
+          replacement = "          user='root'\n"
+          if text.count(secret_line) != 1:
+              raise SystemExit('expected exactly one SSH_USER_SECRET binding')
+          if text.count(user_line) != 1:
+              raise SystemExit('expected exactly one dynamic SSH user binding')
+          text = text.replace(secret_line, '').replace(user_line, replacement)
+          if 'SSH_USER_SECRET' in text:
+              raise SystemExit('dynamic SSH user authority remains')
+          if text.count("user='root'") != 1:
+              raise SystemExit('canonical root principal binding missing')
+          workflow.write_text(text, encoding='utf-8')
+
+          trigger_text = trigger.read_text(encoding='utf-8')
+          old = '- Release attempt: `4` — hardened autonomous trusted `push/main` trigger'
+          new = '- Release attempt: `5` — canonical source-bound root principal and trusted `push/main` trigger'
+          if trigger_text.count(old) != 1:
+              raise SystemExit('release attempt 4 marker missing')
+          trigger.write_text(trigger_text.replace(old, new), encoding='utf-8')
+          PY
+
+          rm -f .github/workflows/tai-rollout-principal-fix.yml
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix(release): bind canonical root SSH principal'
+          git push origin HEAD:fix/public-ai-layout-authority
