@@ -21,6 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     arguments = build_parser().parse_args()
+    report: dict[str, object]
     try:
         evaluated_at = (
             datetime.fromisoformat(arguments.evaluated_at.replace("Z", "+00:00"))
