@@ -286,20 +286,20 @@ def test_cross_model_toolchain_and_immutable_aliases_are_rejected(
     fixture = build_fixture(tmp_path / "alias")
     qwen = fixture["models"]["qwen3-8b"]
     mistral = fixture["models"]["mistral-7b-instruct-v0.3"]
-    for field in (
-        "archive_sha256",
-        "archive_size_bytes",
-        "immutable_locator",
-        "version_id",
-    ):
-        mistral["object_record"][field] = qwen["object_record"][field]
+    mistral["object_record"] = copy.deepcopy(qwen["object_record"])
     mistral["manifest"]["storage"]["archive"]["sha256"] = qwen["archive_sha256"]
     mistral["manifest"]["storage"]["archive"]["size_bytes"] = qwen[
         "archive_size_bytes"
     ]
-    mistral["manifest"]["storage"]["immutable_locator"] = qwen["immutable_locator"]
+    mistral["manifest"]["storage"]["immutable_locator"] = mistral[
+        "object_record"
+    ]["immutable_locator"]
     for field in ("endpoint_host", "region", "bucket", "key", "version_id", "etag"):
-        mistral["manifest"]["storage"]["object"][field] = qwen["object_record"][field]
+        mistral["manifest"]["storage"]["object"][field] = mistral[
+            "object_record"
+        ][field]
+    for field in ("uploaded_at", "retention_expires_at", "restored_at"):
+        mistral["manifest"]["storage"][field] = mistral["object_record"][field]
     _write(mistral["manifest_path"], mistral["manifest"])
     _write(mistral["object_path"], mistral["object_record"])
     mistral["report"]["archive_sha256"] = qwen["archive_sha256"]
