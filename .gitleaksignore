@@ -12,3 +12,9 @@ d4f147c04c64b7565f11288b3b545c97340d7899:apps/tai/model-artifacts/model-conversi
 
 # False positive: public immutable GitHub Actions source-evidence artifact SHA-256, not a credential.
 387c77b28f89b467080371c3e55cbf376acdd28e:apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json:generic-api-key:75
+
+# False positive: public immutable Mistral model revision, not an API key.
+d84b7faadf1b430e549850ccc5cce82a03d52d99:apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json:generic-api-key:67
+
+# False positive: public immutable Mistral model revision asserted by the fail-closed authority validator.
+ecdc1130ca1bc424f3ccecb072115e304722c971:apps/tai/tai/cpu_benchmark_execution.py:generic-api-key:413
