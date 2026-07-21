@@ -11,7 +11,8 @@
     "TAI_BUNDLE_S3_BUCKET",
     "TAI_BUNDLE_S3_ACCESS_KEY_ID",
     "TAI_BUNDLE_S3_SECRET_ACCESS_KEY",
-    "TAI_BUNDLE_S3_PREFIX"
+    "TAI_BUNDLE_S3_PREFIX",
+    "TAI_BUNDLE_S3_CAPACITY_BYTES"
   ],
   "required_bucket_controls": {
     "https_endpoint": true,
