@@ -1,0 +1,64 @@
+name: TAI Rollout Sync Main 3006
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-rollout-sync-main-3006.yml'
+  push:
+    branches:
+      - fix/public-ai-layout-authority
+    paths:
+      - '.github/workflows/tai-rollout-sync-main-3006.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tai-rollout-sync-main-3006
+  cancel-in-progress: false
+
+jobs:
+  sync-main:
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/fix/public-ai-layout-authority') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.number == 3006 && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_MAIN: 'fcc61811e8c8ce2f9496c0c3d0bab894168b7615'
+    steps:
+      - name: Checkout rollout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/public-ai-layout-authority
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Merge exact patched main without changing release target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'pachaninm-lab'
+          git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          git merge --no-edit origin/main
+
+          workflow='.github/workflows/deploy-ai-web-vps-c21eec0.yml'
+          trigger='.github/release-triggers/tai-p0-web-24277e0.md'
+          scope='docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json'
+          old_target='24277e008d25f66f52b56284ff83ca3eead39fb2'
+          old_image='ghcr.io/pachaninm-lab/grainflow-web:sha-24277e0'
+
+          grep -Fq "$old_target" "$workflow"
+          grep -Fq "$old_image" "$workflow"
+          grep -Fq "$old_target" "$trigger"
+          grep -Fq "$old_image" "$trigger"
+          grep -Fq "$old_target" "$scope"
+
+          rm -f .github/workflows/tai-rollout-sync-main-3006.yml
+          git add -A
+          git diff --cached --check
+          git commit -m 'chore(release): remove temporary main sync authority'
+          git push origin HEAD:fix/public-ai-layout-authority
