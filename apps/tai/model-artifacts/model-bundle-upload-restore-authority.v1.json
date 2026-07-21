@@ -1,0 +1,115 @@
+{
+  "schema_version": "tai.model-bundle-upload-restore-authority.v1",
+  "program_issue": 2726,
+  "parent_issue": 2954,
+  "issue": 2961,
+  "command": "/tai finalize model-bundles exact-main",
+  "conversion_run": {
+    "exact_main_sha": "8bd494dc4954baaf699cffa243951392ff451ebb",
+    "workflow_run_id": 29810648430,
+    "workflow_run_attempt": 1,
+    "remote_root": "/srv/tai-models/conversion-runs/8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1",
+    "status": "CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE",
+    "report_sha256": "056c0203f382f6e3e1e57ebf145448cfddbff4718456fac7a2a84c6420185241",
+    "evidence_artifact": {
+      "id": 8488069541,
+      "digest": "sha256:be2ff447fe2495ce9d8d629c0e70b48eff3e796b38a626ba1841683aa7edab7e"
+    }
+  },
+  "storage_authority": {
+    "provider_profile": "SELECTEL_S3_2026",
+    "provisioning_issue": 2958,
+    "required_preflight_status": "READY_FOR_BUNDLE_UPLOAD",
+    "required_versioning_status": "Enabled",
+    "required_object_lock_status": "Enabled",
+    "required_retention_mode": "COMPLIANCE",
+    "minimum_retention_days": 90,
+    "content_addressed_locator": true,
+    "accepted_object_delete": false
+  },
+  "models": [
+    {
+      "key": "qwen3-8b",
+      "role": "PRIMARY",
+      "model_id": "Qwen/Qwen3-8B",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "manifest_path": "model-bundles/qwen3-8b/bundle.v2.json",
+      "archive_path": "storage/qwen3-8b.bundle.tar",
+      "outputs": [
+        {
+          "path": "artifacts/qwen3-8b-bf16.gguf",
+          "format": "BF16",
+          "size_bytes": 16388044128,
+          "sha256": "3ca3b6c5d88da9c3ed8ea22ef64cf82e8300d0b8543a569d6535eba2703ed7fe"
+        },
+        {
+          "path": "artifacts/qwen3-8b-q4-k-m.gguf",
+          "format": "Q4_K_M",
+          "size_bytes": 5027784032,
+          "sha256": "107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814"
+        },
+        {
+          "path": "artifacts/qwen3-8b-q8-0.gguf",
+          "format": "Q8_0",
+          "size_bytes": 8709518688,
+          "sha256": "c306b7e921bb96fd3f17e58795c5638e5153f22d551a2077c1ae0c82c7d4ceaa"
+        }
+      ]
+    },
+    {
+      "key": "mistral-7b-instruct-v0.3",
+      "role": "FALLBACK",
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "manifest_path": "model-bundles/mistral-7b-instruct-v0.3/bundle.v2.json",
+      "archive_path": "storage/mistral-7b-instruct-v0.3.bundle.tar",
+      "outputs": [
+        {
+          "path": "artifacts/mistral-7b-instruct-v0.3-f16.gguf",
+          "format": "F16",
+          "size_bytes": 14497341504,
+          "sha256": "09a6d7ac244c8600e39774fac8fe9c124f2540482870bfa4359e6913bade7c19"
+        },
+        {
+          "path": "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
+          "format": "Q4_K_M",
+          "size_bytes": 4372815936,
+          "sha256": "62f36c339b80c8849814f8a0fd4b04f94c7a758658f71d6aa86478e633d5764e"
+        }
+      ]
+    }
+  ],
+  "execution": {
+    "owner_only": true,
+    "exact_main_required": true,
+    "model_host_user": "tai-model",
+    "stream_archive_without_local_duplicate": true,
+    "restore_one_model_at_a_time": true,
+    "clean_restore_root_required": true,
+    "verify_archive_sha256_before_extract": true,
+    "verify_safe_archive_members": true,
+    "verify_bundle_storage_v2_required": true,
+    "delete_accepted_s3_objects": false,
+    "remove_temporary_restore_after_evidence": true
+  },
+  "required_secret_names": [
+    "TAI_MODEL_HOST",
+    "TAI_MODEL_SSH_USER",
+    "TAI_MODEL_SSH_PORT",
+    "TAI_MODEL_SSH_KEY",
+    "TAI_BUNDLE_S3_ENDPOINT",
+    "TAI_BUNDLE_S3_REGION",
+    "TAI_BUNDLE_S3_BUCKET",
+    "TAI_BUNDLE_S3_ACCESS_KEY_ID",
+    "TAI_BUNDLE_S3_SECRET_ACCESS_KEY",
+    "TAI_BUNDLE_S3_PREFIX",
+    "TAI_BUNDLE_S3_CAPACITY_BYTES",
+    "TAI_BUNDLE_S3_PRINCIPAL_ID"
+  ],
+  "result": {
+    "complete_status": "VERIFIED_BUNDLES_RESTORED",
+    "benchmark_status": "NOT_RUN",
+    "model_admission_status": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}
