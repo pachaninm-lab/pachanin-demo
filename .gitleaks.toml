@@ -1,0 +1,11 @@
+title = "Prozrachnaya Cena governed Gitleaks policy"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public Mistral model slug in governed conversion authority"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^apps/tai/model-artifacts/model-conversion-authority\.v1\.json$''']
+regexes = ['''^\s*"key":\s*"mistral-7b-instruct-v0\.3",?\s*$''']
