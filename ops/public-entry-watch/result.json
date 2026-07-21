@@ -1,781 +1,714 @@
 {
   "schemaVersion": 2,
-  "checkedAt": "2026-07-21T03:30:28.994Z",
+  "checkedAt": "2026-07-21T03:36:45.964Z",
   "baseURL": "https://xn----8sbjf4befbjgs9b.xn--p1ai",
   "cases": [
     {
       "project": "chromium-desktop",
       "locale": "ru",
       "route": "/platform-v7",
-      "message": "Error: chromium-desktop/ru/platform-v7: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 3988,
-        "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\nКак работает\nУчастники\nНадёжность\n文\nRU\nВойти\nИсполнение внебиржевой зерновой сделки\nСделка под контролем — от условий до расчёта\n\nОдна карточка связывает участников, рейс, приёмку, качество, документы, денежные основания и спор. На каждом этапе видны ответственный, следующее действие и причина блокировки.\n\nПУБЛИЧНЫЙ РЕЖИМ\nНиже — обезличенный пример живого процесса исполнения. Реальные сделки, организации и платежи в публичном режиме не раскрываются.\nПосмотрет",
-        "bodyChildCount": 64,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784605006684",
+      "documentRequests": 1,
+      "htmlLang": "ru",
+      "bodyTextLength": 3988,
+      "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\nКак работает\nУчастники\nНадёжность\n文\nRU\nВойти\nИсполнение внебиржевой зерновой сделки\nСделка под контролем — от условий до расчёта\n\nОдна карточка связывает участников, рейс, приёмку, качество, документы, денежные основания и спор. На каждом этапе видны ответственный, следующее действие и причина блокировки.\n\nПУБЛИЧНЫЙ РЕЖИМ\nНиже — обезличенный пример живого процесса исполнения. Реальные сделки, организации и платежи в публичном режиме не раскрываются.\nПосмотрет",
+      "bodyChildCount": 64,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": true,
+        "zh": false
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604630275"
-      ],
-      "pass": false
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-desktop",
       "locale": "ru",
       "route": "/platform-v7/login",
-      "message": "Error: chromium-desktop/ru/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 203,
-        "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\nДоступ к платформе\n文\nRU\nВойти\n\nВведите электронную почту и пароль.\n\nЭлектронная почта\nПароль\nВосстановить доступ\nВойти\nНет доступа к платформе?\nПодключить организацию",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784605008913",
+      "documentRequests": 1,
+      "htmlLang": "ru",
+      "bodyTextLength": 203,
+      "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\nДоступ к платформе\n文\nRU\nВойти\n\nВведите электронную почту и пароль.\n\nЭлектронная почта\nПароль\nВосстановить доступ\nВойти\nНет доступа к платформе?\nПодключить организацию",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": true,
+        "zh": false
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604633438"
-      ],
-      "pass": false
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-desktop",
       "locale": "ru",
       "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-desktop/ru/platform-v7/forgot-password: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 280,
-        "bodyPreview": "Прозрачная Цена\nВосстановление доступа\n文\nRU\nВосстановить доступ\n\nУкажите рабочий email. Запрос будет обработан без раскрытия наличия учётной записи.\n\nРабочий email\nОтправить запрос\nВернуться ко входу\n\nВосстановление выполняется только после проверки принадлежности учётной записи.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784605010861",
+      "documentRequests": 1,
+      "htmlLang": "ru",
+      "bodyTextLength": 280,
+      "bodyPreview": "Прозрачная Цена\nВосстановление доступа\n文\nRU\nВосстановить доступ\n\nУкажите рабочий email. Запрос будет обработан без раскрытия наличия учётной записи.\n\nРабочий email\nОтправить запрос\nВернуться ко входу\n\nВосстановление выполняется только после проверки принадлежности учётной записи.",
+      "bodyChildCount": 48,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": true,
+        "zh": false
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604635897"
-      ],
-      "pass": false
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-desktop",
       "locale": "en",
       "route": "/platform-v7",
-      "message": "Error: chromium-desktop/en/platform-v7: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 3862,
-        "bodyPreview": "Skip to content\nПрозрачная Цена\nHow it works\nParticipants\nAssurance\n文\nEN\nSign in\nExecution of an OTC grain transaction\nA controlled deal — from terms to settlement\n\nOne deal record connects participants, transport, acceptance, quality, documents, payment grounds and disputes. Every stage shows the owner, next action and reason for any block.\n\nPUBLIC MODE\nBelow is an anonymised example of the live execution process. Real deals, organisations and payments are not exposed in public mode.\nSee how a ",
-        "bodyChildCount": 64,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784605012789",
+      "documentRequests": 1,
+      "htmlLang": "en",
+      "bodyTextLength": 3862,
+      "bodyPreview": "Skip to content\nПрозрачная Цена\nHow it works\nParticipants\nAssurance\n文\nEN\nSign in\nExecution of an OTC grain transaction\nA controlled deal — from terms to settlement\n\nOne deal record connects participants, transport, acceptance, quality, documents, payment grounds and disputes. Every stage shows the owner, next action and reason for any block.\n\nPUBLIC MODE\nBelow is an anonymised example of the live execution process. Real deals, organisations and payments are not exposed in public mode.\nSee how a ",
+      "bodyChildCount": 64,
+      "primaryVisible": true,
+      "availability": {
+        "ru": false,
+        "en": true,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604638325"
-      ],
-      "pass": false
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-desktop",
       "locale": "en",
       "route": "/platform-v7/login",
-      "message": "Error: chromium-desktop/en/platform-v7/login: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 202,
-        "bodyPreview": "Skip to content\nПрозрачная Цена\nPlatform access\n文\nEN\nSign in\n\nEnter your email address and password.\n\nEmail address\nPassword\nRestore access\nSign in\nNeed access to the platform?\nConnect your organisation",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784605014734",
+      "documentRequests": 1,
+      "htmlLang": "en",
+      "bodyTextLength": 202,
+      "bodyPreview": "Skip to content\nПрозрачная Цена\nPlatform access\n文\nEN\nSign in\n\nEnter your email address and password.\n\nEmail address\nPassword\nRestore access\nSign in\nNeed access to the platform?\nConnect your organisation",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": false,
+        "en": true,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604641028"
-      ],
-      "pass": false
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-desktop",
       "locale": "en",
       "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-desktop/en/platform-v7/forgot-password: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 248,
-        "bodyPreview": "Прозрачная Цена\nAccess recovery\n文\nEN\nRestore access\n\nEnter your work email. The request is processed without disclosing whether an account exists.\n\nWork email\nSend request\nBack to sign in\n\nRecovery proceeds only after account ownership is verified.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784605016606",
+      "documentRequests": 1,
+      "htmlLang": "en",
+      "bodyTextLength": 248,
+      "bodyPreview": "Прозрачная Цена\nAccess recovery\n文\nEN\nRestore access\n\nEnter your work email. The request is processed without disclosing whether an account exists.\n\nWork email\nSend request\nBack to sign in\n\nRecovery proceeds only after account ownership is verified.",
+      "bodyChildCount": 48,
+      "primaryVisible": true,
+      "availability": {
+        "ru": false,
+        "en": true,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604643427"
-      ],
-      "pass": false
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-desktop",
       "locale": "zh",
       "route": "/platform-v7",
-      "message": "Error: chromium-desktop/zh/platform-v7: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 1272,
-        "bodyPreview": "跳到主要内容\nПрозрачная Цена\n运作方式\n参与方\n可信边界\n文\nZH\n登录\n场外粮食交易履约\n从交易条件到结算，全程受控\n\n同一交易记录连接参与方、运输、收货、质量、文件、付款依据和争议。每个阶段都显示负责人、下一步操作以及阻断原因。\n\n公开展示\n以下场景仅用于演示，不包含真实交易、组织或资金操作。\n查看演示交易\n接入组织\n1\n条款\n2\n准入\n3\n交易\n4\n运输\n5\n验收\n6\n文件\n7\n结算\n演示交易\n场景：批次收货\n\n所有数据均为虚构，仅用于说明平台逻辑。\n\n三级小麦 · 500 吨\n\n13,800 卢布/吨\n\n坦波夫 — 沃罗涅日\n当前视角\n买方\n选择其他角色\n第 6 阶段，共 10 阶段\n批次收货\n下一阶段: 取样并形成实验室报告\n当前阶段\n批次收货\n需要执行\n粮库确认实际重量\n负责人\n粮库\n控制期限\n收货时间窗口结束前\n确认后\n取样并形成实验室报告\n结算\n在质量和文件完整性确认前保持阻断\n履约\n文件\n资金\n风险\n履约\n车辆到达与收货事件相连。下一项允许操作是确认实际重量。\n打开完整交易解析\n角色工作台\n各参与方如何查看交易\n\n选择参与方后，可执行操作、文件、责任、",
-        "bodyChildCount": 62,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784605018486",
+      "documentRequests": 1,
+      "htmlLang": "zh-CN",
+      "bodyTextLength": 1272,
+      "bodyPreview": "跳到主要内容\nПрозрачная Цена\n运作方式\n参与方\n可信边界\n文\nZH\n登录\n场外粮食交易履约\n从交易条件到结算，全程受控\n\n同一交易记录连接参与方、运输、收货、质量、文件、付款依据和争议。每个阶段都显示负责人、下一步操作以及阻断原因。\n\n公开展示\n以下场景仅用于演示，不包含真实交易、组织或资金操作。\n查看演示交易\n接入组织\n1\n条款\n2\n准入\n3\n交易\n4\n运输\n5\n验收\n6\n文件\n7\n结算\n演示交易\n场景：批次收货\n\n所有数据均为虚构，仅用于说明平台逻辑。\n\n三级小麦 · 500 吨\n\n13,800 卢布/吨\n\n坦波夫 — 沃罗涅日\n当前视角\n买方\n选择其他角色\n第 6 阶段，共 10 阶段\n批次收货\n下一阶段: 取样并形成实验室报告\n当前阶段\n批次收货\n需要执行\n粮库确认实际重量\n负责人\n粮库\n控制期限\n收货时间窗口结束前\n确认后\n取样并形成实验室报告\n结算\n在质量和文件完整性确认前保持阻断\n履约\n文件\n资金\n风险\n履约\n车辆到达与收货事件相连。下一项允许操作是确认实际重量。\n打开完整交易解析\n角色工作台\n各参与方如何查看交易\n\n选择参与方后，可执行操作、文件、责任、",
+      "bodyChildCount": 62,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": false,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784604645852"
-      ],
-      "pass": false
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-desktop",
       "locale": "zh",
       "route": "/platform-v7/login",
-      "message": "Error: chromium-desktop/zh/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 80,
-        "bodyPreview": "跳到主要内容\nПрозрачная Цена\n平台访问\n文\nZH\n登录\n\n请输入电子邮箱和密码。\n\n电子邮箱\n密码\n恢复访问权限\n登录\n尚未接入平台？\n接入组织",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784605020321",
+      "documentRequests": 1,
+      "htmlLang": "zh-CN",
+      "bodyTextLength": 80,
+      "bodyPreview": "跳到主要内容\nПрозрачная Цена\n平台访问\n文\nZH\n登录\n\n请输入电子邮箱和密码。\n\n电子邮箱\n密码\n恢复访问权限\n登录\n尚未接入平台？\n接入组织",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": false,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604648390"
-      ],
-      "pass": false
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-desktop",
       "locale": "zh",
       "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-desktop/zh/platform-v7/forgot-password: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 95,
-        "bodyPreview": "Прозрачная Цена\n恢复访问权限\n文\nZH\n恢复访问权限\n\n请输入工作邮箱。系统不会披露该账户是否存在。\n\n工作邮箱\n发送请求\n返回登录\n\n只有在核验账户归属后才会恢复访问权限。",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784605022248",
+      "documentRequests": 1,
+      "htmlLang": "zh-CN",
+      "bodyTextLength": 95,
+      "bodyPreview": "Прозрачная Цена\n恢复访问权限\n文\nZH\n恢复访问权限\n\n请输入工作邮箱。系统不会披露该账户是否存在。\n\n工作邮箱\n发送请求\n返回登录\n\n只有在核验账户归属后才会恢复访问权限。",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": false,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604650811"
-      ],
-      "pass": false
+      "scrollWidth": 1440,
+      "clientWidth": 1440,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-mobile-390",
       "locale": "ru",
       "route": "/platform-v7",
-      "message": "Error: chromium-mobile-390/ru/platform-v7: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 3945,
-        "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\nМеню\n文\nRU\nВойти\nИсполнение внебиржевой зерновой сделки\nСделка под контролем — от условий до расчёта\n\nОдна карточка связывает участников, рейс, приёмку, качество, документы, денежные основания и спор. На каждом этапе видны ответственный, следующее действие и причина блокировки.\n\nПУБЛИЧНЫЙ РЕЖИМ\nНиже — обезличенный пример живого процесса исполнения. Реальные сделки, организации и платежи в публичном режиме не раскрываются.\nПосмотреть, как проходит сделка\nПодклю",
-        "bodyChildCount": 64,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784605024144",
+      "documentRequests": 1,
+      "htmlLang": "ru",
+      "bodyTextLength": 3945,
+      "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\nМеню\n文\nRU\nВойти\nИсполнение внебиржевой зерновой сделки\nСделка под контролем — от условий до расчёта\n\nОдна карточка связывает участников, рейс, приёмку, качество, документы, денежные основания и спор. На каждом этапе видны ответственный, следующее действие и причина блокировки.\n\nПУБЛИЧНЫЙ РЕЖИМ\nНиже — обезличенный пример живого процесса исполнения. Реальные сделки, организации и платежи в публичном режиме не раскрываются.\nПосмотреть, как проходит сделка\nПодклю",
+      "bodyChildCount": 64,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": true,
+        "zh": false
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604653230"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-mobile-390",
       "locale": "ru",
       "route": "/platform-v7/login",
-      "message": "Error: chromium-mobile-390/ru/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 184,
-        "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\n文\nRU\nВойти\n\nВведите электронную почту и пароль.\n\nЭлектронная почта\nПароль\nВосстановить доступ\nВойти\nНет доступа к платформе?\nПодключить организацию",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784605026046",
+      "documentRequests": 1,
+      "htmlLang": "ru",
+      "bodyTextLength": 184,
+      "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\n文\nRU\nВойти\n\nВведите электронную почту и пароль.\n\nЭлектронная почта\nПароль\nВосстановить доступ\nВойти\nНет доступа к платформе?\nПодключить организацию",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": true,
+        "zh": false
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604655842"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-mobile-390",
       "locale": "ru",
       "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-mobile-390/ru/platform-v7/forgot-password: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 257,
-        "bodyPreview": "Прозрачная Цена\n文\nRU\nВосстановить доступ\n\nУкажите рабочий email. Запрос будет обработан без раскрытия наличия учётной записи.\n\nРабочий email\nОтправить запрос\nВернуться ко входу\n\nВосстановление выполняется только после проверки принадлежности учётной записи.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784605027922",
+      "documentRequests": 1,
+      "htmlLang": "ru",
+      "bodyTextLength": 257,
+      "bodyPreview": "Прозрачная Цена\n文\nRU\nВосстановить доступ\n\nУкажите рабочий email. Запрос будет обработан без раскрытия наличия учётной записи.\n\nРабочий email\nОтправить запрос\nВернуться ко входу\n\nВосстановление выполняется только после проверки принадлежности учётной записи.",
+      "bodyChildCount": 48,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": true,
+        "zh": false
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604658255"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-mobile-390",
       "locale": "en",
       "route": "/platform-v7",
-      "message": "Error: chromium-mobile-390/en/platform-v7: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 3811,
-        "bodyPreview": "Skip to content\nПрозрачная Цена\nMenu\n文\nEN\nSign in\nExecution of an OTC grain transaction\nA controlled deal — from terms to settlement\n\nOne deal record connects participants, transport, acceptance, quality, documents, payment grounds and disputes. Every stage shows the owner, next action and reason for any block.\n\nPUBLIC MODE\nBelow is an anonymised example of the live execution process. Real deals, organisations and payments are not exposed in public mode.\nSee how a deal is executed\nConnect an org",
-        "bodyChildCount": 64,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784605029848",
+      "documentRequests": 1,
+      "htmlLang": "en",
+      "bodyTextLength": 3811,
+      "bodyPreview": "Skip to content\nПрозрачная Цена\nMenu\n文\nEN\nSign in\nExecution of an OTC grain transaction\nA controlled deal — from terms to settlement\n\nOne deal record connects participants, transport, acceptance, quality, documents, payment grounds and disputes. Every stage shows the owner, next action and reason for any block.\n\nPUBLIC MODE\nBelow is an anonymised example of the live execution process. Real deals, organisations and payments are not exposed in public mode.\nSee how a deal is executed\nConnect an org",
+      "bodyChildCount": 64,
+      "primaryVisible": true,
+      "availability": {
+        "ru": false,
+        "en": true,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604660641"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-mobile-390",
       "locale": "en",
       "route": "/platform-v7/login",
-      "message": "Error: chromium-mobile-390/en/platform-v7/login: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 186,
-        "bodyPreview": "Skip to content\nПрозрачная Цена\n文\nEN\nSign in\n\nEnter your email address and password.\n\nEmail address\nPassword\nRestore access\nSign in\nNeed access to the platform?\nConnect your organisation",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784605031678",
+      "documentRequests": 1,
+      "htmlLang": "en",
+      "bodyTextLength": 186,
+      "bodyPreview": "Skip to content\nПрозрачная Цена\n文\nEN\nSign in\n\nEnter your email address and password.\n\nEmail address\nPassword\nRestore access\nSign in\nNeed access to the platform?\nConnect your organisation",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": false,
+        "en": true,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604663212"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-mobile-390",
       "locale": "en",
       "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-mobile-390/en/platform-v7/forgot-password: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 232,
-        "bodyPreview": "Прозрачная Цена\n文\nEN\nRestore access\n\nEnter your work email. The request is processed without disclosing whether an account exists.\n\nWork email\nSend request\nBack to sign in\n\nRecovery proceeds only after account ownership is verified.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784605033551",
+      "documentRequests": 1,
+      "htmlLang": "en",
+      "bodyTextLength": 232,
+      "bodyPreview": "Прозрачная Цена\n文\nEN\nRestore access\n\nEnter your work email. The request is processed without disclosing whether an account exists.\n\nWork email\nSend request\nBack to sign in\n\nRecovery proceeds only after account ownership is verified.",
+      "bodyChildCount": 48,
+      "primaryVisible": true,
+      "availability": {
+        "ru": false,
+        "en": true,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604665603"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-mobile-390",
       "locale": "zh",
       "route": "/platform-v7",
-      "message": "Error: chromium-mobile-390/zh/platform-v7: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 1256,
-        "bodyPreview": "跳到主要内容\nПрозрачная Цена\n菜单\n文\nZH\n登录\n场外粮食交易履约\n从交易条件到结算，全程受控\n\n同一交易记录连接参与方、运输、收货、质量、文件、付款依据和争议。每个阶段都显示负责人、下一步操作以及阻断原因。\n\n公开展示\n以下场景仅用于演示，不包含真实交易、组织或资金操作。\n查看演示交易\n接入组织\n第 6 阶段，共 10 阶段\n批次收货\n下一步：实验室检验\n演示交易\n场景：批次收货\n\n所有数据均为虚构，仅用于说明平台逻辑。\n\n三级小麦 · 500 吨\n\n13,800 卢布/吨\n\n坦波夫 — 沃罗涅日\n当前视角\n买方\n选择其他角色\n第 6 阶段，共 10 阶段\n批次收货\n下一阶段: 取样并形成实验室报告\n当前阶段\n批次收货\n需要执行\n粮库确认实际重量\n负责人\n粮库\n控制期限\n收货时间窗口结束前\n确认后\n取样并形成实验室报告\n结算\n在质量和文件完整性确认前保持阻断\n履约\n文件\n资金\n风险\n履约\n车辆到达与收货事件相连。下一项允许操作是确认实际重量。\n打开完整交易解析\n角色工作台\n各参与方如何查看交易\n\n选择参与方后，可执行操作、文件、责任、资金上下文和风险都会变化。\n\n卖",
-        "bodyChildCount": 62,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784605035396",
+      "documentRequests": 1,
+      "htmlLang": "zh-CN",
+      "bodyTextLength": 1256,
+      "bodyPreview": "跳到主要内容\nПрозрачная Цена\n菜单\n文\nZH\n登录\n场外粮食交易履约\n从交易条件到结算，全程受控\n\n同一交易记录连接参与方、运输、收货、质量、文件、付款依据和争议。每个阶段都显示负责人、下一步操作以及阻断原因。\n\n公开展示\n以下场景仅用于演示，不包含真实交易、组织或资金操作。\n查看演示交易\n接入组织\n第 6 阶段，共 10 阶段\n批次收货\n下一步：实验室检验\n演示交易\n场景：批次收货\n\n所有数据均为虚构，仅用于说明平台逻辑。\n\n三级小麦 · 500 吨\n\n13,800 卢布/吨\n\n坦波夫 — 沃罗涅日\n当前视角\n买方\n选择其他角色\n第 6 阶段，共 10 阶段\n批次收货\n下一阶段: 取样并形成实验室报告\n当前阶段\n批次收货\n需要执行\n粮库确认实际重量\n负责人\n粮库\n控制期限\n收货时间窗口结束前\n确认后\n取样并形成实验室报告\n结算\n在质量和文件完整性确认前保持阻断\n履约\n文件\n资金\n风险\n履约\n车辆到达与收货事件相连。下一项允许操作是确认实际重量。\n打开完整交易解析\n角色工作台\n各参与方如何查看交易\n\n选择参与方后，可执行操作、文件、责任、资金上下文和风险都会变化。\n\n卖",
+      "bodyChildCount": 62,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": false,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784604667894"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-mobile-390",
       "locale": "zh",
       "route": "/platform-v7/login",
-      "message": "Error: chromium-mobile-390/zh/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 75,
-        "bodyPreview": "跳到主要内容\nПрозрачная Цена\n文\nZH\n登录\n\n请输入电子邮箱和密码。\n\n电子邮箱\n密码\n恢复访问权限\n登录\n尚未接入平台？\n接入组织",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784605037322",
+      "documentRequests": 1,
+      "htmlLang": "zh-CN",
+      "bodyTextLength": 75,
+      "bodyPreview": "跳到主要内容\nПрозрачная Цена\n文\nZH\n登录\n\n请输入电子邮箱和密码。\n\n电子邮箱\n密码\n恢复访问权限\n登录\n尚未接入平台？\n接入组织",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": false,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604670508"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "chromium-mobile-390",
       "locale": "zh",
       "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-mobile-390/zh/platform-v7/forgot-password: HTTP 502\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:34:5)\n    at runNextTicks (node:internal/process/task_queues:64:5)\n    at process.processImmediate (node:internal/timers:452:9)\n    at process.callbackTrampoline (node:internal/async_hooks:130:17)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": null,
-      "consoleErrors": [
-        "Failed to load resource: the server responded with a status of 502 ()"
-      ],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [
-        {
-          "url": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604672880",
-          "status": 502
-        }
-      ],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604672880"
-      ],
-      "pass": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784605039212",
+      "documentRequests": 1,
+      "htmlLang": "zh-CN",
+      "bodyTextLength": 88,
+      "bodyPreview": "Прозрачная Цена\n文\nZH\n恢复访问权限\n\n请输入工作邮箱。系统不会披露该账户是否存在。\n\n工作邮箱\n发送请求\n返回登录\n\n只有在核验账户归属后才会恢复访问权限。",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": false,
+        "zh": true
+      },
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "webkit-iphone",
       "locale": "ru",
       "route": "/platform-v7",
-      "message": "page.goto: Could not connect to xn----8sbjf4befbjgs9b.xn--p1ai: Connection refused\nCall log:\n  - navigating to \"https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604680052\", waiting until \"domcontentloaded\"\n\n    at inspectRoute (/home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:33:33)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": null,
-      "consoleErrors": [
-        "Failed to load resource: Could not connect to xn----8sbjf4befbjgs9b.xn--p1ai: Connection refused"
-      ],
-      "pageErrors": [],
-      "failedRequests": [
-        {
-          "url": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604680052",
-          "failure": "Could not connect to xn----8sbjf4befbjgs9b.xn--p1ai: Connection refused"
-        }
-      ],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604680052"
-      ],
-      "pass": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784605046405",
+      "documentRequests": 1,
+      "htmlLang": "ru",
+      "bodyTextLength": 3912,
+      "bodyPreview": "Перейти к содержанию\n\nПрозрачная Цена\nМеню\n文\nRU\nВойти\nИсполнение внебиржевой зерновой сделки\nСделка под контролем — от условий до расчёта\nОдна карточка связывает участников, рейс, приёмку, качество, документы, денежные основания и спор. На каждом этапе видны ответственный, следующее действие и причина блокировки.\nПУБЛИЧНЫЙ РЕЖИМ\nНиже — обезличенный пример живого процесса исполнения. Реальные сделки, организации и платежи в публичном режиме не раскрываются.\nПосмотреть, как проходит сделка\nПодключ",
+      "bodyChildCount": 64,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": true,
+        "zh": false
+      },
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "webkit-iphone",
       "locale": "ru",
       "route": "/platform-v7/login",
-      "message": "Error: webkit-iphone/ru/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 186,
-        "bodyPreview": "Перейти к содержанию\n\nПрозрачная Цена\n文\nRU\nВойти\nВведите электронную почту и пароль.\nЭлектронная почта\n\nПароль\n\nВосстановить доступ\n\nВойти\nНет доступа к платформе?\nПодключить организацию",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784605049229",
+      "documentRequests": 1,
+      "htmlLang": "ru",
+      "bodyTextLength": 186,
+      "bodyPreview": "Перейти к содержанию\n\nПрозрачная Цена\n文\nRU\nВойти\nВведите электронную почту и пароль.\nЭлектронная почта\n\nПароль\n\nВосстановить доступ\n\nВойти\nНет доступа к платформе?\nПодключить организацию",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": true,
+        "zh": false
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604681008"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "webkit-iphone",
       "locale": "ru",
       "route": "/platform-v7/forgot-password",
-      "message": "Error: webkit-iphone/ru/platform-v7/forgot-password: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 255,
-        "bodyPreview": "Прозрачная Цена\n文\nRU\nВосстановить доступ\nУкажите рабочий email. Запрос будет обработан без раскрытия наличия учётной записи.\nРабочий email\n\nОтправить запрос\nВернуться ко входу\nВосстановление выполняется только после проверки принадлежности учётной записи.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784605051232",
+      "documentRequests": 1,
+      "htmlLang": "ru",
+      "bodyTextLength": 255,
+      "bodyPreview": "Прозрачная Цена\n文\nRU\nВосстановить доступ\nУкажите рабочий email. Запрос будет обработан без раскрытия наличия учётной записи.\nРабочий email\n\nОтправить запрос\nВернуться ко входу\nВосстановление выполняется только после проверки принадлежности учётной записи.",
+      "bodyChildCount": 48,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": true,
+        "zh": false
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604685484"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "webkit-iphone",
       "locale": "en",
       "route": "/platform-v7",
-      "message": "Error: webkit-iphone/en/platform-v7: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 3779,
-        "bodyPreview": "Skip to content\n\nПрозрачная Цена\nMenu\n文\nEN\nSign in\n\nExecution of an OTC grain transaction\nA controlled deal — from terms to settlement\nOne deal record connects participants, transport, acceptance, quality, documents, payment grounds and disputes. Every stage shows the owner, next action and reason for any block.\nPUBLIC MODE\nBelow is an anonymised example of the live execution process. Real deals, organisations and payments are not exposed in public mode.\nSee how a deal is executed\nConnect an org",
-        "bodyChildCount": 64,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784605053305",
+      "documentRequests": 1,
+      "htmlLang": "en",
+      "bodyTextLength": 3779,
+      "bodyPreview": "Skip to content\n\nПрозрачная Цена\nMenu\n文\nEN\nSign in\n\nExecution of an OTC grain transaction\nA controlled deal — from terms to settlement\nOne deal record connects participants, transport, acceptance, quality, documents, payment grounds and disputes. Every stage shows the owner, next action and reason for any block.\nPUBLIC MODE\nBelow is an anonymised example of the live execution process. Real deals, organisations and payments are not exposed in public mode.\nSee how a deal is executed\nConnect an org",
+      "bodyChildCount": 64,
+      "primaryVisible": true,
+      "availability": {
+        "ru": false,
+        "en": true,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604687976"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "webkit-iphone",
       "locale": "en",
       "route": "/platform-v7/login",
-      "message": "Error: webkit-iphone/en/platform-v7/login: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 189,
-        "bodyPreview": "Skip to content\n\nПрозрачная Цена\n文\nEN\n\nSign in\nEnter your email address and password.\nEmail address\n\nPassword\n\nRestore access\n\nSign in\nNeed access to the platform?\nConnect your organisation",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784605055633",
+      "documentRequests": 1,
+      "htmlLang": "en",
+      "bodyTextLength": 189,
+      "bodyPreview": "Skip to content\n\nПрозрачная Цена\n文\nEN\n\nSign in\nEnter your email address and password.\nEmail address\n\nPassword\n\nRestore access\n\nSign in\nNeed access to the platform?\nConnect your organisation",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": false,
+        "en": true,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604691068"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "webkit-iphone",
       "locale": "en",
       "route": "/platform-v7/forgot-password",
-      "message": "Error: webkit-iphone/en/platform-v7/forgot-password: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 231,
-        "bodyPreview": "Прозрачная Цена\n文\nEN\n\nRestore access\nEnter your work email. The request is processed without disclosing whether an account exists.\nWork email\n\nSend request\nBack to sign in\nRecovery proceeds only after account ownership is verified.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784605057779",
+      "documentRequests": 1,
+      "htmlLang": "en",
+      "bodyTextLength": 231,
+      "bodyPreview": "Прозрачная Цена\n文\nEN\n\nRestore access\nEnter your work email. The request is processed without disclosing whether an account exists.\nWork email\n\nSend request\nBack to sign in\nRecovery proceeds only after account ownership is verified.",
+      "bodyChildCount": 48,
+      "primaryVisible": true,
+      "availability": {
+        "ru": false,
+        "en": true,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604693695"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "webkit-iphone",
       "locale": "zh",
       "route": "/platform-v7",
-      "message": "Error: webkit-iphone/zh/platform-v7: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 1224,
-        "bodyPreview": "跳到主要内容\n\nПрозрачная Цена\n菜单\n文\nZH\n登录\n\n场外粮食交易履约\n从交易条件到结算，全程受控\n同一交易记录连接参与方、运输、收货、质量、文件、付款依据和争议。每个阶段都显示负责人、下一步操作以及阻断原因。\n公开展示\n以下场景仅用于演示，不包含真实交易、组织或资金操作。\n查看演示交易\n接入组织\n第 6 阶段，共 10 阶段\n批次收货\n下一步：实验室检验\n演示交易\n场景：批次收货\n所有数据均为虚构，仅用于说明平台逻辑。\n三级小麦 · 500 吨\n13,800 卢布/吨\n坦波夫 — 沃罗涅日\n当前视角\n买方\n选择其他角色\n第 6 阶段，共 10 阶段\n批次收货\n下一阶段: 取样并形成实验室报告\n当前阶段\n批次收货\n需要执行\n粮库确认实际重量\n负责人\n粮库\n控制期限\n收货时间窗口结束前\n确认后\n取样并形成实验室报告\n结算\n在质量和文件完整性确认前保持阻断\n\n履约\n\n文件\n\n资金\n\n风险\n履约\n车辆到达与收货事件相连。下一项允许操作是确认实际重量。\n打开完整交易解析\n角色工作台\n各参与方如何查看交易\n选择参与方后，可执行操作、文件、责任、资金上下文和风险都会变化。\n卖方\n",
-        "bodyChildCount": 62,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784605059938",
+      "documentRequests": 1,
+      "htmlLang": "zh-CN",
+      "bodyTextLength": 1224,
+      "bodyPreview": "跳到主要内容\n\nПрозрачная Цена\n菜单\n文\nZH\n登录\n\n场外粮食交易履约\n从交易条件到结算，全程受控\n同一交易记录连接参与方、运输、收货、质量、文件、付款依据和争议。每个阶段都显示负责人、下一步操作以及阻断原因。\n公开展示\n以下场景仅用于演示，不包含真实交易、组织或资金操作。\n查看演示交易\n接入组织\n第 6 阶段，共 10 阶段\n批次收货\n下一步：实验室检验\n演示交易\n场景：批次收货\n所有数据均为虚构，仅用于说明平台逻辑。\n三级小麦 · 500 吨\n13,800 卢布/吨\n坦波夫 — 沃罗涅日\n当前视角\n买方\n选择其他角色\n第 6 阶段，共 10 阶段\n批次收货\n下一阶段: 取样并形成实验室报告\n当前阶段\n批次收货\n需要执行\n粮库确认实际重量\n负责人\n粮库\n控制期限\n收货时间窗口结束前\n确认后\n取样并形成实验室报告\n结算\n在质量和文件完整性确认前保持阻断\n\n履约\n\n文件\n\n资金\n\n风险\n履约\n车辆到达与收货事件相连。下一项允许操作是确认实际重量。\n打开完整交易解析\n角色工作台\n各参与方如何查看交易\n选择参与方后，可执行操作、文件、责任、资金上下文和风险都会变化。\n卖方\n",
+      "bodyChildCount": 62,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": false,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784604696257"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "webkit-iphone",
       "locale": "zh",
       "route": "/platform-v7/login",
-      "message": "Error: webkit-iphone/zh/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 78,
-        "bodyPreview": "跳到主要内容\n\nПрозрачная Цена\n文\nZH\n\n登录\n请输入电子邮箱和密码。\n电子邮箱\n\n密码\n\n恢复访问权限\n\n登录\n尚未接入平台？\n接入组织",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784605062340",
+      "documentRequests": 1,
+      "htmlLang": "zh-CN",
+      "bodyTextLength": 78,
+      "bodyPreview": "跳到主要内容\n\nПрозрачная Цена\n文\nZH\n\n登录\n请输入电子邮箱和密码。\n电子邮箱\n\n密码\n\n恢复访问权限\n\n登录\n尚未接入平台？\n接入组织",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": false,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604699378"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     },
     {
       "project": "webkit-iphone",
       "locale": "zh",
       "route": "/platform-v7/forgot-password",
-      "message": "Error: webkit-iphone/zh/platform-v7/forgot-password: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 87,
-        "bodyPreview": "Прозрачная Цена\n文\nZH\n\n恢复访问权限\n请输入工作邮箱。系统不会披露该账户是否存在。\n工作邮箱\n\n发送请求\n返回登录\n只有在核验账户归属后才会恢复访问权限。",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
+      "status": 200,
+      "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784605064505",
+      "documentRequests": 1,
+      "htmlLang": "zh-CN",
+      "bodyTextLength": 87,
+      "bodyPreview": "Прозрачная Цена\n文\nZH\n\n恢复访问权限\n请输入工作邮箱。系统不会披露该账户是否存在。\n工作邮箱\n\n发送请求\n返回登录\n只有在核验账户归属后才会恢复访问权限。",
+      "bodyChildCount": 47,
+      "primaryVisible": true,
+      "availability": {
+        "ru": true,
+        "en": false,
+        "zh": true
       },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604701934"
-      ],
-      "pass": false
+      "scrollWidth": 390,
+      "clientWidth": 390,
+      "visibleRuntimeError": false,
+      "consoleErrors": 0,
+      "pageErrors": 0,
+      "failedRequests": 0,
+      "badResponses": 0,
+      "pass": true
     }
   ],
   "failClosedLogin": {
     "status": 503,
-    "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604704357",
+    "finalUrl": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784605066478",
     "sensitiveCookies": [],
     "storage": {
       "local": [],
@@ -787,749 +720,6 @@
     "pageErrors": 0,
     "pass": true
   },
-  "failures": [
-    {
-      "project": "chromium-desktop",
-      "locale": "ru",
-      "route": "/platform-v7",
-      "message": "Error: chromium-desktop/ru/platform-v7: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 3988,
-        "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\nКак работает\nУчастники\nНадёжность\n文\nRU\nВойти\nИсполнение внебиржевой зерновой сделки\nСделка под контролем — от условий до расчёта\n\nОдна карточка связывает участников, рейс, приёмку, качество, документы, денежные основания и спор. На каждом этапе видны ответственный, следующее действие и причина блокировки.\n\nПУБЛИЧНЫЙ РЕЖИМ\nНиже — обезличенный пример живого процесса исполнения. Реальные сделки, организации и платежи в публичном режиме не раскрываются.\nПосмотрет",
-        "bodyChildCount": 64,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604630275"
-      ]
-    },
-    {
-      "project": "chromium-desktop",
-      "locale": "ru",
-      "route": "/platform-v7/login",
-      "message": "Error: chromium-desktop/ru/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 203,
-        "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\nДоступ к платформе\n文\nRU\nВойти\n\nВведите электронную почту и пароль.\n\nЭлектронная почта\nПароль\nВосстановить доступ\nВойти\nНет доступа к платформе?\nПодключить организацию",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604633438"
-      ]
-    },
-    {
-      "project": "chromium-desktop",
-      "locale": "ru",
-      "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-desktop/ru/platform-v7/forgot-password: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 280,
-        "bodyPreview": "Прозрачная Цена\nВосстановление доступа\n文\nRU\nВосстановить доступ\n\nУкажите рабочий email. Запрос будет обработан без раскрытия наличия учётной записи.\n\nРабочий email\nОтправить запрос\nВернуться ко входу\n\nВосстановление выполняется только после проверки принадлежности учётной записи.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604635897"
-      ]
-    },
-    {
-      "project": "chromium-desktop",
-      "locale": "en",
-      "route": "/platform-v7",
-      "message": "Error: chromium-desktop/en/platform-v7: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 3862,
-        "bodyPreview": "Skip to content\nПрозрачная Цена\nHow it works\nParticipants\nAssurance\n文\nEN\nSign in\nExecution of an OTC grain transaction\nA controlled deal — from terms to settlement\n\nOne deal record connects participants, transport, acceptance, quality, documents, payment grounds and disputes. Every stage shows the owner, next action and reason for any block.\n\nPUBLIC MODE\nBelow is an anonymised example of the live execution process. Real deals, organisations and payments are not exposed in public mode.\nSee how a ",
-        "bodyChildCount": 64,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604638325"
-      ]
-    },
-    {
-      "project": "chromium-desktop",
-      "locale": "en",
-      "route": "/platform-v7/login",
-      "message": "Error: chromium-desktop/en/platform-v7/login: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 202,
-        "bodyPreview": "Skip to content\nПрозрачная Цена\nPlatform access\n文\nEN\nSign in\n\nEnter your email address and password.\n\nEmail address\nPassword\nRestore access\nSign in\nNeed access to the platform?\nConnect your organisation",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604641028"
-      ]
-    },
-    {
-      "project": "chromium-desktop",
-      "locale": "en",
-      "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-desktop/en/platform-v7/forgot-password: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 248,
-        "bodyPreview": "Прозрачная Цена\nAccess recovery\n文\nEN\nRestore access\n\nEnter your work email. The request is processed without disclosing whether an account exists.\n\nWork email\nSend request\nBack to sign in\n\nRecovery proceeds only after account ownership is verified.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604643427"
-      ]
-    },
-    {
-      "project": "chromium-desktop",
-      "locale": "zh",
-      "route": "/platform-v7",
-      "message": "Error: chromium-desktop/zh/platform-v7: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 1272,
-        "bodyPreview": "跳到主要内容\nПрозрачная Цена\n运作方式\n参与方\n可信边界\n文\nZH\n登录\n场外粮食交易履约\n从交易条件到结算，全程受控\n\n同一交易记录连接参与方、运输、收货、质量、文件、付款依据和争议。每个阶段都显示负责人、下一步操作以及阻断原因。\n\n公开展示\n以下场景仅用于演示，不包含真实交易、组织或资金操作。\n查看演示交易\n接入组织\n1\n条款\n2\n准入\n3\n交易\n4\n运输\n5\n验收\n6\n文件\n7\n结算\n演示交易\n场景：批次收货\n\n所有数据均为虚构，仅用于说明平台逻辑。\n\n三级小麦 · 500 吨\n\n13,800 卢布/吨\n\n坦波夫 — 沃罗涅日\n当前视角\n买方\n选择其他角色\n第 6 阶段，共 10 阶段\n批次收货\n下一阶段: 取样并形成实验室报告\n当前阶段\n批次收货\n需要执行\n粮库确认实际重量\n负责人\n粮库\n控制期限\n收货时间窗口结束前\n确认后\n取样并形成实验室报告\n结算\n在质量和文件完整性确认前保持阻断\n履约\n文件\n资金\n风险\n履约\n车辆到达与收货事件相连。下一项允许操作是确认实际重量。\n打开完整交易解析\n角色工作台\n各参与方如何查看交易\n\n选择参与方后，可执行操作、文件、责任、",
-        "bodyChildCount": 62,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784604645852"
-      ]
-    },
-    {
-      "project": "chromium-desktop",
-      "locale": "zh",
-      "route": "/platform-v7/login",
-      "message": "Error: chromium-desktop/zh/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 80,
-        "bodyPreview": "跳到主要内容\nПрозрачная Цена\n平台访问\n文\nZH\n登录\n\n请输入电子邮箱和密码。\n\n电子邮箱\n密码\n恢复访问权限\n登录\n尚未接入平台？\n接入组织",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604648390"
-      ]
-    },
-    {
-      "project": "chromium-desktop",
-      "locale": "zh",
-      "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-desktop/zh/platform-v7/forgot-password: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 95,
-        "bodyPreview": "Прозрачная Цена\n恢复访问权限\n文\nZH\n恢复访问权限\n\n请输入工作邮箱。系统不会披露该账户是否存在。\n\n工作邮箱\n发送请求\n返回登录\n\n只有在核验账户归属后才会恢复访问权限。",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 1440,
-        "clientWidth": 1440,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604650811"
-      ]
-    },
-    {
-      "project": "chromium-mobile-390",
-      "locale": "ru",
-      "route": "/platform-v7",
-      "message": "Error: chromium-mobile-390/ru/platform-v7: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 3945,
-        "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\nМеню\n文\nRU\nВойти\nИсполнение внебиржевой зерновой сделки\nСделка под контролем — от условий до расчёта\n\nОдна карточка связывает участников, рейс, приёмку, качество, документы, денежные основания и спор. На каждом этапе видны ответственный, следующее действие и причина блокировки.\n\nПУБЛИЧНЫЙ РЕЖИМ\nНиже — обезличенный пример живого процесса исполнения. Реальные сделки, организации и платежи в публичном режиме не раскрываются.\nПосмотреть, как проходит сделка\nПодклю",
-        "bodyChildCount": 64,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604653230"
-      ]
-    },
-    {
-      "project": "chromium-mobile-390",
-      "locale": "ru",
-      "route": "/platform-v7/login",
-      "message": "Error: chromium-mobile-390/ru/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 184,
-        "bodyPreview": "Перейти к содержанию\nПрозрачная Цена\n文\nRU\nВойти\n\nВведите электронную почту и пароль.\n\nЭлектронная почта\nПароль\nВосстановить доступ\nВойти\nНет доступа к платформе?\nПодключить организацию",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604655842"
-      ]
-    },
-    {
-      "project": "chromium-mobile-390",
-      "locale": "ru",
-      "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-mobile-390/ru/platform-v7/forgot-password: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 257,
-        "bodyPreview": "Прозрачная Цена\n文\nRU\nВосстановить доступ\n\nУкажите рабочий email. Запрос будет обработан без раскрытия наличия учётной записи.\n\nРабочий email\nОтправить запрос\nВернуться ко входу\n\nВосстановление выполняется только после проверки принадлежности учётной записи.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604658255"
-      ]
-    },
-    {
-      "project": "chromium-mobile-390",
-      "locale": "en",
-      "route": "/platform-v7",
-      "message": "Error: chromium-mobile-390/en/platform-v7: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 3811,
-        "bodyPreview": "Skip to content\nПрозрачная Цена\nMenu\n文\nEN\nSign in\nExecution of an OTC grain transaction\nA controlled deal — from terms to settlement\n\nOne deal record connects participants, transport, acceptance, quality, documents, payment grounds and disputes. Every stage shows the owner, next action and reason for any block.\n\nPUBLIC MODE\nBelow is an anonymised example of the live execution process. Real deals, organisations and payments are not exposed in public mode.\nSee how a deal is executed\nConnect an org",
-        "bodyChildCount": 64,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604660641"
-      ]
-    },
-    {
-      "project": "chromium-mobile-390",
-      "locale": "en",
-      "route": "/platform-v7/login",
-      "message": "Error: chromium-mobile-390/en/platform-v7/login: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 186,
-        "bodyPreview": "Skip to content\nПрозрачная Цена\n文\nEN\nSign in\n\nEnter your email address and password.\n\nEmail address\nPassword\nRestore access\nSign in\nNeed access to the platform?\nConnect your organisation",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604663212"
-      ]
-    },
-    {
-      "project": "chromium-mobile-390",
-      "locale": "en",
-      "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-mobile-390/en/platform-v7/forgot-password: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 232,
-        "bodyPreview": "Прозрачная Цена\n文\nEN\nRestore access\n\nEnter your work email. The request is processed without disclosing whether an account exists.\n\nWork email\nSend request\nBack to sign in\n\nRecovery proceeds only after account ownership is verified.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604665603"
-      ]
-    },
-    {
-      "project": "chromium-mobile-390",
-      "locale": "zh",
-      "route": "/platform-v7",
-      "message": "Error: chromium-mobile-390/zh/platform-v7: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 1256,
-        "bodyPreview": "跳到主要内容\nПрозрачная Цена\n菜单\n文\nZH\n登录\n场外粮食交易履约\n从交易条件到结算，全程受控\n\n同一交易记录连接参与方、运输、收货、质量、文件、付款依据和争议。每个阶段都显示负责人、下一步操作以及阻断原因。\n\n公开展示\n以下场景仅用于演示，不包含真实交易、组织或资金操作。\n查看演示交易\n接入组织\n第 6 阶段，共 10 阶段\n批次收货\n下一步：实验室检验\n演示交易\n场景：批次收货\n\n所有数据均为虚构，仅用于说明平台逻辑。\n\n三级小麦 · 500 吨\n\n13,800 卢布/吨\n\n坦波夫 — 沃罗涅日\n当前视角\n买方\n选择其他角色\n第 6 阶段，共 10 阶段\n批次收货\n下一阶段: 取样并形成实验室报告\n当前阶段\n批次收货\n需要执行\n粮库确认实际重量\n负责人\n粮库\n控制期限\n收货时间窗口结束前\n确认后\n取样并形成实验室报告\n结算\n在质量和文件完整性确认前保持阻断\n履约\n文件\n资金\n风险\n履约\n车辆到达与收货事件相连。下一项允许操作是确认实际重量。\n打开完整交易解析\n角色工作台\n各参与方如何查看交易\n\n选择参与方后，可执行操作、文件、责任、资金上下文和风险都会变化。\n\n卖",
-        "bodyChildCount": 62,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784604667894"
-      ]
-    },
-    {
-      "project": "chromium-mobile-390",
-      "locale": "zh",
-      "route": "/platform-v7/login",
-      "message": "Error: chromium-mobile-390/zh/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 75,
-        "bodyPreview": "跳到主要内容\nПрозрачная Цена\n文\nZH\n登录\n\n请输入电子邮箱和密码。\n\n电子邮箱\n密码\n恢复访问权限\n登录\n尚未接入平台？\n接入组织",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604670508"
-      ]
-    },
-    {
-      "project": "chromium-mobile-390",
-      "locale": "zh",
-      "route": "/platform-v7/forgot-password",
-      "message": "Error: chromium-mobile-390/zh/platform-v7/forgot-password: HTTP 502\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:34:5)\n    at runNextTicks (node:internal/process/task_queues:64:5)\n    at process.processImmediate (node:internal/timers:452:9)\n    at process.callbackTrampoline (node:internal/async_hooks:130:17)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": null,
-      "consoleErrors": [
-        "Failed to load resource: the server responded with a status of 502 ()"
-      ],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [
-        {
-          "url": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604672880",
-          "status": 502
-        }
-      ],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604672880"
-      ]
-    },
-    {
-      "project": "webkit-iphone",
-      "locale": "ru",
-      "route": "/platform-v7",
-      "message": "page.goto: Could not connect to xn----8sbjf4befbjgs9b.xn--p1ai: Connection refused\nCall log:\n  - navigating to \"https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604680052\", waiting until \"domcontentloaded\"\n\n    at inspectRoute (/home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:33:33)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": null,
-      "consoleErrors": [
-        "Failed to load resource: Could not connect to xn----8sbjf4befbjgs9b.xn--p1ai: Connection refused"
-      ],
-      "pageErrors": [],
-      "failedRequests": [
-        {
-          "url": "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604680052",
-          "failure": "Could not connect to xn----8sbjf4befbjgs9b.xn--p1ai: Connection refused"
-        }
-      ],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=ru&watch=1784604680052"
-      ]
-    },
-    {
-      "project": "webkit-iphone",
-      "locale": "ru",
-      "route": "/platform-v7/login",
-      "message": "Error: webkit-iphone/ru/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 186,
-        "bodyPreview": "Перейти к содержанию\n\nПрозрачная Цена\n文\nRU\nВойти\nВведите электронную почту и пароль.\nЭлектронная почта\n\nПароль\n\nВосстановить доступ\n\nВойти\nНет доступа к платформе?\nПодключить организацию",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=ru&watch=1784604681008"
-      ]
-    },
-    {
-      "project": "webkit-iphone",
-      "locale": "ru",
-      "route": "/platform-v7/forgot-password",
-      "message": "Error: webkit-iphone/ru/platform-v7/forgot-password: incomplete language availability {\"ru\":true,\"en\":true,\"zh\":false}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "ru",
-        "bodyTextLength": 255,
-        "bodyPreview": "Прозрачная Цена\n文\nRU\nВосстановить доступ\nУкажите рабочий email. Запрос будет обработан без раскрытия наличия учётной записи.\nРабочий email\n\nОтправить запрос\nВернуться ко входу\nВосстановление выполняется только после проверки принадлежности учётной записи.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": true,
-          "zh": false
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=ru&watch=1784604685484"
-      ]
-    },
-    {
-      "project": "webkit-iphone",
-      "locale": "en",
-      "route": "/platform-v7",
-      "message": "Error: webkit-iphone/en/platform-v7: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 3779,
-        "bodyPreview": "Skip to content\n\nПрозрачная Цена\nMenu\n文\nEN\nSign in\n\nExecution of an OTC grain transaction\nA controlled deal — from terms to settlement\nOne deal record connects participants, transport, acceptance, quality, documents, payment grounds and disputes. Every stage shows the owner, next action and reason for any block.\nPUBLIC MODE\nBelow is an anonymised example of the live execution process. Real deals, organisations and payments are not exposed in public mode.\nSee how a deal is executed\nConnect an org",
-        "bodyChildCount": 64,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=en&watch=1784604687976"
-      ]
-    },
-    {
-      "project": "webkit-iphone",
-      "locale": "en",
-      "route": "/platform-v7/login",
-      "message": "Error: webkit-iphone/en/platform-v7/login: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 189,
-        "bodyPreview": "Skip to content\n\nПрозрачная Цена\n文\nEN\n\nSign in\nEnter your email address and password.\nEmail address\n\nPassword\n\nRestore access\n\nSign in\nNeed access to the platform?\nConnect your organisation",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=en&watch=1784604691068"
-      ]
-    },
-    {
-      "project": "webkit-iphone",
-      "locale": "en",
-      "route": "/platform-v7/forgot-password",
-      "message": "Error: webkit-iphone/en/platform-v7/forgot-password: incomplete language availability {\"ru\":false,\"en\":true,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "en",
-        "bodyTextLength": 231,
-        "bodyPreview": "Прозрачная Цена\n文\nEN\n\nRestore access\nEnter your work email. The request is processed without disclosing whether an account exists.\nWork email\n\nSend request\nBack to sign in\nRecovery proceeds only after account ownership is verified.",
-        "bodyChildCount": 48,
-        "primaryVisible": true,
-        "availability": {
-          "ru": false,
-          "en": true,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=en&watch=1784604693695"
-      ]
-    },
-    {
-      "project": "webkit-iphone",
-      "locale": "zh",
-      "route": "/platform-v7",
-      "message": "Error: webkit-iphone/zh/platform-v7: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 1224,
-        "bodyPreview": "跳到主要内容\n\nПрозрачная Цена\n菜单\n文\nZH\n登录\n\n场外粮食交易履约\n从交易条件到结算，全程受控\n同一交易记录连接参与方、运输、收货、质量、文件、付款依据和争议。每个阶段都显示负责人、下一步操作以及阻断原因。\n公开展示\n以下场景仅用于演示，不包含真实交易、组织或资金操作。\n查看演示交易\n接入组织\n第 6 阶段，共 10 阶段\n批次收货\n下一步：实验室检验\n演示交易\n场景：批次收货\n所有数据均为虚构，仅用于说明平台逻辑。\n三级小麦 · 500 吨\n13,800 卢布/吨\n坦波夫 — 沃罗涅日\n当前视角\n买方\n选择其他角色\n第 6 阶段，共 10 阶段\n批次收货\n下一阶段: 取样并形成实验室报告\n当前阶段\n批次收货\n需要执行\n粮库确认实际重量\n负责人\n粮库\n控制期限\n收货时间窗口结束前\n确认后\n取样并形成实验室报告\n结算\n在质量和文件完整性确认前保持阻断\n\n履约\n\n文件\n\n资金\n\n风险\n履约\n车辆到达与收货事件相连。下一项允许操作是确认实际重量。\n打开完整交易解析\n角色工作台\n各参与方如何查看交易\n选择参与方后，可执行操作、文件、责任、资金上下文和风险都会变化。\n卖方\n",
-        "bodyChildCount": 62,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7?lang=zh&watch=1784604696257"
-      ]
-    },
-    {
-      "project": "webkit-iphone",
-      "locale": "zh",
-      "route": "/platform-v7/login",
-      "message": "Error: webkit-iphone/zh/platform-v7/login: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 78,
-        "bodyPreview": "跳到主要内容\n\nПрозрачная Цена\n文\nZH\n\n登录\n请输入电子邮箱和密码。\n电子邮箱\n\n密码\n\n恢复访问权限\n\n登录\n尚未接入平台？\n接入组织",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/login?lang=zh&watch=1784604699378"
-      ]
-    },
-    {
-      "project": "webkit-iphone",
-      "locale": "zh",
-      "route": "/platform-v7/forgot-password",
-      "message": "Error: webkit-iphone/zh/platform-v7/forgot-password: incomplete language availability {\"ru\":true,\"en\":false,\"zh\":true}\n    at assert (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:17:61)\n    at inspectRoute (file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:82:5)\n    at async file:///home/runner/work/pachanin-demo/pachanin-demo/apps/web/scripts/public-entry-watch-current-v2.mjs:137:91",
-      "dom": {
-        "htmlLang": "zh-CN",
-        "bodyTextLength": 87,
-        "bodyPreview": "Прозрачная Цена\n文\nZH\n\n恢复访问权限\n请输入工作邮箱。系统不会披露该账户是否存在。\n工作邮箱\n\n发送请求\n返回登录\n只有在核验账户归属后才会恢复访问权限。",
-        "bodyChildCount": 47,
-        "primaryVisible": true,
-        "availability": {
-          "ru": true,
-          "en": false,
-          "zh": true
-        },
-        "scrollWidth": 390,
-        "clientWidth": 390,
-        "visibleRuntimeError": false
-      },
-      "consoleErrors": [],
-      "pageErrors": [],
-      "failedRequests": [],
-      "badResponses": [],
-      "documentRequests": [
-        "https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/forgot-password?lang=zh&watch=1784604701934"
-      ]
-    }
-  ],
-  "pass": false
+  "failures": [],
+  "pass": true
 }
