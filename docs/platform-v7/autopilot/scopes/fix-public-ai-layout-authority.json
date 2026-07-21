@@ -25,6 +25,7 @@
     "apps/web/styles/platform-v7-public-intelligence-layer.css",
     "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
     "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+    "apps/web/tests/e2e/platform-v7-public-product-experience-v3.spec.ts",
     "apps/web/tests/unit/platformV7PublicAiInAction.test.ts",
     "apps/web/tests/unit/platformV7PublicAiMarketingBlock.test.ts",
     "apps/web/tests/unit/platformV7PublicAiRouteAuthority.test.ts",
