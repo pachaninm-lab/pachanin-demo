@@ -1,4 +1,4 @@
-name: Publish mobile density release 52c2762
+name: Publish exact production web release 6878deb
 
 on:
   pull_request:
@@ -11,9 +11,9 @@ permissions:
   packages: write
 
 env:
-  TARGET_SHA: 52c27627050638499188207877a1c197bba70310
+  TARGET_SHA: 6878deb5b24a37b2a22be7ca98df92cc76bec373
   IMAGE: ghcr.io/pachaninm-lab/grainflow-web
-  IMMUTABLE_TAG: sha-52c27627050
+  IMMUTABLE_TAG: sha-6878deb5b24a
 
 jobs:
   publish:
@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 52c27627050638499188207877a1c197bba70310
+          ref: 6878deb5b24a37b2a22be7ca98df92cc76bec373
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -37,9 +37,9 @@ jobs:
           push: true
           tags: |
             ghcr.io/pachaninm-lab/grainflow-web:latest
-            ghcr.io/pachaninm-lab/grainflow-web:sha-52c27627050
+            ghcr.io/pachaninm-lab/grainflow-web:sha-6878deb5b24a
           build-args: |
-            GIT_COMMIT=52c27627050638499188207877a1c197bba70310
+            GIT_COMMIT=6878deb5b24a37b2a22be7ca98df92cc76bec373
       - name: Verify immutable registry image
         run: |
           docker pull "${IMAGE}:${IMMUTABLE_TAG}"
