@@ -6,3 +6,6 @@ c5077eebcc9bbc47e3d650795e11b55f265428e8:.github/workflows/tai-model-source-acqu
 
 # False positive: deterministic commodity-profile idempotency test fixture, not a credential.
 ec4b80ce1ee4fa7cf18361f1ff536c34b5030948:apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.spec.ts:generic-api-key:11
+
+# False positive: public immutable GitHub Actions artifact SHA-256, not a credential.
+d4f147c04c64b7565f11288b3b545c97340d7899:apps/tai/model-artifacts/model-conversion-authority.v1.json:generic-api-key:91
