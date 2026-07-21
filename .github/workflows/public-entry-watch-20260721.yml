@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - ops/public-entry-watch-20260721-0636
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
