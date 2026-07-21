@@ -35,6 +35,7 @@ ASSERTION_KEYS = {
     "nonce",
     "signature",
 }
+TRUSTED_CONFIG_SOURCE = "OPERATOR_TRUSTED_CONFIG"
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -106,6 +107,8 @@ def _assertion(
     )
     if issued_at > evaluated_at or mfa_at > evaluated_at:
         raise QualityScoringError("reviewer identity assertion is from the future")
+    if expires_at < evaluated_at:
+        raise QualityScoringError("reviewer identity assertion is expired")
     if not issued_at <= mfa_at <= expires_at:
         raise QualityScoringError("reviewer identity assertion timestamps are invalid")
     lifetime = int((expires_at - issued_at).total_seconds())
@@ -155,7 +158,7 @@ def verify_identity_assertions(
     )
     if policy["signature_algorithm"] != "HMAC-SHA256":
         raise QualityScoringError("unsupported reviewer identity signature algorithm")
-    if policy["trusted_secret_digest_source"] != "OPERATOR_TRUSTED_CONFIG":
+    if policy["trusted_secret_digest_source"] != TRUSTED_CONFIG_SOURCE:
         raise QualityScoringError("reviewer identity trust source is not operator-owned")
     allowed_roles = as_array(policy["allowed_roles"], "identity policy allowed roles")
     allowed_methods = as_array(
