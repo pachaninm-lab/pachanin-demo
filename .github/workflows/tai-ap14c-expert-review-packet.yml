@@ -1,0 +1,213 @@
+name: TAI AP-14C Expert Review Packet
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-ap14c-expert-review-packet
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2973 &&
+      github.event.comment.body == '/tai prepare expert-review-packet exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      REPORT_ROOT: tai-ap14c-expert-review-packet
+      AUTHORITY_ROOT: docs/platform-v7/autopilot/tai-ap-14c
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact-main owner trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          mkdir -p "$REPORT_ROOT"
+          chmod 700 "$REPORT_ROOT"
+
+      - name: Validate governed 58-case corpus without manufacturing acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "$AUTHORITY_ROOT/gold-set-authority.mjs" \
+            > "$REPORT_ROOT/structural-assessment.json"
+          jq -e '
+            .accepted == false and
+            .status == "PENDING_REVIEW" and
+            .counts.total_cases == 58 and
+            .counts.critical_cases == 23 and
+            .blocking_reasons == ["EXPERT_REVIEWS_MISSING"]
+          ' "$REPORT_ROOT/structural-assessment.json" >/dev/null
+
+      - name: Generate exact-main human review packet
+        shell: bash
+        run: |
+          set -euo pipefail
+          generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          node "$AUTHORITY_ROOT/expert-review-packet.mjs" \
+            --exact-main "$GITHUB_SHA" \
+            --generated-at "$generated_at" \
+            --output-dir "$REPORT_ROOT/packet" \
+            > "$REPORT_ROOT/generation-summary.json"
+
+      - name: Prove packet is bounded and decision-free
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '
+            .schema_version == "tai.expert-review-packet.v1" and
+            .exact_main_sha == env.GITHUB_SHA and
+            .counts.total_cases == 58 and
+            .counts.critical_cases == 23 and
+            .counts.existing_reviews == 0 and
+            .automation_boundary == "AUTOMATION_MUST_NOT_CREATE_REVIEW_DECISIONS" and
+            .maturity_boundary.expert_review_status == "PENDING_REVIEW" and
+            .maturity_boundary.benchmark_status == "PENDING_BENCHMARK" and
+            .maturity_boundary.model_admission_status == "PENDING_ADMISSION" and
+            .maturity_boundary.production_operational_status == "NOT_ATTESTED"
+          ' "$REPORT_ROOT/packet/expert-review-packet.v1.json" >/dev/null
+          jq -e '
+            .reviews == [] and
+            .schema_version == "tai.expert-reviews.v1"
+          ' "$REPORT_ROOT/packet/review-submission-template.v1.json" >/dev/null
+          for track in "$REPORT_ROOT"/packet/track-*.v1.json; do
+            jq -e '
+              .automation_boundary == "AUTOMATION_MUST_NOT_CREATE_REVIEW_DECISIONS" and
+              all(.review_templates[];
+                .review_id == null and
+                .reviewer_id == null and
+                .decision == null and
+                .reviewed_at == null and
+                .evidence_sha256 == null and
+                .review_sha256 == null
+              )
+            ' "$track" >/dev/null
+          done
+          if find "$REPORT_ROOT" -type f -size +10000000c -print -quit \
+            | grep -q .; then
+            echo 'Expert review packet exceeded bounded metadata limit.' >&2
+            exit 1
+          fi
+
+      - name: Run packet regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node "$AUTHORITY_ROOT/expert-review-packet.test.mjs"
+
+      - name: Upload immutable expert-review packet metadata
+        id: packet_upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ap14c-expert-review-packet-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: tai-ap14c-expert-review-packet
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded packet summary
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.packet_upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.packet_upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          python - <<'PY' > "$REPORT_ROOT/summary.md"
+          import json
+          import os
+          from pathlib import Path
+
+          packet = json.loads(
+              Path(
+                  os.environ['REPORT_ROOT'],
+                  'packet',
+                  'expert-review-packet.v1.json',
+              ).read_text()
+          )
+          manifest = json.loads(
+              Path(
+                  os.environ['REPORT_ROOT'],
+                  'packet',
+                  'packet-manifest.v1.json',
+              ).read_text()
+          )
+          tracks = {
+              item['track_id']: item['case_count']
+              for item in packet['reviewer_tracks']
+          }
+          lines = [
+              '## TAI AP-14C expert review packet',
+              '',
+              f"- exact-main: `{packet['exact_main_sha']}`;",
+              '- status: `PREPARED_FOR_EXTERNAL_REVIEW`;',
+              f"- corpus SHA-256: `{packet['corpus_sha256']}`;",
+              f"- packet SHA-256: `{packet['packet_sha256']}`;",
+              f"- manifest SHA-256: `{manifest['manifest_sha256']}`;",
+              (
+                  f"- cases: `{packet['counts']['total_cases']}` / "
+                  f"critical `{packet['counts']['critical_cases']}`;"
+              ),
+              f"- platform primary cases: `{tracks['platform-primary']}`;",
+              f"- agro primary cases: `{tracks['agro-primary']}`;",
+              f"- critical security cases: `{tracks['critical-security']}`;",
+              (
+                  '- critical legal/method cases: '
+                  f"`{tracks['critical-legal-method']}`;"
+              ),
+              (
+                  f"- artifact: `{os.environ.get('ARTIFACT_ID', '')}` / "
+                  f"`{os.environ.get('ARTIFACT_DIGEST', '')}`;"
+              ),
+              '- expert decisions created by automation: `false`;',
+              '- expert review: `PENDING_REVIEW`;',
+              '- benchmark: `PENDING_BENCHMARK`;',
+              '- model admission: `PENDING_ADMISSION`;',
+              '- production operational status: `NOT_ATTESTED`.',
+          ]
+          print('\n'.join(lines))
+          PY
+          jq -n --rawfile body "$REPORT_ROOT/summary.md" '{body: $body}' \
+            | gh api --method POST \
+                "repos/$REPOSITORY/issues/2973/comments" --input -
+
+      - name: Enforce honest maturity boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '
+            .maturity_boundary.expert_review_status == "PENDING_REVIEW" and
+            .maturity_boundary.benchmark_status == "PENDING_BENCHMARK" and
+            .maturity_boundary.model_admission_status == "PENDING_ADMISSION" and
+            .maturity_boundary.production_operational_status == "NOT_ATTESTED" and
+            .automation_boundary == "AUTOMATION_MUST_NOT_CREATE_REVIEW_DECISIONS"
+          ' "$REPORT_ROOT/packet/expert-review-packet.v1.json" >/dev/null
