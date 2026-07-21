@@ -8,6 +8,7 @@ fs.mkdirSync(artifactDir, { recursive: true });
 
 const routes = ['/platform-v7', '/platform-v7/login', '/platform-v7/forgot-password'];
 const locales = ['ru', 'en', 'zh'];
+const nextLocale = { ru: 'en', en: 'zh', zh: 'ru' };
 const profiles = [
   { name: 'desktop-1440', viewport: { width: 1440, height: 1000 }, isMobile: false, hasTouch: false },
   { name: 'mobile-390', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
@@ -100,14 +101,15 @@ try {
           if (/\bRU\b|Рус/i.test(controls)) languageSignals.add('ru');
           if (/\bEN\b|English/i.test(controls)) languageSignals.add('en');
           if (/中文|简体|\bZH\b/i.test(controls)) languageSignals.add('zh');
-          assert(['ru', 'en', 'zh'].every((value) => languageSignals.has(value)), `${profile.name}/${locale}${route}: RU/EN/ZH switch incomplete (${[...languageSignals].join(',')})`);
+          assert(languageSignals.has(locale), `${profile.name}/${locale}${route}: current locale control missing (${[...languageSignals].join(',')})`);
+          assert(languageSignals.has(nextLocale[locale]), `${profile.name}/${locale}${route}: locale cycle ${locale}->${nextLocale[locale]} missing (${[...languageSignals].join(',')})`);
           assert(state.roleSelectors === 0, `${profile.name}/${locale}${route}: role selector detected`);
           assert(!hasDemoStorage(state.localStorage) && !hasDemoStorage(state.sessionStorage), `${profile.name}/${locale}${route}: demo/mock storage detected`);
           assert(runtimeErrors.length === 0, `${profile.name}/${locale}${route}: runtime console errors ${JSON.stringify(runtimeErrors)}`);
           assert(pageErrors.length === 0, `${profile.name}/${locale}${route}: page errors ${JSON.stringify(pageErrors)}`);
           assert(failedRequests.length === 0, `${profile.name}/${locale}${route}: failed requests ${JSON.stringify(failedRequests)}`);
 
-          Object.assign(result, { ok: true, http: 200, redirects, finalURL: page.url(), htmlLang, textLength: state.text.length });
+          Object.assign(result, { ok: true, http: 200, redirects, finalURL: page.url(), htmlLang, textLength: state.text.length, localeCycle: `${locale}->${nextLocale[locale]}` });
         } catch (error) {
           const message = String(error?.stack || error);
           report.failures.push(message);
