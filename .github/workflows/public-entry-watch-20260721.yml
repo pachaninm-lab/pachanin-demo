@@ -31,10 +31,14 @@ jobs:
       - name: Run exact production public-entry watch
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          mkdir -p apps/web/artifacts/public-entry-watch
           cp scripts/public-entry-watch.mjs apps/web/scripts/public-entry-watch-run.mjs
-          cd apps/web
-          node scripts/public-entry-watch-run.mjs
+          set +e
+          (cd apps/web && node scripts/public-entry-watch-run.mjs) > apps/web/artifacts/public-entry-watch/runner.log 2>&1
+          code=$?
+          cat apps/web/artifacts/public-entry-watch/runner.log
+          exit "$code"
       - name: Print exact result
         if: always()
         shell: bash
@@ -43,6 +47,7 @@ jobs:
             cat apps/web/artifacts/public-entry-watch/result.json
           else
             echo '{"failures":["RESULT_FILE_MISSING"]}'
+            cat apps/web/artifacts/public-entry-watch/runner.log || true
           fi
       - name: Publish exact result to evidence PR
         if: always() && github.event_name == 'pull_request'
@@ -51,6 +56,7 @@ jobs:
           script: |
             const fs = require('fs');
             const resultPath = 'apps/web/artifacts/public-entry-watch/result.json';
+            const runnerPath = 'apps/web/artifacts/public-entry-watch/runner.log';
             let body;
             if (fs.existsSync(resultPath)) {
               const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
@@ -62,7 +68,16 @@ jobs:
                 '```',
               ].join('\n');
             } else {
-              body = '## Public Entry Watch result\n\n`RESULT_FILE_MISSING`';
+              const runner = fs.existsSync(runnerPath) ? fs.readFileSync(runnerPath, 'utf8').slice(-12000) : 'RUNNER_LOG_MISSING';
+              body = [
+                '## Public Entry Watch result',
+                '',
+                '`RESULT_FILE_MISSING`',
+                '',
+                '```text',
+                runner,
+                '```',
+              ].join('\n');
             }
             await github.rest.issues.createComment({
               owner: context.repo.owner,
