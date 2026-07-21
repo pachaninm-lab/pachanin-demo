@@ -16,14 +16,16 @@
   ],
   "acceptance": [
     "submission intake is offline and writes only caller-selected candidate files",
-    "every submission binds the exact review packet, corpus, exact-main and reviewer track",
+    "every submission binds the exact review packet, trusted packet digest, corpus, exact-main and reviewer track",
     "the packet must exactly match current governed case contracts, track assignments and review policy, not only its self-declared digest",
     "the packet generator can bind an explicit exact review-authority path for deterministic regression fixtures while production CLI remains bound to the repository authority",
     "packet materialization emits one track-bound intake envelope per reviewer track with all authority fields fixed and all human-only fields blank",
-    "stale cases, wrong roles, future timestamps, invalid digests, unknown fields and duplicate or conflicting reviews are rejected",
+    "duplicate JSON keys, stale cases, wrong roles, future or invalid timestamps, placeholder evidence digests, unknown fields and duplicate or conflicting reviews are rejected",
     "existing review records are never silently replaced",
+    "candidate reviews, assessment and report are committed as one rollback-capable local output transaction",
+    "candidate outputs cannot alias packet, submission or existing-review inputs",
     "candidate reviews and assessment are deterministic and require human pull-request review",
-    "the dedicated exact-head Node gate runs packet compatibility, syntax, fail-closed and forged-packet regression tests",
+    "the dedicated exact-head Node gate captures stdout and stderr and runs packet compatibility, syntax, fail-closed and forged-packet regression tests",
     "automation creates no expert decision and cannot close the human checkpoint",
     "expert review remains PENDING_REVIEW until real external records satisfy policy",
     "benchmark remains PENDING_BENCHMARK, model admission remains PENDING_ADMISSION and production_operational_status remains NOT_ATTESTED"
@@ -33,6 +35,7 @@
     "fabricated reviewer identity, evidence digest, timestamp, disagreement or review digest",
     "self-signed packet authority that can redefine reviewer tracks or case contracts",
     "production CLI selection of an arbitrary review authority path",
+    "partial candidate output publication after a failed transaction",
     "direct update of GitHub issues, branches, pull requests or authority files",
     "silent overwrite of an existing review ID or reviewer/case pair",
     "model execution, benchmark, admission, activation, deployment or production attestation"
