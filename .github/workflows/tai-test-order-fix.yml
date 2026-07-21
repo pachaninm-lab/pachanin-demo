@@ -1,0 +1,40 @@
+name: TAI provider inventory rejection expectation
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13c1d-remediation-2997
+    paths:
+      - .github/workflows/tai-test-order-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13c1d-remediation-2997
+      - name: Align exact failure ordering and remove workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('apps/tai/tests/test_quality_scoring_remediation.py')
+          text = path.read_text(encoding='utf-8')
+          old = 'with pytest.raises(QualityScoringError, match="provider inventory object_version_id"):'
+          new = 'with pytest.raises(QualityScoringError, match="provider inventory manifest sha256 mismatch"):'
+          if text.count(old) != 1:
+              raise SystemExit('expected assertion anchor not found exactly once')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          rm -f .github/workflows/tai-test-order-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test(tai): assert earliest trusted inventory rejection"
+          git push origin HEAD:agent/tai-ap-13c1d-remediation-2997
