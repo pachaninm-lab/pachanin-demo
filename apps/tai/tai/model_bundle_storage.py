@@ -4,10 +4,10 @@ import hashlib
 import json
 import os
 import shutil
-import tarfile
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
-from typing import IO
+from typing import Any
 
 from tai.model_bundle_v2 import (
     BundleVerificationStatus,
@@ -23,6 +23,7 @@ from tai.model_bundle_v2 import (
 _PAYLOAD_INDEX_SCHEMA = "tai.model-bundle-payload-index.v1"
 _REPORT_SCHEMA = "tai.model-bundle-storage-verification-report.v1"
 _CHUNK_SIZE = 1024 * 1024
+_ALLOWED_NON_STORAGE_REASONS = {"MANIFEST_SECTION_MISSING:STORAGE"}
 
 
 def verify_bundle_storage_v2(
@@ -51,7 +52,7 @@ def verify_loaded_bundle_storage_v2(
 ) -> dict[str, object]:
     reasons: list[str] = []
     payload_files = _payload_declared_files(bundle)
-    storage_files = _storage_declared_files(bundle)
+    storage_files = _storage_sidecar_files(bundle)
     payload_by_path = {item.path: item for item in payload_files}
 
     if len(payload_by_path) != len(payload_files):
@@ -86,12 +87,6 @@ def verify_loaded_bundle_storage_v2(
     )
     _compare_entry_map("ORIGINAL", original_entries, index_entries, reasons)
 
-    archive_path = _declared_file_path(original_root, storage.bundle_archive, "ARCHIVE", reasons)
-    archive_entries: dict[str, tuple[int, str]] = {}
-    if archive_path is not None:
-        archive_entries = _inspect_archive(archive_path, reasons)
-        _compare_entry_map("ARCHIVE", archive_entries, index_entries, reasons)
-
     restored_entries = _hash_declared_root(
         root=restored_root,
         declared=payload_files,
@@ -100,42 +95,24 @@ def verify_loaded_bundle_storage_v2(
     )
     _compare_entry_map("RESTORED", restored_entries, index_entries, reasons)
 
-    legacy_payload: dict[str, object] | None = None
-    with TemporaryDirectory(prefix="tai-bundle-compat-") as temporary:
-        compatibility_root = Path(temporary) / "restore"
-        if restored_root.is_dir():
-            shutil.copytree(restored_root, compatibility_root, symlinks=False)
-            for item in storage_files:
-                source = _declared_file_path(original_root, item, "STORAGE", reasons)
-                if source is None:
-                    continue
-                destination = compatibility_root / item.path
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, destination)
-            legacy = verify_local_model_bundle_v2(
-                authority=authority,
-                bundle=bundle,
-                bundle_root=original_root,
-                restored_root=compatibility_root,
-            )
-            legacy_payload = report_payload_v2(legacy)
-            if legacy.status is not BundleVerificationStatus.VERIFIED:
-                reasons.extend(f"LEGACY_V2:{reason}" for reason in legacy.reasons)
-        else:
-            reasons.append("RESTORED_ROOT_MISSING")
+    _verify_external_archive_metadata(bundle, reasons)
+    _verify_storage_sidecars(bundle, original_root, reasons)
 
-    index_sha256 = storage.payload_index.sha256
-    archive_sha256 = storage.bundle_archive.sha256
-    legacy_report_sha256 = (
-        str(legacy_payload.get("report_sha256")) if legacy_payload is not None else None
+    legacy_report_sha256 = _verify_non_storage_bundle_contract(
+        authority=authority,
+        bundle=bundle,
+        original_root=original_root,
+        restored_root=restored_root,
+        reasons=reasons,
     )
+
     return _report(
         bundle,
         reasons,
         tuple(sorted(original_entries)),
         tuple(sorted(restored_entries)),
-        index_sha256,
-        archive_sha256,
+        storage.payload_index.sha256,
+        storage.bundle_archive.sha256,
         legacy_report_sha256,
     )
 
@@ -165,16 +142,14 @@ def _payload_declared_files(bundle: LocalModelBundleV2) -> tuple[DeclaredFile, .
     return tuple(files)
 
 
-def _storage_declared_files(bundle: LocalModelBundleV2) -> tuple[DeclaredFile, ...]:
+def _storage_sidecar_files(bundle: LocalModelBundleV2) -> tuple[DeclaredFile, ...]:
     storage = bundle.storage
     if storage is None:
         return ()
-    return (
-        storage.bundle_archive,
-        storage.payload_index,
-        storage.upload_record,
-        storage.restore_record,
-    )
+    # The immutable archive is an external S3 object descriptor. Requiring its
+    # multi-gigabyte bytes in original_root would defeat streaming upload and
+    # independent clean restore. Only bounded sidecars are local evidence.
+    return (storage.payload_index, storage.upload_record, storage.restore_record)
 
 
 def _safe_root_file_set(root: Path, prefix: str, reasons: list[str]) -> set[str]:
@@ -188,7 +163,9 @@ def _safe_root_file_set(root: Path, prefix: str, reasons: list[str]) -> set[str]
         for name in directories:
             candidate = current_path / name
             if candidate.is_symlink():
-                reasons.append(f"{prefix}_FILE_UNSAFE:{candidate.relative_to(root).as_posix()}:symlink")
+                reasons.append(
+                    f"{prefix}_FILE_UNSAFE:{candidate.relative_to(root).as_posix()}:symlink"
+                )
             else:
                 safe_directories.append(name)
         directories[:] = safe_directories
@@ -285,39 +262,6 @@ def _index_entries(payload: dict[str, object] | None) -> dict[str, tuple[int, st
     return result
 
 
-def _inspect_archive(path: Path, reasons: list[str]) -> dict[str, tuple[int, str]]:
-    observed: dict[str, tuple[int, str]] = {}
-    try:
-        with tarfile.open(path, mode="r:*") as archive:
-            for member in archive:
-                safe_path = _safe_archive_member(member.name)
-                if safe_path is None or not member.isfile():
-                    reasons.append(f"ARCHIVE_MEMBER_UNSAFE:{member.name}")
-                    continue
-                if safe_path in observed:
-                    reasons.append(f"ARCHIVE_MEMBER_DUPLICATE:{safe_path}")
-                    continue
-                stream = archive.extractfile(member)
-                if stream is None:
-                    reasons.append(f"ARCHIVE_MEMBER_UNREADABLE:{safe_path}")
-                    continue
-                digest, size = _stream_sha256(stream)
-                if size != member.size:
-                    reasons.append(f"ARCHIVE_MEMBER_SIZE_METADATA_MISMATCH:{safe_path}")
-                observed[safe_path] = (size, digest)
-    except (tarfile.TarError, OSError) as error:
-        reasons.append(f"ARCHIVE_INVALID:{error}")
-        return observed
-    return observed
-
-
-def _safe_archive_member(value: str) -> str | None:
-    path = PurePosixPath(value)
-    if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
-        return None
-    return path.as_posix()
-
-
 def _hash_declared_root(
     *,
     root: Path,
@@ -362,6 +306,117 @@ def _compare_entry_map(
             reasons.append(f"{prefix}_ENTRY_SHA256_MISMATCH:{path}")
 
 
+def _verify_external_archive_metadata(
+    bundle: LocalModelBundleV2, reasons: list[str]
+) -> None:
+    storage = bundle.storage
+    if storage is None:
+        return
+    archive = storage.bundle_archive
+    path = PurePosixPath(archive.path)
+    if path.is_absolute() or not path.parts or ".." in path.parts:
+        reasons.append("ARCHIVE_LOGICAL_PATH_INVALID")
+    if archive.size_bytes < 1:
+        reasons.append("ARCHIVE_SIZE_INVALID")
+    if f"sha256:{archive.sha256}" not in storage.immutable_locator:
+        reasons.append("ARCHIVE_LOCATOR_SHA256_MISMATCH")
+    if "versionId=" not in storage.immutable_locator:
+        reasons.append("ARCHIVE_LOCATOR_VERSION_ID_MISSING")
+
+
+def _verify_storage_sidecars(
+    bundle: LocalModelBundleV2, original_root: Path, reasons: list[str]
+) -> None:
+    storage = bundle.storage
+    if storage is None:
+        return
+    expected_upload = {
+        "schema_version": "tai.model-bundle-upload-record.v1",
+        "archive_sha256": storage.bundle_archive.sha256,
+        "immutable_locator": storage.immutable_locator,
+        "uploaded_at": storage.uploaded_at,
+        "retention_days": storage.retention_days,
+        "retention_expires_at": storage.retention_expires_at,
+    }
+    expected_restore = {
+        "schema_version": "tai.model-bundle-restore-record.v1",
+        "archive_sha256": storage.bundle_archive.sha256,
+        "immutable_locator": storage.immutable_locator,
+        "restored_at": storage.restored_at,
+    }
+    _verify_json_sidecar(
+        root=original_root,
+        declared=storage.upload_record,
+        expected=expected_upload,
+        prefix="UPLOAD_RECORD",
+        reasons=reasons,
+    )
+    _verify_json_sidecar(
+        root=original_root,
+        declared=storage.restore_record,
+        expected=expected_restore,
+        prefix="RESTORE_RECORD",
+        reasons=reasons,
+    )
+
+
+def _verify_json_sidecar(
+    *,
+    root: Path,
+    declared: DeclaredFile,
+    expected: dict[str, object],
+    prefix: str,
+    reasons: list[str],
+) -> None:
+    path = _declared_file_path(root, declared, prefix, reasons)
+    if path is None:
+        return
+    try:
+        payload = _strict_json(path)
+    except ValueError as error:
+        reasons.append(f"{prefix}_INVALID:{error}")
+        return
+    if payload != expected:
+        reasons.append(f"{prefix}_MISMATCH")
+
+
+def _verify_non_storage_bundle_contract(
+    *,
+    authority: ModelBundleAuthority,
+    bundle: LocalModelBundleV2,
+    original_root: Path,
+    restored_root: Path,
+    reasons: list[str],
+) -> str | None:
+    # The legacy v2 verifier still models storage as a local section. Remove only
+    # that section for the semantic pass, then allow exactly its expected
+    # missing-section reason. Every authority, source, legal, toolchain,
+    # conversion, quantization and payload hash check remains active.
+    non_storage_bundle = replace(bundle, storage=None)
+    with TemporaryDirectory(prefix="tai-bundle-compat-") as temporary:
+        compatibility_root = Path(temporary) / "restore"
+        if not restored_root.is_dir():
+            reasons.append("RESTORED_ROOT_MISSING")
+            return None
+        shutil.copytree(restored_root, compatibility_root, symlinks=False)
+        report = verify_local_model_bundle_v2(
+            authority=authority,
+            bundle=non_storage_bundle,
+            bundle_root=original_root,
+            restored_root=compatibility_root,
+        )
+    payload = report_payload_v2(report)
+    actual_reasons = set(report.reasons)
+    unexpected = sorted(actual_reasons - _ALLOWED_NON_STORAGE_REASONS)
+    if report.status is not BundleVerificationStatus.REJECTED:
+        reasons.append("LEGACY_V2_NON_STORAGE_STATUS_INVALID")
+    if not _ALLOWED_NON_STORAGE_REASONS.issubset(actual_reasons):
+        reasons.append("LEGACY_V2_STORAGE_BOUNDARY_NOT_OBSERVED")
+    reasons.extend(f"LEGACY_V2:{reason}" for reason in unexpected)
+    report_sha = payload.get("report_sha256")
+    return report_sha if isinstance(report_sha, str) else None
+
+
 def _strict_json(path: Path) -> dict[str, object]:
     def reject_duplicate(pairs: list[tuple[str, object]]) -> dict[str, object]:
         result: dict[str, object] = {}
@@ -383,15 +438,6 @@ def _file_sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(_CHUNK_SIZE), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def _stream_sha256(handle: IO[bytes]) -> tuple[str, int]:
-    digest = hashlib.sha256()
-    size = 0
-    for chunk in iter(lambda: handle.read(_CHUNK_SIZE), b""):
-        digest.update(chunk)
-        size += len(chunk)
-    return digest.hexdigest(), size
 
 
 def _canonical_json(payload: object) -> str:
