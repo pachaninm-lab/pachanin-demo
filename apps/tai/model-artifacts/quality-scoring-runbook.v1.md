@@ -118,6 +118,10 @@ python -m tai.quality_scoring_cli verify \
 
 The command fails closed when the runtime report cannot be reproduced, the AP-14C assessment is not accepted, the runtime raw files drift, or the derived observation index does not match the scoring manifest digest.
 
+## Release rule
+
+Acceptance is bound to one stable final branch SHA. Any code, test, scope or documentation change invalidates prior exact-head evidence and requires the full repository gate set to complete again on the new SHA before merge.
+
 ## Maturity boundary
 
 This slice does not finalize the benchmark, supply the separate GPU profile, admit a model, activate routing, deploy inference or attest production.
