@@ -1,6 +1,8 @@
 {
   "corpus": {
+    "assessment_schema": "tai.gold-set-assessment.v1",
     "required_agro_cases": 16,
+    "required_assessment_status": "ACCEPTED",
     "required_critical_cases": 23,
     "required_locales": [
       "ru",
@@ -37,6 +39,8 @@
     ],
     "required_raw_observation_count": 348,
     "required_status": "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING",
+    "reverify_original_and_restored_evidence": true,
+    "runtime_authority_schema": "tai.cpu-runtime-evidence-authority.v1",
     "schema_version": "tai.cpu-runtime-evidence-verification.v1",
     "simulated_accepted": false
   },
