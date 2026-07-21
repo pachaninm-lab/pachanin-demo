@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).parents[3]
@@ -173,6 +174,24 @@ def test_workflow_verifies_release_legal_source_and_toolchain_before_remote_star
     assert "artifact.zip" in orchestrator
     assert "control-manifest.sha256" in orchestrator
     assert "model-conversion-driver.v1.sh" in orchestrator
+
+
+def test_release_acceptance_wait_covers_upstream_timeout() -> None:
+    prerequisites = ORCHESTRATOR_PATHS[0].read_text(encoding="utf-8")
+    attempts_match = re.search(
+        r"^RELEASE_WAIT_ATTEMPTS=(\d+)$", prerequisites, re.MULTILINE
+    )
+    interval_match = re.search(
+        r"^RELEASE_WAIT_INTERVAL_SECONDS=(\d+)$", prerequisites, re.MULTILINE
+    )
+    assert attempts_match is not None
+    assert interval_match is not None
+    attempts = int(attempts_match.group(1))
+    interval_seconds = int(interval_match.group(1))
+    assert attempts * interval_seconds >= 60 * 60
+    assert 'seq 1 "$RELEASE_WAIT_ATTEMPTS"' in prerequisites
+    assert '"$attempt" -eq "$RELEASE_WAIT_ATTEMPTS"' in prerequisites
+    assert 'sleep "$RELEASE_WAIT_INTERVAL_SECONDS"' in prerequisites
 
 
 def test_driver_confines_mutation_and_executes_only_declared_outputs() -> None:
