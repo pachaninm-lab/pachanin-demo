@@ -24,7 +24,8 @@ The verifier does not trust that report in isolation. It must:
 5. bind the quality case manifest to that exact assessment and corpus;
 6. derive the metadata-only quality observation index directly from the verified AP-13C.1c raw manifest and raw payload;
 7. verify every reviewer identity against a server-signed, MFA-bound assertion;
-8. reproduce every reviewer evidence file from immutable original and independently restored roots.
+8. reproduce every reviewer evidence file from immutable original and independently restored roots;
+9. authenticate the S3 object VersionIds, retention and immutability through a separately signed provider inventory receipt.
 
 There is no caller-supplied free-standing observation index. Its digest is deterministic output from the verified evidence chain. The derived index contains the exact Cartesian product of two model profiles, 58 cases and RU/EN/ZH — 348 observations — with each case, prompt, response and trace SHA-256.
 
@@ -59,6 +60,8 @@ Critical observations require two independent scorers:
 - one of `SECURITY_REVIEWER`, `LEGAL_REVIEWER`, `METHOD_REVIEWER`.
 
 The verifier rejects duplicate scorer identities, duplicate annotation IDs, stale case/prompt/response/trace digests, incomplete model/locale coverage, open disagreement, conflicting decisions, unknown roles, unauthenticated identities, expired assertions and stale MFA.
+
+The manifest `scored_at` must equal the latest authenticated annotation timestamp. Retention is measured from that completion time, so a submitter cannot backdate the manifest to shorten the required retention period.
 
 ## Deterministic annotation contract
 
@@ -111,6 +114,8 @@ The external manifest binds every annotation to one evidence file with:
 
 The verifier checks the supplied manifest byte-for-byte against copies restored under two distinct root identities. The original and restored roots must also resolve to different physical directories. It then reads each evidence file from both roots and requires identical payload, digest and size. Symlinks, path traversal, missing files, duplicate object identities, shortened retention, declared-only digests and original/restore drift fail closed.
 
+A separate `tai.quality-provider-inventory-receipt.v1` must be produced from trusted Selectel S3 inventory or API facts. It binds the bucket, root identities, manifest object and every reviewer object to exact VersionId, SHA-256, size, Object Lock retention and immutable status. The receipt is signed with a separate external operator-owned HMAC key and must be issued after scoring completion. Its key and trust-anchor digest are not accepted from the scoring manifest.
+
 The AP-13C.1c runtime roots are separate mandatory inputs and are independently reverified before quality scoring.
 
 ## Commands
@@ -146,12 +151,15 @@ python -m tai.quality_scoring_cli verify \
   /secure/quality/reviewer-evidence-manifest.v1.json \
   /secure/quality/original-root \
   /secure/quality/independent-restored-root \
+  /secure/quality/selectel-provider-inventory-receipt.v1.json \
+  /run/secrets/tai-quality-provider-inventory-hmac \
   --trusted-identity-secret-sha256 "$TAI_REVIEWER_IDENTITY_SECRET_SHA256" \
-  --evaluated-at 2026-07-21T18:00:00Z \
+  --trusted-provider-inventory-secret-sha256 "$TAI_PROVIDER_INVENTORY_SECRET_SHA256" \
+  --evaluated-at 2026-07-21T18:05:00Z \
   --output /secure/quality/quality-scoring-verification.v1.json
 ```
 
-The digest variable is supplied from operator-trusted configuration, not from the scoring manifest or reviewer evidence. The command fails closed when any trusted input is missing.
+Both trust-anchor digests are supplied from operator-trusted configuration, not from the scoring manifest, external manifest or provider receipt. The command fails closed when any trusted input is missing.
 
 ## Release rule
 
