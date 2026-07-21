@@ -262,10 +262,12 @@ MANIFEST_KEYS = {
 
 def load_scoring_manifest(path: Path) -> dict[str, Any]:
     value = load_json(path)
-    require_keys(value, MANIFEST_KEYS, "quality scoring manifest")
-    if value["schema_version"] != "tai.quality-scoring-evidence.v1":
+    if value.get("schema_version") != "tai.quality-scoring-evidence.v1":
         raise QualityScoringError("unsupported quality scoring manifest schema")
     self_digest(value, "manifest_sha256", "quality scoring manifest")
+    if "identity_assertions" not in value:
+        value = {**value, "identity_assertions": []}
+    require_keys(value, MANIFEST_KEYS, "quality scoring manifest")
     lifecycle = as_text(value["lifecycle"], "manifest.lifecycle")
     if lifecycle == "PENDING_HUMAN_SCORING":
         as_text(value["pending_reason"], "manifest.pending_reason")
