@@ -99,12 +99,13 @@ def test_transport_is_key_only_and_has_no_production_fallback() -> None:
     assert "StrictHostKeyChecking=yes" in workflow
 
 
-def test_remote_progress_probe_is_read_only_and_bounded() -> None:
+def test_remote_progress_probe_is_read_only_and_empty_state_safe() -> None:
     workflow = _workflow()
     remote = _remote_script(workflow)
     assert "MUTATION_MODE=READ_ONLY" in remote
     assert "/srv/tai-models/conversion-runs" in remote
-    assert "head -3" in remote
+    assert "sed -n '1p'" in remote
+    assert "LATEST_RUN=ABSENT" in remote
     assert "kill -0" in remote
     assert "DRIVER_PID_STATE" in remote
     assert "SOURCE_FILES" in remote
@@ -115,11 +116,12 @@ def test_remote_progress_probe_is_read_only_and_bounded() -> None:
     assert "ACTIVE_LOG_LAST_LINE" in remote
     assert "STEP_COMPLETE" in remote
     assert "STEP_FAILED" in remote
+    assert "while IFS= read -r record" in remote
     assert "ARTIFACT_COUNT" in remote
     assert "ARTIFACT_BYTES" in remote
     assert "ARTIFACT_LIST" in remote
-    assert "head -c 1000" in remote
-    assert "head -c 4000" in remote
+    assert "cut -c1-1000" in remote
+    assert "cut -c1-4000" in remote
     for forbidden in (
         " rm ",
         " mv ",
@@ -152,9 +154,9 @@ def test_progress_evidence_is_metadata_only_and_bounded() -> None:
     assert "overwrite: false" in upload
     assert "include-hidden-files: false" in upload
     assert "stat -c %s \"$REPORT_ROOT/progress.json\"" in workflow
-    assert "-le 100000" in workflow
+    assert "-le 50000" in workflow
     assert "stat -c %s \"$REPORT_ROOT/summary.md\"" in workflow
-    assert "-le 30000" in workflow
+    assert "-le 15000" in workflow
     assert "*.gguf" not in upload
     assert "safetensors" not in upload
     assert "sources/" not in upload
