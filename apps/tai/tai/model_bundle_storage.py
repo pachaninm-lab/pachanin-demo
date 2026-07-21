@@ -288,27 +288,26 @@ def _index_entries(payload: dict[str, object] | None) -> dict[str, tuple[int, st
 def _inspect_archive(path: Path, reasons: list[str]) -> dict[str, tuple[int, str]]:
     observed: dict[str, tuple[int, str]] = {}
     try:
-        archive_context = tarfile.open(path, mode="r:*")
+        with tarfile.open(path, mode="r:*") as archive:
+            for member in archive:
+                safe_path = _safe_archive_member(member.name)
+                if safe_path is None or not member.isfile():
+                    reasons.append(f"ARCHIVE_MEMBER_UNSAFE:{member.name}")
+                    continue
+                if safe_path in observed:
+                    reasons.append(f"ARCHIVE_MEMBER_DUPLICATE:{safe_path}")
+                    continue
+                stream = archive.extractfile(member)
+                if stream is None:
+                    reasons.append(f"ARCHIVE_MEMBER_UNREADABLE:{safe_path}")
+                    continue
+                digest, size = _stream_sha256(stream)
+                if size != member.size:
+                    reasons.append(f"ARCHIVE_MEMBER_SIZE_METADATA_MISMATCH:{safe_path}")
+                observed[safe_path] = (size, digest)
     except (tarfile.TarError, OSError) as error:
         reasons.append(f"ARCHIVE_INVALID:{error}")
         return observed
-    with archive_context as archive:
-        for member in archive:
-            safe_path = _safe_archive_member(member.name)
-            if safe_path is None or not member.isfile():
-                reasons.append(f"ARCHIVE_MEMBER_UNSAFE:{member.name}")
-                continue
-            if safe_path in observed:
-                reasons.append(f"ARCHIVE_MEMBER_DUPLICATE:{safe_path}")
-                continue
-            stream = archive.extractfile(member)
-            if stream is None:
-                reasons.append(f"ARCHIVE_MEMBER_UNREADABLE:{safe_path}")
-                continue
-            digest, size = _stream_sha256(stream)
-            if size != member.size:
-                reasons.append(f"ARCHIVE_MEMBER_SIZE_METADATA_MISMATCH:{safe_path}")
-            observed[safe_path] = (size, digest)
     return observed
 
 
