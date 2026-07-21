@@ -26,7 +26,6 @@ jobs:
       group: tai-model-host-capacity-probe
       cancel-in-progress: false
     env:
-      DEFAULT_HOST: 195.19.12.120
       QWEN_REVISION: 895c8d171bc03c30e113cd7a28c02494b5e068b7
       MISTRAL_REVISION: c170c708c41dac9275d15a8fff4eca08d52bab71
       REPORT_PATH: model-host-probe/model-host-capacity-probe.v1.json
@@ -64,23 +63,20 @@ jobs:
         id: ssh
         shell: bash
         env:
-          SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
-          SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
-          SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
-          SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
-          SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
-          SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
-          SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
-          SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
+          SSH_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+          SSH_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+          SSH_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+          SSH_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+          SSH_PASSWORD_SECRET: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
         run: |
           set -euo pipefail
-          host="${SSH_HOST_SECRET:-$DEFAULT_HOST}"
-          user="${SSH_USER_SECRET:-root}"
+          host="$SSH_HOST_SECRET"
+          user="${SSH_USER_SECRET:-tai-model}"
           port="${SSH_PORT_SECRET:-22}"
-          key="${SSH_KEY_PRIMARY:-${SSH_KEY_SECONDARY:-${SSH_KEY_FALLBACK:-}}}"
-          password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
+          key="$SSH_KEY_SECRET"
+          password="$SSH_PASSWORD_SECRET"
 
-          if [[ -z "$key" && -z "$password" ]]; then
+          if [[ -z "$host" || ( -z "$key" && -z "$password" ) ]]; then
             echo 'available=false' >> "$GITHUB_OUTPUT"
             echo 'mode=none' >> "$GITHUB_OUTPUT"
             exit 0
@@ -116,8 +112,7 @@ jobs:
           SSH_HOST: ${{ steps.ssh.outputs.host }}
           SSH_USER: ${{ steps.ssh.outputs.user }}
           SSH_PORT: ${{ steps.ssh.outputs.port }}
-          SSH_PASSWORD_PRIMARY: ${{ secrets.PC_PROD_SSH_PASSWORD }}
-          SSH_PASSWORD_FALLBACK: ${{ secrets.VPS_SSH_PASSWORD }}
+          SSH_PASSWORD_SECRET: ${{ secrets.TAI_MODEL_SSH_PASSWORD }}
         run: |
           set -euo pipefail
           remote_script="$(cat <<'REMOTE'
@@ -129,11 +124,11 @@ jobs:
           printf 'ARCH=%s\n' "$(uname -m)"
           printf 'CPU_COUNT=%s\n' "$(nproc)"
           printf 'CPU_MODEL=%s\n' "$(awk -F: '/model name/{gsub(/^[[:space:]]+/,"",$2); print $2; exit}' /proc/cpuinfo 2>/dev/null || true)"
-          printf 'MEM_TOTAL_BYTES=%s\n' "$(awk '/MemTotal:/{print $2 * 1024}' /proc/meminfo)"
-          printf 'MEM_AVAILABLE_BYTES=%s\n' "$(awk '/MemAvailable:/{print $2 * 1024}' /proc/meminfo)"
-          printf 'SWAP_TOTAL_BYTES=%s\n' "$(awk '/SwapTotal:/{print $2 * 1024}' /proc/meminfo)"
+          printf 'MEM_TOTAL_BYTES=%s\n' "$(awk '/MemTotal:/{printf "%.0f", $2 * 1024}' /proc/meminfo)"
+          printf 'MEM_AVAILABLE_BYTES=%s\n' "$(awk '/MemAvailable:/{printf "%.0f", $2 * 1024}' /proc/meminfo)"
+          printf 'SWAP_TOTAL_BYTES=%s\n' "$(awk '/SwapTotal:/{printf "%.0f", $2 * 1024}' /proc/meminfo)"
 
-          for path in / /srv /opt /var/lib/docker /root; do
+          for path in / /srv/tai-models /var/lib/docker; do
             if [[ -e "$path" ]]; then
               read -r filesystem total used available percent mountpoint < <(df -P -B1 "$path" | awk 'NR==2{print $1,$2,$3,$4,$5,$6}')
               safe_name="$(printf '%s' "$path" | sed 's#^/$#ROOT#; s#^/##; s#[^A-Za-z0-9]#_#g' | tr '[:lower:]' '[:upper:]')"
@@ -173,7 +168,6 @@ jobs:
           probe_endpoint QWEN_WEIGHT 'https://huggingface.co/Qwen/Qwen3-8B/resolve/895c8d171bc03c30e113cd7a28c02494b5e068b7/model-00001-of-00005.safetensors'
           probe_endpoint MISTRAL_CONFIG 'https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/resolve/c170c708c41dac9275d15a8fff4eca08d52bab71/config.json'
           probe_endpoint MISTRAL_WEIGHT 'https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/resolve/c170c708c41dac9275d15a8fff4eca08d52bab71/model-00001-of-00003.safetensors'
-
           echo 'PROBE_COMPLETE=true'
           REMOTE
           )"
@@ -185,8 +179,7 @@ jobs:
               "$SSH_USER@$SSH_HOST" 'bash -s' \
               > "$RAW_PATH" 2> "$STDERR_PATH" <<< "$remote_script"
           else
-            password="${SSH_PASSWORD_PRIMARY:-${SSH_PASSWORD_FALLBACK:-}}"
-            SSHPASS="$password" sshpass -e ssh -p "$SSH_PORT" \
+            SSHPASS="$SSH_PASSWORD_SECRET" sshpass -e ssh -p "$SSH_PORT" \
               -o StrictHostKeyChecking=yes \
               "$SSH_USER@$SSH_HOST" 'bash -s' \
               > "$RAW_PATH" 2> "$STDERR_PATH" <<< "$remote_script"
@@ -202,7 +195,7 @@ jobs:
         run: |
           set -euo pipefail
           : > "$RAW_PATH"
-          printf '%s\n' 'No supported protected SSH credential is configured; VPS was not contacted.' > "$STDERR_PATH"
+          printf '%s\n' 'No supported protected TAI model-host SSH credential is configured; VPS was not contacted.' > "$STDERR_PATH"
           printf '%s\n' '2' > model-host-probe/remote-exit-code.txt
 
       - name: Build machine-readable probe report
@@ -249,9 +242,9 @@ jobs:
           payload = {
               'schema_version': 'tai.model-host-capacity-probe.v1',
               'status': 'COMPLETE' if completed else 'FAILED_CLOSED',
-              'repository_sha': Path(root / 'repository-sha.txt').read_text().strip(),
-              'workflow_run_id': Path(root / 'workflow-run-id.txt').read_text().strip(),
-              'workflow_run_attempt': Path(root / 'workflow-run-attempt.txt').read_text().strip(),
+              'repository_sha': (root / 'repository-sha.txt').read_text().strip(),
+              'workflow_run_id': (root / 'workflow-run-id.txt').read_text().strip(),
+              'workflow_run_attempt': (root / 'workflow-run-attempt.txt').read_text().strip(),
               'issue': 2835,
               'command': '/tai probe model-host exact-main',
               'transport_available': transport_available,
@@ -320,6 +313,7 @@ jobs:
               f"- total RAM bytes: `{observed.get('MEM_TOTAL_BYTES', 'unknown')}`;",
               f"- available RAM bytes: `{observed.get('MEM_AVAILABLE_BYTES', 'unknown')}`;",
               f"- root available bytes: `{observed.get('FS_ROOT_AVAILABLE_BYTES', 'unknown')}`;",
+              f"- model workspace available bytes: `{observed.get('FS_SRV_TAI_MODELS_AVAILABLE_BYTES', 'unknown')}`;",
               f"- Docker root available bytes: `{observed.get('FS_VAR_LIB_DOCKER_AVAILABLE_BYTES', 'unknown')}`;",
               f"- missing required tools: `{', '.join(missing_tools) if missing_tools else 'none'}`;",
               f"- exact-revision endpoint status: `{json.dumps(endpoints, sort_keys=True)}`;",

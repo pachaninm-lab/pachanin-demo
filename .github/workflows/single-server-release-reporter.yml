@@ -1,0 +1,45 @@
+name: Single-server release reporter
+
+on:
+  workflow_run:
+    workflows:
+      - Single-server production web release
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Publish exact terminal result
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const run = context.payload.workflow_run;
+            const conclusion = run.conclusion || 'unknown';
+            const body = [
+              '## Single-server production web release',
+              '',
+              `- status: \`${conclusion}\``,
+              `- head_sha: \`${run.head_sha}\``,
+              `- branch: \`${run.head_branch}\``,
+              `- run_id: \`${run.id}\``,
+              `- event: \`${run.event}\``,
+              `- updated_at: \`${run.updated_at}\``,
+              '',
+              conclusion === 'success'
+                ? 'Exact image publication, targeted web deployment and independent live verification completed successfully.'
+                : 'Release did not complete successfully. Production workflow includes automatic web rollback on deployment or live-verification failure.',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 2920,
+              body,
+            });

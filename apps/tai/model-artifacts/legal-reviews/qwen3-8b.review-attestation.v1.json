@@ -1,0 +1,24 @@
+{
+  "attestation_reference": "https://github.com/pachaninm-lab/pachanin-demo/issues/2877?comment_id=5030210324#sha256=c83c7e64842e3fafc4bfb2f0e9933853b1af2af14dda6bc450a5c77592d46532",
+  "authority_sha256": "fe637511fc7fde634112f6ce0919db049cb2179307fc3dafe4f118102e326257",
+  "decision": "APPROVED",
+  "intended_use_sha256": "0a096a097324b7e316966594bd62f51650773f8c94ef2c62460a8753acd1655a",
+  "legal_packet_sha256": "aace040831e8f304729d90c8cf51a5f90d92c414f7cfbf4a5e23e7087df06bb2",
+  "license_text_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "model_card_sha256": "2d321409d3083a11c13cf00baa2d7adf0eac68ddaf484fcd46e6f5b313c5f95c",
+  "model_id": "Qwen/Qwen3-8B",
+  "review_record": {
+    "path": "model-artifacts/legal-reviews/qwen3-8b.review-record.v1.json",
+    "sha256": "c601bed04d9aaf049de9ee7ba715844399c00f60005b143de1db879d15f2742d",
+    "size_bytes": 2370
+  },
+  "reviewed_at": "2026-07-21T07:36:01+03:00",
+  "reviewer_id": "github:pachaninm-lab",
+  "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+  "role": "PRIMARY",
+  "schema_version": "tai.model-legal-review-attestation.v1",
+  "source_acceptance_exact_main_sha": "7439ed17c94b173da1bb0c37e0d74ffdfb848d49",
+  "source_acceptance_git_blob_sha": "9d5390d2592c707a1ce995ce15cccf8df58c6a70",
+  "source_files_sha256": "d3ef5d7334761a40cf857c247d2e2e2af383cd7c3c1e7c180414d07a15f9f2d4",
+  "source_manifest_sha256": "7c61e18eb68fc1d4f48e3f1c6ac59093e06e9d1484414dda776daea3374a5644"
+}
