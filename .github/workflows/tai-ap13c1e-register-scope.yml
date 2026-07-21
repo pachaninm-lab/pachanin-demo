@@ -1,0 +1,48 @@
+name: TAI AP-13C.1e Register Scope
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13c1e-cpu-benchmark-finalization
+    paths:
+      - '.github/workflows/tai-ap13c1e-register-scope.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13c1e-cpu-benchmark-finalization
+          fetch-depth: 0
+      - name: Register exact concurrent scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'JS'
+          const fs = require('fs');
+          const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+          const scopePath = 'apps/tai/governance/scopes/ap-13c1e-cpu-benchmark-finalization-2998.json';
+          const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+          const scope = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
+          if (scope.branch !== 'agent/tai-ap-13c1e-cpu-benchmark-finalization') {
+            throw new Error('scope branch mismatch');
+          }
+          if (!Array.isArray(scope.allowed_paths) || scope.allowed_paths.length === 0) {
+            throw new Error('scope paths missing');
+          }
+          state.approvedConcurrentScopes ??= {};
+          state.approvedConcurrentScopes[scope.branch] = scope.allowed_paths;
+          fs.writeFileSync(statePath, `${JSON.stringify(state)}\n`, 'utf8');
+          JS
+          rm .github/workflows/tai-ap13c1e-register-scope.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/platform-v7/autopilot/autopilot-state.json \
+            .github/workflows/tai-ap13c1e-register-scope.yml
+          git commit -m 'governance(tai): register AP-13C.1e concurrent scope'
+          git push origin HEAD:agent/tai-ap-13c1e-cpu-benchmark-finalization
