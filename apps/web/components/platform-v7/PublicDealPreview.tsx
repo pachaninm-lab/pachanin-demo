@@ -4,25 +4,28 @@ import { useState } from 'react';
 import type { PublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
 import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
+import {
+  PublicDealIntelligencePanel,
+  type PublicDealLens,
+} from '@/components/platform-v7/PublicDealIntelligencePanel';
 
-const previewLenses = ['execution', 'documents', 'money', 'risk'] as const;
-type PreviewLens = (typeof previewLenses)[number];
+const previewLenses: readonly PublicDealLens[] = ['execution', 'documents', 'money', 'risk'];
 
 const onboardingCopy = {
   ru: {
     selectedStage: 'Выбранный ключевой этап',
-    start: 'Посмотреть сделку с начала',
+    start: 'Разобрать пример сделки',
     current: 'Открыть этап приёмки',
   },
   en: {
     selectedStage: 'Highlighted key stage',
-    start: 'View the deal from the beginning',
+    start: 'Analyse the example deal',
     current: 'Open the acceptance stage',
   },
   zh: {
     selectedStage: '当前重点阶段',
-    start: '从头查看交易',
-    current: '打开收货阶段',
+    start: '分析示例交易',
+    current: '打开验收阶段',
   },
 } as const;
 
@@ -38,7 +41,7 @@ function emit(name: string, detail: Record<string, string> = {}) {
 }
 
 export function PublicDealPreview({ copy, locale }: { copy: PublicProductExperienceCopy; locale: string }) {
-  const [lens, setLens] = useState<PreviewLens>('execution');
+  const [lens, setLens] = useState<PublicDealLens>('execution');
   const ui = getPublicProductExperienceV4Copy(locale);
   const preview = ui.home.preview;
   const language = onboardingCopy[locale === 'en' || locale === 'zh' ? locale : 'ru'];
@@ -47,7 +50,7 @@ export function PublicDealPreview({ copy, locale }: { copy: PublicProductExperie
 
   return (
     <article
-      className='pc-ppe-preview-card'
+      className='pc-ppe-preview-card pc-public-deal-preview-card'
       aria-labelledby='pc-ppe-preview-title'
       aria-label={`${copy.header.aria}: ${preview.demoLabel}`}
     >
@@ -65,78 +68,89 @@ export function PublicDealPreview({ copy, locale }: { copy: PublicProductExperie
         <span className='pc-ppe-route'>{preview.route}</span>
       </div>
 
-      <div className='pc-ppe-preview-perspective'>
-        <div>
-          <span>{preview.perspectiveLabel}</span>
-          <strong>{preview.perspectiveValue}</strong>
-        </div>
-        <a href='#participants'>{preview.changePerspective}</a>
-      </div>
+      <div className='pc-public-deal-intelligence-layout'>
+        <div className='pc-public-deal-core'>
+          <div className='pc-ppe-preview-perspective'>
+            <div>
+              <span>{preview.perspectiveLabel}</span>
+              <strong>{preview.perspectiveValue}</strong>
+            </div>
+            <a href='#participants'>{preview.changePerspective}</a>
+          </div>
 
-      <div className='pc-ppe-preview-progress' aria-label={`${language.selectedStage}: ${preview.stageCounter}`}>
-        <span>{language.selectedStage}: {preview.stageCounter}</span>
-        <strong>{preview.nowValue}</strong>
-        <small>{preview.nextPrefix}: {preview.afterValue}</small>
-      </div>
+          <div className='pc-ppe-preview-progress' aria-label={`${language.selectedStage}: ${preview.stageCounter}`}>
+            <span>{language.selectedStage}: {preview.stageCounter}</span>
+            <strong>{preview.nowValue}</strong>
+            <small>{preview.nextPrefix}: {preview.afterValue}</small>
+          </div>
 
-      <dl className='pc-ppe-preview-status'>
-        <div><dt>{preview.nowLabel}</dt><dd>{preview.nowValue}</dd></div>
-        <div><dt>{preview.requiredLabel}</dt><dd>{preview.requiredValue}</dd></div>
-        <div><dt>{preview.ownerLabel}</dt><dd>{preview.ownerValue}</dd></div>
-        <div><dt>{preview.deadlineLabel}</dt><dd>{preview.deadlineValue}</dd></div>
-        <div><dt>{preview.afterLabel}</dt><dd>{preview.afterValue}</dd></div>
-        <div className='pc-ppe-preview-settlement'><dt>{preview.settlementLabel}</dt><dd>{preview.settlementValue}</dd></div>
-      </dl>
+          <dl className='pc-ppe-preview-status'>
+            <div><dt>{preview.nowLabel}</dt><dd>{preview.nowValue}</dd></div>
+            <div><dt>{preview.requiredLabel}</dt><dd>{preview.requiredValue}</dd></div>
+            <div><dt>{preview.ownerLabel}</dt><dd>{preview.ownerValue}</dd></div>
+            <div><dt>{preview.deadlineLabel}</dt><dd>{preview.deadlineValue}</dd></div>
+            <div><dt>{preview.afterLabel}</dt><dd>{preview.afterValue}</dd></div>
+            <div className='pc-ppe-preview-settlement'><dt>{preview.settlementLabel}</dt><dd>{preview.settlementValue}</dd></div>
+          </dl>
 
-      <div className='pc-ppe-preview-lenses' role='tablist' aria-label={preview.lensAria}>
-        {previewLenses.map((key) => (
-          <button
-            key={key}
-            type='button'
-            role='tab'
-            aria-selected={lens === key}
-            aria-controls='pc-ppe-preview-detail'
-            className='pc-ppe-chip-button'
-            data-active={lens === key ? 'true' : 'false'}
-            onClick={() => {
-              setLens(key);
-              emit('lens_selected', { locale, lens: key, source: 'home_preview' });
-            }}
+          <div className='pc-ppe-preview-lenses' role='tablist' aria-label={preview.lensAria}>
+            {previewLenses.map((key) => (
+              <button
+                key={key}
+                id={`pc-ppe-preview-tab-${key}`}
+                type='button'
+                role='tab'
+                aria-selected={lens === key}
+                aria-controls='pc-ppe-preview-detail'
+                className='pc-ppe-chip-button'
+                data-active={lens === key ? 'true' : 'false'}
+                onClick={() => {
+                  setLens(key);
+                  emit('lens_selected', { locale, lens: key, source: 'home_preview' });
+                  emit('deal_intelligence_lens_changed', { locale, lens: key, source: 'home_preview' });
+                }}
+              >
+                <PublicExperienceIcon name={key} size={18} />
+                <span>{preview.lenses[key].label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div
+            id='pc-ppe-preview-detail'
+            className='pc-ppe-preview-detail pc-public-deal-detail'
+            role='tabpanel'
+            aria-labelledby={`pc-ppe-preview-tab-${lens}`}
+            aria-live='polite'
           >
-            <PublicExperienceIcon name={key} size={18} />
-            <span>{preview.lenses[key].label}</span>
-          </button>
-        ))}
-      </div>
+            <PublicExperienceIcon name={lens} size={24} />
+            <div>
+              <strong>{preview.lenses[lens].label}</strong>
+              <span>{preview.lenses[lens].value}</span>
+            </div>
+          </div>
 
-      <div id='pc-ppe-preview-detail' className='pc-ppe-preview-detail' role='tabpanel' aria-live='polite'>
-        <PublicExperienceIcon name={lens} size={24} />
-        <div>
-          <strong>{preview.lenses[lens].label}</strong>
-          <span>{preview.lenses[lens].value}</span>
+          <div className='pc-ppe-preview-actions pc-public-deal-actions'>
+            <a
+              className='pc-ppe-primary-button'
+              href={startHref}
+              onClick={() => emit('deal_xray_open', { locale, lens: 'execution', stage: 'terms', source: 'home_preview_start' })}
+            >
+              <span>{language.start}</span>
+              <PublicExperienceIcon name='arrow' size={19} />
+            </a>
+            <a
+              className='pc-ppe-inline-link'
+              href={acceptanceHref}
+              onClick={() => emit('deal_xray_open', { locale, lens, stage: 'acceptance', source: 'home_preview_stage' })}
+            >
+              <span>{language.current}</span>
+              <PublicExperienceIcon name='arrow' size={19} />
+            </a>
+          </div>
         </div>
-      </div>
 
-      <div
-        className='pc-ppe-preview-actions'
-        style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 10, marginTop: 14 }}
-      >
-        <a
-          className='pc-ppe-primary-button'
-          href={startHref}
-          onClick={() => emit('deal_xray_open', { locale, lens: 'execution', stage: 'terms', source: 'home_preview_start' })}
-        >
-          <span>{language.start}</span>
-          <PublicExperienceIcon name='arrow' size={19} />
-        </a>
-        <a
-          className='pc-ppe-inline-link'
-          href={acceptanceHref}
-          onClick={() => emit('deal_xray_open', { locale, lens, stage: 'acceptance', source: 'home_preview_stage' })}
-        >
-          <span>{language.current}</span>
-          <PublicExperienceIcon name='arrow' size={19} />
-        </a>
+        <PublicDealIntelligencePanel locale={locale} lens={lens} />
       </div>
     </article>
   );
