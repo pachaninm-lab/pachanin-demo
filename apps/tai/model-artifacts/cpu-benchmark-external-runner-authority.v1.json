@@ -1,0 +1,103 @@
+{
+  "schema_version": "tai.cpu-benchmark-external-runner-authority.v1",
+  "program_issue": 2726,
+  "parent_issue": 2990,
+  "issue": 2991,
+  "command": "/tai plan cpu-fallback-benchmark exact-main",
+  "readiness": {
+    "schema_version": "tai.cpu-benchmark-execution-readiness.v1",
+    "required_status": "READY_FOR_EXTERNAL_EXECUTION",
+    "maximum_age_hours": 6
+  },
+  "finalization": {
+    "schema_version": "tai.model-bundle-finalization-report.v1",
+    "required_status": "BUNDLES_IMMUTABLY_STORED_AND_CLEANLY_RESTORED",
+    "minimum_retention_remaining_days": 30,
+    "required_model_keys": [
+      "qwen3-8b",
+      "mistral-7b-instruct-v0.3"
+    ]
+  },
+  "authorities": {
+    "bundle_schema_version": "tai.model-bundle-authority.v2",
+    "benchmark_schema_version": "tai.model-benchmark-admission-authority.v2",
+    "benchmark_issue": 2862
+  },
+  "target": {
+    "host_role": "DEDICATED_MODEL_HOST",
+    "required_user": "tai-model",
+    "workspace_root": "/srv/tai-models/benchmark-runs",
+    "production_fallback_allowed": false,
+    "restore_root_template": "/srv/tai-models/benchmark-runs/{exact_main}/{run_id}/restores/{model_key}",
+    "evidence_root_template": "/srv/tai-models/benchmark-runs/{exact_main}/{run_id}/evidence"
+  },
+  "toolchain": {
+    "name": "ggml-org/llama.cpp",
+    "release": "b9637",
+    "commit": "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
+    "profile": "linux-x86_64-cpu-release-static-v1",
+    "required_binaries": [
+      "llama-cli",
+      "llama-server",
+      "llama-quantize",
+      "llama-bench"
+    ],
+    "benchmark_binaries": [
+      "llama-cli",
+      "llama-server",
+      "llama-bench"
+    ]
+  },
+  "models": [
+    {
+      "key": "qwen3-8b",
+      "role": "PRIMARY",
+      "model_id": "Qwen/Qwen3-8B",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "runtime_class": "CPU",
+      "quantization": "Q4_K_M",
+      "artifact_path": "artifacts/qwen3-8b-q4-k-m.gguf",
+      "profile_id": "qwen3-8b-cpu-q4-k-m"
+    },
+    {
+      "key": "mistral-7b-instruct-v0.3",
+      "role": "FALLBACK",
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "runtime_class": "CPU",
+      "quantization": "Q4_K_M",
+      "artifact_path": "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
+      "profile_id": "mistral-7b-fallback-cpu-q4-k-m"
+    }
+  ],
+  "evaluation": {
+    "suite_id": "tai-platform-agro-58-v1",
+    "required_status": "ACCEPTED",
+    "required_accepted": true,
+    "required_total_cases": 58,
+    "required_critical_cases": 23,
+    "maximum_unreviewed_cases": 0
+  },
+  "execution": {
+    "concurrency_levels": [1, 2, 4],
+    "minimum_sample_count": 100,
+    "deterministic_seed": 13001,
+    "temperature_milli": 0,
+    "maximum_output_tokens": 512,
+    "minimum_fallback_triggers": 100,
+    "minimum_soak_seconds": 3600,
+    "minimum_soak_requests": 1000
+  },
+  "evidence": {
+    "bounded_metadata_only": true,
+    "maximum_github_file_bytes": 10000000,
+    "forbidden_suffixes": [".gguf", ".safetensors", ".tar", ".bin"],
+    "forbidden_path_fragments": ["sources/", "artifacts/", "payload/"],
+    "independent_evidence_restore_required": true
+  },
+  "maturity_boundary": {
+    "benchmark_status": "PENDING_BENCHMARK",
+    "model_admission_status": "PENDING_ADMISSION",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}
