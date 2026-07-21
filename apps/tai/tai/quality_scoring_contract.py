@@ -165,13 +165,17 @@ def expected_authority() -> dict[str, Any]:
         "issue": 2993,
         "runtime_verification": {
             "schema_version": "tai.cpu-runtime-evidence-verification.v1",
+            "runtime_authority_schema": "tai.cpu-runtime-evidence-authority.v1",
             "required_status": VERIFIED_RUNTIME_STATUS,
             "required_profiles": list(PROFILES),
             "required_raw_observation_count": 348,
+            "reverify_original_and_restored_evidence": True,
             "simulated_accepted": False,
         },
         "corpus": {
             "suite_id": "tai-platform-agro-58-v1",
+            "assessment_schema": "tai.gold-set-assessment.v1",
+            "required_assessment_status": "ACCEPTED",
             "required_total_cases": 58,
             "required_platform_cases": 42,
             "required_agro_cases": 16,
