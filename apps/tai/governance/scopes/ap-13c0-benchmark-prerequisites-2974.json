@@ -1,0 +1,29 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 2974,
+  "branch": "agent/tai-ap-13c0-benchmark-prerequisites",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13c0-benchmark-prerequisites-2974.json",
+    "apps/tai/model-artifacts/benchmark-prerequisite-authority.v1.json",
+    "apps/tai/model-artifacts/benchmark-prerequisite-baseline.v1.json",
+    "apps/tai/model-artifacts/benchmark-prerequisite-runbook.v1.md",
+    "apps/tai/tai/benchmark_prerequisite_matrix.py",
+    "apps/tai/tai/benchmark_prerequisite_matrix_cli.py",
+    "apps/tai/tests/test_benchmark_prerequisite_matrix.py"
+  ],
+  "acceptance": [
+    "all AP-13C prerequisites are explicit and machine-readable",
+    "CPU/fallback readiness and joint-admission readiness are evaluated separately",
+    "code-only, simulated, pending or stale evidence cannot close an external prerequisite",
+    "the current baseline remains BLOCKED while bundle storage, expert review and GPU evidence are absent",
+    "no benchmark, admission, deployment or production-readiness claim is created",
+    "production_operational_status remains NOT_ATTESTED"
+  ],
+  "forbidden_capabilities": [
+    "fabricated model bundle, expert review, benchmark, hardware or storage evidence",
+    "model weights, GGUF files, benchmark payloads or credentials in Git",
+    "automatic closure of human, account, storage or GPU checkpoints",
+    "model admission, activation, deployment or production attestation"
+  ]
+}
