@@ -18,6 +18,7 @@
     "bounded_metadata_only": true,
     "immutable_version_required": true,
     "independent_restore_required": true,
+    "manifest_schema_version": "tai.quality-reviewer-evidence-manifest.v1",
     "minimum_retention_days": 90,
     "provider": "SELECTEL_S3",
     "raw_text_in_git_allowed": false,
@@ -32,6 +33,7 @@
   },
   "parent_issue": 2971,
   "program_issue": 2726,
+  "remediation_issue": 2997,
   "runtime_verification": {
     "required_profiles": [
       "qwen3-8b-cpu-q4-k-m",
@@ -60,6 +62,28 @@
       "LEGAL_REVIEWER",
       "METHOD_REVIEWER"
     ],
+    "identity_assertions": {
+      "allowed_mfa_methods": [
+        "TOTP",
+        "WEBAUTHN",
+        "HARDWARE_KEY"
+      ],
+      "allowed_roles": [
+        "PLATFORM_OWNER",
+        "DOMAIN_EXPERT",
+        "SECURITY_REVIEWER",
+        "LEGAL_REVIEWER",
+        "METHOD_REVIEWER"
+      ],
+      "audience": "TAI_QUALITY_SCORING",
+      "issuer": "TAI_SERVER_IDENTITY",
+      "key_id": "tai-reviewer-identity-hmac-v1",
+      "maximum_lifetime_seconds": 86400,
+      "maximum_mfa_age_seconds": 43200,
+      "schema_version": "tai.reviewer-identity-assertion.v1",
+      "signature_algorithm": "HMAC-SHA256",
+      "trusted_secret_digest_source": "OPERATOR_TRUSTED_CONFIG"
+    },
     "independent_scorers_required": true,
     "normal_annotations_per_observation": 1,
     "open_disagreement_allowed": false,
