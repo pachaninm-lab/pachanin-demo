@@ -4,10 +4,8 @@ import hashlib
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from tai.cpu_runtime_contract import (
-    RuntimeEvidenceError,
-    load_authority as load_runtime_authority,
-)
+from tai.cpu_runtime_contract import RuntimeEvidenceError
+from tai.cpu_runtime_contract import load_authority as load_runtime_authority
 from tai.cpu_runtime_evidence import verify_runtime_evidence
 from tai.quality_scoring_contract import (
     EXPECTED_MATURITY,
