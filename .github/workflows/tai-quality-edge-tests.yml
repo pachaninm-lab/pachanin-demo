@@ -141,10 +141,10 @@ def test_external_secret_and_path_guards_fail_closed(tmp_path: Path) -> None:
     root.mkdir()
     with pytest.raises(QualityScoringError, match="safe relative path"):
         _safe_file(root, "../escape", "edge")
-    target = root / "target"
-    target.write_text("evidence", encoding="utf-8")
+    target_file = root / "target"
+    target_file.write_text("evidence", encoding="utf-8")
     link = root / "link"
-    link.symlink_to(target)
+    link.symlink_to(target_file)
     with pytest.raises(QualityScoringError, match="contains a symlink"):
         _safe_file(root, "link", "edge")
 
@@ -229,3 +229,5 @@ def test_governed_security_policies_cannot_be_self_weakened(tmp_path: Path) -> N
           git add -A
           git commit -m "test(tai): cover signed scoring security edges"
           git push origin HEAD:agent/tai-ap-13c1d-remediation-2997
+
+# Existing-file activation marker.
