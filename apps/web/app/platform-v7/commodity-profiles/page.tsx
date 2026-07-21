@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
-import { LiveCommodityProfileRegistry } from '@/components/crop-platform/LiveCommodityProfileRegistry';
-import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
+import { CommodityProfileRegistryClient } from '@/components/crop-platform/CommodityProfileRegistryClient';
+import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import styles from './commodity-profiles.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -16,8 +16,7 @@ export const metadata: Metadata = {
 
 export default async function CommodityProfilesPage() {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get(ACCESS_COOKIE)?.value;
-  if (!accessToken) {
+  if (!cookieStore.get(ACCESS_COOKIE)?.value) {
     redirect('/platform-v7/login?next=%2Fplatform-v7%2Fcommodity-profiles');
   }
 
@@ -26,11 +25,9 @@ export default async function CommodityProfilesPage() {
       className={styles.page}
       data-testid='commodity-profile-registry-page'
       data-authority='postgresql-private-bff'
+      data-static-authority-fallback='false'
     >
-      <LiveCommodityProfileRegistry
-        locale={await getLocale()}
-        csrfToken={cookieStore.get(CSRF_COOKIE)?.value || ''}
-      />
+      <CommodityProfileRegistryClient locale={await getLocale()} />
     </main>
   );
 }
