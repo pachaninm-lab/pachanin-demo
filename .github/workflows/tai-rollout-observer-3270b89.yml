@@ -18,9 +18,9 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       REPOSITORY: ${{ github.repository }}
-      FAILED_JOB_ID: '88791582410'
+      FAILED_JOB_ID: '88793449321'
     steps:
-      - name: Print terminal sanitized SSH preflight failure
+      - name: Print terminal sanitized principal-fix failure
         shell: bash
         run: |
           set -euo pipefail
@@ -35,5 +35,5 @@ jobs:
             -e '/BEGIN OPENSSH PRIVATE KEY/,/END OPENSSH PRIVATE KEY/c\[REDACTED_PRIVATE_KEY]' \
             -e 's/[A-Za-z0-9._-]+@[A-Za-z0-9._:-]+/[REDACTED_SSH_IDENTITY]/g' \
             job.log > sanitized.log
-          echo '=== TERMINAL SSH PREFLIGHT LOG ==='
-          tail -90 sanitized.log
+          echo '=== TERMINAL PRINCIPAL-FIX LOG ==='
+          tail -100 sanitized.log
