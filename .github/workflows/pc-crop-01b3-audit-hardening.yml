@@ -1,0 +1,142 @@
+name: PC-CROP-01B.3 one-shot exact audit timestamp hardening
+
+on:
+  push:
+    branches: [agent/pc-crop-01b3-atomic-command-authority]
+    paths: ['.github/workflows/pc-crop-01b3-audit-hardening.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/pc-crop-01b3-atomic-command-authority
+          fetch-depth: 0
+      - name: Bind audit after-state to PostgreSQL returned timestamp and retire workflow
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          port = Path('apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts')
+          text = port.read_text()
+
+          old_regular = '''    const aggregateVersion = await this.bumpProfileVersion(
+      tx,
+      command.profileId,
+      command.expectedVersion,
+      context.userId,
+    );
+    await this.appendTransition(tx, context, write, updated, current.status);
+
+    const beforeState = this.state(profile, current);
+    const afterState = this.state(
+      { ...profile, version: aggregateVersion, updatedAt: committedAt },
+      updated,
+    );
+    return this.writeAuditOutboxReceipt(
+      tx,
+      context,
+      write,
+      aggregateVersion,
+'''
+          new_regular = '''    const aggregateState = await this.bumpProfileVersion(
+      tx,
+      command.profileId,
+      command.expectedVersion,
+      context.userId,
+    );
+    await this.appendTransition(tx, context, write, updated, current.status);
+
+    const beforeState = this.state(profile, current);
+    const afterState = this.state(
+      {
+        ...profile,
+        version: aggregateState.version,
+        updatedAt: aggregateState.updatedAt,
+      },
+      updated,
+    );
+    return this.writeAuditOutboxReceipt(
+      tx,
+      context,
+      write,
+      aggregateState.version,
+'''
+          if text.count(old_regular) != 1:
+              raise SystemExit(f'regular aggregate block count={text.count(old_regular)}')
+          text = text.replace(old_regular, new_regular)
+
+          old_draft = '''    const aggregateVersion = await this.bumpProfileVersion(
+      tx,
+      profile.id,
+      write.command.expectedVersion,
+      context.userId,
+    );
+    const version = this.lockedVersion(created);
+    await this.appendTransition(tx, context, { ...write, toLifecycle: 'DRAFT' }, version, undefined);
+    return this.writeAuditOutboxReceipt(
+      tx,
+      context,
+      { ...write, toLifecycle: 'DRAFT' },
+      aggregateVersion,
+      version,
+      this.state(profile, null),
+      this.state({ ...profile, version: aggregateVersion }, version),
+'''
+          new_draft = '''    const aggregateState = await this.bumpProfileVersion(
+      tx,
+      profile.id,
+      write.command.expectedVersion,
+      context.userId,
+    );
+    const version = this.lockedVersion(created);
+    await this.appendTransition(tx, context, { ...write, toLifecycle: 'DRAFT' }, version, undefined);
+    return this.writeAuditOutboxReceipt(
+      tx,
+      context,
+      { ...write, toLifecycle: 'DRAFT' },
+      aggregateState.version,
+      version,
+      this.state(profile, null),
+      this.state({
+        ...profile,
+        version: aggregateState.version,
+        updatedAt: aggregateState.updatedAt,
+      }, version),
+'''
+          if text.count(old_draft) != 1:
+              raise SystemExit(f'draft aggregate block count={text.count(old_draft)}')
+          text = text.replace(old_draft, new_draft)
+
+          replacements = {
+              '  ): Promise<bigint> {\n    const expected = BigInt(expectedVersion);\n    const rows = await tx.$queryRaw<Array<{ version: bigint }>>(Prisma.sql`':
+              '  ): Promise<{ version: bigint; updatedAt: Date }> {\n    const expected = BigInt(expectedVersion);\n    const rows = await tx.$queryRaw<Array<{ version: bigint; updatedAt: Date }>>(Prisma.sql`',
+              '      RETURNING "version"\n': '      RETURNING "version", "updatedAt"\n',
+              '    return rows[0]!.version;\n': '    return rows[0]!;\n',
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f'expected one occurrence of {old!r}, found {text.count(old)}')
+              text = text.replace(old, new)
+          port.write_text(text)
+
+          spec = Path('apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.spec.ts')
+          spec_text = spec.read_text()
+          old = '    [{ version: 8n }],\n'
+          new = '    [{ version: 8n, updatedAt: now }],\n'
+          if spec_text.count(old) != 1:
+              raise SystemExit(f'spec aggregate fixture count={spec_text.count(old)}')
+          spec.write_text(spec_text.replace(old, new))
+
+          Path('.github/workflows/pc-crop-01b3-audit-hardening.yml').unlink()
+          PY
+          git config user.name 'pc-crop-governed-bot'
+          git config user.email 'pc-crop-governed-bot@users.noreply.github.com'
+          git add apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.spec.ts .github/workflows/pc-crop-01b3-audit-hardening.yml
+          git commit -m 'PC-CROP-01B.3: bind audit state to PostgreSQL timestamp'
+          git push origin HEAD:agent/pc-crop-01b3-atomic-command-authority
