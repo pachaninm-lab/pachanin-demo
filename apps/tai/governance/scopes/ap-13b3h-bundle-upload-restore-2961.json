@@ -11,6 +11,7 @@
     "apps/tai/model-artifacts/model-bundle-upload-restore-runbook.v1.md",
     "apps/tai/scripts/model-bundle-s3-multipart.py",
     "apps/tai/scripts/model-bundle-upload-restore-driver.v1.sh",
+    "apps/tai/scripts/model-bundle-upload-restore-orchestrator.v1.sh",
     "apps/tai/tai/model_bundle_finalize.py",
     "apps/tai/tai/model_bundle_finalize_cli.py",
     "apps/tai/tai/model_bundle_storage.py",
