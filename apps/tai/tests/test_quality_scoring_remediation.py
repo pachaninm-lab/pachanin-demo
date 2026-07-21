@@ -24,6 +24,11 @@ from tai.quality_scoring_contract import (
     load_json,
     write_json,
 )
+from tai.quality_scoring_identity import (
+    _assertion,
+    trusted_identity_secret,
+    verify_identity_assertions,
+)
 
 
 def _canonical_bytes(value: object) -> bytes:
@@ -280,3 +285,83 @@ def test_external_manifest_record_digest_cannot_be_declared_only(tmp_path: Path)
     _rewrite_manifest(fixture)
     with pytest.raises(QualityScoringError, match="file digest mismatch"):
         _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+
+
+def test_identity_secret_read_failure_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    secret = tmp_path / "identity-secret"
+    secret.write_bytes(b"i" * 32)
+    digest = hashlib.sha256(b"i" * 32).hexdigest()
+
+    def fail_read(_path: Path) -> bytes:
+        raise OSError("read failure")
+
+    monkeypatch.setattr(Path, "read_bytes", fail_read)
+    with pytest.raises(QualityScoringError, match="secret is unreadable"):
+        trusted_identity_secret(secret, digest)
+
+
+def test_identity_future_and_excessive_lifetime_are_rejected(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    policy = fixture["authority"]["scorer_policy"]["identity_assertions"]
+    assertion = copy.deepcopy(fixture["manifest"]["identity_assertions"][0])
+    secret_path = fixture["identity_secret_path"]
+    assert isinstance(secret_path, Path)
+
+    assertion["issued_at"] = (NOW + timedelta(minutes=10)).isoformat()
+    with pytest.raises(QualityScoringError, match="from the future"):
+        _assertion(assertion, 0, policy, secret_path.read_bytes(), NOW)
+
+    assertion = copy.deepcopy(fixture["manifest"]["identity_assertions"][0])
+    assertion["issued_at"] = (NOW - timedelta(days=2)).isoformat()
+    assertion["mfa_verified_at"] = (NOW - timedelta(days=2)).isoformat()
+    assertion["expires_at"] = (NOW + timedelta(hours=1)).isoformat()
+    with pytest.raises(QualityScoringError, match="lifetime is invalid"):
+        _assertion(
+            assertion,
+            0,
+            policy,
+            secret_path.read_bytes(),
+            NOW,
+        )
+
+
+def test_duplicate_identity_assertion_id_and_subject_are_rejected(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    policy = fixture["authority"]["scorer_policy"]["identity_assertions"]
+    assertions = fixture["manifest"]["identity_assertions"]
+    secret_path = fixture["identity_secret_path"]
+    digest = fixture["trusted_secret_sha256"]
+    assert isinstance(secret_path, Path)
+    assert isinstance(digest, str)
+
+    duplicate = copy.deepcopy(assertions[0])
+    with pytest.raises(QualityScoringError, match="duplicate reviewer identity assertion id"):
+        verify_identity_assertions(
+            [assertions[0], duplicate],
+            policy,
+            secret_path,
+            digest,
+            evaluated_at=NOW,
+        )
+
+    duplicate = copy.deepcopy(assertions[0])
+    duplicate["assertion_id"] = "assertion-subject-duplicate"
+    duplicate["nonce"] = "nonce-subject-duplicate"
+    duplicate.pop("signature")
+    duplicate["signature"] = hmac.new(
+        secret_path.read_bytes(),
+        _canonical_bytes(duplicate),
+        hashlib.sha256,
+    ).hexdigest()
+    with pytest.raises(QualityScoringError, match="duplicate reviewer identity subject"):
+        verify_identity_assertions(
+            [assertions[0], duplicate],
+            policy,
+            secret_path,
+            digest,
+            evaluated_at=NOW,
+        )
