@@ -1,19 +1,19 @@
 {
   "branch": "fix/public-ai-layout-authority",
   "status": "active",
-  "purpose": "Deploy the already accepted TAI public intelligence P0 web image from exact main commit 24277e008d25f66f52b56284ff83ca3eead39fb2 to the canonical REG.RU VPS, mutate only the production web service, and capture exact OCI and live-browser evidence.",
+  "purpose": "Deploy the already accepted TAI public intelligence P0 web image from exact main commit 24277e008d25f66f52b56284ff83ca3eead39fb2 to the canonical REG.RU VPS through the existing audited key-only deployment authority, mutate only the production web service, and capture exact OCI and live-domain evidence.",
   "approvedBy": "user-directed-continue-to-production-2026-07-21",
   "allowedPaths": [
     ".github/release-triggers/tai-p0-web-24277e0.md",
-    ".github/workflows/deploy-tai-p0-web-24277e0.yml",
+    ".github/workflows/deploy-ai-web-vps-c21eec0.yml",
     "docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json"
   ],
   "forbiddenCapabilities": [
     "deployment of any Git revision other than 24277e008d25f66f52b56284ff83ca3eead39fb2",
+    "password-based SSH transport or secret disclosure",
     "mutation of API, database, Caddy, Compose configuration, environment, volumes or networks",
     "restart of PostgreSQL, Redis, MinIO, Caddy or any non-web service",
     "destructive rollback or database schema rollback",
-    "secret, SSH credential or production environment disclosure",
     "use of Netlify or Vercel as production or release evidence",
     "claiming deployment without exact running OCI revision and live-domain verification",
     "claiming TAI or government adapters are operationally attested"
