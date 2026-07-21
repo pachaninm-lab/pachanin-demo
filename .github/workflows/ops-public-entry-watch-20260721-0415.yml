@@ -1,0 +1,37 @@
+name: ops public entry watch 20260721 0415
+
+on:
+  push:
+    branches:
+      - ops/public-entry-watch-20260721-0415
+
+permissions:
+  contents: read
+
+jobs:
+  production-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium and WebKit
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Check production public entry
+        working-directory: apps/web
+        run: node scripts/public-entry-watch-automation.mjs
+      - name: Upload watch evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-20260721-0415
+          path: artifacts/public-entry-watch
+          if-no-files-found: warn
+          retention-days: 3
