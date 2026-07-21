@@ -27,6 +27,7 @@ EXPECTED_PATHS = {
     "apps/tai/tai/model_bundle_external_storage.py",
     "apps/tai/tai/model_bundle_external_storage_cli.py",
     "apps/tai/model-artifacts/model_bundle_finalization_remote.py",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
     "apps/tai/tests/test_model_bundle_external_storage.py",
     "apps/tai/tests/test_model_bundle_finalization_workflow.py",
 }
