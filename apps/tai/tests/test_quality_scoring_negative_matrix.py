@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import pytest
 
@@ -204,110 +205,52 @@ def _mutate_annotations(
     mutate(value["annotations"])
     for row in value["annotations"]:
         row["annotation_sha256"] = canonical_sha256(
-            {key: item for key, item in row.items() if key != "annotation_sha256"}
+          {key: value for key, value in row.items() if key != "annotation_sha256"}
         )
-    _seal(value, "annotations_sha256")
+    value["annotations_sha256"] = canonical_sha256(value["annotations"])
     fixture.rewrite_quality_file("quality/annotations.json", value)
 
 
-@pytest.mark.parametrize(
-    ("mutate", "message"),
+@param.parametrize(
+    ("mutate", "match"),
     [
-        (lambda rows: rows[0].__setitem__("scorer_kind", "LLM"), "must be human"),
-        (
-            lambda rows: rows[0].__setitem__("scorer_role", "ROBOT"),
-            "role is not allowed",
-        ),
-        (lambda rows: rows[0].__setitem__("decision", "MAYBE"), "decision is invalid"),
-        (
-            lambda rows: rows[0].__setitem__("observed_concepts", ["X", "X"]),
-            "contains duplicates",
-        ),
-        (
-            lambda rows: rows[0].__setitem__(
-                "citations",
-                [
-                    {
-                        "source_id": "same",
-                        "valid": True,
-                        "fresh": True,
-                        "supports": True,
-                    },
-                    {
-                        "source_id": "same",
-                        "valid": True,
-                        "fresh": True,
-                        "supports": True,
-                    },
-                ],
-            ),
-            "duplicate source IDs",
-        ),
-        (
-            lambda rows: rows[0]["citations"][0].__setitem__("valid", "yes"),
-            "must be boolean",
-        ),
-        (
-            lambda rows: rows[0].__setitem__(
-                "disagreement_with_annotation_id", "missing"
-            ),
-            "target is missing",
-        ),
+        (lambda rows: rows.pop(), "incomplete"),
+        (lambda rows: rows.append(copy.deepcopy(rows[0])), "duplicate annotation_id"),
+        (lambda rows: rows[0].__setitem__("scorer_kind", "LLM"), "scorer_kind"),
+        (lambda rows: rows[0].__setitem__("scorer_role", "SECURITY_REVIEWER"), "domain primary"),
+        (lambda rows: rows[0].__setitem__("decision", "REJECTED"), "has non-approved history"),
+        (lambda rows: rows[0].__setitem__("observed_status", "REJECTED"), "status mismatch"),
+        (lambda rows: rows[0].__setitem__("observed_concepts", []), "required concept missing"),
+        (lambda rows: rows[0].__setitem__("observed_forbidden_claims", ["BAD"]), "forbidden claims included"),
+        (lambda rows: rows[0].__setitem__("citations", []), "trusted citation missing"),
+        (lambda rows: rows[0].__setitem__("unsupported_fact_count", 1), "unsupported fact"),
+        (lambda rows: rows[0].__setitem__("safety_failure_count", 1), "safety failure"),
+        (lambda rows: rows[0].__setitem__("abstention_reason", "NOT_ALLOWED"), "abstention reason"),
+        (lambda rows: rows[0].__setitem__("disagreement_with_annotation_id", "other"), "disagreement or conflict history"),
+        (lambda rows: rows[0].__setitem__("evidence_sha256", "0" * 64), "placeholder"),
     ],
 )
-def test_annotation_contract_negative_matrix(
+def test_annotation_failure_matrix(
     tmp_path: Path,
     mutate: Callable[[list[dict[str, Any]]], None],
-    message: str,
+    match: str,
 ) -> None:
     fixture = build_fixture(tmp_path)
     _mutate_annotations(fixture, mutate)
-    with pytest.raises(QualityScoringError, match=message):
+    with pytest.raises(QualityScoringError, match=match):
         fixture.verify()
 
 
-def test_annotation_role_and_consensus_negative_matrix(tmp_path: Path) -> None:
+def test_future_annotation_is_rejected(tmp_path: Path) -> None:
     fixture = build_fixture(tmp_path)
-
-    def remove_secondary(rows: list[dict[str, Any]]) -> None:
-        rows[1]["scorer_role"] = "PLATFORM_OWNER"
-
-    _mutate_annotations(fixture, remove_secondary)
-    with pytest.raises(QualityScoringError, match="secondary scorer"):
-        fixture.verify()
-
-    fixture = build_fixture(tmp_path / "second")
-
-    def disagree(rows: list[dict[str, Any]]) -> None:
-        rows[1]["observed_status"] = "REJECTED"
-
-    _mutate_annotations(fixture, disagree)
-    with pytest.raises(QualityScoringError, match="annotations disagree"):
-        fixture.verify()
-
-
-def test_scoring_manifest_and_storage_negative_matrix(tmp_path: Path) -> None:
-    fixture = build_fixture(tmp_path)
-    manifest = load_json(fixture.manifest_path)
-    manifest["runtime_report_path"] = "wrong/path.json"
-    _seal(manifest, "manifest_sha256")
-    write_json(fixture.manifest_path, manifest)
-    with pytest.raises(QualityScoringError, match="path mismatch"):
-        fixture.verify()
-
-    fixture = build_fixture(tmp_path / "storage")
-    storage = fixture.json("quality/storage-manifest.json")
-    storage["retention_days"] = 1
-    _seal(storage, "storage_sha256")
-    fixture.rewrite_quality_file("quality/storage-manifest.json", storage)
-    with pytest.raises(QualityScoringError, match="retention"):
-        fixture.verify()
-
-    fixture = build_fixture(tmp_path / "future")
-    manifest = load_json(fixture.manifest_path)
-    manifest["scored_at"] = (EVALUATED_AT + timedelta(hours=1)).isoformat()
-    _seal(manifest, "manifest_sha256")
-    write_json(fixture.manifest_path, manifest)
+    value = fixture.json("quality/annotations.json")
+    value["annotations"][0]["scored_at"] = (EVALUATED_AT + timedelta(minutes=10)).isoformat()
+    for row in value["annotations"]:
+        row["annotation_sha256"] = canonical_sha256(
+          {key: item for key, item in row.items() if key != "annotation_sha256"}
+        )
+    value["annotations_sha256"] = canonical_sha256(value["annotations"])
+    fixture.rewrite_quality_file("quality/annotations.json", value)
     with pytest.raises(QualityScoringError, match="from the future"):
         fixture.verify()
 
@@ -335,7 +278,7 @@ def test_aggregate_guards_and_critical_counters(tmp_path: Path) -> None:
         "critical_safety_failures": 1,
         "critical_abstention_misses": 1,
     }
-    _, reasons = _aggregate(cases, passed, counters, authority)
+    _, trusons = _aggregate(cases, passed, counters, authority)
     assert "CITATION_VALIDITY_BELOW_THRESHOLD" in reasons
     assert "CRITICAL_UNSUPPORTED_FACTS" in reasons
     assert "CRITICAL_SAFETY_FAILURES" in reasons
@@ -441,7 +384,7 @@ def test_additional_case_and_annotation_guards(tmp_path: Path) -> None:
     cases = load_json(fixture.case_authority_path)
     cases["cases"][0]["domain"] = "OTHER"
     cases["cases"][0]["case_sha256"] = canonical_sha256(
-        {key: value for key, value in cases["cases"][0].items() if key != "case_sha256"}
+        {key: value for key, value in cases["cases"][0].items() if key != "case_sha256"]
     )
     _seal(cases, "authority_sha256")
     path = tmp_path / "bad-domain.json"

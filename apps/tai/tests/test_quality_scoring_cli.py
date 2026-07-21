@@ -10,7 +10,7 @@ from test_quality_scoring import EVALUATED_AT, build_fixture
 
 def test_cli_validate_authority(tmp_path: Path) -> None:
     fixture = build_fixture(tmp_path)
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603 - controlled Python executable and repository module
         [
             sys.executable,
             "-m",
@@ -44,12 +44,16 @@ def test_cli_complete_and_contract_rejection(tmp_path: Path) -> None:
         "--evaluated-at",
         EVALUATED_AT.isoformat(),
     ]
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    result = subprocess.run(  # noqa: S603 - controlled Python executable and repository module
+        command, capture_output=True, text=True, check=False
+    )
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["accepted"] is True
 
     fixture.runtime_report_path.write_text("{}", encoding="utf-8")
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    result = subprocess.run(  # noqa: S603 - controlled Python executable and repository module
+        command, capture_output=True, text=True, check=False
+    )
     assert result.returncode == 2
     value = json.loads(result.stdout)
     assert value["status"] == "REJECTED"
