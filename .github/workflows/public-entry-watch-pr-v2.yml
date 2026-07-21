@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   production-watch-v2:
@@ -32,6 +33,27 @@ jobs:
           mkdir -p "../../$ARTIFACT_DIR"
           echo "started=$(date -u +%FT%TZ)" > "../../$ARTIFACT_DIR/runner.log"
           node scripts/public-entry-watch-production.mjs 2>&1 | tee -a "../../$ARTIFACT_DIR/runner.log"
+      - name: Publish machine-readable result to PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$ARTIFACT_DIR/result.json"
+          if [ ! -f "$result" ]; then
+            printf '### Public Entry Watch v2\n\n`result.json` was not produced.\n' > /tmp/watch-comment.md
+          else
+            {
+              echo '### Public Entry Watch v2'
+              echo
+              echo '<!-- public-entry-watch-v2-result -->'
+              echo '```json'
+              cat "$result"
+              echo '```'
+            } > /tmp/watch-comment.md
+          fi
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file /tmp/watch-comment.md
       - if: always()
         uses: actions/upload-artifact@v4
         with:
