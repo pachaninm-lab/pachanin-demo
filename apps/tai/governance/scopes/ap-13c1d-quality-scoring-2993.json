@@ -5,6 +5,7 @@
   "issue": 2993,
   "branch": "agent/tai-ap-13c1d-quality-scoring-authority",
   "allowed_paths": [
+    "docs/platform-v7/autopilot/autopilot-state.json",
     "apps/tai/governance/scopes/ap-13c1d-quality-scoring-2993.json",
     "apps/tai/model-artifacts/quality-scoring-authority.v1.json",
     "apps/tai/model-artifacts/quality-scoring-evidence.schema.v1.json",
@@ -20,6 +21,7 @@
     "apps/tai/tests/test_quality_scoring_cli.py"
   ],
   "acceptance": [
+    "the branch is registered in authoritative approvedConcurrentScopes before merge",
     "quality is scored only from exact AP-13C.1c raw-observation digests and accepted AP-14C case authority",
     "LLM-as-judge and accuracy inference from runtime success are forbidden",
     "all 348 model-case-locale observations require complete human annotation coverage",
