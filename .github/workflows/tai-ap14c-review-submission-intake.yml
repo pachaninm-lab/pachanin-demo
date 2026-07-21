@@ -9,6 +9,7 @@ on:
       - 'apps/tai/model-artifacts/expert-review-submission-intake.mjs'
       - 'apps/tai/model-artifacts/expert-review-submission-intake-runbook.v1.md'
       - 'apps/tai/tests/expert-review-submission-intake.test.mjs'
+      - 'apps/tai/tests/expert-review-submission-packet-authority.test.mjs'
       - 'docs/platform-v7/autopilot/tai-ap-14c/**'
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - 'apps/tai/model-artifacts/expert-review-submission-intake.mjs'
       - 'apps/tai/model-artifacts/expert-review-submission-intake-runbook.v1.md'
       - 'apps/tai/tests/expert-review-submission-intake.test.mjs'
+      - 'apps/tai/tests/expert-review-submission-packet-authority.test.mjs'
       - 'docs/platform-v7/autopilot/tai-ap-14c/**'
 
 permissions:
@@ -45,14 +47,17 @@ jobs:
           set -euo pipefail
           node --check apps/tai/model-artifacts/expert-review-submission-intake.mjs
           node --check apps/tai/tests/expert-review-submission-intake.test.mjs
+          node --check apps/tai/tests/expert-review-submission-packet-authority.test.mjs
 
       - name: Run fail-closed intake regression suite
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p tai-review-intake-evidence
-          node apps/tai/tests/expert-review-submission-intake.test.mjs \
-            | tee tai-review-intake-evidence/test-output.txt
+          {
+            node apps/tai/tests/expert-review-submission-intake.test.mjs
+            node apps/tai/tests/expert-review-submission-packet-authority.test.mjs
+          } | tee tai-review-intake-evidence/test-output.txt
 
       - name: Record exact-head evidence
         if: always()
@@ -64,6 +69,7 @@ jobs:
           sha256sum \
             apps/tai/model-artifacts/expert-review-submission-intake.mjs \
             apps/tai/tests/expert-review-submission-intake.test.mjs \
+            apps/tai/tests/expert-review-submission-packet-authority.test.mjs \
             > tai-review-intake-evidence/files.sha256
 
       - name: Upload bounded intake evidence
