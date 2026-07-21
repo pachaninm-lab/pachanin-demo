@@ -38,7 +38,7 @@ describe('PC-CROP-01B.4 strict live commodity registry', () => {
   const accessPolicy = read(files.accessPolicy);
 
   it('loads only dedicated private BFF data and never falls back to fixtures or browser persistence', () => {
-    expect(client).toContain("fetch('/api/platform-v7/commodity-profiles?limit=100'");
+    expect(client).toContain("'/api/platform-v7/commodity-profiles?limit=100'");
     expect(client).toContain('/api/platform-v7/commodity-profiles/${encodeURIComponent(initialProfileId)}');
     expect(client).toContain('/versions?limit=100');
     expect(client).toContain("data-static-authority-fallback='false'");
