@@ -1,21 +1,27 @@
 name: PC-CROP-01B.3 one-shot exact audit timestamp hardening
 
 on:
-  push:
-    branches: [agent/pc-crop-01b3-atomic-command-authority]
-    paths: ['.github/workflows/pc-crop-01b3-audit-hardening.yml']
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-01b3-audit-hardening.yml'
 
 permissions:
   contents: write
   issues: write
 
+concurrency:
+  group: pc-crop-01b3-audit-hardening-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   patch:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: agent/pc-crop-01b3-atomic-command-authority
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Bind audit after-state to PostgreSQL returned timestamp
@@ -90,11 +96,11 @@ jobs:
           git rm .github/workflows/pc-crop-01b3-audit-hardening.yml
           git add apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.spec.ts
           git commit -m 'PC-CROP-01B.3: bind audit state to PostgreSQL timestamp'
-          git push origin HEAD:agent/pc-crop-01b3-atomic-command-authority
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
 
       - name: Report failure to governing issue
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue comment 2911 --repo pachaninm-lab/pachanin-demo --body "PC-CROP-01B.3 audit timestamp hardening failed on source head ${{ github.sha }}. Inspect the push-triggered workflow before acceptance."
+          gh issue comment 2911 --repo pachaninm-lab/pachanin-demo --body "PC-CROP-01B.3 audit timestamp hardening failed on source head ${{ github.event.pull_request.head.sha }}. Inspect the PR-triggered workflow before acceptance."
