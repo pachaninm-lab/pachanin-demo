@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../common/prisma/prisma.module';
+import { CommodityProfilesController } from './commodity-profiles.controller';
 import { CommodityProfileRepository } from './commodity-profile.repository';
 import {
   COMMODITY_PROFILE_TRANSACTION_PORT,
@@ -9,6 +10,7 @@ import { PostgresqlCommodityProfileTransactionPort } from './postgresql-commodit
 
 @Module({
   imports: [PrismaModule],
+  controllers: [CommodityProfilesController],
   providers: [
     CommodityProfileRepository,
     PostgresqlCommodityProfileTransactionPort,

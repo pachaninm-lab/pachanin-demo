@@ -1,0 +1,147 @@
+name: PC-CROP-01B.4 Private BFF Authority
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/modules/commodity-profiles/**'
+      - '.github/workflows/pc-crop-01b3.yml'
+      - '.github/workflows/pc-crop-01b4.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/src/modules/commodity-profiles/**'
+      - '.github/workflows/pc-crop-01b3.yml'
+      - '.github/workflows/pc-crop-01b4.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-01b4-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  EVIDENCE_DIR: artifacts/pc-crop-01b4
+
+jobs:
+  private-bff-contract:
+    name: DTO · trusted actor · If-Match · private controller
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Enforce exact-head bounded successor scope
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          else
+            base_ref="HEAD^"
+          fi
+          printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
+          git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
+          if grep -Ev '^(\.github/workflows/pc-crop-01b[34]\.yml|apps/api/src/modules/commodity-profiles/(commodity-profiles\.controller(\.spec)?\.ts|commodity-profiles\.module(\.spec)?\.ts|dto/commodity-profile-api\.dto(\.spec)?\.ts))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+            echo 'PC-CROP-01B.4 contains out-of-scope files:' >&2
+            cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck API contract
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api typecheck \
+            2>&1 | tee "$EVIDENCE_DIR/typecheck.log"
+
+      - name: Run private BFF contract tests
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest \
+            --runInBand \
+            --runTestsByPath \
+            src/modules/commodity-profiles/commodity-profiles.controller.spec.ts \
+            src/modules/commodity-profiles/commodity-profiles.module.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/private-bff-contract.log"
+
+      - name: Build and enforce machine-readable exact-head evidence
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = `${process.env.EVIDENCE_DIR}/acceptance.json`;
+          const report = {
+            schemaVersion: 'pc-crop.private-bff-acceptance.v1',
+            slice: 'PC-CROP-01B.4',
+            status: 'PASS',
+            operationalStatus: 'NOT_ATTESTED',
+            exactHead: process.env.EXACT_HEAD,
+            boundaries: {
+              privateAuthenticatedRoute: true,
+              publicUnauthenticatedRoute: false,
+              clientRoleTenantJitAuthority: false,
+              transactionWriteAuthorityDuplicated: false,
+              productionDeploymentEvidence: false,
+            },
+          };
+          fs.writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`);
+          const read = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (read.schemaVersion !== 'pc-crop.private-bff-acceptance.v1') process.exit(1);
+          if (read.slice !== 'PC-CROP-01B.4' || read.status !== 'PASS') process.exit(1);
+          if (read.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (read.exactHead !== process.env.EXACT_HEAD) process.exit(1);
+          const b = read.boundaries || {};
+          if (b.privateAuthenticatedRoute !== true) process.exit(1);
+          if (b.publicUnauthenticatedRoute !== false) process.exit(1);
+          if (b.clientRoleTenantJitAuthority !== false) process.exit(1);
+          if (b.transactionWriteAuthorityDuplicated !== false) process.exit(1);
+          if (b.productionDeploymentEvidence !== false) process.exit(1);
+          NODE
+
+      - name: Build exact evidence inventory
+        if: always()
+        run: |
+          find "$EVIDENCE_DIR" -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$EVIDENCE_DIR/exact-evidence-sha256.txt"
+
+      - name: Upload private BFF authority evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-01b4-private-bff-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+
+  private-bff-gate:
+    name: PC-CROP-01B.4 Gate · all blocking checks
+    if: always()
+    runs-on: ubuntu-24.04
+    needs: private-bff-contract
+    steps:
+      - name: Enforce private BFF authority result
+        run: test "${{ needs.private-bff-contract.result }}" = success
