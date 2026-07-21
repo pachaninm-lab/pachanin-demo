@@ -1,4 +1,4 @@
-name: TAI quality scoring final corrections
+name: TAI quality scoring signed-fixture correction
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: tai-quality-final-corrections
+  group: tai-quality-signed-fixture-correction
   cancel-in-progress: false
 
 jobs:
@@ -24,176 +24,58 @@ jobs:
           ref: agent/tai-ap-13c1d-remediation-2997
           fetch-depth: 0
 
-      - name: Authenticate annotations before semantic evaluation
+      - name: Re-sign intentional annotation mutations
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
-          def replace_once(path: str, old: str, new: str) -> None:
-              target = Path(path)
-              text = target.read_text(encoding="utf-8")
+          path = Path("apps/tai/tests/test_quality_scoring_authority.py")
+          text = path.read_text(encoding="utf-8")
+
+          def replace_once(old: str, new: str) -> None:
+              global text
               count = text.count(old)
               if count != 1:
-                  raise SystemExit(f"{path}: replacement anchor count={count}")
-              target.write_text(text.replace(old, new), encoding="utf-8")
+                  raise SystemExit(f"replacement anchor count={count}: {old[:80]!r}")
+              text = text.replace(old, new)
 
-          annotations = "apps/tai/tai/quality_scoring_annotations.py"
           replace_once(
-              annotations,
-              '''    if set(by_observation) != set(observations):
-                  raise QualityScoringError("annotation coverage is incomplete")
-
-              passed: dict[tuple[str, str, str], bool] = {}
-              used_assertions: set[str] = set()
-          ''',
-              '''    if set(by_observation) != set(observations):
-                  raise QualityScoringError("annotation coverage is incomplete")
-
-              used_assertions: set[str] = set()
-              for row in rows:
-                  assertion_id = bind_annotation_identity(
-                      row, identity_assertions, identity_policy
-                  )
-                  used_assertions.add(assertion_id)
-                  verify_annotation_signature(
-                      row,
-                      identity_assertions[assertion_id],
-                      identity_policy,
-                      identity_secret,
-                      exact_main=exact_main,
-                      scoring_run_id=scoring_run_id,
-                  )
-              if used_assertions != set(identity_assertions):
-                  raise QualityScoringError(
-                      "reviewer identity assertion coverage is not exact"
-                  )
-
-              passed: dict[tuple[str, str, str], bool] = {}
-          ''',
+              "from pathlib import Path\n",
+              "from pathlib import Path\nfrom typing import Any\n",
           )
           replace_once(
-              annotations,
-              '''        for row in group:
-                  assertion_id = bind_annotation_identity(
-                      row, identity_assertions, identity_policy
-                  )
-                  used_assertions.add(assertion_id)
-                  verify_annotation_signature(
-                      row,
-                      identity_assertions[assertion_id],
-                      identity_policy,
-                      identity_secret,
-                      exact_main=exact_main,
-                      scoring_run_id=scoring_run_id,
-                  )
-                  citation_ok = all(
-          ''',
-              '''        for row in group:
-                  citation_ok = all(
-          ''',
+              "    NOW,\n    _authority,\n",
+              "    NOW,\n    _annotation_signature,\n    _authority,\n",
           )
           replace_once(
-              annotations,
-              '''    if used_assertions != set(identity_assertions):
-                  raise QualityScoringError("reviewer identity assertion coverage is not exact")
-              return passed, counters
-          ''',
-              '''    return passed, counters
-          ''',
-          )
-
-          authority_test = "apps/tai/tests/test_quality_scoring_authority.py"
-          replace_once(
-              authority_test,
-              '''from datetime import timedelta
-          from pathlib import Path
-          ''',
-              '''from datetime import timedelta
-          from pathlib import Path
-          from typing import Any
-          ''',
+              "\n\ndef test_complete_human_quality_scoring_passes(tmp_path: Path) -> None:\n",
+              '''\n\ndef _resign_annotation(\n    fixture: dict[str, Any], annotation: dict[str, Any]\n) -> None:\n    annotation.pop("annotation_sha256", None)\n    annotation.pop("annotation_signature", None)\n    secret_path = fixture["identity_secret_path"]\n    assert isinstance(secret_path, Path)\n    annotation["annotation_signature"] = _annotation_signature(\n        secret_path.read_bytes(), annotation\n    )\n    annotation.update(_signed(annotation, "annotation_sha256"))\n\n\ndef test_complete_human_quality_scoring_passes(tmp_path: Path) -> None:\n''',
           )
           replace_once(
-              authority_test,
-              '''    EXACT_MAIN,
-              NOW,
-              _authority,
-          ''',
-              '''    EXACT_MAIN,
-              NOW,
-              _annotation_signature,
-              _authority,
-          ''',
+              '''        annotation["response_sha256"] = "f" * 64\n        annotation.pop("annotation_sha256")\n        fixture["manifest"]["annotations"][0] = _signed(annotation, "annotation_sha256")\n        _rewrite_manifest(fixture)\n''',
+              '''        annotation["response_sha256"] = "f" * 64\n        _resign_annotation(fixture, annotation)\n        _rewrite_manifest(fixture)\n''',
           )
           replace_once(
-              authority_test,
-              '''from tai.quality_scoring_contract import (
-              EXPECTED_MATURITY,
-          ''',
-              '''from tai.quality_scoring_contract import (
-              EXPECTED_MATURITY,
-          ''',
-          )
-          marker = '''\n\ndef test_complete_human_quality_scoring_passes(tmp_path: Path) -> None:\n'''
-          helper = '''\n\ndef _resign_annotation(\n              fixture: dict[str, Any], annotation: dict[str, Any]\n          ) -> None:\n              annotation.pop("annotation_sha256", None)\n              annotation.pop("annotation_signature", None)\n              secret_path = fixture["identity_secret_path"]\n              assert isinstance(secret_path, Path)\n              annotation["annotation_signature"] = _annotation_signature(\n                  secret_path.read_bytes(), annotation\n              )\n              annotation.update(_signed(annotation, "annotation_sha256"))\n\n\ndef test_complete_human_quality_scoring_passes(tmp_path: Path) -> None:\n'''
-          replace_once(authority_test, marker, helper)
-          replace_once(
-              authority_test,
-              '''        annotation["response_sha256"] = "f" * 64
-                  annotation.pop("annotation_sha256")
-                  fixture["manifest"]["annotations"][0] = _signed(annotation, "annotation_sha256")
-                  _rewrite_manifest(fixture)
-          ''',
-              '''        annotation["response_sha256"] = "f" * 64
-                  _resign_annotation(fixture, annotation)
-                  _rewrite_manifest(fixture)
-          ''',
+              '''        critical_group[1]["scorer_id"] = critical_group[0]["scorer_id"]\n        critical_group[1].pop("annotation_sha256")\n        critical_group[1].update(_signed(critical_group[1], "annotation_sha256"))\n        _rewrite_manifest(fixture)\n''',
+              '''        critical_group[1]["scorer_id"] = critical_group[0]["scorer_id"]\n        critical_group[1]["identity_assertion_id"] = critical_group[0][\n            "identity_assertion_id"\n        ]\n        _resign_annotation(fixture, critical_group[1])\n        _rewrite_manifest(fixture)\n''',
           )
           replace_once(
-              authority_test,
-              '''        critical_group[1]["scorer_id"] = critical_group[0]["scorer_id"]
-                  critical_group[1].pop("annotation_sha256")
-                  critical_group[1].update(_signed(critical_group[1], "annotation_sha256"))
-                  _rewrite_manifest(fixture)
-          ''',
-              '''        critical_group[1]["scorer_id"] = critical_group[0]["scorer_id"]
-                  critical_group[1]["identity_assertion_id"] = critical_group[0][
-                      "identity_assertion_id"
-                  ]
-                  _resign_annotation(fixture, critical_group[1])
-                  _rewrite_manifest(fixture)
-          ''',
+              '''        annotation["disagreement_with_annotation_id"] = "ann.other"\n        annotation.pop("annotation_sha256")\n        fixture["manifest"]["annotations"][0] = _signed(annotation, "annotation_sha256")\n        _rewrite_manifest(fixture)\n''',
+              '''        annotation["disagreement_with_annotation_id"] = "ann.other"\n        _resign_annotation(fixture, annotation)\n        _rewrite_manifest(fixture)\n''',
           )
           replace_once(
-              authority_test,
-              '''        annotation["disagreement_with_annotation_id"] = "ann.other"
-                  annotation.pop("annotation_sha256")
-                  fixture["manifest"]["annotations"][0] = _signed(annotation, "annotation_sha256")
-                  _rewrite_manifest(fixture)
-          ''',
-              '''        annotation["disagreement_with_annotation_id"] = "ann.other"
-                  _resign_annotation(fixture, annotation)
-                  _rewrite_manifest(fixture)
-          ''',
+              '''            annotation.pop("annotation_sha256")\n            annotation.update(_signed(annotation, "annotation_sha256"))\n''',
+              '''            _resign_annotation(fixture, annotation)\n''',
           )
-          replace_once(
-              authority_test,
-              '''            annotation.pop("annotation_sha256")
-                      annotation.update(_signed(annotation, "annotation_sha256"))
-              _rewrite_manifest(fixture)
-          ''',
-              '''            _resign_annotation(fixture, annotation)
-              _rewrite_manifest(fixture)
-          ''',
-          )
+          path.write_text(text, encoding="utf-8")
           PY
 
-      - name: Remove temporary correction workflow
+      - name: Remove temporary workflow
         run: git rm .github/workflows/tai-quality-edge-tests.yml
 
-      - name: Validate exact correction
+      - name: Validate quality slice
         shell: bash
         run: |
           set -euo pipefail
@@ -208,16 +90,15 @@ jobs:
             tests/test_quality_scoring_cli.py -q
           python -m pytest --cov=tai --cov-report=term --cov-fail-under=90 -q
 
-      - name: Commit and push correction
+      - name: Commit and push
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
-            apps/tai/tai/quality_scoring_annotations.py \
             apps/tai/tests/test_quality_scoring_authority.py \
             .github/workflows/tai-quality-edge-tests.yml
           git diff --cached --check
-          git commit -m "fix(tai): authenticate annotations before scoring"
+          git commit -m "test(tai): re-sign intentional quality mutations"
           git push origin HEAD:agent/tai-ap-13c1d-remediation-2997
