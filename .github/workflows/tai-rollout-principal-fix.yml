@@ -38,7 +38,7 @@ jobs:
           set -euo pipefail
           git config user.name 'pachaninm-lab'
           git config user.email '263435807+pachaninm-lab@users.noreply.github.com'
-          test "$(git rev-parse HEAD^)" = '3270b89774f386d3a50935a967fc875d9e43486f'
+          git merge-base --is-ancestor '3270b89774f386d3a50935a967fc875d9e43486f' HEAD
 
           python3 - <<'PY'
           from pathlib import Path
@@ -47,7 +47,7 @@ jobs:
           trigger = Path('.github/release-triggers/tai-p0-web-24277e0.md')
 
           text = workflow.read_text(encoding='utf-8')
-          secret_line = '  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}\n'
+          secret_line = '  SSH_USER_SECRET: $' + '{{ secrets.PC_PROD_SSH_USER }}\n'
           user_line = '          user="$(trim "${SSH_USER_SECRET:-root}")"\n'
           replacement = "          user='root'\n"
           if text.count(secret_line) != 1:
