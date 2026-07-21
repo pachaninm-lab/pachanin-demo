@@ -108,8 +108,8 @@ def _create_archive(
         "size_bytes": len(content),
     }
     storage["immutable_locator"] = (
-        "file+sha256://tai-model-bundles/objects/"
-        f"sha256:{storage['bundle_archive']['sha256']}"
+        "file+sha256://tai-model-bundles/objects/bundle"
+        f"@sha256:{storage['bundle_archive']['sha256']}"
     )
 
 
