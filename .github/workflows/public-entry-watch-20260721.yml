@@ -1,0 +1,36 @@
+name: Public Entry Watch 20260721
+
+on:
+  push:
+    branches:
+      - ops/public-entry-watch-20260721-0636
+
+permissions:
+  contents: read
+
+jobs:
+  production-watch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install production-watch browsers
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Run exact production public-entry watch
+        run: node scripts/public-entry-watch.mjs
+      - name: Upload public-entry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-entry-watch-20260721
+          path: artifacts/public-entry-watch
+          if-no-files-found: error
+          retention-days: 7
