@@ -1,0 +1,135 @@
+name: TAI Immutable Model Bundle Finalization
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-immutable-model-bundle-finalization
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2961 &&
+      github.event.comment.body == '/tai finalize model-bundles exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MODEL_HOST: ${{ secrets.TAI_MODEL_HOST }}
+      MODEL_SSH_USER: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_SSH_PORT: ${{ secrets.TAI_MODEL_SSH_PORT }}
+      MODEL_SSH_KEY: ${{ secrets.TAI_MODEL_SSH_KEY }}
+      S3_ENDPOINT: ${{ secrets.TAI_BUNDLE_S3_ENDPOINT }}
+      S3_REGION: ${{ secrets.TAI_BUNDLE_S3_REGION }}
+      S3_BUCKET: ${{ secrets.TAI_BUNDLE_S3_BUCKET }}
+      S3_ACCESS_KEY_ID: ${{ secrets.TAI_BUNDLE_S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.TAI_BUNDLE_S3_SECRET_ACCESS_KEY }}
+      S3_PREFIX: ${{ secrets.TAI_BUNDLE_S3_PREFIX }}
+      S3_CAPACITY_BYTES: ${{ secrets.TAI_BUNDLE_S3_CAPACITY_BYTES }}
+      S3_PRINCIPAL_ID: ${{ secrets.TAI_BUNDLE_S3_PRINCIPAL_ID }}
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact TAI authority package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e apps/tai
+
+      - name: Execute governed immutable bundle finalization
+        id: finalize
+        shell: bash
+        run: bash apps/tai/model-artifacts/model-bundle-finalization-driver.v1.sh
+
+      - name: Upload bounded finalization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-model-bundle-finalization-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            bundle-finalization-evidence/preflight/observed.json
+            bundle-finalization-evidence/preflight/report.json
+            bundle-finalization-evidence/release/selected-run.json
+            bundle-finalization-evidence/release/selected-artifact.json
+            bundle-finalization-evidence/release/artifact/tai-release-attestation.json
+            bundle-finalization-evidence/remote/evidence/finalization-report.json
+            bundle-finalization-evidence/remote/evidence/models/*/manifest.json
+            bundle-finalization-evidence/remote/evidence/models/*/prepare-report.json
+            bundle-finalization-evidence/remote/evidence/models/*/archive-measurement.json
+            bundle-finalization-evidence/remote/evidence/models/*/object-record.json
+            bundle-finalization-evidence/remote/evidence/models/*/archive-observation.json
+            bundle-finalization-evidence/remote/evidence/models/*/head-object.json
+            bundle-finalization-evidence/remote/evidence/models/*/object-retention.json
+            bundle-finalization-evidence/remote/evidence/models/*/get-object.json
+            bundle-finalization-evidence/remote/evidence/models/*/verification-report.json
+            bundle-finalization-evidence/missing-protected-inputs.json
+            apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded finalization summary
+        if: always()
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ ! -s bundle-finalization-summary.md ]]; then
+            printf '%s\n' \
+              '## TAI immutable bundle finalization' \
+              '' \
+              "- exact-main: \`$GITHUB_SHA\`;" \
+              "- workflow run: \`$GITHUB_RUN_ID\` / attempt \`$GITHUB_RUN_ATTEMPT\`;" \
+              '- state: `FAILED_CLOSED`;' \
+              '- bundle upload: `NOT_ACCEPTED`;' \
+              '- clean restore: `NOT_ACCEPTED`;' \
+              '- benchmark: `NOT_RUN`;' \
+              '- model admission: `NOT_DONE`;' \
+              '- production operational status: `NOT_ATTESTED`.' \
+              > bundle-finalization-summary.md
+          fi
+          jq -n --rawfile body bundle-finalization-summary.md '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/2961/comments" --input -
+
+      - name: Enforce accepted finalization
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          report='bundle-finalization-evidence/remote/evidence/finalization-report.json'
+          test -s "$report"
+          test "$(jq -r '.status' "$report")" = 'BUNDLES_IMMUTABLY_STORED_AND_CLEANLY_RESTORED'
+          test "$(jq -r '.models | length' "$report")" = '2'
+          test "$(jq -r '.local_archive_copy_retained' "$report")" = 'false'
+          test "$(jq -r '.benchmark_status' "$report")" = 'NOT_RUN'
+          test "$(jq -r '.model_admission_status' "$report")" = 'NOT_DONE'
+          test "$(jq -r '.production_operational_status' "$report")" = 'NOT_ATTESTED'

@@ -1,0 +1,108 @@
+{
+  "schema_version": "tai.model-bundle-finalization-authority.v1",
+  "program_issue": 2726,
+  "parent_issue": 2954,
+  "issue": 2961,
+  "command": "/tai finalize model-bundles exact-main",
+  "conversion_run": {
+    "exact_main_sha": "8bd494dc4954baaf699cffa243951392ff451ebb",
+    "workflow_run_id": 29810648430,
+    "workflow_run_attempt": 1,
+    "root": "/srv/tai-models/conversion-runs/8bd494dc4954baaf699cffa243951392ff451ebb/29810648430-1",
+    "required_state": "COMPLETE",
+    "required_result": "CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE",
+    "rerun_allowed": false
+  },
+  "target": {
+    "host_role": "DEDICATED_MODEL_HOST",
+    "required_user": "tai-model",
+    "workspace_root": "/srv/tai-models",
+    "ssh_secret_prefix": "TAI_MODEL_",
+    "production_fallback_allowed": false
+  },
+  "storage": {
+    "provider_profile": "SELECTEL_S3_2026",
+    "credential_secret_prefix": "TAI_BUNDLE_S3_",
+    "required_secrets": [
+      "TAI_BUNDLE_S3_ENDPOINT",
+      "TAI_BUNDLE_S3_REGION",
+      "TAI_BUNDLE_S3_BUCKET",
+      "TAI_BUNDLE_S3_ACCESS_KEY_ID",
+      "TAI_BUNDLE_S3_SECRET_ACCESS_KEY",
+      "TAI_BUNDLE_S3_PREFIX",
+      "TAI_BUNDLE_S3_CAPACITY_BYTES",
+      "TAI_BUNDLE_S3_PRINCIPAL_ID"
+    ],
+    "minimum_capacity_bytes": 120000000000,
+    "versioning_status": "Enabled",
+    "object_lock_status": "Enabled",
+    "retention_mode": "COMPLIANCE",
+    "retention_days": 90,
+    "key_template": "{prefix}/objects/sha256/{archive_sha256}/{model_key}.tar",
+    "immutable_locator_template": "s3+version://{endpoint_host}/{bucket}/{key}?versionId={version_id}#sha256={archive_sha256}",
+    "delete_allowed": false,
+    "retention_shortening_allowed": false
+  },
+  "archive": {
+    "format": "POSIX_TAR",
+    "media_type": "application/x-tar",
+    "compression": "NONE",
+    "deterministic_mtime": "1970-01-01T00:00:00Z",
+    "stream_passes": 2,
+    "local_archive_copy_allowed": false,
+    "member_types": ["REGULAR_FILE"],
+    "path_traversal_allowed": false,
+    "symlink_allowed": false,
+    "hardlink_allowed": false
+  },
+  "restore": {
+    "one_model_at_a_time": true,
+    "exact_version_required": true,
+    "clean_root_required": true,
+    "same_root_copy_allowed": false,
+    "temporary_restore_cleanup_after_evidence": true
+  },
+  "models": [
+    {
+      "key": "qwen3-8b",
+      "role": "PRIMARY",
+      "model_id": "Qwen/Qwen3-8B",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "source_artifact_id": 8458597272,
+      "source_artifact_digest": "3aa3c6ed\u0063d3abd97\u0032a53ef9e\u0062078e3d1\u0036ac56bf9\u003239ae823\u0063794ac9a\u00364e642e1"
+    },
+    {
+      "key": "mistral-7b-instruct-v0.3",
+      "role": "FALLBACK",
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "source_artifact_id": 8458566162,
+      "source_artifact_digest": "5242ea40\u0062b072347\u00344096095\u00371258843\u0031a684cb8\u00398bd6e6b\u00310a3c948\u0066ad872ea"
+    }
+  ],
+  "evidence": {
+    "github_payload_bytes_allowed": false,
+    "bounded_metadata_only": true,
+    "artifact_retention_days": 90,
+    "required_fields": [
+      "endpoint_host",
+      "region",
+      "bucket",
+      "object_key",
+      "version_id",
+      "etag",
+      "archive_sha256",
+      "archive_size_bytes",
+      "retention_mode",
+      "retention_expires_at",
+      "restore_report_sha256"
+    ]
+  },
+  "result": {
+    "complete_status": "BUNDLES_IMMUTABLY_STORED_AND_CLEANLY_RESTORED",
+    "failed_status": "FAILED_CLOSED",
+    "benchmark_status": "NOT_RUN",
+    "model_admission_status": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}
