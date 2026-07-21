@@ -8,6 +8,7 @@ on:
       - 'apps/tai/model-artifacts/expert-review-packet.mjs'
       - 'apps/tai/model-artifacts/expert-review-submission-intake.mjs'
       - 'apps/tai/model-artifacts/expert-review-submission-intake-runbook.v1.md'
+      - 'apps/tai/tests/expert-review-packet.test.mjs'
       - 'apps/tai/tests/expert-review-submission-intake.test.mjs'
       - 'apps/tai/tests/expert-review-submission-packet-authority.test.mjs'
       - 'docs/platform-v7/autopilot/tai-ap-14c/**'
@@ -19,6 +20,7 @@ on:
       - 'apps/tai/model-artifacts/expert-review-packet.mjs'
       - 'apps/tai/model-artifacts/expert-review-submission-intake.mjs'
       - 'apps/tai/model-artifacts/expert-review-submission-intake-runbook.v1.md'
+      - 'apps/tai/tests/expert-review-packet.test.mjs'
       - 'apps/tai/tests/expert-review-submission-intake.test.mjs'
       - 'apps/tai/tests/expert-review-submission-packet-authority.test.mjs'
       - 'docs/platform-v7/autopilot/tai-ap-14c/**'
@@ -41,21 +43,23 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Validate intake module syntax
+      - name: Validate packet and intake syntax
         shell: bash
         run: |
           set -euo pipefail
           node --check apps/tai/model-artifacts/expert-review-packet.mjs
           node --check apps/tai/model-artifacts/expert-review-submission-intake.mjs
+          node --check apps/tai/tests/expert-review-packet.test.mjs
           node --check apps/tai/tests/expert-review-submission-intake.test.mjs
           node --check apps/tai/tests/expert-review-submission-packet-authority.test.mjs
 
-      - name: Run fail-closed intake regression suite
+      - name: Run fail-closed packet and intake regression suite
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p tai-review-intake-evidence
           {
+            node apps/tai/tests/expert-review-packet.test.mjs
             node apps/tai/tests/expert-review-submission-intake.test.mjs
             node apps/tai/tests/expert-review-submission-packet-authority.test.mjs
           } 2>&1 | tee tai-review-intake-evidence/test-output.txt
@@ -70,6 +74,7 @@ jobs:
           sha256sum \
             apps/tai/model-artifacts/expert-review-packet.mjs \
             apps/tai/model-artifacts/expert-review-submission-intake.mjs \
+            apps/tai/tests/expert-review-packet.test.mjs \
             apps/tai/tests/expert-review-submission-intake.test.mjs \
             apps/tai/tests/expert-review-submission-packet-authority.test.mjs \
             > tai-review-intake-evidence/files.sha256
