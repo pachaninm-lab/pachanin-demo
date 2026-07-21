@@ -146,6 +146,9 @@ def verify_quality_scoring(
     reviewer_evidence_manifest_path: Path | None = None,
     reviewer_original_root: Path | None = None,
     reviewer_restored_root: Path | None = None,
+    provider_inventory_receipt_path: Path | None = None,
+    provider_inventory_secret_path: Path | None = None,
+    trusted_provider_inventory_secret_sha256: str | None = None,
     *,
     evaluated_at: str,
 ) -> dict[str, object]:
@@ -183,10 +186,22 @@ def verify_quality_scoring(
         reviewer_restored_root,
         "reviewer restored root",
     )
+    provider_receipt = _required_path(
+        provider_inventory_receipt_path,
+        "provider inventory receipt",
+    )
+    provider_secret = _required_path(
+        provider_inventory_secret_path,
+        "provider inventory signing secret",
+    )
     _require_independent_roots(evidence_original_root, evidence_restored_root)
     if trusted_identity_secret_sha256 is None:
         raise QualityScoringError(
             "operator-trusted reviewer identity secret digest is required"
+        )
+    if trusted_provider_inventory_secret_sha256 is None:
+        raise QualityScoringError(
+            "operator-trusted provider inventory secret digest is required"
         )
 
     runtime = runtime_report(
@@ -241,11 +256,15 @@ def verify_quality_scoring(
         evidence_manifest_path,
         evidence_original_root,
         evidence_restored_root,
+        provider_receipt,
+        provider_secret,
+        trusted_provider_inventory_secret_sha256,
         manifest["storage"],
         manifest["annotations"],
         manifest["identity_assertions"],
         authority["evidence"],
         scored_at=scored_at,
+        evaluated_at=now,
     )
     aggregates, reasons = _aggregate(observations, passed, counters, authority)
     report = {
@@ -269,6 +288,10 @@ def verify_quality_scoring(
         "reviewer_evidence_manifest_file_sha256": external_evidence[
             "manifest_file_sha256"
         ],
+        "provider_inventory_receipt_sha256": external_evidence[
+            "provider_inventory_receipt_sha256"
+        ],
+        "annotation_completion_at": external_evidence["annotation_completion_at"],
         "verified_reviewer_evidence_files": external_evidence[
             "verified_evidence_files"
         ],
