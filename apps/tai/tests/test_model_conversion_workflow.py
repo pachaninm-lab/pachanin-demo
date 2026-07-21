@@ -37,6 +37,7 @@ EXPECTED_PATHS = {
     "apps/tai/tests/test_model_conversion_workflow.py",
 }
 COMMAND = "/tai convert model-bundles exact-main"
+STATUS_COMMAND = "/tai conversion status exact-main"
 QWEN_REVISION = "895c8d171bc03c30e113cd7a28c02494b5e068b7"
 MISTRAL_REVISION = "c170c708c41dac9275d15a8fff4eca08d52bab71"
 
@@ -154,6 +155,21 @@ def test_workflow_is_owner_only_exact_main_and_dedicated_host_only() -> None:
         "195.19.12.120",
     ):
         assert forbidden not in workflow
+
+
+def test_workflow_exposes_owner_only_bounded_status_relay() -> None:
+    workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+    assert "  status:" in workflow
+    assert "github.event.issue.number == 2932" in workflow
+    assert f"github.event.comment.body == '{STATUS_COMMAND}'" in workflow
+    assert '"repos/$REPOSITORY/issues/2835/comments?per_page=100"' in workflow
+    assert '.user.login == "github-actions[bot]"' in workflow
+    assert 'startswith("## TAI governed model conversion")' in workflow
+    assert '"repos/$REPOSITORY/issues/2932/comments"' in workflow
+    assert "TAI_MODEL_HOST" not in workflow[workflow.index("  status:") :]
+    assert "production operational status" not in workflow[
+        workflow.index("  status:") :
+    ]
 
 
 def test_workflow_verifies_release_legal_source_and_toolchain_before_remote_start() -> None:
