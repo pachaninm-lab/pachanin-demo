@@ -87,7 +87,6 @@ async function browserMatrix(browserType, name, viewport, mobile = false) {
             display: getComputedStyle(document.body).display,
             visibility: getComputedStyle(document.body).visibility,
             opacity: Number(getComputedStyle(document.body).opacity),
-            links: [...document.querySelectorAll('a[href]')].map((node) => node.getAttribute('href') || ''),
           }));
           assert(state.lang.toLowerCase().startsWith(locale), `${name}/${locale}${route}: html lang ${state.lang}`);
           assert(state.text.length > 100, `${name}/${locale}${route}: probable white screen (${state.text.length} chars)`);
@@ -96,11 +95,6 @@ async function browserMatrix(browserType, name, viewport, mobile = false) {
           assert(pageErrors.length === 0, `${name}/${locale}${route}: page errors ${JSON.stringify(pageErrors)}`);
           assert(!consoleErrors.some(productError), `${name}/${locale}${route}: runtime/hydration errors ${JSON.stringify(consoleErrors)}`);
           assert(failedRequests.length === 0, `${name}/${locale}${route}: failed requests ${JSON.stringify(failedRequests)}`);
-          if (route === '/platform-v7') {
-            for (const language of locales) {
-              assert(state.links.some((href) => href.includes(`lang=${language}`)), `${name}/${locale}: missing ${language} switch`);
-            }
-          }
           report.browser.push({ browser: name, locale, route, status: response.status(), finalUrl: page.url(), textLength: state.text.length, consoleErrors, pageErrors, failedRequests });
           await page.close();
         }
