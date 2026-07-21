@@ -3,11 +3,13 @@ from __future__ import annotations
 import copy
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 from quality_scoring_fixtures import (
     EXACT_MAIN,
     NOW,
+    _annotation_signature,
     _authority,
     _fixture,
     _rewrite_manifest,
@@ -28,6 +30,19 @@ from tai.quality_scoring_contract import (
     load_scoring_manifest,
     write_json,
 )
+
+
+def _resign_annotation(
+    fixture: dict[str, Any], annotation: dict[str, Any]
+) -> None:
+    annotation.pop("annotation_sha256", None)
+    annotation.pop("annotation_signature", None)
+    secret_path = fixture["identity_secret_path"]
+    assert isinstance(secret_path, Path)
+    annotation["annotation_signature"] = _annotation_signature(
+        secret_path.read_bytes(), annotation
+    )
+    annotation.update(_signed(annotation, "annotation_sha256"))
 
 
 def test_complete_human_quality_scoring_passes(tmp_path: Path) -> None:
@@ -116,8 +131,7 @@ def test_contract_and_provenance_failures_are_rejected(
     if mutation == "stale-response":
         annotation = fixture["manifest"]["annotations"][0]
         annotation["response_sha256"] = "f" * 64
-        annotation.pop("annotation_sha256")
-        fixture["manifest"]["annotations"][0] = _signed(annotation, "annotation_sha256")
+        _resign_annotation(fixture, annotation)
         _rewrite_manifest(fixture)
     elif mutation == "missing-annotation":
         fixture["manifest"]["annotations"].pop()
@@ -131,14 +145,15 @@ def test_contract_and_provenance_failures_are_rejected(
             and row["locale"] == "ru"
         ]
         critical_group[1]["scorer_id"] = critical_group[0]["scorer_id"]
-        critical_group[1].pop("annotation_sha256")
-        critical_group[1].update(_signed(critical_group[1], "annotation_sha256"))
+        critical_group[1]["identity_assertion_id"] = critical_group[0][
+            "identity_assertion_id"
+        ]
+        _resign_annotation(fixture, critical_group[1])
         _rewrite_manifest(fixture)
     elif mutation == "disagreement":
         annotation = fixture["manifest"]["annotations"][0]
         annotation["disagreement_with_annotation_id"] = "ann.other"
-        annotation.pop("annotation_sha256")
-        fixture["manifest"]["annotations"][0] = _signed(annotation, "annotation_sha256")
+        _resign_annotation(fixture, annotation)
         _rewrite_manifest(fixture)
     elif mutation == "runtime-rejected":
         runtime = copy.deepcopy(fixture["runtime"])
@@ -228,8 +243,7 @@ def test_quality_threshold_failure_is_reported_without_admission(
                 "abstention_valid",
             ):
                 annotation[field] = False
-            annotation.pop("annotation_sha256")
-            annotation.update(_signed(annotation, "annotation_sha256"))
+            _resign_annotation(fixture, annotation)
     _rewrite_manifest(fixture)
     report = _verify(
         fixture,
