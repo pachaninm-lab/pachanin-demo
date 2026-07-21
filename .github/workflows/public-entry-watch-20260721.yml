@@ -29,67 +29,51 @@ jobs:
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
       - name: Run exact production public-entry watch
+        id: watch
         shell: bash
         run: |
-          set -uo pipefail
-          mkdir -p apps/web/artifacts/public-entry-watch
-          cp scripts/public-entry-watch.mjs apps/web/scripts/public-entry-watch-run.mjs
           set +e
-          (cd apps/web && node scripts/public-entry-watch-run.mjs) > apps/web/artifacts/public-entry-watch/runner.log 2>&1
+          cp scripts/public-entry-watch.mjs apps/web/scripts/public-entry-watch-run.mjs
+          output="$(cd apps/web && node scripts/public-entry-watch-run.mjs 2>&1)"
           code=$?
-          cat apps/web/artifacts/public-entry-watch/runner.log
-          exit "$code"
-      - name: Print exact result
-        if: always()
-        shell: bash
-        run: |
-          if [[ -f apps/web/artifacts/public-entry-watch/result.json ]]; then
-            cat apps/web/artifacts/public-entry-watch/result.json
-          else
-            echo '{"failures":["RESULT_FILE_MISSING"]}'
-            cat apps/web/artifacts/public-entry-watch/runner.log || true
-          fi
+          printf '%s\n' "$output"
+          {
+            echo "exit_code=$code"
+            echo 'result<<PUBLIC_ENTRY_WATCH_EOF'
+            printf '%s\n' "$output"
+            echo 'PUBLIC_ENTRY_WATCH_EOF'
+          } >> "$GITHUB_OUTPUT"
+          exit 0
       - name: Publish exact result to evidence PR
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
+        env:
+          WATCH_OUTPUT: ${{ steps.watch.outputs.result }}
+          WATCH_EXIT_CODE: ${{ steps.watch.outputs.exit_code }}
         with:
           script: |
-            const fs = require('fs');
-            const resultPath = 'apps/web/artifacts/public-entry-watch/result.json';
-            const runnerPath = 'apps/web/artifacts/public-entry-watch/runner.log';
-            let body;
-            if (fs.existsSync(resultPath)) {
-              const result = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
-              body = [
-                '## Public Entry Watch result',
-                '',
-                '```json',
-                JSON.stringify(result, null, 2),
-                '```',
-              ].join('\n');
-            } else {
-              const runner = fs.existsSync(runnerPath) ? fs.readFileSync(runnerPath, 'utf8').slice(-12000) : 'RUNNER_LOG_MISSING';
-              body = [
-                '## Public Entry Watch result',
-                '',
-                '`RESULT_FILE_MISSING`',
-                '',
-                '```text',
-                runner,
-                '```',
-              ].join('\n');
-            }
+            const body = [
+              '## Public Entry Watch result',
+              '',
+              `- exit_code: \`${process.env.WATCH_EXIT_CODE || 'missing'}\``,
+              '',
+              '```text',
+              (process.env.WATCH_OUTPUT || 'WATCH_OUTPUT_MISSING').slice(-30000),
+              '```',
+            ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
               body,
             });
-      - name: Upload public-entry evidence
+      - name: Enforce watch result
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: public-entry-watch-${{ github.run_id }}
-          path: apps/web/artifacts/public-entry-watch
-          if-no-files-found: warn
-          retention-days: 7
+        shell: bash
+        env:
+          WATCH_EXIT_CODE: ${{ steps.watch.outputs.exit_code }}
+        run: |
+          if [[ "${WATCH_EXIT_CODE:-1}" != "0" ]]; then
+            echo 'Production public-entry watch failed.' >&2
+            exit 1
+          fi
