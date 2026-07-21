@@ -357,7 +357,7 @@ implements CommodityProfileTransactionPort {
   ): Promise<CommodityProfileCommandReceipt> {
     const { command } = write;
     await tx.$queryRaw(Prisma.sql`
-      SELECT pg_advisory_xact_lock(hashtextextended(${command.profileId}, 0))
+      SELECT pg_advisory_xact_lock(hashtextextended(${command.profileId}, 0)) IS NULL AS "locked"
     `);
     await tx.$queryRaw(Prisma.sql`
       SELECT set_config('app.current_command_id', ${command.commandId}, true)
