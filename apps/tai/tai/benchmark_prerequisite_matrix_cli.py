@@ -27,13 +27,15 @@ def main() -> int:
             if arguments.evaluated_at
             else None
         )
+        if evaluated_at is not None and evaluated_at.utcoffset() is None:
+            raise ValueError("--evaluated-at must be timezone-aware")
         report = evaluate_matrix(
             arguments.authority,
             arguments.observation,
             evaluated_at=evaluated_at,
         )
     except (MatrixError, ValueError) as exc:
-        report: dict[str, object] = {
+        report = {
             "schema_version": "tai.benchmark-prerequisite-cli-error.v1",
             "status": "REJECTED",
             "reason": f"CONTRACT_INVALID:{exc}",
