@@ -1,0 +1,163 @@
+name: TAI AP-13C.1d Edge Test Append
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13c1d-quality-scoring-authority
+    paths:
+      - '.github/workflows/tai-ap13c1d-edge-test-append.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  append:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13c1d-quality-scoring-authority
+          fetch-depth: 0
+      - name: Append bounded edge test and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin agent/tai-ap-13c1d-quality-scoring-authority
+          target='apps/tai/tests/test_quality_scoring_cli.py'
+          if ! grep -q 'def test_quality_provenance_uncovered_edge_rejections' "$target"; then
+            cat >> "$target" <<'PYTEST'
+
+
+def test_quality_provenance_uncovered_edge_rejections(
+    monkeypatch, tmp_path: Path
+) -> None:
+    fixture = _fixture(tmp_path)
+    runtime_manifest = json.loads(
+        fixture["runtime_manifest_path"].read_text(encoding="utf-8")
+    )
+
+    manifest_relative = runtime_manifest["raw_observations"]["manifest_path"]
+    duplicate_manifest = copy.deepcopy(runtime_manifest)
+    duplicate_record = next(
+        row
+        for row in duplicate_manifest["evidence_files"]
+        if row["path"] == manifest_relative
+    )
+    duplicate_manifest["evidence_files"].append(copy.deepcopy(duplicate_record))
+    with pytest.raises(QualityScoringError, match="declaration is not unique"):
+        inputs._runtime_file_record(duplicate_manifest, manifest_relative)
+
+    payload_relative = runtime_manifest["raw_observations"]["payload_path"]
+    drift_manifest = copy.deepcopy(runtime_manifest)
+    drift_record = next(
+        row
+        for row in drift_manifest["evidence_files"]
+        if row["path"] == payload_relative
+    )
+    drift_record["sha256"] = "f" * 64
+    drift_path = tmp_path / "runtime-digest-drift.json"
+    write_json(drift_path, drift_manifest)
+    drift_runtime = {
+        **fixture["runtime"],
+        "manifest_sha256": canonical_sha256(drift_manifest),
+    }
+    with pytest.raises(
+        QualityScoringError,
+        match="raw payload no longer matches verified runtime evidence",
+    ):
+        inputs._verified_runtime_source(
+            drift_path,
+            fixture["original_root"],
+            drift_runtime,
+            fixture["assessment"],
+        )
+
+    cases, _ = inputs.case_manifest(
+        fixture["cases_path"],
+        fixture["authority"],
+        fixture["assessment"],
+    )
+    raw_manifest_base = json.loads(
+        (fixture["original_root"] / "raw-observations/manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    raw_payload_base = json.loads(
+        (fixture["original_root"] / "raw-observations/payload.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    raw_manifest_path = tmp_path / "edge-raw-manifest.json"
+    raw_payload_path = tmp_path / "edge-raw-payload.json"
+
+    def verify_observations(
+        manifest: dict[str, object], payload: dict[str, object]
+    ) -> None:
+        write_json(raw_manifest_path, manifest)
+        write_json(raw_payload_path, payload)
+        monkeypatch.setattr(
+            inputs,
+            "_verified_runtime_source",
+            lambda *args: (
+                {},
+                raw_manifest_path,
+                raw_payload_path,
+                hashlib.sha256(raw_manifest_path.read_bytes()).hexdigest(),
+                hashlib.sha256(raw_payload_path.read_bytes()).hexdigest(),
+            ),
+        )
+        inputs.observation_index(
+            fixture["runtime_manifest_path"],
+            fixture["original_root"],
+            fixture["runtime"],
+            fixture["assessment"],
+            cases,
+        )
+
+    identity_manifest = copy.deepcopy(raw_manifest_base)
+    identity_payload = copy.deepcopy(raw_payload_base)
+    identity_manifest["entries"][0]["profile_id"] = "unknown-profile"
+    with pytest.raises(QualityScoringError, match="Cartesian identity mismatch"):
+        verify_observations(identity_manifest, identity_payload)
+
+    response_manifest = copy.deepcopy(raw_manifest_base)
+    response_payload = copy.deepcopy(raw_payload_base)
+    response_payload["entries"][0]["response"] = {"invalid": True}
+    with pytest.raises(QualityScoringError, match="response must be a string"):
+        verify_observations(response_manifest, response_payload)
+
+    prompt_manifest = copy.deepcopy(raw_manifest_base)
+    prompt_payload = copy.deepcopy(raw_payload_base)
+    alternate_prompt = "alternate governed prompt"
+    prompt_payload["entries"][0]["prompt"] = alternate_prompt
+    prompt_manifest["entries"][0]["prompt_sha256"] = hashlib.sha256(
+        alternate_prompt.encode()
+    ).hexdigest()
+    with pytest.raises(QualityScoringError, match="not bound to case authority"):
+        verify_observations(prompt_manifest, prompt_payload)
+
+    root = tmp_path / "resolved-root"
+    root.mkdir()
+    candidate = root / "safe.json"
+    candidate.write_text("{}\n", encoding="utf-8")
+    outside = tmp_path / "outside.json"
+    outside.write_text("{}\n", encoding="utf-8")
+    original_resolve = Path.resolve
+
+    def resolve(path: Path, strict: bool = False) -> Path:
+        if path == candidate:
+            return original_resolve(outside, strict=strict)
+        return original_resolve(path, strict=strict)
+
+    with monkeypatch.context() as context:
+        context.setattr(Path, "resolve", resolve)
+        with pytest.raises(QualityScoringError, match="escapes its root"):
+            inputs._safe_external_file(root, "safe.json")
+PYTEST
+          fi
+          rm .github/workflows/tai-ap13c1d-edge-test-append.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$target" .github/workflows/tai-ap13c1d-edge-test-append.yml
+          git commit -m 'test(tai): cover quality provenance edge rejections'
+          git push origin HEAD:agent/tai-ap-13c1d-quality-scoring-authority
