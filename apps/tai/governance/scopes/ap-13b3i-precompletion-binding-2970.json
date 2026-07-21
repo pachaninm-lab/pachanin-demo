@@ -1,0 +1,35 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3i-precompletion-binding",
+  "program_issue": 2726,
+  "parent_issue": 2961,
+  "issue": 2970,
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3i-precompletion-binding-2970.json",
+    "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json",
+    "apps/tai/model-artifacts/model-bundle-finalization-driver.v1.sh",
+    "apps/tai/model-artifacts/model-bundle-finalization-remote.v1.sh",
+    "apps/tai/model-artifacts/model-bundle-finalization-runbook.v1.md",
+    "apps/tai/model-artifacts/model_bundle_s3_multipart.py",
+    "apps/tai/tests/test_model_bundle_finalization_hardening.py",
+    "apps/tai/tests/test_model_bundle_finalization_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "model source, GGUF, payload archive or storage credential committed to Git",
+    "production-host credentials or production-server fallback",
+    "completed immutable object on second-stream SHA-256 or size mismatch",
+    "object deletion, version deletion or retention shortening under the governed prefix",
+    "source download, conversion rerun or quantization rerun",
+    "model benchmark, admission, activation, deployment or production-readiness claim"
+  ],
+  "acceptance": [
+    "the second deterministic archive stream is SHA-256 and size verified before CompleteMultipartUpload",
+    "a mismatched second stream aborts the incomplete multipart upload before object completion",
+    "only one bounded multipart part is materialized locally and the complete archive is never stored",
+    "the exact completed conversion report identity and semantic report SHA-256 are authority-bound before S3 mutation",
+    "the exact object VersionId is HEAD-verified and RetainUntilDate is at least LastModified plus 90 days within bounded tolerance",
+    "the existing exact-VersionId FIFO restore and independent full archive rehash remain mandatory",
+    "accepted object/version deletion remains false",
+    "benchmark remains NOT_RUN, model admission remains NOT_DONE and production_operational_status remains NOT_ATTESTED"
+  ]
+}
