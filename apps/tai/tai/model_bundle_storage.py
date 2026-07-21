@@ -288,11 +288,11 @@ def _index_entries(payload: dict[str, object] | None) -> dict[str, tuple[int, st
 def _inspect_archive(path: Path, reasons: list[str]) -> dict[str, tuple[int, str]]:
     observed: dict[str, tuple[int, str]] = {}
     try:
-        archive = tarfile.open(path, mode="r:*")
+        archive_context = tarfile.open(path, mode="r:*")
     except (tarfile.TarError, OSError) as error:
         reasons.append(f"ARCHIVE_INVALID:{error}")
         return observed
-    with archive:
+    with archive_context as archive:
         for member in archive:
             safe_path = _safe_archive_member(member.name)
             if safe_path is None or not member.isfile():
