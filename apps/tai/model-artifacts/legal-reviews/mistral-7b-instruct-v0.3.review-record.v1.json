@@ -1,0 +1,20 @@
+{
+  "attestation_reference": "https://github.com/pachaninm-lab/pachanin-demo/issues/2877?comment_id=5030210324#sha256=c83c7e64842e3fafc4bfb2f0e9933853b1af2af14dda6bc450a5c77592d46532",
+  "conditions": [
+    "Соблюдать условия Apache-2.0 и сохранять применимые уведомления об авторских правах и лицензии.",
+    "Использование ограничено локальным коммерческим inference внутри Transparent Agro Intelligence на контролируемой инфраструктуре.",
+    "Публичное распространение исходных весов в рамках этого решения запрещено.",
+    "Разрешены только controlled conversion и зарегистрированная квантизация принятым exact llama.cpp b9637 toolchain.",
+    "Решение не является benchmark, model admission, production readiness или operational attestation; статус остаётся NOT_ATTESTED."
+  ],
+  "decision": "APPROVED",
+  "decision_basis": "Человеческое рассмотрение точной ревизии mistralai/Mistral-7B-Instruct-v0.3@c170c708c41dac9275d15a8fff4eca08d52bab71, принятого model-card SHA-256 3166974023134d972368b585d730fa5f70100873684f90a10a773b20e80b30ba, точного текста Apache-2.0 SHA-256 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30, legal packet SHA-256 a4a1eeca2db59a7e22f26a664016abd7892736ccb83ce0e78669e4e2acc38280, принятых source-acquisition evidence и intended use. Решение APPROVED ограничено локальным коммерческим inference внутри TAI, хранением на контролируемой инфраструктуре и последующей governed conversion/quantization без публичного распространения исходных весов.",
+  "license_spdx": "Apache-2.0",
+  "license_text_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "record_type": "ATTRIBUTED_RECORD",
+  "reviewed_at": "2026-07-21T07:36:01+03:00",
+  "reviewer_id": "github:pachaninm-lab",
+  "reviewer_name": "Максим / pachaninm-lab",
+  "reviewer_type": "HUMAN",
+  "schema_version": "tai.model-legal-review-record.v1"
+}
