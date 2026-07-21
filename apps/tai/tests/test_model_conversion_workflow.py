@@ -23,6 +23,7 @@ SCOPE_PATH = (
 )
 
 EXPECTED_PATHS = {
+    ".gitleaksignore",
     ".github/workflows/tai-model-conversion.yml",
     "apps/tai/governance/scopes/ap-13b3d-governed-conversion-2932.json",
     "apps/tai/model-artifacts/model-conversion-authority.v1.json",
