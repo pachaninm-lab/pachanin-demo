@@ -1,175 +1,16 @@
 {
-  "$defs": {
-    "file": {
-      "additionalProperties": false,
-      "properties": {
-        "path": {
-          "maxLength": 400,
-          "minLength": 1,
-          "type": "string"
-        },
-        "sha256": {
-          "pattern": "^[0-9a-f]{64}$",
-          "type": "string"
-        },
-        "size_bytes": {
-          "minimum": 1,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "path",
-        "sha256",
-        "size_bytes"
-      ],
-      "type": "object"
-    }
-  },
-  "$id": "https://transparent-price.invalid/schemas/tai.cpu-runtime-evidence.v1.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.invalid/schemas/tai.cpu-runtime-evidence.v1.json",
+  "title": "TAI raw CPU runtime evidence v1",
+  "type": "object",
   "additionalProperties": false,
-  "properties": {
-    "authority_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "benchmark_status": {
-      "const": "PENDING_BENCHMARK"
-    },
-    "bundle_finalization": {
-      "type": [
-        "object",
-        "null"
-      ]
-    },
-    "corpus": {
-      "type": [
-        "object",
-        "null"
-      ]
-    },
-    "environment": {
-      "type": [
-        "object",
-        "null"
-      ]
-    },
-    "evidence_files": {
-      "items": {
-        "$ref": "#/$defs/file"
-      },
-      "maxItems": 256,
-      "type": "array"
-    },
-    "exact_main": {
-      "pattern": "^[0-9a-f]{40}$",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "execution_authority_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "fallback_exercise": {
-      "type": [
-        "object",
-        "null"
-      ]
-    },
-    "lifecycle": {
-      "enum": [
-        "PENDING_RUNTIME_EXECUTION",
-        "COMPLETE"
-      ]
-    },
-    "manifest_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "type": "string"
-    },
-    "measured_at": {
-      "format": "date-time",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "model_admission_status": {
-      "const": "PENDING_ADMISSION"
-    },
-    "pending_reason": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "production_operational_status": {
-      "const": "NOT_ATTESTED"
-    },
-    "quality_scoring_status": {
-      "const": "PENDING_QUALITY_SCORING"
-    },
-    "raw_observations": {
-      "type": [
-        "object",
-        "null"
-      ]
-    },
-    "readiness": {
-      "type": [
-        "object",
-        "null"
-      ]
-    },
-    "run_id": {
-      "pattern": "^[A-Za-z0-9._:/+=-]{1,240}$",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "runtime_profiles": {
-      "maxItems": 2,
-      "type": "array"
-    },
-    "runtime_verification_status": {
-      "enum": [
-        "PENDING_RUNTIME_EXECUTION",
-        "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING"
-      ]
-    },
-    "schema_version": {
-      "const": "tai.cpu-runtime-evidence.v1"
-    },
-    "soak": {
-      "type": [
-        "object",
-        "null"
-      ]
-    },
-    "storage": {
-      "type": [
-        "object",
-        "null"
-      ]
-    }
-  },
   "required": [
     "schema_version",
     "lifecycle",
     "pending_reason",
-    "run_id",
     "exact_main",
     "authority_sha256",
     "execution_authority_sha256",
-    "environment",
     "readiness",
     "bundle_finalization",
     "corpus",
@@ -187,6 +28,150 @@
     "production_operational_status",
     "manifest_sha256"
   ],
-  "title": "TAI raw CPU runtime evidence v1",
-  "type": "object"
+  "properties": {
+    "schema_version": {
+      "const": "tai.cpu-runtime-evidence.v1"
+    },
+    "lifecycle": {
+      "enum": [
+        "PENDING_RUNTIME_EXECUTION",
+        "COMPLETE"
+      ]
+    },
+    "pending_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "exact_main": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "authority_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "execution_authority_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "readiness": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "bundle_finalization": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "corpus": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "runtime_profiles": {
+      "type": "array",
+      "maxItems": 2
+    },
+    "fallback_exercise": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "soak": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "raw_observations": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "evidence_files": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/file"
+      }
+    },
+    "storage": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "measured_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "runtime_verification_status": {
+      "enum": [
+        "PENDING_RUNTIME_EXECUTION",
+        "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING"
+      ]
+    },
+    "quality_scoring_status": {
+      "const": "PENDING_QUALITY_SCORING"
+    },
+    "benchmark_status": {
+      "const": "PENDING_BENCHMARK"
+    },
+    "model_admission_status": {
+      "const": "PENDING_ADMISSION"
+    },
+    "production_operational_status": {
+      "const": "NOT_ATTESTED"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
 }
