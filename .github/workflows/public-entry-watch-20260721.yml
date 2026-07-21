@@ -28,12 +28,24 @@ jobs:
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
       - name: Run exact production public-entry watch
-        run: node scripts/public-entry-watch.mjs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/public-entry-watch.mjs apps/web/scripts/public-entry-watch-run.mjs
+          cd apps/web
+          node scripts/public-entry-watch-run.mjs
+      - name: Print exact result
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f apps/web/artifacts/public-entry-watch/result.json ]]; then
+            cat apps/web/artifacts/public-entry-watch/result.json
+          fi
       - name: Upload public-entry evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: public-entry-watch-20260721
-          path: artifacts/public-entry-watch
+          path: apps/web/artifacts/public-entry-watch
           if-no-files-found: error
           retention-days: 7
