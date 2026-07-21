@@ -17,6 +17,8 @@ SOURCE_ACCEPTANCE="apps/tai/model-artifacts/model-source-acquisition-acceptance.
 REMOTE_ROOT="/srv/tai-models/conversion-runs/$GITHUB_SHA/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
 SUMMARY_PATH="conversion-summary.md"
 MONITOR_STATE="FAILED_CLOSED"
+RELEASE_WAIT_ATTEMPTS=180
+RELEASE_WAIT_INTERVAL_SECONDS=20
 
 write_summary() {
   SUMMARY_STATE="$MONITOR_STATE" SUMMARY_REMOTE_ROOT="$REMOTE_ROOT" python - <<'PY' > "$SUMMARY_PATH"
@@ -58,7 +60,7 @@ trap 'write_summary' EXIT
 
 mkdir -p prerequisite-evidence/release remote-evidence
 
-for attempt in $(seq 1 30); do
+for attempt in $(seq 1 "$RELEASE_WAIT_ATTEMPTS"); do
   gh api -H 'Accept: application/vnd.github+json' \
     -H 'X-GitHub-Api-Version: 2022-11-28' \
     "repos/$REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" \
@@ -94,8 +96,11 @@ PY
   set -e
   if [[ "$status" -eq 0 ]]; then break; fi
   if [[ "$status" -eq 2 ]]; then echo 'Exact-main Release Acceptance failed.' >&2; exit 1; fi
-  if [[ "$attempt" -eq 30 ]]; then echo 'Exact-main Release Acceptance is pending or absent.' >&2; exit 1; fi
-  sleep 20
+  if [[ "$attempt" -eq "$RELEASE_WAIT_ATTEMPTS" ]]; then
+    echo 'Exact-main Release Acceptance is pending or absent.' >&2
+    exit 1
+  fi
+  sleep "$RELEASE_WAIT_INTERVAL_SECONDS"
 done
 
 export RELEASE_RUN_ID="$(python -c 'import json; print(json.load(open("prerequisite-evidence/release/selected-run.json"))["id"])')"
@@ -176,4 +181,3 @@ Path('prerequisite-evidence/conversion-authority-sha256.txt').write_text(
     hashlib.sha256(canonical(conversion).encode()).hexdigest() + '\n'
 )
 PY
-
