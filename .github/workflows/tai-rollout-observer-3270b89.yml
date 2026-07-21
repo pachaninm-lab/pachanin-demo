@@ -18,31 +18,24 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       REPOSITORY: ${{ github.repository }}
-      ARTIFACT_ID: '8513580647'
+      FAILED_JOB_ID: '88791582410'
     steps:
-      - name: Print exact sanitized rollout evidence
+      - name: Print exact sanitized SSH preflight failure
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p evidence
           curl -fsSL \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H 'Accept: application/vnd.github+json' \
             -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "https://api.github.com/repos/$REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
-            -o evidence.zip
-          unzip -q evidence.zip -d evidence
-          echo '=== EVIDENCE FILES ==='
-          find evidence -type f -printf '%P\n' | sort
-          echo '=== SANITIZED TEXT EVIDENCE ==='
-          while IFS= read -r file; do
-            case "$file" in
-              *.txt|*.md|*.log|*.json)
-                echo "--- ${file#evidence/} ---"
-                sed -E \
-                  -e '/BEGIN OPENSSH PRIVATE KEY/,/END OPENSSH PRIVATE KEY/c\[REDACTED_PRIVATE_KEY]' \
-                  -e 's/[A-Za-z0-9._-]+@[A-Za-z0-9._:-]+/[REDACTED_SSH_IDENTITY]/g' \
-                  "$file" | head -200
-                ;;
-            esac
-          done < <(find evidence -type f | sort)
+            "https://api.github.com/repos/$REPOSITORY/actions/jobs/$FAILED_JOB_ID/logs" \
+            -o job.log
+          sed -E \
+            -e 's/\x1B\[[0-9;]*[A-Za-z]//g' \
+            -e '/BEGIN OPENSSH PRIVATE KEY/,/END OPENSSH PRIVATE KEY/c\[REDACTED_PRIVATE_KEY]' \
+            -e 's/[A-Za-z0-9._-]+@[A-Za-z0-9._:-]+/[REDACTED_SSH_IDENTITY]/g' \
+            job.log > sanitized.log
+          echo '=== SSH PREFLIGHT DIAGNOSTICS ==='
+          grep -nEi -C 4 \
+            'resolve and prove|ssh|dns|private key|key-only|fingerprint|known_hosts|permission|invalid|error|failed|mismatch|timeout|not configured|exit code' \
+            sanitized.log | tail -220
