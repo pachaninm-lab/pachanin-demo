@@ -5,6 +5,7 @@ import {
   CommodityProfileAction,
   decideCommodityProfileAction,
   deriveCommodityProfileActions,
+  deriveCommodityProfilePrimaryAction,
   type CommodityProfileClassification,
   type CommodityProfileLifecycle,
 } from './commodity-profile.policy';
@@ -33,8 +34,11 @@ export type CommodityProfileVersionHistoryItem = {
   approvedAt: string | null;
   version: string;
   createdAt: string;
+  createdByUserId: string;
   updatedAt: string;
+  updatedByUserId: string;
   actions: ReturnType<typeof deriveCommodityProfileActions>;
+  primaryAction: ReturnType<typeof deriveCommodityProfilePrimaryAction>;
 };
 
 export type CommodityProfileVersionHistoryResult = {
@@ -135,7 +139,9 @@ export class CommodityProfileVersionHistoryRepository {
           approvedAt: true,
           version: true,
           createdAt: true,
+          createdByUserId: true,
           updatedAt: true,
+          updatedByUserId: true,
         },
       });
 
@@ -158,8 +164,16 @@ export class CommodityProfileVersionHistoryRepository {
             approvedAt: row.approvedAt?.toISOString() ?? null,
             version: row.version.toString(),
             createdAt: row.createdAt.toISOString(),
+            createdByUserId: row.createdByUserId,
             updatedAt: row.updatedAt.toISOString(),
+            updatedByUserId: row.updatedByUserId,
             actions: deriveCommodityProfileActions(
+              user,
+              lifecycle,
+              classification,
+              Boolean(query.hasJitAuthority),
+            ),
+            primaryAction: deriveCommodityProfilePrimaryAction(
               user,
               lifecycle,
               classification,
