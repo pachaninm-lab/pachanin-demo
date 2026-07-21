@@ -1,0 +1,325 @@
+name: TAI Model Conversion Diagnostics
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-model-conversion-diagnostics
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2932 &&
+      github.event.comment.body == '/tai diagnose model-conversion exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      REPORT_ROOT: model-conversion-diagnostics
+      MODEL_HOST: ${{ secrets.TAI_MODEL_HOST }}
+      MODEL_SSH_USER: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_SSH_PORT: ${{ secrets.TAI_MODEL_SSH_PORT }}
+      MODEL_SSH_KEY: ${{ secrets.TAI_MODEL_SSH_KEY }}
+
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact-main trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+
+      - name: Collect exact-main Actions state
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$REPORT_ROOT"
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100" \
+            > "$REPORT_ROOT/workflow-runs.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['REPORT_ROOT'])
+          exact = os.environ['GITHUB_SHA']
+          runs = json.loads((root / 'workflow-runs.json').read_text()).get('workflow_runs', [])
+          required = {
+              'Auction Atomic Execution Acceptance',
+              'CI',
+              'Dependency Review',
+              'Disputes PostgreSQL Authority Acceptance',
+              'Node CI',
+              'Optional Runtime Retirement Gate',
+              'Outbox PostgreSQL Authority Acceptance',
+              'Runtime Context Security Gate',
+              'Security Abuse and Evidence Acceptance',
+              'Security Quality Gate',
+              'Security Scan',
+              'TAI Foundation',
+          }
+          latest = {}
+          for run in runs:
+              name = run.get('name')
+              if name not in required or run.get('head_sha') != exact:
+                  continue
+              key = (run.get('run_number', 0), run.get('id', 0))
+              if name not in latest or key > latest[name][0]:
+                  latest[name] = (key, run)
+          required_state = []
+          for name in sorted(required):
+              run = latest.get(name, (None, None))[1]
+              required_state.append({
+                  'name': name,
+                  'status': 'missing' if run is None else run.get('status'),
+                  'conclusion': None if run is None else run.get('conclusion'),
+                  'run_id': None if run is None else run.get('id'),
+                  'url': None if run is None else run.get('html_url'),
+              })
+
+          release_candidates = [
+              run for run in runs
+              if run.get('name') == 'TAI Release Acceptance'
+              and run.get('path') == '.github/workflows/tai-release-acceptance.yml'
+              and run.get('head_sha') == exact
+              and run.get('head_branch') == 'main'
+              and run.get('event') in {'push', 'workflow_dispatch'}
+          ]
+          release = max(
+              release_candidates,
+              key=lambda item: (item.get('run_number', 0), item.get('id', 0)),
+              default=None,
+          )
+          payload = {
+              'schema_version': 'tai.model-conversion-diagnostics.v1',
+              'exact_main_sha': exact,
+              'issue': 2932,
+              'command': '/tai diagnose model-conversion exact-main',
+              'mutation_mode': 'READ_ONLY',
+              'release_acceptance': None if release is None else {
+                  'status': release.get('status'),
+                  'conclusion': release.get('conclusion'),
+                  'run_id': release.get('id'),
+                  'url': release.get('html_url'),
+              },
+              'required_workflows': required_state,
+              'model_host': {'transport': 'PENDING', 'latest_runs': []},
+              'production_operational_status': 'NOT_ATTESTED',
+          }
+          (root / 'diagnostics.json').write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+          )
+          PY
+
+      - name: Resolve key-only model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          host="$MODEL_HOST"
+          user="${MODEL_SSH_USER:-tai-model}"
+          port="${MODEL_SSH_PORT:-22}"
+          key="$MODEL_SSH_KEY"
+          if [[ -z "$host" || -z "$key" ]]; then
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          test "$user" = 'tai-model'
+          [[ "$port" =~ ^[0-9]{1,5}$ ]]
+          [[ "$host" =~ ^[A-Za-z0-9._:-]+$ ]]
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -p "$port" -H "$host" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$key" > "$HOME/.ssh/id_tai_model_diagnostics"
+          chmod 600 "$HOME/.ssh/id_tai_model_diagnostics"
+          echo 'available=true' >> "$GITHUB_OUTPUT"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Inspect latest conversion runs without mutation
+        if: steps.ssh.outputs.available == 'true'
+        shell: bash
+        env:
+          SSH_HOST: ${{ steps.ssh.outputs.host }}
+          SSH_USER: ${{ steps.ssh.outputs.user }}
+          SSH_PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -euo pipefail
+          remote_script="$(cat <<'REMOTE'
+          set -euo pipefail
+          echo 'MUTATION_MODE=READ_ONLY'
+          root=/srv/tai-models/conversion-runs
+          if [[ ! -d "$root" ]]; then
+            echo 'CONVERSION_ROOT=ABSENT'
+            exit 0
+          fi
+          echo 'CONVERSION_ROOT=PRESENT'
+          find "$root" -mindepth 3 -maxdepth 3 -type f -name status.json -printf '%T@\t%p\n' \
+            | sort -nr \
+            | head -5 \
+            | while IFS=$'\t' read -r epoch path; do
+                printf 'RUN_STATUS_PATH=%s\n' "$path"
+                printf 'RUN_STATUS_MTIME_EPOCH=%s\n' "$epoch"
+                printf 'RUN_STATUS_JSON='; tr '\n' ' ' < "$path" | head -c 4000; printf '\n'
+                run_root="${path%/status.json}"
+                if [[ -f "$run_root/driver.log" ]]; then
+                  printf 'RUN_DRIVER_LOG_TAIL='; tail -n 40 "$run_root/driver.log" | tr '\n' ' ' | head -c 12000; printf '\n'
+                fi
+                if [[ -f "$run_root/bootstrap.log" ]]; then
+                  printf 'RUN_BOOTSTRAP_LOG_TAIL='; tail -n 40 "$run_root/bootstrap.log" | tr '\n' ' ' | head -c 12000; printf '\n'
+                fi
+              done
+          REMOTE
+          )"
+          set +e
+          ssh -i "$HOME/.ssh/id_tai_model_diagnostics" -p "$SSH_PORT" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" 'bash -s' \
+            > "$REPORT_ROOT/model-host.txt" 2> "$REPORT_ROOT/model-host.stderr" <<< "$remote_script"
+          remote_exit=$?
+          set -e
+          printf '%s\n' "$remote_exit" > "$REPORT_ROOT/model-host-exit-code.txt"
+
+      - name: Record unavailable transport
+        if: steps.ssh.outputs.available != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' 'TAI_MODEL_KEY_TRANSPORT_UNAVAILABLE' > "$REPORT_ROOT/model-host.stderr"
+          : > "$REPORT_ROOT/model-host.txt"
+          printf '%s\n' '2' > "$REPORT_ROOT/model-host-exit-code.txt"
+
+      - name: Build bounded diagnostic report
+        if: always()
+        shell: bash
+        env:
+          SSH_AVAILABLE: ${{ steps.ssh.outputs.available }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['REPORT_ROOT'])
+          report = json.loads((root / 'diagnostics.json').read_text())
+          raw = (root / 'model-host.txt').read_text(encoding='utf-8', errors='replace') if (root / 'model-host.txt').exists() else ''
+          stderr = (root / 'model-host.stderr').read_text(encoding='utf-8', errors='replace') if (root / 'model-host.stderr').exists() else ''
+          exit_code = int((root / 'model-host-exit-code.txt').read_text().strip()) if (root / 'model-host-exit-code.txt').exists() else 255
+          latest_runs = []
+          current = None
+          for line in raw.splitlines():
+              key, sep, value = line.partition('=')
+              if not sep:
+                  continue
+              if key == 'RUN_STATUS_PATH':
+                  current = {'status_path': value}
+                  latest_runs.append(current)
+              elif current is not None and key == 'RUN_STATUS_MTIME_EPOCH':
+                  current['mtime_epoch'] = value
+              elif current is not None and key == 'RUN_STATUS_JSON':
+                  current['status_json'] = value[:4000]
+              elif current is not None and key == 'RUN_DRIVER_LOG_TAIL':
+                  current['driver_log_tail'] = value[:12000]
+              elif current is not None and key == 'RUN_BOOTSTRAP_LOG_TAIL':
+                  current['bootstrap_log_tail'] = value[:12000]
+          report['model_host'] = {
+              'transport': 'AVAILABLE' if os.environ.get('SSH_AVAILABLE') == 'true' else 'UNAVAILABLE',
+              'remote_exit_code': exit_code,
+              'mutation_mode': 'READ_ONLY' if 'MUTATION_MODE=READ_ONLY' in raw else None,
+              'conversion_root': 'PRESENT' if 'CONVERSION_ROOT=PRESENT' in raw else ('ABSENT' if 'CONVERSION_ROOT=ABSENT' in raw else 'UNKNOWN'),
+              'latest_runs': latest_runs,
+              'stderr': stderr[:4000],
+          }
+          report['status'] = 'COMPLETE' if exit_code == 0 else 'PARTIAL'
+          (root / 'diagnostics.json').write_text(
+              json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + '\n'
+          )
+
+          release = report.get('release_acceptance')
+          failed = [item['name'] for item in report['required_workflows'] if item.get('status') == 'completed' and item.get('conclusion') != 'success']
+          missing = [item['name'] for item in report['required_workflows'] if item.get('status') == 'missing']
+          pending = [item['name'] for item in report['required_workflows'] if item.get('status') not in {'missing', 'completed'}]
+          lines = [
+              '## TAI model conversion diagnostics',
+              '',
+              f"- exact-main: `{report['exact_main_sha']}`;",
+              f"- diagnostic status: `{report['status']}`;",
+              f"- Release Acceptance: `{release}`;",
+              f"- failed required gates: `{failed}`;",
+              f"- missing required gates: `{missing}`;",
+              f"- pending required gates: `{pending}`;",
+              f"- model-host transport: `{report['model_host']['transport']}`;",
+              f"- model-host conversion root: `{report['model_host']['conversion_root']}`;",
+              f"- observed conversion runs: `{len(report['model_host']['latest_runs'])}`;",
+          ]
+          for item in report['model_host']['latest_runs']:
+              lines.append(f"  - `{item.get('status_path')}`: `{item.get('status_json', 'UNKNOWN')}`;")
+          lines.extend([
+              '- mutation mode: `READ_ONLY`;',
+              '- benchmark: `NOT_RUN`;',
+              '- model admission: `NOT_DONE`;',
+              '- production operational status: `NOT_ATTESTED`.',
+          ])
+          (root / 'summary.md').write_text('\n'.join(lines) + '\n')
+          PY
+          test "$(stat -c %s "$REPORT_ROOT/diagnostics.json")" -le 100000
+          test "$(stat -c %s "$REPORT_ROOT/summary.md")" -le 50000
+
+      - name: Upload bounded diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-model-conversion-diagnostics-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: model-conversion-diagnostics
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish concise diagnostics
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -s "$REPORT_ROOT/summary.md" ]]; then
+            printf '%s\n' \
+              '## TAI model conversion diagnostics' \
+              '' \
+              '- diagnostic status: `FAILED_CLOSED`;' \
+              '- mutation mode: `READ_ONLY`;' \
+              '- production operational status: `NOT_ATTESTED`.' \
+              > "$REPORT_ROOT/summary.md"
+          fi
+          jq -n --rawfile body "$REPORT_ROOT/summary.md" '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/2932/comments" --input -
