@@ -13,11 +13,11 @@ Packet command: `/tai prepare expert-review-packet exact-main`
 Use the exact packet artifact published by the owner-only AP-14C packet workflow. The intake requires:
 
 - `expert-review-packet.v1.json` from that artifact;
-- one `tai.expert-review-submission.v1` envelope;
+- one track-bound `intake-submission-<track-id>.v1.json` template from the same artifact;
 - the current `expert-reviews.v1.json` authority;
 - the packet's exact-main SHA and a timezone-aware evaluation timestamp.
 
-The submission envelope has exactly these fields:
+The packet materializes one intake template for each governed reviewer track. Exact-main, corpus SHA-256, packet SHA-256 and `track_id` are already fixed. The coordinator fills only `submitter_id`, `submitted_at` and the non-empty `reviews` array. The template has exactly these fields:
 
 ```json
 {
@@ -32,7 +32,7 @@ The submission envelope has exactly these fields:
 }
 ```
 
-Each review must use the unchanged record contract from its track template. Human-only fields must be completed by the reviewer. `review_sha256` is SHA-256 over canonical JSON of the complete review record excluding `review_sha256` itself.
+Each review must use the unchanged record contract from its corresponding `track-<track-id>.v1.json` template. Human-only fields must be completed by the reviewer. `review_sha256` is SHA-256 over canonical JSON of the complete review record excluding `review_sha256` itself.
 
 ## Governed reviewer tracks
 
@@ -48,7 +48,7 @@ A submission may contain only cases assigned to its selected track. Partial subm
 ```bash
 node apps/tai/model-artifacts/expert-review-submission-intake.mjs \
   --packet /secure/packet/expert-review-packet.v1.json \
-  --submission /secure/submissions/platform-primary-01.json \
+  --submission /secure/packet/intake-submission-platform-primary.v1.json \
   --existing-reviews docs/platform-v7/autopilot/tai-ap-14c/expert-reviews.v1.json \
   --exact-main <packet-exact-main-sha> \
   --evaluated-at 2026-07-21T12:10:00Z \
@@ -64,6 +64,7 @@ Exit code `0` means only that candidate files were written. It does not accept t
 The intake rejects:
 
 - packet, corpus or exact-main drift;
+- any self-signed packet that redefines case contracts, reviewer tracks or review policy;
 - stale `case_sha256` or a case outside the selected track;
 - reviewer roles that do not match the track;
 - placeholder reviewer or submitter identities;
