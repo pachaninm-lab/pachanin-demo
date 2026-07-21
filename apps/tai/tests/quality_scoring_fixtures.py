@@ -6,19 +6,31 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from test_cpu_runtime_evidence import (
+    AUTHORITY as RUNTIME_AUTHORITY_PATH,
+    EXACT_MAIN,
+    _complete_evidence,
+    _rewrite_evidence,
+)
+from tai.cpu_runtime_evidence import verify_runtime_evidence
+from tai.quality_scoring import verify_quality_scoring
 from tai.quality_scoring_contract import (
     EXPECTED_MATURITY,
     LOCALES,
     PROFILES,
     VERIFIED_QUALITY_STATUS,
-    VERIFIED_RUNTIME_STATUS,
     canonical_sha256,
     expected_authority,
     load_authority,
+    load_json,
     write_json,
 )
+from tai.quality_scoring_inputs import (
+    accepted_assessment,
+    case_manifest,
+    observation_index,
+)
 
-EXACT_MAIN = "a" * 40
 NOW = datetime(2026, 7, 21, 18, 0, tzinfo=UTC)
 
 
@@ -33,94 +45,122 @@ def _authority(path: Path) -> dict[str, Any]:
     return load_authority(path)
 
 
-def _runtime_report(path: Path) -> dict[str, Any]:
-    report = _signed(
-        {
-            "schema_version": "tai.cpu-runtime-evidence-verification.v1",
-            "status": VERIFIED_RUNTIME_STATUS,
-            "authority_sha256": "1" * 64,
-            "manifest_sha256": "2" * 64,
-            "exact_main": EXACT_MAIN,
-            "runtime_profiles": {profile: "MEASURED" for profile in PROFILES},
-            "raw_observation_count": 348,
-            "evidence_file_count": 20,
-            "evidence_total_size_bytes": 100000,
-            "reasons": [],
-            "quality_scoring_status": "PENDING_QUALITY_SCORING",
-            **EXPECTED_MATURITY,
-        },
-        "report_sha256",
-    )
-    write_json(path, report)
-    return report
-
-
-def _cases(path: Path) -> list[dict[str, Any]]:
-    rows = []
-    for index in range(58):
-        domain = "PLATFORM" if index < 42 else "AGRO"
+def _quality_cases(raw_manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    prompts: dict[str, dict[str, str]] = {}
+    for item in raw_manifest["entries"]:
+        case_id = str(item["case_id"])
+        locale = str(item["locale"])
+        digest = str(item["prompt_sha256"])
+        current = prompts.setdefault(case_id, {})
+        observed = current.get(locale)
+        if observed is not None and observed != digest:
+            raise AssertionError("runtime fixture prompt digest drift")
+        current[locale] = digest
+    rows: list[dict[str, Any]] = []
+    for index, case_id in enumerate(sorted(prompts)):
         rows.append(
             {
-                "case_id": f"case.{index:02d}",
-                "domain": domain,
+                "case_id": case_id,
+                "domain": "PLATFORM" if index < 42 else "AGRO",
                 "criticality": "CRITICAL" if index < 23 else "HIGH",
                 "variant_kind": "CANONICAL",
-                "prompt_sha256": hashlib.sha256(f"prompt:{index}".encode()).hexdigest(),
-                "case_sha256": hashlib.sha256(f"case:{index}".encode()).hexdigest(),
+                "prompt_sha256_by_locale": prompts[case_id],
+                "case_sha256": hashlib.sha256(
+                    f"quality-case:{case_id}".encode()
+                ).hexdigest(),
                 "coverage_family_id": f"family.{index:02d}",
             }
         )
-    write_json(
-        path,
-        {
-            "schema_version": "tai.gold-case-manifest.v1",
-            "version": "v1",
-            "cases": rows,
-        },
-    )
+    if len(rows) != 58:
+        raise AssertionError("runtime fixture case count mismatch")
     return rows
 
 
-def _observations(
-    path: Path, runtime: dict[str, Any], cases: list[dict[str, Any]]
-) -> dict[str, Any]:
-    rows = []
-    for profile in PROFILES:
-        for case in cases:
-            for locale in LOCALES:
-                rows.append(
-                    {
-                        "profile_id": profile,
-                        "case_id": case["case_id"],
-                        "case_sha256": case["case_sha256"],
-                        "domain": case["domain"],
-                        "criticality": case["criticality"],
-                        "locale": locale,
-                        "prompt_sha256": hashlib.sha256(
-                            f"{profile}:{case['case_id']}:{locale}:prompt".encode()
-                        ).hexdigest(),
-                        "response_sha256": hashlib.sha256(
-                            f"{profile}:{case['case_id']}:{locale}:response".encode()
-                        ).hexdigest(),
-                        "trace_sha256": hashlib.sha256(
-                            f"{profile}:{case['case_id']}:{locale}:trace".encode()
-                        ).hexdigest(),
-                        "terminal_status": "ANSWERED",
-                    }
-                )
-    index = _signed(
-        {
-            "schema_version": "tai.quality-observation-index.v1",
-            "exact_main": EXACT_MAIN,
-            "runtime_report_sha256": runtime["report_sha256"],
-            "corpus_sha256": "3" * 64,
-            "assessment_sha256": "4" * 64,
-            "observations": rows,
-        },
-        "index_sha256",
+def _accepted_assessment(path: Path, cases: list[dict[str, Any]]) -> dict[str, Any]:
+    version = "2026.07.21.quality-fixture"
+    corpus_sha256 = canonical_sha256(
+        {"schema_version": "tai.gold-corpus.v1", "version": version, "cases": cases}
     )
-    write_json(path, index)
-    return index
+    assessment = _signed(
+        {
+            "schema_version": "tai.gold-set-assessment.v1",
+            "version": version,
+            "accepted": True,
+            "status": "ACCEPTED",
+            "corpus_sha256": corpus_sha256,
+            "component_sha256": {
+                "platform_sha256": hashlib.sha256(b"platform").hexdigest(),
+                "agro_sha256": hashlib.sha256(b"agro").hexdigest(),
+                "coverage_sha256": hashlib.sha256(b"coverage").hexdigest(),
+                "reviews_sha256": hashlib.sha256(b"reviews").hexdigest(),
+            },
+            "counts": {
+                "platform_cases": 42,
+                "agro_cases": 16,
+                "total_cases": 58,
+                "critical_cases": 23,
+                "reviewed_cases": 58,
+                "unreviewed_cases": 0,
+                "platform_roles": 12,
+                "deal_states": 23,
+                "agro_topics": 8,
+                "locales": 3,
+            },
+            "quality_targets": {
+                "platform_accuracy_minimum": 0.95,
+                "agro_accuracy_minimum": 0.9,
+                "critical_unsupported_facts_maximum": 0,
+                "citation_validity_minimum": 1,
+            },
+            "blocking_reasons": [],
+            "missing_review_case_ids": [],
+        },
+        "assessment_sha256",
+    )
+    write_json(path, assessment)
+    return assessment
+
+
+def _case_manifest(
+    path: Path,
+    assessment: dict[str, Any],
+    cases: list[dict[str, Any]],
+) -> dict[str, Any]:
+    value = _signed(
+        {
+            "schema_version": "tai.gold-case-manifest.v1",
+            "version": assessment["version"],
+            "corpus_sha256": assessment["corpus_sha256"],
+            "assessment_sha256": assessment["assessment_sha256"],
+            "cases": cases,
+        },
+        "manifest_sha256",
+    )
+    write_json(path, value)
+    return value
+
+
+def _bind_runtime_corpus(
+    runtime_manifest_path: Path,
+    original: Path,
+    restored: Path,
+    assessment: dict[str, Any],
+) -> None:
+    runtime_case_path = original / "suite/case-manifest.json"
+    runtime_case = load_json(runtime_case_path)
+    runtime_case["assessment_sha256"] = assessment["assessment_sha256"]
+    runtime_case["corpus_sha256"] = assessment["corpus_sha256"]
+    _rewrite_evidence(
+        runtime_manifest_path,
+        original,
+        restored,
+        "suite/case-manifest.json",
+        runtime_case,
+    )
+    manifest = load_json(runtime_manifest_path)
+    manifest["corpus"]["assessment_sha256"] = assessment["assessment_sha256"]
+    manifest["corpus"]["corpus_sha256"] = assessment["corpus_sha256"]
+    write_json(runtime_manifest_path, manifest)
 
 
 def _annotation(
@@ -234,29 +274,73 @@ def _complete_manifest(
 
 def _fixture(tmp_path: Path) -> dict[str, Any]:
     authority_path = tmp_path / "authority.json"
-    runtime_path = tmp_path / "runtime.json"
+    runtime_report_path = tmp_path / "runtime-report.json"
+    assessment_path = tmp_path / "accepted-assessment.json"
     cases_path = tmp_path / "cases.json"
-    index_path = tmp_path / "index.json"
     scoring_path = tmp_path / "scoring.json"
+    runtime_manifest_path, original, restored = _complete_evidence(tmp_path / "runtime")
+    raw_manifest = load_json(original / "raw-observations/manifest.json")
+    cases = _quality_cases(raw_manifest)
+    assessment = _accepted_assessment(assessment_path, cases)
+    _case_manifest(cases_path, assessment, cases)
+    _bind_runtime_corpus(runtime_manifest_path, original, restored, assessment)
+    runtime = verify_runtime_evidence(
+        RUNTIME_AUTHORITY_PATH,
+        runtime_manifest_path,
+        original,
+        restored,
+    )
+    write_json(runtime_report_path, runtime)
     authority = _authority(authority_path)
-    runtime = _runtime_report(runtime_path)
-    cases = _cases(cases_path)
-    index = _observations(index_path, runtime, cases)
+    accepted = accepted_assessment(assessment_path, authority)
+    case_map, _ = case_manifest(cases_path, authority, accepted)
+    observations, index = observation_index(
+        runtime_manifest_path,
+        original,
+        runtime,
+        accepted,
+        case_map,
+    )
     annotations = _annotations(index)
     manifest = _complete_manifest(scoring_path, authority, runtime, index, annotations)
     return {
         "authority_path": authority_path,
-        "runtime_path": runtime_path,
+        "runtime_authority_path": RUNTIME_AUTHORITY_PATH,
+        "runtime_path": runtime_report_path,
+        "runtime_manifest_path": runtime_manifest_path,
+        "original_root": original,
+        "restored_root": restored,
+        "assessment_path": assessment_path,
         "cases_path": cases_path,
-        "index_path": index_path,
         "scoring_path": scoring_path,
         "authority": authority,
         "runtime": runtime,
+        "assessment": assessment,
         "cases": cases,
+        "observations": observations,
         "index": index,
         "annotations": annotations,
         "manifest": manifest,
     }
+
+
+def _verify(
+    fixture: dict[str, Any],
+    *,
+    evaluated_at: str,
+) -> dict[str, object]:
+    return verify_quality_scoring(
+        fixture["authority_path"],
+        fixture["runtime_authority_path"],
+        fixture["runtime_path"],
+        fixture["runtime_manifest_path"],
+        fixture["original_root"],
+        fixture["restored_root"],
+        fixture["assessment_path"],
+        fixture["cases_path"],
+        fixture["scoring_path"],
+        evaluated_at=evaluated_at,
+    )
 
 
 def _rewrite_manifest(fixture: dict[str, Any]) -> None:
