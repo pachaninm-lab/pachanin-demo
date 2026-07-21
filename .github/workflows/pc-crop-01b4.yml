@@ -23,13 +23,26 @@ concurrency:
 
 env:
   EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
   EVIDENCE_DIR: artifacts/pc-crop-01b4
 
 jobs:
   private-bff-contract:
-    name: DTO · trusted actor · If-Match · private controller
+    name: PostgreSQL 16 · DTO · HTTP · roles · If-Match
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
     steps:
       - name: Checkout exact revision
         uses: actions/checkout@v4
@@ -50,7 +63,7 @@ jobs:
           fi
           printf '%s\n' "$base_ref" > "$EVIDENCE_DIR/base-ref.txt"
           git diff --name-only "$base_ref...$EXACT_HEAD" | sort > "$EVIDENCE_DIR/changed-files.txt"
-          if grep -Ev '^(\.github/workflows/pc-crop-01b[34]\.yml|apps/api/src/modules/commodity-profiles/(commodity-profiles\.controller(\.spec)?\.ts|commodity-profiles\.module(\.spec)?\.ts|dto/commodity-profile-api\.dto(\.spec)?\.ts))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
+          if grep -Ev '^(\.github/workflows/pc-crop-01b[34]\.yml|apps/api/src/modules/commodity-profiles/(commodity-profiles\.controller(\.spec)?\.ts|commodity-profiles\.http\.integration\.spec\.ts|commodity-profile-role-matrix\.integration\.spec\.ts|commodity-profile-version-history\.repository\.ts|commodity-profiles\.module(\.spec)?\.ts|dto/commodity-profile-api\.dto\.ts))$' "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/out-of-scope.txt"; then
             echo 'PC-CROP-01B.4 contains out-of-scope files:' >&2
             cat "$EVIDENCE_DIR/out-of-scope.txt" >&2
             exit 1
@@ -69,13 +82,23 @@ jobs:
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Apply complete migration chain to PostgreSQL 16
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+          pnpm --filter @pc/api exec prisma generate \
+            2>&1 | tee "$EVIDENCE_DIR/prisma-generate.log"
+
       - name: Typecheck API contract
         run: |
           set -o pipefail
           pnpm --filter @pc/api typecheck \
             2>&1 | tee "$EVIDENCE_DIR/typecheck.log"
 
-      - name: Run private BFF contract tests
+      - name: Run private BFF unit contract
         run: |
           set -o pipefail
           pnpm --filter @pc/api exec jest \
@@ -83,19 +106,65 @@ jobs:
             --runTestsByPath \
             src/modules/commodity-profiles/commodity-profiles.controller.spec.ts \
             src/modules/commodity-profiles/commodity-profiles.module.spec.ts \
-            2>&1 | tee "$EVIDENCE_DIR/private-bff-contract.log"
+            2>&1 | tee "$EVIDENCE_DIR/private-bff-unit.log"
+
+      - name: Run PostgreSQL HTTP and role authority acceptance
+        env:
+          PC_CROP_01B4_POSTGRESQL: '1'
+          PC_CROP_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/pc-crop-01b4/runtime
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest \
+            --runInBand \
+            --runTestsByPath \
+            src/modules/commodity-profiles/commodity-profiles.http.integration.spec.ts \
+            src/modules/commodity-profiles/commodity-profile-role-matrix.integration.spec.ts \
+            2>&1 | tee "$EVIDENCE_DIR/postgresql-private-bff.log"
 
       - name: Build and enforce machine-readable exact-head evidence
         run: |
           node <<'NODE'
           const fs = require('node:fs');
-          const path = `${process.env.EVIDENCE_DIR}/acceptance.json`;
+          const root = process.env.EVIDENCE_DIR;
+          const httpPath = `${root}/runtime/postgresql-http-acceptance.json`;
+          const rolePath = `${root}/runtime/postgresql-role-matrix.json`;
+          if (!fs.existsSync(httpPath) || !fs.existsSync(rolePath)) {
+            throw new Error('PC-CROP-01B.4 PostgreSQL evidence is missing');
+          }
+          const http = JSON.parse(fs.readFileSync(httpPath, 'utf8'));
+          const roles = JSON.parse(fs.readFileSync(rolePath, 'utf8'));
+          const expectedHead = process.env.EXACT_HEAD;
+          if (http.schemaVersion !== 'pc-crop.private-bff-postgresql-acceptance.v1') process.exit(1);
+          if (http.slice !== 'PC-CROP-01B.4' || http.status !== 'PASS') process.exit(1);
+          if (http.operationalStatus !== 'NOT_ATTESTED' || http.exactHead !== expectedHead) process.exit(1);
+          if (http.postgresql !== '16') process.exit(1);
+          const h = http.invariants || {};
+          if (h.listCount !== 1 || h.historyCount !== 2) process.exit(1);
+          if (h.exactReplay !== true || h.payloadMismatchRejected !== true) process.exit(1);
+          if (h.staleSnapshotVersion !== '3' || h.clientAuthorityOverrideRejected !== true) process.exit(1);
+          if (h.aggregateVersion !== '3') process.exit(1);
+          if (roles.schemaVersion !== 'pc-crop.private-bff-role-matrix.v1') process.exit(1);
+          if (roles.slice !== 'PC-CROP-01B.4' || roles.status !== 'PASS') process.exit(1);
+          if (roles.operationalStatus !== 'NOT_ATTESTED' || roles.exactHead !== expectedHead) process.exit(1);
+          if (roles.postgresql !== '16' || roles.roleCount !== 13) process.exit(1);
+          if (Object.keys(roles.denialCodes || {}).length !== roles.roleCount) process.exit(1);
+          if (roles.aggregateVersion !== '1') process.exit(1);
           const report = {
-            schemaVersion: 'pc-crop.private-bff-acceptance.v1',
+            schemaVersion: 'pc-crop.private-bff-acceptance.v2',
             slice: 'PC-CROP-01B.4',
             status: 'PASS',
             operationalStatus: 'NOT_ATTESTED',
-            exactHead: process.env.EXACT_HEAD,
+            exactHead: expectedHead,
+            postgresql: '16',
+            invariants: {
+              listCount: h.listCount,
+              historyCount: h.historyCount,
+              exactReplay: h.exactReplay,
+              payloadMismatchRejected: h.payloadMismatchRejected,
+              staleSnapshotVersion: h.staleSnapshotVersion,
+              roleMatrixCount: roles.roleCount,
+              clientAuthorityOverrideRejected: h.clientAuthorityOverrideRejected,
+            },
             boundaries: {
               privateAuthenticatedRoute: true,
               publicUnauthenticatedRoute: false,
@@ -104,18 +173,8 @@ jobs:
               productionDeploymentEvidence: false,
             },
           };
+          const path = `${root}/acceptance.json`;
           fs.writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`);
-          const read = JSON.parse(fs.readFileSync(path, 'utf8'));
-          if (read.schemaVersion !== 'pc-crop.private-bff-acceptance.v1') process.exit(1);
-          if (read.slice !== 'PC-CROP-01B.4' || read.status !== 'PASS') process.exit(1);
-          if (read.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
-          if (read.exactHead !== process.env.EXACT_HEAD) process.exit(1);
-          const b = read.boundaries || {};
-          if (b.privateAuthenticatedRoute !== true) process.exit(1);
-          if (b.publicUnauthenticatedRoute !== false) process.exit(1);
-          if (b.clientRoleTenantJitAuthority !== false) process.exit(1);
-          if (b.transactionWriteAuthorityDuplicated !== false) process.exit(1);
-          if (b.productionDeploymentEvidence !== false) process.exit(1);
           NODE
 
       - name: Build exact evidence inventory
