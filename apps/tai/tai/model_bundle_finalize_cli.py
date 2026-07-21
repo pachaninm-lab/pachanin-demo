@@ -77,14 +77,17 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "validate-authority":
             payload = validate_finalization_authority(args.authority)
+            authority_result = payload.get("result")
+            if not isinstance(authority_result, dict):
+                raise ValueError("authority result must be an object")
             result = {
                 "schema_version": "tai.model-bundle-finalization-authority-report.v1",
                 "status": "VALID",
                 "issue": payload["issue"],
                 "command": payload["command"],
-                "production_operational_status": payload["result"][
+                "production_operational_status": authority_result.get(
                     "production_operational_status"
-                ],
+                ),
                 "reasons": [],
             }
             _write(args.output, result)

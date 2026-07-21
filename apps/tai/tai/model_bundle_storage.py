@@ -320,7 +320,7 @@ def _verify_storage_sidecars(
     storage = bundle.storage
     if storage is None:
         return
-    expected_upload = {
+    expected_upload: dict[str, object] = {
         "schema_version": "tai.model-bundle-upload-record.v1",
         "archive_sha256": storage.bundle_archive.sha256,
         "immutable_locator": storage.immutable_locator,
@@ -328,7 +328,7 @@ def _verify_storage_sidecars(
         "retention_days": storage.retention_days,
         "retention_expires_at": storage.retention_expires_at,
     }
-    expected_restore = {
+    expected_restore: dict[str, object] = {
         "schema_version": "tai.model-bundle-restore-record.v1",
         "archive_sha256": storage.bundle_archive.sha256,
         "immutable_locator": storage.immutable_locator,

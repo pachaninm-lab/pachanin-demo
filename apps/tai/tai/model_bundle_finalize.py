@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import tarfile
+from collections.abc import Buffer
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, cast
@@ -594,10 +595,11 @@ class _HashingReader(io.RawIOBase):
             self._size += len(chunk)
         return chunk
 
-    def readinto(self, buffer: bytearray | memoryview) -> int:
-        chunk = self.read(len(buffer))
+    def readinto(self, buffer: Buffer) -> int:
+        view = memoryview(buffer)
+        chunk = self.read(len(view))
         count = len(chunk)
-        buffer[:count] = chunk
+        view[:count] = chunk
         return count
 
     @property
