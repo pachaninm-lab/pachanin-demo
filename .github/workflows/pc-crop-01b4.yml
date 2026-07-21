@@ -1,5 +1,6 @@
 name: PC-CROP-01B.4 Private BFF Authority
 
+# Connector-authored post-sync retrigger; acceptance semantics are unchanged.
 on:
   pull_request:
     paths:
