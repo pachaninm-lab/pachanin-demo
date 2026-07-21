@@ -6,6 +6,7 @@
   "command": "/tai plan cpu-fallback-benchmark exact-main",
   "readiness": {
     "schema_version": "tai.cpu-benchmark-execution-readiness.v1",
+    "execution_authority_schema_version": "tai.cpu-benchmark-execution-authority.v1",
     "required_status": "READY_FOR_EXTERNAL_EXECUTION",
     "maximum_age_hours": 6
   },
@@ -16,7 +17,12 @@
     "required_model_keys": [
       "qwen3-8b",
       "mistral-7b-instruct-v0.3"
-    ]
+    ],
+    "source_schema_version": "tai.github-actions-evidence-source.v1",
+    "repository": "pachaninm-lab/pachanin-demo",
+    "workflow_name": "TAI Immutable Model Bundle Finalization",
+    "workflow_path": ".github/workflows/tai-model-bundle-finalization.yml",
+    "artifact_name_prefix": "tai-model-bundle-finalization-"
   },
   "authorities": {
     "bundle_schema_version": "tai.model-bundle-authority.v2",
