@@ -316,7 +316,7 @@ def build_fixture(tmp_path: Path, *, now: datetime = NOW) -> dict[str, Any]:
     )
     mistral = _model_fixture(
         root,
-        key="mistral-7b-instruct-v0.3",
+        key=run_plan.MODEL_KEYS[1],
         role="FALLBACK",
         model_id="mistralai/Mistral-7B-Instruct-v0.3",
         revision="c170c708c41dac9275d15a8fff4eca08d52bab71",
