@@ -11,7 +11,7 @@ on:
       - 'apps/tai/tests/test_model_bundle_storage_contract.py'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: tai-ap13b3h-ruff-format-${{ github.event.pull_request.number }}
@@ -19,15 +19,16 @@ concurrency:
 
 jobs:
   format-evidence:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Checkout pull-request head
+      - name: Checkout pull-request branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 1
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -83,17 +84,21 @@ jobs:
               ),
           ]
           for old, new in replacements:
-              if text.count(old) != 1:
-                  raise SystemExit(f'unexpected replacement count for: {old[:80]!r}')
-              text = text.replace(old, new)
+              count = text.count(old)
+              if count == 1:
+                  text = text.replace(old, new)
+              elif count == 0 and new in text:
+                  continue
+              else:
+                  raise SystemExit(f'unexpected replacement state for: {old[:80]!r}')
           finalize.write_text(text, encoding='utf-8')
 
           storage = Path('apps/tai/tai/model_bundle_storage.py')
           text = storage.read_text(encoding='utf-8')
           old = 'from typing import Any\n'
-          if text.count(old) != 1:
-              raise SystemExit('unexpected typing.Any import count')
-          storage.write_text(text.replace(old, ''), encoding='utf-8')
+          if old in text:
+              text = text.replace(old, '')
+          storage.write_text(text, encoding='utf-8')
           PY
 
       - name: Apply deterministic Ruff formatting and fixes
@@ -127,3 +132,23 @@ jobs:
           compression-level: 0
           overwrite: false
           include-hidden-files: false
+
+      - name: Commit bounded Ruff corrections to PR branch
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git add \
+            apps/tai/tai/model_bundle_finalize.py \
+            apps/tai/tai/model_bundle_storage.py \
+            apps/tai/tests/test_model_bundle_finalize.py \
+            apps/tai/tests/test_model_bundle_storage_contract.py
+          if git diff --cached --quiet; then
+            echo 'No Ruff corrections required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'style(tai): apply deterministic Ruff corrections'
+          git push origin "HEAD:$HEAD_BRANCH"
