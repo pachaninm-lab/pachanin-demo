@@ -98,7 +98,7 @@ export function PublicEvidenceIntelligencePanel({
         </ol>
         <div className='pc-ppe-evidence-result'>
           <strong>{resultLabel}</strong>
-          <p>{resultValue}</p>
+          <p className='pc-public-evidence-result-copy' style={{ color: '#52635B' }}>{resultValue}</p>
         </div>
       </section>
 
