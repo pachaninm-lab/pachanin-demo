@@ -5,7 +5,6 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
-
 from quality_scoring_fixtures import (
     EXACT_MAIN,
     NOW,
@@ -15,6 +14,7 @@ from quality_scoring_fixtures import (
     _rewrite_manifest,
     _signed,
 )
+
 from tai.quality_scoring import verify_quality_scoring
 from tai.quality_scoring_contract import (
     EXPECTED_MATURITY,
@@ -43,12 +43,16 @@ def test_complete_human_quality_scoring_passes(tmp_path: Path) -> None:
     assert report["status"] == VERIFIED_QUALITY_STATUS
     assert report["aggregate"]["citation_validity_basis_points"] == 10000
     for profile in PROFILES:
-        assert report["aggregate"]["profiles"][profile]["platform"][
-            "accuracy_basis_points"
-        ] == 10000
-        assert report["aggregate"]["profiles"][profile]["agro"][
-            "accuracy_basis_points"
-        ] == 10000
+        assert (
+            report["aggregate"]["profiles"][profile]["platform"][
+                "accuracy_basis_points"
+            ]
+            == 10000
+        )
+        assert (
+            report["aggregate"]["profiles"][profile]["agro"]["accuracy_basis_points"]
+            == 10000
+        )
     assert report["benchmark_status"] == "PENDING_BENCHMARK"
     assert report["production_operational_status"] == "NOT_ATTESTED"
 
@@ -108,9 +112,7 @@ def test_contract_and_provenance_failures_are_rejected(
         annotation = fixture["manifest"]["annotations"][0]
         annotation["response_sha256"] = "f" * 64
         annotation.pop("annotation_sha256")
-        fixture["manifest"]["annotations"][0] = _signed(
-            annotation, "annotation_sha256"
-        )
+        fixture["manifest"]["annotations"][0] = _signed(annotation, "annotation_sha256")
         _rewrite_manifest(fixture)
     elif mutation == "missing-annotation":
         fixture["manifest"]["annotations"].pop()
@@ -125,17 +127,13 @@ def test_contract_and_provenance_failures_are_rejected(
         ]
         critical_group[1]["scorer_id"] = critical_group[0]["scorer_id"]
         critical_group[1].pop("annotation_sha256")
-        critical_group[1].update(
-            _signed(critical_group[1], "annotation_sha256")
-        )
+        critical_group[1].update(_signed(critical_group[1], "annotation_sha256"))
         _rewrite_manifest(fixture)
     elif mutation == "disagreement":
         annotation = fixture["manifest"]["annotations"][0]
         annotation["disagreement_with_annotation_id"] = "ann.other"
         annotation.pop("annotation_sha256")
-        fixture["manifest"]["annotations"][0] = _signed(
-            annotation, "annotation_sha256"
-        )
+        fixture["manifest"]["annotations"][0] = _signed(annotation, "annotation_sha256")
         _rewrite_manifest(fixture)
     elif mutation == "runtime-rejected":
         runtime = copy.deepcopy(fixture["runtime"])
@@ -145,9 +143,9 @@ def test_contract_and_provenance_failures_are_rejected(
         runtime = _signed(runtime, "report_sha256")
         write_json(fixture["runtime_path"], runtime)
     else:
-        fixture["manifest"]["storage"]["restored_root_id"] = fixture[
-            "manifest"
-        ]["storage"]["original_root_id"]
+        fixture["manifest"]["storage"]["restored_root_id"] = fixture["manifest"][
+            "storage"
+        ]["original_root_id"]
         _rewrite_manifest(fixture)
     with pytest.raises(QualityScoringError, match=match):
         verify_quality_scoring(
@@ -249,9 +247,7 @@ def test_low_level_contract_rejections(tmp_path: Path) -> None:
         "quality_scoring_status": "PENDING_QUALITY_SCORING",
         **EXPECTED_MATURITY,
     }
-    complete_with_reason["manifest_sha256"] = canonical_sha256(
-        complete_with_reason
-    )
+    complete_with_reason["manifest_sha256"] = canonical_sha256(complete_with_reason)
     path = tmp_path / "complete-with-reason.json"
     write_json(path, complete_with_reason)
     with pytest.raises(QualityScoringError, match="cannot have pending_reason"):
