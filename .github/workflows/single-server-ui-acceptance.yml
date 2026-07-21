@@ -1,0 +1,42 @@
+name: Single-server UI acceptance
+
+on:
+  pull_request:
+    branches:
+      - claude/cabinet-design-audit-2jbv6f
+    paths:
+      - 'apps/web/components/platform-v7/SingleServerPublicDock.tsx'
+      - 'apps/web/components/platform-v7/SingleServerPublicSpacing.tsx'
+      - 'apps/web/components/platform-v7/HydrationSafeChatSupport.tsx'
+      - '.github/workflows/single-server-ui-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  web-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify unified dock contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='apps/web/components/platform-v7/SingleServerPublicDock.tsx'
+          grep -Fq "ai: 'ИИ'" "$file"
+          grep -Fq "support: 'Поддержка'" "$file"
+          grep -Fq "call: 'Позвонить'" "$file"
+          grep -Fq "tel:+79162778989" "$file"
+          grep -Fq '.p7-support-chat-button' "$file"
+          grep -Fq 'SingleServerPublicSpacing' apps/web/components/platform-v7/HydrationSafeChatSupport.tsx
+      - name: Build production web
+        run: pnpm --filter @pc/web build

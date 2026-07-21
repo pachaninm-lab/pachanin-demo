@@ -1,13 +1,29 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { SingleServerPublicSpacing } from '@/components/platform-v7/SingleServerPublicSpacing';
 
-/**
- * Support is a browser-only interaction surface. A no-SSR dynamic boundary keeps
- * its inline style payload out of streamed HTML and the React hydration tree,
- * while preserving the widget immediately after the client bundle is ready.
- */
-export const HydrationSafeChatSupport = dynamic(
+const ChatSupportWidget = dynamic(
   () => import('@/components/platform-v7/ChatSupportWidget').then((module) => module.ChatSupportWidget),
   { ssr: false, loading: () => null },
 );
+
+const SingleServerPublicDock = dynamic(
+  () => import('@/components/platform-v7/SingleServerPublicDock').then((module) => module.SingleServerPublicDock),
+  { ssr: false, loading: () => null },
+);
+
+/**
+ * The single-server production line keeps its proven runtime and mounts only the
+ * browser interaction surfaces required by the public experience. The support
+ * form remains unchanged; the unified dock becomes its only visible trigger.
+ */
+export function HydrationSafeChatSupport() {
+  return (
+    <>
+      <ChatSupportWidget />
+      <SingleServerPublicDock />
+      <SingleServerPublicSpacing />
+    </>
+  );
+}
