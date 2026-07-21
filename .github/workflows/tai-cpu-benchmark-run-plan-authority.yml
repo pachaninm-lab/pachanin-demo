@@ -1,0 +1,357 @@
+name: TAI CPU Benchmark Run Plan Authority
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-cpu-benchmark-run-plan-authority
+  cancel-in-progress: false
+
+jobs:
+  compile:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2991 &&
+      github.event.comment.body == '/tai compile cpu-fallback run-plan exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact-main immutable checkout
+        shell: bash
+        env:
+          EXACT_MAIN_PROBE_REPORT: run-plan-evidence/exact-main-probe.json
+        run: bash apps/tai/model-artifacts/exact-main-probe.v1.sh
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact TAI authority package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e apps/tai
+
+      - name: Validate run-plan authority and pending baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p run-plan-evidence run-plan-inputs
+          python -m tai.cpu_benchmark_run_plan_cli validate-authority \
+            apps/tai/model-artifacts/cpu-benchmark-run-plan-authority.v1.json \
+            --output run-plan-evidence/authority-validation.json
+          set +e
+          python -m tai.cpu_benchmark_run_plan_cli validate-pending \
+            apps/tai/model-artifacts/cpu-benchmark-run-plan.pending.json \
+            --output run-plan-evidence/pending-validation.json
+          status=$?
+          set -e
+          test "$status" -eq 2
+
+      - name: Materialize accepted AP-14C assessment and exact-main readiness
+        id: readiness
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          evaluated_at="$(date --utc +'%Y-%m-%dT%H:%M:%S+00:00')"
+          node docs/platform-v7/autopilot/tai-ap-14c/gold-set-authority.mjs \
+            > run-plan-inputs/gold-assessment.json
+          python -m tai.benchmark_prerequisite_matrix_cli \
+            apps/tai/model-artifacts/benchmark-prerequisite-authority.v1.json \
+            apps/tai/model-artifacts/benchmark-prerequisite-baseline.v1.json \
+            --evaluated-at "$evaluated_at" \
+            --output run-plan-inputs/prerequisite-report.json || true
+          python -m tai.cpu_benchmark_execution_cli evaluate-readiness \
+            apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json \
+            run-plan-inputs/prerequisite-report.json \
+            run-plan-inputs/gold-assessment.json \
+            --exact-main "$GITHUB_SHA" \
+            --evaluated-at "$evaluated_at" \
+            --output run-plan-inputs/readiness.json
+          printf '%s\n' "$evaluated_at" > run-plan-inputs/evaluated-at.txt
+
+      - name: Select accepted immutable finalization artifact
+        id: finalization
+        continue-on-error: true
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$REPOSITORY/actions/workflows/tai-model-bundle-finalization.yml/runs?branch=main&status=success&event=issue_comment&per_page=100" \
+            > run-plan-evidence/finalization-runs.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          runs = json.loads(
+              Path('run-plan-evidence/finalization-runs.json').read_text(encoding='utf-8')
+          ).get('workflow_runs', [])
+          candidates = [
+              run
+              for run in runs
+              if run.get('name') == 'TAI Immutable Model Bundle Finalization'
+              and run.get('path') == '.github/workflows/tai-model-bundle-finalization.yml'
+              and run.get('head_branch') == 'main'
+              and run.get('event') == 'issue_comment'
+              and run.get('status') == 'completed'
+              and run.get('conclusion') == 'success'
+          ]
+          if not candidates:
+              raise SystemExit('accepted finalization workflow run is absent')
+          selected = max(
+              candidates,
+              key=lambda item: (item.get('run_number', 0), item.get('id', 0)),
+          )
+          Path('run-plan-evidence/selected-finalization-run.json').write_text(
+              json.dumps(selected, ensure_ascii=False, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(selected['id'])
+          PY
+          run_id="$(jq -r '.id' run-plan-evidence/selected-finalization-run.json)"
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "repos/$REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" \
+            > run-plan-evidence/finalization-artifacts.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          run = json.loads(
+              Path('run-plan-evidence/selected-finalization-run.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+          artifacts = json.loads(
+              Path('run-plan-evidence/finalization-artifacts.json').read_text(
+                  encoding='utf-8'
+              )
+          ).get('artifacts', [])
+          prefix = f"tai-model-bundle-finalization-{run['head_sha']}-"
+          candidates = [
+              item
+              for item in artifacts
+              if not item.get('expired')
+              and str(item.get('name', '')).startswith(prefix)
+              and str(item.get('digest', '')).startswith('sha256:')
+          ]
+          if not candidates:
+              raise SystemExit('accepted finalization artifact is absent')
+          selected = max(candidates, key=lambda item: item.get('id', 0))
+          Path('run-plan-evidence/selected-finalization-artifact.json').write_text(
+              json.dumps(selected, ensure_ascii=False, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          artifact_name="$(jq -r '.name' run-plan-evidence/selected-finalization-artifact.json)"
+          gh run download "$run_id" \
+            --repo "$REPOSITORY" \
+            --name "$artifact_name" \
+            --dir run-plan-inputs/finalization-artifact
+
+      - name: Build bounded input index and compile plan
+        id: compiler
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('run-plan-inputs')
+          evidence = Path('run-plan-evidence')
+          run = json.loads(
+              (evidence / 'selected-finalization-run.json').read_text(encoding='utf-8')
+          )
+          artifact = json.loads(
+              (evidence / 'selected-finalization-artifact.json').read_text(
+                  encoding='utf-8'
+              )
+          )
+
+          def ref(relative: str) -> dict[str, object]:
+              path = root / relative
+              payload = path.read_bytes()
+              return {
+                  'path': relative,
+                  'sha256': hashlib.sha256(payload).hexdigest(),
+                  'size_bytes': len(payload),
+              }
+
+          base = 'finalization-artifact/bundle-finalization-evidence/remote/evidence'
+          models = []
+          roots = []
+          for key in ('qwen3-8b', 'mistral-7b-instruct-v0.3'):
+              model_base = f'{base}/models/{key}'
+              models.append(
+                  {
+                      'model_key': key,
+                      'manifest': ref(f'{model_base}/manifest.json'),
+                      'object_record': ref(f'{model_base}/object-record.json'),
+                      'verification_report': ref(
+                          f'{model_base}/verification-report.json'
+                      ),
+                  }
+              )
+              run_root = f'/srv/tai-models/benchmark-runs/{os.environ["GITHUB_SHA"]}'
+              roots.append(
+                  {
+                      'model_key': key,
+                      'original_root': f'{run_root}/{key}/original',
+                      'restored_root': f'{run_root}/{key}/clean-restore',
+                  }
+              )
+          value = {
+              'schema_version': 'tai.cpu-benchmark-run-plan-inputs.v1',
+              'finalization_run': {
+                  'workflow_name': run['name'],
+                  'workflow_run_id': run['id'],
+                  'workflow_run_attempt': run['run_attempt'],
+                  'head_sha': run['head_sha'],
+                  'head_branch': run['head_branch'],
+                  'event': run['event'],
+                  'conclusion': run['conclusion'],
+                  'artifact_id': artifact['id'],
+                  'artifact_name': artifact['name'],
+                  'artifact_digest': artifact['digest'],
+              },
+              'readiness': ref('readiness.json'),
+              'gold_assessment': ref('gold-assessment.json'),
+              'finalization_report': ref(f'{base}/finalization-report.json'),
+              'models': models,
+              'planned_roots': roots,
+          }
+          (root / 'input-index.json').write_text(
+              json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          evaluated_at="$(cat run-plan-inputs/evaluated-at.txt)"
+          python -m tai.cpu_benchmark_run_plan_cli compile \
+            apps/tai/model-artifacts/cpu-benchmark-run-plan-authority.v1.json \
+            run-plan-inputs \
+            run-plan-inputs/input-index.json \
+            apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json \
+            apps/tai/model-artifacts/model-bundle-authority.v2.json \
+            apps/tai/model-artifacts/model-benchmark-admission-authority.v2.json \
+            apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json \
+            --exact-main "$GITHUB_SHA" \
+            --evaluated-at "$evaluated_at" \
+            --output run-plan-evidence/run-plan.json
+
+      - name: Materialize fail-closed result when compilation is unavailable
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -s run-plan-evidence/run-plan.json ]]; then
+            cp apps/tai/model-artifacts/cpu-benchmark-run-plan.pending.json \
+              run-plan-evidence/run-plan.json
+          fi
+
+      - name: Upload bounded run-plan evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-cpu-benchmark-run-plan-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            run-plan-evidence/exact-main-probe.json
+            run-plan-evidence/authority-validation.json
+            run-plan-evidence/pending-validation.json
+            run-plan-evidence/selected-finalization-run.json
+            run-plan-evidence/selected-finalization-artifact.json
+            run-plan-evidence/run-plan.json
+            run-plan-inputs/input-index.json
+            apps/tai/model-artifacts/cpu-benchmark-run-plan-authority.v1.json
+            apps/tai/model-artifacts/cpu-benchmark-run-plan.schema.v1.json
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded run-plan summary
+        if: always()
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > run-plan-summary.md
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path('run-plan-evidence/run-plan.json')
+          value = json.loads(path.read_text(encoding='utf-8'))
+          print('## TAI external CPU benchmark run plan')
+          print()
+          print(f"- exact-main: `{os.environ['GITHUB_SHA']}`;")
+          print(f"- status: `{value.get('status')}`;")
+          print(f"- accepted: `{value.get('accepted', False)}`;")
+          print(f"- plan SHA-256: `{value.get('plan_sha256')}`;")
+          print(f"- model count: `{len(value.get('models', []))}`;")
+          print(
+              '- compiler protected access: '
+              f"`{value.get('protected_access_policy', {}).get('compiler_performed_protected_access', False)}`;"
+          )
+          print(f"- benchmark: `{value.get('benchmark_status')}`;")
+          print(f"- model admission: `{value.get('model_admission_status')}`;")
+          print(
+              '- production operational status: '
+              f"`{value.get('production_operational_status')}`."
+          )
+          PY
+          jq -n --rawfile body run-plan-summary.md '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/2991/comments" --input -
+
+      - name: Enforce accepted run plan
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          report='run-plan-evidence/run-plan.json'
+          test -s "$report"
+          test "$(jq -r '.status' "$report")" = 'RUN_PLAN_VERIFIED_READY_FOR_PROTECTED_ACCESS'
+          test "$(jq -r '.accepted' "$report")" = 'true'
+          test "$(jq -r '.models | length' "$report")" = '2'
+          test "$(jq -r '.protected_access_policy.compiler_performed_protected_access' "$report")" = 'false'
+          test "$(jq -r '.protected_access_policy.ssh_allowed_before_plan' "$report")" = 'false'
+          test "$(jq -r '.protected_access_policy.s3_read_allowed_before_plan' "$report")" = 'false'
+          test "$(jq -r '.protected_access_policy.s3_mutation_allowed' "$report")" = 'false'
+          test "$(jq -r '.benchmark_status' "$report")" = 'PENDING_BENCHMARK'
+          test "$(jq -r '.model_admission_status' "$report")" = 'PENDING_ADMISSION'
+          test "$(jq -r '.production_operational_status' "$report")" = 'NOT_ATTESTED'

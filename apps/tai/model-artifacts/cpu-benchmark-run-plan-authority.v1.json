@@ -1,0 +1,75 @@
+{
+  "schema_version": "tai.cpu-benchmark-run-plan-authority.v1",
+  "program_issue": 2726,
+  "parent_issue": 2971,
+  "runner_issue": 2990,
+  "issue": 2991,
+  "command": "/tai compile cpu-fallback run-plan exact-main",
+  "execution_authority": {
+    "path": "apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json",
+    "schema_version": "tai.cpu-benchmark-execution-authority.v1",
+    "git_blob_sha1": "becf915cae4075c8d519048c050d381fb542b4ef"
+  },
+  "model_bundle_authority": {
+    "path": "apps/tai/model-artifacts/model-bundle-authority.v2.json",
+    "schema_version": "tai.model-bundle-authority.v2",
+    "git_blob_sha1": "238b194af5d8b32422d2c539b0e826fc282d065e"
+  },
+  "benchmark_authority": {
+    "path": "apps/tai/model-artifacts/model-benchmark-admission-authority.v2.json",
+    "schema_version": "tai.model-benchmark-admission-authority.v2",
+    "issue": 2862,
+    "git_blob_sha1": "06d9d95ae2d1aaddc7edb01136a5f8cdee530cab"
+  },
+  "finalization_authority": {
+    "path": "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json",
+    "schema_version": "tai.model-bundle-finalization-authority.v1",
+    "issue": 2961,
+    "git_blob_sha1": "c1d37d82697c4cb9fa2d02a2977dd436eeb4853f"
+  },
+  "readiness": {
+    "schema_version": "tai.cpu-benchmark-execution-readiness.v1",
+    "required_status": "READY_FOR_EXTERNAL_EXECUTION",
+    "maximum_age_hours": 24
+  },
+  "finalization": {
+    "schema_version": "tai.model-bundle-finalization-report.v1",
+    "required_status": "BUNDLES_IMMUTABLY_STORED_AND_CLEANLY_RESTORED",
+    "workflow_name": "TAI Immutable Model Bundle Finalization",
+    "maximum_age_days": 90,
+    "required_model_count": 2,
+    "verification_status": "VERIFIED",
+    "retention_mode": "COMPLIANCE",
+    "retention_days": 90
+  },
+  "input_policy": {
+    "schema_version": "tai.cpu-benchmark-run-plan-inputs.v1",
+    "maximum_file_size_bytes": 10000000,
+    "required_model_keys": [
+      "qwen3-8b",
+      "mistral-7b-instruct-v0.3"
+    ],
+    "github_artifact_digest_prefix": "sha256:"
+  },
+  "target": {
+    "host_role": "DEDICATED_MODEL_HOST",
+    "required_user": "tai-model",
+    "workspace_root": "/srv/tai-models/benchmark-runs",
+    "production_fallback_allowed": false,
+    "protected_access_status": "RUN_PLAN_VERIFIED_READY_FOR_PROTECTED_ACCESS"
+  },
+  "plan_policy": {
+    "validity_hours": 24,
+    "minimum_retention_grace_hours": 1,
+    "bounded_metadata_only": true,
+    "compiler_protected_access_allowed": false,
+    "raw_payload_in_github_allowed": false,
+    "required_quantization": "Q4_K_M",
+    "required_runtime_class": "CPU"
+  },
+  "maturity_boundary": {
+    "benchmark_status": "PENDING_BENCHMARK",
+    "model_admission_status": "PENDING_ADMISSION",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}
