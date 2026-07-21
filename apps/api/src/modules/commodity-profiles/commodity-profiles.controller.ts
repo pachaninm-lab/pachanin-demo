@@ -13,6 +13,7 @@ import {
   Query,
   Req,
   Res,
+  UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
@@ -25,6 +26,7 @@ import {
   StaffAccessMode,
   type StaffAccessContext,
 } from '../staff-access/staff-access.types';
+import { CommodityProfileCommandValidationError } from './commodity-profile-command.contract';
 import {
   CommodityProfileAction,
   type CommodityProfileLifecycle,
@@ -75,8 +77,7 @@ export function parseCommodityProfileIfMatch(value: string | undefined): string 
     );
   }
   const normalized = value.trim();
-  const match = /^(?:W\/)?”(0|[1-9][0-9]{0,18})”$/.exec(normalized)
-    ?? /^(?:W\/)?"(0|[1-9][0-9]{0,18})"$/.exec(normalized)
+  const match = /^(?:W\/)?"(0|[1-9][0-9]{0,18})"$/.exec(normalized)
     ?? /^(0|[1-9][0-9]{0,18})$/.exec(normalized);
   if (!match) {
     throw new BadRequestException({
@@ -100,6 +101,27 @@ function conflictPayload(error: ConflictException): Record<string, unknown> | nu
   return payload && typeof payload === 'object' && !Array.isArray(payload)
     ? payload as Record<string, unknown>
     : null;
+}
+
+function rethrowQueryError(error: unknown): never {
+  if (error instanceof RangeError) {
+    throw new BadRequestException({
+      code: 'COMMODITY_PROFILE_QUERY_INVALID',
+      message: error.message,
+      retryable: false,
+    });
+  }
+  throw error;
+}
+
+function rethrowCommandValidation(error: CommodityProfileCommandValidationError): never {
+  throw new UnprocessableEntityException({
+    code: error.message === 'IDEMPOTENCY_PAYLOAD_MISMATCH'
+      ? 'IDEMPOTENCY_PAYLOAD_MISMATCH'
+      : error.code,
+    message: error.message,
+    retryable: false,
+  });
 }
 
 @UseGuards(RolesGuard)
@@ -126,16 +148,20 @@ export class CommodityProfilesController {
     @Res({ passthrough: true }) response: Response,
   ) {
     response.setHeader('Cache-Control', 'private, no-store');
-    return this.repository.list(user, {
-      limit: query.limit,
-      cursor: query.cursor,
-      lifecycle: query.lifecycle as CommodityProfileLifecycle | undefined,
-      archetype: query.archetype,
-      sourceStatus: query.sourceStatus,
-      search: query.search,
-      effectiveAt: query.effectiveAt,
-      hasJitAuthority: hasJitAuthority(request),
-    });
+    try {
+      return await this.repository.list(user, {
+        limit: query.limit,
+        cursor: query.cursor,
+        lifecycle: query.lifecycle as CommodityProfileLifecycle | undefined,
+        archetype: query.archetype,
+        sourceStatus: query.sourceStatus,
+        search: query.search,
+        effectiveAt: query.effectiveAt,
+        hasJitAuthority: hasJitAuthority(request),
+      });
+    } catch (error) {
+      return rethrowQueryError(error);
+    }
   }
 
   @Get(':profileId/versions')
@@ -153,14 +179,18 @@ export class CommodityProfilesController {
     @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const result = await this.historyRepository.list(user, profileId, {
-      limit: query.limit,
-      cursor: query.cursor,
-      hasJitAuthority: hasJitAuthority(request),
-    });
-    response.setHeader('ETag', etag(result.aggregateVersion));
-    response.setHeader('Cache-Control', 'private, no-store');
-    return result;
+    try {
+      const result = await this.historyRepository.list(user, profileId, {
+        limit: query.limit,
+        cursor: query.cursor,
+        hasJitAuthority: hasJitAuthority(request),
+      });
+      response.setHeader('ETag', etag(result.aggregateVersion));
+      response.setHeader('Cache-Control', 'private, no-store');
+      return result;
+    } catch (error) {
+      return rethrowQueryError(error);
+    }
   }
 
   @Get(':profileId')
@@ -178,14 +208,18 @@ export class CommodityProfilesController {
     @Req() request: AuthenticatedRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const result = await this.repository.getById(user, profileId, {
-      versionId: query.versionId,
-      effectiveAt: query.effectiveAt,
-      hasJitAuthority: hasJitAuthority(request),
-    });
-    response.setHeader('ETag', etag(result.version));
-    response.setHeader('Cache-Control', 'private, no-store');
-    return result;
+    try {
+      const result = await this.repository.getById(user, profileId, {
+        versionId: query.versionId,
+        effectiveAt: query.effectiveAt,
+        hasJitAuthority: hasJitAuthority(request),
+      });
+      response.setHeader('ETag', etag(result.version));
+      response.setHeader('Cache-Control', 'private, no-store');
+      return result;
+    } catch (error) {
+      return rethrowQueryError(error);
+    }
   }
 
   @Post(':profileId/commands/:actionId')
@@ -227,6 +261,9 @@ export class CommodityProfilesController {
       response.setHeader('Cache-Control', 'private, no-store');
       return receipt;
     } catch (error) {
+      if (error instanceof CommodityProfileCommandValidationError) {
+        return rethrowCommandValidation(error);
+      }
       if (error instanceof ConflictException) {
         const payload = conflictPayload(error);
         if (payload?.code === 'COMMODITY_PROFILE_STALE_VERSION') {
