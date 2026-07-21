@@ -24,6 +24,7 @@ EXPECTED_PATHS = {
     "apps/tai/tai/cpu_benchmark_execution.py",
     "apps/tai/tai/cpu_benchmark_execution_cli.py",
     "apps/tai/tests/test_cpu_benchmark_execution.py",
+    "apps/tai/tests/test_cpu_benchmark_execution_cli.py",
     "apps/tai/tests/test_cpu_benchmark_execution_workflow.py",
 }
 
