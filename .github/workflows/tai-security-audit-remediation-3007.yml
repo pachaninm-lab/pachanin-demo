@@ -82,22 +82,19 @@ jobs:
           mkdir -p "$SECURITY_ARTIFACT_DIR"
           pnpm -r list --prod --json --depth Infinity \
             > "$SECURITY_ARTIFACT_DIR/pnpm-production-dependencies.json"
+          pnpm -r why sharp --prod > "$SECURITY_ARTIFACT_DIR/pnpm-why-sharp.txt"
           node <<'NODE'
           const fs = require('node:fs');
-          const tree = JSON.parse(fs.readFileSync(process.env.SECURITY_ARTIFACT_DIR + '/pnpm-production-dependencies.json', 'utf8'));
-          const versions = new Set();
-          const visit = (value) => {
-            if (!value || typeof value !== 'object') return;
-            if (value.name === 'sharp' && typeof value.version === 'string') versions.add(value.version);
-            if (Array.isArray(value)) for (const item of value) visit(item);
-            else for (const item of Object.values(value)) visit(item);
-          };
-          visit(tree);
-          if (versions.size === 0) throw new Error('sharp is absent from the production dependency inventory');
-          if ([...versions].some((version) => version !== '0.35.3')) {
-            throw new Error(`unexpected sharp versions: ${[...versions].sort().join(', ')}`);
+          const lock = fs.readFileSync('pnpm-lock.yaml', 'utf8');
+          const matches = [...lock.matchAll(/sharp@([0-9]+\.[0-9]+\.[0-9]+)/g)].map((match) => match[1]);
+          const versions = [...new Set(matches)];
+          if (!versions.includes('0.35.3')) throw new Error(`sharp 0.35.3 is absent from lockfile: ${versions.join(', ')}`);
+          if (versions.some((version) => version !== '0.35.3')) {
+            throw new Error(`unexpected sharp versions remain in lockfile: ${versions.sort().join(', ')}`);
           }
-          console.log(`Verified sharp versions: ${[...versions].join(', ')}`);
+          const why = fs.readFileSync(process.env.SECURITY_ARTIFACT_DIR + '/pnpm-why-sharp.txt', 'utf8');
+          if (!why.includes('sharp 0.35.3')) throw new Error('production dependency explanation does not bind sharp 0.35.3');
+          console.log(`Verified sharp versions: ${versions.join(', ')}`);
           NODE
 
       - name: Reproduce exact production dependency audit
