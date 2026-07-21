@@ -11,6 +11,12 @@ on:
     branches: [main]
     paths:
       - '.github/release-triggers/tai-p0-web-24277e0.md'
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Enter DEPLOY-24277e0 to deploy the accepted exact web image'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -54,6 +60,7 @@ jobs:
           git merge-base --is-ancestor "$TARGET_SHA" origin/main
           grep -Fq "$TARGET_SHA" .github/release-triggers/tai-p0-web-24277e0.md
           grep -Fq "$TARGET_SHA" .github/workflows/deploy-ai-web-vps-c21eec0.yml
+          grep -Fq 'DEPLOY-24277e0' .github/workflows/deploy-ai-web-vps-c21eec0.yml
           bash scripts/p7-autopilot-guard.sh
       - name: Verify exact canonical image exists
         env:
@@ -69,8 +76,15 @@ jobs:
   deploy-web:
     name: Key-only targeted VPS web deployment and exact live verification
     if: >-
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main'
+      (
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/main'
+      ) || (
+        github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/main' &&
+        github.actor == github.repository_owner &&
+        inputs.confirmation == 'DEPLOY-24277e0'
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -82,6 +96,7 @@ jobs:
           printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/target-sha.txt"
           printf '%s\n' "$EXACT_IMAGE" > "$EVIDENCE_DIR/exact-image.txt"
           printf '%s\n' "$GITHUB_SHA" > "$EVIDENCE_DIR/release-authority-sha.txt"
+          printf '%s\n' "$GITHUB_EVENT_NAME" > "$EVIDENCE_DIR/release-event.txt"
 
       - name: Wait for exact canonical GHCR image
         env:
@@ -347,5 +362,5 @@ jobs:
           set -euo pipefail
           status='${{ job.status }}'
           deployed='${{ steps.deploy.outputs.deployed_revision || 'NOT_DEPLOYED' }}'
-          body="## VPS deployment result\n\n- workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID};\n- exact target: \`${TARGET_SHA}\`;\n- deployed revision: \`${deployed}\`;\n- result: \`${status}\`;\n- TAI operational status: \`NOT_ATTESTED\`."
+          body="## VPS deployment result\n\n- workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID};\n- exact target: \`${TARGET_SHA}\`;\n- deployed revision: \`${deployed}\`;\n- result: \`${status}\`;\n- release event: \`${GITHUB_EVENT_NAME}\`;\n- TAI operational status: \`NOT_ATTESTED\`."
           gh api --method POST "repos/$REPOSITORY/issues/2960/comments" -f body="$body"
