@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: public-entry-watch-2924
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write
@@ -60,10 +64,10 @@ jobs:
               (process.env.WATCH_OUTPUT || 'WATCH_OUTPUT_MISSING').slice(-50000),
               '```',
             ].join('\n');
-            await github.rest.issues.createComment({
+            await github.rest.issues.updateComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              comment_id: 5029980243,
               body,
             });
       - name: Enforce watch result
