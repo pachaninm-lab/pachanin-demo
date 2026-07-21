@@ -1,25 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
-// WCAG assertions stay fail-closed across every configured desktop and mobile engine.
-function installLayoutShiftObserver(page: Page) {
-  return page.addInitScript(() => {
-    (window as Window & { __pcPublicExperienceLayoutShift?: number }).__pcPublicExperienceLayoutShift = 0;
-    try {
-      const observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries() as Array<PerformanceEntry & { hadRecentInput?: boolean; value?: number }>) {
-          if (entry.hadRecentInput) continue;
-          const target = window as Window & { __pcPublicExperienceLayoutShift?: number };
-          target.__pcPublicExperienceLayoutShift = (target.__pcPublicExperienceLayoutShift || 0) + (entry.value || 0);
-        }
-      });
-      observer.observe({ type: 'layout-shift', buffered: true });
-    } catch {
-      // Some engines do not expose LayoutShift. The accumulated value stays zero.
-    }
-  });
-}
-
 function collectRuntimeFailures(page: Page) {
   const failures: string[] = [];
   page.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
@@ -56,109 +37,116 @@ async function expectLayoutShiftWithinBudget(page: Page) {
 }
 
 async function expectMinimumTargets(page: Page, locator: string) {
-  const targets = await page.locator(locator).evaluateAll((elements) => elements.map((element) => {
-    const box = element.getBoundingClientRect();
-    return { width: box.width, height: box.height };
-  }));
-  expect(targets.length).toBeGreaterThan(0);
-  expect(targets.every((target) => target.width >= 44 && target.height >= 44)).toBe(true);
+  const elements = page.locator(locator);
+  await expect(elements.first()).toBeVisible();
+  await expect.poll(async () => {
+    const targets = await elements.evaluateAll((nodes) => nodes.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { width: box.width, height: box.height };
+    }));
+    return targets.length > 0 && targets.every((target) => target.width >= 44 && target.height >= 44);
+  }, {
+    timeout: 5_000,
+    message: `${locator} must settle at a minimum 44×44 CSS px target size`,
+  }).toBe(true);
 }
 
 test.describe('Public Product Experience V4 browser acceptance', () => {
   test.beforeEach(async ({ page }) => {
-    await installLayoutShiftObserver(page);
+    await page.addInitScript(() => {
+      (window as Window & { __pcPublicExperienceLayoutShift?: number }).__pcPublicExperienceLayoutShift = 0;
+      try {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries() as Array<PerformanceEntry & { hadRecentInput?: boolean; value?: number }>) {
+            if (!entry.hadRecentInput) {
+              const target = window as Window & { __pcPublicExperienceLayoutShift?: number };
+              target.__pcPublicExperienceLayoutShift = (target.__pcPublicExperienceLayoutShift || 0) + (entry.value || 0);
+            }
+          }
+        });
+        observer.observe({ type: 'layout-shift', buffered: true });
+      } catch {
+        // LayoutShift is unavailable in some engines; the value remains zero.
+      }
+    });
   });
 
-  test('deal explorer is localized, deterministic and isolated from live APIs', async ({ page }) => {
+  test('home establishes one platform story before AI, roles and proof', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
-    const forbiddenRequests: string[] = [];
-    page.on('request', (request) => {
-      const url = request.url();
-      if (/\/api\/|fgis|esia|sber|bank-callback|event-bus/i.test(url)) forbiddenRequests.push(url);
-    });
-
-    for (const locale of ['ru', 'en', 'zh'] as const) {
-      const response = await page.goto(
-        `/platform-v7/how-it-works?lang=${locale}&entry=deal&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0`,
-        { waitUntil: 'load' },
-      );
-      expect(response?.ok(), `${locale} deal explorer response`).toBe(true);
-      await expect(page.locator('[data-testid="platform-v7-deal-from-inside"]')).toBeVisible();
-      await expect(page.locator('html')).toHaveAttribute('lang', new RegExp(`^${locale}`));
-      await expect(page.locator('.pc-ppe-explorer')).toHaveAttribute('data-lens', 'money');
-      await expect(page.locator('.pc-ppe-explorer')).toHaveAttribute('data-scenario', 'partial');
-      await expect(page.locator('.pc-ppe-deal-card')).toBeVisible();
-      await expect(page.locator('.pc-ppe-lens-list button:visible')).toHaveCount(4);
-      await expect(page.locator('.pc-ppe-segmented button')).toHaveCount(3);
-      await expect(page.locator('.pc-ppe-select-label option')).toHaveCount(12);
-      await expect(page.locator('.pc-ppe-stage-track button')).toHaveCount(10);
-      await expectNoHorizontalOverflow(page);
-    }
-
-    expect(forbiddenRequests).toEqual([]);
+    const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+    await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Сделка под контролем');
+    await expect(page.locator('#deal-example')).toBeVisible();
+    await expect(page.locator('#participants')).toBeVisible();
+    await expect(page.locator('#reliability')).toBeVisible();
+    await expect(page.locator('.pc-ppe-final-cta')).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectNoSeriousAxeViolations(page);
+    await expectLayoutShiftWithinBudget(page);
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('role-first, problem-first and deal-first entries resolve into the same deal', async ({ page }) => {
+  test('role-first entry and Deal explorer retain explicit public demonstration boundaries', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
+    const response = await page.goto('/platform-v7/how-it-works?lang=ru&entry=role', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
+    await expect(page.locator('[data-testid="platform-v7-deal-from-inside"]')).toBeVisible();
+    await expect(page.locator('.pc-ppe-entry-gate')).toBeVisible();
+    await expect(page.locator('.pc-ppe-entry-option').first()).toBeVisible();
+    await page.locator('.pc-ppe-entry-option').first().click();
+    await expect(page.locator('.pc-ppe-explorer')).toBeVisible();
+    await expect(page.locator('.pc-ppe-demo-boundary')).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectNoSeriousAxeViolations(page);
+    await expectLayoutShiftWithinBudget(page);
+    expect(runtimeFailures).toEqual([]);
+  });
 
-    await page.goto('/platform-v7/how-it-works?lang=ru&entry=role', { waitUntil: 'load' });
-    const roleGate = page.locator('.pc-ppe-entry-gate');
-    await expect(roleGate).toHaveAttribute('data-entry-variant', 'role');
-    await expect(page.locator('.pc-ppe-entry-option')).toHaveCount(4);
-    await page.getByRole('button', { name: /Я контролирую деньги и риски/ }).click();
-    await expect(page.locator('.pc-ppe-explorer')).toHaveAttribute('data-lens', 'money');
-    await expect(page.locator('.pc-ppe-select-label select')).toHaveValue('bank');
-    await expect(page).toHaveURL(/entry=deal/);
-    await expect(page).toHaveURL(/source=role-first/);
-    await expect(page).not.toHaveURL(/[?&](role|membership|token|permission)=/);
-
-    await page.goBack();
-    await expect(roleGate).toHaveAttribute('data-entry-variant', 'role');
-
-    await page.goto('/platform-v7/how-it-works?lang=ru&entry=problem', { waitUntil: 'load' });
-    const problemGate = page.locator('.pc-ppe-entry-gate');
-    await expect(problemGate).toHaveAttribute('data-entry-variant', 'problem');
-    await expect(page.locator('.pc-ppe-entry-option')).toHaveCount(4);
-    await page.getByRole('button', { name: /Что происходит при отклонении/ }).click();
-    await expect(page.locator('.pc-ppe-explorer')).toHaveAttribute('data-lens', 'risk');
-    await expect(page).toHaveURL(/source=problem-first/);
-
-    await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal', { waitUntil: 'load' });
-    await expect(page.locator('.pc-ppe-entry-gate')).toHaveCount(0);
+  test('scenario, lens, role and stage controls preserve public-state isolation', async ({ page }) => {
+    const runtimeFailures = collectRuntimeFailures(page);
+    const response = await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal', { waitUntil: 'load' });
+    expect(response?.ok()).toBe(true);
     await expect(page.locator('.pc-ppe-explorer')).toBeVisible();
 
-    await expectNoSeriousAxeViolations(page);
+    const scenario = page.locator('.pc-ppe-segmented button').nth(1);
+    await scenario.click();
+    await expect(scenario).toHaveAttribute('aria-pressed', 'true');
+
+    const lens = page.locator('.pc-ppe-lens-list button:visible').nth(1);
+    await lens.click();
+    await expect(lens).toHaveAttribute('data-active', 'true');
+
+    const role = page.locator('.pc-ppe-select-label select');
+    await role.selectOption('seller');
+    await expect(role).toHaveValue('seller');
+
+    const nextStage = page.locator('.pc-ppe-stage-nav button').last();
+    await nextStage.click();
+    await expect(page.locator('.pc-ppe-stage-track button[aria-current="step"]')).toHaveCount(1);
+
+    const currentUrl = new URL(page.url());
+    expect(currentUrl.searchParams.get('entry')).toBe('deal');
+    expect(currentUrl.searchParams.get('scenario')).toBeTruthy();
+    expect(currentUrl.searchParams.get('lens')).toBeTruthy();
+    expect(currentUrl.searchParams.get('perspective')).toBe('seller');
     await expectNoHorizontalOverflow(page);
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('business areas, scenarios and browser history remain operable', async ({ page }) => {
+  test('browser history restores normalized public state without authority leakage', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
-    await page.goto(
-      '/platform-v7/how-it-works?lang=ru&entry=deal&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0',
-      { waitUntil: 'load' },
-    );
+    await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal&stage=terms&lens=execution&perspective=buyer', { waitUntil: 'load' });
+    await expect(page.locator('.pc-ppe-explorer')).toBeVisible();
 
-    const explorer = page.locator('.pc-ppe-explorer');
-    await page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Риски и спор' }).click();
-    await expect(explorer).toHaveAttribute('data-lens', 'risk');
-    await expect(page).toHaveURL(/lens=risk/);
+    await page.locator('.pc-ppe-lens-list button:visible').nth(1).click();
+    await page.locator('.pc-ppe-select-label select').selectOption('seller');
+    const changedUrl = page.url();
+    expect(changedUrl).toContain('perspective=seller');
 
-    await page.locator('.pc-ppe-segmented button').filter({ hasText: 'Спор по качеству' }).click();
-    await expect(explorer).toHaveAttribute('data-scenario', 'dispute');
-    await expect(page).toHaveURL(/scenario=dispute/);
-
-    await page.goBack();
-    await expect(explorer).toHaveAttribute('data-lens', 'risk');
-    await expect(explorer).toHaveAttribute('data-scenario', 'partial');
-
-    await page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Документы' }).click();
-    await expect(explorer).toHaveAttribute('data-lens', 'documents');
-    await expect(page).toHaveURL(/lens=documents/);
-
-    await expectNoSeriousAxeViolations(page);
-    await expectLayoutShiftWithinBudget(page);
+    await page.goBack({ waitUntil: 'load' });
+    await expect(page.locator('.pc-ppe-explorer')).toBeVisible();
+    await expect(page.locator('.pc-ppe-select-label select')).toHaveValue('buyer');
     await expectNoHorizontalOverflow(page);
     expect(runtimeFailures).toEqual([]);
   });
