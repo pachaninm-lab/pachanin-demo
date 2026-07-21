@@ -30,7 +30,7 @@ async function checkHttp(route) {
     seen.add(url);
     const response = await fetch(url, {
       redirect: 'manual',
-      headers: { accept: 'text/html', 'user-agent': 'Transparent-Price-Public-Entry-Watch/2.0' },
+      headers: { accept: 'text/html', 'user-agent': 'Transparent-Price-Public-Entry-Watch/2.1' },
       signal: AbortSignal.timeout(20_000),
     });
     const location = response.headers.get('location');
@@ -87,9 +87,21 @@ async function browserMatrix(browserType, name, viewport, mobile = false) {
             display: getComputedStyle(document.body).display,
             visibility: getComputedStyle(document.body).visibility,
             opacity: Number(getComputedStyle(document.body).opacity),
+            mainCount: document.querySelectorAll('main').length,
+            formCount: document.querySelectorAll('form').length,
+            emailCount: document.querySelectorAll('input[type="email"], input[name="email"]').length,
+            passwordCount: document.querySelectorAll('input[type="password"], input[name="password"]').length,
+            submitCount: document.querySelectorAll('button[type="submit"], input[type="submit"]').length,
           }));
           assert(state.lang.toLowerCase().startsWith(locale), `${name}/${locale}${route}: html lang ${state.lang}`);
-          assert(state.text.length > 100, `${name}/${locale}${route}: probable white screen (${state.text.length} chars)`);
+          assert(state.text.length > 30 && state.mainCount > 0, `${name}/${locale}${route}: probable white screen (${state.text.length} chars, ${state.mainCount} main)`);
+          if (route === '/platform-v7') assert(state.text.length > 500, `${name}/${locale}${route}: landing content incomplete (${state.text.length} chars)`);
+          if (route === '/platform-v7/login') {
+            assert(state.formCount > 0 && state.emailCount > 0 && state.passwordCount > 0 && state.submitCount > 0, `${name}/${locale}${route}: login form incomplete`);
+          }
+          if (route === '/platform-v7/forgot-password') {
+            assert(state.formCount > 0 && state.emailCount > 0 && state.submitCount > 0, `${name}/${locale}${route}: recovery form incomplete`);
+          }
           assert(state.display !== 'none' && state.visibility !== 'hidden' && state.opacity > 0, `${name}/${locale}${route}: hidden body`);
           assert(state.scrollWidth <= state.width + 3, `${name}/${locale}${route}: overflow ${state.scrollWidth}/${state.width}`);
           assert(pageErrors.length === 0, `${name}/${locale}${route}: page errors ${JSON.stringify(pageErrors)}`);
