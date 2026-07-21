@@ -1,0 +1,50 @@
+name: TAI AP-13C.1d Assertion Fix
+
+on:
+  push:
+    branches:
+      - agent/tai-ap-13c1d-quality-scoring-authority
+    paths:
+      - '.github/workflows/tai-ap13c1d-assertion-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/tai-ap-13c1d-quality-scoring-authority
+          fetch-depth: 0
+      - name: Align exact fail-closed assertion and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/tai/tests/test_quality_scoring_authority.py')
+          text = path.read_text(encoding='utf-8')
+          old = '''    write_json(payload_path, payload)
+              with pytest.raises(QualityScoringError, match="re-verification failed"):
+                  _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+          '''
+          new = '''    write_json(payload_path, payload)
+              with pytest.raises(
+                  QualityScoringError,
+                  match="runtime report is not reproduced from immutable evidence",
+              ):
+                  _verify(fixture, evaluated_at=(NOW + timedelta(minutes=5)).isoformat())
+          '''
+          if text.count(old) != 1:
+              raise SystemExit('expected raw-payload assertion block not found exactly once')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          rm .github/workflows/tai-ap13c1d-assertion-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add apps/tai/tests/test_quality_scoring_authority.py .github/workflows/tai-ap13c1d-assertion-fix.yml
+          git commit -m 'test(tai): align raw payload tamper assertion'
+          git push origin HEAD:agent/tai-ap-13c1d-quality-scoring-authority
