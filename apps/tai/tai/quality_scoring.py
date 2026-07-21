@@ -104,12 +104,12 @@ def verify_quality_scoring(
     accepted_assessment_path: Path,
     case_manifest_path: Path,
     scoring_manifest_path: Path,
-    *,
     reviewer_identity_secret_path: Path | None = None,
     trusted_identity_secret_sha256: str | None = None,
     reviewer_evidence_manifest_path: Path | None = None,
     reviewer_original_root: Path | None = None,
     reviewer_restored_root: Path | None = None,
+    *,
     evaluated_at: str,
 ) -> dict[str, object]:
     authority = load_authority(authority_path)
