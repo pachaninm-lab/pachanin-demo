@@ -9,7 +9,7 @@ on:
       - '.github/workflows/public-entry-watch-current.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   production-watch:
@@ -17,6 +17,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -27,8 +30,24 @@ jobs:
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
       - name: Run production public-entry watch
+        id: watch
+        continue-on-error: true
         working-directory: apps/web
         run: node scripts/public-entry-watch-current.mjs
+      - name: Persist exact machine-readable result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ops/public-entry-watch
+          cp artifacts/public-entry-watch/public-entry-watch.json ops/public-entry-watch/result.json
+          git config user.name 'public-entry-watch'
+          git config user.email 'public-entry-watch@users.noreply.github.com'
+          git add ops/public-entry-watch/result.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Ops: record current public-entry watch result'
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi
       - name: Upload watch evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -37,3 +56,6 @@ jobs:
           path: artifacts/public-entry-watch
           if-no-files-found: error
           retention-days: 7
+      - name: Enforce watch result
+        if: always()
+        run: node -e 'const r=require("./artifacts/public-entry-watch/public-entry-watch.json"); if(r.pass!==true) process.exit(1)'
