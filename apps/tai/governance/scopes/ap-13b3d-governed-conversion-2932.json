@@ -7,6 +7,7 @@
   "issue": 2932,
   "maturity_boundary": "governed-conversion-and-quantization-only",
   "allowed_paths": [
+    ".gitleaksignore",
     ".github/workflows/tai-model-conversion.yml",
     "apps/tai/governance/scopes/ap-13b3d-governed-conversion-2932.json",
     "apps/tai/model-artifacts/model-conversion-authority.v1.json",
